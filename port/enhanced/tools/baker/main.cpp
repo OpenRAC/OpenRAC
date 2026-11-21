@@ -30,6 +30,8 @@
 #include "enhanced/lighting/probe_texture_encode.h"
 #include "enhanced/tools/baker/batch.h"
 #include "enhanced/tools/baker/batch_command.h"
+#include "enhanced/tools/baker/output/debug_preview.h"
+#include "enhanced/tools/baker/output/environment_stage.h"
 #include "enhanced/tools/baker/output/report.h"
 #include "enhanced/tools/baker/pipeline/bake_json.h"
 #include "enhanced/tools/baker/pipeline/coordinator.h"
@@ -95,6 +97,7 @@ void usage() {
         << "  --compression auto|none|bc6h|astc (colour: default auto; ASTC colour requires HDR "
            "support)\n"
         << "openrac-enhanced-baker --level-dir DIR [--inspect | --output FILE | --verify FILE]\n"
+        << "openrac-enhanced-baker --probe-header-bytes FILE (hex prefix, unwraps LZ4)\n"
         << "openrac-enhanced-baker --infer-interiors INPUT.json OUTPUT.json [SPACING]\n"
         << "openrac-enhanced-baker --prepare-level-interiors LEVEL_DIR GAMEPLAY.bin OUTPUT_DIR\n"
         << "openrac-enhanced-baker --prepare-level-emission LEVEL_DIR CATALOG.json DEFAULTS.json\n"
@@ -108,6 +111,11 @@ void usage() {
         << "  --print-interior-profile (interior stage cache identity, no scene load)\n"
         << "  --print-profile (resolved grid/quality defaults as JSON, no scene load)\n"
         << "  --batch-output DIR (prepare once, then read one JSON region plan on stdin)\n"
+        << "  --debug-preview (with --batch-output: write bake-preview.html)\n"
+        << "  --debug-preview-from BAKE_DIR --level-dir LEVEL_DIR [--no-prototypes] (preview an "
+           "existing bake)\n"
+        << "  --refresh-reflection-coverage BAKE_DIR --level-dir LEVEL_DIR (read-only surface "
+           "audit)\n"
         << "  --prepare-interiors GAMEPLAY.bin (prepare interiors inside the batch process)\n"
         << "  --resume (with --batch-output: keep the grids a stopped bake verified)\n"
         << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 128 --bounces 2 --seed 1\n"
@@ -444,6 +452,34 @@ int main(int argc, char** argv) {
         // Version-specific decoding supplies bounded generic inputs to the numerical water pipeline.
         if (argc > 1 && std::string_view(argv[1]) == "--bake-water") {
             water_command(argc, argv);
+            return 0;
+        }
+
+        if (argc > 1 && std::string_view(argv[1]) == "--refresh-reflection-coverage") {
+            if (argc != 5 || std::string_view(argv[3]) != "--level-dir") {
+                throw std::runtime_error(
+                    "--refresh-reflection-coverage requires BAKE_DIR --level-dir LEVEL_DIR"
+                );
+            }
+            refresh_level_environment_coverage(argv[4], argv[2]);
+            std::cout << "Refreshed read-only reflection coverage audit\n";
+            return 0;
+        }
+
+        if (argc == 3 && std::string_view(argv[1]) == "--probe-header-bytes") {
+            std::cout << probe_header_bytes(argv[2]) << '\n';
+            return 0;
+        }
+
+        if (argc > 1 && std::string_view(argv[1]) == "--debug-preview-from") {
+            const bool no_prototypes = argc == 6 && std::string_view(argv[5]) == "--no-prototypes";
+            if ((argc != 5 && !no_prototypes) || std::string_view(argv[3]) != "--level-dir") {
+                throw std::runtime_error(
+                    "--debug-preview-from requires BAKE_DIR --level-dir LEVEL_DIR [--no-prototypes]"
+                );
+            }
+            std::cout << "Bake preview: "
+                      << write_debug_preview(argv[4], argv[2], !no_prototypes).string() << '\n';
             return 0;
         }
 

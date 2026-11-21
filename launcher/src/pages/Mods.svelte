@@ -379,7 +379,7 @@
           {/if}
 
           {#if !onModPage}<div class="tabs" role="tablist" aria-label={PAGE.tabsLabel} use:tablist>
-              {#each tabsOf(v) as t (t.id)}
+              {#snippet tabButton(t: (typeof TABS)[number])}
                 <button
                   role="tab"
                   id={`mods-tab-${t.id}`}
@@ -389,7 +389,18 @@
                   class:on={current === t.id}
                   onclick={() => (tab = t.id)}><Icon name={t.icon} size={16} />{t.label}</button
                 >
-              {/each}
+              {/snippet}
+              <!-- My mods is the hub for every mod (textures and sounds too); the rest are tools
+                   that make them, set apart behind a line and their own label. -->
+              {#each tabsOf(v).filter((t) => t.id === "mine") as t (t.id)}{@render tabButton(
+                  t,
+                )}{/each}
+              <div class="tools" role="presentation">
+                <span class="tools-label" aria-hidden="true">{PAGE.toolsLabel}</span>
+                {#each tabsOf(v).filter((t) => t.id !== "mine") as t (t.id)}{@render tabButton(
+                    t,
+                  )}{/each}
+              </div>
             </div>{/if}
 
           {#key current}
@@ -592,6 +603,36 @@
     flex-wrap: wrap;
     /* Each tab a button of its own, with room between: no strip joining them. */
     gap: 6px;
+  }
+
+  /* The tools, apart from My mods: a line, then their label and tabs. */
+  .tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-left: 10px;
+    padding-left: 16px;
+    border-left: 1px solid var(--line-strong);
+  }
+
+  .tools-label {
+    margin-right: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  /* Narrow: the tools go on a line of their own, under My mods. */
+  @media (max-width: 760px) {
+    .tools {
+      flex-basis: 100%;
+      margin: 4px 0 0;
+      padding: 0;
+      border: 0;
+    }
   }
 
   .tabs button {

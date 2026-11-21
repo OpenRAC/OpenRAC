@@ -27,8 +27,6 @@ public:
     // The single-sample horizon path can freeze bindings before its depth producer records.
     bool prepares_surface_chain() const override { return true; }
 
-    // Declares depth/normal attachment writes and their copy, resolve or sampling consumers on Vulkan.
-    void render_prepass(unsigned framebuffer, const std::function<void()>& record) override;
     bool render(
         const FrameInput& input,
         const RenderTarget& target,

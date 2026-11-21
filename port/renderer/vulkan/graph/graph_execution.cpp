@@ -25,6 +25,13 @@ bool small_graph(const graph::Graph& builder) {
     return builder.resources().size() <= 64 && builder.passes().size() <= 32;
 }
 
+bool reusable_recording(const graph::Graph& builder) {
+    // Classic world raster passes can reference hundreds of textures. Reuse their
+    // storage without caching the frame-specific declarations as compiled plans.
+    return small_graph(builder)
+           || (builder.passes().size() == 1 && builder.resources().size() <= 2048);
+}
+
 Result<void> validate_coupled_layouts(
     std::span<const graph::Pass> passes, std::span<const detail::GraphBinding> bindings
 ) {
@@ -75,7 +82,7 @@ GraphExecution::GraphExecution(std::source_location site) {
 }
 
 GraphExecution::~GraphExecution() {
-    if (!m_recording || !small_graph(m_recording->graph)) {
+    if (!m_recording || !reusable_recording(m_recording->graph)) {
         return;
     }
     auto& spares = Recording::spares();
@@ -97,7 +104,6 @@ void GraphExecution::Recording::reset() noexcept {
     transient_images.clear();
     graph.clear();
     executed = false;
-    attachment_fallback = false;
     trusted_reads = false;
     target = VK_NULL_HANDLE;
 }
@@ -213,26 +219,22 @@ Result<void> GraphExecution::record_plan(
     const bool main_stream = m_recording->command() == frame().main;
     // Finish any batch queued by the enclosing draw before entering a nested pass.
     // Its commands belong to the enclosing scope and must precede the new plan's barriers.
-    if (!plan.passes.empty() && main_stream) {
+    if (main_stream && std::ranges::any_of(plan.passes, [](const auto& pass) {
+            return pass.kind == graph::PassKind::Work || !pass.barriers.empty();
+        })) {
         gpu_flush_draws();
     }
     // Barriers retain imported images even if a later callback throws before binding descriptors.
     for (std::size_t index = 0; index < m_recording->bindings.size(); ++index) {
-        auto& binding = m_recording->bindings[index];
-        if ((plan.culled_passes != 0 || binding.transient_image) && !plan.resources[index].first) {
+        const auto& image = m_recording->bindings[index].image;
+        if (!image || !plan.resources[index].first) {
             continue;
         }
-        // Buffer owners already retire through their existing stable-allocation path.
-        if (binding.image) {
-            // Upload-only images can stay on the upload stream until the main stream uses them.
-            if (main_stream) {
-                binding.image->touched = g->recording;
-            }
-            if (binding.discard_image) {
-                discard_image_contents(*binding.image, whole_image(*binding.image));
-            }
-            frame().lifetime.retain(binding.image);
+        // Upload-only images can stay on the upload stream until the main stream uses them.
+        if (main_stream) {
+            image->touched = g->recording;
         }
+        frame().lifetime.retain(image);
     }
 
     // Legacy attachment recording may remain active between declared graphics passes.
@@ -251,9 +253,19 @@ Result<void> GraphExecution::record_plan(
         }
         const auto event = capture_graph_pass(plan, index, entry);
         entry = false;
-        m_recording->enter(pass);
         const auto& declared = m_recording->graph.passes()[index];
         const auto& images = declared.images;
+        for (const auto& use : images) {
+            auto& binding = m_recording->bindings[use.image.index];
+            if (std::exchange(binding.discard_image, false)) {
+                // Finish deferred stores before discarding at the image's first use.
+                if (main_stream) {
+                    end_rendering_for(binding.image.get());
+                }
+                discard_image_contents(*binding.image, whole_image(*binding.image));
+            }
+        }
+        m_recording->enter(pass);
         const auto track_accesses = [&](bool completed) {
             for (const auto& use : images) {
                 record_graph_image_access(

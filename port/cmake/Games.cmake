@@ -373,19 +373,14 @@ function(openrac_add_game config)
   endif()
 
   # On Android the game is the library SDL's activity loads and whose main it calls
-  # (libopenrac-<id>.so), and the same program again as an executable the launcher runs for what
-  # needs no window (--check-levels). Android runs programs only from the app's library folder,
-  # so that one is named like a library too: libopenrac-<id>-cli.so (docs/port/ANDROID.md).
+  # (libopenrac-<id>.so). The launcher runs what needs no window (--check-levels) as a program,
+  # libopenrac-<id>-cli.so below: a few lines that call the library's main.
   if(ANDROID)
     add_library(openrac-${id} SHARED "${OPENRAC_GAME_DIR}/common/main.cpp")
     target_compile_definitions(openrac-${id} PRIVATE OPENRAC_ANDROID_ACTIVITY=1)
     # Its calls to its own functions bound inside it, as in a program (cmake/Android.cmake).
     target_link_options(openrac-${id} PRIVATE LINKER:-Bsymbolic-functions)
-    add_executable(openrac-${id}-cli "${OPENRAC_GAME_DIR}/common/main.cpp")
-    # It finds libSDL3.so and libc++_shared.so beside it, in the same folder.
-    set_target_properties(openrac-${id}-cli PROPERTIES OUTPUT_NAME "libopenrac-${id}-cli.so"
-                                                     BUILD_RPATH "\$ORIGIN")
-    set(targets openrac-${id} openrac-${id}-cli)
+    set(targets openrac-${id})
   else()
     add_executable(openrac-${id} "${OPENRAC_GAME_DIR}/common/main.cpp")
     set(targets openrac-${id})
@@ -459,6 +454,7 @@ function(openrac_add_game config)
         target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/profile_none.cpp")
       endif()
       target_link_libraries(${target} PRIVATE Threads::Threads)
+      openrac_built_in_mods(${target} ${game_name})
       # The debug overlay's moby class names: the editor's table, as text.
       openrac_moby_class_names(names_cpp)
       target_sources(${target} PRIVATE "${names_cpp}")
@@ -510,6 +506,17 @@ function(openrac_add_game config)
     endif()
     openrac_warnings(${target})
   endforeach()
+  # Android runs programs only from the app's library folder, so the windowless program is named
+  # like a library too (docs/port/ANDROID.md). It holds no game code: it calls the game library's
+  # main, so the APK carries each game once. It finds that library, libSDL3.so and
+  # libc++_shared.so beside it, in the same folder.
+  if(ANDROID)
+    add_executable(openrac-${id}-cli "${PROJECT_SOURCE_DIR}/android/game_cli.c")
+    target_link_libraries(openrac-${id}-cli PRIVATE openrac-${id})
+    set_target_properties(openrac-${id}-cli PROPERTIES OUTPUT_NAME "libopenrac-${id}-cli.so"
+                                                     BUILD_RPATH "\$ORIGIN")
+    list(APPEND targets openrac-${id}-cli)
+  endif()
   # OPENRAC_PORT_GAMES_IN_ALL off: the game is built only when named (CI builds the rest of the
   # port in one job and each program in its own).
   if(NOT OPENRAC_PORT_GAMES_IN_ALL)
@@ -543,6 +550,31 @@ const unsigned char openrac_icon_png[] = {${bytes}};
 const unsigned int openrac_icon_png_size = ${size}u;
 ")
   set(${out} "${c}" PARENT_SCOPE)
+endfunction()
+
+# The mods built into a game's program (game/common/built_in_mods.h), with a window only: the
+# game's built_in_mods.cpp and its keyboard and mouse (game/<game>/keyboard_mouse), or
+# built_in_mods_none.cpp for a game with none. Ratchet & Clank and Going Commando share one
+# manifest (game/rac1/keyboard_mouse/openrac-mod.json), embedded as a C++ string
+# (openrac_keyboard_mouse_manifest).
+function(openrac_built_in_mods target game_name)
+  set(dir "${OPENRAC_GAME_DIR}/${game_name}")
+  if(NOT EXISTS "${dir}/built_in_mods.cpp")
+    target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/built_in_mods_none.cpp")
+    return()
+  endif()
+  set(json "${OPENRAC_GAME_DIR}/rac1/keyboard_mouse/openrac-mod.json")
+  set(cpp "${CMAKE_BINARY_DIR}/generated/openrac_${game_name}_built_in_manifests.cpp")
+  set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${json}")
+  file(READ "${json}" hex HEX)
+  string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," bytes "${hex}")
+  file(CONFIGURE OUTPUT "${cpp}" CONTENT "/* Generated from ${json} by cmake/Games.cmake. */
+extern const unsigned char openrac_keyboard_mouse_manifest[] = {${bytes}0};
+")
+  target_sources(${target} PRIVATE "${dir}/built_in_mods.cpp" "${dir}/keyboard_mouse/keyboard_mouse.cpp"
+                                   "${OPENRAC_GAME_DIR}/common/key_prompts.cpp"
+                                   "${cpp}")
+  target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")
 endfunction()
 
 # The in-game menu's typefaces as C++ arrays (openrac_font_<name>, openrac_font_<name>_size), from

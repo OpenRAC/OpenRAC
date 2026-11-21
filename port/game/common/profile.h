@@ -259,6 +259,16 @@ public:
         return 0;
     }
 
+    // Returns the mobys an active particle record may name as its maker (its owner, an attached
+    // halo's parent), 0 where it names none: a mod's energy material on one of them draws the
+    // particle in the material's colour (energy_effects.h). A word that names no moby is harmless:
+    // only mobys a mod drew as energy are looked for.
+    [[nodiscard]] virtual std::array<std::uint32_t, 2> particle_owners(
+        std::span<const std::uint8_t>
+    ) const {
+        return {0, 0};
+    }
+
     // Whether the terrain's vertex colours take the point lights in reach, as Going Commando's
     // PatchTfragVertexLighting (0x2F0468) adds them to the colours the level lit (mesh.vert),
     // rather than not at all.
@@ -274,22 +284,6 @@ public:
     // the game hides; the fourth the shrubs' 32-byte records (bounding-sphere centre at +0, +0x16
     // bit 0 hidden, the point lights' list at +0x1E); 0 for none.
     virtual std::array<std::uint32_t, 4> scenery_matrices() const { return {0, 0, 0, 0}; }
-
-    // Whether the world's depth is precise (renderer/gl/precise_depth.h): reversed Z in a 32-bit float
-    // buffer, clip-space z to the window as it is, where the context has glClipControl (OpenGL 4.5,
-    // ARB_clip_control, the Vulkan backend; not macOS's OpenGL 4.1). Going Commando's Maktar dome
-    // carries light strips (tie class 2713) within a few centimetres of the band under them (class
-    // 2675): GL's depth parted them only within about 150 units of the window's near 0.05, and
-    // farther away they flickered in and out of it.
-    virtual bool precise_depth() const { return false; }
-
-    // Where precise depth cannot be had: the near distance of the world's depth (game units), or 0
-    // for the window's 0.05. GL's depth resolves about 1.2e-6 d^2 / (near / 0.05) units at a
-    // distance d (2^-24 of its range, after GL's (z + w) / 2), so a larger near parts close surfaces
-    // that much farther away. Nothing is clipped for it: the frame turns depth clamping on, so
-    // what is nearer than this near is drawn at the nearest depth, in drawing order among itself,
-    // instead of being cut away.
-    virtual float depth_near() const { return 0.0f; }
 
     // Returns the executable's address of the four shadow directions the hero's shadow is cast
     // along (relocated to the loaded program's copy when read); 0 for a game without them.

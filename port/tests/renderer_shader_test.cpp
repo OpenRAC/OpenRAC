@@ -246,7 +246,7 @@ layout(std430,binding=0) buffer Output { vec4 sample_result[]; };
 uniform vec3 receiver_position,receiver_normal;
 void main(){vec3 light;float confidence;
 bool valid=sample_probe_grid(receiver_position,receiver_normal,vec3(0,0,.02),
-    vec3(0),vec3(4),vec2(1,0),vec3(2),0,false,light,confidence);
+    vec3(0),vec3(4),vec4(0,0,0,1),vec3(2),0,false,light,confidence);
 sample_result[0]=vec4(light,valid?confidence:0.);})";
     const auto calls = [](const std::vector<std::uint32_t>& code) {
         std::unordered_map<unsigned, std::string> names;

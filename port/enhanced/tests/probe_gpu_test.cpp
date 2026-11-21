@@ -26,6 +26,7 @@
 #include "scene/level_renderer.h"
 #include "scene/object_preview.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 using namespace openrac;
@@ -153,7 +154,7 @@ void check(
         glUniform4fv(shader.uniform("positions"), 8, positions[0].data());
         glUniform4fv(shader.uniform("normals"), 8, normals[0].data());
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = frame.read_rgba();
 
         if (zero_weight_reference) {
@@ -164,7 +165,7 @@ void check(
             glUniform3f(reference.uniform("test_camera"), 16, 16, 20);
             glUniform4fv(reference.uniform("positions"), 8, positions[0].data());
             glUniform4fv(reference.uniform("normals"), 8, normals[0].data());
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             CHECK(frame.read_rgba() == pixels);
         }
 
@@ -258,7 +259,7 @@ void coverage_seam(
         glUniform4fv(shader.uniform("positions"), 8, points[0].data());
         glUniform4fv(shader.uniform("normals"), 8, directions[0].data());
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = frame.read_rgba();
 
         for (unsigned i = 0; i < 8; ++i) {
@@ -956,7 +957,7 @@ void main() {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, depth);
             glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             return target.read_rgba();
         };
         const auto tiled = draw(1), reference = draw(2);
@@ -1079,29 +1080,33 @@ struct RegionLookup {
         glDisable(GL_BLEND);
         glDisable(GL_CULL_FACE);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = target.read_rgba();
         std::vector<std::pair<float, unsigned>> expected;
 
         for (unsigned i = 0; i < grids.size(); ++i) {
             const auto& grid = grids[i];
-            const float cosine = grid.frame.axis[0];
-            const float sine = grid.frame.axis[1];
-            const float right =
-                grid.origin[0] + std::max(0.f, cosine * .001f) + std::max(0.f, -sine * .2f);
-            const float left =
-                grid.origin[0] + std::min(0.f, cosine * .001f) + std::min(0.f, -sine * .2f);
+            float left = INFINITY, right = -INFINITY;
+            for (unsigned corner = 0; corner < 8; ++corner) {
+                const auto p = grid.frame.to_world(
+                    {corner & 1 ? .001f : 0.f, corner & 2 ? .2f : 0.f, corner & 4 ? .2f : 0.f}
+                );
+                left = std::min(left, grid.origin[0] + p[0]);
+                right = std::max(right, grid.origin[0] + p[0]);
+            }
             if (left + view.view[12] > 1.0f || right + view.view[12] < -1.0f) {
                 continue;
             }
 
-            const float x = view.position[0] - grid.origin[0];
-            const float y = view.position[1] - grid.origin[1];
-            const float local_x = x * cosine + y * sine;
-            const float local_y = -x * sine + y * cosine;
-            const float dx = local_x - std::clamp(local_x, 0.f, .001f);
-            const float dy = local_y - std::clamp(local_y, 0.f, .2f);
-            expected.emplace_back(dx * dx + dy * dy, i);
+            auto local = grid.frame.to_local(
+                {view.position[0] - grid.origin[0],
+                 view.position[1] - grid.origin[1],
+                 view.position[2] - grid.origin[2]}
+            );
+            const float dx = local[0] - std::clamp(local[0], 0.f, .001f);
+            const float dy = local[1] - std::clamp(local[1], 0.f, .2f);
+            const float dz = local[2] - std::clamp(local[2], 0.f, .2f);
+            expected.emplace_back(dx * dx + dy * dy + dz * dz, i);
         }
 
         std::sort(expected.begin(), expected.end());
@@ -1161,6 +1166,8 @@ std::vector<lighting::ProbeGrid> closest_region_grids() {
         grids[i].dimensions = {2, 2, 2};
         const float angle = float(i % 7) * .17f;
         grids[i].frame.axis = {std::cos(angle), std::sin(angle)};
+        grids[i].frame.pitch = {std::cos(angle * .3f), std::sin(angle * .3f)};
+        grids[i].frame.roll = {std::cos(angle * .7f), std::sin(angle * .7f)};
     }
 
     grids[1022].origin[0] = 0;  // Equal distance must keep the smaller ID first.
@@ -1335,7 +1342,7 @@ void camera_regions(renderer::Shader& shader, renderer::FrameBuffer& frame, unsi
             glUniform4fv(shader.uniform("positions"), 8, points[0].data());
             glUniform4fv(shader.uniform("normals"), 8, directions[0].data());
             glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             const auto pixels = frame.read_rgba();
 
             for (unsigned i = 0; i < 8; ++i) {
@@ -1563,7 +1570,7 @@ void main() {
 
     for (float visibility : {1.f, 0.f}) {
         glUniform1f(shader.uniform("test_visibility"), visibility);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = frame.read_rgba();
         // The point light stays unchanged; both directionals retain their shadow floor.
         const float floor = visibility > 0 ? 1.f : .1f;
@@ -1577,7 +1584,7 @@ void main() {
     // Upward primary light cannot illuminate the upward receiver; fill and point light stay unchanged.
     glUniform4f(shader.uniform("probe_sunlight_direction"), 0, 0, 1, 1);
     glUniform1f(shader.uniform("test_visibility"), 1);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto overridden = frame.read_rgba();
     CHECK(std::abs(overridden[0] / 255.f - .2f) < .008f);
     CHECK(std::abs(overridden[1] / 255.f - .1f) < .008f);
@@ -1653,7 +1660,7 @@ void main() {
             }
 
             glUniform1i(shader.uniform("updated"), updated);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             const auto read = frame.read_rgba();
 
             if (read[0] != 255 || read[1] != 255 || read[2] != 255 || read[3] != 255) {
@@ -1703,6 +1710,8 @@ void test_wide_probe_atlas(renderer::Shader& shader, renderer::FrameBuffer& fram
 
     for (float angle : {.37f, .7853982f, 1.4f}) {
         volume.grid.frame.axis = {std::cos(angle), std::sin(angle)};
+        volume.grid.frame.pitch = {std::cos(angle * .4f), std::sin(angle * .4f)};
+        volume.grid.frame.roll = {std::cos(angle * .7f), std::sin(angle * .7f)};
         volume.grid.origin = {-4, -4, 0};
         check(volume, shader, frame, vao);
         check(volume, shader, frame, vao, nullptr, true);

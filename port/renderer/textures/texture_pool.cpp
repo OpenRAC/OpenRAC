@@ -25,6 +25,7 @@
 #include "renderer/gl/shader.h"
 #include "renderer/textures/interface_run.h"
 #include "renderer/textures/pcsx2_pack.h"
+#include "renderer/textures/sharp_cells.h"
 #include "renderer/textures/texture_pack.h"
 
 namespace openrac::renderer {
@@ -663,8 +664,27 @@ TextureHandle TexturePool::convert_upload(
             }
         }
     }
+    // A built-in's sharper picture of a texture it painted (the key prompts): only on the GPU.
+    std::shared_ptr<const Rgba8Image> sharp;
+    if (!packed && !cropped) {
+        sharp_cells::Picture picture;
+        if (sharp_cells::picture(image.width, image.height, image.pixels.data(), picture)) {
+            auto big = std::make_shared<Rgba8Image>();
+            big->width = picture.width;
+            big->height = picture.height;
+            big->pixels = std::move(picture.pixels);
+            log::info(
+                "textures: the upload at block {:#x} drawn from a sharper picture ({}x{})",
+                tex0.tbp0,
+                big->width,
+                big->height
+            );
+            sharp = std::move(big);
+        }
+    }
     const TextureHandle h = add(std::move(image), AlphaScale::Gs, "upload");
     auto& entry = m_entries[h - 1];
+    entry.sharp = std::move(sharp);
     entry.cropped_replacement = cropped;
     entry.pack_replacement = packed;
     entry.pcsx2_replacement = pcsx2 || cropped;
@@ -849,8 +869,7 @@ void TexturePool::set_blocks(TextureHandle texture, std::shared_ptr<const Compre
 }
 
 BlockFormat TexturePool::gpu_block_format() {
-    // The Metal backend is left to RGBA8 until its BC7 and ASTC uploads of mip levels are tried.
-    if (!gl::loaded() || gl::is_metal()) {
+    if (!gl::loaded()) {
         return BlockFormat::None;
     }
     if (gl::has_extension("GL_ARB_texture_compression_bptc")
@@ -927,8 +946,33 @@ void TexturePool::see_cycle(std::uint64_t slot, std::uint64_t hash, const std::s
 // ---- GPU textures ----
 
 unsigned TexturePool::gl_texture(TextureHandle texture) {
-    Entry& e = m_entries[texture - 1];
-    e.last_used = m_frame;
+    return draw_texture(m_entries[texture - 1], true);
+}
+
+std::pair<unsigned, unsigned> TexturePool::prepare_draw_texture(TextureHandle texture) {
+    Entry& entry = m_entries[texture - 1];
+    const unsigned name = draw_texture(entry, false);
+    if (name == entry.gl && entry.gl_blocks) {
+        return {name, static_cast<unsigned>(block_levels(*entry.blocks, entry.mipmaps))};
+    }
+    const auto& image =
+        name == entry.gl ? entry.image
+                         : entry.animation->frames[texture_pack::frame_at(
+                               *entry.animation,
+                               m_tick >= entry.animation_start ? m_tick - entry.animation_start : 0
+                           )];
+    return {
+        name,
+        entry.mipmaps ? std::bit_width(static_cast<unsigned>(std::max(image.width, image.height)))
+                      : 1u
+    };
+}
+
+// Resolves one image for both planned and immediate draws.
+unsigned TexturePool::draw_texture(Entry& e, bool used) {
+    if (used) {
+        e.last_used = m_frame;
+    }
 
     // The first use of a texture prepare() did not make: it is made now, inside the frame.
     if (e.gl == 0) {
@@ -961,6 +1005,9 @@ unsigned TexturePool::gl_texture(TextureHandle texture) {
 
     // An animation's clock starts at its first draw.
     if (!e.animation_started) {
+        if (!used) {
+            return e.gl;
+        }
         e.animation_start = m_tick;
         e.animation_started = true;
     }
@@ -1051,7 +1098,7 @@ void TexturePool::create_gl(Entry& e) {
         }
     }
     if (e.gl == 0) {
-        e.gl = upload_gl(e, e.image);
+        e.gl = upload_gl(e, e.sharp != nullptr ? *e.sharp : e.image);
     }
     e.wrap = 0;  // a new texture repeats (set_wrap)
     e.stale = false;
@@ -1207,6 +1254,7 @@ void TexturePool::bind_upscaled_texture_colours(
     const auto& image = m_entries[texture - 1].image;
     const unsigned cached =
         filter != TextureFilter::Normal && !m_entries[texture - 1].field
+                && m_entries[texture - 1].sharp == nullptr
             ? m_upscaled_texture_colours->prepare(source, image.width, image.height, wrap, m_frame)
             : 0;
     // Cache creation uses its compute program. Restore the material before its uniforms.

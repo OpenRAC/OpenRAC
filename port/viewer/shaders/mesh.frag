@@ -16,7 +16,7 @@ in vec4 v_probe_multiplier;
 flat in vec4 v_probe_selector;
 flat in int v_lit;
 flat in int v_glow;
-flat in int v_mod_material;  // a mod's material on the moby (mesh.vert): 2 platinum, 3 obsidian
+flat in int v_mod_material;  // a mod's material on the moby (mesh.vert): 2 platinum, 3 obsidian, 4 energy
 flat in vec3 v_mod_rgb;      // the moby's tint (mesh.vert), the mod's rgb: obsidian's glow colour
 in vec3 v_script_emission;
 flat in vec3 v_probe_ambient;
@@ -218,18 +218,62 @@ vec3 obsidian_shine(vec3 rgb) {
     return min(rgb + inner + rim + vec3(kObsidianHighlight * highlight), vec3(1.0));
 }
 
-// A mod's material on the texel, the colour and the lit colour: platinum's or obsidian's, the
-// value as it is for a moby with neither.
+// A mod's energy (OPENRAC_MOBY_MATERIAL_ENERGY, interface 1.25): render-only, the moby charged
+// with the mod's colour. Its body keeps its own colours with kEnergyBody of the colour (the
+// instance tint holds 1 - kEnergyBody + kEnergyBody x rgb: frame.cpp's apply_mod_material), and
+// after the lighting a rim glows in the colour where the surface turns from the eye
+// (energy_shine). A glow packet's colour becomes the energy's at its luminance, brightened
+// (energy_colour). The effects the moby makes take the colour on the CPU (energy_effects.h).
+const int kModMaterialEnergy = 4;
+const float kEnergyBody = 0.35;        // OPENRAC_MOBY_MATERIAL_ENERGY_BODY
+const float kEnergyGlowPacket = 2.0;   // a glow packet's brightening
+const float kEnergyRim = 0.65;         // the rim's strength at a grazing angle
+const float kEnergyRimFalloff = 2.0;   // how fast it fades towards the middle
+
+bool energy() {
+    return v_mod_material == kModMaterialEnergy;
+}
+
+// The energy's colour, taken back out of the tint's share of it.
+vec3 energy_rgb() {
+    return clamp((v_mod_rgb - vec3(1.0 - kEnergyBody)) / kEnergyBody, 0.0, 1.0);
+}
+
+vec4 energy_colour(vec4 c) {
+    if (!energy() || v_glow == 0) {
+        return c;
+    }
+    // The tint's share is taken out of the glow packet's luminance first.
+    float tint = max(dot(v_mod_rgb, vec3(0.299, 0.587, 0.114)), 0.05);
+    float grey = dot(c.rgb, vec3(0.299, 0.587, 0.114)) / tint;
+    return vec4(energy_rgb() * grey * kEnergyGlowPacket, c.a);
+}
+
+vec3 energy_shine(vec3 rgb) {
+    if (!energy() || v_glow != 0 || dot(v_normal, v_normal) < 1e-12) {
+        return rgb;
+    }
+    vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
+    vec3 to_eye = normalize(-eye_position);
+    vec3 n = normalize(mat3(view) * v_normal);
+    // Double-sided, as the game draws mobys.
+    n = dot(n, to_eye) < 0.0 ? -n : n;
+    float rim = pow(1.0 - max(dot(n, to_eye), 0.0), kEnergyRimFalloff);
+    return min(rgb + energy_rgb() * (kEnergyRim * rim), vec3(1.0));
+}
+
+// A mod's material on the texel, the colour and the lit colour: platinum's, obsidian's or
+// energy's, the value as it is for a moby with none.
 vec4 mod_texel(vec4 texel) {
     return obsidian_texel(platinum_texel(texel));
 }
 
 vec4 mod_colour(vec4 c) {
-    return obsidian_colour(platinum_colour(c));
+    return energy_colour(obsidian_colour(platinum_colour(c)));
 }
 
 vec3 mod_shine(vec3 rgb) {
-    return obsidian_shine(platinum_shine(rgb));
+    return energy_shine(obsidian_shine(platinum_shine(rgb)));
 }
 
 #ifdef OPENRAC_ENHANCED_RENDERING
@@ -367,7 +411,7 @@ vec3 retail_ambient_floor(vec3 indirect, vec3 ambient) {
 }
 
 vec3 standard_surface(vec3 diffuse, vec3 albedo, vec3 indirect, vec3 n, vec3 toward_camera,
-                      vec4 selector, float visibility) {
+                      vec4 selector, float visibility, vec3 receiver_normal) {
     bool metal_packet = metal_pass != 0;
     vec3 optics = metal_packet ? object_reflection_material : material_dielectric;
     if ((!metal_packet && probe_mode != 1) || translucent_pass != 0 || effect_pass != 0
@@ -385,7 +429,7 @@ vec3 standard_surface(vec3 diffuse, vec3 albedo, vec3 indirect, vec3 n, vec3 tow
         return base;
     }
     vec3 broad = max(indirect, vec3(0.)) / 3.14159265359 * surface_fresnel(nv, f0);
-    vec3 specular = environment_specular_rgb(v_world_position, n, eye, roughness, f0, broad)
+    vec3 specular = environment_specular_surface_frame(v_world_position, v_world_position + receiver_normal * .5, receiver_normal, n, eye, nv, roughness, f0, broad)
         + surface_specular_direct(v_world_position, n, eye, selector, visibility, roughness, f0);
     float grazing_tint = .5 * dielectric_fresnel(nv, 0.)
         * smoothstep(.35, .65, roughness) * (1. - metallic);
@@ -521,12 +565,14 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         * fur_grain * mix(0.1, 1.0, visibility) * hero_cue;
     vec3 metal_ambient = probe_linear(clamp(v_probe_ambient, 0., 1.));
     vec3 toward_camera = transpose(mat3(view)) * (-eye_position);
+    vec3 receiver_normal = dot(geometric, geometric) > 0. ? normalize(geometric) : n;
+    if (dot(receiver_normal, toward_camera) < 0.) receiver_normal = -receiver_normal;
     vec4 selector = probe_receiver == 1 ? vec4(0.) : v_probe_selector;
     if (probe_mode == 0) {
         if (metal_pass != 0) {
             return probe_display(standard_surface(
                 fallback_diffuse, albedo, metal_ambient * 3.14159265359,
-                surface_n, toward_camera, selector, visibility) + emitted);
+                surface_n, toward_camera, selector, visibility, receiver_normal) + emitted);
         }
         vec3 fallback = wet_coat(fallback_diffuse, surface_n, toward_camera, visibility)
             + fur_direct + emitted;
@@ -563,7 +609,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         // Direct lights and reflection captures have their own coverage. Only the broad
         // irradiance-based reflection fallback is unavailable here.
         vec3 surface = standard_surface(fallback_diffuse, albedo, vec3(0.), surface_n, toward_camera,
-                                        selector, visibility);
+                                        selector, visibility, receiver_normal);
         vec3 fallback = wet_coat(surface, surface_n, toward_camera, visibility) + fur_direct + emitted;
 #ifdef OPENRAC_HERO_FUR
         // A local capture can illuminate the fur even where diffuse probe coverage is absent.
@@ -637,7 +683,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     }
 #endif
     vec3 diffuse = albedo * illumination * material_diffuse_scale;
-    vec3 surface = standard_surface(diffuse, albedo, indirect, surface_n, toward_camera, selector, visibility);
+    vec3 surface = standard_surface(diffuse, albedo, indirect, surface_n, toward_camera, selector, visibility, receiver_normal);
     // Emission is independent of GI exposure, AO and shadow visibility.
     vec3 lit = wet_coat(surface + rim, surface_n, toward_camera, visibility)
         + fur_direct + fur_indirect;

@@ -83,7 +83,12 @@ void LevelScene::record_sky(const renderer::FrameInput& input, renderer::RenderS
     glBindFramebuffer(GL_FRAMEBUFFER, state.target.framebuffer);
     glViewport(0, 0, state.target.width, state.target.height);
     // Captures remain valid until the enclosing scoped plan records all sky consumers.
-    if (renderer::collecting_surface_chain()) {
+    if (!enhanced_rendering_available()) {
+        const auto inputs = classic_colour_inputs(Layer::Sky, state);
+        renderer::raster_pass("authored sky", state.target, inputs, [&] {
+            draw_sky(input, state);
+        });
+    } else if (renderer::collecting_surface_chain()) {
         const auto result = renderer::colour_pass(
             "authored sky",
             state.target,

@@ -11,7 +11,7 @@ rules = (
      "renderer/vulkan/commands/graph_queue.cpp"),
 )
 failures = []
-for directory in ("renderer", "enhanced", "game", "common", "platform", "viewer"):
+for directory in ("renderer", "enhanced", "game", "common", "platform", "scene", "viewer"):
     for path in (root / directory).rglob("*"):
         if path.suffix not in {".c", ".cpp", ".h", ".inc"}:
             continue

@@ -3,19 +3,17 @@
 // Ridge-biased connections and collision-checked smoothing of a sparse distance field.
 #include <algorithm>
 #include <format>
-#include <limits>
-#include <queue>
 #include <set>
 #include <stdexcept>
 
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_scene.h"
+#include "enhanced/lighting/room_backbone.h"
 #include "enhanced/lighting/room_distance_field.h"
 #include "enhanced/lighting/room_layout.h"
 
 namespace openrac::lighting::bake_detail {
 namespace {
-constexpr unsigned kMissing = ~0u;
 using Edge = std::array<unsigned, 2>;
 
 Edge edge(unsigned a, unsigned b) {
@@ -37,10 +35,17 @@ bool clear_segment(
 ) {
     // The ray checks differ by direction, and a path may walk a segment either way: both must pass.
     auto clear = [&](Float3 from, Float3 to) {
-        return field.swimming_rooms[room] ? room_body_path_clear(scene, from, to, settings, true)
-                                          : room_path_clear(scene, from, to, settings);
+        return field.path_clear(scene, from, to, room, settings);
     };
-    return field.connects(a, b, room) && clear(a, b) && clear(b, a);
+    if (!field.connects(a, b, room)) {
+        return false;
+    }
+    if (clear(a, b) && clear(b, a)) {
+        return true;
+    }
+    return field.water_footprint && !(field.swimming_rooms[room] && !field.submerged_rooms[room])
+           && room_supported_path_clear(scene, a, b, settings)
+           && room_supported_path_clear(scene, b, a, settings);
 }
 
 // Split a chain where a straight segment no longer follows it, and at a bounded length.
@@ -119,149 +124,30 @@ void RoomLayout::rebuild_medial(
 ) {
     medial_edges.clear();
     medial_centres.clear();
+    medial_entrances.clear();
     medial_points.clear();
     medial_owners.clear();
+    medial_display_offsets.clear();
     auto field = room_distance_field(scene, floors, *this, settings);
     medial_cell_size = field.step;
     medial_ridge_samples = static_cast<unsigned>(
         std::count_if(field.nodes.begin(), field.nodes.end(), [](const auto& n) { return n.ridge; })
     );
+    auto backbone = room_backbone(field, scene, settings);
     const auto n = field.nodes.size();
-    std::vector<std::vector<unsigned>> neighbours(n), skeleton(n), field_rooms(rooms.size());
-
-    for (unsigned a = 0; a < n; ++a) {
-        medial_points.push_back(field.nodes[a].position);
-        medial_owners.push_back(field.nodes[a].room);
-        neighbours[a] = field.nodes[a].neighbours;
-        field_rooms[field.nodes[a].room].push_back(a);
+    for (const auto& node : field.nodes) {
+        medial_points.push_back(node.position);
+        medial_owners.push_back(node.room);
     }
-
-    auto width = [&](unsigned a) {
-        return std::clamp(field.nodes[a].wall.distance, .25f, 12.f);
-    };
-    using Entry = std::pair<float, unsigned>;
-    std::vector<bool> completed(n), selected(n);
-    std::vector<float> cost(n), reach(n);
-    std::vector<unsigned> parent(n);
-
-    for (unsigned room = 0; room < field_rooms.size(); ++room) {
-        // Small gaps merged for lighting purposes may still be physically disconnected. Each
-        // component gets a seed; no medial edge is invented across a missing walkable connection.
-        if (field_rooms[room].empty()) {
-            continue;
-        }
-
-        const auto target = floors[centre(floors, room)].position;
-        auto seeds = field_rooms[room];
-        std::stable_sort(seeds.begin(), seeds.end(), [&](auto a, auto b) {
-            const auto score = [&](auto node) {
-                return distance(medial_points[node], target) - .25f * std::min(width(node), 8.f)
-                       - (field.nodes[node].ridge ? field.step : 0);
-            };
-            return score(a) < score(b);
-        });
-
-        for (auto root : seeds) {
-            if (completed[root]) {
-                continue;
-            }
-
-            std::fill(cost.begin(), cost.end(), INFINITY);
-            std::fill(parent.begin(), parent.end(), kMissing);
-            cost[root] = 0;
-            std::priority_queue<Entry, std::vector<Entry>, std::greater<Entry>> pending;
-            pending.emplace(0, root);
-            std::vector<unsigned> component;
-
-            while (!pending.empty()) {
-                const auto [value, a] = pending.top();
-                pending.pop();
-
-                if (value != cost[a]) {
-                    continue;
-                }
-
-                completed[a] = true;
-                component.push_back(a);
-
-                for (auto b : neighbours[a]) {
-                    const float w = std::min(width(a), width(b));
-                    const float next =
-                        value
-                        + distance(medial_points[a], medial_points[b]) * (1 + 4 / (w * w))
-                              * (field.nodes[a].ridge && field.nodes[b].ridge ? .5f : 1.f);
-
-                    if (next < cost[b]) {
-                        cost[b] = next;
-                        parent[b] = a;
-                        pending.emplace(next, b);
-                    }
-                }
-            }
-
-            medial_centres.push_back(root);
-            selected[root] = true;
-            // Geodesic distance to the current skeleton avoids cutting through walls. It only
-            // falls as branches join the skeleton, so each pass spreads from the new branch alone
-            // (the same least distances a full pass from every selected node finds).
-            for (auto a : component) {
-                reach[a] = INFINITY;
-            }
-            for (auto a : component) {
-                if (selected[a]) {
-                    reach[a] = 0;
-                    pending.emplace(0, a);
-                }
-            }
-
-            for (;;) {
-                while (!pending.empty()) {
-                    const auto [value, a] = pending.top();
-                    pending.pop();
-
-                    if (value != reach[a]) {
-                        continue;
-                    }
-
-                    for (auto b : neighbours[a]) {
-                        const float next = value + distance(medial_points[a], medial_points[b]);
-
-                        if (next < reach[b]) {
-                            reach[b] = next;
-                            pending.emplace(next, b);
-                        }
-                    }
-                }
-
-                unsigned tip = kMissing;
-                float excess = 4;
-
-                for (auto a : component) {
-                    const float value = reach[a] - 1.5f * width(a);
-
-                    if (value > excess) {
-                        excess = value;
-                        tip = a;
-                    }
-                }
-
-                if (tip == kMissing) {
-                    break;
-                }
-
-                // The weighted shortest-path tree prefers high-clearance centres. Only
-                // substantial uncovered branches survive, rather than one branch per obstacle.
-                while (!selected[tip] && parent[tip] != kMissing) {
-                    selected[tip] = true;
-                    reach[tip] = 0;
-                    pending.emplace(0, tip);
-                    const auto next = parent[tip];
-                    skeleton[tip].push_back(next);
-                    skeleton[next].push_back(tip);
-                    tip = next;
-                }
-            }
-        }
+    auto& skeleton = backbone.skeleton;
+    medial_centres = std::move(backbone.centres);
+    medial_entrances = std::move(backbone.entrances);
+    std::vector<bool> fixed(n);
+    for (auto a : medial_centres) {
+        fixed[a] = true;
+    }
+    for (auto a : medial_entrances) {
+        fixed[a] = true;
     }
 
     // Smooth only degree-two points. Junctions/endpoints retain topology, and each
@@ -269,8 +155,12 @@ void RoomLayout::rebuild_medial(
     const auto original = medial_points;
 
     for (unsigned a = 0; a < n; ++a) {
-        if (skeleton[a].size() == 2) {
+        if (skeleton[a].size() == 2 && !fixed[a]) {
             const auto left = skeleton[a][0], right = skeleton[a][1];
+            if (medial_owners[left] != medial_owners[a]
+                || medial_owners[right] != medial_owners[a]) {
+                continue;
+            }
             const auto proposed =
                 add(mul(original[a], .5f), mul(add(original[left], original[right]), .25f));
             const auto floor = field.swimming_rooms[medial_owners[a]]
@@ -291,8 +181,11 @@ void RoomLayout::rebuild_medial(
             auto eye = *floor;
             eye[2] += 1.25f;
 
-            if (room_wall_distance(scene, eye).distance + .2f * field.step
-                < field.nodes[a].wall.distance) {
+            const auto room = medial_owners[a];
+            if (!(field.water_footprint && field.swimming_rooms[room]
+                  && !field.submerged_rooms[room])
+                && room_wall_distance(scene, eye).distance + .2f * field.step
+                       < field.nodes[a].wall.distance) {
                 continue;
             }
 
@@ -303,7 +196,7 @@ void RoomLayout::rebuild_medial(
     std::set<Edge> visited;
 
     for (unsigned a = 0; a < n; ++a) {
-        if (skeleton[a].size() == 2) {
+        if (skeleton[a].size() == 2 && !fixed[a]) {
             continue;
         }
 
@@ -319,7 +212,7 @@ void RoomLayout::rebuild_medial(
                 visited.insert(edge(previous, current));
                 path.push_back(current);
 
-                if (skeleton[current].size() != 2) {
+                if (skeleton[current].size() != 2 || fixed[current]) {
                     break;
                 }
 
@@ -329,7 +222,34 @@ void RoomLayout::rebuild_medial(
                 current = next;
             }
 
-            simplify(path, medial_points, scene, settings, field, medial_owners[a], medial_edges);
+            // Preserve medium transitions as checked field edges; simplify each side
+            // inside its own known domain rather than treating a lighting tag as a wall.
+            unsigned start = 0;
+            for (unsigned i = 1; i < path.size(); ++i) {
+                if (medial_owners[path[i]] == medial_owners[path[i - 1]]) {
+                    continue;
+                }
+                simplify(
+                    std::span(path).subspan(start, i - start),
+                    medial_points,
+                    scene,
+                    settings,
+                    field,
+                    medial_owners[path[start]],
+                    medial_edges
+                );
+                medial_edges.push_back({path[i - 1], path[i]});
+                start = i;
+            }
+            simplify(
+                std::span(path).subspan(start),
+                medial_points,
+                scene,
+                settings,
+                field,
+                medial_owners[path[start]],
+                medial_edges
+            );
         }
     }
 

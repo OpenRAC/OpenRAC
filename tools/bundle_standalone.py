@@ -28,7 +28,8 @@ OUT (launcher/src-tauri/resources/openrac for an installer) gets:
                              A Windows program goes with Microsoft's C++
                              runtime beside it, which a new Windows lacks
   python/                   a Python to run the tools (--python: an unpacked
-                             python-build-standalone "install_only" archive)
+                             python-build-standalone "install_only" archive),
+                             without what they never use (copy_python)
 
 --android makes the copy the Android launcher carries in its APK
 (tools/build_android.py; docs/port/ANDROID.md). The games and the Python
@@ -263,6 +264,34 @@ def copy_windows_runtime(system: Path, dest: Path) -> list[str]:
     return list(WINDOWS_RUNTIME)
 
 
+# What no copy of Python needs: compiled caches, tests, IDLE, Tk and pip's installer.
+PYTHON_SKIP = ("__pycache__", "test", "tests", "idlelib", "tkinter", "ensurepip")
+# What the tools never use in a desktop's standalone Python besides: Tcl/Tk, pip, the C headers and
+# libraries for building extensions, and the scripts beside the program.
+PYTHON_UNUSED = PYTHON_SKIP + (
+    "turtledemo", "lib2to3", "pip", "pip-*", "*.a", "include", "share", "pkgconfig", "libs", "Scripts",
+    "pythonw.exe", "_test*", "_tkinter*", "tcl", "tcl8*", "tcl9*", "tk8*", "tk9*", "itcl*", "thread3*", "libtcl*")
+# The program the launcher starts (detect.rs). bin/ keeps only it, as a file: an installer copies a
+# symbolic link as a whole file, so python and python3.12 were two more copies.
+PYTHON_PROGRAMS = ("bin/python3", "python.exe")
+
+
+def copy_python(home: Path, dest: Path) -> None:
+    """The unpacked standalone Python HOME, without what the tools never use, to DEST. Its program
+    has the interpreter built in: libpython (Linux and macOS) is only for programs embedding it."""
+    unused = shutil.ignore_patterns(*PYTHON_UNUSED)
+
+    def ignore(folder: str, names: list[str]) -> set[str]:
+        skip = set(unused(folder, names))
+        if Path(folder) == home / "bin":
+            skip |= {n for n in names if n != "python3"}
+        elif Path(folder) == home / "lib":
+            skip |= {n for n in names if n.startswith("libpython")}
+        return skip
+
+    shutil.copytree(home, dest, symlinks=False, ignore=ignore)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("out", type=Path)
@@ -344,14 +373,12 @@ def main() -> int:
         if not any(args.python.glob("lib/python3.*/os.py")):
             sys.exit(f"{args.python} is not a PYTHONHOME for Android (no lib/python3.N/os.py)")
         shutil.copytree(args.python, out / "python", symlinks=True,
-                        ignore=shutil.ignore_patterns("__pycache__", "test", "tests", "idlelib", "tkinter", "ensurepip"))
+                        ignore=shutil.ignore_patterns(*PYTHON_SKIP))
         carried.append("python (Android)")
     elif args.python:
-        if not any((args.python / rel).is_file() for rel in ("bin/python3", "python.exe")):
+        if not any((args.python / rel).is_file() for rel in PYTHON_PROGRAMS):
             sys.exit(f"{args.python} is not an unpacked standalone Python (no bin/python3 or python.exe)")
-        shutil.copytree(args.python, out / "python", symlinks=True,
-                        ignore=shutil.ignore_patterns("__pycache__", "test", "tests", "idlelib", "tkinter", "ensurepip",
-                                                      "*.a", "include", "share"))
+        copy_python(args.python, out / "python")
         carried.append("python")
 
     commit = proc.git(ROOT, "rev-parse", "HEAD", check=False)

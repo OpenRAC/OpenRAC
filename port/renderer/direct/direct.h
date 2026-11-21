@@ -480,7 +480,8 @@ private:
     bool m_world_split = false;  // set_world_split, for the next render()
     bool m_prepared = false;     // prepare() read this frame's packets; render() only draws
     bool m_nothing = false;      // prepare() found nothing to draw
-    void apply(const DirectState& state, RenderState& render_state);
+    // Sets the GS draw state and returns the two sampled texture names.
+    std::array<unsigned, 2> apply(const DirectState& state, RenderState& render_state);
     void draw(const DirectDraw& draw, RenderState& render_state);
     bool m_background = false;  // flush(): the part before the world
     // flush(), on a target wider than the picture: the triangles being drawn are the whole

@@ -30,6 +30,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "renderer/direct/gs.h"
@@ -225,6 +226,8 @@ public:
     // The GL texture, created on first use. Filtering and wrapping are set
     // by whoever binds it. An animated texture's is its frame at the tick (set_tick).
     unsigned gl_texture(TextureHandle texture);
+    // Prepares the image a draw would sample without starting an unseen animation.
+    std::pair<unsigned, unsigned> prepare_draw_texture(TextureHandle texture);
 
     // Creates the GL textures of `textures` that have none yet, as gl_texture() would at their
     // first use (the same texels, mip chain and sampler parameters, by the same code), so that
@@ -330,6 +333,8 @@ private:
         Rgba8Image image;
         bool cropped_replacement = false;
         bool pack_replacement = false;
+        // A sharper picture of it the GPU draws instead (sharp_cells.h), or null.
+        std::shared_ptr<const Rgba8Image> sharp;
         bool pcsx2_replacement = false;
         std::array<float, 2> uv_scale{1.0f, 1.0f};
         AlphaScale scale = AlphaScale::Gs;
@@ -358,6 +363,7 @@ private:
     // Creates entry `e`'s GL texture and uploads its texels: the one place a texture is made,
     // for gl_texture() at a first use and for prepare() at a level's load.
     void create_gl(Entry& e);
+    unsigned draw_texture(Entry& entry, bool used);
     // A GL texture of `image` as entry `e`'s would be made (its mip chain and filters).
     unsigned upload_gl(const Entry& e, const Rgba8Image& image);
     // Entry `e`'s GL texture made from its blocks, or 0 when the GPU cannot take them (then it is

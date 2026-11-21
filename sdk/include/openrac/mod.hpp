@@ -1039,10 +1039,16 @@ public:
       return has_moby_material() && m_api->api_minor >= 24;
     }
 
+    // Since 1.25: whether the port draws OPENRAC_MOBY_MATERIAL_ENERGY (and its levels).
+    bool has_energy() const {
+      return has_moby_material() && m_api->api_minor >= 25;
+    }
+
     // Since 1.23: draws the live moby at `moby` with `material`
-    // (OPENRAC_MOBY_MATERIAL_TINT, _PLATINUM, _OBSIDIAN since 1.24, or _NONE to
-    // clear it) and `rgb` (0xRRGGBB, 0xFFFFFF no tint; obsidian's glow colour,
-    // 0xFFFFFF its default) until the game removes the moby, the level
+    // (OPENRAC_MOBY_MATERIAL_TINT, _PLATINUM, _OBSIDIAN since 1.24,
+    // _ENERGY_AT(level) since 1.25, or _NONE to clear it) and `rgb` (0xRRGGBB,
+    // 0xFFFFFF no tint; obsidian's glow colour, 0xFFFFFF its default; energy's
+    // colour) until the game removes the moby, the level
     // changes or the mod clears it. Render-only: no game memory is written. At
     // any time. Returns false when refused or the port has no such call.
     bool moby_material(openrac_gaddr moby, std::uint32_t material,
@@ -1050,6 +1056,36 @@ public:
       return has_moby_material() &&
              m_api->moby_material(m_handle, moby, material, rgb) ==
                  OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.25: whether the port has moby_copy_check() and moby_copy().
+    bool has_moby_copy() const {
+      return m_api->api_minor >= 25 &&
+             m_api->size >= offsetof(openrac_api, moby_copy) + sizeof(void *);
+    }
+
+    // Since 1.26: whether moby_copy()'s copies wake and fight with their squad (a 1.25
+    // port's copies of a squad's enemies never woke).
+    bool has_squad_copies() const {
+      return has_moby_copy() && m_api->api_minor >= 26;
+    }
+
+    // Since 1.25: whether moby_copy() may copy the moby in `slot`: OPENRAC_COPY_OK, or
+    // why not (OPENRAC_COPY_*); OPENRAC_HOOK_UNKNOWN for no moby there, outside a
+    // level, once the level's own data is gone, or a port or game without copies. Ask
+    // at the level's load (Going Commando: rac2.level.load).
+    int moby_copy_check(int slot) const {
+      return has_moby_copy() ? m_api->moby_copy_check(m_handle, slot)
+                             : OPENRAC_HOOK_UNKNOWN;
+    }
+
+    // Since 1.25: makes copy `index` (0 the first) of the moby in `slot` at a clear
+    // spot beside it, running on its own and dropping what its original drops. Returns
+    // the copy's slot, or -1 (not allowed, no spot, no room, or no such call).
+    int moby_copy(int slot, int index) const {
+      const int copy =
+          has_moby_copy() ? m_api->moby_copy(m_handle, slot, index) : OPENRAC_HOOK_UNKNOWN;
+      return copy >= 0 ? copy : -1;
     }
 
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.

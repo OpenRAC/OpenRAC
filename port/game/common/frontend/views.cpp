@@ -2,10 +2,9 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // A mod's views of the game (interface 1.4, openrac_mod.h's openrac_view_source, sdk/docs/views.md):
-// the eyes of a headset, a panel for the 2D. In each frame that draws the scene, after the window's
-// picture, the mod says which views it wants; each is drawn from the same scene into a picture of
-// its own and copied where the mod said (its GL texture, or its VkImage). Once the frame is
-// submitted, the mod is told. Without a mod's views nothing here runs.
+// the eyes of a headset, a panel for the 2D. The mod describes its views on the game thread, and
+// each is drawn from the same scene as the window and copied to the mod's texture or VkImage.
+// Once the frame is submitted, the mod is told.
 
 #include <algorithm>
 #include <array>
@@ -26,7 +25,7 @@
 namespace openrac::frontend {
 namespace {
 
-static_assert(OPENRAC_VIEW_MAX == std::tuple_size_v<decltype(State::views)>);
+static_assert(OPENRAC_VIEW_MAX == std::tuple_size_v<decltype(SceneRenderState::views)>);
 
 // The view frustum's planes, as the window's (scene_frame.cpp's set_camera).
 constexpr float kNear = 0.05f;
@@ -68,8 +67,8 @@ renderer::Camera view_camera(const renderer::Camera& game, const openrac_view& v
         renderer::eye_view(game.view, {v.position[0], v.position[1], v.position[2]}, turn);
     camera.position = eye_position(camera.view);
     const float aspect = static_cast<float>(v.width) / static_cast<float>(v.height);
-    // The game camera's near plane when a profile moved it out (GameProfile::depth_near;
-    // perspective_reversed: [14] / ([10] + 1)), so that a view's depth is the window's; else 0.05.
+    // Match the window camera's near plane when Normal depth moves it out.
+    // For perspective_reversed it is [14] / ([10] + 1).
     const float p10 = game.projection[10], p14 = game.projection[14];
     const float game_near = p14 > 0.0f && p10 > 1.0f ? p14 / (p10 + 1.0f) : kNear;
     const float near_z = game_near > kNear * 1.01f ? game_near : kNear;
@@ -91,7 +90,7 @@ renderer::Camera view_camera(const renderer::Camera& game, const openrac_view& v
 
 // Draws view `v` of the frame's scene into `picture`.
 void render_view(SceneFrame& frame, const openrac_view& v, renderer::FrameBuffer& picture) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     renderer::FrameInput input = frame.input;
     // The window's own hand-offs (its read-back copy, the temporal history, the probes' choice by
     // its depth) are the window's picture's, not a view's.
@@ -137,7 +136,7 @@ void render_view(SceneFrame& frame, const openrac_view& v, renderer::FrameBuffer
 }
 
 // The framebuffer around the mod's GL texture `texture`, made the first time.
-unsigned target_of(State& owner, unsigned texture) {
+unsigned target_of(SceneRenderState& owner, unsigned texture) {
     for (const auto& [name, framebuffer] : owner.view_targets) {
         if (name == texture) {
             return framebuffer;
@@ -165,7 +164,9 @@ unsigned target_of(State& owner, unsigned texture) {
 }
 
 // Copies the view's picture where the mod said. False when it could not be.
-bool copy_out(State& owner, const openrac_view& v, const renderer::FrameBuffer& picture) {
+bool copy_out(
+    SceneRenderState& owner, const openrac_view& v, const renderer::FrameBuffer& picture
+) {
     if (gl::is_vulkan()) {
         if (v.image != nullptr && !mods::view_source_can_use_vulkan()) {
             if (!g_warned) {
@@ -195,7 +196,7 @@ bool copy_out(State& owner, const openrac_view& v, const renderer::FrameBuffer& 
 
 // Draws view `index` (anew when `world`) and gives it to the mod.
 void draw_view(SceneFrame& frame, int index, bool world) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     openrac_view& v = g_views[index];
     v.drawn = 0;
     v.picture = 0;
@@ -289,10 +290,10 @@ void set_view_source(const openrac_view_source* source) {
 }
 
 bool views_wanted() {
-    return g_source.has_value() && g && g->window;
+    return g_source.has_value();
 }
 
-void draw_views(SceneFrame& frame, bool world) {
+void begin_views() {
     // A frame drawn twice before its swap (none should be) ends the first one's views first.
     finish_views();
     g_views = {};
@@ -300,7 +301,9 @@ void draw_views(SceneFrame& frame, bool world) {
         g_source->begin(g_source->user, g_views.data(), OPENRAC_VIEW_MAX), 0, OPENRAC_VIEW_MAX
     );
     g_pending = true;
+}
 
+void draw_views(SceneFrame& frame, bool world) {
     for (int i = 0; i < g_count; ++i) {
         draw_view(frame, i, world);
     }
@@ -313,7 +316,7 @@ void finish_views() {
     }
 }
 
-void release_views(State& owner) {
+void release_views(SceneRenderState& owner) {
     finish_views();
 
     // Told once: the views end with the context.

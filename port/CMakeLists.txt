@@ -203,6 +203,9 @@ openrac_add_test(tick_picture INCLUDES .)
 # Far mobys the game leaves asleep, animated in the picture only
 # (game/common/frontend/sleeping_mobys.h).
 openrac_add_test(sleeping_mobys INCLUDES .)
+# A mod's energy material on the effects a moby makes: their colour, brightness and size
+# (game/common/frontend/energy_effects.h).
+openrac_add_test(energy_effects INCLUDES . "${PROJECT_SOURCE_DIR}/../sdk/include")
 # Where a menu's mobys drawn with a camera of their own go, alone and over a level's world drawn
 # under it (game/common/frontend/menu_layers.h).
 openrac_add_test(menu_layers INCLUDES .)
@@ -375,7 +378,7 @@ if(OPENRAC_ENHANCED_RENDERING OR OPENRAC_PROBE_BAKER)
 endif()
 
 # Probe assets and CPU sampling need neither a graphics context nor Embree.
-add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_depth.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
+add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_fit.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_depth.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
   enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp enhanced/lighting/bake_lz4.cpp)
 target_include_directories(openrac_lighting PUBLIC .)
 option(OPENRAC_BAKE_LZ4 "Enable LZ4 bake asset storage" ON)
@@ -474,6 +477,10 @@ openrac_add_c_test(save_parts INCLUDES "${PROJECT_SOURCE_DIR}/../sdk/include")
 # Going Commando's nanotech render anchors before and after their crates break.
 openrac_add_c_test(rac2_effect_attachment INCLUDES game/rac2/host runtime/include)
 openrac_add_c_test(rac2_hero_attachments INCLUDES game/rac2/host)
+# Going Commando's enemy copies for the mods (moby_copy_check, moby_copy) on a level laid out as
+# LoadLevelData leaves one.
+openrac_add_c_test(rac2_enemy_copies NO_STRICT_ALIASING MATH
+  INCLUDES tests/rac2_host game/rac2/host game/rac2-ntsc/host runtime/include)
 # Going Commando's saves as the play calls read them, on a save the game wrote.
 openrac_add_c_test(rac2_save INCLUDES game/rac2/host
   DEFINITIONS "RAC2_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac2/save-oozla.bin\"")
@@ -485,6 +492,19 @@ if(OPENRAC_PORT_WINDOW)
   include(Window)
 endif()
 include(Render)
+if(OPENRAC_PORT_WINDOW)
+  openrac_link_graph_fixtures(
+    agx area_light_overlay atmosphere atmosphere_precision colour_graph depth_combine
+    early_lighting enhanced_rendering environment_selection foliage_gpu fsr3_frame fsr3_motion
+    fur fur_detail fur_lighting fur_shell graph_immediate_work
+    gtao gtao_depth gtao_horizon local_lights moby_energy_shader moby_obsidian_shader
+    moby_platinum_shader
+    precise_depth probe_compression_gpu probe_depth_gpu probe_gpu probe_sphere_culling
+    program_cache render_equivalence_support render_opt shadow_graph sun_shadow
+    surface_normals texture_blocks_gl texture_filter tracy_vulkan vulkan_buffer
+    vulkan_failure vulkan_hdr vulkan_prewarm vulkan_uniform water_gpu water_runtime wetness_gpu
+  )
+endif()
 include(GpuTests)
 openrac_configure_gpu_tests(${openrac_parallel_gpu_tests})
 add_test(NAME gpu_test_config

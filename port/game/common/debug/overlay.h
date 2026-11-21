@@ -147,6 +147,7 @@ struct MenuMotion {
     int page_tab = -1;           // the tab the page is of
     float help = 1.0f;           // the help's text, 0 just changed, 1 shown
     int help_of = -2;            // the entry it is of (s.menu_hover)
+    std::string help_title;      // the panel row it is of (s.menu_hover_title)
     bool pad = false;            // the last input was a controller's: its buttons are named
     float quit_hold = 0.0f;      // seconds the controller's quit button has been held
     int last_tab = 0;            // the last of the bar's tabs open (not a button's page)
@@ -201,7 +202,6 @@ struct State {
     bool configured = false;            // the environment was read
     bool visible = false;               // the panel is shown (F3)
     bool initialised = false;           // the ImGui context exists
-    bool gl_subset = false;  // drawn with the renderer's GL (imgui_gl.h): the window's is Vulkan's
     std::array<bool, kSectionCount> open_at_start = {true, false, false, false, false, false};
 
     // The last tick, as the window gave it.
@@ -295,6 +295,9 @@ struct State {
     int menu_tab = 0;                 // the desktop's open tab, by its place on the bar
     long long menu_open_at = -1;      // OPENRAC_MENU: the tick to open the menu at; -1 none
     int menu_hover = -1;              // the entry under the pointer or the focus (menu::Id), or -1
+    // A row of an entry's panel with help of its own (a mod setting): its heading, name and line,
+    // shown in place of the entry's. Empty: the entry's.
+    std::string menu_hover_section, menu_hover_title, menu_hover_help;
     float menu_row_height = 48.0f;    // a row's height in dp: a thumb's on a touch screen
     bool drawer_developer = false;    // the drawer's developer tools unfolded
     bool drawer_fixes = false;        // the drawer's game fixes unfolded

@@ -110,6 +110,10 @@
   "func_0012B180": {
    "is": "func_0012B180",
    "why": "the hand C's function between func_0012B0D8 and func_0012B198, which the catalogue lists at the same addresses in both releases; the same bytes from 0x0012B134 to 0x0012B198 in both executables"
+  },
+  "func_V1_L01_00321178": {
+   "is": "func_L01_00323068",
+   "why": "PAL has its own C of moby_l01_turn_toward_target (func_PAL_L01_00323068, the same fingerprint), so the view marks v1.01's func_V1_, a stub with no C. The entry hooks the overrides carry (0x003D2898 in level 2, 0x00448968 in 6, 0x00409F00 in 9) jal this function's copy in their level on the disc (0x003335E0, 0x0036E2B0, 0x00329DF0). With the stub, PAL's dropped Chickenbots hung in the air"
   }
  },
  "hand": {
@@ -179,6 +183,34 @@
     "F500f9762_FUN_002A04B8": {
      "is": "func_002A0E78",
      "why": "v1.01's C of gfx_start_color_fade and its sibling (func_002AB800, func_002AB8C0: PAL's FUN_002AC290, FUN_002AC3C0) calls get_moby_color (v1.01 func_002A04B8) by its F500f9762_ spelling, which PAL's build gives no value (PAL builds its own copies, src/pal/game/002AC290.c), so the view would keep v1.01's address, another function in PAL (PAL's 0x002A04B8); PAL's own code at 0x002AC290 calls 0x002A0E78 here"
+    }
+   },
+   "src/pal/levels/shared/L01_003E4058-sw-g8.c": {
+    "ref_L00_003DD6A8_00": {
+     "is": "func_L00_00327350",
+     "why": "PAL's levels' Spider Bot update (rac2-decomp src/pal/levels/shared/L01_003E4058-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls func_L00_00327350 here, not the executable's func_002B0C18"
+    },
+    "ref_L00_003DD6A8_12": {
+     "is": "func_L00_003BBCE0",
+     "why": "PAL's levels' Spider Bot update (rac2-decomp src/pal/levels/shared/L01_003E4058-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls helper_set_active_flag (func_L00_003BBCE0) here, not the executable's moby_set_linked_flag (func_003188B8). The executable's reads its pointer at 0x001AF8F0, a float (0.04) in Todano, so the bot's blast crashed reading 0x3D23D772"
+    },
+    "ref_L00_003DD6A8_25": {
+     "is": "func_L00_003E3248",
+     "why": "PAL's levels' Spider Bot update (rac2-decomp src/pal/levels/shared/L01_003E4058-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls func_L00_003E3248 here, not the executable's func_00329208"
+    }
+   },
+   "src/pal/levels/shared/L00_003E1874-sw-g8.c": {
+    "ref_L00_003DD6A8_00": {
+     "is": "func_L00_00327350",
+     "why": "PAL's levels 0 and 4 Spider Bot update (rac2-decomp src/pal/levels/shared/L00_003E1874-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls func_L00_00327350 here, not the executable's func_002B0C18"
+    },
+    "ref_L00_003DD6A8_12": {
+     "is": "func_L00_003BBCE0",
+     "why": "PAL's levels 0 and 4 Spider Bot update (rac2-decomp src/pal/levels/shared/L00_003E1874-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls helper_set_active_flag (func_L00_003BBCE0) here, not the executable's moby_set_linked_flag (func_003188B8). The executable's reads its pointer at 0x001AF8F0, a float (0.04) in Todano, so the bot's blast crashed reading 0x3D23D772"
+    },
+    "ref_L00_003DD6A8_25": {
+     "is": "func_L00_003E3248",
+     "why": "PAL's levels 0 and 4 Spider Bot update (rac2-decomp src/pal/levels/shared/L00_003E1874-sw-g8.c) reuses the executable copy's ref_L00_003DD6A8_ names, which PAL's release table values with the executable's functions; each level's copy calls func_L00_003E3248 here, not the executable's func_00329208"
     }
    }
   },

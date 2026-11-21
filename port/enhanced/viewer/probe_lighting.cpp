@@ -27,6 +27,7 @@
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_texture_upload.h"
 #include "enhanced_viewer_shaders.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 
 #if defined(OPENRAC_VULKAN)
@@ -1035,7 +1036,8 @@ void ProbeLighting::bind(
     if (!active() || !receiver) {
         return;
     }
-    glUniform2f(shader.uniform("probe_frame"), m_grid.frame.axis[0], m_grid.frame.axis[1]);
+    const auto rotation = m_grid.frame.quaternion();
+    glUniform4fv(shader.uniform("probe_frame"), 1, rotation.data());
     glUniform3f(
         shader.uniform("probe_origin"), m_grid.origin[0], m_grid.origin[1], m_grid.origin[2]
     );
@@ -1059,7 +1061,8 @@ void ProbeLighting::bind(
             continue;
         }
         const auto& g = m_region_grids[selected.region];
-        glUniform2f(shader.uniform(kDenseFrame[slot].data()), g.frame.axis[0], g.frame.axis[1]);
+        const auto dense_rotation = g.frame.quaternion();
+        glUniform4fv(shader.uniform(kDenseFrame[slot].data()), 1, dense_rotation.data());
         glUniform3f(
             shader.uniform(kDenseOrigin[slot].data()), g.origin[0], g.origin[1], g.origin[2]
         );
@@ -1179,12 +1182,23 @@ void ProbeLighting::draw_spheres(
             return;
         }
 #endif
-        glDrawElementsInstanced(
-            GL_TRIANGLES,
-            vertices,
-            GL_UNSIGNED_INT,
-            nullptr,
-            static_cast<GLsizei>(m_visible_spheres.size())
+        const renderer::RasterBuffer geometry[]{
+            {m_sphere_buffer, m_visible_spheres.size() * sizeof(Sphere)},
+            {m_sphere_indices, vertices * sizeof(unsigned)}
+        };
+        renderer::raster_pass(
+            "probe sphere overlay",
+            state.target,
+            {geometry, {}, renderer::ColourAttachments::ColourDepthRead, true},
+            [&] {
+                glDrawElementsInstanced(
+                    GL_TRIANGLES,
+                    vertices,
+                    GL_UNSIGNED_INT,
+                    nullptr,
+                    static_cast<GLsizei>(m_visible_spheres.size())
+                );
+            }
         );
         ++state.stats.draw_calls;
         state.stats.triangles += m_visible_spheres.size() * (vertices / 3);

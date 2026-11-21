@@ -20,7 +20,9 @@
 #include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/commands/graph_queue.h"
 #include "renderer/vulkan/graph/graph_barriers.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/graph/graph_immediate_work.h"
+#include "renderer/vulkan/graph/graph_pipeline.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/vulkan/vkgl_internal.h"
 #include "renderer/world/gl_world.h"
@@ -361,9 +363,6 @@ void copy_to_image(
     int width,
     int height
 ) {
-    if (!tracks_subresources(image) && image.layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        barrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    }
     VkBufferImageCopy copy{};
     copy.bufferOffset = from.offset;
     copy.imageSubresource = {image.aspect, static_cast<std::uint32_t>(level), 0, 1};
@@ -958,39 +957,42 @@ bool copy_buffer_to_texture(
     if (!bytes || t->image->width != width || t->image->height != height || b->size < bytes) {
         return false;
     }
-    end_rendering(PassEnd::Copy);
-    const BufferRef src = resolve(*b);
-    if (!src.buffer || src.size < bytes) {
+    if (graph_pipeline_active()) {
+        // A copy issued inside a declared pass must fit that pass's image and buffer ranges.
+        const auto source = resolve(*b);
+        if (!source.buffer || source.size < bytes) {
+            return false;
+        }
+        record_buffer_image_copy({source.buffer, source.offset, bytes}, *t->image);
+        return true;
+    }
+    namespace graph = renderer::graph;
+    GraphExecution execution;
+    const auto source = execution.read_buffer("compute output", buffer, graph::Stage::Transfer);
+    const auto output = execution.import_image("sampled output", texture);
+    if (!source || !output) {
         return false;
     }
-    VkBufferMemoryBarrier dependency{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-    dependency.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    dependency.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    dependency.srcQueueFamilyIndex = dependency.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    dependency.buffer = src.buffer;
-    dependency.offset = src.offset;
-    dependency.size = bytes;
-    auto cmd = frame().main;
-    NativeCommandEncoder{cmd}.pipeline_barrier(
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0,
-        0,
-        nullptr,
-        1,
-        &dependency,
-        0,
-        nullptr
+    graph::CommandBuffer commands;
+    commands.copy_buffer_to_image(source->buffer, {source->range.offset, bytes}, *output);
+    auto transfer = commands.declarations("buffer to texture");
+    auto sampled = execution.make_pass("sample compute output");
+    graph::shader_read_export(
+        sampled,
+        transfer,
+        graph::Stage::VertexShader | graph::Stage::FragmentShader | graph::Stage::ComputeShader
     );
-    count_barrier(
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, "buffer to texture"
-    );
-    Image& image = *t->image;
-    barrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    record_buffer_image_copy(src, image);
+    sampled.buffers.clear();
+    if (!execution.add_pass(std::move(transfer), std::move(commands))) {
+        return false;
+    }
+    execution.add_pass(std::move(sampled));
+    if (!execution.run()) {
+        return false;
+    }
     // A later dispatch can overwrite the scratch buffer once this copy has read it.
     if (reuse_source) {
-        NativeCommandEncoder{cmd}.pipeline_barrier(
+        NativeCommandEncoder{frame().main}.pipeline_barrier(
             VK_PIPELINE_STAGE_TRANSFER_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             0,
@@ -1007,8 +1009,6 @@ bool copy_buffer_to_texture(
             "buffer to texture done"
         );
     }
-    barrier(cmd, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    image.touched = g->recording;
     return true;
 }
 
@@ -1037,11 +1037,12 @@ bool copy_to_image(unsigned texture, void* image, std::uint32_t layout, int widt
         return false;
     }
     Image& source = *t->image;
-    const VkCommandBuffer cmd = cmd_for(&source, true);
-    barrier(cmd, source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-
     // The outside image is not the backend's: its layout is the owner's, given and given back.
     const auto dst = static_cast<VkImage>(image);
+    if (dst == source.image) {
+        return false;
+    }
+    const VkCommandBuffer cmd = cmd_for(&source, true);
     const auto kept = static_cast<VkImageLayout>(layout);
     VkImageMemoryBarrier into{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
     into.srcAccessMask = 0;
@@ -1077,8 +1078,14 @@ bool copy_to_image(unsigned texture, void* image, std::uint32_t layout, int widt
     external.width = width;
     external.height = height;
     external.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    GraphImmediateWork::copy_image(cmd, source, external, std::span{&copy, 1});
-    count_copy(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
+    bool copied = false;
+    try {
+        GraphImmediateWork::copy_image(cmd, source, external, std::span{&copy, 1});
+        count_copy(static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height));
+        copied = true;
+    } catch (const std::runtime_error&) {
+        // Return the borrowed layout even if the graph rejects the copy.
+    }
 
     VkImageMemoryBarrier back = into;
     back.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1099,7 +1106,7 @@ bool copy_to_image(unsigned texture, void* image, std::uint32_t layout, int widt
     count_barrier(
         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, "copy to image done"
     );
-    return true;
+    return copied;
 }
 
 }  // namespace openrac::vkgl

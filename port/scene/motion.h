@@ -30,10 +30,11 @@ struct MotionInstance {
 
 // Camera matrices excluding jitter, plus the jittered matrix used for rasterisation.
 struct MotionView {
-    renderer::Mat4 raster{};        // Current jittered world-to-clip transform.
+    renderer::Mat4 raster{};        // Jittered world-to-clip transform matching the depth buffer.
     renderer::Mat4 current{};       // Current unjittered world-to-clip transform.
     renderer::Mat4 previous{};      // Previous unjittered world-to-clip transform.
     std::array<int, 2> size{};      // Motion units are current render pixels.
     unsigned previous_palette = 0;  // Borrowed previous-frame joint texture.
+    bool raster_zero_to_one = false;  // Whether to use zero-to-one clip depth for raster.
 };
 }  // namespace openrac::scene

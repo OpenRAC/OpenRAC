@@ -48,7 +48,7 @@ void refresh_frame_snapshot(const renderer::FrameBuffer& world) {
 }
 
 // Draws menu mobys using their captured cameras, without reading live game memory.
-void draw_target_mobys(State& owner, const Kept& scene, const MobyTarget& target) {
+void draw_target_mobys(SceneRenderState& owner, const Kept& scene, const MobyTarget& target) {
     const std::uint32_t first = static_cast<std::uint32_t>(target.marker);
     // The HUD marker packs the first game address below a 16-bit instance count.
     const std::uint32_t count = static_cast<std::uint32_t>(target.marker >> 32) & 0xFFFFu;
@@ -128,7 +128,7 @@ void draw_target_mobys(State& owner, const Kept& scene, const MobyTarget& target
 // the camera and the frustum the menu drew them with, into `target` (bound). `clear_depth`: the
 // first of the frame, which no longer test against the world's depth.
 void draw_screen_mobys(
-    State& owner,
+    SceneRenderState& owner,
     const Kept& scene,
     std::uint64_t marker,
     const renderer::RenderTarget& target,
@@ -217,7 +217,7 @@ void set_packets(SceneFrame& frame) {
 }
 
 void set_target_mobys(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     frame.input.target_mobys = [&owner, &scene](
                                    std::uint64_t marker,
@@ -242,7 +242,7 @@ void set_target_mobys(SceneFrame& frame) {
 }
 
 void retain_background(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     auto& input = frame.input;
     const bool first = frame.output.first;

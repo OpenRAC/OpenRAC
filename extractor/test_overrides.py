@@ -110,8 +110,9 @@ class PackTests(unittest.TestCase):
             self.assertEqual(any("levels of format" in p for p in problems), flagged, made)
 
     def test_wrong_game_or_nothing_inside_is_refused(self):
-        # Deadlocked is read from its NTSC-U disc only; a game OpenRAC does not know at all.
-        for game, version in (("rac4", "pal"), ("rac9", "ntsc")):
+        # Deadlocked is read from its NTSC-U and PAL discs, not a Japanese one; a game OpenRAC does
+        # not know at all.
+        for game, version in (("rac4", "jp"), ("rac9", "ntsc")):
             other = write_pack(self.root / f"{game}-{version}", "Other", {"level_00/textures/a.png": rgb_png(2, 2, (0, 0, 0))},
                                game=game, version=version)
             with self.assertRaisesRegex(overrides.PackError, "not a pack for a game OpenRAC reads"):
@@ -255,6 +256,26 @@ class PackTests(unittest.TestCase):
             summary = overrides.stack(into, self.root / f"mods-{version}", None,
                                       levels(self.root / f"gc-levels-{version}", version, "rac2"))
             self.assertEqual(summary["files"], {"level_00/textures/x.png": "going"}, version)
+
+    def test_going_commando_packs_change_sounds_and_later_games_do_not_yet(self):
+        import io, wave
+        buffer = io.BytesIO()
+        with wave.open(buffer, "wb") as out:
+            out.setnchannels(1)
+            out.setsampwidth(2)
+            out.setframerate(22050)
+            out.writeframes(b"\x00\x01" * 2205)
+        sound = {"audio/0123456789abcdef.wav": buffer.getvalue()}
+        gc = write_pack(self.root / "gc-voices", "AI voices", sound, game="rac2", version="ntsc")
+        manifest, used, ignored, problems = overrides.check(gc)
+        self.assertEqual((used, ignored, problems), (["audio/0123456789abcdef.wav"], [], []))
+        overrides.add(gc, self.into)
+        summary = overrides.stack(self.into, self.root / "mods-gc", None, levels(self.root / "gc-levels", "ntsc", "rac2"))
+        self.assertEqual(summary["files"], {"audio/0123456789abcdef.wav": "ai-voices"})
+        self.assertTrue((self.root / "mods-gc" / "audio" / "0123456789abcdef.wav").is_file())
+        uya = write_pack(self.root / "uya", "UYA voices", sound, game="rac3", version="ntsc")
+        with self.assertRaisesRegex(overrides.PackError, "replaces nothing"):
+            overrides.check(uya)
 
     def test_a_pack_goes_to_its_own_game_s_levels_only(self):
         red = rgb_png(2, 2, (255, 0, 0))

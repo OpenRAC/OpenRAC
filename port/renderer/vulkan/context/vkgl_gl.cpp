@@ -22,6 +22,8 @@
 #include "renderer/gl/gl.h"
 #include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/graph/attachment_copy.h"
+#include "renderer/vulkan/graph/graph_barriers.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/graph/graph_immediate_work.h"
 #include "renderer/vulkan/graph/surface_batch.h"
 #include "renderer/vulkan/pipelines/gl_program.h"
@@ -57,22 +59,26 @@ const GLubyte* VKGL get_string(GLenum name) {
     }
 }
 
-// Reports enabled compression features so asset uploads can select their compatible formats.
+// A null entry is an unsupported extension. Enumeration and the count use the same list.
+std::array<const char*, 4> gl_extensions() {
+    return {
+        g->features.textureCompressionBC ? "GL_ARB_texture_compression_bptc" : nullptr,
+        g->features.textureCompressionASTC_LDR ? "GL_KHR_texture_compression_astc_ldr" : nullptr,
+        g->astc_hdr ? "GL_KHR_texture_compression_astc_hdr" : nullptr,
+        g->features.depthClamp ? "GL_EXT_depth_clamp" : nullptr,
+    };
+}
+
 const GLubyte* VKGL get_stringi(GLenum, GLuint index) {
-    if (g->features.textureCompressionBC) {
+    for (const char* extension : gl_extensions()) {
+        if (extension == nullptr) {
+            continue;
+        }
+
         if (index == 0) {
-            return reinterpret_cast<const GLubyte*>("GL_ARB_texture_compression_bptc");
+            return reinterpret_cast<const GLubyte*>(extension);
         }
         --index;
-    }
-    if (g->features.textureCompressionASTC_LDR) {
-        if (index == 0) {
-            return reinterpret_cast<const GLubyte*>("GL_KHR_texture_compression_astc_ldr");
-        }
-        --index;
-    }
-    if (g->astc_hdr && index == 0) {
-        return reinterpret_cast<const GLubyte*>("GL_KHR_texture_compression_astc_hdr");
     }
     return nullptr;
 }
@@ -99,11 +105,11 @@ void VKGL get_integerv(GLenum name, GLint* data) {
             *data = most;
             return;
         }
-        case GL_NUM_EXTENSIONS:
-            *data = static_cast<GLint>(g->features.textureCompressionBC)
-                    + static_cast<GLint>(g->astc_hdr)
-                    + static_cast<GLint>(g->features.textureCompressionASTC_LDR);
+        case GL_NUM_EXTENSIONS: {
+            const auto extensions = gl_extensions();
+            *data = static_cast<GLint>(extensions.size() - std::ranges::count(extensions, nullptr));
             return;
+        }
         case GL_MAJOR_VERSION:
             *data = 4;
             return;
@@ -347,13 +353,21 @@ read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, 
         )) {
         return;
     }
+    if (image == g->default_colour.get()) {
+        make_present_copy();
+    }
     VkCommandBuffer cmd = cmd_for(image, true);
-    barrier(cmd, *image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     VkBufferImageCopy copy{};
     copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
     copy.imageOffset = {x0, y0, 0};
     copy.imageExtent = {static_cast<std::uint32_t>(cw), static_cast<std::uint32_t>(ch), 1};
-    GraphImmediateWork::read_image(cmd, *image, {buffer, 0, info.size}, copy);
+    try {
+        GraphImmediateWork::read_image(cmd, *image, {buffer, 0, info.size}, copy);
+    } catch (const std::runtime_error&) {
+        defer([buffer, allocation] { vmaDestroyBuffer(g->allocator, buffer, allocation); });
+        fail(kGlInvalidOperation);
+        return;
+    }
     count_copy(copy.imageExtent.width, copy.imageExtent.height);
     flush_and_wait();
     vmaInvalidateAllocation(g->allocator, allocation, 0, VK_WHOLE_SIZE);
@@ -1587,12 +1601,8 @@ void make_present_copy() {
     VkCommandBuffer cmd = cmd_for(&src, true);
     dst.touched = g->recording;
     const VkImageSubresourceRange range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    barrier(cmd, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     GraphImmediateWork::clear_image(cmd, dst, range, waiting.clear);
     count_command(Command::Copy);
-    barrier(cmd, src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    // The clear's writes done before the blit's, which overlap them.
-    barrier(cmd, dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     GraphImmediateWork::blit_image(cmd, src, dst, waiting.region, waiting.filter);
     count_copy(
         static_cast<std::uint32_t>(

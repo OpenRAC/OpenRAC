@@ -413,6 +413,7 @@ MaterialPage& material_page(std::span<const Sampled> textures, unsigned draws) {
 }
 
 unsigned material_texture(MaterialPage& page, const Sampled& sample) {
+    validate_material_sampler(sample);
     const auto key = material_texture_key(sample);
     const auto [index, added] = page.textures.intern(key);
     if (added) {
@@ -443,7 +444,7 @@ MaterialBinding material_binding(Program& p, const Target& target, unsigned draw
     if (!p.gpu_materials) {
         return {};
     }
-    // Resolve and transition before binding the target. Resource identity includes sampler and mip view.
+    // Declare the effective sampled images before publishing native descriptors.
     std::array<Sampled, kMaterialSamplers.size()> textures{};
     for (std::size_t i = 0; i < p.compiled.uniforms.size(); ++i) {
         const auto& u = p.compiled.uniforms[i];
@@ -456,16 +457,10 @@ MaterialBinding material_binding(Program& p, const Target& target, unsigned draw
             sample.view = sample_view(*sample.image, 0, 0);
             sample.range = sampled_range(*sample.image, 0, 0);
         }
-        if (!image_has_layout(*sample.image, sample.range, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)) {
-            end_rendering(PassEnd::Sample);
-            barrier(frame().main, *sample.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        }
-        record_sampled_image_access(sample, renderer::graph::Stage::VertexShader
-                                               | renderer::graph::Stage::FragmentShader);
-        sample.image->touched = g->recording;
         const auto slot = std::find(kMaterialSamplers.begin(), kMaterialSamplers.end(), u.name);
         textures[static_cast<std::size_t>(slot - kMaterialSamplers.begin())] = sample;
     }
+    GraphImmediateWork::prepare_material_reads(textures);
     auto& page = material_page(textures, draws);
     std::array<std::uint32_t, kMaterialWords> record;
     std::memcpy(record.data(), p.uniforms.data() + p.material_start, kMaterialBytes);

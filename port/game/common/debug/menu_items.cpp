@@ -478,6 +478,9 @@ Item item(Id id, std::uint8_t where) {
             it.can_raise = r.can_raise;
             return it;
         }
+        case Id::KeyboardMouse:
+            it.shown = keyboard_mouse_shown();
+            return it;
         case Id::TouchActionButtons:
             it.on = set.touch_style == 0;
             return it;
@@ -826,6 +829,8 @@ bool act(Id id, int by) {
         case Id::ControlsReset:
             controls_act(id, by);
             return false;
+        case Id::KeyboardMouse:
+            return false;  // its rows (debug/menu_keyboard_mouse.cpp)
         case Id::TouchActionButtons:
             set.touch_style = set.touch_style == 0 ? 1 : 0;
             settings::save();
@@ -957,6 +962,19 @@ void note_hover(int entry) {
     const bool moved = ImGui::GetIO().NavVisible;
     if (moved ? ImGui::IsItemFocused() : ImGui::IsItemHovered() || ImGui::IsItemFocused()) {
         s.menu_hover = entry;
+        s.menu_hover_section.clear();
+        s.menu_hover_title.clear();
+        s.menu_hover_help.clear();
+    }
+}
+
+void note_hover_row(int entry, std::string section, std::string title, std::string help) {
+    const bool moved = ImGui::GetIO().NavVisible;
+    if (moved ? ImGui::IsItemFocused() : ImGui::IsItemHovered() || ImGui::IsItemFocused()) {
+        s.menu_hover = entry;
+        s.menu_hover_section = std::move(section);
+        s.menu_hover_title = std::move(title);
+        s.menu_hover_help = std::move(help);
     }
 }
 

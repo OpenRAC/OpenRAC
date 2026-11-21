@@ -32,18 +32,22 @@ including rounding and denormal handling on the supported toolchains.
 ## State and threads
 
 The window thread captures game callbacks into `Kept`. The optional Vulkan worker shares that
-immutable snapshot and owns a copy of the graphics settings. The level and renderer stay pinned
-until completion, and the producer checks exclusive snapshot ownership before capturing again.
+immutable snapshot and owns a copy of the graphics settings. Scene recording receives
+`SceneRenderState`, which holds the level, renderer, and retained GPU state. The frontend pins
+those resources until completion and checks exclusive snapshot ownership before capturing again.
 
 At most one render job is accepted at once. The next simulation tick and CPU camera/object/pose
 capture can overlap world recording. One optional `PreparedTick` owns that next capture; `frame()`
 consumes it after the previous job completes. CPU preparation reads stable game memory and
 immutable level models. Loading and space-flight scenes use synchronous capture.
 
-A mutex and condition variable publish job completion before the window thread touches graphics
-state again. Debug UI, final composition and presentation run on the window thread. GPU queue
-submission and its two frame slots are unchanged. OpenGL records everything synchronously on
-the window thread.
+A mutex and condition variable publish job completion before the window thread consumes the
+snapshot's output. The window thread builds UI and supplies the drawable size. The same Vulkan
+worker records the movie texture upload, draws the overlays and presents movie and gameplay
+frames. Queue submission still uses two GPU frame slots. OpenGL remains on the window thread.
+Vulkan runs on the game thread when a mod declares native Vulkan access or registers views through
+the legacy SDK. New view-only mods use the render worker while their callbacks run on the game
+thread. The chosen path also covers movie uploads, readbacks and presentation.
 
 Level changes, texture uploads, image readbacks, display changes, pause redraws and shutdown
 respect this boundary. Upload callbacks during simulation retain owned bytes until the next
@@ -53,14 +57,16 @@ simulation tick later, trading bounded latency for overlapping CPU work.
 
 ## Errors
 
-The worker catches render exceptions, reports the message at the next handoff and rejects later
-jobs. The frontend catches snapshot allocation and thread startup failures, logs them and stops
-the game. Shutdown finishes and joins the worker before releasing graphics owners.
+The worker catches render exceptions, reports the frame, submission site, exception type and
+message where available, and rejects later jobs. Normal shutdown drains
+the current frame and releases the renderer and Vulkan device on the graphics thread before
+destroying the SDL window. After a fatal worker error, the window thread releases those resources
+once recording has stopped.
 
 ## Configuration
 
-Vulkan uses the render worker by default. `OPENRAC_RENDER_THREAD=0` selects synchronous rendering
-for debugging and comparisons; OpenGL always stays synchronous. Graphics
+Vulkan uses the render worker by default. `OPENRAC_RENDER_THREAD=0` selects window-thread rendering
+for debugging and comparisons. Graphics
 settings are copied with each snapshot; player-facing settings are unchanged. `render snapshot ms`
 and `render thread wait ms` in the debug dump measure snapshot preparation and producer wait.
 `render preparation ms` measures the next tick's CPU camera/object/pose capture before that wait;

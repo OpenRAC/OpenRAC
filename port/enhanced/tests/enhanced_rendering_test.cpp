@@ -25,6 +25,7 @@
 #include "scene/level_renderer.h"
 #include "scene_shaders.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 using namespace openrac;
@@ -87,7 +88,7 @@ colour=vec4(float(b&255u),float((b>>8)&255u),float((b>>16)&255u),float(b>>24))/2
         std::array<float, 2> heights{};
         for (int raw = 0; raw < 2; ++raw) {
             glUniform1i(read.uniform("raw_pose"), raw);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             const auto bytes = target.read_rgba();
             const auto bits = std::uint32_t(bytes[0]) | (std::uint32_t(bytes[1]) << 8)
                               | (std::uint32_t(bytes[2]) << 16) | (std::uint32_t(bytes[3]) << 24);
@@ -414,7 +415,7 @@ void main(){
                 gl::glDisable(gl::GL_SCISSOR_TEST);
                 gl::glColorMask(gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE);
                 gl::glBindVertexArray(read_vao);
-                gl::glDrawArrays(gl::GL_TRIANGLES, 0, 3);
+                openrac::test::graph_draw(gl::glDrawArrays, gl::GL_TRIANGLES, 0, 3);
                 return depth_pixels.read_rgba();
             };
             // Two renders per simulation frame: first verify the existing terrain path,

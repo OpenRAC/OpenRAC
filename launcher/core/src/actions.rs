@@ -644,13 +644,10 @@ impl Action {
         if self.kind == Kind::Play && ctx.config.detailed_game_log {
             env.push(("OPENRAC_LOG".to_string(), "verbose".to_string()));
         }
-        // Settings, "Renderer" (Windows, Linux and macOS): the port's Vulkan renderer (on macOS
-        // on the MoltenVK the game's bundle carries), or on macOS its Metal renderer; either
-        // draws with OpenGL instead where it cannot start (port/platform/window.cpp). OpenGL sets
-        // nothing. Metal on another system plays with Vulkan (config::renderer_for). Android
-        // keeps its own choice (src-tauri/src/android.rs).
+        // Desktop renderer selection. On macOS the Vulkan option is shown as Metal and runs
+        // through the bundle's MoltenVK. Android keeps its own renderer selection.
         if self.kind == Kind::Play && matches!(ctx.platform, Platform::Windows | Platform::Linux | Platform::Macos) {
-            let renderer = crate::config::renderer_for(&ctx.config.renderer, ctx.platform);
+            let renderer = crate::config::renderer_for(&ctx.config.renderer);
             if renderer != "opengl" {
                 env.push(("OPENRAC_GL_API".to_string(), renderer.to_string()));
             }
@@ -669,7 +666,7 @@ impl Action {
                     {
                         for (key, value) in more_env {
                             if key == "OPENRAC_GL_API" {
-                                // Enhanced graphics is Vulkan only: it wins over Settings' Metal.
+                                // Enhanced graphics takes precedence over the renderer setting.
                                 env.retain(|(k, _)| *k != key);
                                 env.push((key, value));
                             } else if !env.iter().any(|(k, _)| *k == key) {
@@ -1235,11 +1232,9 @@ mod tests {
         let on_mac = Context { platform: Platform::Macos, ..ctx(&vulkan) };
         let plan = play.plan(&on_mac).unwrap();
         assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
-        // Metal on macOS only; elsewhere a Mac's "metal" plays with Vulkan.
+        // The legacy Metal value launches through Vulkan on macOS and other desktops.
         let metal = Config { renderer: "metal".into(), ..installed.clone() };
-        let plan = play.plan(&Context { platform: Platform::Macos, ..ctx(&metal) }).unwrap();
-        assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "metal".to_string())), "{:?}", plan.env);
-        for platform in [Platform::Windows, Platform::Linux] {
+        for platform in [Platform::Macos, Platform::Windows, Platform::Linux] {
             let plan = play.plan(&Context { platform, ..ctx(&metal) }).unwrap();
             assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
         }
@@ -1256,8 +1251,7 @@ mod tests {
         assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
         let probes = crate::enhanced::probes_dir(&data, "pal").display().to_string();
         assert!(plan.args.ends_with(&["--probes".to_string(), probes]), "{:?}", plan.args);
-        // Enhanced graphics is Vulkan only, so it wins over Settings' Metal on a Mac.
-        let plan = play.plan(&Context { platform: Platform::Macos, ..ctx(&metal) }).unwrap();
+        let plan = play.plan(&Context { platform: Platform::Macos, ..ctx(&opengl) }).unwrap();
         let apis: Vec<_> = plan.env.iter().filter(|(k, _)| k == "OPENRAC_GL_API").collect();
         assert_eq!(apis, [&("OPENRAC_GL_API".to_string(), "vulkan".to_string())], "{:?}", plan.env);
         std::fs::remove_file(&file).unwrap();

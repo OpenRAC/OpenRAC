@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
 /// `sdk/include/openrac/openrac_mod.h`. Change them with it.
 pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 25;
+pub const API_MINOR: u32 = 27;
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
@@ -162,6 +162,11 @@ pub struct SettingSpec {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[ts(as = "Option<Vec<String>>", optional)]
     pub games: Vec<String>,
+    /// The heading it is shown under, here and in the port's menu alike: a section's settings
+    /// together, the sections in the order each first appears. Empty: by its group.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[ts(as = "Option<String>", optional)]
+    pub section: String,
 }
 
 impl SettingSpec {
@@ -767,7 +772,7 @@ pub struct PluginView {
     pub native: bool,
     /// `native` (runs code on this computer), `script` (runs scripts, sandboxed), `tool` (a page
     /// of its own in the launcher, kept apart from it) or `data`.
-    #[ts(type = "\"native\" | \"script\" | \"tool\" | \"data\" | \"built-in\"")]
+    #[ts(type = "\"native\" | \"script\" | \"tool\" | \"data\" | \"built-in\" | \"always-on\"")]
     pub kind: String,
     /// The installed folder (developer tools show it).
     pub path: String,
@@ -882,6 +887,10 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
             missing: m.requires.iter().filter(|r| !mods.iter().any(|e| e.id == r.id)).map(|r| r.id.clone()).collect(),
             tool: m.tool.as_ref().map(|t| t.page.clone()),
         });
+    }
+    // The old keyboard-mouse mod is built into the port now, which does not load a copy of it.
+    if crate::keyboard_mouse::supported(game, version) {
+        out.retain(|v| v.id != crate::keyboard_mouse::ID);
     }
     Ok(out)
 }

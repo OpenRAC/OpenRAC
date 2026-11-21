@@ -534,6 +534,38 @@ async fn enhanced_set_enabled(
     enhanced_view(state, game, version).await
 }
 
+/// The Mods tab's built-in Keyboard and mouse entry for a version (core keyboard_mouse.rs), or None
+/// for a version that has none.
+#[tauri::command]
+async fn keyboard_mouse_view(game: String, version: String) -> Result<Option<PluginView>, String> {
+    use openrac_launcher_core::keyboard_mouse;
+    if !keyboard_mouse::supported(&game, &version) {
+        return Ok(None);
+    }
+    let home = openrac_launcher_core::saves::data_home();
+    tauri::async_runtime::spawn_blocking(move || Some(keyboard_mouse::view(&home, &game, &version)))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Sets one of Keyboard and mouse's settings for a version, in its settings file.
+#[tauri::command]
+async fn keyboard_mouse_set_setting(
+    game: String,
+    version: String,
+    key: String,
+    value: serde_json::Value,
+) -> Result<Option<PluginView>, String> {
+    let home = openrac_launcher_core::saves::data_home();
+    let (g, v) = (game.clone(), version.clone());
+    tauri::async_runtime::spawn_blocking(move || {
+        openrac_launcher_core::keyboard_mouse::set_setting(&home, &g, &v, &key, &value)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    keyboard_mouse_view(game, version).await
+}
+
 // ---- Texture packs (core/src/texture_packs.rs) ----
 
 /// The game's folder in the install folder (`{data}`), where its texture pack lives.
@@ -3193,6 +3225,8 @@ pub fn run() {
             mod_tool::mod_tool_save_end,
             mod_tool::mod_tool_open,
             enhanced_set_setting,
+            keyboard_mouse_view,
+            keyboard_mouse_set_setting,
             enhanced_delete_bakes,
             plugins_set_enabled,
             plugins_move,
@@ -3378,6 +3412,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let discord = start_discord(&config);
     start_log(app, config_file.as_deref());
     migrate_install_saves(&config);
+    tidy_set_ups(&config);
     let modset_link = Arc::new(Mutex::new(None));
     listen_for_links(app, &modset_link);
     app.manage(AppState {
@@ -3594,6 +3629,23 @@ fn migrate_install_saves(config: &Config) {
         Ok(copied) => launcher_log::line(&format!("saves: {copied} files from {} are in migrated/", install.display())),
         Err(e) => launcher_log::line(&format!("saves: not migrated: {e}")),
     }
+}
+
+/// Frees what older set-ups hold and nothing reads (core install.rs tidy): the disc's files beside
+/// the image and, on Android, a second copy of the image. In the background: deleting gigabytes on
+/// a phone can take a moment.
+fn tidy_set_ups(config: &Config) {
+    let Some(install) = config.install_dir.clone() else { return };
+    let discs = config.discs_dir.clone().filter(|_| Platform::current() == Platform::Android);
+    std::thread::spawn(move || {
+        let done = openrac_launcher_core::install::tidy(&install, discs.as_deref());
+        for line in &done.lines {
+            launcher_log::line(&format!("set-up: {line}"));
+        }
+        if done.bytes > 0 {
+            launcher_log::line(&format!("set-up: {} MB freed", done.bytes >> 20));
+        }
+    });
 }
 
 /// The launcher's own log, beside launcher.json (core launcher_log.rs), opened with the version and

@@ -116,6 +116,7 @@ describe("modKind", () => {
   it("marks native code and says scripts run sandboxed", () => {
     expect(modKind("native")).toEqual({ text: "Runs code", tone: "warn" });
     expect(modKind("built-in")).toEqual({ text: "Experimental", tone: "warn" });
+    expect(modKind("always-on")).toEqual({ text: "Part of the game", tone: "ok" });
     expect(modKind("script")).toEqual({ text: "Sandboxed script", tone: "ok" });
     expect(modKind("pack").tone).toBe("off");
     expect(modKind("data").text).toBe("Textures and models");
@@ -141,6 +142,19 @@ describe("settingGroups", () => {
     expect(groups.map((g) => g.title)).toEqual(["General", "Play controls", "Menu controls"]);
     expect(groups[0]?.settings.map((s) => s.key)).toEqual(["sens", "tilt"]);
     expect(groups[1]?.settings.map((s) => s.key)).toEqual(["jump", "fire"]);
+  });
+
+  it("puts the settings under their manifest sections, in the order each first appears", () => {
+    const groups = settingGroups([
+      setting({ key: "sens", type: "float", section: "Mouse" }),
+      setting({ key: "jump", type: "keybind", group: "play", section: "Movement" }),
+      setting({ key: "tilt", type: "choice", section: "Mouse" }),
+      setting({ key: "back", type: "keybind", group: "menu", section: "Menus" }),
+    ]);
+
+    expect(groups.map((g) => g.title)).toEqual(["Mouse", "Movement", "Menus"]);
+    expect(groups.map((g) => g.id)).toEqual(["s-Mouse", "s-Movement", "s-Menus"]);
+    expect(groups[0]?.settings.map((s) => s.key)).toEqual(["sens", "tilt"]);
   });
 
   it("calls a mod's only section Settings, and a mixed group by its name", () => {

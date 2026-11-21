@@ -2,9 +2,11 @@
 
 What presses the game's pad: the files that say it, how they layer, the
 names in them, which controller each player is, and the menu's Controls tab
-that changes them. Keyboard and mouse remapping are not done yet: the
-keyboard keeps the button bindings of `bind_*` (keys named in them) and the
-port's own stick keys, and the mouse is a mod's (the `keyboard-mouse` mod).
+that changes them. In Ratchet & Clank the keyboard and mouse are the
+built-in Keyboard and mouse's ([KEYBOARD_MOUSE.md](KEYBOARD_MOUSE.md)), with
+binds of their own on the launcher's Mods tab; elsewhere the keyboard keeps
+the button bindings of `bind_*` (keys named in them) and the port's own
+stick keys.
 
 Code: [platform/bindings.h](../../port/platform/bindings.h) (the names, the
 table the pad is pressed from, the tuning, what is held back when it

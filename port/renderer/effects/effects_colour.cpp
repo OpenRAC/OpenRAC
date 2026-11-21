@@ -50,9 +50,9 @@ void EffectRenderer::record_colour(
             m_material->prepare_scene(input, state.target, state.pre_particle_colour_texture);
         }
 
-        // Unknown material callbacks retain their original immediate recording contract.
+        // Local passes retain the order of callbacks that prepare their own material state.
         if (!shared) {
-            draw_prepared(input, state, *prepared);
+            draw_prepared(input, state, *prepared, false);
             return;
         }
 
@@ -70,7 +70,7 @@ void EffectRenderer::record_colour(
         const auto drawn = colour_pass(
             name() + " colour",
             state.target,
-            [this, &input, &state, prepared] { draw_prepared(input, state, *prepared); },
+            [this, &input, &state, prepared] { draw_prepared(input, state, *prepared, true); },
             ColourAttachments::ColourDepth,
             {{}, reads, ColourRecording::Ordered}
         );

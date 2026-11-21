@@ -1215,10 +1215,21 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "world"}}]})");
     mods::Host h = host(plugins);
-    // Slot 1's record carries spawn id 1006 (moby_uid, SDK 1.15.1).
     static openrac_game_play play = kPlay;
+    // Slot 1's record carries spawn id 1006 (moby_uid).
     play.moby_uid = [](std::int32_t slot) {
         return slot == 1 ? 1006 : -1;
+    };
+    // Copies of the level's enemies (1.25): slot 1 may be copied, the others are listed; a copy of
+    // slot 1 goes to slot 6.
+    play.moby_copy_check = [](gaddr moby) {
+        return slot_at(moby) == 1 ? OPENRAC_COPY_OK : OPENRAC_COPY_LISTED;
+    };
+    play.moby_copy = [](gaddr moby, int index) -> std::int32_t {
+        g_played.push_back(
+            "moby_copy " + std::to_string(slot_at(moby)) + " " + std::to_string(index)
+        );
+        return 6;
     };
     h.play = &play;
     h.cards = dir / "cards";
@@ -1264,6 +1275,11 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              8143,
              8163,
              8172,
+             // Copies: slot 1 allowed, slot 0 listed; slot 1's copy in slot 6, none of dead slot 7.
+             8150,
+             8159,
+             8256,
+             8259,
              // The hero's slot; no figure 0; eyes (the count clamped to 8 in the game); bolts +5.
              8189,
              8190,
@@ -1307,6 +1323,7 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              "moby_kill 2",
              "moby_spawn 77",
              "moby_pose 3 4 2",
+             "moby_copy 1 2",
              "eyes 2",
              "eyes 8",
              "eyes 0",
@@ -1708,6 +1725,7 @@ void views_reach_the_host(const fs::path& plugins) {
     // A frame as the frontend draws it: begin, then end once it is submitted, then the closing.
     openrac_view views[OPENRAC_VIEW_MAX] = {};
     CHECK(g_views->begin(g_views->user, views, OPENRAC_VIEW_MAX) == 1);
+    CHECK(mods::vulkan_needs_game_thread());
     CHECK(views[0].width == 64 && views[0].height == 48 && views[0].kind == OPENRAC_VIEW_FULL);
     g_views->end(g_views->user, views, 1);
     g_views->closing(g_views->user);
@@ -1716,11 +1734,11 @@ void views_reach_the_host(const fs::path& plugins) {
     CHECK(g_views == nullptr && g_vulkan == nullptr);
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
-    CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
+    CHECK(!mods::vulkan_startup(plugins / "plugins.json", false).creates_device);
     install(plugins, "a", OPENRAC_TEST_MOD_A, "1.19", R"( "vulkan_device": true,)");
-    CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
-    CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
-    CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
+    CHECK(mods::vulkan_startup(plugins / "plugins.json", false).creates_device);
+    CHECK(!mods::vulkan_startup(plugins / "plugins.json", true).creates_device);
+    CHECK(!mods::vulkan_startup(plugins / "nowhere.json", false).creates_device);
     install(plugins, "a", OPENRAC_TEST_MOD_A);
 }
 
@@ -1747,7 +1765,10 @@ void native_vulkan_access_requires_a_declaration(const fs::path& plugins) {
             std::format("{}.{}", OPENRAC_MOD_API_MAJOR, OPENRAC_MOD_API_MINOR),
             declared ? R"("vulkan_queue": true,)" : ""
         );
-        CHECK(!mods::makes_vulkan_device(list, false));
+        const auto startup = mods::vulkan_startup(list, false);
+        CHECK(!startup.creates_device);
+        CHECK(startup.uses_queue == declared);
+        CHECK(!mods::vulkan_startup(list, true).uses_queue);
         g_records.clear();
         CHECK(mods::load(h) == "test-current 1.0.0");
         CHECK(mods::vulkan_needs_game_thread() == declared);

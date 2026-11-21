@@ -1,6 +1,7 @@
 # The shared host C's function names (v1.01's) and this release's. Written by
 # port/tools/hostgen/release_carry.py (release_carry.json says how each was paired); do not edit.
 func_0026F7A0	func_0026F7A8
+func_002761F8	func_00276208
 func_0027B858	func_0027BEB8
 func_0027B858__game	func_0027BEB8__game
 func_0027C540	func_0027CBA0
@@ -94,13 +95,18 @@ func_0029D4D0	func_0029E308
 func_0029EFD0	func_0029FE08
 func_0029F338	func_002A0170
 func_0029FEE0	func_002A0D18
+func_002A0F48	func_002A1D80
 func_002A1738	func_002A2570
 func_002A4078	func_002A4EC8
 func_002A4AD8	func_002A5928
 func_002A4D88	func_002A5BD8
 func_002A4E68	func_002A5CB8
+func_002A6C58	func_002A7AA8
+func_002A6C58__hooked	func_002A7AA8__hooked
 func_002A7398	func_002A8200
 func_002A7470	func_002A82D8
+func_002A89A8	func_002A9810
+func_002A8E20	func_002A9C88
 func_002B6480	func_002B73A0
 func_002B9420	func_002BA340
 func_002D5748	func_002D63B0
@@ -152,6 +158,7 @@ func_003136D0__hooked	func_003144C8__hooked
 func_00335E20	func_00336C28
 func_00335E38	func_00336C40
 func_00336320	func_00337128
+func_00336320__game	func_00337128__game
 func_00336828	func_00337630
 func_00336920	func_00337728
 func_00336A40	func_00337868
@@ -185,6 +192,8 @@ func_0034EF58	func_0034FCA0
 func_L00_002EE058	func_L00_002EEDC0
 func_L00_002EE078	func_L00_002EEDE0
 func_L00_002EE0C0	func_L00_002EEE28
+func_L00_00300618	func_L00_003012A0
+func_L00_00300618__game	func_L00_003012A0__game
 func_L00_00424F98	func_L00_004264A8
 func_L00_00424F98__game	func_L00_004264A8__game
 func_L01_003042AC	func_L01_0030549C

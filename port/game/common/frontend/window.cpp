@@ -37,11 +37,16 @@ bool windowed() {
 #endif
 }
 
-// Whether the window's renderer has HDR output: Vulkan, and Metal (macOS's EDR).
+// Whether the window's renderer supports HDR output.
 bool renderer_has_hdr() {
-    const platform::GlApi api = g->window->gl_api();
-    return api == platform::GlApi::Vulkan || api == platform::GlApi::Metal;
+    return g->window->gl_api() == platform::GlApi::Vulkan;
 }
+
+#if defined(__APPLE__)
+constexpr const char* kHdrRenderer = "Metal";
+#else
+constexpr const char* kHdrRenderer = "Vulkan";
+#endif
 
 // The window's own events, which the game never sees: the window moved to another display or its
 // display changed mode (the refresh rate is read again), it was sized (the size is kept for the
@@ -117,7 +122,7 @@ void apply_settings() {
     }
     if (wanted_swap() != g->swap_asked) {
         g->swap_asked = wanted_swap();
-        g->swap = g->window->set_swap_interval(g->swap_asked);
+        run_graphics([] { g->swap = g->window->set_swap_interval(g->swap_asked); });
         pacing.last_swap = {};
     }
     g->window->set_low_latency(s.low_latency_frames);
@@ -142,7 +147,7 @@ void apply_hdr() {
     static bool said = false;
     if (s.hdr != hdr::Mode::Off && !said) {
         if (!renderer_has_hdr()) {
-            log::info("HDR output needs Vulkan, or Metal on macOS; the picture stays SDR");
+            log::info("HDR output needs {}; the picture stays SDR", kHdrRenderer);
             said = true;
         } else if (!g->hdr_at_start) {
             log::info("HDR output was off at start; it takes effect at the next start");
@@ -177,7 +182,7 @@ std::string hdr_status() {
                                                  : std::format("Sending {}", hdr::name(shown));
     if (settings::get().hdr != hdr::Mode::Off) {
         if (!renderer_has_hdr()) {
-            sent += " (HDR needs Vulkan, or Metal on macOS)";
+            sent += std::format(" (HDR needs {})", kHdrRenderer);
         } else if (!g->hdr_at_start) {
             sent += " (HDR from the next start)";
         } else if (shown == hdr::Output::Sdr && !g->window->hdr_offered()) {

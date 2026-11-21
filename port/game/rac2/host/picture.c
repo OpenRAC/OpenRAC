@@ -30,6 +30,7 @@
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "rac2.h"
+#include "ui_quads.h"
 
 enum {
     PICTURE_WIDTH = 512,
@@ -297,6 +298,7 @@ void func_0027B858__game(void);
 
 /* The frame's set-up; then the picture the frame buffer holds, if one was just written. */
 void func_0027B858(void) {
+    openrac_rac2_ui_quads_frame();
     func_0027B858__game();
     if (picture_in_frame) {
         picture_in_frame = 0;

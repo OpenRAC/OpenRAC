@@ -14,6 +14,7 @@
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -74,7 +75,7 @@ struct CommandReadback {
         glBindTexture(wgl::GL_TEXTURE_BUFFER, texture);
         glTexBuffer(wgl::GL_TEXTURE_BUFFER, wgl::GL_R32UI, arguments);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return frame.read_rgba()[0];
     }
 };

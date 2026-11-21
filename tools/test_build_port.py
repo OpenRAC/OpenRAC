@@ -313,6 +313,13 @@ class Commands(unittest.TestCase):
             self.assertFalse([key for key in options if key.startswith("EMBREE_ISA_")], machine)
             self.assertEqual(options["EMBREE_STATIC_LIB"], "ON")
 
+    def test_embree_uses_the_dll_runtime_on_windows_only(self):
+        # The baker links the DLL runtime (/MD): a static Embree (/MT) does not link with it.
+        options = build_port.embree_options("AMD64", windows=True)
+        self.assertEqual(options["CMAKE_MSVC_RUNTIME_LIBRARY"], "MultiThreadedDLL")
+        self.assertEqual(options["CMAKE_POLICY_DEFAULT_CMP0091"], "NEW")
+        self.assertNotIn("CMAKE_MSVC_RUNTIME_LIBRARY", build_port.embree_options("x86_64", windows=False))
+
     def test_embree_is_compiled_with_the_builds_cxxflags(self):
         # The launcher's Linux builds put -stdlib=libc++ in CXXFLAGS; Embree must not drop it, and
         # an Embree built with other flags is built again.

@@ -316,7 +316,7 @@ public:
 
     // Borrows immutable declarations while a scoped executor composes fixed-order subgraphs.
     [[nodiscard]] std::span<const Resource> resources() const {
-        return std::span(m_resources).first(m_resource_count);
+        return std::span(m_resources).first(m_resource_lookup.size());
     }
 
     [[nodiscard]] std::span<const Pass> passes() const { return m_passes; }
@@ -333,9 +333,18 @@ public:
     [[nodiscard]] Result<void> compile_into(Plan& plan, DeclarationRetention retention) const;
 
 private:
+    template <typename Handle, typename Description>
+    Result<Handle> import_resource(std::string_view name, const Description& description);
+
+    struct ResourceIndex {
+        ResourceKey key;
+        unsigned index;
+    };
+
     std::vector<Resource> m_resources;  // Canonical image and buffer declarations.
-    std::size_t m_resource_count = 0;
-    std::vector<Pass> m_passes;         // Ordered work and export declarations.
+    // Keep alias lookup separate from the declaration and handle order.
+    std::vector<ResourceIndex> m_resource_lookup;
+    std::vector<Pass> m_passes;  // Ordered work and export declarations.
     std::vector<Pass> m_spare_passes;
     std::uint64_t m_owner = 0;  // Assigned on the first import and reset when the graph is cleared.
 };

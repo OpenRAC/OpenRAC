@@ -229,15 +229,10 @@ bool guess_tile_based(std::uint32_t vendor) {
 namespace {
 
 // Startup reports recording/allocation failures through open()'s existing error return.
-bool begin_initial_frame(const Config& config, std::string& error) {
+bool begin_initial_frame(int width, int height, std::string& error) {
     try {
-        int width = config.width;
-        int height = config.height;
-
-        // A window's actual pixel dimensions can differ from its requested dimensions.
-        if (config.window != nullptr) {
-            SDL_GetWindowSizeInPixels(config.window, &width, &height);
-        }
+        g->drawable_width = width;
+        g->drawable_height = height;
 
         tracy_gpu_open();
         begin_buffers();
@@ -285,17 +280,28 @@ bool open(const Config& config, std::string& error) {
     if (ok && config.window != nullptr) {
         ok = make_surface(config.window, error);
     }
-    crash::breadcrumb("Vulkan device and frame slots");
-    ok = ok && pick_device(error) && make_device(error) && make_frames();
-    if (ok) {
-        ok = begin_initial_frame(config, error);
+    int width = config.width, height = config.height;
+    if (ok && config.window != nullptr) {
+        SDL_GetWindowSizeInPixels(config.window, &width, &height);
     }
-    if (ok && config.window != nullptr && !make_swapchain()) {
-        // Minimised at the start: the swapchain comes with the first frame shown.
-        g->swapchain_stale = true;
+    const auto create_device_and_frames = [&] {
+        crash::breadcrumb("Vulkan device and frame slots");
+        ok = ok && pick_device(error) && make_device(error) && make_frames()
+             && begin_initial_frame(width, height, error);
+        if (ok && config.window != nullptr && !make_swapchain()) {
+            // Minimised at the start: the swapchain comes with the first frame shown.
+            g->swapchain_stale = true;
+        }
+        if (!ok) {
+            destroy_all();
+        }
+    };
+    if (ok && config.device_work != nullptr) {
+        config.device_work(create_device_and_frames);
+    } else {
+        create_device_and_frames();
     }
     if (!ok) {
-        destroy_all();
         delete g;
         g = nullptr;
         return false;
@@ -596,19 +602,22 @@ SubmissionCounters submission_counters() {
 }
 
 void present() {
+    int width = 0, height = 0;
+    if (active() && g->window != nullptr) {
+        SDL_GetWindowSizeInPixels(g->window, &width, &height);
+    }
+    present(width, height);
+}
+
+void present(int width, int height) {
     if (!active()) {
         return;
     }
     const Clock::time_point start = Clock::now();
+    g->drawable_width = width;
+    g->drawable_height = height;
     queue_after_previous();
-    bool shown = false;
-    if (g->window != nullptr) {
-        int w = 0, h = 0;
-        SDL_GetWindowSizeInPixels(g->window, &w, &h);
-        if (w > 0 && h > 0) {
-            shown = present_to_screen();
-        }
-    }
+    const bool shown = g->window != nullptr && width > 0 && height > 0 && present_to_screen();
     if (!shown) {
         submit(VK_NULL_HANDLE, VK_NULL_HANDLE, false);
     }
@@ -620,16 +629,15 @@ void present() {
     // A window of another size: the default framebuffer follows, as a GL window's does; and
     // in half floats from when HDR is shown, in 8 bits from when it no longer is.
     if (g->window != nullptr) {
-        int w = 0, h = 0;
-        SDL_GetWindowSizeInPixels(g->window, &w, &h);
         const bool want_float = g->hdr.shown != hdr::Output::Sdr;
         const bool is_float =
             g->default_colour && g->default_colour->format == VK_FORMAT_R16G16B16A16_SFLOAT;
-        if (w > 0 && h > 0
-            && (w != g->default_width || h != g->default_height || want_float != is_float)) {
+        if (width > 0 && height > 0
+            && (width != g->default_width || height != g->default_height
+                || want_float != is_float)) {
             retire(std::move(g->default_colour));
             retire(std::move(g->default_depth));
-            make_default_framebuffer(w, h);
+            make_default_framebuffer(width, height);
             g->swapchain_stale = true;
         }
     }

@@ -25,6 +25,7 @@
 #include "renderer/vulkan/vkgl.h"
 #endif
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 using namespace openrac;
 using namespace openrac::gl;
@@ -300,7 +301,7 @@ result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;})";
             glUniform1i(compute.uniform("reset_waves"), 0);
             glUniform4f(compute.uniform("hero"), 2.75f, 2.75f, 0, step == 0 ? .3f : 0.f);
             glUniform3f(compute.uniform("previous_hero"), 2.25f, 2.75f, 0);
-            glDispatchCompute((count + 63) / 64, 1, 1);
+            openrac::test::graph_dispatch(glDispatchCompute, (count + 63) / 64, 1, 1);
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
             current = 1 - current;
         }
@@ -324,7 +325,7 @@ result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;})";
         mass = 0;
         for (int channel = 0; channel < 3; ++channel) {
             glUniform1i(read.uniform("channel"), channel);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
             for (unsigned i = 0; i < count; ++i) {
                 unsigned at = i * 4;
@@ -411,7 +412,7 @@ result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;})";
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffers[3]);
         glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(authored_body), authored_body.data());
         glUniform1i(displaced.uniform("water_surface"), mode);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
         const std::uint32_t bits = std::uint32_t(pixels[0]) | (std::uint32_t(pixels[1]) << 8)
                                    | (std::uint32_t(pixels[2]) << 16)
@@ -430,7 +431,7 @@ result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;})";
     );
     glUniform1i(displaced.uniform("water_surface"), 1);
     glUniform1f(displaced.uniform("water_time"), .43f);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     {
         const auto bits = std::uint32_t(pixels[0]) | (std::uint32_t(pixels[1]) << 8)
@@ -531,7 +532,7 @@ void main(){
         );
         for (int channel = 0; channel < 8; ++channel) {
             glUniform1i(floating.uniform("attachment_check"), channel);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
             const auto bits = std::uint32_t(pixels[0]) | (std::uint32_t(pixels[1]) << 8)
                               | (std::uint32_t(pixels[2]) << 16) | (std::uint32_t(pixels[3]) << 24);
@@ -606,14 +607,14 @@ void main() {
             glUniform2f(momentum.uniform("response"), alpha, alpha);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, state[2]);
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, state[1]);
-            glDispatchCompute(1, 1, 1);
+            openrac::test::graph_dispatch(glDispatchCompute, 1, 1, 1);
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
             pose_read.use();
             glUniform1i(pose_read.uniform("pose_values"), 23);
             Cell result{};
             for (int c = 0; c < 4; ++c) {
                 glUniform1i(pose_read.uniform("component"), c);
-                glDrawArrays(GL_TRIANGLES, 0, 3);
+                openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                 glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
                 const auto bits = std::uint32_t(pixels[0]) | (std::uint32_t(pixels[1]) << 8)
                                   | (std::uint32_t(pixels[2]) << 16)
@@ -643,14 +644,14 @@ void main() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[current]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1 - current]);
     glUniform1i(compute.uniform("reset_waves"), 1);
-    glDispatchCompute((count + 63) / 64, 1, 1);
+    openrac::test::graph_dispatch(glDispatchCompute, (count + 63) / 64, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     read.use();
     glUniform1i(read.uniform("channel"), 0);
 #ifdef OPENRAC_VULKAN
     CHECK(vkgl::copy_buffer_to_texture(image_buffer, texture, width, width));
 #endif
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     for (auto byte : pixels) {
         CHECK(byte == 0);
@@ -662,7 +663,7 @@ void main() {
         glUniform4f(compute.uniform("hero"), 0, 0, 1000, 0);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[current]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1 - current]);
-        glDispatchCompute((count + 63) / 64, 1, 1);
+        openrac::test::graph_dispatch(glDispatchCompute, (count + 63) / 64, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
         current = 1 - current;
     }
@@ -670,7 +671,7 @@ void main() {
 #ifdef OPENRAC_VULKAN
     CHECK(vkgl::copy_buffer_to_texture(image_buffer, texture, width, width));
 #endif
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     for (auto byte : pixels) {
         CHECK(byte == 0);
@@ -692,7 +693,7 @@ void main() {
         glUniform1i(compute.uniform("reset_waves"), step == 0 ? 1 : 0);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[current]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1 - current]);
-        glDispatchCompute((count + 63) / 64, 1, 1);
+        openrac::test::graph_dispatch(glDispatchCompute, (count + 63) / 64, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
         current = 1 - current;
     }
@@ -700,7 +701,7 @@ void main() {
 #ifdef OPENRAC_VULKAN
     CHECK(vkgl::copy_buffer_to_texture(image_buffer, texture, width, width));
 #endif
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     for (auto byte : pixels) {
         CHECK(byte == 0);
@@ -732,7 +733,7 @@ void main() {
         glUniform1i(compute.uniform("reset_waves"), 0);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[current]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1 - current]);
-        glDispatchCompute((count + 63) / 64, 1, 1);
+        openrac::test::graph_dispatch(glDispatchCompute, (count + 63) / 64, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
         current = 1 - current;
     }
@@ -740,7 +741,7 @@ void main() {
 #ifdef OPENRAC_VULKAN
     CHECK(vkgl::copy_buffer_to_texture(image_buffer, texture, width, width));
 #endif
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     double remaining_mass = 0;
     for (unsigned i = 0; i < count; ++i) {
@@ -772,7 +773,7 @@ void main() {
         glUniform1i(compute.uniform("hand_count"), 0);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[current]);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1 - current]);
-        glDispatchCompute((count + 63) / 64, 1, 1);
+        openrac::test::graph_dispatch(glDispatchCompute, (count + 63) / 64, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
         current = 1 - current;
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[current]);
@@ -798,7 +799,7 @@ void main() {
             scenario == 4 ? -.2f : z,
             1.f
         );
-        glDispatchCompute((count + 63) / 64, 1, 1);
+        openrac::test::graph_dispatch(glDispatchCompute, (count + 63) / 64, 1, 1);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
         current = 1 - current;
 #ifdef OPENRAC_VULKAN
@@ -808,7 +809,7 @@ void main() {
         double sum_x = 0, max_speed = 0;
         for (int channel = 0; channel < 3; ++channel) {
             glUniform1i(read.uniform("channel"), channel);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
             for (unsigned cell = 0; cell < count; ++cell) {
                 const unsigned at = cell * 4;
@@ -868,7 +869,7 @@ void main() {
     glUniform4f(compute.uniform("hero"), 0, 0, 1000, 0);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[current]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1 - current]);
-    glDispatchCompute((count + 63) / 64, 1, 1);
+    openrac::test::graph_dispatch(glDispatchCompute, (count + 63) / 64, 1, 1);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     current = 1 - current;
 #ifdef OPENRAC_VULKAN
@@ -876,7 +877,7 @@ void main() {
 #endif
     read.use();
     glUniform1i(read.uniform("channel"), 3);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     for (unsigned y = 3; y < 8; ++y) {
         for (unsigned x = 3; x < 8; ++x) {
@@ -955,7 +956,7 @@ void main() {
             for (unsigned step = 0; step < 120; ++step) {
                 glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, buffers[current]);
                 glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, buffers[1 - current]);
-                glDispatchCompute((count + 63) / 64, 1, 1);
+                openrac::test::graph_dispatch(glDispatchCompute, (count + 63) / 64, 1, 1);
                 glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
                 current = 1 - current;
             }
@@ -966,7 +967,7 @@ void main() {
             read.use();
             for (int c = 0; c < 3; ++c) {
                 glUniform1i(read.uniform("channel"), c);
-                glDrawArrays(GL_TRIANGLES, 0, 3);
+                openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                 glReadPixels(0, 0, width, width, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
                 for (unsigned i = 0; i < count; ++i) {
                     unsigned at = i * 4;

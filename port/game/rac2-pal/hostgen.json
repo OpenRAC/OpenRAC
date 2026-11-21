@@ -340,6 +340,16 @@
       "F500f9762_FUN_00283CE0": "func_002845A0",
       "F500f9762_FUN_00283CF0": "func_002845B0",
       "F500f9762_FUN_002A04B8": "func_002A0E78"
+    },
+    "src/pal/levels/shared/L01_003E4058-sw-g8.c": {
+      "ref_L00_003DD6A8_00": "func_L00_00327350",
+      "ref_L00_003DD6A8_12": "func_L00_003BBCE0",
+      "ref_L00_003DD6A8_25": "func_L00_003E3248"
+    },
+    "src/pal/levels/shared/L00_003E1874-sw-g8.c": {
+      "ref_L00_003DD6A8_00": "func_L00_00327350",
+      "ref_L00_003DD6A8_12": "func_L00_003BBCE0",
+      "ref_L00_003DD6A8_25": "func_L00_003E3248"
     }
   },
   "small_copies_own_data": 32,

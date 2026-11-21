@@ -72,6 +72,7 @@ fn spec(key: &str, name: &str, kind: &str, default: Value, description: &str) ->
         group: String::new(),
         multiplayer: None,
         games: Vec::new(),
+        section: String::new(),
     }
 }
 

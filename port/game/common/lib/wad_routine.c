@@ -3,7 +3,8 @@
  *
  * A game's WAD decompressor routine (wad_routine.h): the checks the retail
  * routine makes on its two game addresses and the header, then the shared
- * asset decoder (wad.cpp) on the stream where it lies in game memory. */
+ * decoder in the routine's own way (wad_decompress_as_game) on the stream
+ * where it lies in game memory. */
 #include "game/common/lib/wad_routine.h"
 
 #include <stdint.h>
@@ -25,10 +26,17 @@ static const char kMagic[] = "WAD";
 static const size_t kSizeOffset = 3;
 static const uint32_t kHeaderBytes = 16u;
 
-/* Decodes the WAD stream at `source` into at most `capacity` bytes at
- * `destination` and returns how many it wrote; 0 for a malformed stream or
- * one whose output does not fit (wad.cpp). */
-uint32_t openrac_lib_wad_decompress(const uint8_t* source, uint8_t* destination, uint32_t capacity);
+/* Decodes the WAD stream at `source` as the game's routine does (wad.cpp): `readable` bytes may be
+ * read from it, `before` lie before `destination` and `capacity` after it. Sets *made to the
+ * routine's result and returns 1; 0 when the routine traps or the output does not fit. */
+int openrac_lib_wad_decompress_as_game(
+    const uint8_t* source,
+    uint32_t readable,
+    uint8_t* destination,
+    uint32_t before,
+    uint32_t capacity,
+    uint32_t* made
+);
 
 /* Ends the program with the crash message "<game> WAD <problem>". */
 static _Noreturn void crash(const char* game, const char* problem) {
@@ -58,10 +66,15 @@ int openrac_wad_routine(int source, int destination, const char* game) {
         crash(game, "header or compressed size is invalid");
     }
 
-    const uint32_t made = openrac_lib_wad_decompress(data, G(to), openrac_guest_ram_size - to);
+    /* The routine checks the compressed size only between packets, so a stream whose header and
+     * packets disagree (the map's cache can make one) is read on past it, as on the console. */
+    uint32_t made = 0;
+    const int decoded = openrac_lib_wad_decompress_as_game(
+        data, openrac_guest_ram_size - from, G(to), to, openrac_guest_ram_size - to, &made
+    );
 
-    /* The stream's packets did not decode, or would not fit in RAM after `to`. */
-    if (made == 0) {
+    /* The routine traps on the stream's packets, or they would not fit in RAM after `to`. */
+    if (!decoded) {
         crash(game, "decompression failed");
     }
 

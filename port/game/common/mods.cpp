@@ -53,8 +53,9 @@ using namespace openrac;
 struct openrac_mod {
     std::string id;
     std::string version;
-    std::string file;  // the library's file name (a script mod's: its first script)
-    bool script = false;  // a script mod (mod_scripts.h): no library
+    std::string file;       // the library's file name (a script mod's: its first script)
+    bool script = false;    // a script mod (mod_scripts.h): no library
+    bool built_in = false;  // built into the program (BuiltIn): its settings are the program's
     void* library = nullptr;
     const void* base = nullptr;
     mods::Manifest manifest;
@@ -1630,6 +1631,12 @@ int set_setting(
         return OPENRAC_HOOK_UNKNOWN;
     }
     mod->settings[key] = value;
+    if (mod->built_in) {
+        if (g_host != nullptr && g_host->built_in_write != nullptr) {
+            g_host->built_in_write(mod->id, key, setting_text(value));
+        }
+        return OPENRAC_HOOK_OK;
+    }
     std::string why;
     if (!write_setting(*mod, key, literal, why) && !g_list_unwritten_said) {
         log::warn("mod {}: setting \"{}\" kept for this run only: {}", mod->id, key, why);
@@ -1684,14 +1691,65 @@ bool same(const SettingValue& x, const SettingValue& y) {
     return x.type == y.type && x.b == y.b && x.i == y.i && x.f == y.f && x.s == y.s;
 }
 
+// Gives `mod` the settings `now` and tells it, when they differ from its own.
+void take_settings(openrac_mod* mod, std::map<std::string, SettingValue> now, const char* where) {
+    const bool changed =
+        now.size() != mod->settings.size()
+        || !std::equal(
+            now.begin(), now.end(), mod->settings.begin(), [](const auto& x, const auto& y) {
+                return x.first == y.first && same(x.second, y.second);
+            }
+        );
+    if (!changed) {
+        return;
+    }
+    mod->settings = std::move(now);
+    log::info("mod {}: its settings changed in {}", mod->id, where);
+    for (const SettingsCallback& c : g_settings_callbacks) {
+        if (c.mod == mod) {
+            c.fn(c.user);
+        }
+    }
+}
+
+std::map<std::string, json::Value> built_in_values(
+    const Manifest& manifest, const std::map<std::string, std::string>& text
+);
+
+// The built-ins' settings again when the launcher changed them while the game runs.
+void follow_built_ins() {
+    std::map<std::string, std::map<std::string, std::string>> text;
+    if (g_host->built_in_reread == nullptr || !g_host->built_in_reread(text)) {
+        return;
+    }
+    for (const auto& loaded : g_loaded) {
+        openrac_mod* mod = loaded.get();
+        const auto it = text.find(mod->id);
+        if (!mod->built_in || it == text.end()) {
+            continue;
+        }
+        std::vector<std::string> notes;
+        take_settings(
+            mod,
+            resolve_settings(
+                mod->manifest, built_in_values(mod->manifest, it->second), notes, g_host->game
+            ),
+            "the settings file"
+        );
+    }
+}
+
 // About once a second while a mod asked to be told: the list read again when it changed, and each
 // such mod whose settings it now gives other values told, after they are its.
 void follow_list() {
-    if (g_settings_callbacks.empty() || g_host == nullptr || g_host->purist || g_host->list.empty()
-        || --g_list_wait > 0) {
+    if (g_settings_callbacks.empty() || g_host == nullptr || --g_list_wait > 0) {
         return;
     }
     g_list_wait = kListTicks;
+    follow_built_ins();
+    if (g_host->purist || g_host->list.empty()) {
+        return;
+    }
     std::error_code e;
     const fs::file_time_type stamp = fs::last_write_time(g_host->list, e);
     if (e || (g_list_seen && *g_list_seen == stamp)) {
@@ -1718,24 +1776,11 @@ void follow_list() {
             continue;
         }
         std::vector<std::string> notes;
-        auto now = resolve_settings(mod->manifest, entry->settings, notes, g_host->game);
-        const bool changed =
-            now.size() != mod->settings.size()
-            || !std::equal(
-                now.begin(), now.end(), mod->settings.begin(), [](const auto& x, const auto& y) {
-                    return x.first == y.first && same(x.second, y.second);
-                }
-            );
-        if (!changed) {
-            continue;
-        }
-        mod->settings = std::move(now);
-        log::info("mod {}: its settings changed in the launcher's list", mod->id);
-        for (const SettingsCallback& c : g_settings_callbacks) {
-            if (c.mod == mod) {
-                c.fn(c.user);
-            }
-        }
+        take_settings(
+            mod,
+            resolve_settings(mod->manifest, entry->settings, notes, g_host->game),
+            "the launcher's list"
+        );
     }
 }
 
@@ -2362,34 +2407,228 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
     return true;
 }
 
+// A built-in's settings, as text (Host::built_in_settings), in the JSON a list entry would hold:
+// a switch's 1|0|true|false as true or false, a number as a number, the rest as strings. A value
+// that is not of its type is left out, and the setting is its default.
+std::map<std::string, json::Value> built_in_values(
+    const Manifest& manifest, const std::map<std::string, std::string>& text
+) {
+    std::map<std::string, json::Value> out;
+    for (const Setting& s : manifest.settings) {
+        const auto it = text.find(s.key);
+        if (it == text.end()) {
+            continue;
+        }
+        std::string literal;
+        switch (s.type) {
+            case SettingType::Bool:
+                literal = it->second == "1" || it->second == "true"    ? "true"
+                          : it->second == "0" || it->second == "false" ? "false"
+                                                                       : "";
+                break;
+            case SettingType::Int:
+            case SettingType::Float:
+                literal = it->second;
+                break;
+            default:
+                literal = mods::quoted(it->second);
+                break;
+        }
+        json::Value v;
+        std::string error;
+        if (!literal.empty() && json::parse(literal, v, error)) {
+            out[s.key] = std::move(v);
+        }
+    }
+    return out;
+}
+
+// Loads one mod built into the program (BuiltIn): true when it is for this game and disc and
+// loaded. `why` says why one for this disc did not load.
+bool load_built_in(const BuiltIn& b, std::unique_ptr<openrac_mod>& out, std::string& why) {
+    Manifest manifest;
+    std::string error;
+    if (!parse_manifest(b.manifest, manifest, error)) {
+        why = "its manifest: " + error;
+        return false;
+    }
+    const auto game = manifest.games.find(g_host->game);
+    if (game == manifest.games.end()
+        || std::find(game->second.begin(), game->second.end(), g_host->version)
+               == game->second.end()) {
+        return false;  // not for this disc: nothing to say
+    }
+    auto mod = std::make_unique<openrac_mod>();
+    mod->id = manifest.id;
+    mod->version = manifest.version_text;
+    mod->file = "built in";
+    mod->built_in = true;
+    mod->manifest = manifest;
+    std::vector<std::string> notes;
+    const auto text = g_host->built_in_settings.find(manifest.id);
+    mod->settings = resolve_settings(
+        manifest,
+        text != g_host->built_in_settings.end() ? built_in_values(manifest, text->second)
+                                                : std::map<std::string, json::Value>{},
+        notes,
+        g_host->game
+    );
+    for (const std::string& n : notes) {
+        log::warn("{}: {}", mod->id, n);
+    }
+    openrac_mod_info info{};
+    info.size = sizeof(info);
+    b.query(&info);
+    if (info.id == nullptr || mod->id != info.id) {
+        why = "its code and its manifest name other mods";
+        return false;
+    }
+    mod->base = reinterpret_cast<const void*>(b.load);
+    g_loading = mod.get();
+    const int result = b.load(&g_api, mod.get());
+    g_loading = nullptr;
+    if (result != 0 || mod->hook_refused) {
+        undo(mod.get());
+        why = !mod->failure.empty() ? mod->failure : std::format("its load returned {}", result);
+        return false;
+    }
+    out = std::move(mod);
+    return true;
+}
+
 }  // namespace
 
 const std::vector<fs::path>& asset_roots() {
     return g_asset_roots;
 }
 
+namespace {
+
+openrac_mod* loaded_built_in(std::string_view id) {
+    for (const auto& loaded : g_loaded) {
+        if (loaded->built_in && loaded->id == id) {
+            return loaded.get();
+        }
+    }
+    return nullptr;
+}
+
+}  // namespace
+
+std::vector<const Setting*> built_in_settings(std::string_view id) {
+    std::vector<const Setting*> out;
+    if (const openrac_mod* mod = loaded_built_in(id)) {
+        for (const Setting& s : mod->manifest.settings) {
+            if (g_host == nullptr || setting_for_game(s, g_host->game)) {
+                out.push_back(&s);
+            }
+        }
+    }
+    return out;
+}
+
+std::vector<Preset> built_in_presets(std::string_view id) {
+    std::vector<Preset> out;
+    if (const openrac_mod* mod = loaded_built_in(id)) {
+        for (Preset p : mod->manifest.presets) {
+            std::erase_if(p.values, [&](const auto& v) {
+                const auto s = std::find_if(
+                    mod->manifest.settings.begin(),
+                    mod->manifest.settings.end(),
+                    [&](const Setting& x) { return x.key == v.first; }
+                );
+                return s == mod->manifest.settings.end()
+                       || (g_host != nullptr && !setting_for_game(*s, g_host->game));
+            });
+            out.push_back(std::move(p));
+        }
+    }
+    return out;
+}
+
+BuiltInSetting built_in_setting(std::string_view id, std::string_view key) {
+    BuiltInSetting out;
+    openrac_mod* mod = loaded_built_in(id);
+    if (mod == nullptr) {
+        return out;
+    }
+    for (const Setting& s : mod->manifest.settings) {
+        if (s.key == key && (g_host == nullptr || setting_for_game(s, g_host->game))) {
+            out.spec = &s;
+            const auto it = mod->settings.find(s.key);
+            out.value = it != mod->settings.end() ? it->second : s.fallback;
+        }
+    }
+    return out;
+}
+
+bool set_built_in_setting(std::string_view id, std::string_view key, const std::string& literal) {
+    openrac_mod* mod = loaded_built_in(id);
+    const BuiltInSetting now = built_in_setting(id, key);
+    if (mod == nullptr || now.spec == nullptr) {
+        return false;
+    }
+    const std::string k(key);
+    if (set_setting(mod, k.c_str(), now.spec->type, now.spec->type, literal) != OPENRAC_HOOK_OK) {
+        return false;
+    }
+    for (const SettingsCallback& c : g_settings_callbacks) {
+        if (c.mod == mod) {
+            c.fn(c.user);
+        }
+    }
+    return true;
+}
+
 std::string load(const Host& host) {
-    if (host.purist) {
-        log::info("mods: purist mode (--no-mods), none loaded");
-        return "none (purist mode)";
-    }
-    std::string text;
-    if (!read_text(host.list, text)) {
-        return "none";
-    }
-    std::vector<ListEntry> list;
-    std::string error;
-    if (!parse_list(text, list, error)) {
-        log::warn("mods: {} cannot be read ({}): none loaded", log::tidy(host.list.string()), error);
-        return "none";
-    }
     static Host kept;
     kept = host;
     g_host = &kept;
+    fill_api(kept);
+    // The mods built into the program first, whatever the list says (BuiltIn).
+    std::vector<std::string> built_in;
+    if (!host.built_ins.empty()) {
+        for (const BuiltIn& b : host.built_ins) {
+            std::unique_ptr<openrac_mod> mod;
+            std::string why;
+            if (load_built_in(b, mod, why)) {
+                log::info("{} {} built in", mod->id, mod->version);
+                built_in.push_back(mod->id);
+                g_loaded.push_back(std::move(mod));
+            } else if (!why.empty()) {
+                log::warn("a built-in mod did not load: {}", why);
+            }
+        }
+    }
+    std::vector<ListEntry> list;
+    std::string text;
+    std::string error;
+    if (host.purist) {
+        log::info("mods: purist mode (--no-mods), none loaded but the built-in ones");
+    } else if (read_text(host.list, text) && !parse_list(text, list, error)) {
+        log::warn(
+            "mods: {} cannot be read ({}): none loaded", log::tidy(host.list.string()), error
+        );
+        list.clear();
+    }
+    if (list.empty() && built_in.empty()) {
+        if (!host.purist && !text.empty() && error.empty()) {
+            write_status(kept, {});
+        }
+        g_host = nullptr;
+        return host.purist ? "none (purist mode)" : "none";
+    }
     const fs::path folder = host.list.parent_path();
     std::vector<Candidate> enabled;
+    std::vector<Outcome> outcomes;
     for (const ListEntry& e : list) {
         if (!e.enabled) {
+            continue;
+        }
+        // An older copy of a mod the port now carries (the keyboard-mouse mod): not loaded.
+        if (std::find(built_in.begin(), built_in.end(), e.id) != built_in.end()) {
+            log::info("mod {} not loaded: it is built into OpenRAC now", e.id);
+            outcomes.push_back({e.id, "", "refused", "it is built into OpenRAC now", {}});
             continue;
         }
         Candidate c;
@@ -2405,18 +2644,18 @@ std::string load(const Host& host) {
         }
         enabled.push_back(std::move(c));
     }
-    if (enabled.empty()) {
-        write_status(kept, {});
+    if (enabled.empty() && built_in.empty()) {
+        write_status(kept, outcomes);
+        g_outcomes = outcomes;
         return "none";
     }
-    fill_api(kept);
     const Target target{host.game, host.version, platform_key(), OPENRAC_MOD_API_MAJOR, OPENRAC_MOD_API_MINOR,
                         host.scripts != nullptr};
-    const auto decisions = plan(enabled, target, [&](const std::string& id, const std::string& path) {
-        std::error_code e;
-        return fs::is_regular_file(folder / id / fs::path(path), e);
-    });
-    std::vector<Outcome> outcomes;
+    const auto decisions =
+        plan(enabled, target, [&](const std::string& id, const std::string& path) {
+            std::error_code e;
+            return fs::is_regular_file(folder / id / fs::path(path), e);
+        });
     std::vector<std::string> not_loaded;  // refused or failed here: what requires them goes too
     for (std::size_t i = 0; i < enabled.size(); ++i) {
         const Candidate& c = enabled[i];
@@ -2500,7 +2739,9 @@ std::string load(const Host& host) {
         }
     }
     g_outcomes = outcomes;
-    write_status(kept, outcomes);
+    if (!host.purist && !host.list.empty()) {
+        write_status(kept, outcomes);
+    }
     g_images.clear();
     for (const auto& m : g_loaded) {
         g_images.push_back({m->id.c_str(), m->version.c_str(), m->file.c_str(), m->base});
@@ -2509,9 +2750,10 @@ std::string load(const Host& host) {
     set_loaded_mods_json();
     std::string line;
     for (const auto& m : g_loaded) {
-        line += (line.empty() ? "" : ", ") + m->id + " " + m->version;
+        line += (line.empty() ? "" : ", ") + m->id + " " + m->version
+                + (m->library == nullptr && !m->script ? " (built in)" : "");
     }
-    const std::size_t refused = enabled.size() - g_loaded.size();
+    const std::size_t refused = outcomes.size() - (g_loaded.size() - built_in.size());
     if (line.empty()) {
         line = "none";
     }
@@ -2521,27 +2763,30 @@ std::string load(const Host& host) {
     return line;
 }
 
-bool makes_vulkan_device(const fs::path& list_path, bool purist) {
+VulkanStartup vulkan_startup(const fs::path& list_path, bool purist) {
     std::string text;
     std::vector<ListEntry> list;
     std::string error;
     if (purist || !read_text(list_path, text) || !parse_list(text, list, error)) {
-        return false;
+        return {};
     }
+    VulkanStartup startup;
     const fs::path folder = list_path.parent_path();
     for (const ListEntry& e : list) {
         std::string manifest_text;
         Manifest manifest;
         if (e.enabled && read_text(folder / e.id / "openrac-mod.json", manifest_text)
-            && parse_manifest(manifest_text, manifest, error) && manifest.vulkan_device) {
-            return true;
+            && parse_manifest(manifest_text, manifest, error)) {
+            startup.creates_device |= manifest.vulkan_device;
+            startup.uses_queue |= manifest.vulkan_queue;
         }
     }
-    return false;
+    return startup;
 }
 
 bool vulkan_needs_game_thread() {
-    return g_vulkan_queue_declared;
+    return g_vulkan_queue_declared
+           || (g_views_mod != nullptr && g_views_mod->manifest.api_minor < 20);
 }
 
 bool view_source_can_use_vulkan() {

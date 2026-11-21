@@ -200,7 +200,8 @@ struct FramePresentation {
     // submission: radians about the world's up axis, through the pivot.
     float latch_yaw = 0;
     renderer::Vec3 latch_pivot{};
-    Box box{};  // Picture rectangle in the window.
+    float latch_pitch = 0;  // then radians up about the camera's side axis (CameraTurn::pitch)
+    Box box{};              // Picture rectangle in the window.
 
     bool first = false;  // First displayed frame for this game tick.
     bool enhanced_graphics = false;
@@ -212,21 +213,39 @@ struct FramePresentation {
     unsigned shown = 0;         // Resolved world framebuffer, filled by the render job.
 };
 
-// Dynamic scene data and settings owned by one render job; no span or pointer refers to game RAM.
-struct RenderSnapshot {
-    std::shared_ptr<const Kept> scene;  // Captured storage stays immutable until job completion.
-    settings::Settings graphics;        // Graphics settings fixed for this snapshot.
-    // The producer and job share this result until finish() publishes the worker's writes.
-    std::shared_ptr<FramePresentation> presentation;
+// The scene the render worker records. The frontend pins its resources across each handoff.
+struct SceneRenderState {
+    std::string game;
+    const host::GameProfile* profile = nullptr;
+    std::unique_ptr<renderer::Renderer> renderer;
+    std::unique_ptr<enhanced::Fsr3> temporal;
+    enhanced::Bloom bloom;
+    enhanced::AgxPreview agx;
+    renderer::Haze haze;
+    renderer::FrameBuffer frame;
+    // The last frame the game drew its world in, for menus and background readbacks.
+    renderer::FrameBuffer last_world;
+    // The mod's additional views and the OpenGL framebuffers around their output textures.
+    std::array<renderer::FrameBuffer, 4> views;
+    std::vector<std::pair<unsigned, unsigned>> view_targets;
+    scene::LevelData level;
+    scene::LevelScene scene;
+    DebugCamera debug_camera;
+    // Fall back to the last usable world camera when a tick supplies a bad one.
+    std::optional<renderer::Camera> good_camera;
+    std::uint64_t refused_camera_frames = 0;
+    int refused_camera_logs = 0;
+    std::uint64_t last_world_tick = 0;
+    bool last_tick_menu = false;
+    bool hold_last_world = false;
+    bool repeat_frame = false;
+    bool overdraw = false;
+
+    [[nodiscard]] bool enhanced_graphics_available() const;
 };
 
-// Everything the window holds while it is open: the window and the renderer, the level drawn, what
-// the game drew since the last frame (gathered for frame()), and the window as the settings left it.
+// Window, input and tick capture live on the producer thread.
 struct State {
-    std::string game;
-    // What the game's folder knows of its memory (game/common/profile.h): a constant of the
-    // program's, never null while the window is open.
-    const host::GameProfile* profile = nullptr;
     ScriptedMobyColours scripted_moby_colours;
     // Far mobys the game leaves asleep, posed in the picture only (Active distance: Match), and
     // the level their clocks belong to.
@@ -239,24 +258,10 @@ struct State {
     controls::Store controls;     // the player's controls files, applied to `input`
     bool capture_wanted = false;  // a mod's asking (capture_mouse)
     bool keyboard_taken = false;  // a mod took the keyboard (take_keyboard)
-    std::unique_ptr<renderer::Renderer> renderer;
-    renderer::DirectRenderer* hud =
-        nullptr;  // Owned by renderer; consumes uploads on skipped ticks.
-    std::unique_ptr<enhanced::Fsr3>
-        temporal;  // Optional enhanced upscaler, released before the window.
-    enhanced::Bloom bloom;
-    enhanced::AgxPreview agx;
-    renderer::Haze haze;  // the mods' heat haze (interface 1.12)
-    renderer::FrameBuffer frame;
+    SceneRenderState render;
+    // The renderer owns the HUD, which consumes uploads on skipped ticks.
+    renderer::DirectRenderer* hud = nullptr;
     renderer::FrameBuffer picture;  // show_picture's: a movie frame, a boot still
-    // The last frame the game drew its world in: what its draw buffer still holds on a frame it
-    // draws nothing in (the tick a page menu opens), and so what reading the frame back answers.
-    renderer::FrameBuffer last_world;
-    // The views a mod draws (frontend/views.cpp, OPENRAC_VIEW_MAX of them): each one's picture,
-    // and with OpenGL the framebuffers made around the mod's textures it is copied into.
-    std::array<renderer::FrameBuffer, 4> views;
-    std::vector<std::pair<unsigned, unsigned>> view_targets;  // the mod's texture, its framebuffer
-    scene::LevelData level;
     // The mods' prop meshes read with the level (interface 1.12, mods::prop_meshes): each one's
     // model in `level`.
     std::vector<std::pair<std::filesystem::path, std::uint32_t>> prop_models;
@@ -268,8 +273,6 @@ struct State {
     int infobot_pickup_model = -1;
     std::vector<std::vector<renderer::Mat4>> infobot_pickup_poses;
     scene::ObjectPicker picker;
-    scene::LevelScene scene;
-    DebugCamera debug_camera;  // Only the scene/render owner updates inspection poses.
     int loaded = -2;           // the level whose geometry is uploaded; -2 none
     std::uint64_t index = 0;
     // Every image the game sent outside the display list, oldest first, the latest per
@@ -280,12 +283,6 @@ struct State {
     // ShrubProc's choice read with that camera ("Draw distance: Original"): the main menu's code
     // puts a camera of its own in memory after the title world is drawn.
     std::optional<std::vector<host::ShrubDraw>> world_shrubs;
-    // The last camera a frame drew its world from that usable_camera and usable_view accepted
-    // (scene_frame.cpp's set_camera), drawn again in place of one they refuse; how many frames in
-    // a row were refused, and how many runs of them were logged.
-    std::optional<renderer::Camera> good_camera;
-    std::uint64_t refused_camera_frames = 0;
-    int refused_camera_logs = 0;
     // That world was drawn under a menu with its own mobys (world_under_menu): world_camera's
     // mobys are the frame's.
     bool world_under_menu = false;
@@ -369,17 +366,10 @@ struct State {
     // the tick that recorded it (ui_quad), and a list is drawn with that tick's quads (frame).
     std::uint32_t ui_generation = 0;
     std::array<std::pair<std::uint32_t, std::vector<renderer::UiQuad>>, 4> ui_kept{};
-    // The last world drawn (last_world): the tick it was drawn on; whether the last tick was a page
-    // menu's with its snapshot; whether this tick's frames go over the last world (draw_kept).
-    std::uint64_t last_world_tick = 0;
-    bool last_tick_menu = false;
-    bool hold_last_world = false;
     // How each tick's frames start (frontend/tick_picture.h): the last picture standing (the
     // ticks after the pause menu closes, a list the game has not finished), or under the tick's 2D
     // (a level's tick without a world: the vendor's darkening), else a cleared frame.
     TickPictures tick_pictures;
-    bool repeat_frame = false;
-    bool overdraw = false;
     bool movie_playing = false;  // set_movie_playing
     // What the window is in now of the player's settings (apply_settings): the display mode, the
     // display; the picture's shape; the swap's wait as asked and as the
@@ -496,6 +486,16 @@ const Shots& shots();
 // Whether a development switch keeps one frame a tick whatever the settings say (frontend.cpp).
 bool one_frame_a_tick();
 
+void swap_rendered_frame(std::int64_t frame);
+void run_vulkan_graphics(
+    std::function<void()> job,
+    std::int64_t frame = -1,
+    std::source_location submitted_at = std::source_location::current()
+);
+#if defined(OPENRAC_IOS)
+void drain_graphics_for_background();
+#endif
+
 // Draws `framebuffer` (width x height) into the window's box for a picture of shape `aspect`, black
 // around it; `flip`: its first row is the top (frontend.cpp).
 void present(
@@ -551,7 +551,7 @@ gaddr occlusion_address();
 void use_level(int number);
 
 // Configures the level shadow passes on the thread that owns the renderer.
-void configure_level_shadows(State& owner, int level);
+void configure_level_shadows(SceneRenderState& owner, int level);
 
 // Reads level `number`'s files on another thread for use_level to take when the level comes: the
 // flight between planets reads its destination's while it plays (frontend/world.cpp).
@@ -573,10 +573,11 @@ bool frame_due(std::chrono::steady_clock::time_point now);
 // Records an owned scene on the exclusive graphics owner thread; no game RAM is accessed.
 // The caller pins `owner` and its static level until this function and its callbacks return.
 void render_scene(
-    State& owner,
+    SceneRenderState& owner,
     const Kept& snapshot,
     const settings::Settings& graphics,
-    FramePresentation& output
+    FramePresentation& output,
+    bool views_begun = false
 );
 
 // Draws the kept tick, the camera and mobys part way from the last tick's to its own (as far as

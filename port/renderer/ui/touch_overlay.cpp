@@ -7,10 +7,12 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
 #include "common/log.h"
+#include "renderer/frame/window_quads.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
 #include "renderer/ui/logo.h"
@@ -259,6 +261,27 @@ constexpr int kGlyphR = 1;
 constexpr int kGlyph1 = 2;
 constexpr int kGlyph2 = 3;
 
+struct Look {
+    int symbol = kNone;
+    float r = 1.0f, g = 1.0f, b = 1.0f;
+    float angle = 0.0f;
+    int label0 = -1, label1 = -1;
+};
+
+// Uniforms prepared for one control or the plate behind the d-pad.
+struct Quad {
+    float x;                   // Horizontal centre in window coordinates.
+    float y;                   // Vertical centre in window coordinates.
+    float radius;              // Radius in units of the window height.
+    float stretch;             // Horizontal extension of a pill-shaped control.
+    float reach;               // Half height of the quad, including glow, in radii.
+    Look look;                 // Symbol, tint, orientation and glyphs.
+    float held = 0.0f;         // Smoothed pressure used for the glow.
+    float knob_x = 0.0f;       // Normalized horizontal stick displacement.
+    float knob_y = 0.0f;       // Normalized vertical stick displacement.
+    touch_icons::Cell icon{};  // Atlas rectangle for an action icon.
+};
+
 struct State {
     renderer::Shader shader;
     GLuint vao = 0;
@@ -272,6 +295,9 @@ struct State {
     GLuint mark = 0;
     int mark_height = 0;
     float mark_aspect = 1.0f;
+    // Reused scratch for one pass. Each quad has one matching texture name, or zero.
+    std::vector<Quad> quads;
+    std::vector<RasterTexture> textures;
 };
 
 // The mark's half height on the options button, in radii: as large as the face buttons' symbols.
@@ -285,13 +311,6 @@ constexpr float kPressEase = 0.06f;
 State s;
 // The accent (ui_colors.h's amber): the launcher's own until the game says.
 float g_accent[3] = {1.0f, 0.706f, 0.263f};
-
-struct Look {
-    int symbol = kNone;
-    float r = 1.0f, g = 1.0f, b = 1.0f;
-    float angle = 0.0f;
-    int label0 = -1, label1 = -1;
-};
 
 Look look(const TouchControl& c) {
     if (!c.icon.empty() && touch_icons::has(c.icon)) {
@@ -384,116 +403,159 @@ bool ready() {
     return true;
 }
 
-}  // namespace
+// Adds the plate before the overlapping controls, in the box spanned by the d-pad's arms.
+void prepare_plate(std::span<const TouchControl> controls) {
+    float left = 1.0f;
+    float right = 0.0f;
+    float top = 1.0f;
+    float bottom = 0.0f;
+    float arm = 0.0f;
 
-void draw(platform::TouchPad& touch, int width, int height) {
-    if (width <= 0 || height <= 0) {
+    // Button layouts can contain individual actions that also press a direction.
+    for (const TouchControl& control : controls) {
+        // Only the arms of the shared d-pad contribute to the plate.
+        if (is_arm(control)) {
+            left = std::min(left, control.x);
+            right = std::max(right, control.x);
+            top = std::min(top, control.y);
+            bottom = std::max(bottom, control.y);
+            arm = control.radius;
+        }
+    }
+
+    // Layouts without a d-pad have no plate to draw.
+    if (arm <= 0.0f) {
         return;
     }
-    touch.set_aspect(static_cast<float>(width) / static_cast<float>(height));
-    if (!touch.visible() || !ready()) {
-        return;
-    }
-    // All of the state the pad's quads depend on, whatever the frame or picture under it left.
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glViewport(0, 0, width, height);
-    glDisable(GL_SCISSOR_TEST);
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_STENCIL_TEST);
-    glDisable(GL_CULL_FACE);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glEnable(GL_BLEND);
-    glBlendEquation(GL_FUNC_ADD);
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
-    s.shader.use();
-    glBindVertexArray(s.vao);
-    glUniform3f(s.shader.uniform("accent"), g_accent[0], g_accent[1], g_accent[2]);
-    const float aspect = touch.aspect();
+
+    // The radius leaves a 20 percent margin around the arms.
+    s.quads.push_back(
+        {(left + right) * 0.5f,
+         (top + bottom) * 0.5f,
+         (bottom - top) * 0.5f + arm * 1.2f,
+         1.0f,
+         1.0f,
+         {kDpad, 0.93f, 0.91f, 0.88f}}
+    );
+    s.textures.emplace_back();
+}
+
+// Uploads stale textures and prepares the complete draw list before the graph imports them.
+void prepare_controls(const platform::TouchPad& touch, int height) {
     const auto controls = touch.controls();
     const auto now = std::chrono::steady_clock::now();
+    // A first draw or a long pause presents the resting state immediately.
     const float dt = s.last == std::chrono::steady_clock::time_point{}
                          ? 1.0f
                          : std::min(std::chrono::duration<float>(now - s.last).count(), 1.0f);
     s.last = now;
     const float ease = 1.0f - std::exp(-dt / kPressEase);
     s.press.resize(controls.size(), 0.0f);
-    // A control's box, in window units (0..1 down, the radius in heights), to device coordinates,
-    // with `reach` radii around its centre (more than 1 leaves room for a press's glow).
-    const auto box = [&](float x, float y, float radius, float stretch, float reach) {
-        const float across = stretch - 1.0f + reach;
-        glUniform4f(s.shader.uniform("box"), x * 2.0f - 1.0f, 1.0f - y * 2.0f, radius * across * 2.0f / aspect,
-                    radius * reach * 2.0f);
-        glUniform2f(s.shader.uniform("extent"), across, reach);
-        glUniform1f(s.shader.uniform("stretch"), stretch);
-    };
-    // The d-pad's plate, under its arms: the box the four of them span.
-    float left = 1.0f, right = 0.0f, top = 1.0f, bottom = 0.0f, arm = 0.0f;
-    for (const TouchControl& c : controls) {
-        if (is_arm(c)) {
-            left = std::min(left, c.x);
-            right = std::max(right, c.x);
-            top = std::min(top, c.y);
-            bottom = std::max(bottom, c.y);
-            arm = c.radius;
-        }
-    }
-    if (arm > 0.0f) {
-        box((left + right) * 0.5f, (top + bottom) * 0.5f, (bottom - top) * 0.5f + arm * 1.2f, 1.0f, 1.0f);
-        glUniform3f(s.shader.uniform("tint"), 0.93f, 0.91f, 0.88f);
-        glUniform1f(s.shader.uniform("held"), 0.0f);
-        glUniform1i(s.shader.uniform("symbol"), kDpad);
-        glUniform1f(s.shader.uniform("angle"), 0.0f);
-        glUniform1i(s.shader.uniform("label0"), -1);
-        glUniform1i(s.shader.uniform("label1"), -1);
-        glUniform2f(s.shader.uniform("knob"), 0.0f, 0.0f);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    }
+    s.quads.clear();
+    s.textures.clear();
+    glActiveTexture(GL_TEXTURE0);
+    prepare_plate(controls);
+
+    // The layout order controls overlap between neighbouring buttons.
     for (std::size_t i = 0; i < controls.size(); ++i) {
-        const TouchControl& c = controls[i];
-        if (c.kind == TouchControl::Kind::Menu && !touch.menu_button()) {
+        const TouchControl& control = controls[i];
+        // A hidden menu entry has no texture dependency.
+        if (control.kind == TouchControl::Kind::Menu && !touch.menu_button()) {
             continue;
         }
-        const Look l = look(c);
-        if (l.symbol == kIcon) {
-            const auto cell = touch_icons::cell(c.icon);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, touch_icons::texture());
-            glUniform4f(
-                s.shader.uniform("icon_rect"),
-                cell ? cell->u0 : 0.0f,
-                cell ? cell->v0 : 0.0f,
-                cell ? cell->u1 : 0.0f,
-                cell ? cell->v1 : 0.0f
-            );
-            glUniform1f(s.shader.uniform("icon_half"), kIconHalf);
-        }
-        if (l.symbol == kMenu) {
-            const float mark_height = 2.0f * kMarkHalf * c.radius * static_cast<float>(height);
+
+        // Extra reach gives a pressed control's glow room outside its outline.
+        Quad quad{control.x, control.y, control.radius, control.stretch, 1.2f, look(control)};
+        RasterTexture texture;
+
+        // The atlas and logo must exist when the graph validates their reads.
+        if (quad.look.symbol == kIcon) {
+            quad.icon = touch_icons::cell(control.icon).value_or(touch_icons::Cell{});
+            texture = {touch_icons::texture(), touch_icons::mip_levels()};
+        } else if (quad.look.symbol == kMenu) {
+            // The rasterized mark spans twice its half height.
+            const float mark_height =
+                2.0f * kMarkHalf * control.radius * static_cast<float>(height);
             make_mark(static_cast<int>(std::lround(mark_height)));
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, s.mark);
-            glUniform2f(s.shader.uniform("logo_half"), kMarkHalf * s.mark_aspect, kMarkHalf);
+            texture.name = s.mark;
         }
-        box(c.x, c.y, c.radius, c.stretch, 1.2f);
-        glUniform3f(s.shader.uniform("tint"), l.r, l.g, l.b);
+
         float& press = s.press[i];
-        // While the layout is edited, the control picked to be resized lit as if held.
-        const bool picked = touch.editing() && c.group == touch.selected();
+        const bool picked = touch.editing() && control.group == touch.selected();
+        // Presses and selections show at once and releases ease out.
         press = touch.held(i) || touch.toggled(i) || picked ? 1.0f : press - press * ease;
-        glUniform1f(s.shader.uniform("held"), press);
-        glUniform1i(s.shader.uniform("symbol"), l.symbol);
-        glUniform1f(s.shader.uniform("angle"), l.angle);
-        glUniform1i(s.shader.uniform("label0"), l.label0);
-        glUniform1i(s.shader.uniform("label1"), l.label1);
-        float dx = 0.0f;
-        float dy = 0.0f;
-        touch.knob(i, dx, dy);
-        glUniform2f(s.shader.uniform("knob"), dx / c.radius, dy / c.radius);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        quad.held = press;
+        touch.knob(i, quad.knob_x, quad.knob_y);
+        quad.knob_x /= control.radius;
+        quad.knob_y /= control.radius;
+        s.quads.push_back(quad);
+        s.textures.push_back(texture);
     }
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBindVertexArray(0);
-    glDisable(GL_BLEND);
+}
+
+// Binds the program once when the graph starts recording the quads.
+void bind_overlay() {
+    s.shader.use();
+    glBindVertexArray(s.vao);
+    glUniform1i(s.shader.uniform("tex_T0"), 0);
+    glUniform3f(s.shader.uniform("accent"), g_accent[0], g_accent[1], g_accent[2]);
+}
+
+// Writes the prepared uniforms for one draw. The graph executor binds its texture.
+void bind_quad(const Quad& quad, float aspect) {
+    // Convert the window's 0..1 coordinates to clip space, with y increasing upwards.
+    const float across = quad.stretch - 1.0f + quad.reach;
+    glUniform4f(
+        s.shader.uniform("box"),
+        quad.x * 2.0f - 1.0f,
+        1.0f - quad.y * 2.0f,
+        quad.radius * across * 2.0f / aspect,
+        quad.radius * quad.reach * 2.0f
+    );
+    glUniform2f(s.shader.uniform("extent"), across, quad.reach);
+    glUniform1f(s.shader.uniform("stretch"), quad.stretch);
+
+    // Icon and logo coverage use different coordinates in the same sampler.
+    if (quad.look.symbol == kIcon) {
+        const auto& icon = quad.icon;
+        glUniform4f(s.shader.uniform("icon_rect"), icon.u0, icon.v0, icon.u1, icon.v1);
+        glUniform1f(s.shader.uniform("icon_half"), kIconHalf);
+    } else if (quad.look.symbol == kMenu) {
+        glUniform2f(s.shader.uniform("logo_half"), kMarkHalf * s.mark_aspect, kMarkHalf);
+    }
+
+    const Look& look = quad.look;
+    glUniform3f(s.shader.uniform("tint"), look.r, look.g, look.b);
+    glUniform1f(s.shader.uniform("held"), quad.held);
+    glUniform1i(s.shader.uniform("symbol"), look.symbol);
+    glUniform1f(s.shader.uniform("angle"), look.angle);
+    glUniform1i(s.shader.uniform("label0"), look.label0);
+    glUniform1i(s.shader.uniform("label1"), look.label1);
+    glUniform2f(s.shader.uniform("knob"), quad.knob_x, quad.knob_y);
+}
+
+}  // namespace
+
+void draw(platform::TouchPad& touch, int width, int height) {
+    // Minimized windows have no drawable to import.
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+
+    touch.set_aspect(static_cast<float>(width) / static_cast<float>(height));
+
+    // An invisible pad leaves the window colour untouched.
+    if (!touch.visible() || !ready()) {
+        return;
+    }
+
+    prepare_controls(touch, height);
+    const float aspect = touch.aspect();
+    draw_window_quads(
+        "touch overlay", {width, height}, s.textures, bind_overlay, [aspect](std::size_t index) {
+            bind_quad(s.quads[index], aspect);
+        }
+    );
 }
 
 void set_accent(float r, float g, float b) {

@@ -1,0 +1,49 @@
+name: macOS MoltenVK smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  moltenvk:
+    name: Vulkan presentation on Metal
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/macos-vulkan
+
+      - name: Build the presentation test
+        working-directory: port
+        run: |
+          xcodebuild -version
+          cmake --preset release -DOPENRAC_PORT_GAMES=OFF
+          cmake --build --preset release --target vulkan_present_test --parallel 3
+
+      - name: Check frame copies and window presentation
+        working-directory: port
+        shell: bash
+        env:
+          OPENRAC_GL_API: vulkan
+          OPENRAC_VULKAN_PIPELINE_CACHE: "0"
+        run: |
+          export OPENRAC_VULKAN_LIBRARY="$(brew --prefix molten-vk)/lib/libMoltenVK.dylib"
+          test -f "$OPENRAC_VULKAN_LIBRARY"
+
+          run_present_test() {
+            local name="$1"
+            shift
+            local log="$RUNNER_TEMP/$name.log"
+            # A skip must fail CI, and a fallback driver must not pass as MoltenVK.
+            ./build/release/vulkan_present_test "$@" 2>&1 | tee "$log" || return
+            grep -Fq "vulkan: $OPENRAC_VULKAN_LIBRARY" "$log"
+          }
+
+          result=0
+          run_present_test vulkan_present || result=1
+          run_present_test vulkan_present_swapchain --swapchain || result=1
+          exit "$result"

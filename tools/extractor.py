@@ -11,7 +11,10 @@ Steps (all of them when none is named):
                by file, so the image is linked (copied across file systems)
   --boot-only  with --extract: write out only SYSTEM.CNF and the boot executable,
                which is all the port reads beside the image; every file is still
-               read and checked. Gigabytes less to write (the Android launcher's)
+               read and checked. Gigabytes less to write (the launcher's, on every system)
+  --link-image with --extract: when the image cannot be hard-linked, keep a
+               symbolic link to it rather than a second copy. For an image the
+               launcher keeps itself (Android's, which lets no app hard-link)
   --validate   refuse the image unless its boot executable is a build OpenRAC
                knows (games/GAME/game.json: serial, size and SHA-1), as
                OpenGOAL's --validate does; implied by --extract
@@ -146,9 +149,11 @@ def print_new_build(serial: str | None, boot_sha1: str | None, hashes: dict[str,
 
 # --- Steps ------------------------------------------------------------------------------
 
-def extract(image: Path, game: str, proj: Path, minimum: int = MIN_IMAGE_SIZE, boot_only: bool = False) -> dict:
+def extract(image: Path, game: str, proj: Path, minimum: int = MIN_IMAGE_SIZE, boot_only: bool = False,
+            link_image: bool = False) -> dict:
     """Extract and validate IMAGE into PROJ/iso_data/GAME; returns the build info written.
-    BOOT_ONLY: of the disc's files only SYSTEM.CNF and the boot executable are written."""
+    BOOT_ONLY: of the disc's files only SYSTEM.CNF and the boot executable are written.
+    LINK_IMAGE: a symbolic link to IMAGE where no hard link can be made, not a copy."""
     check_image_file(image, minimum)
     entries = files_of(image)
     serial = iso9660.boot_serial(image)
@@ -192,18 +197,28 @@ def extract(image: Path, game: str, proj: Path, minimum: int = MIN_IMAGE_SIZE, b
     print(f"validated: {g['title']} ({version['region']}, {serial}), boot executable SHA-1 matches games/{game}/game.json")
 
     # Most of Ratchet & Clank's data is addressed by sector, outside the file
-    # system: keep the image beside the files for the decompile step.
-    how = files.link_or_copy(image, temp / "disc.iso", keep_metadata=False)
-    print(f"  disc.iso: {how} from {image}")
+    # system: keep the image beside the files for the decompile step. An image
+    # inside the set-up being replaced (its own disc.iso, a copy, not a link)
+    # moves into the new one at the end: a link to it would go with the old set-up.
+    inside = final.resolve() in image.resolve().parents
+    if inside:
+        print(f"  disc.iso: kept from {image}")
+    else:
+        how = files.link_or_copy(image, temp / "disc.iso", keep_metadata=False, symlink=link_image)
+        print(f"  disc.iso: {how} from {image}")
+    earlier = final / "buildinfo.json"
+    named = json.loads(earlier.read_text())[0].get("image") if inside and earlier.is_file() else None
     info = [{
         "serial": serial,
         "version": f"{game}/{name}",
         "elf_sha1": hashes[serial],
         "files": len(hashes),
         "contents": contents_hash(hashes),
-        "image": image.name,
+        "image": named or image.name,
     }]
     (temp / "buildinfo.json").write_text(json.dumps(info, indent=2) + "\n")
+    if inside:
+        files.replace(image.resolve(), temp / "disc.iso")
     if final.exists():
         shutil.rmtree(final)
     temp.rename(final)
@@ -222,6 +237,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--proj-path", type=Path, default=paths.repo_root() / "build" / "port")
     parser.add_argument("-e", "--extract", action="store_true")
     parser.add_argument("--boot-only", action="store_true")
+    parser.add_argument("--link-image", action="store_true")
     parser.add_argument("-v", "--validate", action="store_true")
     parser.add_argument("-d", "--decompile", action="store_true")
     parser.add_argument("-c", "--compile", action="store_true")
@@ -229,7 +245,8 @@ def main(argv: list[str] | None = None) -> int:
     every = not (args.extract or args.validate or args.decompile or args.compile)
     try:
         if every or args.extract or args.validate:
-            extract(args.image.resolve(), args.game, args.proj_path.resolve(), boot_only=args.boot_only)
+            extract(args.image.resolve(), args.game, args.proj_path.resolve(), boot_only=args.boot_only,
+                    link_image=args.link_image)
         if every or args.decompile:
             not_yet("decompile")
         if every or args.compile:

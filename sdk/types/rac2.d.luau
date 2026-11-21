@@ -41,6 +41,8 @@ type HookPoint =
     | "rac2.bolt.spawn_pickups"
     | "rac2.bolt.spawn_pickup"
     | "rac2.bolt.collect"
+    | "rac2.arena.prize"
+    | "Arena_Prize"
     | "Bolt_Collect"
     | "Bolt_SpawnPickup"
     | "Bolt_SpawnPickups"
@@ -151,6 +153,8 @@ type Bolt_SpawnPickupsFn = (moby: number, low: number, high: number, flags: numb
 type Bolt_SpawnPickupFn = (source: number, position: number, velocity: number, flags: number, value: number, counted: number) -> number
 -- rac2.bolt.collect (Bolt_Collect) void(u32): A bolt coin collected (CollectBolts): adds its class's value (classes 0x0D to 0x13: 1, 5, 20, 50, 100, 500, 1000; 1 for another) to the player's bolts (0x1A79F8) and, for a counted coin, to the level's bolt score, then throws its sparks. The coin's update (func_00300F58) calls it as the coin reaches the hero, the moby still alive, and reads no result. A replacement can change what a coin is worth: call the original and add more with openrac_api.bolts (a coin it marked worth five times: four times what the original added), or not call it.
 type Bolt_CollectFn = (moby: number) -> ()
+-- rac2.arena.prize (Arena_Prize) i32(i32): The bolts an arena challenge pays (moby_compute_scaled_entry_value, Maktar's and Joba's arena: one function in both levels): the challenge record's prize (+0xC of its entry in the level's challenge table), times 0.3 for each time it was won before, kept between 500 and the prize, ten times that in challenge mode. The arena's menu prints it and the win adds it to the bolts (and keeps it for the results screen), so a replacement changes a prize everywhere it shows.
+type Arena_PrizeFn = (challenge: number) -> number
 
 declare openrac: {
     game: string,

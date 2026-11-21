@@ -165,7 +165,7 @@ void append_exported_water(
     }
 
     append_swimming_surfaces(
-        triangles, floors, 2, read_wet_mask(level), traversal.minimum_swim_depth
+        triangles, floors, 2, read_wet_mask(level), traversal.minimum_swim_depth, traversal
     );
 }
 }  // namespace openrac::lighting

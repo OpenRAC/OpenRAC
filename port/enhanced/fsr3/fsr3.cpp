@@ -12,6 +12,7 @@
 #include "enhanced/fsr3/temporal_math.h"
 #include "fsr3_shaders.h"
 #include "renderer/gl/gl.h"
+#include "renderer/gl/precise_depth.h"
 #include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
@@ -255,8 +256,7 @@ bool Fsr3::State::prepare_camera(TemporalFrame frame, float sharpness, std::stri
     last_time = now;
     dispatch.sharpness = std::clamp(sharpness, 0.0f, 1.0f);
     dispatch.vertical_fov = 2 * std::atan(1 / camera.projection[5]);
-    // The near plane the projection was made with, when a game moved it out from the window's 0.05
-    // (GameProfile::depth_near; perspective_reversed: [10] is (f + n) / (f - n), [14] 2 f n / (f - n)).
+    // Recover the near plane from the camera projection so FSR uses the world's depth range.
     const float p10 = camera.projection[10], p14 = camera.projection[14];
     const float near_plane = p14 > 0.0f && p10 > 1.0f ? p14 / (p10 + 1.0f) : 0.0f;
     dispatch.near_plane = near_plane > 0.05f * 1.01f ? near_plane : 0.05f;
@@ -279,13 +279,21 @@ bool Fsr3::State::prepare_camera(TemporalFrame frame, float sharpness, std::stri
     view.previous =
         dispatch.reset ? view.current : renderer::multiply(old_camera.projection, old_camera.view);
 
-    // Restore the original camera if its projection cannot be inverted.
+    // Screen-space reprojection reconstructs GL clip coordinates from the sampled depth.
     if (!fsr3_detail::camera_transforms(
             view.raster, view.previous, inverse_raster, previous_clip
         )) {
         frame.input.camera = camera;
         error = "invalid temporal camera projection";
         return false;
+    }
+
+    // Object motion depth-tests against the world. Convert the projection before multiplying
+    // by the view matrix, just as the world pass does.
+    view.raster_zero_to_one = renderer::precise_depth();
+    if (view.raster_zero_to_one) {
+        const auto projection = renderer::zero_to_one(frame.input.camera.projection);
+        view.raster = renderer::multiply(projection, camera.view);
     }
 
     view.size = size;

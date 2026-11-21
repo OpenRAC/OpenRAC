@@ -488,6 +488,24 @@ public:
         return owner;
     }
 
+    // A particle made for a moby names it at +0x24 (the owner, as a moby's own sparks and fades set
+    // it: func_L00_003C3D90's), an attached halo (type 89, func_002C6B80) at +0x20.
+    std::array<std::uint32_t, 2> particle_owners(
+        std::span<const std::uint8_t> record
+    ) const override {
+        if (record.size() < 0x28) {
+            return {0, 0};
+        }
+        std::array<std::uint32_t, 2> owners{};
+        std::memcpy(&owners[0], record.data() + 0x24, sizeof(std::uint32_t));
+        std::memcpy(&owners[1], record.data() + 0x20, sizeof(std::uint32_t));
+        // A complete moby must fit in the game's 32 MiB RAM, including its 0x100-byte record.
+        for (std::uint32_t& owner : owners) {
+            owner = owner <= 0x01FFFF00u ? owner : 0;
+        }
+        return owners;
+    }
+
     bool terrain_takes_point_lights() const override { return true; }
 
     // The ties' matrices: gp + 0x31CC (PatchTieVertexLighting, 0x2F3FEC; level 0's copy
@@ -497,14 +515,6 @@ public:
     std::array<std::uint32_t, 4> scenery_matrices() const override {
         return release_.scenery_matrices;
     }
-
-    // Maktar's dome: light strips (tie class 2713) lie on the dome's band (class 2675) within a few
-    // centimetres over large areas, and from the landing pad (about 150 units) they flickered in
-    // and out of it with GL's depth (GameProfile::precise_depth). Without glClipControl (macOS's
-    // OpenGL) a near of 0.25 parts them five times farther away (GameProfile::depth_near).
-    bool precise_depth() const override { return true; }
-
-    float depth_near() const override { return 0.25f; }
 
     // The VRAM base of the frame (D_001A72DC in bytes / 256): past the two display buffers, where
     // the world's passes set FRAME. The 448-line discs put it at 0x1E8000 (func_002DF1B8: FBP

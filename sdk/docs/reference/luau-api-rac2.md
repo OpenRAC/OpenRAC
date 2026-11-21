@@ -338,3 +338,11 @@ rac2.bolt.collect (Bolt_Collect) void(u32): A bolt coin collected (CollectBolts)
 ```lua
 type Bolt_CollectFn = (moby: number) -> ()
 ```
+
+### `Arena_PrizeFn`
+
+rac2.arena.prize (Arena_Prize) i32(i32): The bolts an arena challenge pays (moby_compute_scaled_entry_value, Maktar's and Joba's arena: one function in both levels): the challenge record's prize (+0xC of its entry in the level's challenge table), times 0.3 for each time it was won before, kept between 500 and the prize, ten times that in challenge mode. The arena's menu prints it and the win adds it to the bolts (and keeps it for the results screen), so a replacement changes a prize everywhere it shows.
+
+```lua
+type Arena_PrizeFn = (challenge: number) -> number
+```

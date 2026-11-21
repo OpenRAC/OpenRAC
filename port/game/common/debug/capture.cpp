@@ -510,7 +510,7 @@ perf_capture::Context context(const Shown& shown) {
     // OPENRAC_ADPF_OFF reads as one.
     add("performance hint", platform::hint_status());
     const renderer::gl_stats::Info& gpu = renderer::gl_stats::info();
-    const char* api = s.gl_subset ? "Vulkan" : gl::is_es() ? "OpenGL ES" : "OpenGL";
+    const char* api = gl::is_vulkan() ? "Vulkan" : gl::is_es() ? "OpenGL ES" : "OpenGL";
     add("graphics",
         std::format(
             "{} on {} ({}), {}{}",

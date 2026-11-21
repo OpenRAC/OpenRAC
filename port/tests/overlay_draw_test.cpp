@@ -12,10 +12,12 @@
 #include <string>
 
 #include "check.h"
+#include "renderer/frame/colour_transfer.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gl.h"
 #include "renderer/ui/overlay_draw.h"
 #include "renderer/ui/overlay_list.h"
+#include "renderer/ui/picture_blit.h"
 #include "renderer_gl_context.h"
 
 namespace {
@@ -45,6 +47,38 @@ void clear_to(unsigned framebuffer, float r, float g, float b) {
 
 bool near(int a, int b) {
     return a >= b - 2 && a <= b + 2;
+}
+
+// Checks an uploaded picture, a partial blit, and a cleared window blit by their pixels.
+void test_picture_transfers(unsigned framebuffer) {
+    constexpr int kSide = 2;
+    constexpr int kCopySize = 16;
+    constexpr int kOffset = 32;
+    // Red on the top row, green on the bottom. The target starts blue.
+    constexpr std::array<std::uint8_t, 16> kRows{
+        255, 0, 0, 255, 255, 0, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255
+    };
+    clear_to(framebuffer, 0, 0, 1);
+    renderer::ui::PictureBlit picture;
+    picture.draw(framebuffer, {kRows, kSide, kSide}, {0, 0, kCopySize, kCopySize});
+    CHECK(pixel(framebuffer, 1, kHeight - kCopySize)[0] == 255);
+    CHECK(pixel(framebuffer, 1, kHeight - 2)[1] == 255);
+    CHECK(pixel(framebuffer, kCopySize, kHeight - 2)[2] == 255);
+
+    renderer::blit_colour(
+        "letterboxed picture",
+        framebuffer,
+        0,
+        {{0, 0},
+         {kCopySize, kCopySize},
+         {kOffset, kOffset},
+         {kOffset + kCopySize, kOffset + kCopySize},
+         false,
+         std::array{0.0f, 0.0f, 0.0f, 1.0f}}
+    );
+    CHECK(pixel(0, kOffset + 1, kHeight - kOffset - kCopySize)[0] == 255);
+    CHECK(pixel(0, 0, 0) == (std::array<std::uint8_t, 4>{0, 0, 0, 255}));
+    picture.release();
 }
 
 }  // namespace
@@ -103,6 +137,8 @@ int main() {
         draw.draw(frame.id(), kWidth, kHeight, list.vertices());
     }
     CHECK(glGetError() == GL_NO_ERROR);
+
+    test_picture_transfers(frame.id());
 
     draw.release();
     frame.release();

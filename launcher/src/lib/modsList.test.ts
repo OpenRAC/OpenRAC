@@ -10,6 +10,7 @@ describe("My mods' lists", () => {
     expect(groupOf("data")).toBe("gameplay");
     expect(groupOf("tool")).toBe("tools");
     expect(groupOf("built-in")).toBe("looks");
+    expect(groupOf("always-on")).toBe("looks");
   });
 
   it("find a row by every word searched, in any case and order", () => {

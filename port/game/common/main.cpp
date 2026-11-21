@@ -69,6 +69,7 @@
 #ifdef OPENRAC_FRONTEND
 #include <SDL3/SDL_misc.h>
 
+#include "built_in_mods.h"
 #include "debug_overlay.h"
 #include "enhanced/renderer/fur.h"
 #include "enhanced/viewer/probe_lighting.h"
@@ -519,6 +520,24 @@ void load_mods() {
         }
     };
 #ifdef OPENRAC_FRONTEND
+    // The mods built into the program (built_in_mods.h): Ratchet & Clank's keyboard and mouse,
+    // with its settings from the settings file.
+    host.built_ins = mods::built_in_mods();
+    host.built_in_settings["keyboard-mouse"] = settings::get().keyboard_mouse;
+    host.built_in_write =
+        [](const std::string& id, const std::string& key, const std::string& text) {
+            if (id == "keyboard-mouse") {
+                settings::get().keyboard_mouse[key] = text;
+                settings::save();
+            }
+        };
+    host.built_in_reread = [](std::map<std::string, std::map<std::string, std::string>>& out) {
+        if (!settings::reread_keyboard_mouse()) {
+            return false;
+        }
+        out["keyboard-mouse"] = settings::get().keyboard_mouse;
+        return true;
+    };
     // Mods loaded before the window opens (a mod that makes the Vulkan device): what they ask of
     // the keyboard and the cursor is kept for the window (apply_early_mod_input).
     host.take_input = [](std::uint32_t devices) {
@@ -854,14 +873,14 @@ int main(int argc, char** argv) {
             renderer::texture_pack::preload();
         }
         fs::path levels = g_options.levels.empty() ? default_levels(g_options.data) : levels_or_flat(g_options.levels);
-        // A mod that makes the Vulkan device with the port (a VR headset's) is loaded before the
-        // window, which makes the device; without one the mods load after it, as always.
-        if (mods::makes_vulkan_device(g_options.plugins, g_options.no_mods)) {
+        const auto vulkan = mods::vulkan_startup(g_options.plugins, g_options.no_mods);
+        // A mod that creates the device must register its callbacks before the window opens.
+        if (vulkan.creates_device) {
             openrac_game_register_functions();
             load_mods();
             mods_loaded = true;
         }
-        if (!frontend::open(openrac_game.id, levels, why)) {
+        if (!frontend::open(openrac_game.id, levels, vulkan.uses_queue, why)) {
             log::fatalf("no window: {}", why);
         }
         g_window = true;

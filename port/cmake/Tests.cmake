@@ -34,6 +34,21 @@
 
 include_guard(GLOBAL)
 
+function(openrac_link_graph_fixtures)
+  add_library(openrac_graph_fixture STATIC tests/graph_fixture.cpp)
+  target_link_libraries(openrac_graph_fixture PRIVATE openrac_renderer)
+  if(OPENRAC_VULKAN)
+    target_compile_definitions(openrac_graph_fixture PRIVATE OPENRAC_VULKAN=1)
+    target_link_libraries(openrac_graph_fixture PRIVATE openrac_renderer_vulkan)
+  endif()
+  openrac_warnings(openrac_graph_fixture)
+  foreach(subject IN LISTS ARGN)
+    if(TARGET ${subject}_test)
+      target_link_libraries(${subject}_test PRIVATE openrac_graph_fixture)
+    endif()
+  endforeach()
+endfunction()
+
 # The work both helpers share: `lang_options` are openrac_add_c_test's game C options, `math` its
 # MATH.
 function(_openrac_add_test_program subject default_source sources includes definitions libs

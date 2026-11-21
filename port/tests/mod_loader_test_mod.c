@@ -257,6 +257,11 @@ static void world_frame(void) {
         n = s_api->moby_list(list, 8);
         s_record(8160 + n);
         s_record(8170 + (int)(list[n - 1].flags & OPENRAC_MOBY_DRIVEN));
+        /* Copies (1.25): slot 1 may be copied, slot 0 is listed; a copy of 1, none of a dead slot. */
+        s_record(8150 + s_api->moby_copy_check(s_mod, 1));
+        s_record(8155 + s_api->moby_copy_check(s_mod, 0));
+        s_record(8250 + s_api->moby_copy(s_mod, 1, 2));
+        s_record(8260 + s_api->moby_copy(s_mod, 7, 0));
         s_record(8180 + s_api->figure_slot(s_mod, -1));
         s_record(8190 + s_api->figure_slot(s_mod, 0) + 1);
         s_record(8200 + -s_api->play_eyes(s_mod, eyes, 2));

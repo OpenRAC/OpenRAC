@@ -533,12 +533,16 @@ describe("A controller", () => {
     const own = page.getByRole("switch", { name: "Use Your texture pack" });
 
     await own.waitFor();
-    // Its steps are folded under the packs until Make your own opens them.
+    // Its steps are folded under the packs until Make your own (in its menu) opens them.
     const dumping = page.getByRole("switch", { name: "Save the game's textures while you play" });
 
     expect(await dumping.isVisible()).toBe(false);
     await own.focus();
     await press("right");
+    expect(await focused()).toBe("Import");
+    await press("right");
+    expect(await focused()).toBe("More for Your texture pack");
+    await press("accept");
     expect(await focused()).toBe("Make your own");
     await press("accept");
     await dumping.waitFor();

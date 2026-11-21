@@ -4,10 +4,12 @@
 #include <array>
 #include <limits>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "common/stats.h"
+#include "enhanced/renderer/water_graph.h"
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl/gl.h"
@@ -256,10 +258,23 @@ void Water::update_ocean() {
             float(spectrum.gain),
             float(kOceanSide / (2 * spectrum.tile))
         );
+        constexpr auto bytes = kOceanCells * sizeof(Texel);
+        using renderer::graph::Access;
+        // The three phases share one shader and write different parts of its bound storage.
+        const std::array uses{
+            WaterBufferUse{m_ocean_fft_buffers[i], bytes, Access::Read},
+            WaterBufferUse{m_ocean_fft_buffers[2], 2 * bytes, Access::ReadWrite},
+            WaterBufferUse{m_ocean_fft_buffers[3], bytes, Access::ReadWrite},
+            WaterBufferUse{m_ocean_fft_buffers[4], bytes, Access::ReadWrite}
+        };
         for (int pass = 0; pass < 3; ++pass) {
             glUniform1i(m_ocean_fft.uniform("ocean_pass"), pass);
-            glDispatchCompute(kOceanSide, 1, 1);
-            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            const auto dispatch = water_compute_pass("ocean inverse FFT", uses, [] {
+                glDispatchCompute(kOceanSide, 1, 1);
+            });
+            if (!dispatch) {
+                throw std::runtime_error(dispatch.error().message);
+            }
         }
         if (!vkgl::copy_buffer_to_texture(
                 m_ocean_fft_buffers[3], m_ocean_detail_textures[i], kOceanSide, kOceanSide

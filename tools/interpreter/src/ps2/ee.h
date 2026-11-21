@@ -311,6 +311,16 @@ public:
      */
     u8* pointer(u32 address);
 
+    /**
+     * Whether an access of BYTES bytes at ADDRESS runs past the end of main memory or of the
+     * scratchpad (a misaligned one, at the very end).
+     *
+     * @param address The guest address.
+     * @param bytes The access's size in bytes.
+     * @return True when its host pointer would leave the mapped memory.
+     */
+    bool straddles(u32 address, unsigned bytes);
+
     /** Reports a store in memory to `on_watched_store` when it touches the watched bytes. */
     void watch(u32 address, u64 value, unsigned bytes);
 

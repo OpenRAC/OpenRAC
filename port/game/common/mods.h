@@ -14,11 +14,14 @@
 #include <cstdint>
 #include <deque>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
+#include "mod_manifest.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/openrac_mod.h"
@@ -70,6 +73,17 @@ struct DeveloperMenu {
     std::string title;
     std::vector<DeveloperMenuItem> items;
     std::deque<std::uint32_t> actions;
+};
+
+// A mod built into the port (docs/port/MODS.md, "Built-in mods"): its manifest and its two entries,
+// in the program itself. It loads first, with no folder and no library, for the games and discs
+// its manifest names, even in purist mode: to the player it is part of the port, not a mod. Its
+// settings come from the program (Host::built_in_settings). A mod of the launcher's list with the
+// same id is not loaded.
+struct BuiltIn {
+    std::string_view manifest;  // its openrac-mod.json
+    openrac_mod_query_fn query = nullptr;
+    openrac_mod_load_fn load = nullptr;
 };
 
 // What the loader needs of the program.
@@ -144,6 +158,19 @@ struct Host {
     // composing with them. Null: no drawing (a test's), and the call says so.
     void (*joint_offsets)(std::uint32_t moby, const openrac_joint_offset* joints, int count) =
         nullptr;
+    // The mods built into this program, and the values of their settings by mod id, as text
+    // ("1", "0.5", "KeyW,ArrowUp"): what a list entry's would say. A value missing or not of the
+    // setting's type is its default.
+    std::vector<BuiltIn> built_ins;
+    std::map<std::string, std::map<std::string, std::string>> built_in_settings;
+    // A built-in's setting changed in the game (its own setting_set_* or the menu): keep `text`
+    // for key `key` of mod `id`. Null: kept for this run only.
+    void (*built_in_write)(const std::string& id, const std::string& key, const std::string& text) =
+        nullptr;
+    // About once a second: the built-ins' settings again when the launcher changed them while the
+    // game runs; false when nothing changed. Null: never.
+    bool (*built_in_reread)(std::map<std::string, std::map<std::string, std::string>>& out) =
+        nullptr;
     // The edited levels' pack the game reads now (interface 1.14, openrac_api.pack_folder; it
     // changes with the destination played), and the game's language (options_menu::language: 0
     // English, 1 French, 2 German, 3 Spanish, 4 Italian). Null: none (a test's), and the calls say
@@ -158,19 +185,42 @@ struct Host {
     int (*joint_frame)(std::uint32_t moby, int joint, float* out) = nullptr;
 };
 
+// A built-in mod's setting (BuiltIn), for the port's own menu: its manifest entry and value, or
+// null when no built-in of that id is loaded or it has no such setting for this game.
+struct BuiltInSetting {
+    const Setting* spec = nullptr;
+    SettingValue value;
+};
+
+BuiltInSetting built_in_setting(std::string_view id, std::string_view key);
+// The settings a loaded built-in declares for this game, in its manifest's order (valid while the
+// program runs); empty when none is loaded.
+std::vector<const Setting*> built_in_settings(std::string_view id);
+// Its presets (the manifest's "presets"), each with only the values of settings for this game.
+std::vector<Preset> built_in_presets(std::string_view id);
+// Sets a built-in's setting from the port's menu, `literal` its JSON ("true", "1.5", "\"KeyW\""),
+// checked as setting_set_* checks it. The mod is told (on_settings) and the value kept. False when
+// refused.
+bool set_built_in_setting(std::string_view id, std::string_view key, const std::string& literal);
+
 // Loads the mods the list has on. Returns the session header's line: "lock-strafe 1.0.0", "none",
 // "none (purist mode)". Called once, after the game's functions are registered, before it runs:
-// after the window opens, or before it when makes_vulkan_device says so.
+// after the window opens, or before it when a mod creates the Vulkan device.
 std::string load(const Host& host);
 
-// Whether an enabled mod of the list `list` (plugins.json) says in its manifest that it makes the
-// Vulkan device ("vulkan_device": true, interface 1.4): then load() runs before the window opens,
-// which makes the device, and otherwise after it, as before. Reads the manifests only; false in
-// purist mode or with no list.
-bool makes_vulkan_device(const std::filesystem::path& list, bool purist);
+struct VulkanStartup {
+    bool creates_device = false;
+    bool uses_queue = false;
+};
 
-// True while a loaded mod has declared native Vulkan access.
+// Reads enabled manifests before opening the window. Device setup needs early mod loading;
+// queue access needs game-thread device creation.
+VulkanStartup vulkan_startup(const std::filesystem::path& list, bool purist);
+
+// True while a loaded mod has declared native Vulkan access or registered legacy views.
 bool vulkan_needs_game_thread();
+
+// True when the registered view source can supply native Vulkan images.
 bool view_source_can_use_vulkan();
 
 // Each loaded mod's openrac_mod_unload, last first (at exit).
@@ -288,6 +338,11 @@ bool moby_platinum(std::uint32_t moby);
 // OPENRAC_MOBY_MATERIAL_NONE when there is none, for the game's own effects of that moby
 // (openrac_moby_obsidian). From the game's thread.
 MobyMaterial moby_material_drawn(std::uint32_t moby);
+
+// The energy materials (OPENRAC_MOBY_MATERIAL_ENERGY, interface 1.25) drawn this level load, by
+// moby: the last material set on each, where it is energy. For the effects those mobys make
+// (energy_effects.h), read once a tick. From the game's thread.
+std::unordered_map<std::uint32_t, MobyMaterial> energy_materials();
 
 // ---- Heat haze (interface 1.12, mod_play.cpp) ----
 

@@ -22,11 +22,13 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "renderer/debug/debug_lines.h"
+#include "renderer/frame/raster_pass.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gpu_draw.h"
 #include "renderer/gl/shader.h"
@@ -90,7 +92,12 @@ public:
     bool upload(const LevelData& level, renderer::TexturePool& textures, std::string& error);
     void release();
 
-    void draw_layer(Layer layer, const renderer::FrameInput& input, renderer::RenderState& state);
+    void draw_layer(
+        Layer layer,
+        const renderer::FrameInput& input,
+        renderer::RenderState& state,
+        std::string_view pass_name = {}
+    );
     // The mod-only animated scenery layer at this presentation time (seconds since startup).
     std::vector<Instance> animated_instances(double seconds) const;
     bool needs_early_lighting(const renderer::FrameInput& input) const;
@@ -480,6 +487,24 @@ private:
     void render_sky(const renderer::FrameInput& input, renderer::RenderState& state);
     // Draws authored sky shells with the original material blending and camera-relative transforms.
     void draw_sky(const renderer::FrameInput& input, renderer::RenderState& state);
+    // Declares the prepared level streams and possible material reads before classic colour draws.
+    renderer::RasterInputs classic_colour_inputs(
+        Layer layer,
+        renderer::RenderState& state,
+        const renderer::GpuCullView& view = {},
+        bool inspection = false
+    );
+    // Draws existing material runs using visibility and instance streams prepared by draw_layer.
+    void draw_visible_layer(
+        Layer layer,
+        const renderer::FrameInput& input,
+        renderer::RenderState& state,
+        const renderer::GpuCullView& view,
+        bool inspection,
+        bool colour_batch,
+        bool pvs_enabled,
+        std::uint64_t pvs_rejected
+    );
     // Updates the hero projection and renders its separate map when the atlas is unavailable.
     void prepare_hero_shadow(const renderer::FrameInput& input, renderer::RenderState& state);
     // Updates cascade/caster views and renders separate maps when the atlas is unavailable.
@@ -613,6 +638,14 @@ private:
     );
 
     std::vector<Model> m_models;
+
+    struct ClassicMaterials {
+        std::vector<int> slots;
+        bool cutout = false;
+        bool metal = false;
+    };
+
+    std::vector<ClassicMaterials> m_classic_materials;
     std::vector<Instance> m_animated_base;
     std::vector<SpinAnimation> m_spins;
 
@@ -714,9 +747,13 @@ private:
         Pvs::Mask mask{};
         bool valid = false;
         unsigned indices = 0;
+        std::size_t index_bytes = 0;
         std::size_t rejected = 0;
         std::vector<Primitive> primitives;
     };
+
+    // Prepares the original or material-sorted index stream for this frame's terrain mask.
+    const PvsModel& prepare_terrain_indices(std::uint32_t model, const Pvs::Mask& mask);
 
     // Terrain filtering must preserve material runs instead of leaving holes
     // in the sorted index buffer and turning each fragment into another draw.
@@ -770,6 +807,10 @@ private:
     MobyLayout m_moby_layout;
     std::size_t m_palette_rows = 0;  // the palette texture's height now
     unsigned m_vertices = 0;
+    std::size_t m_vertex_count = 0;
+    std::vector<renderer::RasterBuffer> m_classic_geometry;
+    std::vector<renderer::RasterTexture> m_classic_textures;
+    std::vector<renderer::TextureHandle> m_classic_material_images;
     unsigned m_positions = 0;        // the vertices' positions alone (vertex-position-stream)
     bool m_position_stream = false;  // the vertex arrays read positions from m_positions
     unsigned m_indices = 0;
@@ -890,6 +931,9 @@ public:
     LayerRenderer(LevelScene& scene, Layer layer);
 
     void render(const renderer::FrameInput& input, renderer::RenderState& state) override;
+    [[nodiscard]] Result<void> record_colour(
+        const renderer::FrameInput& input, renderer::RenderState& state
+    ) override;
 
     renderer::AoLighting ao_lighting() const override { return m_scene.ao_lighting(); }
 
@@ -901,7 +945,7 @@ public:
 
     bool opaque_colour_barrier() const override { return m_scene.colour_blend_barrier(m_layer); }
 
-    bool prepares_colour_chain() const override { return m_layer != Layer::Sky; }
+    bool prepares_colour_chain() const override;
 
     std::span<const unsigned> opaque_colour_buffers(
         const renderer::FrameInput& input, const renderer::RenderState& state

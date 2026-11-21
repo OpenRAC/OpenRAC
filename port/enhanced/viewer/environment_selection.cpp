@@ -51,12 +51,13 @@ bool EnvironmentSelection::prepare(
 ) {
     release();
 
-    if (!enhanced_rendering_available() || metadata.empty() || metadata.size() % 5 != 0
-        || metadata.size() / 5 > kEnvironmentProbeLimit) {
+    if (!enhanced_rendering_available() || metadata.empty()
+        || metadata.size() % kEnvironmentMetadataStride != 0
+        || metadata.size() / kEnvironmentMetadataStride > kEnvironmentProbeLimit) {
         return false;
     }
 
-    m_count = static_cast<unsigned>(metadata.size() / 5);
+    m_count = static_cast<unsigned>(metadata.size() / kEnvironmentMetadataStride);
     ensure_buffer();
     glBindBuffer(wgl::GL_TEXTURE_BUFFER, m_metadata_buffer);
     glBufferData(

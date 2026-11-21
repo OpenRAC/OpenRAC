@@ -9,6 +9,17 @@ below by reading every level with the editor's readers (2026-10-20).
 
 **Games.** RAC2 = Going Commando `SCUS_972.68` v1.01, RAC3 = Up Your Arsenal
 `SCUS_973.53`, RAC4 = Deadlocked `SCUS_974.65`, all NTSC-U (**retail**).
+The PAL discs read the same way: Up Your Arsenal's `SCES_524.56`, and Deadlocked's
+`SCES_532.85` (Ratchet: Gladiator), whose table of contents and level headers are
+NTSC-U's, with the same 47 levels; its six sample levels (0, 1, 4, 41, 42, 61) give
+the same meshes, triangles and textures as NTSC-U's (2026-11-20).
+
+Deadlocked's online public beta (`SCUS_974.87`, built 2005-06-30) is not read: it is a
+pre-release format. Its table of contents has no level table where retail's is, its
+level headers are 0xc70 bytes (retail 0xc68) with the level data at +0x10 instead of
++0x18, its level data WAD lacks retail's art instances, gameplay core and navigation
+sections, and its gameplay files are a different WAD revision. Its five levels, the
+multiplayer menu and four maps (0, 44, 45, 46 and 48), are on the retail discs too.
 RAC1 is in [DISC.md](DISC.md) and [LEVEL.md](LEVEL.md).
 
 ## 1. What the four games share

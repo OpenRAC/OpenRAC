@@ -9,8 +9,8 @@
 // OPENRAC_SLOW_FRAME). The pacing's pure arithmetic is frontend/pacing.h's; frame() in
 // frontend.cpp reads each tick from the game and keeps it (Kept) for what is drawn here.
 //
-// Pacing, input and presentation stay on the window thread. Vulkan world recording consumes an
-// owned snapshot on RenderWorker; finish_render returns exclusive graphics ownership before UI work.
+// Pacing and input stay on the window thread. The Vulkan worker records an owned world snapshot,
+// then handles window copies and presentation after the window thread has composed the UI.
 
 #include <algorithm>
 #include <chrono>
@@ -21,6 +21,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
@@ -56,7 +57,6 @@
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
-#include "renderer/textures/texture_pool.h"
 #include "renderer/ui/fps_counter.h"
 #include "scene/level_renderer.h"
 #include "scene/screenshot.h"
@@ -108,10 +108,13 @@ bool g_held = false;
 // pass on as the frame begins (Window::latency_begin); 0 for the others.
 double g_latency_slept = 0.0;
 
-// Vulkan jobs own their snapshots; mod views share the window thread and graphics queue.
-bool threaded_rendering() {
+bool separate_vulkan_thread() {
     static const bool requested = env::flag(env::Var::RenderThread);
-    return gl::is_vulkan() && requested && !views_wanted() && !mods::vulkan_needs_game_thread();
+    return requested && !mods::vulkan_needs_game_thread();
+}
+
+bool threaded_rendering() {
+    return gl::is_vulkan() && separate_vulkan_thread();
 }
 
 // Returns the frames a second the frames between ticks are held to (the player's cap, or the
@@ -197,7 +200,7 @@ float alpha_at(std::chrono::steady_clock::time_point display) {
 // Swaps the window's buffers for the frame begun at `started`, and keeps what the swap tells the
 // pacing: what a frame costs, the display's refresh interval when it is to be read again, the
 // last swap that waited for a refresh, and when the frame cap lets the next frame start.
-void swapped(std::chrono::steady_clock::time_point started) {
+void swapped(std::chrono::steady_clock::time_point started, std::int64_t frame) {
     using namespace std::chrono;
     const auto before = steady_clock::now();
     platform::frame_work_done();
@@ -215,7 +218,7 @@ void swapped(std::chrono::steady_clock::time_point started) {
         platform::work_waited(duration<double>(steady_clock::now() - before).count());
     }
     const auto swap_started = steady_clock::now();
-    g->window->swap();
+    swap_rendered_frame(frame);
     // In the background (another window has the focus, or the game is minimised), Windows'
     // compositor stops pacing the swap: it returns at once, the frames run unbounded and take the
     // whole machine's GPU and CPU with them. There the frames are held to the game's tick by a real
@@ -294,12 +297,12 @@ bool frame_due(std::chrono::steady_clock::time_point now) {
 // ---- The kept tick ----
 
 std::string enhanced_graphics_error() {
-    const auto* lighting = g ? g->scene.level_lighting() : nullptr;
+    const auto* lighting = g ? g->render.scene.level_lighting() : nullptr;
     return lighting ? std::string(lighting->load_error()) : std::string{};
 }
 
 bool enhanced_graphics_available() {
-    return g && gl::enhanced_rendering_available() && g->scene.probe_data_available();
+    return g && g->render.enhanced_graphics_available();
 }
 
 namespace {
@@ -339,7 +342,10 @@ void capture_frame(const FramePresentation& output) {
                                  + (output.enhanced_graphics ? "_enhanced" : "") + ".png";
         // As the screen shows it: the frame's alpha is what the GS blends wrote, not a picture's
         // coverage, and a viewer that shows it draws the sky full of the effects' blotches.
-        std::vector<std::uint8_t> pixels = renderer::read_rgba(shown, width, height);
+        std::vector<std::uint8_t> pixels;
+        run_graphics(
+            [&] { pixels = renderer::read_rgba(shown, width, height); }, output.source_frame
+        );
         for (std::size_t i = 3; i < pixels.size(); i += 4) {
             pixels[i] = 0xFF;
         }
@@ -363,7 +369,7 @@ void report_frame_cost(const FramePresentation& output) {
         if (++frame_cost.frames >= frame_cost.every) {
             const double n = frame_cost.frames * 0.001;
             const renderer::FrameStats stats =
-                g->renderer ? g->renderer->last_stats() : renderer::FrameStats{};
+                g->render.renderer ? g->render.renderer->last_stats() : renderer::FrameStats{};
             log::info(
                 "cost tick {}: {:.3f} ms a frame over {} frames (scene {:.3f}, submit {:.3f}, "
                 "gpu {:.3f}, show {:.3f}); {} draw calls, {} triangles, frame {}x{} x{}",
@@ -378,7 +384,7 @@ void report_frame_cost(const FramePresentation& output) {
                 stats.triangles,
                 width,
                 height,
-                g->frame.samples()
+                g->render.frame.samples()
             );
             frame_cost.frames = 0;
             frame_cost.scene = frame_cost.submit = frame_cost.gpu = frame_cost.show = 0.0;
@@ -405,19 +411,45 @@ void log_pacing(const FramePresentation& output) {
     }
 }
 
-// Pins the immutable captured scene and transfers graphics ownership to its persistent worker.
-void queue_frame(const std::shared_ptr<FramePresentation>& output) {
-    // The worker is persistent; every job owns poses, packets, textures and graphics settings.
+RenderWorker& graphics_worker() {
     if (!g->render_worker) {
-        // These renderer capability caches must be populated before the game and worker can query them.
-        [[maybe_unused]] const int samples = renderer::FrameBuffer::max_samples();
-        [[maybe_unused]] const float anisotropy = renderer::TexturePool::max_anisotropy();
         g->render_worker = std::make_unique<RenderWorker>();
-        log::info("Vulkan world rendering on a dedicated thread; one snapshot in flight");
+        log::info(
+            "Vulkan rendering and presentation on a dedicated thread; one snapshot in flight"
+        );
     }
+    return *g->render_worker;
+}
+
+void wait_for_graphics(RenderWorker& worker) {
+    while (!worker.ready_until(std::chrono::steady_clock::now() + std::chrono::milliseconds(50))) {
+        platform::pump_events();
+    }
+}
+
+// Pins the immutable captured scene and transfers graphics ownership to its persistent worker.
+void queue_frame(const std::shared_ptr<FramePresentation>& output, bool views_begun) {
+    auto& worker = graphics_worker();
     const auto snapshot_started = std::chrono::steady_clock::now();
-    auto snapshot =
-        std::make_shared<RenderSnapshot>(RenderSnapshot{g->kept, settings::get(), output});
+    std::function<void()> job = [owner = &g->render,
+                                 scene = std::shared_ptr<const Kept>(g->kept),
+                                 graphics = settings::get(),
+                                 output,
+                                 views_begun] {
+        // The render thread's share of the frame, for the system's CPU clocks.
+        const auto job_started = std::chrono::steady_clock::now();
+        platform::add_this_thread();
+        renderer::g_dump_draws = output->dump_draws;
+        render_scene(*owner, *scene, graphics, *output, views_begun);
+        sampler::note_thread("render");
+        {
+            const stats::Scope slow("simulated slow cpu");
+            slow_cpu::pad();
+        }
+        platform::render_work_done(
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - job_started).count()
+        );
+    };
     stats::gauge(
         "render snapshot ms",
         std::chrono::duration<double, std::milli>(
@@ -427,38 +459,14 @@ void queue_frame(const std::shared_ptr<FramePresentation>& output) {
     );
     g->pending_frame = output;
     std::string error;
-    State& owner = *g;
-    const bool queued = g->render_worker->submit(
-        [&owner, snapshot = std::move(snapshot)] {
-            // The render thread's share of the frame, for the system's CPU clocks
-            // (performance_hint.h).
-            const auto job_started = std::chrono::steady_clock::now();
-            platform::add_this_thread();
-            renderer::g_dump_draws = snapshot->presentation->dump_draws;
-            render_scene(owner, *snapshot->scene, snapshot->graphics, *snapshot->presentation);
-            sampler::note_thread("render");  // [debug tools] sampled while a capture runs
-            // [debug tools] The render thread's share of a simulated slow processor.
-            {
-                const stats::Scope slow("simulated slow cpu");
-                slow_cpu::pad();
-            }
-            platform::render_work_done(
-                std::chrono::duration<double>(std::chrono::steady_clock::now() - job_started)
-                    .count()
-            );
-        },
-        error,
-        output->source_frame
-    );
-    // Job rejection means a previous failure, never an unbounded queue.
-    if (!queued) {
+    if (!worker.submit(std::move(job), error, output->source_frame)) {
         g->pending_frame.reset();
         g->render_failed = true;
         log::error("render thread: {}", error);
     }
 }
 
-// Draws the debug UI after the render worker has released all referenced graphics state.
+// Builds the debug UI on the window thread after the world snapshot is complete.
 void draw_overlay(const FramePresentation& output) {
     const int window_width = output.window_width;
     const int window_height = output.window_height;
@@ -472,19 +480,19 @@ void draw_overlay(const FramePresentation& output) {
          box.y,
          box.width,
          box.height,
-         g->renderer.get(),
+         g->render.renderer.get(),
          &output.camera,
-         g->frame.width(),
-         g->frame.height(),
-         g->last_world.width(),
-         g->last_world.height(),
+         g->render.frame.width(),
+         g->render.frame.height(),
+         g->render.last_world.width(),
+         g->render.last_world.height(),
          g->swap != platform::SwapInterval::Immediate,
          interpolating(),
          pacing.interval,
          pacing.cost,
          pacing.period.count(),
          &g->picker,
-         &g->level,
+         &g->render.level,
          output.picker_live,
          output.picker_palette,
          output.picker_level,
@@ -496,7 +504,7 @@ void draw_overlay(const FramePresentation& output) {
     );
 }
 
-// Composites debug UI and presents on the window thread, after exclusive graphics ownership returns.
+// Orders the window-thread UI and render-thread presentation for a completed world snapshot.
 void present_frame(FramePresentation& output) {
     const crash::BreadcrumbScope breadcrumbs(output.source_frame);
     // A between-tick job keeps draw logging suppressed through its later presentation too.
@@ -526,12 +534,18 @@ void present_frame(FramePresentation& output) {
         const stats::Scope menus("menus");
         mod_overlay::draw(output.camera, output.has_camera, shown, width, height, aspect);
         debug_menu::draw(shown, width, height);
-        mod_menu::draw(shown, width, height);
-        if (settings::get().show_fps != settings::FrameCounter::Off) {
-            // In the game's accent over the theme's darkest ink, as the launcher and the menu.
-            const ui_colors::Colors& colors = ui_colors::launcher();
-            renderer::ui::fps_counter::draw(shown, width, height, colors.amber, colors.ink_deep);
-        }
+        run_graphics(
+            [&] {
+                mod_menu::draw(shown, width, height);
+                if (settings::get().show_fps != settings::FrameCounter::Off) {
+                    const ui_colors::Colors& colors = ui_colors::launcher();
+                    renderer::ui::fps_counter::draw(
+                        shown, width, height, colors.amber, colors.ink_deep
+                    );
+                }
+            },
+            output.source_frame
+        );
     }
     {
         const stats::Scope capture("capture");
@@ -539,20 +553,91 @@ void present_frame(FramePresentation& output) {
         slow_frame();
     }
     crash::breadcrumb(crash::BreadcrumbThread::Main, "presenting frame", output.source_frame);
-    present(shown, width, height, window_width, window_height, false, aspect);
+    run_graphics(
+        [=] { present(shown, width, height, window_width, window_height, false, aspect); },
+        output.source_frame
+    );
     {
         const stats::Scope touch("touch pad");
         draw_touch_pad(window_width, window_height);
     }
     draw_overlay(output);
     const stats::Scope swap_scope("swap");
-    swapped(started);
+    swapped(started, output.source_frame);
     // A mod's views were submitted with the frame: the mod may hand them on (nothing without one).
     finish_views();
     report_frame_cost(output);
 }
 
 }  // namespace
+
+void run_graphics(
+    std::function<void()> job, std::int64_t frame, std::source_location submitted_at
+) {
+    if (gl::is_vulkan()) {
+        run_vulkan_graphics(std::move(job), frame, submitted_at);
+    } else {
+        job();
+    }
+}
+
+void run_vulkan_graphics(
+    std::function<void()> job, std::int64_t frame, std::source_location submitted_at
+) {
+    if (!separate_vulkan_thread()) {
+        job();
+        return;
+    }
+    auto& worker = graphics_worker();
+    std::string error;
+    if (worker.submit(std::move(job), error, frame, submitted_at)) {
+        wait_for_graphics(worker);
+        if (worker.finish(error)) {
+            return;
+        }
+    }
+    // Movie and image callbacks can catch this before finish_render sees it.
+    g->render_failed = true;
+    throw std::runtime_error(error);
+}
+
+void swap_rendered_frame(std::int64_t frame) {
+    int width = 0, height = 0;
+    g->window->drawable_size(width, height);
+#if defined(OPENRAC_IOS)
+    if (width > 0 && height > 0 && threaded_rendering()) {
+        g->window->restore_vulkan_surface();
+    }
+#endif
+    run_graphics([=] { g->window->swap(width, height); }, frame);
+}
+
+#if defined(OPENRAC_IOS)
+void drain_graphics_for_background() try {
+    if (!g || g->render_failed || gl::glFinish == nullptr) {
+        return;
+    }
+    if (!gl::is_vulkan() || !separate_vulkan_thread()) {
+        gl::glFinish();
+        return;
+    }
+
+    // Keep this synchronous inside the UIKit notification. The worker finishes any outstanding
+    // job first. Surface recovery on iOS runs on the game thread, so this wait needs no SDL pump.
+    auto& worker = graphics_worker();
+    std::string error;
+    if (!worker.submit([] { gl::glFinish(); }, error) || !worker.finish(error)) {
+        g->render_failed = true;
+        log::error("cannot drain graphics for iOS backgrounding: {}", error);
+    }
+} catch (const std::exception& failure) {
+    g->render_failed = true;
+    log::error("cannot drain graphics for iOS backgrounding: {}", failure.what());
+} catch (...) {
+    g->render_failed = true;
+    log::error("cannot drain graphics for iOS backgrounding: unknown exception");
+}
+#endif
 
 bool render_pending() {
     return g && static_cast<bool>(g->pending_frame);
@@ -576,11 +661,7 @@ bool finish_render() try {
         return !g || !g->render_failed;
     }
     const auto started = std::chrono::steady_clock::now();
-    while (!g->render_worker->ready_until(
-        std::chrono::steady_clock::now() + std::chrono::milliseconds(50)
-    )) {
-        platform::pump_events();
-    }
+    wait_for_graphics(*g->render_worker);
     std::string error;
     const bool complete = g->render_worker->finish(error);
     auto output = std::move(g->pending_frame);
@@ -633,6 +714,7 @@ void draw_kept(bool first) try {
     const CameraTurn turn = g_held ? CameraTurn{} : latch_camera(*g->kept, output->alpha, display);
     output->latch_yaw = turn.yaw;
     output->latch_pivot = turn.pivot;
+    output->latch_pitch = turn.pitch;
     g->window->drawable_size(output->window_width, output->window_height);
     output->aspect = picture_aspect(output->window_width, output->window_height);
     output->box = frame_box(output->window_width, output->window_height, output->aspect);
@@ -646,14 +728,22 @@ void draw_kept(bool first) try {
         crash::breadcrumb(
             crash::BreadcrumbThread::Main, "synchronous render started", output->source_frame
         );
-        render_scene(*g, *g->kept, settings::get(), *output);
+        render_scene(g->render, *g->kept, settings::get(), *output);
         crash::breadcrumb(
             crash::BreadcrumbThread::Main, "synchronous render finished", output->source_frame
         );
         present_frame(*output);
         return;
     }
-    queue_frame(output);
+    const bool mod_views = views_wanted();
+    if (mod_views) {
+        begin_views();
+    }
+    queue_frame(output, mod_views);
+    if (mod_views) {
+        // Complete the view callbacks before the next game tick can run mod code.
+        [[maybe_unused]] const bool presented = finish_render();
+    }
 
 } catch (const std::exception& failure) {
     g->pending_frame.reset();
