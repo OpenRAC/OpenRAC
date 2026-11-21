@@ -1380,6 +1380,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.jump_tables = {k: v for k, v in jump_tables.items() if not k.startswith("#")}
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
     program.unpassed_registers = bool(cfg.get("unpassed_registers"))
+    program.caller_aliases = bool(cfg.get("caller_aliases"))
     # The game's entry as an address (func_0013ADA8), which a required retail program must have.
     entry_name = re.fullmatch(r"func_([0-9A-Fa-f]{8})", cfg.get("entry") or "")
     program.entry_address = int(entry_name.group(1), 16) if entry_name else None

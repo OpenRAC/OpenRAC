@@ -1979,6 +1979,12 @@ class Unit:
             if problem not in self.report.problems:
                 self.report.problems.append(problem)
         sym = self._level_short_name(sym)
+        alias = CALLER_ALIAS.match(sym) if self.program.caller_aliases else None
+        if alias and (alias.group(1) in self.program.wrap or alias.group(1) in self.program.host):
+            # hostgen.json "caller_aliases": a per-caller declaration of a function the port wraps
+            # or replaces (rac3's func_0038EBC8_00390768, FontPrint as func_00390768's C declares
+            # it) is that function, or the call would run its own translation and miss the port's.
+            sym = alias.group(1)
         own = self.program.grouped(self.unit, sym)
         if own != sym and own in self.program.functions:
             return own  # the unit's group (a separate program) has its own

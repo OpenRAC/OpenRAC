@@ -137,6 +137,7 @@ class Program:
     # Another release's view of the primary's C: at one address, the release's own C answers before
     # the primary's C under the release's name for that place (FUN_..., an F<hash>_FUN_...).
     release_view: bool = False
+    caller_aliases: bool = False  # hostgen.json "caller_aliases": per-caller declarations of wrapped functions are them
     from_assembly: set = field(default_factory=set)  # C left out for C from the instructions (hostgen.json "from_assembly")
     wrap: set = field(default_factory=set)  # translated as <name>__game, called by a host <name>
     wrap_host: set = field(default_factory=set)  # with a `wrap` row: a hook point among them is <name>__hooked
