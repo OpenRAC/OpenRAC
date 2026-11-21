@@ -549,9 +549,9 @@ if(OPENRAC_PORT_GAMES)
   add_test(NAME parity_tool
            COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_parity.py")
   # No translated C calls a function hostgen has no C for (an empty body that does nothing), or
-  # checks/stub_calls.tsv says why. Skipped (77) for a version not built here. rac2 for now: rac1
-  # still has a few such calls to look at, rac3 and rac4 thousands (most of their code has no C).
-  foreach(version rac2-ntsc rac2-pal rac2-ntsc2)
+  # checks/stub_calls.tsv says why. Skipped (77) for a version not built here. rac1 and rac2: rac3
+  # and rac4 have thousands (most of their code has no C yet).
+  foreach(version rac1-pal rac1-ntsc rac1-pal1 rac1-jp rac2-ntsc rac2-pal rac2-ntsc2)
     add_test(NAME ${version}_stub_calls
              COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/hostgen/stub_calls.py"
                      --gen "${CMAKE_BINARY_DIR}/games/${version}/gen"
