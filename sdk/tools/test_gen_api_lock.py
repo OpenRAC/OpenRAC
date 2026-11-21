@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 import shutil
 import tempfile
 import unittest
@@ -118,6 +119,19 @@ class ApiLockTest(unittest.TestCase):
         rc, err = self.run_tool()
         self.assertEqual(rc, 1)
         self.assertIn("is gone", err)
+
+    def test_a_written_down_fix_may_change_its_row(self) -> None:
+        self.run_tool()
+        self.write(BASE.replace("OPENRAC_HOOK_OK 0", "OPENRAC_HOOK_OK 2"))
+        self.assertEqual(self.run_tool()[0], 1)
+        fix = {"lock": "macros.lock", "was": "OPENRAC_HOOK_OK\t0", "is": "OPENRAC_HOOK_OK\t2", "why": "a test"}
+        (self.sdk / "api" / "fixes.json").write_text(json.dumps({"fixes": [fix]}))
+        self.assertEqual(self.run_tool(), (0, ""))
+        self.write(BASE.replace("OPENRAC_HOOK_OK 0", "OPENRAC_HOOK_OK 3"))  # not the fix written down
+        self.assertEqual(self.run_tool()[0], 1)
+        (self.sdk / "api" / "fixes.json").write_text(json.dumps({"fixes": [dict(fix, why="")]}))
+        with self.assertRaises(SystemExit):
+            self.run_tool()
 
 
 @unittest.skipUnless(HAS_CLANG, "needs clang")

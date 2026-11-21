@@ -46,7 +46,11 @@ jobs:
         with:
           python-version: "3.12"
       - name: Test the SDK's tools
-        run: python3 -m unittest discover -s sdk/tools
+        # clang-format (pinned, as in checks.yml) checks that new_api.py writes the port's files
+        # as port/.clang-format lays them out.
+        run: |
+          python3 -m pip install clang-format==21.1.8
+          python3 -m unittest discover -s sdk/tools
       - name: The API reference is what the sources give
         # sdk/docs/reference is generated from the headers, the bindings and the type files.
         run: python3 sdk/tools/gen_reference.py --check

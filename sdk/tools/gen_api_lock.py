@@ -22,7 +22,9 @@ member or a field at the end of its struct). The tool refuses to write locks tha
 a row; --check also fails when the locks are not what the headers give (CI: .github/workflows/sdk.yml).
 --against also holds the headers to the locks of a git ref (a pull request's base), so a lock
 edited by hand cannot hide a break.
-Only OPENRAC_MOD_API_MINOR and OPENRAC_MOD_TARGET_MINOR may change value.
+Only OPENRAC_MOD_API_MINOR and OPENRAC_MOD_TARGET_MINOR may change value. The one other way a row
+changes is a fix written down in api/fixes.json, row for row with its reason: a row that was wrong
+from the start, so that no built mod can rely on it (a hook point's signature the port refuses).
 
 Needs clang on PATH (or CLANG=<path>). Stdlib only.
 """
@@ -226,7 +228,20 @@ def key(lock: str, row: str) -> str:
     return c[0]
 
 
-def compare(lock: str, old: list[str], new: list[str]) -> list[str]:
+def read_fixes(sdk: Path) -> set[tuple[str, str, str]]:
+    """api/fixes.json: (lock, the row as it was, the row as it is) for each row fixed by hand."""
+    path = sdk / "api" / "fixes.json"
+    if not path.exists():
+        return set()
+    out = set()
+    for f in json.loads(path.read_text())["fixes"]:
+        if not f.get("why"):
+            raise SystemExit(f"{path}: a fix of {f.get('was')!r} needs its reason (why)")
+        out.add((f["lock"], f["was"], f["is"]))
+    return out
+
+
+def compare(lock: str, old: list[str], new: list[str], fixes: set[tuple[str, str, str]] = frozenset()) -> list[str]:
     """What breaks the append-only rule, going from `old` to `new` rows."""
     problems: list[str] = []
     if lock == "openrac_api.lock":
@@ -246,6 +261,8 @@ def compare(lock: str, old: list[str], new: list[str]) -> list[str]:
         if new_by[k] == row:
             continue
         c_old, c_new = row.split("\t"), new_by[k].split("\t")
+        if (lock, row, new_by[k]) in fixes:
+            continue
         if lock == "macros.lock" and k in MOVING:
             continue
         if lock == "types.lock" and c_old[1] == "(size)":
@@ -273,7 +290,7 @@ def read_lock_at(ref: str, name: str) -> list[str]:
     return [l for l in done.stdout.splitlines() if l and not l.startswith("#")]
 
 
-# The areas a table member belongs to (docs: sdk/docs/adding-a-call.md). A new area needs a reason.
+# The areas a table member belongs to (docs/port/MOD_API.md). A new area needs a reason.
 AREAS = ("core", "settings", "hooks", "input", "graphics", "menus", "play", "world", "hero", "figures",
          "saves", "party", "camera", "visuals", "sound", "touch", "system")
 STATUSES = ("stable", "experimental")
@@ -329,13 +346,15 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     out_dir = args.sdk / "api"
     locks = generate(args.sdk)
+    fixes = read_fixes(args.sdk)
     problems: list[str] = []
     stale: list[str] = []
     for name, rows in locks.items():
         old = read_lock(out_dir / name)
-        problems += compare(name, old, rows)
+        problems += compare(name, old, rows, fixes)
         if args.against:
-            problems += [f"{p} (against {args.against})" for p in compare(name, read_lock_at(args.against, name), rows)]
+            problems += [f"{p} (against {args.against})"
+                         for p in compare(name, read_lock_at(args.against, name), rows, fixes)]
         if old != rows:
             stale.append(name)
     minor = int(re.search(r"^#define OPENRAC_MOD_API_MINOR (\d+)$",

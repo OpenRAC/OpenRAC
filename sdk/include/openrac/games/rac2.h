@@ -222,12 +222,12 @@ typedef uint32_t (*openrac_rac2_Bolt_SpawnPickup)(
 
 /* Bolt_Collect (func_00301D10, rac2.bolt.collect): A coin collected (CollectBolts): its class's value
  * added to the player's bolts (0x1A79F8) and, for a counted coin, to the level's bolt score, then its
- * sparks. The coin's update calls it as the coin reaches the hero, the moby still alive, and reads
- * no result (return the original's). A replacement can add more with openrac_api.bolts: for a coin
- * worth five times, four times what the original added. */
+ * sparks. The coin's update calls it as the coin reaches the hero, the moby still alive; it returns
+ * nothing (SDK 1.28.0 and older said u32(u32), which the port refused). A replacement can add more
+ * with openrac_api.bolts: for a coin worth five times, four times what the original added. */
 #define OPENRAC_RAC2_HOOK_Bolt_Collect "Bolt_Collect"
-#define OPENRAC_RAC2_SIG_Bolt_Collect "u32(u32)"
-typedef uint32_t (*openrac_rac2_Bolt_Collect)(uint32_t moby);
+#define OPENRAC_RAC2_SIG_Bolt_Collect "void(u32)"
+typedef void (*openrac_rac2_Bolt_Collect)(uint32_t moby);
 
 /* Arena_Prize (func_L02_003FCDF8, rac2.arena.prize): The bolts arena challenge `challenge` pays
  * (moby_compute_scaled_entry_value; one function in Maktar's and Joba's code): its record's prize

@@ -407,7 +407,7 @@ openrac_rac1_Weapon_Ryno_PickTarget	(typedef)	-	openrac_gaddr (*)(openrac_gaddr,
 openrac_rac1_Weapon_TakeAmmo	(typedef)	-	int32_t (*)(int32_t, int32_t)
 openrac_rac1_msg_string	(typedef)	-	int32_t (*)(int32_t)
 openrac_rac2_Arena_Prize	(typedef)	-	int32_t (*)(int32_t)
-openrac_rac2_Bolt_Collect	(typedef)	-	uint32_t (*)(uint32_t)
+openrac_rac2_Bolt_Collect	(typedef)	-	void (*)(uint32_t)
 openrac_rac2_Bolt_SpawnPickup	(typedef)	-	uint32_t (*)(uint32_t, uint32_t, uint32_t, uint32_t, int32_t, int32_t)
 openrac_rac2_Bolt_SpawnPickups	(typedef)	-	void (*)(uint32_t, int32_t, int32_t, int32_t, int32_t, int32_t, float)
 openrac_rac2_Hero_ApproachSpeed	(typedef)	-	void (*)(float, float)

@@ -5,6 +5,9 @@ from __future__ import annotations
 
 import contextlib
 import io
+import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,6 +22,8 @@ typedef struct openrac_api {
 } openrac_api;
 """
 NS = new_api.NAMESPACE_END + "\n"
+CLANG_FORMAT = os.environ.get("CLANG_FORMAT") or shutil.which("clang-format")
+STYLE = Path(__file__).resolve().parents[2] / "port" / ".clang-format"
 
 
 class NewApiTest(unittest.TestCase):
@@ -28,8 +33,8 @@ class NewApiTest(unittest.TestCase):
         files = {
             new_api.HEADER: HEADER,
             new_api.MEMBERS: "# member\tarea\tsince\tstatus\nold\tcore\t1.4\tstable\n",
-            new_api.INTERNAL: "namespace x {\nint api_old(openrac_mod* mod);\n\n" + NS,
-            Path(new_api.AREA_FILE.format(area="world")): "namespace x {\n\n" + NS,
+            new_api.INTERNAL: "namespace openrac::mods::detail {\nint api_old(openrac_mod* mod);\n\n" + NS,
+            Path(new_api.AREA_FILE.format(area="world")): "namespace openrac::mods::detail {\n\n" + NS,
             new_api.MODS: "void fill() {\n    g_api.old = api_old;\n" + new_api.FILL_END + "\n}\n",
         }
         for path, text in files.items():
@@ -73,14 +78,53 @@ class NewApiTest(unittest.TestCase):
         self.assertIn("    int (*long_call)(\n        openrac_mod* mod,\n", self.text(new_api.HEADER))
 
     def test_refused(self) -> None:
-        for args in (["nowhere", "x", "--params", "openrac_mod* mod", "--about", "."],
-                     ["world", "old", "--params", "openrac_mod* mod", "--about", "."],
-                     ["world", "Bad", "--params", "openrac_mod* mod", "--about", "."],
+        mod = "openrac_mod* mod"
+        for args in (["nowhere", "x", "--params", mod, "--about", "."],
+                     ["world", "old", "--params", mod, "--about", "."],
+                     ["world", "Bad", "--params", mod, "--about", "."],
+                     ["world", "new", "--params", mod, "--about", "."],
+                     ["world", "a__b", "--params", mod, "--about", "."],
+                     ["world", "x" * 41, "--params", mod, "--about", "."],
                      ["world", "x", "--params", "int n", "--about", "."],
-                     ["camera", "x", "--params", "openrac_mod* mod", "--about", "."]):
+                     ["world", "x", "--params", "openrac_mod* mod, int", "--about", "."],
+                     ["world", "x", "--params", "openrac_mod* mod, int a, float a", "--about", "."],
+                     ["world", "x", "--params", "openrac_mod* mod, void (*fn)(int)", "--about", "."],
+                     ["world", "x", "--returns", "int (*)(void)", "--params", mod, "--about", "."],
+                     ["world", "x", "--params", mod, "--about", "Ends the */ comment."],
+                     ["world", "x", "--params", mod, "--about", " "],
+                     ["camera", "x", "--params", mod, "--about", "."]):
             with self.subTest(args=args), self.assertRaises(SystemExit):
                 self.add(*args)
         self.assertEqual(self.text(new_api.HEADER), HEADER)
+
+    def test_refused_late_leaves_every_file(self) -> None:
+        (self.root / new_api.MODS).write_text("void fill() {}\n")  # no place for the assignment
+        before = {p: self.text(p) for p in (new_api.HEADER, new_api.MEMBERS, new_api.INTERNAL)}
+        with self.assertRaises(SystemExit):
+            self.add("world", "x", "--params", "openrac_mod* mod", "--about", ".")
+        self.assertEqual({p: self.text(p) for p in before}, before)
+
+    def test_spacing_and_arrays(self) -> None:
+        self.add("world", "pos", "--returns", "const char *", "--params", "openrac_mod *mod,  float  out[3]",
+                 "--about", "Pos.")
+        self.assertIn("    const char* (*pos)(openrac_mod* mod, float out[3]);", self.text(new_api.HEADER))
+        area = self.text(new_api.AREA_FILE.format(area="world"))
+        self.assertIn("static_cast<void>(out);", area)
+        self.assertIn("return nullptr;", area)
+
+    @unittest.skipUnless(CLANG_FORMAT and STYLE.is_file(), "needs clang-format")
+    def test_port_files_as_clang_format_lays_them_out(self) -> None:
+        self.add("world", "short_call", "--params", "openrac_mod* mod", "--about", "S.")
+        self.add("world", "medium_call", "--params",
+                 "openrac_mod* mod, uint32_t moby, float strength, const char* label, int flags", "--about", "M.")
+        self.add("world", "long_call", "--params", "openrac_mod* mod, uint32_t first_long_name, "
+                 "uint32_t second_long_name, float third_long_name, const char* fourth_long_name", "--about", "L.")
+        shutil.copy(STYLE, self.root / ".clang-format")
+        for path in (new_api.INTERNAL, Path(new_api.AREA_FILE.format(area="world")), new_api.MODS):
+            text = self.text(path)
+            done = subprocess.run([CLANG_FORMAT, f"--assume-filename={self.root / path}"], input=text,
+                                  capture_output=True, text=True, cwd=self.root, check=True)
+            self.assertEqual(done.stdout, text, path)
 
 
 if __name__ == "__main__":
