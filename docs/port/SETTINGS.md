@@ -501,13 +501,13 @@ Each entry:
 | `id` | lower-case words joined by hyphens: `wide-liquids` |
 | `kind` | `fix`: the player may switch it back. `guard`: keeps the game from crashing where the console carried on unnoticed; shown, never switched (off would only mean the crash). `always`: a fix that is always on (a soft lock, a feature one disc lacks); listed with the game fixes, never switched. `port`: a difference that comes with being a PC program, for the record |
 | `name` | a few words. A fix's is its row on the game's Options page: 22 letters at most |
-| `discs` | the game's versions it applies to: `pal`, `ntsc`, and Going Commando's `ntsc2` (USA v2.00) |
+| `discs` | the game's versions it applies to: `pal`, `ntsc`, Ratchet & Clank's `pal1` (PAL v1.00) and `jp` (NTSC-J), and Going Commando's `ntsc2` (USA v2.00). List every version whose program runs the code |
 | `original` | what the PS2 game does |
 | `port` | what the port does, and why; for a fix, what off brings back |
 | `setting` | a fix only: `{"key": "fix_...", "default": true}`. On is the port's fix |
-| `refs` | where it is: commits, files, docs. Shown with the launcher's developer tools on |
+| `refs` | where it is: files and docs. Shown with the launcher's developer tools on |
 
-Write only what the code or a commit shows. A fix is:
+Write only what the code shows. A fix is:
 
 - **a setting**: `fix_... = 1` or `0` in the settings file (section 1),
   written with the others, read at start;
