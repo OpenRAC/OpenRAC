@@ -753,6 +753,7 @@
   "result_allow": "checks/result_allow.tsv",
   "from_assembly": [
     "func_L11_003A9580",
+    "func_L03_0044A4C8",
     "func_00388680__frontbin",
     "func_00388698__frontbin",
     "func_003886B0__frontbin",
