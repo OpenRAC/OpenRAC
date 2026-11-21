@@ -10,6 +10,10 @@ writes, from what the SDK ships, so that the reference never drifts from it:
     c-api.md         include/openrac/openrac_mod.h: versions, constants, types, the openrac_api table
     cpp-api.md       include/openrac/mod.hpp: the C++ layer's classes and their public members
     luau-api.md      types/<game>.d.luau: the `openrac` global a script mod sees
+    by-area.md       api/members.tsv with the header: the table's members by area, the minor that
+                     added each, its status, and which games' ports give it (read from the port's
+                     code: port/game/common/mod_play.cpp and each game's host play table)
+    changelog.md     the header's minor history and api/members.tsv: what each minor added
     hooks-<game>.md  bindings/<game>.json: the hook points (ids and aliases when the table has them),
                      the fields exposed to scripts, and the behaviour catalogue when the table names
                      one (experimental)
@@ -406,11 +410,170 @@ def hooks_page(table_file: Path) -> str:
     return "".join(out).rstrip() + "\n"
 
 
+# ---- The table by area, and what each minor added ----
+
+# Each game's host play table (port/game/common/include/openrac/game_host.h, openrac_game_play).
+PLAY_TABLES = {"rac1": "port/game/rac1/host/play.c", "rac2": "port/game/rac2/host/play.c",
+               "rac3": "port/game/rac3-pal/host/play.c"}
+PORT_MOD_SOURCES = ("port/game/common/mods.cpp", "port/game/common/mod_play.cpp")
+
+
+def read_members(sdk: Path) -> list[dict]:
+    rows = []
+    for line in (sdk / "api" / "members.tsv").read_text().splitlines():
+        if line and not line.startswith("#"):
+            name, area, since, status = line.split("\t")
+            rows.append({"name": name, "area": area, "since": since, "status": status})
+    return rows
+
+
+def cpp_functions(text: str) -> dict[str, str]:
+    """Top-level function bodies of a C++ file, by name (a rough reading: a name and '(' at the
+    start of a line, the body to the next '}' at the start of a line)."""
+    out: dict[str, str] = {}
+    for m in re.finditer(r"^[A-Za-z_][\w:<>,\s\*&]*?\b(\w+)\([^;{]*?\)\s*(?:const\s*)?\{(.*?)^\}", text, re.M | re.S):
+        out.setdefault(m.group(1), m.group(2))
+    return out
+
+
+def game_needs(root: Path) -> dict[str, set[str]]:
+    """For each table member, the host play table's fields its port code reads (through the
+    file's own helpers too)."""
+    bodies: dict[str, str] = {}
+    for src in PORT_MOD_SOURCES:
+        path = root / src
+        if path.is_file():
+            bodies.update(cpp_functions(path.read_text()))
+    direct = {name: set(re.findall(r"\bg_play->(\w+)", body)) for name, body in bodies.items()}
+    calls = {name: {c for c in re.findall(r"\b(\w+)\(", body) if c in bodies and c != name}
+             for name, body in bodies.items()}
+    memo: dict[str, set[str]] = {}
+
+    def needs(name: str, seen: frozenset = frozenset()) -> set[str]:
+        if name in memo:
+            return memo[name]
+        got = set(direct.get(name, ()))
+        for c in calls.get(name, ()):
+            if c not in seen:
+                got |= needs(c, seen | {name})
+        memo[name] = got
+        return got
+
+    return {name[4:]: needs(name) for name in bodies if name.startswith("api_")}
+
+
+def game_fields(root: Path) -> dict[str, set[str]]:
+    out = {}
+    for game, path in PLAY_TABLES.items():
+        f = root / path
+        out[game] = set(re.findall(r"^\s*\.(\w+)\s*=", f.read_text(), re.M)) if f.is_file() else set()
+    return out
+
+
+def coverage(sdk: Path) -> dict[str, dict[str, str]]:
+    """member -> game -> "yes", "part" or "no" (all, some or none of the game-side calls it reads)."""
+    root = sdk.parent
+    needs = game_needs(root)
+    have = game_fields(root)
+    out: dict[str, dict[str, str]] = {}
+    for m in read_members(sdk):
+        need = needs.get(m["name"], set())
+        row = {}
+        for game in PLAY_TABLES:
+            if not need:
+                row[game] = "yes"
+            else:
+                got = len(need & have[game])
+                row[game] = "yes" if got == len(need) else ("part" if got else "no")
+        out[m["name"]] = row
+    return out
+
+
+def area_page(sdk: Path) -> str:
+    members = read_members(sdk)
+    cov = coverage(sdk)
+    games = list(PLAY_TABLES)
+    out = [HEADER.format(source="sdk/api/members.tsv, sdk/include/openrac/openrac_mod.h and the port's code"),
+           "# The table by area\n\n",
+           "The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The table's own order "
+           "never changes (it is the ABI); this page is the map. **Since** is the minor that added the member: "
+           "check `api->api_minor` before using a newer one. **Games** says whether each game's port gives the "
+           "game-side part of the call: *yes*, *part* (some of it) or *no* (the call answers "
+           "`OPENRAC_HOOK_UNKNOWN` there). It is read from the port's code, so test a call on the game you "
+           "target.\n\n"]
+    areas: dict[str, list[dict]] = {}
+    for m in members:
+        areas.setdefault(m["area"], []).append(m)
+    out.append(" · ".join(f"[{a}](#{a})" for a in areas) + "\n\n")
+    for area, rows in areas.items():
+        out.append(f"## {area}\n\n| Member | Since | Status | " + " | ".join(games) + " |\n")
+        out.append("|---|---|---|" + "---|" * len(games) + "\n")
+        for m in rows:
+            status = m["status"]
+            if status.startswith("deprecated:"):
+                status = f"deprecated, use `{status[11:]}`"
+            out.append(f"| `{m['name']}` | {m['since']} | {status} | "
+                       + " | ".join(cov[m["name"]][g] for g in games) + " |\n")
+        out.append("\n")
+    return "".join(out).rstrip() + "\n"
+
+
+def minor_history(header_text: str) -> dict[int, str]:
+    """The header's history of the minor, "1.N what it added", split by minor."""
+    start = header_text.index("/* The interface's minor version")
+    body = _strip_block(header_text[start:header_text.index("*/", start) + 2])
+    body = " ".join(body.split())
+    out: dict[int, str] = {}
+    pos = 0
+    n = 1
+    places = []
+    while True:
+        m = re.compile(rf"\b1\.{n}\b").search(body, pos)
+        if not m:
+            break
+        places.append((n, m.start(), m.end()))
+        pos = m.end()
+        n += 1
+    for i, (n, s, e) in enumerate(places):
+        end = places[i + 1][1] if i + 1 < len(places) else len(body)
+        text = body[e:end].strip().rstrip(",.").strip()
+        text = re.sub(r"(,\s*and|,)$", "", text).strip()
+        text = re.sub(r"^added\s+", "", text)
+        out[n] = text
+    return out
+
+
+def changelog_page(sdk: Path) -> str:
+    header = (sdk / "include" / "openrac" / "openrac_mod.h").read_text()
+    history = minor_history(header)
+    minor = int(re.search(r"^#define OPENRAC_MOD_API_MINOR (\d+)$", header, re.M).group(1))
+    added: dict[int, list[str]] = {}
+    for m in read_members(sdk):
+        added.setdefault(int(m["since"].split(".")[1]), []).append(m["name"])
+    out = [HEADER.format(source="sdk/include/openrac/openrac_mod.h and sdk/api/members.tsv"),
+           "# What each interface minor added\n\n",
+           "Newest first. A mod built for a minor loads on every port with that minor or a newer one.\n\n"]
+    for n in range(minor, -1, -1):
+        out.append(f"## 1.{n}\n\n")
+        if n == 0:
+            out.append("The first table.\n\n")
+        elif history.get(n):
+            out.append(history[n][0].upper() + history[n][1:] + ".\n\n")
+        if added.get(n):
+            out.append("Members: " + ", ".join(f"`{x}`" for x in added[n]) + ".\n\n")
+        else:
+            out.append("No new members (the table is unchanged).\n\n")
+    return "".join(out).rstrip() + "\n"
+
+
 # ---- All of it ----
 
 def pages(sdk: Path = SDK) -> dict[str, str]:
     out = {"c-api.md": c_page(sdk / "include" / "openrac" / "openrac_mod.h"),
            "cpp-api.md": cpp_page(sdk / "include" / "openrac" / "mod.hpp")}
+    if (sdk / "api" / "members.tsv").is_file():
+        out["by-area.md"] = area_page(sdk)
+        out["changelog.md"] = changelog_page(sdk)
     for table in sorted((sdk / "bindings").glob("*.json")):
         out[f"hooks-{table.stem}.md"] = hooks_page(table)
     for types in sorted((sdk / "types").glob("*.d.luau")):

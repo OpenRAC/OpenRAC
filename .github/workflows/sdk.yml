@@ -19,6 +19,11 @@ on:
       - "sdk/**"
       - "docs/port/MODS.md"
       - ".github/workflows/sdk.yml"
+      # The reference's by-area page reads which games give each call.
+      - "port/game/common/mods.cpp"
+      - "port/game/common/mod_play.cpp"
+      - "port/game/common/mod_api/**"
+      - "port/game/*/host/play.c"
   pull_request:
     paths: *paths
   workflow_dispatch:
