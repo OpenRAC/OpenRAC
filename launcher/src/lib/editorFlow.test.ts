@@ -105,7 +105,11 @@ describe("editorStage", () => {
       input({ lacksEditor: "", state: state({ outdated: [{ level: 0, reason: "schema" }] }) }),
     );
 
-    expect([s.kind, s.primary, s.secondary]).toEqual(["no-editor", "get-editor", []]);
+    expect([s.kind, s.primary, s.secondary]).toEqual([
+      "no-editor",
+      "get-editor",
+      ["choose-editor"],
+    ]);
     const old = editorStage(
       input({ lacksEditor: "OpenRAC Editor v1 is older than this OpenRAC: update the editor." }),
     );

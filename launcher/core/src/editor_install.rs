@@ -98,15 +98,14 @@ pub fn folder() -> PathBuf {
     if cfg!(test) || crate::under(&downloaded, MANIFEST).is_file() {
         return downloaded;
     }
-    if cfg!(target_os = "macos") {
-        let home = crate::detect::home_dir().map(|h| h.join("Applications"));
-        for apps in [Some(PathBuf::from("/Applications")), home].into_iter().flatten() {
-            if let Some(dir) = app_extras(&apps.join(MAC_APP)) {
-                return dir;
-            }
-        }
-    }
-    downloaded
+    mac_apps().find_map(|app| app_extras(&app)).unwrap_or(downloaded)
+}
+
+/// Where a Mac keeps OpenRAC Editor.app: the system's Applications, then the player's own.
+fn mac_apps() -> impl Iterator<Item = PathBuf> {
+    let home = crate::detect::home_dir().map(|h| h.join("Applications"));
+    let places = if cfg!(target_os = "macos") { vec![Some(PathBuf::from("/Applications")), home] } else { vec![] };
+    places.into_iter().flatten().map(|apps| apps.join(MAC_APP))
 }
 
 /// The folder the player picked, while it still holds an editor.
@@ -146,6 +145,12 @@ pub fn forget_chosen(root: Option<&Path>) -> Result<Status, String> {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(status(root)),
         Err(e) => Err(format!("{}: {e}", file.display())),
     }
+}
+
+/// Why an installed Mac app without the editor's files is not used: one built or unpacked without
+/// them (only the .dmg puts them inside).
+fn bare_app(app: &Path) -> String {
+    format!("{} has no editor files inside: install it from the .dmg, or download it here", app.display())
 }
 
 /// The folder of an installed Mac app's manifest and tools, when it has them.
@@ -278,7 +283,8 @@ pub fn status(root: Option<&Path>) -> Status {
         version: found.as_ref().ok().map(|e| e.manifest.version.clone()),
         problem: match (&found, root) {
             (Ok(editor), Some(root)) => editor.problem(root),
-            _ => None,
+            (Ok(_), None) => None,
+            (Err(_), _) => mac_apps().find(|app| app.is_dir()).map(|app| bare_app(&app)),
         },
         repository: format!("https://github.com/{REPOSITORY}"),
     }
@@ -515,6 +521,13 @@ mod tests {
 
     /// A folder the player picks is used until it is forgotten: the editor's own folder, its app
     /// or its program; one holding no editor is refused.
+    #[test]
+    fn a_mac_app_without_the_editors_files_says_so() {
+        let why = bare_app(Path::new("/Applications/OpenRAC Editor.app"));
+        assert!(why.starts_with("/Applications/OpenRAC Editor.app has no editor files"), "{why}");
+        assert!(app_extras(Path::new("/nowhere/OpenRAC Editor.app")).is_none());
+    }
+
     #[test]
     fn a_chosen_folder_is_used_until_forgotten() {
         let home = tempfile::tempdir().unwrap();

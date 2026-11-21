@@ -12,6 +12,7 @@
   import { api, type EditorState, type GameView, onAndroid, type VersionView } from "$lib/api";
   import {
     app,
+    chooseEditor,
     guardShown,
     installEditor,
     jobs,
@@ -62,7 +63,9 @@
     app.editor === null
       ? null
       : !app.editor.version
-        ? ""
+        ? app.editor.problem
+          ? `${app.editor.problem}.`
+          : ""
         : app.editor.problem
           ? `${app.editor.problem}.`
           : null,
@@ -208,6 +211,16 @@
         }
 
         return;
+      case "choose-editor":
+        busy = step;
+
+        try {
+          if (await chooseEditor()) await look();
+        } finally {
+          busy = null;
+        }
+
+        return;
       case "prepare":
       case "open":
         if (!edit) return;
@@ -298,28 +311,34 @@
     if (step === "pack") return !pack?.runnable;
     if (step === "update" || step === "repair") return !extract?.runnable;
     if (step === "open" || step === "prepare") return !edit || lacksEditor !== null;
-    if (step === "get-editor") return app.editorDownloading;
+    if (step === "get-editor" || step === "choose-editor") return app.editorDownloading;
 
     return false;
   };
 
-  const ICON: Record<Step, "disc" | "download" | "edit" | "refresh" | "save" | "play"> = {
-    "set-up": "disc",
-    "get-editor": "download",
-    prepare: "edit",
-    open: "edit",
-    update: "refresh",
-    repair: "refresh",
-    pack: "save",
-    play: "play",
-  };
+  const ICON: Record<Step, "disc" | "download" | "folder" | "edit" | "refresh" | "save" | "play"> =
+    {
+      "set-up": "disc",
+      "get-editor": "download",
+      "choose-editor": "folder",
+      prepare: "edit",
+      open: "edit",
+      update: "refresh",
+      repair: "refresh",
+      pack: "save",
+      play: "play",
+    };
 
   const picksLevel = (step: Step) => step === "open" || step === "prepare";
   const steps = $derived([...(stage.primary ? [stage.primary] : []), ...stage.secondary]);
   /** The level picker sits right before the button it is for. */
   const pickerBefore = $derived(lacksEditor !== null ? null : (steps.find(picksLevel) ?? null));
   const label = (step: Step) =>
-    step === "open" && stage.kind === "needs-update" ? OPEN_ANYWAY : STEP_LABEL[step];
+    step === "open" && stage.kind === "needs-update"
+      ? OPEN_ANYWAY
+      : step === "get-editor" && app.editor?.version
+        ? "Update OpenRAC Editor"
+        : STEP_LABEL[step];
 
   const backup = $derived(found?.backups[0] ?? null);
 
@@ -494,7 +513,8 @@
     </EditorReset>
   </section>
 
-  {#if !onAndroid}<EditorInstall />{/if}
+  <!-- Its download and folder are offered above while there is none that fits, so only once. -->
+  {#if !onAndroid && stage.kind !== "no-editor"}<EditorInstall />{/if}
 </section>
 
 <style>

@@ -13,10 +13,12 @@ import {
   errorText,
   type FoundDisc,
   type GameStatus,
+  inTauri,
   type Library,
   onAndroid,
   onDiscCopy,
   onJobEvents,
+  pickFolder,
   pickIso,
   type RunInputs,
   type Scope,
@@ -707,15 +709,21 @@ export async function removeEditor() {
   await refresh();
 }
 
-/** Uses the OpenRAC Editor in a folder the player picked; the library is read again, as the level
- *  editor's steps come with it. */
-export async function chooseEditor(path: string) {
+/** Asks the player for the folder of an OpenRAC Editor they have (on a Mac, the folder holding the
+ *  app) and uses it; the library is read again, as the level editor's steps come with it. Whether
+ *  one is used now. */
+export async function chooseEditor(): Promise<boolean> {
+  const path = inTauri ? await pickFolder("OpenRAC Editor's folder") : "/home/you/OpenRAC Editor";
+
+  if (!path) return false;
   const got = await guard(api.chooseEditor(path));
 
-  if (!got) return;
+  if (!got) return false;
   app.editor = got;
   toast(`OpenRAC Editor ${got.version ?? ""} is ready.`);
   await refresh();
+
+  return true;
 }
 
 /** Stops using the picked folder (it stays as it is). */

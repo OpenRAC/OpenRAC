@@ -27,7 +27,15 @@ export type StageKind =
 
 /** What a button of the panel does. */
 export type Step =
-  "set-up" | "get-editor" | "prepare" | "open" | "update" | "repair" | "pack" | "play";
+  | "set-up"
+  | "get-editor"
+  | "choose-editor"
+  | "prepare"
+  | "open"
+  | "update"
+  | "repair"
+  | "pack"
+  | "play";
 
 export interface Stage {
   kind: StageKind;
@@ -60,6 +68,7 @@ export interface FlowInput {
 export const STEP_LABEL: Record<Step, string> = {
   "set-up": "Set up the disc",
   "get-editor": "Download OpenRAC Editor",
+  "choose-editor": "Choose its folder",
   prepare: "Read the levels and open",
   open: "Open in OpenRAC Editor",
   update: "Update project",
@@ -126,8 +135,9 @@ export function editorStage(input: FlowInput): Stage {
       title: "Get OpenRAC Editor to edit levels",
       line:
         input.lacksEditor ||
-        "Levels open in OpenRAC Editor, OpenRAC's own level editor. Download it here, once.",
+        "Levels open in OpenRAC Editor, OpenRAC's own level editor. Download it here once, or choose the folder of one you have.",
       primary: "get-editor",
+      secondary: ["choose-editor"],
     };
   }
 

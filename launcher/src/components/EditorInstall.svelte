@@ -4,7 +4,7 @@
   // one, and download, choose or remove. The level projects are never touched here.
   import { onMount } from "svelte";
 
-  import { api, inTauri, pickFolder } from "$lib/api";
+  import { api } from "$lib/api";
   import {
     app,
     chooseEditor,
@@ -38,14 +38,6 @@
     } finally {
       looking = false;
     }
-  }
-
-  async function choose() {
-    const picked = inTauri
-      ? await pickFolder("OpenRAC Editor's folder")
-      : "/home/you/OpenRAC Editor";
-
-    if (picked) await chooseEditor(picked);
   }
 
   onMount(() => {
@@ -98,7 +90,7 @@
         ><Icon name="x" size={14} />Stop using this folder</button
       >
     {:else}
-      <button class="small" onclick={() => void choose()}
+      <button class="small" onclick={() => void chooseEditor()}
         ><Icon name="folder" size={14} />Choose its folder</button
       >
     {/if}
