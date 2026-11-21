@@ -27,6 +27,7 @@
 
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 
 uint32_t openrac_lib_wad_decompress(const uint8_t* src, uint8_t* dst, uint32_t capacity);
 
@@ -195,7 +196,7 @@ void rac3_load_exec(gaddr path, int argc, gaddr argv) {
     int next = -1;
     if (strncmp(name, "I5BOOTN.ELF", 11) == 0) {
         next = RAC3_EXEC_MULTIPLAYER;
-    } else if (strncmp(name, "SCES_524.56", 11) == 0) {
+    } else if (strncmp(name, RAC3_BOOT_FILE, 11) == 0) {
         next = RAC3_EXEC_BOOT;
     }
     fprintf(

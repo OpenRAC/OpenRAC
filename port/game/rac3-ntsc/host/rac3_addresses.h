@@ -137,6 +137,30 @@
 /* func_00381250 (map.tsv differs) */
 #define RAC3_ADDR_0x00381250u 0x00381280u
 
+/* The multiplayer executable's (release/mp_pairs.json). */
+/* the function's pair: the executable's entry (its payload's records) */
+#define RAC3_MADDR_0x00192D18u 0x00192E08u
+/* the same instruction of the same code: func 0x0027EDA8 (NTSC-U 0x0027EDE8) +0x94, 1 of 1 places agree */
+#define RAC3_MADDR_0x001A3800u 0x001A3980u
+/* the same instruction of the same code: func 0x00192D18 (NTSC-U 0x00192E08) +0x1B0, 2 of 2 places agree */
+#define RAC3_MADDR_0x001EBE00u 0x001EBF80u
+/* the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 16 of 16 places agree */
+#define RAC3_MADDR_0x00240310u 0x00240490u
+/* the same instruction of the same code: func 0x00193590 (NTSC-U 0x00193680) +0x4, 12 of 12 places agree */
+#define RAC3_MADDR_0x00240B80u 0x00240D00u
+/* the same instruction of the same code: func 0x00284D30 (NTSC-U 0x00284D70) +0x4, 2 of 2 places agree */
+#define RAC3_MADDR_0x00244428u 0x00244628u
+/* the same instruction of the same code: func 0x00284D30 (NTSC-U 0x00284D70) +0x20, 2 of 2 places agree */
+#define RAC3_MADDR_0x0024442Cu 0x0024462Cu
+/* the same instruction of the same code: func 0x0027EDA8 (NTSC-U 0x0027EDE8) +0x80, 73 of 73 places agree */
+#define RAC3_MADDR_0x002446A8u 0x002448A8u
+/* the start of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200) */
+#define RAC3_MADDR_0x0027B100u 0x0027B200u
+/* the function's pair: the front end's entry: NTSC-U's record 0x0027B200 starts with the same function (its register saves in another order) */
+#define RAC3_MADDR_0x0027B1C0u 0x0027B200u
+/* the end of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200, 0x257C8 bytes) */
+#define RAC3_MADDR_0x002A0A38u 0x002A09C8u
+
 /* Levels' own globals (release.json's level_addresses). */
 /* the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 46 of 46 places agree */
 #define RAC3_LADDR_12_0x001D66E4u 0x001D66E4u
@@ -212,6 +236,12 @@
 #define RAC3_LADDR_1_0x00404A60u 0x004026F0u
 /* the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404B28's twin is NTSC-U's func_L01_004027B8, the pair rac3-ntsc's carried libraries.tsv binds */
 #define RAC3_LADDR_1_0x00404B28u 0x004027B8u
+/* between the same code's 0x00245BB0 and 0x00245BCC, both moved by +0x180 (NTSC-U 0x00245D30, 0x00245D4C) */
+#define RAC3_LADDR_39_0x00245BB4u 0x00245D34u
+/* the same instruction of the same code: func_L39_0059C910 (NTSC-U func_L39_0059B580) +0x4, 2 of 2 places agree */
+#define RAC3_LADDR_39_0x0024BD00u 0x0024BE00u
+/* the same instruction of the same code: func_L39_00589538 (NTSC-U func_L39_005883C8) +0x9C, 5 of 5 places agree */
+#define RAC3_LADDR_39_0x0024BD04u 0x0024BE04u
 /* the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0x1B8, 1 of 1 places agree */
 #define RAC3_LADDR_39_0x0024BF90u 0x0024C090u
 /* the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 95 of 95 places agree */
@@ -222,5 +252,7 @@
 #define RAC3_LADDR_39_0x0025D6C0u 0x0025D7C0u
 /* the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0xE8, 1 of 1 places agree */
 #define RAC3_LADDR_39_0x0025F580u 0x0025F680u
+/* the level program's entry (its ELF header: PAL 0x00575CC8, NTSC-U 0x00574F88) */
+#define RAC3_LADDR_39_0x00575CC8u 0x00574F88u
 
 #endif /* OPENRAC_RAC3_ADDRESSES_H */

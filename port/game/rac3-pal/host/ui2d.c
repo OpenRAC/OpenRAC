@@ -46,23 +46,19 @@
 #include <string.h>
 
 #include "../../common/lib/ui_quad.h"
+#include "exec.h"
 #include "game_protos.h"
+#include "mp/game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac3_version.h"
-#ifndef RAC3_NTSC
-#include "exec.h"
-#include "mp/game_protos.h"
-#endif
 
 /* The offset the game adds to every 2D position (12.4): the core's, which every program shares
  * (the multiplayer executable's core has it at 0x00240310). */
 static gaddr screen_offset(void) {
-#ifndef RAC3_NTSC
     if (rac3_exec_program() == RAC3_EXEC_MULTIPLAYER) {
-        return 0x00240310u;
+        return RAC3_MADDR(0x00240310u);
     }
-#endif
     return RAC3_ADDR(0x001D4BD0u);
 }
 
@@ -1187,15 +1183,14 @@ void func_L01_00420AE8(int tex, gaddr colours, float x, float y, float w, float 
     }
 }
 
-#ifndef RAC3_NTSC
 /* The multiplayer executable's 2D layer (I5BOOTN.ELF, mp.c): its own program's (0x0027xxxx, which
  * its loading screen draws with) and level 39's, the multiplayer menus' (frontbin's routines at the
  * catalogue's level 39 places), each paired with the boot program's instruction by instruction
  * (mp/libraries.tsv), drawn as the boot program's are. The core's display list cursor and darkening
  * packet are 0x002446A8 and 0x001A3800, level 39's cursor 0x0024CAD0. */
-#define MP_CURSOR 0x002446A8u
-#define MP_MENUS_CURSOR 0x0024CAD0u
-#define MP_DARKEN_PACKET 0x001A3800u
+#define MP_CURSOR RAC3_MADDR(0x002446A8u)
+#define MP_MENUS_CURSOR RAC3_LADDR(39, 0x0024CAD0u)
+#define MP_DARKEN_PACKET RAC3_MADDR(0x001A3800u)
 
 void mp_func_00281240(
     float a0,
@@ -1407,8 +1402,9 @@ void mp_func_L39_0058B1B8(int r, int g, int b, int a) {
  * (0x0059CFD0) are the boot program's func_00397680 instruction for instruction, their own HUD
  * texture tables aside (the core's at 0x00244428 and 0x0024442C, level 39's at 0x0024BD00 and
  * 0x0024BD04) and, as the boot program's, no depth of their own. */
-static const Rac3Ui2d kMpCore = {MP_CURSOR, 0x00244428u, 0x0024442Cu, 0};
-static const Rac3Ui2d kMpMenus = {MP_MENUS_CURSOR, 0x0024BD00u, 0x0024BD04u, 0};
+static const Rac3Ui2d kMpCore = {MP_CURSOR, RAC3_MADDR(0x00244428u), RAC3_MADDR(0x0024442Cu), 0};
+static const Rac3Ui2d kMpMenus =
+    {MP_MENUS_CURSOR, RAC3_LADDR(39, 0x0024BD00u), RAC3_LADDR(39, 0x0024BD04u), 0};
 
 void mp_func_00284F80(int tex, gaddr colours, float x, float y, float w, float h, float ang) {
     const float s = mp_func_002804B0(ang), c = mp_func_00280498(ang);
@@ -1429,7 +1425,6 @@ void mp_func_L39_0059CFD0(int tex, gaddr colours, float x, float y, float w, flo
 /* Level 39's one-colour and shadowed glyphs, inside its prints. */
 MP_GLYPH(mp_func_L39_0058BBB0)
 MP_GLYPH_SHADOWED(mp_func_L39_0058BF70)
-#endif /* RAC3_NTSC */
 
 /* frontbin's copies of the 2D layer (the program the front end runs after a level: Quit Game, a
  * level's exit to the menus), wrapped as the boot program's and the levels' are. Its globals are the

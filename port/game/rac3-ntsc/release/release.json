@@ -220,7 +220,8 @@
         "func_L01_00478ED8": null,
         "func_L01_00478FB0": null,
         "func_L01_004932C0": null,
-        "func_L01_00493448": null
+        "func_L01_00493448": null,
+        "func_L39_00596BA0": "PAL's func_L39_00597E70, whose C takes no arguments (map.tsv match): on the path that calls 0x00139D20 it leaves $a1 as its caller had it, which the check counts as a read"
       },
       "variant_callees": null,
       "variant_callees_why": "rac3-pal's folded-wrapper table (variant_callees.py) is written for PAL's places; NTSC-U has none yet, so its check runs without that part",
@@ -244,8 +245,6 @@
     "places_in_release": true,
     "places_why": "NTSC-U's own level catalogue, in its own names: every level function is translated from the disc's level programs (no src/levels C yet: its names and its levels' data are PAL's)",
     "split_places_why": "NTSC-U's own tables/split_places.tsv: the multiplayer maps' copies of the font width wrapper (func_L01_00410820) are their own function, func_L39_005187A0, whose name the carry leaves out as no function of NTSC-U's catalogue; its signature below, as rac3-pal's func_L39_005189A0",
-    "executables": null,
-    "executables_why": "PAL's multiplayer executable (rac3-pal/mp/hostgen.json, I5BOOTN.ELF) is built for PAL alone: NTSC-U's has not been paired with it yet",
     "from_assembly": [
       "func_L39_004B4008",
       "func_L39_004B5548",
@@ -389,9 +388,7 @@
       "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001D4C80 and 0x001D4CA8, both moved by +0x0 (NTSC-U 0x001D4C80, 0x001D4CA8)"
     }
   },
-  "libraries_left_out": {
-    "func_00124ED8": "LoadExecPS2's wrapper starts PAL's multiplayer executable (rac3-pal host/exec.c), which NTSC-U does not build yet: the call stays unanswered (rac3/parity.tsv)"
-  },
+  "libraries_left_out": {},
   "level_addresses": {
     "about": "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
     "L01:001D6694": {
@@ -621,6 +618,47 @@
     "L01:001DF948": {
       "is": "001DF9C8",
       "why": "the same instruction of the same code: func_L01_003F1478 (NTSC-U func_L01_003EF538) +0xD0, 24 of 24 places agree"
+    },
+    "L39:00245BB4": {
+      "is": "00245D34",
+      "why": "between the same code's 0x00245BB0 and 0x00245BCC, both moved by +0x180 (NTSC-U 0x00245D30, 0x00245D4C)"
+    },
+    "L39:0024BD00": {
+      "is": "0024BE00",
+      "why": "the same instruction of the same code: func_L39_0059C910 (NTSC-U func_L39_0059B580) +0x4, 2 of 2 places agree"
+    },
+    "L39:0024BD04": {
+      "is": "0024BE04",
+      "why": "the same instruction of the same code: func_L39_00589538 (NTSC-U func_L39_005883C8) +0x9C, 5 of 5 places agree"
+    },
+    "L39:00575CC8": {
+      "is": "00574F88",
+      "why": "the level program's entry (its ELF header: PAL 0x00575CC8, NTSC-U 0x00574F88)"
     }
+  },
+  "mp_hostgen": {
+    "about": "Keys over rac3-pal's carried mp/hostgen.json (the multiplayer executable, I5BOOTN.ELF).",
+    "id": "rac3-ntsc-mp",
+    "title": "Ratchet & Clank: Up Your Arsenal (NTSC-U), multiplayer",
+    "serial": "SCUS_973.53",
+    "frame_rate": 60,
+    "tick_rate": 60,
+    "asm": {
+      "gp": "0x00248140",
+      "retail": {
+        "image": "baserom/SCUS_973.53.iso"
+      }
+    },
+    "gp_why": "NTSC-U's level 39 $gp (config/gp.tsv), the program the executable runs its menus in, as PAL's 0x00247FC0 is both",
+    "host_dir": "../host",
+    "host_shared": [
+      "../../rac3-pal/host"
+    ],
+    "host_why": "the shared host C (rac3-pal's), read through rac3-ntsc's host/rac3_names.tsv, as the NTSC-U program's own",
+    "relocate": [
+      2366336,
+      7340032
+    ],
+    "relocate_why": "the programs' range from level 39's .lit, NTSC-U's 0x00241B80 (its level ELF; PAL's .lit starts at 0x00241A00, the boot program's rule: the first loaded program's .lit), up to 0x00700000 as PAL's"
   }
 }

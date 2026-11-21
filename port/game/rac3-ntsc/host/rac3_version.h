@@ -12,6 +12,8 @@
 
 #define RAC3_ADDR(a) RAC3_ADDR_##a
 #define RAC3_LADDR(level, a) RAC3_LADDR_##level##_##a
+#define RAC3_MADDR(a) RAC3_MADDR_##a
+#define RAC3_BOOT_FILE "SCUS_973.53"
 
 #include "rac3_addresses.h"
 

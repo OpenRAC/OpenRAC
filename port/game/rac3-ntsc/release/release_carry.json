@@ -77,9 +77,7 @@
    "port": "host C"
   }
  },
- "left_out": {
-  "func_00124ED8": "LoadExecPS2's wrapper starts PAL's multiplayer executable (rac3-pal host/exec.c), which NTSC-U does not build yet: the call stays unanswered (rac3/parity.tsv)"
- },
+ "left_out": {},
  "addresses_not_found": [],
  "hand_addresses": {
   "0x001439F4": {

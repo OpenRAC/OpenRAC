@@ -17,9 +17,6 @@
  * argument block at 0x001EBE00, and exit. main reads its arguments (BOPT=, the boot program's
  * options; gooey) and runs the loaded program's entry (0x0027B1C0 first) and then the next
  * program's (0x00192F68 copies it over the last: a level's), for ever. */
-#include "rac3_version.h"
-
-#ifndef RAC3_NTSC
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -33,16 +30,19 @@
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 
 void mp_openrac_game_register_functions(void);
 void rac3_program_set_overlay(int overlay); /* program.c */
 
-#define MP_ARGUMENTS 0x001EBE00u /* crt0's argument block: argc, then argv */
-#define MP_FRONT_END 0x0027B1C0u /* the executable's own program: its front end's entry */
-#define MP_FRONT_END_LOW 0x0027B100u
-#define MP_FRONT_END_HIGH 0x002A0A38u
-#define MP_SND_REPLY 0x00240B80u  /* the sound server's reply word ($gp - 0x7440) */
-#define MP_MENU_ENTRY 0x00575CC8u /* level 39's program's entry: the multiplayer menus */
+#define MP_ARGUMENTS RAC3_MADDR(0x001EBE00u) /* crt0's argument block: argc, then argv */
+#define MP_FRONT_END                                                                               \
+    RAC3_MADDR(0x0027B1C0u) /* the executable's own program: its front end's entry */
+#define MP_FRONT_END_LOW RAC3_MADDR(0x0027B100u)
+#define MP_FRONT_END_HIGH RAC3_MADDR(0x002A0A38u)
+#define MP_SND_REPLY RAC3_MADDR(0x00240B80u) /* the sound server's reply word ($gp - 0x7440) */
+#define MP_MENU_ENTRY                                                                              \
+    RAC3_LADDR(39, 0x00575CC8u) /* level 39's program's entry: the multiplayer menus */
 
 /* LoadExecPS2("cdrom0:\I5BOOTN.ELF;1", ...) came back to func_0013ADA8: the multiplayer
  * executable read from the disc, unpacked over memory, its functions in place of the boot
@@ -63,7 +63,7 @@ void rac3_mp_run(void) {
     rac3_program_set_overlay(OPENRAC_OVERLAY_EXE);
     const uint32_t entry = rac3_exec_unpack(file, size);
     free(file);
-    if (entry != 0x00192D18u) {
+    if (entry != RAC3_MADDR(0x00192D18u)) {
         fprintf(
             stderr, "rac3: I5BOOTN.ELF's game starts at 0x%08x, not this disc's 0x00192d18\n", entry
         );
@@ -281,7 +281,7 @@ int mp_func_L39_005A9AA0(int source, int destination) {
  * func_L01_004DF310 at 39:0060DFC8, 39:0060E048 and 39:0060EC68): left out as render.c leaves the
  * boot program's levels' (their packets copy and blur the frame and add it back; replayed, they
  * covered the menus in one colour). The word each sets for the frame ($gp - 0x240C) is kept. */
-#define MP_MENUS_GLOW_WORD 0x00245BB4u
+#define MP_MENUS_GLOW_WORD RAC3_LADDR(39, 0x00245BB4u)
 
 int mp_func_L39_0060DFC8(void) {
     GREF(int32_t, MP_MENUS_GLOW_WORD) = 0x6000;
@@ -296,5 +296,3 @@ int mp_func_L39_0060E048(void) {
 int mp_func_L39_0060EC68(void) {
     return 0;
 }
-
-#endif /* RAC3_NTSC */

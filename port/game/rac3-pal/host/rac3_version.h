@@ -20,5 +20,10 @@
  * comes from the same instruction of the same code (tools/hostgen/rac3_level_pairs.py). Write the
  * level as a decimal number. */
 #define RAC3_LADDR(level, a) (a)
+/* An address of the multiplayer executable's (I5BOOTN.ELF) own memory, PAL's: NTSC-U's from the
+ * same instructions (tools/hostgen/rac3_mp_pairs.py). */
+#define RAC3_MADDR(a) (a)
+/* The boot executable SYSTEM.CNF starts, which leaving multiplayer starts again. */
+#define RAC3_BOOT_FILE "SCES_524.56"
 
 #endif /* OPENRAC_RAC3_VERSION_H */

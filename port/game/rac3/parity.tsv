@@ -4,4 +4,3 @@
 # Also: a name, "sig" (its row's C type differs); an address, "data" (no evidence for it).
 func_0012C9A0	row	rac3-ntsc,rac3-pal	the entry after a fill word (0xCDCDCDCD at 0x0012C99C, the inventory's start), as Going Commando's func_00126288: sceGsSetDefLoadImage is entered at 0x0012C9A0 on both discs
 func_0012CE48	row	rac3-ntsc,rac3-pal	the entry after a fill word (0xCDCDCDCD at 0x0012CE44, the inventory's start): the levels call sceGsExecStoreImage at 0x0012CE48 on both discs
-func_00124ED8	boot	rac3-ntsc	LoadExecPS2's wrapper: PAL starts its multiplayer executable, I5BOOTN.ELF (host/exec.c, mp/hostgen.json); NTSC-U's has no multiplayer program built yet and keeps the call unanswered
