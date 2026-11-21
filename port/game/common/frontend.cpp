@@ -371,13 +371,13 @@ bool open(
     std::string& error
 ) {
     g = std::make_unique<State>();
-    g->game = game_id;
-    g->profile = &host::game_profile(game_id);
+    g->render.game = game_id;
+    g->render.profile = &host::game_profile(game_id);
     // Before the first frame buffer is made (they keep their depth format).
-    renderer::request_precise_depth(g->profile->precise_depth());
-    scene::set_moby_anim_fields(g->profile->moby_anim_fields());
-    scene::set_moby_layer_records(g->profile->moby_layer_records());
-    const auto [inner, span] = g->profile->stick_dead_zone();
+    renderer::request_precise_depth(g->render.profile->precise_depth());
+    scene::set_moby_anim_fields(g->render.profile->moby_anim_fields());
+    scene::set_moby_layer_records(g->render.profile->moby_layer_records());
+    const auto [inner, span] = g->render.profile->stick_dead_zone();
     g->input.set_stick_dead_zone({inner, span});
     g->levels = levels;
     // Before SDL starts: on Wayland the app id names the program to the desktop, and a machine
@@ -506,7 +506,7 @@ bool open(
               g->swap == platform::SwapInterval::Immediate ? "does not wait"
               : g->swap == platform::SwapInterval::Adaptive ? "waits for the display (adaptive)"
                                                             : "waits for the display");
-    if (g->profile->precise_depth()) {
+    if (g->render.profile->precise_depth()) {
         log::info(
             "graphics: world depth {}",
             renderer::precise_depth()
@@ -521,7 +521,8 @@ bool open(
 }
 
 std::uint32_t draw_buffer_block() {
-    return g != nullptr && g->profile != nullptr ? g->profile->draw_buffer_block() : 0;
+    return g != nullptr && g->render.profile != nullptr ? g->render.profile->draw_buffer_block()
+                                                        : 0;
 }
 
 void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int count) {
@@ -529,7 +530,7 @@ void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int cou
         return;
     }
     const int level = openrac_game_loaded_overlay();
-    const host::GameState camera = g->profile->read_state(ram, level);
+    const host::GameState camera = g->render.profile->read_state(ram, level);
     for (int i = 0; i < count; ++i) {
         g->moby_cameras.emplace_back(first + static_cast<std::uint32_t>(i) * 0x100u, camera);
     }
@@ -546,10 +547,10 @@ void world_drawn(std::span<const std::uint8_t> ram) {
         return;
     }
     const int level = openrac_game_loaded_overlay();
-    g->world_camera = g->profile->read_state(ram, level);
+    g->world_camera = g->render.profile->read_state(ram, level);
     g->world_shrubs.reset();
     if (settings::get().original_draw_distance()) {
-        g->world_shrubs = g->profile->shrub_draws(ram, level);
+        g->world_shrubs = g->render.profile->shrub_draws(ram, level);
     }
 }
 
@@ -687,18 +688,18 @@ void close() {
             mod_overlay::release();
         });
         // A mod's views: it lets go of what it made with the context, while the context is there.
-        release_views(*g);
+        release_views(g->render);
         // Temporal histories reference the target and scene, so retire them before either owner.
         release_graphics([] {
-            g->temporal.reset();
-            g->bloom.release();
-            g->agx.release();
-            g->haze.release();
-            g->frame.release();
+            g->render.temporal.reset();
+            g->render.bloom.release();
+            g->render.agx.release();
+            g->render.haze.release();
+            g->render.frame.release();
             g->picture.release();
-            g->last_world.release();
-            g->renderer.reset();
-            g->scene.release();
+            g->render.last_world.release();
+            g->render.renderer.reset();
+            g->render.scene.release();
             if (g->window) {
                 g->window->close_vulkan();
             }

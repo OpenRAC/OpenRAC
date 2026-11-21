@@ -256,7 +256,87 @@ void test_authored_lighting_barriers_and_sources() {
 
 }  // namespace
 
+void sloping_tunnel_floor() {
+    std::vector<Triangle> triangles;
+    quad(triangles, {-8, -2, -2}, {8, -2, 2}, {8, 2, 2}, {-8, 2, -2});
+    quad(triangles, {-8, -2, 2}, {8, -2, 6}, {8, 2, 6}, {-8, 2, 2});
+    Settings settings;
+    settings.spacing = 1;
+    const auto result = infer(triangles, {}, settings);
+    unsigned floor_cells = 0;
+    for (const auto& cell : result.cells) {
+        if (std::abs(cell.position[1]) < 1.5f && std::abs(cell.position[0]) < 7
+            && std::abs(cell.position[2] - .25f * cell.position[0]) < .01f) {
+            ++floor_cells;
+        }
+    }
+    CHECK(floor_cells >= 39);
+    CHECK(!result.walkable_edges.empty());
+}
+
+// A doorway offset between coarse rows needs fine samples only around the failed links.
+// Solid walls, low headroom and authored lighting cuts must retain their boundaries.
+void adaptive_floor_boundaries() {
+    const auto connected = [](const Result& result) {
+        const auto nearest = [&](Point p) {
+            return std::min_element(
+                       result.cells.begin(), result.cells.end(), [&](auto a, auto b) {
+                           const auto distance = [&](const auto& c) {
+                               float sum = 0;
+                               for (unsigned k = 0; k < 3; ++k) {
+                                   const float d = c.position[k] - p[k];
+                                   sum += d * d;
+                               }
+                               return sum;
+                           };
+                           return distance(a) < distance(b);
+                       }
+            )->component;
+        };
+        return nearest({-2, 0, 0}) == nearest({4, 0, 0});
+    };
+    std::vector<Triangle> floor;
+    quad(floor, {-6, -4, 0}, {6, -4, 0}, {6, 4, 0}, {-6, 4, 0});
+    CHECK(infer(floor, {}).refined_cells == 0);
+    for (unsigned variant = 0; variant < 3; ++variant) {
+        auto triangles = floor;
+        if (variant == 1) {
+            quad(triangles, {1, -4, 0}, {1, 4, 0}, {1, 4, 4}, {1, -4, 4});
+        } else {
+            quad(triangles, {1, -4, 0}, {1, .3f, 0}, {1, .3f, 4}, {1, -4, 4});
+            quad(triangles, {1, 1.7f, 0}, {1, 4, 0}, {1, 4, 4}, {1, 1.7f, 4});
+            if (variant == 2) {
+                quad(triangles, {0, .3f, 2}, {2, .3f, 2}, {2, 1.7f, 2}, {0, 1.7f, 2});
+                quad(triangles, {-1, -2, 3.25f}, {3, -2, 3.25f}, {3, 3, 3.25f}, {-1, 3, 3.25f});
+            }
+        }
+        const auto adaptive = infer(triangles, {});
+        CHECK(adaptive.refined_cells > 0);
+        CHECK(connected(adaptive) == (variant == 0));
+        Settings dense;
+        dense.spacing = 1;
+        const auto uniform = infer(triangles, {}, dense);
+        CHECK(uniform.refined_cells == 0);
+        CHECK(adaptive.cells.size() < uniform.cells.size());
+        CHECK(connected(uniform) == connected(adaptive));
+        Settings limited;
+        limited.max_cells = 35;
+        bool rejected = false;
+        try {
+            (void)infer(triangles, {}, limited);
+        } catch (const std::runtime_error&) {
+            rejected = true;
+        }
+        CHECK(rejected);
+    }
+    Settings authored;
+    quad(authored.lighting_barriers, {1, -4, 0}, {1, 4, 0}, {1, 4, 4}, {1, -4, 4});
+    CHECK(infer(floor, {}, authored).refined_cells == 0);
+}
+
 int main() {
+    adaptive_floor_boundaries();
+    sloping_tunnel_floor();
     test_authored_lighting_barriers_and_sources();
     test_nonfinite_inference_settings();
     test_labels_propagate_between_floor_components();

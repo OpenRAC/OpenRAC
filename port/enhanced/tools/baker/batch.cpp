@@ -10,23 +10,32 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iomanip>
 #include <iterator>
+#include <numeric>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string_view>
 
 #include "common/json.h"
+#include "common/log.h"
 #include "common/profiler.h"
 #include "enhanced/lighting/bake_output_queue.h"
 #include "enhanced/lighting/probe_density.h"
 #include "enhanced/lighting/room_layout.h"
+#include "enhanced/lighting/spatial_placement.h"
 #include "enhanced/tools/baker/output/batch_output.h"
+#include "enhanced/tools/baker/output/debug_preview.h"
 #include "enhanced/tools/baker/output/density_stage.h"
 #include "enhanced/tools/baker/output/environment_stage.h"
 #include "enhanced/tools/baker/output/probe_output.h"
 #include "enhanced/tools/baker/output/report.h"
+#include "enhanced/tools/baker/pipeline/bake_json.h"
+#include "enhanced/tools/baker/pipeline/stage_file.h"
 #include "enhanced/tools/baker/probe_rounding.h"
 #include "enhanced/tools/baker/sources/activation.h"
+#include "enhanced/tools/baker/sources/interior_inputs.h"
 #include "enhanced/tools/baker/sources/probe_fingerprint.h"
 #include "enhanced/tools/baker/sources/probe_grid.h"
 
@@ -45,7 +54,50 @@ void require_output(Result<void> result) {
 struct BatchJob {
     fs::path path;
     ProbeGrid grid;
+    std::vector<unsigned> islands{};
 };
+
+// One source-of-truth floor partition, plus ownership of the final GI allocations.
+void write_islands(
+    const fs::path& directory,
+    std::span<const EnvironmentFloorSample> floors,
+    const bake_detail::SpatialWatershed& field,
+    std::span<const BatchJob> jobs
+) {
+    std::ostringstream out;
+    out << std::setprecision(9) << "{\"version\":1,\"method\":\"layered_watershed\",\"samples\":[";
+    bool comma = false;
+    for (const auto& floor : floors) {
+        if (!floor.island) {
+            continue;
+        }
+        out << (comma ? ",[" : "[") << floor.position[0] << ',' << floor.position[1] << ','
+            << floor.position[2] << ',' << *floor.island << ',' << floor.island_clearance << ','
+            << (floor.swimming_surface && !floor.underwater ? "true" : "false") << ']';
+        comma = true;
+    }
+    out << "],\"islands\":[";
+    for (unsigned i = 0; i < field.basins.size(); ++i) {
+        const auto& basin = field.basins[i];
+        const auto lo = basin.minimum, hi = basin.maximum;
+        out << (i ? "," : "") << "{\"island_id\":" << i << ",\"cells\":" << basin.cells
+            << ",\"minimum\":[" << lo[0] << ',' << lo[1] << ',' << lo[2] << "],\"maximum\":["
+            << hi[0] << ',' << hi[1] << ',' << hi[2]
+            << "],\"underwater\":" << (basin.underwater ? "true" : "false")
+            << ",\"water_surface\":false}";
+    }
+    out << "],\"volumes\":{";
+    for (unsigned i = 0; i < jobs.size(); ++i) {
+        out << (i ? ",\"" : "\"") << jobs[i].path.filename().string() << "\":";
+        out << '[';
+        for (unsigned j = 0; j < jobs[i].islands.size(); ++j) {
+            out << (j ? "," : "") << jobs[i].islands[j];
+        }
+        out << ']';
+    }
+    out << "}}\n";
+    require_output(write_stage_file(directory / "placement-islands.json", out.str()));
+}
 
 // Allocation policy is level-local and participates in resume through the report identity.
 bake_detail::ProbeDensitySettings density_settings(const std::string& text) {
@@ -165,7 +217,8 @@ std::vector<BatchJob> batch_jobs(
     const ProbeBatchOptions& options,
     std::vector<EnvironmentFloorSample>& floors,
     bake_detail::RoomLayout& layout,
-    const bake_detail::Scene& prepared_scene
+    std::optional<bake_detail::SpatialPlacement>& spatial,
+    const BakeExecution& execution
 ) {
     const profiling::Zone timing("Prepare batch grids");
 
@@ -179,10 +232,19 @@ std::vector<BatchJob> batch_jobs(
         throw std::runtime_error("invalid or stale probe batch plan: " + error);
     }
 
-    const auto coarse = batch_coarse_grid(exported, sparse, plan, options.settings);
+    auto coarse = batch_coarse_grid(exported, sparse, plan, options.settings);
 
-    // Sparse-only batches do not fit local grids; reflection placement loads its own floor graph.
-    if (!plan["regions"].items().empty()
+    // Floor-anchor planning replaces automatic boxes when shared inference is available.
+    bool anchored_islands = false;
+    if (plan["island_policy"]["enabled"].boolean()
+        && fs::exists(options.output_directory / "seed-plan.json")) {
+        const auto evidence = bake_json::document(options.output_directory / "seed-plan.json");
+        const auto& anchors = evidence["floor_anchors"].is_array() ? evidence["floor_anchors"]
+                                                                   : evidence["moby_seeds"];
+        anchored_islands = !anchors.items().empty();
+    }
+    if ((!plan["regions"].items().empty() || anchored_islands
+         || load_level_bake_profile(options.level_directory).environment.enabled)
         && fs::exists(options.output_directory / "interior-inference.json")
         && fs::exists(options.output_directory / "seed-plan.json")) {
         const auto environment = load_level_bake_profile(options.level_directory).environment;
@@ -192,19 +254,95 @@ std::vector<BatchJob> batch_jobs(
             options.settings.traversal,
             environment.require_full_coverage
         );
-        if (!floors.empty()) {
-            layout = bake_detail::prepare_room_layout(prepared_scene, floors, options.settings);
+        // Receiver contacts follow the same gameplay collision as water reachability
+        // and the debug picker, independently of decorative render-mesh detail.
+        std::optional<BakeScene> collision;
+        if (fs::exists(options.level_directory / "collision.glb")) {
+            const auto triangles = load_coverage_collision(options.level_directory);
+            if (!triangles) {
+                throw std::runtime_error(triangles.error().message);
+            }
+            collision.emplace();
+            for (const auto& triangle : *triangles) {
+                if (triangle.support) {
+                    BakeTriangle solid;
+                    solid.vertices = triangle.vertices;
+                    collision->triangles.push_back(solid);
+                }
+            }
         }
-    }
-
-    if (!floors.empty()) {
+        const auto& policy = plan["island_policy"];
+        auto step =
+            policy["enabled"].boolean() ? plan_vector<3>(policy["spacing"]) : sparse.spacing;
+        for (const auto& authored : policy["authored"].items()) {
+            if (!authored["fit_to_floor"].boolean(true)) {
+                continue;
+            }
+            auto requested = step;
+            if (authored["spacing"].is_number()) {
+                requested.fill(float(authored["spacing"].number()));
+            } else {
+                requested = plan_vector<3>(authored["spacing"]);
+            }
+            for (unsigned a = 0; a < 3; ++a) {
+                step[a] = std::min(step[a], requested[a]);
+            }
+        }
+        const auto save_spatial_debug = [&](const bake_detail::SpatialPlacement& placement) {
+            try {
+                write_spatial_placement(options.output_directory, placement);
+            } catch (const std::exception& error) {
+                log::warn("could not save layered watershed debug data: {}", error.what());
+            }
+        };
+        spatial = bake_detail::build_spatial_placement(
+            collision ? *collision : exported.scene,
+            floors,
+            options.settings,
+            step,
+            unsigned(policy["maximum_probes"].number(4096)),
+            unsigned(policy["maximum_regions"].number(1024)),
+            environment,
+            execution,
+            save_spatial_debug
+        );
+        layout = bake_detail::spatial_floor_layout(spatial->field, floors);
         write_medial_axis_report(options.output_directory, layout, floors);
+        save_spatial_debug(*spatial);
     }
 
     std::vector<BatchJob> jobs{{options.output_directory / "sparse.orpg", coarse}};
     const bool adaptive = density_settings(options.plan).enabled;
 
+    const auto& policy = plan["island_policy"];
+    const bool island_grids = policy["enabled"].boolean() && !floors.empty();
+    if (island_grids) {
+        for (const auto& allocation : spatial->gi.volumes) {
+            auto grid = sparse;
+            grid.origin = allocation.origin;
+            grid.frame = allocation.frame;
+            grid.spacing = spatial->gi.settings.spacing;
+            grid.dimensions = allocation.dimensions;
+            grid.max_distance =
+                1.5f
+                * std::sqrt(
+                    grid.spacing[0] * grid.spacing[0] + grid.spacing[1] * grid.spacing[1]
+                    + grid.spacing[2] * grid.spacing[2]
+                );
+            grid.settings_hash = probe_bake_settings_hash(grid, options.settings);
+            grid.validate();
+            jobs.push_back(
+                {options.output_directory / std::format("region-{:03}.orpg", jobs.size() - 1),
+                 grid,
+                 {allocation.basin}}
+            );
+        }
+    }
+
     for (const auto& region : plan["regions"].items()) {
+        if (island_grids && region["fit_to_floor"].boolean(true)) {
+            continue;
+        }
         auto grid = batch_region_grid(exported, sparse, region);
 
         if (!floors.empty() && region["fit_to_floor"].boolean(true)) {
@@ -223,6 +361,44 @@ std::vector<BatchJob> batch_jobs(
         jobs.push_back(
             {options.output_directory / std::format("region-{:03}.orpg", jobs.size() - 1), grid}
         );
+    }
+
+    if (island_grids) {
+        if (jobs.size() - 1 > static_cast<std::size_t>(policy["maximum_regions"].number())) {
+            throw std::runtime_error("watershed GI volumes exceed the configured region limit");
+        }
+        if (policy["coarse_bounds"].string() == "local_regions" && jobs.size() > 1) {
+            Float3 lo{INFINITY, INFINITY, INFINITY}, hi{-INFINITY, -INFINITY, -INFINITY};
+            for (unsigned i = 1; i < jobs.size(); ++i) {
+                const auto& grid = jobs[i].grid;
+                for (unsigned corner = 0; corner < 8; ++corner) {
+                    Float3 p{};
+                    for (unsigned a = 0; a < 3; ++a) {
+                        p[a] = corner & (1u << a) ? grid.spacing[a] * float(grid.dimensions[a] - 1)
+                                                  : 0;
+                    }
+                    p = grid.frame.to_world(p);
+                    for (unsigned a = 0; a < 3; ++a) {
+                        lo[a] = std::min(lo[a], grid.origin[a] + p[a]);
+                        hi[a] = std::max(hi[a], grid.origin[a] + p[a]);
+                    }
+                }
+            }
+            for (unsigned a = 0; a < 3; ++a) {
+                lo[a] -= float(policy["coarse_padding"].number());
+                hi[a] += float(policy["coarse_padding"].number());
+            }
+            coarse = bounded_probe_grid(exported, lo, hi, sparse.spacing, sparse.map_resolution);
+            coarse.game_version = sparse.game_version;
+            coarse.level = sparse.level;
+            coarse.settings_hash = probe_bake_settings_hash(coarse, options.settings);
+            jobs[0].grid = coarse;
+        }
+    }
+    if (!floors.empty()) {
+        write_islands(options.output_directory, floors, spatial->field, jobs);
+    } else {
+        fs::remove(options.output_directory / "placement-islands.json");
     }
 
     for (const auto& job : jobs) {
@@ -302,8 +478,10 @@ bool run_probe_batch(
     );
     std::vector<EnvironmentFloorSample> floors;
     bake_detail::RoomLayout layout;
-    const auto jobs =
-        batch_jobs(exported, sparse_grid, options, floors, layout, baker->traversal_scene());
+    std::optional<bake_detail::SpatialPlacement> spatial;
+    const auto jobs = batch_jobs(
+        exported, sparse_grid, options, floors, layout, spatial, {options.threads, &workers}
+    );
     auto density = density_settings(options.plan);
     density.texture_format = options.settings.texture_format;
     const auto receivers =
@@ -323,11 +501,25 @@ bool run_probe_batch(
 
     // Progress over the whole level, in probes: every grid's, the ones kept counted as done.
     std::size_t total = 0, done = 0, shown = 0;
-
-    for (const auto& job : jobs) {
-        total += job.grid.probe_count();
+    std::size_t dense_probes = 0, dense_bytes = 0;
+    const auto planned_storage = [&](const ProbeGrid& grid) {
+        ProbeVolume volume;
+        volume.grid = grid;
+        if (grid.map_resolution == 6) {
+            volume.colour_format = options.settings.texture_format;
+            volume.depth_format = ProbeDepthFormat::Rg16;
+        }
+        return volume;
+    };
+    for (std::size_t i = 1; i < jobs.size(); ++i) {
+        const auto& grid = jobs[i].grid;
+        dense_probes += grid.probe_count();
+        const auto planes = planned_storage(grid).plane_sizes();
+        dense_bytes += std::accumulate(planes.begin(), planes.end(), std::size_t{0});
     }
-
+    total = jobs.front().grid.probe_count() + dense_probes;
+    output << "Planned dense GI: " << jobs.size() - 1 << " grids, " << dense_probes << " probes, "
+           << dense_bytes << " atlas bytes\n";
     output << "Probe batch probes " << total << '\n' << std::flush;
     const auto report_done = [&](std::size_t now) {
         // Each half per cent at most: a level has up to a few million probes.
@@ -355,15 +547,10 @@ bool run_probe_batch(
                 try {
                     RuntimeProbeRounding rounding;
                     const auto stored = decode_gpu_probes(*bytes);
-                    const auto expected_format = job.grid.map_resolution == 6
-                                                     ? options.settings.texture_format
-                                                     : ProbeTextureFormat::R11G11B10;
+                    const auto expected = planned_storage(job.grid);
                     // A format switch must not reuse blocks encoded for another device.
-                    const auto expected_depth = job.grid.map_resolution == 6
-                                                    ? ProbeDepthFormat::Rg16
-                                                    : ProbeDepthFormat::Moments;
-                    if (stored.colour_format != expected_format
-                        || stored.depth_format != expected_depth) {
+                    if (stored.colour_format != expected.colour_format
+                        || stored.depth_format != expected.depth_format) {
                         throw std::runtime_error("kept probe grid has another compression format");
                     }
 
@@ -486,7 +673,8 @@ bool run_probe_batch(
          options.settings,
          floors,
          verified_field,
-         level.overrides},
+         level.overrides,
+         spatial ? &*spatial : nullptr},
         {options.threads, &workers},
         output
     );

@@ -13,17 +13,22 @@ struct EnvironmentFloor {
     std::optional<std::vector<unsigned>>
         lighting_labels{};  // Authored mood identity, separate from floor fragments.
     float clearance = 0;
+    float locality_radius = 0;      // Measured open-sky reach; zero retains the nominal spacing.
     float area = 1;                 // Approximate horizontal footprint in world units squared.
     bool capture_candidate = true;  // Low passages still receive reflections from a nearby capture.
     std::optional<float> water_height{};
     bool underwater = false;
+    bool swimming_surface = false;
+    std::optional<unsigned> island{};
+    unsigned component = ~0u;
     float receiver_height = 2.5f;  // Submerged samples remain below the authored waterline.
+    std::vector<unsigned>
+        neighbours;  // Supported floor graph; proximity across a wall is not an edge.
 };
 
 struct EnvironmentFloorMap {
     std::vector<EnvironmentFloor> floors;
     std::vector<std::vector<unsigned>> rooms;
-    std::vector<unsigned> centres;
 };
 
 // Broad brightness/hue compatibility permits blending between similarly lit connected spaces.
@@ -48,7 +53,8 @@ void merge_environment_spaces(
     std::vector<std::vector<unsigned>>& rooms,
     EnvironmentPlacementReport& report,
     float minimum_space_area = 0,
-    const EnvironmentBakeSettings& options = {}
+    const EnvironmentBakeSettings& options = {},
+    bool preserve_islands = false
 );
 // Reachability uses physical edges; lighting segmentation preserves authored transition cuts.
 EnvironmentFloorMap environment_floor_map(
@@ -57,6 +63,7 @@ EnvironmentFloorMap environment_floor_map(
     std::span<const EnvironmentFloorSample> samples,
     const BakeSettings& settings,
     const EnvironmentBakeSettings& options,
-    EnvironmentPlacementReport& report
+    EnvironmentPlacementReport& report,
+    const Scene* gameplay_collision = nullptr
 );
 }  // namespace openrac::lighting::bake_detail

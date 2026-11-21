@@ -3,6 +3,11 @@
 # This executable uses only the viewer's CPU level loader; it never opens a
 # window or creates a graphics context. Embree stays out of viewer/game targets.
 if(OPENRAC_PROBE_BAKER)
+  set(debug_preview_html "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/tools/baker/debug_preview.html")
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${debug_preview_html}")
+  file(READ "${debug_preview_html}" OPENRAC_DEBUG_PREVIEW_HTML)
+  configure_file(enhanced/tools/baker/output/debug_preview_html.h.in
+    generated/debug_preview_html.h @ONLY)
   add_executable(openrac-enhanced-baker
     # Entry points and batch execution.
     enhanced/tools/baker/batch.cpp
@@ -50,6 +55,9 @@ if(OPENRAC_PROBE_BAKER)
     # Output.
     enhanced/tools/baker/output/batch_output.cpp
     enhanced/tools/baker/output/batch_registration.cpp
+    enhanced/tools/baker/output/debug_preview.cpp
+    enhanced/tools/baker/output/debug_medial.cpp
+    enhanced/tools/baker/output/debug_spatial.cpp
     enhanced/tools/baker/output/density_stage.cpp
     enhanced/tools/baker/output/environment_stage.cpp
     enhanced/tools/baker/output/environment_water_inputs.cpp
@@ -69,6 +77,7 @@ if(OPENRAC_PROBE_BAKER)
     enhanced/tools/water/water_source_strips.cpp
     enhanced/tools/water/water_source_tiles.cpp
   )
+  target_include_directories(openrac-enhanced-baker PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
   target_link_libraries(openrac-enhanced-baker PRIVATE openrac_probe_scene openrac_probe_bake
     openrac_interior_inference openrac_assets_world)
   if(OPENRAC_VULKAN)

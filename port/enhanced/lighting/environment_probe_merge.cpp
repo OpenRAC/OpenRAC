@@ -199,6 +199,10 @@ std::optional<Pair> EnvironmentProbeMerger::candidate_pair(unsigned a, unsigned 
     const auto& fa = m_floors[m_origins[a]];
     const auto& fb = m_floors[m_origins[b]];
 
+    if (fa.island && fb.island && fa.island != fb.island) {
+        return {};
+    }
+
     if (fa.underwater != fb.underwater || std::abs(fa.position[2] - fb.position[2]) > 2) {
         return {};
     }
@@ -381,6 +385,11 @@ std::vector<EnvironmentSpaceDiagnostic> EnvironmentProbeMerger::room_diagnostics
 }
 
 void EnvironmentProbeMerger::compact_rooms() {
+    if (std::any_of(m_floors.begin(), m_floors.end(), [](const auto& floor) {
+            return floor.island.has_value();
+        })) {
+        return;  // Shared island IDs survive empty or receiver-only reflection domains.
+    }
     // Ordinary same-space merges do not alter the floor map or its diagnostics.
     if (std::none_of(m_rooms.begin(), m_rooms.end(), [](const auto& room) {
             return room.empty();

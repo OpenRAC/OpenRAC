@@ -12,6 +12,7 @@
 #include <map>
 #include <memory>
 #include <numbers>
+#include <numeric>
 #include <queue>
 #include <set>
 #include <span>
@@ -142,9 +143,21 @@ bool body_clear(const Scene& scene, Point floor, const Settings& settings) {
           Point{0, settings.radius, 0},
           Point{0, -settings.radius, 0}}) {
         const Point centre{floor[0], floor[1], floor[2] + settings.height * .5f};
+        auto side_foot = add(foot, offset);
+        // Follow the permitted floor slope at the body radius. Starting every side ray
+        // at the centre's floor height puts its foot inside ramps and rounded pipe floors.
+        const float rise = settings.radius
+                           * std::sqrt(1 - settings.slope_cosine * settings.slope_cosine)
+                           / settings.slope_cosine;
+        auto start = side_foot;
+        start[2] += rise + kFloorMargin;
+        const auto support = scene.hit(start, {0, 0, -1}, 2 * rise + 2 * kFloorMargin);
+        if (support.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
+            side_foot[2] = std::max(side_foot[2], start[2] - support.ray.tfar + kFloorMargin);
+        }
         // A nearby wall or low ceiling makes this support unusable.
         if (!scene.clear(centre, add(centre, offset))
-            || !scene.clear(add(foot, offset), add(head, offset))) {
+            || !scene.clear(side_foot, add(head, offset))) {
             return false;
         }
     }
@@ -206,6 +219,7 @@ public:
                 }
             }
         }
+        refine_boundaries(transitions);
         for (unsigned cell = 0; cell < m_result.cells.size(); ++cell) {
             // Each connected component is emitted once, in first-cell order.
             if (m_result.cells[cell].component == ~0u) {
@@ -218,13 +232,17 @@ public:
 private:
     // Finds supported surfaces from top to bottom while keeping the existing bounded layer count.
     void sample_column(unsigned x, unsigned y) {
-        constexpr unsigned kMaximumLayers = 256;
-        constexpr float kLayerMargin = .04f;
-        Point top{
+        sample_position(
             m_domain.low[0] + x * m_settings.spacing,
             m_domain.low[1] + y * m_settings.spacing,
-            m_domain.high[2] + 1
-        };
+            m_columns[x + m_domain.nx * y]
+        );
+    }
+
+    void sample_position(float x, float y, std::vector<unsigned>& column) {
+        constexpr unsigned kMaximumLayers = 256;
+        constexpr float kLayerMargin = .04f;
+        Point top{x, y, m_domain.high[2] + 1};
         for (unsigned layer = 0; layer < kMaximumLayers && top[2] > m_domain.low[2]; ++layer) {
             const auto hit = m_scene.hit(top, {0, 0, -1}, top[2] - m_domain.low[2] + 1);
             // No further collision ends this column.
@@ -249,14 +267,21 @@ private:
             if (m_result.cells.size() >= m_settings.max_cells) {
                 throw std::runtime_error("inference sample budget exceeded");
             }
-            m_columns[x + m_domain.nx * y].push_back(static_cast<unsigned>(m_result.cells.size()));
+            column.push_back(static_cast<unsigned>(m_result.cells.size()));
             m_result.cells.push_back({floor, ~0u, sample_sky(m_scene, floor, m_settings)});
         }
     }
 
     // Tests a full body-width step sweep above the higher support.
     bool traversable(unsigned a, unsigned b, unsigned dx) const {
-        for (const float height : {.2f, m_settings.height * .5f, m_settings.height}) {
+        const float foot_height = std::max(
+            .2f,
+            .06f
+                + m_settings.radius
+                      * std::sqrt(1 - m_settings.slope_cosine * m_settings.slope_cosine)
+                      / m_settings.slope_cosine
+        );
+        for (const float height : {foot_height, m_settings.height * .5f, m_settings.height}) {
             auto p = m_result.cells[a].position, q = m_result.cells[b].position;
             p[2] += height;
             q[2] += height;
@@ -284,6 +309,9 @@ private:
         p[2] += m_settings.height * .5f;
         q[2] += m_settings.height * .5f;
         if (!traversable(a, b, dx)) {
+            if (!m_refining) {
+                m_failed_edges.push_back({a, b});
+            }
             return;
         }
         m_result.walkable_edges.push_back({a, b});
@@ -313,6 +341,91 @@ private:
             }
             for (const auto other : m_columns[x + dx + m_domain.nx * (y + dy)]) {
                 connect_pair(cell, other, dx, transitions);
+            }
+        }
+    }
+
+    // Refine failed coarse links only when they separate physical components. Authored
+    // lighting cuts do not trigger refinement: walkable_edges deliberately cross those cuts.
+    void refine_boundaries(const std::vector<Transition>& transitions) {
+        if (m_settings.spacing <= 1 || m_failed_edges.empty()) {
+            return;
+        }
+        const auto coarse_count = static_cast<unsigned>(m_result.cells.size());
+        std::vector<unsigned> parent(coarse_count);
+        std::iota(parent.begin(), parent.end(), 0u);
+        const auto root = [&](unsigned a) {
+            while (parent[a] != a) {
+                parent[a] = parent[parent[a]];
+                a = parent[a];
+            }
+            return a;
+        };
+        for (auto edge : m_result.walkable_edges) {
+            const auto a = root(edge[0]), b = root(edge[1]);
+            parent[std::max(a, b)] = std::min(a, b);
+        }
+        using Key = std::array<unsigned, 2>;
+        std::map<Key, std::vector<unsigned>> columns;
+        const float spacing = m_settings.spacing * .5f;
+        const int maximum_x = int((m_domain.nx - 1) * 2);
+        const int maximum_y = int((m_domain.ny - 1) * 2);
+        for (auto edge : m_failed_edges) {
+            if (root(edge[0]) == root(edge[1])) {
+                continue;
+            }
+            const auto a = m_result.cells[edge[0]].position;
+            const auto b = m_result.cells[edge[1]].position;
+            const int ax = int(std::lround((a[0] - m_domain.low[0]) / spacing));
+            const int ay = int(std::lround((a[1] - m_domain.low[1]) / spacing));
+            const int bx = int(std::lround((b[0] - m_domain.low[0]) / spacing));
+            const int by = int(std::lround((b[1] - m_domain.low[1]) / spacing));
+            const int margin_x = ax == bx ? 2 : 1, margin_y = ay == by ? 2 : 1;
+            for (int y = std::max(0, std::min(ay, by) - margin_y);
+                 y <= std::min(maximum_y, std::max(ay, by) + margin_y);
+                 ++y) {
+                for (int x = std::max(0, std::min(ax, bx) - margin_x);
+                     x <= std::min(maximum_x, std::max(ax, bx) + margin_x);
+                     ++x) {
+                    if ((x & 1) || (y & 1)) {
+                        columns.try_emplace({unsigned(x), unsigned(y)});
+                        if (m_columns.size() + columns.size() > m_settings.max_cells) {
+                            throw std::runtime_error("inference refined XY budget exceeded");
+                        }
+                    }
+                }
+            }
+        }
+        for (auto& [key, column] : columns) {
+            sample_position(
+                m_domain.low[0] + key[0] * spacing, m_domain.low[1] + key[1] * spacing, column
+            );
+        }
+        m_result.refined_cells = static_cast<unsigned>(m_result.cells.size()) - coarse_count;
+        m_edges.resize(m_result.cells.size());
+        m_refining = true;
+        for (const auto& [key, column] : columns) {
+            for (const auto shift : {std::array<int, 2>{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                const int x = int(key[0]) + shift[0], y = int(key[1]) + shift[1];
+                if (x < 0 || y < 0 || x > maximum_x || y > maximum_y) {
+                    continue;
+                }
+                const Key other{unsigned(x), unsigned(y)};
+                const std::vector<unsigned>* neighbours;
+                if (!(x & 1) && !(y & 1)) {
+                    neighbours = &m_columns[unsigned(x) / 2 + m_domain.nx * (unsigned(y) / 2)];
+                } else {
+                    const auto found = columns.find(other);
+                    if (found == columns.end() || other < key) {
+                        continue;
+                    }
+                    neighbours = &found->second;
+                }
+                for (auto a : column) {
+                    for (auto b : *neighbours) {
+                        connect_pair(std::min(a, b), std::max(a, b), shift[0] != 0, transitions);
+                    }
+                }
             }
         }
     }
@@ -348,6 +461,8 @@ private:
     SamplingDomain m_domain;                   // Bounded XY lattice and collision height range.
     Result m_result;  // Floor cells and components in stable traversal order.
     std::vector<std::vector<unsigned>> m_columns, m_edges;  // Layer lookup and symmetric adjacency.
+    std::vector<std::array<unsigned, 2>> m_failed_edges;
+    bool m_refining = false;
 };
 }  // namespace
 

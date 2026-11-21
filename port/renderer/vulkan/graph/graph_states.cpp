@@ -135,6 +135,8 @@ void set_whole_image_state(Image& image, graph::State state) {
 void discard_image_contents(Image& image, const graph::ImageRange& range) {
     if (tracks_subresources(image)) {
         update_range(image, range, [](auto& contents) { contents.defined = false; });
+    } else {
+        image.discarded |= static_cast<VkImageAspectFlags>(range.aspects);
     }
 }
 
@@ -344,7 +346,6 @@ void record_graph_image_barrier(
     }
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
     barrier.srcAccessMask = access_of(transition.before);
-    barrier.dstAccessMask = access_of(transition.after);
     barrier.oldLayout = layout_of(transition.before.layout);
     barrier.newLayout = layout_of(transition.after.layout);
     barrier.srcQueueFamilyIndex = barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -381,14 +382,14 @@ void record_graph_image_barrier(
     // The queue has no stage after handing an acquired image back to presentation.
     auto after = transition.after;
     // A later graph may sample the same layout in a shader stage absent from this plan.
-    if (tracked && after.access == graph::Access::Read) {
+    if (after.access == graph::Access::Read) {
         if (after.layout == graph::Layout::Sampled || after.layout == graph::Layout::General) {
             after.stages = after.stages | kShaderStages;
         } else if (after.layout == graph::Layout::DepthReadOnly) {
             after.stages = after.stages | kShaderStages | graph::Stage::DepthTests;
         }
-        barrier.dstAccessMask = access_of(after);
     }
+    barrier.dstAccessMask = access_of(after);
     VkPipelineStageFlags destination = after.layout == graph::Layout::Present
                                            ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
                                            : stages_of(after.stages);

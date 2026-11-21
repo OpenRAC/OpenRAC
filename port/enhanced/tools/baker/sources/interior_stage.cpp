@@ -214,6 +214,7 @@ std::string describe_report(
         << ",\"source_sha256\":\"" << input.source_sha256 << "\",\"spacing\":" << settings.spacing
         << ",\"height\":" << settings.height << ",\"radius\":" << settings.radius
         << ",\"step\":" << settings.step << ",\"sky_distance\":" << settings.sky_distance
+        << ",\"refined_cells\":" << result.refined_cells
         << ",\"blocked_portal_edges\":" << result.blocked_portal_edges;
 
     // Automatic reports carry stage identity; standalone reports preserve their existing schema.
@@ -256,7 +257,7 @@ std::string describe_report(
 std::string interior_stage_profile() {
     const in::Settings settings;
     // Bump this revision when inference changes independently of GI transport or binary rebuilds.
-    constexpr unsigned kInferenceRevision = 1;
+    constexpr unsigned kInferenceRevision = 3;
     return std::format(
         "{{\"revision\":{},\"spacing\":{},\"height\":{},\"radius\":{},\"step\":{},"
         "\"slope_cosine\":{},\"sky_distance\":{},\"max_cells\":{}}}",

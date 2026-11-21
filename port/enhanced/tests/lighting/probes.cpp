@@ -6,6 +6,7 @@
 #include <numbers>
 #include <stdexcept>
 
+#include "enhanced/lighting/probe_fit.h"
 #include "tests/check.h"
 
 using namespace openrac::lighting;
@@ -63,13 +64,15 @@ void oriented_grid() {
     auto rotated = reference;
     rotated.grid.origin = {5, -3, 1};
     rotated.grid.frame.axis = {.6f, .8f};
+    rotated.grid.frame.pitch = {.8f, .6f};
+    rotated.grid.frame.roll = {.6f, .8f};
     for (auto local : {Float3{1, 1, .5f}, Float3{3, .5f, 1.5f}}) {
         auto world = rotated.grid.frame.to_world(local);
         for (unsigned a = 0; a < 3; ++a) {
             world[a] += rotated.grid.origin[a];
         }
         const auto a = sample_probes(reference, local, {0, 0, 1}, 0);
-        const auto b = sample_probes(rotated, world, {0, 0, 1}, 0);
+        const auto b = sample_probes(rotated, world, rotated.grid.frame.to_world({0, 0, 1}), 0);
         CHECK(a && b);
         if (a && b) {
             for (unsigned c = 0; c < 3; ++c) {
@@ -83,12 +86,84 @@ void oriented_grid() {
     rotated.probes[0].offset = rotated.grid.frame.to_world({.2f, .1f, 0});
     const auto decoded = decode_probes(encode_probes(rotated));
     CHECK(decoded.grid.frame.axis == rotated.grid.frame.axis);
+    CHECK(decoded.grid.frame.pitch == rotated.grid.frame.pitch);
+    CHECK(decoded.grid.frame.roll == rotated.grid.frame.roll);
     for (unsigned a = 0; a < 3; ++a) {
         CHECK(std::abs(decoded.probes[0].offset[a] - rotated.probes[0].offset[a]) < .001f);
     }
     CHECK(encode_probes(decoded) == encode_probes(rotated));
+    auto unpitched = rotated;
+    unpitched.grid.frame.pitch = {1, 0};
+    unpitched.grid.frame.roll = {1, 0};
+    auto legacy = encode_probes(unpitched);
+    const auto pitch_offset = 16 + unpitched.grid.game_version.size() + 4 + 16 + 12 + 8;
+    auto version_nine = legacy;
+    version_nine
+        .erase(version_nine.begin() + pitch_offset + 8, version_nine.begin() + pitch_offset + 16);
+    version_nine[4] = 9;
+    CHECK(decode_probes(version_nine).grid.frame.roll == Float2({1, 0}));
+    legacy.erase(legacy.begin() + pitch_offset, legacy.begin() + pitch_offset + 16);
+    legacy[4] = 8;
+    CHECK(decode_probes(legacy).grid.frame.pitch == Float2({1, 0}));
     rotated.grid.frame.axis = {1, 1};
     rejects([&] { rotated.grid.validate(); });
+}
+
+void constrained_box_search() {
+    // A foreign lighting receiver occupies the empty corner of an L-shaped
+    // domain. The unconstrained minimum AABB is invalid; another orientation
+    // must be searched instead of abandoning fitting after that first guess.
+    std::vector<Float3> points;
+    for (auto xy :
+         {Float2{0, 0}, Float2{8, 0}, Float2{8, 2}, Float2{2, 2}, Float2{2, 8}, Float2{0, 8}}) {
+        for (float z : {-1.f, 1.f}) {
+            points.push_back({xy[0], xy[1], z});
+        }
+    }
+    const auto cost = [&](ProbeFrame frame) {
+        Float3 lo{INFINITY, INFINITY, INFINITY}, hi{-INFINITY, -INFINITY, -INFINITY};
+        for (auto p : points) {
+            p = frame.to_local(p);
+            for (unsigned a = 0; a < 3; ++a) {
+                lo[a] = std::min(lo[a], p[a]);
+                hi[a] = std::max(hi[a], p[a]);
+            }
+        }
+        const auto foreign = frame.to_local({7, 7, 0});
+        bool contains = true;
+        for (unsigned a = 0; a < 3; ++a) {
+            contains &= foreign[a] >= lo[a] && foreign[a] <= hi[a];
+        }
+        if (contains) {
+            return double(INFINITY);
+        }
+        return double(hi[0] - lo[0]) * (hi[1] - lo[1]) * (hi[2] - lo[2]);
+    };
+    CHECK(!std::isfinite(cost({})));
+    const auto fitted = search_probe_frame(points, cost, {}, false);
+    CHECK(std::isfinite(cost(fitted)) && cost(fitted) <= 161);
+    CHECK(fitted.pitch == Float2({1, 0}));
+    CHECK(search_probe_frame(points, cost, {}, false).axis == fitted.axis);
+
+    const ProbeFrame slope{{.8f, .6f}, {.96f, .28f}};
+    points.clear();
+    for (float x : {-20.f, 20.f}) {
+        for (float y : {-2.f, 2.f}) {
+            for (float z : {-1.f, 1.f}) {
+                points.push_back(slope.to_world({x, y, z}));
+            }
+        }
+    }
+    const auto frame = fit_probe_frame(points);
+    Float3 lo{INFINITY, INFINITY, INFINITY}, hi{-INFINITY, -INFINITY, -INFINITY};
+    for (auto p : points) {
+        p = frame.to_local(p);
+        for (unsigned a = 0; a < 3; ++a) {
+            lo[a] = std::min(lo[a], p[a]);
+            hi[a] = std::max(hi[a], p[a]);
+        }
+    }
+    CHECK(double(hi[0] - lo[0]) * (hi[1] - lo[1]) * (hi[2] - lo[2]) < 320.5);
 }
 
 void coordinates() {
@@ -546,7 +621,54 @@ void gutters() {
 }
 }  // namespace
 
+void full_rotation() {
+    const ProbeFrame expected{
+        {std::cos(.37f), std::sin(.37f)},
+        {std::cos(.29f), std::sin(.29f)},
+        {std::cos(.63f), std::sin(.63f)}
+    };
+    CHECK(expected.valid());
+    const auto q = expected.quaternion();
+    for (const auto p : {Float3{1, 0, 0}, Float3{0, 1, 0}, Float3{0, 0, 1}, Float3{3, -2, 5}}) {
+        const auto world = expected.to_world(p), local = expected.to_local(world);
+        const Float3 cross{
+            q[1] * p[2] - q[2] * p[1], q[2] * p[0] - q[0] * p[2], q[0] * p[1] - q[1] * p[0]
+        };
+        const Float3 cross2{
+            q[1] * cross[2] - q[2] * cross[1],
+            q[2] * cross[0] - q[0] * cross[2],
+            q[0] * cross[1] - q[1] * cross[0]
+        };
+        for (unsigned a = 0; a < 3; ++a) {
+            CHECK(std::abs(local[a] - p[a]) < .00001f);
+            CHECK(std::abs(world[a] - (p[a] + 2 * (cross2[a] + q[3] * cross[a]))) < .00001f);
+        }
+    }
+    std::vector<Float3> points;
+    for (unsigned i = 0; i < 8; ++i) {
+        points.push_back(
+            expected.to_world({i & 1 ? 12.f : -12.f, i & 2 ? 3.f : -3.f, i & 4 ? 1.f : -1.f})
+        );
+    }
+    const auto cost = [&](ProbeFrame frame) {
+        Float3 lo{INFINITY, INFINITY, INFINITY}, hi{-INFINITY, -INFINITY, -INFINITY};
+        for (auto p : points) {
+            p = frame.to_local(p);
+            for (unsigned a = 0; a < 3; ++a) {
+                lo[a] = std::min(lo[a], p[a]);
+                hi[a] = std::max(hi[a], p[a]);
+            }
+        }
+        return double(hi[0] - lo[0]) * (hi[1] - lo[1]) * (hi[2] - lo[2]);
+    };
+    const auto fitted = search_probe_frame(points, cost, {}, true, true);
+    CHECK(cost(fitted) < 24 * 6 * 2 * 1.005);
+    CHECK(cost(fitted) < cost(search_probe_frame(points, cost)) * .9);
+}
+
 int main() {
+    full_rotation();
+    constrained_box_search();
     oriented_grid();
     coordinates();
     sampling();

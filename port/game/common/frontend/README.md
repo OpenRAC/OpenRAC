@@ -32,8 +32,9 @@ including rounding and denormal handling on the supported toolchains.
 ## State and threads
 
 The window thread captures game callbacks into `Kept`. The optional Vulkan worker shares that
-immutable snapshot and owns a copy of the graphics settings. The level and renderer stay pinned
-until completion, and the producer checks exclusive snapshot ownership before capturing again.
+immutable snapshot and owns a copy of the graphics settings. Scene recording receives
+`SceneRenderState`, which holds the level, renderer, and retained GPU state. The frontend pins
+those resources until completion and checks exclusive snapshot ownership before capturing again.
 
 At most one render job is accepted at once. The next simulation tick and CPU camera/object/pose
 capture can overlap world recording. One optional `PreparedTick` owns that next capture; `frame()`
@@ -56,7 +57,8 @@ simulation tick later, trading bounded latency for overlapping CPU work.
 
 ## Errors
 
-The worker catches render exceptions, reports them and rejects later jobs. Normal shutdown drains
+The worker catches render exceptions, reports the frame, submission site, exception type and
+message where available, and rejects later jobs. Normal shutdown drains
 the current frame and releases the renderer and Vulkan device on the graphics thread before
 destroying the SDL window. After a fatal worker error, the window thread releases those resources
 once recording has stopped.
