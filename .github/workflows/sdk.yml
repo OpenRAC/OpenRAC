@@ -45,6 +45,13 @@ jobs:
       - name: The API reference is what the sources give
         # sdk/docs/reference is generated from the headers, the bindings and the type files.
         run: python3 sdk/tools/gen_reference.py --check
+      - name: The ABI only grows (sdk/api locks)
+        run: python3 sdk/tools/gen_api_lock.py --check
+      - name: The ABI only grows, against the pull request's base
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --depth=1 origin "${{ github.base_ref }}"
+          python3 sdk/tools/gen_api_lock.py --check --against FETCH_HEAD
       - name: Make the archive
         run: python3 sdk/tools/package_sdk.py -o dist
       - name: A tag names the archive's version
