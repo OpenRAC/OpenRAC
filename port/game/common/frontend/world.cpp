@@ -483,13 +483,15 @@ void use_level(int number) {
     // game resource tables and the two weapon decode buffers remain untouched.
     auto visual_classes = mods::visual_classes();
     for (const int id : visual_classes) {
+        const int mesh_class =
+            g->level.game == "rac1" ? scene::vendor_preview::model_class(id) : id;
         // Gold meshes have their own display skeleton and seq_00 pose. A base
         // weapon's native joint palette must never be applied to a gold mesh.
         if (g->level.game == "rac1" && id >= 0x5B0 && id < 0x5BA) {
             bool loaded = false;
             for (int source = 0; source < 20; ++source) {
                 const auto mesh =
-                    g->levels / std::format("level_{:02d}/mobys/moby_{}.glb", source, id);
+                    g->levels / std::format("level_{:02d}/mobys/moby_{}.glb", source, mesh_class);
                 if (!std::filesystem::is_regular_file(mesh)) {
                     continue;
                 }
@@ -529,11 +531,12 @@ void use_level(int number) {
             }
         }
         if (const auto found = g->level.moby_classes.find(id);
-            found != g->level.moby_classes.end() && !found->second.second) {
+            mesh_class == id && found != g->level.moby_classes.end() && !found->second.second) {
             continue;
         }
         for (int source = 0; source < 20; ++source) {
-            const auto mesh = g->levels / std::format("level_{:02d}/mobys/moby_{}.glb", source, id);
+            const auto mesh =
+                g->levels / std::format("level_{:02d}/mobys/moby_{}.glb", source, mesh_class);
             if (!std::filesystem::is_regular_file(mesh)) {
                 continue;
             }
