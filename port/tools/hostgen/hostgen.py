@@ -1505,7 +1505,8 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
             program.functions[sym] = Function(sym, sig, None, asm=f.asm if f else False)
     # A definition that calls another unit's function with no shared prototype (a record by value) is
     # left to its assembly (program.py callers_of_unprototyped): its unit could not declare the callee.
-    program.unprototyped_callers = callers_of_unprototyped(program)
+    program.unprototyped_callers = callers_of_unprototyped(
+        program, bool((cfg.get("asm") or {}).get("wide_register_calls")))
     # A definition that uses a derived name with no address (a ref_ name a stale table does not value) is left to
     # its assembly too (program.py users_of_unresolved_derived): its call would reach a stub that does nothing.
     program.unresolved_derived = users_of_unresolved_derived(program)

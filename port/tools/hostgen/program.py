@@ -940,7 +940,7 @@ def users_of_unresolved_derived(program: Program) -> dict[str, list[str]]:
     return moved
 
 
-def callers_of_unprototyped(program: Program) -> list[str]:
+def callers_of_unprototyped(program: Program, wide_registers: bool = False) -> list[str]:
     """A definition that calls, by name, a function of another unit (or of none) whose signature has no form in
     the shared prototypes (prototype(): a record by value, as a parameter or the result) cannot be translated: its
     unit has no declaration of the callee, since game_protos.h leaves it out, and the decompilation's own
@@ -950,6 +950,30 @@ def callers_of_unprototyped(program: Program) -> list[str]:
     are those that in turn call it, when it has no shared prototype either. The port's own host and wrapped
     functions keep their C. Returns the names left to the assembly."""
     moved = []
+    if wide_registers:
+        # A game whose calls hand on the 128-bit registers (asm.wide_register_calls): a function that takes a
+        # record by value where the code places it (Up Your Arsenal's movers taking a quadword vector in $a1) is
+        # one no table answers, so its callers by address (the assembly's) found nothing ("call to code address
+        # X, which no function of the port has"). Translated from its assembly, it takes the registers its code
+        # reads, their upper halves too, and every caller of it with C is left to its assembly as well, its own
+        # unit's included, since their C passes the record. Those callers' signatures are prototyped: their own
+        # callers keep their C.
+        left = set()
+        for sym, f in sorted(program.functions.items()):
+            if (f.unit is None or f.static or sym in program.host or sym in program.wrap
+                    or prototype(f, program.typedefs) is not None or canon(f.sig.ret, program.typedefs) is None
+                    or not program.code_places(sym)):
+                continue
+            program.functions[sym] = Function(sym, Signature(f.sig.ret, (), False, False), None, asm=True)
+            program.from_assembly.add(sym)
+            left.add(sym)
+            moved.append(sym)
+        for sym, f in sorted(program.functions.items()):
+            if f.unit is None or sym in program.host or sym in program.wrap or not left.intersection(f.calls):
+                continue
+            program.functions[sym] = Function(sym, f.sig, None, asm=True, declared=f.declared)
+            program.from_assembly.add(sym)
+            moved.append(sym)
     again = True
     while again:
         again = False
