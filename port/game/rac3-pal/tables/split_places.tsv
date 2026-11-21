@@ -63,3 +63,11 @@ func_L01_00423000	func_L10_004066F0	10:004066F0,13:004046F0,17:003FE800,21:003FB
 func_L01_00423000	func_L40_0048BE98	40:0048BE98,41:0048DC78,42:00484A78,43:004823D8,44:004817F0,45:0047EE18,50:0049CE98,51:0049EC78,52:00495A78,53:004933D8
 func_L01_00423000	func_L39_00518A18	39:00518A18
 func_L01_00423000	func_L46_004A6FC0	46:004A6FC0,47:004A9840,48:004A8B40,49:004A84C0
+# A list adder of the same instructions as the draw callback adder func_L01_00404A10 (a pair to the
+# lists at its own globals, a count of at most 0x40), but its own lists: in levels 3, 11, 16 and 23
+# the catalogue put this other routine in func_L01_00404A10's row, where the level's own copy of
+# the adder sits 0x50 before func_L01_00404A60 (level 23's 0x003E7A98, lists 0x001E7680/0x001E7780)
+# and this one far off (0x0043A540, lists 0x001EDE68/0x001EDF68). Level 23's mobys hand it
+# (moby, 3); translated as the adder, they went into the draw callbacks, and DrawFrame
+# (func_L01_00404A60) called each moby's address as a function.
+func_L01_00404A10	func_L03_00444658	03:00444658,11:0042EBE8,16:00467830,23:0043A540
