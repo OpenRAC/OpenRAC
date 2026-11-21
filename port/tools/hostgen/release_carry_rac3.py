@@ -129,7 +129,7 @@ class Names:
             return self.pairs[name], "hand"
         if level:
             table, which = self.levels, "levels"
-        elif suffix == "frontbin":
+        elif suffix is not None and suffix.split("__")[0] == "frontbin":
             table, which = self.front, "frontbin"
         else:
             table, which = self.boot, "boot"

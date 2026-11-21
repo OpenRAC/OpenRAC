@@ -11,66 +11,6 @@
    "status": "differs",
    "port": "host C"
   },
-  "func_0038AE20__frontbin__game": {
-   "is": "func_PAL_0038AE20__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_0038AF30__frontbin__game": {
-   "is": "func_PAL_0038AF30__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_0038B4D0__frontbin__game": {
-   "is": "func_PAL_0038B4D0__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_0038B670__frontbin__game": {
-   "is": "func_PAL_0038B670__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_0038B850__frontbin__game": {
-   "is": "func_PAL_0038B850__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_0038BA30__frontbin__game": {
-   "is": "func_PAL_0038BA30__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_0038BCD8__frontbin__game": {
-   "is": "func_PAL_0038BCD8__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_0038C138__frontbin__game": {
-   "is": "func_PAL_0038C138__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_0038C248__frontbin__game": {
-   "is": "func_PAL_0038C248__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_0038E7E8__frontbin__game": {
-   "is": "func_PAL_0038E7E8__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_0038F078__frontbin__game": {
-   "is": "func_PAL_0038F078__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_003972A0__frontbin__game": {
-   "is": "func_PAL_003972A0__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
   "func_003983C8": {
    "is": "func_003982E0",
    "status": "differs",
@@ -81,19 +21,14 @@
    "status": "differs",
    "port": "host C"
   },
-  "func_003A9830__frontbin__game": {
-   "is": "func_PAL_003A9830__frontbin__game",
-   "status": "none",
-   "port": "host C"
-  },
   "func_003AA3C8__frontbin": {
    "is": "func_003A4E70__frontbin",
    "status": "differs",
    "port": "wrap"
   },
   "func_003AA3C8__frontbin__game": {
-   "is": "func_PAL_003AA3C8__frontbin__game",
-   "status": "none",
+   "is": "func_003A4E70__frontbin__game",
+   "status": "differs",
    "port": "host C"
   },
   "func_003AA780": {
