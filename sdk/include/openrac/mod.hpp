@@ -2167,9 +2167,26 @@ public:
         return has_slot14(offsetof(openrac_api, on_overlay));
     }
 
-    // Since 1.14: `fn(user, overlay)` once a frame to draw over the game. During load.
+    // Since 1.14: `fn(user, overlay)` once a frame to draw over the game while a level is in play.
+    // During load. on_overlay_phases draws over menus too.
     bool on_overlay(openrac_overlay_fn fn, void* user = nullptr) const {
         return has_overlay() && m_api->on_overlay(m_handle, fn, user) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.28: whether this port draws a mod's overlay in more than a level in play
+    // (on_overlay_phases).
+    bool has_overlay_phases() const {
+        return m_api->api_minor >= 28
+               && m_api->size >= offsetof(openrac_api, on_overlay_phases) + sizeof(void*);
+    }
+
+    // Since 1.28: `fn(user, overlay)` once a frame of one of the phases (OPENRAC_OVERLAY_PLAYING,
+    // OPENRAC_OVERLAY_MENU: the vendor, the pause menu), as on_overlay. One callback a mod: this
+    // replaces the one on_overlay took. Returns false for no phase, one the port does not draw
+    // over, or a port without it. During load.
+    bool on_overlay_phases(openrac_overlay_fn fn, void* user, std::uint32_t phases) const {
+        return has_overlay_phases()
+               && m_api->on_overlay_phases(m_handle, fn, user, phases) == OPENRAC_HOOK_OK;
     }
 
     // Since 1.14: whether this port has the shots with more to say.

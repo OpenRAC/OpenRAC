@@ -83,9 +83,10 @@ extern "C" {
  * (moby_copy_check, moby_copy), and 1.26 copies that wake and fight with
  * their squad (the table is unchanged: a 1.25 port's copies of a squad's
  * enemies never wake, so a mod asks for 1.26 before it makes them), and 1.27
- * more room for spawned mobys (moby_pool_raise, moby_pool_status).
+ * more room for spawned mobys (moby_pool_raise, moby_pool_status),
+ * and 1.28 mods' own overlays drawn over the game's menus too (the vendor's, the pause menu's).
  */
-#define OPENRAC_MOD_API_MINOR 27
+#define OPENRAC_MOD_API_MINOR 28
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1276,14 +1277,29 @@ typedef struct openrac_moby2 {
     float anim_speed;
 } openrac_moby2;
 
-/* The port's drawing over the game, handed to an on_overlay callback for the length of the call.
- * Screen positions are in the game's 512 x 448 picture, as menu_rect and menu_text's. Since 1.14. */
+/* The phases a mod's overlay can be drawn in. These bits are the only phase values an overlay
+ * uses: on_overlay_phases' `phases` and openrac_overlay.phase. They are not the game's
+ * OPENRAC_PLAY_* values. This one is a level with the player in control (the game's
+ * OPENRAC_PLAY_PLAYING), what on_overlay always drew over. Since 1.28. */
+#define OPENRAC_OVERLAY_PLAYING 0x1u
+/* A level with a menu up (the game's OPENRAC_PLAY_MENU): the Gadgetron vendor, the pause menu, a
+ * dialog. More phases come as more bits, so ask for the bits you need and check the result.
+ * Since 1.28. */
+#define OPENRAC_OVERLAY_MENU 0x2u
+
+/* The port's drawing over the game, handed to an overlay callback for the length of the call.
+ * Screen positions are in the game's 512 x 448 picture, as menu_rect and menu_text's. Drawing is
+ * over the finished picture of the frame: it can cover a menu's own screens (the vendor's
+ * monitors), it cannot reach into what the game draws to its own textures. Since 1.14. */
 typedef struct openrac_overlay {
     /* sizeof(openrac_overlay), set by the port. */
     uint32_t size;
     void* context;
     /* Where the level's point `world` (x, y, z) is on the picture, with the game's camera, into
-     * `sx` and `sy`. Returns 1 when it is in front of the camera and on the picture, else 0. */
+     * `sx` and `sy`. Returns 1 when it is in front of the camera and on the picture, else 0: always
+     * 0 in a menu's frame, unless the level is drawn live under that menu (the pause menu's live
+     * picture): then the picture has a camera of its own. A frame of play always has one. The
+     * other calls need no camera. */
     int (*project)(void* context, const float world[3], float* sx, float* sy);
     /* A filled rectangle; `rgba` is 0xRRGGBBAA. */
     void (*rect)(void* context, float x, float y, float w, float h, uint32_t rgba);
@@ -1294,6 +1310,12 @@ typedef struct openrac_overlay {
     /* How wide `text` is at `height`, on the picture: text keeps its shape on a wide picture, so a
      * mod that centres a line asks. */
     float (*text_width)(void* context, float height, const char* text);
+    /* What the frame shows: one OPENRAC_OVERLAY_* bit (OPENRAC_OVERLAY_PLAYING or
+     * OPENRAC_OVERLAY_MENU), the same domain as on_overlay_phases' `phases`. Compare it with ==
+     * (one phase per frame) or test a bit with &. Not the game's OPENRAC_PLAY_* value. It is the
+     * phase the game was in when the tick was captured, not the game's now. Only if `size` reaches
+     * it. Since 1.28. */
+    uint32_t phase;
 } openrac_overlay;
 
 /* Called once a frame, after the world is drawn and before the port's own overlay, while the game
@@ -2102,8 +2124,9 @@ typedef struct openrac_api {
      * OPENRAC_REVIVE_* `flags` say. Since 1.14. */
     int (*hero_revive)(openrac_mod* mod, const float position[3], uint32_t flags);
 
-    /* Calls `fn(user, overlay)` once a frame to draw over the game (openrac_overlay). One a mod.
-     * Only during openrac_mod_load. Since 1.14. */
+    /* Calls `fn(user, overlay)` once a frame to draw over the game (openrac_overlay), while a level
+     * is in play: on_overlay_phases (1.28) draws over menus too. One a mod. Only during
+     * openrac_mod_load. Since 1.14. */
     int (*on_overlay)(openrac_mod* mod, openrac_overlay_fn fn, void* user);
 
     /* hero_shots and figure_shot with openrac_shot2. Since 1.14. */
@@ -2422,6 +2445,18 @@ typedef struct openrac_api {
      * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or for a game without a
      * pool. */
     int (*moby_pool_status)(openrac_mod* mod, openrac_moby_pool* out);
+
+    /* on_overlay for more than a level in play: calls `fn(user, overlay)` once a frame whose phase
+     * is one of `phases`, OPENRAC_OVERLAY_* bits (OPENRAC_OVERLAY_PLAYING alone is on_overlay).
+     * One callback a mod: this replaces the callback the mod took with on_overlay, and on_overlay
+     * replaces this one (the last taken is the one called). The drawing is
+     * over the finished picture, on the window's thread, on any frame shown: in a menu `project`
+     * says 0 where the picture has no camera of its own (openrac_overlay), and rect and text are
+     * the same as in play. A callback is called only as long as its mod is loaded. Returns
+     * OPENRAC_HOOK_OK, OPENRAC_HOOK_TOO_LATE for no fn or after openrac_mod_load, or
+     * OPENRAC_HOOK_UNKNOWN for no phase or one this port does not draw over (the callback is then
+     * not taken). Since 1.28. */
+    int (*on_overlay_phases)(openrac_mod* mod, openrac_overlay_fn fn, void* user, uint32_t phases);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

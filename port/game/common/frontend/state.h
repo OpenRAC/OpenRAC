@@ -135,6 +135,10 @@ struct Kept {
     bool world_under_menu = false;
     // A movie's tick (frontend::set_movie_playing).
     bool movie = false;
+    // The game's phase (OPENRAC_PLAY_*) when this tick was captured, read on the game's thread:
+    // what the mods' overlays are drawn over (mods::overlay_wanted). Not asked again when the frame
+    // is shown: a queued frame of play can be shown just after the game opened a menu.
+    int overlay_phase = 0;
     std::uint64_t frame = 0;
 };
 
@@ -178,6 +182,11 @@ struct FramePresentation {
         finished{};           // Worker completion, excluding handoff idle time.
     renderer::Camera camera;  // Camera of the submitted scene, for the debug UI.
     bool has_camera = false;  // The scene drew a world with that camera.
+    // The phase the mods' overlays are drawn for (Kept::overlay_phase), fixed when the frame is
+    // submitted; 0 for a frame no overlay is drawn over (a picture the game sent nothing to change).
+    int overlay_phase = 0;
+    // The world was drawn live under a menu (Kept::world_under_menu): `camera` matches the picture.
+    bool world_under_menu = false;
     CameraDebugFrame
         camera_debug;  // Window-thread inputs fixed before handing the scene to the worker.
     std::vector<scene::Instance> picker_live;
@@ -577,8 +586,9 @@ void render_scene(
 
 // Draws the kept tick, the camera and mobys part way from the last tick's to its own (as far as
 // the refresh it will be shown at is between them, when frames are drawn between ticks), and shows
-// it. `first`: the tick's own frame (shots, the frame read back by store_image)
+// it. `first`: the tick's own frame (shots, the frame read back by store_image). `held`: the game
+// sent nothing this tick (keep_picture): a picture left standing, with no mod's overlay on it
 // (frontend/interpolation.cpp).
-void draw_kept(bool first);
+void draw_kept(bool first, bool held = false);
 
 }  // namespace openrac::frontend

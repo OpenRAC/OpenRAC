@@ -125,6 +125,17 @@ namespace openrac::mods {
 
 bool g_frame_callbacks = false;
 
+std::uint32_t overlay_bit(int phase) {
+    switch (phase) {
+        case OPENRAC_PLAY_PLAYING:
+            return OPENRAC_OVERLAY_PLAYING;
+        case OPENRAC_PLAY_MENU:
+            return OPENRAC_OVERLAY_MENU;
+        default:
+            return 0;
+    }
+}
+
 namespace {
 
 struct FrameCallback {
@@ -174,12 +185,16 @@ const char* hook_id(const Host& host, const char* name) {
     return openrac_script_hook_id(host.scripts, name);
 }
 
-// Who draws over the game (on_overlay), in load order.
+// Who draws over the game (on_overlay, on_overlay_phases), in load order, and over which phases.
 struct OverlayCallback {
     openrac_mod* mod;
     openrac_overlay_fn fn;
     void* user;
+    std::uint32_t phases;  // OPENRAC_OVERLAY_* bits
 };
+
+// The phases an overlay is drawn over: a level in play, a level with a menu up.
+constexpr std::uint32_t kOverlayPhases = OPENRAC_OVERLAY_PLAYING | OPENRAC_OVERLAY_MENU;
 
 std::vector<OverlayCallback> g_overlays;
 
@@ -1236,19 +1251,29 @@ int api_party_replaying() {
 // ---- Interface 1.14: calls of the port as a whole that a shared game needs. Each answers
 // "unknown" until its package fills it in. ----
 
-int api_on_overlay(openrac_mod* mod, openrac_overlay_fn fn, void* user) {
+int api_on_overlay_phases(
+    openrac_mod* mod, openrac_overlay_fn fn, void* user, std::uint32_t phases
+) {
     if (mod == nullptr || mod != g_loading || fn == nullptr) {
         return OPENRAC_HOOK_TOO_LATE;
+    }
+    // No phase, or one the port draws nothing over: refused, and what the mod took before stays.
+    if (phases == 0 || (phases & ~kOverlayPhases) != 0) {
+        return OPENRAC_HOOK_UNKNOWN;
     }
     // One a mod: the last it gave.
     for (OverlayCallback& c : g_overlays) {
         if (c.mod == mod) {
-            c = {mod, fn, user};
+            c = {mod, fn, user, phases};
             return OPENRAC_HOOK_OK;
         }
     }
-    g_overlays.push_back({mod, fn, user});
+    g_overlays.push_back({mod, fn, user, phases});
     return OPENRAC_HOOK_OK;
+}
+
+int api_on_overlay(openrac_mod* mod, openrac_overlay_fn fn, void* user) {
+    return api_on_overlay_phases(mod, fn, user, OPENRAC_OVERLAY_PLAYING);
 }
 
 // The data packs a party has to agree on: stack.json's layers that change the game, once. The
@@ -2075,6 +2100,7 @@ void fill_api(const Host& host) {
     g_api.save_data_set = api_save_data_set;
     g_api.save_data_get = api_save_data_get;
     g_api.on_save_data = api_on_save_data;
+    g_api.on_overlay_phases = api_on_overlay_phases;
     g_api_without_native_vulkan = g_api;
     g_api_without_native_vulkan.graphics = api_graphics_without_native_vulkan;
 }
@@ -2798,13 +2824,26 @@ bool is_mod_code_link(std::string_view url) {
     });
 }
 
-bool overlay_wanted() {
-    return !g_overlays.empty() && overlay_shows_level();
+int overlay_phase() {
+    // With no mod drawing over the game nothing asks the game's memory.
+    return g_overlays.empty() ? OPENRAC_PLAY_NONE : play_phase();
+}
+
+bool overlay_wanted(int phase) {
+    const std::uint32_t bit = overlay_bit(phase);
+    return bit != 0
+           && std::any_of(g_overlays.begin(), g_overlays.end(), [bit](const OverlayCallback& c) {
+                  return (c.phases & bit) != 0;
+              });
 }
 
 void run_overlays(const openrac_overlay& overlay) {
+    // The frame's phase is already an OPENRAC_OVERLAY_* bit (openrac_overlay.phase).
+    const std::uint32_t bit = overlay.phase;
     for (const OverlayCallback& c : g_overlays) {
-        c.fn(c.user, &overlay);
+        if ((c.phases & bit) != 0) {
+            c.fn(c.user, &overlay);
+        }
     }
 }
 

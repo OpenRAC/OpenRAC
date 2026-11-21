@@ -2459,9 +2459,9 @@ std::string play_notice() {
     return g_notice;
 }
 
-bool overlay_shows_level() {
+int play_phase() {
     std::int32_t level = -1;
-    return phase_now(&level) == OPENRAC_PLAY_PLAYING;
+    return phase_now(&level);
 }
 
 void reset_play() {

@@ -654,6 +654,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `hero_stand_in_as(mod, as, figure)`, `hero_stand_in_read(mod, out)` (1.14) | a stand-in for the update of a moby that looks at more of the hero than where he is: it also sees that player's state, health and whether his feet are off the ground (`openrac_stand_in`), and in the gate's call after the update, what it did to him. Under every stand-in, whichever call made it, nothing an update does to the hero reaches this game's: his state, health, a kill, his rotation (Ratchet & Clank, both discs) |
 | `hero_place(mod, position, yaw, flags)`, `hero_grab(mod, animation, flags)`, `hero_hold_at(mod, position, yaw)`, `hero_release(mod)`, `hero_revive(mod, position, flags)` (1.14) | the hero placed (`OPENRAC_PLACE_INVULNERABLE`, `_GROUND`, `_BESIDE`: on Ratchet & Clank, both discs, after the tick's moby loop once the player is in control, by the game's own teleport), held as a grab holds it (on Ratchet & Clank, both discs: a hold, or with `OPENRAC_GRAB_FATAL` a death in the holder's grip, once the player is in control and on foot; `hero_hold_at` each time the place moves, and he goes there a share of the way a tick), let go, and brought back (Ratchet & Clank, both discs: `OPENRAC_REVIVE_HOLD` keeps a hero who dies on his feet down, `_LET_GO` ends that, `_RESPAWN` sends him to his checkpoint) |
 | `on_overlay(mod, fn, user)` (1.14) | `fn(user, overlay)` once a displayed frame, while a level is in play (no menu, no scene), to draw over the game: `project` a point of the level to the picture with the frame's own camera, `rect`, `text`, `text_width` and `fade` in the 512 x 448 picture. Text keeps its shape on a wide picture. Nothing is depth tested: what is drawn shows through walls. Works alike on OpenGL and Vulkan, and on both discs |
+| `on_overlay_phases(mod, fn, user, phases)` (1.28) | `on_overlay` for more than a level in play. `phases` is `OPENRAC_OVERLAY_PLAYING` and `OPENRAC_OVERLAY_MENU` (a level with a menu up: the Gadgetron vendor, the pause menu, a dialog), or'ed; no phase, or a bit the port has no overlay for, answers `OPENRAC_HOOK_UNKNOWN` and takes nothing. One callback a mod: the last taken, by this or `on_overlay`. A frame is of the phase the game was in when its tick was captured, which the callback reads in `overlay->phase`: the game's phase when the frame is shown may be another (a frame of play shown just after a menu opened). The drawing is over the finished picture: it covers a menu's screens (the vendor's monitors), it cannot go into what the game draws to its own textures. `rect`, `text`, `text_width` and `fade` need no camera; `project` answers 0 in a menu's frame unless the world is drawn live under it |
 | `hero_shots2(out, max)`, `figure_shot2(mod, id, shot)`, `moby_list2(out, max)` (1.14) | shots with flags, a target's key, a second velocity and four values of the weapon's own (`openrac_shot2`: every weapon's, both discs; a weapon that is no single shot is a track, `OPENRAC_SHOT_START`, `MOVE`, `STOP`, each of which may be lost); the level's mobys with the mission that deletes them (`openrac_moby2`) |
 | `level_line(from, to, &blocked)` (1.14) | whether the level's own walls and ground stand on a straight line, from the game's line query with the moby pass left out, without the game seeing a query: a name tag's question. A door or any other moby does not block it |
 | `on_camera_script(mod, fn, user)`, `camera_script_view(eye, rotation, where, &stand_in)`, `camera_script_play(mod, id)`, `camera_script_show(mod, eye, rotation)` (1.14) | the game's camera scripts: told as they start and end, `id` the class of the moby running one, the same on both discs (the game has no list of them), with the view of the one running; and another game's shown here, only the camera moving, `camera_script_show` giving each tick's view, `OPENRAC_CAMERA_SCRIPT_END` easing back and `OPENRAC_CAMERA_SCRIPT_CUT` going straight behind the hero. A script a stand-in sets off (`hero_stand_in`) leaves this game's camera and hero alone: its views are `camera_script_view`'s, `stand_in` set |
@@ -788,13 +789,11 @@ Also in 1.25, copies of a level's placed enemies (`moby_copy_check`, `moby_copy`
 the C++ layer's `moby_copy_check()`, `moby_copy()`, `has_moby_copy()`), after `moby_material`; Going
 Commando's (`port/game/rac2/host/enemy_copies.c`), which also makes a mod's moby with `moby_spawn`
 (1.9) from this release on.
-
 1.26 (SDK 1.26.0) copies that wake: the table is unchanged, but a copy is now put in the moby cells
 and on its squad's group list, so it wakes, is alerted and is counted with its squad (a 1.25 port's
 copies of a squad's enemies never woke, were never drawn and could not be hit), it dies once, and a
 moby whose pvars hold another moby (a part of its own) is not copied. A mod that makes copies asks
 for 1.26 (the C++ layer's `has_squad_copies()`).
-
 1.27 (SDK 1.27.0) more room for spawned mobys (Going Commando): `moby_pool_raise(extra)` asks for up
 to 512 more spare slots in every level loaded from then on, and `moby_pool_status` reads the
 level's pool (slots in all, alive, free, added). The game makes every spawned moby (a bolt, a shot,
@@ -803,6 +802,9 @@ with none free is lost; NG++'s copies of Barlow's enemies alone take 79. The por
 as the level's gameplay file is decompressed (port/game/rac2/host/moby_pool.c), the way Ratchet &
 Clank's bigger pool does. Ask in `load()` (the C++ layer's `has_moby_pool()`, `moby_pool_raise()`,
 `moby_pool_status()`).
+1.28 (SDK 1.28.0) a mod's overlay drawn over the level's menus too, the vendor's and the pause
+menu's (`on_overlay_phases`, `OPENRAC_OVERLAY_*`; `has_overlay_phases()`), and `openrac_overlay`
+telling the frame's `phase`.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's

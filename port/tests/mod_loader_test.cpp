@@ -135,6 +135,7 @@ void install(
                                   {"value": "rules", "name": "Rules"},
                                   {"value": "twelve", "name": "Twelve"},
                                   {"value": "hud", "name": "Hud"},
+                                  {"value": "x_overlay_phases", "name": "Overlay phases"},
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"},
@@ -1825,19 +1826,30 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     mods::Host h = host(plugins);
     h.play = &kPlay;
     h.cards = dir / "cards";
-    CHECK(!mods::overlay_wanted());  // nobody asked yet
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    CHECK(!mods::overlay_wanted(OPENRAC_PLAY_PLAYING));  // nobody asked yet
+    CHECK(mods::overlay_phase() == OPENRAC_PLAY_NONE);   // nothing asks the game either
     CHECK(mods::load(h) == "test-a 1.0.0");
     CHECK(g_live_picture == 0);  // play_live_picture reaches the game
+    // The frame's phase is the one read when its tick was captured, whatever the game is in now.
     g_phase = OPENRAC_GAME_PHASE_FRONT_END;
-    CHECK(!mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == OPENRAC_PLAY_FRONT_END);
+    CHECK(!mods::overlay_wanted(mods::overlay_phase()));
     g_phase = OPENRAC_GAME_PHASE_MENU;
-    CHECK(!mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == OPENRAC_PLAY_MENU);
+    CHECK(!mods::overlay_wanted(mods::overlay_phase()));
     g_phase = OPENRAC_GAME_PHASE_SCENE;
-    CHECK(!mods::overlay_wanted());
+    CHECK(!mods::overlay_wanted(mods::overlay_phase()));
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
-    CHECK(mods::overlay_wanted());
+    CHECK(mods::overlay_wanted(mods::overlay_phase()));
+    const int playing = mods::overlay_phase();
+    g_phase = OPENRAC_GAME_PHASE_MENU;  // the game moved on: the captured phase still says play
+    CHECK(mods::overlay_wanted(playing));
+    CHECK(!mods::overlay_wanted(OPENRAC_PLAY_NONE));
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
     openrac_overlay overlay{};
     overlay.size = sizeof overlay;
+    overlay.phase = OPENRAC_PLAY_PLAYING;  // the frame's, taken with its tick
     overlay.project = [](void*, const float world[3], float* x, float* y) {
         *x = world[0] * 10.0f;
         *y = world[1] * 10.0f;
@@ -1856,7 +1868,87 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     CHECK(g_overlay_rect[0] == 10.0f && g_overlay_rect[1] == 20.0f);
     CHECK(g_overlay_rect[2] == 4.0f && g_overlay_rect[3] == 8.0f);
     mods::reset();
-    CHECK(!mods::overlay_wanted());  // gone with the mods
+    CHECK(!mods::overlay_wanted(OPENRAC_PLAY_PLAYING));  // gone with the mods
+    g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+}
+
+// Drawing over the level's menus too (interface 1.28): a mod that took on_overlay_phases is called
+// for the phases it asked for, with the phase of the frame (taken with its tick, not the game's
+// now); one that took on_overlay only for a level in play; and a picture with no camera of its own
+// has nothing to project with.
+bool g_projects = true;
+
+void a_mod_draws_over_the_levels_menus(const fs::path& plugins, const fs::path& dir) {
+    write(
+        plugins / "plugins.json",
+        R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "hud"}},
+        {"id": "test-b", "enabled": true, "settings": {"behaviour": "x_overlay_phases"}}]})"
+    );
+    mods::Host h = host(plugins);
+    h.play = &kPlay;
+    h.cards = dir / "cards";
+    g_records.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0, test-b 1.0.0");
+    CHECK(status_of(plugins, "test-b").first == "loaded");
+    // Whatever the game is doing now, the frames of play and of a menu are drawn over; the others
+    // (the front end, a load, a scene, nothing) are not.
+    g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+    CHECK(mods::overlay_wanted(OPENRAC_PLAY_PLAYING) && mods::overlay_wanted(OPENRAC_PLAY_MENU));
+    CHECK(
+        !mods::overlay_wanted(OPENRAC_PLAY_NONE) && !mods::overlay_wanted(OPENRAC_PLAY_FRONT_END)
+    );
+    CHECK(!mods::overlay_wanted(OPENRAC_PLAY_LOADING) && !mods::overlay_wanted(OPENRAC_PLAY_SCENE));
+    CHECK(!mods::overlay_wanted(99) && !mods::overlay_wanted(-1));
+
+    openrac_overlay overlay{};
+    overlay.size = sizeof overlay;
+    overlay.project = [](void*, const float world[3], float* x, float* y) {
+        *x = world[0] * 10.0f;
+        *y = world[1] * 10.0f;
+        return g_projects ? 1 : 0;
+    };
+    overlay.rect = [](void*, float x, float y, float w, float h, std::uint32_t) {
+        g_overlay_rect[0] = x;
+        g_overlay_rect[1] = y;
+        g_overlay_rect[2] = w;
+        g_overlay_rect[3] = h;
+    };
+    overlay.text_width = [](void*, float height, const char*) {
+        return height / 2.0f;
+    };
+    const auto run = [&](int phase, bool projects) {
+        g_records.clear();
+        g_projects = projects;
+
+        for (float& v : g_overlay_rect) {
+            v = 0.0f;
+        }
+
+        overlay.phase = mods::overlay_bit(phase);  // the frame's phase is an OPENRAC_OVERLAY_* bit
+        mods::run_overlays(overlay);
+    };
+    // A level in play: test-a's on_overlay draws, and test-b's callback (which replaced the
+    // on_overlay it took first) hears the phase as its OPENRAC_OVERLAY_* bit, and has a camera.
+    run(OPENRAC_PLAY_PLAYING, true);
+    CHECK(g_overlay_rect[2] == 4.0f && g_overlay_rect[3] == 8.0f);
+    CHECK((g_records == std::vector<int>{13000 + OPENRAC_OVERLAY_PLAYING, 13200, 13101}));
+    // A menu: only test-b, with the phase and, where the picture has no camera, no projection.
+    // The menu bit tests true there (the footgun: the game's PLAY value would not).
+    run(OPENRAC_PLAY_MENU, false);
+    CHECK(g_overlay_rect[2] == 0.0f && g_overlay_rect[3] == 0.0f);  // test-a's did not run
+    CHECK((g_records == std::vector<int>{13000 + OPENRAC_OVERLAY_MENU, 13201, 13100}));
+    // Phases nobody asked for: nothing is called.
+    run(OPENRAC_PLAY_SCENE, true);
+    run(OPENRAC_PLAY_NONE, true);
+    CHECK(g_records.empty() && g_overlay_rect[2] == 0.0f);
+    // The phase of the frame says what is drawn, not the game's now.
+    g_phase = OPENRAC_GAME_PHASE_LOADING;
+    CHECK(mods::overlay_wanted(OPENRAC_PLAY_MENU));
+    mods::reset();
+    CHECK(!mods::overlay_wanted(OPENRAC_PLAY_PLAYING) && !mods::overlay_wanted(OPENRAC_PLAY_MENU));
+    run(OPENRAC_PLAY_MENU, true);  // gone with the mods
+    CHECK(g_records.empty());
     g_phase = OPENRAC_GAME_PHASE_FRONT_END;
 }
 
@@ -1991,10 +2083,11 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(mods::prop_meshes().empty());
     const unsigned generation = mods::prop_meshes_generation();
     mods::frame();
-    CHECK((g_records == std::vector<int>{9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9660,
-                                         9661, 9670,      9671, 9680, 9681, 9681, 9560, 9561,
-                                         9577, 9581,      9580, 9581, 9591, 9590, 9591, 9591,
-                                         9590, 9602,      9611, 9610, 9623, 9635}));
+    CHECK(
+        (g_records == std::vector<int>{9500, 9523, 9540, 9541, 9541, 9550, 9551, 9660, 9661, 9670,
+                                       9671, 9680, 9681, 9681, 9560, 9561, 9577, 9581, 9580, 9581,
+                                       9591, 9590, 9591, 9591, 9590, 9602, 9611, 9610, 9623, 9635})
+    );
     CHECK(
         (g_motion
          == std::vector<std::string>{
@@ -2148,6 +2241,7 @@ int main() {
     a_party_reads_the_data_packs(plugins);
     a_mod_copies_and_knows_the_key(plugins);
     a_mod_draws_over_the_level(plugins, dir);
+    a_mod_draws_over_the_levels_menus(plugins, dir);
     only_a_mod_codes_link_opens(plugins);
     rac2_callback_only_native_mod(plugins);
     the_tick_boundary_reaches_the_mod(plugins);

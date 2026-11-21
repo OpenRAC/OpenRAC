@@ -357,11 +357,20 @@ std::string menu_entry_label(int index);
 // code, in the characters a code has.
 bool is_mod_code_link(std::string_view url);
 
-// Drawing over the game (interface 1.14): whether a mod draws now (one took on_overlay and the game
-// shows a level, not a menu or a scene), and each such mod's callback with `overlay`. On the window
-// thread, with the frame finished.
-bool overlay_wanted();
+// Drawing over the game (interface 1.14): the game's phase now (OPENRAC_PLAY_*; 0 when no mod draws
+// over the game), read on the game's thread when a tick is captured and kept with it
+// (frontend/state.h, Kept).
+int overlay_phase();
+
+// Whether a mod draws over a frame of phase `phase` (what overlay_phase said for its tick), and
+// each such mod's callback with `overlay`. On the window thread, with the frame finished: the game
+// may have moved on, so only `phase` says what the frame shows.
+bool overlay_wanted(int phase);
 void run_overlays(const openrac_overlay& overlay);
+
+// The OPENRAC_OVERLAY_* bit of a frame of the game's phase `phase` (OPENRAC_PLAY_*); 0 for a phase
+// nothing is drawn over. openrac_overlay.phase holds this bit, not the game's phase.
+std::uint32_t overlay_bit(int phase);
 
 // Runs entry `index`'s page for a frame: its callback with `frame`, its drawing sent to the host's
 // menu_rect and menu_text. True when the page closes (the mod said so, or there is no such entry).

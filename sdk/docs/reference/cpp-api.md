@@ -358,7 +358,9 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool hero_stand_in_read(openrac_stand_in& out) const` | Since 1.14: in the gate's call after an update, what it did to the hero who stood in. |
 | `bool hero_revive(const float (*position)[3] = nullptr, std::uint32_t flags = 0) const` | Since 1.14: brings a dead hero back where it fell, or at `position`. |
 | `bool has_overlay() const` | Since 1.14: whether this port draws what a mod asks over the game. |
-| `bool on_overlay(openrac_overlay_fn fn, void* user = nullptr) const` | Since 1.14: `fn(user, overlay)` once a frame to draw over the game. During load. |
+| `bool on_overlay(openrac_overlay_fn fn, void* user = nullptr) const` | Since 1.14: `fn(user, overlay)` once a frame to draw over the game while a level is in play. During load. on_overlay_phases draws over menus too. |
+| `bool has_overlay_phases() const` | Since 1.28: whether this port draws a mod's overlay in more than a level in play (on_overlay_phases). |
+| `bool on_overlay_phases(openrac_overlay_fn fn, void* user, std::uint32_t phases) const` | Since 1.28: `fn(user, overlay)` once a frame of one of the phases (OPENRAC_OVERLAY_PLAYING, OPENRAC_OVERLAY_MENU: the vendor, the pause menu), as on_overlay. One callback a mod: this replaces the one on_overlay took. Returns false for no phase, one the port does not draw over, or a port without it. During load. |
 | `bool has_shots2() const` | Since 1.14: whether this port has the shots with more to say. |
 | `std::vector<openrac_shot2> hero_shots2(int max = OPENRAC_SHOTS_MAX) const` | Since 1.14: the hero's shots since the last call, as openrac_shot2. |
 | `bool figure_shot2(int id, const openrac_shot2& shot) const` | Since 1.14: has the mod's figure `id` fire `shot`. |

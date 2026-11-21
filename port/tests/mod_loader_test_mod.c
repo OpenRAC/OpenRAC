@@ -570,6 +570,19 @@ static void on_overlay(void* user, const openrac_overlay* overlay) {
     }
 }
 
+/* Over the level and its menus (interface 1.28): the phase the frame was of, then whether the
+ * picture had a camera to project with. */
+static void on_overlay_phase(void* user, const openrac_overlay* overlay) {
+    const float world[3] = {0.0f, 0.0f, 0.0f};
+    float x = 0.0f;
+    float y = 0.0f;
+    (void)user;
+    s_record(13000 + (int)overlay->phase);
+    /* The footgun: a mod tests the frame's phase with the overlay bits, as the header says. */
+    s_record(13200 + ((overlay->phase & OPENRAC_OVERLAY_MENU) != 0));
+    s_record(13100 + overlay->project(overlay->context, world, &x, &y));
+}
+
 static void failed_camera(void* user, int id, int started) {
     (void)user;
     (void)id;
@@ -774,6 +787,24 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->on_overlay(mod, on_overlay, &overlay_user) != OPENRAC_HOOK_OK
             || api->play_live_picture(mod, 0) != OPENRAC_HOOK_OK) {
             return 18;
+        }
+    }
+    if (behaviour[0] == 'x') { /* x_overlay_phases: draws over the level and its menus (1.28) */
+        /* No phase, a bit no port draws over, no callback: refused, and after the load a take is too
+         * late. The mod takes on_overlay first: the later take replaces it (one callback a mod). */
+        if (api->api_minor < 28 || s_record == NULL
+            || api->on_overlay_phases(mod, on_overlay_phase, NULL, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->on_overlay_phases(mod, on_overlay_phase, NULL, 0x80000000u)
+                   != OPENRAC_HOOK_UNKNOWN
+            || api->on_overlay_phases(mod, on_overlay_phase, NULL, OPENRAC_OVERLAY_MENU | 0x100u)
+                   != OPENRAC_HOOK_UNKNOWN
+            || api->on_overlay_phases(mod, NULL, NULL, OPENRAC_OVERLAY_MENU)
+                   != OPENRAC_HOOK_TOO_LATE
+            || api->on_overlay(mod, on_overlay, &overlay_user) != OPENRAC_HOOK_OK
+            || api->on_overlay_phases(
+                   mod, on_overlay_phase, NULL, OPENRAC_OVERLAY_PLAYING | OPENRAC_OVERLAY_MENU
+               ) != OPENRAC_HOOK_OK) {
+            return 19;
         }
     }
     if (behaviour[0] == 's') { /* savestate */

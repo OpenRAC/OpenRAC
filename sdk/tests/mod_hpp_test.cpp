@@ -891,6 +891,25 @@ void fill_16(openrac_api& api) {
     };
 }
 
+// What the fake host's 1.28 call was given.
+std::string g_overlay_phases;
+openrac_overlay_fn g_overlay_fn = nullptr;
+
+void draw_nothing(void*, const openrac_overlay*) {}
+
+void fill_overlay_phases(openrac_api& api) {
+    // As a port: no phase, or a bit it has no overlay for, is refused and takes nothing.
+    api.on_overlay_phases = [](openrac_mod*, openrac_overlay_fn fn, void*, uint32_t phases) {
+        const uint32_t known = OPENRAC_OVERLAY_PLAYING | OPENRAC_OVERLAY_MENU;
+        if (phases == 0 || (phases & ~known) != 0) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        g_overlay_fn = fn;
+        g_overlay_phases = "phases " + std::to_string(phases);
+        return OPENRAC_HOOK_OK;
+    };
+}
+
 // The fake host's 1.17 collision query: a wall at x = 10 for the level, a moby
 // (slot 4) at x = 5.
 void fill_17(openrac_api &api) {
@@ -2139,6 +2158,37 @@ int main() {
       api.api_minor = 26;
       CHECK(!mod.has_moby_pool() && mod.moby_pool_raise(100) == 0 && !mod.moby_pool_status(pool));
       api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.28: an overlay drawn over the game's menus too, and a port without it.
+    {
+        fill_overlay_phases(api);
+        CHECK(mod.has_overlay_phases());
+        const openrac_overlay_fn draw = draw_nothing;
+        CHECK(mod.on_overlay_phases(draw, nullptr, OPENRAC_OVERLAY_MENU) && g_overlay_phases == "phases 2");
+        CHECK(mod.on_overlay_phases(draw, nullptr, OPENRAC_OVERLAY_PLAYING | OPENRAC_OVERLAY_MENU)
+              && g_overlay_phases == "phases 3" && g_overlay_fn == draw);
+        // No phase, a bit the port has no overlay for: refused, and the last callback stands.
+        g_overlay_fn = nullptr;
+        g_overlay_phases.clear();
+        CHECK(!mod.on_overlay_phases(draw, nullptr, 0));
+        CHECK(!mod.on_overlay_phases(draw, nullptr, 0x80000000u));
+        CHECK(!mod.on_overlay_phases(draw, nullptr, OPENRAC_OVERLAY_MENU | 0x40u));
+        CHECK(g_overlay_phases.empty() && g_overlay_fn == nullptr);
+
+        // A port of 1.15 has the table without it: every call answers no and touches nothing.
+        api.api_minor = 15;
+        CHECK(!mod.has_overlay_phases() && !mod.on_overlay_phases(draw, nullptr, OPENRAC_OVERLAY_MENU));
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        CHECK(g_overlay_phases.empty());
+
+        // So does a table that ends before the slot (a port built from older headers), whatever
+        // minor it says.
+        const std::uint32_t size = api.size;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, on_overlay_phases));
+        CHECK(!mod.has_overlay_phases() && !mod.on_overlay_phases(draw, nullptr, OPENRAC_OVERLAY_MENU));
+        CHECK(mod.has_settings_set() && mod.has_overlay());  // what the shorter table has
+        api.size = size;
+        CHECK(g_overlay_phases.empty());
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);
