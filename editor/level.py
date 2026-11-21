@@ -39,6 +39,12 @@ ITEM_TEXTURES = 1200
 WRENCHES = 3
 # The picture on his ship, past those.
 SHIP_TEXTURE = 1300
+# Clank's picture (Up Your Arsenal), his first skin; the others go out as clank_skin_NN.
+CLANK_TEXTURE = 1310
+# What a moby class table entry's word +8 binds over all of the class's faces at load
+# (games.Format.bound_textures; Up Your Arsenal's class loader, Veldin's func_L01_0042B4F8): 1 his ship's
+# picture (the ship's parts 4308 to 4325 and hull 3412, as Going Commando's), 2 Clank's (601, 87).
+BOUND_SHIP, BOUND_CLANK = 1, 2
 # A hero pack's texture record: its width and height, CLUT and 8-bit pixels (func_00292078).
 RECORD_SIZE, RECORD_CLUT, RECORD_PIXELS = 0x08, 0x20, 0x420
 # Class tables: (count, offset) pairs; each entry starts with a core offset.
@@ -87,6 +93,8 @@ class Level:
     ship_bodies: list[bytes] = field(default_factory=list)
     # Going Commando: every paint job of his ship, 0 first (also ("moby", SHIP_TEXTURE)).
     ship_paints: list[Texture] = field(default_factory=list)
+    # Up Your Arsenal: Clank's picture in each of his skins, 0 first (also ("moby", CLANK_TEXTURE)).
+    clank_skins: list[Texture] = field(default_factory=list)
 
     @property
     def instances(self) -> bytes:
@@ -414,6 +422,9 @@ def hero_files(level: Level, source) -> None:
     level.ship_paints = [record_texture(raw, 0) for raw in source.ship_textures()]
     level.textures[("moby", SHIP_TEXTURE)] = level.ship_paints[0]
     level.ship_bodies = source.ship_bodies()
+    level.clank_skins = [record_texture(raw, 0) for raw in source.clank_textures()]
+    if level.clank_skins:
+        level.textures[("moby", CLANK_TEXTURE)] = level.clank_skins[0]
 
 
 # Up Your Arsenal's loading screen between levels, the ship's scene (wads.Version.loading_ship_pack):
