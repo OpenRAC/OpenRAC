@@ -53,6 +53,7 @@ MP_TOKEN = re.compile(r"\bmp_func_(?:L\d\d_)?[0-9A-F]{8}(?:__\w+)?\b")
 MADDR = re.compile(r"\bRAC3_MADDR\(\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
 ALIAS = re.compile(r"(func_[0-9A-F]{8})(_[0-9A-F]{8})")
 RESIDENT_END = 0x001D5680  # below: the engine core, at the same addresses on both discs
+CORE_TEXT_END = 0x0013D420  # the engine core's code ends here (core.text 0x116F80-0x13D420)
 LITERAL = re.compile(r"\b0x(00[1-3][0-9A-Fa-f]{5})u?\b")  # an address of the executable's memory
 SHARED_SUFFIXES = ("game",)  # a wrap's own body: the same program as the plain name
 
@@ -233,6 +234,12 @@ def absent(name: str, names: Names) -> bool:
     """A function name NTSC-U's program has no such function for (PAL's own, or a level copy
     NTSC-U's levels do not have)."""
     if name.startswith("func_PAL_"):
+        return True
+    plain = re.fullmatch(r"func_([0-9A-F]{6,8})", name)
+    if plain and CORE_TEXT_END <= int(plain.group(1), 16) < RESIDENT_END:
+        # Past the engine core's code and below the levels: the multiplayer executable's
+        # (I5BOOTN.ELF: PAL's func_00193590 and func_1488A8, which level 39's shared C calls), loaded over the boot
+        # program's data. NTSC-U's port does not translate that executable.
         return True
     if re.fullmatch(r"func_L\d\d_[0-9A-F]{8}_\w+", name) and not name.endswith(("__game", "__frontbin")):
         # A level copy's own spelling of PAL's (func_L39_006AE8F8_006AE3D8, after the place it is
