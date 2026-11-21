@@ -461,6 +461,19 @@ def game_needs(root: Path) -> dict[str, set[str]]:
     return {name[4:]: needs(name) for name in bodies if name.startswith("api_")}
 
 
+# What sdk/tools/new_api.py writes in a call's stub: until it is gone the call works on no game.
+STUB_MARK = "TODO: the call's work"
+
+
+def stubs(root: Path) -> set[str]:
+    out = set()
+    for src in PORT_MOD_SOURCES:
+        for path in sorted(root.glob(src)):
+            out |= {name[4:] for name, body in cpp_functions(path.read_text()).items()
+                    if name.startswith("api_") and STUB_MARK in body}
+    return out
+
+
 def game_fields(root: Path) -> dict[str, set[str]]:
     out = {}
     for game, path in PLAY_TABLES.items():
@@ -474,12 +487,15 @@ def coverage(sdk: Path) -> dict[str, dict[str, str]]:
     root = sdk.parent
     needs = game_needs(root)
     have = game_fields(root)
+    stubbed = stubs(root)
     out: dict[str, dict[str, str]] = {}
     for m in read_members(sdk):
         need = needs.get(m["name"], set())
         row = {}
         for game in PLAY_TABLES:
-            if not need:
+            if m["name"] in stubbed:
+                row[game] = "no"
+            elif not need:
                 row[game] = "yes"
             else:
                 got = len(need & have[game])
