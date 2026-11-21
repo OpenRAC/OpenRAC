@@ -1,23 +1,17 @@
 # openrac-rac3-pal: Up Your Arsenal, PAL
 
 Up Your Arsenal's PAL disc (`SCES_524.56`), built by [hostgen](../../tools/hostgen/README.md) from
-[games/rac3](../../../games/rac3/decomp), whose C is PAL's own (`src/boot_elf`, `src/frontbin`).
-The NTSC-U drafts are read only where PAL's code is the same.
+[games/rac3](../../../games/rac3/decomp), whose C is PAL's own (`src/boot_elf`, `src/frontbin`,
+`src/levels`). The NTSC-U drafts are read only where PAL's code is the same; NTSC-U's own program is
+this one carried to that disc's addresses ([rac3-ntsc](../rac3-ntsc/README.md)).
 
-**An experiment, not playable.** It boots to the main menu, which runs, takes the pad and draws
-its frames, labels and icons (the 2D layer's routines, wrapped: `host/ui2d.c`) over its
-background picture, but no 3D (below). Levels are not loaded.
-
-## Running it
-
-The functions with no C are translated from the disc image: the player's (`--disc`, or
-`OPENRAC_RAC3_PAL_RETAIL_IMAGE`), else `games/rac3/decomp/baserom/SCES_524.56.iso`. The disc's
-executable is the loader; retail.py reads it as the game it carries packed (the same sections as
-the decompilation's `boot_elf.elf`, which the build does not need).
-**Runs as far as its menus.** It boots to the main menu, which runs and takes the pad, but
-draws only its boxes over its background picture: no text, no 3D (below). Levels are not loaded,
-so a new game or a save does not start yet. The launcher builds and starts it from a player's PAL
-disc (below), with a warning that says so.
+**An early port, playable in parts.** It boots through the boot screens and the intro movie to the
+main menu, whose pages run and take the pad; a new game or a save loads its level, which is drawn
+natively from the disc's level data (the world, the mobys, the sky, particles), with the hero, the
+HUD and its text, the pause menu and its pages, the game's own saving and loading, sound and the
+level's movies. The multiplayer executable runs its menus; its maps do not play yet. What is still
+missing is listed [at the end](#what-is-missing). The launcher builds and starts it from a player's
+PAL disc (below).
 
 ## Running it
 
@@ -44,7 +38,7 @@ disc* runs `tools/extractor.py`, which checks the disc against games/rac3/game.j
 *Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
 the levels into `assets/port/rac3/pal` (`levels-13.json`), and *Play* runs
 `openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that
-no level plays yet. The game draws a level's world from them ([Drawing the levels](#drawing-the-levels)).
+the port is early. The game draws a level's world from them ([Drawing the levels](#drawing-the-levels)).
 
 `OPENRAC_RAC3_CHAINS=N` prints the VIF codes of the first N display lists and the front end's
 state words (mode, boot state, boot screen, the pad's held and pressed buttons) each frame.
@@ -94,16 +88,14 @@ C are translated from their own instructions.
 
 - **frontbin** loads and runs: its start-up, its widgets, its intro movie (the native player through
   its own copy of the entry, `0x003AF890`) and then its menu loop, sending a display list each frame.
-- **A level** does not run yet. On the way to one (New Game, Load Game, or level 1 by
-  `OPENRAC_RAC3_NEXT`) the boot program's loading screen now unpacks its pack (the WAD
-  decompressor on the shared routine, `host/wad.c`) and loads its sound bank (`0x0013BC30`, the
-  shared `snd_BankLoadFromEE_CB`), then waits in its own hand-written draw kernel (`0x003CA858`,
-  `0x003CA9C0`: VU0 and a scratchpad DMA chain the port does not run), which a native drawing of
-  the loading screen is to replace. The level's code itself is not translated yet:
-  hostgen.json's `sources` has no `src/levels` and no `places` catalogue (rac3-decomp's
-  `config/levels/functions.tsv`), as Going Commando's has.
+- **A level** loads and runs: on the way to one (New Game, Load Game, `--level N` with
+  `OPENRAC_DIRECT`, or `OPENRAC_RAC3_NEXT`) the boot program's loading screen unpacks its pack (the
+  WAD decompressor on the shared routine, `host/wad.c`), loads its sound bank (`0x0013BC30`, the
+  shared `snd_BankLoadFromEE_CB`) and draws natively ([The loading screen](#the-loading-screen));
+  the level's code is translated from its own C (`src/levels`) and, where it has none, from the
+  disc's level programs, by rac3-decomp's catalogue (`places`, `config/levels/functions.tsv`).
 
-Until the menus can be read, `OPENRAC_RAC3_NEXT=FRAME:LEVEL` writes what a menu's choice writes, at
+`OPENRAC_RAC3_NEXT=FRAME:LEVEL`, a development probe from before the menus could be read, writes what a menu's choice writes, at
 the boot program's FRAME-th display list (`-1`: frontbin).
 
 ## The multiplayer executable
@@ -459,6 +451,11 @@ shows the port's settings (`openrac_game_option_*`, the in-game menu's entries m
 game's pages) in the same list, four rows at a time scrolling with the cursor as the game's own
 lists scroll; Cross or Right steps the row under the cursor, Left steps it back, Triangle goes
 back to the game's rows. A step is saved to the settings file and applied at once.
+The port's texts there (the Video row's name, its page's rows) are in the game's language, as
+Going Commando's: the front end's `language` (game_host.h, `options_menu.cpp`'s translations) is a
+word the port keeps with the language byte's value each frame (`host/options.c`), since the game
+keeps it as a byte between others. Their accented letters are written in this game's font's code
+(0x80 and the letter's number, not Going Commando's single bytes: `capitals`).
 
 Each row has its picture beside the list, the preview widget's animation for the row (the items'
 fourth word at `D_0037F830`: 16:9's 5, Subtitles' 2, Sound's 4, Language's 9), a Widget3D sprite
@@ -680,8 +677,6 @@ it where the transfers were (`host/picture.c`): nothing of the game's transfers 
   and `func_L01_00415788` (boot func_00392B28), the screen glow's copies and the second screen
   effect (above); `OPENRAC_UI_RESIDUAL=1` lists their kinds. The HUD textures' uploads
   (`func_L01_004045B8`, `func_L01_004046F0`) are uploads, not draws.
-- **The quick select ring** (HUD slot 3, anchored left) stays in its 4:3 place: neither the slot's
-  shift nor the side markers move it.
 - **Holostar's blue box** (levels 13 and 14, while Ratchet is down): a solid dark blue rectangle of
   about 256 x 224 in the middle of the picture. Not the level's picture routine
   (`func_L01_004C61A0`, wrapped as the boot program's, never called there) nor any wrapped 2D
@@ -691,45 +686,20 @@ it where the transfers were (`host/picture.c`): nothing of the game's transfers 
 - **Other levels' HUD**: the wrappers are written with Veldin's places, and every level's copy that
   the catalogue folds with them runs through them; levels whose HUD has routines of its own (the
   multiplayer maps' and the arena's) are not checked.
-- **The Options rows' text is cut at both sides**: each row's text is laid out about three glyphs
-  left of its column on the left and one right on the right, and clipped by its panel (the
-  translated layout, func_003AC590 → func_0038FDF8; the game's own packets show the same). The
-  Video page's rows inherit it.
-- **The mods' pages** (`openrac_api.ui_main_item`, Going Commando's rac2/host/mod_pages.c) are not
-  in rac3's menus yet.
-
-- **Music**: the menu's sound effects play (the front end's bank, an SBlk version 3 block, which
-  the shared bank reader now reads), but the boot front end asks for no music: its stream table
-  (the level table LoadLevelToc fills, `0x00160C40 + 0x7A04`) is never loaded and the music channel
-  stays at track -1. The streams' command (0x2C, two mono files as rac2's) is bound and untested.
+- **The pause menu's Options** have no Video row (Going Commando's copy of its Camera page,
+  rac2/host/options.c): the port's settings window (the menu key) has the same rows in a level.
+- **The mods**: no hook points, script binding or mods' pages in rac3's menus yet (Going
+  Commando's rac2/host/mod_pages.c, sdk/bindings); so no save states either, which the SDK gives
+  only to Ratchet & Clank's mods.
+- **Music in the boot front end**: the menu's sound effects play (the front end's bank, an SBlk
+  version 3 block, which the shared bank reader reads), but the boot front end asks for no music:
+  its stream table (the level table LoadLevelToc fills, `0x00160C40 + 0x7A04`) is never loaded and
+  the music channel stays at track -1. A level's music plays (two-part VAG streams, command 0x2C).
+  Command 0x30 (a stream query whose answer the level's stream code stores at its record's +0x14,
+  `0x00460170`, which nothing in Veldin's stream code reads) is not known to the ring and answers 0.
   `OPENRAC_AUDIO_TICKED=1 OPENRAC_AUDIO_DUMP=out.wav OPENRAC_SOUND_LOG=1` captures and logs it.
-- **Sound in a level**: Veldin loads its bank (321 sounds) through the shared ring and starts its
-  music as two-part VAG streams (0x2C) and a one-part voice stream. Its effects play with the
-  volume and pan the game works out from the camera: 166 plays in 600 ticks of walking and swinging
-  the wrench, pans across the whole range. Before the levels' functions got their real return
-  types (asm signature check, below), the positional code read 0 from them and 7 sounds played,
-  all with a pan of 0. Command 0x30 (a stream query whose answer the level's stream code stores at
-  its record's +0x14, `0x00460170`, which nothing in Veldin's stream code reads) is not known to the
-  ring and answers 0.
-- **A level**: see [The next program](#the-next-program).
-- The memory card works through the shared `sceMc*`; saving is untested.
-- **The next program**: frontbin and the levels (`0x0013AFF8`, overlays) are not loaded; hostgen's
-  `frontbin` group and `relocate` are not set up for them.
-- Saving from a level: the pause menu's Options > SAVE runs the game's own card code (Veldin,
-  hidden runs): an empty card asks to create the save file, the SAVE slot page lists the slots, a
-  slot saves ("Saving Data", then "Veldin" with the date); the main menu's Load Game loads it back
-  into Veldin with what was owned (the N60 given in Veldin's scene came back, held, 8/8). Still
-  missing on the in-level slot page: its left column (the slots' level pictures and the empty
-  slots' art) draws nothing. Options > QUIT GAME asks its question (Square Yes, Triangle No); Yes
-  loads frontbin, which faults in its Widget3D pose (func_003A9DB0__frontbin, SIGBUS).
-- The pause menu's pages (Veldin, hidden runs): all eight open and print their text where it
-  belongs (Missions, Weapons, Gadgets, Quick Select, Items, Options with Save / Load / Controls /
-  Audio-Visual / Quit, Help, Special with Cheats / Skins / Skill Points / Cinematics). Still wrong:
-  the pictures at the top of Missions, Options and Special draw as vertical stripes (they are left
-  to the game's packets: indexed textures, PSMT8 at 0x2CAB/0x2DAF and PSMT4 at 0x2D33, in
-  triangles and a strip, `OPENRAC_UI_RESIDUAL`). The Weapons grid and the quick select ring are
-  empty, as on the console, until Veldin's scenes give the first guns (item 39 the Shock Blaster, 119 the N60;
-  the ring and the grid show the N60 once given).
-- Movie subtitles: the boot program's movies (the New Game intro) show their subtitles, the game's
-  own prints over the native player's picture in the list its vertical blank handler sends
-  (host/movie.c); frontbin's and the levels' movies still show the picture alone.
+- **OPENRAC_GIVE** gives the twenty guns (`all`, `weapons`), an item by its number and `bolts:N`;
+  the gadgets' item numbers are not known yet, so `gadgets` means nothing here.
+- **Touch hints**: the on-screen pad follows the level's mode and the hero's state
+  (`host/touch.c`), but the game's "press triangle" prompts are not read.
+- **The multiplayer maps** (levels 40 to 53) run their menus but not their maps.
