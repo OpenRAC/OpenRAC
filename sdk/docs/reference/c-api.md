@@ -137,7 +137,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_MOBY_SCENE` | `0x20u` | An actor of the in-level scene playing (scene_playing): the game made it for the scene and deletes it when the scene ends. Each game playing the scene has its own. |
 | `OPENRAC_MOBY_HIDDEN` | `0x40u` | Hidden: drawn by nothing however near, as the game hides one (its update did, or moby_hide), or faded out (alpha 0). |
 | `OPENRAC_MOBY_DRAWN` | `0x80u` | Drawn in the last frame (in view, within its draw distance, not hidden). |
-| `OPENRAC_MOBY_POOL_EXTRA_MAX` | `512` | The most extra spare slots moby_pool_raise grants. Since 1.27. |
+| `OPENRAC_MOBY_POOL_EXTRA_MAX` | `1024` | The most extra spare slots moby_pool_raise grants. Since 1.27. |
 | `OPENRAC_MOBY_RUN_NONE` | `(-1)` | Not looked at: no moby there, a dead one, or one the game never runs (mode bit 2). |
 | `OPENRAC_MOBY_RUN_FAR` | `0` | Left out: farther than its update distance from the camera and from every eye (play_eyes). |
 | `OPENRAC_MOBY_RUN_DRAWN` | `1` | Run: drawn in the last frame, its update distance always (255), within it of the camera, within it of an eye, or as a member of a group another member of which was run. |

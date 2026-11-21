@@ -124,9 +124,9 @@
 /* The largest pvars a copy takes, the room for those over SLOT_PVARS, the pool's slots kept free,
  * the copies of one load at most. */
 #define PVARS_MAX 0x800u
-#define ROOM_BYTES 0x10000u
+#define ROOM_BYTES 0x30000u
 #define RESERVE 128
-#define COPIES_MAX 512
+#define COPIES_MAX 1024
 /* The records and blocks a file is believed to have at most, the entries of a list. */
 #define RECORDS_MAX 4096
 #define BLOBS_MAX 8192
@@ -568,7 +568,7 @@ gaddr func_L00_00300618(int reload) {
 #define GROUP_NONE 0xFFu
 #define GROUP_LAST 0x8000u
 #define GROUP_MEMBERS_MAX 1024
-#define GROUP_ROOM_BYTES 0x8000u
+#define GROUP_ROOM_BYTES 0x18000u
 
 /* The lists the copies' groups were moved to, in room of the port's (one load's). */
 static struct {
@@ -605,7 +605,12 @@ static int join_group(const rac2_moby_table* t, gaddr m) {
     ++n; /* the last, with its mark */
     const uint32_t bytes = ((uint32_t)(n + 1) * 2u + 15u) & ~15u;
     if (lists.room == 0) {
-        lists.room = openrac_guest_static(GROUP_ROOM_BYTES);
+        /* Taken once for the program: the statics are never given back, and each level load asks again. */
+        static gaddr block;
+        if (block == 0) {
+            block = openrac_guest_static(GROUP_ROOM_BYTES);
+        }
+        lists.room = block;
     }
     if (lists.room == 0 || lists.used + bytes > GROUP_ROOM_BYTES) {
         return 0;
@@ -807,7 +812,12 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
     const uint32_t room_need = size > SLOT_PVARS ? (size + 15u) & ~15u : 0;
     if (room_need > 0) {
         if (made.room == 0) {
-            made.room = openrac_guest_static(ROOM_BYTES);
+            /* Taken once for the program, as the groups' room is. */
+            static gaddr block;
+            if (block == 0) {
+                block = openrac_guest_static(ROOM_BYTES);
+            }
+            made.room = block;
         }
         if (made.room == 0 || made.room_used + room_need > ROOM_BYTES) {
             return 0;

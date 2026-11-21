@@ -549,7 +549,7 @@ static void pool(void) {
     rac2_wad_decompressed(file);
     CHECK(GREF(int32_t, file + 0x104u) == 300);
     rac2_pool_loaded();
-    CHECK(rac2_pool_raise(1000) == RAC2_POOL_EXTRA_MAX);
+    CHECK(rac2_pool_raise(5000) == RAC2_POOL_EXTRA_MAX);
     put32(file + 0x104u, 200);
     rac2_pool_loading();
     rac2_wad_decompressed(file);

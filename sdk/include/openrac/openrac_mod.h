@@ -777,7 +777,7 @@ typedef struct openrac_moby {
 } openrac_moby;
 
 /* The most extra spare slots moby_pool_raise grants. Since 1.27. */
-#define OPENRAC_MOBY_POOL_EXTRA_MAX 512
+#define OPENRAC_MOBY_POOL_EXTRA_MAX 1024
 
 /* The level's pool of spawned mobys (moby_pool_status). Since 1.27. */
 typedef struct openrac_moby_pool {
