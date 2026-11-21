@@ -146,4 +146,39 @@ find_package(OpenRACMod 1.1 REQUIRED)
 openrac_add_mod(my_mod MANIFEST openrac-mod.json SOURCES src/mod.c)
 ```
 
+You need CMake 3.20 or newer, a C compiler (Clang, GCC or MSVC) and Python 3
+for the packaging. Ninja is the quickest generator; any works. The template's
+`tools/fetch_sdk.py` downloads the SDK it pins; to build against another one,
+point CMake at it:
+
+```sh
+cmake -S . -B build -G Ninja -DOPENRAC_SDK=<SDK>   # or -DOpenRACMod_DIR=<SDK>/cmake
+cmake --build build
+```
+
+- **macOS**: Xcode's command-line tools (`xcode-select --install`) and
+  `brew install cmake ninja`. A build is for the Mac's own processor;
+  `-DCMAKE_OSX_ARCHITECTURES=x86_64` makes an Intel one (one architecture per
+  build: join the two archives afterwards).
+- **Linux**: `sudo apt install build-essential cmake ninja-build python3`
+  (or your distribution's). Clang works too: `-DCMAKE_C_COMPILER=clang`.
+- **Windows**: Visual Studio 2022 with "Desktop development with C++". In a
+  "x64 Native Tools Command Prompt", `cmake -S . -B build -G Ninja` (or
+  without `-G`, Visual Studio's own generator, and `cmake --build build
+  --config Release`). Clang works through `-T ClangCL`, or with LLVM's
+  `clang-cl` as `-DCMAKE_C_COMPILER=clang-cl`.
+- **Android**: the NDK's toolchain file,
+  `-DCMAKE_TOOLCHAIN_FILE=<NDK>/build/cmake/android.toolchain.cmake
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28`.
+
+`openrac_add_mod(<target> ...)` builds `<target>.dylib`, `<target>.so` or
+`<target>.dll` (no `lib` in front, on any system), C11, and lays the mod out
+as its archive holds it in `build/package/<target>/`: the manifest with its
+`plugin` naming this platform's library (`lib/<platform>/<file>`), the
+library, and the README and LICENSE beside the manifest. The platforms are
+`macos-arm64`, `macos-x86_64`, `linux-x86_64`, `linux-aarch64`,
+`windows-x86_64`, `windows-arm64` and `android-arm64`.
+[Packaging and releases](packaging-and-releases.md) turns that folder into the
+archives.
+
 The full list of the table's members is the [reference](reference/c-api.md).

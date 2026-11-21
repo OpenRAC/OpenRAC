@@ -81,11 +81,15 @@ OpenRAC
 ├── sdk/                               the SDK (section 8)
 │   ├── include/openrac/openrac_mod.h  the interface: openrac_api, the entry points
 │   ├── include/openrac/games/rac1.h   Ratchet & Clank's hook points and their signatures
+│   ├── bindings/<game>.json           each game's hook points and fields (gen_binding.py)
+│   ├── api/                           the ABI locks, and members.tsv: each member's area
 │   ├── cmake/                         find_package(OpenRACMod): openrac_add_mod()
 │   ├── template/                      a mod to copy
 │   ├── examples/frame-counter/        a mod that uses each part of the interface
-│   └── tools/package_mod.py           a mod's .zip, with its manifest
+│   └── tools/                         package_mod.py (a mod's .zip), new_api.py and
+│                                      bump_api.py (a new call, the version: MOD_API.md)
 ├── port/game/common/mods.{h,cpp}      the loader: the list, the checks, dlopen, the hooks
+├── port/game/common/mod_api/          the table's calls, one file per area (MOD_API.md)
 ├── port/game/<game>/built_in_mods.cpp the mods built into the port (always loaded, even with
 │                                      --no-mods; their settings are `<prefix>_<key>` lines of
 │                                      the settings file, changed live from the game's menu or
