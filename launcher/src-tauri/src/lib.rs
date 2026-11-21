@@ -143,6 +143,21 @@ fn app_info(app: AppHandle, state: State<'_, AppState>) -> AppInfo {
     }
 }
 
+/// What `launcher_update_check` answers when the manifest has a newer release but no build for this
+/// system: the release's build for it failed. The page (updates.ts) says so instead of sending the
+/// player to GitHub.
+#[cfg(desktop)]
+const NO_BUILD_FOR_PLATFORM: &str = "no build for this platform";
+
+#[cfg(desktop)]
+fn update_check_error(error: tauri_plugin_updater::Error) -> String {
+    use tauri_plugin_updater::Error;
+    match error {
+        Error::TargetNotFound(_) | Error::TargetsNotFound(_) => NO_BUILD_FOR_PLATFORM.into(),
+        other => other.to_string(),
+    }
+}
+
 /// A newer launcher on the player's channel, or None: Tauri's updater asked at that channel's
 /// manifest, and the update kept for its own download and install (plugin-updater's `Update`,
 /// rebuilt in the page from `rid`). A desktop's; Android's launcher has android::update_check.
@@ -166,7 +181,7 @@ async fn launcher_update_check(
             });
         }
         let updater = builder.endpoints(vec![url]).and_then(|b| b.build()).map_err(|e| e.to_string())?;
-        let Some(update) = updater.check().await.map_err(|e| e.to_string())? else { return Ok(None) };
+        let Some(update) = updater.check().await.map_err(update_check_error)? else { return Ok(None) };
         let date = update.raw_json.get("pub_date").cloned();
         let (current_version, version, body, raw_json) =
             (update.current_version.clone(), update.version.clone(), update.body.clone(), update.raw_json.clone());
