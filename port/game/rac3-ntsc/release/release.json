@@ -425,6 +425,26 @@
     "L01:001EA7C0": {
       "is": "001EA840",
       "why": "the same instruction of the same code: func_L01_0047E908 (NTSC-U func_L01_0047B0A8) +0x124, 13 of 13 places agree"
+    },
+    "L01:00404858": {
+      "is": "004024E8",
+      "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404858's twin is NTSC-U's func_L01_004024E8, the pair rac3-ntsc's carried libraries.tsv binds"
+    },
+    "L01:00404A60": {
+      "is": "004026F0",
+      "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404A60's twin is NTSC-U's func_L01_004026F0, the pair rac3-ntsc's carried libraries.tsv binds"
+    },
+    "L01:00404920": {
+      "is": "004025B0",
+      "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404920's twin is NTSC-U's func_L01_004025B0, the pair rac3-ntsc's carried libraries.tsv binds"
+    },
+    "L01:00404998": {
+      "is": "00402628",
+      "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404998's twin is NTSC-U's func_L01_00402628, the pair rac3-ntsc's carried libraries.tsv binds"
+    },
+    "L01:00404B28": {
+      "is": "004027B8",
+      "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404B28's twin is NTSC-U's func_L01_004027B8, the pair rac3-ntsc's carried libraries.tsv binds"
     }
   }
 }

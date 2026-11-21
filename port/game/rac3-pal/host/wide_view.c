@@ -22,6 +22,8 @@
  *
  * Written with Veldin's copies, as render.c; the multiplayer maps' (levels 39 to 53) are not wrapped.
  */
+#include <stdint.h>
+
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
@@ -48,9 +50,52 @@ static void run_list(void (*run)(void)) {
     wide_run_list(run, wider, taller);
 }
 
+/* The count and the two tables a list's runner reads, from the runner's own instructions in the
+ * loaded level: each level's program has its copy of the runner and of its tables at its own
+ * addresses, which the runner forms with lui and %lo (lw for the count, addiu for each table). In
+ * every runner they come in the same order: the count, the arguments, the functions. Relocating
+ * Veldin's addresses through the data pairs put Obani Moons' tables 0x100 off: it called its
+ * arguments, mobys, as functions. 0 when the code does not have that shape. */
+static int runner_tables(gaddr veldin_runner, gaddr* count_at, gaddr* functions, gaddr* arguments) {
+    const gaddr code = OPENRAC_LCODE(1, veldin_runner);
+    uint32_t hi[32] = {0};
+    gaddr found[3];
+    int n = 0;
+    for (int i = 0; i < 30 && n < 3; ++i) {
+        const uint32_t w = GREF(uint32_t, code + 4u * (gaddr)i);
+        const unsigned op = w >> 26, rs = (w >> 21) & 31u, rt = (w >> 16) & 31u;
+        const int32_t lo = (int16_t)(w & 0xFFFFu);
+        if (op == 0x0Fu) { /* lui */
+            hi[rt] = w << 16;
+            continue;
+        }
+        if ((op == 0x09u || op == 0x23u) && hi[rs] != 0) { /* addiu, lw */
+            const gaddr at = hi[rs] + (gaddr)lo;
+            int seen = 0;
+            for (int k = 0; k < n; ++k) {
+                seen |= found[k] == at;
+            }
+            if (!seen) {
+                found[n++] = at;
+            }
+        }
+    }
+    if (n != 3) {
+        return 0;
+    }
+    *count_at = found[0];
+    *arguments = found[1];
+    *functions = found[2];
+    return 1;
+}
+
 /* A list's run, as the game's runners (the count read again before each call, as a callback may add
  * one), each callback's argument kept as the owner of what it draws. */
-static void run_callbacks(gaddr count_at, gaddr functions, gaddr arguments) {
+static void run_callbacks(gaddr veldin_runner) {
+    gaddr count_at, functions, arguments;
+    if (!runner_tables(veldin_runner, &count_at, &functions, &arguments)) {
+        return;
+    }
     const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
     const unsigned outer_ordinal = rac3_draw_ordinal;
     for (int index = 0; index < GREF(int, count_at); ++index) {
@@ -67,43 +112,23 @@ static void run_callbacks(gaddr count_at, gaddr functions, gaddr arguments) {
 }
 
 static void run_first(void) {
-    run_callbacks(
-        VELDIN(RAC3_LADDR(1, 0x001DF988u)),
-        VELDIN(RAC3_LADDR(1, 0x001E8480u)),
-        VELDIN(RAC3_LADDR(1, 0x001E8580u))
-    );
+    run_callbacks(RAC3_LADDR(1, 0x00404858u));
 }
 
 static void run_second(void) {
-    run_callbacks(
-        VELDIN(RAC3_LADDR(1, 0x001DF98Cu)),
-        VELDIN(RAC3_LADDR(1, 0x001E8680u)),
-        VELDIN(RAC3_LADDR(1, 0x001E8780u))
-    );
+    run_callbacks(RAC3_LADDR(1, 0x00404A60u));
 }
 
 static void run_third(void) {
-    run_callbacks(
-        VELDIN(RAC3_LADDR(1, 0x001DF990u)),
-        VELDIN(RAC3_LADDR(1, 0x001E8880u)),
-        VELDIN(RAC3_LADDR(1, 0x001E8980u))
-    );
+    run_callbacks(RAC3_LADDR(1, 0x00404920u));
 }
 
 static void run_fourth(void) {
-    run_callbacks(
-        VELDIN(RAC3_LADDR(1, 0x001DF994u)),
-        VELDIN(RAC3_LADDR(1, 0x001E8A80u)),
-        VELDIN(RAC3_LADDR(1, 0x001E8B80u))
-    );
+    run_callbacks(RAC3_LADDR(1, 0x00404998u));
 }
 
 static void run_fifth(void) {
-    run_callbacks(
-        VELDIN(RAC3_LADDR(1, 0x001DF9B8u)),
-        VELDIN(RAC3_LADDR(1, 0x001DF998u)),
-        VELDIN(RAC3_LADDR(1, 0x001DF9A8u))
-    );
+    run_callbacks(RAC3_LADDR(1, 0x00404B28u));
 }
 
 void func_L01_00404858(void) {

@@ -146,20 +146,6 @@
 #define RAC3_LADDR_1_0x001DF948u 0u
 /* the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree */
 #define RAC3_LADDR_1_0x001DF97Cu 0x001DF9FCu
-/* the same instruction of the same code: func_L01_00404808 (NTSC-U func_L01_00402498) +0x4, 5 of 5 places agree */
-#define RAC3_LADDR_1_0x001DF988u 0x001DFA08u
-/* the same instruction of the same code: func_L01_00404A10 (NTSC-U func_L01_004026A0) +0x4, 4 of 4 places agree */
-#define RAC3_LADDR_1_0x001DF98Cu 0x001DFA0Cu
-/* the same instruction of the same code: func_L01_004048D0 (NTSC-U func_L01_00402560) +0x4, 4 of 4 places agree */
-#define RAC3_LADDR_1_0x001DF990u 0x001DFA10u
-/* the same instruction of the same code: func_L01_00404998 (NTSC-U func_L01_00402628) +0x8, 2 of 2 places agree */
-#define RAC3_LADDR_1_0x001DF994u 0x001DFA14u
-/* the same instruction of the same code: func_L01_00404AD8 (NTSC-U func_L01_00402768) +0x20, 1 of 1 places agree */
-#define RAC3_LADDR_1_0x001DF998u 0x001DFA18u
-/* the same instruction of the same code: func_L01_00404AD8 (NTSC-U func_L01_00402768) +0x2C, 1 of 1 places agree */
-#define RAC3_LADDR_1_0x001DF9A8u 0x001DFA28u
-/* the same instruction of the same code: func_L01_00404AD8 (NTSC-U func_L01_00402768) +0x4, 2 of 2 places agree */
-#define RAC3_LADDR_1_0x001DF9B8u 0x001DFA38u
 /* the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x160, 6 of 6 places agree */
 #define RAC3_LADDR_1_0x001DFD0Cu 0x001DFD8Cu
 /* the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x8, 1 of 1 places agree */
@@ -200,22 +186,6 @@
 #define RAC3_LADDR_1_0x001E7580u 0x001E7600u
 /* the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x88, 1 of 1 places agree */
 #define RAC3_LADDR_1_0x001E7880u 0x001E7900u
-/* the same instruction of the same code: func_L01_00404808 (NTSC-U func_L01_00402498) +0x2C, 2 of 2 places agree */
-#define RAC3_LADDR_1_0x001E8480u 0x001E8500u
-/* the same instruction of the same code: func_L01_00404808 (NTSC-U func_L01_00402498) +0x24, 2 of 2 places agree */
-#define RAC3_LADDR_1_0x001E8580u 0x001E8600u
-/* the same instruction of the same code: func_L01_00404A10 (NTSC-U func_L01_004026A0) +0x2C, 2 of 2 places agree */
-#define RAC3_LADDR_1_0x001E8680u 0x001E8700u
-/* the same instruction of the same code: func_L01_00404A10 (NTSC-U func_L01_004026A0) +0x24, 2 of 2 places agree */
-#define RAC3_LADDR_1_0x001E8780u 0x001E8800u
-/* the same instruction of the same code: func_L01_004048D0 (NTSC-U func_L01_00402560) +0x2C, 2 of 2 places agree */
-#define RAC3_LADDR_1_0x001E8880u 0x001E8900u
-/* the same instruction of the same code: func_L01_004048D0 (NTSC-U func_L01_00402560) +0x24, 2 of 2 places agree */
-#define RAC3_LADDR_1_0x001E8980u 0x001E8A00u
-/* the same instruction of the same code: func_L01_00404998 (NTSC-U func_L01_00402628) +0x30, 1 of 1 places agree */
-#define RAC3_LADDR_1_0x001E8A80u 0x001E8B00u
-/* the same instruction of the same code: func_L01_00404998 (NTSC-U func_L01_00402628) +0x2C, 1 of 1 places agree */
-#define RAC3_LADDR_1_0x001E8B80u 0x001E8C00u
 /* the same instruction of the same code: func_L01_0047E908 (NTSC-U func_L01_0047B0A8) +0x124, 13 of 13 places agree */
 #define RAC3_LADDR_1_0x001EA7C0u 0x001EA840u
 /* between the same code's 0x001EA7C0 and 0x001EA940, both moved by +0x80 (NTSC-U 0x001EA840, 0x001EA9C0) */
@@ -224,6 +194,16 @@
 #define RAC3_LADDR_1_0x00220A40u 0x00220AC0u
 /* the same instruction of the same code: func_L01_0041BFE8 (NTSC-U func_L01_004198E0) +0xC, 3 of 3 places agree */
 #define RAC3_LADDR_1_0x002E60D0u 0x002E6110u
+/* the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404858's twin is NTSC-U's func_L01_004024E8, the pair rac3-ntsc's carried libraries.tsv binds */
+#define RAC3_LADDR_1_0x00404858u 0x004024E8u
+/* the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404920's twin is NTSC-U's func_L01_004025B0, the pair rac3-ntsc's carried libraries.tsv binds */
+#define RAC3_LADDR_1_0x00404920u 0x004025B0u
+/* the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404998's twin is NTSC-U's func_L01_00402628, the pair rac3-ntsc's carried libraries.tsv binds */
+#define RAC3_LADDR_1_0x00404998u 0x00402628u
+/* the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404A60's twin is NTSC-U's func_L01_004026F0, the pair rac3-ntsc's carried libraries.tsv binds */
+#define RAC3_LADDR_1_0x00404A60u 0x004026F0u
+/* the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404B28's twin is NTSC-U's func_L01_004027B8, the pair rac3-ntsc's carried libraries.tsv binds */
+#define RAC3_LADDR_1_0x00404B28u 0x004027B8u
 /* the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0x1B8, 1 of 1 places agree */
 #define RAC3_LADDR_39_0x0024BF90u 0x0024C090u
 /* the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 95 of 95 places agree */

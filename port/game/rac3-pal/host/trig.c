@@ -86,3 +86,25 @@ void rac3_vu0_rotation_rows(void) {
         OPENRAC_VU0->vf[23][j] = j == 3 ? 1.0f : 0.0f;
     }
 }
+
+/* Entry 0xE98 of the same program (12 instruction pairs), which func_L01_0040F0B0 and
+ * func_L01_0040F0D0 (every level's copies of the vector library) start: a unit quaternion (x, y, z,
+ * w) in vf8, its rotation rows out in vf14 to vf16 (their w 0), from the program's own steps:
+ * vf3 = sqrt(2) q, vf2 = 2 q*q, vf5 and vf6 the cross terms 2(yz, zx, xy) less and plus 2 w (x, y, z),
+ * the diagonal 1 less two of the squares. Obani Moons builds its camera and its mobys' matrices
+ * with it; doing nothing, the camera's rotation rows stayed zero and the level drew black. */
+void rac3_vu0_quaternion_rows(void) {
+    const float x = OPENRAC_VU0->vf[8][0], y = OPENRAC_VU0->vf[8][1], z = OPENRAC_VU0->vf[8][2],
+                w = OPENRAC_VU0->vf[8][3];
+    const float m[3][3] = {
+        {1.0f - 2.0f * (y * y + z * z), 2.0f * (x * y - z * w), 2.0f * (z * x + y * w)},
+        {2.0f * (x * y + z * w), 1.0f - 2.0f * (x * x + z * z), 2.0f * (y * z - x * w)},
+        {2.0f * (z * x - y * w), 2.0f * (y * z + x * w), 1.0f - 2.0f * (x * x + y * y)},
+    };
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            OPENRAC_VU0->vf[14 + i][j] = m[i][j];
+        }
+        OPENRAC_VU0->vf[14 + i][3] = 0.0f;
+    }
+}

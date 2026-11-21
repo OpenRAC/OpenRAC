@@ -579,13 +579,15 @@
     "vu0_programs": {
       "0xC80": "rac3_vu0_rotation_rows",
       "0xDA0": "rac3_vu0_cosine",
-      "0xDB0": "rac3_vu0_sine"
+      "0xDB0": "rac3_vu0_sine",
+      "0xE98": "rac3_vu0_quaternion_rows"
     },
     "wide_register_calls": true,
     "signature_check": true
   },
   "result_allow": "checks/result_allow.tsv",
   "from_assembly": [
+    "func_L11_003AB258",
     "func_0038CDB8__frontbin",
     "func_0038CDD0__frontbin",
     "func_0038CDE8__frontbin",
