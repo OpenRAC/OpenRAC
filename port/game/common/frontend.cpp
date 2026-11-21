@@ -373,8 +373,6 @@ bool open(
     g = std::make_unique<State>();
     g->game = game_id;
     g->profile = &host::game_profile(game_id);
-    // Before the first frame buffer is made (they keep their depth format).
-    renderer::request_precise_depth(g->profile->precise_depth());
     scene::set_moby_anim_fields(g->profile->moby_anim_fields());
     scene::set_moby_layer_records(g->profile->moby_layer_records());
     const auto [inner, span] = g->profile->stick_dead_zone();
@@ -506,14 +504,10 @@ bool open(
               g->swap == platform::SwapInterval::Immediate ? "does not wait"
               : g->swap == platform::SwapInterval::Adaptive ? "waits for the display (adaptive)"
                                                             : "waits for the display");
-    if (g->profile->precise_depth()) {
-        log::info(
-            "graphics: world depth {}",
-            renderer::precise_depth()
-                ? "32-bit float, z to the window as it is (glClipControl)"
-                : "in GL's form: no glClipControl here (GameProfile::depth_near)"
-        );
-    }
+    log::info(
+        "graphics: world depth uses the {} path",
+        renderer::precise_depth() ? "precise" : "normal"
+    );
 #if defined(OPENRAC_IOS)
     platform::set_background_handler(drain_graphics_for_background);
 #endif

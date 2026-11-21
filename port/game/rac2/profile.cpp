@@ -516,14 +516,6 @@ public:
         return release_.scenery_matrices;
     }
 
-    // Maktar's dome: light strips (tie class 2713) lie on the dome's band (class 2675) within a few
-    // centimetres over large areas, and from the landing pad (about 150 units) they flickered in
-    // and out of it with GL's depth (GameProfile::precise_depth). Without glClipControl (macOS's
-    // OpenGL) a near of 0.25 parts them five times farther away (GameProfile::depth_near).
-    bool precise_depth() const override { return true; }
-
-    float depth_near() const override { return 0.25f; }
-
     // The VRAM base of the frame (D_001A72DC in bytes / 256): past the two display buffers, where
     // the world's passes set FRAME. The 448-line discs put it at 0x1E8000 (func_002DF1B8: FBP
     // 0xF4), PAL's 512-line mode at 0x1E0000 (0x00274128), where its movies' pictures go too.

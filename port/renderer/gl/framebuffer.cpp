@@ -16,25 +16,14 @@ using namespace openrac::gl;
 
 namespace {
 
-bool g_precise_depth_wanted = false;  // request_precise_depth's
-
 // A driver that lists GL_EXT_multisampled_render_to_texture but would not complete such a target:
 // multisampled buffers from then on.
 bool g_implicit_refused = false;
 
-// The depth and stencil format of the frame buffers: 32-bit float depth with precise depth.
-GLenum depth_stencil_format() {
-    return precise_depth() ? GL_DEPTH32F_STENCIL8 : GL_DEPTH24_STENCIL8;
-}
-
 }  // namespace
 
-void request_precise_depth(bool wanted) {
-    g_precise_depth_wanted = wanted;
-}
-
 bool precise_depth() {
-    return g_precise_depth_wanted && glClipControl != nullptr;
+    return glClipControl != nullptr;
 }
 
 FrameBuffer::~FrameBuffer() {
@@ -81,6 +70,8 @@ bool FrameBuffer::create(
     m_samples = std::clamp(samples, 1, max_samples());
     m_float = float_colour;
     const GLenum colour_format = float_colour ? GL_RGBA16F : GL_RGBA8;
+    const bool float_depth = precise_depth();
+    const GLenum depth_format = float_depth ? GL_DEPTH32F_STENCIL8 : GL_DEPTH24_STENCIL8;
     allocate_colour(float_colour);
     m_texture_depth = texture_depth;
     if (texture_depth && m_samples != 1) {
@@ -104,13 +95,13 @@ bool FrameBuffer::create(
                  && glRenderbufferStorageMultisampleEXT != nullptr;
     if (m_implicit) {
         glRenderbufferStorageMultisampleEXT(
-            GL_RENDERBUFFER, m_samples, depth_stencil_format(), width, height
+            GL_RENDERBUFFER, m_samples, depth_format, width, height
         );
         glFramebufferTexture2DMultisampleEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colour, 0,
                                              m_samples);
     } else if (m_samples > 1) {
         glRenderbufferStorageMultisample(
-            GL_RENDERBUFFER, m_samples, depth_stencil_format(), width, height
+            GL_RENDERBUFFER, m_samples, depth_format, width, height
         );
         glGenRenderbuffers(1, &m_multisample);
         glBindRenderbuffer(GL_RENDERBUFFER, m_multisample);
@@ -123,12 +114,12 @@ bool FrameBuffer::create(
             glTexImage2D(
                 GL_TEXTURE_2D,
                 0,
-                depth_stencil_format(),
+                depth_format,
                 width,
                 height,
                 0,
                 GL_DEPTH_STENCIL,
-                precise_depth() ? GL_FLOAT_32_UNSIGNED_INT_24_8_REV : GL_UNSIGNED_INT_24_8,
+                float_depth ? GL_FLOAT_32_UNSIGNED_INT_24_8_REV : GL_UNSIGNED_INT_24_8,
                 nullptr
             );
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -136,7 +127,7 @@ bool FrameBuffer::create(
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         } else {
-            glRenderbufferStorage(GL_RENDERBUFFER, depth_stencil_format(), width, height);
+            glRenderbufferStorage(GL_RENDERBUFFER, depth_format, width, height);
         }
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colour, 0);
     }
