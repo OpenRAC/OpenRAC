@@ -933,6 +933,64 @@ static void hit_hard(gaddr m) {
     func_002A8E20(m, req);
 }
 
+/* `coins`: every 30 frames of play, the bolts and each bolt pickup (classes 13 to 19) within 40
+ * units of the hero: its state, place, update, its distances and whether it is drawn, its flags, its
+ * pickup kind and its parent, to see each coin a drop makes flown to the hero and collected. */
+static void trace_coins(const char* script, unsigned playing) {
+    if (strstr(script, "coins") == NULL || playing % 30 != 1) {
+        return;
+    }
+    rac2_moby_table t;
+    const gaddr hero = hero_moby();
+    if (!copy_table(&t) || hero == 0) {
+        return;
+    }
+    int n = 0;
+    for (gaddr m = t.base; m < t.end; m += MOBY_SIZE) {
+        const int16_t c = GREF(int16_t, m + MOBY_OCLASS);
+        if (GREF(uint8_t, m + MOBY_STATE) >= 0x80 || c < 13 || c > 19) {
+            continue;
+        }
+        const float dx = GREF(float, m + MOBY_POS) - GREF(float, hero + MOBY_POS);
+        const float dy = GREF(float, m + MOBY_POS + 4u) - GREF(float, hero + MOBY_POS + 4u);
+        if (dx * dx + dy * dy > 40.0f * 40.0f) {
+            continue;
+        }
+        const gaddr pv = GREF(gaddr, m + MOBY_PVARS);
+        ++n;
+        fprintf(
+            stderr,
+            "PTRACE coin %u slot %d class %d state 0x%X pos %.2f %.2f %.2f update 0x%X dist %u drawn "
+            "%u draw %d flags 0x%X kind %u vflags 0x%X parent 0x%X\n",
+            playing,
+            (int)slot_of(m),
+            (int)c,
+            (unsigned)GREF(uint8_t, m + MOBY_STATE),
+            GREF(float, m + MOBY_POS),
+            GREF(float, m + MOBY_POS + 4u),
+            GREF(float, m + MOBY_POS + 8u),
+            (unsigned)GREF(gaddr, m + MOBY_UPDATE),
+            (unsigned)GREF(uint8_t, m + MOBY_UPDATE_DIST),
+            (unsigned)GREF(uint8_t, m + MOBY_DRAWN),
+            (int)GREF(int16_t, m + MOBY_DRAW_DIST),
+            (unsigned)GREF(uint16_t, m + MOBY_FLAGS),
+            pv != 0 ? (unsigned)GREF(uint8_t, pv + 0x40u) : 0u,
+            pv != 0 ? (unsigned)GREF(uint8_t, pv + 0x55u) : 0u,
+            (unsigned)GREF(gaddr, m + 0xB8u)
+        );
+    }
+    fprintf(
+        stderr,
+        "PTRACE coins %u near %d bolts %d hero %.2f %.2f %.2f\n",
+        playing,
+        n,
+        (int)GREF(int32_t, OPENRAC_DATA(RAC2_g_boltCount)),
+        GREF(float, hero + MOBY_POS),
+        GREF(float, hero + MOBY_POS + 4u),
+        GREF(float, hero + MOBY_POS + 8u)
+    );
+}
+
 static void trace_copy_watch(const char* script, unsigned playing) {
     const int watch = strstr(script, "copywatch") != NULL;
     rac2_copy_trace = watch;
@@ -1025,6 +1083,7 @@ static void play_trace(void) {
     }
     ++playing;
     trace_copy_watch(script, (unsigned)playing);
+    trace_coins(script, (unsigned)playing);
     history[playing % TRACE_DELAY] = pose;
     if (playing % 120 == 1) {
         const gaddr hero = hero_moby();
