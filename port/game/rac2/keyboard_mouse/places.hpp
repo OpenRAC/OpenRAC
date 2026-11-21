@@ -37,6 +37,13 @@ inline kbm::Context context_of(const char* touch) {
     return kbm::Context::Cutscene;
 }
 
+// Whether confirming presses Start as well: only on the title's own screens (its movie's "Press
+// START", the logos), where Cross may not go on. Not in its menus, which show a list (three or
+// more texts): there Start goes back, so a click or Enter would go in and back out at once.
+inline bool confirm_presses_start(const char* touch, int list_texts) {
+    return touch != nullptr && std::string_view(touch) == "front_end" && list_texts < 3;
+}
+
 // The ship fires with Square and fires missiles with Circle: there the fire key presses Square and
 // the wrench key Circle, so the left click still fires.
 inline bool is_ship(const char* touch) {

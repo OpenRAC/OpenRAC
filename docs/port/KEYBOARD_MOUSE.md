@@ -59,7 +59,8 @@ between play, a menu or a scene is ignored until you let it go, so the Escape
 that paused does not also close the menu.
 
 In Ratchet & Clank menus the cursor also points: the item under it gets the
-focus, a click confirms (*Mouse in menus* turns this off). At a vendor, click
+focus, a click confirms, and a click beside the items does nothing (*Mouse in
+menus* turns this off). At a vendor, click
 the Buy or Exit monitor to press it, or an icon on the strip to select it; a
 click anywhere else does nothing. A click on a button icon the game shows with
 its text (the map's "View Missions", "Exit") presses that button. On the map,
@@ -69,7 +70,8 @@ In Going Commando menus a click on a list item moves the selection to it and
 confirms, and the cursor over one moves the selection there (not in lists that
 scroll round their middle, such as the skill points'). A click on a button
 icon in a text, or the rest of its line (Help's "Exit", a dialog's "Yes" and
-"No"), presses that button; in a dialog a click anywhere else does nothing. In a grid (weapons,
+"No"), presses that button; a click beside a list's items, or anywhere else
+in a dialog, does nothing. In a grid (weapons,
 gadgets, items, Quick Select) a click on a cell moves the selection frame there
 and confirms; once the frame has moved, the cursor over a cell moves it there.
 On the Quick Select page, drag a weapon from the grid onto a slot of the ring

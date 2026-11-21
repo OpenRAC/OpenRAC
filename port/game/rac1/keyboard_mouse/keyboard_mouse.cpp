@@ -888,6 +888,23 @@ std::uint16_t prompt_click(const Tick& t) {
     return kbm::prompt_button_at(s_spots.data(), s_spot_count, px, py);
 }
 
+// Whether the pointer is on a menu page beside all its items: a click there confirms nothing.
+bool beside_items(const Tick& t) {
+    const gaddr page = t.where == Context::Menu ? menu_page() : 0;
+
+    // No page: nothing to be beside.
+    if (page == 0) {
+        return false;
+    }
+
+    std::array<kbm::Rect, KBM_PAGE_WIDGET_COUNT> rects{};
+    std::array<gaddr, KBM_PAGE_WIDGET_COUNT> widgets{};
+    const int count = page_items(page, widgets, rects);
+    const float px = t.in->pointer_x * kbm::kScreenWidth;
+    const float py = t.in->pointer_y * kbm::kScreenHeight;
+    return count > 0 && kbm::hit_widget(rects.data(), count, px, py) < 0;
+}
+
 // ---- The mouse at the vendor ----
 
 // The vendor's screen, its monitors in the scene (kbm::vendor_hit): a click on the Buy monitor
@@ -1344,7 +1361,8 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     } else if (!play) {
         click_press = mouse_click && s_menu_mouse ? prompt_click(t) : 0;
         // On the map a click drags it (map_mouse): it presses only an icon's button.
-        click_taken = click_press != 0 || (map && mouse_click && s_menu_mouse);
+        click_taken = click_press != 0 || (map && mouse_click && s_menu_mouse)
+                      || (mouse_click && s_menu_mouse && beside_items(t));
 
         // The focused map moves with the mouse.
         if (map && t.pointer && s_menu_mouse) {
@@ -1382,6 +1400,14 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
         }
     }
     v.held = kbm::buttons_for(t.where, held, dialog_kind, map, s_strafe_mod == 1);
+
+    // Going back meanwhile: the click that waited, and the steps queued, press nothing on the
+    // page gone back to.
+    if ((held & (kbm::bit(Action::MenuBack) | kbm::bit(Action::Pause))) != 0 && !play) {
+        s_click_wait = 0;
+        s_pulses.clear();
+        s_vendor_target = -1;
+    }
 
     // A click that waited has waited long enough: press it now.
     if (s_click_wait > 0 && --s_click_wait == 0) {
