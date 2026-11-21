@@ -129,6 +129,8 @@ void install(
                                   {"value": "input", "name": "Input"},
                                   {"value": "views", "name": "Views"},
                                   {"value": "native_handles", "name": "Native handles"},
+                                  {"value": "interfaces", "name": "Interfaces"},
+                                  {"value": "interfaces_fail", "name": "Interfaces, failing"},
                                   {"value": "menu", "name": "Menu"},
                                   {"value": "savestate", "name": "Savestate"},
                                   {"value": "developer_menu", "name": "Developer menu"},
@@ -493,6 +495,37 @@ void a_hook_point_is_called_as_the_game_calls_it(const fs::path& plugins) {
     CHECK(api.hook_entry("Test_Add", nullptr) == nullptr);
     mods::reset();
     CHECK(add(0) == 1);
+}
+
+// Interface 1.29: a table one mod offers by name, which the mods loaded after it find, at the
+// version they need. A name is one mod's; a mod that fails or is unloaded takes its offers back.
+void mods_offer_each_other_tables(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "interfaces", "tag": 1}},
+        {"id": "test-b", "enabled": true, "settings": {"behaviour": "interfaces", "tag": 2}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0, test-b 1.0.0");
+    // a: offered, offered again (3), an empty name and no table refused (unknown, -1); b: a's
+    // table found at 3, none at 4 or under another name, a's name taken (-4).
+    CHECK((g_records == std::vector<int>{15000, 15010, 15021, 15031, 15101, 15201, 15301, 15404}));
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.api_minor >= 29);
+    const void* table = api.interface_find("test.table", 0);
+    CHECK(table != nullptr && *static_cast<const int*>(table) == 4201);
+    CHECK(api.interface_find(nullptr, 0) == nullptr);
+    mods::reset();
+    CHECK(api.interface_find("test.table", 0) == nullptr);
+
+    // a offers, then fails: b finds nothing and offers the name itself.
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "interfaces_fail", "tag": 1}},
+        {"id": "test-b", "enabled": true, "settings": {"behaviour": "interfaces", "tag": 2}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-b 1.0.0 (1 not loaded: plugins/status.json)");
+    CHECK((g_records == std::vector<int>{15500, 15100, 15201, 15301, 15400}));
+    table = api.interface_find("test.table", 0);
+    CHECK(table != nullptr && *static_cast<const int*>(table) == 4202);
+    mods::reset();
 }
 
 void a_mod_that_fails_is_taken_back(const fs::path& plugins) {
@@ -2137,6 +2170,7 @@ int main() {
     openrac_guest_register(OPENRAC_OVERLAY_EXE, functions, 1);
     two_mods_chain_in_load_order(plugins);
     a_hook_point_is_called_as_the_game_calls_it(plugins);
+    mods_offer_each_other_tables(plugins);
     a_mod_that_fails_is_taken_back(plugins);
     refused_before_opening(plugins);
     purist_and_no_list(plugins);

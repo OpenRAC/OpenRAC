@@ -25,7 +25,9 @@
  * the hit watcher and uses the world calls on the test's fake level (world_frame: 8000s, and the
  * gate's and the watcher's 8700s and 8800s) (interface 1.9). With "hoverboard" it uses the calls of
  * a mod that moves the hero (motion_frame: 9500s): his pose set, the collision triangles, a prop
- * and a sound (interface 1.12). It reports the interface it is
+ * and a sound (interface 1.12). With "interfaces", test-a (tag 1) offers a table and test-b
+ * (tag 2) finds it, and with "interfaces_fail" it offers one and fails (15000s, interface
+ * 1.29). It reports the interface it is
  * built for
  * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
 #include <math.h>
@@ -586,6 +588,9 @@ static int failed_metal(void* user, int slot, int key) {
     return 0;
 }
 
+/* The table it offers other mods (1.29): 4200 + its tag. */
+static int s_table[1];
+
 OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod) {
     s_api = api;
     s_frames = 0;
@@ -615,6 +620,31 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             return 2;
         }
         s_record(14000 + has_handles);
+        return 0;
+    }
+    if (strncmp(behaviour, "interfaces", 10) == 0) { /* 1.29: offered, found, taken */
+        if (api->api_minor < 29 || s_record == NULL) {
+            return 23;
+        }
+        s_table[0] = 4200 + s_tag;
+        if (strcmp(behaviour, "interfaces_fail") == 0) {
+            s_record(15500 + -api->interface_provide(mod, "test.table", 2, s_table));
+            api->fail(mod, "this mod refuses on purpose");
+            return 1;
+        }
+        if (s_tag == 1) {
+            s_record(15000 + -api->interface_provide(mod, "test.table", 2, s_table));
+            /* Its own offer again: the new version replaces it. */
+            s_record(15010 + -api->interface_provide(mod, "test.table", 3, s_table));
+            s_record(15020 + -api->interface_provide(mod, "", 1, s_table));
+            s_record(15030 + -api->interface_provide(mod, "test.none", 1, NULL));
+        } else {
+            const int* found = (const int*)api->interface_find("test.table", 3);
+            s_record(15100 + (found != NULL ? found[0] - 4200 : 0));
+            s_record(15200 + (api->interface_find("test.table", 4) == NULL));
+            s_record(15300 + (api->interface_find("test.other", 0) == NULL));
+            s_record(15400 + -api->interface_provide(mod, "test.table", 1, s_table));
+        }
         return 0;
     }
     if (behaviour[0] == 'z') { /* watchers registered before an exclusive gate refuses */
