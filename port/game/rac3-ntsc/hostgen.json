@@ -98,6 +98,8 @@
       "func_0038A848__frontbin": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_00388960__frontbin": "float (float)",
       "func_00388978__frontbin": "float (float)",
+      "func_00389018__frontbin": "void (int, int, float)",
+      "func_L01_0040CAC0": "void (int, int, float)",
       "func_L01_0051D658": "int (int, int)",
       "func_003AA020": "int (int, int, float)",
       "func_00391040": "int (int, int, float)",
