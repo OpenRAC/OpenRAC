@@ -3745,6 +3745,45 @@ class FromAssembly(unittest.TestCase):
         self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=fixed))
         self.assertEqual(self.last_report["assembly_signature_drops"], {})
 
+    # An argument saved to the frame and read through the slot's address (libgcc's dp-bit
+    # routines hand their doubles to unpack_d so, func_00128F90): the saving is a use of it.
+    FRAME_ADDRESS = {
+        "func_00100600": (0x100600, """
+            addiu $29, $29, -32
+            sq $31, 16($29)
+            sd $4, 0($29)
+            sd $5, 8($29)
+            jal func_00100700
+            addiu $4, $29, 8
+            lq $31, 16($29)
+            jr $31
+            addiu $29, $29, 32
+        """),
+        "func_00100700": (0x100700, """
+            jr $31
+            lw $2, 0($4)
+        """),
+    }
+    FRAME_ADDRESS_C = """
+        INCLUDE_ASM("asm", func_00100600);
+        extern int func_00100600();
+        INCLUDE_ASM("asm", func_00100700);
+        extern int func_00100700(int p);
+        int test_main(void) {
+            test_print(1);
+            return 0;
+        }
+    """
+
+    def test_signature_check_counts_a_parameter_read_through_its_frame_slot(self):
+        # Saved to the frame and its slot's address handed on: $a1 is an argument, so the inferred
+        # signature takes it (and nothing is reported dropped); before, it took $a0 alone.
+        check = dict(ASM_CONFIG["asm"], signature_check=True)
+        self.run_asm(self.FRAME_ADDRESS_C, self.FRAME_ADDRESS, symbols={"func_00100700": 0x100700},
+                     config=dict(ASM_CONFIG, asm=check))
+        self.assertEqual(self.last_report["assembly_signature_drops"], {})
+        self.assertRegex(self.last_generated, r"int func_00100600\(int a0, int a1\) \{")
+
     def test_branches_and_delay_slots(self):
         # sum of n..1, the counter decremented in the delay slot after the test read it; a likely
         # branch whose delay slot runs only when it is taken.

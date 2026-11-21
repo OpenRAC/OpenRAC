@@ -705,8 +705,14 @@ class Translator:
             if save.rt not in ARG_REGS:
                 return False
             loads = ("lw", "ld", "lq", "lwc1")
-        return any(load.op in loads and load.rs == 29 and load.imm == save.imm
-                   for load in map(self.at, self.reach))
+        if any(load.op in loads and load.rs == 29 and load.imm == save.imm
+               for load in map(self.at, self.reach)):
+            return True
+        # The slot's address taken (`addiu rX, $sp, k` with the slot in the 16 bytes from k): the
+        # argument is read through it, as libgcc's dp-bit routines hand their doubles, saved to the
+        # frame, to unpack_d by address (func_00128F90's dpmul).
+        return any(i is not None and i.op in ("addiu", "daddiu") and i.rs == 29 and i.rt != 29
+                   and i.imm <= save.imm < i.imm + 16 for i in map(self.at, self.reach))
 
     def _entry_reads(self, frame_saves: bool = False):
         """The argument registers read before they are written, along the code from the entry up

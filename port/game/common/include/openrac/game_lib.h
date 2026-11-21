@@ -132,6 +132,15 @@ unsigned long long openrac_lib___umoddi3(unsigned long long, unsigned long long)
 long long openrac_lib___divdi3(long long, long long);
 long long openrac_lib___moddi3(long long, long long);
 unsigned long long openrac_lib___fixunsdfdi(double);
+double openrac_lib___adddf3(double, double);
+double openrac_lib___subdf3(double, double);
+double openrac_lib___muldf3(double, double);
+double openrac_lib___divdf3(double, double);
+int openrac_lib___cmpdf2(double, double);
+double openrac_lib___floatsidf(int);
+int openrac_lib___fixdfsi(double);
+unsigned int openrac_lib___fixunsdfsi(double);
+float openrac_lib___truncdfsf2(double);
 /* cdvd */
 int openrac_lib_sceCdSync(int);
 int openrac_lib_sceCdInit(int);

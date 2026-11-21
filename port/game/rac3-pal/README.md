@@ -359,7 +359,17 @@ function against its code and fails the build on:
   info) and the levels' copies of it and of the sprite widget's draw (`func_L01_0051E148`,
   `func_L01_005216A8`) lost it as `int f(a0)`. The rule found two more (`func_003EE840__frontbin`,
   `func_L01_004940C0`) and none that are noise; counting every `jalr` as reading $a0-$a3 instead
-  gave 260 findings.
+  gave 260 findings;
+- an argument saved to the frame whose slot's address the code then takes (`addiu rX, $sp, k`,
+  the slot in the 16 bytes from k): it is read through that address. libgcc's soft-float double
+  routines (`dp-bit.c`, which hostgen skips as the host compiler's) save their doubles so and hand
+  them to unpack_d; translated as `int f(void)`, `__muldf3` (func_00128F90) multiplied whatever was
+  left in the frame, and the vendor's item strip, which fades each item's "Ammo" label and icon
+  with its distance from the cursor through it, printed the label at alpha 0. The nine routines
+  (`__adddf3`, `__subdf3`, `__muldf3`, `__divdf3`, `__cmpdf2`, `__floatsidf`, `__fixdfsi`,
+  `__fixunsdfsi`, `__truncdfsf2`) are the host's now (libraries.tsv, common/lib/libc.c), as
+  `__extendsfdf2` was; the rule then found one more (`func_L01_004D59F8`, a third argument handed
+  on to the sprintf at func_0011AF48).
 
 The levels' copy of the picture TEX0 getter (`func_L01_0042D898`, boot func_0039B088's `unsigned
 long long`) lost its upper word as an `int`, so the in-level SAVE page drew its slot pictures and
