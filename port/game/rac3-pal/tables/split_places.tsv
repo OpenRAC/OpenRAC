@@ -85,3 +85,9 @@ func_L01_0047E548	func_L39_0059E6B8	39:0059E6B8,40:004EEB48,41:004F0C60,50:004FF
 # with the second's tables: DrawFrame's third runner (func_L01_00404920) called empty entries, a call
 # to 0 a tick (levels 16 and 23), and the second list lost its callbacks.
 func_L01_004048D0	func_L03_003F24D8	03:003F24D8,11:003DE7C0,16:00414C20,23:003E7A98
+# The front end's func_0039BD90 (a wrapper of func_0039BD08 handing on $a0-$a2) has its copies in
+# every level under that name, and the executable has another function at 0x0039BD90 (the menu flags
+# from the saved state, matched C since rac3-decomp 7fc8c2c0, void with no arguments). With the
+# executable's C the name took no arguments and the level copies handed none on; the copies are
+# their own function.
+func_0039BD90	func_L01_00432E38	01:00432E38,02:0040B160,03:00420840,04:004425E8,05:0042C458,06:004162E8,07:004336A8,08:00415B20,09:0044C6D0,10:00416620,11:0040B3C0,12:00434128,13:00413948,14:0041DB20,16:004438E0,17:0040DC30,18:00445440,19:004276D8,20:004528D0,21:0040C150,22:00438120,23:00415E58,24:00419B98,26:0043B8F8,27:0040B378,28:003FDC30,29:0043E200,30:004052F8,31:004096B8,32:00411F38,33:0040A2F0,34:0040BA60,35:0040AA60,36:00410478,39:005A5E68,40:00472618,41:004741C8,42:0046AFC8,43:00468B58,44:00467E98,45:004656C8,46:00465FC0,47:00468840,48:00467B40,49:004674C0,50:00483618,51:004851C8,52:0047BFC8,53:00479B58
