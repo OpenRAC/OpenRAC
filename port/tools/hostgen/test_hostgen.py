@@ -3005,6 +3005,32 @@ class Places(unittest.TestCase):
         self.assertEqual(sorted(program.functions), ["func_00284D30"])
         self.assertTrue(program.functions["func_00284D30"].sig.prototyped)
 
+    def test_abicheck_places_a_static_in_its_files_program(self):
+        # frontbin's static TextA_3EB728 calls 0x00391210, frontbin's function there, not the
+        # boot executable's other code at that address.
+        with tempfile.TemporaryDirectory() as tmp:
+            gen = Path(tmp)
+            (gen / "game_protos.h").write_text(
+                "void func_00391210(int a0, float a1);\nvoid func_00391210__frontbin(int a0, int a1);\n"
+                "void func_003EB7D0__frontbin(void);\n")
+            (gen / "functions.c").write_text(
+                "static const openrac_fn_entry k_exe[] = {\n"
+                "    {0x00391210u, (openrac_host_fn)func_00391210, \"func_00391210\"},\n};\n"
+                "static const openrac_fn_entry k_overlay_100[] = {\n"
+                "    {0x00391210u, (openrac_host_fn)func_00391210__frontbin, \"func_00391210__frontbin\"},\n"
+                "    {0x003EB7D0u, (openrac_host_fn)func_003EB7D0__frontbin, \"func_003EB7D0__frontbin\"},\n};\n")
+            (gen / "a.c").write_text(
+                "static void game_TextA_3EB728(int d)\n{\n"
+                "    GFN(void (*)(int, int), (0x00391210u))(d, 2);\n"
+                "}\n"
+                "void func_003EB7D0__frontbin(void)\n{\n"
+                "    game_TextA_3EB728(1);\n"
+                "}\n")
+            import abicheck
+            problems, stats = abicheck.check(gen)
+            self.assertEqual(problems, [])
+            self.assertEqual(stats["known"], 1)
+
     def test_abicheck_finds_a_call_whose_positions_differ(self):
         with tempfile.TemporaryDirectory() as tmp:
             gen = Path(tmp)
