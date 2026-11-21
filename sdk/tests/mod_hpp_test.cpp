@@ -1083,6 +1083,14 @@ int fake_game_data_dir(openrac_mod*, const char* game, char* out, uint32_t size)
     return id == "rac3" ? OPENRAC_HOOK_REFUSED : 0;
 }
 
+// What the fake host's 1.35 call was given (-1: not called), and whether it took it.
+int g_bypass = -1;
+
+int fake_camera_visibility_bypass(openrac_mod*, int enabled) {
+    g_bypass = enabled;
+    return enabled == 0 || enabled == 1 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
 // A port of 1.30: it takes the three blends, refuses a number past them and keeps the last blend.
 int fake_set_blend(void*, uint32_t blend) {
     if (blend > OPENRAC_OVERLAY_BLEND_SUBTRACT) {
@@ -2536,6 +2544,22 @@ int main() {
               && g_game_asked.empty());
         api.size = sizeof api;
         CHECK(mod.has_game_data());
+    }
+    // Interface 1.35: the gameplay camera's visibility bypass taken and given back, and a port without it.
+    {
+        api.camera_visibility_bypass = fake_camera_visibility_bypass;
+        CHECK(mod.has_camera_visibility_bypass());
+        CHECK(mod.camera_visibility_bypass(true) && g_bypass == 1);
+        CHECK(mod.camera_visibility_bypass(false) && g_bypass == 0);
+        // A port of 1.34, or a table that ends before the slot, has none of it and is not asked.
+        g_bypass = -1;
+        api.api_minor = 34;
+        CHECK(!mod.has_camera_visibility_bypass() && !mod.camera_visibility_bypass(true) && g_bypass == -1);
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, camera_visibility_bypass));
+        CHECK(!mod.has_camera_visibility_bypass() && !mod.camera_visibility_bypass(true) && g_bypass == -1);
+        api.size = sizeof api;
+        CHECK(mod.has_camera_visibility_bypass());
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);

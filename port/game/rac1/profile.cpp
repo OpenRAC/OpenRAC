@@ -35,6 +35,9 @@
 #include "openrac/guest.h"
 #include "renderer/math.h"
 
+// host/camera_override.c: whether a mod's or the debug camera is written over the game's (1, or 0).
+extern "C" int rac1_camera_overridden(void);
+
 namespace openrac::game::rac1 {
 namespace {
 
@@ -213,6 +216,8 @@ public:
     host::GameState read_state(std::span<const std::uint8_t> ram, int level) const override {
         return read_game_state(ram, addresses(level));
     }
+
+    bool camera_overridden() const override { return rac1_camera_overridden() != 0; }
 
     std::optional<host::LiveMoby> read_moby(
         std::span<const std::uint8_t> ram, std::uint32_t moby

@@ -139,6 +139,8 @@ int rac1_collision_triangles(const float lo[3], const float hi[3], void* out, in
  * outside a level. */
 int rac1_camera_set(const float eye[3], const float rows[9]);
 int rac1_camera_view(float eye[3], float rows[9]);
+/* Whether a mod's or the debug camera replaces the game's camera in the view build: 1, or 0. */
+int rac1_camera_overridden(void);
 /* The game's camera shake on the level camera (openrac_api.camera_shake): 1, or 0 when not started. */
 int rac1_camera_shake(int channel, float amplitude, int frames);
 

@@ -226,6 +226,9 @@ struct FrameInput {
     std::optional<Camera> culling_camera;
     // Detached views can leave the baked PVS grid without inheriting gameplay's last cell.
     bool keep_pvs_history = true;
+    // The view is from a camera the baked visibility was not made for: no zone culling in the view
+    // (frustum and depth still decide what is drawn). Set when the camera is overridden.
+    bool pvs_bypass = false;
     // Opt-in culling preview: 0 for the main camera, 1-4 for near-to-far shadow cascades.
     std::optional<unsigned> culling_inspection;
     bool opaque_effects = false;  // The earlier world bucket for opaque effect draws is visible.

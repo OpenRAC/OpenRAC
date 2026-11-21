@@ -92,9 +92,10 @@ extern "C" {
  * moby_model_class, moby_model_at), and 1.32 the game's own camera shake on the level's camera
  * (camera_shake), and 1.33 the game's own particle effects and custom 32 x 32 particle textures
  * started by a mod (particle_spawn_ex, particle_texture_register), and 1.34 the data folder of an
- * installed game declared in the manifest's "reads_games" (game_data_dir).
+ * installed game declared in the manifest's "reads_games" (game_data_dir), and 1.35 the gameplay
+ * camera's visibility culling bypassed on a mod's request (camera_visibility_bypass).
  */
-#define OPENRAC_MOD_API_MINOR 34
+#define OPENRAC_MOD_API_MINOR 35
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -2739,6 +2740,11 @@ typedef struct openrac_api {
      * dashes only; anything else is 0. Read only: the folder is the game's, and the mod writes its own files
      * in openrac_api.data_dir. Since 1.34. */
     int (*game_data_dir)(openrac_mod* mod, const char* game, char* out, uint32_t size);
+
+    /* Use frustum culling without the level's baked camera visibility for this mod's
+     * gameplay view until cleared or the level unloads. The camera pose is untouched.
+     * Desktop and Android share this renderer setting. Since 1.35. */
+    int (*camera_visibility_bypass)(openrac_mod* mod, int enabled);
 
 } openrac_api;
 

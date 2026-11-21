@@ -42,6 +42,15 @@ static struct {
     float eye[3], rows[12];
 } mod_camera;
 
+/* The developer camera (OPENRAC_CAMERA) is on: its eye and rows are written over the game's. */
+static int debug_camera_on = 0;
+
+/* Whether the view build writes a camera other than the game's (a mod's camera_set, or the debug
+ * camera): the picture then looks from a place the game's zone visibility was not made for. */
+int rac1_camera_overridden(void) {
+    return rac1_level_running() && (mod_camera.on || debug_camera_on);
+}
+
 static struct {
     int seen;
     uint32_t loads;
@@ -129,6 +138,7 @@ void func_001F2608(void) {
                 memcpy(rows + 4, l, sizeof(l));
                 memcpy(rows + 8, u, sizeof(u));
                 on = 1;
+                debug_camera_on = 1;
             }
         }
     }

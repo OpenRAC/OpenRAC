@@ -291,6 +291,8 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `int moby_model_at_hide(std::uint32_t address) const` | Since 1.31: hides this moby's native mesh for a mod-owned replacement or an empty-handed pose. |
 | `bool has_game_data() const` | Since 1.34: whether the port has the installed games' data folders (game_data_dir). |
 | `int game_data_dir(const std::string& game, std::string& path) const` | Since 1.34: the data folder of the installed game `game` ("rac2") into `path`. Returns the folder's length (> 0, path set) when it is installed, 0 when it is not installed or extracted, OPENRAC_HOOK_UNKNOWN when the port cannot say, or OPENRAC_HOOK_REFUSED when the manifest does not declare the game in "reads_games". |
+| `bool has_camera_visibility_bypass() const` | Since 1.35: whether the port has the gameplay camera's visibility bypass (camera_visibility_bypass). |
+| `bool camera_visibility_bypass(bool enabled) const` | Since 1.35: draws the level's gameplay view with frustum culling alone, without the level's baked camera visibility, until cleared (`enabled` false) or the level goes (see openrac_api.camera_visibility_bypass). False outside a level in play, and on a port without it. |
 | `int sound_load(const std::string& path) const` | Since 1.12: a sound of the mod's (a .wav or .ogg in its folder): its id, or -1. |
 | `std::uint32_t sound_play(int sound, float volume = 1.0f, float pitch = 1.0f, bool loop = false) const` | Since 1.12: plays sound `sound` at the game's sound volume: its voice, 0 for none. |
 | `bool sound_set(std::uint32_t voice, float volume, float pitch) const` | Since 1.12: a voice's volume and pitch (false once it has ended); stops a voice. |

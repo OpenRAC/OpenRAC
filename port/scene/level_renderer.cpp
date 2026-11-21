@@ -1463,7 +1463,9 @@ void LevelScene::draw_layer(
     static const bool& pvs_off =
         stats::probe("OPENRAC_PVS_OFF", "Profiling reference: disable baked camera visibility");
     // Shadow casters can lie outside the gameplay camera's baked visibility set.
-    const bool skip_pvs = pvs_off || shadow_inspection;
+    // A camera the game did not make (input.pvs_bypass) sees what the zone mask would cull, so the
+    // mask is not applied: ties, shrubs, mobys and terrain, on the CPU and the GPU path alike.
+    const bool skip_pvs = pvs_off || shadow_inspection || input.pvs_bypass;
     // A game that gives its own frame mask needs no baked grid (Going Commando's, whose levels
     // have none exported): Pvs::follow takes the game's there.
     const bool use_pvs = !skip_pvs && (!m_pvs.grid.empty() || m_pvs.game.has_value());

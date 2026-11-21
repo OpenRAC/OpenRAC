@@ -856,6 +856,8 @@ world or menus, or by address (`model_create`, `moby_model_slot`, `moby_model_cl
 (`particle_texture_register`, `openrac_particle_texture`).
 1.34 (SDK 1.34.0) the data folder of an installed game declared in the manifest's `reads_games`
 (`game_data_dir`, `OPENRAC_HOOK_REFUSED`).
+1.35 (SDK 1.35.0) the gameplay camera's visibility culling bypassed on a mod's request
+(`camera_visibility_bypass`).
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's

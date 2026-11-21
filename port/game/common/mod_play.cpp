@@ -1421,6 +1421,8 @@ void apply_joint_sets(std::uint32_t moby) {
 // level load, behind a lock: the front end reads them on its own thread.
 const openrac_mod* g_camera_mod = nullptr;
 std::uint32_t g_camera_loads = 0;
+std::mutex g_camera_visibility_lock;
+std::map<const openrac_mod*, std::uint32_t> g_camera_visibility;
 
 struct Haze {
     const openrac_mod* mod = nullptr;
@@ -2135,6 +2137,23 @@ bool unit(const float v[3]) {
     return std::isfinite(n) && std::fabs(n - 1.0f) < 0.01f;
 }
 
+int api_camera_visibility_bypass(openrac_mod* mod, int enabled) {
+    if (mod == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
+    if (enabled == 0) {
+        g_camera_visibility.erase(mod);
+        return OPENRAC_HOOK_OK;
+    }
+    std::int32_t level = -1;
+    if (enabled != 1 || phase_now(&level) != OPENRAC_PLAY_PLAYING || level < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_camera_visibility[mod] = loads_now();
+    return OPENRAC_HOOK_OK;
+}
+
 int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
     if (mod == nullptr || g_play == nullptr || g_play->camera_set == nullptr) {
         return OPENRAC_HOOK_UNKNOWN;
@@ -2598,6 +2617,7 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.sound_stop = api_sound_stop;
     api.camera_view = api_camera_view;
     api.camera_set = api_camera_set;
+    api.camera_visibility_bypass = api_camera_visibility_bypass;
     api.haze_set = api_haze_set;
     api.camera_shake = api_camera_shake;
     api.hud_text_set = api_hud_text_set;
@@ -2608,6 +2628,14 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.touch_icon = api_touch_icon;
     api.touch_push = api_touch_push;
     api.touch_hint = api_touch_hint;
+}
+
+bool camera_visibility_bypassed() {
+    const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
+    const auto loads = loads_now();
+    return std::ranges::any_of(g_camera_visibility, [loads](const auto& request) {
+        return request.second == loads;
+    });
 }
 
 std::vector<HazeDraw> haze_drawn() {
@@ -2949,6 +2977,10 @@ int play_phase() {
 
 void reset_play() {
     {
+        const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
+        g_camera_visibility.clear();
+    }
+    {
         const std::lock_guard<std::mutex> lock(g_notice_lock);
         g_notice.clear();
     }
@@ -3025,6 +3057,10 @@ void drop_figures(const openrac_mod* mod) {
         const std::lock_guard<std::mutex> lock(g_props_lock);
         std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod; });
         std::erase_if(g_materials, [&](const MaterialEntry& e) { return e.mod == mod; });
+    }
+    {
+        const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
+        g_camera_visibility.erase(mod);
     }
     for (Figure& f : g_figures) {
         if (f.mod == mod) {

@@ -156,6 +156,10 @@ public:
         return {};
     }
 
+    // Whether the view is built from a camera the game did not make (a mod's or the debug camera's
+    // override). The baked zone visibility is made for the game's own camera, so it does not apply.
+    virtual bool camera_overridden() const { return false; }
+
     // Reads the moby at game address `moby` as the renderers place it; none when its position or
     // scale is unusable.
     virtual std::optional<LiveMoby> read_moby(

@@ -2127,16 +2127,17 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK((g_records == std::vector<int>{9500, 9523, 9540, 9541, 9541, 9550, 9551, 9660, 9661, 9670,
                                          9671, 9680, 9681, 9681, 9660, 9661, 9661, 9661, 9661, 9660,
                                          9660, 9560, 9561, 9577, 9581, 9580, 9581, 9591, 9590, 9591,
-                                         9591, 9590, 9602, 9671, 9671, 9671, 9670, 9611, 9610, 9623,
-                                         9635, 9700, 9710, 9721, 9721, 9730, 9731, 9731, 9731, 9731,
-                                         9731, 9731, 9734, 9730, 9730, 9730, 9740, 9741, 9741, 9741,
-                                         9741, 9741, 9741, 9744, 9740, 9740, 9744, 9760, 9761, 9761,
-                                         9761, 9761, 9770, 9771, 9771, 9771, 9771, 9771, 9771, 9770,
-                                         9790, 9790, 9791, 9801, 9801}));
+                                         9591, 9590, 9602, 9671, 9671, 9671, 9670, 9821, 9820, 9820,
+                                         9820, 9611, 9610, 9623, 9635, 9700, 9710, 9721, 9721, 9730,
+                                         9731, 9731, 9731, 9731, 9731, 9731, 9734, 9730, 9730, 9730,
+                                         9740, 9741, 9741, 9741, 9741, 9741, 9741, 9744, 9740, 9740,
+                                         9744, 9760, 9761, 9761, 9761, 9761, 9770, 9771, 9771, 9771,
+                                         9771, 9771, 9771, 9770, 9790, 9790, 9791, 9801, 9801}));
     // Only the 1.33 smoke with its texture 1 and blend 0x44 reached the game (kind 0, texture 1000, blend 68).
     CHECK((g_particles == std::vector<int>{1068}));
     // Only the good shake reached the host: channel 0, 0.15 (as 15), 30 ticks.
     CHECK((g_shakes == std::vector<std::string>{"0 15 30"}));
+    CHECK(mods::camera_visibility_bypassed());  // asked for in the level in play, and left on
     CHECK(
         (g_motion
          == std::vector<std::string>{
@@ -2231,6 +2232,7 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_records.clear();
     g_motion.clear();
     mods::frame();
+    CHECK(!mods::camera_visibility_bypassed());  // it went with its level
     // The pose needs the hook; the joints do not (two, too many, none).
     CHECK((g_records == std::vector<int>{9501, 9551, 9661, 9640, 9641, 9650, 9660, 9731, 9741}));
     CHECK((g_motion == std::vector<std::string>{"joints 4096 2 1 2", "joints 4096 0"}));
@@ -2338,7 +2340,7 @@ void installed_games_and_their_folders(const fs::path& dir) {
     );
 
     const std::string base =
-        R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0", "api": "1.34", "games": {"rac1": ["pal"]}, "reads_games": )";
+        R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0", "api": "1.35", "games": {"rac1": ["pal"]}, "reads_games": )";
     mods::Manifest m;
     std::string error;
     CHECK(mods::parse_manifest(base + R"(["rac1", "rac2"]})", m, error));

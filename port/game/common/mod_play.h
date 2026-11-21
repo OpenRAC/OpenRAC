@@ -33,6 +33,7 @@ void play_loading(const openrac_mod* mod);
 // The game's phase now (OPENRAC_PLAY_*; OPENRAC_PLAY_NONE for a game without play). From the game's
 // thread.
 int play_phase();
+bool camera_visibility_bypassed();
 
 // Forgets the figures and a pending start or travel (mods::reset, the tests).
 void reset_play();

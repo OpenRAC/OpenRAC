@@ -411,6 +411,14 @@ static void motion_frame(void) {
             s_record(9670 + -s_api->camera_shake(s_mod, 1, 0.1f, 601));
             s_record(9670 + -s_api->camera_shake(s_mod, 0, 0.15f, 30));
         }
+        if (s_api->api_minor >= 35) {
+            /* Interface 1.35: the culling bypass. A value other than 0 or 1 is refused (-1), 1 is taken
+             * in a level in play (0), 0 gives it back, and 1 again leaves it on for the host to read. */
+            s_record(9820 + -s_api->camera_visibility_bypass(s_mod, 2));
+            s_record(9820 + -s_api->camera_visibility_bypass(s_mod, 1));
+            s_record(9820 + -s_api->camera_visibility_bypass(s_mod, 0));
+            s_record(9820 + -s_api->camera_visibility_bypass(s_mod, 1));
+        }
         {
             openrac_hud_text line;
             memset(&line, 0, sizeof line);

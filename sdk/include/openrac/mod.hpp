@@ -1776,6 +1776,21 @@ public:
         return length;
     }
 
+    // Since 1.35: whether the port has the gameplay camera's visibility bypass
+    // (camera_visibility_bypass).
+    bool has_camera_visibility_bypass() const {
+        return m_api->api_minor >= 35
+               && m_api->size >= offsetof(openrac_api, camera_visibility_bypass) + sizeof(void*);
+    }
+
+    // Since 1.35: draws the level's gameplay view with frustum culling alone, without the level's
+    // baked camera visibility, until cleared (`enabled` false) or the level goes (see
+    // openrac_api.camera_visibility_bypass). False outside a level in play, and on a port without it.
+    bool camera_visibility_bypass(bool enabled) const {
+        return has_camera_visibility_bypass()
+               && m_api->camera_visibility_bypass(m_handle, enabled ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.12: a sound of the mod's (a .wav or .ogg in its folder): its id, or -1.
     int sound_load(const std::string& path) const {
         const int id = has_api_12() ? m_api->sound_load(m_handle, path.c_str()) : OPENRAC_HOOK_UNKNOWN;
