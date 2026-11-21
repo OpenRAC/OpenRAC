@@ -65,8 +65,11 @@ static __inline__ float fabs_asm(float x) {
     return x < 0.0f ? -x : x;
 }
 
+/* sqrt.s: the root of |x|. The console's FPU has no NaN; a negative operand gives the root of its
+ * magnitude (the turn helper func_L01_00448890 takes the root of a negative distance when it turns
+ * the other way, and the host's NaN reached Veldin's collision rays). */
 static __inline__ float sqrt_asm(float x) {
-    return __builtin_sqrtf(x);
+    return __builtin_sqrtf(x < 0.0f ? -x : x);
 }
 
 static __inline__ float fmax_asm(float a, float b) {
