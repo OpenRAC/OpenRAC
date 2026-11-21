@@ -313,6 +313,16 @@ function against its code and fails the build on:
   return;
 - an `asm` `signatures` entry claiming a result its code never sets.
 
+A register handed on unread to a call through a pointer (`jalr`, a widget's vtable) is not seen:
+the callee is not known, so the check counts none of its arguments. The widgets' draws do that
+with their parent rectangle (a1, read by the rectangle callback at vtable +0x20). The frame
+widget's draw (`func_003EEBF8`, the slot page's outlines round each slot's picture and info)
+and the levels' copies of it and of the sprite widget's draw (`func_L01_0051E148`,
+`func_L01_005216A8`) were found this way and given `int (int, int)` by hand. The levels' copy of
+the picture TEX0 getter (`func_L01_0042D898`, boot func_0039B088's `unsigned long long`) lost its
+upper word as an `int`, so the in-level SAVE page drew its slot pictures and empty-slot emblems
+from no texture; it is the only level copy whose result is narrower than its boot twin's.
+
 Each finding gets the function's real signature in `asm` `signatures`, checked against its
 instructions. A function whose C says `void` but hands its callee's result back is translated from
 its instructions instead (`from_assembly`). An exception goes to `asm` `signature_allow` with
