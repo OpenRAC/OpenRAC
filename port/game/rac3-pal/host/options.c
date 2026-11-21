@@ -29,6 +29,13 @@
  * Subtitles' 2, the sound's 4, the language's 9), a Widget3D sprite drawn as the 2D layer's records
  * (ui2d.c, func_003AA780). The Video row keeps the 16:9 row's picture, the one the game shows for
  * its screen setting, and the Video page shows it as long as it is open.
+ *
+ * The mods' main-menu items (openrac_api.ui_main_item) are the Video page's last rows, after the
+ * port's own: Cross on one shows that mod's page in the same list (game_host.h,
+ * openrac_mod_pages_host, as Going Commando's mod_pages.c has them in its menus): its title, its
+ * rows with the cursor's, its footer, or its question, written into the list's cells each frame
+ * from openrac_mod_pages_view_of. The port has the pad while it shows (mod_ui.cpp): the cursor, a
+ * choice, Cross and Triangle are the port's, and going back is to the Video page.
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -70,9 +77,14 @@
 #define MENU_LEFT 0x8000u
 #define SOUND_CHOOSE 4 /* func_003A5748's sounds, as the menus play them */
 
+#define LIST_SHOWN 0x10u /* how many rows the list shows at once */
+
 static int video_open;
-static int video_count; /* the Video page's rows */
-static int game_rows;   /* the list's rows while the Video page shows its own */
+static int video_count;       /* the Video page's rows */
+static int game_rows;         /* the list's rows while the Video page shows its own */
+static int option_count;      /* the port's option rows of the Video page, the mods' items after */
+static int mod_item = -1;     /* the mod's main-menu item whose page shows, -1 none */
+static unsigned rows_written; /* frames on_frame counted since the Options rows were last written */
 
 static gaddr cell(int column, int row) {
     const gaddr cells = GREF(gaddr, LIST + LIST_CELLS);
@@ -154,10 +166,18 @@ static void capitals(gaddr text, int room) {
     out[at] = 0;
 }
 
-static int video_rows(void) {
+static int list_room(void) {
     const int columns = GREF(int32_t, LIST + LIST_COLUMNS);
-    const int rows = openrac_game_option_rows();
-    const int room = columns > 0 ? (int)(LIST_CAPACITY / CELL_BYTES) / columns : 0;
+    return columns > 0 ? (int)(LIST_CAPACITY / CELL_BYTES) / columns : 0;
+}
+
+static int video_rows(void) {
+    option_count = openrac_game_option_rows();
+    const int rows = option_count + openrac_mod_pages_items(0);
+    const int room = list_room();
+    if (option_count > room) {
+        option_count = room;
+    }
     return rows < room ? rows : room;
 }
 
@@ -167,7 +187,9 @@ static void video_show(int open) {
         if (rows <= 0) {
             return;
         }
-        game_rows = GREF(int32_t, LIST + LIST_ROWS);
+        if (!video_open) {
+            game_rows = GREF(int32_t, LIST + LIST_ROWS);
+        }
         video_count = rows;
         list_reset(rows);
         /* The 16:9 row's picture, shown at once (the game waits a few frames after the cursor
@@ -181,11 +203,101 @@ static void video_show(int open) {
     video_open = open;
 }
 
+/* ---- The mods' pages in the list ---- */
+
+static void put_text(int column, int row, const char* text) {
+    char* out = (char*)G(cell(column, row));
+    strncpy(out, text, CELL_TEXT - 1u);
+    out[CELL_TEXT - 1u] = 0;
+}
+
+/* The mod's page in the list's cells: its title, its rows, its footer (or its question), the list's
+ * window kept on the page's cursor. */
+static void mod_page_text(void) {
+    static openrac_mod_pages_view v;
+    if (!openrac_mod_pages_view_of(&v)) {
+        return;
+    }
+    const int room = list_room();
+    int row = 0;
+    int cursor = 0;
+    const int columns = GREF(int32_t, LIST + LIST_COLUMNS);
+    memset(G(cell(0, 0)), 0, (size_t)(room * columns) * CELL_BYTES);
+    put_text(0, row++, v.title);
+    if (v.asking) {
+        put_text(0, row, v.question);
+        put_text(1, row++, "X / ^");
+        cursor = 1;
+    } else {
+        for (int i = 0; i < v.rows && row < room; ++i, ++row) {
+            put_text(0, row, v.row[i].label);
+            put_text(1, row, v.row[i].value);
+            if (i == v.cursor) {
+                cursor = row;
+            }
+        }
+        for (int i = 0; i < v.footer_lines && row < room; ++i) {
+            put_text(0, row++, v.footer[i]);
+        }
+    }
+    for (int r = 0; r < row; ++r) {
+        capitals(cell(0, r), (int)CELL_TEXT);
+        capitals(cell(1, r), (int)CELL_TEXT);
+    }
+    GREF(int32_t, LIST + LIST_ROWS) = row;
+    const int shown = GREF(int32_t, LIST + LIST_SHOWN) > 0 ? GREF(int32_t, LIST + LIST_SHOWN) : 4;
+    const int top = cursor < shown ? 0 : cursor - shown + 1;
+    GREF(int32_t, LIST + LIST_TOP) = top;
+    GREF(int32_t, LIST + LIST_CURSOR) = cursor - top;
+}
+
+/* The page is the port's from the next tick on (mod_ui.cpp reads shown() then): until then the
+ * list keeps the Video page's rows. */
+static void mod_page_open(int item) {
+    mod_item = item;
+}
+
+static int mod_shown(void) {
+    return mod_item;
+}
+
+static int mod_main_menu(void) {
+    return 0; /* the items open from the Options page only */
+}
+
+static void mod_open_main(int index) {
+    (void)index;
+}
+
+/* Back to the Video page's rows. */
+static void mod_go_back(void) {
+    if (mod_item < 0) {
+        return;
+    }
+    mod_item = -1;
+    video_show(1);
+}
+
+static void mod_sound(int cue) {
+    (void)cue;
+    func_003A5748(SOUND_CHOOSE, 0, 0);
+}
+
+static const openrac_mod_pages_host mod_pages = {
+    .shown = mod_shown,
+    .main_menu = mod_main_menu,
+    .open_main = mod_open_main,
+    .go_back = mod_go_back,
+    .sound = mod_sound,
+};
+
 /* The Options rows' texts, each frame: the port's while its page shows, else the game's with the
  * 16:9 row named Video, its value none. */
 int func_003B63D0(void) {
+    rows_written = 0;
     /* The page built again (the screen left another way than Triangle): the game's rows. */
-    if (video_open && GREF(int32_t, LIST + LIST_ROWS) != video_count) {
+    /* (A mod's page sets the rows itself; the frame hook lets it go when the page is gone.) */
+    if (video_open && mod_item < 0 && GREF(int32_t, LIST + LIST_ROWS) != video_count) {
         video_open = 0;
     }
     if (!video_open) {
@@ -195,11 +307,20 @@ int func_003B63D0(void) {
         GREF(char, cell(1, ROW_VIDEO)) = 0;
         return r;
     }
+    if (mod_item >= 0) {
+        mod_page_text();
+        return 0;
+    }
     const int rows = GREF(int32_t, LIST + LIST_ROWS);
     for (int row = 0; row < rows; ++row) {
-        openrac_game_option_row_text(
-            row, (char*)G(cell(0, row)), (char*)G(cell(1, row)), (int)CELL_TEXT
-        );
+        if (row >= option_count) {
+            openrac_mod_pages_label(0, row - option_count, (char*)G(cell(0, row)), (int)CELL_TEXT);
+            GREF(char, cell(1, row)) = 0;
+        } else {
+            openrac_game_option_row_text(
+                row, (char*)G(cell(0, row)), (char*)G(cell(1, row)), (int)CELL_TEXT
+            );
+        }
         capitals(cell(0, row), (int)CELL_TEXT);
         capitals(cell(1, row), (int)CELL_TEXT);
     }
@@ -227,15 +348,23 @@ void func_003B5F78(int screen, int buttons) {
         func_003B5F78__game(screen, buttons);
         return;
     }
+    if (mod_item >= 0) {
+        return; /* the port has the pad (mod_ui.cpp) */
+    }
     if ((buttons & MENU_TRIANGLE) != 0) {
         func_003A5748(SOUND_CHOOSE, 0, 0);
         video_show(0);
         return;
     }
+    if ((buttons & MENU_CROSS) != 0 && list_row() >= option_count) {
+        func_003A5748(SOUND_CHOOSE, 0, 0);
+        mod_page_open(list_row() - option_count);
+        return;
+    }
     const int by = (buttons & (MENU_CROSS | MENU_RIGHT)) != 0 ? 1
                    : (buttons & MENU_LEFT) != 0               ? -1
                                                               : 0;
-    if (by != 0) {
+    if (by != 0 && list_row() < option_count) {
         openrac_game_option_step(list_row(), by);
         func_003A5748(SOUND_CHOOSE, 0, 0);
     }
@@ -288,6 +417,7 @@ int func_003983C8(void) {
         g_previous_on_frame = openrac_game_on_frame;
     }
     openrac_game_on_frame = on_frame;
+    openrac_game_mod_pages = &mod_pages;
     return r;
 }
 
@@ -297,6 +427,12 @@ static void on_frame(unsigned frame) {
         g_previous_on_frame(frame);
     }
     GREF(uint8_t, OPTION_WIDESCREEN) = 0;
+    /* The Options page gone while a mod's page showed (the screen left another way): the port lets
+     * the pad go. */
+    if (++rows_written > 2 && mod_item >= 0) {
+        mod_item = -1;
+        video_open = 0;
+    }
     const int index = GREF(uint8_t, OPTION_LANGUAGE);
     GREF(int32_t, rac3_language_word()) = index >= 1 && index <= 5 ? index : 1;
     const int language = console_language(index);
