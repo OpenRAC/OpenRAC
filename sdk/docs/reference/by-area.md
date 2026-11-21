@@ -99,9 +99,9 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 
 | Member | Since | Status | rac1 | rac2 | rac3 |
 |---|---|---|---|---|---|
-| `savestate_size` | 1.6 | stable | yes | yes | yes |
-| `savestate_save` | 1.6 | stable | yes | yes | yes |
-| `savestate_load` | 1.6 | stable | yes | yes | yes |
+| `savestate_size` | 1.6 | stable | yes | no | no |
+| `savestate_save` | 1.6 | stable | yes | no | no |
+| `savestate_load` | 1.6 | stable | yes | no | no |
 | `save_capture` | 1.8 | stable | yes | yes | no |
 | `save_slot` | 1.8 | stable | yes | yes | yes |
 | `save_read` | 1.8 | stable | yes | yes | yes |

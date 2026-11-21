@@ -2366,7 +2366,7 @@ typedef struct openrac_api {
      * developer_menu_switch, and OPENRAC_HOOK_UNKNOWN for no values, a null
      * one, or an index outside them. */
     int (*developer_menu_choice)(openrac_mod* mod, uint32_t action,
-                                 const char* const *values, uint32_t count,
+                                 const char* const* values, uint32_t count,
                                  uint32_t index);
 
     /* The state of the mod's developer menu item `action` (since 1.19): a

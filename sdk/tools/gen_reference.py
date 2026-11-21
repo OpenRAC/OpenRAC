@@ -436,29 +436,47 @@ def cpp_functions(text: str) -> dict[str, str]:
     return out
 
 
-def game_needs(root: Path) -> dict[str, set[str]]:
-    """For each table member, the host play table's fields its port code reads (through the
-    file's own helpers too)."""
+def port_functions(root: Path) -> tuple[dict[str, str], dict[str, str]]:
+    """The port's mod code: its function bodies by name, and each table member's function (as
+    fill_api sets it: `g_api.<member> = <function>;`)."""
     bodies: dict[str, str] = {}
+    wired: dict[str, str] = {}
     for src in PORT_MOD_SOURCES:
         for path in sorted(root.glob(src)):
-            bodies.update(cpp_functions(path.read_text()))
+            text = path.read_text()
+            bodies.update(cpp_functions(text))
+            wired.update(re.findall(r"^\s+(?:g_)?api\.(\w+) = (\w+);", text, re.M))
+    return bodies, wired
+
+
+def game_needs(root: Path) -> dict[str, tuple[set[str], set[str]]]:
+    """For each table member, the host play table's fields its port code reads (through the
+    file's own helpers too), and the games it is only for (`g_host->game != "<game>"`: none
+    when it is for all)."""
+    bodies, wired = port_functions(root)
     direct = {name: set(re.findall(r"\bg_play->(\w+)", body)) for name, body in bodies.items()}
+    only = {name: set(re.findall(r'\bg_host->game != "(\w+)"', body)) for name, body in bodies.items()}
     calls = {name: {c for c in re.findall(r"\b(\w+)\(", body) if c in bodies and c != name}
              for name, body in bodies.items()}
-    memo: dict[str, set[str]] = {}
+    memo: dict[str, tuple[set[str], set[str]]] = {}
 
-    def needs(name: str, seen: frozenset = frozenset()) -> set[str]:
+    def needs(name: str, seen: frozenset = frozenset()) -> tuple[set[str], set[str]]:
         if name in memo:
             return memo[name]
-        got = set(direct.get(name, ()))
+        got, games = set(direct.get(name, ())), set(only.get(name, ()))
         for c in calls.get(name, ()):
             if c not in seen:
-                got |= needs(c, seen | {name})
-        memo[name] = got
-        return got
+                g, o = needs(c, seen | {name})
+                got |= g
+                games |= o
+        memo[name] = (got, games)
+        return memo[name]
 
-    return {name[4:]: needs(name) for name in bodies if name.startswith("api_")}
+    out = {name[4:]: needs(name) for name in bodies if name.startswith("api_")}
+    for member, function in wired.items():
+        if function in bodies:
+            out[member] = needs(function)
+    return out
 
 
 # What sdk/tools/new_api.py writes in a call's stub: until it is gone the call works on no game.
@@ -466,12 +484,9 @@ STUB_MARK = "TODO: the call's work"
 
 
 def stubs(root: Path) -> set[str]:
-    out = set()
-    for src in PORT_MOD_SOURCES:
-        for path in sorted(root.glob(src)):
-            out |= {name[4:] for name, body in cpp_functions(path.read_text()).items()
-                    if name.startswith("api_") and STUB_MARK in body}
-    return out
+    bodies, wired = port_functions(root)
+    stubbed = {name for name, body in bodies.items() if STUB_MARK in body}
+    return {name[4:] for name in stubbed if name.startswith("api_")} | {m for m, f in wired.items() if f in stubbed}
 
 
 def game_fields(root: Path) -> dict[str, set[str]]:
@@ -490,10 +505,10 @@ def coverage(sdk: Path) -> dict[str, dict[str, str]]:
     stubbed = stubs(root)
     out: dict[str, dict[str, str]] = {}
     for m in read_members(sdk):
-        need = needs.get(m["name"], set())
+        need, only = needs.get(m["name"], (set(), set()))
         row = {}
         for game in PLAY_TABLES:
-            if m["name"] in stubbed:
+            if m["name"] in stubbed or (only and game not in only):
                 row[game] = "no"
             elif not need:
                 row[game] = "yes"
