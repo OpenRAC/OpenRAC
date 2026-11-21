@@ -2534,6 +2534,36 @@ class Places(unittest.TestCase):
             self.assertNotIn("OPENRAC_LDATA(0, 0x001B3DB0u)", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_level_datums_second_name_is_its_own_address(self):
+        # Going Commando PAL's blast_clear_state clears D_L00_001B060C_1, the Mini-Nuke's blast
+        # pointer. The release table leaves it out where it did not move; read as the executable's
+        # D_001B060C (another datum) the pointer was never cleared and the third blast deleted itself.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L00_003E3258.c").write_text(
+                "extern int D_L00_001B060C_1;\n"
+                "void func_L00_003E95B0(void) { D_L00_001B060C_1 = 0; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_003E95B0\tshared\t8\tfingerprint\t2\t00:003E95B0,02:003EC0B0\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {},
+                "level_data": {"0": {"D_001B060C": "0x001b090c"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7C80, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L00_003E3258.c").read_text()
+            self.assertIn("0x001B060Cu", text)
+            self.assertNotIn("0x001B090Cu", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_the_gp_view_of_a_level_derived_global_is_that_global(self):
         # Going Commando's follow camera stick read (func_L00_00424F98, L00_00424F98-g8.c) says
         # `extern float ref_L00_00424F98_03 SDATA(ref_L00_00424F98_03)`: the label is the name with
