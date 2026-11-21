@@ -689,6 +689,7 @@
       "0xE98": "rac3_vu0_quaternion_rows"
     },
     "wide_register_calls": true,
+    "wide_call_results": true,
     "signature_check": true,
     "result_flow": true,
     "variant_callees": "tables/variant_callees.tsv",
@@ -719,6 +720,7 @@
   "from_assembly": [
     "func_L11_003AB258",
     "func_L03_0044DC40",
+    "func_L03_0044DC88",
     "func_0038CDB8__frontbin",
     "func_0038CDD0__frontbin",
     "func_0038CDE8__frontbin",
