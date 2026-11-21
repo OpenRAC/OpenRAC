@@ -636,6 +636,60 @@ void main(){colour=packUnorm4x8(textureLod(tex_T0,vec2(.5),1.0));}
     glDeleteTextures(1, &texture);
 }
 
+void test_single_mip_visibility_between_shader_stages() {
+    renderer::FrameBuffer source, target;
+    renderer::Shader shader;
+    std::string error;
+    CHECK(source.create_colour(1, 1, error));
+    CHECK(target.create_colour(1, 1, error));
+    CHECK(shader.build_compute(
+        "sample a previously exported colour",
+        R"(#version 430 core
+layout(local_size_x=1) in;
+uniform sampler2D tex_T0;
+layout(std430,binding=11) writeonly buffer Output {uint colour;};
+void main(){colour=packUnorm4x8(texelFetch(tex_T0,ivec2(0),0));}
+)",
+        error
+    ));
+    unsigned buffer = 0;
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, source.colour_texture());
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(unsigned), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, buffer);
+    shader.use();
+    clear_target(source, {1, 0, 0, 1});
+
+    vkgl::GraphExecution graphics;
+    const auto image = graphics.import_image("single-mip colour", source.colour_texture()).value();
+    graphics.add_pass(
+        {"export colour to fragment sampling",
+         {{image, {}, {graph::Stage::FragmentShader, graph::Access::Read, graph::Layout::Sampled}}},
+         {},
+         graph::PassKind::Export}
+    );
+    CHECK(graphics.run());
+
+    vkgl::GraphExecution compute;
+    const auto output =
+        compute.import_buffer("colour output", buffer, vkgl::InitialContents::Discard).value();
+    graph::Pass pass{"sample the same colour in compute"};
+    pass.execution = graph::Stage::ComputeShader;
+    pass.buffers.push_back(
+        {output,
+         {0, sizeof(unsigned)},
+         {pass.execution, graph::Access::Write, graph::Layout::Buffer}}
+    );
+    CHECK(compute.capture_compute_reads(pass));
+    compute.add_pass(std::move(pass));
+    CHECK(compute.run([](unsigned) { glDispatchCompute(1, 1, 1); }));
+    CHECK(vkgl::copy_buffer_to_texture(buffer, target.colour_texture(), 1, 1));
+    check_pixels(target, {255, 0, 0, 255});
+    glDeleteBuffers(1, &buffer);
+}
+
 void test_independent_image_barriers() {
     renderer::FrameBuffer sampled, copied;
     std::string error;
@@ -1161,6 +1215,7 @@ int main() {
         test_stencil_only_copy(1, true);
         test_stencil_only_copy(4, true);
         test_compute_mip_chain();
+        test_single_mip_visibility_between_shader_stages();
         test_independent_image_barriers();
         test_mip_state_between_scopes();
         test_packed_depth_stencil_state(1);
