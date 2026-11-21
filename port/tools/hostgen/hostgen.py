@@ -40,6 +40,7 @@ sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / 
 from openrac_common import tables  # noqa: E402
 
 import asmc  # noqa: E402
+import data_refs  # noqa: E402
 import asmext  # noqa: E402
 import clangast  # noqa: E402
 import derived  # noqa: E402
@@ -783,6 +784,9 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
     stage = extra.pop("asm", None) or asmc.Stage()
     allow = extra.pop("assembly_allow", {})
     result_allow = extra.pop("result_allow", None)
+    data_allow = extra.pop("data_allow", None)
+    wrapped = extra.pop("wrapped", [])
+    data_places = extra.pop("data_places", {})
     result_unjudged = set(extra.pop("result_unjudged", []))
     asm_reasons: dict[str, int] = {}
     for why in stage.unsupported.values():
@@ -815,6 +819,9 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
                            if f.status == "translated" and getattr(f, "zeroed_results", None)
                            and f"_{release.DEAD}_" not in f.name},
         "call_graph": {f.name: sorted(f.calls) for f in fns if f.status == "translated" and f.calls},
+        # The functions the decompilation's global initializers name (callback tables): the game
+        # reaches them through its data, which call_graph does not show (data_guard).
+        "data_references": {program.canonical(sym): sorted(where) for sym, where in sorted(program.data_refs.items())},
         "hardware_accesses": sum(f.hw for f in fns),
         "functions_touching_hardware": sorted(f.name for f in fns if f.hw),
         "literal_addresses": {f.name: f.literals for f in fns if f.literals},
@@ -852,6 +859,8 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
     summary.update(assembly_guard(summary, allow))
     if result_allow is not None:
         summary.update(result_guard(summary, result_allow, result_unjudged))
+    if data_allow is not None:
+        summary.update(data_guard(summary, data_allow, wrapped, data_places))
     (out / "report.json").write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
     md = [
         f"# hostgen report: {game}",
@@ -1013,7 +1022,7 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     for shared in [config.parent / d for d in cfg.get("host_shared", [])] or [
             config.parent.parent / str(cfg.get("game", "")) / "host"]:
         paths += sorted(shared.glob("*.c"))
-    for key in ("libraries", "hand", "assembly_allow", "result_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
+    for key in ("libraries", "hand", "assembly_allow", "result_allow", "data_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
     if cfg.get("drafts"):
@@ -1635,6 +1644,13 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
         extra["variant_signature_drops"] = variant_check.findings(
             program, variant_check.read(args.game.parent / cfg["asm"]["variant_callees"]))
     extra["assembly_allow"] = read_assembly_allow(args.game.parent, cfg)
+    if cfg.get("data_allow"):
+        extra["data_allow"] = read_reason_table(args.game.parent, cfg["data_allow"])
+        extra["wrapped"] = sorted(program.wrap)
+        if cfg.get("data_refs"):
+            # The places the disc's data holds (data_refs.py): what the port has at each now.
+            extra["data_places"] = {f"{'boot' if ov < 0 else f'{ov:02d}'}:{a:08X}": program.function_at(ov, a)
+                                    for ov, a in data_refs.read(args.game.parent / cfg["data_refs"])}
     if cfg.get("result_allow"):
         extra["result_allow"] = read_result_allow(args.game.parent, cfg)
         if asm_stage is not None and not asm_stage.translated and not asm_stage.external:
@@ -1708,6 +1724,60 @@ def assembly_guard(summary: dict, allow: dict[str, str]) -> dict:
     return {"assembly_reached": {n: sorted(v) for n, v in sorted(reached.items())},
             "assembly_unallowed": sorted(n for n, by in reached.items() if by and not places(n) & allowed),
             "assembly_allow_unused": sorted(n for n in allow if not places(n) & (reached_at | without_c))}
+
+
+def read_reason_table(config_dir: Path, table: str) -> dict[str, str]:
+    """A table of name<TAB>reason (hostgen.json "data_allow"); every row needs its reason."""
+    out = {}
+    for line in (config_dir / table).read_text().splitlines():
+        if line.strip() and not line.startswith("#"):
+            name, _, reason = line.partition("\t")
+            if not reason.strip():
+                raise SystemExit(f"hostgen: {table}: {name.strip()} has no reason")
+            out[name.strip()] = reason.strip()
+    return out
+
+
+def data_guard(summary: dict, allow: dict[str, str], wrapped: list[str],
+               data_places: dict[str, str | None] | None = None) -> dict:
+    """Functions with no C that the game reaches without a call in C, so no call check sees them:
+    a global's initializer names them (a menu page's callbacks: rac1 NTSC's quit-game page ran
+    a stub), a libraries.tsv wrap row's host C calls them as <name>__game (rac1 NTSC's ship
+    computer list), or the disc's data holds their address (hostgen.json "data_refs", a table
+    data_refs.py writes from the disc: place -> the function the port has there now, None for
+    none). Without the disc each is a stub that does nothing. Each needs C (hand C, a host row)
+    or a row of hostgen.json "data_allow" with the reason (by name, or by place for a place
+    with no function); main() fails on any other."""
+    # A function translated from the disc's assembly counts as one without C: a build without the
+    # disc has it as a stub, and the finding must be the same with the disc and without it.
+    places = summary["without_c_places"]
+
+    def stub(name: str) -> str | None:
+        p = places.get(name)
+        if p is None:
+            return None
+        if "other_spelling" in p:
+            return stub(p["other_spelling"]) if p["other_spelling"] != name else None
+        return name
+
+    found: dict[str, list[str]] = {}
+    for name, where in summary.get("data_references", {}).items():
+        s = stub(name)
+        if s is not None:
+            found.setdefault(s, []).extend(f"data: {w}" for w in where)
+    for place, name in (data_places or {}).items():
+        s = place if name is None else stub(name)
+        if s is not None:
+            found.setdefault(s, []).append(f"the disc's data holds {place}"
+                                           + (", where the port has no function" if name is None else ""))
+    for name in wrapped:
+        s = stub(name)
+        if s is not None:
+            found.setdefault(s, []).append(f"libraries.tsv wrap row (host C calls {name}__game)")
+    allowed = {same_place(n) for n in allow}
+    return {"data_reached": {n: sorted(v) for n, v in sorted(found.items())},
+            "data_unallowed": sorted(n for n in found if same_place(n) not in allowed),
+            "data_allow_unused": sorted(n for n in allow if same_place(n) not in {same_place(f) for f in found})}
 
 
 def extern_result_mismatch(fns) -> dict:
@@ -1893,6 +1963,17 @@ def main(argv: list[str] | None = None) -> int:
         # the level's own function has there (or the executable's name, which each level's copy takes).
         for unit, problem in misses:
             print(f"hostgen: error: {unit}: {problem}", file=sys.stderr)
+        return 1
+    if cfg.get("data_allow") and (summary["data_unallowed"] or summary["data_allow_unused"]):
+        # data_guard: before the stamp, so the next build says it again.
+        for name in summary["data_allow_unused"]:
+            print(f"hostgen: error: {cfg['data_allow']} allows {name}, which now has C or is no longer "
+                  "reached through data or a wrap row: remove the row", file=sys.stderr)
+        for name in summary["data_unallowed"]:
+            print(f"hostgen: error: {name} has no C, and the game reaches it without a call in C "
+                  f"({'; '.join(summary['data_reached'][name][:3])}): it is a stub that does nothing. Give "
+                  "it C (hand/hand.tsv, or a host row) or a row with the reason in hostgen.json \"data_allow\"",
+                  file=sys.stderr)
         return 1
     if cfg.get("assembly_allow") and summary["assembly_allow_unused"]:
         # A row that allows nothing any more: the table stays true, so it goes with the change.

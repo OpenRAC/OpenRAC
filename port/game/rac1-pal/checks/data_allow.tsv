@@ -1,0 +1,5 @@
+# Functions with no C that the game may reach without a call in C: named in a global's initializer,
+# behind a libraries.tsv wrap row, or held in the disc's data (checks/data_refs.tsv). hostgen.json
+# "data_allow" (hostgen.py data_guard). Every other one fails the build: give it C instead.
+# name or place	reason
+func_L00_00203ED8	not a function: a case of func_L00_00203E98's switch (config/overlays/joined.tsv), reached through its jump table in each level's data; that function's C has the case

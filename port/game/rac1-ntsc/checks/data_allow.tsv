@@ -1,0 +1,7 @@
+# Functions with no C that the game may reach without a call in C: named in a global's initializer,
+# behind a libraries.tsv wrap row, or held in the disc's data (checks/data_refs.tsv). hostgen.json
+# "data_allow" (hostgen.py data_guard). Every other one fails the build: give it C instead.
+# name or place	reason
+FUN_0021d168	bug, not fixed yet: the decomp keeps it as a text gap (text_gap_0021d168), so it has no C. The help history page's third callback (help_history_list). Needs NTSC hand C from PAL func_0021E170
+FUN_0021e7c8	bug, not fixed yet: a text gap in the decomp (text_gap_0021e7c8), so no C. The quit game page's update (quit_game_screen). Needs NTSC hand C from PAL func_0021F7D0
+FUN_00221800	bug, not fixed yet: a text gap in the decomp (text_gap_00221800), so no C. The ship computer's list builder (planet_select_list); the ship_destination_menu wrap calls it. Needs NTSC hand C from PAL func_00222848
