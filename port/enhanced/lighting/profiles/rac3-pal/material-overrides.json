@@ -1,467 +1,503 @@
 {
-  "version": 1,
-  "overrides": [
-    {
-      "id": "emission-000",
-      "name": "lamp: level 01 tie_0029",
-      "match": {
-        "texture_file_sha256": "18ef120864063d2a90a7fb24b340077362f9766ba1d71d0b779f3e1ee32fbd93"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-001",
-      "name": "lamp: level 02 shrub_0011",
-      "match": {
-        "texture_file_sha256": "adeabe4cd2c0959edf1fcfa64627f551870b2a866189737de805caa461a66ac6"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-002",
-      "name": "screen: level 03 shrub_0030",
-      "match": {
-        "texture_file_sha256": "ccebb27e736894a062ee10dc0f460a1e407438b316adaed3e9de1c40cdabe4b5"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1
-        }
-      }
-    },
-    {
-      "id": "emission-003",
-      "name": "screen: level 03 shrub_0032",
-      "match": {
-        "texture_file_sha256": "84e236115dc47481bd090dcdd0549914a9f0c16909a2560e8cbc1b66abaaab67"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1
-        }
-      }
-    },
-    {
-      "id": "emission-004",
-      "name": "lamp: level 04 shrub_0000",
-      "match": {
-        "texture_file_sha256": "72292c09fa5f0301e5209cc8124ab261a0c38cde34586af1b84376719eac1835"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-005",
-      "name": "lamp: level 04 terrain_0074",
-      "match": {
-        "texture_file_sha256": "156cb59beb3519ffad39e6c86c02208b8995c45e1e9b95e0d280b9139e90ac03"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-006",
-      "name": "lamp: level 04 terrain_0077",
-      "match": {
-        "texture_file_sha256": "c535d253382b8352eae726fe09c2c7fa92441221e9dbc77cec83110966934032"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-007",
-      "name": "lamp: level 04 tie_0113",
-      "match": {
-        "texture_file_sha256": "f074f03a031e16166e8f0c9c78483ad6d1b8e895396ab5d77b2bd5d43ddab9fc"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-008",
-      "name": "lamp: level 05 tie_0052",
-      "match": {
-        "texture_file_sha256": "8d772bcf8e85390310f55b9b93c96054fd826f8e699da6b4540b1847ccbc9d1e"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-009",
-      "name": "lamp: level 05 tie_0101",
-      "match": {
-        "texture_file_sha256": "b6aa2d406b26a943d1e8ae8cf094002cf190df79fe150f8d619a952a06380d94"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-010",
-      "name": "screen: level 08 tie_0017",
-      "match": {
-        "texture_file_sha256": "1c7a3a2158d60166f82e3aaa1410ef6c60953d6ed2e85c04368b0b1396836386"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1
-        }
-      }
-    },
-    {
-      "id": "emission-011",
-      "name": "lamp: level 10 shrub_0000",
-      "match": {
-        "texture_file_sha256": "b9b47e63d5e0f9265037c8ce5e289a24d83a1d38f9d5848fd072f9ded53c724e"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-012",
-      "name": "lamp: level 10 shrub_0010",
-      "match": {
-        "texture_file_sha256": "c3e11e4e97b0f252d9b793ca31ba4089a3d8d2bbaa8e3dadece19b01352f7f36"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-013",
-      "name": "lamp: level 10 tie_0066",
-      "match": {
-        "texture_file_sha256": "dbb3b474a92ed5af8bec3de22bf7917a8982b65961548526ff40999887b8ca49"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-014",
-      "name": "lamp: level 10 tie_0072",
-      "match": {
-        "texture_file_sha256": "3b0de878bdaffc1d083e1f556ed67dc8cecbe5827dd102c372380a26c80977ca"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-015",
-      "name": "lamp: level 10 tie_0075",
-      "match": {
-        "texture_file_sha256": "b539f40cfa6cfd6611247588d2dc431ad5f07fb8de9255fb4d1ee2ee909c8da0"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-016",
-      "name": "lamp: level 10 tie_0121",
-      "match": {
-        "texture_file_sha256": "b74a4e19eda2b2f7066ac8e18624a4302100a0990cb58609845d179d0a565c59"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-017",
-      "name": "lava: level 11 terrain_0020",
-      "match": {
-        "texture_file_sha256": "a470e699da99e03e0a809e090bbc4286a866765f28a3f2a20ab1823ed25c6804"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1
-        }
-      }
-    },
-    {
-      "id": "emission-018",
-      "name": "lava: level 11 terrain_0023",
-      "match": {
-        "texture_file_sha256": "6e4cc43947abb3cd2cb354f201b0ad41b78eab9833ff57ab87d1c675770b869f"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1
-        }
-      }
-    },
-    {
-      "id": "emission-019",
-      "name": "lamp: level 11 tie_0080",
-      "match": {
-        "texture_file_sha256": "0b5f48066b4462ef0120804d15391bc5c7b9963c3a01b05b8df122003f30e136"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-020",
-      "name": "lava: level 11 tie_0109",
-      "match": {
-        "texture_file_sha256": "55d0921f99e1c6b2c7e8c09b3d5fcfdface0aae5b7d5f5da77de1058c35559bb"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1
-        }
-      }
-    },
-    {
-      "id": "emission-021",
-      "name": "window: level 12 shrub_0001",
-      "match": {
-        "texture_file_sha256": "1acb5676b450e8756279b557acfccdacb53d75c3c915269da0265b579c5bb1cb"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "vertex_colour": true
+    "version": 1,
+    "overrides": [
+        {
+            "id": "emission-000",
+            "name": "lamp: level 01 tie_0029",
+            "match": {
+                "texture_file_sha256":
+                    "18ef120864063d2a90a7fb24b340077362f9766ba1d71d0b779f3e1ee32fbd93"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
         },
-        "surface": {
-          "diffuse_scale": 0
+        {
+            "id": "emission-001",
+            "name": "lamp: level 02 shrub_0011",
+            "match": {
+                "texture_file_sha256":
+                    "adeabe4cd2c0959edf1fcfa64627f551870b2a866189737de805caa461a66ac6"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-002",
+            "name": "screen: level 03 shrub_0030",
+            "match": {
+                "texture_file_sha256":
+                    "ccebb27e736894a062ee10dc0f460a1e407438b316adaed3e9de1c40cdabe4b5"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1
+                }
+            }
+        },
+        {
+            "id": "emission-003",
+            "name": "screen: level 03 shrub_0032",
+            "match": {
+                "texture_file_sha256":
+                    "84e236115dc47481bd090dcdd0549914a9f0c16909a2560e8cbc1b66abaaab67"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1
+                }
+            }
+        },
+        {
+            "id": "emission-004",
+            "name": "lamp: level 04 shrub_0000",
+            "match": {
+                "texture_file_sha256":
+                    "72292c09fa5f0301e5209cc8124ab261a0c38cde34586af1b84376719eac1835"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-005",
+            "name": "lamp: level 04 terrain_0074",
+            "match": {
+                "texture_file_sha256":
+                    "156cb59beb3519ffad39e6c86c02208b8995c45e1e9b95e0d280b9139e90ac03"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-006",
+            "name": "lamp: level 04 terrain_0077",
+            "match": {
+                "texture_file_sha256":
+                    "c535d253382b8352eae726fe09c2c7fa92441221e9dbc77cec83110966934032"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-007",
+            "name": "lamp: level 04 tie_0113",
+            "match": {
+                "texture_file_sha256":
+                    "f074f03a031e16166e8f0c9c78483ad6d1b8e895396ab5d77b2bd5d43ddab9fc"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-008",
+            "name": "lamp: level 05 tie_0052",
+            "match": {
+                "texture_file_sha256":
+                    "8d772bcf8e85390310f55b9b93c96054fd826f8e699da6b4540b1847ccbc9d1e"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-009",
+            "name": "lamp: level 05 tie_0101",
+            "match": {
+                "texture_file_sha256":
+                    "b6aa2d406b26a943d1e8ae8cf094002cf190df79fe150f8d619a952a06380d94"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-010",
+            "name": "screen: level 08 tie_0017",
+            "match": {
+                "texture_file_sha256":
+                    "1c7a3a2158d60166f82e3aaa1410ef6c60953d6ed2e85c04368b0b1396836386"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1
+                }
+            }
+        },
+        {
+            "id": "emission-011",
+            "name": "lamp: level 10 shrub_0000",
+            "match": {
+                "texture_file_sha256":
+                    "b9b47e63d5e0f9265037c8ce5e289a24d83a1d38f9d5848fd072f9ded53c724e"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-012",
+            "name": "lamp: level 10 shrub_0010",
+            "match": {
+                "texture_file_sha256":
+                    "c3e11e4e97b0f252d9b793ca31ba4089a3d8d2bbaa8e3dadece19b01352f7f36"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-013",
+            "name": "lamp: level 10 tie_0066",
+            "match": {
+                "texture_file_sha256":
+                    "dbb3b474a92ed5af8bec3de22bf7917a8982b65961548526ff40999887b8ca49"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-014",
+            "name": "lamp: level 10 tie_0072",
+            "match": {
+                "texture_file_sha256":
+                    "3b0de878bdaffc1d083e1f556ed67dc8cecbe5827dd102c372380a26c80977ca"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-015",
+            "name": "lamp: level 10 tie_0075",
+            "match": {
+                "texture_file_sha256":
+                    "b539f40cfa6cfd6611247588d2dc431ad5f07fb8de9255fb4d1ee2ee909c8da0"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-016",
+            "name": "lamp: level 10 tie_0121",
+            "match": {
+                "texture_file_sha256":
+                    "b74a4e19eda2b2f7066ac8e18624a4302100a0990cb58609845d179d0a565c59"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-017",
+            "name": "lava: level 11 terrain_0020",
+            "match": {
+                "texture_file_sha256":
+                    "a470e699da99e03e0a809e090bbc4286a866765f28a3f2a20ab1823ed25c6804"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1
+                }
+            }
+        },
+        {
+            "id": "emission-018",
+            "name": "lava: level 11 terrain_0023",
+            "match": {
+                "texture_file_sha256":
+                    "6e4cc43947abb3cd2cb354f201b0ad41b78eab9833ff57ab87d1c675770b869f"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1
+                }
+            }
+        },
+        {
+            "id": "emission-019",
+            "name": "lamp: level 11 tie_0080",
+            "match": {
+                "texture_file_sha256":
+                    "0b5f48066b4462ef0120804d15391bc5c7b9963c3a01b05b8df122003f30e136"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-020",
+            "name": "lava: level 11 tie_0109",
+            "match": {
+                "texture_file_sha256":
+                    "55d0921f99e1c6b2c7e8c09b3d5fcfdface0aae5b7d5f5da77de1058c35559bb"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1
+                }
+            }
+        },
+        {
+            "id": "emission-021",
+            "name": "window: level 12 shrub_0001",
+            "match": {
+                "texture_file_sha256":
+                    "1acb5676b450e8756279b557acfccdacb53d75c3c915269da0265b579c5bb1cb"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "vertex_colour": true
+                },
+                "surface": {
+                    "diffuse_scale": 0
+                }
+            }
+        },
+        {
+            "id": "emission-022",
+            "name": "lamp: level 14 terrain_0040",
+            "match": {
+                "texture_file_sha256":
+                    "37d83af26872883d6d4a0797a1c722ae1674abf7999a7011ff6719e199837cf3"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-023",
+            "name": "lamp: level 14 tie_0122",
+            "match": {
+                "texture_file_sha256":
+                    "273e8f9deae2838e5e6284f6a4b3be8ac736887417e6e3bce1f22903ac829584"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-024",
+            "name": "lamp: level 17 tie_0072",
+            "match": {
+                "texture_file_sha256":
+                    "23e6245c95bc7339e70f259f1d924d73c4a5dd7293fa92b4b79028780523f11e"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-025",
+            "name": "screen: level 18 tie_0026",
+            "match": {
+                "texture_file_sha256":
+                    "0188ef9d3fff51445830cd0e0e1b6cc8ef0b1cccdc5cbf2c18115f368061a5d6"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1
+                }
+            }
+        },
+        {
+            "id": "emission-026",
+            "name": "lamp: level 20 shrub_0006",
+            "match": {
+                "texture_file_sha256":
+                    "3f51552124a0d7ba1ba3122340d1a5ea3ca854caaa9c76d4be1db43428b6af82"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-027",
+            "name": "lamp: level 21 shrub_0004",
+            "match": {
+                "texture_file_sha256":
+                    "ca8d02bdfc1e9f3fe8275b755978dbf601ff9d1e323427fb6a8cdba4826e1eee"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-028",
+            "name": "lamp: level 22 shrub_0006",
+            "match": {
+                "texture_file_sha256":
+                    "bd28b6989bcdd22010500e1084157f529cf3b5c0ff906daacd6aa9834d2ae50a"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-029",
+            "name": "lamp: level 22 tie_0031",
+            "match": {
+                "texture_file_sha256":
+                    "fa009b033f6cb082c7c565f689b7a2b803f16c10bc0aa668f7a8f97369dfacc3"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-030",
+            "name": "lamp: level 22 tie_0057",
+            "match": {
+                "texture_file_sha256":
+                    "755458b8844ed49ad2da7025df54f75f4fa0adce12a7de9684a7fd1b12926ca3"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-031",
+            "name": "screen: level 23 shrub_0007",
+            "match": {
+                "texture_file_sha256":
+                    "f33729c5f6b3923ecc7fd25fac3c2be8b312faecd9246944347ddbbae720af32"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1
+                }
+            }
+        },
+        {
+            "id": "emission-032",
+            "name": "lamp: level 24 shrub_0007",
+            "match": {
+                "texture_file_sha256":
+                    "7f017d2b78f1f9ea27c08ddbe3efa402b92f0eb7b37005a8bcef51741edf6468"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-033",
+            "name": "screen: level 29 terrain_0036",
+            "match": {
+                "texture_file_sha256":
+                    "7a9ebe1925d89cd6fd7d5f62d24b7c7525c50940fa5a65623762c9dcb75957b9"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1
+                }
+            }
+        },
+        {
+            "id": "emission-034",
+            "name": "lamp: level 33 tie_0093",
+            "match": {
+                "texture_file_sha256":
+                    "b3b5f25bb6f446dc251aec0cfbf578f757da9d4cd96dd6f91498d5c6fadf7c3f"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
+        },
+        {
+            "id": "emission-035",
+            "name": "lamp: level 33 tie_0098",
+            "match": {
+                "texture_file_sha256":
+                    "d90f760f6f69f0f297474f8b00f7e0d9a5ef3746cbaccd213c035cb1845acd13"
+            },
+            "set": {
+                "emission": {
+                    "runtime_intensity": 1,
+                    "contrast": 2
+                }
+            }
         }
-      }
-    },
-    {
-      "id": "emission-022",
-      "name": "lamp: level 14 terrain_0040",
-      "match": {
-        "texture_file_sha256": "37d83af26872883d6d4a0797a1c722ae1674abf7999a7011ff6719e199837cf3"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-023",
-      "name": "lamp: level 14 tie_0122",
-      "match": {
-        "texture_file_sha256": "273e8f9deae2838e5e6284f6a4b3be8ac736887417e6e3bce1f22903ac829584"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-024",
-      "name": "lamp: level 17 tie_0072",
-      "match": {
-        "texture_file_sha256": "23e6245c95bc7339e70f259f1d924d73c4a5dd7293fa92b4b79028780523f11e"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-025",
-      "name": "screen: level 18 tie_0026",
-      "match": {
-        "texture_file_sha256": "0188ef9d3fff51445830cd0e0e1b6cc8ef0b1cccdc5cbf2c18115f368061a5d6"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1
-        }
-      }
-    },
-    {
-      "id": "emission-026",
-      "name": "lamp: level 20 shrub_0006",
-      "match": {
-        "texture_file_sha256": "3f51552124a0d7ba1ba3122340d1a5ea3ca854caaa9c76d4be1db43428b6af82"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-027",
-      "name": "lamp: level 21 shrub_0004",
-      "match": {
-        "texture_file_sha256": "ca8d02bdfc1e9f3fe8275b755978dbf601ff9d1e323427fb6a8cdba4826e1eee"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-028",
-      "name": "lamp: level 22 shrub_0006",
-      "match": {
-        "texture_file_sha256": "bd28b6989bcdd22010500e1084157f529cf3b5c0ff906daacd6aa9834d2ae50a"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-029",
-      "name": "lamp: level 22 tie_0031",
-      "match": {
-        "texture_file_sha256": "fa009b033f6cb082c7c565f689b7a2b803f16c10bc0aa668f7a8f97369dfacc3"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-030",
-      "name": "lamp: level 22 tie_0057",
-      "match": {
-        "texture_file_sha256": "755458b8844ed49ad2da7025df54f75f4fa0adce12a7de9684a7fd1b12926ca3"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-031",
-      "name": "screen: level 23 shrub_0007",
-      "match": {
-        "texture_file_sha256": "f33729c5f6b3923ecc7fd25fac3c2be8b312faecd9246944347ddbbae720af32"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1
-        }
-      }
-    },
-    {
-      "id": "emission-032",
-      "name": "lamp: level 24 shrub_0007",
-      "match": {
-        "texture_file_sha256": "7f017d2b78f1f9ea27c08ddbe3efa402b92f0eb7b37005a8bcef51741edf6468"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-033",
-      "name": "screen: level 29 terrain_0036",
-      "match": {
-        "texture_file_sha256": "7a9ebe1925d89cd6fd7d5f62d24b7c7525c50940fa5a65623762c9dcb75957b9"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1
-        }
-      }
-    },
-    {
-      "id": "emission-034",
-      "name": "lamp: level 33 tie_0093",
-      "match": {
-        "texture_file_sha256": "b3b5f25bb6f446dc251aec0cfbf578f757da9d4cd96dd6f91498d5c6fadf7c3f"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    },
-    {
-      "id": "emission-035",
-      "name": "lamp: level 33 tie_0098",
-      "match": {
-        "texture_file_sha256": "d90f760f6f69f0f297474f8b00f7e0d9a5ef3746cbaccd213c035cb1845acd13"
-      },
-      "set": {
-        "emission": {
-          "runtime_intensity": 1,
-          "contrast": 2
-        }
-      }
-    }
-  ]
+    ]
 }

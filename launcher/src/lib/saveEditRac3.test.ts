@@ -1,43 +1,50 @@
-import { describe, expect, it } from "vitest";
-
-import type { Rac3SaveView } from "$lib/api";
-import { changedRac3, fieldErrorsRac3, playTime } from "$lib/saveEditRac3";
+import type {Rac3SaveView} from "$lib/api";
+import {changedRac3, fieldErrorsRac3, playTime} from "$lib/saveEditRac3";
+import {describe, expect, it} from "vitest";
 
 function weapon(f: Rac3SaveView["fields"], i: number) {
   const w = f.weapons[i];
 
-  if (!w) throw new Error(`no weapon ${String(i)}`);
+  if (!w)
+    throw new Error(`no weapon ${String(i)}`);
 
   return w;
 }
 
 function view(): Rac3SaveView {
   return {
-    serial: "SCES_524.56",
-    slot: 1,
-    fingerprint: "f",
-    planetName: "Veldin",
-    savedAt: null,
-    playSeconds: 3723,
-    fields: {
-      bolts: 12345,
-      weapons: [
-        { id: 39, owned: true, ammo: 20 },
-        { id: 47, owned: false, ammo: 0 },
+    serial : "SCES_524.56",
+    slot : 1,
+    fingerprint : "f",
+    planetName : "Veldin",
+    savedAt : null,
+    playSeconds : 3723,
+    fields : {
+      bolts : 12345,
+      weapons : [
+        {id : 39, owned : true, ammo : 20},
+        {id : 47, owned : false, ammo : 0},
       ],
     },
-    weapons: [
+    weapons : [
       {
-        id: 39,
-        name: "Shock Blaster",
-        versionName: "Shock Blaster V2",
-        version: 2,
-        maxAmmo: 35,
-        xp: 0,
+        id : 39,
+        name : "Shock Blaster",
+        versionName : "Shock Blaster V2",
+        version : 2,
+        maxAmmo : 35,
+        xp : 0,
       },
-      { id: 47, name: "N60 Storm", versionName: "N60 Storm", version: 1, maxAmmo: 150, xp: 0 },
+      {
+        id : 47,
+        name : "N60 Storm",
+        versionName : "N60 Storm",
+        version : 1,
+        maxAmmo : 150,
+        xp : 0
+      },
     ],
-    maxBolts: 9_999_999,
+    maxBolts : 9_999_999,
   };
 }
 
@@ -62,7 +69,9 @@ describe("the Up Your Arsenal save editor", () => {
     f.bolts = 10_000_000;
     weapon(f, 0).ammo = 36;
     weapon(f, 1).ammo = 5;
-    expect(Object.keys(fieldErrorsRac3(v, f)).sort()).toEqual(["ammo-39", "ammo-47", "bolts"]);
+    expect(Object.keys(fieldErrorsRac3(v, f)).sort()).toEqual([
+      "ammo-39", "ammo-47", "bolts"
+    ]);
   });
 
   it("shows the play time as the Load page does", () => {

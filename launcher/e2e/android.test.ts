@@ -276,8 +276,10 @@ describe("A controller", () => {
 
   /** The name beside the disc, once the last game's has gone (the two cross for a moment). */
   async function shownName() {
-    // div.info: a status line with the "info" tone ("Not playable yet") is a p.info too.
-    await page.waitForFunction(() => document.querySelectorAll("div.info").length === 1);
+    // div.info: a status line with the "info" tone ("Not playable yet") is a
+    // p.info too.
+    await page.waitForFunction(
+        () => document.querySelectorAll("div.info").length === 1);
 
     return page.locator("div.info h1").textContent();
   }

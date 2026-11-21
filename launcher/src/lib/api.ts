@@ -86,9 +86,9 @@ import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
 import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
 import type { Rac2SaveView } from "./generated/Rac2SaveView";
 import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
-import type { Rac3SaveFields } from "./generated/Rac3SaveFields";
-import type { Rac3SaveView } from "./generated/Rac3SaveView";
-import type { Rac3WriteResult } from "./generated/Rac3WriteResult";
+import type {Rac3SaveFields} from "./generated/Rac3SaveFields";
+import type {Rac3SaveView} from "./generated/Rac3SaveView";
+import type {Rac3WriteResult} from "./generated/Rac3WriteResult";
 import type { RawPatch } from "./generated/RawPatch";
 import type { RemoteInstalled } from "./generated/RemoteInstalled";
 import type { RemoteMod } from "./generated/RemoteMod";
@@ -259,7 +259,7 @@ export type {
 
 export type { Rac2SaveFields, Rac2SaveView, Rac2WriteResult };
 
-export type { Rac3SaveFields, Rac3SaveView, Rac3WriteResult };
+export type {Rac3SaveFields, Rac3SaveView, Rac3WriteResult};
 
 export type { ModSaveData, ModSaveField };
 
@@ -387,387 +387,630 @@ async function callRaw<T>(
 }
 
 export const api = {
-  appInfo: () => call<AppInfo>("app_info"),
-  getConfig: () => call<Config>("get_config"),
-  saveConfig: (config: Config) => call<Config>("save_config", { config }),
-  detect: () => call<Detected>("detect"),
-  checkRoot: (path: string) => call<Check>("check_root", { path }),
-  checkTool: (tool: Tool, path: string) => call<Check>("check_tool", { tool, path }),
-  /** Takes a Godot that works when none is set or the one set is gone; the config as it is then. */
-  adoptGodot: () => call<Config>("adopt_godot"),
-  library: () => call<Library>("library"),
-  /** `inputs`: which level a per-level action is for (the level editor's projects, one each), a
-   *  file or folder the player chose (`{path}`), one of the action's options (`{option}`). */
-  runAction: (scope: Scope, id: string, inputs: RunInputs = {}) =>
-    call<Started>("run_action", {
-      scope,
-      id,
-      level: inputs.level ?? null,
-      path: inputs.path ?? null,
-      option: inputs.option ?? null,
-    }),
-  cancelJob: (id: number) => call<null>("cancel_job", { id }),
-  /** A file or folder in the checkout, relative to it (`games/rac1/decomp/README.md`). Android opens no
-   *  app's own files: a document there is read on GitHub, and a folder cannot be shown. */
-  openPath: (path: string) =>
-    onAndroid
-      ? /^[\w./-]+\.\w+$/.test(path) && !path.startsWith("/") && !path.includes("..")
-        ? call<null>("open_url", { url: `${REPO_URL}/blob/master/${path}` })
-        : Promise.reject(new Error("Android cannot show the launcher's own folders."))
-      : call<null>("open_path", { path }),
-  openUrl: (url: string) => call<null>("open_url", { url }),
-  /** Sets a game up from the image of the player's disc: the extractor, as a job. */
-  installGame: (game: string, image: string) => call<Started>("install_game", { game, image }),
-  /** The plain image a set-up reads: an .iso as it is, a .chd unpacked once (`disc-copy` events). */
-  prepareDisc: (image: string) => call<string>("prepare_disc", { image }),
-  /** Removes what setting a game up made (not the disc image, not the saves). */
-  uninstallGame: (game: string) => call<null>("uninstall_game", { game }),
-  /** The games OpenRAC knows among the images in the games folder, and a developer's disc choices. */
-  scanDiscs: () => call<DiscScan>("scan_discs"),
-  /** Developers only: plays this version's disc of its game; the other's set-up is kept aside. */
-  chooseDisc: (version: string) => call<Config>("choose_disc", { version }),
-  syncProgressFromWeb: () => call<Library>("sync_progress_from_web"),
-  applyProgressJson: (json: string) => call<Library>("apply_progress_json", { json }),
-  setDiscordStatus: (status: DiscordStatus) => call<null>("set_discord_status", { status }),
-  inspectSaves: (serial: string) => call<GameSaveStatus>("inspect_saves", { serial }),
-  backupSaves: (serial: string, note?: string) =>
-    call<SaveBackupInfo>("backup_saves", { serial, note }),
-  restoreBackup: (serial: string, backupName: string) =>
-    call<null>("restore_backup", { serial, backupName }),
-  /** The game's saves copied in from a PCSX2 memory card (a card file, or a folder card's
-   *  _pcsx2_superblock), after a backup of the card. */
-  importPcsx2Saves: (serial: string, source: string) =>
-    call<ImportedSaves>("import_pcsx2_saves", { serial, source }),
+  appInfo : () => call<AppInfo>("app_info"),
+  getConfig : () => call<Config>("get_config"),
+  saveConfig : (config: Config) => call<Config>("save_config", {config}),
+  detect : () => call<Detected>("detect"),
+  checkRoot : (path: string) => call<Check>("check_root", {path}),
+  checkTool : (tool: Tool, path: string) =>
+      call<Check>("check_tool", {tool, path}),
+  /**
+     Takes a Godot that works when none is set or the one set is gone; the
+     config as it is then.
+   */
+  adoptGodot : () => call<Config>("adopt_godot"),
+  library : () => call<Library>("library"),
+  /**
+   * `inputs`: which level a per-level action is for (the level editor's
+   * projects, one each), a file or folder the player chose (`{path}`), one of
+   * the action's options (`{option}`).
+   */
+  runAction : (scope: Scope, id: string, inputs: RunInputs = {}) =>
+      call<Started>("run_action", {
+        scope,
+        id,
+        level : inputs.level ?? null,
+        path : inputs.path ?? null,
+        option : inputs.option ?? null,
+      }),
+  cancelJob : (id: number) => call<null>("cancel_job", {id}),
+  /**
+   * A file or folder in the checkout, relative to it
+   * (`games/rac1/decomp/README.md`). Android opens no app's own files: a
+   * document there is read on GitHub, and a folder cannot be shown.
+   */
+  openPath : (path: string) =>
+      onAndroid ? /^[\w./-]+\.\w+$/.test(path) && !path.startsWith("/") &&
+                          !path.includes("..")
+                      ? call<null>("open_url",
+                                   {url : `${REPO_URL}/blob/master/${path}`})
+                      : Promise.reject(new Error(
+                            "Android cannot show the launcher's own folders."))
+                : call<null>("open_path", {path}),
+  openUrl : (url: string) => call<null>("open_url", {url}),
+  /**
+     Sets a game up from the image of the player's disc: the extractor, as a
+     job.
+   */
+  installGame : (game: string, image: string) =>
+      call<Started>("install_game", {game, image}),
+  /**
+     The plain image a set-up reads: an .iso as it is, a .chd unpacked once
+     (`disc-copy` events).
+   */
+  prepareDisc : (image: string) => call<string>("prepare_disc", {image}),
+  /**
+     Removes what setting a game up made (not the disc image, not the saves).
+   */
+  uninstallGame : (game: string) => call<null>("uninstall_game", {game}),
+  /**
+     The games OpenRAC knows among the images in the games folder, and a
+     developer's disc choices.
+   */
+  scanDiscs : () => call<DiscScan>("scan_discs"),
+  /**
+     Developers only: plays this version's disc of its game; the other's set-up
+     is kept aside.
+   */
+  chooseDisc : (version: string) => call<Config>("choose_disc", {version}),
+  syncProgressFromWeb : () => call<Library>("sync_progress_from_web"),
+  applyProgressJson : (json: string) =>
+      call<Library>("apply_progress_json", {json}),
+  setDiscordStatus : (status: DiscordStatus) =>
+      call<null>("set_discord_status", {status}),
+  inspectSaves : (serial: string) =>
+      call<GameSaveStatus>("inspect_saves", {serial}),
+  backupSaves : (serial: string, note?: string) =>
+      call<SaveBackupInfo>("backup_saves", {serial, note}),
+  restoreBackup : (serial: string, backupName: string) =>
+      call<null>("restore_backup", {serial, backupName}),
+  /**
+   * The game's saves copied in from a PCSX2 memory card (a card file, or a
+   * folder card's _pcsx2_superblock), after a backup of the card.
+   */
+  importPcsx2Saves : (serial: string, source: string) =>
+      call<ImportedSaves>("import_pcsx2_saves", {serial, source}),
   /** Where PCSX2 keeps its memory cards, when found. */
-  pcsx2MemcardsDir: () => call<string | null>("pcsx2_memcards_dir"),
-  /** The game's saves (all, or one slot) exported to an OpenRAC saves file (.zip) where the player
-   *  chooses, in the system's save dialog; `saved` is empty when they backed out. */
-  exportSaves: (serial: string, slot: number | null) =>
-    call<ExportedSaves>("export_saves", { serial, slot }),
-  /** What an OpenRAC saves file holds; refused for another game's file or a damaged one. */
-  previewSaveImport: (serial: string, source: string) =>
-    call<SaveImportPreview>("preview_save_import", { serial, source }),
-  /** The saves file onto the game's card, after a backup: all of it, or the chosen slots merged. */
-  importSaves: (serial: string, source: string, choice: SaveImportChoice) =>
-    call<ImportedSaves>("import_saves", { serial, source, choice }),
-  /** The game's other discs whose cards hold saves this disc's game reads as its own. */
-  saveCopySources: (serial: string) => call<SaveCopySource[]>("save_copy_sources", { serial }),
-  /** What copying the saves of the disc `from` onto this one's card would do (`serial` is `from`). */
-  previewSaveCopy: (from: string, serial: string) =>
-    call<SaveImportPreview>("preview_save_copy", { from, serial }),
-  /** The other disc's saves onto this one's card, after a backup: all of them, or the chosen slots. */
-  copySaves: (from: string, serial: string, choice: SaveImportChoice) =>
-    call<ImportedSaves>("copy_saves", { from, serial, choice }),
-  openSavesFolder: (serial: string) => call<null>("open_saves_folder", { serial }),
-  /** Android: OpenRAC's place in the system's Files app (the saves, settings, games, discs). */
-  showFiles: () => call<null>("show_files"),
+  pcsx2MemcardsDir : () => call<string|null>("pcsx2_memcards_dir"),
+  /**
+   * The game's saves (all, or one slot) exported to an OpenRAC saves file
+   * (.zip) where the player chooses, in the system's save dialog; `saved` is
+   * empty when they backed out.
+   */
+  exportSaves : (serial: string, slot: number|null) =>
+      call<ExportedSaves>("export_saves", {serial, slot}),
+  /**
+     What an OpenRAC saves file holds; refused for another game's file or a
+     damaged one.
+   */
+  previewSaveImport : (serial: string, source: string) =>
+      call<SaveImportPreview>("preview_save_import", {serial, source}),
+  /**
+     The saves file onto the game's card, after a backup: all of it, or the
+     chosen slots merged.
+   */
+  importSaves : (serial: string, source: string, choice: SaveImportChoice) =>
+      call<ImportedSaves>("import_saves", {serial, source, choice}),
+  /**
+     The game's other discs whose cards hold saves this disc's game reads as
+     its own.
+   */
+  saveCopySources : (serial: string) =>
+      call<SaveCopySource[]>("save_copy_sources", {serial}),
+  /**
+     What copying the saves of the disc `from` onto this one's card would do
+     (`serial` is `from`).
+   */
+  previewSaveCopy : (from: string, serial: string) =>
+      call<SaveImportPreview>("preview_save_copy", {from, serial}),
+  /**
+     The other disc's saves onto this one's card, after a backup: all of them,
+     or the chosen slots.
+   */
+  copySaves : (from: string, serial: string, choice: SaveImportChoice) =>
+      call<ImportedSaves>("copy_saves", {from, serial, choice}),
+  openSavesFolder : (serial: string) =>
+      call<null>("open_saves_folder", {serial}),
+  /**
+     Android: OpenRAC's place in the system's Files app (the saves, settings,
+     games, discs).
+   */
+  showFiles : () => call<null>("show_files"),
   /** A game's session logs and crash reports, the newest first. */
-  reportsList: (game: string) => call<ReportEntry[]>("reports_list", { game }),
+  reportsList : (game: string) => call<ReportEntry[]>("reports_list", {game}),
   /** The newest crash report written since `since` (seconds since 1970). */
-  latestCrash: (game: string, since: number) =>
-    call<ReportEntry | null>("latest_crash", { game, since }),
+  latestCrash : (game: string, since: number) =>
+      call<ReportEntry|null>("latest_crash", {game, since}),
   /** The short text to paste in an issue or on Discord (home folder as ~). */
-  reportText: (game: string, file: string) => call<string>("report_text", { game, file }),
-  /** Saves the report's .zip in Downloads and shows it; returns where (home folder as ~). */
-  reportSave: (game: string, file: string) => call<string>("report_save", { game, file }),
-  /** Deletes one log or crash report from the game's data folder (core refuses any other file). */
-  reportDelete: (game: string, file: string) => call<null>("report_delete", { game, file }),
-  /** What the port does otherwise than the PS2 game, for one version (`rac1`, `pal`). */
-  differences: (game: string, version: string) =>
-    call<Differences>("differences", { game, version }),
+  reportText : (game: string, file: string) =>
+      call<string>("report_text", {game, file}),
+  /**
+     Saves the report's .zip in Downloads and shows it; returns where (home
+     folder as ~).
+   */
+  reportSave : (game: string, file: string) =>
+      call<string>("report_save", {game, file}),
+  /**
+     Deletes one log or crash report from the game's data folder (core refuses
+     any other file).
+   */
+  reportDelete : (game: string, file: string) =>
+      call<null>("report_delete", {game, file}),
+  /**
+     What the port does otherwise than the PS2 game, for one version (`rac1`,
+     `pal`).
+   */
+  differences : (game: string, version: string) =>
+      call<Differences>("differences", {game, version}),
   // The controls files (core/src/controls.rs); no page shows them yet.
-  controlsView: (game: string | null, player: number | null = null) =>
-    call<ControlsView>("controls_view", { game, player }),
-  controlsSet: (scope: ControlsScope, key: string, value: string | null) =>
-    call<ControlsView>("controls_set", { scope, key, value }),
-  controlsReset: (scope: ControlsScope) => call<ControlsView>("controls_reset", { scope }),
-  controlsResetPlayers: () => call<ControlsView>("controls_reset_players"),
-  controlsResetPlayer: (scope: ControlsScope, player: number) =>
-    call<ControlsView>("controls_reset_player", { scope, player }),
-  controlsExport: (scope: ControlsScope, path: string) =>
-    call<null>("controls_export", { scope, path }),
-  controlsImport: (scope: ControlsScope, path: string) =>
-    call<ControlsView>("controls_import", { scope, path }),
-  controlsCopy: (from: string, to: string) => call<ControlsView>("controls_copy", { from, to }),
-  /** Switches a game fix on (the port's) or off (as the original plays) in the version's settings. */
-  setGameFix: (game: string, version: string, id: string, on: boolean) =>
-    call<Differences>("set_game_fix", { game, version, id, on }),
-  /** Deletes every log and crash report of the game; returns how many files went. */
-  reportsDeleteAll: (game: string) => call<number>("reports_delete_all", { game }),
+  controlsView : (game: string|null, player: number|null = null) =>
+      call<ControlsView>("controls_view", {game, player}),
+  controlsSet : (scope: ControlsScope, key: string, value: string|null) =>
+      call<ControlsView>("controls_set", {scope, key, value}),
+  controlsReset : (scope: ControlsScope) =>
+      call<ControlsView>("controls_reset", {scope}),
+  controlsResetPlayers : () => call<ControlsView>("controls_reset_players"),
+  controlsResetPlayer : (scope: ControlsScope, player: number) =>
+      call<ControlsView>("controls_reset_player", {scope, player}),
+  controlsExport : (scope: ControlsScope, path: string) =>
+      call<null>("controls_export", {scope, path}),
+  controlsImport : (scope: ControlsScope, path: string) =>
+      call<ControlsView>("controls_import", {scope, path}),
+  controlsCopy : (from: string, to: string) =>
+      call<ControlsView>("controls_copy", {from, to}),
+  /**
+     Switches a game fix on (the port's) or off (as the original plays) in the
+     version's settings.
+   */
+  setGameFix : (game: string, version: string, id: string, on: boolean) =>
+      call<Differences>("set_game_fix", {game, version, id, on}),
+  /**
+     Deletes every log and crash report of the game; returns how many files
+     went.
+   */
+  reportsDeleteAll : (game: string) =>
+      call<number>("reports_delete_all", {game}),
   /** Opens the folder of a game's logs, or of its crash reports. */
-  openReportsFolder: (game: string, crashes: boolean) =>
-    call<null>("open_reports_folder", { game, crashes }),
+  openReportsFolder : (game: string, crashes: boolean) =>
+      call<null>("open_reports_folder", {game, crashes}),
   /** One slot for the save editor. */
-  readSave: (serial: string, slot: number) => call<SaveView>("read_save", { serial, slot }),
-  /** Writes the editor's change: refused while the game runs with the card; backs the card up first. */
-  writeSave: (serial: string, slot: number, fingerprint: string, change: SaveChange) =>
-    call<WriteResult>("write_save", { serial, slot, fingerprint, change }),
-  /** One Going Commando slot for its save editor (core/src/save_edit_rac2.rs). */
-  readSaveRac2: (serial: string, slot: number) =>
-    call<Rac2SaveView>("read_save_rac2", { serial, slot }),
-  /** Writes the Going Commando editor's fields, with write_save's guards and backup. */
-  writeSaveRac2: (serial: string, slot: number, fingerprint: string, fields: Rac2SaveFields) =>
-    call<Rac2WriteResult>("write_save_rac2", { serial, slot, fingerprint, fields }),
-  /** One Up Your Arsenal slot for its save editor (core/src/save_edit_rac3.rs). */
-  readSaveRac3: (serial: string, slot: number) =>
-    call<Rac3SaveView>("read_save_rac3", { serial, slot }),
-  /** Writes the Up Your Arsenal editor's fields, with write_save's guards and backup. */
-  writeSaveRac3: (serial: string, slot: number, fingerprint: string, fields: Rac3SaveFields) =>
-    call<Rac3WriteResult>("write_save_rac3", { serial, slot, fingerprint, fields }),
-  /** What the mods that are on keep beside a Going Commando save (core/src/mod_save_data.rs). */
-  readModSaveDataRac2: (serial: string, slot: number) =>
-    call<ModSaveData[]>("read_mod_save_data_rac2", { serial, slot }),
-  /** Writes one mod's fields of that save's record; refused while the game runs. */
-  writeModSaveDataRac2: (
-    serial: string,
-    slot: number,
-    id: string,
-    values: Record<string, number>,
-  ) => call<ModSaveData>("write_mod_save_data_rac2", { serial, slot, id, values }),
-  /** A Going Commando slot's advanced fields (core/src/save_edit_rac2_extra.rs). */
-  readSaveRac2Extra: (serial: string, slot: number) =>
-    call<Rac2ExtraView>("read_save_rac2_extra", { serial, slot }),
-  /** Writes them: refused while the game runs with the card or if the file changed; backed up first. */
-  writeSaveRac2Extra: (
-    serial: string,
-    slot: number,
-    fingerprint: string,
-    fields: Rac2ExtraFields,
-  ) => call<Rac2ExtraWriteResult>("write_save_rac2_extra", { serial, slot, fingerprint, fields }),
-  /** A game's overrides packs (core/src/overrides.rs), in the order they apply. */
-  overridesList: (game: string) => call<PackView[]>("overrides_list", { game }),
-  overridesSummary: (version: string) => call<ModLoadSummary>("overrides_summary", { version }),
-  overridesSetEnabled: (game: string, id: string, enabled: boolean) =>
-    call<PackView[]>("overrides_set_enabled", { game, id, enabled }),
-  overridesMove: (game: string, id: string, up: boolean) =>
-    call<PackView[]>("overrides_move", { game, id, up }),
-  overridesRemove: (game: string, id: string) => call<PackView[]>("overrides_remove", { game, id }),
-  /** What starting the level editor over would delete for `version` ("rac1/pal"), with sizes (core reset.rs). */
-  resetPreview: (version: string, reset: ResetKind) =>
-    call<ResetPreview>("reset_preview", { version, reset }),
-  /** Where the player is with `version`'s level editor (core editor_state.rs): outdated projects,
-   *  edits not packed, the last update's notes, the backups. */
-  editorState: (version: string) => call<EditorState>("editor_state", { version }),
-  /** Deletes it; the player's own edits and packs only `withEdits`. Refused while a job runs. */
-  resetApply: (version: string, reset: ResetKind, withEdits: boolean) =>
-    call<ResetDone>("reset_apply", { version, reset, withEdits }),
-  /** A game's native mods (core/src/plugins.rs) for its disc `version` ("pal"), in load order. */
-  pluginsList: (game: string, version: string) =>
-    call<PluginView[]>("plugins_list", { game, version }),
-  /** Whether a mod that is on in one of `games` uses the Multiplayer name (core plugins.rs). */
-  playerNameUsed: (games: string[]) => call<boolean>("player_name_used", { games }),
-  pluginsSetEnabled: (game: string, version: string, id: string, enabled: boolean) =>
-    call<PluginView[]>("plugins_set_enabled", { game, version, id, enabled }),
-  pluginsMove: (game: string, version: string, id: string, up: boolean) =>
-    call<PluginView[]>("plugins_move", { game, version, id, up }),
-  pluginsSetSetting: (game: string, version: string, id: string, key: string, value: unknown) =>
-    call<PluginView[]>("plugins_set_setting", { game, version, id, key, value }),
-  /** The built-in Enhanced graphics entry of a version (core/src/enhanced.rs); null where it has none. */
-  /** What a version's interface textures can be exported from (core interface_runs.rs). */
-  interfaceRuns: (game: string, version: string) =>
-    call<InterfaceRunsView>("interface_runs_view", { game, version }),
-  /** A version's texture pack and the textures the game saved (core texture_packs.rs). */
-  texturePacks: (game: string, version: string) =>
-    call<TexturePackView>("texture_packs_view", { game, version }),
+  readSave : (serial: string, slot: number) =>
+      call<SaveView>("read_save", {serial, slot}),
+  /**
+     Writes the editor's change: refused while the game runs with the card;
+     backs the card up first.
+   */
+  writeSave :
+      (serial: string, slot: number, fingerprint: string, change: SaveChange) =>
+          call<WriteResult>("write_save", {serial, slot, fingerprint, change}),
+  /**
+     One Going Commando slot for its save editor (core/src/save_edit_rac2.rs).
+   */
+  readSaveRac2 : (serial: string, slot: number) =>
+      call<Rac2SaveView>("read_save_rac2", {serial, slot}),
+  /**
+     Writes the Going Commando editor's fields, with write_save's guards and
+     backup.
+   */
+  writeSaveRac2 : (serial: string, slot: number, fingerprint: string,
+                   fields: Rac2SaveFields) =>
+      call<Rac2WriteResult>("write_save_rac2",
+                            {serial, slot, fingerprint, fields}),
+  /**
+     One Up Your Arsenal slot for its save editor (core/src/save_edit_rac3.rs).
+   */
+  readSaveRac3 : (serial: string, slot: number) =>
+      call<Rac3SaveView>("read_save_rac3", {serial, slot}),
+  /**
+     Writes the Up Your Arsenal editor's fields, with write_save's guards and
+     backup.
+   */
+  writeSaveRac3 : (serial: string, slot: number, fingerprint: string,
+                   fields: Rac3SaveFields) =>
+      call<Rac3WriteResult>("write_save_rac3",
+                            {serial, slot, fingerprint, fields}),
+  /**
+     What the mods that are on keep beside a Going Commando save
+     (core/src/mod_save_data.rs).
+   */
+  readModSaveDataRac2 : (serial: string, slot: number) =>
+      call<ModSaveData[]>("read_mod_save_data_rac2", {serial, slot}),
+  /**
+     Writes one mod's fields of that save's record; refused while the game
+     runs.
+   */
+  writeModSaveDataRac2 : (
+      serial: string,
+      slot: number,
+      id: string,
+      values: Record<string, number>,
+      ) =>
+      call<ModSaveData>("write_mod_save_data_rac2", {serial, slot, id, values}),
+  /**
+     A Going Commando slot's advanced fields
+     (core/src/save_edit_rac2_extra.rs).
+   */
+  readSaveRac2Extra : (serial: string, slot: number) =>
+      call<Rac2ExtraView>("read_save_rac2_extra", {serial, slot}),
+  /**
+     Writes them: refused while the game runs with the card or if the file
+     changed; backed up first.
+   */
+  writeSaveRac2Extra : (
+      serial: string,
+      slot: number,
+      fingerprint: string,
+      fields: Rac2ExtraFields,
+      ) => call<Rac2ExtraWriteResult>("write_save_rac2_extra",
+                                      {serial, slot, fingerprint, fields}),
+  /**
+     A game's overrides packs (core/src/overrides.rs), in the order they apply.
+   */
+  overridesList : (game: string) => call<PackView[]>("overrides_list", {game}),
+  overridesSummary : (version: string) =>
+      call<ModLoadSummary>("overrides_summary", {version}),
+  overridesSetEnabled : (game: string, id: string, enabled: boolean) =>
+      call<PackView[]>("overrides_set_enabled", {game, id, enabled}),
+  overridesMove : (game: string, id: string, up: boolean) =>
+      call<PackView[]>("overrides_move", {game, id, up}),
+  overridesRemove : (game: string, id: string) =>
+      call<PackView[]>("overrides_remove", {game, id}),
+  /**
+     What starting the level editor over would delete for `version`
+     ("rac1/pal"), with sizes (core reset.rs).
+   */
+  resetPreview : (version: string, reset: ResetKind) =>
+      call<ResetPreview>("reset_preview", {version, reset}),
+  /**
+   * Where the player is with `version`'s level editor (core editor_state.rs):
+   * outdated projects, edits not packed, the last update's notes, the backups.
+   */
+  editorState : (version: string) =>
+      call<EditorState>("editor_state", {version}),
+  /**
+     Deletes it; the player's own edits and packs only `withEdits`. Refused
+     while a job runs.
+   */
+  resetApply : (version: string, reset: ResetKind, withEdits: boolean) =>
+      call<ResetDone>("reset_apply", {version, reset, withEdits}),
+  /**
+     A game's native mods (core/src/plugins.rs) for its disc `version` ("pal"),
+     in load order.
+   */
+  pluginsList : (game: string, version: string) =>
+      call<PluginView[]>("plugins_list", {game, version}),
+  /**
+     Whether a mod that is on in one of `games` uses the Multiplayer name (core
+     plugins.rs).
+   */
+  playerNameUsed : (games: string[]) =>
+      call<boolean>("player_name_used", {games}),
+  pluginsSetEnabled : (game: string, version: string, id: string,
+                       enabled: boolean) =>
+      call<PluginView[]>("plugins_set_enabled", {game, version, id, enabled}),
+  pluginsMove : (game: string, version: string, id: string, up: boolean) =>
+      call<PluginView[]>("plugins_move", {game, version, id, up}),
+  pluginsSetSetting : (game: string, version: string, id: string, key: string,
+                       value: unknown) =>
+      call<PluginView[]>("plugins_set_setting",
+                         {game, version, id, key, value}),
+  /**
+     The built-in Enhanced graphics entry of a version (core/src/enhanced.rs);
+     null where it has none.
+   */
+  /**
+     What a version's interface textures can be exported from (core
+     interface_runs.rs).
+   */
+  interfaceRuns : (game: string, version: string) =>
+      call<InterfaceRunsView>("interface_runs_view", {game, version}),
+  /**
+     A version's texture pack and the textures the game saved (core
+     texture_packs.rs).
+   */
+  texturePacks : (game: string, version: string) =>
+      call<TexturePackView>("texture_packs_view", {game, version}),
   /** Switches the pack on or off, or saving the textures at the next Play. */
-  texturePacksSet: (
-    game: string,
-    version: string,
-    change: { enabled?: boolean; dumping?: boolean; pcsx2?: string },
-  ) =>
-    call<TexturePackView>("texture_packs_set", {
-      game,
-      version,
-      enabled: change.enabled ?? null,
-      dumping: change.dumping ?? null,
-      pcsx2: change.pcsx2 ?? null,
-    }),
-  /** Opens a folder of the pack, or of the saved textures (`dump`); `folder` "" is the whole one. */
-  texturePacksOpen: (game: string, version: string, dump: boolean, folder = "") =>
-    call<null>("texture_packs_open", { game, version, dump, folder }),
-  texturePacksPreview: (game: string, version: string, source: string) =>
-    call<TexturePackPreview>("texture_packs_preview", { game, version, source }),
-  texturePacksImport: (
-    game: string,
-    version: string,
-    source: string,
-    mode: TexturePackImportMode,
-  ) => call<ImportedTexturePack>("texture_packs_import", { game, version, source, mode }),
-  /** Saves the pack as a .zip where the player chooses; `saved` is empty when they backed out. */
-  texturePacksExport: (game: string, version: string) =>
-    call<ExportedTexturePack>("texture_packs_export", { game, version }),
-  // A mod's own page (core/src/mod_tools.rs, src-tauri/src/mod_tool.rs, lib/modTool.ts).
-  modToolList: (game: string, version: string, root: ToolRoot) =>
-    call<ToolFile[]>("mod_tool_list", { game, version, root }),
-  modToolRead: (
-    game: string,
-    version: string,
-    root: ToolRoot,
-    path: string,
-    start?: number,
-    length?: number,
-  ) =>
-    call<ArrayBuffer>("mod_tool_read", {
-      game,
-      version,
-      root,
-      path,
-      start: start ?? null,
-      length: length ?? null,
-    }),
-  modToolStoreGet: (id: string, key: string) => call<unknown>("mod_tool_store_get", { id, key }),
-  modToolStoreSet: (id: string, key: string, value: unknown) =>
-    call<null>("mod_tool_store_set", { id, key, value }),
-  /** Saves a file the page made where the player chooses: the name it was saved under, or "" (backed out). */
-  modToolSave: (id: string, name: string, extension: string, bytes: Uint8Array) =>
-    callRaw<string>("mod_tool_save", bytes, {
-      "x-mod": encodeURIComponent(id),
-      "x-name": encodeURIComponent(name),
-      "x-extension": encodeURIComponent(extension),
-    }),
-  /** Starts saving a large file in parts: its number, 0 when the player backed out. */
-  modToolSaveStart: (id: string, name: string, extension: string) =>
-    call<number>("mod_tool_save_start", { id, name, extension }),
-  modToolSaveWrite: (token: number, bytes: Uint8Array) =>
-    callRaw<null>("mod_tool_save_write", bytes, { "x-token": String(token) }),
+  texturePacksSet : (
+      game: string,
+      version: string,
+      change: {enabled?: boolean; dumping?: boolean; pcsx2?: string},
+      ) => call<TexturePackView>("texture_packs_set", {
+    game,
+    version,
+    enabled : change.enabled ?? null,
+    dumping : change.dumping ?? null,
+    pcsx2 : change.pcsx2 ?? null,
+  }),
+  /**
+     Opens a folder of the pack, or of the saved textures (`dump`); `folder` ""
+     is the whole one.
+   */
+  texturePacksOpen :
+      (game: string, version: string, dump: boolean, folder = "") =>
+          call<null>("texture_packs_open", {game, version, dump, folder}),
+  texturePacksPreview : (game: string, version: string, source: string) =>
+      call<TexturePackPreview>("texture_packs_preview",
+                               {game, version, source}),
+  texturePacksImport : (
+      game: string,
+      version: string,
+      source: string,
+      mode: TexturePackImportMode,
+      ) => call<ImportedTexturePack>("texture_packs_import",
+                                     {game, version, source, mode}),
+  /**
+     Saves the pack as a .zip where the player chooses; `saved` is empty when
+     they backed out.
+   */
+  texturePacksExport : (game: string, version: string) =>
+      call<ExportedTexturePack>("texture_packs_export", {game, version}),
+  // A mod's own page (core/src/mod_tools.rs, src-tauri/src/mod_tool.rs,
+  // lib/modTool.ts).
+  modToolList : (game: string, version: string, root: ToolRoot) =>
+      call<ToolFile[]>("mod_tool_list", {game, version, root}),
+  modToolRead : (
+      game: string,
+      version: string,
+      root: ToolRoot,
+      path: string,
+      start?: number,
+      length?: number,
+      ) => call<ArrayBuffer>("mod_tool_read", {
+    game,
+    version,
+    root,
+    path,
+    start : start ?? null,
+    length : length ?? null,
+  }),
+  modToolStoreGet : (id: string, key: string) =>
+      call<unknown>("mod_tool_store_get", {id, key}),
+  modToolStoreSet : (id: string, key: string, value: unknown) =>
+      call<null>("mod_tool_store_set", {id, key, value}),
+  /**
+     Saves a file the page made where the player chooses: the name it was saved
+     under, or "" (backed out).
+   */
+  modToolSave : (id: string, name: string, extension: string,
+                 bytes: Uint8Array) => callRaw<string>("mod_tool_save", bytes, {
+    "x-mod" : encodeURIComponent(id),
+    "x-name" : encodeURIComponent(name),
+    "x-extension" : encodeURIComponent(extension),
+  }),
+  /**
+     Starts saving a large file in parts: its number, 0 when the player backed
+     out.
+   */
+  modToolSaveStart : (id: string, name: string, extension: string) =>
+      call<number>("mod_tool_save_start", {id, name, extension}),
+  modToolSaveWrite : (token: number, bytes: Uint8Array) =>
+      callRaw<null>("mod_tool_save_write", bytes, {"x-token" : String(token)}),
   /** Ends it: kept (the name it was saved under) or dropped (""). */
-  modToolSaveEnd: (token: number, keep: boolean) =>
-    call<string>("mod_tool_save_end", { token, keep }),
+  modToolSaveEnd : (token: number, keep: boolean) =>
+      call<string>("mod_tool_save_end", {token, keep}),
   /** A small file the player picks: its bytes, empty when they backed out. */
-  modToolOpen: (extension: string) => call<ArrayBuffer>("mod_tool_open", { extension }),
-  enhancedView: (game: string, version: string) =>
-    call<EnhancedView | null>("enhanced_view", { game, version }),
-  enhancedSetEnabled: (game: string, version: string, enabled: boolean) =>
-    call<EnhancedView | null>("enhanced_set_enabled", { game, version, enabled }),
-  enhancedSetSetting: (game: string, version: string, key: string, value: unknown) =>
-    call<EnhancedView | null>("enhanced_set_setting", { game, version, key, value }),
-  /** The built-in Keyboard and mouse entry (core keyboard_mouse.rs), null for a version without it. */
-  keyboardMouseView: (game: string, version: string) =>
-    call<PluginView | null>("keyboard_mouse_view", { game, version }),
-  keyboardMouseSetSetting: (game: string, version: string, key: string, value: unknown) =>
-    call<PluginView | null>("keyboard_mouse_set_setting", { game, version, key, value }),
+  modToolOpen : (extension: string) =>
+      call<ArrayBuffer>("mod_tool_open", {extension}),
+  enhancedView : (game: string, version: string) =>
+      call<EnhancedView|null>("enhanced_view", {game, version}),
+  enhancedSetEnabled : (game: string, version: string, enabled: boolean) =>
+      call<EnhancedView|null>("enhanced_set_enabled", {game, version, enabled}),
+  enhancedSetSetting :
+      (game: string, version: string, key: string, value: unknown) =>
+          call<EnhancedView|null>("enhanced_set_setting",
+                                  {game, version, key, value}),
+  /**
+     The built-in Keyboard and mouse entry (core keyboard_mouse.rs), null for a
+     version without it.
+   */
+  keyboardMouseView : (game: string, version: string) =>
+      call<PluginView|null>("keyboard_mouse_view", {game, version}),
+  keyboardMouseSetSetting :
+      (game: string, version: string, key: string, value: unknown) =>
+          call<PluginView|null>("keyboard_mouse_set_setting",
+                                {game, version, key, value}),
   /** Deletes every lighting bake of a version; the entry as it is after. */
-  enhancedDeleteBakes: (game: string, version: string) =>
-    call<EnhancedView | null>("enhanced_delete_bakes", { game, version }),
-  pluginsRemove: (game: string, version: string, id: string) =>
-    call<PluginView[]>("plugins_remove", { game, version, id }),
-  pluginsInstall: (game: string, version: string, path: string) =>
-    call<PluginInstalled>("plugins_install", { game, version, path }),
-  /** The mods a chosen folder holds: itself, or each mod of a repository's checkout (its build first). */
-  pluginsModFolders: (path: string) => call<string[]>("plugins_mod_folders", { path }),
-  pluginsStatus: (game: string) => call<PluginStatus | null>("plugins_status", { game }),
-  /** Mods from a repository's address (core/src/remote.rs): what it holds, before anything is installed. */
-  pluginsPreview: (game: string, version: string, url: string) =>
-    call<RemotePreview>("plugins_preview", { game, version, url }),
-  pluginsInstallRemote: (game: string, version: string, url: string, id: string) =>
-    call<RemoteInstalled>("plugins_install_remote", { game, version, url, id }),
-  pluginsCheckUpdates: (game: string, version: string) =>
-    call<{ updates: ModUpdate[]; errors: string[] }>("plugins_check_updates", { game, version }),
-  pluginsUpdate: (game: string, version: string, id: string) =>
-    call<RemoteInstalled>("plugins_update", { game, version, id }),
-  pluginsSources: (game: string) => call<ModSources>("plugins_sources", { game }),
-  pluginsSetPin: (game: string, id: string, pin: boolean) =>
-    call<ModSources>("plugins_set_pin", { game, id, pin }),
-  /** Mod codes (core/src/modset.rs): what a code of this game's mods would hold, and making one. */
-  modsetSharePreview: (game: string) => call<SharePreview>("modset_share_preview", { game }),
-  modsetShare: (game: string, version: string, extras: string[]) =>
-    call<Shared>("modset_share", { game, version, extras }),
-  /** Names the party the game joins on starting (a mod code's link, after Apply). */
-  modsetJoin: (game: string, party: string) => call<null>("modset_join", { game, party }),
-  /** What a code would change, with nothing changed. `text`: a code, short or long, or its link. */
-  modsetReview: (game: string, version: string, text: string) =>
-    call<Review>("modset_review", { game, version, text }),
-  modsetApply: (
-    game: string,
-    version: string,
-    set: string,
-    code: string | null,
-    choices: Choices,
-  ) => call<Applied>("modset_apply", { game, version, set, code, choices }),
-  modsetProfiles: (game: string) => call<ModProfile[]>("modset_profiles", { game }),
-  modsetRestore: (game: string, id: string) => call<null>("modset_restore", { game, id }),
+  enhancedDeleteBakes : (game: string, version: string) =>
+      call<EnhancedView|null>("enhanced_delete_bakes", {game, version}),
+  pluginsRemove : (game: string, version: string, id: string) =>
+      call<PluginView[]>("plugins_remove", {game, version, id}),
+  pluginsInstall : (game: string, version: string, path: string) =>
+      call<PluginInstalled>("plugins_install", {game, version, path}),
+  /**
+     The mods a chosen folder holds: itself, or each mod of a repository's
+     checkout (its build first).
+   */
+  pluginsModFolders : (path: string) =>
+      call<string[]>("plugins_mod_folders", {path}),
+  pluginsStatus : (game: string) =>
+      call<PluginStatus|null>("plugins_status", {game}),
+  /**
+     Mods from a repository's address (core/src/remote.rs): what it holds,
+     before anything is installed.
+   */
+  pluginsPreview : (game: string, version: string, url: string) =>
+      call<RemotePreview>("plugins_preview", {game, version, url}),
+  pluginsInstallRemote : (game: string, version: string, url: string,
+                          id: string) =>
+      call<RemoteInstalled>("plugins_install_remote", {game, version, url, id}),
+  pluginsCheckUpdates : (game: string, version: string) =>
+      call<{updates : ModUpdate[]; errors : string[]}>("plugins_check_updates",
+                                                       {game, version}),
+  pluginsUpdate : (game: string, version: string, id: string) =>
+      call<RemoteInstalled>("plugins_update", {game, version, id}),
+  pluginsSources : (game: string) =>
+      call<ModSources>("plugins_sources", {game}),
+  pluginsSetPin : (game: string, id: string, pin: boolean) =>
+      call<ModSources>("plugins_set_pin", {game, id, pin}),
+  /**
+     Mod codes (core/src/modset.rs): what a code of this game's mods would
+     hold, and making one.
+   */
+  modsetSharePreview : (game: string) =>
+      call<SharePreview>("modset_share_preview", {game}),
+  modsetShare : (game: string, version: string, extras: string[]) =>
+      call<Shared>("modset_share", {game, version, extras}),
+  /**
+     Names the party the game joins on starting (a mod code's link, after
+     Apply).
+   */
+  modsetJoin : (game: string, party: string) =>
+      call<null>("modset_join", {game, party}),
+  /**
+     What a code would change, with nothing changed. `text`: a code, short or
+     long, or its link.
+   */
+  modsetReview : (game: string, version: string, text: string) =>
+      call<Review>("modset_review", {game, version, text}),
+  modsetApply : (
+      game: string,
+      version: string,
+      set: string,
+      code: string|null,
+      choices: Choices,
+      ) => call<Applied>("modset_apply", {game, version, set, code, choices}),
+  modsetProfiles : (game: string) =>
+      call<ModProfile[]>("modset_profiles", {game}),
+  modsetRestore : (game: string, id: string) =>
+      call<null>("modset_restore", {game, id}),
   /** The link that opened the launcher, once. */
-  modsetTakeLink: () => call<string | null>("modset_take_link"),
-  /** The mod hub (core/src/index.rs, resolver.rs, index_apply.rs, deeplink.rs): their errors are
-   *  ModError (modErrorOf), with the fix the page offers. */
-  deeplinkParse: (url: string) => call<DeepLinkInstall>("deeplink_parse", { url }),
+  modsetTakeLink : () => call<string|null>("modset_take_link"),
+  /**
+   * The mod hub (core/src/index.rs, resolver.rs, index_apply.rs, deeplink.rs):
+   * their errors are ModError (modErrorOf), with the fix the page offers.
+   */
+  deeplinkParse : (url: string) =>
+      call<DeepLinkInstall>("deeplink_parse", {url}),
   /** Where the launcher stands in the player's Steam library. */
-  steamState: (version: string | null = null) => call<SteamState>("steam_state", { version }),
-  /** Adds the launcher to Steam's library, or with a version that game (it starts the launcher
-   *  with --play), or updates it. Steam may be open. */
-  steamAdd: (version: string | null = null) => call<SteamState>("steam_add", { version }),
+  steamState : (version: string|null = null) =>
+      call<SteamState>("steam_state", {version}),
+  /**
+   * Adds the launcher to Steam's library, or with a version that game (it
+   * starts the launcher with --play), or updates it. Steam may be open.
+   */
+  steamAdd : (version: string|null = null) =>
+      call<SteamState>("steam_add", {version}),
   /** A desktop shortcut that starts a game (Linux): the path it wrote. */
-  shortcutCreate: (version: string) => call<string>("shortcut_create", { version }),
+  shortcutCreate : (version: string) =>
+      call<string>("shortcut_create", {version}),
   /** The game a `--play` start could not start, once; the page shows it. */
-  startupGame: () => call<string | null>("startup_game"),
-  /** Every mod index, checked (or its cached copy); with a game, its revoked mods are turned off. */
-  indexFetch: (game: string | null = null, version: string | null = null) =>
-    call<IndexView>("index_fetch", { game, version }),
-  /** The change set for `wanted` on that disc, with `turnOff` counted as off. */
-  indexResolve: (game: string, version: string, wanted: WantedMod[], turnOff: string[] = []) =>
-    call<InstallPlan>("index_resolve", { game, version, wanted, turnOff }),
-  /** Resolves again in Rust and installs; `index-apply` events say how far (onIndexApply). */
-  indexApply: (
-    game: string,
-    version: string,
-    wanted: WantedMod[],
-    turnOff: string[],
-    serial: string | null,
-    shared = false,
-  ) => call<ApplyResult>("index_apply", { game, version, wanted, turnOff, serial, shared }),
-  /** The index's updates for a game's mods: silent, waiting for a click, held back (mod_updates.rs). */
-  modsUpdates: (game: string, version: string, fresh = false) =>
-    call<UpdatePlan>("mods_updates", { game, version, fresh }),
-  /** Updates from a fresh fetch: the silent ones, or `ids` the player clicked. Refused while it runs. */
-  modsAutoUpdate: (game: string, version: string, ids: string[] | null, running: boolean) =>
-    call<UpdateRun>("mods_auto_update", { game, version, ids, running }),
-  modsLastUpdate: (game: string) => call<LastUpdate | null>("mods_last_update", { game }),
-  /** After a crash: the mod back at the version its update replaced, kept there. */
-  modsCrashRollback: (game: string, version: string, id: string) =>
-    call<PluginView[]>("mods_crash_rollback", { game, version, id }),
+  startupGame : () => call<string|null>("startup_game"),
+  /**
+     Every mod index, checked (or its cached copy); with a game, its revoked
+     mods are turned off.
+   */
+  indexFetch : (game: string|null = null, version: string|null = null) =>
+      call<IndexView>("index_fetch", {game, version}),
+  /**
+     The change set for `wanted` on that disc, with `turnOff` counted as off.
+   */
+  indexResolve : (game: string, version: string, wanted: WantedMod[],
+                  turnOff: string[] = []) =>
+      call<InstallPlan>("index_resolve", {game, version, wanted, turnOff}),
+  /**
+     Resolves again in Rust and installs; `index-apply` events say how far
+     (onIndexApply).
+   */
+  indexApply : (
+      game: string,
+      version: string,
+      wanted: WantedMod[],
+      turnOff: string[],
+      serial: string|null,
+      shared = false,
+      ) => call<ApplyResult>("index_apply",
+                             {game, version, wanted, turnOff, serial, shared}),
+  /**
+     The index's updates for a game's mods: silent, waiting for a click, held
+     back (mod_updates.rs).
+   */
+  modsUpdates : (game: string, version: string, fresh = false) =>
+      call<UpdatePlan>("mods_updates", {game, version, fresh}),
+  /**
+     Updates from a fresh fetch: the silent ones, or `ids` the player clicked.
+     Refused while it runs.
+   */
+  modsAutoUpdate :
+      (game: string, version: string, ids: string[]|null, running: boolean) =>
+          call<UpdateRun>("mods_auto_update", {game, version, ids, running}),
+  modsLastUpdate : (game: string) =>
+      call<LastUpdate|null>("mods_last_update", {game}),
+  /**
+     After a crash: the mod back at the version its update replaced, kept
+     there.
+   */
+  modsCrashRollback : (game: string, version: string, id: string) =>
+      call<PluginView[]>("mods_crash_rollback", {game, version, id}),
   /** On, with the dependencies it needs (`alsoOn`: their names). */
-  pluginsTurnOn: (game: string, version: string, id: string) =>
-    call<{ views: PluginView[]; alsoOn: string[] }>("plugins_turn_on", { game, version, id }),
+  pluginsTurnOn : (game: string, version: string, id: string) =>
+      call<{views : PluginView[]; alsoOn : string[]}>("plugins_turn_on",
+                                                      {game, version, id}),
   /** The mods that are on and need this one: [id, name]. */
-  pluginsDependents: (game: string, id: string) =>
-    call<[string, string][]>("plugins_dependents", { game, id }),
-  pluginsOrphans: (game: string, id: string) => call<Orphan[]>("plugins_orphans", { game, id }),
-  pluginsRemoveWith: (game: string, version: string, id: string, also: string[]) =>
-    call<PluginView[]>("plugins_remove_with", { game, version, id, also }),
-  /** A folder inside the game's set-up folder (an export), opened with the system. */
-  openGameFolder: (game: string, path: string) => call<null>("open_game_folder", { game, path }),
-  /** A folder a job wrote (a job exit's `outputs`), opened with the system; a file opens its folder. */
-  openOutput: (path: string) => call<null>("open_output", { path }),
-  openBakeLog: (version: string, path: string) => call<null>("open_bake_log", { version, path }),
-  /** One level's Godot project in the Godot editor (the version's editor-open action). */
-  openLevelInGodot: (version: string, level: number) =>
-    call<Started>("open_level_in_godot", { version, level }),
+  pluginsDependents : (game: string, id: string) =>
+      call<[ string, string ][]>("plugins_dependents", {game, id}),
+  pluginsOrphans : (game: string, id: string) =>
+      call<Orphan[]>("plugins_orphans", {game, id}),
+  pluginsRemoveWith :
+      (game: string, version: string, id: string, also: string[]) =>
+          call<PluginView[]>("plugins_remove_with", {game, version, id, also}),
+  /**
+     A folder inside the game's set-up folder (an export), opened with the
+     system.
+   */
+  openGameFolder : (game: string, path: string) =>
+      call<null>("open_game_folder", {game, path}),
+  /**
+     A folder a job wrote (a job exit's `outputs`), opened with the system; a
+     file opens its folder.
+   */
+  openOutput : (path: string) => call<null>("open_output", {path}),
+  openBakeLog : (version: string, path: string) =>
+      call<null>("open_bake_log", {version, path}),
+  /**
+     One level's Godot project in the Godot editor (the version's editor-open
+     action).
+   */
+  openLevelInGodot : (version: string, level: number) =>
+      call<Started>("open_level_in_godot", {version, level}),
   /** Android: the player's GPU driver packages (src-tauri/src/android.rs). */
-  gpuDrivers: () => call<GpuDrivers>("gpu_drivers"),
+  gpuDrivers : () => call<GpuDrivers>("gpu_drivers"),
   /** Android: the player picks a package's zip; null when they cancelled. */
-  gpuDriverImport: () =>
-    call<{ driver?: GpuDriver }>("gpu_driver_import").then((r) => r.driver ?? null),
-  gpuDriverSelect: (id: string | null) => call<null>("gpu_driver_select", { id }),
-  gpuDriverRemove: (id: string) => call<null>("gpu_driver_remove", { id }),
+  gpuDriverImport : () => call<{driver?: GpuDriver}>("gpu_driver_import")
+                              .then((r) => r.driver ?? null),
+  gpuDriverSelect : (id: string|null) => call<null>("gpu_driver_select", {id}),
+  gpuDriverRemove : (id: string) => call<null>("gpu_driver_remove", {id}),
   /** Android: what the game draws with from its next start. */
-  gpuRendererSelect: (renderer: Renderer) => call<null>("gpu_renderer_select", { renderer }),
-  /** Android: what the set-up's notification shows while the launcher is in the background; null:
-   *  the set-up is over (SetupService.kt). */
-  backgroundStatus: (status: BackgroundStatus | null) =>
-    call<null>("background_status", { ...status }),
-  toolsReady: () => call<null>("tools_ready"),
-  gameStatus: () => call<GameStatus>("game_status"),
+  gpuRendererSelect : (renderer: Renderer) =>
+      call<null>("gpu_renderer_select", {renderer}),
+  /**
+   * Android: what the set-up's notification shows while the launcher is in the
+   * background; null: the set-up is over (SetupService.kt).
+   */
+  backgroundStatus : (status: BackgroundStatus|null) =>
+      call<null>("background_status", {...status}),
+  toolsReady : () => call<null>("tools_ready"),
+  gameStatus : () => call<GameStatus>("game_status"),
   /** Back to the running game, or (`stop`) end it. */
-  gameWindow: (stop: boolean) => call<null>("game_window", { stop }),
-  /** Android: a newer launcher on the releases, or null (desktops use Tauri's updater). */
-  updateCheck: (channel: UpdateChannel, branch: string | null) =>
-    call<AndroidRelease | null>("update_check", { channel, branch }),
-  /** A desktop: Tauri's updater asked at the channel's manifest; its update, or null. */
-  launcherUpdateCheck: (channel: UpdateChannel, branch: string | null) =>
-    call<LauncherUpdate | null>("launcher_update_check", { channel, branch }),
-  /** Android: downloads the release's APK, checks its signature, opens Android's installer. */
-  updateInstall: (url: string, signature: string) =>
-    call<null>("update_install", { url, signature }),
+  gameWindow : (stop: boolean) => call<null>("game_window", {stop}),
+  /**
+     Android: a newer launcher on the releases, or null (desktops use Tauri's
+     updater).
+   */
+  updateCheck : (channel: UpdateChannel, branch: string|null) =>
+      call<AndroidRelease|null>("update_check", {channel, branch}),
+  /**
+     A desktop: Tauri's updater asked at the channel's manifest; its update, or
+     null.
+   */
+  launcherUpdateCheck : (channel: UpdateChannel, branch: string|null) =>
+      call<LauncherUpdate|null>("launcher_update_check", {channel, branch}),
+  /**
+     Android: downloads the release's APK, checks its signature, opens
+     Android's installer.
+   */
+  updateInstall : (url: string, signature: string) =>
+      call<null>("update_install", {url, signature}),
 };
 
 /** A desktop's update as Tauri's updater holds it: plugin-updater's `Update` is made from it. */

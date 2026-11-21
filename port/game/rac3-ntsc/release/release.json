@@ -1,350 +1,436 @@
-{
-  "about": "What port/tools/hostgen/release_carry_rac3.py needs of NTSC-U besides rac3-decomp's tables and rac3-pal's port: the keys of hostgen.json that are this disc's own, the pairs and addresses checked by hand, each with its evidence.",
-  "game": "rac3",
-  "id": "rac3-ntsc",
-  "primary": "rac3-pal",
-  "hostgen": {
-    "about": "Keys over rac3-pal's carried hostgen.json (null removes one; a dict is merged unless it has \"replace\").",
-    "id": "rac3-ntsc",
-    "title": "Ratchet & Clank: Up Your Arsenal (NTSC-U)",
-    "serial": "SCUS_973.53",
-    "frame_rate": 60,
-    "tick_rate": 60,
-    "tick_rate_why": "The NTSC-U game leaves its settings word 0x00143950 at 0 and takes the 60 Hz branch PAL never takes (rac3-pal/README.md, Ticks): it counts in sixtieths.",
-    "sources": [
-      "src/boot_elf",
-      "src/frontbin",
-      "src/us/boot_elf",
-      "src/us/frontbin"
-    ],
-    "skip": [
-      "src/boot_elf/core/libgcc",
-      "src/boot_elf/text/3C6718.c",
-      "src/frontbin/3C6360.c"
-    ],
-    "groups": [
-      {
-        "path": "src/frontbin",
-        "suffix": "frontbin",
-        "overlay": 100
-      },
-      {
-        "path": "src/us/frontbin",
-        "suffix": "frontbin",
-        "overlay": 100
-      }
-    ],
-    "derived": {
-      "table": "release/release_names.json"
-    },
-    "release": {
-      "version": "us",
-      "table": "release/release_names.json"
-    },
-    "host_shared": [
-      "../rac3-pal/host"
-    ],
-    "headers": "../rac3-pal/headers",
-    "places": "config/us/levels/functions.tsv",
-    "place_kinds_as_levels": [
-      "frontbin"
-    ],
-    "places_are_functions": true,
-    "asm": {
-      "retail": {
-        "image": "baserom/SCUS_973.53.iso",
-        "required": true,
-        "programs": {
-          "frontbin": 100
+    {
+        "about":
+            "What port/tools/hostgen/release_carry_rac3.py needs of NTSC-U besides rac3-decomp's tables and rac3-pal's port: the keys of hostgen.json that are this disc's own, the pairs and addresses checked by hand, each with its evidence.",
+        "game": "rac3",
+        "id": "rac3-ntsc",
+        "primary": "rac3-pal",
+        "hostgen": {
+            "about":
+                "Keys over rac3-pal's carried hostgen.json (null removes one; a dict is merged unless it has \"replace\").",
+            "id": "rac3-ntsc",
+            "title": "Ratchet & Clank: Up Your Arsenal (NTSC-U)",
+            "serial": "SCUS_973.53",
+            "frame_rate": 60,
+            "tick_rate": 60,
+            "tick_rate_why":
+                "The NTSC-U game leaves its settings word 0x00143950 at 0 and takes the 60 Hz branch PAL never takes (rac3-pal/README.md, Ticks): it counts in sixtieths.",
+            "sources": [
+                "src/boot_elf",
+                "src/frontbin",
+                "src/us/boot_elf",
+                "src/us/frontbin"
+            ],
+            "skip": [
+                "src/boot_elf/core/libgcc",
+                "src/boot_elf/text/3C6718.c",
+                "src/frontbin/3C6360.c"
+            ],
+            "groups": [
+                {
+                    "path": "src/frontbin",
+                    "suffix": "frontbin",
+                    "overlay": 100
+                },
+                {
+                    "path": "src/us/frontbin",
+                    "suffix": "frontbin",
+                    "overlay": 100
+                }
+            ],
+            "derived": {
+                "table": "release/release_names.json"
+            },
+            "release": {
+                "version": "us",
+                "table": "release/release_names.json"
+            },
+            "host_shared": [
+                "../rac3-pal/host"
+            ],
+            "headers": "../rac3-pal/headers",
+            "places": "config/us/levels/functions.tsv",
+            "place_kinds_as_levels": [
+                "frontbin"
+            ],
+            "places_are_functions": true,
+            "asm": {
+                "retail": {
+                    "image": "baserom/SCUS_973.53.iso",
+                    "required": true,
+                    "programs": {
+                        "frontbin": 100
+                    }
+                },
+                "signatures": {
+                    "func_0038EB10":
+                        "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
+                    "func_L01_003E7478": "void (unsigned int, unsigned int, unsigned int)",
+                    "func_L39_005187A0": "int (int, int, int, float)"
+                },
+                "signature_check": false
+            },
+            "candidates_left_out": {
+                "func_00385A98":
+                    "Clang cannot read it: it calls func_0038DF00, which it does not declare",
+                "func_0038D5B0":
+                    "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
+                "func_003EE310":
+                    "Clang cannot read it: it calls func_003EDBE0 with an argument its declaration does not take",
+                "func_0039F348":
+                    "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
+                "func_003A2028":
+                    "Clang cannot read it in the NTSC-U view: use of undeclared identifier 'func_003A1AD0'",
+                "func_003A7480":
+                    "Clang cannot read it: it calls func_003A6F28, which it does not declare",
+                "func_003AAA00":
+                    "Clang cannot read it in the NTSC-U view: use of undeclared identifier 'func_11F940'",
+                "func_003ABA48":
+                    "Clang cannot read it in the NTSC-U view: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+                "func_003AFFA8": "Clang cannot read it: use of undeclared identifier 'func_11F940'",
+                "func_003ABBE8":
+                    "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+                "func_003B0FF0":
+                    "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+                "func_003C5A98":
+                    "Clang cannot read it: too many arguments to function call, expected 1, have 3"
+            },
+            "asm_signatures_why":
+                "FontPrint (PAL's func_0038EBC8): host/ui2d.c wraps it as a void function, as PAL's prototype has it; NTSC-U's assembly leaves $v0 as a callee's, which hostgen took for a result; the follow camera's stick read (PAL's func_L01_003E92F8, whose C gives PAL its prototype): host/camera_latch.c wraps it with the camera and the two axes' addresses, NTSC-U's copy being assembly here",
+            "places_in_release": true,
+            "places_why":
+                "NTSC-U's own level catalogue, in its own names: every level function is translated from the disc's level programs (no src/levels C yet: its names and its levels' data are PAL's)",
+            "split_places_why":
+                "NTSC-U's own tables/split_places.tsv: the multiplayer maps' copies of the font width wrapper (func_L01_00410820) are their own function, func_L39_005187A0, whose name the carry leaves out as no function of NTSC-U's catalogue; its signature below, as rac3-pal's func_L39_005189A0",
+            "asm_signature_check_why":
+                "rac3-pal's check of translated code against its signatures finds 1,994 calls in 706 NTSC-U functions (its levels are all translated from the disc, PAL's from C): off here until NTSC-U has their signatures, as PAL's had before the check",
+            "executables": null,
+            "executables_why":
+                "PAL's multiplayer executable (rac3-pal/mp/hostgen.json, I5BOOTN.ELF) is built for PAL alone: NTSC-U's has not been paired with it yet"
+        },
+        "pairs": {
+            "about":
+                "Function pairs taken as they are where map.tsv pairs nothing: PAL's name, NTSC-U's, the evidence.",
+            "func_0012BEE8": {
+                "is": "func_0012BEE8",
+                "why":
+                    "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+            },
+            "func_0012DA60": {
+                "is": "func_0012DA60",
+                "why":
+                    "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+            },
+            "func_0012F608": {
+                "is": "func_0012F608",
+                "why":
+                    "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+            },
+            "func_0012F728": {
+                "is": "func_0012F728",
+                "why":
+                    "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+            },
+            "func_0012FF40": {
+                "is": "func_0012FF40",
+                "why":
+                    "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
+            },
+            "func_00123C20": {
+                "is": "func_00123C20",
+                "why":
+                    "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+            },
+            "func_001249F0": {
+                "is": "func_001249F0",
+                "why":
+                    "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+            },
+            "func_00126020": {
+                "is": "func_00126020",
+                "why":
+                    "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+            },
+            "func_0012BE28": {
+                "is": "func_0012BE28",
+                "why":
+                    "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+            },
+            "func_001315D8": {
+                "is": "func_001315D8",
+                "why":
+                    "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+            },
+            "func_0013D1E8": {
+                "is": "func_0013D1E8",
+                "why":
+                    "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
+            },
+            "func_003F02C8": {
+                "is": "func_003F0168",
+                "why":
+                    "the Widget3D text class's type id (jr ra; li v0, 2): the same 8 bytes at 0x003F0168, after the same 36-byte remnant (PAL 0x003F02A0, NTSC-U 0x003F0140), and the class's vtable (PAL 0x001D9798, NTSC-U 0x001D97D8) points there at +0xC. NTSC-U's inventory counts the 8 bytes into f_003F0140, so map.tsv has no twin; without it the main menu's labels were never set (func_003E7EE8 looked their setter up under a garbage type id)"
+            },
+            "func_003F0AB8": {
+                "is": "func_003F0938",
+                "why":
+                    "the next class's type id: the same 8 bytes at 0x003F0938, after the same 20-byte remnant (PAL 0x003F0AA0, NTSC-U 0x003F0920), the only place they occur after it; as func_003F02C8"
+            },
+            "func_003EFF10__frontbin": {
+                "is": "func_003EA9A8__frontbin",
+                "why":
+                    "frontbin's copy of func_003F02C8: the same 8 bytes at 0x003EA9A8 after the same 36-byte remnant (PAL 0x003EFEE8, NTSC-U 0x003EA980)"
+            },
+            "func_003F0700__frontbin": {
+                "is": "func_003EB178__frontbin",
+                "why":
+                    "frontbin's copy of func_003F0AB8: the same 8 bytes at 0x003EB178 after the same 20-byte remnant (PAL 0x003F06E8, NTSC-U 0x003EB160), the only place they occur"
+            },
+            "func_003D3154": {
+                "is": "func_003D2FEC",
+                "why":
+                    "the second entry 4 bytes before func_003D3158 (NTSC-U's func_003D2FF0, map.tsv match): the same words from 4 bytes before it on both discs"
+            }
+        },
+        "addresses": {
+            "about":
+                "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence.",
+            "0x001A50E0": {
+                "is": "0x001A50E0",
+                "why":
+                    "hero_ledge_block, hero + 0x500 (rac3-decomp include/structs/hero.h); the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes the block at NTSC-U 0x001A50E0"
+            },
+            "0x001439F4": {
+                "is": "0x001439F4",
+                "why":
+                    "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_004D0E90 (NTSC-U func_L01_004CD1D0) +0x68, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
+            },
+            "0x00143A70": {
+                "is": "0x00143A70",
+                "why":
+                    "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_0049FBC8 (NTSC-U func_L01_0049C368) +0x1DC, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
+            },
+            "0x001A71A0": {
+                "is": "0x001A71A0",
+                "why":
+                    "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_003090E0 (NTSC-U func_L01_00308E58) +0x80, 31 of 31 places agree"
+            },
+            "0x00142660": {
+                "is": "0x00142660",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x120, 34 of 34 places agree"
+            },
+            "0x00142668": {
+                "is": "0x00142668",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00301798 (NTSC-U func_L01_003015F0) +0x94, 3 of 3 places agree"
+            },
+            "0x001427F0": {
+                "is": "0x001427F0",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0030F0B0 (NTSC-U func_L01_0030EDC0) +0xC0, 18 of 18 places agree"
+            },
+            "0x001A4C70": {
+                "is": "0x001A4C70",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004E51A0 (NTSC-U func_L01_004E13D8) +0x20, 3 of 3 places agree"
+            },
+            "0x001A57BC": {
+                "is": "0x001A57BC",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A5780 and 0x001A57F8, both moved by +0x0 (NTSC-U 0x001A5780, 0x001A57F8)"
+            },
+            "0x001A5E08": {
+                "is": "0x001A5E08",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0034DBE8 (NTSC-U func_L01_0034D168) +0x8, 3 of 3 places agree"
+            },
+            "0x001A71A4": {
+                "is": "0x001A71A4",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_003261E8 (NTSC-U func_L01_00325CE8) +0x100, 8 of 8 places agree"
+            },
+            "0x001A71D2": {
+                "is": "0x001A71D2",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A71C5 and 0x001A71D4, both moved by +0x0 (NTSC-U 0x001A71C5, 0x001A71D4)"
+            },
+            "0x001BBC40": {
+                "is": "0x001BBC40",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x78, 24 of 24 places agree"
+            },
+            "0x001C5290": {
+                "is": "0x001C5290",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0xA8, 2 of 2 places agree"
+            },
+            "0x001D4C40": {
+                "is": "0x001D4C40",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004CA270 (NTSC-U func_L01_004C6638) +0x138, 7 of 7 places agree"
+            },
+            "0x001D4CA0": {
+                "is": "0x001D4CA0",
+                "why":
+                    "Veldin's program (rac3_level_pairs.py): between the same code's 0x001D4C80 and 0x001D4CA8, both moved by +0x0 (NTSC-U 0x001D4C80, 0x001D4CA8)"
+            }
+        },
+        "libraries_left_out": {
+            "func_00124ED8":
+                "LoadExecPS2's wrapper starts PAL's multiplayer executable (rac3-pal host/exec.c), which NTSC-U does not build yet: the call stays unanswered (rac3/parity.tsv)"
+        },
+        "level_addresses": {
+            "about":
+                "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
+            "L01:001D6694": {
+                "is": "001D6694",
+                "why":
+                    "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 46 of 46 places agree"
+            },
+            "L01:001DBCA4": {
+                "is": "001DBCE4",
+                "why":
+                    "between the same code's 0x001DBCA0 and 0x001DBCBC, both moved by +0x40 (NTSC-U 0x001DBCE0, 0x001DBCFC)"
+            },
+            "L01:001DF97C": {
+                "is": "001DF9FC",
+                "why":
+                    "the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree"
+            },
+            "L01:001E0050": {
+                "is": "001E00D0",
+                "why":
+                    "between the same code's 0x001E002C and 0x001E0054, both moved by +0x80 (NTSC-U 0x001E00AC, 0x001E00D4)"
+            },
+            "L01:001E0278": {
+                "is": "001E02F8",
+                "why":
+                    "the same instruction of the same code: func_L01_004618E8 (NTSC-U func_L01_0045E440) +0x1C, 5 of 5 places agree"
+            },
+            "L01:001E0280": {
+                "is": "001E0300",
+                "why":
+                    "the same instruction of the same code: func_L01_004618E8 (NTSC-U func_L01_0045E440) +0xC, 8 of 8 places agree"
+            },
+            "L01:001E0E10": {
+                "is": "001E0E90",
+                "why":
+                    "between the same code's 0x001E0DF0 and 0x001E0E90, both moved by +0x80 (NTSC-U 0x001E0E70, 0x001E0F10)"
+            },
+            "L01:001E1068": {
+                "is": "001E10E8",
+                "why":
+                    "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 96 of 96 places agree"
+            },
+            "L01:001E29E0": {
+                "is": "001E2A60",
+                "why":
+                    "the same instruction of the same code: func_L01_003649E8 (NTSC-U func_L01_00363C60) +0x74, 13 of 13 places agree"
+            },
+            "L01:001E2AA0": {
+                "is": "001E2B20",
+                "why":
+                    "the same instruction of the same code: func_L01_003E4428 (NTSC-U func_L01_003E2638) +0x14, 8 of 8 places agree"
+            },
+            "L01:001E2B90": {
+                "is": "001E2C10",
+                "why":
+                    "the same instruction of the same code: func_L01_003E7000 (NTSC-U func_L01_003E5198) +0x44, 5 of 5 places agree"
+            },
+            "L01:001E7580": {
+                "is": "001E7600",
+                "why":
+                    "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 10 of 10 places agree"
+            },
+            "L01:001E7880": {
+                "is": "001E7900",
+                "why":
+                    "the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x88, 1 of 1 places agree"
+            },
+            "L01:001EA840": {
+                "is": "001EA8C0",
+                "why":
+                    "between the same code's 0x001EA7C0 and 0x001EA940, both moved by +0x80 (NTSC-U 0x001EA840, 0x001EA9C0)"
+            },
+            "L01:00220A40": {
+                "is": "00220AC0",
+                "why":
+                    "between the same code's 0x00220840 and 0x00220E40, both moved by +0x80 (NTSC-U 0x002208C0, 0x00220EC0)"
+            },
+            "L12:001D66E4": {
+                "is": "001D66E4",
+                "why":
+                    "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 46 of 46 places agree"
+            },
+            "L19:001D66D4": {
+                "is": "001D66D4",
+                "why":
+                    "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 48 of 48 places agree"
+            },
+            "L39:0024CAD0": {
+                "is": "0024CBD0",
+                "why":
+                    "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 95 of 95 places agree"
+            },
+            "L39:0024DE20": {
+                "is": "0024DF20",
+                "why":
+                    "the same instruction of the same code: func_L39_0067A4E0 (NTSC-U func_L39_00677AE8) +0x18, 1 of 1 places agree"
+            },
+            "L39:0025D6C0": {
+                "is": "0025D7C0",
+                "why":
+                    "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 10 of 10 places agree"
+            },
+            "L39:0025F580": {
+                "is": "0025F680",
+                "why":
+                    "the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0xE8, 1 of 1 places agree"
+            },
+            "L01:001DCA14": {
+                "is": "001DCA54",
+                "why":
+                    "the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0x70, 3 of 3 places agree"
+            },
+            "L01:001E001C": {
+                "is": "001E009C",
+                "why":
+                    "the same instruction of the same code: func_L01_002FBB10 (NTSC-U func_L01_002FBAE8) +0x58, 185 of 185 places agree"
+            },
+            "L01:001E0024": {
+                "is": "001E00A4",
+                "why":
+                    "the same instruction of the same code: func_L01_00438EA0 (NTSC-U func_L01_00435DE0) +0x10, 39 of 39 places agree"
+            },
+            "L01:001E0100": {
+                "is": "001E0180",
+                "why":
+                    "the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0x23C, 21 of 21 places agree"
+            },
+            "L01:001DFD0C": {
+                "is": "001DFD8C",
+                "why":
+                    "the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x160, 6 of 6 places agree"
+            },
+            "L01:001DFD20": {
+                "is": "001DFDA0",
+                "why":
+                    "the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x8, 1 of 1 places agree"
+            },
+            "L01:001DFD24": {
+                "is": "001DFDA4",
+                "why":
+                    "the same instruction of the same code: func_L01_0041C4A0 (NTSC-U func_L01_00419D98) +0x34, 4 of 4 places agree"
+            },
+            "L01:002E60D0": {
+                "is": "002E6110",
+                "why":
+                    "the same instruction of the same code: func_L01_0041BFE8 (NTSC-U func_L01_004198E0) +0xC, 3 of 3 places agree"
+            },
+            "L39:0024BF90": {
+                "is": "0024C090",
+                "why":
+                    "the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0x1B8, 1 of 1 places agree"
+            }
         }
-      },
-      "signatures": {
-        "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
-        "func_L01_003E7478": "void (unsigned int, unsigned int, unsigned int)",
-        "func_L39_005187A0": "int (int, int, int, float)"
-      },
-      "signature_check": false
-    },
-    "candidates_left_out": {
-      "func_00385A98": "Clang cannot read it: it calls func_0038DF00, which it does not declare",
-      "func_0038D5B0": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
-      "func_003EE310": "Clang cannot read it: it calls func_003EDBE0 with an argument its declaration does not take",
-      "func_0039F348": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
-      "func_003A2028": "Clang cannot read it in the NTSC-U view: use of undeclared identifier 'func_003A1AD0'",
-      "func_003A7480": "Clang cannot read it: it calls func_003A6F28, which it does not declare",
-      "func_003AAA00": "Clang cannot read it in the NTSC-U view: use of undeclared identifier 'func_11F940'",
-      "func_003ABA48": "Clang cannot read it in the NTSC-U view: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
-      "func_003AFFA8": "Clang cannot read it: use of undeclared identifier 'func_11F940'",
-      "func_003ABBE8": "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
-      "func_003B0FF0": "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
-      "func_003C5A98": "Clang cannot read it: too many arguments to function call, expected 1, have 3"
-    },
-    "asm_signatures_why": "FontPrint (PAL's func_0038EBC8): host/ui2d.c wraps it as a void function, as PAL's prototype has it; NTSC-U's assembly leaves $v0 as a callee's, which hostgen took for a result; the follow camera's stick read (PAL's func_L01_003E92F8, whose C gives PAL its prototype): host/camera_latch.c wraps it with the camera and the two axes' addresses, NTSC-U's copy being assembly here",
-    "places_in_release": true,
-    "places_why": "NTSC-U's own level catalogue, in its own names: every level function is translated from the disc's level programs (no src/levels C yet: its names and its levels' data are PAL's)",
-    "split_places_why": "NTSC-U's own tables/split_places.tsv: the multiplayer maps' copies of the font width wrapper (func_L01_00410820) are their own function, func_L39_005187A0, whose name the carry leaves out as no function of NTSC-U's catalogue; its signature below, as rac3-pal's func_L39_005189A0",
-    "asm_signature_check_why": "rac3-pal's check of translated code against its signatures finds 1,994 calls in 706 NTSC-U functions (its levels are all translated from the disc, PAL's from C): off here until NTSC-U has their signatures, as PAL's had before the check",
-    "executables": null,
-    "executables_why": "PAL's multiplayer executable (rac3-pal/mp/hostgen.json, I5BOOTN.ELF) is built for PAL alone: NTSC-U's has not been paired with it yet"
-  },
-  "pairs": {
-    "about": "Function pairs taken as they are where map.tsv pairs nothing: PAL's name, NTSC-U's, the evidence.",
-    "func_0012BEE8": {
-      "is": "func_0012BEE8",
-      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
-    },
-    "func_0012DA60": {
-      "is": "func_0012DA60",
-      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
-    },
-    "func_0012F608": {
-      "is": "func_0012F608",
-      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
-    },
-    "func_0012F728": {
-      "is": "func_0012F728",
-      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
-    },
-    "func_0012FF40": {
-      "is": "func_0012FF40",
-      "why": "rac3-decomp's map.tsv after the pinned commit (74dd8368): match at the same place, its C checking MATCH there; the pinned map had not paired it yet"
-    },
-    "func_00123C20": {
-      "is": "func_00123C20",
-      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
-    },
-    "func_001249F0": {
-      "is": "func_001249F0",
-      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
-    },
-    "func_00126020": {
-      "is": "func_00126020",
-      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
-    },
-    "func_0012BE28": {
-      "is": "func_0012BE28",
-      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
-    },
-    "func_001315D8": {
-      "is": "func_001315D8",
-      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
-    },
-    "func_0013D1E8": {
-      "is": "func_0013D1E8",
-      "why": "the same bytes at the same address in NTSC-U's boot_elf (the resident core); the pinned map.tsv has no twin for it"
-    },
-    "func_003F02C8": {
-      "is": "func_003F0168",
-      "why": "the Widget3D text class's type id (jr ra; li v0, 2): the same 8 bytes at 0x003F0168, after the same 36-byte remnant (PAL 0x003F02A0, NTSC-U 0x003F0140), and the class's vtable (PAL 0x001D9798, NTSC-U 0x001D97D8) points there at +0xC. NTSC-U's inventory counts the 8 bytes into f_003F0140, so map.tsv has no twin; without it the main menu's labels were never set (func_003E7EE8 looked their setter up under a garbage type id)"
-    },
-    "func_003F0AB8": {
-      "is": "func_003F0938",
-      "why": "the next class's type id: the same 8 bytes at 0x003F0938, after the same 20-byte remnant (PAL 0x003F0AA0, NTSC-U 0x003F0920), the only place they occur after it; as func_003F02C8"
-    },
-    "func_003EFF10__frontbin": {
-      "is": "func_003EA9A8__frontbin",
-      "why": "frontbin's copy of func_003F02C8: the same 8 bytes at 0x003EA9A8 after the same 36-byte remnant (PAL 0x003EFEE8, NTSC-U 0x003EA980)"
-    },
-    "func_003F0700__frontbin": {
-      "is": "func_003EB178__frontbin",
-      "why": "frontbin's copy of func_003F0AB8: the same 8 bytes at 0x003EB178 after the same 20-byte remnant (PAL 0x003F06E8, NTSC-U 0x003EB160), the only place they occur"
-    },
-    "func_003D3154": {
-      "is": "func_003D2FEC",
-      "why": "the second entry 4 bytes before func_003D3158 (NTSC-U's func_003D2FF0, map.tsv match): the same words from 4 bytes before it on both discs"
     }
-  },
-  "addresses": {
-    "about": "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence.",
-    "0x001A50E0": {
-      "is": "0x001A50E0",
-      "why": "hero_ledge_block, hero + 0x500 (rac3-decomp include/structs/hero.h); the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes the block at NTSC-U 0x001A50E0"
-    },
-    "0x001439F4": {
-      "is": "0x001439F4",
-      "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_004D0E90 (NTSC-U func_L01_004CD1D0) +0x68, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
-    },
-    "0x00143A70": {
-      "is": "0x00143A70",
-      "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_0049FBC8 (NTSC-U func_L01_0049C368) +0x1DC, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
-    },
-    "0x001A71A0": {
-      "is": "0x001A71A0",
-      "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_003090E0 (NTSC-U func_L01_00308E58) +0x80, 31 of 31 places agree"
-    },
-    "0x00142660": {
-      "is": "0x00142660",
-      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x120, 34 of 34 places agree"
-    },
-    "0x00142668": {
-      "is": "0x00142668",
-      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00301798 (NTSC-U func_L01_003015F0) +0x94, 3 of 3 places agree"
-    },
-    "0x001427F0": {
-      "is": "0x001427F0",
-      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0030F0B0 (NTSC-U func_L01_0030EDC0) +0xC0, 18 of 18 places agree"
-    },
-    "0x001A4C70": {
-      "is": "0x001A4C70",
-      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004E51A0 (NTSC-U func_L01_004E13D8) +0x20, 3 of 3 places agree"
-    },
-    "0x001A57BC": {
-      "is": "0x001A57BC",
-      "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A5780 and 0x001A57F8, both moved by +0x0 (NTSC-U 0x001A5780, 0x001A57F8)"
-    },
-    "0x001A5E08": {
-      "is": "0x001A5E08",
-      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0034DBE8 (NTSC-U func_L01_0034D168) +0x8, 3 of 3 places agree"
-    },
-    "0x001A71A4": {
-      "is": "0x001A71A4",
-      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_003261E8 (NTSC-U func_L01_00325CE8) +0x100, 8 of 8 places agree"
-    },
-    "0x001A71D2": {
-      "is": "0x001A71D2",
-      "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A71C5 and 0x001A71D4, both moved by +0x0 (NTSC-U 0x001A71C5, 0x001A71D4)"
-    },
-    "0x001BBC40": {
-      "is": "0x001BBC40",
-      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x78, 24 of 24 places agree"
-    },
-    "0x001C5290": {
-      "is": "0x001C5290",
-      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0xA8, 2 of 2 places agree"
-    },
-    "0x001D4C40": {
-      "is": "0x001D4C40",
-      "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004CA270 (NTSC-U func_L01_004C6638) +0x138, 7 of 7 places agree"
-    },
-    "0x001D4CA0": {
-      "is": "0x001D4CA0",
-      "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001D4C80 and 0x001D4CA8, both moved by +0x0 (NTSC-U 0x001D4C80, 0x001D4CA8)"
-    }
-  },
-  "libraries_left_out": {
-    "func_00124ED8": "LoadExecPS2's wrapper starts PAL's multiplayer executable (rac3-pal host/exec.c), which NTSC-U does not build yet: the call stays unanswered (rac3/parity.tsv)"
-  },
-  "level_addresses": {
-    "about": "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
-    "L01:001D6694": {
-      "is": "001D6694",
-      "why": "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 46 of 46 places agree"
-    },
-    "L01:001DBCA4": {
-      "is": "001DBCE4",
-      "why": "between the same code's 0x001DBCA0 and 0x001DBCBC, both moved by +0x40 (NTSC-U 0x001DBCE0, 0x001DBCFC)"
-    },
-    "L01:001DF97C": {
-      "is": "001DF9FC",
-      "why": "the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree"
-    },
-    "L01:001E0050": {
-      "is": "001E00D0",
-      "why": "between the same code's 0x001E002C and 0x001E0054, both moved by +0x80 (NTSC-U 0x001E00AC, 0x001E00D4)"
-    },
-    "L01:001E0278": {
-      "is": "001E02F8",
-      "why": "the same instruction of the same code: func_L01_004618E8 (NTSC-U func_L01_0045E440) +0x1C, 5 of 5 places agree"
-    },
-    "L01:001E0280": {
-      "is": "001E0300",
-      "why": "the same instruction of the same code: func_L01_004618E8 (NTSC-U func_L01_0045E440) +0xC, 8 of 8 places agree"
-    },
-    "L01:001E0E10": {
-      "is": "001E0E90",
-      "why": "between the same code's 0x001E0DF0 and 0x001E0E90, both moved by +0x80 (NTSC-U 0x001E0E70, 0x001E0F10)"
-    },
-    "L01:001E1068": {
-      "is": "001E10E8",
-      "why": "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 96 of 96 places agree"
-    },
-    "L01:001E29E0": {
-      "is": "001E2A60",
-      "why": "the same instruction of the same code: func_L01_003649E8 (NTSC-U func_L01_00363C60) +0x74, 13 of 13 places agree"
-    },
-    "L01:001E2AA0": {
-      "is": "001E2B20",
-      "why": "the same instruction of the same code: func_L01_003E4428 (NTSC-U func_L01_003E2638) +0x14, 8 of 8 places agree"
-    },
-    "L01:001E2B90": {
-      "is": "001E2C10",
-      "why": "the same instruction of the same code: func_L01_003E7000 (NTSC-U func_L01_003E5198) +0x44, 5 of 5 places agree"
-    },
-    "L01:001E7580": {
-      "is": "001E7600",
-      "why": "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 10 of 10 places agree"
-    },
-    "L01:001E7880": {
-      "is": "001E7900",
-      "why": "the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x88, 1 of 1 places agree"
-    },
-    "L01:001EA840": {
-      "is": "001EA8C0",
-      "why": "between the same code's 0x001EA7C0 and 0x001EA940, both moved by +0x80 (NTSC-U 0x001EA840, 0x001EA9C0)"
-    },
-    "L01:00220A40": {
-      "is": "00220AC0",
-      "why": "between the same code's 0x00220840 and 0x00220E40, both moved by +0x80 (NTSC-U 0x002208C0, 0x00220EC0)"
-    },
-    "L12:001D66E4": {
-      "is": "001D66E4",
-      "why": "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 46 of 46 places agree"
-    },
-    "L19:001D66D4": {
-      "is": "001D66D4",
-      "why": "the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 48 of 48 places agree"
-    },
-    "L39:0024CAD0": {
-      "is": "0024CBD0",
-      "why": "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 95 of 95 places agree"
-    },
-    "L39:0024DE20": {
-      "is": "0024DF20",
-      "why": "the same instruction of the same code: func_L39_0067A4E0 (NTSC-U func_L39_00677AE8) +0x18, 1 of 1 places agree"
-    },
-    "L39:0025D6C0": {
-      "is": "0025D7C0",
-      "why": "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 10 of 10 places agree"
-    },
-    "L39:0025F580": {
-      "is": "0025F680",
-      "why": "the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0xE8, 1 of 1 places agree"
-    },
-    "L01:001DCA14": {
-      "is": "001DCA54",
-      "why": "the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0x70, 3 of 3 places agree"
-    },
-    "L01:001E001C": {
-      "is": "001E009C",
-      "why": "the same instruction of the same code: func_L01_002FBB10 (NTSC-U func_L01_002FBAE8) +0x58, 185 of 185 places agree"
-    },
-    "L01:001E0024": {
-      "is": "001E00A4",
-      "why": "the same instruction of the same code: func_L01_00438EA0 (NTSC-U func_L01_00435DE0) +0x10, 39 of 39 places agree"
-    },
-    "L01:001E0100": {
-      "is": "001E0180",
-      "why": "the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0x23C, 21 of 21 places agree"
-    },
-    "L01:001DFD0C": {
-      "is": "001DFD8C",
-      "why": "the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x160, 6 of 6 places agree"
-    },
-    "L01:001DFD20": {
-      "is": "001DFDA0",
-      "why": "the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x8, 1 of 1 places agree"
-    },
-    "L01:001DFD24": {
-      "is": "001DFDA4",
-      "why": "the same instruction of the same code: func_L01_0041C4A0 (NTSC-U func_L01_00419D98) +0x34, 4 of 4 places agree"
-    },
-    "L01:002E60D0": {
-      "is": "002E6110",
-      "why": "the same instruction of the same code: func_L01_0041BFE8 (NTSC-U func_L01_004198E0) +0xC, 3 of 3 places agree"
-    },
-    "L39:0024BF90": {
-      "is": "0024C090",
-      "why": "the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0x1B8, 1 of 1 places agree"
-    }
-  }
-}

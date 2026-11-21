@@ -8,66 +8,67 @@
 import summaryFile from "../../../progress/summary.json";
 import actionsFile from "../../actions.json";
 import packageFile from "../../package.json";
-import type { AppInfo, DiscScan, GpuDriver, GpuDrivers } from "./api";
-import { onAndroid } from "./api";
-import type { ActionView } from "./generated/ActionView";
-import type { Applied } from "./generated/Applied";
-import type { BuildInfo } from "./generated/BuildInfo";
-import type { Check } from "./generated/Check";
-import type { Config } from "./generated/Config";
-import type { ControlsScope } from "./generated/ControlsScope";
-import type { ControlsView } from "./generated/ControlsView";
-import type { Detected } from "./generated/Detected";
-import type { Differences } from "./generated/Differences";
-import type { DifferenceView } from "./generated/DifferenceView";
-import type { EditorState } from "./generated/EditorState";
-import type { ExportedSaves } from "./generated/ExportedSaves";
-import type { GameView } from "./generated/GameView";
-import type { InstallState } from "./generated/InstallState";
-import type { InterfaceRun } from "./generated/InterfaceRun";
-import type { InterfaceRunsView } from "./generated/InterfaceRunsView";
-import type { JobEvent } from "./generated/JobEvent";
-import type { Library } from "./generated/Library";
-import type { ModLoadSummary } from "./generated/ModLoadSummary";
-import type { ModProfile } from "./generated/ModProfile";
-import type { ModSources } from "./generated/ModSources";
-import type { PackView } from "./generated/PackView";
-import type { Platform } from "./generated/Platform";
-import type { PluginInstalled } from "./generated/PluginInstalled";
-import type { PluginStatus } from "./generated/PluginStatus";
-import type { PluginView } from "./generated/PluginView";
-import type { Progress } from "./generated/Progress";
-import type { Rac2ExtraFields } from "./generated/Rac2ExtraFields";
-import type { Rac2ExtraView } from "./generated/Rac2ExtraView";
-import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
-import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
-import type { Rac2SaveView } from "./generated/Rac2SaveView";
-import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
-import type { Rac3SaveFields } from "./generated/Rac3SaveFields";
-import type { Rac3SaveView } from "./generated/Rac3SaveView";
-import type { Rac3WriteResult } from "./generated/Rac3WriteResult";
-import type { RemoteInstalled } from "./generated/RemoteInstalled";
-import type { RemotePreview } from "./generated/RemotePreview";
-import type { ReportEntry } from "./generated/ReportEntry";
-import type { ResetDone } from "./generated/ResetDone";
-import type { ResetPreview } from "./generated/ResetPreview";
-import type { Review } from "./generated/Review";
-import type { SaveArchiveSlot } from "./generated/SaveArchiveSlot";
-import type { SaveChange } from "./generated/SaveChange";
-import type { SaveCopySource } from "./generated/SaveCopySource";
-import type { SaveFields } from "./generated/SaveFields";
-import type { SaveImportPreview } from "./generated/SaveImportPreview";
-import type { SaveView } from "./generated/SaveView";
-import type { Scope } from "./generated/Scope";
-import type { Shared } from "./generated/Shared";
-import type { SharePreview } from "./generated/SharePreview";
-import type { Started } from "./generated/Started";
-import type { TexturePackView } from "./generated/TexturePackView";
-import type { UpdateChannel } from "./generated/UpdateChannel";
-import type { VersionStatus } from "./generated/VersionStatus";
-import type { VersionView } from "./generated/VersionView";
-import type { WantedMod } from "./generated/WantedMod";
-import type { WriteResult } from "./generated/WriteResult";
+
+import type {AppInfo, DiscScan, GpuDriver, GpuDrivers} from "./api";
+import {onAndroid} from "./api";
+import type {ActionView} from "./generated/ActionView";
+import type {Applied} from "./generated/Applied";
+import type {BuildInfo} from "./generated/BuildInfo";
+import type {Check} from "./generated/Check";
+import type {Config} from "./generated/Config";
+import type {ControlsScope} from "./generated/ControlsScope";
+import type {ControlsView} from "./generated/ControlsView";
+import type {Detected} from "./generated/Detected";
+import type {Differences} from "./generated/Differences";
+import type {DifferenceView} from "./generated/DifferenceView";
+import type {EditorState} from "./generated/EditorState";
+import type {ExportedSaves} from "./generated/ExportedSaves";
+import type {GameView} from "./generated/GameView";
+import type {InstallState} from "./generated/InstallState";
+import type {InterfaceRun} from "./generated/InterfaceRun";
+import type {InterfaceRunsView} from "./generated/InterfaceRunsView";
+import type {JobEvent} from "./generated/JobEvent";
+import type {Library} from "./generated/Library";
+import type {ModLoadSummary} from "./generated/ModLoadSummary";
+import type {ModProfile} from "./generated/ModProfile";
+import type {ModSources} from "./generated/ModSources";
+import type {PackView} from "./generated/PackView";
+import type {Platform} from "./generated/Platform";
+import type {PluginInstalled} from "./generated/PluginInstalled";
+import type {PluginStatus} from "./generated/PluginStatus";
+import type {PluginView} from "./generated/PluginView";
+import type {Progress} from "./generated/Progress";
+import type {Rac2ExtraFields} from "./generated/Rac2ExtraFields";
+import type {Rac2ExtraView} from "./generated/Rac2ExtraView";
+import type {Rac2ExtraWriteResult} from "./generated/Rac2ExtraWriteResult";
+import type {Rac2SaveFields} from "./generated/Rac2SaveFields";
+import type {Rac2SaveView} from "./generated/Rac2SaveView";
+import type {Rac2WriteResult} from "./generated/Rac2WriteResult";
+import type {Rac3SaveFields} from "./generated/Rac3SaveFields";
+import type {Rac3SaveView} from "./generated/Rac3SaveView";
+import type {Rac3WriteResult} from "./generated/Rac3WriteResult";
+import type {RemoteInstalled} from "./generated/RemoteInstalled";
+import type {RemotePreview} from "./generated/RemotePreview";
+import type {ReportEntry} from "./generated/ReportEntry";
+import type {ResetDone} from "./generated/ResetDone";
+import type {ResetPreview} from "./generated/ResetPreview";
+import type {Review} from "./generated/Review";
+import type {SaveArchiveSlot} from "./generated/SaveArchiveSlot";
+import type {SaveChange} from "./generated/SaveChange";
+import type {SaveCopySource} from "./generated/SaveCopySource";
+import type {SaveFields} from "./generated/SaveFields";
+import type {SaveImportPreview} from "./generated/SaveImportPreview";
+import type {SaveView} from "./generated/SaveView";
+import type {Scope} from "./generated/Scope";
+import type {Shared} from "./generated/Shared";
+import type {SharePreview} from "./generated/SharePreview";
+import type {Started} from "./generated/Started";
+import type {TexturePackView} from "./generated/TexturePackView";
+import type {UpdateChannel} from "./generated/UpdateChannel";
+import type {VersionStatus} from "./generated/VersionStatus";
+import type {VersionView} from "./generated/VersionView";
+import type {WantedMod} from "./generated/WantedMod";
+import type {WriteResult} from "./generated/WriteResult";
 import {
   mockControlsCopy,
   mockControlsReset,
@@ -76,7 +77,7 @@ import {
   mockControlsSet,
   mockControlsView,
 } from "./mockControls";
-import { mockEnhanced } from "./mockEnhanced";
+import {mockEnhanced} from "./mockEnhanced";
 import {
   mockApply,
   mockAutoUpdate,
@@ -86,8 +87,8 @@ import {
   mockResolve,
   mockUpdates,
 } from "./mockIndex";
-import { mockRac2Extra, mockWriteRac2Extra } from "./mockRac2Extra";
-import type { UpdateInfo, UpdateProgressCallback } from "./updates";
+import {mockRac2Extra, mockWriteRac2Extra} from "./mockRac2Extra";
+import type {UpdateInfo, UpdateProgressCallback} from "./updates";
 
 // ---- the files, as the Rust side parses them --------------------------------------
 
@@ -2717,62 +2718,58 @@ function mockRac2Versions(
   ];
 }
 
-/** Up Your Arsenal's weapons as the save editor lists them: item, name, V1 full ammo. */
-const RAC3_WEAPONS: [number, string, number][] = [
-  [9, "OmniWrench", 0],
-  [39, "Shock Blaster", 30],
-  [119, "Nitro Launcher", 8],
-  [47, "N60 Storm", 150],
-  [127, "Plasma Whip", 25],
-  [55, "Infector", 15],
-  [135, "Suck Cannon", 0],
-  [71, "Spitting Hydra", 15],
-  [87, "Agents of Doom", 6],
-  [111, "Flux Rifle", 10],
-  [63, "Annihilator", 20],
-  [103, "Holo Shield Glove", 8],
-  [79, "Disc Blade Gun", 25],
-  [95, "Rift Inducer", 8],
-  [143, "Qwack-O-Ray", 0],
-  [151, "RY3NO", 25],
-  [21, "Miniturret Glove", 10],
-  [17, "Lava Gun", 150],
-  [22, "Shield Charger", 3],
-  [19, "Bouncer", 10],
-  [16, "Plasma Coil", 15],
+/**
+ * Up Your Arsenal's weapons as the save editor lists them: item, name, V1 full
+ * ammo.
+ */
+const RAC3_WEAPONS: [ number, string, number ][] = [
+  [ 9, "OmniWrench", 0 ],         [ 39, "Shock Blaster", 30 ],
+  [ 119, "Nitro Launcher", 8 ],   [ 47, "N60 Storm", 150 ],
+  [ 127, "Plasma Whip", 25 ],     [ 55, "Infector", 15 ],
+  [ 135, "Suck Cannon", 0 ],      [ 71, "Spitting Hydra", 15 ],
+  [ 87, "Agents of Doom", 6 ],    [ 111, "Flux Rifle", 10 ],
+  [ 63, "Annihilator", 20 ],      [ 103, "Holo Shield Glove", 8 ],
+  [ 79, "Disc Blade Gun", 25 ],   [ 95, "Rift Inducer", 8 ],
+  [ 143, "Qwack-O-Ray", 0 ],      [ 151, "RY3NO", 25 ],
+  [ 21, "Miniturret Glove", 10 ], [ 17, "Lava Gun", 150 ],
+  [ 22, "Shield Charger", 3 ],    [ 19, "Bouncer", 10 ],
+  [ 16, "Plasma Coil", 15 ],
 ];
 
 const savedRac3: Record<string, Rac3SaveFields> = {};
 
-/** An Up Your Arsenal slot: on Veldin, with the wrench, the Shock Blaster and the Nitro Launcher. */
+/**
+ * An Up Your Arsenal slot: on Veldin, with the wrench, the Shock Blaster and
+ * the Nitro Launcher.
+ */
 function mockSaveRac3(serial: string, slot: number): Rac3SaveView {
-  const owned = new Set([9, 39, 119]);
+  const owned = new Set([ 9, 39, 119 ]);
   const fields: Rac3SaveFields = savedRac3[`${serial}/${String(slot)}`] ?? {
-    bolts: 12345,
-    weapons: RAC3_WEAPONS.map(([id, , ammo]) => ({
-      id,
-      owned: owned.has(id),
-      ammo: owned.has(id) ? ammo : 0,
-    })),
+    bolts : 12345,
+    weapons : RAC3_WEAPONS.map(([ id, , ammo ]) => ({
+                                 id,
+                                 owned : owned.has(id),
+                                 ammo : owned.has(id) ? ammo : 0,
+                               })),
   };
 
   return {
     serial,
     slot,
-    fingerprint: "mock",
-    planetName: "Veldin",
-    savedAt: "2026-11-19 14:15:30",
-    playSeconds: 3723,
+    fingerprint : "mock",
+    planetName : "Veldin",
+    savedAt : "2026-11-19 14:15:30",
+    playSeconds : 3723,
     fields,
-    weapons: RAC3_WEAPONS.map(([id, name, ammo]) => ({
-      id,
-      name,
-      versionName: name,
-      version: 1,
-      maxAmmo: ammo,
-      xp: 0,
-    })),
-    maxBolts: 9_999_999,
+    weapons : RAC3_WEAPONS.map(([ id, name, ammo ]) => ({
+                                 id,
+                                 name,
+                                 versionName : name,
+                                 version : 1,
+                                 maxAmmo : ammo,
+                                 xp : 0,
+                               })),
+    maxBolts : 9_999_999,
   };
 }
 
@@ -4046,23 +4043,29 @@ export async function mockCall(
         ),
       );
     case "read_save_rac3":
-      return delay<Rac3SaveView>(mockSaveRac3(String(args.serial), Number(args.slot ?? 0)));
+      return delay<Rac3SaveView>(
+          mockSaveRac3(String(args.serial), Number(args.slot ?? 0)));
     case "write_save_rac3": {
       const fields = args.fields as Rac3SaveFields;
 
-      if (fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");
-      savedRac3[`${String(args.serial)}/${String(args.slot)}`] = structuredClone(fields);
-      const name = `.backup_${String(Math.floor(Date.now() / 1000))}_before_edit_slot${String(Number(args.slot) + 1)}`;
+      if (fields.bolts > 9_999_999)
+        throw new Error("bolts go up to 9999999");
+      savedRac3[`${String(args.serial)}/${String(args.slot)}`] =
+          structuredClone(fields);
+      const name =
+          `.backup_${String(Math.floor(Date.now() / 1000))}_before_edit_slot${
+              String(Number(args.slot) + 1)}`;
 
       return delay<Rac3WriteResult>({
-        backup: {
+        backup : {
           name,
-          path: `/home/you/.local/share/openrac/memcard/${String(args.serial)}/${name}`,
-          note: `Before editing slot ${String(Number(args.slot) + 1)}`,
-          createdMillis: Date.now(),
-          totalSize: 552000,
+          path : `/home/you/.local/share/openrac/memcard/${
+              String(args.serial)}/${name}`,
+          note : `Before editing slot ${String(Number(args.slot) + 1)}`,
+          createdMillis : Date.now(),
+          totalSize : 552000,
         },
-        view: mockSaveRac3(String(args.serial), Number(args.slot)),
+        view : mockSaveRac3(String(args.serial), Number(args.slot)),
       });
     }
     case "read_save_rac2":
