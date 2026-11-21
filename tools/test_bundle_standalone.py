@@ -83,7 +83,7 @@ class PlayerActions(unittest.TestCase):
                            ("rac4/ntsc", 4)):
             with self.subTest(key):
                 actions = {a["id"]: a for a in self.actions["versions"][key]}
-                if key == "rac2/ntsc":
+                if key in ("rac2/ntsc", "rac3/ntsc"):
                     self.assertEqual(actions["editor-pack"]["args"][-3:],
                                      ["{data}/levels/ntsc", "{data}/packed/ntsc", "--anywhere"])
                     self.assertEqual(actions["play-edited"]["args"][-2:], ["--mods", "{data}/mods/ntsc"])
