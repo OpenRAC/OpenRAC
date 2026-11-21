@@ -1547,10 +1547,7 @@ TickMobys pose_mobys(
     // as many as the shader's moby_point_lights holds (mesh.vert).
     std::vector<std::array<float, 8>> point_lit;
     constexpr std::size_t kPointLitMobys = 32;
-    const gaddr point_bank =
-        g->render.profile->mobys_take_point_lights() && light_bank_address() != 0
-            ? openrac_relocate_data(light_bank_address())
-            : 0;
+    const gaddr point_bank = g->render.profile->mobys_take_point_lights() ? light_bank_in_ram() : 0;
 
     // A moby to pose: its address and joints, and its instance (in target_mobys or in live).
     struct PoseJob {
@@ -2665,8 +2662,7 @@ void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state
     // The light bank as the game holds it now (16 sets of 0x40 bytes; the executable's, each
     // level's copy elsewhere): the level loader fills it from the gameplay file, and the game changes
     // sets at run time (the page menus write set 14 for their frame mobys, fog zones the hero's).
-    if (light_bank_address() != 0) {
-        const gaddr bank = openrac_relocate_data(light_bank_address());
+    if (const gaddr bank = light_bank_in_ram(); bank != 0) {
         if (bank + 16 * 0x40 <= ram.size()) {
             std::vector<float> sets(16 * 16);
             std::memcpy(sets.data(), ram.data() + bank, sets.size() * sizeof(float));

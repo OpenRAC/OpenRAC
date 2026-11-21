@@ -11,7 +11,8 @@ import games
 from gltf import Gltf
 from godot import write_marker
 from mesh import Mesh
-from moby_class import BANGLE_CLASSES, UNTEXTURED, bangle_classes, bangles, moby_class
+from level import CLANK_TEXTURE, SHIP_TEXTURE
+from moby_class import BANGLE_CLASSES, UNTEXTURED, bangle_classes, bangles, moby_class, moby_classes
 from test_godot import attribute, read_glb
 
 REMAP = bytes((5, 9)) + bytes((255,)) * 14
@@ -197,6 +198,41 @@ class LaterGameTests(unittest.TestCase):
         whole = moby_class(bytes(data), REMAP, "moby_42", fmt=fmt)
         self.assertEqual(parts[BANGLE_CLASSES + 42 * 16 + 1].mesh.positions[:4], whole.mesh.positions[:4])
         self.assertIsNone(parts[BANGLE_CLASSES + 42 * 16 + 1].metal)
+
+
+class BoundTextureTests(unittest.TestCase):
+    """Classes whose pictures the game binds at load: Going Commando by an empty slot (the ship's
+    parts), Up Your Arsenal by the class table entry's word +8 (1 the ship's, 2 Clank's)."""
+
+    class Level:
+        def __init__(self, game, entries):
+            self.game, self.entries = game, entries
+            self.textures = {("moby", SHIP_TEXTURE): None, ("moby", CLANK_TEXTURE): None}
+            self.hero_mesh, self.wrench_meshes, self.hero_looks, self.items = None, [], [], {}
+            self.ship_bodies, self.problems = [], []
+
+        def table(self, at, size):
+            return self.entries if at == 0x18 else []
+
+        def block(self, start):
+            return bytes(fixture(texture=0, compact=True))
+
+    @staticmethod
+    def entry(class_id, bound):
+        return struct.pack("<iiii", 0x100, class_id, bound, 0) + bytes((255,)) * 16
+
+    def faces(self, game, bound):
+        result = moby_classes(self.Level(game, [self.entry(601, bound)]))[601]
+        return set(result.mesh.faces)
+
+    def test_up_your_arsenal_binds_by_the_entry_word(self):
+        self.assertEqual(self.faces("rac3", 1), {("moby", SHIP_TEXTURE)})
+        self.assertEqual(self.faces("rac3", 2), {("moby", CLANK_TEXTURE)})
+        self.assertEqual(self.faces("rac3", 0), {UNTEXTURED})
+
+    def test_going_commando_binds_an_empty_slot_to_the_ship(self):
+        for bound in (0, 1, 2):
+            self.assertEqual(self.faces("rac2", bound), {("moby", SHIP_TEXTURE)})
 
 
 class MobySceneTests(unittest.TestCase):

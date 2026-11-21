@@ -303,9 +303,9 @@ class LevelWriter:
         if fmt.packable:
             self.scene.node(f"Level_{level.id:02}", kind="Node3D", script=script, metadata__rc1_level=level.id)
         else:
-            # A later game's level: shown and exported; Going Commando's mobys are packed back
-            # (pack_later.py), the other games' levels not yet.
-            gc = fmt.game == "rac2"
+            # A later game's level: shown and exported; Going Commando's and Up Your Arsenal's mobys
+            # are packed back (pack_later.py, extract.py later_pack), Deadlocked's levels not yet.
+            gc = fmt.game in ("rac2", "rac3")
             self.scene.node(f"Level_{level.id:02}", kind="Node3D", script=script, metadata__rc1_level=level.id,
                             metadata__rc1_game=fmt.game, metadata__rc1_packable=gc,
                             editor_description=f"{fmt.title}, level {level.id}{'' if gc else ' (early access)'}.\n"
@@ -314,7 +314,7 @@ class LevelWriter:
                                "shrubs, terrain and collision are not yet." if gc else
                                "Static scenery, mobys and textures to look at and to make texture and model "
                                "packs from. Edits here are not packed back into the game yet: the level "
-                               "packer reads Ratchet & Clank's and Going Commando's levels only."))
+                               "packer reads Ratchet & Clank's, Going Commando's and Up Your Arsenal's levels only."))
         problems = level.problems if fmt.lenient else None
         self.write_environment(level_sky(level, fmt))
         self.scene.node("Game", ".", "Node3D", transform=transform(GAME_TO_GODOT))

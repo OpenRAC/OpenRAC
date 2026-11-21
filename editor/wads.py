@@ -80,6 +80,10 @@ class Version:
     ship_paints: int = 0
     ship_paint_count: int = 0
     flight_base: int = 0
+    # Up Your Arsenal: Clank's pictures, (sector, sector count) pairs after the hero packs' base
+    # sector, one per skin of his (the game loads one over the classes that wear his picture).
+    clank_skins: int = 0
+    clank_skin_count: int = 0
 
 
 RAC2_NTSC = Version(game="rac2", key="ntsc", **util.disc_identity("rac2", "ntsc"), level_header=0x60,
@@ -102,7 +106,7 @@ RAC2_NTSC2 = Version(game="rac2", key="ntsc2", **util.disc_identity("rac2", "nts
 RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"), level_header=0x60,
                     hero_packs=0x1eb4, hero_armours=31, item_banks=0x458c, wrench_packs=(31,),
                     ship_bodies=0x1d60, ship_paints=0x1d78, ship_paint_count=32, flight_base=0x1284,
-                    loading_packs=0x1288, loading_ship_pack=11)
+                    loading_packs=0x1288, loading_ship_pack=11, clank_skins=0x2238, clank_skin_count=2)
 # Up Your Arsenal's PAL disc: the same table of contents and level headers as NTSC-U's, read where
 # Veldin's copies of Going Commando's loaders read it (the table of contents at 0x00160C40):
 # - Ratchet's packs: LoadPlayerDisplayTextures (0x004255E0, Going Commando's 0x00292078), the base
@@ -114,10 +118,14 @@ RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"
 #   (0x0042D110, Going Commando's 0x00294988).
 # - His ship (class 3412 as Going Commando's): three hulls from +0x1D60 and 32 paint jobs from
 #   +0x1D78, sector pairs from the sector at +0x1284 (0x00425D48, Going Commando's 0x002925F0).
+# - Clank's picture: one of two skins (his skin number kept at 0x001D4BA0), a texture record of a
+#   (sector, sectors) pair from +0x2238 after the hero packs' base sector at +0x1EB4; Veldin's
+#   func_L01_00425FE0 (Florana's 0x003FE308) loads it and keeps its TEX0 at 0x001D4BA8, which the
+#   class loader binds over every class whose entry's word +8 is 2 (Clank, 601 and 87).
 RAC3_PAL = Version(game="rac3", key="pal", **util.disc_identity("rac3", "pal"), level_header=0x60,
                    hero_packs=0x1eb4, hero_armours=31, item_banks=0x458c, wrench_packs=(31,),
                    ship_bodies=0x1d60, ship_paints=0x1d78, ship_paint_count=32, flight_base=0x1284,
-                   loading_packs=0x1288, loading_ship_pack=11)
+                   loading_packs=0x1288, loading_ship_pack=11, clank_skins=0x2238, clank_skin_count=2)
 RAC4_NTSC = Version(game="rac4", key="ntsc", **util.disc_identity("rac4", "ntsc"), level_header=0xc68)
 # Deadlocked's PAL disc (Ratchet: Gladiator): the same table of contents and level headers as NTSC-U's.
 RAC4_PAL = Version(game="rac4", key="pal", **util.disc_identity("rac4", "pal"), level_header=0xc68)
@@ -286,6 +294,16 @@ class WadDisc:
         low five bits of 0x001A7AF2 name on each load, the Ship Shack's preview another, and keeps
         its number at 0x00152C30."""
         return [self.ship_texture(number) for number in range(self.version.ship_paint_count or SHIP_PAINT_COUNT)]
+
+    def clank_textures(self) -> list[bytes]:
+        """Clank's pictures, one per skin (Version.clank_skins): each a texture record, of the
+        (sector, sector count) pairs there, from the hero packs' base sector, as Up Your Arsenal's
+        func_L01_00425FE0 reads the one his skin names; none on a disc without the table."""
+        if not self.version.clank_skins:
+            return []
+        base, = unpack("<i", self.toc, self.version.hero_packs)
+        pairs = (unpack("<2i", self.toc, self.version.clank_skins + n * 8) for n in range(self.version.clank_skin_count))
+        return [self.disc.sectors(base + sector, count) for sector, count in pairs]
 
     def ship_body(self, number: int = 0) -> bytes:
         """His ship's hull as func_002925F0 reads it on every level's and flight's load: a class, of

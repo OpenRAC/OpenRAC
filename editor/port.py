@@ -39,7 +39,7 @@ import games
 import gc_tie_colours
 from gltf import Gltf
 from godot import PANORAMA, STORED_W, LevelWriter, chunk_terrain, problem_summary
-from level import SHIP_TEXTURE, Level
+from level import CLANK_TEXTURE, SHIP_TEXTURE, Level
 from lighting import light_bank, light_shrub_instance, light_tie_instance
 from mesh import Mesh
 from moby_class import MobyClass, moby_classes
@@ -90,8 +90,9 @@ FORMAT = 4
 # levels' sun sets (probe-bake.json), as Going Commando's 19. 13: the loading screen's ship scene
 # as level 97 (level.load_wad_loading). 14: the liquid surfaces the baker lights from
 # (bake-inputs/liquids.json, manifest bake_inputs "liquids": the class 6576 strips), as Going
-# Commando's 20.
-GAME_FORMATS = {"rac2": 20, "rac3": 14}
+# Commando's 20. 15: the pictures the class loader binds at load by a class entry's word +8 (his
+# ship's on the ship's parts, Clank's on Clank; manifest "clank_skins"), as Going Commando's 15.
+GAME_FORMATS = {"rac2": 20, "rac3": 15}
 
 
 def levels_format(game: str) -> int:
@@ -345,6 +346,15 @@ class PortLevelWriter(LevelWriter):
                 name = ship if number == 0 else f"ship_paint_{number:02}"
                 self.textures[name] = texture
                 paints.append(f"textures/{name}.png")
+        # Clank's skins (Up Your Arsenal), as the ship's paint jobs: the faces that wear his picture
+        # are exported with skin 0; the others go out beside it for the port to bind.
+        clank = f"moby_{CLANK_TEXTURE:04}"
+        skins = []
+        if self.level.clank_skins and clank in self.textures:
+            for number, texture in enumerate(self.level.clank_skins):
+                name = clank if number == 0 else f"clank_skin_{number:02}"
+                self.textures[name] = texture
+                skins.append(f"textures/{name}.png")
         (self.dir / "textures").mkdir(parents=True, exist_ok=True)
         for name, texture in sorted(self.textures.items()):
             (self.dir / "textures" / f"{name}.png").write_bytes(texture.png())
@@ -365,6 +375,8 @@ class PortLevelWriter(LevelWriter):
                     "bounds": self.stats["bounds"], "stats": self.stats}
         if paints:
             manifest["ship_paints"] = {"texture": f"textures/{ship}.png", "paints": paints}
+        if skins:
+            manifest["clank_skins"] = {"texture": f"textures/{clank}.png", "skins": skins}
         bake_inputs = write_bake_inputs(self.level, self.dir)
         write_bake_profile(self.level, self.dir)
         if bake_inputs:

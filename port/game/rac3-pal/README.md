@@ -36,7 +36,7 @@ From the launcher (launcher/actions.json, `rac3/pal`), as for Going Commando: *S
 disc* runs `tools/extractor.py`, which checks the disc against games/rac3/game.json and writes
 `iso_data/rac3/` (`SCES_524.56`, `disc.iso`, `buildinfo.json`) into the game's data folder;
 *Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
-the levels into `assets/port/rac3/pal` (`levels-13.json`), and *Play* runs
+the levels into `assets/port/rac3/pal` (`levels-15.json`), and *Play* runs
 `openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that
 the port is early. The game draws a level's world from them ([Drawing the levels](#drawing-the-levels)).
 
