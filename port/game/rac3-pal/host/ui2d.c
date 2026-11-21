@@ -1614,9 +1614,13 @@ void func_003972A0__frontbin(
     }
 }
 
+#ifndef RAC3_NTSC
+/* NTSC-U leaves this wrap out for now (rac3-ntsc release.json libraries_left_out): its release
+ * view names the frontbin function without the __frontbin suffix since rac3-decomp f9ea1754. */
 void func_003AA3C8__frontbin(gaddr a0, float a1, float a2, int a3, float a4, gaddr a5) {
     const gaddr cursor = kBoot.cursor;
     const gaddr start = GREF(gaddr, cursor);
     func_003AA3C8__frontbin__game(a0, a1, a2, a3, a4, a5);
     widget_quads(cursor, start);
 }
+#endif /* RAC3_NTSC */

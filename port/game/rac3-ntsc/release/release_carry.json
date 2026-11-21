@@ -24,7 +24,7 @@
   "func_003AA3C8__frontbin": {
    "is": "func_003A4E70__frontbin",
    "status": "differs",
-   "port": "wrap"
+   "port": "host C"
   },
   "func_003AA3C8__frontbin__game": {
    "is": "func_003A4E70__frontbin__game",
@@ -107,7 +107,9 @@
    "port": "hook"
   }
  },
- "left_out": {},
+ "left_out": {
+  "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again"
+ },
  "addresses_not_found": [],
  "hand_addresses": {
   "0x001439F4": {
@@ -219,29 +221,29 @@
    "func_PAL_L39_00518A18",
    "func_PAL_L46_004A6FC0",
    "func_PAL_L01_004AB368",
-   "func_PAL_L28_003BFF78",
-   "func_PAL_L39_004CE100",
-   "func_PAL_L39_00583C20",
-   "func_PAL_L39_00587A30",
-   "func_PAL_L39_005A12B8",
    "func_PAL_L39_005A6020",
    "func_L39_006AE8F8_006AE3D8",
    "func_PAL_L39_006CCD08",
    "func_PAL_L39_005189A0",
    "func_PAL_00391210",
+   "func_1488A8",
+   "func_00193590",
+   "func_L01_003B6B68_003B7290",
    "func_L39_005187A0"
-  ],
-  "asm.signature_allow": [
-   "func_L01_0047C728_0047C4F8"
   ],
   "from_assembly": [
    "func_PAL_L39_00596EE0",
    "func_PAL_L39_0059DCD8",
    "func_PAL_L39_005A6020",
    "func_PAL_L39_006CCD08",
-   "func_PAL_L39_004CE100",
    "func_PAL_00391210",
-   "func_L01_0047C728_0047C4F8"
+   "func_L01_0047C728_0047C4F8",
+   "func_PAL_L39_0067A7E0",
+   "func_L01_003B6B68_003B7290",
+   "func_00193590",
+   "func_1488A8",
+   "func_PAL_L30_003B3A30",
+   "func_PAL_L39_006461B0"
   ]
  },
  "own_functions": [
@@ -249,13 +251,9 @@
   "func_00395FE0__frontbin",
   "func_0039DB38__frontbin",
   "func_003A0170__frontbin",
-  "func_003AF160__frontbin",
   "func_003B0C70__frontbin",
   "func_003B0D18__frontbin",
-  "func_00131900",
-  "func_0039B098",
   "func_003A5850",
-  "func_003B4920",
   "func_003B6430",
   "func_003B64D8"
  ],

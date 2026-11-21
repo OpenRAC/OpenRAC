@@ -293,7 +293,7 @@ static const openrac_mod_pages_host mod_pages = {
 
 /* The Options rows' texts, each frame: the port's while its page shows, else the game's with the
  * 16:9 row named Video, its value none. */
-int func_003B63D0(void) {
+void func_003B63D0(void) {
     rows_written = 0;
     /* The page built again (the screen left another way than Triangle): the game's rows. */
     /* (A mod's page sets the rows itself; the frame hook lets it go when the page is gone.) */
@@ -301,15 +301,15 @@ int func_003B63D0(void) {
         video_open = 0;
     }
     if (!video_open) {
-        const int r = func_003B63D0__game();
+        func_003B63D0__game();
         openrac_game_option_word("Video", (char*)G(cell(0, ROW_VIDEO)), (int)CELL_TEXT);
         capitals(cell(0, ROW_VIDEO), (int)CELL_TEXT);
         GREF(char, cell(1, ROW_VIDEO)) = 0;
-        return r;
+        return;
     }
     if (mod_item >= 0) {
         mod_page_text();
-        return 0;
+        return;
     }
     const int rows = GREF(int32_t, LIST + LIST_ROWS);
     for (int row = 0; row < rows; ++row) {
@@ -324,7 +324,6 @@ int func_003B63D0(void) {
         capitals(cell(0, row), (int)CELL_TEXT);
         capitals(cell(1, row), (int)CELL_TEXT);
     }
-    return 0;
 }
 
 /* The preview follows the cursor among the game's rows, the Video row's the 16:9 row's own; the

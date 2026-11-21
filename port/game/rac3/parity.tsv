@@ -3,5 +3,4 @@
 # PAL name	place (boot, frontbin or level), or "row"	the programs that differ	why
 # Also: a name, "sig" (its row's C type differs); an address, "data" (no evidence for it).
 func_0012C9A0	row	rac3-ntsc,rac3-pal	the entry after a fill word (0xCDCDCDCD at 0x0012C99C, the inventory's start), as Going Commando's func_00126288: sceGsSetDefLoadImage is entered at 0x0012C9A0 on both discs
-func_0012CE48	row	rac3-ntsc,rac3-pal	the entry after a fill word (0xCDCDCDCD at 0x0012CE44, the inventory's start): the levels call sceGsExecStoreImage at 0x0012CE48 on both discs
-func_00125090	row	rac3-ntsc,rac3-pal	the entry one word into func_0012508C (a stray pref before it, the inventory's start): the timer setters 0x00125100..0x00125120 call the kernel-mode store at 0x00125090 on both discs
+func_003AA3C8__frontbin	frontbin	rac3-ntsc	DrawWidgetSpriteFrontbin: rac3-ntsc leaves the wrap out (release.json libraries_left_out) while its release view names the frontbin function without the __frontbin suffix

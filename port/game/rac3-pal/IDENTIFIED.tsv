@@ -463,3 +463,5 @@ code	func_L01_004227D8	0x004227D8	give_level_items	a level's standing items at i
 code	func_L01_004EDE10	0x004EDE10	hero_death_done	the death counted and the respawn asked (0x001A71D2); hook rac3.player.death_done
 code	func_L01_00439300	0x00439300	moby_remove	Veldin's copy of frontbin's moby_remove (catalogue row func_003C2880, 49 places): play.c's moby_kill calls it
 data	D_L01_001E0020	0x001E0020	moby_dynamic	Veldin's: the first moby the game made (the placed mobys' end, func_L01_0042AF50's loop); NTSC-U 0x001E00A0 (rac3_level_pairs.py); play.c's moby keys
+code	func_L01_00448890	0x00448890	angle_approach	turns an angle towards a goal, speeding its rate up and easing it to a stop takes sqrt.s of a negative distance when it turns the other way, so headers/vu0.h sqrt_asm takes the root of |x| as the EE does
+code	func_L01_00457738	0x00457738	func_003C6680 (its level copy)	eleven arguments, three on the stack (Florana func_L02_0039F980 passes &D_L02_001DDC90, &D_L02_001DDC80, 0 there); the asm signature takes all eleven
