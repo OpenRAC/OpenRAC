@@ -9,6 +9,8 @@
  * - hero 0x001A4BE0: +0x80 position, +0x25C4 state (enums/hero_state.h: 7 jump, 14 double jump,
  *   19 wrench combo, 22 hit, 57 death), +0x25CC its type, +0x1B8 frames in the state, +0x36E
  *   frames off the ground, +0x25F7 the area (checkpoint_reached sets it), +0x2850 health;
+ * - hero_ledge_block 0x001A50E0 (hero_detect_ledge's result: +0x10 the lip, +0x28 found), at the end
+ *   of each line;
  * - attack_row 0x001A57BC (0-2 the combo's swing, 3 the throw, 4 the jump attack);
  * - held_item 0x001A5E08 (9 the wrench) and equipped_gun 0x001D4C40, the gun Circle brings out;
  * - item_ammo 0x001427F0, a word per item, and item_owned 0x00142CA0, a byte per item;
@@ -35,6 +37,7 @@
 void rac3_hero_log_install(void);
 
 #define HERO RAC3_ADDR(0x001A4BE0u)
+#define LEDGE RAC3_ADDR(0x001A50E0u)
 #define ATTACK_ROW RAC3_ADDR(0x001A57BCu)
 #define HELD_ITEM RAC3_ADDR(0x001A5E08u)
 #define EQUIPPED_GUN RAC3_ADDR(0x001D4C40u)
@@ -166,7 +169,7 @@ static void on_frame(unsigned frame) {
         key,
         sizeof key,
         "mode=%d\tst=%d\ttype=%d\thp=%d/%d\tatk=%d\theld=%d\tgun=%d\tammo=%d/%d\tbolts=%d\t"
-        "area=%u\tad=%d\tdeaths=%d\trsp=%d\tcp=%d\tflags=%s\towned=%s",
+        "area=%u\tad=%d\tdeaths=%d\trsp=%d\tcp=%d\tflags=%s\towned=%s\tlf=%d",
         (int)mode,
         (int)u32_at(HERO + 0x25C4u),
         (int)u32_at(HERO + 0x25CCu),
@@ -184,7 +187,8 @@ static void on_frame(unsigned frame) {
         (int)*(const uint8_t*)G(RESPAWN),
         (int)u32_at(LAST_CHECKPOINT),
         flag_hex,
-        owned
+        owned,
+        (int)*(const uint8_t*)G(LEDGE + 0x28u)
     );
     if (moby_frame(frame)) {
         log_mobys(frame);
@@ -196,7 +200,7 @@ static void on_frame(unsigned frame) {
     memcpy(g_last, key, sizeof g_last);
     fprintf(
         g_log,
-        "%u\tL%d\t%s\tt=%d\tair=%d\tpos=%.2f,%.2f,%.2f\tpad=%04x\n",
+        "%u\tL%d\t%s\tt=%d\tair=%d\tpos=%.2f,%.2f,%.2f\tpad=%04x\tledge=%d,%.2f,%.2f,%.2f\n",
         frame,
         level,
         key,
@@ -205,7 +209,11 @@ static void on_frame(unsigned frame) {
         (double)f32_at(HERO + 0x80u),
         (double)f32_at(HERO + 0x84u),
         (double)f32_at(HERO + 0x88u),
-        pad != 0 ? u32_at(pad + 0x1A0u) & 0xFFFFu : 0u
+        pad != 0 ? u32_at(pad + 0x1A0u) & 0xFFFFu : 0u,
+        (int)*(const uint8_t*)G(LEDGE + 0x28u),
+        (double)f32_at(LEDGE + 0x10u),
+        (double)f32_at(LEDGE + 0x14u),
+        (double)f32_at(LEDGE + 0x18u)
     );
     fflush(g_log);
 }

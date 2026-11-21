@@ -38,6 +38,8 @@
 #define RAC3_ADDR_0x001A4C60u 0x001A4C60u
 /* release.json: Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004E51A0 (NTSC-U func_L01_004E13D8) +0x20, 3 of 3 places agree */
 #define RAC3_ADDR_0x001A4C70u 0x001A4C70u
+/* release.json: hero_ledge_block, hero + 0x500 (rac3-decomp include/structs/hero.h); the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes the block at NTSC-U 0x001A50E0 */
+#define RAC3_ADDR_0x001A50E0u 0x001A50E0u
 /* release.json: Veldin's program (rac3_level_pairs.py): between the same code's 0x001A5780 and 0x001A57F8, both moved by +0x0 (NTSC-U 0x001A5780, 0x001A57F8) */
 #define RAC3_ADDR_0x001A57BCu 0x001A57BCu
 /* release.json: Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0034DBE8 (NTSC-U func_L01_0034D168) +0x8, 3 of 3 places agree */

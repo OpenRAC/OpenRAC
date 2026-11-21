@@ -64,8 +64,9 @@ struct Point {
 
 // Every this many frames a recording notes where the hero is.
 constexpr std::int64_t kPointEvery = 15;
-// A walk counts a point reached this near it, in game units.
+// A walk counts a point reached this near it, in game units, and this near its height.
 constexpr float kArrived = 2.0f;
+constexpr float kArrivedHeight = 2.5f;
 // A hero that came no nearer the point for this many frames jumps twice...
 constexpr int kJumpAfter = 45;
 // ...and after this many the point is given up, and the walk goes on to the next.
@@ -274,7 +275,10 @@ void walk(PadState* pad) {
 
     const Point& target = g_walk.points[g_walk.next];
     const float dx = target.x - hero[0], dy = target.y - hero[1];
-    const float distance = std::sqrt(dx * dx + dy * dy);
+    // A point above or below the hero (a step, a ledge) is not reached by standing under it.
+    const float flat = std::sqrt(dx * dx + dy * dy);
+    const float distance =
+        std::fabs(target.z - hero[2]) > kArrivedHeight ? std::max(flat, kArrived) : flat;
 
     // A point with a wait: once reached, the wait runs its window frames however far the hero is
     // pushed (a fight), the stick left alone, and only then does the walk go on. Counted in window
@@ -316,7 +320,7 @@ void walk(PadState* pad) {
         }
 
         // The left stick is relative to the camera: up its forward, right its right.
-        const float ux = dx / distance, uy = dy / distance;
+        const float ux = dx / std::max(flat, 0.01f), uy = dy / std::max(flat, 0.01f);
         const float fx = g_walk.forward[0], fy = g_walk.forward[1];
         const float ahead = ux * fx + uy * fy, across = ux * fy - uy * fx;
         pad->analog[2] =
@@ -324,10 +328,11 @@ void walk(PadState* pad) {
         pad->analog[3] =
             static_cast<std::uint8_t>(std::clamp(128.0f - ahead * 127.0f, 0.0f, 255.0f));
 
-        // A jump, then Cross again in the air: a double jump onto a step one jump does not reach.
+        // A full jump (Cross held, as a player holds it for the full height), then Cross again in
+        // the air: a double jump onto a step one jump does not reach.
         const int phase = g_walk.waited % kJumpAfter;
         g_walk.held = 0xFFFF;
-        if (g_walk.waited > kJumpAfter && (phase < 5 || (phase >= 14 && phase < 19))) {
+        if (g_walk.waited > kJumpAfter && (phase < 12 || (phase >= 20 && phase < 32))) {
             g_walk.held = static_cast<std::uint16_t>(~kCross);
             pad->buttons = static_cast<std::uint16_t>(pad->buttons & ~kCross);
         }
