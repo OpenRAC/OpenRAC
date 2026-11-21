@@ -1007,8 +1007,9 @@ each with characterisation tests first (section 24). Code you add to such a file
 5. A notify comes after the lock is released, unless the order matters, and then a comment says
    why.
 6. An atomic that does not need sequential consistency names its memory order and says why.
-7. A thread is joined by the destructor of the object that started it (`std::jthread` where the
-   target toolchains have it), and that type is move-only or neither copyable nor movable.
+7. A thread is joined by the destructor of the object that started it (`JoiningThread` from
+   `common/joining_thread.h`, never `std::jthread`, which libc++ 19 and older hide behind an
+   experimental switch), and that type is move-only or neither copyable nor movable.
 
 ---
 

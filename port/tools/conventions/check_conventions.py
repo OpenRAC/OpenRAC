@@ -59,6 +59,8 @@ STATIC_AT_NAMESPACE = re.compile(r"^static\b(?!_assert)")
 RAW_NEW = re.compile(r"(?<![\w.>])new\b\s*(?:\(|\[|[A-Za-z_:])")
 RAW_DELETE = re.compile(r"(?<!=)(?<!= )\bdelete\b\s*(?:\[\s*\]\s*)?[A-Za-z_(]")
 C_ALLOCATION = re.compile(r"(?<![\w.>:])(?:std::|::)?(malloc|calloc|realloc|free)\s*\(")
+# libc++ 19 and older keep these behind an experimental switch (CODING_CONVENTIONS.md, 11.6).
+JTHREAD = re.compile(r"\bstd::(?:jthread|stop_token|stop_source|stop_callback)\b")
 USING_NAMESPACE = re.compile(r"^\s*using\s+namespace\b")
 # Matched in code whose literals are blanked: `extern "C"` reads `extern ""` there.
 EXTERN_C = re.compile(r'\bextern\s+""')
@@ -231,6 +233,12 @@ def check_every_file(path, text):
         if DASHES.search(line):
             findings.append(
                 Finding(path, number, "dash", "no em or en dash: a comma, colon or parentheses")
+            )
+
+    for number, line in enumerate(strip_comments_and_strings(text).splitlines(), 1):
+        if JTHREAD.search(line):
+            findings.append(
+                Finding(path, number, "jthread", "use JoiningThread (common/joining_thread.h)")
             )
 
     return findings

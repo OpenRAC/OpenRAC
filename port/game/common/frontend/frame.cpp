@@ -1804,9 +1804,9 @@ TickMobys pose_mobys(
             static float class_scale = 0;
             for (const auto& bolt : state.mobys) {
                 if (bolt.class_id == 1134) {
-                    const auto cls = word(bolt.address + 0x24);
-                    if (cls) {
-                        class_scale = number(cls + 0x24);
+                    const auto bolt_class = word(bolt.address + 0x24);
+                    if (bolt_class) {
+                        class_scale = number(bolt_class + 0x24);
                     }
                     if (class_scale > 0) {
                         break;
@@ -1880,8 +1880,8 @@ TickMobys pose_mobys(
                 const host::GameState* camera = &state;
                 if (const auto own = into_texture.find(m.address); own != into_texture.end()) {
                     camera = own->second;
-                } else if (const auto own = on_screen.find(m.address); own != on_screen.end()) {
-                    camera = own->second;
+                } else if (const auto shown = on_screen.find(m.address); shown != on_screen.end()) {
+                    camera = shown->second;
                 }
                 instance.matrix = scene::facing_preview(
                     m.matrix,
@@ -2933,21 +2933,19 @@ TickPackets capture_2d_path(
     stats::gauge("effect quads marked", double(quads_marked));
     // The markers in a list index the quads of the tick that built it, and the list shown is the
     // one the last tick built (the game builds the next while this one is sent), one tick behind
-    // the quads just recorded; FadeToBlack sends an old list again. Drawn with this tick's quads, a
-    // marker named another quad whenever they changed, and the HUD (the bolts, the health, a
-    // HelpDesk frame) and the menus flashed for a tick: the white flicker, and the palettes landing
-    // on pixels that 8587dcfa held the last layer for. Each marker names its tick's generation
-    // (ui_quad); the quads of the last four ticks that drew any are kept, and the list is drawn
-    // with the ones it names.
+    // the quads just recorded; FadeToBlack sends an old list again. Drawn with this tick's quads,
+    // a marker would name another quad whenever they changed, and the HUD and menus would flash
+    // for a tick. So each marker names its tick's generation (ui_quad); the quads of the last four
+    // ticks that drew any are kept, and the list is drawn with the ones it names.
     if (!g->ui_quads.empty()) {
-        const std::uint32_t generation = g->ui_generation & 0x3F;
-        g->ui_kept[generation & 3] = {generation, std::move(g->ui_quads)};
+        const std::uint32_t ui_generation = g->ui_generation & 0x3F;
+        g->ui_kept[ui_generation & 3] = {ui_generation, std::move(g->ui_quads)};
         ++g->ui_generation;
     }
     const std::vector<renderer::UiQuad>* named_quads = nullptr;
     if (const auto named = marker_generation(packets)) {
-        for (const auto& [generation, quads] : g->ui_kept) {
-            if (generation == *named && !quads.empty()) {
+        for (const auto& [kept_generation, quads] : g->ui_kept) {
+            if (kept_generation == *named && !quads.empty()) {
                 named_quads = &quads;
             }
         }
