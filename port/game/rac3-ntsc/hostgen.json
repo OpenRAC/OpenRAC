@@ -730,8 +730,7 @@
       "func_L01_004BD480": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L20_00400958": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L39_005BD4E8": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_001369D0": "a hidden entry inside a function on both discs, with no inventory row (no NTSC-U name): its translation from 0x001369D0 is the tail of the function around it and never sets $f0, while the multiplayer menu's callers (func_L39_0066C540, func_L39_0066C910) read the float the PAL C declares (f32 func_001369D0(f32)); the entry's real code is to be found",
-      "func_L39_00596BA0": "PAL's func_L39_00597E70, whose C takes no arguments (map.tsv match): on the path that calls 0x00139D20 it leaves $a1 as its caller had it, which the check counts as a read"
+      "func_001369D0": "a hidden entry inside a function on both discs, with no inventory row (no NTSC-U name): its translation from 0x001369D0 is the tail of the function around it and never sets $f0, while the multiplayer menu's callers (func_L39_0066C540, func_L39_0066C910) read the float the PAL C declares (f32 func_001369D0(f32)); the entry's real code is to be found"
     }
   },
   "result_allow": "checks/result_allow.tsv",

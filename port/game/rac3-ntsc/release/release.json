@@ -221,8 +221,7 @@
         "func_L01_00478ED8": null,
         "func_L01_00478FB0": null,
         "func_L01_004932C0": null,
-        "func_L01_00493448": null,
-        "func_L39_00596BA0": "PAL's func_L39_00597E70, whose C takes no arguments (map.tsv match): on the path that calls 0x00139D20 it leaves $a1 as its caller had it, which the check counts as a read"
+        "func_L01_00493448": null
       },
       "variant_callees": null,
       "variant_callees_why": "rac3-pal's folded-wrapper table (variant_callees.py) is written for PAL's places; NTSC-U has none yet, so its check runs without that part",
