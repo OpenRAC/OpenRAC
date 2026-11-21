@@ -730,6 +730,7 @@
       "0xE98": "rac3_vu0_quaternion_rows"
     },
     "wide_register_calls": true,
+    "wide_call_results": true,
     "signature_check": true,
     "result_flow": true,
     "signature_allow": {
@@ -755,6 +756,7 @@
   "from_assembly": [
     "func_L11_003A9580",
     "func_L03_0044A4C8",
+    "func_L03_0044A510",
     "func_00388680__frontbin",
     "func_00388698__frontbin",
     "func_003886B0__frontbin",
