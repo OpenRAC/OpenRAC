@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <limits>
+#include <span>
 #include <string_view>
 
 #include "enhanced/lighting/bake_lz4.h"
@@ -170,25 +171,36 @@ void test_environment_capture_geometry() {
         {{{1, 2, 3}, {-2, -3, -4}, {8, 9, 10}}, {{100, 200, 300}, {90, 180, 270}, {120, 240, 360}}}
     };
     const auto vertices = environment_probe_debug_vertices(probes);
-    CHECK(vertices.size() == 2 * (24 + 3 * 24 * 2 + 6));
-    const auto stride = vertices.size() / probes.size();
+    constexpr std::size_t kBoxVertices = 24;
+    constexpr std::size_t kMarkerVertices = 3 * 24 * 2 + 6;
+    CHECK(vertices.size() == probes.size() * (kBoxVertices + kMarkerVertices));
 
     for (std::size_t i = 0; i < probes.size(); ++i) {
-        CHECK(vertices[i * stride].position == probes[i].minimum);
+        CHECK(vertices[i * kBoxVertices].position == probes[i].minimum);
 
         // Box endpoints must use the baked bounds, not a fixed radius around the capture.
-        for (std::size_t n = 0; n < 24; ++n) {
+        for (std::size_t n = 0; n < kBoxVertices; ++n) {
             for (unsigned axis = 0; axis < 3; ++axis) {
-                const float value = vertices[i * stride + n].position[axis];
+                const float value = vertices[i * kBoxVertices + n].position[axis];
                 CHECK(value == probes[i].minimum[axis] || value == probes[i].maximum[axis]);
             }
         }
 
-        const auto& cross_end = vertices[(i + 1) * stride - 1].position;
+        const auto& cross_end =
+            vertices[probes.size() * kBoxVertices + (i + 1) * kMarkerVertices - 1].position;
         CHECK(cross_end[0] == probes[i].position[0]);
         CHECK(cross_end[1] == probes[i].position[1]);
         CHECK(std::abs(cross_end[2] - probes[i].position[2] - .35f) < 1e-4f);
     }
+
+    const std::array<EnvironmentInfluence, 2> influences{
+        {{0, {}, {-2, -3, -4}, {8, 9, 10}}, {0, {}, {40, 50, 60}, {70, 80, 90}}}
+    };
+    const auto shared = environment_probe_debug_vertices(std::span{probes}.first<1>(), influences);
+    CHECK(shared.size() == influences.size() * kBoxVertices + kMarkerVertices);
+    CHECK(shared.front().position == influences[0].minimum);
+    CHECK(shared[kBoxVertices].position == influences[1].minimum);
+    CHECK(std::abs(shared.back().position[2] - probes[0].position[2] - .35f) < 1e-4f);
 
     CHECK(environment_probe_debug_vertices({}).empty());
 }

@@ -3,6 +3,7 @@
 // Open areas have hubs, passages retain routes, and disconnected entrance cuts retain loops.
 #include <algorithm>
 #include <functional>
+#include <limits>
 #include <map>
 #include <queue>
 #include <set>
@@ -24,7 +25,7 @@ RoomDistanceField field(const std::function<bool(int, int)>& inside) {
                 ids[{x, y}] = unsigned(result.nodes.size());
                 RoomFieldNode node;
                 node.position = {float(x), float(y), 0};
-                node.wall.distance = INFINITY;
+                node.wall.distance = std::numeric_limits<float>::infinity();
                 result.nodes.push_back(node);
             }
         }
