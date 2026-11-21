@@ -100,6 +100,14 @@ those callbacks need no lock.
 The player picks Vulkan with `OPENRAC_GL_API=vulkan`; OpenGL is the default on
 desktops.
 
+## Gameplay camera visibility
+
+Native interface 1.29 can use `camera_visibility_bypass(mod, 1)` in PLAYING
+to skip the baked potentially visible set for the gameplay camera. This
+keeps frustum and depth culling enabled. Limit the request to camera angles
+or regions that need it. `camera_visibility_bypass(mod, 0)` clears the
+request, and a level reload or mod unload clears it automatically.
+
 ## Closing
 
 `closing` is called once, before the graphics context goes: destroy the

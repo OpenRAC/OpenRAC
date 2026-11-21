@@ -26,6 +26,7 @@
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
+#include "game/common/mod_play.h"
 #include "openrac/game_host.h"
 #include "program/program.h"
 #include "renderer/direct/direct.h"
@@ -382,6 +383,8 @@ void set_camera(SceneFrame& frame) {
                              : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
     input.camera = drawn.value_or(camera);
+    input.pvs_bypass = mods::host_camera_overridden()
+                       || (scene.gameplay_camera && mods::camera_visibility_bypassed());
     // Adjust the guarded gameplay lens before the debug camera can replace it. Scaling both
     // projection axes preserves the native aspect ratio and the picture's widescreen expansion.
     // The level's world under the pause menu keeps the lens it was paused with (keep_tick). A tick
@@ -616,6 +619,7 @@ void render_scene(
     output.shown = owner.frame.resolved();
     output.camera = frame.input.camera;
     output.has_camera = frame.has_camera;
+    output.world_under_menu = snapshot.world_under_menu;
     output.tick = frame.input.frame;
     output.enhanced_graphics = graphics.enhanced_graphics && owner.enhanced_graphics_available();
     output.finished = std::chrono::steady_clock::now();

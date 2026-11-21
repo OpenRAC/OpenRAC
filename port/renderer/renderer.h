@@ -101,6 +101,9 @@ struct EffectQuad {
     // rather than each corner part way (which shrinks a quad turned between the two ticks).
     // With an attachment, it follows the anchor's position without rotating its world offset.
     bool rigid = false;
+    // Untextured: the chip's TME off, the vertex colours as drawn (a particle line, kind 2). No
+    // texture is sampled and tbp, cbp are not used.
+    bool untextured = false;
     // The moby it belongs to (its game address), or 0: a frame between ticks may move it with the
     // moby's body as that frame draws it, rather than leaving it at the tick's place, ahead.
     std::uint32_t parent = 0;
@@ -223,6 +226,9 @@ struct FrameInput {
     std::optional<Camera> culling_camera;
     // Detached views can leave the baked PVS grid without inheriting gameplay's last cell.
     bool keep_pvs_history = true;
+    // The view is from a camera the baked visibility was not made for: no zone culling in the view
+    // (frustum and depth still decide what is drawn). Set when the camera is overridden.
+    bool pvs_bypass = false;
     // Opt-in culling preview: 0 for the main camera, 1-4 for near-to-far shadow cascades.
     std::optional<unsigned> culling_inspection;
     bool opaque_effects = false;  // The earlier world bucket for opaque effect draws is visible.

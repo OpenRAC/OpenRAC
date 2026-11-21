@@ -32,12 +32,12 @@ using namespace render_detail;
 // Points attribute 0 of the bound vertex array at the positions: the tight buffer of their own
 // (vertex-position-stream), so that depth-only passes and a tile GPU's binning read 12 bytes a
 // vertex, or the wide vertex.
-void LevelScene::point_positions() const {
+void LevelScene::point_positions(const MeshBuffers& buffers) const {
     if (m_position_stream) {
-        glBindBuffer(GL_ARRAY_BUFFER, m_positions);
+        glBindBuffer(GL_ARRAY_BUFFER, buffers.positions);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), offset(0));
     } else {
-        glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
+        glBindBuffer(GL_ARRAY_BUFFER, buffers.vertices);
         glVertexAttribPointer(
             0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), offset(offsetof(Vertex, position))
         );
@@ -54,38 +54,66 @@ void LevelScene::sync_position_stream() {
         return;
     }
     m_position_stream = wanted;
-    const auto point = [this](unsigned vao) {
+    const auto point = [this](unsigned vao, std::uint32_t model) {
         if (vao != 0) {
             glBindVertexArray(vao);
-            point_positions();
+            point_positions(buffers_of(model));
         }
     };
     for (const auto* all : {&m_groups, &m_idle}) {
         for (const auto& groups : *all) {
             for (const Group& g : groups) {
-                point(g.vao);
-                point(g.camera_vao);
-                point(g.pvs_vao);
+                point(g.vao, g.model);
+                point(g.camera_vao, g.model);
+                point(g.pvs_vao, g.model);
             }
         }
     }
-    point(m_shadow_compact.vao);
+
+    point(m_shadow_compact.vao, m_shadow_compact.model);
+
+    for (const Group& compact : m_chunk_shadow_compact) {
+        point(compact.vao, compact.model);
+    }
+
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-// A class model's vertex array: the level's vertices and indices, and an instance buffer of its own
-// (empty until fill_group).
+// The buffers a model's vertex arrays read: those of its chunk when add_loaded_models added it,
+// else the level's.
+LevelScene::MeshBuffers LevelScene::buffers_of(std::uint32_t model) const {
+    if (model < m_model_chunk.size() && m_model_chunk[model] != 0) {
+        return m_chunks[m_model_chunk[model] - 1];
+    }
+
+    return {m_vertices, m_positions, m_indices};
+}
+
+// The compact vertex array shadow casting fills with a group's surviving instances, one for the
+// level's buffers and one for each chunk's (a vertex array reads one set of buffers).
+LevelScene::Group& LevelScene::shadow_compact_of(std::uint32_t model) {
+    if (model < m_model_chunk.size() && m_model_chunk[model] != 0) {
+        m_chunk_shadow_compact.resize(m_chunks.size());
+        return m_chunk_shadow_compact[m_model_chunk[model] - 1];
+    }
+
+    return m_shadow_compact;
+}
+
+// A class model's vertex array: its vertices and indices (the level's, or its chunk's), and an
+// instance buffer of its own (empty until fill_group).
 LevelScene::Group LevelScene::make_group(std::uint32_t model) {
     Group g;
     g.model = model;
+    const MeshBuffers buffers = buffers_of(model);
     glGenVertexArrays(1, &g.vao);
     glBindVertexArray(g.vao);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indices);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers.indices);
     constexpr auto kStride = static_cast<GLsizei>(sizeof(Vertex));
     glEnableVertexAttribArray(0);
-    point_positions();
-    glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
+    point_positions(buffers);
+    glBindBuffer(GL_ARRAY_BUFFER, buffers.vertices);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, kStride, offset(offsetof(Vertex, normal)));
     glEnableVertexAttribArray(2);

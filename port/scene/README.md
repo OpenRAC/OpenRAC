@@ -78,11 +78,18 @@ replacements for chrome-only faces. Original restores the linked retail packet a
   instead of regrouping them (`moby-pose-in-place`). It also keeps a static shadow cache when
   `shadow-static-cache` is on, and the registered static instances of the GPU culling
   (`gpu-resident-instances`), all let go by `release`.
+- Models loaded into the level after `upload` (a mod's prop meshes) are added with
+  `align_models`, `load_model` and `add_loaded_models`, on the thread that owns the graphics with
+  no frame in flight. Each call's meshes get vertex, position and index buffers of their own (a
+  chunk) that are never written again, so the level's buffers, its other models and the groups
+  already made are untouched. Such a model is drawn as a live moby, with the same index in the
+  level and in the scene.
 
 ## Errors
 
-- `load_level`, `LevelScene::upload` and the enhanced passes' switches (`enable_hero_shadow`,
-  `enable_sun_shadow`) return `false` and say why in their `std::string& error`.
+- `load_level`, `LevelScene::upload`, `add_loaded_models` and the enhanced passes' switches
+  (`enable_hero_shadow`, `enable_sun_shadow`) return `false` and say why in their
+  `std::string& error`.
 - `load_level` logs a warning and goes on for what it can do without: a texture or a sky panorama
   that does not decode, a placement of an unknown class.
 - The pose and shadow functions return an empty result for a moby whose fields do not describe one

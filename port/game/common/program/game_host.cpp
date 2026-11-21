@@ -37,6 +37,7 @@
 #include "common/c_boundary.h"
 #include "common/crash.h"
 #include "common/log.h"
+#include "mod_play.h"
 #include "mods.h"
 #include "openrac/guest.h"
 #include "openrac/memory.h"
@@ -473,6 +474,18 @@ void openrac_game_sky_shell(int shell, const float* matrix) {
         (void)shell;
         (void)matrix;
 #endif
+    });
+}
+
+int openrac_game_rac1_weapon_hud_icon(int native_icon) {
+    return c_boundary::call("openrac_game_rac1_weapon_hud_icon", 0, [&]() {
+        return mods::rac1_weapon_hud_icon(native_icon);
+    });
+}
+
+int openrac_game_ammo_panel_offset(int handle, int* x, int* y) {
+    return c_boundary::call("openrac_game_ammo_panel_offset", 0, [&]() -> int {
+        return x != nullptr && y != nullptr && mods::ammo_panel_offset(handle, *x, *y);
     });
 }
 

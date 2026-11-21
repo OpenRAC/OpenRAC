@@ -21,7 +21,12 @@ use serde_json::{Map, Value};
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
 /// `sdk/include/openrac/openrac_mod.h`. Change them with it.
 pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 28;
+pub const API_MINOR: u32 = 29;
+
+/// A game id as the launcher names it (games/<game>/game.json): letters, digits and dashes, at most 32.
+pub fn valid_game_id(game: &str) -> bool {
+    !game.is_empty() && game.len() <= 32 && game.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
+}
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
@@ -261,6 +266,9 @@ pub struct Manifest {
     pub touch: Option<String>,
     #[serde(default)]
     pub hooks: Vec<String>,
+    /// The games whose data folders the mod reads (interface 1.29, openrac_api.game_data_dir).
+    #[serde(default)]
+    pub reads_games: Vec<String>,
     #[serde(default)]
     pub settings: Vec<SettingSpec>,
     /// Presets of its settings (interface 1.2).
@@ -432,6 +440,9 @@ impl Manifest {
             if !safe_relative(assets) {
                 return Err(format!("its assets {assets:?} is not a folder inside the mod"));
             }
+        }
+        if let Some(bad) = self.reads_games.iter().find(|g| !valid_game_id(g)) {
+            return Err(format!("its reads_games {bad:?} is not a game id (letters, digits and dashes)"));
         }
         if let Some(touch) = &self.touch {
             if !touch.ends_with(".json") || !safe_relative(touch) {

@@ -7,4 +7,5 @@ Applied to [rac1-decomp](https://github.com/OpenRAC/rac1-decomp) (`games/rac1/de
 | Patch | What |
 |---|---|
 | [0001-space-transition-globals.patch](0001-space-transition-globals.patch) | Name current_vu_chain and space_load_in_progress directly under OPENRAC_HOSTGEN. |
+| [0002-keep-an-owned-item-0x24-in-the-hand-outside-the-race.patch](0002-keep-an-owned-item-0x24-in-the-hand-outside-the-race.patch) | apply_hero_item_slot_selection clears a held item 0x24 whenever the game mode is not the race mode (0x16), because the item exists only there and is never owned. |
 <!-- patches:end -->

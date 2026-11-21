@@ -230,6 +230,13 @@ void func_00218B10(void) {
         if ((r[1] & 0x80) != 0) {
             continue;
         }
+        if (r[2] >= RAC1_PARTICLE_TEXTURE_FIRST) {
+            // A mod's texture (particle_texture_register, 1.29): an id past the table's 128 entries.
+            uint32_t pixels = 0, clut = 0;
+            rac1_particle_texture_at(r[2], &pixels, &clut);
+            openrac_game_particle(r, pixels, clut, 5, 0);
+            continue;
+        }
         uint64_t entry;
         memcpy(&entry, G(table + (gaddr)r[2] * 8), 8);
         openrac_game_particle(r, (uint32_t)(entry >> 32) >> 4, (uint32_t)entry >> 4, 5, 0);
