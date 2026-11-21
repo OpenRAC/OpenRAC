@@ -262,7 +262,20 @@ vertical blank callback (`func_0013D208`).
   and caps of 960 (ties) and 500 (shrubs). At Original 1,729 shrubs are left out where Ratchet
   stands, at 400% 1,044 to 1,483, at Unlimited none. Active distance is the shared one
   (`frontend/sleeping_mobys.h`). No class needs the game's own distance yet (Going Commando's
-  `draw_distance.tsv`), and the occlusion mask is not read (`occlusion mask unavailable`).
+  `draw_distance.tsv`).
+- **The occlusion mask**: the 0x80 bytes the terrain's, the ties' and MobyProc's culls read (Veldin's
+  0x001EA840, Going Commando's D_001BADC0), at each level's own copy: `openrac_front_end.occlusion`
+  is named in Veldin's program and relocated through the level (`scenery_matrices_level`). The
+  boot program's D_00227480 is no level's: read there, it was zeros and hid everything. Veldin's
+  start: 223 of 1,024 bits, 117 of 802 terrain fragments drawn.
+- **Wider pictures** (as Going Commando's, rac2/host/wide_view.c): the game's vertical view kept,
+  more of the world to the sides. `host/wide_view.c` runs the five draw callback lists of DrawFrame
+  with the view tests opened as far as the picture is wider (the cull matrix at the camera block's
+  +0x100, the clip constants at the view context's +0x2C0; game fix `fix_wide_liquids`); each list's
+  count and tables are read from the loaded level's copy of its runner's instructions. MobyProc's
+  drawn test is opened the same way (`fix_wide_moby_effects`). Each callback's argument is the owner
+  of the world quads it draws, and each quad has an id from its callback, owner and order, so a frame
+  between ticks moves it. `port/game/rac3/differences.json` lists the fixes.
 
 ## What the port answers
 
