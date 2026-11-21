@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <source_location>
 #include <span>
 #include <string>
 
@@ -51,7 +52,11 @@ bool open(
 );
 
 // Runs graphics work to completion while the window thread retains ownership of SDL.
-void run_graphics(std::function<void()> job, std::int64_t frame = -1);
+void run_graphics(
+    std::function<void()> job,
+    std::int64_t frame = -1,
+    std::source_location submitted_at = std::source_location::current()
+);
 
 // Draws a frame from the game's main memory and reads the input; false once the window was closed.
 // The game's world renderers are drawing now: the camera they draw with is kept for this frame's
