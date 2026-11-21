@@ -504,6 +504,7 @@ class RetailCode:
         self._pairs: dict[tuple[int, int], tuple[dict, dict]] = {}
         self._lines: dict[tuple[int, int], tuple[asm.Line, asm.Block]] = {}
         self.follow_far = False                   # _follow's `far`
+        self.pair_moves = False                   # pairs: a register move carries a %hi along
 
     def __contains__(self, key) -> bool:
         return self.get(key) is not None
@@ -651,6 +652,12 @@ class RetailCode:
                     else:                           # lui, addiu %lo(table), addu index, lw 0
                         s = (base[0] + imm) & 0xFFFFFFFF
                     new.append((loaded, ins.rt, s))
+            elif (self.pair_moves and op in ("addu", "daddu", "or") and ins.rd
+                  and 0 in (ins.rs, ins.rt) and (ins.rs or ins.rt) in hi):
+                # A move of a lui's register (hostgen.json asm.pair_through_moves): the copy is
+                # completed later (Up Your Arsenal's func_L01_00462978 keeps `lui $s6, %hi(f)` and
+                # forms f's address in $a2 after `daddu $a2, $s6, $zero`).
+                new.append((hi, ins.rd, hi[ins.rs or ins.rt]))
             elif op in ("addu", "daddu") and ins.rd:
                 for maps, wrap in ((hi, lambda v: v), (full, lambda v: (v,))):
                     if (ins.rs in maps) != (ins.rt in maps):

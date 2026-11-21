@@ -157,6 +157,24 @@ class Pairs(unittest.TestCase):
         code = self.code(program({0x00100000: words}), {0x00100000: "func_00100000"})
         self.assertEqual(code.get((-1, 0x00100004))[0].reloc, ("hi", "D_00300040", 0))
 
+    def test_a_lui_moved_to_another_register_pairs_with_asm_pair_through_moves(self):
+        # Up Your Arsenal's func_L01_00462978 registers particle updates: `lui $s6, %hi(f)` early,
+        # then `daddu $a2, $s6, $zero` and `addiu $a2, $a2, %lo(f)` later. Unpaired, the level's
+        # copy stored Veldin's address of f in its own update table.
+        source = """
+            lui $22, %hi(D_00300040)
+            daddu $6, $22, $0
+            addiu $6, $6, %lo(D_00300040)
+            jr $31
+            sw $6, 0($4)
+        """
+        words = words_of(assembler.assemble("func_00100000", 0x00100000, source, {"D_00300040": 0x00300040}))
+        code = self.code(program({0x00100000: words}), {0x00100000: "func_00100000"})
+        self.assertIsNone(code.get((-1, 0x00100000))[0].reloc)
+        code = self.code(program({0x00100000: words}), {0x00100000: "func_00100000"})
+        code.pair_moves = True
+        self.assertEqual(code.get((-1, 0x00100000))[0].reloc, ("hi", "D_00300040", 0))
+
     def test_a_function_address_names_the_function(self):
         source = """
             lui $4, %hi(func_00100100)

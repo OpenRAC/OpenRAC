@@ -2127,6 +2127,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
             program.index_places()
         from_retail = retail.RetailCode(source_of, retail.starts_of(program), source_of.low)
         from_retail.follow_far = bool(a.get("follow_saved_registers"))
+        from_retail.pair_moves = bool(a.get("pair_through_moves"))
         index.code = retail.CombinedCode(index.code, from_retail)
         index.called |= source_of.called()
         stage.retail = source_of.label
