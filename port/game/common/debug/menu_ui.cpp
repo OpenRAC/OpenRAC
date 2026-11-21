@@ -585,7 +585,9 @@ bool menu_row(const char* label, ImU32 ink) {
 bool menu_switch(const char* label, bool on, bool enabled, const RowExtra* extra) {
     ImGui::BeginDisabled(!enabled);
     const bool pressed = menu_row(
-        label, enabled ? ui().text : ui().dim, [on, enabled](ImDrawList* list, ImVec2 right) {
+        label,
+        enabled ? ui().text : ui().dim,
+        [on, enabled](ImDrawList* list, ImVec2 right) {
             const float k = tween(item_part("switch"), on ? 1.0f : 0.0f, kMedium);
             const float h = dp(26.0f);
             const ImVec2 a(right.x - dp(46.0f), right.y - h * 0.5f);

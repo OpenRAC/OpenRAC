@@ -24,9 +24,9 @@
 #include "enhanced/fsr3/fsr3.h"
 #include "fixes.h"
 #include "frontend.h"
+#include "mod_touch.h"
 #include "mods.h"
 #include "options_menu.h"
-#include "mod_touch.h"
 #include "renderer/gl/gl.h"
 #include "renderer/ui/menu_icons.h"
 #include "settings.h"
@@ -1284,13 +1284,14 @@ void draw_mod_menu(int index) {
         if (const auto icon = renderer::ui::menu_icons::find(item.icon)) {
             const auto texture = static_cast<ImTextureID>(renderer::ui::menu_icons::texture());
             const ImU32 accent = item.locked ? ui().dim : ui().amber;
-            extra.icon = [icon = *icon, texture, ink, accent](ImDrawList* list, ImVec2 a, float size) {
-                const ImVec2 b(a.x + size, a.y + size);
-                const auto& w = icon.white;
-                const auto& o = icon.accent;
-                list->AddImage(texture, a, b, ImVec2(w.u0, w.v0), ImVec2(w.u1, w.v1), ink);
-                list->AddImage(texture, a, b, ImVec2(o.u0, o.v0), ImVec2(o.u1, o.v1), accent);
-            };
+            extra.icon =
+                [icon = *icon, texture, ink, accent](ImDrawList* list, ImVec2 a, float size) {
+                    const ImVec2 b(a.x + size, a.y + size);
+                    const auto& w = icon.white;
+                    const auto& o = icon.accent;
+                    list->AddImage(texture, a, b, ImVec2(w.u0, w.v0), ImVec2(w.u1, w.v1), ink);
+                    list->AddImage(texture, a, b, ImVec2(o.u0, o.v0), ImVec2(o.u1, o.v1), accent);
+                };
         }
         const RowExtra* more = extra.icon || extra.progress >= 0.0f ? &extra : nullptr;
         // A row the cursor still reaches, drawn dim, its value at the right: a locked one refuses
@@ -1317,7 +1318,7 @@ void draw_mod_menu(int index) {
         };
         ImGui::PushID(&item);
         switch (item.locked && item.kind != mods::MenuItemKind::Press ? mods::MenuItemKind::Press
-                                                                       : item.kind) {
+                                                                      : item.kind) {
             case mods::MenuItemKind::Switch:
                 if (menu_switch(label.c_str(), item.value != 0, true, more)) {
                     mods::set_developer_menu_value(menu.mod, item.action, item.value != 0 ? 0 : 1);

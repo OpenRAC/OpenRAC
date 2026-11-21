@@ -708,8 +708,8 @@ int api_developer_menu_look(
     item->info = look != nullptr && (look->flags & OPENRAC_DEVELOPER_MENU_INFO) != 0;
     item->locked = look != nullptr && (look->flags & OPENRAC_DEVELOPER_MENU_LOCKED) != 0;
     item->look_value = look != nullptr && look->value != nullptr ? look->value : "";
-    item->progress = look != nullptr && look->progress >= 0.0f ? std::min(look->progress, 1.0f)
-                                                               : -1.0f;
+    item->progress =
+        look != nullptr && look->progress >= 0.0f ? std::min(look->progress, 1.0f) : -1.0f;
     item->icon = look != nullptr && look->icon != nullptr ? look->icon : "";
     return OPENRAC_HOOK_OK;
 }
