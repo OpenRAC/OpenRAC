@@ -24,6 +24,34 @@ const char* failure_message(const std::string& message) {
     return message.empty() ? "render job failed while formatting its exception" : message.c_str();
 }
 
+// Reports a job failure without letting diagnostic formatting escape the worker.
+std::string report_failure(
+    std::int64_t frame, std::source_location submitted_at, const char* type, const char* message
+) {
+    crash::breadcrumb(crash::BreadcrumbThread::Render, "render job failed", frame);
+    std::string diagnostic;
+    try {
+        std::string_view source = submitted_at.file_name();
+        if (const auto separator = source.find_last_of("/\\");
+            separator != std::string_view::npos) {
+            source.remove_prefix(separator + 1);
+        }
+        diagnostic = std::format(
+            "render job for frame {} submitted from {} ({}:{}) threw {}: {}",
+            frame < 0 ? "unspecified" : std::to_string(frame),
+            submitted_at.function_name(),
+            source,
+            submitted_at.line(),
+            type,
+            *message == '\0' ? "exception provided no message" : message
+        );
+    } catch (...) {
+        // The crash reporter and caller can both use the fallback message.
+    }
+    crash::report(failure_message(diagnostic), crash::Kind::Exception);
+    return diagnostic;
+}
+
 // Captures the producer's arithmetic mode before the worker can run any renderer calculations.
 std::fenv_t capture_environment() {
     std::fenv_t environment{};
@@ -122,32 +150,6 @@ void RenderWorker::run() {
         const crash::BreadcrumbScope breadcrumbs(crash::BreadcrumbThread::Render, frame);
         crash::breadcrumb(crash::BreadcrumbThread::Render, "render job started", frame);
 
-        const auto report_failure = [&](const char* type, const char* message) {
-            crash::breadcrumb(crash::BreadcrumbThread::Render, "render job failed", frame);
-            try {
-                std::string_view source = submitted_at.file_name();
-                if (const auto separator = source.find_last_of("/\\");
-                    separator != std::string_view::npos) {
-                    source.remove_prefix(separator + 1);
-                }
-                failure.emplace(
-                    std::format(
-                        "render job for frame {} submitted from {} ({}:{}) threw {}: {}",
-                        frame < 0 ? "unspecified" : std::to_string(frame),
-                        submitted_at.function_name(),
-                        source,
-                        submitted_at.line(),
-                        type,
-                        *message == '\0' ? "exception provided no message" : message
-                    )
-                );
-            } catch (...) {
-                // Keep the failure latched even if formatting fails.
-                failure.emplace();
-            }
-            crash::report(failure_message(*failure), crash::Kind::Exception);
-        };
-
         // Render failures return to the producer instead of escaping the thread entry point.
         try {
             // Every snapshot uses the same rounding and denormal handling as synchronous recording.
@@ -158,9 +160,12 @@ void RenderWorker::run() {
             const profiling::Zone trace("Render snapshot");
             job();
         } catch (const std::exception& exception) {
-            report_failure(typeid(exception).name(), exception.what());
+            failure =
+                report_failure(frame, submitted_at, typeid(exception).name(), exception.what());
         } catch (...) {
-            report_failure("a non-standard exception", "no diagnostic message available");
+            failure = report_failure(
+                frame, submitted_at, "a non-standard exception", "no diagnostic message available"
+            );
         }
 
         // Release captured owners before publishing completion.
