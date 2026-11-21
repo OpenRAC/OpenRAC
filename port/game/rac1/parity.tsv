@@ -1,6 +1,6 @@
 # Functions the rac1 programs bind differently, on purpose or known (port/tools/versionmap/parity.py).
 # Every other difference fails the build. Remove a row when the versions agree again.
-# PAL v2.00 name	place (boot or level)	the programs that differ	why
+# PAL v2.00 name	place (boot, level, or * for every place)	the programs that differ	why
 # Also: a name, "sig" (its row's C type differs); an address (L13:001D9E40), "data" (no evidence for it).
 func_00118A40	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
 func_00118A70	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
@@ -44,26 +44,26 @@ func_00125328	boot	rac1-ntsc	the NTSC decomp has no C for it: the port's own (it
 func_0012D868	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
 func_0012DA30	boot	rac1-ntsc	the NTSC decomp has no function here (a system call stub, crt0, the TLB handler); PAL's row only names it, and nothing in the game calls it
 func_001EFE10	boot	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
-func_001F7680	00	rac1-pal1	PAL v1.00's executable has no copy of it, so its row binds level 0's (release_carry.json); NTSC leaves it out (its boot loop draws with draw_bootImage)
 func_001FA8F0	boot	rac1-ntsc	the NTSC decomp's level C calls the executable's fast_bsphere_check (FUN_001fa728), PAL's calls the levels' FastBSphereCheck: each program wraps the one its game calls (rac1-ntsc/host/rac1_version.h maps the name)
-func_0020C468	00	rac1-ntsc	WadDecompress: the NTSC decomp's catalogue lists the levels' copy apart from the executable's, so it has a row of its own (rac1/host/hand.c); PAL's one name covers both
 func_0020C738	boot	rac1-ntsc	WadDecompress's hand-written helpers: nothing in the port calls them (WadDecompress itself is the port's), so NTSC needs no row
 func_0020C758	boot	rac1-ntsc	WadDecompress's hand-written helpers: nothing in the port calls them (WadDecompress itself is the port's), so NTSC needs no row
 func_0020FC38	boot	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
 func_002108E0	boot	rac1-ntsc	the NTSC decomp names the executable's copy and every level's as one function (FUN_0020fa90), so its one row binds both; PAL binds the levels' copy and runs the executable's decomp C (the same instructions)
-func_L00_001EFFF0	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
-func_L00_001F10E0	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_L00_001EFFF0	*	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
+func_L00_001F10E0	*	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
 func_L00_001F1D20	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
 func_L00_001F2BE8	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
 func_L00_001F34F0	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
-func_L00_00200290	00	rac1-ntsc	the NTSC decomp's level C calls the executable's fast_bsphere_check (FUN_001fa728), PAL's calls the levels' FastBSphereCheck: each program wraps the one its game calls (rac1-ntsc/host/rac1_version.h maps the name)
-func_L00_00252D20	00	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
-func_L00_00254218	00	rac1-ntsc	the NTSC decomp names the executable's copy and every level's as one function (FUN_0020fa90), so its one row binds both; PAL binds the levels' copy and runs the executable's decomp C (the same instructions)
-func_L00_002E0AE8	00	rac1-ntsc	the NTSC decomp's catalogue has this function in the executable too (boot:0023A2C0), and NTSC's hook binds it there; PAL binds level 0's place of the same function
-func_L00_002E0AE8	boot	rac1-ntsc	the NTSC decomp's catalogue has this function in the executable too (boot:0023A2C0), and NTSC's hook binds it there; PAL binds level 0's place of the same function
-func_00222848	sig	rac1-ntsc	the NTSC decomp declares the ship menu's builder void (menu, s32); rac1-ntsc's rac1_version.h gives destinations.c that shape (RAC1_SHIP_MENU_*)
+func_L00_00252D20	*	rac1-ntsc	the NTSC decomp has no C for it: the port's own (its row names the file) stands in; PAL's decomp has C
 func_L00_0025AC00	sig	rac1-ntsc	the NTSC decomp puts PostHitMessage's damage last; rac1-ntsc's rac1_version.h maps world.c's call to that order
 func_L01_002F74D0	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws without the moby; each disc has its own host C for them (rac1-pal/host/water.c, rac1-ntsc/host/water.c)
 func_L01_002F7528	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws without the moby; each disc has its own host C for them (rac1-pal/host/water.c, rac1-ntsc/host/water.c)
 func_L01_002FFF00	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws without the moby; each disc has its own host C for them (rac1-pal/host/water.c, rac1-ntsc/host/water.c)
 func_L01_0030AFD0	sig	rac1-ntsc	the NTSC decomp declares the Novalis water draws without the moby; each disc has its own host C for them (rac1-pal/host/water.c, rac1-ntsc/host/water.c)
+func_L00_001F1D20	*	rac1-ntsc	the NTSC decomp's catalogue folds the levels' copies into the executable's collision kernel, which the port answers with its own C (rac1/host/collision.c) in every place; PAL names the levels' copy apart and runs its decomp C there
+func_L00_001F2BE8	*	rac1-ntsc	the NTSC decomp's catalogue folds the levels' copies into the executable's collision kernel, which the port answers with its own C (rac1/host/collision.c) in every place; PAL names the levels' copy apart and runs its decomp C there
+func_L00_001F34F0	*	rac1-ntsc	the NTSC decomp's catalogue folds the levels' copies into the executable's collision kernel, which the port answers with its own C (rac1/host/collision.c) in every place; PAL names the levels' copy apart and runs its decomp C there
+func_L00_002569F8	*	rac1-ntsc	MobyProc: the NTSC decomp's catalogue folds the levels' copies into the executable's moby renderer (FUN_00211808), which the port draws natively (rac1/host/render_native.c) in every place; PAL names the levels' copy apart and runs its decomp C there
+func_001F7DD8	*	rac1-ntsc	VU0 math only the console's quad renderer calls, which the port replaces; the NTSC decomp names the levels' copy apart (FUN_L00_001fd108), so it keeps the game's code there, never reached
+func_001F7E98	*	rac1-ntsc	VU0 math only the console's quad renderer calls, which the port replaces; the NTSC decomp names the levels' copy apart (FUN_L00_001fd1c8, hand C), so it keeps that code there, never reached
+func_0020C738	*	rac1-ntsc	WadDecompress's toSPR window: only the hand-written WadDecompress calls it, and the NTSC port answers both of its copies with host C (rac1/host/hand.c, rac1-ntsc/host/catalogue.c)
