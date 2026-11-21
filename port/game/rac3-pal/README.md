@@ -148,12 +148,18 @@ boot program's host C (`host/mp.c`), and the window draws its picture as the 2D 
 CREATE GAME page and its options, and EXIT MULTIPLAYER, which starts `SCES_524.56` again through
 its boot screens to the main menu (`menus.py`'s `multiplayer` route).
 
-What is left: the menus' text and icons are not drawn (their strings print, `OPENRAC_RAC3_MENU_LOG`,
-and the panels and frames draw, but the glyphs and icon sprites show nothing, nor do the game's own
-packets with `OPENRAC_UI_REPLAY`: their textures are not where the window looks), the print with a
-colour a corner and the HUD sprite of level 39 are not wrapped, and a map (levels 40 to 55) is not
-loaded: they would be translated as level 39 is (`discover_levels`), with the native world
-renderers the boot program's levels use.
+The two routines that build a font page's TEX0 (the core's `0x0027EAC8`, the boot program's
+`0x0038A0E0`; level 39's `0x00589FF8`, the catalogue's `func_L01_004047A8`) return all 64 bits
+(`mp/hostgen.json` `asm` `signatures`): cut to 32, the CLUT's address and the page's height were
+lost and every glyph read an empty palette. Level 39's screen glow is left out as the boot
+program's levels leave it (`host/mp.c`).
+
+What is left: some of level 39's prints (the menu's rows) name a font page at block 0 (TBP and CBP
+0): the game's own packets draw nothing for them either, and the window's glyphs read that page as
+the frame and covered the menu, so level 39's glyphs are left to their packets until where that
+page is filled is found; the turned HUD sprite of both programs is not wrapped; a map (levels 40
+to 55) is not loaded: they would be translated as level 39 is (`discover_levels`), with the native
+world renderers the boot program's levels use.
 
 ## Ticks, pacing and input
 

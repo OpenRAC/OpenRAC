@@ -1192,9 +1192,11 @@ void func_L01_00420AE8(int tex, gaddr colours, float x, float y, float w, float 
  * its loading screen draws with) and level 39's, the multiplayer menus' (frontbin's routines at the
  * catalogue's level 39 places), each paired with the boot program's instruction by instruction
  * (mp/libraries.tsv), drawn as the boot program's are. The core's display list cursor and darkening
- * packet are 0x002446A8 and 0x001A3800, level 39's cursor 0x0024CAD0. The print with a colour a
- * corner and its glyph (level 39's) and the turned HUD sprite (both programs') are left to their
- * packets for now. */
+ * packet are 0x002446A8 and 0x001A3800, level 39's cursor 0x0024CAD0. The
+ * turned HUD sprite (both programs') is left to its packets for now, and so are level 39's glyphs
+ * (0x0058BBB0, 0x0058BF70): some of its prints name a font page at block 0 (TBP and CBP 0), which
+ * the window's glyphs read as the frame and drew over the whole menu (README, the multiplayer
+ * executable). */
 #define MP_CURSOR 0x002446A8u
 #define MP_MENUS_CURSOR 0x0024CAD0u
 #define MP_DARKEN_PACKET 0x001A3800u
@@ -1257,7 +1259,6 @@ void mp_func_L39_00592238(
         return r >= 0 ? r : name##__game(u, v, w, h, t0, t1, flag, x, y, fw, fh);                  \
     }
 MP_GLYPH(mp_func_0027F7A0)
-MP_GLYPH(mp_func_L39_0058BBB0)
 
 int mp_func_0027F980(
     int u,
@@ -1274,6 +1275,43 @@ int mp_func_0027F980(
 ) {
     const int r = glyph_shaded(u, v, w, h, colours, t1, flag, x, y, fw, fh);
     return r >= 0 ? r : mp_func_0027F980__game(u, v, w, h, colours, t1, flag, x, y, fw, fh);
+}
+
+int mp_func_L39_0058BD90(
+    int u,
+    int v,
+    int w,
+    int h,
+    gaddr colours,
+    long long t1,
+    int flag,
+    float x,
+    float y,
+    float fw,
+    float fh
+) {
+    const int r = glyph_shaded(u, v, w, h, colours, t1, flag, x, y, fw, fh);
+    return r >= 0 ? r : mp_func_L39_0058BD90__game(u, v, w, h, colours, t1, flag, x, y, fw, fh);
+}
+
+void mp_func_L39_00592AC8(
+    float a0,
+    float a1,
+    float a2,
+    float a3,
+    int colours,
+    int a5,
+    int a6,
+    int a7,
+    int a8,
+    unsigned long long a9,
+    float a10,
+    float a11
+) {
+    rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
+    const Print p = print_begin(MP_MENUS_CURSOR);
+    mp_func_L39_00592AC8__game(a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11);
+    print_end(MP_MENUS_CURSOR, p);
 }
 
 #define MP_GLYPH_SHADOWED(name)                                                                    \
@@ -1297,7 +1335,6 @@ int mp_func_0027F980(
         return r >= 0 ? r : name##__game(x, y, w, h, t0, t1, t2, snap, sx, sy, sw, sh, dx, dy);    \
     }
 MP_GLYPH_SHADOWED(mp_func_0027FB60)
-MP_GLYPH_SHADOWED(mp_func_L39_0058BF70)
 
 #define MP_GLYPH_QUAD(name, cursor)                                                                \
     void name(                                                                                     \

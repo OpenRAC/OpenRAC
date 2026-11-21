@@ -277,4 +277,24 @@ int mp_func_L39_005A9AA0(int source, int destination) {
     return openrac_wad_routine(source, destination, "Up Your Arsenal");
 }
 
+/* Level 39's copies of the screen glow (the catalogue's func_L01_004DE670, func_L01_004DE6F0 and
+ * func_L01_004DF310 at 39:0060DFC8, 39:0060E048 and 39:0060EC68): left out as render.c leaves the
+ * boot program's levels' (their packets copy and blur the frame and add it back; replayed, they
+ * covered the menus in one colour). The word each sets for the frame ($gp - 0x240C) is kept. */
+#define MP_MENUS_GLOW_WORD 0x00245BB4u
+
+int mp_func_L39_0060DFC8(void) {
+    GREF(int32_t, MP_MENUS_GLOW_WORD) = 0x6000;
+    return 0;
+}
+
+int mp_func_L39_0060E048(void) {
+    GREF(int32_t, MP_MENUS_GLOW_WORD) = 0;
+    return 0;
+}
+
+int mp_func_L39_0060EC68(void) {
+    return 0;
+}
+
 #endif /* RAC3_NTSC */
