@@ -145,12 +145,7 @@
  "left_out": {
   "func_00124ED8": "LoadExecPS2's wrapper starts PAL's multiplayer executable (rac3-pal host/exec.c), which NTSC-U does not build yet: the call stays unanswered (rac3/parity.tsv)"
  },
- "addresses_not_found": [
-  "L01:001E1060",
-  "L01:001E1074",
-  "L01:001E6DB4",
-  "L01:001EA7C0"
- ],
+ "addresses_not_found": [],
  "hand_addresses": {
   "0x001439F4": {
    "is": "0x001439F4",

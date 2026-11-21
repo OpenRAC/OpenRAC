@@ -409,6 +409,22 @@
     "L01:001E8B80": {
       "is": "001E8C00",
       "why": "the same instruction of the same code: func_L01_00404998 (NTSC-U func_L01_00402628) +0x2C, 1 of 1 places agree"
+    },
+    "L01:001E1060": {
+      "is": "001E10E0",
+      "why": "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x44, 8 of 8 places agree"
+    },
+    "L01:001E1074": {
+      "is": "001E10F4",
+      "why": "the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x3C, 8 of 8 places agree"
+    },
+    "L01:001E6DB4": {
+      "is": "001E6E34",
+      "why": "the same instruction of the same code: func_L01_00423DF0 (NTSC-U func_L01_004210C0) +0x8, 2 of 2 places agree"
+    },
+    "L01:001EA7C0": {
+      "is": "001EA840",
+      "why": "the same instruction of the same code: func_L01_0047E908 (NTSC-U func_L01_0047B0A8) +0x124, 13 of 13 places agree"
     }
   }
 }
