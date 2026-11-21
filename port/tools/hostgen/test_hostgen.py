@@ -2995,6 +2995,16 @@ class Places(unittest.TestCase):
             self.assertIn("a.c:3:", problems[0])
             self.assertIn("argument 3 is int for long long", problems[0])
 
+    def test_without_the_disc_a_verified_signature_the_port_calls_is_declared(self):
+        import asmc
+        from program import Program
+        program = Program()
+        a = {"signatures": {"func_00284D30": "unsigned long long (int)", "func_00284F80": "void (int)"}}
+        asmc.apply_signatures(program, a, discovered=False,
+                              host_text="u64 t = func_00284D30(tex);\n")
+        self.assertEqual(sorted(program.functions), ["func_00284D30"])
+        self.assertTrue(program.functions["func_00284D30"].sig.prototyped)
+
     def test_abicheck_finds_a_call_whose_positions_differ(self):
         with tempfile.TemporaryDirectory() as tmp:
             gen = Path(tmp)

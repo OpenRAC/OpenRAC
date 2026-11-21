@@ -2165,15 +2165,20 @@ def translate_shadows(stage: Stage, program: Program, a: dict) -> None:
         stage.shadows[alias] = r.text.replace(head, f" openrac_shadow_{alias}(", 1)
 
 
-def apply_signatures(program: Program, a: dict, discovered: bool) -> None:
+def apply_signatures(program: Program, a: dict, discovered: bool, host_text: str = "") -> None:
     """hostgen.json's "asm" "signatures": each function's verified prototype, a C function type,
     in place of the one its declarations or registers give. Only for functions with neither C nor
     a host definition (its C left out for its assembly, "from_assembly", or none at all). Without
-    discovery (no retail program read), a name the program does not have is passed over: it is an
-    entry only discovery finds."""
+    discovery (no retail program read), a name the program does not have is an entry only
+    discovery finds: passed over, unless the port's own C (`host_text`) calls it (rac3's
+    multiplayer HUD sprite, mp_func_00284F80, calls mp_func_00284D30), which then compiles against
+    the same prototype, a stub's, as with the disc."""
     for sym, text in a.get("signatures", {}).items():
         f = program.functions.get(sym)
         if f is None and not discovered:
+            if not host_text or not re.search(r"\b" + re.escape(cname(sym)) + r"\b", host_text):
+                continue
+            program.functions[sym] = Function(sym, Signature.of(ctype.parse(text)), None, asm=True)
             continue
         if f is None or sym in program.host:
             raise ValueError(f"assembly signature for {sym}: expected an assembly-only function")
@@ -2257,7 +2262,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
         # stubs, but each with its verified prototype all the same, so that the port's own C that
         # wraps one (a "wrap" row, calling NAME__game) is compiled against one signature whether
         # the build reads the disc or not. Entries only discovery would add are not there.
-        apply_signatures(program, a, discovered=False)
+        apply_signatures(program, a, discovered=False, host_text=host_text)
         # With the port's interface ("interface", asmext.py): what the disc would have given, the
         # translated functions called through slots the part built from the disc fills.
         if a.get("interface_path") and Path(a["interface_path"]).is_file():
