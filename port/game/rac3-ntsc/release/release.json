@@ -59,6 +59,23 @@
         }
       },
       "signatures": {
+        "func_L01_002F8918": "int (int)",
+        "func_L01_002F8F60": "int (int, int, int, int, int, int)",
+        "func_L01_0044A0E8": "void (unsigned int, int, int, int, int, int, float)",
+        "func_L01_004EA040": "void (void)",
+        "func_L01_004DC1C0": "void (int)",
+        "func_L01_00416B38": "void (int)",
+        "func_L01_004176F8": "int (int)",
+        "func_L01_004200A8": "void (void)",
+        "func_L01_004D3998": "int (void)",
+        "func_L01_00443840": "void (unsigned int, unsigned int)",
+        "func_L01_004412D0": "void (unsigned int, int, int)",
+        "func_L01_004B6E88": "int (int)",
+        "func_L01_004B6C98": "int (void)",
+        "func_L01_00416BF8": "int (int)",
+        "func_L01_0050D980": "int (int, int)",
+        "func_L01_00416640": "void (int)",
+        "func_L01_0050D8F8": "int (int, int)",
         "func_L39_00596BA0": "void (int, int)",
         "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
         "func_L01_003E7478": "void (unsigned int, unsigned int, unsigned int)",
@@ -638,6 +655,10 @@
     "L39:00575CC8": {
       "is": "00574F88",
       "why": "the level program's entry (its ELF header: PAL 0x00575CC8, NTSC-U 0x00574F88)"
+    },
+    "L01:001E0020": {
+      "is": "001E00A0",
+      "why": "the same instruction of the same code: func_L01_0042AF50 (NTSC-U func_L01_004281A8) +0xB8, 19 of 19 places agree"
     }
   },
   "mp_hostgen": {

@@ -22,6 +22,8 @@
 #include <vector>
 
 #include "openrac/games/rac1.hpp"
+#include "openrac/games/rac3.h"
+#include "openrac/games/rac3.hpp"
 #include "openrac/mod.hpp"
 
 namespace {
@@ -1187,6 +1189,18 @@ static_assert(
     std::string_view(openrac::rac1::hooks::moby::bolt::update::id) == "rac1.moby.bolt.update"
 );
 static_assert(std::string_view(openrac::detail::hook_id<Test_Twice>()) == "Test_Twice");
+// Up Your Arsenal's (games/rac3.hpp) by id too, and the C header's names and
+// signatures are the same hook points' (games/rac3.h).
+static_assert(std::is_same_v<openrac::rac3::hooks::player::take_damage,
+                             openrac::rac3::Hero_TakeDamage>);
+static_assert(std::string_view(openrac::rac3::hooks::moby::record_death::id) ==
+              "rac3.moby.record_death");
+static_assert(std::string_view(openrac::rac3::Hero_TakeDamage::signature) ==
+              OPENRAC_RAC3_SIG_Hero_TakeDamage);
+static_assert(std::string_view(openrac::rac3::Bolt_SpawnPickups::name) ==
+              OPENRAC_RAC3_HOOK_Bolt_SpawnPickups);
+static_assert(
+    std::is_same_v<openrac::rac3::Item_Give::fn, openrac_rac3_Item_Give>);
 
 namespace {
 

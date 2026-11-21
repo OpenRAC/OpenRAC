@@ -354,6 +354,16 @@ script binding `port/game/rac2/script_binding.c`; they are anchored on the
 NTSC-U v1.01 disc. A rac2 hook point that does a rac1 one's job keeps its
 `<area>.<name>` (`rac1.player.take_damage`, `rac2.player.take_damage`), so a mod
 for both games reads alike in each (section 3, "A mod for several games").
+Ratchet & Clank: Up Your Arsenal's are `rac3.<area>.<name>`, in
+[sdk/bindings/rac3.json](../../sdk/bindings/rac3.json) (`rac3.ids.lock`), with
+`hook` rows in `port/game/rac3-pal/libraries.tsv`, carried to `rac3-ntsc` by
+`release_carry_rac3.py` (NTSC-U's functions given PAL's prototypes through
+`release/release.json`'s `signatures`), the C header `openrac/games/rac3.h` and
+the script binding `port/game/rac3/script_binding.c`; they are anchored on the
+PAL disc. Most are level functions: one catalogue row
+(`config/levels/functions.tsv`) is one function in every level that has it, so
+one hook point. A rac3 hook point that does a rac2 one's job keeps its
+`<area>.<name>` (`rac2.item.give`, `rac3.item.give`).
 `gen_binding.py` with no game named writes every table's files.
 
 A hook point is declared in a disc's `libraries.tsv`, in the `port` column:
