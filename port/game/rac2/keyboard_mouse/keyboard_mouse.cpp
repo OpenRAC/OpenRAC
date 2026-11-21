@@ -303,9 +303,27 @@ bool map_mouse(const Tick& t, bool click) {
     return click && s_map_over;
 }
 
+// How many of the texts shown are a list's (an element or a plain print, not an icon's line).
+int list_texts() {
+    int n = 0;
+    for (int i = 0; i < s_text_count; ++i) {
+        const kbm::MenuText& m = s_texts[static_cast<std::size_t>(i)];
+        n += m.shown() && m.element != 0 ? 1 : 0;
+    }
+    return n;
+}
+
 // The navigation to the text at (px, py) of the game's screen.
 kbm::TextNav nav_at(float px, float py) {
     return kbm::text_nav(s_texts.data(), s_text_count, px, py);
+}
+
+// Whether the pointer is on a text the menus show.
+bool on_text(const Tick& t) {
+    float sw = kbm::kScreenWidth;
+    float sh = kbm::kScreenHeight;
+    openrac_rac2_screen_size(&sw, &sh);
+    return nav_at(t.in->pointer_x * sw, t.in->pointer_y * sh).hit >= 0;
 }
 
 // The mouse in a menu: the item under it (a text of a list) becomes the selected one, the d-pad
@@ -517,11 +535,25 @@ void step(const openrac_input* in, bool pad_look) {
 
     // Out of play the mouse points at the menus' items; a click it takes is not the game's Cross
     // while its button stays down.
+    // Going back, or a key's step, ends a clicked item's way there: its Cross must not land on
+    // the page gone back to, or on another item.
+    const kbm::ActionSet cancels = kbm::bit(Action::MenuBack) | kbm::bit(Action::Pause)
+                                   | kbm::bit(Action::MenuUp) | kbm::bit(Action::MenuDown)
+                                   | kbm::bit(Action::MenuLeft) | kbm::bit(Action::MenuRight);
+    if ((held & cancels) != 0) {
+        s_click_pending = false;
+    }
+
     if (!play) {
         const bool click = t.pointer && mouse_bind(t, Action::MenuConfirm, true);
-        // In a dialog a click no item takes presses nothing: Cross could answer yes.
-        s_click_held =
-            menu_mouse(t, click) || (click && t.where == Context::Dialog) || s_click_held;
+        // In a dialog a click no item takes presses nothing: Cross could answer yes. Nor in a
+        // menu's list: a click beside the items does not confirm the selected one.
+        const bool taken = menu_mouse(t, click);
+        const bool beside =
+            click
+            && (t.where == Context::Dialog
+                || (t.where == Context::Menu && s_menu_mouse && list_texts() >= 3 && !on_text(t)));
+        s_click_held = taken || beside || s_click_held;
 
         // The click's button is still down: its confirm presses nothing.
         if (s_click_held && mouse_bind(t, Action::MenuConfirm, false)) {
@@ -546,8 +578,8 @@ void step(const openrac_input* in, bool pad_look) {
     if (kbm2::is_ship(t.touch)) {
         v.held = kbm2::ship_swap(v.held);
     }
-    // The title's "Press Start": confirming presses Start as well.
-    if (t.touch != nullptr && std::string_view(t.touch) == "front_end"
+    // The title's "Press Start": confirming presses Start as well (not in its menus).
+    if (kbm2::confirm_presses_start(t.touch, list_texts())
         && (held & (kbm::bit(Action::MenuConfirm) | kbm::bit(Action::Jump))) != 0) {
         v.held = static_cast<std::uint16_t>(v.held | kbm::kStart);
     }
