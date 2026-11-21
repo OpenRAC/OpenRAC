@@ -4507,7 +4507,7 @@
       {
         "id": "editor-extract",
         "label": "Extract the levels",
-        "description": "Turns its 51 levels (the single-player ones and the multiplayer maps) on your disc into Godot 4 projects, one per level, in assets/levels/rac3/ntsc. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "description": "Turns its 51 levels (the single-player ones and the multiplayer maps) on your disc into Godot 4 projects, one per level, in assets/levels/rac3/ntsc. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits to objects are packed back by Pack your edited levels.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -4623,6 +4623,32 @@
         "detached": true,
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-pack",
+        "label": "Pack your edited levels",
+        "description": "Turns the levels you edited in Godot back into the game's level data, in assets/packed/rac3/ntsc; your disc image is never changed. Packs the objects you moved, turned, scaled or changed; adding, deleting or giving an object another class is not packed yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "pack",
+          "{disc}",
+          "assets/levels/rac3/ntsc",
+          "assets/packed/rac3/ntsc"
+        ],
+        "output": "assets/packed/rac3/ntsc",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac3/ntsc/level_00/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same packer as Going Commando's (editor/pack_later.py), on this game's projects."
       },
       {
         "id": "port-levels",
@@ -4868,6 +4894,45 @@
             "from": "the levels (Get the levels ready)"
           }
         ]
+      },
+      {
+        "id": "play-edited",
+        "label": "Play with your edits",
+        "description": "The game with your mods: the overrides packs you switched on (textures, models, sounds) and the levels you packed, read in place of the disc's. Up Your Arsenal runs as far as its menus, so level edits show once a level loads. Without any mods it plays the disc's.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac3-pal/README.md",
+        "todo": "Built like Play. The Mods page runs overrides-stack first, which writes {data}/mods/ntsc.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac3/ntsc",
+          "--mods",
+          "{data}/mods/ntsc"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac3-ntsc.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac3/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac3/ntsc/levels-14.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
       }
     ],
     "rac3/pal": [
@@ -4901,7 +4966,7 @@
       {
         "id": "editor-extract",
         "label": "Extract the levels",
-        "description": "Turns its 51 levels (the single-player ones and the multiplayer maps) on your disc into Godot 4 projects, one per level, in assets/levels/rac3/pal. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "description": "Turns its 51 levels (the single-player ones and the multiplayer maps) on your disc into Godot 4 projects, one per level, in assets/levels/rac3/pal. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits to objects are packed back by Pack your edited levels.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -5017,6 +5082,32 @@
         "detached": true,
         "docs": "editor/README.md",
         "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-pack",
+        "label": "Pack your edited levels",
+        "description": "Turns the levels you edited in Godot back into the game's level data, in assets/packed/rac3/pal; your disc image is never changed. Packs the objects you moved, turned, scaled or changed; adding, deleting or giving an object another class is not packed yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "pack",
+          "{disc}",
+          "assets/levels/rac3/pal",
+          "assets/packed/rac3/pal"
+        ],
+        "output": "assets/packed/rac3/pal",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac3/pal/level_00/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same packer as Going Commando's (editor/pack_later.py), on this game's projects."
       },
       {
         "id": "port-levels",
@@ -5281,6 +5372,45 @@
           "--window",
           "--levels",
           "{root}/assets/port/rac3/pal"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac3-pal.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac3/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac3/pal/levels-14.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
+      },
+      {
+        "id": "play-edited",
+        "label": "Play with your edits",
+        "description": "The game with your mods: the overrides packs you switched on (textures, models, sounds) and the levels you packed, read in place of the disc's. Up Your Arsenal runs as far as its menus, so level edits show once a level loads. Without any mods it plays the disc's.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac3-pal/README.md",
+        "todo": "Built like Play. The Mods page runs overrides-stack first, which writes {data}/mods/pal.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac3/pal",
+          "--mods",
+          "{data}/mods/pal"
         ],
         "platforms": [
           "linux",
