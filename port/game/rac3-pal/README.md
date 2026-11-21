@@ -529,8 +529,10 @@ keeps the liquid surfaces (`bake-inputs/liquids.json`, `rac3-strips-v1`): each m
 draws one triangle strip through a path of the gameplay file (the paths are its header word 0x78), its
 first layer a white effect texture under the pvar's colour, so the surfaces the review
 (`profiles/rac3-pal/liquids.json`) lists by that colour word are lit as emitters, as Going Commando's
-lava. None is listed yet: the candidates by colour (orange in levels 2, 4, 7 and 34) are not seen in
-a running game, as those levels do not play yet, and colour alone is not taken as emission. Texture
+lava. None is listed yet. Florana's two orange surfaces (`280c0080`) are seen in game (hidden runs
+on the Mac, hero teleported beside them): a dark red mud that kills, which gives off no light.
+Marcadia's blue pool (`0f141660`) draws as water; its orange ones (`10080280`) and those of levels 7
+and 34 are not seen yet, and colour alone is not taken as emission. Texture
 packs (`docs/port/TEXTURE_PACKS.md`) work as in the other games: the
 pictures in `<data>/texture_packs/rac3-pal/` replace the world's, the mobys', the sky's and the
 interface's textures.
