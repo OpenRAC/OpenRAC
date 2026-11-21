@@ -14,7 +14,17 @@
  * as a point, then the approach with the globe and the name (retail footage, Veldin's loading). The
  * port reads them in a moment, and the approach began after the first lap. Here the files count as
  * read only once the stars have played HOLD_STARS passes (the lap playing then ends there), so the
- * approach comes after the console's 8 s of stars. It plays at the game's own pace.
+ * approach comes after the console's 8 s of stars.
+ *
+ * The approach is a lap of about 120 passes, 2.4 s at 50 a second, but the console shows the globe
+ * and the name about 6 s (retail footage): while it plays the level's files are unpacked in the
+ * same loop, and a pass takes about two and a half vertical blanks. The scene's tick is the pass
+ * count (0x003BDFB0: +0x34 goes up by one a pass), so the port stretches the ticks instead
+ * (openrac_game_tick_stretch, APPROACH_STRETCH) while the approach plays: each pass is the same
+ * pass, and the frames between ticks move the ship and the globe smoothly between them. Holding
+ * the scene's tick back for some passes instead made the ship's parts look up joints the port does
+ * not keep (0x003C3278 through the hand-written 0x003CA858), and waiting for more vertical blanks
+ * inside the pass held the window's frames back.
  *
  * Start skips the hold while Skip cutscenes is on, as Going Commando's port skips its flights
  * (rac2/host/tools.c flight_skip): the flight then ends as soon as the game lets it.
@@ -35,6 +45,9 @@
 /* 8 s of stars at the game's 50 passes a second. */
 #define HOLD_STARS 400
 
+/* The console's approach, about 6 s, over its 2.4 s of passes. */
+#define APPROACH_STRETCH 2.5f
+
 int func_003BCE00__game(int loaded);
 
 static int s_passes;
@@ -46,6 +59,8 @@ static int s_active;
 /* One pass of the game's flight; the last one (it returns 1) ends it. */
 static int flight_pass(int loaded) {
     const int over = func_003BCE00__game(loaded);
+    const int approach = !over && !s_skipping && GREF(uint8_t, FLIGHT_STATE + FLIGHT_APPROACH) != 0;
+    openrac_game_tick_stretch = approach ? APPROACH_STRETCH : 1.0f;
     if (over) {
         s_active = 0;
     }
@@ -77,5 +92,6 @@ int func_003BCE00(int loaded) {
 void rac3_loading_skip(void) {
     if (s_active) {
         s_skipping = 1;
+        openrac_game_tick_stretch = 1.0f;
     }
 }
