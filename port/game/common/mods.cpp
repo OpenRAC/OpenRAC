@@ -692,6 +692,28 @@ int api_developer_menu_choice(
     return OPENRAC_HOOK_OK;
 }
 
+int api_developer_menu_look(
+    openrac_mod* mod, std::uint32_t action, const openrac_developer_menu_look* look
+) {
+    if (!may_set_developer_menu(mod)) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    DeveloperMenuItem* item = developer_menu_item(mod, action);
+    if (item == nullptr
+        || (look != nullptr
+            && (look->size < offsetof(openrac_developer_menu_look, icon) + sizeof(look->icon)
+                || std::isnan(look->progress)))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    item->info = look != nullptr && (look->flags & OPENRAC_DEVELOPER_MENU_INFO) != 0;
+    item->locked = look != nullptr && (look->flags & OPENRAC_DEVELOPER_MENU_LOCKED) != 0;
+    item->look_value = look != nullptr && look->value != nullptr ? look->value : "";
+    item->progress =
+        look != nullptr && look->progress >= 0.0f ? std::min(look->progress, 1.0f) : -1.0f;
+    item->icon = look != nullptr && look->icon != nullptr ? look->icon : "";
+    return OPENRAC_HOOK_OK;
+}
+
 // A hook point's entry (1.21): found as api_hook finds it, by its id or any alias, and its
 // signature compared as api_hook compares it. The entry is the function the game calls by the
 // point's symbol, hooks.c's, which goes through the slot: the mods' replacements, then the game's.
@@ -2035,6 +2057,7 @@ void fill_api(const Host& host) {
     g_api.developer_menu_switch = api_developer_menu_switch;
     g_api.developer_menu_choice = api_developer_menu_choice;
     g_api.developer_menu_value = api_developer_menu_value;
+    g_api.developer_menu_look = api_developer_menu_look;
     g_api.hook_entry = api_hook_entry;
     g_api.data_dir = api_data_dir;
     g_api.savestate_size = snapshot_size;
@@ -2935,12 +2958,14 @@ void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action) {
         if (menu.mod != mod) {
             continue;
         }
-        const bool registered = std::any_of(
+        // A locked row (1.28) does nothing, and a plain row to read is not pressed.
+        const bool pressable = std::any_of(
             menu.items.begin(), menu.items.end(), [action](const DeveloperMenuItem& item) {
-                return item.action == action;
+                return item.action == action && !item.locked
+                       && !(item.info && item.kind == MenuItemKind::Press);
             }
         );
-        if (registered) {
+        if (pressable) {
             menu.actions.push_back(action);
         }
         return;
@@ -2949,7 +2974,7 @@ void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action) {
 
 void set_developer_menu_value(openrac_mod* mod, std::uint32_t action, int value) {
     DeveloperMenuItem* item = mod != nullptr ? developer_menu_item(mod, action) : nullptr;
-    if (item == nullptr) {
+    if (item == nullptr || item->locked) {
         return;
     }
     const bool fits = item->kind == MenuItemKind::Switch

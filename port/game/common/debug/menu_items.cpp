@@ -24,9 +24,11 @@
 #include "enhanced/fsr3/fsr3.h"
 #include "fixes.h"
 #include "frontend.h"
+#include "mod_touch.h"
 #include "mods.h"
 #include "options_menu.h"
 #include "renderer/gl/gl.h"
+#include "renderer/ui/menu_icons.h"
 #include "settings.h"
 
 #pragma clang diagnostic error "-Wswitch"
@@ -1265,13 +1267,60 @@ void draw_mod_menu(int index) {
         return;
     }
     const mods::DeveloperMenu& menu = menus[static_cast<std::size_t>(index)];
+    // The mods' icons (touch_icon), for the rows that show one (1.28), when they changed.
+    static unsigned icons_known = ~0u;
+    if (mods::touch::Snapshot icons = mods::touch::snapshot(icons_known); icons.files) {
+        renderer::ui::menu_icons::set(icons.icons);
+        icons_known = icons.generation;
+    }
     const auto row = [&](const mods::DeveloperMenuItem& item) {
         const std::string label =
             item.shortcut.empty() ? item.label : std::format("{}  ({})", item.label, item.shortcut);
+        // Its look (developer_menu_look): dim when locked, an icon, a progress bar.
+        const ImU32 ink = item.locked ? ui().dim : ui().text;
+        RowExtra extra;
+        extra.progress = item.progress;
+        extra.dim = item.locked;
+        if (const auto icon = renderer::ui::menu_icons::find(item.icon)) {
+            const auto texture = static_cast<ImTextureID>(renderer::ui::menu_icons::texture());
+            const ImU32 accent = item.locked ? ui().dim : ui().amber;
+            extra.icon =
+                [icon = *icon, texture, ink, accent](ImDrawList* list, ImVec2 a, float size) {
+                    const ImVec2 b(a.x + size, a.y + size);
+                    const auto& w = icon.white;
+                    const auto& o = icon.accent;
+                    list->AddImage(texture, a, b, ImVec2(w.u0, w.v0), ImVec2(w.u1, w.v1), ink);
+                    list->AddImage(texture, a, b, ImVec2(o.u0, o.v0), ImVec2(o.u1, o.v1), accent);
+                };
+        }
+        const RowExtra* more = extra.icon || extra.progress >= 0.0f ? &extra : nullptr;
+        // A row the cursor still reaches, drawn dim, its value at the right: a locked one refuses
+        // a press, a row to read takes none (a disabled switch or choice would be passed over).
+        const auto still_row = [&](const std::string& value) {
+            const float value_width = value.empty() ? 0.0f : ImGui::CalcTextSize(value.c_str()).x;
+            const ImU32 value_ink = item.locked ? ui().dim : ui().gold;
+            RowRight right;
+            if (!value.empty()) {
+                right = [&value, value_width, value_ink](ImDrawList* list, ImVec2 at) {
+                    list->AddText(
+                        ImVec2(at.x - value_width, at.y - ImGui::GetFontSize() * 0.5f),
+                        value_ink,
+                        value.c_str()
+                    );
+                };
+            }
+            extra.quiet = true;
+            const bool pressed = menu_row(label.c_str(), ink, right, value_width, nullptr, &extra);
+            if (pressed && item.locked) {
+                menu_sound(MenuSound::Denied);
+            }
+            return pressed;
+        };
         ImGui::PushID(&item);
-        switch (item.kind) {
+        switch (item.locked && item.kind != mods::MenuItemKind::Press ? mods::MenuItemKind::Press
+                                                                      : item.kind) {
             case mods::MenuItemKind::Switch:
-                if (menu_switch(label.c_str(), item.value != 0)) {
+                if (menu_switch(label.c_str(), item.value != 0, true, more)) {
                     mods::set_developer_menu_value(menu.mod, item.action, item.value != 0 ? 0 : 1);
                 }
                 break;
@@ -1279,18 +1328,51 @@ void draw_mod_menu(int index) {
                 const int last = static_cast<int>(item.values.size()) - 1;
                 const int at = std::clamp(item.value, 0, last);
                 if (const int by = menu_choice(
-                        label.c_str(), item.values[static_cast<std::size_t>(at)], at > 0, at < last
+                        label.c_str(),
+                        item.values[static_cast<std::size_t>(at)],
+                        at > 0,
+                        at < last,
+                        true,
+                        nullptr,
+                        more
                     )) {
                     // menu_choice moves no value past either end.
                     mods::set_developer_menu_value(menu.mod, item.action, at + by);
                 }
                 break;
             }
-            case mods::MenuItemKind::Press:
-                if (menu_row(label.c_str())) {
+            case mods::MenuItemKind::Press: {
+                // A locked switch or choice shows its state as text: "On", "Off", its value.
+                std::string value = item.look_value;
+                if (item.kind == mods::MenuItemKind::Switch) {
+                    value = item.value != 0 ? "On" : "Off";
+                } else if (item.kind == mods::MenuItemKind::Choice && !item.values.empty()) {
+                    value = item.values[static_cast<std::size_t>(
+                        std::clamp(item.value, 0, static_cast<int>(item.values.size()) - 1)
+                    )];
+                }
+                if (item.locked || item.info) {
+                    still_row(value);
+                    break;
+                }
+                // Its value at the right in the accent's gold, as the Game tab's.
+                const float value_width =
+                    value.empty() ? 0.0f : ImGui::CalcTextSize(value.c_str()).x;
+                RowRight right;
+                if (!value.empty()) {
+                    right = [&value, value_width](ImDrawList* list, ImVec2 at) {
+                        list->AddText(
+                            ImVec2(at.x - value_width, at.y - ImGui::GetFontSize() * 0.5f),
+                            ui().gold,
+                            value.c_str()
+                        );
+                    };
+                }
+                if (menu_row(label.c_str(), ink, right, value_width, nullptr, &extra)) {
                     mods::queue_developer_menu_action(menu.mod, item.action);
                 }
                 break;
+            }
         }
         ImGui::PopID();
         if (ImGui::IsItemHovered() || ImGui::IsItemFocused()) {

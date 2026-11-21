@@ -495,6 +495,18 @@ void menu_window(const Shown& shown) {
     const int tab_count = static_cast<int>(tabs.size());  // the bar's tabs, before its buttons
     tabs.push_back({menu::entry(menu::Id::Quit).label, -1, -1, kQuitPage});
     tabs.push_back({"Resume", -1, -1, kResumePage});
+    if (!s.menu_want_mod_tab.empty() && s.menu_open) {
+        for (std::size_t i = 0; i < tabs.size(); ++i) {
+            std::string name = tabs[i].name;
+            std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
+                return static_cast<char>(std::tolower(c));
+            });
+            if (tabs[i].mod >= 0 && name == s.menu_want_mod_tab) {
+                s.menu_tab = static_cast<int>(i);
+            }
+        }
+        s.menu_want_mod_tab.clear();
+    }
     if (s.menu_want_tab >= 0) {
         for (std::size_t i = 0; i < tabs.size(); ++i) {
             if (tabs[i].catalog == s.menu_want_tab) {

@@ -1111,6 +1111,35 @@ public:
       return has_moby_pool() && m_api->moby_pool_status(m_handle, &out) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.28: whether the port has menu_look() (developer_menu_look).
+    bool has_menu_look() const {
+      return m_api->api_minor >= 28 &&
+             m_api->size >= offsetof(openrac_api, developer_menu_look) + sizeof(void *);
+    }
+
+    // Since 1.28: how the mod's tab row `action` looks besides its label: `flags`
+    // (OPENRAC_DEVELOPER_MENU_INFO, _LOCKED), text at its right (`value`, null or "" for none), a
+    // progress bar (0 to 1, negative for none) and an icon added with touch_icon (null or "" for
+    // none). Strings are copied. Only during load (after developer_menu) or from the tick
+    // boundary. Returns false when refused or the port has no such call.
+    bool menu_look(std::uint32_t action, std::uint32_t flags, const char* value = nullptr,
+                   float progress = -1.0f, const char* icon = nullptr) const {
+      openrac_developer_menu_look look{};
+      look.size = sizeof look;
+      look.flags = flags;
+      look.value = value;
+      look.progress = progress;
+      look.icon = icon;
+      return has_menu_look() &&
+             m_api->developer_menu_look(m_handle, action, &look) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.28: the row `action` a plain row again. The same times and results as menu_look().
+    bool menu_look_clear(std::uint32_t action) const {
+      return has_menu_look() &&
+             m_api->developer_menu_look(m_handle, action, nullptr) == OPENRAC_HOOK_OK;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

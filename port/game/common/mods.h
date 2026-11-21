@@ -65,6 +65,13 @@ struct DeveloperMenuItem {
     MenuItemKind kind = MenuItemKind::Press;
     int value = 0;                    // a switch's 0 or 1, a choice's index
     std::vector<std::string> values;  // a choice's values
+    // Its look (1.28, developer_menu_look): a row to read, a locked one, text at its right, a
+    // progress bar (negative: none), an icon of the mods' (touch_icon).
+    bool info = false;
+    bool locked = false;
+    std::string look_value;
+    float progress = -1.0f;
+    std::string icon;
 };
 
 struct DeveloperMenu {
@@ -221,7 +228,7 @@ inline void frame() {
 // callbacks run.
 void tick_boundary(std::uint32_t tick);
 
-// Optional mod-provided top-level menus for the in-window menu bar.
+// The mods' tabs in OpenRAC's menu (developer_menu).
 const std::vector<DeveloperMenu>& developer_menus();
 void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action);
 // The menu turned a switch over or moved a choice (1.19): its new state, and its action queued as

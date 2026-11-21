@@ -324,6 +324,7 @@ add_library(openrac_renderer_ui STATIC
   renderer/ui/fps_counter.cpp
   renderer/ui/imgui_gl.cpp
   renderer/ui/logo.cpp
+  renderer/ui/menu_icons.cpp
   renderer/ui/overlay_draw.cpp
   renderer/ui/overlay_list.cpp
   renderer/ui/picture_blit.cpp

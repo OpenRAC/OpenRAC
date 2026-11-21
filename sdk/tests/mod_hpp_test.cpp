@@ -1019,6 +1019,25 @@ void fill_27_pool(openrac_api &api) {
   };
 }
 
+// The fake host's 1.28 row looks: only action 2, as a port keeps it.
+openrac_developer_menu_look g_28_look{};
+bool g_28_cleared = false;
+
+void fill_28_look(openrac_api &api) {
+  api.developer_menu_look = [](openrac_mod *, std::uint32_t action,
+                               const openrac_developer_menu_look *look) {
+    if (action != 2) {
+      return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (look == nullptr) {
+      g_28_cleared = true;
+    } else {
+      g_28_look = *look;
+    }
+    return OPENRAC_HOOK_OK;
+  };
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -2138,6 +2157,21 @@ int main() {
       CHECK(mod.moby_pool_status(pool) && pool.capacity == 400 && pool.free == 310 && pool.extra == 128);
       api.api_minor = 26;
       CHECK(!mod.has_moby_pool() && mod.moby_pool_raise(100) == 0 && !mod.moby_pool_status(pool));
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.28: a row's look in the mod's tab; a port of 1.27 has none.
+    {
+      fill_28_look(api);
+      CHECK(mod.has_menu_look() &&
+            mod.menu_look(2, OPENRAC_DEVELOPER_MENU_LOCKED, "24/40", 0.6f, "trophy"));
+      CHECK(g_28_look.size == sizeof g_28_look &&
+            g_28_look.flags == OPENRAC_DEVELOPER_MENU_LOCKED &&
+            std::string(g_28_look.value) == "24/40" && g_28_look.progress == 0.6f &&
+            std::string(g_28_look.icon) == "trophy");
+      CHECK(!mod.menu_look(5, 0) && mod.menu_look_clear(2) && g_28_cleared);
+      g_28_cleared = false;
+      api.api_minor = 27;
+      CHECK(!mod.has_menu_look() && !mod.menu_look_clear(2) && !g_28_cleared);
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);
