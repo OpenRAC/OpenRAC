@@ -1,180 +1,237 @@
 {
-    "about":
-        "What rac3-ntsc's carried tables rest on besides the same code, written by port/tools/hostgen/release_carry_rac3.py; do not edit.",
-    "differs": {
-        "func_003983C8": {
-            "is": "func_003982E0",
-            "status": "differs",
-            "port": "wrap"
-        },
-        "func_003983C8__game": {
-            "is": "func_003982E0__game",
-            "status": "differs",
-            "port": "host C"
-        },
-        "func_003AA780": {
-            "is": "func_003AA630",
-            "status": "differs",
-            "port": "wrap"
-        },
-        "func_003AA780__game": {
-            "is": "func_003AA630__game",
-            "status": "differs",
-            "port": "host C"
-        },
-        "func_003B63D0": {
-            "is": "func_003B6220",
-            "status": "differs",
-            "port": "wrap"
-        },
-        "func_003B63D0__game": {
-            "is": "func_003B6220__game",
-            "status": "differs",
-            "port": "host C"
-        },
-        "func_L01_003E92F8": {
-            "is": "func_L01_003E7478",
-            "status": "differs",
-            "port": "wrap"
-        },
-        "func_L01_003E92F8__game": {
-            "is": "func_L01_003E7478__game",
-            "status": "differs",
-            "port": "host C"
-        },
-        "func_L01_004CBC60": {
-            "is": "func_L01_004C7FF0",
-            "status": "differs",
-            "port": "wrap"
-        },
-        "func_L01_004CBC60__game": {
-            "is": "func_L01_004C7FF0__game",
-            "status": "differs",
-            "port": "host C"
-        }
-    },
-    "left_out": {
-        "func_00124ED8":
-            "LoadExecPS2's wrapper starts PAL's multiplayer executable (rac3-pal host/exec.c), which NTSC-U does not build yet: the call stays unanswered (rac3/parity.tsv)"
-    },
-    "addresses_not_found": [],
-    "hand_addresses": {
-        "0x001439F4": {
-            "is": "0x001439F4",
-            "why":
-                "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_004D0E90 (NTSC-U func_L01_004CD1D0) +0x68, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
-        },
-        "0x00143A70": {
-            "is": "0x00143A70",
-            "why":
-                "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_0049FBC8 (NTSC-U func_L01_0049C368) +0x1DC, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
-        },
-        "0x001A50E0": {
-            "is": "0x001A50E0",
-            "why":
-                "hero_ledge_block, hero + 0x500 (rac3-decomp include/structs/hero.h); the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes the block at NTSC-U 0x001A50E0"
-        },
-        "0x001A57BC": {
-            "is": "0x001A57BC",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A5780 and 0x001A57F8, both moved by +0x0 (NTSC-U 0x001A5780, 0x001A57F8)"
-        },
-        "0x001A5E08": {
-            "is": "0x001A5E08",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0034DBE8 (NTSC-U func_L01_0034D168) +0x8, 3 of 3 places agree"
-        },
-        "0x001D4C40": {
-            "is": "0x001D4C40",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004CA270 (NTSC-U func_L01_004C6638) +0x138, 7 of 7 places agree"
-        },
-        "0x001427F0": {
-            "is": "0x001427F0",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0030F0B0 (NTSC-U func_L01_0030EDC0) +0xC0, 18 of 18 places agree"
-        },
-        "0x00142668": {
-            "is": "0x00142668",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00301798 (NTSC-U func_L01_003015F0) +0x94, 3 of 3 places agree"
-        },
-        "0x00142660": {
-            "is": "0x00142660",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x120, 34 of 34 places agree"
-        },
-        "0x001C5290": {
-            "is": "0x001C5290",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0xA8, 2 of 2 places agree"
-        },
-        "0x001D4CA0": {
-            "is": "0x001D4CA0",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): between the same code's 0x001D4C80 and 0x001D4CA8, both moved by +0x0 (NTSC-U 0x001D4C80, 0x001D4CA8)"
-        },
-        "0x001A71D2": {
-            "is": "0x001A71D2",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A71C5 and 0x001A71D4, both moved by +0x0 (NTSC-U 0x001A71C5, 0x001A71D4)"
-        },
-        "0x001BBC40": {
-            "is": "0x001BBC40",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x78, 24 of 24 places agree"
-        },
-        "0x001A71A0": {
-            "is": "0x001A71A0",
-            "why":
-                "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_003090E0 (NTSC-U func_L01_00308E58) +0x80, 31 of 31 places agree"
-        },
-        "0x001A4C70": {
-            "is": "0x001A4C70",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004E51A0 (NTSC-U func_L01_004E13D8) +0x20, 3 of 3 places agree"
-        },
-        "0x001A71A4": {
-            "is": "0x001A71A4",
-            "why":
-                "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_003261E8 (NTSC-U func_L01_00325CE8) +0x100, 8 of 8 places agree"
-        }
-    },
-    "hostgen_left_out": {
-        "asm.signatures": [
-            "func_PAL_L01_004AB368",
-            "func_PAL_L28_003BFF78",
-            "func_PAL_L39_004CE100",
-            "func_PAL_L39_00583C20",
-            "func_PAL_L39_00587A30",
-            "func_PAL_L39_005A12B8",
-            "func_PAL_L39_005A6020",
-            "func_L39_006AE8F8_006AE3D8",
-            "func_PAL_L39_006CCD08",
-            "func_PAL_L39_005189A0"
-        ],
-        "from_assembly": [
-            "func_PAL_L39_00596EE0",
-            "func_PAL_L39_0059DCD8",
-            "func_PAL_L39_005A6020",
-            "func_PAL_L39_006CCD08",
-            "func_PAL_L39_004CE100"
-        ]
-    },
-    "own_functions": [
-        "func_00393290__frontbin",
-        "func_00395FE0__frontbin",
-        "func_0039DB38__frontbin",
-        "func_003A0170__frontbin",
-        "func_003AF160__frontbin",
-        "func_003B0C70__frontbin",
-        "func_003B0D18__frontbin",
-        "func_00131900",
-        "func_0039B098",
-        "func_003A5850",
-        "func_003B4920",
-        "func_003B6430",
-        "func_003B64D8"
-    ],
-    "unwrapped": {}
+ "about": "What rac3-ntsc's carried tables rest on besides the same code, written by port/tools/hostgen/release_carry_rac3.py; do not edit.",
+ "differs": {
+  "func_0038AE20__frontbin__game": {
+   "is": "func_PAL_0038AE20__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_0038AF30__frontbin__game": {
+   "is": "func_PAL_0038AF30__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_0038B4D0__frontbin__game": {
+   "is": "func_PAL_0038B4D0__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_0038B670__frontbin__game": {
+   "is": "func_PAL_0038B670__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_0038B850__frontbin__game": {
+   "is": "func_PAL_0038B850__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_0038BA30__frontbin__game": {
+   "is": "func_PAL_0038BA30__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_0038BCD8__frontbin__game": {
+   "is": "func_PAL_0038BCD8__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_0038C138__frontbin__game": {
+   "is": "func_PAL_0038C138__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_0038C248__frontbin__game": {
+   "is": "func_PAL_0038C248__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_0038E7E8__frontbin__game": {
+   "is": "func_PAL_0038E7E8__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_0038F078__frontbin__game": {
+   "is": "func_PAL_0038F078__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_003972A0__frontbin__game": {
+   "is": "func_PAL_003972A0__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_003983C8": {
+   "is": "func_003982E0",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_003983C8__game": {
+   "is": "func_003982E0__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_003A9830__frontbin__game": {
+   "is": "func_PAL_003A9830__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_003AA3C8__frontbin": {
+   "is": "func_003A4E70__frontbin",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_003AA3C8__frontbin__game": {
+   "is": "func_PAL_003AA3C8__frontbin__game",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_003AA780": {
+   "is": "func_003AA630",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_003AA780__game": {
+   "is": "func_003AA630__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_003B63D0": {
+   "is": "func_003B6220",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_003B63D0__game": {
+   "is": "func_003B6220__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_L01_003E92F8": {
+   "is": "func_L01_003E7478",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_L01_003E92F8__game": {
+   "is": "func_L01_003E7478__game",
+   "status": "differs",
+   "port": "host C"
+  },
+  "func_L01_004CBC60": {
+   "is": "func_L01_004C7FF0",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_L01_004CBC60__game": {
+   "is": "func_L01_004C7FF0__game",
+   "status": "differs",
+   "port": "host C"
+  }
+ },
+ "left_out": {
+  "func_00124ED8": "LoadExecPS2's wrapper starts PAL's multiplayer executable (rac3-pal host/exec.c), which NTSC-U does not build yet: the call stays unanswered (rac3/parity.tsv)"
+ },
+ "addresses_not_found": [],
+ "hand_addresses": {
+  "0x001439F4": {
+   "is": "0x001439F4",
+   "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_004D0E90 (NTSC-U func_L01_004CD1D0) +0x68, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
+  },
+  "0x00143A70": {
+   "is": "0x00143A70",
+   "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_0049FBC8 (NTSC-U func_L01_0049C368) +0x1DC, 2 of 2 places; the options block D_00143950 is at the same address on both discs"
+  },
+  "0x001A50E0": {
+   "is": "0x001A50E0",
+   "why": "hero_ledge_block, hero + 0x500 (rac3-decomp include/structs/hero.h); the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes the block at NTSC-U 0x001A50E0"
+  },
+  "0x001A57BC": {
+   "is": "0x001A57BC",
+   "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A5780 and 0x001A57F8, both moved by +0x0 (NTSC-U 0x001A5780, 0x001A57F8)"
+  },
+  "0x001A5E08": {
+   "is": "0x001A5E08",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0034DBE8 (NTSC-U func_L01_0034D168) +0x8, 3 of 3 places agree"
+  },
+  "0x001D4C40": {
+   "is": "0x001D4C40",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004CA270 (NTSC-U func_L01_004C6638) +0x138, 7 of 7 places agree"
+  },
+  "0x001427F0": {
+   "is": "0x001427F0",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_0030F0B0 (NTSC-U func_L01_0030EDC0) +0xC0, 18 of 18 places agree"
+  },
+  "0x00142668": {
+   "is": "0x00142668",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00301798 (NTSC-U func_L01_003015F0) +0x94, 3 of 3 places agree"
+  },
+  "0x00142660": {
+   "is": "0x00142660",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x120, 34 of 34 places agree"
+  },
+  "0x001C5290": {
+   "is": "0x001C5290",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00325F60 (NTSC-U func_L01_00325A60) +0xA8, 2 of 2 places agree"
+  },
+  "0x001D4CA0": {
+   "is": "0x001D4CA0",
+   "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001D4C80 and 0x001D4CA8, both moved by +0x0 (NTSC-U 0x001D4C80, 0x001D4CA8)"
+  },
+  "0x001A71D2": {
+   "is": "0x001A71D2",
+   "why": "Veldin's program (rac3_level_pairs.py): between the same code's 0x001A71C5 and 0x001A71D4, both moved by +0x0 (NTSC-U 0x001A71C5, 0x001A71D4)"
+  },
+  "0x001BBC40": {
+   "is": "0x001BBC40",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x78, 24 of 24 places agree"
+  },
+  "0x001A71A0": {
+   "is": "0x001A71A0",
+   "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_003090E0 (NTSC-U func_L01_00308E58) +0x80, 31 of 31 places agree"
+  },
+  "0x001A4C70": {
+   "is": "0x001A4C70",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004E51A0 (NTSC-U func_L01_004E13D8) +0x20, 3 of 3 places agree"
+  },
+  "0x001A71A4": {
+   "is": "0x001A71A4",
+   "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_003261E8 (NTSC-U func_L01_00325CE8) +0x100, 8 of 8 places agree"
+  }
+ },
+ "hostgen_left_out": {
+  "asm.signatures": [
+   "func_PAL_L01_004AB368",
+   "func_PAL_L28_003BFF78",
+   "func_PAL_L39_004CE100",
+   "func_PAL_L39_00583C20",
+   "func_PAL_L39_00587A30",
+   "func_PAL_L39_005A12B8",
+   "func_PAL_L39_005A6020",
+   "func_L39_006AE8F8_006AE3D8",
+   "func_PAL_L39_006CCD08",
+   "func_PAL_L39_005189A0"
+  ],
+  "from_assembly": [
+   "func_PAL_L39_00596EE0",
+   "func_PAL_L39_0059DCD8",
+   "func_PAL_L39_005A6020",
+   "func_PAL_L39_006CCD08",
+   "func_PAL_L39_004CE100"
+  ]
+ },
+ "own_functions": [
+  "func_00393290__frontbin",
+  "func_00395FE0__frontbin",
+  "func_0039DB38__frontbin",
+  "func_003A0170__frontbin",
+  "func_003AF160__frontbin",
+  "func_003B0C70__frontbin",
+  "func_003B0D18__frontbin",
+  "func_00131900",
+  "func_0039B098",
+  "func_003A5850",
+  "func_003B4920",
+  "func_003B6430",
+  "func_003B64D8"
+ ],
+ "unwrapped": {}
 }

@@ -1370,3 +1370,198 @@ void mp_func_L39_0058B1B8(int r, int g, int b, int a) {
     }
 }
 #endif /* RAC3_NTSC */
+
+/* frontbin's copies of the 2D layer (the program the front end runs after a level: Quit Game, a
+ * level's exit to the menus), wrapped as the boot program's and the levels' are. Its globals are the
+ * boot program's (the list's cursor 0x001DA050, the HUD tables 0x001D9EA8/0x001D9EAC: kBoot); its
+ * routines are at its own addresses, the catalogue's frontbin rows of the levels' copies. Unwrapped,
+ * the menus after Quit Game drew their frames and boxes from the game's packets and no text. */
+void func_0038AE20__frontbin(int r, int g, int b, int a) {
+    if (!darken(kBoot.cursor, DARKEN_PACKET, r, g, b, a)) {
+        func_0038AE20__frontbin__game(r, g, b, a);
+    }
+}
+
+void func_0038AF30__frontbin(int y0, int y1, int x0, int x1, unsigned long long c) {
+    if (!flat_box(kBoot.cursor, y0, y1, x0, x1, c)) {
+        func_0038AF30__frontbin__game(y0, y1, x0, x1, c);
+    }
+}
+
+void func_0038B120__frontbin(
+    int x,
+    int y,
+    int w,
+    int h,
+    int u,
+    int v,
+    int du,
+    int dv,
+    float ang,
+    long long col,
+    long long tex
+) {
+    const float s = func_0038D0B0__frontbin(ang), c = func_0038D098__frontbin(ang);
+    if (!turned_glyph_quad(kBoot.cursor, x, y, w, h, u, v, du, dv, s, c, col, tex)) {
+        func_0038B120__frontbin__game(x, y, w, h, u, v, du, dv, ang, col, tex);
+    }
+}
+
+void func_0038B4D0__frontbin(
+    int x, int y, int w, int h, int u, int v, int uw, int vh, long long a8, long long a9
+) {
+    if (!glyph_quad(kBoot.cursor, x, y, w, h, u, v, uw, vh, a8, a9)) {
+        func_0038B4D0__frontbin__game(x, y, w, h, u, v, uw, vh, a8, a9);
+    }
+}
+
+int func_0038B670__frontbin(
+    int u,
+    int v,
+    int w,
+    int h,
+    long long t0,
+    long long t1,
+    int flag,
+    float x,
+    float y,
+    float fw,
+    float fh
+) {
+    const int r = glyph(u, v, w, h, t0, t1, flag, x, y, fw, fh);
+    return r >= 0 ? r : func_0038B670__frontbin__game(u, v, w, h, t0, t1, flag, x, y, fw, fh);
+}
+
+int func_0038B850__frontbin(
+    int u,
+    int v,
+    int w,
+    int h,
+    gaddr colours,
+    long long t1,
+    int flag,
+    float x,
+    float y,
+    float fw,
+    float fh
+) {
+    const int r = glyph_shaded(u, v, w, h, colours, t1, flag, x, y, fw, fh);
+    return r >= 0 ? r : func_0038B850__frontbin__game(u, v, w, h, colours, t1, flag, x, y, fw, fh);
+}
+
+int func_0038BA30__frontbin(
+    int x,
+    int y,
+    int w,
+    int h,
+    long long t0,
+    long long t1,
+    long long t2,
+    int snap,
+    float sx,
+    float sy,
+    float sw,
+    float sh,
+    float dx,
+    float dy
+) {
+    const int r = glyph_shadowed(x, y, w, h, t0, t1, t2, snap, sx, sy, sw, sh, dx, dy);
+    return r >= 0 ? r
+                  : func_0038BA30__frontbin__game(
+                        x, y, w, h, t0, t1, t2, snap, sx, sy, sw, sh, dx, dy
+                    );
+}
+
+void func_0038BCD8__frontbin(
+    float px,
+    float py,
+    float sx,
+    float sy,
+    float ang,
+    int w,
+    int h,
+    long long tex,
+    int z,
+    int rgba,
+    int fx,
+    int fy,
+    float ax,
+    float ay
+) {
+    const float s = func_0038D0B0__frontbin(ang), c = func_0038D098__frontbin(ang);
+    if (!rotated_sprite(kBoot.cursor, px, py, sx, sy, s, c, w, h, tex, z, rgba, fx, fy, ax, ay)) {
+        func_0038BCD8__frontbin__game(px, py, sx, sy, ang, w, h, tex, z, rgba, fx, fy, ax, ay);
+    }
+}
+
+void func_0038C138__frontbin(gaddr xyz, gaddr uv, gaddr colours, long long tex0, int clamped) {
+    if (!ring_segment(kBoot.cursor, xyz, uv, colours, tex0, clamped)) {
+        func_0038C138__frontbin__game(xyz, uv, colours, tex0, clamped);
+    }
+}
+
+void func_0038C248__frontbin(gaddr xyz, gaddr colours) {
+    if (!shaded_box(kBoot.cursor, xyz, colours)) {
+        func_0038C248__frontbin__game(xyz, colours);
+    }
+}
+
+void func_0038E7E8__frontbin(
+    float a0,
+    float a1,
+    float a2,
+    float a3,
+    int a4,
+    int a5,
+    int a6,
+    int a7,
+    int a8,
+    unsigned long long a9,
+    float a10,
+    float a11
+) {
+    const gaddr cursor = kBoot.cursor;
+    rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
+    const Print p = print_begin(cursor);
+    func_0038E7E8__frontbin__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
+    print_end(cursor, p);
+}
+
+void func_0038F078__frontbin(
+    float a0,
+    float a1,
+    float a2,
+    float a3,
+    int colours,
+    int a5,
+    int a6,
+    int a7,
+    int a8,
+    unsigned long long a9,
+    float a10,
+    float a11
+) {
+    const gaddr cursor = kBoot.cursor;
+    rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
+    const Print p = print_begin(cursor);
+    func_0038F078__frontbin__game(a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11);
+    print_end(cursor, p);
+}
+
+void func_003972A0__frontbin(
+    int tex, gaddr colours, float x, float y, float w, float h, float ang
+) {
+    const Rac3Ui2d u = kBoot;
+    const float s = func_0038D0B0__frontbin(ang), c = func_0038D098__frontbin(ang);
+    const unsigned long long tex0 = (unsigned long long)func_00396A38__frontbin(tex);
+    if (!hud_sprite_turned(&u, tex, tex0, colours, x, y, w, h, s, c)) {
+        func_003972A0__frontbin__game(tex, colours, x, y, w, h, ang);
+    }
+}
+
+void func_003AA3C8__frontbin(gaddr a0, float a1, float a2, int a3, float a4, gaddr a5) {
+    const gaddr cursor = kBoot.cursor;
+    const gaddr start = GREF(gaddr, cursor);
+    func_003AA3C8__frontbin__game(a0, a1, a2, a3, a4, a5);
+    widget_quads(cursor, start);
+}

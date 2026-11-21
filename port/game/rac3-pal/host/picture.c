@@ -28,6 +28,7 @@
 
 long long func_003A9BE8__game(int pixels, int frame, int width, int height);
 long long func_L01_004C61A0__game(int pixels, int frame, int width, int height);
+long long func_003A9830__frontbin__game(int pixels, int frame, int width, int height);
 
 /* The display list's cursor the boot program's routine writes its transfers at (a level's copy
  * writes the level's: ui2d.h). */
@@ -263,6 +264,16 @@ long long func_L01_004C61A0(int pixels, int frame, int width, int height) {
     uint64_t tex0;
     if (!draw_picture(rac3_ui2d_level().cursor, pixels, frame, width, height, &tex0)) {
         return func_L01_004C61A0__game(pixels, frame, width, height);
+    }
+    return (long long)tex0;
+}
+
+/* frontbin's copy (0x003A9830, the catalogue's row of the levels' copy): the main menu's background
+ * after a level (Quit Game), on the boot program's list cursor, which frontbin shares. */
+long long func_003A9830__frontbin(int pixels, int frame, int width, int height) {
+    uint64_t tex0;
+    if (!draw_picture(LIST_CURSOR, pixels, frame, width, height, &tex0)) {
+        return func_003A9830__frontbin__game(pixels, frame, width, height);
     }
     return (long long)tex0;
 }
