@@ -147,6 +147,15 @@
  },
  "hostgen_left_out": {
   "asm.signatures": [
+   "func_PAL_L39_00571600",
+   "func_PAL_L39_00572460",
+   "func_PAL_L21_00387578",
+   "func_PAL_L40_0046AE78",
+   "func_PAL_L04_00433D68",
+   "func_PAL_L06_00407AA0",
+   "func_PAL_L46_004E0880",
+   "func_PAL_L42_004E6538",
+   "func_PAL_L39_0059E6B8",
    "func_PAL_L03_003FFC60",
    "func_PAL_L10_003F6520",
    "func_PAL_L40_0046AE98",

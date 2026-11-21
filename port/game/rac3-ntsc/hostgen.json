@@ -529,6 +529,7 @@
       "func_L03_00502C58": "void (float, float, int)",
       "func_L06_004F8F28": "void (float, float, int)",
       "func_L05_00480000": "int (int)",
+      "func_L39_00596BA0": "void (int, int)",
       "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_L01_003E7478": "void (unsigned int, unsigned int, unsigned int)",
       "func_001369D0": "float (float)",
@@ -712,6 +713,7 @@
     },
     "wide_register_calls": true,
     "signature_check": true,
+    "result_flow": true,
     "signature_allow": {
       "func_L01_0048CB78": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L01_0048E2F8": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
