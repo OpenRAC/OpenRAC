@@ -5,7 +5,10 @@
 #include "game/common/frontend/render_worker.h"
 
 #include <exception>
+#include <format>
 #include <stdexcept>
+#include <string_view>
+#include <typeinfo>
 #include <utility>
 
 #include "common/breadcrumbs.h"
@@ -15,6 +18,11 @@
 namespace openrac::frontend {
 
 namespace {
+
+// Keep a diagnostic available if exception formatting runs out of memory.
+const char* failure_message(const std::string& message) {
+    return message.empty() ? "render job failed while formatting its exception" : message.c_str();
+}
 
 // Captures the producer's arithmetic mode before the worker can run any renderer calculations.
 std::fenv_t capture_environment() {
@@ -42,7 +50,12 @@ RenderWorker::~RenderWorker() {
     m_thread.join();
 }
 
-bool RenderWorker::submit(std::function<void()> job, std::string& error, std::int64_t frame) {
+bool RenderWorker::submit(
+    std::function<void()> job,
+    std::string& error,
+    std::int64_t frame,
+    std::source_location submitted_at
+) {
     const profiling::Zone trace("Render handoff");
     // An empty function cannot wake a consumer waiting for an owned job.
     if (!job) {
@@ -54,13 +67,14 @@ bool RenderWorker::submit(std::function<void()> job, std::string& error, std::in
     m_changed.wait(lock, [this] { return !m_busy; });
 
     // A failed renderer cannot accept another snapshot.
-    if (!m_error.empty()) {
-        error = m_error;
+    if (m_failure) {
+        error = failure_message(*m_failure);
         return false;
     }
 
     m_job = std::move(job);
     m_frame = frame;
+    m_submitted_at = submitted_at;
     m_busy = true;
     crash::breadcrumb(crash::BreadcrumbThread::Main, "render job queued", frame);
     lock.unlock();
@@ -72,8 +86,8 @@ bool RenderWorker::finish(std::string& error) {
     const profiling::Zone trace("Render completion wait", profiling::ZoneColour::Idle);
     std::unique_lock lock(m_mutex);
     m_changed.wait(lock, [this] { return !m_busy; });
-    error = m_error;
-    return error.empty();
+    error = m_failure ? failure_message(*m_failure) : "";
+    return !m_failure;
 }
 
 bool RenderWorker::ready_until(std::chrono::steady_clock::time_point deadline) {
@@ -102,10 +116,37 @@ void RenderWorker::run() {
 
         auto job = std::exchange(m_job, {});
         const auto frame = m_frame;
+        const auto submitted_at = m_submitted_at;
         lock.unlock();
-        std::string error;
+        std::optional<std::string> failure;
         const crash::BreadcrumbScope breadcrumbs(crash::BreadcrumbThread::Render, frame);
         crash::breadcrumb(crash::BreadcrumbThread::Render, "render job started", frame);
+
+        const auto report_failure = [&](const char* type, const char* message) {
+            crash::breadcrumb(crash::BreadcrumbThread::Render, "render job failed", frame);
+            try {
+                std::string_view source = submitted_at.file_name();
+                if (const auto separator = source.find_last_of("/\\");
+                    separator != std::string_view::npos) {
+                    source.remove_prefix(separator + 1);
+                }
+                failure.emplace(
+                    std::format(
+                        "render job for frame {} submitted from {} ({}:{}) threw {}: {}",
+                        frame < 0 ? "unspecified" : std::to_string(frame),
+                        submitted_at.function_name(),
+                        source,
+                        submitted_at.line(),
+                        type,
+                        *message == '\0' ? "exception provided no message" : message
+                    )
+                );
+            } catch (...) {
+                // Keep the failure latched even if formatting fails.
+                failure.emplace();
+            }
+            crash::report(failure_message(*failure), crash::Kind::Exception);
+        };
 
         // Render failures return to the producer instead of escaping the thread entry point.
         try {
@@ -116,21 +157,17 @@ void RenderWorker::run() {
 
             const profiling::Zone trace("Render snapshot");
             job();
-        } catch (const std::exception& failure) {
-            crash::breadcrumb(crash::BreadcrumbThread::Render, "render job failed", frame);
-            error = failure.what();
-            crash::report(error.c_str(), crash::Kind::Exception);
+        } catch (const std::exception& exception) {
+            report_failure(typeid(exception).name(), exception.what());
         } catch (...) {
-            crash::breadcrumb(crash::BreadcrumbThread::Render, "render job failed", frame);
-            error = "unknown render-thread exception";
-            crash::report(error.c_str(), crash::Kind::Exception);
+            report_failure("a non-standard exception", "no diagnostic message available");
         }
 
         // Release captured owners before publishing completion.
         job = {};
         crash::breadcrumb(crash::BreadcrumbThread::Render, "render job finished", frame);
         lock.lock();
-        m_error = std::move(error);
+        m_failure = std::move(failure);
         m_busy = false;
         lock.unlock();
         m_changed.notify_all();
