@@ -70,8 +70,8 @@ class CallCopiesTest(unittest.TestCase):
     def test_each_callee_gets_the_place_of_a_copy_calling_it(self):
         rows = [r for r in self.rows() if r[0] == "func_L03_0034B248"]
         self.assertEqual(rows, [
-            ("func_L03_0034B248", "func_L03_00461E88", 3, 0x1000, 80, 0x1100),
-            ("func_L03_0034B248", "func_L30_00442950", 30, 0x2000, 80, 0x2100),
+            ("func_L03_0034B248", "func_L03_00461E88", 3, 0x1000, 80, 0x1100, (1,)),
+            ("func_L03_0034B248", "func_L30_00442950", 30, 0x2000, 80, 0x2100, (1,)),
         ])  # the multiplayer level's callee is another executable's: left out
 
     def test_front_end_functions_wrappers_and_calls_that_agree_are_left_out(self):
@@ -97,7 +97,7 @@ class SameShapeTest(unittest.TestCase):
         for caller, callee in (("func_tick", "func_maker"), ("func_tick", "func_maker30"),
                                ("func_update", "func_spawn"), ("func_update", "func_spawn3")):
             program.call_copies[(caller, callee)] = (3, 0x1000, 80, 0x1100, 0)
-            program.call_copy_callees.setdefault(caller, []).append(callee)
+            program.call_copy_callees.setdefault(caller, []).append((callee, frozenset({1})))
         program.call_copies_same_shape = True
         return program
 
@@ -106,6 +106,11 @@ class SameShapeTest(unittest.TestCase):
 
     def test_a_callee_reading_more_floats_keeps_the_named_one(self):
         self.assertIsNone(call_copy(self.program(), "func_update", "func_spawn"))
+
+    def test_callees_at_another_jal_do_not_count(self):
+        program = self.program()
+        program.call_copy_callees["func_update"] = [("func_spawn", frozenset({1})), ("func_spawn3", frozenset({7}))]
+        self.assertIsNotNone(call_copy(program, "func_update", "func_spawn"))
 
     def test_assembly_translations_hand_every_register_on(self):
         self.assertIsNotNone(call_copy(self.program(), "func_update", "func_spawn", exe_target=0x1100))

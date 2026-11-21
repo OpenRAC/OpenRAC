@@ -1248,9 +1248,11 @@ def read_call_copies(path: Path, program: Program) -> int:
     for line in path.read_text().splitlines():
         if line.startswith("#") or not line.strip():
             continue
-        caller, callee, home, canon, size, own, exe = line.split("\t")
+        # An eighth column (call_copies_rac3.py): the jals where a copy calls it.
+        caller, callee, home, canon, size, own, exe, *at = line.split("\t")
         row = (int(home), int(canon, 16), int(size), int(own, 16), int(exe, 16))
-        program.call_copy_callees.setdefault(caller, []).append(callee)
+        words = frozenset(int(w) for w in at[0].split(",")) if at and at[0] else None
+        program.call_copy_callees.setdefault(caller, []).append((callee, words))
         program.call_copies[(caller, callee)] = row
         program.call_copies[(caller, row[0], row[3])] = row
         if row[4]:
@@ -1302,15 +1304,19 @@ def _shape(program: Program, name: str) -> tuple[int, int, str] | None:
 def _copies_fit(program: Program, caller: str, callee: str) -> bool:
     """hostgen.json "call_copies_same_shape": a call reaches its running copy's own callee only
     where every function the copies call there reads no argument register the named callee's call
-    leaves unset, and gives its result where the named one does. Up Your Arsenal's particle wrappers
+    leaves unset, and gives its result where the named one does (at the same jal, where the table
+    lists the jals). Up Your Arsenal's particle wrappers
     (func_L01_00447470 takes two floats fewer than its copies' func_L01_00451FB8) would read the
     caller's leftover float registers, which the C does not have; such a call keeps its named
     callee."""
     own = _shape(program, callee)
     if own is None:
         return False
-    for other in program.call_copy_callees.get(caller, []):
-        if other == callee:
+    listed = program.call_copy_callees.get(caller, [])
+    here = next((w for name, w in listed if name == callee), None)
+    for other, words in listed:
+        # Only the functions the copies call at the same jal (where the table says which).
+        if other == callee or (here is not None and words is not None and not here & words):
             continue
         shape = _shape(program, other)
         if shape is None or shape[0] > own[0] or shape[1] > own[1]:
