@@ -264,7 +264,9 @@ bool EnvironmentLighting::draw_previews(
         "environment probe spheres",
         state.target,
         {geometry, {}, renderer::ColourAttachments::ColourDepthRead, true},
-        [&] { glDrawArraysInstanced(GL_TRIANGLES, 0, kVerticesPerSphere, static_cast<GLsizei>(count)); }
+        [&] {
+            glDrawArraysInstanced(GL_TRIANGLES, 0, kVerticesPerSphere, static_cast<GLsizei>(count));
+        }
     );
     ++state.stats.draw_calls;
     state.stats.triangles += count * (kVerticesPerSphere / 3);
