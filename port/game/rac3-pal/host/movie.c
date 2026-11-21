@@ -36,6 +36,7 @@
  * a level's at Veldin's, relocated to the loaded level's (OPENRAC_LDATA). */
 typedef struct MovieList {
     gaddr cursor, buffers, index, blanks, title_loop;
+    gaddr font_uploaded, font_frame; /* a level's FontUpload words (0: none to force) */
     void (*frame_start)(void);
     void (*subtitles)(void);
     void (*press_start)(void);
@@ -81,6 +82,8 @@ static MovieList boot_list(void) {
          RAC3_ADDR(0x001DA05Cu),
          RAC3_ADDR(0x00225734u),
          RAC3_ADDR(0x00227400u),
+         0,
+         0,
          func_003A9AF8,
          func_0038A8F8,
          func_0038A798};
@@ -97,7 +100,12 @@ static MovieList frontbin_list(void) {
 
 /* Veldin's: the cursor 0x001E1068 after its two buffers 0x001E1060 (the index at 0x001E1074), the
  * movie block 0x001E6D80 and the title flag 0x001EA7C0 (its copy of func_003A1428, 0x0045E208);
- * the frame start 0x004C5E90, the subtitles 0x004050C0, "Press START" 0x00404F60. */
+ * the frame start 0x004C5E90, the subtitles 0x004050C0, "Press START" 0x00404F60. A level's font
+ * pages go up with its frame (its FontUpload, 0x0040F8F0, the boot program's func_0038E2B0, once
+ * for each value of the frame count 0x001DF948, the last kept at 0x001D64EC), into the 2D layer's
+ * GS area (the allocator 0x001D4BB0); the level's loop does not run while a movie plays, so each
+ * blank asks for the upload again in the blank's own list and puts the allocator back where it
+ * was, else the subtitles' glyphs were drawn from pages no longer there. */
 static MovieList level_list(void) {
     const MovieList m =
         {OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001E1068u)),
@@ -105,6 +113,8 @@ static MovieList level_list(void) {
          OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001E1074u)),
          OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001E6DB4u)),
          OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001EA7C0u)),
+         OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001D64ECu)),
+         OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001DF948u)),
          level_frame_start,
          level_subtitles,
          level_press_start};
@@ -112,6 +122,8 @@ static MovieList level_list(void) {
 }
 
 static MovieList s_list;
+static uint32_t s_allocator;
+#define GS_ALLOCATOR RAC3_ADDR(0x001D4BB0u)
 
 static void movie_overlay(const uint8_t* rgba, int width, int height) {
     const MovieList* m = &s_list;
@@ -121,6 +133,10 @@ static void movie_overlay(const uint8_t* rgba, int width, int height) {
     const gaddr kept = GREF(gaddr, m->cursor);
     const gaddr list = GREF(gaddr, m->buffers + 4u * (uint32_t)GREF(int32_t, m->index));
     GREF(gaddr, m->cursor) = list;
+    if (m->font_uploaded != 0) {
+        GREF(uint32_t, GS_ALLOCATOR) = s_allocator;
+        GREF(int32_t, m->font_uploaded) = GREF(int32_t, m->font_frame) + 1;
+    }
     m->frame_start();
     rac3_picture_record(m->cursor, rgba, width, height);
     GREF(int32_t, m->blanks) += 1;
@@ -139,6 +155,7 @@ static void movie_overlay(const uint8_t* rgba, int width, int height) {
 
 static int play(const MovieList* m, int a, int b, int channel) {
     s_list = *m;
+    s_allocator = GREF(uint32_t, GS_ALLOCATOR);
     return openrac_game_play_movie_over((uint32_t)a, (uint32_t)b, channel, 1, movie_overlay);
 }
 
