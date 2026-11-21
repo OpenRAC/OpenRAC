@@ -941,6 +941,62 @@ void func_L01_004059C8(int r, int g, int b, int a) {
     }
 }
 
+/* The letterbox (func_0038AD28, the levels' func_L01_004054F0: frontbin's func_0038A948): while
+ * its word is set its height climbs a line a frame to 52 (down again when cleared), and it sends
+ * two black bars that tall over the screen's top and bottom as one strip, a cnt tag of seven
+ * quadwords: a REGLIST GIF tag of PRIM 0x104 (a strip, not blended) and RGBAQ (black, alpha 0x80),
+ * then one of eight XYZ2, the bars' corners. The packet becomes two flat records in its place. */
+#define LETTERBOX_BYTES 0x80u
+
+static void letterbox_records(gaddr cursor, gaddr start) {
+    const gaddr end = GREF(gaddr, cursor);
+    if (end - start != LETTERBOX_BYTES || GREF(uint32_t, start) != 0x10000007u
+        || GREF(uint64_t, start + 32) != 0x104u) {
+        return; /* nothing sent, or not the bars' packet: left as it is */
+    }
+    uint32_t x[8], y[8];
+    for (int i = 0; i < 8; ++i) {
+        const uint64_t w = GREF(uint64_t, start + 64u + 8u * (gaddr)i);
+        x[i] = (uint32_t)(w & 0xFFFFu);
+        y[i] = (uint32_t)((w >> 16) & 0xFFFFu);
+    }
+    const uint32_t z = (uint32_t)(GREF(uint64_t, start + 64u) >> 32);
+    const uint32_t rgba = (uint32_t)GREF(uint64_t, start + 40);
+    /* The top bar: corners 0 to 3; the bottom one: 4 to 7 (from the bottom edge up). */
+    const int bars[2][4] = {
+        {(int)x[0], (int)y[0], (int)x[2], (int)y[1]}, {(int)x[6], (int)y[5], (int)x[4], (int)y[4]}
+    };
+    openrac_game_ui_rect q[2];
+    for (int i = 0; i < 2; ++i) {
+        memset(&q[i], 0, sizeof(q[i]));
+        openrac_ui_rect(&q[i], bars[i][0], bars[i][1], bars[i][2], bars[i][3], 0, 0, 0, 0);
+        q[i].z = z;
+        q[i].rgba = rgba;
+        q[i].flags = 8u;
+    }
+    GREF(gaddr, cursor) = start;
+    for (int i = 0; i < 2; ++i) {
+        if (!openrac_ui_send(&q[i], cursor)) {
+            GREF(gaddr, cursor) = end; /* replaying: the game's packet is still there */
+            return;
+        }
+    }
+}
+
+void func_0038AD28(void) {
+    const gaddr start = GREF(gaddr, kBoot.cursor);
+    func_0038AD28__game();
+    letterbox_records(kBoot.cursor, start);
+}
+
+int func_L01_004054F0(void) {
+    const gaddr cursor = rac3_ui2d_level().cursor;
+    const gaddr start = GREF(gaddr, cursor);
+    const int result = func_L01_004054F0__game();
+    letterbox_records(cursor, start);
+    return result;
+}
+
 /* One of func_003AA780's quads, at `at` in the display list: a cnt tag of 8 quadwords with VIF
  * DIRECT 8, its GIF tag (D_001D8020: one loop of TEX0, PRIM and four RGBAQ, ST, XYZ2), then the
  * registers. */

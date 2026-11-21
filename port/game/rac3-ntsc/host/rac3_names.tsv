@@ -1,5 +1,7 @@
 # The shared host C's function names (PAL's, port/game/rac3-pal/host) and NTSC-U's. Written by
 # port/tools/hostgen/release_carry_rac3.py from config/us/map.tsv; do not edit.
+func_0038AD28	func_0038AC70
+func_0038AD28__game	func_0038AC70__game
 func_0038B200	func_0038B148
 func_0038B200__game	func_0038B148__game
 func_0038B310	func_0038B258
@@ -54,6 +56,8 @@ func_003E7DD0	func_003E7C70
 func_003E8200	func_003E80A0
 func_L01_003E92F8	func_L01_003E7478
 func_L01_003E92F8__game	func_L01_003E7478__game
+func_L01_004054F0	func_L01_00403120
+func_L01_004054F0__game	func_L01_00403120__game
 func_L01_004059C8	func_L01_004035F8
 func_L01_004059C8__game	func_L01_004035F8__game
 func_L01_00405AD8	func_L01_00403708
@@ -121,6 +125,8 @@ func_L01_004C61A0	func_L01_004C25F8
 func_L01_004C61A0__game	func_L01_004C25F8__game
 func_L01_004CBC60	func_L01_004C7FF0
 func_L01_004CBC60__game	func_L01_004C7FF0__game
+func_L01_004D24C0	func_L01_004CE800
+func_L01_004D24C0__game	func_L01_004CE800__game
 func_L01_004D28B0	func_L01_004CEBF0
 func_L01_004DE670	func_L01_004DA990
 func_L01_004DE6F0	func_L01_004DAA10

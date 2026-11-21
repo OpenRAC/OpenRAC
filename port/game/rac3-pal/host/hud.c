@@ -135,18 +135,39 @@ void func_L01_00420498(int tex, int x, int y, int w, int h, gaddr colours) {
  * middle out to the picture's sides (renderer::GifInterpreter::kHudSideMarker), as Going
  * Commando's port does around its widgets: the bolts' panel in the top right goes right; the
  * weapon's panel in the top middle, the messages and the pause menu, across the middle, stay.
+ *
+ * The widget tree's update draws some widgets itself, the quick select's ring among them (its
+ * shaded boxes through func_L01_00407080, from func_L01_004CCE80): the same two markers go around
+ * it, so the ring, anchored left, goes out to the left with its slot (3, whose texts
+ * func_L01_0041FE80 moves) and does not stay at its 4:3 place.
  */
 #define HUD_SIDE_MARKER (0x4853ull << 48)
+
+static void side_begin(gaddr cursor, int side) {
+    if (side != 0) {
+        rac3_ui2d_marker(cursor, HUD_SIDE_MARKER | (uint32_t)side);
+    }
+}
+
+static void side_end(gaddr cursor, int side) {
+    if (side != 0) {
+        rac3_ui2d_marker(cursor, HUD_SIDE_MARKER);
+    }
+}
 
 int func_L01_00478B10(int a0) {
     const gaddr cursor = rac3_ui2d_level().cursor;
     const int side = openrac_game_hud_side();
-    if (side != 0) {
-        rac3_ui2d_marker(cursor, HUD_SIDE_MARKER | (uint32_t)side);
-    }
+    side_begin(cursor, side);
     const int result = func_L01_00478B10__game(a0);
-    if (side != 0) {
-        rac3_ui2d_marker(cursor, HUD_SIDE_MARKER);
-    }
+    side_end(cursor, side);
     return result;
+}
+
+void func_L01_004D24C0(gaddr a0) {
+    const gaddr cursor = rac3_ui2d_level().cursor;
+    const int side = openrac_game_hud_side();
+    side_begin(cursor, side);
+    func_L01_004D24C0__game(a0);
+    side_end(cursor, side);
 }

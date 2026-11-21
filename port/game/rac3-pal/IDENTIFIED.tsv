@@ -410,3 +410,5 @@ mp-code	func_00193888	0x00193888	mp_snd_BankLoadAsync	the boot program's func_00
 mp-code	func_0012C528	0x0012C528	mp_sceSifLoadModule	the loadfile RPC through 0x0012C300; loads cdrom0:\DEV9.IRX at start-up, retrying
 mp-code	func_002877A8	0x002877A8	mp_menus_loader	the front end's loader of level 39: states 0-5 at 0x00240288 (table 0x002786E0), state 3 waits for a sound bank's handle at 0x001FE0B0
 mp-data	D_001A43E0	0x001A43E0	mp_memcard_block	the memory card machine's block (0x00288CA8, the boot program's func_0039C7F0 and 0x00142430)
+code	func_0038AD28	0x0038AD28	DrawLetterbox	while D_001D9BDC is set D_001D9BE0 climbs a line a frame to 52 (down again when cleared); not with D_001439FD set: a cnt packet of 7 quadwords, REGLIST PRIM 0x104 and RGBAQ 0x80000000, then eight XYZ2 at z 0xFFFFF3, black bars that tall at the screen's top and bottom (D_001D4BD0 to D_001D4BDC)
+code	func_L01_004054F0	0x004054F0	DrawLetterbox	the levels' copy of func_0038AD28 (row func_0038A948 frontbin, 34 places), its words at 0x001DF95C (on) and 0x001DF960 (height), its GIF tags at 0x001DA120 and 0x001DA130

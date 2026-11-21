@@ -543,8 +543,10 @@
       "func_L39_005187A0": "int (int, int, int, float)",
       "func_L01_0041E1B0": "void (int, int, int, int, int, int, unsigned int)",
       "func_L01_004752B8": "int (int)",
+      "func_L01_004CE800": "void (unsigned int)",
       "func_L01_004C23C8": "void (int, int, int)",
-      "func_L01_004C2488": "void (int, int, int)"
+      "func_L01_004C2488": "void (int, int, int)",
+      "func_L01_00403120": "int (void)"
     },
     "discover_entries": true,
     "dirs": [],
