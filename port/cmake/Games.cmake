@@ -374,6 +374,8 @@ function(openrac_add_game config)
 
   # The game: generated C, and the game's own host C if it has any.
   file(GLOB host CONFIGURE_DEPENDS "${config_dir}/host/*.c")
+  # The host C as written, for the check that each fix it reads is listed for this disc.
+  set(fix_readers ${host})
   # Host C one game shares between its versions ("host_shared": directories relative to the game's,
   # rac1's ../rac1/host): compiled into each version's program on its own, finding that version's
   # names and addresses in the version's host/ (rac1_version.h).
@@ -384,6 +386,7 @@ function(openrac_add_game config)
     foreach(i RANGE ${last})
       string(JSON shared_dir GET "${json}" host_shared ${i})
       file(GLOB shared_host CONFIGURE_DEPENDS "${config_dir}/${shared_dir}/*.c")
+      list(APPEND fix_readers ${shared_host})
       list(APPEND shared_includes "${config_dir}/${shared_dir}")
       # Another release of one decompilation (hostgen.json "release"): the shared C in the
       # release's function names, written in one pass from its table (tools/hostgen/release_host.py).
@@ -450,7 +453,7 @@ function(openrac_add_game config)
   string(JSON game GET "${json}" game)
   string(REGEX REPLACE "^${game}-" "" version "${id}")
   set(fixes_cpp "${CMAKE_BINARY_DIR}/generated/openrac_fixes_${target_id}.cpp")
-  openrac_write_fixes("${game}" "${version}" "${fixes_cpp}")
+  openrac_write_fixes("${game}" "${version}" "${fixes_cpp}" READERS ${fix_readers})
   # The host program's source folders in game/common (port/game/README.md), globbed like the
   # library replacements so that a new file there adds no line here.
   # program/: the program itself (its options, vsync, levels, sound, movies, the host side of

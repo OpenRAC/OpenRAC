@@ -111,7 +111,7 @@ what to do instead.
 |---|---|---|---|
 | clang-format, [`port/.clang-format`](../.clang-format) | layout (section 5) | your editor; CI on new files and changed lines | new C++ files and changed lines: yes (24.4) |
 | [`tools/cpp_style.py`](../../tools/cpp_style.py) | clang-format, then the blank lines around control blocks (5.4); with `--comments`, the control blocks with no comment above them (6.2) | you, on the files you touch; CI ("Port conventions"), report only | no: reported, not failing yet (5.6) |
-| [`tools/conventions/check_conventions.py`](../tools/conventions/README.md) | licence lines, tabs, dashes, and `getenv` of an `OPENRAC_*` variable outside `common/env.cpp` and `runtime/host_env.cpp` (16), everywhere; on new C++ files: `static` at namespace scope, raw `new`/`delete`/`malloc`/`free`, `using namespace` in headers, `extern "C"` outside contract files, console output outside tests and `main` | CI ("Port conventions"), and you before you commit | yes |
+| [`tools/conventions/check_conventions.py`](../tools/conventions/README.md) | licence lines, tabs, dashes, issue or pull request numbers (6.7), `std::jthread` (11.6.7), and `getenv` of an `OPENRAC_*` variable outside `common/env.cpp` and `runtime/host_env.cpp` (16), everywhere; on new C++ files: `static` at namespace scope, raw `new`/`delete`/`malloc`/`free`, `using namespace` in headers, `extern "C"` outside contract files, console output outside tests and `main` | CI ("Port conventions"), and you before you commit | yes |
 | clang-tidy, [`port/.clang-tidy`](../.clang-tidy) | naming, ownership, function size, `else` after `return`, missing `override`, nested ternaries, `goto` | you, on the C++ files you touch (it needs a configured build) | not in CI; new code has zero findings |
 | The compiler, `openrac_warnings` (`port/cmake/Warnings.cmake`) | `-Wall -Wextra -Wshadow`, and for C++ `-Wpedantic -Wconversion` | every build | no new warning is accepted in review |
 | [`tools/layering/layering.py`](../tools/layering/README.md) | includes against the layers and allowed edges of section 18; today's violations are listed exceptions | CI ("Port layering"), and you before you commit | yes: it exits 1 on a new violation |
@@ -491,6 +491,7 @@ Never write these in a comment, a doc comment, a string, a log message or a comm
 | Machine words | ensure, utilize, leverage, facilitate, delve, in order to |
 | Reassurance | "so this is safe", "nothing bad happens", "so the caller can simply retry" |
 | First person plural | we, our, let's |
+| History | an issue or pull request number, "since the rework", "used to": say what the code does now |
 
 | Written | Fixed |
 |---|---|

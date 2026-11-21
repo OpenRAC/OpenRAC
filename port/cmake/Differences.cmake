@@ -8,9 +8,11 @@
 # "port" (a PC difference, for the record). The launcher reads the same file
 # (launcher/core/src/differences.rs); docs/port/SETTINGS.md section 8 says how to add an entry.
 #
-# openrac_write_fixes(GAME VERSION OUT) checks the file and writes OUT, a C++ table of the fixes
-# that apply to that disc (game/common/fixes.h: key, name, default). A game without the file has
-# none. A file that breaks a rule stops the configure with the reason.
+# openrac_write_fixes(GAME VERSION OUT [READERS files...]) checks the file and writes OUT, a C++
+# table of the fixes that apply to that disc (game/common/fixes.h: key, name, default). A game
+# without the file has none. A file that breaks a rule stops the configure with the reason. Each
+# READERS file is host C the disc compiles: every "fix_..." key it names must be listed for the
+# disc, or the fix would be always on there with no setting to switch it.
 #
 # Included from port/CMakeLists.txt.
 
@@ -30,6 +32,8 @@ function(_openrac_c_string text out)
 endfunction()
 
 function(openrac_write_fixes game version out)
+  cmake_parse_arguments(PARSE_ARGV 3 arg "" "" "READERS")
+  set(applied "")
   set(file "${OPENRAC_DIFFERENCES_DIR}/${game}/differences.json")
   set(rows "")
   set(count 0)
@@ -117,6 +121,7 @@ function(openrac_write_fixes game version out)
         else()
           set(on false)
         endif()
+        list(APPEND applied "${key}")
         string(APPEND rows "    {\"${key}\", \"${c_name}\", ${on}},\n")
         math(EXPR count "${count} + 1")
       endforeach()
@@ -125,6 +130,20 @@ function(openrac_write_fixes game version out)
       message(FATAL_ERROR "${file}: more than 32 fixes for ${version} (fixes.h kMax)")
     endif()
   endif()
+  foreach(reader IN LISTS arg_READERS)
+    file(STRINGS "${reader}" lines REGEX "\"fix_[a-z0-9_]+\"")
+    foreach(line IN LISTS lines)
+      string(REGEX MATCHALL "\"fix_[a-z0-9_]+\"" found "${line}")
+      foreach(quoted IN LISTS found)
+        string(REPLACE "\"" "" key "${quoted}")
+        if(NOT key IN_LIST applied)
+          cmake_path(NORMAL_PATH reader OUTPUT_VARIABLE where)
+          message(FATAL_ERROR "${where} reads ${key}, which port/game/${game}/differences.json does "
+                              "not list for ${version}: add \"${version}\" to its \"discs\"")
+        endif()
+      endforeach()
+    endforeach()
+  endforeach()
   if(count EQUAL 0)
     set(rows "    {\"\", \"\", false},\n")
   endif()

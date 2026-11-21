@@ -27,7 +27,7 @@
  * level's movie; 4 the pause menus and the quick select pause, 5 the vendor, 8 a weapon's upgrade
  * and the others are menus.
  *
- * In a level, the hero and the level's mobys, after Going Commando's play.c (#386): the moby
+ * In a level, the hero and the level's mobys, after Going Commando's play.c: the moby
  * layout is Going Commando's (MobyProc's reads are its instruction for instruction: +0x10 the
  * place, +0x20 the state, 0x80 and over dead or free, +0x2C the scale, +0x34 the flags, +0x40 the
  * frame, +0x42 the seq, +0x44 the time in it, +0x64 the update, +0x68 the pvars, +0xAA the class,
