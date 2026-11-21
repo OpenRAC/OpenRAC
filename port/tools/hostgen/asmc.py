@@ -1159,6 +1159,8 @@ class Translator:
                         if ni < len(ARG_REGS):
                             rg.add(ARG_REGS[ni])
                         ni += 1
+            elif target is None and self.at(a).op == "jalr":
+                rg = self._pointer_call_arguments(a)
             nodes[("call", a)] = (rg, rf, caller_saved_g, caller_saved_f, then)
             return ("call", a)
 
@@ -1230,6 +1232,24 @@ class Translator:
         ints = max([k + 1 for k, r in enumerate(ARG_REGS) if r in in_g & args_g], default=0)
         floats = max([k + 1 for k, r in enumerate(FARG_REGS) if r in in_f & args_f], default=0)
         return ints, floats
+
+    def _pointer_call_arguments(self, at: int) -> set:
+        """The integer argument registers a call through a pointer at `at` takes, as far as its own
+        set-up says: the callee is not known, but C fills the argument registers in order, so a
+        call that sets $a2 (in the instructions since the last call or branch, or its delay slot)
+        takes $a0 and $a1 too, whether it sets them or hands on its caller's (func_003EEBF8's frame
+        widget draw hands its a1, the parent rectangle, to the rectangle callback at vtable +0x20).
+        Only $a0-$a3 say so: the code keeps temporaries in $t0-$t3 as well. A call that sets no
+        argument register reads none (it may take none)."""
+        written: set = set(rw(self.at(at + 4))[1]) if self.at(at + 4) is not None else set()
+        for a in range(at - 4, at - 4 * 32, -4):
+            i = self.at(a)
+            if i is None or is_control(i) or a in self.delay_only:
+                break
+            written |= set(rw(i)[1])
+        written.discard(self.at(at).rs)  # the call's own address (func_003D2B78's jalr $a3 to its labels)
+        last = max((k for k, r in enumerate(ARG_REGS[:4]) if r in written), default=-1)
+        return set(ARG_REGS[:last + 1])
 
     def _check_arguments(self, sym: str, sig: Signature) -> None:
         """asm.signature_check: an argument register the code reads that the signature it is

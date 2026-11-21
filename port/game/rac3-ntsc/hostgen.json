@@ -119,6 +119,8 @@
       "func_L01_00443140": "float (int, int, int, float)",
       "func_L01_0051B950": "int (int, int)",
       "func_L01_0051A158": "int (int, int)",
+      "func_003E92D8__frontbin": "int (int, int)",
+      "func_L01_004908C8": "int (int, int)",
       "func_L01_00433118": "void (void *, unsigned int, void *, int, int, int, int, void *, void *, int)",
       "func_L01_004100D8": "int (int, int)",
       "func_L01_00410190": "int (int, int, float)",

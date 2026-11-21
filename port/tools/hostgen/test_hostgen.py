@@ -3653,6 +3653,53 @@ class FromAssembly(unittest.TestCase):
         self.assertEqual(out, ["6"])
         self.assertEqual(self.last_report["assembly_signature_drops"], {})
 
+    # A call through a pointer (Up Your Arsenal's frame widget draw, func_003EEBF8): the callee is not
+    # known, but the call sets $a2, so it takes $a0 and $a1 as well, and the $a1 handed on from the
+    # entry is an argument the signature must take. The call's own register ($a3 here) says nothing.
+    POINTER_CALL = {
+        "func_00100400": (0x100400, """
+            addiu $29, $29, -16
+            sq $31, 0($29)
+            lw $7, 8($4)
+            daddu $6, $29, $0
+            jalr $31, $7
+            nop
+            lq $31, 0($29)
+            jr $31
+            addiu $29, $29, 16
+        """),
+        "func_00100500": (0x100500, """
+            addiu $29, $29, -16
+            sq $31, 0($29)
+            lw $7, 8($4)
+            jalr $31, $7
+            nop
+            lq $31, 0($29)
+            jr $31
+            addiu $29, $29, 16
+        """),
+    }
+    POINTER_C = """
+        INCLUDE_ASM("asm", func_00100400);
+        extern int func_00100400(int w);
+        INCLUDE_ASM("asm", func_00100500);
+        extern int func_00100500(int w);
+        int test_main(void) {
+            test_print(1);
+            return 0;
+        }
+    """
+
+    def test_signature_check_finds_a_parameter_handed_on_to_a_pointer_call(self):
+        allow = dict(ASM_CONFIG["asm"], signature_check=True,
+                     signature_allow={"func_00100400": "the test: the finding itself"})
+        self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=allow))
+        self.assertEqual(self.last_report["assembly_signature_drops"], {"func_00100400": [
+            "reads 2 integer and 0 float argument registers, its signature takes 1 and 0"]})
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, signatures={"func_00100400": "int (int, int)"})
+        self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=fixed))
+        self.assertEqual(self.last_report["assembly_signature_drops"], {})
+
     def test_branches_and_delay_slots(self):
         # sum of n..1, the counter decremented in the delay slot after the test read it; a likely
         # branch whose delay slot runs only when it is taken.

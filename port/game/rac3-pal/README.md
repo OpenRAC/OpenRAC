@@ -311,17 +311,22 @@ function against its code and fails the build on:
   take (liveness over the flow, so a parameter read only past an early return counts);
 - a call after which the translated code reads $v0 or $f0 that the callee's signature does not
   return;
-- an `asm` `signatures` entry claiming a result its code never sets.
+- an `asm` `signatures` entry claiming a result its code never sets;
+- an argument register handed on unread to a call through a pointer (`jalr`, a widget's vtable):
+  its callee is not known, but C fills the argument registers in order, so a call that sets $a2
+  takes $a0 and $a1 too, set there or handed on from the entry (`$t0-$t3` say nothing, the code
+  keeps temporaries in them; nor does the register holding the call's address). The widgets'
+  draws hand their parent rectangle (a1) to the rectangle callback at vtable +0x20 this way: the
+  frame widget's draw (`func_003EEBF8`, the slot pages' outlines round each slot's picture and
+  info) and the levels' copies of it and of the sprite widget's draw (`func_L01_0051E148`,
+  `func_L01_005216A8`) lost it as `int f(a0)`. The rule found two more (`func_003EE840__frontbin`,
+  `func_L01_004940C0`) and none that are noise; counting every `jalr` as reading $a0-$a3 instead
+  gave 260 findings.
 
-A register handed on unread to a call through a pointer (`jalr`, a widget's vtable) is not seen:
-the callee is not known, so the check counts none of its arguments. The widgets' draws do that
-with their parent rectangle (a1, read by the rectangle callback at vtable +0x20). The frame
-widget's draw (`func_003EEBF8`, the slot page's outlines round each slot's picture and info)
-and the levels' copies of it and of the sprite widget's draw (`func_L01_0051E148`,
-`func_L01_005216A8`) were found this way and given `int (int, int)` by hand. The levels' copy of
-the picture TEX0 getter (`func_L01_0042D898`, boot func_0039B088's `unsigned long long`) lost its
-upper word as an `int`, so the in-level SAVE page drew its slot pictures and empty-slot emblems
-from no texture; it is the only level copy whose result is narrower than its boot twin's.
+The levels' copy of the picture TEX0 getter (`func_L01_0042D898`, boot func_0039B088's `unsigned
+long long`) lost its upper word as an `int`, so the in-level SAVE page drew its slot pictures and
+empty-slot emblems from no texture; it is the only level copy whose result is narrower than its
+boot twin's.
 
 Each finding gets the function's real signature in `asm` `signatures`, checked against its
 instructions. A function whose C says `void` but hands its callee's result back is translated from
