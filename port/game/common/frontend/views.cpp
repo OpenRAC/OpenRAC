@@ -67,8 +67,8 @@ renderer::Camera view_camera(const renderer::Camera& game, const openrac_view& v
         renderer::eye_view(game.view, {v.position[0], v.position[1], v.position[2]}, turn);
     camera.position = eye_position(camera.view);
     const float aspect = static_cast<float>(v.width) / static_cast<float>(v.height);
-    // The game camera's near plane when a profile moved it out (GameProfile::depth_near;
-    // perspective_reversed: [14] / ([10] + 1)), so that a view's depth is the window's; else 0.05.
+    // Match the window camera's near plane when Normal depth moves it out.
+    // For perspective_reversed it is [14] / ([10] + 1).
     const float p10 = game.projection[10], p14 = game.projection[14];
     const float game_near = p14 > 0.0f && p10 > 1.0f ? p14 / (p10 + 1.0f) : kNear;
     const float near_z = game_near > kNear * 1.01f ? game_near : kNear;

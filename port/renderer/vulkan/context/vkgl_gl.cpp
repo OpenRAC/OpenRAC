@@ -59,22 +59,26 @@ const GLubyte* VKGL get_string(GLenum name) {
     }
 }
 
-// Reports enabled compression features so asset uploads can select their compatible formats.
+// A null entry is an unsupported extension. Enumeration and the count use the same list.
+std::array<const char*, 4> gl_extensions() {
+    return {
+        g->features.textureCompressionBC ? "GL_ARB_texture_compression_bptc" : nullptr,
+        g->features.textureCompressionASTC_LDR ? "GL_KHR_texture_compression_astc_ldr" : nullptr,
+        g->astc_hdr ? "GL_KHR_texture_compression_astc_hdr" : nullptr,
+        g->features.depthClamp ? "GL_EXT_depth_clamp" : nullptr,
+    };
+}
+
 const GLubyte* VKGL get_stringi(GLenum, GLuint index) {
-    if (g->features.textureCompressionBC) {
+    for (const char* extension : gl_extensions()) {
+        if (extension == nullptr) {
+            continue;
+        }
+
         if (index == 0) {
-            return reinterpret_cast<const GLubyte*>("GL_ARB_texture_compression_bptc");
+            return reinterpret_cast<const GLubyte*>(extension);
         }
         --index;
-    }
-    if (g->features.textureCompressionASTC_LDR) {
-        if (index == 0) {
-            return reinterpret_cast<const GLubyte*>("GL_KHR_texture_compression_astc_ldr");
-        }
-        --index;
-    }
-    if (g->astc_hdr && index == 0) {
-        return reinterpret_cast<const GLubyte*>("GL_KHR_texture_compression_astc_hdr");
     }
     return nullptr;
 }
@@ -101,11 +105,11 @@ void VKGL get_integerv(GLenum name, GLint* data) {
             *data = most;
             return;
         }
-        case GL_NUM_EXTENSIONS:
-            *data = static_cast<GLint>(g->features.textureCompressionBC)
-                    + static_cast<GLint>(g->astc_hdr)
-                    + static_cast<GLint>(g->features.textureCompressionASTC_LDR);
+        case GL_NUM_EXTENSIONS: {
+            const auto extensions = gl_extensions();
+            *data = static_cast<GLint>(extensions.size() - std::ranges::count(extensions, nullptr));
             return;
+        }
         case GL_MAJOR_VERSION:
             *data = 4;
             return;

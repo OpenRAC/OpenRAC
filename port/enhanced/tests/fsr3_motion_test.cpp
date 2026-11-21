@@ -128,9 +128,11 @@ struct MotionFixture {
         return true;
     }
 
-    // Reads all velocity and reactive channels for either submission path, including uncovered pixels.
+    // Samples either submission path. A supplied world depth uses zero-to-one rasterisation.
     std::vector<std::uint8_t> sample_many(
-        std::span<const scene::MotionInstance> instances, scene::MotionSubmission submission
+        std::span<const scene::MotionInstance> instances,
+        scene::MotionSubmission submission,
+        unsigned world_depth = 0
     ) {
         glBindFramebuffer(GL_FRAMEBUFFER, motion.framebuffer());
         glViewport(0, 0, 64, 64);
@@ -144,6 +146,15 @@ struct MotionFixture {
         view.current = renderer::identity();
         view.previous = renderer::identity();
         view.size = {64, 64};
+        view.raster_zero_to_one = world_depth != 0;
+        if (world_depth != 0) {
+            glFramebufferTexture2D(
+                GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, world_depth, 0
+            );
+            glEnable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
+            glDepthFunc(GL_GEQUAL);
+        }
         // Both poses index separate matrices in the same synthetic palette image.
         view.previous_palette = previous_palette;
         // The owning render thread either records immediately or freezes this overlay until scope exit.
@@ -154,12 +165,22 @@ struct MotionFixture {
         if (vkgl::active()) {
             CHECK(vkgl::temporal_chain([&] {
                 const vkgl::TemporalTarget target{
-                    motion.framebuffer(), vkgl::TemporalContents::Preserve
+                    motion.framebuffer(),
+                    vkgl::TemporalContents::Preserve,
+                    renderer::graph::Aspect::Colour,
+                    world_depth != 0
                 };
                 CHECK(vkgl::temporal_raster("fixture object motion", target, {}, draw));
             }));
         } else {
             draw();
+        }
+        if (world_depth != 0) {
+            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_TRUE);
+            glFramebufferTexture2D(
+                GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0
+            );
         }
         return read_motion();
     }
@@ -439,6 +460,45 @@ void test_batched_motion_matches_reference(bool cutout) {
     renderer::render_opt::reset();
     CHECK(glGetError() == GL_NO_ERROR);
 }
+
+void test_precise_depth_occludes_motion() {
+    if (glClipControl == nullptr) {
+        return;
+    }
+
+    MotionFixture fixture;
+    renderer::FrameBuffer world;
+    std::string error;
+    const bool ready = fixture.create(error) && world.create(64, 64, error, 1, true);
+    CHECK(ready);
+    if (!ready) {
+        std::cerr << error << '\n';
+        return;
+    }
+
+    constexpr float kWorldDepth = .75f;
+    glBindFramebuffer(GL_FRAMEBUFFER, world.id());
+    glDepthMask(GL_TRUE);
+    glClearDepth(kWorldDepth);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    scene::MotionInstance instance;
+    instance.current = renderer::translation({0, 0, .625f});
+    instance.previous = renderer::translation({.25f, 0, .625f});
+    const auto sample = [&](scene::MotionSubmission submission) {
+        const auto pixels =
+            fixture.sample_many(std::span(&instance, 1), submission, world.depth_texture());
+        return pixels[(32 * 64 + 32) * 4];
+    };
+    // The old [-1, 1] convention remaps .625 to .8125 and wrongly passes the .75 depth test.
+    CHECK(sample(scene::MotionSubmission::Batched) <= 1);
+    CHECK(sample(scene::MotionSubmission::Individual) <= 1);
+    // Matching world depth still writes the full eight-pixel horizontal velocity.
+    instance.current[14] = instance.previous[14] = kWorldDepth;
+    CHECK(sample(scene::MotionSubmission::Batched) >= 254);
+    CHECK(sample(scene::MotionSubmission::Individual) >= 254);
+}
+
 }  // namespace
 
 int main() {
@@ -460,6 +520,7 @@ int main() {
         test_skinned_motion();
         test_batched_motion_matches_reference(false);
         test_batched_motion_matches_reference(true);
+        test_precise_depth_occludes_motion();
         // Nested material reads must not change layouts behind the temporal graph's attachment declarations.
         if (vkgl::active()) {
             CHECK(vkgl::submission_counters().validation_errors == 0);
