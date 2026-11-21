@@ -285,16 +285,16 @@ void func_0038F458(
     float a1,
     float a2,
     float a3,
-    gaddr colours, /* the four colours' address */
-    gaddr a5,
+    int colours, /* the four colours' address */
+    int a5,
     int a6,
     int a7,
     int a8,
-    long long a9,
+    unsigned long long a9,
     float a10,
     float a11
 ) {
-    rac3_menu_log_text(a0, a1, a5, a6);
+    rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
     const Print p = print_begin(kBoot.cursor);
     func_0038F458__game(a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11);
     print_end(kBoot.cursor, p);

@@ -324,12 +324,6 @@
         "func_L01_003EB2F0": "int (int, int, int, int, int, int)",
         "func_L01_0040AD50": "int (int, int, float, int, int, int)",
         "func_L01_00472EF8": "float (int, int, int, int)",
-        "func_L01_0048CB78": "int (int, int, float, float)",
-        "func_L01_0048E2F8": "int (int, int, float, float)",
-        "func_L01_0048F508": "int (int, int, float, float)",
-        "func_L01_00498098": "int (int, int, float, float)",
-        "func_L01_004991C8": "int (int, int, float, float)",
-        "func_L01_0049A2D0": "int (int, int, float, float)",
         "func_L01_00443390": "float (int, int, int, int)",
         "func_L06_003522B0": "int (int, int, int, int, int)",
         "func_L07_003325B0": "float (int, int, int, float)",
@@ -345,7 +339,8 @@
         "func_L39_006397B8": "float (int, float, float, float)",
         "func_L40_003F1CF8": "float (int, int, int, int, float)",
         "func_003BE988__frontbin": "float (int, int)",
-        "func_00386D98__frontbin": "void (int, int, int, int, int, int, int, int, long long, long long)"
+        "func_00386D98__frontbin": "void (int, int, int, int, int, int, int, int, long long, long long)",
+        "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
       },
       "signature_allow": {
         "func_001369D0": "a hidden entry inside a function on both discs, with no inventory row (no NTSC-U name): its translation from 0x001369D0 is the tail of the function around it and never sets $f0, while the multiplayer menu's callers (func_L39_0066C540, func_L39_0066C910) read the float the PAL C declares (f32 func_001369D0(f32)); the entry's real code is to be found",
