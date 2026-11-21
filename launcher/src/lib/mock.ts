@@ -87,6 +87,7 @@ import {
   mockUpdates,
 } from "./mockIndex";
 import { mockRac2Extra, mockWriteRac2Extra } from "./mockRac2Extra";
+import { RAC3_GATE } from "./rac3Gate";
 import type { UpdateInfo, UpdateProgressCallback } from "./updates";
 
 // ---- the files, as the Rust side parses them --------------------------------------
@@ -278,6 +279,7 @@ let config: Config = {
     typeof location === "undefined" ? "" : location.search,
   ).has("advanced"),
   incrementalBuilds: false,
+  rac3Dev: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("rac3"),
   // ?setup opens the first-run screen.
   setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
     "setup",
@@ -501,7 +503,10 @@ function view(action: RawAction, st: VersionStatus | null, version?: string): Ac
     : platform !== "android" || action.kind === "play";
   const blockers: string[] = [];
 
-  if (state === "planned") {
+  if (version?.startsWith("rac3/") && !config.rac3Dev) {
+    // As core/src/actions.rs (RAC3_GATE): first, before even "not connected".
+    blockers.push(RAC3_GATE);
+  } else if (state === "planned") {
     blockers.push("not connected to the launcher yet");
   } else {
     if (!thisPlatform) {

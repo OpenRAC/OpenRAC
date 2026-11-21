@@ -25,6 +25,7 @@ import { choiceFor, pickVersion } from "./discChoice";
 import { onIOS } from "./ios";
 import { phaseLabel } from "./progress";
 import type { Job } from "./queue";
+import { RAC3_GATE, RAC3_NOTE } from "./rac3Gate";
 import { PLAY_ACTIONS } from "./reports";
 
 export type PlayerKind =
@@ -482,6 +483,19 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       hint: "This launcher has no program for this game and cannot build it. Update the launcher (Settings): a newer one builds it from your disc.",
       disabled: true,
       status: "Needs a newer launcher",
+      tone: "warn",
+    };
+  }
+
+  if (play.blockers.includes(RAC3_GATE)) {
+    return {
+      ...base,
+      kind: "blocked",
+      label: "Play",
+      icon: "play",
+      hint: RAC3_NOTE,
+      disabled: true,
+      status: "In development",
       tone: "warn",
     };
   }

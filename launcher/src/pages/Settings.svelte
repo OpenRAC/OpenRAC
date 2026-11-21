@@ -7,6 +7,7 @@
   import GpuDrivers from "$components/GpuDrivers.svelte";
   import Logo from "$components/Logo.svelte";
   import PathField from "$components/PathField.svelte";
+  import Rac3Gate from "$components/Rac3Gate.svelte";
   import {
     api,
     type Check,
@@ -26,6 +27,7 @@
   import { SETTINGS_TEXT } from "$lib/modsText";
   import { nameProblem } from "$lib/multiplayerName";
   import { applyPalette, PALETTES } from "$lib/palettes";
+  import { RAC3_SWITCH } from "$lib/rac3Gate";
   import { tablist } from "$lib/tabs";
   import { applyAccent } from "$lib/themes";
   import { channelName, devBranches } from "$lib/updates";
@@ -61,6 +63,7 @@
     "saveEditorAdvanced",
     "developer",
     "incrementalBuilds",
+    "rac3Dev",
     "discordClientId",
     "multiplayerName",
   ] as const satisfies (keyof Config)[];
@@ -258,6 +261,24 @@
       version: null,
       message: `Saves are kept in ${path}/<disc serial>`,
     });
+
+  let rac3Gate = $state<Rac3Gate>();
+
+  /** Off: at once. On: only after the three prompts are confirmed; a cancel leaves it off. */
+  async function toggleRac3(e: Event) {
+    const box = e.currentTarget as HTMLInputElement;
+
+    if (!box.checked) {
+      draft.rac3Dev = false;
+
+      return;
+    }
+
+    // Not on yet: the box waits for the answer.
+    box.checked = false;
+    draft.rac3Dev = (await rac3Gate?.run()) ?? false;
+    box.checked = draft.rac3Dev;
+  }
 
   async function save(finish: boolean) {
     saving = true;
@@ -818,6 +839,19 @@
                 bind:checked={draft.incrementalBuilds}
               />
             </label>
+            <label class="setting">
+              <span class="text">
+                <strong>{RAC3_SWITCH.title}</strong>
+                <small>{RAC3_SWITCH.hint}</small>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                class="switch"
+                checked={draft.rac3Dev}
+                onchange={toggleRac3}
+              />
+            </label>
             {#if !rootHere && !onAndroid}
               <PathField
                 label="OpenRAC folder"
@@ -891,6 +925,8 @@
     </p>
   {/if}
 </div>
+
+<Rac3Gate bind:this={rac3Gate} />
 
 {#if !setup && changed && !onAndroid}
   <div class="save-bar" role="status">

@@ -401,6 +401,10 @@ fn placeholders(text: &str) -> Vec<String> {
     names
 }
 
+/// Why every rac3 action is blocked while the Up Your Arsenal switch (Settings, Developer) is off.
+/// The words after "needs" are what the UI shows ("Needs the Up Your Arsenal switch ...").
+pub const RAC3_GATE: &str = "needs the Up Your Arsenal switch in Settings, under Developer";
+
 impl Action {
     /// Whether the action can run in `ctx`, and if not, why.
     pub fn view(&self, ctx: &Context) -> ActionView {
@@ -453,6 +457,10 @@ impl Action {
         let mut out = Vec::new();
         if !self.shown(ctx.config) {
             out.push("for developers only: turn on Developer tools in Settings".to_string());
+            return out;
+        }
+        if ctx.version.is_some_and(|v| v.game == "rac3") && !ctx.config.rac3_dev {
+            out.push(RAC3_GATE.to_string());
             return out;
         }
         if self.state == State::Planned {
@@ -919,6 +927,49 @@ mod tests {
         assert!(everyone.shown(&player));
         let view = everyone.view(&ctx(&player));
         assert!(view.runnable && !view.developer && view.warning.is_none());
+    }
+
+    /// Up Your Arsenal's actions (rac3/pal and rac3/ntsc) are blocked, with a note, until the
+    /// Developer switch is on; the other games are not asked.
+    #[test]
+    fn rac3_actions_wait_for_the_switch() {
+        let action: Action = serde_json::from_str(
+            r#"{"id": "p", "label": "Play", "kind": "play", "state": "unverified", "program": "make"}"#,
+        )
+        .unwrap();
+        let root = checkout();
+        let catalog = crate::catalog::load(&root).unwrap();
+        let base = catalog.version("rac1/pal").unwrap();
+        let status = crate::status::version_status(&root, base);
+        let off = Config::default();
+        let on = Config { rac3_dev: true, ..Config::default() };
+        for (key, game, blocked) in [
+            ("rac3/pal", "rac3", true),
+            ("rac3/ntsc", "rac3", true),
+            ("rac1/pal", "rac1", false),
+            ("rac2/pal", "rac2", false),
+            ("rac4/pal", "rac4", false),
+        ] {
+            let version = Version { key: key.into(), game: game.into(), ..base.clone() };
+            let ctx = |config| Context {
+                root: &root,
+                config,
+                version: Some(&version),
+                status: Some(&status),
+                toolchains: false,
+                platform: Platform::Linux,
+                level: None,
+                path: None,
+                option: None,
+            };
+            let view = action.view(&ctx(&off));
+            assert_eq!(!view.runnable, blocked, "{key}");
+            if blocked {
+                assert_eq!(view.blockers, [RAC3_GATE], "{key}");
+                assert!(action.plan(&ctx(&off)).is_err(), "{key}");
+            }
+            assert!(action.view(&ctx(&on)).runnable, "{key} with the switch on");
+        }
     }
 
     /// A tool path with Windows' `\\?\` prefix (Tauri's resource folder adds it to the bundled
