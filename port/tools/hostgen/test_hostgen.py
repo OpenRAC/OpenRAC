@@ -4978,6 +4978,15 @@ class ResultGuard(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.run_hostgen("func_A\tfunc_B\n")
 
+    def test_a_callee_no_code_backs_is_neither_a_finding_nor_a_rows_use(self):
+        # A build without the disc: func_C and func_Z are stubs, their results unknown.
+        summary = {"results_zeroed": {"func_A": ["func_B", "func_C"]}}
+        allow = {("func_A", "func_B"): "why", ("func_A", "func_Z"): "why"}
+        self.assertEqual(hostgen.result_guard(summary, allow, {"func_C", "func_Z"}),
+                         {"results_zeroed_unallowed": [], "result_allow_unused": []})
+        self.assertEqual(hostgen.result_guard(summary, allow),
+                         {"results_zeroed_unallowed": ["func_A\tfunc_C"], "result_allow_unused": ["func_A\tfunc_Z"]})
+
 
 class CandidateTableTest(unittest.TestCase):
     def test_columns_after_the_file_are_ignored(self):

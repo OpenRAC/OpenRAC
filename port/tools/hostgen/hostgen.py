@@ -48,7 +48,7 @@ import variant_check  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import LEVEL_SHORT_MISS, Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, canon, cname, index_unit, prototype, inherit_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
 import program as program_module  # noqa: E402  (its NAME_PREFIX)
 
 HERE = Path(__file__).resolve().parent
@@ -783,6 +783,7 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
     stage = extra.pop("asm", None) or asmc.Stage()
     allow = extra.pop("assembly_allow", {})
     result_allow = extra.pop("result_allow", None)
+    result_unjudged = set(extra.pop("result_unjudged", []))
     asm_reasons: dict[str, int] = {}
     for why in stage.unsupported.values():
         key = re.sub(r",? at [0-9A-F]{8}\b| \([0-9A-F]{8}\)", "", why)
@@ -850,7 +851,7 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
     summary["frontier"] = frontier
     summary.update(assembly_guard(summary, allow))
     if result_allow is not None:
-        summary.update(result_guard(summary, result_allow))
+        summary.update(result_guard(summary, result_allow, result_unjudged))
     (out / "report.json").write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
     md = [
         f"# hostgen report: {game}",
@@ -1636,6 +1637,11 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     extra["assembly_allow"] = read_assembly_allow(args.game.parent, cfg)
     if cfg.get("result_allow"):
         extra["result_allow"] = read_result_allow(args.game.parent, cfg)
+        if asm_stage is not None and not asm_stage.translated and not asm_stage.external:
+            # Nothing translated from the disc (OPENRAC_HOSTGEN_NO_DISC, CI): whether a callee whose
+            # result no code backs sets the register its callers read cannot be judged.
+            verified = set((cfg.get("asm") or {}).get("signatures", {}))
+            extra["result_unjudged"] = sorted(unbacked_results(program, verified))
     (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units)
                                    + "".join(f + "\n" for f in asm_files))
     return write_report(out, reports, program, extra, cfg.get("title", cfg.get("name", "")))
@@ -1747,7 +1753,7 @@ def read_result_allow(config_dir: Path, cfg: dict) -> dict[tuple[str, str], str]
     return out
 
 
-def result_guard(summary: dict, allow: dict[tuple[str, str], str]) -> dict:
+def result_guard(summary: dict, allow: dict[tuple[str, str], str], unjudged: set[str] = frozenset()) -> dict:
     """The calls that read a result the callee does not hand back in that register: it returns
     nothing, or a float where the caller reads an integer (or the other way). On the console the
     caller read whatever the register held; the translation reads 0. Mostly that is the
@@ -1755,13 +1761,17 @@ def result_guard(summary: dict, allow: dict[tuple[str, str], str]) -> dict:
     a callee's C result type silenced Going Commando's 3D sounds this way (func_002E46C0 turned
     float, StartSoundEmitter reads its $v0). Each such call needs a row of "result_allow" with the
     reason the 0 is right, or the callee's real type (hand C, an "asm" "signatures" entry); main()
-    fails the run on any other."""
-    zeroed = {(caller, callee) for caller, callees in summary.get("results_zeroed", {}).items() for callee in callees}
+    fails the run on any other. A call to an `unjudged` callee (a stub of a build without the disc,
+    whose signature no code backs) is neither a finding nor a row's use."""
+    unjudged = {same_place(n) for n in unjudged}
+    zeroed = {(caller, callee) for caller, callees in summary.get("results_zeroed", {}).items() for callee in callees
+              if same_place(callee) not in unjudged}
     allowed = {(same_place(a), same_place(b)) for a, b in allow}
     seen = {(same_place(a), same_place(b)) for a, b in zeroed}
     return {"results_zeroed_unallowed": sorted(f"{a}\t{b}" for a, b in zeroed
                                                if (same_place(a), same_place(b)) not in allowed),
-            "result_allow_unused": sorted(f"{a}\t{b}" for a, b in allow if (same_place(a), same_place(b)) not in seen)}
+            "result_allow_unused": sorted(f"{a}\t{b}" for a, b in allow if (same_place(a), same_place(b)) not in seen
+                                          and same_place(b) not in unjudged)}
 
 
 def stop_for_unreadable_units(reports: list[UnitReport], allow_unreadable: bool) -> bool:
@@ -1900,7 +1910,10 @@ def main(argv: list[str] | None = None) -> int:
                   file=sys.stderr)
         return 1
     a_cfg = cfg.get("asm") or {}
-    if a_cfg.get("signature_check"):
+    # The guard judges code translated from the disc: a build without it (OPENRAC_HOSTGEN_NO_DISC,
+    # CI) translates none, its functions stubs with no derived signature, so its findings and its
+    # allow list's use would be those of the stubs, not the game's.
+    if a_cfg.get("signature_check") and summary.get("functions_from_assembly"):
         # signature_guard: before the stamp, so the next build says it again.
         sig_allow = a_cfg.get("signature_allow", {})
         drops = summary.get("assembly_signature_drops", {})

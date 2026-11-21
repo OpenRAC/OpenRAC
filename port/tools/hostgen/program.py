@@ -1029,6 +1029,50 @@ def widen_returns(program: Program) -> list[str]:
     return changed
 
 
+def tail_callee(program: Program, f: Function) -> Function | None:
+    """The function a definition's closing call (Function.tail) reaches, as its unit names it: a
+    static of the unit, the unit's level's own copy, else the program's function; None if none."""
+    sym = program.aliases.get((f.unit, f.tail), f.tail)
+    sym = program.level_short_name(f.unit, sym, f.symbol)
+    g = program.statics.get((f.unit, sym))
+    if g is None:
+        own = program.grouped(f.unit, sym)
+        g = program.functions.get(own) if own != sym else None
+    if g is None:
+        g = program.functions.get(program.canonical(sym))
+    return g
+
+
+def unbacked_results(program: Program, verified: set[str]) -> set[str]:
+    """For a build that translates nothing from the disc: the functions whose result no code backs.
+    Each function with no C or host definition is a stub whose signature comes from declarations,
+    unless `verified` (hostgen.json "asm" "signatures") holds it; a call to a stub that a group
+    also defines goes to the group's C (lower.py _callee_symbol: boot's func_00382760, its C left
+    to its assembly, to frontbin's func_00382760__frontbin), whose result is not the one the disc's
+    translation of the stub gives. A `void` definition that ends in a call to a stub, or to one of
+    these, would pass that call's result on (inherit_results), which the disc's build gives it and
+    this one cannot."""
+    stubs = program.stubs()
+    out = {f.symbol for f in stubs if f.symbol not in verified}
+    out |= {f"{f.symbol}__{g['suffix']}" for f in stubs for g in program.groups
+            if f"{f.symbol}__{g['suffix']}" in program.functions}
+    again = True
+    while again:
+        again = False
+        for f in program.functions.values():
+            if f.symbol in out or f.unit is None or f.tail is None or f.inherits:
+                continue
+            if canon(f.sig.ret, program.typedefs) != "void":
+                continue
+            g = tail_callee(program, f)
+            if g is None or g is f:
+                continue
+            if g.symbol in out or (g.unit is None and g.symbol not in program.host):
+                out.add(f.symbol)
+                again = True
+    return out
+
+
 def inherit_results(program: Program) -> list[str]:
     """A definition that returns nothing and ends in a call leaves that call's result in the
     result register, and the decompilation's callers read it there (a wrapper matched as `void
@@ -1048,14 +1092,7 @@ def inherit_results(program: Program) -> list[str]:
             # callee's colour on to callers that read it.
             if f.symbol in program.wrap_host or f.symbol in program.host:
                 continue
-            sym = program.aliases.get((f.unit, f.tail), f.tail)
-            sym = program.level_short_name(f.unit, sym, f.symbol)
-            g = program.statics.get((f.unit, sym))
-            if g is None:
-                own = program.grouped(f.unit, sym)
-                g = program.functions.get(own) if own != sym else None
-            if g is None:
-                g = program.functions.get(program.canonical(sym))
+            g = tail_callee(program, f)
             if g is None or g is f or (g.unit is None and g.symbol not in program.host
                                        and g.symbol not in program.from_assembly):
                 continue
