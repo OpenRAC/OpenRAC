@@ -837,6 +837,7 @@ const openrac_game_play rac1_play = {
     .collision_triangles = rac1_collision_triangles,
     .camera_set = rac1_camera_set,
     .camera_view = rac1_camera_view,
+    .camera_shake = rac1_camera_shake,
     .hero_sound_play = hero_sound_play,
     .hero_sound_stop = hero_sound_stop,
     .hero_hurt = hero_hurt,

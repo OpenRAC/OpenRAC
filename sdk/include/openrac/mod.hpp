@@ -2347,6 +2347,21 @@ public:
                && m_api->on_overlay_phases(m_handle, fn, user, phases) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.32: whether the port has the game's camera shake (camera_shake).
+    bool has_camera_shake() const {
+        return m_api->api_minor >= 32
+               && m_api->size >= offsetof(openrac_api, camera_shake) + sizeof(void*);
+    }
+
+    // Since 1.32: starts the game's own camera shake on the level camera, channel 0 or 1 (see
+    // openrac_api.camera_shake). The countdown runs only in play, not in a cutscene or movie.
+    // False outside a level, for a bad channel, amplitude or count, or on a port without it.
+    // `frames` 0 stops the channel.
+    bool camera_shake(int channel, float amplitude, int frames) const {
+        return has_camera_shake()
+               && m_api->camera_shake(m_handle, channel, amplitude, frames) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.14: whether this port has the shots with more to say.
     bool has_shots2() const {
         return has_slot14(offsetof(openrac_api, figure_shot2));

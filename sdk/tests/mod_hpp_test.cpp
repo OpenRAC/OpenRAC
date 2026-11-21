@@ -1053,6 +1053,18 @@ void fill_skin(openrac_api &api) {
 // What the fake host's 1.30 calls were given.
 std::uint32_t g_blend_now = OPENRAC_OVERLAY_BLEND_ALPHA;
 
+// What the fake host's 1.32 camera shake was given, and whether it took it.
+std::string g_shake;
+
+// A port of 1.32: the game's shake takes channels 0 and 1, amplitudes 0 to 1 and counts to 600.
+int fake_camera_shake(openrac_mod*, int channel, float amplitude, int frames) {
+    g_shake = "shake " + std::to_string(channel) + " " + std::to_string(amplitude) + " "
+              + std::to_string(frames);
+    const bool ok = (channel == 0 || channel == 1) && amplitude >= 0.0f && amplitude <= 1.0f
+                    && frames >= 0 && frames <= OPENRAC_CAMERA_SHAKE_FRAMES_MAX;
+    return ok ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
 // A port of 1.30: it takes the three blends, refuses a number past them and keeps the last blend.
 int fake_set_blend(void*, uint32_t blend) {
     if (blend > OPENRAC_OVERLAY_BLEND_SUBTRACT) {
@@ -2376,6 +2388,28 @@ int main() {
         CHECK(mod.has_moby_models());
     }
 
+    // Interface 1.32: the game's camera shake, handed to the port as it is and refused where the
+    // port lacks it (an older minor, or a table that stops before it).
+    {
+        api.camera_shake = fake_camera_shake;
+        CHECK(mod.has_camera_shake());
+        CHECK(mod.camera_shake(1, 0.15f, 30) && g_shake == "shake 1 0.150000 30");
+        CHECK(mod.camera_shake(0, 0.0f, 0) && g_shake == "shake 0 0.000000 0");
+        // A bad channel, amplitude or count is the port's to refuse, and the wrapper says no.
+        CHECK(!mod.camera_shake(2, 0.1f, 10));
+        CHECK(!mod.camera_shake(0, 1.5f, 10));
+        CHECK(!mod.camera_shake(0, 0.1f, OPENRAC_CAMERA_SHAKE_FRAMES_MAX + 1));
+        // A port of 1.31 has no shake even if its table is long enough: nothing is called.
+        g_shake.clear();
+        api.api_minor = 31;
+        CHECK(!mod.has_camera_shake() && !mod.camera_shake(1, 0.15f, 30) && g_shake.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        // A table that stops before camera_shake: not there.
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, camera_shake));
+        CHECK(!mod.has_camera_shake() && !mod.camera_shake(1, 0.15f, 30) && g_shake.empty());
+        api.size = sizeof api;
+        CHECK(mod.has_camera_shake());
+    }
     check_refused_loads(api, handle);
     check_reload(api, handle);
 

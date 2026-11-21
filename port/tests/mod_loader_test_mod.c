@@ -397,6 +397,12 @@ static void motion_frame(void) {
             memset(&cam, 0, sizeof cam);
             cam.size = sizeof cam;
             s_record(9600 + -s_api->camera_view(&cam) + (int)cam.eye[0]);
+            /* Interface 1.32: a bad channel, amplitude or count is refused (-1) and never reaches the
+             * host; a good one is handed on (0). */
+            s_record(9670 + -s_api->camera_shake(s_mod, 2, 0.1f, 10));
+            s_record(9670 + -s_api->camera_shake(s_mod, 0, 1.5f, 10));
+            s_record(9670 + -s_api->camera_shake(s_mod, 1, 0.1f, 601));
+            s_record(9670 + -s_api->camera_shake(s_mod, 0, 0.15f, 30));
         }
         {
             openrac_hud_text line;

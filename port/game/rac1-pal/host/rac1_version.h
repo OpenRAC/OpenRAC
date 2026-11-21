@@ -13,6 +13,9 @@
 
 #define RAC1_ADDR(a) a
 #define RAC1_LADDR(n, a) a
+/* The level camera's shake channels (camera_override.c rac1_camera_shake) are verified here: the
+ * PAL decomp's gCameraLvl (D_L00_00166D80, shake at +0x160). Other versions refuse camera_shake. */
+#define RAC1_LEVEL_CAMERA_SHAKE 1
 
 /* Level vtbl records carry moby update functions; the executable's vtbl is an empty sentinel. */
 #define RAC1_MOBY_VTBL(level) rac1_moby_vtbl_address(level)

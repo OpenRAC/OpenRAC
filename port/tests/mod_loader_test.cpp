@@ -1996,6 +1996,8 @@ void only_a_mod_codes_link_opens(const fs::path& plugins) {
 // mod's folder (none outside it, none missing) drawn at its pose and gone with its level, and a
 // sound of the mod's through the host's sound calls.
 std::vector<std::string> g_motion;
+// The game's camera shakes the stub was asked for (interface 1.32): "channel amplitude*100 frames".
+std::vector<std::string> g_shakes;
 
 void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
@@ -2054,6 +2056,13 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         std::fill(rows, rows + 9, 0.0f);
         return 1;
     };
+    play.camera_shake = [](int channel, float amplitude, int frames) {
+        g_shakes.push_back(
+            std::to_string(channel) + " " + std::to_string(static_cast<int>(amplitude * 100)) + " "
+            + std::to_string(frames)
+        );
+        return 1;
+    };
     play.moby_class_at = [](gaddr moby) {
         return moby == 0x3F00 ? g_address_class : std::int32_t{-1};
     };
@@ -2088,17 +2097,20 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_motion.clear();
     CHECK(mods::load(h) == "test-a 1.0.0");
     g_records.clear();
+    g_shakes.clear();
     CHECK(mods::prop_meshes().empty());
     const unsigned generation = mods::prop_meshes_generation();
     mods::frame();
-    CHECK((g_records == std::vector<int>{9500, 9523, 9540, 9541, 9541, 9550, 9551, 9660, 9661,
-                                         9670, 9671, 9680, 9681, 9681, 9660, 9661, 9661, 9661,
-                                         9661, 9660, 9660, 9560, 9561, 9577, 9581, 9580, 9581,
-                                         9591, 9590, 9591, 9591, 9590, 9602, 9611, 9610, 9623,
-                                         9635, 9700, 9710, 9721, 9721, 9730, 9731, 9731, 9731,
-                                         9731, 9731, 9731, 9734, 9730, 9730, 9730, 9740, 9741,
-                                         9741, 9741, 9741, 9741, 9741, 9744, 9740, 9740, 9744,
-                                         9770, 9771, 9771, 9771, 9771, 9771, 9771, 9770}));
+    CHECK((g_records == std::vector<int>{9500, 9523, 9540, 9541, 9541, 9550, 9551, 9660, 9661, 9670,
+                                         9671, 9680, 9681, 9681, 9660, 9661, 9661, 9661, 9661, 9660,
+                                         9660, 9560, 9561, 9577, 9581, 9580, 9581, 9591, 9590, 9591,
+                                         9591, 9590, 9602, 9671, 9671, 9671, 9670, 9611, 9610, 9623,
+                                         9635, 9700, 9710, 9721, 9721, 9730, 9731, 9731, 9731, 9731,
+                                         9731, 9731, 9734, 9730, 9730, 9730, 9740, 9741, 9741, 9741,
+                                         9741, 9741, 9741, 9744, 9740, 9740, 9744, 9770, 9771, 9771,
+                                         9771, 9771, 9771, 9771, 9770}));
+    // Only the good shake reached the host: channel 0, 0.15 (as 15), 30 ticks.
+    CHECK((g_shakes == std::vector<std::string>{"0 15 30"}));
     CHECK(
         (g_motion
          == std::vector<std::string>{

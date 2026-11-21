@@ -75,6 +75,37 @@ int rac1_camera_view(float eye[3], float rows[9]) {
     return 1;
 }
 
+#ifdef RAC1_LEVEL_CAMERA_SHAKE
+/* gCameraLvl's shake channels (CameraSystem.shake at +0x160, a CameraShake of 0x10 bytes: amplitude,
+ * offset, frames, frames_max). The game's apply_camera_shake reads them each frame. */
+#define LEVEL_SHAKE OPENRAC_LDATA(0, RAC1_LADDR(00, 0x00166EE0u))
+/* frame_scale (D_0015EE60): the factor the game's scale_ticks multiplies a countdown by. */
+#define FRAME_SCALE RAC1_ADDR(0x0015EE60u)
+
+int rac1_camera_shake(int channel, float amplitude, int frames) {
+    if (!rac1_level_running() || (channel != 0 && channel != 1)
+        || !(amplitude >= 0.0f && amplitude <= 1.0f) || frames < 0 || frames > 600) {
+        return 0;
+    }
+    /* scale_ticks (func_001F9850): n * frame_scale + 0.5, truncated, as the game's own calls get it. */
+    const int ticks = (int)openrac_f2i(0.5f + (float)frames * GREF(float, FRAME_SCALE));
+    const gaddr base = LEVEL_SHAKE + 0x10u * (unsigned)channel;
+    /* What the game's own trigger writes (moby_ground_collision.c:2877), and frames_max, which the
+     * game's apply sets to the countdown on its first frame anyway. */
+    GREF(float, base) = amplitude;
+    GREF(int, base + 8u) = ticks;
+    GREF(int, base + 12u) = ticks;
+    return 1;
+}
+#else
+int rac1_camera_shake(int channel, float amplitude, int frames) {
+    (void)channel;
+    (void)amplitude;
+    (void)frames;
+    return 0; /* this version's level camera address is not verified (rac1_version.h) */
+}
+#endif
+
 void func_001F2608(void) {
     static int read = 0, on = 0;
     static float rows[12], eye[3];

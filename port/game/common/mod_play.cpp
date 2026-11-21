@@ -2173,6 +2173,19 @@ int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
     return OPENRAC_HOOK_OK;
 }
 
+// Interface 1.32: the game's own camera shake on the level camera, channel 0 or 1. The game's routine
+// decays it; a new call replaces the channel's shake. Nothing is kept here: the shake lives in the
+// game's camera, so it ends with the level (the game's camera is made again).
+int api_camera_shake(openrac_mod* mod, int channel, float amplitude, int frames) {
+    if (mod == nullptr || g_play == nullptr || g_play->camera_shake == nullptr || channel < 0
+        || channel > 1 || !std::isfinite(amplitude) || amplitude < 0.0f || amplitude > 1.0f
+        || frames < 0 || frames > OPENRAC_CAMERA_SHAKE_FRAMES_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->camera_shake(channel, amplitude, frames) != 0 ? OPENRAC_HOOK_OK
+                                                                 : OPENRAC_HOOK_UNKNOWN;
+}
+
 int api_haze_set(openrac_mod* mod, const openrac_haze* patches, int count) {
     std::int32_t level = -1;
     if (mod == nullptr || count < 0 || (count > 0 && patches == nullptr)
@@ -2523,6 +2536,7 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.camera_view = api_camera_view;
     api.camera_set = api_camera_set;
     api.haze_set = api_haze_set;
+    api.camera_shake = api_camera_shake;
     api.hud_text_set = api_hud_text_set;
     api.hero_sound_play = api_hero_sound_play;
     api.hero_sound_stop = api_hero_sound_stop;

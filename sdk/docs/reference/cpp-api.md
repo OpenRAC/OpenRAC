@@ -376,6 +376,8 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool on_overlay(openrac_overlay_fn fn, void* user = nullptr) const` | Since 1.14: `fn(user, overlay)` once a frame to draw over the game while a level is in play. During load. on_overlay_phases draws over menus too. |
 | `bool has_overlay_phases() const` | Since 1.28: whether this port draws a mod's overlay in more than a level in play (on_overlay_phases). |
 | `bool on_overlay_phases(openrac_overlay_fn fn, void* user, std::uint32_t phases) const` | Since 1.28: `fn(user, overlay)` once a frame of one of the phases (OPENRAC_OVERLAY_PLAYING, OPENRAC_OVERLAY_MENU: the vendor, the pause menu), as on_overlay. One callback a mod: this replaces the one on_overlay took. Returns false for no phase, one the port does not draw over, or a port without it. During load. |
+| `bool has_camera_shake() const` | Since 1.32: whether the port has the game's camera shake (camera_shake). |
+| `bool camera_shake(int channel, float amplitude, int frames) const` | Since 1.32: starts the game's own camera shake on the level camera, channel 0 or 1 (see openrac_api.camera_shake). The countdown runs only in play, not in a cutscene or movie. False outside a level, for a bad channel, amplitude or count, or on a port without it. `frames` 0 stops the channel. |
 | `bool has_shots2() const` | Since 1.14: whether this port has the shots with more to say. |
 | `std::vector<openrac_shot2> hero_shots2(int max = OPENRAC_SHOTS_MAX) const` | Since 1.14: the hero's shots since the last call, as openrac_shot2. |
 | `bool figure_shot2(int id, const openrac_shot2& shot) const` | Since 1.14: has the mod's figure `id` fire `shot`. |

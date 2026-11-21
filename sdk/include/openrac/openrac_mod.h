@@ -89,9 +89,10 @@ extern "C" {
  * that subtract from or add to what is on the screen for the overlay's rectangles and text
  * (openrac_overlay.set_blend), and 1.31 a mesh of the mod's drawn in place of a moby's model: by
  * slot, by class in the world or menus, or by address (model_create, moby_model_slot,
- * moby_model_class, moby_model_at).
+ * moby_model_class, moby_model_at), and 1.32 the game's own camera shake on the level's camera
+ * (camera_shake).
  */
-#define OPENRAC_MOD_API_MINOR 31
+#define OPENRAC_MOD_API_MINOR 32
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1085,6 +1086,9 @@ typedef struct openrac_joint_offset {
  * (openrac_api.sound_play). Since 1.12. */
 #define OPENRAC_SOUNDS_MAX 64
 #define OPENRAC_SOUND_VOICES_MAX 16
+
+/* The most frames a camera shake may count down (openrac_api.camera_shake). Since 1.32. */
+#define OPENRAC_CAMERA_SHAKE_FRAMES_MAX 600
 
 /* A camera (openrac_api.camera_view and camera_set), in the game's units and axes (z up): the
  * eye, and the unit rows the view is built from: where it looks (forward), its left and its up,
@@ -2618,6 +2622,16 @@ typedef struct openrac_api {
      * value that is not a number, a model that is not the mod's or went with its level, an address that is
      * 0 or not a moby of the game, or a port without it (nothing changes). Since 1.31. */
     int (*moby_model_at)(openrac_mod* mod, uint32_t address, const openrac_moby_model* m);
+
+    /* Starts the game's own camera shake on the level's camera: channel 0 or 1. Channel 0 moves
+     * the eye along the camera's up row, channel 1 along its forward row. `amplitude` is 0 to 1,
+     * `frames` a countdown of 0 to OPENRAC_CAMERA_SHAKE_FRAMES_MAX game ticks; the game decays
+     * the shake itself. A new call replaces the channel's shake; frames 0 stops it. The countdown
+     * runs only in play (the game's cinematic_mode 0), so a shake started in a cutscene or movie
+     * waits until play resumes. The shake ends with the level. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN outside a level, for a channel other than 0 or 1, an amplitude that is
+     * not a number or not between 0 and 1, a count out of range, or a port without it. Since 1.32. */
+    int (*camera_shake)(openrac_mod* mod, int channel, float amplitude, int frames);
 
 } openrac_api;
 
