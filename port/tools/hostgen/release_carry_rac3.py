@@ -49,6 +49,8 @@ ADDR = re.compile(r"\bRAC3_ADDR\(\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
 LADDR = re.compile(r"\bRAC3_LADDR\(\s*(\d+)\s*,\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
 HOST_DEF = re.compile(r"^((?:unsigned |signed )?(?:void|int|float|gaddr|unsigned int|long long|unsigned long long|"
                       r"uint32_t|int32_t)) (func_L\d\d_[0-9A-F]{8})\(([^)]*)\)\s*\{", re.M)
+MP_TOKEN = re.compile(r"\bmp_func_(?:L\d\d_)?[0-9A-F]{8}(?:__\w+)?\b")
+MADDR = re.compile(r"\bRAC3_MADDR\(\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
 ALIAS = re.compile(r"(func_[0-9A-F]{8})(_[0-9A-F]{8})")
 RESIDENT_END = 0x001D5680  # below: the engine core, at the same addresses on both discs
 LITERAL = re.compile(r"\b0x(00[1-3][0-9A-Fa-f]{5})u?\b")  # an address of the executable's memory
@@ -172,6 +174,59 @@ class Names:
 
     def text(self, text: str) -> str:
         return NAME.sub(lambda m: self.function(m.group(0))[0], text)
+
+
+class MpNames:
+    """The multiplayer executable's names (port/game/rac3-pal/mp, the host C's mp_func_): its own
+    functions paired by release/mp_pairs.json (rac3_mp_pairs.py), level 39's by their places
+    (the menus' program the executable loads, named after its own places there, not the
+    catalogue's first place)."""
+
+    def __init__(self, source: Path, names: Names):
+        path = RELEASE / "release/mp_pairs.json"
+        self.pairs = json.loads(path.read_text()) if path.is_file() else {"functions": {}, "addresses": {}}
+        self.functions = {k: v["is"] for k, v in self.pairs["functions"].items() if v["is"]}
+
+        def rows(path: Path) -> dict[str, tuple[str, dict[int, int]]]:
+            out = {}
+            for line in path.read_text().splitlines() if path.is_file() else []:
+                cols = line.split("\t")
+                if line.startswith("#") or len(cols) < 7:
+                    continue
+                places = {}
+                for item in cols[6].split(","):
+                    level, _, address = item.partition(":")
+                    if address and level.isdigit():
+                        places[int(level)] = int(address, 16)
+                out[cols[0]] = (cols[1], places)
+            return out
+        pal_rows = rows(source / "config/levels/functions.tsv")
+        us_rows = rows(source / "config/us/levels/functions.tsv")
+        self.l39: dict[int, int] = {}
+        for pal, (kind, places) in pal_rows.items():
+            if 39 not in places:
+                continue
+            twin = names.front.get(pal) if kind == "frontbin" else names.levels.get(pal)
+            if twin and twin in us_rows and 39 in us_rows[twin][1]:
+                self.l39[places[39]] = us_rows[twin][1][39]
+
+    def function(self, name: str) -> str | None:
+        """NAME (func_..., without the mp_ prefix) as NTSC-U's executable spells it, or None."""
+        m = NAME.fullmatch(name)
+        if not m or m.group(1) != "func":
+            return None
+        _kind, level, address, suffix = m.groups()
+        tail = f"__{suffix}" if suffix else ""
+        if level == "L39":
+            new = self.l39.get(int(address, 16))
+            if new is None:  # rac3-decomp's map has no twin: the same instructions (mp_pairs.json)
+                row = self.pairs.get("level39", {}).get(f"func_L39_{address}") or {}
+                return row["is"] + tail if row.get("is") else None
+            return f"func_L39_{new:08X}{tail}"
+        if level:
+            return None
+        new = self.functions.get(f"func_{address}")
+        return new + tail if new else None
 
 
 def absent(name: str, names: Names) -> bool:
@@ -377,6 +432,16 @@ def main(argv: list[str] | None = None) -> int:
                 used[m.group(0)] = new
                 if status not in ("match", "asm", "hand"):
                     report["differs"].setdefault(m.group(0), {"is": new, "status": status, "port": "host C"})
+    mp = MpNames(source, names)
+    for path in host_files():
+        if path.suffix == ".cpp":
+            continue
+        for m in MP_TOKEN.finditer(strip_comments(path.read_text())):
+            new = mp.function(m.group(0)[3:])
+            if new is None:
+                report["mp_not_paired"] = sorted({*report.get("mp_not_paired", []), m.group(0)})
+            elif "mp_" + new != m.group(0):
+                used[m.group(0)] = "mp_" + new
     if not args.check:
         (RELEASE / "host").mkdir(exist_ok=True)
     put("host/rac3_names.tsv", 
@@ -440,6 +505,23 @@ def main(argv: list[str] | None = None) -> int:
     # Each one's evidence on a line of its own above it: the defines stay within the line length.
     body = "".join(f"/* {v[1]} */\n#define RAC3_ADDR_{k} {('0x%08Xu' % v[0]) if v[0] is not None else '0u'}\n"
                    for k, v in sorted(addresses.items()))
+    maddr = {}
+    for path in host_files():
+        for m in MADDR.finditer(strip_comments(path.read_text())):
+            pal = int(m.group(1), 16)
+            row = mp.pairs["addresses"].get(f"0x{pal:08X}") or {}
+            fn = mp.functions.get(f"func_{pal:08X}")
+            if row.get("is"):
+                maddr[f"0x{pal:08X}u"] = (int(row["is"], 16), row["why"])
+            elif fn:
+                maddr[f"0x{pal:08X}u"] = (int(fn[5:13], 16),
+                                          "the function's pair: " + mp.pairs["functions"][f"func_{pal:08X}"]["why"])
+            else:
+                maddr[f"0x{pal:08X}u"] = (None, "not paired (rac3_mp_pairs.py)")
+                report["addresses_not_found"].append(f"mp:{pal:08X}")
+    body += "\n/* The multiplayer executable's (release/mp_pairs.json). */\n" + "".join(
+        f"/* {v[1]} */\n#define RAC3_MADDR_{k} {('0x%08Xu' % v[0]) if v[0] is not None else '0u'}\n"
+        for k, v in sorted(maddr.items()))
     body += "\n/* Levels' own globals (release.json's level_addresses). */\n" + "".join(
         f"/* {v[1]} */\n#define RAC3_LADDR_{k} {('0x%08Xu' % v[0]) if v[0] is not None else '0u'}\n"
         for k, v in sorted(level_addresses.items()))
@@ -458,6 +540,37 @@ def main(argv: list[str] | None = None) -> int:
             if new and new != f"D_{pal:08X}" and "_PAL_" not in new:
                 report["unwrapped"].setdefault(path.relative_to(PORT).as_posix(), []).append(
                     f"0x{pal:08X} (NTSC-U's {new})")
+    # mp/: the multiplayer executable's program, rac3-pal's in NTSC-U's names.
+    if (PRIMARY / "mp/hostgen.json").is_file() and mp.functions:
+        def mp_json(value):
+            if isinstance(value, dict):
+                return {(mp.function(k) if NAME.fullmatch(k) else k): mp_json(v)
+                        for k, v in value.items() if not (NAME.fullmatch(k) and mp.function(k) is None)}
+            if isinstance(value, list):
+                return [mp_json(v) for v in value
+                        if not (isinstance(v, str) and NAME.fullmatch(v) and mp.function(v) is None)]
+            if isinstance(value, str) and NAME.fullmatch(value):
+                return mp.function(value) or value
+            return value
+        mp_cfg = mp_json(json.loads((PRIMARY / "mp/hostgen.json").read_text()))
+        mp_out = {"about": "Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/mp/hostgen.json "
+                           "and release/mp_pairs.json; do not edit by hand."}
+        mp_out.update(merge(mp_cfg, hand.get("mp_hostgen", {})))
+        put("mp/hostgen.json", json.dumps(mp_out, indent=2) + "\n")
+        mp_rows = ["# Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/mp/libraries.tsv in",
+                   "# NTSC-U's names (release/mp_pairs.json); do not edit. The notes are PAL's."]
+        for line in (PRIMARY / "mp/libraries.tsv").read_text().splitlines():
+            if line.startswith("#") or not line.strip():
+                if line.startswith("# symbol"):
+                    mp_rows.append(line)
+                continue
+            cols = line.split("\t")
+            new = mp.function(cols[0])
+            if new is None:
+                report["left_out"]["mp:" + cols[0]] = "no NTSC-U pair (release/mp_pairs.json)"
+                continue
+            mp_rows.append("\t".join([new, *cols[1:]]))
+        put("mp/libraries.tsv", "\n".join(mp_rows) + "\n")
     report["differs"] = dict(sorted(report["differs"].items()))
     put("release/release_carry.json", json.dumps(report, indent=1) + "\n")
     print(f"rac3-ntsc: {len(rows) - 4} library rows ({len(report['left_out'])} left out), {len(used)} host names, "

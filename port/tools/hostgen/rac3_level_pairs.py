@@ -145,12 +145,18 @@ def pair(source: Path, level: int, targets: list[int]) -> dict[int, tuple[int, s
                     votes[target][by_offset[i]] += 1
                     where.setdefault((target, by_offset[i]), f"{name} (NTSC-U {us_name}) +0x{4 * i:X}")
     out = {}
+    # The level program's entry (its ELF header's): the other disc's entry.
+    pal_entry = struct.unpack_from("<I", level_file(source / "baserom/levels", level).read_bytes(), 24)[0]
+    us_entry = struct.unpack_from("<I", level_file(source / "baserom/us/levels", level).read_bytes(), 24)[0]
+    if pal_entry in want:
+        out[pal_entry] = (us_entry, f"the level program's entry (its ELF header: PAL 0x{pal_entry:08X}, "
+                                    f"NTSC-U 0x{us_entry:08X})")
     # Unanimous pairs of every address the same code forms, for an address no instruction forms
     # itself: between the nearest below and above it, when both moved by as much (and are near).
     known = sorted((a, c.most_common(1)[0][0]) for a, c in every.items() if len(c) == 1)
     starts = [a for a, _ in known]
     for target in want:
-        if target in votes:
+        if target in votes or target in out:
             continue
         import bisect
         k = bisect.bisect_left(starts, target)

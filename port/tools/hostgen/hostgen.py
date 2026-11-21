@@ -1539,14 +1539,14 @@ def port_host_text(args: argparse.Namespace, cfg: dict) -> str:
         args.game.parent.parent / str(cfg.get("game", "")) / "host"]
     own = "".join(p.read_text(errors="replace") for p in sorted(own_dir.glob("*.c"))) if own_dir.is_dir() else ""
     shared = "".join(p.read_text(errors="replace") for d in shared_dirs if d.is_dir() for p in sorted(d.glob("*.c")))
-    if RELEASE is not None:
-        # The shared C is written with the primary release's names; this release's table
-        # (host/<game>_names.tsv) renames them, as its build does (release_host.py). The release's
-        # own host C is in its names already.
-        import release_host
-        names = own_dir / f"{cfg.get('game', '')}_names.tsv"
-        if names.is_file():
-            shared = release_host.rename(shared, release_host.read_names(names))
+    # The shared C is written with the primary release's names; a release's table
+    # (host/<game>_names.tsv) renames them, as its build does (release_host.py). The release's own
+    # host C is in its names already. (A second executable of a release, rac3-ntsc's mp/, has no
+    # release view of its own but reads the shared C through the release's table all the same.)
+    import release_host
+    names = own_dir / f"{cfg.get('game', '')}_names.tsv"
+    if names.is_file():
+        shared = release_host.rename(shared, release_host.read_names(names))
     return own + shared
 
 
