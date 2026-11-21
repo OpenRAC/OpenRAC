@@ -231,6 +231,11 @@ def merge(base: dict, over: dict) -> dict:
             out.pop(k, None)
         elif isinstance(v, dict) and isinstance(out.get(k), dict) and not v.get("replace"):
             out[k] = merge(out[k], v)
+        elif (isinstance(v, list) and isinstance(out.get(k), list) and v
+              and all(isinstance(x, str) and x.startswith("func_") for x in v)):
+            # A list of function names (from_assembly): the release's added to the carried ones.
+            # Any other list (sources, skip) replaces the carried one.
+            out[k] = out[k] + [x for x in v if x not in out[k]]
         else:
             out[k] = {kk: vv for kk, vv in v.items() if kk != "replace"} if isinstance(v, dict) else v
     return out

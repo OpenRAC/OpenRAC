@@ -217,6 +217,7 @@
       "func_L01_0040FFE8": "float (int, int, int, float)",
       "func_L01_00410800": "int (void)",
       "func_L01_00410820": "float (int, int, int, float)",
+      "func_L01_0042AA88": "unsigned long long (int)",
       "func_L01_00417B48": "int (void)",
       "func_L01_00418238": "int (int)",
       "func_L01_00434A78": "int (int)",

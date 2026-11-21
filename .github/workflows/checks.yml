@@ -133,6 +133,7 @@ jobs:
       - name: Game versions' tables
         run: |
           python -m unittest discover -s port/tools/versionmap -p test_parity.py -v
+          python -m unittest discover -s port/tools/hostgen -p test_release_carry_rac3.py -v
           python port/tools/versionmap/check_versions.py
 
       - name: Level editor (synthetic data only)
