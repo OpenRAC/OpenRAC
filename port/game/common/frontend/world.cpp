@@ -484,7 +484,7 @@ void use_level(int number) {
         if (std::filesystem::is_regular_file(skins, missing)) {
             std::string why;
             std::vector<std::string> warnings;
-            if (!scene::load_moby_skins(skins, g->level, g->moby_skins, why, warnings)) {
+            if (!scene::load_moby_skins(skins, g->render.level, g->moby_skins, why, warnings)) {
                 g->moby_skins = {};
                 log::warn("level {}: {}: {}", wanted, skins.string(), why);
             }
