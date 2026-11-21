@@ -1357,6 +1357,11 @@
   ],
   "headers": "headers",
   "unpassed_registers": true,
+  "ps2_float": [
+    "func_003C6FE0__frontbin",
+    "func_L01_0043BAB8",
+    "func_L01_0050FF00"
+  ],
   "returns_64": [
     "func_00389598__frontbin",
     "func_00396A38__frontbin",

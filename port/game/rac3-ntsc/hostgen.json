@@ -1476,6 +1476,11 @@
   ],
   "headers": "../rac3-pal/headers",
   "unpassed_registers": true,
+  "ps2_float": [
+    "func_003C1A90__frontbin",
+    "func_L01_004389D8",
+    "func_L01_0050BF58"
+  ],
   "returns_64": [
     "func_00384EC0__frontbin",
     "func_003921D8__frontbin",
