@@ -31,13 +31,13 @@ export const PART_TEXT: Record<ResetPart, { title: string; line: string }> = {
 export const RESET = {
   title: "Your levels",
   lead: "When levels look wrong, or for a clean editor. Your disc, saves and gameplay mods are never touched.",
-  levelsTitle: "Read the game's levels again",
+  levelsTitle: "Repair the game's levels",
   levelsLine:
-    "The copy of the levels the game plays, not your level projects. Your edits and packs are kept.",
-  levelsButton: "Read again…",
-  editorTitle: "Delete the level project",
+    "When a level looks wrong in the game. Reads the levels the game plays from your disc again; your edits are kept.",
+  levelsButton: "Repair…",
+  editorTitle: "Delete your level projects",
   editorLine:
-    "Deletes this disc's level projects, changes not packed included. Packed levels and edits stay unless you tick them.",
+    "For a clean start in OpenRAC Editor. Changes you did not pack are lost; packed levels stay unless you tick them.",
   editorButton: "Delete…",
   busy: "Wait for the game and the tasks running to end first.",
   noDisc: "Set the game up from your disc first.",
@@ -50,7 +50,7 @@ export const RESET = {
   replaced: "Replaced",
   withEdits: "Also delete my own edits and packs",
   cancel: "Cancel",
-  confirmLevels: "Read the game's levels again",
+  confirmLevels: "Repair the game's levels",
   confirmEditor: "Delete",
   working: "Deleting…",
   previewFailed:
@@ -60,7 +60,7 @@ export const RESET = {
   failed:
     "Some files could not be deleted. Close OpenRAC Editor and any window showing them, then try again.",
   levelsStopped: "Reading the levels stopped. The activity log says why.",
-  levelsDone: "The levels were read again from your disc.",
+  levelsDone: "The game's levels were repaired from your disc.",
   reading: "Reading the levels from your disc…",
 } as const;
 

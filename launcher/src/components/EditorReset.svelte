@@ -1,12 +1,12 @@
 <script lang="ts">
   // The Level editor tab's resets, rows of the panel's Your levels section, each a button that
   // asks first, in a dialog that lists what goes, with its size, and what stays.
-  // - Read the game's levels again: the game's copy of the levels (and the lighting baked from
+  // - Repair the game's levels: the game's copy of the levels (and the lighting baked from
   //   them) goes, then is read from the disc at once, as a job like any other (Activity shows it).
   // - Delete the level project: the level projects and the exported models and textures go; with
   //   the tick box, unticked at first, the player's own packed levels, edits and packs too. Opening
   //   a level afterwards reads fresh copies from the disc.
-  // The panel's own rows (`rows`) come first in the same list, and Export the levels again asks
+  // The panel's own rows (`rows`) come first in the same list, and Rebuild your level projects asks
   // here too (`exportAgain`, askExport), in the same kind of dialog: what is replaced, what is kept.
   // The folders are chosen and checked by the core (core/src/reset.rs); this page sends the version
   // and the choice, never a path. Neither runs while the game or a job does. The words are
@@ -48,7 +48,7 @@
     onchanged?: () => void;
     bare?: boolean;
     rows?: Snippet;
-    /** Export the levels again: whether this game's changes are carried over, and the step itself. */
+    /** Rebuild your level projects: whether this game's changes are carried over, and the step itself. */
     exportAgain?: { carries: boolean; run: () => void };
   } = $props();
 

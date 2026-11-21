@@ -158,7 +158,7 @@ export function editorStage(input: FlowInput): Stage {
         ...base,
         kind: "updating",
         tone: "busy",
-        title: "Exporting the levels again…",
+        title: "Rebuilding your level projects…",
         line: "Backing up your levels, reading fresh ones from your disc and carrying your changes over.",
         primary: null,
       };
@@ -349,32 +349,34 @@ export const LEVELS_SECTION = "Your levels";
 
 /** The panel's own rows of the section; the resets' rows (read the game's levels again, delete the
  *  level project) are EditorReset.svelte's and follow them. */
-export type LevelTool = "pack-again" | "export-again";
+export type LevelTool = "new-planet" | "export-again";
 
 export const LEVEL_TOOL_TEXT = {
-  "pack-again": {
-    title: "Pack again",
-    line: "Packs what you saved in OpenRAC Editor now, even if the launcher saw no change. Your levels stay as they are.",
-    button: "Pack again",
+  "new-planet": {
+    title: "Add a level as a new planet",
+    line: "Puts the level you pick in the game as an extra planet the ship can fly to; the original stays. Name it in OpenRAC Editor first (Project Settings, OpenRAC, Planet).",
+    button: "Add planet",
   },
   "export-again": {
-    title: "Export the levels again",
-    line: "Reads every level from your disc into OpenRAC Editor again. The ones there go to a backup first, and your changes are carried over.",
-    button: "Export again…",
+    title: "Rebuild your level projects",
+    line: "When a level will not open or pack in OpenRAC Editor. Makes them again from your disc and puts your changes back; a backup is kept.",
+    button: "Rebuild…",
   },
 } as const;
 
-/** The panel's own rows: Pack again where packing is offered and there is a project, Export the
- *  levels again wherever levels have been read. The resets (read the game's levels, delete) follow. */
+/** The panel's own rows, before the resets (repair the game's levels, delete): Add a level as a
+ *  new planet where the editor offers it, Rebuild your level projects wherever levels have been
+ *  read. Packing is the panel's main step, so it has no row of its own. */
 export function levelTools(
   state: EditorState | null,
   early: boolean,
   discFound: boolean,
+  planet = false,
 ): LevelTool[] {
   const project = (state?.levels.length ?? 0) > 0;
   const tools: LevelTool[] = [];
 
-  if (project && !early) tools.push("pack-again");
+  if (project && !early && planet && discFound) tools.push("new-planet");
   if (project && discFound) tools.push("export-again");
 
   return tools;
@@ -382,7 +384,7 @@ export function levelTools(
 
 /** The export-again confirmation: what is replaced, and what is kept. */
 export const EXPORT_AGAIN = {
-  title: "Export the levels again",
+  title: "Rebuild your level projects",
   replaced:
     "Every level's project is written again from your disc. The ones there now are moved to a backup folder first, with your changes in them.",
   carried:
@@ -390,6 +392,6 @@ export const EXPORT_AGAIN = {
   carriedLater: "This game's changes are not carried over yet: redo them from the backup folder.",
   kept: "Your packed levels, imported edits and packs, the game's copy of the levels and your saves.",
   closeEditor: "Close OpenRAC Editor first if a level is open in it.",
-  confirm: "Export again",
+  confirm: "Rebuild",
   cancel: "Cancel",
 } as const;

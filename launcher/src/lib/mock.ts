@@ -217,7 +217,7 @@ function editorActions(key: string): RawAction[] {
     {
       ...base,
       id: "editor-reexport",
-      label: "Export the levels again",
+      label: "Rebuild your level projects",
       program: "{python}",
       requires: ["disc", "python", "editor"],
     },
@@ -257,6 +257,14 @@ function editorActions(key: string): RawAction[] {
       program: "{python}",
       requires: ["disc", "python", "artifact"],
       artifact: `${projects}/level_00/project.godot`,
+    });
+    list.push({
+      ...base,
+      id: "editor-new-planet",
+      label: "Add as a new planet",
+      program: "{python}",
+      requires: ["disc", "python", "artifact", "editor"],
+      artifact: `${projects}/level_{level}/project.godot`,
     });
   }
 

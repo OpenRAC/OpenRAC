@@ -1,8 +1,8 @@
 <script lang="ts">
   // The Level editor tab's one panel: where the player is with this disc's levels, in a sentence,
   // and the step that comes next as the main button (Open in OpenRAC Editor beside it where it applies), how
-  // far along a running step is, and under it Your levels, always in view: pack again, export the
-  // levels again, read the game's levels again and delete the level project. The state is the core's look at the editor's folders
+  // far along a running step is, and under it Your levels, always in view: add a level as a new
+  // planet, rebuild the level projects, repair the game's levels and delete the level projects. The state is the core's look at the editor's folders
   // (core/src/editor_state.rs), asked again when the tab opens, when the window comes back into
   // focus (the player saved in the editor) and when one of the editor's jobs ends; the words and the
   // order of the states are lib/editorFlow.ts's. A failed step is said in a player's words
@@ -25,6 +25,7 @@
     editorStage,
     LEVEL_TOOL_TEXT,
     LEVELS_SECTION,
+    type LevelTool,
     levelTools,
     OPEN_ANYWAY,
     OPEN_ANYWAY_HINT,
@@ -56,6 +57,7 @@
   const reexport = $derived(action("editor-reexport"));
   const edit = $derived(action("editor-open"));
   const pack = $derived(action("editor-pack"));
+  const newPlanet = $derived(action("editor-new-planet"));
   const early = $derived(!pack);
   /** Null when OpenRAC Editor is downloaded and fits this OpenRAC; else why not ("" when it is not
    *  downloaded): the panel then offers the download. */
@@ -346,7 +348,27 @@
 
   let levelsHeading = $state<HTMLHeadingElement | null>(null);
   let resets = $state<ReturnType<typeof EditorReset> | null>(null);
-  const tools = $derived(levelTools(unreadable ? null : found, early, discFound));
+  const tools = $derived(
+    levelTools(unreadable ? null : found, early, discFound, !!newPlanet && lacksEditor === null),
+  );
+  /** The level Add as a new planet packs: one of the project's levels, the picked one first. */
+  let planetPicked = $state<number | null>(null);
+  const planetLevels = $derived(found?.levels ?? []);
+  const planetLevel = $derived(
+    planetPicked ?? (planetLevels.includes(level) ? level : (planetLevels[0] ?? level)),
+  );
+  let addingPlanet = $state(false);
+
+  async function addPlanet() {
+    if (!newPlanet || busy) return;
+    addingPlanet = true;
+
+    try {
+      if (await runChain(scope, [newPlanet], planetLevel)) onchanged?.();
+    } finally {
+      addingPlanet = false;
+    }
+  }
   /** The running step the bar is about: reading, exporting again or packing. */
   const working = $derived(extracting ?? packing);
 
@@ -365,13 +387,20 @@
   }
 
   /** The row's own step is running: its button turns. */
-  const running = (tool: "pack-again" | "export-again") =>
-    tool === "pack-again" ? packing !== null : extracting?.actionId === "editor-reexport";
-  const toolDisabled = (tool: "pack-again" | "export-again") =>
+  const running = (tool: LevelTool) =>
+    tool === "new-planet" ? addingPlanet : extracting?.actionId === "editor-reexport";
+  const toolDisabled = (tool: LevelTool) =>
     !!busy ||
     !!extracting ||
     !!packing ||
-    (tool === "pack-again" ? !pack?.runnable : !reexport?.runnable);
+    addingPlanet ||
+    (tool === "new-planet" ? !newPlanet : !reexport?.runnable);
+  const TOOL_ICON: Record<LevelTool, "globe" | "refresh"> = {
+    "new-planet": "globe",
+    "export-again": "refresh",
+  };
+  const takeTool = (tool: LevelTool) =>
+    tool === "new-planet" ? void addPlanet() : resets?.askExport();
 </script>
 
 <section class="panel flow" aria-labelledby="flow-title" aria-busy={stage.tone === "busy"}>
@@ -497,16 +526,26 @@
               <h3>{LEVEL_TOOL_TEXT[tool].title}</h3>
               <p class="muted">{LEVEL_TOOL_TEXT[tool].line}</p>
             </div>
-            <button
-              class="small"
-              disabled={toolDisabled(tool)}
-              onclick={() => (tool === "pack-again" ? void take("pack") : resets?.askExport())}
-            >
-              {#if running(tool)}<span class="spinner"></span>{:else}<Icon
-                  name={tool === "pack-again" ? "save" : "refresh"}
-                  size={14}
-                />{/if}{LEVEL_TOOL_TEXT[tool].button}
-            </button>
+            <div class="tool">
+              {#if tool === "new-planet" && planetLevels.length > 1}
+                <select
+                  aria-label={EDITOR.levelLabel}
+                  value={planetLevel}
+                  onchange={(e) => (planetPicked = Number(e.currentTarget.value))}
+                  disabled={toolDisabled(tool)}
+                >
+                  {#each planetLevels as n (n)}<option value={n}
+                      >{levelName(version.game, n)}</option
+                    >{/each}
+                </select>
+              {/if}
+              <button class="small" disabled={toolDisabled(tool)} onclick={() => takeTool(tool)}>
+                {#if running(tool)}<span class="spinner"></span>{:else}<Icon
+                    name={TOOL_ICON[tool]}
+                    size={14}
+                  />{/if}{LEVEL_TOOL_TEXT[tool].button}
+              </button>
+            </div>
           </li>
         {/each}
       {/snippet}
@@ -705,6 +744,22 @@
   .actions select:focus-visible {
     outline: 2px solid var(--amber);
     outline-offset: 2px;
+  }
+
+  .tool {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .tool select {
+    font: inherit;
+    font-size: 0.8125rem;
+    background: var(--control);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 5px 10px;
   }
 
   .levels {

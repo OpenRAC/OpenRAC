@@ -176,20 +176,21 @@ describe("the update's note", () => {
 });
 
 describe("Your levels", () => {
-  it("offers Pack again and Export the levels again once levels are read", () => {
-    expect(levelTools(state(), false, true)).toEqual(["pack-again", "export-again"]);
+  it("offers a new planet and Rebuild once levels are read", () => {
+    expect(levelTools(state(), false, true)).toEqual(["export-again"]);
     expect(levelTools(state({ levels: [] }), false, true)).toEqual([]);
     expect(levelTools(null, false, true)).toEqual([]);
-    // A game whose levels are not packed back packs nothing; without the disc nothing can be read again.
-    expect(levelTools(state(), true, true)).toEqual(["export-again"]);
-    expect(levelTools(state(), false, false)).toEqual(["pack-again"]);
+    expect(levelTools(state(), false, true, true)).toEqual(["new-planet", "export-again"]);
+    // Early access: no planets yet; no disc: nothing to rebuild from.
+    expect(levelTools(state(), true, true, true)).toEqual(["export-again"]);
+    expect(levelTools(state(), false, false, true)).toEqual([]);
   });
 
-  it("says an export again while it runs", () => {
+  it("says a rebuild while it runs", () => {
     const s = editorStage(input({ extracting: job("editor-reexport") }));
 
     expect(s.kind).toBe("updating");
-    expect(s.title).toBe("Exporting the levels again…");
+    expect(s.title).toBe("Rebuilding your level projects…");
     expect(s.primary).toBeNull();
   });
 });
