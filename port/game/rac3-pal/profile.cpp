@@ -83,6 +83,13 @@ constexpr std::uint32_t kBackground = 0x25C;
 struct Release {
     Addresses boot;
     Addresses levels[56];  // PAL's 1-53, NTSC-U's 1-55
+    // The shadows' four directions (shadow_directions): Veldin's copy and the multiplayer maps'.
+    std::uint32_t veldin_shadow_directions;
+    std::uint32_t multiplayer_shadow_directions;
+    // Veldin's scenery matrices and records (scenery_matrices).
+    std::array<std::uint32_t, 4> scenery_matrices;
+    // The block the game draws its frame in (draw_buffer_block), 0 to follow the display.
+    std::uint32_t draw_buffer_block;
 };
 
 constexpr int kFrontbinOverlay = 100;
@@ -90,8 +97,6 @@ constexpr int kFrontbinOverlay = 100;
 // The multiplayer maps (39 to 53) carry MobyProc's copy of their own, written with level 39's
 // addresses; the single-player levels' are Veldin's.
 constexpr int kFirstMultiplayer = 39;
-constexpr std::uint32_t kVeldinShadowDirections = 0x001E0070;
-constexpr std::uint32_t kMultiplayerShadowDirections = 0x002935A0;
 
 // PAL's (SCES-52456).
 // clang-format off
@@ -153,6 +158,10 @@ constexpr Release kPal{
     {0x00249FA0, 0x00259940, 0x00248564, 0x00248560, 0},  // 52
     {0x00249E20, 0x002597C0, 0x002483E4, 0x002483E0, 0},  // 53
     },
+    0x001E0070,
+    0x002935A0,
+    {0x001E0EDC, 0x001E0DD0, 0x001E0ED4, 0x001E0DC8},
+    0x1E00,
 };
 // clang-format on
 
@@ -425,7 +434,7 @@ public:
     // square and copied into the picture's middle, and what spans the whole window in a picture
     // wider than 4:3 (the clears, the menu's darkening, the background's sides) stopped at its
     // edges.
-    std::uint32_t draw_buffer_block() const override { return 0x1E00; }
+    std::uint32_t draw_buffer_block() const override { return release_.draw_buffer_block; }
 
     // Going Commando's: the frames at +0x40, the sequences at +0x42, the keys at +0x58 and the
     // pose layer link at +0x50 (structs/moby.h; MobyProc reads them there).
@@ -452,12 +461,14 @@ public:
     std::uint32_t shadow_directions() const override {
         const int program = openrac_guest_overlay();
         if (program >= kFirstMultiplayer && program < static_cast<int>(std::size(kPal.levels))) {
-            return openrac_relocate_level_data(kFirstMultiplayer, kMultiplayerShadowDirections);
+            return openrac_relocate_level_data(
+                kFirstMultiplayer, release_.multiplayer_shadow_directions
+            );
         }
         if (program >= 1 && program < kFirstMultiplayer) {
-            return openrac_relocate_level_data(1, kVeldinShadowDirections);
+            return openrac_relocate_level_data(1, release_.veldin_shadow_directions);
         }
-        return kVeldinShadowDirections;  // no level: the window reads none
+        return release_.veldin_shadow_directions;  // no level: the window reads none
     }
 
     bool shadow_slab_on_up_axis() const override { return true; }
@@ -487,7 +498,7 @@ public:
     // cap at gp + 0x4528; TieProc's cap, gp + 0x4664, is 0x40 past the records' word, not 0x48.
     // The scenery the window draws is culled by them as the game's draw distance says.
     std::array<std::uint32_t, 4> scenery_matrices() const override {
-        return {0x001E0EDC, 0x001E0DD0, 0x001E0ED4, 0x001E0DC8};
+        return release_.scenery_matrices;
     }
 
     int scenery_matrices_level() const override { return 1; }
@@ -578,6 +589,10 @@ constexpr Release kUs{
     {0x00249FE0, 0x00259980, 0x002485E4, 0x002485E0, 0},  // 54 (44 linked 0x11000 higher, its data where 44 has it, as 50-53 are 40-43)
     {0x00249FA0, 0x00259940, 0x00248564, 0x00248560, 0},  // 55 (45, as 54)
     },
+    0x001E00F0,
+    0x002936A0,
+    {0x001E0F5C, 0x001E0E50, 0x001E0F54, 0x001E0E48},
+    0x1E80,
 };
 // clang-format on
 
