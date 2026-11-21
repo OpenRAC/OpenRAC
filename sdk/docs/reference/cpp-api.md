@@ -223,6 +223,15 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool has_menu_look() const` | Since 1.28: whether the port has menu_look() (developer_menu_look). |
 | `bool menu_look(std::uint32_t action, std::uint32_t flags, const char* value = nullptr, float progress = -1.0f, const char* icon = nullptr) const` | Since 1.28: how the mod's tab row `action` looks besides its label: `flags` (OPENRAC_DEVELOPER_MENU_INFO, _LOCKED), text at its right (`value`, null or "" for none), a progress bar (0 to 1, negative for none) and an icon added with touch_icon (null or "" for none). Strings are copied. Only during load (after developer_menu) or from the tick boundary. Returns false when refused or the port has no such call. |
 | `bool menu_look_clear(std::uint32_t action) const` | Since 1.28: the row `action` a plain row again. The same times and results as menu_look(). |
+| `bool has_developer_menu() const` | Since 1.10: whether the port has a tab of the mod's own in OpenRAC's menu (developer_menu, take_developer_menu_action, developer_menu_set_label). |
+| `bool developer_menu( const char* title, const openrac_developer_menu_item* items, std::uint32_t count ) const` | Since 1.10: adds the tab `title` to OpenRAC's menu with `count` rows (copied). Only during load. Returns false when refused (a title or an action taken, a bad row) or the port has none. |
+| `std::uint32_t take_developer_menu_action() const` | Since 1.10: the next row the player chose in the mod's tab, 0 when none is queued. Call it from the tick boundary until it gives 0. |
+| `bool developer_menu_set_label(std::uint32_t action, const char* label) const` | Since 1.10: the row `action`'s label, copied. False when refused or the port has none. |
+| `bool has_presentation() const` | Since 1.22: whether the port has moby_visuals(), guest_text(), sprite_tint() and pickup_animation(). |
+| `bool moby_visuals(const openrac_moby_visual* visuals, int count) const` | Since 1.22: the mod's render-only moby looks for this level load (`count` 0 clears them). False for bad input or a port without it. |
+| `gaddr guest_text(const char* text) const` | Since 1.22: a lasting copy of `text` (UTF-8) in game memory, for a text hook to return; 0 at the limit or on a port without it. |
+| `std::uint32_t sprite_tint(std::uint32_t rgb) const` | Since 1.22: tints the game's UI sprites `rgb` (0 to 128 a channel; UINT32_MAX: off) and returns the tint before, to set back before the draw hook returns. UINT32_MAX on a port without it. |
+| `int pickup_animation(int kind, int item) const` | Since 1.22: plays a pickup's presentation (openrac_mod.h says each `kind`); 1 while it plays, 0 for none or done, -1 busy. 0 on a port without it. |
 | `template <class F> void on_tick_boundary(F&& callable)` | Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here. Since 1.6; only during load. |
 | `bool has_savestates() const` | Since 1.6: returns whether the port offers tick-boundary and warm-snapshot calls. |
 | `std::size_t savestate_size() const` | The exact size of this build's warm, same-process snapshot. Since 1.6. |

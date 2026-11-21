@@ -1140,6 +1140,68 @@ public:
              m_api->developer_menu_look(m_handle, action, nullptr) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.10: whether the port has a tab of the mod's own in OpenRAC's menu (developer_menu,
+    // take_developer_menu_action, developer_menu_set_label).
+    bool has_developer_menu() const {
+        return m_api->api_minor >= 10
+               && m_api->size >= offsetof(openrac_api, developer_menu_set_label) + sizeof(void*);
+    }
+
+    // Since 1.10: adds the tab `title` to OpenRAC's menu with `count` rows (copied). Only during
+    // load. Returns false when refused (a title or an action taken, a bad row) or the port has
+    // none.
+    bool developer_menu(
+        const char* title, const openrac_developer_menu_item* items, std::uint32_t count
+    ) const {
+        return has_developer_menu()
+               && m_api->developer_menu(m_handle, title, items, count) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.10: the next row the player chose in the mod's tab, 0 when none is queued. Call it
+    // from the tick boundary until it gives 0.
+    std::uint32_t take_developer_menu_action() const {
+        return has_developer_menu() ? m_api->take_developer_menu_action(m_handle) : 0;
+    }
+
+    // Since 1.10: the row `action`'s label, copied. False when refused or the port has none.
+    bool developer_menu_set_label(std::uint32_t action, const char* label) const {
+        return has_developer_menu()
+               && m_api->developer_menu_set_label(m_handle, action, label) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.22: whether the port has moby_visuals(), guest_text(), sprite_tint() and
+    // pickup_animation().
+    bool has_presentation() const {
+        return m_api->api_minor >= 22
+               && m_api->size >= offsetof(openrac_api, pickup_animation) + sizeof(void*);
+    }
+
+    // Since 1.22: the mod's render-only moby looks for this level load (`count` 0 clears them).
+    // False for bad input or a port without it.
+    bool moby_visuals(const openrac_moby_visual* visuals, int count) const {
+        return has_presentation()
+               && m_api->moby_visuals(m_handle, visuals, count) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.22: a lasting copy of `text` (UTF-8) in game memory, for a text hook to return;
+    // 0 at the limit or on a port without it.
+    gaddr guest_text(const char* text) const {
+        return has_presentation() ? m_api->guest_text(m_handle, text) : 0;
+    }
+
+    // Since 1.22: tints the game's UI sprites `rgb` (0 to 128 a channel; UINT32_MAX: off) and
+    // returns the tint before, to set back before the draw hook returns. UINT32_MAX on a port
+    // without it.
+    std::uint32_t sprite_tint(std::uint32_t rgb) const {
+        return has_presentation() ? m_api->sprite_tint(m_handle, rgb) : UINT32_MAX;
+    }
+
+    // Since 1.22: plays a pickup's presentation (openrac_mod.h says each `kind`); 1 while it plays,
+    // 0 for none or done, -1 busy. 0 on a port without it.
+    int pickup_animation(int kind, int item) const {
+        return has_presentation() ? m_api->pickup_animation(m_handle, kind, item) : 0;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>
