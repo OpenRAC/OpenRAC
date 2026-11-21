@@ -35,10 +35,15 @@ struct EnvironmentStageInput {
     std::span<const ProbeVolume>
         verified_field{};  // Optional completed density field, borrowed until return.
     std::filesystem::path overrides;
+    const bake_detail::SpatialPlacement* spatial = nullptr;
 };
 
 // Returns true when automatic placement completed without a safe capture.
 bool bake_level_environment(
     const EnvironmentStageInput& input, const BakeExecution& execution, std::ostream& log
+);
+// Refresh influence metadata using existing photographs and encoded radiance.
+void refresh_level_environment_coverage(
+    const std::filesystem::path& level, const std::filesystem::path& output
 );
 }  // namespace openrac::lighting

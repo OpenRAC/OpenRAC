@@ -34,6 +34,10 @@ std::vector<EnvironmentFloorSample> connected_room_floors(
 );
 
 struct RoomLayout {
+    bool medial_water_footprint = false;  // Debug centreline of the authored swimming mask.
+    // When present, retain only field nodes reached from these trusted collision-floor sources.
+    // Generated swimming anchors are placement evidence, not gameplay entry points.
+    std::optional<std::vector<unsigned>> medial_roots;
     std::vector<unsigned> owners;
     std::vector<float> clearance;
     std::vector<Float2>
@@ -41,15 +45,25 @@ struct RoomLayout {
     std::vector<float> ceilings;        // Confirmed enclosed ceilings; infinity outdoors.
     std::vector<Float3> medial_points;  // Subcell ridge positions on supported floors.
     std::vector<unsigned> medial_owners;
+    std::vector<float>
+        medial_display_offsets;  // Optional debug lift per point; floor default 1.25.
     float medial_cell_size = 1;
     unsigned medial_ridge_samples = 0;
     std::vector<std::array<unsigned, 2>> medial_edges;  // Indices into medial_points.
-    std::vector<unsigned> medial_centres;  // One seed for each connected floor component.
+    std::vector<unsigned>
+        medial_centres;  // Reachable centres of open areas and passage destinations.
+    std::vector<unsigned> medial_entrances;  // Field vertices on checked entrance routes.
     std::vector<RoomLink> links;
     void rebuild_medial(
         const Scene& scene,
         std::span<const EnvironmentFloorSample> floors,
         const BakeSettings& settings
+    );
+    void rebuild_medial(
+        const BakeScene& scene,
+        std::span<const EnvironmentFloorSample> floors,
+        const BakeSettings& settings,
+        unsigned threads = 1
     );
     std::vector<std::vector<unsigned>> rooms;
     unsigned centre(std::span<const EnvironmentFloorSample> floors, unsigned room) const;
@@ -62,6 +76,14 @@ struct RoomLayout {
     ) const;
 };
 
+// Absorb small adjoining basins while retaining medium boundaries and real bottlenecks.
+void merge_small_watershed_regions(
+    std::span<const EnvironmentFloorSample> floors,
+    RoomLayout& layout,
+    const Scene* scene = nullptr,
+    const BakeSettings& settings = {}
+);
+
 // Add directed airborne edges between walking components without merging their lighting spaces.
 void connect_room_links(
     RoomLayout& layout,
@@ -71,7 +93,11 @@ void connect_room_links(
 );
 
 RoomLayout prepare_room_layout(
-    const Scene& scene, std::vector<EnvironmentFloorSample>& floors, const BakeSettings& settings
+    const BakeScene& scene,
+    std::vector<EnvironmentFloorSample>& floors,
+    const BakeSettings& settings,
+    unsigned threads = 0,
+    const BakeScene* gameplay_collision = nullptr
 );
 
 ProbeGrid fit_room_grid(
@@ -82,6 +108,21 @@ ProbeGrid fit_room_grid(
     bool refine_corridors = false
 );
 
+struct CoverageProbeGrid {
+    std::vector<unsigned> islands;
+    ProbeGrid grid;
+};
+
+// Search recentered yaw/pitch allocations against padded probe costs; refit budget-sized splits.
+std::vector<CoverageProbeGrid> coverage_probe_grids(
+    const ProbeGrid& prototype,
+    std::span<const EnvironmentFloorSample> floors,
+    const RoomLayout& layout,
+    Float3 spacing,
+    unsigned maximum_probes = 4096,
+    unsigned maximum_grids = 1024
+);
+
 // Floor edges already establish collision walkability. Render geometry supplies wall clearance;
 // floor height and authored transitions remain hard cuts, while local GI/sky noise does not.
 RoomLayout room_layout(
@@ -89,6 +130,7 @@ RoomLayout room_layout(
     std::span<const EnvironmentFloorSample> floors,
     const BakeSettings& settings,
     bool build_medial = true,
-    bool split_doorways = false
+    bool reflection_watershed = false,
+    const Scene* receiver_collision = nullptr
 );
 }  // namespace openrac::lighting::bake_detail

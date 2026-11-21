@@ -9,6 +9,6 @@
 namespace openrac::lighting {
 // White position markers and cyan outer influence/parallax boxes from the actual asset metadata.
 std::vector<DebugLineVertex> environment_probe_debug_vertices(
-    std::span<const EnvironmentProbe> probes
+    std::span<const EnvironmentProbe> probes, std::span<const EnvironmentInfluence> influences = {}
 );
 }  // namespace openrac::lighting

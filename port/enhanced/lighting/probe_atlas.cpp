@@ -98,11 +98,17 @@ void pack_planes(
         const Probe& probe = v.probes[p];
         // Validity and individual relocation share the existing half-float metadata channel.
         const float status = probe_status(probe);
+        auto local_offset = v.grid.frame.to_local(probe.offset);
+        for (auto& component : local_offset) {
+            // A frame round trip can leave numerical dust on an exactly zero axis.
+            if (std::abs(component) < 1e-6f) {
+                component = 0;
+            }
+        }
         // XYZ offsets precede the shared validity/relocation component in RGBA16F metadata.
         for (unsigned c = 0; c < 4; ++c) {
-            std::uint32_t value = float_encoding::pack_small_float(
-                c < 3 ? v.grid.frame.to_local(probe.offset)[c] : status, 10, true
-            );
+            std::uint32_t value =
+                float_encoding::pack_small_float(c < 3 ? local_offset[c] : status, 10, true);
             // Half rounding must not move a relocated probe past its cell limit.
             if (c < 3 && std::abs(unpack(value, 10, true)) > v.grid.spacing[c] * 0.45f) {
                 --value;

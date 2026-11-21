@@ -24,6 +24,7 @@ sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / 
 from openrac_common import digest, files as file_ops, paths  # noqa: E402
 
 ROOT = paths.repo_root(__file__)
+DEFAULT_BAKER = ROOT/'port/build/release'/('openrac-enhanced-baker.exe' if os.name == 'nt' else 'openrac-enhanced-baker')
 
 
 def transitions(gameplay: bytes) -> list[dict]:
@@ -135,13 +136,19 @@ def plan_regions(records: list[dict], coarse: dict, spacing: float = 4, padding:
     return regions, skipped
 
 
-def coarse_header(path: Path) -> dict:
+def coarse_header(path: Path, baker: Path = DEFAULT_BAKER) -> dict:
     # Only metadata is read here. The baker's --verify performs full asset,
     # scene/settings and payload validation before the optional batch bake.
     with path.open('rb') as source:
         header = source.read(256)
+    if header.startswith(b'\x04\x22\x4d\x18'):
+        # Use the baker's bounded LZ4 reader for launcher-compressed assets.
+        header = bytes.fromhex(subprocess.check_output(
+            [str(baker.resolve()), '--probe-header-bytes', str(path.resolve())], text=True))
+    if len(header) < 16:
+        raise ValueError("truncated sparse asset header")
     magic, version = struct.unpack_from('<2I', header)
-    if magic != 0x5047524f or version not in (6, 7, 8):
+    if magic != 0x5047524f or version not in (6, 7, 8, 9, 10):
         raise ValueError("unsupported sparse asset header")
     bake_version = struct.unpack_from('<I', header, 8)[0]
     name_at = 16
@@ -149,11 +156,15 @@ def coarse_header(path: Path) -> dict:
     if bake_version != 5 or not 1 <= size <= 64:
         raise ValueError("unsupported sparse asset header")
     at = name_at + size
+    # Pitch was added in format 9, and roll in format 10. Each is a float pair.
+    spacing_at = at + 40 + 8 * (version >= 9) + 8 * (version >= 10)
+    if len(header) < spacing_at + 32:
+        raise ValueError("truncated sparse asset header")
     level, = struct.unpack_from('<I', header, at)
     origin = list(struct.unpack_from('<3f', header, at + 20))
-    spacing = list(struct.unpack_from('<3f', header, at + 40))
-    dimensions = list(struct.unpack_from('<3I', header, at + 52))
-    maximum, = struct.unpack_from('<f', header, at + 68)
+    spacing = list(struct.unpack_from('<3f', header, spacing_at))
+    dimensions = list(struct.unpack_from('<3I', header, spacing_at + 12))
+    maximum, = struct.unpack_from('<f', header, spacing_at + 28)
     return {
         'game_version': header[name_at:name_at + size].decode('ascii'),
         'level': level,
@@ -323,11 +334,10 @@ def main() -> None:
                         help='activate verified replacement bakes, saving the previous registry in the new output directory')
     parser.add_argument('--bake', action='store_true')
     parser.add_argument('--threads', type=int, default=0, help='CPU bake threads; 0 uses all, 1 is serial')
-    parser.add_argument('--baker', type=Path,
-                        default=ROOT/'port/build/release'/('openrac-enhanced-baker.exe' if os.name == 'nt' else 'openrac-enhanced-baker'))
+    parser.add_argument('--baker', type=Path, default=DEFAULT_BAKER)
     args = parser.parse_args()
     manifest = json.loads((args.level_dir/'manifest.json').read_text())
-    coarse = coarse_header(args.coarse)
+    coarse = coarse_header(args.coarse, args.baker)
     gameplay = read_gameplay(args.level_dir, manifest, args.disc)
     profile = json.loads(subprocess.check_output(
         [str(args.baker.resolve()), '--level-dir', str(args.level_dir.resolve()), '--print-profile'], text=True))

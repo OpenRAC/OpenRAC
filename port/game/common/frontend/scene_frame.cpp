@@ -38,14 +38,19 @@
 #include "scene/moby_pose.h"
 
 namespace openrac::frontend {
+
+bool SceneRenderState::enhanced_graphics_available() const {
+    return gl::enhanced_rendering_available() && scene.probe_data_available();
+}
+
 namespace {
 
 // Creates or resets temporal history for the submitted graphics settings.
 bool prepare_temporal(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     const auto& graphics = frame.graphics;
-    const bool temporal_wanted = enhanced_graphics_available() && graphics.enhanced_graphics
+    const bool temporal_wanted = owner.enhanced_graphics_available() && graphics.enhanced_graphics
                                  && (graphics.temporal_quality != renderer::TemporalQuality::Off
                                      || (graphics.motion_blur && graphics.motion_blur_strength > 0))
                                  && enhanced::Fsr3::available() && scene.has_camera
@@ -60,7 +65,7 @@ bool prepare_temporal(SceneFrame& frame) {
             if (g) {
                 // Cleanup still retires temporal history after a reported worker error.
                 [[maybe_unused]] const bool finished = finish_render();
-                g->temporal.reset();
+                g->render.temporal.reset();
             }
         });
     } else if (!temporal_wanted && owner.temporal) {
@@ -157,7 +162,7 @@ float prepare_target(SceneFrame& frame) {
     constexpr int kNativeRenderScale = 100;  // Percent of the output picture.
     int render_scale = graphics.render_scale;
     // Cap the enhanced render target while preserving the player's scale setting.
-    if (graphics.enhanced_graphics && enhanced_graphics_available()) {
+    if (graphics.enhanced_graphics && frame.owner.enhanced_graphics_available()) {
         render_scale = std::min(render_scale, kNativeRenderScale);
     }
     frame_size(output.box.width, output.box.height, render_scale, output.width, output.height);
@@ -180,7 +185,7 @@ float prepare_target(SceneFrame& frame) {
 
 // Applies the submitted settings and authored shadow state.
 void set_lighting(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     const auto& graphics = frame.graphics;
     auto& input = frame.input;
@@ -193,7 +198,7 @@ void set_lighting(SceneFrame& frame) {
         owner.renderer->textures().set_anisotropy(static_cast<float>(anisotropy));
     }
 
-    const bool enhanced = enhanced_graphics_available() && graphics.enhanced_graphics;
+    const bool enhanced = owner.enhanced_graphics_available() && graphics.enhanced_graphics;
     std::vector<renderer::PointEmitter> emitters;
     const auto& orb_light = graphics.nanotech_light;
     if (enhanced && orb_light.enabled && orb_light.brightness > 0.0f) {
@@ -256,7 +261,7 @@ void set_lighting(SceneFrame& frame) {
 
 // Enables submitted world buckets while retaining native HUD drawing during loading.
 void set_buckets(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     const bool has_camera = frame.has_camera;
     static const bool& opaque_effects_off = stats::probe(
@@ -287,7 +292,10 @@ void set_buckets(SceneFrame& frame) {
 // first frame of each run of refused ones is logged (a few runs a session), with the camera's
 // numbers, so that a report carries them.
 std::optional<renderer::Camera> guard_camera(
-    State& owner, const host::GameState& state, const renderer::Camera& camera, std::uint64_t tick
+    SceneRenderState& owner,
+    const host::GameState& state,
+    const renderer::Camera& camera,
+    std::uint64_t tick
 ) {
     const CameraPose pose{state.camera_position, state.forward, state.left, state.up};
 
@@ -329,7 +337,7 @@ std::optional<renderer::Camera> guard_camera(
 
 // Configures visible buckets, the interpolated camera and probe selection.
 void set_camera(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     auto& input = frame.input;
     const float picture_scale = frame.picture_scale;
@@ -427,7 +435,7 @@ void set_camera(SceneFrame& frame) {
 // Records the submitted world and temporal resolve before native HUD drawing. Returns whether this
 // frame drew anew (a repeated frame keeps the picture drawn before).
 bool draw_world(SceneFrame& frame) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     const Kept& scene = frame.scene;
     const auto& graphics = frame.graphics;
     auto& input = frame.input;
@@ -452,16 +460,16 @@ bool draw_world(SceneFrame& frame) {
             }
         }
         renderer::RenderTarget target{owner.frame.id(), width, height, picture_scale};
-        if (graphics.enhanced_graphics && enhanced_graphics_available()) {
+        const bool enhanced = graphics.enhanced_graphics && owner.enhanced_graphics_available();
+        if (enhanced) {
             target.depth_texture = owner.frame.depth_texture();
         }
         target.resolve_framebuffer = owner.frame.resolve_target();
         target.resolves_itself = owner.frame.resolves_itself();
         target.wide_2d = picture_scale < 1.0f && graphics.hud == settings::Hud::Edges;
 
-        const bool enhanced_world_colour = graphics.enhanced_graphics
-                                           && enhanced_graphics_available() && scene.has_camera
-                                           && !input.keep_colour && (scene.draws & 0x1Fu) != 0;
+        const bool enhanced_world_colour =
+            enhanced && scene.has_camera && !input.keep_colour && (scene.draws & 0x1Fu) != 0;
         const bool bloom_colour =
             enhanced_world_colour && graphics.bloom.enabled && graphics.bloom.strength > 0.0f;
         const bool grade_colour = enhanced_world_colour && graphics.agx_preview;
@@ -552,7 +560,7 @@ bool draw_world(SceneFrame& frame) {
 }  // namespace
 
 void render_scene(
-    State& owner,
+    SceneRenderState& owner,
     const Kept& snapshot,
     const settings::Settings& graphics,
     FramePresentation& output,
@@ -560,7 +568,7 @@ void render_scene(
 ) {
     const crash::BreadcrumbScope breadcrumbs(output.source_frame);
     crash::breadcrumb("scene setup");
-    SceneFrame frame{owner, snapshot, graphics, output, {}, {}, {}, false, 1};
+    SceneFrame frame{owner, snapshot, graphics, output};
     frame.temporal = prepare_temporal(frame);
     {
         const profiling::Zone trace("Upload scene");
@@ -609,7 +617,7 @@ void render_scene(
     output.camera = frame.input.camera;
     output.has_camera = frame.has_camera;
     output.tick = frame.input.frame;
-    output.enhanced_graphics = graphics.enhanced_graphics && enhanced_graphics_available();
+    output.enhanced_graphics = graphics.enhanced_graphics && owner.enhanced_graphics_available();
     output.finished = std::chrono::steady_clock::now();
     output.scene_seconds = std::chrono::duration<double>(scene_done - output.started).count();
     output.record_seconds = std::chrono::duration<double>(recorded - scene_done).count();

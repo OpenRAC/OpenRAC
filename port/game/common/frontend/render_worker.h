@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <functional>
 #include <mutex>
+#include <optional>
+#include <source_location>
 #include <string>
 
 #include "common/joining_thread.h"
@@ -20,7 +22,7 @@ namespace openrac::frontend {
 // Jobs capture their scene data by value. finish() transfers graphics ownership back to the producer.
 class RenderWorker {
 public:
-    // Starts the worker with the producer's floating-point environment; startup errors reach the frontend's frame boundary.
+    // Starts the worker with the producer's floating-point environment.
     RenderWorker();
     // Finishes the last job, stops and joins before any captured graphics owners are destroyed.
     ~RenderWorker();
@@ -32,9 +34,12 @@ public:
     // Waits for an empty slot and transfers an owned job. `frame` correlates crash breadcrumbs;
     // -1 means unspecified. Returns false after a worker failure.
     [[nodiscard]] bool submit(
-        std::function<void()> job, std::string& error, std::int64_t frame = -1
+        std::function<void()> job,
+        std::string& error,
+        std::int64_t frame = -1,
+        std::source_location submitted_at = std::source_location::current()
     );
-    // Waits for completion, returning false with the caught exception's message on failure.
+    // Waits for completion, returning false with a diagnostic on failure.
     [[nodiscard]] bool finish(std::string& error);
     // Waits until completion or a pacing deadline, without consuming the completed job.
     [[nodiscard]] bool ready_until(std::chrono::steady_clock::time_point deadline);
@@ -46,9 +51,10 @@ private:
     std::condition_variable m_changed;  // Job arrival, completion or shutdown.
     std::function<void()> m_job;        // The queued job owns its snapshot.
     std::int64_t m_frame = -1;          // Frame of the queued job, guarded by m_mutex.
+    std::source_location m_submitted_at;
     bool m_busy = false;                // Includes queued and executing work.
     bool m_stopping = false;            // Set only after the final job completes.
-    std::string m_error;                // A worker failure, reported by finish/submit.
+    std::optional<std::string> m_failure;  // A worker failure, reported by finish/submit.
     const std::fenv_t
         m_environment;       // Producer's rounding and denormal mode, fixed before thread startup.
     JoiningThread m_thread;  // Joined before the handoff fields disappear.

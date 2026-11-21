@@ -636,6 +636,60 @@ void main(){colour=packUnorm4x8(textureLod(tex_T0,vec2(.5),1.0));}
     glDeleteTextures(1, &texture);
 }
 
+void test_single_mip_visibility_between_shader_stages() {
+    renderer::FrameBuffer source, target;
+    renderer::Shader shader;
+    std::string error;
+    CHECK(source.create_colour(1, 1, error));
+    CHECK(target.create_colour(1, 1, error));
+    CHECK(shader.build_compute(
+        "sample a previously exported colour",
+        R"(#version 430 core
+layout(local_size_x=1) in;
+uniform sampler2D tex_T0;
+layout(std430,binding=11) writeonly buffer Output {uint colour;};
+void main(){colour=packUnorm4x8(texelFetch(tex_T0,ivec2(0),0));}
+)",
+        error
+    ));
+    unsigned buffer = 0;
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, source.colour_texture());
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(unsigned), nullptr, GL_DYNAMIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, buffer);
+    shader.use();
+    clear_target(source, {1, 0, 0, 1});
+
+    vkgl::GraphExecution graphics;
+    const auto image = graphics.import_image("single-mip colour", source.colour_texture()).value();
+    graphics.add_pass(
+        {"export colour to fragment sampling",
+         {{image, {}, {graph::Stage::FragmentShader, graph::Access::Read, graph::Layout::Sampled}}},
+         {},
+         graph::PassKind::Export}
+    );
+    CHECK(graphics.run());
+
+    vkgl::GraphExecution compute;
+    const auto output =
+        compute.import_buffer("colour output", buffer, vkgl::InitialContents::Discard).value();
+    graph::Pass pass{"sample the same colour in compute"};
+    pass.execution = graph::Stage::ComputeShader;
+    pass.buffers.push_back(
+        {output,
+         {0, sizeof(unsigned)},
+         {pass.execution, graph::Access::Write, graph::Layout::Buffer}}
+    );
+    CHECK(compute.capture_compute_reads(pass));
+    compute.add_pass(std::move(pass));
+    CHECK(compute.run([](unsigned) { glDispatchCompute(1, 1, 1); }));
+    CHECK(vkgl::copy_buffer_to_texture(buffer, target.colour_texture(), 1, 1));
+    check_pixels(target, {255, 0, 0, 255});
+    glDeleteBuffers(1, &buffer);
+}
+
 void test_independent_image_barriers() {
     renderer::FrameBuffer sampled, copied;
     std::string error;
@@ -762,7 +816,7 @@ bool can_sample_colour(unsigned texture) {
     return static_cast<bool>(result);
 }
 
-void test_partial_copy_requires_partial_declaration() {
+void test_partial_copy_contents() {
     renderer::FrameBuffer source;
     std::string error;
     CHECK(source.create_colour(4, 4, error));
@@ -771,11 +825,22 @@ void test_partial_copy_requires_partial_declaration() {
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    const auto upload_full_image = [] {
+        constexpr std::array<std::uint8_t, 64> pixels{};
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 4, 4, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    };
 
-    for (const bool partial : {false, true}) {
+    for (const auto [partial, contents] :
+         {std::pair{false, vkgl::InitialContents::Preserve},
+          std::pair{true, vkgl::InitialContents::Preserve},
+          std::pair{true, vkgl::InitialContents::Discard}}) {
+        if (contents == vkgl::InitialContents::Discard) {
+            upload_full_image();
+            CHECK(can_sample_colour(texture));
+        }
         vkgl::GraphExecution execution;
         const auto from = execution.import_image("source", source.colour_texture()).value();
-        const auto to = execution.import_image("destination", texture).value();
+        const auto to = execution.import_image("destination", texture, contents).value();
         execution.add_pass(
             {"copy one texel",
              {{from,
@@ -799,7 +864,34 @@ void test_partial_copy_requires_partial_declaration() {
         }
         CHECK(!can_sample_colour(texture));
     }
+    upload_full_image();
+    CHECK(can_sample_colour(texture));
     glDeleteTextures(1, &texture);
+}
+
+void test_unreached_discard_preserves_contents() {
+    renderer::FrameBuffer target;
+    std::string error;
+    CHECK(target.create_colour(4, 4, error));
+    clear_target(target, {0, 0, 1, 1});
+
+    vkgl::GraphExecution execution;
+    const auto image =
+        execution
+            .import_image("later output", target.colour_texture(), vkgl::InitialContents::Discard)
+            .value();
+    execution.add_pass({"interrupted work"});
+    execution.add_pass(
+        {"overwrite later output",
+         {{image,
+           {},
+           {graph::Stage::Transfer, graph::Access::Write, graph::Layout::TransferDestination}}}}
+    );
+    const auto result =
+        execution.run([](unsigned) { throw std::runtime_error("interrupted before overwrite"); });
+    CHECK(!result && result.error().message == "interrupted before overwrite");
+    CHECK(can_sample_colour(target.colour_texture()));
+    check_pixels(target, {0, 0, 255, 255});
 }
 
 void test_indirect_requires_arguments() {
@@ -1161,6 +1253,7 @@ int main() {
         test_stencil_only_copy(1, true);
         test_stencil_only_copy(4, true);
         test_compute_mip_chain();
+        test_single_mip_visibility_between_shader_stages();
         test_independent_image_barriers();
         test_mip_state_between_scopes();
         test_packed_depth_stencil_state(1);
@@ -1171,7 +1264,8 @@ int main() {
         test_inactive_material_sampler();
         test_discarded_material_contents();
         test_external_view_copy();
-        test_partial_copy_requires_partial_declaration();
+        test_partial_copy_contents();
+        test_unreached_discard_preserves_contents();
         test_indirect_requires_arguments();
         CHECK(vkgl::submission_counters().validation_errors == 0);
         return test::result();

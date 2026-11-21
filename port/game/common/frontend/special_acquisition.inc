@@ -9,7 +9,7 @@ static void load_special_pickup_clips() {
     }
     namespace disc = assets::disc;
     namespace anim = assets::rac1;
-    const bool pal = g->game.ends_with("-pal");
+    const bool pal = g->render.game.ends_with("-pal");
     const float fps = pal ? 25.0f : 30.0f;
 
     struct Source {
@@ -64,11 +64,11 @@ static void load_special_pickup_clips() {
                         g->levels
                         / std::format("level_{:02d}/mobys/moby_{}.glb", source.level, klass);
                     std::string why;
-                    const auto loaded = scene::load_model(mesh, g->level, why);
+                    const auto loaded = scene::load_model(mesh, g->render.level, why);
                     if (!loaded) {
                         throw std::runtime_error(why);
                     }
-                    auto& model = g->level.models[*loaded];
+                    auto& model = g->render.level.models[*loaded];
                     if (source.item == 407 && klass == 692) {
                         // The original handoff shows the back of the disc from
                         // this camera. Turn its textured face toward the viewer
@@ -78,11 +78,11 @@ static void load_special_pickup_clips() {
                         std::set<std::uint32_t> vertices;
                         for (const auto& primitive : model.primitives) {
                             for (std::uint32_t i = 0; i < primitive.index_count; ++i) {
-                                vertices.insert(g->level.indices[primitive.first_index + i]);
+                                vertices.insert(g->render.level.indices[primitive.first_index + i]);
                             }
                         }
                         for (const auto index : vertices) {
-                            auto& vertex = g->level.vertices[index];
+                            auto& vertex = g->render.level.vertices[index];
                             vertex.position[0] = 2 * cx - vertex.position[0];
                             vertex.position[1] = 2 * cy - vertex.position[1];
                             vertex.normal[0] = -vertex.normal[0];
@@ -166,9 +166,9 @@ static void load_special_pickup_clips() {
                     clip.actors.push_back(std::move(track));
                 }
                 if (source.item == 407) {
-                    const auto& prop = g->level.models[clip.actors[1].model];
-                    auto material = g->level.materials[prop.primitives.front().material];
-                    auto image = g->level.images[material.image];
+                    const auto& prop = g->render.level.models[clip.actors[1].model];
+                    auto material = g->render.level.materials[prop.primitives.front().material];
+                    auto image = g->render.level.images[material.image];
                     int left = image.width, right = 0, top = image.height, bottom = 0;
                     for (int y = 0; y < image.height; ++y) {
                         for (int x = 0; x < image.width; ++x) {
@@ -185,16 +185,16 @@ static void load_special_pickup_clips() {
                             p[2] = std::max(p[2], green);
                         }
                     }
-                    material.image = int(g->level.images.size());
-                    g->level.image_paths.push_back("receiving_persuader_blue_swirl");
-                    g->level.image_animations.resize(g->level.images.size() + 1);
-                    g->level.translucent_images.push_back(false);
-                    g->level.images.push_back(std::move(image));
+                    material.image = int(g->render.level.images.size());
+                    g->render.level.image_paths.push_back("receiving_persuader_blue_swirl");
+                    g->render.level.image_animations.resize(g->render.level.images.size() + 1);
+                    g->render.level.translucent_images.push_back(false);
+                    g->render.level.images.push_back(std::move(image));
                     material.emission = {0, 0, 0};
                     material.authored_emission = false;
-                    const int surface = int(g->level.materials.size());
-                    g->level.materials.push_back(material);
-                    const auto& texture = g->level.images[material.image];
+                    const int surface = int(g->render.level.materials.size());
+                    g->render.level.materials.push_back(material);
+                    const auto& texture = g->render.level.images[material.image];
                     const float u = (left + right + 1) * .5f / texture.width,
                                 v = (top + bottom + 1) * .5f / texture.height;
                     const float ur = (right - left + 1) * .5f / texture.width,
@@ -204,7 +204,8 @@ static void load_special_pickup_clips() {
                     };
                     const float radius = (prop.max[2] - prop.min[2]) * .42f;
                     auto prototype =
-                        g->level.vertices[g->level.indices[prop.primitives.front().first_index]];
+                        g->render.level
+                            .vertices[g->render.level.indices[prop.primitives.front().first_index]];
                     scene::Model disc;
                     disc.name = "receiving_persuader_swirl";
                     disc.bones = prop.bones;
@@ -213,8 +214,8 @@ static void load_special_pickup_clips() {
                     disc.max = prop.max;
                     scene::Primitive primitive;
                     primitive.material = surface;
-                    primitive.first_index = std::uint32_t(g->level.indices.size());
-                    const auto first = std::uint32_t(g->level.vertices.size());
+                    primitive.first_index = std::uint32_t(g->render.level.indices.size());
+                    const auto first = std::uint32_t(g->render.level.vertices.size());
                     for (int side = 0; side < 2; ++side) {
                         for (int i = 0; i <= 32; ++i) {
                             const float angle = i ? float(i - 1) * 6.2831853f / 32 : 0;
@@ -227,7 +228,7 @@ static void load_special_pickup_clips() {
                             vertex.normal[1] = vertex.normal[2] = 0;
                             vertex.uv[0] = u + ur * y;
                             vertex.uv[1] = v - vr * z;
-                            g->level.vertices.push_back(vertex);
+                            g->render.level.vertices.push_back(vertex);
                         }
                     }
                     for (unsigned side = 0; side < 2; ++side) {
@@ -235,15 +236,15 @@ static void load_special_pickup_clips() {
                             const auto start = first + side * 33;
                             const std::uint32_t a = start + 1 + i, b = start + 1 + (i + 1) % 32;
                             for (auto index : {start, a, b, start, b, a}) {
-                                g->level.indices.push_back(index);
+                                g->render.level.indices.push_back(index);
                             }
                         }
                     }
                     primitive.index_count = 384;
                     disc.primitives.push_back(primitive);
                     auto swirl = clip.actors[1];
-                    swirl.model = std::uint32_t(g->level.models.size());
-                    g->level.models.push_back(std::move(disc));
+                    swirl.model = std::uint32_t(g->render.level.models.size());
+                    g->render.level.models.push_back(std::move(disc));
                     for (std::size_t i = 0; i < swirl.frames.size(); ++i) {
                         auto rotation = renderer::identity();
                         const float a = float(i) / fps * 3;
@@ -266,10 +267,10 @@ static void load_special_pickup_clips() {
                 clip.origin = clip.actors.front().frames.front().position;
                 const auto& hero = clip.actors.front();
                 if (!hero.frames.front().pose.empty()
-                    && !g->level.models[hero.model].bones.empty()) {
+                    && !g->render.level.models[hero.model].bones.empty()) {
                     const auto root = renderer::multiply(
                         hero.frames.front().pose.front(),
-                        g->level.models[hero.model].bones.front().bind
+                        g->render.level.models[hero.model].bones.front().bind
                     );
                     clip.yaw = std::atan2(root[1], root[0]);
                     auto orientation = renderer::identity();

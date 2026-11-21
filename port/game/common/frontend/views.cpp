@@ -25,7 +25,7 @@
 namespace openrac::frontend {
 namespace {
 
-static_assert(OPENRAC_VIEW_MAX == std::tuple_size_v<decltype(State::views)>);
+static_assert(OPENRAC_VIEW_MAX == std::tuple_size_v<decltype(SceneRenderState::views)>);
 
 // The view frustum's planes, as the window's (scene_frame.cpp's set_camera).
 constexpr float kNear = 0.05f;
@@ -90,7 +90,7 @@ renderer::Camera view_camera(const renderer::Camera& game, const openrac_view& v
 
 // Draws view `v` of the frame's scene into `picture`.
 void render_view(SceneFrame& frame, const openrac_view& v, renderer::FrameBuffer& picture) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     renderer::FrameInput input = frame.input;
     // The window's own hand-offs (its read-back copy, the temporal history, the probes' choice by
     // its depth) are the window's picture's, not a view's.
@@ -136,7 +136,7 @@ void render_view(SceneFrame& frame, const openrac_view& v, renderer::FrameBuffer
 }
 
 // The framebuffer around the mod's GL texture `texture`, made the first time.
-unsigned target_of(State& owner, unsigned texture) {
+unsigned target_of(SceneRenderState& owner, unsigned texture) {
     for (const auto& [name, framebuffer] : owner.view_targets) {
         if (name == texture) {
             return framebuffer;
@@ -164,7 +164,9 @@ unsigned target_of(State& owner, unsigned texture) {
 }
 
 // Copies the view's picture where the mod said. False when it could not be.
-bool copy_out(State& owner, const openrac_view& v, const renderer::FrameBuffer& picture) {
+bool copy_out(
+    SceneRenderState& owner, const openrac_view& v, const renderer::FrameBuffer& picture
+) {
     if (gl::is_vulkan()) {
         if (v.image != nullptr && !mods::view_source_can_use_vulkan()) {
             if (!g_warned) {
@@ -194,7 +196,7 @@ bool copy_out(State& owner, const openrac_view& v, const renderer::FrameBuffer& 
 
 // Draws view `index` (anew when `world`) and gives it to the mod.
 void draw_view(SceneFrame& frame, int index, bool world) {
-    State& owner = frame.owner;
+    SceneRenderState& owner = frame.owner;
     openrac_view& v = g_views[index];
     v.drawn = 0;
     v.picture = 0;
@@ -314,7 +316,7 @@ void finish_views() {
     }
 }
 
-void release_views(State& owner) {
+void release_views(SceneRenderState& owner) {
     finish_views();
 
     // Told once: the views end with the context.

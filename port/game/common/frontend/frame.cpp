@@ -1049,7 +1049,7 @@ void log_tick_state(
             if (m.address + 0x100 > ram.size()) {
                 continue;
             }
-            const auto fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+            const auto fade = g->render.profile->moby_distance_fade(ram.data() + m.address, state);
             culled += fade ? 0 : 1;
             fading += fade && *fade < 0x80 ? 1 : 0;
         }
@@ -1343,7 +1343,7 @@ std::optional<std::vector<host::ShrubDraw>> shrub_draws(
         return g->world_shrubs;
     }
     const profiling::Zone trace("Shrub draws");
-    return g->profile->shrub_draws(ram, openrac_game_loaded_overlay());
+    return g->render.profile->shrub_draws(ram, openrac_game_loaded_overlay());
 }
 
 // Captures the ties and shrubs as the game holds them, one per loaded instance
@@ -1352,7 +1352,7 @@ std::optional<std::vector<host::ShrubDraw>> shrub_draws(
 std::optional<scene::GameScenery> scenery_matrices(
     std::span<const std::uint8_t> ram, bool world_ran, const host::GameState& state
 ) {
-    const auto words = g->profile->scenery_matrices();
+    const auto words = g->render.profile->scenery_matrices();
     if (!world_ran || (words[0] == 0 && words[1] == 0)) {
         return std::nullopt;
     }
@@ -1361,8 +1361,8 @@ std::optional<scene::GameScenery> scenery_matrices(
         words,
         state,
         settings::get().draw_distance_scale(),
-        {g->level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size(),
-         g->level.instances[static_cast<std::size_t>(scene::Layer::Shrubs)].size()}
+        {g->render.level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size(),
+         g->render.level.instances[static_cast<std::size_t>(scene::Layer::Shrubs)].size()}
     );
     const auto& result = captured.scenery;
     const std::uint32_t tie_cap = captured.tie_cap;
@@ -1467,7 +1467,7 @@ TickMobys pose_mobys(
             ram,
             addresses,
             {state.camera_position[0], state.camera_position[1], state.camera_position[2]},
-            g->profile->moby_anim_fields(),
+            g->render.profile->moby_anim_fields(),
             world_ran && !under_menu
         );
     }
@@ -1481,7 +1481,7 @@ TickMobys pose_mobys(
     const auto materials = mod_materials(state.mobys, state.mobys.size());
     namespace cases = scene::gold_case_preview;
     cases::cases.clear();
-    if (g->level.game == "rac1") {
+    if (g->render.level.game == "rac1") {
         for (const auto& moby : state.mobys) {
             if (!cases::source(moby.class_id)) {
                 continue;
@@ -1531,15 +1531,16 @@ TickMobys pose_mobys(
     std::uint32_t shadow_moby = 0;
     scene::MobyShadowState shadow_state;
     std::vector<renderer::ShadowSet> shadow_sets;
-    const bool every_shadow = g->profile->every_moby_casts_shadow();
+    const bool every_shadow = g->render.profile->every_moby_casts_shadow();
     std::vector<Kept::TargetMoby> target_mobys;
     // The point lights' third light of each moby they reach, where the game lights mobys by them;
     // as many as the shader's moby_point_lights holds (mesh.vert).
     std::vector<std::array<float, 8>> point_lit;
     constexpr std::size_t kPointLitMobys = 32;
-    const gaddr point_bank = g->profile->mobys_take_point_lights() && light_bank_address() != 0
-                                 ? openrac_relocate_data(light_bank_address())
-                                 : 0;
+    const gaddr point_bank =
+        g->render.profile->mobys_take_point_lights() && light_bank_address() != 0
+            ? openrac_relocate_data(light_bank_address())
+            : 0;
 
     // A moby to pose: its address and joints, and its instance (in target_mobys or in live).
     struct PoseJob {
@@ -1600,7 +1601,7 @@ TickMobys pose_mobys(
                 }
             );
         };
-        const bool narrow_buffers = g->profile->own_mobys_into_narrow_buffers();
+        const bool narrow_buffers = g->render.profile->own_mobys_into_narrow_buffers();
         for (const auto& [address, camera] : g->moby_cameras) {
             OwnCameraLayer layer =
                 narrow_buffers && marked(address, true) && frame_focal[0] > 0.0f
@@ -1627,7 +1628,7 @@ TickMobys pose_mobys(
                     break;
             }
             if (!drawn(address)) {
-                g->profile->add_moby(ram, address, state.mobys);
+                g->render.profile->add_moby(ram, address, state.mobys);
             }
         }
     }
@@ -1638,14 +1639,15 @@ TickMobys pose_mobys(
     const auto hero_rig = read_hero_shadow_rig(
         openrac_game_front_end,
         g->loaded,
-        g->scene.hero_shadow_enabled() || presenting_infobot,
-        g->profile->shadow_directions() != 0
+        g->render.scene.hero_shadow_enabled() || presenting_infobot,
+        g->render.profile->shadow_directions() != 0
     );
 
     const bool inspect_bones = debug_overlay::picker_snapshot_needed();
 #ifdef OPENRAC_LIGHT_AUTHORING
-    auto attached_catalog =
-        enhanced_graphics_available() ? enhanced::current_object_lights(g->level.game) : nullptr;
+    auto attached_catalog = enhanced_graphics_available()
+                                ? enhanced::current_object_lights(g->render.level.game)
+                                : nullptr;
     if (attached_catalog && attached_catalog->objects.empty()) {
         attached_catalog.reset();
     }
@@ -1696,7 +1698,7 @@ TickMobys pose_mobys(
             // A class in the game's draw distance exceptions (port/game/<game>/draw_distance.tsv)
             // keeps the game's own draw distance at every Draw distance.
             const host::GameState* view = &state;
-            if (state.moby_view && g->profile->keeps_game_draw_distance(m.class_id)) {
+            if (state.moby_view && g->render.profile->keeps_game_draw_distance(m.class_id)) {
                 if (!game_distance_view) {
                     game_distance_view = state;
                     game_distance_view->moby_view->scale = 1.0f;
@@ -1706,18 +1708,20 @@ TickMobys pose_mobys(
             if (free_camera) {
                 distance_fade = host::moby_free_camera_reach(ram.data() + m.address, *view);
             } else {
-                distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, *view);
+                distance_fade =
+                    g->render.profile->moby_distance_fade(ram.data() + m.address, *view);
             }
         }
         if (!distance_fade) {
 #ifdef OPENRAC_LIGHT_AUTHORING
             // An unseen mesh may still carry a light whose sphere reaches visible receivers.
-            const auto model = g->level.moby_classes.find(m.class_id);
-            if (!attached_catalog || model == g->level.moby_classes.end()) {
+            const auto model = g->render.level.moby_classes.find(m.class_id);
+            if (!attached_catalog || model == g->render.level.moby_classes.end()) {
                 continue;
             }
-            const auto key =
-                enhanced::object_light_key(g->level, scene::Layer::Mobys, model->second.first);
+            const auto key = enhanced::object_light_key(
+                g->render.level, scene::Layer::Mobys, model->second.first
+            );
             const auto lights = attached_catalog->objects.find(key);
             if (lights == attached_catalog->objects.end()
                 || std::none_of(
@@ -1740,7 +1744,7 @@ TickMobys pose_mobys(
         }
         const auto replacement =
             std::find_if(replacements.rbegin(), replacements.rend(), [&](const auto& v) {
-                return v.moby == m.address && g->level.moby_classes.contains(v.oclass);
+                return v.moby == m.address && g->render.level.moby_classes.contains(v.oclass);
             });
         const bool replaced =
             replacement != replacements.rend()
@@ -1748,11 +1752,12 @@ TickMobys pose_mobys(
                     replacement->oclass, m.model_class, m.class_id, into_texture.contains(m.address)
                 )
                 || (cases::source(m.class_id) && replacement->height > 0));
-        auto cls = g->level.moby_classes.find(replaced ? replacement->oclass : m.model_class);
-        if (cls == g->level.moby_classes.end() && !m.model_only) {
-            cls = g->level.moby_classes.find(m.class_id);
+        auto cls =
+            g->render.level.moby_classes.find(replaced ? replacement->oclass : m.model_class);
+        if (cls == g->render.level.moby_classes.end() && !m.model_only) {
+            cls = g->render.level.moby_classes.find(m.class_id);
         }
-        if (cls == g->level.moby_classes.end()) {
+        if (cls == g->render.level.moby_classes.end()) {
             continue;
         }
         scene::Instance instance{cls->second.first, m.matrix, {1, 1, 1, 1}};
@@ -1763,7 +1768,7 @@ TickMobys pose_mobys(
             && scene::vendor_preview::normal_weapon_class(replacement->oclass) == m.class_id;
         const bool custom_pose = replaced && !native_gold;
         const bool replacement_pose = custom_pose || native_gold;
-        const bool native_bolt_pickup = g->level.game == "rac1" && replaced
+        const bool native_bolt_pickup = g->render.level.game == "rac1" && replaced
                                         && replacement->height > 0 && replacement->oclass == 0x46E
                                         && scene::pickup_preview::equipment_source(m.class_id)
                                         && !own_camera;
@@ -1814,10 +1819,10 @@ TickMobys pose_mobys(
                 }
             }
             renderer::Vec3 home{m.matrix[12], m.matrix[13], m.matrix[14] - 1};
-            if (const auto source = g->level.moby_classes.find(m.class_id);
-                source != g->level.moby_classes.end()) {
+            if (const auto source = g->render.level.moby_classes.find(m.class_id);
+                source != g->render.level.moby_classes.end()) {
                 for (const auto& placed :
-                     g->level.instances[static_cast<int>(scene::Layer::Mobys)]) {
+                     g->render.level.instances[static_cast<int>(scene::Layer::Mobys)]) {
                     if (placed.model == source->second.first
                         && std::hypot(placed.matrix[12] - home[0], placed.matrix[13] - home[1])
                                < .1f) {
@@ -1858,7 +1863,7 @@ TickMobys pose_mobys(
             const bool panel = into_texture.contains(m.address);
             const bool generic_vendor =
                 !infobot && replacement->oclass != 0x46E && replacement->height == 0;
-            const auto& target = g->level.models[instance.model];
+            const auto& target = g->render.level.models[instance.model];
             const auto& low = infobot && target.preview_bounds ? target.preview_min : target.min;
             const auto& high = infobot && target.preview_bounds ? target.preview_max : target.max;
             if (infobot && !cases::source(m.class_id)) {
@@ -1876,10 +1881,10 @@ TickMobys pose_mobys(
                 );
             }
             float wanted = replacement->height;
-            const auto original = g->level.moby_classes.find(m.model_class);
+            const auto original = g->render.level.moby_classes.find(m.model_class);
             float target_extent = high[2] - low[2];
-            if (wanted == 0 && original != g->level.moby_classes.end()) {
-                const auto& model = g->level.models[original->second.first];
+            if (wanted == 0 && original != g->render.level.moby_classes.end()) {
+                const auto& model = g->render.level.models[original->second.first];
                 wanted = model.max[2] - model.min[2];
                 if ((infobot && panel) || generic_vendor) {
                     // The native gun's pivot and bind bounds do not frame a tall, animated bot.
@@ -1911,8 +1916,8 @@ TickMobys pose_mobys(
                     }
                 }
             }
-            if (generic_vendor && original != g->level.moby_classes.end()) {
-                const auto& model = g->level.models[original->second.first];
+            if (generic_vendor && original != g->render.level.moby_classes.end()) {
+                const auto& model = g->render.level.models[original->second.first];
                 const auto center = renderer::transform_point(
                     m.matrix,
                     {(model.min[0] + model.max[0]) * 0.5f,
@@ -1932,12 +1937,12 @@ TickMobys pose_mobys(
                 }
             }
         }
-        if (g->level.game == "rac1" && replaced && !native_bolt_pickup
+        if (g->render.level.game == "rac1" && replaced && !native_bolt_pickup
             && scene::pickup_preview::should_adjust(
                 m.class_id, replacement->oclass, replacement->height, own_camera
             )) {
             namespace pickup = scene::pickup_preview;
-            const auto& shape = g->level.models[instance.model];
+            const auto& shape = g->render.level.models[instance.model];
             const renderer::Vec3 center{
                 (shape.min[0] + shape.max[0]) * .5f,
                 (shape.min[1] + shape.max[1]) * .5f,
@@ -1972,9 +1977,9 @@ TickMobys pose_mobys(
             );
             instance.world_sphere = {};
         }
-        if (g->level.game == "rac1" && replaced && cases::source(m.class_id)
+        if (g->render.level.game == "rac1" && replaced && cases::source(m.class_id)
             && replacement->height > 0 && !own_camera) {
-            const auto& shape = g->level.models[instance.model];
+            const auto& shape = g->render.level.models[instance.model];
             const renderer::Vec3 center{
                 (shape.min[0] + shape.max[0]) * .5f,
                 (shape.min[1] + shape.max[1]) * .5f,
@@ -2013,13 +2018,13 @@ TickMobys pose_mobys(
             instance.world_sphere = {};
         }
         instance.lighting_only = light_only;
-        instance.gameplay_essential = g->profile->gameplay_essential(m.class_id);
+        instance.gameplay_essential = g->render.profile->gameplay_essential(m.class_id);
         instance.occlusion = m.occlusion;
         if (extra || into_texture.contains(m.address)) {
             instance.occlusion = scene::Pvs::always;
         }
         // Authored bounds do not cover debug stand-ins or replacement meshes.
-        if (!custom_pose && !cls->second.second && g->level.overridden_models == 0) {
+        if (!custom_pose && !cls->second.second && g->render.level.overridden_models == 0) {
             instance.world_sphere = m.world_sphere;
         }
         // How MobyProc blends it (ReRAC's MobyBlend, from the game's moby draw). Its vertex alpha is
@@ -2052,7 +2057,7 @@ TickMobys pose_mobys(
         }
         // Its light word (+0x38: set 0, set 1, the cross-fade) and ambient colour (+0x3C), as
         // MobyProc reads them to light it.
-        if (!g->level.light_sets.empty() && m.address + 0x100 <= ram.size()) {
+        if (!g->render.level.light_sets.empty() && m.address + 0x100 <= ram.size()) {
             const std::uint8_t* b = ram.data() + m.address;
             instance.moby_light =
                 {static_cast<float>(b[0x38]),
@@ -2062,7 +2067,7 @@ TickMobys pose_mobys(
             // w: with mode bit 0x10, 1 + its glow word's RGB (+0x90 in Ratchet & Clank), which
             // MobyProc's glow list draws its glow packets in; 0 without (a 24-bit integer is exact
             // in a float).
-            const std::uint32_t at = g->profile->moby_glow_word();
+            const std::uint32_t at = g->render.profile->moby_glow_word();
             const std::uint32_t glow =
                 static_cast<std::uint32_t>(b[at] | b[at + 1] << 8 | b[at + 2] << 16);
             instance.moby_ambient =
@@ -2087,12 +2092,12 @@ TickMobys pose_mobys(
                 instance.moby_light[3] = -1.0f;
             }
         }
-        if (g->level.game == "rac1" && own_camera && replacement != replacements.rend()
+        if (g->render.level.game == "rac1" && own_camera && replacement != replacements.rend()
             && replacement->height == 0 && !into_texture.contains(m.address)
             && !on_screen.contains(m.address)) {
             namespace preview = scene::vendor_preview;
             const auto& a = preview::get(preview::key(replacement->oclass, true));
-            const auto& shape = g->level.models[instance.model];
+            const auto& shape = g->render.level.models[instance.model];
             const renderer::Vec3 pivot{
                 (shape.min[0] + shape.max[0]) * .5f,
                 (shape.min[1] + shape.max[1]) * .5f,
@@ -2155,7 +2160,7 @@ TickMobys pose_mobys(
 #ifdef OPENRAC_LIGHT_AUTHORING
         if (attached_catalog && !attached_catalog->objects.empty()) {
             const auto lights = attached_catalog->objects.find(
-                enhanced::object_light_key(g->level, scene::Layer::Mobys, instance.model)
+                enhanced::object_light_key(g->render.level, scene::Layer::Mobys, instance.model)
             );
             attached_bones =
                 lights != attached_catalog->objects.end()
@@ -2166,7 +2171,7 @@ TickMobys pose_mobys(
 #endif
 
         // Unweighted joints are needed only by bone attachments or explicit developer inspection.
-        const auto& model = g->level.models[instance.model];
+        const auto& model = g->render.level.models[instance.model];
         const int joints =
             replacement_pose
                 ? (model.preview_poses.empty() ? 0 : int(model.bones.size()))
@@ -2219,12 +2224,12 @@ TickMobys pose_mobys(
             );
         }
         // Only world instances attach to water; menu and render-to-texture previews keep their poses.
-        instance.floats_on_water = g->profile->floats_on_water(m.class_id)
+        instance.floats_on_water = g->render.profile->floats_on_water(m.class_id)
                                    && instance.moby_light[3] < 1.5f
                                    && !into_texture.contains(m.address);
         if (const auto t = into_texture.find(m.address); t != into_texture.end()) {
             target_mobys.push_back({m.address, instance, *t->second});
-            if (g->level.game == "rac1" && replacement != replacements.rend()
+            if (g->render.level.game == "rac1" && replacement != replacements.rend()
                 && replacement->height == 0) {
                 target_mobys.back().preview_item_class = replacement->oclass;
             }
@@ -2243,7 +2248,7 @@ TickMobys pose_mobys(
                                       && openrac_game_has_level(g->loaded)
                                       && instance.moby_light[3] < 1.5f && instance.tint[3] > 0;
         instance.gameplay_essential |= owned_by_hero || instance.hero_shadow_anchor;
-        if (g->level.game == "rac1" && own_camera && replacement != replacements.rend()
+        if (g->render.level.game == "rac1" && own_camera && replacement != replacements.rend()
             && replacement->height == 0) {
             namespace preview = scene::vendor_preview;
             const auto& a = preview::get(preview::key(replacement->oclass, true));
@@ -2258,12 +2263,12 @@ TickMobys pose_mobys(
             instance.world_sphere = {};
         }
         live_joints.push_back(instance.palette >= 0 ? joints : 0);
-        if (every_shadow && g->profile->shadow_directions() != 0
+        if (every_shadow && g->render.profile->shadow_directions() != 0
             && openrac_game_has_level(g->loaded) && animate && !extra
             && instance.moby_light[3] < 1.5f && instance.tint[3] > 0.0f) {
-            const auto directions = OPENRAC_DATA(g->profile->shadow_directions());
+            const auto directions = OPENRAC_DATA(g->render.profile->shadow_directions());
             const auto cast =
-                g->profile->shadow_slab_on_up_axis()
+                g->render.profile->shadow_slab_on_up_axis()
                     ? scene::moby_shadow_state_on_axis(ram, m.address, directions, state.view())
                     : scene::moby_shadow_state(ram, m.address, directions, state.view());
             if (cast.enabled) {
@@ -2296,10 +2301,10 @@ TickMobys pose_mobys(
                 }
             }
         }
-        if (!every_shadow && g->profile->shadow_directions() != 0
+        if (!every_shadow && g->render.profile->shadow_directions() != 0
             && openrac_game_has_level(g->loaded) && animate && instance.hero_shadow_anchor
             && instance.moby_light[3] < 1.5f && instance.tint[3] > 0.0f) {
-            const auto directions = OPENRAC_DATA(g->profile->shadow_directions());
+            const auto directions = OPENRAC_DATA(g->render.profile->shadow_directions());
             shadow_state = scene::moby_shadow_state(ram, m.address, directions, state.view());
             if (shadow_state.enabled) {
                 shadows = scene::moby_shadows(ram, m.address, m.matrix, shadow_state.scale);
@@ -2321,8 +2326,9 @@ TickMobys pose_mobys(
                 );
             }
         }
-        if (animate && instance.hero_shadow_anchor && g->game.starts_with("rac1-") && g->loaded == 1
-            && enhanced_graphics_available() && settings::get().enhanced_graphics) {
+        if (animate && instance.hero_shadow_anchor && g->render.game.starts_with("rac1-")
+            && g->loaded == 1 && enhanced_graphics_available()
+            && settings::get().enhanced_graphics) {
             const auto pose = scene::moby_pose_matrices(ram, m.address);
             // Ratchet's two palm roots, identified by their finger children in the
             // extracted class-0 skeleton; joint 56 also carries the wrench attachment.
@@ -2405,7 +2411,7 @@ TickMobys pose_mobys(
         if (openrac_game_play_host->infobot_presentation(&presentation)
             && !presentation.special_item) {
             const auto id = std::uint32_t(g->infobot_pickup_model);
-            const auto& model = g->level.models[id];
+            const auto& model = g->render.level.models[id];
             const auto& poses = g->infobot_pickup_poses;
             if (!poses.empty()) {
                 scene::Instance bot;
@@ -2535,8 +2541,8 @@ TickMobys pose_mobys(
             // Enhanced shadow map as his equipment does, and, while the game draws his shadow, as
             // one capsule along the mesh's longer side, half its shorter side thick.
             instance.hero_shadow_caster = openrac_game_has_level(g->loaded);
-            if (shadow_moby != 0 && model->second < g->level.models.size()) {
-                const scene::Model& mesh = g->level.models[model->second];
+            if (shadow_moby != 0 && model->second < g->render.level.models.size()) {
+                const scene::Model& mesh = g->render.level.models[model->second];
                 const renderer::Vec3 size{
                     mesh.max[0] - mesh.min[0], mesh.max[1] - mesh.min[1], mesh.max[2] - mesh.min[2]
                 };
@@ -2643,7 +2649,7 @@ TickMobys pose_mobys(
 
 // Gives the scene this tick's fog and the lights as the game holds them.
 void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state) {
-    g->scene.set_fog(
+    g->render.scene.set_fog(
         state.fog_colour, state.fog_near, state.fog_far, state.fog_near_f, state.fog_far_f
     );
     // The light bank as the game holds it now (16 sets of 0x40 bytes; the executable's, each
@@ -2654,11 +2660,11 @@ void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state
         if (bank + 16 * 0x40 <= ram.size()) {
             std::vector<float> sets(16 * 16);
             std::memcpy(sets.data(), ram.data() + bank, sets.size() * sizeof(float));
-            g->scene.set_light_sets(sets);
+            g->render.scene.set_light_sets(sets);
             if (bank + 16 * 0x40 + 8 * 0x20 <= ram.size()) {
                 std::array<float, 64> points{};
                 std::memcpy(points.data(), ram.data() + bank + 16 * 0x40, sizeof(points));
-                g->scene.set_point_lights(points);
+                g->render.scene.set_point_lights(points);
             }
         }
     }
@@ -2671,7 +2677,7 @@ void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state
             std::memcpy(occlusion->data(), ram.data() + mask, occlusion->size());
         }
     }
-    g->scene.set_game_pvs(occlusion);
+    g->render.scene.set_game_pvs(occlusion);
 }
 
 // Keeps this tick's scene for the frames drawn until the next one (Kept), the last tick's as
@@ -2720,7 +2726,7 @@ void keep_tick(
     k.water_impulses.swap(g->water_impulses);
     g->water_impulses.clear();
     if (adjacent && k.has_state) {
-        water_projectile_impulses(*g->profile, state.mobys, k.state.mobys, k.water_impulses);
+        water_projectile_impulses(*g->render.profile, state.mobys, k.state.mobys, k.water_impulses);
     }
     k.prev_palette = std::move(k.palette);
     k.prev_shadows = std::move(k.shadows);
@@ -2747,28 +2753,29 @@ void keep_tick(
                                   : std::array<std::vector<std::array<float, 12>>, 2>{};
         k.scenery = std::move(*mobys.scenery);
     }
-    k.hero_airborne =
-        g->profile->hero_state() != 0
-            ? scene::hero_airborne(
-                  ram, OPENRAC_DATA(g->profile->hero_state()), g->profile->hero_air_frames()
-              )
-            : std::nullopt;
+    k.hero_airborne = g->render.profile->hero_state() != 0
+                          ? scene::hero_airborne(
+                                ram,
+                                OPENRAC_DATA(g->render.profile->hero_state()),
+                                g->render.profile->hero_air_frames()
+                            )
+                          : std::nullopt;
     std::uint32_t mode = 0;
     // The level's mode while a real-time cutscene plays (the profile's). Movies bypass world
     // reconstruction.
-    const auto cutscene_mode = g->profile->cutscene_mode();
+    const auto cutscene_mode = g->render.profile->cutscene_mode();
     const bool has_mode = openrac_game_mode != nullptr && openrac_game_mode(&mode) != 0;
     k.cutscene = has_mode && cutscene_mode && mode == *cutscene_mode;
     // Both games report mode zero for normal play; the quick select's mode plays on under the
     // wheel (profile.h quick_select_mode). Unknown modes retain the native lens.
-    const auto quick_select_mode = g->profile->quick_select_mode();
+    const auto quick_select_mode = g->render.profile->quick_select_mode();
     k.gameplay_camera =
         has_mode && (mode == 0 || (quick_select_mode && mode == *quick_select_mode));
     k.state = state;
     k.has_state = true;
     k.live = std::move(mobys.live);
     k.target_mobys = std::move(mobys.target_mobys);
-    k.texture_variant = g->profile->texture_variant(ram);
+    k.texture_variant = g->render.profile->texture_variant(ram);
     k.addresses = std::move(mobys.addresses);
     k.joints = std::move(mobys.joints);
     k.palette = std::move(mobys.palette);
@@ -2796,7 +2803,7 @@ void keep_tick(
         k.haze.push_back({h.position[0], h.position[1], h.position[2], h.radius, h.strength});
     }
     k.has_camera = state.forward[0] != 0.0f || state.forward[1] != 0.0f || state.forward[2] != 0.0f;
-    g->last_tick_menu =
+    g->render.last_tick_menu =
         k.before_world >= 0x40000;  // the last tick's, read before this one's is kept
     k.frame = g->index++;
 }
@@ -2833,8 +2840,8 @@ TickPackets capture_2d_path(
     // RAC1 keeps two alternating list buffers and the sent list is one tick behind; Deadlocked
     // submits the title's list through VIF1 DMA without that RAC1 buffer-index convention, and
     // so does Going Commando: their profiles say so (sends_display_list).
-    const bool sent_chain = g->profile->sends_display_list();
-    const std::uint32_t shown = sent_chain ? chain : g->profile->shown_chain(ram, level);
+    const bool sent_chain = g->render.profile->sends_display_list();
+    const std::uint32_t shown = sent_chain ? chain : g->render.profile->shown_chain(ram, level);
     std::vector<renderer::EffectVertex> strip_vertices;
     std::vector<renderer::EffectStrip> strips;
     std::size_t before_world = SIZE_MAX;
@@ -2843,7 +2850,7 @@ TickPackets capture_2d_path(
     std::size_t moby_marker = SIZE_MAX;
     std::vector<QuadMark> quad_marks;
     g->texture_mobys.clear();
-    renderer::g_quads_sample_targets = g->profile->own_mobys_into_narrow_buffers();
+    renderer::g_quads_sample_targets = g->render.profile->own_mobys_into_narrow_buffers();
     draw_coverage::begin_tick(level, g->index);
     std::vector<std::uint8_t> packets = direct_packets(
         ram,
@@ -2967,7 +2974,7 @@ TickPackets capture_2d_path(
     // A game whose menus draw their mobys on the screen late in their 2D path (Going Commando's
     // Ship Shack: its frame saved to a texture first, then its panels, then the ship): what comes
     // before them is under them, wherever the first render to a texture was.
-    if (moby_marker != SIZE_MAX && g->profile->own_mobys_split_the_2d()) {
+    if (moby_marker != SIZE_MAX && g->render.profile->own_mobys_split_the_2d()) {
         before_world = moby_marker;
     }
     // The flight between planets is drawn as the boot program draws it, also when it starts from a
@@ -2992,17 +2999,17 @@ void choose_repeat_frame(int level, bool debug) {
          openrac_game_has_level(level) != 0,
          k.packets.size(),
          k.before_world,
-         g->frame.id() != 0,
+         g->render.frame.id() != 0,
          level}
     );
     // A movie's tick starts from a cleared frame: the game's picture before it does not show
     // around the movie.
     k.movie = g->movie_playing;
-    g->repeat_frame = !k.movie && picture == TickPicture::Repeat;
-    g->overdraw = !k.movie && picture == TickPicture::Overdraw;
+    g->render.repeat_frame = !k.movie && picture == TickPicture::Repeat;
+    g->render.overdraw = !k.movie && picture == TickPicture::Overdraw;
     // The picture stands, but the chip still took the images the tick's list sent: kept, a block
     // the game sends once is there when a later tick draws from it.
-    if (g->repeat_frame && g->hud && g->profile->repeated_ticks_send_images()
+    if (g->render.repeat_frame && g->hud && g->render.profile->repeated_ticks_send_images()
         && sends_image(k.packets)) {
         g->hud->retain_uploads(k.packets);
     }
@@ -3010,7 +3017,7 @@ void choose_repeat_frame(int level, bool debug) {
         log::info(
             "frame {}: {}",
             g->index,
-            g->repeat_frame ? "the last frame stands" : "the 2D goes over the last frame"
+            g->render.repeat_frame ? "the last frame stands" : "the 2D goes over the last frame"
         );
     }
     if (debug && k.frame % 100 == 0 && !k.strips.empty()) {
@@ -3089,7 +3096,7 @@ void keep_effects(
     // one: a frame drawn between ticks moves each from there, as the mobys move (scene_hud.cpp's
     // set_packets). Kept effects of an older tick, or of a tick that kept no world, move nothing.
     k.prev_effect_corners.clear();
-    if (g->profile->interpolates_effect_quads() && k.effects_frame + 1 == k.frame) {
+    if (g->render.profile->interpolates_effect_quads() && k.effects_frame + 1 == k.frame) {
         for (const renderer::EffectQuad& e : k.effects) {
             if (e.id != 0) {
                 auto& corners = k.prev_effect_corners[e.id];
@@ -3140,7 +3147,7 @@ void report_tick(std::span<const std::uint8_t> ram, int level) {
     }
     // [debug tools] What the game holds this tick, for the overlay and the dump.
     debug_overlay::tick(
-        {g->game.c_str(),
+        {g->render.game.c_str(),
          ram,
          level,
          &k.state,
@@ -3237,10 +3244,10 @@ bool begin_capture(State& owner) {
         return false;
     }
     // Deferred uploads belong to this frame, after the previous snapshot has finished.
-    if (owner.renderer && !owner.pending_images.empty()) {
+    if (owner.render.renderer && !owner.pending_images.empty()) {
         run_graphics([&] {
             for (const auto& image : owner.pending_images) {
-                owner.renderer->textures().upload(image);
+                owner.render.renderer->textures().upload(image);
             }
         });
     }
@@ -3260,7 +3267,7 @@ host::GameState captured_state(
     }
 
     // Synchronous frames and transitions still capture after acquiring graphics ownership.
-    return prepared ? std::move(prepared->state) : g->profile->read_state(ram, level);
+    return prepared ? std::move(prepared->state) : g->render.profile->read_state(ram, level);
 }
 
 // Draws the tick's own frame, or leaves it to between when the frame cap holds it back.
@@ -3333,7 +3340,7 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
     const auto started = std::chrono::steady_clock::now();
     PreparedTick prepared;
     prepared.level = g->loaded;
-    prepared.state = g->profile->read_state(ram, level);
+    prepared.state = g->render.profile->read_state(ram, level);
     static bool noting = false;  // the profile's diagnostics run (the game's thread, at its vsync)
     if (const bool recording = effects_dump::armed(); recording || noting) {
         const host::DiagnosticsInput diagnostics{
@@ -3341,9 +3348,11 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
         };
         noting = recording;
         if (recording) {
-            effects_dump::note(g->profile->diagnostics(ram, level, prepared.state, diagnostics));
+            effects_dump::note(
+                g->render.profile->diagnostics(ram, level, prepared.state, diagnostics)
+            );
         } else {
-            g->profile->diagnostics_off(diagnostics);
+            g->render.profile->diagnostics_off(diagnostics);
         }
     }
     const bool world_ran = g->world_camera.has_value();
@@ -3450,8 +3459,8 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     stats::gauge("render preparation ms", prepared ? prepared->seconds * 1000.0 : 0.0);
     part.emplace("lights");
     light_scene(ram, state);
-    g->scene.set_moby_point_lights(mobys.point_lit);
-    g->scene.set_terrain_point_lights(g->profile->terrain_takes_point_lights());
+    g->render.scene.set_moby_point_lights(mobys.point_lit);
+    g->render.scene.set_terrain_point_lights(g->render.profile->terrain_takes_point_lights());
     part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
     g->kept->world_under_menu = under_menu;
@@ -3459,7 +3468,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     // it took, or a level's world drawn live under it) is the level's, seen with the camera it was
     // paused with: a gameplay camera when the game was paused from play.
     std::uint32_t mode_now = 0;
-    const auto pause_mode = g->profile->pause_mode();
+    const auto pause_mode = g->render.profile->pause_mode();
     const bool paused = pause_mode && openrac_game_mode != nullptr
                         && openrac_game_mode(&mode_now) != 0 && mode_now == *pause_mode;
     if (under_menu || paused) {
@@ -3493,7 +3502,7 @@ bool keep_picture() {
     // The console shows its frame buffer as it is: the picture stands and nothing is drawn again.
     // Drawn again, the kept tick's 2D read the textures a load had written over since (the flight's
     // planet name came out as a solid block and its planet striped, before the landing).
-    g->repeat_frame = true;
+    g->render.repeat_frame = true;
     draw_kept(false);
     return !g->render_failed;
 }

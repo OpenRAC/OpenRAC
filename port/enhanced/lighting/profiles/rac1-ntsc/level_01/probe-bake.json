@@ -3,6 +3,20 @@
   "playable_space": {
     "minimum_swim_depth": 0.85
   },
+  "playable_areas": [
+    {
+      "minimum": [182.4375, 127.625, 62.9],
+      "maximum": [185.25, 130.5, 63.1]
+    },
+    {
+      "minimum": [180.9375, 127.4375, 61.9],
+      "maximum": [183.875, 129.625, 62.1]
+    },
+    {
+      "minimum": [180.1875, 128.875, 60.9],
+      "maximum": [183.125, 131.5625, 61.1]
+    }
+  ],
   "regions": {
     "adaptive_density": true
   },
