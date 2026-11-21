@@ -166,6 +166,14 @@ typedef struct openrac_mod openrac_mod;
  * (setup_vulkan) are one mod's each. Since 1.4. */
 #define OPENRAC_HOOK_TAKEN (-4)
 
+/* The same results under names for every call of the table, not only hook: new calls are
+ * documented with these. The values are the OPENRAC_HOOK_ ones, so they work with any port. */
+#define OPENRAC_OK OPENRAC_HOOK_OK
+#define OPENRAC_E_UNKNOWN OPENRAC_HOOK_UNKNOWN
+#define OPENRAC_E_SIGNATURE OPENRAC_HOOK_SIGNATURE
+#define OPENRAC_E_TOO_LATE OPENRAC_HOOK_TOO_LATE
+#define OPENRAC_E_TAKEN OPENRAC_HOOK_TAKEN
+
 /* ------------------------------------------------------------------------------------------ *
  * Reporting to the port
  * ------------------------------------------------------------------------------------------ */
@@ -287,7 +295,7 @@ typedef struct openrac_graphics {
   /* OpenGL and OpenGL ES: the context's functions by name
    * (SDL_GL_GetProcAddress); null for Vulkan and without a window. The context
    * is current on the game's thread. */
-  void *(*gl_proc)(const char *name);
+  void* (*gl_proc)(const char* name);
   /* Vulkan: the backend's instance, physical device, device and graphics queue,
    * its family and its index in the family, and the vkGetInstanceProcAddr they
    * were made with. Mods targeting 1.20 or later get null handles and zero
@@ -295,13 +303,13 @@ typedef struct openrac_graphics {
    * That declaration keeps Vulkan on the game's thread, so a mod's own use
    * of the queue there (OpenXR's xrEndFrame) needs no lock. Mods targeting
    * 1.19 or earlier retain the existing behavior when they register views. */
-  void *vk_instance;
-  void *vk_physical_device;
-  void *vk_device;
-  void *vk_queue;
+  void* vk_instance;
+  void* vk_physical_device;
+  void* vk_device;
+  void* vk_queue;
   uint32_t vk_queue_family;
   uint32_t vk_queue_index;
-  void *vk_get_instance_proc_addr;
+  void* vk_get_instance_proc_addr;
 } openrac_graphics;
 
 /* ------------------------------------------------------------------------------------------
@@ -359,7 +367,7 @@ typedef struct openrac_view {
    * and null: the picture is drawn only into the port's own texture
    * (`picture`). */
   uint32_t texture;
-  void *image;
+  void* image;
   uint32_t image_layout;
   /* Set by the port: 1 when this frame drew the view anew; 0 when it showed the
    * last frame's picture again (a frame the port draws no world in, as the
@@ -378,23 +386,23 @@ typedef struct openrac_view {
 typedef struct openrac_view_source {
   /* sizeof(openrac_view_source) as the mod was built. */
   uint32_t size;
-  void *user;
+  void* user;
   /* Called in each frame the port draws the game's scene (each refresh, between
    * the game's ticks too), after the window's picture is recorded: fills
    * views[0] to views[n - 1] (n at most `max`) and returns n; 0 draws none this
    * frame. The place for OpenXR's xrWaitFrame, xrBeginFrame, xrLocateViews and
    * xrAcquireSwapchainImage. Frames that show a movie or a still picture
    * instead of the scene do not call it. */
-  int (*begin)(void *user, openrac_view *views, int max);
+  int (*begin)(void* user, openrac_view* views, int max);
   /* Called once the frame that drew them is submitted to the GPU (after the
    * window's picture is shown), with the views `begin` gave and what the port
    * set in them: the place for xrReleaseSwapchainImage and xrEndFrame. Called
    * after every `begin`, even one that returned 0 or a frame that drew nothing.
    */
-  void (*end)(void *user, const openrac_view *views, int count);
+  void (*end)(void* user, const openrac_view* views, int count);
   /* Called once before the graphics context goes (the window closes): let go of
    * everything made with it (OpenXR's session and swapchains). Optional. */
-  void (*closing)(void *user);
+  void (*closing)(void* user);
 } openrac_view_source;
 
 /* What a mod gives setup_vulkan so that the port's Vulkan device is one the mod
@@ -408,25 +416,25 @@ typedef struct openrac_view_source {
 typedef struct openrac_vulkan_setup {
   /* sizeof(openrac_vulkan_setup) as the mod was built. */
   uint32_t size;
-  void *user;
+  void* user;
   /* Makes the instance from `create_info` (a const VkInstanceCreateInfo*, the
    * port's: the extensions and the API version it needs) in place of
    * vkCreateInstance, through `get_instance_proc_addr` (a
    * PFN_vkGetInstanceProcAddr), and sets `*instance`. Returns a VkResult;
    * anything but VK_SUCCESS (0) and the port draws with OpenGL instead.
    * Optional. */
-  int32_t (*create_instance)(void *user, void *get_instance_proc_addr,
-                             const void *create_info, void **instance);
+  int32_t (*create_instance)(void* user, void* get_instance_proc_addr,
+                             const void* create_info, void** instance);
   /* Returns the VkPhysicalDevice to draw on, of `instance`; null lets the port
    * choose. The port refuses a device it cannot draw with (and draws with
    * OpenGL instead). Optional. */
-  void *(*physical_device)(void *user, void *instance);
+  void* (*physical_device)(void* user, void* instance);
   /* Makes the device from `create_info` (a const VkDeviceCreateInfo*, the
    * port's) on `physical_device` in place of vkCreateDevice, and sets
    * `*device`. Returns a VkResult, as create_instance. Optional. */
-  int32_t (*create_device)(void *user, void *get_instance_proc_addr,
-                           void *physical_device, const void *create_info,
-                           void **device);
+  int32_t (*create_device)(void* user, void* get_instance_proc_addr,
+                           void* physical_device, const void* create_info,
+                           void** device);
 } openrac_vulkan_setup;
 
 /* ------------------------------------------------------------------------------------------ *
@@ -1543,7 +1551,7 @@ typedef struct openrac_api {
     /* Returns what the port draws with (openrac_graphics). Never null: before
      * the window opens, and without one, its backend is OPENRAC_GRAPHICS_NONE.
      * Any time. Since 1.4. */
-    const openrac_graphics *(*graphics)(void);
+    const openrac_graphics* (*graphics)(void);
 
     /* Asks the port to draw views of the game besides the window's picture each
      * frame, through `source` (openrac_view_source), with OpenGL and Vulkan.
@@ -1554,7 +1562,7 @@ typedef struct openrac_api {
      * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN when another mod has them,
      * OPENRAC_HOOK_UNKNOWN for a source without begin or end, or
      * OPENRAC_HOOK_TOO_LATE after openrac_mod_load. Since 1.4. */
-    int (*on_views)(openrac_mod *mod, const openrac_view_source *source);
+    int (*on_views)(openrac_mod* mod, const openrac_view_source* source);
 
     /* Has the port make its Vulkan device through `setup`
      * (openrac_vulkan_setup) when the window opens, so that the mod can share
@@ -1562,7 +1570,7 @@ typedef struct openrac_api {
      * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN when another mod has it,
      * OPENRAC_HOOK_UNKNOWN for a setup too small, or OPENRAC_HOOK_TOO_LATE
      * after openrac_mod_load. Since 1.4. */
-    int (*setup_vulkan)(openrac_mod *mod, const openrac_vulkan_setup *setup);
+    int (*setup_vulkan)(openrac_mod* mod, const openrac_vulkan_setup* setup);
     /* Adds an entry named `label` (ASCII, up to 31 characters) to the game's front-end menu, which
      * opens a page of the mod's own: `fn(user, frame)` each frame it is open (openrac_menu_fn).
      * Ratchet & Clank has it in the title's Options list, after the port's own entries (Video,
@@ -2256,11 +2264,11 @@ typedef struct openrac_api {
      * refuses. A list that cannot be written (purist mode, none, a disk that
      * refuses) keeps the value for this run, and the log says why. Since 1.15.
      */
-    int (*setting_set_bool)(openrac_mod *mod, const char *key, int value);
-    int (*setting_set_int)(openrac_mod *mod, const char *key, int64_t value);
-    int (*setting_set_float)(openrac_mod *mod, const char *key, double value);
-    int (*setting_set_string)(openrac_mod *mod, const char *key,
-                              const char *value);
+    int (*setting_set_bool)(openrac_mod* mod, const char* key, int value);
+    int (*setting_set_int)(openrac_mod* mod, const char* key, int64_t value);
+    int (*setting_set_float)(openrac_mod* mod, const char* key, double value);
+    int (*setting_set_string)(openrac_mod* mod, const char* key,
+                              const char* value);
 
     /* Calls `fn(user)` after the tick in which the mod's settings changed from
      * outside the game: the launcher's list of mods written while the game
@@ -2268,7 +2276,7 @@ typedef struct openrac_api {
      * answer the new values from then on. A mod's own setting_set_* calls are
      * not told. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_TOO_LATE for no fn or
      * after openrac_mod_load. Since 1.15. */
-    int (*on_settings)(openrac_mod *mod, openrac_frame_fn fn, void *user);
+    int (*on_settings)(openrac_mod* mod, openrac_frame_fn fn, void* user);
 
     /* A mod's data kept with the game's saves (since 1.16): what a mod has to remember of a game
      * (a weapon's experience, a new weapon owned, a counter) goes with the save it belongs to, so
@@ -2279,16 +2287,16 @@ typedef struct openrac_api {
      * the game writes from then on (`<save>.moddata`, with the other mods' data; the save file
      * itself is never changed). Call it whenever the data changes: the port never asks. Returns
      * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a size past the most or no bytes. */
-    int (*save_data_set)(openrac_mod *mod, const void *bytes, uint32_t size);
+    int (*save_data_set)(openrac_mod* mod, const void* bytes, uint32_t size);
     /* save_data_get: the mod's data for the game in progress (what the save it came from held, or
      * what the mod set since): written to `out` when `size` is large enough. Returns its size in
      * bytes (call with a null `out` to ask), 0 for none. */
-    uint32_t (*save_data_get)(openrac_mod *mod, void *out, uint32_t size);
+    uint32_t (*save_data_get)(openrac_mod* mod, void* out, uint32_t size);
     /* on_save_data: calls `fn(user)` after the tick in which the game in progress changed: a save
      * loaded (its data now save_data_get's, none when it was saved without the mod) or a new game
      * started (none). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_TOO_LATE for no fn or after
      * openrac_mod_load. */
-    int (*on_save_data)(openrac_mod *mod, openrac_frame_fn fn, void *user);
+    int (*on_save_data)(openrac_mod* mod, openrac_frame_fn fn, void* user);
 
     /* The game's own segment query, as its shots ask it each tick (since 1.17):
      * the nearest of what `flags` says (OPENRAC_LINE_LEVEL, OPENRAC_LINE_MOBYS)
@@ -2303,7 +2311,7 @@ typedef struct openrac_api {
      */
     int (*collision_line)(const float from[3], const float to[3],
                           uint32_t flags, int32_t ignore,
-                          openrac_line_hit *out);
+                          openrac_line_hit* out);
 
     /* Fixes a prop of the mod's (prop_create) to joint `joint` of the moby in
      * slot `slot` (since 1.18): its skeleton's joint, or with
@@ -2323,7 +2331,7 @@ typedef struct openrac_api {
      * OPENRAC_HOOK_UNKNOWN for a prop that is not the mod's, no moby in the
      * slot, a joint below 0, an attach point the game does not have or an
      * offset that is not numbers. */
-    int (*prop_attach)(openrac_mod *mod, int id, int32_t slot, int32_t joint,
+    int (*prop_attach)(openrac_mod* mod, int id, int32_t slot, int32_t joint,
                        uint32_t flags, const float offset[16]);
 
     /* Where a prop of the mod's was drawn last (since 1.18): into `out` the 4
@@ -2335,7 +2343,7 @@ typedef struct openrac_api {
      * walk. For a posed one, its pose. Returns OPENRAC_HOOK_OK, or
      * OPENRAC_HOOK_UNKNOWN for a prop that is not the mod's, not posed, or not
      * drawn on its joint since it was fixed there. */
-    int (*prop_frame)(openrac_mod *mod, int id, float out[16]);
+    int (*prop_frame)(openrac_mod* mod, int id, float out[16]);
 
     /* Makes the mod's developer menu item `action` a switch (since 1.19), on
      * when `on` is nonzero. The menu draws it on or off and turns it over as
@@ -2347,7 +2355,7 @@ typedef struct openrac_api {
      * developer_menu, or the mod's tick-boundary callback. Returns
      * OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN for an action the mod has not
      * registered, or OPENRAC_HOOK_TOO_LATE at another time. */
-    int (*developer_menu_switch)(openrac_mod *mod, uint32_t action, int on);
+    int (*developer_menu_switch)(openrac_mod* mod, uint32_t action, int on);
 
     /* Makes the mod's developer menu item `action` a choice (since 1.19)
      * among `count` values (`values`, their labels, copied), `index` the one
@@ -2357,14 +2365,14 @@ typedef struct openrac_api {
      * again, it sets the values and the index. The same times and returns as
      * developer_menu_switch, and OPENRAC_HOOK_UNKNOWN for no values, a null
      * one, or an index outside them. */
-    int (*developer_menu_choice)(openrac_mod *mod, uint32_t action,
-                                 const char *const *values, uint32_t count,
+    int (*developer_menu_choice)(openrac_mod* mod, uint32_t action,
+                                 const char* const *values, uint32_t count,
                                  uint32_t index);
 
     /* The state of the mod's developer menu item `action` (since 1.19): a
      * switch's 0 or 1, a choice's index, or -1 for a plain item or an action
      * the mod has not registered. At any time. */
-    int (*developer_menu_value)(openrac_mod *mod, uint32_t action);
+    int (*developer_menu_value)(openrac_mod* mod, uint32_t action);
 
     /* The entry of the hook point `name` (its id, name or an alias, as hook
      * takes them), checked against `signature` as hook checks it (since 1.21):
@@ -2375,7 +2383,7 @@ typedef struct openrac_api {
      * point runs its own replacement too. Null for a hook point this OpenRAC
      * lacks, another signature, or no function of it in this program. At any
      * time. */
-    void *(*hook_entry)(const char *name, const char *signature);
+    void* (*hook_entry)(const char* name, const char* signature);
 
     /* Replaces this mod's render-only moby appearances for this level load. count 0 clears them.
      * The renderer imports requested classes from this disc's extracted levels, including classes
