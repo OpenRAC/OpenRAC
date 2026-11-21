@@ -190,8 +190,24 @@ static void draw_sides(gaddr cursor, float wider, int x0, int x1, int y0, int y1
 /* The picture as a record in the list whose cursor is at `cursor` (and, in a wider picture, its
  * backdrop's sides), its TEX0 in *tex0_out. False when it is not one the port draws, or the 2D layer
  * is replayed: the caller runs the game's routine. */
+static int draw_picture_rgba(
+    gaddr cursor, const uint8_t* rgba, int frame, int width, int height, uint64_t* tex0_out
+);
+
 static int draw_picture(
     gaddr cursor, int pixels, int frame, int width, int height, uint64_t* tex0_out
+) {
+    if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
+        return 0;
+    }
+    return draw_picture_rgba(
+        cursor, (const uint8_t*)G((gaddr)pixels & 0x01FFFFFFu), frame, width, height, tex0_out
+    );
+}
+
+/* The picture from `rgba` (the port's memory or game memory) as the frame's record. */
+static int draw_picture_rgba(
+    gaddr cursor, const uint8_t* rgba, int frame, int width, int height, uint64_t* tex0_out
 ) {
     if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
         return 0;
@@ -220,7 +236,6 @@ static int draw_picture(
         return 0;
     }
     const uint32_t bytes = (uint32_t)width * (uint32_t)height * 4u;
-    const uint8_t* rgba = (const uint8_t*)G((gaddr)pixels & 0x01FFFFFFu);
     const uint32_t hash = picture_hash(rgba, bytes);
     const int block = PICTURE_BLOCK;
     if (block != s_block || hash != s_hash) {
@@ -276,6 +291,13 @@ long long func_003A9830__frontbin(int pixels, int frame, int width, int height) 
         return func_003A9830__frontbin__game(pixels, frame, width, height);
     }
     return (long long)tex0;
+}
+
+/* A movie's frame (movie.c): the native player's picture (RGBA rows) as the frame's record in the
+ * list at `cursor`, as the main menu's background is. */
+int rac3_picture_record(gaddr cursor, const uint8_t* rgba, int width, int height) {
+    uint64_t tex0;
+    return draw_picture_rgba(cursor, rgba, 0, width, height, &tex0);
 }
 
 /* Each frame's display list as it is sent (host/dma.c): a picture no draw of this frame asked for

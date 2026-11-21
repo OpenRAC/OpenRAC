@@ -1,6 +1,11 @@
 {
  "about": "What rac3-ntsc's carried tables rest on besides the same code, written by port/tools/hostgen/release_carry_rac3.py; do not edit.",
  "differs": {
+  "func_0038A8F8": {
+   "is": "func_0038A8A0",
+   "status": "differs",
+   "port": "host C"
+  },
   "func_0038AE20__frontbin__game": {
    "is": "func_PAL_0038AE20__frontbin__game",
    "status": "none",

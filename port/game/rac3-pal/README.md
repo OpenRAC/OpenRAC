@@ -653,25 +653,6 @@ it where the transfers were (`host/picture.c`): nothing of the game's transfers 
   triangles and a strip, `OPENRAC_UI_RESIDUAL`). The Weapons grid and the quick select ring are
   empty, as on the console, until Veldin's scenes give the first guns (item 39 the Shock Blaster, 119 the N60;
   the ring and the grid show the N60 once given).
-- Movie subtitles: the native player shows the picture alone. The PAL game draws them in its own
-  movie list, which the hand-written vertical blank handler (`func_003B1118`) sends each blank:
-  `func_003A1428` builds it (the picture's sprites, then `func_0038A8F8`'s subtitles from the movie
-  block's table at `0x00225748`, timed by the blank count at `0x00225734`). The prints run when that
-  list is built (the New Game intro's lines reach the menu log), but a list sent from the native
-  player's blanks does not show on the window yet, so they are not drawn.
-
-## The memory card
-
-The game's own card code runs as it is on the shared library (`port/game/common/lib/mc.c`), the
-card being a folder (`--cards`, by default `<data home>/memcard/SCES_524.56`). It checks the card
-when it starts and reads Ratchet & Clank's and Going Commando's saves from the folders beside it.
-New Game on a card without its save asks to create one (Yes is **Circle**, No Triangle), which
-writes `BESCES-52456RATCHET/` (`icon.sys`, `static.ico`, `net.bin`, `save0.bin` to `save3.bin`
-and a file named as the folder); the Load page lists the four slots and reads the chosen save
-whole. `host/save_format.h` is the save's layout (launcher/docs/RAC3_SAVE_FORMAT.md) and
-`host/play.c` tells the shared code which files are saves. `OPENRAC_TRACE_MC=1` prints every card
-command; `OPENRAC_RAC3_CHAINS` also prints the card machine's state and its dialog.
-
-Two translations were wrong on the card's path and are left to their assembly: the scratch buffer
-allocator (`func_003932E8`, whose NTSC-U draft reads NTSC-U's address of the buffer's top) and the
-menu pages' callback callers (`func_003E73D0` and four more, which pass the page on in a0).
+- Movie subtitles: the boot program's movies (the New Game intro) show their subtitles, the game's
+  own prints over the native player's picture in the list its vertical blank handler sends
+  (host/movie.c); frontbin's and the levels' movies still show the picture alone.

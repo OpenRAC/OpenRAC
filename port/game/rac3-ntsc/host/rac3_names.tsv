@@ -1,5 +1,7 @@
 # The shared host C's function names (PAL's, port/game/rac3-pal/host) and NTSC-U's. Written by
 # port/tools/hostgen/release_carry_rac3.py from config/us/map.tsv; do not edit.
+func_0038A798	func_0038A740
+func_0038A8F8	func_0038A8A0
 func_0038AD28	func_0038AC70
 func_0038AD28__game	func_0038AC70__game
 func_0038AE20__frontbin	func_003866E8__frontbin
@@ -69,6 +71,7 @@ func_003A8F90__frontbin	func_003A3A40__frontbin
 func_003A9348	func_003A9200
 func_003A9830__frontbin	func_003A42E0__frontbin
 func_003A9830__frontbin__game	func_PAL_003A9830__frontbin__game
+func_003A9AF8	func_003A99B0
 func_003A9BE8	func_003A9AA0
 func_003A9BE8__game	func_003A9AA0__game
 func_003AA3C8__frontbin	func_003A4E70__frontbin
