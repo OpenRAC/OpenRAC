@@ -1062,6 +1062,39 @@ int fake_set_blend(void*, uint32_t blend) {
     return 1;
 }
 
+// What the fake host's 1.31 calls were given: the mesh of a model made, and the slot, model, flags and
+// the matrix's first and last values of the last moby_model_slot.
+std::string g_model;
+
+void fill_model(openrac_api &api) {
+    api.model_create = [](openrac_mod*, const char* path) {
+        g_model = std::string("model ") + path;
+        return std::string(path) == "a.glb" ? 4 : OPENRAC_HOOK_UNKNOWN;
+    };
+    api.moby_model_slot = [](openrac_mod*, int slot, const openrac_moby_model* m) {
+        g_model = "slot " + std::to_string(slot) + " model " + std::to_string(m->model) + " flags "
+               + std::to_string(m->flags) + " matrix " + std::to_string(static_cast<int>(m->matrix[0]))
+               + " " + std::to_string(static_cast<int>(m->matrix[12])) + " "
+               + std::to_string(static_cast<int>(m->matrix[15])) + " size "
+               + std::to_string(m->size == sizeof(openrac_moby_model));
+        return slot == 1 ? OPENRAC_HOOK_OK : slot == 2 ? OPENRAC_HOOK_TAKEN : OPENRAC_HOOK_UNKNOWN;
+    };
+}
+
+// What the fake host's 1.31 call was given: the class, scope, model and the matrix's first and last
+// values of the last moby_model_class.
+std::string g_model_class;
+
+void fill_model_class(openrac_api &api) {
+    api.moby_model_class = [](openrac_mod*, int oclass, uint32_t scope, const openrac_moby_model* m) {
+        g_model_class = "class " + std::to_string(oclass) + " scope " + std::to_string(scope) + " model "
+               + std::to_string(m->model) + " flags " + std::to_string(m->flags) + " matrix "
+               + std::to_string(static_cast<int>(m->matrix[0])) + " "
+               + std::to_string(static_cast<int>(m->matrix[15]));
+        return oclass == 1 ? OPENRAC_HOOK_OK : oclass == 2 ? OPENRAC_HOOK_TAKEN : OPENRAC_HOOK_UNKNOWN;
+    };
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -2279,6 +2312,68 @@ int main() {
         CHECK(!openrac::overlay_has_set_blend(nullptr)
               && !openrac::overlay_set_blend(nullptr, OPENRAC_OVERLAY_BLEND_ALPHA));
         CHECK(g_blend_now == OPENRAC_OVERLAY_BLEND_SUBTRACT);  // nothing was called
+    }
+
+    // Interface 1.31: a mesh of the mod's drawn in place of a moby's model, and a port without it.
+    {
+        fill_model(api);
+        CHECK(mod.has_moby_models());
+        CHECK(mod.model_create("a.glb") == 4 && g_model == "model a.glb");
+        CHECK(mod.model_create("b.glb") == -1);
+        // No matrix is the identity, and the struct's size is the compatibility check.
+        CHECK(mod.moby_model_slot(1, 4) == OPENRAC_HOOK_OK
+              && g_model == "slot 1 model 4 flags 0 matrix 1 0 1 size 1");
+        const float moved[16] = {2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 5, 0, 0, 1};
+        CHECK(mod.moby_model_slot(1, 4, moved) == OPENRAC_HOOK_OK
+              && g_model == "slot 1 model 4 flags 0 matrix 2 5 1 size 1");
+        // The port's answer is the call's: another mod's moby, a slot with none.
+        CHECK(mod.moby_model_slot(2, 4) == OPENRAC_HOOK_TAKEN);
+        CHECK(mod.moby_model_slot(3, 4) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(mod.moby_model_clear(1) && g_model.find("model -1") != std::string::npos);
+
+        // A port of 1.15, or a table that ends before the slot, has none of it and is not asked.
+        g_model.clear();
+        api.api_minor = 15;
+        CHECK(!mod.has_moby_models() && mod.model_create("a.glb") == -1
+              && mod.moby_model_slot(1, 4) == OPENRAC_HOOK_UNKNOWN && !mod.moby_model_clear(1)
+              && g_model.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        const std::uint32_t size = api.size;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, moby_model_slot));
+        CHECK(!mod.has_moby_models() && mod.model_create("a.glb") == -1 && g_model.empty());
+        api.size = size;
+        CHECK(mod.has_props());
+    }
+    // Interface 1.31: every moby of a class drawn with a mesh of the mod's in a scope, and a port
+    // without it.
+    {
+        fill_model_class(api);
+        CHECK(mod.has_moby_model_class());
+        const float moved[16] = {3, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3, 0, 0, 0, 0, 1};
+        // The world scope, the identity matrix; the menu scope, a scaled one; both bits.
+        CHECK(mod.moby_model_class(1, OPENRAC_MODEL_WORLD, 4) == OPENRAC_HOOK_OK
+              && g_model_class == "class 1 scope 1 model 4 flags 0 matrix 1 1");
+        CHECK(mod.moby_model_class(1, OPENRAC_MODEL_MENU, 4, moved) == OPENRAC_HOOK_OK
+              && g_model_class == "class 1 scope 2 model 4 flags 0 matrix 3 1");
+        CHECK(mod.moby_model_class(1, OPENRAC_MODEL_WORLD | OPENRAC_MODEL_MENU, 4) == OPENRAC_HOOK_OK
+              && g_model_class == "class 1 scope 3 model 4 flags 0 matrix 1 1");
+        // The port's answer is the call's: another mod's class, a class with none.
+        CHECK(mod.moby_model_class(2, OPENRAC_MODEL_WORLD, 4) == OPENRAC_HOOK_TAKEN);
+        CHECK(mod.moby_model_class(3, OPENRAC_MODEL_WORLD, 4) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(mod.moby_model_class_clear(1, OPENRAC_MODEL_MENU) && g_model_class.find("model -1") != std::string::npos);
+
+        // A port of 1.30, or a table that ends before the field, has none of it and is not asked.
+        g_model_class.clear();
+        api.api_minor = 30;
+        CHECK(!mod.has_moby_model_class() && mod.moby_model_class(1, OPENRAC_MODEL_WORLD, 4) == OPENRAC_HOOK_UNKNOWN
+              && !mod.moby_model_class_clear(1, OPENRAC_MODEL_WORLD) && g_model_class.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        const std::uint32_t size = api.size;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, moby_model_class));
+        CHECK(!mod.has_moby_model_class() && mod.moby_model_class(1, OPENRAC_MODEL_WORLD, 4) == OPENRAC_HOOK_UNKNOWN
+              && g_model_class.empty());
+        api.size = size;
+        CHECK(mod.has_moby_models());
     }
 
     check_refused_loads(api, handle);

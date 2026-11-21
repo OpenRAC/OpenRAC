@@ -148,6 +148,7 @@ int32_t rac1_world_moby_slot(int32_t key);
 /* A placed moby's key, -1 for a spawned one. */
 int32_t rac1_world_moby_key(gaddr moby);
 int32_t rac1_world_moby_mission(int32_t slot);
+int32_t rac1_world_moby_class(gaddr moby);
 gaddr rac1_world_moby_at(int32_t slot);
 void rac1_world_moby_kill(gaddr moby);
 /* CreateMoby (func_0020D348) of a moby of the level's, also while the pause menu's mobys are the

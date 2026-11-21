@@ -1666,6 +1666,17 @@ TickMobys pose_mobys(
     const bool free_camera = debug_overlay::free_camera_enabled();
     // The view a draw distance exception is culled by: the game's own draw distance. Made once.
     std::optional<host::GameState> game_distance_view;
+    // The mobys the mods draw with a mesh of their own (interface 1.31), by address.
+    const std::vector<mods::MobyModelDraw> model_draws = mods::moby_models_drawn();
+    std::unordered_map<std::uint32_t, const mods::MobyModelDraw*> model_overrides;
+    std::map<std::pair<int, std::uint32_t>, const mods::MobyModelDraw*> class_overrides;
+    for (const mods::MobyModelDraw& draw : model_draws) {
+        if (draw.scope == 0) {
+            model_overrides.emplace(draw.address, &draw);
+        } else {
+            class_overrides.emplace(std::make_pair(draw.oclass, draw.scope), &draw);
+        }
+    }
     for (std::size_t index = 0; index < state.mobys.size(); ++index) {
         bool light_only = false;
         const host::LiveMoby& m = state.mobys[index];
@@ -1753,6 +1764,37 @@ TickMobys pose_mobys(
                })) {
             continue;
         }
+        // A mesh a mod draws this moby with instead (interface 1.31): for the moby it was set on
+        // (its address and its class), in the scene when the mod's model was read into it; until
+        // then the moby keeps its class's model. It does not need its class to be in the level's.
+        const mods::MobyModelDraw* mod_model = nullptr;
+        std::uint32_t mod_model_index = 0;
+        // The moby's own override first, then its class's in the moby's scope: a moby the game draws
+        // with a camera of its own (a menu's, the vendor's: own_camera) is of the menu scope, the
+        // others of the world's.
+        const mods::MobyModelDraw* wanted = nullptr;
+        if (const auto draw = model_overrides.find(m.address);
+            draw != model_overrides.end() && draw->second->oclass == m.class_id) {
+            wanted = draw->second;
+        } else if (const auto draw = class_overrides.find(
+                       {m.class_id, own_camera ? OPENRAC_MODEL_MENU : OPENRAC_MODEL_WORLD}
+                   );
+                   draw != class_overrides.end()) {
+            wanted = draw->second;
+        }
+        if (wanted != nullptr) {
+            if (wanted->hidden) {
+                continue;
+            }
+            const auto mesh =
+                std::find_if(g->prop_models.begin(), g->prop_models.end(), [&](const auto& held) {
+                    return held.first == wanted->mesh;
+                });
+            if (mesh != g->prop_models.end()) {
+                mod_model = wanted;
+                mod_model_index = mesh->second;
+            }
+        }
         const auto replacement =
             std::find_if(replacements.rbegin(), replacements.rend(), [&](const auto& v) {
                 return v.moby == m.address && g->render.level.moby_classes.contains(v.oclass);
@@ -1768,7 +1810,7 @@ TickMobys pose_mobys(
         if (cls == g->render.level.moby_classes.end() && !m.model_only) {
             cls = g->render.level.moby_classes.find(m.class_id);
         }
-        if (cls == g->render.level.moby_classes.end()) {
+        if (cls == g->render.level.moby_classes.end() && mod_model == nullptr) {
             continue;
         }
         scene::Instance instance{cls->second.first, m.matrix, {1, 1, 1, 1}};
@@ -2028,14 +2070,21 @@ TickMobys pose_mobys(
             instance.matrix = scene::pickup_preview::apply(instance.matrix, center, 0, entry);
             instance.world_sphere = {};
         }
+        if (mod_model != nullptr) {
+            // A mesh of a mod's draws in place of the moby's model (interface 1.31, moby_model_slot).
+            instance.model = mod_model_index;
+            instance.matrix = renderer::multiply(m.matrix, mod_model->matrix);
+        }
         instance.lighting_only = light_only;
         instance.gameplay_essential = g->render.profile->gameplay_essential(m.class_id);
         instance.occlusion = m.occlusion;
         if (extra || into_texture.contains(m.address)) {
             instance.occlusion = scene::Pvs::always;
         }
-        // Authored bounds do not cover debug stand-ins or replacement meshes.
-        if (!custom_pose && !cls->second.second && g->render.level.overridden_models == 0) {
+        // Authored bounds do not cover debug stand-ins or replacement meshes (a mod's mesh, here,
+        // has its own).
+        if (mod_model == nullptr && !custom_pose && !cls->second.second
+            && g->render.level.overridden_models == 0) {
             instance.world_sphere = m.world_sphere;
         }
         // How MobyProc blends it (ReRAC's MobyBlend, from the game's moby draw). Its vertex alpha is
@@ -2183,12 +2232,16 @@ TickMobys pose_mobys(
 
         // Unweighted joints are needed only by bone attachments or explicit developer inspection.
         const auto& model = g->render.level.models[instance.model];
-        const int joints =
+        int joints =
             replacement_pose
                 ? (model.preview_poses.empty() ? 0 : int(model.bones.size()))
                 : std::max(
                       model.joints, (inspect_bones || attached_bones) ? int(model.bones.size()) : 0
                   );
+        // A mod's mesh is rigid: the game's palette would number another mesh's joints wrongly.
+        if (mod_model != nullptr) {
+            joints = 0;
+        }
         if (animate && replacement_pose && !model.preview_poses.empty()) {
             const auto& pose = model.preview_poses[g->index % model.preview_poses.size()];
             instance.palette = int(palette.size());

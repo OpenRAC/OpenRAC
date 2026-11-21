@@ -87,9 +87,11 @@ extern "C" {
  * and 1.28 mods' own overlays drawn over the game's menus too (the vendor's, the pause menu's),
  * and 1.29 props skinned with joint matrices of the mod's own (prop_set_skin), and 1.30 blends
  * that subtract from or add to what is on the screen for the overlay's rectangles and text
- * (openrac_overlay.set_blend).
+ * (openrac_overlay.set_blend), and 1.31 a mesh of the mod's drawn in place of a moby's model: by
+ * slot, by class in the world or menus, or by address (model_create, moby_model_slot,
+ * moby_model_class, moby_model_at).
  */
-#define OPENRAC_MOD_API_MINOR 30
+#define OPENRAC_MOD_API_MINOR 31
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1037,6 +1039,33 @@ typedef struct openrac_prop_pose {
 #define OPENRAC_PROP_OPAQUE 0u
 #define OPENRAC_PROP_ALPHA 1u
 #define OPENRAC_PROP_ADD 2u
+
+/* The most models the mods together have at once (openrac_api.model_create). Since 1.31. */
+#define OPENRAC_MODELS_MAX 64
+
+/* The mesh a moby is drawn with instead of its class's (openrac_api.moby_model_slot). `model` is a
+ * handle from model_create, or -1 to give the moby its own model back. `matrix` (column-major)
+ * takes the mesh's own coordinates to the coordinates the game's model of the moby's class is
+ * in (the class's own unscaled model units, before the moby's scale and turn, which the game keeps
+ * on top); the identity for a mesh made in the same units. `flags` is 0 or
+ * OPENRAC_MODEL_HIDE_NATIVE. Since 1.31. */
+typedef struct openrac_moby_model {
+    /* sizeof(openrac_moby_model), set by the mod. */
+    uint32_t size;
+    uint32_t flags;
+    int32_t model;
+    float matrix[16];
+} openrac_moby_model;
+
+/* openrac_api.moby_model_at only: hide this moby instead of drawing its native model. Set model to
+ * -1. Clearing the override (model -1 without this flag) gives the moby its native model back. Since 1.31. */
+#define OPENRAC_MODEL_HIDE_NATIVE 0x2u
+
+/* openrac_api.moby_model_class's `scope`: the mobys of the level's world (array mobys, drawn with
+ * the level's camera), and the mobys a menu draws with a camera of its own, in the array or not
+ * (docs/port/MODS.md says which). Since 1.31. */
+#define OPENRAC_MODEL_WORLD 0x1u
+#define OPENRAC_MODEL_MENU 0x2u
 
 /* One joint of the hero turned and moved by a mod (openrac_api.hero_set_joints): `joint` his
  * skeleton's joint, turned by the unit quaternion `rotation` (x, y, z, w) after his animation's
@@ -2532,6 +2561,63 @@ typedef struct openrac_api {
     int (*prop_set_skin)(
         openrac_mod* mod, int id, const float* joint_matrices, uint32_t joint_count
     );
+
+    /* A model: a mesh of the mod's (`mesh_path`, a .glb inside the mod's folder, read as
+     * prop_create reads one) that moby_model_slot, moby_model_class and moby_model_at can draw a
+     * moby with. The mesh is read and added to the level that is up when the next frame is
+     * captured, as a prop's is (no new read of the level: the cost is that of the mesh). A path
+     * the mod already made a model of in this level load answers that model. At most
+     * OPENRAC_MODELS_MAX for all mods; a model goes with its level (moby_model_slot then answers
+     * OPENRAC_HOOK_UNKNOWN for it, and the mod makes another) and with the mod's unload. A mesh
+     * the port cannot read is not drawn: the moby keeps its own model, and the log says so once.
+     * Returns the model's handle (0 or more), or OPENRAC_HOOK_UNKNOWN outside a level, for a path
+     * outside the mod's folder, one that is not a .glb or a file that is not there, or past
+     * OPENRAC_MODELS_MAX. Since 1.31. */
+    int (*model_create)(openrac_mod* mod, const char* mesh_path);
+    /* Draws the moby in array slot `slot` (openrac_moby.slot) with the model `m->model` instead of
+     * its class's, from the next captured frame, until `m->model` is -1, the moby goes or its level
+     * does. Only the drawing changes: the game's update, collision, hits, shadow, light, fade,
+     * animation, placing and scale stay. The matrix takes the mesh into the moby's model space (see
+     * openrac_moby_model); the mesh is drawn rigid, as stored. The moby's culling sphere is not used
+     * (the mesh's bounds are). The override is bound to the moby in the slot now (its address and class) and is
+     * dropped when the slot is freed or taken by a moby of another class. A slot freed and made
+     * again for a moby of the same class between two ticks is not told apart: clear the override
+     * (model -1) when the moby is gone. One mod per moby: another mod's override answers
+     * OPENRAC_HOOK_TAKEN. A moby outside the array has no slot. Clearing a slot with no override
+     * answers OPENRAC_HOOK_OK. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no level, a
+     * slot with no moby, a null `m` or a short `size`, unknown `flags`, a matrix with a value that
+     * is not a number, or a model that is not the mod's or went with its level (nothing changes).
+     * Since 1.31. */
+    int (*moby_model_slot)(openrac_mod* mod, int slot, const openrac_moby_model* m);
+
+    /* Draws every moby of class `oclass` (openrac_moby.oclass) in `scope` (OPENRAC_MODEL_WORLD,
+     * OPENRAC_MODEL_MENU or both) with `m->model` instead of the class's model: the same struct,
+     * matrix, flags and rules as moby_model_slot, from the next captured frame. It also reaches the
+     * menus' own pictures of an item, which are not in the moby array, and the class's mobys the
+     * level makes later (docs/port/MODS.md has the Ratchet & Clank cases). ALL mobys of the class
+     * in the scope change, for every player running the mod; use moby_model_slot for one. A slot's
+     * override wins over the class's, and the class's override in the moby's scope over the game's
+     * model. `m->model` -1 takes the override off in `scope`. One mod per class and scope: another
+     * mod's override in an overlapping scope answers OPENRAC_HOOK_TAKEN, and nothing changes. The
+     * override goes with its level and the mod's unload. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for a `scope` of 0 or with other bits, a class below 0, a null `m` or a
+     * short `size`, unknown `flags`, a matrix with a value that is not a number, or a model that is
+     * not the mod's or went with its level (nothing changes). Since 1.31. */
+    int (*moby_model_class)(
+        openrac_mod* mod, int oclass, uint32_t scope, const openrac_moby_model* m
+    );
+
+    /* Draws the moby at `address` (the game's address of a moby the game has, whether or not the level's
+     * list holds it) with `model` instead of its class's model: the same mesh, matrix, flags and rules as
+     * moby_model_slot, from the next captured frame. Only that moby is drawn so. The override goes when the
+     * class the game reads at the address changes, with its level and the mod's unload; a moby freed and
+     * made again of the same class keeps it, so the mod clears it when its moby is gone. Another mod's
+     * override of the same address answers OPENRAC_HOOK_TAKEN and changes nothing. `m->model` -1 takes the
+     * override off (or with OPENRAC_MODEL_HIDE_NATIVE hides the native model). Returns OPENRAC_HOOK_OK,
+     * _TAKEN, or OPENRAC_HOOK_UNKNOWN for a null `m`, a short `size`, flags not known, a matrix with a
+     * value that is not a number, a model that is not the mod's or went with its level, an address that is
+     * 0 or not a moby of the game, or a port without it (nothing changes). Since 1.31. */
+    int (*moby_model_at)(openrac_mod* mod, uint32_t address, const openrac_moby_model* m);
 
 } openrac_api;
 

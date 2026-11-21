@@ -1609,6 +1609,111 @@ public:
         return has_prop_skin() && m_api->prop_set_skin(m_handle, id, nullptr, 0) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.31: whether the port draws a moby with a mesh of the mod's (model_create,
+    // moby_model_slot).
+    bool has_moby_models() const {
+        return m_api->api_minor >= 31
+               && m_api->size >= offsetof(openrac_api, moby_model_slot) + sizeof(void*);
+    }
+
+    // Since 1.31: makes a model of the .glb `mesh_path` (in the mod's folder) for moby_model_slot:
+    // its handle, or -1 outside a level, for a path the port refuses, past OPENRAC_MODELS_MAX, or
+    // on a port without it. It goes with its level.
+    int model_create(const std::string& mesh_path) const {
+        const int model = has_moby_models() ? m_api->model_create(m_handle, mesh_path.c_str())
+                                            : OPENRAC_HOOK_UNKNOWN;
+        return model >= 0 ? model : -1;
+    }
+
+    // Since 1.31: draws the moby in array `slot` with `model` instead of its class's model (see
+    // openrac_api.moby_model_slot). `matrix` takes the mesh into the moby's model space (null: the
+    // identity). Returns OPENRAC_HOOK_OK, _UNKNOWN or _TAKEN (another mod's moby).
+    int moby_model_slot(int slot, int model, const float* matrix = nullptr) const {
+        if (!has_moby_models()) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        openrac_moby_model m{};
+        m.size = sizeof m;
+        m.model = model;
+        for (int i = 0; i < 16; ++i) {
+            m.matrix[i] = matrix != nullptr ? matrix[i] : (i % 5 == 0 ? 1.0f : 0.0f);
+        }
+        return m_api->moby_model_slot(m_handle, slot, &m);
+    }
+
+    // Since 1.31: gives the moby in array `slot` its own model back.
+    bool moby_model_clear(int slot) const {
+        return moby_model_slot(slot, -1) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.31: whether the port draws every moby of a class with a mesh of the mod's
+    // (moby_model_class).
+    bool has_moby_model_class() const {
+        return m_api->api_minor >= 31
+               && m_api->size >= offsetof(openrac_api, moby_model_class) + sizeof(void*);
+    }
+
+    // Since 1.31: draws every moby of class `oclass` in `scope` (OPENRAC_MODEL_WORLD, _MENU or both)
+    // with `model`: the game's own pictures of the item too, in the menu scope (see
+    // openrac_api.moby_model_class). Returns OPENRAC_HOOK_OK, _UNKNOWN or _TAKEN (another mod's).
+    int moby_model_class(int oclass, uint32_t scope, int model, const float* matrix = nullptr) const {
+        if (!has_moby_model_class()) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        openrac_moby_model m{};
+        m.size = sizeof m;
+        m.model = model;
+        for (int i = 0; i < 16; ++i) {
+            m.matrix[i] = matrix != nullptr ? matrix[i] : (i % 5 == 0 ? 1.0f : 0.0f);
+        }
+        return m_api->moby_model_class(m_handle, oclass, scope, &m);
+    }
+
+    // Since 1.31: gives the class its own model back in `scope`.
+    bool moby_model_class_clear(int oclass, uint32_t scope) const {
+        return moby_model_class(oclass, scope, -1) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.31: whether the port draws a moby at an address with a mesh of the mod's (moby_model_at).
+    bool has_moby_model_at() const {
+        return m_api->api_minor >= 31
+               && m_api->size >= offsetof(openrac_api, moby_model_at) + sizeof(void*);
+    }
+
+    // Since 1.31: draws the moby at `address` with `model` (see openrac_api.moby_model_at); the matrix as
+    // moby_model_slot's. Returns OPENRAC_HOOK_OK, _TAKEN or _UNKNOWN.
+    int moby_model_at(std::uint32_t address, int model, const float* matrix = nullptr) const {
+        if (!has_moby_model_at()) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        openrac_moby_model m{};
+        m.size = sizeof m;
+        m.model = model;
+        for (int i = 0; i < 16; ++i) {
+            m.matrix[i] = matrix != nullptr ? matrix[i] : (i % 5 == 0 ? 1.0f : 0.0f);
+        }
+        return m_api->moby_model_at(m_handle, address, &m);
+    }
+
+    // Since 1.31: gives the moby at `address` its own model back.
+    bool moby_model_at_clear(std::uint32_t address) const {
+        return moby_model_at(address, -1) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.31: hides this moby's native mesh for a mod-owned replacement or an empty-handed pose.
+    int moby_model_at_hide(std::uint32_t address) const {
+        const auto& a = *m_api;
+        if (a.api_minor < 31 ||
+            a.size < offsetof(openrac_api, moby_model_at) + sizeof a.moby_model_at ||
+            a.moby_model_at == nullptr) return OPENRAC_HOOK_UNKNOWN;
+        openrac_moby_model m{};
+        m.size = sizeof m;
+        m.flags = OPENRAC_MODEL_HIDE_NATIVE;
+        m.model = -1;
+        m.matrix[0] = m.matrix[5] = m.matrix[10] = m.matrix[15] = 1.0f;
+        return a.moby_model_at(m_handle, address, &m);
+    }
+
     // Since 1.12: a sound of the mod's (a .wav or .ogg in its folder): its id, or -1.
     int sound_load(const std::string& path) const {
         const int id = has_api_12() ? m_api->sound_load(m_handle, path.c_str()) : OPENRAC_HOOK_UNKNOWN;

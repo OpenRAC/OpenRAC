@@ -324,6 +324,30 @@ std::unordered_map<std::uint32_t, MobyMaterial> energy_materials();
 std::vector<std::filesystem::path> prop_meshes();
 unsigned prop_meshes_generation();
 
+// ---- Moby models (interface 1.31, mod_play.cpp) ----
+
+// A moby a mod draws with a mesh of its own (openrac_api.moby_model_slot): the moby by its address
+// and class (an override is for the moby that was in the slot when it was set), the mesh (a model of
+// the level's scene by its path, as a prop's is), the matrix from the mesh's coordinates to the
+// coordinates of the moby's own model, column-major, and whether the game's joint matrices pose it.
+//
+// A moby override by class (interface 1.31, openrac_api.moby_model_class) is the same with `address`
+// 0 and `scope` the one scope (OPENRAC_MODEL_WORLD or _MENU) it is for; a slot's, and an address's
+// (interface 1.31, moby_model_at: a moby the level's list may not hold), has `scope` 0.
+struct MobyModelDraw {
+    std::uint32_t address = 0;
+    int oclass = -1;
+    std::uint32_t scope = 0;
+    std::filesystem::path mesh;
+    std::array<float, 16> matrix{};
+    // Suppress this moby, including its native model, for this frame.
+    bool hidden = false;
+};
+
+// The mobys the mods draw with a mesh of their own in the level now (this level load's). From any
+// thread.
+std::vector<MobyModelDraw> moby_models_drawn();
+
 // ---- Heat haze (interface 1.12, mod_play.cpp) ----
 
 // A patch of heat haze to draw this frame (openrac_haze), in the game's world.

@@ -770,6 +770,11 @@ typedef struct openrac_game_play {
      * 0 for none, negative for an unreadable one. NULL for a game without them. */
     int (*moby_pool_raise)(int extra);
     int (*moby_pool_status)(int32_t out[5]);
+    /* The class of the moby at `moby`, read from the moby's own field whether or not the level's list
+     * holds it (so the vendor's preview mobys too): -1 for an address past the game's RAM, 0, or
+     * outside a level. Reads the game's memory only. NULL for a game without it (interface 1.31:
+     * openrac_api.moby_model_at then answers OPENRAC_HOOK_UNKNOWN). */
+    int32_t (*moby_class_at)(gaddr moby);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)

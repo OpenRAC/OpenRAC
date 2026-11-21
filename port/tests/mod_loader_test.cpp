@@ -184,6 +184,8 @@ const char* const kLevelNames[] = {"Veldin", "Novalis", "Aridia", "Kerwan", "Eud
 // a moby at 0x3000 + 0x100 * slot, a spawn making slot 3, the hero's moby in slot 9, and the bolts.
 bool g_live[8] = {true, true, true, false, false, false, false, false};
 int g_bolts = 100;
+// The class the game reads at the moby at 0x3F00, which the level's list does not hold (interface 1.31).
+std::int32_t g_address_class = 511;
 // The level's scene playing (-1 none): a scene asked for plays at once, at frame 42.
 std::int32_t g_scene = -1;
 constexpr std::int32_t kKeys[] = {0, 1, -1};
@@ -2006,7 +2008,10 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     play.hero_update_hook = "Test_Add";
     // The moby in slot 3, and the hero's attach point 1 on joint 12 (interface 1.18, prop_attach).
     play.moby_at = [](std::int32_t slot) {
-        return slot == 3 ? gaddr{0x2000} : gaddr{0};
+        if (slot == 3) {
+            return gaddr{0x2000};
+        }
+        return slot == 1 && g_live[slot] ? gaddr{0x3100} : gaddr{0};
     };
     play.attach_point_joint = [](std::uint32_t moby, int point) {
         return moby == 0x2000 && point == 1 ? 12 : -1;
@@ -2049,6 +2054,9 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         std::fill(rows, rows + 9, 0.0f);
         return 1;
     };
+    play.moby_class_at = [](gaddr moby) {
+        return moby == 0x3F00 ? g_address_class : std::int32_t{-1};
+    };
     play.hero_sound_play = [](int sound, int loop) {
         g_motion.push_back("hero sound " + std::to_string(sound) + " " + std::to_string(loop));
         return loop != 0 ? 5 : 3;
@@ -2083,10 +2091,14 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(mods::prop_meshes().empty());
     const unsigned generation = mods::prop_meshes_generation();
     mods::frame();
-    CHECK((g_records == std::vector<int>{9500, 9523, 9540, 9541, 9541, 9550, 9551, 9660, 9661, 9670,
-                                         9671, 9680, 9681, 9681, 9660, 9661, 9661, 9661, 9661, 9660,
-                                         9660, 9560, 9561, 9577, 9581, 9580, 9581, 9591, 9590, 9591,
-                                         9591, 9590, 9602, 9611, 9610, 9623, 9635}));
+    CHECK((g_records == std::vector<int>{9500, 9523, 9540, 9541, 9541, 9550, 9551, 9660, 9661,
+                                         9670, 9671, 9680, 9681, 9681, 9660, 9661, 9661, 9661,
+                                         9661, 9660, 9660, 9560, 9561, 9577, 9581, 9580, 9581,
+                                         9591, 9590, 9591, 9591, 9590, 9602, 9611, 9610, 9623,
+                                         9635, 9700, 9710, 9721, 9721, 9730, 9731, 9731, 9731,
+                                         9731, 9731, 9731, 9734, 9730, 9730, 9730, 9740, 9741,
+                                         9741, 9741, 9741, 9741, 9741, 9744, 9740, 9740, 9744,
+                                         9770, 9771, 9771, 9771, 9771, 9771, 9771, 9770}));
     CHECK(
         (g_motion
          == std::vector<std::string>{
@@ -2132,6 +2144,43 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         mods::prop_placed(99999, placed);
         CHECK(mods::props_drawn().size() == 2 && mods::props_drawn()[0].matrix[12] == 1.0f);
     }
+    // The moby the mod drew with its model (interface 1.31): slot 1's moby (0x3100, class 0) with the
+    // mesh of the model, moved 2 along x; the same mesh as the
+    // prop's, so the list of meshes did not grow.
+    // The class 511 override (interface 1.31, WORLD) of the same mod is listed too, after the slot's.
+    const std::vector<mods::MobyModelDraw> models = mods::moby_models_drawn();
+    CHECK(
+        models.size() == 3 && models[0].address == 0x3100 && models[0].oclass == 0
+        && models[0].scope == 0 && models[0].mesh.filename() == "board.glb"
+        && models[0].matrix[0] == 1.0f && models[0].matrix[12] == 2.0f
+    );
+    // The mobys the level's list does not hold, by address (interface 1.31): the one at 0x3F00, class 511.
+    CHECK(
+        models[1].address == 0x3F00 && models[1].oclass == 511 && models[1].scope == 0
+        && models[1].hidden && models[1].mesh.empty() && models[1].matrix[0] == 1.0f
+        && models[1].matrix[15] == 1.0f
+    );
+    CHECK(
+        models[2].address == 0 && models[2].oclass == 511 && models[2].scope == OPENRAC_MODEL_WORLD
+        && models[2].mesh.filename() == "board.glb" && models[2].matrix[13] == 3.0f
+    );
+    // The override is the moby's: freed in its slot, it is no one's (the address's and the class's stay).
+    g_live[1] = false;
+    mods::play_update();
+    CHECK(
+        mods::moby_models_drawn().size() == 2 && mods::moby_models_drawn()[0].address == 0x3F00
+        && mods::moby_models_drawn()[1].scope == OPENRAC_MODEL_WORLD
+    );
+    g_live[1] = true;
+    // The address's override goes when the class the game reads there changes (interface 1.31); the
+    // class's stays.
+    g_address_class = 512;
+    mods::play_update();
+    CHECK(
+        mods::moby_models_drawn().size() == 1
+        && mods::moby_models_drawn()[0].scope == OPENRAC_MODEL_WORLD
+    );
+    g_address_class = 511;
     // The heat haze, drawn while its level is.
     const std::vector<mods::HazeDraw> haze = mods::haze_drawn();
     CHECK(haze.size() == 2 && haze[0].position[0] == 4.0f && haze[0].radius == 1.0f);
@@ -2145,9 +2194,18 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_motion.clear();
     mods::frame();
     // The pose needs the hook; the joints do not (two, too many, none).
-    CHECK((g_records == std::vector<int>{9501, 9551, 9661, 9640, 9641, 9650}));
+    CHECK((g_records == std::vector<int>{9501, 9551, 9661, 9640, 9641, 9650, 9660, 9731, 9741}));
     CHECK((g_motion == std::vector<std::string>{"joints 4096 2 1 2", "joints 4096 0"}));
+    // The new level load's list holds the mesh again (the old load's was dropped, a change of the
+    // list as the push of the first mesh was), and a load none was made in has none.
+    CHECK(mods::prop_meshes().size() == 1 && mods::prop_meshes()[0].filename() == "board.glb");
+    CHECK(mods::prop_meshes_generation() == generation + 3);
+    g_loads = 3;
+    CHECK(mods::prop_meshes().empty());
+    CHECK(mods::prop_meshes_generation() == generation + 3);
+    g_loads = 2;
     CHECK(mods::props_drawn().empty());
+    CHECK(mods::moby_models_drawn().empty());
     CHECK(mods::haze_drawn().empty());
     CHECK(mods::hud_texts().empty());
     // The looping hero sound went with its level: nothing left to stop.

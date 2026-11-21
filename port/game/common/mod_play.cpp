@@ -1859,6 +1859,260 @@ int api_prop_remove(openrac_mod* mod, int id) {
     return OPENRAC_HOOK_OK;
 }
 
+// ---- Interface 1.31: a mesh of a mod's drawn in place of a moby's model ----
+
+// A model a mod made (model_create): whose, its mesh and the level load it was made in. The mesh is
+// one of the level's prop meshes (g_prop_meshes), so the front end holds it in its scene as a
+// prop's, and goes with the same level load.
+struct Model {
+    const openrac_mod* mod = nullptr;
+    std::filesystem::path mesh;
+    std::uint32_t loads = 0;
+};
+
+// What a mod drew a moby with: whose, the moby it was set on (its address and class when it was
+// set), the model's mesh as the model was when it was set, and how it is placed and posed.
+struct SlotModel {
+    const openrac_mod* mod = nullptr;
+    gaddr address = 0;
+    int oclass = -1;
+    std::uint32_t loads = 0;
+    std::filesystem::path mesh;
+    std::array<float, 16> matrix{};
+    bool hidden = false;
+};
+
+// What a mod drew the mobys of a class with in one scope (interface 1.31): whose, the mesh, how it is
+// placed and posed, and the level load.
+struct ClassModel {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    std::filesystem::path mesh;
+    std::array<float, 16> matrix{};
+};
+
+// Under g_props_lock, which they share with the props: the front end reads them with the props'.
+std::array<Model, OPENRAC_MODELS_MAX> g_models;
+std::map<int, SlotModel> g_slot_models;
+// By class and scope (one bit: OPENRAC_MODEL_WORLD or OPENRAC_MODEL_MENU).
+std::map<std::pair<int, std::uint32_t>, ClassModel> g_class_models;
+// By address (interface 1.31): the mobys the level's own list may not hold, the game reads their class.
+std::map<gaddr, SlotModel> g_address_models;
+
+// The class of each moby the game lists, by array slot: -1 for a slot it does not list. Read from
+// the game's list, which the mods ask for every tick. Game thread, outside g_props_lock.
+struct MobyClasses {
+    std::vector<openrac_game_moby_state> states;
+
+    MobyClasses() : states(kSlots) {
+        if (g_play != nullptr && g_play->mobys != nullptr) {
+            const int n = g_play->mobys(states.data(), static_cast<int>(states.size()));
+            states.resize(static_cast<std::size_t>(std::clamp(n, 0, static_cast<int>(kSlots))));
+        } else {
+            states.clear();
+        }
+    }
+
+    int of(int slot) const {
+        const auto s = std::find_if(states.begin(), states.end(), [&](const auto& m) {
+            return m.slot == slot;
+        });
+        return s != states.end() ? s->oclass : -1;
+    }
+};
+
+// The mod's model `handle` of this level load, null for one that is not; one gone with its level is
+// let go. Under g_props_lock.
+Model* own_model(const openrac_mod* mod, int handle) {
+    if (mod == nullptr || handle < 0 || handle >= static_cast<int>(g_models.size())) {
+        return nullptr;
+    }
+    Model& m = g_models[static_cast<std::size_t>(handle)];
+    if (m.mod != mod) {
+        return nullptr;
+    }
+    if (m.loads != loads_now()) {
+        m = Model{};
+        return nullptr;
+    }
+    return &m;
+}
+
+int api_model_create(openrac_mod* mod, const char* mesh_path) {
+    std::int32_t level = -1;
+    if (mod == nullptr || !in_level(phase_now(&level))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::filesystem::path mesh = mod_file(mod, mesh_path);
+    if (mesh.empty() || mesh.extension() != ".glb") {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const std::uint32_t loads = loads_now();
+    int free_handle = -1;
+    for (std::size_t i = 0; i < g_models.size(); ++i) {
+        Model& m = g_models[i];
+        if (m.mod != nullptr && m.loads != loads) {
+            m = Model{};
+        }
+        if (m.mod == mod && m.mesh == mesh) {
+            return static_cast<int>(i);
+        }
+        if (m.mod == nullptr && free_handle < 0) {
+            free_handle = static_cast<int>(i);
+        }
+    }
+    if (free_handle < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_models[static_cast<std::size_t>(free_handle)] = Model{mod, mesh, loads};
+    note_prop_mesh(loads, mesh);
+    return free_handle;
+}
+
+int api_moby_model_class(
+    openrac_mod* mod, int oclass, std::uint32_t scope, const openrac_moby_model* m
+) {
+    constexpr std::uint32_t kScopes = OPENRAC_MODEL_WORLD | OPENRAC_MODEL_MENU;
+    if (mod == nullptr || oclass < 0 || scope == 0 || (scope & ~kScopes) != 0 || m == nullptr
+        || m->size < sizeof(openrac_moby_model) || m->flags != 0
+        || !std::all_of(m->matrix, m->matrix + 16, [](float f) { return std::isfinite(f); })) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const std::uint32_t loads = loads_now();
+    // One mod per class and scope: a live override of another mod in any of the scopes asked for.
+    for (const std::uint32_t bit : {OPENRAC_MODEL_WORLD, OPENRAC_MODEL_MENU}) {
+        const auto held = g_class_models.find({oclass, bit});
+        if ((scope & bit) != 0 && held != g_class_models.end()) {
+            if (held->second.loads != loads) {
+                g_class_models.erase(held);
+            } else if (held->second.mod != mod) {
+                return OPENRAC_HOOK_TAKEN;
+            }
+        }
+    }
+    const Model* model = m->model >= 0 ? own_model(mod, m->model) : nullptr;
+    if (m->model >= 0 && model == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    for (const std::uint32_t bit : {OPENRAC_MODEL_WORLD, OPENRAC_MODEL_MENU}) {
+        if ((scope & bit) == 0) {
+            continue;
+        }
+        if (model == nullptr) {
+            g_class_models.erase({oclass, bit});
+            continue;
+        }
+        ClassModel& c = g_class_models[{oclass, bit}];
+        c.mod = mod;
+        c.loads = loads;
+        c.mesh = model->mesh;
+        std::copy(m->matrix, m->matrix + 16, c.matrix.begin());
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_model_slot(openrac_mod* mod, int slot, const openrac_moby_model* m) {
+    if (mod == nullptr || g_play == nullptr || m == nullptr || m->size < sizeof(openrac_moby_model)
+        || m->flags != 0
+        || !std::all_of(m->matrix, m->matrix + 16, [](float f) { return std::isfinite(f); })) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const gaddr address = moby_address(slot);
+    const int oclass = address != 0 ? MobyClasses().of(slot) : -1;
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const auto now = g_slot_models.find(slot);
+    // An override the moby it was set on has left (its slot freed or made again) is no one's.
+    bool held = false;
+    if (now != g_slot_models.end()) {
+        held = now->second.loads == loads_now() && now->second.address == address
+               && now->second.oclass == oclass;
+        if (!held) {
+            g_slot_models.erase(now);
+        } else if (now->second.mod != mod) {
+            return OPENRAC_HOOK_TAKEN;
+        }
+    }
+    if (m->model < 0) {
+        if (held) {
+            g_slot_models.erase(slot);
+        }
+        return OPENRAC_HOOK_OK;
+    }
+    const Model* model = own_model(mod, m->model);
+    if (model == nullptr || address == 0 || oclass < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    SlotModel& s = g_slot_models[slot];
+    s.mod = mod;
+    s.address = address;
+    s.oclass = oclass;
+    s.loads = loads_now();
+    s.mesh = model->mesh;
+    std::copy(m->matrix, m->matrix + 16, s.matrix.begin());
+    s.hidden = false;
+    return OPENRAC_HOOK_OK;
+}
+
+// Interface 1.31: the moby at `address`, whether or not the level's list holds it. Its class is the game's
+// own at that address (moby_class_at), so an override goes when the class there changes.
+int api_moby_model_at(openrac_mod* mod, std::uint32_t address, const openrac_moby_model* m) {
+    if (mod == nullptr || g_play == nullptr || m == nullptr || m->size < sizeof(openrac_moby_model)
+        || (m->flags & ~OPENRAC_MODEL_HIDE_NATIVE) != 0
+        || ((m->flags & OPENRAC_MODEL_HIDE_NATIVE) != 0 && m->model >= 0)
+        || !std::all_of(m->matrix, m->matrix + 16, [](float f) { return std::isfinite(f); })) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::int32_t oclass =
+        address != 0 && g_play->moby_class_at != nullptr ? g_play->moby_class_at(address) : -1;
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const auto now = g_address_models.find(address);
+    // An override whose moby's class changed, or whose level is gone, is no one's.
+    bool held = false;
+    if (now != g_address_models.end()) {
+        held = now->second.loads == loads_now() && now->second.oclass == oclass;
+        if (!held) {
+            g_address_models.erase(now);
+        } else if (now->second.mod != mod) {
+            return OPENRAC_HOOK_TAKEN;
+        }
+    }
+    if (m->model < 0 && (m->flags & OPENRAC_MODEL_HIDE_NATIVE) == 0) {
+        if (held) {
+            g_address_models.erase(address);
+        }
+        return OPENRAC_HOOK_OK;
+    }
+    if ((m->flags & OPENRAC_MODEL_HIDE_NATIVE) != 0) {
+        if (address == 0 || oclass < 0) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        SlotModel& s = g_address_models[address];
+        s.mod = mod;
+        s.address = address;
+        s.oclass = oclass;
+        s.loads = loads_now();
+        s.mesh.clear();
+        std::copy(m->matrix, m->matrix + 16, s.matrix.begin());
+        s.hidden = true;
+        return OPENRAC_HOOK_OK;
+    }
+    const Model* model = own_model(mod, m->model);
+    if (model == nullptr || oclass < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    SlotModel& s = g_address_models[address];
+    s.mod = mod;
+    s.address = address;
+    s.oclass = oclass;
+    s.loads = loads_now();
+    s.mesh = model->mesh;
+    std::copy(m->matrix, m->matrix + 16, s.matrix.begin());
+    s.hidden = false;
+    return OPENRAC_HOOK_OK;
+}
+
 int api_camera_view(openrac_camera* out) {
     if (out == nullptr || out->size < sizeof(openrac_camera) || g_play == nullptr
         || g_play->camera_view == nullptr) {
@@ -2258,6 +2512,10 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.prop_hide = api_prop_hide;
     api.prop_remove = api_prop_remove;
     api.prop_set_skin = api_prop_set_skin;
+    api.model_create = api_model_create;
+    api.moby_model_slot = api_moby_model_slot;
+    api.moby_model_class = api_moby_model_class;
+    api.moby_model_at = api_moby_model_at;
     api.sound_load = api_sound_load;
     api.sound_play = api_sound_play;
     api.sound_set = api_sound_set;
@@ -2319,6 +2577,28 @@ std::vector<PropDraw> props_drawn() {
                  p.attached_joint,
                  p.skin}
             );
+        }
+    }
+    return out;
+}
+
+std::vector<MobyModelDraw> moby_models_drawn() {
+    std::vector<MobyModelDraw> out;
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const std::uint32_t loads = loads_now();
+    for (const auto& [slot, s] : g_slot_models) {
+        if (s.mod != nullptr && s.loads == loads) {
+            out.push_back({s.address, s.oclass, 0, s.mesh, s.matrix, s.hidden});
+        }
+    }
+    for (const auto& [address, s] : g_address_models) {
+        if (s.mod != nullptr && s.loads == loads) {
+            out.push_back({address, s.oclass, 0, s.mesh, s.matrix, s.hidden});
+        }
+    }
+    for (const auto& [key, c] : g_class_models) {
+        if (c.mod != nullptr && c.loads == loads) {
+            out.push_back({0, key.first, key.second, c.mesh, c.matrix, false});
         }
     }
     return out;
@@ -2466,7 +2746,58 @@ void play_loading(const openrac_mod* mod) {
     openrac_game_moby_hit = g_play != nullptr ? game_moby_hit : nullptr;
 }
 
+// The overrides of mobys the game freed or made again in their slots are no one's: dropped. Once a
+// tick, on the game thread (the game's list is read outside the lock).
+void drop_gone_slot_models() {
+    std::vector<std::pair<int, SlotModel>> held;
+    {
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        held.assign(g_slot_models.begin(), g_slot_models.end());
+    }
+    if (held.empty()) {
+        return;
+    }
+    const MobyClasses classes;
+    for (const auto& [slot, s] : held) {
+        if (s.loads == loads_now() && moby_address(slot) == s.address
+            && classes.of(slot) == s.oclass) {
+            continue;
+        }
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        const auto now = g_slot_models.find(slot);
+        if (now != g_slot_models.end() && now->second.address == s.address) {
+            g_slot_models.erase(now);
+        }
+    }
+}
+
+// The overrides of mobys whose class at their address changed (or whose level went) are no one's:
+// dropped. Once a tick, on the game thread (the game's class is read outside the lock).
+void drop_gone_address_models() {
+    std::vector<std::pair<gaddr, SlotModel>> held;
+    {
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        held.assign(g_address_models.begin(), g_address_models.end());
+    }
+    for (const auto& [address, s] : held) {
+        const std::int32_t oclass = g_play != nullptr && g_play->moby_class_at != nullptr
+                                        ? g_play->moby_class_at(address)
+                                        : -1;
+        if (s.loads == loads_now() && oclass == s.oclass) {
+            continue;
+        }
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        const auto now = g_address_models.find(address);
+        if (now != g_address_models.end() && now->second.loads == s.loads
+            && now->second.oclass == s.oclass) {
+            g_address_models.erase(now);
+        }
+    }
+}
+
 void play_update() {
+    drop_gone_slot_models();
+    drop_gone_address_models();
     // The game's camera scripts, as they went.
     if (has_camera_scripts()) {
         std::int32_t id = 0;
@@ -2558,6 +2889,10 @@ void reset_play() {
         g_visual_classes.clear();
         ++g_visual_generation;
         g_materials.clear();
+        g_models.fill(Model{});
+        g_slot_models.clear();
+        g_class_models.clear();
+
         // No prop is left to need its mesh; the scene lets it go with its level.
         if (!g_prop_meshes.empty()) {
             g_prop_meshes.clear();
@@ -2632,6 +2967,13 @@ void drop_figures(const openrac_mod* mod) {
                 p = Prop{};
             }
         }
+        for (Model& m : g_models) {
+            if (m.mod == mod) {
+                m = Model{};
+            }
+        }
+        std::erase_if(g_slot_models, [&](const auto& s) { return s.second.mod == mod; });
+        std::erase_if(g_class_models, [&](const auto& c) { return c.second.mod == mod; });
     }
     {
         const std::lock_guard<std::mutex> lock(g_haze_lock);

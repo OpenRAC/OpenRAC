@@ -825,6 +825,7 @@ const openrac_game_play rac1_play = {
     .hero_hold_at = rac1_hero_hold_at,
     .hero_let_go = rac1_hero_let_go,
     .moby_mission = rac1_world_moby_mission,
+    .moby_class_at = rac1_world_moby_class,
     .camera_script_next = rac1_camera_script_next,
     .camera_script_view = rac1_camera_script_view,
     .camera_script_play = rac1_camera_script_play,
