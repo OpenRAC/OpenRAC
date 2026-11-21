@@ -82,9 +82,10 @@ extern "C" {
  * effects a moby draws, and copies of a level's placed enemies
  * (moby_copy_check, moby_copy), and 1.26 copies that wake and fight with
  * their squad (the table is unchanged: a 1.25 port's copies of a squad's
- * enemies never wake, so a mod asks for 1.26 before it makes them).
+ * enemies never wake, so a mod asks for 1.26 before it makes them). 1.27 adds an
+ * independent RAC1 other-game reward display identity (the table is unchanged).
  */
-#define OPENRAC_MOD_API_MINOR 26
+#define OPENRAC_MOD_API_MINOR 27
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1325,6 +1326,10 @@ typedef struct openrac_pack_entry {
 /* What the port offers a mod. Filled by the port; valid for the life of the program. Every function
  * is called on the game's thread. Members from "1.2" on are at the end: a mod built for 1.1 never
  * sees them, and one built for 1.2 loads on a 1.2 port or newer. */
+/* RAC1: another game's reward, drawn as a Gold Bolt with its own vendor framing.
+ * Render-only identity, not an inventory item or gameplay moby class. Since 1.27. */
+#define OPENRAC_RAC1_OTHER_GAME_VISUAL 0x7FF
+
 /* A render-only replacement: the live moby's address and a class from the extracted game (-1 hides it).
  * height 0 preserves the original model's displayed height; positive values set world units.
  * Neither the moby's class, animation, collision nor update state is modified. Since 1.22. */

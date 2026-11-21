@@ -23,6 +23,14 @@ int main(int argc, char** argv) {
     };
     {
         namespace preview = scene::vendor_preview;
+        check(
+            preview::model_class(preview::other_game_visual) == 1134
+                && preview::key(preview::other_game_visual, false) != preview::key(1134, false)
+                && preview::key(preview::other_game_visual, true) != preview::key(1134, true)
+                && preview::defaults(preview::other_game_visual).size
+                       != preview::defaults(1134).size,
+            "other-game vendor reward shares the Bolt mesh with independent framing profiles"
+        );
         for (float angle : {0.0f, 0.5f, 1.5f, 3.0f}) {
             preview::Adjustment native;
             native.pitch = 30;
@@ -146,7 +154,7 @@ int main(int argc, char** argv) {
     );
     check(
         scene::vendor_preview::defaults(scene::vendor_preview::key(607, true)).x == 18
-            && scene::vendor_preview::defaults(scene::vendor_preview::key(407, true)).x == 4.25f,
+            && scene::vendor_preview::defaults(scene::vendor_preview::key(407, true)).x == 4.0f,
         "Heli-Pack centering and the latest approved Persuader middle placement are retained"
     );
     check(
