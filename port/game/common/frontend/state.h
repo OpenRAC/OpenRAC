@@ -537,6 +537,7 @@ void apply_mouse_capture();
 // The directional light bank, in the executable's terms (relocated to the loaded program's copy);
 // 0 for a game without one (frontend/world.cpp).
 gaddr light_bank_address();
+gaddr light_bank_in_ram();
 gaddr occlusion_address();
 gaddr occlusion_in_ram();
 

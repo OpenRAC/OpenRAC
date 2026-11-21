@@ -90,6 +90,11 @@ struct Release {
     std::array<std::uint32_t, 4> scenery_matrices;
     // The block the game draws its frame in (draw_buffer_block), 0 to follow the display.
     std::uint32_t draw_buffer_block;
+    // The light bank MobyProc sends to the scratchpad (light_bank): the boot program's, Veldin's
+    // copy and the multiplayer maps'.
+    std::uint32_t boot_light_bank;
+    std::uint32_t veldin_light_bank;
+    std::uint32_t multiplayer_light_bank;
 };
 
 constexpr int kFrontbinOverlay = 100;
@@ -162,6 +167,9 @@ constexpr Release kPal{
     0x002935A0,
     {0x001E0EDC, 0x001E0DD0, 0x001E0ED4, 0x001E0DC8},
     0x1E00,
+    0x002FF200,
+    0x001F1740,
+    0x002663C0,
 };
 // clang-format on
 
@@ -374,6 +382,14 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const Address
     return s;
 }
 
+// The classes enhanced lighting's rim marks as gameplay subjects, as Going Commando's
+// (game/rac2/profile.cpp kEssentialMobys): the hero, the crates crate_update runs (0x1F4 to 0x200,
+// func_L01_0033AC78) and the ammo pickups (0xAE0 placed, 0xCDB from crates, func_L01_0030EAE8).
+bool essential_moby(int class_id) {
+    return class_id == 0 || (class_id >= 0x1F4 && class_id <= 0x200) || class_id == 0xAE0
+           || class_id == 0xCDB;
+}
+
 // The game's profile: its memory read by program, and the display list it sends.
 class Profile final : public host::GameProfile {
 public:
@@ -489,6 +505,33 @@ public:
     }
 
     bool shadow_slab_on_up_axis() const override { return true; }
+
+    // The light bank MobyProc sends to the scratchpad (toSPR, 0x50 quadwords: 16 directional sets,
+    // then 8 point lights), Going Commando's D_001C2740 (21c7d4f03): filled from the gameplay file
+    // and changed at run time (set 13 the bolts' gold, 1.0 0.8 0.0). Each program has its own copy
+    // (boot MobyProc 0x003CB8F8, Veldin's 0x00441CD8, level 39's 0x005B272C), which the boot
+    // program's address does not relocate to: the loaded program's, by its level, as
+    // shadow_directions.
+    std::uint32_t light_bank() const override {
+        const int program = openrac_guest_overlay();
+        if (program >= kFirstMultiplayer && program < static_cast<int>(std::size(kPal.levels))) {
+            return openrac_relocate_level_data(kFirstMultiplayer, release_.multiplayer_light_bank);
+        }
+        if (program >= 1 && program < kFirstMultiplayer) {
+            return openrac_relocate_level_data(1, release_.veldin_light_bank);
+        }
+        return release_.boot_light_bank;  // the boot program and frontbin
+    }
+
+    // MobyProc lights each moby by the bank's point lights in reach as a third light, and the
+    // terrain pass adds them (Veldin's 0x004B27B8 stands where Going Commando's
+    // PatchTfragVertexLighting, func_002F0468, does): Going Commando's 968b9d4b0 and 4b309652b.
+    bool mobys_take_point_lights() const override { return true; }
+
+    bool terrain_takes_point_lights() const override { return true; }
+
+    // The gameplay subjects enhanced lighting gives its rim (Going Commando's 3741a2d76).
+    bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
 
     bool every_moby_casts_shadow() const override { return true; }
 
@@ -610,6 +653,9 @@ constexpr Release kUs{
     0x002936A0,
     {0x001E0F5C, 0x001E0E50, 0x001E0F54, 0x001E0E48},
     0x1E80,
+    0x002FF280,
+    0x001F17C0,
+    0x002664C0,
 };
 // clang-format on
 

@@ -338,6 +338,15 @@ gaddr light_bank_address() {
     return openrac_game_front_end != nullptr ? openrac_game_front_end->light_bank : 0;
 }
 
+// The light bank in the loaded program: the profile's, for a game whose programs each carry their
+// own (GameProfile::light_bank), else the front end's relocated as data; 0 for none.
+gaddr light_bank_in_ram() {
+    if (const gaddr own = g->render.profile->light_bank(); own != 0) {
+        return own;
+    }
+    return light_bank_address() != 0 ? openrac_relocate_data(light_bank_address()) : 0;
+}
+
 // The game's occlusion mask (0x80 bytes), in the executable's terms; 0 when the game has none.
 gaddr occlusion_address() {
     return openrac_game_front_end != nullptr ? openrac_game_front_end->occlusion : 0;
