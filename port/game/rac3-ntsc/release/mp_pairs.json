@@ -1,0 +1,913 @@
+{
+ "about": "PAL's multiplayer executable's (I5BOOTN.ELF) functions and globals the port names, and NTSC-U's, with the evidence: written by port/tools/hostgen/rac3_mp_pairs.py from both discs; do not edit.",
+ "functions": {
+  "func_0011D20C": {
+   "is": "func_0011D20C",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0011D2EC": {
+   "is": "func_0011D2EC",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0011D380": {
+   "is": "func_0011D380",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0011D534": {
+   "is": "func_0011D534",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00120048": {
+   "is": "func_00120048",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001205B0": {
+   "is": "func_001205B0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001206F4": {
+   "is": "func_001206F4",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00120884": {
+   "is": "func_00120884",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00120B70": {
+   "is": "func_00120B70",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00120D28": {
+   "is": "func_00120D28",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00125F40": {
+   "is": "func_00125F40",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00125F50": {
+   "is": "func_00125F50",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00125F60": {
+   "is": "func_00125F60",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00125F70": {
+   "is": "func_00125F70",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00125F80": {
+   "is": "func_00125F80",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00125F90": {
+   "is": "func_00125F90",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00125FA0": {
+   "is": "func_00125FA0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00125FB0": {
+   "is": "func_00125FB0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00125FC0": {
+   "is": "func_00125FC0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00125FD0": {
+   "is": "func_00125FD0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00125FE0": {
+   "is": "func_00125FE0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126060": {
+   "is": "func_00126060",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126070": {
+   "is": "func_00126070",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126080": {
+   "is": "func_00126080",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_001260B0": {
+   "is": "func_001260B0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_001260F0": {
+   "is": "func_001260F0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126110": {
+   "is": "func_00126110",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126150": {
+   "is": "func_00126150",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126160": {
+   "is": "func_00126160",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126180": {
+   "is": "func_00126180",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126190": {
+   "is": "func_00126190",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_001261A0": {
+   "is": "func_001261A0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_001261D0": {
+   "is": "func_001261D0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126240": {
+   "is": "func_00126240",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126260": {
+   "is": "func_00126260",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126270": {
+   "is": "func_00126270",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126280": {
+   "is": "func_00126280",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126290": {
+   "is": "func_00126290",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_001262A0": {
+   "is": "func_001262A0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_001262B0": {
+   "is": "func_001262B0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126300": {
+   "is": "func_00126300",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126310": {
+   "is": "func_00126310",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_001264E0": {
+   "is": "func_001264E0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126530": {
+   "is": "func_00126530",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126570": {
+   "is": "func_00126570",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126580": {
+   "is": "func_00126580",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_001265A0": {
+   "is": "func_001265A0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_001265D0": {
+   "is": "func_001265D0",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126600": {
+   "is": "func_00126600",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126620": {
+   "is": "func_00126620",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126630": {
+   "is": "func_00126630",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126640": {
+   "is": "func_00126640",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126650": {
+   "is": "func_00126650",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126660": {
+   "is": "func_00126660",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126670": {
+   "is": "func_00126670",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_00126690": {
+   "is": "func_00126690",
+   "why": "the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0)"
+  },
+  "func_001266C0": {
+   "is": "func_001266C0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001266D0": {
+   "is": "func_001266D0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00126B28": {
+   "is": "func_00126B28",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x001266D0 moved by (+0x0)"
+  },
+  "func_00126C58": {
+   "is": "func_00126C58",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x001266D0 moved by (+0x0)"
+  },
+  "func_00126DD0": {
+   "is": "func_00126DD0",
+   "why": "the same instructions (4 places), at the distance the nearest paired function 0x001266D0 moved by (+0x0)"
+  },
+  "func_00126E38": {
+   "is": "func_00126E38",
+   "why": "the same instructions (4 places), at the distance the nearest paired function 0x001266D0 moved by (+0x0)"
+  },
+  "func_00129490": {
+   "is": "func_00129490",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00129C38": {
+   "is": "func_00129C38",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00129E18": {
+   "is": "func_00129E18",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012A018": {
+   "is": "func_0012A018",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012AA00": {
+   "is": "func_0012AA00",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012AA38": {
+   "is": "func_0012AA38",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012ACC8": {
+   "is": "func_0012ACC8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012B8B8": {
+   "is": "func_0012B8B8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012B9B0": {
+   "is": "func_0012B9B0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012C2C0": {
+   "is": "func_0012C2C0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012C528": {
+   "is": "func_0012C528",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012C6F0": {
+   "is": "func_0012C6F0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012C740": {
+   "is": "func_0012C740",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012C988": {
+   "is": "func_0012C988",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012CD60": {
+   "is": "func_0012CD60",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012CDB0": {
+   "is": "func_0012CDB0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012CEA8": {
+   "is": "func_0012CEA8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012CEC0": {
+   "is": "func_0012CEC0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012CFD0": {
+   "is": "func_0012CFD0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012D318": {
+   "is": "func_0012D318",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012E820": {
+   "is": "func_0012E820",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012E840": {
+   "is": "func_0012E840",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0012FF00": {
+   "is": "func_0012FF00",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00130090": {
+   "is": "func_00130090",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001306F8": {
+   "is": "func_001306F8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00130760": {
+   "is": "func_00130760",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00130D30": {
+   "is": "func_00130D30",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001321C8": {
+   "is": "func_001321C8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00133100": {
+   "is": "func_00133100",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001331A0": {
+   "is": "func_001331A0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001384E0": {
+   "is": "func_001384E0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00138748": {
+   "is": "func_00138748",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00138A30": {
+   "is": "func_00138A30",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00138E68": {
+   "is": "func_00138E68",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00139048": {
+   "is": "func_00139048",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001390E0": {
+   "is": "func_001390E0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00139250": {
+   "is": "func_00139250",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001393E8": {
+   "is": "func_001393E8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00139628": {
+   "is": "func_00139628",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00139638": {
+   "is": "func_00139638",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001399B0": {
+   "is": "func_001399B0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00139B38": {
+   "is": "func_00139B38",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00139D20": {
+   "is": "func_00139D20",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00139E08": {
+   "is": "func_00139E08",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00139EA0": {
+   "is": "func_00139EA0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013A1C8": {
+   "is": "func_0013A1C8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013A9D8": {
+   "is": "func_0013A9D8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013AB50": {
+   "is": "func_0013AB50",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013AB78": {
+   "is": "func_0013AB78",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013AE38": {
+   "is": "func_0013AE38",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013AF60": {
+   "is": "func_0013AF60",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013B1F8": {
+   "is": "func_0013B1F8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013B320": {
+   "is": "func_0013B320",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013B358": {
+   "is": "func_0013B358",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013B418": {
+   "is": "func_0013B418",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013B5A8": {
+   "is": "func_0013B5A8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013B6C0": {
+   "is": "func_0013B6C0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013B838": {
+   "is": "func_0013B838",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013B958": {
+   "is": "func_0013B958",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013BAD8": {
+   "is": "func_0013BAD8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013BC30": {
+   "is": "func_0013BC30",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x0013BD00 moved by (+0x0)"
+  },
+  "func_0013BD00": {
+   "is": "func_0013BD00",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013BE30": {
+   "is": "func_0013BE30",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x0013BD00 moved by (+0x0)"
+  },
+  "func_0013C268": {
+   "is": "func_0013C268",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013C4E8": {
+   "is": "func_0013C4E8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013C690": {
+   "is": "func_0013C690",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013CA88": {
+   "is": "func_0013CA88",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013CB00": {
+   "is": "func_0013CB00",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013CC38": {
+   "is": "func_0013CC38",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013CC98": {
+   "is": "func_0013CC98",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013CDB8": {
+   "is": "func_0013CDB8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013CEF0": {
+   "is": "func_0013CEF0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013CFA8": {
+   "is": "func_0013CFA8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013D070": {
+   "is": "func_0013D070",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013D2A8": {
+   "is": "func_0013D2A8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013D308": {
+   "is": "func_0013D308",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013D5C0": {
+   "is": "func_0013D5C0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0013D660": {
+   "is": "func_0013D660",
+   "why": "the same instructions (3 places), at the distance the nearest paired function 0x0013D5C0 moved by (+0x0)"
+  },
+  "func_0013D708": {
+   "is": "func_0013D708",
+   "why": "the same instructions (3 places), at the distance the nearest paired function 0x0013D5C0 moved by (+0x0)"
+  },
+  "func_00191F40": {
+   "is": "func_00192030",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00192D18": {
+   "is": "func_00192E08",
+   "why": "the executable's entry (its payload's records)"
+  },
+  "func_00192F68": {
+   "is": "func_00193058",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001932A0": {
+   "is": "func_00193390",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00193590": {
+   "is": "func_00193680",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00193788": {
+   "is": "func_00193878",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00193888": {
+   "is": "func_00193978",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00193A00": {
+   "is": "func_00193AF0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00193B50": {
+   "is": "func_00193C40",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193B80 moved by (+0xf0)"
+  },
+  "func_00193B80": {
+   "is": "func_00193C70",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00193BB0": {
+   "is": "func_00193CA0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00193C60": {
+   "is": "func_00193D50",
+   "why": "the same instructions (3 places), at the distance the nearest paired function 0x00193BB0 moved by (+0xf0)"
+  },
+  "func_00193DF0": {
+   "is": "func_00193EE0",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193F90 moved by (+0xf0)"
+  },
+  "func_00193E20": {
+   "is": "func_00193F10",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193F90 moved by (+0xf0)"
+  },
+  "func_00193E50": {
+   "is": "func_00193F40",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193F90 moved by (+0xf0)"
+  },
+  "func_00193F90": {
+   "is": "func_00194080",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_001941C0": {
+   "is": "func_001942B0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194858": {
+   "is": "func_00194948",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00194918 moved by (+0xf0)"
+  },
+  "func_00194888": {
+   "is": "func_00194978",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00194918 moved by (+0xf0)"
+  },
+  "func_001948E8": {
+   "is": "func_001949D8",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00194918 moved by (+0xf0)"
+  },
+  "func_00194918": {
+   "is": "func_00194A08",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194948": {
+   "is": "func_00194A38",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194970": {
+   "is": "func_00194A60",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194A38": {
+   "is": "func_00194B28",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194AF8": {
+   "is": "func_00194BE8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194B40": {
+   "is": "func_00194C30",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194B88": {
+   "is": "func_00194C78",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194C08": {
+   "is": "func_00194CF8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194C40": {
+   "is": "func_00194D30",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194D08": {
+   "is": "func_00194DF8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194DC8": {
+   "is": "func_00194EB8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194DF8": {
+   "is": "func_00194EE8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0027B1C0": {
+   "is": "func_0027B200",
+   "why": "the front end's entry: NTSC-U's record 0x0027B200 starts with the same function (its register saves in another order)"
+  },
+  "func_0027EAC8": {
+   "is": "func_0027EB08",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0027EDA8": {
+   "is": "func_0027EDE8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0027EEB8": {
+   "is": "func_0027EEF8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0027F0A8": {
+   "is": "func_0027F0E8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0027F458": {
+   "is": "func_0027F498",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0027F7A0": {
+   "is": "func_0027F7E0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0027F980": {
+   "is": "func_0027F9C0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0027FB60": {
+   "is": "func_0027FBA0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0027FE08": {
+   "is": "func_0027FE48",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00280498": {
+   "is": "func_002804D8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_002804B0": {
+   "is": "func_002804F0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00281240": {
+   "is": "func_00281280",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00284D30": {
+   "is": "func_00284D70",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00284F80": {
+   "is": "func_00284FC0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_0028BBE0": {
+   "is": "func_0028BBA0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00298D70": {
+   "is": "func_00298D50",
+   "why": "the same instructions, the only place they occur"
+  }
+ },
+ "addresses": {
+  "0x001A3800": {
+   "is": "0x001A3980",
+   "why": "the same instruction of the same code: func 0x0027EDA8 (NTSC-U 0x0027EDE8) +0x94, 1 of 1 places agree"
+  },
+  "0x001EBE00": {
+   "is": "0x001EBF80",
+   "why": "the same instruction of the same code: func 0x00192D18 (NTSC-U 0x00192E08) +0x1B0, 2 of 2 places agree"
+  },
+  "0x00240310": {
+   "is": "0x00240490",
+   "why": "the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 16 of 16 places agree"
+  },
+  "0x00240B80": {
+   "is": "0x00240D00",
+   "why": "the same instruction of the same code: func 0x00193590 (NTSC-U 0x00193680) +0x4, 12 of 12 places agree"
+  },
+  "0x00244428": {
+   "is": "0x00244628",
+   "why": "the same instruction of the same code: func 0x00284D30 (NTSC-U 0x00284D70) +0x4, 2 of 2 places agree"
+  },
+  "0x0024442C": {
+   "is": "0x0024462C",
+   "why": "the same instruction of the same code: func 0x00284D30 (NTSC-U 0x00284D70) +0x20, 2 of 2 places agree"
+  },
+  "0x002446A8": {
+   "is": "0x002448A8",
+   "why": "the same instruction of the same code: func 0x0027EDA8 (NTSC-U 0x0027EDE8) +0x80, 73 of 73 places agree"
+  },
+  "0x0027B100": {
+   "is": "0x0027B200",
+   "why": "the start of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200)"
+  },
+  "0x002A0A38": {
+   "is": "0x002A09C8",
+   "why": "the end of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200, 0x257C8 bytes)"
+  }
+ },
+ "level39": {
+  "func_L39_00575CC8": {
+   "is": "func_L39_00574F88",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00589FF8": {
+   "is": "func_L39_00588E88",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0058B1B8": {
+   "is": "func_L39_00589FE8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0058B2C8": {
+   "is": "func_L39_0058A0F8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0058B4B8": {
+   "is": "func_L39_0058A2E8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0058B868": {
+   "is": "func_L39_0058A698",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0058BBB0": {
+   "is": "func_L39_0058A9E0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0058BD90": {
+   "is": "func_L39_0058ABC0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0058BF70": {
+   "is": "func_L39_0058ADA0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0058C678": {
+   "is": "func_L39_0058B4A8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00590A68": {
+   "is": "func_L39_0058F8B8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00590A80": {
+   "is": "func_L39_0058F8D0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00592238": {
+   "is": "func_L39_00590F90",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00592AC8": {
+   "is": "func_L39_00591820",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0059C910": {
+   "is": "func_L39_0059B580",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0059CFD0": {
+   "is": "func_L39_0059BC40",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005A61D8": {
+   "is": "func_L39_005A43D8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005A9AA0": {
+   "is": "func_L39_005A7BE0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005B25C8": {
+   "is": "func_L39_005B06C8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005EDE28": {
+   "is": "func_L39_005EB8B8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005F4690": {
+   "is": "func_L39_005F1EF8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005F61A0": {
+   "is": "func_L39_005F3A08",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005FB960": {
+   "is": "func_L39_005F91C8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005FCB98": {
+   "is": "func_L39_005FA400",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0060DFC8": {
+   "is": "func_L39_0060B8C8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0060E048": {
+   "is": "func_L39_0060B948",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0060EC68": {
+   "is": "func_L39_0060C568",
+   "why": "the same instructions, the only place they occur"
+  }
+ }
+}

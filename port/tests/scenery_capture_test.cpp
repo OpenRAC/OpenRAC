@@ -18,6 +18,15 @@ extern "C" gaddr openrac_relocate_data(gaddr address) {
     return address;
 }
 
+// A level's program (kLevel) keeps each global 0x20 past where the words name it; any other's
+// where they name it.
+constexpr int kLevel = 7;
+constexpr std::uint32_t kLevelShift = 0x20;
+
+extern "C" gaddr openrac_relocate_level_data(int from, gaddr address) {
+    return from == kLevel ? address + kLevelShift : address;
+}
+
 namespace {
 
 // Synthetic globals and aligned tables, deliberately unrelated to any game's addresses.
@@ -132,6 +141,30 @@ void test_terrain_capture_and_distance_units() {
     CHECK(fixture.capture(0.0f).scenery.terrain_far == std::vector<std::uint8_t>({0, 0}));
 }
 
+// Words named in a level's program (Up Your Arsenal's) are read at the loaded level's copy, and
+// the ties' cap at the offset the profile gives past the records' word.
+void test_level_words_and_tie_cap_offset() {
+    Fixture fixture;
+    for (const std::uint32_t word : kWords) {
+        std::uint32_t value;
+        std::memcpy(&value, fixture.ram.data() + word, 4);
+        fixture.put(word + kLevelShift, value);
+        fixture.put(word, std::uint32_t{0});
+    }
+    fixture.put(kWords[2] + 0x48, std::uint32_t{0});
+    fixture.put(kWords[2] + kLevelShift + 0x40, std::uint32_t{96});
+    fixture.put(kWords[3] + kLevelShift + 0x10, 96.0f);
+    CHECK(fixture.capture().scenery.tie_hidden.empty());
+    const auto captured = openrac::frontend::capture_scenery(
+        fixture.ram, kWords, fixture.state, 1.0f, kCounts, kLevel, 0x40
+    );
+    CHECK(captured.tie_cap == 96);
+    CHECK(captured.shrub_cap == 96.0f);
+    CHECK(captured.scenery.tie_hidden == std::vector<std::uint8_t>({0, 1, 1}));
+    CHECK(captured.scenery.shrub_hidden == std::vector<std::uint8_t>({0, 1, 1}));
+    CHECK(captured.scenery.matrices[0].size() == kCounts[0]);
+}
+
 }  // namespace
 
 // Runs CPU-only capture regressions independently of any region, backend or optional lighting.
@@ -142,6 +175,7 @@ int main() {
         test_draw_distance_and_persistent_hiding();
         test_matrix_ownership_and_invalid_tables();
         test_terrain_capture_and_distance_units();
+        test_level_words_and_tie_cap_offset();
     } catch (...) {
         CHECK(false);
     }

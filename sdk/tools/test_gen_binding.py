@@ -140,6 +140,31 @@ class Binding(unittest.TestCase):
         self.assertEqual(locked["rac2.bolt.collect"][0], "ntsc:00301D10")
         self.assertEqual(gen_binding.check_rows(b), [])
 
+    def test_rac3s_hooks_are_its_libraries_hook_rows(self):
+        b = gen_binding.load("rac3")
+        self.assertEqual(gen_binding.check_rows(b), [])
+        self.assertEqual(b["discs"], ["pal", "ntsc"])
+        ids = {h["id"]: h for h in b["hooks"]}
+        # The core hook points a mod uses, each on both discs.
+        for i in ("rac3.player.take_damage", "rac3.item.give", "rac3.item.upgrade", "rac3.vendor.price",
+                  "rac3.vendor.build_list", "rac3.bolt.spawn_pickups", "rac3.bolt.collect", "rac3.level.load",
+                  "rac3.moby.record_death"):
+            self.assertIn(i, ids)
+            self.assertEqual(set(ids[i]["symbols"]), {"pal", "ntsc"}, i)
+        # A job Going Commando has keeps its <area>.<name> (openrac-mods docs/MULTI_GAME.md).
+        rac2 = {h["id"].split(".", 1)[1] for h in gen_binding.load("rac2")["hooks"]}
+        for i in ("player.take_damage", "item.give", "item.upgrade", "vendor.price", "vendor.build_list",
+                  "bolt.spawn_pickups", "bolt.spawn_pickup", "bolt.collect", "level.load", "moby.record_death",
+                  "combat.post_hit", "weapon.take_ammo", "weapon.level_up"):
+            self.assertIn(i, rac2)
+            self.assertIn("rac3." + i, ids)
+        # A level's function is one hook point in every level: anchored on PAL's catalogue name,
+        # NTSC-U's (release_carry_rac3.py) an alias.
+        locked = gen_binding.read_lock(ROOT / "sdk/bindings/rac3.ids.lock")
+        self.assertEqual(locked["rac3.player.take_damage"][0], "pal:L01:004DFEA0")
+        self.assertEqual(b["aliases"]["func_L01_004DC1C0"], "rac3.player.take_damage")
+        self.assertEqual(b["aliases"]["Moby_RecordDeath"], "rac3.moby.record_death")
+
     def test_the_catalogues_update_functions_are_hook_points(self):
         b = gen_binding.load("rac1")
         cat = [h for h in b["hooks"] if h["origin"] == "catalogue"]

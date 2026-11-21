@@ -24,6 +24,12 @@ docker: string | null,
  */
 developer: boolean, 
 /**
+ * Up Your Arsenal (rac3) is still in development: its build, set-up and Play stay blocked
+ * until a developer turns this on, after the launcher's three confirmations (Settings,
+ * Developer). Default off.
+ */
+rac3Dev: boolean, 
+/**
  * The save editor shows every field of a save, raw bytes included (for debugging). Off, the
  * player's safe set only.
  */

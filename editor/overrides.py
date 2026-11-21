@@ -114,7 +114,7 @@ TERRAIN = re.compile(r"^level_(\d{2})/terrain\.glb$")
 IMAGE = re.compile(r"((?:\.\./)?textures/)([A-Za-z0-9_.-]+)\.png")  # a port GLB's image: a level texture
 AUDIO = re.compile(r"^audio/")
 # The games whose ports play a pack's audio/<key>.wav in place of the disc's stream (sound_engine.cpp).
-AUDIO_GAMES = ("rac1", "rac2")
+AUDIO_GAMES = ("rac1", "rac2", "rac3")
 PACKED = "packed.json"  # the level packer's note of the disc it packed (pack.py)
 PEOPLE = re.compile(r"^(?:[^/]+\.(?:txt|md)|(?:README|LICENSE|CREDITS)[^/]*)$", re.IGNORECASE)
 MAX_FILES = 200_000

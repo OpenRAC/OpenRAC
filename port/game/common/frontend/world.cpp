@@ -343,6 +343,14 @@ gaddr occlusion_address() {
     return openrac_game_front_end != nullptr ? openrac_game_front_end->occlusion : 0;
 }
 
+// The occlusion mask in the loaded program: from the executable's address, or, for a game whose
+// level programs carry the engine (GameProfile::scenery_matrices_level), from that level's.
+gaddr occlusion_in_ram() {
+    const int level = g->render.profile->scenery_matrices_level();
+    return level >= 0 ? openrac_relocate_level_data(level, occlusion_address())
+                      : openrac_relocate_data(occlusion_address());
+}
+
 // Uploads a level's geometry; while the boot program runs (the title and the main menu), the title
 // world's, or level 0's when the title world was not extracted.
 void use_level(int number) {
@@ -403,11 +411,13 @@ void use_level(int number) {
     const LevelSources sources = level_sources(wanted);
     const auto& dir = sources.dir;
     debug_overlay::dismiss("level");
-    // Only Ratchet & Clank's levels are extracted for the port so far (its profile says so). The
-    // other games (Going Commando, Up Your Arsenal, Deadlocked at their menus) have no scenery to
-    // read: their whole picture is the 2D path, both its parts, and nothing is missing to tell the
-    // player about.
-    const bool has_levels = g->render.profile->has_levels();
+    // A game whose levels are extracted for the port says so in its profile. The others (Deadlocked
+    // at its menus), and the title of a game whose boot program draws no world (Up Your Arsenal's,
+    // has_title_world), have no scenery to read: their whole picture is the 2D path, both its parts,
+    // and nothing is missing to tell the player about.
+    const bool has_levels = g->render.profile->has_levels()
+                            && (number != -1 || g->render.profile->has_title_world())
+                            && !g->render.profile->level_is_menus(number);
     const bool read = read_level(wanted, sources, error);
     if (!has_levels && !read) {
         crash::level_breadcrumb("level scenery unavailable", wanted);

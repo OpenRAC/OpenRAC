@@ -249,7 +249,7 @@ class PackTests(unittest.TestCase):
                                       levels(self.root / f"gc-levels-{version}", version, "rac2"))
             self.assertEqual(summary["files"], {"level_00/textures/x.png": "going"}, version)
 
-    def test_going_commando_packs_change_sounds_and_later_games_do_not_yet(self):
+    def test_going_commando_and_up_your_arsenal_packs_change_sounds_and_deadlocked_does_not_yet(self):
         import io, wave
         buffer = io.BytesIO()
         with wave.open(buffer, "wb") as out:
@@ -266,8 +266,10 @@ class PackTests(unittest.TestCase):
         self.assertEqual(summary["files"], {"audio/0123456789abcdef.wav": "ai-voices"})
         self.assertTrue((self.root / "mods-gc" / "audio" / "0123456789abcdef.wav").is_file())
         uya = write_pack(self.root / "uya", "UYA voices", sound, game="rac3", version="ntsc")
+        self.assertEqual(overrides.check(uya)[1:], (["audio/0123456789abcdef.wav"], [], []))
+        deadlocked = write_pack(self.root / "dl", "DL voices", sound, game="rac4", version="ntsc")
         with self.assertRaisesRegex(overrides.PackError, "replaces nothing"):
-            overrides.check(uya)
+            overrides.check(deadlocked)
 
     def test_a_pack_goes_to_its_own_game_s_levels_only(self):
         red = rgb_png(2, 2, (255, 0, 0))

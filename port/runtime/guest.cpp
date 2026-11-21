@@ -198,6 +198,14 @@ std::uint64_t returns_nothing() {
     return 0;
 }
 
+// What a callback that is only `jr ra` with a constant put in v0 returns: the constant of the
+// leaf the call was last looked up for (openrac_guest_function sets it just before the call).
+thread_local std::uint64_t g_leaf_value = 0;
+
+std::uint64_t returns_leaf_value() {
+    return g_leaf_value;
+}
+
 // The calls to code addresses no function has, by address (the reach file reports them).
 std::mutex g_unknown_lock;
 std::map<gaddr, int> g_unknown_calls;
@@ -541,6 +549,16 @@ void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t
     }
 }
 
+void openrac_guest_unregister_all(void) {
+    forget_answers();
+    g_exe.clear();
+    g_overlays.clear();
+    g_ambiguous.clear();
+    g_thunks.clear();
+    g_overlay = OPENRAC_OVERLAY_EXE;
+    g_cache_generation.fetch_add(1, std::memory_order_relaxed);
+}
+
 void openrac_guest_register_thunks(const openrac_thunk_entry* entries, size_t count) {
     for (size_t i = 0; i < count; i++) {
         g_thunks.emplace(entries[i].fn, entries[i].thunk);
@@ -609,6 +627,15 @@ openrac_host_fn openrac_guest_function(gaddr address) {
         const bool returns_zero = w[1] == 0 || w[1] == 0x0000102Du || w[1] == 0x00001025u || w[1] == 0x00001021u;
         if (w[0] == 0x03E00008u && returns_zero) {
             return reinterpret_cast<openrac_host_fn>(&returns_nothing);
+        }
+        // Or one that returns a constant (jr ra; addiu or ori v0, zero, k): Up Your Arsenal's
+        // Veldin points at func_L01_0051F7F0's tail, `return 2`, as a callback.
+        if (w[0] == 0x03E00008u && ((w[1] >> 16) == 0x2402u || (w[1] >> 16) == 0x3402u)) {
+            const std::uint32_t k = w[1] & 0xFFFFu;
+            g_leaf_value = (w[1] >> 16) == 0x2402u
+                               ? static_cast<std::uint64_t>(static_cast<std::int16_t>(k))
+                               : k;
+            return reinterpret_cast<openrac_host_fn>(&returns_leaf_value);
         }
     }
     if (strict()) {
@@ -1903,6 +1930,8 @@ gaddr openrac_relocate_level_data(int from, gaddr address) {
 }
 
 gaddr openrac_guest_last_entry = 0;
+uint64_t openrac_guest_hi_args[4] = {0, 0, 0, 0};
+int openrac_guest_hi_pending = 0;
 openrac_host_fn openrac_guest_last_fn = nullptr;
 
 // Which lui each register's upper half came from, as a function's code runs straight through: a

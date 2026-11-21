@@ -23,12 +23,17 @@ struct CapturedScenery {
 
 // Reads records on the capture thread; `words` names matrix and record-pointer globals from
 // the game profile, `counts` matches the loaded ties and shrubs, and `scale` is zero for unlimited.
+// `words_level`: the level whose program the words are named in (GameProfile::
+// scenery_matrices_level), -1 the executable's; `tie_cap_after`: the ties' cap past the records'
+// word (GameProfile::tie_cap_after_records).
 CapturedScenery capture_scenery(
     std::span<const std::uint8_t> ram,
     const std::array<std::uint32_t, 4>& words,
     const host::GameState& state,
     float scale,
-    const std::array<std::size_t, 2>& counts
+    const std::array<std::size_t, 2>& counts,
+    int words_level = -1,
+    std::uint32_t tie_cap_after = 0x48
 );
 
 }  // namespace openrac::frontend

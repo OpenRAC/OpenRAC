@@ -1,0 +1,8 @@
+# Written by port/tools/hostgen/release_carry_rac3.py from rac3-pal's table, in NTSC-U's names;
+# do not edit.
+# Calls whose C reads a result the callee's definition does not return in that register, which the
+# translation takes as 0 (hostgen.json "result_allow", hostgen.py result_guard). Each row says why 0
+# is right here. A callee that does hand a result back gets its real type instead: an "asm"
+# "signatures" entry (with "from_assembly" when its C says void). Retail checked from the disc's
+# assembly.
+# caller	callee	reason

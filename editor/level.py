@@ -24,6 +24,15 @@ TEXTURE_TABLES = {"terrain": 0x30, "moby": 0x38, "tie": 0x40, "shrub": 0x48}
 HERO_TEXTURES = 1000
 # Each of his looks past the first has this many places from there, its texture numbers.
 HERO_LOOK_TEXTURES = 16
+# Looks past what fits before ITEM_TEXTURES (Up Your Arsenal has 30: his armours and skins) take
+# their places from here instead.
+MORE_LOOK_TEXTURES = 2000
+
+
+def hero_look_texture(number: int, i: int) -> int:
+    """The texture number of texture I of his look NUMBER (1 up)."""
+    at = HERO_TEXTURES + number * HERO_LOOK_TEXTURES
+    return at + i if at + HERO_LOOK_TEXTURES <= ITEM_TEXTURES else MORE_LOOK_TEXTURES + number * HERO_LOOK_TEXTURES + i
 # And those of the items he holds, one each, past all his looks'.
 ITEM_TEXTURES = 1200
 # The forms of his wrench, each a pack with one texture (the first of those places).
@@ -64,6 +73,9 @@ class Level:
     # Going Commando's Ratchet: the file his class's packets are in (wads.WadDisc.hero_pack), which
     # the game loads over the class at run time. His textures are "moby" ones from HERO_TEXTURES.
     hero_mesh: bytes | None = None
+    # The level's own program (its code overlay, decoded), for what a later game keeps there rather
+    # than in its executable (Up Your Arsenal's normal table, lighting.program_normal_table).
+    program: bytes = b""
     # His other looks, as (pack number, mesh file), and the wrench's mesh file in each of its forms.
     hero_looks: list[tuple[int, bytes]] = field(default_factory=list)
     wrench_meshes: list[bytes] = field(default_factory=list)
@@ -290,6 +302,7 @@ def load_wad_level(source, entry: dict) -> Level:
     level = Level(entry["id"], part["header"], stored, index, core, gameplay,
                   overlay or {"entry_point": 0, "sections": []})
     level.game, level.version, level.art = version.game, version.key, art
+    level.program = sections.get("overlay", b"")
     for chunk, sector, count in wads.chunk_ranges(part["header"]):
         if chunk == 0:
             continue  # chunk 0 is the core's own terrain and collision (Wrench reads it from the core)
@@ -386,10 +399,11 @@ def hero_files(level: Level, source) -> None:
         mesh, pack = source.hero_pack(number)
         level.hero_looks.append((number, mesh))
         for i, texture in enumerate(hero_textures(pack)):
-            level.textures[("moby", HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i)] = texture
+            level.textures[("moby", hero_look_texture(number, i))] = texture
     place = 0
-    for number in range(WRENCHES):
-        mesh, pack = source.hero_pack(source.version.hero_armours + number)
+    armours = source.version.hero_armours
+    for pack_number in source.version.wrench_packs or range(armours, armours + WRENCHES):
+        mesh, pack = source.hero_pack(pack_number)
         level.wrench_meshes.append(mesh)
         level.textures[("moby", ITEM_TEXTURES + place)] = hero_textures(pack)[0]
         place += 1
@@ -400,6 +414,53 @@ def hero_files(level: Level, source) -> None:
     level.ship_paints = [record_texture(raw, 0) for raw in source.ship_textures()]
     level.textures[("moby", SHIP_TEXTURE)] = level.ship_paints[0]
     level.ship_bodies = source.ship_bodies()
+
+
+# Up Your Arsenal's loading screen between levels, the ship's scene (wads.Version.loading_ship_pack):
+# its pack is a small core of its own. Its header's words as the boot program reads them (0x003C10B0,
+# the mobys' class data at the data base plus a class entry's offset, seen in the loading screen's
+# memory): 1 the GS RAM lump, 2 the data base, 4 and 5 the GS upload table, 0xa and 0xc the moby
+# classes (Ratchet, Clank, the ship's parts 4308 to 4325, the planet 7683), 0xe and 0xf the moby
+# textures, 0x17 the texture data. Exported as level 97 with those classes and Ratchet's pack, for
+# the window to draw the loading screen's mobys with (rac3-pal/profile.cpp); the stars, the
+# galaxy and the caption are the game's draws.
+LOADING_ID = 97
+
+
+def load_wad_loading(source) -> Level:
+    lump = decoded(source.loading_pack(source.version.loading_ship_pack))
+
+    def h(i: int) -> int:
+        return unpack("<i", lump, i * 4)[0]
+
+    gs_at, base, p = h(1), h(2), TITLE_INDEX_TABLES
+    if not 0 < gs_at < base <= len(lump):
+        raise FormatError(f"loading screen: GS RAM {gs_at:#x}, data base {base:#x}")
+    header = bytearray(TITLE_INDEX_TABLES)
+
+    def put(at: int, value: int) -> None:
+        struct.pack_into("<i", header, at, value)
+
+    def table(at: int, count: int, offset: int) -> None:
+        put(at, h(count))
+        put(at + 4, h(offset) + p)
+
+    table(0x00, 4, 5)          # the GS upload
+    put(0x0c, 0)
+    table(0x18, 0xa, 0xc)      # moby classes
+    table(0x38, 0xe, 0xf)      # moby textures
+    put(0x60, h(0x17))         # texture data
+    data = lump[base:]
+    put(0x8c, len(data))
+    index = bytes(header) + lump[:base]
+    level = Level(LOADING_ID, b"", {}, index, data, bytes(0x100), {"entry_point": 0, "sections": []})
+    level.game, level.version = source.version.game, source.version.key
+    level.boundaries = core_boundaries(level)
+    level.textures = textures(level, lump[gs_at:base])
+    level.no_terrain = True
+    if source.version.hero_packs:
+        hero_files(level, source)
+    return level
 
 
 def load_wad_flight(source, number: int) -> Level:

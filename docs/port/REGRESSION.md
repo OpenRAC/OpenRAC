@@ -258,6 +258,21 @@ skippable (`s` below), so a scene's skip falls on the same tick of it in
 both versions; `"after_control": true` keeps skipping the scenes and flights
 a route starts after control (`S`).
 
+### The tours of Going Commando and Up Your Arsenal
+
+`routes_rac2.json` and `routes_rac3.json` hold one `tour` route a level (`rac2-tour`: 26 levels,
+`rac3-tour`: the 27 single-player levels), entered with `--level N` and `OPENRAC_DIRECT`: walk,
+turn the camera, jump, the wrench, fire, the pause pages, the quick select. Going Commando's
+also gives all items; Up Your Arsenal's has no item tool yet, so it only presses (its hero's words
+are not mapped, `addresses` is empty). A run of `rac3-pal` starts from `frame_rate = original`, so
+the presses land on the same game ticks each time. The multiplayer maps are not routes yet.
+
+```sh
+python3 port/tools/regress/regress.py run --game rac3-pal --set rac3-tour --build port/build/release \
+    --data <data> --level-data <assets/port/rac3/pal> --only 01-tour
+python3 port/tools/regress/regress.py run --game rac2-ntsc --set rac2-tour
+```
+
 ### The wide set
 
 `wide` widens what a run reaches, for both versions alike:

@@ -214,6 +214,11 @@ std::chrono::steady_clock::time_point g_tick_resumed{};
 // [debug tools] The game's tick length, stretched by the overlay's slow motion (debug_overlay.h).
 std::chrono::microseconds tick_period() {
     auto period = std::chrono::microseconds(1000000 / tick_rate());
+    if (openrac_game_tick_stretch > 1.0f) {
+        period = std::chrono::microseconds(
+            std::llround(static_cast<double>(period.count()) * openrac_game_tick_stretch)
+        );
+    }
 #ifdef OPENRAC_FRONTEND
     if (g_window) {
         period = std::chrono::microseconds(

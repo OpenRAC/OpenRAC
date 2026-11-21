@@ -751,6 +751,25 @@
    "Vendor_Price": "rac2.vendor.price",
    "Weapon_LevelUp": "rac2.weapon.level_up",
    "Weapon_TakeAmmo": "rac2.weapon.take_ammo"
+  },
+  "rac3": {
+   "Bolt_Collect": "rac3.bolt.collect",
+   "Bolt_SpawnPickup": "rac3.bolt.spawn_pickup",
+   "Bolt_SpawnPickups": "rac3.bolt.spawn_pickups",
+   "Hero_DeathDone": "rac3.player.death_done",
+   "Hero_TakeDamage": "rac3.player.take_damage",
+   "Item_Give": "rac3.item.give",
+   "Item_Upgrade": "rac3.item.upgrade",
+   "Level_GiveItems": "rac3.level.give_items",
+   "Level_Load": "rac3.level.load",
+   "Moby_PostHit": "rac3.combat.post_hit",
+   "Moby_RecordDeath": "rac3.moby.record_death",
+   "Vendor_BuildList": "rac3.vendor.build_list",
+   "Vendor_Price": "rac3.vendor.price",
+   "Vendor_StockAdd": "rac3.vendor.stock_add",
+   "Weapon_AddAmmo": "rac3.weapon.add_ammo",
+   "Weapon_LevelUp": "rac3.weapon.level_up",
+   "Weapon_TakeAmmo": "rac3.weapon.take_ammo"
   }
  }
 }

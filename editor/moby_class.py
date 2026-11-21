@@ -21,7 +21,7 @@ import struct
 
 from formats import wad, FormatError, Texture, span, unpack
 import games
-from level import HERO_LOOK_TEXTURES, HERO_TEXTURES, ITEM_TEXTURES, SHIP_TEXTURE
+from level import HERO_TEXTURES, ITEM_TEXTURES, SHIP_TEXTURE, hero_look_texture
 from mesh import Mesh, spherical_normal as normal
 from moby_anim import Skeleton, class_sequences, ratchet_sequences, skeleton
 
@@ -494,8 +494,9 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
     # His looks past the first are classes of their own: his skeleton with another pack's packets.
     # The port asks for the class of the pack the game loaded (rac2/profile.cpp).
     starts = {c: s for s, c in (unpack("<ii", e) for e in level.table(0x18, 32))}
-    for number, mesh_file in level.hero_looks:
-        remap = [HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i for i in range(16)]
+    # A level with no class 0 (no Ratchet of its own: the vid-comics, the ship levels) has no looks.
+    for number, mesh_file in level.hero_looks if 0 in starts else ():
+        remap = [hero_look_texture(number, i) for i in range(16)]
         result[HERO_LOOK_CLASSES + number] = lenient(level, level.block(starts[0]), remap, HERO_LOOK_CLASSES + number,
                                                      fmt, mesh_file)
     for number, mesh_file in enumerate(level.wrench_meshes[1:] if WRENCH_CLASS in starts else (), 1):

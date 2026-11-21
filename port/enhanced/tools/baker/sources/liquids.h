@@ -16,6 +16,13 @@ namespace openrac::lighting {
 inline constexpr const char* kRac2SurfacesSource = "rac2-surfaces-v1";
 std::vector<BakeTriangle> rac2_liquid_triangles(const json::Value& surfaces);
 
+// Up Your Arsenal's liquid surfaces (editor/enhanced/liquids.py, manifest bake_inputs "liquids":
+// "rac3-strips-v1"): each a triangle strip through its points at rest, as the draw of class 6576
+// strips a path. Only the surfaces the export marks emissive (a reviewed colour) become transport:
+// no diffuse, emitting their colour (their first layer is a white texture under it).
+inline constexpr const char* kRac3StripsSource = "rac3-strips-v1";
+std::vector<BakeTriangle> rac3_liquid_triangles(const json::Value& surfaces);
+
 // The reviewed Gaspar liquid grid's record in each disc's level 9 overlay: the one
 // NTSC FUN_L09_002ef750 and PAL func_L09_002F0AA0 draw (gaspar_textured_grid).
 inline constexpr std::uint32_t kGasparLiquidNtsc = 0x1fc740;

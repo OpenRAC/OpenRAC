@@ -1,0 +1,204 @@
+# Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/mp/libraries.tsv in
+# NTSC-U's names (release/mp_pairs.json); do not edit. The notes are PAL's.
+# symbol	library	name	port	notes	signature (optional)
+func_0011D20C	libc	memchr	host	the instructions of the boot program's func_00119F3C
+func_0011D2EC	libc	memcmp	host	the instructions of the boot program's func_0011A01C
+func_0011D380	libc	memcpy	host	the instructions of the boot program's func_0011A0B0
+func_0011D534	libc	memset	host	the instructions of the boot program's func_0011A264
+func_001205B0	libc	strcmp	host	the instructions of the boot program's func_0011B610
+func_001206F4	libc	strcpy	host	the instructions of the boot program's func_0011B754
+func_00120884	libc	strlen	host	the instructions of the boot program's func_0011B868
+func_00120B70	libc	strncmp	host	the instructions of the boot program's func_0011B9A0
+func_00120D28	libc	strncpy	host	the instructions of the boot program's func_0011BB58
+func_00125F40	kernel	AddIntcHandler	host	the instructions of the boot program's func_0011EB00
+func_00125F50	kernel	AddIntcHandler	host	the instructions of the boot program's func_0011EB10
+func_00125F60	kernel	RemoveIntcHandler	host	the instructions of the boot program's func_0011EB20
+func_00125F70	kernel	AddDmacHandler	host	the instructions of the boot program's func_0011EB30
+func_00125F80	kernel	AddDmacHandler2	host	the instructions of the boot program's func_0011EB40
+func_00125F90	kernel	RemoveDmacHandler	host	the instructions of the boot program's func_0011EB50
+func_00125FA0	kernel	EnableIntc	host	the instructions of the boot program's func_0011EB60
+func_00125FB0	kernel	DisableIntc	host	the instructions of the boot program's func_0011EB70
+func_00125FC0	kernel	EnableDmac	host	the instructions of the boot program's func_0011EB80
+func_00125FD0	kernel	DisableDmac	host	the instructions of the boot program's func_0011EB90
+func_00125FE0	kernel	SetAlarm	host	the instructions of the boot program's func_0011EBA0
+func_00126060	kernel	CreateThread	host	the instructions of the boot program's func_0011EC20
+func_00126070	kernel	DeleteThread	host	the instructions of the boot program's func_0011EC30
+func_00126080	kernel	StartThread	host	the instructions of the boot program's func_0011EC40
+func_001260B0	kernel	TerminateThread	host	the instructions of the boot program's func_0011EC70
+func_001260F0	kernel	ChangeThreadPriority	host	the instructions of the boot program's func_0011ECB0
+func_00126110	kernel	RotateThreadReadyQueue	host	the instructions of the boot program's func_0011ECD0
+func_00126150	kernel	GetThreadId	host	the instructions of the boot program's func_0011ED10
+func_00126160	kernel	ReferThreadStatus	host	the instructions of the boot program's func_0011ED20
+func_00126180	kernel	SleepThread	host	the instructions of the boot program's func_0011ED40
+func_00126190	kernel	WakeupThread	host	the instructions of the boot program's func_0011ED50
+func_001261A0	kernel	WakeupThread	host	the instructions of the boot program's func_0011ED60
+func_001261D0	kernel	SuspendThread	host	the instructions of the boot program's func_0011ED90
+func_00126240	kernel	EndOfHeap	host	the instructions of the boot program's func_0011EE00
+func_00126260	kernel	CreateSema	host	the instructions of the boot program's func_0011EE20
+func_00126270	kernel	DeleteSema	host	the instructions of the boot program's func_0011EE30
+func_00126280	kernel	SignalSema	host	the instructions of the boot program's func_0011EE40
+func_00126290	kernel	SignalSema	host	the instructions of the boot program's func_0011EE50
+func_001262A0	kernel	WaitSema	host	the instructions of the boot program's func_0011EE60
+func_001262B0	kernel	PollSema	host	the instructions of the boot program's func_0011EE70
+func_00126300	kernel	SetOsdConfigParam	host	the instructions of the boot program's func_0011EEC0
+func_00126310	kernel	GetOsdConfigParam	host	the instructions of the boot program's func_0011EED0
+func_001264E0	kernel	FlushCache	host	the instructions of the boot program's func_0011F0A0
+func_00126530	kernel	sceSifStopDma	host	the instructions of the boot program's func_0011F0F0
+func_00126570	kernel	GetOsdConfigParam2	host	the instructions of the boot program's func_0011F130
+func_00126580	kernel	GsGetIMR	host	the instructions of the boot program's func_0011F140
+func_001265A0	kernel	GsPutIMR	host	the instructions of the boot program's func_0011F160
+func_001265D0	kernel	SetVSyncFlag	host	the instructions of the boot program's func_0011F190
+func_00126600	kernel	sceSifDmaStat	host	the instructions of the boot program's func_0011F1C0
+func_00126620	kernel	sceSifSetDma	host	the instructions of the boot program's func_0011F1E0
+func_00126630	kernel	sceSifSetDma	host	the instructions of the boot program's func_0011F1F0
+func_00126640	kernel	sceSifSetDChain	host	the instructions of the boot program's func_0011F200
+func_00126650	kernel	sceSifSetDChain	host	the instructions of the boot program's func_0011F210
+func_00126660	kernel	sceSifSetReg	host	the instructions of the boot program's func_0011F220
+func_00126670	kernel	sceSifGetReg	host	the instructions of the boot program's func_0011F230
+func_00126690	kernel	Deci2Call	host	the instructions of the boot program's func_0011F250
+func_001266C0	kernel	GetMemorySize	host	the instructions of the boot program's func_0011F280
+func_001266D0	kernel	_InitTLB	host	the instructions of the boot program's func_0011F290
+func_00126B28	kernel	SyncDCache	host	the instructions of the boot program's func_0011F698
+func_00126C58	kernel	InvalidDCache	host	the instructions of the boot program's func_0011F7C8
+func_00129490	sif	sceSifInitRpc	host	the instructions of the boot program's func_00121FE8
+func_00129C38	sif	sceSifBindRpc	host	the instructions of the boot program's func_00122630
+func_00129E18	sif	sceSifCallRpc	host	the instructions of the boot program's func_00122810
+func_0012A018	sif	sceSifCheckStatRpc	host	the instructions of the boot program's func_00122A10
+func_0012AA00	fileio	sceFsReset	host	the instructions of the boot program's func_001233F8
+func_0012AA38	fileio	sceOpen	host	the instructions of the boot program's func_00123430
+func_0012ACC8	fileio	sceClose	host	the instructions of the boot program's func_001236C0
+func_0012B8B8	sif	sceSifInitIopHeap	host	the instructions of the boot program's func_00123B10
+func_0012B9B0	sif	sceSifAllocIopHeap	host	the instructions of the boot program's func_00123B98
+func_0012C2C0	sif	sceSifLoadModuleBuffer	host	the instructions of the boot program's func_001240E0
+func_0012C740	sif	sceSifRebootIop	host	the instructions of the boot program's func_00124308
+func_0012C988	kernel	_SetTLBEntry	host	the instructions of the boot program's func_00124550
+func_0012CD60	kernel	DIntr	host	the instructions of the boot program's func_00124920
+func_0012CDB0	kernel	EIntr	host	the instructions of the boot program's func_00124970
+func_0012CEA8	kernel	FindAddress	host	the instructions of the boot program's func_00124A68
+func_0012E820	libgcc	__main	host	the instructions of the boot program's func_001260D0
+func_0012E840	libgcc	__divdi3	host	the instructions of the boot program's func_001260F0
+func_0012FF00	libgcc	__fixunsdfdi	host	the instructions of the boot program's func_00127750
+func_00130090	libgcc	__moddi3	host	the instructions of the boot program's func_001278E0
+func_001306F8	libgcc	__muldi3	host	the instructions of the boot program's func_00127F48
+func_00130760	libgcc	__udivdi3	host	the instructions of the boot program's func_00127FB0
+func_00130D30	libgcc	__umoddi3	host	the instructions of the boot program's func_00128580
+func_001321C8	libgcc	__extendsfdf2	host	the instructions of the boot program's func_00129A18
+func_00133100	vu	sceGsResetPath	host	the instructions of the boot program's func_0012A950
+func_001331A0	vu	sceGsSyncPath	host	the instructions of the boot program's func_0012A9F0
+func_001384E0	cdvd	sceCdSync	host	the instructions of the boot program's func_0012B098
+func_00138748	cdvd	sceCdInit	host	the instructions of the boot program's func_0012B300
+func_00138A30	cdvd	sceCdDiskReady	host	the instructions of the boot program's func_0012B5E8
+func_00138E68	cdvd	sceCdRead	host	the instructions of the boot program's func_0012BA20
+func_00139048	cdvd	sceCdGetError	host	the instructions of the boot program's func_0012BC00
+func_001390E0	cdvd	sceCdBreak	host	the instructions of the boot program's func_0012BC98
+func_00139250	cdvd	sceCdMmode	host	the instructions of the boot program's func_0012BD50
+func_001393E8	graph	sceGsResetGraph	host	the instructions of the boot program's func_0012BEE8
+func_00139628	graph	_GetGsDxDyOffset	host	the instructions of the boot program's func_0012C128
+func_00139638	graph	sceGsSetDefDispEnv	host	the instructions of the boot program's func_0012C138
+func_001399B0	graph	sceGsPutDispEnv	host	the instructions of the boot program's func_0012C4B0
+func_00139B38	graph	sceGsSetDefDrawEnv	game	the instructions of the boot program's func_0012C638
+func_00139D20	graph	sceGsPutDrawEnv	host	the instructions of the boot program's func_0012C820
+func_00139E08	graph	sceGsSyncV	host	the instructions of the boot program's func_0012C908
+func_00139EA0	graph	sceGsSetDefLoadImage	host	the instructions of the boot program's func_0012C9A0
+func_0013A1C8	graph	sceGsExecLoadImage	host	the instructions of the boot program's func_0012CCC8
+func_0013A9D8	graph	sceGsSyncVCallback	host	the instructions of the boot program's func_0012D4D8
+func_0013AB50	dma	sceDmaGetChan	game	the instructions of the boot program's func_0012D650
+func_0013AB78	dma	sceDmaReset	host	the instructions of the boot program's func_0012D678
+func_0013AE38	dma	rac3DmaSend	host	the instructions of the boot program's func_0012D938 (host/mp.c)	void (unsigned int, unsigned int)
+func_0013B320	mc	sceMcMkdir	host	the instructions of the boot program's func_0012DDC8
+func_0013D5C0	vu0	rac3UnitMatrix	host	the instructions of the boot program's func_0012FF40 (host/mp.c)	void (void *)
+func_0013D660	vu0	sceVu0RotMatrixZ	host	the instructions of the boot program's func_0012FFE0
+func_0013D708	vu0	sceVu0RotMatrixX	host	the instructions of the boot program's func_00130088
+func_00192030	scf	sceScfGetLanguage	host	the instructions of the boot program's func_0013A880
+func_00193C40	989snd	snd_ResolveBankXREFS	host	the instructions of the boot program's func_0013BED0
+func_00193C70	989snd	snd_UnloadBank	host	the instructions of the boot program's func_0013BF00
+func_00193CA0	989snd	snd_SetMasterVolume	host	the instructions of the boot program's func_0013BF30
+func_00193D50	989snd	snd_SetPlaybackMode	host	the instructions of the boot program's func_0013BFE0
+func_00193EE0	989snd	snd_StopAllSounds	host	the instructions of the boot program's func_0013C170
+func_00193F10	989snd	snd_PauseAllSoundsInGroup	host	the instructions of the boot program's func_0013C1A0
+func_00193F40	989snd	snd_ContinueAllSoundsInGroup	host	the instructions of the boot program's func_0013C1D0
+func_00194948	989snd	snd_PauseVAGStream	host	the instructions of the boot program's func_0013CC10
+func_00194978	989snd	snd_ContinueVAGStream	host	the instructions of the boot program's func_0013CC40
+func_001949D8	989snd	snd_GetVAGStreamTimeRemaining_CB	host	the instructions of the boot program's func_0013CCA0
+func_00194A08	989snd	snd_IsVAGStreamBuffered_CB	host	the instructions of the boot program's func_0013CCD0
+func_00194A38	989snd	snd_StreamSafeCheckCDIdle	host	the instructions of the boot program's func_0013CD00
+func_00194A60	989snd	snd_StreamSafeCdRead	host	the instructions of the boot program's func_0013CD28
+func_00194B28	989snd	snd_StreamSafeCdSync	host	the instructions of the boot program's func_0013CDF0
+func_00194BE8	989snd	snd_StreamSafeCdBreak	host	the instructions of the boot program's func_0013CEB0
+func_00194C30	989snd	snd_StreamSafeCdGetError	host	the instructions of the boot program's func_0013CEF8
+func_00194C78	989snd	snd_StreamSafeCdCallback	host	the instructions of the boot program's func_0013CF40
+func_00194CF8	989snd	snd_PreAllocReverbWorkArea	host	the instructions of the boot program's func_0013CFC0
+func_00194D30	989snd	snd_AutoReverb	host	the instructions of the boot program's func_0013CFF8
+func_00194DF8	989snd	snd_ResetMovieSound	host	the instructions of the boot program's func_0013D0C0
+func_00194EB8	989snd	snd_UpdateMovieADPCM	host	the instructions of the boot program's func_0013D180
+func_00194EE8	989snd	snd_GetMovieNAX	host	the instructions of the boot program's func_0013D1B0
+func_0012CEC0	kernel	rac3InitSyscallTable	host	the instructions of the boot program's func_00124A80 (host/mp.c)	void (void)
+func_0012C6F0	sif	sceSifSyncIop	host	the instructions of the boot program's func_001242B8
+func_00298D50	dma	rac3KickVif0Chain	host	the instructions of the boot program's func_003A9348 (host/mp.c)	void (unsigned int)
+func_00193878	989snd	rac3SndReplyWait	host	the instructions of the boot program's func_0013B818 (host/mp.c)	int (void)
+func_00193680	989snd	rac3SndPump	host	the instructions of the boot program's func_0013B620 (host/mp.c)	int (void)
+func_00194080	989snd	rac3SndSendCommandSync	host	the instructions of the boot program's func_0013C348 (host/mp.c)	int (int, int, int)
+func_001942B0	989snd	rac3SndQueueCommandToRing	host	the instructions of the boot program's func_0013C578 (host/mp.c)	int (int, int, int, int, long long)
+func_00193AF0	989snd	snd_BankLoadFromEE_CB	host	the instructions of the boot program's func_0013BC30
+func_00126E38	kernel	EnableDmac	host	the instructions of the boot program's func_0011F9A8
+func_00126DD0	kernel	DisableDmac	host	the instructions of the boot program's func_0011F940
+func_002804D8	vu0	rac3Cosine	host	the instructions of the boot program's func_0038D478 (host/mp.c)	float (float)
+func_002804F0	vu0	rac3Sine	host	the instructions of the boot program's func_0038D490 (host/mp.c)	float (float)
+func_0013AF60	mc	sceMcInit	host	the instructions of the boot program's func_0012DA60
+func_0013B1F8	mc	sceMcOpen	host	the instructions of the boot program's func_0012DCA0
+func_0013B358	mc	sceMcClose	host	the instructions of the boot program's func_0012DE00
+func_0013B418	mc	sceMcSeek	host	the instructions of the boot program's func_0012DEC0
+func_0013B5A8	mc	sceMcRead	host	the instructions of the boot program's func_0012E050
+func_0013B6C0	mc	sceMcWrite	host	the instructions of the boot program's func_0012E168
+func_0013B958	mc	sceMcGetInfo	host	the instructions of the boot program's func_0012E400
+func_0013BAD8	mc	sceMcGetDir	host	the instructions of the boot program's func_0012E580
+func_0013BC30	mc	sceMcFormat	host	the instructions of the boot program's func_0012E6D8
+func_0013BD00	mc	sceMcDelete	host	the instructions of the boot program's func_0012E7A8
+func_0013BE30	mc	sceMcUnformat	host	the instructions of the boot program's func_0012E8D8
+func_0013B838	mc	sceMcSync	host	the instructions of the boot program's func_0012E2E0
+func_0013C268	pad	rac3PadInit	host	the instructions of the boot program's func_0012EC90 (host/mp.c)	int (int)
+func_0013C4E8	pad	rac3PadEnd	host	the instructions of the boot program's func_0012EF10 (host/mp.c)	int (void)
+func_0013C690	pad	rac3PadPortOpen	host	the instructions of the boot program's func_0012F0B8 (host/mp.c)	int (int, int, int)
+func_0013CA88	pad	rac3PadRead	host	the instructions of the boot program's func_0012F3F8 (host/mp.c)	int (int, int, int)
+func_0013CB00	pad	rac3PadGetState	host	the instructions of the boot program's func_0012F470 (host/mp.c)	int (int, int)
+func_0013CC38	pad	rac3PadGetReqState	host	the instructions of the boot program's func_0012F5A8 (host/mp.c)	int (int, int)
+func_0013CC98	pad	rac3PadInfoAct	host	the instructions of the boot program's func_0012F608 (host/mp.c)	int (int, int, int, int)
+func_0013CDB8	pad	rac3PadInfoMode	host	the instructions of the boot program's func_0012F728 (host/mp.c)	int (int, int, int, int)
+func_0013CEF0	pad	rac3PadSetMainMode	host	the instructions of the boot program's func_0012F860 (host/mp.c)	int (int, int, int, int)
+func_0013CFA8	pad	rac3PadSetActDirect	host	the instructions of the boot program's func_0012F918 (host/mp.c)	int (int, int, int)
+func_0013D070	pad	rac3PadSetActAlign	host	the instructions of the boot program's func_0012F9E0 (host/mp.c)	int (int, int, int)
+func_0013D2A8	pad	rac3PadInfoPressMode	host	the instructions of the boot program's func_0012FC18 (host/mp.c)	int (int, int)
+func_0013D308	pad	rac3PadEnterPressMode	host	the instructions of the boot program's func_0012FC78 (host/mp.c)	int (int, int)
+func_0028BBA0	wad	rac3WadDecompress	host	the instructions of the boot program's func_003A0B60 (host/mp.c)	int (int, int)
+func_00120048	libc	sprintf	host	the instructions of the boot program's func_0011B2E8 (host/mp.c)	int (unsigned int, unsigned int, ...)
+func_00192E08	boot	rac3MpEntry	host	crt0 at the payload's entry, after the loader's unpacking (host/mp.c): _InitSys, FlushCache(0), main(argc, argv) with the arguments LoadExecPS2 passed	int (void)
+func_0012D318	kernel	rac3MpLoadExec	host	LoadExecPS2's wrapper (the instructions of the boot program's func_00124ED8): back to the boot program, or another executable (host/mp.c)	void (unsigned int, int, unsigned int)
+func_00193058	boot	rac3MpLoadNextProgram	wrap	the next program over the last (the instructions of the boot program's func_0013AFF8): which one it is, for the overlay hook (host/mp.c)
+func_00281280	draw	FontPrint	wrap	the instructions of the boot program's func_0038EBC8, wrapped as it is (host/ui2d.c)
+func_0027F7E0	draw	DrawGlyph	wrap	the instructions of the boot program's func_0038BA50, wrapped as it is (host/ui2d.c)
+func_0027F9C0	draw	DrawGlyphShaded	wrap	the instructions of the boot program's func_0038BC30, wrapped as it is (host/ui2d.c)
+func_0027FBA0	draw	DrawGlyphShadowed	wrap	the instructions of the boot program's func_0038BE10, wrapped as it is (host/ui2d.c)
+func_0027F498	draw	DrawGlyphQuad	wrap	the instructions of the boot program's func_0038B8B0, wrapped as it is (host/ui2d.c)
+func_0027F0E8	draw	DrawTurnedGlyphQuad	wrap	the instructions of the boot program's func_0038B500, wrapped as it is (host/ui2d.c)
+func_0027FE48	draw	DrawShadedBox	wrap	the instructions of the boot program's func_0038C628, wrapped as it is (host/ui2d.c)
+func_0027EDE8	draw	DarkenPicture	wrap	the instructions of the boot program's func_0038B200, wrapped as it is (host/ui2d.c)
+func_0027EEF8	draw	DrawFlatBox	wrap	the instructions of the boot program's func_0038B310, wrapped as it is (host/ui2d.c)
+func_0012C528	sif	rac3MpSifLoadModule	host	sceSifLoadModule(path, the arguments' size, the arguments): the loadfile RPC through 0x0012C300, which sceSifLoadModuleBuffer (0x0012C2C0) shares; the executable loads cdrom0:\DEV9.IRX by it, retrying until it loads (host/mp.c)	int (unsigned int, int, unsigned int)
+func_00193978	989snd	rac3SndBankLoadAsync	host	snd_BankLoadAsync: the instructions of the boot program's func_0013BAB8 (its twin 0x00193A00 is snd_BankLoadFromEE_CB); the multiplayer loader waits for the bank's handle at 0x001FE0B0 (host/mp.c)	void (int, int, int, long long)
+func_L39_005FA400	dma	rac3KickVif0ChainMenus	host	level 39's copy of KickVif0Chain (the catalogue's frontbin row func_003A8F90 at 39:005FCB98): it polled VIF0's CHCR for ever (host/mp.c)	void (unsigned int)
+func_L39_005A7BE0	wad	rac3WadDecompressMenus	host	level 39's copy of the WAD decompressor (the catalogue's func_003A0760 at 39:005A9AA0; host/mp.c)	int (int, int)
+func_L39_00590F90	draw	FontPrintMenus	wrap	level 39's copy of the boot program's func_0038EBC8 (frontbin's func_0038E7E8, the catalogue's 39:00592238), wrapped as it is (host/ui2d.c)
+func_L39_0058A698	draw	DrawGlyphQuadMenus	wrap	level 39's copy of the boot program's func_0038B8B0, wrapped as it is (host/ui2d.c)
+func_L39_0058A2E8	draw	DrawTurnedGlyphQuadMenus	wrap	level 39's copy of the boot program's func_0038B500, wrapped as it is (host/ui2d.c)
+func_L39_0058B4A8	draw	DrawShadedBoxMenus	wrap	level 39's copy of the boot program's func_0038C628, wrapped as it is (host/ui2d.c)
+func_L39_00589FE8	draw	DarkenPictureMenus	wrap	level 39's copy of the boot program's func_0038B200, wrapped as it is (host/ui2d.c)
+func_L39_0058A0F8	draw	DrawFlatBoxMenus	wrap	level 39's copy of the boot program's func_0038B310, wrapped as it is (host/ui2d.c)
+func_L39_0058ABC0	draw	DrawGlyphShadedMenus	wrap	level 39's copy of the boot program's func_0038BC30 (frontbin's, called by its prints), wrapped as it is (host/ui2d.c)
+func_L39_00591820	draw	FontPrintShadedMenus	wrap	level 39's print with a colour a corner (frontbin's func_0038F078 at the catalogue's 39:00592AC8), wrapped as the boot program's func_0038F458 (host/ui2d.c)
+func_L39_0060B8C8	render	rac3ScreenGlowCopyMenus	host	level 39's copy of func_L01_004DE670 (the catalogue's place): the screen glow's packets left out as the boot program's levels leave them (host/mp.c)	int (void)
+func_L39_0060B948	render	rac3ScreenGlowAddMenus	host	level 39's copy of func_L01_004DE6F0 (the catalogue's place): the screen glow's packets left out as the boot program's levels leave them (host/mp.c)	int (void)
+func_L39_0060C568	render	rac3ScreenEffect2Menus	host	level 39's copy of func_L01_004DF310 (the catalogue's place): the screen glow's packets left out as the boot program's levels leave them (host/mp.c)	int (void)
+func_00284FC0	draw	DrawHudSpriteShaded	wrap	the instructions of the boot program's func_00397680 (a HUD texture turned about its centre, a colour a corner), wrapped as it is (host/ui2d.c)
+func_L39_0059BC40	draw	DrawHudSpriteShadedMenus	wrap	level 39's copy of the boot program's func_00397680, wrapped as it is (host/ui2d.c)
+func_L39_0058A9E0	draw	DrawGlyphMenus	wrap	level 39's copy of the boot program's func_0038BA50 (frontbin's, called by its prints), wrapped as it is (host/ui2d.c)
+func_L39_0058ADA0	draw	DrawGlyphShadowedMenus	wrap	level 39's copy of the boot program's func_0038BE10 (frontbin's, called by its prints), wrapped as it is (host/ui2d.c)

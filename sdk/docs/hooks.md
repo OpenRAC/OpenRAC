@@ -103,6 +103,13 @@ job it has the same `<area>.<name>` (`rac2.player.take_damage`), so a mod for
 both games ([several games](manifest.md#a-mod-for-several-games)) reads alike in
 each. Its signatures are rac2's own.
 
+Ratchet & Clank: Up Your Arsenal's are `rac3.<area>.<name>` on its PAL (`pal`)
+and NTSC-U (`ntsc`) discs, in `openrac/games/rac3.h` (`OPENRAC_RAC3_HOOK_<name>`)
+and [its reference](reference/hooks-rac3.md): the hero's damage and death, item
+gifts and upgrades, the vendor's price and list, ammo, bolt drops and pickups,
+enemies' deaths, hits and the level's load. Where one does a rac2 hook point's
+job it has the same `<area>.<name>` (`rac3.item.give`).
+
 ## Moby updates (experimental)
 
 The behaviour catalogue lists the game's moby classes (crates, enemies, ...),

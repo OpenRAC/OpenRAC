@@ -21,6 +21,10 @@ pub struct Config {
     /// Show what contributors use: builds, checks, toolchains, progress.
     /// Off, the launcher shows a player's three steps: set up from your disc, play, edit levels.
     pub developer: bool,
+    /// Up Your Arsenal (rac3) is still in development: its build, set-up and Play stay blocked
+    /// until a developer turns this on, after the launcher's three confirmations (Settings,
+    /// Developer). Default off.
+    pub rac3_dev: bool,
     /// The save editor shows every field of a save, raw bytes included (for debugging). Off, the
     /// player's safe set only.
     pub save_editor_advanced: bool,
@@ -137,6 +141,7 @@ impl Default for Config {
             discs_dir: None,
             save_dir: None,
             developer: false,
+            rac3_dev: false,
             save_editor_advanced: false,
             incremental_builds: false,
             setup_complete: false,

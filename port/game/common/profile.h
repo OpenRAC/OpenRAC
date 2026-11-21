@@ -205,6 +205,12 @@ public:
     // two list buffers it alternates (shown_chain()).
     virtual bool sends_display_list() const { return false; }
 
+    // Whether the frames between ticks are drawn for a tick without a world camera as well: the
+    // kept tick's 2D drawn again at the frame rate the player chose, the game's time unmoved (its
+    // records are the tick's). For a game whose menus are 2D alone (Up Your Arsenal's front end),
+    // where Going Commando's and Ratchet & Clank's have a camera and get those frames for it.
+    virtual bool frames_between_without_camera() const { return false; }
+
     // Whether the 2D path of a frame is split for its mobys at the first moby the game drew from a
     // list of its own (a menu's or a shop's, openrac_game_mobys_drawn): the 2D before it goes under
     // them. Going Commando's Ship Shack draws its ship there, over its grid panel.
@@ -281,6 +287,16 @@ public:
     // bit 0 hidden, the point lights' list at +0x1E); 0 for none.
     virtual std::array<std::uint32_t, 4> scenery_matrices() const { return {0, 0, 0, 0}; }
 
+    // The level whose program scenery_matrices() names its words in, each relocated to the loaded
+    // level's copy (OPENRAC_LDATA): Up Your Arsenal's levels each carry their own engine, and its
+    // executable none; -1 for the executable's addresses (openrac_relocate_data), Going Commando's.
+    // The occlusion mask (openrac_front_end.occlusion) is named in the same program.
+    virtual int scenery_matrices_level() const { return -1; }
+
+    // Where TieProc's cap on the ties' draw distance is, past the word that points at the ties'
+    // records (scenery_matrices()[2]): Going Commando's gp + 0x320C, 0x48 past it.
+    virtual std::uint32_t tie_cap_after_records() const { return 0x48; }
+
     // Returns the executable's address of the four shadow directions the hero's shadow is cast
     // along (relocated to the loaded program's copy when read); 0 for a game without them.
     virtual std::uint32_t shadow_directions() const { return 0; }
@@ -305,6 +321,24 @@ public:
     // Whether the port has the game's levels extracted (editor/port.py), so that a level whose
     // scenery cannot be read is something missing, not a game with no scenery yet.
     virtual bool has_levels() const { return false; }
+
+    // Whether the boot program (the title and its menus) is drawn over a world of the extracted
+    // levels (a title world, else level 0's), rather than as its 2D path alone: Up Your Arsenal's
+    // title is a picture, and its levels have no level 0.
+    virtual bool has_title_world() const { return true; }
+
+    // The extracted level the loading screen between levels (the game mode the window takes for a
+    // flight between planets, world -2) is drawn with, or -1 for the flight world: Up Your
+    // Arsenal's loading screen is its ship's scene, exported as level 97 (editor/level.py
+    // load_wad_loading).
+    virtual int loading_world() const { return -1; }
+
+    // A level whose program draws no world of the extracted levels, its picture the 2D path alone
+    // as the title's (Up Your Arsenal's level 39, the multiplayer menus, of its second executable).
+    virtual bool level_is_menus(int number) const {
+        (void)number;
+        return false;
+    }
 
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }

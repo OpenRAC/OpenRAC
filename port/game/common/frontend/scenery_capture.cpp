@@ -24,7 +24,16 @@ struct Capture {
     const host::GameState& state;               // Caller-owned camera snapshot.
     float scale;                                // Draw-distance multiplier; zero is unlimited.
     const std::array<std::size_t, 2>& counts;   // Caller-owned layer instance counts.
+    int words_level;                            // The words' program: -1 the executable's.
+    std::uint32_t tie_cap_after;                // The ties' cap past the records' word.
     CapturedScenery output;                     // Owned result and resolved caps.
+
+    // A word of the game's, in the loaded program: from the executable's addresses, or from the
+    // level's whose program the profile names them in.
+    gaddr relocate(std::uint32_t address) const {
+        return words_level >= 0 ? openrac_relocate_level_data(words_level, address)
+                                : openrac_relocate_data(address);
+    }
 
     // Resolves a record table only when its aligned extent fits in the captured RAM.
     gaddr table(std::uint32_t address, std::size_t count, std::size_t size) const {
@@ -33,7 +42,7 @@ struct Capture {
             return 0;
         }
 
-        const gaddr word = openrac_relocate_data(address);
+        const gaddr word = relocate(address);
 
         // Pointer globals must fit before their table address can be read.
         if (word + 4 > ram.size()) {
@@ -47,7 +56,7 @@ struct Capture {
 
     // Reads a relocated pointer or cap from the captured RAM.
     std::optional<std::uint32_t> word_at_address(std::uint32_t address) const {
-        const gaddr at = openrac_relocate_data(address);
+        const gaddr at = relocate(address);
 
         // Unavailable or truncated globals leave their optional cap unset.
         if (address == 0 || at + 4 > ram.size()) {
@@ -114,7 +123,8 @@ struct Capture {
             output.scenery.tie_hidden.resize(counts[0]);
             // The cap, in 16-unit steps (lw s1; srl 4): a tie's own distance is its record's byte at
             // +0x1C in the same steps, and the cull takes the smaller, shifted back (pminw; dsll32 4).
-            const auto cap = words[2] != 0 ? word_at_address(words[2] + 0x48) : std::nullopt;
+            const auto cap =
+                words[2] != 0 ? word_at_address(words[2] + tie_cap_after) : std::nullopt;
             const std::uint32_t cap_steps = cap ? *cap >> 4 : 0;
             output.tie_cap = cap_steps << 4;
 
@@ -224,9 +234,11 @@ CapturedScenery capture_scenery(
     const std::array<std::uint32_t, 4>& words,
     const host::GameState& state,
     float scale,
-    const std::array<std::size_t, 2>& counts
+    const std::array<std::size_t, 2>& counts,
+    int words_level,
+    std::uint32_t tie_cap_after
 ) {
-    Capture capture{ram, words, state, scale, counts, {}};
+    Capture capture{ram, words, state, scale, counts, words_level, tie_cap_after, {}};
     capture.matrices();
     capture.read_ties();
     capture.read_terrain();

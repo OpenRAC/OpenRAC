@@ -26,6 +26,7 @@
 #include "game/common/frontend/active_input.h"
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/geometry.h"
+#include "game/common/frontend/input_latency.h"
 #include "game/common/frontend/state.h"
 #include "game/common/frontend/touch_controls.h"
 #include "mod_menu.h"
@@ -297,6 +298,7 @@ void set_motors(int port, bool small, std::uint8_t large) {
 void refresh_pads() {
     if (g && g->window && settings::get().responsive_controls) {
         g->input.refresh_pads();
+        input_latency::sampled(g->input.pad(0).buttons);  // [debug tools] OPENRAC_INPUT_LATENCY
     }
 }
 
@@ -315,6 +317,9 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     analog[2] = p.left_x;
     analog[3] = p.left_y;
     g->input.taps_read(port);
+    if (port == 0) {
+        input_latency::pad_read(*buttons, g->index);  // [debug tools] OPENRAC_INPUT_LATENCY
+    }
     // OPENRAC_PRESS=FRAME:MASK:FRAMES[:LX:LY[:RX:RY]],... holds buttons (mask bits as the pad reports
     // them, 0x4000 cross, 0x8 start) and optionally the left and right sticks (0-255, 128 centred; 0
     // is left or up) for scripted checks. FRAME counts the window's frames (world, 2D and movie frames).

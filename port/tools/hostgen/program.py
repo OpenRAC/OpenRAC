@@ -44,13 +44,25 @@ BUILTINS = {
 }
 
 
+# hostgen.json "prefix": what every C name of the program starts with, for a second executable of
+# one disc built into the same port beside the first (Up Your Arsenal's multiplayer, I5BOOTN.ELF,
+# whose functions sit at the boot program's addresses): "mp_" gives mp_func_00192D18. Set once,
+# before anything is named (set_name_prefix), in each worker too.
+NAME_PREFIX = ""
+
+
+def set_name_prefix(prefix: str) -> None:
+    global NAME_PREFIX
+    NAME_PREFIX = prefix or ""
+
+
 def cname(symbol: str) -> str:
     """The host C name of a game function. Names the game shares with the C
     library or the host's own program (memcpy, sprintf, main, _start) get a
-    prefix; func_ names stay as they are."""
+    prefix; func_ names stay as they are (after hostgen.json's "prefix", if any)."""
     if symbol.startswith("func_"):
-        return symbol
-    return f"game_{symbol}"
+        return NAME_PREFIX + symbol
+    return f"{NAME_PREFIX}game_{symbol}"
 
 
 VA_LIST_NAMES = ("va_list", "__builtin_va_list", "__gnuc_va_list")
@@ -125,17 +137,24 @@ class Program:
     # Another release's view of the primary's C: at one address, the release's own C answers before
     # the primary's C under the release's name for that place (FUN_..., an F<hash>_FUN_...).
     release_view: bool = False
+    caller_aliases: bool = False  # hostgen.json "caller_aliases": per-caller declarations of wrapped functions are them
     from_assembly: set = field(default_factory=set)  # C left out for C from the instructions (hostgen.json "from_assembly")
     wrap: set = field(default_factory=set)  # translated as <name>__game, called by a host <name>
     wrap_host: set = field(default_factory=set)  # with a `wrap` row: a hook point among them is <name>__hooked
     hook: dict = field(default_factory=dict)  # hook points (in wrap too): symbol -> its name for mods
     aliases: dict = field(default_factory=dict)  # (unit, name) -> symbol, from labels Clang refused
+    # hostgen.json "place_kinds_as_levels": another program's name the catalogue gives the levels'
+    # copies -> the levels' own name for them, which a level's unit means by it (read_places).
+    kind_renames: dict = field(default_factory=dict)
     by_place: dict = field(default_factory=dict)  # (overlay, address) -> the symbol defined there
     level_names: dict = field(default_factory=dict)  # a level's build's name -> (overlay, address)
     splits_keep_names: bool = False  # hostgen.json: a level's name of a split place is the variant
     level_data: dict = field(default_factory=dict)  # level -> {data name in its files: address there}
     small_copies_own_data: int = 0  # hostgen.json: level functions up to this many bytes
     level_hooks_by_registers: bool = False  # hostgen.json: assembly calls a hook with its registers
+    # hostgen.json "variadic_thunks": a variadic function called through its code address goes by
+    # its thunk on every platform, not only where OPENRAC_REGS_THUNKS is on (functions.c)
+    variadic_thunks: bool = False
     bare_names_in_level_0: bool = False  # hostgen.json: a C name with no level may be level 0's code
     # hostgen.json "formed_as": a name to the address its code really forms, for an address no
     # instruction forms itself (the program's end, formed only rounded up). Relocated by that one.
@@ -236,6 +255,16 @@ class Program:
             exe = [p for p in named if p[0] < 0 and p not in self.places[symbol]]
             return exe + self.places[symbol]
         return named
+
+    def level_copy_named(self, unit: str, name: str) -> str | None:
+        """A level unit's name of another program's function with the calling function's address
+        after it (rac3-decomp's per-function spellings: func_003EDB08_0051BC88 in func_L01_0051BC88
+        is frontbin's 0x003EDB08): the levels' copy of that function the catalogue places
+        (kind_renames), or None."""
+        m = re.fullmatch(r"(func|FUN)_([0-9A-Fa-f]{8})_[0-9A-Fa-f]{8}", name)
+        if not m or not level_unit(unit):
+            return None
+        return self.kind_renames.get(f"func_{m.group(2).upper()}")
 
     def _any_place_owner(self) -> dict:
         """The catalogue's functions by every place they have: (overlay, address) -> name."""
@@ -868,6 +897,12 @@ def derived_uses(decl: dict, statics: dict) -> tuple:
     return tuple(out)
 
 
+def level_unit(unit: str | None) -> bool:
+    """A unit of a level's program (src/levels/...), whose names of another program's functions mean
+    the level's own copies (Program.kind_renames)."""
+    return bool(unit) and "levels/" in unit
+
+
 def derived_resolves(program: Program, name: str, unit: str | None = None) -> bool:
     """Whether the program knows where a derived name is: its build's table values it (the executable's symbols, a
     level's names), its spelling places it, the unit names another function by it (hostgen.json "unit_aliases"), or
@@ -906,7 +941,7 @@ def users_of_unresolved_derived(program: Program) -> dict[str, list[str]]:
     return moved
 
 
-def callers_of_unprototyped(program: Program) -> list[str]:
+def callers_of_unprototyped(program: Program, wide_registers: bool = False) -> list[str]:
     """A definition that calls, by name, a function of another unit (or of none) whose signature has no form in
     the shared prototypes (prototype(): a record by value, as a parameter or the result) cannot be translated: its
     unit has no declaration of the callee, since game_protos.h leaves it out, and the decompilation's own
@@ -916,6 +951,30 @@ def callers_of_unprototyped(program: Program) -> list[str]:
     are those that in turn call it, when it has no shared prototype either. The port's own host and wrapped
     functions keep their C. Returns the names left to the assembly."""
     moved = []
+    if wide_registers:
+        # A game whose calls hand on the 128-bit registers (asm.wide_register_calls): a function that takes a
+        # record by value where the code places it (Up Your Arsenal's movers taking a quadword vector in $a1) is
+        # one no table answers, so its callers by address (the assembly's) found nothing ("call to code address
+        # X, which no function of the port has"). Translated from its assembly, it takes the registers its code
+        # reads, their upper halves too, and every caller of it with C is left to its assembly as well, its own
+        # unit's included, since their C passes the record. Those callers' signatures are prototyped: their own
+        # callers keep their C.
+        left = set()
+        for sym, f in sorted(program.functions.items()):
+            if (f.unit is None or f.static or sym in program.host or sym in program.wrap
+                    or prototype(f, program.typedefs) is not None or canon(f.sig.ret, program.typedefs) is None
+                    or not program.code_places(sym)):
+                continue
+            program.functions[sym] = Function(sym, Signature(f.sig.ret, (), False, False), None, asm=True)
+            program.from_assembly.add(sym)
+            left.add(sym)
+            moved.append(sym)
+        for sym, f in sorted(program.functions.items()):
+            if f.unit is None or sym in program.host or sym in program.wrap or not left.intersection(f.calls):
+                continue
+            program.functions[sym] = Function(sym, f.sig, None, asm=True, declared=f.declared)
+            program.from_assembly.add(sym)
+            moved.append(sym)
     again = True
     while again:
         again = False
@@ -970,6 +1029,50 @@ def widen_returns(program: Program) -> list[str]:
     return changed
 
 
+def tail_callee(program: Program, f: Function) -> Function | None:
+    """The function a definition's closing call (Function.tail) reaches, as its unit names it: a
+    static of the unit, the unit's level's own copy, else the program's function; None if none."""
+    sym = program.aliases.get((f.unit, f.tail), f.tail)
+    sym = program.level_short_name(f.unit, sym, f.symbol)
+    g = program.statics.get((f.unit, sym))
+    if g is None:
+        own = program.grouped(f.unit, sym)
+        g = program.functions.get(own) if own != sym else None
+    if g is None:
+        g = program.functions.get(program.canonical(sym))
+    return g
+
+
+def unbacked_results(program: Program, verified: set[str]) -> set[str]:
+    """For a build that translates nothing from the disc: the functions whose result no code backs.
+    Each function with no C or host definition is a stub whose signature comes from declarations,
+    unless `verified` (hostgen.json "asm" "signatures") holds it; a call to a stub that a group
+    also defines goes to the group's C (lower.py _callee_symbol: boot's func_00382760, its C left
+    to its assembly, to frontbin's func_00382760__frontbin), whose result is not the one the disc's
+    translation of the stub gives. A `void` definition that ends in a call to a stub, or to one of
+    these, would pass that call's result on (inherit_results), which the disc's build gives it and
+    this one cannot."""
+    stubs = program.stubs()
+    out = {f.symbol for f in stubs if f.symbol not in verified}
+    out |= {f"{f.symbol}__{g['suffix']}" for f in stubs for g in program.groups
+            if f"{f.symbol}__{g['suffix']}" in program.functions}
+    again = True
+    while again:
+        again = False
+        for f in program.functions.values():
+            if f.symbol in out or f.unit is None or f.tail is None or f.inherits:
+                continue
+            if canon(f.sig.ret, program.typedefs) != "void":
+                continue
+            g = tail_callee(program, f)
+            if g is None or g is f:
+                continue
+            if g.symbol in out or (g.unit is None and g.symbol not in program.host):
+                out.add(f.symbol)
+                again = True
+    return out
+
+
 def inherit_results(program: Program) -> list[str]:
     """A definition that returns nothing and ends in a call leaves that call's result in the
     result register, and the decompilation's callers read it there (a wrapper matched as `void
@@ -989,14 +1092,7 @@ def inherit_results(program: Program) -> list[str]:
             # callee's colour on to callers that read it.
             if f.symbol in program.wrap_host or f.symbol in program.host:
                 continue
-            sym = program.aliases.get((f.unit, f.tail), f.tail)
-            sym = program.level_short_name(f.unit, sym, f.symbol)
-            g = program.statics.get((f.unit, sym))
-            if g is None:
-                own = program.grouped(f.unit, sym)
-                g = program.functions.get(own) if own != sym else None
-            if g is None:
-                g = program.functions.get(program.canonical(sym))
+            g = tail_callee(program, f)
             if g is None or g is f or (g.unit is None and g.symbol not in program.host
                                        and g.symbol not in program.from_assembly):
                 continue
@@ -1055,7 +1151,7 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
         if kind != "FunctionDecl":
             continue
         sym = symbol_of(decl)
-        if sym in BUILTINS or sym.startswith("__builtin") or sym == "openrac_hostgen_asm":
+        if sym in BUILTINS or sym.startswith("__builtin") or sym in ("openrac_hostgen_asm", "openrac_hostgen_unset"):
             continue
         if decl.get("isImplicit") and not (sym.startswith("func_") or sym in program.functions):
             # Clang's own declaration of a library builtin (fabsf, memcpy): only a
@@ -1135,7 +1231,8 @@ def read_places(path: Path, program: Program) -> int:
         cols = line.split("\t")
         if len(cols) < 6:
             continue
-        column = 8 if len(cols) >= 9 and ":" in cols[8] else 5
+        # rac3-decomp's catalogue has a remnant column before the levels: its places are the 7th.
+        column = 8 if len(cols) >= 9 and ":" in cols[8] else 6 if len(cols) == 7 and ":" in cols[6] else 5
         places = []
         boot = []
         for item in cols[column].split(","):
@@ -1147,10 +1244,21 @@ def read_places(path: Path, program: Program) -> int:
         if boot and places:
             # A level function's copy in the executable (NTSC-J's card menu calls 0x0020A448).
             program.boot_places[cols[0]] = boot
+        name = cols[0]
+        if places and cols[1] in getattr(program, "place_kinds_as_levels", ()):
+            # A row of another program's function that the levels also carry (rac3-decomp's
+            # "frontbin" rows: frontbin's func_003CEDF8 is level 1's 0x004B1380): the levels' copies
+            # are named as the levels' own shared functions, after their first place, so they are
+            # translated as those are (their globals and calls the loaded level's), not as the
+            # other program's C written with its own addresses.
+            name = f"func_L{places[0][0]:02d}_{places[0][1]:08X}"
+            # A level's C calls the copy by the other program's name (func_003A52A0 in Veldin's
+            # file is its own copy of frontbin's function): in a level's unit that name is this one.
+            program.kind_renames[cols[0]] = name
         if places:
-            program.places[cols[0]] = places
+            program.places[name] = places
             if cols[2].isdigit():
-                program.sizes[cols[0]] = int(cols[2])
+                program.sizes[name] = int(cols[2])
             count += 1
     return count
 
@@ -1174,11 +1282,15 @@ def read_call_copies(path: Path, program: Program) -> int:
     """The calls that differ between the places of a folded function (call_copies.tsv, written by
     copycalls.py): (caller, callee) -> (home, canon, size, own, exe)."""
     program.call_copies = {}
+    program.call_copy_callees = {}
     for line in path.read_text().splitlines():
         if line.startswith("#") or not line.strip():
             continue
-        caller, callee, home, canon, size, own, exe = line.split("\t")
+        # An eighth column (call_copies_rac3.py): the jals where a copy calls it.
+        caller, callee, home, canon, size, own, exe, *at = line.split("\t")
         row = (int(home), int(canon, 16), int(size), int(own, 16), int(exe, 16))
+        words = frozenset(int(w) for w in at[0].split(",")) if at and at[0] else None
+        program.call_copy_callees.setdefault(caller, []).append((callee, words))
         program.call_copies[(caller, callee)] = row
         program.call_copies[(caller, row[0], row[3])] = row
         if row[4]:
@@ -1206,7 +1318,50 @@ def call_copy(program: Program, caller: str | None, callee: str, exe_target: int
                 break
     if row is None and exe_target is not None:
         row = rows.get((caller, "exe", exe_target))
+    # C names its arguments; an assembly translation (exe_target given) hands every register on.
+    if row is not None and exe_target is None and getattr(program, "call_copies_same_shape", False) \
+            and not _copies_fit(program, caller, callee):
+        return None
     return row
+
+
+def _shape(program: Program, name: str) -> tuple[int, int, str] | None:
+    """A function's argument registers as the EE hands them on: its integer and float parameters'
+    counts, and its result's kind (void, float or int), or None when the program has no type for it."""
+    f = program.functions.get(name)
+    if f is None or f.sig.variadic or not f.sig.prototyped:
+        return None
+    kinds = [canon(p, program.typedefs) for p in f.sig.params]
+    if None in kinds:
+        return None
+    floats = sum(k in ("float", "double") for k in kinds)
+    ret = canon(f.sig.ret, program.typedefs)
+    return len(kinds) - floats, floats, "void" if ret == "void" else "float" if ret in ("float", "double") else "int"
+
+
+def _copies_fit(program: Program, caller: str, callee: str) -> bool:
+    """hostgen.json "call_copies_same_shape": a call reaches its running copy's own callee only
+    where every function the copies call there reads no argument register the named callee's call
+    leaves unset, and gives its result where the named one does (at the same jal, where the table
+    lists the jals). Up Your Arsenal's particle wrappers
+    (func_L01_00447470 takes two floats fewer than its copies' func_L01_00451FB8) would read the
+    caller's leftover float registers, which the C does not have; such a call keeps its named
+    callee."""
+    own = _shape(program, callee)
+    if own is None:
+        return False
+    listed = program.call_copy_callees.get(caller, [])
+    here = next((w for name, w in listed if name == callee), None)
+    for other, words in listed:
+        # Only the functions the copies call at the same jal (where the table says which).
+        if other == callee or (here is not None and words is not None and not here & words):
+            continue
+        shape = _shape(program, other)
+        if shape is None or shape[0] > own[0] or shape[1] > own[1]:
+            return False
+        if own[2] != "void" and shape[2] != own[2]:
+            return False
+    return True
 
 
 def call_copy_expr(row: tuple[int, int, int, int, int]) -> str:

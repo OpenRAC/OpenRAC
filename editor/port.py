@@ -76,7 +76,22 @@ FORMAT = 4
 # and sun profiles (probe-bake.json) the baker reads, from port/enhanced/lighting/profiles/rac2-ntsc.
 # 20: the liquid surfaces the baker lights from (bake-inputs/liquids.json and their effect textures,
 # manifest bake_inputs "liquids").
-GAME_FORMATS = {"rac2": 20}
+# Up Your Arsenal, 5: Ratchet's mesh and textures from his first pack (wads.RAC3_PAL), where 4 had
+# none for class 0. 6: the terrain and shrubs lit as the game lights them at level load, by the
+# normal table in each level's program (lighting.program_normal_table), and the ties' vertex colours
+# (tie_vertex_colours), as Going Commando's. 7: his wrench (class 71), the banks of what he holds
+# and his ship's hulls and paint jobs (class 3412), from the disc as Going Commando's 7, 13 and 15.
+# 8: the chrome and glass maps from the GS RAM lump's stash, as Going Commando's 14 (they were grey).
+# 9: the mobys' glow vertices, their light sets and their bangles as classes of their own, as Going
+# Commando's 9 and 11. 10: his other 30 looks (his armours and skins) as classes of their own, as
+# Going Commando's 7. 11: the gameplay copy the probe baker plans enhanced lighting from
+# (bake-inputs/gameplay.bin, manifest bake_inputs), as Going Commando's 18. 12: the reviewed
+# catalog of glowing textures (materials/version, port/enhanced/lighting/profiles/rac3-pal) and the
+# levels' sun sets (probe-bake.json), as Going Commando's 19. 13: the loading screen's ship scene
+# as level 97 (level.load_wad_loading). 14: the liquid surfaces the baker lights from
+# (bake-inputs/liquids.json, manifest bake_inputs "liquids": the class 6576 strips), as Going
+# Commando's 20.
+GAME_FORMATS = {"rac2": 20, "rac3": 14}
 
 
 def levels_format(game: str) -> int:

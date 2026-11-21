@@ -353,9 +353,9 @@ openrac_add_c_test(rac4_io
           game/common/lib/pad.c
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
-openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include)
+openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
 # The other games' saves on the first card: read, never written (the Barlow vendor's free weapons).
-openrac_add_c_test(mc_shared_card INCLUDES runtime/include game/common/include)
+openrac_add_c_test(mc_shared_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
 
 # ---- assets, media, audio, the extractor: no window ----
 openrac_add_c_test(crate_init NO_STRICT_ALIASING WRAPV NO_FP_CONTRACT)
@@ -484,6 +484,9 @@ openrac_add_c_test(rac2_enemy_copies NO_STRICT_ALIASING MATH
 # Going Commando's saves as the play calls read them, on a save the game wrote.
 openrac_add_c_test(rac2_save INCLUDES game/rac2/host
   DEFINITIONS "RAC2_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac2/save-oozla.bin\"")
+# Up Your Arsenal's saves as the play calls read them, on a slot the game wrote.
+openrac_add_c_test(rac3_save INCLUDES game/rac3-pal/host
+  DEFINITIONS "RAC3_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac3/save-empty.bin\"")
 # The card filter against the game's calls on a real folder: a party never writes a player's saves.
 openrac_add_c_test(mc_filter SOURCES tests/mc_filter_test.c game/common/lib/mc.c
                    INCLUDES game/common/include runtime/include)

@@ -13,11 +13,16 @@
 
 namespace openrac::lighting {
 // Whether exports of `game` (a manifest's "game", "rac1") and `version` ("pal") can be baked and
-// their bakes loaded: Ratchet & Clank's PAL and NTSC-U discs, and Going Commando's three discs.
+// their bakes loaded: Ratchet & Clank's PAL and NTSC-U discs, Going Commando's three discs and Up
+// Your Arsenal's PAL disc.
 bool bake_identity_supported(std::string_view game, std::string_view version);
 
 // The same for a port id ("rac1-pal", "rac2-ntsc").
 bool bake_identity_supported(std::string_view game_version);
+
+// The highest level number of `game` (a manifest's "game"): 18 for Ratchet & Clank, 30 for Going
+// Commando, 53 for Up Your Arsenal (its multiplayer maps).
+int highest_level(std::string_view game);
 
 struct ProbeActivation {
     BakeSettings bake;

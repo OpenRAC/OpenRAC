@@ -67,7 +67,19 @@ class Version:
     item_banks: int = 0     # where it keeps the banks of the items he holds, if it does
     flights: int = 0        # where it keeps the flights' (sector, sector count) pairs, after their base sector
     flight_count: int = 0
+    # Up Your Arsenal's loading screens: the (sector, sector count) pairs of their packs, after
+    # their base sector (the word before), and which pack is the ship's scene.
+    loading_packs: int = 0
+    loading_ship_pack: int = 0
     normal_table: int = 0   # the executable's (cos, sin) table the terrain is lit by (lighting.py), if known
+    # Where a game keeps what Going Commando keeps at the module's constants (0 for those): the hero
+    # packs of his wrench's forms (else the WRENCHES after his looks), his ship's hulls and paint
+    # jobs (sector pairs from the sector at flight_base) and how many paint jobs there are.
+    wrench_packs: tuple = ()
+    ship_bodies: int = 0
+    ship_paints: int = 0
+    ship_paint_count: int = 0
+    flight_base: int = 0
 
 
 RAC2_NTSC = Version(game="rac2", key="ntsc", **util.disc_identity("rac2", "ntsc"), level_header=0x60,
@@ -83,9 +95,29 @@ RAC2_PAL = Version(game="rac2", key="pal", **util.disc_identity("rac2", "pal"), 
 RAC2_NTSC2 = Version(game="rac2", key="ntsc2", **util.disc_identity("rac2", "ntsc2"), level_header=0x60,
                      hero_packs=0x4f04, hero_armours=9, item_banks=0x4b3c, flights=0x3e58, flight_count=4,
                      normal_table=0x238e80)
-RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"), level_header=0x60)
-# Up Your Arsenal's PAL disc: the same table of contents and level headers as NTSC-U's.
-RAC3_PAL = Version(game="rac3", key="pal", **util.disc_identity("rac3", "pal"), level_header=0x60)
+# Up Your Arsenal's NTSC-U disc: the same table of contents as PAL's (below), read at the same
+# offsets by the same code (Veldin's 0x00422D70 reads Ratchet's packs at +0x1EB4 and his wrench's
+# row at +0x20A8, 0x0042A300 the banks from +0x4590, as PAL's 0x00425B18 and 0x0042D110 do; the
+# loading screen's packs are read by 0x003C0FA8, PAL's 0x003C10B0's C: rac3-decomp's map.tsv match).
+RAC3_NTSC = Version(game="rac3", key="ntsc", **util.disc_identity("rac3", "ntsc"), level_header=0x60,
+                    hero_packs=0x1eb4, hero_armours=31, item_banks=0x458c, wrench_packs=(31,),
+                    ship_bodies=0x1d60, ship_paints=0x1d78, ship_paint_count=32, flight_base=0x1284,
+                    loading_packs=0x1288, loading_ship_pack=11)
+# Up Your Arsenal's PAL disc: the same table of contents and level headers as NTSC-U's, read where
+# Veldin's copies of Going Commando's loaders read it (the table of contents at 0x00160C40):
+# - Ratchet's packs: LoadPlayerDisplayTextures (0x004255E0, Going Commando's 0x00292078), the base
+#   sector at +0x1EB4 and a pack a row of four words from +0x1EB8, picked by his skin (0x005147D8).
+#   The 31 packs are his looks: the armour the game keeps at 0x001D4B60 (pack 0 his first), or
+#   the skin byte at 0x001427AB when it is not 0 (0x004255E0 takes that in its place).
+# - His wrench: pack 31 (0x00425B18 reads its row at +0x20A8; Going Commando's has three forms).
+# - What he holds: 48 banks of five words from +0x4590, after their base sector at +0x458C
+#   (0x0042D110, Going Commando's 0x00294988).
+# - His ship (class 3412 as Going Commando's): three hulls from +0x1D60 and 32 paint jobs from
+#   +0x1D78, sector pairs from the sector at +0x1284 (0x00425D48, Going Commando's 0x002925F0).
+RAC3_PAL = Version(game="rac3", key="pal", **util.disc_identity("rac3", "pal"), level_header=0x60,
+                   hero_packs=0x1eb4, hero_armours=31, item_banks=0x458c, wrench_packs=(31,),
+                   ship_bodies=0x1d60, ship_paints=0x1d78, ship_paint_count=32, flight_base=0x1284,
+                   loading_packs=0x1288, loading_ship_pack=11)
 RAC4_NTSC = Version(game="rac4", key="ntsc", **util.disc_identity("rac4", "ntsc"), level_header=0xc68)
 # Deadlocked's PAL disc (Ratchet: Gladiator): the same table of contents and level headers as NTSC-U's.
 RAC4_PAL = Version(game="rac4", key="pal", **util.disc_identity("rac4", "pal"), level_header=0xc68)
@@ -245,27 +277,28 @@ class WadDisc:
     def ship_texture(self, number: int = 0) -> bytes:
         """The picture on his ship, as func_002926B8 reads it: paint NUMBER of the (sector, sector
         count) pairs at SHIP_PAINTS, from the flights' base sector."""
-        base, = unpack("<I", self.toc, FLIGHT_BASE)
-        sector, count = unpack("<II", self.toc, SHIP_PAINTS + number * 8)
+        base, = unpack("<I", self.toc, self.version.flight_base or FLIGHT_BASE)
+        sector, count = unpack("<II", self.toc, (self.version.ship_paints or SHIP_PAINTS) + number * 8)
         return self.disc.sectors(base + sector, count)
 
     def ship_textures(self) -> list[bytes]:
         """Every paint job (SHIP_PAINT_COUNT pairs at SHIP_PAINTS): func_002926B8 loads the one the
         low five bits of 0x001A7AF2 name on each load, the Ship Shack's preview another, and keeps
         its number at 0x00152C30."""
-        return [self.ship_texture(number) for number in range(SHIP_PAINT_COUNT)]
+        return [self.ship_texture(number) for number in range(self.version.ship_paint_count or SHIP_PAINT_COUNT)]
 
     def ship_body(self, number: int = 0) -> bytes:
         """His ship's hull as func_002925F0 reads it on every level's and flight's load: a class, of
         the (sector, sector count) pairs at SHIP_BODIES, from the flights' base sector."""
-        base, = unpack("<I", self.toc, FLIGHT_BASE)
-        sector, count = unpack("<II", self.toc, SHIP_BODIES + number * 8)
+        base, = unpack("<I", self.toc, self.version.flight_base or FLIGHT_BASE)
+        sector, count = unpack("<II", self.toc, (self.version.ship_bodies or SHIP_BODIES) + number * 8)
         return self.disc.sectors(base + sector, count)
 
     def ship_bodies(self) -> list[bytes]:
         """Every hull: the pairs from SHIP_BODIES up to the paints' (the game picks one by the low two
         bits of 0x001A7AF0)."""
-        return [self.ship_body(number) for number in range((SHIP_PAINTS - SHIP_BODIES) // 8)]
+        bodies, paints = self.version.ship_bodies or SHIP_BODIES, self.version.ship_paints or SHIP_PAINTS
+        return [self.ship_body(number) for number in range((paints - bodies) // 8)]
 
     def executable(self) -> bytes:
         """The executable SYSTEM.CNF boots (identify checked its size and SHA-1)."""
@@ -280,6 +313,14 @@ class WadDisc:
             return None
         from lighting import normal_table
         return normal_table(self.executable(), self.version.normal_table)
+
+    def loading_pack(self, number: int) -> bytes:
+        """Loading screen pack NUMBER as stored: Up Your Arsenal's (sector, sector count) pairs at
+        `loading_packs`, from the sector the word before them holds. The boot program's loading
+        screen (0x003C10B0) unpacks one at 0x006F3000; pack 11 is the ship's scene."""
+        base, = unpack("<I", self.toc, self.version.loading_packs - 4)
+        sector, count = unpack("<II", self.toc, self.version.loading_packs + number * 8)
+        return self.disc.sectors(base + sector, count)
 
     def flight(self, number: int) -> bytes:
         """A flight's lump as stored: the sector ranges at `flights`, relative to the sector the

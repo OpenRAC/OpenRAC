@@ -39,6 +39,7 @@ import re
 from dataclasses import dataclass, field
 
 import ctype
+from program import level_unit as program_level_unit  # noqa: E402
 from program import BUILTINS, Program, call_copy as program_call_copy, call_copy_expr, canon, cname, has_body, symbol_of
 
 VA_NAMES = {"va_list", "__builtin_va_list", "__gnuc_va_list"}
@@ -83,6 +84,8 @@ HOST_TYPES = {
 
 # The call hostgen puts where Clang could not read inline assembly (clangast.py).
 HOSTGEN_ASM = "openrac_hostgen_asm"
+# An argument a call to a K&R function leaves out (clangast.py fixes such a call with it).
+HOSTGEN_UNSET = "openrac_hostgen_unset"
 
 # C library maths functions on plain values, called by the host's name when
 # the game uses them without defining them.
@@ -1919,6 +1922,8 @@ class Unit:
         d = self.decls.get(ref["referencedDecl"]["id"])
         raw = symbol_of(d) if d is not None else ref["referencedDecl"].get("name", "")
         raw = self.program.aliases.get((self.unit, raw), raw)
+        if program_level_unit(self.unit):
+            raw = self.program.kind_renames.get(raw, raw)
         if raw == sym or raw in self.program.places:
             return sym
         named = self.program.code_places(raw)
@@ -1954,6 +1959,11 @@ class Unit:
         d = self.decls.get(ref["referencedDecl"]["id"])
         sym = symbol_of(d) if d is not None else ref["referencedDecl"].get("name", "")
         sym = self.program.aliases.get((self.unit, sym), sym)
+        if program_level_unit(self.unit) and sym in self.program.kind_renames and \
+                (self.unit, sym) not in self.program.statics:
+            sym = self.program.kind_renames[sym]
+        if program_level_unit(self.unit) and (copy := self.program.level_copy_named(self.unit, sym)):
+            sym = copy
         if (self.unit, sym) in self.program.statics:
             return sym
         # hostgen.json "calls_as": a level's C names a routine its level has only as a variant of
@@ -1969,6 +1979,12 @@ class Unit:
             if problem not in self.report.problems:
                 self.report.problems.append(problem)
         sym = self._level_short_name(sym)
+        alias = CALLER_ALIAS.match(sym) if self.program.caller_aliases else None
+        if alias and (alias.group(1) in self.program.wrap or alias.group(1) in self.program.host):
+            # hostgen.json "caller_aliases": a per-caller declaration of a function the port wraps
+            # or replaces (rac3's func_0038EBC8_00390768, FontPrint as func_00390768's C declares
+            # it) is that function, or the call would run its own translation and miss the port's.
+            sym = alias.group(1)
         own = self.program.grouped(self.unit, sym)
         if own != sym and own in self.program.functions:
             return own  # the unit's group (a separate program) has its own
@@ -3270,6 +3286,8 @@ class Unit:
             return f"{BUILTINS[sym]}({', '.join(self.rv(a) for a in args)})"
         if sym == HOSTGEN_ASM:
             raise Unsupported("inline assembly Clang cannot read")
+        if sym == HOSTGEN_UNSET:
+            return "0"
         if sym == "__builtin_next_arg":
             return self._next_arg(result_t)
         f = self.program.lookup(self.unit, sym)
@@ -3374,7 +3392,24 @@ class Unit:
             return "agg"
         return self._reg_class(c)
 
+    def _is_unset(self, a: dict) -> bool:
+        """An argument clangast.py put in for one a call to a K&R function leaves out."""
+        while a.get("kind") in ("ImplicitCastExpr", "CStyleCastExpr", "ParenExpr") and _inner(a):
+            a = _inner(a)[0]
+        if a.get("kind") != "CallExpr" or not _inner(a):
+            return False
+        callee = _inner(a)[0]
+        while callee.get("kind") in ("ImplicitCastExpr", "ParenExpr") and _inner(callee):
+            callee = _inner(callee)[0]
+        return callee.get("kind") == "DeclRefExpr" and callee.get("referencedDecl", {}).get("name") == HOSTGEN_UNSET
+
     def _match_args(self, sym: str, sig, args: list) -> list[str]:
+        if getattr(self.program, "unpassed_registers", False):
+            # hostgen.json "unpassed_registers": an argument a call to a K&R function leaves out
+            # is the register the caller left: its own argument there, as for any call that
+            # passes fewer than the callee takes (Up Your Arsenal's func_003AB608 hands its
+            # second and third arguments to func_003AB3F0 that way).
+            args = [a for a in args if not self._is_unset(a)]
         if not sig.prototyped:
             return [self.rv(a) for a in args]
         classes = [self._arg_class(a) for a in args]

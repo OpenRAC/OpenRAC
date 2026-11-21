@@ -11,6 +11,7 @@ addresses). Its tables say where every name is on NTSC-U, without building anyth
 - config/us/map.tsv: each PAL function, its program, and its NTSC-U name and place; its status
   (`match`: the PAL C is NTSC-U's code; `differs`: NTSC-U's own code is there, its C in src/us/
   when written; `none`: NTSC-U has no such function; `asm`, `near`, `nomatch`);
+- release/release.json "pairs" (by hand, with their evidence): functions map.tsv does not pair yet;
 - config/us/names.tsv: the NTSC-U value of every other name the core programs' C uses (globals,
   their per-caller aliases `D_00142430_0039B470`, short names `D_142430`), one per program, as
   rac3-decomp's NTSC-U build read them from the disc's bytes.
@@ -95,7 +96,7 @@ def units_of(source: Path, roots: list[str], skip: list[str]) -> dict[str, str]:
     return out
 
 
-def build(source: Path, cfg: dict) -> dict:
+def build(source: Path, cfg: dict, pairs: dict[str, str] | None = None) -> dict:
     evidence: Counter = Counter()
     names: dict[str, str] = {}
     front: dict[str, str] = {}  # frontbin's own, where they differ from the executable's
@@ -107,6 +108,12 @@ def build(source: Path, cfg: dict) -> dict:
             gone.append(pal)
         gone_in.setdefault(pal, []).extend(f"{root}/{program}/" for root in ("src", "src/us", "nonmatching"))
     rows = read_map(source)
+    # The pairs checked by hand (release/release.json "pairs", each with its evidence; frontbin's
+    # with its __frontbin suffix): functions map.tsv does not pair yet, taken as `match`.
+    pairs = pairs or {}
+    def paired(r: list[str]) -> str | None:
+        return pairs.get(f"{r[0]}__frontbin" if r[1] == "frontbin" else r[0]) if r[1] in ("boot_elf", "frontbin") else None
+    rows = [[*r[:2], paired(r), *r[3:6], "match", *r[7:]] if paired(r) else r for r in rows]
     for pal, program, us, _place, _size, state, status, *_ in rows:
         k = key(pal)
         if k is None:
@@ -164,6 +171,13 @@ def build(source: Path, cfg: dict) -> dict:
         if k not in names:
             names[k] = name.replace("_U_", "_", 1)
             evidence["src/us: its own name, without the mark"] += 1
+
+    # A hand pair map.tsv has no row for (a second entry, func_003D3154): its place, as paired.
+    for pal, us in pairs.items():
+        k = key(pal.removesuffix("__frontbin"))
+        if k is not None and not pal.endswith("__frontbin") and k not in names:
+            names[k] = us
+            evidence["function: paired by hand (release.json)"] += 1
 
     # The names the C reads, and what it reads that nothing places on NTSC-U.
     roots = sorted(set(cfg.get("sources", ["src"]) + cfg.get("includes", ["include"])) - {"."})
@@ -233,7 +247,12 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     cfg = json.loads(args.game.read_text())
     source = args.source.resolve()
-    parts = build(source, cfg)
+    hand = args.game.parent / "release/release.json"
+    pairs = {}
+    if hand.is_file():
+        pairs = {k: v["is"].removesuffix("__frontbin") for k, v in json.loads(hand.read_text()).get("pairs", {}).items()
+                 if isinstance(v, dict)}
+    parts = build(source, cfg, pairs)
     try:
         commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=source, capture_output=True, text=True,
                                 timeout=15).stdout.strip() or None

@@ -53,6 +53,7 @@
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/energy_effects.h"
 #include "game/common/frontend/hero_shadows.h"
+#include "game/common/frontend/input_latency.h"
 #include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/scenery_capture.h"
 #include "game/common/frontend/state.h"
@@ -739,6 +740,7 @@ bool read_window_events() {
     // A controls file changed beside the game (the launcher) is applied within a second.
     g->controls.poll(static_cast<double>(SDL_GetTicks()) / 1000.0);
     g->input.update();
+    input_latency::sampled(g->input.pad(0).buttons);  // [debug tools] OPENRAC_INPUT_LATENCY
     // The controllers connected are remembered beside the controls, for the launcher.
     if (g->input.take_devices_changed()) {
         g->controls.remember(g->input.devices());
@@ -792,14 +794,21 @@ int world_to_draw(std::span<const std::uint8_t> ram, int level) {
 // Uses the requested world after graphics ownership returns.
 void use_world(std::span<const std::uint8_t> ram, int level) {
     const int world = world_to_draw(ram, level);
-    use_level(world);
     // The flight between planets plays while the game reads the next level from the disc; its
     // number is already the level word's. Its files are read meanwhile, not after the flight.
+    int next_level = -1;
     if (world == -2 && openrac_game_front_end != nullptr && openrac_game_front_end->level != 0) {
         const std::uint32_t next = word_at(ram, openrac_game_front_end->level);
         if (next < static_cast<std::uint32_t>(openrac_game_front_end->levels)) {
-            preload_level(static_cast<int>(next));
+            next_level = static_cast<int>(next);
         }
+    }
+    // A game whose loading screen is a world of its own (Up Your Arsenal's ship, level 97) draws
+    // that one's mobys there, not a flight world's (the game draws no other layer).
+    const int loading = world == -2 ? g->render.profile->loading_world() : -1;
+    use_level(loading >= 0 ? loading : world);
+    if (next_level >= 0) {
+        preload_level(next_level);
     }
 }
 
@@ -1362,15 +1371,16 @@ std::optional<scene::GameScenery> scenery_matrices(
         state,
         settings::get().draw_distance_scale(),
         {g->render.level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size(),
-         g->render.level.instances[static_cast<std::size_t>(scene::Layer::Shrubs)].size()}
+         g->render.level.instances[static_cast<std::size_t>(scene::Layer::Shrubs)].size()},
+        g->render.profile->scenery_matrices_level(),
+        g->render.profile->tie_cap_after_records()
     );
     const auto& result = captured.scenery;
     const std::uint32_t tie_cap = captured.tie_cap;
     const float shrub_cap = captured.shrub_cap;
     std::optional<scene::Pvs::Mask> mask;
     if (occlusion_address() != 0) {
-        if (const gaddr m = openrac_relocate_data(occlusion_address());
-            m + sizeof(scene::Pvs::Mask) <= ram.size()) {
+        if (const gaddr m = occlusion_in_ram(); m + sizeof(scene::Pvs::Mask) <= ram.size()) {
             mask.emplace();
             std::memcpy(mask->data(), ram.data() + m, mask->size());
         }
@@ -2671,7 +2681,7 @@ void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state
     // The game's occlusion mask, which picks retail's fallback outside the baked grid.
     std::optional<scene::Pvs::Mask> occlusion;
     if (occlusion_address() != 0) {
-        const gaddr mask = openrac_relocate_data(occlusion_address());
+        const gaddr mask = occlusion_in_ram();
         if (mask + sizeof(scene::Pvs::Mask) <= ram.size()) {
             occlusion.emplace();
             std::memcpy(occlusion->data(), ram.data() + mask, occlusion->size());
@@ -2980,7 +2990,15 @@ TickPackets capture_2d_path(
     // The flight between planets is drawn as the boot program draws it, also when it starts from a
     // planet whose level program is still loaded (world_to_draw: the flight's world): split there,
     // the planet's name was taken as coming before the world and the stars hid it.
-    k.before_world = openrac_game_has_level(level) && world_to_draw(ram, level) >= 0
+    // A loading screen with a world of its own (GameProfile::loading_world): its frame's clear and
+    // stars are under its mobys. It splits at the world's marker its moby pass put in the boot
+    // program's list; a list the game resends while it reads the disc, which ends before that
+    // pass's marker, has the world over all of it.
+    const bool loading = g->render.profile->loading_world() >= 0 && world_to_draw(ram, level) == -2;
+    if (loading && world_marker == SIZE_MAX) {
+        before_world = k.packets.size();
+    }
+    k.before_world = (openrac_game_has_level(level) && world_to_draw(ram, level) >= 0) || loading
                          ? std::min(before_world, k.packets.size())
                          : 0;
     k.named_quads = named_quads;

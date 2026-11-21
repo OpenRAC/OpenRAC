@@ -969,3 +969,19 @@ void openrac_lib__ExecOSD(int argc, gaddr argv) {
 #if defined(__cplusplus)
 }
 #endif
+
+/* LoadExecPS2 ended the program: the next starts with no handler, semaphore, thread, RPC client or
+ * system call of its own (game_host.h). */
+void openrac_game_kernel_reset(void) {
+    memset(intc, 0, sizeof intc);
+    memset(dmac, 0, sizeof dmac);
+    vsync_callback = 0;
+    memset(semas, 0, sizeof semas);
+    memset(sema_used, 0, sizeof sema_used);
+    memset(rpc_client, 0, sizeof rpc_client);
+    memset(rpc_server, 0, sizeof rpc_server);
+    memset(syscall_table, 0, sizeof syscall_table);
+    memset(sif_reg, 0, sizeof sif_reg);
+    memset(sif_sysreg, 0, sizeof sif_sysreg);
+    next_thread = 2;
+}

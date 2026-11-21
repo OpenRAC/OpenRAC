@@ -75,6 +75,17 @@ class NormalTable(unittest.TestCase):
         with self.assertRaises(L.FormatError):
             L.normal_table(bytes(exe), 0x1C00)  # runs past the segment
 
+    def test_found_in_a_level_program(self):
+        # Up Your Arsenal: each level's program carries the table; its start is searched for and
+        # every pair checked to be a unit vector.
+        words = [w for pair in table() for w in pair]
+        program = bytearray(0x40) + struct.pack("<512I", *words) + bytearray(0x10)
+        self.assertEqual(L.program_normal_table(bytes(program)), table())
+        broken = bytearray(program)
+        struct.pack_into("<I", broken, 0x40 + 8 * 100, f(0.5))  # pair 100 no longer a unit vector
+        self.assertIsNone(L.program_normal_table(bytes(broken)))
+        self.assertIsNone(L.program_normal_table(b""))
+
 
 if __name__ == "__main__":
     unittest.main()

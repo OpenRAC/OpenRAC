@@ -203,6 +203,12 @@ extern int (*openrac_game_camera_turn)(
  * push). 1 = normal. Games multiply their stick camera turn by it (rac1, rac2: camera_latch.c). */
 extern float openrac_game_camera_speed;
 
+/* How much longer than the game's rate a tick lasts while the game's host C wants it (1 = the
+ * rate): a part the console played slower than its rate because the pass took more than a
+ * vertical blank (rac3's loading approach, while the level unpacks). Frames between ticks fill the
+ * longer ticks. */
+extern float openrac_game_tick_stretch;
+
 /* A trap the game raised on purpose, or another reason the game cannot go on: writes a crash
  * report (<data>/crashes) and ends the program. */
 #ifdef __cplusplus
@@ -1156,6 +1162,10 @@ void openrac_game_run_vsync_handlers(void);
  * save-state may be taken or restored. */
 void openrac_game_tick_boundary(void);
 void openrac_game_run_dmac_handlers(int channel);
+/* The kernel's state of a program that LoadExecPS2 ended (its interrupt, DMA and vsync handlers,
+ * semaphores, threads, RPC clients, system calls): the next executable starts with none, as on the
+ * console, whose kernel forgets them when it loads another (Up Your Arsenal's multiplayer). */
+void openrac_game_kernel_reset(void);
 
 #ifdef __cplusplus
 }

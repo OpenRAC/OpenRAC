@@ -12,8 +12,8 @@ share. The build makes a program for every folder whose decompilation is present
 | [rac2-ntsc](rac2-ntsc/README.md) | Going Commando, NTSC-U v1.01 (SCUS-97268) | `games/rac2/decomp` | `func_00131AE8` |
 | [rac2-ntsc2](rac2-ntsc2/README.md) | Going Commando, USA v2.00 (SCUS-97268) | `games/rac2/decomp`, release view | `func_00131AE8` |
 | [rac2-pal](rac2-pal/README.md) | Going Commando, PAL (SCES-51607) | `games/rac2/decomp`, release view | `func_00131B48` |
-| [rac3-ntsc](rac3-ntsc/README.md) | Up Your Arsenal, NTSC-U | `games/rac3/decomp`, release view | not known yet |
-| [rac3-pal](rac3-pal/README.md) | Up Your Arsenal, PAL | `games/rac3/decomp` | not known yet |
+| [rac3-ntsc](rac3-ntsc/README.md) | Up Your Arsenal, NTSC-U (SCUS-97353) | `games/rac3/decomp`, release view of rac3-pal | as rac3-pal |
+| [rac3-pal](rac3-pal/README.md) | Up Your Arsenal, PAL (SCES-52456); its host C and profile are both discs' | `games/rac3/decomp` | `func_0013ADA8` (the port's loader and crt0) |
 | [rac4-ntsc](rac4-ntsc/README.md) | Deadlocked, NTSC-U | `games/rac4/decomp` | not known yet |
 
 A *release view* builds a disc from another disc's C: the same functions at the release's

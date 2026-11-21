@@ -1,0 +1,111 @@
+{
+  "about": "Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/mp/hostgen.json and release/mp_pairs.json; do not edit by hand.",
+  "id": "rac3-ntsc-mp",
+  "title": "Ratchet & Clank: Up Your Arsenal (NTSC-U), multiplayer",
+  "game": "rac3",
+  "serial": "SCUS_973.53",
+  "source": "games/rac3/decomp",
+  "prefix": "mp_",
+  "frame_rate": 60,
+  "tick_rate": 60,
+  "entry": "func_00192E08",
+  "sources": [],
+  "includes": [
+    "include",
+    "src",
+    "."
+  ],
+  "defines": [
+    "INCLUDE_ASM_H",
+    "ASM_FUNC(FOLDER,NAME)=extern int openrac_asm_##NAME",
+    "LINKER_REMNANT(FOLDER,NAME)=",
+    "INCLUDE_RODATA(FOLDER,NAME)=",
+    "TEXT_PADDING(N)=",
+    "TEXT_FILL(N)="
+  ],
+  "symbols": [],
+  "libraries": "libraries.tsv",
+  "roots": [
+    "func_00192E08",
+    "func_00193390",
+    "func_0027B200",
+    "func_L39_00574F88",
+    "func_0012CFD0"
+  ],
+  "relocate": [
+    2366336,
+    7340032
+  ],
+  "asm": {
+    "enabled": true,
+    "discover_entries": true,
+    "discover_levels": [
+      39
+    ],
+    "discover_pointers": true,
+    "dirs": [],
+    "gp": "0x00248140",
+    "retail": {
+      "image": "baserom/SCUS_973.53.iso",
+      "executable": "I5BOOTN.ELF",
+      "levels": [
+        39
+      ],
+      "required": true
+    },
+    "files": 32,
+    "results_before_calls": true,
+    "dma_stores": true,
+    "follow_saved_registers": true,
+    "gp_addresses": true,
+    "fit_declarations": true,
+    "register_jumps": true,
+    "input_idioms": true,
+    "dma_done": true,
+    "vu_flush": true,
+    "result_flow": true,
+    "live_arguments": true,
+    "forward_unprototyped": true,
+    "signatures": {
+      "func_00193058": "unsigned int (void)",
+      "func_00281280": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
+      "func_0027F7E0": "int (int, int, int, int, long long, long long, int, float, float, float, float)",
+      "func_0027F9C0": "int (int, int, int, int, unsigned int, long long, int, float, float, float, float)",
+      "func_0027FBA0": "int (int, int, int, int, long long, long long, long long, int, float, float, float, float, float, float)",
+      "func_0027F498": "void (int, int, int, int, int, int, int, int, long long, long long)",
+      "func_0027F0E8": "void (int, int, int, int, int, int, int, int, float, long long, long long)",
+      "func_0027FE48": "void (unsigned int, unsigned int)",
+      "func_0027EDE8": "void (int, int, int, int)",
+      "func_0027EEF8": "void (int, int, int, int, unsigned long long)",
+      "func_00284FC0": "void (int, unsigned int, float, float, float, float, float)",
+      "func_00284D70": "unsigned long long (int)",
+      "func_L39_0059BC40": "void (int, unsigned int, float, float, float, float, float)",
+      "func_L39_0059B580": "unsigned long long (int)",
+      "func_L39_00590F90": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
+      "func_L39_0058A9E0": "int (int, int, int, int, long long, long long, int, float, float, float, float)",
+      "func_L39_0058ADA0": "int (int, int, int, int, long long, long long, long long, int, float, float, float, float, float, float)",
+      "func_L39_0058A698": "void (int, int, int, int, int, int, int, int, long long, long long)",
+      "func_L39_0058A2E8": "void (int, int, int, int, int, int, int, int, float, long long, long long)",
+      "func_L39_0058B4A8": "void (unsigned int, unsigned int)",
+      "func_L39_00589FE8": "void (int, int, int, int)",
+      "func_L39_0058A0F8": "void (int, int, int, int, unsigned long long)",
+      "func_L39_0058F8B8": "float (float)",
+      "func_L39_0058F8D0": "float (float)",
+      "func_0027EB08": "unsigned long long (int, int, int, int, int)",
+      "func_L39_00588E88": "unsigned long long (int, int, int, int, int)",
+      "func_L39_0058ABC0": "int (int, int, int, int, unsigned int, long long, int, float, float, float, float)",
+      "func_L39_00591820": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
+    },
+    "vu0_programs": {
+      "0xC80": "rac3_vu0_rotation_rows",
+      "0xDA0": "rac3_vu0_cosine",
+      "0xDB0": "rac3_vu0_sine"
+    }
+  },
+  "unpassed_registers": true,
+  "library_api": "../../common/libraries.tsv",
+  "host_dir": "../host",
+  "host_shared": [
+    "../../rac3-pal/host"
+  ]
+}

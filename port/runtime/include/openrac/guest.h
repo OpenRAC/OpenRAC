@@ -263,6 +263,10 @@ typedef struct openrac_fn_entry {
 /* Overlay -1 is the executable; 0..n are the level programs. */
 #define OPENRAC_OVERLAY_EXE (-1)
 void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t count);
+/* Forgets every function and thunk registered: another executable of the disc is loaded over the
+ * whole of memory (LoadExecPS2: Up Your Arsenal's multiplayer, I5BOOTN.ELF), whose functions sit
+ * at the same addresses as the first's; its own tables are registered next. */
+void openrac_guest_unregister_all(void);
 void openrac_guest_set_overlay(int overlay);
 int openrac_guest_overlay(void);
 openrac_host_fn openrac_guest_function(gaddr address);
@@ -393,6 +397,13 @@ gaddr openrac_relocate_level_code(int from, gaddr address);
  * folded into it), and reads the same instructions at `self`. Without a place, or one that does
  * not form it, it is OPENRAC_LCODE's. */
 extern OPENRAC_GUEST_GLOBAL gaddr openrac_guest_last_entry;
+/* The upper halves of $a0-$a3 for a call through a code address made by C written from assembly
+ * (hostgen's asmc.py): the EE's registers are 128 bits, and a function such as Up Your Arsenal's
+ * func_L01_003AB448 takes two vectors by value in $a1 and $a2. The caller sets them and the
+ * pending flag just before openrac_guest_call_regs; a callee written from assembly reads them at
+ * its entry when the flag is set, then clears it. */
+extern OPENRAC_GUEST_GLOBAL uint64_t openrac_guest_hi_args[4];
+extern OPENRAC_GUEST_GLOBAL int openrac_guest_hi_pending;
 extern OPENRAC_GUEST_GLOBAL openrac_host_fn openrac_guest_last_fn;
 static inline gaddr openrac_guest_entry(openrac_host_fn self) {
     return openrac_guest_last_fn == self ? openrac_guest_last_entry : 0;

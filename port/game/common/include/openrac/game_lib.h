@@ -132,6 +132,15 @@ unsigned long long openrac_lib___umoddi3(unsigned long long, unsigned long long)
 long long openrac_lib___divdi3(long long, long long);
 long long openrac_lib___moddi3(long long, long long);
 unsigned long long openrac_lib___fixunsdfdi(double);
+double openrac_lib___adddf3(double, double);
+double openrac_lib___subdf3(double, double);
+double openrac_lib___muldf3(double, double);
+double openrac_lib___divdf3(double, double);
+int openrac_lib___cmpdf2(double, double);
+double openrac_lib___floatsidf(int);
+int openrac_lib___fixdfsi(double);
+unsigned int openrac_lib___fixunsdfsi(double);
+float openrac_lib___truncdfsf2(double);
 /* cdvd */
 int openrac_lib_sceCdSync(int);
 int openrac_lib_sceCdInit(int);
@@ -234,6 +243,29 @@ void openrac_lib_snd_StartMovieSound(int, int, int, int, int);
 int openrac_lib_snd_UpdateMovieADPCM(int, int);
 int openrac_lib_snd_GetMovieNAX(void);
 int openrac_lib_snd_GetDopplerPitchMod(int);
+
+/* 989snd's command ring as Going Commando and Up Your Arsenal build it (lib/snd_ring.c): the batch
+ * a game's snd_QueueCommandToRing fills, answered by the native sound engine as an IOP that answers
+ * within a tick would. Host entry points, not library functions: each game's host C binds its own
+ * addresses to them.
+ * - pump: snd_Pump: the callbacks of the batch out, the disc read's end (snd_FlushSoundCommands),
+ *   then the next batch; whether a batch is still out.
+ * - queue: snd_QueueCommandToRing(command, size, data, callback, argument); 1 when taken.
+ * - queue_bytes: the same from host memory (a command the host builds itself).
+ * - send_sync: snd_SendCommandSync(command, size, data): the reply word.
+ * - bank_from_iop: snd_BankLoadFromIOP: a bank the game sent to the IOP's memory, its handle. */
+int openrac_snd_ring_pump(void);
+int openrac_snd_ring_queue(
+    unsigned int command, gaddr data, int bytes, gaddr callback, long long callback_data
+);
+void openrac_snd_ring_queue_bytes(
+    unsigned int command, const uint8_t* data, int bytes, gaddr callback, long long callback_data
+);
+int openrac_snd_ring_send_sync(unsigned int command, gaddr data, int bytes);
+int openrac_snd_ring_bank_from_iop(int bank);
+/* The ring of a program LoadExecPS2 ended: its batches dropped (their callbacks are its code) and
+ * every sound stopped, as the console's IOP is reset for the next executable. */
+void openrac_snd_ring_reset(void);
 
 /* The IOP's memory from an address on, as sceSifSetDma left it, and how many bytes follow; NULL
  * past its end. A host accessor, not a library function. */
