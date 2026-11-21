@@ -284,6 +284,11 @@ def main(argv: list[str] | None = None) -> int:
                     "config/us/map.tsv and release/release.json; do not edit by hand (release_carry.json "
                     "says what rests on less than the same code)."}
     out.update(merge(carried, hand.get("hostgen", {})))
+    # release.json's own rows too: a level name NTSC-U's catalogue does not have is no function of
+    # its program (a row written from a build that read PAL's level spellings).
+    own_rows = {k: out[k] for k in ("asm", "from_assembly") if k in out}
+    own_rows = leave_out_absent(own_rows, names, report["hostgen_left_out"])
+    out.update(own_rows)
     # NTSC-U's own functions of the executable and frontbin, which no PAL function is the twin of
     # (the Options page's PROGRESSIVE SCAN and LANGUAGE actions, 0x003B6430 and 0x003B64D8, which
     # its items table points at): roots, translated from the disc's instructions. An inventory row
