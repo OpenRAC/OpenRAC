@@ -105,9 +105,9 @@ describe("Android launcher", () => {
     expect(text).not.toContain("This checkout");
     expect(text).not.toContain("more for other platforms");
     expect(text).not.toContain("Build the PS2 program");
-    await page.getByRole("tab", { name: /NTSC/ }).click();
+    await page.getByRole("tab", { name: /NTSC-U/ }).click();
     await expect(
-      page.getByRole("tab", { name: /NTSC/ }).getAttribute("aria-selected"),
+      page.getByRole("tab", { name: /NTSC-U/ }).getAttribute("aria-selected"),
     ).resolves.toBe("true");
   });
 

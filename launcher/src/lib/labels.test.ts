@@ -32,6 +32,10 @@ describe("labels", () => {
   it("names regions", () => {
     expect(regionLabel("ntsc")).toBe("NTSC-U");
     expect(regionLabel("pal")).toBe("PAL");
+    expect(regionLabel("pal1")).toBe("PAL v1.00");
+    expect(regionLabel("ntsc2")).toBe("NTSC-U v2.00");
+    expect(regionLabel("jp")).toBe("NTSC-J");
+    expect(regionLabel("ntsc-j")).toBe("NTSC-J");
   });
 });
 
