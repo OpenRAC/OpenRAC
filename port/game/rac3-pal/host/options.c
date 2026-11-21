@@ -31,6 +31,7 @@
  * its screen setting, and the Video page shows it as long as it is open.
  */
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "game_protos.h"
@@ -93,14 +94,64 @@ static void list_reset(int rows) {
     GREF(int32_t, LIST + LIST_SCROLL) = 0;
 }
 
-/* The game's menus are in capitals: so are the port's texts in them (ASCII letters; the accented
- * ones are left as the game's text has them). */
-static void capitals(gaddr text) {
-    for (char* c = (char*)G(text); *c != 0; ++c) {
-        if (*c >= 'a' && *c <= 'z') {
-            *c = (char)(*c - 'a' + 'A');
+/* The port's texts come in Ratchet & Clank's and Going Commando's code (options_menu.cpp
+ * game_text: one byte from 0x80 for an accented letter, a vowel's four accents in turn from 0x80
+ * for A, 0x88 E, 0x90 I, 0x98 O and 0xA0 U, capitals then small letters, then Ñ 0xA8, ñ, Ç 0xAA,
+ * ç, ß 0xAC). This game's font has its own: 0x80 and then the letter's number, the capitals only
+ * as its menus print them (read from its own French, German and Spanish options texts: Á 0x0C, Ä
+ * 0x0E, Ç 0x0F, É 0x11, Í 0x14, Ñ 0x17, Ü 0x1E). A letter of which this game's number is not
+ * known is printed without its accent. 0 for none. */
+static int accented(unsigned code, char* plain) {
+    static const char vowels[] = "AEIOU";
+    if (code >= 0x80 && code < 0xA8) {
+        const unsigned vowel = (code - 0x80) / 8;
+        const unsigned accent = (code - 0x80) % 4; /* acute, grave, circumflex, diaeresis */
+        *plain = vowels[vowel];
+        static const unsigned char numbers[5][4] =
+            {{0x0C, 0, 0, 0x0E}, {0x11, 0, 0, 0}, {0x14, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0x1E}};
+        return numbers[vowel][accent];
+    }
+    switch (code) {
+        case 0xA8:
+        case 0xA9:
+            *plain = 'N';
+            return 0x17;
+        case 0xAA:
+        case 0xAB:
+            *plain = 'C';
+            return 0x0F;
+        case 0xAC:
+            *plain = 'S';
+            return 0;
+        default:
+            *plain = '?';
+            return 0;
+    }
+}
+
+/* The game's menus are in capitals: so are the port's texts in them, with their accented letters
+ * in this game's font's code (above). The text is rewritten in place, within `room` bytes. */
+static void capitals(gaddr text, int room) {
+    char in[CELL_TEXT];
+    snprintf(in, sizeof in, "%s", (const char*)G(text));
+    char* out = (char*)G(text);
+    int at = 0;
+    for (const char* c = in; *c != 0 && at < room - 1; ++c) {
+        const unsigned code = (unsigned char)*c;
+        if (code < 0x80) {
+            out[at++] = code >= 'a' && code <= 'z' ? (char)(code - 'a' + 'A') : (char)code;
+            continue;
+        }
+        char plain = '?';
+        const int number = accented(code, &plain);
+        if (number != 0 && at < room - 2) {
+            out[at++] = (char)0x80;
+            out[at++] = (char)number;
+        } else {
+            out[at++] = plain;
         }
     }
+    out[at] = 0;
 }
 
 static int video_rows(void) {
@@ -140,7 +191,7 @@ int func_003B63D0(void) {
     if (!video_open) {
         const int r = func_003B63D0__game();
         openrac_game_option_word("Video", (char*)G(cell(0, ROW_VIDEO)), (int)CELL_TEXT);
-        capitals(cell(0, ROW_VIDEO));
+        capitals(cell(0, ROW_VIDEO), (int)CELL_TEXT);
         GREF(char, cell(1, ROW_VIDEO)) = 0;
         return r;
     }
@@ -149,8 +200,8 @@ int func_003B63D0(void) {
         openrac_game_option_row_text(
             row, (char*)G(cell(0, row)), (char*)G(cell(1, row)), (int)CELL_TEXT
         );
-        capitals(cell(0, row));
-        capitals(cell(1, row));
+        capitals(cell(0, row), (int)CELL_TEXT);
+        capitals(cell(1, row), (int)CELL_TEXT);
     }
     return 0;
 }
@@ -205,6 +256,21 @@ static int console_language(int game) {
 static void on_frame(unsigned frame);
 static void (*g_previous_on_frame)(unsigned frame);
 
+/* The language as a word, for the port's own texts in the game's menus (the front end's language,
+ * options_menu.cpp: 1 English, 2 French, 3 German, 4 Spanish, 5 Italian, the game's own indexes):
+ * the game keeps it in a byte between others, so the port keeps a copy of it, each frame. */
+static gaddr language_word;
+
+gaddr rac3_language_word(void);
+
+gaddr rac3_language_word(void) {
+    if (language_word == 0) {
+        language_word = openrac_guest_static(4);
+        GREF(int32_t, language_word) = 1;
+    }
+    return language_word;
+}
+
 /* The front end's start-up: it sets the language from the console's (openrac_game_language, the
  * one the port remembered); the options it leaves at their defaults get the remembered ones. */
 int func_003983C8(void) {
@@ -231,7 +297,9 @@ static void on_frame(unsigned frame) {
         g_previous_on_frame(frame);
     }
     GREF(uint8_t, OPTION_WIDESCREEN) = 0;
-    const int language = console_language(GREF(uint8_t, OPTION_LANGUAGE));
+    const int index = GREF(uint8_t, OPTION_LANGUAGE);
+    GREF(int32_t, rac3_language_word()) = index >= 1 && index <= 5 ? index : 1;
+    const int language = console_language(index);
     if (language > 0) {
         openrac_game_set_option("game_language", language);
         openrac_game_language = language;

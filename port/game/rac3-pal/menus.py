@@ -55,6 +55,9 @@ TICKS = {"pal": 50, "ntsc": 60}
 # string on NTSC-U, the check is left out).
 NTSC_TEXT: dict[str, str | None] = {}
 
+# The port's Video row's name in each language, as the menu log writes it.
+VIDEO_NAMES = {"VIDEO", "VID\\x80\\x11O", "V\\x80\\x14DEO"}
+
 HOLD = 4          # frames a button is held
 WINDOW = 8        # the frames before a check whose strings it reads
 SHOT_EVERY = 10   # a picture every this many frames (a 640x480 window: they are written in time)
@@ -336,8 +339,9 @@ def run_route(route: Route, exe: Path, data: Path, out: Path, timeout: float) ->
         else:
             if not texts and not s.allow_empty:
                 problems.append("nothing printed")
-            # The Options page's VIDEO row has no value: its cell prints empty by design.
-            if any(t.strip() == "" for t in texts) and "VIDEO" not in texts:
+            # The Options page's VIDEO row has no value: its cell prints empty by design. Its name
+            # is in the game's language (French VIDÉO, Spanish VÍDEO, in the font's codes).
+            if any(t.strip() == "" for t in texts) and not VIDEO_NAMES.intersection(texts):
                 problems.append("an empty string printed")
             if any("(null)" in t for t in texts):
                 problems.append("(null) printed")
