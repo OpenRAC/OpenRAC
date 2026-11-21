@@ -349,10 +349,12 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L02_0x0015FA20u 0x0015F948u
 
 /* The ship computer's list (rac1/host/destinations.c): the NTSC decomp declares FUN_00221800
- * (the same bytes as PAL's) as void (menu, s32). */
+ * (the same bytes as PAL's) as void (menu, s32). Its levels' copy, FUN_L00_0027f448, is a function
+ * of its own there, so host/ship_menu.c sends it through the same wrap and runs that copy's C. */
+int rac1_ntsc_ship_menu_game(gaddr menu, int unused);
 #define RAC1_SHIP_MENU_RESULT void
 #define RAC1_SHIP_MENU_PARAMS gaddr menu, int unused
-#define RAC1_SHIP_MENU_CALL(menu) (func_00222848__game(menu, unused), 0)
+#define RAC1_SHIP_MENU_CALL(menu) rac1_ntsc_ship_menu_game(menu, unused)
 #define RAC1_SHIP_MENU_RETURN(result)                                                              \
     do {                                                                                           \
         (void)(result);                                                                            \
