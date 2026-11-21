@@ -97,6 +97,7 @@ void func_00124A80(void) {}
 
 void rac3_menu_log_install(void); /* menu_log.c */
 void rac3_hero_log_install(void); /* hero_log.c */
+void rac3_install_play(void);     /* play.c */
 
 /* LoadExecPS2's wrapper (0x00124ED8: the argument block 0x00124DB8 builds, then syscall 6): the
  * multiplayer executable, or the boot program again (exec.c). */
@@ -108,6 +109,7 @@ int func_0013ADA8(void) {
     static gaddr stack;
     uint32_t argc;
     rac3_install_tools();
+    rac3_install_play();
     rac3_install_camera_latch();
     unpack_payload();
     rac3_menu_log_install();

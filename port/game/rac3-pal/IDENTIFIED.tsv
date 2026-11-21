@@ -447,3 +447,19 @@ code	func_L01_00419188	0x00419188	item_give	(item): owned (0x00142CA0), new (0x0
 data	D_L01_002C5600	0x002C5600	item_records	Veldin's item records, 0xF0 bytes each, 160 rows plus the later versions' (+0x46 the next version's row, +0x84 the ammunition's price, +0x8A and +0x8E full loads); D_001425C0 a byte an item, its row; +0 is set on every row from item 36 on, so it does not tell the guns apart; NTSC-U's at 0x002C5640, the same rows
 data	font_accents	-	font_accents	the font's accented capitals: 0x80 then the letter's number (Á 0x0C, Ä 0x0E, Ç 0x0F, É 0x11, Í 0x14, Ñ 0x17, Ü 0x1E: from the French, German and Spanish Options texts); options.c writes the port's texts so
 data	D_L01_001D6694	0x001D6694	game_mode_scene_skip	a level's scenes (mode 2, and the landing, mode 6) end on Start alone, as on the console: Veldin's opening ends 7 frames after a press (tools.c skip_buttons presses it for OPENRAC_SKIP_SCENES)
+code	func_L01_004DFEA0	0x004DFEA0	hero_damage	the hero's damage: health (0x001A7430) less the hit's points by the armour's factor and the help measure's, at least 1, never below 0; rac2 Hero_TakeDamage's job; hook rac3.player.take_damage
+code	func_L01_00419188	0x00419188	item_give	gives an item: owned and new bytes, the starting ammo, vendor_stock_add and the quick select; rac2 GiveInventoryItem's job; hook rac3.item.give
+code	func_L01_00418C90	0x00418C90	weapon_level_up	a gun to its next level (row +0x46), experience and ammo topped; hook rac3.weapon.level_up
+code	func_L01_00419D48	0x00419D48	weapon_buy_mega	the vendor's Mega upgrade (level 5); hook rac3.item.upgrade
+code	func_L01_004BA830	0x004BA830	vendor_price	the price of the vendor's row under the cursor; hook rac3.vendor.price
+code	func_L01_004BAA20	0x004BAA20	vendor_weapon_list	the vendor's weapons rows from vendor_stock (asm, signature int (int) from its callers' declarations); hook rac3.vendor.build_list
+code	func_L01_004443E8	0x004443E8	moby_killed	an enemy's death: experience, bolts (bolts_drop) (asm at the pin); rac2 Moby_RecordDeath's job; hook rac3.moby.record_death
+code	func_L01_00446978	0x00446978	damage_queue	a damage record queued in the hit ring 0x001EED00 (asm); rac2 Moby_PostHit's job; hook rac3.combat.post_hit
+code	func_L01_0044D360	0x0044D360	bolts_drop	a burst of bolt coins from a moby (asm); rac2 Bolt_SpawnPickups's job; hook rac3.bolt.spawn_pickups
+code	func_L01_002F8F20	0x002F8F20	bolt_coin_spawn	one bolt coin (asm); hook rac3.bolt.spawn_pickup
+code	func_L01_002F88E0	0x002F88E0	bolt_pickup_collect	a coin collected: its value to player_bolts 0x00142660 (asm); hook rac3.bolt.collect
+code	func_L01_004D7658	0x004D7658	level_load	the levels' copy of frontbin's level_load (catalogue row func_003BD030): the transition, level_current and the files' read; hook rac3.level.load
+code	func_L01_004227D8	0x004227D8	give_level_items	a level's standing items at its start; hook rac3.level.give_items
+code	func_L01_004EDE10	0x004EDE10	hero_death_done	the death counted and the respawn asked (0x001A71D2); hook rac3.player.death_done
+code	func_L01_00439300	0x00439300	moby_remove	Veldin's copy of frontbin's moby_remove (catalogue row func_003C2880, 49 places): play.c's moby_kill calls it
+data	D_L01_001E0020	0x001E0020	moby_dynamic	Veldin's: the first moby the game made (the placed mobys' end, func_L01_0042AF50's loop); NTSC-U 0x001E00A0 (rac3_level_pairs.py); play.c's moby keys

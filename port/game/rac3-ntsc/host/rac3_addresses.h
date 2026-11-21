@@ -188,6 +188,8 @@
 #define RAC3_LADDR_1_0x001DFD24u 0x001DFDA4u
 /* the same instruction of the same code: func_L01_002FBB10 (NTSC-U func_L01_002FBAE8) +0x58, 185 of 185 places agree */
 #define RAC3_LADDR_1_0x001E001Cu 0x001E009Cu
+/* the same instruction of the same code: func_L01_0042AF50 (NTSC-U func_L01_004281A8) +0xB8, 19 of 19 places agree */
+#define RAC3_LADDR_1_0x001E0020u 0x001E00A0u
 /* the same instruction of the same code: func_L01_00438EA0 (NTSC-U func_L01_00435DE0) +0x10, 39 of 39 places agree */
 #define RAC3_LADDR_1_0x001E0024u 0x001E00A4u
 /* between the same code's 0x001E002C and 0x001E0054, both moved by +0x80 (NTSC-U 0x001E00AC, 0x001E00D4) */

@@ -36,6 +36,14 @@
 gaddr func_0013AFF8__game(void);
 
 static int loaded_overlay = OPENRAC_OVERLAY_EXE;
+/* The programs loaded since the start (play.c's loads: a new count, the last level's mobys gone). */
+static uint32_t program_loads;
+
+uint32_t rac3_program_loads(void);
+
+uint32_t rac3_program_loads(void) {
+    return program_loads;
+}
 
 static int32_t word(gaddr at) {
     int32_t v;
@@ -91,6 +99,7 @@ gaddr func_0013AFF8(void) {
         keep_level_program(level);
     }
     const gaddr entry = func_0013AFF8__game();
+    ++program_loads;
     if (entry == FRONTEND_ENTRY) {
         loaded_overlay = FRONTBIN_OVERLAY;
     } else if (level >= 0 && level < LEVELS) {
