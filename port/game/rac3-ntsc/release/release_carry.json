@@ -162,14 +162,20 @@
    "func_L39_006AE8F8_006AE3D8",
    "func_PAL_L39_006CCD08",
    "func_PAL_L39_005189A0",
+   "func_PAL_00391210",
    "func_L39_005187A0"
+  ],
+  "asm.signature_allow": [
+   "func_L01_0047C728_0047C4F8"
   ],
   "from_assembly": [
    "func_PAL_L39_00596EE0",
    "func_PAL_L39_0059DCD8",
    "func_PAL_L39_005A6020",
    "func_PAL_L39_006CCD08",
-   "func_PAL_L39_004CE100"
+   "func_PAL_L39_004CE100",
+   "func_PAL_00391210",
+   "func_L01_0047C728_0047C4F8"
   ]
  },
  "own_functions": [

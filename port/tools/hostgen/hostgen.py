@@ -44,6 +44,7 @@ import asmext  # noqa: E402
 import clangast  # noqa: E402
 import derived  # noqa: E402
 import release  # noqa: E402
+import variant_check  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import LEVEL_SHORT_MISS, Unit, UnitReport  # noqa: E402
@@ -809,7 +810,10 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         "assembly_unsupported_reasons": dict(sorted(asm_reasons.items(), key=lambda kv: -kv[1])),
         # asm.signature_check: what each translated function's code takes or reads back that the
         # signatures it is translated and called with leave out (asmc.Translator.dropped).
-        "assembly_signature_drops": dict(sorted((stage.translator.dropped if stage.translator else {}).items())),
+        "assembly_signature_drops": dict(sorted({
+            **(stage.translator.dropped if stage.translator else {}),
+            **{name: (stage.translator.dropped.get(name, []) if stage.translator else []) + what
+               for name, what in extra.pop("variant_signature_drops", {}).items()}}.items())),
         "without_c_or_assembly": sorted(stage.without_asm),
         "shadows": {**{k: "translated" for k in stage.shadows}, **stage.shadow_why},
         # Each function with no C or with C from its assembly: where it sits, and the spelling with
@@ -1603,6 +1607,10 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
                   "--disc <image> --kit <Windows kit> --out <dir>", file=sys.stderr)
             return None
     extra["asm"] = asm_stage
+    if (cfg.get("asm") or {}).get("signature_check") and (cfg.get("asm") or {}).get("variant_callees"):
+        # The calls folded functions' copies make to different functions (variant_check.py).
+        extra["variant_signature_drops"] = variant_check.findings(
+            program, variant_check.read(args.game.parent / cfg["asm"]["variant_callees"]))
     extra["assembly_allow"] = read_assembly_allow(args.game.parent, cfg)
     if cfg.get("result_allow"):
         extra["result_allow"] = read_result_allow(args.game.parent, cfg)
