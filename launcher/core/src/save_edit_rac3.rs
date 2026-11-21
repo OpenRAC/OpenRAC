@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 
-//! The save editor for Ratchet & Clank 3 / Up Your Arsenal (PAL `SCES_524.56`), a first view:
+//! The save editor for Ratchet & Clank 3 / Up Your Arsenal (PAL `SCES_524.56`, NTSC-U `SCUS_973.53`),
+//! a first view:
 //! where the save resumes, when it was saved, the play time, the bolts and the weapons (owned,
 //! version, ammo, experience). It changes the bolts and the ammo of the weapons the save owns, and
 //! writes the save back so that the game still loads it, with rac1's safety steps (game running,
@@ -708,9 +709,12 @@ pub struct Rac3WriteResult {
 }
 
 /// Whether this editor knows the saves of the game with this disc serial: Up Your Arsenal's PAL
-/// release, whose executable's save tables were read. NTSC-U's (`SCUS_973.53`) are not checked.
+/// release, whose executable's save tables were read, and NTSC-U's (`SCUS_973.53`), whose two
+/// tables (its 0x00332408 and 0x00332698) list the same chunks at the same addresses and sizes, and
+/// whose weapon table (Veldin's program, 0x002C5640) has the same rows: compared from both discs,
+/// 2026-11-21.
 pub fn edits_serial(serial: &str) -> bool {
-    serial == "SCES_524.56"
+    matches!(serial, "SCES_524.56" | "SCUS_973.53")
 }
 
 impl SaveFile {
@@ -993,7 +997,8 @@ mod tests {
         fs::write(folder.join("save0.bin"), EMPTY).unwrap();
         fs::write(folder.join("save1.bin"), veldin().to_bytes()).unwrap();
         assert!(read_save(dir.path(), "SCES_524.56", 0).unwrap_err().contains("empty"));
-        assert!(read_save(dir.path(), "SCUS_973.53", 1).is_err(), "NTSC-U's tables are not read");
+        assert!(read_save(dir.path(), "SCUS_973.53", 1).is_ok(), "NTSC-U's tables are PAL's");
+        assert!(read_save(dir.path(), "SLUS_209.99", 1).is_err(), "another game's saves are not read");
         let v = read_save(dir.path(), "SCES_524.56", 1).unwrap();
         let mut want = v.fields.clone();
         want.bolts = 50_000;

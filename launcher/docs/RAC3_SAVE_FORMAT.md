@@ -1,10 +1,13 @@
-# Up Your Arsenal's save file (PAL, SCES_524.56)
+# Up Your Arsenal's save file (PAL SCES_524.56, NTSC-U SCUS_973.53)
 
 What the launcher's Up Your Arsenal save editor (`core/src/save_edit_rac3.rs`,
 `src/components/SaveEditorRac3.svelte`) and the port (`port/game/rac3-pal/host/save_format.h`,
 `play.c`) read and write, and how it was found. Addresses are the PAL executable's (`boot_elf`);
 the functions are in `port/game/rac3-pal/IDENTIFIED.tsv`. Ratchet & Clank 3 and Up Your Arsenal
-are the same game; the NTSC-U disc (`SCUS_973.53`) is not checked here.
+are the same game. The NTSC-U disc (`SCUS_973.53`) writes the same file: its executable's two save
+tables (`0x00332408`, `0x00332698`) list the same chunks, at the same addresses and of the same
+sizes, as PAL's (`0x00332388`, `0x00332618`), and Veldin's weapon table (NTSC-U `0x002C5640`, PAL
+`0x002C5600`) has the same rows; both read from the discs (2026-11-21), so the editor edits both.
 
 ## The card
 
