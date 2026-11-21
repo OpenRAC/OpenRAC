@@ -352,12 +352,9 @@ void set_camera(SceneFrame& frame) {
     camera.view = state.view();
     camera.target = state.camera_target;
     camera.target_id = state.camera_target_id;
-    // The world's depth starts at the profile's near (GameProfile::depth_near: finer depth far
-    // away), clamped so that nothing nearer is cut away; with precise depth at the window's 0.05.
-    const float profile_near =
-        owner.profile != nullptr && !renderer::precise_depth() ? owner.profile->depth_near() : 0.0f;
-    const float near_z = std::max(0.05f, profile_near);
-    input.depth_clamp = profile_near > 0.05f;
+    // Push the near plane out for Normal depth only when clamping preserves closer geometry.
+    input.depth_clamp = !renderer::precise_depth() && gl::depth_clamp_available();
+    const float near_z = input.depth_clamp ? 0.25f : 0.05f;
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
     // the TV's 4:3, which they were made for), not the window's shape. A wider picture keeps the
     // vertical one and opens the horizontal one by as much as the picture is wider: the game's
