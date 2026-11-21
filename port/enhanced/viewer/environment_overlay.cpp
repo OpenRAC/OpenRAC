@@ -41,17 +41,24 @@ void append_marker(
 }  // namespace
 
 std::vector<DebugLineVertex> environment_probe_debug_vertices(
-    std::span<const EnvironmentProbe> probes
+    std::span<const EnvironmentProbe> probes, std::span<const EnvironmentInfluence> influences
 ) {
     constexpr unsigned kVerticesPerProbe = 24 + 3 * kCircleSegments * 2 + 6;
     std::vector<DebugLineVertex> vertices;
     vertices.reserve(probes.size() * kVerticesPerProbe);
-    for (const auto& probe : probes) {
+    const unsigned count = unsigned(influences.empty() ? probes.size() : influences.size());
+    for (unsigned i = 0; i < count; ++i) {
+        const auto region =
+            influences.empty()
+                ? EnvironmentInfluence{i, probes[i].frame, probes[i].minimum, probes[i].maximum}
+                : influences[i];
         const auto first = vertices.size();
-        append_debug_box(vertices, probe.minimum, probe.maximum, kBoundsColour);
+        append_debug_box(vertices, region.minimum, region.maximum, kBoundsColour);
         for (std::size_t n = first; n < vertices.size(); ++n) {
-            vertices[n].position = probe.frame.to_world(vertices[n].position);
+            vertices[n].position = region.frame.to_world(vertices[n].position);
         }
+    }
+    for (const auto& probe : probes) {
         append_marker(vertices, probe.position);
     }
     return vertices;

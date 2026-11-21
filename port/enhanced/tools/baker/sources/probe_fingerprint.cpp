@@ -458,6 +458,10 @@ std::uint64_t probe_bake_settings_hash(
     }
     hash.floats(grid.origin);
     hash.floats(grid.frame.axis);
+    hash.floats(grid.frame.pitch);
+    if (grid.frame.roll != Float2{1, 0}) {
+        hash.floats(grid.frame.roll);
+    }
     hash.floats(grid.spacing);
 
     for (auto n : grid.dimensions) {

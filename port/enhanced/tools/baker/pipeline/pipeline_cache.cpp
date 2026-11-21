@@ -61,7 +61,7 @@ json::Value stamp(
     profile_digest.update(description);
     const auto emission = emission_texture_fingerprint(level, options.profiles);
     return parsed(
-        "{\"version\":5,\"pipeline\":1,\"planner\":1,\"environment_algorithm\":20,\"source\":"
+        "{\"version\":5,\"pipeline\":1,\"planner\":4,\"environment_algorithm\":63,\"source\":"
         + coordinator_string(std::to_string(source ? *source : probe_input_hash(level, overrides)))
         + (overrides.empty() ? "" : ",\"modded\":true") + ",\"manifest_sha256\":"
         + coordinator_string(bake_json::file_hash(level / "manifest.json"))

@@ -160,7 +160,8 @@ void merge_environment_spaces(
     std::vector<std::vector<unsigned>>& rooms,
     EnvironmentPlacementReport& report,
     float minimum_space_area,
-    const EnvironmentBakeSettings& options
+    const EnvironmentBakeSettings& options,
+    bool preserve_islands
 ) {
     report.spaces_before_merge = static_cast<unsigned>(rooms.size());
     report.merged_fragments = report.merged_graph_gaps = 0;
@@ -180,7 +181,7 @@ void merge_environment_spaces(
 
         return result;
     };
-    bool changed = true;
+    bool changed = !preserve_islands;
     const bool known_moods = std::all_of(samples.begin(), samples.end(), [](const auto& sample) {
         return sample.lighting_labels.has_value();
     });
@@ -249,7 +250,9 @@ void merge_environment_spaces(
         }
     }
 
-    std::erase_if(rooms, [](const auto& room) { return room.empty(); });
+    if (!preserve_islands) {
+        std::erase_if(rooms, [](const auto& room) { return room.empty(); });
+    }
 
     for (unsigned room = 0; room < rooms.size(); ++room) {
         for (auto id : rooms[room]) {
@@ -260,6 +263,10 @@ void merge_environment_spaces(
     for (const auto& room : rooms) {
         EnvironmentSpaceDiagnostic diagnostic;
         diagnostic.cells = static_cast<unsigned>(room.size());
+        if (room.empty()) {
+            report.spaces.push_back(diagnostic);
+            continue;
+        }
         const auto& first = floors[room.front()];
         diagnostic.authored_region = samples[first.source].region;
         diagnostic.sky_band = first.sky_band;

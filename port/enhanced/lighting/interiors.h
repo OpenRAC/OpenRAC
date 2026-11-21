@@ -70,6 +70,7 @@ struct Result {
     // Physical walkability includes edges across authored lighting transitions.
     std::vector<std::array<unsigned, 2>> walkable_edges;
     unsigned blocked_portal_edges = 0;
+    unsigned refined_cells = 0;  // Half-spacing samples added only at disconnected coarse links.
 };
 
 Point local(const Transition& transition, Point world);

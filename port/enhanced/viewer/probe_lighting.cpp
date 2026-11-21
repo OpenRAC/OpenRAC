@@ -1036,7 +1036,8 @@ void ProbeLighting::bind(
     if (!active() || !receiver) {
         return;
     }
-    glUniform2f(shader.uniform("probe_frame"), m_grid.frame.axis[0], m_grid.frame.axis[1]);
+    const auto rotation = m_grid.frame.quaternion();
+    glUniform4fv(shader.uniform("probe_frame"), 1, rotation.data());
     glUniform3f(
         shader.uniform("probe_origin"), m_grid.origin[0], m_grid.origin[1], m_grid.origin[2]
     );
@@ -1060,7 +1061,8 @@ void ProbeLighting::bind(
             continue;
         }
         const auto& g = m_region_grids[selected.region];
-        glUniform2f(shader.uniform(kDenseFrame[slot].data()), g.frame.axis[0], g.frame.axis[1]);
+        const auto dense_rotation = g.frame.quaternion();
+        glUniform4fv(shader.uniform(kDenseFrame[slot].data()), 1, dense_rotation.data());
         glUniform3f(
             shader.uniform(kDenseOrigin[slot].data()), g.origin[0], g.origin[1], g.origin[2]
         );

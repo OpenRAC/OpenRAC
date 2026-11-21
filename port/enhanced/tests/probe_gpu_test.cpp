@@ -1086,23 +1086,27 @@ struct RegionLookup {
 
         for (unsigned i = 0; i < grids.size(); ++i) {
             const auto& grid = grids[i];
-            const float cosine = grid.frame.axis[0];
-            const float sine = grid.frame.axis[1];
-            const float right =
-                grid.origin[0] + std::max(0.f, cosine * .001f) + std::max(0.f, -sine * .2f);
-            const float left =
-                grid.origin[0] + std::min(0.f, cosine * .001f) + std::min(0.f, -sine * .2f);
+            float left = INFINITY, right = -INFINITY;
+            for (unsigned corner = 0; corner < 8; ++corner) {
+                const auto p = grid.frame.to_world(
+                    {corner & 1 ? .001f : 0.f, corner & 2 ? .2f : 0.f, corner & 4 ? .2f : 0.f}
+                );
+                left = std::min(left, grid.origin[0] + p[0]);
+                right = std::max(right, grid.origin[0] + p[0]);
+            }
             if (left + view.view[12] > 1.0f || right + view.view[12] < -1.0f) {
                 continue;
             }
 
-            const float x = view.position[0] - grid.origin[0];
-            const float y = view.position[1] - grid.origin[1];
-            const float local_x = x * cosine + y * sine;
-            const float local_y = -x * sine + y * cosine;
-            const float dx = local_x - std::clamp(local_x, 0.f, .001f);
-            const float dy = local_y - std::clamp(local_y, 0.f, .2f);
-            expected.emplace_back(dx * dx + dy * dy, i);
+            auto local = grid.frame.to_local(
+                {view.position[0] - grid.origin[0],
+                 view.position[1] - grid.origin[1],
+                 view.position[2] - grid.origin[2]}
+            );
+            const float dx = local[0] - std::clamp(local[0], 0.f, .001f);
+            const float dy = local[1] - std::clamp(local[1], 0.f, .2f);
+            const float dz = local[2] - std::clamp(local[2], 0.f, .2f);
+            expected.emplace_back(dx * dx + dy * dy + dz * dz, i);
         }
 
         std::sort(expected.begin(), expected.end());
@@ -1162,6 +1166,8 @@ std::vector<lighting::ProbeGrid> closest_region_grids() {
         grids[i].dimensions = {2, 2, 2};
         const float angle = float(i % 7) * .17f;
         grids[i].frame.axis = {std::cos(angle), std::sin(angle)};
+        grids[i].frame.pitch = {std::cos(angle * .3f), std::sin(angle * .3f)};
+        grids[i].frame.roll = {std::cos(angle * .7f), std::sin(angle * .7f)};
     }
 
     grids[1022].origin[0] = 0;  // Equal distance must keep the smaller ID first.
@@ -1704,6 +1710,8 @@ void test_wide_probe_atlas(renderer::Shader& shader, renderer::FrameBuffer& fram
 
     for (float angle : {.37f, .7853982f, 1.4f}) {
         volume.grid.frame.axis = {std::cos(angle), std::sin(angle)};
+        volume.grid.frame.pitch = {std::cos(angle * .4f), std::sin(angle * .4f)};
+        volume.grid.frame.roll = {std::cos(angle * .7f), std::sin(angle * .7f)};
         volume.grid.origin = {-4, -4, 0};
         check(volume, shader, frame, vao);
         check(volume, shader, frame, vao, nullptr, true);

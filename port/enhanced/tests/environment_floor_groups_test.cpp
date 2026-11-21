@@ -77,11 +77,14 @@ void compatible_fragments() {
         Scene scene(source);
         CHECK(room_layout(scene, fixture.samples, {}, false).rooms.size() == 1);
         const auto connected = connected_room_floors(scene, Fixture{}.samples, {});
-        CHECK(connected.size() > fixture.samples.size());
+        CHECK(connected.size() == fixture.samples.size());
+        for (unsigned i = 0; i < connected.size(); ++i) {
+            CHECK(connected[i].position == fixture.samples[i].position);
+        }
         const auto medial = room_layout(scene, connected, {});
         CHECK(medial.rooms.size() == 1);
         const auto field = room_distance_field(scene, connected, medial, {});
-        CHECK(field.contains({0, 0, 0}, 0));
+        CHECK(!field.contains({0, 0, 0}, 0));
     }
 }
 
@@ -100,10 +103,12 @@ void test_long_supported_gap() {
     Scene scene(source);
     const auto connected = connected_room_floors(scene, fixture.samples, {});
     CHECK(connected.front().region == connected[1].region);
-    CHECK(connected.size() > fixture.samples.size());
+    CHECK(connected.size() == fixture.samples.size());
+    CHECK(connected[0].neighbours == std::vector<unsigned>{1});
+    CHECK(connected[1].neighbours == std::vector<unsigned>{0});
     const auto layout = room_layout(scene, connected, {});
     CHECK(layout.rooms.size() == 1);
-    CHECK(room_distance_field(scene, connected, layout, {}).contains({0, 0, 0}, 0));
+    CHECK(!room_distance_field(scene, connected, layout, {}).contains({0, 0, 0}, 0));
     quad(source, {0, -10, 0}, {0, 10, 0}, {0, 10, 4}, {0, -10, 4});
     Scene blocked(source);
     const auto separate = connected_room_floors(blocked, fixture.samples, {});

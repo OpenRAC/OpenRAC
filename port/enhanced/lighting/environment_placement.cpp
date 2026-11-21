@@ -4,13 +4,13 @@
 // Floor-relative reflection captures centred in connected playable spaces.
 #include "enhanced/lighting/environment_placement.h"
 
-#include <optional>
 #include <algorithm>
 #include <limits>
+#include <optional>
 
+#include "common/log.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/environment_placement_internal.h"
-#include "enhanced/lighting/environment_probe_merge.h"
 
 namespace openrac::lighting::bake_detail {
 
@@ -36,8 +36,21 @@ bool environment_capture_context_clear(
     Float3 capture_b,
     const BakeSettings& settings
 ) {
-    // Minimum spacing never joins separate reflection media or disconnected vertical layers.
-    if (a.underwater != b.underwater || std::abs(a.position[2] - b.position[2]) > 2
+    // Nearby replacement has a stricter same-level requirement than sharing a
+    // photograph between independently fitted regions along a ramp.
+    return std::abs(a.position[2] - b.position[2]) <= 2
+           && environment_capture_visible(scene, a, capture_a, b, capture_b, settings);
+}
+
+bool environment_capture_visible(
+    const Scene& scene,
+    const EnvironmentFloor& a,
+    Float3 capture_a,
+    const EnvironmentFloor& b,
+    Float3 capture_b,
+    const BakeSettings& settings
+) {
+    if (a.underwater != b.underwater
         || (a.underwater && a.water_height && b.water_height
             && std::abs(*a.water_height - *b.water_height) > .25f)) {
         return false;
@@ -63,6 +76,14 @@ bool environment_capture_context_clear(
 bool environment_spaces_compatible(
     const EnvironmentFloor& source, const EnvironmentFloor& receiver
 ) {
+    if (source.component != ~0u && receiver.component != ~0u) {
+        const bool same_mood =
+            source.lighting_labels && receiver.lighting_labels
+            && (source.lighting_labels->empty() || receiver.lighting_labels->empty()
+                || *source.lighting_labels == *receiver.lighting_labels);
+        return source.underwater == receiver.underwater
+               && (source.component == receiver.component || same_mood);
+    }
     return source.underwater == receiver.underwater
            && (source.room == receiver.room
                || (source.lighting_labels && receiver.lighting_labels
@@ -136,7 +157,8 @@ void clip_foreign_spaces(
             continue;
         }
 
-        if (!floor.underwater && other.underwater && other.water_height
+        if (floor.frame.pitch == Float2{1, 0} && floor.frame.roll == Float2{1, 0}
+            && !floor.underwater && other.underwater && other.water_height
             && floor.position[2] >= *other.water_height - .01f) {
             probe.minimum[2] = std::max(probe.minimum[2], *other.water_height - .5f);
             continue;
@@ -168,10 +190,14 @@ EnvironmentProbe environment_capture_box(
     Float3 lo = position, hi = lo;
 
     for (auto id : room) {
-        for (unsigned a = 0; a < 3; ++a) {
-            const auto point = floor.frame.to_local(floors[id].position);
-            lo[a] = std::min(lo[a], point[a]);
-            hi[a] = std::max(hi[a], point[a]);
+        for (float height : {-.8f, kEnvironmentCaptureHeight + .8f}) {
+            auto p = floors[id].position;
+            p[2] += height;
+            const auto point = floor.frame.to_local(p);
+            for (unsigned a = 0; a < 3; ++a) {
+                lo[a] = std::min(lo[a], point[a]);
+                hi[a] = std::max(hi[a], point[a]);
+            }
         }
     }
 
@@ -209,11 +235,9 @@ EnvironmentProbe environment_capture_box(
     // Influence covers sloping floors independently of the local parallax geometry proxy.
     for (unsigned a = 0; a < 3; ++a) {
         probe.minimum[a] =
-            std::max(lo[a] - (a == 2 ? .8f : footprint_padding), capture[a] - options.box_distance);
-        probe.maximum[a] = std::min(
-            hi[a] + (a == 2 ? kEnvironmentCaptureHeight + .8f : footprint_padding),
-            capture[a] + options.box_distance
-        );
+            std::max(lo[a] - (a == 2 ? 0.f : footprint_padding), capture[a] - options.box_distance);
+        probe.maximum[a] =
+            std::min(hi[a] + (a == 2 ? 0.f : footprint_padding), capture[a] + options.box_distance);
     }
 
     // Waterline clipping keeps air and submerged capture influence separate without changing the GPU format.
@@ -257,7 +281,9 @@ std::optional<EnvironmentProbe> grow_capture(
     unsigned id,
     const EnvironmentBakeSettings& options,
     const EnvironmentProbe& probe,
-    const EnvironmentFloor& source
+    const EnvironmentFloor& source,
+    unsigned origin,
+    EnvironmentNeighbourhoods& neighbourhoods
 ) {
     const auto& floor = floors[id];
 
@@ -287,7 +313,8 @@ std::optional<EnvironmentProbe> grow_capture(
     }
 
     for (unsigned f = 0; f < floors.size(); ++f) {
-        if (covers_floor(probe, source, floors[f]) && !covers_floor(grown, source, floors[f])) {
+        if (neighbourhoods.contains(origin, f, true) && covers_floor(probe, source, floors[f])
+            && !covers_floor(grown, source, floors[f])) {
             return {};
         }
     }
@@ -301,95 +328,36 @@ void extend_nearest_capture(
     unsigned id,
     const EnvironmentBakeSettings& options,
     std::vector<EnvironmentProbe>& probes,
-    std::span<const unsigned> origins
+    std::span<const unsigned> origins,
+    EnvironmentNeighbourhoods& neighbourhoods
 ) {
     std::vector<std::pair<float, unsigned>> nearest;
 
     for (unsigned i = 0; i < probes.size(); ++i) {
-        const auto d = add(floors[id].capture, mul(probes[i].position, -1));
-
         if (environment_spaces_compatible(floors[origins[i]], floors[id])
-            && dot(d, d) <= options.spacing * options.spacing) {
-            nearest.emplace_back(dot(d, d), i);
+            && neighbourhoods.contains(origins[i], id)) {
+            nearest.emplace_back(neighbourhoods.distance(origins[i], id), i);
         }
     }
 
     std::sort(nearest.begin(), nearest.end());
 
     for (auto [distance, i] : nearest) {
-        if (const auto grown = grow_capture(floors, id, options, probes[i], floors[origins[i]])) {
+        if (const auto grown = grow_capture(
+                floors, id, options, probes[i], floors[origins[i]], origins[i], neighbourhoods
+            )) {
             probes[i] = *grown;
             return;
         }
     }
 }
 
-// A close pair the merge could not replace (one side was grown over a floor no ordinary box
-// reaches): drop one capture if every floor only it covered can be taken by another nearby
-// compatible capture, grown over it.
-bool drop_close_capture(
+unsigned centre_floor(
+    std::span<const unsigned> room,
     std::span<const EnvironmentFloor> floors,
-    const EnvironmentBakeSettings& options,
-    std::vector<EnvironmentProbe>& probes,
-    std::vector<unsigned>& origins,
-    std::vector<unsigned>& owners,
-    unsigned drop
+    bool low_capture = false,
+    float nominal_spacing = 0
 ) {
-    auto next = probes;
-
-    for (unsigned f = 0; f < floors.size(); ++f) {
-        if (!covers_floor(probes[drop], floors[origins[drop]], floors[f])) {
-            continue;
-        }
-
-        std::vector<std::pair<float, unsigned>> nearest;
-        bool covered = false;
-
-        for (unsigned j = 0; j < next.size() && !covered; ++j) {
-            if (j == drop) {
-                continue;
-            }
-
-            covered = covers_floor(next[j], floors[origins[j]], floors[f]);
-            const auto d = add(floors[f].capture, mul(next[j].position, -1));
-
-            if (environment_spaces_compatible(floors[origins[j]], floors[f])
-                && dot(d, d) <= options.spacing * options.spacing) {
-                nearest.emplace_back(dot(d, d), j);
-            }
-        }
-
-        if (covered) {
-            continue;
-        }
-
-        std::sort(nearest.begin(), nearest.end());
-
-        for (auto [distance, j] : nearest) {
-            if (const auto grown = grow_capture(floors, f, options, next[j], floors[origins[j]])) {
-                next[j] = *grown;
-                covered = true;
-                break;
-            }
-        }
-
-        if (!covered) {
-            return false;
-        }
-    }
-
-    next.erase(next.begin() + drop);
-    probes = std::move(next);
-    origins.erase(origins.begin() + drop);
-
-    if (drop < owners.size()) {
-        owners.erase(owners.begin() + drop);
-    }
-
-    return true;
-}
-
-unsigned centre_floor(std::span<const unsigned> room, std::span<const EnvironmentFloor> floors) {
     Float3 centre{};
 
     for (auto id : room) {
@@ -401,12 +369,15 @@ unsigned centre_floor(std::span<const unsigned> room, std::span<const Environmen
 
     for (auto id : room) {
         // Tight passages remain receivers but must not place a capture inside their ceiling.
-        if (!floors[id].capture_candidate) {
+        if (!floors[id].capture_candidate
+            && (!low_capture || floors[id].capture[2] - floors[id].position[2] < .25f)) {
             continue;
         }
 
         const auto d = add(floors[id].position, mul(centre, -1));
-        const float score = floors[id].clearance - .25f * std::sqrt(dot(d, d));
+        // Clearance is a safety margin, not a reason to chase an outdoor edge.
+        const float reach_gain = std::max(0.f, floors[id].locality_radius - nominal_spacing);
+        const float score = std::min(floors[id].clearance, 2.f) + reach_gain - std::sqrt(dot(d, d));
 
         if (score > best) {
             best = score;
@@ -417,7 +388,7 @@ unsigned centre_floor(std::span<const unsigned> room, std::span<const Environmen
     return selected;
 }
 
-// Every space receives its central capture before any space adds supplementary captures.
+// Add a capture only for floor coverage not already served by an existing capture.
 void cover_room(
     const Scene& scene,
     std::span<const unsigned> room,
@@ -426,16 +397,15 @@ void cover_room(
     const EnvironmentBakeSettings& options,
     std::vector<EnvironmentProbe>& probes,
     EnvironmentPlacementReport& report,
-    std::vector<unsigned>& origins
+    std::vector<unsigned>& origins,
+    EnvironmentNeighbourhoods& neighbourhoods
 ) {
     std::vector<unsigned> remaining(room.begin(), room.end());
     std::erase_if(remaining, [&](unsigned id) {
         for (unsigned i = 0; i < probes.size(); ++i) {
             const auto& source = floors[origins[i]];
-            const auto d = add(floors[id].capture, mul(probes[i].position, -1));
-
             if (environment_spaces_compatible(source, floors[id])
-                && dot(d, d) <= options.spacing * options.spacing
+                && neighbourhoods.contains(origins[i], id)
                 && covers_floor(probes[i], source, floors[id])) {
                 return true;
             }
@@ -443,20 +413,66 @@ void cover_room(
         return false;
     });
 
+    bool first_capture = true;
     while (!remaining.empty()) {
-        const auto selected = centre_floor(remaining, floors);
-
-        if (selected == ~0u) {
-            // No floor here can hold a capture (water under a low roof): grow the nearest
-            // compatible capture over each floor left. No capture is added, so no new close pair.
-            for (auto id : remaining) {
-                extend_nearest_capture(floors, id, options, probes, origins);
+        // Secondary captures serve the remaining edge or low-level receivers,
+        // rather than duplicating the main room and making its central capture redundant.
+        const bool primary_capture = first_capture;
+        auto selected = centre_floor(remaining, floors, false, options.spacing);
+        std::optional<EnvironmentProbe> central_probe;
+        if (first_capture) {
+            // Neighbouring captures can cover only one side of an island. Keep its
+            // own capture central when that position also serves the uncovered side.
+            const auto central = centre_floor(room, floors, false, options.spacing);
+            if (central != ~0u) {
+                const auto local = neighbourhoods.local(central, room);
+                const auto probe = environment_capture_box(
+                    scene, floors[central], local, floors, settings, options
+                );
+                if (std::any_of(remaining.begin(), remaining.end(), [&](unsigned id) {
+                        return neighbourhoods.distance(central, id)
+                                   <= neighbourhoods.placement_radius(central) + .001f
+                               && covers_floor(probe, floors[central], floors[id]);
+                    })) {
+                    selected = central;
+                    central_probe = probe;
+                }
             }
-            return;  // Final validation reports any floor still uncovered.
+            first_capture = false;
         }
 
-        const auto probe =
-            environment_capture_box(scene, floors[selected], room, floors, settings, options);
+        if (selected == ~0u) {
+            // Prefer borrowing coverage under a low roof. If this space has no suitable
+            // neighbour, a lower camera with checked clearance must still serve its receivers.
+            for (auto id : remaining) {
+                extend_nearest_capture(floors, id, options, probes, origins, neighbourhoods);
+            }
+            std::erase_if(remaining, [&](unsigned id) {
+                for (unsigned i = 0; i < probes.size(); ++i) {
+                    if (neighbourhoods.contains(origins[i], id)
+                        && covers_floor(probes[i], floors[origins[i]], floors[id])) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            if (remaining.empty()) {
+                return;
+            }
+            selected = centre_floor(remaining, floors, true, options.spacing);
+            if (selected == ~0u) {
+                return;  // Final validation reports genuinely unusable camera space.
+            }
+        }
+
+        const auto local = neighbourhoods.local(
+            selected, primary_capture ? room : std::span<const unsigned>(remaining)
+        );
+        const auto probe = central_probe
+                               ? *central_probe
+                               : environment_capture_box(
+                                     scene, floors[selected], local, floors, settings, options
+                                 );
 
         if (probes.size() >= options.maximum_probes) {
             return;  // The final per-receiver validation reports any actual remaining holes.
@@ -467,8 +483,8 @@ void cover_room(
         report.owners.push_back(floors[selected].room);
         bool progressed = false;
         std::erase_if(remaining, [&](unsigned id) {
-            auto delta = add(floors[id].capture, mul(probe.position, -1));
-            const bool covered = std::sqrt(dot(delta, delta)) <= options.spacing
+            const bool covered = neighbourhoods.distance(selected, id)
+                                     <= neighbourhoods.placement_radius(selected) + .001f
                                  && covers_floor(probe, floors[selected], floors[id]);
             progressed |= covered;
             return covered;
@@ -485,153 +501,45 @@ void cover_room(
     }
 }
 
-// Any capture, including the initial centre, is removable only when every
-// supported receiver still has another compatible, visible capture with a useful blend weight.
-void prune_probes(
+// Ownership is provisional: trial-remove small captures, reassign their unique
+// receivers, and refit the surviving boxes before deciding a capture is needed.
+bool prune_probes(
+    const Scene& scene,
     std::span<const EnvironmentFloor> floors,
+    const BakeSettings& settings,
+    const EnvironmentBakeSettings& options,
     std::vector<EnvironmentProbe>& probes,
     std::vector<unsigned>& origins,
-    EnvironmentPlacementReport& report
+    EnvironmentPlacementReport& report,
+    EnvironmentNeighbourhoods& neighbourhoods
 ) {
-    report.unpruned_probes = static_cast<unsigned>(probes.size());
-    std::vector<unsigned> counts(floors.size() * kEnvironmentReceiverHeights.size());
-    std::vector<std::vector<unsigned>> supported(probes.size());
-
-    for (unsigned i = 0; i < probes.size(); ++i) {
-        const auto& source = floors[origins[i]];
-
-        for (unsigned f = 0; f < floors.size(); ++f) {
-            if (!environment_spaces_compatible(source, floors[f])) {
-                continue;
-            }
-
-            for (unsigned h = 0; h < kEnvironmentReceiverHeights.size(); ++h) {
-                const auto p = environment_receiver_position(floors[f], h);
-
-                if (!environment_receiver_supported(probes[i], source, floors[f], p)) {
-                    continue;
-                }
-
-                const auto receiver =
-                    f * static_cast<unsigned>(kEnvironmentReceiverHeights.size()) + h;
-                supported[i].push_back(receiver);
-                ++counts[receiver];
-            }
-        }
-    }
-
-    // Leave an incomplete plan intact for the final diagnostic pass.
-    if (std::find(counts.begin(), counts.end(), 0u) != counts.end()) {
-        return;
-    }
-
+    auto assignments = assign_environment_receivers(floors, probes, origins, neighbourhoods);
     std::vector<unsigned> order;
-
     for (unsigned i = 0; i < probes.size(); ++i) {
         order.push_back(i);
     }
-
     std::sort(order.begin(), order.end(), [&](unsigned a, unsigned b) {
-        if (supported[a].size() != supported[b].size()) {
-            return supported[a].size() < supported[b].size();
+        if (assignments[a].size() != assignments[b].size()) {
+            return assignments[a].size() < assignments[b].size();
         }
         return a > b;
     });
-    std::vector<bool> keep(probes.size(), true);
-
-    for (auto i : order) {
-        if (std::any_of(supported[i].begin(), supported[i].end(), [&](unsigned receiver) {
-                return counts[receiver] < 2;
-            })) {
-            continue;
-        }
-
-        keep[i] = false;
-
-        for (auto receiver : supported[i]) {
-            --counts[receiver];
-        }
-
-        ++report.pruned_probes;
-    }
-
-    report.receivers.resize(counts.size());
-
-    for (unsigned f = 0; f < floors.size(); ++f) {
-        for (unsigned h = 0; h < kEnvironmentReceiverHeights.size(); ++h) {
-            auto& receiver = report.receivers[f * kEnvironmentReceiverHeights.size() + h];
-            receiver.position = environment_receiver_position(floors[f], h);
-            receiver.height = h;
+    // Stable IDs retain the preferred central captures when support is equal.
+    std::vector<unsigned> ids = order;
+    std::sort(ids.begin(), ids.end());
+    for (auto id : order) {
+        const auto found = std::find(ids.begin(), ids.end(), id);
+        const unsigned i = unsigned(found - ids.begin());
+        if (remove_environment_capture(
+                scene, floors, settings, options, i, probes, origins, assignments, neighbourhoods
+            )) {
+            report.owners.erase(report.owners.begin() + i);
+            ids.erase(found);
         }
     }
-
-    unsigned write = 0;
-
-    for (unsigned i = 0; i < probes.size(); ++i) {
-        if (!keep[i]) {
-            continue;
-        }
-
-        for (auto receiver : supported[i]) {
-            report.receivers[receiver].probes.push_back(write);
-        }
-
-        probes[write] = probes[i];
-        origins[write] = origins[i];
-        report.owners[write] = report.owners[i];
-        ++write;
-    }
-
-    probes.resize(write);
-    origins.resize(write);
-    report.owners.resize(write);
+    return ids.size() != order.size();
 }
 
-// Automatic captures can leave gaps, but must never leak into an incompatible space.
-void keep_safe_captures(
-    const std::vector<EnvironmentFloor>& floors,
-    std::vector<EnvironmentProbe>& probes,
-    std::vector<unsigned>& origins,
-    EnvironmentPlacementReport& report
-) {
-    std::vector<bool> keep(probes.size(), true);
-    for (unsigned i = 0; i < probes.size(); ++i) {
-        for (const auto& floor : floors) {
-            if (environment_spaces_compatible(floors[origins[i]], floor)) {
-                continue;
-            }
-            for (unsigned h = 0; h < kEnvironmentReceiverHeights.size(); ++h) {
-                if (environment_probe_coverage(probes[i], environment_receiver_position(floor, h))
-                    >= kEnvironmentUsefulCoverage) {
-                    keep[i] = false;
-                    break;
-                }
-            }
-            if (!keep[i]) {
-                break;
-            }
-        }
-    }
-    for (const auto& [a, b] : report.spacing_conflicts) {
-        if (keep[a]) {
-            keep[b] = false;
-        }
-    }
-    report.spacing_conflicts.clear();
-
-    unsigned write = 0;
-    for (unsigned i = 0; i < probes.size(); ++i) {
-        if (keep[i]) {
-            probes[write] = probes[i];
-            origins[write] = origins[i];
-            report.owners[write++] = report.owners[i];
-        }
-    }
-    report.pruned_probes += static_cast<unsigned>(probes.size()) - write;
-    probes.resize(write);
-    origins.resize(write);
-    report.owners.resize(write);
-}
 }  // namespace
 
 std::vector<EnvironmentProbe> place_environment_probes(
@@ -640,7 +548,9 @@ std::vector<EnvironmentProbe> place_environment_probes(
     std::span<const EnvironmentFloorSample> floors,
     const BakeSettings& settings,
     const EnvironmentBakeSettings& options,
-    EnvironmentPlacementReport* output
+    EnvironmentPlacementReport* output,
+    const Scene* gameplay_collision,
+    std::vector<EnvironmentInfluence>* influences
 ) {
     EnvironmentPlacementReport local;
     auto& report = output ? *output : local;
@@ -655,106 +565,134 @@ std::vector<EnvironmentProbe> place_environment_probes(
         );
     }
 
-    auto plan = environment_floor_map(scene, volumes, floors, settings, options, report);
+    auto plan = environment_floor_map(
+        scene, volumes, floors, settings, options, report, gameplay_collision
+    );
+    auto region_options = options;
+    // Coverage complexity and photograph storage are independent budgets.
+    if (influences) {
+        region_options.maximum_probes = kEnvironmentProbeLimit;
+    }
     auto& playable = plan.floors;
     auto& spaces = plan.rooms;
     std::vector<EnvironmentProbe> result;
     std::vector<unsigned> origins;
-
-    for (unsigned room_id = 0; room_id < spaces.size(); ++room_id) {
-        const auto& room = spaces[room_id];
-
-        if (result.size() >= options.maximum_probes) {
-            break;
-        }
-
-        auto selected = plan.centres[room_id];
-
-        if (!playable[selected].capture_candidate) {
-            selected = centre_floor(room, playable);
-        }
-
-        if (selected == ~0u) {
-            continue;  // Receiver-only spaces must be covered by a compatible neighbouring capture.
-        }
-
-        result.push_back(
-            environment_capture_box(scene, playable[selected], room, playable, settings, options)
-        );
-        origins.push_back(selected);
-        report.owners.push_back(playable[selected].room);
-    }
+    EnvironmentNeighbourhoods neighbourhoods(
+        playable, options.spacing, gameplay_collision ? gameplay_collision : &scene, &settings
+    );
 
     for (const auto& room : spaces) {
-        cover_room(scene, room, playable, settings, options, result, report, origins);
+        if (room.empty()) {
+            continue;
+        }
+        cover_room(
+            scene, room, playable, settings, region_options, result, report, origins, neighbourhoods
+        );
     }
 
-    prune_probes(playable, result, origins, report);
-    merge_environment_probes({scene, playable, spaces, settings, options}, result, origins, report);
-
-    // Same test as the final spacing check below.
-    auto close = [&](unsigned a, unsigned b) {
-        if (playable[origins[a]].underwater != playable[origins[b]].underwater
-            || std::abs(playable[origins[a]].position[2] - playable[origins[b]].position[2]) > 2) {
-            return false;
+    unsigned generated = unsigned(result.size());
+    log::info(
+        "reflection placement: {} coverage candidates over {} floors; pruning",
+        result.size(),
+        playable.size()
+    );
+    while (prune_probes(
+        scene, playable, settings, region_options, result, origins, report, neighbourhoods
+    )) {
+        // A successful refit can make an earlier failed removal feasible.
+    }
+    for (unsigned iteration = 0; iteration < 12; ++iteration) {
+        const auto assignments =
+            assign_environment_receivers(playable, result, origins, neighbourhoods);
+        const auto failed = fit_environment_capture_boxes(
+            scene,
+            playable,
+            settings,
+            region_options,
+            result,
+            origins,
+            &assignments,
+            &neighbourhoods
+        );
+        if (failed.empty()) {
+            break;
         }
-
-        const auto delta = add(result[a].position, mul(result[b].position, -1));
-        return dot(delta, delta) < options.minimum_capture_spacing * options.minimum_capture_spacing
-               && environment_capture_context_clear(
-                   scene, playable[origins[a]], result[a].position, playable[origins[b]],
-                   result[b].position, settings
-               );
-    };
-
-    for (bool dropped = true; dropped;) {
-        dropped = false;
-
-        for (unsigned a = 0; a < result.size() && !dropped; ++a) {
-            for (unsigned b = a + 1; b < result.size() && !dropped; ++b) {
-                dropped = close(a, b)
-                          && (drop_close_capture(playable, options, result, origins, report.owners, b)
-                              || drop_close_capture(playable, options, result, origins, report.owners, a));
+        bool added = false;
+        // A non-convex local receiver patch may not fit one OBB without crossing
+        // a wall or reaching too far. Seed its least-served end and repartition.
+        for (auto probe : failed) {
+            if (result.size() >= region_options.maximum_probes) {
+                break;
             }
-        }
-    }
-
-    for (unsigned a = 0; a < result.size(); ++a) {
-        for (unsigned b = a + 1; b < result.size(); ++b) {
-            // Room labels cannot exempt close captures from the final spacing check.
-            if (playable[origins[a]].underwater != playable[origins[b]].underwater
-                || std::abs(playable[origins[a]].position[2] - playable[origins[b]].position[2])
-                       > 2) {
+            unsigned selected = ~0u;
+            float best = -INFINITY;
+            for (auto receiver : assignments[probe]) {
+                const unsigned f = receiver / unsigned(kEnvironmentReceiverHeights.size());
+                if (std::find(origins.begin(), origins.end(), f) != origins.end()
+                    || playable[f].capture[2] - playable[f].position[2] < .25f) {
+                    continue;
+                }
+                float nearest = INFINITY;
+                for (auto origin : origins) {
+                    if (environment_spaces_compatible(playable[origin], playable[f])) {
+                        nearest = std::min(nearest, neighbourhoods.distance(origin, f));
+                    }
+                }
+                if (!std::isfinite(nearest)) {
+                    continue;
+                }
+                const float score = nearest - (playable[f].capture_candidate ? 0 : options.spacing);
+                if (score > best) {
+                    best = score;
+                    selected = f;
+                }
+            }
+            if (selected == ~0u) {
                 continue;
             }
-
-            const auto delta = add(result[a].position, mul(result[b].position, -1));
-
-            if (dot(delta, delta)
-                >= options.minimum_capture_spacing * options.minimum_capture_spacing) {
-                continue;
+            std::vector<unsigned> candidates;
+            for (auto receiver : assignments[probe]) {
+                candidates.push_back(receiver / unsigned(kEnvironmentReceiverHeights.size()));
             }
-
-            if (environment_capture_context_clear(
-                    scene,
-                    playable[origins[a]],
-                    result[a].position,
-                    playable[origins[b]],
-                    result[b].position,
-                    settings
-                )) {
-                report.spacing_conflicts.push_back({a, b});
-            } else {
-                ++report.occlusion_separated_pairs;
-            }
+            std::sort(candidates.begin(), candidates.end());
+            candidates.erase(std::unique(candidates.begin(), candidates.end()), candidates.end());
+            const auto local = neighbourhoods.local(selected, candidates);
+            result.push_back(environment_capture_box(
+                scene, playable[selected], local, playable, settings, options
+            ));
+            origins.push_back(selected);
+            report.owners.push_back(playable[selected].room);
+            ++generated;
+            added = true;
+        }
+        if (!added) {
+            break;
         }
     }
-
-    if (!options.require_full_coverage) {
-        keep_safe_captures(playable, result, origins, report);
-        report.receivers.clear();
+    // Repair seeds must participate in fitting before pruning. Removing a seed
+    // while its initial box is still provisional can repeatedly undo the repair.
+    while (prune_probes(
+        scene, playable, settings, region_options, result, origins, report, neighbourhoods
+    )) {
     }
-
+    report.unpruned_probes = generated;
+    report.pruned_probes = generated - unsigned(result.size());
+    const auto final_assignments =
+        assign_environment_receivers(playable, result, origins, neighbourhoods);
+    report.receivers.assign(playable.size() * kEnvironmentReceiverHeights.size(), {});
+    for (unsigned f = 0; f < playable.size(); ++f) {
+        for (unsigned h = 0; h < kEnvironmentReceiverHeights.size(); ++h) {
+            auto& receiver = report.receivers[f * unsigned(kEnvironmentReceiverHeights.size()) + h];
+            receiver.position = environment_receiver_position(playable[f], h);
+            receiver.height = h;
+            receiver.water_surface = playable[f].swimming_surface && !playable[f].underwater;
+        }
+    }
+    for (unsigned i = 0; i < final_assignments.size(); ++i) {
+        for (auto receiver : final_assignments[i]) {
+            report.receivers[receiver].probes.push_back(i);
+        }
+    }
     for (unsigned i = 0; i < result.size(); ++i) {
         report.capture_positions.push_back(result[i].position);
 
@@ -782,9 +720,31 @@ std::vector<EnvironmentProbe> place_environment_probes(
                     continue;
                 }
 
-                if (!environment_spaces_compatible(playable[origins[i]], floor)) {
+                const bool compatible = environment_spaces_compatible(playable[origins[i]], floor);
+                const bool local_receiver =
+                    compatible && neighbourhoods.contains(origins[i], f, true);
+                if (!local_receiver) {
+                    report.placement_conflicts.push_back(
+                        {p,
+                         playable[origins[i]].position,
+                         i,
+                         origins[i],
+                         f,
+                         neighbourhoods.distance(origins[i], f),
+                         neighbourhoods.radius(origins[i]) + neighbourhoods.overlap(origins[i]),
+                         !compatible}
+                    );
+                }
+                if (!compatible) {
                     ++report.ownership_conflicts;
-                } else if (environment_receiver_supported(
+                } else if (!local_receiver) {
+                    ++report.locality_conflicts;
+                } else if (std::binary_search(
+                               final_assignments[i].begin(),
+                               final_assignments[i].end(),
+                               f * unsigned(kEnvironmentReceiverHeights.size()) + h
+                           )
+                           && environment_receiver_supported(
                                result[i], playable[origins[i]], floor, p
                            )) {
                     coverage = std::max(coverage, weight);
@@ -806,17 +766,36 @@ std::vector<EnvironmentProbe> place_environment_probes(
         }
     }
 
-    if (report.ownership_conflicts != 0 || !report.spacing_conflicts.empty()
+    if (report.ownership_conflicts != 0 || report.locality_conflicts != 0
+        || !report.spacing_conflicts.empty()
         || (options.require_full_coverage && (result.empty() || !report.uncovered.empty()))) {
         throw std::runtime_error(
             "environment placement incomplete: " + std::to_string(report.uncovered.size())
             + " uncovered samples, " + std::to_string(report.ownership_conflicts)
             + " ownership conflicts, " + std::to_string(report.spacing_conflicts.size())
-            + " unresolved reflection spacing conflicts; " + std::to_string(result.size())
-            + " captures, safety limit " + std::to_string(options.maximum_probes)
+            + " spacing conflicts, " + std::to_string(report.locality_conflicts)
+            + " nonlocal receivers; " + std::to_string(result.size()) + " captures, safety limit "
+            + std::to_string(region_options.maximum_probes)
         );
     }
 
+    if (influences) {
+        log::info("reflection placement: {} valid regions; selecting photographs", result.size());
+        result = select_environment_captures(
+            gameplay_collision ? *gameplay_collision : scene,
+            settings,
+            options,
+            playable,
+            result,
+            origins,
+            neighbourhoods,
+            report,
+            *influences
+        );
+        if (result.size() > options.maximum_probes) {
+            throw std::runtime_error("reflection capture budget exceeded after region planning");
+        }
+    }
     report.coverage_hash = environment_capture_hash(result);
     return result;
 }
