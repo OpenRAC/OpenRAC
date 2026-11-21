@@ -486,7 +486,8 @@ void test_precise_depth_occludes_motion() {
     instance.current = renderer::translation({0, 0, .625f});
     instance.previous = renderer::translation({.25f, 0, .625f});
     const auto sample = [&](scene::MotionSubmission submission) {
-        const auto pixels = fixture.sample_many(std::span(&instance, 1), submission, world.depth_texture());
+        const auto pixels =
+            fixture.sample_many(std::span(&instance, 1), submission, world.depth_texture());
         return pixels[(32 * 64 + 32) * 4];
     };
     // The old [-1, 1] convention remaps .625 to .8125 and wrongly passes the .75 depth test.

@@ -505,8 +505,7 @@ bool open(
               : g->swap == platform::SwapInterval::Adaptive ? "waits for the display (adaptive)"
                                                             : "waits for the display");
     log::info(
-        "graphics: world depth uses the {} path",
-        renderer::precise_depth() ? "precise" : "normal"
+        "graphics: world depth uses the {} path", renderer::precise_depth() ? "precise" : "normal"
     );
 #if defined(OPENRAC_IOS)
     platform::set_background_handler(drain_graphics_for_background);

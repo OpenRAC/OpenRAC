@@ -100,9 +100,7 @@ bool FrameBuffer::create(
         glFramebufferTexture2DMultisampleEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colour, 0,
                                              m_samples);
     } else if (m_samples > 1) {
-        glRenderbufferStorageMultisample(
-            GL_RENDERBUFFER, m_samples, depth_format, width, height
-        );
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_samples, depth_format, width, height);
         glGenRenderbuffers(1, &m_multisample);
         glBindRenderbuffer(GL_RENDERBUFFER, m_multisample);
         glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_samples, colour_format, width, height);
