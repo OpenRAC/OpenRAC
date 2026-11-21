@@ -1,109 +1,99 @@
 {
-    "id": "rac3-pal-mp",
-    "title": "Ratchet & Clank: Up Your Arsenal (PAL), multiplayer",
-    "game": "rac3",
-    "serial": "SCES_524.56",
-    "source": "games/rac3/decomp",
-    "prefix": "mp_",
-    "frame_rate": 50,
-    "tick_rate": 50,
-    "entry": "func_00192D18",
-    "sources": [],
-    "includes": [
-        "include",
-        "src",
-        "."
+  "id": "rac3-pal-mp",
+  "title": "Ratchet & Clank: Up Your Arsenal (PAL), multiplayer",
+  "game": "rac3",
+  "serial": "SCES_524.56",
+  "source": "games/rac3/decomp",
+  "prefix": "mp_",
+  "frame_rate": 50,
+  "tick_rate": 50,
+  "entry": "func_00192D18",
+  "sources": [],
+  "includes": [
+    "include",
+    "src",
+    "."
+  ],
+  "defines": [
+    "INCLUDE_ASM_H",
+    "ASM_FUNC(FOLDER,NAME)=extern int openrac_asm_##NAME",
+    "LINKER_REMNANT(FOLDER,NAME)=",
+    "INCLUDE_RODATA(FOLDER,NAME)=",
+    "TEXT_PADDING(N)=",
+    "TEXT_FILL(N)="
+  ],
+  "symbols": [],
+  "libraries": "libraries.tsv",
+  "roots": [
+    "func_00192D18",
+    "func_001932A0",
+    "func_0027B1C0",
+    "func_L39_00575CC8",
+    "func_0012CFD0"
+  ],
+  "relocate": [
+    2366976,
+    7340032
+  ],
+  "asm": {
+    "enabled": true,
+    "discover_entries": true,
+    "discover_levels": [
+      39
     ],
-    "defines": [
-        "INCLUDE_ASM_H",
-        "ASM_FUNC(FOLDER,NAME)=extern int openrac_asm_##NAME",
-        "LINKER_REMNANT(FOLDER,NAME)=",
-        "INCLUDE_RODATA(FOLDER,NAME)=",
-        "TEXT_PADDING(N)=",
-        "TEXT_FILL(N)="
-    ],
-    "symbols": [],
-    "libraries": "libraries.tsv",
-    "roots": [
-        "func_00192D18",
-        "func_001932A0",
-        "func_0027B1C0",
-        "func_L39_00575CC8",
-        "func_0012CFD0"
-    ],
-    "relocate": [
-        2366976,
-        7340032
-    ],
-    "asm": {
-        "enabled": true,
-        "discover_entries": true,
-        "discover_levels": [
-            39
-        ],
-        "discover_pointers": true,
-        "dirs": [],
-        "gp": "0x00247FC0",
-        "retail": {
-            "image": "baserom/SCES_524.56.iso",
-            "executable": "I5BOOTN.ELF",
-            "levels": [
-                39
-            ],
-            "required": true
-        },
-        "files": 32,
-        "results_before_calls": true,
-        "dma_stores": true,
-        "follow_saved_registers": true,
-        "gp_addresses": true,
-        "fit_declarations": true,
-        "register_jumps": true,
-        "input_idioms": true,
-        "dma_done": true,
-        "vu_flush": true,
-        "forward_unprototyped": true,
-        "signatures": {
-            "func_00192F68": "unsigned int (void)",
-            "func_00281240":
-                "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
-            "func_0027F7A0":
-                "int (int, int, int, int, long long, long long, int, float, float, float, float)",
-            "func_0027F980":
-                "int (int, int, int, int, unsigned int, long long, int, float, float, float, float)",
-            "func_0027FB60":
-                "int (int, int, int, int, long long, long long, long long, int, float, float, float, float, float, float)",
-            "func_0027F458": "void (int, int, int, int, int, int, int, int, long long, long long)",
-            "func_0027F0A8":
-                "void (int, int, int, int, int, int, int, int, float, long long, long long)",
-            "func_0027FE08": "void (unsigned int, unsigned int)",
-            "func_0027EDA8": "void (int, int, int, int)",
-            "func_0027EEB8": "void (int, int, int, int, unsigned long long)",
-            "func_00284F80": "void (int, unsigned int, float, float, float, float, float)",
-            "func_00284D30": "unsigned long long (int)",
-            "func_L39_00592238":
-                "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
-            "func_L39_0058BBB0":
-                "int (int, int, int, int, long long, long long, int, float, float, float, float)",
-            "func_L39_0058BF70":
-                "int (int, int, int, int, long long, long long, long long, int, float, float, float, float, float, float)",
-            "func_L39_0058B868":
-                "void (int, int, int, int, int, int, int, int, long long, long long)",
-            "func_L39_0058B4B8":
-                "void (int, int, int, int, int, int, int, int, float, long long, long long)",
-            "func_L39_0058C678": "void (unsigned int, unsigned int)",
-            "func_L39_0058B1B8": "void (int, int, int, int)",
-            "func_L39_0058B2C8": "void (int, int, int, int, unsigned long long)",
-            "func_L39_00590A68": "float (float)",
-            "func_L39_00590A80": "float (float)"
-        },
-        "vu0_programs": {
-            "0xC80": "rac3_vu0_rotation_rows",
-            "0xDA0": "rac3_vu0_cosine",
-            "0xDB0": "rac3_vu0_sine"
-        }
+    "discover_pointers": true,
+    "dirs": [],
+    "gp": "0x00247FC0",
+    "retail": {
+      "image": "baserom/SCES_524.56.iso",
+      "executable": "I5BOOTN.ELF",
+      "levels": [
+        39
+      ],
+      "required": true
     },
-    "unpassed_registers": true,
-    "library_api": "../../common/libraries.tsv",
-    "host_dir": "../host"
+    "files": 32,
+    "results_before_calls": true,
+    "dma_stores": true,
+    "follow_saved_registers": true,
+    "gp_addresses": true,
+    "fit_declarations": true,
+    "register_jumps": true,
+    "input_idioms": true,
+    "dma_done": true,
+    "vu_flush": true,
+    "forward_unprototyped": true,
+    "signatures": {
+      "func_00192F68": "unsigned int (void)",
+      "func_00281240": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
+      "func_0027F7A0": "int (int, int, int, int, long long, long long, int, float, float, float, float)",
+      "func_0027F980": "int (int, int, int, int, unsigned int, long long, int, float, float, float, float)",
+      "func_0027FB60": "int (int, int, int, int, long long, long long, long long, int, float, float, float, float, float, float)",
+      "func_0027F458": "void (int, int, int, int, int, int, int, int, long long, long long)",
+      "func_0027F0A8": "void (int, int, int, int, int, int, int, int, float, long long, long long)",
+      "func_0027FE08": "void (unsigned int, unsigned int)",
+      "func_0027EDA8": "void (int, int, int, int)",
+      "func_0027EEB8": "void (int, int, int, int, unsigned long long)",
+      "func_00284F80": "void (int, unsigned int, float, float, float, float, float)",
+      "func_00284D30": "unsigned long long (int)",
+      "func_L39_00592238": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
+      "func_L39_0058BBB0": "int (int, int, int, int, long long, long long, int, float, float, float, float)",
+      "func_L39_0058BF70": "int (int, int, int, int, long long, long long, long long, int, float, float, float, float, float, float)",
+      "func_L39_0058B868": "void (int, int, int, int, int, int, int, int, long long, long long)",
+      "func_L39_0058B4B8": "void (int, int, int, int, int, int, int, int, float, long long, long long)",
+      "func_L39_0058C678": "void (unsigned int, unsigned int)",
+      "func_L39_0058B1B8": "void (int, int, int, int)",
+      "func_L39_0058B2C8": "void (int, int, int, int, unsigned long long)",
+      "func_L39_00590A68": "float (float)",
+      "func_L39_00590A80": "float (float)"
+    },
+    "vu0_programs": {
+      "0xC80": "rac3_vu0_rotation_rows",
+      "0xDA0": "rac3_vu0_cosine",
+      "0xDB0": "rac3_vu0_sine"
+    }
+  },
+  "unpassed_registers": true,
+  "library_api": "../../common/libraries.tsv",
+  "host_dir": "../host"
 }
