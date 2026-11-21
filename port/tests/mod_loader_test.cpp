@@ -2083,11 +2083,10 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(mods::prop_meshes().empty());
     const unsigned generation = mods::prop_meshes_generation();
     mods::frame();
-    CHECK(
-        (g_records == std::vector<int>{9500, 9523, 9540, 9541, 9541, 9550, 9551, 9660, 9661, 9670,
-                                       9671, 9680, 9681, 9681, 9560, 9561, 9577, 9581, 9580, 9581,
-                                       9591, 9590, 9591, 9591, 9590, 9602, 9611, 9610, 9623, 9635})
-    );
+    CHECK((g_records == std::vector<int>{9500, 9523, 9540, 9541, 9541, 9550, 9551, 9660, 9661, 9670,
+                                         9671, 9680, 9681, 9681, 9660, 9661, 9661, 9661, 9661, 9660,
+                                         9660, 9560, 9561, 9577, 9581, 9580, 9581, 9591, 9590, 9591,
+                                         9591, 9590, 9602, 9611, 9610, 9623, 9635}));
     CHECK(
         (g_motion
          == std::vector<std::string>{
@@ -2109,6 +2108,13 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         drawn.size() == 2 && drawn[0].matrix[0] == 2.0f && drawn[0].matrix[5] == 2.0f
         && drawn[0].matrix[12] == 1.0f && drawn[0].matrix[13] == 2.0f && drawn[0].matrix[14] == 3.0f
         && drawn[0].attached_moby == 0
+    );
+    // Its skin (interface 1.29): the two joints' matrices as the last good call gave them, copied
+    // (the first, the bind pose; the second, 3 along x). The refused calls changed nothing.
+    CHECK(
+        drawn.size() == 2 && drawn[0].skin != nullptr && drawn[0].skin->size() == 2
+        && (*drawn[0].skin)[0][0] == 1.0f && (*drawn[0].skin)[0][12] == 0.0f
+        && (*drawn[0].skin)[1][12] == 3.0f && (*drawn[0].skin)[1][15] == 1.0f
     );
     // The second, fixed to the hero's attach point 1 (joint 12) of the moby in slot 3, its offset
     // kept (the refused calls after it change nothing).
@@ -2139,7 +2145,7 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_motion.clear();
     mods::frame();
     // The pose needs the hook; the joints do not (two, too many, none).
-    CHECK((g_records == std::vector<int>{9501, 9551, 9640, 9641, 9650}));
+    CHECK((g_records == std::vector<int>{9501, 9551, 9661, 9640, 9641, 9650}));
     CHECK((g_motion == std::vector<std::string>{"joints 4096 2 1 2", "joints 4096 0"}));
     CHECK(mods::props_drawn().empty());
     CHECK(mods::haze_drawn().empty());

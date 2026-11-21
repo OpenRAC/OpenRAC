@@ -84,9 +84,10 @@ extern "C" {
  * their squad (the table is unchanged: a 1.25 port's copies of a squad's
  * enemies never wake, so a mod asks for 1.26 before it makes them), and 1.27
  * more room for spawned mobys (moby_pool_raise, moby_pool_status),
- * and 1.28 mods' own overlays drawn over the game's menus too (the vendor's, the pause menu's).
+ * and 1.28 mods' own overlays drawn over the game's menus too (the vendor's, the pause menu's),
+ * and 1.29 props skinned with joint matrices of the mod's own (prop_set_skin).
  */
-#define OPENRAC_MOD_API_MINOR 28
+#define OPENRAC_MOD_API_MINOR 29
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -995,6 +996,15 @@ typedef struct openrac_collision_triangle {
 /* The most props the mods together have at once (openrac_api.prop_create): enough for a few meshes
  * and the sprites of a mod's particles. Since 1.12. */
 #define OPENRAC_PROPS_MAX 256
+
+/* The most distinct meshes the props of one level load may use (openrac_api.prop_create): each is
+ * read once into the level and kept until the level is left, so this bounds that memory. A mesh a
+ * prop of the load already uses costs nothing more. Past it prop_create answers OPENRAC_HOOK_UNKNOWN
+ * and the log says why. The cost of a mesh is its own: see prop_create. */
+#define OPENRAC_PROP_MESHES_MAX 1024
+/* The most joints one prop's skin has (openrac_api.prop_set_skin): a joint is numbered 0 to 255. Since
+ * 1.29. */
+#define OPENRAC_PROP_JOINTS_MAX 256
 
 /* Where a prop is (openrac_api.prop_pose), in the game's units and axes. With `matrix` set
  * (OPENRAC_PROP_MATRIX in flags) the 4 by 4 matrix, column-major (matrix[12..14] the place), takes
@@ -1926,11 +1936,16 @@ typedef struct openrac_api {
      * and Vulkan), at the pose prop_pose last gave it; not a moby of the game's: nothing collides
      * with it and the game never sees it. Hidden until it is first posed. At most
      * OPENRAC_PROPS_MAX for all mods; it goes with its level (prop_pose then answers
-     * OPENRAC_HOOK_UNKNOWN, and the mod makes another). The first prop of a mesh the level loaded
-     * has not read makes the port read the level's scenery again (a hitch, once a mesh and level;
-     * a mesh read before goes with every level loaded after). Returns its id (0 or more), or
-     * OPENRAC_HOOK_UNKNOWN outside a level, for a path outside the mod's folder or a file that is
-     * not there, or past OPENRAC_PROPS_MAX. Since 1.12. */
+     * OPENRAC_HOOK_UNKNOWN, and the mod makes another). The first prop of a mesh in a level load
+     * has the port read the mesh and add it to the level that is up when the next frame is
+     * captured (the level is not read again; the cost is that of the mesh); a mesh stays until
+     * the level is left, and the next level load starts without it. Memory: a mesh costs the
+     * process about 0.2 to 0.3 MB of working set for the small meshes measured (40 boxes +10 MB,
+     * 72 effect sprites and model parts +13 MB, 6 dense 4000-triangle spheres +2 MB); a larger mesh
+     * costs more, in proportion to its size. The graphics memory is not counted in that. Returns its
+     * id (0 or more), or OPENRAC_HOOK_UNKNOWN outside a level, for a path outside the mod's folder or
+     * a file that is not there, past OPENRAC_PROPS_MAX, or for a new mesh past OPENRAC_PROP_MESHES_MAX
+     * in one level load. Since 1.12. */
     int (*prop_create)(openrac_mod* mod, const char* mesh_path);
     /* Places a prop of the mod's (openrac_prop_pose). OPENRAC_HOOK_UNKNOWN for a prop that is not
      * the mod's or went with its level, or a pose with a value that is not a number. Since 1.12. */
@@ -2457,6 +2472,44 @@ typedef struct openrac_api {
      * OPENRAC_HOOK_UNKNOWN for no phase or one this port does not draw over (the callback is then
      * not taken). Since 1.28. */
     int (*on_overlay_phases)(openrac_mod* mod, openrac_overlay_fn fn, void* user, uint32_t phases);
+    /* Skins the mod's prop `id` with joint matrices of the mod's own: the prop's mesh (a .glb with
+     * a skin, whose vertices are stored in their bind pose with their joints and weights) is drawn
+     * deformed, as the game draws a creature, by a pose the mod computes each tick. A call replaces
+     * the prop's last skin and holds until the next call (a mod that moves a joint calls it that
+     * tick); without one, or after a call with `joint_count` 0 (and `joint_matrices` null or not),
+     * the prop is drawn in its bind pose as before.
+     *
+     * `joint_matrices` holds `joint_count` matrices of 16 floats each, column-major (the same
+     * layout as openrac_prop_pose.matrix: the images of the x, y and z axes, then the place, in
+     * [12..14]), joint number j's at [16 j]. The convention is ONE: joint j's matrix takes a
+     * vertex of the mesh as stored (its bind pose, the mesh's own coordinates) to where that joint
+     * puts it, still in the mesh's own coordinates; a vertex with joints a, b, c, d and weights
+     * wa, wb, wc, wd is drawn at M(a) wa v + M(b) wb v + M(c) wc v + M(d) wd v (v as (x, y, z, 1)),
+     * its normal turned by the same sum's upper 3 by 3. So the identity for every joint is the
+     * bind pose, and a joint's matrix is (the joint's pose) times (the inverse of its bind pose),
+     * as glTF's jointMatrix with the mesh node's own transform left out. The prop's pose
+     * (prop_pose's matrix) is applied after, taking the skinned mesh to the world as it does an
+     * unskinned one.
+     *
+     * A joint is numbered by its node's name: `joint_` and digits only (`joint_12` is 12). Any
+     * other name (`joint_`, `joint_a`, `bone_3`) takes the joint's place in the skin's `joints`
+     * array. A number past 255 is 255: the port logs it and that joint shares slot 255 with it (a
+     * clamp, not a refusal, as every model loads the same way). A joint the mesh uses beyond
+     * `joint_count` stays in its bind pose (identity); matrices past the highest joint the mesh
+     * uses are ignored. A mesh with no skin is not changed by it.
+     * The prop's shadow still follows the bind pose's box.
+     *
+     * Every matrix must be finite, and `joint_count` at most OPENRAC_PROP_JOINTS_MAX: nothing is
+     * changed otherwise. The port copies the matrices: the mod keeps its own. The frames between two
+     * ticks may blend one tick's skin with the last's, as they do a prop's pose. The skin goes
+     * with the prop (its level, prop_remove, the mod's unload). Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for a prop that is not the mod's or went with its level, a count past
+     * OPENRAC_PROP_JOINTS_MAX, no matrices for a count above 0, or a value that is not a number.
+     * Since 1.29. */
+    int (*prop_set_skin)(
+        openrac_mod* mod, int id, const float* joint_matrices, uint32_t joint_count
+    );
+
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

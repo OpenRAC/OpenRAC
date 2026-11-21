@@ -10,6 +10,7 @@
 // interface's comments (sdk/include/openrac/openrac_mod.h) and the fake game's own functions: the
 // one that doubles, the one that records the angles it is given. Ordering: the state and the fake
 // host first, the mod's load next, then one function per behaviour, and `main` last runs them.
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -1036,6 +1037,17 @@ void fill_27_pool(openrac_api &api) {
     out->requested = 128;
     return OPENRAC_HOOK_OK;
   };
+}
+
+// What the fake host's 1.29 call was given: the prop, the count and the first matrix's translation.
+std::string g_skin;
+
+void fill_skin(openrac_api &api) {
+    api.prop_set_skin = [](openrac_mod*, int id, const float* matrices, uint32_t count) {
+        g_skin = "prop " + std::to_string(id) + " joints " + std::to_string(count)
+               + (count > 0 ? " first x " + std::to_string(static_cast<int>(matrices[12])) : "");
+        return id == 3 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+    };
 }
 
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
@@ -2189,6 +2201,42 @@ int main() {
         CHECK(mod.has_settings_set() && mod.has_overlay());  // what the shorter table has
         api.size = size;
         CHECK(g_overlay_phases.empty());
+    }
+    // Interface 1.29: a prop skinned with joint matrices, and a port without it.
+    {
+        fill_skin(api);
+        CHECK(mod.has_prop_skin());
+        std::array<float, 32> two{};
+        two[0] = two[5] = two[10] = two[15] = 1.0f;
+        two[16] = two[21] = two[26] = two[31] = 1.0f;
+        two[12] = 4.0f;
+        CHECK(mod.prop_set_skin(3, two.data(), 2) && g_skin == "prop 3 joints 2 first x 4");
+        // The port's answer is the call's: another mod's prop, a prop gone with its level.
+        CHECK(!mod.prop_set_skin(4, two.data(), 2) && g_skin == "prop 4 joints 2 first x 4");
+        CHECK(mod.prop_clear_skin(3) && g_skin == "prop 3 joints 0");
+        // The vector form: a size that is not a whole number of joints is refused here, unasked.
+        g_skin.clear();
+        CHECK(!mod.prop_set_skin(3, std::vector<float>(17, 0.0f)) && g_skin.empty());
+        CHECK(mod.prop_set_skin(3, std::vector<float>(two.begin(), two.end())));
+        CHECK(g_skin == "prop 3 joints 2 first x 4");
+        // More joints than the maximum are refused here, before the port is asked.
+        g_skin.clear();
+        std::vector<float> many(16 * (OPENRAC_PROP_JOINTS_MAX + 1), 0.0f);
+        CHECK(!mod.prop_set_skin(3, many.data(), OPENRAC_PROP_JOINTS_MAX + 1) && g_skin.empty());
+        CHECK(mod.prop_set_skin(3, many.data(), OPENRAC_PROP_JOINTS_MAX));
+
+        // A port of 1.15, or a table that ends before the slot, has none of it and is not asked.
+        g_skin.clear();
+        api.api_minor = 15;
+        CHECK(!mod.has_prop_skin() && !mod.prop_set_skin(3, two.data(), 2) && !mod.prop_clear_skin(3)
+              && g_skin.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        const std::uint32_t size = api.size;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, prop_set_skin));
+        CHECK(!mod.has_prop_skin() && !mod.prop_set_skin(3, two.data(), 2) && g_skin.empty());
+        api.size = size;
+        // The older props calls are still there.
+        CHECK(mod.has_props());
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);

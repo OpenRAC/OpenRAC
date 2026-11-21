@@ -355,9 +355,9 @@ gaddr occlusion_in_ram() {
 // world's, or level 0's when the title world was not extracted.
 void use_level(int number) {
     static unsigned loaded_generation;
-    static unsigned loaded_props;
     static unsigned loaded_visuals;
     int wanted = number;
+
     if (number <= -2
         && std::filesystem::exists(
             g->levels / std::format("level_{:02d}", kFlightWorld + 2 + number)
@@ -368,17 +368,19 @@ void use_level(int number) {
                      ? kTitleWorld
                      : 0;
     }
-    // A prop of a mesh the level was read without (interface 1.12): the level is read again with it.
-    const unsigned props = mods::prop_meshes_generation();
+
+    // A prop of a mesh the level was read without (interface 1.12) does not read the level again:
+    // load_prop_meshes adds the mesh to the scene that is up. A render-only replacement class the
+    // level was read without does.
     if (wanted == g->loaded && loaded_generation == openrac_game_mods_generation
-        && loaded_props == props && loaded_visuals == mods::visual_classes_generation()) {
+        && loaded_visuals == mods::visual_classes_generation()) {
         return;
     }
     crash::level_breadcrumb("level load started", wanted);
     loaded_generation = openrac_game_mods_generation;
-    loaded_props = props;
     loaded_visuals = mods::visual_classes_generation();
     g->loaded = wanted;
+    g->prop_scene_ready = false;
     // One renderer for the whole run: a new level replaces the subsystem renderers, but its texture
     // pool is the GS memory, which keeps what the game uploaded (a card's text uploaded through the
     // display list, the fonts) across the change.
@@ -406,6 +408,7 @@ void use_level(int number) {
     g->special_pickup_clips.clear();
     g->infobot_pickup_model = -1;
     g->infobot_pickup_poses.clear();
+    g->prop_failed.clear();
     g->picker.clear();
     std::string error;
     const LevelSources sources = level_sources(wanted);
@@ -471,13 +474,19 @@ void use_level(int number) {
         });
         return;
     }
-    // The mods' prop meshes, read as an assets classes.json's are (MODS.md, section 6): a mesh that
-    // cannot be read leaves its props undrawn, and the level as it is.
+
+    // The meshes the props of this level load were made of by now, read as an assets classes.json's
+    // are (MODS.md, section 6): a mesh that cannot be read leaves its props undrawn, and the level
+    // as it is. The count is taken first: a mesh asked for from now on is added by
+    // load_prop_meshes. Models read here come before the scene's own copies and need no alignment.
+    g->prop_generation = mods::prop_meshes_generation();
+
     for (const std::filesystem::path& mesh : mods::prop_meshes()) {
         std::string why;
         if (const auto model = scene::load_model(mesh, g->render.level, why)) {
             g->prop_models.emplace_back(mesh, *model);
         } else {
+            g->prop_failed.push_back(mesh);
             log::warn("mods: prop mesh {}: {}", mesh.string(), why);
         }
     }
@@ -580,6 +589,7 @@ void use_level(int number) {
         log::error("level {}: {}", wanted, error);
         return;
     }
+    g->prop_scene_ready = true;
     run_graphics([&] {
         // The 2D path: its part before the world first, the rest after the world renderers.
         crash::level_breadcrumb("level renderers setup", wanted);
@@ -688,6 +698,97 @@ void use_level(int number) {
     log::info("drawing level {} natively ({} models)", wanted, g->render.level.models.size());
 }
 
+// Adds the meshes props have asked for since the last call (mods::prop_meshes) to the level and
+// the scene that are up, instead of reading the level again as a change of the list once did
+// (0.9 to 2 s a new mesh on a PAL level 1). Called by use_world after use_level, so with the
+// frame's render job finished (frame() starts with finish_render): nothing reads the scene or
+// the level while models are added to them, and no model changes its index, because models are
+// only ever added at the end (LevelScene::add_loaded_models). The instances and poses a frame
+// in flight kept name models by index, which stay what they were.
+void load_prop_meshes() {
+    if (!g || !g->prop_scene_ready) {
+        return;
+    }
+
+    const unsigned generation = mods::prop_meshes_generation();
+
+    if (generation == g->prop_generation) {
+        return;
+    }
+
+    g->prop_generation = generation;
+    const auto held = [](const std::filesystem::path& mesh) {
+        return std::any_of(
+                   g->prop_models.begin(),
+                   g->prop_models.end(),
+                   [&](const auto& model) { return model.first == mesh; }
+               )
+               || std::find(g->prop_failed.begin(), g->prop_failed.end(), mesh)
+                      != g->prop_failed.end();
+    };
+    std::vector<std::filesystem::path> wanted;
+
+    for (std::filesystem::path& mesh : mods::prop_meshes()) {
+        if (!held(mesh)) {
+            wanted.push_back(std::move(mesh));
+        }
+    }
+
+    if (wanted.empty()) {
+        return;
+    }
+
+    const auto started = std::chrono::steady_clock::now();
+    const std::size_t before = g->prop_models.size();
+    g->render.scene.align_models(g->render.level);
+
+    for (const std::filesystem::path& mesh : wanted) {
+        // A mesh that cannot be read leaves its props undrawn; what it appended before it failed
+        // (the vertices, indices) is taken back.
+        const std::size_t vertices = g->render.level.vertices.size();
+        const std::size_t indices = g->render.level.indices.size();
+        std::string why;
+
+        try {
+            if (const auto model = scene::load_model(mesh, g->render.level, why)) {
+                g->prop_models.emplace_back(mesh, *model);
+                continue;
+            }
+        } catch (const std::exception& failure) {
+            why = failure.what();
+        }
+
+        g->render.level.vertices.resize(vertices);
+        g->render.level.indices.resize(indices);
+        g->prop_failed.push_back(mesh);
+        log::warn("mods: prop mesh {}: {}", mesh.string(), why);
+    }
+
+    std::string error;
+    bool added = false;
+    run_graphics([&] {
+        added = g->render.scene
+                    .add_loaded_models(g->render.level, g->render.renderer->textures(), error);
+    });
+
+    if (!added) {
+        // The scene cannot take them: their props stay undrawn, and no more are tried this level.
+        log::error("mods: prop meshes could not be added to the level: {}", error);
+        g->prop_models.resize(before);
+        g->prop_scene_ready = false;
+        return;
+    }
+
+    log::verbose(
+        "mods: {} prop mesh(es) added to level {} in {:.1f} ms ({} models)",
+        g->prop_models.size() - before,
+        g->loaded,
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
+            .count(),
+        g->render.level.models.size()
+    );
+}
+
 void savestate_restored(std::uint64_t tick) {
     options_menu::savestate_restored();
     if (!g) {
@@ -711,6 +812,7 @@ void savestate_restored(std::uint64_t tick) {
     g->render.scene = scene::LevelScene();
     g->render.level = scene::LevelData();
     g->loaded = -2;
+    g->prop_scene_ready = false;
     g->index = tick;
     g->world_camera.reset();
     g->world_shrubs.reset();

@@ -15,6 +15,7 @@
 #include <deque>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -262,6 +263,9 @@ struct PropDraw {
     // none), its joint, and `matrix` is then the offset in the joint's frame.
     std::uint32_t attached_moby = 0;
     int attached_joint = -1;
+    // Its joint matrices (interface 1.29, openrac_api.prop_set_skin): 16 floats each, column-major,
+    // the mesh's bind-pose vertex to where the joint puts it; null for a prop in its bind pose.
+    std::shared_ptr<const std::vector<std::array<float, 16>>> skin;
 };
 
 // The props shown in the level now (posed, not hidden, of this level load). From any thread.
@@ -270,12 +274,6 @@ std::vector<PropDraw> props_drawn();
 // The renderer drew prop `id`, fixed to a joint, with `matrix` this frame (interface 1.18,
 // prop_frame tells the mod). From any thread.
 void prop_placed(int id, const std::array<float, 16>& matrix);
-
-// Every mesh a prop was made of in this run, in the order first asked for, and a count that grows
-// when one is added: the front end reads them with each level's scenery, and reads the level's
-// again when the count has grown. From any thread.
-std::vector<std::filesystem::path> prop_meshes();
-unsigned prop_meshes_generation();
 
 // Render-only appearances, kept separately from game memory and scoped to one level load.
 std::vector<int> visual_classes();
@@ -318,6 +316,13 @@ MobyMaterial moby_material_drawn(std::uint32_t moby);
 // moby: the last material set on each, where it is energy. For the effects those mobys make
 // (energy_effects.h), read once a tick. From the game's thread.
 std::unordered_map<std::uint32_t, MobyMaterial> energy_materials();
+// The meshes the props of the level load now running were made of, each once, in the order first
+// asked for (empty for a level load none was made in), and a count that grows whenever the list
+// changes. The front end loads the meshes it does not hold into its scene when the count has
+// grown (no new read of the level); a level it reads reads the list's meshes with it. From any
+// thread.
+std::vector<std::filesystem::path> prop_meshes();
+unsigned prop_meshes_generation();
 
 // ---- Heat haze (interface 1.12, mod_play.cpp) ----
 

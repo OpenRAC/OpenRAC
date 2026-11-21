@@ -304,6 +304,10 @@ static void motion_frame(void) {
     openrac_pose pose;
     openrac_collision_triangle tris[2];
     openrac_prop_pose where;
+    float skin[32] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+                      1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 3, 0, 0, 1};
+    float bad[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    volatile float zero = 0.0f;
     const float lo[3] = {0.0f, 0.0f, 0.0f};
     const float hi[3] = {8.0f, 8.0f, 8.0f};
     uint32_t voice;
@@ -345,6 +349,17 @@ static void motion_frame(void) {
                 s_record(9680 + -s_api->prop_frame(s_mod, s_prop + 2, at));
             }
         }
+        /* Interface 1.29: the prop's skin (two joints: the bind pose, and 3 along x), the refusals
+         * (a prop that is not there, a value that is not a number, too many joints, no matrices),
+         * the skin taken off and put on again. */
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, skin, 2));
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop + 2, skin, 2));
+        bad[0] = 0.0f / zero;
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, bad, 1));
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, skin, OPENRAC_PROP_JOINTS_MAX + 1));
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, NULL, 2));
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, NULL, 0));
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, skin, 2));
         sound = s_api->sound_load(s_mod, "beep.wav");
         s_record(9560 + sound);
         s_record(9560 + -s_api->sound_load(s_mod, "missing.wav"));
@@ -397,6 +412,8 @@ static void motion_frame(void) {
         openrac_joint_offset joints[2];
         s_record(9500 + -s_api->hero_set_pose(s_mod, &pose));
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop, &where));
+        /* The prop went with its level, and its skin with it. */
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, skin, 2));
         /* The joints, from a mod that no longer holds the hero's update: taken all the same. */
         memset(joints, 0, sizeof joints);
         joints[0].joint = 1;

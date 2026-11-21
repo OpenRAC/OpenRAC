@@ -1556,6 +1556,38 @@ public:
         return has_api_12() && m_api->prop_remove(m_handle, id) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.29: whether the port skins props (prop_set_skin).
+    bool has_prop_skin() const {
+        return m_api->api_minor >= 29
+               && m_api->size >= offsetof(openrac_api, prop_set_skin) + sizeof(void*);
+    }
+
+    // Since 1.29: skins prop `id` with `joint_count` joint matrices of 16 floats each, column-major
+    // (see openrac_api.prop_set_skin for the one convention: joint j's matrix takes the mesh's
+    // bind-pose vertex to where the joint puts it, in the mesh's own coordinates, so the identity
+    // is the bind pose; prop_pose's matrix is applied after). Held until the next call. False for
+    // a prop that is not the mod's or went with its level, a count past OPENRAC_PROP_JOINTS_MAX, a
+    // value that is not a number, or a port without it. `joint_matrices` must hold 16 * joint_count
+    // floats: the port reads that many, and cannot check it.
+    bool prop_set_skin(int id, const float* joint_matrices, std::size_t joint_count) const {
+        return has_prop_skin() && joint_count <= OPENRAC_PROP_JOINTS_MAX
+               && m_api->prop_set_skin(
+                      m_handle, id, joint_matrices, static_cast<uint32_t>(joint_count)
+                  ) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.29: the same, with the matrices in one vector. Its size must be a whole number of
+    // joints (16 floats each); any other size is refused here, and nothing is changed.
+    bool prop_set_skin(int id, const std::vector<float>& joint_matrices) const {
+        return joint_matrices.size() % 16 == 0
+               && prop_set_skin(id, joint_matrices.data(), joint_matrices.size() / 16);
+    }
+
+    // Since 1.29: takes prop `id`'s skin off: drawn in its bind pose again.
+    bool prop_clear_skin(int id) const {
+        return has_prop_skin() && m_api->prop_set_skin(m_handle, id, nullptr, 0) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.12: a sound of the mod's (a .wav or .ogg in its folder): its id, or -1.
     int sound_load(const std::string& path) const {
         const int id = has_api_12() ? m_api->sound_load(m_handle, path.c_str()) : OPENRAC_HOOK_UNKNOWN;

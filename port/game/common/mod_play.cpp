@@ -18,6 +18,7 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -1333,6 +1334,9 @@ struct Prop {
     // Where the renderer drew it on that joint last (prop_frame), once it has.
     std::array<float, 16> placed{};
     bool was_placed = false;
+    // The joint matrices prop_set_skin gave it (interface 1.29), none for a prop drawn in its bind
+    // pose. Never changed once set, only replaced: the front end holds it while it draws.
+    std::shared_ptr<const std::vector<std::array<float, 16>>> skin;
 };
 
 // A sound a mod loaded: whose, and the host's id of it.
@@ -1343,9 +1347,16 @@ struct Sound {
 
 // The props, the meshes asked for (and their count's generation), behind a lock: the front end
 // reads them on its own thread.
+//
+// g_prop_meshes are the meshes the props of one level load were made of (g_prop_meshes_loads), each
+// once, in the order first asked for: what the front end has to hold in the scene to draw them. A
+// new level load starts the list again (its props are all gone), so a level is not read with the
+// meshes of the ones before it. g_prop_generation grows each time the list changes, for the front
+// end to look at it again only then.
 std::mutex g_props_lock;
 std::array<Prop, OPENRAC_PROPS_MAX> g_props;
 std::vector<std::filesystem::path> g_prop_meshes;
+std::uint32_t g_prop_meshes_loads = 0;
 unsigned g_prop_generation = 0;
 
 struct VisualSet {
@@ -1621,6 +1632,28 @@ int api_moby_material(
     return OPENRAC_HOOK_OK;
 }
 
+// A mesh a prop of level load `loads` is made of: the front end holds it in the scene it has. The
+// first mesh of a level load starts the list again (the last one's props are all gone, and their
+// meshes are not needed), and a mesh the load has asked for already is not added twice. Under
+// g_props_lock.
+void note_prop_mesh(std::uint32_t loads, const std::filesystem::path& mesh) {
+    if (g_prop_meshes_loads != loads) {
+        g_prop_meshes_loads = loads;
+
+        if (!g_prop_meshes.empty()) {
+            g_prop_meshes.clear();
+            ++g_prop_generation;
+        }
+    }
+
+    // A mesh no prop of this level load has asked for yet: the front end loads it into the scene
+    // it has (no new read of the level).
+    if (std::find(g_prop_meshes.begin(), g_prop_meshes.end(), mesh) == g_prop_meshes.end()) {
+        g_prop_meshes.push_back(mesh);
+        ++g_prop_generation;
+    }
+}
+
 int api_prop_create(openrac_mod* mod, const char* mesh_path) {
     std::int32_t level = -1;
     if (mod == nullptr || !in_level(phase_now(&level))) {
@@ -1637,16 +1670,26 @@ int api_prop_create(openrac_mod* mod, const char* mesh_path) {
             p = Prop{};
         }
     }
+    // A new mesh of this level load is refused past OPENRAC_PROP_MESHES_MAX, before a prop is made.
+    const bool same_load = g_prop_meshes_loads == loads;
+    const bool listed =
+        same_load
+        && std::find(g_prop_meshes.begin(), g_prop_meshes.end(), mesh) != g_prop_meshes.end();
+    if (!listed && same_load && g_prop_meshes.size() >= OPENRAC_PROP_MESHES_MAX) {
+        log::warn(
+            "mods: {} asked for prop mesh {} past the {} meshes a level load may use: not made",
+            mod_id(mod),
+            mesh.filename().string(),
+            OPENRAC_PROP_MESHES_MAX
+        );
+        return OPENRAC_HOOK_UNKNOWN;
+    }
     for (std::size_t i = 0; i < g_props.size(); ++i) {
         if (g_props[i].mod != nullptr) {
             continue;
         }
         g_props[i] = Prop{mod, mesh, loads};
-        // A mesh no level has read yet: the scenery is read again with it.
-        if (std::find(g_prop_meshes.begin(), g_prop_meshes.end(), mesh) == g_prop_meshes.end()) {
-            g_prop_meshes.push_back(mesh);
-            ++g_prop_generation;
-        }
+        note_prop_mesh(loads, mesh);
         return static_cast<int>(i);
     }
     return OPENRAC_HOOK_UNKNOWN;
@@ -1765,6 +1808,34 @@ int api_prop_frame(openrac_mod* mod, int id, float out[16]) {
     }
     const std::array<float, 16>& m = p->attached_moby != 0 ? p->placed : p->matrix;
     std::copy(m.begin(), m.end(), out);
+    return OPENRAC_HOOK_OK;
+}
+
+// Interface 1.29: the prop's joint matrices, replacing its last (none: its bind pose). All of them or
+// none: a value that is not a number, or too many joints, leaves the skin as it was.
+int api_prop_set_skin(
+    openrac_mod* mod, int id, const float* joint_matrices, std::uint32_t joint_count
+) {
+    if (joint_count > OPENRAC_PROP_JOINTS_MAX || (joint_count > 0 && joint_matrices == nullptr)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::shared_ptr<std::vector<std::array<float, 16>>> skin;
+    if (joint_count > 0) {
+        const std::size_t count = static_cast<std::size_t>(joint_count);
+        for (std::size_t i = 0; i < count * 16; ++i) {
+            if (!std::isfinite(joint_matrices[i])) {
+                return OPENRAC_HOOK_UNKNOWN;
+            }
+        }
+        skin = std::make_shared<std::vector<std::array<float, 16>>>(count);
+        std::memcpy(skin->data(), joint_matrices, count * sizeof(std::array<float, 16>));
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    p->skin = std::move(skin);
     return OPENRAC_HOOK_OK;
 }
 
@@ -2186,6 +2257,7 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.prop_frame = api_prop_frame;
     api.prop_hide = api_prop_hide;
     api.prop_remove = api_prop_remove;
+    api.prop_set_skin = api_prop_set_skin;
     api.sound_load = api_sound_load;
     api.sound_play = api_sound_play;
     api.sound_set = api_sound_set;
@@ -2244,7 +2316,8 @@ std::vector<PropDraw> props_drawn() {
                  p.tint,
                  p.blend,
                  p.attached_moby,
-                 p.attached_joint}
+                 p.attached_joint,
+                 p.skin}
             );
         }
     }
@@ -2265,7 +2338,9 @@ void prop_placed(int id, const std::array<float, 16>& matrix) {
 
 std::vector<std::filesystem::path> prop_meshes() {
     const std::lock_guard<std::mutex> lock(g_props_lock);
-    return g_prop_meshes;
+    // The list of a level load that is over is not the next one's.
+    return g_prop_meshes_loads == loads_now() ? g_prop_meshes
+                                              : std::vector<std::filesystem::path>{};
 }
 
 std::uint32_t sprite_tint() {
@@ -2483,6 +2558,11 @@ void reset_play() {
         g_visual_classes.clear();
         ++g_visual_generation;
         g_materials.clear();
+        // No prop is left to need its mesh; the scene lets it go with its level.
+        if (!g_prop_meshes.empty()) {
+            g_prop_meshes.clear();
+            ++g_prop_generation;
+        }
     }
     {
         const std::lock_guard<std::mutex> lock(g_haze_lock);

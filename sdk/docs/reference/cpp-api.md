@@ -270,6 +270,10 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool prop_pose(int id, const float matrix[16], const float tint[4], uint32_t blend) const` | Since 1.12: places prop `id` by a matrix, its colour times `tint` (RGBA) and drawn as `blend` says (OPENRAC_PROP_OPAQUE, _ALPHA or _ADD): a glow or a spark. |
 | `bool prop_hide(int id, bool hidden = true) const` | Since 1.12: hides prop `id` or shows it again; takes it out of the level. |
 | `bool prop_remove(int id) const` |  |
+| `bool has_prop_skin() const` | Since 1.29: whether the port skins props (prop_set_skin). |
+| `bool prop_set_skin(int id, const float* joint_matrices, std::size_t joint_count) const` | Since 1.29: skins prop `id` with `joint_count` joint matrices of 16 floats each, column-major (see openrac_api.prop_set_skin for the one convention: joint j's matrix takes the mesh's bind-pose vertex to where the joint puts it, in the mesh's own coordinates, so the identity is the bind pose; prop_pose's matrix is applied after). Held until the next call. False for a prop that is not the mod's or went with its level, a count past OPENRAC_PROP_JOINTS_MAX, a value that is not a number, or a port without it. `joint_matrices` must hold 16 * joint_count floats: the port reads that many, and cannot check it. |
+| `bool prop_set_skin(int id, const std::vector<float>& joint_matrices) const` | Since 1.29: the same, with the matrices in one vector. Its size must be a whole number of joints (16 floats each); any other size is refused here, and nothing is changed. |
+| `bool prop_clear_skin(int id) const` | Since 1.29: takes prop `id`'s skin off: drawn in its bind pose again. |
 | `int sound_load(const std::string& path) const` | Since 1.12: a sound of the mod's (a .wav or .ogg in its folder): its id, or -1. |
 | `std::uint32_t sound_play(int sound, float volume = 1.0f, float pitch = 1.0f, bool loop = false) const` | Since 1.12: plays sound `sound` at the game's sound volume: its voice, 0 for none. |
 | `bool sound_set(std::uint32_t voice, float volume, float pitch) const` | Since 1.12: a voice's volume and pitch (false once it has ended); stops a voice. |

@@ -807,6 +807,7 @@ void use_world(std::span<const std::uint8_t> ram, int level) {
     // that one's mobys there, not a flight world's (the game draws no other layer).
     const int loading = world == -2 ? g->render.profile->loading_world() : -1;
     use_level(loading >= 0 ? loading : world);
+    load_prop_meshes();
     if (next_level >= 0) {
         preload_level(next_level);
     }
@@ -2540,11 +2541,28 @@ TickMobys pose_mobys(
             instance.moby_light = {0.0f, 0.0f, 0.0f, 1.0f};
             instance.occlusion = scene::Pvs::always;
             instance.blend = props[i].blend;
+            // A skin the mod gave it (interface 1.29): the mesh's joints, one matrix each in the
+            // scene's palette, in the mesh's own coordinates as mesh.vert applies them, a joint the
+            // mod left out as it is stored (identity). A mesh with no skin takes none.
+            int joints = 0;
+            if (props[i].skin && model->second < g->render.level.models.size()) {
+                joints = g->render.level.models[model->second].joints;
+            }
+            if (joints > 0) {
+                instance.palette = static_cast<int>(palette.size());
+                const auto& skin = *props[i].skin;
+                const scene::LevelScene::JointColumns stored{
+                    1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
+                };
+                for (std::size_t j = 0; j < static_cast<std::size_t>(joints); ++j) {
+                    palette.push_back(j < skin.size() ? skin[j] : stored);
+                }
+            }
             if (instance.blend != 0) {
                 // A glow or a spark: drawn with the mobys' blended groups, no shadow.
                 live.push_back(instance);
                 live_addresses.push_back(0xFFFFFF00u + static_cast<std::uint32_t>(props[i].id));
-                live_joints.push_back(0);
+                live_joints.push_back(joints);
                 continue;
             }
             // A prop casts the hero's kind of shadow (a board under his feet goes with his): in the
@@ -2591,7 +2609,7 @@ TickMobys pose_mobys(
             }
             live.push_back(instance);
             live_addresses.push_back(0xFFFFFF00u + static_cast<std::uint32_t>(props[i].id));
-            live_joints.push_back(0);
+            live_joints.push_back(joints);
         }
     }
     // The poses: each a pure function of the game's memory, evaluated in parallel (the costliest
