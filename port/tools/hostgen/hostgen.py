@@ -1334,6 +1334,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
         read_split_places(args.game.parent / cfg["split_places"], program)
     if cfg.get("call_copies"):
         read_call_copies(args.game.parent / cfg["call_copies"], program)
+    program.call_copies_same_shape = cfg.get("call_copies_same_shape", False)
     if cfg.get("data_copies"):
         program.data_copies = {(row[0], int(row[1], 16)) for row in (
             line.split("\t") for line in (args.game.parent / cfg["data_copies"]).read_text().splitlines()

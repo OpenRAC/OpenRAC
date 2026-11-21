@@ -1244,11 +1244,13 @@ def read_call_copies(path: Path, program: Program) -> int:
     """The calls that differ between the places of a folded function (call_copies.tsv, written by
     copycalls.py): (caller, callee) -> (home, canon, size, own, exe)."""
     program.call_copies = {}
+    program.call_copy_callees = {}
     for line in path.read_text().splitlines():
         if line.startswith("#") or not line.strip():
             continue
         caller, callee, home, canon, size, own, exe = line.split("\t")
         row = (int(home), int(canon, 16), int(size), int(own, 16), int(exe, 16))
+        program.call_copy_callees.setdefault(caller, []).append(callee)
         program.call_copies[(caller, callee)] = row
         program.call_copies[(caller, row[0], row[3])] = row
         if row[4]:
@@ -1276,7 +1278,46 @@ def call_copy(program: Program, caller: str | None, callee: str, exe_target: int
                 break
     if row is None and exe_target is not None:
         row = rows.get((caller, "exe", exe_target))
+    # C names its arguments; an assembly translation (exe_target given) hands every register on.
+    if row is not None and exe_target is None and getattr(program, "call_copies_same_shape", False) \
+            and not _copies_fit(program, caller, callee):
+        return None
     return row
+
+
+def _shape(program: Program, name: str) -> tuple[int, int, str] | None:
+    """A function's argument registers as the EE hands them on: its integer and float parameters'
+    counts, and its result's kind (void, float or int), or None when the program has no type for it."""
+    f = program.functions.get(name)
+    if f is None or f.sig.variadic or not f.sig.prototyped:
+        return None
+    kinds = [canon(p, program.typedefs) for p in f.sig.params]
+    if None in kinds:
+        return None
+    floats = sum(k in ("float", "double") for k in kinds)
+    ret = canon(f.sig.ret, program.typedefs)
+    return len(kinds) - floats, floats, "void" if ret == "void" else "float" if ret in ("float", "double") else "int"
+
+
+def _copies_fit(program: Program, caller: str, callee: str) -> bool:
+    """hostgen.json "call_copies_same_shape": a call reaches its running copy's own callee only
+    where every function the copies call there reads no argument register the named callee's call
+    leaves unset, and gives its result where the named one does. Up Your Arsenal's particle wrappers
+    (func_L01_00447470 takes two floats fewer than its copies' func_L01_00451FB8) would read the
+    caller's leftover float registers, which the C does not have; such a call keeps its named
+    callee."""
+    own = _shape(program, callee)
+    if own is None:
+        return False
+    for other in program.call_copy_callees.get(caller, []):
+        if other == callee:
+            continue
+        shape = _shape(program, other)
+        if shape is None or shape[0] > own[0] or shape[1] > own[1]:
+            return False
+        if own[2] != "void" and shape[2] != own[2]:
+            return False
+    return True
 
 
 def call_copy_expr(row: tuple[int, int, int, int, int]) -> str:

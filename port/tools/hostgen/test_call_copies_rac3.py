@@ -16,6 +16,8 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import call_copies_rac3  # noqa: E402
+import ctype  # noqa: E402
+from program import Function, Program, Signature, call_copy  # noqa: E402
 
 NOP, JR_RA = 0, 0x03E00008
 
@@ -77,6 +79,36 @@ class CallCopiesTest(unittest.TestCase):
         self.assertNotIn("func_003D1B68", callers)
         self.assertNotIn("func_L01_004127C0", callers)
         self.assertNotIn("func_L03_00000010", callers)
+
+
+class SameShapeTest(unittest.TestCase):
+    """hostgen.json "call_copies_same_shape": a C call reaches its copy's own callee only where that
+    callee reads no register the named callee's call leaves unset."""
+
+    def program(self) -> Program:
+        program = Program()
+        for name, sig in (("func_maker", "void (void *, void *, int, int)"),
+                          ("func_maker30", "int (int, int, int, int)"),
+                          ("func_spawn", "int (int, int, float, int, int)"),
+                          ("func_spawn3", "void (int, int, int, int, float, float)")):
+            program.functions[name] = Function(name, Signature.of(ctype.parse(sig)))
+        program.call_copies = {}
+        program.call_copy_callees = {}
+        for caller, callee in (("func_tick", "func_maker"), ("func_tick", "func_maker30"),
+                               ("func_update", "func_spawn"), ("func_update", "func_spawn3")):
+            program.call_copies[(caller, callee)] = (3, 0x1000, 80, 0x1100, 0)
+            program.call_copy_callees.setdefault(caller, []).append(callee)
+        program.call_copies_same_shape = True
+        return program
+
+    def test_a_callee_of_the_same_registers_is_the_copys(self):
+        self.assertIsNotNone(call_copy(self.program(), "func_tick", "func_maker"))
+
+    def test_a_callee_reading_more_floats_keeps_the_named_one(self):
+        self.assertIsNone(call_copy(self.program(), "func_update", "func_spawn"))
+
+    def test_assembly_translations_hand_every_register_on(self):
+        self.assertIsNotNone(call_copy(self.program(), "func_update", "func_spawn", exe_target=0x1100))
 
 
 if __name__ == "__main__":
