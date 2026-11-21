@@ -114,7 +114,7 @@ describe("Android launcher", () => {
   it("shows Mods for the picked game, without the level editor", async () => {
     await open("page=mods&version=rac1/pal");
     await expect(page.locator(".game .name").textContent()).resolves.toBe("Ratchet & Clank");
-    expect(await page.getByRole("tab", { name: /Level editor/ }).count()).toBe(0);
+    expect(await page.getByRole("tab", { name: /Level extractor/ }).count()).toBe(0);
   });
 
   it("brings the game page in whole, its band not popping in after it", async () => {

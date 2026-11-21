@@ -4,7 +4,7 @@
   // with its mods from the game's page: the Mods switch under Play). Then its tabs, so that each of the player's jobs has a place of
   // its own that can be seen from the top: My mods (AddMod: a link, a file or a folder; the
   // gameplay mods, PluginsPanel; the packs, PacksPanel, the player's own texture pack first; with
-  // many, ModsToolbar finds, filters by kind and sorts), Level editor (open a level in Godot, pack
+  // many, ModsToolbar finds, filters by kind and sorts), Level editor (open a level in OpenRAC Editor, pack
   // the changes), Models and textures (AssetsPanel, and the texture pack's steps) and, for a game whose sound can be changed, Audio (AudioPanel). A game the editor cannot open but that plays has My mods alone; one the editor
   // cannot open yet says so, and where to follow it. A game it reads in early access (Going
   // Commando, Up Your Arsenal, Deadlocked: no pack or play action of theirs yet) says so in a line.
@@ -13,7 +13,7 @@
   // under the lists. The words are lib/modsText.ts's. The disc image is never changed.
   // The version is the one the game page plays (playerVersion: the player's own disc), so every
   // disc goes the same way and no region is named; packs are shared by the discs
-  // (editor/overrides.py stacks them for the one played). With developer tools on: the version,
+  // (extractor/overrides.py stacks them for the one played). With developer tools on: the version,
   // its folders, and the command behind each step under a "Show command" toggle.
   import { onMount, tick, untrack } from "svelte";
   import { fade, fly } from "svelte/transition";
@@ -37,7 +37,7 @@
   import { app, guardShown, jobs, run } from "$lib/app.svelte";
   import { changeSet } from "$lib/deepLink.svelte";
   import type { EntryState } from "$lib/labels";
-  import { SITE_URL } from "$lib/links";
+  import { EDITOR_DOCS_URL, SITE_URL } from "$lib/links";
   import { followHistory, modFromAddress, modNav, openMod, resetMod } from "$lib/modNav.svelte";
   import { EDITOR, GAME_LIST, PAGE } from "$lib/modsText";
   import { resetView } from "$lib/modsView.svelte";
@@ -53,12 +53,14 @@
   const action = (v: VersionView, id: string): ActionView | null =>
     v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
 
-  /** The version of a game the player modifies, the one its page plays, if the level editor can open it. */
+  /** The version of a game the player modifies, the one its page plays, if its levels can be read
+   *  for packs (its models and textures export). The level editor's own steps come with OpenRAC
+   *  Editor, once it is downloaded (core/src/editor_install.rs). */
   function editable(game: GameView): VersionView | null {
     const v = playerVersion(game);
-    const extract = v ? action(v, "editor-extract") : null;
+    const exported = v ? action(v, "assets-export") : null;
 
-    return v && extract && extract.state !== "planned" ? v : null;
+    return v && exported && exported.state !== "planned" ? v : null;
   }
 
   const standalone = $derived(app.info?.standalone ?? false);
@@ -95,9 +97,10 @@
     );
   const running = (v: VersionView, ids: string[]) => jobsOf(v, ids).find(live) ?? null;
 
-  /** The editor reads the game's levels, but they are not packed back (the version has no editor-pack).
-   *  Early access where the game is not playable yet either; a game that plays is not marked so. */
-  const early = (v: VersionView) => !action(v, "editor-pack");
+  /** Early access: the game's levels are read, but edits are not packed back into it (no Play
+   *  with edits; with OpenRAC Editor downloaded, no editor-pack). */
+  const early = (v: VersionView) =>
+    !action(v, "play-edited") || (!!action(v, "editor-extract") && !action(v, "editor-pack"));
   const playable = (v: VersionView) => {
     const play = action(v, "play");
 
@@ -301,7 +304,7 @@
                player's own texture pack first, with its steps folded under them. Then adding one,
                from a link or a .zip the system's picker copies in. Where mods come from is said
                first (GetMods): the launcher lists none itself. No level editor or model export:
-               they need Godot and a desktop. -->
+               they need OpenRAC Editor and a desktop. -->
           {#if !onModPage}<GetMods /><ModsToolbar />{/if}
           <PluginsPanel
             version={mine}
@@ -436,7 +439,9 @@
                   version={v}
                   {reload}
                   onchange={() => reload++}
-                  commands={[`python3 editor/overrides.py add <pack.zip> --into <data>/overrides`]}
+                  commands={[
+                    `python3 extractor/overrides.py add <pack.zip> --into <data>/overrides`,
+                  ]}
                   textures={textured(shown, v)}
                   onmake={() => {
                     makeTextures(true);
@@ -495,11 +500,11 @@
                 lines={[
                   ...(current === "editor"
                     ? [
-                        `python3 editor/extract.py godot <disc.iso> ${dirs.projects} --split`,
-                        `python3 editor/extract.py pack <disc.iso> ${dirs.projects} ${dirs.packed}`,
+                        `python3 <OpenRAC Editor>/openrac/tools/openrac_editor.py godot <disc.iso> ${dirs.projects} --split`,
+                        `python3 <OpenRAC Editor>/openrac/tools/openrac_editor.py pack <disc.iso> ${dirs.projects} ${dirs.packed}`,
                       ]
                     : []),
-                  `python3 editor/overrides.py stack --into <data>/overrides --out <data>/mods/${v.name} --packed ${dirs.packed} --levels ${dirs.levels}`,
+                  `python3 extractor/overrides.py stack --into <data>/overrides --out <data>/mods/${v.name} --packed ${dirs.packed} --levels ${dirs.levels}`,
                   `openrac-${v.key.replace("/", "-")} --data <data> --levels ${dirs.levels} --mods <data>/mods/${v.name}`,
                 ]}
               />
@@ -510,9 +515,7 @@
                 <button class="small" onclick={() => void openFolder(v, dirs.packed)}
                   ><Icon name="folder" size={14} />{EDITOR.packedFolder}</button
                 >
-                <button
-                  class="small"
-                  onclick={() => void guardShown(api.openPath("editor/README.md"))}
+                <button class="small" onclick={() => void guardShown(api.openUrl(EDITOR_DOCS_URL))}
                   ><Icon name="book" size={14} />{EDITOR.docs}</button
                 >
               </div>

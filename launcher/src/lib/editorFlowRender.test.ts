@@ -50,7 +50,7 @@ function failedPack(...lines: string[]): Job {
     title: "Pack your edited levels",
     state: "failed",
     id: 3,
-    command: "python3 editor/extract.py pack …",
+    command: "python3 extractor/extract.py pack …",
     lines: lines.map((line) => ({ stream: "stderr" as const, line })),
     code: 1,
     queuedAt: 1,

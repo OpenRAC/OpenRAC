@@ -9,6 +9,7 @@
 #include <limits>
 #include <mutex>
 #include <optional>
+#include <unordered_map>
 
 namespace openrac::scene {
 
@@ -21,8 +22,8 @@ constexpr std::size_t kMaxJoints = 0x70;
 
 // set_extra_joint_modifiers: the moby and its modifiers.
 std::mutex g_extra_lock;
-std::uint32_t g_extra_moby = 0;
-std::vector<rac1::JointModifier> g_extra_mods;
+// Each moby's own joint modifiers of the port's (set_extra_joint_modifiers), by its address.
+std::unordered_map<std::uint32_t, std::vector<rac1::JointModifier>> g_extra_mods;
 
 std::uint32_t ram_address(std::uint32_t address, std::size_t size) {
     constexpr std::uint32_t uncached = 0x20000000u;
@@ -39,9 +40,26 @@ std::uint32_t ram_address(std::uint32_t address, std::size_t size) {
     return address & 0x01FFFFFFu;
 }
 
+// The class region past RAM (set_moby_class_region).
+std::span<const std::uint8_t> g_region;
+std::uint32_t g_region_at = 0;
+
+// Where in the class region `bytes` at `address` are, or nullptr.
+const std::uint8_t* in_region(std::uint32_t address, std::size_t bytes) {
+    if (g_region.empty() || address < g_region_at || address - g_region_at > g_region.size()
+        || bytes > g_region.size() - (address - g_region_at)) {
+        return nullptr;
+    }
+    return g_region.data() + (address - g_region_at);
+}
+
 template <typename T>
 T at(std::span<const std::uint8_t> ram, std::uint32_t address) {
     T value{};
+    if (const std::uint8_t* there = in_region(address, sizeof(T))) {
+        std::memcpy(&value, there, sizeof(T));
+        return value;
+    }
     address = ram_address(address, ram.size());
     if (address + sizeof(T) <= ram.size()) {
         std::memcpy(&value, ram.data() + address, sizeof(T));
@@ -50,6 +68,9 @@ T at(std::span<const std::uint8_t> ram, std::uint32_t address) {
 }
 
 bool inside(std::span<const std::uint8_t> ram, std::uint32_t address, std::size_t bytes) {
+    if (in_region(address, bytes) != nullptr) {
+        return true;
+    }
     address = ram_address(address, ram.size());
     return address != 0 && address + bytes <= ram.size();
 }
@@ -64,7 +85,9 @@ std::optional<rac1::MobyFrame> key_at(
     }
     try {
         rac1::MobyFrame f =
-            rac1::parse_frame(assets::ByteView(ram), ram_address(address, ram.size()));
+            in_region(address, 0x10) != nullptr
+                ? rac1::parse_frame(assets::ByteView(g_region), address - g_region_at)
+                : rac1::parse_frame(assets::ByteView(ram), ram_address(address, ram.size()));
         if (f.header.quat_bytes == 0 || f.header.quat_bytes > 8 * kMaxJoints || joints == 0) {
             return std::nullopt;
         }
@@ -95,6 +118,11 @@ void set_moby_anim_fields(std::uint32_t first) {
 
 void set_moby_layer_records(bool records) {
     g_layer_records = records;
+}
+
+void set_moby_class_region(std::span<const std::uint8_t> bytes, std::uint32_t address) {
+    g_region = bytes;
+    g_region_at = address;
 }
 
 std::vector<rac1::JointMatrix> moby_palette(std::span<const std::uint8_t> ram, std::uint32_t moby) {
@@ -333,8 +361,9 @@ std::vector<rac1::JointMatrix> evaluate_moby(
     }
     {
         const std::lock_guard<std::mutex> lock(g_extra_lock);
-        if (g_extra_moby != 0 && g_extra_moby == moby) {
-            mods.insert(mods.end(), g_extra_mods.begin(), g_extra_mods.end());
+        const auto extra = g_extra_mods.find(moby);
+        if (extra != g_extra_mods.end()) {
+            mods.insert(mods.end(), extra->second.begin(), extra->second.end());
         }
     }
     return rac1::evaluate_keys(anim, &*a, b ? &*b : nullptr, t, plain, mods, layers);
@@ -344,16 +373,22 @@ std::vector<rac1::JointMatrix> evaluate_moby(
 
 void set_extra_joint_modifiers(std::uint32_t moby, std::vector<rac1::JointModifier> mods) {
     const std::lock_guard<std::mutex> lock(g_extra_lock);
-    g_extra_moby = mods.empty() ? 0 : moby;
-    g_extra_mods = std::move(mods);
+    if (moby == 0) {
+        g_extra_mods.clear();
+    } else if (mods.empty()) {
+        g_extra_mods.erase(moby);
+    } else {
+        g_extra_mods[moby] = std::move(mods);
+    }
 }
 
 std::vector<rac1::JointModifier> extra_joint_modifiers(std::uint32_t moby) {
     const std::lock_guard<std::mutex> lock(g_extra_lock);
-    if (moby == 0 || g_extra_moby != moby) {
+    const auto extra = g_extra_mods.find(moby);
+    if (moby == 0 || extra == g_extra_mods.end()) {
         return {};
     }
-    return g_extra_mods;
+    return extra->second;
 }
 
 }  // namespace openrac::scene

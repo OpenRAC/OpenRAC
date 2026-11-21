@@ -35,6 +35,17 @@ gaddr rac1_ship_destination_text(int id);
 #define RAC1_NAME_(f) #f
 #define RAC1_NAME(f) RAC1_NAME_(f)
 
+/* foreign_class.c: the moby classes this level imports from other levels' programs (its
+ * classes.tsv), read as its program loads; the stand-in update of one (0: not imported). */
+void rac1_foreign_classes_load(int level);
+/* The imported classes' tables of their own levels, after the level's loader (foreign_class.c). */
+void rac1_foreign_worlds_load(void);
+int rac1_foreign_host_world_enter(gaddr moby);
+void rac1_foreign_host_world_leave(int world);
+gaddr rac1_foreign_class_update(int oclass);
+/* How many classes this level imports (0 on a level that imports none). */
+int rac1_foreign_class_count(void);
+
 /* boot.c: a new game straight in `level` from the title, as --level N with OPENRAC_DIRECT. */
 void rac1_start_level(int level);
 
@@ -148,6 +159,7 @@ int32_t rac1_world_moby_slot(int32_t key);
 /* A placed moby's key, -1 for a spawned one. */
 int32_t rac1_world_moby_key(gaddr moby);
 int32_t rac1_world_moby_mission(int32_t slot);
+int32_t rac1_world_moby_uid(int32_t slot);
 gaddr rac1_world_moby_at(int32_t slot);
 void rac1_world_moby_kill(gaddr moby);
 /* CreateMoby (func_0020D348) of a moby of the level's, also while the pause menu's mobys are the

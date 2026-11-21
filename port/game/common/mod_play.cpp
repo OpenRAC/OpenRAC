@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <cmath>
 #include <cstddef>
@@ -19,6 +20,7 @@
 #include <limits>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -480,6 +482,10 @@ int api_moby_list(openrac_moby* out, int max) {
         }
     }
     return n;
+}
+
+int api_moby_uid(int slot) {
+    return g_play != nullptr && g_play->moby_uid != nullptr ? g_play->moby_uid(slot) : -1;
 }
 
 int api_moby_slot(int key) {
@@ -1308,6 +1314,9 @@ struct Prop {
     // Where the renderer drew it on that joint last (prop_frame), once it has.
     std::array<float, 16> placed{};
     bool was_placed = false;
+    int animation = -1;  // prop_animate's: its .glb's animation, the time into it, looped
+    float seconds = 0.0f;
+    bool loop = false;
 };
 
 // A sound a mod loaded: whose, and the host's id of it.
@@ -1362,23 +1371,125 @@ int (*g_sound_set)(std::uint32_t, float, float) = nullptr;
 void (*g_sound_stop)(std::uint32_t) = nullptr;
 void (*g_joint_offsets)(std::uint32_t, const openrac_joint_offset*, int) = nullptr;
 
-// The hero's joint offsets each mod set (hero_set_joints), in the order the mods first set theirs:
-// all of them go to the hero together, each mod's composed after the ones before it, so two mods
-// that turn his joints do not undo each other.
+// The joint offsets each mod set on a moby (hero_set_joints for the hero, moby_set_joints for any
+// other), in the order the mods first set theirs: all of a moby's go to it together, each mod's
+// composed after the ones before it, so two mods that turn its joints do not undo each other.
 struct JointSet {
     const openrac_mod* mod = nullptr;
+    std::uint32_t moby = 0;
+    std::uint32_t loads = 0;  // the level load it was set in
     std::vector<openrac_joint_offset> joints;
 };
 
 std::vector<JointSet> g_joint_sets;
 
-// Hands every mod's joint offsets to the hero at `moby` (none: his own animation alone).
+// Hands every mod's joint offsets to the moby at `moby` (none: its own animation alone).
 void apply_joint_sets(std::uint32_t moby) {
     std::vector<openrac_joint_offset> all;
     for (const JointSet& s : g_joint_sets) {
-        all.insert(all.end(), s.joints.begin(), s.joints.end());
+        if (s.moby == moby) {
+            all.insert(all.end(), s.joints.begin(), s.joints.end());
+        }
     }
     g_joint_offsets(moby, all.empty() ? nullptr : all.data(), static_cast<int>(all.size()));
+}
+
+std::uint32_t loads_now();
+
+// Offsets of an earlier level's mobies (not the hero's) are gone with that level: the address
+// may hold another moby now. Run each frame (play_update) and before each set.
+void drop_stale_joint_sets() {
+    if (g_joint_sets.empty() || g_joint_offsets == nullptr) {
+        return;
+    }
+    const std::uint32_t loads = loads_now();
+    const std::uint32_t hero =
+        g_play != nullptr && g_play->hero_moby != nullptr ? g_play->hero_moby() : 0;
+    if (hero == 0) {
+        return;  // still loading: the hero's own offsets are kept for the next level
+    }
+    std::vector<std::uint32_t> stale;
+    std::erase_if(g_joint_sets, [&](const JointSet& s) {
+        if (s.loads == loads || s.moby == hero) {
+            return false;
+        }
+        if (std::find(stale.begin(), stale.end(), s.moby) == stale.end()) {
+            stale.push_back(s.moby);
+        }
+        return true;
+    });
+    for (const std::uint32_t old : stale) {
+        apply_joint_sets(old);
+    }
+}
+
+// One mod's offsets on one moby set (count 0: taken off), and all of that moby's handed to it:
+// OPENRAC_HOOK_UNKNOWN, with the mod's last ones kept, past OPENRAC_JOINT_OFFSETS_MAX in all.
+int set_joint_set(
+    const openrac_mod* mod, std::uint32_t moby, const openrac_joint_offset* joints, int count
+) {
+    drop_stale_joint_sets();
+    const std::uint32_t loads = loads_now();
+    auto it = std::find_if(g_joint_sets.begin(), g_joint_sets.end(), [&](const JointSet& s) {
+        return s.mod == mod && s.moby == moby;
+    });
+    std::size_t others = 0;
+    for (const JointSet& s : g_joint_sets) {
+        if (s.moby == moby && s.mod != mod) {
+            others += s.joints.size();
+        }
+    }
+    if (others + static_cast<std::size_t>(count) > OPENRAC_JOINT_OFFSETS_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (count == 0) {
+        if (it != g_joint_sets.end()) {
+            g_joint_sets.erase(it);
+        }
+    } else {
+        if (it == g_joint_sets.end()) {
+            it = g_joint_sets.insert(g_joint_sets.end(), JointSet{mod, moby, loads, {}});
+        }
+        it->loads = loads;
+        it->joints.assign(joints, joints + count);
+    }
+    apply_joint_sets(moby);
+    return OPENRAC_HOOK_OK;
+}
+
+// A mod's camera's field of view (camera_fov): degrees (0 the game's) and the level load it was
+// set in, read by the window's thread.
+std::atomic<float> g_camera_fov{0.0f};
+std::atomic<std::uint32_t> g_camera_fov_loads{0};
+
+// The mods that hide the game's HUD (hud_hide), each with its level load, behind g_hud_lock.
+std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_hud_hidden;
+
+// Each mod's gain on the game's music (music_volume) and the level load it was set in: the
+// quietest of this load's applies.
+struct MusicGain {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    float gain = 1.0f;
+};
+
+std::vector<MusicGain> g_music_gains;
+void (*g_music_gain)(int, float) = nullptr;
+int (*g_joint_frame)(std::uint32_t, int, float*) = nullptr;
+
+void apply_music_gain() {
+    if (g_music_gain == nullptr || g_play == nullptr || g_play->music_group == nullptr) {
+        return;
+    }
+    const int group = g_play->music_group();
+    if (group < 0) {
+        return;
+    }
+    float gain = 1.0f;
+    for (const MusicGain& g : g_music_gains) {
+        gain = std::min(gain, g.gain);
+    }
+    g_music_gain(group, gain);
 }
 
 // The mod holding the game's camera (camera_set), and the heat haze patches each mod drew, of a
@@ -1432,30 +1543,99 @@ int api_hero_set_joints(openrac_mod* mod, const openrac_joint_offset* joints, in
     if (moby == 0) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    auto it = std::find_if(g_joint_sets.begin(), g_joint_sets.end(), [&](const JointSet& s) {
-        return s.mod == mod;
-    });
-    if (count == 0) {
-        if (it != g_joint_sets.end()) {
-            g_joint_sets.erase(it);
-        }
-    } else {
-        if (it == g_joint_sets.end()) {
-            it = g_joint_sets.insert(g_joint_sets.end(), JointSet{mod, {}});
-        }
-        it->joints.assign(joints, joints + count);
-    }
-    std::size_t total = 0;
-    for (const JointSet& s : g_joint_sets) {
-        total += s.joints.size();
-    }
-    if (total > OPENRAC_JOINT_OFFSETS_MAX) {
-        // More than the hero takes in all: this mod's last call is undone.
-        std::erase_if(g_joint_sets, [&](const JointSet& s) { return s.mod == mod; });
-        apply_joint_sets(moby);
+    return set_joint_set(mod, moby, joints, count);
+}
+
+int api_moby_set_joints(openrac_mod* mod, int slot, const openrac_joint_offset* joints, int count) {
+    std::int32_t level = -1;
+    if (mod == nullptr || g_play == nullptr || g_joint_offsets == nullptr || count < 0
+        || count > OPENRAC_JOINT_OFFSETS_MAX || (count > 0 && joints == nullptr)
+        || !in_level(phase_now(&level))) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    apply_joint_sets(moby);
+    const gaddr moby = moby_address(slot);
+    if (moby == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return set_joint_set(mod, moby, joints, count);
+}
+
+// moby_set_joints with each joint's pose set, not composed: its number carries kJointPoseSet, which
+// the host's joint_offsets reads (mods.h).
+int api_moby_set_joint_poses(
+    openrac_mod* mod, int slot, const openrac_joint_offset* joints, int count
+) {
+    if (count < 0 || count > OPENRAC_JOINT_OFFSETS_MAX || (count > 0 && joints == nullptr)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::vector<openrac_joint_offset> set(joints, joints + count);
+    for (openrac_joint_offset& j : set) {
+        if (j.joint >= kJointPoseSet) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        j.joint |= kJointPoseSet;
+    }
+    return api_moby_set_joints(mod, slot, set.data(), count);
+}
+
+int api_moby_joint_frame(int slot, int joint, float out[12]) {
+    const gaddr moby = moby_address(slot);
+    if (out == nullptr || moby == 0 || joint < 0 || g_joint_frame == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_joint_frame(moby, joint, out) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_moby_joint_position(int slot, int joint, float out[3]) {
+    float frame[12];
+    if (out == nullptr || api_moby_joint_frame(slot, joint, frame) != OPENRAC_HOOK_OK) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::copy(frame + 9, frame + 12, out);
+    return OPENRAC_HOOK_OK;
+}
+
+void release_camera_fov() {
+    g_camera_fov.store(0.0f, std::memory_order_relaxed);
+}
+
+int api_camera_fov(openrac_mod* mod, float degrees) {
+    if (mod == nullptr || g_camera_mod != mod || g_camera_loads != loads_now()
+        || !std::isfinite(degrees) || (degrees != 0.0f && (degrees < 1.0f || degrees > 150.0f))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_camera_fov_loads.store(loads_now(), std::memory_order_relaxed);
+    g_camera_fov.store(degrees, std::memory_order_relaxed);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_hud_hide(openrac_mod* mod, int hidden) {
+    if (mod == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_hud_lock);
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_hud_hidden, [&](const auto& h) { return h.first == mod || h.second != loads; });
+    if (hidden != 0) {
+        g_hud_hidden.emplace_back(mod, loads);
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_music_volume(openrac_mod* mod, float gain) {
+    if (mod == nullptr || !std::isfinite(gain) || gain < 0.0f || gain > 1.0f
+        || g_music_gain == nullptr || g_play == nullptr || g_play->music_group == nullptr
+        || g_play->music_group() < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_music_gains, [&](const MusicGain& g) {
+        return g.mod == mod || g.loads != loads;
+    });
+    if (gain < 1.0f) {
+        g_music_gains.push_back({mod, loads, gain});
+    }
+    apply_music_gain();
     return OPENRAC_HOOK_OK;
 }
 
@@ -1743,6 +1923,21 @@ int api_prop_frame(openrac_mod* mod, int id, float out[16]) {
     return OPENRAC_HOOK_OK;
 }
 
+int api_prop_animate(openrac_mod* mod, int id, int animation, float seconds, int loop) {
+    if (!std::isfinite(seconds)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    p->animation = std::max(animation, -1);
+    p->seconds = seconds;
+    p->loop = loop != 0;
+    return OPENRAC_HOOK_OK;
+}
+
 int api_prop_hide(openrac_mod* mod, int id, int hidden) {
     const std::lock_guard<std::mutex> lock(g_props_lock);
     Prop* p = own_prop(mod, id);
@@ -1791,6 +1986,7 @@ int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
     }
     if (g_camera_mod != nullptr && g_camera_loads != loads_now()) {
         g_camera_mod = nullptr;  // its level went, and the camera with it
+        release_camera_fov();
     }
     if (g_camera_mod != nullptr && g_camera_mod != mod) {
         return OPENRAC_HOOK_TAKEN;
@@ -1799,6 +1995,7 @@ int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
         if (g_camera_mod == mod) {
             g_play->camera_set(nullptr, nullptr);
             g_camera_mod = nullptr;
+            release_camera_fov();
         }
         return OPENRAC_HOOK_OK;
     }
@@ -1891,11 +2088,13 @@ int api_hud_text_set(openrac_mod* mod, const openrac_hud_text* lines, int count)
     return OPENRAC_HOOK_OK;
 }
 
-// The hero's looping sounds each mod started (hero_sound_play), stopped with the mod.
+// The looping sounds each mod started on the hero (hero_sound_play, moby 0) or another moby
+// (moby_sound_play), stopped with the mod.
 struct HeroVoice {
     openrac_mod* mod;
     std::uint32_t loads;
     int voice;
+    gaddr moby = 0;
 };
 
 std::vector<HeroVoice> g_hero_voices;
@@ -1917,12 +2116,153 @@ int api_hero_sound_play(openrac_mod* mod, int sound, int loop) {
     return voice;
 }
 
+int api_moby_sound_play(openrac_mod* mod, int slot, int sound, int loop) {
+    std::int32_t level = -1;
+    const gaddr moby = moby_address(slot);
+    if (mod == nullptr || moby == 0 || g_play == nullptr || g_play->moby_sound_play == nullptr
+        || sound < 0 || !in_level(phase_now(&level))) {
+        return -1;
+    }
+    const int voice = g_play->moby_sound_play(moby, sound, loop != 0 ? 1 : 0);
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_hero_voices, [&](const HeroVoice& v) {
+        return v.loads != loads || v.voice == voice;
+    });
+    if (voice >= 0 && loop != 0) {
+        g_hero_voices.push_back({mod, loads, voice, moby});
+    }
+    return voice;
+}
+
+void api_moby_sound_stop(openrac_mod* mod, int voice) {
+    if (mod == nullptr || g_play == nullptr || g_play->moby_sound_stop == nullptr || voice < 0) {
+        return;
+    }
+    const auto it =
+        std::find_if(g_hero_voices.begin(), g_hero_voices.end(), [&](const HeroVoice& v) {
+            return v.mod == mod && v.voice == voice && v.moby != 0;
+        });
+    if (it == g_hero_voices.end()) {
+        return;  // not a looping voice of this mod's: a sound played once ends by itself
+    }
+    const gaddr moby = it->moby;
+    g_hero_voices.erase(it);
+    g_play->moby_sound_stop(moby, voice);
+}
+
+// The air a mod draws the picture with (scene_air): the last to set it, of a level load; slow motion
+// each mod asks for (time_stretch); the ties each mod hides (tie_hide). Behind g_air_lock: the
+// window's thread reads them.
+struct AirSet {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    openrac_air air{};
+};
+
+std::mutex g_air_lock;
+std::optional<AirSet> g_air;
+
+struct Stretch {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    float stretch = 1.0f;
+};
+
+std::vector<Stretch> g_stretches;
+
+struct TieHidden {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    int tie = 0;
+};
+
+std::vector<TieHidden> g_ties_hidden;
+
+int api_scene_air(openrac_mod* mod, const openrac_air* air) {
+    std::int32_t level = -1;
+    if (mod == nullptr || !in_level(phase_now(&level))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    if (air == nullptr) {
+        if (g_air && g_air->mod == mod) {
+            g_air.reset();
+        }
+        return OPENRAC_HOOK_OK;
+    }
+    if (air->size < sizeof(openrac_air)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const auto unit = [](float v) {
+        return std::isfinite(v) && v >= 0.0f && v <= 1.0f;
+    };
+    bool ok = unit(air->weight) && unit(air->fog_thickness) && std::isfinite(air->fog_near)
+              && std::isfinite(air->fog_far) && air->fog_near >= 0.0f
+              && air->fog_far > air->fog_near;
+    for (int i = 0; i < 3; ++i) {
+        ok = ok && unit(air->fog_colour[i]) && unit(air->background[i]);
+    }
+    if (!ok) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_air = AirSet{mod, loads_now(), *air};
+    return OPENRAC_HOOK_OK;
+}
+
+int api_time_stretch(openrac_mod* mod, float stretch) {
+    if (mod == nullptr || !std::isfinite(stretch) || stretch < 1.0f || stretch > 8.0f) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_stretches, [&](const Stretch& s) { return s.mod == mod || s.loads != loads; });
+    if (stretch > 1.0f) {
+        g_stretches.push_back({mod, loads, stretch});
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_tie_hide(openrac_mod* mod, int tie, int hidden) {
+    std::int32_t level = -1;
+    if (mod == nullptr || tie < 0 || tie > 0xFFFF || !in_level(phase_now(&level))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_ties_hidden, [&](const TieHidden& h) {
+        return h.loads != loads || (h.mod == mod && h.tie == tie);
+    });
+    if (hidden != 0) {
+        g_ties_hidden.push_back({mod, loads, tie});
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+// The air, slow motion and hidden ties of one mod (all: null) taken off.
+void drop_air(const openrac_mod* mod) {
+    {
+        const std::lock_guard<std::mutex> lock(g_air_lock);
+        if (g_air && (mod == nullptr || g_air->mod == mod)) {
+            g_air.reset();
+        }
+        std::erase_if(g_ties_hidden, [&](const TieHidden& h) {
+            return mod == nullptr || h.mod == mod;
+        });
+        std::erase_if(g_stretches, [&](const Stretch& s) {
+            return mod == nullptr || s.mod == mod;
+        });
+    }
+}
+
 // The looping hero sounds of one mod (all: null) stopped, those of this level load still playing.
 void stop_hero_voices(const openrac_mod* mod) {
     for (const HeroVoice& v : g_hero_voices) {
-        if ((mod == nullptr || v.mod == mod) && v.loads == loads_now() && g_play != nullptr
-            && g_play->hero_sound_stop != nullptr) {
-            g_play->hero_sound_stop(v.voice);
+        if ((mod == nullptr || v.mod == mod) && v.loads == loads_now() && g_play != nullptr) {
+            if (v.moby == 0 && g_play->hero_sound_stop != nullptr) {
+                g_play->hero_sound_stop(v.voice);
+            } else if (v.moby != 0 && g_play->moby_sound_stop != nullptr) {
+                g_play->moby_sound_stop(v.moby, v.voice);
+            }
         }
     }
     std::erase_if(g_hero_voices, [&](const HeroVoice& v) {
@@ -2143,6 +2483,8 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     g_sound_set = host.sound_set;
     g_sound_stop = host.sound_stop;
     g_joint_offsets = host.joint_offsets;
+    g_music_gain = host.music_gain;
+    g_joint_frame = host.joint_frame;
     api.hero_set_pose = api_hero_set_pose;
     api.hero_set_joints = api_hero_set_joints;
     api.collision_triangles = api_collision_triangles;
@@ -2174,6 +2516,68 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.touch_icon = api_touch_icon;
     api.touch_push = api_touch_push;
     api.touch_hint = api_touch_hint;
+    api.camera_fov = api_camera_fov;
+    api.hud_hide = api_hud_hide;
+    api.music_volume = api_music_volume;
+    api.moby_set_joints = api_moby_set_joints;
+    api.moby_joint_position = api_moby_joint_position;
+    api.moby_sound_play = api_moby_sound_play;
+    api.moby_sound_stop = api_moby_sound_stop;
+    api.scene_air = api_scene_air;
+    api.time_stretch = api_time_stretch;
+    api.tie_hide = api_tie_hide;
+    api.prop_animate = api_prop_animate;
+    api.moby_joint_frame = api_moby_joint_frame;
+    api.moby_set_joint_poses = api_moby_set_joint_poses;
+    api.moby_uid = api_moby_uid;
+}
+
+float camera_fov() {
+    const float degrees = g_camera_fov.load(std::memory_order_relaxed);
+    return degrees > 0.0f && g_camera_fov_loads.load(std::memory_order_relaxed) == loads_now()
+               ? degrees
+               : 0.0f;
+}
+
+std::optional<openrac_air> scene_air() {
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    if (!g_air || g_air->loads != loads_now()) {
+        return std::nullopt;
+    }
+    return g_air->air;
+}
+
+float time_stretch() {
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    const std::uint32_t loads = loads_now();
+    float most = 1.0f;
+    for (const Stretch& s : g_stretches) {
+        if (s.loads == loads) {
+            most = std::max(most, s.stretch);
+        }
+    }
+    return most;
+}
+
+std::vector<int> hidden_ties() {
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    const std::uint32_t loads = loads_now();
+    std::vector<int> out;
+    for (const TieHidden& h : g_ties_hidden) {
+        if (h.loads == loads) {
+            out.push_back(h.tie);
+        }
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+bool hud_hidden() {
+    const std::lock_guard<std::mutex> lock(g_hud_lock);
+    const std::uint32_t loads = loads_now();
+    return std::any_of(g_hud_hidden.begin(), g_hud_hidden.end(), [&](const auto& h) {
+        return h.second == loads;
+    });
 }
 
 std::vector<HazeDraw> haze_drawn() {
@@ -2217,7 +2621,10 @@ std::vector<PropDraw> props_drawn() {
                  p.tint,
                  p.blend,
                  p.attached_moby,
-                 p.attached_joint}
+                 p.attached_joint,
+                 p.animation,
+                 p.seconds,
+                 p.loop}
             );
         }
     }
@@ -2365,6 +2772,12 @@ void play_loading(const openrac_mod* mod) {
 }
 
 void play_update() {
+    drop_stale_joint_sets();
+    // The music's gains went with their level: back at full.
+    const std::uint32_t loads = loads_now();
+    if (std::erase_if(g_music_gains, [&](const MusicGain& g) { return g.loads != loads; }) != 0) {
+        apply_music_gain();
+    }
     // The game's camera scripts, as they went.
     if (has_camera_scripts()) {
         std::int32_t id = 0;
@@ -2438,6 +2851,7 @@ bool overlay_shows_level() {
 }
 
 void reset_play() {
+    drop_air(nullptr);
     {
         const std::lock_guard<std::mutex> lock(g_notice_lock);
         g_notice.clear();
@@ -2464,6 +2878,11 @@ void reset_play() {
     {
         const std::lock_guard<std::mutex> lock(g_hud_lock);
         g_hud.clear();
+        g_hud_hidden.clear();
+    }
+    if (!g_music_gains.empty()) {
+        g_music_gains.clear();
+        apply_music_gain();
     }
     if (!g_joint_sets.empty()) {
         g_joint_sets.clear();
@@ -2477,6 +2896,7 @@ void reset_play() {
         g_play->camera_set(nullptr, nullptr);
     }
     g_camera_mod = nullptr;
+    release_camera_fov();
     for (const auto& v : g_voices) {
         if (g_sound_stop != nullptr) {
             g_sound_stop(v.second);
@@ -2502,6 +2922,7 @@ void reset_play() {
 }
 
 void drop_figures(const openrac_mod* mod) {
+    drop_air(mod);
     {
         const std::lock_guard<std::mutex> lock(g_props_lock);
         std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod; });
@@ -2533,14 +2954,20 @@ void drop_figures(const openrac_mod* mod) {
     {
         const std::lock_guard<std::mutex> lock(g_hud_lock);
         std::erase_if(g_hud, [&](const HudTexts& h) { return h.mod == mod; });
+        std::erase_if(g_hud_hidden, [&](const auto& h) { return h.first == mod; });
     }
-    if (std::erase_if(g_joint_sets, [&](const JointSet& s) { return s.mod == mod; }) != 0
-        && g_joint_offsets != nullptr) {
-        const std::uint32_t moby =
-            g_play != nullptr && g_play->hero_moby != nullptr ? g_play->hero_moby() : 0;
-        if (g_joint_sets.empty() || moby == 0) {
-            g_joint_offsets(0, nullptr, 0);
-        } else {
+    if (std::erase_if(g_music_gains, [&](const MusicGain& g) { return g.mod == mod; }) != 0) {
+        apply_music_gain();
+    }
+    std::vector<std::uint32_t> turned;
+    for (const JointSet& s : g_joint_sets) {
+        if (s.mod == mod && std::find(turned.begin(), turned.end(), s.moby) == turned.end()) {
+            turned.push_back(s.moby);
+        }
+    }
+    std::erase_if(g_joint_sets, [&](const JointSet& s) { return s.mod == mod; });
+    if (g_joint_offsets != nullptr) {
+        for (const std::uint32_t moby : turned) {
             apply_joint_sets(moby);
         }
     }
@@ -2550,6 +2977,7 @@ void drop_figures(const openrac_mod* mod) {
             g_play->camera_set(nullptr, nullptr);
         }
         g_camera_mod = nullptr;
+        release_camera_fov();
     }
     std::erase_if(g_voices, [&](const auto& v) {
         if (v.first == mod && g_sound_stop != nullptr) {

@@ -140,7 +140,7 @@ image in the Files app's Disc images undoes the set-up: the game asks for its
 disc again. A set-up made before this held a second copy; the launcher
 replaces it with the link when it starts (`install::tidy`).
 
-**The setup** is the desktop's: `tools/extractor.py`, `editor/extract.py port`
+**The setup** is the desktop's: `tools/extractor.py`, `extractor/extract.py port`
 for the levels, then the game's `--check-levels`, with their output in the
 launcher. These steps name Android in `launcher/actions.json`; building the
 game does not, as the APK carries it. Going Commando adds one: the part of its
@@ -168,8 +168,8 @@ so if it takes more than a second.
 - the extractor writes only `SYSTEM.CNF` and the boot executable
   (`--boot-only`, on every system), though it still checks every file;
 - files that levels have alike (a moby class, a texture) are written once and
-  linked (`editor/extract.py`, `share_identical_files`);
-- Android's Python has no process pools (no `sem_open`), so `editor/extract.py`
+  linked (`extractor/extract.py`, `share_identical_files`);
+- Android's Python has no process pools (no `sem_open`), so `extractor/extract.py`
   runs up to four levels in separate processes (`SubprocessPool`);
 - `openrac-enhanced-baker` schedules the largest lighting levels first and shares a bounded
   tracing pool across them. Water decoding runs in the same native

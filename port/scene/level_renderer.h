@@ -72,6 +72,9 @@ struct GameScenery {
     // Per terrain fragment, nonzero where it is past the terrain's far cull this tick (the
     // level's, 960 units, times Draw distance). Empty: none.
     std::vector<std::uint8_t> terrain_far;
+    // The ties a mod hides (openrac_api.tie_hide), sorted: for every game, with or without the
+    // records above.
+    std::vector<int> mod_hidden_ties;
 };
 
 class LevelScene {
@@ -699,10 +702,13 @@ private:
         const std::array<float, 4>& sphere = {}
     );
     std::array<MovedScenery, kSceneryLayers.size()> m_moved;
+    std::vector<int> m_mod_hidden_ties;  // GameScenery::mod_hidden_ties, sorted
     std::size_t m_moved_count = 0;  // instances moved now, over both layers
     // A layer's instances as the scene draws them: its chosen ones (choose_scenery) or all of
     // them, without the ones the game moved or removed.
     std::vector<Instance> resident_scenery(std::size_t k) const;
+    // Whether instance `i` of scenery layer `k` is a tie a mod hides.
+    bool mod_hidden(std::size_t k, std::size_t i) const;
     // set_shrub_draws: the tick's choice; per shrub as loaded its billboard's model (-1 none) and
     // its average lit colour (0x80 = 1.0), the billboard's.
     std::vector<ShrubDraw> m_shrub_draws;

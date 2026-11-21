@@ -140,6 +140,8 @@ void install(
                                   {"value": "world", "name": "World"},
                                   {"value": "z_watchers_fail", "name": "Watchers fail"},
                                   {"value": "hoverboard", "name": "Hoverboard"},
+                                  {"value": "kerwan", "name": "Kerwan"},
+                                  {"value": "cutscene", "name": "Cutscene"},
                                   {"value": "callback_only", "name": "Callback only"},
                                   {"value": "keep", "name": "Keep"},
                                   {"value": "journal", "name": "Journal"}]},
@@ -1214,6 +1216,10 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "world"}}]})");
     mods::Host h = host(plugins);
     static openrac_game_play play = kPlay;
+    // Slot 1's record carries spawn id 1006 (moby_uid).
+    play.moby_uid = [](std::int32_t slot) {
+        return slot == 1 ? 1006 : -1;
+    };
     // Copies of the level's enemies (1.25): slot 1 may be copied, the others are listed; a copy of
     // slot 1 goes to slot 6.
     play.moby_copy_check = [](gaddr moby) {
@@ -1241,7 +1247,8 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         (g_records
          == std::vector<int>{
              // The list: 3 mobys, keys 1, 2 (0 and 1 +1) and none, flags placed+updates / updates;
-             // a list of 2 still counts 3; the slot of key 1; no slot for key 7.
+             // a list of 2 still counts 3; the slot of key 1; no slot for key 7; slot 1's spawn
+             // id, none for slot 5.
              8000 + 3,
              8011,
              8025,
@@ -1252,6 +1259,7 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              8033,
              8041,
              8050,
+             8057,
              // Drive slot 0 on and off, slot 1 on; a dead slot refused; slot 1 shown driven.
              8060,
              8060,
@@ -1897,6 +1905,61 @@ void only_a_mod_codes_link_opens(const fs::path& plugins) {
     mods::reset();
 }
 
+// Interface 1.14: a mod reads the edited levels' pack (pack_folder) and loads a file of it with a
+// "pack:" path, never one outside it, none with no pack; and the game's language as a code.
+const char* g_pack = nullptr;
+std::vector<std::string> g_pack_sounds;
+
+void a_mod_reads_the_pack(const fs::path& plugins, const fs::path& dir) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "kerwan"}}]})");
+    const fs::path pack = dir / "pack";
+    write(pack / "level_03" / "cutscenes" / "line.wav", "RIFF");
+    write(dir / "escape.wav", "RIFF");
+    static std::string pack_text;
+    pack_text = pack.string();
+    mods::Host h = host(plugins);
+    h.sound_load = [](const fs::path& file) {
+        g_pack_sounds.push_back(file.filename().string());
+        return 4;
+    };
+    h.pack_folder = [] {
+        return g_pack;
+    };
+    h.language = [] {
+        return 2;
+    };
+
+    // With a pack: its folder, its file, nothing outside it; German.
+    g_pack = pack_text.c_str();
+    g_records.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    CHECK(
+        (g_records
+         == std::vector<int>{9701, 9700, 9710, 9721, 9721, 9721, 9742, 'd' * 256 + 'e', 9750})
+    );
+    CHECK((g_pack_sounds == std::vector<std::string>{"line.wav"}));
+    char folder[1024] = {};
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.pack_folder(folder, sizeof folder) == static_cast<int>(pack_text.size()));
+    CHECK(pack_text == folder);
+    CHECK(api.pack_folder(nullptr, 10) == 0);
+    mods::reset();
+
+    // Without one (a game with no edited levels) and without a language (English).
+    g_pack = nullptr;
+    h.language = nullptr;
+    g_records.clear();
+    g_pack_sounds.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    CHECK(
+        (g_records
+         == std::vector<int>{9700, 9700, 9709, 9721, 9721, 9721, 9742, 'e' * 256 + 'n', 9750})
+    );
+    CHECK(g_pack_sounds.empty());
+    mods::reset();
+}
+
 // Interface 1.12 on the test's game: the hero's pose set only by the mod holding the hook point the
 // game names for his update, the collision triangles as the game gives them, a prop of a .glb in the
 // mod's folder (none outside it, none missing) drawn at its pose and gone with its level, and a
@@ -2017,6 +2080,9 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         && drawn[0].matrix[12] == 1.0f && drawn[0].matrix[13] == 2.0f && drawn[0].matrix[14] == 3.0f
         && drawn[0].attached_moby == 0
     );
+    CHECK(
+        drawn.size() == 2 && drawn[0].animation == 2 && drawn[0].seconds == 1.5f && drawn[0].loop
+    );
     // The second, fixed to the hero's attach point 1 (joint 12) of the moby in slot 3, its offset
     // kept (the refused calls after it change nothing).
     CHECK(
@@ -2055,6 +2121,105 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_motion.clear();
     mods::reset();
     CHECK((g_motion == std::vector<std::string>{"camera off"}));
+}
+
+// SDK 1.15.1, what a scene needs, on the test's game: the field of view only with the camera and
+// gone with it and the level, the HUD hidden for the level, the music ducked through the host and
+// given back when the mods go, joints on a moby of the level, a joint's place and a moby's sound.
+std::vector<std::string> g_cutscene_calls;
+
+void a_scene_reaches_the_game(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "cutscene"}}]})");
+    mods::Host h = host(plugins);
+    static openrac_game_play play = kPlay;
+    play.camera_set = [](const float eye[3], const float*) {
+        g_cutscene_calls.push_back(eye != nullptr ? "camera" : "camera off");
+        return 1;
+    };
+    play.moby_sound_play = [](gaddr moby, int sound, int loop) {
+        g_cutscene_calls.push_back(
+            "sound " + std::to_string(moby) + " " + std::to_string(sound) + " "
+            + std::to_string(loop)
+        );
+        return 5;
+    };
+    play.moby_sound_stop = [](gaddr moby, int voice) {
+        g_cutscene_calls.push_back("stop " + std::to_string(moby) + " " + std::to_string(voice));
+    };
+    play.music_group = [] {
+        return 2;
+    };
+    h.play = &play;
+    h.music_gain = [](int group, float gain) {
+        g_cutscene_calls.push_back(
+            "music " + std::to_string(group) + " " + std::to_string(static_cast<int>(gain * 100))
+        );
+    };
+    h.joint_offsets = [](std::uint32_t moby, const openrac_joint_offset* joints, int count) {
+        g_cutscene_calls.push_back(
+            "joints " + std::to_string(moby) + " " + std::to_string(count)
+            + (count > 0 ? " " + std::to_string(joints[0].joint) : std::string())
+        );
+    };
+    h.joint_frame = [](std::uint32_t moby, int joint, float* out) {
+        std::fill(out, out + 12, 0.0f);
+        out[0] = out[4] = out[8] = 1.0f;
+        out[9] = static_cast<float>(moby + static_cast<std::uint32_t>(joint));
+        return 1;
+    };
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    g_loads = 1;
+    g_cutscene_calls.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    g_records.clear();
+    CHECK(mods::camera_fov() == 0.0f);
+    CHECK(!mods::hud_hidden());
+    mods::frame();
+    CHECK((g_records == std::vector<int>{9801, 9800,       9811, 9811, 9810, 9820, 9831,
+                                         9830, 9840,       9841, 9841, 9840, 9841, 9840,
+                                         9850, 0x3100 + 3, 9851, 9850, 1,    9865, 9869,
+                                         9881, 9880,       9891, 9890, 9901, 9900, 9900}));
+    CHECK(
+        (g_cutscene_calls
+         == std::vector<std::string>{
+             "camera",
+             "music 2 25",
+             "joints 12544 1 3",
+             "joints 12544 1 2147483652",
+             "joints 12544 1 3",
+             "sound 12544 12 1",
+             "stop 12544 5"
+         })
+    );
+    CHECK(mods::camera_fov() == 40.0f);
+    CHECK(mods::hud_hidden());
+    const auto air = mods::scene_air();
+    CHECK(air && air->fog_far == 50.0f && air->background[0] == 1.0f && air->weight == 1.0f);
+    CHECK(mods::time_stretch() == 2.0f);
+    CHECK((mods::hidden_ties() == std::vector<int>{3, 7}));
+    // The level loaded again: the field of view, the hidden HUD, the air, the slow motion and the
+    // hidden ties went with it.
+    g_loads = 2;
+    CHECK(mods::camera_fov() == 0.0f);
+    CHECK(!mods::hud_hidden());
+    CHECK(!mods::scene_air());
+    CHECK(mods::time_stretch() == 1.0f);
+    CHECK(mods::hidden_ties().empty());
+    // At the next frame the music is back at full, and the moby's joints are gone too (its
+    // address may hold another moby now), though not while the hero is still loading.
+    g_cutscene_calls.clear();
+    mods::play_update();
+    CHECK((g_cutscene_calls == std::vector<std::string>{"music 2 100"}));
+    g_cutscene_calls.clear();
+    play.hero_moby = [] {
+        return std::uint32_t{0x1000};
+    };
+    mods::play_update();
+    CHECK((g_cutscene_calls == std::vector<std::string>{"joints 12544 0"}));
+    play.hero_moby = nullptr;
+    mods::reset();
+    g_loads = 1;
 }
 
 // undo() drops these registrations before closing a refused mod's library.
@@ -2155,6 +2320,8 @@ int main() {
     play_reaches_the_game(plugins, dir);
     the_world_reaches_the_game(plugins, dir);
     motion_reaches_the_game(plugins, dir);
+    a_scene_reaches_the_game(plugins);
+    a_mod_reads_the_pack(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
     a_library_others_can_change_is_refused(plugins);
     dropped_mod_watchers_are_not_called();

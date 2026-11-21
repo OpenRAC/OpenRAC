@@ -1,5 +1,5 @@
 # Checks that need neither a disc nor a toolchain: OpenRAC's own tests, the
-# editor's, the generated tables, and each game's toolchain-free checks as
+# extractor's, the generated tables, and each game's toolchain-free checks as
 # its original repository ran them. Game builds need your own disc and
 # proprietary compilers, so they run on contributors' machines.
 #
@@ -132,8 +132,20 @@ jobs:
           python -m unittest discover -s port/tools/versionmap -p test_parity.py -v
           python port/tools/versionmap/check_versions.py
 
-      - name: Level editor (synthetic data only)
-        run: python -m unittest discover -s editor -v
+      # The extractor (what OpenRAC Editor's tools import: extractor_api.json), synthetic data only.
+      - name: Extractor (synthetic data only)
+        run: python -m unittest discover -s extractor -v
+
+      # Again on the oldest Python the launcher accepts (config.rs), which players may have.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        id: python310
+        with:
+          python-version: "3.10"
+          update-environment: false
+      - name: Extractor on Python 3.10
+        env:
+          PYTHON310: ${{ steps.python310.outputs.python-path }}
+        run: '"$PYTHON310" -m unittest discover -s extractor'
 
       - name: Probe bake planning (synthetic data only)
         run: python -m unittest discover -s port/enhanced/tools/baker -v

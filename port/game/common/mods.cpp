@@ -1367,6 +1367,45 @@ int api_plugins_folder(char* out, std::uint32_t size) {
     return static_cast<int>(folder.size());
 }
 
+// The edited levels' pack the game reads now, or null for none.
+const char* pack_folder() {
+    return g_host != nullptr && g_host->pack_folder != nullptr ? g_host->pack_folder() : nullptr;
+}
+
+// The edited levels' pack this game reads (--mods, or the destination being played): its level_NN/
+// folders hold what the editor packed, cutscenes among them.
+int api_pack_folder(char* out, std::uint32_t size) {
+    const char* pack = pack_folder();
+    if (out == nullptr || size == 0 || pack == nullptr) {
+        return 0;
+    }
+    const std::string folder = pack;
+    if (folder.empty() || folder.size() >= size) {
+        return 0;
+    }
+    std::memcpy(out, folder.c_str(), folder.size() + 1);
+    return static_cast<int>(folder.size());
+}
+
+// The language the game shows its text in, as a code: "en", "fr", "de", "es", "it" (the PAL
+// disc's five), "ja" for a Japanese disc.
+int api_game_language(char* out, std::uint32_t size) {
+    static constexpr const char* kCodes[] = {"en", "fr", "de", "es", "it"};
+    if (out == nullptr || size < 3) {
+        return 0;
+    }
+    const std::string_view version = g_host != nullptr ? std::string_view(g_host->version) : "";
+    const int lang = g_host != nullptr && g_host->language != nullptr ? g_host->language() : 0;
+    const char* code = "en";
+    if (version.find("jp") != std::string_view::npos) {
+        code = "ja";
+    } else if (lang >= 0 && lang < 5) {
+        code = kCodes[lang];
+    }
+    std::memcpy(out, code, 3);
+    return 2;
+}
+
 // The launcher's key for this installation (launcher/core/src/multiplayer.rs): a game started
 // without the launcher has none, and cannot be banned.
 int api_identity_key(char* out, std::uint32_t size) {
@@ -2064,6 +2103,8 @@ void fill_api(const Host& host) {
     g_api.clipboard_set = api_clipboard_set;
     g_api.open_link = api_open_link;
     g_api.plugins_folder = api_plugins_folder;
+    g_api.pack_folder = api_pack_folder;
+    g_api.game_language = api_game_language;
     g_api.identity_key = api_identity_key;
     fill_play_api(g_api, host.play, host.cards);
     fill_motion_api(g_api, host);
@@ -2967,6 +3008,12 @@ int loaded_count() {
     return static_cast<int>(g_loaded.size());
 }
 
+bool loaded(std::string_view id) {
+    return std::any_of(g_loaded.begin(), g_loaded.end(), [&](const auto& mod) {
+        return mod != nullptr && mod->id == id;
+    });
+}
+
 const openrac_api& api_for_tests() {
     return g_api;
 }
@@ -2986,10 +3033,20 @@ bool holds_hook(const openrac_mod* mod, const char* name) {
 }
 
 fs::path mod_file(const openrac_mod* mod, const char* path) {
-    if (mod == nullptr || path == nullptr || mod->dir.empty() || !folder_path(path)) {
+    if (mod == nullptr || path == nullptr) {
         return {};
     }
-    const fs::path file = mod->dir / fs::path(std::u8string(path, path + std::strlen(path)));
+    // "pack:<path>": a file of the edited levels' pack (pack_folder), such as a cutscene's voice.
+    fs::path root = mod->dir;
+    if (std::strncmp(path, "pack:", 5) == 0) {
+        path += 5;
+        const char* pack = pack_folder();
+        root = pack != nullptr ? fs::path(pack) : fs::path();
+    }
+    if (root.empty() || !folder_path(path)) {
+        return {};
+    }
+    const fs::path file = root / fs::path(std::u8string(path, path + std::strlen(path)));
     std::error_code e;
     return fs::is_regular_file(file, e) ? file : fs::path();
 }

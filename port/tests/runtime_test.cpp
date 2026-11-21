@@ -39,6 +39,10 @@ void memory_map() {
     CHECK(!m.mapped(GUEST_RAM_SIZE, 4));
     CHECK(m.mapped(GUEST_SCRATCHPAD, GUEST_SCRATCHPAD_SIZE));
     CHECK(!m.mapped(GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE, 1));
+    CHECK(m.mapped(GUEST_PORT_LOW, GUEST_PORT_LOW_SIZE));
+    CHECK(!m.mapped(GUEST_PORT_LOW + GUEST_PORT_LOW_SIZE, 1));
+    CHECK(m.mapped(GUEST_PORT_WORLDS, GUEST_PORT_WORLDS_SIZE));
+    CHECK(!m.mapped(GUEST_PORT_WORLDS + GUEST_PORT_WORLDS_SIZE, 1));
     CHECK(m.mapped(0x1000A000, 0x100));  // a DMA channel's registers
     CHECK(m.mapped(0x12000000, 0x100));  // GS privileged registers
 

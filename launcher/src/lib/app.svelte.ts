@@ -9,6 +9,7 @@ import {
   type Config,
   type DiscChoice,
   type DiscCopy,
+  type EditorInstall,
   errorText,
   type FoundDisc,
   type GameStatus,
@@ -98,6 +99,10 @@ interface AppState {
   runningAside: boolean;
   /** Android: the tools the launcher carries being unpacked, after an install or an update. */
   preparing: boolean;
+  /** OpenRAC Editor as downloaded (core editor_install.rs); null until read. */
+  editor: EditorInstall | null;
+  /** OpenRAC Editor being downloaded. */
+  editorDownloading: boolean;
 }
 
 export const app = $state<AppState>({
@@ -123,6 +128,8 @@ export const app = $state<AppState>({
   launching: null,
   runningAside: false,
   preparing: false,
+  editor: null,
+  editorDownloading: false,
 });
 
 /** Android: whether the game still runs beside the launcher, read when the launcher comes back
@@ -374,7 +381,7 @@ export async function start() {
   if (!app.version && app.config.lastVersion) app.version = app.config.lastVersion;
   await refresh();
   void syncProgressWeb();
-  void adoptGodot();
+  void readEditor();
 
   // A new launcher is looked for at start unless the player turned that off (Settings). One
   // found opens its window, unless it was put off lately (updates.ts) or a game is running; a
@@ -661,18 +668,62 @@ async function syncProgressWeb() {
   }
 }
 
-/** Godot installed after the first run, or moved: the Rust side looks for it again (detect.rs). */
-async function adoptGodot() {
-  try {
-    const config = await api.adoptGodot();
+/** What is downloaded of OpenRAC Editor, the level editor (core editor_install.rs). */
+export async function readEditor() {
+  if (onAndroid) return;
 
-    if (config.godot && config.godot !== app.config?.godot) {
-      app.config = config;
-      await refresh();
-    }
+  try {
+    app.editor = await api.editorInstall();
   } catch {
-    // Not found is not an error: the Mods page offers Get Godot and Choose Godot
+    app.editor = null;
   }
+}
+
+/** Downloads OpenRAC Editor (or a newer one) from its releases; the library is read again, as the
+ *  level editor's steps come with it. Whether it worked. */
+export async function installEditor(): Promise<boolean> {
+  if (app.editorDownloading) return false;
+  app.editorDownloading = true;
+
+  try {
+    const got = await guard(api.installEditor());
+
+    if (!got) return false;
+    app.editor = got;
+    toast(`OpenRAC Editor ${got.version ?? ""} is ready.`);
+    await refresh();
+
+    return true;
+  } finally {
+    app.editorDownloading = false;
+  }
+}
+
+/** Removes the downloaded OpenRAC Editor; the level projects stay. */
+export async function removeEditor() {
+  const left = await guard(api.removeEditor());
+
+  if (left) app.editor = left;
+  await refresh();
+}
+
+/** Uses the OpenRAC Editor in a folder the player picked; the library is read again, as the level
+ *  editor's steps come with it. */
+export async function chooseEditor(path: string) {
+  const got = await guard(api.chooseEditor(path));
+
+  if (!got) return;
+  app.editor = got;
+  toast(`OpenRAC Editor ${got.version ?? ""} is ready.`);
+  await refresh();
+}
+
+/** Stops using the picked folder (it stays as it is). */
+export async function forgetEditor() {
+  const left = await guard(api.forgetEditor());
+
+  if (left) app.editor = left;
+  await refresh();
 }
 
 /** Saves the settings. False when the write failed: the page then keeps what was typed
@@ -915,7 +966,7 @@ export function forgetWarning(scope: Scope, id: string) {
   accepted.delete(warningKey(scope, id));
 }
 
-/** Runs an action: a detached one (the game, Godot) at once, anything else through the queue. A
+/** Runs an action: a detached one (the game, the editor) at once, anything else through the queue. A
  *  second request for the same action while the first is queued, running or starting does nothing. */
 export async function run(scope: Scope, action: ActionView, given?: number | RunInputs) {
   const inputs = typeof given === "number" ? { level: given } : given;
@@ -1124,7 +1175,7 @@ export async function uninstallGame(game: string) {
 
 /**
  * A first start with nothing to ask: when the OpenRAC folder and a Python
- * were found, they are taken, with Godot and Docker when present, and the
+ * were found, they are taken, with Docker when present, and the
  * welcome screen is skipped. A player then sees their games at once.
  */
 async function firstRun(config: Config): Promise<Config> {
@@ -1139,7 +1190,6 @@ async function firstRun(config: Config): Promise<Config> {
       ...config,
       root,
       python,
-      godot: config.godot ?? found?.godots[0]?.path ?? null,
       docker: config.docker ?? found?.dockers[0]?.path ?? null,
       setupComplete: true,
     }),

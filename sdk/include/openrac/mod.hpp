@@ -2361,6 +2361,91 @@ public:
         return says ? text : "";
     }
 
+    // Since 1.15 (SDK 1.15.1): what a cutscene needs. The picture's vertical field of view in
+    // degrees while the mod holds the camera (0: the game's); false without the camera or the call.
+    bool camera_fov(float degrees) const {
+        return has_slot14(offsetof(openrac_api, camera_fov))
+               && m_api->camera_fov(m_handle, degrees) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.15 (SDK 1.15.1): hides the game's own HUD (the mods' lines stay) or shows it again.
+    bool hud_hide(bool hidden) const {
+        return has_slot14(offsetof(openrac_api, hud_hide))
+               && m_api->hud_hide(m_handle, hidden ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.15 (SDK 1.15.1): the game's music at `gain` (0 to 1), eased; 1 gives it back.
+    bool music_volume(float gain) const {
+        return has_slot14(offsetof(openrac_api, music_volume))
+               && m_api->music_volume(m_handle, gain) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.15 (SDK 1.15.1): hero_set_joints for the moby in `slot`; an empty list takes them off.
+    bool moby_set_joints(int slot, const std::vector<openrac_joint_offset>& joints) const {
+        return has_slot14(offsetof(openrac_api, moby_set_joints))
+               && m_api->moby_set_joints(m_handle, slot, joints.empty() ? nullptr : joints.data(),
+                                         static_cast<int>(joints.size()))
+                      == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.15 (SDK 1.15.1): where joint `joint` of the moby in `slot` is, as last drawn.
+    bool moby_joint_position(int slot, int joint, float out[3]) const {
+        return has_slot14(offsetof(openrac_api, moby_joint_position))
+               && m_api->moby_joint_position(slot, joint, out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.15 (SDK 1.15.1): one of the moby's class's sounds on it; its voice, or -1.
+    int moby_sound_play(int slot, int sound, bool loop) const {
+        return has_slot14(offsetof(openrac_api, moby_sound_play))
+                   ? m_api->moby_sound_play(m_handle, slot, sound, loop ? 1 : 0)
+                   : -1;
+    }
+
+    // Since 1.15 (SDK 1.15.1): stops a voice moby_sound_play gave.
+    void moby_sound_stop(int voice) const {
+        if (has_slot14(offsetof(openrac_api, moby_sound_stop))) {
+            m_api->moby_sound_stop(m_handle, voice);
+        }
+    }
+
+    // Since 1.15 (SDK 1.15.1): the fog and background the picture is drawn with (nullptr: the
+    // game's again); false outside a level, for a value out of range or a port without it.
+    bool scene_air(const openrac_air* air) const {
+        return has_slot14(offsetof(openrac_api, scene_air)) && m_api->scene_air(m_handle, air) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.15 (SDK 1.15.1): slow motion, each tick `stretch` (1 to 8) times as long; false for
+    // a value out of range or a port without it.
+    bool time_stretch(float stretch) const {
+        return has_slot14(offsetof(openrac_api, time_stretch)) && m_api->time_stretch(m_handle, stretch) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.15 (SDK 1.15.1): hides the level's tie `tie` from the picture, or shows it again;
+    // false outside a level, for no such tie or a port without it.
+    bool tie_hide(int tie, bool hidden) const {
+        return has_slot14(offsetof(openrac_api, tie_hide)) && m_api->tie_hide(m_handle, tie, hidden ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.15 (SDK 1.15.1): plays animation `animation` of a skinned prop's .glb at `seconds`
+    // (-1: the mesh as stored); false for a prop not the mod's or a port without it.
+    bool prop_animate(int prop, int animation, float seconds, bool loop) const {
+        return has_slot14(offsetof(openrac_api, prop_animate))
+               && m_api->prop_animate(m_handle, prop, animation, seconds, loop ? 1 : 0) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.15 (SDK 1.15.1): a moby's joint's axes and place in the level, as last drawn, into
+    // `out` (x, y, z axes, then the place); false for no such joint or a port without it.
+    bool moby_joint_frame(int slot, int joint, float (&out)[12]) const {
+        return has_slot14(offsetof(openrac_api, moby_joint_frame))
+               && m_api->moby_joint_frame(slot, joint, out) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.15 (SDK 1.15.1): the spawn id of the placed moby in `slot` (its record's uid, which
+    // stays when the level is edited; a key is the record's place), -1 for none or a port without it.
+    int moby_uid(int slot) const {
+        return has_slot14(offsetof(openrac_api, moby_uid)) && m_api->moby_uid != nullptr ? m_api->moby_uid(slot) : -1;
+    }
+
     // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:
     // none) in it, into `out`; false outside a level or for a port without it.
     bool moby_run(int slot, openrac_moby_run& out) const {

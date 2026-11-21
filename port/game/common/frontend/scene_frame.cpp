@@ -26,6 +26,7 @@
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
+#include "mods.h"
 #include "openrac/game_host.h"
 #include "program/program.h"
 #include "renderer/direct/direct.h"
@@ -376,7 +377,13 @@ void set_camera(SceneFrame& frame) {
         scene.has_camera ? guard_camera(owner, state, camera, scene.frame) : std::nullopt;
     const bool has_camera = drawn.has_value();
     frame.has_camera = has_camera;
-    const auto background = scene.state.background_or(owner.level.background);
+    auto background = scene.state.background_or(owner.level.background);
+    // A mod's scene air (openrac_api.scene_air) over the game's background: in the picture only.
+    if (const auto air = mods::scene_air(); air && (air->flags & OPENRAC_AIR_BACKGROUND) != 0) {
+        for (int i = 0; i < 3; ++i) {
+            background[i] += (air->background[i] - background[i]) * air->weight;
+        }
+    }
     input.clear_colour = has_camera && (scene.draws & kLevelLayers) != 0
                              ? std::array<float, 4>{background[0], background[1], background[2], 1}
                              : std::array<float, 4>{0, 0, 0, 1};
@@ -388,9 +395,20 @@ void set_camera(SceneFrame& frame) {
     // that drew mobys alone (the pause menu's frame objects over its picture of the frame) is no
     // gameplay view: they are placed for the native lens.
     float opened = 1.0f;
-    if (has_camera && scene.gameplay_camera && (scene.draws & kLevelLayers) != 0
-        && !frame.output.camera_debug.settings.enabled
-        && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
+    // A mod's scene may ask for a field of view of its own (openrac_api.camera_fov, vertical
+    // degrees): drawn only, in place of the player's lens; the game's view tests open with it.
+    const float mod_fov = mods::camera_fov();
+    if (has_camera && mod_fov > 0.0f && (scene.draws & kLevelLayers) != 0
+        && !frame.output.camera_debug.settings.enabled) {
+        const float original = 1.0f / input.camera.projection[5];
+        const float wanted = std::tan(mod_fov * 0.5f * 3.14159265f / 180.0f);
+        const float scale = original / wanted;
+        input.camera.projection[0] *= scale;
+        input.camera.projection[5] *= scale;
+        opened = std::max(1.0f, 1.0f / scale);
+    } else if (has_camera && scene.gameplay_camera && (scene.draws & kLevelLayers) != 0
+               && !frame.output.camera_debug.settings.enabled
+               && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
         const float original = 1.0f / input.camera.projection[5];
         const float percent = static_cast<float>(frame.graphics.gameplay_fov) / 100.0f;
         const float scale = original / std::tan(std::atan(original) * percent);

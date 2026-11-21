@@ -31,7 +31,7 @@ struct Options {
     bool unlock_all_gadgets = false;
     fs::path levels;           // the extracted levels the window draws (level_00, ...)
     fs::path
-        mods;  // levels edited in Godot and packed (editor/pack.py), read in place of the disc's
+        mods;  // levels edited in OpenRAC Editor and packed (OpenRAC Editor's openrac/tools/pack.py), read in place of the disc's
     fs::path settings;  // the player's settings (settings.h); in OpenRAC's data folder unless given
     fs::path controls;  // the player's controls files (controls_store.h); likewise
     fs::path mod_data;  // the native mods' own folders (openrac_api.data_dir); likewise

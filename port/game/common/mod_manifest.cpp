@@ -460,7 +460,7 @@ bool parse_manifest(std::string_view source, Manifest& m, std::string& error) {
     }
     m.format = static_cast<int>(v["format"].number());
     if (m.format == 1) {
-        error = "a format-1 manifest is a data pack (editor/MODDING.md), not a native mod";
+        error = "a format-1 manifest is a data pack (extractor/MODDING.md), not a native mod";
         return false;
     }
     if (m.format != 2) {
@@ -899,7 +899,7 @@ std::vector<Decision> plan(const std::vector<Candidate>& enabled, const Target& 
                    std::find(discs.begin(), discs.end(), target.version) == discs.end()) {
             refuse(d, std::format("it is not for this disc ({}/{})", target.game, target.version));
         } else if (!m.script && m.plugin.empty()) {
-            refuse(d, "it has no library: data mods are packs (editor/MODDING.md)");
+            refuse(d, "it has no library: data mods are packs (extractor/MODDING.md)");
         } else if (m.script && !target.scripts) {
             refuse(d, std::format("this OpenRAC runs no scripts for {}", target.game));
         } else if (m.api_major != target.api_major) {

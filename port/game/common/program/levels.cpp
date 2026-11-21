@@ -285,7 +285,7 @@ int check_levels(const fs::path& levels, const fs::path& mods) {
             log::error(
                 "{} of {} levels in {} cannot be drawn: read them from the disc again (the "
                 "launcher's "
-                "\"Get the levels ready\"; editor/extract.py port --replace)",
+                "\"Get the levels ready\"; extractor/extract.py port --replace)",
                 bad,
                 ids.size(),
                 levels.string()

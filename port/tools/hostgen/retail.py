@@ -11,7 +11,7 @@ port is built from the player's disc:
 - each level's program (the records ParseBin loads over the executable from `relocate`'s low end
   up: lit, data, the class tables, text), from level dumps (a folder per level with its
   manifest.json and records: rac1-decomp's level_NN, rac2-decomp's NN_name) or from the disc image itself (the
-  level's overlay section, through the editor's own reader, editor/disc.py and formats.py).
+  level's overlay section, through the editor's own reader, extractor/disc.py and formats.py).
 
 What the assembly's text says beyond the words, this works out the way spimdisasm does:
 
@@ -184,7 +184,7 @@ def read_dump(dump: Path) -> dict[int, list[Part]]:
 
 def read_image(image: Path) -> tuple[bytes, dict[int, list[Part]]]:
     """The executable and every level's program from a disc image, through the editor's reader."""
-    editor = paths.repo_root(__file__) / "editor"
+    editor = paths.repo_root(__file__) / "extractor"
     if str(editor) not in sys.path:
         sys.path.insert(0, str(editor))
     from disc import Disc, FormatError  # noqa: E402  (the editor's ISO and table-of-contents reader)

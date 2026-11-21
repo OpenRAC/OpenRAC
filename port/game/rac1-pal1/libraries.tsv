@@ -1172,6 +1172,8 @@ func_L00_00210550	hero	enter_hero_vehicle_mode	wrap	the hero on a ride or as Cla
 func_L01_00230E10	hero	enter_hero_vehicle_mode_and_set_moby	wrap	the hero on a ride or as Clank; under a stand-in it is left out: the player standing in is not this game's hero (rac1/host/hero_grab.c)	void (int, int, int)
 func_L00_00254768	draw	MobyAnimDecodeLocalPose	wrap	the local pose decoder: a mod's joint offsets on the hero go into its joint records, which the items he wears (O2 mask, helmets) copy (rac1/host/render_native.c); NTSC FUN_L00_00254b58	void(gaddr)
 func_L00_0029A058	vendor	Vendor_OpenMenu	hook	opens the vendor purchase menu, including the Gadgetron PDA remote vendor; a hook point for mods to prevent opening an empty vendor; NTSC FUN_L00_0029a6b0	void (unsigned int)
+func_L00_00241370	world	print_moby_class_sizes	wrap	after a level registers its moby classes, register its imported classes too (rac1/host/foreign_class.c)	void (unsigned int, int)
+func_0020C0E8	game	InitMobyInstance	wrap	sets a new moby's defaults; in an imported class's call, a class this level lacks becomes an inert moby, as the game does for a class with no data (rac1/host/foreign_class.c)	void (gaddr, int)
 
 func_L01_00301D68	draw	DrawVisibombStatic	wrap	The out-of-range static tiles cover the whole widescreen target; retain the retail draw and scope the whole-target marker to it.
 func_002381F8	mods	Vendor_DrawIconStrip	hook	Draws the vendor carousel icons; mods may change reward icons without changing purchase rows.	void (void)

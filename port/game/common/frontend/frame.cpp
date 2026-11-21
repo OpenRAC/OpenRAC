@@ -2027,6 +2027,21 @@ TickMobys pose_mobys(
         if (!custom_pose && !cls->second.second && g->render.level.overridden_models == 0) {
             instance.world_sphere = m.world_sphere;
         }
+        // A moby drawn as another model (scene/moby_skin.h): its class's logic, the skin's look, at
+        // the skin's scale. Its pose is the skin's own animation, below.
+        const scene::MobySkin* skin = nullptr;
+        if (!g->moby_skins.empty() && m.address + 0x100 <= ram.size()) {
+            const int id = g->render.profile->moby_spawn_id(ram.data() + m.address);
+            const auto found = g->moby_skins.by_spawn_id.find(id);
+            if (id >= 0 && found != g->moby_skins.by_spawn_id.end()) {
+                skin = &found->second;
+                instance.model = skin->model;
+                instance.world_sphere = {};
+                for (int i = 0; i < 12; ++i) {
+                    instance.matrix[static_cast<std::size_t>(i)] *= skin->scale;
+                }
+            }
+        }
         // How MobyProc blends it (ReRAC's MobyBlend, from the game's moby draw). Its vertex alpha is
         // its alpha byte (+0x23) times its distance fade (GameProfile::moby_distance_fade: the last 16
         // units of its draw distance) >> 7. Mode bit 0x200 (+0x34) adds it; the fade below 0x80 or
@@ -2172,13 +2187,30 @@ TickMobys pose_mobys(
 
         // Unweighted joints are needed only by bone attachments or explicit developer inspection.
         const auto& model = g->render.level.models[instance.model];
-        const int joints =
+        int joints =
             replacement_pose
                 ? (model.preview_poses.empty() ? 0 : int(model.bones.size()))
                 : std::max(
                       model.joints, (inspect_bones || attached_bones) ? int(model.bones.size()) : 0
                   );
-        if (animate && replacement_pose && !model.preview_poses.empty()) {
+        if (skin != nullptr) {
+            // The skin's animation for the class's sequence, from when the sequence began.
+            const int sequence = ram[m.address + g->render.profile->moby_anim_fields() + 2];
+            const auto pose =
+                animate ? scene::prop_rig_palette(
+                              skin->rig,
+                              scene::moby_skin_animation(*skin, sequence),
+                              scene::moby_skin_seconds(g->moby_skins, m.address, sequence),
+                              true
+                          )
+                        : std::vector<std::array<float, 16>>{};
+            joints = 0;
+            if (!pose.empty()) {
+                instance.palette = static_cast<int>(palette.size());
+                palette.insert(palette.end(), pose.begin(), pose.end());
+                joints = static_cast<int>(pose.size());
+            }
+        } else if (animate && replacement_pose && !model.preview_poses.empty()) {
             const auto& pose = model.preview_poses[g->index % model.preview_poses.size()];
             instance.palette = int(palette.size());
             palette.insert(palette.end(), pose.begin(), pose.end());
@@ -2217,7 +2249,7 @@ TickMobys pose_mobys(
             );
         }
         // Its pose, evaluated after the loop with the others' on several threads.
-        if (animate && joints > 0 && !replacement_pose) {
+        if (animate && joints > 0 && skin == nullptr && !replacement_pose) {
             const bool target = into_texture.contains(m.address) || on_screen.contains(m.address);
             pose_jobs.push_back(
                 {m.address, joints, target, target ? target_mobys.size() : live.size()}
@@ -2530,11 +2562,29 @@ TickMobys pose_mobys(
             instance.moby_light = {0.0f, 0.0f, 0.0f, 1.0f};
             instance.occlusion = scene::Pvs::always;
             instance.blend = props[i].blend;
+            // A skinned prop in its animation (prop_animate): its palette after the mobys' poses.
+            int prop_joints = 0;
+            if (props[i].animation >= 0) {
+                const auto rig =
+                    std::find_if(g->prop_rigs.begin(), g->prop_rigs.end(), [&](const auto& r) {
+                        return r.first == props[i].mesh;
+                    });
+                if (rig != g->prop_rigs.end()) {
+                    const auto pose = scene::prop_rig_palette(
+                        rig->second, props[i].animation, props[i].seconds, props[i].loop
+                    );
+                    if (!pose.empty()) {
+                        instance.palette = static_cast<int>(palette.size());
+                        palette.insert(palette.end(), pose.begin(), pose.end());
+                        prop_joints = static_cast<int>(pose.size());
+                    }
+                }
+            }
             if (instance.blend != 0) {
                 // A glow or a spark: drawn with the mobys' blended groups, no shadow.
                 live.push_back(instance);
                 live_addresses.push_back(0xFFFFFF00u + static_cast<std::uint32_t>(props[i].id));
-                live_joints.push_back(0);
+                live_joints.push_back(prop_joints);
                 continue;
             }
             // A prop casts the hero's kind of shadow (a board under his feet goes with his): in the
@@ -2581,7 +2631,7 @@ TickMobys pose_mobys(
             }
             live.push_back(instance);
             live_addresses.push_back(0xFFFFFF00u + static_cast<std::uint32_t>(props[i].id));
-            live_joints.push_back(0);
+            live_joints.push_back(prop_joints);
         }
     }
     // The poses: each a pure function of the game's memory, evaluated in parallel (the costliest
@@ -2649,9 +2699,25 @@ TickMobys pose_mobys(
 
 // Gives the scene this tick's fog and the lights as the game holds them.
 void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state) {
-    g->render.scene.set_fog(
-        state.fog_colour, state.fog_near, state.fog_far, state.fog_near_f, state.fog_far_f
-    );
+    // A mod's scene air (openrac_api.scene_air) over the game's fog: in the picture only.
+    std::array<float, 3> fog_colour = state.fog_colour;
+    float fog_near = state.fog_near, fog_far = state.fog_far;
+    float fog_near_f = state.fog_near_f, fog_far_f = state.fog_far_f;
+    if (const auto air = mods::scene_air(); air && (air->flags & OPENRAC_AIR_FOG) != 0) {
+        const float w = air->weight;
+        const auto mix = [w](float a, float b) {
+            return a + (b - a) * w;
+        };
+        for (int i = 0; i < 3; ++i) {
+            fog_colour[i] = mix(fog_colour[i], air->fog_colour[i]);
+        }
+        // The game's depths are its units x 1024; F is 255 for none, 0 for all fog.
+        fog_near = mix(fog_near, air->fog_near * 1024.0f);
+        fog_far = mix(fog_far, air->fog_far * 1024.0f);
+        fog_near_f = mix(fog_near_f, 255.0f);
+        fog_far_f = mix(fog_far_f, 255.0f * (1.0f - air->fog_thickness));
+    }
+    g->render.scene.set_fog(fog_colour, fog_near, fog_far, fog_near_f, fog_far_f);
     // The light bank as the game holds it now (16 sets of 0x40 bytes; the executable's, each
     // level's copy elsewhere): the level loader fills it from the gameplay file, and the game changes
     // sets at run time (the page menus write set 14 for their frame mobys, fog zones the hero's).
@@ -2753,6 +2819,7 @@ void keep_tick(
                                   : std::array<std::vector<std::array<float, 12>>, 2>{};
         k.scenery = std::move(*mobys.scenery);
     }
+    k.scenery.mod_hidden_ties = mods::hidden_ties();
     k.hero_airborne = g->render.profile->hero_state() != 0
                           ? scene::hero_airborne(
                                 ram,

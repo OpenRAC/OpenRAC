@@ -12,8 +12,8 @@ port/build/release/openrac-rac1-pal --data <data> --window
 `--data` is the folder the extractor or the launcher's "Set up from your disc" wrote (it holds
 `iso_data/rac1/SCES_509.16` and `disc.iso`). Other options: `--cards DIR` (memory cards, default
 the launcher's save folder), `--levels DIR`, `--frames N`, `--keep-going` (log a function without C
-and carry on), `--mods DIR` (levels edited in Godot,
-[editor](../../../editor/README.md#pack-your-edits)). `-DOPENRAC_RAC1_PAL_SOURCE=<dir>` builds
+and carry on), `--mods DIR` (levels edited in OpenRAC Editor,
+[its guide](https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md#pack-your-edits)). `-DOPENRAC_RAC1_PAL_SOURCE=<dir>` builds
 another checkout of the decompilation.
 
 ## How it runs

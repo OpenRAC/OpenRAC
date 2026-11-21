@@ -3,7 +3,7 @@
   // asks first, in a dialog that lists what goes, with its size, and what stays.
   // - Read the game's levels again: the game's copy of the levels (and the lighting baked from
   //   them) goes, then is read from the disc at once, as a job like any other (Activity shows it).
-  // - Delete the level project: the Godot projects and the exported models and textures go; with
+  // - Delete the level project: the level projects and the exported models and textures go; with
   //   the tick box, unticked at first, the player's own packed levels, edits and packs too. Opening
   //   a level afterwards reads fresh copies from the disc.
   // The panel's own rows (`rows`) come first in the same list, and Export the levels again asks
@@ -277,7 +277,7 @@
         <p class="muted kept">{keptLine(kind, asking.withEdits)}</p>
         {#if kind === "editor"}<p class="muted">
             <Icon name="info" size={14} />
-            {RESET.closeGodot}
+            {RESET.closeEditor}
           </p>{/if}
       {/if}
 
@@ -319,7 +319,7 @@
       <p class="kept">{exportAgain?.carries ? EXPORT_AGAIN.carried : EXPORT_AGAIN.carriedLater}</p>
       <h3>{RESET.keeps}</h3>
       <p class="muted kept">{EXPORT_AGAIN.kept}</p>
-      <p class="muted"><Icon name="info" size={14} /> {EXPORT_AGAIN.closeGodot}</p>
+      <p class="muted"><Icon name="info" size={14} /> {EXPORT_AGAIN.closeEditor}</p>
       <div class="actions">
         <button class="ghost" onclick={closeExport}>{EXPORT_AGAIN.cancel}</button>
         <button class="primary" onclick={confirmExport}

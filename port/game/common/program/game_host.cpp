@@ -476,6 +476,12 @@ void openrac_game_sky_shell(int shell, const float* matrix) {
     });
 }
 
+int openrac_game_hud_hidden(void) {
+    return c_boundary::call("openrac_game_hud_hidden", 0, [&]() -> int {
+        return mods::hud_hidden() ? 1 : 0;
+    });
+}
+
 int openrac_game_hud_texts(openrac_game_hud_text* out, int max) {
     return c_boundary::call("openrac_game_hud_texts", 0, [&]() -> int {
         const std::vector<openrac_hud_text> lines = mods::hud_texts();

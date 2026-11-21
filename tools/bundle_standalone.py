@@ -10,7 +10,7 @@ no compiler.
 OUT (launcher/src-tauri/resources/openrac for an installer) gets:
 
   STANDALONE                 what this is and what it was made from
-  tools/, editor/            the set-up and the level tools, as they are here
+  tools/, extractor/            the set-up and the level tools, as they are here
                              (tools/openrac_common with them: they import it)
   port/enhanced/lighting/profiles  authored lighting settings, emission catalogs and moby seeds
   games/*/game.json          the catalogue the launcher lists
@@ -57,26 +57,26 @@ ROOT = paths.repo_root()
 
 
 def levels_format() -> int:
-    """The level export's format (editor/port.py FORMAT), which names the check's stamp."""
-    text = (ROOT / "editor" / "port.py").read_text(encoding="utf-8")
+    """The level export's format (extractor/port.py FORMAT), which names the check's stamp."""
+    text = (ROOT / "extractor" / "port.py").read_text(encoding="utf-8")
     return int(re.search(r"^FORMAT = (\d+)$", text, re.MULTILINE).group(1))
 
 
 # What the level check writes once every level is whole, and Play waits for
 # (port/game/common/program/levels.cpp check_levels).
 STAMP = f"verified-{levels_format()}.json"
-# What editor/extract.py port writes last, once every level is whole: the levels are ready by it.
+# What extractor/extract.py port writes last, once every level is whole: the levels are ready by it.
 LEVELS_STAMP = f"levels-{levels_format()}.json"
 
 # What a player's launcher offers for a version, from launcher/actions.json. The rest (the
 # decompilation's builds and checks, building the port, the tools' tests) needs a checkout.
 PLAY = ("port-levels", "port-levels-check", "probe-bake", "play")
-# Mods: the level editor (Godot projects of the disc's levels, packed back into the game's data),
-# models and textures, packs, and playing with them. In a checkout they work in its assets/; the
-# carried copy is read-only, so they work in the data folder instead (MOD_FOLDERS).
-MODS = ("editor-extract", "editor-preview", "editor-import", "editor-open", "editor-pack",
-        "assets-export", "assets-import", "audio-export", "audio-export-all", "audio-import", "overrides-add", "overrides-stack", "editor-show-packs",
-        "editor-hide-packs", "play-edited", "interface-export", "interface-run")
+# Mods: models and textures, sounds, packs, and playing with them. In a checkout they work in its
+# assets/; the carried copy is read-only, so they work in the data folder instead (MOD_FOLDERS). The
+# level editor's own steps come with OpenRAC Editor, which the launcher downloads (its
+# openrac/editor.json; launcher/core/src/editor_install.rs puts its folders in the same places).
+MODS = ("assets-export", "assets-import", "audio-export", "audio-export-all", "audio-import", "overrides-add",
+        "overrides-stack", "play-edited", "interface-export", "interface-run")
 KEEP = PLAY + MODS
 # Where a checkout's folders for version <game>/<version> go in the carried copy, longest first:
 # the levels the port draws, the level editor's projects, and the packed levels.
@@ -92,6 +92,9 @@ GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac1-pal1", "openrac-
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
 # (tools/build_port.py --probe-baker), Embree built into it, including its interior inference stage.
 TOOLS = ("openrac-enhanced-baker",)
+# Each game's states program (a plain program on every system, no application bundle): the level
+# editor runs it to see how the game starts a level's mobys (docs/port/MOBY_STATES.md).
+STATES = tuple(f"{game}-states" for game in GAMES)
 # What a Windows program built against MSVC's libraries imports and Windows does not always have:
 # without them it does not start ("MSVCP140.dll was not found"). Only the Visual C++ Redistributable
 # or Visual Studio installs them, and a player needs neither when they are beside the program.
@@ -162,7 +165,7 @@ def player_actions(android: bool = False, android_games: set[str] | None = None)
                     action["artifact"] = moved(action["artifact"], key)
                     action["output"] = levels
                 elif action["id"] == "port-levels":
-                    # editor/extract.py port DISC OUT: OUT is the data folder's, wherever it is.
+                    # extractor/extract.py port DISC OUT: OUT is the data folder's, wherever it is.
                     action["args"] = args[:3] + [levels, "--anywhere", "--replace"]
                     action["artifact"] = f"{levels}/{LEVELS_STAMP}"
                     action["output"] = levels
@@ -186,9 +189,6 @@ def player_actions(android: bool = False, android_games: set[str] | None = None)
                     for field in ("args", "artifact", "needs", "makes", "output"):
                         if field in action:
                             action[field] = moved(action[field], key)
-                    if args[:2] in (["editor/extract.py", "godot"], ["editor/extract.py", "pack"]):
-                        # The editor writes only under a checkout's assets/ unless told otherwise.
-                        action["args"] = action["args"] + ["--anywhere"]
                     if action["id"] == "play-edited":
                         # Started where Play is (below), for the same reason.
                         action["cwd"] = "{data}"
@@ -209,13 +209,12 @@ def player_actions(android: bool = False, android_games: set[str] | None = None)
     return out
 
 
-def editor_file(rel: Path) -> bool:
-    """Whether the copy takes editor/REL: the tools and what a level's Godot project gets
-    (editor/godot.py copies rc1/ and the Collision dock's addon, plugin.cfg included), and the
-    project format the editor and the launcher both read (project_format.json)."""
-    if rel.as_posix() in ("project_format.json", "AUDIO_MODDING.md"):
+def extractor_file(rel: Path) -> bool:
+    """Whether the copy takes extractor/REL: the extractor's modules and tables (OpenRAC Editor's
+    tools import them: extractor_api.json), without their tests."""
+    if rel.as_posix() in ("extractor_api.json", "AUDIO_MODDING.md"):
         return True  # AUDIO_MODDING.md: the Audio tab's "How it works" opens it
-    return not rel.name.startswith("test_") and rel.suffix in (".py", ".tsv", ".gd", ".cfg", "")
+    return not rel.name.startswith("test_") and rel.suffix in (".py", ".tsv")
 
 
 def strip_debug(path: Path) -> bool:
@@ -237,7 +236,7 @@ def copy_games(build: Path, dest: Path, extra: tuple[str, ...] = ()) -> list[str
     bundle named by its title in apps/openrac-<id>/ (port/cmake/MacApp.cmake), carried whole; the
     build folder's link to its program is not."""
     carried = []
-    for game in GAMES + extra + TOOLS:
+    for game in GAMES + extra + TOOLS + STATES:
         apps = build / "apps" / game
         if any(apps.glob("*.app")):
             shutil.copytree(apps, dest / "apps" / game, symlinks=True, dirs_exist_ok=True)
@@ -321,7 +320,7 @@ def main() -> int:
     # The helpers they import, found from the copy's own tools/ (they find the copy's root by
     # the STANDALONE note written below).
     files.copy_tree(ROOT / "tools/openrac_common", out / "tools/openrac_common", lambda rel: rel.suffix == ".py")
-    files.copy_tree(ROOT / "editor", out / "editor", editor_file)
+    files.copy_tree(ROOT / "extractor", out / "extractor", extractor_file)
     # Interface texture runs (docs/port/TEXTURE_PACKS.md): the tool that makes one and the routes it
     # plays (the player makes their own run; the copy carries none).
     files.copy_tree(ROOT / "port/tools/interface_runs", out / "port/tools/interface_runs",
@@ -330,8 +329,8 @@ def main() -> int:
                     lambda rel: rel.name in {"card.py", "routes.py", "runner.py", "routes.json", "routes_rac2.json"})
     # Players have no decompilation headers. Carry the same validated typed fields the
     # checkout uses, or edits such as Novalis's moveSpeed would be ignored when packed.
-    proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",
-              out / "editor/pvar_layouts.json"])
+    proc.run([sys.executable, ROOT / "extractor/pvar_layouts.py", "--export-layouts",
+              out / "extractor/pvar_layouts.json"])
     files.copy_tree(ROOT / PROBE_PROFILES, out / PROBE_PROFILES,
                     lambda rel: rel.suffix == ".json"
                     or (rel.suffix == ".png" and rel.parent.name == "emission-masks"))

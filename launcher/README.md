@@ -5,7 +5,7 @@
 [![Discord](https://img.shields.io/badge/Discord-join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/Sfd2B54PDG)
 
 The launcher for OpenRAC's Ratchet & Clank games. It sets a game up from your
-own disc, plays its native PC port, and opens its levels in Godot for
+own disc, plays its native PC port, and opens its levels in OpenRAC Editor for
 editing. It is OpenRAC's version of
 [OpenGOAL's launcher](https://github.com/open-goal/launcher) for Jak and
 Daxter. Nothing here emulates the console.
@@ -193,29 +193,30 @@ still looks whenever you ask.
 
 **Level editing** has three steps for each editable game:
 
-1. **Open the editor** and choose a level. Each level is its own Godot 4
-   project under `assets/levels/<game>`.
+1. **Download OpenRAC Editor** on the Level editor tab (once: the launcher carries
+   no editor), then **open** a level. Each level is its own project under
+   `assets/levels/<game>`.
 2. **Pack** the edits into `assets/packed/<game>`.
 3. **Play** with them.
 
 The disc image is never changed. With developer tools on, the page also shows
 the folders and commands behind the buttons
-([editor/README.md](../editor/README.md#pack-your-edits)).
+([OpenRAC Editor's guide](https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md)).
 
 **Audio** exports the game's music, speech and effects as WAV files, and imports
-edited ones back as a pack ([editor/AUDIO_MODDING.md](../editor/AUDIO_MODDING.md)).
+edited ones back as a pack ([extractor/AUDIO_MODDING.md](../extractor/AUDIO_MODDING.md)).
 
 **Models and textures** exports a level's models (glTF, with skeletons) and
 textures (PNG), and imports edited folders back as overrides. It also manages
 the packs: on or off, order, remove, add a `.zip` or folder, or drop one on
 the page. With the **Mods** switch under Play on, Play first combines the packed
-levels with the packs that are on ([editor/MODDING.md](../editor/MODDING.md)).
+levels with the packs that are on ([extractor/MODDING.md](../extractor/MODDING.md)).
 
 Going Commando (any of its three discs: USA v1.01, USA v2.00 and Europe's) is
 playable; Up Your Arsenal and Deadlocked (NTSC-U) are early access. Their
-levels open in Godot and **Models and textures** works, but level edits are
+levels open in OpenRAC Editor and **Models and textures** works, but level edits are
 not packed back yet. Their packs wait in Your mods
-([editor/README.md](../editor/README.md#the-later-games-early-access)). Up
+([OpenRAC Editor's guide](https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md)). Up
 Your Arsenal and Deadlocked are not playable yet. Going Commando's decompilation
 is whole, so every installer carries its three programs built as Ratchet &
 Clank's are: pick the disc, get the levels ready, Play. Nothing is built on
@@ -334,7 +335,7 @@ What the launcher writes, and when it goes online:
   card), restored backups and edited slots, always after a backup of the
   whole card.
 - **Tool output**: whatever the tools it runs write in the checkout
-  (`baserom/` inputs, build output, `assets/godot` for the level editor), all
+  (`baserom/` inputs, build output, `assets/levels` for the level editor), all
   ignored by git.
 - **Linux desktop**: at every start, the launcher's icons in
   `~/.local/share/icons/hicolor/` and its two `.desktop` files in

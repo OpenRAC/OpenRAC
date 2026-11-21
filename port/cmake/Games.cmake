@@ -384,6 +384,11 @@ function(openrac_add_game config)
   else()
     add_executable(openrac-${id} "${OPENRAC_GAME_DIR}/common/main.cpp")
     set(targets openrac-${id})
+    # openrac-<id>-states: the same program without the window (no renderer, sound output or
+    # input), for tools that only need the game's state: the editor's moby start states
+    # (--moby-states, program/moby_states.h).
+    add_executable(openrac-${id}-states "${OPENRAC_GAME_DIR}/common/main.cpp")
+    list(APPEND targets openrac-${id}-states)
   endif()
   # The game fixes of this disc (cmake/Differences.cmake), which the game's host C reads through
   # openrac_game_fix: in every program, with a window or without.
@@ -419,7 +424,7 @@ function(openrac_add_game config)
       target_link_libraries(${target} PRIVATE winmm)
     endif()
     # The window: the renderer draws what the game holds in memory (game/common/frontend.h).
-    if(TARGET openrac_scene_renderer AND TARGET openrac_platform)
+    if(TARGET openrac_scene_renderer AND TARGET openrac_platform AND NOT target MATCHES "-states$")
       target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/frontend.cpp"
                                        "${OPENRAC_GAME_DIR}/common/controls_store.cpp"
                                        "${OPENRAC_GAME_DIR}/common/debug_menu.cpp"
@@ -634,10 +639,10 @@ function(openrac_add_games)
   endforeach()
 endfunction()
 
-# The editor's moby class names (editor/moby_classes.tsv: class number, name, with its notice in
+# The editor's moby class names (extractor/moby_classes.tsv: class number, name, with its notice in
 # its first lines) as one string, openrac_moby_class_names, for the debug overlay's moby list.
 function(openrac_moby_class_names out)
-  set(tsv "${PROJECT_SOURCE_DIR}/../editor/moby_classes.tsv")
+  set(tsv "${PROJECT_SOURCE_DIR}/../extractor/moby_classes.tsv")
   set(cpp "${CMAKE_BINARY_DIR}/generated/openrac_moby_class_names.cpp")
   if(EXISTS "${tsv}")
     file(READ "${tsv}" text)
@@ -645,7 +650,7 @@ function(openrac_moby_class_names out)
   else()
     set(text "")
   endif()
-  file(CONFIGURE OUTPUT "${cpp}" CONTENT "// Generated from editor/moby_classes.tsv by cmake/Games.cmake.
+  file(CONFIGURE OUTPUT "${cpp}" CONTENT "// Generated from extractor/moby_classes.tsv by cmake/Games.cmake.
 extern const char *const openrac_moby_class_names;
 const char *const openrac_moby_class_names = R\"tsv(${text})tsv\";
 " @ONLY)

@@ -89,6 +89,31 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* FontPrintWindow as NTSC-J's own C calls it: its font_print_window_regular (src/versions/jp/game/render/draw/func_001F7560.c) draws with func_J_001F81F8, its own routine, not PAL v2.00's func_001F7070. */
 #define RAC1_FONT_PRINT_WINDOW func_001F81F8
 
+/* Imported moby classes (rac1/host/foreign_class.c): register_moby_class and
+ * resident_class_id_by_slot in this release (release_names.json, the release's check). */
+#define RAC1_FOREIGN_CLASSES 1
+#define RAC1_ADDR_0x00203E78u 0x00204D98u
+#define RAC1_ADDR_0x001B3C80u 0x001B3A80u
+
+/* Imported moby classes' tables (rac1/host/foreign_class.c): the level's camera, rail, volume and
+ * path globals in level 0's program (release_names.json: only toad_paths moves). */
+#define RAC1_ADDR_L00_0x0015F050u 0x0015F050u
+#define RAC1_ADDR_L00_0x0015F054u 0x0015F054u
+#define RAC1_ADDR_L00_0x0015F7ECu 0x0015F7ECu
+#define RAC1_ADDR_L00_0x0015F7F0u 0x0015F7F0u
+#define RAC1_ADDR_L00_0x001601A4u 0x001601A4u
+#define RAC1_ADDR_L00_0x001601A8u 0x001601A8u
+#define RAC1_ADDR_L00_0x001601ACu 0x001601ACu
+#define RAC1_ADDR_L00_0x001601B0u 0x001601B0u
+#define RAC1_ADDR_L00_0x001601B4u 0x001601B4u
+#define RAC1_ADDR_L00_0x001601B8u 0x001601B8u
+#define RAC1_ADDR_L00_0x001601BCu 0x001601BCu
+#define RAC1_ADDR_L00_0x001601C0u 0x001601C0u
+#define RAC1_ADDR_L00_0x001601C4u 0x001601C4u
+#define RAC1_ADDR_L00_0x001601C8u 0x001601C8u
+#define RAC1_ADDR_L00_0x001B0830u 0x001B0630u
+#define RAC1_ADDR_L00_0x001ABBC0u 0x001AB9C0u /* level_moby_groups */
+
 /* ---- generated below ---- */
 
 /* Addresses: games/rac1's, this version's (RAC1_LADDR: in level NN's program). */

@@ -46,7 +46,9 @@
 #include "scene/level.h"
 #include "scene/level_renderer.h"
 #include "scene/moby_shadow.h"
+#include "scene/moby_skin.h"
 #include "scene/object_picker.h"
+#include "scene/prop_rig.h"
 #include "scene/special_acquisition.h"
 #include "settings.h"
 
@@ -263,6 +265,10 @@ struct State {
     // The mods' prop meshes read with the level (interface 1.12, mods::prop_meshes): each one's
     // model in `level`.
     std::vector<std::pair<std::filesystem::path, std::uint32_t>> prop_models;
+    // The skinned ones' skeletons and animations (openrac_api.prop_animate).
+    std::vector<std::pair<std::filesystem::path, scene::PropRig>> prop_rigs;
+    // The level's mobys drawn as another model (the editor's skins.json beside its placements).
+    scene::MobySkins moby_skins;
     std::map<int, scene::SpecialClip> special_pickup_clips;
     int infobot_pickup_model = -1;
     std::vector<std::vector<renderer::Mat4>> infobot_pickup_poses;

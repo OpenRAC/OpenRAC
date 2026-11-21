@@ -401,6 +401,8 @@ add_library(openrac_scene STATIC
   scene/object_picker.cpp
   scene/object_preview_mesh.cpp
   scene/moby_pose.cpp
+  scene/prop_rig.cpp
+  scene/moby_skin.cpp
   scene/moby_shadow.cpp
   scene/screenshot.cpp
   scene/sun_shadow.cpp
@@ -413,6 +415,8 @@ target_link_libraries(openrac_scene PUBLIC openrac_materials openrac_renderer op
   openrac_assets_geometry)
 openrac_warnings(openrac_scene)
 openrac_add_test(material_bindings SOURCES tests/material_bindings_test.cpp LIBS openrac_scene)
+openrac_add_test(prop_rig LIBS openrac_scene)
+openrac_add_test(moby_skin LIBS openrac_scene)
 
 # Scene conversion/fingerprinting is shared by activation checks and the
 # offline tool. It contains no Embree calls and is available in normal builds.

@@ -13,8 +13,8 @@ export const PART_TEXT: Record<ResetPart, { title: string; line: string }> = {
     line: "Read from your disc again straight after. Its enhanced lighting is made again too.",
   },
   projects: {
-    title: "Levels opened in Godot",
-    line: "Changes you saved in Godot but did not pack are lost.",
+    title: "Levels opened in OpenRAC Editor",
+    line: "Changes you saved in OpenRAC Editor but did not pack are lost.",
   },
   exports: {
     title: "Models and textures you exported",
@@ -33,17 +33,17 @@ export const RESET = {
   lead: "When levels look wrong, or for a clean editor. Your disc, saves and gameplay mods are never touched.",
   levelsTitle: "Read the game's levels again",
   levelsLine:
-    "The copy of the levels the game plays, not your Godot projects. Your edits and packs are kept.",
+    "The copy of the levels the game plays, not your level projects. Your edits and packs are kept.",
   levelsButton: "Read again…",
   editorTitle: "Delete the level project",
   editorLine:
-    "Deletes this disc's Godot projects, changes not packed included. Packed levels and edits stay unless you tick them.",
+    "Deletes this disc's level projects, changes not packed included. Packed levels and edits stay unless you tick them.",
   editorButton: "Delete…",
   busy: "Wait for the game and the tasks running to end first.",
   noDisc: "Set the game up from your disc first.",
   checking: "Looking at what is there…",
   nothing: "There is nothing to remove.",
-  closeGodot: "Close Godot first if a level is open in it.",
+  closeEditor: "Close OpenRAC Editor first if a level is open in it.",
   removes: "To delete",
   inAll: (bytes: string) => `In all: ${bytes}`,
   keeps: "Kept",
@@ -58,7 +58,7 @@ export const RESET = {
   refused:
     "Nothing was deleted: one of these folders is not one of OpenRAC's own, so it was left alone.",
   failed:
-    "Some files could not be deleted. Close Godot and any window showing them, then try again.",
+    "Some files could not be deleted. Close OpenRAC Editor and any window showing them, then try again.",
   levelsStopped: "Reading the levels stopped. The activity log says why.",
   levelsDone: "The levels were read again from your disc.",
   reading: "Reading the levels from your disc…",
@@ -67,7 +67,7 @@ export const RESET = {
 /** What a reset keeps, in a line under its list: so that nobody wonders about their own work. */
 export function keptLine(kind: ResetKind, withEdits: boolean): string {
   if (kind === "levels") {
-    return "Your levels in Godot, your packs and edits, the models and textures you exported, and your saves.";
+    return "Your levels in OpenRAC Editor, your packs and edits, the models and textures you exported, and your saves.";
   }
 
   return withEdits

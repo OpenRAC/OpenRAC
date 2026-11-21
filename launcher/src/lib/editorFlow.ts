@@ -1,9 +1,9 @@
 // The level editor's status panel (components/EditorFlow.svelte): where the player is, in one
 // sentence, and the one step that comes next as the panel's main button. A plain function of what
-// the core found in the editor's folders (core/src/editor_state.rs), the disc, Godot and the jobs
+// the core found in the editor's folders (core/src/editor_state.rs), the disc, OpenRAC Editor and the jobs
 // running, so that every state can be tested without a window.
 //
-//   no disc → no Godot → no levels yet → reading them → ready to edit → changes to pack → packing
+//   no disc → no OpenRAC Editor → no levels yet → reading them → ready to edit → changes to pack → packing
 //   → packed, ready to play;  and, whenever the core finds it, needs an update / files missing.
 import type { Carried, EditorState, OutdatedReason } from "./api";
 import { levelName } from "./labels";
@@ -12,7 +12,8 @@ import type { Job } from "./queue";
 export type StageKind =
   | "loading"
   | "no-disc"
-  | "no-godot"
+  | "no-editor"
+  | "not-yet"
   | "no-levels"
   | "extracting"
   | "updating"
@@ -26,7 +27,7 @@ export type StageKind =
 
 /** What a button of the panel does. */
 export type Step =
-  "set-up" | "get-godot" | "prepare" | "open" | "update" | "repair" | "pack" | "play";
+  "set-up" | "get-editor" | "prepare" | "open" | "update" | "repair" | "pack" | "play";
 
 export interface Stage {
   kind: StageKind;
@@ -45,8 +46,11 @@ export interface FlowInput {
   game: string;
   state: EditorState | null;
   discFound: boolean;
-  lacksGodot: boolean;
-  /** The game's levels are not packed back yet: no pack step, so no play-with-edits step (the game itself may still play). */
+  /** Null when OpenRAC Editor is downloaded and fits this OpenRAC; else why not (empty: not downloaded). */
+  lacksEditor: string | null;
+  /** OpenRAC Editor is there but brings no steps for this version. */
+  unsupported?: boolean;
+  /** The game's levels are not packed back yet (early access): no pack or play steps. */
   early: boolean;
   extracting: Job | null;
   packing: Job | null;
@@ -55,9 +59,9 @@ export interface FlowInput {
 /** The buttons' words. */
 export const STEP_LABEL: Record<Step, string> = {
   "set-up": "Set up the disc",
-  "get-godot": "Get Godot",
+  "get-editor": "Download OpenRAC Editor",
   prepare: "Read the levels and open",
-  open: "Open in Godot",
+  open: "Open in OpenRAC Editor",
   update: "Update project",
   repair: "Repair",
   pack: "Pack your changes",
@@ -114,6 +118,30 @@ export function editorStage(input: FlowInput): Stage {
     };
   }
 
+  if (input.lacksEditor !== null) {
+    return {
+      ...base,
+      kind: "no-editor",
+      tone: "warn",
+      title: "Get OpenRAC Editor to edit levels",
+      line:
+        input.lacksEditor ||
+        "Levels open in OpenRAC Editor, OpenRAC's own level editor. Download it here, once.",
+      primary: "get-editor",
+    };
+  }
+
+  if (input.unsupported) {
+    return {
+      ...base,
+      kind: "not-yet",
+      tone: "info",
+      title: "OpenRAC Editor does not edit this game yet",
+      line: "Its models, textures and sounds can still be changed in the other tabs.",
+      primary: null,
+    };
+  }
+
   if (input.extracting) {
     if (input.extracting.actionId === "editor-reexport") {
       return {
@@ -153,7 +181,7 @@ export function editorStage(input: FlowInput): Stage {
       kind: "packing",
       tone: "busy",
       title: "Packing your changes…",
-      line: "Turning what you saved in Godot into level data the game reads.",
+      line: "Turning what you saved in OpenRAC Editor into level data the game reads.",
       primary: null,
     };
   }
@@ -169,7 +197,7 @@ export function editorStage(input: FlowInput): Stage {
     };
   }
 
-  const opening: Step[] = input.lacksGodot ? ["get-godot"] : ["open"];
+  const opening: Step[] = ["open"];
 
   if (state.outdated.length) {
     const levels = state.outdated.map((o) => o.level);
@@ -209,21 +237,10 @@ export function editorStage(input: FlowInput): Stage {
       kind: "unpacked",
       tone: "info",
       title: "You have changes to pack",
-      line: `Saved in Godot and not packed yet: ${levelList(game, state.unpacked)}. Pack them so the game plays them.`,
+      line: `Saved in OpenRAC Editor and not packed yet: ${levelList(game, state.unpacked)}. Pack them so the game plays them.`,
       primary: "pack",
       secondary: opening,
       levels: state.unpacked,
-    };
-  }
-
-  if (input.lacksGodot) {
-    return {
-      ...base,
-      kind: "no-godot",
-      tone: "warn",
-      title: "Get Godot to edit levels",
-      line: "Levels open in Godot 4, a free editor. Get it, then choose where it is.",
-      primary: "get-godot",
     };
   }
 
@@ -234,8 +251,8 @@ export function editorStage(input: FlowInput): Stage {
       tone: "info",
       title: "No levels to edit yet",
       line: early
-        ? "The first time, the editor reads the levels from your disc (a few minutes), then opens the one you pick in Godot."
-        : "The first time, the editor reads the levels from your disc (about 20 seconds), then opens the one you pick in Godot.",
+        ? "The first time, the editor reads the levels from your disc (a few minutes), then opens the one you pick in OpenRAC Editor."
+        : "The first time, the editor reads the levels from your disc (about 20 seconds), then opens the one you pick in OpenRAC Editor.",
       primary: "prepare",
     };
   }
@@ -273,8 +290,8 @@ export function editorStage(input: FlowInput): Stage {
     tone: "ok",
     title: "Ready to edit",
     line: early
-      ? "Pick a level and look around its objects and textures in Godot."
-      : "Pick a level and open it in Godot. Move, turn or scale objects and save, then come back here to pack your changes.",
+      ? "Pick a level and look around its objects and textures in OpenRAC Editor."
+      : "Pick a level and open it in OpenRAC Editor. Move, turn or scale objects and save, then come back here to pack your changes.",
     primary: "open",
   };
 }
@@ -309,7 +326,7 @@ export function updateNoteLine(note: UpdateNote): string {
       ? `${plural(note.levels, "level")} updated. You had no changes to carry over.`
       : `${plural(note.levels, "level")} updated, with ${plural(note.carried, "change")} of yours carried over.`;
   const redo = note.redo.length
-    ? ` ${plural(note.redo.length, "change")} could not be carried: redo ${note.redo.length === 1 ? "it" : "them"} in Godot.`
+    ? ` ${plural(note.redo.length, "change")} could not be carried: redo ${note.redo.length === 1 ? "it" : "them"} in OpenRAC Editor.`
     : "";
 
   return head + redo + " Your old levels are in the backup folder.";
@@ -327,12 +344,12 @@ export type LevelTool = "pack-again" | "export-again";
 export const LEVEL_TOOL_TEXT = {
   "pack-again": {
     title: "Pack again",
-    line: "Packs what you saved in Godot now, even if the launcher saw no change. Your levels stay as they are.",
+    line: "Packs what you saved in OpenRAC Editor now, even if the launcher saw no change. Your levels stay as they are.",
     button: "Pack again",
   },
   "export-again": {
     title: "Export the levels again",
-    line: "Reads every level from your disc into Godot again. The ones there go to a backup first, and your changes are carried over.",
+    line: "Reads every level from your disc into OpenRAC Editor again. The ones there go to a backup first, and your changes are carried over.",
     button: "Export again…",
   },
 } as const;
@@ -357,12 +374,12 @@ export function levelTools(
 export const EXPORT_AGAIN = {
   title: "Export the levels again",
   replaced:
-    "Every level's Godot project is written again from your disc. The ones there now are moved to a backup folder first, with your changes in them.",
+    "Every level's project is written again from your disc. The ones there now are moved to a backup folder first, with your changes in them.",
   carried:
     "The objects you moved, changed, added or deleted are carried onto the fresh levels. Anything that cannot be carried is listed afterwards, to redo by hand.",
   carriedLater: "This game's changes are not carried over yet: redo them from the backup folder.",
   kept: "Your packed levels, imported edits and packs, the game's copy of the levels and your saves.",
-  closeGodot: "Close Godot first if a level is open in it.",
+  closeEditor: "Close OpenRAC Editor first if a level is open in it.",
   confirm: "Export again",
   cancel: "Cancel",
 } as const;

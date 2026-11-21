@@ -141,7 +141,11 @@ void func_001FFFB8(void) {
         GREF(int, slot + SLOT_X) += moved[i];
     }
     aridia_counters_out(side);
-    func_001FFFB8__game();
+    /* A mod's scene may hide the HUD (openrac_api.hud_hide): its elements' draws are skipped, their
+     * updates still run, and the mods' own lines below stay. */
+    if (!openrac_game_hud_hidden()) {
+        func_001FFFB8__game();
+    }
     aridia_counters_out(-side);
     for (int i = 0; i < SLOTS; i++) {
         GREF(int, slots + (gaddr)i * SLOT_BYTES + SLOT_X) -= moved[i];

@@ -1,0 +1,8 @@
+{
+  "about": "What OpenRAC's extractor offers the level editor's tools (OpenRAC Editor, tools/openrac_root.py), which import its modules from this folder. Raise version when one of the modules below changes in a way those tools would notice (a name they use renamed or removed, a changed signature or meaning); the editor's tools refuse a version they were not made for.",
+  "version": 1,
+  "modules": ["collision", "cparse", "disc", "errors", "extract", "formats", "games", "gltf", "gltf_read", "level",
+              "levelwrite", "lighting", "mesh", "moby_anim", "moby_class", "mobys", "overrides", "progress_line",
+              "pvar_layouts", "shrubs", "sky", "terrain", "ties", "util", "wads"],
+  "packed_format": 1
+}

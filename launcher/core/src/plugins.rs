@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
 /// `sdk/include/openrac/openrac_mod.h`. Change them with it.
 pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 26;
+pub const API_MINOR: u32 = 27;
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
@@ -1266,7 +1266,7 @@ pub fn remove(dir: &Path, game: &str, version: &str, id: &str) -> Result<Vec<Plu
 pub enum Installed {
     /// A native mod, now in the store (`replaced`: an older install of it was there).
     Plugin { id: String, name: String, version: String, replaced: bool, enabled: bool },
-    /// A data pack (format 1): the overrides' to add (editor/overrides.py, actions.json `overrides-add`).
+    /// A data pack (format 1): the overrides' to add (extractor/overrides.py, actions.json `overrides-add`).
     Pack,
 }
 

@@ -128,11 +128,11 @@ grip, a switch, what it replaces, up, down and remove.
 
 ## Level editor, Models and textures, Audio
 
-- **Level editor:** open a level in Godot, then pack your changes. Each step
-  says what is missing (disc, Godot) or how it went.
+- **Level editor:** open a level in OpenRAC Editor, then pack your changes. Each step
+  says what is missing (disc, OpenRAC Editor: downloaded from the tab) or how it went.
 - **Models and textures:** export a level's assets, import your edits, and the
   texture pack steps.
-- **Audio:** the same for sound ([editor/AUDIO_MODDING.md](../../editor/AUDIO_MODDING.md)).
+- **Audio:** the same for sound ([extractor/AUDIO_MODDING.md](../../extractor/AUDIO_MODDING.md)).
 
 What they make shows up under Graphics and sound packs.
 
@@ -161,7 +161,7 @@ Updates go to `plugins/.staging/` first; the old version is kept in
 
 One page, no tabs: Get mods, the toolbar, Gameplay mods (Enhanced graphics
 first), the packs, the texture pack steps (folded), then Add a mod. No level
-editor, models or audio export (they need Godot and a desktop). Native mods
+editor, models or audio export (they need OpenRAC Editor and a desktop). Native mods
 don't load; script mods do. A picked `.zip` is copied into the app first.
 
 ## Developer view

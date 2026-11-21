@@ -35,7 +35,7 @@ on:
     paths:
       - "launcher/**"
       - "port/**"
-      - "editor/**"
+      - "extractor/**"
       - "games/rac1/**"
       - "games/rac2/**"
       - ".gitmodules"
@@ -364,7 +364,7 @@ jobs:
           # Its own Python runs its own tools, and the game starts far enough to say what it is.
           py=$COPY/python/bin/python3; [ -x "$py" ] || py=$COPY/python/python.exe
           "$py" "$COPY/tools/extractor.py" --help > /dev/null
-          "$py" "$COPY/editor/extract.py" --help > /dev/null
+          "$py" "$COPY/extractor/extract.py" --help > /dev/null
           # The program as the launcher finds it: openrac-<id>, openrac-<id>.exe, or on macOS the
           # program in its application bundle, apps/openrac-<id>/<title>.app (port/cmake/MacApp.cmake).
           program() {
@@ -377,6 +377,10 @@ jobs:
           us=$(program "$COPY/port/build/release/openrac-rac1-ntsc")
           [ -f "$us" ] || { echo "the copy carries no openrac-rac1-ntsc"; exit 1; }
           "$us" --help || true
+          # And each game's states program, which the level editor runs (OpenRAC Editor's openrac/tools/moby_states.py).
+          states=$COPY/port/build/release/openrac-rac1-pal-states; [ -f "$states" ] || states=$states.exe
+          [ -f "$states" ] || { echo "the copy carries no openrac-rac1-pal-states"; exit 1; }
+          "$states" --help || true
           for id in rac2-ntsc rac2-pal rac2-ntsc2; do
             rac2=$(program "$COPY/port/build/release/openrac-$id")
             [ -f "$rac2" ] || { echo "the copy carries no openrac-$id"; exit 1; }
