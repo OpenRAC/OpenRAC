@@ -256,7 +256,10 @@ static const openrac_front_end front_end = {
 
 /* From crt0 (entry.c), not a constructor: the game is a static library, and nothing else names this
  * file, so a constructor here is dropped with it at the link. */
+void rac3_loading_skip(void); /* host/loading.c */
+
 void rac3_install_tools(void) {
+    openrac_game_skip = rac3_loading_skip;
     openrac_game_mode = rac3_level_mode;
     openrac_game_hero_position = hero_position;
     openrac_game_hero = hero;

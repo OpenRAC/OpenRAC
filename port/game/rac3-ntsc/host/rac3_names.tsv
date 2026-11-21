@@ -90,7 +90,10 @@ func_003B6090__game	func_003B5EE0__game
 func_003B63D0	func_003B6220
 func_003B63D0__game	func_003B6220__game
 func_003B6588	func_003B6400
+func_003BCE00	func_003BCD28
+func_003BCE00__game	func_003BCD28__game
 func_003CB6B8	func_003CB550
+func_003D3158	func_003D2FF0
 func_003E7DD0	func_003E7C70
 func_003E8200	func_003E80A0
 func_L01_003E92F8	func_L01_003E7478

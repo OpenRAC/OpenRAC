@@ -102,6 +102,8 @@
 #define RAC3_ADDR_0x001D89B8u 0x001D89E8u
 /* D_001D89BC (names.tsv) */
 #define RAC3_ADDR_0x001D89BCu 0x001D89ECu
+/* D_001D9BFC (names.tsv) */
+#define RAC3_ADDR_0x001D9BFCu 0x001D9C7Cu
 /* D_001D9D04 (names.tsv) */
 #define RAC3_ADDR_0x001D9D04u 0x001D9D84u
 /* D_001D9EA8 (names.tsv) */
@@ -116,14 +118,20 @@
 #define RAC3_ADDR_0x001DA058u 0x001DA0D8u
 /* D_001DA05C (names.tsv) */
 #define RAC3_ADDR_0x001DA05Cu 0x001DA0DCu
+/* D_00225700 (names.tsv) */
+#define RAC3_ADDR_0x00225700u 0x00225780u
 /* D_00225734 (names.tsv) */
 #define RAC3_ADDR_0x00225734u 0x002257B4u
+/* D_00225C00 (names.tsv) */
+#define RAC3_ADDR_0x00225C00u 0x00225C80u
 /* D_00227400 (names.tsv) */
 #define RAC3_ADDR_0x00227400u 0x00227480u
 /* D_0022758C (names.tsv) */
 #define RAC3_ADDR_0x0022758Cu 0x0022760Cu
 /* D_00280CF0 (names.tsv) */
 #define RAC3_ADDR_0x00280CF0u 0x00280D70u
+/* D_002D2008 (names.tsv) */
+#define RAC3_ADDR_0x002D2008u 0x002D2088u
 /* D_0037F830 (names.tsv) */
 #define RAC3_ADDR_0x0037F830u 0x0037F8B0u
 /* func_00381250 (map.tsv differs) */
