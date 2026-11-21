@@ -86,13 +86,17 @@ static void movie_overlay(const uint8_t* rgba, int width, int height) {
 }
 
 int func_0034EF58(int first, int second, int pool, int state, int channel, int volume) {
-    (void)pool;
     (void)state;
+    /* As the console does: the base is the given pool while the movie plays, and 0 after.
+     * Without it the list went to 0x1C81C0 itself, over the game's data there (Jamming
+     * Array's map, which the save after its last scene then read). */
+    FMV_GS_BASE = pool;
     s_strips_given = volume;
     movie_strips();
     const int result =
         openrac_game_play_movie_over((uint32_t)first, (uint32_t)second, channel, 1, movie_overlay);
 
     openrac_game_forget_picture(FMV_FRAME_TBP >> 8);
+    FMV_GS_BASE = 0;
     return result;
 }
