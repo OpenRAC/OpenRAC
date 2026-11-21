@@ -1012,7 +1012,8 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     if table and table.is_file():
         for line in table.read_text().splitlines():
             if line.strip() and not line.startswith("#"):
-                paths.append(source / line.partition("\t")[2].strip())
+                # name, file, then any columns (read_candidates reads only the first two)
+                paths.append(source / line.partition("\t")[2].split("\t")[0].strip())
     # Frontend C++ does not affect translation. Keep the configuration's tables, hand C and
     # headers, plus the shared host wrappers whose signatures the assembly stage reads.
     paths += [config]
