@@ -161,12 +161,9 @@
   "asm": {
     "enabled": true,
     "signatures": {
-      "func_0038AE20__frontbin": "void (int, int, int, int)",
       "func_0038AF30__frontbin": "void (int, int, int, int, unsigned long long)",
       "func_0038B120__frontbin": "void (int, int, int, int, int, int, int, int, float, long long, long long)",
       "func_0038B4D0__frontbin": "void (int, int, int, int, int, int, int, int, long long, long long)",
-      "func_0038B670__frontbin": "int (int, int, int, int, long long, long long, int, float, float, float, float)",
-      "func_0038B850__frontbin": "int (int, int, int, int, void *, long long, int, float, float, float, float)",
       "func_0038BA30__frontbin": "int (int, int, int, int, long long, long long, long long, int, float, float, float, float, float, float)",
       "func_0038BCD8__frontbin": "void (float, float, float, float, float, int, int, long long, int, int, int, int, float, float)",
       "func_0038C138__frontbin": "void (void *, void *, void *, long long, int)",
@@ -179,7 +176,6 @@
       "func_0038D0B0__frontbin": "float (float)",
       "func_00396A38__frontbin": "unsigned long long (int)",
       "func_003A9830__frontbin": "long long (int, int, int, int)",
-      "func_003F1DA0__frontbin": "int (int, int)",
       "func_L01_005216A8": "int (int, int)",
       "func_003F0038__frontbin": "int (int, int)",
       "func_003AA168": "int (int, int, float)",

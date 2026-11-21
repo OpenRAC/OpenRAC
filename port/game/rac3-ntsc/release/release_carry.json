@@ -1,6 +1,11 @@
 {
  "about": "What rac3-ntsc's carried tables rest on besides the same code, written by port/tools/hostgen/release_carry_rac3.py; do not edit.",
  "differs": {
+  "func_0038A518__frontbin": {
+   "is": "func_00385E40__frontbin",
+   "status": "differs",
+   "port": "host C"
+  },
   "func_0038A8F8": {
    "is": "func_0038A8A0",
    "status": "differs",
@@ -121,6 +126,11 @@
    "status": "differs",
    "port": "host C"
   },
+  "func_L01_004050C0": {
+   "is": "func_L01_00402D50",
+   "status": "differs",
+   "port": "host C"
+  },
   "func_L01_004CBC60": {
    "is": "func_L01_004C7FF0",
    "status": "differs",
@@ -135,7 +145,12 @@
  "left_out": {
   "func_00124ED8": "LoadExecPS2's wrapper starts PAL's multiplayer executable (rac3-pal host/exec.c), which NTSC-U does not build yet: the call stays unanswered (rac3/parity.tsv)"
  },
- "addresses_not_found": [],
+ "addresses_not_found": [
+  "L01:001E1060",
+  "L01:001E1074",
+  "L01:001E6DB4",
+  "L01:001EA7C0"
+ ],
  "hand_addresses": {
   "0x001439F4": {
    "is": "0x001439F4",
