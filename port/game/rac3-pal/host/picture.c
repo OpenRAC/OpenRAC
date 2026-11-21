@@ -327,7 +327,9 @@ void rac3_picture_frame_sent(void) {
  * the whole window, so the world under the menu is as sharp and as wide as it was. Nothing of the
  * game's transfers is sent. */
 #define FRAME_MARKER (0x4653ull << 48)
-#define FRAME_LINES_MOST 512
+/* The statics region is 1 MB in all, so the buffer is the game's own frame at most (448 lines), not
+ * a whole megabyte. */
+#define FRAME_LINES_MOST 448
 
 void func_L01_004C5F70__game(int to, int frame, int bytes);
 
