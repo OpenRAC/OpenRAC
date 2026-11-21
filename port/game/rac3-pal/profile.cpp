@@ -414,6 +414,12 @@ public:
     // were drawn over the preview and its box stayed empty.
     bool own_mobys_split_the_2d() const override { return true; }
 
+    // A moby the game draws with a camera of its own into a buffer narrower than the picture goes
+    // into that texture, as Going Commando's cockpit screen draws Fizzwidget: Starship Phoenix's
+    // opening has Sasha on the comm link, drawn into a buffer with a camera of its own. Placed in
+    // the world she stood in front of the ship's exterior and in the hangar.
+    bool own_mobys_into_narrow_buffers() const override { return true; }
+
     // The levels are extracted for the port (editor/extract.py port: --levels), and drawn natively
     // from them (host/render.c). The boot program's title and menus draw no world: a picture.
     bool has_levels() const override { return true; }
