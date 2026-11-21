@@ -35,12 +35,16 @@ BUTTONS = {
     "triangle": 0x1000, "circle": 0x2000, "cross": 0x4000, "square": 0x8000,
 }
 
-GAMES = ("rac1-pal", "rac1-ntsc", "rac2-ntsc")
+GAMES = ("rac1-pal", "rac1-ntsc", "rac2-ntsc", "rac3-pal")
 LEVELS = range(19)
 # Going Commando's programs on the disc (level 30, the Insomniac Museum, has not been seen to run
 # its own code yet) and its routes, a file of their own beside rac1's.
 RAC2_LEVELS = (*range(21), *range(22, 27))
 ROUTES_RAC2 = HERE / "routes_rac2.json"
+# Up Your Arsenal's single-player levels (the multiplayer maps, 40 to 55, are not loaded yet) and its
+# routes, in a file of their own as well.
+RAC3_LEVELS = (*range(1, 15), *range(16, 25), *range(26, 30))
+ROUTES_RAC3 = HERE / "routes_rac3.json"
 
 # What a step can do besides pressing (a set's routes): each becomes words of game memory written
 # from control, at the version's addresses (routes.json "addresses").
@@ -135,16 +139,21 @@ class Route:
 
 def levels_of(game: str) -> tuple | range:
     """The levels of a game's standard routes."""
+    if game == "rac3-pal":
+        return RAC3_LEVELS
     return RAC2_LEVELS if game == "rac2-ntsc" else LEVELS
 
 
 def load(path: Path = ROUTES) -> dict:
-    """The routes file; the default one with Going Commando's sets and addresses beside rac1's."""
+    """The routes file; the default one with Going Commando's and Up Your Arsenal's sets and addresses beside rac1's."""
     data = json.loads(Path(path).read_text())
     if Path(path) == ROUTES:
         rac2 = json.loads(ROUTES_RAC2.read_text())
         data["sets"].update(rac2["sets"])
         data["addresses"]["rac2-ntsc"] = rac2["addresses"]["rac2-ntsc"]
+        rac3 = json.loads(ROUTES_RAC3.read_text())
+        data["sets"].update(rac3["sets"])
+        data["addresses"]["rac3-pal"] = rac3["addresses"]["rac3-pal"]
     return data
 
 
