@@ -197,6 +197,8 @@ struct OverlayCallback {
 constexpr std::uint32_t kOverlayPhases = OPENRAC_OVERLAY_PLAYING | OPENRAC_OVERLAY_MENU;
 
 std::vector<OverlayCallback> g_overlays;
+const openrac_mod* g_overlay_mod =
+    nullptr;  // the mod whose overlay callback runs (the window thread)
 
 openrac_mod* g_loading = nullptr;  // the mod whose openrac_mod_load runs: hooks are taken then only
 std::vector<std::unique_ptr<openrac_mod>> g_loaded;
@@ -2837,14 +2839,20 @@ bool overlay_wanted(int phase) {
               });
 }
 
+const openrac_mod* overlay_mod() {
+    return g_overlay_mod;
+}
+
 void run_overlays(const openrac_overlay& overlay) {
     // The frame's phase is already an OPENRAC_OVERLAY_* bit (openrac_overlay.phase).
     const std::uint32_t bit = overlay.phase;
     for (const OverlayCallback& c : g_overlays) {
         if ((c.phases & bit) != 0) {
+            g_overlay_mod = c.mod;
             c.fn(c.user, &overlay);
         }
     }
+    g_overlay_mod = nullptr;
 }
 
 bool run_menu_page(int index, const openrac_menu_frame& frame) {

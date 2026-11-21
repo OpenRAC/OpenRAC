@@ -85,9 +85,11 @@ extern "C" {
  * enemies never wake, so a mod asks for 1.26 before it makes them), and 1.27
  * more room for spawned mobys (moby_pool_raise, moby_pool_status),
  * and 1.28 mods' own overlays drawn over the game's menus too (the vendor's, the pause menu's),
- * and 1.29 props skinned with joint matrices of the mod's own (prop_set_skin).
+ * and 1.29 props skinned with joint matrices of the mod's own (prop_set_skin), and 1.30 blends
+ * that subtract from or add to what is on the screen for the overlay's rectangles and text
+ * (openrac_overlay.set_blend).
  */
-#define OPENRAC_MOD_API_MINOR 29
+#define OPENRAC_MOD_API_MINOR 30
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1326,10 +1328,31 @@ typedef struct openrac_overlay {
      * phase the game was in when the tick was captured, not the game's now. Only if `size` reaches
      * it. Since 1.28. */
     uint32_t phase;
+    /* How the rectangles and text this callback draws after this call go over the frame, until
+     * the next call: OPENRAC_OVERLAY_BLEND_*. Each callback starts with OPENRAC_OVERLAY_BLEND_ALPHA,
+     * as before, whatever the one before it set. Returns 1 when it is taken, 0 when it is not (a
+     * blend this port does not have: the last stays). Only if `size` reaches it (mod.hpp:
+     * overlay_has_set_blend). Since 1.30. */
+    int (*set_blend)(void* context, uint32_t blend);
 } openrac_overlay;
 
-/* Called once a frame, after the world is drawn and before the port's own overlay, while the game
- * shows a level (not in a menu or a scene). Since 1.14. */
+/* openrac_overlay.set_blend's `blend`: how an overlay's colour (a rectangle's or a letter's: `src`,
+ * with the alpha `a` it has) goes over the frame's (`dst`), the frame's own alpha kept in all of
+ * them. This one: `src * a + dst * (1 - a)`, the colour as stored (straight, not premultiplied).
+ * The values are open: more come as the port learns them (the number says which), and a blend a
+ * port does not have is refused (set_blend answers 0), never drawn another way. The result of each
+ * is held between 0 and full, per colour channel, by the usual 8-bit frame (an HDR frame's float
+ * colour is not held at 0 by the blend, as for the game's own subtracts). Since 1.30. */
+#define OPENRAC_OVERLAY_BLEND_ALPHA 0u
+/* `dst + src * a`: light added to the frame (a glow, a flash). Since 1.30. */
+#define OPENRAC_OVERLAY_BLEND_ADD 1u
+/* `dst - src * a`: the frame loses colour, for a darkening, a shadow or a colour taken out; a cyan
+ * (0, 255, 255) takes green and blue and leaves red. Since 1.30. */
+#define OPENRAC_OVERLAY_BLEND_SUBTRACT 2u
+
+/* Called once a frame, after the world is drawn and before the port's own overlay, in the phases
+ * it was taken for: while the game shows a level in play (not a menu or a scene) for on_overlay,
+ * and those of on_overlay_phases' `phases` for that. Since 1.14. */
 typedef void (*openrac_overlay_fn)(void* user, const openrac_overlay* overlay);
 
 /* A camera script (a level's shot, a door's, a lift's: any moby's) started (`started` 1) or ended

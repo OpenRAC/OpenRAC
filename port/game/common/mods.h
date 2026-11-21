@@ -376,6 +376,9 @@ void run_overlays(const openrac_overlay& overlay);
 // The OPENRAC_OVERLAY_* bit of a frame of the game's phase `phase` (OPENRAC_PLAY_*); 0 for a phase
 // nothing is drawn over. openrac_overlay.phase holds this bit, not the game's phase.
 std::uint32_t overlay_bit(int phase);
+// The mod whose overlay callback is running (null outside one), so that what it draws is its own
+// (its blend is its own). On the window thread.
+const openrac_mod* overlay_mod();
 
 // Runs entry `index`'s page for a frame: its callback with `frame`, its drawing sent to the host's
 // menu_rect and menu_text. True when the page closes (the mod said so, or there is no such entry).

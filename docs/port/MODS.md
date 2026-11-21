@@ -668,7 +668,35 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `prop_attach(mod, id, slot, joint, flags, offset)` (1.18) | fixes a prop to a moby's joint: the renderer draws it each frame at the joint's frame as the moby is drawn, times `offset` (column-major, in the joint's frame), so it never lags behind the animation (a weapon in the hero's hand). `joint` is a joint of the moby's skeleton, or with `OPENRAC_ATTACH_HELD` one of the hero's attach points as `hero_held` names them (`openrac_held_piece.joint`: where the game puts the piece in his hand), which the port turns into the joint (rac1: the joint list his pieces are put on). Not drawn while the moby is not (hidden, culled, gone) or for a joint its class lacks; its tint and blend stay as `prop_pose` gave them, and `prop_pose` takes it off the joint |
 | `prop_frame(mod, id, out)` (1.18) | where a prop of the mod's was drawn last: the matrix (column-major) that took its mesh to the world in the last frame drawn; for a prop fixed to a joint, the joint's frame then times its offset, so a mod knows where a weapon in the hero's hand points and where its muzzle is, through a somersault as through a walk; for a posed one, its pose. Refused for a prop not posed, or not drawn on its joint since it was fixed there |
 
-A call answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) in a game that has not got it, and `play_scene_from` always; Ratchet \& Clank has the others on both discs. The C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them.
+A call answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) in a game that has not got it, and `play_scene_from` always; Ratchet \& Clank has the others on both discs. The C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them, `has_overlay_phases()` whether it has `on_overlay_phases`, and `has_camera_shake()` whether it has `camera_shake` (1.32).
+
+### Adding and subtracting light
+
+The game itself takes colour away from what is on the screen (a darkening, a shadow, the colour
+change of some of its own effects). From 1.30 a mod can do the same, and add light, in its overlay.
+`src` is the colour drawn, `a` its alpha, `dst` what is on the screen.
+
+| Blend | Result | Use |
+|---|---|---|
+| `OPENRAC_OVERLAY_BLEND_ALPHA` (0) | `src * a + dst * (1 - a)` | a panel, a fade |
+| `OPENRAC_OVERLAY_BLEND_ADD` (1) | `dst + src * a` | a glow, a flash |
+| `OPENRAC_OVERLAY_BLEND_SUBTRACT` (2) | `dst - src * a`, not below 0 | a darkening, a shadow, a "negative" glow, a colour taken out: cyan (0, 255, 255) leaves red alone and takes green and blue away |
+
+- **Overlay.** `openrac_overlay.set_blend(context, blend)` says how the `rect` and `text` calls
+  after it go over the frame, until the next call; each mod's callback starts as
+  `OPENRAC_OVERLAY_BLEND_ALPHA`, whatever another mod's callback left. `set_blend` returns 0, and
+  changes nothing, for a blend the port lacks. Calls are drawn in the order called, so a frame may
+  mix the three. C++: `overlay_has_set_blend(overlay)`, `overlay_set_blend(overlay, blend)`.
+- **Alpha.** The frame's own alpha is kept by all three. The screen holds colour between 0 and full:
+  a subtraction stops at black on the usual 8-bit frame. On an HDR frame (half floats,
+  `docs/port/HDR.md`) the blending itself does not stop at 0, as for the game's own subtracting
+  effects there.
+- **Backends.** One blend on OpenGL, OpenGL ES, Vulkan and Metal: `GL_FUNC_REVERSE_SUBTRACT` with
+  the factors (source alpha, one) for the colour and (zero, one) for alpha, which the renderer's
+  GL layer turns into the backend's own subtract operation, as it does for the game's.
+
+A mod that must work with a port before 1.30 checks `overlay_has_set_blend()` and, without it,
+draws with alpha.
 
 A mod for several discs carries its own table of the addresses and names it
 uses on each, as the port's `rac1_version.h` does, and picks it by
@@ -808,6 +836,9 @@ telling the frame's `phase`.
 1.29 (SDK 1.29.0) props skinned with joint matrices of the mod's own (`prop_set_skin`,
 `OPENRAC_PROP_JOINTS_MAX`; the C++ layer's `prop_set_skin()`, `prop_clear_skin()`,
 `has_prop_skin()`).
+1.30 (SDK 1.30.0) blends that take colour from the screen or add to it, as the game's own effects
+do: `OPENRAC_OVERLAY_BLEND_ADD` and `_SUBTRACT` through `openrac_overlay.set_blend`
+(`overlay_set_blend()`), for `rect` and `text`.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's

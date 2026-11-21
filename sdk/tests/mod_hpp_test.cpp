@@ -1050,6 +1050,18 @@ void fill_skin(openrac_api &api) {
     };
 }
 
+// What the fake host's 1.30 calls were given.
+std::uint32_t g_blend_now = OPENRAC_OVERLAY_BLEND_ALPHA;
+
+// A port of 1.30: it takes the three blends, refuses a number past them and keeps the last blend.
+int fake_set_blend(void*, uint32_t blend) {
+    if (blend > OPENRAC_OVERLAY_BLEND_SUBTRACT) {
+        return 0;
+    }
+    g_blend_now = blend;
+    return 1;
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -2238,6 +2250,37 @@ int main() {
         // The older props calls are still there.
         CHECK(mod.has_props());
     }
+    // Interface 1.30: blends that add and subtract in the overlay.
+    {
+        static_assert(OPENRAC_OVERLAY_BLEND_ALPHA == 0 && OPENRAC_OVERLAY_BLEND_ADD == 1
+                      && OPENRAC_OVERLAY_BLEND_SUBTRACT == 2);
+        openrac_overlay overlay{};
+        overlay.size = sizeof overlay;
+        overlay.set_blend = fake_set_blend;
+        CHECK(openrac::overlay_has_set_blend(&overlay));
+        CHECK(openrac::overlay_set_blend(&overlay, OPENRAC_OVERLAY_BLEND_SUBTRACT)
+              && g_blend_now == OPENRAC_OVERLAY_BLEND_SUBTRACT);
+        CHECK(openrac::overlay_set_blend(&overlay, OPENRAC_OVERLAY_BLEND_ADD)
+              && g_blend_now == OPENRAC_OVERLAY_BLEND_ADD);
+        // A blend the port does not have: no, and the last stays.
+        CHECK(!openrac::overlay_set_blend(&overlay, 3) && g_blend_now == OPENRAC_OVERLAY_BLEND_ADD);
+        CHECK(!openrac::overlay_set_blend(&overlay, 0xFFFFFFFFu));
+        CHECK(openrac::overlay_set_blend(&overlay, OPENRAC_OVERLAY_BLEND_ALPHA)
+              && g_blend_now == OPENRAC_OVERLAY_BLEND_ALPHA);
+        // A port of 1.29 made a struct that ends before it, and one with no function says no too.
+        g_blend_now = OPENRAC_OVERLAY_BLEND_SUBTRACT;
+        overlay.size = static_cast<std::uint32_t>(offsetof(openrac_overlay, set_blend));
+        CHECK(!openrac::overlay_has_set_blend(&overlay)
+              && !openrac::overlay_set_blend(&overlay, OPENRAC_OVERLAY_BLEND_ALPHA));
+        overlay.size = sizeof overlay;
+        overlay.set_blend = nullptr;
+        CHECK(!openrac::overlay_has_set_blend(&overlay)
+              && !openrac::overlay_set_blend(&overlay, OPENRAC_OVERLAY_BLEND_ALPHA));
+        CHECK(!openrac::overlay_has_set_blend(nullptr)
+              && !openrac::overlay_set_blend(nullptr, OPENRAC_OVERLAY_BLEND_ALPHA));
+        CHECK(g_blend_now == OPENRAC_OVERLAY_BLEND_SUBTRACT);  // nothing was called
+    }
+
     check_refused_loads(api, handle);
     check_reload(api, handle);
 

@@ -3,6 +3,7 @@
 
 #include "mod_overlay.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <string_view>
 
@@ -20,7 +21,20 @@ namespace {
 struct Frame {
     const renderer::Camera* camera = nullptr;
     renderer::ui::OverlayList* list = nullptr;
+    // The mod whose callback last drew, for the blend it set: each callback starts with alpha.
+    const openrac_mod* drawer = nullptr;
 };
+
+// The list of the frame, for the mod whose callback is running: its blend starts as alpha, not as
+// the one the callback before it left (the list's blend is the frame's, the callbacks run in turn).
+renderer::ui::OverlayList& list_for_caller(Frame& frame) {
+    const openrac_mod* caller = mods::overlay_mod();
+    if (caller != frame.drawer) {
+        frame.drawer = caller;
+        frame.list->set_blend(OPENRAC_OVERLAY_BLEND_ALPHA);
+    }
+    return *frame.list;
+}
 
 int project(void* context, const float world[3], float* sx, float* sy) {
     const auto* frame = static_cast<const Frame*>(context);
@@ -38,13 +52,18 @@ int project(void* context, const float world[3], float* sx, float* sy) {
 }
 
 void rect(void* context, float x, float y, float w, float h, std::uint32_t rgba) {
-    static_cast<Frame*>(context)->list->rect(x, y, w, h, rgba);
+    list_for_caller(*static_cast<Frame*>(context)).rect(x, y, w, h, rgba);
 }
 
 void text(void* context, float x, float y, float height, std::uint32_t rgba, const char* line) {
     if (line != nullptr) {
-        static_cast<Frame*>(context)->list->text(x, y, height, rgba, line);
+        list_for_caller(*static_cast<Frame*>(context)).text(x, y, height, rgba, line);
     }
+}
+
+// How this callback's rectangles and text that follow are laid over the frame.
+int set_blend(void* context, std::uint32_t blend) {
+    return list_for_caller(*static_cast<Frame*>(context)).set_blend(blend) ? 1 : 0;
 }
 
 float fade(void*, float distance, float near_distance, float far_distance) {
@@ -96,8 +115,11 @@ void draw(
     overlay.text = text;
     overlay.fade = fade;
     overlay.text_width = text_width;
+    overlay.set_blend = set_blend;
     mods::run_overlays(overlay);
-    run_graphics([&] { s.draw.draw(framebuffer, width, height, s.list.vertices()); });
+    run_graphics([&] {
+        s.draw.draw(framebuffer, width, height, s.list.vertices(), s.list.batches());
+    });
 }
 
 void release() {

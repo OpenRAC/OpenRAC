@@ -139,6 +139,27 @@ inline std::string_view bind_name(int bind) {
     return openrac_bind_to_name(bind);
 }
 
+// ----------------------------------------------------------------------------------------------
+// What an overlay callback is given (interface 1.14, openrac_overlay)
+// ----------------------------------------------------------------------------------------------
+
+// Whether `overlay` has `set_blend`: the port that made it knows 1.30's blends, which `size` says,
+// and the struct reaches the member. Check it before overlay_set_blend or any read of
+// `overlay->set_blend`. Since 1.30.
+inline bool overlay_has_set_blend(const openrac_overlay* overlay) {
+    return overlay != nullptr
+           && overlay->size >= offsetof(openrac_overlay, set_blend) + sizeof(overlay->set_blend)
+           && overlay->set_blend != nullptr;
+}
+
+// Sets how the rectangles and text this callback draws next go over the frame
+// (OPENRAC_OVERLAY_BLEND_*: _SUBTRACT takes the colour times its alpha from the frame, _ADD adds
+// it) until the next call; each callback starts with _ALPHA. False for a port without it or a
+// blend it does not have (the last one stays). Since 1.30.
+inline bool overlay_set_blend(const openrac_overlay* overlay, std::uint32_t blend) {
+    return overlay_has_set_blend(overlay) && overlay->set_blend(overlay->context, blend) != 0;
+}
+
 // The keyboard and mouse for the tick about to run (interface 1.2, openrac_input): a view of the
 // port's state, renewed each tick. Cheap to copy; do not keep it past the tick it was read in.
 class Input {
