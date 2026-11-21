@@ -193,9 +193,10 @@ class Translator:
     # asm.result_flow in hostgen.json: a function declared nowhere that sets $f0 and uses $v0 only
     # as a scratch register returns a float (_v0_reaches_return), not an int.
     result_flow = False
-    # asm.indirect_arguments in hostgen.json: a function whose first call is through a pointer
-    # takes the argument registers that call takes and the code has not written (_entry_reads).
-    indirect_arguments = False
+    # asm.live_arguments in hostgen.json: a translated function takes the argument registers it
+    # reads on any path from its entry before writing them (_live_arguments), not only those read
+    # before its first call; a prototype that leaves some out gets them added, as _entry_reads's.
+    live_arguments = False
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -615,6 +616,9 @@ class Translator:
             # the prototype leaves out (a declaration written for one caller): callers pass them,
             # as the EE's did (hostgen's call matching, passing a caller's own through).
             ints, floats, _, _ = self._entry_reads()
+            if self.live_arguments:
+                live_i, live_f = self._live_arguments()
+                ints, floats = max(ints, live_i), max(floats, live_f)
             have_i = sum(1 for p in sig.params if canon(p, self.program.typedefs) != "float")
             have_f = len(sig.params) - have_i
             extra = [ctype.Base("int")] * max(0, ints - have_i) + [ctype.Base("float")] * max(0, floats - have_f)
@@ -623,6 +627,14 @@ class Translator:
             return Signature(sig.ret, tuple(sig.params) + tuple(extra), False, True)
         # Declared nowhere with parameters: what it reads of the argument registers first.
         ints, floats, sets_v0, sets_f0 = self._entry_reads()
+        if self.live_arguments:
+            # asm.live_arguments: what it reads on any path before writing it, past its first call
+            # too (_live_arguments), and what its first call through a pointer takes and it has not
+            # written: level 39's GUI text draw (0x00619B48) hands its $a1, the parent's rect, to
+            # its rect getter; the LOADING screen's update (0x006788F8) tests $a0, the load's end,
+            # only after its first call.
+            live_i, live_f = self._live_arguments()
+            ints, floats = max(ints, live_i), max(floats, live_f)
         params = [ctype.Base("int")] * ints + [ctype.Base("float")] * floats
         ret = sig.ret
         if self.result_flow and sets_v0 and sets_f0:
@@ -722,7 +734,6 @@ class Translator:
         read_g, read_f = set(), set()
         stop = None
         forwarded = None
-        indirect = None
         for a in sorted(x for x in self.reach if x >= self.entry_addr):
             if stop is not None and a > stop:
                 break
@@ -739,7 +750,6 @@ class Translator:
             written_f |= wf
             if ins.op in ("jal", "jalr", "jr") and stop is None:
                 stop = a + 4   # its delay slot runs first
-                indirect = a if ins.op == "jalr" else None
                 if ins.op == "jal":
                     sym = self._callee(ins.target, None)
                     forwarded = self.program.functions.get(sym) if sym else None
@@ -756,12 +766,6 @@ class Translator:
                     if ni < len(ARG_REGS) and ARG_REGS[ni] not in written_g:
                         read_g.add(ARG_REGS[ni])
                     ni += 1
-        if indirect is not None and self.indirect_arguments:
-            # asm.indirect_arguments: the argument registers a first call through a pointer takes
-            # (_pointer_call_arguments) that the code has not written are its caller's, handed on:
-            # level 39's GUI text draw (0x00619B48) hands its $a1, the parent's rect, to its rect
-            # getter (0x00619D20), as the boot program's frame widget draw (func_003EEBF8) does.
-            read_g |= {r for r in self._pointer_call_arguments(indirect) if r not in written_g}
         sets_v0 = sets_f0 = False
         for a in self.reach:
             _, wg, _, wf = rw(self.at(a))
@@ -2198,7 +2202,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.vu_flush = bool(a.get("vu_flush"))
     tr.signature_check = bool(a.get("signature_check"))
     tr.result_flow = bool(a.get("result_flow"))
-    tr.indirect_arguments = bool(a.get("indirect_arguments"))
+    tr.live_arguments = bool(a.get("live_arguments"))
     tr.verified_signatures = frozenset(a.get("signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)

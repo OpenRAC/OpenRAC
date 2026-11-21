@@ -63,7 +63,7 @@
     "dma_done": true,
     "vu_flush": true,
     "result_flow": true,
-    "indirect_arguments": true,
+    "live_arguments": true,
     "forward_unprototyped": true,
     "signatures": {
       "func_00192F68": "unsigned int (void)",

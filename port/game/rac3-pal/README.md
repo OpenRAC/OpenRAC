@@ -162,9 +162,13 @@ typed it `int` (a function declared nowhere that writes `$v0` returned it), so t
 whatever `$f0` held and the rows were printed at x 14267, y -713, off the screen. The draw also
 hands its own `$a1`, the parent's rect, on to the getter through the widget's vtable, which hostgen
 did not see as a parameter (the boot program's frame widget draw, `func_003EEBF8`, does the same):
-the rect was placed in an empty one at the top left. `asm` `indirect_arguments` gives a function
-whose first call is through a pointer the argument registers that call takes and it has not
-written. `mp/hostgen.json`'s
+the rect was placed in an empty one at the top left. `asm` `live_arguments` gives a translated function
+the argument registers it reads on any path before writing them (the signature check's flow
+measure, which counts what a pointer call hands on), not only those read before its first call.
+The LOADING screen's update (`0x006788F8`) needs it too: it tests `$a0`, the loader's end
+(`0x005A4058`'s state at `0x00240288` past 1), only after its first call, so LOADING never ended;
+with it the menus hand over to the chosen map's program (map 40's entry `0x004425C8`), which the
+port does not translate yet. `mp/hostgen.json`'s
 `asm` `result_flow` types such a routine `float` when no value it writes to `$v0` reaches its
 `jr $ra` unread (316 of the executable's routines; 27 have callers that read `$f0`, among them the
 vector library's). Level 39's one-colour and shadowed glyphs (`0x0058BBB0`, `0x0058BF70`) and the

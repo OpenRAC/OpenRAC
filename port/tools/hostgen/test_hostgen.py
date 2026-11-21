@@ -3756,10 +3756,10 @@ class FromAssembly(unittest.TestCase):
         self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=fixed))
         self.assertEqual(self.last_report["assembly_signature_drops"], {})
 
-    def test_indirect_arguments_take_a_parameter_handed_on_to_a_pointer_call(self):
-        # asm.indirect_arguments: the $a1 that func_00100400 hands on to its pointer call (which
+    def test_live_arguments_take_a_parameter_handed_on_to_a_pointer_call(self):
+        # asm.live_arguments: the $a1 that func_00100400 hands on to its pointer call (which
         # sets $a2) becomes its parameter, as func_00100400's signature above does by hand.
-        fixed = dict(ASM_CONFIG["asm"], signature_check=True, indirect_arguments=True)
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, live_arguments=True)
         self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=fixed))
         self.assertEqual(self.last_report["assembly_signature_drops"], {})
 
