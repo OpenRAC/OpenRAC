@@ -608,6 +608,41 @@ std::uint32_t api_take_developer_menu_action(openrac_mod* mod) {
     return action;
 }
 
+// openrac_api.game_data_dir (interface 1.34): the data folder of an installed game, as game_data_folder
+// finds it. A game the manifest does not declare (reads_games) is refused; the running game is not.
+int api_game_data_dir(openrac_mod* mod, const char* game, char* out, std::uint32_t size) {
+    if (mod == nullptr || game == nullptr || out == nullptr || size == 0 || g_host == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::string_view id = game;
+    if (!valid_game_id(id)) {
+        return 0;
+    }
+    if (id != g_host->game
+        && std::none_of(
+            mod->manifest.reads_games.begin(),
+            mod->manifest.reads_games.end(),
+            [id](const std::string& g) { return g == id; }
+        )) {
+        return OPENRAC_HOOK_REFUSED;
+    }
+    const fs::path data = game_data_folder(*g_host, id);
+    if (data.empty()) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (!holds_game_data(data)) {
+        return 0;
+    }
+    const std::u8string text = data.u8string();
+    std::string path;
+    path.assign(text.begin(), text.end());
+    if (path.size() + 1 > size) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::memcpy(out, path.c_str(), path.size() + 1);
+    return static_cast<int>(path.size());
+}
+
 // The mod's own folder (1.11): <mod data>/<its id>, made on the first ask. An id that is not a plain
 // name (a separator, "." or "..") has none.
 const char* api_data_dir(openrac_mod* mod) {
@@ -2064,6 +2099,7 @@ void fill_api(const Host& host) {
     g_api.developer_menu_value = api_developer_menu_value;
     g_api.hook_entry = api_hook_entry;
     g_api.data_dir = api_data_dir;
+    g_api.game_data_dir = api_game_data_dir;
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
     g_api.savestate_load = snapshot_load;
@@ -2484,6 +2520,24 @@ bool load_built_in(const BuiltIn& b, std::unique_ptr<openrac_mod>& out, std::str
 }
 
 }  // namespace
+
+bool holds_game_data(const fs::path& data) {
+    std::error_code iso_error;
+    std::error_code port_error;
+    return !data.empty()
+           && (fs::is_directory(data / "iso_data", iso_error)
+               || fs::is_directory(data / "port", port_error));
+}
+
+fs::path game_data_folder(const Host& host, std::string_view game) {
+    if (game == host.game) {
+        return host.data;
+    }
+    if (host.games_root.empty() || !valid_game_id(game)) {
+        return {};
+    }
+    return host.games_root / std::string(game) / "data";
+}
 
 const std::vector<fs::path>& asset_roots() {
     return g_asset_roots;

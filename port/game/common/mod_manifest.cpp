@@ -429,6 +429,20 @@ int compare(const Version& a, const Version& b) {
     return a.suffix < b.suffix ? -1 : 1;
 }
 
+bool valid_game_id(std::string_view game) {
+    if (game.empty() || game.size() > 32) {
+        return false;
+    }
+    for (const char c : game) {
+        const bool ok =
+            (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-';
+        if (!ok) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool valid_id(std::string_view id) {
     if (id.empty() || id.size() > 64 || id.front() == '-' || id.back() == '-') {
         return false;
@@ -587,6 +601,20 @@ bool parse_manifest(std::string_view source, Manifest& m, std::string& error) {
     }
     if (!id_list(v["hooks"], "hooks", m.hooks, error)) {
         return false;
+    }
+    // Interface 1.34: the games whose data folders the mod reads; a name is a game's id.
+    if (const json::Value& reads = v["reads_games"]; !reads.is_null()) {
+        if (!reads.is_array()) {
+            error = "\"reads_games\" must be a list of game ids (\"rac2\")";
+            return false;
+        }
+        for (const json::Value& item : reads.items()) {
+            if (!item.is_string() || !valid_game_id(item.string())) {
+                error = "\"reads_games\" must hold game ids (\"rac1\", \"rac2\", ...)";
+                return false;
+            }
+            m.reads_games.push_back(item.string());
+        }
     }
     const json::Value& assets = v["assets"];
     if (!assets.is_null()) {

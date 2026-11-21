@@ -1180,12 +1180,12 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
     g_records.clear();
     mods::frame();
-    CHECK(
-        (g_records
-         == std::vector<int>{
-             7003, 7500, 7601, 7600, 7707, 7722, 7730, 7731, 7771, 7760, 7761, 7800, 7903
-         })
-    );
+    CHECK((
+        g_records
+        == std::vector<int>{
+            7003, 7500, 7601, 7600, 7707, 7722, 7730, 7731, 7771, 7760, 7761, 7800, 7903, 7976, 7980
+        }
+    ));
     mods::play_update();
     CHECK(
         (g_played
@@ -2311,6 +2311,54 @@ void refused_library_leaves_no_watchers(const fs::path& plugins) {
     mods::reset();
 }
 
+// Interface 1.34: the installed games' data folders (<games root>/<game>/data, the launcher's layout)
+// and the manifest's "reads_games". The own game's folder is the host's data.
+void installed_games_and_their_folders(const fs::path& dir) {
+    const fs::path active = dir / "games-active";
+    fs::create_directories(active / "rac1" / "data" / "iso_data");
+    fs::create_directories(active / "rac2" / "data" / "port" / "ntsc");
+    fs::create_directories(active / "rac3" / "data");  // not extracted: not installed
+    fs::create_directories(active / "bad.name" / "data" / "iso_data");  // not a game id
+    fs::create_directories(active / "rac4" / "iso_data");               // no data folder
+
+    CHECK(mods::valid_game_id("rac2") && mods::valid_game_id("rac-2"));
+    CHECK(!mods::valid_game_id("") && !mods::valid_game_id("../up") && !mods::valid_game_id("a b"));
+    CHECK(!mods::valid_game_id(std::string(33, 'a')) && !mods::valid_game_id("bad.name"));
+
+    mods::Host h = host(dir / "plugins");
+    h.game = "rac1";
+    h.data = active / "rac1" / "data";
+    h.games_root = active;
+    CHECK(mods::game_data_folder(h, "rac2") == active / "rac2" / "data");
+    CHECK(mods::game_data_folder(h, "../up").empty());
+    CHECK(mods::game_data_folder(h, "rac1") == h.data);
+    CHECK(
+        mods::holds_game_data(active / "rac2" / "data")
+        && !mods::holds_game_data(active / "rac3" / "data")
+    );
+
+    const std::string base =
+        R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0", "api": "1.34", "games": {"rac1": ["pal"]}, "reads_games": )";
+    mods::Manifest m;
+    std::string error;
+    CHECK(mods::parse_manifest(base + R"(["rac1", "rac2"]})", m, error));
+    CHECK((m.reads_games == std::vector<std::string>{"rac1", "rac2"}));
+    CHECK(
+        mods::parse_manifest(
+            R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0", "games": {"rac1": ["pal"]}})",
+            m,
+            error
+        )
+    );
+    CHECK(m.reads_games.empty());
+    CHECK(
+        !mods::parse_manifest(base + R"("rac2"})", m, error)
+        && error.find("reads_games") != std::string::npos
+    );
+    CHECK(!mods::parse_manifest(base + R"(["../up"]})", m, error));
+    CHECK(!mods::parse_manifest(base + R"([3]})", m, error));
+}
+
 int main() {
     const fs::path dir =
         fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
@@ -2355,6 +2403,7 @@ int main() {
     a_library_others_can_change_is_refused(plugins);
     dropped_mod_watchers_are_not_called();
     refused_library_leaves_no_watchers(plugins);
+    installed_games_and_their_folders(dir);
     std::error_code e;
     fs::remove_all(dir, e);
     return test::result();

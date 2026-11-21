@@ -1754,6 +1754,28 @@ public:
         return a.moby_model_at(m_handle, address, &m);
     }
 
+    // Since 1.34: whether the port has the installed games' data folders (game_data_dir).
+    bool has_game_data() const {
+        return m_api->api_minor >= 34
+               && m_api->size >= offsetof(openrac_api, game_data_dir) + sizeof(void*);
+    }
+
+    // Since 1.34: the data folder of the installed game `game` ("rac2") into `path`. Returns the folder's length
+    // (> 0, path set) when it is installed, 0 when it is not installed or extracted, OPENRAC_HOOK_UNKNOWN when the
+    // port cannot say, or OPENRAC_HOOK_REFUSED when the manifest does not declare the game in "reads_games".
+    int game_data_dir(const std::string& game, std::string& path) const {
+        path.clear();
+        if (!has_game_data()) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        char buffer[4096];
+        const int length = m_api->game_data_dir(m_handle, game.c_str(), buffer, sizeof buffer);
+        if (length > 0) {
+            path.assign(buffer, static_cast<std::size_t>(length));
+        }
+        return length;
+    }
+
     // Since 1.12: a sound of the mod's (a .wav or .ogg in its folder): its id, or -1.
     int sound_load(const std::string& path) const {
         const int id = has_api_12() ? m_api->sound_load(m_handle, path.c_str()) : OPENRAC_HOOK_UNKNOWN;

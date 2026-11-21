@@ -91,9 +91,10 @@ extern "C" {
  * slot, by class in the world or menus, or by address (model_create, moby_model_slot,
  * moby_model_class, moby_model_at), and 1.32 the game's own camera shake on the level's camera
  * (camera_shake), and 1.33 the game's own particle effects and custom 32 x 32 particle textures
- * started by a mod (particle_spawn_ex, particle_texture_register).
+ * started by a mod (particle_spawn_ex, particle_texture_register), and 1.34 the data folder of an
+ * installed game declared in the manifest's "reads_games" (game_data_dir).
  */
-#define OPENRAC_MOD_API_MINOR 33
+#define OPENRAC_MOD_API_MINOR 34
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -174,6 +175,9 @@ typedef struct openrac_mod openrac_mod;
 /* A limit of the game is reached (its particle pool is full): nothing is made, try again later.
  * Since 1.33. */
 #define OPENRAC_HOOK_FULL (-5)
+/* The mod asks for a game its manifest does not declare (`reads_games`), or a game the port has no
+ * folder rule for. Since 1.34. */
+#define OPENRAC_HOOK_REFUSED (-6)
 
 /* ------------------------------------------------------------------------------------------ *
  * Reporting to the port
@@ -2724,6 +2728,17 @@ typedef struct openrac_api {
      * OPENRAC_HOOK_FULL when all are taken, or OPENRAC_HOOK_UNKNOWN for a null texture, a size too small,
      * or no level being played. Since 1.33. */
     int (*particle_texture_register)(openrac_mod* mod, const openrac_particle_texture* texture);
+
+    /* The player's data folder of the installed game `game` (its id as games/<game>/game.json: "rac1",
+     * "rac2", ...), in UTF-8 into `out` (`size` bytes, zero-ended): the same layout as the running game's
+     * own data folder, so iso_data/<game>/... and port/<version>/level_NN/... resolve in it alike. Returns
+     * its length in bytes (not counting the zero), 0 when that game is not installed or extracted, or
+     * OPENRAC_HOOK_UNKNOWN when the port cannot say (a data folder it did not get from its install, or
+     * `size` too small: nothing is written then). OPENRAC_HOOK_REFUSED when the mod's manifest does not
+     * declare `game` in "reads_games" (the running game is always allowed). `game` is letters, digits and
+     * dashes only; anything else is 0. Read only: the folder is the game's, and the mod writes its own files
+     * in openrac_api.data_dir. Since 1.34. */
+    int (*game_data_dir)(openrac_mod* mod, const char* game, char* out, uint32_t size);
 
 } openrac_api;
 

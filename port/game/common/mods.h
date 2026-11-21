@@ -140,6 +140,11 @@ struct Host {
     // Where each mod's own folder goes (interface 1.11, openrac_api.data_dir): <this>/<mod id>.
     // Empty: none, and data_dir gives null.
     std::filesystem::path mod_data;
+    // The installed games' data folders (interface 1.34, openrac_api.game_data_dir): the running game's
+    // own data folder (`data`), and the folder the installed games sit in (games_root: <games_root>/<game>/data
+    // each, the launcher's <install>/active). Empty games_root: the port cannot say for another game.
+    std::filesystem::path data;
+    std::filesystem::path games_root;
     // The mods' sounds (interface 1.12, openrac_api.sound_*): a file decoded and kept (its id, -1
     // when it cannot be read), a voice of it played (0 for none), changed (0: it has ended; a
     // volume below 0 changes nothing, only asks whether it still plays) and stopped. Null: no
@@ -244,6 +249,12 @@ const char* mod_id(const openrac_mod* mod);
 // Whether `mod` has taken the hook point `name` (its id or any alias), for the calls only the
 // holder of a hook point may make (interface 1.12, hero_set_pose).
 bool holds_hook(const openrac_mod* mod, const char* name);
+
+// The installed games (interface 1.34). The data folder of `game` (the running game's own, else
+// games_root/<game>/data); empty when the port has none for it.
+std::filesystem::path game_data_folder(const Host& host, std::string_view game);
+// Whether a data folder is an extracted game's: it holds iso_data or port.
+bool holds_game_data(const std::filesystem::path& data);
 
 // A file inside `mod`'s folder by its path there (relative, with /, no "." or ".." part), when it
 // is a file; empty otherwise (interface 1.12: a prop's mesh, a sound).

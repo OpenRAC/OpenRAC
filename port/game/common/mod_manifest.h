@@ -124,6 +124,9 @@ struct Manifest {
     // ("contexts") and the icons they use ("icons": name -> an .svg inside the mod).
     std::string touch;
     std::vector<std::string> hooks;
+    // "reads_games" (interface 1.34): the games whose data folders the mod reads (openrac_api.game_data_dir).
+    // The running game is always read without declaring it.
+    std::vector<std::string> reads_games;
     std::vector<Setting> settings;
     std::vector<Preset> presets;
     std::vector<Requirement> requirements;  // the manifest's "requires"
@@ -142,6 +145,10 @@ struct Manifest {
 bool parse_manifest(std::string_view text, Manifest& out, std::string& error);
 
 bool valid_id(std::string_view id);
+
+// A game's id as the launcher names it (games/<game>/game.json: "rac1"): letters, digits and dashes,
+// at most 32 (interface 1.34, the manifest's "reads_games" and openrac_api.game_data_dir).
+bool valid_game_id(std::string_view game);
 
 // A path inside a mod to one of its .luau files: relative, with /, no empty, "." or ".." part.
 bool script_path(std::string_view path);

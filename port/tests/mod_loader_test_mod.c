@@ -173,6 +173,13 @@ static void play_frame(void) {
             7900 + (s_api->level_name(1) != NULL && s_api->level_name(1)[0] == 'N')
             + 2 * (s_api->level_name(99) == NULL)
         );
+        if (s_api->api_minor >= 34) {
+            /* Interface 1.34: a game the manifest does not declare is refused (-6), an id that is not a
+             * game's is 0. */
+            char folder[512];
+            s_record(7970 + -s_api->game_data_dir(s_mod, "rac2", folder, sizeof folder));
+            s_record(7980 + -s_api->game_data_dir(s_mod, "../up", folder, sizeof folder));
+        }
     } else if (s_frames == 3) {
         s_record(7600 + -s_api->figure_pose(s_mod, s_figure, &pose));
         s_record(7730 + -s_api->figure_held(s_mod, s_figure, &held));

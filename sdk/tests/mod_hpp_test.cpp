@@ -1065,6 +1065,24 @@ int fake_camera_shake(openrac_mod*, int channel, float amplitude, int frames) {
     return ok ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+// What the fake host's 1.34 call was asked for. It knows one installed game's folder, refuses one the
+// manifest does not declare, and has none for any other.
+std::string g_game_asked;
+
+int fake_game_data_dir(openrac_mod*, const char* game, char* out, uint32_t size) {
+    g_game_asked = game;
+    const std::string id = game;
+    if (id == "rac2") {
+        const std::string folder = "/games/rac2/data";
+        if (folder.size() + 1 > size) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        std::copy(folder.c_str(), folder.c_str() + folder.size() + 1, out);
+        return static_cast<int>(folder.size());
+    }
+    return id == "rac3" ? OPENRAC_HOOK_REFUSED : 0;
+}
+
 // A port of 1.30: it takes the three blends, refuses a number past them and keeps the last blend.
 int fake_set_blend(void*, uint32_t blend) {
     if (blend > OPENRAC_OVERLAY_BLEND_SUBTRACT) {
@@ -2497,6 +2515,27 @@ int main() {
         CHECK(!mod.has_particle_texture_register() && mod.particle_texture_register(indices, clut) == OPENRAC_HOOK_UNKNOWN);
         api.api_minor = OPENRAC_MOD_API_MINOR;
         CHECK(mod.has_particle_texture_register());
+    }
+    // Interface 1.34: the data folder of an installed game, as the port answers it, and a port without it.
+    {
+        api.game_data_dir = fake_game_data_dir;
+        CHECK(mod.has_game_data());
+        std::string path = "stale";
+        CHECK(mod.game_data_dir("rac2", path) == 16 && path == "/games/rac2/data");
+        // Not installed: 0 and no path. A game the manifest does not declare: refused, no path.
+        CHECK(mod.game_data_dir("rac4", path) == 0 && path.empty());
+        CHECK(mod.game_data_dir("rac3", path) == OPENRAC_HOOK_REFUSED && path.empty());
+        // A port of 1.33, or a table that ends before the slot, has none of it and is not asked.
+        g_game_asked.clear();
+        api.api_minor = 33;
+        CHECK(!mod.has_game_data() && mod.game_data_dir("rac2", path) == OPENRAC_HOOK_UNKNOWN
+              && g_game_asked.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, game_data_dir));
+        CHECK(!mod.has_game_data() && mod.game_data_dir("rac2", path) == OPENRAC_HOOK_UNKNOWN
+              && g_game_asked.empty());
+        api.size = sizeof api;
+        CHECK(mod.has_game_data());
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);
