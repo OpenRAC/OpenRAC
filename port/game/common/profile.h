@@ -120,6 +120,17 @@ struct DiagnosticsInput {
     void* game = nullptr;
 };
 
+// Where the gold bolt preview reads the numbers the game's own bolt update uses: the class scale
+// and spin constants (data of level `constants_level`'s program), the moby table's start and end
+// pointers, and the frame time in seconds.
+struct GoldBoltReads {
+    int constants_level = 0;
+    std::uint32_t constants = 0;
+    std::uint32_t moby_table = 0;
+    std::uint32_t moby_table_end = 0;
+    std::uint32_t frame_seconds = 0;
+};
+
 // What one game version tells the host program about its memory.
 //
 // The base answers as a game nothing is known of: no game state (the camera as GameState starts
@@ -370,6 +381,9 @@ public:
     // from {inner} away from 0x7F and is full {span} beyond (platform/pad.h's StickDeadZone);
     // {0, 0} for a game without a known one.
     virtual std::array<int, 2> stick_dead_zone() const { return {0, 0}; }
+
+    // Where the gold bolt preview reads the game's numbers; none for a game without one.
+    virtual std::optional<GoldBoltReads> gold_bolt_reads() const { return std::nullopt; }
 
     // Developer tools: what of the game's state a diagnostics recording carries beside its
     // snapshots, as a JSON value ("" for nothing), read each tick from `ram` and the tick's `state`

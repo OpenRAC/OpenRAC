@@ -1778,10 +1778,10 @@ TickMobys pose_mobys(
             && scene::vendor_preview::normal_weapon_class(replacement->oclass) == m.class_id;
         const bool custom_pose = replaced && !native_gold;
         const bool replacement_pose = custom_pose || native_gold;
-        const bool native_bolt_pickup = g->render.level.game == "rac1" && replaced
-                                        && replacement->height > 0 && replacement->oclass == 0x46E
-                                        && scene::pickup_preview::equipment_source(m.class_id)
-                                        && !own_camera;
+        const std::optional<host::GoldBoltReads> bolt_reads = g->render.profile->gold_bolt_reads();
+        const bool native_bolt_pickup =
+            bolt_reads && replaced && replacement->height > 0 && replacement->oclass == 0x46E
+            && scene::pickup_preview::equipment_source(m.class_id) && !own_camera;
         if (native_bolt_pickup) {
             // Read the same class scale and animation constants used by
             // GoldBoltUpdate, rather than fitting the bolt into weapon bounds.
@@ -1799,8 +1799,8 @@ TickMobys pose_mobys(
                 }
                 return std::isfinite(value) ? value : 0.0f;
             };
-            const bool ntsc = std::string_view(openrac_game.id) == "rac1-ntsc";
-            const auto constants = openrac_relocate_level_data(1, ntsc ? 0x161F10u : 0x161FA0u);
+            const auto constants =
+                openrac_relocate_level_data(bolt_reads->constants_level, bolt_reads->constants);
             static float class_scale = 0;
             for (const auto& bolt : state.mobys) {
                 if (bolt.class_id == 1134) {
@@ -1815,8 +1815,8 @@ TickMobys pose_mobys(
             }
             if (class_scale <= 0) {
                 // Collected level mobys retain their class header until reused.
-                const auto first = word(ntsc ? 0x15FFD8u : 0x160098u);
-                const auto end = word(ntsc ? 0x15FFE0u : 0x1600A0u);
+                const auto first = word(bolt_reads->moby_table);
+                const auto end = word(bolt_reads->moby_table_end);
                 if (first && end > first && end <= ram.size() && (end - first) % 0x100 == 0) {
                     for (auto at = first; at < end; at += 0x100) {
                         std::int16_t id = 0;
@@ -1852,7 +1852,7 @@ TickMobys pose_mobys(
             static std::map<std::pair<int, std::uint32_t>, Clock> clocks;
             auto& clock = clocks[{g->loaded, m.address}];
             if (clock.tick != g->index && world_ran && !under_menu) {
-                clock.seconds += number(ntsc ? 0x15ED6Cu : 0x15EE6Cu);
+                clock.seconds += number(bolt_reads->frame_seconds);
             }
             clock.tick = g->index;
             instance.matrix = scene::pickup_preview::native_gold(
