@@ -863,6 +863,11 @@ interface's, `MAJOR.MINOR`, and a patch number for fixes to the SDK itself
 the same bytes wherever it is made, so a mod's build can pin the version and
 its hash (openrac-mods does: `sdk.lock`).
 
+To change the version, run `python3 sdk/tools/bump_api.py minor --note "..."`
+(new table members) or `patch` (anything else a mod sees, such as hook
+points). It writes all six places that hold the version and regenerates the
+locks and the reference; `--check` (CI) fails when they disagree.
+
 ```sh
 unzip openrac-mod-sdk-1.0.0.zip
 cmake -S my-mod -B build -DOpenRACMod_DIR=$PWD/openrac-mod-sdk-1.0.0/cmake
