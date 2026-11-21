@@ -273,6 +273,33 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool prop_pose(int id, const float matrix[16], const float tint[4], uint32_t blend) const` | Since 1.12: places prop `id` by a matrix, its colour times `tint` (RGBA) and drawn as `blend` says (OPENRAC_PROP_OPAQUE, _ALPHA or _ADD): a glow or a spark. |
 | `bool prop_hide(int id, bool hidden = true) const` | Since 1.12: hides prop `id` or shows it again; takes it out of the level. |
 | `bool prop_remove(int id) const` |  |
+| `bool has_prop_skin() const` | Since 1.29: whether the port skins props (prop_set_skin). |
+| `bool prop_set_skin(int id, const float* joint_matrices, std::size_t joint_count) const` | Since 1.29: skins prop `id` with `joint_count` joint matrices of 16 floats each, column-major (see openrac_api.prop_set_skin for the one convention: joint j's matrix takes the mesh's bind-pose vertex to where the joint puts it, in the mesh's own coordinates, so the identity is the bind pose; prop_pose's matrix is applied after). Held until the next call. False for a prop that is not the mod's or went with its level, a count past OPENRAC_PROP_JOINTS_MAX, a value that is not a number, or a port without it. `joint_matrices` must hold 16 * joint_count floats: the port reads that many, and cannot check it. |
+| `bool prop_set_skin(int id, const std::vector<float>& joint_matrices) const` | Since 1.29: the same, with the matrices in one vector. Its size must be a whole number of joints (16 floats each); any other size is refused here, and nothing is changed. |
+| `bool prop_clear_skin(int id) const` | Since 1.29: takes prop `id`'s skin off: drawn in its bind pose again. |
+| `bool has_moby_models() const` | Since 1.29: whether the port draws a moby with a mesh of the mod's (model_create, moby_model_slot). |
+| `int model_create(const std::string& mesh_path) const` | Since 1.29: makes a model of the .glb `mesh_path` (in the mod's folder) for moby_model_slot: its handle, or -1 outside a level, for a path the port refuses, past OPENRAC_MODELS_MAX, or on a port without it. It goes with its level. |
+| `int moby_model_slot(int slot, int model, const float* matrix = nullptr) const` | Since 1.29: draws the moby in array `slot` with `model` instead of its class's model (see openrac_api.moby_model_slot). `matrix` takes the mesh into the moby's model space (null: the identity). Returns OPENRAC_HOOK_OK, _UNKNOWN or _TAKEN (another mod's moby). |
+| `bool moby_model_clear(int slot) const` | Since 1.29: gives the moby in array `slot` its own model back. |
+| `bool has_moby_model_class() const` | Since 1.29: whether the port draws every moby of a class with a mesh of the mod's (moby_model_class). |
+| `int moby_model_class(int oclass, uint32_t scope, int model, const float* matrix = nullptr) const` | Since 1.29: draws every moby of class `oclass` in `scope` (OPENRAC_MODEL_WORLD, _MENU or both) with `model`: the game's own pictures of the item too, in the menu scope (see openrac_api.moby_model_class). Returns OPENRAC_HOOK_OK, _UNKNOWN or _TAKEN (another mod's). |
+| `bool moby_model_class_clear(int oclass, uint32_t scope) const` | Since 1.29: gives the class its own model back in `scope`. |
+| `bool has_particle_spawn_ex() const` | Since 1.29: whether the port takes the effect's options (particle_spawn_ex). |
+| `int particle_spawn_ex(openrac_particle_spawn spawn) const` | Since 1.29: starts the game's own particle effect with the options in `spawn` (see openrac_particle_spawn). The size is set here. Returns OPENRAC_HOOK_OK, _FULL or _UNKNOWN. |
+| `bool has_particle_texture_register() const` | Since 1.29: whether the port registers particle textures (particle_texture_register). |
+| `int particle_texture_register(const std::vector<std::uint8_t>& indices, const std::vector<std::uint8_t>& clut) const` | Since 1.29: registers a particle texture in the game's format: `indices` is the 32 x 32 texture's 1024 8-bit indices, `clut` its 1024-byte palette (openrac_particle_texture). Returns the id the texture byte takes (128 to 255), OPENRAC_HOOK_FULL when all are taken, or OPENRAC_HOOK_UNKNOWN. |
+| `bool has_moby_model_at() const` | Since 1.29: whether the port draws a moby at an address with a mesh of the mod's (moby_model_at). |
+| `int moby_model_at(std::uint32_t address, int model, const float* matrix = nullptr) const` | Since 1.29: draws the moby at `address` with `model` (see openrac_api.moby_model_at); the matrix as moby_model_slot's. Returns OPENRAC_HOOK_OK, _TAKEN or _UNKNOWN. |
+| `bool moby_model_at_clear(std::uint32_t address) const` | Since 1.29: gives the moby at `address` its own model back. |
+| `int moby_model_at_hide(std::uint32_t address) const` | Since 1.29: hides this moby's native mesh for a mod-owned replacement or an empty-handed pose. |
+| `int rac1_reserve_item_ids(const std::uint32_t* ids, std::uint32_t count) const` | Since 1.29, RAC1 only: reserves unused native item IDs during load; refused if another mod holds one. |
+| `int rac1_ammo_panel_offset(std::int32_t handle, std::int32_t x, std::int32_t y) const` | Since 1.29, RAC1 only: moves a queued native ammo panel by (x, y) HUD reference units. |
+| `int rac1_weapon_register(const openrac_rac1_weapon& weapon) const` | Since 1.29, RAC1 only: registers a native-backed weapon during load. |
+| `int rac1_weapon_grant(std::uint32_t item) const` | Since 1.29, RAC1 only: gives a registered weapon and its initial ammunition during play. |
+| `bool has_game_data() const` | Since 1.29: whether the port has the installed games' data folders (game_data_dir). |
+| `int game_data_dir(const std::string& game, std::string& path) const` | Since 1.29: the data folder of the installed game `game` ("rac2") into `path`. Returns the folder's length (> 0, path set) when it is installed, 0 when it is not installed or extracted, OPENRAC_HOOK_UNKNOWN when the port cannot say, or OPENRAC_HOOK_REFUSED when the manifest does not declare the game in "reads_games". |
+| `bool has_camera_visibility_bypass() const` | Since 1.29: whether the port has the gameplay camera's visibility bypass (camera_visibility_bypass). |
+| `bool camera_visibility_bypass(bool enabled) const` | Since 1.29: draws the level's gameplay view with frustum culling alone, without the level's baked camera visibility, until cleared (`enabled` false) or the level goes (see openrac_api.camera_visibility_bypass). False outside a level in play, and on a port without it. |
 | `int sound_load(const std::string& path) const` | Since 1.12: a sound of the mod's (a .wav or .ogg in its folder): its id, or -1. |
 | `std::uint32_t sound_play(int sound, float volume = 1.0f, float pitch = 1.0f, bool loop = false) const` | Since 1.12: plays sound `sound` at the game's sound volume: its voice, 0 for none. |
 | `bool sound_set(std::uint32_t voice, float volume, float pitch) const` | Since 1.12: a voice's volume and pitch (false once it has ended); stops a voice. |
@@ -361,7 +388,11 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool hero_stand_in_read(openrac_stand_in& out) const` | Since 1.14: in the gate's call after an update, what it did to the hero who stood in. |
 | `bool hero_revive(const float (*position)[3] = nullptr, std::uint32_t flags = 0) const` | Since 1.14: brings a dead hero back where it fell, or at `position`. |
 | `bool has_overlay() const` | Since 1.14: whether this port draws what a mod asks over the game. |
-| `bool on_overlay(openrac_overlay_fn fn, void* user = nullptr) const` | Since 1.14: `fn(user, overlay)` once a frame to draw over the game. During load. |
+| `bool on_overlay(openrac_overlay_fn fn, void* user = nullptr) const` | Since 1.14: `fn(user, overlay)` once a frame to draw over the game while a level is in play. During load. on_overlay_phases draws over menus too. |
+| `bool has_overlay_phases() const` | Since 1.29: whether this port draws a mod's overlay in more than a level in play (on_overlay_phases). |
+| `bool on_overlay_phases(openrac_overlay_fn fn, void* user, std::uint32_t phases) const` | Since 1.29: `fn(user, overlay)` once a frame of one of the phases (OPENRAC_OVERLAY_PLAYING, OPENRAC_OVERLAY_MENU: the vendor, the pause menu), as on_overlay. One callback a mod: this replaces the one on_overlay took. Returns false for no phase, one the port does not draw over, or a port without it. During load. |
+| `bool has_camera_shake() const` | Since 1.29: whether the port has the game's camera shake (camera_shake). |
+| `bool camera_shake(int channel, float amplitude, int frames) const` | Since 1.29: starts the game's own camera shake on the level camera, channel 0 or 1 (see openrac_api.camera_shake). The countdown runs only in play, not in a cutscene or movie. False outside a level, for a bad channel, amplitude or count, or on a port without it. `frames` 0 stops the channel. |
 | `bool has_shots2() const` | Since 1.14: whether this port has the shots with more to say. |
 | `std::vector<openrac_shot2> hero_shots2(int max = OPENRAC_SHOTS_MAX) const` | Since 1.14: the hero's shots since the last call, as openrac_shot2. |
 | `bool figure_shot2(int id, const openrac_shot2& shot) const` | Since 1.14: has the mod's figure `id` fire `shot`. |

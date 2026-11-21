@@ -330,11 +330,15 @@ void LevelScene::draw_shadow_map(
                     continue;
                 }
                 if (instances != group.count) {
-                    if (!m_shadow_compact.vao) {
-                        m_shadow_compact = make_group(group.model);
+                    Group& compact = shadow_compact_of(group.model);
+
+                    if (!compact.vao) {
+                        compact = make_group(group.model);
                     }
-                    fill_group(m_shadow_compact, m_shadow_survivors, GL_STREAM_DRAW);
-                    vao = m_shadow_compact.vao;
+
+                    fill_group(compact, m_shadow_survivors, GL_STREAM_DRAW);
+                    vao = compact.vao;
+
                     if (counts) {
                         ++counts->compacted_groups;
                     }

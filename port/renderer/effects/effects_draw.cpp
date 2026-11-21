@@ -108,6 +108,8 @@ void EffectRenderer::draw_prepared(
         // A strip sent before the mobys that writes no Z (before_mobys_writes_z: its ZBUF masks
         // it, its TEST keeps only the colour, or its list gives no sign of a surface): colour only.
         bool z_masked = false;
+        // An untextured quad (EffectQuad::untextured): drawn by m_untextured_shader, no texture.
+        bool untextured = false;
         bool operator==(const State&) const = default;
     };
 
@@ -237,9 +239,17 @@ void EffectRenderer::draw_prepared(
         // State changes flush earlier geometry before installing the next material.
         if (!set || !(*set == wanted)) {
             flush();
-            drawable = apply(
-                wanted.tex0, wanted.tex1, wanted.clamp, wanted.alpha, state, wanted.tbp, wanted.cbp
-            );
+            // An untextured state binds nothing: its shader does not sample.
+            drawable = wanted.untextured
+                       || apply(
+                           wanted.tex0,
+                           wanted.tex1,
+                           wanted.clamp,
+                           wanted.alpha,
+                           state,
+                           wanted.tbp,
+                           wanted.cbp
+                       );
 
             // Material bindings precede the shared descriptor read declaration.
             if (m_material) {
@@ -444,11 +454,15 @@ void EffectRenderer::draw_prepared(
             if (!draws(q, input)) {
                 continue;
             }
+            if (q.untextured && m_untextured_shader.id() == 0) {
+                continue;
+            }
             State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
+            wanted.untextured = q.untextured;
             if (quad_indices) {
                 normalize_quad_state(wanted.tex1, wanted.clamp, wanted.alpha);
             }
-            Shader* shader = quad_shader;
+            Shader* shader = q.untextured ? &m_untextured_shader : quad_shader;
 
             // Captured list registers override quad alpha testing and depth writes.
             if (q.registers && m_part != EffectPart::Opaque) {
@@ -484,7 +498,7 @@ void EffectRenderer::draw_prepared(
                 sampler_splits += wanted.tex1 != set->tex1 || wanted.clamp != set->clamp;
                 blend_splits += wanted.alpha != set->alpha;
             }
-            add(wanted, at, 6, true);
+            add(wanted, at, 6, !q.untextured);
             at += 6;
         }
 
@@ -496,7 +510,8 @@ void EffectRenderer::draw_prepared(
         std::vector<RasterTexture> textures;
         std::set<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> sources;
         for (const EffectQuad& quad : input.effects) {
-            if (!draws(quad, input) || !sources.emplace(quad.tex0, quad.tbp, quad.cbp).second) {
+            if (!draws(quad, input) || quad.untextured
+                || !sources.emplace(quad.tex0, quad.tbp, quad.cbp).second) {
                 continue;
             }
             if (const unsigned panel = offscreen_texture(quad.tex0, quad.tbp)) {

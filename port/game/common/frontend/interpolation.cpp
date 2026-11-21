@@ -535,7 +535,16 @@ void present_frame(FramePresentation& output) {
     // The window thread's own parts of a frame, measured apart (performance captures).
     {
         const stats::Scope menus("menus");
-        mod_overlay::draw(output.camera, output.has_camera, shown, width, height, aspect);
+        mod_overlay::draw(
+            output.camera,
+            output.has_camera,
+            output.world_under_menu,
+            output.overlay_phase,
+            shown,
+            width,
+            height,
+            aspect
+        );
         debug_menu::draw(shown, width, height);
         run_graphics(
             [&] {
@@ -692,7 +701,7 @@ bool finish_render() try {
     return false;
 }
 
-void draw_kept(bool first) try {
+void draw_kept(bool first, bool held) try {
     sampler::note_thread("window");  // [debug tools] sampled while a capture runs
     // One in-flight snapshot bounds both latency and ownership of the current scene (and the
     // simulated slow processor's share of the window thread is spent there).
@@ -710,6 +719,9 @@ void draw_kept(bool first) try {
     output->source_frame = static_cast<std::int64_t>(g->kept->frame);
     output->started = std::chrono::steady_clock::now();
     output->first = first;
+    // The phase of the tick the frame is drawn from, not the game's now (a queued frame of play is
+    // shown after the game opened a menu); none for a picture left standing over a load.
+    output->overlay_phase = held ? 0 : g->kept->overlay_phase;
     output->camera_debug = debug_overlay::camera_debug_frame();
     output->dump_draws = renderer::g_dump_draws;
     const auto display = next_display(output->started);

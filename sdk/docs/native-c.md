@@ -147,3 +147,50 @@ openrac_add_mod(my_mod MANIFEST openrac-mod.json SOURCES src/mod.c)
 ```
 
 The full list of the table's members is the [reference](reference/c-api.md).
+
+## RAC1 item reservations, ammo panels and custom weapons
+
+Native SDK 1.29 adds RAC1 calls for cooperative item ID reservation,
+native ammo panel positioning, and native-backed custom weapons:
+
+- Call `rac1_reserve_item_ids(mod, ids, count)` during load. Request only
+  native IDs you have verified are unused on the discs your mod supports.
+  All IDs are reserved together. A conflict refuses the batch and loading
+  should stop before you write item state. The port releases the IDs on
+  failed load or unload. This is cooperative ownership of existing IDs.
+  It leaves the game's item definitions, save format and menu entries alone.
+- Call `rac1_ammo_panel_offset(mod, handle, x, y)` on the game thread for a
+  native ammo panel your mod queued. The offsets use the game's HUD units
+  and translate the panel's caps, icon and text together. Pass zero for
+  both offsets before removing a panel. Re-register after changing the
+  queue handle. Level changes and mod unload discard the placement.
+- On RAC1 (PAL and NTSC-U), fill `openrac_rac1_weapon` and call
+  `rac1_weapon_register(mod, &definition)` during load to register a
+  weapon in native extension slot 1 or 36. The SDK reserves the slot and
+  enrols it in the paged Quick Select ring and pause Weapons grid (press
+  R1 to cycle overflow pages). Choose the native presentation weapon for
+  the stock animation, name, and default art. Optional mod-relative GLBs
+  replace the held weapon and the weapon and ammo preview models.
+  `OPENRAC_RAC1_WEAPON_NO_HELD_MODEL` hides the native held model while
+  leaving the pause preview mesh available. An icon key can select a
+  different native icon, and `hud_icon` can select a separate icon for
+  the in-play ammunition box. Set `display_name` for the page and wheel
+  labels. The pause preview can use its own scale, vertical offset, and
+  optional local X/Y/Z rotation in radians (`weapon_preview_rotation`).
+
+Set the native ammo capacity, initial amount, rounds per shot, unit
+price, cooldown, and trigger mode. The `fire` callback creates the shot
+or effect and returns nonzero on success. The SDK routes Circle to it,
+accounts for ammo and cooldown, and uses the native HUD. The vendor
+uses the same ammo and pricing data. It includes the optional weapon
+purchase when there is room in its native list. Call
+`rac1_weapon_grant(mod, id)` during play to give the weapon through a
+mission or scripted acquisition.
+
+A mod can set `OPENRAC_RAC1_WEAPON_EXTERNAL_SHOP` to keep its own
+vendor transaction and preview handling, and
+`OPENRAC_RAC1_WEAPON_EXTERNAL_AMMO` when its fire callback validates
+and spends ammo directly.
+
+This integration uses the two native extension IDs. A reservation
+conflict refuses registration.

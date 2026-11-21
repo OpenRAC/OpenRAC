@@ -53,9 +53,36 @@ bool finite(float v) {
 
 }  // namespace
 
+bool overlay_blend_known(std::uint32_t blend) {
+    return blend <= static_cast<std::uint32_t>(OverlayBlend::Subtract);
+}
+
 void OverlayList::begin(float aspect) {
     m_aspect = finite(aspect) && aspect > 0.0f ? aspect : 4.0f / 3.0f;
     m_vertices.clear();
+    m_batches.clear();
+    m_blend = OverlayBlend::Alpha;
+}
+
+bool OverlayList::set_blend(std::uint32_t blend) {
+    if (!overlay_blend_known(blend)) {
+        return false;
+    }
+    m_blend = static_cast<OverlayBlend>(blend);
+    return true;
+}
+
+void OverlayList::quad(OverlayBlend blend, const std::array<OverlayVertex, 4>& corners) {
+    // Corners: top left, top right, bottom left, bottom right.
+    const auto first = static_cast<std::uint32_t>(m_vertices.size());
+    m_vertices.insert(
+        m_vertices.end(), {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]}
+    );
+    if (!m_batches.empty() && m_batches.back().blend == blend) {
+        m_batches.back().count += kVerticesPerQuad;
+    } else {
+        m_batches.push_back({first, static_cast<std::uint32_t>(kVerticesPerQuad), blend});
+    }
 }
 
 void OverlayList::rect(float x, float y, float w, float h, std::uint32_t colour) {
@@ -64,11 +91,13 @@ void OverlayList::rect(float x, float y, float w, float h, std::uint32_t colour)
         return;
     }
     const std::array<std::uint8_t, 4> c = bytes_of(colour);
-    const OverlayVertex a{x, y, c};
-    const OverlayVertex b{x + w, y, c};
-    const OverlayVertex d{x, y + h, c};
-    const OverlayVertex e{x + w, y + h, c};
-    m_vertices.insert(m_vertices.end(), {a, b, d, b, e, d});
+    quad(
+        m_blend,
+        {OverlayVertex{x, y, c},
+         OverlayVertex{x + w, y, c},
+         OverlayVertex{x, y + h, c},
+         OverlayVertex{x + w, y + h, c}}
+    );
 }
 
 void OverlayList::text(

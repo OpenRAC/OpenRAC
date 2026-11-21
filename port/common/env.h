@@ -93,6 +93,7 @@ enum class Var : std::uint16_t {
     FurView,
     FxDump,
     Give,
+    GamesRoot,
     GlApi,
     GlHideExtensions,
     GlProgramCache,
