@@ -1101,40 +1101,6 @@ static void trace_mobys(const char* script, unsigned playing) {
     );
 }
 
-/* `flood=N`: 90 frames into play, N one-bolt pickups made at the hero through the game's own coin
- * maker (no mod's replacement), spread in a ring: how many the pool gave a moby, and with `mobys`
- * the pool beside. Then `coins` shows whether each runs (its state goes from 1 to 3). */
-static void trace_flood(const char* script, unsigned playing) {
-    const char* fl = strstr(script, "flood=");
-    const char* drop = strstr(script, "drop=");
-    const gaddr hero = hero_moby();
-    /* `drop=N`: 90 frames in, one burst of N bolts from the hero through the game's burst maker (the
-     * mods' replacements included), at most 64 coins as a crate's. */
-    if (drop != NULL && playing == 90 && hero != 0) {
-        func_002ADB78(hero, atoi(drop + 5), atoi(drop + 5), 9, -1, 64, 0.0f);
-        fprintf(stderr, "PTRACE drop %u of %d bolts\n", playing, atoi(drop + 5));
-    }
-    if (fl == NULL || playing != 90 || hero == 0) {
-        return;
-    }
-    const int want = atoi(fl + 6);
-    int made = 0;
-    for (int i = 0; i < want; ++i) {
-        GFRAME(frame, 32);
-        const float a = (float)i * 0.61803f * 6.2831853f;
-        const float r = 2.0f + (float)(i % 7);
-        GREF(float, frame) = GREF(float, hero + MOBY_POS) + r * cosf(a);
-        GREF(float, frame + 4u) = GREF(float, hero + MOBY_POS + 4u) + r * sinf(a);
-        GREF(float, frame + 8u) = GREF(float, hero + MOBY_POS + 8u) + 1.0f;
-        GREF(float, frame + 12u) = 0.0f;
-        for (unsigned k = 0; k < 4; ++k) {
-            GREF(float, frame + 16u + 4u * k) = 0.0f;
-        }
-        made += func_00302470__game(hero, frame, frame + 16u, 0, 1, 0) != 0;
-    }
-    fprintf(stderr, "PTRACE flood %u made %d of %d\n", playing, made, want);
-}
-
 static void trace_copy_watch(const char* script, unsigned playing) {
     const int watch = strstr(script, "copywatch") != NULL;
     rac2_copy_trace = watch;
@@ -1229,7 +1195,6 @@ static void play_trace(void) {
     trace_copy_watch(script, (unsigned)playing);
     trace_coins(script, (unsigned)playing);
     trace_mobys(script, (unsigned)playing);
-    trace_flood(script, (unsigned)playing);
     history[playing % TRACE_DELAY] = pose;
     if (playing % 120 == 1) {
         const gaddr hero = hero_moby();
