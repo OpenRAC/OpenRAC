@@ -47,7 +47,7 @@ constexpr Entry kEntries[] = {
      "How many pixels the 3D world is drawn with, against the window's. Lower it on a slow "
      "device; raise it for a sharper picture."},
     {Id::Msaa, Tab::Graphics, "Picture", kChoice, AG, "Anti-aliasing",
-     "Smooths the edges of the world's shapes. Each step costs the graphics card more."},
+     "Smooths edges in standard graphics. Enhanced Graphics always uses one sample per pixel."},
     {Id::Anisotropy, Tab::Graphics, "Picture", kChoice, AG, "Anisotropic filtering",
      "Keeps floors and walls sharp when seen at a slant. Cheap on most graphics cards."},
     {Id::DrawDistance, Tab::Graphics, "Picture", kChoice, AG, "Draw distance",
