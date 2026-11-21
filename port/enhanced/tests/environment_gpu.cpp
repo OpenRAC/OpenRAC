@@ -172,7 +172,7 @@ void main() {
     const auto facing_pixels = [&](int normal_case, int count) {
         glUniform1i(shader.uniform("facing_case"), normal_case);
         glUniform1i(shader.uniform("environment_count"), count);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, fixture.pixels.data());
     };
     const auto check_facing = [&](std::array<float, 3> wanted) {
@@ -209,7 +209,7 @@ void main() {
               .prepare(lighting::environment_metadata(asset.probes, repeated), fixture.error));
     reference_selection.bind(shader);
     glUniform1i(shader.uniform("environment_count"), 3);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, fixture.pixels.data());
     CHECK(fixture.pixels == original_pixels);
     glUniform1i(shader.uniform("environment_count"), 2);
@@ -220,7 +220,7 @@ void main() {
     CHECK(reference_selection
               .prepare(lighting::environment_metadata(asset.probes, repeated), fixture.error));
     reference_selection.bind(shader);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, fixture.pixels.data());
     for (unsigned x = 2; x < kWidth; x += 11) {
         unsigned bits = 0;
@@ -237,7 +237,7 @@ void main() {
               .prepare(lighting::environment_metadata(asset.probes, repeated), fixture.error));
     reference_selection.bind(shader);
     glUniform1i(shader.uniform("projection_remote"), 1);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, fixture.pixels.data());
     for (unsigned x = 0; x < kWidth; ++x) {
         if (x % 11 != 2 && x % 11 != 3) {
@@ -566,7 +566,7 @@ void main() {
         glDisable(GL_CULL_FACE);
         glDisable(GL_BLEND);
         glClear(GL_COLOR_BUFFER_BIT);
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 24 * 16 * 6, 2);
+        openrac::test::graph_draw(glDrawArraysInstanced, GL_TRIANGLES, 0, 24 * 16 * 6, 2);
         glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, fixture.pixels.data());
         bool red = false, blue = false;
         for (unsigned i = 0; i < kCount; ++i) {
