@@ -556,8 +556,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # cpu and baker take half a minute each: one runner for both.
-        group: [vulkan, equivalence, cpu-baker]
+        # cpu and baker take half a minute each: one runner for both. effects takes the locked
+        # Vulkan tests that need no other fixture (tools/ci_port_tests.py THIRD_RUNNER).
+        group: [vulkan, equivalence, effects, cpu-baker]
     env:
       SDL_VIDEO_DRIVER: x11
       LIBGL_ALWAYS_SOFTWARE: "1"
@@ -571,7 +572,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/mesa-cache
-        if: matrix.group == 'vulkan' || matrix.group == 'equivalence'
+        if: matrix.group != 'cpu-baker'
         with:
           # Each runner compiles different variants; immutable cache keys must not race.
           variant: ubuntu-enhanced-nopt-${{ matrix.group }}
