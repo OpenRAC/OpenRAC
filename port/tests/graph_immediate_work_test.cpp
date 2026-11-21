@@ -816,7 +816,7 @@ bool can_sample_colour(unsigned texture) {
     return static_cast<bool>(result);
 }
 
-void test_partial_copy_requires_partial_declaration() {
+void test_partial_copy_contents() {
     renderer::FrameBuffer source;
     std::string error;
     CHECK(source.create_colour(4, 4, error));
@@ -825,11 +825,22 @@ void test_partial_copy_requires_partial_declaration() {
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    const auto upload_full_image = [] {
+        constexpr std::array<std::uint8_t, 64> pixels{};
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 4, 4, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+    };
 
-    for (const bool partial : {false, true}) {
+    for (const auto [partial, contents] :
+         {std::pair{false, vkgl::InitialContents::Preserve},
+          std::pair{true, vkgl::InitialContents::Preserve},
+          std::pair{true, vkgl::InitialContents::Discard}}) {
+        if (contents == vkgl::InitialContents::Discard) {
+            upload_full_image();
+            CHECK(can_sample_colour(texture));
+        }
         vkgl::GraphExecution execution;
         const auto from = execution.import_image("source", source.colour_texture()).value();
-        const auto to = execution.import_image("destination", texture).value();
+        const auto to = execution.import_image("destination", texture, contents).value();
         execution.add_pass(
             {"copy one texel",
              {{from,
@@ -853,7 +864,34 @@ void test_partial_copy_requires_partial_declaration() {
         }
         CHECK(!can_sample_colour(texture));
     }
+    upload_full_image();
+    CHECK(can_sample_colour(texture));
     glDeleteTextures(1, &texture);
+}
+
+void test_unreached_discard_preserves_contents() {
+    renderer::FrameBuffer target;
+    std::string error;
+    CHECK(target.create_colour(4, 4, error));
+    clear_target(target, {0, 0, 1, 1});
+
+    vkgl::GraphExecution execution;
+    const auto image =
+        execution
+            .import_image("later output", target.colour_texture(), vkgl::InitialContents::Discard)
+            .value();
+    execution.add_pass({"interrupted work"});
+    execution.add_pass(
+        {"overwrite later output",
+         {{image,
+           {},
+           {graph::Stage::Transfer, graph::Access::Write, graph::Layout::TransferDestination}}}}
+    );
+    const auto result =
+        execution.run([](unsigned) { throw std::runtime_error("interrupted before overwrite"); });
+    CHECK(!result && result.error().message == "interrupted before overwrite");
+    CHECK(can_sample_colour(target.colour_texture()));
+    check_pixels(target, {0, 0, 255, 255});
 }
 
 void test_indirect_requires_arguments() {
@@ -1226,7 +1264,8 @@ int main() {
         test_inactive_material_sampler();
         test_discarded_material_contents();
         test_external_view_copy();
-        test_partial_copy_requires_partial_declaration();
+        test_partial_copy_contents();
+        test_unreached_discard_preserves_contents();
         test_indirect_requires_arguments();
         CHECK(vkgl::submission_counters().validation_errors == 0);
         return test::result();

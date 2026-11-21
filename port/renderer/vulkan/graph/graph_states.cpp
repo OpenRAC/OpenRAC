@@ -135,6 +135,8 @@ void set_whole_image_state(Image& image, graph::State state) {
 void discard_image_contents(Image& image, const graph::ImageRange& range) {
     if (tracks_subresources(image)) {
         update_range(image, range, [](auto& contents) { contents.defined = false; });
+    } else {
+        image.discarded |= static_cast<VkImageAspectFlags>(range.aspects);
     }
 }
 

@@ -17,7 +17,7 @@ struct GraphBinding {
     ImagePtr image;  // Pins renderer-owned image memory through all callbacks.
     // Owned by the imported GL buffer or the backend's frame-ring retirement.
     BufferRef buffer{};
-    bool discard_image = false;  // Explicit discard at graph entry for tracked textures.
+    bool discard_image = false;  // Discard contents when the first live pass uses the image.
     bool transient_image = false;
 };
 
