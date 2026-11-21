@@ -345,6 +345,70 @@
     "L39:0024BF90": {
       "is": "0024C090",
       "why": "the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0x1B8, 1 of 1 places agree"
+    },
+    "L01:001DF988": {
+      "is": "001DFA08",
+      "why": "the same instruction of the same code: func_L01_00404808 (NTSC-U func_L01_00402498) +0x4, 5 of 5 places agree"
+    },
+    "L01:001DF98C": {
+      "is": "001DFA0C",
+      "why": "the same instruction of the same code: func_L01_00404A10 (NTSC-U func_L01_004026A0) +0x4, 4 of 4 places agree"
+    },
+    "L01:001DF990": {
+      "is": "001DFA10",
+      "why": "the same instruction of the same code: func_L01_004048D0 (NTSC-U func_L01_00402560) +0x4, 4 of 4 places agree"
+    },
+    "L01:001DF994": {
+      "is": "001DFA14",
+      "why": "the same instruction of the same code: func_L01_00404998 (NTSC-U func_L01_00402628) +0x8, 2 of 2 places agree"
+    },
+    "L01:001DF998": {
+      "is": "001DFA18",
+      "why": "the same instruction of the same code: func_L01_00404AD8 (NTSC-U func_L01_00402768) +0x20, 1 of 1 places agree"
+    },
+    "L01:001DF9A8": {
+      "is": "001DFA28",
+      "why": "the same instruction of the same code: func_L01_00404AD8 (NTSC-U func_L01_00402768) +0x2C, 1 of 1 places agree"
+    },
+    "L01:001DF9B8": {
+      "is": "001DFA38",
+      "why": "the same instruction of the same code: func_L01_00404AD8 (NTSC-U func_L01_00402768) +0x4, 2 of 2 places agree"
+    },
+    "L01:001E2880": {
+      "is": "001E2900",
+      "why": "the same instruction of the same code: func_L01_00305D30 (NTSC-U func_L01_00305AD0) +0x68, 18 of 18 places agree"
+    },
+    "L01:001E8480": {
+      "is": "001E8500",
+      "why": "the same instruction of the same code: func_L01_00404808 (NTSC-U func_L01_00402498) +0x2C, 2 of 2 places agree"
+    },
+    "L01:001E8580": {
+      "is": "001E8600",
+      "why": "the same instruction of the same code: func_L01_00404808 (NTSC-U func_L01_00402498) +0x24, 2 of 2 places agree"
+    },
+    "L01:001E8680": {
+      "is": "001E8700",
+      "why": "the same instruction of the same code: func_L01_00404A10 (NTSC-U func_L01_004026A0) +0x2C, 2 of 2 places agree"
+    },
+    "L01:001E8780": {
+      "is": "001E8800",
+      "why": "the same instruction of the same code: func_L01_00404A10 (NTSC-U func_L01_004026A0) +0x24, 2 of 2 places agree"
+    },
+    "L01:001E8880": {
+      "is": "001E8900",
+      "why": "the same instruction of the same code: func_L01_004048D0 (NTSC-U func_L01_00402560) +0x2C, 2 of 2 places agree"
+    },
+    "L01:001E8980": {
+      "is": "001E8A00",
+      "why": "the same instruction of the same code: func_L01_004048D0 (NTSC-U func_L01_00402560) +0x24, 2 of 2 places agree"
+    },
+    "L01:001E8A80": {
+      "is": "001E8B00",
+      "why": "the same instruction of the same code: func_L01_00404998 (NTSC-U func_L01_00402628) +0x30, 1 of 1 places agree"
+    },
+    "L01:001E8B80": {
+      "is": "001E8C00",
+      "why": "the same instruction of the same code: func_L01_00404998 (NTSC-U func_L01_00402628) +0x2C, 1 of 1 places agree"
     }
   }
 }

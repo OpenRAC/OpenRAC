@@ -295,6 +295,7 @@
       "func_L01_00412E30": "int (void)",
       "func_L01_00412E50": "float (int, int, int, float)",
       "func_L01_0042D898": "unsigned long long (int)",
+      "func_L01_0040F5F0": "int (int, float)",
       "func_L01_0041A198": "int (void)",
       "func_L01_0041A910": "int (int)",
       "func_L01_00437B38": "int (int)",

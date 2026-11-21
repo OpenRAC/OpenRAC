@@ -181,6 +181,16 @@ static void mark_drawn_mobys(const Copy* c, gaddr first, int count) {
     if (!(ty > 0.05f && ty < 10.0f)) {
         ty = tx * 0.756f;
     }
+    /* The game fix fix_wide_moby_effects (differences.json) opens the view as the port's picture and
+     * the player's Field of View open it, as Going Commando's: a moby at the sides of a picture wider
+     * than 4:3 is drawn, and makes its effects, as on a wider console picture. */
+    static const unsigned char* fix;
+    if (!fix) {
+        fix = openrac_game_fix("fix_wide_moby_effects");
+    }
+    const float opened = *fix ? openrac_game_view_opened() : 1.0f;
+    tx *= *fix ? openrac_game_picture_wider() * opened : 1.0f;
+    ty *= opened;
     const float kx = sqrtf(1.0f + tx * tx), ky = sqrtf(1.0f + ty * ty);
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, at_copy(c, c->moby_max_distance));
@@ -334,6 +344,11 @@ int func_L01_004DF310(void) {
     return 0;
 }
 
+/* The draw callback running and its argument (wide_view.c), the owner of the quads it draws. */
+extern gaddr rac3_draw_owner;
+extern gaddr rac3_draw_callback;
+extern unsigned rac3_draw_ordinal;
+
 /* The effect textures' uploads this frame: their count and the records GetEffectTex (Veldin's
  * 0x00404040, Going Commando's func_0027C878) writes, 16 bytes each as Going Commando's. */
 #define TEXTURE_UPLOADS RAC3_LADDR(1, 0x001DF97Cu)
@@ -375,6 +390,19 @@ int func_L01_00407E28(int a0, int a1) {
     memcpy(&q.tex1, r + 0x80, 8);
     memcpy(&q.alpha, r + 0x88, 8);
     q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
+    /* A draw callback's quad: its owner (the callback's argument, a moby whose body the quad may sit
+     * on: frontend scene_effects.cpp), and an id that is the same from one tick to the next while the
+     * callback draws the same quads (its function, its argument and the quad's place in what it
+     * draws), so that a frame between ticks moves it from the last tick's corners. */
+    if (rac3_draw_owner != 0) {
+        q.parent = rac3_draw_owner;
+        uint32_t h = 2166136261u;
+        const uint32_t words[3] = {rac3_draw_callback, rac3_draw_owner, rac3_draw_ordinal++};
+        for (int i = 0; i < 3; ++i) {
+            h = (h ^ words[i]) * 16777619u;
+        }
+        q.id = 0x40000000u | (h & 0x3FFFFFFFu);
+    }
     openrac_game_effect_quad(&q);
     const uint32_t marker = openrac_game_effect_quad_marker();
     if (marker != 0) {
