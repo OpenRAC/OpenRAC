@@ -1107,6 +1107,21 @@ void fill_model_class(openrac_api &api) {
     };
 }
 
+// What the fake host's 1.33 call was given: a copy of the options and the struct size it saw.
+openrac_particle_spawn g_particle{};
+std::uint32_t g_particle_size = 0;
+
+void fill_particle(openrac_api &api) {
+    api.particle_spawn_ex = [](openrac_mod*, const openrac_particle_spawn* spawn) {
+        if (spawn == nullptr) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        g_particle = *spawn;
+        g_particle_size = spawn->size;
+        return spawn->kind == OPENRAC_PARTICLE_SPARK ? OPENRAC_HOOK_OK : OPENRAC_HOOK_FULL;
+    };
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -2409,6 +2424,79 @@ int main() {
         CHECK(!mod.has_camera_shake() && !mod.camera_shake(1, 0.15f, 30) && g_shake.empty());
         api.size = sizeof api;
         CHECK(mod.has_camera_shake());
+    }
+    // Interface 1.33: the options of a game particle effect (particle_spawn_ex) reach the port as the
+    // mod set them, with the struct's size; a port without the call, or of 1.32, has none of it.
+    {
+        fill_particle(api);
+        CHECK(mod.has_particle_spawn_ex());
+        openrac_particle_spawn spawn{};
+        spawn.kind = OPENRAC_PARTICLE_SPARK;
+        spawn.position[0] = 1.0f;
+        spawn.position[1] = 2.0f;
+        spawn.position[2] = 3.0f;
+        spawn.velocity[2] = 4.0f;
+        spawn.particle_size = 210000.0f;
+        spawn.life_ticks = 45;
+        spawn.color = 0x7F102030u;
+        spawn.color_end = 0x4F7F4F2Fu;
+        spawn.flags = OPENRAC_PARTICLE_CHILDREN;
+        spawn.texture = 30;
+        spawn.blend = -1;
+        spawn.rot = 0.0f;
+        CHECK(mod.particle_spawn_ex(spawn) == OPENRAC_HOOK_OK);
+        CHECK(g_particle.kind == OPENRAC_PARTICLE_SPARK && g_particle.position[2] == 3.0f && g_particle.velocity[2] == 4.0f
+              && g_particle.particle_size == 210000.0f && g_particle.life_ticks == 45 && g_particle.color == 0x7F102030u
+              && g_particle.color_end == 0x4F7F4F2Fu && g_particle.flags == OPENRAC_PARTICLE_CHILDREN
+              && g_particle.texture == 30 && g_particle.blend == -1 && g_particle_size == sizeof(openrac_particle_spawn));
+        // The call's own answer comes back: a kind the fake answers FULL for.
+        spawn.kind = OPENRAC_PARTICLE_SMOKE;
+        CHECK(mod.particle_spawn_ex(spawn) == OPENRAC_HOOK_FULL);
+        spawn.kind = OPENRAC_PARTICLE_SPARK;
+        // A port of 1.32, or a table that ends before the field, has none of it and is not asked.
+        g_particle = openrac_particle_spawn{};
+        api.api_minor = 32;
+        CHECK(!mod.has_particle_spawn_ex() && mod.particle_spawn_ex(spawn) == OPENRAC_HOOK_UNKNOWN
+              && g_particle.kind == 0);
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        const std::uint32_t size = api.size;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, particle_spawn_ex));
+        CHECK(!mod.has_particle_spawn_ex() && mod.particle_spawn_ex(spawn) == OPENRAC_HOOK_UNKNOWN
+              && g_particle.kind == 0);
+        api.size = size;
+        CHECK(mod.has_particle_spawn_ex());
+        CHECK(OPENRAC_HOOK_FULL == -5 && OPENRAC_PARTICLE_LIFE_MAX == 600);
+        CHECK(OPENRAC_PARTICLE_CHILDREN == 1u && OPENRAC_PARTICLE_BYTE_MAX == 255 && OPENRAC_PARTICLE_ROT_MAX == 1.0f);
+    }
+    // Interface 1.33: a particle texture (1024 indices and a 1024-byte palette) reaches the port as the mod
+    // gave it, and the port's id comes back; the size and the lengths are checked here; a port of 1.32 has none.
+    {
+        static openrac_particle_texture g_particle_texture{};
+        api.particle_texture_register = [](openrac_mod*, const openrac_particle_texture* t) {
+            if (t == nullptr) {
+                return OPENRAC_HOOK_UNKNOWN;
+            }
+            g_particle_texture = *t;
+            return t->indices[0] == 7 ? OPENRAC_HOOK_FULL
+                                      : static_cast<int>(OPENRAC_PARTICLE_TEXTURE_FIRST) + t->indices[0];
+        };
+        CHECK(mod.has_particle_texture_register());
+        const std::vector<std::uint8_t> indices(1024, 3), clut(1024, 5);
+        CHECK(mod.particle_texture_register(indices, clut) == OPENRAC_PARTICLE_TEXTURE_FIRST + 3);
+        CHECK(g_particle_texture.size == sizeof(openrac_particle_texture) && g_particle_texture.indices[1023] == 3 && g_particle_texture.clut[0] == 5
+              && g_particle_texture.clut[1023] == 5);
+        std::vector<std::uint8_t> seven(1024, 7);
+        CHECK(mod.particle_texture_register(seven, clut) == OPENRAC_HOOK_FULL);
+        // A length other than 1024 is refused before the port is asked (the port keeps the last one).
+        const std::vector<std::uint8_t> short_clut(1000, 9);
+        CHECK(mod.particle_texture_register(indices, short_clut) == OPENRAC_HOOK_UNKNOWN && g_particle_texture.clut[0] == 5);
+        CHECK(mod.particle_texture_register({}, clut) == OPENRAC_HOOK_UNKNOWN && g_particle_texture.indices[0] == 7);
+        CHECK(OPENRAC_PARTICLE_TEXTURE_SIDE == 32 && OPENRAC_PARTICLE_TEXTURE_FIRST == 128
+              && OPENRAC_PARTICLE_TEXTURE_COUNT == 128);
+        api.api_minor = 32;
+        CHECK(!mod.has_particle_texture_register() && mod.particle_texture_register(indices, clut) == OPENRAC_HOOK_UNKNOWN);
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        CHECK(mod.has_particle_texture_register());
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);

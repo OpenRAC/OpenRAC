@@ -2308,6 +2308,67 @@ int api_hero_hurt(openrac_mod* mod, int damage) {
     return g_play->hero_hurt(damage);
 }
 
+// Both particle calls: the play phase and the game's host. Returns the answer of the call.
+int particle_start_ex(const openrac_game_particle_spawn& spawn) {
+    std::int32_t level = -1;
+    if (g_play == nullptr || g_play->particle_spawn_ex == nullptr
+        || phase_now(&level) != OPENRAC_PLAY_PLAYING) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const int made = g_play->particle_spawn_ex(&spawn);
+    if (made > 0) {
+        return OPENRAC_HOOK_OK;
+    }
+    return made == 0 ? OPENRAC_HOOK_FULL : OPENRAC_HOOK_UNKNOWN;
+}
+
+bool particle_finite(const float v[3]) {
+    return std::all_of(v, v + 3, [](float x) { return std::isfinite(x); });
+}
+
+int api_particle_spawn_ex(openrac_mod* mod, const openrac_particle_spawn* spawn) {
+    if (mod == nullptr || spawn == nullptr || spawn->size < sizeof(openrac_particle_spawn)
+        || spawn->kind > OPENRAC_PARTICLE_SPARK || !particle_finite(spawn->position)
+        || !particle_finite(spawn->velocity) || !std::isfinite(spawn->particle_size)
+        || spawn->particle_size <= 0.0f || spawn->particle_size > OPENRAC_PARTICLE_SIZE_MAX
+        || spawn->life_ticks < 1 || spawn->life_ticks > OPENRAC_PARTICLE_LIFE_MAX
+        || (spawn->flags & ~OPENRAC_PARTICLE_CHILDREN) != 0 || spawn->texture < -1
+        || spawn->texture > OPENRAC_PARTICLE_BYTE_MAX || spawn->blend < -1
+        || spawn->blend > OPENRAC_PARTICLE_BYTE_MAX || !std::isfinite(spawn->rot)
+        || std::fabs(spawn->rot) > OPENRAC_PARTICLE_ROT_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_particle_spawn g{};
+    g.kind = spawn->kind;
+    std::copy(spawn->position, spawn->position + 3, g.position);
+    std::copy(spawn->velocity, spawn->velocity + 3, g.velocity);
+    g.size = spawn->particle_size;
+    g.life_ticks = spawn->life_ticks;
+    g.color = spawn->color;
+    g.color_end = spawn->color_end;
+    g.flags = spawn->flags;
+    g.texture = spawn->texture;
+    g.blend = spawn->blend;
+    g.rot = spawn->rot;
+    return particle_start_ex(g);
+}
+
+// openrac_api.particle_texture_register (1.33): the texture is checked here, then the game's renderer
+// stages it. Played levels only, as the particle calls.
+int api_particle_texture_register(openrac_mod* mod, const openrac_particle_texture* texture) {
+    std::int32_t level = -1;
+    if (mod == nullptr || texture == nullptr || texture->size < sizeof(openrac_particle_texture)
+        || g_play == nullptr || g_play->particle_texture_register == nullptr
+        || phase_now(&level) != OPENRAC_PLAY_PLAYING) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const int id = g_play->particle_texture_register(texture->indices, texture->clut);
+    if (id >= OPENRAC_PARTICLE_TEXTURE_FIRST) {
+        return id;
+    }
+    return id == 0 ? OPENRAC_HOOK_FULL : OPENRAC_HOOK_UNKNOWN;
+}
+
 int api_touch_define(openrac_mod* mod, const char* json) {
     std::string error;
     if (mod == nullptr || json == nullptr) {
@@ -2528,6 +2589,8 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.model_create = api_model_create;
     api.moby_model_slot = api_moby_model_slot;
     api.moby_model_class = api_moby_model_class;
+    api.particle_spawn_ex = api_particle_spawn_ex;
+    api.particle_texture_register = api_particle_texture_register;
     api.moby_model_at = api_moby_model_at;
     api.sound_load = api_sound_load;
     api.sound_play = api_sound_play;

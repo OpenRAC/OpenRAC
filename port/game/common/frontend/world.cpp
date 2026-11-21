@@ -1332,8 +1332,8 @@ void note_particles(std::span<const std::uint8_t> ram, const host::GameState& st
     };
     constexpr float kNear = 6.0f;
     std::array<int, 256> counts{};
-    // Per type, those particle_quads leaves out: lines (kind 2, not drawn yet), those without a
-    // texture, and those outside the record's near and far depth.
+    // Per type, those particle_quads leaves out: lines (kind 2) that are not drawn here, those
+    // without a texture, and those outside the record's near and far depth.
     std::array<int, 256> lines{}, untextured{}, beyond{};
     std::string near;
     int listed = 0;
@@ -1401,7 +1401,8 @@ void note_particles(std::span<const std::uint8_t> ram, const host::GameState& st
 // contributors): culled and faded by depth (the record's near and far, at most 500 units), back to
 // front; a sprite faces the camera, its half-diagonal size / 210000 units (y scaled by 1.0625 as the
 // game does on screen), turned by its rotation byte; a flat quad lies in the world's XY plane; a
-// ribbon joins its two ends across the view. Lines are not drawn yet.
+// ribbon joins its two ends across the view; a line (kind 2) is an untextured one-pixel strip
+// between its two ends, drawn with the colours of its records.
 void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& state) {
     const auto f32 = [](const std::uint8_t* b) {
         float v;
@@ -1469,8 +1470,81 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
     for (const State::Particle& p : g->particles) {
         const std::uint8_t* r = p.record.data();
         const int kind = r[1] & 3;
-        if (kind == 2 || p.pixels == 0 || p.clut == 0) {
-            cover(r, kind == 2 ? "lines" : "untextured");
+        if (kind != 2 && (p.pixels == 0 || p.clut == 0)) {
+            cover(r, "untextured");
+            continue;
+        }
+        if (kind == 2) {
+            // An untextured line (docs/engine/systems/PARTICLES.md section 5): colour 1 at end 1
+            // (+0x04, alpha included), colour 2 at end 2 (RGB at +0x0C; the spawner writes no alpha
+            // there, so end 2 takes colour 1's alpha), ends at +0x10 and +0x20, one pixel wide.
+            const std::array<float, 3> a{f32(r + 0x10), f32(r + 0x14), f32(r + 0x18)};
+            const std::array<float, 3> b{f32(r + 0x20), f32(r + 0x24), f32(r + 0x28)};
+            const std::array<float, 3>& fwd = state.forward;
+            const auto forward = [&](const std::array<float, 3>& v) {
+                return (v[0] - cam[0]) * fwd[0] + (v[1] - cam[1]) * fwd[1]
+                       + (v[2] - cam[2]) * fwd[2];
+            };
+            const float za = forward(a), zb = forward(b);
+            // Culled by its two ends against the global far (500 units), not by the near and far
+            // nibbles of byte 0x09, which lines do not use.
+            if (za > 500.0f && zb > 500.0f) {
+                cover(r, "beyond");
+                continue;
+            }
+            cover(r, "");
+            // The fade of the record (pass 2), at the first end; never negative (a line at or
+            // inside its near is not drawn).
+            const ParticleDepth depth = particle_depth(r, state);
+            const int fade = std::max(
+                0, std::min({(depth.far12 - depth.z12) >> 4, depth.z12 - depth.near12, 0x1000})
+            );
+            const auto faded = [fade](std::uint32_t c) {
+                return (c & 0x00FFFFFFu)
+                       | (((c >> 24) * static_cast<std::uint32_t>(fade) >> 12) << 24);
+            };
+            const std::uint32_t c1 = faded(u32(r + 4));
+            const std::uint32_t c2 = (c1 & 0xFF000000u) | (u32(r + 0xC) & 0x00FFFFFFu);
+            // One screen pixel is z / 406.35 world units at depth z (the scale of the sprites
+            // above: half-diagonal = 406.35 * size / 210000 / (z + 0.5) pixels); the half width is
+            // half a pixel at each end.
+            const float w1 = 0.5f * std::max(za, 0.0f) / 406.35f;
+            const float w2 = 0.5f * std::max(zb, 0.0f) / 406.35f;
+            // The line's width runs across the view: the normal of the line and the view ray.
+            const std::array<float, 3> e{b[0] - a[0], b[1] - a[1], b[2] - a[2]};
+            const std::array<float, 3> m{
+                0.5f * (a[0] + b[0]) - cam[0],
+                0.5f * (a[1] + b[1]) - cam[1],
+                0.5f * (a[2] + b[2]) - cam[2]
+            };
+            std::array<float, 3> n{
+                e[1] * m[2] - e[2] * m[1], e[2] * m[0] - e[0] * m[2], e[0] * m[1] - e[1] * m[0]
+            };
+            const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            if (len <= 0.0f) {
+                continue;
+            }
+            for (float& v : n) {
+                v /= len;
+            }
+            renderer::EffectQuad q{};
+            for (int i = 0; i < 3; ++i) {
+                q.corner[0][i] = a[i] + n[i] * w1;
+                q.corner[1][i] = a[i] - n[i] * w1;
+                q.corner[2][i] = b[i] + n[i] * w2;
+                q.corner[3][i] = b[i] - n[i] * w2;
+            }
+            q.rgba[0] = q.rgba[1] = c1;
+            q.rgba[2] = q.rgba[3] = c2;
+            const float st[4][2] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+            std::memcpy(q.st, st, sizeof(st));
+            q.clamp = 5;
+            q.tex1 = 0xFF9000000120ull;
+            q.alpha = r[3];
+            q.id = p.id;
+            q.rigid = false;
+            q.untextured = true;
+            items.push_back({za, q});
             continue;
         }
         std::array<float, 3> p1{f32(r + 0x10), f32(r + 0x14), f32(r + 0x18)};

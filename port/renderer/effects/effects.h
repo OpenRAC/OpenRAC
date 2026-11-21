@@ -230,6 +230,9 @@ private:
     // m_test_plain: built from the material's plain quad source, bound as m_quad_shader is.
     Shader m_test_shader;
     bool m_test_plain = false;
+    // The untextured quads (EffectQuad::untextured): the same fragment with `textured` a uniform
+    // (0 here), not compiled to 1 as EffectStaticControls does for the textured shaders.
+    Shader m_untextured_shader;
     Shader* m_active_shader = nullptr;
     bool m_colour_reads_ready = false;  // Reset whenever the effect pass changes its shader.
     std::unique_ptr<EffectMaterial> m_material;

@@ -489,6 +489,36 @@ static void motion_frame(void) {
                 (openrac_mod*)&s_model, 511, OPENRAC_MODEL_WORLD | OPENRAC_MODEL_MENU, &mm
             )
         );
+        /* Interface 1.33: the smoke with the game's texture 1 and blend 0x44 is made; a texture past
+         * one byte, a spin rate past 1, a flag the port does not know and a null spawn are refused. */
+        {
+            static const float at[3] = {1.0f, 2.0f, 3.0f};
+            static const float go[3] = {0.0f, 0.0f, 4.0f};
+            openrac_particle_spawn sp = {0};
+            sp.size = sizeof sp;
+            sp.kind = OPENRAC_PARTICLE_SMOKE;
+            sp.position[0] = at[0];
+            sp.position[1] = at[1];
+            sp.position[2] = at[2];
+            sp.velocity[2] = go[2];
+            sp.particle_size = 40000.0f;
+            sp.life_ticks = 60;
+            sp.color = 0x7F606060u;
+            sp.texture = 1;
+            sp.blend = 0x44;
+            sp.rot = -0.0002f;
+            s_record(9760 + -s_api->particle_spawn_ex(s_mod, &sp));
+            sp.texture = 256;
+            s_record(9760 + -s_api->particle_spawn_ex(s_mod, &sp));
+            sp.texture = 1;
+            sp.rot = 2.0f;
+            s_record(9760 + -s_api->particle_spawn_ex(s_mod, &sp));
+            sp.rot = -0.0002f;
+            sp.flags = 2u;
+            s_record(9760 + -s_api->particle_spawn_ex(s_mod, &sp));
+            sp.flags = 0u;
+            s_record(9760 + -s_api->particle_spawn_ex(s_mod, NULL));
+        }
         /* Interface 1.31: the moby at 0x3F00 (class 511 to the test's game, not in the level's list) is drawn
          * with the model; the refusals: no moby there (0x4000, class -1), address 0, a model that is not the
          * mod's, unknown flags, a matrix value that is not a number and no struct. */
@@ -515,6 +545,37 @@ static void motion_frame(void) {
                 mm.flags = OPENRAC_MODEL_HIDE_NATIVE;
                 s_record(9770 + -s_api->moby_model_at(s_mod, 0x3F00, &mm));
             }
+        }
+        /* Interface 1.33: a texture of the game's format is registered and gets id 128; the same content
+         * gets 128 again, other content 129; a null texture and a size too small are refused. Recorded as
+         * 9790 + (id - 128) for an id, 9800 + -answer for a refusal. */
+        if (s_api->api_minor >= 33) {
+            static openrac_particle_texture pt;
+            int id;
+            memset(&pt, 0, sizeof pt);
+            pt.size = sizeof pt;
+            pt.indices[0] = 1;
+            pt.clut[0] = 0x10;
+            id = s_api->particle_texture_register(s_mod, &pt);
+            s_record(
+                id >= OPENRAC_PARTICLE_TEXTURE_FIRST ? 9790 + (id - OPENRAC_PARTICLE_TEXTURE_FIRST)
+                                                     : 9800 + -id
+            );
+            id = s_api->particle_texture_register(s_mod, &pt);
+            s_record(
+                id >= OPENRAC_PARTICLE_TEXTURE_FIRST ? 9790 + (id - OPENRAC_PARTICLE_TEXTURE_FIRST)
+                                                     : 9800 + -id
+            );
+            pt.indices[0] = 2;
+            id = s_api->particle_texture_register(s_mod, &pt);
+            s_record(
+                id >= OPENRAC_PARTICLE_TEXTURE_FIRST ? 9790 + (id - OPENRAC_PARTICLE_TEXTURE_FIRST)
+                                                     : 9800 + -id
+            );
+            pt.size = 4;
+            s_record(9800 + -s_api->particle_texture_register(s_mod, &pt));
+            pt.size = sizeof pt;
+            s_record(9800 + -s_api->particle_texture_register(s_mod, NULL));
         }
     } else if (s_frames == 2) {
         openrac_joint_offset joints[2];

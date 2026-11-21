@@ -214,6 +214,9 @@ std::int32_t g_script_asked = -9;
 float g_script_shown = 0.0f;
 std::vector<std::pair<int, int>> g_script_heard;
 
+// The particle kinds the port hands the game (interface 1.33), in order.
+std::vector<int> g_particles;
+
 const openrac_game_play kPlay = {
     5,
     kLevelNames,
@@ -2083,6 +2086,26 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     play.hero_sound_stop = [](int voice) {
         g_motion.push_back("hero stop " + std::to_string(voice));
     };
+    play.particle_spawn_ex = [](const openrac_game_particle_spawn* spawn) {
+        g_particles.push_back(
+            static_cast<int>(spawn->kind) * 100000 + static_cast<int>(spawn->texture) * 1000
+            + static_cast<int>(spawn->blend)
+        );
+        return 1;
+    };
+    // Interface 1.33: the same content is the same id (128 on), other content the next one.
+    play.particle_texture_register = [](const uint8_t* indices, const uint8_t* clut) {
+        static std::vector<std::string> contents;
+        const std::string key = std::string(reinterpret_cast<const char*>(indices), 1024)
+                                + std::string(reinterpret_cast<const char*>(clut), 1024);
+        for (std::size_t i = 0; i < contents.size(); ++i) {
+            if (contents[i] == key) {
+                return 128 + static_cast<int>(i);
+            }
+        }
+        contents.push_back(key);
+        return 128 + static_cast<int>(contents.size() - 1);
+    };
     static bool playing = false;
     playing = true;
     h.sound_set = [](std::uint32_t voice, float, float) {
@@ -2107,8 +2130,11 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
                                          9591, 9590, 9602, 9671, 9671, 9671, 9670, 9611, 9610, 9623,
                                          9635, 9700, 9710, 9721, 9721, 9730, 9731, 9731, 9731, 9731,
                                          9731, 9731, 9734, 9730, 9730, 9730, 9740, 9741, 9741, 9741,
-                                         9741, 9741, 9741, 9744, 9740, 9740, 9744, 9770, 9771, 9771,
-                                         9771, 9771, 9771, 9771, 9770}));
+                                         9741, 9741, 9741, 9744, 9740, 9740, 9744, 9760, 9761, 9761,
+                                         9761, 9761, 9770, 9771, 9771, 9771, 9771, 9771, 9771, 9770,
+                                         9790, 9790, 9791, 9801, 9801}));
+    // Only the 1.33 smoke with its texture 1 and blend 0x44 reached the game (kind 0, texture 1000, blend 68).
+    CHECK((g_particles == std::vector<int>{1068}));
     // Only the good shake reached the host: channel 0, 0.15 (as 15), 30 ticks.
     CHECK((g_shakes == std::vector<std::string>{"0 15 30"}));
     CHECK(

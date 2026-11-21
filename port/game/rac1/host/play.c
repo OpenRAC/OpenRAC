@@ -841,5 +841,7 @@ const openrac_game_play rac1_play = {
     .hero_sound_play = hero_sound_play,
     .hero_sound_stop = hero_sound_stop,
     .hero_hurt = hero_hurt,
+    .particle_texture_register = rac1_particle_texture_register,
+    .particle_spawn_ex = rac1_particle_spawn_ex,
 };
 #endif

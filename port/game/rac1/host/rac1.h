@@ -109,6 +109,19 @@ extern const char* const rac1_level_names[];
  * moby put in a pose (a figure, or a moby of the world a mod drives). */
 extern const openrac_game_play rac1_play;
 int rac1_landing(int level);
+/* particles.c: the game's own particle effect with its options (openrac_api.particle_spawn_ex). 1 made,
+ * 0 the pool full, -1 not made (no level played, or a kind or version without it). */
+struct openrac_game_particle_spawn;
+int rac1_particle_spawn_ex(const struct openrac_game_particle_spawn* spawn);
+/* particles.c: a mod's particle texture for the renderer (openrac_api.particle_texture_register): the id
+ * (128 to 255), 0 when all are taken, -1 no level played. rac1_particle_texture_at gives the guest
+ * addresses of an id's indices and palette (1 found, 0 not a registered id) for render_native.c. */
+/* The ids of a mod's particle textures (openrac_api.particle_texture_register, 1.33: the SDK's
+ * OPENRAC_PARTICLE_TEXTURE_FIRST and _COUNT). */
+#define RAC1_PARTICLE_TEXTURE_FIRST 128u
+#define RAC1_PARTICLE_TEXTURE_COUNT 128
+int rac1_particle_texture_register(const uint8_t* indices, const uint8_t* clut);
+int rac1_particle_texture_at(uint8_t texture, uint32_t* pixels, uint32_t* clut);
 void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
 
 /* shared.c: the progress a party shares. */

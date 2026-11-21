@@ -281,6 +281,10 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool has_moby_model_class() const` | Since 1.31: whether the port draws every moby of a class with a mesh of the mod's (moby_model_class). |
 | `int moby_model_class(int oclass, uint32_t scope, int model, const float* matrix = nullptr) const` | Since 1.31: draws every moby of class `oclass` in `scope` (OPENRAC_MODEL_WORLD, _MENU or both) with `model`: the game's own pictures of the item too, in the menu scope (see openrac_api.moby_model_class). Returns OPENRAC_HOOK_OK, _UNKNOWN or _TAKEN (another mod's). |
 | `bool moby_model_class_clear(int oclass, uint32_t scope) const` | Since 1.31: gives the class its own model back in `scope`. |
+| `bool has_particle_spawn_ex() const` | Since 1.33: whether the port takes the effect's options (particle_spawn_ex). |
+| `int particle_spawn_ex(openrac_particle_spawn spawn) const` | Since 1.33: starts the game's own particle effect with the options in `spawn` (see openrac_particle_spawn). The size is set here. Returns OPENRAC_HOOK_OK, _FULL or _UNKNOWN. |
+| `bool has_particle_texture_register() const` | Since 1.33: whether the port registers particle textures (particle_texture_register). |
+| `int particle_texture_register(const std::vector<std::uint8_t>& indices, const std::vector<std::uint8_t>& clut) const` | Since 1.33: registers a particle texture in the game's format: `indices` is the 32 x 32 texture's 1024 8-bit indices, `clut` its 1024-byte palette (openrac_particle_texture). Returns the id the texture byte takes (128 to 255), OPENRAC_HOOK_FULL when all are taken, or OPENRAC_HOOK_UNKNOWN. |
 | `bool has_moby_model_at() const` | Since 1.31: whether the port draws a moby at an address with a mesh of the mod's (moby_model_at). |
 | `int moby_model_at(std::uint32_t address, int model, const float* matrix = nullptr) const` | Since 1.31: draws the moby at `address` with `model` (see openrac_api.moby_model_at); the matrix as moby_model_slot's. Returns OPENRAC_HOOK_OK, _TAKEN or _UNKNOWN. |
 | `bool moby_model_at_clear(std::uint32_t address) const` | Since 1.31: gives the moby at `address` its own model back. |

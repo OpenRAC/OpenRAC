@@ -1674,6 +1674,46 @@ public:
         return moby_model_class(oclass, scope, -1) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.33: whether the port takes the effect's options (particle_spawn_ex).
+    bool has_particle_spawn_ex() const {
+      return m_api->api_minor >= 33 &&
+             m_api->size >=
+                 offsetof(openrac_api, particle_spawn_ex) + sizeof(void *);
+    }
+
+    // Since 1.33: starts the game's own particle effect with the options in
+    // `spawn` (see openrac_particle_spawn). The size is set here. Returns
+    // OPENRAC_HOOK_OK, _FULL or _UNKNOWN.
+    int particle_spawn_ex(openrac_particle_spawn spawn) const {
+      if (!has_particle_spawn_ex()) {
+        return OPENRAC_HOOK_UNKNOWN;
+      }
+      spawn.size = sizeof spawn;
+      return m_api->particle_spawn_ex(m_handle, &spawn);
+    }
+
+    // Since 1.33: whether the port registers particle textures (particle_texture_register).
+    bool has_particle_texture_register() const {
+      return m_api->api_minor >= 33 &&
+             m_api->size >=
+                 offsetof(openrac_api, particle_texture_register) + sizeof(void *);
+    }
+
+    // Since 1.33: registers a particle texture in the game's format: `indices` is the 32 x 32 texture's
+    // 1024 8-bit indices, `clut` its 1024-byte palette (openrac_particle_texture). Returns the id the
+    // texture byte takes (128 to 255), OPENRAC_HOOK_FULL when all are taken, or OPENRAC_HOOK_UNKNOWN.
+    int particle_texture_register(const std::vector<std::uint8_t>& indices,
+                                  const std::vector<std::uint8_t>& clut) const {
+      if (!has_particle_texture_register() || indices.size() != 1024 || clut.size() != 1024) {
+        return OPENRAC_HOOK_UNKNOWN;
+      }
+      openrac_particle_texture t{};
+      t.size = sizeof t;
+      std::memcpy(t.indices, indices.data(), sizeof t.indices);
+      std::memcpy(t.clut, clut.data(), sizeof t.clut);
+      return m_api->particle_texture_register(m_handle, &t);
+    }
+
     // Since 1.31: whether the port draws a moby at an address with a mesh of the mod's (moby_model_at).
     bool has_moby_model_at() const {
         return m_api->api_minor >= 31

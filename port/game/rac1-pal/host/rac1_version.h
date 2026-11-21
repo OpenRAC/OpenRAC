@@ -12,6 +12,8 @@
 #define RAC1_COLL_CAPSULE_IGNORE gaddr
 
 #define RAC1_ADDR(a) a
+/* The game's particle routines (particles.c) are checked at these PAL addresses. Since 1.33. */
+#define RAC1_PARTICLE_SPAWN 1
 #define RAC1_LADDR(n, a) a
 /* The level camera's shake channels (camera_override.c rac1_camera_shake) are verified here: the
  * PAL decomp's gCameraLvl (D_L00_00166D80, shake at +0x160). Other versions refuse camera_shake. */

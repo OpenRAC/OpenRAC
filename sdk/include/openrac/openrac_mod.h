@@ -90,9 +90,10 @@ extern "C" {
  * (openrac_overlay.set_blend), and 1.31 a mesh of the mod's drawn in place of a moby's model: by
  * slot, by class in the world or menus, or by address (model_create, moby_model_slot,
  * moby_model_class, moby_model_at), and 1.32 the game's own camera shake on the level's camera
- * (camera_shake).
+ * (camera_shake), and 1.33 the game's own particle effects and custom 32 x 32 particle textures
+ * started by a mod (particle_spawn_ex, particle_texture_register).
  */
-#define OPENRAC_MOD_API_MINOR 32
+#define OPENRAC_MOD_API_MINOR 33
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -170,6 +171,9 @@ typedef struct openrac_mod openrac_mod;
 /* Another mod has it already: the views (on_views) and the Vulkan device
  * (setup_vulkan) are one mod's each. Since 1.4. */
 #define OPENRAC_HOOK_TAKEN (-4)
+/* A limit of the game is reached (its particle pool is full): nothing is made, try again later.
+ * Since 1.33. */
+#define OPENRAC_HOOK_FULL (-5)
 
 /* ------------------------------------------------------------------------------------------ *
  * Reporting to the port
@@ -1427,6 +1431,72 @@ typedef struct openrac_pack_entry {
  * The table the port offers
  * ------------------------------------------------------------------------------------------ */
 
+/* The kinds of the game's own particle effect (openrac_api.particle_spawn_ex). Each one is a routine
+ * of the game that makes its particle records: the game then moves, fades, ends and draws them
+ * itself, and the mod keeps no record. A field a kind does not use is ignored.
+ *   SMOKE: a puff trailing a moving thing. `color` is the packed word, alpha in the top byte;
+ *          `color_end` is not used.
+ *   BURST: a spray that fades from `color` to `color_end`.
+ *   SPARK: a spark that falls and shrinks, fading from `color` to `color_end`.
+ * The rest of each effect's values are the game's own (docs/port/MODS.md). Since 1.33. */
+#define OPENRAC_PARTICLE_SMOKE 0u
+#define OPENRAC_PARTICLE_BURST 1u
+#define OPENRAC_PARTICLE_SPARK 2u
+/* The most game ticks an effect lives (a life_ticks past it is refused). Since 1.33. */
+#define OPENRAC_PARTICLE_LIFE_MAX 600u
+/* The largest size (the game's units) an effect takes. Since 1.33. */
+#define OPENRAC_PARTICLE_SIZE_MAX 2000000.0f
+/* openrac_particle_spawn.flags: the effect's secondary spawns (the game's spawn-children flag,
+ * which its spark and burst routines take). Since 1.33. */
+#define OPENRAC_PARTICLE_CHILDREN 0x1u
+/* The largest texture or blend an effect takes (openrac_particle_spawn): one byte of the game's
+ * particle record. Since 1.33. */
+#define OPENRAC_PARTICLE_BYTE_MAX 255
+/* The largest spin rate an effect takes in magnitude (openrac_particle_spawn.rot). Since 1.33. */
+#define OPENRAC_PARTICLE_ROT_MAX 1.0f
+
+/* The options of openrac_api.particle_spawn_ex. Every field is checked, whatever the kind; a field
+ * the kind does not use is ignored. Zero-fill the struct, then set what the effect needs. Since 1.33. */
+typedef struct openrac_particle_spawn {
+    /* sizeof(openrac_particle_spawn), set by the mod. */
+    uint32_t size;
+    /* OPENRAC_PARTICLE_SMOKE, _BURST or _SPARK. */
+    uint32_t kind;
+    /* Where the effect starts and how it moves at the start (the game's units). */
+    float position[3];
+    float velocity[3];
+    /* Particle size (game units), life in game ticks (1 to OPENRAC_PARTICLE_LIFE_MAX), and packed
+     * start/end colours. */
+    float particle_size;
+    uint32_t life_ticks;
+    uint32_t color;
+    uint32_t color_end;
+    /* 0 or OPENRAC_PARTICLE_CHILDREN. */
+    uint32_t flags;
+    /* SMOKE and SPARK: the game's texture (0 to OPENRAC_PARTICLE_BYTE_MAX), or -1 for the game's
+     * own. */
+    int32_t texture;
+    /* SMOKE and SPARK: the game's blend (0 to OPENRAC_PARTICLE_BYTE_MAX), or -1 for the game's own. */
+    int32_t blend;
+    /* SMOKE: the game's spin rate, added to the particle's rotation each tick (-1 to 1). */
+    float rot;
+} openrac_particle_spawn;
+
+/* A particle texture of the mod's (openrac_api.particle_texture_register), in the game's own format:
+ * the 32 x 32 texture's 8-bit indices (1024 bytes, row by row, as the game stores them) and its palette
+ * (256 colours of 4 bytes, the game's 16 x 16 CSM1 layout, 1024 bytes). Zero-fill, then set. Since 1.33. */
+#define OPENRAC_PARTICLE_TEXTURE_SIDE 32
+/* The ids particle_texture_register returns: the value a particle record's texture byte takes. Since 1.33. */
+#define OPENRAC_PARTICLE_TEXTURE_FIRST 128
+#define OPENRAC_PARTICLE_TEXTURE_COUNT 128
+
+typedef struct openrac_particle_texture {
+    /* sizeof(openrac_particle_texture), set by the mod. */
+    uint32_t size;
+    uint8_t indices[OPENRAC_PARTICLE_TEXTURE_SIDE * OPENRAC_PARTICLE_TEXTURE_SIDE];
+    uint8_t clut[1024];
+} openrac_particle_texture;
+
 /* What the port offers a mod. Filled by the port; valid for the life of the program. Every function
  * is called on the game's thread. Members from "1.2" on are at the end: a mod built for 1.1 never
  * sees them, and one built for 1.2 loads on a 1.2 port or newer. */
@@ -2632,6 +2702,28 @@ typedef struct openrac_api {
      * OPENRAC_HOOK_UNKNOWN outside a level, for a channel other than 0 or 1, an amplitude that is
      * not a number or not between 0 and 1, a count out of range, or a port without it. Since 1.32. */
     int (*camera_shake)(openrac_mod* mod, int channel, float amplitude, int frames);
+
+    /* Starts one of the game's own particle effects with the options of openrac_particle_spawn:
+     * position, velocity, size, life, colours, texture, blend, spin rate and secondary spawns as
+     * the game's routine takes them. The effect is the game's from then on: its update moves,
+     * fades and ends it and its renderer draws it, so it ends with its life or with its level, and
+     * it stays after the mod unloads until then. Only in a level being played (not in a menu or a
+     * scene), from a play hook. The game's particle pool is shared with its own effects. Returns
+     * OPENRAC_HOOK_OK, OPENRAC_HOOK_FULL when the pool has no room (nothing is made), or
+     * OPENRAC_HOOK_UNKNOWN for no level being played, a null or short `spawn`, an unknown kind or
+     * flag, non-finite position/velocity, a size or life out of range, a texture or blend outside
+     * -1 to OPENRAC_PARTICLE_BYTE_MAX (-1 uses the game's own), a spin rate outside
+     * -OPENRAC_PARTICLE_ROT_MAX to OPENRAC_PARTICLE_ROT_MAX, or a port without the effect.
+     * Since 1.33. */
+    int (*particle_spawn_ex)(openrac_mod* mod, const openrac_particle_spawn* spawn);
+
+    /* Registers a particle texture of the game's own format (openrac_particle_texture) for the game's
+     * particle renderer: the id a particle record's texture byte takes to draw it (openrac_particle_spawn
+     * .texture, or a record the mod writes itself). The same content gets the same id; 128 ids in all
+     * (OPENRAC_PARTICLE_TEXTURE_FIRST to +COUNT-1), kept for the life of the game. Returns the id, or
+     * OPENRAC_HOOK_FULL when all are taken, or OPENRAC_HOOK_UNKNOWN for a null texture, a size too small,
+     * or no level being played. Since 1.33. */
+    int (*particle_texture_register)(openrac_mod* mod, const openrac_particle_texture* texture);
 
 } openrac_api;
 

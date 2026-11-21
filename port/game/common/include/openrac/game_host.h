@@ -528,6 +528,25 @@ typedef struct openrac_infobot_presentation {
     float time, yaw;
 } openrac_infobot_presentation;
 
+/* The options of one of the game's own particle effects (openrac_api.particle_spawn_ex, 1.33): the
+ * fields of openrac_particle_spawn, already checked by the port. */
+typedef struct openrac_game_particle_spawn {
+    uint32_t kind;
+    float position[3];
+    float velocity[3];
+    float size;
+    uint32_t life_ticks;
+    uint32_t color;
+    uint32_t color_end;
+    /* Bit 0: the effect's secondary spawns. */
+    uint32_t flags;
+    /* -1 for the game's own texture and blend; else one byte. */
+    int32_t texture;
+    int32_t blend;
+    /* The smoke's spin rate. */
+    float rot;
+} openrac_game_particle_spawn;
+
 typedef struct openrac_game_play {
     /* The levels, by the game's own numbers, and their names. */
     int levels;
@@ -738,6 +757,14 @@ typedef struct openrac_game_play {
     int (*mission_state_clear)(int level, const uint8_t* flags);
     /* Whether the destination is playing its landing scene. NULL when unsupported. */
     int (*landing)(int level);
+    /* One of the game's own particle effects with its options (openrac_api.particle_spawn_ex):
+     * 1 made, 0 the pool full, -1 for a kind this game lacks or no level being played. NULL for a
+     * game without it. */
+    int (*particle_spawn_ex)(const openrac_game_particle_spawn* spawn);
+    /* A particle texture for the game's particle renderer (openrac_api.particle_texture_register): `indices`
+     * 1024 bytes and `clut` 1024 bytes, the game's own formats. Returns the id (128 to 255), 0 when all
+     * ids are taken, -1 for no level being played. NULL for a game without it. */
+    int (*particle_texture_register)(const uint8_t* indices, const uint8_t* clut);
     /* The game's own segment query for a mod (openrac_api.collision_line): the nearest of the
      * level's faces (with `level`) and the mobys' (with `mobys`, all but `ignore`) between two
      * points, the game seeing nothing of it: 1 for a hit (its point, its face's normal, the face's

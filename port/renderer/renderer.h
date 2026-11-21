@@ -101,6 +101,9 @@ struct EffectQuad {
     // rather than each corner part way (which shrinks a quad turned between the two ticks).
     // With an attachment, it follows the anchor's position without rotating its world offset.
     bool rigid = false;
+    // Untextured: the chip's TME off, the vertex colours as drawn (a particle line, kind 2). No
+    // texture is sampled and tbp, cbp are not used.
+    bool untextured = false;
     // The moby it belongs to (its game address), or 0: a frame between ticks may move it with the
     // moby's body as that frame draws it, rather than leaving it at the tick's place, ahead.
     std::uint32_t parent = 0;
