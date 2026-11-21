@@ -28,7 +28,9 @@
   "function: one the release lacks, where its build linked the release's own C": 19,
   "short name: left as it is": 151,
   "short name: the release's build": 1274,
-  "short name: v1.01's build, the same function's place here": 51
+  "short name: v1.01's build, the same function's place here": 51,
+  "function: one only the release's build gave an address, by a name of its own C": 6,
+  "function: one the release lacks, where its build linked the primary's C": 1
  },
  "names": {
   "D_001A7908": "D_001A790C",
@@ -26333,6 +26335,9 @@
    "func_3FC1B0": "func_3FD750",
    "func_41F230": "func_420A08"
   },
+  "src/levels/02_maktar_nebula/L02_003F5430.c": {
+   "module_l00_call_handler_2": "func_0029CC48"
+  },
   "src/levels/02_maktar_nebula/L02_0040A4A8.c": {
    "func_2F1F70": "func_2F2D58",
    "func_316220": "func_3174E8",
@@ -28055,6 +28060,14 @@
   },
   "src/us2/levels/15_gorn/L15_0042F6D0-cc-g8.c": {
    "func_L00_0030CF60": "func_0029CC48"
+  },
+  "src/us2/levels/22_dobbo_orbit/L22_002BF2B8-sw.c": {
+   "PH_F5": "func_L02_003940C0",
+   "PH_F6": "func_L02_00395D20",
+   "PH_G1": "func_002837D0",
+   "PH_G2": "func_002AB150",
+   "PH_G3": "func_00283B30",
+   "PH_G4": "func_00283B48"
   },
   "src/us2/levels/23_damosel_orbit/L23_00418CF8-cc-g8.c": {
    "func_L00_0030DD70": "func_L00_0030EFB8"

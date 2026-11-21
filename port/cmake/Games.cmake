@@ -272,7 +272,7 @@ function(openrac_add_game config)
   get_filename_component(hostgen_dir "${OPENRAC_HOSTGEN}" DIRECTORY)
   file(GLOB tool CONFIGURE_DEPENDS "${hostgen_dir}/*.py" "${hostgen_dir}/include/*.h")
   file(GLOB tables CONFIGURE_DEPENDS "${config_dir}/*.json" "${config_dir}/*.tsv" "${config_dir}/tables/*"
-       "${config_dir}/release/*"
+       "${config_dir}/release/*" "${config_dir}/checks/*"
        "${config_dir}/hand/*" "${OPENRAC_GAME_DIR}/common/*.tsv")
   # hostgen rewrites only the files whose text changed, so after an edit only
   # those recompile: the stamp says when it last ran, the files are byproducts
