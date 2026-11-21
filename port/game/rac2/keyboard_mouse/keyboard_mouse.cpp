@@ -535,13 +535,21 @@ void step(const openrac_input* in, bool pad_look) {
 
     // Out of play the mouse points at the menus' items; a click it takes is not the game's Cross
     // while its button stays down.
-    // Going back, or a key's step, ends a clicked item's way there: its Cross must not land on
-    // the page gone back to, or on another item.
+    // Going back, or a key's step, ends a clicked item's (or grid cell's, or ring slot's) way
+    // there: its Cross must not land on the page gone back to, or on another item.
     const kbm::ActionSet cancels = kbm::bit(Action::MenuBack) | kbm::bit(Action::Pause)
                                    | kbm::bit(Action::MenuUp) | kbm::bit(Action::MenuDown)
                                    | kbm::bit(Action::MenuLeft) | kbm::bit(Action::MenuRight);
     if ((held & cancels) != 0) {
         s_click_pending = false;
+        s_grid.reset();
+        s_ring_seek.reset();
+        s_dragging = false;
+    }
+
+    // Going back: the steps still queued would move the page gone back to.
+    if ((held & (kbm::bit(Action::MenuBack) | kbm::bit(Action::Pause))) != 0 && !play) {
+        s_pulses.clear();
     }
 
     if (!play) {

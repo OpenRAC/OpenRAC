@@ -1401,9 +1401,12 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     }
     v.held = kbm::buttons_for(t.where, held, dialog_kind, map, s_strafe_mod == 1);
 
-    // Going back meanwhile: the click that waited presses nothing on the page gone back to.
-    if ((held & (kbm::bit(Action::MenuBack) | kbm::bit(Action::Pause))) != 0) {
+    // Going back meanwhile: the click that waited, and the steps queued, press nothing on the
+    // page gone back to.
+    if ((held & (kbm::bit(Action::MenuBack) | kbm::bit(Action::Pause))) != 0 && !play) {
         s_click_wait = 0;
+        s_pulses.clear();
+        s_vendor_target = -1;
     }
 
     // A click that waited has waited long enough: press it now.
