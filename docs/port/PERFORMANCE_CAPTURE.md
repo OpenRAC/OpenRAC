@@ -58,7 +58,7 @@ time; the other nine give the frame's true GPU time. Nothing needs switching on.
 Developer tools > **Record diagnostics** > **Graphics sweep**. The row shows only while Enhanced
 graphics is on, because the sweep measures its parts.
 
-- It runs 160 seconds and changes one setting every 4 seconds. Stand still the whole time.
+- Each step runs for 4 seconds. Stand still for the whole sweep.
   A step waits while the driver compiles its pipelines in the background (up to 90 seconds in
   all), so the first sweep of a build runs longer.
 - VSync is off, so each step shows the device's real time, not a step of the display's rate.
@@ -69,7 +69,7 @@ graphics is on, because the sweep measures its parts.
   blended passes left out or without probe light; the mobys' glow, blended and metal passes
   left out; draw distance Original; each `render_opt` speed-up switched off on its own;
   temporal off and Performance; each effect off; every effect off (at native size, and with
-  your upscaler kept); anisotropic filtering off; anti-aliasing off; the cheap steps (shadow
+  your upscaler kept); anisotropic filtering off; the cheap steps (shadow
   filtering Fast, occlusion Low); effects detail High and Low; the presets High, Medium and Low.
 - The report gives each step's time a picture and GPU time. The first 1.5 s of a step are left
   out, and so are the frames drawn while the driver still compiles a step's pipelines in the
