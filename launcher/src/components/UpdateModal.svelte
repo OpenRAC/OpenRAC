@@ -4,8 +4,9 @@
   // it stops, it says why, that the launcher is unchanged, and what to try. A copy that cannot
   // update itself (one from GitHub's page, the browser preview's ?download) is sent to the release.
   // On the other channel than the launcher's (Settings) it switches to that channel's build, also an
-  // older one: a development build going back to the release.
-  import { api, onAndroid } from "$lib/api";
+  // older one: a development build going back to the release. A release whose build for this
+  // system failed is announced, with nothing to download until a fixed build or the next release.
+  import { api, type AppInfo, onAndroid } from "$lib/api";
   import { app, saveConfig } from "$lib/app.svelte";
   import { size } from "$lib/format";
   import { modal } from "$lib/portal";
@@ -41,6 +42,15 @@
 
     return "";
   });
+
+  const SYSTEM_NAMES: Record<AppInfo["platform"], string> = {
+    linux: "Linux",
+    macos: "macOS",
+    windows: "Windows",
+    android: "Android",
+    ios: "iOS",
+  };
+  const systemName = $derived(app.info ? SYSTEM_NAMES[app.info.platform] : "your system");
 
   /** A switch found by Settings' "Check now" before the channel was saved: saved now, or the
    *  switched launcher would be offered the other channel's build back at its next start. */
@@ -105,9 +115,11 @@
         <div class="title-row">
           <Icon name="refresh" size={20} />
           <h2 id="update-title">
-            {update.switchTo
-              ? `Switch to the ${channelName(update.switchTo)} launcher`
-              : "A new launcher is ready"}
+            {update.missingBuild
+              ? "A new launcher is on its way"
+              : update.switchTo
+                ? `Switch to the ${channelName(update.switchTo)} launcher`
+                : "A new launcher is ready"}
           </h2>
         </div>
         {#if !busy}
@@ -134,7 +146,18 @@
           </div>
         {/if}
 
-        <p class="kept">Your games, saves, mods and settings are kept.</p>
+        {#if update.missingBuild}
+          <div class="notice" role="status">
+            <Icon name="info" size={16} />
+            <span
+              >Version {update.version} is not available for {systemName} yet, because its build did not
+              complete. Nothing is wrong on your side and this launcher keeps working as it is. The update
+              will be offered here as soon as a fixed build or the next release is out.</span
+            >
+          </div>
+        {:else}
+          <p class="kept">Your games, saves, mods and settings are kept.</p>
+        {/if}
 
         {#if busy}
           <div class="progress-section" aria-live="polite">
@@ -170,7 +193,9 @@
       </div>
 
       <div class="actions">
-        {#if busy}
+        {#if update.missingBuild}
+          <button class="btn-primary" onclick={close}>OK</button>
+        {:else if busy}
           <span class="installing-hint">Leave the launcher open until it starts again.</span>
         {:else}
           {#if !update.canInstallDirectly && update.switchTo && onAndroid}
@@ -441,6 +466,24 @@
     font-family: var(--font-mono);
     color: var(--amber);
     font-weight: 600;
+  }
+
+  .notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+    background: color-mix(in srgb, var(--amber) 10%, transparent);
+    border-radius: var(--radius-sm);
+    color: var(--soft);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+
+  .notice :global(svg) {
+    flex: none;
+    margin-top: 1px;
+    color: var(--amber);
   }
 
   .error-msg {

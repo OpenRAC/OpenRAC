@@ -937,7 +937,7 @@ void particle_pass_cache() {
 }
 
 // A font's thinnest marks (a one-texel dot, an accent, the TM sign) stay inside the glyph's shape:
-// the field's smooth filter passes through the texels instead of blurring them away (issue #380).
+// the field's smooth filter passes through the texels instead of blurring them away.
 void thin_glyph_marks() {
     TexturePool textures;
     Rgba8Image font(16, 16);

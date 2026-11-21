@@ -246,9 +246,9 @@ void main() {
 
 // A far cascade's texels are tens of times the nearest's (kSunResolutions over a 256-unit range).
 // A receiver steeper to the light than the filter's slope clamp, sampled against a map that holds
-// its own depth at each texel centre, must not shadow itself there: with a bias and normal offset
-// fixed in world units it did, in speckles and stair steps on distant hills and foliage, while the
-// near cascade was clean.
+// its own depth at each texel centre, must not shadow itself there. A bias and normal offset fixed
+// in world units would leave speckles and stair steps on distant hills and foliage, while the near
+// cascade stays clean.
 void far_cascade_self_shadow_gpu() {
     renderer::FrameBuffer frame;
     renderer::Shader shader;

@@ -216,7 +216,7 @@ void test_nanotech_orb_without_mesh(const game::rac1::GameAddresses& addresses) 
 }
 }  // namespace
 
-// The freecam (issue #366): a moby behind the game's camera is kept by its draw distance in any
+// The freecam: a moby behind the game's camera is kept by its draw distance in any
 // direction; past it, with no draw distance, or with a sphere that is not a number, it is not.
 void the_free_camera_reaches_behind() {
     host::GameState state;

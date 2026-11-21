@@ -684,9 +684,10 @@
           disabled={looked === "looking" || !supports(app.info, "updates")}
           onclick={() => void checkNow()}>Check now</button
         >
-        {#if looked === "looking"}· Looking…{:else if app.update?.switchTo}· {channelName(
-            app.update.switchTo,
-          )}
+        {#if looked === "looking"}· Looking…{:else if app.update?.missingBuild}· {app.update.name}
+          is out, but not yet for this system.
+          <button class="link" onclick={() => (app.showUpdateModal = true)}>Details</button
+          >{:else if app.update?.switchTo}· {channelName(app.update.switchTo)}
           {app.update.version} can replace this build.
           <button class="link" onclick={() => (app.showUpdateModal = true)}>Switch</button
           >{:else if looked === "found" || app.update}· {app.update?.name ?? "A new version"} is out.

@@ -172,10 +172,6 @@ void TexturePool::place(std::uint32_t tbp, TextureHandle texture) {
     m_placed[tbp] = texture;
 }
 
-void TexturePool::clear_placements() {
-    m_placed.clear();
-}
-
 // ---- Source uploads ----
 
 bool TexturePool::repeat_upload(const ImageUpload& upload) {
@@ -1541,8 +1537,8 @@ TextureHandle TexturePool::distance_field(TextureHandle source) {
         return local[static_cast<std::size_t>(y * src.width + x)];
     };
     // The glyphs' shape is read through a Catmull-Rom cubic of the alpha, not the bilinear filter:
-    // a bilinear edge bends at every source texel, so a 16-pixel glyph drawn large got lumpy curves
-    // (issue #380, the save list's planet names). The cubic's curves are smooth across texels, and
+    // a bilinear edge bends at every source texel, so a 16-pixel glyph drawn large gets lumpy
+    // curves (the save list's planet names). The cubic's curves are smooth across texels, and
     // it passes through every texel, so thin strokes, accents and the TM sign keep their weight.
     auto smooth_alpha = [&](int x0, int y0, float fx, float fy) {
         const auto weights = [](float t, float* out) {

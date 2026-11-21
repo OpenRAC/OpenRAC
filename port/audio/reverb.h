@@ -46,8 +46,6 @@ enum class ReverbMode : std::uint8_t {
     Pipe = 9,
 };
 
-std::string_view reverb_mode_name(ReverbMode mode);
-
 // A type's character.
 struct ReverbPreset {
     std::array<float, 2> loops_ms;  // same-side and cross-side loop times

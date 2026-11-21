@@ -1812,8 +1812,8 @@ void test_whole_path() {
 
 /**
  * A misaligned access at the very end of main memory or of the scratchpad stays in what is
- * mapped: its bytes past the end go to the hardware callbacks, the rest to memory. It used to
- * read and write past the host mapping and stop the process.
+ * mapped: its bytes past the end go to the hardware callbacks, the rest to memory, never past the
+ * host mapping.
  */
 void test_access_at_the_end_of_memory() {
     GuestMemory memory;

@@ -2,7 +2,7 @@
   import { api, inTauri, type VersionView } from "$lib/api";
   import { app } from "$lib/app.svelte";
   import type { ModLoadSummary } from "$lib/generated/ModLoadSummary";
-  import { levelName } from "$lib/labels";
+  import { levelName, regionLabel } from "$lib/labels";
 
   let {
     version,
@@ -21,7 +21,7 @@
   let request = 0;
   let loadedVersion = "";
   const enabled = $derived(app.config?.playWithMods ?? false);
-  const edition = $derived(version.name === "pal" ? "PAL" : "NTSC-U");
+  const edition = $derived(regionLabel(version.name));
   const prepared = $derived(summary?.preparedAt != null);
   const current = $derived(prepared && !summary?.stale);
   const hasNotes = $derived(!!summary?.notes.length);
@@ -165,7 +165,7 @@
     <div class="summary-foot">
       <span class="caption"
         >{summary.preparedAt
-          ? `Last prepared for ${summary.preparedVersion === "pal" ? "PAL" : summary.preparedVersion === "ntsc" ? "NTSC-U" : "an unknown edition"} · ${new Date(summary.preparedAt * 1000).toLocaleString()}`
+          ? `Last prepared for ${summary.preparedVersion ? regionLabel(summary.preparedVersion) : "an unknown edition"} · ${new Date(summary.preparedAt * 1000).toLocaleString()}`
           : "Preparing a pack does not start the game."}</span
       >
       <div class="actions">

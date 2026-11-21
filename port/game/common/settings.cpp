@@ -389,10 +389,10 @@ void load(const std::filesystem::path& file) {
         } else if (key == "rim_light" || key == "rim_shadow_lift" || key == "rim_lift_exponent"
                    || key == "rim_lift_max_gain" || key == "rim_light_strength"
                    || key == "rim_light_falloff") {
-            // Legacy preferences: enhanced mode uses the built-in rim lighting.
+            // Read and ignored: enhanced mode uses the built-in rim lighting.
             known = true;
         } else if (key == "probe_lighting") {
-            // Legacy preference: probe lighting now follows enhanced graphics.
+            // Read and ignored: probe lighting follows enhanced graphics.
             bool ignored = true;
             known = parse_bool(value, ignored);
         } else if (key == "probe_spheres") {

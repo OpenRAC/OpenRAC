@@ -15,11 +15,11 @@
 #include <random>
 #include <string>
 #include <string_view>
-#include <thread>
 
 #include <SDL3/SDL.h>
 
 #include "common/env.h"
+#include "common/joining_thread.h"
 #include "common/log.h"
 
 namespace openrac::frontend::input_latency {
@@ -38,11 +38,20 @@ struct Press {
 
 struct Probe {
     std::mutex mutex;
-    std::condition_variable_any wake;
+    std::condition_variable wake;
     Press press;
     SDL_Joystick* joystick = nullptr;
     SDL_GamepadButton button = SDL_GAMEPAD_BUTTON_LEFT_STICK;
-    std::jthread presser;
+    bool stop = false;  // set when the probe goes; the pressing thread then returns
+    JoiningThread presser;
+
+    ~Probe() {
+        {
+            const std::scoped_lock lock(mutex);
+            stop = true;
+        }
+        wake.notify_all();
+    }
 };
 
 double ms_since(Clock::time_point from, Clock::time_point to) {
@@ -51,18 +60,18 @@ double ms_since(Clock::time_point from, Clock::time_point to) {
 
 // The pressing thread: waits for the virtual pad to be taken (a couple of seconds), then presses
 // for 120 ms at a random 250-650 ms after each release, so presses fall at every phase of a tick.
-void press_loop(Probe& probe, std::stop_token stop) {
+void press_loop(Probe& probe) {
     std::mt19937 random(12345);
     std::uniform_int_distribution<int> gap(250, 650);
     std::unique_lock lock(probe.mutex);
-    probe.wake.wait_for(lock, stop, std::chrono::seconds(3), [] { return false; });
-    while (!stop.stop_requested()) {
-        probe.wake.wait_for(lock, stop, std::chrono::milliseconds(gap(random)), [] {
-            return false;
-        });
-        if (stop.stop_requested()) {
-            break;
-        }
+    // Waits `time` unless the probe goes first; true when it went.
+    const auto stopped = [&](auto time) {
+        return probe.wake.wait_for(lock, time, [&] { return probe.stop; });
+    };
+    if (stopped(std::chrono::seconds(3))) {
+        return;
+    }
+    while (!stopped(std::chrono::milliseconds(gap(random)))) {
         // An unfinished press (a load that read no pad) is reported and dropped.
         if (probe.press.open) {
             log::info(
@@ -73,8 +82,11 @@ void press_loop(Probe& probe, std::stop_token stop) {
         }
         probe.press = Press{Clock::now(), false, std::nullopt, 0, true};
         SDL_SetJoystickVirtualButton(probe.joystick, probe.button, true);
-        probe.wake.wait_for(lock, stop, std::chrono::milliseconds(120), [] { return false; });
+        const bool done = stopped(std::chrono::milliseconds(120));
         SDL_SetJoystickVirtualButton(probe.joystick, probe.button, false);
+        if (done) {
+            return;
+        }
     }
 }
 
@@ -109,7 +121,7 @@ Probe* probe() {
         log::info(
             "input latency: virtual gamepad pressing {}", SDL_GetGamepadStringForButton(p.button)
         );
-        p.presser = std::jthread([](std::stop_token stop) { press_loop(p, stop); });
+        p.presser = JoiningThread([] { press_loop(p); });
         return &p;
     }();
     return made;

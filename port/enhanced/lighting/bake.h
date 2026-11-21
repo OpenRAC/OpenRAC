@@ -171,9 +171,6 @@ public:
     ProbeBaker(const ProbeBaker&) = delete;
     ProbeBaker& operator=(const ProbeBaker&) = delete;
 
-    // Room planning can borrow the immutable traversal scene for this level.
-    const bake_detail::Scene& traversal_scene() const;
-
     // Bake one grid with the prepared settings; invalid grids and tracing failures throw.
     ProbeVolume bake(
         const ProbeGrid& grid,

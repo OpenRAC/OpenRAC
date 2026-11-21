@@ -106,10 +106,9 @@ constexpr int kMinReportSize = 6;
 // game's dead zone of 0.3 of the stick's travel (assumed).
 constexpr int kPadLookDeadBytes = 38;
 
-// The game's ticks a second, to turn the ramp setting into ticks: the PAL disc's 50, NTSC's 60.
-float ticks_per_second(const openrac::Mod& mod) {
-    return mod.version() == "pal" ? 50.0f : 60.0f;
-}
+// The game's ticks a second, to turn the ramp setting into ticks: 60 on every disc, the PAL one
+// being kept in its own 60 Hz mode (differences.json, pal-60-hz).
+constexpr float kTicksPerSecond = 60.0f;
 
 // How many directions the menus' d-pad has (up, down, left, right).
 constexpr int kMenuDirections = 4;
@@ -1567,7 +1566,7 @@ void read_settings(openrac::Mod& mod) {
 
     s_move.walk = static_cast<float>(mod.setting<double>("walk_speed"));
     s_move.rise_ticks =
-        static_cast<float>(mod.setting<double>("stick_ramp_ms")) * ticks_per_second(mod) / 1000.0f;
+        static_cast<float>(mod.setting<double>("stick_ramp_ms")) * kTicksPerSecond / 1000.0f;
     s_look_tuning.sensitivity = static_cast<float>(mod.setting<double>("mouse_sensitivity"));
     s_look_tuning.sensitivity_y = static_cast<float>(mod.setting<double>("mouse_sensitivity_y"));
     s_look_tuning.invert_y = mod.setting<bool>("invert_y");

@@ -239,21 +239,6 @@ BankHandle SoundPlayer::load_bank_at(
     return handle;
 }
 
-void SoundPlayer::reset_for_snapshot() {
-    m_mixer = VoiceMixer{};
-    m_banks.clear();
-    m_scripts.clear();
-    m_slots.assign(kVoiceCount, Slot{});
-    m_master.fill(kFullVolume);
-    m_global_registers.fill(0);
-    m_unsupported.clear();
-    m_next_bank = 1;
-    m_next_sound = 1;
-    m_ticks = 0;
-    m_random = 1;
-    m_frame_in_tick = 0;
-}
-
 void SoundPlayer::set_next_handles(BankHandle bank, SoundHandle sound) {
     m_next_bank = std::max<BankHandle>(bank, 1);
     m_next_sound = std::max<SoundHandle>(sound, 1);
@@ -447,13 +432,6 @@ void SoundPlayer::set_pitch_bend(SoundHandle sound, std::int32_t pitch_bend) {
     if (const auto it = m_scripts.find(sound); it != m_scripts.end()) {
         it->second->asked_bend = pitch_bend;
         apply_pitch(*it->second);
-    }
-}
-
-void SoundPlayer::set_register(SoundHandle sound, std::size_t which, std::int8_t value) {
-    // Ignore sounds that already ended, and register numbers beyond the sound's four.
-    if (const auto it = m_scripts.find(sound); it != m_scripts.end() && which < 4) {
-        it->second->registers[which] = value;
     }
 }
 

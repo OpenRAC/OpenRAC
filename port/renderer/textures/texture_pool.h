@@ -166,7 +166,6 @@ public:
         const auto found = m_placed.find(tbp);
         return found != m_placed.end() ? std::optional<TextureHandle>(found->second) : std::nullopt;
     }
-    void clear_placements();
 
     // A TEX0 with CLD set has loaded the CLUT at its CBP into the chip's CLUT buffer: the draws
     // after it read their palette from what was there then, even after the game puts something

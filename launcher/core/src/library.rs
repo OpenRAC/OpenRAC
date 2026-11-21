@@ -288,10 +288,10 @@ mod tests {
         assert_the_editor_is_offered(&library(&config).unwrap(), &editable);
     }
 
-    /// `tauri dev` with a copy left in its resources by an installer built there (0fdd5b1e's, from
-    /// before the mods came into the copy): the launcher worked on that copy, whose actions had no
-    /// level editor, and the Mods page showed none for any game. A contributor's launcher leaves
-    /// it for the checkout it runs from (detect::leave_copy).
+    /// `tauri dev` with a stale copy left in its resources by an installer built there (one whose
+    /// actions have no level editor): working on that copy, the Mods page would show no editor for
+    /// any game. A contributor's launcher leaves it for the checkout it runs from
+    /// (detect::leave_copy).
     #[test]
     fn a_contributors_launcher_leaves_an_old_copy_for_its_checkout() {
         let tmp = tempfile::tempdir().unwrap();

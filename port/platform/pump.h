@@ -10,7 +10,7 @@
 // was dragged.
 //
 // run_pumped runs the program beside the pump on the same thread (a fiber on Windows): the
-// program hands over to the pump where it used to read the system's events (poll_event), and
+// program hands over to the pump where it would read the system's events (poll_event), and
 // while the system holds the pump in its loop, SDL's live-resize timer (every 10 ms: an expose
 // event, seen by an event watch) hands back to the program for one more frame. Nothing runs at
 // the same time as anything else, so the program's SDL and OpenGL calls stay on the thread that

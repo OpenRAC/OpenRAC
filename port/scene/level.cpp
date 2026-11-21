@@ -1520,8 +1520,8 @@ bool load_level(
         if (!edit.is_object()) {
             continue;
         }
-        // The old whole-material brightness bypass is retired. A legacy flag by
-        // itself must not silently turn an ordinary surface into an emitter.
+        // A preserve_authored_lighting flag by itself is ignored: it must not turn an ordinary
+        // surface into an emitter.
         const bool legacy_only =
             edit.members().size() == 1 && !edit["preserve_authored_lighting"].is_null();
         if (legacy_only) {

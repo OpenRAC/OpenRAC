@@ -4198,7 +4198,7 @@ export async function mockCall(
 // ---- launcher updates ----------------------------------------------------------------
 
 /** The preview's answer to "is a newer launcher out?": ?update (one is, and installs itself;
- *  with ?download only from GitHub), ?latest (none), ?offline (GitHub cannot be reached); on the
+ *  with ?download only from GitHub, with ?nobuild none for this system yet), ?latest (none), ?offline (GitHub cannot be reached); on the
  *  other channel (SWITCHTO; ?devbuild with Stable chosen) the older release.
  *  Undefined: no switch, so the real check runs. */
 export function mockUpdate(
@@ -4227,7 +4227,8 @@ export function mockUpdate(
       "- Help beside your saves: a crash report to send in two clicks.",
     ].join("\n"),
     publishedAt: new Date(Date.now() - 86400000).toISOString(),
-    canInstallDirectly: !query.has("download"),
+    canInstallDirectly: !query.has("download") && !query.has("nobuild"),
+    missingBuild: query.has("nobuild"),
     switchTo,
   };
 }

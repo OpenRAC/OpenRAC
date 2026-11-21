@@ -195,7 +195,7 @@ void test_nonfinite_inference_settings() {
          {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity()}) {
         for (const bool slope : {false, true}) {
             Settings settings;
-            // Exercise both angular and distance settings that previously used ordered comparisons alone.
+            // Both the angular and the distance setting reject a value that is not finite.
             if (slope) {
                 settings.slope_cosine = value;
             } else {

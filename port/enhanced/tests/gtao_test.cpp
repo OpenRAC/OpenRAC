@@ -139,7 +139,7 @@ void check_scene_quality(
             CHECK(direct.read_rgba() == ao);
             direct.release();
         }
-        // Legacy colour now shares a depth/normal prepass before its colour and AO composite draws.
+        // Legacy colour shares a depth/normal prepass before its colour and AO composite draws.
         CHECK(renderer.last_stats().draw_calls == 3);
         int darkened = 0;
         for (std::size_t i = 0; i < plain.size(); i += 4) {

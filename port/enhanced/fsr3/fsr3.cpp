@@ -308,7 +308,9 @@ void Fsr3::State::attach_frame(TemporalFrame frame, std::array<int, 2> size) {
     finish_colour = std::move(frame.finish_colour);
     // World textures keep the display's detail while the world is drawn smaller; resolve() ends it.
     if (size[0] < display.width) {
-        vkgl::set_texture_lod_bias(std::log2(static_cast<float>(size[0]) / display.width));
+        vkgl::set_texture_lod_bias(
+            std::log2(static_cast<float>(size[0]) / static_cast<float>(display.width))
+        );
     }
     frame.target.framebuffer = world.id();
     frame.target.width = size[0];

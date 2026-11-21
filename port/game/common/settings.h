@@ -70,7 +70,7 @@ enum class VSync {
     Count,
 };
 
-// How many frames are drawn. The game's tick stays its own (50 a second for PAL): the frames
+// How many frames are drawn. The game's tick stays its own (program::tick_rate()): the frames
 // between two ticks move the camera, the mobys and their poses from one tick to the next.
 enum class FrameRate {
     Original,   // one frame a tick

@@ -21,7 +21,7 @@ file names its source and the spec it follows.
 | `scene.h` | the in-engine scenes (cutscenes): the scene table and its chunks |
 | `transition.h` | the flight between planets' lump |
 | `frontend.h` | the title world and the boot pictures |
-| `save_game.h` | the saved game on the memory card: chunk tables, the file, its CRC-16, the disc's template |
+| `save_game.h` | the saved game on the memory card: chunk descriptors, the file, its CRC-16, the disc's template |
 | `volumes.h` | the gameplay file's volumes: cuboids, spheres, cylinders, pills, paths, grind paths |
 
 ## Games
