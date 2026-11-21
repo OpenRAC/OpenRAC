@@ -12,7 +12,7 @@ writes, from what the SDK ships, so that the reference never drifts from it:
     luau-api.md      types/<game>.d.luau: the `openrac` global a script mod sees
     by-area.md       api/members.tsv with the header: the table's members by area, the minor that
                      added each, its status, and which games' ports give it (read from the port's
-                     code: port/game/common/mod_play.cpp and each game's host play table)
+                     code: port/game/common/mod_api/ and each game's host play table)
     changelog.md     the header's minor history and api/members.tsv: what each minor added
     hooks-<game>.md  bindings/<game>.json: the hook points (ids and aliases when the table has them),
                      the fields exposed to scripts, and the behaviour catalogue when the table names
@@ -415,7 +415,7 @@ def hooks_page(table_file: Path) -> str:
 # Each game's host play table (port/game/common/include/openrac/game_host.h, openrac_game_play).
 PLAY_TABLES = {"rac1": "port/game/rac1/host/play.c", "rac2": "port/game/rac2/host/play.c",
                "rac3": "port/game/rac3-pal/host/play.c"}
-PORT_MOD_SOURCES = ("port/game/common/mods.cpp", "port/game/common/mod_play.cpp")
+PORT_MOD_SOURCES = ("port/game/common/mods.cpp", "port/game/common/mod_play.cpp", "port/game/common/mod_api/*.cpp")
 
 
 def read_members(sdk: Path) -> list[dict]:
@@ -441,8 +441,7 @@ def game_needs(root: Path) -> dict[str, set[str]]:
     file's own helpers too)."""
     bodies: dict[str, str] = {}
     for src in PORT_MOD_SOURCES:
-        path = root / src
-        if path.is_file():
+        for path in sorted(root.glob(src)):
             bodies.update(cpp_functions(path.read_text()))
     direct = {name: set(re.findall(r"\bg_play->(\w+)", body)) for name, body in bodies.items()}
     calls = {name: {c for c in re.findall(r"\b(\w+)\(", body) if c in bodies and c != name}

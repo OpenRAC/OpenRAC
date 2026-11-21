@@ -273,6 +273,23 @@ openrac_add_test(custom_map
   INCLUDES game/common LIBS openrac_common)
 include(Luau)
 add_library(openrac_mods STATIC
+  game/common/mod_api/camera.cpp
+  game/common/mod_api/core.cpp
+  game/common/mod_api/figures.cpp
+  game/common/mod_api/graphics.cpp
+  game/common/mod_api/hero.cpp
+  game/common/mod_api/hooks.cpp
+  game/common/mod_api/input.cpp
+  game/common/mod_api/menus.cpp
+  game/common/mod_api/party.cpp
+  game/common/mod_api/play.cpp
+  game/common/mod_api/saves.cpp
+  game/common/mod_api/settings.cpp
+  game/common/mod_api/sound.cpp
+  game/common/mod_api/system.cpp
+  game/common/mod_api/touch.cpp
+  game/common/mod_api/visuals.cpp
+  game/common/mod_api/world.cpp
   game/common/mod_library.cpp
   game/common/mod_manifest.cpp
   game/common/mod_play.cpp
