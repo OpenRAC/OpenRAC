@@ -290,6 +290,7 @@ public:
     // The level whose program scenery_matrices() names its words in, each relocated to the loaded
     // level's copy (OPENRAC_LDATA): Up Your Arsenal's levels each carry their own engine, and its
     // executable none; -1 for the executable's addresses (openrac_relocate_data), Going Commando's.
+    // The occlusion mask (openrac_front_end.occlusion) is named in the same program.
     virtual int scenery_matrices_level() const { return -1; }
 
     // Where TieProc's cap on the ties' draw distance is, past the word that points at the ties'

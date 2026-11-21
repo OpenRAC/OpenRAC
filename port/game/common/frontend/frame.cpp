@@ -1380,8 +1380,7 @@ std::optional<scene::GameScenery> scenery_matrices(
     const float shrub_cap = captured.shrub_cap;
     std::optional<scene::Pvs::Mask> mask;
     if (occlusion_address() != 0) {
-        if (const gaddr m = openrac_relocate_data(occlusion_address());
-            m + sizeof(scene::Pvs::Mask) <= ram.size()) {
+        if (const gaddr m = occlusion_in_ram(); m + sizeof(scene::Pvs::Mask) <= ram.size()) {
             mask.emplace();
             std::memcpy(mask->data(), ram.data() + m, mask->size());
         }
@@ -2676,7 +2675,7 @@ void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state
     // The game's occlusion mask, which picks retail's fallback outside the baked grid.
     std::optional<scene::Pvs::Mask> occlusion;
     if (occlusion_address() != 0) {
-        const gaddr mask = openrac_relocate_data(occlusion_address());
+        const gaddr mask = occlusion_in_ram();
         if (mask + sizeof(scene::Pvs::Mask) <= ram.size()) {
             occlusion.emplace();
             std::memcpy(occlusion->data(), ram.data() + mask, occlusion->size());

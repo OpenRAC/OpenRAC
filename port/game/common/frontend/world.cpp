@@ -338,6 +338,14 @@ gaddr occlusion_address() {
     return openrac_game_front_end != nullptr ? openrac_game_front_end->occlusion : 0;
 }
 
+// The occlusion mask in the loaded program: from the executable's address, or, for a game whose
+// level programs carry the engine (GameProfile::scenery_matrices_level), from that level's.
+gaddr occlusion_in_ram() {
+    const int level = g->profile->scenery_matrices_level();
+    return level >= 0 ? openrac_relocate_level_data(level, occlusion_address())
+                      : openrac_relocate_data(occlusion_address());
+}
+
 // Uploads a level's geometry; while the boot program runs (the title and the main menu), the title
 // world's, or level 0's when the title world was not extracted.
 void use_level(int number) {

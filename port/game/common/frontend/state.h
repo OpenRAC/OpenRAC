@@ -545,6 +545,7 @@ void apply_mouse_capture();
 // 0 for a game without one (frontend/world.cpp).
 gaddr light_bank_address();
 gaddr occlusion_address();
+gaddr occlusion_in_ram();
 
 // Uploads level `number`'s geometry and makes the renderers that draw it. Below 0 the boot program
 // runs: the title world (level 0 where it was not extracted), or at -2 the flight between planets

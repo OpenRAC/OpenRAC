@@ -246,6 +246,12 @@ static const openrac_front_end front_end = {
     .level = LEVEL_CURRENT,
     /* The first of the eight pad records (pads_update): +0x1A0 the buttons held. */
     .pad = PADS,
+    /* The frame's occlusion mask (0x80 bytes) in Veldin's program, as the profile's scenery words
+     * (scenery_matrices_level): CullAndEmitTfrags (func_L01_004B1800), TieProc (0x004B3590) and
+     * MobyProc (0x00441B78) all read it (Going Commando's D_001BADC0) and leave out what the
+     * camera's cell cannot see; the window culls the scenery it draws by it too. The boot program's
+     * copy, D_00227480 (set all visible at boot), is no level's. */
+    .occlusion = RAC3_LADDR(1, 0x001EA840u),
 };
 
 /* From crt0 (entry.c), not a constructor: the game is a static library, and nothing else names this
