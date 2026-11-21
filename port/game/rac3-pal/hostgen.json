@@ -549,7 +549,8 @@
       "func_L01_004C61A0": "long long (int, int, int, int)",
       "func_L01_004D27C8": "float (float, float, float, float, float)",
       "func_L01_004126A8": "int (int, int, int)",
-      "func_L39_005189A0": "int (int, int, int, float)"
+      "func_L39_005189A0": "int (int, int, int, float)",
+      "func_003C4450": "void (int, int, int, float)"
     },
     "discover_entries": true,
     "dirs": [],
@@ -998,7 +999,8 @@
     "func_L39_006D6E50",
     "func_L39_006DC148",
     "func_L39_006DC1D8",
-    "func_L39_006E1648"
+    "func_L39_006E1648",
+    "func_003C4450"
   ],
   "overlay_hook": true,
   "relocate": [

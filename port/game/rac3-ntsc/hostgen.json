@@ -461,6 +461,7 @@
       "func_L01_004C25F8": "long long (int, int, int, int)",
       "func_L01_004CEB08": "float (float, float, float, float, float)",
       "func_L01_00410078": "int (int, int, int)",
+      "func_003C4318": "void (int, int, int, float)",
       "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_L01_003E7478": "void (unsigned int, unsigned int, unsigned int)",
       "func_L01_0041E1B0": "void (int, int, int, int, int, int, unsigned int)",
@@ -912,7 +913,8 @@
     "func_L39_006D46C0",
     "func_L39_006D95F0",
     "func_L39_006D9680",
-    "func_L39_006DEAE8"
+    "func_L39_006DEAE8",
+    "func_003C4318"
   ],
   "overlay_hook": true,
   "relocate": [
