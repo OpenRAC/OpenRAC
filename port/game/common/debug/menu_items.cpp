@@ -240,11 +240,9 @@ Item item(Id id, std::uint8_t where) {
             return row_choice(kRenderScale);
         case Id::Msaa:
             it = row_choice(kMsaa);
-            // The upscaler (or motion blur) draws one sample a pixel and keeps the choice for later.
-            if (set.msaa > 1 && enhanced_on() && enhanced::Fsr3::available()
-                && (set.temporal_quality != renderer::TemporalQuality::Off
-                    || (set.motion_blur && set.motion_blur_strength > 0.0f))) {
-                it.value += " (upscaler)";
+            // Enhanced Graphics keeps the saved choice for standard rendering.
+            if (set.msaa > 1 && gl::enhanced_rendering_available() && set.enhanced_graphics) {
+                it.value += " (standard graphics)";
             }
             return it;
         case Id::Anisotropy:

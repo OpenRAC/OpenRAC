@@ -194,7 +194,6 @@ constexpr SweepStep kSweep[] = {
          g.temporal_quality = kept;
      }},
     {"as set, anisotropic filtering off", [](settings::Settings& g) { g.anisotropy = 1; }},
-    {"as set, anti-aliasing off", [](settings::Settings& g) { g.msaa = 1; }},
     {"as set, shadow filtering fast",
      [](settings::Settings& g) { g.shadow_filter = renderer::ShadowFilter::Fast; }},
     {"as set, occlusion quality low",

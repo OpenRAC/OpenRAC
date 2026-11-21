@@ -454,7 +454,8 @@ void enhanced_settings_window() {
     }
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip(
-            "Restore enhanced graphics, post processing and session tuning defaults."
+            "Restore enhanced graphics, post processing and session tuning defaults. "
+            "Your render scale is kept."
         );
     }
     ImGui::BeginDisabled(!graphics.enhanced_graphics);
