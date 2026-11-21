@@ -68,6 +68,24 @@ class BumpTest(unittest.TestCase):
     def test_minor_needs_a_note(self) -> None:
         self.assertRaises(SystemExit, bump_api.main, ["--root", str(self.root), "--no-regen", "minor"])
 
+    def test_patch_takes_no_note(self) -> None:
+        self.assertRaises(SystemExit, bump_api.main, ["--root", str(self.root), "patch", "--note", "x"])
+        self.assertEqual((self.root / bump_api.VERSION).read_text(), "1.3.2\n")
+
+    def test_refused_when_the_places_disagree(self) -> None:
+        (self.root / bump_api.VERSION).write_text("1.4.0\n")
+        self.assertRaises(SystemExit, bump_api.main, ["--root", str(self.root), "patch"])
+        self.assertEqual((self.root / bump_api.VERSION).read_text(), "1.4.0\n")
+
+    def test_two_minors_in_a_row(self) -> None:
+        self.run_tool("minor", "--note", "a (a_call)")
+        self.run_tool("minor", "--note", "b (b_call)")
+        header = (self.root / bump_api.HEADER).read_text()
+        self.assertIn("#define OPENRAC_MOD_API_MINOR 5", header)
+        self.assertIn("1.3 the pointer", header)
+        self.assertIn("1.4 a (a_call), and 1.5 b (b_call).", " ".join(header.replace(" * ", " ").split()))
+        self.assertEqual(bump_api.problems(self.root), [])
+
     def test_patch(self) -> None:
         self.assertEqual(self.run_tool("patch"), 0)
         self.assertEqual(bump_api.problems(self.root), [])

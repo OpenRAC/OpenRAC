@@ -26,7 +26,7 @@ file:
 | The port's side, `api_<name>` | `port/game/common/mod_api/<area>.cpp` |
 | Its declaration, and what two areas share | `port/game/common/mod_api/internal.h` |
 | `g_api.<name> = api_<name>;` | `port/game/common/mods.cpp`, `fill_api()` |
-| A game's part (reads or writes the game) | a field of `openrac_game_play` (`port/game/common/include/openrac/game_host.h`), set in each game's `host/play.c` for every disc |
+| A game's part (reads or writes the game) | a field of `openrac_game_play` (`port/game/common/include/openrac/game_host.h`), set in each game's `port/game/<game>/host/play.c` (rac3: `rac3-pal/host/play.c`) for every disc |
 | The C++ wrapper | `sdk/include/openrac/mod.hpp`, the area's class |
 | The Luau name, for a script mod | `port/game/common/mod_scripts.cpp` |
 | Tests | below |
@@ -34,7 +34,8 @@ file:
 The areas are core, settings, hooks, input, graphics, menus, play, world,
 hero, figures, saves, party, camera, visuals, sound, touch and system. A call
 that fits none is a sign it should be split; a new area is added to `AREAS` in
-`sdk/tools/gen_api_lock.py` with its file in `mod_api/`.
+`sdk/tools/gen_api_lock.py`, with its file in `mod_api/` listed in `port/CMakeLists.txt`
+(`openrac_mods`).
 
 Hook points are not table members: they come from `sdk/bindings/<game>.json`
 and `sdk/tools/gen_binding.py`, which writes their C names (the generated part

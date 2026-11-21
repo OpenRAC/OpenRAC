@@ -327,7 +327,10 @@ def member_problems(sdk: Path, api_rows: list[str], minor: int) -> list[str]:
         if area not in AREAS:
             out.append(f"members.tsv: {name}: area {area!r} is not one of {', '.join(AREAS)}")
         m = re.fullmatch(r"1\.(\d+)", since)
-        if not m or int(m.group(1)) > minor:
+        if m and int(m.group(1)) == minor + 1:
+            out.append(f"members.tsv: {name}: since {since}, but the header is 1.{minor}: "
+                       f"run python3 sdk/tools/bump_api.py minor --note \"...\"")
+        elif not m or int(m.group(1)) > minor:
             out.append(f"members.tsv: {name}: since {since!r} is not 1.0 to 1.{minor}")
         elif int(m.group(1)) < last:
             out.append(f"members.tsv: {name}: since {since} is older than the member before it")

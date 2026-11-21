@@ -130,6 +130,8 @@ def bump(root: Path, kind: str, note: str | None) -> str:
         (root / LAUNCHER).write_text(re.sub(r"^pub const API_MINOR: u32 = \d+;$",
                                             f"pub const API_MINOR: u32 = {minor};", rs, flags=re.M))
     else:
+        if note:
+            raise SystemExit("--note is for a minor (the header's history lists minors only)")
         patch += 1
     version = f"{major}.{minor}.{patch}"
     (root / VERSION).write_text(version + "\n")
