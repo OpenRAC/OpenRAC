@@ -143,7 +143,7 @@ int main(int argc, char** argv) {
         "approved Batch 1 RYNO middle change is retained"
     );
     check(
-        scene::vendor_preview::defaults(scene::vendor_preview::key(1134, true)).x == 10
+        scene::vendor_preview::defaults(scene::vendor_preview::key(1134, true)).x == 13.5f
             && scene::vendor_preview::defaults(scene::vendor_preview::key(1134, true))
                    .pivot_enabled,
         "Gold Bolt middle placement retains reviewed centering and pivot"
@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
         "latest user edits preserve left display position and Infobot size"
     );
     check(
-        std::abs(scene::vendor_preview::defaults(66995).x + 1.07f) < .001f
+        std::abs(scene::vendor_preview::defaults(66995).x + 13.31f) < .001f
             && scene::vendor_preview::defaults(66995).roll == 0,
         "Gold Glove of Doom retains the user's corrected middle placement"
     );
@@ -250,8 +250,8 @@ int main(int argc, char** argv) {
             "rotation and size preserve the model pivot"
         );
         check(
-            preview::get(preview::key(185, true)).x == 0,
-            "approved left offsets do not move the middle model"
+            preview::get(preview::key(185, true)).x == 22.25f,
+            "Morph-o-Ray retains its separately reviewed middle profile"
         );
         {
             const auto left = preview::defaults(609);
