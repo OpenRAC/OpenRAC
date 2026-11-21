@@ -677,8 +677,10 @@ def without_definitions(text: str, names: set[str]) -> str:
     return text
 
 
-# The records name_cast_records defined ahead of a function, on its first line.
-_CAST_RECORDS_AHEAD = r'(?:(?:struct|union) openrac_cast_\d+_\d+ \{.*?\}; )*'
+# The records name_cast_records defined ahead of a function, on its first line. A record's body
+# has no braces (_CAST_RECORD), so each record matches one way only: with `.*?` a line of a few
+# hundred records (a functional candidate's) had exponentially many ways to fail.
+_CAST_RECORDS_AHEAD = r'(?:(?:struct|union) openrac_cast_\d+_\d+ \{[^{}\n]*\}; )*'
 
 
 def _definition(text: str, name: str) -> tuple[int, int] | None:
