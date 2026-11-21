@@ -264,7 +264,7 @@ def cmd_write(args) -> int:
 
 
 # The shared C as release_carry.py reads it: names, addresses and constants outside comments and strings.
-RELEASE_FUNC = re.compile(r"\bfunc_(?:L\d\d_)?[0-9A-F]{8}((?:_\w+)?)\b")
+RELEASE_FUNC = re.compile(r"\b(?:mp_)?func_(?:L\d\d_)?[0-9A-F]{8}((?:_\w+)?)\b")
 RELEASE_SKIP = re.compile(r'"(?:\\.|[^"\\])*"|/\*.*?\*/|//[^\n]*', re.S)
 
 
