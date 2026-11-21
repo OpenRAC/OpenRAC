@@ -9,7 +9,7 @@
   // (lib/toolErrors.ts), never in the tool's: what it printed is behind "Show details".
   import { onMount } from "svelte";
 
-  import { api, type EditorState, type GameView, type VersionView } from "$lib/api";
+  import { api, type EditorState, type GameView, onAndroid, type VersionView } from "$lib/api";
   import {
     app,
     guardShown,
@@ -38,6 +38,7 @@
   import type { Job } from "$lib/queue";
   import { type NextStep, toolFailure } from "$lib/toolErrors";
 
+  import EditorInstall from "./EditorInstall.svelte";
   import EditorReset from "./EditorReset.svelte";
   import Icon from "./Icon.svelte";
   import JobProgress from "./JobProgress.svelte";
@@ -492,6 +493,8 @@
       {/snippet}
     </EditorReset>
   </section>
+
+  {#if !onAndroid}<EditorInstall />{/if}
 </section>
 
 <style>

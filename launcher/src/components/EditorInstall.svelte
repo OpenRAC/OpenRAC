@@ -1,8 +1,7 @@
 <script lang="ts">
-  // Settings' Level editor: OpenRAC Editor, a program of its own downloaded from its releases
-  // (core/src/editor_install.rs), or a Mac app the player installed. The launcher carries none of
-  // it; this says which one is there, looks for a newer one, and downloads or removes a download.
-  // The level projects are never touched here.
+  // The Level editor tab's OpenRAC Editor section, under Your levels (EditorFlow): which editor is
+  // there (a download, a Mac app or a folder the player picked; core/src/editor_install.rs), a newer
+  // one, and download, choose or remove. The level projects are never touched here.
   import { onMount } from "svelte";
 
   import { api, inTauri, pickFolder } from "$lib/api";
@@ -54,9 +53,11 @@
   });
 </script>
 
-<section class="panel" aria-labelledby="editor-install-title">
-  <h2 id="editor-install-title">Level editor</h2>
-  <p class="muted">OpenRAC Editor changes your disc's levels. It is a separate program.</p>
+<section class="program" aria-labelledby="editor-install-title">
+  <h3 id="editor-install-title">OpenRAC Editor</h3>
+  <p class="muted">
+    The program that changes your levels. The launcher downloads it, or uses one you have.
+  </p>
   <p class="status dim">
     {#if installed}
       <Icon name="check" size={14} />
@@ -73,7 +74,7 @@
   <div class="row">
     {#if !own}
       <button
-        class="small primary"
+        class={`small${!installed || newer ? " primary" : ""}`}
         disabled={app.editorDownloading}
         onclick={() => void installEditor()}
       >
@@ -119,14 +120,20 @@
 </section>
 
 <style>
-  /* As Settings' other panels: the title close over its text, the rest spaced evenly. */
-  .panel {
+  /* As Your levels above it: a line over it, the title close over its text. */
+  .program {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 4px;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
   }
-  .panel h2 {
-    margin-bottom: -8px;
+  .program > h3 {
+    font-size: 1rem;
+  }
+  .program > p {
+    margin: 0;
+    font-size: 0.8125rem;
   }
   .status {
     font-size: 0.8125rem;
@@ -142,5 +149,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    margin-top: 8px;
   }
 </style>

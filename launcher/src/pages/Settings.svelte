@@ -4,7 +4,6 @@
   // that saves them stays in view at the bottom of the window. With `setup`,
   // the first-run screen: one question (the games folder), and what was found by itself, folded.
   import AddToSteam from "$components/AddToSteam.svelte";
-  import EditorInstallPanel from "$components/EditorInstallPanel.svelte";
   import GpuDrivers from "$components/GpuDrivers.svelte";
   import Logo from "$components/Logo.svelte";
   import PathField from "$components/PathField.svelte";
@@ -673,10 +672,6 @@
         {/if}
       </p>
     </section>
-
-    {#if !onAndroid}
-      <EditorInstallPanel />
-    {/if}
 
     <!-- A player is asked for Python only when none was found; contributors find it in Developer. -->
     {#if !app.info?.standalone && !onAndroid && !draft.developer && !app.config?.python}

@@ -55,7 +55,7 @@ pub struct Editor {
     pub manifest: Manifest,
 }
 
-/// What the Mods page and Settings show of the editor.
+/// What the Mods page's Level editor tab shows of the editor.
 #[derive(Debug, Clone, Serialize, ts_rs::TS)]
 #[ts(rename = "EditorInstall")]
 #[serde(rename_all = "camelCase")]
@@ -65,7 +65,7 @@ pub struct Status {
     /// It is an app the player installed (a Mac's Applications), not the launcher's download:
     /// the launcher does not remove it.
     pub installed_app: bool,
-    /// The player picked its folder (Settings, "Choose its folder"): the launcher neither
+    /// The player picked its folder (Level editor, "Choose its folder"): the launcher neither
     /// downloads into it nor removes it.
     pub chosen: bool,
     /// The version found there.
