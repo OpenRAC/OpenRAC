@@ -3530,6 +3530,44 @@ class FromAssembly(unittest.TestCase):
                  for name, (start, text) in functions.items()}
         return self.run_program({"a.c": c}, config=config or ASM_CONFIG, extra_files=files)
 
+    def test_result_flow_a_scratch_v0_beside_f0_is_a_float_result(self):
+        # asm.result_flow: a function declared nowhere that sets $f0 and uses $v0 only for a test
+        # (slt, then a branch on it) returns a float, which its caller reads in $f0 (the text fit
+        # routine of Up Your Arsenal's multiplayer menus, 0x005946B0). Without it, int.
+        functions = {
+            "func_00100100": (0x100100, """
+                slt $2, $4, $5
+                beq $2, $0, big
+                mtc1 $4, $f0
+                jr $31
+                cvt.s.w $f0, $f0
+            big:
+                mtc1 $5, $f0
+                jr $31
+                cvt.s.w $f0, $f0
+            """),
+            "func_00100000": (0x100000, """
+                addiu $29, $29, -16
+                sd $31, 0($29)
+                jal func_00100100
+                nop
+                cvt.w.s $f0, $f0
+                mfc1 $2, $f0
+                ld $31, 0($29)
+                jr $31
+                addiu $29, $29, 16
+            """),
+        }
+        c = """
+            INCLUDE_ASM("asm", func_00100100);
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int a, int b);
+            int test_main(void) { test_print(func_00100000(3, 9)); test_print(func_00100000(8, 2)); return 0; }
+        """
+        config = {"asm": {**ASM_CONFIG["asm"], "result_flow": True}}
+        out = self.run_asm(c, functions, symbols={"func_00100100": 0x100100}, config=config)
+        self.assertEqual(out, ["3", "2"])
+
     def test_a_translated_caller_reads_a_result_a_c_wrapper_passes_on(self):
         # A wrapper matched `void` that ends in an assembly function: its caller, in assembly, reads
         # the result in $v0 (results_before_calls: Going Commando's func_L00_002B5590, func_002D5B38).
@@ -3697,6 +3735,13 @@ class FromAssembly(unittest.TestCase):
         self.assertEqual(self.last_report["assembly_signature_drops"], {"func_00100400": [
             "reads 2 integer and 0 float argument registers, its signature takes 1 and 0"]})
         fixed = dict(ASM_CONFIG["asm"], signature_check=True, signatures={"func_00100400": "int (int, int)"})
+        self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=fixed))
+        self.assertEqual(self.last_report["assembly_signature_drops"], {})
+
+    def test_indirect_arguments_take_a_parameter_handed_on_to_a_pointer_call(self):
+        # asm.indirect_arguments: the $a1 that func_00100400 hands on to its pointer call (which
+        # sets $a2) becomes its parameter, as func_00100400's signature above does by hand.
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, indirect_arguments=True)
         self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=fixed))
         self.assertEqual(self.last_report["assembly_signature_drops"], {})
 

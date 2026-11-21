@@ -1192,11 +1192,7 @@ void func_L01_00420AE8(int tex, gaddr colours, float x, float y, float w, float 
  * its loading screen draws with) and level 39's, the multiplayer menus' (frontbin's routines at the
  * catalogue's level 39 places), each paired with the boot program's instruction by instruction
  * (mp/libraries.tsv), drawn as the boot program's are. The core's display list cursor and darkening
- * packet are 0x002446A8 and 0x001A3800, level 39's cursor 0x0024CAD0. The
- * turned HUD sprite (both programs') is left to its packets for now, and so are level 39's glyphs
- * (0x0058BBB0, 0x0058BF70): some of its prints name a font page at block 0 (TBP and CBP 0), which
- * the window's glyphs read as the frame and drew over the whole menu (README, the multiplayer
- * executable). */
+ * packet are 0x002446A8 and 0x001A3800, level 39's cursor 0x0024CAD0. */
 #define MP_CURSOR 0x002446A8u
 #define MP_MENUS_CURSOR 0x0024CAD0u
 #define MP_DARKEN_PACKET 0x001A3800u
@@ -1406,6 +1402,33 @@ void mp_func_L39_0058B1B8(int r, int g, int b, int a) {
         mp_func_L39_0058B1B8__game(r, g, b, a);
     }
 }
+
+/* The turned HUD sprite with a colour a corner: the core's (0x00284F80) and level 39's
+ * (0x0059CFD0) are the boot program's func_00397680 instruction for instruction, their own HUD
+ * texture tables aside (the core's at 0x00244428 and 0x0024442C, level 39's at 0x0024BD00 and
+ * 0x0024BD04) and, as the boot program's, no depth of their own. */
+static const Rac3Ui2d kMpCore = {MP_CURSOR, 0x00244428u, 0x0024442Cu, 0};
+static const Rac3Ui2d kMpMenus = {MP_MENUS_CURSOR, 0x0024BD00u, 0x0024BD04u, 0};
+
+void mp_func_00284F80(int tex, gaddr colours, float x, float y, float w, float h, float ang) {
+    const float s = mp_func_002804B0(ang), c = mp_func_00280498(ang);
+    const unsigned long long tex0 = mp_func_00284D30(tex);
+    if (!hud_sprite_turned(&kMpCore, tex, tex0, colours, x, y, w, h, s, c)) {
+        mp_func_00284F80__game(tex, colours, x, y, w, h, ang);
+    }
+}
+
+void mp_func_L39_0059CFD0(int tex, gaddr colours, float x, float y, float w, float h, float ang) {
+    const float s = mp_func_L39_00590A80(ang), c = mp_func_L39_00590A68(ang);
+    const unsigned long long tex0 = mp_func_L39_0059C910(tex);
+    if (!hud_sprite_turned(&kMpMenus, tex, tex0, colours, x, y, w, h, s, c)) {
+        mp_func_L39_0059CFD0__game(tex, colours, x, y, w, h, ang);
+    }
+}
+
+/* Level 39's one-colour and shadowed glyphs, inside its prints. */
+MP_GLYPH(mp_func_L39_0058BBB0)
+MP_GLYPH_SHADOWED(mp_func_L39_0058BF70)
 #endif /* RAC3_NTSC */
 
 /* frontbin's copies of the 2D layer (the program the front end runs after a level: Quit Game, a

@@ -190,6 +190,12 @@ class Translator:
     # runs on whatever the register held before, where the EE's had the value. Each finding goes to
     # `dropped` (name -> what), for hostgen's guard (asm.signature_allow).
     signature_check = False
+    # asm.result_flow in hostgen.json: a function declared nowhere that sets $f0 and uses $v0 only
+    # as a scratch register returns a float (_v0_reaches_return), not an int.
+    result_flow = False
+    # asm.indirect_arguments in hostgen.json: a function whose first call is through a pointer
+    # takes the argument registers that call takes and the code has not written (_entry_reads).
+    indirect_arguments = False
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -619,9 +625,73 @@ class Translator:
         ints, floats, sets_v0, sets_f0 = self._entry_reads()
         params = [ctype.Base("int")] * ints + [ctype.Base("float")] * floats
         ret = sig.ret
+        if self.result_flow and sets_v0 and sets_f0:
+            sets_v0 = self._v0_reaches_return()
         if not f.declared and not sets_v0 and sets_f0:
             ret = ctype.Base("float")
         return Signature(ret, tuple(params), False, True)
+
+    def _v0_reaches_return(self) -> bool:
+        """asm.result_flow: whether some value the code writes to $v0 may reach a jr $ra unread (its
+        result). A $v0 the code only uses as a scratch register (an slt and a branch on it: the text
+        fit routine of Up Your Arsenal's multiplayer menus, 0x005946B0) is not one, so such a routine
+        that sets $f0 returns a float. Flow it cannot follow (a jump through a register, code
+        outside the function, a write in a delay slot) counts as reaching."""
+        def walk(b: int, seen: set) -> bool:
+            while True:
+                if b in seen:
+                    return False
+                seen.add(b)
+                ins = self.at(b)
+                if ins is None or b not in self.reach:
+                    return True
+                rg, wg, _, _ = rw(ins)
+                if 2 in rg:
+                    return False
+                if not is_control(ins):
+                    if 2 in wg:
+                        return False
+                    b += 4
+                    continue
+                delay = self.at(b + 4)
+                if delay is not None:
+                    drg, dwg, _, _ = rw(delay)
+                    if 2 in drg or 2 in dwg:
+                        return False
+                if ins.op in ("jal", "jalr") or ins.op in COND_CALLS:
+                    return False  # the callee's result replaces it
+                if ins.op == "jr":
+                    return True
+                nexts = [ins.target]
+                if _conditional(ins):
+                    nexts.append(b + 8)
+                return any(walk(n, seen) for n in nexts)
+        for a in self.reach:
+            ins = self.at(a)
+            if ins is None:
+                continue
+            if ins.op in ("jal", "jalr") or ins.op in COND_CALLS:
+                if walk(a + 8, set()):  # the callee's result, handed on
+                    return True
+                continue
+            if is_control(ins) or 2 not in rw(ins)[1]:
+                continue
+            prev = self.at(a - 4)
+            if prev is not None and (a - 4) in self.reach and is_control(prev):
+                # A delay slot's value goes where its branch goes.
+                if prev.op == "jr":
+                    return True
+                if prev.op in ("jal", "jalr") or prev.op in COND_CALLS:
+                    continue  # the callee's result replaces it
+                nexts = [prev.target]
+                if _conditional(prev) and prev.op not in asm.LIKELY:
+                    nexts.append(a + 4)
+                if any(walk(n, set()) for n in nexts):
+                    return True
+                continue
+            if walk(a + 4, set()):
+                return True
+        return False
 
     def _reloaded_argument(self, save: asm.Insn) -> bool:
         """Whether SAVE keeps an argument register in a frame slot the code loads again: a use of
@@ -646,6 +716,7 @@ class Translator:
         read_g, read_f = set(), set()
         stop = None
         forwarded = None
+        indirect = None
         for a in sorted(x for x in self.reach if x >= self.entry_addr):
             if stop is not None and a > stop:
                 break
@@ -662,6 +733,7 @@ class Translator:
             written_f |= wf
             if ins.op in ("jal", "jalr", "jr") and stop is None:
                 stop = a + 4   # its delay slot runs first
+                indirect = a if ins.op == "jalr" else None
                 if ins.op == "jal":
                     sym = self._callee(ins.target, None)
                     forwarded = self.program.functions.get(sym) if sym else None
@@ -678,6 +750,12 @@ class Translator:
                     if ni < len(ARG_REGS) and ARG_REGS[ni] not in written_g:
                         read_g.add(ARG_REGS[ni])
                     ni += 1
+        if indirect is not None and self.indirect_arguments:
+            # asm.indirect_arguments: the argument registers a first call through a pointer takes
+            # (_pointer_call_arguments) that the code has not written are its caller's, handed on:
+            # level 39's GUI text draw (0x00619B48) hands its $a1, the parent's rect, to its rect
+            # getter (0x00619D20), as the boot program's frame widget draw (func_003EEBF8) does.
+            read_g |= {r for r in self._pointer_call_arguments(indirect) if r not in written_g}
         sets_v0 = sets_f0 = False
         for a in self.reach:
             _, wg, _, wf = rw(self.at(a))
@@ -2113,6 +2191,8 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.dma_done = bool(a.get("dma_done"))
     tr.vu_flush = bool(a.get("vu_flush"))
     tr.signature_check = bool(a.get("signature_check"))
+    tr.result_flow = bool(a.get("result_flow"))
+    tr.indirect_arguments = bool(a.get("indirect_arguments"))
     tr.verified_signatures = frozenset(a.get("signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)

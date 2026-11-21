@@ -154,12 +154,31 @@ The two routines that build a font page's TEX0 (the core's `0x0027EAC8`, the boo
 lost and every glyph read an empty palette. Level 39's screen glow is left out as the boot
 program's levels leave it (`host/mp.c`).
 
-What is left: some of level 39's prints (the menu's rows) name a font page at block 0 (TBP and CBP
-0): the game's own packets draw nothing for them either, and the window's glyphs read that page as
-the frame and covered the menu, so level 39's glyphs are left to their packets until where that
-page is filled is found; the turned HUD sprite of both programs is not wrapped; a map (levels 40
-to 55) is not loaded: they would be translated as level 39 is (`discover_levels`), with the native
-world renderers the boot program's levels use.
+The menus' rows (ONLINE PLAY, LOCAL PLAY ...) are GUI text widgets: their draw
+(`func_L39_00619B48`) prints at the centre of the rect their getter (`func_L39_00619D20`) works out
+from the text's width times the scale that fits it in its box, `0x005946B0` (the boot program's
+`func_00390FD8`). That routine returns a float in `$f0` and uses `$v0` only for a test; hostgen
+typed it `int` (a function declared nowhere that writes `$v0` returned it), so the scale was
+whatever `$f0` held and the rows were printed at x 14267, y -713, off the screen. The draw also
+hands its own `$a1`, the parent's rect, on to the getter through the widget's vtable, which hostgen
+did not see as a parameter (the boot program's frame widget draw, `func_003EEBF8`, does the same):
+the rect was placed in an empty one at the top left. `asm` `indirect_arguments` gives a function
+whose first call is through a pointer the argument registers that call takes and it has not
+written. `mp/hostgen.json`'s
+`asm` `result_flow` types such a routine `float` when no value it writes to `$v0` reaches its
+`jr $ra` unread (316 of the executable's routines; 27 have callers that read `$f0`, among them the
+vector library's). Level 39's one-colour and shadowed glyphs (`0x0058BBB0`, `0x0058BF70`) and the
+turned HUD sprite with a colour a corner of both programs (the core's `0x00284F80`, level 39's
+`0x0059CFD0`, the boot program's `func_00397680` instruction for instruction, their HUD texture
+tables aside) are wrapped as the boot program's.
+
+The menus' music is the boot program's stereo stream (`openrac_stream_play_stereo`, 989snd
+command `0x2C`): it plays from the multiplayer menus' first frames. Command `0x30` (a stream query
+with a callback, `0x001948B8`, which the music player keeps at `+0x14`) answers 0.
+
+What is left: a map (levels 40 to 55) is not loaded: they would be translated as level 39 is
+(`discover_levels`), with the native world renderers the boot program's levels use; NTSC-U's
+I5BOOTN.ELF is not paired yet.
 
 ## Ticks, pacing and input
 

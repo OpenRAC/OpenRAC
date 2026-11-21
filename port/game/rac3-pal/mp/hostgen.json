@@ -62,6 +62,8 @@
     "input_idioms": true,
     "dma_done": true,
     "vu_flush": true,
+    "result_flow": true,
+    "indirect_arguments": true,
     "forward_unprototyped": true,
     "signatures": {
       "func_00192F68": "unsigned int (void)",
@@ -76,6 +78,8 @@
       "func_0027EEB8": "void (int, int, int, int, unsigned long long)",
       "func_00284F80": "void (int, unsigned int, float, float, float, float, float)",
       "func_00284D30": "unsigned long long (int)",
+      "func_L39_0059CFD0": "void (int, unsigned int, float, float, float, float, float)",
+      "func_L39_0059C910": "unsigned long long (int)",
       "func_L39_00592238": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_L39_0058BBB0": "int (int, int, int, int, long long, long long, int, float, float, float, float)",
       "func_L39_0058BF70": "int (int, int, int, int, long long, long long, long long, int, float, float, float, float, float, float)",

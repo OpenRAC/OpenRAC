@@ -431,3 +431,10 @@ mp-code	func_L39_00592AC8	0x00592AC8	mp_menus_FontPrintShaded	frontbin's func_00
 mp-code	func_L39_0060DFC8	0x0060DFC8	mp_menus_ScreenGlowCopy	the catalogue's func_L01_004DE670 at 39:0060DFC8: the glow word ($gp - 0x240C = 0x00245BB4) set, the packet left out (host/mp.c)
 mp-code	func_L39_0060E048	0x0060E048	mp_menus_ScreenGlowAdd	func_L01_004DE6F0 at 39:0060E048
 mp-code	func_L39_0060EC68	0x0060EC68	mp_menus_ScreenEffect2	func_L01_004DF310 at 39:0060EC68
+mp-code	func_L39_005946B0	0x005946B0	mp_menus_TextFitScale	the boot program's func_00390FD8 (f32): the scale that fits a string in a width, at most f12; returns $f0, $v0 a scratch (asm.result_flow)
+mp-code	func_L39_00619B48	0x00619B48	mp_menus_GuiTextDraw	the GUI text widget's draw (vtable 0x00245D38 +0x1C): its rect's centre times the screen size 0x00245C38, printed through func_L39_00592238
+mp-code	func_L39_00619D20	0x00619D20	mp_menus_GuiTextRect	the GUI text widget's rect (vtable +0x20): text width (func_L39_00594858) over the screen size, times func_L39_005946B0's fit scale
+mp-code	func_L39_00594858	0x00594858	mp_menus_TextWidth	the font's string width in pixels (func_L39_00591F98's, its registers handed on)
+mp-code	func_L39_0059CFD0	0x0059CFD0	mp_menus_DrawHudSpriteShaded	the boot program's func_00397680 instruction for instruction (HUD tables 0x0024BD00/0x0024BD04, cursor 0x0024CAD0); wrapped (host/ui2d.c)
+mp-code	func_00284F80	0x00284F80	mp_DrawHudSpriteShaded	the boot program's func_00397680 instruction for instruction (HUD tables 0x00244428/0x0024442C, cursor 0x002446A8); wrapped (host/ui2d.c)
+mp-code	func_001948B8	0x001948B8	mp_snd_VAGStreamQuery30_CB	989snd command 0x30 with a callback (the boot program's func_0013CC70): a stream query whose answer level 39's music player keeps at +0x14 (0x005C2E90); answered 0
