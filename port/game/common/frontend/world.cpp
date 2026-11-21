@@ -1545,13 +1545,6 @@ std::shared_ptr<const enhanced::MaterialEditor> material_editor() {
     return lighting ? lighting->materials().editor() : nullptr;
 }
 
-bool patch_material(
-    std::span<const std::size_t> bindings, materials::Properties properties, std::string& error
-) {
-    auto* editor = editable_materials(error);
-    return editor && material_edit_result(editor->patch(bindings, std::move(properties)), error);
-}
-
 bool assign_material(
     std::span<const std::size_t> bindings,
     const std::string& material,
@@ -1592,18 +1585,6 @@ bool patch_material_preset(
            && material_edit_result(
                editor->patch_preset(preset, std::move(key), std::move(value)), error
            );
-}
-
-bool delete_material_override(const std::string& id, std::string& error) {
-    auto* editor = editable_materials(error);
-    return editor && material_edit_result(editor->delete_override(id), error);
-}
-
-bool undo_material(
-    std::span<const std::size_t> bindings, const std::string& key, std::string& error
-) {
-    auto* editor = editable_materials(error);
-    return editor && material_edit_result(editor->undo(bindings, key), error);
 }
 
 bool undo_material_preset(const std::string& preset, const std::string& key, std::string& error) {

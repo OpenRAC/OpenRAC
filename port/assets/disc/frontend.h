@@ -72,9 +72,6 @@ struct TitleLump {
 
     // From the lump's bytes, WAD-compressed or not.
     static TitleLump parse(ByteView lump);
-
-    // "PRESS START" of `language` (the game's number): FX max(language - 1, 0) + 4.
-    std::size_t press_start_index(u32 language) const;
 };
 
 enum class BootPictureKind : u8 {

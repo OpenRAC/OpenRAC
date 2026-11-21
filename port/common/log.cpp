@@ -254,8 +254,4 @@ void recent_lines(void (*emit)(const char*, std::size_t, void*), void* context) 
     g_recent.each([&](const char* text, std::size_t length) { emit(text, length, context); });
 }
 
-std::size_t recent_capacity() {
-    return decltype(g_recent)::capacity();
-}
-
 }  // namespace openrac::log

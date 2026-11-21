@@ -178,11 +178,6 @@ std::vector<u8> SaveFile::to_bytes() const {
     return std::move(w.bytes());
 }
 
-bool SaveFile::all_crcs_ok() const {
-    return global.crc_ok
-           && std::all_of(levels.begin(), levels.end(), [](const Section& s) { return s.crc_ok; });
-}
-
 void SaveFile::write_incremental(std::size_t level, std::span<u8> card_file) const {
     // A level slot past the table does not exist.
     if (level >= kSaveLevelSlots) {

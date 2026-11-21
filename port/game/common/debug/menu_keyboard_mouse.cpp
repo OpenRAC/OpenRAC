@@ -480,10 +480,6 @@ void keyboard_mouse_panel() {
     }
 }
 
-bool keyboard_mouse_capturing() {
-    return !g.capture.empty();
-}
-
 bool keyboard_mouse_capture_event(const SDL_Event& e) {
     if (g.capture.empty()) {
         return false;

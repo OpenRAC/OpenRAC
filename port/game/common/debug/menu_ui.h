@@ -221,10 +221,6 @@ bool tab_shown(menu::Tab tab, std::uint8_t where);
 // Draws entry `id` alone (its row, or nothing while it is hidden).
 void draw_entry(menu::Id id, std::uint8_t where);
 
-// Does what entry `id` does when pressed (a switch turns over, a choice moves on), outside the rows:
-// a button of the menu's own (the desktop's Quit).
-void press_entry(menu::Id id);
-
 // Ends the game as the window's close button does (Quit, once confirmed).
 void quit_game();
 
@@ -274,7 +270,6 @@ void draw_controls_panel(menu::Id id);
 // (true: the event is used up).
 bool keyboard_mouse_shown();
 void keyboard_mouse_panel();
-bool keyboard_mouse_capturing();
 bool keyboard_mouse_capture_event(const SDL_Event& e);
 
 // Each frame: a press awaited for a binding arrives, gives up after a while, or ends with the

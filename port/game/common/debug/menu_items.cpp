@@ -978,12 +978,6 @@ void note_hover_row(int entry, std::string section, std::string title, std::stri
     }
 }
 
-void press_entry(Id id) {
-    if (act(id, 1)) {
-        set_menu(false);
-    }
-}
-
 std::string entry_label(Id id, std::uint8_t where) {
     const Item it = item(id, where);
     return it.label.empty() ? std::string(menu::entry(id).label) : it.label;

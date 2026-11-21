@@ -85,7 +85,6 @@ struct SaveFile {
 
     static SaveFile parse(ByteView bytes);
     std::vector<u8> to_bytes() const;  // NTSC-U MakeWholeSave 0x20abb0
-    bool all_crcs_ok() const;
 
     // The incremental save (NTSC-U memcard_Save 0x20b178): writes the global
     // section at 8 and level section `level` in place; the header and the

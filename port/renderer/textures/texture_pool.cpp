@@ -172,10 +172,6 @@ void TexturePool::place(std::uint32_t tbp, TextureHandle texture) {
     m_placed[tbp] = texture;
 }
 
-void TexturePool::clear_placements() {
-    m_placed.clear();
-}
-
 // ---- Source uploads ----
 
 bool TexturePool::repeat_upload(const ImageUpload& upload) {

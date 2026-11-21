@@ -93,12 +93,6 @@ std::uint16_t ps1_note_to_pitch(
     return ps1 ? static_cast<std::uint16_t>(44100u * p / 48000u) : p;
 }
 
-std::uint16_t rate_to_pitch(std::uint32_t rate) {
-    return static_cast<std::uint16_t>(
-        std::min<std::uint64_t>(std::uint64_t{rate} * 0x1000 / 48000, 0x3fff)
-    );
-}
-
 std::pair<std::int16_t, std::int16_t> pitch_bend(
     const assets::Tone& tone, int bend, int modulation, int note, int fine
 ) {

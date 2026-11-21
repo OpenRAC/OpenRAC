@@ -131,14 +131,6 @@ float echo_feedback(ReverbMode mode, std::uint8_t feedback) {
 
 }  // namespace
 
-std::string_view reverb_mode_name(ReverbMode mode) {
-    static constexpr std::string_view kNames[] = {
-        "off", "room", "studio A", "studio B", "studio C", "hall", "space", "echo", "delay", "pipe"
-    };
-    const auto i = static_cast<std::size_t>(mode);
-    return i < std::size(kNames) ? kNames[i] : "unknown";
-}
-
 std::optional<ReverbPreset> reverb_preset(ReverbMode mode) {
     auto p = [](float same,
                 float cross,
