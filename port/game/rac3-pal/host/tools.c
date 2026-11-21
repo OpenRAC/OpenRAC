@@ -20,14 +20,24 @@
  *   is the mode asked for.
  * - 0x001A4C60: the hero's position (the hero code's base 0x001A4BE0 + 0x80), +0x10 his roll,
  *   pitch and yaw; 0x001A71A4 his state (rac3-decomp enums/hero_state.h), 0x001A7430 his health.
+ * - What he holds (rac3-decomp include/names.h): player_bolts 0x00142660, hero_max_health
+ *   0x00142668, item_ammo 0x001427F0 (a word an item), item_owned 0x00142CA0 (a byte an item, 0xA0
+ *   items, up to the new flags at 0x00142D40), the item's version 0x001425C0 (a byte an item: its
+ *   record among the 0xF0-byte item records, Veldin's D_L01_002C5600, each level's own copy; +0 set
+ *   for a gun, +0x84 its ammunition's price, +0x8E a full load), held_item 0x001A5E08 and
+ *   equipped_gun 0x001D4C40. item_give (Veldin's func_L01_00419188, every story level's copy
+ *   folded with it) gives one as the game's own pick-ups and scenes do.
  */
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac3_version.h"
+
+void func_L01_00419188(int item); /* item_give, the loaded level's copy */
 
 #define RAC3_LEVELS 54
 #define FRONT_END_MODE RAC3_ADDR(0x001D5B94u)
@@ -39,6 +49,18 @@
 #define HERO_STATE RAC3_ADDR(0x001A71A4u)
 #define HERO_HEALTH RAC3_ADDR(0x001A7430u)
 #define PADS RAC3_ADDR(0x001CD0C0u)
+#define BOLTS RAC3_ADDR(0x00142660u)
+#define MAX_HEALTH RAC3_ADDR(0x00142668u)
+#define ITEM_AMMO RAC3_ADDR(0x001427F0u)
+#define ITEM_OWNED RAC3_ADDR(0x00142CA0u)
+#define ITEM_VERSION RAC3_ADDR(0x001425C0u)
+#define HELD_ITEM RAC3_ADDR(0x001A5E08u)
+#define EQUIPPED_GUN RAC3_ADDR(0x001D4C40u)
+#define ITEMS 0xA0
+#define ITEM_RECORDS OPENRAC_LDATA(1, (gaddr)RAC3_LADDR(1, 0x002C5600u))
+#define ITEM_RECORD_BYTES 0xF0u
+#define RECORD_AMMO_PRICE 0x84u
+#define RECORD_AMMO_FULL 0x8Eu
 
 /* The levels, by the game's own numbers (rac3-decomp config/levels/levels.tsv); NULL: no program
  * on the disc. */
@@ -185,6 +207,67 @@ static void heal(void) {
     }
 }
 
+/* An item's record, of the loaded level (the item's version picks it). */
+static gaddr item_record(int id) {
+    return ITEM_RECORDS + ITEM_RECORD_BYTES * GREF(uint8_t, ITEM_VERSION + (unsigned)id);
+}
+
+/* OPENRAC_GIVE: an item as the game gives one (item_give: owned, shown as new, a first load of
+ * ammunition, into the weapon lists and the quick select ring's first free slot), then a full load
+ * of ammunition for one that takes any, as Going Commando's give does. */
+static int give_item(int id) {
+    int changed = 0;
+    if (GREF(uint8_t, ITEM_OWNED + (unsigned)id) == 0) {
+        func_L01_00419188(id);
+        changed = GREF(uint8_t, ITEM_OWNED + (unsigned)id) != 0;
+    }
+    const gaddr record = item_record(id);
+    if (GREF(uint16_t, record + RECORD_AMMO_PRICE) != 0) {
+        GREF(int32_t, ITEM_AMMO + 4u * (unsigned)id) = GREF(uint16_t, record + RECORD_AMMO_FULL);
+    }
+    return changed;
+}
+
+/* The twenty guns, by their V1 item numbers (the save editor's table, launcher/core/src/
+ * save_edit_rac3.rs, read from the disc's weapon table): an item's record is set at +0 for every
+ * row of the table, the gadgets' and the weapons' later versions too, so the record does not tell
+ * them apart. */
+static const int guns[] = {39,  119, 47, 127, 55,  135, 71, 87, 111, 63,
+                           103, 79,  95, 143, 151, 21,  17, 22, 19,  16};
+
+static int give_guns(void) {
+    int changed = 0;
+    for (unsigned i = 0; i < sizeof guns / sizeof guns[0]; ++i) {
+        changed += give_item(guns[i]);
+    }
+    return changed;
+}
+
+static int give(const char* what) {
+    if (strncmp(what, "bolts:", 6) == 0) {
+        GREF(int32_t, BOLTS) = atoi(what + 6);
+        return 1;
+    }
+    /* The story levels, which have item_give and the item records (the mode word's levels). */
+    const int level = loaded_level();
+    if (level < 0 || level_mode_word(level) == 0 || level > 36) {
+        return 0;
+    }
+    if (strcmp(what, "all") == 0 || strcmp(what, "weapons") == 0) {
+        return give_guns();
+    }
+    char* end = NULL;
+    const long id = strtol(what, &end, 0);
+    if (end == what || *end != '\0' || id <= 0 || id >= ITEMS) {
+        return -1;
+    }
+    return give_item((int)id);
+}
+
+static int bolts(void) {
+    return GREF(int32_t, BOLTS);
+}
+
 /* For OPENRAC_STATE_DUMP and the debug overlay: the front end's words, and the level's mode and
  * the hero's place while a level runs. */
 static int state_json(char* out, int size) {
@@ -217,10 +300,64 @@ static int state_json(char* out, int size) {
             (double)xyz[2]
         );
     }
+    if (level >= 0 && at < size) {
+        at += snprintf(
+            out + at,
+            (size_t)(size - at),
+            ",\"bolts\":%d,\"health\":%d,\"max_health\":%d,\"held_item\":%d,\"equipped_gun\":%d,"
+            "\"owned\":[",
+            (int)GREF(int32_t, BOLTS),
+            (int)GREF(int32_t, HERO_HEALTH),
+            (int)GREF(int32_t, MAX_HEALTH),
+            (int)GREF(int32_t, HELD_ITEM),
+            (int)GREF(int32_t, EQUIPPED_GUN)
+        );
+        int first = 1;
+        for (int id = 1; id < ITEMS && at < size - 16; ++id) {
+            if (GREF(uint8_t, ITEM_OWNED + (unsigned)id) != 0) {
+                at += snprintf(out + at, (size_t)(size - at), "%s%d", first ? "" : ",", id);
+                first = 0;
+            }
+        }
+        if (at < size - 16) {
+            at += snprintf(out + at, (size_t)(size - at), "],\"ammo\":{");
+        }
+        first = 1;
+        for (int id = 1; id < ITEMS && at < size - 24; ++id) {
+            const int ammo = GREF(int32_t, ITEM_AMMO + 4u * (unsigned)id);
+            if (ammo != 0 && GREF(uint8_t, ITEM_OWNED + (unsigned)id) != 0) {
+                at += snprintf(
+                    out + at, (size_t)(size - at), "%s\"%d\":%d", first ? "" : ",", id, ammo
+                );
+                first = 0;
+            }
+        }
+        if (at < size - 1) {
+            at += snprintf(out + at, (size_t)(size - at), "}");
+        }
+    }
     return at < size ? at : size - 1;
 }
 
+/* What Start presses while skip_cutscenes is on, and what OPENRAC_SKIP_SCENES presses: a level's
+ * scenes (its mode 2, and 6, the landing that opens a level) end on Start alone, as on the
+ * console (Veldin's opening, frames 722 to 862 of a run, ends 7 frames after a press of Start, with
+ * the setting on or off). Pressing it is all a skip takes; a level's loading flights are
+ * loading.c's (openrac_game_skip). */
+#define BUTTON_START 0x0008
+#define MODE_SCENE 2
+#define MODE_LANDING 6
+
+static int skip_buttons(void) {
+    uint32_t mode = 0;
+    if (!rac3_level_mode(&mode)) {
+        return 0;
+    }
+    return mode == MODE_SCENE || mode == MODE_LANDING ? BUTTON_START : 0;
+}
+
 static const openrac_game_tools tools = {
+    .give = give,
     .heal = heal,
     .teleport = teleport,
     .state_json = state_json,
@@ -235,7 +372,7 @@ static void front_end_start_level(int level) {
     }
 }
 
-static const openrac_front_end front_end = {
+static openrac_front_end front_end = {
     .levels = RAC3_LEVELS,
     .level_names = level_names,
     .start_level = front_end_start_level,
@@ -256,13 +393,19 @@ static const openrac_front_end front_end = {
 
 /* From crt0 (entry.c), not a constructor: the game is a static library, and nothing else names this
  * file, so a constructor here is dropped with it at the link. */
-void rac3_loading_skip(void); /* host/loading.c */
+void rac3_loading_skip(void);   /* host/loading.c */
+gaddr rac3_language_word(void); /* host/options.c */
+int rac3_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]); /* host/touch.c */
 
 void rac3_install_tools(void) {
     openrac_game_skip = rac3_loading_skip;
     openrac_game_mode = rac3_level_mode;
+    openrac_game_bolts = bolts;
+    openrac_game_skip_buttons = skip_buttons;
+    openrac_game_touch = rac3_touch;
     openrac_game_hero_position = hero_position;
     openrac_game_hero = hero;
+    front_end.language = rac3_language_word();
     openrac_game_front_end = &front_end;
     openrac_game_tools_host = &tools;
 }

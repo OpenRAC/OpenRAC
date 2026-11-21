@@ -14,6 +14,8 @@
 #define RAC3_ADDR_0x00142120u 0x00142120u
 /* D_00142430 (names.tsv, the same address) */
 #define RAC3_ADDR_0x00142430u 0x00142430u
+/* D_001425C0 (names.tsv, the same address) */
+#define RAC3_ADDR_0x001425C0u 0x001425C0u
 /* release.json: Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x120, 34 of 34 places agree */
 #define RAC3_ADDR_0x00142660u 0x00142660u
 /* release.json: Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00301798 (NTSC-U func_L01_003015F0) +0x94, 3 of 3 places agree */
@@ -224,6 +226,8 @@
 #define RAC3_LADDR_1_0x001EA840u 0x001EA8C0u
 /* between the same code's 0x00220840 and 0x00220E40, both moved by +0x80 (NTSC-U 0x002208C0, 0x00220EC0) */
 #define RAC3_LADDR_1_0x00220A40u 0x00220AC0u
+/* the item records (0xF0 bytes each, 160 of them): Veldin's program on the NTSC-U disc has PAL's 160 rows at 0x002C5640 (read from both discs' level 1, 2026-11-21: gun byte, next version +0x46, ammo +0x84/+0x8A/+0x8E and name ids the same) */
+#define RAC3_LADDR_1_0x002C5600u 0x002C5640u
 /* the same instruction of the same code: func_L01_0041BFE8 (NTSC-U func_L01_004198E0) +0xC, 3 of 3 places agree */
 #define RAC3_LADDR_1_0x002E60D0u 0x002E6110u
 /* the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404858's twin is NTSC-U's func_L01_004024E8, the pair rac3-ntsc's carried libraries.tsv binds */
