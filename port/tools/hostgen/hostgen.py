@@ -282,11 +282,15 @@ def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None
     hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet, and
     "candidate_folders_left_out" (folder -> why) leaves out every candidate whose file is under one
     of those folders of the decompilation (a program whose retail code the build reads, so its
-    instructions are translated in place of another release's drafts).
+    instructions are translated in place of another release's drafts). "candidate_gates_left_out"
+    (verdict -> why) leaves out every candidate whose gate column (the table's sixth: the functional
+    gate's verdict, `differs-fuzz; ...` or `build: ...`) starts with one of those words: C the gate
+    found to behave otherwise than retail, or could not build or run, is not put in its place.
     FILES, when given, gets each candidate's file (relative to the decompilation)."""
     table = cfg.get("candidates")
     left_out = cfg.get("candidates_left_out", {})
     folders = tuple(f.rstrip("/") + "/" for f in cfg.get("candidate_folders_left_out", {}))
+    gates = set(cfg.get("candidate_gates_left_out", {}))
     if not table or not (source / table).is_file():
         return {}
     out: dict[str, str] = {}
@@ -296,8 +300,12 @@ def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None
             continue
         # name, file, and any columns after them (a gate's verdict, a note): only the first two count
         name, _, rest = line.partition("\t")
-        rel = rest.split("\t")[0]
+        cols = rest.split("\t")
+        rel = cols[0]
         path = source / rel.strip()
+        gate = re.split(r"[\s;:]", cols[4].strip(), maxsplit=1)[0] if len(cols) > 4 else ""
+        if gates and gate in gates:
+            continue
         if path.is_file() and name.strip() not in left_out and not (folders and rel.strip().startswith(folders)):
             if path not in texts:
                 texts[path] = path.read_text(encoding="utf-8", errors="surrogateescape")
@@ -1012,7 +1020,8 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     if table and table.is_file():
         for line in table.read_text().splitlines():
             if line.strip() and not line.startswith("#"):
-                paths.append(source / line.partition("\t")[2].strip())
+                # name, file, then any columns (read_candidates reads only the first two)
+                paths.append(source / line.partition("\t")[2].split("\t")[0].strip())
     # Frontend C++ does not affect translation. Keep the configuration's tables, hand C and
     # headers, plus the shared host wrappers whose signatures the assembly stage reads.
     paths += [config]

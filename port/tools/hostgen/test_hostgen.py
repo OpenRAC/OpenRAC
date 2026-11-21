@@ -4968,6 +4968,23 @@ class CandidateFolders(unittest.TestCase):
             cfg["candidate_folders_left_out"] = {"nonmatching/frontbin": "translated from the disc"}
             self.assertEqual(sorted(hostgen.read_candidates(root, cfg)), ["func_B"])
 
+    def test_candidates_by_gate_verdict_are_left_out(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "f").mkdir()
+            for name in "ABCD":
+                (root / "f" / f"{name}.c").write_text(f"void func_{name}(void) {{}}\n")
+            (root / "functional.tsv").write_text(
+                "# name\tfile\tconfidence\tprogram\tdraft\tgate\n"
+                "func_A\tf/A.c\thigh\tlevels\tfunctional\tsame-fuzz 5/5 blocks\n"
+                "func_B\tf/B.c\thigh\tlevels\tfunctional\tdiffers-fuzz 3/9 blocks\n"
+                "func_C\tf/C.c\tmedium\tfrontbin\tfunctional\tnot-checkable: no twin\n"
+                "func_D\tf/D.c\thigh\tlevels\n")
+            cfg = {"candidates": "functional.tsv"}
+            self.assertEqual(sorted(hostgen.read_candidates(root, cfg)), ["func_A", "func_B", "func_C", "func_D"])
+            cfg["candidate_gates_left_out"] = {"differs-fuzz": "behaves otherwise", "not-checkable": "unchecked"}
+            self.assertEqual(sorted(hostgen.read_candidates(root, cfg)), ["func_A", "func_D"])
+
 
 class PortHeaders(unittest.TestCase):
     """hostgen.json "headers": the port's own copy of a decompilation header, found first (Up Your

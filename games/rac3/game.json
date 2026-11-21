@@ -11,8 +11,8 @@
     "repo": "https://github.com/OpenRAC/rac3-decomp",
     "branch": "master",
     "license": "GPL-3.0",
-    "commit": "4e0324fd5cbfd470d343bc199358c343e696e9de",
-    "date": "2026-11-20",
+    "commit": "8e0ec8529b463c6585a36384ef37b8482343048a",
+    "date": "2026-11-21",
     "imported": "2026-11-21"
   },
   "versions": {
@@ -47,8 +47,8 @@
         "repo": "https://github.com/OpenRAC/rac3-decomp",
         "branch": "master",
         "license": "GPL-3.0",
-        "commit": "4e0324fd5cbfd470d343bc199358c343e696e9de",
-        "date": "2026-11-20",
+        "commit": "8e0ec8529b463c6585a36384ef37b8482343048a",
+        "date": "2026-11-21",
         "imported": "2026-11-21"
       },
       "build": {
@@ -124,8 +124,8 @@
         "repo": "https://github.com/OpenRAC/rac3-decomp",
         "branch": "master",
         "license": "GPL-3.0",
-        "commit": "4e0324fd5cbfd470d343bc199358c343e696e9de",
-        "date": "2026-11-20",
+        "commit": "8e0ec8529b463c6585a36384ef37b8482343048a",
+        "date": "2026-11-21",
         "imported": "2026-11-21"
       },
       "build": {
