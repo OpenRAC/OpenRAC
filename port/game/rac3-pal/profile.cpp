@@ -452,6 +452,11 @@ public:
     // pose layer link at +0x50 (structs/moby.h; MobyProc reads them there).
     std::uint32_t moby_anim_fields() const override { return 0x40; }
 
+    // Going Commando's pose layers: the joint records sit at +0x10 (moby_anim_layer_new
+    // func_L01_00439CB8, moby_pose_build func_L01_0043E8D0), not keys; a layer blending from a
+    // snapshot points its record slot at the snapshot.
+    bool moby_layer_records() const override { return true; }
+
     // The glow word MobyProc copies to its job: +0x78 (boot 0x003CCD38, lw a2 0x78($fp)), as Going
     // Commando's; the bangles' word is +0x7C there too (0x003CBEDC).
     std::uint32_t moby_glow_word() const override { return 0x78; }
