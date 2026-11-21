@@ -74,6 +74,10 @@ void LevelScene::draw_motion(
         throw std::runtime_error(reads.error().message);
     }
 
+    if (view.raster_zero_to_one) {
+        glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+    }
+
     // Both paths share the same textures, pose history and coverage shader.
     if (batched) {
         draw_motion_batches(shader, textures);
@@ -84,6 +88,9 @@ void LevelScene::draw_motion(
         }
     }
 
+    if (view.raster_zero_to_one) {
+        glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
+    }
     glBindVertexArray(0);
 }
 
