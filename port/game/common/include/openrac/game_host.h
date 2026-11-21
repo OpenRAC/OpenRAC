@@ -764,6 +764,12 @@ typedef struct openrac_game_play {
      * slot, -1 for none. NULL for a game without them. */
     int (*moby_copy_check)(uint32_t moby);
     int32_t (*moby_copy)(uint32_t moby, int index);
+    /* The pool of spawned mobys (openrac_api moby_pool_raise, moby_pool_status): asks for `extra`
+     * more spare slots in the levels loaded from now on, returning the slots granted; and fills
+     * out[0..4] (the spare slots in all, alive, free, added to this load, asked for): 1 for a level,
+     * 0 for none, negative for an unreadable one. NULL for a game without them. */
+    int (*moby_pool_raise)(int extra);
+    int (*moby_pool_status)(int32_t out[5]);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)

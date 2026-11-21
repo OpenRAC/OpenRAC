@@ -20,7 +20,7 @@
  * openrac_rac3_<name>, the type of a function that can replace it.
  * OPENRAC_RAC3_HOOK takes them together. On a port that lacks one,
  * openrac_api.hook returns OPENRAC_HOOK_UNKNOWN. The first came with
- * SDK 1.26.1.
+ * SDK 1.27.1.
  */
 #ifndef OPENRAC_GAMES_RAC3_H
 #define OPENRAC_GAMES_RAC3_H

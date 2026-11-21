@@ -125,6 +125,7 @@ enum class Var : std::uint16_t {
     MapWatch,
     MeatProxyReview,
     Menu,
+    MobyExtra,
     MobyLog,
     MobySphereCullOff,
     NativeLibraryDir,

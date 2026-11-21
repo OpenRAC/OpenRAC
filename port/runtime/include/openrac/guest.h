@@ -65,7 +65,7 @@ __extension__ typedef unsigned __int128 openrac_u128;
 #define GUEST_STRINGS (GUEST_PORT + 0x00100000u)
 #define GUEST_STRINGS_SIZE 0x00100000u
 #define GUEST_STATICS (GUEST_PORT + 0x00200000u)
-#define GUEST_STATICS_SIZE 0x00100000u
+#define GUEST_STATICS_SIZE 0x00400000u /* 4 MB of the port's 16: room for the mods' copies' pvars */
 
 /* ---- Addresses ---- */
 

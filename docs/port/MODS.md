@@ -795,6 +795,15 @@ copies of a squad's enemies never woke, were never drawn and could not be hit), 
 moby whose pvars hold another moby (a part of its own) is not copied. A mod that makes copies asks
 for 1.26 (the C++ layer's `has_squad_copies()`).
 
+1.27 (SDK 1.27.0) more room for spawned mobys (Going Commando): `moby_pool_raise(extra)` asks for up
+to 512 more spare slots in every level loaded from then on, and `moby_pool_status` reads the
+level's pool (slots in all, alive, free, added). The game makes every spawned moby (a bolt, a shot,
+an effect, a copy) from the spare slots its level's file sets (200 to 400; Barlow's 398), and a spawn
+with none free is lost; NG++'s copies of Barlow's enemies alone take 79. The port raises the count
+as the level's gameplay file is decompressed (port/game/rac2/host/moby_pool.c), the way Ratchet &
+Clank's bigger pool does. Ask in `load()` (the C++ layer's `has_moby_pool()`, `moby_pool_raise()`,
+`moby_pool_status()`).
+
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
 does. The port keeps every hook point it has had, with its
