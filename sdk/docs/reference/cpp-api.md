@@ -220,6 +220,9 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool has_moby_pool() const` | Since 1.27: whether the port has moby_pool_raise() and moby_pool_status(). |
 | `int moby_pool_raise(int extra) const` | Since 1.27: asks for `extra` more spare moby slots in every level loaded from now on (at most OPENRAC_MOBY_POOL_EXTRA_MAX). Ask in load(). Returns the slots granted, 0 for none (or a port or game without the call). |
 | `bool moby_pool_status(openrac_moby_pool& out) const` | Since 1.27: fills `out` with the level's pool of spawned mobys as it is now. False outside a level or with no such call. |
+| `bool has_menu_look() const` | Since 1.28: whether the port has menu_look() (developer_menu_look). |
+| `bool menu_look(std::uint32_t action, std::uint32_t flags, const char* value = nullptr, float progress = -1.0f, const char* icon = nullptr) const` | Since 1.28: how the mod's tab row `action` looks besides its label: `flags` (OPENRAC_DEVELOPER_MENU_INFO, _LOCKED), text at its right (`value`, null or "" for none), a progress bar (0 to 1, negative for none) and an icon added with touch_icon (null or "" for none). Strings are copied. Only during load (after developer_menu) or from the tick boundary. Returns false when refused or the port has no such call. |
+| `bool menu_look_clear(std::uint32_t action) const` | Since 1.28: the row `action` a plain row again. The same times and results as menu_look(). |
 | `template <class F> void on_tick_boundary(F&& callable)` | Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here. Since 1.6; only during load. |
 | `bool has_savestates() const` | Since 1.6: returns whether the port offers tick-boundary and warm-snapshot calls. |
 | `std::size_t savestate_size() const` | The exact size of this build's warm, same-process snapshot. Since 1.6. |

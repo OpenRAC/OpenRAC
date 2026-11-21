@@ -1113,6 +1113,14 @@ void a_mod_provides_a_desktop_menu(const fs::path& plugins) {
     CHECK(items[2].kind == mods::MenuItemKind::Switch && items[2].value == 0);
     CHECK(items[3].kind == mods::MenuItemKind::Choice && items[3].value == 1);
     CHECK(items[3].values == std::vector<std::string>({"x1", "x2", "x4"}));
+    // A row's look (interface 1.28): item 2 a locked row to read, its progress cut to 1; item 1
+    // set and cleared again. A locked row and a row to read queue nothing.
+    CHECK(items[1].info && items[1].locked && items[1].look_value == "24/40");
+    CHECK(items[1].progress == 1.0f && items[1].icon == "trophy");
+    CHECK(!items[0].info && !items[0].locked && items[0].look_value.empty());
+    CHECK(items[0].progress < 0.0f && items[0].icon.empty());
+    mods::queue_developer_menu_action(menus[0].mod, 2);
+    CHECK(menus[0].actions.empty());
     CHECK(std::find(g_records.begin(), g_records.end(), 1801) != g_records.end());
     mods::set_developer_menu_value(menus[0].mod, 3, 1);
     CHECK(items[2].value == 1);

@@ -465,7 +465,12 @@ void menu_heading(const char* title) {
 }
 
 bool menu_row(
-    const char* label, ImU32 ink, const RowRight& right, float right_width, const char* stable_id
+    const char* label,
+    ImU32 ink,
+    const RowRight& right,
+    float right_width,
+    const char* stable_id,
+    const RowExtra* extra
 ) {
     const float height = dp(s.menu_row_height);
     const ImVec2 at = ImGui::GetCursorScreenPos();
@@ -480,7 +485,7 @@ bool menu_row(
     const bool pressed =
         ImGui::InvisibleButton("row", ImVec2(width, height), ImGuiButtonFlags_EnableNav);
     ImGui::PopID();
-    if (pressed && !g_quiet_row) {
+    if (pressed && !g_quiet_row && !(extra != nullptr && extra->quiet)) {
         menu_sound(MenuSound::Confirm);
     }
     // The menu just opened or changed tab: its first row takes the focus, so that the arrows and a
@@ -518,12 +523,40 @@ bool menu_row(
             dp(2.0f)
         );
     }
-    const ImVec2 text_at(
+    ImVec2 text_at(
         at.x + dp(16.0f) + dp(4.0f) * mark, at.y + (height - ImGui::GetFontSize()) * 0.5f
     );
+    const bool has_bar = extra != nullptr && extra->progress >= 0.0f;
+    if (extra != nullptr && extra->icon) {
+        // The icon a little larger than the letters, before them.
+        const float size = std::round(ImGui::GetFontSize() * 1.4f);
+        extra->icon(list, ImVec2(text_at.x, std::round(at.y + (height - size) * 0.5f)), size);
+        text_at.x += size + dp(10.0f);
+    }
+    const float until = at.x + width - dp(16.0f) - right_width - dp(10.0f);
+    const float bar_end = right_width > 0.0f ? until : at.x + width - dp(16.0f);
+    // No room for a bar (a narrow card, a wide value): none.
+    if (has_bar && bar_end > text_at.x + dp(4.0f) * 2.0f) {
+        // The label up a little, the bar under it, as long as the label's room.
+        text_at.y -= dp(4.0f);
+        const float top = std::round(text_at.y + ImGui::GetFontSize() + dp(3.0f));
+        const float end = bar_end;
+        const float h = dp(4.0f);
+        const float k = std::clamp(extra->progress, 0.0f, 1.0f);
+        list->AddRectFilled(
+            ImVec2(text_at.x, top), ImVec2(end, top + h), ui().line_strong, h * 0.5f
+        );
+        if (k > 0.0f) {
+            list->AddRectFilled(
+                ImVec2(text_at.x, top),
+                ImVec2(std::min(end, text_at.x + std::max(h, (end - text_at.x) * k)), top + h),
+                extra->dim ? ui().dim : ui().amber,
+                h * 0.5f
+            );
+        }
+    }
     if (right_width > 0.0f) {
         // Up to what the right side draws: a longer label is cut short with "...".
-        const float until = at.x + width - dp(16.0f) - right_width - dp(10.0f);
         ImGui::PushStyleColor(ImGuiCol_Text, ink);
         ImGui::RenderTextEllipsis(
             list,
@@ -549,7 +582,7 @@ bool menu_row(const char* label, ImU32 ink) {
     return menu_row(label, ink, RowRight());
 }
 
-bool menu_switch(const char* label, bool on, bool enabled) {
+bool menu_switch(const char* label, bool on, bool enabled, const RowExtra* extra) {
     ImGui::BeginDisabled(!enabled);
     const bool pressed = menu_row(
         label, enabled ? ui().text : ui().dim, [on, enabled](ImDrawList* list, ImVec2 right) {
@@ -568,7 +601,10 @@ bool menu_switch(const char* label, bool on, bool enabled) {
                 knob,
                 enabled ? ui_colors::mix(ui().dim, ui().text, k) : ui().dim
             );
-        }
+        },
+        extra != nullptr ? dp(46.0f) : 0.0f,
+        nullptr,
+        extra
     );
     ImGui::EndDisabled();
     return pressed;
@@ -580,7 +616,8 @@ int menu_choice(
     bool can_lower,
     bool can_raise,
     bool enabled,
-    const char* stable_id
+    const char* stable_id,
+    const RowExtra* extra
 ) {
     float back_until = 0.0f;  // a press left of this moves the value back
     // The values of every row in one column, centred between its arrows; a label too long for
@@ -602,7 +639,7 @@ int menu_choice(
     g_quiet_row = true;  // the row's sound is the value's (below)
     ImGui::BeginDisabled(!enabled);
     const bool pressed =
-        menu_row(label, enabled ? ui().text : ui().dim, draw, column + dp(8.0f), stable_id);
+        menu_row(label, enabled ? ui().text : ui().dim, draw, column + dp(8.0f), stable_id, extra);
     ImGui::EndDisabled();
     g_quiet_row = false;
     if (!enabled) {

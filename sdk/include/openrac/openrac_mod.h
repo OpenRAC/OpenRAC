@@ -82,10 +82,12 @@ extern "C" {
  * effects a moby draws, and copies of a level's placed enemies
  * (moby_copy_check, moby_copy), and 1.26 copies that wake and fight with
  * their squad (the table is unchanged: a 1.25 port's copies of a squad's
- * enemies never wake, so a mod asks for 1.26 before it makes them), and 1.27
- * more room for spawned mobys (moby_pool_raise, moby_pool_status).
+ * enemies never wake, so a mod asks for 1.26 before it makes them), 1.27
+ * more room for spawned mobys (moby_pool_raise, moby_pool_status), and 1.28
+ * rows of a mod's tab in OpenRAC's menu to read, locked, with a value, a
+ * progress bar or an icon (developer_menu_look).
  */
-#define OPENRAC_MOD_API_MINOR 27
+#define OPENRAC_MOD_API_MINOR 28
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1105,14 +1107,40 @@ typedef void (*openrac_frame_fn)(void* user);
  * from this callback, at the port's tick boundary. Since 1.6. */
 typedef void (*openrac_tick_boundary_fn)(void* user, uint32_t tick);
 
-/* One entry in a mod's top-level desktop menu. `group` is an optional submenu label; `action` is
- * a nonzero mod-defined id. Since 1.10. */
+/* One row of a mod's tab in OpenRAC's menu (the overlay the player opens over the game).
+ * `group` is an optional heading: rows of a group go on a card under it. `action` is a nonzero
+ * mod-defined id. Since 1.10. */
 typedef struct openrac_developer_menu_item {
     const char* label;
     const char* shortcut;
     uint32_t action;
     const char* group;
 } openrac_developer_menu_item;
+
+/* openrac_developer_menu_look.flags. Since 1.28. */
+/* A row to read, not to press: the cursor passes over it (so a controller scrolls a long tab), a
+ * press queues nothing. For a plain row; a switch or a choice ignores it. */
+#define OPENRAC_DEVELOPER_MENU_INFO 0x1u
+/* Drawn dim, as a locked entry: a press, a switch's turn or a choice's step does nothing. */
+#define OPENRAC_DEVELOPER_MENU_LOCKED 0x2u
+
+/* How a row of a mod's tab looks besides its label (openrac_api.developer_menu_look). The mod's;
+ * its strings are copied during the call. Since 1.28. */
+typedef struct openrac_developer_menu_look {
+    /* sizeof(openrac_developer_menu_look) as the mod was built. */
+    uint32_t size;
+    /* OPENRAC_DEVELOPER_MENU_INFO, OPENRAC_DEVELOPER_MENU_LOCKED, or 0. */
+    uint32_t flags;
+    /* Text at the row's right, in the accent's gold ("Earned", "24/40"); null or "" for none. A
+     * plain row's: a switch and a choice show their own value there. */
+    const char* value;
+    /* A bar under the label, filled from 0 to 1; negative for none. */
+    float progress;
+    /* An icon left of the label: the name of one the mods added with touch_icon (#ff8000 drawn in
+     * the accent, the rest in the label's colour); null or "" for none, and one not added draws
+     * none. */
+    const char* icon;
+} openrac_developer_menu_look;
 
 /* A function the port calls for each pad report (openrac_api.on_pad), with the `user` pointer the
  * mod gave. `report` is the report as the console's pad library hands it to the game (its bytes,
@@ -1842,10 +1870,11 @@ typedef struct openrac_api {
      * in it (openrac_moby_run). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or
      * for a game without it. Since 1.9. */
     int (*moby_run)(int slot, openrac_moby_run* out);
-    /* Adds a top-level menu beside View, Graphics, Sound and Developer to the in-window desktop
-     * menu bar. `title`, item labels, shortcuts and groups are copied. Selections are queued for
-     * the mod and retrieved from its tick-boundary callback; this never calls mod code from UI drawing.
-     * Items may be placed in groups (submenus), and use nonzero mod-defined action ids. Returns
+    /* Adds a tab `title` to OpenRAC's menu (the overlay the player opens over the game), after the
+     * port's own tabs, its items as rows drawn as the port's own. `title`, item labels, shortcuts
+     * and groups are copied. Selections are queued for the mod and retrieved from its
+     * tick-boundary callback; this never calls mod code from UI drawing. Items may be placed in
+     * groups (each a card under its heading), and use nonzero mod-defined action ids. Returns
      * OPENRAC_HOOK_OK, OPENRAC_HOOK_TAKEN for a duplicate title or action, OPENRAC_HOOK_UNKNOWN
      * for invalid items, or OPENRAC_HOOK_TOO_LATE unless called during openrac_mod_load. Since 1.10. */
     int (*developer_menu)(
@@ -2422,6 +2451,19 @@ typedef struct openrac_api {
      * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or for a game without a
      * pool. */
     int (*moby_pool_status)(openrac_mod* mod, openrac_moby_pool* out);
+
+    /* Sets how the mod's tab row `action` looks besides its label (openrac_developer_menu_look:
+     * a row to read, a locked one, a value at its right, a progress bar, an icon), or with `look`
+     * null as a plain row again. Called again, it replaces the look. From openrac_mod_load, after
+     * developer_menu, or the mod's tick-boundary callback, as developer_menu_switch. Returns
+     * OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN for an action the mod has not registered, a look whose
+     * size is too small or a progress that is not a number, or OPENRAC_HOOK_TOO_LATE at another
+     * time. Since 1.28. */
+    int (*developer_menu_look)(
+        openrac_mod* mod,
+        uint32_t action,
+        const openrac_developer_menu_look* look
+    );
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

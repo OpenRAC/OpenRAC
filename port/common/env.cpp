@@ -246,7 +246,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "JSON task queue and saved feedback for the developer review panel"},
     {Var::Menu, "OPENRAC_MENU",
      Kind::Text, Truth::NotAFlag, "closed",
-     "TAB[@TICK] (graphics, enhanced, game, controls, developer): the menu open on that tab at that tick"},
+     "TAB[@TICK] (graphics, enhanced, game, controls, developer, or a mod's tab's title): the menu open on that tab at that tick"},
     {Var::MobyExtra, "OPENRAC_MOBY_EXTRA",
      Kind::Integer, Truth::NotAFlag, "none",
      "Going Commando: N more spare moby slots (at most 1,024) in every level loaded, as a mod's "
