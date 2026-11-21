@@ -7,7 +7,7 @@ resource folder, even when several use the same template program.
 
 The creator edits a Godot project and exports a pack. They do not edit the game's
 C, choose unused memory addresses, or manually assign destination numbers.
-This workflow currently targets the **native RAC1 PAL port**.
+This workflow targets the **native RAC1 PAL and NTSC-U ports**.
 
 ## 1. Prepare a project of your own
 
@@ -222,7 +222,7 @@ standalone map; creators should use format 4 and normal launcher preparation.
   framework does not automatically import behavior from another level or game.
 - Galaxy previews still use template artwork/location; the added world has its
   own selectable name and resource mount. This does not add a retail ISO overlay.
-- NTSC-U supports existing standalone maps, but ship destinations are PAL only.
+- Standalone maps and ship destinations work on PAL and NTSC-U; each pack runs only on the disc it was packed for.
 - The [sourcing policy](../docs/policy/SOURCING.md) applies: do not commit or upload
   disc-derived terrain, models, textures, packed game files or ISOs with this code.
   Keep generated outputs private; the repository contains only tools, tests and
