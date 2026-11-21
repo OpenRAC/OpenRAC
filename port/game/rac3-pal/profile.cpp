@@ -390,6 +390,13 @@ bool essential_moby(int class_id) {
            || class_id == 0xCDB;
 }
 
+// His ship's paint job: texture_slot_load (frontbin func_00398C80, Veldin's 0x00425E10) loads paint
+// n of 32 (ship_config bits 16-20) over the ship's picture and keeps n at 0x0016C5B0 (sw s0,
+// 0x30 of 0x0016C580, on both discs); the export writes every paint (editor/port.py
+// "ship_paints", levels format 15).
+constexpr std::uint32_t kShipPaint = 0x0016C5B0;
+constexpr std::int32_t kShipPaints = 32;
+
 // The game's profile: its memory read by program, and the display list it sends.
 class Profile final : public host::GameProfile {
 public:
@@ -529,6 +536,13 @@ public:
     bool mobys_take_point_lights() const override { return true; }
 
     bool terrain_takes_point_lights() const override { return true; }
+
+    // The paint job on his ship, the one texture_slot_load loaded (Going Commando's 9d978896b):
+    // the scene binds that variant of the ship's picture.
+    int texture_variant(std::span<const std::uint8_t> ram) const override {
+        const auto paint = at<std::int32_t>(ram, kShipPaint);
+        return paint >= 0 && paint < kShipPaints ? paint : -1;
+    }
 
     // The gameplay subjects enhanced lighting gives its rim (Going Commando's 3741a2d76).
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }

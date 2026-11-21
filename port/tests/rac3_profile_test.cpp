@@ -273,6 +273,15 @@ void lights_from_each_programs_bank() {
     CHECK(host::game_profile("rac3-ntsc").light_bank() == 0x001F17C0u);
     g_overlay = 0;
     CHECK(host::game_profile("rac3-ntsc").light_bank() == 0x002FF280u);
+    // His ship's paint job, kept by texture_slot_load at 0x0016C5B0.
+    {
+        std::vector<std::uint8_t> ram(0x02000000, 0);
+        CHECK(profile.texture_variant(ram) == 0);
+        ram[0x0016C5B0] = 7;
+        CHECK(profile.texture_variant(ram) == 7);
+        ram[0x0016C5B0] = 40;
+        CHECK(profile.texture_variant(ram) == -1);
+    }
     // The rim's gameplay subjects: the hero, the crates, the ammo pickups.
     CHECK(profile.gameplay_essential(0));
     CHECK(profile.gameplay_essential(0x1F4));
