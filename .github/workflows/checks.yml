@@ -199,7 +199,7 @@ jobs:
       - name: rac4 progress reports are current with their source
         working-directory: games/rac4/decomp
         # rac4-decomp's reports (progress/report.json, progress/pal/), as its own CI checks them;
-        # gen_progress_report.py's legacy report is a build output now (build/legacy_report.json).
+        # gen_progress_report.py's report is a build output (build/legacy_report.json).
         run: |
           python tools/progress.py --version us --check
           python tools/progress.py --version pal --check

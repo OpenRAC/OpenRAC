@@ -1959,7 +1959,7 @@ def main(argv: list[str] | None = None) -> int:
     misses = [(r.unit, p) for r in reports for p in r.problems if p.startswith(LEVEL_SHORT_MISS)]
     if misses:
         # The decompilation's build reads such a name's value from the retail jal, so it still
-        # matches; the port would call another function. Fixed in the decompilation, by the name
+        # matches; the port would call another function. The fix goes in the decompilation: the name
         # the level's own function has there (or the executable's name, which each level's copy takes).
         for unit, problem in misses:
             print(f"hostgen: error: {unit}: {problem}", file=sys.stderr)

@@ -2982,7 +2982,7 @@ class Unit:
         # level's copy: func_L00_003827C0's moby to func_0029F338's delete): passed on, as a direct
         # call does (_match_args). Through the call site's shorter type the callee read a register
         # the host had not set: Linux kept the caller's value by chance, AArch64 had a host address
-        # there, and Windows' thunk nothing (Going Commando's New Game, PR #511's reports).
+        # there, and Windows' thunk nothing (Going Commando's New Game).
         passes_on = any(
             k < len(regs)
             for kind, regs in (("i", self.fn.int_params), ("f", self.fn.float_params))

@@ -1132,9 +1132,9 @@ void GifInterpreter::clut_load(const gs::Tex0& t) {
             break;
     }
     // The copy a load would keep (TexturePool::load_clut) is not taken: the 2D layer's CLUTs are
-    // read from memory at draw time, as before 520b75f4. Kept at the TEX0 write, a CLUT the game
-    // sends after it in the same frame was missed, and the copy held a stale one: the pause pages'
-    // box frames drew as noise and the Gadgetron vendor's beam as black after its menu.
+    // read from memory at draw time. Kept at the TEX0 write, a CLUT the game sends after it in the
+    // same frame would be missed and the copy would hold a stale one (the pause pages' box frames
+    // would draw as noise and the Gadgetron vendor's beam as black after its menu).
     (void)load;
 }
 

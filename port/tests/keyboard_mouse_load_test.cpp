@@ -13,9 +13,8 @@
 // Expected values are the mod's documented behaviour (docs/port/KEYBOARD_MOUSE.md, openrac-mod.json) and the console's
 // pad report as the game reads it; the addresses come from src/discs.h.
 //
-// It was the keyboard-mouse mod's load test; the entries are now the port's own functions
-// (keyboard_mouse.h) rather than a library's, and the frames' mouse turn (frontend/mouse_turn.h)
-// is checked against the turn the tick then makes.
+// The entries are the port's own functions (keyboard_mouse.h), and the frames' mouse turn
+// (frontend/mouse_turn.h) is checked against the turn the tick then makes.
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
