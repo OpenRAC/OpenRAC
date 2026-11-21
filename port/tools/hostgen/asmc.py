@@ -197,6 +197,9 @@ class Translator:
     # reads on any path from its entry before writing them (_live_arguments), not only those read
     # before its first call; a prototype that leaves some out gets them added, as _entry_reads's.
     live_arguments = False
+    # asm.wide_call_results in hostgen.json: a call through a folded copy's own target keeps a
+    # 64-bit result its callee's declaration gives (indirect's wide_result), not its low half.
+    wide_call_results = False
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -1047,7 +1050,8 @@ class Translator:
             # A jal that differs between this function's places (call_copies.tsv): the running copy's.
             # Through the registers: the copy's own function may take more than the name's.
             self.unit.fn.uses_self = True
-            return self.indirect(call_copy_expr(call_copy), target if at is None else at)
+            return self.indirect(call_copy_expr(call_copy), target if at is None else at,
+                                 wide_result=self.wide_call_results and ret in WIDE)
         elif self.unit._folded_places(sym):
             # One name for several places (folded by the catalogue): the place this call goes to.
             callee = f"GFN({fn_type}, {self._code_literal(target)})"
@@ -1061,7 +1065,8 @@ class Translator:
             home, start, size, own = variant
             self.unit.fn.uses_self = True
             expr = f"openrac_call_in_copy({home}, {hx(start)}, {size}u, openrac_self_, {hx(own)})"
-            return self.indirect(expr, target if at is None else at, ret == "float")
+            return self.indirect(expr, target if at is None else at, ret == "float",
+                                 self.wide_call_results and ret in WIDE)
         else:
             callee = cname(sym)
         if self.forward_unprototyped and not f.sig.prototyped:
@@ -1128,12 +1133,15 @@ class Translator:
             return pre + [f"r2 = {S32(f'({ret})({call})')};"] + post
         raise AsmUnsupported(f"a call whose result is {ret}")
 
-    def indirect(self, value: str, at: int, float_result: bool = False) -> list[str]:
+    def indirect(self, value: str, at: int, float_result: bool = False, wide_result: bool = False) -> list[str]:
         """A call through a code address: the registers as eight integers (and eight floats when the
         function sets any argument float), the result as an integer, or a float when the code after
-        reads $f0 before it writes it (or `float_result`: the callee's declaration returns one)."""
+        reads $f0 before it writes it (or `float_result`: the callee's declaration returns one).
+        `wide_result`: the callee's declaration returns 64 bits, which the result keeps (a TEX0 from
+        GetEffectTex, func_L01_00404040, reached through a folded copy's own call: cut to 32 bits,
+        its CLUT and height were lost and Annihilation Nation's mirror was drawn as stripes)."""
         floats = any(r in self._float_writes() for r in FARG_REGS)
-        ret = "float" if float_result or self._reads_f0_after(at) else "int"
+        ret = "float" if float_result or self._reads_f0_after(at) else "unsigned long long" if wide_result else "int"
         params = ["openrac_u64"] * 8 + (["float"] * 8 if floats else [])
         args = [self.R(r) for r in ARG_REGS] + ([f"f{r}" for r in FARG_REGS] if floats else [])
         t = f"{ret} (*)({', '.join(params)})"
@@ -1148,6 +1156,8 @@ class Translator:
         regs = f"{value}, (const openrac_u64[8]){{{ints}}}, (const float[8]){{{fl}}}, &fr_"
         if ret == "float":
             body = f"{{ float fr_; (void)openrac_guest_call_regs({regs}, 1); f0 = fr_; }}"
+        elif ret == "unsigned long long":
+            body = f"{{ float fr_; r2 = (openrac_u64)openrac_guest_call_regs({regs}, 0); }}"
         else:
             body = f"{{ float fr_; r2 = {S32(f'(int)openrac_guest_call_regs({regs}, 0)')}; }}"
         thunked = ["OPENRAC_ASM_CALL();", "OPENRAC_VU0_OUT();", body, "OPENRAC_VU0_IN();"]
@@ -2203,6 +2213,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.signature_check = bool(a.get("signature_check"))
     tr.result_flow = bool(a.get("result_flow"))
     tr.live_arguments = bool(a.get("live_arguments"))
+    tr.wide_call_results = bool(a.get("wide_call_results"))
     tr.verified_signatures = frozenset(a.get("signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)
