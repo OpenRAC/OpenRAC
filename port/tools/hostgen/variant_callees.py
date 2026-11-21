@@ -21,7 +21,7 @@ and/or f0 when the code after the call writes no such register before it returns
 is the caller's ("-" for neither).
 
     python3 port/tools/hostgen/variant_callees.py --source games/rac3/decomp \\
-        --out port/game/rac3-pal/tables/variant_callees.tsv
+        --split port/game/rac3-pal/tables/split_places.tsv --out port/game/rac3-pal/tables/variant_callees.tsv
 """
 from __future__ import annotations
 
@@ -129,8 +129,28 @@ def catalogue(path: Path) -> list[tuple[str, int, list[tuple[int, int]]]]:
     return out
 
 
-def rows(source: Path) -> list[tuple[str, str, int, int, int, str, str]]:
-    table = catalogue(source / "config/levels/functions.tsv")
+def apply_split(table: list, split: Path | None) -> list:
+    """The catalogue with split_places.tsv applied (program.read_split_places): the places a variant
+    takes leave their function and are a caller of their own under the variant's name."""
+    if split is None or not split.exists():
+        return table
+    moved: dict[tuple[int, int], str] = {}
+    variants: dict[str, tuple[int, list]] = {}
+    sizes = {name: size for name, size, _ in table}
+    for line in split.read_text().splitlines():
+        cols = line.split("	")
+        if line.startswith("#") or len(cols) < 3 or cols[0] not in sizes:
+            continue
+        places = [(int(p[:2]), int(p[3:], 16)) for p in cols[2].split(",") if p]
+        variants.setdefault(cols[1], (sizes[cols[0]], []))[1].extend(places)
+        moved.update({place: cols[1] for place in places})
+    out = [(name, size, [p for p in places if p not in moved]) for name, size, places in table]
+    out += [(name, size, places) for name, (size, places) in variants.items()]
+    return out
+
+
+def rows(source: Path, split: Path | None = None) -> list[tuple[str, str, int, int, int, str, str]]:
+    table = apply_split(catalogue(source / "config/levels/functions.tsv"), split)
     names = {place: name for name, _, places in table for place in places}
     programs = level_programs(source / "baserom/levels")
     out = []
@@ -166,8 +186,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--source", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--split", type=Path, help="the game's tables/split_places.tsv, applied to the catalogue")
     args = ap.parse_args()
-    found = rows(args.source)
+    found = rows(args.source, args.split)
     text = HEADER + "".join(f"{c}\t{e}\t{lv:02d}\t{pl:08X}\t{w}\t{p}\t{r}\n" for c, e, lv, pl, w, p, r in found)
     args.out.write_text(text)
     print(f"variant_callees: {len({r[0] for r in found})} callers, {len(found)} rows", file=sys.stderr)

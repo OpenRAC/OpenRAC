@@ -281,7 +281,9 @@ vertical blank callback (`func_0013D208`).
   and caps of 960 (ties) and 500 (shrubs). At Original 1,729 shrubs are left out where Ratchet
   stands, at 400% 1,044 to 1,483, at Unlimited none. Active distance is the shared one
   (`frontend/sleeping_mobys.h`). No class needs the game's own distance yet (Going Commando's
-  `draw_distance.tsv`).
+  `draw_distance.tsv`): its three update functions (the Electrolyzer controller, the Arctic Leviathan and
+  the Y.E.T.I.) have no counterpart here (best opcode similarity 0.32 across all rac3 levels,
+  plans/rac2-to-rac3), and the many zone-gated enemies need a look in the running game first.
 - **The occlusion mask**: the 0x80 bytes the terrain's, the ties' and MobyProc's culls read (Veldin's
   0x001EA840, Going Commando's D_001BADC0), at each level's own copy: `openrac_front_end.occlusion`
   is named in Veldin's program and relocated through the level (`scenery_matrices_level`). The
