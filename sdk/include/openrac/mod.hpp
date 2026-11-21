@@ -1754,6 +1754,42 @@ public:
         return a.moby_model_at(m_handle, address, &m);
     }
 
+    // Since 1.36, RAC1 only: reserves unused native item IDs during load; refused if another mod holds one.
+    int rac1_reserve_item_ids(const std::uint32_t* ids, std::uint32_t count) const {
+        const auto& a = *m_api;
+        if (a.api_minor < 36 ||
+            a.size < offsetof(openrac_api, rac1_reserve_item_ids) + sizeof a.rac1_reserve_item_ids ||
+            a.rac1_reserve_item_ids == nullptr) return OPENRAC_HOOK_UNKNOWN;
+        return a.rac1_reserve_item_ids(m_handle, ids, count);
+    }
+
+    // Since 1.36, RAC1 only: moves a queued native ammo panel by (x, y) HUD reference units.
+    int rac1_ammo_panel_offset(std::int32_t handle, std::int32_t x, std::int32_t y) const {
+        const auto& a = *m_api;
+        if (a.api_minor < 36 ||
+            a.size < offsetof(openrac_api, rac1_ammo_panel_offset) + sizeof a.rac1_ammo_panel_offset ||
+            a.rac1_ammo_panel_offset == nullptr) return OPENRAC_HOOK_UNKNOWN;
+        return a.rac1_ammo_panel_offset(m_handle, handle, x, y);
+    }
+
+    // Since 1.36, RAC1 only: registers a native-backed weapon during load.
+    int rac1_weapon_register(const openrac_rac1_weapon& weapon) const {
+        const auto& a = *m_api;
+        if (a.api_minor < 36 ||
+            a.size < offsetof(openrac_api, rac1_weapon_register) + sizeof a.rac1_weapon_register ||
+            a.rac1_weapon_register == nullptr) return OPENRAC_HOOK_UNKNOWN;
+        return a.rac1_weapon_register(m_handle, &weapon);
+    }
+
+    // Since 1.36, RAC1 only: gives a registered weapon and its initial ammunition during play.
+    int rac1_weapon_grant(std::uint32_t item) const {
+        const auto& a = *m_api;
+        if (a.api_minor < 36 ||
+            a.size < offsetof(openrac_api, rac1_weapon_grant) + sizeof a.rac1_weapon_grant ||
+            a.rac1_weapon_grant == nullptr) return OPENRAC_HOOK_UNKNOWN;
+        return a.rac1_weapon_grant(m_handle, item);
+    }
+
     // Since 1.34: whether the port has the installed games' data folders (game_data_dir).
     bool has_game_data() const {
         return m_api->api_minor >= 34

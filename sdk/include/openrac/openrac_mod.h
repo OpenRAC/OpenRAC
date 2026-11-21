@@ -93,9 +93,11 @@ extern "C" {
  * (camera_shake), and 1.33 the game's own particle effects and custom 32 x 32 particle textures
  * started by a mod (particle_spawn_ex, particle_texture_register), and 1.34 the data folder of an
  * installed game declared in the manifest's "reads_games" (game_data_dir), and 1.35 the gameplay
- * camera's visibility culling bypassed on a mod's request (camera_visibility_bypass).
+ * camera's visibility culling bypassed on a mod's request (camera_visibility_bypass), and 1.36
+ * Ratchet & Clank custom weapons, cooperative item id reservation and native ammo panel offsets
+ * (rac1_reserve_item_ids, rac1_ammo_panel_offset, rac1_weapon_register, rac1_weapon_grant).
  */
-#define OPENRAC_MOD_API_MINOR 35
+#define OPENRAC_MOD_API_MINOR 36
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1573,6 +1575,41 @@ typedef struct openrac_moby_visual {
 
 /* The mobys one mod has a material on at once. Since 1.23. */
 #define OPENRAC_MOBY_MATERIALS_MAX 1024
+/* Fire a registered RAC1 weapon, on the game thread. Return nonzero when the
+ * shot was made. The SDK then deducts ammo and starts the cooldown. */
+typedef int (*openrac_rac1_weapon_fire_fn)(void* user, uint32_t item_id);
+
+/* An existing mod can keep its own commerce or ammo rules. */
+#define OPENRAC_RAC1_WEAPON_EXTERNAL_SHOP 1u
+#define OPENRAC_RAC1_WEAPON_EXTERNAL_AMMO 2u
+#define OPENRAC_RAC1_WEAPON_NO_HELD_MODEL 4u
+
+typedef struct openrac_rac1_weapon {
+    uint32_t size;
+    uint32_t item_id;          /* native extension slot 1 or 36 */
+    uint32_t presentation;     /* retail weapon providing native pose and default art */
+    uint32_t icon;             /* zero uses the presentation weapon's icon */
+    uint32_t capacity;         /* zero for unlimited ammunition */
+    uint32_t initial_ammo;
+    uint32_t ammo_per_shot;
+    uint32_t ammo_price;       /* bolts per round at the normal vendor and PDA */
+    uint32_t weapon_price;     /* zero if the weapon is granted by mod gameplay */
+    uint32_t cooldown_ticks;
+    uint32_t repeat_fire;      /* 0 once per press, 1 while held */
+    uint32_t flags;
+    float weapon_mesh_scale;   /* zero uses 1 */
+    float weapon_preview_scale; /* optional scale for the pause 3D preview */
+    float weapon_preview_z;     /* optional local z offset in the pause preview */
+    const char* weapon_mesh;   /* optional mod-relative GLB for held and preview models */
+    const char* ammo_mesh;     /* optional mod-relative GLB for the ammo previews */
+    const char* display_name;  /* optional game-font label for Quick Select and Weapons */
+    openrac_rac1_weapon_fire_fn fire;
+    void* user;
+    /* Optional. Local X, Y, Z rotations in radians for the pause weapon preview. */
+    float weapon_preview_rotation[3];
+    /* Optional. Icon key for the in-play ammunition box; zero uses `icon`. */
+    uint32_t hud_icon;
+} openrac_rac1_weapon;
 
 typedef struct openrac_api {
     /* sizeof(openrac_api) as the port was built: a newer port's is larger. Since 1.0. */
@@ -2746,6 +2783,25 @@ typedef struct openrac_api {
      * Desktop and Android share this renderer setting. Since 1.35. */
     int (*camera_visibility_bypass)(openrac_mod* mod, int enabled);
 
+    /* RAC1 only. Reserve a set of unused native item IDs during mod load. The mod verifies
+     * that its IDs are unused by the game on the supported discs. Conflicts with another
+     * mod's reservation refuse the entire request. Reservations last until unload.
+     * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_REFUSED (conflict) or OPENRAC_HOOK_UNKNOWN
+     * (unsupported game, invalid IDs or wrong phase). Since 1.36. */
+    int (*rac1_reserve_item_ids)(openrac_mod* mod, const uint32_t* ids, uint32_t count);
+    /* Move a native RAC1 ammo panel the mod queued. Pass its queue handle and offsets in HUD
+     * reference units. Moves the whole panel without changing its width or guest record.
+     * Set both offsets to zero before removing the panel. A replacement has a new handle.
+     * Cleared on level or mod unload. Call on the game thread. Since 1.36. */
+    int (*rac1_ammo_panel_offset)(openrac_mod* mod, int32_t handle, int32_t x, int32_t y);
+
+    /* Registers a playable native-backed weapon and enrols it in the two
+     * weapon menus. Call at mod load. Reserves item_id for the registering
+     * mod. The definition is copied. RAC1 only (PAL and NTSC-U). Since 1.36. */
+    int (*rac1_weapon_register)(openrac_mod* mod, const openrac_rac1_weapon* weapon);
+    /* Give a registered weapon and its initial ammunition during play.
+     * Granting an already owned weapon preserves its current ammo. Since 1.36. */
+    int (*rac1_weapon_grant)(openrac_mod* mod, uint32_t item_id);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

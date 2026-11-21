@@ -1043,6 +1043,8 @@ typedef struct openrac_game_hud_text {
 /* The mods' HUD lines of this level load, up to `max` into `out`; returns how many there are. The
  * game draws them after its own HUD's elements. */
 int openrac_game_hud_texts(openrac_game_hud_text* out, int max);
+int openrac_game_ammo_panel_offset(int handle, int* x, int* y);
+int openrac_game_rac1_weapon_hud_icon(int native_icon);
 
 /* How many times wider than the game's 4:3 the picture is (the player's aspect setting): its
  * horizontal tangent is the game's times this. 1 for a 4:3 picture, and without a window. */

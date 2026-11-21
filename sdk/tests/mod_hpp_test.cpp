@@ -1091,6 +1091,40 @@ int fake_camera_visibility_bypass(openrac_mod*, int enabled) {
     return enabled == 0 || enabled == 1 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+// What the fake host's 1.36 weapon calls were given.
+std::uint32_t g_reserved_first = 0;
+std::uint32_t g_reserved_count = 0;
+std::uint32_t g_registered_item = 0;
+std::uint32_t g_granted_item = 0;
+int g_panel_args[3] = {0, 0, 0};
+
+// A port that has the slots 1 and 36 free, takes one weapon per item and refuses a second one.
+int fake_rac1_reserve_item_ids(openrac_mod*, const std::uint32_t* ids, std::uint32_t count) {
+    if (ids == nullptr || count == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_reserved_first = ids[0];
+    g_reserved_count = count;
+    return ids[0] == 1 || ids[0] == 36 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_REFUSED;
+}
+
+int fake_rac1_ammo_panel_offset(openrac_mod*, std::int32_t handle, std::int32_t x, std::int32_t y) {
+    g_panel_args[0] = handle;
+    g_panel_args[1] = x;
+    g_panel_args[2] = y;
+    return OPENRAC_HOOK_OK;
+}
+
+int fake_rac1_weapon_register(openrac_mod*, const openrac_rac1_weapon* weapon) {
+    g_registered_item = weapon->item_id;
+    return OPENRAC_HOOK_OK;
+}
+
+int fake_rac1_weapon_grant(openrac_mod*, std::uint32_t item) {
+    g_granted_item = item;
+    return item == g_registered_item ? OPENRAC_HOOK_OK : OPENRAC_HOOK_REFUSED;
+}
+
 // A port of 1.30: it takes the three blends, refuses a number past them and keeps the last blend.
 int fake_set_blend(void*, uint32_t blend) {
     if (blend > OPENRAC_OVERLAY_BLEND_SUBTRACT) {
@@ -2560,6 +2594,39 @@ int main() {
         CHECK(!mod.has_camera_visibility_bypass() && !mod.camera_visibility_bypass(true) && g_bypass == -1);
         api.size = sizeof api;
         CHECK(mod.has_camera_visibility_bypass());
+    }
+    // Interface 1.36: the RAC1 weapon calls reach the port with what the mod gave, and a port without them is not asked.
+    {
+        api.rac1_reserve_item_ids = fake_rac1_reserve_item_ids;
+        api.rac1_ammo_panel_offset = fake_rac1_ammo_panel_offset;
+        api.rac1_weapon_register = fake_rac1_weapon_register;
+        api.rac1_weapon_grant = fake_rac1_weapon_grant;
+        const std::uint32_t ids[2] = {36, 1};
+        CHECK(mod.rac1_reserve_item_ids(ids, 2) == OPENRAC_HOOK_OK && g_reserved_first == 36 && g_reserved_count == 2);
+        const std::uint32_t taken[1] = {9};
+        CHECK(mod.rac1_reserve_item_ids(taken, 1) == OPENRAC_HOOK_REFUSED);
+        CHECK(mod.rac1_ammo_panel_offset(7, -12, 30) == OPENRAC_HOOK_OK && g_panel_args[0] == 7 &&
+              g_panel_args[1] == -12 && g_panel_args[2] == 30);
+        openrac_rac1_weapon weapon{};
+        weapon.size = sizeof weapon;
+        weapon.item_id = 36;
+        CHECK(mod.rac1_weapon_register(weapon) == OPENRAC_HOOK_OK && g_registered_item == 36);
+        CHECK(mod.rac1_weapon_grant(36) == OPENRAC_HOOK_OK && g_granted_item == 36);
+        CHECK(mod.rac1_weapon_grant(1) == OPENRAC_HOOK_REFUSED);
+        // A port of 1.35, or a table that ends before the slot, has none of it and is not asked.
+        g_granted_item = 0;
+        g_reserved_count = 0;
+        api.api_minor = 35;
+        CHECK(mod.rac1_reserve_item_ids(ids, 2) == OPENRAC_HOOK_UNKNOWN && g_reserved_count == 0);
+        CHECK(mod.rac1_ammo_panel_offset(7, 1, 1) == OPENRAC_HOOK_UNKNOWN && g_panel_args[1] == -12);
+        CHECK(mod.rac1_weapon_register(weapon) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(mod.rac1_weapon_grant(36) == OPENRAC_HOOK_UNKNOWN && g_granted_item == 0);
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, rac1_reserve_item_ids));
+        CHECK(mod.rac1_reserve_item_ids(ids, 2) == OPENRAC_HOOK_UNKNOWN && g_reserved_count == 0);
+        CHECK(mod.rac1_weapon_grant(36) == OPENRAC_HOOK_UNKNOWN && g_granted_item == 0);
+        api.size = sizeof api;
+        CHECK(mod.rac1_weapon_grant(36) == OPENRAC_HOOK_OK);
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);

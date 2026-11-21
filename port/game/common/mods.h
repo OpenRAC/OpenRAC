@@ -29,6 +29,8 @@
 
 namespace openrac::mods {
 
+int rac1_weapon_hud_icon(int native_icon);
+
 // One hook point as hostgen's hooks.c lists it (openrac_game_hook_points): the same layout.
 struct HookPoint {
     const char* name;

@@ -1424,6 +1424,17 @@ std::uint32_t g_camera_loads = 0;
 std::mutex g_camera_visibility_lock;
 std::map<const openrac_mod*, std::uint32_t> g_camera_visibility;
 
+// Ammo panel queue handles are unique within a level load. The game draws and
+// mods register offsets on the same thread.
+struct AmmoPanelOffset {
+    const openrac_mod* mod;
+    std::uint32_t loads;
+    int x;
+    int y;
+};
+
+std::map<int, AmmoPanelOffset> g_ammo_panel_offsets;
+
 struct Haze {
     const openrac_mod* mod = nullptr;
     std::uint32_t loads = 0;
@@ -2154,6 +2165,36 @@ int api_camera_visibility_bypass(openrac_mod* mod, int enabled) {
     return OPENRAC_HOOK_OK;
 }
 
+int api_rac1_ammo_panel_offset(openrac_mod* mod, int handle, int x, int y) {
+    if (mod == nullptr || g_play == nullptr || handle < 0 || x < -512 || x > 512 || y < -512
+        || y > 512) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const auto loads = loads_now();
+    std::erase_if(g_ammo_panel_offsets, [loads](const auto& entry) {
+        return entry.second.loads != loads;
+    });
+    const auto found = g_ammo_panel_offsets.find(handle);
+    if (found != g_ammo_panel_offsets.end() && found->second.mod != mod) {
+        return OPENRAC_HOOK_REFUSED;
+    }
+    if (x == 0 && y == 0) {
+        if (found != g_ammo_panel_offsets.end()) {
+            g_ammo_panel_offsets.erase(found);
+        }
+        return OPENRAC_HOOK_OK;
+    }
+    std::int32_t level = -1;
+    if (phase_now(&level) != OPENRAC_PLAY_PLAYING || level < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (found == g_ammo_panel_offsets.end() && g_ammo_panel_offsets.size() >= 13) {
+        return OPENRAC_HOOK_FULL;
+    }
+    g_ammo_panel_offsets.insert_or_assign(handle, AmmoPanelOffset{mod, loads, x, y});
+    return OPENRAC_HOOK_OK;
+}
+
 int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
     if (mod == nullptr || g_play == nullptr || g_play->camera_set == nullptr) {
         return OPENRAC_HOOK_UNKNOWN;
@@ -2618,6 +2659,7 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.camera_view = api_camera_view;
     api.camera_set = api_camera_set;
     api.camera_visibility_bypass = api_camera_visibility_bypass;
+    api.rac1_ammo_panel_offset = api_rac1_ammo_panel_offset;
     api.haze_set = api_haze_set;
     api.camera_shake = api_camera_shake;
     api.hud_text_set = api_hud_text_set;
@@ -2628,6 +2670,16 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.touch_icon = api_touch_icon;
     api.touch_push = api_touch_push;
     api.touch_hint = api_touch_hint;
+}
+
+bool ammo_panel_offset(int handle, int& x, int& y) {
+    const auto found = g_ammo_panel_offsets.find(handle);
+    if (found == g_ammo_panel_offsets.end() || found->second.loads != loads_now()) {
+        return false;
+    }
+    x = found->second.x;
+    y = found->second.y;
+    return true;
 }
 
 bool camera_visibility_bypassed() {
@@ -2976,6 +3028,7 @@ int play_phase() {
 }
 
 void reset_play() {
+    g_ammo_panel_offsets.clear();
     {
         const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
         g_camera_visibility.clear();
@@ -3058,6 +3111,9 @@ void drop_figures(const openrac_mod* mod) {
         std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod; });
         std::erase_if(g_materials, [&](const MaterialEntry& e) { return e.mod == mod; });
     }
+    std::erase_if(g_ammo_panel_offsets, [mod](const auto& entry) {
+        return entry.second.mod == mod;
+    });
     {
         const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
         g_camera_visibility.erase(mod);

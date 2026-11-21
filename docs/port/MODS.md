@@ -858,6 +858,9 @@ world or menus, or by address (`model_create`, `moby_model_slot`, `moby_model_cl
 (`game_data_dir`, `OPENRAC_HOOK_REFUSED`).
 1.35 (SDK 1.35.0) the gameplay camera's visibility culling bypassed on a mod's request
 (`camera_visibility_bypass`).
+1.36 (SDK 1.36.0) for Ratchet & Clank: cooperative item id reservation (`rac1_reserve_item_ids`),
+native ammo panel offsets (`rac1_ammo_panel_offset`), and playable native-backed custom weapons
+(`rac1_weapon_register`, `rac1_weapon_grant`, `openrac_rac1_weapon`).
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's

@@ -34,6 +34,7 @@ void play_loading(const openrac_mod* mod);
 // thread.
 int play_phase();
 bool camera_visibility_bypassed();
+bool ammo_panel_offset(int handle, int& x, int& y);
 
 // Forgets the figures and a pending start or travel (mods::reset, the tests).
 void reset_play();

@@ -419,6 +419,17 @@ static void motion_frame(void) {
             s_record(9820 + -s_api->camera_visibility_bypass(s_mod, 0));
             s_record(9820 + -s_api->camera_visibility_bypass(s_mod, 1));
         }
+        if (s_api->api_minor >= 36) {
+            /* Interface 1.36. The test game is not Ratchet & Clank, so reserving item IDs is unknown
+             * (-1). An ammo panel offset past the range is refused (-1), one in range is taken (0) and
+             * zero gives it back (0). A weapon the mod never registered is not granted (-6). */
+            const uint32_t item = 36;
+            s_record(9830 + -s_api->rac1_reserve_item_ids(s_mod, &item, 1));
+            s_record(9840 + -s_api->rac1_ammo_panel_offset(s_mod, 3, 2000, 0));
+            s_record(9840 + -s_api->rac1_ammo_panel_offset(s_mod, 3, 10, -20));
+            s_record(9840 + -s_api->rac1_ammo_panel_offset(s_mod, 3, 0, 0));
+            s_record(9850 + -s_api->rac1_weapon_grant(s_mod, 36));
+        }
         {
             openrac_hud_text line;
             memset(&line, 0, sizeof line);
