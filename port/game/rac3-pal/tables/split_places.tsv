@@ -80,3 +80,11 @@ func_L01_00423040	func_L06_00407AA0	06:00407AA0,14:0040DBA0,16:00432CA0,32:00403
 func_L01_0047C4F8	func_L46_004E0880	46:004E0880,47:004E3100,48:004E2400,49:004E1D80
 func_L01_0047C518	func_L42_004E6538	42:004E6538,43:004E3CD0,44:004E3020,45:004E08B8,52:004F7538,53:004F4CD0
 func_L01_0047E548	func_L39_0059E6B8	39:0059E6B8,40:004EEB48,41:004F0C60,50:004FFB48,51:00501C60
+# The same four levels lay their callback lists out otherwise: Veldin's adder of the third list
+# (func_L01_004048D0, 0x50 before its runner func_L01_00404920) has no copy there, and the catalogue
+# put in its row the adder of the second list instead (level 16's 0x00414C20, lists
+# 0x001E87C0/0x001E88C0, 0x50 before the second list's runner 0x00414C70). Translated as the third
+# list's adder, each callback the level added to the second list went into the third list's count
+# with the second's tables: DrawFrame's third runner (func_L01_00404920) called empty entries, a call
+# to 0 a tick (levels 16 and 23), and the second list lost its callbacks.
+func_L01_004048D0	func_L03_003F24D8	03:003F24D8,11:003DE7C0,16:00414C20,23:003E7A98
