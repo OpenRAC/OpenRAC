@@ -71,6 +71,7 @@ Shared code never compares a game id.
 | `hand`, `drafts`, `overrides` | the port's C for assembly-only functions, the decompilation's own drafts, and the port's C in place of matched C ([hostgen](../tools/hostgen/README.md#a-games-configuration)) |
 | `asm` | C written from the assembly where there is no C, read from the disc where the files are not there ([hostgen](../tools/hostgen/README.md#functions-with-no-c-c-from-their-assembly)) |
 | `roots` | where hostgen's frontier report starts |
+| `data_allow`, `data_refs` | the data guard's allow table and the disc's data places ([below](#the-functions-with-no-c)) |
 
 ## The functions with no C
 
@@ -79,6 +80,17 @@ jump, branch, address and data word that refers to a function in the executable 
 programs, and sorts it: class `a` needs no C (linker remnants, padding, pieces of other functions,
 unused), `b` is replaced by the host on purpose, `c` needs C. Every class `c` function has C now,
 translated from the disc. Rows whose evidence starts with "by hand:" are kept when it runs again.
+
+Calls are not the only way in. The game also reaches functions through addresses in its data (a
+moby's update, a menu page's callbacks) and the port through `wrap` rows. hostgen's data guard
+fails the build when any of these has no C, with no disc needed:
+
+- `checks/data_refs.tsv`: each place the disc's data holds a function's address, written from the
+  disc by [data_refs.py](../tools/hostgen/data_refs.py) (addresses only). Write it again when a
+  version is added or its catalogue moves.
+- functions a global's initializer in the decomp C names, and the `__game` side of `wrap` rows.
+- `checks/data_allow.tsv`: the ones allowed to stay without C, each with its reason (a name, or a
+  place where the port has no function).
 
 ## Moving a game on
 

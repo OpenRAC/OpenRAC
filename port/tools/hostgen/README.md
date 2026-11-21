@@ -247,6 +247,21 @@ python3 port/tools/hostgen/no_c.py --game port/game/rac1-pal/hostgen.json \
     --image <the PAL disc image> --out port/game/rac1-pal/checks/no_c.tsv
 ```
 
+### Functions the game reaches through data (data_guard)
+
+A call check sees only calls in C. The game also reaches functions through addresses in its data
+(moby updates, menu callbacks), and the port's `wrap` rows call `<name>__game`. When such a
+function has no C, it is a stub that does nothing. hostgen's `data_guard` fails the build for each
+one that hostgen.json `data_allow` does not list with a reason: functions a global's initializer
+names, `wrap` rows, and the places in `data_refs` (a table [data_refs.py](data_refs.py) writes from
+the disc, so the check itself needs no disc):
+
+```sh
+python3 port/tools/hostgen/data_refs.py --game port/game/rac2-pal/hostgen.json \
+    --gen port/build/release/games/rac2-pal/gen --image <the PAL disc image> \
+    --out port/game/rac2-pal/checks/data_refs.tsv
+```
+
 ### Checking a translation against retail
 
 The same C, written for the console's own compiler (`--asm-console DIR`,
@@ -424,6 +439,7 @@ and a function's per-caller alias is the function at its place (`"words"`):
 | [derived.py](derived.py), [test_derived.py](test_derived.py) | the names a decompilation's build derives: which table is read, and the port's copy written again |
 | [release.py](release.py), [release_rac1.py](release_rac1.py), [release_carry.py](release_carry.py), [release_rac3.py](release_rac3.py), [test_release.py](test_release.py) | another release's names for the primary's (the release view), its port tables carried (rac1, rac2), and rac3-ntsc's table |
 | [no_c.py](no_c.py), [test_no_c.py](test_no_c.py) | which functions with no C need C: each game's `no_c.tsv` |
+| [data_refs.py](data_refs.py) | the places the disc's data holds a function's address: each game's `data_refs.tsv`, for data_guard |
 | [tests/assembler.py](tests/assembler.py) | the tests' small assembler: assembly files written the way the setup writes them |
 | [test_hostgen.py](test_hostgen.py), [tests/harness.c](tests/harness.c) | small programs in the console's C, translated, built, run and checked |
 | [priority.py](priority.py), [test_priority.py](test_priority.py) | what to backfill first: the weak functions each level program reaches, ranked |

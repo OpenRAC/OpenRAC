@@ -143,6 +143,9 @@ class Program:
     wrap_host: set = field(default_factory=set)  # with a `wrap` row: a hook point among them is <name>__hooked
     hook: dict = field(default_factory=dict)  # hook points (in wrap too): symbol -> its name for mods
     aliases: dict = field(default_factory=dict)  # (unit, name) -> symbol, from labels Clang refused
+    # Functions a global's initializer names (a menu page's callbacks): symbol -> {"<global> (<unit>)"}.
+    # The game reaches them through its data, which no function's calls show (data_references).
+    data_refs: dict = field(default_factory=dict)
     # hostgen.json "place_kinds_as_levels": another program's name the catalogue gives the levels'
     # copies -> the levels' own name for them, which a level's unit means by it (read_places).
     kind_renames: dict = field(default_factory=dict)
@@ -873,6 +876,21 @@ def direct_calls(decl: dict, by_id: dict) -> tuple:
     return tuple(out)
 
 
+def initializer_functions(decl: dict) -> list[str]:
+    """The functions a global's initializer names (their addresses go into the data)."""
+    out: list[str] = []
+    stack = list(decl.get("inner", ()))
+    while stack:
+        n = stack.pop()
+        ref = n.get("referencedDecl") or {}
+        if n.get("kind") == "DeclRefExpr" and ref.get("kind") == "FunctionDecl":
+            sym = symbol_of(ref)
+            if sym and sym not in out:
+                out.append(sym)
+        stack.extend(n.get("inner", ()))
+    return sorted(out)
+
+
 def derived_uses(decl: dict, statics: dict) -> tuple:
     """The derived names (derived.DERIVED_NAME) a definition uses: functions it calls or takes the address of, globals it
     reads or writes, its static locals' initializers among them, and so on through the static functions of its unit
@@ -1147,6 +1165,10 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
                 program.functions[name] = Function(name, Signature(ctype.Base("int"), (), False, False), asm=True)
             else:
                 f.asm = True
+            continue
+        if kind == "VarDecl" and "init" in decl and decl.get("storageClass") != "extern":
+            for sym in initializer_functions(decl):
+                program.data_refs.setdefault(sym, set()).add(f"{decl.get('name', '')} ({unit})")
             continue
         if kind != "FunctionDecl":
             continue
@@ -1435,6 +1457,8 @@ def merge(into: Program, part: Program) -> list[str]:
                 have.sig = best_declaration(have.declared)
     into.statics.update(part.statics)
     into.aliases.update(part.aliases)
+    for sym, where in part.data_refs.items():
+        into.data_refs.setdefault(sym, set()).update(where)
     if part.groups and not into.groups:
         into.groups = part.groups
     for name, types in part.typedefs.items():

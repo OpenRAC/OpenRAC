@@ -28,9 +28,11 @@ HERE = Path(__file__).resolve().parent
 
 import asm  # noqa: E402
 import clangast  # noqa: E402
+import data_refs  # noqa: E402
 import ctype  # noqa: E402
 import hostgen  # noqa: E402
 import prep  # noqa: E402
+import program as program_module  # noqa: E402
 
 sys.path.insert(0, str(HERE / "tests"))
 import assembler  # noqa: E402
@@ -4900,6 +4902,52 @@ class AssemblyGuard(unittest.TestCase):
         got = hostgen.assembly_guard(summary, {"func_A": "why", "func_F": "why", "ref_G": "why"})
         self.assertEqual(got["assembly_unallowed"], [])
         self.assertEqual(got["assembly_allow_unused"], [])
+
+
+class DataGuard(unittest.TestCase):
+    """hostgen.json "data_allow": a function with no C that a global's initializer or a wrap row reaches."""
+
+    def summary(self):
+        return {"without_c_places": {"func_A": {"kind": "no-c"}, "func_B": {"kind": "asm"},
+                                     "func_C": {"kind": "no-c", "other_spelling": "func_C2"},
+                                     "func_D": {"kind": "no-c", "other_spelling": "func_A"},
+                                     "func_W": {"kind": "no-c"}},
+                "from_assembly": {"func_B": "<disc>"},
+                "data_references": {"func_A": ["menu (a.c)"], "func_B": ["page (b.c)"],
+                                    "func_C": ["list (c.c)"], "func_D": ["list (d.c)"], "func_E": ["x (e.c)"]}}
+
+    def test_a_stub_in_data_or_behind_a_wrap_fails(self):
+        # func_C's other spelling has C; func_E has C; func_D is another name of func_A.
+        got = hostgen.data_guard(self.summary(), {}, ["func_W", "func_E"])
+        self.assertEqual(got["data_reached"], {
+            "func_A": ["data: list (d.c)", "data: menu (a.c)"], "func_B": ["data: page (b.c)"],
+            "func_W": ["libraries.tsv wrap row (host C calls func_W__game)"]})
+        self.assertEqual(got["data_unallowed"], ["func_A", "func_B", "func_W"])
+
+    def test_an_allowed_row_stands_and_an_unused_one_is_said(self):
+        got = hostgen.data_guard(self.summary(), {"func_A": "why", "func_Z": "why"}, [])
+        self.assertEqual(got["data_unallowed"], ["func_B"])
+        self.assertEqual(got["data_allow_unused"], ["func_Z"])
+
+    def test_a_place_the_disc_data_holds_needs_a_function_with_c(self):
+        # 01:00300000 has func_A (no C), boot:00100000 func_E (C), 02:00300010 nothing at all.
+        places = {"01:00300000": "func_A", "boot:00100000": "func_E", "02:00300010": None}
+        got = hostgen.data_guard(self.summary(), {"02:00300010": "a switch's case"}, [], places)
+        self.assertEqual(got["data_reached"]["func_A"][-1], "the disc's data holds 01:00300000")
+        self.assertEqual(got["data_unallowed"], ["func_A", "func_B"])
+        self.assertEqual(got["data_allow_unused"], [])
+        with tempfile.TemporaryDirectory() as tmp:
+            table = Path(tmp) / "data_refs.tsv"
+            table.write_text("# about\nplace\tname\nboot:00100000\tfunc_E\n01:00300000\tfunc_A\n")
+            self.assertEqual(data_refs.read(table), [(-1, 0x00100000), (1, 0x00300000)])
+
+    def test_a_global_initializer_names_its_functions(self):
+        decl = {"kind": "VarDecl", "name": "menu", "init": "list", "inner": [{"kind": "InitListExpr", "inner": [
+            {"kind": "ImplicitCastExpr", "inner": [{"kind": "DeclRefExpr", "referencedDecl": {
+                "kind": "FunctionDecl", "name": "func_B"}}]},
+            {"kind": "DeclRefExpr", "referencedDecl": {"kind": "FunctionDecl", "name": "func_A"}},
+            {"kind": "DeclRefExpr", "referencedDecl": {"kind": "VarDecl", "name": "D_1"}}]}]}
+        self.assertEqual(program_module.initializer_functions(decl), ["func_A", "func_B"])
 
 
 class CandidateFolders(unittest.TestCase):
