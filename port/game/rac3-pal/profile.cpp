@@ -408,6 +408,12 @@ public:
 
     bool sends_display_list() const override { return true; }
 
+    // The pause menu's Skins page draws its armour preview (MobyProc on a list of its own, four
+    // mobys at 0x00583000) over its panels, as Going Commando's Ship Shack draws its ship: the 2D
+    // before the first such moby goes under it. Without the split the kept frame and the panels
+    // were drawn over the preview and its box stayed empty.
+    bool own_mobys_split_the_2d() const override { return true; }
+
     // The levels are extracted for the port (editor/extract.py port: --levels), and drawn natively
     // from them (host/render.c). The boot program's title and menus draw no world: a picture.
     bool has_levels() const override { return true; }
