@@ -426,7 +426,6 @@
       "func_L39_00678170": "int (int, int, int, int, int)",
       "func_L39_00684EC0": "int (int, int, int, int, int)",
       "func_003D2FEC": "void (int, int, int, int)",
-      "func_003D2FF0": "void (int, int, int, int)",
       "func_003D2FF0_003C1558": "void (int, int, int, int)",
       "func_L01_00403708": "void (int, int, int, int, unsigned long long)",
       "func_L01_00403CA8": "void (int, int, int, int, int, int, int, int, long long, long long)",

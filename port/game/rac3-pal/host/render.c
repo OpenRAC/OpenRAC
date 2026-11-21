@@ -354,12 +354,6 @@ extern unsigned rac3_draw_ordinal;
 #define TEXTURE_UPLOADS RAC3_LADDR(1, 0x001DF97Cu)
 #define TEXTURE_RECORDS RAC3_LADDR(1, 0x001E7880u)
 
-static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clut) {
-    return openrac_effect_texture(
-        tex0, GREF(int, VELDIN(TEXTURE_UPLOADS)), VELDIN(TEXTURE_RECORDS), pixels, clut
-    );
-}
-
 /*
  * DrawWorldQuad (0x00407E28, Going Commando's func_00280B90, the same 608 bytes): the draw
  * callbacks' world quad. a0 a quad record as Going Commando's: four corners (+0x00), four RGBA words
@@ -367,14 +361,14 @@ static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t*
  * set, a matrix the corners go through first. The window draws it in the world, with the TEST and
  * ZBUF in effect at its marker (rac2/host/render.c's world_quad).
  */
-int func_L01_00407E28(int a0, int a1) {
-    const uint8_t* r = G((gaddr)a0);
+static void world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, gaddr list) {
+    const uint8_t* r = G(record);
     openrac_game_quad q;
     memset(&q, 0, sizeof(q));
     memcpy(q.corner, r, sizeof(q.corner));
-    if (a1 != 0) {
+    if (matrix != 0) {
         float m[16];
-        memcpy(m, G((gaddr)a1), sizeof(m));
+        memcpy(m, G(matrix), sizeof(m));
         for (int k = 0; k < 4; ++k) {
             const float x = q.corner[k][0], y = q.corner[k][1], z = q.corner[k][2],
                         w = q.corner[k][3];
@@ -389,7 +383,7 @@ int func_L01_00407E28(int a0, int a1) {
     memcpy(&q.tex0, r + 0x78, 8);
     memcpy(&q.tex1, r + 0x80, 8);
     memcpy(&q.alpha, r + 0x88, 8);
-    q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
+    q.source = openrac_effect_texture(q.tex0, GREF(int, uploads), records, &q.pixels, &q.clut);
     /* A draw callback's quad: its owner (the callback's argument, a moby whose body the quad may sit
      * on: frontend scene_effects.cpp), and an id that is the same from one tick to the next while the
      * callback draws the same quads (its function, its argument and the quad's place in what it
@@ -406,9 +400,37 @@ int func_L01_00407E28(int a0, int a1) {
     openrac_game_effect_quad(&q);
     const uint32_t marker = openrac_game_effect_quad_marker();
     if (marker != 0) {
-        put_marker(&kVeldin, (uint64_t)OPENRAC_EFFECT_QUAD_MARKER << 48 | marker);
+        put_marker_at(list, (uint64_t)OPENRAC_EFFECT_QUAD_MARKER << 48 | marker);
     }
+}
+
+int func_L01_00407E28(int a0, int a1) {
+    world_quad(
+        (gaddr)a0,
+        (gaddr)a1,
+        VELDIN(TEXTURE_UPLOADS),
+        VELDIN(TEXTURE_RECORDS),
+        at_copy(&kVeldin, kVeldin.list_pointer)
+    );
     return 0;
+}
+
+/* The boot program's effect textures' uploads (its GetEffectTex, 0x00389978, and GetFrameTexture,
+ * 0x00396E18): their count and their 16-byte records, as the levels' above. */
+#define BOOT_TEXTURE_UPLOADS RAC3_ADDR(0x001D9BFCu)
+#define BOOT_TEXTURE_RECORDS RAC3_ADDR(0x00225C00u)
+
+/* The boot program's list pointer (0x003A97F8, its VU1_addGSregister, appends there). */
+#define BOOT_LIST_POINTER RAC3_ADDR(0x001DA050u)
+
+/* The boot program's DrawWorldQuad (0x003D3158, frontbin's func_003D2DA0, the levels' 0x00407E28):
+ * the loading screen's planet, a picture on a quad the ship flies towards, which its draw callback
+ * (0x003C1660, the planet's, from the flight's last part) draws with the planet's texture
+ * (0x003BCA28). Drawn natively as the levels' quads, in the loading screen's world. */
+void func_003D3158(int a0, int a1, int a2, int a3) {
+    (void)a2;
+    (void)a3;
+    world_quad((gaddr)a0, (gaddr)a1, BOOT_TEXTURE_UPLOADS, BOOT_TEXTURE_RECORDS, BOOT_LIST_POINTER);
 }
 
 /* What the console's renderers needed each frame (Going Commando's func_002F0468, 0x002EF310,
@@ -442,9 +464,6 @@ int func_L01_004A58F0(void) {
 int func_L01_0043AAC0(void) {
     return 0;
 }
-
-/* The boot program's display list pointer (0x003A97F8, its VU1_addGSregister, appends there). */
-#define BOOT_LIST_POINTER RAC3_ADDR(0x001DA050u)
 
 /* 0x003CB6B8 (boot_elf, hand-written; Going Commando's func_002A4D88, MobyAnimProc's draw side):
  * draws the jobs the boot program's MobyProc queued (a list in the display list buffer, *0x001D9D30,
