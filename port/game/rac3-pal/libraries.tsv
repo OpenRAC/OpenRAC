@@ -102,12 +102,14 @@ func_0011F280	kernel	GetMemorySize	host	the instructions of rac2-ntsc func_0011B
 func_0011F290	kernel	_InitTLB	host	the instructions of rac2-ntsc func_0011B090
 func_0011F698	kernel	SyncDCache	host	the instructions of rac2-ntsc func_0011B3D0
 func_0011F7C8	kernel	InvalidDCache	host	the shape of rac2-ntsc func_0011B500
+func_0011F860	kernel	rac3InterruptsOff	host	hand-written: 1 when Status.IE is clear (code run with interrupts off); the port runs no game code in an interrupt (host/kernel.c)	int (void)
+func_0011F8D8	kernel	EnableIntc	host	interrupt-safe wrapper around _EnableIntc (0x0011EB60), rac2-ntsc func_0011B5F0's
 func_00121FE8	sif	sceSifInitRpc	host	the shape of rac2-ntsc func_0011CF78
 func_00122630	sif	sceSifBindRpc	host	clears the client's +0x10 and +0x24, takes a packet, then sends the bind (as rac2-ntsc func_0011D450)
 func_00122810	sif	sceSifCallRpc	host	the shape of rac2-ntsc func_0011D620
 func_00122A10	sif	sceSifCheckStatRpc	host	the instructions of rac2-ntsc func_0011D810
 func_001233F8	fileio	sceFsReset	host	the instructions of rac2-ntsc func_0011E0A0
-func_00123430	fileio	sceOpen	host	the shape of rac1-pal func_0011BF80
+func_00123430	fileio	rac3SceOpen	host	the shape of rac1-pal func_0011BF80; declared variadic, so bound in host/kernel.c as rac2's (rac2/host/io.c)	int (unsigned int, int, ...)
 func_001236C0	fileio	sceClose	host	the shape of rac2-ntsc func_0011E360
 func_00123B10	sif	sceSifInitIopHeap	host	the instructions of rac2-ntsc func_0011E7A0
 func_00123B98	sif	sceSifAllocIopHeap	host	the shape of rac1-pal func_0011CBC8
@@ -118,6 +120,12 @@ func_00124550	kernel	_SetTLBEntry	host	the instructions of rac2-ntsc func_0011F1
 func_00124920	kernel	DIntr	host	the shape of rac2-ntsc func_0011F5E0
 func_00124970	kernel	EIntr	host	the instructions of rac2-ntsc func_0011F628
 func_00124A68	kernel	FindAddress	host	the instructions of rac2-ntsc func_0011F700
+func_00124420	kernel	Copy	host	syscall wrapper 0x5a
+func_00124468	kernel	GetEntryAddress	host	syscall wrapper 0x5b
+func_00124F50	kernel	SetSyscall	host	syscall wrapper 0x74
+func_00124F60	kernel	Copy	host	syscall wrapper 0x5a
+func_00124FA8	kernel	GetEntryAddress	host	syscall wrapper 0x5b
+func_00125090	kernel	rac3KernelStore	host	hand-written kernel-mode store (DI, EXL set, sw a1 to a0, eret): the timer setters 0x00125100..0x00125120 write T0's COUNT, MODE and COMP at 0xB0001000 this way (host/kernel.c)	void (unsigned int, int)
 func_001260D0	libgcc	__main	host	the shape of rac2-ntsc func_0011FC48: the host runs no global constructors for the game
 func_001260F0	libgcc	__divdi3	host	the instructions of rac2-ntsc func_0011FC68
 func_00127750	libgcc	__fixunsdfdi	host	the instructions of rac1-pal func_0011E6D8
