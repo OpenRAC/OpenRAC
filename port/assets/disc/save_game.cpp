@@ -11,54 +11,15 @@
 #include <algorithm>
 #include <cstring>
 
-#include "assets/disc/boot.h"
-
 namespace openrac::assets::disc {
 
 namespace {
-
-// NTSC-U boot executable addresses (overlay copies: level 01 0x184a40,
-// 0x184d40, 0x1c4318, 0x1c4530).
-constexpr SaveLayout kRac1Ntsc = {0x001a04c0, 0x001a07c0, 0x001dfd98, 0x001dffb0};
 
 std::size_t align4(std::size_t n) {
     return (n + 3) & ~std::size_t{3};
 }
 
 }  // namespace
-
-const SaveLayout* save_layout(const GameVersion& version) {
-    // Only the NTSC-U layout is known so far.
-    if (version.id == "rac1-ntsc") {
-        return &kRac1Ntsc;
-    }
-
-    return nullptr;
-}
-
-std::vector<ChunkDesc> read_chunk_table(ByteView elf, u32 vaddr) {
-    std::vector<ChunkDesc> out;
-
-    // A chunk table holds at most 256 descriptors.
-    for (u32 i = 0; i < 256; ++i) {
-        const ByteView e = elf_read(elf, vaddr + i * kDescriptorSize, kDescriptorSize);
-        const ChunkDesc d{e.u32_at(0), e.u32_at(4), e.s32_at(8)};
-
-        // A zero address ends the table.
-        if (d.address == 0) {
-            return out;
-        }
-
-        // The terminator id cannot be used by a real chunk.
-        if (d.id == kChunkEndId) {
-            fail("chunk table {:#x}: entry {} uses the terminator id", vaddr, i);
-        }
-
-        out.push_back(d);
-    }
-
-    fail("chunk table {:#x}: no terminator in 256 entries", vaddr);
-}
 
 std::size_t section_size(std::span<const ChunkDesc> descs) {
     std::size_t n = 8 + 8;
@@ -69,12 +30,6 @@ std::size_t section_size(std::span<const ChunkDesc> descs) {
     }
 
     return n;
-}
-
-ChunkTables ChunkTables::from_boot_executable(ByteView elf, const SaveLayout& layout) {
-    return {
-        read_chunk_table(elf, layout.global_chunks), read_chunk_table(elf, layout.level_chunks)
-    };
 }
 
 u16 save_crc16(std::span<const u8> data) {
@@ -289,176 +244,6 @@ SaveGameLump SaveGameLump::parse(ByteView lump) {
         return lump.sub(lump.u32_at(i * 8), lump.u32_at(i * 8 + 4), what).to_vector();
     };
     return {part(0, "icon.sys"), part(1, "static.ico"), part(2, "save template")};
-}
-
-bool ItemRecord::has_ammo() const {
-    return (bytes[8] | bytes[9]) != 0;
-}
-
-u16 ItemRecord::grant_ammo() const {
-    return static_cast<u16>(bytes[0x12] | bytes[0x13] << 8);
-}
-
-ItemTables ItemTables::load(ByteView boot_elf, ByteView overlay, const SaveLayout& layout) {
-    ItemTables t{};
-    const ByteView vt = elf_read(boot_elf, layout.vendor_items, kVendorTableLength * 4);
-
-    // Read the vendor item table one word at a time.
-    for (std::size_t i = 0; i < kVendorTableLength; ++i) {
-        t.vendor_items[i] = vt.u32_at(4 * i);
-    }
-
-    const ByteView rec = elf_read(boot_elf, layout.item_records, kItemCount * 0x18);
-
-    // Copy each item's fixed-size record.
-    for (std::size_t i = 0; i < kItemCount; ++i) {
-        std::memcpy(t.records[i].bytes.data(), rec.data() + i * 0x18, 0x18);
-    }
-
-    const std::vector<OverlaySection> sections = parse_overlay_sections(overlay);
-    t.item_definitions = find_item_definitions(sections, vt);
-    const auto defs = read_overlay(sections, t.item_definitions, kItemCount * kItemDefinitionSize);
-
-    // The definitions must lie inside the overlay.
-    if (!defs) {
-        fail("item definitions {:#x} lie outside the overlay", t.item_definitions);
-    }
-
-    // Read each item's slot type from its definition.
-    for (std::size_t i = 0; i < kItemCount; ++i) {
-        t.slot_type[i] = defs->s32_at(i * kItemDefinitionSize + 8);
-    }
-
-    return t;
-}
-
-u32 find_item_definitions(std::span<const OverlaySection> sections, ByteView vendor_table) {
-    std::vector<u32> hits;
-
-    // Search the overlay's sections for the vendor table.
-    for (const OverlaySection& s : sections) {
-        // Skip section kind 8, and sections too small to hold the table.
-        if (s.kind == 8 || s.data.size() < vendor_table.size() || vendor_table.empty()) {
-            continue;
-        }
-
-        // Slide the table over the section, looking for a match.
-        for (std::size_t i = 0; i + vendor_table.size() <= s.data.size(); ++i) {
-            // A byte-for-byte match is a place where the table is.
-            if (std::memcmp(s.data.data() + i, vendor_table.data(), vendor_table.size()) == 0) {
-                hits.push_back(s.dest + static_cast<u32>(i));
-            }
-        }
-    }
-
-    // The table must be found exactly once, or its place is ambiguous.
-    if (hits.size() != 1) {
-        fail("the vendor item table is found {} times in the overlay", hits.size());
-    }
-
-    const u32 v = hits[0];
-    const u32 hi = ((v + 0x8000) >> 16) & 0xffff;
-    const u32 lo = v & 0xffff;
-    auto op = [](u32 w) {
-        return w >> 26;
-    };
-    auto rs = [](u32 w) {
-        return (w >> 21) & 31;
-    };
-    auto rt = [](u32 w) {
-        return (w >> 16) & 31;
-    };
-    auto imm = [](u32 w) {
-        return w & 0xffff;
-    };
-    constexpr u32 kLui = 0x0f;
-    constexpr u32 kAddiu = 0x09;
-    constexpr u32 kLw = 0x23;
-    std::vector<u32> found;
-
-    // Search the overlay's code sections for the instructions that set up the definition table.
-    for (const OverlaySection& s : sections) {
-        // Skip section kind 8.
-        if (s.kind == 8) {
-            continue;
-        }
-
-        std::vector<u32> w(s.data.size() / 4);
-        std::memcpy(w.data(), s.data.data(), w.size() * 4);
-        const std::size_t n = w.size();
-
-        // Look at every word for the first instruction of the pattern.
-        for (std::size_t i = 0; i < n; ++i) {
-            // The pattern begins with a lui of the high half of the address.
-            if (op(w[i]) != kLui || imm(w[i]) != hi) {
-                continue;
-            }
-
-            std::size_t j = i + 1;
-
-            // Look for the addiu with the low half within the next few instructions.
-            while (j < std::min(n, i + 5)
-                   && !(op(w[j]) == kAddiu && rs(w[j]) == rt(w[i]) && imm(w[j]) == lo)) {
-                ++j;
-            }
-
-            // Without the addiu the pattern is not there.
-            if (j >= std::min(n, i + 5)) {
-                continue;
-            }
-
-            std::size_t k = j + 1;
-
-            // Look for the next lui within a few instructions.
-            while (k < std::min(n, j + 9) && op(w[k]) != kLui) {
-                ++k;
-            }
-
-            // Without the second lui the pattern is not there.
-            if (k >= std::min(n, j + 9)) {
-                continue;
-            }
-
-            const u32 rc = rt(w[k]);
-            std::size_t m = k + 1;
-
-            // Look for the addiu that finishes the second address.
-            while (m < std::min(n, k + 49) && !(op(w[m]) == kAddiu && rs(w[m]) == rc)) {
-                ++m;
-            }
-
-            // Without that addiu the pattern is not there.
-            if (m >= std::min(n, k + 49)) {
-                continue;
-            }
-
-            const u32 rd = rt(w[m]);
-
-            // Look for the load of the item field just after the address is formed.
-            for (std::size_t q = m + 1; q < std::min(n, m + 4); ++q) {
-                // The load must use the register just built, at offset 8.
-                if (op(w[q]) == kLw && rs(w[q]) == rd && imm(w[q]) == 8) {
-                    const s32 low = static_cast<s16>(imm(w[m]));
-                    found.push_back(static_cast<u32>(static_cast<s32>(imm(w[k]) << 16) + low));
-                    break;
-                }
-            }
-        }
-    }
-
-    found.erase(std::unique(found.begin(), found.end()), found.end());
-
-    // With no match the code does not have the shape this reader expects.
-    if (found.empty()) {
-        fail("item definition table: GiveItem's pattern was not found");
-    }
-
-    // Several different addresses mean the match is ambiguous.
-    if (found.size() > 1) {
-        fail("item definition table: {} disagreeing candidates", found.size());
-    }
-
-    return found.front();
 }
 
 }  // namespace openrac::assets::disc
