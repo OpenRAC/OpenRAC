@@ -43,8 +43,24 @@ bool keyboard_mouse_in_use() {
 
 // What the game drew (rac2/host/font.c, ui2d.c, map_markers.c): nothing in these checks.
 extern "C" {
-int openrac_rac2_take_gui_texts(openrac_rac2_gui_text*) {
-    return 0;
+// The texts the next take returns (a menu's list when set).
+int g_texts = 0;
+
+int openrac_rac2_take_gui_texts(openrac_rac2_gui_text* out) {
+    for (int i = 0; i < g_texts; ++i) {
+        // The first is the selected one: a colour of its own.
+        const std::uint32_t colour = i == 0 ? 0x80F0F0F0u : 0x80808080u;
+        out[i] = openrac_rac2_gui_text{
+            1u,
+            colour,
+            200.0f,
+            100.0f + 20.0f * static_cast<float>(i),
+            300.0f,
+            112.0f + 20.0f * static_cast<float>(i),
+            -1
+        };
+    }
+    return g_texts;
 }
 
 int openrac_rac2_take_prompt_spots(openrac_rac2_prompt_spot*) {
@@ -99,7 +115,7 @@ int setting_bool(openrac_mod*, const char* key) {
     if (std::strcmp(key, "key_prompts") == 0) {
         return g_prompts ? 1 : 0;
     }
-    return std::strcmp(key, "capture_cursor") == 0 ? 1 : 0;
+    return std::strcmp(key, "capture_cursor") == 0 || std::strcmp(key, "menu_mouse") == 0 ? 1 : 0;
 }
 
 std::int64_t setting_int(openrac_mod*, const char*) {
@@ -289,6 +305,42 @@ void menus() {
     hold(kKeyEnter);
     r = read_pad();
     CHECK(r.held(kbm::kCross) && r.held(kbm::kStart));
+
+    // The title's menus (a list shown): Start would go back, so confirming is Cross only.
+    g_texts = 3;
+    tick();
+    tick();
+    hold(kKeyEnter);
+    r = read_pad();
+    CHECK(r.held(kbm::kCross) && !r.held(kbm::kStart));
+
+    // A click beside the list's items confirms nothing; one on the selected item confirms it.
+    const auto click = [](float x, float y) {
+        const auto point = [&] {
+            tick();
+            g_input.pointer_x = x / 512.0f;
+            g_input.pointer_y = y / 416.0f;
+            g_input.pointer_inside = 1;
+        };
+        point();
+        g_input.mouse_held = g_input.mouse_pressed = OPENRAC_MOUSE_LEFT;
+        bool cross = read_pad().held(kbm::kCross);
+        for (int i = 0; i < 3; ++i) {
+            point();
+            cross = read_pad().held(kbm::kCross) || cross;
+        }
+        return cross;
+    };
+    g_context = "menu";
+    tick();
+    tick();
+    CHECK(!click(450.0f, 380.0f));
+    CHECK(click(250.0f, 106.0f));
+    g_texts = 0;
+    CHECK(
+        kbm2::confirm_presses_start("front_end", 2) && !kbm2::confirm_presses_start("front_end", 3)
+    );
+    CHECK(!kbm2::confirm_presses_start("menu", 0) && !kbm2::confirm_presses_start(nullptr, 0));
 
     // A dialog: Escape goes back (Triangle), never Cross.
     g_context = "dialog";
