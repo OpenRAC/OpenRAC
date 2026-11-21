@@ -937,12 +937,30 @@ static void hit_hard(gaddr m) {
  * units of the hero: its state, place, update, its distances and whether it is drawn, its flags, its
  * pickup kind and its parent, to see each coin a drop makes flown to the hero and collected. */
 static void trace_coins(const char* script, unsigned playing) {
-    if (strstr(script, "coins") == NULL || playing % 30 != 1) {
-        return;
-    }
     rac2_moby_table t;
     const gaddr hero = hero_moby();
     if (!copy_table(&t) || hero == 0) {
+        return;
+    }
+    /* `killnear=F`: from F frames into play, for 600 frames, every enemy (the bestiary's kind)
+     * within 25 units of the hero, copy or not, hit hard every 30 frames. */
+    const char* kn = strstr(script, "killnear=");
+    const unsigned kill_at = kn != NULL ? (unsigned)atoi(kn + 9) : 0u;
+    if (kill_at != 0 && playing >= kill_at && playing < kill_at + 600 && playing % 30 == 0) {
+        for (gaddr m = t.base; m < t.end; m += MOBY_SIZE) {
+            const gaddr cls = GREF(gaddr, m + MOBY_CLASS);
+            if (GREF(uint8_t, m + MOBY_STATE) >= 0x80 || cls == 0 || m == hero
+                || GREF(int16_t, cls + 0x46u) != 5) {
+                continue;
+            }
+            const float dx = GREF(float, m + MOBY_POS) - GREF(float, hero + MOBY_POS);
+            const float dy = GREF(float, m + MOBY_POS + 4u) - GREF(float, hero + MOBY_POS + 4u);
+            if (dx * dx + dy * dy < 25.0f * 25.0f) {
+                hit_hard(m);
+            }
+        }
+    }
+    if (strstr(script, "coins") == NULL || playing % 30 != 1) {
         return;
     }
     int n = 0;
