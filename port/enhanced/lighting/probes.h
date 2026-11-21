@@ -16,17 +16,23 @@ using Float2 = std::array<float, 2>;
 using Float3 = std::array<float, 3>;
 
 // Version six raw-depth assets remain readable; new files carry independent depth and colour tags.
-inline constexpr std::uint32_t kProbeFormatVersion = 8;
+inline constexpr std::uint32_t kProbeFormatVersion = 10;
 inline constexpr std::uint32_t kProbeBakeVersion = 5;
 inline constexpr unsigned kProbeAtlasTilesX = 64;
 
-// Upright orthonormal frame, shared by GI grids and reflection influence/projection boxes.
+// Local roll, then pitch and world yaw; shared by GI and reflection boxes.
 struct ProbeFrame {
-    Float2 axis{1, 0};  // Cosine/sine of the local X axis in world XY; Z remains vertical.
+    Float2 axis{1, 0};   // Cosine/sine of local X heading in world XY.
+    Float2 pitch{1, 0};  // Cosine/sine of local X elevation.
+    Float2 roll{1, 0};   // Cosine/sine of rotation around local X.
     Float3 to_local(Float3 world) const;
     Float3 to_world(Float3 local) const;
     bool valid() const;
+    std::array<float, 4> quaternion() const;  // XYZ vector, W scalar; GPU layout.
 };
+
+// Deterministic minimum-volume box search, retaining world alignment when equally good.
+ProbeFrame fit_probe_frame(std::span<const Float3> points);
 
 // Baking and CPU reference sampling use linear E; files store fifth-root E.
 inline constexpr float kProbeIrradianceGamma = 5.0f;

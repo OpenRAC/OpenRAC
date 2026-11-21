@@ -109,7 +109,7 @@ std::string fragment_source() {
            + lighting::shaders::fur_lighting_glsl + R"(
 bool test_environment_available=false;
 int environment_count=0;
-vec3 environment_specular_frame(vec3 p,vec3 n,vec3 view,float nv,float roughness,float f0,vec3 fallback) {
+vec3 environment_specular_surface_frame(vec3 p,vec3 receiver,vec3 geometric_normal,vec3 n,vec3 view,float nv,float roughness,vec3 f0,vec3 fallback) {
     return test_environment_available?vec3(.25):fallback;
 }
 )" + lighting::shaders::fur_environment_glsl

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // One admitted export through native preparation, resumable transport and verified publication.
+#include <chrono>
 #include <sstream>
 #include <stdexcept>
 
@@ -171,7 +172,8 @@ void report_failure(
     unsigned id,
     const std::string& name,
     const std::exception& error,
-    const std::filesystem::path& log
+    const std::filesystem::path& log,
+    double elapsed_seconds
 ) {
     const auto detail = coordinator_string(error.what());
     events.line(
@@ -187,8 +189,8 @@ void report_failure(
     events.finish(
         id,
         parsed(
-            "{\"level\":" + coordinator_string(name) + ",\"verified\":false,\"error\":" + detail
-            + '}'
+            "{\"level\":" + coordinator_string(name) + ",\"verified\":false,\"elapsed_seconds\":"
+            + std::to_string(elapsed_seconds) + ",\"error\":" + detail + '}'
         )
     );
 }
@@ -198,6 +200,10 @@ void run_level(
     const Options& options, const Level& level, unsigned id, Events& events, BakeThreadPool& pool
 ) {
     const profiling::Zone timing("Automatic level pipeline");
+    const auto started = std::chrono::steady_clock::now();
+    const auto elapsed = [&] {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    };
     const auto name = level.path.filename().string();
     auto cache = options.output;
 
@@ -238,7 +244,8 @@ void run_level(
                 id,
                 parsed(
                     "{\"level\":" + coordinator_string(level.label)
-                    + ",\"verified\":true,\"kept\":true}"
+                    + ",\"verified\":true,\"kept\":true,\"elapsed_seconds\":"
+                    + std::to_string(elapsed()) + '}'
                 )
             );
             return;
@@ -282,11 +289,14 @@ void run_level(
             id,
             parsed(
                 "{\"level\":" + coordinator_string(level.label)
-                + ",\"verified\":true,\"kept\":false}"
+                + ",\"verified\":true,\"kept\":false,\"elapsed_seconds\":"
+                + std::to_string(elapsed()) + '}'
             )
         );
     } catch (const std::exception& error) {
-        report_failure(events, id, level.label, error, options.output / "probe-bake.log");
+        report_failure(
+            events, id, level.label, error, options.output / "probe-bake.log", elapsed()
+        );
     }
 }
 }  // namespace openrac::lighting::pipeline

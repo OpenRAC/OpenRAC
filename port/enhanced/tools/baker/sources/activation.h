@@ -31,6 +31,11 @@ struct ProbeLookRegion {
     float diffuse_gain = 1;
 };
 
+// Authored evidence for supported floor patches without a nearby gameplay object.
+struct PlayableArea {
+    Float3 minimum{}, maximum{};
+};
+
 inline constexpr unsigned kProbeLookRegions = 12;
 
 // Selects floor-based gameplay analysis or one complete scene allocation.
@@ -52,6 +57,7 @@ struct LevelBakeProfile {
     LegacyProbeSampling legacy_sampling;
     std::optional<bool> legacy_nearby_lights;
     std::vector<ProbeLookRegion> look_regions;
+    std::vector<PlayableArea> playable_areas;
     std::vector<BakeAreaEmitter> area_lights;
     Float3 sparse_spacing{256, 256, 256};
     Float3 dense_spacing{4, 4, 4};

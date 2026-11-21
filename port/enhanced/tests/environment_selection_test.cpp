@@ -126,10 +126,13 @@ void main() {
     }
 
     void upload(const lighting::EnvironmentAsset& asset) {
-        const auto metadata = lighting::environment_metadata(asset.probes);
+        const auto metadata = lighting::environment_metadata(asset.probes, asset.influences);
         CHECK(selection.prepare(metadata, error));
         shader.use();
-        glUniform1i(shader.uniform("environment_count"), static_cast<int>(asset.probes.size()));
+        glUniform1i(
+            shader.uniform("environment_count"),
+            static_cast<int>(metadata.size() / lighting::kEnvironmentMetadataStride)
+        );
         glUniform1i(shader.uniform("environment_resolution"), static_cast<int>(asset.resolution));
         glUniform1i(shader.uniform("environment_columns"), static_cast<int>(asset.columns()));
         glUniform1i(shader.uniform("environment_map"), 20);
@@ -280,7 +283,7 @@ int main(int argc, char** argv) {
 
     CHECK(reduced);
     fixture.upload(synthetic(32, true));
-    fixture.compare(camera, {0, 0, 96, 80}, .02f);  // All candidates and exact score ties.
+    fixture.compare(camera, {0, 0, 96, 80}, .02f);        // All candidates and exact score ties.
     fixture.compare(camera, {0, 0, 96, 80}, .02f, .5f);   // Water above the interface.
     fixture.compare(camera, {0, 0, 96, 80}, .02f, -.5f);  // Camera below the interface.
     auto large = synthetic(lighting::kEnvironmentProbeLimit, false);
@@ -316,6 +319,8 @@ int main(int argc, char** argv) {
         auto& p = rotated.probes[i];
         const float angle = float(i % 9) * .17f;
         p.frame.axis = {std::cos(angle), std::sin(angle)};
+        p.frame.pitch = {std::cos(angle * .4f), std::sin(angle * .4f)};
+        p.frame.roll = {std::cos(angle * .7f), std::sin(angle * .7f)};
         p.position = p.frame.to_world(p.position);
     }
 

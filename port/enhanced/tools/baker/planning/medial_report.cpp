@@ -3,6 +3,7 @@
 // Debug paths preserve typed gameplay links without changing the probe-volume floor domain.
 #include <algorithm>
 #include <fstream>
+#include <set>
 #include <stdexcept>
 
 #include "enhanced/lighting/bake_math.h"
@@ -11,10 +12,20 @@
 
 namespace openrac::lighting {
 namespace {
+float display_offset(const bake_detail::RoomLayout& layout, unsigned index) {
+    return layout.medial_display_offsets.empty() ? 1.25f : layout.medial_display_offsets[index];
+}
+
+Float3 display_point(const bake_detail::RoomLayout& layout, unsigned index) {
+    auto point = layout.medial_points[index];
+    point[2] += display_offset(layout, index);
+    return point;
+}
+
 // Draw above the support surface so the debug path is visible without moving gameplay geometry.
-void segment(std::ostream& out, Float3 a, Float3 b, unsigned& count) {
-    out << (count++ ? "," : "") << '[' << a[0] << ',' << a[1] << ',' << a[2] + 1.25f << ',' << b[0]
-        << ',' << b[1] << ',' << b[2] + 1.25f << ']';
+void segment(std::ostream& out, Float3 a, Float3 b, unsigned& count, float lift = 1.25f) {
+    out << (count++ ? "," : "") << '[' << a[0] << ',' << a[1] << ',' << a[2] + lift << ',' << b[0]
+        << ',' << b[1] << ',' << b[2] + lift << ']';
 }
 
 // Walking and swimming remain straight links; airborne links use the exact checked trajectory.
@@ -24,7 +35,7 @@ void paths(std::ostream& out, const bake_detail::RoomLayout& layout, bool jumps)
     for (auto edge : layout.medial_edges) {
         // Floor edges stay solid; only the checked airborne trajectories use dashes.
         if (!jumps) {
-            segment(out, layout.medial_points[edge[0]], layout.medial_points[edge[1]], count);
+            segment(out, display_point(layout, edge[0]), display_point(layout, edge[1]), count, 0);
         }
     }
 
@@ -68,8 +79,8 @@ void key_points(std::ostream& out, const bake_detail::RoomLayout& layout, bool c
                     : degree[i] >= 3;
 
         if (selected) {
-            const auto p = layout.medial_points[i];
-            out << (count++ ? "," : "") << '[' << p[0] << ',' << p[1] << ',' << p[2] + 1.25f << ']';
+            const auto p = display_point(layout, i);
+            out << (count++ ? "," : "") << '[' << p[0] << ',' << p[1] << ',' << p[2] << ']';
         }
     }
 }
@@ -91,9 +102,60 @@ void write_medial_axis_report(
     std::span<const EnvironmentFloorSample> floors
 ) {
     std::ofstream out(directory / "medial-axis.json");
-    out << "{\"version\":1,\"method\":\"unsigned-distance-ridges\",\"field_cell_size\":"
+    out << "{\"version\":1,\"method\":\"room-and-entrance-backbone\",\"field_cell_size\":"
         << layout.medial_cell_size << ",\"field_samples\":" << layout.medial_points.size()
-        << ",\"ridge_samples\":" << layout.medial_ridge_samples << ",\"paths\":[";
+        << ",\"ridge_samples\":" << layout.medial_ridge_samples << ",\"segments\":[";
+    std::vector<unsigned> degree(layout.medial_points.size());
+    std::set<std::array<unsigned, 2>> drawn;
+    unsigned count = 0;
+    const auto draw = [&](unsigned from, unsigned to) {
+        const std::array<unsigned, 2> key{std::min(from, to), std::max(from, to)};
+        if (!drawn.insert(key).second) {
+            return;
+        }
+        const auto a = display_point(layout, from), b = display_point(layout, to);
+        out << (count++ ? ",[" : "[") << a[0] << ',' << a[1] << ',' << a[2] << ',' << b[0] << ','
+            << b[1] << ',' << b[2] << ',' << layout.medial_owners[from] << ','
+            << layout.medial_owners[to] << ']';
+        ++degree[from];
+        ++degree[to];
+    };
+    for (unsigned i = 0; i < layout.medial_edges.size(); ++i) {
+        const auto edge = layout.medial_edges[i];
+        draw(edge[0], edge[1]);
+    }
+    // Watershed boundaries split ownership, not physically continuous floor paths.
+    // Include the checked supported links; airborne jump arcs remain separate diagnostics.
+    for (const auto& link : layout.links) {
+        if (link.kind != bake_detail::RoomLinkKind::Jump) {
+            draw(link.from, link.to);
+        }
+    }
+    out << "],\"markers\":[";
+    bool comma = false;
+    std::vector<bool> centre(layout.medial_points.size());
+    for (auto a : layout.medial_centres) {
+        centre[a] = true;
+    }
+    for (unsigned i = 0; i < layout.medial_points.size(); ++i) {
+        if (!centre[i] && (degree[i] == 0 || degree[i] == 2)) {
+            continue;
+        }
+        const auto p = display_point(layout, i);
+        out << (comma ? ",[" : "[") << p[0] << ',' << p[1] << ',' << p[2] << ','
+            << layout.medial_owners[i] << ',' << degree[i] << ',' << (centre[i] ? 1 : 0) << ']';
+        comma = true;
+    }
+    out << "],\"entrances\":[";
+    for (unsigned i = 0; i + 1 < layout.medial_entrances.size(); i += 2) {
+        const auto from = layout.medial_entrances[i], to = layout.medial_entrances[i + 1];
+        const auto p = bake_detail::mul(
+            bake_detail::add(display_point(layout, from), display_point(layout, to)), .5f
+        );
+        out << (i ? ",[" : "[") << p[0] << ',' << p[1] << ',' << p[2] << ','
+            << layout.medial_owners[from] << ',' << layout.medial_owners[to] << ']';
+    }
+    out << "],\"paths\":[";
     paths(out, layout, false);
     out << "],\"jump_paths\":[";
     paths(out, layout, true);
@@ -114,7 +176,7 @@ void write_medial_axis_report(
     out << "]}\n";
 
     if (!out) {
-        throw std::runtime_error("cannot write medial axis diagnostics");
+        throw std::runtime_error("cannot write area route diagnostics");
     }
 }
 }  // namespace openrac::lighting
