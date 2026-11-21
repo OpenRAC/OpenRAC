@@ -96,6 +96,21 @@ class ReleaseNames(unittest.TestCase):
         self.assertEqual(r.text("module_l00_call_handler_2(); func_L00_0030CF60();", "src/pal/levels/02_x/L02_a.c"),
                          "func_0029C7F0(); func_0029C7F0();")
 
+    def test_a_call_only_the_link_names(self):
+        # PAL's own Dobbo hero declares PH_G1 and calls it; no C defines it and no catalogue has it,
+        # but its build linked it to level 22's copy of func_002836E0. A labelled declaration, the C
+        # library's, one a C body defines and data stay as they are.
+        r = release.Release({"names": {"func_PAL_002836E0": "func_002836E0"}})
+        text = ("extern float PH_G1(void *);\nextern void lab(void) __asm__(\"func_002A7750\");\n"
+                "extern void *memcpy(void *, const void *, unsigned int);\nextern int mine(int);\n"
+                "extern s32 PH_D1;\n")
+        values = {"22": {"PH_G1": 0x002F5100, "lab": 0x002F5100, "memcpy": 0x002F5100, "mine": 0x002F5100,
+                         "PH_D1": 0x002F5100}}
+        rows = {("22", 0x002F5100): "func_PAL_002836E0"}
+        got = release.link_only_words(text, values, {}, r, lambda program, value: rows.get((program, value)),
+                                      {"mine"})
+        self.assertEqual(got, {"PH_G1": "func_002836E0"})
+
     def test_a_level_files_names_of_its_level(self):
         # In an Oozla file func_00312B68 is level 1's copy of func_002A9640 (the primary's level
         # catalogue), not the executable's address it states: it is that function in the release.

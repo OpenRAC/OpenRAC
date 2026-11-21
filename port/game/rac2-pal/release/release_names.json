@@ -28,7 +28,9 @@
   "function: one the release lacks, where its build linked the release's own C": 170,
   "short name: left as it is": 224,
   "short name: the release's build": 1040,
-  "short name: v1.01's build, the same function's place here": 212
+  "short name: v1.01's build, the same function's place here": 212,
+  "function: one the release lacks, where its build linked the primary's C": 5,
+  "function: one only the release's build gave an address, by a name of its own C": 4
  },
  "names": {
   "D_001331D4": "D_V1_001331D4",
@@ -27498,6 +27500,9 @@
   "src/levels/09_dobbo/L09_004082D0.c": {
    "func_325E78": "func_327EB0"
   },
+  "src/levels/10_hrugis_cloud/L10_003170D0-g8.c": {
+   "table_reset_working_values": "func_L05_0037FEB0"
+  },
   "src/levels/10_hrugis_cloud/L10_00424028.c": {
    "func_337518": "func_339440",
    "func_42DF10": "func_433CD0"
@@ -27592,6 +27597,9 @@
   "src/levels/12_todano/L12_004149B8.c": {
    "func_326F10": "func_328E50"
   },
+  "src/levels/12_todano/L12_00417CA8-g16.c": {
+   "tracked_moby_set_state": "func_L00_003E38E8"
+  },
   "src/levels/12_todano/L12_00420838-flags-g8.c": {
    "func_314008": "func_315DA0",
    "func_3248E0": "func_31FFC0",
@@ -27682,6 +27690,12 @@
    "func_803068A0": "func_80307E40",
    "func_80329048": "func_8032AF48",
    "func_803804E8": "func_80382D08"
+  },
+  "src/levels/15_gorn/L15_0042FD40-g8.c": {
+   "table_reset_working_values": "func_L05_0037FEB0"
+  },
+  "src/levels/15_gorn/L15_004328E8.c": {
+   "CreateEnergyStrip": "func_L10_003A0590"
   },
   "src/levels/16_snivelak/L16_00403900.c": {
    "func_2E74B8": "func_2E8968",
@@ -27972,6 +27986,9 @@
    "func_32D0F0": "func_32F260",
    "func_331270": "func_333578",
    "func_419B10": "func_41ED48"
+  },
+  "src/levels/shared/L03_003268C0.c": {
+   "part_spawn_flying_fragment": "func_L02_0032D5F8"
   },
   "src/levels/shared/L04_002CC748-g8.c": {
    "func_3074C8": "func_308588",
@@ -28768,6 +28785,12 @@
   },
   "src/pal/levels/20_yeedil/L20_00445F90.c": {
    "moby_l01_turn_toward_target": "func_L01_00323068"
+  },
+  "src/pal/levels/22_dobbo_orbit/L22_002BF0A8-hero.c": {
+   "PH_G1": "func_002836E0",
+   "PH_G2": "func_002AAD50",
+   "PH_G3": "func_00283A40",
+   "PH_G4": "func_00283A58"
   },
   "src/pal/levels/22_dobbo_orbit/L22_00414080-f7-g8.c": {
    "func_L00_002B9D60": "func_L00_002B9CD8"
