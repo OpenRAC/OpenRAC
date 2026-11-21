@@ -82,8 +82,9 @@ new C++ helper, is `bump_api.py patch`.
 ## Status
 
 A new member is `experimental` in `members.tsv` (`new_api.py --stable` when it
-is a plain copy of a pattern already in use). It may still change in a minor,
-with a note in the header's history. After a release in which mods used it, it
+is a plain copy of a pattern already in use). What it does may still change in
+a minor, with a note in the header's history; its signature may not (the lock
+holds it from the first release). After a release in which mods used it, it
 turns `stable`: kept and working through 1.x. A member replaced by a better
 one stays and keeps working; its row says `deprecated:<new member>`.
 
@@ -97,10 +98,10 @@ one stays and keeps working; its row says `deprecated:<new member>`.
   gives it (shorter `size`), so the wrapper's `has_<name>()` is checked too.
 - A script name: `port/tests/mod_scripts_test.cpp`.
 - The SDK's own checks (CI, `sdk.yml`): `python3 -m unittest discover -s
-  sdk/tools`, `gen_api_lock.py --check`, `gen_reference.py --check`,
-  `gen_binding.py --check`, `bump_api.py --check`.
+  sdk/tools` (it runs `gen_binding.py --check` too), `gen_api_lock.py --check`,
+  `gen_reference.py --check`, `bump_api.py --check`.
 
 ```sh
-cmake --build --preset release --target mod_loader_test && ctest --preset release -R "^mod_"
+(cd port && cmake --build --preset release --target mod_loader_test && ctest --preset release -R "^mod_")
 cmake -S sdk/tests -B build/sdk-tests && cmake --build build/sdk-tests && ctest --test-dir build/sdk-tests
 ```
