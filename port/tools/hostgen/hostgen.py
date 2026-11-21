@@ -606,18 +606,36 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
         text = thunk_text(sym, program.functions[sym], program.typedefs, len(thunks))
         if text is not None:
             thunks.append((sym, text))
-    if thunks:
-        fn += ["#if OPENRAC_REGS_THUNKS",
-               "static double thunk_d_(uint64_t b) { double d; memcpy(&d, &b, sizeof d); return d; }",
+    # hostgen.json "variadic_thunks": the variadic functions' thunks on every platform. The cast in
+    # openrac_guest_call_regs hands the registers on as fixed arguments, which a variadic function
+    # does not read where its variadic ones travel apart (Apple's arm64: on the stack): Up Your
+    # Arsenal's sprintf (0x0011B2E8) formatted the vendor's cost and bolts from the stack's leftovers.
+    always = [(k, sym, t) for k, (sym, t) in enumerate(thunks)
+              if program.variadic_thunks and program.functions[sym].sig.variadic]
+    if always:
+        fn += ["static double thunk_d_(uint64_t b) { double d; memcpy(&d, &b, sizeof d); return d; }",
                "static uint64_t thunk_bits_(double d) { uint64_t b; memcpy(&b, &d, sizeof b); return b; }"]
-        fn += [text for _sym, text in thunks]
+        fn += [t for _k, _sym, t in always]
+        fn.append("static const openrac_thunk_entry k_variadic_thunks[] = {")
+        fn += [f"    {{(openrac_host_fn){cname(sym)}, thunk_{k}}}," for k, sym, _t in always]
+        fn += ["};", ""]
+    if thunks:
+        fn += ["#if OPENRAC_REGS_THUNKS"]
+        if not always:
+            fn += ["static double thunk_d_(uint64_t b) { double d; memcpy(&d, &b, sizeof d); return d; }",
+                   "static uint64_t thunk_bits_(double d) { uint64_t b; memcpy(&b, &d, sizeof b); return b; }"]
+        kept = {k for k, _sym, _t in always}
+        fn += [text for k, (_sym, text) in enumerate(thunks) if k not in kept]
         fn.append("static const openrac_thunk_entry k_thunks[] = {")
-        fn += [f"    {{(openrac_host_fn){cname(sym)}, thunk_{k}}}," for k, (sym, _t) in enumerate(thunks)]
+        fn += [f"    {{(openrac_host_fn){cname(sym)}, thunk_{k}}}," for k, (sym, _t) in enumerate(thunks)
+               if k not in kept]
         fn += ["};", "#endif", ""]
     fn.append(f"void {program_module.NAME_PREFIX}openrac_game_register_functions(void) {{")
     for overlay in sorted(code_tables):
         name = "exe" if overlay < 0 else f"overlay_{overlay:02d}"
         fn.append(f"    openrac_guest_register({overlay}, k_{name}, sizeof k_{name} / sizeof k_{name}[0]);")
+    if always:
+        fn += ["    openrac_guest_register_thunks(k_variadic_thunks, sizeof k_variadic_thunks / sizeof k_variadic_thunks[0]);"]
     if thunks:
         fn += ["#if OPENRAC_REGS_THUNKS", "    openrac_guest_register_thunks(k_thunks, sizeof k_thunks / sizeof k_thunks[0]);",
                "#endif"]
@@ -1404,6 +1422,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # Stubs of the executable that every level program fills with a function of its own.
     program.level_hooks = set(cfg.get("level_hooks", []))
     program.level_hooks_by_registers = cfg.get("level_hooks_by_registers", False)
+    program.variadic_thunks = cfg.get("variadic_thunks", False)
     # Functions whose float arithmetic is the EE's, computed in software (hostgen.json "ps2_float";
     # openrac/ps2float.h): lower.py.
     program.ps2_float = set(cfg.get("ps2_float", []))

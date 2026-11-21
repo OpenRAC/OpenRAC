@@ -122,6 +122,7 @@ class Translate(unittest.TestCase):
             self.assertEqual(report["functions_stubbed"], stubs, report["stubbed"])
             sources = [out / u.strip() for u in (out / "units.txt").read_text().splitlines()]
             self.last_generated = "\n".join(s.read_text() for s in sources)
+            self.last_functions_c = (out / "functions.c").read_text()
             sources += [out / "stubs.c", out / "functions.c", out / "hooks.c", out / "libraries.c", HERE / "tests" / "harness.c"]
             if host_c:
                 (tmp / "host.c").write_text('#include "openrac/guest.h"\n' + textwrap.dedent(host_c))
@@ -898,6 +899,23 @@ class Translate(unittest.TestCase):
         """})
         self.assertEqual(out, ["4123", "5000", "7", "0", "68", "128", "-2", "-1",
                                str(-0x80000000), "-1", "0", "0", "0", "0"])
+
+    def test_a_variadic_function_called_through_its_address_goes_by_its_thunk(self):
+        # hostgen.json "variadic_thunks": the call through a code address (openrac_guest_call_regs)
+        # reaches a variadic function by its thunk on every platform, so its unnamed arguments travel
+        # where the platform's variadic calls put them (Apple's arm64: on the stack; the cast handed
+        # them on in registers, and Up Your Arsenal's sprintf printed the stack's leftovers).
+        files = {"a.c": """
+            int func_00100000(int n, ...) { return n; }
+            int test_main(void) {
+                test_print(((int (*)(int, ...))0x00100000)(3, 4, 5));
+                return 0;
+            }
+        """}
+        out = self.run_program(files, config={"variadic_thunks": True})
+        self.assertEqual(out, ["3"])
+        self.assertIn("k_variadic_thunks", self.last_functions_c)
+        self.assertIn("    openrac_guest_register_thunks(k_variadic_thunks,", self.last_functions_c)
 
     def test_a_local_of_an_unnamed_enum(self):
         # newlib's _vfprintf_r: enum { OCT, DEC, HEX } base; an int, its constants usable.

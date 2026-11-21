@@ -371,7 +371,15 @@ function against its code and fails the build on:
   (`__adddf3`, `__subdf3`, `__muldf3`, `__divdf3`, `__cmpdf2`, `__floatsidf`, `__fixdfsi`,
   `__fixunsdfsi`, `__truncdfsf2`) are the host's now (libraries.tsv, common/lib/libc.c), as
   `__extendsfdf2` was; the rule then found one more (`func_L01_004D59F8`, a third argument handed
-  on to the sprintf at func_0011AF48).
+  on to the printf at func_0011AF48).
+
+The game's sprintf (newlib's, 0x0011B2E8) is the port's (`host/print.c`), a C variadic function.
+Code from assembly and C that calls it through its address (the vendor's cost and bolt total,
+`func_L01_004BEC88`) goes by `openrac_guest_call_regs`, whose cast hands the EE's registers on as
+fixed arguments: on Apple's arm64 a variadic function reads its unnamed arguments from the stack,
+so the vendor printed "0,000" for 15,000 and 1970004 for 0 bolts on the Mac (the Linux boxes, which
+pass them in registers, were right). `hostgen.json` `variadic_thunks` gives the variadic functions
+their thunks on every platform (`functions.c`), as Windows has for all of them.
 
 The levels' copy of the picture TEX0 getter (`func_L01_0042D898`, boot func_0039B088's `unsigned
 long long`) lost its upper word as an `int`, so the in-level SAVE page drew its slot pictures and

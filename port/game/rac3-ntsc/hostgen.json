@@ -6,6 +6,7 @@
   "serial": "SCUS_973.53",
   "source": "games/rac3/decomp",
   "frame_rate": 60,
+  "variadic_thunks": true,
   "tick_rate": 60,
   "entry": "func_0013ADA8",
   "sources": [

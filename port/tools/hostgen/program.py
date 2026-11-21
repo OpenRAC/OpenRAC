@@ -151,6 +151,9 @@ class Program:
     level_data: dict = field(default_factory=dict)  # level -> {data name in its files: address there}
     small_copies_own_data: int = 0  # hostgen.json: level functions up to this many bytes
     level_hooks_by_registers: bool = False  # hostgen.json: assembly calls a hook with its registers
+    # hostgen.json "variadic_thunks": a variadic function called through its code address goes by
+    # its thunk on every platform, not only where OPENRAC_REGS_THUNKS is on (functions.c)
+    variadic_thunks: bool = False
     bare_names_in_level_0: bool = False  # hostgen.json: a C name with no level may be level 0's code
     # hostgen.json "formed_as": a name to the address its code really forms, for an address no
     # instruction forms itself (the program's end, formed only rounded up). Relocated by that one.

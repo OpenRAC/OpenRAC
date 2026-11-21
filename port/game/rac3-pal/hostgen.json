@@ -5,6 +5,7 @@
   "serial": "SCES_524.56",
   "source": "games/rac3/decomp",
   "frame_rate": 50,
+  "variadic_thunks": true,
   "tick_rate": 50,
   "entry": "func_0013ADA8",
   "executables": ["mp/hostgen.json"],
