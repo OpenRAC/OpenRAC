@@ -613,6 +613,14 @@
     "L01:00404B28": {
       "is": "004027B8",
       "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404B28's twin is NTSC-U's func_L01_004027B8, the pair rac3-ntsc's carried libraries.tsv binds"
+    },
+    "L01:001D64EC": {
+      "is": "001D64EC",
+      "why": "between the same code's 0x001D64E8 and 0x001D64FA, both moved by +0x0 (NTSC-U 0x001D64E8, 0x001D64FA)"
+    },
+    "L01:001DF948": {
+      "is": "001DF9C8",
+      "why": "the same instruction of the same code: func_L01_003F1478 (NTSC-U func_L01_003EF538) +0xD0, 24 of 24 places agree"
     }
   }
 }
