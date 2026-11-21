@@ -379,10 +379,10 @@ mod tests {
     }
 
     /// Up Your Arsenal's discs are played the way Going Commando's are (set up, build, levels,
-    /// Play), with a warning first: they run as far as their menus. NTSC-U's program is PAL's
-    /// carried to its addresses (port/game/rac3-ntsc).
+    /// Play), with a warning first: the port is early. NTSC-U's program is PAL's carried to its
+    /// addresses (port/game/rac3-ntsc).
     #[test]
-    fn up_your_arsenals_discs_play_their_menus() {
+    fn up_your_arsenals_discs_play_their_levels() {
         let player = Config { root: Some(checkout()), ..Config::default() };
         let library = library(&player).unwrap();
         let version = |key: &str| library.games.iter().flat_map(|g| &g.versions).find(|v| v.version.key == key);
@@ -393,7 +393,7 @@ mod tests {
             assert!(!play.developer, "{key}");
             assert_ne!(play.state, actions::State::Planned, "{key}");
             let warning = play.warning.unwrap_or_else(|| panic!("{key}'s Play says what does not work yet"));
-            assert!(warning.contains("no level loads"), "{key}: {warning}");
+            assert!(warning.contains("early port") && !warning.contains("no level loads"), "{key}: {warning}");
             for id in ["port-build", "port-rebuild", "port-levels"] {
                 let a = action(id).unwrap_or_else(|| panic!("a player has {key}'s {id}"));
                 assert!(!a.developer, "{key} {id}");
