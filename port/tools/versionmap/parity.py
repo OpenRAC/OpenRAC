@@ -33,7 +33,12 @@ Two more, the same way:
 A row naming a variant of the program's split_places.tsv binds it by name (a carried release
 keeps PAL v2.00's name there, with its own places): it is read at the variant's first place.
 
-parity.tsv: PAL v2.00 name, place (boot or NN), the programs that differ, why; or a table row's
+In rac1 a row also binds every other place its program's own catalogue (hostgen.json "places")
+folds into that function, and a split_places.tsv variant every place it lists: hostgen binds them
+there too. A version whose catalogue names a level copy apart needs a row for it as well, else that
+copy runs the game's C where the others run the port's.
+
+parity.tsv: PAL v2.00 name, place (boot, NN, or * for all of them), the programs that differ, why; or a table row's
 name, "row", the programs whose row is not at a function's start, why. A row there that no
 longer applies is an error too, so the file stays true.
 """
@@ -56,7 +61,10 @@ NAME = re.compile(r"^(?:FUN|func)_(?:L(\d\d)_)?([0-9A-Fa-f]{8})(?:_\w*)?$")
 GAMES = {
     "rac1": {"source": "games/rac1/decomp",
              "catalogue": ["config/versions/{v}/functions.tsv"],
-             "programs": {"rac1-pal": "pal", "rac1-ntsc": "us", "rac1-pal1": "pal_v1", "rac1-jp": "jp"}},
+             "programs": {"rac1-pal": "pal", "rac1-ntsc": "us", "rac1-pal1": "pal_v1", "rac1-jp": "jp"},
+             # Each program's own catalogue (hostgen.json "places") folds level copies into one
+             # name, and a row binds every place of it: those are read too (folded_places).
+             "folded": True},
     # rac2-decomp's own config is NTSC v1.01's; config/<v>/ the releases' (tools/carry.py).
     "rac2": {"source": "games/rac2/decomp",
              "catalogue": ["config/{v}boot/functions.tsv", "config/{v}levels/functions.tsv"],
@@ -208,6 +216,35 @@ def place_of(name: str, named: dict[str, int]) -> tuple[str, int] | None:
     if name in named:
         return ("boot", named[name])
     return None
+
+
+def folded_places(cfg: dict, root: Path, variants: dict[str, list[tuple[str, int]]]
+                  ) -> dict[tuple[str, int], list[tuple[str, int]]]:
+    """Every place a function of a program's own catalogue (hostgen.json "places") stands for, by
+    each of those places: hostgen binds a row's function in all of them. The places split_places.tsv
+    gives a variant are the variant's, not the folded function's. PAL's func_00222848 covers the
+    levels' copies of the ship list; the NTSC decomp names those apart (FUN_L00_0027f448), so a row
+    for its executable's copy alone left the levels to the game's C."""
+    path = root / cfg["source"] / cfg["places"] if cfg.get("places") else None
+    out: dict[tuple[str, int], list[tuple[str, int]]] = {}
+    if path is None or not path.is_file():
+        return out
+    split = {at for places in variants.values() for at in places}
+    by_name: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    for place, spans in Catalogue([path]).spans.items():
+        for address, _size, name in spans:
+            if (place, address) not in split:
+                by_name[name].append((place, address))
+    for name, places in by_name.items():
+        # An executable function's row in hostgen's own catalogue lists only the levels; its name
+        # is its executable place (a release's catalogue lists that place itself).
+        own = place_of(name, {})
+        if own is not None and own[0] == "boot" and not any(p == "boot" for p, _ in places) \
+                and own not in split:
+            places.append(own)
+        for at in places:
+            out[at] = places
+    return out
 
 
 def rows(path: Path) -> list[list[str]]:
@@ -395,6 +432,7 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
         cat = cats[program] = catalogue(spec, source, version)
         cfg = json.loads((root / "port/game" / program / "hostgen.json").read_text())
         named = symbols(root / cfg["source"])
+        folded = folded_places(cfg, root, split[program]) if spec.get("folded") else {}
         kinds: dict[tuple[str, str], set[str]] = defaultdict(set)
         for cols in rows(root / "port/game" / program / "libraries.tsv"):
             if cols[0] in split[program]:
@@ -404,6 +442,10 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
                 at = split[program][cols[0]][0]
                 if at in cat.at:
                     kinds[(cat.at[at], at[0])].add(cols[3])
+                if spec.get("folded"):  # hostgen binds it in every one of those places
+                    for other in split[program][cols[0]][1:]:
+                        if other in cat.at:
+                            kinds[(cat.at[other], other[0])].add(cols[3])
                 continue
             at = place_of(cols[0], named)
             if at is None:
@@ -421,6 +463,9 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
                               f"wrong address, and the function it is for runs its console C")
                 continue
             kinds[(name, at[0])].add(cols[3])
+            for other in folded.get(at, ()):
+                if other != at and other in cat.at:
+                    kinds[(cat.at[other], other[0])].add(cols[3])
             if len(cols) > 5 and cols[5].strip():
                 typed[name][program] = signature(cols[5])
         for key, k in kinds.items():
@@ -440,9 +485,10 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
         counts = list(seen.values())
         common = next(v for v in seen.values() if counts.count(v) == max(map(counts.count, counts)))
         odd = {p for p, v in seen.items() if v != common}
-        why = reasons.get((name, place))
+        key = (name, place) if (name, place) in reasons else (name, "*")
+        why = reasons.get(key)
         if why is not None:
-            used.add((name, place))
+            used.add(key)
             if why[0] == odd:
                 continue
         errors.append(f"{game}: {name} ({place}) runs differently: "
