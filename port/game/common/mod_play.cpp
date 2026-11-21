@@ -564,6 +564,31 @@ int api_moby_copy(openrac_mod* mod, int slot, int index) {
     return copy;
 }
 
+// The pool of spawned mobys (interface 1.27): the host's raise and status.
+int api_moby_pool_raise(openrac_mod* mod, int extra) {
+    if (mod == nullptr || extra < 0 || g_play == nullptr || g_play->moby_pool_raise == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->moby_pool_raise(extra);
+}
+
+int api_moby_pool_status(openrac_mod* mod, openrac_moby_pool* out) {
+    if (mod == nullptr || out == nullptr || out->size < sizeof(openrac_moby_pool)
+        || g_play == nullptr || g_play->moby_pool_status == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::int32_t pool[5] = {};
+    if (g_play->moby_pool_status(pool) <= 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    out->capacity = pool[0];
+    out->live = pool[1];
+    out->free = pool[2];
+    out->extra = pool[3];
+    out->requested = pool[4];
+    return OPENRAC_HOOK_OK;
+}
+
 int api_figure_slot(openrac_mod* mod, int id) {
     if (g_play == nullptr || g_play->hero_slot == nullptr) {
         return -1;
@@ -2154,6 +2179,8 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.moby_material = api_moby_material;
     api.moby_copy_check = api_moby_copy_check;
     api.moby_copy = api_moby_copy;
+    api.moby_pool_raise = api_moby_pool_raise;
+    api.moby_pool_status = api_moby_pool_status;
     api.prop_pose = api_prop_pose;
     api.prop_attach = api_prop_attach;
     api.prop_frame = api_prop_frame;

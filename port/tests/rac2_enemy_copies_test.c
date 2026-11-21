@@ -22,6 +22,7 @@
     } while (0)
 
 #include "../game/rac2/host/enemy_copies.c"
+#include "../game/rac2/host/moby_pool.c"
 
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = 0x02000000u;
@@ -48,6 +49,13 @@ gaddr openrac_guest_static(uint32_t size) {
     const gaddr at = statics;
     statics += (size + 15u) & ~15u;
     return at;
+}
+
+static const char* pool_env;
+
+const char* openrac_env_string(const char* name) {
+    (void)name;
+    return pool_env;
 }
 
 static uint32_t program_loads = 1;
@@ -517,6 +525,51 @@ static void death(void) {
     CHECK(!rac2_copy_is(copy));
 }
 
+/* The moby pool: a request adds spare slots to the gameplay file a running loader named, once and
+ * only to that file; the status counts the level's pool. */
+static void pool(void) {
+    make_level();
+    const gaddr file = 0x00A00000u;
+    put32(file + 0x4Cu, 0x100u);
+    put32(file + 0x100u, 12);
+    put32(file + 0x104u, 200);
+    put32(LOAD_CONTEXT + CONTEXT_FILE, file);
+    /* No request: the file as it is. */
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    rac2_pool_loaded();
+    CHECK(GREF(int32_t, file + 0x104u) == 200);
+    /* A request of 100, 1,000 is cut to the most; only the loader's file is raised. */
+    CHECK(rac2_pool_raise(100) == 100);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file + 0x1000u);
+    CHECK(GREF(int32_t, file + 0x104u) == 200);
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 300);
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 300);
+    rac2_pool_loaded();
+    CHECK(rac2_pool_raise(1000) == RAC2_POOL_EXTRA_MAX);
+    put32(file + 0x104u, 200);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + RAC2_POOL_EXTRA_MAX);
+    rac2_pool_loaded();
+    /* The indices stay under 15 bits: placed 12 and spare 0x7FF0 leave room for 3. */
+    put32(file + 0x104u, 0x7FF0);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 0x7FF3);
+    rac2_pool_loaded();
+    /* The status of the level's table: 200 spare, the copies' and the level's own alive. */
+    int32_t out[5];
+    CHECK(rac2_pool_status(out) == 1);
+    CHECK(
+        out[0] == (int32_t)DYNAMIC_SLOTS && out[1] + out[2] <= out[0]
+        && out[4] == RAC2_POOL_EXTRA_MAX
+    );
+}
+
 int main(void) {
     openrac_guest_base = calloc(1, openrac_guest_ram_size);
     CHECK(openrac_guest_base != NULL);
@@ -526,6 +579,7 @@ int main(void) {
     reserve();
     stale_and_new_load();
     death();
+    pool();
     puts("RAC2 enemy copies: OK");
     return 0;
 }

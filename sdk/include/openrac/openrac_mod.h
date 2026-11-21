@@ -82,9 +82,10 @@ extern "C" {
  * effects a moby draws, and copies of a level's placed enemies
  * (moby_copy_check, moby_copy), and 1.26 copies that wake and fight with
  * their squad (the table is unchanged: a 1.25 port's copies of a squad's
- * enemies never wake, so a mod asks for 1.26 before it makes them).
+ * enemies never wake, so a mod asks for 1.26 before it makes them), and 1.27
+ * more room for spawned mobys (moby_pool_raise, moby_pool_status).
  */
-#define OPENRAC_MOD_API_MINOR 26
+#define OPENRAC_MOD_API_MINOR 27
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -774,6 +775,22 @@ typedef struct openrac_moby {
     float anim_time;
     float anim_speed;
 } openrac_moby;
+
+/* The most extra spare slots moby_pool_raise grants. Since 1.27. */
+#define OPENRAC_MOBY_POOL_EXTRA_MAX 512
+
+/* The level's pool of spawned mobys (moby_pool_status). Since 1.27. */
+typedef struct openrac_moby_pool {
+    /* sizeof(openrac_moby_pool), set by the mod. */
+    uint32_t size;
+    /* The spare slots in all, the ones alive, and the free ones (a spawn needs one). */
+    int32_t capacity;
+    int32_t live;
+    int32_t free;
+    /* The extra slots this level's load added, and the ones the mods asked for. */
+    int32_t extra;
+    int32_t requested;
+} openrac_moby_pool;
 
 /* How the game deleted a moby of the level (moby_deletion). Since 1.9. */
 typedef struct openrac_moby_deletion {
@@ -2389,6 +2406,22 @@ typedef struct openrac_api {
      * copied. Returns the copy's slot, or OPENRAC_HOOK_UNKNOWN (not allowed, no clear spot, no
      * room, a part of its own). */
     int (*moby_copy)(openrac_mod* mod, int slot, int index);
+
+    /* The pool of spawned mobys (since 1.27; Going Commando's, a game without the call answers
+     * OPENRAC_HOOK_UNKNOWN). The game makes every spawned moby (a bolt, a shot, an effect, a
+     * copy) from a pool of spare slots its level's file sets, and a spawn with none free is lost,
+     * a bolt with it. A level has 200 to 400 and Barlow's enemy copies alone take 79.
+     *
+     * moby_pool_raise: asks for `extra` more spare slots in every level loaded from now on (each
+     * takes 0x180 bytes of the level's heap; the largest request of any mod counts, at most
+     * OPENRAC_MOBY_POOL_EXTRA_MAX). Ask in the mod's load, before the first level loads; a level
+     * already loaded keeps its pool. Returns the slots granted (the request cut to the most), or
+     * OPENRAC_HOOK_UNKNOWN. */
+    int (*moby_pool_raise)(openrac_mod* mod, int extra);
+    /* moby_pool_status: fills `out` (out->size set by the mod) with the level's pool as it is now.
+     * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or for a game without a
+     * pool. */
+    int (*moby_pool_status)(openrac_mod* mod, openrac_moby_pool* out);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

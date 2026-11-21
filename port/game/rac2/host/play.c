@@ -49,6 +49,7 @@
 
 #include "enemy_copies.h"
 #include "game_protos.h"
+#include "moby_pool.h"
 #include "openrac/game_host.h"
 #include "openrac/host_env.h"
 #include "openrac/pose_anim.h"
@@ -702,6 +703,8 @@ static openrac_game_play play = {
     .hero_moby = hero_moby,
     .moby_copy_check = moby_copy_check,
     .moby_copy = moby_copy,
+    .moby_pool_raise = rac2_pool_raise,
+    .moby_pool_status = rac2_pool_status,
 };
 
 void rac2_install_play(void) {

@@ -59,6 +59,7 @@
 #include <string.h>
 
 #include "game_protos.h"
+#include "moby_pool.h"
 #include "rac2.h"
 
 /* ---- The game's data ---- */
@@ -540,7 +541,10 @@ int rac2_copy_detail(const rac2_moby_table* t, gaddr moby) {
 /* LoadLevelData (func_L00_00300618; a level's own load, and its load again after a death): the
  * level's file read for the copies as the game has just laid the level out from it. */
 gaddr func_L00_00300618(int reload) {
+    /* The level's gameplay file may get spare mobys beyond the disc's as it is decompressed. */
+    rac2_pool_loading();
     const gaddr heap = func_L00_00300618__game(reload);
+    rac2_pool_loaded();
     const rac2_moby_table t =
         {GREF(gaddr, TABLE_BASE), GREF(gaddr, TABLE_DYNAMIC), GREF(gaddr, TABLE_END)};
     if (t.base != 0 && t.dynamic >= t.base && t.end >= t.dynamic
