@@ -217,6 +217,9 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool has_squad_copies() const` | Since 1.26: whether moby_copy()'s copies wake and fight with their squad (a 1.25 port's copies of a squad's enemies never woke). |
 | `int moby_copy_check(int slot) const` | Since 1.25: whether moby_copy() may copy the moby in `slot`: OPENRAC_COPY_OK, or why not (OPENRAC_COPY_*); OPENRAC_HOOK_UNKNOWN for no moby there, outside a level, once the level's own data is gone, or a port or game without copies. Ask at the level's load (Going Commando: rac2.level.load). |
 | `int moby_copy(int slot, int index) const` | Since 1.25: makes copy `index` (0 the first) of the moby in `slot` at a clear spot beside it, running on its own and dropping what its original drops. Returns the copy's slot, or -1 (not allowed, no spot, no room, or no such call). |
+| `bool has_moby_pool() const` | Since 1.27: whether the port has moby_pool_raise() and moby_pool_status(). |
+| `int moby_pool_raise(int extra) const` | Since 1.27: asks for `extra` more spare moby slots in every level loaded from now on (at most OPENRAC_MOBY_POOL_EXTRA_MAX). Ask in load(). Returns the slots granted, 0 for none (or a port or game without the call). |
+| `bool moby_pool_status(openrac_moby_pool& out) const` | Since 1.27: fills `out` with the level's pool of spawned mobys as it is now. False outside a level or with no such call. |
 | `template <class F> void on_tick_boundary(F&& callable)` | Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here. Since 1.6; only during load. |
 | `bool has_savestates() const` | Since 1.6: returns whether the port offers tick-boundary and warm-snapshot calls. |
 | `std::size_t savestate_size() const` | The exact size of this build's warm, same-process snapshot. Since 1.6. |

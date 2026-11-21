@@ -10,9 +10,13 @@
  * header. The port's routine every game shares does the same in memory
  * (common/lib/wad_routine.h).
  */
-#include "rac2.h"
 #include "game/common/lib/wad_routine.h"
+#include "moby_pool.h"
+#include "rac2.h"
 
 int func_0029D4D0(int source, int destination) {
-    return openrac_wad_routine(source, destination, "Going Commando");
+    const int made = openrac_wad_routine(source, destination, "Going Commando");
+    /* The level loader's gameplay file gets the spare moby slots a mod asked for (moby_pool.c). */
+    rac2_wad_decompressed((gaddr)destination);
+    return made;
 }

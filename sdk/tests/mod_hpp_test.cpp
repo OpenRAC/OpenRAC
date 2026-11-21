@@ -1002,6 +1002,21 @@ void fill_25_copies(openrac_api &api) {
   };
 }
 
+// The fake host's 1.27 pool: a raise is cut to 1,024; the status has 400 spare slots, 90 alive.
+void fill_27_pool(openrac_api &api) {
+  api.moby_pool_raise = [](openrac_mod *, int extra) {
+    return extra > OPENRAC_MOBY_POOL_EXTRA_MAX ? OPENRAC_MOBY_POOL_EXTRA_MAX : extra;
+  };
+  api.moby_pool_status = [](openrac_mod *, openrac_moby_pool *out) {
+    out->capacity = 400;
+    out->live = 90;
+    out->free = 310;
+    out->extra = 128;
+    out->requested = 128;
+    return OPENRAC_HOOK_OK;
+  };
+}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -2099,6 +2114,16 @@ int main() {
       CHECK(mod.has_squad_copies());
       api.api_minor = 25;
       CHECK(mod.has_moby_copy() && !mod.has_squad_copies());
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.27: the pool of spawned mobys; a port of 1.26 has none.
+    {
+      fill_27_pool(api);
+      openrac_moby_pool pool{};
+      CHECK(mod.has_moby_pool() && mod.moby_pool_raise(100) == 100 && mod.moby_pool_raise(9000) == 1024);
+      CHECK(mod.moby_pool_status(pool) && pool.capacity == 400 && pool.free == 310 && pool.extra == 128);
+      api.api_minor = 26;
+      CHECK(!mod.has_moby_pool() && mod.moby_pool_raise(100) == 0 && !mod.moby_pool_status(pool));
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);

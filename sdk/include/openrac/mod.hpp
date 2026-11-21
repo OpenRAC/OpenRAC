@@ -1088,6 +1088,29 @@ public:
       return copy >= 0 ? copy : -1;
     }
 
+    // Since 1.27: whether the port has moby_pool_raise() and moby_pool_status().
+    bool has_moby_pool() const {
+      return m_api->api_minor >= 27 &&
+             m_api->size >= offsetof(openrac_api, moby_pool_status) + sizeof(void *);
+    }
+
+    // Since 1.27: asks for `extra` more spare moby slots in every level loaded from now on (at
+    // most OPENRAC_MOBY_POOL_EXTRA_MAX). Ask in load(). Returns the slots granted, 0 for none
+    // (or a port or game without the call).
+    int moby_pool_raise(int extra) const {
+      const int granted =
+          has_moby_pool() ? m_api->moby_pool_raise(m_handle, extra) : OPENRAC_HOOK_UNKNOWN;
+      return granted > 0 ? granted : 0;
+    }
+
+    // Since 1.27: fills `out` with the level's pool of spawned mobys as it is now. False outside
+    // a level or with no such call.
+    bool moby_pool_status(openrac_moby_pool& out) const {
+      out = openrac_moby_pool{};
+      out.size = sizeof out;
+      return has_moby_pool() && m_api->moby_pool_status(m_handle, &out) == OPENRAC_HOOK_OK;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

@@ -241,6 +241,10 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
     {Var::Menu, "OPENRAC_MENU",
      Kind::Text, Truth::NotAFlag, "closed",
      "TAB[@TICK] (graphics, enhanced, game, controls, developer): the menu open on that tab at that tick"},
+    {Var::MobyExtra, "OPENRAC_MOBY_EXTRA",
+     Kind::Integer, Truth::NotAFlag, "none",
+     "Going Commando: N more spare moby slots (at most 1,024) in every level loaded, as a mod's "
+     "moby_pool_raise asks; a mod's own request wins"},
     {Var::MobyLog, "OPENRAC_MOBY_LOG",
      Kind::Text, Truth::NotAFlag, "none",
      "N[:RADIUS]: every N ticks, the mobys near the hero, in the log"},
