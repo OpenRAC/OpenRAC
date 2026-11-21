@@ -65,10 +65,10 @@ void upload_image(
     });
     if (render_pending()) {
         g->pending_images.push_back(image);
-    } else if (g->renderer) {
-        run_graphics([&] { g->renderer->textures().upload(image); });
+    } else if (g->render.renderer) {
+        run_graphics([&] { g->render.renderer->textures().upload(image); });
     }
-    if (g->profile->images_outlast_list()) {
+    if (g->render.profile->images_outlast_list()) {
         g->images_after_list.push_back(image);
     }
     g->images.push_back(std::move(image));
@@ -86,9 +86,9 @@ void upload_picture(
     if (!g || !finish_render()) {
         return;
     }
-    if (g->renderer) {
+    if (g->render.renderer) {
         run_graphics([&] {
-            g->renderer->textures().set_picture(
+            g->render.renderer->textures().set_picture(
                 base, width_units, static_cast<int>(width), static_cast<int>(height), pixels
             );
         });
@@ -99,8 +99,8 @@ void forget_picture(std::uint32_t base) {
     if (!g || !finish_render()) {
         return;
     }
-    if (g->renderer) {
-        run_graphics([=] { g->renderer->textures().forget_picture(base); });
+    if (g->render.renderer) {
+        run_graphics([=] { g->render.renderer->textures().forget_picture(base); });
     }
 }
 
@@ -121,9 +121,10 @@ bool store_image(
     int fx = 0;
     int fy = 0;
     // The draw buffer as the game left it: the last frame with its world in.
-    const renderer::FrameBuffer* source = g && g->last_world.id() != 0 ? &g->last_world
-                                          : g                          ? &g->frame
-                                                                       : nullptr;
+    const renderer::FrameBuffer* source = g && g->render.last_world.id() != 0
+                                              ? &g->render.last_world
+                                          : g ? &g->render.frame
+                                              : nullptr;
     if (source == nullptr || psm != 0 || source->id() == 0 || source->width() <= 0
         || !renderer::frame_pixel(base, width_units, x, y, fx, fy)) {
         return false;

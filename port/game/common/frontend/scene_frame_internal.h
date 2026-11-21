@@ -10,13 +10,13 @@ namespace openrac::frontend {
 
 // The inputs and temporary views of one owned snapshot; callbacks end before this context expires.
 struct SceneFrame {
-    State& owner;                        // Pinned by the frontend until the handoff completes.
+    SceneRenderState& owner;             // Pinned by the frontend until the handoff completes.
     const Kept& scene;                   // Owned by the accepted render job.
     const settings::Settings& graphics;  // Settings copied with that job.
     FramePresentation& output;           // Shared result, published by the worker handoff mutex.
-    renderer::FrameInput input;          // Views into scene and the shadow storage below.
-    std::vector<renderer::ShadowCapsule> shadows;  // Interpolated capsule storage for input.
-    std::vector<renderer::ShadowSet> shadow_sets;  // Interpolated further casters for input.
+    renderer::FrameInput input{};        // Views into scene and the shadow storage below.
+    std::vector<renderer::ShadowCapsule> shadows{};  // Interpolated capsule storage for input.
+    std::vector<renderer::ShadowSet> shadow_sets{};  // Interpolated further casters for input.
     bool temporal = false;    // Temporal reconstruction is active for this scene.
     float picture_scale = 1;  // Width of the original picture inside the wider frame.
     bool has_camera = false;  // The world is drawn: the tick has a camera and set_camera kept one.
@@ -64,6 +64,6 @@ void finish_views();
 
 // Before the graphics context goes: the mod lets go of what it made with it, then the views'
 // pictures and framebuffers go.
-void release_views(State& owner);
+void release_views(SceneRenderState& owner);
 
 }  // namespace openrac::frontend
