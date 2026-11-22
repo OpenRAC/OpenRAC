@@ -369,6 +369,28 @@ function against its code and fails the build on:
   `__extendsfdf2` was; the rule then found one more (`func_L01_004D59F8`, a third argument handed
   on to the printf at func_0011AF48).
 
+The same check reads every function with C against its own retail code (`asmc.c_argument_drops`,
+the report's `c_argument_drops`): matched C may leave out an argument it only hands on to a call,
+whose register keeps the caller's value on the EE, so the bytes match while the translated call
+passes nothing. random_vector (`func_L01_00443B88`) names only `out` and calls rand_range with no
+arguments, which reads its callers' range in $f12/$f13: crate pieces spun by a quaternion of any
+length (#717). `asm` `params_from_code` gives each such definition the argument registers its code
+reads (as `params_from_declarations` would, typed by the longest agreeing declaration, else int and
+float), so its callers' values reach its short calls; again until none is left, since a definition
+that takes more makes its callers that hand those registers on read them too. On the PAL disc the
+first scan found 97 definitions (29 of them reading float registers); the rule gives 106 their
+parameters with the ones it finds through them, none is left, and the zero-filled call arguments
+went from 1,041 to 853. Many reads come from a callee whose prototype the declarations widened
+(the GUI table builders, `func_L01_004903F0` and its twins, call `func_L01_00518D40`, which takes
+two integers and two floats, with one): the registers then hand on whatever the caller held, as
+on the EE, where before they were 0. `tools/hostgen/dropped_args.py <gen>` ranks
+what is left: a call whose callee's code reads the register the C leaves out is a value the caller
+held for something else (a leftover); the rest are prototypes wider than their code.
+`asm` `stack_arguments` counts the integer arguments past the eighth too, which the caller passes
+in its frame and the callee loads above its own (the levels' copy of frontbin's func_003910C0,
+`func_L01_00412C08`, reads a ninth: #719 gave it its signature by hand), in the signatures of the
+translated functions, the check and `params_from_code`.
+
 The game's sprintf (newlib's, 0x0011B2E8) is the port's (`host/print.c`), a C variadic function.
 Code from assembly and C that calls it through its address (the vendor's cost and bolt total,
 `func_L01_004BEC88`) goes by `openrac_guest_call_regs`, whose cast hands the EE's registers on as

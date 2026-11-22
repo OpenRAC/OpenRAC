@@ -313,6 +313,7 @@
       "func_003A64E8__frontbin": "int (int)",
       "func_003ACFD8__frontbin": "int (int, int, int, int, int)",
       "func_003C4420": "float (int, int, float, float, float, float)",
+      "func_003CD830__frontbin": "int (int, int, int, int)",
       "func_003C45E0": "float (int, float, float, float, float)",
       "func_003C4FA8": "int (int, int, int)",
       "func_003C28B0__frontbin": "float (int, int)",
@@ -904,6 +905,8 @@
     "wide_call_results": true,
     "float_parameters_on_calls": true,
     "signature_check": true,
+    "params_from_code": true,
+    "stack_arguments": true,
     "result_flow": true,
     "signature_allow": {
       "func_L01_0049AE90": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",

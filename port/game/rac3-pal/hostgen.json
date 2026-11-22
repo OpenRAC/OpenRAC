@@ -244,6 +244,7 @@
       "func_003ABA90__frontbin": "int (int)",
       "func_003B2580__frontbin": "int (int, int, int, int, int)",
       "func_003C4558": "float (int, int, float, float, float, float)",
+      "func_003D2DA0__frontbin": "int (int, int, int, int)",
       "func_003C4718": "float (int, float, float, float, float)",
       "func_003C5110": "int (int, int, int)",
       "func_003C7E20__frontbin": "float (int, int)",
@@ -622,6 +623,8 @@
     "wide_call_results": true,
     "float_parameters_on_calls": true,
     "signature_check": true,
+    "params_from_code": true,
+    "stack_arguments": true,
     "result_flow": true,
     "variant_callees": "tables/variant_callees.tsv",
     "signature_allow": {
