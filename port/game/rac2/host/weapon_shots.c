@@ -56,6 +56,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "enemy_copies.h"
 #include "game_protos.h"
 #include "moby_pool.h"
 #include "rac2.h"
@@ -496,6 +497,9 @@ gaddr func_L00_00387CA8(gaddr pos, gaddr velocity) {
 /* CreateMoby: what a moby's update makes takes that moby's look (its blast, its debris). */
 gaddr func_0029EFD0(int oclass) {
     const gaddr m = func_0029EFD0__game(oclass);
+    if (m != 0) {
+        rac2_copy_slot_taken(m);
+    }
     /* A new moby in a slot: the look of the one before is not its own. */
     if (m != 0 && looks_ready) {
         const int32_t slot = slot_of(m);

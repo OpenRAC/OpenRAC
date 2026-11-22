@@ -24,6 +24,11 @@
 
 #include "../game/rac2/host/weapon_shots.c"
 
+/* enemy_copies.c's: no copies in this test. */
+void rac2_copy_slot_taken(gaddr moby) {
+    (void)moby;
+}
+
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = 0x02000000u;
 gaddr openrac_relocate_low = 0, openrac_relocate_high = 0;

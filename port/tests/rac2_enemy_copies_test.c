@@ -637,6 +637,32 @@ static void pool_ceiling(void) {
     CHECK(rac2_pool_loaded(0x004F4000u + 117u * 0x180u) == 0);
 }
 
+/* A dead copy's slot given out again: its index comes off its squad's list, the rest stay. */
+static void slot_taken(void) {
+    make_level();
+    const gaddr a = rac2_copy_make(&table, placed(0), 0);
+    const gaddr b = rac2_copy_make(&table, placed(0), 1);
+    CHECK(a != 0 && b != 0);
+    const gaddr list = GREF(gaddr, 0x001EE5A0u + 4u);
+    const uint16_t ia = (uint16_t)((a - BASE) / 0x100u), ib = (uint16_t)((b - BASE) / 0x100u);
+    CHECK(GREF(uint16_t, list + 4u) == ia && GREF(uint16_t, list + 6u) == (ib | 0x8000u));
+    /* A live moby's slot that no list names: the lists are left alone. */
+    const gaddr other = func_0029EFD0(THING);
+    rac2_copy_slot_taken(other);
+    CHECK(GREF(uint16_t, list + 4u) == ia && GREF(uint16_t, list + 6u) == (ib | 0x8000u));
+    /* The last copy dies and a bolt takes its slot: the one before it ends the list. */
+    func_0029F338(b);
+    CHECK(func_0029EFD0(THING) == b);
+    rac2_copy_slot_taken(b);
+    CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x0009u);
+    CHECK(GREF(uint16_t, list + 4u) == (ia | 0x8000u));
+    /* The first dies too: only the members are left, the last with its mark. */
+    func_0029F338(a);
+    CHECK(func_0029EFD0(THING) == a);
+    rac2_copy_slot_taken(a);
+    CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x8009u);
+}
+
 int main(void) {
     openrac_guest_base = calloc(1, openrac_guest_ram_size);
     CHECK(openrac_guest_base != NULL);
@@ -645,6 +671,7 @@ int main(void) {
     no_spot();
     reserve();
     stale_and_new_load();
+    slot_taken();
     death();
     pool();
     pool_ceiling();
