@@ -103,6 +103,7 @@ CARRIED_UI = [
     ("0059C910", "", "", "ref", "a HUD texture's TEX0"),
     ("0058C218", "draw", "DrawRotatedSpriteMap", "wrap", "the turned sprite (func_0038C0B8)"),
     ("0059D368", "draw", "DrawHudQuadTurnedMap", "wrap", "the turned HUD quad (func_00397A18)"),
+    ("0058B9F8", "draw", "DrawGlyphQuadFloatMap", "wrap", "the glyph quad placed in floats"),
 ]
 
 # Level 39's HUD sprites (hud.c's MP_MAP_HUD: the sprite, the gradient, then the TEX0 getter they call).

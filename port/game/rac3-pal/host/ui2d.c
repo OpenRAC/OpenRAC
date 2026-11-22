@@ -1402,6 +1402,48 @@ MP_GLYPH_SHADOWED(mp_func_0027FB60)
 MP_GLYPH_QUAD(mp_func_0027F458, MP_CURSOR)
 MP_GLYPH_QUAD(mp_func_L39_0058B868, MP_MENUS_CURSOR)
 
+/* The multiplayer executable's own glyph quad with its place in floats (the core's 0x0027F5E8,
+ * level 39's 0x0058B9F8, the maps' copies; the boot program has none): the texels (u, v) and their
+ * size, the colour and the TEX0, then x, y, w and h in pixels, scaled by 16 and cut to whole
+ * sixteenths as glyph_quad's are. It draws the map loading screen's weapon icons; from the game's
+ * packets they drew with no texture. */
+#define MP_FLOAT_GLYPH_QUAD(name, cursor)                                                          \
+    void name(                                                                                     \
+        int u,                                                                                     \
+        int v,                                                                                     \
+        int uw,                                                                                    \
+        int vh,                                                                                    \
+        long long rgba,                                                                            \
+        long long tex0,                                                                            \
+        float x,                                                                                   \
+        float y,                                                                                   \
+        float w,                                                                                   \
+        float h                                                                                    \
+    ) {                                                                                            \
+        openrac_game_ui_rect q;                                                                    \
+        memset(&q, 0, sizeof(q));                                                                  \
+        openrac_ui_rect(                                                                           \
+            &q,                                                                                    \
+            to_screen_x((int)(x * 16.0f)),                                                         \
+            to_screen_y((int)(y * 16.0f)),                                                         \
+            to_screen_x((int)((x + w) * 16.0f)),                                                   \
+            to_screen_y((int)((y + h) * 16.0f)),                                                   \
+            u * 16,                                                                                \
+            v * 16,                                                                                \
+            (u + uw) * 16,                                                                         \
+            (v + vh) * 16                                                                          \
+        );                                                                                         \
+        q.z = FAR_Z;                                                                               \
+        q.rgba = (uint32_t)rgba;                                                                   \
+        q.tex0 = (unsigned long long)tex0;                                                         \
+        q.flags = g_glyphs > 0 ? 1u : 0u;                                                          \
+        if (!openrac_ui_send(&q, cursor)) {                                                        \
+            name##__game(u, v, uw, vh, rgba, tex0, x, y, w, h);                                    \
+        }                                                                                          \
+    }
+MP_FLOAT_GLYPH_QUAD(mp_func_0027F5E8, MP_CURSOR)
+MP_FLOAT_GLYPH_QUAD(mp_func_L39_0058B9F8, MP_MENUS_CURSOR)
+
 #define MP_TURNED_GLYPH_QUAD(name, cursor, sine, cosine)                                           \
     void name(                                                                                     \
         int x,                                                                                     \
@@ -1575,8 +1617,10 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
     cosine,                                                                                        \
     hud_tex0,                                                                                      \
     rotated_sprite_one,                                                                            \
-    hud_quad_turned_one                                                                            \
+    hud_quad_turned_one,                                                                           \
+    float_glyph_quad_one                                                                           \
 )                                                                                                  \
+    MP_FLOAT_GLYPH_QUAD(mp_func_L##m##_##float_glyph_quad_one, MP_MAP_CURSOR)                      \
     MP_ROTATED_SPRITE(mp_func_L##m##_##rotated_sprite_one, mp_func_L##m##_##sine, mp_func_L##m##_##cosine) \
     MP_HUD_QUAD_TURNED(                                                                            \
         mp_func_L##m##_##hud_quad_turned_one, mp_func_L##m##_##sine, mp_func_L##m##_##cosine       \
