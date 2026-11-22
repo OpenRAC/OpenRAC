@@ -39,9 +39,8 @@ Result<void> copy_ocean_outputs(
         if (!source) {
             return unexpected(source.error());
         }
-        const auto destination = execution.import_image(
-            "ocean detail texture", texture, vkgl::InitialContents::Discard
-        );
+        const auto destination =
+            execution.import_image("ocean detail texture", texture, vkgl::InitialContents::Discard);
         if (!destination) {
             return unexpected(destination.error());
         }
