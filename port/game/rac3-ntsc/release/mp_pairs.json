@@ -721,6 +721,10 @@
    "is": "func_0027F498",
    "why": "the same instructions, the only place they occur"
   },
+  "func_0027F5E8": {
+   "is": "func_0027F628",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_0027F7A0": {
    "is": "func_0027F7E0",
    "why": "the same instructions, the only place they occur"
@@ -789,7 +793,7 @@
   },
   "0x00240310": {
    "is": "0x00240490",
-   "why": "the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 20 of 20 places agree"
+   "why": "the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 21 of 21 places agree"
   },
   "0x00240B80": {
    "is": "0x00240D00",
@@ -813,7 +817,7 @@
   },
   "0x002446A8": {
    "is": "0x002448A8",
-   "why": "the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 118 of 118 places agree"
+   "why": "the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 128 of 128 places agree"
   },
   "0x0027B100": {
    "is": "0x0027B200",
@@ -855,6 +859,10 @@
   },
   "func_L39_0058B868": {
    "is": "func_L39_0058A698",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0058B9F8": {
+   "is": "func_L39_0058A828",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_0058BBB0": {
