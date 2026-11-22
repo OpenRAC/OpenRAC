@@ -1548,6 +1548,8 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
         # hostgen.json "extra_params": {function: [type, ...]}, the parameters its callers pass in registers it
         # hands on, where no declaration says so (the retail assembly shows them).
         program.extra_params = {k: v for k, v in cfg.get("extra_params", {}).items() if not k.startswith("#")}
+        wanted = cfg["params_from_declarations"]
+        program.params_only = set(wanted) if isinstance(wanted, list) else None
         program.params_added = params_from_declarations(program)
     program.widened = widen_forwarded(program)
     program.index_places()

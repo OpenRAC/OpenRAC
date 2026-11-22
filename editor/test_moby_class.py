@@ -11,7 +11,7 @@ import games
 from gltf import Gltf
 from godot import write_marker
 from mesh import Mesh
-from level import CLANK_TEXTURE, SHIP_TEXTURE
+from level import CLANK_TEXTURE, SCENE_TEXTURES, SHIP_TEXTURE, scene_classes
 from moby_class import BANGLE_CLASSES, UNTEXTURED, bangle_classes, bangles, moby_class, moby_classes
 from test_godot import attribute, read_glb
 
@@ -209,7 +209,7 @@ class BoundTextureTests(unittest.TestCase):
             self.game, self.entries = game, entries
             self.textures = {("moby", SHIP_TEXTURE): None, ("moby", CLANK_TEXTURE): None}
             self.hero_mesh, self.wrench_meshes, self.hero_looks, self.items = None, [], [], {}
-            self.ship_bodies, self.problems = [], []
+            self.ship_bodies, self.problems, self.scene_classes = [], [], {}
 
         def table(self, at, size):
             return self.entries if at == 0x18 else []
@@ -233,6 +233,33 @@ class BoundTextureTests(unittest.TestCase):
     def test_going_commando_binds_an_empty_slot_to_the_ship(self):
         for bound in (0, 1, 2):
             self.assertEqual(self.faces("rac2", bound), {("moby", SHIP_TEXTURE)})
+
+
+class SceneClassTests(unittest.TestCase):
+    """The classes Up Your Arsenal's scenes load (level.scene_classes): a lump of 16-byte entries
+    (class, pictures, blob, 0) up to -1; a class without pictures wears Clank's."""
+
+    def lump(self):
+        blob = bytes(fixture(texture=0, compact=True))
+        pif = b"2FIP" + bytes(4) + struct.pack("<3i", 4, 4, 0x13) + bytes(0x0c) + bytes(1024) + bytes(range(16))
+        pictures = struct.pack("<2i", 1, 8) + pif
+        head = 16 * 4
+        at_blob10 = head
+        at_pictures = at_blob10 + len(blob)
+        at_blob2 = at_pictures + len(pictures)
+        entries = (struct.pack("<4i", 10, 0, at_blob10, 0) + struct.pack("<4i", 7322, at_pictures, at_blob2, 0)
+                   + struct.pack("<4i", 500, 0, at_blob10, 0) + struct.pack("<4i", -1, -1, -1, -1))
+        return entries + blob + pictures + blob
+
+    def test_scene_classes_join_the_level_with_their_pictures(self):
+        level = BoundTextureTests.Level("rac3", [BoundTextureTests.entry(500, 0)])
+        scene_classes(level, [self.lump(), self.lump()])
+        self.assertEqual(sorted(level.scene_classes), [10, 7322])  # 500 is the level's own
+        self.assertEqual(level.textures[("moby", SCENE_TEXTURES)].width, 4)
+        self.assertNotIn(("moby", SCENE_TEXTURES + 1), level.textures)  # the second scene's copy
+        classes = moby_classes(level)
+        self.assertEqual(set(classes[10].mesh.faces), {("moby", CLANK_TEXTURE)})
+        self.assertEqual(set(classes[7322].mesh.faces), {("moby", SCENE_TEXTURES)})
 
 
 class MobySceneTests(unittest.TestCase):
