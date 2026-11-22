@@ -353,7 +353,13 @@
         "func_L01_00478ED8": null,
         "func_L01_00478FB0": null,
         "func_L01_004932C0": null,
-        "func_L01_00493448": null
+        "func_L01_00493448": null,
+        "func_L01_0048CB78": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+        "func_L01_0048E2F8": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+        "func_L01_0048F508": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+        "func_L01_00498098": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+        "func_L01_004991C8": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+        "func_L01_0049A2D0": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees"
       },
       "variant_callees": null,
       "variant_callees_why": "rac3-pal's folded-wrapper table (variant_callees.py) is written for PAL's places; NTSC-U has none yet, so its check runs without that part",
