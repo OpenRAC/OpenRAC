@@ -60,6 +60,7 @@ typedef int net_socket;
 #endif
 
 #include "mp/game_protos.h"
+#include "mp_protocol.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
 #include "rac3_version.h"
@@ -125,7 +126,7 @@ enum {
 
 #define LIST_ADVERTS 1
 #define FEATURE_REGIONS 16  /* the UDP offer's bit: the server answers REGIONS */
-#define HELLO_READS_SLOTS 2 /* HELLO's client bit: send SLOTS (the room's stable slots) */
+#define CLIENT_SLOTS 2 /* HELLO's client bit: send SLOTS (the room's stable slots) */
 #ifdef RAC3_PAL
 #define NET_FAMILY "rac3-pal-1"
 #else
@@ -154,75 +155,75 @@ typedef struct {
 } lobby_reply;
 
 static const lobby_reply lobby_replies[] = {
-    {1, 0x03, 1, 0x04, 0x030, 0}, /* SessionBegin */
-    {1, 0x05, 1, 0x06, 0x01C, 0}, /* SessionEnd */
-    {1, 0x07, 1, 0x08, 0x0C4, 0}, /* AccountLogin */
-    {1, 0x11, 1, 0x12, 0x01C, 0}, /* AccountUpdateStats */
-    {1, 0x15, 1, 0x16, 0x01C, 0}, /* AccountLogout */
-    {1, 0x17, 1, 0x18, 0x020, 0}, /* AccountGetID */
-    {1, 0x1B, 1, 0x1C, 0x030, 0}, /* GetMyIP */
-    {1, 0x25, 1, 0x26, 0x0B8, 0}, /* JoinChannel */
-    {1, 0x2F, 1, 0x30, 0x148, 1}, /* GameWorldPlayerList */
-    {1, 0x31, 1, 0x32, 0x148, 0}, /* PlayerInfo */
-    {1, 0x33, 1, 0x34, 0x18C, 0}, /* GameInfo0 */
-    {1, 0x35, 1, 0x36, 0x064, 0}, /* ChannelInfo */
-    {1, 0x39, 1, 0x3A, 0x070, 0}, /* FindPlayer */
-    {1, 0x3F, 1, 0x40, 0x01C, 0}, /* AddToBuddyList */
-    {1, 0x41, 1, 0x42, 0x01C, 0}, /* RemoveFromBuddyList */
-    {1, 0x47, 1, 0x48, 0x120, 1}, /* Policy (EndOfText) */
-    {1, 0x4B, 1, 0x4D, 0x40C, 1}, /* GetAnnouncements */
-    {1, 0x4C, 1, 0x4D, 0x40C, 1}, /* GetAllAnnouncements */
-    {1, 0x4E, 1, 0x4F, 0x01C, 0}, /* SetGameListFilter0 */
-    {1, 0x50, 1, 0x51, 0x01C, 0}, /* ClearGameListFilter0 */
-    {1, 0x54, 1, 0x55, 0x020, 0}, /* CreateClan */
-    {1, 0x56, 1, 0x57, 0x01C, 0}, /* DisbandClan */
-    {1, 0x58, 1, 0x59, 0x168, 0}, /* GetClanByID */
-    {1, 0x5A, 1, 0x5B, 0x148, 0}, /* GetClanByName */
-    {1, 0x5C, 1, 0x5D, 0x01C, 0}, /* TransferClanLeadership */
-    {1, 0x60, 1, 0x61, 0x01C, 0}, /* RemovePlayerFromClan */
-    {1, 0x62, 1, 0x63, 0x01C, 0}, /* InvitePlayerToClan */
-    {1, 0x64, 1, 0x65, 0x118, 1}, /* CheckMyClanInvitations */
-    {1, 0x66, 1, 0x67, 0x01C, 0}, /* RespondToClanInvitation */
-    {1, 0x68, 1, 0x69, 0x01C, 0}, /* RevokeClanInvitation */
-    {1, 0x6A, 1, 0x6B, 0x01C, 0}, /* RequestClanTeamChallenge */
-    {1, 0x6C, 1, 0x6D, 0x0EC, 1}, /* GetMyClanMessages */
-    {1, 0x6E, 1, 0x6F, 0x01C, 0}, /* SendClanMessage */
-    {1, 0x70, 1, 0x71, 0x01C, 0}, /* ModifyClanMessage */
-    {1, 0x72, 1, 0x73, 0x01C, 0}, /* DeleteClanMessage */
-    {1, 0x74, 1, 0x75, 0x01C, 0}, /* RespondToClanTeamChallenge */
-    {1, 0x76, 1, 0x77, 0x01C, 0}, /* RevokeClanTeamChallenge */
-    {1, 0x78, 1, 0x79, 0x028, 1}, /* GetClanTeamChallengeHistory */
-    {1, 0x7A, 1, 0x7B, 0x114, 1}, /* GetClanInvitationsSent */
-    {1, 0x7C, 1, 0x7D, 0x170, 1}, /* GetMyClans */
-    {1, 0x7E, 1, 0x7F, 0x0F0, 1}, /* GetAllClanMessages */
-    {1, 0x82, 1, 0x83, 0x1C4, 1}, /* GetClanTeamChallenges */
-    {1, 0x84, 1, 0x85, 0x01C, 0}, /* UpdateClanStats */
-    {1, 0x88, 1, 0x89, 0x028, 0}, /* GetWorldSecurityLevel */
-    {1, 0x8C, 1, 0x8D, 0x064, 1}, /* GetLocations */
-    {1, 0x96, 1, 0x97, 0x01C, 0}, /* ChatToggle */
-    {1, 0x98, 1, 0x99, 0x05C, 0}, /* TextFilter */
-    {1, 0xA3, 1, 0xA4, 0x01C, 0}, /* SetLocalizationParams */
-    {1, 0xA5, 1, 0xA6, 0x0C8, 0}, /* FileCreate */
-    {1, 0xA7, 1, 0xA9, 0x028, 0}, /* FileUpload */
-    {1, 0xAA, 1, 0xAB, 0x0C8, 0}, /* FileClose */
-    {1, 0xAC, 1, 0xAD, 0x1FC, 0}, /* FileDownload */
-    {1, 0xC0, 1, 0xC1, 0x048, 1}, /* GetIgnoreList */
-    {1, 0xC2, 1, 0xC3, 0x01C, 0}, /* AddToIgnoreList */
-    {1, 0xC4, 1, 0xC5, 0x01C, 0}, /* RemoveFromIgnoreList */
-    {1, 0xD2, 1, 0xD3, 0x048, 1}, /* ClanLadderList */
-    {1, 0xD6, 1, 0xD7, 0x0D0, 1}, /* GetBuddyList_ExtraInfo */
-    {1, 0xDA, 1, 0xDB, 0x1DC, 1}, /* GetClanMemberList_ExtraInfo */
-    {1, 0xDC, 1, 0xDD, 0x0D0, 1}, /* GetLobbyPlayerNames_ExtraInfo */
-    {1, 0xEA, 1, 0xEB, 0x190, 1}, /* GameList_ExtraInfo0 */
-    {1, 0xF1, 1, 0xF2, 0x024, 0}, /* LadderPosition_ExtraInfo */
-    {1, 0xF3, 1, 0x24, 0x0BC, 0}, /* JoinGame */
-    {1, 0xF4, 1, 0x1E, 0x020, 0}, /* CreateGame1 */
-    {4, 0x0B, 1, 0xCF, 0x01C, 0}, /* UpdateLadderStatsWide */
-    {4, 0x0D, 4, 0x0E, 0x1B0, 0}, /* GetLadderStatsWide */
-    {4, 0x0F, 1, 0xF0, 0x1D8, 1}, /* LadderList_ExtraInfo */
-    {4, 0x12, 4, 0x13, 0x034, 0}, /* SetLobbyWorldFilter */
-    {4, 0x14, 1, 0x22, 0x020, 0}, /* CreateChannel */
-    {4, 0x15, 1, 0xED, 0x080, 1}, /* ChannelList_ExtraInfo1 */
+    {1, 0x03, 1, 0x04, 0x030, 0}, /* SessionOpenRequest */
+    {1, 0x05, 1, 0x06, 0x01C, 0}, /* SessionCloseRequest */
+    {1, 0x07, 1, 0x08, 0x0C4, 0}, /* LoginRequest */
+    {1, 0x11, 1, 0x12, 0x01C, 0}, /* CareerStatsUploadRequest */
+    {1, 0x15, 1, 0x16, 0x01C, 0}, /* LogoutRequest */
+    {1, 0x17, 1, 0x18, 0x020, 0}, /* AccountIdRequest */
+    {1, 0x1B, 1, 0x1C, 0x030, 0}, /* LobbyKeepAliveRequest */
+    {1, 0x25, 1, 0x26, 0x0B8, 0}, /* ChannelJoinRequest */
+    {1, 0x2F, 1, 0x30, 0x148, 1}, /* GamePlayerListRequest */
+    {1, 0x31, 1, 0x32, 0x148, 0}, /* AccountInfoRequest */
+    {1, 0x33, 1, 0x34, 0x18C, 0}, /* GameInfoRequest */
+    {1, 0x35, 1, 0x36, 0x064, 0}, /* ChannelInfoRequest */
+    {1, 0x39, 1, 0x3A, 0x070, 0}, /* PlayerFindRequest */
+    {1, 0x3F, 1, 0x40, 0x01C, 0}, /* BuddyAddRequest */
+    {1, 0x41, 1, 0x42, 0x01C, 0}, /* BuddyRemoveRequest */
+    {1, 0x47, 1, 0x48, 0x120, 1}, /* LicenceTextRequest (EndOfText) */
+    {1, 0x4B, 1, 0x4D, 0x40C, 1}, /* NewsRequest */
+    {1, 0x4C, 1, 0x4D, 0x40C, 1}, /* AllNewsRequest */
+    {1, 0x4E, 1, 0x4F, 0x01C, 0}, /* GameListFilterAddRequest */
+    {1, 0x50, 1, 0x51, 0x01C, 0}, /* GameListFilterRemoveRequest */
+    {1, 0x54, 1, 0x55, 0x020, 0}, /* ClanCreateRequest */
+    {1, 0x56, 1, 0x57, 0x01C, 0}, /* ClanDisbandRequest */
+    {1, 0x58, 1, 0x59, 0x168, 0}, /* ClanByIdRequest */
+    {1, 0x5A, 1, 0x5B, 0x148, 0}, /* ClanByNameRequest */
+    {1, 0x5C, 1, 0x5D, 0x01C, 0}, /* ClanLeaderTransferRequest */
+    {1, 0x60, 1, 0x61, 0x01C, 0}, /* ClanMemberRemoveRequest */
+    {1, 0x62, 1, 0x63, 0x01C, 0}, /* ClanInviteRequest */
+    {1, 0x64, 1, 0x65, 0x118, 1}, /* ClanInvitationListRequest */
+    {1, 0x66, 1, 0x67, 0x01C, 0}, /* ClanInvitationReplyRequest */
+    {1, 0x68, 1, 0x69, 0x01C, 0}, /* ClanInvitationRevokeRequest */
+    {1, 0x6A, 1, 0x6B, 0x01C, 0}, /* ClanChallengeRequest */
+    {1, 0x6C, 1, 0x6D, 0x0EC, 1}, /* ClanMessageListRequest */
+    {1, 0x6E, 1, 0x6F, 0x01C, 0}, /* ClanMessagePostRequest */
+    {1, 0x70, 1, 0x71, 0x01C, 0}, /* ClanMessageEditRequest */
+    {1, 0x72, 1, 0x73, 0x01C, 0}, /* ClanMessageDeleteRequest */
+    {1, 0x74, 1, 0x75, 0x01C, 0}, /* ClanChallengeReplyRequest */
+    {1, 0x76, 1, 0x77, 0x01C, 0}, /* ClanChallengeRevokeRequest */
+    {1, 0x78, 1, 0x79, 0x028, 1}, /* ClanChallengeHistoryRequest */
+    {1, 0x7A, 1, 0x7B, 0x114, 1}, /* ClanInvitationsSentRequest */
+    {1, 0x7C, 1, 0x7D, 0x170, 1}, /* MyClanRequest */
+    {1, 0x7E, 1, 0x7F, 0x0F0, 1}, /* ClanAllMessagesRequest */
+    {1, 0x82, 1, 0x83, 0x1C4, 1}, /* ClanChallengeListRequest */
+    {1, 0x84, 1, 0x85, 0x01C, 0}, /* ClanStatsUploadRequest */
+    {1, 0x88, 1, 0x89, 0x028, 0}, /* WorldSecurityRequest */
+    {1, 0x8C, 1, 0x8D, 0x064, 1}, /* CityListRequest */
+    {1, 0x96, 1, 0x97, 0x01C, 0}, /* LobbyChatToggleRequest */
+    {1, 0x98, 1, 0x99, 0x05C, 0}, /* ChatTextCheckRequest */
+    {1, 0xA3, 1, 0xA4, 0x01C, 0}, /* LocaleSetRequest */
+    {1, 0xA5, 1, 0xA6, 0x0C8, 0}, /* FileCreateRequest */
+    {1, 0xA7, 1, 0xA9, 0x028, 0}, /* FileUploadRequest */
+    {1, 0xAA, 1, 0xAB, 0x0C8, 0}, /* FileCloseRequest */
+    {1, 0xAC, 1, 0xAD, 0x1FC, 0}, /* FileDownloadRequest */
+    {1, 0xC0, 1, 0xC1, 0x048, 1}, /* IgnoreListRequest */
+    {1, 0xC2, 1, 0xC3, 0x01C, 0}, /* IgnoreAddRequest */
+    {1, 0xC4, 1, 0xC5, 0x01C, 0}, /* IgnoreRemoveRequest */
+    {1, 0xD2, 1, 0xD3, 0x048, 1}, /* ClanLadderRequest */
+    {1, 0xD6, 1, 0xD7, 0x0D0, 1}, /* BuddyListRequest */
+    {1, 0xDA, 1, 0xDB, 0x1DC, 1}, /* ClanMemberListRequest */
+    {1, 0xDC, 1, 0xDD, 0x0D0, 1}, /* ChannelPlayerListRequest */
+    {1, 0xEA, 1, 0xEB, 0x190, 1}, /* GameListRequest */
+    {1, 0xF1, 1, 0xF2, 0x024, 0}, /* LadderPositionRequest */
+    {1, 0xF3, 1, 0x24, 0x0BC, 0}, /* GameJoinRequest */
+    {1, 0xF4, 1, 0x1E, 0x020, 0}, /* GameCreateRequest */
+    {4, 0x0B, 1, 0xCF, 0x01C, 0}, /* LadderStatsWriteRequest */
+    {4, 0x0D, 4, 0x0E, 0x1B0, 0}, /* LadderStatsReadRequest */
+    {4, 0x0F, 1, 0xF0, 0x1D8, 1}, /* LadderPageRequest */
+    {4, 0x12, 4, 0x13, 0x034, 0}, /* ChannelFilterSetRequest */
+    {4, 0x14, 1, 0x22, 0x020, 0}, /* ChannelCreateRequest */
+    {4, 0x15, 1, 0xED, 0x080, 1}, /* ChannelListRequest */
 };
 
 /* ---- Little-endian fields of the game's structs, in host buffers ---- */
@@ -422,7 +423,7 @@ static int srv_open(const char* name) {
     srv_begin(PK_HELLO, -1);
     srv_text(NET_VERSION);
     srv_text(name);
-    srv_u8(HELLO_READS_SLOTS);
+    srv_u8(CLIENT_SLOTS);
     srv_end();
     return 1;
 }
@@ -568,7 +569,7 @@ static struct {
     int32_t connect_cb, connect_ud;
     int connect_due;     /* the connect callback is called at the next update */
     char name[33];       /* the account name logged in with */
-    uint8_t login[0x66]; /* the AccountLogin waiting for the server's hello */
+    uint8_t login[0x66]; /* the LoginRequest waiting for the server's hello */
     int login_waiting;
     uint8_t list_req[0x1A];
     int list_waiting;
@@ -578,7 +579,7 @@ static struct {
     int join_waiting;
     listed_game games[32];
     int games_count;
-    game_advert own; /* this console's game, from CreateGame1 and each WorldReport0 */
+    game_advert own; /* this console's game, from GameCreateRequest and each GameReport */
     uint8_t locations_req[0x26];
     int locations_waiting;
 
@@ -646,7 +647,8 @@ static void lobby_connect_info(uint8_t* p, int32_t world) {
     put_text(p + 0x78, "OPENRACSESSION01", 17);
 }
 
-/* The settings of a game as GameInfo and the game list give them, from a CreateGame1 request. */
+/* The settings of a game as GameInfoRequest and the game list give them, from a
+ * GameCreateRequest. */
 static void advert_from_create(game_advert* a, const uint8_t* req) {
     memset(a, 0, sizeof *a);
     a->min_players = get32(req + 0x2C);
@@ -661,7 +663,7 @@ static void advert_from_create(game_advert* a, const uint8_t* req) {
     a->host_type = get32(req + 0xCC);
 }
 
-/* ...and from the host's WorldReport0, which the host's own GameInfo poll must see again. */
+/* ...and from the host's GameReport, which the host's own GameInfoRequest poll must see again. */
 static void advert_from_report(game_advert* a, const uint8_t* rep) {
     memcpy(a->name, rep + 0x1C, 63);
     a->name[63] = 0;
@@ -817,6 +819,18 @@ static void lobby_reply_list(void) {
         memcpy(reply + 0x4C, g->ad.name, 64);
         memcpy(reply + 0x8C, g->ad.stats, 256);
         put32(reply + 0x18C, i == count - 1);
+        if (net_log()) {
+            fprintf(
+                stderr,
+                "[info] rac3: online: game list %d/%d: world %d %.16s, %d players, rules %d\n",
+                i + 1,
+                count,
+                g->world,
+                g->ad.name,
+                g->players,
+                g->ad.rules
+            );
+        }
         lobby_push(r->reply_cls, r->reply_type, reply, r->size);
         shown++;
     }
@@ -898,7 +912,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
         );
     }
     if (cls == 1 && type == 0x00 && size >= 0x180) {
-        /* WorldReport0: the host's game as it is now, listed with its party. */
+        /* GameReport: the host's game as it is now, listed with its party. */
         game_advert before = lobby.own;
         advert_from_report(&lobby.own, req);
         lobby.own_valid = 1;
@@ -909,7 +923,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
     }
     if (cls == 1 && type == 0x49 && size >= 0x18 && get32(req + 0x14) == 2 && room.in
         && srv.fd != NET_INVALID) {
-        /* UpdateUserState(LeftGameWorld): the game is left, so is its party. */
+        /* PresenceUpdate (left the game world): the game is left, so is its party. */
         srv_begin(PK_PARTY, OP_LEAVE);
         srv_end();
         room.in = 0;
@@ -921,10 +935,10 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
     }
     lobby_start(reply, r, req, M_SUCCESS);
     switch (cls << 8 | type) {
-        case 0x103: /* SessionBegin: the session key */
+        case MEDIUS_SessionOpenRequest: /* the session key */
             put_text(reply + 0x1C, "OPENRACSESSION01", 17);
             break;
-        case 0x107: /* AccountLogin: hello to the server, the reply when it answers */
+        case MEDIUS_LoginRequest: /* hello to the server, the reply when it answers */
             memcpy(lobby.login, req, sizeof lobby.login);
             memcpy(lobby.name, req + 0x26, 32);
             lobby.name[32] = 0;
@@ -939,29 +953,29 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
                 lobby_reply_login(M_LOGIN_FAILED);
             }
             return;
-        case 0x11B: /* GetMyIP */
+        case MEDIUS_LobbyKeepAliveRequest:
             put_text(reply + 0x1C, "127.0.0.1", 20);
             break;
-        case 0x125: /* JoinChannel: the one channel's lobby */
+        case MEDIUS_ChannelJoinRequest: /* the one channel's lobby */
             lobby_connect_info(reply + 0x1C, M_WORLD_LOBBY);
             break;
-        case 0x12F: /* GameWorldPlayerList: the party's members */
+        case MEDIUS_GamePlayerListRequest: /* the party's members */
             lobby_reply_players(req);
             return;
-        case 0x133: /* GameInfo0 */
+        case MEDIUS_GameInfoRequest:
             lobby_reply_game_info(req, size >= 0x2C ? get32(req + 0x28) : 0);
             return;
-        case 0x198: /* TextFilter: the text passes as it is */
+        case MEDIUS_ChatTextCheckRequest: /* the text passes as it is */
             memcpy(reply + 0x1C, req + 0x2C, 64);
             break;
-        case 0x147: /* Policy: the licence screen waits for a text (+0x1C) and its end (+0x11C) */
+        case MEDIUS_LicenceTextRequest: /* waits for a text (+0x1C), then its end (+0x11C) */
             put_text(reply + 0x1C, "Online play on an OpenRAC server.", 256);
             break;
-        case 0x14B: /* GetAnnouncements: none */
-        case 0x14C:
+        case MEDIUS_NewsRequest: /* none */
+        case MEDIUS_AllNewsRequest:
             put32(reply + M_STATUS, M_NO_RESULT);
             break;
-        case 0x18C: /* GetLocations: the hub's regions, the game's city list */
+        case MEDIUS_CityListRequest: /* the hub's regions, the game's city list */
             memcpy(lobby.locations_req, req, sizeof lobby.locations_req);
             /* A server from before regions closes on REGIONS: the game's own cities then. */
             if (srv.fd == NET_INVALID || !(srv.features & FEATURE_REGIONS)) {
@@ -973,7 +987,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
             srv_text(NET_FAMILY);
             srv_end();
             return;
-        case 0x412: /* SetLobbyWorldFilter: logged, it carries the city chosen */
+        case MEDIUS_ChannelFilterSetRequest: /* logged, it carries the city chosen */
             if (net_log()) {
                 char hex[3 * 0x30 + 1];
                 for (size_t k = 0; k < size && k < 0x30; k++) {
@@ -982,17 +996,17 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
                 fprintf(stderr, "[info] rac3: online: lobby world filter %s\n", hex);
             }
             break;
-        case 0x415: /* ChannelList_ExtraInfo1: one numbered channel ("%02X" at name + 0xB) */
+        case MEDIUS_ChannelListRequest: /* one numbered channel ("%02X" at name + 0xB) */
             put32(reply + 0x1C, M_WORLD_LOBBY);
             put16(reply + 0x20, (int16_t)(room.count + 1));
             put16(reply + 0x22, 256);
             put32(reply + 0x28, 1);
             put_text(reply + 0x3C, "OpenRAC CH 01", 64);
             break;
-        case 0x414: /* CreateChannel */
+        case MEDIUS_ChannelCreateRequest:
             put32(reply + 0x1C, M_WORLD_LOBBY);
             break;
-        case 0x1EA: /* GameList_ExtraInfo0: the server's parties of this game */
+        case MEDIUS_GameListRequest: /* the server's parties of this game */
             memcpy(lobby.list_req, req, sizeof lobby.list_req);
             if (srv.fd == NET_INVALID || lobby.list_waiting) {
                 if (!lobby.list_waiting) {
@@ -1006,7 +1020,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
             srv_u8(LIST_ADVERTS);
             srv_end();
             return;
-        case 0x1F4: /* CreateGame1: a party hosted, its settings its advert */
+        case MEDIUS_GameCreateRequest: /* a party hosted, its settings its advert */
             memcpy(lobby.create_req, req, sizeof lobby.create_req);
             advert_from_create(&lobby.own, req);
             lobby.own_valid = 1;
@@ -1020,7 +1034,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
             srv_text(NET_FAMILY);
             srv_end();
             return;
-        case 0x1F3: { /* JoinGame: its own game at once, another's once the server took us in */
+        case MEDIUS_GameJoinRequest: { /* own game at once, another's once the server took us in */
             const int32_t world = get32(req + 0x28);
             memcpy(lobby.join_req, req, sizeof lobby.join_req);
             if (world == M_WORLD_OWN && room.in) {
@@ -1059,9 +1073,9 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
 #define CONN_DISPATCH 0x434
 #define CONN_CLIENTS 0x43C
 #define CONN_SLOT 0x448
-#define DME_RELAY_KIND 1 /* the first byte of a RELAY payload: a DME packet follows */
-#define OBJ_RELAY_KIND 2 /* ...a net object: id, type, owner, creator, then its data */
-#define OBJ_GONE_KIND 3  /* ...a net object destroyed: its id (the game never destroys one) */
+/* The first byte of a RELAY payload is the kind (RELAY_* in mp_protocol.h): a DME packet follows
+ * (RelayedDmePacket); a net object (RelayedObject): id, type, owner, creator, then its data; or
+ * a net object released (RelayedObjectRelease): its id (the game never destroys one). */
 
 static struct {
     gaddr conn; /* the room's connection, in the game's memory */
@@ -1169,7 +1183,7 @@ static int dme_relay(int dest, gaddr data, int len) {
     }
     srv_begin(PK_RELAY, -1);
     srv_i32(target);
-    srv_u8(DME_RELAY_KIND);
+    srv_u8(RELAY_RelayedDmePacket);
     srv_bytes(G(data), (size_t)len);
     srv_end();
     if (net_log()) {
@@ -1243,7 +1257,7 @@ static void obj_send(int i, int32_t target) {
     }
     srv_begin(PK_RELAY, -1);
     srv_i32(target);
-    srv_u8(OBJ_RELAY_KIND);
+    srv_u8(RELAY_RelayedObject);
     srv_i32(objs[i].id);
     srv_i32(objs[i].type);
     srv_i32(objs[i].owner);
@@ -1292,7 +1306,7 @@ static void obj_receive(int kind, int32_t from, reader* r) {
     (void)from;
     const int32_t id = rd_i32(r);
     int i = obj_find(id);
-    if (kind == OBJ_GONE_KIND) {
+    if (kind == RELAY_RelayedObjectRelease) {
         if (i >= 0) {
             obj_callback(obj_type[objs[i].type].on_destroy, objs[i].creator, id, 0, 0);
             objs[i] = objs[--obj_count];
@@ -1356,7 +1370,7 @@ static void on_info(reader* r) {
         room.host
     );
     if (lobby.create_waiting) {
-        /* CreateGame1's answer: this console's own world; its settings listed. */
+        /* GameCreateRequest's answer: this console's own world; its settings listed. */
         const lobby_reply* rr = lobby_reply_of(1, 0xF4);
         uint8_t reply[0x20];
         lobby_start(reply, rr, lobby.create_req, M_SUCCESS);
@@ -1521,11 +1535,11 @@ static void on_frame(int id, reader* r) {
         case PK_RELAY: {
             const int32_t from = rd_i32(r);
             const int kind = rd_u8(r);
-            if (kind == OBJ_RELAY_KIND || kind == OBJ_GONE_KIND) {
+            if (kind == RELAY_RelayedObject || kind == RELAY_RelayedObjectRelease) {
                 obj_receive(kind, from, r);
                 break;
             }
-            if (kind != DME_RELAY_KIND || r->n == 0 || r->n > sizeof dme.inbox[0].data) {
+            if (kind != RELAY_RelayedDmePacket || r->n == 0 || r->n > sizeof dme.inbox[0].data) {
                 break;
             }
             if (dme.inbox_count == (int)(sizeof dme.inbox / sizeof dme.inbox[0])) {
