@@ -62,8 +62,8 @@ static int32_t word(gaddr at) {
  * level's addresses; the runtime pairs them with the loaded level's by their code (guest.h,
  * OPENRAC_LDATA), from each level's program as the game reads it. Kept as it is read, before
  * 0x0013AFF8 copies it over the boot program. */
-static uint64_t kept;      /* the levels whose program is kept */
-static int range_set;      /* the relocation's $gp and the programs' range are set */
+static uint64_t kept; /* the levels whose program is kept */
+static int range_set; /* the relocation's $gp and the programs' range are set */
 
 /* A level's program as it was read into the buffer whose address is at `buffer_word` (the boot
  * program's 0x001D4B50, the multiplayer executable's 0x00240290), kept once. */

@@ -475,7 +475,9 @@ int func_L01_00407E28(int a0, int a1) {
 void func_003D3158(int a0, int a1, int a2, int a3) {
     (void)a2;
     (void)a3;
-    rac3_world_quad((gaddr)a0, (gaddr)a1, BOOT_TEXTURE_UPLOADS, BOOT_TEXTURE_RECORDS, BOOT_LIST_POINTER);
+    rac3_world_quad(
+        (gaddr)a0, (gaddr)a1, BOOT_TEXTURE_UPLOADS, BOOT_TEXTURE_RECORDS, BOOT_LIST_POINTER
+    );
 }
 
 /* What the console's renderers needed each frame (Going Commando's func_002F0468, 0x002EF310,

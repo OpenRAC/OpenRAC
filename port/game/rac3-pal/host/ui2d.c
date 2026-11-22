@@ -1531,7 +1531,9 @@ void mp_func_L39_0059CFD0(int tex, gaddr colours, float x, float y, float w, flo
 /* The core's turned HUD quad (0x00285318, the boot program's func_00397A18 instruction for
  * instruction, its HUD depth word 0x00244414 where the boot program's is 0x001D9E94): the map
  * loading screen's weapon icons, which the game's packets drew with no texture. */
-void mp_func_00285318(float x, float y, float w, float h, float ang, int tw, int th, long long tex0) {
+void mp_func_00285318(
+    float x, float y, float w, float h, float ang, int tw, int th, long long tex0
+) {
     const float s = mp_func_002804B0(ang), c = mp_func_00280498(ang);
     const uint32_t z = GREF(uint32_t, RAC3_MADDR(0x00244414u));
     if (!hud_quad_turned(MP_CURSOR, x, y, w, h, s, c, tw, th, (unsigned long long)tex0, z)) {
@@ -1586,7 +1588,7 @@ Rac3Ui2d rac3_ui2d_mp_level(void) {
         }                                                                                          \
     }
 #define MP_HUD_QUAD_TURNED(name, sine, cosine)                                                     \
-    float name(int tw, int th, long long tex0, float x, float y, float w, float h, float ang) {   \
+    float name(int tw, int th, long long tex0, float x, float y, float w, float h, float ang) {    \
         const Rac3Ui2d u = rac3_ui2d_mp_level();                                                   \
         const float s = sine(ang), c = cosine(ang);                                                \
         const uint32_t z = GREF(uint32_t, u.hud_depth);                                            \
@@ -1621,7 +1623,9 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
     float_glyph_quad_one                                                                           \
 )                                                                                                  \
     MP_FLOAT_GLYPH_QUAD(mp_func_L##m##_##float_glyph_quad_one, MP_MAP_CURSOR)                      \
-    MP_ROTATED_SPRITE(mp_func_L##m##_##rotated_sprite_one, mp_func_L##m##_##sine, mp_func_L##m##_##cosine) \
+    MP_ROTATED_SPRITE(                                                                             \
+        mp_func_L##m##_##rotated_sprite_one, mp_func_L##m##_##sine, mp_func_L##m##_##cosine        \
+    )                                                                                              \
     MP_HUD_QUAD_TURNED(                                                                            \
         mp_func_L##m##_##hud_quad_turned_one, mp_func_L##m##_##sine, mp_func_L##m##_##cosine       \
     )                                                                                              \
@@ -1662,7 +1666,7 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
         rac3_menu_log_text(a0, a1, (gaddr)a5, a6);                                                 \
         const gaddr cursor = MP_MAP_CURSOR;                                                        \
         const Print p = print_begin(cursor);                                                       \
-        mp_func_L##m##_##font_print_shaded##__game(                                               \
+        mp_func_L##m##_##font_print_shaded##__game(                                                \
             a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11                                  \
         );                                                                                         \
         print_end(cursor, p);                                                                      \

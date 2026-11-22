@@ -1591,7 +1591,7 @@ struct Chunk {
 void (*g_level_program_source)(int level) = nullptr;
 std::map<int, std::vector<Chunk>> g_level_programs;
 std::map<std::pair<int, int>, LevelMap> g_level_pair_maps;  // (from, loaded)
-std::vector<openrac_level_copy> g_level_copies;  // openrac_guest_add_level_copies
+std::vector<openrac_level_copy> g_level_copies;             // openrac_guest_add_level_copies
 // The addresses a level's program can name (openrac_guest_set_level_range).
 gaddr g_level_low = 0x0015F000u, g_level_high = 0x00400000u;
 

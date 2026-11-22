@@ -611,7 +611,8 @@ def main(argv: list[str] | None = None) -> int:
                       " *",
                       " * Written by port/tools/hostgen/release_carry_rac3.py from rac3-pal's (port/game/rac3-pal/mp/maps.py):",
                       " * do not edit by hand. Each multiplayer map's places of the functions mp/maps.py CARRIED lists,",
-                      " * NTSC-U's. */"]
+                      " * NTSC-U's. */",
+                      "/* clang-format off */"]
         maps_left = set()
         for line in (PRIMARY / "host/mp_maps.h").read_text().splitlines() if (PRIMARY / "host/mp_maps.h").is_file() else []:
             m = re.fullmatch(r"(MP_MAP\w*)\((\d+), (.*)\)", line)
@@ -628,7 +629,7 @@ def main(argv: list[str] | None = None) -> int:
                               and int(re.match(r"MP_MAP\w*\((\d+),", line).group(1)) in maps_left)]
         if maps_left:
             report["mp_maps_left_out"] = sorted(maps_left)
-        put("host/mp_maps.h", "\n".join(maps_lines) + "\n")
+        put("host/mp_maps.h", "\n".join(maps_lines) + "\n/* clang-format on */\n")
         mp_rows = ["# Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/mp/libraries.tsv in",
                    "# NTSC-U's names (release/mp_pairs.json); do not edit. The notes are PAL's."]
         for line in (PRIMARY / "mp/libraries.tsv").read_text().splitlines():

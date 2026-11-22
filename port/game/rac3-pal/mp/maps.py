@@ -266,7 +266,7 @@ def main() -> int:
         " * Copyright (c) 2026 the OpenRAC contributors\n *\n"
         " * Written by port/game/rac3-pal/mp/maps.py from rac3-decomp's catalogue: do not edit by hand.\n"
         " * Each multiplayer map's places of the functions mp/maps.py CARRIED lists, in its order. */\n"
-        + "\n".join(macros) + "\n")
+        + "/* clang-format off */\n" + "\n".join(macros) + "\n/* clang-format on */\n")
 
     stale = [p for p, t in outputs.items() if not p.is_file() or p.read_text() != t]
     if args.check:
