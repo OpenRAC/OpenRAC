@@ -2105,11 +2105,6 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
               `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
             ]
           : [];
-
-  if (id === "audio-recipe") {
-    outputs.push("/home/you/exports/audio-recipe-20261101T0900");
-  }
-
   const moved = () => {
     if (id === "editor-extract") mockEditor = ["outdated", "broken"].includes(mockEditor) ? "carried" : "ready";
     if (id === "editor-reexport") mockEditor = "carried";
