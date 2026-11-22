@@ -16,9 +16,16 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
+# Clang's JSON AST nests one level per operand, so a long chain of `else if`s or a
+# long sum in matched C goes past Python's default 1,000 frames in the recursive
+# walkers here and in the translators. Python 3.12+ keeps pure-Python frames off
+# the C stack, so a higher limit is safe.
+sys.setrecursionlimit(max(sys.getrecursionlimit(), 100_000))
 
 # GCC 2.95 accepted these; Clang makes them errors unless told otherwise.
 RELAXED = [
