@@ -23,8 +23,7 @@ a row; --check also fails when the locks are not what the headers give (CI: .git
 --against also holds the headers to the locks of a git ref (a pull request's base), so a lock
 edited by hand cannot hide a break.
 Only OPENRAC_MOD_API_MINOR and OPENRAC_MOD_TARGET_MINOR may change value. The one other way a row
-changes is a fix written down in api/fixes.json, row for row with its reason: a row that was wrong
-from the start, so that no built mod can rely on it (a hook point's signature the port refuses).
+changes is a row in FIXED: one that was wrong from the start, so no built mod can rely on it.
 
 Needs clang on PATH (or CLANG=<path>). Stdlib only.
 """
@@ -228,20 +227,16 @@ def key(lock: str, row: str) -> str:
     return c[0]
 
 
-def read_fixes(sdk: Path) -> set[tuple[str, str, str]]:
-    """api/fixes.json: (lock, the row as it was, the row as it is) for each row fixed by hand."""
-    path = sdk / "api" / "fixes.json"
-    if not path.exists():
-        return set()
-    out = set()
-    for f in json.loads(path.read_text())["fixes"]:
-        if not f.get("why"):
-            raise SystemExit(f"{path}: a fix of {f.get('was')!r} needs its reason (why)")
-        out.add((f["lock"], f["was"], f["is"]))
-    return out
+# Rows that were wrong from the start, as (lock, was, is). rac2 Bolt_Collect returns nothing and its
+# hook point is void(u32): the port refused any mod that asked with u32(u32), so no mod used it.
+FIXED = {
+    ("macros.lock", 'OPENRAC_RAC2_SIG_Bolt_Collect\t"u32(u32)"', 'OPENRAC_RAC2_SIG_Bolt_Collect\t"void(u32)"'),
+    ("types.lock", "openrac_rac2_Bolt_Collect\t(typedef)\t-\tuint32_t (*)(uint32_t)",
+     "openrac_rac2_Bolt_Collect\t(typedef)\t-\tvoid (*)(uint32_t)"),
+}
 
 
-def compare(lock: str, old: list[str], new: list[str], fixes: set[tuple[str, str, str]] = frozenset()) -> list[str]:
+def compare(lock: str, old: list[str], new: list[str], fixes: set[tuple[str, str, str]] = FIXED) -> list[str]:
     """What breaks the append-only rule, going from `old` to `new` rows."""
     problems: list[str] = []
     if lock == "openrac_api.lock":
@@ -349,15 +344,14 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     out_dir = args.sdk / "api"
     locks = generate(args.sdk)
-    fixes = read_fixes(args.sdk)
     problems: list[str] = []
     stale: list[str] = []
     for name, rows in locks.items():
         old = read_lock(out_dir / name)
-        problems += compare(name, old, rows, fixes)
+        problems += compare(name, old, rows)
         if args.against:
             problems += [f"{p} (against {args.against})"
-                         for p in compare(name, read_lock_at(args.against, name), rows, fixes)]
+                         for p in compare(name, read_lock_at(args.against, name), rows)]
         if old != rows:
             stale.append(name)
     minor = int(re.search(r"^#define OPENRAC_MOD_API_MINOR (\d+)$",
