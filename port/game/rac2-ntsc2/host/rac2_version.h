@@ -104,6 +104,7 @@
 #define RAC2_ADDR_0x001BA440u 0x001BA3C0u /* the release's build */
 #define RAC2_ADDR_0x001BA540u 0x001BA4C0u /* the release's build */
 #define RAC2_ADDR_0x001BADC0u 0x001BAD40u /* the release's build */
+#define RAC2_ADDR_0x001BAF80u 0x001BAF00u /* the release's build */
 #define RAC2_ADDR_0x001BF200u 0x001BF180u /* the release's build */
 #define RAC2_ADDR_0x001C2740u 0x001C26C0u /* the release's build */
 #define RAC2_ADDR_0x001C4FA0u 0x001C4F20u /* the release's build */
