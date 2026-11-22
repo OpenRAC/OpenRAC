@@ -25,6 +25,10 @@
  },
  "pairs": {
   "about": "Function pairs taken as they are where nothing else pairs them: the primary's name, the release's (in the release's names), the evidence.",
+  "func_002A05A8": {
+   "is": "game_FUN_002A0F68",
+   "why": "MobyAnimAdvance's caller in the moby loop: PAL's moby_update_live_mobys (func_L00_0032F058) calls game_FUN_002A0F68 where v1.01's calls func_002A05A8 (src/pal/game/002A0F68.c, the PAL copy of the routine); func_002A0F68 itself has no C on PAL"
+  },
   "func_0027F640": {
    "is": "func_0027FB48",
    "why": "FontPrintScaled: between func_0027F5B8 and func_0027F980 as in v1.01; the same calls in order (func_00283CE0 x3, func_0027E1A0 x3, func_00283CE0) after a new first call of func_002FC560; 832 bytes for 808"

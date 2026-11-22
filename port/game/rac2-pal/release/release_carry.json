@@ -1,11 +1,11 @@
 {
  "about": "How release_carry.py paired what the primary release's port names: what rests on less than the same code, and what it found nowhere.",
  "counts": {
-  "function: by hand": 20,
+  "function: by hand": 22,
   "function: called": 28,
   "function: changed": 83,
   "function: found": 28,
-  "function: near": 130,
+  "function: near": 128,
   "function: same": 712,
   "global: aligned": 5,
   "global: between": 16,
@@ -159,8 +159,8 @@
    "RAC2_K PAUSE_LIST_OFFSET"
   ],
   "func_002A05A8": [
-   "func_002A0F68",
-   "near",
+   "game_FUN_002A0F68",
+   "by hand",
    "host C"
   ],
   "func_002A6C58": [
