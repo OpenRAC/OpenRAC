@@ -2726,7 +2726,8 @@ void keep_tick(
         k.prev_matrices[k.addresses[i]] = k.live[i].matrix;
         k.prev_spheres[k.addresses[i]] = k.live[i].world_sphere;
         if (i < k.joints.size() && k.joints[i] > 0 && k.live[i].palette >= 0) {
-            k.prev_poses[k.addresses[i]] = {k.live[i].palette, k.joints[i]};
+            k.prev_poses[pose_key(k.addresses[i], k.live[i].model)] =
+                {k.live[i].palette, k.joints[i]};
         }
     }
     k.water_impulses.swap(g->water_impulses);
@@ -3476,6 +3477,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
     g->kept->world_under_menu = under_menu;
+    g->kept->overlay_phase = mods::overlay_phase();
     // The pause menu runs in a mode of its own, but the world under it (the picture of the frame
     // it took, or a level's world drawn live under it) is the level's, seen with the camera it was
     // paused with: a gameplay camera when the game was paused from play.
@@ -3515,7 +3517,7 @@ bool keep_picture() {
     // Drawn again, the kept tick's 2D read the textures a load had written over since (the flight's
     // planet name came out as a solid block and its planet striped, before the landing).
     g->render.repeat_frame = true;
-    draw_kept(false);
+    draw_kept(false, true);
     return !g->render_failed;
 }
 

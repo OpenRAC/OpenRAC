@@ -1302,6 +1302,43 @@ public:
       return has_weapon_culling() &&
              m_api->weapon_ignore_culling(m_handle, item, enabled ? 1 : 0) ==
                  OPENRAC_HOOK_OK;
+
+    }
+
+    // Since 1.31: whether the port draws a mod's overlay over the game's menus and scenes too
+    // (on_overlay_phases()).
+    bool has_overlay_phases() const {
+        return m_api->api_minor >= 31
+               && m_api->size >= offsetof(openrac_api, on_overlay_phases) + sizeof(void*);
+    }
+
+    // Since 1.31: `fn(user, overlay)` once a frame to draw over the game in the phases of `phases`
+    // (OPENRAC_OVERLAY_PLAYING, _MENU, _SCENE; overlay->phase says which). It replaces the mod's
+    // on_overlay(). Only during load; false when refused or the port has no such call.
+    bool on_overlay_phases(openrac_overlay_fn fn, void* user, std::uint32_t phases) const {
+        return has_overlay_phases()
+               && m_api->on_overlay_phases(m_handle, fn, user, phases) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.31: whether the port gives the pad's buttons' labels (button_label()).
+    bool has_button_label() const {
+        return m_api->api_minor >= 31
+               && m_api->size >= offsetof(openrac_api, button_label) + sizeof(void*);
+    }
+
+    // Since 1.31: the label of the pad's button `button` (one OPENRAC_PAD_* bit) for the player's
+    // device now: the game's token (OPENRAC_UI_SQUARE ...) or name on a PlayStation pad, the
+    // letter on a lettered pad, the bound key on the keyboard and mouse; its kind
+    // (OPENRAC_BUTTONS_*) into `kind`. Empty, `kind` OPENRAC_HOOK_UNKNOWN, when the port has no
+    // such call or `button` is not one button. Any time.
+    std::string button_label(std::uint32_t button, int* kind = nullptr) const {
+        char out[32] = {};
+        const int k = has_button_label() ? m_api->button_label(m_handle, button, out, sizeof out)
+                                         : OPENRAC_HOOK_UNKNOWN;
+        if (kind != nullptr) {
+            *kind = k;
+        }
+        return k >= 0 ? std::string(out) : std::string();
     }
 
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.

@@ -24,6 +24,11 @@
 
 #include "../game/rac2/host/weapon_shots.c"
 
+/* enemy_copies.c's: no copies in this test. */
+void rac2_copy_slot_taken(gaddr moby) {
+    (void)moby;
+}
+
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = 0x02000000u;
 gaddr openrac_relocate_low = 0, openrac_relocate_high = 0;
@@ -172,8 +177,57 @@ gaddr func_L00_003AB9C0__game(
     return m;
 }
 
-gaddr func_L00_00409E48__game(gaddr a0, gaddr a1, gaddr a2, gaddr a3, float a4) {
-    (void)a0, (void)a1, (void)a2, (void)a3, (void)a4;
+/* The RYNO II's: as its spawn leaves one, the pvars' target empty, a wobble, 300 ticks of life,
+ * the next of the game's 32 trail rings, its first point half a unit over the rocket. Blocked (its
+ * line from the gun meets a wall), it is put at the hero, here the origin. */
+static int ryno_ring, ryno_blocked;
+
+gaddr func_L00_00409E48__game(gaddr owner, gaddr pos, gaddr target, gaddr color, float height) {
+    (void)owner, (void)target, (void)color;
+    const gaddr m = func_0029EFD0(3799);
+    if (m != 0) {
+        memcpy(G(m + MOBY_POS), G(pos), 16);
+        if (ryno_blocked) {
+            memset(G(m + MOBY_POS), 0, 12);
+        }
+        putf(m + MOBY_FORWARD, 1.0f);
+        const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+        memset(G(pvars), 0, 0x58);
+        putf(pvars + 0x14u, height);
+        putf(pvars + 0x18u, 0.9f);
+        putf(pvars + 0x1Cu, 7.0f);
+        put16(pvars + 0x24u, 300);
+        put32(pvars + TRAIL_INDEX, (uint32_t)ryno_ring);
+        const gaddr point = RYNO_TRAILS + (gaddr)ryno_ring * TRAIL_SIZE;
+        memcpy(G(point), G(m + MOBY_POS), 16);
+        putf(point + 8u, getf(m + MOBY_POS + 8u) + 0.5f);
+        ryno_ring = (ryno_ring + 1) % 32;
+    }
+    return m;
+}
+
+/* The trail ring a rocket's pvars name, as its update and draw reach it. */
+static gaddr trail_of(gaddr m) {
+    const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+    return RYNO_TRAILS + (gaddr)GREF(int32_t, pvars + TRAIL_INDEX) * TRAIL_SIZE;
+}
+
+/* Its four points all at x, y, z. */
+static int trail_at(gaddr m, float x, float y, float z) {
+    const gaddr ring = trail_of(m);
+    for (int i = 0; i < 4; ++i) {
+        const gaddr p = ring + (gaddr)i * 16u;
+        if (fabsf(getf(p) - x) > 1e-5f || fabsf(getf(p + 4u) - y) > 1e-5f
+            || fabsf(getf(p + 8u) - z) > 1e-5f) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* moby_get_private_value_0: no enemy record here. */
+gaddr func_002AB1F0(gaddr moby) {
+    (void)moby;
     return 0;
 }
 
@@ -469,6 +523,48 @@ static void live(void) {
     CHECK(r >= 0 && GREF(uint8_t, moby((uint32_t)r) + MOBY_HIT) == 1);
     CHECK(fabsf(getf(moby((uint32_t)r) + MOBY_FORWARD + 8u) + 1.0f) < 1e-5f);
     CHECK(fabsf(getf(GREF(gaddr, moby((uint32_t)r) + MOBY_PVARS) + 0x18u) - 0.2f) < 1e-5f);
+    /* A RYNO II rocket with a target homes from its first tick, aimed at the point it seeks. */
+    const gaddr enemy = moby(ENEMY_SLOT);
+    const float enemy_at[3] = {20.0f, 5.0f, 1.0f};
+    memcpy(G(enemy + MOBY_POS), enemy_at, 12);
+    memset(G(enemy + MOBY_UP), 0, 16);
+    putf(enemy + MOBY_UP + 8u, 1.0f);
+    const openrac_game_spawn_live split =
+        {3799, 44, -1, (int32_t)ENEMY_SLOT, 0, {10.0f, 5.0f, 1.0f}, {0.0f, 1.2f, 0.0f}};
+    const int32_t y = rac2_shot_spawn_live(&split);
+    CHECK(y >= 0);
+    const gaddr ym = moby((uint32_t)y);
+    const gaddr yp = GREF(gaddr, ym + MOBY_PVARS);
+    CHECK(GREF(gaddr, yp + 0x10u) == enemy && GREF(int16_t, yp + 0x24u) < 295);
+    CHECK(GREF(uint8_t, yp + 0x26u) == 1 && getf(yp + 0x1Cu) == 0.0f);
+    CHECK(fabsf(getf(ym + MOBY_FORWARD) - 1.0f) < 2e-3f && fabsf(getf(yp + 0x18u) - 1.2f) < 1e-5f);
+    CHECK(fabsf(getf(yp + 0x30u) - 1.0f) < 2e-3f && getf(yp + 0x00u) == 20.0f);
+    /* Without one it flies on as the game's unguided rockets do. Its spawn found the way from
+     * the gun blocked and put it at the hero: it is where the mod asked, and so is its trail. */
+    const openrac_game_spawn_live loose =
+        {3799, 44, -1, -1, 0, {10.0f, 5.0f, 1.0f}, {0.0f, 1.2f, 0.0f}};
+    ryno_blocked = 1;
+    const int32_t z = rac2_shot_spawn_live(&loose);
+    ryno_blocked = 0;
+    CHECK(z >= 0);
+    const gaddr zp = GREF(gaddr, moby((uint32_t)z) + MOBY_PVARS);
+    CHECK(GREF(int16_t, zp + 0x24u) == 300 && fabsf(getf(zp + 0x34u) - 1.0f) < 1e-4f);
+    /* Each rocket draws its own trail, of its slot's ring outside the game's 32, its four points
+     * where it starts. */
+    CHECK(trail_of(ym) != trail_of(moby((uint32_t)z)));
+    CHECK(trail_of(ym) >= RYNO_TRAILS + 32u * TRAIL_SIZE);
+    CHECK(trail_at(ym, 10.0f, 5.0f, 1.5f) && trail_at(moby((uint32_t)z), 10.0f, 5.0f, 1.5f));
+    /* Past 32 alive, two rockets still never share one. */
+    int32_t many[40];
+    for (int i = 0; i < 40; ++i) {
+        many[i] = rac2_shot_spawn_live(&loose);
+        CHECK(many[i] >= 0);
+    }
+    for (int i = 0; i < 40; ++i) {
+        for (int j = i + 1; j < 40; ++j) {
+            CHECK(trail_of(moby((uint32_t)many[i])) != trail_of(moby((uint32_t)many[j])));
+        }
+    }
     /* Another class, and a pool too full. */
     const openrac_game_spawn_live other = {42, -1, -1, -1, 0, {0}, {0}};
     CHECK(rac2_shot_spawn_live(&other) == -1);

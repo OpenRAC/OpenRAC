@@ -104,6 +104,7 @@
 #define RAC2_ADDR_0x001BA440u 0x001BA3C0u /* the release's build */
 #define RAC2_ADDR_0x001BA540u 0x001BA4C0u /* the release's build */
 #define RAC2_ADDR_0x001BADC0u 0x001BAD40u /* the release's build */
+#define RAC2_ADDR_0x001BAF80u 0x001BAF00u /* the release's build */
 #define RAC2_ADDR_0x001BF200u 0x001BF180u /* the release's build */
 #define RAC2_ADDR_0x001C2740u 0x001C26C0u /* the release's build */
 #define RAC2_ADDR_0x001C4FA0u 0x001C4F20u /* the release's build */
@@ -125,6 +126,7 @@
 /* Addresses of a level's program. */
 #define RAC2_LADDR_00_0x001B14ACu 0x001B144Cu /* the release's build */
 #define RAC2_LADDR_00_0x001B14B0u 0x001B1450u /* the release's build */
+#define RAC2_LADDR_00_0x001B14C4u 0x001B1464u /* the release's build */
 #define RAC2_LADDR_00_0x001B19C8u 0x001B1948u /* the release's build */
 #define RAC2_LADDR_00_0x001B1E9Cu 0x001B1E1Cu /* the release's build */
 #define RAC2_LADDR_00_0x001B1EA8u 0x001B1E28u /* the release's build */
@@ -132,6 +134,8 @@
 #define RAC2_LADDR_00_0x001B8E20u 0x001B8DA0u /* the release's build */
 #define RAC2_LADDR_00_0x001BF140u 0x001BF0C0u /* the release's build */
 #define RAC2_LADDR_00_0x001FACE0u 0x001FAC60u /* the release's build */
+#define RAC2_LADDR_00_0x0023B710u 0x0023B690u /* the release's build */
+#define RAC2_LADDR_00_0x00255BA0u 0x00255B20u /* the release's build */
 #define RAC2_LADDR_00_0x00262570u 0x002624F0u /* the release's build */
 /* Constants of the game's code (RAC2_K): the same instruction's in this release. */
 #define RAC2_K_CAMERA_CURSOR 0x2D8 /* v1.01 0x2A8; func_0033C738 as func_0033D780: 4 instructions */

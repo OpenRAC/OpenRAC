@@ -55,6 +55,7 @@
   "candidates": "nonmatching/functional.tsv",
   "places": "config/levels/functions.tsv",
   "split_places": "tables/split_places.tsv",
+  "folded_wrappers": "tables/variant_callees.tsv",
   "call_copies": "tables/call_copies.tsv",
   "call_copies_same_shape": true,
   "place_kinds_as_levels": [

@@ -273,6 +273,7 @@ openrac_add_test(custom_map
   INCLUDES game/common LIBS openrac_common)
 include(Luau)
 add_library(openrac_mods STATIC
+  game/common/button_labels.cpp
   game/common/mod_api/camera.cpp
   game/common/mod_api/core.cpp
   game/common/mod_api/figures.cpp
@@ -305,6 +306,8 @@ openrac_warnings(openrac_mods)
 openrac_add_test(mod_manifest LIBS openrac_mods)
 # What the mods ask of the on-screen pad's buttons (mod_touch.h).
 openrac_add_test(mod_touch LIBS openrac_mods)
+# The pad's buttons as the player's device has them (button_labels.h): the mods' labels and tokens.
+openrac_add_test(button_labels LIBS openrac_mods)
 # When the mods' pages of the game's menus take the pad (mod_ui.h): only while the title stays.
 openrac_add_test(mod_ui_menus INCLUDES game/common)
 # The shared progress of rac1 (game/rac1/host/shared.c) on an array in place of game memory.

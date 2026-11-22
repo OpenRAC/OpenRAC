@@ -16,6 +16,7 @@
 // The entries are the port's own functions (keyboard_mouse.h), and the frames' mouse turn
 // (frontend/mouse_turn.h) is checked against the turn the tick then makes.
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -58,6 +59,16 @@ void set_mouse_turn(MouseTurnFn fn) {
 
 bool keyboard_mouse_in_use() {
     return g_keyboard_mouse_in_use;
+}
+
+// The keys the mod hands on for the mods' button labels (interface 1.31), cell by cell.
+std::array<std::string, 10> g_prompt_keys;
+
+void set_prompt_keys(const std::string* names, int count) {
+    g_prompt_keys = {};
+    for (int i = 0; names != nullptr && i < count && i < 10; ++i) {
+        g_prompt_keys[static_cast<std::size_t>(i)] = names[i];
+    }
 }
 }  // namespace openrac::frontend
 
@@ -644,17 +655,19 @@ void prompts() {
     read_pad();
     CHECK(unchanged());
 
-    // The keyboard and mouse: the keys.
+    // The keyboard and mouse: the keys, handed on for the mods' labels too.
     g_keyboard_mouse_in_use = true;
     tick();
     read_pad();
     CHECK(cross_painted());
+    CHECK(!openrac::frontend::g_prompt_keys[0].empty());
 
-    // Back on the gamepad: every byte as the game had it.
+    // Back on the gamepad: every byte as the game had it, and no keys.
     g_keyboard_mouse_in_use = false;
     tick();
     read_pad();
     CHECK(unchanged());
+    CHECK(openrac::frontend::g_prompt_keys[0].empty());
 
     // The setting off: the game's icons on the keyboard too.
     g_prompts = false;

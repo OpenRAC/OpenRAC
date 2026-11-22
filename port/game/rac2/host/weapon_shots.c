@@ -34,8 +34,16 @@
  * given (vectors copied, as the caller's were on its stack), turned: the velocity argument where
  * the spawn takes one, otherwise the rows of the new moby's matrix (+0xC0 forward, +0xD0 right,
  * +0xE0 up, as the spawns write them) and the direction in its pvars (+0x30). Its +0xB8 is the
- * first's. The Minirocket Tube's and RYNO II's rockets keep a trail ring each (eight and 32,
- * round robin): past that many alive, two rockets draw one trail.
+ * first's.
+ *
+ * The two rockets' trails: each rocket keeps its last four points (0x40 bytes) in a ring of the
+ * level's (the Minirocket Tube's eight at D_L00_0023B710, RYNO II's 32 at D_L00_00255BA0, round
+ * robin), named by its pvars +0x2C; its update shifts them in each tick and its draw
+ * (moby_start_animation_from_table, its +0x2C << 6 plus the ring) lays the streak through them.
+ * Past eight or 32 alive, two rockets write one ring, and the streak runs from one to the other
+ * across the scene. So every rocket gets a ring of its moby slot's in the port's memory, named by
+ * the +0x2C that reaches it from the game's ring, and its four points start where it is: a rocket
+ * a mod made away from the gun (a split) is put there after its spawn wrote the first point.
  *
  * The moby loop (moby_update_live_mobys, func_L00_0032CF60) is the game's, written here with
  * three additions: the mods' gate before and after each update (openrac_game_moby_update, as
@@ -56,6 +64,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "enemy_copies.h"
 #include "game_protos.h"
 #include "moby_pool.h"
 #include "rac2.h"
@@ -90,6 +99,12 @@
 #define PARTICLE_BASE OPENRAC_DATA(RAC2_ADDR(0x001B1D90u))
 #define PARTICLES 2048
 #define PARTICLE_SIZE 0x40u
+
+/* The rockets' trail rings (the file's head): 0x40 bytes a rocket, four points. */
+#define MINIROCKET_TRAILS OPENRAC_LDATA(0, RAC2_LADDR(00, 0x0023B710u))
+#define RYNO_TRAILS OPENRAC_LDATA(0, RAC2_LADDR(00, 0x00255BA0u))
+#define TRAIL_SIZE 0x40u
+#define TRAIL_INDEX 0x2Cu /* in the pvars */
 
 /* The moby table (play.c's). */
 #define MOBY_BASE OPENRAC_DATA(RAC2_g_mobyTableBase)
@@ -375,12 +390,72 @@ static void copy4(float out[4], gaddr a) {
     }
 }
 
+/* ---- The rockets' trails ---- */
+
+/* A ring for each moby slot, one block for each rocket (their rings start at different places). */
+static gaddr trail_block[2];
+
+/* The trail ring of the game's for a rocket of `kind`, 0 for another kind. */
+static gaddr trail_rings(int kind) {
+    if (kind == RAC2_SHOT_MINIROCKET) {
+        return MINIROCKET_TRAILS;
+    }
+    return kind == RAC2_SHOT_RYNO ? RYNO_TRAILS : 0;
+}
+
+/* Gives the rocket `m` of `kind`, just made, the ring of its slot, its four points the one its
+ * spawn wrote. */
+static void trail_own(gaddr m, int kind) {
+    const gaddr rings = trail_rings(kind);
+    const int32_t slot = slot_of(m);
+    const gaddr pvars = m != 0 ? GREF(gaddr, m + MOBY_PVARS) : 0;
+    if (rings == 0 || slot < 0 || pvars == 0) {
+        return;
+    }
+    const int b = kind == RAC2_SHOT_RYNO;
+    if (trail_block[b] == 0) {
+        trail_block[b] = openrac_guest_static(SLOTS * TRAIL_SIZE + TRAIL_SIZE);
+        if (trail_block[b] == 0) {
+            return;
+        }
+    }
+    /* The block's first ring at the game ring's distance from it, a whole number of rings. */
+    const gaddr first = trail_block[b] + ((rings - trail_block[b]) & (TRAIL_SIZE - 1u));
+    const gaddr ring = first + (gaddr)slot * TRAIL_SIZE;
+    const gaddr made = rings + (gaddr)GREF(int32_t, pvars + TRAIL_INDEX) * TRAIL_SIZE;
+    float point[4];
+    memcpy(point, G(made), 16);
+    for (int i = 0; i < 4; ++i) {
+        memcpy(G(ring + (gaddr)i * 16u), point, 16);
+    }
+    GREF(int32_t, pvars + TRAIL_INDEX) = (int32_t)((ring - rings) / TRAIL_SIZE);
+}
+
+/* The rocket `m` of `kind` was moved by `by` after its spawn: its trail's points move with it. */
+static void trail_moved(gaddr m, int kind, const float by[3]) {
+    const gaddr rings = trail_rings(kind);
+    const gaddr pvars = m != 0 ? GREF(gaddr, m + MOBY_PVARS) : 0;
+    if (rings == 0 || pvars == 0) {
+        return;
+    }
+    const gaddr ring = rings + (gaddr)GREF(int32_t, pvars + TRAIL_INDEX) * TRAIL_SIZE;
+    for (int i = 0; i < 4; ++i) {
+        float p[3];
+        read3(p, ring + (gaddr)i * 16u);
+        for (int k = 0; k < 3; ++k) {
+            p[k] += by[k];
+        }
+        write3(ring + (gaddr)i * 16u, p);
+    }
+}
+
 /* ---- The spawns, wrapped ---- */
 
 gaddr func_L00_003AB9C0(
     gaddr owner, gaddr pos, gaddr target, gaddr arg, float scale, float lo, float hi, float unused
 ) {
     const gaddr m = func_L00_003AB9C0__game(owner, pos, target, arg, scale, lo, hi, unused);
+    trail_own(m, RAC2_SHOT_MINIROCKET);
     if (m != 0 && !own_spawn) {
         Call c = {RAC2_SHOT_MINIROCKET, m, owner, target, {0}, {0}, {scale, lo, hi, unused}, 0};
         copy4(c.v0, pos);
@@ -392,6 +467,7 @@ gaddr func_L00_003AB9C0(
 
 gaddr func_L00_00409E48(gaddr owner, gaddr pos, gaddr target, gaddr color, float height) {
     const gaddr m = func_L00_00409E48__game(owner, pos, target, color, height);
+    trail_own(m, RAC2_SHOT_RYNO);
     if (m != 0 && !own_spawn) {
         Call c = {RAC2_SHOT_RYNO, m, owner, target, {0}, {0}, {height, 0, 0, 0}, 0};
         copy4(c.v0, pos);
@@ -496,6 +572,9 @@ gaddr func_L00_00387CA8(gaddr pos, gaddr velocity) {
 /* CreateMoby: what a moby's update makes takes that moby's look (its blast, its debris). */
 gaddr func_0029EFD0(int oclass) {
     const gaddr m = func_0029EFD0__game(oclass);
+    if (m != 0) {
+        rac2_copy_slot_taken(m);
+    }
     /* A new moby in a slot: the look of the one before is not its own. */
     if (m != 0 && looks_ready) {
         const int32_t slot = slot_of(m);
@@ -657,9 +736,8 @@ static void shot_died(Shot* s, int made) {
         || ((kind == RAC2_SHOT_MINIROCKET || kind == RAC2_SHOT_RYNO)
             && GREF(uint8_t, s->moby + MOBY_HIT) != 0)) {
         s->reason = OPENRAC_SHOT_END_IMPACT;
-    } else if (
-        KINDS[kind].timer >= 0 && pvars != 0 && GREF(int16_t, pvars + (gaddr)KINDS[kind].timer) <= 0
-    ) {
+    } else if (KINDS[kind].timer >= 0 && pvars != 0
+               && GREF(int16_t, pvars + (gaddr)KINDS[kind].timer) <= 0) {
         s->reason = OPENRAC_SHOT_END_EXPIRED;
     } else {
         s->reason = OPENRAC_SHOT_END_GONE;
@@ -795,6 +873,7 @@ static gaddr spawn(const Call* c) {
             break;
     }
     own_spawn = 0;
+    trail_own(m, c->kind);
     if (m != 0) {
         ++made_this_tick;
         if (pool_free > 0) {
@@ -909,6 +988,49 @@ int32_t rac2_shot_refire(uint32_t serial, float yaw, float pitch) {
     return slot_of(m);
 }
 
+/* A RYNO II rocket made for a mod with a target homes on it from its first tick. Its update
+ * (homing_l00_shot_update_3) steers only once its life (pvars +0x24, 300 at the spawn) is under
+ * 295, and then only by the lead the target's motion asks for: a still target never turns it, so a
+ * rocket not already headed at the point it seeks (the target, up by the height at +0x14, plus the
+ * offset at +0x40) flies on past and turns only when the target moves, which looks like a rocket
+ * waiting to choose. So it is aimed at that point at its speed, its height is the target's own
+ * (pvars +0x10, as UpdateLockOnWeapon passes it), the point is its last seen (+0x00), its wobble
+ * (+0x1C) is off and its life starts under the gate. */
+#define RYNO_HOMING_LIFE 294
+
+static void ryno_lock(gaddr m, gaddr pvars, gaddr target, const float velocity[3]) {
+    const gaddr info = func_002AB1F0(target);
+    const float height = info != 0 ? GREF(float, info + 0x10u) : GREF(float, pvars + 0x14u);
+    float pos[3], up[3], offset[3], at[3];
+    read3(pos, target + MOBY_POS);
+    read3(up, target + MOBY_UP);
+    read3(offset, pvars + 0x40u);
+    float last[3];
+    for (int i = 0; i < 3; ++i) {
+        last[i] = pos[i] + up[i] * height;
+        at[i] = last[i] + offset[i];
+    }
+    float from[3];
+    read3(from, m + MOBY_POS);
+    float speed = length3(velocity);
+    if (speed < 1e-6f) {
+        speed = GREF(float, pvars + 0x18u);
+    }
+    const float way[3] = {at[0] - from[0], at[1] - from[1], at[2] - from[2]};
+    const float d = length3(way);
+    if (d > 1e-4f && speed > 1e-6f) {
+        const float v[3] = {way[0] / d * speed, way[1] / d * speed, way[2] / d * speed};
+        aim_matrix(m, v);
+    }
+    write3(pvars + 0x00u, last);
+    GREF(float, pvars + 0x14u) = height;
+    GREF(float, pvars + 0x1Cu) = 0.0f;
+    GREF(uint8_t, pvars + 0x26u) = 1;
+    if (GREF(int16_t, pvars + 0x24u) > RYNO_HOMING_LIFE) {
+        GREF(int16_t, pvars + 0x24u) = RYNO_HOMING_LIFE;
+    }
+}
+
 int32_t rac2_shot_spawn_live(const openrac_game_spawn_live* in) {
     const int kind = rac2_shot_kind(in->oclass);
     const gaddr gun = in->owner >= 0 ? moby_at(in->owner) : hand();
@@ -958,8 +1080,24 @@ int32_t rac2_shot_spawn_live(const openrac_game_spawn_live* in) {
         /* The rockets' spawn tests a line from the gun to the place and, blocked, puts the rocket at
          * the hero to go off there: a rocket made away from the gun (a split, a burst) is where the
          * mod asked, and goes off only when asked. */
+        float was[3];
+        read3(was, m + MOBY_POS);
         write3(m + MOBY_POS, in->position);
+        const float by[3] =
+            {in->position[0] - was[0], in->position[1] - was[1], in->position[2] - was[2]};
+        trail_moved(m, kind, by);
         GREF(uint8_t, m + MOBY_HIT) = (in->flags & OPENRAC_SPAWN_LIVE_DETONATE) != 0 ? 1 : 0;
+        /* Their spawn only aims at the target and leaves the pvars' target (+0x10) empty, and their
+         * update steers only after one (homing_l00_shot_update_3, from its sixth tick): a rocket the
+         * mod gives a target is one that homes on it. */
+        const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+        if (target != 0 && pvars != 0 && KINDS[kind].target >= 0
+            && GREF(gaddr, pvars + (gaddr)KINDS[kind].target) == 0) {
+            GREF(gaddr, pvars + (gaddr)KINDS[kind].target) = target;
+        }
+        if (kind == RAC2_SHOT_RYNO && target != 0 && pvars != 0) {
+            ryno_lock(m, pvars, target, in->velocity);
+        }
     }
     GREF(gaddr, m + MOBY_OWNER) = gun;
     const int32_t item = in->item >= 0 && in->item < ITEMS ? in->item : hand_item();

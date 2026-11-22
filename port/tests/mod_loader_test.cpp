@@ -137,6 +137,7 @@ void install(
                                   {"value": "rules", "name": "Rules"},
                                   {"value": "twelve", "name": "Twelve"},
                                   {"value": "hud", "name": "Hud"},
+                                  {"value": "hud-menu", "name": "Hud over menus"},
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"},
@@ -1857,19 +1858,23 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     mods::Host h = host(plugins);
     h.play = &kPlay;
     h.cards = dir / "cards";
-    CHECK(!mods::overlay_wanted());  // nobody asked yet
+    const auto wanted = [] {
+        return mods::overlay_wanted(mods::overlay_phase());
+    };
+    CHECK(!wanted());  // nobody asked yet
     CHECK(mods::load(h) == "test-a 1.0.0");
     CHECK(g_live_picture == 0);  // play_live_picture reaches the game
     g_phase = OPENRAC_GAME_PHASE_FRONT_END;
-    CHECK(!mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == 0 && !wanted());
     g_phase = OPENRAC_GAME_PHASE_MENU;
-    CHECK(!mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == OPENRAC_OVERLAY_MENU && !wanted());
     g_phase = OPENRAC_GAME_PHASE_SCENE;
-    CHECK(!mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == OPENRAC_OVERLAY_SCENE && !wanted());
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
-    CHECK(mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == OPENRAC_OVERLAY_PLAYING && wanted());
     openrac_overlay overlay{};
     overlay.size = sizeof overlay;
+    overlay.phase = OPENRAC_OVERLAY_PLAYING;
     overlay.project = [](void*, const float world[3], float* x, float* y) {
         *x = world[0] * 10.0f;
         *y = world[1] * 10.0f;
@@ -1887,8 +1892,42 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     mods::run_overlays(overlay);
     CHECK(g_overlay_rect[0] == 10.0f && g_overlay_rect[1] == 20.0f);
     CHECK(g_overlay_rect[2] == 4.0f && g_overlay_rect[3] == 8.0f);
+    // A frame of a menu is not on_overlay's.
+    g_overlay_rect[0] = 0.0f;
+    overlay.phase = OPENRAC_OVERLAY_MENU;
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 0.0f);
     mods::reset();
-    CHECK(!mods::overlay_wanted());  // gone with the mods
+    CHECK(!mods::overlay_wanted(OPENRAC_OVERLAY_PLAYING));  // gone with the mods
+
+    // Interface 1.31: the phases a mod asks for (on_overlay_phases), the menus' here, not scenes'.
+    // A mod built for this interface (test-current): the call is past an older one's table.
+    write(
+        plugins / "plugins.json",
+        R"({"format": 1, "mods": [{"id": "test-current", "enabled": true, "settings": {"behaviour": "hud-menu"}}]})"
+    );
+    install(
+        plugins,
+        "current",
+        OPENRAC_TEST_MOD_CURRENT,
+        std::format("{}.{}", OPENRAC_MOD_API_MAJOR, OPENRAC_MOD_API_MINOR)
+    );
+    CHECK(mods::load(h) == "test-current 1.0.0");
+    g_phase = OPENRAC_GAME_PHASE_MENU;
+    CHECK(wanted());
+    g_phase = OPENRAC_GAME_PHASE_SCENE;
+    CHECK(!wanted());
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    CHECK(wanted());
+    g_overlay_rect[0] = 0.0f;
+    overlay.phase = OPENRAC_OVERLAY_MENU;
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 10.0f);
+    g_overlay_rect[0] = 0.0f;
+    overlay.phase = OPENRAC_OVERLAY_SCENE;
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 0.0f);
+    mods::reset();
     g_phase = OPENRAC_GAME_PHASE_FRONT_END;
 }
 

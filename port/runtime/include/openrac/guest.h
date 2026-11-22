@@ -131,6 +131,18 @@ static inline gaddr openrac_guest_target_table(gaddr original) {
 
 #define OPENRAC_TARGET_TABLE(a) openrac_guest_target_table((gaddr)(a))
 
+/* An address the game forms down from the top of the console's 32 MiB (RAC1 loads its level
+ * archives below 0x01FF8000). In expanded RAM it keeps its distance from the top, but under the
+ * RAC1 reservations, so a large level archive does not reach low memory. */
+static inline gaddr openrac_guest_ram_top(gaddr original) {
+    if (openrac_guest_ram_size <= GUEST_RAM_SIZE) {
+        return original;
+    }
+    return original + (openrac_guest_ram_size - OPENRAC_EXPANDED_RAC1_RESERVE - GUEST_RAM_SIZE);
+}
+
+#define OPENRAC_RAM_TOP(a) openrac_guest_ram_top((gaddr)(a))
+
 /* Normalize a direct or aliased RAM pointer to the direct RAM view. Other bus addresses retain
  * the console's 25-bit physical-address behavior. */
 static inline gaddr openrac_guest_ram_address_for_size(gaddr address, uint32_t ram_size) {

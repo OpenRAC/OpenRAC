@@ -52,6 +52,7 @@ HOST_DEF = re.compile(r"^((?:unsigned |signed )?(?:void|int|float|gaddr|unsigned
 MP_TOKEN = re.compile(r"\bmp_func_(?:L\d\d_)?[0-9A-F]{8}(?:__\w+)?\b")
 MADDR = re.compile(r"\bRAC3_MADDR\(\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
 ALIAS = re.compile(r"(func_[0-9A-F]{8})(_[0-9A-F]{8})")
+ALIAS_TOKEN = re.compile(r"\bfunc_[0-9A-F]{8}_[0-9A-F]{8}(?![0-9A-Za-z_])")
 RESIDENT_END = 0x001D5680  # below: the engine core, at the same addresses on both discs
 CORE_TEXT_END = 0x0013D420  # the engine core's code ends here (core.text 0x116F80-0x13D420)
 LITERAL = re.compile(r"\b0x(00[1-3][0-9A-Fa-f]{5})u?\b")  # an address of the executable's memory
@@ -172,6 +173,20 @@ class Names:
                 continue
             out.append(f"func_{start:08X}" + ("__frontbin" if cols[0] == "frontbin" else ""))
         return out
+
+    def gone_twins(self, table: dict) -> list[str]:
+        """NTSC-U's names of the PAL definitions release_names.json leaves out ("gone"), in the
+        executable and frontbin: NTSC-U's own code there, translated from the disc."""
+        out = []
+        for pal in table.get("gone", []):
+            places = table.get("gone_in", {}).get(pal, ["src/boot_elf/"])
+            for program, suffix in (("boot_elf", ""), ("frontbin", "__frontbin")):
+                if not any(p.rstrip("/").endswith(program) for p in places):
+                    continue
+                new, _status = self.function(pal + suffix)
+                if NAME.fullmatch(new) and "PAL" not in new:
+                    out.append(new)
+        return sorted(set(out))
 
     def text(self, text: str) -> str:
         return NAME.sub(lambda m: self.function(m.group(0))[0], text)
@@ -362,7 +377,14 @@ def main(argv: list[str] | None = None) -> int:
     # holding a paired function after a remnant (0x003F0140 and its 0x003F0168) is that function's.
     own = names.own_functions(source)
     report["own_functions"] = own
-    out["roots"] = list(dict.fromkeys([*out.get("roots", []), *own]))
+    # The twins of PAL definitions the release view leaves out (release_names.json "gone": NTSC-U's
+    # code differs there): roots too. One no C calls by name has no stub for the assembly stage to
+    # write, so a call through a pointer table finds no function: level 27's and 28's load runs
+    # NTSC-U's 0x003BE710 (PAL's func_003BE800) from the loader's state table at 0x0031C910, and
+    # without it the pack's WAD destination is never set ("WAD buffer lies outside game RAM").
+    gone = names.gone_twins(table)
+    report["gone_roots"] = gone
+    out["roots"] = list(dict.fromkeys([*out.get("roots", []), *own, *gone]))
     # The levels' functions the shared host C defines (wraps and replacements): PAL's prototype is
     # its C's, NTSC-U's would be its registers' (its levels are translated from the disc), and the
     # two clash where the host C defines it. The host C's own prototype is the assembly signature.
@@ -431,14 +453,17 @@ def main(argv: list[str] | None = None) -> int:
     for path in host_files():
         if path.suffix == ".cpp":
             continue
-        for m in NAME.finditer(strip_comments(path.read_text())):
-            if m.group(1) != "func":
-                continue
-            new, status = names.function(m.group(0))
-            if new != m.group(0):
-                used[m.group(0)] = new
+        text = strip_comments(path.read_text())
+        # A per-caller spelling (func_003CB798_003C3C18, a function's place of its own in the
+        # catalogue) is no NAME token: renamed as names.function renames it (ALIAS).
+        tokens = [m.group(0) for m in NAME.finditer(text) if m.group(1) == "func"]
+        tokens += [m.group(0) for m in ALIAS_TOKEN.finditer(text)]
+        for token in tokens:
+            new, status = names.function(token)
+            if new != token:
+                used[token] = new
                 if status not in ("match", "asm", "hand"):
-                    report["differs"].setdefault(m.group(0), {"is": new, "status": status, "port": "host C"})
+                    report["differs"].setdefault(token, {"is": new, "status": status, "port": "host C"})
     mp = MpNames(source, names)
     for path in host_files():
         if path.suffix == ".cpp":

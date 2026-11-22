@@ -63,6 +63,14 @@ enum class Var : std::uint16_t;
 
 namespace openrac::frontend {
 
+// A posed moby's identity between ticks: its address and the model it is drawn as. A moby the game
+// gives another class (Veldin's walkers take class 7938's data), a moby slot reused by another
+// class and a moby's bangles share an address but not a skeleton: a frame between ticks must not
+// blend one skeleton's palette into another's mesh.
+constexpr std::uint64_t pose_key(std::uint32_t address, std::uint32_t model) {
+    return (std::uint64_t{model} << 32) | address;
+}
+
 // One tick's scene, as frame() read it from the game, for the frames drawn until the next tick
 // (between), and the last tick's camera and moby matrices to move them from.
 struct Kept {
@@ -90,9 +98,10 @@ struct Kept {
     // The ties' and shrubs' matrices the tick before, when it was the one before (a frame between
     // ticks moves a moved one from there).
     std::array<std::vector<std::array<float, 12>>, 2> prev_scenery;
-    // The last tick's poses, by moby: where its joints start in prev_palette and how many.
+    // The last tick's poses, by moby and the model it was drawn as (pose_key): where its joints
+    // start in prev_palette and how many.
     std::vector<scene::LevelScene::JointColumns> prev_palette;
-    std::unordered_map<std::uint32_t, std::pair<int, int>> prev_poses;
+    std::unordered_map<std::uint64_t, std::pair<int, int>> prev_poses;
     std::vector<int> joints;            // each live moby's joints in `palette` (0 without a pose)
     std::vector<std::uint8_t> packets;  // the 2D path
     std::size_t before_world = 0;
@@ -135,6 +144,10 @@ struct Kept {
     bool world_under_menu = false;
     // A movie's tick (frontend::set_movie_playing).
     bool movie = false;
+    // What the mods' overlays are drawn over (mods::overlay_phase, an OPENRAC_OVERLAY_* bit), read
+    // on the game's thread when the tick was captured: not asked again when the frame is shown, as
+    // a queued frame of play can be shown just after the game opened a menu.
+    std::uint32_t overlay_phase = 0;
     std::uint64_t frame = 0;
 };
 
@@ -178,6 +191,11 @@ struct FramePresentation {
         finished{};           // Worker completion, excluding handoff idle time.
     renderer::Camera camera;  // Camera of the submitted scene, for the debug UI.
     bool has_camera = false;  // The scene drew a world with that camera.
+    // The phase the mods' overlays are drawn for (Kept::overlay_phase), fixed when the frame is
+    // submitted; 0 for a picture left standing (keep_picture).
+    std::uint32_t overlay_phase = 0;
+    // The world was drawn live under a menu (Kept::world_under_menu): `camera` matches the picture.
+    bool world_under_menu = false;
     CameraDebugFrame
         camera_debug;  // Window-thread inputs fixed before handing the scene to the worker.
     std::vector<scene::Instance> picker_live;
@@ -579,8 +597,9 @@ void render_scene(
 
 // Draws the kept tick, the camera and mobys part way from the last tick's to its own (as far as
 // the refresh it will be shown at is between them, when frames are drawn between ticks), and shows
-// it. `first`: the tick's own frame (shots, the frame read back by store_image)
+// it. `first`: the tick's own frame (shots, the frame read back by store_image). `held`: the game
+// sent nothing this tick (keep_picture): a picture left standing, with no mod's overlay on it
 // (frontend/interpolation.cpp).
-void draw_kept(bool first);
+void draw_kept(bool first, bool held = false);
 
 }  // namespace openrac::frontend

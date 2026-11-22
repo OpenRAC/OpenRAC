@@ -850,7 +850,7 @@ export interface GpuDrivers {
     api: number;
     soc: string;
     /** Which kernel GPU driver the device has: packages load on Adreno's only. */
-    gpu: "adreno" | "mali" | "other";
+    gpu: "adreno" | "mali" | "xclipse" | "other";
   };
 }
 

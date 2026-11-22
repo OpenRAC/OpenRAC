@@ -192,3 +192,5 @@
 190	moby_status	1504	int (*)(openrac_mod *, int32_t, uint32_t, int32_t)
 191	weapon_record	1512	openrac_gaddr (*)(openrac_mod *, int32_t)
 192	weapon_ignore_culling	1520	int (*)(openrac_mod *, int32_t, int32_t)
+193	on_overlay_phases	1528	int (*)(openrac_mod *, openrac_overlay_fn, void *, uint32_t)
+194	button_label	1536	int (*)(openrac_mod *, uint32_t, char *, uint32_t)

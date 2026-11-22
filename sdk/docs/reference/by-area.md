@@ -61,6 +61,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `input` | 1.2 | stable | yes | yes | yes |
 | `take_input` | 1.2 | stable | yes | yes | yes |
 | `capture_mouse` | 1.2 | stable | yes | yes | yes |
+| `button_label` | 1.31 | stable | yes | yes | yes |
 
 ## graphics
 
@@ -71,6 +72,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `setup_vulkan` | 1.4 | stable | yes | yes | yes |
 | `on_overlay` | 1.14 | stable | yes | yes | yes |
 | `play_live_picture` | 1.14 | stable | yes | no | no |
+| `on_overlay_phases` | 1.31 | stable | yes | yes | yes |
 
 ## menus
 

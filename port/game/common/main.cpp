@@ -743,6 +743,9 @@ int main(int argc, char** argv) {
     // until the moby pool was full.
     scene::set_moby_anim_fields(host::game_profile(openrac_game.id).moby_anim_fields());
     scene::set_moby_layer_records(host::game_profile(openrac_game.id).moby_layer_records());
+    // The port's own region, which a mod's enemy copies keep their larger pvars in: their joint
+    // modifiers and pose layers are read there, not at the RAM address its bits would mask to.
+    scene::set_port_memory(GUEST_PORT, runtime::Memory::get().bytes(GUEST_PORT, GUEST_PORT_SIZE));
     if (g_options.window) {
         std::string why;
         settings::load(g_options.settings);
