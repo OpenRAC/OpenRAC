@@ -22,6 +22,11 @@ is the caller's ("-" for neither).
 
     python3 port/tools/hostgen/variant_callees.py --source games/rac3/decomp \\
         --split port/game/rac3-pal/tables/split_places.tsv --out port/game/rac3-pal/tables/variant_callees.tsv
+
+NTSC-U's (hostgen.json "folded_wrappers" there; its signature check runs without the table):
+
+    python3 port/tools/hostgen/variant_callees.py --source games/rac3/decomp --version us \\
+        --split port/game/rac3-ntsc/tables/split_places.tsv --out port/game/rac3-ntsc/tables/variant_callees.tsv
 """
 from __future__ import annotations
 
@@ -149,10 +154,14 @@ def apply_split(table: list, split: Path | None) -> list:
     return out
 
 
-def rows(source: Path, split: Path | None = None) -> list[tuple[str, str, int, int, int, str, str]]:
-    table = apply_split(catalogue(source / "config/levels/functions.tsv"), split)
+def rows(source: Path, split: Path | None = None, version: str | None = None
+         ) -> list[tuple[str, str, int, int, int, str, str]]:
+    # version: another release's catalogue and level programs (NTSC-U: config/us, baserom/us).
+    config, baserom = (source / "config" / version, source / "baserom" / version) if version else \
+        (source / "config", source / "baserom")
+    table = apply_split(catalogue(config / "levels/functions.tsv"), split)
     names = {place: name for name, _, places in table for place in places}
-    programs = level_programs(source / "baserom/levels")
+    programs = level_programs(baserom / "levels")
     out = []
     for caller, size, places in table:
         size &= ~3
@@ -187,8 +196,9 @@ def main() -> int:
     ap.add_argument("--source", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--split", type=Path, help="the game's tables/split_places.tsv, applied to the catalogue")
+    ap.add_argument("--version", help="another release's catalogue and programs (us: NTSC-U's)")
     args = ap.parse_args()
-    found = rows(args.source, args.split)
+    found = rows(args.source, args.split, args.version)
     text = HEADER + "".join(f"{c}\t{e}\t{lv:02d}\t{pl:08X}\t{w}\t{p}\t{r}\n" for c, e, lv, pl, w, p, r in found)
     args.out.write_text(text)
     print(f"variant_callees: {len({r[0] for r in found})} callers, {len(found)} rows", file=sys.stderr)
