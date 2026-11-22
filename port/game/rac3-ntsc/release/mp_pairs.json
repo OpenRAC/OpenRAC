@@ -697,6 +697,10 @@
    "is": "func_0027B200",
    "why": "the front end's entry: NTSC-U's record 0x0027B200 starts with the same function (its register saves in another order)"
   },
+  "func_0027E360": {
+   "is": "func_0027E3A0",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_0027EAC8": {
    "is": "func_0027EB08",
    "why": "the same instructions, the only place they occur"
@@ -753,6 +757,10 @@
    "is": "func_00284FC0",
    "why": "the same instructions, the only place they occur"
   },
+  "func_00287A18": {
+   "is": "func_002879E0",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_0028BBE0": {
    "is": "func_0028BBA0",
    "why": "the same instructions, the only place they occur"
@@ -789,7 +797,7 @@
   },
   "0x002446A8": {
    "is": "0x002448A8",
-   "why": "the same instruction of the same code: func 0x0027EDA8 (NTSC-U 0x0027EDE8) +0x80, 73 of 73 places agree"
+   "why": "the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 110 of 110 places agree"
   },
   "0x0027B100": {
    "is": "0x0027B200",
@@ -803,6 +811,10 @@
  "level39": {
   "func_L39_00575CC8": {
    "is": "func_L39_00574F88",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00589890": {
+   "is": "func_L39_00588720",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_00589FF8": {
@@ -863,6 +875,10 @@
   },
   "func_L39_0059CFD0": {
    "is": "func_L39_0059BC40",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005A4ED8": {
+   "is": "func_L39_005A3268",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_005A61D8": {
