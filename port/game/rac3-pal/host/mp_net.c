@@ -796,7 +796,10 @@ static void lobby_reply_list(void) {
     const lobby_reply* r = lobby_reply_of(1, 0xEA);
     uint8_t reply[0x190];
     int shown = 0;
-    for (int i = 0; i < lobby.games_count; i++) {
+    /* The request's PageSize (+0x18): the list drops records past it (L39_006D55E0). */
+    const int page = lobby.list_req[0x18] | lobby.list_req[0x19] << 8;
+    const int count = page > 0 && page < lobby.games_count ? page : lobby.games_count;
+    for (int i = 0; i < count; i++) {
         const listed_game* g = &lobby.games[i];
         lobby_start(reply, r, lobby.list_req, M_SUCCESS);
         put32(reply + 0x1C, g->world);
@@ -813,7 +816,7 @@ static void lobby_reply_list(void) {
         put32(reply + 0x48, g->ad.host_type);
         memcpy(reply + 0x4C, g->ad.name, 64);
         memcpy(reply + 0x8C, g->ad.stats, 256);
-        put32(reply + 0x18C, i == lobby.games_count - 1);
+        put32(reply + 0x18C, i == count - 1);
         lobby_push(r->reply_cls, r->reply_type, reply, r->size);
         shown++;
     }
@@ -1141,12 +1144,15 @@ static void dme_deliver(void) {
 }
 
 /* Sends a DME packet ([class][id][payload]) to DEST: a client index, -1 / 0xFFFE every other
- * member, 0xFFFF the DME server (none here: dropped). */
+ * member (the room join request goes to -1), 0xFFFF the DME server (none here: dropped). */
 static int dme_relay(int dest, gaddr data, int len) {
     if (srv.fd == NET_INVALID || !room.in || len <= 0 || len > 0x5F0) {
         return 0;
     }
     int32_t target = 0;
+    if (dest == -1) {
+        dest = 0xFFFE;
+    }
     dest &= 0xFFFF;
     if (dest == 0xFFFF) {
         return 0;
@@ -1803,6 +1809,26 @@ int mp_func_0017E2D0(void) {
 
 /* ---- DME ---- */
 
+/* The vblank count (0x00241704) of the network's vblank handler 0x0019BC10, which the talking flag
+ * (app id 19) sends on at every 60th: the handler is installed with the voice code, which the port
+ * does not start, so the count follows the host's clock at 60 a second while nothing else moves it. */
+#ifdef RAC3_PAL
+#define NET_VBLANKS 0x00241704u /* $gp - 0x68BC */
+#else
+#define NET_VBLANKS 0x00241884u
+#endif
+
+int mp_func_L39_0067CEA0(void);
+
+static void vblank_count(void) {
+    static int32_t written;
+    const int32_t now = (int32_t)((int64_t)mp_func_L39_0067CEA0() * 60 / 1000);
+    if (GREF(int32_t, NET_VBLANKS) == written) {
+        written = now;
+        GREF(int32_t, NET_VBLANKS) = now;
+    }
+}
+
 /* DME's send of one message (kind, conn, dest, class, id, len, data), through the server (0x0014CAB8)
  * or to a peer (0x0014C950): its internal messages and the net objects' too. To the room. */
 static int dme_send_one(int dest, int cls, int id, int len, int data) {
@@ -1873,6 +1899,7 @@ int mp_func_0014B040(int status, int conn) {
 
 /* dme_update: the server's packets, the session's callbacks and the room's messages. */
 int mp_func_0014B118(void) {
+    vblank_count();
     net_pump();
     dme_deliver();
     obj_send_changes();
