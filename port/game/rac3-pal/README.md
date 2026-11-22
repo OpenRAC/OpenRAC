@@ -202,7 +202,7 @@ port does not have, so it is cut at four places:
   (the server's `RELAY`); what comes back goes to DME's receive path (`0x0014CE48`) in its update
   (`0x0014B118`), which runs the game's handlers.
 
-`OPENRAC_SERVER=host[:port]` names the server (`127.0.0.1:7770` when unset);
+`OPENRAC_SERVER=host[:port]` names the server (`game.openrac.dev:7770` when unset);
 `OPENRAC_RAC3_NET_LOG=1` logs every lobby message and room packet. The protocol analysis these
 cuts come from (every layer, message and struct, with addresses) is kept with the port's planning
 notes (`rac3-mp/protocol.md`). NTSC-U carries the rows rac3_mp_pairs.py pairs; its resolver thread

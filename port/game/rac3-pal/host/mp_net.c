@@ -28,7 +28,7 @@
  *   members by the server's RELAY packet; what comes back goes to DME's receive path (0x0014CE48),
  *   which runs the game's handlers.
  *
- * The server: OPENRAC_SERVER=host[:port] (127.0.0.1:7770 when unset). OPENRAC_RAC3_NET_LOG=1 logs
+ * The server: OPENRAC_SERVER=host[:port] (game.openrac.dev:7770 when unset). OPENRAC_RAC3_NET_LOG=1 logs
  * every lobby message and room packet. */
 #include <stdint.h>
 #include <stdio.h>
@@ -117,10 +117,12 @@ enum {
     OP_RESUME,
     OP_KICK,
     OP_KICKED,
-    OP_ADVERT
+    OP_ADVERT,
+    OP_SLOTS
 };
 
 #define LIST_ADVERTS 1
+#define HELLO_READS_SLOTS 2 /* HELLO's client bit: send SLOTS (the room's stable slots) */
 #ifdef RAC3_PAL
 #define NET_FAMILY "rac3-pal-1"
 #else
@@ -351,7 +353,7 @@ static int srv_open(const char* name) {
         started = 1;
     }
 #endif
-    char host[128] = "127.0.0.1";
+    char host[128] = "game.openrac.dev";
     char port[16] = "7770";
     const char* env = openrac_env_string("OPENRAC_SERVER");
     if (env != NULL && *env != 0) {
@@ -404,6 +406,7 @@ static int srv_open(const char* name) {
     srv_begin(PK_HELLO, -1);
     srv_text(NET_VERSION);
     srv_text(name);
+    srv_u8(HELLO_READS_SLOTS);
     srv_end();
     return 1;
 }
@@ -785,7 +788,7 @@ static void lobby_reply_game_info(const uint8_t* req, int32_t world) {
     }
     lobby_start(reply, r, req, a != NULL ? M_SUCCESS : M_GAME_NOT_FOUND);
     if (a != NULL) {
-        put32(reply + 0x1C, mp_func_00183BDC());
+        put32(reply + 0x1C, GFN(int (*)(void), RAC3_MADDR(0x00183BDCu))());
         put32(reply + 0x20, a->min_players);
         put32(reply + 0x24, a->max_players);
         put32(reply + 0x28, a->level);
@@ -980,6 +983,8 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
 #define CONN_CLIENTS 0x43C
 #define CONN_SLOT 0x448
 #define DME_RELAY_KIND 1 /* the first byte of a RELAY payload: a DME packet follows */
+#define OBJ_RELAY_KIND 2 /* ...a net object: id, type, owner, then its data */
+#define OBJ_GONE_KIND 3  /* ...a net object released: its id */
 
 static struct {
     gaddr conn; /* the room's connection, in the game's memory */
@@ -1005,7 +1010,7 @@ static void dme_conn_refresh(void) {
     const member* host = room_member(room.host);
     GREF(int32_t, dme.conn + CONN_MY_INDEX) = room_index_of(srv.session);
     GREF(int32_t, dme.conn + CONN_HOST_INDEX) = host != NULL ? host->index : 0;
-    GREF(int32_t, dme.conn + CONN_CLIENTS) = room.next_index;
+    GREF(int32_t, dme.conn + CONN_CLIENTS) = ROOM_MAX;
 }
 
 /* Calls a session callback of the game with an argument block: words at +0, +4 and +8. */
@@ -1051,7 +1056,7 @@ static void dme_deliver(void) {
             continue;
         }
         memcpy(G(dme.buf), dme.inbox[i].data, dme.inbox[i].len);
-        mp_func_0014CE48(
+        GFN(int (*)(int, int, int, int, int), RAC3_MADDR(0x0014CE48u))(
             GREF(int32_t, dme.conn + CONN_DISPATCH),
             (int)dme.conn,
             src,
@@ -1098,6 +1103,130 @@ static int dme_relay(int dest, gaddr data, int len) {
         );
     }
     return 0;
+}
+
+/* ================================ Net objects ================================ */
+
+/* DME's net objects (tNW_GameSettings, tNW_PlayerData): each has one owner, who publishes it; the
+ * others get a copy and the type's callbacks (on_create(0, id) the first time, then
+ * on_update(0, id, -2) for the whole object). DME's own object layer needs its peer session, which
+ * the room does not run, so the port keeps them: a record (+0 id, +4 owner client, +8 id, +0x1C
+ * the data) in the game's memory, the data relayed whole at each publish. */
+#define OBJ_MAX 64
+#define OBJ_TYPES 16
+
+static struct {
+    int32_t size, on_create, on_update, on_destroy;
+} obj_type[OBJ_TYPES];
+
+static struct {
+    int32_t id, type, owner;
+    gaddr record, data;
+} objs[OBJ_MAX];
+
+static int obj_count, obj_next = 1;
+
+static int obj_find(int32_t id) {
+    for (int i = 0; i < obj_count; i++) {
+        if (objs[i].id == id) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int obj_new(int32_t id, int32_t type, int32_t owner) {
+    if (obj_count == OBJ_MAX || type < 0 || type >= OBJ_TYPES || obj_type[type].size <= 0) {
+        return -1;
+    }
+    const int i = obj_count++;
+    objs[i].id = id;
+    objs[i].type = type;
+    objs[i].owner = owner;
+    objs[i].record = openrac_guest_static(0x20);
+    objs[i].data = openrac_guest_static((uint32_t)obj_type[type].size);
+    GREF(int32_t, objs[i].record + 0x0) = id;
+    GREF(int32_t, objs[i].record + 0x4) = owner;
+    GREF(int32_t, objs[i].record + 0x8) = id;
+    GREF(int32_t, objs[i].record + 0x1C) = (int32_t)objs[i].data;
+    return i;
+}
+
+/* Sends object I to every other member (TARGET 0) or to one session. */
+static void obj_send(int i, int32_t target) {
+    const int32_t size = obj_type[objs[i].type].size;
+    if (srv.fd == NET_INVALID || !room.in || !srv_room((size_t)size + 32)) {
+        return;
+    }
+    srv_begin(PK_RELAY, -1);
+    srv_i32(target);
+    srv_u8(OBJ_RELAY_KIND);
+    srv_i32(objs[i].id);
+    srv_i32(objs[i].type);
+    srv_i32(objs[i].owner);
+    srv_bytes(G(objs[i].data), (size_t)size);
+    srv_end();
+}
+
+static void obj_callback(int32_t fn, int32_t id, int32_t field, int with_field) {
+    if (fn == 0) {
+        return;
+    }
+    if (with_field) {
+        GFN(void (*)(int, int, int), (gaddr)fn)(0, id, field);
+    } else {
+        GFN(void (*)(int, int), (gaddr)fn)(0, id);
+    }
+}
+
+/* A member came in: it gets every object this console owns. */
+static void obj_send_all_to(int32_t session) {
+    const int me = room_index_of(srv.session);
+    for (int i = 0; i < obj_count; i++) {
+        if (objs[i].owner == me) {
+            obj_send(i, session);
+        }
+    }
+}
+
+static void obj_receive(int kind, int32_t from, reader* r) {
+    (void)from;
+    const int32_t id = rd_i32(r);
+    int i = obj_find(id);
+    if (kind == OBJ_GONE_KIND) {
+        if (i >= 0) {
+            obj_callback(obj_type[objs[i].type].on_destroy, id, 0, 0);
+            objs[i] = objs[--obj_count];
+        }
+        return;
+    }
+    const int32_t type = rd_i32(r);
+    const int32_t owner = rd_i32(r);
+    const int fresh = i < 0;
+    if (fresh) {
+        i = obj_new(id, type, owner);
+    }
+    if (i < 0 || (int32_t)r->n < obj_type[objs[i].type].size) {
+        return;
+    }
+    objs[i].owner = owner;
+    GREF(int32_t, objs[i].record + 0x4) = owner;
+    memcpy(G(objs[i].data), r->p, (size_t)obj_type[objs[i].type].size);
+    if (net_log()) {
+        fprintf(
+            stderr,
+            "[info] rac3: online: net object %08x (type %d, owner %d) %s\n",
+            (unsigned)id,
+            type,
+            owner,
+            fresh ? "came" : "changed"
+        );
+    }
+    if (fresh) {
+        obj_callback(obj_type[objs[i].type].on_create, id, 0, 0);
+    } else {
+        obj_callback(obj_type[objs[i].type].on_update, id, -2, 1);
+    }
 }
 
 /* ================================ The server's packets ================================ */
@@ -1179,6 +1308,7 @@ static void on_party(reader* r) {
             rd_text(r, name, sizeof name);
             room_add(id, name);
             fprintf(stderr, "[info] rac3: online: %s joined the party\n", name);
+            obj_send_all_to(id);
             dme_conn_refresh();
             dme_report_members();
             break;
@@ -1207,6 +1337,21 @@ static void on_party(reader* r) {
                 dme_callback(dme.cb_host, 0, h != NULL ? h->index : 0, 0);
             }
             break;
+        case OP_SLOTS: {
+            /* Each member's stable slot: its DME client index on every console. */
+            const int count = rd_u8(r);
+            for (int i = 0; i < count; i++) {
+                const int32_t id = rd_i32(r);
+                const int slot = rd_u8(r);
+                member* m = room_member(id);
+                if (m != NULL && slot < ROOM_MAX) {
+                    m->index = slot;
+                }
+            }
+            dme_conn_refresh();
+            dme_report_members();
+            break;
+        }
         case OP_LIST:
             on_list(r);
             break;
@@ -1251,7 +1396,12 @@ static void on_frame(int id, reader* r) {
         }
         case PK_RELAY: {
             const int32_t from = rd_i32(r);
-            if (rd_u8(r) != DME_RELAY_KIND || r->n == 0 || r->n > sizeof dme.inbox[0].data) {
+            const int kind = rd_u8(r);
+            if (kind == OBJ_RELAY_KIND || kind == OBJ_GONE_KIND) {
+                obj_receive(kind, from, r);
+                break;
+            }
+            if (kind != DME_RELAY_KIND || r->n == 0 || r->n > sizeof dme.inbox[0].data) {
                 break;
             }
             if (dme.inbox_count == (int)(sizeof dme.inbox / sizeof dme.inbox[0])) {
@@ -1515,7 +1665,8 @@ static int medius_update(void) {
     lobby_queued = 0;
     for (int i = 0; i < count; i++) {
         memcpy(G(buf), lobby_queue[i].bytes, lobby_queue[i].len);
-        mp_func_00152FB8(0, 0, 0, (int)buf, lobby_queue[i].len, 0);
+        GFN(int (*)(int, int, int, int, int, int),
+            RAC3_MADDR(0x00152FB8u))(0, 0, 0, (int)buf, lobby_queue[i].len, 0);
     }
     return 0;
 }
@@ -1706,7 +1857,7 @@ int mp_func_L39_0067BBE8(int message) {
  * the addresses it resolves (any non-empty string ends the DNAS screen's wait). */
 int mp_func_L39_0067A7E0(void) {
     net_write_addresses();
-    mp_func_001260A0();
+    GFN(int (*)(void), RAC3_MADDR(0x001260A0u))();
     return 0;
 }
 #endif
@@ -1719,7 +1870,7 @@ int mp_func_L39_0067A7E0(void) {
 int mp_func_00198248(int pack, int iop) {
     (void)pack;
     (void)iop;
-    mp_func_001981D8();
+    GFN(int (*)(void), RAC3_MADDR(0x001981D8u))();
     GREF(int32_t, NET_BLOCK + 0x120u) = 2;
     return 0;
 }
@@ -1916,4 +2067,112 @@ int mp_func_00198660(int pointer) {
         break;
     }
     return 0;
+}
+
+/* ---- Net objects (the store above) ---- */
+
+int mp_func_0016EE30(int type_out, int name, int size) {
+    const int r = mp_func_0016EE30__game(type_out, name, size);
+    const int32_t type = GREF(int32_t, type_out);
+    if (r == 0 && type >= 0 && type < OBJ_TYPES) {
+        obj_type[type].size = size;
+    }
+    return r;
+}
+
+int mp_func_0016EEB0(int type, int on_create, int on_update, int on_destroy) {
+    if (type >= 0 && type < OBJ_TYPES) {
+        obj_type[type].on_create = on_create;
+        obj_type[type].on_update = on_update;
+        obj_type[type].on_destroy = on_destroy;
+    }
+    return mp_func_0016EEB0__game(type, on_create, on_update, on_destroy);
+}
+
+/* create(&id, ..., t3 the initial data; on the caller's stack +0 the name, +8 the type). The id
+ * carries the owner's client index, so the consoles' ids never meet. */
+int mp_func_0016EC18(int id_out, int a1, int a2, int a3, int a4, int a5, int a6, int initial) {
+    (void)a1;
+    (void)a2;
+    (void)a3;
+    (void)a4;
+    (void)a5;
+    (void)a6;
+    const int32_t type = GREF(int32_t, openrac_guest_sp + 8u);
+    const int me = room_index_of(srv.session) < 0 ? 0 : room_index_of(srv.session);
+    const int32_t id = (int32_t)((uint32_t)me << 16 | (uint32_t)obj_next++);
+    const int i = obj_new(id, type, me);
+    if (i < 0) {
+        fprintf(stderr, "[warning] rac3: online: net object of type %d not created\n", type);
+        return 1;
+    }
+    if (initial != 0) {
+        memcpy(G(objs[i].data), G(initial), (size_t)obj_type[type].size);
+    }
+    GREF(int32_t, id_out) = id;
+    if (net_log()) {
+        fprintf(
+            stderr,
+            "[info] rac3: online: net object %08x created (type %d, %d bytes)\n",
+            (unsigned)id,
+            type,
+            obj_type[type].size
+        );
+    }
+    obj_send(i, 0);
+    return 0;
+}
+
+int mp_func_0016ED00(int record_out, int id) {
+    const int i = obj_find(id);
+    if (i < 0) {
+        return 1;
+    }
+    GREF(int32_t, record_out) = (int32_t)objs[i].record;
+    return 0;
+}
+
+int mp_func_0016ED68(int id) {
+    const int i = obj_find(id);
+    if (i < 0 || objs[i].owner != room_index_of(srv.session)) {
+        return 1;
+    }
+    obj_send(i, 0);
+    return 0;
+}
+
+int mp_func_0016EDD0(int id) {
+    const int i = obj_find(id);
+    if (i < 0) {
+        return 1;
+    }
+    if (srv.fd != NET_INVALID && room.in && srv_room(16)) {
+        srv_begin(PK_RELAY, -1);
+        srv_i32(0);
+        srv_u8(OBJ_GONE_KIND);
+        srv_i32(id);
+        srv_end();
+    }
+    objs[i] = objs[--obj_count];
+    return 0;
+}
+
+int mp_func_0016EF40(int target, int id) {
+    (void)target;
+    (void)id;
+    return 0;
+}
+
+/* Timer 0's count in ticks of 147456 a millisecond (0x0012DCB0), which the lobby's waits, list
+ * refreshes (the game list's serial, 0x006D5AB8) and DME's clock divide by 0x24000: the port runs
+ * no timer 0, so the host's clock, from the first call. */
+unsigned long long mp_func_0012DCB0(void) {
+    static int64_t start_ns;
+    struct timespec now;
+    timespec_get(&now, TIME_UTC);
+    const int64_t ns = (int64_t)now.tv_sec * 1000000000 + now.tv_nsec;
+    if (start_ns == 0) {
+        start_ns = ns - 1000000;
+    }
+    return (unsigned long long)((ns - start_ns) / 1000) * 147456ull / 1000ull;
 }

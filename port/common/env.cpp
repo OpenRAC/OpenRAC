@@ -396,7 +396,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      Kind::Flag, Truth::Set, "off",
      "experimental toroidal static caches for the sun cascades"},
     {Var::Server, "OPENRAC_SERVER",
-     Kind::Text, Truth::NotAFlag, "127.0.0.1:7770",
+     Kind::Text, Truth::NotAFlag, "game.openrac.dev:7770",
      "HOST[:PORT] of the OpenRAC server Up Your Arsenal's online play goes to"},
     {Var::ShaderDir, "OPENRAC_SHADER_DIR",
      Kind::Path, Truth::NotAFlag, "the build's source tree",

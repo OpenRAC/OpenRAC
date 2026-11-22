@@ -245,7 +245,12 @@
     "func_L39_006D6480",
     "func_L39_006DABF0",
     "func_L39_006DB098",
-    "func_L39_006DB5B0"
+    "func_L39_006DB5B0",
+    "func_0014CE48",
+    "func_00152FB8",
+    "func_00183BDC",
+    "func_001260A0",
+    "func_001981D8"
   ],
   "relocate": [
     2366976,
@@ -282,6 +287,14 @@
     "live_arguments": true,
     "forward_unprototyped": true,
     "signatures": {
+      "func_0012DCB0": "unsigned long long (void)",
+      "func_0016EE30": "int (int, int, int)",
+      "func_0016EEB0": "int (int, int, int, int)",
+      "func_0016EC18": "int (int, int, int, int, int, int, int, int)",
+      "func_0016ED00": "int (int, int)",
+      "func_0016ED68": "int (int)",
+      "func_0016EDD0": "int (int)",
+      "func_0016EF40": "int (int, int)",
       "func_0012C220": "int (int)",
       "func_00136ED0": "int (int, int, int)",
       "func_001370B8": "int (int, int, int)",
