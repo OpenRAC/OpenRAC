@@ -113,6 +113,8 @@ kbm::OrbitTilt s_tilt;
 kbm::OrbitLocks s_follow_locks;  // what the game locked at the camera's last turn
 kbm::Vec3 s_follow_up = kbm::kWorldUp;
 float s_follow_range = 0.0f;  // the game's tilt range, 0 for no tilt
+// The mouse's turn the ticks since the last frame made (frontend/mouse_turn.h's tick_yaw).
+float s_tick_yaw = 0.0f;
 // The camera's data (its +0x70): the offset of the eye it wants from Ratchet, the offset it eases
 // towards that, the stick state (the tilt target and its spring's speed) and the locks.
 constexpr std::uint32_t kFollowWanted = 0x160u;
@@ -584,6 +586,7 @@ void follow_mouse(std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) 
         write_vec(data + kFollowWanted, offsets[0]);
         write_vec(data + kFollowEye, offsets[1]);
     }
+    s_tick_yaw += s_follow_locks.turn ? 0.0f : kbm::DirectLook::yaw(dx, dy, s_set.look);
 
     // The held tilt is the game's target: the stick state at it, at rest, and the value it tilts by.
     if (s_tilt.held) {
@@ -597,12 +600,15 @@ void follow_mouse(std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) 
 // The turn the next tick makes for mouse motion it has not read yet (frontend/mouse_turn.h), while
 // the mouse turns the follow camera itself.
 bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
+    const float tick_yaw = s_tick_yaw;
+    s_tick_yaw = 0.0f;
     if (s_mod == nullptr || !s_follows || s_pad_look) {
         return false;
     }
     kbm::add_pending_gyro(s_gyro_on, s_mouse_counts, s_set, dx, dy);
     const float limit = s_follow_range > 0.0f ? kbm::follow_max_elevation(s_follow_range) : 0.0f;
     kbm::direct_turn(dx, dy, s_set.look, s_follow_up, s_follow_locks, limit, false, out);
+    out->tick_yaw = tick_yaw;
     return true;
 }
 
@@ -662,6 +668,7 @@ void load(openrac::Mod& mod) {
     s_follow_dx = 0.0f;
     s_follow_dy = 0.0f;
     s_follow_tick = kNoTick;
+    s_tick_yaw = 0.0f;
     s_follows = false;
     s_gyro_on = false;
     s_mouse_counts = false;

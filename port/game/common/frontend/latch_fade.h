@@ -32,6 +32,13 @@ public:
     // froze until the step grew into a cut and jumped.
     float frame(float target, bool on, bool new_tick, float tick_rate, double since, bool enabled);
 
+    // A frame whose heading moves by a known amount (the mouse's turn: frontend/mouse_turn.h).
+    // `expected`: where the last frame's heading is now by that move alone. Only what `target` is
+    // off from it (the game turned the camera itself, a missed guess) is carried and fades: the
+    // mouse's own motion shows at once, never eased. `continues`: the last frame was one of these
+    // too; else nothing is known of the move, and the picture goes on as it turned.
+    float frame_known(float target, float expected, bool continues, double since);
+
     float carry() const { return m_carry; }
 
     bool was_on() const { return m_was_on; }  // `on` of the last frame

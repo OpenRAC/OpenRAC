@@ -172,6 +172,8 @@ bool s_gyro_on = false;
 bool s_mouse_counts = false;
 kbm::Vec3 s_looks_up = kbm::kWorldUp;
 std::int32_t s_follow_locks = 0;
+// The mouse's turn the ticks since the last frame made (frontend/mouse_turn.h's tick_yaw).
+float s_tick_yaw = 0.0f;
 
 // A click on an item not yet focused: the ticks until Cross, once the focus has moved, and the
 // buttons it presses.
@@ -845,7 +847,9 @@ void first_person_look(gaddr camera, float dx, float dy) {
     }
 
     kbm::Vec3 look = read_vec(camera);
-    look = kbm::rotate(look, up, kbm::DirectLook::yaw(dx, dy, s_set.look));
+    const float yaw = kbm::DirectLook::yaw(dx, dy, s_set.look);
+    look = kbm::rotate(look, up, yaw);
+    s_tick_yaw += yaw;
     const float tilt = read<float>(state + KBM_FIRST_PERSON_TILT);
 
     // The game's tilt is a number: turn the view by how much the tilt changes, within the limit.
@@ -886,6 +890,7 @@ void turn_follow_camera(gaddr state, float dx, float dy, std::int32_t locks) {
         {read_vec(orbit), read_vec(smooth), kbm::minus(read_vec(state + KBM_FOLLOW_EYE), target)};
     const kbm::OrbitLocks lock{(locks & kFollowLockTurn) != 0, (locks & kFollowLockTilt) != 0};
     kbm::turn_orbit(v.data(), 3, up, kbm::kFollowTiltRange, lock, dx, dy, s_set.look, s_tilt);
+    s_tick_yaw += lock.turn ? 0.0f : kbm::DirectLook::yaw(dx, dy, s_set.look);
 
     write_vec(orbit, v[0]);
     write_vec(smooth, v[1]);
@@ -1219,6 +1224,8 @@ void camera_overrides(Original original, gaddr camera) {
 // swing behind Ratchet or while the gamepad's stick has the camera; a lock of the game's stops the
 // turn here as it stops the mouse.
 bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
+    const float tick_yaw = s_tick_yaw;
+    s_tick_yaw = 0.0f;
     if (s_mod == nullptr || s_looks == Looks::None || s_pad_look || s_reset_ticks > 0) {
         return false;
     }
@@ -1229,6 +1236,7 @@ bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
     const kbm::OrbitLocks lock{(locks & kFollowLockTurn) != 0, (locks & kFollowLockTilt) != 0};
     const float limit = first_person ? kbm::kFirstPersonTiltLimit : kbm::follow_max_elevation();
     kbm::direct_turn(dx, dy, s_set.look, s_looks_up, lock, limit, first_person, out);
+    out->tick_yaw = tick_yaw;
     return true;
 }
 
@@ -1272,6 +1280,7 @@ void reset_state() {
     s_looks = Looks::None;
     s_looks_up = kbm::kWorldUp;
     s_follow_locks = 0;
+    s_tick_yaw = 0.0f;
     s_painter.forget();
 }
 
