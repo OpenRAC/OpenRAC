@@ -1284,6 +1284,7 @@ class Translator:
         caller_saved_g = set(range(1, 16)) | {24, 25}
         caller_saved_f = set(range(0, 20))
         nodes: dict = {}   # node -> (reads_g, reads_f, writes_g, writes_f, successors)
+        callees: set = set()  # what its calls reach, for params_from_code's later passes (callees_of)
 
         def effect(a: int):
             ins = self.at(a)
@@ -1296,6 +1297,8 @@ class Translator:
             rg: set = set()
             rf: set = set()
             sym = self._callee(target, self._operand_name(a)) if target is not None else None
+            if sym:
+                callees.add(sym)
             f = self.program.functions.get(sym) if sym else None
             if f is not None and f.sig.prototyped and not f.sig.variadic:
                 ni = nf = 0
@@ -1377,6 +1380,9 @@ class Translator:
                     if q not in queued:
                         queued.add(q)
                         todo.append(q)
+        if not hasattr(self, "callees_of"):
+            self.callees_of: dict[str, set] = {}
+        self.callees_of.setdefault(self.f.symbol, set()).update(callees)
         in_g, in_f = live.get(self.entry_addr, (set(), set()))
         ints = max([k + 1 for k, r in enumerate(ARG_REGS) if r in in_g & args_g], default=0)
         floats = max([k + 1 for k, r in enumerate(FARG_REGS) if r in in_f & args_f], default=0)
@@ -2404,16 +2410,47 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
         # asm.params_from_code each such definition given the parameters its code reads
         # (params_from_code); again until none is left, as a definition that takes more makes its
         # callers that hand those registers on read them too.
-        for _ in range(8):
-            stage.c_drops, stage.c_reads = c_argument_drops(tr, program, leave)
+        # Each later pass reads again only the functions whose calls reach one given more (the
+        # callees their liveness saw, Translator.callees_of): a whole pass is minutes.
+        stage.c_drops, stage.c_reads = c_argument_drops(tr, program, leave)
+        callers_of: dict[str, set] = {}
+        for sym, callees in getattr(tr, "callees_of", {}).items():
+            for c in callees:
+                callers_of.setdefault(c, set()).add(sym)
+        changed = set()
+        for _ in range(16):
             if not a.get("params_from_code"):
                 break
             added = params_from_code(tr, program, stage.c_drops)
             if not added:
                 break
             stage.params_from_code += added
-            # Translated callers that hand those registers on take them as well.
-            prepare_all()
+            changed = {x.split(":", 1)[0] for x in added}
+            given = set(changed)
+            # Translated callers that hand those registers on take them as well, and theirs.
+            todo = set(changed)
+            while todo:
+                grown = set()
+                for sym in sorted({c for t in todo for c in callers_of.get(t, ()) if c in found}):
+                    f = program.functions[sym]
+                    before = f.sig
+                    try:
+                        tr.prepare_signature(f, found[sym])
+                    except (AsmUnsupported, Unsupported):
+                        pass
+                    if f.sig != before:
+                        grown.add(sym)
+                changed |= grown
+                todo = grown
+            again = given | {c for t in changed for c in callers_of.get(t, ()) if c not in found}
+            for sym in again:
+                stage.c_drops.pop(sym, None)
+            drops, reads = c_argument_drops(tr, program, leave, only=again)
+            stage.c_drops.update(drops)
+            stage.c_reads.update(reads)
+            for sym, callees in tr.callees_of.items():
+                for c in callees:
+                    callers_of.setdefault(c, set()).add(sym)
     # A C wrapper's result from a translated callee, known now, for the translations that read it
     # after their calls (asm.results_before_calls; hostgen.py does this again for the C).
     if a.get("results_before_calls"):
@@ -2475,7 +2512,8 @@ def params_from_code(tr: "Translator", program: Program, drops: dict[str, dict])
     return out
 
 
-def c_argument_drops(tr: "Translator", program: Program, leave: set) -> tuple[dict[str, dict], dict[str, list]]:
+def c_argument_drops(tr: "Translator", program: Program, leave: set,
+                     only: set | None = None) -> tuple[dict[str, dict], dict[str, list]]:
     """asm.signature_check over the functions with C: the argument registers each one's retail code
     reads on some path before writing them (_live_arguments) that its C definition does not name.
     Matched C can leave out an argument it only hands on to a call, whose register keeps the
@@ -2490,6 +2528,8 @@ def c_argument_drops(tr: "Translator", program: Program, leave: set) -> tuple[di
     out: dict[str, dict] = {}
     reads: dict[str, list] = {}
     for sym, f in sorted(program.functions.items()):
+        if only is not None and sym not in only:
+            continue
         if (f.unit is None or f.unit == "<asm>" or f.static or f.sig.variadic or sym in program.host
                 or sym in program.wrap or sym in leave):
             continue
