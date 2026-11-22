@@ -4,6 +4,7 @@
 // The direct renderer's CPU half: GIF packets in, triangles and draw groups
 // out. Synthetic packets, laid out the way the game's 2D code builds them.
 
+#include <algorithm>
 #include <cfenv>
 #include <cmath>
 #include <cstdio>
@@ -657,6 +658,40 @@ void texture_under_draw_buffer() {
     }
 }
 
+// The frame drawn into an off-screen target (Going Commando's frame copy, which the Aranos Prison
+// energy fields refract): on a target wider than the game's picture, the copy is of the picture,
+// the target's middle, where the world draws the game's view; on a 4:3 target, the whole frame.
+void frame_copy_of_the_picture() {
+    TexturePool textures;
+    auto span = [&](float picture) {
+        GifInterpreter gif(textures);
+        gif.set_picture(picture, false);
+        set_draw_buffer_block(0x1000, 448);
+        GifBuilder b;
+        b.ad({{gs::kFrame1, std::uint64_t{0x1000 / 32} | (std::uint64_t{8} << 16)},
+              {gs::kFrame1, std::uint64_t{0x3340 / 32} | (std::uint64_t{4} << 16)},
+              {gs::kTex0_1, openrac::test::tex0(0x1000, 8, gs::kPsmct32, 9, 9, true)},
+              {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+              {gs::kUv, openrac::test::uv(0, 0)},
+              {gs::kXyz2, xyz2(0, 0, 0)},
+              {gs::kUv, openrac::test::uv(512, 416)},
+              {gs::kXyz2, xyz2(256, 256, 0)}});
+        CHECK(gif.gif(b.bytes));
+        float lo = 2.0f;
+        float hi = -2.0f;
+        for (const DirectVertex& v : gif.vertices()) {
+            lo = std::min(lo, v.s);
+            hi = std::max(hi, v.s);
+        }
+        CHECK(!gif.draws().empty() && gif.draws().back().state.frame_source);
+        return std::pair{lo, hi};
+    };
+    const auto [lo, hi] = span(1.0f);
+    CHECK(near(lo, 0.0f) && near(hi, 1.0f));
+    const auto [wide_lo, wide_hi] = span(0.75f);
+    CHECK(near(wide_lo, 0.125f) && near(wide_hi, 0.875f));
+}
+
 // Weights the GS takes above 1 (As, FIX up to 0xFF) go to the shader, and the strips' TEST keeps
 // a layer that writes no Z (Oltanis's ice) out of the liquids.
 void blend_weights() {
@@ -788,5 +823,6 @@ int main() {
     frame_named_without_draw();
     upload_over_offscreen();
     texture_under_draw_buffer();
+    frame_copy_of_the_picture();
     return openrac::test::result();
 }
