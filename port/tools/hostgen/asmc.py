@@ -1416,7 +1416,14 @@ class Translator:
                 return 0
             frame = 0
         most = 0
-        for ins in code:
+        for a in sorted(x for x in self.reach if x >= self.entry_addr):
+            ins = self.at(a)
+            if ins is None:
+                continue
+            if a > self.entry_addr and ins.op in ("addiu", "daddiu") and ins.rs == 29 and ins.rt == 29:
+                # Its epilogue, or the next routine's prologue (a flow that runs on into it, NTSC-U's
+                # func_0038EB10 into 0x0038F3A0's frame): its own frame ends here.
+                break
             width = self.STACK_LOADS.get(ins.op)
             if width is None or ins.rs != 29:
                 continue
