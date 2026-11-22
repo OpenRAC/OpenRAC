@@ -85,13 +85,15 @@ extern "C" {
  * enemies never wake, so a mod asks for 1.26 before it makes them), 1.27
  * more room for spawned mobys (moby_pool_raise, moby_pool_status), 1.28
  * rows of a mod's tab in OpenRAC's menu to read, locked, with a value, a
- * progress bar or an icon (developer_menu_look), and 1.29 the hero's weapons
+ * progress bar or an icon (developer_menu_look), 1.29 the hero's weapons
  * and their shots: a shot fired, fired again and ended, a shot the game runs
  * made from a mod, a weapon's look, a moby frozen or slowed and a weapon's
  * record (on_weapon_fire, weapon_refire, on_shot_end, moby_spawn_live,
- * weapon_look, moby_status, weapon_record).
+ * weapon_look, moby_status, weapon_record), and 1.30 weapons whose targets
+ * are picked whether or not the game drew them last frame
+ * (weapon_ignore_culling).
  */
-#define OPENRAC_MOD_API_MINOR 29
+#define OPENRAC_MOD_API_MINOR 30
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -2641,6 +2643,22 @@ typedef struct openrac_api {
      * program's: a load writes it again, so a mod that changes it does so at
      * each level load (rac2.level.load). */
     openrac_gaddr (*weapon_record)(openrac_mod *mod, int32_t item);
+
+    /* A weapon's targets on screen or not (since 1.30; Going Commando's, a
+     * game without it answers OPENRAC_HOOK_UNKNOWN). weapon_ignore_culling:
+     * `enabled` 1 has weapon `item`'s target picks take every enemy in its
+     * range, drawn last frame or not; 0 gives it back. The game picks targets
+     * only among the mobys it drew last frame (their drawn flag), so a weapon
+     * that hits all around the hero misses what is behind the camera or off
+     * screen. Only the target picks of that weapon's own gun and shots change:
+     * their range, angles and caps stay the game's, and the drawn flag is the
+     * game's again for everything else. Several mods may ask; it is on while
+     * any of them holds it, and goes with the mod's unload. Going Commando:
+     * the Zodiac (item 43: its pulse) and the Plasma Coil (28: the arcs of the
+     * Plasma Coil's and the Plasma Storm's shots to the enemies around them). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN (a weapon or game
+     * the port does not know). */
+    int (*weapon_ignore_culling)(openrac_mod *mod, int32_t item,
+                                 int32_t enabled);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

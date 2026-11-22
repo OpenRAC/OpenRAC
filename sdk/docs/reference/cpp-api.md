@@ -231,6 +231,8 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool weapon_look(int item, std::uint32_t material, std::uint32_t rgb = 0xFFFFFF) const` | Since 1.29: every shot of weapon `item` (and what it makes) drawn with `material` (OPENRAC_MOBY_MATERIAL_*) in `rgb`; OPENRAC_MOBY_MATERIAL_NONE clears it. False when refused. |
 | `bool moby_status(int slot, std::uint32_t status, int ticks) const` | Since 1.29: the moby in `slot` frozen or slowed (OPENRAC_MOBY_STATUS_*) for `ticks` game ticks; OPENRAC_MOBY_STATUS_NONE ends it. False when refused. |
 | `openrac_gaddr weapon_record(int item) const` | Since 1.29: the game address of weapon `item`'s record in the level's weapon table, 0 for none. The level's load writes it again. |
+| `bool has_weapon_culling() const` | Since 1.30: whether the port has weapon_ignore_culling(). |
+| `bool weapon_ignore_culling(int item, bool enabled = true) const` | Since 1.30: weapon `item`'s target picks take every enemy in range, on screen or not (true), or the game's drawn ones again (false). False when refused (a weapon the port does not know, or no such call). |
 | `template <class F> void on_tick_boundary(F&& callable)` | Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here. Since 1.6; only during load. |
 | `bool has_savestates() const` | Since 1.6: returns whether the port offers tick-boundary and warm-snapshot calls. |
 | `std::size_t savestate_size() const` | The exact size of this build's warm, same-process snapshot. Since 1.6. |

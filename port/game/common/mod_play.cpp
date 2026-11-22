@@ -1839,14 +1839,60 @@ openrac_gaddr api_weapon_record(openrac_mod* mod, std::int32_t item) {
     return g_play->weapon_record(item);
 }
 
-// Forgets `mod`'s shot watchers and looks (nullptr: every mod's), and the game's calls for them
-// once none is left.
+// The weapons whose target picks a mod asked to take every enemy in range (weapon_ignore_culling):
+// one row a mod and weapon; the game's is on while any row names the weapon.
+struct CullingHold {
+    const openrac_mod* mod;
+    std::int32_t item;
+};
+std::vector<CullingHold> g_culling_holds;
+
+bool culling_held(std::int32_t item) {
+    return std::ranges::any_of(g_culling_holds, [&](const CullingHold& h) {
+        return h.item == item;
+    });
+}
+
+int api_weapon_ignore_culling(openrac_mod* mod, std::int32_t item, std::int32_t enabled) {
+    if (mod == nullptr || item < 0 || item >= kWeaponItems || g_play == nullptr
+        || g_play->weapon_ignore_culling == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::erase_if(g_culling_holds, [&](const CullingHold& h) {
+        return h.mod == mod && h.item == item;
+    });
+    if (enabled != 0) {
+        g_culling_holds.push_back({mod, item});
+    }
+    if (g_play->weapon_ignore_culling(item, culling_held(item) ? 1 : 0) == 0) {
+        std::erase_if(g_culling_holds, [&](const CullingHold& h) {
+            return h.item == item;
+        });
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+// Forgets `mod`'s shot watchers, looks and culling holds (nullptr: every mod's), and the game's
+// calls for them once none is left.
 void drop_weapon_shots(const openrac_mod* mod) {
     const auto mine = [&](const auto& w) {
         return mod == nullptr || w.mod == mod;
     };
     std::erase_if(g_fire_watch, mine);
     std::erase_if(g_end_watch, mine);
+    std::vector<std::int32_t> released;
+    for (const CullingHold& h : g_culling_holds) {
+        if (mine(h)) {
+            released.push_back(h.item);
+        }
+    }
+    std::erase_if(g_culling_holds, mine);
+    for (const std::int32_t item : released) {
+        if (!culling_held(item) && g_play != nullptr && g_play->weapon_ignore_culling != nullptr) {
+            g_play->weapon_ignore_culling(item, 0);
+        }
+    }
     if (g_fire_watch.empty()) {
         openrac_game_weapon_fired = nullptr;
     }
@@ -2429,6 +2475,7 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.weapon_look = api_weapon_look;
     api.moby_status = api_moby_status;
     api.weapon_record = api_weapon_record;
+    api.weapon_ignore_culling = api_weapon_ignore_culling;
     api.prop_pose = api_prop_pose;
     api.prop_attach = api_prop_attach;
     api.prop_frame = api_prop_frame;
