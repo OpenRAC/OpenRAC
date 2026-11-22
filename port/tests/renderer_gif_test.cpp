@@ -668,14 +668,16 @@ void frame_copy_of_the_picture() {
         gif.set_picture(picture, false);
         set_draw_buffer_block(0x1000, 448);
         GifBuilder b;
-        b.ad({{gs::kFrame1, std::uint64_t{0x1000 / 32} | (std::uint64_t{8} << 16)},
-              {gs::kFrame1, std::uint64_t{0x3340 / 32} | (std::uint64_t{4} << 16)},
-              {gs::kTex0_1, openrac::test::tex0(0x1000, 8, gs::kPsmct32, 9, 9, true)},
-              {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
-              {gs::kUv, openrac::test::uv(0, 0)},
-              {gs::kXyz2, xyz2(0, 0, 0)},
-              {gs::kUv, openrac::test::uv(512, 416)},
-              {gs::kXyz2, xyz2(256, 256, 0)}});
+        b.ad(
+            {{gs::kFrame1, std::uint64_t{0x1000 / 32} | (std::uint64_t{8} << 16)},
+             {gs::kFrame1, std::uint64_t{0x3340 / 32} | (std::uint64_t{4} << 16)},
+             {gs::kTex0_1, openrac::test::tex0(0x1000, 8, gs::kPsmct32, 9, 9, true)},
+             {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+             {gs::kUv, openrac::test::uv(0, 0)},
+             {gs::kXyz2, xyz2(0, 0, 0)},
+             {gs::kUv, openrac::test::uv(512, 416)},
+             {gs::kXyz2, xyz2(256, 256, 0)}}
+        );
         CHECK(gif.gif(b.bytes));
         float lo = 2.0f;
         float hi = -2.0f;
@@ -704,8 +706,8 @@ void offscreen_target_coordinates() {
         const auto [ts, tt] = offscreen_target_st(copy, s, t);
         CHECK(near(ts, want_s) && near(tt, want_t));
     };
-    at(0.0f, 0.0f, 0.0f, 1.0f);    // the copy's first texel: the target's top left
-    at(1.0f, 1.0f, 0.5f, 0.5f);    // its last: the middle of the target, not its far corner
+    at(0.0f, 0.0f, 0.0f, 1.0f);  // the copy's first texel: the target's top left
+    at(1.0f, 1.0f, 0.5f, 0.5f);  // its last: the middle of the target, not its far corner
     at(0.5f, 0.25f, 0.25f, 0.875f);
     // The 64 x 64 copy (effect texture -3) takes an eighth of the target.
     const std::uint64_t small = openrac::test::tex0(0x3300, 1, gs::kPsmct16, 6, 6, true);
