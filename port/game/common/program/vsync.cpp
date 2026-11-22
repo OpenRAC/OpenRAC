@@ -278,6 +278,16 @@ void finish() {
 
 // ---- The vertical blank ----
 
+// The game's own 50/60 Hz choice kept at 60 Hz, as options_menu::update does with a window. Without
+// one, a PAL game stayed at 50 Hz: it read the 50 Hz copy of each level, which edited levels do not
+// replace, and counted its time in fiftieths.
+static void keep_sixty_hz() {
+    const openrac_front_end* fe = openrac_game_front_end;
+    if (fe != nullptr && fe->video_mode != 0 && GREF(std::uint8_t, fe->video_mode) != 0) {
+        GREF(std::uint8_t, fe->video_mode) = 0;
+    }
+}
+
 int vsync() {
     crash::breadcrumb(
         crash::BreadcrumbThread::Main, "game tick yielded", g_frame, crash::BreadcrumbValue::Tick
@@ -287,6 +297,7 @@ int vsync() {
     stats::game_yielded();
     // Render snapshots own their values, so next-tick writes precede the overlapping CPU capture.
     apply_writes();
+    keep_sixty_hz();
 #ifdef OPENRAC_FRONTEND
     // Prepare owned CPU data before waiting; graphics and profiling storage still transfer at completion.
     if (g_window) {
