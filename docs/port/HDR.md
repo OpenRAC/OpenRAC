@@ -112,7 +112,9 @@ on every display, so the game goes by what the activity says, not by the formats
 - The Vulkan presentation graph encodes the frame with `shaders/hdr_encode.comp` and transitions
   the result for presentation. If encoder setup fails, the graph uses its SDR copy path.
   `hdr_output.cpp` also sends HDR metadata (peak, MaxCLL = peak,
-  MaxFALL = paper white). If the swapchain images can't be written by a shader, the pass writes
+  MaxFALL = paper white), except for scRGB on macOS: MoltenVK makes it the layer's HDR10
+  `CAEDRMetadata` with an optical output scale of 1, which shows scRGB's 1.0 as one nit (a black
+  picture), and EDR needs no metadata. If the swapchain images can't be written by a shader, the pass writes
   its own image and copies it. If the screen's format can't be stored at all (A2R10G10B10, or no
   storage support), the pass writes half floats and blits them into it.
 
