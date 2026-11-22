@@ -33,7 +33,7 @@ import shutil
 import subprocess
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
@@ -1007,6 +1007,14 @@ def _files(path: Path):
         yield from (p for p in path.rglob("*") if p.is_file() and "__pycache__" not in p.parts)
 
 
+def _file_sha256(path: Path) -> bytes:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(1 << 20):
+            h.update(chunk)
+    return h.digest()
+
+
 def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> str:
     """A fingerprint of everything hostgen reads: the decompilation's C and tables, the game's
     configuration, hostgen's own code and the openrac_common modules it imports, the Clang it parses with and the options. Equal
@@ -1053,11 +1061,17 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     paths += sorted(p for p in HERE.glob("*.py") if not p.name.startswith("test_"))
     # The shared helpers it reads its tables through (tools/openrac_common) are its code as well.
     paths += sorted(Path(tables.__file__).parent.glob("*.py"))
+    # Each file's own hash, worked out once (the include directories hold the sources again) and
+    # on several threads (hashlib lets go of the interpreter while it reads a large file: a
+    # decompilation's directory can hold its disc images), streamed rather than read whole.
+    files = [(root, f) for root in paths for f in sorted(_files(root))]
+    unique = list(dict.fromkeys(f for _, f in files))
+    with ThreadPoolExecutor(max(1, min(8, os.cpu_count() or 1))) as ex:
+        digests = dict(zip(unique, ex.map(_file_sha256, unique)))
     h = hashlib.sha256()
-    for root in paths:
-        for f in sorted(_files(root)):
-            h.update(str(f.relative_to(root) if f != root else f.name).encode() + b"\0")
-            h.update(hashlib.sha256(f.read_bytes()).digest())
+    for root, f in files:
+        h.update(str(f.relative_to(root) if f != root else f.name).encode() + b"\0")
+        h.update(digests[f])
     # The assembly the setup wrote and the player's disc (hostgen.json "asm", --asm, --asm-source,
     # --retail-*): C is translated from them too, so a new setup or a disc set up after a build
     # changes the output. They are large (thousands of files, a disc image), so each file counts
