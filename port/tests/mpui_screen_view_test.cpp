@@ -16,16 +16,16 @@ namespace openrac::mpui {
 namespace {
 
 // A character's width and a line's height in the test skin.
-constexpr float kCharWidth = 8.0f;
-constexpr float kLine = 16.0f;
+constexpr float CHAR_WIDTH = 8.0f;
+constexpr float LINE = 16.0f;
 
 // A skin that records what it is asked to draw and play.
 class RecordingSkin final : public Skin {
 public:
-    float line_height() const override { return kLine; }
+    float line_height() const override { return LINE; }
 
     float text_width(std::string_view text, TextStyle /*style*/) const override {
-        return kCharWidth * static_cast<float>(text.size());
+        return CHAR_WIDTH * static_cast<float>(text.size());
     }
 
     void text(float /*x*/, float y, std::string_view text, TextStyle style) override {
@@ -63,9 +63,9 @@ ScreenSpec player_screen(int rows) {
     spec.rows = rows;
     spec.columns = {Column{"name", "PLAYER", 70}, Column{"ready", "READY", 30}};
     Item table;
-    table.kind = ItemKind::Table;
+    table.kind = ItemKind::TABLE;
     table.key = "players";
-    table.action = Action{ActionKind::Game, "team"};
+    table.action = Action{ActionKind::GAME, "team"};
     spec.items = {table};
     return spec;
 }
@@ -91,11 +91,11 @@ void test_a_table_shows_the_rows_that_fit() {
     RecordingSkin skin;
     Model model;
     fill_players(model, 24);
-    const ScreenView view(player_screen(0), Rect{0.0f, 0.0f, 400.0f, 200.0f}, Mode::Overlay);
+    const ScreenView view(player_screen(0), Rect{0.0f, 0.0f, 400.0f, 200.0f}, Mode::OVERLAY);
     const std::vector<Placed> placed = view.layout(skin, model);
     CHECK(placed.size() == 1);
     CHECK(placed[0].shown_rows == 10);
-    CHECK(placed[0].rect.y == kLine * 1.5f);
+    CHECK(placed[0].rect.y == LINE * 1.5f);
 }
 
 // The spec's rows win when fewer than fit.
@@ -103,7 +103,7 @@ void test_the_spec_rows_cap_a_table() {
     RecordingSkin skin;
     Model model;
     fill_players(model, 24);
-    const ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::Overlay);
+    const ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
     CHECK(view.layout(skin, model)[0].shown_rows == 8);
 }
 
@@ -112,16 +112,16 @@ void test_down_scrolls_past_the_page() {
     RecordingSkin skin;
     Model model;
     fill_players(model, 24);
-    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::Overlay);
+    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
 
     // Nine presses: the ninth moves past the eighth row on the page.
     for (int n = 0; n < 9; ++n) {
-        CHECK(view.handle(Event::Down, model, skin).consumed);
+        CHECK(view.handle(Event::DOWN, model, skin).consumed);
     }
 
     CHECK(view.cursor() == 9);
     CHECK(view.first_row() == 9 + 1 - 8);
-    CHECK(skin.sounds.size() == 9 && skin.sounds[0] == Sound::Move);
+    CHECK(skin.sounds.size() == 9 && skin.sounds[0] == Sound::MOVE);
 }
 
 // R1 moves a page on and L1 a page back; the last page stops at the last row.
@@ -129,7 +129,7 @@ void test_l1_and_r1_page_a_table() {
     RecordingSkin skin;
     Model model;
     fill_players(model, 20);
-    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::Overlay);
+    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
     view.handle(Event::R1, model, skin);
     CHECK(view.cursor() == 8);
     view.handle(Event::R1, model, skin);
@@ -145,8 +145,8 @@ void test_up_from_the_first_row_wraps() {
     RecordingSkin skin;
     Model model;
     fill_players(model, 12);
-    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::Overlay);
-    view.handle(Event::Up, model, skin);
+    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
+    view.handle(Event::UP, model, skin);
     CHECK(view.cursor() == 11);
     CHECK(view.first_row() == 4);
 }
@@ -156,16 +156,16 @@ void test_the_cursor_follows_its_row_by_key() {
     RecordingSkin skin;
     Model model;
     fill_players(model, 6);
-    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::Overlay);
-    view.handle(Event::Down, model, skin);
-    view.handle(Event::Down, model, skin);
+    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
+    view.handle(Event::DOWN, model, skin);
+    view.handle(Event::DOWN, model, skin);
     std::vector<Row> rows = model.table("players").rows();
     rows.erase(rows.begin());
     model.table("players").set_rows(rows);
-    const Outcome outcome = view.handle(Event::Cross, model, skin);
+    const Outcome outcome = view.handle(Event::CROSS, model, skin);
     CHECK(outcome.row_key == 102);
     CHECK(outcome.row == 1);
-    CHECK(outcome.action.kind == ActionKind::Game && outcome.action.target == "team");
+    CHECK(outcome.action.kind == ActionKind::GAME && outcome.action.target == "team");
 }
 
 // A disabled row refuses Cross with the game's refusal and no action.
@@ -176,11 +176,11 @@ void test_a_disabled_row_refuses_cross() {
     std::vector<Row> rows = model.table("players").rows();
     rows[0].enabled = false;
     model.table("players").set_rows(rows);
-    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::Overlay);
-    const Outcome outcome = view.handle(Event::Cross, model, skin);
+    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
+    const Outcome outcome = view.handle(Event::CROSS, model, skin);
     CHECK(outcome.consumed);
-    CHECK(outcome.action.kind == ActionKind::None);
-    CHECK(skin.sounds.back() == Sound::Denied);
+    CHECK(outcome.action.kind == ActionKind::NONE);
+    CHECK(skin.sounds.back() == Sound::DENIED);
 }
 
 // An overlay hands Triangle and Square to the game; a modal screen keeps them.
@@ -188,13 +188,13 @@ void test_an_overlay_passes_unused_events_on() {
     RecordingSkin skin;
     Model model;
     fill_players(model, 3);
-    ScreenView overlay(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::Overlay);
-    CHECK(!overlay.handle(Event::Triangle, model, skin).consumed);
-    CHECK(!overlay.handle(Event::Square, model, skin).consumed);
-    ScreenView modal(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::Modal);
-    const Outcome back = modal.handle(Event::Triangle, model, skin);
-    CHECK(back.consumed && back.action.kind == ActionKind::Back);
-    CHECK(modal.handle(Event::Square, model, skin).consumed);
+    ScreenView overlay(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
+    CHECK(!overlay.handle(Event::TRIANGLE, model, skin).consumed);
+    CHECK(!overlay.handle(Event::SQUARE, model, skin).consumed);
+    ScreenView modal(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::MODAL);
+    const Outcome back = modal.handle(Event::TRIANGLE, model, skin);
+    CHECK(back.consumed && back.action.kind == ActionKind::BACK);
+    CHECK(modal.handle(Event::SQUARE, model, skin).consumed);
 }
 
 // A choice steps with Left, Right and Cross, around its ends, and says its new value.
@@ -204,17 +204,17 @@ void test_a_choice_steps_around() {
     ScreenSpec spec;
     spec.id = "rules";
     Item choice;
-    choice.kind = ItemKind::Choice;
+    choice.kind = ItemKind::CHOICE;
     choice.key = "vote";
     choice.choices = {"A", "B", "C"};
-    choice.action = Action{ActionKind::Server, "vote"};
+    choice.action = Action{ActionKind::SERVER, "vote"};
     spec.items = {choice};
-    ScreenView view(spec, Rect{0.0f, 0.0f, 400.0f, 100.0f}, Mode::Modal);
-    CHECK(view.handle(Event::Left, model, skin).value == 2);
-    CHECK(view.handle(Event::Right, model, skin).value == 0);
-    const Outcome cross = view.handle(Event::Cross, model, skin);
+    ScreenView view(spec, Rect{0.0f, 0.0f, 400.0f, 100.0f}, Mode::MODAL);
+    CHECK(view.handle(Event::LEFT, model, skin).value == 2);
+    CHECK(view.handle(Event::RIGHT, model, skin).value == 0);
+    const Outcome cross = view.handle(Event::CROSS, model, skin);
     CHECK(
-        cross.value == 1 && cross.action.kind == ActionKind::Server && cross.action.target == "vote"
+        cross.value == 1 && cross.action.kind == ActionKind::SERVER && cross.action.target == "vote"
     );
 }
 
@@ -223,7 +223,7 @@ void test_drawing_a_long_list() {
     RecordingSkin skin;
     Model model;
     fill_players(model, 24);
-    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::Overlay);
+    ScreenView view(player_screen(8), Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
     view.draw(skin, model);
     CHECK(skin.panels == 0);
     CHECK(skin.texts[0] == "STAGING");
@@ -252,7 +252,7 @@ void test_long_cells_are_cut_to_their_column() {
     model.table("players").set_rows({row});
     ScreenSpec spec = player_screen(8);
     spec.title.clear();
-    ScreenView view(spec, Rect{0.0f, 0.0f, 100.0f, 400.0f}, Mode::Overlay);
+    ScreenView view(spec, Rect{0.0f, 0.0f, 100.0f, 400.0f}, Mode::OVERLAY);
     view.draw(skin, model);
     bool cut = false;
 

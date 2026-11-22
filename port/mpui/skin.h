@@ -22,19 +22,19 @@ struct Rect {
 
 // How a text is drawn: the game decides the font, size and colour of each.
 enum class TextStyle : std::uint8_t {
-    Title,     // A screen's title.
-    Heading,   // A table's column headings and its page count.
-    Normal,    // A row, a label, a button not under the cursor.
-    Focused,   // The component under the cursor (the game's pulsing colour).
-    Disabled,  // A component or row that refuses Cross.
+    TITLE,     // A screen's title.
+    HEADING,   // A table's column headings and its page count.
+    NORMAL,    // A row, a label, a button not under the cursor.
+    FOCUSED,   // The component under the cursor (the game's pulsing colour).
+    DISABLED,  // A component or row that refuses Cross.
 };
 
 // The menu sounds a screen plays.
 enum class Sound : std::uint8_t {
-    Move,    // The cursor moved.
-    Select,  // A choice was made.
-    Back,    // The screen was left.
-    Denied,  // A disabled component was chosen.
+    MOVE,    // The cursor moved.
+    SELECT,  // A choice was made.
+    BACK,    // The screen was left.
+    DENIED,  // A disabled component was chosen.
 };
 
 // The game's look, as the screens draw it.

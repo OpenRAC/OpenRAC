@@ -18,7 +18,7 @@ using openrac::mpui::parse_action;
 using openrac::mpui::parse_description;
 
 // A description using every block of the schema.
-constexpr const char* kFull = R"({
+constexpr const char* FULL = R"({
   "schema": 1, "name": "OpenRAC", "revision": 4,
   "limits": { "max_players": 24 },
   "text": { "motd": "Welcome", "announcements": ["Double XP", "New maps"] },
@@ -45,7 +45,7 @@ bool refused(const std::string& json) {
 
 // Every block of a full description is read as written.
 void test_a_full_description_is_read() {
-    auto description = parse_description(kFull);
+    auto description = parse_description(FULL);
     CHECK(description.has_value());
 
     // The rest of the checks need the value.
@@ -61,23 +61,23 @@ void test_a_full_description_is_read() {
     CHECK(description->modes.size() == 2 && description->modes[0].base == -1);
     CHECK(description->modes[1].base == 2);
     CHECK(description->options.size() == 2 && description->options[0].value == 1);
-    CHECK(description->options[0].scope == openrac::mpui::OptionScope::Game);
-    CHECK(description->options[1].scope == openrac::mpui::OptionScope::Server);
+    CHECK(description->options[0].scope == openrac::mpui::OptionScope::GAME);
+    CHECK(description->options[1].scope == openrac::mpui::OptionScope::SERVER);
     const auto* list = description->screen("game_list");
     CHECK(list != nullptr && list->rows == 10 && list->columns.size() == 2);
-    CHECK(list != nullptr && list->items[0].kind == ItemKind::Table);
-    CHECK(list != nullptr && list->items[0].action.kind == ActionKind::Game);
+    CHECK(list != nullptr && list->items[0].kind == ItemKind::TABLE);
+    CHECK(list != nullptr && list->items[0].action.kind == ActionKind::GAME);
     CHECK(list != nullptr && list->items[0].action.target == "join");
     const auto* rules = description->screen("rules");
     CHECK(rules != nullptr && rules->items.size() == 3);
-    CHECK(rules != nullptr && rules->items[2].action.kind == ActionKind::Back);
+    CHECK(rules != nullptr && rules->items[2].action.kind == ActionKind::BACK);
     CHECK(description->screen("staging") == nullptr);
 }
 
 // The actions are the closed set and nothing else.
 void test_actions_are_a_closed_set() {
-    CHECK(parse_action("back")->kind == ActionKind::Back);
-    CHECK(parse_action("open:rules")->kind == ActionKind::Open);
+    CHECK(parse_action("back")->kind == ActionKind::BACK);
+    CHECK(parse_action("open:rules")->kind == ActionKind::OPEN);
     CHECK(parse_action("server:vote_map")->target == "vote_map");
     CHECK(!parse_action("run:rm"));
     CHECK(!parse_action("open:"));

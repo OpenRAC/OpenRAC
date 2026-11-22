@@ -74,7 +74,7 @@ private:
 Event event_of(int event) {
     // A number past the last event is none.
     if (event < OPENRAC_MP_UI_NONE || event > OPENRAC_MP_UI_SELECT) {
-        return Event::None;
+        return Event::NONE;
     }
 
     return static_cast<Event>(event);
@@ -138,7 +138,7 @@ extern "C" int openrac_mp_ui_open(
         }
 
         const mpui::Mode view_mode =
-            mode == OPENRAC_MP_UI_MODAL ? mpui::Mode::Modal : mpui::Mode::Overlay;
+            mode == OPENRAC_MP_UI_MODAL ? mpui::Mode::MODAL : mpui::Mode::OVERLAY;
         ui->view.emplace(*spec, mpui::Rect{x, y, w, h}, view_mode);
         return 1;
     });

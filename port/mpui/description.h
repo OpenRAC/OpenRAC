@@ -20,23 +20,23 @@
 namespace openrac::mpui {
 
 // The schema version this client reads; a description with another one is refused.
-constexpr int kSchemaVersion = 1;
+constexpr int SCHEMA_VERSION = 1;
 
 // The largest description accepted, in bytes of JSON.
-constexpr std::size_t kMaxDescriptionBytes = 32'768;
+constexpr std::size_t MAX_DESCRIPTION_BYTES = 32'768;
 
 // What a component does when chosen: a closed set, so that a server describes and never programs.
 enum class ActionKind : std::uint8_t {
-    None,    // Nothing; the component is shown only.
-    Back,    // Leaves the screen, as Triangle does.
-    Open,    // Opens the native screen `target`.
-    Game,    // Runs the game binding's action `target` (join, ready, start, leave, team, create).
-    Server,  // Sends the server the action `target` with the component's value.
+    NONE,    // Nothing; the component is shown only.
+    BACK,    // Leaves the screen, as Triangle does.
+    OPEN,    // Opens the native screen `target`.
+    GAME,    // Runs the game binding's action `target` (join, ready, start, leave, team, create).
+    SERVER,  // Sends the server the action `target` with the component's value.
 };
 
 // An action and its target, parsed from text such as `open:rules` or `server:vote_map`.
 struct Action {
-    ActionKind kind = ActionKind::None;  // What to do.
+    ActionKind kind = ActionKind::NONE;  // What to do.
     std::string target;                  // The screen, game action or server key; empty for Back.
 };
 
@@ -49,15 +49,15 @@ struct Column {
 
 // What one item of a screen is.
 enum class ItemKind : std::uint8_t {
-    Text,    // A line of text the cursor passes over.
-    Button,  // Cross runs its action.
-    Choice,  // Left and Right step its value among its choices; Cross steps on.
-    Table,   // The screen's table (one a screen), at this place in its column.
+    TEXT,    // A line of text the cursor passes over.
+    BUTTON,  // Cross runs its action.
+    CHOICE,  // Left and Right step its value among its choices; Cross steps on.
+    TABLE,   // The screen's table (one a screen), at this place in its column.
 };
 
 // One item of a screen, in the order the screen stacks them.
 struct Item {
-    ItemKind kind = ItemKind::Text;    // What it is.
+    ItemKind kind = ItemKind::TEXT;    // What it is.
     std::string label;                 // Its text, or the choice's name.
     Action action;                     // Button: its action; Table: what Cross on a row does.
     std::string key;                   // Choice: the option it sets; Table: the model table.
@@ -84,8 +84,8 @@ struct Entry {
 
 // Who an option belongs to.
 enum class OptionScope : std::uint8_t {
-    Server,  // The player's own choice, sent to the server (a vote, a preference).
-    Game,    // A rule of one game: its host sets it in the staging room, every member gets it.
+    SERVER,  // The player's own choice, sent to the server (a vote, a preference).
+    GAME,    // A rule of one game: its host sets it in the staging room, every member gets it.
 };
 
 // An option the server offers beside the game's own (a rule, a vote).
@@ -94,7 +94,7 @@ struct Option {
     std::string label;                        // Its name on the screen.
     std::vector<std::string> choices;         // Its values, in order.
     int value = 0;                            // The value in force.
-    OptionScope scope = OptionScope::Server;  // Whose choice it is.
+    OptionScope scope = OptionScope::SERVER;  // Whose choice it is.
 };
 
 // A whole description: limits, text, modes, maps, options and screens.

@@ -15,16 +15,16 @@ namespace openrac::mpui {
 namespace {
 
 // The title line is this much taller than a row, as the games set their titles apart.
-constexpr float kTitleLines = 1.5f;
+constexpr float TITLE_LINES = 1.5f;
 
 // The space between a table's columns, in the picture's pixels.
-constexpr float kColumnGap = 4.0f;
+constexpr float COLUMN_GAP = 4.0f;
 
 // Where a choice's value starts, as a share of the screen's width.
-constexpr float kChoiceValueAt = 0.6f;
+constexpr float CHOICE_VALUE_AT = 0.6f;
 
 // A column's width is a percentage of its table's.
-constexpr float kPercent = 100.0f;
+constexpr float PERCENT = 100.0f;
 
 // Returns the longest start of `text` that `skin` draws within `width` in `style`.
 std::string_view fit(const Skin& skin, std::string_view text, float width, TextStyle style) {
@@ -53,7 +53,7 @@ std::size_t wrapped_lines(const Skin& skin, std::string_view text, float width) 
 
         // The word that overflows goes to the next line, from the last space.
         if (last_space != std::string_view::npos && last_space > start
-            && skin.text_width(line, TextStyle::Normal) > width) {
+            && skin.text_width(line, TextStyle::NORMAL) > width) {
             ++lines;
             start = last_space + 1;
             last_space = std::string_view::npos;
@@ -73,11 +73,11 @@ bool has_headings(const ScreenSpec& spec) {
 // Returns the height an item other than a table takes.
 float fixed_height(const Skin& skin, const Item& item, float width) {
     // Texts wrap; the other kinds are one line each.
-    if (item.kind == ItemKind::Text) {
+    if (item.kind == ItemKind::TEXT) {
         return static_cast<float>(wrapped_lines(skin, item.label, width)) * skin.line_height();
     }
 
-    return item.kind == ItemKind::Table ? 0.0f : skin.line_height();
+    return item.kind == ItemKind::TABLE ? 0.0f : skin.line_height();
 }
 
 }  // namespace
@@ -94,7 +94,7 @@ ScreenView::ScreenView(ScreenSpec spec, Rect area, Mode mode)
         m_values[n] = m_spec.items[n].value;
 
         // The cursor starts on the first button, choice or table, as the game's screens do.
-        if (m_focus == m_spec.items.size() && m_spec.items[n].kind != ItemKind::Text) {
+        if (m_focus == m_spec.items.size() && m_spec.items[n].kind != ItemKind::TEXT) {
             m_focus = n;
         }
     }
@@ -106,7 +106,7 @@ int ScreenView::value(std::size_t item) const {
 
 const Table* ScreenView::rows_of(std::size_t item, const Model& model) const {
     // Only a table item reads rows.
-    if (item >= m_spec.items.size() || m_spec.items[item].kind != ItemKind::Table) {
+    if (item >= m_spec.items.size() || m_spec.items[item].kind != ItemKind::TABLE) {
         return nullptr;
     }
 
@@ -117,12 +117,12 @@ bool ScreenView::focusable(std::size_t item, const Model& model) const {
     const Item& spec = m_spec.items[item];
 
     // An empty table has no row to put the cursor on.
-    if (spec.kind == ItemKind::Table) {
+    if (spec.kind == ItemKind::TABLE) {
         const Table* table = rows_of(item, model);
         return table != nullptr && !table->rows().empty();
     }
 
-    return spec.kind != ItemKind::Text;
+    return spec.kind != ItemKind::TEXT;
 }
 
 bool ScreenView::move_focus(int step, const Model& model) {
@@ -201,7 +201,7 @@ void ScreenView::scroll_to_cursor(std::size_t shown) {
 std::vector<Placed> ScreenView::layout(const Skin& skin, const Model& model) const {
     std::vector<Placed> placed;
     const float line = skin.line_height();
-    float y = m_area.y + (m_spec.title.empty() ? 0.0f : line * kTitleLines);
+    float y = m_area.y + (m_spec.title.empty() ? 0.0f : line * TITLE_LINES);
     float fixed = 0.0f;
 
     // The items other than the table take their own height first.
@@ -220,7 +220,7 @@ std::vector<Placed> ScreenView::layout(const Skin& skin, const Model& model) con
         Placed place{n, Rect{m_area.x, y, m_area.w, fixed_height(skin, item, m_area.w)}, 0, 0};
 
         // A table shows the spec's rows when they fit, else as many as fit.
-        if (item.kind == ItemKind::Table) {
+        if (item.kind == ItemKind::TABLE) {
             const Table* table = rows_of(n, model);
             const std::size_t wanted =
                 m_spec.rows > 0 ? static_cast<std::size_t>(m_spec.rows) : fit_rows;
@@ -249,47 +249,47 @@ Outcome ScreenView::handle(Event event, const Model& model, Skin& skin) {
     // Lays the screen out to learn how many rows a page holds.
     for (const Placed& placed : layout(skin, model)) {
         // The table's page size is what the last layout shows.
-        if (m_spec.items[placed.item].kind == ItemKind::Table) {
+        if (m_spec.items[placed.item].kind == ItemKind::TABLE) {
             scroll_to_cursor(placed.shown_rows);
         }
     }
 
     // Each event moves the cursor, steps a choice or chooses.
     switch (event) {
-        case Event::Up:
+        case Event::UP:
             return handle_vertical(-1, model, skin);
-        case Event::Down:
+        case Event::DOWN:
             return handle_vertical(1, model, skin);
         case Event::L1:
             return handle_page(-1, model, skin);
         case Event::R1:
             return handle_page(1, model, skin);
-        case Event::Left:
+        case Event::LEFT:
             return step_choice(-1, skin);
-        case Event::Right:
+        case Event::RIGHT:
             return step_choice(1, skin);
-        case Event::Cross:
+        case Event::CROSS:
             return handle_cross(model, skin);
-        case Event::Triangle: {
+        case Event::TRIANGLE: {
             Outcome outcome;
 
             // A modal screen goes back itself; an overlay leaves Triangle to the game's screen.
-            if (m_mode == Mode::Modal) {
-                skin.sound(Sound::Back);
+            if (m_mode == Mode::MODAL) {
+                skin.sound(Sound::BACK);
                 outcome.consumed = true;
-                outcome.action = Action{ActionKind::Back, {}};
+                outcome.action = Action{ActionKind::BACK, {}};
             }
 
             return outcome;
         }
         // The rest are the game's on an overlay, nothing on a modal screen.
-        case Event::None:
-        case Event::Circle:
-        case Event::Square:
-        case Event::Start:
-        case Event::Select: {
+        case Event::NONE:
+        case Event::CIRCLE:
+        case Event::SQUARE:
+        case Event::START:
+        case Event::SELECT: {
             Outcome outcome;
-            outcome.consumed = m_mode == Mode::Modal && event != Event::None;
+            outcome.consumed = m_mode == Mode::MODAL && event != Event::NONE;
             return outcome;
         }
     }
@@ -317,19 +317,19 @@ Outcome ScreenView::handle_vertical(int step, const Model& model, Skin& skin) {
         m_cursor_key = table->rows()[std::min(m_cursor, count - 1)].key;
         m_has_cursor_key = true;
         scroll_to_cursor(m_shown);
-        skin.sound(Sound::Move);
+        skin.sound(Sound::MOVE);
         outcome.consumed = true;
         return outcome;
     }
 
     // Between items. An overlay with nowhere to go hands the press to the game.
     if (move_focus(step, model)) {
-        skin.sound(Sound::Move);
+        skin.sound(Sound::MOVE);
         outcome.consumed = true;
         return outcome;
     }
 
-    outcome.consumed = m_mode == Mode::Modal;
+    outcome.consumed = m_mode == Mode::MODAL;
     return outcome;
 }
 
@@ -339,7 +339,7 @@ Outcome ScreenView::handle_page(int step, const Model& model, Skin& skin) {
 
     // L1 and R1 page only a table under the cursor.
     if (table == nullptr || table->rows().empty()) {
-        outcome.consumed = m_mode == Mode::Modal;
+        outcome.consumed = m_mode == Mode::MODAL;
         return outcome;
     }
 
@@ -360,7 +360,7 @@ Outcome ScreenView::handle_page(int step, const Model& model, Skin& skin) {
     m_has_cursor_key = true;
 
     // A page that moved nothing says so, as the games refuse at a list's end.
-    skin.sound(m_cursor == old_cursor ? Sound::Denied : Sound::Move);
+    skin.sound(m_cursor == old_cursor ? Sound::DENIED : Sound::MOVE);
     outcome.consumed = true;
     return outcome;
 }
@@ -369,15 +369,15 @@ Outcome ScreenView::step_choice(int step, Skin& skin) {
     Outcome outcome;
 
     // Left and Right only step a choice; on an overlay they are the game's otherwise.
-    if (m_focus >= m_spec.items.size() || m_spec.items[m_focus].kind != ItemKind::Choice) {
-        outcome.consumed = m_mode == Mode::Modal;
+    if (m_focus >= m_spec.items.size() || m_spec.items[m_focus].kind != ItemKind::CHOICE) {
+        outcome.consumed = m_mode == Mode::MODAL;
         return outcome;
     }
 
     const Item& item = m_spec.items[m_focus];
     const int count = static_cast<int>(item.choices.size());
     m_values[m_focus] = (m_values[m_focus] + step + count) % count;
-    skin.sound(Sound::Move);
+    skin.sound(Sound::MOVE);
     outcome.consumed = true;
     outcome.item = m_focus;
     outcome.action = item.action;
@@ -390,14 +390,14 @@ Outcome ScreenView::handle_cross(const Model& model, Skin& skin) {
 
     // Nothing under the cursor: the game's screen may still use Cross.
     if (m_focus >= m_spec.items.size()) {
-        outcome.consumed = m_mode == Mode::Modal;
+        outcome.consumed = m_mode == Mode::MODAL;
         return outcome;
     }
 
     const Item& item = m_spec.items[m_focus];
 
     // Cross steps a choice on, around its end.
-    if (item.kind == ItemKind::Choice) {
+    if (item.kind == ItemKind::CHOICE) {
         return step_choice(1, skin);
     }
 
@@ -419,10 +419,10 @@ Outcome ScreenView::handle_cross(const Model& model, Skin& skin) {
     }
 
     // A Game action is answered by the game's own sound when the binding hands it on.
-    if (outcome.action.kind == ActionKind::None) {
-        skin.sound(Sound::Denied);
-    } else if (outcome.action.kind != ActionKind::Game) {
-        skin.sound(outcome.action.kind == ActionKind::Back ? Sound::Back : Sound::Select);
+    if (outcome.action.kind == ActionKind::NONE) {
+        skin.sound(Sound::DENIED);
+    } else if (outcome.action.kind != ActionKind::GAME) {
+        skin.sound(outcome.action.kind == ActionKind::BACK ? Sound::BACK : Sound::SELECT);
     }
 
     return outcome;
@@ -432,19 +432,19 @@ void ScreenView::draw(Skin& skin, const Model& model) {
     follow_rows(model);
 
     // A screen with no game screen under it brings its own panel.
-    if (m_mode == Mode::Modal) {
+    if (m_mode == Mode::MODAL) {
         skin.panel(m_area);
     }
 
     // The title line, when the description gives one.
     if (!m_spec.title.empty()) {
-        skin.text(m_area.x, m_area.y, m_spec.title, TextStyle::Title);
+        skin.text(m_area.x, m_area.y, m_spec.title, TextStyle::TITLE);
     }
 
     // Each item is drawn at the place the layout gives it.
     for (const Placed& placed : layout(skin, model)) {
         // Scroll before drawing, so the cursor's row is on the picture.
-        if (m_spec.items[placed.item].kind == ItemKind::Table) {
+        if (m_spec.items[placed.item].kind == ItemKind::TABLE) {
             scroll_to_cursor(placed.shown_rows);
         }
 
@@ -459,19 +459,19 @@ void ScreenView::draw_item(Skin& skin, const Model& model, const Placed& placed)
 
     // Each kind of item draws its own way.
     switch (item.kind) {
-        case ItemKind::Text:
-            skin.text(rect.x, rect.y, item.label, TextStyle::Normal);
+        case ItemKind::TEXT:
+            skin.text(rect.x, rect.y, item.label, TextStyle::NORMAL);
             break;
-        case ItemKind::Button:
+        case ItemKind::BUTTON:
             // The bar sits behind the component under the cursor, as in the game's menus.
             if (focused) {
                 skin.highlight(rect);
             }
 
-            skin.text(rect.x, rect.y, item.label, focused ? TextStyle::Focused : TextStyle::Normal);
+            skin.text(rect.x, rect.y, item.label, focused ? TextStyle::FOCUSED : TextStyle::NORMAL);
             break;
-        case ItemKind::Choice: {
-            const TextStyle style = focused ? TextStyle::Focused : TextStyle::Normal;
+        case ItemKind::CHOICE: {
+            const TextStyle style = focused ? TextStyle::FOCUSED : TextStyle::NORMAL;
             const std::size_t choice = static_cast<std::size_t>(m_values[placed.item]);
 
             // The bar behind the choice under the cursor.
@@ -480,10 +480,10 @@ void ScreenView::draw_item(Skin& skin, const Model& model, const Placed& placed)
             }
 
             skin.text(rect.x, rect.y, item.label, style);
-            skin.text(rect.x + rect.w * kChoiceValueAt, rect.y, item.choices[choice], style);
+            skin.text(rect.x + rect.w * CHOICE_VALUE_AT, rect.y, item.choices[choice], style);
             break;
         }
-        case ItemKind::Table:
+        case ItemKind::TABLE:
             draw_table(skin, rows_of(placed.item, model), placed);
             break;
     }
@@ -501,7 +501,7 @@ void ScreenView::draw_table(Skin& skin, const Table* table, const Placed& placed
     // Each column starts where the one before it ends, by its share of the width.
     for (const Column& column : m_spec.columns) {
         column_x.push_back(x);
-        x += rect.w * static_cast<float>(column.width) / kPercent;
+        x += rect.w * static_cast<float>(column.width) / PERCENT;
     }
 
     column_x.push_back(rect.x + rect.w);
@@ -510,12 +510,12 @@ void ScreenView::draw_table(Skin& skin, const Table* table, const Placed& placed
     if (has_headings(m_spec)) {
         // Each heading is cut to its column.
         for (std::size_t n = 0; n < m_spec.columns.size(); ++n) {
-            const float width = column_x[n + 1] - column_x[n] - kColumnGap;
+            const float width = column_x[n + 1] - column_x[n] - COLUMN_GAP;
             skin.text(
                 column_x[n],
                 y,
-                fit(skin, m_spec.columns[n].label, width, TextStyle::Heading),
-                TextStyle::Heading
+                fit(skin, m_spec.columns[n].label, width, TextStyle::HEADING),
+                TextStyle::HEADING
             );
         }
 
@@ -531,8 +531,8 @@ void ScreenView::draw_table(Skin& skin, const Table* table, const Placed& placed
     if (count > placed.shown_rows) {
         const std::size_t last = std::min(m_first + placed.shown_rows, count);
         const std::string where = std::format("{}-{} / {}", m_first + 1, last, count);
-        const float width = skin.text_width(where, TextStyle::Heading);
-        skin.text(rect.x + rect.w - width, rect.y, where, TextStyle::Heading);
+        const float width = skin.text_width(where, TextStyle::HEADING);
+        skin.text(rect.x + rect.w - width, rect.y, where, TextStyle::HEADING);
         skin.scroll_marks(
             Rect{rect.x, y, rect.w, line * static_cast<float>(placed.shown_rows)},
             m_first > 0,
@@ -544,11 +544,11 @@ void ScreenView::draw_table(Skin& skin, const Table* table, const Placed& placed
     for (std::size_t n = m_first; n < count && n < m_first + placed.shown_rows; ++n) {
         const Row& row = table->rows()[n];
         const bool under_cursor = focused && n == m_cursor;
-        TextStyle style = under_cursor ? TextStyle::Focused : TextStyle::Normal;
+        TextStyle style = under_cursor ? TextStyle::FOCUSED : TextStyle::NORMAL;
 
         // A row that refuses Cross is dim, under the cursor or not.
         if (!row.enabled) {
-            style = TextStyle::Disabled;
+            style = TextStyle::DISABLED;
         }
 
         // The bar behind the row under the cursor.
@@ -558,7 +558,7 @@ void ScreenView::draw_table(Skin& skin, const Table* table, const Placed& placed
 
         // Each cell is cut to its column.
         for (std::size_t c = 0; c < m_spec.columns.size(); ++c) {
-            const float width = column_x[c + 1] - column_x[c] - kColumnGap;
+            const float width = column_x[c + 1] - column_x[c] - COLUMN_GAP;
             skin.text(
                 column_x[c], y, fit(skin, row.cell(m_spec.columns[c].field), width, style), style
             );

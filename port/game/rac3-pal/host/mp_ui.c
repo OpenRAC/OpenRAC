@@ -170,7 +170,7 @@ static int g_text_pass;      /* 1 in the pass after the elements: text only, els
 
 /* The vanilla description: the game's own lists, a column of names, as many rows as the game's
  * list widget shows. No staging screen: the game's own rows stay. */
-static const char kVanilla[] =
+static const char VANILLA_DESCRIPTION[] =
     "{\"schema\": 1, \"name\": \"Up Your Arsenal\", \"screens\": ["
     "{\"id\": \"game_list\", \"columns\": [{\"field\": \"name\", \"width\": 100}],"
     " \"items\": [{\"kind\": \"table\", \"key\": \"games\", \"action\": \"game:join\"}]}]}";
@@ -299,8 +299,8 @@ static void skin_scroll_marks(void* user, float x, float y, float w, float h, in
 /* The skin's sounds: the menus' own (L39_00688340). */
 static void skin_sound(void* user, int sound) {
     (void)user;
-    static const int kSounds[] = {SOUND_MOVE, SOUND_SELECT, SOUND_BACK, SOUND_DENIED};
-    mp_func_L39_00688340(kSounds[sound & 3], 0, 0);
+    static const int MENU_SOUNDS[] = {SOUND_MOVE, SOUND_SELECT, SOUND_BACK, SOUND_DENIED};
+    mp_func_L39_00688340(MENU_SOUNDS[sound & 3], 0, 0);
 }
 
 /* The skin table for the open screen's row pitch. */
@@ -325,7 +325,7 @@ static int make_ui(void) {
     }
     /* The vanilla description is the one in force until a server's arrives. */
     if (g_ui != NULL && !g_described) {
-        g_described = openrac_mp_ui_describe(g_ui, kVanilla, sizeof kVanilla - 1);
+        g_described = openrac_mp_ui_describe(g_ui, VANILLA_DESCRIPTION, sizeof VANILLA_DESCRIPTION - 1);
     }
     return g_ui != NULL && g_described;
 }

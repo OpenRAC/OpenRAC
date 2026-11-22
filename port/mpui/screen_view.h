@@ -26,31 +26,31 @@ namespace openrac::mpui {
 
 // A menu event, as the games' menus read the pad (rac3: 0x00686138's codes, mapped).
 enum class Event : std::uint8_t {
-    None,
-    Up,
-    Down,
-    Left,
-    Right,
-    Cross,
-    Circle,
-    Triangle,
-    Square,
+    NONE,
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+    CROSS,
+    CIRCLE,
+    TRIANGLE,
+    SQUARE,
     L1,
     R1,
-    Start,
-    Select,
+    START,
+    SELECT,
 };
 
 // Whether the game's own screen is under this one.
 enum class Mode : std::uint8_t {
-    Overlay,  // Over a game screen: unused events go on to the game.
-    Modal,    // Alone: it keeps every event and draws its own panel.
+    OVERLAY,  // Over a game screen: unused events go on to the game.
+    MODAL,    // Alone: it keeps every event and draws its own panel.
 };
 
 // What one event did on a screen.
 struct Outcome {
     bool consumed = false;      // The screen used the event: the game must not see it.
-    Action action;              // The action chosen, or ActionKind::None.
+    Action action;              // The action chosen, or ActionKind::NONE.
     std::size_t item = 0;       // The item the action came from.
     std::uint32_t row_key = 0;  // A table's action: the key of the row under the cursor.
     std::size_t row = 0;        // A table's action: that row's index in the table.
@@ -138,7 +138,7 @@ private:
 
     ScreenSpec m_spec;               // What the screen shows.
     Rect m_area;                     // Where it is drawn.
-    Mode m_mode = Mode::Overlay;     // Whether a game screen is under it.
+    Mode m_mode = Mode::OVERLAY;     // Whether a game screen is under it.
     std::size_t m_focus = 0;         // The item under the cursor; the item count for none.
     std::size_t m_cursor = 0;        // The table row under the cursor.
     std::size_t m_first = 0;         // The first table row shown.

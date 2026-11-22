@@ -21,26 +21,26 @@ namespace {
 
 // The longest texts a description may carry, in bytes: a title fits the title line, a label a
 // row, a text a short paragraph.
-constexpr std::size_t kMaxTitle = 40;
-constexpr std::size_t kMaxLabel = 32;
-constexpr std::size_t kMaxText = 512;
-constexpr std::size_t kMaxName = 24;
+constexpr std::size_t MAX_TITLE = 40;
+constexpr std::size_t MAX_LABEL = 32;
+constexpr std::size_t MAX_TEXT = 512;
+constexpr std::size_t MAX_NAME = 24;
 
 // The most of each list a description may hold.
-constexpr std::size_t kMaxScreens = 16;
-constexpr std::size_t kMaxColumns = 8;
-constexpr std::size_t kMaxItems = 24;
-constexpr std::size_t kMaxChoices = 16;
-constexpr std::size_t kMaxEntries = 32;
-constexpr std::size_t kMaxOptions = 16;
-constexpr std::size_t kMaxAnnouncements = 8;
+constexpr std::size_t MAX_SCREENS = 16;
+constexpr std::size_t MAX_COLUMNS = 8;
+constexpr std::size_t MAX_ITEMS = 24;
+constexpr std::size_t MAX_CHOICES = 16;
+constexpr std::size_t MAX_ENTRIES = 32;
+constexpr std::size_t MAX_OPTIONS = 16;
+constexpr std::size_t MAX_ANNOUNCEMENTS = 8;
 
 // The most players a room may claim, and the most rows a table may show at once.
-constexpr int kMaxPlayers = 64;
-constexpr int kMaxRows = 32;
+constexpr int MAX_PLAYERS = 64;
+constexpr int MAX_ROWS = 32;
 
 // The share of a table's width, in percent, that all its columns may take.
-constexpr int kFullWidth = 100;
+constexpr int FULL_WIDTH = 100;
 
 // Why a description was refused, carried out of the readers below.
 class Refused : public std::runtime_error {
@@ -113,18 +113,18 @@ int read_int(const json::Value& object, std::string_view key, int low, int high,
     return static_cast<int>(number);
 }
 
-// Returns whether `name` is an identifier: 1 to kMaxName of a-z, 0-9 and underscores.
+// Returns whether `name` is an identifier: 1 to MAX_NAME of a-z, 0-9 and underscores.
 bool is_identifier(std::string_view name) {
     const auto allowed = [](char c) {
         return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
     };
-    return !name.empty() && name.size() <= kMaxName
+    return !name.empty() && name.size() <= MAX_NAME
            && std::all_of(name.begin(), name.end(), allowed);
 }
 
 // Returns the identifier `key` of `object`, refused when it is missing or malformed.
 std::string read_identifier(const json::Value& object, std::string_view key) {
-    std::string name = read_text(object, key, kMaxName, true);
+    std::string name = read_text(object, key, MAX_NAME, true);
 
     // Identifiers name screens, fields and options on the wire and in the binding.
     if (!is_identifier(name)) {
@@ -176,7 +176,7 @@ std::vector<std::string> read_texts(
 
 // Reads `object`'s action text at `key`; absent is no action.
 Action read_action(const json::Value& object, std::string_view key) {
-    const std::string text = read_text(object, key, kMaxName + kMaxName);
+    const std::string text = read_text(object, key, MAX_NAME + MAX_NAME);
 
     // No action: the component is shown only.
     if (text.empty()) {
@@ -198,27 +198,27 @@ Column read_column(const json::Value& object) {
     check_keys(object, "a column", {"field", "label", "width"});
     return Column{
         read_identifier(object, "field"),
-        read_text(object, "label", kMaxLabel),
-        read_int(object, "width", 1, kFullWidth, 0)
+        read_text(object, "label", MAX_LABEL),
+        read_int(object, "width", 1, FULL_WIDTH, 0)
     };
 }
 
 // Reads one item of a screen.
 Item read_item(const json::Value& object) {
     check_keys(object, "an item", {"kind", "label", "action", "key", "choices", "value"});
-    const std::string kind = read_text(object, "kind", kMaxName, true);
+    const std::string kind = read_text(object, "kind", MAX_NAME, true);
     Item item;
-    item.label = read_text(object, "label", kMaxText);
+    item.label = read_text(object, "label", MAX_TEXT);
     item.action = read_action(object, "action");
-    item.choices = read_texts(object, "choices", kMaxChoices, kMaxLabel);
+    item.choices = read_texts(object, "choices", MAX_CHOICES, MAX_LABEL);
 
     // The kind decides which of the other keys mean something.
     if (kind == "text") {
-        item.kind = ItemKind::Text;
+        item.kind = ItemKind::TEXT;
     } else if (kind == "button") {
-        item.kind = ItemKind::Button;
+        item.kind = ItemKind::BUTTON;
     } else if (kind == "choice") {
-        item.kind = ItemKind::Choice;
+        item.kind = ItemKind::CHOICE;
         item.key = read_identifier(object, "key");
 
         // A choice with nothing to choose cannot be stepped.
@@ -228,7 +228,7 @@ Item read_item(const json::Value& object) {
 
         item.value = read_int(object, "value", 0, static_cast<int>(item.choices.size()) - 1, 0);
     } else if (kind == "table") {
-        item.kind = ItemKind::Table;
+        item.kind = ItemKind::TABLE;
         item.key = read_identifier(object, "key");
     } else {
         refuse(std::format("item kind '{}' is not text, button, choice or table", kind));
@@ -242,29 +242,29 @@ ScreenSpec read_screen(const json::Value& object) {
     check_keys(object, "a screen", {"id", "title", "rows", "columns", "items"});
     ScreenSpec screen;
     screen.id = read_identifier(object, "id");
-    screen.title = read_text(object, "title", kMaxTitle);
-    screen.rows = read_int(object, "rows", 0, kMaxRows, 0);
+    screen.title = read_text(object, "title", MAX_TITLE);
+    screen.rows = read_int(object, "rows", 0, MAX_ROWS, 0);
     int width = 0;
 
     // The columns' widths add up across the table.
-    for (const json::Value& column : read_list(object, "columns", kMaxColumns)) {
+    for (const json::Value& column : read_list(object, "columns", MAX_COLUMNS)) {
         screen.columns.push_back(read_column(column));
         width += screen.columns.back().width;
     }
 
     // Columns past the table's width would draw over its edge.
-    if (width > kFullWidth) {
+    if (width > FULL_WIDTH) {
         refuse(std::format("screen {} has columns {}% wide", screen.id, width));
     }
 
     // Each item in the order the screen stacks them.
-    for (const json::Value& item : read_list(object, "items", kMaxItems)) {
+    for (const json::Value& item : read_list(object, "items", MAX_ITEMS)) {
         screen.items.push_back(read_item(item));
     }
 
     const auto tables =
         std::count_if(screen.items.begin(), screen.items.end(), [](const Item& item) {
-            return item.kind == ItemKind::Table;
+            return item.kind == ItemKind::TABLE;
         });
 
     // The columns belong to the screen's one table.
@@ -280,7 +280,7 @@ Entry read_entry(const json::Value& object, bool is_map) {
     check_keys(object, is_map ? "a map" : "a mode", {"id", "name", "base", "modes"});
     Entry entry;
     entry.id = read_int(object, "id", 0, 0xFFFF, -1);
-    entry.name = read_text(object, "name", kMaxLabel, true);
+    entry.name = read_text(object, "name", MAX_LABEL, true);
     entry.base = read_int(object, "base", 0, 0xFFFF, -1);
 
     // Every entry is named by the game's own number.
@@ -289,7 +289,7 @@ Entry read_entry(const json::Value& object, bool is_map) {
     }
 
     // A map lists the modes it can be played in.
-    for (const json::Value& mode : read_list(object, "modes", kMaxEntries)) {
+    for (const json::Value& mode : read_list(object, "modes", MAX_ENTRIES)) {
         // A map's modes are the game's mode numbers.
         if (!is_map || !mode.is_number()) {
             refuse(std::format("entry '{}' has modes that are not numbers of a map", entry.name));
@@ -306,8 +306,8 @@ Option read_option(const json::Value& object) {
     check_keys(object, "an option", {"key", "label", "choices", "value", "scope"});
     Option option;
     option.key = read_identifier(object, "key");
-    option.label = read_text(object, "label", kMaxLabel, true);
-    option.choices = read_texts(object, "choices", kMaxChoices, kMaxLabel);
+    option.label = read_text(object, "label", MAX_LABEL, true);
+    option.choices = read_texts(object, "choices", MAX_CHOICES, MAX_LABEL);
 
     // An option is a choice; with no values it has nothing to show.
     if (option.choices.empty()) {
@@ -315,11 +315,11 @@ Option read_option(const json::Value& object) {
     }
 
     option.value = read_int(object, "value", 0, static_cast<int>(option.choices.size()) - 1, 0);
-    const std::string scope = read_text(object, "scope", kMaxName);
+    const std::string scope = read_text(object, "scope", MAX_NAME);
 
     // A game's rule is the host's to set; anything else is the player's own.
     if (scope == "game") {
-        option.scope = OptionScope::Game;
+        option.scope = OptionScope::GAME;
     } else if (!scope.empty() && scope != "server") {
         refuse(std::format("option {} has scope '{}', not server or game", option.key, scope));
     }
@@ -336,45 +336,45 @@ Description read_description(const json::Value& top) {
     );
 
     // A description of another schema means keys this client reads otherwise.
-    if (read_int(top, "schema", 0, 0xFFFF, 0) != kSchemaVersion) {
-        refuse(std::format("schema is not {}", kSchemaVersion));
+    if (read_int(top, "schema", 0, 0xFFFF, 0) != SCHEMA_VERSION) {
+        refuse(std::format("schema is not {}", SCHEMA_VERSION));
     }
 
     Description description;
-    description.name = read_text(top, "name", kMaxTitle);
+    description.name = read_text(top, "name", MAX_TITLE);
     description.revision = read_int(top, "revision", 0, 0x7FFFFFFF, 0);
 
     // Limits and text are optional blocks of their own.
     if (!top["limits"].is_null()) {
         check_keys(top["limits"], "limits", {"max_players"});
-        description.max_players = read_int(top["limits"], "max_players", 1, kMaxPlayers, 0);
+        description.max_players = read_int(top["limits"], "max_players", 1, MAX_PLAYERS, 0);
     }
 
     // The lobby's text block.
     if (!top["text"].is_null()) {
         check_keys(top["text"], "text", {"motd", "announcements"});
-        description.motd = read_text(top["text"], "motd", kMaxText);
+        description.motd = read_text(top["text"], "motd", MAX_TEXT);
         description.announcements =
-            read_texts(top["text"], "announcements", kMaxAnnouncements, kMaxText);
+            read_texts(top["text"], "announcements", MAX_ANNOUNCEMENTS, MAX_TEXT);
     }
 
     // The modes the server offers, in its order.
-    for (const json::Value& mode : read_list(top, "modes", kMaxEntries)) {
+    for (const json::Value& mode : read_list(top, "modes", MAX_ENTRIES)) {
         description.modes.push_back(read_entry(mode, false));
     }
 
     // The maps the server offers, in its order.
-    for (const json::Value& map : read_list(top, "maps", kMaxEntries)) {
+    for (const json::Value& map : read_list(top, "maps", MAX_ENTRIES)) {
         description.maps.push_back(read_entry(map, true));
     }
 
     // The server's own options, beside the game's.
-    for (const json::Value& option : read_list(top, "options", kMaxOptions)) {
+    for (const json::Value& option : read_list(top, "options", MAX_OPTIONS)) {
         description.options.push_back(read_option(option));
     }
 
     // The screens, each checked whole before it is kept.
-    for (const json::Value& screen : read_list(top, "screens", kMaxScreens)) {
+    for (const json::Value& screen : read_list(top, "screens", MAX_SCREENS)) {
         ScreenSpec spec = read_screen(screen);
 
         // Screens are found by id, so two with one id would hide one.
@@ -400,7 +400,7 @@ const ScreenSpec* Description::screen(std::string_view id) const {
 std::optional<Action> parse_action(std::string_view text) {
     // Back takes no target.
     if (text == "back") {
-        return Action{ActionKind::Back, {}};
+        return Action{ActionKind::BACK, {}};
     }
 
     const std::size_t colon = text.find(':');
@@ -415,17 +415,17 @@ std::optional<Action> parse_action(std::string_view text) {
 
     // The three kinds that carry a target.
     if (kind == "open") {
-        return Action{ActionKind::Open, target};
+        return Action{ActionKind::OPEN, target};
     }
 
     // The game binding's own actions.
     if (kind == "game") {
-        return Action{ActionKind::Game, target};
+        return Action{ActionKind::GAME, target};
     }
 
     // Requests that go to the server.
     if (kind == "server") {
-        return Action{ActionKind::Server, target};
+        return Action{ActionKind::SERVER, target};
     }
 
     return std::nullopt;
@@ -433,10 +433,10 @@ std::optional<Action> parse_action(std::string_view text) {
 
 Result<Description> parse_description(std::string_view json) {
     // A description larger than this is refused before it is parsed.
-    if (json.size() > kMaxDescriptionBytes) {
+    if (json.size() > MAX_DESCRIPTION_BYTES) {
         return unexpected(
             Error{std::format(
-                "description is {} bytes, at most {}", json.size(), kMaxDescriptionBytes
+                "description is {} bytes, at most {}", json.size(), MAX_DESCRIPTION_BYTES
             )}
         );
     }
