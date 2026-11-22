@@ -71,6 +71,10 @@
  },
  "constants": {
   "about": "RAC2_K constants taken as they are: name, value, the evidence.",
+  "SEEKER_SPAWN_ARGS": {
+   "value": "5",
+   "why": "v2.00's effect_spawn_owned_moby (func_US2_L00_003AB8F8, src/us2/levels/shared/L00_003AB8F8-effects-g.c) takes a fifth argument, the 5 v1.01 stores at pvars +0x78, which its caller passes"
+  },
   "MAP_MARKERS": {
    "value": "0",
    "why": "v2.00's map (func_US2_00296810) draws the Mapper's markers itself (map_draw_class_markers_us2, func_US2_00298AA8): the port adds none"

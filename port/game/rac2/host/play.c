@@ -55,6 +55,7 @@
 #include "openrac/pose_anim.h"
 #include "rac2.h"
 #include "save_format.h"
+#include "weapon_shots.h"
 
 #define LEVELS RAC2_LEVELS
 /* The museum is 21 to the game's level word and 30 to its program (level.c). */
@@ -667,6 +668,7 @@ static char world_family[32];
 static void play_trace(void);
 
 void rac2_play_frame(void) {
+    rac2_shots_frame();
     follow_motion();
     play_trace();
 }
@@ -705,6 +707,11 @@ static openrac_game_play play = {
     .moby_copy = moby_copy,
     .moby_pool_raise = rac2_pool_raise,
     .moby_pool_status = rac2_pool_status,
+    .post_hit = rac2_post_hit,
+    .weapon_refire = rac2_shot_refire,
+    .moby_spawn_live = rac2_shot_spawn_live,
+    .moby_status = rac2_moby_status,
+    .weapon_record = rac2_weapon_record,
 };
 
 void rac2_install_play(void) {

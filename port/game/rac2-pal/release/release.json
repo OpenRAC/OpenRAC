@@ -84,6 +84,10 @@
  },
  "constants": {
   "about": "RAC2_K constants taken as they are: name, value, the evidence.",
+  "SEEKER_SPAWN_ARGS": {
+   "value": "4",
+   "why": "PAL's effect_spawn_owned_moby (func_PAL_L00_003ADC68, versionmap near, 572 bytes as v1.01's) takes v1.01's four arguments and stores the 5 at pvars +0x78 itself"
+  },
   "PAUSE_LIST_COUNT": {
    "value": "0x1CC",
    "why": "func_00341610 as func_00343690: sw $a0, 0x1CC($s0) at +0x7c, as v1.01's at +0x74 (the list's count)"
