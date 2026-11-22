@@ -35,4 +35,21 @@ int func_L00_003FE2D0__game(int a0, int a1, int a2);
 gaddr func_L00_00398810__game(gaddr a0, gaddr a1);
 gaddr func_L00_00387CA8__game(gaddr a0, gaddr a1);
 
+/* weapon_culling.c */
+gaddr func_002AF580__game(
+    gaddr a0,
+    gaddr a1,
+    float a2,
+    float a3,
+    gaddr a4,
+    gaddr a5,
+    int a6,
+    gaddr a7,
+    float a8,
+    float a9,
+    float a10,
+    int a11,
+    gaddr a12
+);
+
 #endif /* OPENRAC_GAME_PROTOS_H */

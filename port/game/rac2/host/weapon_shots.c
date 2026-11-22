@@ -309,6 +309,10 @@ static uint8_t particle_tagged[PARTICLES / 8];
 static gaddr updating;
 static int updating_made;
 
+gaddr rac2_moby_updating(void) {
+    return updating;
+}
+
 /* The tick's ammo watch: the item in hand and its ammo after the last tick. */
 static int32_t ammo_item = -1;
 static int32_t ammo_last;
