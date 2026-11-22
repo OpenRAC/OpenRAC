@@ -980,7 +980,7 @@ export async function pickZip(
     directory: false,
     multiple: false,
     title,
-    filters: [{ name: "Zip", extensions: ["zip"] }],
+    filters: [{ name: "Mods", extensions: ["zip", "openrac-map"] }],
   });
 
   return typeof picked === "string" ? picked : null;

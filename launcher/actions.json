@@ -651,7 +651,7 @@
       },
       {
         "id": "play-edited",
-        "label": "Play with your edits",
+        "label": "Play with mods",
         "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
         "kind": "play",
         "area": "port",
@@ -1306,7 +1306,7 @@
       },
       {
         "id": "play-edited",
-        "label": "Play with your edits",
+        "label": "Play with mods",
         "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
         "kind": "play",
         "area": "port",
@@ -1666,7 +1666,7 @@
       },
       {
         "id": "play-edited",
-        "label": "Play with your edits",
+        "label": "Play with mods",
         "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
         "kind": "play",
         "area": "port",
@@ -2026,7 +2026,7 @@
       },
       {
         "id": "play-edited",
-        "label": "Play with your edits",
+        "label": "Play with mods",
         "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
         "kind": "play",
         "area": "port",
