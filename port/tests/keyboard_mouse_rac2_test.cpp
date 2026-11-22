@@ -15,8 +15,10 @@
 #include <string>
 #include <vector>
 
+#include "game/common/frontend/mouse_turn.h"
 #include "game/common/key_prompts.h"
 #include "game/common/keyboard_mouse/kbm.hpp"
+#include "game/rac2/host/follow_mouse.h"
 #include "game/rac2/host/gui_texts.h"
 #include "game/rac2/host/ui_quads.h"
 #include "game/rac2/keyboard_mouse/keyboard_mouse.h"
@@ -80,7 +82,33 @@ int openrac_rac2_take_map(float*) {
 void openrac_rac2_map_move(float, float, float) {}
 
 void openrac_rac2_screen_size(float*, float*) {}
+
+// The follow camera's hook (follow_mouse.h), as the host keeps it.
+openrac_rac2_follow_mouse_fn g_follow_mouse = nullptr;
+
+void openrac_rac2_set_follow_mouse(openrac_rac2_follow_mouse_fn fn) {
+    g_follow_mouse = fn;
 }
+
+int openrac_rac2_follow_axis(float up[3]) {
+    up[0] = 0.0f;
+    up[1] = 0.0f;
+    up[2] = 1.0f;
+    return 1;
+}
+
+float openrac_rac2_follow_tilt_range(void) {
+    return 0.69813168f;
+}
+}
+
+namespace openrac::frontend {
+MouseTurnFn g_mouse_turn = nullptr;
+
+void set_mouse_turn(MouseTurnFn fn) {
+    g_mouse_turn = fn;
+}
+}  // namespace openrac::frontend
 
 // Where the game is, as touch.c would say.
 const char* g_context = "foot";
@@ -412,6 +440,84 @@ void other_games() {
 
 }  // namespace
 
+float mem_float(std::uint32_t a) {
+    float f = 0.0f;
+    std::memcpy(&f, g_memory.data() + a, 4);
+    return f;
+}
+
+void set_float(std::uint32_t a, float f) {
+    std::memcpy(g_memory.data() + a, &f, 4);
+}
+
+// The mouse turns the follow camera itself once the camera has been seen: no right stick, the
+// eye's offsets turned at once, and the tilt held through the game's target.
+void follow_camera() {
+    constexpr std::uint32_t kCamera = 0x00150000u, kData = 0x00160000u, kTilt = 0x00170000u;
+    constexpr std::uint32_t kTurn = 0x00170010u;
+    g_context = "foot";
+    load_ok();
+    CHECK(g_follow_mouse != nullptr);
+    std::memcpy(g_memory.data() + kCamera + 0x70u, &kData, 4);
+    for (std::uint32_t off : {0x160u, 0x170u}) {
+        set_float(kData + off, -5.0f);
+        set_float(kData + off + 4u, 0.0f);
+        set_float(kData + off + 8u, 0.0f);
+    }
+    set_float(kTilt, 0.0f);
+
+    // The first tick the camera is not known yet: the mouse is the right stick.
+    tick();
+    g_input.mouse_dx = 20.0f;
+    CHECK(read_pad().bytes[2] != 0x80);
+    g_follow_mouse(kCamera, kTurn, kTilt);
+
+    // Once seen, sideways motion turns both offsets about up, the stick stays at rest.
+    tick();
+    g_input.mouse_dx = 100.0f;
+    CHECK(read_pad().bytes[2] == 0x80);
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    const float yaw = -100.0f * kbm::kRadiansPerPixel;
+    CHECK(std::abs(mem_float(kData + 0x160u) - (-5.0f * std::cos(yaw))) < 1e-4f);
+    CHECK(std::abs(mem_float(kData + 0x164u) - (-5.0f * std::sin(yaw))) < 1e-4f);
+    CHECK(std::abs(mem_float(kData + 0x174u) - mem_float(kData + 0x164u)) < 1e-6f);
+    CHECK(mem_float(kData + 0x168u) == 0.0f);
+
+    // Mouse down raises the eye, and the tilt is held as the game's target.
+    tick();
+    g_input.mouse_dy = 100.0f;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x168u) > 0.5f && mem_float(kData + 0x178u) > 0.5f);
+    const float w = mem_float(kData + 0x1C8u);
+    CHECK(w > 0.0f && mem_float(kTilt) > 0.3f);
+    tick();
+    read_pad();
+    set_float(kTilt, 0.0f);
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x1C8u) == w && mem_float(kTilt) > 0.3f);
+
+    // The game locks the turn: the mouse leaves it be.
+    std::int32_t lock = 1;
+    std::memcpy(g_memory.data() + kData + 0x1D0u, &lock, 4);
+    const float x = mem_float(kData + 0x160u);
+    tick();
+    g_input.mouse_dx = 100.0f;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x160u) == x);
+    lock = 0;
+    std::memcpy(g_memory.data() + kData + 0x1D0u, &lock, 4);
+
+    // A menu: the camera is not the mouse's.
+    g_context = "menu";
+    tick();
+    g_input.mouse_dx = 100.0f;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x160u) == x);
+}
+
 int main() {
     contexts();
     for (const char* v : {"ntsc", "pal"}) {
@@ -421,6 +527,7 @@ int main() {
     }
     g_version = "ntsc";
     prompts();
+    follow_camera();
     other_games();
     std::puts("keyboard-mouse rac2: all passed");
     return 0;

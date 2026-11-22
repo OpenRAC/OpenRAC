@@ -10,7 +10,9 @@
 
 #include "keyboard_mouse.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -18,8 +20,10 @@
 #include <string_view>
 
 #include "game/common/frontend/active_input.h"
+#include "game/common/frontend/mouse_turn.h"
 #include "game/common/key_labels.h"
 #include "game/common/key_prompts.h"
+#include "game/rac2/host/follow_mouse.h"
 #include "game/rac2/host/gui_texts.h"
 #include "game/rac2/host/ui_quads.h"
 #include "openrac/game_host.h"
@@ -105,6 +109,28 @@ std::array<kbm::StripIcon, 16> s_strip{};  // a vendor's strip of item icons
 int s_strip_count = 0;
 std::array<kbm::PromptSpot, OPENRAC_RAC2_PROMPT_SPOTS_MAX> s_spots{};
 int s_spot_count = 0;
+
+// The follow camera turned by the mouse itself (follow_mouse.h): the motion since its last turn,
+// the tick it last turned at, and the tilt the mouse holds (the eye's elevation above Ratchet).
+// While it runs the mouse is no right stick: no spring between the mouse and the view.
+float s_follow_dx = 0.0f;
+float s_follow_dy = 0.0f;
+std::uint32_t s_follow_tick = kNoTick;
+constexpr std::uint32_t kFollowSeenTicks = 2;
+bool s_follows = false;   // the mouse turns the follow camera itself now
+bool s_pad_look = false;  // the pad's right stick has the camera
+bool s_tilt_held = false;
+float s_tilt = 0.0f;
+std::int32_t s_follow_locks = 0;  // the camera's locks at its last turn: 1 the turn, 2 the tilt
+kbm::Vec3 s_follow_up = kbm::kWorldUp;
+float s_follow_limit = 0.0f;  // the eye's elevation limit, 0 for no tilt
+// The camera's data (its +0x70): the offset of the eye it wants from Ratchet, the offset it eases
+// towards that, the stick state (the tilt target and its spring's speed) and the locks.
+constexpr std::uint32_t kFollowWanted = 0x160u;
+constexpr std::uint32_t kFollowEye = 0x170u;
+constexpr std::uint32_t kFollowTiltTarget = 0x1C8u;
+constexpr std::uint32_t kFollowTiltSpeed = 0x1CCu;
+constexpr std::uint32_t kFollowLocks = 0x1D0u;
 
 // A tick's input and where the game is.
 struct Tick {
@@ -628,17 +654,131 @@ void step(const openrac_input* in, bool pad_look) {
         v.left_y = s_keys.y;
     }
 
-    // In play with the cursor captured, the mouse is the right stick; the pad's own stick wins.
-    if (t.play && !ring && !pad_look) {
-        s_look.step(in->mouse_dx, in->mouse_dy, false, s_look_tuning);
-        v.right_x = s_look.x;
-        v.right_y = s_look.y;
-    } else if (!play) {
+    // In play with the cursor captured the mouse turns the follow camera itself (follow_mouse),
+    // and is the right stick for any other camera; the pad's own stick wins.
+    const bool follow = s_follow_tick != kNoTick && s_tick - s_follow_tick <= kFollowSeenTicks;
+    s_pad_look = pad_look;
+    s_follows = t.play && !ring && !pad_look && follow;
+    if (s_follows) {
+        s_follow_dx += in->mouse_dx;
+        s_follow_dy += in->mouse_dy;
         s_look.reset();
+    } else {
+        s_follow_dx = 0.0f;
+        s_follow_dy = 0.0f;
+        s_tilt_held = s_tilt_held && t.play && !pad_look;
+        if (t.play && !ring && !pad_look) {
+            s_look.step(in->mouse_dx, in->mouse_dy, false, s_look_tuning);
+            v.right_x = s_look.x;
+            v.right_y = s_look.y;
+        } else if (!play) {
+            s_look.reset();
+        }
     }
 
     s_pad = v;
     update_prompts(t);
+}
+
+kbm::Vec3 read_vec(std::uint32_t a) {
+    const openrac::Memory m = s_mod->memory();
+    return {m.read<float>(a), m.read<float>(a + 4u), m.read<float>(a + 8u)};
+}
+
+void write_vec(std::uint32_t a, kbm::Vec3 v) {
+    openrac::Memory m = s_mod->memory();
+    m.write<float>(a, v.x);
+    m.write<float>(a + 4u, v.y);
+    m.write<float>(a + 8u, v.z);
+}
+
+// The follow camera, just before it turns by the stick (follow_mouse.h): the eye it wants and the
+// one it eases towards turned alike about up by the mouse's motion, so the view turns at once;
+// tilted alike, and the tilt held through the game's own target (the stick state and the value the
+// camera tilts by), whatever the game's invert option. The camera's locks stop the mouse as they
+// stop the stick.
+void follow_mouse(std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) {
+    s_follow_tick = s_tick;
+    const float dx = s_follow_dx;
+    const float dy = s_follow_dy;
+    s_follow_dx = 0.0f;
+    s_follow_dy = 0.0f;
+    openrac::Memory m = s_mod->memory();
+    const std::uint32_t data = m.read<std::uint32_t>(camera + 0x70u);
+    float up[3] = {0.0f, 0.0f, 1.0f};
+    if (!s_follows || data < 0x00100000u || data >= kRamBytes - 0x200u
+        || openrac_rac2_follow_axis(up) == 0) {
+        s_tilt_held = false;
+        return;
+    }
+    s_follow_up = kbm::unit_or({up[0], up[1], up[2]}, kbm::kWorldUp);
+    const std::int32_t locks = m.read<std::int32_t>(data + kFollowLocks);
+    s_follow_locks = locks;
+    const float range = openrac_rac2_follow_tilt_range();
+    const bool tilts = range > 0.1f && range < 1.5f && (locks & 2) == 0;
+    s_follow_limit = tilts ? std::asin(std::min(1.0f, std::tan(range))) : 0.0f;
+    kbm::Vec3 wanted = read_vec(data + kFollowWanted);
+    kbm::Vec3 eye = read_vec(data + kFollowEye);
+
+    // Sideways: both offsets turn about up, unless the game locks the turn.
+    if (dx != 0.0f && (locks & 1) == 0) {
+        const float yaw = kbm::DirectLook::yaw(dx, dy, s_look_tuning);
+        wanted = kbm::rotate(wanted, s_follow_up, yaw);
+        eye = kbm::rotate(eye, s_follow_up, yaw);
+    }
+
+    // Up and down: both offsets tilt, within the game's range, and the tilt stays (Stays) or is
+    // let go when the mouse rests (Levels out).
+    if (!tilts) {
+        s_tilt_held = false;
+    } else if (dy != 0.0f) {
+        if (!s_tilt_held || !s_look_tuning.pitch_holds) {
+            s_tilt = kbm::elevation(wanted, s_follow_up);
+        }
+        s_tilt_held = true;
+        const float now = kbm::clamp(
+            s_tilt + kbm::DirectLook::pitch(dx, dy, s_look_tuning), -s_follow_limit, s_follow_limit
+        );
+        const float moved = now - s_tilt;
+        s_tilt = now;
+        wanted =
+            kbm::with_elevation(wanted, s_follow_up, kbm::elevation(wanted, s_follow_up) + moved);
+        eye = kbm::with_elevation(eye, s_follow_up, kbm::elevation(eye, s_follow_up) + moved);
+    } else if (!s_look_tuning.pitch_holds) {
+        s_tilt_held = false;
+    }
+
+    write_vec(data + kFollowWanted, wanted);
+    write_vec(data + kFollowEye, eye);
+
+    // The held tilt is the game's target: the stick state at it, at rest, and the value it tilts by.
+    if (s_tilt_held) {
+        const float w = kbm::clamp(std::atan(std::sin(s_tilt)) / range, -1.0f, 1.0f);
+        m.write<float>(data + kFollowTiltTarget, w);
+        m.write<float>(data + kFollowTiltSpeed, 0.0f);
+        m.write<float>(tilt, kbm::follow_stick_for(w, false));
+    }
+    (void)turn;
+}
+
+// The turn the next tick makes for mouse motion it has not read yet (frontend/mouse_turn.h), while
+// the mouse turns the follow camera itself.
+bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
+    if (s_mod == nullptr || !s_follows || s_pad_look) {
+        return false;
+    }
+    *out = {};
+    if ((s_follow_locks & 1) == 0) {
+        out->yaw = kbm::DirectLook::yaw(dx, dy, s_look_tuning);
+    }
+    if (s_follow_limit > 0.0f) {
+        out->pitch = kbm::DirectLook::pitch(dx, dy, s_look_tuning);
+    }
+    out->up[0] = s_follow_up.x;
+    out->up[1] = s_follow_up.y;
+    out->up[2] = s_follow_up.z;
+    out->pitch_limit = s_follow_limit;
+    return true;
 }
 
 void on_pad(int port, std::uint8_t* report, int size) {
@@ -720,7 +860,17 @@ void load(openrac::Mod& mod) {
     s_ring_seek.reset();
     s_dragging = false;
 
+    s_follow_dx = 0.0f;
+    s_follow_dy = 0.0f;
+    s_follow_tick = kNoTick;
+    s_follows = false;
+    s_tilt_held = false;
+
     mod.take_input(OPENRAC_INPUT_KEYBOARD | OPENRAC_INPUT_MOUSE);
+    openrac_rac2_set_follow_mouse([](std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) {
+        follow_mouse(camera, turn, tilt);
+    });
+    openrac::frontend::set_mouse_turn(picture_turn);
     mod.on_settings([] { read_settings(*s_mod); });
     mod.on_pad([](int port, std::uint8_t* report, int size) { on_pad(port, report, size); });
     mod.info("keyboard and mouse on the " + std::string(mod.version()) + " disc");

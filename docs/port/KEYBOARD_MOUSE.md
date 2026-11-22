@@ -32,8 +32,10 @@ menus, scenes, the overlay (F3) and when the window loses focus.
   the picture already shows the next tick's turn, so the view follows the
   mouse at the display's rate. Mouse up always looks up (use *Invert* for the
   other way). A pad's right stick takes the camera back.
-- **Going Commando:** the mouse is the right stick, so the camera turns as the
-  stick turns it.
+- **Going Commando:** the mouse turns the follow camera behind Ratchet itself,
+  the same way: sideways at once, and up and down within the game's own tilt
+  range, where the tilt stays. Any other camera still gets the mouse as the
+  right stick.
 
 ## Default controls
 
