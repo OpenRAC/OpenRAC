@@ -17,8 +17,8 @@ namespace openrac::runtime {
 class Memory {
 public:
     // Reserves the 4 GB, maps main RAM (with its uncached aliases where the
-    // platform can alias pages), the scratchpad, the register pages and the
-    // port's region, and sets openrac_guest_base. Ends the program if the
+    // platform can alias pages), the scratchpad and its guard, the register
+    // pages and the port's region, and sets openrac_guest_base. Ends the program if the
     // reservation fails.
     static Memory& create(std::uint32_t ram_size = GUEST_RAM_SIZE);
     static Memory& get();
@@ -52,6 +52,11 @@ public:
     bool restore_snapshot(
         std::span<const std::uint8_t> in, const openrac_guest_allocation_state& allocations
     );
+
+    // True when the game wrote past the scratchpad's 16 KB since the last call (into
+    // GUEST_SCRATCHPAD_GUARD, where the console would have taken a TLB miss); zeroes that guard.
+    // A written zero goes unseen.
+    bool take_scratchpad_overrun();
 
     // The game address that a host address inside the reservation stands
     // for, or false. Used by the crash handler.

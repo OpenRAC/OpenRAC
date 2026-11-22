@@ -49,6 +49,19 @@ class Extents(unittest.TestCase):
         )
         self.assertEqual(sorted(retail.starts_of(program)[-1]), [0x00100000, 0x00100040])
 
+    def test_a_declared_name_inside_a_level_function_starts_nothing(self):
+        places = {"func_L01_003241A0": [(1, 0x003241A0)], "func_L01_00324E50": [(1, 0x00324E50)]}
+        names = (*places, "func_L01_003242C8")
+        program = SimpleNamespace(
+            functions={n: SimpleNamespace(unit=None if n == "func_L01_003242C8" else "a.c") for n in names},
+            places=places, sizes={"func_L01_003241A0": 3248, "func_L01_00324E50": 232},
+            level_extents=True,
+            code_places=lambda sym: [(1, int(sym[9:], 16))],
+        )
+        self.assertEqual(sorted(retail.starts_of(program)[1]), [0x003241A0, 0x00324E50])
+        program.level_extents = False
+        self.assertIn(0x003242C8, retail.starts_of(program)[1])
+
     def test_without_the_key_nothing_changes(self):
         self.assertEqual(hostgen.read_extents(None, Path(".")), {})
 

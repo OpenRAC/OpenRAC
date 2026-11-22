@@ -204,6 +204,12 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                 alias = f"{name}__openrac_decl_{line + 1}"
                 decl = re.sub(rf"\b{name}\b", alias, lines[line], count=1)
                 what = "a second declaration"
+                # The symbol is the name's own, not an alias an earlier contradiction gave it: a
+                # third declaration of func_0038CE20 in Veldin's L01_0035F480.c, after a second one
+                # had become func_0038CE20__openrac_decl_140, contradicts that alias and was labelled
+                # with it, so its calls went to the executable's code at 0x0038CE20 (another routine)
+                # instead of the level's vector scale.
+                symbol = re.sub(r"(?:__openrac_decl_\d+)+$", "", name)
                 if re.search(r"__asm__\s*\(", decl):
                     # Already labelled with its symbol: the label stays the alias's.
                     n = 1
@@ -215,7 +221,7 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                     n = 1
                     what = "a local that repeats a parameter's name"
                 else:
-                    decl, n = re.subn(r"\)\s*;", f') __asm__("{name}");', decl, count=1)
+                    decl, n = re.subn(r"\)\s*;", f') __asm__("{symbol}");', decl, count=1)
                 if n == 0 and note["msg"].startswith("previous declaration is here"):
                     # Not a declaration but the definition, which says other types than a
                     # declaration before it (a shared header's `void *` where the body takes
@@ -227,7 +233,7 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                     heading = " ".join(lines[line:end] + [lines[end].split("{", 1)[0]])
                     if "{" in lines[end] and ";" not in heading:
                         heading = re.sub(rf"\b{name}\b", alias, heading, count=1).strip()
-                        decl = f'{heading} __asm__("{name}"); {decl}'
+                        decl = f'{heading} __asm__("{symbol}"); {decl}'
                         what = "the definition"
                         n = 1
                 if n == 0:

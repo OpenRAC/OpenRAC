@@ -186,6 +186,7 @@
   "asm": {
     "enabled": true,
     "signatures": {
+      "func_0038B500": "void (int, int, int, int, int, int, int, int, float, long long, long long)",
       "func_0038E7E8__frontbin": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_0038F078__frontbin": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_0038D098__frontbin": "float (float)",
@@ -243,6 +244,7 @@
       "func_003ABA90__frontbin": "int (int)",
       "func_003B2580__frontbin": "int (int, int, int, int, int)",
       "func_003C4558": "float (int, int, float, float, float, float)",
+      "func_003D2DA0__frontbin": "int (int, int, int, int)",
       "func_003C4718": "float (int, float, float, float, float)",
       "func_003C5110": "int (int, int, int)",
       "func_003C7E20__frontbin": "float (int, int)",
@@ -441,6 +443,9 @@
       "func_L01_00410A98": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_L01_004059C8": "void (int, int, int, int)",
       "func_L01_00420AE8": "void (int, void *, float, float, float, float, float)",
+      "func_L01_00421278": "float (int, int, long long, float, float, float, float, float)",
+      "func_00397A18": "void (float, float, float, float, float, int, int, long long)",
+      "func_L01_00412C08": "int (void *, int, int, int, int, int, int, int, int)",
       "func_L01_004CBC60": "void (void *, float, float, int, float, void *)",
       "func_L01_0041FE80": "void (void)",
       "func_L01_004202A8": "void (int, int, int, int, int, int)",
@@ -616,7 +621,10 @@
     },
     "wide_register_calls": true,
     "wide_call_results": true,
+    "float_parameters_on_calls": true,
     "signature_check": true,
+    "params_from_code": true,
+    "stack_arguments": true,
     "result_flow": true,
     "variant_callees": "tables/variant_callees.tsv",
     "signature_allow": {
@@ -1347,7 +1355,41 @@
     "func_0011CDC0",
     "func_0011CE78",
     "func_0011CEF0",
-    "func_003B63D0"
+    "func_003B63D0",
+    "func_L01_0034F908",
+    "func_L01_00361D60",
+    "func_L01_003E5638",
+    "func_L01_003E7AB0",
+    "func_L01_003EB5E0",
+    "func_L01_004398C8",
+    "func_L01_0044F280",
+    "func_L01_004E51A0",
+    "func_L01_00511320",
+    "func_L04_0035A158",
+    "func_0038B120__frontbin",
+    "func_0038B500",
+    "func_0038BCD8__frontbin",
+    "func_0038D2D0__frontbin",
+    "func_0038D328__frontbin",
+    "func_0038D830__frontbin",
+    "func_0038DA68__frontbin",
+    "func_003972A0__frontbin",
+    "func_003BFAC8__frontbin",
+    "func_003C6680__frontbin",
+    "func_003C6990__frontbin",
+    "func_003C6A38",
+    "func_003C6D48",
+    "func_L01_0031DE80",
+    "func_L01_0033D398",
+    "func_L01_0033D940",
+    "func_L01_00366BE0",
+    "func_L01_00369C48",
+    "func_L01_0037F860",
+    "func_L01_003E7000",
+    "func_L01_00423C48",
+    "func_L01_004512B0",
+    "func_L01_00473860",
+    "func_L41_0041C1E8"
   ],
   "overlay_hook": true,
   "relocate": [
@@ -1364,12 +1406,15 @@
   "returns_64": [
     "func_00389598__frontbin",
     "func_00396A38__frontbin",
-    "func_003A9830__frontbin"
+    "func_003A9830__frontbin",
+    "func_L01_00420080"
   ],
   "executable_extents": {
     "sources": [
       "src/boot_elf"
     ]
   },
-  "caller_aliases": true
+  "caller_aliases": true,
+  "level_short_names": "^func_(?P<addr>[0-9A-F]{8})$",
+  "level_extents": true
 }

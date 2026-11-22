@@ -160,19 +160,14 @@ void openrac_ee_sw_dma(openrac_u32 address, openrac_u64 value) {
     } else {
         const uint32_t madr = GREF(volatile uint32_t, MADR(address));
         const uint32_t sadr = GREF(volatile uint32_t, SADR(address));
-        const uint32_t qwc = GREF(volatile uint32_t, QWC(address));
-        const uint32_t memory = madr & 0x01FFFFF0u;
-        const uint32_t offset = sadr & 0x3FF0u;
-        uint32_t bytes = qwc * QUADWORD;
+        const uint32_t qwc = GREF(volatile uint32_t, QWC(address)) & 0xFFFFu;
+        uint32_t at = sadr;
 
-        if (offset + bytes > GUEST_SCRATCHPAD_SIZE) {
-            bytes = GUEST_SCRATCHPAD_SIZE - offset;
-        }
-
+        /* SADR wraps round the scratchpad's 16 KB, as the DMAC's does. */
         if (address == D9_CHCR) {
-            memmove(G(GUEST_SCRATCHPAD + offset), G(memory), bytes);
+            to_scratchpad(&at, madr, qwc);
         } else {
-            memmove(G(memory), G(GUEST_SCRATCHPAD + offset), bytes);
+            from_scratchpad(&at, madr, qwc);
         }
 
         GREF(volatile uint32_t, MADR(address)) = madr + qwc * QUADWORD;

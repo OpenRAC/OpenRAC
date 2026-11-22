@@ -59,6 +59,7 @@
         }
       },
       "signatures": {
+        "func_0038B448": "void (int, int, int, int, int, int, int, int, float, long long, long long)",
         "func_L01_002F8918": "int (int)",
         "func_L01_002F8F60": "int (int, int, int, int, int, int)",
         "func_L01_0044A0E8": "void (unsigned int, int, int, int, int, int, float)",
@@ -343,6 +344,7 @@
         "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
       },
       "signature_allow": {
+        "func_003BBD98__frontbin": "PAL func_003C12A8 (with C there), translated from its assembly on NTSC-U with the C's (int): its first call (0x003B7190, then the TEX0 builder 0x00395EB8, whose opening reads no float register) is given two floats by a prototype widened from declarations (asm.params_from_code), so its liveness reads $f12/$f13 it never sets; the frame draw hands on none",
         "func_001369D0": "a hidden entry inside a function on both discs, with no inventory row (no NTSC-U name): its translation from 0x001369D0 is the tail of the function around it and never sets $f0, while the multiplayer menu's callers (func_L39_0066C540, func_L39_0066C910) read the float the PAL C declares (f32 func_001369D0(f32)); the entry's real code is to be found",
         "func_00392B88": null,
         "func_L01_00410800": null,
@@ -379,7 +381,7 @@
       "func_003B0FF0": "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
       "func_003C5A98": "Clang cannot read it: too many arguments to function call, expected 1, have 3"
     },
-    "asm_signatures_why": "FontPrint (PAL's func_0038EBC8): host/ui2d.c wraps it as a void function, as PAL's prototype has it; NTSC-U's assembly leaves $v0 as a callee's, which hostgen took for a result; the follow camera's stick read (PAL's func_L01_003E92F8, whose C gives PAL its prototype): host/camera_latch.c wraps it with the camera and the two axes' addresses, NTSC-U's copy being assembly here After the rac3-decomp 4e0324fd bump: 93 NTSC-U functions translated from the disc whose newly matched PAL C (status differs here) declared fewer argument registers, or a callee's int result where its caller reads $f0 (or $v0 of a void one): each takes the registers its code reads (hostgen's signature check, the extra ones after the declared parameters) and the result its callers read.",
+    "asm_signatures_why": "func_0038B448 (PAL func_0038B500, the turned glyph quad host/ui2d.c wraps), run from the disc on both discs since its VU0 helpers are inline assembly Clang cannot read: the wrapper's prototype, with its colour and texture words signed. FontPrint (PAL's func_0038EBC8): host/ui2d.c wraps it as a void function, as PAL's prototype has it; NTSC-U's assembly leaves $v0 as a callee's, which hostgen took for a result; the follow camera's stick read (PAL's func_L01_003E92F8, whose C gives PAL its prototype): host/camera_latch.c wraps it with the camera and the two axes' addresses, NTSC-U's copy being assembly here After the rac3-decomp 4e0324fd bump: 93 NTSC-U functions translated from the disc whose newly matched PAL C (status differs here) declared fewer argument registers, or a callee's int result where its caller reads $f0 (or $v0 of a void one): each takes the registers its code reads (hostgen's signature check, the extra ones after the declared parameters) and the result its callers read.",
     "places_in_release": true,
     "places_why": "NTSC-U's own level catalogue, in its own names: every level function is translated from the disc's level programs (no src/levels C yet: its names and its levels' data are PAL's)",
     "call_copies": null,
@@ -391,8 +393,17 @@
       "func_L39_004B6608",
       "func_L39_004CDF00",
       "func_L39_004D89C0",
-      "func_L39_004D8AB0"
-    ]
+      "func_L39_004D8AB0",
+      "func_00387778",
+      "func_003AD9F0",
+      "func_003C0160",
+      "func_00391E78__frontbin"
+    ],
+    "roots": [
+      "func_003932B0__frontbin"
+    ],
+    "roots_why": "func_003932B0__frontbin: NTSC-U's twin of PAL's func_00397B10 (one constant changed, so map.tsv has no pair), whose address func_00391E78 stores; reached only through it.",
+    "from_assembly_why": "func_00387778 (the clip view, PAL func_003877A0), func_003AD9F0 (PAL func_003ADB90), func_003C0160 (PAL func_003C0268): map.tsv's match, but their C reads globals and calls functions config/us/names.tsv places for the front end or not at all (func_00387778's D_001D9A10, D_00334F00 to D_00335D50 and func_0027AB40; func_003C0160's D_001DA348 to D_001DA390 aliases, all moved by +0x30 or +0x80 on NTSC-U), so hostgen made each a stub that does nothing. func_00391E78__frontbin (PAL func_003966D8) stores the address of PAL's func_00397B10, which NTSC-U has as 0x003932B0 with one constant changed (5, not 4). Run from the disc's instructions instead."
   },
   "pairs": {
     "about": "Function pairs taken as they are where map.tsv pairs nothing: PAL's name, NTSC-U's, the evidence.",
@@ -463,6 +474,10 @@
   },
   "addresses": {
     "about": "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence.",
+    "0x001A4D30": {
+      "is": "0x001A4D30",
+      "why": "hero_carried, hero + 0x150: the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes hero_carried at NTSC-U 0x001A4D30"
+    },
     "0x001A50E0": {
       "is": "0x001A50E0",
       "why": "hero_ledge_block, hero + 0x500 (rac3-decomp include/structs/hero.h); the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes the block at NTSC-U 0x001A50E0"
@@ -531,8 +546,27 @@
   "libraries_left_out": {
     "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again"
   },
+  "globals": {
+    "about": "NTSC-U's value of a global of the executable that the C of a match function reads and config/us/names.tsv gives no boot_elf row for (release_rac3.py): PAL's name, NTSC-U's address, the evidence.",
+    "D_00225BC0": {
+      "is": "0x00225C40",
+      "why": "func_003877A0 (NTSC-U func_00387778, match): its four quadword stores of the clip view read addiu 0x5BC0 on PAL and 0x5C40 on NTSC-U, the only other difference its +0x80 neighbours (0x5900 -> 0x5980); names.tsv gives frontbin's D_00225BC0 the same 00225C40"
+    },
+    "D_001D8530": {
+      "is": "0x001D8530",
+      "why": "func_003ADB90 (NTSC-U func_003AD9F0, match): every instruction but its jals is the same on both discs, so D_001D8530 (formed in it) is at the same address; names.tsv gives frontbin's D_001D8530 the same 001D8530"
+    },
+    "D_001D9DD4_003A76A0": {
+      "is": "0x001D9E54",
+      "why": "func_003A76A0 (NTSC-U func_003A7528, match): its read of the table's second word is lw -0x6228 (0x001D9DD8) on PAL and lw -0x61A8 (0x001D9E58) on NTSC-U; names.tsv gives func_003A72A0's alias D_001D9DD4_003A72A0 the same 001D9E54"
+    }
+  },
   "level_addresses": {
     "about": "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
+    "L01:001E2A40": {
+      "is": "001E2AC0",
+      "why": "player 0's game camera (camera_platform_ride's base, +0x50 the current update object): PAL's camera entries 0x001E2AA0 (+0x60) are NTSC-U's 0x001E2B20 (rac3_level_pairs.py, 8 of 8 places), the same +0x80; names.tsv's camera_manager_update keeps the camera's position at NTSC-U 0x001E2AC0, the entry's +0"
+    },
     "L01:002C5600": {
       "is": "002C5640",
       "why": "the item records (0xF0 bytes each, 160 of them): Veldin's program on the NTSC-U disc has PAL's 160 rows at 0x002C5640 (read from both discs' level 1, 2026-11-21: gun byte, next version +0x46, ammo +0x84/+0x8A/+0x8E and name ids the same)"

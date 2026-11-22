@@ -99,9 +99,45 @@ void draw_touch_pad(int window_width, int window_height) {
 
 // The player's device for the labels of the pad's buttons (button_labels.h, interface 1.31): the
 // keyboard and mouse, or the make of the first controller connected (none: the game's own icons).
+namespace {
+int g_prompt_device = -1;
+bool g_mouse_with_gamepad = true;
+}  // namespace
+
+void set_prompt_device(int device) {
+    g_prompt_device = device;
+}
+
+void set_mouse_with_gamepad(bool on) {
+    g_mouse_with_gamepad = on;
+}
+
+void set_gyro_options(const platform::GyroOptions& options) {
+    if (g) {
+        g->input.set_gyro_options(options);
+    }
+}
+
+bool gyro_turn(float& yaw, float& pitch) {
+    yaw = pitch = 0.0f;
+    if (!g || !g->input.gyro_available()) {
+        return false;
+    }
+    yaw = g->input.gyro_yaw();
+    pitch = g->input.gyro_pitch();
+    return true;
+}
+
+void pending_gyro(float& yaw, float& pitch) {
+    yaw = pitch = 0.0f;
+    if (g) {
+        g->input.pending_gyro(yaw, pitch);
+    }
+}
+
 void publish_button_device(bool keyboard_mouse) {
     button_labels::Device device;
-    device.keys = keyboard_mouse;
+    device.keys = g_prompt_device < 0 ? keyboard_mouse : g_prompt_device == 1;
     int count = 0;
     if (SDL_JoystickID* pads = SDL_GetGamepads(&count)) {
         if (count > 0) {
@@ -129,7 +165,8 @@ void publish_button_device(bool keyboard_mouse) {
 
 // The cursor as the mods ask for it, while nothing else has the mouse: captured only with the
 // window focused, the overlay's windows, the menu and the debug menu shut, and the player on the
-// keyboard and mouse (platform/active_device.h): on a gamepad the mouse is left alone.
+// keyboard and mouse (platform/active_device.h), or on a gamepad too while the mouse plays beside
+// it (set_mouse_with_gamepad: a mouse, or a gyro a driver such as Steam Input turns into one).
 void apply_mouse_capture() {
     if (!g || !g->window || g->window->sdl() == nullptr) {
         return;
@@ -138,11 +175,18 @@ void apply_mouse_capture() {
     const bool focused = (SDL_GetWindowFlags(w) & SDL_WINDOW_INPUT_FOCUS) != 0;
     const bool keyboard_mouse = g->input.active_device() == platform::ActiveDevice::KeyboardMouse;
     publish_button_device(keyboard_mouse);
+    // On a gamepad too, where a mouse is connected; never on a phone or tablet, whose touch screen
+    // SDL may report as a mouse.
+#if defined(SDL_PLATFORM_ANDROID) || defined(SDL_PLATFORM_IOS)
+    const bool mouse_beside_pad = false;
+#else
+    const bool mouse_beside_pad = g_mouse_with_gamepad && SDL_HasMouse();
+#endif
     const bool capture =
         focused && !debug_menu::is_open()
         && (debug_overlay::camera_debug_capturing()
-            || (g->capture_wanted && keyboard_mouse && !debug_overlay::free_camera_enabled()
-                && !debug_overlay::wants_cursor()));
+            || (g->capture_wanted && (keyboard_mouse || mouse_beside_pad)
+                && !debug_overlay::free_camera_enabled() && !debug_overlay::wants_cursor()));
     if (SDL_GetWindowRelativeMouseMode(w) != capture) {
         // Captured, the window keeps the cursor as well: no click lands on another window.
         SDL_SetWindowMouseGrab(w, capture);

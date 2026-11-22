@@ -37,7 +37,8 @@
 #include "openrac/guest.h"
 #include "rac3_version.h"
 
-void func_L01_00419188(int item); /* item_give, the loaded level's copy */
+void func_L01_00419188(int item);            /* item_give, the loaded level's copy */
+int func_L01_003E4580(int camera, int move); /* camera_platform_ride, the loaded level's copy */
 
 #define RAC3_LEVELS 54
 #define FRONT_END_MODE RAC3_ADDR(0x001D5B94u)
@@ -58,6 +59,15 @@ void func_L01_00419188(int item); /* item_give, the loaded level's copy */
 #define EQUIPPED_GUN RAC3_ADDR(0x001D4C40u)
 #define ITEMS 0xA0
 #define ITEM_RECORDS OPENRAC_LDATA(1, (gaddr)RAC3_LADDR(1, 0x002C5600u))
+/* Player 0's game camera (camera_manager_update's, 0x460 a player): +0x50 the current mode's update
+ * object, whose +0x30 is last frame's camera and +0x8C its mode (0 the follow camera). */
+#define CAMERA_ENTRY                                                                               \
+    RAC3_LADDR(1, 0x001E2A40u) /* Veldin's; the loaded level's through OPENRAC_LDATA */
+#define CAMERA_OBJECT 0x50u
+#define CAMERA_MODE 0x8Cu
+/* hero_carried: what the hero's platform moved him this frame, a quadword the follow camera's
+ * platform ride takes. */
+#define HERO_CARRIED RAC3_ADDR(0x001A4D30u)
 #define ITEM_RECORD_BYTES 0xF0u
 #define RECORD_AMMO_PRICE 0x84u
 #define RECORD_AMMO_FULL 0x8Eu
@@ -181,12 +191,31 @@ static int hero(float position[3], float rotation[3], int32_t* state) {
     return 1;
 }
 
-/* OPENRAC_TELEPORT. */
+/* OPENRAC_TELEPORT: the hero to xyz, and the follow camera with him, as a platform carries both
+ * (camera_platform_ride, which the follow camera's update calls each frame with the platform's move:
+ * the camera, its look point, follow point and height targets). Left behind, the camera's obstacle
+ * test (camera_end_sphere) ran a line from it to the hero's new place; one over about 1000 units
+ * crosses more than the 256 cells the line query's list holds in the scratchpad, and its next entry
+ * was written at 0x70004000, past the scratchpad's end (where the console faults as well). */
 static int teleport(const float xyz[3]) {
     if (loaded_level() < 0) {
         return 0;
     }
+    float move[4];
+    for (int i = 0; i < 3; ++i) {
+        move[i] = xyz[i] - GREF(float, HERO_POSITION + 4u * (unsigned)i);
+    }
+    move[3] = 0.0f;
     memcpy(G(HERO_POSITION), xyz, 12);
+    const gaddr entry = CAMERA_ENTRY != 0 ? OPENRAC_LDATA(1, (gaddr)CAMERA_ENTRY) : 0;
+    const gaddr camera = entry != 0 ? GREF(gaddr, entry + CAMERA_OBJECT) : 0;
+    if (camera != 0 && HERO_CARRIED != 0 && GREF(int16_t, camera + CAMERA_MODE) == 0) {
+        uint8_t carried[16];
+        memcpy(carried, G(HERO_CARRIED), sizeof carried);
+        memcpy(G(HERO_CARRIED), move, sizeof move);
+        func_L01_003E4580((int)camera, (int)HERO_CARRIED);
+        memcpy(G(HERO_CARRIED), carried, sizeof carried);
+    }
     return 1;
 }
 

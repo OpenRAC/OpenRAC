@@ -3778,6 +3778,86 @@ class FromAssembly(unittest.TestCase):
         }
     """
 
+    # Up Your Arsenal's random_vector: matched as (out), its call of rand_range passes nothing,
+    # and the EE's $f12/$f13 hand rand_range its callers' range. The C function's own code is in
+    # the assembly too, as the disc has every function's.
+    HANDED_ON = {
+        "func_00100000": (0x100000, """
+            add.s $f0, $f12, $f13
+            jr $31
+            nop
+        """),
+        "func_00100100": (0x100100, """
+            addiu $29, $29, -32
+            sd $16, 0($29)
+            sd $31, 8($29)
+            jal func_00100000
+            daddu $16, $4, $0
+            swc1 $f0, 0($16)
+            ld $31, 8($29)
+            ld $16, 0($29)
+            jr $31
+            addiu $29, $29, 32
+        """),
+    }
+    HANDED_ON_C = """
+        INCLUDE_ASM("asm", func_00100000);
+        extern float func_00100000(void);
+        void func_00100100(float *out) { *out = func_00100000(); }
+        int test_main(void) {
+            float v = 0.0f;
+            ((void (*)(float *, float, float))func_00100100)(&v, 2.0f, 3.0f);
+            test_print((int)v);
+            return 0;
+        }
+    """
+
+    def test_signature_check_finds_a_c_definition_that_drops_what_it_hands_on(self):
+        # asm.signature_check over the functions with C (c_argument_drops): func_00100100's code
+        # reads $f12 and $f13 (its call hands them on) that its definition does not name.
+        check = dict(ASM_CONFIG["asm"], signature_check=True)
+        self.run_asm(self.HANDED_ON_C, self.HANDED_ON, symbols={"func_00100000": 0x100000},
+                     config=dict(ASM_CONFIG, asm=check))
+        drops = self.last_report["c_argument_drops"]
+        self.assertEqual(drops["func_00100100"]["reads"], [1, 2])
+        self.assertEqual(drops["func_00100100"]["takes"], [1, 0])
+        self.assertEqual(self.last_report["params_from_code"], [])
+
+    def test_params_from_code_names_what_a_c_definition_hands_on(self):
+        # asm.params_from_code: the definition takes them, and its short call hands them on, as
+        # the EE's registers did (the range reaches rand_range: 2 + 3).
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, params_from_code=True)
+        out = self.run_asm(self.HANDED_ON_C, self.HANDED_ON, symbols={"func_00100000": 0x100000},
+                           config=dict(ASM_CONFIG, asm=fixed))
+        self.assertEqual(out, ["5"])
+        self.assertEqual(self.last_report["params_from_code"], ["func_00100100: 0 integer, 2 float"])
+        self.assertEqual(self.last_report["c_argument_drops"], {})
+        self.assertIn("void func_00100100(gaddr out, float pass_1, float pass_2)", self.last_generated)
+
+    def test_stack_arguments_a_ninth_argument_read_from_the_callers_frame(self):
+        # asm.stack_arguments: the levels' copy of frontbin's func_003910C0 (func_L01_00412C08)
+        # reads a ninth argument from its caller's frame, above its own; declared with eight, its
+        # translation took eight and C callers' ninth never reached it (#719).
+        functions = {"func_00100000": (0x100000, """
+            addiu $29, $29, -16
+            ld $2, 16($29)
+            jr $31
+            addiu $29, $29, 16
+        """)}
+        c = """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int, int, int, int, int, int, int, int);
+            int test_main(void) {
+                test_print(((int (*)(int, int, int, int, int, int, int, int, int))func_00100000)(1, 2, 3, 4, 5, 6, 7, 8, 42));
+                return 0;
+            }
+        """
+        config = {"asm": {**ASM_CONFIG["asm"], "live_arguments": True, "stack_arguments": True}}
+        out = self.run_asm(c, functions, config=config)
+        self.assertEqual(out, ["42"])
+        self.assertIn("func_00100000(int a0, int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8)",
+                      self.last_generated)
+
     def test_signature_check_finds_a_float_result_an_int_signature_drops(self):
         allow = dict(ASM_CONFIG["asm"], signature_check=True,
                      signature_allow={"func_00100100": "the test: the finding itself"})
@@ -3880,6 +3960,34 @@ class FromAssembly(unittest.TestCase):
         fixed = dict(ASM_CONFIG["asm"], signature_check=True, signatures={"func_00100400": "int (int, int)"})
         self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=fixed))
         self.assertEqual(self.last_report["assembly_signature_drops"], {})
+
+    def test_float_parameters_on_calls_hand_on_an_untouched_float(self):
+        # asm.float_parameters_on_calls: NTSC-U's func_L01_00432FE8 takes its help box's four
+        # extents in $f12-$f15 and calls the frame drawer through a code address without touching
+        # them; the call handed the drawer 0.0 for each, as no float register was written.
+        functions = {"func_00100600": (0x100600, """
+            addiu $29, $29, -16
+            sq $31, 0($29)
+            jalr $31, $4
+            nop
+            lq $31, 0($29)
+            jr $31
+            addiu $29, $29, 16
+        """)}
+        c = """
+            INCLUDE_ASM("asm", func_00100600);
+            extern int func_00100600(int (*f)(float, float), float x, float y);
+            int func_00100700(float x, float y) { return (int)(x + y); }
+            int test_main(void) { test_print(func_00100600(func_00100700, 2.5f, 4.5f)); return 0; }
+        """
+        config = {"asm": {**ASM_CONFIG["asm"], "signatures": {"func_00100600": "int (void *, float, float)"}}}
+        symbols = {"func_00100700": 0x100700}
+        self.run_asm(c, functions, symbols, config=config)
+        self.assertIn("(const float[8]){0.0f, 0.0f,", self.last_generated)
+        config["asm"]["float_parameters_on_calls"] = True
+        self.assertEqual(self.run_asm(c, functions, symbols, config=config), ["7"])
+        self.assertIn("(const float[8]){f12, f13,", self.last_generated)
+        self.assertIn("f12 = a1;", self.last_generated)
 
     def test_live_arguments_take_a_parameter_handed_on_to_a_pointer_call(self):
         # asm.live_arguments: the $a1 that func_00100400 hands on to its pointer call (which

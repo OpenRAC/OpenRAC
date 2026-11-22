@@ -93,6 +93,12 @@ static int command_answer(unsigned int command, const uint8_t* data, int bytes) 
         case 0x2E:
             openrac_lib_snd_ContinueVAGStream(WORD(0));
             return 0;
+        case 0x30:
+            /* Up Your Arsenal's music tick (func_003A2120, through func_0013CC70) asks this of each
+             * stream every tick, beside 0x32, and keeps the answer at the stream's +0x14; the fade
+             * between tracks (func_003A2580) takes it from 0x32's first answer and compares it with
+             * a quarter of that, so it is milliseconds left as well. Answered 0, the fade took the
+             * old track as ended at once and cut it off. */
         case 0x32:
             return openrac_stream_remaining_ms((uint32_t)WORD(0));
         case 0x34:
