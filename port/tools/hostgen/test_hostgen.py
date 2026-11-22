@@ -5301,5 +5301,22 @@ class CandidateTableTest(unittest.TestCase):
             self.assertEqual(files["func_00100000"], "f/func_00100000.c")
 
 
+class LevelCopies(unittest.TestCase):
+    """hostgen.json "level_copies": each catalogue row's place in the source level and in each level
+    listed (the multiplayer maps' copies of level 39's functions, rac3-pal/mp)."""
+
+    def test_rows_with_a_source_place_give_a_copy_per_listed_level(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "functions.tsv"
+            path.write_text(
+                "# name\tkind\tsize\tfingerprint\tremnant\tlevels\tplaces\n"
+                "func_L39_005F4690\tshared\t208\tab\t0\t3\t39:005F4690,40:004C6DD8,41:004C8EF0\n"
+                "func_L01_00400000\tshared\t64\tcd\t0\t2\t01:00400000,40:00450000\n"
+                "func_003A8F90\tfrontbin\t188\tef\t0\t2\t39:005FCB98,40:004CF2E0\n")
+            copies = hostgen.read_level_copies(path, 39, {40})
+        self.assertEqual(copies, [(40, 0x004C6DD8, 39, 0x005F4690), (40, 0x004CF2E0, 39, 0x005FCB98)])
+
+
 if __name__ == "__main__":
     unittest.main()

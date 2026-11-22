@@ -27,6 +27,11 @@
 #include "openrac/guest.h"
 #include "rac3_version.h"
 
+/* Shared with the multiplayer maps' copies (mp_maps.c), which pass their own globals. */
+int rac3_sky_draw_shell(int shell, gaddr matrix);
+int rac3_part_proc(gaddr pool_word, gaddr highest_word, gaddr table);
+void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, gaddr list);
+
 /* A global of Veldin's program, in the program loaded now. */
 #define VELDIN(a) OPENRAC_LDATA(1, (gaddr)(a))
 
@@ -159,13 +164,17 @@ int func_L39_005EDE28(void) {
 
 /* SkyDrawShell(shell) (func_002E3940): the window draws the shell with the matrix the sky code
  * built for it. The sky is the world's first pass, so its camera is the world's. */
-int func_L01_004A8158(int shell) {
+int rac3_sky_draw_shell(int shell, gaddr matrix) {
     openrac_game_world_view();
     float m[16];
-    memcpy(m, G(VELDIN(SKY_MATRIX)), sizeof(m));
+    memcpy(m, G(matrix), sizeof(m));
     openrac_game_sky_shell(shell, m);
     openrac_game_draw(OPENRAC_DRAW_SKY);
     return 0;
+}
+
+int func_L01_004A8158(int shell) {
+    return rac3_sky_draw_shell(shell, VELDIN(SKY_MATRIX));
 }
 
 /*
@@ -319,10 +328,9 @@ int func_L01_00440090(int a0, int a1) {
 #define PARTICLE_HIGHEST RAC3_LADDR(1, 0x001E0280u)
 #define PARTICLE_TEXTURES RAC3_LADDR(1, 0x00220A40u)
 
-int func_L01_00461CB8(void) {
-    const gaddr pool = GREF(gaddr, VELDIN(PARTICLE_POOL));
-    const int highest = GREF(int, VELDIN(PARTICLE_HIGHEST));
-    const gaddr table = VELDIN(PARTICLE_TEXTURES);
+int rac3_part_proc(gaddr pool_word, gaddr highest_word, gaddr table) {
+    const gaddr pool = GREF(gaddr, pool_word);
+    const int highest = GREF(int, highest_word);
     if (pool == 0 || pool >= 0x01FE0000u) {
         return 0;
     }
@@ -343,6 +351,12 @@ int func_L01_00461CB8(void) {
         );
     }
     return 0;
+}
+
+int func_L01_00461CB8(void) {
+    return rac3_part_proc(
+        VELDIN(PARTICLE_POOL), VELDIN(PARTICLE_HIGHEST), VELDIN(PARTICLE_TEXTURES)
+    );
 }
 
 /*
@@ -392,7 +406,7 @@ extern unsigned rac3_draw_ordinal;
  * set, a matrix the corners go through first. The window draws it in the world, with the TEST and
  * ZBUF in effect at its marker (rac2/host/render.c's world_quad).
  */
-static void world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, gaddr list) {
+void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, gaddr list) {
     const uint8_t* r = G(record);
     openrac_game_quad q;
     memset(&q, 0, sizeof(q));
@@ -436,7 +450,7 @@ static void world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records,
 }
 
 int func_L01_00407E28(int a0, int a1) {
-    world_quad(
+    rac3_world_quad(
         (gaddr)a0,
         (gaddr)a1,
         VELDIN(TEXTURE_UPLOADS),
@@ -461,7 +475,7 @@ int func_L01_00407E28(int a0, int a1) {
 void func_003D3158(int a0, int a1, int a2, int a3) {
     (void)a2;
     (void)a3;
-    world_quad((gaddr)a0, (gaddr)a1, BOOT_TEXTURE_UPLOADS, BOOT_TEXTURE_RECORDS, BOOT_LIST_POINTER);
+    rac3_world_quad((gaddr)a0, (gaddr)a1, BOOT_TEXTURE_UPLOADS, BOOT_TEXTURE_RECORDS, BOOT_LIST_POINTER);
 }
 
 /* What the console's renderers needed each frame (Going Commando's func_002F0468, 0x002EF310,

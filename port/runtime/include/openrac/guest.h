@@ -401,6 +401,17 @@ int openrac_guest_prepare_level_program(int level);
 int openrac_guest_restore_level_program(int level);
 /* Drops program bytes cached only for the process; the configured source can reload them. */
 void openrac_guest_clear_level_programs(void);
+/* Copies of a level's functions in other levels that the port translated apart (each level at its
+ * own addresses, so no one host function stands for both): `address` in `level` is a copy of
+ * `from_address` in `from`, for the level-to-level pairs (OPENRAC_LDATA(from, ...)) with that level
+ * loaded. hostgen writes them from the catalogue (hostgen.json "level_copies"). */
+typedef struct openrac_level_copy {
+    int32_t level;
+    gaddr address;
+    int32_t from;
+    gaddr from_address;
+} openrac_level_copy;
+void openrac_guest_add_level_copies(const openrac_level_copy* copies, size_t count);
 gaddr openrac_relocate_level_data(int from, gaddr address);
 gaddr openrac_relocate_level_code(int from, gaddr address);
 #define OPENRAC_LDATA(from, a) openrac_relocate_level_data((from), (a))

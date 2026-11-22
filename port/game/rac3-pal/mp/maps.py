@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (c) 2026 the OpenRAC contributors
+"""The multiplayer maps (levels 40 to 53 on PAL) in the multiplayer executable's port: what
+hostgen translates and which of each map's functions the port's host C stands for.
+
+Each map's program is translated from its own instructions at its own addresses, as level 39's (the
+menus) is: its functions are named func_L<map>_<address>. Every map carries a copy of the engine
+that level 39 carries too (rac3-decomp's catalogue, config/levels/functions.tsv, gives each copy's
+place in each level), so the port's host C for a map's copy is level 39's, its globals relocated
+to the map's (OPENRAC_LDATA(39, ...): the runtime pairs level 39's program with the map's through
+the catalogue's places, hostgen.json "level_copies").
+
+This writes, from the catalogue and the level programs' entries:
+- mp/hostgen.json: the maps as "asm" "retail" "levels" and "discover_levels", each map's two
+  entries as roots (main, 0x001932A0, runs the entry and the one 0x484 past it), and the maps for
+  "level_copies";
+- the rows between the markers in mp/libraries.tsv, one per map and function of CARRIED;
+- host/mp_maps.h, one MP_MAP(map, ...) line per map with each CARRIED function's place there, in
+  CARRIED's order (host/mp_maps.c expands it).
+
+    python3 port/game/rac3-pal/mp/maps.py [--source games/rac3/decomp] [--check]
+
+The level programs' entries are read from rac3-decomp's baserom/levels/<NN>_*.elf.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import struct
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[3]
+MAPS = range(40, 54)
+SECOND_ENTRY = 0x484  # main (0x001932A0) calls a map's entry and the routine 0x484 past it
+
+# Level 39's function (its place), the library, the row's name (the map's number follows), the
+# port value, what it is, the host C's signature. host/mp_maps.c gives the host C in this order.
+CARRIED = [
+    ("005FCB98", "dma", "rac3KickVif0ChainMap", "host",
+     "KickVif0Chain (the catalogue's frontbin row func_003A8F90): it polled VIF0's CHCR for ever",
+     "void (unsigned int)"),
+    ("005A9AA0", "wad", "rac3WadDecompressMap", "host", "the WAD decompressor (func_003A0760)",
+     "int (int, int)"),
+    ("0060DFC8", "render", "rac3ScreenGlowCopyMap", "host",
+     "the screen glow's first packet (func_L01_004DE670), left out", "int (void)"),
+    ("0060E048", "render", "rac3ScreenGlowAddMap", "host",
+     "the screen glow's second packet (func_L01_004DE6F0), left out", "int (void)"),
+    ("0060EC68", "render", "rac3ScreenEffect2Map", "host",
+     "the second screen effect (func_L01_004DF310), left out", "int (void)"),
+    ("005F4690", "render", "rac3DrawTfragMap", "host", "DrawTfrag (func_L39_005F4690)", "int (void)"),
+    ("005F61A0", "render", "rac3DrawTiesMap", "host", "the tie pass (func_L39_005F61A0)", "int (void)"),
+    ("005EDE28", "render", "rac3DrawShrubsMap", "host", "the shrub pass (func_L39_005EDE28)",
+     "int (void)"),
+    ("005B25C8", "render", "rac3MobyProcMap", "host", "MobyProc (func_L39_005B25C8)",
+     "int (int, int, int, int)"),
+    ("005B24E8", "render", "rac3MobyDrawSideMap", "host",
+     "MobyAnimProc's draw side (func_L01_00441A98): replaced", "int (int, int)"),
+    ("005B2238", "render", "rac3MobyTexturesMap", "host",
+     "the moby textures' DMA (func_L01_004417E8): nothing to send", "int (int)"),
+    ("005B0AE0", "render", "rac3MobyChainMap", "host",
+     "moby_anim_eval_chain (func_L01_00440090): the port's evaluator", "int (int, int)"),
+    ("005F5720", "render", "rac3TfragLightingMap", "host",
+     "the terrain's vertex lighting (func_L01_004B27B8): the extracted level carries it", "int (int)"),
+    ("005F45F0", "render", "rac3TfragGifsMap", "host",
+     "the terrain's texture packets (func_L01_004B1688): none to patch", "int (void)"),
+    ("005F9F80", "render", "rac3TieColoursMap", "host",
+     "the ties' colours (func_L01_004B6ED0): the extracted level carries them", "int (void)"),
+    ("005F60E0", "render", "rac3TieGifsMap", "host",
+     "the ties' texture packets (func_L01_004B3178): none to patch", "int (void)"),
+    ("005EFA10", "render", "rac3ShrubLightingMap", "host",
+     "the shrubs' lighting (func_L01_004A75E0): the extracted level carries it", "int (void)"),
+    ("005EDD20", "render", "rac3ShrubGifsMap", "host",
+     "the shrubs' texture packets (func_L01_004A58F0): none to patch", "int (void)"),
+    ("005AB950", "render", "rac3MobyGifsMap", "host",
+     "the mobys' texture packets (func_L01_0043AAC0): none to patch", "int (void)"),
+    ("005F0588", "render", "rac3SkyDrawShellMap", "host",
+     "SkyDrawShell (func_L01_004A8158): the shell drawn natively", "int (int)"),
+    ("005C4768", "render", "rac3PartProcMap", "host",
+     "PartProc (func_L01_00461CB8): each live particle to the window", "int (void)"),
+    ("0058D140", "render", "rac3DrawWorldQuadMap", "host",
+     "DrawWorldQuad (func_L01_00407E28): drawn natively", "int (int, int)"),
+]
+
+BEGIN = "# --- the maps' rows: written by mp/maps.py, do not edit by hand ---"
+END = "# --- end of the maps' rows ---"
+
+
+def catalogue(source: Path) -> dict[str, dict[int, str]]:
+    """Level 39's place of each catalogue row -> {level: place} of that row."""
+    out = {}
+    for line in (source / "config/levels/functions.tsv").read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 7:
+            continue
+        places: dict[int, str] = {}
+        for item in cols[6].split(","):
+            level, _, address = item.partition(":")
+            if address and level.isdigit():
+                places.setdefault(int(level), address)
+        if 39 in places:
+            out[places[39]] = places
+    return out
+
+
+def entry(source: Path, level: int) -> int:
+    """The level program's entry, its ELF's e_entry."""
+    path = next((source / "baserom/levels").glob(f"{level:02d}_*.elf"))
+    head = path.read_bytes()[:0x1C]
+    return struct.unpack_from("<I", head, 0x18)[0]
+
+
+def build(source: Path) -> tuple[dict, list[str], list[str]]:
+    rows = catalogue(source)
+    entries, lines, macros = {}, [], []
+    for m in MAPS:
+        entries[m] = entry(source, m)
+        places = []
+        for l39, lib, name, port, what, sig in CARRIED:
+            place = rows.get(l39, {}).get(m)
+            if place is None:
+                raise SystemExit(f"maps.py: level 39's {l39} has no place in map {m} in the catalogue")
+            places.append(place)
+            lines.append(f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what} "
+                         f"(level 39's {l39}; host/mp_maps.c)\t{sig}")
+        macros.append(f"MP_MAP({m}, " + ", ".join(places) + ")")
+    return entries, lines, macros
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--source", type=Path, default=ROOT / "games/rac3/decomp")
+    ap.add_argument("--check", action="store_true", help="fail if a written file would change")
+    args = ap.parse_args()
+    entries, lines, macros = build(args.source)
+
+    cfg_path = HERE / "hostgen.json"
+    cfg = json.loads(cfg_path.read_text())
+    base_roots = [r for r in cfg["roots"] if not r.startswith(tuple(f"func_L{m}_" for m in range(40, 56)))]
+    roots = base_roots[:]
+    for m in MAPS:
+        roots += [f"func_L{m}_{entries[m]:08X}", f"func_L{m}_{entries[m] + SECOND_ENTRY:08X}"]
+    cfg["roots"] = roots
+    levels = [39, *MAPS]
+    cfg["asm"]["discover_levels"] = levels
+    cfg["asm"]["retail"]["levels"] = levels
+    cfg["level_copies"] = {"places": "config/levels/functions.tsv", "from": 39, "levels": list(MAPS)}
+    outputs = {cfg_path: json.dumps(cfg, indent=2) + "\n"}
+
+    lib_path = HERE / "libraries.tsv"
+    text = lib_path.read_text()
+    if BEGIN in text:
+        head, _, rest = text.partition(BEGIN)
+        _, _, tail = rest.partition(END + "\n")
+    else:
+        head, tail = text, ""
+    outputs[lib_path] = head + BEGIN + "\n" + "\n".join(lines) + "\n" + END + "\n" + tail
+
+    header = HERE.parent / "host/mp_maps.h"
+    outputs[header] = (
+        "/* SPDX-License-Identifier: GPL-3.0-or-later\n"
+        " * Copyright (c) 2026 the OpenRAC contributors\n *\n"
+        " * Written by port/game/rac3-pal/mp/maps.py from rac3-decomp's catalogue: do not edit by hand.\n"
+        " * Each multiplayer map's places of the functions mp/maps.py CARRIED lists, in its order. */\n"
+        + "\n".join(macros) + "\n")
+
+    stale = [p for p, t in outputs.items() if not p.is_file() or p.read_text() != t]
+    if args.check:
+        for p in stale:
+            print(f"maps.py: {p.relative_to(ROOT)} is not what mp/maps.py writes", file=sys.stderr)
+        return 1 if stale else 0
+    for p in stale:
+        p.write_text(outputs[p])
+        print(f"wrote {p.relative_to(ROOT)}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

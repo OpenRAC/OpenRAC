@@ -639,6 +639,11 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
         fn += [f"    {{(openrac_host_fn){cname(sym)}, thunk_{k}}}," for k, (sym, _t) in enumerate(thunks)
                if k not in kept]
         fn += ["};", "#endif", ""]
+    copies = getattr(program, "level_copies", [])
+    if copies:
+        fn.append("static const openrac_level_copy k_level_copies[] = {")
+        fn += [f"    {{{lv}, 0x{a:08X}u, {src}, 0x{sa:08X}u}}," for lv, a, src, sa in copies]
+        fn += ["};", ""]
     fn.append(f"void {program_module.NAME_PREFIX}openrac_game_register_functions(void) {{")
     for overlay in sorted(code_tables):
         name = "exe" if overlay < 0 else f"overlay_{overlay:02d}"
@@ -648,6 +653,8 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
     if thunks:
         fn += ["#if OPENRAC_REGS_THUNKS", "    openrac_guest_register_thunks(k_thunks, sizeof k_thunks / sizeof k_thunks[0]);",
                "#endif"]
+    if copies:
+        fn.append("    openrac_guest_add_level_copies(k_level_copies, sizeof k_level_copies / sizeof k_level_copies[0]);")
     fn.append("}")
     _write(out / "functions.c", "\n".join(fn) + "\n")
     return {"stubs": stub_count, "unprototyped": unprototyped,
@@ -1344,6 +1351,27 @@ def new_program(cfg: dict, source: Path) -> Program:
     return program
 
 
+def read_level_copies(path: Path, source: int, levels: set) -> list:
+    """(level, address, source level, its address) for each catalogue row with a place in `source`
+    and in one of `levels` (rac3-decomp's config/levels/functions.tsv: places in the 7th column)."""
+    out = []
+    for line in path.read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 7:
+            continue
+        places = {}
+        for item in cols[6].split(","):
+            if ":" in item:
+                level, address = item.split(":")
+                if level.isdigit():
+                    places.setdefault(int(level), int(address, 16))
+        if source not in places:
+            continue
+        for level in sorted(levels & set(places)):
+            out.append((level, places[level], source, places[source]))
+    return out
+
+
 def configure_program(program: Program, args: argparse.Namespace, cfg: dict, source: Path) -> dict:
     """The places, the host's functions and the hostgen.json lists the lowering reads, set on the
     program. Returns the signatures the port's own versions give (symbol -> text).
@@ -1360,6 +1388,16 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
             program.sizes = {in_release(k): v for k, v in program.sizes.items()}
     if cfg.get("split_places"):
         read_split_places(args.game.parent / cfg["split_places"], program)
+    # hostgen.json "level_copies": {"places": <catalogue>, "from": N, "levels": [...]}: for a program
+    # whose levels are translated each at its own addresses (the multiplayer executable's maps), the
+    # catalogue's places of each row in level N and in the levels listed, handed to the runtime
+    # (openrac_guest_add_level_copies) so that OPENRAC_LDATA(N, ...) pairs level N's functions with
+    # their copies in the loaded level, as it does for a program whose copies share one function.
+    program.level_copies = []
+    if cfg.get("level_copies"):
+        program.level_copies = read_level_copies(source / cfg["level_copies"]["places"],
+                                                 int(cfg["level_copies"]["from"]),
+                                                 {int(x) for x in cfg["level_copies"]["levels"]})
     if cfg.get("folded_wrappers"):
         # hostgen.json "folded_wrappers": a variant_callees.py table (its callers) of the wrappers
         # whose level copies call different functions (asmc.py: their jals follow the running copy),

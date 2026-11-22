@@ -62,12 +62,16 @@ static int32_t word(gaddr at) {
  * level's addresses; the runtime pairs them with the loaded level's by their code (guest.h,
  * OPENRAC_LDATA), from each level's program as the game reads it. Kept as it is read, before
  * 0x0013AFF8 copies it over the boot program. */
-static void keep_level_program(int level) {
-    static uint64_t kept;
+static uint64_t kept;      /* the levels whose program is kept */
+static int range_set;      /* the relocation's $gp and the programs' range are set */
+
+/* A level's program as it was read into the buffer whose address is at `buffer_word` (the boot
+ * program's 0x001D4B50, the multiplayer executable's 0x00240290), kept once. */
+void rac3_program_keep_level(int level, gaddr buffer_word) {
     if (level < 0 || level >= LEVELS || (kept >> level) & 1u) {
         return;
     }
-    const gaddr buffer = (gaddr)word(PROGRAM_BUFFER);
+    const gaddr buffer = (gaddr)word(buffer_word);
     gaddr at = buffer + (gaddr)word(buffer);
     const gaddr entry = (gaddr)word(at + 12u);
     while (at + 16u <= 0x02000000u && (gaddr)word(at + 12u) == entry) {
@@ -81,8 +85,28 @@ static void keep_level_program(int level) {
     kept |= (uint64_t)1 << level;
 }
 
+static void keep_level_program(int level) {
+    rac3_program_keep_level(level, PROGRAM_BUFFER);
+}
+
+/* Another executable replaced memory (LoadExecPS2, exec.c): the level programs kept and the
+ * relocation's settings were the last executable's (openrac_guest_clear_level_programs drops the
+ * programs; this forgets that they were kept). */
+void rac3_program_forget_levels(void) {
+    kept = 0;
+    range_set = 0;
+}
+
+/* The relocation's $gp and the programs' range of an executable, once after each start. */
+void rac3_program_set_range(gaddr gp, gaddr low, gaddr high) {
+    if (!range_set) {
+        range_set = 1;
+        openrac_guest_set_relocation(0, 0, gp, NULL, 0, 0);
+        openrac_guest_set_level_range(low, high);
+    }
+}
+
 gaddr func_0013AFF8(void) {
-    static int range_set;
     if (!range_set) {
         range_set = 1;
         /* Only $gp: a level's small globals are reached from it (the same in every program), and

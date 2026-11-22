@@ -1591,6 +1591,7 @@ struct Chunk {
 void (*g_level_program_source)(int level) = nullptr;
 std::map<int, std::vector<Chunk>> g_level_programs;
 std::map<std::pair<int, int>, LevelMap> g_level_pair_maps;  // (from, loaded)
+std::vector<openrac_level_copy> g_level_copies;  // openrac_guest_add_level_copies
 // The addresses a level's program can name (openrac_guest_set_level_range).
 gaddr g_level_low = 0x0015F000u, g_level_high = 0x00400000u;
 
@@ -1643,6 +1644,16 @@ LevelMap& level_pair_map(int from, int loaded) {
     std::unordered_map<openrac_host_fn, std::vector<gaddr>> copies;
     for (const auto& [address, entry] : *loaded_table) {
         copies[entry.fn].push_back(address);
+    }
+    // The copies the port translated apart, by the source level's function at their source place.
+    for (const openrac_level_copy& c : g_level_copies) {
+        if (c.level != loaded || c.from != from) {
+            continue;
+        }
+        auto own_entry = source->second.find(c.from_address);
+        if (own_entry != source->second.end()) {
+            copies[own_entry->second.fn].push_back(c.address);
+        }
     }
     std::map<gaddr, std::int32_t> pairs;
     pair_programs(
@@ -1926,6 +1937,14 @@ int openrac_guest_restore_level_program(int level) {
 void openrac_guest_clear_level_programs(void) {
     std::scoped_lock hold(g_relocate_lock);
     g_level_programs.clear();
+    g_level_pair_maps.clear();
+    g_level_copies.clear();
+    forget_answers();
+}
+
+void openrac_guest_add_level_copies(const openrac_level_copy* copies, size_t count) {
+    std::scoped_lock hold(g_relocate_lock);
+    g_level_copies.assign(copies, copies + count);
     g_level_pair_maps.clear();
     forget_answers();
 }
