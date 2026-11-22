@@ -485,6 +485,7 @@ void update_prompts(const Tick& t) {
             fonts
         )) {
         s_painter.forget();
+        openrac::frontend::set_prompt_keys(nullptr, 0);
         return;
     }
     kp::Labels labels{};
@@ -500,6 +501,8 @@ void update_prompts(const Tick& t) {
         labels[kp::LeftStick] = kbm::move_label(s_binds);
         labels[kp::RightStick] = "Mouse";
     }
+    // The same keys for the mods' button labels (interface 1.31).
+    openrac::frontend::set_prompt_keys(labels.data(), static_cast<int>(labels.size()));
     s_painter.update(fonts, labels);
 }
 

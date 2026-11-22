@@ -770,7 +770,16 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             return 17;
         }
     }
-    if (behaviour[0] == 'h') { /* hud: draws over the game */
+    if (strcmp(behaviour, "hud-menu") == 0) { /* draws over the level and its menus (1.31) */
+        if (api->on_overlay_phases(mod, on_overlay, &overlay_user, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->on_overlay_phases(mod, on_overlay, &overlay_user, 0x80u) != OPENRAC_HOOK_UNKNOWN
+            || api->on_overlay_phases(mod, NULL, NULL, OPENRAC_OVERLAY_MENU) != OPENRAC_HOOK_UNKNOWN
+            || api->on_overlay_phases(
+                   mod, on_overlay, &overlay_user, OPENRAC_OVERLAY_PLAYING | OPENRAC_OVERLAY_MENU
+               ) != OPENRAC_HOOK_OK) {
+            return 18;
+        }
+    } else if (behaviour[0] == 'h') { /* hud: draws over the game */
         if (api->on_overlay(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE
             || api->on_overlay(mod, on_overlay, &overlay_user) != OPENRAC_HOOK_OK
             || api->play_live_picture(mod, 0) != OPENRAC_HOOK_OK) {

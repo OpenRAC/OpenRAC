@@ -726,9 +726,18 @@ std::string play_notice() {
     return g_notice;
 }
 
-bool overlay_shows_level() {
+std::uint32_t overlay_phase_now() {
     std::int32_t level = -1;
-    return phase_now(&level) == OPENRAC_PLAY_PLAYING;
+    switch (phase_now(&level)) {
+        case OPENRAC_PLAY_PLAYING:
+            return OPENRAC_OVERLAY_PLAYING;
+        case OPENRAC_PLAY_MENU:
+            return OPENRAC_OVERLAY_MENU;
+        case OPENRAC_PLAY_SCENE:
+            return OPENRAC_OVERLAY_SCENE;
+        default:
+            return 0;
+    }
 }
 
 void reset_play() {

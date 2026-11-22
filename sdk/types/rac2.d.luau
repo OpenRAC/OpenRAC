@@ -189,4 +189,6 @@ declare openrac: {
     -- interface 1.15: the mod's own settings set (for the run and in the launcher's list), and its changes heard
     set_setting: (key: string, value: any) -> boolean,
     on_settings: (fn: () -> ()) -> (),
+    -- interface 1.31: a pad button's label (an OPENRAC_PAD_* bit: 0x8000 Square) for the device in use, and its kind
+    button_label: (button: number) -> (string?, ("playstation" | "letters" | "keys")?),
 }
