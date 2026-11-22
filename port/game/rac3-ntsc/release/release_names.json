@@ -1,15 +1,15 @@
 {
  "about": "The NTSC-U view of rac3-decomp: each PAL address name and NTSC-U's name for it, the PAL definitions NTSC-U has other code for, and the values of the names with no address of their own. Written by port/tools/hostgen/release_rac3.py from config/us/map.tsv and config/us/names.tsv; do not edit.",
  "source": {
-  "commit": null,
+  "commit": "70e001abb67f69f32f6fd32aeb7cc32d62687286",
   "version": "us",
   "table": "config/us/map.tsv, config/us/names.tsv"
  },
  "evidence": {
   "function: a second row of one name (the first kept)": 16,
-  "function: asm": 80,
+  "function: asm": 74,
   "function: differs": 202,
-  "function: match": 4469,
+  "function: match": 4474,
   "function: nomatch": 1,
   "function: none": 37,
   "global: placed by hand (release.json)": 3,
@@ -705,7 +705,6 @@
   "func_00135CE0": "func_00135CE0",
   "func_00135CF0": "func_00135CF0",
   "func_00135D00": "func_00135D00",
-  "func_00135D08": "func_00135D08",
   "func_00135D40": "func_00135D40",
   "func_00135D50": "func_00135D50",
   "func_00135DC8": "func_00135DC8",
@@ -9506,22 +9505,43 @@
    "func_003935B0": "func_0038ED78"
   },
   "src/frontbin/393620.c": {
-   "D_00331990": "D_0032D9D0",
+   "D_00331AE0": "D_0032DB20",
+   "func_00392F68": "func_0038E730",
+   "func_00393538": "func_0038ED00",
+   "func_00393620": "func_0038EDE8"
+  },
+  "src/frontbin/393690.c": {
    "D_00331AE0": "D_0032DB20",
    "D_00332230": "D_0032E270",
    "D_00332290": "D_0032E2D0",
    "func_00392F68": "func_0038E730",
    "func_00393538": "func_0038ED00",
-   "func_00393620": "func_0038EDE8",
-   "func_00393690": "func_0038EE58",
+   "func_00393690": "func_0038EE58"
+  },
+  "src/frontbin/393808.c": {
+   "D_00331AE0": "D_0032DB20",
+   "func_00392F68": "func_0038E730",
+   "func_00393538": "func_0038ED00",
    "func_00393808": "func_0038EFD0",
    "func_003938F8": "func_0038F0C0",
    "func_00393928": "func_0038F0F0",
    "func_00393930": "func_0038F0F8",
    "func_00393AF0": "func_0038F2A8",
-   "func_00393B58": "func_0038F310",
-   "func_00393BE8": "func_0038F3A0",
    "func_003963D0": "func_00391B70"
+  },
+  "src/frontbin/393B58.c": {
+   "D_00331990": "D_0032D9D0",
+   "D_00331AE0": "D_0032DB20",
+   "func_00392F68": "func_0038E730",
+   "func_00393538": "func_0038ED00",
+   "func_00393B58": "func_0038F310"
+  },
+  "src/frontbin/393BE8.c": {
+   "D_00331AE0": "D_0032DB20",
+   "func_00392F68": "func_0038E730",
+   "func_00393538": "func_0038ED00",
+   "func_00393B58": "func_0038F310",
+   "func_00393BE8": "func_0038F3A0"
   },
   "src/frontbin/393C40.c": {
    "D_0031D050": "D_00319090",
