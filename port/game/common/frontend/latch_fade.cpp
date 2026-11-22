@@ -71,4 +71,13 @@ float LatchFade::frame_known(float target, float expected, bool continues, doubl
     return target + m_carry;
 }
 
+bool MouseHold::frame(bool turns, bool moved, double since) {
+    if (!turns) {
+        m_still = kRestSeconds;
+        return false;
+    }
+    m_still = moved ? 0.0 : m_still + (since > 0.0 ? since : 0.0);
+    return m_still < kRestSeconds;
+}
+
 }  // namespace openrac::frontend

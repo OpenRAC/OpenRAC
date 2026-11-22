@@ -19,6 +19,8 @@
 // at the same tick either way, only the picture shows it sooner.
 // The mouse's own motion is never eased: at a new tick only what the game turned besides it fades
 // (LatchFade::frame_known), so a quick flick shows at once, as the plain interpolated camera did.
+// The mouse has the picture only while it moves and a moment after (MouseHold): a still mouse
+// beside a gamepad leaves the stick's frames as they were without the keyboard and mouse.
 //
 // When a tick comes the game's real camera takes over from the guess. A guess that was right goes
 // on without a step; whatever it missed by (a wall the camera met, a stick that moved between the
@@ -72,6 +74,7 @@ struct Latch {
     float mouse_kept = 0.0f;               // the last frame's kept camera heading
     bool mouse_last = false;               // the last frame was turned by the mouse
     std::uint64_t mouse_tick = 0;          // the kept tick of that frame
+    MouseHold mouse_hold;                  // whether the mouse has the picture now
     // OPENRAC_CAMERA_LATCH_LOG: the turn the last tick's frames guessed for one tick, to compare.
     float guessed_tick = 0.0f;
     bool has_guess = false;
@@ -209,7 +212,15 @@ CameraTurn latch_camera(
     const float kept_heading = heading(scene.state.forward);
     const float last_kept = latch.mouse_kept;
     latch.mouse_kept = kept_heading;
-    const bool mouse_on = interpolating() && mouse_turns && std::abs(mouse.up[2]) > 0.9f
+    // Only while the mouse moves, or did just now: a still mouse beside a gamepad must not take the
+    // picture from the stick's latch when the stick comes back to rest.
+    const bool moved = mouse.yaw != 0.0f || mouse.pitch != 0.0f || mouse.tick_yaw != 0.0f;
+    const double since_shown =
+        latch.has_shown
+            ? std::max(std::chrono::duration<double>(display - latch.shown).count(), 0.0)
+            : 0.0;
+    const bool held = latch.mouse_hold.frame(mouse_turns, moved, since_shown);
+    const bool mouse_on = interpolating() && held && std::abs(mouse.up[2]) > 0.9f
                           && (mouse.first_person || latch.has_hero);
     // The last frame was the mouse's too, at most a few ticks ago: the move since is known.
     const bool continues = latch.mouse_last && scene.frame >= latch.mouse_tick
