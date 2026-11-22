@@ -803,7 +803,11 @@ an effect, a copy) from the spare slots its level's file sets (200 to 400; Barlo
 with none free is lost; NG++'s copies of Barlow's enemies alone take 79. The port raises the count
 as the level's gameplay file is decompressed (port/game/rac2/host/moby_pool.c), the way Ratchet &
 Clank's bigger pool does. Ask in `load()` (the C++ layer's `has_moby_pool()`, `moby_pool_raise()`,
-`moby_pool_status()`).
+`moby_pool_status()`). A level gets what fits below the data the game keeps at the top of RAM for
+every level (the ship's class first): its first load runs without the raise to measure it, then again
+with what fits (Smolg 431 slots, Barlow 549, Boldan 727 on NTSC-U v1.01, the others the whole
+request). Before, a raise past that room laid the level's lists over the ship's class and crashed in
+its cockpit glass or the level's load.
 
 1.28 (SDK 1.28.0) a row's look in a mod's tab (`developer_menu_look`): a row to read, not to press,
 a locked one drawn dim, text at its right ("Earned", "24/40"), a progress bar under its label and an
