@@ -60,6 +60,7 @@ add_library(openrac_platform STATIC
   platform/clock.cpp
   platform/controls_file.cpp
   platform/gpu_driver.cpp
+  platform/gyro.cpp
   platform/input.cpp
   platform/menu_chord.cpp
   platform/pad.cpp
@@ -91,6 +92,10 @@ openrac_add_test(rumble SOURCES tests/rumble_test.cpp INCLUDES . LIBS openrac_pl
 openrac_add_test(menu_chord SOURCES tests/menu_chord_test.cpp INCLUDES . LIBS openrac_platform)
 # Which device the player uses now, the gamepad or the keyboard and mouse (platform/active_device.h).
 openrac_add_test(active_device INCLUDES . LIBS openrac_platform)
+# Gyro aiming: the sensor's turn into the camera's (platform/gyro.h).
+openrac_add_test(gyro INCLUDES . LIBS openrac_platform)
+# Gyro aiming as the input reads it from SDL's virtual gamepads (platform/input.h).
+openrac_add_test(input_gyro SOURCES tests/input_gyro_test.cpp INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp
@@ -730,11 +735,13 @@ openrac_add_test(keyboard_mouse_logic INCLUDES . game/rac1/keyboard_mouse ../sdk
 openrac_add_test(keyboard_mouse_load
                  SOURCES tests/keyboard_mouse_load_test.cpp game/rac1/keyboard_mouse/keyboard_mouse.cpp
                          game/common/key_prompts.cpp renderer/textures/sharp_cells.cpp
+                         platform/gyro.cpp
                  INCLUDES . game/rac1/keyboard_mouse ../sdk/include)
 # Going Commando's built-in keyboard and mouse, loaded against a host table of the test's own.
 openrac_add_test(keyboard_mouse_rac2
                  SOURCES tests/keyboard_mouse_rac2_test.cpp game/rac2/keyboard_mouse/keyboard_mouse.cpp
                          game/common/key_prompts.cpp renderer/textures/sharp_cells.cpp
+                         platform/gyro.cpp
                  INCLUDES . ../sdk/include game/common/include runtime/include)
 # The keys painted over the game's button icons (game/common/key_prompts.h) and their labels.
 openrac_add_test(key_prompts SOURCES tests/key_prompts_test.cpp game/common/key_prompts.cpp
