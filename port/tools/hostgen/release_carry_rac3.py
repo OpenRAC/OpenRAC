@@ -243,7 +243,12 @@ class MpNames:
                 return row["is"] + tail if row.get("is") else None
             return f"func_L39_{new:08X}{tail}"
         if level and int(level[1:]) > 39:
-            new = self.levels.get(int(level[1:]), {}).get(int(address, 16))
+            places = self.levels.get(int(level[1:]), {})
+            new = places.get(int(address, 16))
+            if new is None and int(address, 16) - 0x484 in places:
+                # A map's second entry (rac3-pal/mp/maps.py), inside the catalogue's row of its
+                # entry: the same distance past NTSC-U's entry.
+                new = places[int(address, 16) - 0x484] + 0x484
             return f"func_{level}_{new:08X}{tail}" if new is not None else None
         if level:
             return None

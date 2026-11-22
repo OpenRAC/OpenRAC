@@ -813,7 +813,13 @@ def starts_of(program) -> dict[int, dict[int, str]]:
         i = bisect.bisect_right(spans, (addr, 0xFFFFFFFF)) - 1
         return i >= 0 and spans[i][0] < addr < spans[i][1]
 
+    # hostgen.json "inner_entries": second entries of a routine (Up Your Arsenal's multiplayer maps'
+    # entry + 0x484, which main calls through a pointer): translated from their own address, but no
+    # start that cuts the routine around them in two (its jump table's labels lie on both sides).
+    inner = set(getattr(program, "inner_entries", ()))
     for sym in sorted(program.functions):
+        if sym in inner:
+            continue
         m = short.match(sym) if short is not None else None
         level_only = m is not None and len(sym) == len("func_") + 6
         f = program.functions[sym] if extents else None

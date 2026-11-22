@@ -1510,6 +1510,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # local names): lower.py keeps them 32-bit.
     program.spilled_locals = {sym: list(names) for sym, names in cfg.get("spilled_locals", {}).items()}
     program.entries = {sym: int(str(off), 0) for sym, off in cfg.get("entries", {}).items()}
+    program.inner_entries = set(cfg.get("inner_entries", []))
     # Stubs of the executable that every level program fills with a function of its own.
     program.level_hooks = set(cfg.get("level_hooks", []))
     program.level_hooks_by_registers = cfg.get("level_hooks_by_registers", False)
