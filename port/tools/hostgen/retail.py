@@ -784,13 +784,40 @@ def starts_of(program) -> dict[int, dict[int, str]]:
     inside -= set(extents)
     short = getattr(program, "level_short_names", None)
     starts = getattr(program, "executable_starts", set())
+    # hostgen.json "level_extents": a level place strictly inside a function the catalogue places
+    # and sizes there is no start for a name the C only declares. Up Your Arsenal's
+    # func_L03_0044DC88 (left out for its assembly) declares func_L01_003242C8, rac2's name for
+    # another routine, which fell 0x128 bytes into func_L01_003241A0: cut there, that function's
+    # state switch kept one of its eleven cases, and every other state returned at once.
+    extents: dict[int, list[tuple[int, int]]] = {}
+    if getattr(program, "level_extents", False):
+        sizes = getattr(program, "sizes", {})
+        for name, places in getattr(program, "places", {}).items():
+            size = sizes.get(name, 0)
+            for ov, addr in places if size > 4 else ():
+                extents.setdefault(ov, []).append((addr, addr + size))
+        for ov in extents:
+            extents[ov].sort()
+    catalogued = {p for ps in getattr(program, "places", {}).values() for p in ps} if extents else set()
+
+    def inside_level(ov: int, addr: int) -> bool:
+        spans = extents.get(ov)
+        if not spans or (ov, addr) in catalogued:
+            return False
+        i = bisect.bisect_right(spans, (addr, 0xFFFFFFFF)) - 1
+        return i >= 0 and spans[i][0] < addr < spans[i][1]
+
     for sym in sorted(program.functions):
         m = short.match(sym) if short is not None else None
         level_only = m is not None and len(sym) == len("func_") + 6
+        f = program.functions[sym] if extents else None
+        declared_only = f is not None and f.unit is None and sym not in getattr(program, "host", ())
         for ov, addr in program.code_places(sym):
             if level_only and ov < 0 and addr not in starts:
                 continue
             if ov < 0 and addr in inside:
+                continue
+            if ov >= 0 and declared_only and inside_level(ov, addr):
                 continue
             have = out.setdefault(ov, {}).get(addr)
             if have is None or (program.functions.get(have) is not None and program.functions[have].unit is None
