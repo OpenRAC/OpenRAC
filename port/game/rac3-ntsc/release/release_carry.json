@@ -123,7 +123,8 @@
   }
  },
  "left_out": {
-  "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again"
+  "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again",
+  "mp:func_L39_0067A7E0": "no NTSC-U pair (release/mp_pairs.json)"
  },
  "addresses_not_found": [],
  "hand_addresses": {
@@ -432,6 +433,9 @@
   "func_003F0D38",
   "func_003F0D48",
   "func_003F0D58"
+ ],
+ "mp_not_paired": [
+  "mp_func_L39_0067A7E0"
  ],
  "unwrapped": {}
 }
