@@ -1511,6 +1511,24 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.spilled_locals = {sym: list(names) for sym, names in cfg.get("spilled_locals", {}).items()}
     program.entries = {sym: int(str(off), 0) for sym, off in cfg.get("entries", {}).items()}
     program.inner_entries = set(cfg.get("inner_entries", []))
+    # hostgen.json "inner_extents": {"places": <catalogue>, "levels": [...]}: each catalogue row's
+    # span (its place and size) in those levels, inside which no address starts a function
+    # (retail.starts_of): a second executable's levels whose functions the catalogue sizes but no
+    # C names (rac3's multiplayer maps).
+    program.inner_extents = {}
+    if cfg.get("inner_extents"):
+        wanted = {int(n) for n in cfg["inner_extents"]["levels"]}
+        for line in (source / cfg["inner_extents"]["places"]).read_text().splitlines():
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 7 or not cols[2].isdigit() or int(cols[2]) <= 4:
+                continue
+            for item in cols[6].split(","):
+                level, _, address = item.partition(":")
+                if address and level.isdigit() and int(level) in wanted:
+                    start = int(address, 16)
+                    program.inner_extents.setdefault(int(level), []).append((start, start + int(cols[2])))
+        for spans in program.inner_extents.values():
+            spans.sort()
     # Stubs of the executable that every level program fills with a function of its own.
     program.level_hooks = set(cfg.get("level_hooks", []))
     program.level_hooks_by_registers = cfg.get("level_hooks_by_registers", False)

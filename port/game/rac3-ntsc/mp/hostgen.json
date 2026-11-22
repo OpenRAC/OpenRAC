@@ -26,7 +26,7 @@
   "symbols": [],
   "libraries": "libraries.tsv",
   "level_copies": {
-    "places": "config/levels/functions.tsv",
+    "places": "config/us/levels/functions.tsv",
     "from": 39,
     "levels": [
       40,
@@ -2055,6 +2055,25 @@
     "func_L52_0044B70C",
     "func_L53_0044934C"
   ],
+  "inner_extents": {
+    "places": "config/us/levels/functions.tsv",
+    "levels": [
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53
+    ]
+  },
   "host_shared": [
     "../../rac3-pal/host"
   ]

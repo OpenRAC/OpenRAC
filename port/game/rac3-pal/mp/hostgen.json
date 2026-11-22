@@ -2081,5 +2081,24 @@
     "func_L51_004555CC",
     "func_L52_0044C3CC",
     "func_L53_00449F8C"
-  ]
+  ],
+  "inner_extents": {
+    "places": "config/levels/functions.tsv",
+    "levels": [
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53
+    ]
+  }
 }

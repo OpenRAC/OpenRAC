@@ -237,6 +237,7 @@ def main() -> int:
         inner.append(f"func_L{m}_{entries[m] + SECOND_ENTRY:08X}")
     cfg["roots"] = roots
     cfg["inner_entries"] = inner
+    cfg["inner_extents"] = {"places": "config/levels/functions.tsv", "levels": list(MAPS)}
     levels = [39, *MAPS]
     cfg["asm"]["discover_levels"] = levels
     cfg["asm"]["retail"]["levels"] = levels

@@ -871,7 +871,13 @@
       2366336,
       7340032
     ],
-    "relocate_why": "the programs' range from level 39's .lit, NTSC-U's 0x00241B80 (its level ELF; PAL's .lit starts at 0x00241A00, the boot program's rule: the first loaded program's .lit), up to 0x00700000 as PAL's"
+    "relocate_why": "the programs' range from level 39's .lit, NTSC-U's 0x00241B80 (its level ELF; PAL's .lit starts at 0x00241A00, the boot program's rule: the first loaded program's .lit), up to 0x00700000 as PAL's",
+    "inner_extents": {
+      "places": "config/us/levels/functions.tsv"
+    },
+    "level_copies": {
+      "places": "config/us/levels/functions.tsv"
+    }
   },
   "mp_addresses": {
     "about": "NTSC-U's address of a multiplayer executable global the host C writes as RAC3_MADDR(address) that rac3_mp_pairs.py does not pair: PAL's address, NTSC-U's, why.",

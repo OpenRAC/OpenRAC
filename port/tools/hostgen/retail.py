@@ -817,6 +817,18 @@ def starts_of(program) -> dict[int, dict[int, str]]:
     # entry + 0x484, which main calls through a pointer): translated from their own address, but no
     # start that cuts the routine around them in two (its jump table's labels lie on both sides).
     inner = set(getattr(program, "inner_entries", ()))
+    # hostgen.json "inner_extents": the catalogue's functions in levels it has no C for (the
+    # multiplayer maps'): an address strictly inside one is a second entry or a label of it, never a
+    # start (map 40's entry, func_L39_00575CC8's copy, has labels past 0x00442A4C and 0x00442D00).
+    spans_of = getattr(program, "inner_extents", {}) or {}
+
+    def inside_span(ov: int, addr: int) -> bool:
+        spans = spans_of.get(ov)
+        if not spans:
+            return False
+        i = bisect.bisect_right(spans, (addr, 0xFFFFFFFF)) - 1
+        return i >= 0 and spans[i][0] < addr < spans[i][1]
+
     for sym in sorted(program.functions):
         if sym in inner:
             continue
@@ -830,6 +842,8 @@ def starts_of(program) -> dict[int, dict[int, str]]:
             if ov < 0 and addr in inside:
                 continue
             if ov >= 0 and declared_only and inside_level(ov, addr):
+                continue
+            if ov >= 0 and inside_span(ov, addr):
                 continue
             have = out.setdefault(ov, {}).get(addr)
             if have is None or (program.functions.get(have) is not None and program.functions[have].unit is None
