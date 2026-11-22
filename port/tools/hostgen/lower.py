@@ -2439,7 +2439,17 @@ class Unit:
                 # ref_L02_00385E18_00, level 2's 0x001B3DB0; read as level 0's it was another word
                 # in every level, fade_get_value saw 0 and the shield went at once.
                 derived = DERIVED_REF.fullmatch(symbol or "")
-                addr = f"OPENRAC_LDATA({int(derived.group(1)) if derived else level}, {addr})"
+                from_level = int(derived.group(1)) if derived else level
+                if (not derived and named and int(named.group(1)) != level
+                        and int(named.group(2), 16) == address
+                        and any(o == int(named.group(1)) for o, _ in self.program.code_places(self.fn.code))):
+                    # A level function matched from another level's copy says that level's name for
+                    # the datum: that level's address, as the level loaded has it. Up Your
+                    # Arsenal's func_L13_003ABD48 names the path table D_L16_0021ED00, which level 13
+                    # has at 0x0021D540; read as level 13's 0x0021ED00, its walkers took a path
+                    # pointer from other data and faulted in levels 13, 16 and 22.
+                    from_level = int(named.group(1))
+                addr = f"OPENRAC_LDATA({from_level}, {addr})"
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
             addr = f"OPENRAC_TARGET_TABLE({addr})"
         return addr

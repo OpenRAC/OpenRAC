@@ -2534,6 +2534,33 @@ class Places(unittest.TestCase):
             self.assertNotIn("OPENRAC_LDATA(0, 0x001B3DB0u)", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_another_levels_data_name_is_that_levels_address(self):
+        # Up Your Arsenal's func_L13_003ABD48 was matched from level 16's copy and names the path
+        # table D_L16_0021ED00, which level 13 has at 0x0021D540. Read as level 13's 0x0021ED00,
+        # the walkers took a path pointer from other data and faulted in levels 13, 16 and 22.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L13_003ABD48.c").write_text(
+                "extern int *D_L16_0021ED00[];\n"
+                "int *func_L13_003ABD48(int i) { return D_L16_0021ED00[i]; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L13_003ABD48\tshared\t40\tfingerprint\t2\t13:003ABD48,16:003D8058\n")
+            (root / "names.json").write_text(json.dumps({"values": {"D_L16_0021ED00": "0x0021ed00"}}))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1D5680, 0x700000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L13_003ABD48.c").read_text()
+            self.assertIn("OPENRAC_LDATA(16, 0x0021ED00u)", text)
+            self.assertNotIn("OPENRAC_LDATA(13, 0x0021ED00u)", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_level_datums_second_name_is_its_own_address(self):
         # Going Commando PAL's blast_clear_state clears D_L00_001B060C_1, the Mini-Nuke's blast
         # pointer. The release table leaves it out where it did not move; read as the executable's
