@@ -7,7 +7,7 @@ It works the same with either disc the game can be set up from.
 
 Going Commando plays a pack's sounds too: its speech can be spoken again in the
 characters' own voices by an AI voice model, in OpenRAC Editor's Voices dock,
-which makes the pack (Play with your edits plays it). Its video scenes cannot
+which makes the pack (the game plays it with mods on). Its video scenes cannot
 be changed.
 
 Nothing here changes your disc image, and nothing you export may be shared: it

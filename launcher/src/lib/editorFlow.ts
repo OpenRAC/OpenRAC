@@ -4,7 +4,7 @@
 // running, so that every state can be tested without a window.
 //
 //   no disc → no OpenRAC Editor → no levels yet → reading them → ready to edit → changes to pack → packing
-//   → packed, ready to play;  and, whenever the core finds it, needs an update / files missing.
+//   → packed;  and, whenever the core finds it, needs an update / files missing.
 import type { Carried, EditorState, OutdatedReason } from "./api";
 import { levelName } from "./labels";
 import type { Job } from "./queue";
@@ -27,15 +27,7 @@ export type StageKind =
 
 /** What a button of the panel does. */
 export type Step =
-  | "set-up"
-  | "get-editor"
-  | "choose-editor"
-  | "prepare"
-  | "open"
-  | "update"
-  | "repair"
-  | "pack"
-  | "play";
+  "set-up" | "get-editor" | "choose-editor" | "prepare" | "open" | "update" | "repair" | "pack";
 
 export interface Stage {
   kind: StageKind;
@@ -58,7 +50,7 @@ export interface FlowInput {
   lacksEditor: string | null;
   /** OpenRAC Editor is there but brings no steps for this version. */
   unsupported?: boolean;
-  /** The game's levels are not packed back yet (early access): no pack or play steps. */
+  /** The game's levels are not packed back yet (early access): no pack step. */
   early: boolean;
   extracting: Job | null;
   packing: Job | null;
@@ -74,7 +66,6 @@ export const STEP_LABEL: Record<Step, string> = {
   update: "Update project",
   repair: "Repair",
   pack: "Pack your changes",
-  play: "Play with your edits",
 };
 
 /** Level names in a sentence: "Veldin, Novalis and 3 more". */
@@ -285,12 +276,11 @@ export function editorStage(input: FlowInput): Stage {
       kind: "packed",
       tone: "ok",
       title: "Your changes are packed",
-      line: `${plural(state.packedLevels, "level")} changed. Play with your edits starts the game with them; you can turn them off again in Mods, under Play.`,
+      line: `${plural(state.packedLevels, "level")} changed. The game plays them when mods are on; turn them off in Mods, under Play.`,
       detail: state.packedExpandedLevels.length
         ? `${state.packedExpandedLevels.length === 1 ? "One level uses" : `${state.packedExpandedLevels.length} levels use`} streams larger than the original disc slots. The disc stays unchanged, and OpenRAC gives these streams a 256 MiB RAM arena. RAC1's own object-table and level-format limits still apply.`
         : undefined,
-      primary: "play",
-      secondary: ["open"],
+      primary: "open",
     };
   }
 
@@ -365,8 +355,9 @@ export const LEVEL_TOOL_TEXT = {
 } as const;
 
 /** The panel's own rows, before the resets (repair the game's levels, delete): Add a level as a
- *  new planet where the editor offers it, Rebuild your level projects wherever levels have been
- *  read. Packing is the panel's main step, so it has no row of its own. */
+ *  new planet wherever OpenRAC Editor offers planets for this game (on another disc it stays in
+ *  view and says why it waits, see planetBlocker), Rebuild your level projects wherever levels have
+ *  been read. Packing is the panel's main step, so it has no row of its own. */
 export function levelTools(
   state: EditorState | null,
   early: boolean,
@@ -376,10 +367,41 @@ export function levelTools(
   const project = (state?.levels.length ?? 0) > 0;
   const tools: LevelTool[] = [];
 
-  if (project && !early && planet && discFound) tools.push("new-planet");
+  if (planet && !early) tools.push("new-planet");
   if (project && discFound) tools.push("export-again");
 
   return tools;
+}
+
+/** What Add a level as a new planet needs first, in a sentence, or null when it can run. */
+export function planetBlocker(input: {
+  /** This disc's version has the step (OpenRAC Editor brings it per version). */
+  here: boolean;
+  /** The discs that have it, by market ("Europe"), when this one does not. */
+  discs: string[];
+  lacksEditor: string | null;
+  discFound: boolean;
+  project: boolean;
+}): string | null {
+  if (!input.here) {
+    return input.discs.length
+      ? `New planets work with the ${input.discs.join(" or ")} disc for now.`
+      : "New planets do not work with this disc yet.";
+  }
+
+  if (input.lacksEditor !== null) {
+    return input.lacksEditor || "Download OpenRAC Editor first.";
+  }
+
+  if (!input.discFound) return "Set the game up from your disc first.";
+  if (!input.project) return "Open a level in OpenRAC Editor first.";
+
+  return null;
+}
+
+/** A disc's market from its region in game.json: "PAL (Europe)" → "Europe". */
+export function discMarket(region: string): string {
+  return /\(([^)]+)\)/.exec(region)?.[1] ?? region;
 }
 
 /** The export-again confirmation: what is replaced, and what is kept. */

@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { EditorState } from "./api";
 import {
+  discMarket,
   editorStage,
   type FlowInput,
   levelList,
   levelTools,
+  planetBlocker,
   updateNote,
   updateNoteLine,
 } from "./editorFlow";
@@ -65,7 +67,8 @@ describe("editorStage", () => {
     expect(editorStage(input({ packing: job("editor-pack") })).kind).toBe("packing");
     const packed = editorStage(input({ state: state({ packedAt: 1, packedLevels: 2 }) }));
 
-    expect([packed.kind, packed.primary]).toEqual(["packed", "play"]);
+    expect([packed.kind, packed.primary]).toEqual(["packed", "open"]);
+    expect(packed.line).not.toContain("Play with your edits");
     const expanded = editorStage(
       input({ state: state({ packedAt: 1, packedLevels: 2, packedExpandedLevels: [0, 3] }) }),
     );
@@ -183,7 +186,22 @@ describe("Your levels", () => {
     expect(levelTools(state(), false, true, true)).toEqual(["new-planet", "export-again"]);
     // Early access: no planets yet; no disc: nothing to rebuild from.
     expect(levelTools(state(), true, true, true)).toEqual(["export-again"]);
-    expect(levelTools(state(), false, false, true)).toEqual([]);
+    // The planet row stays in view before levels are read and without the disc (it says why).
+    expect(levelTools(state({ levels: [] }), false, true, true)).toEqual(["new-planet"]);
+    expect(levelTools(state(), false, false, true)).toEqual(["new-planet"]);
+  });
+
+  it("says why a new planet cannot be added yet", () => {
+    const ok = { here: true, discs: [], lacksEditor: null, discFound: true, project: true };
+
+    expect(planetBlocker(ok)).toBeNull();
+    expect(planetBlocker({ ...ok, here: false, discs: ["Europe"] })).toBe(
+      "New planets work with the Europe disc for now.",
+    );
+    expect(planetBlocker({ ...ok, lacksEditor: "" })).toBe("Download OpenRAC Editor first.");
+    expect(planetBlocker({ ...ok, discFound: false })).toMatch(/disc first/);
+    expect(planetBlocker({ ...ok, project: false })).toMatch(/Open a level/);
+    expect(discMarket("PAL (Europe)")).toBe("Europe");
   });
 
   it("says a rebuild while it runs", () => {

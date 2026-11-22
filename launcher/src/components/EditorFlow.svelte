@@ -18,10 +18,10 @@
     jobs,
     run,
     runChain,
-    saveConfig,
     toast,
   } from "$lib/app.svelte";
   import {
+    discMarket,
     editorStage,
     LEVEL_TOOL_TEXT,
     LEVELS_SECTION,
@@ -29,6 +29,7 @@
     levelTools,
     OPEN_ANYWAY,
     OPEN_ANYWAY_HINT,
+    planetBlocker,
     type Step,
     STEP_LABEL,
     updateNote,
@@ -266,13 +267,6 @@
         if (pack) await run(scope, pack);
 
         return;
-      case "play":
-        if (!app.config) return;
-        if (!app.config.playWithMods) await saveConfig({ ...app.config, playWithMods: true });
-        app.version = version.key;
-        app.page = "game";
-
-        return;
       case "start-over":
         levelsHeading?.scrollIntoView({ behavior: "smooth", block: "start" });
         levelsHeading?.focus({ preventScroll: true });
@@ -318,18 +312,16 @@
     return false;
   };
 
-  const ICON: Record<Step, "disc" | "download" | "folder" | "edit" | "refresh" | "save" | "play"> =
-    {
-      "set-up": "disc",
-      "get-editor": "download",
-      "choose-editor": "folder",
-      prepare: "edit",
-      open: "edit",
-      update: "refresh",
-      repair: "refresh",
-      pack: "save",
-      play: "play",
-    };
+  const ICON: Record<Step, "disc" | "download" | "folder" | "edit" | "refresh" | "save"> = {
+    "set-up": "disc",
+    "get-editor": "download",
+    "choose-editor": "folder",
+    prepare: "edit",
+    open: "edit",
+    update: "refresh",
+    repair: "refresh",
+    pack: "save",
+  };
 
   const picksLevel = (step: Step) => step === "open" || step === "prepare";
   const steps = $derived([...(stage.primary ? [stage.primary] : []), ...stage.secondary]);
@@ -348,8 +340,24 @@
 
   let levelsHeading = $state<HTMLHeadingElement | null>(null);
   let resets = $state<ReturnType<typeof EditorReset> | null>(null);
+  /** The discs of this game OpenRAC Editor makes planets for: the row stays in view on the others
+   *  and says which disc it needs, so that it never just disappears. */
+  const planetDiscs = $derived(
+    game.versions.filter((v) =>
+      v.actions.some((a) => a.id === "editor-new-planet" && a.thisPlatform),
+    ),
+  );
+  const planetWhy = $derived(
+    planetBlocker({
+      here: !!newPlanet,
+      discs: [...new Set(planetDiscs.map((v) => discMarket(v.region)))],
+      lacksEditor,
+      discFound,
+      project: (found?.levels.length ?? 0) > 0,
+    }),
+  );
   const tools = $derived(
-    levelTools(unreadable ? null : found, early, discFound, !!newPlanet && lacksEditor === null),
+    levelTools(unreadable ? null : found, early, discFound, !!newPlanet || planetDiscs.length > 0),
   );
   /** The level Add as a new planet packs: one of the project's levels, the picked one first. */
   let planetPicked = $state<number | null>(null);
@@ -394,7 +402,7 @@
     !!extracting ||
     !!packing ||
     addingPlanet ||
-    (tool === "new-planet" ? !newPlanet : !reexport?.runnable);
+    (tool === "new-planet" ? planetWhy !== null : !reexport?.runnable);
   const TOOL_ICON: Record<LevelTool, "globe" | "refresh"> = {
     "new-planet": "globe",
     "export-again": "refresh",
@@ -525,6 +533,7 @@
             <div class="text">
               <h3>{LEVEL_TOOL_TEXT[tool].title}</h3>
               <p class="muted">{LEVEL_TOOL_TEXT[tool].line}</p>
+              {#if tool === "new-planet" && planetWhy}<p class="why">{planetWhy}</p>{/if}
             </div>
             <div class="tool">
               {#if tool === "new-planet" && planetLevels.length > 1}
@@ -751,6 +760,12 @@
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
+  }
+
+  .why {
+    margin: 4px 0 0;
+    font-size: 0.8125rem;
+    color: var(--warn);
   }
 
   .tool select {
