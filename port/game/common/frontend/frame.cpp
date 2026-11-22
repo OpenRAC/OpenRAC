@@ -2726,7 +2726,8 @@ void keep_tick(
         k.prev_matrices[k.addresses[i]] = k.live[i].matrix;
         k.prev_spheres[k.addresses[i]] = k.live[i].world_sphere;
         if (i < k.joints.size() && k.joints[i] > 0 && k.live[i].palette >= 0) {
-            k.prev_poses[k.addresses[i]] = {k.live[i].palette, k.joints[i]};
+            k.prev_poses[pose_key(k.addresses[i], k.live[i].model)] =
+                {k.live[i].palette, k.joints[i]};
         }
     }
     k.water_impulses.swap(g->water_impulses);

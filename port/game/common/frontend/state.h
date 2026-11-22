@@ -63,6 +63,14 @@ enum class Var : std::uint16_t;
 
 namespace openrac::frontend {
 
+// A posed moby's identity between ticks: its address and the model it is drawn as. A moby the game
+// gives another class (Veldin's walkers take class 7938's data), a moby slot reused by another
+// class and a moby's bangles share an address but not a skeleton: a frame between ticks must not
+// blend one skeleton's palette into another's mesh.
+constexpr std::uint64_t pose_key(std::uint32_t address, std::uint32_t model) {
+    return (std::uint64_t{model} << 32) | address;
+}
+
 // One tick's scene, as frame() read it from the game, for the frames drawn until the next tick
 // (between), and the last tick's camera and moby matrices to move them from.
 struct Kept {
@@ -90,9 +98,10 @@ struct Kept {
     // The ties' and shrubs' matrices the tick before, when it was the one before (a frame between
     // ticks moves a moved one from there).
     std::array<std::vector<std::array<float, 12>>, 2> prev_scenery;
-    // The last tick's poses, by moby: where its joints start in prev_palette and how many.
+    // The last tick's poses, by moby and the model it was drawn as (pose_key): where its joints
+    // start in prev_palette and how many.
     std::vector<scene::LevelScene::JointColumns> prev_palette;
-    std::unordered_map<std::uint32_t, std::pair<int, int>> prev_poses;
+    std::unordered_map<std::uint64_t, std::pair<int, int>> prev_poses;
     std::vector<int> joints;            // each live moby's joints in `palette` (0 without a pose)
     std::vector<std::uint8_t> packets;  // the 2D path
     std::size_t before_world = 0;
