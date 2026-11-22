@@ -913,6 +913,48 @@ int32_t rac2_shot_refire(uint32_t serial, float yaw, float pitch) {
     return slot_of(m);
 }
 
+/* A RYNO II rocket made for a mod with a target homes on it from its first tick. Its update
+ * (homing_l00_shot_update_3) steers only once its life (pvars +0x24, 300 at the spawn) is under
+ * 295, and then only by the lead the target's motion asks for: a still target never turns it, so a
+ * rocket not already headed at the point it seeks (the target, up by the height at +0x14, plus the
+ * offset at +0x40) flies on past and turns only when the target moves, which looks like a rocket
+ * waiting to choose. So it is aimed at that point at its speed, its height is the target's own
+ * (pvars +0x10, as UpdateLockOnWeapon passes it), the point is its last seen (+0x00), its wobble
+ * (+0x1C) is off and its life starts under the gate. */
+#define RYNO_HOMING_LIFE 294
+static void ryno_lock(gaddr m, gaddr pvars, gaddr target, const float velocity[3]) {
+    const gaddr info = func_002AB1F0(target);
+    const float height = info != 0 ? GREF(float, info + 0x10u) : GREF(float, pvars + 0x14u);
+    float pos[3], up[3], offset[3], at[3];
+    read3(pos, target + MOBY_POS);
+    read3(up, target + MOBY_UP);
+    read3(offset, pvars + 0x40u);
+    float last[3];
+    for (int i = 0; i < 3; ++i) {
+        last[i] = pos[i] + up[i] * height;
+        at[i] = last[i] + offset[i];
+    }
+    float from[3];
+    read3(from, m + MOBY_POS);
+    float speed = length3(velocity);
+    if (speed < 1e-6f) {
+        speed = GREF(float, pvars + 0x18u);
+    }
+    const float way[3] = {at[0] - from[0], at[1] - from[1], at[2] - from[2]};
+    const float d = length3(way);
+    if (d > 1e-4f && speed > 1e-6f) {
+        const float v[3] = {way[0] / d * speed, way[1] / d * speed, way[2] / d * speed};
+        aim_matrix(m, v);
+    }
+    write3(pvars + 0x00u, last);
+    GREF(float, pvars + 0x14u) = height;
+    GREF(float, pvars + 0x1Cu) = 0.0f;
+    GREF(uint8_t, pvars + 0x26u) = 1;
+    if (GREF(int16_t, pvars + 0x24u) > RYNO_HOMING_LIFE) {
+        GREF(int16_t, pvars + 0x24u) = RYNO_HOMING_LIFE;
+    }
+}
+
 int32_t rac2_shot_spawn_live(const openrac_game_spawn_live* in) {
     const int kind = rac2_shot_kind(in->oclass);
     const gaddr gun = in->owner >= 0 ? moby_at(in->owner) : hand();
@@ -971,6 +1013,9 @@ int32_t rac2_shot_spawn_live(const openrac_game_spawn_live* in) {
         if (target != 0 && pvars != 0 && KINDS[kind].target >= 0
             && GREF(gaddr, pvars + (gaddr)KINDS[kind].target) == 0) {
             GREF(gaddr, pvars + (gaddr)KINDS[kind].target) = target;
+        }
+        if (kind == RAC2_SHOT_RYNO && target != 0 && pvars != 0) {
+            ryno_lock(m, pvars, target, in->velocity);
         }
     }
     GREF(gaddr, m + MOBY_OWNER) = gun;
