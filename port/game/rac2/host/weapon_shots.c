@@ -964,6 +964,14 @@ int32_t rac2_shot_spawn_live(const openrac_game_spawn_live* in) {
          * mod asked, and goes off only when asked. */
         write3(m + MOBY_POS, in->position);
         GREF(uint8_t, m + MOBY_HIT) = (in->flags & OPENRAC_SPAWN_LIVE_DETONATE) != 0 ? 1 : 0;
+        /* Their spawn only aims at the target and leaves the pvars' target (+0x10) empty, and their
+         * update steers only after one (homing_l00_shot_update_3, from its sixth tick): a rocket the
+         * mod gives a target is one that homes on it. */
+        const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+        if (target != 0 && pvars != 0 && KINDS[kind].target >= 0
+            && GREF(gaddr, pvars + (gaddr)KINDS[kind].target) == 0) {
+            GREF(gaddr, pvars + (gaddr)KINDS[kind].target) = target;
+        }
     }
     GREF(gaddr, m + MOBY_OWNER) = gun;
     const int32_t item = in->item >= 0 && in->item < ITEMS ? in->item : hand_item();
