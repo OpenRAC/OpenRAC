@@ -2591,16 +2591,18 @@ typedef struct openrac_api {
     int (*moby_copy_check)(openrac_mod* mod, int slot);
     /* moby_copy: makes copy `index` (0 for the first, 1 the second...) of the moby in `slot` (one
      * moby_copy_check allows) at a clear spot beside it: on its floor, in the open, 2.5 to 4 units
-     * from it and 2 from any other of its class, each index turned to its own spot. The copy is the
-     * game's moby, not the mod's: it runs on its own and is never driven. Its death drops its
-     * original's bolts and experience and counts toward the kill streak as its original's would,
-     * through the game's own path (the bolt hook points see it), while the level's record of the
-     * original (killed, and how often) stays as it was. The pool keeps room for what the level
-     * spawns. Since 1.26 the copy is in the moby cells and on its squad's group list, so it wakes,
-     * is alerted and is counted with its squad (a 1.25 port's copies of a squad's enemies never
-     * woke), and it dies once; a moby whose pvars hold another moby (a part of its own) is not
-     * copied. Returns the copy's slot, or OPENRAC_HOOK_UNKNOWN (not allowed, no clear spot, no
-     * room, a part of its own). */
+     * from it (out to 8.5 when a pack takes every nearer spot) and 2 from any other of its class,
+     * each index turned to its own spot. The copy is the game's moby, not the mod's: it runs on its
+     * own and is never driven. Its death drops its original's bolts and experience and counts
+     * toward the kill streak as its original's would, through the game's own path (the bolt hook
+     * points see it), while the level's record of the original (killed, and how often) stays as it
+     * was. The pool keeps room for what the level spawns. Since 1.26 the copy is in the moby cells
+     * and on its squad's group list, so it wakes, is alerted and is counted with its squad (a 1.25
+     * port's copies of a squad's enemies never woke), and it dies once. A moby whose pvars hold
+     * spawned mobys of its own (its parts: a trooper's torso and arms) gets copies of them, which
+     * its copy drives; one whose pvars hold a spawned moby other mobys share is not copied.
+     * Returns the copy's slot, or OPENRAC_HOOK_UNKNOWN (not allowed, no clear spot, no room, a
+     * shared moby named). */
     int (*moby_copy)(openrac_mod* mod, int slot, int index);
 
     /* The pool of spawned mobys (since 1.27; Going Commando's, a game without the call answers

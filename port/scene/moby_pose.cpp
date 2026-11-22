@@ -18,6 +18,8 @@ namespace {
 
 // More joints than the scratchpad holds (0x6f) is not a class.
 constexpr std::size_t kMaxJoints = 0x70;
+// The most nodes a moby's joint-modifier or pose-layer list is walked for.
+constexpr std::size_t kMaxListSteps = 64;
 
 // set_extra_joint_modifiers: the moby and its modifiers.
 std::mutex g_extra_lock;
@@ -255,9 +257,12 @@ std::vector<rac1::JointMatrix> evaluate_moby(
     }
     // The joint-modifier list (moby +0x64, each node's next at +8): what spins a vendor's
     // hologram and its logo's text, turns an NPC's head. Its order is the game's, head first.
+    // The walk is bounded by its steps as well: a list that loops back (a node linked twice) is
+    // drawn with what it gave, never walked for ever.
     std::vector<rac1::JointModifier> mods;
+    std::size_t steps = 0;
     for (std::uint32_t node = at<std::uint32_t>(ram, fields + 0x14);
-         inside(ram, node, 0x40) && mods.size() < 32;
+         inside(ram, node, 0x40) && mods.size() < 32 && steps++ < kMaxListSteps;
          node = at<std::uint32_t>(ram, node + 8)) {
         const std::uint32_t record = at<std::uint32_t>(ram, node + 4);
         if (record < 0x70000000u || ((record - 0x70000000u) & 0x3F) != 0) {
@@ -282,8 +287,9 @@ std::vector<rac1::JointMatrix> evaluate_moby(
     std::vector<rac1::MobyFrame> layer_keys;
     layer_keys.reserve(16);
     std::vector<rac1::PoseLayer> layers;
+    steps = 0;
     for (std::uint32_t node = at<std::uint32_t>(ram, fields + 0x10);
-         inside(ram, node, 0x40) && layers.size() < 6;
+         inside(ram, node, 0x40) && layers.size() < 6 && steps++ < kMaxListSteps;
          node = at<std::uint32_t>(ram, node + 0x1C)) {
         const auto count = at<std::uint16_t>(ram, node + 2);
         const auto list = at<std::uint32_t>(ram, node + 0x0C);
