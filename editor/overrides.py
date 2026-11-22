@@ -461,7 +461,10 @@ def install(staged: Path, folder: Path, replace_export: str | None = None) -> st
         save_state(folder, state)
         return existing
     if manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT:
-        new = manifest["id"]
+        import audio_recipe
+        new = manifest.get("id")
+        if not isinstance(new, str) or len(new) > 64 or not audio_recipe.ID.fullmatch(new):
+            raise PackError("audio recipe needs a safe mod id")
         if new in taken:
             raise PackError(f"a different pack already uses the id {new}")
     else:

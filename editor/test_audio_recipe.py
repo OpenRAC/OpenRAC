@@ -201,6 +201,17 @@ class AudioRecipes(unittest.TestCase):
             self.install()
         self.assertEqual((packs / "packs" / ident / overrides.MANIFEST).read_bytes(), before)
 
+    def test_install_never_uses_an_unchecked_recipe_id_as_a_path(self):
+        stage = self.root / "stage"
+        stage.mkdir()
+        value = manifest()
+        value["id"] = "../outside"
+        (stage / overrides.MANIFEST).write_text(json.dumps(value))
+        with self.assertRaisesRegex(ValueError, "safe mod id"):
+            overrides.install(stage, self.root / "packs")
+        self.assertTrue((stage / overrides.MANIFEST).is_file())
+        self.assertFalse((self.root / "packs/outside").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
