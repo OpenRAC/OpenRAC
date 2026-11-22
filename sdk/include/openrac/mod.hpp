@@ -1288,6 +1288,22 @@ public:
       return has_weapon_shots() ? m_api->weapon_record(m_handle, item) : 0;
     }
 
+    // Since 1.30: whether the port has weapon_ignore_culling().
+    bool has_weapon_culling() const {
+      return m_api->api_minor >= 30 &&
+             m_api->size >= offsetof(openrac_api, weapon_ignore_culling) +
+                                sizeof(void *);
+    }
+
+    // Since 1.30: weapon `item`'s target picks take every enemy in range, on
+    // screen or not (true), or the game's drawn ones again (false). False when
+    // refused (a weapon the port does not know, or no such call).
+    bool weapon_ignore_culling(int item, bool enabled = true) const {
+      return has_weapon_culling() &&
+             m_api->weapon_ignore_culling(m_handle, item, enabled ? 1 : 0) ==
+                 OPENRAC_HOOK_OK;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

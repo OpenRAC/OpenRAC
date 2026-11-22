@@ -1009,6 +1009,7 @@ void fill_api(const Host& host) {
     g_api.save_data_set = api_save_data_set;
     g_api.save_data_get = api_save_data_get;
     g_api.on_save_data = api_on_save_data;
+    g_api.weapon_ignore_culling = api_weapon_ignore_culling;
     g_api_without_native_vulkan = g_api;
     g_api_without_native_vulkan.graphics = api_graphics_without_native_vulkan;
 }

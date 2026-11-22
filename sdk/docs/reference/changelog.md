@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.30
+
+Weapons whose targets are picked on screen or not (weapon_ignore_culling).
+
+Members: `weapon_ignore_culling`.
+
 ## 1.29
 
 The hero's weapons and their shots: a shot fired, fired again and ended, a shot the game runs made from a mod, a weapon's look, a moby frozen or slowed and a weapon's record (on_weapon_fire, weapon_refire, on_shot_end, moby_spawn_live, weapon_look, moby_status, weapon_record).

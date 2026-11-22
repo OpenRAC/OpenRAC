@@ -589,4 +589,6 @@ int api_moby_status(openrac_mod* mod, std::int32_t slot, std::uint32_t status, s
 openrac_gaddr api_weapon_record(openrac_mod* mod, std::int32_t item);
 void drop_weapon_shots(const openrac_mod* mod);
 
+int api_weapon_ignore_culling(openrac_mod* mod, std::int32_t item, std::int32_t enabled);
+
 }  // namespace openrac::mods::detail

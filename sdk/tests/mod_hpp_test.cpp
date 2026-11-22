@@ -1113,6 +1113,20 @@ void fill_29_weapons(openrac_api &api) {
   };
 }
 
+// Interface 1.30's weapon_ignore_culling, as a port fills it: the Zodiac and
+// the Plasma Coil only.
+int g_30_culling = -1;
+void fill_30_culling(openrac_api &api) {
+  api.weapon_ignore_culling = [](openrac_mod *, std::int32_t item,
+                                 std::int32_t enabled) {
+    if (item != 43 && item != 28) {
+      return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_30_culling = enabled;
+    return OPENRAC_HOOK_OK;
+  };
+}
+
 void fire_watch(void *, const openrac_weapon_shot *) {}
 void end_watch(void *, const openrac_shot_end *) {}
 
@@ -2302,6 +2316,20 @@ int main() {
             mod.moby_spawn_live(1498, at, velocity) == -1 &&
             !mod.moby_status(3, OPENRAC_MOBY_STATUS_FREEZE, 60) &&
             mod.weapon_record(27) == 0);
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.30: a weapon's targets on screen or not; a port of 1.29 has
+    // none.
+    {
+      fill_30_culling(api);
+      CHECK(mod.has_weapon_culling() && mod.weapon_ignore_culling(43) &&
+            g_30_culling == 1);
+      CHECK(mod.weapon_ignore_culling(28, false) && g_30_culling == 0);
+      CHECK(!mod.weapon_ignore_culling(27));
+      g_30_culling = -1;
+      api.api_minor = 29;
+      CHECK(!mod.has_weapon_culling() && !mod.weapon_ignore_culling(43) &&
+            g_30_culling == -1);
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);

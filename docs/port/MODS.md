@@ -841,6 +841,17 @@ live counts against 128 a tick and needs 32 spare moby slots (`moby_pool_raise`)
 `has_weapon_shots()`, `on_weapon_fire()`, `weapon_refire()`, `on_shot_end()`, `moby_spawn_live()`,
 `weapon_look()`, `moby_status()`, `weapon_record()`.
 
+1.30 (SDK 1.30.0) weapons whose targets are picked on screen or not (Going Commando, every disc):
+`weapon_ignore_culling(item, enabled)`. The game picks a weapon's targets only among the mobys it
+drew last frame (their drawn flag, set for the 4:3 view and the draw distance), so the Zodiac's
+pulse and the Plasma Coil's and Plasma Storm's arcs miss the enemies behind the camera or off
+screen. For the Zodiac (43) and the Plasma Coil (28) a mod may have those picks take every enemy in
+the weapon's range instead; the range, angles and caps stay the game's. The port wraps the game's
+pick (SelectBestTargetInCone) and marks the live mobys drawn around it only while the moby loop runs
+that weapon's gun or shot (port/game/rac2/host/weapon_culling.c); nothing else sees the flag
+change. Several mods may ask; it holds while any does. The C++ layer's `has_weapon_culling()`,
+`weapon_ignore_culling()`.
+
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
 does. The port keeps every hook point it has had, with its

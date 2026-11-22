@@ -712,6 +712,7 @@ static openrac_game_play play = {
     .moby_spawn_live = rac2_shot_spawn_live,
     .moby_status = rac2_moby_status,
     .weapon_record = rac2_weapon_record,
+    .weapon_ignore_culling = rac2_weapon_ignore_culling,
 };
 
 void rac2_install_play(void) {
