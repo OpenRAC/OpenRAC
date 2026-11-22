@@ -63,9 +63,8 @@ graphics is on, because the sweep measures its parts.
   all), so the first sweep of a build runs longer.
 - VSync is off, so each step shows the device's real time, not a step of the display's rate.
 - Steps: Enhanced off; render scale 50% and 25%; every world draw cut to one triangle (what
-  the draws themselves cost), and that again with `vk-mode-constants` off, at render scale 25%
-  and with probe lighting off; the prepass with the general shader; probe lighting off; three
-  steps again with `vk-mode-constants` off (as set, Enhanced off, probe lighting off); the
+  the draws themselves cost), then at render scale 25% and with probe lighting off; the
+  prepass with the general shader; probe lighting off; the
   blended passes left out or without probe light; the mobys' glow, blended and metal passes
   left out; draw distance Original; each `render_opt` speed-up switched off on its own;
   temporal off and Performance; each effect off; every effect off (at native size, and with

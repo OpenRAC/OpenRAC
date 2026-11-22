@@ -988,19 +988,16 @@ void test_draw_uniform_layouts(unsigned vao) {
     CHECK(vkgl::submission_counters().validation_errors == 0);
 }
 
-// A program's mode uniforms as constants of its pipelines (vk-mode-constants): the same pixels as
-// with the uniforms read, before and after the workers made the specialised pipelines, and for a
-// mode with more values than are worth a pipeline each.
+// Tests exact feature variants, repeated-key reuse and more than four values without a generic pipeline.
 void test_mode_constants(unsigned vao) {
     using renderer::render_opt::Opt;
-    std::vector<std::uint8_t> reference_pixels;
-    for (const bool constants : {false, true}) {
-        renderer::render_opt::set(Opt::VkModeConstants, constants);
-        renderer::Shader shader;
-        std::string error;
-        CHECK(shader.build(
-            "mode constants",
-            R"(#version 410 core
+    const bool libraries = renderer::render_opt::enabled(Opt::VkPipelineLibrary);
+    renderer::render_opt::set(Opt::VkPipelineLibrary, false);
+    renderer::Shader shader;
+    std::string error;
+    CHECK(shader.build(
+        "mode constants",
+        R"(#version 410 core
 // openrac_mode: side unused
 uniform int side;
 uniform int unused;
@@ -1011,7 +1008,7 @@ void main() {
     colour = side != 0 ? vec4(1, 0, 0, 1) : vec4(0, 0, 1, 1);
 }
 )",
-            R"(#version 410 core
+        R"(#version 410 core
 // openrac_mode: tint, side, many
 uniform int tint;
 uniform int side;
@@ -1029,59 +1026,62 @@ void main() {
     result.a = float(many & 7) / 7.0;
 }
 )",
-            error
-        ));
-        // Their GL names stay, whatever the backend calls them.
-        CHECK(shader.uniform("side") >= 0 && shader.uniform("tint") >= 0);
-        CHECK(shader.uniform("many") >= 0);
-        renderer::FrameBuffer target;
-        CHECK(target.create(8, 1, error));
-        glBindVertexArray(vao);
-        glDisable(GL_BLEND);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_SCISSOR_TEST);
+        error
+    ));
+    // Their GL names stay, whatever the backend calls them.
+    CHECK(shader.uniform("side") >= 0 && shader.uniform("tint") >= 0);
+    CHECK(shader.uniform("many") >= 0);
+    renderer::FrameBuffer target;
+    CHECK(target.create(8, 1, error));
+    glBindVertexArray(vao);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_SCISSOR_TEST);
 
-        struct Draw {
-            int side, tint, many;
-        };
+    struct Draw {
+        int side, tint, many;
+    };
 
-        // `many` takes six values: the uniform is read from the fifth on.
-        const std::array<Draw, 8> draws = {
-            {{0, 0, 7}, {1, 0, 6}, {0, 1, 5}, {1, 1, 4}, {0, 2, 3}, {1, 2, 2}, {1, 0, 7}, {0, 1, 7}}
-        };
-        const std::vector<std::uint8_t> expected = {0,   0,   255, 255, 255, 0,   0,   219,
-                                                    0,   128, 255, 182, 255, 128, 0,   146,
-                                                    0,   0,   255, 109, 255, 255, 0,   73,
-                                                    255, 0,   0,   255, 0,   128, 255, 255};
-        const auto before = vkgl::submission_counters();
+    // Six ordinary values and INT_MAX must all remain exact variants.
+    const std::array<Draw, 8> draws = {
+        {{0, 0, 7},
+         {1, 0, 6},
+         {0, 1, 5},
+         {1, 1, 4},
+         {0, 2, 3},
+         {1, 2, 2},
+         {1, 0, 7},
+         {0, 1, 2147483647}}
+    };
+    const std::vector<std::uint8_t> expected = {0,   0,   255, 255, 255, 0,   0, 219, 0,   128, 255,
+                                                182, 255, 128, 0,   146, 0,   0, 255, 109, 255, 255,
+                                                0,   73,  255, 0,   0,   255, 0, 128, 255, 255};
+    const auto before = vkgl::submission_counters();
 
-        // The first frame may draw with stand-ins; the next ones after the workers are done.
-        for (unsigned frame = 0; frame < 3; ++frame) {
-            glBindFramebuffer(GL_FRAMEBUFFER, target.id());
-            shader.use();
-            glUniform1f(shader.uniform("shade"), 128.0f / 255.0f);
-            for (unsigned i = 0; i < draws.size(); ++i) {
-                glViewport(static_cast<int>(i), 0, 1, 1);
-                glUniform1i(shader.uniform("side"), draws[i].side);
-                glUniform1i(shader.uniform("tint"), draws[i].tint);
-                glUniform1i(shader.uniform("many"), draws[i].many);
-                openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
-            }
-            const auto pixels = target.read_rgba();
-            CHECK(pixels == expected);
-            if (!constants) {
-                reference_pixels = pixels;
-            } else {
-                CHECK(pixels == reference_pixels);
-            }
-            vkgl::present();
-            vkgl::wait_for_pipeline_prewarm();
+    // Each first-use key creates one exact variant; subsequent frames reuse every key.
+    for (unsigned frame = 0; frame < 3; ++frame) {
+        glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+        shader.use();
+        glUniform1f(shader.uniform("shade"), 128.0f / 255.0f);
+        for (unsigned i = 0; i < draws.size(); ++i) {
+            glViewport(static_cast<int>(i), 0, 1, 1);
+            glUniform1i(shader.uniform("side"), draws[i].side);
+            glUniform1i(shader.uniform("tint"), draws[i].tint);
+            glUniform1i(shader.uniform("many"), draws[i].many);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         }
-
-        const auto after = vkgl::submission_counters();
-        CHECK((after.mode_pipelines > before.mode_pipelines) == constants);
+        const auto pixels = target.read_rgba();
+        CHECK(pixels == expected);
+        const auto current = vkgl::submission_counters();
+        CHECK(current.mode_pipelines - before.mode_pipelines == draws.size());
+        CHECK(current.pipelines_created - before.pipelines_created == draws.size());
+        vkgl::present();
+        vkgl::wait_for_pipeline_prewarm();
     }
-    renderer::render_opt::reset();
+
+    const auto after = vkgl::submission_counters();
+    CHECK(after.mode_pipelines - before.mode_pipelines == draws.size());
+    renderer::render_opt::set(Opt::VkPipelineLibrary, libraries);
     CHECK(vkgl::submission_counters().validation_errors == 0);
 }
 

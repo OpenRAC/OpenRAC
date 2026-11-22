@@ -22,6 +22,10 @@ namespace openrac::renderer::world::gl {
 
 using namespace openrac::gl;
 
+// Use the shared entry points so world draws and uniform writes follow the installed GL hooks.
+using openrac::gl::glDrawArraysInstanced;
+using openrac::gl::glUniform1ui;
+
 // clang-format off
 inline constexpr GLenum GL_UNIFORM_BUFFER = 0x8A11;
 inline constexpr GLenum GL_TEXTURE_BUFFER = 0x8C2A;
@@ -57,9 +61,7 @@ inline constexpr GLenum GL_TEXTURE_BASE_LEVEL = 0x813C;
     X(void, glStencilFunc, (GLenum func, GLint ref, GLuint mask))                                  \
     X(void, glStencilOpSeparate, (GLenum face, GLenum sfail, GLenum dpfail, GLenum dppass))        \
     X(void, glStencilMask, (GLuint mask))                                                          \
-    X(void, glClearStencil, (GLint s))                                                             \
-    X(void, glUniform1ui, (GLint location, GLuint v0))                                             \
-    X(void, glDrawArraysInstanced, (GLenum mode, GLint first, GLsizei count, GLsizei instances))
+    X(void, glClearStencil, (GLint s))
 // clang-format on
 
 #define OPENRAC_WORLD_GL_DECLARE(ret, name, params)                                                \

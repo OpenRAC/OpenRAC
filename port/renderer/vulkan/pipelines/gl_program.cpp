@@ -24,6 +24,7 @@
 #include <vector>
 #include <volk.h>
 
+#include "renderer/gl/shader_modes.h"
 #include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/pipelines/shader_compiler.h"
 #include "renderer/vulkan/vkgl_internal.h"
@@ -154,182 +155,80 @@ VkShaderModule module_of(Program& program, const std::vector<std::uint32_t>& cod
     return module;
 }
 
-// The marker of a shader's mode uniforms (vk-mode-constants): a comment line
-// "// openrac_mode: name name ...". A mode is a scalar `uniform int` that picks the code a draw
-// runs and keeps its value over many draws (a pass, a setting, a level).
-constexpr std::string_view kModeMarker = "// openrac_mode:";
-constexpr std::string_view kModeUniformPrefix = "openrac_u_";
-
-// Returns whether `c` may be part of a GLSL name.
-bool glsl_name_char(char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
-}
-
-// Adds the names `source` marks as modes to `names`, each once, in the order named.
-void mode_names(const std::string& source, std::vector<std::string>& names) {
-    for (std::size_t at = source.find(kModeMarker); at != std::string::npos;
-         at = source.find(kModeMarker, at + 1)) {
-        std::size_t i = at + kModeMarker.size();
-
-        // Each name up to the line's end, between spaces or commas.
-        while (i < source.size() && source[i] != '\n') {
-            if (!glsl_name_char(source[i])) {
-                ++i;
-                continue;
-            }
-
-            const std::size_t from = i;
-            while (i < source.size() && glsl_name_char(source[i])) {
-                ++i;
-            }
-
-            std::string name = source.substr(from, i - from);
-            if (std::find(names.begin(), names.end(), name) == names.end()) {
-                names.push_back(std::move(name));
-            }
-        }
-    }
-}
-
-// Finds the declaration `uniform int <name>;` in `source` (any whitespace between); its start
-// and the place past its semicolon, or npos twice.
-std::pair<std::size_t, std::size_t> mode_declaration(
-    const std::string& source, std::string_view name
-) {
-    constexpr std::string_view keyword = "uniform";
-    const auto space = [&](std::size_t i) {
-        return i < source.size() && std::isspace(static_cast<unsigned char>(source[i])) != 0;
-    };
-
-    for (std::size_t at = source.find(keyword); at != std::string::npos;
-         at = source.find(keyword, at + 1)) {
-        std::size_t i = at + keyword.size();
-        if ((at > 0 && glsl_name_char(source[at - 1])) || !space(i)) {
-            continue;
-        }
-        while (space(i)) {
-            ++i;
-        }
-        if (source.compare(i, 3, "int") != 0 || !space(i + 3)) {
-            continue;
-        }
-        i += 3;
-        while (space(i)) {
-            ++i;
-        }
-        if (source.compare(i, name.size(), name) != 0) {
-            continue;
-        }
-        i += name.size();
-        while (space(i)) {
-            ++i;
-        }
-        if (i < source.size() && source[i] == ';') {
-            return {at, i + 1};
-        }
-    }
-
-    return {std::string::npos, std::string::npos};
-}
-
 // A program's sources with its mode uniforms also readable as specialisation constants
-// (vk-mode-constants), and the modes' names by slot; no names when the sources mark none.
+// and the modes' names by slot; no names when the sources mark none.
 struct ModeSources {
     std::string vertex, fragment;
     std::vector<std::string> names;
+    std::string error;  // A variant declaration that cannot be represented.
 };
 
-// Rewrites each marked `uniform int name;` so that a pipeline may fix its value: the uniform is
-// renamed, a specialisation constant is declared beside it, and `name` becomes the constant, or
-// the uniform while the constant has its default (kModeDynamic). A pipeline made with the value
-// lets the driver drop the code the mode leaves out; one made without reads the uniform as
-// before. A mode the material path reads per draw is left alone.
+// Rewrites marked feature uniforms as constants fixed by every graphics pipeline variant.
+// Per-draw material data stays in its material buffer; CPU mode values are placed by place_modes.
 ModeSources mode_sources(const std::string& vertex, const std::string& fragment) {
     ModeSources out;
     std::vector<std::string> marked;
-    mode_names(vertex, marked);
-    mode_names(fragment, marked);
+    renderer::shader_modes::append_names(vertex, marked);
+    renderer::shader_modes::append_names(fragment, marked);
     if (marked.empty()) {
         return out;
     }
 
     out.vertex = vertex;
     out.fragment = fragment;
-    std::string macros;
 
     for (const std::string& name : marked) {
-        if (out.names.size() == kModeConstants || material_takes(vertex, name)) {
+        // Material fields vary within one draw and are not global pipeline features.
+        if (material_takes(vertex, name)) {
             continue;
         }
 
+        // Exceeding the key's capacity must not silently leave a feature dynamic.
+        if (out.names.size() == kModeConstants) {
+            out.error = "too many shader feature modes for a pipeline variant";
+            return out;
+        }
+
         const std::string id = std::to_string(kModeConstantBase + out.names.size());
-        const std::string dynamic = std::to_string(kModeDynamic);
-        const std::string uniform = std::string(kModeUniformPrefix) + name;
-        const std::string constant = "openrac_c_" + name;
         bool declared = false;
 
         for (std::string* source : {&out.vertex, &out.fragment}) {
-            const auto [from, to] = mode_declaration(*source, name);
+            const auto [from, to] = renderer::shader_modes::declaration(*source, name);
             if (from == std::string::npos) {
                 continue;
             }
             // On the declaration's own line, so that the lines after it keep their numbers.
             source->replace(
-                from,
-                to - from,
-                "uniform int " + uniform + "; layout(constant_id = " + id + ") const int "
-                    + constant + " = " + dynamic + ";"
+                from, to - from, "layout(constant_id = " + id + ") const int " + name + " = 0;"
             );
             declared = true;
         }
 
         if (declared) {
-            macros += "#define " + name + " (" + constant + " != " + dynamic + " ? " + constant
-                      + " : " + uniform + ")\n";
             out.names.push_back(name);
-        }
-    }
-
-    if (out.names.empty()) {
-        return out;
-    }
-
-    // After the #version line, which stays first.
-    for (std::string* source : {&out.vertex, &out.fragment}) {
-        const std::size_t line = source->find('\n');
-        if (line != std::string::npos) {
-            source->insert(line + 1, macros);
         }
     }
 
     return out;
 }
 
-// Gives the mode uniforms of `compiled` their GL names back, as the program's users know them.
-void restore_mode_names(CompiledProgram& compiled) {
-    for (ProgramUniform& u : compiled.uniforms) {
-        if (u.name.starts_with(kModeUniformPrefix)) {
-            u.name.erase(0, kModeUniformPrefix.size());
-        }
-    }
-}
-
-// Records where each mode of `names` (by slot) has its value in the program's uniforms.
+// Appends CPU-only mode values after the GPU uniforms and optional draw integer.
+// GL locations keep their names; the shader reads only the pipeline's specialisation constants.
 void place_modes(Program& p, const std::vector<std::string>& names) {
     p.modes.assign(names.size(), Program::Mode{});
+    const std::size_t start = p.gpu_materials
+                                  ? p.material_start + kMaterialBytes
+                                  : static_cast<unsigned>(std::max(p.compiled.default_size, 0))
+                                        + (p.draw_uniform_offset >= 0 ? sizeof(std::int32_t) : 0u);
 
+    // Constants have no reflected UBO entry, so their GL locations belong to the CPU shadow.
     for (std::size_t n = 0; n < names.size(); ++n) {
-        const auto found = std::find_if(
-            p.compiled.uniforms.begin(), p.compiled.uniforms.end(), [&](const ProgramUniform& u) {
-                return u.name == names[n];
-            }
-        );
-        // A mode no stage reads has no uniform, and its constant no reader.
-        if (found != p.compiled.uniforms.end() && !found->sampler && found->gl_type == GL_INT
-            && found->array_size == 1 && found->offset >= 0
-            && (!p.gpu_materials || static_cast<unsigned>(found->offset) < p.material_start)) {
-            p.modes[n].offset = found->offset;
-        }
+        ProgramUniform uniform;
+        uniform.name = names[n];
+        uniform.gl_type = GL_INT;
+        uniform.offset = static_cast<int>(start + n * sizeof(std::int32_t));
+        p.modes[n].offset = uniform.offset;
+        p.compiled.uniforms.push_back(std::move(uniform));
     }
 }
 
@@ -557,9 +456,10 @@ bool finish_program_link(Program& program) {
             : -1;
     // Uniforms start at zero, as GL's do; a relink keeps nothing, as GL's does.
     program.uniforms.assign(
-        program.gpu_materials ? program.material_start + kMaterialBytes
-                              : static_cast<unsigned>(std::max(c.default_size, 0))
-                                    + (program.draw_uniform_offset >= 0 ? 4u : 0u),
+        (program.gpu_materials ? program.material_start + kMaterialBytes
+                               : static_cast<unsigned>(std::max(c.default_size, 0))
+                                     + (program.draw_uniform_offset >= 0 ? 4u : 0u))
+            + program.modes.size() * sizeof(std::int32_t),
         0
     );
     program.units.assign(c.uniforms.size(), 0);
@@ -678,7 +578,15 @@ VkShaderModule clamped_fragment(Program& p) {
         return VK_NULL_HANDLE;
     }
     separate_draw_uniform(variant, p.vertex_source, fs);
-    restore_mode_names(variant.compiled);
+    std::vector<std::string> modes;
+    const auto first_mode = p.compiled.uniforms.end() - static_cast<std::ptrdiff_t>(p.modes.size());
+
+    // The clamped module shares the original program's CPU-only feature locations.
+    for (auto uniform = first_mode; uniform != p.compiled.uniforms.end(); ++uniform) {
+        modes.push_back(uniform->name);
+    }
+
+    place_modes(variant, modes);
     if (!same_layout(variant, p)) {
         log::warn("vulkan: a program's clamped colour stage has another layout; drawn unclamped");
         return VK_NULL_HANDLE;
@@ -717,20 +625,25 @@ void VKGL link_program(GLuint name) {
     p->linked = false;
     p->serial = ++g->program_serial;
     p->modes.clear();
-    // A graphics program's marked modes become constants of its pipelines (vk-mode-constants).
-    // An optional optimisation never prevents the original program from linking.
+    // Feature modes are mandatory variants; a compile error is reported through the link log.
     std::vector<std::string> modes;
     if (cs.empty()) {
         ModeSources with_modes = mode_sources(vs, fs);
+        // Invalid declarations have no generic shader fallback.
+        if (!with_modes.error.empty()) {
+            p->log = std::move(with_modes.error);
+            return;
+        }
+
+        // Programs without feature modes have one concrete shader variant.
         if (!with_modes.names.empty()) {
-            std::string error;
-            if (compile_program(with_modes.vertex, with_modes.fragment, p->compiled, error)) {
-                vs = std::move(with_modes.vertex);
-                fs = std::move(with_modes.fragment);
-                modes = std::move(with_modes.names);
-            } else {
-                log::warn("vulkan: a program's modes stay uniforms: {}", error);
+            // A driver must never receive an unspecialised replacement after a link error.
+            if (!compile_program(with_modes.vertex, with_modes.fragment, p->compiled, p->log)) {
+                return;
             }
+            vs = std::move(with_modes.vertex);
+            fs = std::move(with_modes.fragment);
+            modes = std::move(with_modes.names);
         }
     }
     if (modes.empty() && !compile_program(vs, fs, p->compiled, p->log, cs)) {
@@ -745,7 +658,6 @@ void VKGL link_program(GLuint name) {
         return;
     }
     separate_draw_uniform(*p, vs, fs);
-    restore_mode_names(p->compiled);
     place_modes(*p, modes);
     p->key_modes_stale = true;
     // Descriptor mode is part of compatibility even when the same SPIR-V is used.
@@ -786,8 +698,8 @@ void VKGL link_program(GLuint name) {
             defines += fs.substr(at + 8, fs.find_first_of(" \n", at + 8) - (at + 8));
         }
         std::string names;
-        for (const auto& name : modes) {
-            names += names.empty() ? name : "," + name;
+        for (const auto& mode_name : modes) {
+            names += names.empty() ? mode_name : "," + mode_name;
         }
         log::info(
             "vulkan: pipeline stats program {} fragment {} bytes, modes [{}], defines:{}",
@@ -925,7 +837,7 @@ void write_uniform(std::uint8_t* destination, const void* source, std::size_t by
     }
     std::memcpy(destination, source, bytes);
     auto* p = g->programs.find(g->state.program);
-    // A mode is a scalar integer: its pipelines' keys are worked out again (vk-mode-constants).
+    // A mode is a scalar integer: its pipelines' keys are worked out again.
     p->key_modes_stale = p->key_modes_stale || bytes == sizeof(std::int32_t);
     const auto offset = static_cast<std::size_t>(destination - p->uniforms.data());
     if ((!p->gpu_materials || offset < p->material_start)
