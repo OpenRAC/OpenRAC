@@ -1845,6 +1845,7 @@ struct CullingHold {
     const openrac_mod* mod;
     std::int32_t item;
 };
+
 std::vector<CullingHold> g_culling_holds;
 
 bool culling_held(std::int32_t item) {
@@ -1865,9 +1866,7 @@ int api_weapon_ignore_culling(openrac_mod* mod, std::int32_t item, std::int32_t 
         g_culling_holds.push_back({mod, item});
     }
     if (g_play->weapon_ignore_culling(item, culling_held(item) ? 1 : 0) == 0) {
-        std::erase_if(g_culling_holds, [&](const CullingHold& h) {
-            return h.item == item;
-        });
+        std::erase_if(g_culling_holds, [&](const CullingHold& h) { return h.item == item; });
         return OPENRAC_HOOK_UNKNOWN;
     }
     return OPENRAC_HOOK_OK;
