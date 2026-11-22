@@ -196,7 +196,6 @@ func_L39_005B25C8	func_L39_005B06C8
 func_L39_005EDE28	func_L39_005EB8B8
 func_L39_005F4690	func_L39_005F1EF8
 func_L39_005F61A0	func_L39_005F3A08
-mp_func_00183BDC	mp_func_00183CCC
 mp_func_0018E628	mp_func_0018E718
 mp_func_00192460	mp_func_00192550
 mp_func_00192790	mp_func_00192880
@@ -213,7 +212,6 @@ mp_func_00195010	mp_func_00195100
 mp_func_00195010__game	mp_func_00195100__game
 mp_func_00195410	mp_func_00195500
 mp_func_00195410__game	mp_func_00195500__game
-mp_func_001981D8	mp_func_00198318
 mp_func_00198248	mp_func_00198388
 mp_func_00198608	mp_func_00198748
 mp_func_00198660	mp_func_001987A0

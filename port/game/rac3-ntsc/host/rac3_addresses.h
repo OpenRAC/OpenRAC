@@ -154,8 +154,18 @@
 #define RAC3_ADDR_0x00381250u 0x00381280u
 
 /* The multiplayer executable's (release/mp_pairs.json). */
+/* the function's pair: the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0) */
+#define RAC3_MADDR_0x001260A0u 0x001260A0u
+/* the function's pair: the same instructions, the only place they occur */
+#define RAC3_MADDR_0x0014CE48u 0x0014CE48u
+/* the function's pair: the same instructions, the only place they occur */
+#define RAC3_MADDR_0x00152FB8u 0x00152FB8u
+/* the function's pair: the same instructions, the only place they occur */
+#define RAC3_MADDR_0x00183BDCu 0x00183CCCu
 /* the function's pair: the executable's entry (its payload's records) */
 #define RAC3_MADDR_0x00192D18u 0x00192E08u
+/* the function's pair: the same instructions, the only place they occur */
+#define RAC3_MADDR_0x001981D8u 0x00198318u
 /* the same instruction of the same code: func 0x001619B8 (NTSC-U 0x001619B8) +0x8, 4 of 4 places agree */
 #define RAC3_MADDR_0x001A2A58u 0x001A2BD8u
 /* the same instruction of the same code: func 0x0017DFA8 (NTSC-U 0x0017DFA8) +0x10, 5 of 5 places agree */
