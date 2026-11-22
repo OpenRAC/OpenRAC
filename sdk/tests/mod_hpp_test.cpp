@@ -1038,6 +1038,48 @@ void fill_28_look(openrac_api &api) {
   };
 }
 
+// The fake host's developer menu (1.10) and presentation calls (1.22): what they were given.
+std::string g_10_title;
+std::uint32_t g_10_count = 0;
+std::string g_10_label;
+std::uint32_t g_10_queue = 0;
+int g_22_visuals = -1;
+std::string g_22_text;
+std::uint32_t g_22_tint = 0;
+
+void fill_10_and_22(openrac_api &api) {
+  api.developer_menu = [](openrac_mod *, const char *title,
+                          const openrac_developer_menu_item *, std::uint32_t count) {
+    g_10_title = title;
+    g_10_count = count;
+    g_10_queue = 7;
+    return OPENRAC_HOOK_OK;
+  };
+  api.take_developer_menu_action = [](openrac_mod *) {
+    const std::uint32_t action = g_10_queue;
+    g_10_queue = 0;
+    return action;
+  };
+  api.developer_menu_set_label = [](openrac_mod *, std::uint32_t, const char *label) {
+    g_10_label = label;
+    return OPENRAC_HOOK_OK;
+  };
+  api.moby_visuals = [](openrac_mod *, const openrac_moby_visual *, int count) {
+    g_22_visuals = count;
+    return OPENRAC_HOOK_OK;
+  };
+  api.guest_text = [](openrac_mod *, const char *text) {
+    g_22_text = text;
+    return static_cast<openrac_gaddr>(0x00200000u);
+  };
+  api.sprite_tint = [](openrac_mod *, std::uint32_t rgb) {
+    const std::uint32_t before = g_22_tint;
+    g_22_tint = rgb;
+    return before;
+  };
+  api.pickup_animation = [](openrac_mod *, int kind, int item) { return kind == 1 && item == 3 ? 1 : 0; };
+}
+
 // The fake host's 1.29 weapon calls: one shot (serial 7) to fire again, a spawn
 // of class 1498, a look on item 27, a status on slot 3, a record for item 27.
 openrac_spawn_live g_29_spawn{};
@@ -2222,6 +2264,27 @@ int main() {
       g_28_cleared = false;
       api.api_minor = 27;
       CHECK(!mod.has_menu_look() && !mod.menu_look_clear(2) && !g_28_cleared);
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interfaces 1.10 and 1.22: the developer menu's tab and the presentation calls; ports
+    // before them have none.
+    {
+      fill_10_and_22(api);
+      CHECK(mod.has_developer_menu() && mod.developer_menu("Cheats", nullptr, 3));
+      CHECK(g_10_title == "Cheats" && g_10_count == 3);
+      CHECK(mod.take_developer_menu_action() == 7 && mod.take_developer_menu_action() == 0);
+      CHECK(mod.developer_menu_set_label(1, "On") && g_10_label == "On");
+      CHECK(mod.has_presentation() && mod.moby_visuals(nullptr, 0) && g_22_visuals == 0);
+      CHECK(mod.guest_text("hi") == 0x00200000u && g_22_text == "hi");
+      CHECK(mod.sprite_tint(0x808080u) == 0 && mod.sprite_tint(UINT32_MAX) == 0x808080u);
+      CHECK(mod.pickup_animation(1, 3) == 1 && mod.pickup_animation(2, 0) == 0);
+      api.api_minor = 21;
+      CHECK(!mod.has_presentation() && mod.guest_text("x") == 0 && mod.sprite_tint(1) == UINT32_MAX);
+      CHECK(mod.pickup_animation(1, 3) == 0 && !mod.moby_visuals(nullptr, 0));
+      CHECK(mod.has_developer_menu());
+      api.api_minor = 9;
+      CHECK(!mod.has_developer_menu() && !mod.developer_menu("x", nullptr, 0));
+      CHECK(mod.take_developer_menu_action() == 0 && !mod.developer_menu_set_label(1, "x"));
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     // Interface 1.29: the hero's weapons and their shots; a port of 1.28 has

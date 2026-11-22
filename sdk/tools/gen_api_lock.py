@@ -11,6 +11,9 @@ reads the SDK's C headers (include/openrac/*.h and include/openrac/games/*.h) wi
     api/types.lock         every other struct (size, each field's offset and type) and typedef
     api/macros.lock        every OPENRAC_ macro: its value, or its parameters for a helper macro
 
+and checks api/members.tsv, the one file written by hand: each table member's area (AREAS), the
+minor that added it and its status. It must name every member, in the table's order.
+
 Offsets are for a 64-bit target (all of OpenRAC's platforms are 64-bit).
 
 **Append only.** A built mod knows the table and the structs as they were when it was built. So a
@@ -19,7 +22,8 @@ member or a field at the end of its struct). The tool refuses to write locks tha
 a row; --check also fails when the locks are not what the headers give (CI: .github/workflows/sdk.yml).
 --against also holds the headers to the locks of a git ref (a pull request's base), so a lock
 edited by hand cannot hide a break.
-Only OPENRAC_MOD_API_MINOR and OPENRAC_MOD_TARGET_MINOR may change value.
+Only OPENRAC_MOD_API_MINOR and OPENRAC_MOD_TARGET_MINOR may change value. The one other way a row
+changes is a row in FIXED: one that was wrong from the start, so no built mod can rely on it.
 
 Needs clang on PATH (or CLANG=<path>). Stdlib only.
 """
@@ -223,7 +227,16 @@ def key(lock: str, row: str) -> str:
     return c[0]
 
 
-def compare(lock: str, old: list[str], new: list[str]) -> list[str]:
+# Rows that were wrong from the start, as (lock, was, is). rac2 Bolt_Collect returns nothing and its
+# hook point is void(u32): the port refused any mod that asked with u32(u32), so no mod used it.
+FIXED = {
+    ("macros.lock", 'OPENRAC_RAC2_SIG_Bolt_Collect\t"u32(u32)"', 'OPENRAC_RAC2_SIG_Bolt_Collect\t"void(u32)"'),
+    ("types.lock", "openrac_rac2_Bolt_Collect\t(typedef)\t-\tuint32_t (*)(uint32_t)",
+     "openrac_rac2_Bolt_Collect\t(typedef)\t-\tvoid (*)(uint32_t)"),
+}
+
+
+def compare(lock: str, old: list[str], new: list[str], fixes: set[tuple[str, str, str]] = FIXED) -> list[str]:
     """What breaks the append-only rule, going from `old` to `new` rows."""
     problems: list[str] = []
     if lock == "openrac_api.lock":
@@ -243,6 +256,8 @@ def compare(lock: str, old: list[str], new: list[str]) -> list[str]:
         if new_by[k] == row:
             continue
         c_old, c_new = row.split("\t"), new_by[k].split("\t")
+        if (lock, row, new_by[k]) in fixes:
+            continue
         if lock == "macros.lock" and k in MOVING:
             continue
         if lock == "types.lock" and c_old[1] == "(size)":
@@ -270,6 +285,57 @@ def read_lock_at(ref: str, name: str) -> list[str]:
     return [l for l in done.stdout.splitlines() if l and not l.startswith("#")]
 
 
+# The areas a table member belongs to (docs/port/MOD_API.md). A new area needs a reason.
+AREAS = ("core", "settings", "hooks", "input", "graphics", "menus", "play", "world", "hero", "figures",
+         "saves", "party", "camera", "visuals", "sound", "touch", "system")
+STATUSES = ("stable", "experimental")
+
+
+def read_members(sdk: Path) -> list[list[str]]:
+    path = sdk / "api" / "members.tsv"
+    if not path.exists():
+        return []
+    return [l.split("\t") for l in path.read_text().splitlines() if l and not l.startswith("#")]
+
+
+def member_problems(sdk: Path, api_rows: list[str], minor: int) -> list[str]:
+    """What is wrong in api/members.tsv against the table."""
+    rows = read_members(sdk)
+    if not rows:
+        return []  # a tree without the file (the tool's own tests)
+    names = [r.split("\t")[1] for r in api_rows]
+    out: list[str] = []
+    listed = [r[0] for r in rows]
+    if listed != names:
+        for i, (a, b) in enumerate(zip(listed + [""] * len(names), names)):
+            if a != b:
+                out.append(f"members.tsv: row {i + 1} is {a or 'missing'!r}, the table's member {i} is {b!r}")
+                break
+        if len(listed) > len(names):
+            out.append(f"members.tsv: {listed[len(names)]!r} is not in the table")
+    last = 0
+    for r in rows:
+        if len(r) != 4:
+            out.append(f"members.tsv: {r[0]}: want 4 columns, member area since status")
+            continue
+        name, area, since, status = r
+        if area not in AREAS:
+            out.append(f"members.tsv: {name}: area {area!r} is not one of {', '.join(AREAS)}")
+        m = re.fullmatch(r"1\.(\d+)", since)
+        if m and int(m.group(1)) == minor + 1:
+            out.append(f"members.tsv: {name}: since {since}, but the header is 1.{minor}: "
+                       f"run python3 sdk/tools/bump_api.py minor --note \"...\"")
+        elif not m or int(m.group(1)) > minor:
+            out.append(f"members.tsv: {name}: since {since!r} is not 1.0 to 1.{minor}")
+        elif int(m.group(1)) < last:
+            out.append(f"members.tsv: {name}: since {since} is older than the member before it")
+        else:
+            last = int(m.group(1))
+        if status not in STATUSES and not (status.startswith("deprecated:") and status[11:] in names):
+            out.append(f"members.tsv: {name}: status {status!r} is not stable, experimental or deprecated:<member>")
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--check", action="store_true", help="write nothing; fail when a lock differs")
@@ -284,13 +350,18 @@ def main(argv: list[str] | None = None) -> int:
         old = read_lock(out_dir / name)
         problems += compare(name, old, rows)
         if args.against:
-            problems += [f"{p} (against {args.against})" for p in compare(name, read_lock_at(args.against, name), rows)]
+            problems += [f"{p} (against {args.against})"
+                         for p in compare(name, read_lock_at(args.against, name), rows)]
         if old != rows:
             stale.append(name)
+    minor = int(re.search(r"^#define OPENRAC_MOD_API_MINOR (\d+)$",
+                          (args.sdk / "include" / "openrac" / "openrac_mod.h").read_text(), re.M).group(1))
+    problems += member_problems(args.sdk, locks["openrac_api.lock"], minor)
     for p in problems:
         print(f"error: {p}", file=sys.stderr)
-    if problems:
+    if any(not p.startswith("members.tsv") for p in problems):
         print("The mod interface is append-only in 1.x: built mods depend on every row above.", file=sys.stderr)
+    if problems:
         return 1
     if args.check:
         for name in stale:

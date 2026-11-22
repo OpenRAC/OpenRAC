@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// The mods' interface, area "input": the api_<member> functions of the openrac_api members
+// sdk/api/members.tsv puts in this area, and what only they use.
+
+#include "mod_api/internal.h"
+
+using namespace openrac;
+
+namespace openrac::mods::detail {
+
+const openrac_input* api_input(void) {
+    static openrac_input none = [] {
+        openrac_input i{};
+        i.size = sizeof(openrac_input);
+        return i;
+    }();
+    const openrac_input* in =
+        g_host != nullptr && g_host->input != nullptr ? g_host->input() : nullptr;
+    return in != nullptr ? in : &none;
+}
+
+int api_take_input(openrac_mod* mod, uint32_t devices) {
+    if (mod == nullptr || mod != g_loading) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    devices &= OPENRAC_INPUT_KEYBOARD | OPENRAC_INPUT_MOUSE;
+    if (devices != 0 && g_host != nullptr && g_host->take_input != nullptr) {
+        g_host->take_input(devices);
+    }
+    if ((devices & OPENRAC_INPUT_KEYBOARD) != 0) {
+        log::info(
+            "mod {} takes the keyboard: the port's own keys no longer press pad 0's buttons",
+            mod->id
+        );
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+void api_capture_mouse(openrac_mod* mod, int capture) {
+    (void)mod;
+    if (g_host != nullptr && g_host->capture_mouse != nullptr) {
+        g_host->capture_mouse(capture != 0);
+    }
+}
+
+}  // namespace openrac::mods::detail

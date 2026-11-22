@@ -1,0 +1,594 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// What the files of the mods' interface share (mod_api/<area>.cpp, mods.cpp, mod_play.cpp): the
+// loaded mod, the state more than one file reads, and every api_<member> function, which fills
+// openrac_api (sdk/api/members.tsv names each member's area, and so its file). Port-internal.
+
+#pragma once
+#include <algorithm>
+#include <array>
+#include <cctype>
+#include <chrono>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <filesystem>
+#include <format>
+#include <fstream>
+#include <iterator>
+#include <limits>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "common/build_info.h"
+#include "common/c_boundary.h"
+#include "common/crash.h"
+#include "common/env.h"
+#include "common/json.h"
+#include "common/log.h"
+#include "mod_library.h"
+#include "mod_manifest.h"
+#include "mod_scripts.h"
+#include "mod_touch.h"
+#include "mods.h"
+#include "openrac/game_host.h"
+#include "openrac/guest.h"
+#include "openrac/memory.h"
+#include "openrac/openrac_mod.h"
+
+namespace fs = std::filesystem;
+
+// One loaded mod: the handle openrac_mod.h's functions are given.
+struct openrac_mod {
+    std::string id;
+    std::string version;
+    std::string file;       // the library's file name (a script mod's: its first script)
+    bool script = false;    // a script mod (mod_scripts.h): no library
+    bool built_in = false;  // built into the program (BuiltIn): its settings are the program's
+    void* library = nullptr;
+    const void* base = nullptr;
+    openrac::mods::Manifest manifest;
+    std::map<std::string, openrac::mods::SettingValue> settings;
+    std::string failure;  // fail()'s reason, or a hook point refused
+    bool hook_refused = false;
+    std::vector<std::pair<void**, void*>> taken;  // each slot it filled, and what was there before
+    std::vector<std::string> hooks;               // the hook points it took
+    std::string data_dir;                         // data_dir's answer, once made (1.11)
+    fs::path dir;                                 // its folder (1.12: props' meshes, sounds)
+    openrac_mod_unload_fn unload = nullptr;
+
+    // What a party needs of it (interface 1.14): its settings as text, made when first asked and
+    // kept for the life of the mod (the table hands out their strings), the rules it published
+    // (none yet: not published), how often, and who takes the host's rules.
+    struct PartySetting {
+        std::string value, shown;
+    };
+
+    std::vector<PartySetting> party_settings;
+    bool has_party_rules = false;
+    std::vector<std::uint8_t> party_rules;
+    std::string party_text;
+    std::uint32_t party_version = 0;
+    openrac_party_rules_fn party_fn = nullptr;
+    void* party_user = nullptr;
+};
+
+namespace openrac::mods::detail {
+
+struct FrameCallback {
+    openrac_frame_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
+
+struct PadCallback {
+    openrac_pad_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
+
+struct TickBoundaryCallback {
+    openrac_tick_boundary_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
+
+// A front-end menu entry and the page it opens (interface 1.5).
+struct MenuCallback {
+    std::string label;
+    openrac_menu_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
+
+// A page of the game's own menus (interface 1.7): what is on it, and whose it is.
+struct UiPageCallback {
+    UiPage page;
+    openrac_ui_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
+
+// Who draws over the game (on_overlay), in load order.
+struct OverlayCallback {
+    openrac_mod* mod;
+    openrac_overlay_fn fn;
+    void* user;
+};
+
+struct SettingsCallback {
+    openrac_frame_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
+
+struct SaveDataCallback {
+    openrac_frame_fn fn;
+    void* user;
+    openrac_mod* mod;
+};
+
+// A figure a mod made: whose, its moby, the level load it was made in.
+struct Figure {
+    const openrac_mod* mod = nullptr;
+    gaddr moby = 0;
+    std::uint32_t loads = 0;
+};
+
+// A start or travel a mod asked for, done at the frame's end (play_update).
+struct Request {
+    enum class Kind {
+        kNone,
+        kStart,
+        kTravel
+    };
+    Kind kind = Kind::kNone;
+    const openrac_mod* mod = nullptr;
+    int level = 0;
+    std::vector<std::uint8_t> save;
+};
+
+// The world (interface 1.9): the mobys the mods drive, by slot (whose, in which level load), the
+// gate and the hit watcher (one mod's each), and the slot whose update the gate's call before it
+// is about (-1: none, where a stand-in is refused).
+constexpr std::size_t kSlots = 4096;
+
+struct Drive {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+};
+
+struct Gate {
+    const openrac_mod* mod = nullptr;
+    openrac_moby_update_fn fn = nullptr;
+    void* user = nullptr;
+};
+
+struct HitWatch {
+    const openrac_mod* mod = nullptr;
+    openrac_hit_fn fn = nullptr;
+    void* user = nullptr;
+};
+
+// The mod told of the metal detector's digs.
+struct MetalWatch {
+    openrac_mod* mod = nullptr;
+    openrac_metal_detect_fn fn = nullptr;
+    void* user = nullptr;
+};
+
+// Who hears of the game's camera scripts (on_camera_script), and the one showing one here.
+struct CameraScriptWatch {
+    const openrac_mod* mod = nullptr;
+    openrac_camera_script_fn fn = nullptr;
+    void* user = nullptr;
+};
+
+// A prop a mod made: whose, its mesh, the level load it was made in, its matrix once posed.
+struct Prop {
+    const openrac_mod* mod = nullptr;
+    std::filesystem::path mesh;
+    std::uint32_t loads = 0;
+    bool posed = false;
+    bool hidden = false;
+    std::array<float, 16> matrix{};
+    std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 1.0f};
+    int blend = 0;
+    // Fixed to a moby's joint (1.18): the moby, its joint; `matrix` is the offset then.
+    gaddr attached_moby = 0;
+    int attached_joint = -1;
+    // Where the renderer drew it on that joint last (prop_frame), once it has.
+    std::array<float, 16> placed{};
+    bool was_placed = false;
+};
+
+// A sound a mod loaded: whose, and the host's id of it.
+struct Sound {
+    const openrac_mod* mod = nullptr;
+    int host = -1;
+};
+
+struct VisualSet {
+    const openrac_mod* mod;
+    std::uint32_t loads;
+    std::vector<openrac_moby_visual> visuals;
+};
+
+// A mod's material on one moby (interface 1.23), for the level load it was set in. `oclass` is the
+// moby's class when the renderer first listed it (-1 before that), so that a slot the game frees
+// and fills with another class drops it.
+struct MaterialEntry {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    MobyMaterial material;
+    int oclass = -1;
+};
+
+// The hero's joint offsets each mod set (hero_set_joints), in the order the mods first set theirs:
+// all of them go to the hero together, each mod's composed after the ones before it, so two mods
+// that turn his joints do not undo each other.
+struct JointSet {
+    const openrac_mod* mod = nullptr;
+    std::vector<openrac_joint_offset> joints;
+};
+
+struct Haze {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    std::vector<openrac_haze> patches;
+};
+
+// The lines of text each mod shows in the game's HUD (hud_text_set), of a level load: set and read
+// on the game's thread, behind a lock as the haze is.
+struct HudTexts {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    std::vector<openrac_hud_text> lines;
+};
+
+// The hero's looping sounds each mod started (hero_sound_play), stopped with the mod.
+struct HeroVoice {
+    openrac_mod* mod;
+    std::uint32_t loads;
+    int voice;
+};
+
+// ---- State kept in mods.cpp and mod_play.cpp ----
+
+extern const Host* g_host;
+extern std::vector<OverlayCallback> g_overlays;
+extern openrac_mod* g_loading;
+extern std::vector<std::unique_ptr<openrac_mod>> g_loaded;
+extern std::vector<FrameCallback> g_frames;
+extern std::vector<PadCallback> g_pads;
+extern std::vector<MenuCallback> g_menus;
+extern std::vector<DeveloperMenu> g_developer_menus;
+extern std::vector<UiPageCallback> g_ui_pages;
+extern std::vector<UiMainItem> g_ui_main;
+extern std::vector<UiPauseItem> g_ui_pause;
+extern int g_ui_shown;
+extern bool g_ui_question;
+extern bool g_ui_main_menu;
+extern UiRequests g_ui_requests;
+extern openrac_mod* g_drawing;
+extern std::vector<TickBoundaryCallback> g_tick_boundaries;
+extern openrac_mod* g_tick_mod;
+extern bool g_in_tick_boundary;
+extern openrac_view_source g_views;
+extern openrac_mod* g_views_mod;
+extern openrac_vulkan_setup g_vulkan;
+extern openrac_mod* g_vulkan_mod;
+extern bool g_party_replay;
+extern std::vector<SettingsCallback> g_settings_callbacks;
+extern std::vector<SaveDataCallback> g_save_data_callbacks;
+extern std::map<std::string, std::vector<std::uint8_t>, std::less<>> g_save_data;
+extern const openrac_game_play* g_play;
+extern std::filesystem::path g_cards;
+extern std::array<Figure, OPENRAC_FIGURES_MAX> g_figures;
+extern Request g_request;
+extern std::vector<Drive> g_drives;
+extern Gate g_gate;
+extern MetalWatch g_metal;
+extern HitWatch g_hits;
+extern int g_before_slot;
+extern int g_card_mode;
+extern const openrac_mod* g_loading_mod;
+extern int g_skip_ticks;
+extern int g_skip_phase;
+extern std::int32_t g_skip_scene;
+extern std::mutex g_notice_lock;
+extern std::string g_notice;
+extern CameraScriptWatch g_camera_scripts;
+extern const openrac_mod* g_camera_shower;
+extern std::mutex g_props_lock;
+extern std::array<Prop, OPENRAC_PROPS_MAX> g_props;
+extern std::vector<std::filesystem::path> g_prop_meshes;
+extern unsigned g_prop_generation;
+extern std::vector<VisualSet> g_visuals;
+extern std::vector<int> g_visual_classes;
+extern unsigned g_visual_generation;
+extern std::uint32_t g_sprite_tint;
+extern std::vector<MaterialEntry> g_materials;
+extern std::vector<Sound> g_sounds;
+extern std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_voices;
+extern int (*g_sound_load)(const std::filesystem::path&);
+extern std::uint32_t (*g_sound_play)(int, float, float, bool);
+extern int (*g_sound_set)(std::uint32_t, float, float);
+extern void (*g_sound_stop)(std::uint32_t);
+extern void (*g_joint_offsets)(std::uint32_t, const openrac_joint_offset*, int);
+extern std::vector<JointSet> g_joint_sets;
+extern const openrac_mod* g_camera_mod;
+extern std::mutex g_haze_lock;
+extern std::vector<Haze> g_haze;
+extern std::mutex g_hud_lock;
+extern std::vector<HudTexts> g_hud;
+extern std::vector<HeroVoice> g_hero_voices;
+
+// ---- Functions more than one file calls, the api_<member> ones among them ----
+
+const char* hook_id(const Host& host, const char* name);
+void api_log(openrac_mod* mod, int level, const char* text);
+void api_fail(openrac_mod* mod, const char* reason);
+const SettingValue* setting(openrac_mod* mod, const char* key, SettingType a, SettingType b);
+int api_setting_bool(openrac_mod* mod, const char* key);
+int64_t api_setting_int(openrac_mod* mod, const char* key);
+double api_setting_float(openrac_mod* mod, const char* key);
+const char* api_setting_string(openrac_mod* mod, const char* key);
+int api_hook(
+    openrac_mod* mod, const char* name, const char* signature, void* replacement, void** original
+);
+int api_on_frame(openrac_mod* mod, openrac_frame_fn fn, void* user);
+int api_on_tick_boundary(openrac_mod* mod, openrac_tick_boundary_fn fn, void* user);
+int api_developer_menu(
+    openrac_mod* mod,
+    const char* title,
+    const openrac_developer_menu_item* items,
+    std::uint32_t count
+);
+std::uint32_t api_take_developer_menu_action(openrac_mod* mod);
+const char* api_data_dir(openrac_mod* mod);
+int api_developer_menu_set_label(openrac_mod* mod, std::uint32_t action, const char* label);
+DeveloperMenuItem* developer_menu_item(openrac_mod* mod, std::uint32_t action);
+int api_developer_menu_switch(openrac_mod* mod, std::uint32_t action, int on);
+int api_developer_menu_choice(
+    openrac_mod* mod,
+    std::uint32_t action,
+    const char* const* values,
+    std::uint32_t count,
+    std::uint32_t index
+);
+int api_developer_menu_look(
+    openrac_mod* mod, std::uint32_t action, const openrac_developer_menu_look* look
+);
+void* api_hook_entry(const char* name, const char* signature);
+int api_developer_menu_value(openrac_mod* mod, std::uint32_t action);
+int api_on_pad(openrac_mod* mod, openrac_pad_fn fn, void* user);
+void* api_function(const char* name);
+void* api_function_at(openrac_gaddr address);
+openrac_gaddr api_relocate_data(openrac_gaddr address);
+openrac_gaddr api_relocate_level_data(int level, openrac_gaddr address);
+int api_loaded_level(void);
+openrac_gaddr api_stack_push(uint32_t size, openrac_gaddr* saved);
+void api_stack_pop(openrac_gaddr saved);
+const openrac_input* api_input(void);
+int api_take_input(openrac_mod* mod, uint32_t devices);
+void api_capture_mouse(openrac_mod* mod, int capture);
+const openrac_graphics* api_graphics(void);
+bool native_vulkan_allowed(const mods::Manifest& manifest);
+int api_on_views(openrac_mod* mod, const openrac_view_source* source);
+int api_setup_vulkan(openrac_mod* mod, const openrac_vulkan_setup* setup);
+int api_menu_entry(openrac_mod* mod, const char* label, openrac_menu_fn fn, void* user);
+void api_menu_rect(openrac_mod* mod, int x, int y, int width, int height, uint32_t rgba);
+void api_menu_text(openrac_mod* mod, int x, int y, int size, uint32_t rgba, const char* text);
+UiPageCallback* mod_page(openrac_mod* mod, int page);
+int settle_cursor(const UiPage& page, int cursor);
+int api_ui_page(openrac_mod* mod, uint32_t flags, openrac_ui_fn fn, void* user);
+int api_ui_main_item(openrac_mod* mod, const char* after, const char* label, int page);
+int api_ui_pause_item(openrac_mod* mod, const char* label, int page);
+int api_ui_set(openrac_mod* mod, int page, const openrac_ui_content* content);
+int api_ui_open(openrac_mod* mod, int page);
+int api_ui_confirm(openrac_mod* mod, int page, const char* question, uint32_t tag);
+int api_ui_cursor(openrac_mod* mod, int page, int item);
+int api_ui_sound(openrac_mod* mod, int sound);
+int api_mod_count();
+int api_mod_entry(int index, openrac_mod_entry* out);
+std::string setting_text(const SettingValue& v);
+int api_mod_setting(int index, int setting, openrac_mod_setting* out);
+int api_party_rules_publish(openrac_mod* mod, const void* data, uint32_t size, const char* text);
+int api_party_rules_read(int index, void* out, uint32_t size, uint32_t* version);
+const char* api_party_rules_text(int index);
+int api_on_party_rules(openrac_mod* mod, openrac_party_rules_fn fn, void* user);
+int api_party_rules_deliver(int index, const void* data, uint32_t size);
+void api_party_replay(int on);
+int api_party_replaying();
+int api_on_overlay(openrac_mod* mod, openrac_overlay_fn fn, void* user);
+int api_packs_info(openrac_packs_info* out);
+int api_packs_entry(int index, openrac_pack_entry* out);
+int api_clipboard_set(const char* text);
+int api_open_link(const char* url);
+int api_plugins_folder(char* out, std::uint32_t size);
+int api_identity_key(char* out, std::uint32_t size);
+std::string quoted(std::string_view s);
+std::string number_text(double d);
+int set_setting(
+    openrac_mod* mod, const char* key, SettingType a, SettingType b, const std::string& literal
+);
+int api_setting_set_bool(openrac_mod* mod, const char* key, int value);
+int api_setting_set_int(openrac_mod* mod, const char* key, int64_t value);
+int api_setting_set_float(openrac_mod* mod, const char* key, double value);
+int api_setting_set_string(openrac_mod* mod, const char* key, const char* value);
+int api_on_settings(openrac_mod* mod, openrac_frame_fn fn, void* user);
+bool same(const SettingValue& x, const SettingValue& y);
+int api_save_data_set(openrac_mod* mod, const void* bytes, std::uint32_t size);
+std::uint32_t api_save_data_get(openrac_mod* mod, void* out, std::uint32_t size);
+int api_on_save_data(openrac_mod* mod, openrac_frame_fn fn, void* user);
+int phase_now(std::int32_t* level);
+bool in_level(int phase);
+bool live(const Figure& f);
+Figure* own_figure(const openrac_mod* mod, int id);
+bool save_info(const std::uint8_t* save, std::size_t size, openrac_save_info* out);
+int api_play_status(openrac_play_status* out);
+const char* api_level_name(int level);
+int api_hero_pose(openrac_pose* out);
+int api_figure_create(openrac_mod* mod);
+int api_figure_pose(openrac_mod* mod, int id, const openrac_pose* pose);
+int api_figure_remove(openrac_mod* mod, int id);
+int api_play_start(openrac_mod* mod, int level, const void* save, size_t size);
+bool in_a_level(int phase);
+int api_play_travel(openrac_mod* mod, int level);
+size_t api_save_capture(void* out, size_t size);
+int api_save_slot_current(void);
+int api_save_slot(int slot, openrac_save_info* out);
+size_t api_save_read(int slot, void* out, size_t size);
+const openrac_mod* driver(int slot);
+int api_moby_list(openrac_moby* out, int max);
+int api_moby_slot(int key);
+gaddr moby_address(int slot);
+int api_moby_drive(openrac_mod* mod, int slot, int on);
+int api_moby_pose(openrac_mod* mod, int slot, const openrac_moby* pose);
+int api_moby_kill(openrac_mod* mod, int slot);
+int api_moby_spawn(openrac_mod* mod, int oclass, const openrac_moby* pose);
+int api_moby_copy_check(openrac_mod* mod, int slot);
+int api_moby_copy(openrac_mod* mod, int slot, int index);
+int api_moby_pool_raise(openrac_mod* mod, int extra);
+int api_moby_pool_status(openrac_mod* mod, openrac_moby_pool* out);
+int api_figure_slot(openrac_mod* mod, int id);
+int api_on_moby_update(openrac_mod* mod, openrac_moby_update_fn fn, void* user);
+int api_hero_stand_in(openrac_mod* mod, const float position[3], int figure);
+int api_on_moby_hit(openrac_mod* mod, openrac_hit_fn fn, void* user);
+int api_moby_hit(openrac_mod* mod, const openrac_hit* hit);
+int api_play_eyes(openrac_mod* mod, const float* xyz, int count);
+int api_play_overlay_pause(openrac_mod* mod, int on);
+int api_moby_slot_of(openrac_gaddr moby);
+int api_collision_line(
+    const float from[3],
+    const float to[3],
+    std::uint32_t flags,
+    std::int32_t ignore,
+    openrac_line_hit* out
+);
+std::int32_t scene_now();
+int api_play_skip(openrac_mod* mod);
+int api_bolts(int add);
+int api_hero_held(openrac_held* out);
+int api_figure_held(openrac_mod* mod, int id, const openrac_held* held);
+int api_hero_shots(openrac_shot* out, int max);
+int api_figure_shot(openrac_mod* mod, int id, const openrac_shot* shot);
+int api_play_notice(openrac_mod* mod, const char* text);
+int api_scene_playing(int* frame);
+int api_play_scene(openrac_mod* mod, int scene);
+int api_moby_hide(openrac_mod* mod, int slot, int hidden);
+int api_moby_deletion(int slot, openrac_moby_deletion* out);
+int api_moby_run(int slot, openrac_moby_run* out);
+int api_card_filter(openrac_mod* mod, int mode, const char* folder);
+int api_card_slot_hint(openrac_mod* mod, int slot);
+int api_coop_save_write(openrac_mod* mod, int slot, const void* bytes, std::uint32_t size);
+int api_save_slot2(const char* folder, int slot, openrac_save_info* out);
+std::size_t api_save_read2(const char* folder, int slot, void* out, std::size_t size);
+std::uint32_t api_card_saves();
+int api_card_note_write(openrac_mod* mod, int slot, const char* text);
+int api_card_note_read(const char* folder, int slot, char* out, std::uint32_t size);
+int api_shared_read(int tag, void* out, std::uint32_t size);
+int api_shared_give(int tag, const void* data, std::uint32_t size);
+int api_mission_state_read(int level, std::uint8_t* out);
+int api_mission_state_write(int level, const std::uint8_t* in);
+int api_mission_state_clear(int level, const std::uint8_t* flags);
+int api_hero_place(openrac_mod* mod, const float position[3], float yaw, std::uint32_t flags);
+int api_hero_grab(openrac_mod* mod, int animation, std::uint32_t flags);
+int api_hero_release(openrac_mod* mod);
+int api_hero_hold_at(openrac_mod* mod, const float position[3], float yaw);
+int api_hero_stand_in_as(openrac_mod* mod, const openrac_stand_in* as, int figure);
+int api_hero_stand_in_read(openrac_mod* mod, openrac_stand_in* out);
+int api_hero_revive(openrac_mod* mod, const float position[3], std::uint32_t flags);
+int api_hero_shots2(openrac_shot2* out, int max);
+int api_figure_shot2(openrac_mod* mod, int id, const openrac_shot2* shot);
+int api_moby_list2(openrac_moby2* out, int max);
+bool has_camera_scripts();
+int api_on_camera_script(openrac_mod* mod, openrac_camera_script_fn fn, void* user);
+int api_camera_script_play(openrac_mod* mod, int id);
+int api_camera_script_view(float eye[3], float rotation[3], float where[3], int* stand_in);
+int api_camera_script_show(openrac_mod* mod, const float eye[3], const float rotation[3]);
+int api_play_scene_from(openrac_mod*, int, int);
+int api_play_live_picture(openrac_mod* mod, int on);
+int api_on_metal_detect(openrac_mod* mod, openrac_metal_detect_fn fn, void* user);
+int api_camera_position(float out[3]);
+int api_level_line(const float from[3], const float to[3], int* blocked);
+int api_world_family(char* out, std::uint32_t size);
+int api_sim_digest(std::int32_t level, std::uint32_t* out);
+std::uint32_t api_sprite_tint(openrac_mod* mod, std::uint32_t rgb);
+void apply_joint_sets(std::uint32_t moby);
+std::uint32_t loads_now();
+int api_hero_set_pose(openrac_mod* mod, const openrac_pose* pose);
+int api_hero_set_joints(openrac_mod* mod, const openrac_joint_offset* joints, int count);
+int api_collision_triangles(
+    const float lo[3], const float hi[3], openrac_collision_triangle* out, int max
+);
+openrac_gaddr api_guest_text(openrac_mod* mod, const char* text);
+int api_pickup_animation(openrac_mod* mod, int kind, int item);
+int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int count);
+int api_moby_material(
+    openrac_mod* mod, openrac_gaddr moby, std::uint32_t material, std::uint32_t rgb
+);
+int api_prop_create(openrac_mod* mod, const char* mesh_path);
+int api_prop_pose(openrac_mod* mod, int id, const openrac_prop_pose* pose);
+int api_prop_attach(
+    openrac_mod* mod,
+    int id,
+    std::int32_t slot,
+    std::int32_t joint,
+    std::uint32_t flags,
+    const float offset[16]
+);
+int api_prop_frame(openrac_mod* mod, int id, float out[16]);
+int api_prop_hide(openrac_mod* mod, int id, int hidden);
+int api_prop_remove(openrac_mod* mod, int id);
+int api_camera_view(openrac_camera* out);
+bool unit(const float v[3]);
+int api_camera_set(openrac_mod* mod, const openrac_camera* camera);
+int api_haze_set(openrac_mod* mod, const openrac_haze* patches, int count);
+int api_hud_text_set(openrac_mod* mod, const openrac_hud_text* lines, int count);
+int api_hero_sound_play(openrac_mod* mod, int sound, int loop);
+void api_hero_sound_stop(openrac_mod* mod, int voice);
+int api_hero_hurt(openrac_mod* mod, int damage);
+int api_touch_define(openrac_mod* mod, const char* json);
+int api_touch_icon(openrac_mod* mod, const char* name, const char* svg);
+void api_touch_push(openrac_mod* mod, const char* context);
+void api_touch_hint(openrac_mod* mod, const char* hint, int on);
+int api_sound_load(openrac_mod* mod, const char* path);
+std::uint32_t api_sound_play(openrac_mod* mod, int sound, float volume, float pitch, int loop);
+int api_sound_set(openrac_mod* mod, std::uint32_t voice, float volume, float pitch);
+void api_sound_stop(openrac_mod* mod, std::uint32_t voice);
+
+// The hero's weapons and their shots (interface 1.29): mod_api/hero.cpp, mod_api/world.cpp.
+// The particle records tied to a weapon's look (render-only), by record address; under
+// g_props_lock.
+struct ParticleLook {
+    std::uint32_t loads = 0;
+    MobyMaterial look;
+};
+
+extern std::unordered_map<std::uint32_t, ParticleLook> g_particle_looks;
+int api_on_weapon_fire(openrac_mod* mod, openrac_weapon_fire_fn fn, void* user);
+int api_weapon_refire(openrac_mod* mod, std::uint32_t serial, float yaw, float pitch);
+int api_on_shot_end(openrac_mod* mod, openrac_shot_end_fn fn, void* user);
+int api_moby_spawn_live(openrac_mod* mod, const openrac_spawn_live* spawn);
+int api_weapon_look(openrac_mod* mod, std::int32_t item, std::uint32_t material, std::uint32_t rgb);
+int api_moby_status(openrac_mod* mod, std::int32_t slot, std::uint32_t status, std::int32_t ticks);
+openrac_gaddr api_weapon_record(openrac_mod* mod, std::int32_t item);
+void drop_weapon_shots(const openrac_mod* mod);
+
+int api_weapon_ignore_culling(openrac_mod* mod, std::int32_t item, std::int32_t enabled);
+
+}  // namespace openrac::mods::detail

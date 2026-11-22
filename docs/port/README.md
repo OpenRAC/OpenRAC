@@ -40,6 +40,7 @@ in [port/](../../port/README.md).
 | [CONTROLS.md](CONTROLS.md) | The controls files, bindings, sticks, triggers, players |
 | [CONTROLLERS.md](CONTROLLERS.md) | Controllers: what the game asks of a pad, DualSense features in SDL3, what to build |
 | [MODS.md](MODS.md) | Native and script mods, their manifest, hook points, purist mode, the [SDK](../../sdk/README.md) |
+| [MOD_API.md](MOD_API.md) | Adding a call to the mods' interface: where each part goes, naming, tests, the version |
 | [TEXTURE_PACKS.md](TEXTURE_PACKS.md) | Replacing the game's textures with your own pictures |
 | [HDR.md](HDR.md) | HDR output |
 | [SPEEDRUN.md](SPEEDRUN.md) | Timing, LiveSplit, practice tools, save states, the game's speedrun meta |

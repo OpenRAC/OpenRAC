@@ -19,6 +19,11 @@ on:
       - "sdk/**"
       - "docs/port/MODS.md"
       - ".github/workflows/sdk.yml"
+      # The reference's by-area page reads which games give each call.
+      - "port/game/common/mods.cpp"
+      - "port/game/common/mod_play.cpp"
+      - "port/game/common/mod_api/**"
+      - "port/game/*/host/play.c"
   pull_request:
     paths: *paths
   workflow_dispatch:
@@ -41,10 +46,16 @@ jobs:
         with:
           python-version: "3.12"
       - name: Test the SDK's tools
-        run: python3 -m unittest discover -s sdk/tools
+        # clang-format (pinned, as in checks.yml) checks that new_api.py writes the port's files
+        # as port/.clang-format lays them out.
+        run: |
+          python3 -m pip install clang-format==21.1.8
+          python3 -m unittest discover -s sdk/tools
       - name: The API reference is what the sources give
         # sdk/docs/reference is generated from the headers, the bindings and the type files.
         run: python3 sdk/tools/gen_reference.py --check
+      - name: Every place says the same SDK version (bump_api.py)
+        run: python3 sdk/tools/bump_api.py --check
       - name: The ABI only grows (sdk/api locks)
         run: python3 sdk/tools/gen_api_lock.py --check
       - name: The ABI only grows, against the pull request's base

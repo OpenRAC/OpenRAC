@@ -81,11 +81,15 @@ OpenRAC
 ├── sdk/                               the SDK (section 8)
 │   ├── include/openrac/openrac_mod.h  the interface: openrac_api, the entry points
 │   ├── include/openrac/games/rac1.h   Ratchet & Clank's hook points and their signatures
+│   ├── bindings/<game>.json           each game's hook points and fields (gen_binding.py)
+│   ├── api/                           the ABI locks, and members.tsv: each member's area
 │   ├── cmake/                         find_package(OpenRACMod): openrac_add_mod()
 │   ├── template/                      a mod to copy
 │   ├── examples/frame-counter/        a mod that uses each part of the interface
-│   └── tools/package_mod.py           a mod's .zip, with its manifest
+│   └── tools/                         package_mod.py (a mod's .zip), new_api.py and
+│                                      bump_api.py (a new call, the version: MOD_API.md)
 ├── port/game/common/mods.{h,cpp}      the loader: the list, the checks, dlopen, the hooks
+├── port/game/common/mod_api/          the table's calls, one file per area (MOD_API.md)
 ├── port/game/<game>/built_in_mods.cpp the mods built into the port (always loaded, even with
 │                                      --no-mods; their settings are `<prefix>_<key>` lines of
 │                                      the settings file, changed live from the game's menu or
@@ -803,7 +807,11 @@ an effect, a copy) from the spare slots its level's file sets (200 to 400; Barlo
 with none free is lost; NG++'s copies of Barlow's enemies alone take 79. The port raises the count
 as the level's gameplay file is decompressed (port/game/rac2/host/moby_pool.c), the way Ratchet &
 Clank's bigger pool does. Ask in `load()` (the C++ layer's `has_moby_pool()`, `moby_pool_raise()`,
-`moby_pool_status()`).
+`moby_pool_status()`). A level gets what fits below the data the game keeps at the top of RAM for
+every level (the ship's class first): its first load runs without the raise to measure it, then again
+with what fits (Smolg 431 slots, Barlow 549, Boldan 727 on NTSC-U v1.01, the others the whole
+request). Before, a raise past that room laid the level's lists over the ship's class and crashed in
+its cockpit glass or the level's load.
 
 1.28 (SDK 1.28.0) a row's look in a mod's tab (`developer_menu_look`): a row to read, not to press,
 a locked one drawn dim, text at its right ("Earned", "24/40"), a progress bar under its label and an
@@ -894,6 +902,12 @@ interface's, `MAJOR.MINOR`, and a patch number for fixes to the SDK itself
 (`sdk/VERSION`): the SDK 1.0.x builds mods for interface 1.0. The archive is
 the same bytes wherever it is made, so a mod's build can pin the version and
 its hash (openrac-mods does: `sdk.lock`).
+
+To add a call to the table, follow [MOD_API.md](https://github.com/OpenRAC/OpenRAC/blob/master/docs/port/MOD_API.md).
+To change the version, run `python3 sdk/tools/bump_api.py minor --note "..."`
+for new table members, or `patch` for other changes mods see (such as hook
+points). It updates all six places that hold the version, and `--check` (CI)
+fails when they differ.
 
 ```sh
 unzip openrac-mod-sdk-1.0.0.zip

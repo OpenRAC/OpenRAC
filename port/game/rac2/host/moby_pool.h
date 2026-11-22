@@ -10,7 +10,8 @@
 
 #include "openrac/guest.h"
 
-/* The most spare slots a request adds to a level (each takes 0x180 bytes of the level's heap). */
+/* The most spare slots a request adds to a level (each takes 0x180 bytes of the level's heap; a
+ * level gets fewer when its heap has less room). */
 #define RAC2_POOL_EXTRA_MAX 1024
 
 /* Asks for `extra` more spare slots in every level loaded from now on (the largest request of any
@@ -26,8 +27,14 @@ int rac2_pool_status(int32_t out[5]);
  * context's. */
 void rac2_pool_loading(void);
 
-/* The loader has returned. */
-void rac2_pool_loaded(void);
+/* The loader has returned the end of the level's heap, `heap_end`. Returns 1 when the raise laid
+ * the level over the data the boot program keeps above it: the caller then puts the memory back
+ * (rac2_pool_restore), and runs the loader again (rac2_pool_loading first), which gets the raise
+ * that fits. 0 otherwise. */
+int rac2_pool_loaded(gaddr heap_end);
+
+/* Puts the memory from the heap's start up back as it was when rac2_pool_loading began the load. */
+void rac2_pool_restore(void);
 
 /* A WAD decompressed to `to` (wad.c): the gameplay file of a loader that named it gets its extra
  * spare slots. */
