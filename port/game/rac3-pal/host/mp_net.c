@@ -127,6 +127,9 @@ enum {
 #define LIST_ADVERTS 1
 #define FEATURE_REGIONS 16 /* the UDP offer's bit: the server answers PACKET_REGIONS */
 #define CLIENT_SLOTS 2 /* PACKET_HELLO's client bit: send PARTY_SLOTS (the room's stable slots) */
+#define CLIENT_KEEPS_ALIVE                                                                         \
+    4                      /* PACKET_HELLO's client bit: this client sends PACKET_TIME every 2 s */
+#define KEEP_ALIVE_MS 2000 /* how often: the server drops a client silent for 30 s */
 #ifdef RAC3_PAL
 #define NET_FAMILY "rac3-pal-1"
 #else
@@ -423,7 +426,7 @@ static int srv_open(const char* name) {
     srv_begin(PACKET_HELLO, -1);
     srv_text(NET_VERSION);
     srv_text(name);
-    srv_u8(CLIENT_SLOTS);
+    srv_u8(CLIENT_SLOTS | CLIENT_KEEPS_ALIVE);
     srv_end();
     return 1;
 }
@@ -1569,6 +1572,23 @@ static void on_frame(int id, reader* r) {
 }
 
 /* Reads what the server sent and handles every whole frame. */
+/* PACKET_TIME every KEEP_ALIVE_MS once greeted, which HELLO promised (CLIENT_KEEPS_ALIVE): a game
+ * that hangs or dies stops sending, and the server drops it from its party. The answer is ignored. */
+static void srv_keep_alive(void) {
+    static int64_t last;
+    struct timespec now;
+    timespec_get(&now, TIME_UTC);
+    const int64_t ms = (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+    if (srv.state != 1 || ms - last < KEEP_ALIVE_MS || !srv_room(16)) {
+        return;
+    }
+    last = ms;
+    srv_begin(PACKET_TIME, -1);
+    srv_i32((int32_t)(ms >> 32));
+    srv_i32((int32_t)ms);
+    srv_end();
+}
+
 static void srv_pump(void) {
     if (srv.fd == NET_INVALID) {
         return;
@@ -1609,6 +1629,7 @@ static void srv_pump(void) {
     }
     memmove(srv.in, srv.in + at, srv.in_len - at);
     srv.in_len -= at;
+    srv_keep_alive();
 }
 
 /* Everything that waits for a frame of the game: the server's packets, the lobby's callbacks. */
