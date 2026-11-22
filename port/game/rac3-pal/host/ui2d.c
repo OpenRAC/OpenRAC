@@ -1496,7 +1496,7 @@ MP_GLYPH_SHADOWED(mp_func_L39_0058BF70)
  * at 0 and the maps' HUD sets (Veldin's 0x001DFD0C, level 39's 0x0024BCEC). */
 #define MP_MAP_CURSOR OPENRAC_LDATA(39, MP_MENUS_CURSOR)
 
-static inline Rac3Ui2d mp_map_ui2d(void) {
+Rac3Ui2d rac3_ui2d_mp_level(void) {
     const Rac3Ui2d u = {
         MP_MAP_CURSOR,
         OPENRAC_LDATA(39, RAC3_LADDR(39, 0x0024BD00u)),
@@ -1506,7 +1506,47 @@ static inline Rac3Ui2d mp_map_ui2d(void) {
     return u;
 }
 
+/* The turned sprite and the turned HUD quad of level 39's copy (the boot program's func_0038C0B8
+ * and func_00397A18, as the single-player levels' func_L01_00406B10 and func_L01_00421278). */
+#define MP_ROTATED_SPRITE(name, sine, cosine)                                                      \
+    void name(                                                                                     \
+        float px,                                                                                  \
+        float py,                                                                                  \
+        float sx,                                                                                  \
+        float sy,                                                                                  \
+        float ang,                                                                                 \
+        int w,                                                                                     \
+        int h,                                                                                     \
+        long long tex,                                                                             \
+        int z,                                                                                     \
+        int rgba,                                                                                  \
+        int fx,                                                                                    \
+        int fy,                                                                                    \
+        float ax,                                                                                  \
+        float ay                                                                                   \
+    ) {                                                                                            \
+        const float s = sine(ang), c = cosine(ang);                                                \
+        if (!rotated_sprite(                                                                       \
+                MP_MAP_CURSOR, px, py, sx, sy, s, c, w, h, tex, z, rgba, fx, fy, ax, ay            \
+            )) {                                                                                   \
+            name##__game(px, py, sx, sy, ang, w, h, tex, z, rgba, fx, fy, ax, ay);                 \
+        }                                                                                          \
+    }
+#define MP_HUD_QUAD_TURNED(name, sine, cosine)                                                     \
+    float name(int tw, int th, long long tex0, float x, float y, float w, float h, float ang) {   \
+        const Rac3Ui2d u = rac3_ui2d_mp_level();                                                   \
+        const float s = sine(ang), c = cosine(ang);                                                \
+        const uint32_t z = GREF(uint32_t, u.hud_depth);                                            \
+        if (!hud_quad_turned(u.cursor, x, y, w, h, s, c, tw, th, (unsigned long long)tex0, z)) {   \
+            return name##__game(tw, th, tex0, x, y, w, h, ang);                                    \
+        }                                                                                          \
+        return s;                                                                                  \
+    }
+MP_ROTATED_SPRITE(mp_func_L39_0058C218, mp_func_L39_00590A80, mp_func_L39_00590A68)
+MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590A68)
+
 #define MP_MAP(...)
+#define MP_MAP_HUD(...)
 #define MP_MAP_UI(                                                                                 \
     m,                                                                                             \
     font_print,                                                                                    \
@@ -1522,8 +1562,14 @@ static inline Rac3Ui2d mp_map_ui2d(void) {
     hud_sprite_shaded,                                                                             \
     sine,                                                                                          \
     cosine,                                                                                        \
-    hud_tex0                                                                                       \
+    hud_tex0,                                                                                      \
+    rotated_sprite_one,                                                                            \
+    hud_quad_turned_one                                                                            \
 )                                                                                                  \
+    MP_ROTATED_SPRITE(mp_func_L##m##_##rotated_sprite_one, mp_func_L##m##_##sine, mp_func_L##m##_##cosine) \
+    MP_HUD_QUAD_TURNED(                                                                            \
+        mp_func_L##m##_##hud_quad_turned_one, mp_func_L##m##_##sine, mp_func_L##m##_##cosine       \
+    )                                                                                              \
     void mp_func_L##m##_##font_print(                                                              \
         float a0,                                                                                  \
         float a1,                                                                                  \
@@ -1614,7 +1660,7 @@ static inline Rac3Ui2d mp_map_ui2d(void) {
     ) {                                                                                            \
         const float s = mp_func_L##m##_##sine(ang), c = mp_func_L##m##_##cosine(ang);              \
         const unsigned long long tex0 = mp_func_L##m##_##hud_tex0(tex);                            \
-        const Rac3Ui2d u = mp_map_ui2d();                                                          \
+        const Rac3Ui2d u = rac3_ui2d_mp_level();                                                   \
         if (!hud_sprite_turned(&u, tex, tex0, colours, x, y, w, h, s, c)) {                        \
             mp_func_L##m##_##hud_sprite_shaded##__game(tex, colours, x, y, w, h, ang);             \
         }                                                                                          \
@@ -1622,6 +1668,7 @@ static inline Rac3Ui2d mp_map_ui2d(void) {
 
 #include "mp_maps.h"
 #undef MP_MAP
+#undef MP_MAP_HUD
 #undef MP_MAP_UI
 
 /* frontbin's copies of the 2D layer (the program the front end runs after a level: Quit Game, a

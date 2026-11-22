@@ -173,7 +173,11 @@
       "func_0027E360": "long long (int)",
       "func_L39_00589890": "long long (int)",
       "func_00287A18": "unsigned long long (int)",
-      "func_L39_005A4ED8": "unsigned long long (int)"
+      "func_L39_005A4ED8": "unsigned long long (int)",
+      "func_L39_0059CB38": "void (int, int, int, int, int, int)",
+      "func_L39_0059CD28": "void (int, int, int, int, int, void *)",
+      "func_L39_0058C218": "void (float, float, float, float, float, int, int, long long, int, int, int, int, float, float)",
+      "func_L39_0059D368": "float (int, int, long long, float, float, float, float, float)"
     },
     "vu0_programs": {
       "0xC80": "rac3_vu0_rotation_rows",

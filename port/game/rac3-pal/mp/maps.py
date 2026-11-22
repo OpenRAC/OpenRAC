@@ -101,6 +101,15 @@ CARRIED_UI = [
     ("00590A80", "", "", "ref", "the sine"),
     ("00590A68", "", "", "ref", "the cosine"),
     ("0059C910", "", "", "ref", "a HUD texture's TEX0"),
+    ("0058C218", "draw", "DrawRotatedSpriteMap", "wrap", "the turned sprite (func_0038C0B8)"),
+    ("0059D368", "draw", "DrawHudQuadTurnedMap", "wrap", "the turned HUD quad (func_00397A18)"),
+]
+
+# Level 39's HUD sprites (hud.c's MP_MAP_HUD: the sprite, the gradient, then the TEX0 getter they call).
+CARRIED_HUD = [
+    ("0059CB38", "hud", "DrawHudSpriteMap", "wrap", "DrawHudSprite (func_L01_004202A8)"),
+    ("0059CD28", "hud", "DrawHudGradientMap", "wrap", "DrawHudGradient (func_L01_00420498)"),
+    ("0059C910", "", "", "ref", "a HUD texture's TEX0"),
 ]
 
 BEGIN = "# --- the maps' rows: written by mp/maps.py, do not edit by hand ---"
@@ -195,6 +204,16 @@ def build(source: Path) -> tuple[dict, list[str], list[str]]:
                 lines.append(f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what}, "
                              f"wrapped as level 39's {l39} (host/ui2d.c)")
         macros.append(f"MP_MAP_UI({m}, " + ", ".join(ui) + ")")
+        hud = []
+        for l39, lib, name, port, what in CARRIED_HUD:
+            place = rows.get(l39, {}).get(m)
+            if place is None:
+                raise SystemExit(f"maps.py: level 39's {l39} has no place in map {m} in the catalogue")
+            hud.append(place)
+            if port != "ref":
+                lines.append(f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what}, "
+                             f"wrapped as level 39's {l39} (host/hud.c)")
+        macros.append(f"MP_MAP_HUD({m}, " + ", ".join(hud) + ")")
     return entries, lines, macros
 
 
