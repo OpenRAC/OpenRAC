@@ -1396,7 +1396,7 @@ class Translator:
         callee reads above its own frame (the size its prologue takes off $sp). The levels' copy of
         frontbin's func_003910C0 (func_L01_00412C08, the help frames) reads a ninth from 0x60($sp)
         under a 0x60-byte frame; translated with eight, its C callers' ninth never reached it
-        (#719). Only loads count, and only within eight doublewords of the frame."""
+        (#719). Only loads count, within sixteen doublewords of the frame (Veldin's func_L01_004DD130 reads eleven)."""
         frame = None
         for a in range(self.entry_addr, self.entry_addr + 32, 4):
             ins = self.at(a)
@@ -1428,7 +1428,7 @@ class Translator:
             if width is None or ins.rs != 29:
                 continue
             off = ins.imm - frame
-            if 0 <= off < 64:
+            if 0 <= off < 128:
                 most = max(most, (off + width + 7) // 8)
         return most
 
