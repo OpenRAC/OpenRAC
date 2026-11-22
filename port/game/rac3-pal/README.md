@@ -172,9 +172,20 @@ The menus' music is the boot program's stereo stream (`openrac_stream_play_stere
 command `0x2C`): it plays from the multiplayer menus' first frames. Command `0x30` (a stream query
 with a callback, `0x001948B8`, which the music player keeps at `+0x14`) answers 0.
 
-What is left: a map (levels 40 to 55) is not loaded: they would be translated as level 39 is
-(`discover_levels`), with the native world renderers the boot program's levels use; NTSC-U's
-I5BOOTN.ELF is not paired yet.
+The maps (levels 40 to 53 on PAL: 40 to 49 online and LAN, 50 to 53 their split-screen builds) are
+translated as level 39 is, each from its own program at its own addresses (`func_L40_...`):
+`mp/maps.py` writes them into `mp/hostgen.json` (`retail` `levels`, `discover_levels`, each map's
+entry and the routine 0x484 past it as roots, `level_copies`) and the rows at the end of
+`mp/libraries.tsv`, from rac3-decomp's catalogue. Every map carries a copy of the engine level 39
+carries too, so the port stands level 39's host C in for each map's copy (`host/mp_maps.c`, the 2D
+layer in `ui2d.c`, the HUD sprites in `hud.c`, one `MP_MAP*` line a map in `host/mp_maps.h`), its
+globals level 39's relocated to the map's: the next-program hook (`mp.c`, `0x00192F68`) keeps level
+39's and the map's programs as read and gives the map's number (the level word `0x002412DC`) as the
+overlay, and `level_copies` tells the runtime which of the map's functions are copies of which of
+level 39's (`openrac_guest_add_level_copies`), so `OPENRAC_LDATA(39, ...)` pairs them. The
+single-player levels' and level 39's `asm` `signatures` reach the maps' copies as
+`copy_signatures`. NTSC-U's are carried by `release_carry_rac3.py` (its maps 54 and 55, builds of
+44 and 45, are not yet).
 
 ## Ticks, pacing and input
 
