@@ -163,7 +163,8 @@
       "func_L39_0059CB38": "void (int, int, int, int, int, int)",
       "func_L39_0059CD28": "void (int, int, int, int, int, void *)",
       "func_L39_0058C218": "void (float, float, float, float, float, int, int, long long, int, int, int, int, float, float)",
-      "func_L39_0059D368": "float (int, int, long long, float, float, float, float, float)"
+      "func_L39_0059D368": "float (int, int, long long, float, float, float, float, float)",
+      "func_00285318": "void (float, float, float, float, float, int, int, long long)"
     },
     "vu0_programs": {
       "0xC80": "rac3_vu0_rotation_rows",

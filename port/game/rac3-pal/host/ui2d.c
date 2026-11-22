@@ -1486,6 +1486,17 @@ void mp_func_L39_0059CFD0(int tex, gaddr colours, float x, float y, float w, flo
     }
 }
 
+/* The core's turned HUD quad (0x00285318, the boot program's func_00397A18 instruction for
+ * instruction, its HUD depth word 0x00244414 where the boot program's is 0x001D9E94): the map
+ * loading screen's weapon icons, which the game's packets drew with no texture. */
+void mp_func_00285318(float x, float y, float w, float h, float ang, int tw, int th, long long tex0) {
+    const float s = mp_func_002804B0(ang), c = mp_func_00280498(ang);
+    const uint32_t z = GREF(uint32_t, RAC3_MADDR(0x00244414u));
+    if (!hud_quad_turned(MP_CURSOR, x, y, w, h, s, c, tw, th, (unsigned long long)tex0, z)) {
+        mp_func_00285318__game(x, y, w, h, ang, tw, th, tex0);
+    }
+}
+
 /* Level 39's one-colour and shadowed glyphs, inside its prints. */
 MP_GLYPH(mp_func_L39_0058BBB0)
 MP_GLYPH_SHADOWED(mp_func_L39_0058BF70)
