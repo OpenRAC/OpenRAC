@@ -13,3 +13,5 @@ func_L04_0033CB08	func_L04_0033CB08.c
 func_L06_00443DE0	func_L06_00443DE0.c
 func_L09_00404F90	func_L09_00404F90.c
 func_L02_00333438	func_L02_00333438.c
+# Aranos Prison's wrench upgrade tested as USA v2.00 tests it (differences.json "prison-wrench").
+func_L14_003F4F98	func_L14_003F4F98.c

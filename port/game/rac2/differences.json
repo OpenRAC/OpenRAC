@@ -42,6 +42,15 @@
       "refs": ["port/game/rac2/host/sheep_once.c"]
     },
     {
+      "id": "prison-wrench",
+      "kind": "always",
+      "name": "Prison wrench upgrade",
+      "discs": ["ntsc"],
+      "original": "On USA v1.01 the wrench upgrade in Aranos Prison counts challenge mode's wrench as already upgraded: the pickup hides itself and the OmniWrench 12000 is never given. USA v2.00 and PAL give it.",
+      "port": "The upgrade is tested as USA v2.00 tests it: in challenge mode the pickup shows and gives the OmniWrench 12000 until the wrench has it.",
+      "refs": ["port/game/rac2-ntsc/hand/func_L14_003F4F98.c", "games/rac2/decomp src/us2/levels/14_aranos_prison/L14_003F64DC.c"]
+    },
+    {
       "id": "mapper-markers",
       "kind": "always",
       "name": "Mapper markers",
