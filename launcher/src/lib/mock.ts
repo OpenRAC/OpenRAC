@@ -199,11 +199,7 @@ const summary = summaryFile as RawSummary;
 
 // ---- made-up state -------------------------------------------------------------------
 
-const platform: Platform = onAndroid
-  ? "android"
-  : new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("macos")
-    ? "macos"
-    : "linux";
+const platform: Platform = onAndroid ? "android" : "linux";
 
 /** ?android: the Android launcher's GPU driver packages. */
 const turnip: GpuDriver = {

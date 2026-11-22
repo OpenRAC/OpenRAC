@@ -211,16 +211,19 @@ actions, as rac1/pal has on Windows:
 A `play` action also gets the environment Settings asks for
 (`core/src/actions.rs`, `Action::plan`): `OPENRAC_DEVELOPER=1` with developer
 tools on, `OPENRAC_LOG=verbose` with Detailed game logs, and, on Windows,
-Linux with Renderer set to Vulkan, or on macOS with Renderer set to Metal (Advanced, `Config.renderer`),
+Linux and macOS with Renderer set to Vulkan (Advanced, `Config.renderer`),
 `OPENRAC_GL_API=vulkan`: the port's Vulkan renderer (the default)
 (`port/renderer/vulkan`) in place of OpenGL 4.1. Where Vulkan 1.3 cannot
 start, or the build has no Vulkan renderer, the game logs why and draws with
 OpenGL (`port/platform/window.cpp`). It applies from the game's next start.
 On macOS it runs on MoltenVK, which each game's application bundle carries
-(`port/cmake/MacApp.cmake`). A saved `metal` value loads as `vulkan`.
-Enhanced graphics selects Vulkan regardless of the desktop setting. OpenGL sets
-no override. Android keeps its own choice under Graphics (`src-tauri/src/android.rs`).
-On iOS the launcher displays Metal as the renderer, and the game uses its bundled MoltenVK.
+(`port/cmake/MacApp.cmake`). On macOS only, Renderer also offers Metal:
+`OPENRAC_GL_API=metal`, the port's Metal renderer (`port/renderer/metal`),
+which likewise draws with OpenGL where Metal cannot start. A settings file
+that says `metal` on another system plays with Vulkan
+(`config::renderer_for`), and Enhanced graphics, Vulkan only, plays with
+Vulkan over it. OpenGL sets nothing. Android keeps its own choice under
+Graphics (`src-tauri/src/android.rs`).
 
 Each version's levels have a folder of their own under one root, since the
 versions of a game share its data folder: `assets/port/<game>/<version>` in a
