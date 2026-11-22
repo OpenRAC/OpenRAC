@@ -119,6 +119,12 @@ fn view(dir: &Path, entry: &Entry) -> PackView {
     }
     let sounds = std::fs::read_dir(dir.join("packs").join(&entry.id).join("audio"))
         .map_or(0, |files| files.flatten().filter(|f| f.path().extension().is_some_and(|e| e == "wav")).count());
+    let sounds = sounds
+        + if manifest.get("format").and_then(Value::as_u64) == Some(5) {
+            manifest.get("audio_recipe").and_then(|r| r.get("keys")).and_then(Value::as_array).map_or(0, Vec::len)
+        } else {
+            0
+        };
     let name = text("name");
     PackView {
         name: if name.is_empty() { entry.id.clone() } else { name },
@@ -179,6 +185,21 @@ pub fn remove(dir: &Path, id: &str) -> Result<Vec<PackView>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recipe_shows_target_sounds_before_the_private_cache_exists() {
+        let root = tempfile::tempdir().unwrap();
+        let folder = root.path().join("packs/recipe");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(
+            folder.join(MANIFEST),
+            r#"{"format":5,"name":"Music","audio_recipe":{"keys":["0123456789abcdef","fedcba9876543210"]}}"#,
+        )
+        .unwrap();
+        let shown = view(root.path(), &Entry { id: "recipe".into(), enabled: true });
+        assert_eq!(shown.sounds, 2);
+        assert!(!shown.is_map && !shown.is_destination);
+    }
 
     fn pack(dir: &Path, id: &str, name: &str) {
         let folder = dir.join("packs").join(id);

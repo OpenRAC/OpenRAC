@@ -599,6 +599,19 @@ export const AUDIO = {
   importRefused: (n: number) => `Nothing imported: ${n} file${n === 1 ? " was" : "s were"} refused.`,
   openActivityLog: "Open activity log",
   nothing: "No file in that folder differs from what was exported, so no pack is left from it.",
+  recipeTitle: "Share audio adjustments",
+  recipeLine:
+    "Make a small recipe instead of sharing recordings. Each player generates the sounds from their own disc.",
+  recipeName: "Pack name",
+  recipeDefaultName: "Audio adjustments",
+  recipeSpeed: "Speed (%)",
+  recipeGain: "Volume (dB)",
+  recipeHelp:
+    "Speed changes pitch and duration together. Positive volume can clip loud sounds. Uses the level and sounds selected above.",
+  recipeCreate: "Create shareable recipe",
+  recipeBusy: "Preparing the recipe…",
+  recipeReady: "Recipe installed: share its ZIP. The sounds will be prepared when you play with mods.",
+  recipeStopped: "The recipe could not be prepared. The activity log has what it said.",
 } as const;
 
 // ---- The mod hub: the change set (DeepLinkInstall.svelte), opened by a link from openrac.dev ---

@@ -663,6 +663,35 @@
         "docs": "editor/AUDIO_MODDING.md"
       },
       {
+        "id": "audio-recipe",
+        "label": "Create an audio recipe",
+        "description": "Shares audio adjustments as a small recipe. Each player generates the sounds from their own disc.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/audio_recipe.py",
+          "create",
+          "{disc}",
+          "{data}/exports/audio-recipe",
+          "--settings",
+          "{option}",
+          "--timestamp",
+          "--unique",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/exports",
+        "freeOption": true,
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/AUDIO_MODDING.md"
+      },
+      {
         "id": "overrides-add",
         "label": "Add an overrides pack",
         "description": "Copies a pack (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. The file you chose is never changed.",
@@ -1400,6 +1429,35 @@
         "output": "{data}/overrides",
         "cwd": ".",
         "requires": [
+          "python"
+        ],
+        "docs": "editor/AUDIO_MODDING.md"
+      },
+      {
+        "id": "audio-recipe",
+        "label": "Create an audio recipe",
+        "description": "Shares audio adjustments as a small recipe. Each player generates the sounds from their own disc.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/audio_recipe.py",
+          "create",
+          "{disc}",
+          "{data}/exports/audio-recipe",
+          "--settings",
+          "{option}",
+          "--timestamp",
+          "--unique",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/exports",
+        "freeOption": true,
+        "cwd": ".",
+        "requires": [
+          "disc",
           "python"
         ],
         "docs": "editor/AUDIO_MODDING.md"

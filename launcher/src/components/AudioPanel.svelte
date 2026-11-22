@@ -21,6 +21,7 @@
   const scope = $derived({ kind: "version" as const, key: v.key });
   const action = (id: string): ActionView | null => v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
   const importer = $derived(action("audio-import"));
+  const recipeCreator = $derived(action("audio-recipe"));
 
   type What = keyof typeof AUDIO.what;
   const WHATS = Object.keys(AUDIO.what) as What[];
@@ -30,7 +31,22 @@
   // svelte-ignore state_referenced_locally
   let level = $state(levelsOf(v.game)[0]?.number ?? 0);
   let what = $state<What>("effects");
-  let busy = $state<"export" | "import" | null>(null);
+  let busy = $state<"export" | "import" | "recipe" | null>(null);
+  let recipeName = $state<string>(AUDIO.recipeDefaultName);
+  let speed = $state<number | undefined>(104);
+  let gain = $state<number | undefined>(0);
+  const validRecipe = $derived(
+    recipeName.trim().length > 0 &&
+      recipeName.length <= 120 &&
+      speed !== undefined &&
+      Number.isFinite(speed) &&
+      speed >= 50 &&
+      speed <= 200 &&
+      gain !== undefined &&
+      Number.isFinite(gain) &&
+      gain >= -24 &&
+      gain <= 12,
+  );
   /** What the last import said, in a sentence. */
   let said = $state<ReturnType<typeof importOutcome> | null>(null);
 
@@ -72,6 +88,24 @@
     busy = null;
     said = importOutcome(ok, newest(["audio-import"])?.lines ?? []);
     onimported?.();
+  }
+
+  async function createRecipe() {
+    if (!recipeCreator || !validRecipe || speed === undefined || gain === undefined) return;
+    busy = "recipe";
+    const option = JSON.stringify({
+      name: recipeName.trim(),
+      what,
+      level: level === WHOLE_GAME ? null : level,
+      speed: speed / 100,
+      gain_db: gain,
+    });
+    const ok = await runChain(scope, [recipeCreator], { option });
+    busy = null;
+    const written = newest(["audio-recipe"])?.outputs[0];
+    toast(ok ? AUDIO.recipeReady : AUDIO.recipeStopped, ok ? "info" : "error");
+    if (ok) onimported?.();
+    if (ok && written) await guardShown(api.openOutput(written));
   }
 </script>
 
@@ -169,6 +203,52 @@
           </div>
         {/if}
       </li>
+      {#if recipeCreator}
+        <li class="recipe">
+          <div class="text">
+            <h3>{AUDIO.recipeTitle}</h3>
+            <p class="muted">{AUDIO.recipeLine}</p>
+            <p class="muted">{AUDIO.recipeHelp}</p>
+          </div>
+          <div class="controls">
+            <label
+              >{AUDIO.recipeName}<input
+                type="text"
+                bind:value={recipeName}
+                maxlength="120"
+                disabled={busy !== null}
+              /></label
+            >
+            <label
+              >{AUDIO.recipeSpeed}<input
+                type="number"
+                bind:value={speed}
+                min="50"
+                max="200"
+                step="0.1"
+                disabled={busy !== null}
+              /></label
+            >
+            <label
+              >{AUDIO.recipeGain}<input
+                type="number"
+                bind:value={gain}
+                min="-24"
+                max="12"
+                step="0.1"
+                disabled={busy !== null}
+              /></label
+            >
+            <button
+              disabled={!recipeCreator.runnable || busy !== null || !validRecipe}
+              onclick={() => void createRecipe()}
+            >
+              {#if busy === "recipe"}<span class="spinner"></span>{/if}
+              {busy === "recipe" ? AUDIO.recipeBusy : AUDIO.recipeCreate}
+            </button>
+          </div>
+        </li>
+      {/if}
     </ol>
   </div>
 {/if}
@@ -186,13 +266,35 @@
   }
 
   /* Export's two choices and its buttons wrap under its text when they do not fit beside it. */
-  li:first-child {
+  li:first-child,
+  li.recipe {
     grid-template-columns: 26px minmax(0, 1fr);
   }
 
-  li:first-child .controls {
+  li:first-child .controls,
+  li.recipe .controls {
     grid-column: 2;
     justify-content: flex-start;
+  }
+
+  .recipe .controls {
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
+  .recipe label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .recipe input {
+    max-width: 100%;
+    width: 14rem;
+  }
+
+  .recipe input[type="number"] {
+    width: 7rem;
   }
 
   .failed {

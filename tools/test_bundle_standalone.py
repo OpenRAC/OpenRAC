@@ -116,6 +116,10 @@ class PlayerActions(unittest.TestCase):
             self.assertIn("--timestamp", actions["audio-export"]["args"])
             self.assertIn("--timestamp", actions["audio-export-all"]["args"])
             self.assertEqual(actions["audio-import"]["args"][-1], "{data}/overrides")
+            recipe = actions["audio-recipe"]
+            self.assertTrue(recipe["freeOption"])
+            self.assertEqual(recipe["args"][:4], ["editor/audio_recipe.py", "create", "{disc}", "{data}/exports/audio-recipe"])
+            self.assertEqual(recipe["args"][-2:], ["--into", "{data}/overrides"])
 
     def test_mods_work_in_the_data_folder(self):
         extract, pack = self.pal["editor-extract"], self.pal["editor-pack"]
