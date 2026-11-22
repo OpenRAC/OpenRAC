@@ -191,6 +191,8 @@ class AudioRecipes(unittest.TestCase):
     def test_recipe_identity_never_replaces_an_unrelated_pack(self):
         ordinary = self.root / "ordinary"
         ordinary.mkdir()
+        (ordinary / "audio").mkdir()
+        (ordinary / "audio" / (INTRO + ".wav")).write_bytes(recording())
         (ordinary / overrides.MANIFEST).write_text(json.dumps({
             "format": 1, "game": "rac1", "version": "pal", "name": "Faster music",
             "export": "audio-recipe:faster-music"}))
