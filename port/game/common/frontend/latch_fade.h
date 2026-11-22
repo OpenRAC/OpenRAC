@@ -35,8 +35,9 @@ public:
     // A frame whose heading moves by a known amount (the mouse's turn: frontend/mouse_turn.h).
     // `expected`: where the last frame's heading is now by that move alone. Only what `target` is
     // off from it (the game turned the camera itself, a missed guess) is carried and fades: the
-    // mouse's own motion shows at once, never eased.
-    float frame_known(float target, float expected, double since);
+    // mouse's own motion shows at once, never eased. `continues`: the last frame was one of these
+    // too; else nothing is known of the move, and the picture goes on as it turned.
+    float frame_known(float target, float expected, bool continues, double since);
 
     float carry() const { return m_carry; }
 

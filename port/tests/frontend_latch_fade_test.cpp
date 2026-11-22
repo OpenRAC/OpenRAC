@@ -202,7 +202,7 @@ std::vector<float> mouse_run(double frame, float game_step, std::vector<float>* 
         last_tick = tick;
         const float target = kept + pending;
         targets->push_back(target);
-        shown.push_back(fade.frame_known(target, last_kept + tick_yaw + pending, frame));
+        shown.push_back(fade.frame_known(target, last_kept + tick_yaw + pending, i > 0, frame));
         last_kept = kept;
     }
     return shown;
@@ -226,9 +226,19 @@ void test_the_game_turning_under_the_mouse_fades() {
     CHECK(std::abs(shown[at + 10] - targets[at + 10]) < 0.005f);  // then faded in
 }
 
+// The mouse taking over from another camera turn (the stick's latch, a pause): its expected place
+// is not known, so the step to the mouse's picture fades as any other.
+void test_the_mouse_taking_over_fades() {
+    LatchFade fade;
+    fade.frame(0.0f, true, true, 0.0f, 0.0, true);
+    CHECK(std::abs(fade.frame_known(0.3f, 0.3f, false, kTick)) < 1e-5f);
+    CHECK(std::abs(fade.carry() + 0.3f) < 1e-5f);
+}
+
 }  // namespace
 
 int main() {
+    test_the_mouse_taking_over_fades();
     test_the_mouse_is_not_eased();
     test_the_game_turning_under_the_mouse_fades();
     test_one_frame_a_tick_follows_the_camera();

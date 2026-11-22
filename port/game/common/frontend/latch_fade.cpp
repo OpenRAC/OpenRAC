@@ -51,11 +51,11 @@ float LatchFade::frame(
     return target + m_carry;
 }
 
-float LatchFade::frame_known(float target, float expected, double since) {
+float LatchFade::frame_known(float target, float expected, bool continues, double since) {
     since = m_shown && since > 0.0 ? since : 0.0;
     m_carry *= static_cast<float>(std::exp(-since / kFadeSeconds));
     // Turned on just now: nothing known of the move, so the picture goes on as it turned.
-    if (m_shown && !m_was_on) {
+    if (!continues) {
         expected = m_heading + m_rate * static_cast<float>(since);
     }
     if (m_shown) {

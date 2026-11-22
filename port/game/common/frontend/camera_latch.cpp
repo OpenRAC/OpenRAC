@@ -70,6 +70,8 @@ struct Latch {
     bool has_shown = false;
     std::optional<std::uint8_t> scripted;  // latch_scripted_stick's
     float mouse_kept = 0.0f;               // the last frame's kept camera heading
+    bool mouse_last = false;               // the last frame was turned by the mouse
+    std::uint64_t mouse_tick = 0;          // the kept tick of that frame
     // OPENRAC_CAMERA_LATCH_LOG: the turn the last tick's frames guessed for one tick, to compare.
     float guessed_tick = 0.0f;
     bool has_guess = false;
@@ -209,6 +211,11 @@ CameraTurn latch_camera(
     latch.mouse_kept = kept_heading;
     const bool mouse_on = interpolating() && mouse_turns && std::abs(mouse.up[2]) > 0.9f
                           && (mouse.first_person || latch.has_hero);
+    // The last frame was the mouse's too, at most a few ticks ago: the move since is known.
+    const bool continues = latch.mouse_last && scene.frame >= latch.mouse_tick
+                           && scene.frame - latch.mouse_tick <= kSkippedTicks;
+    latch.mouse_last = mouse_on;
+    latch.mouse_tick = scene.frame;
     if (mouse_on) {
         const float up = mouse.up[2] > 0.0f ? 1.0f : -1.0f;
         const float yaw = angle_between(kept_heading, base) + up * mouse.yaw;
@@ -220,7 +227,7 @@ CameraTurn latch_camera(
         // the ticks since read from the mouse and by what is still unread. Only the rest (the game
         // turning the camera itself) fades; the mouse's motion shows at once.
         const float expected = last_kept + up * (mouse.tick_yaw + mouse.yaw);
-        latch.fade.frame_known(base + yaw, expected, since);
+        latch.fade.frame_known(base + yaw, expected, continues && since < 0.1, since);
         latch.shown = display;
         latch.has_shown = true;
         latch.coast = kCoastTicks + 1;  // the stick's coasting does not follow on
