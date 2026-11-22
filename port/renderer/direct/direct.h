@@ -35,6 +35,7 @@
 #include <span>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "renderer/direct/gs.h"
@@ -211,6 +212,10 @@ public:
 
     // The off-screen targets drawn to and not since overwritten by a transfer (their GS block).
     const std::vector<std::uint32_t>& offscreen_blocks() const { return m_offscreen; }
+    // The off-screen targets drawn to since the last call, but those a transfer has since started at
+    // (their GS block), and none from then on: what the world's effect quads drawn in between may
+    // have sampled, even when a later transfer took the target back as texture memory.
+    std::vector<std::uint32_t> take_drawn_blocks() { return std::exchange(m_drawn, {}); }
 
     // A GIF packet: tags and their data, as the game sends to the chip
     // (PATH3, or DIRECT through VIF1). Returns false if it is malformed;
@@ -388,6 +393,8 @@ private:
     // Off-screen targets ever drawn to (their GS block): a FRAME narrower than the screen, which the
     // game renders a panel into and then draws as a texture.
     std::vector<std::uint32_t> m_offscreen;
+    // Those drawn to since take_drawn_blocks(), less those a transfer has since started at.
+    std::vector<std::uint32_t> m_drawn;
     // What each block's texture was last drawn as, for the log: a texture that stops being drawn
     // from the pool is what a 2D layer that flickers or goes shows.
     enum class TextureKind : std::uint8_t { Texture, Missing, Offscreen, Frame };

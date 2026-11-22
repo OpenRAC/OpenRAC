@@ -1101,6 +1101,9 @@ void GifInterpreter::overwritten(std::uint32_t dbp, std::uint32_t dbw, std::uint
     std::erase_if(m_frame_copies, [&](const FrameCopy& f) { return covered(f.dbp); });
     const std::size_t targets = m_offscreen.size();
     std::erase_if(m_offscreen, covered);
+    // A target the transfer only reuses part of keeps what was drawn there for the world's quads
+    // that sampled it before (take_drawn_blocks); one a texture starts at is that texture now.
+    std::erase(m_drawn, dbp);
     static log::Capped told(100);
     if (m_offscreen.size() != targets && log::verbose_on() && told()) {
         log::verbose("2D: a transfer to block {:#x} took {} off-screen target(s) back as texture memory", dbp,
@@ -1407,6 +1410,9 @@ void GifInterpreter::ensure_draw() {
     // the game sets FRAME to blocks it then uploads textures to (its register sets name a panel's
     // target whether or not that panel is drawn), and a block taken for a target made every texture
     // the game put there later draw as that target, blank.
+    if (m_state.target != 0 && std::find(m_drawn.begin(), m_drawn.end(), m_state.target) == m_drawn.end()) {
+        m_drawn.push_back(m_state.target);
+    }
     if (m_state.target != 0 && std::find(m_offscreen.begin(), m_offscreen.end(), m_state.target) == m_offscreen.end()) {
         m_offscreen.push_back(m_state.target);
         static log::Capped told(100);
@@ -2289,7 +2295,19 @@ void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
 
 void DirectRenderer::publish_offscreen() {
     g_offscreen_textures.clear();
-    for (const std::uint32_t block : m_interpreter->offscreen_blocks()) {
+    // The targets still standing, and those drawn this frame that later transfers only reused part
+    // of: the world's effect quads sampled them where the list drew them, before those transfers.
+    // Up Your Arsenal's frame copy (effect texture -1, the frame shrunk to 256 x 256 at FBP 0x198,
+    // which the Nitro Launcher's blast and the other refraction rings draw through) is followed in
+    // the list by the frame's effect texture uploads, which go into its blocks once the quads have
+    // read it: taken back, the quads found nothing at its block and drew a black disc.
+    std::vector<std::uint32_t> blocks = m_interpreter->offscreen_blocks();
+    for (const std::uint32_t block : m_interpreter->take_drawn_blocks()) {
+        if (std::find(blocks.begin(), blocks.end(), block) == blocks.end()) {
+            blocks.push_back(block);
+        }
+    }
+    for (const std::uint32_t block : blocks) {
         for (const auto& [b, o] : m_offscreen_targets) {
             if (b == block) {
                 g_offscreen_textures.push_back({block, o.texture});
