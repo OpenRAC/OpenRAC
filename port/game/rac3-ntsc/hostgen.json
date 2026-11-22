@@ -901,6 +901,7 @@
     },
     "wide_register_calls": true,
     "wide_call_results": true,
+    "float_parameters_on_calls": true,
     "signature_check": true,
     "result_flow": true,
     "signature_allow": {
