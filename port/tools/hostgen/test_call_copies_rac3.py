@@ -116,5 +116,36 @@ class SameShapeTest(unittest.TestCase):
         self.assertIsNotNone(call_copy(self.program(), "func_update", "func_spawn", exe_target=0x1100))
 
 
+class MisnamedCalleeTest(unittest.TestCase):
+    """A C call by a name no copy of the caller reaches (another level's function): the copies' own
+    jal, when the caller has only the one that differs."""
+
+    def program(self) -> Program:
+        program = Program()
+        program.places = {"func_L08_004D1D30": [(8, 0x4D1D30), (27, 0x4C6178)],
+                          "func_L01_004EF840": [(1, 0x4EF840), (2, 0x4C4D98)],
+                          "func_L08_004D0B40": [(8, 0x4D0B40)], "func_L04_004FE9E0": [(27, 0x4C4F10)]}
+        program.call_copies = {}
+        program.call_copy_callees = {}
+        for callee, home, own in (("func_L04_004FE9E0", 27, 0x4C4F10), ("func_L08_004D0B40", 8, 0x4D0B40)):
+            program.call_copies[("func_L08_004D1D30", callee)] = (home, 0x4D1D30, 1444, own, 0)
+            program.call_copy_callees.setdefault("func_L08_004D1D30", []).append((callee, frozenset({154, 164})))
+        return program
+
+    def test_a_name_no_copy_reaches_is_the_copys_call(self):
+        self.assertEqual(call_copy(self.program(), "func_L08_004D1D30", "func_L01_004EF840"),
+                         (27, 0x4D1D30, 1444, 0x4C4F10, 0))
+
+    def test_not_where_the_copies_differ_at_several_jals(self):
+        program = self.program()
+        program.call_copy_callees["func_L08_004D1D30"][1] = ("func_L08_004D0B40", frozenset({7}))
+        self.assertIsNone(call_copy(program, "func_L08_004D1D30", "func_L01_004EF840"))
+
+    def test_not_a_name_a_copy_has(self):
+        program = self.program()
+        program.places["func_L01_004EF840"].append((8, 0x4D1000))
+        self.assertIsNone(call_copy(program, "func_L08_004D1D30", "func_L01_004EF840"))
+
+
 if __name__ == "__main__":
     unittest.main()

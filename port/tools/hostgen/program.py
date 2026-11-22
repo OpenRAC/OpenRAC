@@ -1349,11 +1349,35 @@ def call_copy(program: Program, caller: str | None, callee: str, exe_target: int
                 break
     if row is None and exe_target is not None:
         row = rows.get((caller, "exe", exe_target))
+    if row is None and exe_target is None:
+        row = _misnamed_call_copy(program, caller, callee)
     # C names its arguments; an assembly translation (exe_target given) hands every register on.
     if row is not None and exe_target is None and getattr(program, "call_copies_same_shape", False) \
             and not _copies_fit(program, caller, callee):
         return None
     return row
+
+
+def _misnamed_call_copy(program: Program, caller: str, callee: str):
+    """call_copies.tsv's row for a C call whose callee no copy of the caller reaches: the name is
+    another level's function, with no place in any level that has the caller (the decompilation's
+    level build reads it as whatever each level's jal there calls). Up Your Arsenal's
+    func_L08_004D1D30 calls func_L01_004EF840 by name, while its copy in Aquatos calls
+    func_L08_004D0B40 and its copy in Aquatos' base func_L04_004FE9E0; read as level 1's address the
+    call went nowhere. Only where every row of the caller is the one jal (or the same jals), so the
+    call can be no other."""
+    listed = program.call_copy_callees.get(caller) if getattr(program, "call_copy_callees", None) else None
+    if not listed or any(name == callee for name, _ in listed):
+        return None
+    levels = {o for o, _ in program.code_places(caller)}
+    if not levels or levels & {o for o, _ in program.code_places(callee)}:
+        return None
+    if len({words for _, words in listed}) != 1 or listed[0][1] is None:
+        return None
+    name = listed[0][0]
+    if getattr(program, "call_copies_same_shape", False) and not _copies_fit(program, caller, name):
+        return None
+    return program.call_copies.get((caller, name))
 
 
 def _shape(program: Program, name: str) -> tuple[int, int, str] | None:
