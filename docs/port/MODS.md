@@ -888,12 +888,11 @@ interface's, `MAJOR.MINOR`, and a patch number for fixes to the SDK itself
 the same bytes wherever it is made, so a mod's build can pin the version and
 its hash (openrac-mods does: `sdk.lock`).
 
-A new call of the table is added as [MOD_API.md](https://github.com/OpenRAC/OpenRAC/blob/master/docs/port/MOD_API.md) says
-(`sdk/tools/new_api.py` writes its fixed parts). To change the version, run
-`python3 sdk/tools/bump_api.py minor --note "..."`
-(new table members) or `patch` (anything else a mod sees, such as hook
-points). It writes all six places that hold the version and regenerates the
-locks and the reference; `--check` (CI) fails when they disagree.
+To add a call to the table, follow [MOD_API.md](https://github.com/OpenRAC/OpenRAC/blob/master/docs/port/MOD_API.md).
+To change the version, run `python3 sdk/tools/bump_api.py minor --note "..."`
+for new table members, or `patch` for other changes mods see (such as hook
+points). It updates all six places that hold the version, and `--check` (CI)
+fails when they differ.
 
 ```sh
 unzip openrac-mod-sdk-1.0.0.zip

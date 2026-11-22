@@ -79,5 +79,5 @@ openrac_add_mod(my_mod MANIFEST openrac-mod.json SOURCES src/mod.cpp)
 
 C++17, with each platform's default runtime (libc++ on macOS, libstdc++ on
 Linux, the DLL runtime `/MD` with MSVC); only the entry points are exported.
-Add `CXX` to your `project()`. Compilers and systems are as for
+Add `CXX` to your `project()`. Compilers and systems are the same as for
 [a C mod](native-c.md#building). The full API is the [reference](reference/cpp-api.md).
