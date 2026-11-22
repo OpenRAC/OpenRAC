@@ -58,6 +58,7 @@ int openrac_lib_DisableDmac(int);
 int openrac_lib_EnableDmac(int);
 void openrac_lib_Exit(int);
 int openrac_lib_AddDmacHandler2(int, gaddr, int, gaddr);
+int openrac_lib_AddIntcHandler2(int, gaddr, int, gaddr);
 int openrac_lib_SetAlarm(unsigned short, gaddr, gaddr);
 int openrac_lib_ReferThreadStatus(int, gaddr);
 int openrac_lib_SleepThread(void);
