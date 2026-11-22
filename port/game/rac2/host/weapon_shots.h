@@ -33,6 +33,14 @@ void rac2_post_hit(
     const float velocity[3]
 );
 
+/* The moby whose update the moby loop runs now, 0 between updates (weapon_culling.c). */
+gaddr rac2_moby_updating(void);
+
+/* weapon_culling.c: weapon `item`'s target picks taking every enemy in range, drawn last frame or
+ * not (1), or the game's drawn ones (0) (openrac_api weapon_ignore_culling, interface 1.30): 1 for
+ * the Zodiac (43) and the Plasma Coil (28), 0 for any other. */
+int rac2_weapon_ignore_culling(int32_t item, int enabled);
+
 /* The shots' kinds, by the game's spawn routine (weapon_shots.c's table). */
 enum {
     RAC2_SHOT_MINIROCKET,

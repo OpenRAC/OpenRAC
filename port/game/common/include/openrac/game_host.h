@@ -819,6 +819,10 @@ typedef struct openrac_game_play {
     int32_t (*moby_spawn_live)(const openrac_game_spawn_live* spawn);
     int (*moby_status)(int32_t slot, uint32_t status, int32_t ticks);
     gaddr (*weapon_record)(int32_t item);
+    /* Weapon `item`'s target picks taking every enemy in range, drawn last frame or not (1), or
+     * the game's drawn ones (0) (openrac_api weapon_ignore_culling; interface 1.30): 1 for a weapon
+     * the game has this for, 0 otherwise. NULL for a game without it. */
+    int (*weapon_ignore_culling)(int32_t item, int enabled);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)

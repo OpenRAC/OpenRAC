@@ -56,6 +56,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "enemy_copies.h"
 #include "game_protos.h"
 #include "moby_pool.h"
 #include "rac2.h"
@@ -309,6 +310,10 @@ static uint8_t particle_tagged[PARTICLES / 8];
 static gaddr updating;
 static int updating_made;
 
+gaddr rac2_moby_updating(void) {
+    return updating;
+}
+
 /* The tick's ammo watch: the item in hand and its ammo after the last tick. */
 static int32_t ammo_item = -1;
 static int32_t ammo_last;
@@ -492,6 +497,9 @@ gaddr func_L00_00387CA8(gaddr pos, gaddr velocity) {
 /* CreateMoby: what a moby's update makes takes that moby's look (its blast, its debris). */
 gaddr func_0029EFD0(int oclass) {
     const gaddr m = func_0029EFD0__game(oclass);
+    if (m != 0) {
+        rac2_copy_slot_taken(m);
+    }
     /* A new moby in a slot: the look of the one before is not its own. */
     if (m != 0 && looks_ready) {
         const int32_t slot = slot_of(m);
@@ -956,6 +964,14 @@ int32_t rac2_shot_spawn_live(const openrac_game_spawn_live* in) {
          * mod asked, and goes off only when asked. */
         write3(m + MOBY_POS, in->position);
         GREF(uint8_t, m + MOBY_HIT) = (in->flags & OPENRAC_SPAWN_LIVE_DETONATE) != 0 ? 1 : 0;
+        /* Their spawn only aims at the target and leaves the pvars' target (+0x10) empty, and their
+         * update steers only after one (homing_l00_shot_update_3, from its sixth tick): a rocket the
+         * mod gives a target is one that homes on it. */
+        const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+        if (target != 0 && pvars != 0 && KINDS[kind].target >= 0
+            && GREF(gaddr, pvars + (gaddr)KINDS[kind].target) == 0) {
+            GREF(gaddr, pvars + (gaddr)KINDS[kind].target) = target;
+        }
     }
     GREF(gaddr, m + MOBY_OWNER) = gun;
     const int32_t item = in->item >= 0 && in->item < ITEMS ? in->item : hand_item();

@@ -81,19 +81,36 @@ int api_setup_vulkan(openrac_mod* mod, const openrac_vulkan_setup* setup) {
     return OPENRAC_HOOK_OK;
 }
 
-int api_on_overlay(openrac_mod* mod, openrac_overlay_fn fn, void* user) {
-    if (mod == nullptr || mod != g_loading || fn == nullptr) {
+// The phases an overlay is drawn over (interface 1.31).
+constexpr std::uint32_t kOverlayPhases =
+    OPENRAC_OVERLAY_PLAYING | OPENRAC_OVERLAY_MENU | OPENRAC_OVERLAY_SCENE;
+
+// Interface 1.31: the same over the phases the mod asks for (on_overlay is play's alone).
+int api_on_overlay_phases(
+    openrac_mod* mod, openrac_overlay_fn fn, void* user, std::uint32_t phases
+) {
+    if (mod == nullptr || mod != g_loading) {
         return OPENRAC_HOOK_TOO_LATE;
+    }
+    if (fn == nullptr || phases == 0 || (phases & ~kOverlayPhases) != 0) {
+        return OPENRAC_HOOK_UNKNOWN;
     }
     // One a mod: the last it gave.
     for (OverlayCallback& c : g_overlays) {
         if (c.mod == mod) {
-            c = {mod, fn, user};
+            c = {mod, fn, user, phases};
             return OPENRAC_HOOK_OK;
         }
     }
-    g_overlays.push_back({mod, fn, user});
+    g_overlays.push_back({mod, fn, user, phases});
     return OPENRAC_HOOK_OK;
+}
+
+int api_on_overlay(openrac_mod* mod, openrac_overlay_fn fn, void* user) {
+    if (mod == nullptr || mod != g_loading || fn == nullptr) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+    return api_on_overlay_phases(mod, fn, user, OPENRAC_OVERLAY_PLAYING);
 }
 
 int api_play_live_picture(openrac_mod* mod, int on) {

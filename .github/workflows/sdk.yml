@@ -124,7 +124,7 @@ jobs:
       - name: Build the template and the example
         run: |
           mkdir -p "$RUNNER_TEMP/build"
-          for mod in template examples/frame-counter; do
+          for mod in template examples/frame-counter examples/vendor-prompt; do
             src="$RUNNER_TEMP/build/$(basename "$mod")"
             cp -r "$SDK/$mod" "$src"
             cmake -S "$src" -B "$src/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DOpenRACMod_DIR="$SDK/cmake" \

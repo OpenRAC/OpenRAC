@@ -537,7 +537,7 @@ static void pool(void) {
     /* No request: the file as it is. */
     rac2_pool_loading();
     rac2_wad_decompressed(file);
-    rac2_pool_loaded();
+    rac2_pool_loaded(0);
     CHECK(GREF(int32_t, file + 0x104u) == 200);
     /* A request of 100, 1,000 is cut to the most; only the loader's file is raised. */
     CHECK(rac2_pool_raise(100) == 100);
@@ -548,19 +548,19 @@ static void pool(void) {
     CHECK(GREF(int32_t, file + 0x104u) == 300);
     rac2_wad_decompressed(file);
     CHECK(GREF(int32_t, file + 0x104u) == 300);
-    rac2_pool_loaded();
+    rac2_pool_loaded(0);
     CHECK(rac2_pool_raise(5000) == RAC2_POOL_EXTRA_MAX);
     put32(file + 0x104u, 200);
     rac2_pool_loading();
     rac2_wad_decompressed(file);
     CHECK(GREF(int32_t, file + 0x104u) == 200 + RAC2_POOL_EXTRA_MAX);
-    rac2_pool_loaded();
+    rac2_pool_loaded(0);
     /* The indices stay under 15 bits: placed 12 and spare 0x7FF0 leave room for 3. */
     put32(file + 0x104u, 0x7FF0);
     rac2_pool_loading();
     rac2_wad_decompressed(file);
     CHECK(GREF(int32_t, file + 0x104u) == 0x7FF3);
-    rac2_pool_loaded();
+    rac2_pool_loaded(0);
     /* The status of the level's table: 200 spare, the copies' and the level's own alive. */
     int32_t out[5];
     CHECK(rac2_pool_status(out) == 1);
@@ -568,6 +568,99 @@ static void pool(void) {
         out[0] == (int32_t)DYNAMIC_SLOTS && out[1] + out[2] <= out[0]
         && out[4] == RAC2_POOL_EXTRA_MAX
     );
+}
+
+/* The heap's ceiling: a level's first load runs without the raise and measures the room below the
+ * classes above it; the memory is put back and the load runs again with the raise that fits, and
+ * the level's next loads fit at once. */
+static void pool_ceiling(void) {
+    make_level();
+    const gaddr file = 0x00A00000u;
+    const gaddr start = 0x00300000u;
+    put32(file + 0x4Cu, 0x100u);
+    put32(file + 0x100u, 12);
+    put32(file + 0x104u, 200);
+    put32(LOAD_CONTEXT + CONTEXT_FILE, file);
+    put32(LOAD_CONTEXT + 0x48u, start);
+    CHECK(rac2_pool_raise(RAC2_POOL_EXTRA_MAX) == RAC2_POOL_EXTRA_MAX);
+    /* Room for all below the lowest class above the heap (0x500000): measured, then all of it. */
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200);
+    CHECK(rac2_pool_loaded(0x00480000u) == 1);
+    rac2_pool_restore();
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + RAC2_POOL_EXTRA_MAX);
+    CHECK(rac2_pool_loaded(0x00480000u + RAC2_POOL_EXTRA_MAX * 0x180u) == 0);
+    /* Another level's file (its own counts): room for 160 below 0x500000 less the gap; what the
+     * measure's load wrote is put back. */
+    put32(file + 0x100u, 13);
+    put32(file + 0x104u, 200);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200);
+    GREF(uint8_t, 0x00520000u) = 0x5Au;
+    CHECK(rac2_pool_loaded(0x004F0000u) == 1);
+    rac2_pool_restore();
+    CHECK(GREF(uint8_t, 0x00520000u) == 0);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + 160);
+    CHECK(rac2_pool_loaded(0x004F0000u + 160u * 0x180u) == 0);
+    /* Its load again (a death): what fits at once. */
+    put32(file + 0x104u, 200);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + 160);
+    CHECK(rac2_pool_loaded(0x004F0000u + 160u * 0x180u) == 0);
+    /* A level with no room: measured, and no load again; its next load adds none. */
+    put32(file + 0x100u, 14);
+    put32(file + 0x104u, 200);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(rac2_pool_loaded(0x004FF800u) == 0);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200);
+    CHECK(rac2_pool_loaded(0x004FF800u) == 0);
+    /* A raise that crossed the ceiling all the same (a level grown since): laid out again. */
+    put32(file + 0x100u, 13);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + 160);
+    CHECK(rac2_pool_loaded(0x004F4000u + 160u * 0x180u) == 1);
+    rac2_pool_restore();
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + 117);
+    CHECK(rac2_pool_loaded(0x004F4000u + 117u * 0x180u) == 0);
+}
+
+/* A dead copy's slot given out again: its index comes off its squad's list, the rest stay. */
+static void slot_taken(void) {
+    make_level();
+    const gaddr a = rac2_copy_make(&table, placed(0), 0);
+    const gaddr b = rac2_copy_make(&table, placed(0), 1);
+    CHECK(a != 0 && b != 0);
+    const gaddr list = GREF(gaddr, 0x001EE5A0u + 4u);
+    const uint16_t ia = (uint16_t)((a - BASE) / 0x100u), ib = (uint16_t)((b - BASE) / 0x100u);
+    CHECK(GREF(uint16_t, list + 4u) == ia && GREF(uint16_t, list + 6u) == (ib | 0x8000u));
+    /* A live moby's slot that no list names: the lists are left alone. */
+    const gaddr other = func_0029EFD0(THING);
+    rac2_copy_slot_taken(other);
+    CHECK(GREF(uint16_t, list + 4u) == ia && GREF(uint16_t, list + 6u) == (ib | 0x8000u));
+    /* The last copy dies and a bolt takes its slot: the one before it ends the list. */
+    func_0029F338(b);
+    CHECK(func_0029EFD0(THING) == b);
+    rac2_copy_slot_taken(b);
+    CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x0009u);
+    CHECK(GREF(uint16_t, list + 4u) == (ia | 0x8000u));
+    /* The first dies too: only the members are left, the last with its mark. */
+    func_0029F338(a);
+    CHECK(func_0029EFD0(THING) == a);
+    rac2_copy_slot_taken(a);
+    CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x8009u);
 }
 
 int main(void) {
@@ -578,8 +671,10 @@ int main(void) {
     no_spot();
     reserve();
     stale_and_new_load();
+    slot_taken();
     death();
     pool();
+    pool_ceiling();
     puts("RAC2 enemy copies: OK");
     return 0;
 }

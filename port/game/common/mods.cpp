@@ -993,6 +993,8 @@ void fill_api(const Host& host) {
     g_api.party_replay = api_party_replay;
     g_api.party_replaying = api_party_replaying;
     g_api.on_overlay = api_on_overlay;
+    g_api.on_overlay_phases = api_on_overlay_phases;
+    g_api.button_label = api_button_label;
     g_api.packs_info = api_packs_info;
     g_api.packs_entry = api_packs_entry;
     g_api.clipboard_set = api_clipboard_set;
@@ -1009,6 +1011,7 @@ void fill_api(const Host& host) {
     g_api.save_data_set = api_save_data_set;
     g_api.save_data_get = api_save_data_get;
     g_api.on_save_data = api_on_save_data;
+    g_api.weapon_ignore_culling = api_weapon_ignore_culling;
     g_api_without_native_vulkan = g_api;
     g_api_without_native_vulkan.graphics = api_graphics_without_native_vulkan;
 }
@@ -1732,13 +1735,21 @@ bool is_mod_code_link(std::string_view url) {
     });
 }
 
-bool overlay_wanted() {
-    return !g_overlays.empty() && overlay_shows_level();
+std::uint32_t overlay_phase() {
+    return g_overlays.empty() ? 0u : overlay_phase_now();
+}
+
+bool overlay_wanted(std::uint32_t phase) {
+    return phase != 0 && std::any_of(g_overlays.begin(), g_overlays.end(), [&](const auto& c) {
+               return (c.phases & phase) != 0;
+           });
 }
 
 void run_overlays(const openrac_overlay& overlay) {
     for (const OverlayCallback& c : g_overlays) {
-        c.fn(c.user, &overlay);
+        if ((c.phases & overlay.phase) != 0) {
+            c.fn(c.user, &overlay);
+        }
     }
 }
 

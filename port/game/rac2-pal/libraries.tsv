@@ -264,6 +264,7 @@ func_L00_0038ACC8	weapon	MiniturretSpawnShot	wrap	the Miniturret Glove's turret 
 func_L00_0032F058	moby	UpdateLiveMobys	wrap	the moby loop, as the game's, with the mods' gate around each update, their statuses (frozen, slowed) and the moby that runs now for the weapons' looks (host/weapon_shots.c)
 func_0029F968	moby	CreateMoby	wrap	a moby made: one a weapon's shot or gun makes in its update takes the weapon's look (host/weapon_shots.c)
 func_002B9BE8	effect	PartAlloc	wrap	a particle made: one a weapon's shot or gun makes in its update takes the weapon's look (host/weapon_shots.c)
+func_002B00E8	target	SelectBestTargetInCone	wrap	the game's target pick (SelectBestTargetInCone): for the weapons a mod asked (weapon_ignore_culling) it takes the enemies not drawn last frame too (host/weapon_culling.c)
 func_L00_0042A488	camera	FollowCameraReadStick	wrap	the follow camera's stick read: notes the camera, for the picture's late camera latch (host/camera_latch.c)
 func_002E56B8	sound	ResetSoundState	wrap	the sound's reset, which gives the mixer the Sound page's values: the remembered ones go in first (host/options.c)
 func_0027EF10	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)

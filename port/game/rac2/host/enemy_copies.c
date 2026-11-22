@@ -543,8 +543,14 @@ int rac2_copy_detail(const rac2_moby_table* t, gaddr moby) {
 gaddr func_L00_00300618(int reload) {
     /* The level's gameplay file may get spare mobys beyond the disc's as it is decompressed. */
     rac2_pool_loading();
-    const gaddr heap = func_L00_00300618__game(reload);
-    rac2_pool_loaded();
+    gaddr heap = func_L00_00300618__game(reload);
+    /* A raise past the room above the level: laid out again with the raise that fits. */
+    if (rac2_pool_loaded(heap)) {
+        rac2_pool_restore();
+        rac2_pool_loading();
+        heap = func_L00_00300618__game(reload);
+        (void)rac2_pool_loaded(heap);
+    }
     const rac2_moby_table t =
         {GREF(gaddr, TABLE_BASE), GREF(gaddr, TABLE_DYNAMIC), GREF(gaddr, TABLE_END)};
     if (t.base != 0 && t.dynamic >= t.base && t.end >= t.dynamic
@@ -622,6 +628,65 @@ static int join_group(const rac2_moby_table* t, gaddr m) {
     GREF(uint16_t, moved + 2u * (uint32_t)n) = (uint16_t)(((m - t->base) / MOBY_SIZE) | GROUP_LAST);
     GREF(gaddr, at) = moved;
     return 1;
+}
+
+/* A slot CreateMoby has just given out (rac2_copy_slot_taken): a dead copy's index left on its
+ * group's list named the new moby. The game never takes a moby off a list (its lists hold only
+ * placed mobys, whose slots are never given out again), so it took the new one for a member of
+ * the squad: the moby loop (BuildActiveMobyChain, func_002A08A0) chained it a second time, which
+ * cut the mobys chained between the two out of that frame's updates (bolts and enemies frozen),
+ * and the squad's controller ran its member code on it, writing an enemy's floats into a bolt's
+ * pvars, whose update then read one as a pointer (Boldan, a crash at 0xBCF5FF88). Only the lists
+ * moved to the port's room have copies; the copy's own entry, if it is one, is added after. */
+void rac2_copy_slot_taken(gaddr m) {
+    if (lists.room == 0 || lists.used == 0 || lists.loads != this_load()) {
+        return;
+    }
+    const gaddr base = GREF(gaddr, TABLE_BASE);
+    if (base == 0 || m < base || (m - base) % MOBY_SIZE != 0) {
+        return;
+    }
+    const uint32_t id = (m - base) / MOBY_SIZE;
+    const int32_t groups = GREF(int32_t, GROUP_COUNT);
+    for (int32_t g = 0; g <= groups && g < 0x1000; ++g) {
+        const gaddr list = GREF(gaddr, GROUP_LISTS + 4u * (uint32_t)g);
+        if (list < lists.room || list >= lists.room + lists.used) {
+            continue;
+        }
+        int n = 0;
+        while (n < GROUP_MEMBERS_MAX + 1
+               && (GREF(uint16_t, list + 2u * (uint32_t)n) & GROUP_LAST) == 0) {
+            ++n;
+        }
+        if (n >= GROUP_MEMBERS_MAX + 1) {
+            continue;
+        }
+        ++n; /* the last, with its mark */
+        for (int j = 0; j < n && n > 1;) {
+            const uint16_t e = GREF(uint16_t, list + 2u * (uint32_t)j);
+            if ((uint32_t)(e & ~GROUP_LAST) != id) {
+                ++j;
+                continue;
+            }
+            memmove(
+                G(list + 2u * (uint32_t)j),
+                G(list + 2u * (uint32_t)(j + 1)),
+                2u * (uint32_t)(n - j - 1)
+            );
+            --n;
+            GREF(uint16_t, list + 2u * (uint32_t)(n - 1)) |= (uint16_t)GROUP_LAST;
+            static uint32_t told;
+            if (told != this_load()) {
+                told = this_load();
+                fprintf(
+                    stderr,
+                    "[info] moby groups: slot %u given out again, off group %d's list\n",
+                    (unsigned)id,
+                    (int)g
+                );
+            }
+        }
+    }
 }
 
 static int copy_alive(int i) {

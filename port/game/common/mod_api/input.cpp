@@ -4,6 +4,7 @@
 // The mods' interface, area "input": the api_<member> functions of the openrac_api members
 // sdk/api/members.tsv puts in this area, and what only they use.
 
+#include "button_labels.h"
 #include "mod_api/internal.h"
 
 using namespace openrac;
@@ -43,6 +44,11 @@ void api_capture_mouse(openrac_mod* mod, int capture) {
     if (g_host != nullptr && g_host->capture_mouse != nullptr) {
         g_host->capture_mouse(capture != 0);
     }
+}
+
+// Interface 1.31: a button's label for the device in use (button_labels.h).
+int api_button_label(openrac_mod*, std::uint32_t button, char* out, std::uint32_t size) {
+    return button_labels::label_into(button, out, size);
 }
 
 }  // namespace openrac::mods::detail

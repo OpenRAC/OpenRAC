@@ -333,6 +333,7 @@ inline void paint_prompts(
     kp::Fonts fonts;
     if (!kp::find_fonts(mod.memory().base(), kRamBytes, font_bank, font_table, fonts)) {
         painter.forget();
+        openrac::frontend::set_prompt_keys(nullptr, 0);
         return;
     }
     kp::Labels labels{};
@@ -347,6 +348,8 @@ inline void paint_prompts(
         labels[kp::LeftStick] = move_label(settings.binds);
         labels[kp::RightStick] = "Mouse";
     }
+    // The same keys for the mods' button labels (interface 1.31).
+    openrac::frontend::set_prompt_keys(labels.data(), static_cast<int>(labels.size()));
     painter.update(fonts, labels);
 }
 

@@ -16,6 +16,7 @@
 #include <memory>
 #include <sstream>
 
+#include "button_labels.h"
 #include "common/c_boundary.h"
 #include "common/crash.h"
 #include "common/env.h"
@@ -25,6 +26,7 @@
 #include "mod_touch.h"
 #include "openrac/guest.h"
 #include "openrac/keys.h"
+#include "openrac/openrac_mod.h"
 
 namespace fs = std::filesystem;
 
@@ -779,6 +781,27 @@ int api_pointer(lua_State* L) {
     return 3;
 }
 
+// Interface 1.31: the label of the pad's button `button` (an OPENRAC_PAD_* bit) for the player's
+// device now, and its kind: "playstation", "letters" or "keys"; nil, nil for no single button.
+int api_button_label(lua_State* L) {
+    const auto button = static_cast<std::uint32_t>(luaL_checknumber(L, 1));
+    char out[32];
+    const int kind = button_labels::label_into(button, out, sizeof out);
+    if (kind < 0) {
+        lua_pushnil(L);
+        lua_pushnil(L);
+        return 2;
+    }
+    lua_pushstring(L, out);
+    lua_pushstring(
+        L,
+        kind == OPENRAC_BUTTONS_KEYS      ? "keys"
+        : kind == OPENRAC_BUTTONS_LETTERS ? "letters"
+                                          : "playstation"
+    );
+    return 2;
+}
+
 int api_take_input(lua_State* L) {
     State* s = state_of(L);
     if (!s->loading) {
@@ -990,6 +1013,7 @@ void push_openrac(lua_State* L, State* s) {
     set_function(L, "mouse", api_mouse);
     set_function(L, "window", api_window);
     set_function(L, "pointer", api_pointer);
+    set_function(L, "button_label", api_button_label);
     set_function(L, "take_input", api_take_input);
     set_function(L, "capture_mouse", api_capture_mouse);
     set_function(L, "touch_define", api_touch_define);

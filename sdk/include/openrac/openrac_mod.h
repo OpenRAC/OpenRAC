@@ -85,13 +85,19 @@ extern "C" {
  * enemies never wake, so a mod asks for 1.26 before it makes them), 1.27
  * more room for spawned mobys (moby_pool_raise, moby_pool_status), 1.28
  * rows of a mod's tab in OpenRAC's menu to read, locked, with a value, a
- * progress bar or an icon (developer_menu_look), and 1.29 the hero's weapons
- * and their shots: a shot fired, fired again and ended, a shot the game runs
- * made from a mod, a weapon's look, a moby frozen or slowed and a weapon's
- * record (on_weapon_fire, weapon_refire, on_shot_end, moby_spawn_live,
- * weapon_look, moby_status, weapon_record).
+ * progress bar or an icon (developer_menu_look), 1.29 the hero's weapons and
+ * their shots: a shot fired, fired again and ended, a shot the game runs made
+ * from a mod, a weapon's look, a moby frozen or slowed and a weapon's record
+ * (on_weapon_fire, weapon_refire, on_shot_end, moby_spawn_live, weapon_look,
+ * moby_status, weapon_record), 1.30 weapons whose targets are picked on
+ * screen or not (weapon_ignore_culling), and
+ * 1.31 a mod's overlay drawn over the game's menus and scenes too
+ * (on_overlay_phases, openrac_overlay.phase), the pad's button icons in the
+ * HUD's and the overlay's text, each shown as the player's device has it
+ * (OPENRAC_UI_L1 ... OPENRAC_UI_RIGHT_STICK), and a button's label for the
+ * device in use (button_label).
  */
-#define OPENRAC_MOD_API_MINOR 29
+#define OPENRAC_MOD_API_MINOR 31
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -542,11 +548,34 @@ typedef int (*openrac_menu_fn)(void* user, const openrac_menu_frame* frame);
 #define OPENRAC_UI_OPTIONS "options"
 
 /* The pad's buttons as the game's font draws them, for a text: OPENRAC_UI_CROSS " Join". Since
- * 1.7. */
+ * 1.7. Since 1.31 the same characters are button tokens in openrac_hud_text's and the overlay's
+ * text too: each is shown as the player's device has that button (the game's icon on a
+ * PlayStation pad, the letter on a lettered pad such as an Xbox one, the bound key on the
+ * keyboard and mouse); openrac_api.button_label gives the same label as text. In the games' own
+ * fonts (Ratchet & Clank, Going Commando) they are the icon cells of row 96, and the HUD font's
+ * printable # % @ are three of the same icons: # Square, % Cross, @ Circle (no printable
+ * character draws Triangle). */
 #define OPENRAC_UI_CROSS "\x10"
 #define OPENRAC_UI_CIRCLE "\x11"
 #define OPENRAC_UI_TRIANGLE "\x12"
 #define OPENRAC_UI_SQUARE "\x13"
+/* The shoulder buttons and the two sticks, as the same tokens. Since 1.31. */
+#define OPENRAC_UI_L1 "\x14"
+#define OPENRAC_UI_R1 "\x15"
+#define OPENRAC_UI_L2 "\x16"
+#define OPENRAC_UI_R2 "\x17"
+#define OPENRAC_UI_LEFT_STICK "\x18"
+#define OPENRAC_UI_RIGHT_STICK "\x19"
+
+/* What kind of label openrac_api.button_label gave: the device the player is using. Since 1.31. */
+/* A PlayStation pad, or no pad connected: the game's own icons (OPENRAC_UI_CROSS ...) and names
+ * (L1, START). */
+#define OPENRAC_BUTTONS_PLAYSTATION 1
+/* A pad with lettered buttons (an Xbox pad, a Switch pad, a generic one): A, B, X, Y, LB, RT. */
+#define OPENRAC_BUTTONS_LETTERS 2
+/* The keyboard and mouse: the key bound to the button where the game is now ("F", "SPACE",
+ * "LMB"), as the game's own icons show it. */
+#define OPENRAC_BUTTONS_KEYS 3
 
 /* What an item is (openrac_ui_item.kind). Since 1.7. */
 /* A line Cross chooses: OPENRAC_UI_CHOOSE. */
@@ -1195,8 +1224,10 @@ typedef struct openrac_haze {
 
 /* One line of text in the game's own HUD (openrac_api.hud_text_set), drawn with the game's font
  * after its HUD's elements, and hidden with them (in a scene, under a menu). `text` ends with a 0;
- * characters outside 32 to 126 are left out, and so are those the font has no glyph for (such as
- * & * = [ ] { } ~); # % @ are the game's button icons. `x` and `y` are the line's centre on the
+ * characters outside 32 to 126 are left out but the button tokens (since 1.31: 0x10 to 0x19,
+ * OPENRAC_UI_CROSS ... OPENRAC_UI_RIGHT_STICK, drawn as the game draws its own prompts: its icons on
+ * a pad, the bound keys on the keyboard and mouse), and so are those the font has no glyph for
+ * (such as & * = [ ] { } ~); # % @ are the game's icons of Square, Cross and Circle. `x` and `y` are the line's centre on the
  * game's 4:3 screen, 0 to 1 across and down; `scale` its size (1 the game's 16 pixels a glyph,
  * 0.25 to 4); `rgba` its colour and opacity, 0 to 255 each, the colour as the game's own HUD gives it (128 a
  * channel keeps the font's own shade, 255 about doubles it). Since 1.12. */
@@ -1421,28 +1452,47 @@ typedef struct openrac_moby2 {
     float anim_speed;
 } openrac_moby2;
 
-/* The port's drawing over the game, handed to an on_overlay callback for the length of the call.
- * Screen positions are in the game's 512 x 448 picture, as menu_rect and menu_text's. Since 1.14. */
+/* The phases a mod's overlay is drawn in (on_overlay_phases' `phases`, openrac_overlay.phase):
+ * bits, not the game's OPENRAC_PLAY_* values. A level with the player in control (the game's
+ * OPENRAC_PLAY_PLAYING), what on_overlay always drew over. Since 1.31. */
+#define OPENRAC_OVERLAY_PLAYING 0x1u
+/* A level with a menu up (OPENRAC_PLAY_MENU): the pause menu, the Gadgetron vendor, a dialog, the
+ * map. Since 1.31. */
+#define OPENRAC_OVERLAY_MENU 0x2u
+/* A level with a scene playing (OPENRAC_PLAY_SCENE): a cutscene, the ship's landing. Since 1.31. */
+#define OPENRAC_OVERLAY_SCENE 0x4u
+
+/* The port's drawing over the game, handed to an overlay callback for the length of the call.
+ * Screen positions are in the game's 512 x 448 picture, as menu_rect and menu_text's. It goes over
+ * the finished picture, the game's 2D and menus included. Since 1.14. */
 typedef struct openrac_overlay {
     /* sizeof(openrac_overlay), set by the port. */
     uint32_t size;
     void* context;
     /* Where the level's point `world` (x, y, z) is on the picture, with the game's camera, into
-     * `sx` and `sy`. Returns 1 when it is in front of the camera and on the picture, else 0. */
+     * `sx` and `sy`. Returns 1 when it is in front of the camera and on the picture, else 0. In a
+     * menu's frame always 0 unless the level is drawn live under the menu (the pause menu); the
+     * other calls need no camera. */
     int (*project)(void* context, const float world[3], float* sx, float* sy);
     /* A filled rectangle; `rgba` is 0xRRGGBBAA. */
     void (*rect)(void* context, float x, float y, float w, float h, uint32_t rgba);
-    /* One line of UTF-8 text, its top left at (x, y), `height` tall. */
+    /* One line of UTF-8 text, its top left at (x, y), `height` tall. Since 1.31 the button tokens
+     * (OPENRAC_UI_CROSS ... OPENRAC_UI_RIGHT_STICK) are drawn as the player's device has the
+     * button: the PlayStation icon or name, the pad's letter, or the bound key. */
     void (*text)(void* context, float x, float y, float height, uint32_t rgba, const char* text);
     /* 1 up close to `near_distance` away, falling to 0 at `far_distance` (the level's units). */
     float (*fade)(void* context, float distance, float near_distance, float far_distance);
     /* How wide `text` is at `height`, on the picture: text keeps its shape on a wide picture, so a
      * mod that centres a line asks. */
     float (*text_width)(void* context, float height, const char* text);
+    /* The phase the frame shows: one OPENRAC_OVERLAY_* bit, the phase the game was in when the
+     * frame's tick was captured. Only if `size` reaches it. Since 1.31. */
+    uint32_t phase;
 } openrac_overlay;
 
-/* Called once a frame, after the world is drawn and before the port's own overlay, while the game
- * shows a level (not in a menu or a scene). Since 1.14. */
+/* Called once a frame, after the world is drawn and before the port's own overlay, in the phases
+ * it was taken for: a level in play (not a menu or a scene) for on_overlay, those of `phases` for
+ * on_overlay_phases. Since 1.14. */
 typedef void (*openrac_overlay_fn)(void* user, const openrac_overlay* overlay);
 
 /* A camera script (a level's shot, a door's, a lift's: any moby's) started (`started` 1) or ended
@@ -2561,7 +2611,9 @@ typedef struct openrac_api {
      * moby_pool_raise: asks for `extra` more spare slots in every level loaded from now on (each
      * takes 0x180 bytes of the level's heap; the largest request of any mod counts, at most
      * OPENRAC_MOBY_POOL_EXTRA_MAX). Ask in the mod's load, before the first level loads; a level
-     * already loaded keeps its pool. Returns the slots granted (the request cut to the most), or
+     * already loaded keeps its pool. A level gets fewer when its heap has less room below the data
+     * the game keeps above it (Smolg 431, Barlow 549, Boldan 727 on NTSC-U v1.01; moby_pool_status
+     * says what it got). Returns the slots granted (the request cut to the most), or
      * OPENRAC_HOOK_UNKNOWN. */
     int (*moby_pool_raise)(openrac_mod* mod, int extra);
     /* moby_pool_status: fills `out` (out->size set by the mod) with the level's pool as it is now.
@@ -2649,6 +2701,37 @@ typedef struct openrac_api {
      * program's: a load writes it again, so a mod that changes it does so at
      * each level load (rac2.level.load). */
     openrac_gaddr (*weapon_record)(openrac_mod* mod, int32_t item);
+
+    /* A weapon's targets on screen or not (Going Commando's; a game without it answers
+     * OPENRAC_E_UNKNOWN). enabled 1 has weapon item's target picks take every enemy in its range,
+     * drawn last frame or not; 0 gives it back. The game picks targets only among the mobys it drew
+     * last frame (their drawn flag), so a weapon that hits all around the hero misses what is
+     * behind the camera or off screen. Only the target picks of that weapon's own gun and shots
+     * change: their range, angles and caps stay the game's, and the drawn flag is the game's again
+     * for everything else. Several mods may ask; it is on while any of them holds it, and goes with
+     * the mod's unload. Going Commando: the Zodiac (item 43: its pulse) and the Plasma Coil (28:
+     * the arcs of the Plasma Coil's and the Plasma Storm's shots to the enemies around them).
+     * Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN (a weapon or game the port does not know). Since
+     * 1.30. */
+    int (*weapon_ignore_culling)(openrac_mod* mod, int32_t item, int32_t enabled);
+
+    /* Calls `fn(user, overlay)` once a frame to draw over the game, as on_overlay, in the phases
+     * of `phases` (OPENRAC_OVERLAY_PLAYING, _MENU, _SCENE; openrac_overlay.phase says which one a
+     * frame is). It replaces the mod's on_overlay: one a mod. Only during openrac_mod_load.
+     * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TOO_LATE, or OPENRAC_HOOK_UNKNOWN (no fn, no phase, a
+     * bit the port has not). Since 1.31. */
+    int (*on_overlay_phases)(openrac_mod* mod, openrac_overlay_fn fn, void* user, uint32_t phases);
+
+    /* The label of the pad's button `button` (one OPENRAC_PAD_* bit) for the player's device now,
+     * into `out` (`size` bytes, ended with a 0, cut to fit): on a PlayStation pad the game's token
+     * for it where its font has an icon (OPENRAC_UI_CROSS ... OPENRAC_UI_RIGHT_STICK: L3 and R3
+     * are the sticks') else its name ("START", "UP"); on a lettered pad its letter ("A", "LB",
+     * "RT"); on the keyboard and mouse the key the player bound to it where the game is now ("F",
+     * "SPACE", "LMB"), for the eight buttons with icons and the sticks ("WASD", "MOUSE"). Returns
+     * which: OPENRAC_BUTTONS_PLAYSTATION, _LETTERS or _KEYS, or OPENRAC_HOOK_UNKNOWN (not one
+     * button, no `out`, or a button with no key on the keyboard). Any time, from any thread.
+     * Since 1.31. */
+    int (*button_label)(openrac_mod* mod, uint32_t button, char* out, uint32_t size);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

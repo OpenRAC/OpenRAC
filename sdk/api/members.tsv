@@ -193,3 +193,6 @@ moby_spawn_live	world	1.29	stable
 weapon_look	hero	1.29	stable
 moby_status	world	1.29	stable
 weapon_record	hero	1.29	stable
+weapon_ignore_culling	hero	1.30	experimental
+on_overlay_phases	graphics	1.31	stable
+button_label	input	1.31	stable

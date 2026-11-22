@@ -121,11 +121,12 @@ struct UiPageCallback {
     openrac_mod* mod;
 };
 
-// Who draws over the game (on_overlay), in load order.
+// Who draws over the game (on_overlay, on_overlay_phases), in load order, and over which phases.
 struct OverlayCallback {
     openrac_mod* mod;
     openrac_overlay_fn fn;
     void* user;
+    std::uint32_t phases;  // OPENRAC_OVERLAY_* bits
 };
 
 struct SettingsCallback {
@@ -414,6 +415,10 @@ int api_party_rules_deliver(int index, const void* data, uint32_t size);
 void api_party_replay(int on);
 int api_party_replaying();
 int api_on_overlay(openrac_mod* mod, openrac_overlay_fn fn, void* user);
+int api_on_overlay_phases(
+    openrac_mod* mod, openrac_overlay_fn fn, void* user, std::uint32_t phases
+);
+int api_button_label(openrac_mod* mod, std::uint32_t button, char* out, std::uint32_t size);
 int api_packs_info(openrac_packs_info* out);
 int api_packs_entry(int index, openrac_pack_entry* out);
 int api_clipboard_set(const char* text);
@@ -588,5 +593,7 @@ int api_weapon_look(openrac_mod* mod, std::int32_t item, std::uint32_t material,
 int api_moby_status(openrac_mod* mod, std::int32_t slot, std::uint32_t status, std::int32_t ticks);
 openrac_gaddr api_weapon_record(openrac_mod* mod, std::int32_t item);
 void drop_weapon_shots(const openrac_mod* mod);
+
+int api_weapon_ignore_culling(openrac_mod* mod, std::int32_t item, std::int32_t enabled);
 
 }  // namespace openrac::mods::detail

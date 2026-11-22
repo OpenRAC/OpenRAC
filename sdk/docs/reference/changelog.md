@@ -4,6 +4,18 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.31
+
+A mod's overlay drawn over the game's menus and scenes too (on_overlay_phases, openrac_overlay.phase), the pad's button icons in the HUD's and the overlay's text, each shown as the player's device has it (OPENRAC_UI_L1 ... OPENRAC_UI_RIGHT_STICK), and a button's label for the device in use (button_label).
+
+Members: `on_overlay_phases`, `button_label`.
+
+## 1.30
+
+Weapons whose targets are picked on screen or not (weapon_ignore_culling).
+
+Members: `weapon_ignore_culling`.
+
 ## 1.29
 
 The hero's weapons and their shots: a shot fired, fired again and ended, a shot the game runs made from a mod, a weapon's look, a moby frozen or slowed and a weapon's record (on_weapon_fire, weapon_refire, on_shot_end, moby_spawn_live, weapon_look, moby_status, weapon_record).

@@ -38,10 +38,10 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `setting_int` | 1.0 | stable | yes | yes | yes |
 | `setting_float` | 1.0 | stable | yes | yes | yes |
 | `setting_string` | 1.0 | stable | yes | yes | yes |
-| `setting_set_bool` | 1.15 | stable | yes | part | part |
-| `setting_set_int` | 1.15 | stable | yes | part | part |
-| `setting_set_float` | 1.15 | stable | yes | part | part |
-| `setting_set_string` | 1.15 | stable | yes | part | part |
+| `setting_set_bool` | 1.15 | stable | part | part | part |
+| `setting_set_int` | 1.15 | stable | part | part | part |
+| `setting_set_float` | 1.15 | stable | part | part | part |
+| `setting_set_string` | 1.15 | stable | part | part | part |
 | `on_settings` | 1.15 | stable | yes | yes | yes |
 
 ## hooks
@@ -61,6 +61,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `input` | 1.2 | stable | yes | yes | yes |
 | `take_input` | 1.2 | stable | yes | yes | yes |
 | `capture_mouse` | 1.2 | stable | yes | yes | yes |
+| `button_label` | 1.31 | stable | yes | yes | yes |
 
 ## graphics
 
@@ -71,6 +72,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `setup_vulkan` | 1.4 | stable | yes | yes | yes |
 | `on_overlay` | 1.14 | stable | yes | yes | yes |
 | `play_live_picture` | 1.14 | stable | yes | no | no |
+| `on_overlay_phases` | 1.31 | stable | yes | yes | yes |
 
 ## menus
 
@@ -160,6 +162,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `on_shot_end` | 1.29 | stable | no | yes | no |
 | `weapon_look` | 1.29 | stable | no | yes | no |
 | `weapon_record` | 1.29 | stable | no | yes | no |
+| `weapon_ignore_culling` | 1.30 | experimental | no | yes | no |
 
 ## figures
 

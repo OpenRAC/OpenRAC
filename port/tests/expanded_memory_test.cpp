@@ -31,6 +31,12 @@ int main() {
         )
         == 0x03FFFFFFu
     );
+    // RAC1's level archives load below 0x01FF8000: in expanded RAM that mark keeps its distance
+    // from the top, under the RAC1 reservations.
+    CHECK(
+        OPENRAC_RAM_TOP(0x01FF8000u)
+        == GUEST_RAM_EXPANDED_SIZE - OPENRAC_EXPANDED_RAC1_RESERVE - (GUEST_RAM_SIZE - 0x01FF8000u)
+    );
     GREF(std::uint32_t, 0x03FFFFFCu) = 0xC0DEC0DEu;
     CHECK(GREF(std::uint32_t, 0x03FFFFFCu) == 0xC0DEC0DEu);
     if (memory.has_aliases()) {

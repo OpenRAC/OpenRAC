@@ -614,6 +614,7 @@ void render_scene(
     output.shown = owner.frame.resolved();
     output.camera = frame.input.camera;
     output.has_camera = frame.has_camera;
+    output.world_under_menu = snapshot.world_under_menu;
     output.tick = frame.input.frame;
     output.enhanced_graphics = graphics.enhanced_graphics && owner.enhanced_graphics_available();
     output.finished = std::chrono::steady_clock::now();
