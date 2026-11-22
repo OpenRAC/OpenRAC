@@ -156,10 +156,16 @@
 /* The multiplayer executable's (release/mp_pairs.json). */
 /* the function's pair: the executable's entry (its payload's records) */
 #define RAC3_MADDR_0x00192D18u 0x00192E08u
+/* the same instruction of the same code: func 0x001619B8 (NTSC-U 0x001619B8) +0x8, 4 of 4 places agree */
+#define RAC3_MADDR_0x001A2A58u 0x001A2BD8u
+/* the same instruction of the same code: func 0x0017DFA8 (NTSC-U 0x0017DFA8) +0x10, 5 of 5 places agree */
+#define RAC3_MADDR_0x001A30DCu 0x001A325Cu
 /* the same instruction of the same code: func 0x0027EDA8 (NTSC-U 0x0027EDE8) +0x94, 1 of 1 places agree */
 #define RAC3_MADDR_0x001A3800u 0x001A3980u
 /* the same instruction of the same code: func 0x00192D18 (NTSC-U 0x00192E08) +0x1B0, 2 of 2 places agree */
 #define RAC3_MADDR_0x001EBE00u 0x001EBF80u
+/* the same instruction of the same code: func 0x00195010 (NTSC-U 0x00195100) +0x10, 1 of 1 places agree */
+#define RAC3_MADDR_0x001FC6B0u 0x001FC830u
 /* the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 16 of 16 places agree */
 #define RAC3_MADDR_0x00240310u 0x00240490u
 /* the same instruction of the same code: func 0x00193590 (NTSC-U 0x00193680) +0x4, 12 of 12 places agree */
