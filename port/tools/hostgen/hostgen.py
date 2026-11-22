@@ -1571,7 +1571,8 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     # functions its retail program alone gives): declared with its verified signature, so that the
     # port's C that wraps it compiles against one prototype whether the build reads the disc or not.
     for sym in sorted(program.wrap):
-        text = (cfg.get("asm") or {}).get("signatures", {}).get(sym)
+        text = (cfg.get("asm") or {}).get("signatures", {}).get(sym) or (
+            (cfg.get("asm") or {}).get("copy_signatures", {}).get(sym))
         if sym not in program.functions and text:
             program.functions[sym] = Function(sym, Signature.of(ctype.parse(text)), None, asm=True)
     for sym, text in host_sigs.items():
@@ -1723,7 +1724,8 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
         if asm_stage is not None and not asm_stage.translated and not asm_stage.external:
             # Nothing translated from the disc (OPENRAC_HOSTGEN_NO_DISC, CI): whether a callee whose
             # result no code backs sets the register its callers read cannot be judged.
-            verified = set((cfg.get("asm") or {}).get("signatures", {}))
+            verified = set((cfg.get("asm") or {}).get("signatures", {})) | set(
+                (cfg.get("asm") or {}).get("copy_signatures", {}))
             extra["result_unjudged"] = sorted(unbacked_results(program, verified))
     (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units)
                                    + "".join(f + "\n" for f in asm_files))

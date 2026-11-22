@@ -219,8 +219,9 @@ def main() -> int:
     own = {k: v for k, v in cfg["asm"]["signatures"].items() if not re.match(r"func_L(4\d|5\d)_", k)}
     # A row the port answers itself (port host) takes its signature from the row, not "asm".
     host_rows = {line.split("\t")[0] for line in lines if line.split("\t")[3] == "host"}
-    cfg["asm"]["signatures"] = {**own, **{k: v for k, v in map_signatures(args.source, {"asm": {"signatures": own}}).items()
-                                          if k not in host_rows}}
+    cfg["asm"]["signatures"] = own
+    cfg["asm"]["copy_signatures"] = {k: v for k, v in sorted(map_signatures(
+        args.source, {"asm": {"signatures": own}}).items()) if k not in host_rows}
     outputs = {cfg_path: json.dumps(cfg, indent=2) + "\n"}
 
     lib_path = HERE / "libraries.tsv"
