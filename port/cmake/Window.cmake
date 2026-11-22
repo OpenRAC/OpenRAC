@@ -851,6 +851,7 @@ openrac_warnings(hero_shadow_test)
 add_test(NAME hero_shadow_cpu COMMAND hero_shadow_test)
 openrac_add_test(moby_shadow LIBS openrac_scene)
 openrac_add_test(moby_key_gap LIBS openrac_scene)
+openrac_add_test(moby_port_memory LIBS openrac_scene)
 openrac_add_test(hero_attachments SOURCES tests/hero_attachments_test.cpp
   game/rac1/host/hero_attachments.c INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}")
 openrac_add_test(hero_shadow_rig INCLUDES . game/common/include runtime/include)
