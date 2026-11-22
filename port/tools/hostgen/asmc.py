@@ -1398,20 +1398,29 @@ class Translator:
         under a 0x60-byte frame; translated with eight, its C callers' ninth never reached it
         (#719). Only loads count, and only within eight doublewords of the frame."""
         frame = None
-        most = 0
-        for a in sorted(self.reach):
+        for a in range(self.entry_addr, self.entry_addr + 32, 4):
             ins = self.at(a)
             if ins is None:
-                continue
-            if frame is None and ins.op in ("addiu", "daddiu") and ins.rs == 29 and ins.rt == 29:
-                if ins.imm >= 0:
-                    return most
-                frame = -ins.imm
-                continue
+                break
+            if ins.op in ("addiu", "daddiu") and ins.rs == 29 and ins.rt == 29:
+                frame = -ins.imm if ins.imm < 0 else None
+                break
+        code = [i for a in sorted(self.reach) if (i := self.at(a)) is not None]
+        if frame is None:
+            # No frame of its own: only a leaf that never stores to $sp nor moves it reads its
+            # caller's arguments there; one that does is a fragment of another routine, inside its
+            # frame (the printf internals at func_0011D380).
+            if any((i.rs == 29 and i.op.startswith("s") and i.op not in ("sll", "srl", "sra", "slt", "slti", "sltu",
+                                                                           "sltiu", "sub", "subu", "sllv", "srlv", "srav"))
+                   or (i.op in ("addiu", "daddiu", "daddu", "addu") and i.rt == 29) for i in code):
+                return 0
+            frame = 0
+        most = 0
+        for ins in code:
             width = self.STACK_LOADS.get(ins.op)
             if width is None or ins.rs != 29:
                 continue
-            off = ins.imm - (frame or 0)
+            off = ins.imm - frame
             if 0 <= off < 64:
                 most = max(most, (off + width + 7) // 8)
         return most
@@ -2388,7 +2397,8 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
             found[f.symbol] = hit
     # The signatures first (a function declared nowhere gets the one its registers say), then
     # the places, so calls between translated functions find each other.
-    def prepare_all() -> None:
+    def prepare_all() -> set:
+        grown = set()
         while True:
             changed = False
             for sym, hit in found.items():
@@ -2398,9 +2408,12 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
                     tr.prepare_signature(f, hit)
                 except (AsmUnsupported, Unsupported):
                     pass
-                changed |= f.sig != before
+                if f.sig != before:
+                    changed = True
+                    grown.add(sym)
             if not changed:
                 break
+        return grown
     prepare_all()
     for sym in found:
         program.functions[sym].unit = "<asm>"
@@ -2410,14 +2423,14 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
         # asm.params_from_code each such definition given the parameters its code reads
         # (params_from_code); again until none is left, as a definition that takes more makes its
         # callers that hand those registers on read them too.
-        # Each later pass reads again only the functions whose calls reach one given more (the
-        # callees their liveness saw, Translator.callees_of): a whole pass is minutes.
+        # Each later pass reads again only the functions with C whose calls reach one that changed
+        # (the callees their liveness saw, Translator.callees_of, under each of their spellings):
+        # a whole pass is minutes.
         stage.c_drops, stage.c_reads = c_argument_drops(tr, program, leave)
-        callers_of: dict[str, set] = {}
-        for sym, callees in getattr(tr, "callees_of", {}).items():
-            for c in callees:
-                callers_of.setdefault(c, set()).add(sym)
-        changed = set()
+
+        def spellings(name: str) -> set:
+            return {name, program.canonical(name), re.sub(r"_[0-9A-F]{8}$", "", name)}
+
         for _ in range(16):
             if not a.get("params_from_code"):
                 break
@@ -2425,32 +2438,17 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
             if not added:
                 break
             stage.params_from_code += added
-            changed = {x.split(":", 1)[0] for x in added}
-            given = set(changed)
-            # Translated callers that hand those registers on take them as well, and theirs.
-            todo = set(changed)
-            while todo:
-                grown = set()
-                for sym in sorted({c for t in todo for c in callers_of.get(t, ()) if c in found}):
-                    f = program.functions[sym]
-                    before = f.sig
-                    try:
-                        tr.prepare_signature(f, found[sym])
-                    except (AsmUnsupported, Unsupported):
-                        pass
-                    if f.sig != before:
-                        grown.add(sym)
-                changed |= grown
-                todo = grown
-            again = given | {c for t in changed for c in callers_of.get(t, ()) if c not in found}
+            given = {x.split(":", 1)[0] for x in added}
+            # Translated callers that hand those registers on take them as well.
+            changed = given | prepare_all()
+            reach = set().union(*(spellings(c) for c in changed))
+            again = given | {sym for sym, callees in getattr(tr, "callees_of", {}).items()
+                             if sym not in found and any(spellings(c) & reach for c in callees)}
             for sym in again:
                 stage.c_drops.pop(sym, None)
             drops, reads = c_argument_drops(tr, program, leave, only=again)
             stage.c_drops.update(drops)
             stage.c_reads.update(reads)
-            for sym, callees in tr.callees_of.items():
-                for c in callees:
-                    callers_of.setdefault(c, set()).add(sym)
     # A C wrapper's result from a translated callee, known now, for the translations that read it
     # after their calls (asm.results_before_calls; hostgen.py does this again for the C).
     if a.get("results_before_calls"):
