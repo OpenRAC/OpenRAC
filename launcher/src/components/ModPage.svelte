@@ -27,6 +27,7 @@
   import { isPreset, presetChanges } from "$lib/presets";
   import { phaseLabel, readProgress } from "$lib/progress";
   import type { Job } from "$lib/queue";
+  import { tablist } from "$lib/tabs";
 
   import Icon from "./Icon.svelte";
   import Menu, { type MenuItem } from "./Menu.svelte";
@@ -116,6 +117,14 @@
     mod.settings.map((s) => (s.key in held ? { ...s, value: held[s.key] } : s)),
   );
   const groups = $derived(settingGroups(shown));
+  /** The built-in Keyboard and mouse page in two tabs, as the game's Controls tab has them
+   *  (menu_items.cpp, draw_controls_tab): the gyro's section, a controller's, on a tab of its own. */
+  const GYRO = "s-Gyro";
+  let gyroTab = $state(false);
+  const split = $derived(
+    mod.id === T.KEYBOARD_MOUSE.id && groups.some((g) => g.id === GYRO) && groups.length > 1,
+  );
+  const tabGroups = $derived(split ? groups.filter((g) => (g.id === GYRO) === gyroTab) : groups);
   const clashes = $derived(keybindConflicts(shown));
   const presets = $derived(mod.presets ?? []);
   /** The buttons over the settings: the mod's presets, with Default first unless one is "default". */
@@ -433,6 +442,20 @@
   {/if}
 
   {#if mod.settings.length}
+    {#if split}
+      <div class="tabs" role="tablist" aria-label={T.KEYBOARD_MOUSE.tabsLabel} use:tablist>
+        {#each [false, true] as gyro (gyro)}
+          <button
+            role="tab"
+            aria-selected={gyroTab === gyro}
+            tabindex={gyroTab === gyro ? 0 : -1}
+            class:on={gyroTab === gyro}
+            onclick={() => (gyroTab = gyro)}
+            >{gyro ? T.KEYBOARD_MOUSE.tabGyro : T.KEYBOARD_MOUSE.tabKeys}</button
+          >
+        {/each}
+      </div>
+    {/if}
     <div class="toolbar">
       {#if presetButtons.length}
         <div class="presets">
@@ -467,7 +490,7 @@
     </div>
     {#if failure}<div class="failure"><Reason text={failure} tone="err" role="alert" /></div>{/if}
 
-    {#each groups as g (g.id)}
+    {#each tabGroups as g (g.id)}
       {#if g.id === "advanced"}
         <!-- Settings few need: folded, closed at first. -->
         <details class="panel group advanced more">
@@ -529,6 +552,43 @@
     display: flex;
     flex-direction: column;
     gap: var(--page-gap, 16px);
+  }
+
+  /* Keyboard and mouse or Gyro: the Mods page's tabs (Mods.svelte), without icons. */
+  .tabs {
+    display: flex;
+    align-self: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tabs button {
+    border: 0;
+    background: var(--control);
+    padding: 8px 18px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--soft);
+    transition:
+      color var(--fast) var(--ease),
+      background var(--fast) var(--ease);
+  }
+
+  .tabs button.on {
+    background: var(--on-fill);
+    color: var(--amber);
+  }
+
+  @media (hover: hover) {
+    :global(html:where(:not([data-input="pad"]))) .tabs button:hover:not(.on) {
+      background: var(--control-hi);
+      color: var(--text);
+    }
+  }
+
+  .tabs button:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
   }
 
   /* Where you are: back, then My mods › the mod. */

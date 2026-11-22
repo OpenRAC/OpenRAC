@@ -25,6 +25,7 @@ constexpr Color rgba(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_
 // app.css's tokens the menu (the drawer, the desktop's bar and window) draws with, under their
 // names there. A game's accent (the launcher's palettes.json) sets the bar's and the accent's.
 struct Colors {
+    Color ink = rgba(0x19, 0x19, 0x19);         // --ink: the page, under a picked sub tab's tint
     Color ink_deep = rgba(0x12, 0x12, 0x12);    // --ink-deep: under everything; a switch's track
     Color panel = rgba(0x24, 0x22, 0x1e);       // --panel: the drawer
     Color panel_hi = rgba(0x2c, 0x2a, 0x26);    // --panel-hi: its cards

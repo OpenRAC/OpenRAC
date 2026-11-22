@@ -260,6 +260,13 @@ fn save_config(state: State<'_, AppState>, mut config: Config) -> Result<Config,
             openrac_launcher_core::multiplayer::MAX_LEN
         ));
     }
+    // The server likewise: a host name or an IP address, and a port the type keeps in range.
+    config.multiplayer_server_host = config.multiplayer_server_host.trim().to_string();
+    if !openrac_launcher_core::multiplayer::is_valid_host(&config.multiplayer_server_host)
+        || config.multiplayer_server_port == 0
+    {
+        return Err("the multiplayer server must be a host name or an IP address, and a port from 1 to 65535".into());
+    }
     // Developer tools switched off: back to the carried copy (detect::settle).
     detect::settle(&mut config, state.bundled.as_deref());
     // The page sends the settings back without the paths the launcher keeps its own files
@@ -1875,6 +1882,17 @@ async fn player_name_used(state: State<'_, AppState>, games: Vec<String>) -> Res
     .map_err(|e| e.to_string())
 }
 
+/// Settings, "Test connection": whether a multiplayer server answers at `host:port` (a TCP
+/// connection within 5 seconds), or why not.
+#[tauri::command]
+async fn multiplayer_server_test(host: String, port: u32) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        openrac_launcher_core::multiplayer::reachable(&host, port, std::time::Duration::from_secs(5))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// The launcher's Multiplayer name, for the mod settings that default to it (empty when invalid).
 fn player_name(state: &State<'_, AppState>) -> String {
     let name = state.config.lock().unwrap().multiplayer_name.clone();
@@ -3219,6 +3237,7 @@ pub fn run() {
             reset_apply,
             plugins_list,
             player_name_used,
+            multiplayer_server_test,
             enhanced_view,
             enhanced_set_enabled,
             texture_packs_view,

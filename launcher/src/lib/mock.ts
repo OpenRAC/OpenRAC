@@ -325,6 +325,8 @@ let config: Config = {
   discImages: {},
   multiplayerName: "BraveLombax42",
   multiplayerKey: "0123456789abcdef0123456789abcdef",
+  multiplayerServerHost: "game.openrac.dev",
+  multiplayerServerPort: 7770,
   modIndexes: [],
   prereleaseMods: null,
   pendingDeepLink: null,
@@ -1217,6 +1219,164 @@ let mockPlugins: PluginView[] = query.has("nomods")
             default: true,
             description:
               "Hides the cursor and keeps it in the window while you play; menus and pausing let it go.",
+            value: true,
+          },
+          {
+            key: "mouse_with_gamepad",
+            name: "Mouse with a gamepad",
+            section: "Mouse",
+            type: "bool",
+            default: true,
+            description:
+              "The mouse keeps turning the camera while you play on a gamepad, so you can use both at once. Needed for gyro that Steam Input or DS4Windows turns into a mouse.",
+            value: true,
+          },
+          {
+            key: "gyro",
+            name: "Gyro aiming",
+            section: "Gyro",
+            type: "choice",
+            default: "off",
+            choices: [
+              { value: "off", name: "Off" },
+              { value: "always", name: "Always" },
+              { value: "aiming", name: "Only while aiming" },
+            ],
+            description:
+              "Turn the camera by turning your controller. Read straight from its gyro: DualShock 4, DualSense, Switch Pro, Joy-Con, Steam Controller, Steam Deck, and a phone's or handheld's own gyro. Only while aiming: in first person and while strafing.",
+            value: "off",
+          },
+          {
+            key: "gyro_sensitivity",
+            name: "Horizontal sensitivity",
+            section: "Gyro",
+            type: "float",
+            default: 2.0,
+            min: 0.1,
+            max: 10.0,
+            step: 0.05,
+            description:
+              "How far the camera turns for a turn of the controller. At 1 it turns as far as the controller.",
+            value: 2.0,
+          },
+          {
+            key: "gyro_sensitivity_y",
+            name: "Vertical sensitivity",
+            section: "Gyro",
+            type: "float",
+            default: 2.0,
+            min: 0.1,
+            max: 10.0,
+            step: 0.05,
+            description: "The same for looking up and down.",
+            value: 2.0,
+          },
+          {
+            key: "gyro_space",
+            name: "Turn by",
+            section: "Gyro",
+            type: "choice",
+            default: "player",
+            choices: [
+              { value: "player", name: "Player space" },
+              { value: "yaw", name: "Yaw" },
+              { value: "roll", name: "Roll" },
+              { value: "local", name: "Yaw and roll" },
+            ],
+            description:
+              "Which turn of the controller moves the camera left and right. Player space works however you hold it. Yaw: twist it flat. Roll: lean it like a wheel. Yaw and roll: both.",
+            value: "player",
+          },
+          {
+            key: "gyro_invert_x",
+            name: "Invert horizontal",
+            section: "Gyro",
+            type: "bool",
+            default: false,
+            description: "Turning the controller left turns the camera right.",
+            value: false,
+          },
+          {
+            key: "gyro_invert_y",
+            name: "Invert vertical",
+            section: "Gyro",
+            type: "bool",
+            default: false,
+            description: "Tilting the controller up looks down.",
+            value: false,
+          },
+          {
+            key: "gyro_button",
+            name: "Gyro button",
+            section: "Gyro",
+            type: "choice",
+            default: "none",
+            choices: [
+              { value: "none", name: "None" },
+              { value: "touchpad", name: "Touchpad click" },
+              { value: "rightstick", name: "R3" },
+              { value: "leftstick", name: "L3" },
+              { value: "rightshoulder", name: "R1" },
+              { value: "leftshoulder", name: "L1" },
+              { value: "paddle1", name: "Right paddle 1" },
+              { value: "paddle2", name: "Left paddle 1" },
+              { value: "paddle3", name: "Right paddle 2" },
+              { value: "paddle4", name: "Left paddle 2" },
+              { value: "misc1", name: "Share / Capture / Mic" },
+            ],
+            description:
+              "A controller button for the gyro. It still presses its own button in the game.",
+            value: "none",
+          },
+          {
+            key: "gyro_button_action",
+            name: "Gyro button does",
+            section: "Gyro",
+            type: "choice",
+            default: "enable",
+            choices: [
+              { value: "enable", name: "Hold to aim" },
+              { value: "pause", name: "Hold to pause" },
+              { value: "toggle", name: "Press to switch" },
+            ],
+            description:
+              "Hold to aim: the gyro works only while you hold it. Hold to pause: lift the controller back to the middle while you hold it. Press to switch: turns the gyro on and off.",
+            value: "enable",
+          },
+          {
+            key: "gyro_dead_zone",
+            name: "Dead zone",
+            section: "Gyro",
+            type: "float",
+            default: 0.0,
+            min: 0.0,
+            max: 10.0,
+            step: 0.1,
+            description:
+              "Turns slower than this, in degrees a second, are ignored. Most players want 0.",
+            value: 0.0,
+          },
+          {
+            key: "gyro_smoothing",
+            name: "Smoothing",
+            section: "Gyro",
+            type: "float",
+            default: 3.0,
+            min: 0.0,
+            max: 20.0,
+            step: 0.5,
+            description:
+              "Turns slower than this, in degrees a second, are smoothed to hide hand shake. Fast turns are never smoothed. 0 turns it off.",
+            value: 3.0,
+          },
+          {
+            key: "gyro_calibrate",
+            name: "Calibrate when still",
+            section: "Gyro",
+            type: "bool",
+            default: true,
+            description:
+              "Put the controller down for two seconds and the gyro learns its resting drift, so the camera does not creep.",
             value: true,
           },
           {
@@ -3490,6 +3650,14 @@ export async function mockCall(
         path: "",
       });
     }
+    case "multiplayer_server_test":
+      // The official server answers; any other does not, so both results can be seen.
+      await delay(null);
+
+      if (args.host !== "game.openrac.dev")
+        throw new Error(`no answer from ${String(args.host)}:${String(args.port)}`);
+
+      return null;
     case "player_name_used":
       // A mod that uses the Multiplayer name is on, unless ?nomods.
       return delay(!query.has("nomods"));

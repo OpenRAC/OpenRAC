@@ -294,6 +294,7 @@ struct State {
     bool quit_asked = false;          // Quit pressed in the drawer: its confirmation is shown
     bool quit_focus = false;          // the confirmation's first row takes the focus once
     int menu_tab = 0;                 // the desktop's open tab, by its place on the bar
+    int controls_sub_tab = -1;        // Controls: 0 Gamepad, 1 Keyboard and mouse, -1 unpicked
     long long menu_open_at = -1;      // OPENRAC_MENU: the tick to open the menu at; -1 none
     int menu_hover = -1;              // the entry under the pointer or the focus (menu::Id), or -1
     // A row of an entry's panel with help of its own (a mod setting): its heading, name and line,

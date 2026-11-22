@@ -24,6 +24,7 @@
 #include "enhanced/fsr3/fsr3.h"
 #include "fixes.h"
 #include "frontend.h"
+#include "game/common/frontend/active_input.h"
 #include "mod_touch.h"
 #include "mods.h"
 #include "options_menu.h"
@@ -1243,6 +1244,59 @@ bool draw_tab(menu::Tab tab, std::uint8_t where, const SectionFilter& only) {
         i = end;
     }
     return any;
+}
+
+namespace {
+
+// The Gamepad sub tab's sections before the gyro's: the controller's own, its sticks and vibration.
+// The players, the menu's button and Reset come after it.
+bool before_gyro(std::string_view section) {
+    return section == "Controller" || section == "Buttons" || section == "Left stick"
+           || section == "Right stick" || section == "Triggers and buttons"
+           || section == "Vibration";
+}
+
+}  // namespace
+
+bool draw_controls_tab(std::uint8_t where) {
+    if (where != menu::kDesktop || !keyboard_mouse_shown()) {
+        return draw_tab(menu::Tab::Controls, where);
+    }
+    static constexpr const char* kNames[] = {"Gamepad", "Keyboard and mouse"};
+    static constexpr const char* kHelps[] = {
+        "The controller's buttons, sticks, vibration and gyro, and the players.",
+        "The mouse's feel and the key for each action. The tab opens on the device you used last."
+    };
+    // Opened, or come to from another tab: the device in use picks.
+    if (s.menu_focus || s.controls_sub_tab < 0) {
+        s.controls_sub_tab = frontend::keyboard_mouse_in_use() ? 1 : 0;
+    }
+    const menu::Entry& panel = menu::entry(menu::Id::KeyboardMouse);
+    const int picked = menu_sub_tabs(
+        kNames, kHelps, 2, s.controls_sub_tab, static_cast<int>(menu::Id::KeyboardMouse)
+    );
+    if (picked != s.controls_sub_tab) {
+        s.controls_sub_tab = picked;
+        s.menu_motion.scroll_target = 0.0f;  // the other page from its top
+    }
+    if (s.controls_sub_tab == 1) {
+        // Its panel's first card (the presets, the reset) right under the sub tabs, as the
+        // launcher's page has them; its own sections follow with their headings.
+        ImGui::Dummy(ImVec2(0.0f, dp(16.0f)));
+        card_begin();
+        draw_entry(menu::Id::KeyboardMouse, where);
+        card_end();
+        return true;
+    }
+    const std::string_view kbm = panel.section;
+    draw_tab(menu::Tab::Controls, where, [kbm](std::string_view section) {
+        return before_gyro(section) && section != kbm;
+    });
+    keyboard_mouse_gyro();
+    draw_tab(menu::Tab::Controls, where, [kbm](std::string_view section) {
+        return !before_gyro(section) && section != kbm;
+    });
+    return true;
 }
 
 int mod_menu_count() {
