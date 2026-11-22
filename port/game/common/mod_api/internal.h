@@ -571,4 +571,22 @@ std::uint32_t api_sound_play(openrac_mod* mod, int sound, float volume, float pi
 int api_sound_set(openrac_mod* mod, std::uint32_t voice, float volume, float pitch);
 void api_sound_stop(openrac_mod* mod, std::uint32_t voice);
 
+// The hero's weapons and their shots (interface 1.29): mod_api/hero.cpp, mod_api/world.cpp.
+// The particle records tied to a weapon's look (render-only), by record address; under
+// g_props_lock.
+struct ParticleLook {
+    std::uint32_t loads = 0;
+    MobyMaterial look;
+};
+
+extern std::unordered_map<std::uint32_t, ParticleLook> g_particle_looks;
+int api_on_weapon_fire(openrac_mod* mod, openrac_weapon_fire_fn fn, void* user);
+int api_weapon_refire(openrac_mod* mod, std::uint32_t serial, float yaw, float pitch);
+int api_on_shot_end(openrac_mod* mod, openrac_shot_end_fn fn, void* user);
+int api_moby_spawn_live(openrac_mod* mod, const openrac_spawn_live* spawn);
+int api_weapon_look(openrac_mod* mod, std::int32_t item, std::uint32_t material, std::uint32_t rgb);
+int api_moby_status(openrac_mod* mod, std::int32_t slot, std::uint32_t status, std::int32_t ticks);
+openrac_gaddr api_weapon_record(openrac_mod* mod, std::int32_t item);
+void drop_weapon_shots(const openrac_mod* mod);
+
 }  // namespace openrac::mods::detail

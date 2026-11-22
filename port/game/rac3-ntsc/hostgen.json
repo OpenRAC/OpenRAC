@@ -98,6 +98,8 @@
       "func_0038A848__frontbin": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_00388960__frontbin": "float (float)",
       "func_00388978__frontbin": "float (float)",
+      "func_00389018__frontbin": "void (int, int, float)",
+      "func_L01_0040CAC0": "void (int, int, float)",
       "func_L01_0051D658": "int (int, int)",
       "func_003AA020": "int (int, int, float)",
       "func_00391040": "int (int, int, float)",
@@ -740,13 +742,13 @@
     "signature_allow": {
       "func_L01_0049AE90": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L01_004BD480": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_0048CB78": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_0048E2F8": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_0048F508": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_00498098": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_004991C8": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_0049A2D0": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_001369D0": "a hidden entry inside a function on both discs, with no inventory row (no NTSC-U name): its translation from 0x001369D0 is the tail of the function around it and never sets $f0, while the multiplayer menu's callers (func_L39_0066C540, func_L39_0066C910) read the float the PAL C declares (f32 func_001369D0(f32)); the entry's real code is to be found"
+      "func_001369D0": "a hidden entry inside a function on both discs, with no inventory row (no NTSC-U name): its translation from 0x001369D0 is the tail of the function around it and never sets $f0, while the multiplayer menu's callers (func_L39_0066C540, func_L39_0066C910) read the float the PAL C declares (f32 func_001369D0(f32)); the entry's real code is to be found",
+      "func_L01_0048CB78": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+      "func_L01_0048E2F8": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+      "func_L01_0048F508": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+      "func_L01_00498098": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+      "func_L01_004991C8": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+      "func_L01_0049A2D0": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees"
     }
   },
   "result_allow": "checks/result_allow.tsv",
@@ -1474,6 +1476,11 @@
   ],
   "headers": "../rac3-pal/headers",
   "unpassed_registers": true,
+  "ps2_float": [
+    "func_003C1A90__frontbin",
+    "func_L01_004389D8",
+    "func_L01_0050BF58"
+  ],
   "returns_64": [
     "func_00384EC0__frontbin",
     "func_003921D8__frontbin",

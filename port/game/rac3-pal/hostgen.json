@@ -185,6 +185,8 @@
       "func_0038F078__frontbin": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_0038D098__frontbin": "float (float)",
       "func_0038D0B0__frontbin": "float (float)",
+      "func_0038D750__frontbin": "void (int, int, float)",
+      "func_L01_0040EFF0": "void (int, int, float)",
       "func_L01_005216A8": "int (int, int)",
       "func_003AA168": "int (int, int, float)",
       "func_00391100": "int (int, int, float)",
@@ -614,13 +616,7 @@
     "variant_callees": "tables/variant_callees.tsv",
     "signature_allow": {
       "func_L01_0049E6F0": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_004C1028": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_004903F0": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_00491AF0": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_00492D00": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_0049B8F8": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_0049CA28": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_0049DB30": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees"
+      "func_L01_004C1028": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees"
     }
   },
   "result_allow": "checks/result_allow.tsv",
@@ -1355,6 +1351,11 @@
   ],
   "headers": "headers",
   "unpassed_registers": true,
+  "ps2_float": [
+    "func_003C6FE0__frontbin",
+    "func_L01_0043BAB8",
+    "func_L01_0050FF00"
+  ],
   "returns_64": [
     "func_00389598__frontbin",
     "func_00396A38__frontbin",

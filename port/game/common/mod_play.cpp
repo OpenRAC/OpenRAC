@@ -33,6 +33,10 @@
 // The game's calls into the mods' world (game_host.h), set while mods are loaded.
 int (*openrac_game_moby_update)(std::int32_t slot, int phase) = nullptr;
 int (*openrac_game_metal_detect)(std::int32_t slot, std::int32_t key) = nullptr;
+void (*openrac_game_weapon_fired)(const openrac_game_weapon_shot* shot) = nullptr;
+void (*openrac_game_shot_ended)(const openrac_game_shot_end* end) = nullptr;
+int (*openrac_game_moby_look)(gaddr moby, std::int32_t item) = nullptr;
+void (*openrac_game_particle_look)(gaddr record, std::int32_t item) = nullptr;
 int (*openrac_game_moby_hit)(
     std::int32_t victim,
     std::int32_t attacker,
@@ -80,6 +84,18 @@ static_assert(sizeof(openrac_moby_run) == sizeof(std::uint32_t) + sizeof(openrac
 static_assert(offsetof(openrac_moby_deletion, by) == sizeof(std::uint32_t));
 static_assert(
     sizeof(openrac_moby_deletion) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_deletion)
+);
+
+// So are a weapon's shots (interface 1.29).
+static_assert(offsetof(openrac_weapon_shot, item) == sizeof(std::uint32_t));
+static_assert(
+    sizeof(openrac_weapon_shot) == sizeof(std::uint32_t) + sizeof(openrac_game_weapon_shot)
+);
+static_assert(offsetof(openrac_shot_end, item) == sizeof(std::uint32_t));
+static_assert(sizeof(openrac_shot_end) == sizeof(std::uint32_t) + sizeof(openrac_game_shot_end));
+static_assert(offsetof(openrac_spawn_live, oclass) == sizeof(std::uint32_t));
+static_assert(
+    sizeof(openrac_spawn_live) == sizeof(std::uint32_t) + sizeof(openrac_game_spawn_live)
 );
 
 // The collision triangles are the game's records as they are (interface 1.12).
@@ -413,6 +429,13 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.moby_copy = api_moby_copy;
     api.moby_pool_raise = api_moby_pool_raise;
     api.moby_pool_status = api_moby_pool_status;
+    api.on_weapon_fire = api_on_weapon_fire;
+    api.weapon_refire = api_weapon_refire;
+    api.on_shot_end = api_on_shot_end;
+    api.moby_spawn_live = api_moby_spawn_live;
+    api.weapon_look = api_weapon_look;
+    api.moby_status = api_moby_status;
+    api.weapon_record = api_weapon_record;
     api.prop_pose = api_prop_pose;
     api.prop_attach = api_prop_attach;
     api.prop_frame = api_prop_frame;
@@ -607,6 +630,18 @@ std::unordered_map<std::uint32_t, MobyMaterial> energy_materials() {
     return out;
 }
 
+std::unordered_map<std::uint32_t, MobyMaterial> particle_looks() {
+    const std::uint32_t loads = loads_now();
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    std::unordered_map<std::uint32_t, MobyMaterial> out;
+    for (const auto& [record, look] : g_particle_looks) {
+        if (look.loads == loads) {
+            out.emplace(record, look.look);
+        }
+    }
+    return out;
+}
+
 bool moby_platinum(std::uint32_t moby) {
     return moby_material_drawn(moby).material == OPENRAC_MOBY_MATERIAL_PLATINUM;
 }
@@ -758,9 +793,11 @@ void reset_play() {
     openrac_game_moby_update = nullptr;
     openrac_game_moby_hit = nullptr;
     openrac_game_metal_detect = nullptr;
+    drop_weapon_shots(nullptr);
 }
 
 void drop_figures(const openrac_mod* mod) {
+    drop_weapon_shots(mod);
     {
         const std::lock_guard<std::mutex> lock(g_props_lock);
         std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod; });

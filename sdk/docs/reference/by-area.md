@@ -155,6 +155,11 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `hero_hold_at` | 1.14 | stable | yes | no | no |
 | `hero_stand_in_as` | 1.14 | stable | yes | part | part |
 | `hero_stand_in_read` | 1.14 | stable | yes | no | no |
+| `on_weapon_fire` | 1.29 | stable | no | yes | no |
+| `weapon_refire` | 1.29 | stable | no | yes | no |
+| `on_shot_end` | 1.29 | stable | no | yes | no |
+| `weapon_look` | 1.29 | stable | no | yes | no |
+| `weapon_record` | 1.29 | stable | no | yes | no |
 
 ## figures
 
@@ -180,7 +185,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `moby_spawn` | 1.9 | stable | yes | yes | part |
 | `on_moby_update` | 1.9 | stable | yes | yes | yes |
 | `on_moby_hit` | 1.9 | stable | yes | yes | yes |
-| `moby_hit` | 1.9 | stable | yes | part | part |
+| `moby_hit` | 1.9 | stable | yes | yes | part |
 | `play_eyes` | 1.9 | stable | yes | no | no |
 | `moby_slot_of` | 1.9 | stable | yes | yes | yes |
 | `moby_hide` | 1.9 | stable | yes | part | part |
@@ -195,6 +200,8 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `moby_copy` | 1.25 | stable | part | yes | part |
 | `moby_pool_raise` | 1.27 | stable | no | yes | no |
 | `moby_pool_status` | 1.27 | stable | no | yes | no |
+| `moby_spawn_live` | 1.29 | stable | no | yes | no |
+| `moby_status` | 1.29 | stable | no | yes | no |
 
 ## visuals
 

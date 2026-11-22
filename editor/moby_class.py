@@ -21,7 +21,8 @@ import struct
 
 from formats import wad, FormatError, Texture, span, unpack
 import games
-from level import HERO_TEXTURES, ITEM_TEXTURES, SHIP_TEXTURE, hero_look_texture
+from level import (BOUND_CLANK, BOUND_SHIP, CLANK_TEXTURE, HERO_TEXTURES, ITEM_TEXTURES, SHIP_TEXTURE,
+                   hero_look_texture)
 from mesh import Mesh, spherical_normal as normal
 from moby_anim import Skeleton, class_sequences, ratchet_sequences, skeleton
 
@@ -473,12 +474,19 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
         hero, wrench = class_id == 0 and level.hero_mesh is not None, class_id == WRENCH_CLASS and level.wrench_meshes
         # The hero pack's packets name its own textures, in order. The wrench's pack has one.
         painted = ("moby", SHIP_TEXTURE) in level.textures
+        bound = unpack("<i", entry, 8)[0] if fmt.bound_textures else 0
         remap = ([HERO_TEXTURES + i for i in range(16)] if hero else [ITEM_TEXTURES] * 16 if wrench
                  else [SHIP_TEXTURE] * 16 if class_id == SHIP_CLASS and painted
                  # Going Commando binds a face on an empty slot to his ship's picture: its parts,
                  # classes with no textures of their own (read from the packets' TEX0 in a level's
                  # memory after load, func_002932B8).
                  else [SHIP_TEXTURE if slot == 255 else slot for slot in entry[16:32]] if painted and fmt.ship_paint_slots
+                 # Up Your Arsenal binds the same way, by the entry's word +8: its class loader (Veldin's
+                 # func_L01_0042B4F8) puts his ship's TEX0 (1) or Clank's (2, loaded by func_L01_00425FE0) in
+                 # a one-texture table and patches every GS block of the class through it
+                 # (func_00399810, Going Commando's tex_draw_batches).
+                 else [SHIP_TEXTURE] * 16 if bound == BOUND_SHIP and painted
+                 else [CLANK_TEXTURE] * 16 if bound == BOUND_CLANK and ("moby", CLANK_TEXTURE) in level.textures
                  else entry[16:32])
         mesh_file = level.hero_mesh if hero else level.wrench_meshes[0] if wrench else None
         try:

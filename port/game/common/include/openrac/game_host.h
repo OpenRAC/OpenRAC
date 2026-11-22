@@ -443,6 +443,45 @@ typedef struct openrac_game_moby_state {
     float anim_speed;
 } openrac_game_moby_state;
 
+/* A shot of the hero's weapon (interface 1.29): openrac_weapon_shot's fields after its size. */
+typedef struct openrac_game_weapon_shot {
+    int32_t item;
+    int32_t slot;
+    int32_t oclass;
+    int32_t owner;
+    int32_t target;
+    uint32_t serial;
+    uint32_t flags;
+    float position[3];
+    float direction[3];
+    float speed;
+} openrac_game_weapon_shot;
+
+/* A shot that ended (interface 1.29): openrac_shot_end's fields after its size. */
+typedef struct openrac_game_shot_end {
+    int32_t item;
+    int32_t slot;
+    int32_t oclass;
+    int32_t owner;
+    int32_t target;
+    uint32_t serial;
+    uint32_t flags;
+    int32_t reason;
+    float position[3];
+} openrac_game_shot_end;
+
+/* A shot the game runs, made for a mod (interface 1.29): openrac_spawn_live's fields after its
+ * size. */
+typedef struct openrac_game_spawn_live {
+    int32_t oclass;
+    int32_t item;
+    int32_t owner;
+    int32_t target;
+    uint32_t flags;
+    float position[3];
+    float velocity[3];
+} openrac_game_spawn_live;
+
 /* How a moby of the level was deleted (interface 1.9): openrac_moby_deletion's fields after its
  * size. */
 typedef struct openrac_game_moby_deletion {
@@ -770,6 +809,16 @@ typedef struct openrac_game_play {
      * 0 for none, negative for an unreadable one. NULL for a game without them. */
     int (*moby_pool_raise)(int extra);
     int (*moby_pool_status)(int32_t out[5]);
+    /* The hero's weapons and their shots (openrac_api weapon_refire, moby_spawn_live, moby_status,
+     * weapon_record; interface 1.29): fires the shot `serial` again turned by `yaw` and `pitch`
+     * (only while openrac_game_weapon_fired tells it), returning the copy's slot or -1; makes a shot
+     * the game runs, returning its slot or -1; puts the moby in `slot` under a status
+     * (OPENRAC_MOBY_STATUS_*) for `ticks`, 1 done or 0; and the game address of weapon `item`'s
+     * record, 0 for none. NULL for a game without them. */
+    int32_t (*weapon_refire)(uint32_t serial, float yaw, float pitch);
+    int32_t (*moby_spawn_live)(const openrac_game_spawn_live* spawn);
+    int (*moby_status)(int32_t slot, uint32_t status, int32_t ticks);
+    gaddr (*weapon_record)(int32_t item);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)
@@ -785,6 +834,16 @@ extern int (*openrac_game_moby_update)(int32_t slot, int phase);
 /* The metal detector is about to give a buried moby's bolts (rac1/host/metal_detect.c): 0 holds it
  * back. NULL while no mod asked. */
 extern int (*openrac_game_metal_detect)(int32_t slot, int32_t key);
+/* Set by the mods' loader (interface 1.29), called by the game once a tick before the mods' tick
+ * callbacks: a shot of the hero's weapon fired, and one that ended. NULL: no mod asked. */
+extern void (*openrac_game_weapon_fired)(const openrac_game_weapon_shot* shot);
+extern void (*openrac_game_shot_ended)(const openrac_game_shot_end* end);
+/* Set by the mods' loader (interface 1.29), called by the game: draws the moby at `moby` with the
+ * look a mod gave weapon `item` (openrac_api.weapon_look), returning 1, or 0 for none; and ties the
+ * particle record at `record` to that look (render-only), or unties it (item -1). NULL: no mod asked
+ * for a look. */
+extern int (*openrac_game_moby_look)(gaddr moby, int32_t item);
+extern void (*openrac_game_particle_look)(gaddr record, int32_t item);
 extern int (*openrac_game_moby_hit)(
     int32_t victim,
     int32_t attacker,

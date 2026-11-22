@@ -156,6 +156,28 @@ class ShipTableTests(unittest.TestCase):
         self.assertEqual(Source.read, [(1001, 2), (1003, 4), (1005, 6), (1007, 8), (1009, 10)])
         self.assertEqual(wads.RAC3_PAL.wrench_packs, (31,))
 
+    def test_clanks_skins_from_the_hero_packs_base(self):
+        # Up Your Arsenal: (sector, sector count) pairs from the hero packs' base sector.
+        class Source:
+            version = wads.Version("rac3", "pal", "", "", "", 0, "", 0x60, hero_packs=0x10,
+                                   clank_skins=0x20, clank_skin_count=2)
+            toc = bytearray(0x40)
+            read = []
+
+            class disc:
+                @staticmethod
+                def sectors(lba, count):
+                    Source.read.append((lba, count))
+                    return b""
+
+        struct.pack_into("<i", Source.toc, 0x10, 700)
+        struct.pack_into("<4i", Source.toc, 0x20, 1, 2, 3, 4)
+        self.assertEqual(len(wads.WadDisc.clank_textures(Source)), 2)
+        self.assertEqual(Source.read, [(701, 2), (703, 4)])
+        self.assertEqual((wads.RAC3_PAL.clank_skins, wads.RAC3_NTSC.clank_skins), (0x2238, 0x2238))
+        Source.version = wads.Version("rac2", "ntsc", "", "", "", 0, "", 0x60)
+        self.assertEqual(wads.WadDisc.clank_textures(Source), [])
+
     def test_a_loading_screen_pack(self):
         # Up Your Arsenal: (sector, sector count) pairs after their base sector.
         class Source:

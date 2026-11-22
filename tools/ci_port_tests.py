@@ -10,8 +10,17 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-GROUPS = ("vulkan", "equivalence", "cpu", "baker")
+GROUPS = ("vulkan", "equivalence", "effects", "cpu", "baker")
 SECOND_RUNNER = {"render_equivalence_vulkan_shard_2", "render_equivalence_vulkan_shard_3"}
+# Most Vulkan tests share one lock (cmake/GpuTests.cmake), so a runner runs them one by one. These
+# need no fixture but the cache reset, so a third runner takes them and the vulkan group halves.
+THIRD_RUNNER = {
+    "gtao_vulkan", "gtao_horizon_vulkan", "sun_shadow_filter_reference_vulkan", "gameplay_rim",
+    "surface_normals", "local_lights", "enhanced_rendering_vulkan", "water_gpu", "wetness_gpu",
+    "texture_filter_on_vulkan", "probe_glass_cutout_vulkan", "probe_chrome_original_vulkan",
+}
+# The only setup a third-runner test may pull in: it is cheap and runs on both runners.
+THIRD_RUNNER_SETUP = {"vulkan_test_cache_reset"}
 REQUIRED = {
     "probe_gpu_vulkan", "early_lighting_vulkan", "hero_shadow_vulkan",
     "sun_shadow_vulkan", "gtao_vulkan", "probe_bake", "bake_liquids",
@@ -70,8 +79,13 @@ def plan(build):
     equivalence = set(inventory(build, "--tests-from-file", str(path)))
     if unexpected := equivalence - vulkan:
         raise SystemExit(f"Equivalence tests outside Vulkan group: {sorted(unexpected)}")
+    path = write_selection(build, "effects", THIRD_RUNNER & vulkan)
+    effects = set(inventory(build, "--tests-from-file", str(path)))
+    if unexpected := effects - THIRD_RUNNER - THIRD_RUNNER_SETUP:
+        raise SystemExit(f"Third-runner tests need other fixtures: {sorted(unexpected)}")
     for group, names in zip(
-        GROUPS, (vulkan - SECOND_RUNNER, equivalence, all_tests - vulkan - baker, baker)
+        GROUPS, (vulkan - SECOND_RUNNER - THIRD_RUNNER, equivalence, effects,
+                 all_tests - vulkan - baker, baker)
     ):
         if external := {dep for name in names for dep in dependencies[name]} - names:
             raise SystemExit(f"{group} tests depend on another group: {sorted(external)}")

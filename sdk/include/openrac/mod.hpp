@@ -1202,6 +1202,92 @@ public:
         return has_presentation() ? m_api->pickup_animation(m_handle, kind, item) : 0;
     }
 
+    // Since 1.29: whether the port has the weapon calls (on_weapon_fire(),
+    // weapon_refire(), on_shot_end(), moby_spawn_live(), weapon_look(),
+    // moby_status(), weapon_record()).
+    bool has_weapon_shots() const {
+      return m_api->api_minor >= 29 &&
+             m_api->size >=
+                 offsetof(openrac_api, weapon_record) + sizeof(void *);
+    }
+
+    // Since 1.29: `fn(user, shot)` for each shot the hero's weapon fires, after
+    // the tick that made it. A plain function (the port keeps no state for a
+    // lambda's capture). Only during load; false when refused or the port or
+    // game has no such call.
+    bool on_weapon_fire(openrac_weapon_fire_fn fn, void *user = nullptr) const {
+      return has_weapon_shots() &&
+             m_api->on_weapon_fire(m_handle, fn, user) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.29: from within on_weapon_fire's call for `serial`, fires that
+    // shot again through the game's own spawn, turned `yaw` radians about the
+    // up axis and `pitch` up, at no ammo. Returns the copy's slot, or -1
+    // (refused, the tick's cap, the pool, or no such call).
+    int weapon_refire(std::uint32_t serial, float yaw,
+                      float pitch = 0.0f) const {
+      const int slot = has_weapon_shots()
+                           ? m_api->weapon_refire(m_handle, serial, yaw, pitch)
+                           : OPENRAC_HOOK_UNKNOWN;
+      return slot >= 0 ? slot : -1;
+    }
+
+    // Since 1.29: `fn(user, end)` for each shot of the hero's weapons that
+    // ended. Only during load; false when refused or there is no such call.
+    bool on_shot_end(openrac_shot_end_fn fn, void *user = nullptr) const {
+      return has_weapon_shots() &&
+             m_api->on_shot_end(m_handle, fn, user) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.29: a shot of class `oclass` the game runs itself, made by its
+    // own spawn for the class at `position` with `velocity` (units a tick),
+    // fired by `owner` (a slot, -1 the hero's gun) at `target` (a slot, -1
+    // none), counting as weapon `item` (-1 the hero's in hand), with
+    // OPENRAC_SPAWN_LIVE_* `flags`. Returns its slot, or -1.
+    int moby_spawn_live(int oclass, const float position[3],
+                        const float velocity[3], int owner = -1,
+                        int target = -1, int item = -1,
+                        std::uint32_t flags = 0) const {
+      openrac_spawn_live spawn{};
+      spawn.size = sizeof spawn;
+      spawn.oclass = oclass;
+      spawn.item = item;
+      spawn.owner = owner;
+      spawn.target = target;
+      spawn.flags = flags;
+      for (int i = 0; i < 3; ++i) {
+        spawn.position[i] = position[i];
+        spawn.velocity[i] = velocity[i];
+      }
+      const int slot = has_weapon_shots()
+                           ? m_api->moby_spawn_live(m_handle, &spawn)
+                           : OPENRAC_HOOK_UNKNOWN;
+      return slot >= 0 ? slot : -1;
+    }
+
+    // Since 1.29: every shot of weapon `item` (and what it makes) drawn with
+    // `material` (OPENRAC_MOBY_MATERIAL_*) in `rgb`; OPENRAC_MOBY_MATERIAL_NONE
+    // clears it. False when refused.
+    bool weapon_look(int item, std::uint32_t material,
+                     std::uint32_t rgb = 0xFFFFFF) const {
+      return has_weapon_shots() && m_api->weapon_look(m_handle, item, material,
+                                                      rgb) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.29: the moby in `slot` frozen or slowed (OPENRAC_MOBY_STATUS_*)
+    // for `ticks` game ticks; OPENRAC_MOBY_STATUS_NONE ends it. False when
+    // refused.
+    bool moby_status(int slot, std::uint32_t status, int ticks) const {
+      return has_weapon_shots() && m_api->moby_status(m_handle, slot, status,
+                                                      ticks) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.29: the game address of weapon `item`'s record in the level's
+    // weapon table, 0 for none. The level's load writes it again.
+    openrac_gaddr weapon_record(int item) const {
+      return has_weapon_shots() ? m_api->weapon_record(m_handle, item) : 0;
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>

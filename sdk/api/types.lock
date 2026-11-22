@@ -264,6 +264,26 @@ openrac_shot2	flags	48	uint32_t
 openrac_shot2	target_key	52	int32_t
 openrac_shot2	velocity2	56	float[3]
 openrac_shot2	aux	68	float[4]
+openrac_shot_end	(size)	48	-
+openrac_shot_end	size	0	uint32_t
+openrac_shot_end	item	4	int32_t
+openrac_shot_end	slot	8	int32_t
+openrac_shot_end	oclass	12	int32_t
+openrac_shot_end	owner	16	int32_t
+openrac_shot_end	target	20	int32_t
+openrac_shot_end	serial	24	uint32_t
+openrac_shot_end	flags	28	uint32_t
+openrac_shot_end	reason	32	int32_t
+openrac_shot_end	position	36	float[3]
+openrac_spawn_live	(size)	48	-
+openrac_spawn_live	size	0	uint32_t
+openrac_spawn_live	oclass	4	int32_t
+openrac_spawn_live	item	8	int32_t
+openrac_spawn_live	owner	12	int32_t
+openrac_spawn_live	target	16	int32_t
+openrac_spawn_live	flags	20	uint32_t
+openrac_spawn_live	position	24	float[3]
+openrac_spawn_live	velocity	36	float[3]
 openrac_stand_in	(size)	28	-
 openrac_stand_in	position	0	float[3]
 openrac_stand_in	yaw	12	float
@@ -319,6 +339,18 @@ openrac_vulkan_setup	user	8	void *
 openrac_vulkan_setup	create_instance	16	int32_t (*)(void *, void *, const void *, void **)
 openrac_vulkan_setup	physical_device	24	void *(*)(void *, void *)
 openrac_vulkan_setup	create_device	32	int32_t (*)(void *, void *, void *, const void *, void **)
+openrac_weapon_shot	(size)	60	-
+openrac_weapon_shot	size	0	uint32_t
+openrac_weapon_shot	item	4	int32_t
+openrac_weapon_shot	slot	8	int32_t
+openrac_weapon_shot	oclass	12	int32_t
+openrac_weapon_shot	owner	16	int32_t
+openrac_weapon_shot	target	20	int32_t
+openrac_weapon_shot	serial	24	uint32_t
+openrac_weapon_shot	flags	28	uint32_t
+openrac_weapon_shot	position	32	float[3]
+openrac_weapon_shot	direction	44	float[3]
+openrac_weapon_shot	speed	56	float
 openrac_camera_script_fn	(typedef)	-	void (*)(void *, int, int)
 openrac_frame_fn	(typedef)	-	void (*)(void *)
 openrac_gaddr	(typedef)	-	uint32_t
@@ -448,5 +480,7 @@ openrac_rac3_Vendor_StockAdd	(typedef)	-	int32_t (*)(int32_t)
 openrac_rac3_Weapon_AddAmmo	(typedef)	-	int32_t (*)(int32_t, int32_t)
 openrac_rac3_Weapon_LevelUp	(typedef)	-	void (*)(int32_t)
 openrac_rac3_Weapon_TakeAmmo	(typedef)	-	int32_t (*)(int32_t, int32_t)
+openrac_shot_end_fn	(typedef)	-	void (*)(void *, const openrac_shot_end *)
 openrac_tick_boundary_fn	(typedef)	-	void (*)(void *, uint32_t)
 openrac_ui_fn	(typedef)	-	void (*)(void *, int, const openrac_ui_event *)
+openrac_weapon_fire_fn	(typedef)	-	void (*)(void *, const openrac_weapon_shot *)

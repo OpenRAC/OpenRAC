@@ -169,7 +169,8 @@ int api_on_moby_hit(openrac_mod* mod, openrac_hit_fn fn, void* user) {
 
 int api_moby_hit(openrac_mod* mod, const openrac_hit* hit) {
     const gaddr victim = hit != nullptr ? moby_address(hit->victim) : 0;
-    if (mod == nullptr || victim == 0 || hit->size < sizeof(openrac_hit)) {
+    if (mod == nullptr || victim == 0 || hit->size < sizeof(openrac_hit) || g_play == nullptr
+        || g_play->post_hit == nullptr) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     g_play->post_hit(
@@ -343,6 +344,31 @@ int api_collision_triangles(
         return 0;
     }
     return g_play->collision_triangles(lo, hi, out, out != nullptr ? std::max(max, 0) : 0);
+}
+
+// A moby made live and a status put on one (interface 1.29).
+int api_moby_spawn_live(openrac_mod* mod, const openrac_spawn_live* spawn) {
+    if (mod == nullptr || spawn == nullptr || spawn->size < sizeof(openrac_spawn_live)
+        || g_play == nullptr || g_play->moby_spawn_live == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    for (int k = 0; k < 3; ++k) {
+        if (!std::isfinite(spawn->position[k]) || !std::isfinite(spawn->velocity[k])) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+    }
+    openrac_game_spawn_live in{};
+    std::memcpy(&in, &spawn->oclass, sizeof in);
+    const std::int32_t slot = g_play->moby_spawn_live(&in);
+    return slot >= 0 ? slot : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_moby_status(openrac_mod* mod, std::int32_t slot, std::uint32_t status, std::int32_t ticks) {
+    if (mod == nullptr || g_play == nullptr || g_play->moby_status == nullptr
+        || status > OPENRAC_MOBY_STATUS_SLOW_THIRD) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->moby_status(slot, status, ticks) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
 }  // namespace openrac::mods::detail

@@ -1080,6 +1080,42 @@ void fill_10_and_22(openrac_api &api) {
   api.pickup_animation = [](openrac_mod *, int kind, int item) { return kind == 1 && item == 3 ? 1 : 0; };
 }
 
+// The fake host's 1.29 weapon calls: one shot (serial 7) to fire again, a spawn
+// of class 1498, a look on item 27, a status on slot 3, a record for item 27.
+openrac_spawn_live g_29_spawn{};
+std::uint32_t g_29_look = 0;
+
+void fill_29_weapons(openrac_api &api) {
+  api.on_weapon_fire = [](openrac_mod *, openrac_weapon_fire_fn fn, void *) {
+    return fn != nullptr ? OPENRAC_HOOK_OK : OPENRAC_HOOK_TOO_LATE;
+  };
+  api.weapon_refire = [](openrac_mod *, std::uint32_t serial, float, float) {
+    return serial == 7 ? 41 : OPENRAC_HOOK_UNKNOWN;
+  };
+  api.on_shot_end = [](openrac_mod *, openrac_shot_end_fn fn, void *) {
+    return fn != nullptr ? OPENRAC_HOOK_OK : OPENRAC_HOOK_TOO_LATE;
+  };
+  api.moby_spawn_live = [](openrac_mod *, const openrac_spawn_live *spawn) {
+    g_29_spawn = *spawn;
+    return spawn->oclass == 1498 ? 42 : OPENRAC_HOOK_UNKNOWN;
+  };
+  api.weapon_look = [](openrac_mod *, std::int32_t item, std::uint32_t material,
+                       std::uint32_t) {
+    g_29_look = material;
+    return item == 27 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+  };
+  api.moby_status = [](openrac_mod *, std::int32_t slot, std::uint32_t,
+                       std::int32_t) {
+    return slot == 3 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+  };
+  api.weapon_record = [](openrac_mod *, std::int32_t item) -> openrac_gaddr {
+    return item == 27 ? 0x00262570u : 0u;
+  };
+}
+
+void fire_watch(void *, const openrac_weapon_shot *) {}
+void end_watch(void *, const openrac_shot_end *) {}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -2235,6 +2271,37 @@ int main() {
       api.api_minor = 9;
       CHECK(!mod.has_developer_menu() && !mod.developer_menu("x", nullptr, 0));
       CHECK(mod.take_developer_menu_action() == 0 && !mod.developer_menu_set_label(1, "x"));
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.29: the hero's weapons and their shots; a port of 1.28 has
+    // none.
+    {
+      fill_29_weapons(api);
+      const float at[3] = {1.0f, 2.0f, 3.0f};
+      const float velocity[3] = {0.0f, 0.5f, 0.0f};
+      CHECK(mod.has_weapon_shots() && mod.on_weapon_fire(fire_watch) &&
+            mod.on_shot_end(end_watch));
+      CHECK(mod.weapon_refire(7, 0.2f) == 41 &&
+            mod.weapon_refire(8, 0.2f) == -1);
+      CHECK(mod.moby_spawn_live(1498, at, velocity, -1, 5, 27,
+                                OPENRAC_SPAWN_LIVE_DETONATE) == 42);
+      CHECK(g_29_spawn.size == sizeof g_29_spawn && g_29_spawn.target == 5 &&
+            g_29_spawn.item == 27 &&
+            g_29_spawn.flags == OPENRAC_SPAWN_LIVE_DETONATE &&
+            g_29_spawn.position[2] == 3.0f && g_29_spawn.velocity[1] == 0.5f);
+      CHECK(mod.moby_spawn_live(9999, at, velocity) == -1);
+      CHECK(mod.weapon_look(27, OPENRAC_MOBY_MATERIAL_ENERGY_AT(6), 0x40C0FF) &&
+            g_29_look == OPENRAC_MOBY_MATERIAL_ENERGY_AT(6) &&
+            !mod.weapon_look(99, 0));
+      CHECK(mod.moby_status(3, OPENRAC_MOBY_STATUS_FREEZE, 60) &&
+            !mod.moby_status(4, OPENRAC_MOBY_STATUS_SLOW_HALF, 60));
+      CHECK(mod.weapon_record(27) == 0x00262570u && mod.weapon_record(5) == 0);
+      api.api_minor = 28;
+      CHECK(!mod.has_weapon_shots() && !mod.on_weapon_fire(fire_watch) &&
+            mod.weapon_refire(7, 0.2f) == -1 &&
+            mod.moby_spawn_live(1498, at, velocity) == -1 &&
+            !mod.moby_status(3, OPENRAC_MOBY_STATUS_FREEZE, 60) &&
+            mod.weapon_record(27) == 0);
       api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);

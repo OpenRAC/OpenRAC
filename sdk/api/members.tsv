@@ -186,3 +186,10 @@ moby_copy	world	1.25	stable
 moby_pool_raise	world	1.27	stable
 moby_pool_status	world	1.27	stable
 developer_menu_look	menus	1.28	stable
+on_weapon_fire	hero	1.29	stable
+weapon_refire	hero	1.29	stable
+on_shot_end	hero	1.29	stable
+moby_spawn_live	world	1.29	stable
+weapon_look	hero	1.29	stable
+moby_status	world	1.29	stable
+weapon_record	hero	1.29	stable

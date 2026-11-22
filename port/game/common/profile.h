@@ -251,6 +251,13 @@ public:
     // not at all.
     virtual bool mobys_take_point_lights() const { return false; }
 
+    // The light bank MobyProc sends to the scratchpad (16 directional sets of 0x40 bytes, then the
+    // 8 point lights), in the program loaded now, for a game whose programs each carry a copy of
+    // their own that the executable's address does not relocate to (Up Your Arsenal: the boot
+    // program's, Veldin's for the single-player levels, the multiplayer maps'). 0: the front end's
+    // light_bank in the executable's terms, relocated as data (Ratchet & Clank, Going Commando).
+    virtual std::uint32_t light_bank() const { return 0; }
+
     // Which variant of the level's swapped texture (scene::LevelData::variant_image) the game has
     // loaded: Going Commando's ship paint job (func_002926B8 keeps its number at 0x00152C30). -1
     // for none, which keeps the one bound.

@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.29
+
+The hero's weapons and their shots: a shot fired, fired again and ended, a shot the game runs made from a mod, a weapon's look, a moby frozen or slowed and a weapon's record (on_weapon_fire, weapon_refire, on_shot_end, moby_spawn_live, weapon_look, moby_status, weapon_record).
+
+Members: `on_weapon_fire`, `weapon_refire`, `on_shot_end`, `moby_spawn_live`, `weapon_look`, `moby_status`, `weapon_record`.
+
 ## 1.28
 
 Rows of a mod's tab in OpenRAC's menu to read, locked, with a value, a progress bar or an icon (developer_menu_look).
