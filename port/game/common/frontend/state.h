@@ -312,6 +312,7 @@ struct State {
         int log2_side;
         std::uint32_t id;              // its slot and type (particle), 0 when not known
         std::uint32_t attachment = 0;  // Position anchor, including particles with no slot history.
+        std::uint32_t address = 0;     // its record's game address, 0 when not in game memory
     };
 
     std::vector<Particle> particles;

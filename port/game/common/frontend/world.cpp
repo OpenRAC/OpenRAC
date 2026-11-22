@@ -1103,10 +1103,14 @@ void particle(
     int log2_side,
     std::uint32_t id
 ) {
-    (void)ram;
     State::Particle p;
     std::memcpy(p.record.data(), record, p.record.size());
     p.id = id;
+    // Its record's game address, for a weapon's look on the particles its shots make
+    // (mods::particle_look, interface 1.29).
+    if (record >= ram.data() && record + p.record.size() <= ram.data() + ram.size()) {
+        p.address = static_cast<std::uint32_t>(record - ram.data());
+    }
     p.attachment = g->render.profile->particle_attachment(p.record);
     p.pixels = pixels & 0x01FFFFFF;
     p.clut = clut & 0x01FFFFFF;
@@ -1349,7 +1353,18 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
     }
     // The mobys a mod draws as energy (interface 1.25): the particles tied to them take its colour.
     const auto energy_mobys = mods::energy_materials();
+    // The particles a weapon's shots made, detached ones too, in its look (interface 1.29).
+    const auto particle_looks = mods::particle_looks();
     const auto energy_of = [&](const State::Particle& p) -> std::optional<energy::Look> {
+        if (!particle_looks.empty() && p.address != 0) {
+            const auto found = particle_looks.find(p.address);
+            if (found != particle_looks.end()) {
+                if (const auto energy =
+                        energy::look_of(found->second.material, found->second.rgb)) {
+                    return energy;
+                }
+            }
+        }
         if (energy_mobys.empty()) {
             return std::nullopt;
         }

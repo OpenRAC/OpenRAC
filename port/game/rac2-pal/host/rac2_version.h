@@ -26,6 +26,8 @@
 #define RAC2_ADDR_0x00138280u 0x00138300u /* the release's build */
 #define RAC2_ADDR_0x001393E0u 0x00139460u /* the release's build */
 #define RAC2_ADDR_0x00139410u 0x00139490u /* the release's build */
+#define RAC2_ADDR_0x00139568u 0x001395E8u /* the release's build */
+#define RAC2_ADDR_0x00139688u 0x00139708u /* the release's build */
 #define RAC2_ADDR_0x00146B40u 0x00146BC0u /* the same instruction of the paired function */
 #define RAC2_ADDR_0x00146B44u 0x00146BC4u /* versionmap: between */
 #define RAC2_ADDR_0x00152C26u 0x00152CA6u /* the release's build */
@@ -102,6 +104,7 @@
 #define RAC2_ADDR_0x001BA440u 0x001BA440u /* versionmap: exact */
 #define RAC2_ADDR_0x001BA540u 0x001BA540u /* versionmap: exact */
 #define RAC2_ADDR_0x001BADC0u 0x001BADC0u /* versionmap: exact */
+#define RAC2_ADDR_0x001BF200u 0x001BF200u /* versionmap: exact */
 #define RAC2_ADDR_0x001C2740u 0x001C2740u /* versionmap: exact */
 #define RAC2_ADDR_0x001C4FA0u 0x001C4FA0u /* versionmap: exact */
 #define RAC2_ADDR_0x001EE5A0u 0x001EE5A0u /* the release's build */
@@ -123,9 +126,13 @@
 #define RAC2_LADDR_00_0x001B14ACu 0x001B14BCu /* the release's build */
 #define RAC2_LADDR_00_0x001B14B0u 0x001B14C0u /* the release's build */
 #define RAC2_LADDR_00_0x001B19C8u 0x001B19C8u /* the release's build */
+#define RAC2_LADDR_00_0x001B1E9Cu 0x001B1E9Cu /* versionmap: exact */
+#define RAC2_LADDR_00_0x001B1EA8u 0x001B1EA8u /* versionmap: exact */
 #define RAC2_LADDR_00_0x001B8E10u 0x001B8E50u /* the release's build */
 #define RAC2_LADDR_00_0x001B8E20u 0x001B8E60u /* the release's build */
 #define RAC2_LADDR_00_0x001BF140u 0x001BF180u /* the release's build */
+#define RAC2_LADDR_00_0x001FACE0u 0x001FAD20u /* the release's build */
+#define RAC2_LADDR_00_0x00262570u 0x00262570u /* versionmap: exact */
 /* Constants of the game's code (RAC2_K): the same instruction's in this release. */
 #define RAC2_K_CAMERA_CURSOR 0x2D8 /* v1.01 0x2A8; func_0033C738 as func_0033E608: 4 instructions */
 #define RAC2_K_HELP_0 0xBB7 /* v1.01 0x2DA6; word 0 of the table at 0x00265030 (v1.01's 0x002652B0) */
@@ -155,6 +162,7 @@
 #define RAC2_K_PAUSE_LIST_OFFSET 0x3C210 /* v1.01 0x3BE08; func_0029C4C0 as func_0029CE58: 1 instructions */
 #define RAC2_K_PAUSE_LIST_WHICH 0x31C /* v1.01 0x2FC; func_00341610 as func_00343690: 1 instructions */
 #define RAC2_K_PAUSE_OPTIONS_ROWS 0x7 /* v1.01 0x8; by hand: func_00341610 as func_00343690: addiu $v1, $zero, 0x7 at +0x5c for v1.01's 0x8 (the Options list's rows, list 1) */
+#define RAC2_K_SEEKER_SPAWN_ARGS 0x4 /* v1.01 0x4; by hand: PAL's effect_spawn_owned_moby (func_PAL_L00_003ADC68, versionmap near, 572 bytes as v1.01's) takes v1.01's four arguments and stores the 5 at pvars +0x78 itself */
 #define RAC2_K_TEXT_CAMERA_ROW 0xBA9 /* v1.01 0x2D98; func_0033C468 as func_0033E338: 1 instructions */
 #define RAC2_K_TEXT_CAMERA_TITLE 0xBA9 /* v1.01 0x2D98; func_0033C468 as func_0033E338: 1 instructions */
 #define RAC2_K_TEXT_LEFT_RIGHT 0xBF2 /* v1.01 0x2DE1; func_0033C738 as func_0033E608: 1 instructions */
