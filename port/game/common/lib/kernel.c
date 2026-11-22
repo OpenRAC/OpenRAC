@@ -64,7 +64,11 @@ static int remove_handler(handler* table, int cause, int id) {
 void openrac_game_run_vsync_handlers(void) {
     for (int i = 0; i < MAX_HANDLERS; i++) {
         if (intc[i].handler != 0 && intc[i].cause == INTC_VBLANK_START) {
-            GFN(int (*)(int), intc[i].handler)(intc[i].cause);
+            if (intc[i].with_data) {
+                GFN(int (*)(int, gaddr, gaddr), intc[i].handler)(intc[i].cause, intc[i].data, 0);
+            } else {
+                GFN(int (*)(int), intc[i].handler)(intc[i].cause);
+            }
         }
     }
     if (vsync_callback != 0) {
@@ -87,6 +91,17 @@ void openrac_game_run_dmac_handlers(int channel) {
 /* AddIntcHandler */
 int openrac_lib_AddIntcHandler(int cause, gaddr fn, int next) {
     return add(intc, cause, fn, next);
+}
+
+/* AddIntcHandler2 (system call 0x10, as AddIntcHandler): the handler also gets an argument of
+ * the caller's, handler(cause, arg, 0). */
+int openrac_lib_AddIntcHandler2(int cause, gaddr fn, int next, gaddr arg) {
+    int id = add(intc, cause, fn, next);
+    if (id > 0) {
+        intc[id - 1].data = arg;
+        intc[id - 1].with_data = 1;
+    }
+    return id;
 }
 
 /* RemoveIntcHandler */
