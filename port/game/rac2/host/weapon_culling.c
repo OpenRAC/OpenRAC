@@ -19,8 +19,9 @@
  *                class 1482, makes through effect_spawn_moby, func_L00_003BB080, which keeps the
  *                gun's class at pvars +0x44): each tick of its flight, up to 15 targets within 15
  *                units all around, which its orbiting arcs then strike
- * The pick is wrapped: while the moby loop runs one of those mobys' update and a mod asked for its
- * weapon, the live mobys not drawn are marked drawn for the pick and given back their flag after
+ * The pick is wrapped: while one of those mobys' update makes it (the moby loop runs the shots;
+ * the hero's update runs the gun in his hand, which picks from its own position) and a mod asked for
+ * its weapon, the live mobys not drawn are marked drawn for the pick and given back their flag after
  * it, so the pick takes them as the game takes the drawn ones (its range, angles, kinds and caps
  * are unchanged). Nothing else sees the flag changed: not the loop, the lock-on or the renderer.
  */
@@ -33,9 +34,12 @@
 #define MOBY_BASE OPENRAC_DATA(RAC2_g_mobyTableBase)
 #define MOBY_END OPENRAC_DATA(RAC2_g_mobyTableEnd)
 #define MOBY_SIZE 0x100u
+/* The moby in the hero's hand: his item slot 0's, +0x1220 of his record (g_heroPos is its +0x80). */
+#define HAND_MOBY (RAC2_g_heroPos - 0x80u + 0x1220u)
 #define SLOTS 4096u
 
 enum {
+    MOBY_POS = 0x10,
     MOBY_STATE = 0x20, /* 0x80 and over: dead or free; 0xFF the table's end */
     MOBY_DRAWN = 0x31,
     MOBY_PVARS = 0x68,
@@ -84,6 +88,18 @@ static int weapon_of(gaddr m) {
     return -1;
 }
 
+/* The moby whose update makes the pick from `origin`: the one the moby loop runs now, else the gun
+ * in the hero's hand picking from its own position (the hero's update runs the gun's, outside the
+ * loop). 0 for another. */
+static gaddr picker_of(gaddr origin) {
+    const gaddr running = rac2_moby_updating();
+    if (running != 0) {
+        return running;
+    }
+    const gaddr hand = GREF(gaddr, HAND_MOBY);
+    return hand != 0 && origin == hand + MOBY_POS ? hand : 0;
+}
+
 static int ignores_culling(gaddr m) {
     if (held == 0 || m == 0) {
         return 0;
@@ -109,7 +125,7 @@ gaddr func_002AF580(
     int allow_special,
     gaddr types
 ) {
-    const gaddr picker = rac2_moby_updating();
+    const gaddr picker = held != 0 ? picker_of(origin) : 0;
     if (!ignores_culling(picker)) {
         return func_002AF580__game(
             origin,

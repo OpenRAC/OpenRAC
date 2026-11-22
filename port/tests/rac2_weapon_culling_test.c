@@ -2,9 +2,10 @@
 /* Copyright (c) 2026 the OpenRAC contributors */
 /* Going Commando's target picks on screen or not (port/game/rac2/host/weapon_culling.c, interface
  * 1.30) on a moby table of the test's own: the game's pick sees only the drawn mobys unless a mod
- * asked for the weapon whose gun or shot runs its update now (the Zodiac's gun, the Plasma Coil's
- * shot, the Plasma Storm's shot by its gun's class); then it sees the live mobys not drawn too, and
- * each gets its flag back after; other weapons are refused. */
+ * asked for the weapon whose gun or shot makes it (the Zodiac's gun, in the moby loop or from the
+ * hero's hand outside it, the Plasma Coil's shot, the Plasma Storm's shot by its gun's class); then
+ * it sees the live mobys not drawn too, and each gets its flag back after; other weapons are
+ * refused. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,6 +53,7 @@ static gaddr moby(uint32_t slot) {
 /* The game's pick, as far as the flag goes: the live mobys drawn, counted; the arguments checked
  * to come through. */
 static int seen;
+static gaddr pick_origin = 0x100u;
 
 gaddr func_002AF580__game(
     gaddr origin,
@@ -68,7 +70,7 @@ gaddr func_002AF580__game(
     int allow_special,
     gaddr types
 ) {
-    CHECK(origin == 0x100u && direction == 0x110u && angle == 1.0f && vertical == 2.0f);
+    CHECK(origin == pick_origin && direction == 0x110u && angle == 1.0f && vertical == 2.0f);
     CHECK(count == 0x120u && out == 0x130u && capacity == 32 && exclude == 0x140u);
     CHECK(range == 40.0f && vertical_min == 3.0f && angle_min == 4.0f && allow_special == 5);
     CHECK(types == 0x150u);
@@ -86,7 +88,7 @@ gaddr func_002AF580__game(
 
 static gaddr pick(void) {
     return func_002AF580(
-        0x100u, 0x110u, 1.0f, 2.0f, 0x120u, 0x130u, 32, 0x140u, 40.0f, 3.0f, 4.0f, 5, 0x150u
+        pick_origin, 0x110u, 1.0f, 2.0f, 0x120u, 0x130u, 32, 0x140u, 40.0f, 3.0f, 4.0f, 5, 0x150u
     );
 }
 
@@ -142,9 +144,17 @@ int main(void) {
     flags_kept();
     CHECK(GREF(uint8_t, moby(DEAD) + MOBY_DRAWN) == 0);
 
-    /* Only within an update: between updates the pick is the game's. */
+    /* Between the loop's updates the pick is the game's, but for the gun in the hero's hand picking
+     * from its own position (the hero's update runs it). */
     now = 0;
     CHECK(pick() == moby(2) && seen == 2);
+    GREF(gaddr, HAND_MOBY) = moby(PICKER);
+    pick_origin = moby(PICKER) + MOBY_POS;
+    CHECK(pick() == moby(0) && seen == ALL_LIVE);
+    flags_kept();
+    pick_origin = 0x100u;
+    CHECK(pick() == moby(2) && seen == 2);
+    GREF(gaddr, HAND_MOBY) = 0;
     now = moby(PICKER);
 
     /* The Plasma Storm's shot is the Plasma Coil's item, not the Zodiac's. */
