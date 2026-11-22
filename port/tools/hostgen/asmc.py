@@ -205,6 +205,9 @@ class Translator:
     # on the EE they are still in $f12-$f19 when it does not touch them (NTSC-U's
     # func_L01_00432FE8, the help box's frame: its four extents went to the frame drawer as 0).
     float_parameters_on_calls = False
+    # asm.stack_arguments in hostgen.json: integer arguments past the eighth, which the caller
+    # passes in its frame, count as read where the code loads them (_stack_arguments).
+    stack_arguments = False
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -628,6 +631,8 @@ class Translator:
             if self.live_arguments:
                 live_i, live_f = self._live_arguments()
                 ints, floats = max(ints, live_i), max(floats, live_f)
+            if self.stack_arguments and (stacked := self._stack_arguments()):
+                ints = max(ints, len(ARG_REGS) + stacked)
             have_i = sum(1 for p in sig.params if canon(p, self.program.typedefs) != "float")
             have_f = len(sig.params) - have_i
             extra = [ctype.Base("int")] * max(0, ints - have_i) + [ctype.Base("float")] * max(0, floats - have_f)
@@ -644,6 +649,8 @@ class Translator:
             # only after its first call.
             live_i, live_f = self._live_arguments()
             ints, floats = max(ints, live_i), max(floats, live_f)
+        if self.stack_arguments and (stacked := self._stack_arguments()):
+            ints = max(ints, len(ARG_REGS) + stacked)
         params = [ctype.Base("int")] * ints + [ctype.Base("float")] * floats
         ret = sig.ret
         if self.result_flow and sets_v0 and sets_f0:
@@ -1375,6 +1382,34 @@ class Translator:
         floats = max([k + 1 for k, r in enumerate(FARG_REGS) if r in in_f & args_f], default=0)
         return ints, floats
 
+    STACK_LOADS = {"lb": 1, "lbu": 1, "lh": 2, "lhu": 2, "lw": 4, "lwu": 4, "ld": 8, "lwc1": 4, "lq": 16}
+
+    def _stack_arguments(self) -> int:
+        """The doublewords of its caller's outgoing arguments the code reads: the ninth integer
+        argument on is passed in the caller's frame, a doubleword each from its $sp, which the
+        callee reads above its own frame (the size its prologue takes off $sp). The levels' copy of
+        frontbin's func_003910C0 (func_L01_00412C08, the help frames) reads a ninth from 0x60($sp)
+        under a 0x60-byte frame; translated with eight, its C callers' ninth never reached it
+        (#719). Only loads count, and only within eight doublewords of the frame."""
+        frame = None
+        most = 0
+        for a in sorted(self.reach):
+            ins = self.at(a)
+            if ins is None:
+                continue
+            if frame is None and ins.op in ("addiu", "daddiu") and ins.rs == 29 and ins.rt == 29:
+                if ins.imm >= 0:
+                    return most
+                frame = -ins.imm
+                continue
+            width = self.STACK_LOADS.get(ins.op)
+            if width is None or ins.rs != 29:
+                continue
+            off = ins.imm - (frame or 0)
+            if 0 <= off < 64:
+                most = max(most, (off + width + 7) // 8)
+        return most
+
     def _pointer_call_arguments(self, at: int) -> set:
         """The integer argument registers a call through a pointer at `at` takes, as far as its own
         set-up says: the callee is not known, but C fills the argument registers in order, so a
@@ -1399,12 +1434,14 @@ class Translator:
         if sig.variadic:
             return
         ints, floats = self._live_arguments()
+        if self.stack_arguments and (stacked := self._stack_arguments()):
+            ints = max(ints, len(ARG_REGS) + stacked)
         have_f = sum(1 for p in sig.params if canon(p, self.program.typedefs) == "float")
         have_i = len(sig.params) - have_f
         if ints > have_i or floats > have_f:
             self.dropped.setdefault(sym, []).append(
                 f"reads {ints} integer and {floats} float argument registers, its signature takes "
-                f"{have_i} and {have_f}")
+                f"{have_i} and {have_f}" + (" (integers past the eighth on the stack)" if ints > len(ARG_REGS) else ""))
         # A result the code never makes: no write of the register and no call whose result it could
         # hand on (a signature given by hand, asm.signatures, that is wrong the other way).
         if sym not in self.verified_signatures:
@@ -2267,6 +2304,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.live_arguments = bool(a.get("live_arguments"))
     tr.wide_call_results = bool(a.get("wide_call_results"))
     tr.float_parameters_on_calls = bool(a.get("float_parameters_on_calls"))
+    tr.stack_arguments = bool(a.get("stack_arguments"))
     tr.verified_signatures = frozenset(a.get("signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)
@@ -2468,6 +2506,8 @@ def c_argument_drops(tr: "Translator", program: Program, leave: set) -> tuple[di
             try:
                 tr._load(f, tuple(place))
                 i, fl = tr._live_arguments()
+                if tr.stack_arguments and (stacked := tr._stack_arguments()):
+                    i = max(i, len(ARG_REGS) + stacked)
             except (AsmUnsupported, Unsupported):
                 continue
             reads_i, reads_f = max(reads_i, i), max(reads_f, fl)

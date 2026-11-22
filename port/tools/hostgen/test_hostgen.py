@@ -3834,6 +3834,30 @@ class FromAssembly(unittest.TestCase):
         self.assertEqual(self.last_report["c_argument_drops"], {})
         self.assertIn("void func_00100100(gaddr out, float pass_1, float pass_2)", self.last_generated)
 
+    def test_stack_arguments_a_ninth_argument_read_from_the_callers_frame(self):
+        # asm.stack_arguments: the levels' copy of frontbin's func_003910C0 (func_L01_00412C08)
+        # reads a ninth argument from its caller's frame, above its own; declared with eight, its
+        # translation took eight and C callers' ninth never reached it (#719).
+        functions = {"func_00100000": (0x100000, """
+            addiu $29, $29, -16
+            ld $2, 16($29)
+            jr $31
+            addiu $29, $29, 16
+        """)}
+        c = """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int, int, int, int, int, int, int, int);
+            int test_main(void) {
+                test_print(((int (*)(int, int, int, int, int, int, int, int, int))func_00100000)(1, 2, 3, 4, 5, 6, 7, 8, 42));
+                return 0;
+            }
+        """
+        config = {"asm": {**ASM_CONFIG["asm"], "live_arguments": True, "stack_arguments": True}}
+        out = self.run_asm(c, functions, config=config)
+        self.assertEqual(out, ["42"])
+        self.assertIn("func_00100000(int a0, int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8)",
+                      self.last_generated)
+
     def test_signature_check_finds_a_float_result_an_int_signature_drops(self):
         allow = dict(ASM_CONFIG["asm"], signature_check=True,
                      signature_allow={"func_00100100": "the test: the finding itself"})
