@@ -41,6 +41,8 @@ WRENCHES = 3
 SHIP_TEXTURE = 1300
 # Clank's picture (Up Your Arsenal), his first skin; the others go out as clank_skin_NN.
 CLANK_TEXTURE = 1310
+# The pictures of the classes a level's scenes load (Up Your Arsenal), past all his looks'.
+SCENE_TEXTURES = 3000
 # What a moby class table entry's word +8 binds over all of the class's faces at load
 # (games.Format.bound_textures; Up Your Arsenal's class loader, Veldin's func_L01_0042B4F8): 1 his ship's
 # picture (the ship's parts 4308 to 4325 and hull 3412, as Going Commando's), 2 Clank's (601, 87).
@@ -95,6 +97,9 @@ class Level:
     ship_paints: list[Texture] = field(default_factory=list)
     # Up Your Arsenal: Clank's picture in each of his skins, 0 first (also ("moby", CLANK_TEXTURE)).
     clank_skins: list[Texture] = field(default_factory=list)
+    # Up Your Arsenal: the moby classes its scenes load (scene_classes): class number to (class
+    # blob, the texture numbers of its slots).
+    scene_classes: dict[int, tuple[bytes, list[int]]] = field(default_factory=dict)
 
     @property
     def instances(self) -> bytes:
@@ -322,7 +327,70 @@ def load_wad_level(source, entry: dict) -> Level:
     level.textures = textures(level, sections["gs_ram"])
     if version.hero_packs:
         hero_files(level, source)
+    if version.scene_classes:
+        scene_classes(level, source.scene_class_lumps(entry))
     return level
+
+
+# A scene class lump's picture: a PIF ("2FIP", +8 its width, +0xC its height, +0x10 its format,
+# 0x13 PSMT8), its CLUT at +0x20 and its pixels at +0x420; the spaceships' too (spaceships.py).
+PIF_SIZE, PIF_CLUT, PIF_PIXELS = 0x08, 0x20, 0x420
+
+
+def scene_classes(level: Level, lumps: list[bytes]) -> None:
+    """Up Your Arsenal's scenes play with moby classes of their own, which the scene loads into
+    free class slots while it plays (Veldin's first: Clank as class 10, slot 153, and the gun the
+    Ranger hands over, 7322, slot 154). Each lump (wads.WadDisc.scene_class_lumps) opens with
+    16-byte entries up to a word -1: the class number, the offset of its pictures (0 for none),
+    the offset of its blob, 0. The pictures are a count and each one's offset from there (PIF).
+    A class without pictures is Clank's, class 10 in every scene: its GS blocks were seen holding
+    his picture's TEX0 (0x001D4BA8), as class 601's do. Each class is taken once, from the first
+    scene that loads it, and only where the level has no class of that number of its own."""
+    own = {unpack("<i", entry, 4)[0] for entry in level.table(0x18, 32)}
+    place = SCENE_TEXTURES
+    for raw in lumps:
+        try:
+            lump = decoded(raw)
+        except FormatError as exc:
+            level.problems.append(f"scene classes: not unpacked ({exc})")
+            continue
+        entries = []
+        for at in range(0, len(lump) - 15, 16):
+            class_id, pictures, start, pad = unpack("<4i", lump, at)
+            if class_id == -1:
+                break
+            if pad or not 0 < start < len(lump) or not 0 <= pictures < len(lump):
+                entries = []
+                level.problems.append(f"scene classes: entry {at // 16} out of the lump")
+                break
+            entries.append((class_id, pictures, start))
+        bounds = sorted({len(lump)} | {start for _, _, start in entries}
+                        | {pictures for _, pictures, _ in entries if pictures})
+        for class_id, pictures, start in entries:
+            if class_id in own or class_id in level.scene_classes:
+                continue
+            blob = lump[start:bounds[bounds.index(start) + 1]]
+            if not pictures:
+                if ("moby", CLANK_TEXTURE) not in level.textures:
+                    continue
+                level.scene_classes[class_id] = (blob, [CLANK_TEXTURE] * 16)
+                continue
+            count, = unpack("<i", lump, pictures)
+            keys = []
+            for offset in unpack(f"<{count}i", lump, pictures + 4) if 0 < count <= 16 else ():
+                pif = pictures + offset
+                width, height, fmt = unpack("<3i", lump, pif + PIF_SIZE)
+                if lump[pif:pif + 4] != b"2FIP" or fmt != 0x13:
+                    break
+                level.textures[("moby", place)] = Texture(width, height,
+                                                          span(lump, pif + PIF_PIXELS, width * height),
+                                                          span(lump, pif + PIF_CLUT, 1024))
+                keys.append(place)
+                place += 1
+            if not keys:
+                level.problems.append(f"scene class {class_id}: pictures not read")
+                continue
+            level.scene_classes[class_id] = (blob, keys + [keys[-1]] * (16 - len(keys)))
 
 
 # The title world: the space flight behind the title and the main menu (the boot program's

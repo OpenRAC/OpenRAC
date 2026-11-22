@@ -204,6 +204,36 @@ class Translate(unittest.TestCase):
         self.assertNotIn("int func_00100100(", self.last_generated)
         self.assertIn("int func_00100240(", self.last_generated)
 
+    def test_params_from_declarations_listed_hand_floats_on(self):
+        # hostgen.json "params_from_declarations" as a list: only the functions named. Up Your
+        # Arsenal's random_vector (func_L01_00443B88) is matched as (out) and calls rand_range
+        # with no arguments, which on the EE reads the range its callers left in $f12/$f13; the
+        # port handed rand_range whatever the host's float registers held, and a broken crate's
+        # pieces turned by a quaternion of any length grew without end. Listed, it takes its
+        # callers' two floats and hands them on; the function not listed keeps its own C.
+        files = {"a.c": """
+            float func_00100000(float lo, float hi) { return lo * 10.0f + hi; }
+        """, "b.c": """
+            extern float func_00100000(void);
+            void func_00100100(float *out) { *out = func_00100000(); }
+            void func_00100140(float *out) { *out = func_00100000(); }
+        """, "c.c": """
+            extern void func_00100100(float *, float, float);
+            extern void func_00100140(float *, float, float);
+            int test_main(void) {
+                float v = 0.0f, w = 0.0f;
+                func_00100100(&v, 2.0f, 3.0f);
+                func_00100140(&w, 2.0f, 3.0f);
+                test_print((int)v);
+                return 0;
+            }
+        """}
+        out = self.run_program(files, config={"params_from_declarations": ["func_00100100"]})
+        # The one not listed passes nothing there (its zero-arguments site is reached).
+        self.assertEqual(out, ["reach", "func_00100140", "23"])
+        self.assertIn("void func_00100100(gaddr out, float pass_1, float pass_2)", self.last_generated)
+        self.assertNotIn("func_00100140(gaddr out, float", self.last_generated)
+
     def test_a_user_of_a_derived_name_with_no_address_is_left_to_its_assembly(self):
         # rac2-decomp matched func_L00_003ABEC0 after the port's derived_names.json was written: its
         # call of ref_L00_003ABEC0_00 reached a stub that does nothing, and the Todano robot never
