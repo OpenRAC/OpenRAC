@@ -1,10 +1,11 @@
 # Keyboard and mouse
 
-Ratchet & Clank (PAL and NTSC-U) and Going Commando (NTSC-U, PAL and NTSC-U
-v2) play with a keyboard and mouse out of the box: WASD moves, the mouse turns
-the camera, left click fires. It is built into the port
-(`port/game/rac1/keyboard_mouse/`, `port/game/rac2/keyboard_mouse/`) and
-always on. It used to be the keyboard-mouse mod of openrac-mods.
+Ratchet & Clank (PAL v2, PAL v1, NTSC-U and NTSC-J) and Going Commando
+(NTSC-U, PAL and NTSC-U v2) play with a keyboard and mouse out of the box:
+WASD moves, the mouse turns the camera, left click fires. It is built into the
+port and always on. It used to be the keyboard-mouse mod of openrac-mods.
+R&C's PAL v1 and NTSC-J addresses come from their release views and have not
+been run on those discs yet.
 
 ## Gamepad or keyboard
 
@@ -139,6 +140,35 @@ as `kbm_<key> = <value>` lines in `<data>/settings/<game>-<version>.ini`
 - The log says `keyboard and mouse on the <disc> disc`, and warns about two
   actions on one key.
 - A keyboard used as player 2 keeps the port's own keyboard table.
+
+## How the code is laid out
+
+Both games share one core; each game adds only what is its own.
+
+| Where | What |
+|---|---|
+| `port/game/common/keyboard_mouse/kbm.hpp` | The logic every game shares, with no game or port: actions and binds, WASD to the stick, the mouse to the stick and to the camera itself (`turn_orbit`), the Quick Select ring, the pad report, generic menu helpers. |
+| `port/game/common/keyboard_mouse/core.hpp` | The same joined to the mod interface: settings, which binds count where, menu directions, cursor capture, the pad report each tick, key prompts, the frames between ticks. |
+| `port/game/common/keyboard_mouse/openrac-mod.json` | The one manifest (settings and binds) for every game; the launcher reads it too. |
+| `port/game/<game>/keyboard_mouse/` | The game's own: where the game is, its menus under the mouse (`menus.hpp`), where its camera keeps what the mouse turns, and its address table per version. |
+| `port/game/<game>/built_in_mods.cpp` | Lists the built-in for the game's build. |
+
+### Adding a game
+
+1. Add `port/game/<game>/keyboard_mouse/keyboard_mouse.cpp` with `query` and
+   `load`, built on `core.hpp`: read the settings with `kbm::read_settings`,
+   step once a tick from `kbm::on_pad`, and fill a `kbm::TickInput` with where
+   the game is (`kbm::Context`).
+2. Give it an address entry for **every** version of the game. CI checks this
+   (`port/tools/versionmap/test_kbm_discs.py`): a version without one fails.
+3. For the camera, hook the game's follow camera and turn its offsets with
+   `kbm::turn_orbit`; any other camera can take the mouse as the right stick
+   (`kbm::MouseLook`).
+4. List it in the game's `built_in_mods.cpp` and add a test like
+   `port/tests/keyboard_mouse_rac2_test.cpp`.
+
+On the pad nothing may change: compare RAM with and without the built-in
+(`--no-mods`) on a pad route.
 
 ## Tests
 
