@@ -357,8 +357,16 @@ static int srv_open(const char* name) {
     char port[16] = "7770";
     const char* env = openrac_env_string("OPENRAC_SERVER");
     if (env != NULL && *env != 0) {
+        /* host:port, [v6]:port or [v6], a bare name or IPv4, or a bare IPv6 address (more than one
+         * colon and no brackets: no port). */
+        const char* close = env[0] == '[' ? strchr(env, ']') : NULL;
         const char* colon = strrchr(env, ':');
-        if (colon != NULL) {
+        if (close != NULL) {
+            snprintf(host, sizeof host, "%.*s", (int)(close - env - 1), env + 1);
+            if (close[1] == ':') {
+                snprintf(port, sizeof port, "%s", close + 2);
+            }
+        } else if (colon != NULL && strchr(env, ':') == colon) {
             snprintf(host, sizeof host, "%.*s", (int)(colon - env), env);
             snprintf(port, sizeof port, "%s", colon + 1);
         } else {
@@ -374,17 +382,21 @@ static int srv_open(const char* name) {
         srv.state = -1;
         return 0;
     }
-    net_socket fd = socket(found->ai_family, found->ai_socktype, found->ai_protocol);
-    if (fd == NET_INVALID || connect(fd, found->ai_addr, (int)found->ai_addrlen) != 0) {
-        fprintf(stderr, "[warning] rac3: online: no OpenRAC server at %s:%s\n", host, port);
-        if (fd != NET_INVALID) {
+    /* Each address the name gives, IPv6 and IPv4 alike, until one takes the connection. */
+    net_socket fd = NET_INVALID;
+    for (const struct addrinfo* at = found; at != NULL && fd == NET_INVALID; at = at->ai_next) {
+        fd = socket(at->ai_family, at->ai_socktype, at->ai_protocol);
+        if (fd != NET_INVALID && connect(fd, at->ai_addr, (int)at->ai_addrlen) != 0) {
             net_close(fd);
+            fd = NET_INVALID;
         }
-        freeaddrinfo(found);
+    }
+    freeaddrinfo(found);
+    if (fd == NET_INVALID) {
+        fprintf(stderr, "[warning] rac3: online: no OpenRAC server at %s:%s\n", host, port);
         srv.state = -1;
         return 0;
     }
-    freeaddrinfo(found);
     const int one = 1;
     setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (const char*)&one, sizeof one);
 #ifdef _WIN32
