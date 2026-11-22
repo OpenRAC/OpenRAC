@@ -13,6 +13,15 @@ pub const ENV: &str = "OPENRAC_PLAYER_NAME";
 /// The environment variable the game reads this installation's key from: what a host bans.
 pub const KEY_ENV: &str = "OPENRAC_IDENTITY_KEY";
 
+/// The environment variable the game reads the multiplayer server from, as `host:port`
+/// (`[v6]:port` for an IPv6 address): every game's online play goes there (Settings,
+/// "Multiplayer server").
+pub const SERVER_ENV: &str = "OPENRAC_SERVER";
+
+/// The official OpenRAC server (the OpenRAC/Server repository), the default.
+pub const OFFICIAL_HOST: &str = "game.openrac.dev";
+pub const OFFICIAL_PORT: u16 = 7770;
+
 /// The shortest and the longest name, in characters.
 pub const MIN_LEN: usize = 3;
 pub const MAX_LEN: usize = 16;
@@ -64,6 +73,76 @@ fn seed() -> u64 {
     hasher.finish()
 }
 
+/// Whether `host` names a server: an IPv4 or IPv6 address (without brackets), or a host name of
+/// dot-separated labels of letters, digits and hyphens (1 to 63 each, no hyphen at either end,
+/// 253 characters in all).
+pub fn is_valid_host(host: &str) -> bool {
+    if host.parse::<std::net::IpAddr>().is_ok() {
+        return true;
+    }
+    let name = host.strip_suffix('.').unwrap_or(host);
+    !name.is_empty()
+        && name.len() <= 253
+        && name.split('.').all(|label| {
+            (1..=63).contains(&label.len())
+                && label.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+        })
+}
+
+/// Whether `port` is one a server listens on: 1 to 65535.
+pub fn is_valid_port(port: u32) -> bool {
+    (1..=65535).contains(&port)
+}
+
+/// `host:port`, with an IPv6 address in brackets (`[::1]:7770`).
+pub fn address(host: &str, port: u16) -> String {
+    if host.contains(':') {
+        format!("[{host}]:{port}")
+    } else {
+        format!("{host}:{port}")
+    }
+}
+
+/// The server the settings name, as the game gets it ([`SERVER_ENV`]): the official one when the
+/// saved host or port is not valid (a settings file edited by hand).
+pub fn server(config: &crate::config::Config) -> String {
+    let host = config.multiplayer_server_host.trim();
+    let port = u32::from(config.multiplayer_server_port);
+    if is_valid_host(host) && is_valid_port(port) {
+        address(host, config.multiplayer_server_port)
+    } else {
+        address(OFFICIAL_HOST, OFFICIAL_PORT)
+    }
+}
+
+/// Whether a server answers at `host:port`: a TCP connection made within `timeout` (for each
+/// address the name resolves to), and closed at once. Says why not otherwise.
+pub fn reachable(host: &str, port: u32, timeout: std::time::Duration) -> Result<(), String> {
+    use std::net::{TcpStream, ToSocketAddrs};
+    let host = host.trim();
+    if !is_valid_host(host) {
+        return Err(format!("\"{host}\" is not a host name or an IP address"));
+    }
+    if !is_valid_port(port) {
+        return Err(format!("{port} is not a port (1 to 65535)"));
+    }
+    let addrs: Vec<_> =
+        (host, port as u16).to_socket_addrs().map_err(|e| format!("cannot find {host}: {e}"))?.collect();
+    if addrs.is_empty() {
+        return Err(format!("cannot find {host}"));
+    }
+    let mut last = String::new();
+    for addr in addrs {
+        match TcpStream::connect_timeout(&addr, timeout) {
+            Ok(_) => return Ok(()),
+            Err(e) => last = e.to_string(),
+        }
+    }
+    Err(format!("no answer from {}: {last}", address(host, port as u16)))
+}
+
 /// Whether a key could be one of [`new_key`]'s: what the game sends and a save's note keeps.
 pub fn is_valid_key(key: &str) -> bool {
     key.len() == 32 && key.bytes().all(|b| b.is_ascii_hexdigit())
@@ -93,6 +172,48 @@ pub fn settle(config: &mut crate::config::Config) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hosts_are_names_or_addresses() {
+        for good in ["game.openrac.dev", "localhost", "my-box", "192.168.1.20", "::1", "fe80::1", "a.b.c.", "x1"] {
+            assert!(is_valid_host(good), "{good}");
+        }
+        let long = format!("{}.dev", "a".repeat(64));
+        for bad in ["", " ", "-box", "box-", "a..b", "host:7770", "[::1]", "two words", "émile.dev", "a_b.dev", &long]
+        {
+            assert!(!is_valid_host(bad), "{bad}");
+        }
+        assert!(is_valid_port(1) && is_valid_port(65535) && is_valid_port(7770));
+        assert!(!is_valid_port(0) && !is_valid_port(65536));
+    }
+
+    #[test]
+    fn the_server_is_host_colon_port_or_the_official_one() {
+        let mut config = crate::config::Config::default();
+        assert_eq!(server(&config), "game.openrac.dev:7770");
+        config.multiplayer_server_host = "192.168.1.20".into();
+        config.multiplayer_server_port = 7000;
+        assert_eq!(server(&config), "192.168.1.20:7000");
+        config.multiplayer_server_host = "::1".into();
+        assert_eq!(server(&config), "[::1]:7000");
+        config.multiplayer_server_host = "not a host".into();
+        assert_eq!(server(&config), "game.openrac.dev:7770");
+        config.multiplayer_server_host = "localhost".into();
+        config.multiplayer_server_port = 0;
+        assert_eq!(server(&config), "game.openrac.dev:7770");
+    }
+
+    #[test]
+    fn a_listening_server_is_reachable_and_a_closed_port_is_not() {
+        let timeout = std::time::Duration::from_secs(2);
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = u32::from(listener.local_addr().unwrap().port());
+        assert_eq!(reachable("127.0.0.1", port, timeout), Ok(()));
+        drop(listener);
+        assert!(reachable("127.0.0.1", port, timeout).is_err());
+        assert!(reachable("not a host", 7770, timeout).unwrap_err().contains("not a host name"));
+        assert!(reachable("localhost", 0, timeout).unwrap_err().contains("not a port"));
+    }
 
     #[test]
     fn names_are_letters_digits_and_underscores_of_3_to_16() {

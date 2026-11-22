@@ -325,6 +325,8 @@ let config: Config = {
   discImages: {},
   multiplayerName: "BraveLombax42",
   multiplayerKey: "0123456789abcdef0123456789abcdef",
+  multiplayerServerHost: "game.openrac.dev",
+  multiplayerServerPort: 7770,
   modIndexes: [],
   prereleaseMods: null,
   pendingDeepLink: null,
@@ -3490,6 +3492,14 @@ export async function mockCall(
         path: "",
       });
     }
+    case "multiplayer_server_test":
+      // The official server answers; any other does not, so both results can be seen.
+      await delay(null);
+
+      if (args.host !== "game.openrac.dev")
+        throw new Error(`no answer from ${String(args.host)}:${String(args.port)}`);
+
+      return null;
     case "player_name_used":
       // A mod that uses the Multiplayer name is on, unless ?nomods.
       return delay(!query.has("nomods"));

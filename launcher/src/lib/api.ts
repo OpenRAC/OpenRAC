@@ -556,6 +556,10 @@ export const api = {
     call<PluginView[]>("plugins_list", { game, version }),
   /** Whether a mod that is on in one of `games` uses the Multiplayer name (core plugins.rs). */
   playerNameUsed: (games: string[]) => call<boolean>("player_name_used", { games }),
+  /** Settings, "Test connection": resolves when a multiplayer server answers at host:port (a TCP
+   *  connection within 5 seconds); rejects with why not (core multiplayer.rs). */
+  multiplayerServerTest: (host: string, port: number) =>
+    call<null>("multiplayer_server_test", { host, port }),
   pluginsSetEnabled: (game: string, version: string, id: string, enabled: boolean) =>
     call<PluginView[]>("plugins_set_enabled", { game, version, id, enabled }),
   pluginsMove: (game: string, version: string, id: string, up: boolean) =>

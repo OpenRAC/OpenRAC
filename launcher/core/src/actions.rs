@@ -602,6 +602,11 @@ impl Action {
         if self.kind == Kind::Play && crate::multiplayer::is_valid_key(&ctx.config.multiplayer_key) {
             env.push((crate::multiplayer::KEY_ENV.to_string(), ctx.config.multiplayer_key.clone()));
         }
+        // Settings, "Multiplayer server": where every game's online play goes, the official
+        // server unless the player named another (multiplayer.rs).
+        if self.kind == Kind::Play {
+            env.push((crate::multiplayer::SERVER_ENV.to_string(), crate::multiplayer::server(ctx.config)));
+        }
         // Settings, "Detailed game logs": the port's verbose log (port/common/log.h).
         if self.kind == Kind::Play && ctx.config.detailed_game_log {
             env.push(("OPENRAC_LOG".to_string(), "verbose".to_string()));
@@ -1186,6 +1191,22 @@ mod tests {
         let keyed = Config { multiplayer_key: key.clone(), ..installed.clone() };
         assert!(play.plan(&ctx(&keyed)).unwrap().env.contains(&("OPENRAC_IDENTITY_KEY".to_string(), key)));
         assert!(!play.plan(&ctx(&installed)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_IDENTITY_KEY"));
+        // Settings, "Multiplayer server": the official one by default, the player's own when set.
+        let server =
+            |env: Vec<(String, String)>| env.into_iter().filter(|(k, _)| k == "OPENRAC_SERVER").collect::<Vec<_>>();
+        assert_eq!(
+            server(play.plan(&ctx(&installed)).unwrap().env),
+            [("OPENRAC_SERVER".to_string(), "game.openrac.dev:7770".to_string())]
+        );
+        let own_server = Config {
+            multiplayer_server_host: "mp.example.org".into(),
+            multiplayer_server_port: 7000,
+            ..installed.clone()
+        };
+        assert_eq!(
+            server(play.plan(&ctx(&own_server)).unwrap().env),
+            [("OPENRAC_SERVER".to_string(), "mp.example.org:7000".to_string())]
+        );
         // HDR is the game's own setting: the launcher never overrides it.
         assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_HDR"), "{:?}", plan.env);
         // Settings, "Renderer": Vulkan, the default, on the desktops; OpenGL sets nothing.

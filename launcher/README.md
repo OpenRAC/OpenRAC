@@ -135,6 +135,26 @@ the game you used last.
   Classic. Compact puts the game's name and its main button side by side
   (`src/layouts/compact.css`).
 
+### Multiplayer server
+
+Settings, General, has a **Multiplayer server**: a host name or an IP
+address and a port, `game.openrac.dev` and `7770` (the official OpenRAC
+server) unless changed. Anyone can host one (the
+[OpenRAC/Server](https://github.com/OpenRAC/Server) repository); everyone
+playing together names the same one. **Reset to official** puts the official
+server back, and **Test connection** says whether a server answers there. A
+host that is not a host name or an IP address, or a port outside 1 to 65535,
+is not saved.
+
+Play gives it to every game as `OPENRAC_SERVER=host:port` (`[v6]:port` for
+an IPv6 address): Up Your Arsenal's online play and the
+[multiplayer mod](https://github.com/OpenRAC/openrac-mods/tree/master/multiplayer)
+(Ratchet & Clank and Going Commando co-op) read it. The mod's own **Server**
+setting, when set, still wins. It is kept in `launcher.json` as
+`multiplayerServerHost` and `multiplayerServerPort`; a settings file from
+before it has the official server. Android has the same setting; the iOS
+app has no online play, so it does not show it.
+
 ## Mods and level editing
 
 **Gameplay mods** come in two kinds, and each row says which: native mods
@@ -350,6 +370,10 @@ Online:
   used.
 - **GitHub**, only when adding a mod from a link or checking for updates:
   `api.github.com`, raw files and release downloads.
+- **Test connection** (Settings, General, Multiplayer server), only when
+  pressed: one TCP connection to the server named there, closed at once, to
+  say whether it answers (5 seconds at most). The launcher itself never
+  talks to the server; the games do, while they play online.
 - **Discord**, unless switched off in Settings: Rich Presence over Discord's
   local socket (Linux, macOS) or named pipe (Windows). While a game plays it
   shows the game, planet, bolts and time, and links to openrac.dev and
