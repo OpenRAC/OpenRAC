@@ -268,3 +268,6 @@ func_0016ED68	dme	rac3MpNetObjPublish	wrap	DME's net-object publish (id): the ob
 func_0016EDD0	dme	rac3MpNetObjRelease	wrap	DME's net-object release (id) (host/mp_net.c)
 func_0016EF40	dme	rac3MpNetObjTarget	wrap	DME's net-object target (-1, id) (host/mp_net.c)
 func_0012DCB0	kernel	rac3MpTimerTicks	wrap	timer 0's count as a 64-bit tick (the bus clock over 256, 147456 a millisecond) with its overflow count: the port runs no timer 0, so the host's clock (host/mp_net.c)
+func_L39_00686138	ui	rac3MpUiMenuEvent	wrap	the lobby screen manager's menu event from a pad (manager, pad): the native multiplayer screen takes the events it uses while it has the cursor, and hands the game Cross for a choice that is the game's (host/mp_ui.c)
+func_L39_006862D0	ui	rac3MpUiScreenUpdate	wrap	the lobby screen manager's update (manager): afterwards the native screen follows the game's screen on top, fills its tables and hides the game widgets it replaces (host/mp_ui.c)
+func_L39_005D69C0	ui	rac3MpUiElementsDraw	wrap	the GUI elements' render (frontbin's func_003B3158 at level 39): the native multiplayer screen is drawn first, into the same 2D list (host/mp_ui.c)

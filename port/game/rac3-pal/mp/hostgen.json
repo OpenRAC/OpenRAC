@@ -378,7 +378,17 @@
       "func_0027E360": "long long (int)",
       "func_L39_00589890": "long long (int)",
       "func_00287A18": "unsigned long long (int)",
-      "func_L39_005A4ED8": "unsigned long long (int)"
+      "func_L39_005A4ED8": "unsigned long long (int)",
+      "func_L39_00591BA0": "int (int)",
+      "func_L39_00591F98": "int (int, int, float)",
+      "func_L39_00689F00": "int (int, int, int, int, float, float, float, float, float)",
+      "func_L39_00688340": "int (int, int, int)",
+      "func_L39_0068B2F8": "int (int, int, int)",
+      "func_L39_00682028": "int (int, int)",
+      "func_L39_005D69C0": "int (int)",
+      "func_L39_00686138": "int (int, int)",
+      "func_L39_006862D0": "int (int)",
+      "func_L39_0059A970": "int (int)"
     },
     "vu0_programs": {
       "0xC80": "rac3_vu0_rotation_rows",

@@ -103,7 +103,8 @@ enum {
     PACKET_UDP,
     PACKET_RELAY,
     PACKET_REGIONS,
-    PACKET_REGISTER
+    PACKET_REGISTER,
+    PACKET_UI
 };
 
 enum {
@@ -124,8 +125,18 @@ enum {
     PARTY_SLOTS
 };
 
+/* PACKET_UI's opcodes (OpenRAC/Server README, "Lobby screens"): the lobby screens' description. */
+enum {
+    UI_GET,
+    UI_DESCRIPTION,
+    UI_ACTION,
+    UI_NOTICE
+};
+
 #define LIST_ADVERTS 1
 #define FEATURE_REGIONS 16 /* the UDP offer's bit: the server answers PACKET_REGIONS */
+#define FEATURE_UI 32      /* the UDP offer's bit: the server answers PACKET_UI */
+int rac3_mp_ui_describe(const char* json, size_t size); /* mp_ui.c */
 #define CLIENT_SLOTS 2 /* PACKET_HELLO's client bit: send PARTY_SLOTS (the room's stable slots) */
 #define CLIENT_KEEPS_ALIVE                                                                         \
     4                      /* PACKET_HELLO's client bit: this client sends PACKET_TIME every 2 s */
@@ -429,6 +440,17 @@ static int srv_open(const char* name) {
     srv_u8(CLIENT_SLOTS | CLIENT_KEEPS_ALIVE);
     srv_end();
     return 1;
+}
+
+/* A server action chosen on a native lobby screen (mp_ui.c): its key and value to the server. */
+void rac3_mp_net_ui_action(const char* key, int value) {
+    if (srv.state != 1) {
+        return;
+    }
+    srv_begin(PACKET_UI, UI_ACTION);
+    srv_text(key);
+    srv_i32(value);
+    srv_end();
 }
 
 /* ---- Reading the server's frames ---- */
@@ -1520,6 +1542,12 @@ static void on_frame(int id, reader* r) {
             rd_i32(r);
             rd_i32(r);
             srv.features = rd_u8(r);
+            /* A server that answers UI is asked for this disc's lobby screens. */
+            if (srv.features & FEATURE_UI) {
+                srv_begin(PACKET_UI, UI_GET);
+                srv_text(NET_FAMILY);
+                srv_end();
+            }
             break;
         case PACKET_REGIONS: {
             /* The hub's regions: name, host (empty: the hub's own address), port, players. */
@@ -1566,8 +1594,23 @@ static void on_frame(int id, reader* r) {
             dme.inbox_count++;
             break;
         }
+        case PACKET_UI: {
+            const int opcode = rd_u8(r);
+            if (opcode == UI_DESCRIPTION) {
+                const int32_t revision = rd_i32(r);
+                /* None keeps the game's own screens; a refused one keeps the screens in force. */
+                if (r->n > 0 && rac3_mp_ui_describe((const char*)r->p, r->n)) {
+                    fprintf(stderr, "[info] rac3: online: lobby screens, revision %d\n", revision);
+                }
+            } else if (opcode == UI_NOTICE) {
+                char text[257];
+                rd_text(r, text, sizeof text);
+                fprintf(stderr, "[info] rac3: online: the server says: %s\n", text);
+            }
+            break;
+        }
         default:
-            break; /* UDP offers, the clock, chat, data: unused here */
+            break; /* the clock, chat, data: unused here */
     }
 }
 
