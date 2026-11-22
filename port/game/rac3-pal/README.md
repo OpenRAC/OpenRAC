@@ -176,6 +176,38 @@ What is left: a map (levels 40 to 55) is not loaded: they would be translated as
 (`discover_levels`), with the native world renderers the boot program's levels use; NTSC-U's
 I5BOOTN.ELF is not paired yet.
 
+### Online play
+
+ONLINE PLAY goes to the OpenRAC server (the OpenRAC/Server repository) instead of the retail
+Medius, DME and DNAS servers: `host/mp_net.c` and the rows of `mp/libraries.tsv` that name it.
+The retail stack (SCE-RT's rt_comm, rt_msg_client and rt_crypt, the Medius client 2.7.1 and DME
+2.7.10 in the executable's core, DNAS in level 39) talks to the IOP's network modules, which the
+port does not have, so it is cut at four places:
+
+- the network adaptor and its configuration (the front end's module load `0x00198248`, MSIF RPC,
+  ezNetCnf and ezNetCtl): an adaptor, one combination, the interface up;
+- DNAS (level 39's `0x004B3910`..`0x004B3F88`, the signature `0x0067BBE8`): passed at once; the
+  resolver thread (`0x0067A7E0`) writes the server's address;
+- Medius at the message level: every request the library sends (`MediusSendLobbyMessage`
+  `0x0017DFA8`: class, type and the struct) is answered by a small lobby in `mp_net.c`, whose
+  replies go through the library's own dispatcher (`0x00152FB8`) in MediusUpdate
+  (`0x0017E1A0`/`0x0017E208`/`0x0017E2D0`), so the library and the menus run as retail. Logging in
+  says hello to the server under the account name; the game list is the server's party list of
+  this disc's family (`rac3-pal-1`); creating a game hosts a party and lists its settings as the
+  party's advert (updated from each WorldReport0); joining one joins that party;
+- DME at the session level: connecting to a game's world (`0x0014ADD0`) gives a connection whose
+  client indices are the party's order (the host 0, then the members as they joined), joining its
+  session (`0x0014B448`) calls the game's three session callbacks, and every message the game or
+  DME sends (`0x0014AD08`, `0x0014CAB8`, `0x0014C950`) is relayed unread to the other members
+  (the server's `RELAY`); what comes back goes to DME's receive path (`0x0014CE48`) in its update
+  (`0x0014B118`), which runs the game's handlers.
+
+`OPENRAC_SERVER=host[:port]` names the server (`127.0.0.1:7770` when unset);
+`OPENRAC_RAC3_NET_LOG=1` logs every lobby message and room packet. The protocol analysis these
+cuts come from (every layer, message and struct, with addresses) is kept with the port's planning
+notes (`rac3-mp/protocol.md`). NTSC-U carries the rows rac3_mp_pairs.py pairs; its resolver thread
+is not paired yet.
+
 ## Ticks, pacing and input
 
 The game's tick is the port's, as Going Commando's and Ratchet & Clank's are: the shared tick
