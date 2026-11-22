@@ -19,6 +19,8 @@
 #include <vector>
 
 #include "game/common/keyboard_mouse/kbm.hpp"
+#include "game/rac1/keyboard_mouse/menus.hpp"
+#include "game/rac2/keyboard_mouse/menus.hpp"
 
 namespace {
 

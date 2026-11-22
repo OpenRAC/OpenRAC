@@ -22,8 +22,10 @@
  * Ratchet & Clank.
  */
 #include <math.h>
+#include <stddef.h>
 #include <stdint.h>
 
+#include "follow_mouse.h"
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "rac2.h"
@@ -33,6 +35,8 @@
 #define SPRING_STIFFNESS OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001B14ACu))
 #define SPRING_DAMPING OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001B14B0u))
 #define CAMERA_BLOCK OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001B8E20u))
+#define TILT_RANGE                                                                                 \
+    OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001B14C4u)) /* the tilt target at a full stick */
 
 /* The camera's stick state: its data (the moby's +0x70) + 0x1C0. */
 #define STATE_FLAGS 0x10u
@@ -42,6 +46,26 @@
 #define STATE_SIZE 0x30u
 
 static gaddr s_state;    /* the stick state the last read was for */
+static openrac_rac2_follow_mouse_fn s_follow_mouse; /* the mouse's turn (follow_mouse.h) */
+
+void openrac_rac2_set_follow_mouse(openrac_rac2_follow_mouse_fn fn) {
+    s_follow_mouse = fn;
+}
+
+int openrac_rac2_follow_axis(float up[3]) {
+    if (openrac_game_loaded_overlay() < 0) {
+        return 0;
+    }
+    const gaddr block = CAMERA_BLOCK;
+    for (int i = 0; i < 3; ++i) {
+        up[i] = GREF(float, block + 0x20u + 4u * (unsigned)i);
+    }
+    return 1;
+}
+
+float openrac_rac2_follow_tilt_range(void) {
+    return openrac_game_loaded_overlay() < 0 ? 0.0f : GREF(float, TILT_RANGE);
+}
 static unsigned s_reads; /* how many reads so far: the frontend sees whether one ran this tick */
 
 void func_L00_00424F98(gaddr camera, gaddr x, gaddr y) {
@@ -52,6 +76,10 @@ void func_L00_00424F98(gaddr camera, gaddr x, gaddr y) {
     if (openrac_game_camera_speed != 1.0f && (GREF(int32_t, s_state + STATE_FLAGS) & 1) == 0
         && GREF(float, ANALOG_X) != 0.0f) {
         GREF(float, x) *= openrac_game_camera_speed;
+    }
+    /* The mouse turns the camera itself, before the camera turns by the stick. */
+    if (s_follow_mouse != NULL) {
+        s_follow_mouse(camera, x, y);
     }
 }
 

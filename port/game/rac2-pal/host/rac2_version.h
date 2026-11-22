@@ -125,6 +125,7 @@
 /* Addresses of a level's program. */
 #define RAC2_LADDR_00_0x001B14ACu 0x001B14BCu /* the release's build */
 #define RAC2_LADDR_00_0x001B14B0u 0x001B14C0u /* the release's build */
+#define RAC2_LADDR_00_0x001B14C4u 0x001B14D4u /* the release's build */
 #define RAC2_LADDR_00_0x001B19C8u 0x001B19C8u /* the release's build */
 #define RAC2_LADDR_00_0x001B1E9Cu 0x001B1E9Cu /* versionmap: exact */
 #define RAC2_LADDR_00_0x001B1EA8u 0x001B1EA8u /* versionmap: exact */

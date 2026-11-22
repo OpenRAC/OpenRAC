@@ -128,11 +128,13 @@ jobs:
 
       # Every game version's tables, with no disc (port/tools/versionmap/check_versions.py): each
       # version binds each function alike or its game's parity.tsv says why, carried releases'
-      # tables are what their tool writes, and each version's names table covers the shared host C.
+      # tables are what their tool writes, each version's names table covers the shared host C, and
+      # the built-in keyboard and mouse has each version's addresses.
       # A new game or version is found by its files, so this step does not change.
       - name: Game versions' tables
         run: |
           python -m unittest discover -s port/tools/versionmap -p test_parity.py -v
+          python -m unittest discover -s port/tools/versionmap -p test_kbm_discs.py -v
           python -m unittest discover -s port/tools/hostgen -p test_release_carry_rac3.py -v
           python port/tools/versionmap/check_versions.py
 

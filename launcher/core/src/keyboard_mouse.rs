@@ -21,7 +21,7 @@ pub const ID: &str = "keyboard-mouse";
 /// The settings file's prefix of its keys (port/game/common/settings.h, kKeyboardMousePrefix).
 pub const PREFIX: &str = "kbm_";
 /// The manifest the port embeds: its settings, presets and texts.
-const MANIFEST: &str = include_str!("../../../port/game/rac1/keyboard_mouse/openrac-mod.json");
+const MANIFEST: &str = include_str!("../../../port/game/common/keyboard_mouse/openrac-mod.json");
 
 /// The manifest, as the port reads it.
 fn manifest() -> Manifest {

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The Controls tab's Keyboard and mouse panel: the built-in keyboard and mouse's settings and keys
-// (game/rac1/keyboard_mouse), changed in the game. Each change is saved to the settings file and
+// (game/common/keyboard_mouse), changed in the game. Each change is saved to the settings file and
 // used from the next tick (mods::set_built_in_setting). A key is changed by pressing the new one.
 
 #include <algorithm>
