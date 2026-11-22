@@ -163,6 +163,10 @@ std::map<int, Table> g_overlays;
 // folded into one name (their bytes are the same but for the address they call), each place a
 // different function. A call through one of their addresses goes where its code calls.
 std::unordered_map<openrac_host_fn, int> g_ambiguous;
+// Functions registered in two or more programs, by the overlay that registered them first: Up Your
+// Arsenal's catalogue folds its one-call wrappers across the levels by a fingerprint without the
+// call's address, so one name stands for each level's own wrapper (-1: seen in several).
+std::unordered_map<openrac_host_fn, int> g_folded;
 // Each game function's thunk (openrac_guest_call_regs), by its host function.
 std::unordered_map<openrac_host_fn, openrac_regs_thunk> g_thunks;
 int g_overlay = OPENRAC_OVERLAY_EXE;
@@ -534,6 +538,9 @@ void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t
         if (++places[entries[i].fn] == 2) {
             g_ambiguous[entries[i].fn] = 1;
         }
+        if (auto [it, added] = g_folded.emplace(entries[i].fn, overlay); !added && it->second != overlay) {
+            it->second = -1;
+        }
     }
     for (size_t i = 0; i < count; i++) {
         auto [it, added] = table.emplace(entries[i].address, Entry{entries[i].fn, entries[i].name});
@@ -554,6 +561,7 @@ void openrac_guest_unregister_all(void) {
     g_exe.clear();
     g_overlays.clear();
     g_ambiguous.clear();
+    g_folded.clear();
     g_thunks.clear();
     g_overlay = OPENRAC_OVERLAY_EXE;
     g_cache_generation.fetch_add(1, std::memory_order_relaxed);
@@ -599,12 +607,22 @@ int openrac_guest_overlay(void) {
 openrac_host_fn openrac_guest_function(gaddr address) {
     if (const Entry* e = find(address)) {
         // A folded wrapper (addiu sp, -16; sq ra; jal T; nop; lq ra; jr ra; addiu sp, 16): this
-        // place's own target, read from the program in memory.
-        for (int depth = 0; depth < 4 && g_ambiguous.count(e->fn) != 0; ++depth) {
+        // place's own target, read from the program in memory. Up Your Arsenal's compiler saves ra
+        // with sd/ld, and its catalogue folds such wrappers across the levels: Starship Phoenix's
+        // place of func_L01_00451FB8 (0x00434898) calls func_0038DBD8's copy, not the HUD message
+        // Veldin's calls, whose label it then read uninitialised (0xCDCDCDCD).
+        for (int depth = 0; depth < 4; ++depth) {
+            const bool ambiguous = g_ambiguous.count(e->fn) != 0;
+            const auto folded = g_folded.find(e->fn);
+            if (!ambiguous && (folded == g_folded.end() || folded->second != -1)) {
+                break;
+            }
             std::uint32_t w[7];
             std::memcpy(w, G(address), sizeof(w));
-            if (w[0] != 0x27BDFFF0u || w[1] != 0x7FBF0000u || (w[2] >> 26) != 3 || w[3] != 0
-                || w[4] != 0x7BBF0000u || w[5] != 0x03E00008u || w[6] != 0x27BD0010u) {
+            const bool quad = ambiguous && w[1] == 0x7FBF0000u && w[4] == 0x7BBF0000u;  // sq/lq ra
+            const bool dword = w[1] == 0xFFBF0000u && w[4] == 0xDFBF0000u;               // sd/ld ra
+            if (w[0] != 0x27BDFFF0u || !(quad || dword) || (w[2] >> 26) != 3 || w[3] != 0
+                || w[5] != 0x03E00008u || w[6] != 0x27BD0010u) {
                 break;
             }
             const gaddr target = (address & 0xF0000000u) | ((w[2] & 0x03FFFFFFu) << 2);
