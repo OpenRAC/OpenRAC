@@ -56,6 +56,7 @@
     2424832
   ],
   "expanded_target_table_addresses": ["0x001ABA00"],
+  "expanded_ram_top_addresses": ["0x01FF8000"],
   "returns_64": [
     "FUN_001f44b8"
   ],

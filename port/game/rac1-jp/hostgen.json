@@ -47,6 +47,9 @@
   "expanded_target_table_addresses": [
     "0x001ABB80"
   ],
+  "expanded_ram_top_addresses": [
+    "0x01FF8000"
+  ],
   "returns_64": [
     "func_001F4DC8",
     "func_001FB9D0",

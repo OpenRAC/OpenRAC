@@ -2442,6 +2442,8 @@ class Unit:
                 addr = f"OPENRAC_LDATA({int(derived.group(1)) if derived else level}, {addr})"
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
             addr = f"OPENRAC_TARGET_TABLE({addr})"
+        if address in getattr(self.program, "expanded_ram_top_addresses", set()):
+            addr = f"OPENRAC_RAM_TOP({addr})"
         return addr
 
     def _in_a_level_file(self) -> bool:
