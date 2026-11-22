@@ -113,29 +113,18 @@ void effects_off(settings::Settings& g) {
 constexpr SweepStep kSweep[] = {
     {"as set", [](settings::Settings&) {}},
     {"enhanced graphics off", [](settings::Settings& g) { g.enhanced_graphics = false; }},
-    // The same with every mode read from its uniform, as before vk-mode-constants: what the
-    // driver saves when it can drop the code a mode leaves out.
-    {"enhanced graphics off, mode constants off (vk-mode-constants off)",
-     [](settings::Settings& g) { g.enhanced_graphics = false; },
-     renderer::render_opt::Opt::VkModeConstants},
     {"enhanced off, render scale 50%",
      [](settings::Settings& g) {
          g.enhanced_graphics = false;
          g.render_scale = 50;
      }},
     {"as set, render scale 50%", [](settings::Settings& g) { g.render_scale = 50; }},
-    {"as set, mode constants off (vk-mode-constants off)",
-     [](settings::Settings&) {},
-     renderer::render_opt::Opt::VkModeConstants},
     // A sixteenth of the pixels: nearly all that is left does not follow the pixels.
     {"as set, render scale 25%", [](settings::Settings& g) { g.render_scale = 25; }},
     // The same draws with no triangles to speak of: what a draw costs by itself.
     {"as set, every world draw cut to one triangle",
      [](settings::Settings& g) { g.sweep_one_triangle = true; }},
-    // What is left then, three ways: does it follow the shader's size, the pixels, the lighting.
-    {"as set, one triangle a draw, mode constants off (vk-mode-constants off)",
-     [](settings::Settings& g) { g.sweep_one_triangle = true; },
-     renderer::render_opt::Opt::VkModeConstants},
+    // The remaining cost is compared at fewer pixels and with probe lighting disabled.
     {"as set, one triangle a draw, render scale 25%",
      [](settings::Settings& g) {
          g.sweep_one_triangle = true;
@@ -153,9 +142,6 @@ constexpr SweepStep kSweep[] = {
      renderer::render_opt::Opt::PrepassRigid},
     {"as set, probe lighting off",
      [](settings::Settings& g) { g.sweep_probe_lighting_off = true; }},
-    {"as set, probe lighting off, mode constants off (vk-mode-constants off)",
-     [](settings::Settings& g) { g.sweep_probe_lighting_off = true; },
-     renderer::render_opt::Opt::VkModeConstants},
     {"as set, probe lighting off, render scale 50%",
      [](settings::Settings& g) {
          g.sweep_probe_lighting_off = true;
@@ -245,7 +231,7 @@ struct Sweep {
 
     std::vector<Boundary> starts;  // where each step's frames begin
     // When the pre-warm workers last had a pipeline to make (stats' seconds): a step's frames
-    // count only after it, drawn with their own pipelines (vk-mode-constants).
+    // count only after it, drawn with their own pipelines (shader variants).
     double compiled_s = 0.0;
     double held_s = 0.0;  // how long the steps have waited for the workers (kSweepHoldS)
     double seen_s = 0.0;  // the capture's time at the frame before

@@ -269,6 +269,7 @@ add_library(openrac_renderer STATIC
   renderer/gl/program_cache.cpp
   renderer/gl/gl_warmup.cpp
   renderer/gl/shader.cpp
+  renderer/gl/shader_variants.cpp
   renderer/frame/subsystems.cpp
   renderer/textures/texture.cpp
   renderer/textures/texture_pack.cpp
@@ -1278,3 +1279,11 @@ if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   set_tests_properties(atmosphere_precision PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
+
+# Native GL feature variants preserve logical uniforms across independent linked programs.
+openrac_add_test(gl_shader_variants LIBS openrac_renderer_world openrac_renderer openrac_platform)
+set_tests_properties(gl_shader_variants PROPERTIES SKIP_RETURN_CODE 77 LABELS "gpu"
+                    RESOURCE_LOCK "openrac_gpu")
+add_test(NAME gl_shader_variants_es COMMAND gl_shader_variants_test)
+set_tests_properties(gl_shader_variants_es PROPERTIES SKIP_RETURN_CODE 77 LABELS "gpu"
+                    RESOURCE_LOCK "openrac_gpu" ENVIRONMENT "OPENRAC_GL_API=es")

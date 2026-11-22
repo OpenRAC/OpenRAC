@@ -3,11 +3,13 @@
 
 #include "renderer/gl/program_cache.h"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstring>
 #include <format>
 #include <fstream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <system_error>
@@ -17,12 +19,16 @@
 #include "common/cache_folder.h"
 #include "common/env.h"
 #include "common/log.h"
+#include "renderer/gl/shader_variants.h"
 
 namespace openrac::renderer::program_cache {
 
 using namespace openrac::gl;
 
 namespace {
+
+// Bounds the number of exact combinations loaded and recorded per program.
+constexpr std::size_t kMostFeatureSets = 256;
 
 // A file: the magic, the binary's format, a word of nothing, the key's check, the binary's length
 // and its hash, all little-endian as the machine writes them (a cache never leaves the machine),
@@ -58,6 +64,8 @@ struct State {
     std::filesystem::path folder;  // this driver's; empty: memory only
     std::unordered_map<std::uint64_t, Entry> memory;
     Counts counts;
+    // Variant tracking outlives binary cache resets while the GL context remains current.
+    std::unique_ptr<shader_variants::Context> variants;
 };
 
 State g;
@@ -286,7 +294,100 @@ Counts counts() {
 }
 
 void reset() {
+    auto variants = std::move(g.variants);
     g = State{};
+    g.variants = std::move(variants);
+}
+
+shader_variants::Context& variant_context() {
+    // The cache state owns the registry; callbacks borrow it only on the rendering thread.
+    if (!g.variants) {
+        g.variants = std::make_unique<shader_variants::Context>();
+    }
+
+    return *g.variants;
+}
+
+std::vector<std::vector<int>> feature_sets(const Key& key, std::size_t modes) {
+    decide();
+    // A driver without program binaries never writes a feature manifest.
+    if (!g.on) {
+        return {};
+    }
+
+    constexpr std::uintmax_t kManifestBytes = 64 * 1024;  // Bounds untrusted cache input.
+    const auto path = file_of(key.name).string() + ".variants";
+    std::error_code error;
+    const auto bytes = std::filesystem::file_size(path, error);
+
+    // Missing or oversized manifests do not affect shader correctness.
+    if (error || bytes > kManifestBytes) {
+        return {};
+    }
+
+    std::ifstream file(path);
+    std::uint64_t check = 0;
+    std::size_t count = 0;
+    std::size_t width = 0;
+
+    // The source check and width reject collisions and incompatible feature layouts.
+    if (!(file >> check >> width >> count) || check != key.check || width != modes
+        || count > kMostFeatureSets) {
+        return {};
+    }
+
+    std::vector<std::vector<int>> sets(count, std::vector<int>(modes));
+
+    // A truncated or malformed set is discarded with the rest of this optional manifest.
+    for (auto& set : sets) {
+        for (int& value : set) {
+            if (!(file >> value)) {
+                return {};
+            }
+        }
+    }
+
+    return sets;
+}
+
+void note_feature_set(const Key& key, const std::vector<int>& values) {
+    auto sets = feature_sets(key, values.size());
+
+    // Disabled caches and repeated observations need no disk write.
+    if (!g.on || std::ranges::find(sets, values) != sets.end()) {
+        return;
+    }
+
+    // The least recent retained combination gives way to the newly observed one.
+    if (sets.size() == kMostFeatureSets) {
+        sets.erase(sets.begin());
+    }
+
+    sets.push_back(values);
+    std::error_code error;
+    std::filesystem::create_directories(g.folder, error);
+
+    // A read-only cache does not prevent an exact variant from drawing.
+    if (error) {
+        return;
+    }
+
+    std::ofstream file(file_of(key.name).string() + ".variants", std::ios::trunc);
+    file << key.check << ' ' << values.size() << ' ' << sets.size() << '\n';
+
+    // Each row is one exact key; incomplete writes are rejected by feature_sets.
+    for (const auto& set : sets) {
+        for (const int value : set) {
+            file << value << ' ';
+        }
+
+        file << '\n';
+    }
+
+    // Shader compilation remains usable when the optional cache cannot be saved.
+    if (!file) {
+        log::verbose("OpenGL feature manifest: cannot save observed variants");
+    }
 }
 
 }  // namespace openrac::renderer::program_cache

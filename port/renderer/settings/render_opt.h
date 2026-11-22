@@ -109,8 +109,6 @@ enum class Opt : std::uint8_t {
     MotionBlurHalfFlood,
     // vk-program-keep: a deleted program's shader modules and pipelines wait for its next link
     VkProgramKeep,
-    // vk-mode-constants: a program's mode uniforms are constants of its pipelines
-    VkModeConstants,
     // water-mesh-coarse: Enhanced water subdivided to one unit, not half a unit (lossy, Medium)
     WaterMeshCoarse,
     // water-strip-cull: an Enhanced water strip outside the view, waves included, is not drawn

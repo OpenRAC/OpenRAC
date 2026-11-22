@@ -104,7 +104,6 @@ detail.
 | `shadow-far-alternate` | on at Medium and Low detail | 25% of pixels, any value (measured: see the section) | The sun's cascades 1 to 3 are drawn every other frame, 1 in turn with 2 and 3, while this frame's receivers fit the cascade as it was drawn. A kept cascade is sampled with the matrix it was drawn with ([shadow-far-alternate](#shadow-far-alternate-far-cascades-every-other-frame)). |
 | `motion-blur-half-flood` | on | 1% of pixels by at most 32 | Motion blur quality Performance: the blur's jump flood runs on a half-resolution seed grid, a quarter of its pixels in every pass. The first flood offers every render pixel of a cell, and the gather still tests each display pixel against the trail. |
 | `vk-program-keep` | on | none (exact) | Vulkan: a deleted program's shader modules, layouts and pipelines are kept, and the next link of the same shaders takes them. A level's load links the programs of the level before, so it makes no pipelines again ([vk-program-keep](#vk-program-keep-pipelines-kept-across-level-loads)). |
-| `vk-mode-constants` | on | none (exact) | Vulkan: the integer uniforms a shader names as modes (`// openrac_mode: name ...`) are specialisation constants of its pipelines. The driver compiles each pipeline for the modes it is drawn with and drops the code they leave out. A draw whose specialised pipeline is not made yet uses the one that reads the uniforms ([vk-mode-constants](#vk-mode-constants-modes-as-pipeline-constants)). |
 | `water-mesh-coarse` | on at Medium and Low detail | 5% of pixels by at most 64 | Enhanced water: each baked shape is split again at load to one unit instead of half a unit, the same midpoints, about a quarter of the triangles. On the Odin 3 the water's 283k triangles a frame bound the effects pass (1.5 ms at any render scale). Waves keep their shading per pixel; only the surface's shape is coarser. |
 | `water-strip-cull` | on | none (exact) | Enhanced water: a strip whose box, grown by four units for the waves, lies outside the view is not drawn. The game sends water strips the camera cannot see, and each one costs its dense triangles' vertex work and binning. |
 | `early-lighting-quarter` | on at Low detail | 5% of pixels by at most 64 | Early lighting (GI and the near cascades' look-up) runs once per 4x4 pixels instead of 2x2, a quarter of the compute work; the colour passes pick the nearest of the cell's samples as before. Lighting edges are coarser. |
@@ -145,7 +144,7 @@ it stands. The last column names the package of phase R whose result the counter
 | `vk_pipelines_created` | total | Graphics and compute creations on the drawing thread; excludes prewarm workers | `vkgl_internal.h` | R-10, R-11 |
 | `vk_pipelines_created_after_warmup` | total | Of those, the ones made after the warm-up `vkgl::begin_pipeline_warmup(N)` started (N frames after the benchmark's level upload); 0 until it is called | the same | R-10 |
 | `vk_pipelines_linked` | total | Pipelines a draw linked from parts (vk-pipeline-library); not in `vk_pipelines_created` | `vkgl_pipelines.cpp` | vk-pipeline-library |
-| `vk_mode_pipelines` | total | Pipelines specialised with a program's modes: asked of the pre-warm workers, or made at their draw where there are none | `vkgl_pipelines.cpp` | vk-mode-constants |
+| `vk_mode_pipelines` | total | Pipelines specialised with a program's modes: compiled for their first draw; subsequent draws reuse the exact variant | `vkgl_pipelines.cpp` | mandatory shader variants |
 | `vk_descriptor_sets_allocated` | frame | Descriptor sets allocated, the material pages' included | `vkgl_pipelines.cpp`, `gpu_materials.inc` | R-14 |
 | `vk_descriptor_writes` | frame | `VkWriteDescriptorSet` entries written | `vkgl_pipelines.cpp`, `gpu_materials.inc`, `gpu_draw.inc` | R-14 |
 | `vk_render_passes` | frame | Render passes begun | `vkgl_commands.cpp`, `vkgl_gl.cpp` (a depth resolve) | R-06, R-07 |
@@ -2168,36 +2167,49 @@ at a level's load:
 The frames are the same bytes. The `vk_program_reuses` gauge counts the links that took kept
 objects. Its test is `render_equivalence_support`.
 
-## vk-mode-constants: modes as pipeline constants
+## Shader feature variants
 
-The world's shaders hold every Enhanced feature at once: probe lighting, early lighting, local
-lights, atmosphere, wetness, fur, foliage, water float and the passes of the mobys. A draw picks
-its path with integer uniforms (`probe_mode`, `effect_pass`, `atmosphere_enabled`, ...). A driver
-cannot drop code behind a uniform, so each pipeline carried all of it: the main opaque fragment
-shader is about 12,500 SPIR-V instructions after optimisation, and about 5,700 with its modes
-fixed by hand to the Low preset's values; its vertex shader goes from about 2,500 to about 500.
-
-A shader names its modes in a comment line, `// openrac_mode: name name ...`. A mode is a scalar
-`uniform int` that keeps its value over many draws (a pass, a setting, a level). At link, the
-Vulkan backend rewrites each named declaration (`gl_program.cpp`, `mode_sources`):
+OpenGL, OpenGL ES and Vulkan graphics fix all feature modes named by their shaders in
+`// openrac_mode: name name ...` comments. In Vulkan, these scalar integer declarations become
+specialisation constants at link time:
 
 ```glsl
-uniform int openrac_u_probe_mode; layout(constant_id = 1003) const int openrac_c_probe_mode = 2147483647;
-#define probe_mode (openrac_c_probe_mode != 2147483647 ? openrac_c_probe_mode : openrac_u_probe_mode)
+layout(constant_id = 1003) const int probe_mode = 0;
 ```
 
-The uniform stays where it was, under its GL name. The pipeline key holds the modes' values
-(`PipelineKey::mode`), and the pipeline is made with them as specialisation constants. A
-pipeline made without them reads the uniforms, exactly as before.
+Their GL names and setters address CPU-only values used in the pipeline key. The shader has
+no uniform branch for these modes. Every observed value remains specialised, including modes
+with more than four values. There is no generic pipeline fallback or switch to disable variants.
+Per-draw material buffer fields and ordinary runtime data remain runtime data.
 
-No draw waits for a specialised pipeline. The first draw of a new set of values uses the plain
-pipeline, which gives the same picture, and records the key in the manifest. During level loading
-the workers can compile new variants. During gameplay the manifest keeps them for a future load
-so background compilation does not compete with rendering. Switched off while
-the game runs, it works the other way round: the specialised pipeline draws until the plain one
-is made. A mode that takes more than four values stays a uniform. A mode the material path
-reads per draw is left alone. OpenGL and Metal ignore the comment.
+An unseen variant is compiled for its first draw, which can stall that frame. Its exact key is
+recorded in the manifest, so later runs prewarm the observed variants behind the loading screen.
+Programs with modes never prewarm unspecialised shader library parts. A failed variant link
+reports its compiler error instead of compiling an all-features shader. Programs with no modes
+have one shader variant. MoltenVK receives the same specialisation constants as other Vulkan
+drivers; `OPENRAC_GL_API=metal` selects this Vulkan path.
 
-The frames are the same bytes. `vk_mode_pipelines` counts the specialised pipelines. The
-Graphics sweep has four steps with the entry off, to measure it on a device. Its test is
-`vulkan_uniform`.
+`vulkan_uniform` checks exact pixels, values beyond the former four-value limit, `INT_MAX` and
+reuse across frames. `vulkan_prewarm` checks cold and warm contexts with and without graphics
+pipeline libraries.
+
+On native OpenGL and ES, `shader_variants` replaces the same marked declarations with GLSL
+`const int` values before the driver sees any source. The initial zero-valued program is an exact
+variant. Feature setters update CPU values; the next draw or dispatch binds the exact native
+program. Logical uniform and block locations remain stable, and ordinary runtime values are
+replayed when a variant changes. Partial array writes preserve untouched elements. World instancing
+uses the same hooks. Compute programs can declare feature modes through the same marker.
+
+Observed GL feature combinations are saved beside the driver's program binaries and compiled
+or loaded when the shader is rebuilt. Warm-up replays the observed sampler and block bindings
+even before the renderer first sets them, and restores native values after drawing.
+A failed cached variant is skipped during warm-up
+and retried if a draw requests it. If the requested exact variant fails, the draw is skipped.
+Binary caching can be disabled without disabling exact variants.
+An individual native program cannot be hot-reloaded independently of its feature group; feature
+shader source changes require a rebuild. Programs without feature modes keep ordinary hot reload.
+
+`gl_shader_variants` and `gl_shader_variants_es` check constant-only driver reflection, values
+beyond four combinations, `INT_MAX`, matrix and array replay, uniform block bindings, world
+instancing, compute dispatch, state warm-up and loading observed combinations from the cache.
+macOS OpenGL 4.1 skips the compute portion; MoltenVK uses the Vulkan tests instead.

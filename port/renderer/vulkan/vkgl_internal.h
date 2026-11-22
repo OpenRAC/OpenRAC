@@ -666,12 +666,9 @@ struct PersistentSets {
     std::vector<std::uint64_t> key;  // The key being looked up, kept for its capacity.
 };
 
-// A program's mode uniforms as specialisation constants (vk-mode-constants, gl_program.cpp
-// mode_sources): slot n's constant has the id kModeConstantBase + n, and kModeDynamic for its
-// value means "read the uniform", which is what a pipeline made without the constants does.
+// Feature slots fixed by every graphics pipeline variant, with IDs starting at kModeConstantBase.
 inline constexpr std::uint32_t kModeConstantBase = 1000;
 inline constexpr std::size_t kModeConstants = 47;
-inline constexpr std::int32_t kModeDynamic = 2147483647;
 
 // A GL program: its shaders, the compiled SPIR-V and what it declares (shader_compiler.h), its
 // shader modules and layouts, the default uniform block, and the descriptor sets made this frame.
@@ -708,14 +705,9 @@ struct Program {
     // One opted-in vertex draw integer, appended to the CPU shadow but excluded from its UBO.
     int draw_uniform_offset = -1;
 
-    // The mode uniforms its stages take as specialisation constants (vk-mode-constants), by slot:
-    // where each one's value is in `uniforms` (-1: no stage reads it), the values a draw has had
-    // it at, and whether it changed too often to be worth a pipeline for each value.
+    // CPU-only values for feature constants, in the same order as the shader's constant IDs.
     struct Mode {
-        int offset = -1;
-        std::array<std::int32_t, 4> seen{};
-        std::uint8_t seen_count = 0;
-        bool dynamic = false;
+        int offset = -1;  // Byte offset in the program's CPU uniform shadow.
     };
 
     std::vector<Mode> modes;
@@ -724,10 +716,6 @@ struct Program {
     std::array<std::int32_t, kModeConstants> key_modes{};
     std::uint32_t key_mode_count = 0;
     bool key_modes_stale = true;
-    // The last key is drawn by a pipeline that reads its modes from the uniforms, while a worker
-    // makes the specialised one: the count of pipelines the workers had made when it was looked up.
-    bool last_pipeline_stands_in = false;
-    std::uint64_t last_pipeline_made = 0;
     std::vector<int> units;              // per entry of compiled.uniforms: a sampler's unit
     std::vector<GLuint> block_bindings;  // per entry of compiled.blocks: its GL binding point
     bool uniforms_dirty = true;
@@ -958,9 +946,8 @@ struct PipelineKey {
     std::uint32_t viewports;
     std::uint32_t dynamic_fixed;  // 1: `fixed` is dynamic state of the pipeline (R-11).
     std::uint32_t clamp_colour;   // 1: the fragment stage clamps its colour (Image::clamp_writes).
-    // The program's mode uniforms the shader stages are specialised with (vk-mode-constants):
-    // `mode_count` of them, each its uniform's value or kModeDynamic; 0 for a pipeline that reads
-    // every mode from its uniform.
+    // Exact feature values fixed by this pipeline variant; zero modes for shaders without features.
+    // Each value belongs to its corresponding specialisation constant, never a dynamic uniform.
     std::uint32_t mode_count;
     std::int32_t mode[kModeConstants];
     Input input[kAttributes];
@@ -1093,10 +1080,6 @@ struct PipelinePrewarm {
     std::vector<std::pair<PipelineKey, PrewarmPart>> making;
     std::vector<PrewarmDone> ready;  // Made, not yet taken by the thread that draws.
     std::uint64_t made = 0;  // Pipelines and parts the workers have made since the backend opened.
-    // The same count for the thread that draws to read without the lock (vk-mode-constants).
-    std::atomic<std::uint64_t> made_count{0};
-    // The specialised keys asked of the workers, by hash: none is queued twice.
-    std::unordered_set<std::uint64_t> mode_keys;
     // Optional upgrades discovered during gameplay are recorded for the next load.
     bool level_loaded = false;
     bool stop = false;       // Set at close: the workers return.
@@ -2027,7 +2010,7 @@ void draw(
 bool material_enabled();
 
 // Whether the native material path would read uniform `name` of a program with vertex stage
-// `vertex` from its draw's record: such a uniform is no mode constant (vk-mode-constants).
+// `vertex` from its draw's record: such a uniform is no mode constant (shader variants).
 bool material_takes(const std::string& vertex, std::string_view name);
 
 // Prepares program `p` for the native material path when its shaders draw meshes (a model

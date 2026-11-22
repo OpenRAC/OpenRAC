@@ -41,7 +41,11 @@ Implementation files are grouped by responsibility:
 | `gl/program_cache.h` | the driver's binaries of the programs `Shader` built (OpenGL and ES), in memory and on disk, so that a program built again from the same sources (each level, each run) is loaded instead of compiled | |
 
 Shaders are in `shaders/` and compiled into the library
-([cmake/Window.cmake](../cmake/Window.cmake)).
+([cmake/Window.cmake](../cmake/Window.cmake)). Feature markers (`// openrac_mode: ...`) select
+exact variants on native OpenGL/ES (`gl/shader_variants.h`) and Vulkan, including MoltenVK.
+OpenGL keeps logical uniform locations stable while switching native constant-only programs;
+observed combinations are cached and warmed at later loads. Unseen combinations compile before
+their draw rather than using a generic shader. See [shader feature variants](../../docs/port/RENDER_PERF.md#shader-feature-variants).
 
 `ui/` is a library of its own, `openrac_renderer_ui` ([ui/README.md](ui/README.md)): what the game
 programs draw over the game's picture with this GL (ImGui's draw lists on the Vulkan renderer's
