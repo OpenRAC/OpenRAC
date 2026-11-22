@@ -49,7 +49,8 @@ std::vector<scene::Instance> blend_instances(const Kept& scene, float alpha) {
     return live;
 }
 
-// Interpolates joints only for the same moby and skeleton.
+// Interpolates joints only for the same moby and skeleton: the same address drawn as the same model
+// (pose_key), with as many joints.
 std::vector<scene::LevelScene::JointColumns> blend_palette(
     const Kept& scene, const std::vector<scene::Instance>& live, float alpha
 ) {
@@ -59,7 +60,7 @@ std::vector<scene::LevelScene::JointColumns> blend_palette(
     for (std::size_t n = 0;
          n < live.size() && n < scene.addresses.size() && n < scene.joints.size();
          ++n) {
-        const auto pose = scene.prev_poses.find(scene.addresses[n]);
+        const auto pose = scene.prev_poses.find(pose_key(scene.addresses[n], live[n].model));
         const int first = live[n].palette;
         const int count = scene.joints[n];
         const auto last = scene.prev_matrices.find(scene.addresses[n]);
