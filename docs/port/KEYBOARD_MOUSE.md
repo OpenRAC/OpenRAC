@@ -92,8 +92,9 @@ off.
 
 ## Changing the controls
 
-In the game (F1, Controls, *Keyboard, mouse and gyro*) or in the launcher (Mods,
-Built in). Both show the same page and changes apply at once. They are saved as
+In the game (F1, Controls, *Keyboard and mouse* tab) or in the launcher (Mods,
+Built in). Gyro settings sit on the game's *Gamepad* tab and the launcher's *Gyro*
+tab. The Controls tab opens on the device you used last. Changes apply at once. They are saved as
 `kbm_<key> = <value>` in `<data>/settings/<game>-<version>.ini`.
 
 | Setting | Default | What it does |

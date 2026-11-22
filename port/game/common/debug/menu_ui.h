@@ -203,6 +203,14 @@ int menu_number_slider(
 // The launcher's primary button, across the space left.
 bool menu_button(const char* label);
 
+// Sub tabs over a tab's rows (Controls: Gamepad, Keyboard and mouse), as the launcher's page tabs:
+// each a button of its own, the picked one (`current`) tinted in the accent, `helps[i]` the help
+// pane's words for one under the pointer or the focus (as a row of entry `entry`). Returns the one
+// picked now, `current` when none was pressed.
+int menu_sub_tabs(
+    const char* const* names, const char* const* helps, int count, int current, int entry
+);
+
 // A line of the card, in `ink` (the launcher's soft text by default): what is not pressed.
 void menu_note(const char* line, ImU32 ink = ui().soft);
 
@@ -227,6 +235,11 @@ bool draw_tab(menu::Tab tab, std::uint8_t where, const SectionFilter& only = {})
 // True for the Controls tab's controller sections (bindings, sticks, players); a touch screen
 // shows them in their own panel next to the drawer.
 bool controller_section(std::string_view section);
+
+// The Controls tab: on a desktop with the built-in keyboard and mouse, as two sub tabs, Gamepad
+// (the controller's sections and the gyro) and Keyboard and mouse, opening on the device in use;
+// else draw_tab's one page. False when nothing of it is shown.
+bool draw_controls_tab(std::uint8_t where);
 
 // Says whether `tab` has anything to show on `where` now.
 bool tab_shown(menu::Tab tab, std::uint8_t where);
@@ -254,8 +267,8 @@ std::string entry_label(menu::Id id, std::uint8_t where);
 // Remembers `entry` (a menu::Id) as the one under the pointer or the focus when the item just drawn
 // is, for the desktop's help: a focus moved by a controller or keys wins over the pointer.
 void note_hover(int entry);
-// The same for a row of the entry's panel with help of its own: its heading (after the entry's),
-// name and line take the help's place.
+// The same for a row of the entry's panel with help of its own: its heading (in place of the
+// entry's), name and line take the help's place.
 void note_hover_row(int entry, std::string section, std::string title, std::string help);
 
 // ---- The Controls tab (debug/menu_controls.cpp) ----
@@ -283,6 +296,8 @@ void draw_controls_panel(menu::Id id);
 // (true: the event is used up).
 bool keyboard_mouse_shown();
 void keyboard_mouse_panel();
+// The built-in's gyro settings, a heading and a card of their own (the Gamepad sub tab).
+void keyboard_mouse_gyro();
 bool keyboard_mouse_capture_event(const SDL_Event& e);
 
 // Each frame: a press awaited for a binding arrives, gives up after a while, or ends with the
