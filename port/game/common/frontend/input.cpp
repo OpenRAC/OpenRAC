@@ -18,6 +18,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "button_labels.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "debug_menu.h"
@@ -96,6 +97,36 @@ void draw_touch_pad(int window_width, int window_height) {
     }
 }
 
+// The player's device for the labels of the pad's buttons (button_labels.h, interface 1.31): the
+// keyboard and mouse, or the make of the first controller connected (none: the game's own icons).
+void publish_button_device(bool keyboard_mouse) {
+    button_labels::Device device;
+    device.keys = keyboard_mouse;
+    int count = 0;
+    if (SDL_JoystickID* pads = SDL_GetGamepads(&count)) {
+        if (count > 0) {
+            switch (SDL_GetGamepadTypeForID(pads[0])) {
+                case SDL_GAMEPAD_TYPE_PS3:
+                case SDL_GAMEPAD_TYPE_PS4:
+                case SDL_GAMEPAD_TYPE_PS5:
+                    device.pad = button_labels::Pad::PlayStation;
+                    break;
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO:
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT:
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR:
+                    device.pad = button_labels::Pad::Nintendo;
+                    break;
+                default:
+                    device.pad = button_labels::Pad::Xbox;
+                    break;
+            }
+        }
+        SDL_free(pads);
+    }
+    button_labels::set_device(device);
+}
+
 // The cursor as the mods ask for it, while nothing else has the mouse: captured only with the
 // window focused, the overlay's windows, the menu and the debug menu shut, and the player on the
 // keyboard and mouse (platform/active_device.h): on a gamepad the mouse is left alone.
@@ -106,6 +137,7 @@ void apply_mouse_capture() {
     SDL_Window* w = g->window->sdl();
     const bool focused = (SDL_GetWindowFlags(w) & SDL_WINDOW_INPUT_FOCUS) != 0;
     const bool keyboard_mouse = g->input.active_device() == platform::ActiveDevice::KeyboardMouse;
+    publish_button_device(keyboard_mouse);
     const bool capture =
         focused && !debug_menu::is_open()
         && (debug_overlay::camera_debug_capturing()
@@ -135,6 +167,14 @@ void apply_mouse_capture() {
 
 bool keyboard_mouse_in_use() {
     return g && g->input.active_device() == platform::ActiveDevice::KeyboardMouse;
+}
+
+void set_prompt_keys(const std::string* names, int count) {
+    button_labels::KeyNames keys;
+    for (int i = 0; names != nullptr && i < count && i < static_cast<int>(keys.size()); ++i) {
+        keys[static_cast<std::size_t>(i)] = names[i];
+    }
+    button_labels::set_key_names(keys);
 }
 
 KeyboardMouseView keyboard_mouse() {

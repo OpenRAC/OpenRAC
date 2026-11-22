@@ -671,6 +671,8 @@ def luau_types(b: dict) -> str:
     out.append("    -- interface 1.15: the mod's own settings set (for the run and in the launcher's list), and its changes heard")
     out.append("    set_setting: (key: string, value: any) -> boolean,")
     out.append("    on_settings: (fn: () -> ()) -> (),")
+    out.append("    -- interface 1.31: a pad button's label (an OPENRAC_PAD_* bit: 0x8000 Square) for the device in use, and its kind")
+    out.append("    button_label: (button: number) -> (string?, (\"playstation\" | \"letters\" | \"keys\")?),")
     if b["moby"] is not None:
         out.append("    -- experimental: a moby's pvars by name, from the behaviour catalogue")
         out.append("    pvars: (moby: number) -> { [string]: number }?,")

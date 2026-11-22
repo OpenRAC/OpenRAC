@@ -54,6 +54,15 @@ constexpr Glyph kFont[] = {
     {']', " ###    #    #    #    #    #  ### "}, {'"', " # #  # #                          "},
 };
 
+// The pad's face buttons, Cross, Circle, Triangle and Square: the characters of the mods' button
+// tokens (OPENRAC_UI_CROSS ..., interface 1.31), which their overlays' text draws as these icons.
+constexpr Glyph kPadFont[] = {
+    {0x10, "     #   # # #   #   # # #   #     "},
+    {0x11, "      ### #   ##   ##   # ###      "},
+    {0x12, "       #   # #  # # #   ######     "},
+    {0x13, "     ######   ##   ##   ######     "},
+};
+
 // Returns the byte `channel` (0 red, 1 green, 2 blue, 3 alpha) of a colour 0xRRGGBBAA.
 std::uint8_t channel(std::uint32_t colour, int channel) {
     constexpr int kBitsPerChannel = 8;
@@ -70,6 +79,11 @@ const char* glyph_rows(char c) {
         // A glyph whose rows were mistyped short is no glyph.
         if (g.c == upper
             && std::strlen(g.rows) >= static_cast<std::size_t>(kGlyphColumns * kGlyphRows)) {
+            return g.rows;
+        }
+    }
+    for (const Glyph& g : kPadFont) {
+        if (g.c == c) {
             return g.rows;
         }
     }
