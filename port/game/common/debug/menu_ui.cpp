@@ -830,6 +830,65 @@ bool menu_button(const char* label) {
     return pressed;
 }
 
+int menu_sub_tabs(
+    const char* const* names, const char* const* helps, int count, int current, int entry
+) {
+    // As far under the title as a section's heading is, and as far over the first heading.
+    ImGui::Dummy(ImVec2(0.0f, dp(18.0f)));
+    ImFont* font = menu_fonts.strong;
+    const float height = dp(40.0f);
+    const float round = dp(6.0f);
+    // The picked one's tint: the launcher's --on-fill, its accent mixed 22 % into the page's ink.
+    const ImU32 on_fill = ui_colors::mix(ui().ink, ui().amber, 0.22f);
+    int picked = current;
+    for (int i = 0; i < count; ++i) {
+        if (i > 0) {
+            ImGui::SameLine(0.0f, dp(6.0f));  // each a button of its own, with room between
+        }
+        const ImVec2 text = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, names[i]);
+        const ImVec2 a = ImGui::GetCursorScreenPos();
+        const ImVec2 b(a.x + text.x + dp(36.0f), a.y + height);
+        const bool pressed =
+            ImGui::InvisibleButton(names[i], ImVec2(b.x - a.x, height), ImGuiButtonFlags_EnableNav);
+        if (pressed && i != current) {
+            menu_sound(MenuSound::Page);
+            picked = i;
+        }
+        // The menu just opened or changed tab: the picked one takes the focus, as a first row
+        // would.
+        if (s.menu_focus_first && i == current) {
+            s.menu_focus_first = false;
+            ImGui::FocusItem();
+        }
+        note_hover_row(entry, "", names[i], helps[i]);
+        ImDrawList* list = ImGui::GetWindowDrawList();
+        const float on = tween(item_part("on"), i == current ? 1.0f : 0.0f, kFast);
+        const float hover = tween(
+            item_part("hover"),
+            !drawer_possible() && ImGui::IsItemHovered() && i != current ? 1.0f : 0.0f,
+            kFast
+        );
+        const ImU32 rest = ui_colors::mix(control_fill(), pressed_fill(), hover);
+        list->AddRectFilled(a, b, ui_colors::mix(rest, on_fill, on), round);
+        focus_ring(
+            list,
+            ImVec2(a.x - dp(3.0f), a.y - dp(3.0f)),
+            ImVec2(b.x + dp(3.0f), b.y + dp(3.0f)),
+            round + dp(3.0f)
+        );
+        list->AddText(
+            font,
+            font->FontSize,
+            centred_text(
+                font, font->FontSize, names[i], ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
+            ),
+            ui_colors::mix(ui_colors::mix(ui().soft, ui().text, hover), ui().amber, on),
+            names[i]
+        );
+    }
+    return picked;
+}
+
 void menu_note(const char* line, ImU32 ink) {
     // First in its card, as far from the card's top as a row's label is.
     ImGui::Dummy(ImVec2(0.0f, dp(s.card.rows == 0 ? 14.0f : 10.0f)));
