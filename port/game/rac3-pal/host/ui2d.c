@@ -1183,6 +1183,68 @@ void func_L01_00420AE8(int tex, gaddr colours, float x, float y, float w, float 
     }
 }
 
+/* A HUD texture's quad turned about its centre (x, y), w and h its half sizes in 12.4 pixels, ang
+ * its turn (its sine s and cosine c), tw x th texels of tex0 mirrored left to right, in grey 0x7F
+ * at the HUD's depth z: the boot program's 0x00397A18 (frontbin's func_00397638, whose matched C
+ * builds the same packet: TEX0, PRIM 0x154, one colour, four corners of UV and XYZ2, a strip).
+ * The corners as the VU0 sums them, c + a - b, c + a + b, c - a - b, c - a + b, with a = h (sin,
+ * cos) and b = w (-cos, sin), cut to whole sixteenths. The saving prompt's turning icon in a level
+ * (func_L01_003EB9C8: HUD texture 0x755D's second frame over its first, the card) is one. */
+static int hud_quad_turned(
+    gaddr cursor,
+    float x,
+    float y,
+    float w,
+    float h,
+    float s,
+    float c,
+    int tw,
+    int th,
+    unsigned long long tex0,
+    uint32_t z
+) {
+    const float ax = h * s, ay = h * c;
+    const float bx = -w * c, by = w * s;
+    const float px[4] = {(x + ax) - bx, (x + ax) + bx, (x - ax) - bx, (x - ax) + bx};
+    const float py[4] = {(y + ay) - by, (y + ay) + by, (y - ay) - by, (y - ay) + by};
+    const int us[4] = {tw << 4, tw << 4, 0, 0}, vs[4] = {0, th << 4, 0, th << 4};
+    openrac_game_ui_rect q;
+    memset(&q, 0, sizeof(q));
+    for (int i = 0; i < 4; ++i) {
+        q.x[i] = (uint32_t)to_screen_x((int)px[i]) & 0xFFFFu;
+        q.y[i] = (uint32_t)to_screen_y((int)py[i]) & 0xFFFFu;
+        q.u[i] = (uint32_t)us[i];
+        q.v[i] = (uint32_t)vs[i];
+    }
+    q.z = z;
+    q.rgba = 0x807F7F7Fu;
+    q.tex0 = tex0;
+    return openrac_ui_send(&q, cursor);
+}
+
+void func_00397A18(float x, float y, float w, float h, float ang, int tw, int th, long long tex0) {
+    const float s = func_0038D490(ang), c = func_0038D478(ang);
+    const uint32_t z = GREF(uint32_t, RAC3_ADDR(0x001D9E94u));
+    if (!hud_quad_turned(kBoot.cursor, x, y, w, h, s, c, tw, th, (unsigned long long)tex0, z)) {
+        func_00397A18__game(x, y, w, h, ang, tw, th, tex0);
+    }
+}
+
+/* The levels' copy (frontbin's catalogue row func_00397638). The TEX0 is the caller's whole 64-bit
+ * register, as the console passes it on (asm.signatures; the callers' func_L01_00420080 is
+ * "returns_64"): read as an int, its upper word (TH's high bits, CBP) was the sign of the lower
+ * one, the icon was sampled from a 64 x 16384 texture of no palette, and the saving prompt showed
+ * no turning icon. Its float result is the sine it last asked for, which the callers' $f0 holds. */
+float func_L01_00421278(int tw, int th, long long tex0, float x, float y, float w, float h, float ang) {
+    const Rac3Ui2d u = rac3_ui2d_level();
+    const float s = func_L01_0040E910(ang), c = func_L01_0040E8F8(ang);
+    const uint32_t z = GREF(uint32_t, u.hud_depth);
+    if (!hud_quad_turned(u.cursor, x, y, w, h, s, c, tw, th, (unsigned long long)tex0, z)) {
+        return func_L01_00421278__game(tw, th, tex0, x, y, w, h, ang);
+    }
+    return s;
+}
+
 /* The multiplayer executable's 2D layer (I5BOOTN.ELF, mp.c): its own program's (0x0027xxxx, which
  * its loading screen draws with) and level 39's, the multiplayer menus' (frontbin's routines at the
  * catalogue's level 39 places), each paired with the boot program's instruction by instruction

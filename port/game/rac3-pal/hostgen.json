@@ -441,6 +441,7 @@
       "func_L01_00410A98": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_L01_004059C8": "void (int, int, int, int)",
       "func_L01_00420AE8": "void (int, void *, float, float, float, float, float)",
+      "func_L01_00421278": "float (int, int, long long, float, float, float, float, float)",
       "func_L01_004CBC60": "void (void *, float, float, int, float, void *)",
       "func_L01_0041FE80": "void (void)",
       "func_L01_004202A8": "void (int, int, int, int, int, int)",
@@ -1364,7 +1365,8 @@
   "returns_64": [
     "func_00389598__frontbin",
     "func_00396A38__frontbin",
-    "func_003A9830__frontbin"
+    "func_003A9830__frontbin",
+    "func_L01_00420080"
   ],
   "executable_extents": {
     "sources": [
