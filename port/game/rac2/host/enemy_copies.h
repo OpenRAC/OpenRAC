@@ -60,7 +60,8 @@ int rac2_copy_check(const rac2_moby_table* table, gaddr moby);
 int rac2_copy_detail(const rac2_moby_table* table, gaddr moby);
 
 /* A copy of the placed moby at `moby`, its `index`-th (0 for its first), at a clear spot beside
- * it: its address, or 0 (not one that may be copied, no clear spot, no room in the pool). */
+ * it, with copies of its parts: its address, or 0 (not one that may be copied, no clear spot, no
+ * room in the pool, a spawned moby it names that others share). */
 gaddr rac2_copy_make(const rac2_moby_table* table, gaddr moby, int index);
 
 /* The `i`-th copy of this load (0 past the last), alive or not, and its original in *orig. */

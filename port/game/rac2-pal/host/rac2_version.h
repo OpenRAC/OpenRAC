@@ -104,6 +104,7 @@
 #define RAC2_ADDR_0x001BA440u 0x001BA440u /* versionmap: exact */
 #define RAC2_ADDR_0x001BA540u 0x001BA540u /* versionmap: exact */
 #define RAC2_ADDR_0x001BADC0u 0x001BADC0u /* versionmap: exact */
+#define RAC2_ADDR_0x001BAF80u 0x001BAF80u /* versionmap: exact */
 #define RAC2_ADDR_0x001BF200u 0x001BF200u /* versionmap: exact */
 #define RAC2_ADDR_0x001C2740u 0x001C2740u /* versionmap: exact */
 #define RAC2_ADDR_0x001C4FA0u 0x001C4FA0u /* versionmap: exact */

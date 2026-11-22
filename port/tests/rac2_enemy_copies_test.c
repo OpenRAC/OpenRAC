@@ -421,7 +421,7 @@ static void no_spot(void) {
     /* An original with no ground under it: no copy. */
     putf(placed(0) + 0x10u, 200.0f);
     CHECK(rac2_copy_make(&table, placed(0), 0) == 0);
-    /* Every spot crowded by others of its class: none. */
+    /* A pack around it out to 4 units: a spot in a ring farther out. */
     make_level();
     for (uint32_t i = 0; i < 40; ++i) {
         const gaddr m = func_0029EFD0(ENEMY);
@@ -430,13 +430,85 @@ static void no_spot(void) {
         putf(m + 0x14u, 10.0f + 3.25f * sinf(a));
         putf(m + 0x18u, 1.0f);
     }
-    CHECK(rac2_copy_make(&table, placed(0), 0) == 0);
-    /* Pvars that hold another moby (a part it made of its own): no copy; itself or none: one. */
+    const gaddr far = rac2_copy_make(&table, placed(0), 0);
+    CHECK(far != 0);
+    const float fx = GREF(float, far + 0x10u) - 10.0f, fy = GREF(float, far + 0x14u) - 10.0f;
+    CHECK(fx * fx + fy * fy > 4.0f * 4.0f && fx * fx + fy * fy <= 8.5f * 8.5f + 1e-3f);
+    /* A pack all around it, 2.5 units apart: a spot still, a unit from every one of them. */
+    make_level();
+    for (float x = -7.5f; x <= 7.5f; x += 2.5f) {
+        for (float y = -7.5f; y <= 7.5f; y += 2.5f) {
+            const gaddr m = func_0029EFD0(ENEMY);
+            CHECK(m != 0);
+            putf(m + 0x10u, 10.0f + x);
+            putf(m + 0x14u, 10.0f + y);
+            putf(m + 0x18u, 1.0f);
+        }
+    }
+    const gaddr close = rac2_copy_make(&table, placed(0), 0);
+    CHECK(close != 0);
+    for (gaddr m = DYNAMIC; m < END; m += 0x100u) {
+        if (m == close || GREF(uint8_t, m + 0x20u) >= 0x80u) {
+            continue;
+        }
+        const float dx = GREF(float, close + 0x10u) - GREF(float, m + 0x10u);
+        const float dy = GREF(float, close + 0x14u) - GREF(float, m + 0x14u);
+        CHECK(dx * dx + dy * dy >= 1.0f);
+    }
+}
+
+/* A moby that names others: a placed one (named alike by the copy), its own spawned parts (copied
+ * with it), or a spawned moby another one names too (no copy). */
+static void parts(void) {
     make_level();
     put32(blob_at(0) + 0x20u, placed(4));
-    CHECK(rac2_copy_make(&table, placed(0), 0) == 0);
-    put32(blob_at(0) + 0x20u, placed(0));
-    CHECK(rac2_copy_make(&table, placed(0), 0) != 0);
+    put32(blob_at(0) + 0x24u, placed(0));
+    gaddr c = rac2_copy_make(&table, placed(0), 0);
+    CHECK(c != 0);
+    CHECK(GREF(gaddr, GREF(gaddr, c + 0x68u) + 0x20u) == placed(4));
+    CHECK(GREF(gaddr, GREF(gaddr, c + 0x68u) + 0x24u) == c); /* itself: the copy */
+    /* A torso it spawned, naming it back, and an arm the torso names. */
+    make_level();
+    const gaddr torso = func_0029EFD0(THING);
+    const gaddr arm = func_0029EFD0(THING);
+    GREF(uint8_t, torso + 0x20u) = 1;
+    GREF(uint8_t, arm + 0x20u) = 1;
+    putf(torso + 0x10u, 10.0f);
+    putf(torso + 0x14u, 10.0f);
+    putf(torso + 0x18u, 2.0f);
+    put32(blob_at(0) + 0x28u, torso);
+    put32(GREF(gaddr, torso + 0x68u) + 0x70u, placed(0));
+    put32(GREF(gaddr, torso + 0x68u) + 0x10u, arm);
+    put32(GREF(gaddr, arm + 0x68u) + 0x8u, 0x12345678u);
+    /* Lists in their pvars (a joint modifier's node, named by the record's +0x64). */
+    put32(placed(0) + 0x64u, blob_at(0) + 0x30u);
+    put32(torso + 0x64u, GREF(gaddr, torso + 0x68u) + 0x40u);
+    put32(GREF(gaddr, torso + 0x68u) + 0x48u, GREF(gaddr, torso + 0x68u) + 0x40u);
+    c = rac2_copy_make(&table, placed(0), 0);
+    CHECK(c != 0);
+    const gaddr torso2 = GREF(gaddr, GREF(gaddr, c + 0x68u) + 0x28u);
+    CHECK(torso2 != torso && torso2 >= DYNAMIC && torso2 < END);
+    CHECK(GREF(int16_t, torso2 + 0xAAu) == THING && GREF(uint8_t, torso2 + 0x20u) == 1);
+    const gaddr tv = GREF(gaddr, torso2 + 0x68u);
+    CHECK(tv != GREF(gaddr, torso + 0x68u));
+    CHECK(GREF(gaddr, tv + 0x70u) == c); /* its copy of the legs */
+    CHECK(GREF(gaddr, c + 0x64u) == GREF(gaddr, c + 0x68u) + 0x30u);
+    CHECK(GREF(gaddr, torso2 + 0x64u) == tv + 0x40u && GREF(gaddr, tv + 0x48u) == tv + 0x40u);
+    const gaddr arm2 = GREF(gaddr, tv + 0x10u);
+    CHECK(arm2 != arm && arm2 >= DYNAMIC && GREF(int16_t, arm2 + 0xAAu) == THING);
+    CHECK(GREF(uint32_t, GREF(gaddr, arm2 + 0x68u) + 0x8u) == 0x12345678u);
+    /* Moved with the copy. */
+    CHECK(GREF(float, torso2 + 0x10u) == GREF(float, c + 0x10u));
+    CHECK(GREF(float, torso2 + 0x18u) == 2.0f);
+    /* The original's parts are left as they were. */
+    CHECK(GREF(gaddr, GREF(gaddr, torso + 0x68u) + 0x70u) == placed(0));
+    CHECK(GREF(gaddr, GREF(gaddr, torso + 0x68u) + 0x10u) == arm);
+    CHECK(GREF(gaddr, blob_at(0) + 0x28u) == torso);
+    /* Another moby names the torso too: no copy. */
+    const gaddr shared = func_0029EFD0(THING);
+    GREF(uint8_t, shared + 0x20u) = 1;
+    put32(GREF(gaddr, shared + 0x68u) + 0x4u, torso);
+    CHECK(rac2_copy_make(&table, placed(0), 1) == 0);
 }
 
 static void reserve(void) {
@@ -669,6 +741,7 @@ int main(void) {
     answers();
     copies();
     no_spot();
+    parts();
     reserve();
     stale_and_new_load();
     slot_taken();
