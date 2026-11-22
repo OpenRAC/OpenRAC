@@ -2107,6 +2107,9 @@ class Stage:
     inherited: list[str] = field(default_factory=list)  # results_before_calls's names
     external: list[str] = field(default_factory=list)  # built from the disc apart (asmext.py)
     program: "Program | None" = None             # for the external functions' trampolines
+    c_drops: dict = field(default_factory=dict)  # asm.signature_check over the C (c_argument_drops)
+    c_reads: dict = field(default_factory=dict)  # name -> [integer, float] argument registers its code reads
+    params_from_code: list = field(default_factory=list)  # asm.params_from_code's additions
 
 
 def asm_config(cfg: dict) -> dict | None:
@@ -2341,21 +2344,38 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
             found[f.symbol] = hit
     # The signatures first (a function declared nowhere gets the one its registers say), then
     # the places, so calls between translated functions find each other.
-    while True:
-        changed = False
-        for sym, hit in found.items():
-            f = program.functions[sym]
-            before = f.sig
-            try:
-                tr.prepare_signature(f, hit)
-            except (AsmUnsupported, Unsupported):
-                pass
-            changed |= f.sig != before
-        if not changed:
-            break
+    def prepare_all() -> None:
+        while True:
+            changed = False
+            for sym, hit in found.items():
+                f = program.functions[sym]
+                before = f.sig
+                try:
+                    tr.prepare_signature(f, hit)
+                except (AsmUnsupported, Unsupported):
+                    pass
+                changed |= f.sig != before
+            if not changed:
+                break
+    prepare_all()
     for sym in found:
         program.functions[sym].unit = "<asm>"
     program.index_places()
+    if tr.signature_check:
+        # asm.signature_check over the functions with C (c_argument_drops), and with
+        # asm.params_from_code each such definition given the parameters its code reads
+        # (params_from_code); again until none is left, as a definition that takes more makes its
+        # callers that hand those registers on read them too.
+        for _ in range(8):
+            stage.c_drops, stage.c_reads = c_argument_drops(tr, program, leave)
+            if not a.get("params_from_code"):
+                break
+            added = params_from_code(tr, program, stage.c_drops)
+            if not added:
+                break
+            stage.params_from_code += added
+            # Translated callers that hand those registers on take them as well.
+            prepare_all()
     # A C wrapper's result from a translated callee, known now, for the translations that read it
     # after their calls (asm.results_before_calls; hostgen.py does this again for the C).
     if a.get("results_before_calls"):
@@ -2376,6 +2396,86 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     stage.found = found
     translate_shadows(stage, program, a)
     return stage, results
+
+
+def params_from_code(tr: "Translator", program: Program, drops: dict[str, dict]) -> list[str]:
+    """asm.params_from_code: each definition c_argument_drops finds takes the argument registers its
+    code reads past the ones it names (Function.extra, as params_from_declarations gives them): its
+    callers pass their values, and its own short calls hand them on (lower.py), as the EE's
+    registers did. The types are those of the longest declaration that agrees with the definition
+    where it has them, else int and float. Not for a function the port's own C calls (it calls it
+    by the prototype it has), nor one with a record parameter (its calls must pass every argument).
+    Returns "symbol: n integer, m float" of each one given more; drops left keep their report."""
+    out = []
+    kind = lambda t: "f" if canon(t, program.typedefs) == "float" else "i"
+    for sym, d in sorted(drops.items()):
+        f = program.functions.get(sym)
+        if f is None or tr.host_text and re.search(r"\b" + re.escape(cname(sym)) + r"\b", tr.host_text):
+            continue
+        if any(canon(p, program.typedefs) is None for p in f.sig.params):
+            continue
+        need_i = max(0, d["reads"][0] - d["takes"][0])
+        need_f = max(0, d["reads"][1] - d["takes"][1])
+        n = len(f.sig.params)
+        own = [kind(t) for t in f.sig.params]
+        decl = None
+        for s2 in f.declared:
+            if (s2.prototyped and not s2.variadic and len(s2.params) > n and [kind(t) for t in s2.params[:n]] == own
+                    and all(canon(t, program.typedefs) is not None for t in s2.params[n:])
+                    and (decl is None or len(s2.params) > len(decl.params))):
+                decl = s2
+        ints = [t for t in (decl.params[n:] if decl else ()) if kind(t) == "i"][:need_i]
+        floats = [t for t in (decl.params[n:] if decl else ()) if kind(t) == "f"][:need_f]
+        ints += [ctype.Base("int")] * (need_i - len(ints))
+        floats += [ctype.Base("float")] * (need_f - len(floats))
+        new = tuple(ints) + tuple(floats)
+        if not new:
+            continue
+        f.extra = tuple(f.extra) + new
+        f.sig = Signature(f.sig.ret, tuple(f.sig.params) + new, False, True)
+        out.append(f"{sym}: {need_i} integer, {need_f} float")
+    return out
+
+
+def c_argument_drops(tr: "Translator", program: Program, leave: set) -> tuple[dict[str, dict], dict[str, list]]:
+    """asm.signature_check over the functions with C: the argument registers each one's retail code
+    reads on some path before writing them (_live_arguments) that its C definition does not name.
+    Matched C can leave out an argument it only hands on to a call, whose register keeps the
+    caller's value on the EE (Up Your Arsenal's random_vector, func_L01_00443B88, names only `out`
+    and calls rand_range with no arguments, which reads the range its callers left in $f12/$f13);
+    translated, the call passes nothing. hostgen.json "params_from_declarations" (the list) with
+    "extra_params" gives such a definition the parameters; what is left is the report's
+    "c_argument_drops" (name -> what its code reads, what its definition takes, the places read).
+    A function's places are read up to four of them (copies of one code). Returns the drops and what
+    each function with C reads (name -> [integer, float] counts), for the report's zero-filled
+    arguments (dropped_args.py)."""
+    out: dict[str, dict] = {}
+    reads: dict[str, list] = {}
+    for sym, f in sorted(program.functions.items()):
+        if (f.unit is None or f.unit == "<asm>" or f.static or f.sig.variadic or sym in program.host
+                or sym in program.wrap or sym in leave):
+            continue
+        have_f = sum(1 for p in f.sig.params if canon(p, program.typedefs) in ("float",))
+        have_i = len(f.sig.params) - have_f
+        reads_i = reads_f = 0
+        seen = 0
+        for place in program.code_places(sym):
+            if seen >= 4:
+                break
+            if tr.index.code.get(tuple(place)) is None:
+                continue
+            seen += 1
+            try:
+                tr._load(f, tuple(place))
+                i, fl = tr._live_arguments()
+            except (AsmUnsupported, Unsupported):
+                continue
+            reads_i, reads_f = max(reads_i, i), max(reads_f, fl)
+        if seen:
+            reads[sym] = [reads_i, reads_f]
+        if reads_i > have_i or reads_f > have_f:
+            out[sym] = {"reads": [reads_i, reads_f], "takes": [have_i, have_f], "unit": f.unit}
+    return out, reads
 
 
 def file_head(game: str) -> list[str]:

@@ -3778,6 +3778,62 @@ class FromAssembly(unittest.TestCase):
         }
     """
 
+    # Up Your Arsenal's random_vector: matched as (out), its call of rand_range passes nothing,
+    # and the EE's $f12/$f13 hand rand_range its callers' range. The C function's own code is in
+    # the assembly too, as the disc has every function's.
+    HANDED_ON = {
+        "func_00100000": (0x100000, """
+            add.s $f0, $f12, $f13
+            jr $31
+            nop
+        """),
+        "func_00100100": (0x100100, """
+            addiu $29, $29, -32
+            sd $16, 0($29)
+            sd $31, 8($29)
+            jal func_00100000
+            daddu $16, $4, $0
+            swc1 $f0, 0($16)
+            ld $31, 8($29)
+            ld $16, 0($29)
+            jr $31
+            addiu $29, $29, 32
+        """),
+    }
+    HANDED_ON_C = """
+        INCLUDE_ASM("asm", func_00100000);
+        extern float func_00100000(void);
+        void func_00100100(float *out) { *out = func_00100000(); }
+        int test_main(void) {
+            float v = 0.0f;
+            ((void (*)(float *, float, float))func_00100100)(&v, 2.0f, 3.0f);
+            test_print((int)v);
+            return 0;
+        }
+    """
+
+    def test_signature_check_finds_a_c_definition_that_drops_what_it_hands_on(self):
+        # asm.signature_check over the functions with C (c_argument_drops): func_00100100's code
+        # reads $f12 and $f13 (its call hands them on) that its definition does not name.
+        check = dict(ASM_CONFIG["asm"], signature_check=True)
+        self.run_asm(self.HANDED_ON_C, self.HANDED_ON, symbols={"func_00100000": 0x100000},
+                     config=dict(ASM_CONFIG, asm=check))
+        drops = self.last_report["c_argument_drops"]
+        self.assertEqual(drops["func_00100100"]["reads"], [1, 2])
+        self.assertEqual(drops["func_00100100"]["takes"], [1, 0])
+        self.assertEqual(self.last_report["params_from_code"], [])
+
+    def test_params_from_code_names_what_a_c_definition_hands_on(self):
+        # asm.params_from_code: the definition takes them, and its short call hands them on, as
+        # the EE's registers did (the range reaches rand_range: 2 + 3).
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, params_from_code=True)
+        out = self.run_asm(self.HANDED_ON_C, self.HANDED_ON, symbols={"func_00100000": 0x100000},
+                           config=dict(ASM_CONFIG, asm=fixed))
+        self.assertEqual(out, ["5"])
+        self.assertEqual(self.last_report["params_from_code"], ["func_00100100: 0 integer, 2 float"])
+        self.assertEqual(self.last_report["c_argument_drops"], {})
+        self.assertIn("void func_00100100(gaddr out, float pass_1, float pass_2)", self.last_generated)
+
     def test_signature_check_finds_a_float_result_an_int_signature_drops(self):
         allow = dict(ASM_CONFIG["asm"], signature_check=True,
                      signature_allow={"func_00100100": "the test: the finding itself"})
