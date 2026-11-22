@@ -46,6 +46,14 @@ static int moved[SLOTS];
 #define SCREEN_LINES RAC1_ADDR(0x0013E604u) /* the screen's height in lines */
 #define FONT_PIXELS 16
 
+/* A character a line may have: the printable ones, and the pad's button tokens (interface 1.31:
+ * 0x10 to 0x19, OPENRAC_UI_CROSS ... OPENRAC_UI_RIGHT_STICK), the font's icon cells of row 96,
+ * which the keyboard and mouse paint with the player's keys (key_prompts.h) as they do the game's
+ * own prompts. */
+static int drawable(char c) {
+    return (c >= 32 && c <= 126) || (c >= 0x10 && c <= 0x19);
+}
+
 static void draw_line(
     const openrac_game_hud_text* line, int dx, int dy, unsigned long long colour
 ) {
@@ -56,7 +64,7 @@ static void draw_line(
     const int size = (int)(FONT_PIXELS * scale + 0.5f);
     int width = 0;
     for (const char* c = line->text; *c != '\0'; ++c) {
-        if (*c >= 32 && *c <= 126) {
+        if (drawable(*c)) {
             width += (int)(GREF(int8_t, table + 4u * (unsigned char)*c + 3u) * scale + 0.5f);
         }
     }
@@ -64,7 +72,7 @@ static void draw_line(
     int x = (int)(line->x * 512.0f) - width / 2 + dx;
     const int y = (int)(line->y * (float)(lines > 0 ? lines : 448)) - size / 2 + dy;
     for (const char* c = line->text; *c != '\0'; ++c) {
-        if (*c < 32 || *c > 126) {
+        if (!drawable(*c)) {
             continue;
         }
         /* As the game's own print does: no glyph without an advance, and the space only moves on. */

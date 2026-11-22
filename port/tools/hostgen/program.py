@@ -129,6 +129,9 @@ class Program:
     # Executable copies of level functions (release catalogue boot: places): symbol -> [address].
     boot_places: dict[str, list[int]] = field(default_factory=dict)
     splits: dict[str, list] = field(default_factory=dict)  # symbol -> places split off to variants
+    # hostgen.json "folded_wrappers": wrappers whose level copies call different functions; translated
+    # from assembly, their calls go where the running copy's jal goes (asmc.py)
+    folded_wrappers: set = field(default_factory=set)
     split_parent: dict[str, str] = field(default_factory=dict)  # a variant -> the symbol it was split from
     split_twin: dict[str, str] = field(default_factory=dict)  # an executable function -> the variant at its level copies
     symbols: dict[str, int] = field(default_factory=dict)  # other named globals -> address

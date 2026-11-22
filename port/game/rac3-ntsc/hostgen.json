@@ -67,6 +67,7 @@
   "candidates": "nonmatching/functional.tsv",
   "places": "config/us/levels/functions.tsv",
   "split_places": "tables/split_places.tsv",
+  "folded_wrappers": "tables/variant_callees.tsv",
   "params_from_declarations": [
     "func_L01_0044E010"
   ],

@@ -352,9 +352,13 @@ gaddr occlusion_address() {
     return openrac_game_front_end != nullptr ? openrac_game_front_end->occlusion : 0;
 }
 
-// The occlusion mask in the loaded program: from the executable's address, or, for a game whose
-// level programs carry the engine (GameProfile::scenery_matrices_level), from that level's.
+// The occlusion mask in the loaded program: the profile's, for a game whose programs each keep their
+// own (GameProfile::occlusion_mask), else from the executable's address, or, for a game whose level
+// programs carry the engine (GameProfile::scenery_matrices_level), from that level's.
 gaddr occlusion_in_ram() {
+    if (const gaddr own = g->render.profile->occlusion_mask(); own != 0) {
+        return own;
+    }
     const int level = g->render.profile->scenery_matrices_level();
     return level >= 0 ? openrac_relocate_level_data(level, occlusion_address())
                       : openrac_relocate_data(occlusion_address());

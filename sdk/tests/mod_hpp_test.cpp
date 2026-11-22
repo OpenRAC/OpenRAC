@@ -1127,6 +1127,28 @@ void fill_30_culling(openrac_api &api) {
   };
 }
 
+// Interface 1.31: overlays over the menus and the buttons' labels.
+std::uint32_t g_31_phases = 0;
+
+void fill_31_overlays(openrac_api& api) {
+    api.on_overlay_phases = [](openrac_mod*, openrac_overlay_fn fn, void*, std::uint32_t phases) {
+        if (fn == nullptr || phases == 0) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        g_31_phases = phases;
+        return OPENRAC_HOOK_OK;
+    };
+    api.button_label = [](openrac_mod*, std::uint32_t button, char* out, std::uint32_t size) {
+        if (button != OPENRAC_PAD_SQUARE || out == nullptr || size < 2) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        std::strcpy(out, "F");
+        return OPENRAC_BUTTONS_KEYS;
+    };
+}
+
+void overlay_31(void*, const openrac_overlay*) {}
+
 void fire_watch(void *, const openrac_weapon_shot *) {}
 void end_watch(void *, const openrac_shot_end *) {}
 
@@ -2331,6 +2353,24 @@ int main() {
       CHECK(!mod.has_weapon_culling() && !mod.weapon_ignore_culling(43) &&
             g_30_culling == -1);
       api.api_minor = OPENRAC_MOD_API_MINOR;
+
+    }
+    // Interface 1.31: overlays over the menus and the buttons' labels; a port of 1.31 has none.
+    {
+        fill_31_overlays(api);
+        int kind = 0;
+        CHECK(mod.has_overlay_phases()
+              && mod.on_overlay_phases(overlay_31, nullptr, OPENRAC_OVERLAY_MENU)
+              && g_31_phases == OPENRAC_OVERLAY_MENU && !mod.on_overlay_phases(overlay_31, nullptr, 0));
+        CHECK(mod.has_button_label() && mod.button_label(OPENRAC_PAD_SQUARE, &kind) == "F"
+              && kind == OPENRAC_BUTTONS_KEYS);
+        CHECK(mod.button_label(OPENRAC_PAD_CROSS, &kind).empty() && kind == OPENRAC_HOOK_UNKNOWN);
+        api.api_minor = 30;
+        g_31_phases = 0;
+        CHECK(!mod.has_overlay_phases() && !mod.on_overlay_phases(overlay_31, nullptr, 1u)
+              && g_31_phases == 0);
+        CHECK(!mod.has_button_label() && mod.button_label(OPENRAC_PAD_SQUARE).empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);

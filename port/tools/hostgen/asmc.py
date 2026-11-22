@@ -1052,6 +1052,19 @@ class Translator:
             self.unit.fn.uses_self = True
             return self.indirect(call_copy_expr(call_copy), target if at is None else at,
                                  wide_result=self.wide_call_results and ret in WIDE)
+        elif (wrapped := self._folded_wrapper_call(target, sym)) is not None:
+            # A wrapper the catalogue folded across the levels although its copies call different
+            # functions (hostgen.json "folded_wrappers"), as the caller or as the callee: what the
+            # running copy's own jal calls, with the registers as they are. Up Your Arsenal's
+            # func_L01_00451FB8 calls func_L01_004365D8 in Veldin and func_0038DBD8 in Starship
+            # Phoenix; translated once, level 3's smoke puffs ran Veldin's callee and faulted on
+            # 0xCDCDCDCD. Called by its name, the wrapper ran Veldin's code in every level
+            # (func_L01_00447450's copy in Crash Site wraps func_0038DBD8; Veldin's probe read the
+            # blended colour 0xAA00xxxx as a moby): reached by its address instead, the runtime
+            # follows each place's own jal (guest.cpp, openrac_guest_function).
+            self.unit.fn.uses_self = True
+            return self.indirect(wrapped, target if at is None else at, ret == "float",
+                                 self.wide_call_results and ret in WIDE)
         elif self.unit._folded_places(sym):
             # One name for several places (folded by the catalogue): the place this call goes to.
             callee = f"GFN({fn_type}, {self._code_literal(target)})"
@@ -1075,6 +1088,23 @@ class Translator:
             # unprototyped call contract even in that case (extra EE args).
             callee = f"(({fn_type}){callee})"
         return self._invoke(f"{callee}({', '.join(args)})", ret)
+
+    def _folded_wrapper_call(self, target: int, sym: str | None = None) -> str | None:
+        """For a jal in a wrapper (64 bytes or less) whose level copies call different functions,
+        or a jal of such a wrapper by name (hostgen.json "folded_wrappers"): the running copy's own
+        target (guest.h); else None."""
+        fn = self.unit.fn
+        wrappers = getattr(self.program, "folded_wrappers", ())
+        if self.mode != "host" or self.home < 0 or fn is None or not wrappers:
+            return None
+        size = getattr(self.program, "sizes", {}).get(fn.code)
+        if fn.code in wrappers and size and size <= 64:
+            pass
+        elif sym is None or sym not in wrappers or sym == fn.code:
+            return None
+        if not size:
+            return None
+        return f"openrac_call_in_copy({self.home}, {hx(self.entry_addr)}, {size}u, openrac_self_, {hx(target)})"
 
     def _code_literal(self, target: int) -> str:
         """A code address of the program this assembly is from, as the function reaches it."""

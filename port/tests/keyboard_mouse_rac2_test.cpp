@@ -8,6 +8,7 @@
 // the keys only while the keyboard and mouse are in use.
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -38,6 +39,16 @@ bool g_keyboard_mouse_in_use = false;
 namespace openrac::frontend {
 bool keyboard_mouse_in_use() {
     return g_keyboard_mouse_in_use;
+}
+
+// The keys the mod hands on for the mods' button labels (interface 1.31), cell by cell.
+std::array<std::string, 10> g_prompt_keys;
+
+void set_prompt_keys(const std::string* names, int count) {
+    g_prompt_keys = {};
+    for (int i = 0; names != nullptr && i < count && i < 10; ++i) {
+        g_prompt_keys[static_cast<std::size_t>(i)] = names[i];
+    }
 }
 }  // namespace openrac::frontend
 
@@ -396,10 +407,12 @@ void prompts() {
     tick();
     read_pad();
     CHECK(!unchanged());
+    CHECK(!openrac::frontend::g_prompt_keys[0].empty());  // handed on for the mods' labels
     g_keyboard_mouse_in_use = false;
     tick();
     read_pad();
     CHECK(unchanged());
+    CHECK(openrac::frontend::g_prompt_keys[0].empty());
 }
 
 void other_games() {
