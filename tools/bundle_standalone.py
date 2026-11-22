@@ -76,9 +76,12 @@ PLAY = ("port-levels", "port-levels-check", "port-part", "probe-bake", "play")
 # models and textures, packs, and playing with them. In a checkout they work in its assets/; the
 # carried copy is read-only, so they work in the data folder instead (MOD_FOLDERS).
 MODS = ("editor-extract", "editor-preview", "editor-import", "editor-open", "editor-pack",
-        "assets-export", "assets-import", "audio-export", "audio-export-all", "audio-import", "audio-recipe", "overrides-add", "overrides-stack", "editor-show-packs",
+        "assets-export", "assets-import", "audio-export", "audio-export-all", "audio-import", "overrides-add", "overrides-stack", "editor-show-packs",
         "editor-hide-packs", "play-edited")
 KEEP = PLAY + MODS
+# Independent creator-tool registration keeps the shared editor action list stable.
+MODS += ("audio-recipe",)
+KEEP += ("audio-recipe",)
 # The versions whose program still needs code from the player's disc, so no installer can carry it:
 # the player builds it, with tools/build_game.py. Version -> port game.
 PLAYER_BUILDS = {"rac2/ntsc": "rac2-ntsc", "rac2/pal": "rac2-pal", "rac2/ntsc2": "rac2-ntsc2"}
