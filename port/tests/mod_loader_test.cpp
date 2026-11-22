@@ -12,7 +12,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -493,6 +495,28 @@ void a_hook_point_is_called_as_the_game_calls_it(const fs::path& plugins) {
     CHECK(api.hook_entry("Test_Add", nullptr) == nullptr);
     mods::reset();
     CHECK(add(0) == 1);
+}
+
+// Every call of the table is filled: each member from `log` on is a function, and a mod built for
+// this minor finds none of them null (mod_api/<area>.cpp, sdk/api/members.tsv).
+void every_call_of_the_table_is_filled(const fs::path& plugins) {
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.size == sizeof(openrac_api));
+    const auto* bytes = reinterpret_cast<const unsigned char*>(&api);
+    for (std::size_t at = offsetof(openrac_api, log); at < sizeof(openrac_api);
+         at += sizeof(void*)) {
+        void* call = nullptr;
+        std::memcpy(&call, bytes + at, sizeof call);
+        if (call == nullptr) {
+            std::fprintf(stderr, "openrac_api member at offset %zu is null\n", at);
+        }
+        CHECK(call != nullptr);
+    }
+    mods::reset();
 }
 
 void a_mod_that_fails_is_taken_back(const fs::path& plugins) {
@@ -2137,6 +2161,7 @@ int main() {
     openrac_guest_register(OPENRAC_OVERLAY_EXE, functions, 1);
     two_mods_chain_in_load_order(plugins);
     a_hook_point_is_called_as_the_game_calls_it(plugins);
+    every_call_of_the_table_is_filled(plugins);
     a_mod_that_fails_is_taken_back(plugins);
     refused_before_opening(plugins);
     purist_and_no_list(plugins);

@@ -146,4 +146,38 @@ find_package(OpenRACMod 1.1 REQUIRED)
 openrac_add_mod(my_mod MANIFEST openrac-mod.json SOURCES src/mod.c)
 ```
 
+You need CMake 3.20 or newer, a C compiler (Clang, GCC or MSVC) and Python 3.
+Ninja is the fastest generator, but any works. The template's
+`tools/fetch_sdk.py` downloads the SDK version it pins. To use another SDK,
+point CMake at it:
+
+```sh
+cmake -S . -B build -G Ninja -DOPENRAC_SDK=<SDK>   # or -DOpenRACMod_DIR=<SDK>/cmake
+cmake --build build
+```
+
+- **macOS**: install Xcode's command-line tools (`xcode-select --install`) and
+  `brew install cmake ninja`. The build is for your Mac's processor. Add
+  `-DCMAKE_OSX_ARCHITECTURES=x86_64` for Intel. Build one architecture at a
+  time and join the two archives afterwards.
+- **Linux**: `sudo apt install build-essential cmake ninja-build python3` (or
+  your distribution's packages). For Clang, add `-DCMAKE_C_COMPILER=clang`.
+- **Windows**: install Visual Studio 2022 with "Desktop development with C++".
+  In an "x64 Native Tools Command Prompt", run `cmake -S . -B build -G Ninja`.
+  Without `-G`, CMake uses Visual Studio's generator; then build with
+  `cmake --build build --config Release`. For Clang, use `-T ClangCL` or
+  `-DCMAKE_C_COMPILER=clang-cl`.
+- **Android**: use the NDK's toolchain file:
+  `-DCMAKE_TOOLCHAIN_FILE=<NDK>/build/cmake/android.toolchain.cmake
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28`.
+
+`openrac_add_mod(<target> ...)` builds `<target>.dylib`, `.so` or `.dll` (no
+`lib` prefix on any system) as C11. It puts the mod in
+`build/package/<target>/` the way the archive holds it: the manifest (its
+`plugin` names `lib/<platform>/<file>`), the library, the README and the
+LICENSE. The platforms are `macos-arm64`, `macos-x86_64`, `linux-x86_64`,
+`linux-aarch64`, `windows-x86_64`, `windows-arm64` and `android-arm64`.
+[Packaging and releases](packaging-and-releases.md) turns that folder into
+archives.
+
 The full list of the table's members is the [reference](reference/c-api.md).
