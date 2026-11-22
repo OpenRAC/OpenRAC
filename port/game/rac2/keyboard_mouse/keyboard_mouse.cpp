@@ -107,6 +107,7 @@ std::uint32_t s_follow_tick = kNoTick;
 constexpr std::uint32_t kFollowSeenTicks = 2;
 bool s_follows = false;   // the mouse turns the follow camera itself now
 bool s_gyro_on = false;   // the gyro aimed at the last tick: the frames between follow it too
+bool s_mouse_counts = false;  // the mouse counted at the last tick (cursor captured in play)
 bool s_pad_look = false;  // the pad's right stick has the camera
 kbm::OrbitTilt s_tilt;
 kbm::OrbitLocks s_follow_locks;  // what the game locked at the camera's last turn
@@ -496,6 +497,7 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     const bool aiming = ((v.held | pad_buttons) & (kbm::kL2 | kbm::kR2)) != 0;
     const kbm::GyroLook gyro = ring ? kbm::GyroLook{} : kbm::gyro_look(t, s_set, aiming);
     s_gyro_on = gyro.on;
+    s_mouse_counts = t.play;
     // The mouse counts with the cursor captured in play; the gyro wherever it aims.
     const bool looks = (t.play || gyro.on) && !ring && !pad_look;
     const float dx = (t.play ? in->mouse_dx : 0.0f) + gyro.dx;
@@ -598,7 +600,7 @@ bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
     if (s_mod == nullptr || !s_follows || s_pad_look) {
         return false;
     }
-    kbm::add_pending_gyro(s_gyro_on, s_set, dx, dy);
+    kbm::add_pending_gyro(s_gyro_on, s_mouse_counts, s_set, dx, dy);
     const float limit = s_follow_range > 0.0f ? kbm::follow_max_elevation(s_follow_range) : 0.0f;
     kbm::direct_turn(dx, dy, s_set.look, s_follow_up, s_follow_locks, limit, false, out);
     return true;
@@ -662,6 +664,7 @@ void load(openrac::Mod& mod) {
     s_follow_tick = kNoTick;
     s_follows = false;
     s_gyro_on = false;
+    s_mouse_counts = false;
     s_tilt = {};
 
     mod.take_input(OPENRAC_INPUT_KEYBOARD | OPENRAC_INPUT_MOUSE);

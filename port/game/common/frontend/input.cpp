@@ -175,10 +175,17 @@ void apply_mouse_capture() {
     const bool focused = (SDL_GetWindowFlags(w) & SDL_WINDOW_INPUT_FOCUS) != 0;
     const bool keyboard_mouse = g->input.active_device() == platform::ActiveDevice::KeyboardMouse;
     publish_button_device(keyboard_mouse);
+    // On a gamepad too, where a mouse is connected; never on a phone or tablet, whose touch screen
+    // SDL may report as a mouse.
+#if defined(SDL_PLATFORM_ANDROID) || defined(SDL_PLATFORM_IOS)
+    const bool mouse_beside_pad = false;
+#else
+    const bool mouse_beside_pad = g_mouse_with_gamepad && SDL_HasMouse();
+#endif
     const bool capture =
         focused && !debug_menu::is_open()
         && (debug_overlay::camera_debug_capturing()
-            || (g->capture_wanted && (keyboard_mouse || g_mouse_with_gamepad)
+            || (g->capture_wanted && (keyboard_mouse || mouse_beside_pad)
                 && !debug_overlay::free_camera_enabled() && !debug_overlay::wants_cursor()));
     if (SDL_GetWindowRelativeMouseMode(w) != capture) {
         // Captured, the window keeps the cursor as well: no click lands on another window.

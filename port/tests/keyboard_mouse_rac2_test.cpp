@@ -18,6 +18,7 @@
 
 #include "game/common/frontend/mouse_turn.h"
 #include "game/common/key_prompts.h"
+#include "game/common/keyboard_mouse/core.hpp"
 #include "game/common/keyboard_mouse/kbm.hpp"
 #include "game/rac2/host/follow_mouse.h"
 #include "game/rac2/host/gui_texts.h"
@@ -644,6 +645,81 @@ void gyro_follow() {
     read_pad();
     g_follow_mouse(kCamera, kTurn, kTilt);
     CHECK(std::abs(mem_float(kData + 0x164u) - (-5.0f * std::sin(0.1f))) < 1e-4f);
+
+    // Edges, gyro always on: none of these turn the camera.
+    g_gyro = "always";
+    load_ok();
+    tick();
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    const auto no_turn = [&](auto&& setup) {
+        reset_offsets();
+        tick();
+        g_input.captured = 0;
+        setup();
+        read_pad();
+        g_follow_mouse(kCamera, kTurn, kTilt);
+        return mem_float(kData + 0x164u) == 0.0f;
+    };
+    // The Quick Select held open: the gyro does not move the ring or the camera.
+    CHECK(no_turn([] {
+        g_input.captured = 1;
+        g_input.mouse_held = OPENRAC_MOUSE_RIGHT;
+    }));
+    // The port's overlay open, or the window not focused.
+    CHECK(no_turn([] { g_input.overlay = 1; }));
+    CHECK(no_turn([] { g_input.focused = 0; }));
+    // No gyro read (no controller with one).
+    CHECK(no_turn([] { g_gyro_available = false; }));
+    g_gyro_available = true;
+    // The cursor free: the mouse's motion is not the camera's, the gyro's still is.
+    g_gyro_yaw = 0.0f;
+    CHECK(no_turn([] { g_input.mouse_dx = 100.0f; }));
+    // The pad's right stick out: it wins, as over the mouse.
+    reset_offsets();
+    tick();
+    g_input.captured = 0;
+    g_gyro_yaw = 0.1f;
+    {
+        Report r{};
+        r.bytes[0] = r.bytes[1] = 0xFF;
+        r.bytes[2] = 0xFF;  // right stick fully right
+        r.bytes[3] = r.bytes[4] = r.bytes[5] = 0x80;
+        g_pad(g_pad_user, 0, r.bytes, 18);
+    }
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x164u) == 0.0f);
+
+    // The frames between ticks: with the cursor free they leave the mouse's motion out.
+    tick();
+    g_input.captured = 0;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    openrac::frontend::MouseTurn turn;
+    CHECK(openrac::frontend::g_mouse_turn != nullptr);
+    CHECK(openrac::frontend::g_mouse_turn(200.0f, 0.0f, &turn));
+    CHECK(turn.yaw == 0.0f);
+    // Captured, they show it.
+    tick();
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(openrac::frontend::g_mouse_turn(200.0f, 0.0f, &turn) && turn.yaw != 0.0f);
+
+    // The gyro button's names: each choice of the manifest is a button, "none" none.
+    CHECK(kbm::gyro_button_of("none") == -1 && kbm::gyro_button_of("") == -1);
+    for (const char* name :
+         {"touchpad",
+          "rightstick",
+          "leftstick",
+          "rightshoulder",
+          "leftshoulder",
+          "paddle1",
+          "paddle2",
+          "paddle3",
+          "paddle4",
+          "misc1"}) {
+        CHECK(kbm::gyro_button_of(name) >= 0);
+    }
 
     g_gyro_available = false;
     g_gyro_yaw = 0.0f;

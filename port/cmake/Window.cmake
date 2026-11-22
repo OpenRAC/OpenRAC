@@ -94,6 +94,8 @@ openrac_add_test(menu_chord SOURCES tests/menu_chord_test.cpp INCLUDES . LIBS op
 openrac_add_test(active_device INCLUDES . LIBS openrac_platform)
 # Gyro aiming: the sensor's turn into the camera's (platform/gyro.h).
 openrac_add_test(gyro INCLUDES . LIBS openrac_platform)
+# Gyro aiming as the input reads it from SDL's virtual gamepads (platform/input.h).
+openrac_add_test(input_gyro SOURCES tests/input_gyro_test.cpp INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp

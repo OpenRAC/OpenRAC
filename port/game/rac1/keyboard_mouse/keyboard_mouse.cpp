@@ -168,6 +168,8 @@ enum class Looks {
 Looks s_looks = Looks::None;
 // The gyro aimed at the last tick (core.hpp's gyro_look): the frames between ticks follow it too.
 bool s_gyro_on = false;
+// The mouse counted at the last tick (the cursor captured in play).
+bool s_mouse_counts = false;
 kbm::Vec3 s_looks_up = kbm::kWorldUp;
 std::int32_t s_follow_locks = 0;
 
@@ -976,6 +978,7 @@ void mouse_camera(const Tick& t, bool play, bool ring, std::uint16_t pad_buttons
                         || ((v.held | pad_buttons) & (kbm::kL1 | kbm::kL2)) != 0;
     const kbm::GyroLook gyro = ring ? kbm::GyroLook{} : kbm::gyro_look(t, s_set, aiming);
     s_gyro_on = gyro.on;
+    s_mouse_counts = t.play;
 
     // In play with the cursor captured (or the gyro aiming) and the Quick Select shut, the mouse
     // and the gyro turn the camera.
@@ -1220,7 +1223,7 @@ bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
         return false;
     }
 
-    kbm::add_pending_gyro(s_gyro_on, s_set, dx, dy);
+    kbm::add_pending_gyro(s_gyro_on, s_mouse_counts, s_set, dx, dy);
     const bool first_person = s_looks == Looks::FirstPerson;
     const std::int32_t locks = first_person ? 0 : s_follow_locks;
     const kbm::OrbitLocks lock{(locks & kFollowLockTurn) != 0, (locks & kFollowLockTilt) != 0};
@@ -1246,6 +1249,7 @@ void read_settings(openrac::Mod& mod) {
 void reset_state() {
     s_pad = kbm::Virtual{};
     s_gyro_on = false;
+    s_mouse_counts = false;
     s_keys = kbm::KeyStick{};
     s_look.reset();
     s_ring.reset();

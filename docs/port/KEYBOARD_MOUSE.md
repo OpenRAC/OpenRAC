@@ -15,7 +15,8 @@ use them, and back when you touch the pad.
 - **Never:** F1 to F12, Alt, system keys, a repeating key.
 
 The switch only picks the icons and the menu cursor. In play both always work
-at once: the cursor is locked in play on the pad too, so a mouse (or a gyro
+at once: on desktop the cursor is locked in play on the pad too (when a mouse
+is connected), so a mouse (or a gyro
 that Steam Input or DS4Windows turns into a mouse) turns the camera while you
 hold the pad. *Mouse with a gamepad* off gives the old way: the mouse camera
 only on the keyboard and mouse. To stop the icons flipping when you mix them,
@@ -137,4 +138,4 @@ route.
 
 ## Tests
 
-`ctest -R "keyboard_mouse|key_prompts|active_device|gyro|mod_"`
+`ctest -R "keyboard_mouse|key_prompts|active_device|gyro|mod_"` (`input_gyro` reads SDL virtual gamepads with a gyro).

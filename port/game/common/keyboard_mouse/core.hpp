@@ -98,7 +98,6 @@ inline int gyro_button_of(const std::string& name) {
         {"paddle3", 18},
         {"paddle4", 19},
         {"touchpad", 20},
-        {"back", 4},
     };
     for (const Name& n : kButtons) {
         if (name == n.name) {
@@ -165,7 +164,7 @@ inline Settings read_settings(openrac::Mod& mod, float ticks_per_second) {
 
     // What the port itself does with them: the cursor, the mods' button labels, the gyro.
     openrac::frontend::set_mouse_with_gamepad(s.mouse_with_gamepad);
-    openrac::frontend::set_prompt_device(s.prompts ? s.prompt_device : 0);
+    openrac::frontend::set_prompt_device(s.prompt_device);
     openrac::frontend::set_gyro_options(s.gyro);
     return s;
 }
@@ -373,9 +372,12 @@ inline GyroLook gyro_look(const TickInput& t, const Settings& s, bool aiming) {
     return g;
 }
 
-// The frames between ticks: the gyro's turn the next tick will read, added to the mouse's, while
-// the gyro aims.
-inline void add_pending_gyro(bool on, const Settings& s, float& dx, float& dy) {
+// The frames between ticks: the turn the next tick will make. The mouse's motion only where the
+// tick reads it (`mouse_counts`: the cursor captured in play), then the gyro's while it aims.
+inline void add_pending_gyro(bool on, bool mouse_counts, const Settings& s, float& dx, float& dy) {
+    if (!mouse_counts) {
+        dx = dy = 0.0f;
+    }
     if (!on) {
         return;
     }

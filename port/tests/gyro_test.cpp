@@ -6,6 +6,7 @@
 // spaces pick the right twist; the button and the dead zone gate it.
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 #include "platform/gyro.h"
 #include "tests/check.h"
@@ -251,6 +252,142 @@ void test_parse() {
     CHECK(openrac::platform::gyro_button_action_from("x") == GyroButtonAction::Enable);
 }
 
+// What a driver or a player may throw at it.
+void test_edges() {
+    float yaw = 0.0f;
+    float pitch = 0.0f;
+    const float nan = std::nanf("");
+    const float inf = std::numeric_limits<float>::infinity();
+
+    // A NaN or infinite sample is dropped: no turn, and the offset and smoothing stay clean.
+    GyroOptions o = on();
+    o.space = GyroSpace::Player;
+    o.smoothing = 0.2f;
+    o.auto_calibrate = true;
+    GyroAim g;
+    g.set_options(o);
+    g.accel({nan, 9.8f, 0.0f});
+    CHECK(!g.has_gravity());
+    std::uint64_t ns = feed(g, {nan, 1.0f, 0.0f}, 50, 0);
+    ns = feed(g, {0.0f, inf, 0.0f}, 50, ns);
+    g.take(yaw, pitch);
+    CHECK(yaw == 0.0f && pitch == 0.0f);
+    feed(g, {0.0f, 1.0f, 0.0f}, 101, ns);
+    g.take(yaw, pitch);
+    CHECK(std::isfinite(yaw) && near(yaw, 0.4f, 0.02f));
+
+    // The clock going back, or standing still, is no motion.
+    GyroAim back;
+    back.set_options(on());
+    back.gyro({0.0f, 1.0f, 0.0f}, 1'000'000'000ull);
+    back.gyro({0.0f, 1.0f, 0.0f}, 500'000'000ull);
+    back.gyro({0.0f, 1.0f, 0.0f}, 500'000'000ull);
+    back.take(yaw, pitch);
+    CHECK(yaw == 0.0f);
+
+    // A sensitivity below zero (a hand-edited settings file) turns nothing, never backwards.
+    GyroOptions neg = on();
+    neg.sensitivity_x = -3.0f;
+    neg.sensitivity_y = -3.0f;
+    GyroAim n;
+    n.set_options(neg);
+    feed(n, {1.0f, 1.0f, 0.0f}, 101, 0);
+    n.take(yaw, pitch);
+    CHECK(yaw == 0.0f && pitch == 0.0f);
+
+    // Invert horizontal: left turns right.
+    GyroOptions inv = on();
+    inv.space = GyroSpace::Yaw;
+    inv.invert_x = true;
+    GyroAim i;
+    i.set_options(inv);
+    feed(i, {0.0f, 1.0f, 0.0f}, 101, 0);
+    i.take(yaw, pitch);
+    CHECK(near(yaw, -0.4f, 0.01f));
+
+    // Free fall (a gravity near zero): player space falls back to yaw, no division by zero.
+    GyroOptions ps = on();
+    ps.space = GyroSpace::Player;
+    GyroAim fall;
+    fall.set_options(ps);
+    fall.accel({0.0f, 0.0f, 0.0f});
+    feed(fall, {0.0f, 1.0f, 0.0f}, 101, 0);
+    fall.take(yaw, pitch);
+    CHECK(near(yaw, 0.4f, 0.01f));
+
+    // Upside down (gravity along -y): turning left still turns left in player space? The way up is
+    // the controller's -y, so its +y twist is a turn right: what the player sees.
+    GyroAim flipped;
+    flipped.set_options(ps);
+    flipped.accel({0.0f, -9.8f, 0.0f});
+    feed(flipped, {0.0f, 1.0f, 0.0f}, 101, 0);
+    flipped.take(yaw, pitch);
+    CHECK(near(yaw, -0.4f, 0.01f));
+
+    // A dead zone exactly at the speed: nothing.
+    GyroOptions dz = on();
+    dz.space = GyroSpace::Yaw;
+    dz.dead_zone = 0.5f;
+    GyroAim d;
+    d.set_options(dz);
+    feed(d, {0.0f, 0.5f, 0.0f}, 101, 0);
+    d.take(yaw, pitch);
+    CHECK(yaw == 0.0f);
+
+    // reset() keeps the options and forgets what it learnt.
+    GyroOptions cal = on();
+    cal.auto_calibrate = true;
+    GyroAim r;
+    r.set_options(cal);
+    feed(r, {0.0f, 0.03f, 0.0f}, 500, 0);
+    CHECK(r.calibrated());
+    r.reset();
+    CHECK(!r.calibrated());
+    CHECK(r.options().auto_calibrate && r.options().enabled);
+
+    // A second still spell moves the offset halfway to its mean, not all the way.
+    GyroAim twice;
+    twice.set_options(cal);
+    ns = feed(twice, {0.0f, 0.02f, 0.0f}, 400, 0);
+    CHECK(near(twice.offset().y, 0.02f, 0.001f));
+    ns = feed(twice, {0.3f, 0.3f, 0.0f}, 5, ns);  // picked up: a new window starts
+    feed(twice, {0.0f, 0.06f, 0.0f}, 400, ns);
+    CHECK(near(twice.offset().y, 0.04f, 0.002f));
+
+    // Turned off in the options mid-turn: nothing more, and back on it carries no stale motion.
+    GyroAim off;
+    GyroOptions sw = on();
+    sw.smoothing = 0.5f;
+    off.set_options(sw);
+    ns = feed(off, {0.0f, 0.1f, 0.0f}, 100, 0);
+    off.take(yaw, pitch);
+    sw.enabled = false;
+    off.set_options(sw);
+    ns = feed(off, {0.0f, 0.1f, 0.0f}, 100, ns);
+    off.take(yaw, pitch);
+    CHECK(yaw == 0.0f);
+    sw.enabled = true;
+    off.set_options(sw);
+    feed(off, {0.0f, 0.0f, 0.0f}, 2, ns);
+    off.take(yaw, pitch);
+    CHECK(std::fabs(yaw) < 1e-5f);
+
+    // Toggle: a held button does not flip again on each sample; the button unset means always on.
+    GyroOptions tg = on();
+    tg.button = 20;
+    tg.button_action = GyroButtonAction::Toggle;
+    GyroAim t;
+    t.set_options(tg);
+    for (int k = 0; k < 10; ++k) {
+        t.button(true);
+    }
+    CHECK(t.aiming());
+    tg.button = -1;
+    t.set_options(tg);
+    t.button(false);
+    CHECK(t.aiming());
+}
+
 }  // namespace
 
 int main() {
@@ -262,5 +399,6 @@ int main() {
     test_button();
     test_dead_zone_and_smoothing();
     test_parse();
+    test_edges();
     return openrac::test::result();
 }

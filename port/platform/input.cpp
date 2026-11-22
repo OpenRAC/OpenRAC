@@ -701,10 +701,8 @@ void Input::update() {
     if (m_gyro.options().enabled && gamepad(0) != m_gyro_for) {
         choose_gyro();
     }
+    // The tick reads it only with the window focused (the built-in keyboard and mouse checks).
     m_gyro.take(m_gyro_yaw, m_gyro_pitch);
-    if (SDL_GetKeyboardFocus() == nullptr) {
-        m_gyro_yaw = m_gyro_pitch = 0.0f;  // another window has the player
-    }
 
     refresh_pads();
     play_rumble();

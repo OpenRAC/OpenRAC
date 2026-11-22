@@ -26,6 +26,10 @@ float largest(Vec3f a) {
     return std::max({std::fabs(a.x), std::fabs(a.y), std::fabs(a.z)});
 }
 
+bool finite(Vec3f a) {
+    return std::isfinite(a.x) && std::isfinite(a.y) && std::isfinite(a.z);
+}
+
 float length(Vec3f a) {
     return std::sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
 }
@@ -103,6 +107,9 @@ void GyroAim::button(bool held) {
 }
 
 void GyroAim::accel(Vec3f a) {
+    if (!finite(a)) {
+        return;
+    }
     m_last_accel = a;
     if (!m_has_gravity) {
         m_gravity = a;
@@ -162,6 +169,10 @@ void GyroAim::learn_offset(Vec3f rate, Vec3f accel, float dt) {
 }
 
 void GyroAim::gyro(Vec3f rate, std::uint64_t ns) {
+    // A broken sample (a driver's NaN) would stay in the offset and the smoothing for good.
+    if (!finite(rate)) {
+        return;
+    }
     float dt = 0.0f;
     if (m_has_last && ns > m_last_ns) {
         dt = static_cast<float>(static_cast<double>(ns - m_last_ns) * 1e-9);
