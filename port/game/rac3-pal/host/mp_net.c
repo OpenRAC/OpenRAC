@@ -122,6 +122,15 @@ enum {
 };
 
 #define LIST_ADVERTS 1
+/* The server's lobby screens (Server README, "Lobby screens"): packet UI (10), its opcodes, and the
+ * UDP offer's feature bit saying the server answers it. */
+#define PK_UI 10
+#define UI_GET 0
+#define UI_DESCRIPTION 1
+#define UI_ACTION 2
+#define UI_NOTICE 3
+#define FEATURE_UI 32
+int rac3_mp_ui_describe(const char* json, size_t size); /* mp_ui.c */
 #define HELLO_READS_SLOTS 2 /* HELLO's client bit: send SLOTS (the room's stable slots) */
 #ifdef RAC3_PAL
 #define NET_FAMILY "rac3-pal-1"
@@ -421,6 +430,17 @@ static int srv_open(const char* name) {
     srv_u8(HELLO_READS_SLOTS);
     srv_end();
     return 1;
+}
+
+/* A server action chosen on a native lobby screen (mp_ui.c): its key and value to the server. */
+void rac3_mp_net_ui_action(const char* key, int value) {
+    if (srv.state != 1) {
+        return;
+    }
+    srv_begin(PK_UI, UI_ACTION);
+    srv_text(key);
+    srv_i32(value);
+    srv_end();
 }
 
 /* ---- Reading the server's frames ---- */
@@ -1435,8 +1455,34 @@ static void on_frame(int id, reader* r) {
             dme.inbox_count++;
             break;
         }
+        case PK_UDP: {
+            /* The offer: token (8 bytes), port, then the feature bits; a server that answers UI
+             * is asked for the lobby's screens. */
+            rd_i32(r), rd_i32(r), rd_i32(r);
+            if (rd_u8(r) & FEATURE_UI) {
+                srv_begin(PK_UI, UI_GET);
+                srv_text(NET_FAMILY);
+                srv_end();
+            }
+            break;
+        }
+        case PK_UI: {
+            const int opcode = rd_u8(r);
+            if (opcode == UI_DESCRIPTION) {
+                const int32_t revision = rd_i32(r);
+                /* None keeps the game's own screens; a refused one keeps the screens in force. */
+                if (r->n > 0 && rac3_mp_ui_describe((const char*)r->p, r->n)) {
+                    fprintf(stderr, "[info] rac3: online: lobby screens, revision %d\n", revision);
+                }
+            } else if (opcode == UI_NOTICE) {
+                char text[257];
+                rd_text(r, text, sizeof text);
+                fprintf(stderr, "[info] rac3: online: the server says: %s\n", text);
+            }
+            break;
+        }
         default:
-            break; /* UDP offers, the clock, chat, data: unused here */
+            break; /* the clock, chat, data: unused here */
     }
 }
 
