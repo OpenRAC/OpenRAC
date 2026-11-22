@@ -543,8 +543,14 @@ int rac2_copy_detail(const rac2_moby_table* t, gaddr moby) {
 gaddr func_L00_00300618(int reload) {
     /* The level's gameplay file may get spare mobys beyond the disc's as it is decompressed. */
     rac2_pool_loading();
-    const gaddr heap = func_L00_00300618__game(reload);
-    rac2_pool_loaded();
+    gaddr heap = func_L00_00300618__game(reload);
+    /* A raise past the room above the level: laid out again with the raise that fits. */
+    if (rac2_pool_loaded(heap)) {
+        rac2_pool_restore();
+        rac2_pool_loading();
+        heap = func_L00_00300618__game(reload);
+        (void)rac2_pool_loaded(heap);
+    }
     const rac2_moby_table t =
         {GREF(gaddr, TABLE_BASE), GREF(gaddr, TABLE_DYNAMIC), GREF(gaddr, TABLE_END)};
     if (t.base != 0 && t.dynamic >= t.base && t.end >= t.dynamic

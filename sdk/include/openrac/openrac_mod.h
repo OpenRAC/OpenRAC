@@ -2561,7 +2561,9 @@ typedef struct openrac_api {
      * moby_pool_raise: asks for `extra` more spare slots in every level loaded from now on (each
      * takes 0x180 bytes of the level's heap; the largest request of any mod counts, at most
      * OPENRAC_MOBY_POOL_EXTRA_MAX). Ask in the mod's load, before the first level loads; a level
-     * already loaded keeps its pool. Returns the slots granted (the request cut to the most), or
+     * already loaded keeps its pool. A level gets fewer when its heap has less room below the data
+     * the game keeps above it (Smolg 431, Barlow 549, Boldan 727 on NTSC-U v1.01; moby_pool_status
+     * says what it got). Returns the slots granted (the request cut to the most), or
      * OPENRAC_HOOK_UNKNOWN. */
     int (*moby_pool_raise)(openrac_mod* mod, int extra);
     /* moby_pool_status: fills `out` (out->size set by the mod) with the level's pool as it is now.
