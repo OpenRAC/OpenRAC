@@ -340,8 +340,10 @@
         "func_L39_006397B8": "float (int, float, float, float)",
         "func_L40_003F1CF8": "float (int, int, int, int, float)",
         "func_003BE988__frontbin": "float (int, int)",
-        "func_00386D98__frontbin": "void (int, int, int, int, int, int, int, int, long long, long long)",
-        "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
+        "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
+        "func_L39_004CBE78": "int (int)",
+        "func_L39_004F14C0": "int (int, int)",
+        "func_L01_004369B8": "int (int, int, int, int)"
       },
       "signature_allow": {
         "func_003BBD98__frontbin": "PAL func_003C12A8 (with C there), translated from its assembly on NTSC-U with the C's (int): its first call (0x003B7190, then the TEX0 builder 0x00395EB8, whose opening reads no float register) is given two floats by a prototype widened from declarations (asm.params_from_code), so its liveness reads $f12/$f13 it never sets; the frame draw hands on none",
@@ -397,13 +399,14 @@
       "func_00387778",
       "func_003AD9F0",
       "func_003C0160",
-      "func_00391E78__frontbin"
+      "func_00391E78__frontbin",
+      "func_003BE710"
     ],
     "roots": [
       "func_003932B0__frontbin"
     ],
     "roots_why": "func_003932B0__frontbin: NTSC-U's twin of PAL's func_00397B10 (one constant changed, so map.tsv has no pair), whose address func_00391E78 stores; reached only through it.",
-    "from_assembly_why": "func_00387778 (the clip view, PAL func_003877A0), func_003AD9F0 (PAL func_003ADB90), func_003C0160 (PAL func_003C0268): map.tsv's match, but their C reads globals and calls functions config/us/names.tsv places for the front end or not at all (func_00387778's D_001D9A10, D_00334F00 to D_00335D50 and func_0027AB40; func_003C0160's D_001DA348 to D_001DA390 aliases, all moved by +0x30 or +0x80 on NTSC-U), so hostgen made each a stub that does nothing. func_00391E78__frontbin (PAL func_003966D8) stores the address of PAL's func_00397B10, which NTSC-U has as 0x003932B0 with one constant changed (5, not 4). Run from the disc's instructions instead."
+    "from_assembly_why": "func_00387778 (the clip view, PAL func_003877A0), func_003AD9F0 (PAL func_003ADB90), func_003C0160 (PAL func_003C0268): map.tsv's match, but their C reads globals and calls functions config/us/names.tsv places for the front end or not at all (func_00387778's D_001D9A10, D_00334F00 to D_00335D50 and func_0027AB40; func_003C0160's D_001DA348 to D_001DA390 aliases, all moved by +0x30 or +0x80 on NTSC-U), so hostgen made each a stub that does nothing. func_00391E78__frontbin (PAL func_003966D8) stores the address of PAL's func_00397B10, which NTSC-U has as 0x003932B0 with one constant changed (5, not 4). Run from the disc's instructions instead. func_003BE710 (PAL func_003BE800, the level loader's state that levels 27 and 28 run through the table at 0x0031C910): map.tsv's match since rac3-decomp 45baf7e5, but its C reads the per-caller aliases D_001D8D28_003BE800 to D_001DA2D0_003BE800g, which config/us/names.tsv gives no boot_elf value, so hostgen made it a stub that does nothing (before, NTSC-U ran it from assembly as a twin of a left-out definition)."
   },
   "pairs": {
     "about": "Function pairs taken as they are where map.tsv pairs nothing: PAL's name, NTSC-U's, the evidence.",
@@ -466,10 +469,6 @@
     "func_003F0700__frontbin": {
       "is": "func_003EB178__frontbin",
       "why": "frontbin's copy of func_003F0AB8: the same 8 bytes at 0x003EB178 after the same 20-byte remnant (PAL 0x003F06E8, NTSC-U 0x003EB160), the only place they occur"
-    },
-    "func_003D3154": {
-      "is": "func_003D2FEC",
-      "why": "the second entry 4 bytes before func_003D3158 (NTSC-U's func_003D2FF0, map.tsv match): the same words from 4 bytes before it on both discs"
     }
   },
   "addresses": {
