@@ -214,8 +214,10 @@ constexpr Entry kEntries[] = {
      "The key and the controller button that open and close this menu. Any controller's Select "
      "and Start pressed together do too. The key is kept by its place on the keyboard; Alt "
      "counts pressed by itself, so Alt+Return still goes full screen."},
-    {Id::KeyboardMouse, Tab::Controls, "Keyboard and mouse", kPanel, D, "Keyboard and mouse",
-     "The mouse's sensitivity and feel, and the key for each action. Pick a key's row to replace "
+    {Id::KeyboardMouse, Tab::Controls, "Keyboard, mouse and gyro", kPanel, D,
+     "Keyboard, mouse and gyro",
+     "The mouse's and the gyro's sensitivity and feel, and the key for each action. Pick a key's "
+     "row to replace "
      "it (press the new key, mouse button or wheel; Esc cancels), add a second or remove one. A "
      "mark: another action has that key too."},
     {Id::TouchActionButtons, Tab::Controls, "Touch controls", kSwitch, T, "Action buttons",

@@ -41,6 +41,9 @@
 #define FLIGHT_LAST (FLIGHT_SCENE + 0x40u)
 #define FLIGHT_STATE RAC3_ADDR(0x002D2008u)
 #define FLIGHT_APPROACH 0x51u
+/* The level loader's state (0x0039A5C0): 2 and above once the level's files are read. */
+#define LOADER_STATE RAC3_ADDR(0x001D4B48u)
+#define LOADER_READ 2
 
 /* 8 s of stars at the game's 50 passes a second. */
 #define HOLD_STARS 400
@@ -56,9 +59,23 @@ static int s_skipping;
 /* Whether the flight is playing: from its first pass to the one that ends it. */
 static int s_active;
 
-/* One pass of the game's flight; the last one (it returns 1) ends it. */
+/* One pass of the game's flight; the last one (it returns 1) ends it. `loaded` is whether the files
+ * count as read: while they do not, the flight's own look at the loader (0x003BE2D0: state 2 and
+ * above) sees them unread too. That look, at the end of each lap, frees the sound banks of the
+ * scenes it no longer needs (0x003BBD20: all but the approach's) and lets the loader go on; the
+ * next lap is the approach only when `loaded` says so. With the two disagreeing, the port's held
+ * stars went on with a random scene whose sound bank had just been freed: its sound did not play,
+ * and the loading screen was silent from about 5 s in until the approach. */
 static int flight_pass(int loaded) {
+    const int32_t state = GREF(int32_t, LOADER_STATE);
+    const int hide = !loaded && state >= LOADER_READ;
+    if (hide) {
+        GREF(int32_t, LOADER_STATE) = LOADER_READ - 1;
+    }
     const int over = func_003BCE00__game(loaded);
+    if (hide && GREF(int32_t, LOADER_STATE) == LOADER_READ - 1) {
+        GREF(int32_t, LOADER_STATE) = state;
+    }
     const int approach = !over && !s_skipping && GREF(uint8_t, FLIGHT_STATE + FLIGHT_APPROACH) != 0;
     openrac_game_tick_stretch = approach ? APPROACH_STRETCH : 1.0f;
     if (over) {

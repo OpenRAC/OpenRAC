@@ -172,11 +172,15 @@ std::chrono::steady_clock::time_point next_display(std::chrono::steady_clock::ti
     return shown;
 }
 
-// How far behind the kept tick the scene runs: none with the player's low-latency frames (not
-// for the render thread's jobs, which may be shown after the next tick starts), else half a tick.
+// How far behind the kept tick the scene runs: none with the player's low-latency frames, nor with
+// the render thread, else half a tick. The render thread's jobs stop when the next tick is due
+// (between(): none is queued once the simulation resumes), so with the lag their scene only got
+// part of the way to the kept tick: it stood still for the first half tick, moved, then jumped
+// at the next one (Vulkan through MoltenVK: at most 0.34 of the way at the loading screen's 20
+// ticks a second, its approach to the planet visibly choppy; 0.47 at 50).
 double lag_ticks() {
-    return settings::get().low_latency_frames && !threaded_rendering() ? kLowLatencyLagTicks
-                                                                       : kLagTicks;
+    return settings::get().low_latency_frames || threaded_rendering() ? kLowLatencyLagTicks
+                                                                      : kLagTicks;
 }
 
 // How long after the next tick is due a frame held by its showing may still be shown (pacing.h,

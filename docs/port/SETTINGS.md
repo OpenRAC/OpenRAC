@@ -143,7 +143,9 @@ section 3 are from before that. What it draws is its own business:
 - anything else: frames **between** ticks as well, the camera, the mobys and
   their poses moved from the last tick's to this one's by the time each frame
   is shown (half a tick behind the game, so that the next tick is ready
-  before the frame that needs it). `display` draws one a refresh, a number
+  before the frame that needs it; with Vulkan's render thread, or the
+  low-latency frames, no lag: their frames stop when the next tick is due,
+  and with the lag they only got half way before it). `display` draws one a refresh, a number
   that many a second, `unlimited` as many as the machine manages.
 - `vsync` decides only whether a frame waits for a refresh. With it off and
   `frame_rate = display`, the port's own clock keeps the display's rate.

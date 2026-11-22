@@ -32,6 +32,7 @@
 #include "key_prompts_fonts.h"
 #include "keyboard_mouse.h"
 #include "openrac/openrac_mod.h"
+#include "platform/gyro.h"
 
 #define CHECK(c)                                                                                   \
     do {                                                                                           \
@@ -69,6 +70,31 @@ void set_prompt_keys(const std::string* names, int count) {
     for (int i = 0; names != nullptr && i < count && i < 10; ++i) {
         g_prompt_keys[static_cast<std::size_t>(i)] = names[i];
     }
+}
+
+// The rest of the frontend's side (frontend/active_input.h): the gyro and the device options, kept
+// here for the checks.
+float g_gyro_yaw = 0.0f;
+float g_gyro_pitch = 0.0f;
+bool g_gyro_available = false;
+openrac::platform::GyroOptions g_gyro_options;
+
+void set_prompt_device(int) {}
+
+void set_mouse_with_gamepad(bool) {}
+
+void set_gyro_options(const openrac::platform::GyroOptions& options) {
+    g_gyro_options = options;
+}
+
+bool gyro_turn(float& yaw, float& pitch) {
+    yaw = g_gyro_available ? g_gyro_yaw : 0.0f;
+    pitch = g_gyro_available ? g_gyro_pitch : 0.0f;
+    return g_gyro_available;
+}
+
+void pending_gyro(float& yaw, float& pitch) {
+    yaw = pitch = 0.0f;
 }
 }  // namespace openrac::frontend
 
@@ -150,6 +176,7 @@ void host_fail(openrac_mod*, const char* reason) {
 }
 
 bool g_prompts = true;
+const char* g_gyro = "off";  // the "gyro" setting
 
 int setting_bool(openrac_mod*, const char* key) {
     if (std::strcmp(key, "key_prompts") == 0) {
@@ -198,6 +225,10 @@ const char* setting_string(openrac_mod*, const char* key) {
         if (std::strcmp(a.key, key) == 0) {
             return a.fallback;
         }
+    }
+
+    if (std::strcmp(key, "gyro") == 0) {
+        return g_gyro;
     }
 
     return std::strcmp(key, "camera_tilt") == 0 ? "hold" : "";
@@ -609,6 +640,90 @@ void direct_camera() {
     use_camera(0, 0);
 }
 
+// The gyro turns the follow camera and the first-person view as the mouse does, with the cursor
+// free; "only while aiming" is first person or L1/L2 held.
+void gyro_camera() {
+    using openrac::frontend::g_gyro_available;
+    using openrac::frontend::g_gyro_pitch;
+    using openrac::frontend::g_gyro_yaw;
+    const kbm_disc& d = disc();
+    auto camera = reinterpret_cast<void (*)(std::uint32_t)>(g_camera_hook);
+    const kbm::Vec3 target{10.0f, 20.0f, 5.0f};
+    const kbm::Vec3 orbit{-4.0f, 0.0f, 1.0f};
+    const auto follow = [&] {
+        use_camera(kCamera, 0);
+        set_vec(d.cameras + KBM_CAMERAS_UP, {0.0f, 0.0f, 1.0f});
+        set_vec(kCameraState + KBM_FOLLOW_TARGET, target);
+        set_vec(kCameraState + KBM_FOLLOW_ORBIT, orbit);
+        set_vec(kCameraState + KBM_FOLLOW_ORBIT_SMOOTH, orbit);
+        set_vec(kCameraState + KBM_FOLLOW_EYE, kbm::plus(target, orbit));
+        at<std::int32_t>(kCameraState + KBM_FOLLOW_LOCKS) = 0;
+    };
+    const auto settings = [&](const char* when) {
+        g_gyro = when;
+        g_settings_fn(g_settings_user);
+    };
+
+    // Always: 0.05 rad right with the cursor free, the orbit turned by exactly that.
+    settings("always");
+    g_gyro_available = true;
+    follow();
+    tick();
+    g_input.captured = 0;
+    g_gyro_yaw = -0.05f;
+    Report r = read_pad();
+    CHECK(r.bytes[2] == 0x80);
+    camera(kCamera);
+    const kbm::Vec3 turned = kbm::rotate(orbit, kbm::kWorldUp, -0.05f);
+    const kbm::Vec3 o = vec_at(kCameraState + KBM_FOLLOW_ORBIT);
+    CHECK(close_to(o.x, turned.x) && close_to(o.y, turned.y));
+    // The cursor free: the mouse's motion beside it is not counted.
+    follow();
+    tick();
+    g_input.captured = 0;
+    g_input.mouse_dx = 200.0f;
+    g_gyro_yaw = 0.0f;
+    read_pad();
+    camera(kCamera);
+    CHECK(close_to(vec_at(kCameraState + KBM_FOLLOW_ORBIT).y, orbit.y));
+
+    // Only while aiming: the follow camera without L1 or L2 does not turn.
+    settings("aiming");
+    follow();
+    tick();
+    g_input.captured = 0;
+    g_gyro_yaw = -0.05f;
+    read_pad();
+    camera(kCamera);
+    CHECK(close_to(vec_at(kCameraState + KBM_FOLLOW_ORBIT).y, orbit.y));
+    // First person counts as aiming: the view turns right and looks up.
+    use_camera(kCamera, KBM_CAMERA_FIRST_PERSON);
+    set_vec(kCamera, {1.0f, 0.0f, 0.0f});
+    at<float>(kCameraState + KBM_FIRST_PERSON_TILT) = 0.0f;
+    at<std::uint32_t>(d.hero + KBM_HERO_MOBY) = 0;
+    tick();
+    g_input.captured = 0;
+    g_gyro_yaw = -0.05f;
+    g_gyro_pitch = 0.05f;
+    read_pad();
+    const kbm::Vec3 look = vec_at(kCamera);
+    CHECK(look.y < -0.01f && look.z > 0.01f);
+    CHECK(close_to(at<float>(kCameraState + KBM_FIRST_PERSON_TILT), -0.05f));
+
+    // Off: nothing, whatever the gyro says.
+    settings("off");
+    set_vec(kCamera, {1.0f, 0.0f, 0.0f});
+    at<float>(kCameraState + KBM_FIRST_PERSON_TILT) = 0.0f;
+    tick();
+    read_pad();
+    CHECK(vec_at(kCamera).y == 0.0f);
+
+    g_gyro_available = false;
+    g_gyro_yaw = 0.0f;
+    g_gyro_pitch = 0.0f;
+    use_camera(0, 0);
+}
+
 // The game's fonts (key_prompts.h) in the test's memory: the Cross cell shows Space while the
 // keyboard and mouse are in use, the game's own again on the gamepad or with the setting off.
 void prompts() {
@@ -753,6 +868,7 @@ void run() {
     CHECK(!r.held(kbm::kCircle) && r.bytes[2] == 0x80);
 
     direct_camera();
+    gyro_camera();
 
     // Right click held: Triangle held, the mouse pointing the ring's slot by the left stick.
     tick();

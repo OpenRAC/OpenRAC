@@ -64,6 +64,8 @@ func_003972A0__frontbin	func_00392A40__frontbin
 func_003972A0__frontbin__game	func_00392A40__frontbin__game
 func_00397680	func_00397598
 func_00397680__game	func_00397598__game
+func_00397A18	func_00397930
+func_00397A18__game	func_00397930__game
 func_003983C8	func_003982E0
 func_003983C8__game	func_003982E0__game
 func_003A0760__frontbin	func_0039B760__frontbin
@@ -98,6 +100,7 @@ func_003CB798_003C3C18	func_003CB630_003C3C18
 func_003D3158	func_003D2FF0
 func_003E7DD0	func_003E7C70
 func_003E8200	func_003E80A0
+func_L01_003E4580	func_L01_003E2790
 func_L01_003E92F8	func_L01_003E7478
 func_L01_003E92F8__game	func_L01_003E7478__game
 func_L01_00404858	func_L01_004024E8
@@ -152,6 +155,8 @@ func_L01_004208E0	func_L01_0041E1B0
 func_L01_004208E0__game	func_L01_0041E1B0__game
 func_L01_00420AE8	func_L01_0041E3B8
 func_L01_00420AE8__game	func_L01_0041E3B8__game
+func_L01_00421278	func_L01_0041EB48
+func_L01_00421278__game	func_L01_0041EB48__game
 func_L01_00436F60	func_L01_00433EA0
 func_L01_00439300	func_L01_00436220
 func_L01_0043AAC0	func_L01_004379E0
