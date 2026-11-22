@@ -95,6 +95,8 @@ struct Release {
     std::uint32_t boot_light_bank;
     std::uint32_t veldin_light_bank;
     std::uint32_t multiplayer_light_bank;
+    // The boot program's occlusion mask (occlusion_mask), D_00227480.
+    std::uint32_t boot_occlusion;
 };
 
 constexpr int kFrontbinOverlay = 100;
@@ -170,6 +172,7 @@ constexpr Release kPal{
     0x002FF200,
     0x001F1740,
     0x002663C0,
+    0x00227480,
 };
 // clang-format on
 
@@ -530,6 +533,20 @@ public:
         return release_.boot_light_bank;  // the boot program and frontbin
     }
 
+    // The occlusion mask MobyProc tests each moby's word (+0x36) against: a level program's is
+    // Veldin's 0x001EA840 relocated (tools.c, the front end's occlusion), the boot program's its own,
+    // D_00227480 (NTSC-U's D_00227500), which its UpdateOcclusion (0x00386B10) sets all visible
+    // outside a cell. The loading screen between planets is the boot program's (mode 6, its
+    // MobyProc at 0x003CB8F8): culled by the levels' copy, unloaded and zero there, every part of
+    // the ship (word 0x7F80, "always") was left out, and only its engines' effects were drawn.
+    std::uint32_t occlusion_mask() const override {
+        const int program = openrac_guest_overlay();
+        if (program >= 1 && program < static_cast<int>(std::size(kPal.levels))) {
+            return 0;  // a level's, the front end's relocated
+        }
+        return release_.boot_occlusion;  // the boot program and frontbin
+    }
+
     // MobyProc lights each moby by the bank's point lights in reach as a third light, and the
     // terrain pass adds them (Veldin's 0x004B27B8 stands where Going Commando's
     // PatchTfragVertexLighting, func_002F0468, does): Going Commando's 968b9d4b0 and 4b309652b.
@@ -670,6 +687,7 @@ constexpr Release kUs{
     0x002FF280,
     0x001F17C0,
     0x002664C0,
+    0x00227500,
 };
 // clang-format on
 

@@ -258,6 +258,13 @@ public:
     // light_bank in the executable's terms, relocated as data (Ratchet & Clank, Going Commando).
     virtual std::uint32_t light_bank() const { return 0; }
 
+    // The frame's occlusion mask (0x80 bytes) the program loaded now reads, for a game whose
+    // programs each keep one of their own as light_bank's: Up Your Arsenal's boot program (its
+    // loading screen's MobyProc) reads its own copy, not the levels'. 0: the front end's occlusion
+    // address, relocated as the profile's scenery words are (Ratchet & Clank, Going Commando, and
+    // Up Your Arsenal's levels).
+    virtual std::uint32_t occlusion_mask() const { return 0; }
+
     // Which variant of the level's swapped texture (scene::LevelData::variant_image) the game has
     // loaded: Going Commando's ship paint job (func_002926B8 keeps its number at 0x00152C30). -1
     // for none, which keeps the one bound.
