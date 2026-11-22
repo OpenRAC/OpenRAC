@@ -66,8 +66,19 @@ static const Copy kMultiplayer =
      RAC3_LADDR(39, 0x0024BF90u),
      RAC3_LADDR(39, 0x0025F580u)};
 
+/* The boot program's (the loading screen between planets): its globals are no level's, not
+ * relocated. MobyProc 0x003CB798 reads its cap at $gp - 0x23E0 (0x001DA4D0) and its group masks
+ * from its own occlusion mask, D_00227480 (GameProfile::occlusion_mask). */
+static const Copy kBoot =
+    {-1,
+     RAC3_ADDR(0x001DA050u),
+     RAC3_ADDR(0x00222420u),
+     RAC3_ADDR(0x00225900u),
+     RAC3_ADDR(0x001DA4D0u),
+     RAC3_ADDR(0x00227480u)};
+
 static gaddr at_copy(const Copy* c, gaddr address) {
-    return OPENRAC_LDATA(c->from, address);
+    return c->from < 0 ? address : OPENRAC_LDATA(c->from, address);
 }
 
 /* The sky: its header (+0x06 the shell count, +0x20 the shells) and the matrix the shell being
@@ -249,6 +260,26 @@ int func_L01_00441B78(int a0, int a1, int a2, int a3) {
     (void)a3;
     moby_proc(&kVeldin, (gaddr)a0, a2);
     return 0;
+}
+
+/* The boot program's MobyProc (0x003CB798, hand-written; frontbin's 0x003CB3E0), run by the loading
+ * screen between planets for the ship's scene (0x003C3B38, 0x003C3C18): the drawn flags as the
+ * console sets them, as Going Commando's func_002A4E68 and the levels' copies above. Its draw side
+ * (0x003CB6B8, below) puts the world's markers and draws them natively. Run as the game's, it built
+ * VU1 packets whose vertices the draw side's jobs fill (0x003C81D8 from the scratchpad), which the
+ * port does not run: their space kept what the list held two passes before, the window's reading
+ * of the list lost its place in that stale data, and every other pass the planet's name after it
+ * was dropped (the name flickered). It returns the job list's end (the caller keeps it at
+ * 0x001DA498): no job queued, as it came. */
+gaddr func_003CB798(int a0, gaddr a1, int a2, int a3) {
+    (void)a3;
+    mark_drawn_mobys(&kBoot, (gaddr)a0, a2);
+    return a1;
+}
+
+/* The same routine as 0x003C3C18 calls it (the catalogue's place of its own): the whole table. */
+int func_003CB798_003C3C18(int a0, int a1, int a2, int a3) {
+    return (int)func_003CB798(a0, (gaddr)a1, a2, a3);
 }
 
 int func_L39_005B25C8(int a0, int a1, int a2, int a3) {
