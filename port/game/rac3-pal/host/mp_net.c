@@ -179,6 +179,7 @@ int rac3_mp_ui_describe(const char* json, size_t size); /* mp_ui.c */
 #define CLIENT_KEEPS_ALIVE                                                                         \
     4                      /* PACKET_HELLO's client bit: this client sends PACKET_TIME every 2 s */
 #define KEEP_ALIVE_MS 2000 /* how often: the server drops a client silent for 30 s */
+#define HUB_KEEP_ALIVE_MS 30000 /* the hub drops no quiet client; this keeps routers' state, within its request budget */
 #ifdef RAC3_PAL
 #define NET_FAMILY "rac3-pal-1"
 #else
@@ -1866,7 +1867,8 @@ static void on_frame(int id, reader* r) {
  * that hangs or dies stops sending, and the server drops it from its party. The answer is ignored. */
 static void link_keep_alive(net_link* l) {
     const int64_t ms = net_now_ms();
-    if (l->state != 1 || ms - l->alive_ms < KEEP_ALIVE_MS || l->out_len + 32 >= LINK_OUT) {
+    const int64_t every = l == &hub ? HUB_KEEP_ALIVE_MS : KEEP_ALIVE_MS;
+    if (l->state != 1 || ms - l->alive_ms < every || l->out_len + 32 >= LINK_OUT) {
         return;
     }
     l->alive_ms = ms;
