@@ -8,8 +8,8 @@ driver on Android. It is not a general OpenGL implementation: a GL call the rend
 not here, and a new renderer feature has to be expressible in that list. How GL's model becomes
 Vulkan's is the comment at the top of [vkgl.h](vkgl.h).
 
-On macOS and iOS the launcher labels this renderer **Metal**. The application loads its
-bundled MoltenVK. The legacy `OPENRAC_GL_API=metal` setting follows the same path.
+On macOS and iOS the application loads its bundled MoltenVK. macOS also has its own Metal
+renderer ([renderer/metal](../metal/README.md), `OPENRAC_GL_API=metal`).
 The macOS build keeps its OpenGL fallback. The **macOS MoltenVK smoke** workflow
 runs offscreen and swapchain presentation tests when dispatched manually.
 [remote-mac.sh](../../tools/remote-mac.sh) checks the bundled loader and records

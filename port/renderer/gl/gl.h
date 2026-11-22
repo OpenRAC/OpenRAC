@@ -398,6 +398,9 @@ bool loaded();
 // renderer optimisations without changing desktop GL or ES behaviour.
 bool is_vulkan();
 
+// The Metal backend (renderer/metal: GL_VERSION names "OpenRAC on Metal").
+bool is_metal();
+
 // Enhanced rendering (probe GI, modern shadows, GTAO: port/enhanced) is compiled into the desktop
 // builds and chosen when the game starts: the `enhanced_rendering` setting (the launcher's Mods
 // entry), or OPENRAC_ENHANCED=1 (or OPENRAC_PROBE_GI naming a bake) for scripts and tests. It is

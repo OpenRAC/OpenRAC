@@ -221,6 +221,27 @@ if(OPENRAC_VULKAN)
   target_compile_definitions(openrac_platform PRIVATE OPENRAC_VULKAN=1)
 endif()
 
+# ---- renderer/metal (renderer/metal/README.md) ----
+# Its shaders are the Vulkan backend's SPIR-V, made by its glslang, as MSL.
+if(OPENRAC_METAL AND NOT OPENRAC_VULKAN)
+  message(FATAL_ERROR "OPENRAC_METAL needs OPENRAC_VULKAN: its shaders are compiled by the Vulkan backend's glslang")
+endif()
+if(OPENRAC_METAL)
+  add_library(openrac_renderer_metal STATIC
+    renderer/metal/mtlgl.mm renderer/metal/mtlgl_draw.mm renderer/metal/mtlgl_resources.mm
+    renderer/metal/shader_translate.cpp renderer/metal/mtlgl_backend.cpp
+    renderer/metal/mtlgl_hdr.mm)
+  target_link_libraries(openrac_renderer_metal
+    PUBLIC openrac_renderer_vulkan openrac_sdl3 "-framework Metal" "-framework QuartzCore" "-framework OpenGL"
+           "-framework Foundation"
+    PRIVATE openrac_spirv_cross)
+  # HDR output's encode pass is the Vulkan backend's (vkgl_shaders.h, openrac_embed_shaders above).
+  target_include_directories(openrac_renderer_metal PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+  target_compile_options(openrac_renderer_metal PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
+  openrac_warnings(openrac_renderer_metal)
+  target_link_libraries(openrac_platform PRIVATE openrac_renderer_metal)
+  target_compile_definitions(openrac_platform PRIVATE OPENRAC_METAL=1)
+endif()
 # macOS: the menu bar's name and menus (platform/macos_app.mm).
 if(APPLE AND NOT OPENRAC_IOS)
   target_sources(openrac_platform PRIVATE platform/macos_app.mm)
@@ -975,6 +996,11 @@ if(OPENRAC_VULKAN)
       "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
   endif()
 endif()
+if(OPENRAC_METAL)
+  add_test(NAME texture_filter_metal COMMAND texture_filter_test)
+  set_tests_properties(texture_filter_metal PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=metal;OPENRAC_ENHANCED=0;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+endif()
 
 # The embedded sources' headers (openrac_embed_shaders) are private to their libraries.
 openrac_add_test(renderer_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
@@ -984,6 +1010,27 @@ if(OPENRAC_VULKAN)
   target_compile_definitions(renderer_shader_test PRIVATE OPENRAC_VULKAN=1)
   target_link_libraries(renderer_shader_test PRIVATE openrac_renderer_vulkan)
 endif()
+# metal_shader  every program the game builds, translated to MSL and compiled by the Metal device
+#               (tests/metal_shader_test.mm)
+if(OPENRAC_METAL)
+  openrac_add_test(metal_shader SOURCES tests/metal_shader_test.mm
+                   INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+                   LIBS openrac_renderer_metal openrac_scene_renderer)
+  target_compile_options(metal_shader_test PRIVATE -fobjc-arc)
+  set_tests_properties(metal_shader PROPERTIES SKIP_RETURN_CODE 77)
+  # mtlgl          the GL core on Metal without a window: clears and reads; then the same calls
+  #                in a hidden window on OpenGL and on Metal, read back (tests/mtlgl_test.cpp)
+  openrac_add_test(mtlgl LIBS openrac_renderer_metal openrac_renderer openrac_platform)
+  set_tests_properties(mtlgl PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "SDL_VIDEO_DRIVER=cocoa;MTL_DEBUG_LAYER=1")
+  # metal_hdr      HDR output on Metal: the layer for each output, the encode pass against
+  #                common/hdr.h and against the Vulkan backend's, a hidden window's layer turned
+  #                to EDR and back (tests/metal_hdr_test.cpp)
+  openrac_add_test(metal_hdr LIBS openrac_renderer_metal openrac_renderer openrac_platform)
+  set_tests_properties(metal_hdr PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "SDL_VIDEO_DRIVER=cocoa;MTL_DEBUG_LAYER=1;OPENRAC_GL_API=vulkan")
+endif()
+
 # A mod's moby material packed beside the shine distance, read back as mesh.vert reads it.
 openrac_add_test(moby_material_pack LIBS openrac_scene)
 # A mod's platinum as mesh.frag draws it: a gold-lit grey coin and a gold glow come out cool white.
@@ -995,6 +1042,11 @@ if(OPENRAC_VULKAN)
   set_tests_properties(moby_platinum_shader_vulkan PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
     ENVIRONMENT "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
+if(OPENRAC_METAL)
+  add_test(NAME moby_platinum_shader_metal COMMAND moby_platinum_shader_test)
+  set_tests_properties(moby_platinum_shader_metal PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
+    ENVIRONMENT "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+endif()
 # A mod's obsidian as mesh.frag draws it: a gold-lit grey coin comes out near black with a glow
 # in the mod's colour, and its gold glow packet in that colour.
 openrac_add_test(moby_obsidian_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
@@ -1005,6 +1057,11 @@ if(OPENRAC_VULKAN)
   set_tests_properties(moby_obsidian_shader_vulkan PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
     ENVIRONMENT "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
+if(OPENRAC_METAL)
+  add_test(NAME moby_obsidian_shader_metal COMMAND moby_obsidian_shader_test)
+  set_tests_properties(moby_obsidian_shader_metal PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
+    ENVIRONMENT "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+endif()
 # A mod's energy as mesh.frag draws it: a gold-lit grey surface keeps its gold with a little of the
 # mod's colour, and its gold glow packet comes out in that colour, brightened.
 openrac_add_test(moby_energy_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
@@ -1014,6 +1071,11 @@ if(OPENRAC_VULKAN)
   add_test(NAME moby_energy_shader_vulkan COMMAND moby_energy_shader_test)
   set_tests_properties(moby_energy_shader_vulkan PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
     ENVIRONMENT "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+endif()
+if(OPENRAC_METAL)
+  add_test(NAME moby_energy_shader_metal COMMAND moby_energy_shader_test)
+  set_tests_properties(moby_energy_shader_metal PROPERTIES SKIP_RETURN_CODE 77 LABELS gpu
+    ENVIRONMENT "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
 endif()
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.
 openrac_add_test(preview_animation LIBS openrac_scene)
@@ -1090,6 +1152,26 @@ if(OPENRAC_VULKAN)
   set_tests_properties(texture_blocks_gl_vulkan_astc PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_GL_HIDE_EXTENSIONS=GL_ARB_texture_compression_bptc")
 endif()
+# And on the Metal renderer (renderer/metal/mtlgl.h), with Metal's API validation. Where Metal
+# cannot open, the window falls back to OpenGL and these repeat the tests above. SDL's offscreen
+# driver has no Metal, so these open hidden Cocoa windows.
+if(OPENRAC_METAL)
+  add_test(NAME renderer_direct_metal COMMAND renderer_direct_test)
+  add_test(NAME renderer_shader_metal COMMAND renderer_shader_test)
+  add_test(NAME touch_overlay_metal COMMAND touch_overlay_test)
+  add_test(NAME imgui_gl_metal COMMAND imgui_gl_test)
+  add_test(NAME overlay_draw_metal COMMAND overlay_draw_test)
+  add_test(NAME viewer_metal COMMAND viewer_test "${CMAKE_CURRENT_BINARY_DIR}/viewer_test_level_metal")
+  set(openrac_metal_tests renderer_direct_metal renderer_shader_metal touch_overlay_metal imgui_gl_metal
+      overlay_draw_metal viewer_metal)
+  if(TARGET world_gl_smoke_test)
+    add_test(NAME world_gl_smoke_metal COMMAND world_gl_smoke_test)
+    list(APPEND openrac_metal_tests world_gl_smoke_metal)
+  endif()
+  set_tests_properties(${openrac_metal_tests} PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+endif()
+
 # Spatial GTAO: plane invariance, contact occlusion, deterministic frames and MSAA depth resolve.
 add_executable(gtao_test enhanced/tests/gtao_test.cpp)
 target_link_libraries(gtao_test PRIVATE openrac_viewer_lib openrac_platform)

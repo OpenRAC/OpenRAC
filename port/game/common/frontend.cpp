@@ -444,7 +444,17 @@ bool open(
     // HDR output may be turned on later only when it was not off at start (common/hdr.h).
     config.hdr = chosen.hdr != hdr::Mode::Off;
 #if defined(OPENRAC_VULKAN)
-    if (config.hdr && config.gl_api != platform::GlApi::Vulkan) {
+    // The Vulkan renderer has HDR output, and on macOS the Metal one (EDR): HDR on draws with
+    // Vulkan (it falls back to OpenGL by itself where Vulkan cannot start), except where the
+    // player chose Metal, which stays Metal. A build without Metal opens OpenGL for it, in SDR.
+    if (config.hdr && config.gl_api == platform::GlApi::Metal) {
+#if defined(__APPLE__)
+        log::info("HDR output is on: drawing with Metal, as chosen, through macOS's EDR");
+#else
+        log::info("HDR output needs Vulkan, or Metal on macOS: drawing as chosen, in SDR");
+        config.hdr = false;
+#endif
+    } else if (config.hdr && config.gl_api != platform::GlApi::Vulkan) {
         log::info("HDR output is on: drawing with Vulkan, the renderer that has it");
         config.gl_api = platform::GlApi::Vulkan;
     }
@@ -461,7 +471,9 @@ bool open(
         return false;
     }
 #if defined(__APPLE__)
-    g->hdr_at_start = g->window->gl_api() == platform::GlApi::Vulkan;
+    // Metal's layer turns to HDR at any time.
+    g->hdr_at_start = g->window->gl_api() == platform::GlApi::Vulkan
+                      || g->window->gl_api() == platform::GlApi::Metal;
 #endif
     platform::install_app_menus(env::flag(env::Var::Developer));
     set_window_icon(*g->window);

@@ -37,13 +37,14 @@ bool windowed() {
 #endif
 }
 
-// Whether the window's renderer supports HDR output.
+// Whether the window's renderer has HDR output: Vulkan, and Metal (macOS's EDR).
 bool renderer_has_hdr() {
-    return g->window->gl_api() == platform::GlApi::Vulkan;
+    const platform::GlApi api = g->window->gl_api();
+    return api == platform::GlApi::Vulkan || api == platform::GlApi::Metal;
 }
 
 #if defined(__APPLE__)
-constexpr const char* kHdrRenderer = "Metal";
+constexpr const char* kHdrRenderer = "Vulkan or Metal";
 #else
 constexpr const char* kHdrRenderer = "Vulkan";
 #endif

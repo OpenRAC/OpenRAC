@@ -112,16 +112,18 @@ void install_app_menus(bool developer);
 
 // Which OpenGL the window's context is: the desktop's 4.1 core profile, OpenGL ES 3.2 (Android,
 // whose drivers have only ES; renderer/gl/gl.h and renderer/gl/shader.h adapt to it), or the renderer's
-// GL carried out with Vulkan (renderer/vulkan/vkgl.h), through MoltenVK on Apple platforms.
-// If Vulkan cannot start, use the platform's OpenGL fallback where available.
+// GL carried out with Vulkan (renderer/vulkan/vkgl.h, through MoltenVK on Apple platforms) or
+// with Metal (renderer/metal/mtlgl.h, macOS builds with OPENRAC_METAL). A window that cannot have
+// Metal or Vulkan opens with the system's OpenGL instead.
 enum class GlApi {
     Desktop,
     ES,
     Vulkan,
+    Metal,
 };
 
 // Defaults to Vulkan on iOS, ES on Android and desktop OpenGL elsewhere.
-// OPENRAC_GL_API=es, =desktop or =vulkan overrides the default.
+// OPENRAC_GL_API=es, =desktop, =vulkan or =metal overrides the default.
 GlApi default_gl_api();
 
 struct WindowConfig {
@@ -151,6 +153,26 @@ struct WindowConfig {
 // renderer/gl/gl.h's load() takes.
 using GlProc = void (*)();
 using GlLoader = GlProc (*)(const char* name);
+
+// The Metal renderer (renderer/metal/mtlgl.h) as a window opens and draws with it. The platform is
+// below the renderer, so it declares this and renderer/metal defines it, in a build with
+// OPENRAC_METAL. open presents to `window`, or to no screen when it is null, and fails when Metal
+// cannot open or lacks a function of renderer/gl/gl.h.
+struct MetalBackend {
+    bool (*open)(SDL_Window* window, int width, int height, bool vsync, std::string& error);
+    void (*close)();
+    bool (*active)();
+    GlLoader get_proc;
+    void (*present)();
+    void (*set_swap_interval)(int interval);
+    std::string (*device_name)();
+    // HDR output through macOS's EDR (mtlgl.h): `edr` says the window's display offers it.
+    void (*set_hdr)(hdr::Output wanted, const hdr::Levels& levels, bool edr);
+    hdr::Output (*hdr_output)();
+    bool (*hdr_offered)();
+};
+
+const MetalBackend& metal_backend();
 
 class Window {
 public:
@@ -189,7 +211,8 @@ public:
 
     // HDR output (common/hdr.h): what the system says of the window's display (SDL; on Android
     // the activity, platform/display_hdr.h; unknown on X11), and the screen asked to show `wanted`
-    // at `levels`. Vulkan needs WindowConfig::hdr at startup. OpenGL shows SDR.
+    // at `levels`. Vulkan needs WindowConfig::hdr at startup; Metal (macOS's EDR) turns at any
+    // time. OpenGL shows SDR.
     // hdr_offered reports whether the screen offers an HDR format.
     hdr::Display hdr_display() const;
     void set_hdr(hdr::Output wanted, const hdr::Levels& levels);
@@ -247,9 +270,12 @@ private:
 
     // Opens the window for GlApi::Vulkan; false (and nothing left open) when Vulkan cannot be had.
     bool open_vulkan(const WindowConfig& config, std::string& error);
+    // The same for GlApi::Metal, which must also carry out every function of renderer/gl/gl.h.
+    bool open_metal(const WindowConfig& config, std::string& error);
     SDL_Window* m_window = nullptr;
     SDL_GLContextState* m_context = nullptr;
     bool m_vulkan = false;
+    bool m_metal = false;
     bool m_low_latency = false;
     bool m_hdr_window = false;        // Android: the window's colour mode asked for HDR
     float m_hdr_headroom = 0.0f;      // Android: the headroom the window asked for

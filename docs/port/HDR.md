@@ -46,9 +46,14 @@ plain HDR picture, bit for bit.
 
 ## Where it works
 
-HDR needs the Vulkan renderer, which the Apple launcher labels Metal. `on` starts the game with
-Vulkan if OpenGL was picked. On macOS, MoltenVK uses the display's EDR for scRGB output. If Vulkan
-cannot start, the desktop game falls back to OpenGL in SDR.
+HDR needs the Vulkan renderer, or Metal on macOS. `on` starts the game with Vulkan if OpenGL was
+picked; a picked Metal stays Metal. If Vulkan or Metal can't start, the game falls back to OpenGL
+in SDR.
+
+On Metal, HDR goes through macOS's EDR, as Vulkan's scRGB does on a Mac, and sends the same
+values. Two differences: the frame stays 8-bit, so glows and explosions stop at white instead of
+going brighter (the HDR frame below is Vulkan's), and turning HDR on from `off` works at once,
+with no restart.
 
 `on` sends HDR whenever the screen offers an HDR format, even if the system says the display is
 not in HDR mode. A compositor can get that wrong (Steam Deck's gamescope). Only Android follows
@@ -59,7 +64,8 @@ the system, because its Vulkan offers HDR10 on every display.
 | Windows | HDR10, else scRGB | SDL: HDR on, SDR brightness, peak |
 | Linux, Wayland | HDR10, else scRGB | SDL (needs a compositor with colour management) |
 | Linux, X11 | whatever the driver offers | nothing |
-| macOS | scRGB (EDR), else HDR10 | SDL: EDR headroom |
+| macOS, Vulkan | scRGB (EDR), else HDR10 | SDL: EDR headroom |
+| macOS, Metal | scRGB (EDR), when the display has EDR headroom | SDL: EDR headroom |
 | Android 14+ with headroom | scRGB, white = the system's SDR white | `GameActivity.displayHdr` (decides) |
 | Other Android | HDR10, else scRGB | `GameActivity.displayHdr` (decides) |
 
@@ -70,10 +76,10 @@ paper white is 203 and the peak 1000 unless you set them.
 
 - the system offers no HDR format: Windows with HDR off, a Wayland compositor without colour
   management, X11 without a driver that offers one, a Steam Deck LCD, or Android saying the
-  display is not in HDR mode;
-- HDR was `off` at start and the Vulkan window did not request HDR colour spaces. On Apple
-  platforms a MoltenVK window requests them at startup and can switch HDR on later.
-- Vulkan cannot start or the encode pass fails.
+  display is not in HDR mode; on Metal, a display with no EDR headroom (an SDR external monitor);
+- HDR was `off` at start (restart once; not needed on Metal, nor on macOS's MoltenVK, whose window
+  asks for HDR colour spaces at startup);
+- neither Vulkan nor Metal can start, or the encode pass can't be built.
 
 The options drawer shows what is sent and what the display reported. The log prints the same
 line (`HDR: ...`) when it changes.
@@ -115,6 +121,16 @@ on every display, so the game goes by what the activity says, not by the formats
   MaxFALL = paper white). If the swapchain images can't be written by a shader, the pass writes
   its own image and copies it. If the screen's format can't be stored at all (A2R10G10B10, or no
   storage support), the pass writes half floats and blits them into it.
+- Metal (`renderer/metal/mtlgl_hdr.mm`) runs the same `hdr_encode.comp`: compiled by the Vulkan
+  backend's glslang in its scRGB form and translated to MSL by SPIRV-Cross
+  (`shader_translate.h`, `translate_native_compute`). In HDR the window's `CAMetalLayer` has
+  `wantsExtendedDynamicRangeContent`, `MTLPixelFormatRGBA16Float`,
+  `kCGColorSpaceExtendedLinearSRGB` and `framebufferOnly` off, and the present runs the pass
+  straight into the drawable instead of the SDR copy. SDR gives the layer back its own format
+  and colour space. HDR is offered where SDL reports EDR headroom above 1 for the window's
+  display (NSScreen's `maximumExtendedDynamicRangeColorComponentValue`, or the potential one);
+  the frontend asks again when the window moves to another display or the display's HDR
+  changes.
 
 ## Tests
 
@@ -124,6 +140,10 @@ on every display, so the game goes by what the activity says, not by the formats
 - `vulkan_hdr`: the GPU pass against `common/hdr.h` on lavapipe, and the float frame (clamped
   draws, blending above white, the 8-bit frame stopping at 1), the bright-colour keys, and the
   blit path matching the direct one.
+- `metal_hdr` (macOS): the layer set-up for SDR and EDR, Metal's pass against `common/hdr.h`
+  and against Vulkan's pass on the same picture (MoltenVK, where it opens), a scaled screen, and
+  a hidden window's real layer turned to EDR and back, with a present each way under Metal's API
+  validation.
 
 `OPENRAC_HDR_FRAME=1` draws the float frame without an HDR screen and logs how much of it is above
 white every 60 frames. Use it to compare with the normal frame.
@@ -131,5 +151,6 @@ white every 60 frames. Use it to compare with the normal frame.
 Known differences while HDR is on: blending over a pixel that is already above white starts from
 that value, not from 1. Alpha that adds up past 1 also stays there.
 
-On a real HDR screen, start with `hdr = on` and Vulkan, check the reported HDR output format
-in the log, and compare the menu's white and a dark scene with the same scene in SDR.
+To check on a real HDR screen: start with `hdr = on` and Vulkan, look for
+`vulkan: HDR output HDR10 at ... nits` in the log (on Metal, `metal: HDR output scRGB (EDR) at ...
+nits`), and compare the menu's white and a dark scene with the same scene in SDR.

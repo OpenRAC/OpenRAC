@@ -865,7 +865,8 @@ void TexturePool::set_blocks(TextureHandle texture, std::shared_ptr<const Compre
 }
 
 BlockFormat TexturePool::gpu_block_format() {
-    if (!gl::loaded()) {
+    // The Metal backend is left to RGBA8 until its BC7 and ASTC uploads of mip levels are tried.
+    if (!gl::loaded() || gl::is_metal()) {
         return BlockFormat::None;
     }
     if (gl::has_extension("GL_ARB_texture_compression_bptc")
