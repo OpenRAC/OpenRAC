@@ -96,7 +96,8 @@ def units_of(source: Path, roots: list[str], skip: list[str]) -> dict[str, str]:
     return out
 
 
-def build(source: Path, cfg: dict, pairs: dict[str, str] | None = None) -> dict:
+def build(source: Path, cfg: dict, pairs: dict[str, str] | None = None,
+          hand_globals: dict[str, int] | None = None) -> dict:
     evidence: Counter = Counter()
     names: dict[str, str] = {}
     front: dict[str, str] = {}  # frontbin's own, where they differ from the executable's
@@ -133,6 +134,14 @@ def build(source: Path, cfg: dict, pairs: dict[str, str] | None = None) -> dict:
         if state == "C" and status != "match":
             leave_out(pal, program)
     values: dict[str, dict[str, int]] = read_names(source)
+    # The executable's globals checked by hand (release/release.json "globals", each with its
+    # evidence): names the C of a `match` function reads that names.tsv gives for the front end only
+    # or not at all (func_003877A0's D_00225BC0, the clip view), which would otherwise be marked and
+    # leave the function a stub.
+    for name, value in (hand_globals or {}).items():
+        if name not in values["boot_elf"]:
+            values["boot_elf"][name] = value
+            evidence["global: placed by hand (release.json)"] += 1
 
     def plain_value(program: str, name: str) -> int | None:
         return values[program].get(name)
@@ -252,7 +261,11 @@ def main(argv: list[str] | None = None) -> int:
     if hand.is_file():
         pairs = {k: v["is"].removesuffix("__frontbin") for k, v in json.loads(hand.read_text()).get("pairs", {}).items()
                  if isinstance(v, dict)}
-    parts = build(source, cfg, pairs)
+    hand_globals = {}
+    if hand.is_file():
+        hand_globals = {k: int(v["is"], 16) for k, v in json.loads(hand.read_text()).get("globals", {}).items()
+                        if isinstance(v, dict)}
+    parts = build(source, cfg, pairs, hand_globals)
     try:
         commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=source, capture_output=True, text=True,
                                 timeout=15).stdout.strip() or None
