@@ -463,6 +463,10 @@
   },
   "addresses": {
     "about": "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence.",
+    "0x001A4D30": {
+      "is": "0x001A4D30",
+      "why": "hero_carried, hero + 0x150: the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes hero_carried at NTSC-U 0x001A4D30"
+    },
     "0x001A50E0": {
       "is": "0x001A50E0",
       "why": "hero_ledge_block, hero + 0x500 (rac3-decomp include/structs/hero.h); the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes the block at NTSC-U 0x001A50E0"
@@ -533,6 +537,10 @@
   },
   "level_addresses": {
     "about": "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
+    "L01:001E2A40": {
+      "is": "001E2AC0",
+      "why": "player 0's game camera (camera_platform_ride's base, +0x50 the current update object): PAL's camera entries 0x001E2AA0 (+0x60) are NTSC-U's 0x001E2B20 (rac3_level_pairs.py, 8 of 8 places), the same +0x80; names.tsv's camera_manager_update keeps the camera's position at NTSC-U 0x001E2AC0, the entry's +0"
+    },
     "L01:002C5600": {
       "is": "002C5640",
       "why": "the item records (0xF0 bytes each, 160 of them): Veldin's program on the NTSC-U disc has PAL's 160 rows at 0x002C5640 (read from both discs' level 1, 2026-11-21: gun byte, next version +0x46, ammo +0x84/+0x8A/+0x8E and name ids the same)"

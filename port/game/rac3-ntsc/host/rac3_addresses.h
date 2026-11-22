@@ -40,6 +40,8 @@
 #define RAC3_ADDR_0x001A4C60u 0x001A4C60u
 /* release.json: Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004E51A0 (NTSC-U func_L01_004E13D8) +0x20, 3 of 3 places agree */
 #define RAC3_ADDR_0x001A4C70u 0x001A4C70u
+/* release.json: hero_carried, hero + 0x150: the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes hero_carried at NTSC-U 0x001A4D30 */
+#define RAC3_ADDR_0x001A4D30u 0x001A4D30u
 /* release.json: hero_ledge_block, hero + 0x500 (rac3-decomp include/structs/hero.h); the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes the block at NTSC-U 0x001A50E0 */
 #define RAC3_ADDR_0x001A50E0u 0x001A50E0u
 /* release.json: Veldin's program (rac3_level_pairs.py): between the same code's 0x001A5780 and 0x001A57F8, both moved by +0x0 (NTSC-U 0x001A5780, 0x001A57F8) */
@@ -212,6 +214,8 @@
 #define RAC3_LADDR_1_0x001E2880u 0x001E2900u
 /* the same instruction of the same code: func_L01_003649E8 (NTSC-U func_L01_00363C60) +0x74, 13 of 13 places agree */
 #define RAC3_LADDR_1_0x001E29E0u 0x001E2A60u
+/* player 0's game camera (camera_platform_ride's base, +0x50 the current update object): PAL's camera entries 0x001E2AA0 (+0x60) are NTSC-U's 0x001E2B20 (rac3_level_pairs.py, 8 of 8 places), the same +0x80; names.tsv's camera_manager_update keeps the camera's position at NTSC-U 0x001E2AC0, the entry's +0 */
+#define RAC3_LADDR_1_0x001E2A40u 0x001E2AC0u
 /* the same instruction of the same code: func_L01_003E4428 (NTSC-U func_L01_003E2638) +0x14, 8 of 8 places agree */
 #define RAC3_LADDR_1_0x001E2AA0u 0x001E2B20u
 /* the same instruction of the same code: func_L01_003E7000 (NTSC-U func_L01_003E5198) +0x44, 5 of 5 places agree */

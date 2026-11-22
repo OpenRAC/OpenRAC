@@ -3824,6 +3824,34 @@ class FromAssembly(unittest.TestCase):
         self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=fixed))
         self.assertEqual(self.last_report["assembly_signature_drops"], {})
 
+    def test_float_parameters_on_calls_hand_on_an_untouched_float(self):
+        # asm.float_parameters_on_calls: NTSC-U's func_L01_00432FE8 takes its help box's four
+        # extents in $f12-$f15 and calls the frame drawer through a code address without touching
+        # them; the call handed the drawer 0.0 for each, as no float register was written.
+        functions = {"func_00100600": (0x100600, """
+            addiu $29, $29, -16
+            sq $31, 0($29)
+            jalr $31, $4
+            nop
+            lq $31, 0($29)
+            jr $31
+            addiu $29, $29, 16
+        """)}
+        c = """
+            INCLUDE_ASM("asm", func_00100600);
+            extern int func_00100600(int (*f)(float, float), float x, float y);
+            int func_00100700(float x, float y) { return (int)(x + y); }
+            int test_main(void) { test_print(func_00100600(func_00100700, 2.5f, 4.5f)); return 0; }
+        """
+        config = {"asm": {**ASM_CONFIG["asm"], "signatures": {"func_00100600": "int (void *, float, float)"}}}
+        symbols = {"func_00100700": 0x100700}
+        self.run_asm(c, functions, symbols, config=config)
+        self.assertIn("(const float[8]){0.0f, 0.0f,", self.last_generated)
+        config["asm"]["float_parameters_on_calls"] = True
+        self.assertEqual(self.run_asm(c, functions, symbols, config=config), ["7"])
+        self.assertIn("(const float[8]){f12, f13,", self.last_generated)
+        self.assertIn("f12 = a1;", self.last_generated)
+
     def test_live_arguments_take_a_parameter_handed_on_to_a_pointer_call(self):
         # asm.live_arguments: the $a1 that func_00100400 hands on to its pointer call (which
         # sets $a2) becomes its parameter, as func_00100400's signature above does by hand.

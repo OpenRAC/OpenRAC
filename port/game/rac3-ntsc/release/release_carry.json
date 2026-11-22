@@ -61,6 +61,11 @@
    "status": "differs",
    "port": "hook"
   },
+  "func_L01_003E4580": {
+   "is": "func_L01_003E2790",
+   "status": "differs",
+   "port": "host C"
+  },
   "func_L01_003E92F8": {
    "is": "func_L01_003E7478",
    "status": "differs",
@@ -175,6 +180,10 @@
   "0x001A4C70": {
    "is": "0x001A4C70",
    "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_004E51A0 (NTSC-U func_L01_004E13D8) +0x20, 3 of 3 places agree"
+  },
+  "0x001A4D30": {
+   "is": "0x001A4D30",
+   "why": "hero_carried, hero + 0x150: the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes hero_carried at NTSC-U 0x001A4D30"
   }
  },
  "hostgen_left_out": {

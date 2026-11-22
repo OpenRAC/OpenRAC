@@ -200,6 +200,11 @@ class Translator:
     # asm.wide_call_results in hostgen.json: a call through a folded copy's own target keeps a
     # 64-bit result its callee's declaration gives (indirect's wide_result), not its low half.
     wide_call_results = False
+    # asm.float_parameters_on_calls in hostgen.json: a call through a code address hands on the
+    # float parameters the function came in with as well as the float registers it writes, since
+    # on the EE they are still in $f12-$f19 when it does not touch them (NTSC-U's
+    # func_L01_00432FE8, the help box's frame: its four extents went to the frame drawer as 0).
+    float_parameters_on_calls = False
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -300,6 +305,7 @@ class Translator:
         sub.in_place = self.in_place
         sub.dma_stores = self.dma_stores
         sub.wide_register_calls = self.wide_register_calls
+        sub.float_parameters_on_calls = self.float_parameters_on_calls
         sub.fit_declarations = self.fit_declarations
         sub.register_jumps = self.register_jumps
         sub.input_idioms = self.input_idioms
@@ -1140,7 +1146,7 @@ class Translator:
         `wide_result`: the callee's declaration returns 64 bits, which the result keeps (a TEX0 from
         GetEffectTex, func_L01_00404040, reached through a folded copy's own call: cut to 32 bits,
         its CLUT and height were lost and Annihilation Nation's mirror was drawn as stripes)."""
-        floats = any(r in self._float_writes() for r in FARG_REGS)
+        floats = any(r in self._float_writes() or r in self._float_parameters() for r in FARG_REGS)
         ret = "float" if float_result or self._reads_f0_after(at) else "unsigned long long" if wide_result else "int"
         params = ["openrac_u64"] * 8 + (["float"] * 8 if floats else [])
         args = [self.R(r) for r in ARG_REGS] + ([f"f{r}" for r in FARG_REGS] if floats else [])
@@ -1167,6 +1173,14 @@ class Translator:
             after = "openrac_guest_hi_pending = 0;"
             return [before, "#if OPENRAC_REGS_THUNKS", *thunked, "#else", *cast, "#endif", after]
         return ["#if OPENRAC_REGS_THUNKS", *thunked, "#else", *cast, "#endif"]
+
+    def _float_parameters(self) -> set:
+        """The float argument registers the function's own parameters arrive in, which a call through
+        a code address hands on untouched (asm.float_parameters_on_calls); none without the option."""
+        if not self.float_parameters_on_calls or getattr(self, "sig", None) is None:
+            return set()
+        n = sum(1 for t in self.sig.params if canon(t, self.program.typedefs) == "float")
+        return set(FARG_REGS[:n])
 
     def _float_writes(self) -> set:
         """The FPU registers the function writes anywhere."""
@@ -2219,6 +2233,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.result_flow = bool(a.get("result_flow"))
     tr.live_arguments = bool(a.get("live_arguments"))
     tr.wide_call_results = bool(a.get("wide_call_results"))
+    tr.float_parameters_on_calls = bool(a.get("float_parameters_on_calls"))
     tr.verified_signatures = frozenset(a.get("signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)
