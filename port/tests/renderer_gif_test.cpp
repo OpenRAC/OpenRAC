@@ -569,6 +569,8 @@ void offscreen_then_upload() {
         CHECK(s.source == 0);
         CHECK(s.textured && s.texture != textures.placeholder());
     }
+    // A texture starts at the target's block: the world's quads that sample it get the texture.
+    CHECK(gif.take_drawn_blocks().empty());
 }
 
 // The game names a block in FRAME (its register sets name a panel's target whether or not that
@@ -623,6 +625,11 @@ void upload_over_offscreen() {
     if (!gif.draws().empty()) {
         CHECK(gif.draws().back().state.source == 0);
     }
+    // The world's quads drawn before the upload (Up Your Arsenal's refraction rings through its
+    // frame copy) still read what was drawn there, once.
+    CHECK(gif.offscreen_blocks().empty());
+    CHECK(gif.take_drawn_blocks() == std::vector<std::uint32_t>{kTarget});
+    CHECK(gif.take_drawn_blocks().empty());
 }
 
 // A texture in the pages under the 448-line draw buffer (line 448 on) is a texture, not the frame.

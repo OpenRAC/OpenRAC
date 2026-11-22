@@ -728,7 +728,12 @@ def params_from_declarations(program: Program) -> list[str]:
     floats, and every extra one is a scalar. Not for the port's own host or wrapped functions. Returns
     "symbol: n parameter(s)" of each one."""
     changed = []
+    # hostgen.json "params_from_declarations" as a list: only those functions (Up Your Arsenal's,
+    # where the whole program's declarations are not all to be trusted yet).
+    only = getattr(program, "params_only", None)
     for f in program.functions.values():
+        if only is not None and f.symbol not in only:
+            continue
         listed = f.symbol in getattr(program, "extra_params", {})
         if (f.unit is None or f.asm or f.static or f.symbol in program.host or f.symbol in program.wrap
                 or (f.symbol in getattr(program, "host_called", ()) and not listed)

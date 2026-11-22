@@ -46,6 +46,14 @@ void set_moby_anim_fields(std::uint32_t first);
 void set_moby_layer_records(bool records);
 
 /**
+ * The port's own game memory: `memory` holds the game addresses from `base` on (runtime's
+ * GUEST_PORT region), which the game reaches but game RAM does not hold. A mod's copy of an enemy
+ * keeps pvars larger than a pool slot's there, and with them its joint modifiers and pose layers.
+ * Said once, as above; until then such addresses read as RAM's.
+ */
+void set_port_memory(std::uint32_t base, std::span<const std::uint8_t> memory);
+
+/**
  * Keys and blend to pose a moby with in place of its own animation fields: a pose the port gives a
  * moby the game leaves asleep (game/common/frontend/sleeping_mobys.h). `a` and `b` are game
  * addresses of two frames of its class, `t` the blend, `plain` whether they are consecutive keys

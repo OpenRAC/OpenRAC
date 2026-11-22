@@ -513,6 +513,11 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
                                                        fmt, mesh_file)
     for class_id, (blob, place) in level.items.items():
         result[class_id] = lenient(level, blob, [ITEM_TEXTURES + place] * 16, class_id, fmt)
+    # The classes Up Your Arsenal's scenes load while they play (level.scene_classes): Clank in a
+    # scene is class 10, the gun the Ranger hands over on Veldin 7322; not in the level's table.
+    for class_id, (blob, remap) in level.scene_classes.items():
+        if class_id not in result:
+            result[class_id] = lenient(level, blob, remap, class_id, fmt)
     # His ship's hull is the disc's in every level, over any class 3412 of the level's own: the
     # game loads it over the class on each load (func_002925F0, from func_L00_002A3B88).
     for number, body in enumerate(level.ship_bodies):

@@ -41,19 +41,45 @@ std::uint32_t ram_address(std::uint32_t address, std::size_t size) {
     return address & 0x01FFFFFFu;
 }
 
+// The port's own game memory (set_port_memory): where it starts and its bytes.
+std::uint32_t g_port_base = 0;
+std::span<const std::uint8_t> g_port;
+
+// Where the `bytes` bytes at game address `address` are: the memory that holds them (game RAM or
+// the port's own) and their offset in it; none when they are in neither. A moby's joint
+// modifiers and pose layers live in its pvars, and a mod's copy of an enemy whose pvars are larger
+// than a pool slot's keeps them in the port's memory (port/game/rac2/host/enemy_copies.c): read
+// as RAM, its modifiers were the executable's code, and its joints went to infinity.
+std::optional<std::pair<std::span<const std::uint8_t>, std::uint32_t>> locate(
+    std::span<const std::uint8_t> ram, std::uint32_t address, std::size_t bytes
+) {
+    if (!g_port.empty() && address >= g_port_base && address - g_port_base < g_port.size()) {
+        const std::uint32_t offset = address - g_port_base;
+        if (bytes > g_port.size() - offset) {
+            return std::nullopt;
+        }
+        return std::pair{g_port, offset};
+    }
+    address = ram_address(address, ram.size());
+    if (address > ram.size() || bytes > ram.size() - address) {
+        return std::nullopt;
+    }
+    return std::pair{ram, address};
+}
+
 template <typename T>
 T at(std::span<const std::uint8_t> ram, std::uint32_t address) {
     T value{};
-    address = ram_address(address, ram.size());
-    if (address + sizeof(T) <= ram.size()) {
-        std::memcpy(&value, ram.data() + address, sizeof(T));
+    if (const auto where = locate(ram, address, sizeof(T))) {
+        std::memcpy(&value, where->first.data() + where->second, sizeof(T));
     }
     return value;
 }
 
+// Whether the bytes at `address` can be read: no null pointer, nor one that is RAM's first byte.
 bool inside(std::span<const std::uint8_t> ram, std::uint32_t address, std::size_t bytes) {
-    address = ram_address(address, ram.size());
-    return address != 0 && address + bytes <= ram.size();
+    const auto where = locate(ram, address, bytes);
+    return address != 0 && where && (where->first.data() != ram.data() || where->second != 0);
 }
 
 // A key where the moby points; none when there is no pointer or what is there is not a
@@ -64,9 +90,9 @@ std::optional<rac1::MobyFrame> key_at(
     if (!inside(ram, address, 0x10)) {
         return std::nullopt;
     }
+    const auto where = locate(ram, address, 0x10);
     try {
-        rac1::MobyFrame f =
-            rac1::parse_frame(assets::ByteView(ram), ram_address(address, ram.size()));
+        rac1::MobyFrame f = rac1::parse_frame(assets::ByteView(where->first), where->second);
         if (f.header.quat_bytes == 0 || f.header.quat_bytes > 8 * kMaxJoints || joints == 0) {
             return std::nullopt;
         }
@@ -97,6 +123,11 @@ void set_moby_anim_fields(std::uint32_t first) {
 
 void set_moby_layer_records(bool records) {
     g_layer_records = records;
+}
+
+void set_port_memory(std::uint32_t base, std::span<const std::uint8_t> memory) {
+    g_port_base = base;
+    g_port = memory;
 }
 
 std::vector<rac1::JointMatrix> moby_palette(std::span<const std::uint8_t> ram, std::uint32_t moby) {
@@ -297,7 +328,11 @@ std::vector<rac1::JointMatrix> evaluate_moby(
             continue;
         }
         rac1::PoseLayer l;
-        l.joints.assign(ram.begin() + list, ram.begin() + list + count);
+        const auto joints_at = locate(ram, list, count);
+        l.joints.assign(
+            joints_at->first.begin() + joints_at->second,
+            joints_at->first.begin() + joints_at->second + count
+        );
         l.weight = at<float>(ram, node + 0x08);
         if (g_layer_records) {
             const auto buffer = at<std::uint32_t>(ram, node + 0x10);
@@ -343,7 +378,20 @@ std::vector<rac1::JointMatrix> evaluate_moby(
             mods.insert(mods.end(), g_extra_mods.begin(), g_extra_mods.end());
         }
     }
-    return rac1::evaluate_keys(anim, &*a, b ? &*b : nullptr, t, plain, mods, layers);
+    std::vector<rac1::JointMatrix> pose =
+        rac1::evaluate_keys(anim, &*a, b ? &*b : nullptr, t, plain, mods, layers);
+    // A joint the console would have sent to infinity or NaN (whatever its data held): the moby is
+    // drawn as stored rather than as triangles across the screen.
+    for (const rac1::JointMatrix& joint : pose) {
+        for (const auto& row : joint) {
+            for (const float x : row) {
+                if (!std::isfinite(x)) {
+                    return {};
+                }
+            }
+        }
+    }
+    return pose;
 }
 
 }  // namespace

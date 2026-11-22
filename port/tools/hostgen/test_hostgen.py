@@ -204,6 +204,36 @@ class Translate(unittest.TestCase):
         self.assertNotIn("int func_00100100(", self.last_generated)
         self.assertIn("int func_00100240(", self.last_generated)
 
+    def test_params_from_declarations_listed_hand_floats_on(self):
+        # hostgen.json "params_from_declarations" as a list: only the functions named. Up Your
+        # Arsenal's random_vector (func_L01_00443B88) is matched as (out) and calls rand_range
+        # with no arguments, which on the EE reads the range its callers left in $f12/$f13; the
+        # port handed rand_range whatever the host's float registers held, and a broken crate's
+        # pieces turned by a quaternion of any length grew without end. Listed, it takes its
+        # callers' two floats and hands them on; the function not listed keeps its own C.
+        files = {"a.c": """
+            float func_00100000(float lo, float hi) { return lo * 10.0f + hi; }
+        """, "b.c": """
+            extern float func_00100000(void);
+            void func_00100100(float *out) { *out = func_00100000(); }
+            void func_00100140(float *out) { *out = func_00100000(); }
+        """, "c.c": """
+            extern void func_00100100(float *, float, float);
+            extern void func_00100140(float *, float, float);
+            int test_main(void) {
+                float v = 0.0f, w = 0.0f;
+                func_00100100(&v, 2.0f, 3.0f);
+                func_00100140(&w, 2.0f, 3.0f);
+                test_print((int)v);
+                return 0;
+            }
+        """}
+        out = self.run_program(files, config={"params_from_declarations": ["func_00100100"]})
+        # The one not listed passes nothing there (its zero-arguments site is reached).
+        self.assertEqual(out, ["reach", "func_00100140", "23"])
+        self.assertIn("void func_00100100(gaddr out, float pass_1, float pass_2)", self.last_generated)
+        self.assertNotIn("func_00100140(gaddr out, float", self.last_generated)
+
     def test_a_user_of_a_derived_name_with_no_address_is_left_to_its_assembly(self):
         # rac2-decomp matched func_L00_003ABEC0 after the port's derived_names.json was written: its
         # call of ref_L00_003ABEC0_00 reached a stub that does nothing, and the Todano robot never
@@ -2532,6 +2562,33 @@ class Places(unittest.TestCase):
             text = (out / "levels" / "shared" / "L00_0037E668.c").read_text()
             self.assertIn("OPENRAC_LDATA(2, 0x001B3DB0u)", text)
             self.assertNotIn("OPENRAC_LDATA(0, 0x001B3DB0u)", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_another_levels_data_name_is_that_levels_address(self):
+        # Up Your Arsenal's func_L13_003ABD48 was matched from level 16's copy and names the path
+        # table D_L16_0021ED00, which level 13 has at 0x0021D540. Read as level 13's 0x0021ED00,
+        # the walkers took a path pointer from other data and faulted in levels 13, 16 and 22.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L13_003ABD48.c").write_text(
+                "extern int *D_L16_0021ED00[];\n"
+                "int *func_L13_003ABD48(int i) { return D_L16_0021ED00[i]; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L13_003ABD48\tshared\t40\tfingerprint\t2\t13:003ABD48,16:003D8058\n")
+            (root / "names.json").write_text(json.dumps({"values": {"D_L16_0021ED00": "0x0021ed00"}}))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1D5680, 0x700000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L13_003ABD48.c").read_text()
+            self.assertIn("OPENRAC_LDATA(16, 0x0021ED00u)", text)
+            self.assertNotIn("OPENRAC_LDATA(13, 0x0021ED00u)", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_level_datums_second_name_is_its_own_address(self):
