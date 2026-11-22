@@ -81,6 +81,16 @@
    "status": "differs",
    "port": "host C"
   },
+  "func_L01_0041FE80": {
+   "is": "func_L01_0041D750",
+   "status": "nomatch",
+   "port": "wrap"
+  },
+  "func_L01_0041FE80__game": {
+   "is": "func_L01_0041D750__game",
+   "status": "nomatch",
+   "port": "host C"
+  },
   "func_L01_004443E8": {
    "is": "func_L01_004412D0",
    "status": "differs",
@@ -294,6 +304,7 @@
   "func_00391B30__frontbin",
   "func_00391B70__frontbin",
   "func_00391D08__frontbin",
+  "func_00391FD8__frontbin",
   "func_00393C18",
   "func_00393EF8",
   "func_00395240",
@@ -366,7 +377,6 @@
   "func_003BE4F0__frontbin",
   "func_003BE680",
   "func_003BE6B8",
-  "func_003BE710",
   "func_003BEA78",
   "func_003BF1C8",
   "func_003BF4F8__frontbin",
