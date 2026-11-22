@@ -23,6 +23,7 @@ gaddr func_002B9030(int a0);
 gaddr func_002B9030__game(int a0);
 void func_002A05A8(gaddr a0);
 void func_002A8E20(gaddr a0, gaddr a1);
+gaddr func_002AB1F0(gaddr a0);
 gaddr func_L00_003AB9C0__game(
     gaddr a0, gaddr a1, gaddr a2, gaddr a3, float a4, float a5, float a6, float a7
 );
