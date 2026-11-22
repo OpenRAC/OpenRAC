@@ -818,6 +818,34 @@
     "L01:001E0020": {
       "is": "001E00A0",
       "why": "the same instruction of the same code: func_L01_0042AF50 (NTSC-U func_L01_004281A8) +0xB8, 19 of 19 places agree"
+    },
+    "L39:0024B9FC": {
+      "is": "0024BAFC",
+      "why": "the same instruction of the same code: func_L39_00589538 (NTSC-U func_L39_005883C8) +0x40, 6 of 6 places agree"
+    },
+    "L39:0024BCEC": {
+      "is": "0024BDEC",
+      "why": "between the same code's 0x0024BCE4 and 0x0024BCF8, both moved by +0x100 (NTSC-U 0x0024BDE4, 0x0024BDF8)"
+    },
+    "L39:0024C188": {
+      "is": "0024C288",
+      "why": "the same instruction of the same code: func_L01_004C97C8 (NTSC-U func_L01_004C5C08) +0x28, 4 of 4 places agree"
+    },
+    "L39:0024C190": {
+      "is": "0024C290",
+      "why": "the same instruction of the same code: func_L01_004C97C8 (NTSC-U func_L01_004C5C08) +0x8, 6 of 6 places agree"
+    },
+    "L39:0024C940": {
+      "is": "0024CA40",
+      "why": "between the same code's 0x0024C920 and 0x0024C9A0, both moved by +0x100 (NTSC-U 0x0024CA20, 0x0024CAA0)"
+    },
+    "L39:0025D9C0": {
+      "is": "0025DAC0",
+      "why": "the same instruction of the same code: func_L39_0059C910 (NTSC-U func_L39_0059B580) +0x60, 3 of 3 places agree"
+    },
+    "L39:002961C0": {
+      "is": "002962C0",
+      "why": "between the same code's 0x00294FC0 and 0x002965C0, both moved by +0x100 (NTSC-U 0x002950C0, 0x002966C0)"
     }
   },
   "mp_hostgen": {
@@ -844,5 +872,12 @@
       7340032
     ],
     "relocate_why": "the programs' range from level 39's .lit, NTSC-U's 0x00241B80 (its level ELF; PAL's .lit starts at 0x00241A00, the boot program's rule: the first loaded program's .lit), up to 0x00700000 as PAL's"
+  },
+  "mp_addresses": {
+    "about": "NTSC-U's address of a multiplayer executable global the host C writes as RAC3_MADDR(address) that rac3_mp_pairs.py does not pair: PAL's address, NTSC-U's, why.",
+    "0x002412DC": {
+      "is": "0x0024145C",
+      "why": "the level whose program is loaded: read at $gp - 0x6CE4 in both cores (PAL 0x00199150, 0x002945BC, 0x00295534 with $gp 0x00247FC0; NTSC-U 0x00199290, 0x00295524 with $gp 0x00248140)"
+    }
   }
 }

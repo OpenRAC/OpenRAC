@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import struct
 import sys
 from pathlib import Path
@@ -84,6 +85,24 @@ CARRIED = [
      "DrawWorldQuad (func_L01_00407E28): drawn natively", "int (int, int)"),
 ]
 
+# Level 39's 2D layer (the wrap rows ui2d.c's MP_MAP_UI stands for; "ref" ones it only calls).
+CARRIED_UI = [
+    ("00592238", "draw", "FontPrintMap", "wrap", "FontPrint (the boot program's func_0038EBC8)"),
+    ("00592AC8", "draw", "FontPrintShadedMap", "wrap", "FontPrintShaded (func_0038F458)"),
+    ("0058BBB0", "draw", "DrawGlyphMap", "wrap", "DrawGlyph (func_0038BA50)"),
+    ("0058BD90", "draw", "DrawGlyphShadedMap", "wrap", "DrawGlyphShaded (func_0038BC30)"),
+    ("0058BF70", "draw", "DrawGlyphShadowedMap", "wrap", "DrawGlyphShadowed (func_0038BE10)"),
+    ("0058B868", "draw", "DrawGlyphQuadMap", "wrap", "the glyph quad (func_0038B8B0)"),
+    ("0058B4B8", "draw", "DrawTurnedGlyphQuadMap", "wrap", "the turned glyph quad (func_0038B500)"),
+    ("0058C678", "draw", "DrawShadedBoxMap", "wrap", "the shaded box (func_0038C628)"),
+    ("0058B1B8", "draw", "DarkenPictureMap", "wrap", "the picture's darkening (func_0038B200)"),
+    ("0058B2C8", "draw", "DrawFlatBoxMap", "wrap", "the flat box (func_0038B310)"),
+    ("0059CFD0", "draw", "DrawHudSpriteShadedMap", "wrap", "the turned HUD sprite (func_00397680)"),
+    ("00590A80", "", "", "ref", "the sine"),
+    ("00590A68", "", "", "ref", "the cosine"),
+    ("0059C910", "", "", "ref", "a HUD texture's TEX0"),
+]
+
 BEGIN = "# --- the maps' rows: written by mp/maps.py, do not edit by hand ---"
 END = "# --- end of the maps' rows ---"
 
@@ -102,6 +121,46 @@ def catalogue(source: Path) -> dict[str, dict[int, str]]:
                 places.setdefault(int(level), address)
         if 39 in places:
             out[places[39]] = places
+    return out
+
+
+def all_places(source: Path) -> tuple[dict[tuple[int, str], dict[int, str]], dict[str, dict[int, str]]]:
+    """Every catalogue row's places: by (level, place) and by the row's name."""
+    by_place, by_name = {}, {}
+    for line in (source / "config/levels/functions.tsv").read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 7:
+            continue
+        places: dict[int, str] = {}
+        for item in cols[6].split(","):
+            level, _, address = item.partition(":")
+            if address and level.isdigit():
+                places.setdefault(int(level), address)
+        by_name[cols[0]] = places
+        for level, address in places.items():
+            by_place[(level, address)] = places
+    return by_place, by_name
+
+
+def map_signatures(source: Path, mp_cfg: dict) -> dict[str, str]:
+    """The "asm" "signatures" a map's copies take: level 39's (this executable's hostgen.json) and
+    the single-player levels' and frontbin's (the boot program's hostgen.json), which are the same
+    routines' (the catalogue's rows), at each map's place. Level 39's win where both give one."""
+    by_place, by_name = all_places(source)
+    boot = json.loads((HERE.parent / "hostgen.json").read_text())["asm"]["signatures"]
+    out: dict[str, str] = {}
+    for table in (boot, mp_cfg["asm"]["signatures"]):
+        for name, sig in table.items():
+            m = re.fullmatch(r"func_L(\d\d)_([0-9A-F]{8})", name)
+            if m:
+                places = by_place.get((int(m.group(1)), m.group(2)))
+            elif name.endswith("__frontbin"):
+                places = by_name.get(name[: -len("__frontbin")])
+            else:
+                continue
+            for m_ in MAPS:
+                if places and m_ in places:
+                    out[f"func_L{m_}_{places[m_]}"] = sig
     return out
 
 
@@ -126,6 +185,16 @@ def build(source: Path) -> tuple[dict, list[str], list[str]]:
             lines.append(f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what} "
                          f"(level 39's {l39}; host/mp_maps.c)\t{sig}")
         macros.append(f"MP_MAP({m}, " + ", ".join(places) + ")")
+        ui = []
+        for l39, lib, name, port, what in CARRIED_UI:
+            place = rows.get(l39, {}).get(m)
+            if place is None:
+                raise SystemExit(f"maps.py: level 39's {l39} has no place in map {m} in the catalogue")
+            ui.append(place)
+            if port != "ref":
+                lines.append(f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what}, "
+                             f"wrapped as level 39's {l39} (host/ui2d.c)")
+        macros.append(f"MP_MAP_UI({m}, " + ", ".join(ui) + ")")
     return entries, lines, macros
 
 
@@ -147,6 +216,8 @@ def main() -> int:
     cfg["asm"]["discover_levels"] = levels
     cfg["asm"]["retail"]["levels"] = levels
     cfg["level_copies"] = {"places": "config/levels/functions.tsv", "from": 39, "levels": list(MAPS)}
+    own = {k: v for k, v in cfg["asm"]["signatures"].items() if not re.match(r"func_L(4\d|5\d)_", k)}
+    cfg["asm"]["signatures"] = {**own, **map_signatures(args.source, {"asm": {"signatures": own}})}
     outputs = {cfg_path: json.dumps(cfg, indent=2) + "\n"}
 
     lib_path = HERE / "libraries.tsv"

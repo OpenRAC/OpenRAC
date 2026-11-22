@@ -218,13 +218,16 @@ class MpNames:
             return out
         pal_rows = rows(source / "config/levels/functions.tsv")
         us_rows = rows(source / "config/us/levels/functions.tsv")
-        self.l39: dict[int, int] = {}
+        # Level 39's and the maps' (40 and up, the same numbers on both discs) places, PAL's -> NTSC-U's.
+        self.levels: dict[int, dict[int, int]] = {}
         for pal, (kind, places) in pal_rows.items():
-            if 39 not in places:
-                continue
             twin = names.front.get(pal) if kind == "frontbin" else names.levels.get(pal)
-            if twin and twin in us_rows and 39 in us_rows[twin][1]:
-                self.l39[places[39]] = us_rows[twin][1][39]
+            if not twin or twin not in us_rows:
+                continue
+            for level, address in places.items():
+                if level >= 39 and level in us_rows[twin][1]:
+                    self.levels.setdefault(level, {})[address] = us_rows[twin][1][level]
+        self.l39 = self.levels.get(39, {})
 
     def function(self, name: str) -> str | None:
         """NAME (func_..., without the mp_ prefix) as NTSC-U's executable spells it, or None."""
@@ -239,6 +242,9 @@ class MpNames:
                 row = self.pairs.get("level39", {}).get(f"func_L39_{address}") or {}
                 return row["is"] + tail if row.get("is") else None
             return f"func_L39_{new:08X}{tail}"
+        if level and int(level[1:]) > 39:
+            new = self.levels.get(int(level[1:]), {}).get(int(address, 16))
+            return f"func_{level}_{new:08X}{tail}" if new is not None else None
         if level:
             return None
         new = self.functions.get(f"func_{address}")
@@ -543,7 +549,10 @@ def main(argv: list[str] | None = None) -> int:
             pal = int(m.group(1), 16)
             row = mp.pairs["addresses"].get(f"0x{pal:08X}") or {}
             fn = mp.functions.get(f"func_{pal:08X}")
-            if row.get("is"):
+            hand_mp = hand.get("mp_addresses", {}).get(f"0x{pal:08X}")
+            if hand_mp:
+                maddr[f"0x{pal:08X}u"] = (int(hand_mp["is"], 16), "release.json: " + hand_mp["why"])
+            elif row.get("is"):
                 maddr[f"0x{pal:08X}u"] = (int(row["is"], 16), row["why"])
             elif fn:
                 maddr[f"0x{pal:08X}u"] = (int(fn[5:13], 16),
@@ -589,6 +598,32 @@ def main(argv: list[str] | None = None) -> int:
                            "and release/mp_pairs.json; do not edit by hand."}
         mp_out.update(merge(mp_cfg, hand.get("mp_hostgen", {})))
         put("mp/hostgen.json", json.dumps(mp_out, indent=2) + "\n")
+        # host/mp_maps.h: each multiplayer map's places of the functions its host C stands for
+        # (rac3-pal/mp/maps.py), NTSC-U's. A map whose places are not all known is left out, its
+        # libraries rows with it.
+        maps_lines = ["/* SPDX-License-Identifier: GPL-3.0-or-later",
+                      " * Copyright (c) 2026 the OpenRAC contributors",
+                      " *",
+                      " * Written by port/tools/hostgen/release_carry_rac3.py from rac3-pal's (port/game/rac3-pal/mp/maps.py):",
+                      " * do not edit by hand. Each multiplayer map's places of the functions mp/maps.py CARRIED lists,",
+                      " * NTSC-U's. */"]
+        maps_left = set()
+        for line in (PRIMARY / "host/mp_maps.h").read_text().splitlines() if (PRIMARY / "host/mp_maps.h").is_file() else []:
+            m = re.fullmatch(r"(MP_MAP\w*)\((\d+), (.*)\)", line)
+            if not m:
+                continue
+            level = int(m.group(2))
+            new_places = [mp.function(f"func_L{level}_{a}") for a in m.group(3).split(", ")]
+            if any(p is None for p in new_places):
+                maps_left.add(level)
+                continue
+            maps_lines.append(f"{m.group(1)}({level}, " + ", ".join(p.split("_")[-1] for p in new_places) + ")")
+        maps_lines = [line for line in maps_lines
+                      if not (re.match(r"MP_MAP\w*\((\d+),", line)
+                              and int(re.match(r"MP_MAP\w*\((\d+),", line).group(1)) in maps_left)]
+        if maps_left:
+            report["mp_maps_left_out"] = sorted(maps_left)
+        put("host/mp_maps.h", "\n".join(maps_lines) + "\n")
         mp_rows = ["# Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/mp/libraries.tsv in",
                    "# NTSC-U's names (release/mp_pairs.json); do not edit. The notes are PAL's."]
         for line in (PRIMARY / "mp/libraries.tsv").read_text().splitlines():
@@ -598,6 +633,9 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             cols = line.split("\t")
             new = mp.function(cols[0])
+            mm = re.match(r"func_L(\d\d)_", cols[0])
+            if mm and int(mm.group(1)) in maps_left:
+                new = None
             if new is None:
                 report["left_out"]["mp:" + cols[0]] = "no NTSC-U pair (release/mp_pairs.json)"
                 continue

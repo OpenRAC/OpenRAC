@@ -1490,6 +1490,140 @@ void mp_func_L39_0059CFD0(int tex, gaddr colours, float x, float y, float w, flo
 MP_GLYPH(mp_func_L39_0058BBB0)
 MP_GLYPH_SHADOWED(mp_func_L39_0058BF70)
 
+/* The multiplayer maps' copies of level 39's 2D layer (mp/maps.py, host/mp_maps.h: each map's place
+ * of each), drawn as level 39's: its cursor and HUD tables relocated to the map's (OPENRAC_LDATA(39,
+ * ...): the programs the next-program hook keeps), and the HUD's depth word, which the menus leave
+ * at 0 and the maps' HUD sets (Veldin's 0x001DFD0C, level 39's 0x0024BCEC). */
+#define MP_MAP_CURSOR OPENRAC_LDATA(39, MP_MENUS_CURSOR)
+
+static inline Rac3Ui2d mp_map_ui2d(void) {
+    const Rac3Ui2d u = {
+        MP_MAP_CURSOR,
+        OPENRAC_LDATA(39, RAC3_LADDR(39, 0x0024BD00u)),
+        OPENRAC_LDATA(39, RAC3_LADDR(39, 0x0024BD04u)),
+        OPENRAC_LDATA(39, RAC3_LADDR(39, 0x0024BCECu)),
+    };
+    return u;
+}
+
+#define MP_MAP(...)
+#define MP_MAP_UI(                                                                                 \
+    m,                                                                                             \
+    font_print,                                                                                    \
+    font_print_shaded,                                                                             \
+    glyph_one,                                                                                     \
+    glyph_shaded_one,                                                                              \
+    glyph_shadowed_one,                                                                            \
+    glyph_quad_one,                                                                                \
+    turned_glyph_quad_one,                                                                         \
+    shaded_box_one,                                                                                \
+    darken_one,                                                                                    \
+    flat_box_one,                                                                                  \
+    hud_sprite_shaded,                                                                             \
+    sine,                                                                                          \
+    cosine,                                                                                        \
+    hud_tex0                                                                                       \
+)                                                                                                  \
+    void mp_func_L##m##_##font_print(                                                              \
+        float a0,                                                                                  \
+        float a1,                                                                                  \
+        float a2,                                                                                  \
+        float a3,                                                                                  \
+        int a4,                                                                                    \
+        int a5,                                                                                    \
+        int a6,                                                                                    \
+        int a7,                                                                                    \
+        int a8,                                                                                    \
+        unsigned long long a9,                                                                     \
+        float a10,                                                                                 \
+        float a11                                                                                  \
+    ) {                                                                                            \
+        rac3_menu_log_text(a0, a1, (gaddr)a5, a6);                                                 \
+        const gaddr cursor = MP_MAP_CURSOR;                                                        \
+        const Print p = print_begin(cursor);                                                       \
+        mp_func_L##m##_##font_print##__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);     \
+        print_end(cursor, p);                                                                      \
+    }                                                                                              \
+    void mp_func_L##m##_##font_print_shaded(                                                       \
+        float a0,                                                                                  \
+        float a1,                                                                                  \
+        float a2,                                                                                  \
+        float a3,                                                                                  \
+        int colours,                                                                               \
+        int a5,                                                                                    \
+        int a6,                                                                                    \
+        int a7,                                                                                    \
+        int a8,                                                                                    \
+        unsigned long long a9,                                                                     \
+        float a10,                                                                                 \
+        float a11                                                                                  \
+    ) {                                                                                            \
+        rac3_menu_log_text(a0, a1, (gaddr)a5, a6);                                                 \
+        const gaddr cursor = MP_MAP_CURSOR;                                                        \
+        const Print p = print_begin(cursor);                                                       \
+        mp_func_L##m##_##font_print_shaded##__game(                                               \
+            a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11                                  \
+        );                                                                                         \
+        print_end(cursor, p);                                                                      \
+    }                                                                                              \
+    MP_GLYPH(mp_func_L##m##_##glyph_one)                                                           \
+    int mp_func_L##m##_##glyph_shaded_one(                                                         \
+        int u,                                                                                     \
+        int v,                                                                                     \
+        int w,                                                                                     \
+        int h,                                                                                     \
+        gaddr colours,                                                                             \
+        long long t1,                                                                              \
+        int flag,                                                                                  \
+        float x,                                                                                   \
+        float y,                                                                                   \
+        float fw,                                                                                  \
+        float fh                                                                                   \
+    ) {                                                                                            \
+        const int r = glyph_shaded(u, v, w, h, colours, t1, flag, x, y, fw, fh);                   \
+        return r >= 0 ? r                                                                          \
+                      : mp_func_L##m##_##glyph_shaded_one##__game(                                 \
+                            u, v, w, h, colours, t1, flag, x, y, fw, fh                            \
+                        );                                                                         \
+    }                                                                                              \
+    MP_GLYPH_SHADOWED(mp_func_L##m##_##glyph_shadowed_one)                                         \
+    MP_GLYPH_QUAD(mp_func_L##m##_##glyph_quad_one, MP_MAP_CURSOR)                                  \
+    MP_TURNED_GLYPH_QUAD(                                                                          \
+        mp_func_L##m##_##turned_glyph_quad_one,                                                    \
+        MP_MAP_CURSOR,                                                                             \
+        mp_func_L##m##_##sine,                                                                     \
+        mp_func_L##m##_##cosine                                                                    \
+    )                                                                                              \
+    void mp_func_L##m##_##shaded_box_one(gaddr xyz, gaddr colours) {                               \
+        if (!shaded_box(MP_MAP_CURSOR, xyz, colours)) {                                            \
+            mp_func_L##m##_##shaded_box_one##__game(xyz, colours);                                 \
+        }                                                                                          \
+    }                                                                                              \
+    void mp_func_L##m##_##darken_one(int r, int g, int b, int a) {                                 \
+        if (!darken(MP_MAP_CURSOR, MP_DARKEN_PACKET, r, g, b, a)) {                                \
+            mp_func_L##m##_##darken_one##__game(r, g, b, a);                                       \
+        }                                                                                          \
+    }                                                                                              \
+    void mp_func_L##m##_##flat_box_one(int y0, int y1, int x0, int x1, unsigned long long c) {     \
+        if (!flat_box(MP_MAP_CURSOR, y0, y1, x0, x1, c)) {                                         \
+            mp_func_L##m##_##flat_box_one##__game(y0, y1, x0, x1, c);                              \
+        }                                                                                          \
+    }                                                                                              \
+    void mp_func_L##m##_##hud_sprite_shaded(                                                       \
+        int tex, gaddr colours, float x, float y, float w, float h, float ang                      \
+    ) {                                                                                            \
+        const float s = mp_func_L##m##_##sine(ang), c = mp_func_L##m##_##cosine(ang);              \
+        const unsigned long long tex0 = mp_func_L##m##_##hud_tex0(tex);                            \
+        const Rac3Ui2d u = mp_map_ui2d();                                                          \
+        if (!hud_sprite_turned(&u, tex, tex0, colours, x, y, w, h, s, c)) {                        \
+            mp_func_L##m##_##hud_sprite_shaded##__game(tex, colours, x, y, w, h, ang);             \
+        }                                                                                          \
+    }
+
+#include "mp_maps.h"
+#undef MP_MAP
+#undef MP_MAP_UI
+
 /* frontbin's copies of the 2D layer (the program the front end runs after a level: Quit Game, a
  * level's exit to the menus), wrapped as the boot program's and the levels' are. Its globals are the
  * boot program's (the list's cursor 0x001DA050, the HUD tables 0x001D9EA8/0x001D9EAC: kBoot); its

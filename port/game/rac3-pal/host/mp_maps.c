@@ -46,42 +46,42 @@ int rac3_part_proc(gaddr pool_word, gaddr highest_word, gaddr table);
 void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, gaddr list);
 void func_0012D938(gaddr channel, gaddr tag); /* sceDmaSend (dma.c) */
 
-static void kick_vif0_chain(unsigned int chain) {
+static inline void kick_vif0_chain(unsigned int chain) {
     func_0012D938(0x10008000u, (gaddr)chain & 0x0FFFFFFFu);
 }
 
-static int wad_decompress(int source, int destination) {
+static inline int wad_decompress(int source, int destination) {
     return openrac_wad_routine(source, destination, "Up Your Arsenal");
 }
 
 /* The screen glow's packets are left out as the single-player levels' are (render.c); the word
  * each sets for the frame is kept. */
-static int glow_copy(void) {
+static inline int glow_copy(void) {
     GREF(int32_t, L39(MAP_GLOW_WORD)) = 0x6000;
     return 0;
 }
 
-static int glow_add(void) {
+static inline int glow_add(void) {
     GREF(int32_t, L39(MAP_GLOW_WORD)) = 0;
     return 0;
 }
 
-static int moby_chain(int a0, int a1) {
+static inline int moby_chain(int a0, int a1) {
     openrac_game_moby_chain((gaddr)a0, (gaddr)a1);
     return 0;
 }
 
-static int sky_draw_shell(int shell) {
+static inline int sky_draw_shell(int shell) {
     return rac3_sky_draw_shell(shell, L39(MAP_SKY_MATRIX));
 }
 
-static int part_proc(void) {
+static inline int part_proc(void) {
     return rac3_part_proc(
         L39(MAP_PARTICLE_POOL), L39(MAP_PARTICLE_HIGHEST), L39(MAP_PARTICLE_TEXTURES)
     );
 }
 
-static int world_quad(int a0, int a1) {
+static inline int world_quad(int a0, int a1) {
     rac3_world_quad(
         (gaddr)a0,
         (gaddr)a1,
@@ -106,7 +106,7 @@ static int world_quad(int a0, int a1) {
     mobys,                                                                                         \
     draw_side,                                                                                     \
     textures,                                                                                      \
-    chain,                                                                                         \
+    anim_chain,                                                                                    \
     tfrag_light,                                                                                   \
     tfrag_gifs,                                                                                    \
     tie_colours,                                                                                   \
@@ -154,7 +154,7 @@ static int world_quad(int a0, int a1) {
         (void)a0;                                                                                  \
         return 0;                                                                                  \
     }                                                                                              \
-    int mp_func_L##m##_##chain(int a0, int a1) {                                                   \
+    int mp_func_L##m##_##anim_chain(int a0, int a1) {                                              \
         return moby_chain(a0, a1);                                                                 \
     }                                                                                              \
     int mp_func_L##m##_##tfrag_light(int a0) {                                                     \
@@ -189,4 +189,5 @@ static int world_quad(int a0, int a1) {
         return world_quad(a0, a1);                                                                 \
     }
 
+#define MP_MAP_UI(...)
 #include "mp_maps.h"
