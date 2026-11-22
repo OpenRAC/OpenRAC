@@ -757,6 +757,10 @@
    "is": "func_00284FC0",
    "why": "the same instructions, the only place they occur"
   },
+  "func_00285318": {
+   "is": "func_00285358",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_00287A18": {
    "is": "func_002879E0",
    "why": "the same instructions, the only place they occur"
@@ -785,7 +789,7 @@
   },
   "0x00240310": {
    "is": "0x00240490",
-   "why": "the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 16 of 16 places agree"
+   "why": "the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 20 of 20 places agree"
   },
   "0x00240B80": {
    "is": "0x00240D00",
@@ -794,6 +798,10 @@
   "0x00241A00": {
    "is": "0x00241B80",
    "why": "the start of the payload's record at PAL 0x00241A00 (NTSC-U 0x00241B80)"
+  },
+  "0x00244414": {
+   "is": "0x00244614",
+   "why": "the same instruction of the same code: func 0x00285318 (NTSC-U 0x00285358) +0x1D8, 4 of 4 places agree"
   },
   "0x00244428": {
    "is": "0x00244628",
@@ -805,7 +813,7 @@
   },
   "0x002446A8": {
    "is": "0x002448A8",
-   "why": "the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 110 of 110 places agree"
+   "why": "the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 118 of 118 places agree"
   },
   "0x0027B100": {
    "is": "0x0027B200",
@@ -861,6 +869,10 @@
    "is": "func_L39_0058ADA0",
    "why": "the same instructions, the only place they occur"
   },
+  "func_L39_0058C218": {
+   "is": "func_L39_0058B048",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_L39_0058C678": {
    "is": "func_L39_0058B4A8",
    "why": "the same instructions, the only place they occur"
@@ -885,8 +897,20 @@
    "is": "func_L39_0059B580",
    "why": "the same instructions, the only place they occur"
   },
+  "func_L39_0059CB38": {
+   "is": "func_L39_0059B7A8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0059CD28": {
+   "is": "func_L39_0059B998",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_L39_0059CFD0": {
    "is": "func_L39_0059BC40",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0059D368": {
+   "is": "func_L39_0059BFD8",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_005A4ED8": {

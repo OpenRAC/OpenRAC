@@ -202,6 +202,7 @@ func_00284FC0	draw	DrawHudSpriteShaded	wrap	the instructions of the boot program
 func_L39_0059BC40	draw	DrawHudSpriteShadedMenus	wrap	level 39's copy of the boot program's func_00397680, wrapped as it is (host/ui2d.c)
 func_L39_0058A9E0	draw	DrawGlyphMenus	wrap	level 39's copy of the boot program's func_0038BA50 (frontbin's, called by its prints), wrapped as it is (host/ui2d.c)
 func_L39_0058ADA0	draw	DrawGlyphShadowedMenus	wrap	level 39's copy of the boot program's func_0038BE10 (frontbin's, called by its prints), wrapped as it is (host/ui2d.c)
+func_00285358	draw	DrawHudQuadTurned	wrap	the instructions of the boot program's func_00397A18 (the turned HUD quad: the map loading screen's weapon icons and the menus' first loading picture), drawn natively (host/ui2d.c)
 func_L39_0059B7A8	hud	DrawHudSpriteMenus	wrap	level 39's copy of DrawHudSprite (func_L01_004202A8, Going Commando's func_0028E868): the loading screen's weapon icons, drawn natively (host/hud.c)
 func_L39_0059B998	hud	DrawHudGradientMenus	wrap	level 39's copy of DrawHudGradient (func_L01_00420498): drawn natively (host/hud.c)
 func_L39_0058B048	draw	DrawRotatedSpriteMenus	wrap	level 39's copy of the turned sprite (func_L01_00406B10, the boot program's func_0038C0B8): drawn natively (host/ui2d.c)
