@@ -72,6 +72,9 @@ extern int rac2_copy_trace;
 /* Whether the moby at `moby` is a live copy (rac2_copy_make's) of this load. */
 int rac2_copy_is(gaddr moby);
 
+/* CreateMoby gave out the slot `moby`: a dead copy's index is taken off the groups' lists. */
+void rac2_copy_slot_taken(gaddr moby);
+
 /* The copies made since the level's last load. */
 int rac2_copy_count(void);
 
