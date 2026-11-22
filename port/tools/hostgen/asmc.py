@@ -47,6 +47,7 @@ retail (tests/asmc_console.h).
 
 from __future__ import annotations
 
+import functools
 import os
 import sys
 import re
@@ -222,6 +223,12 @@ class Translator:
         self._decoded: dict = {}
         self.host_text = ""   # the port's own C for the game (host/), which calls game functions by their prototypes
         self.dropped: dict[str, list[str]] = {}  # asm.signature_check's findings, by function
+        # Each place's flow and what its code reads, kept while the program's functions keep their
+        # places and units (run's signature check, a pass over every function with C and then again
+        # over those whose callees changed): place -> _load's state (or what it raised), and
+        # place -> (the signatures of its callees, _live_arguments's answer). None: worked out anew.
+        self._flows: dict | None = None
+        self._lives: dict | None = None
 
     # ---- What to translate ----
 
@@ -273,17 +280,33 @@ class Translator:
         self.f = f
         self.home, self.entry_addr = found
         self._fregs = None
-        self.inline_calls: set[int] = set()
-        self.returns: set[int] = set()
-        self.reach, self.delay_only, self.jtables = self._flow()
-        # VU0's MAC and STATUS flags are kept only by a function that reads them (CFC2 $vi16 or
-        # $vi17, after its own macro operations: the collision code's tests); elsewhere they would
-        # cost every vector operation a few more for nothing.
-        self.vu_flags = any((i := self.at(a)) is not None and i.op == "cfc2" and i.rd in (16, 17)
-                            for a in self.reach)
-        self.starts_dma = self.dma_stores and any((i := self.at(a)) is not None and i.op == "lui"
-                                                  and i.imm & 0xFFFF == 0x1000 for a in self.reach)
-        self._check_inputs()
+        flows = self._flows
+        if flows is not None and (self.home, self.entry_addr) in flows:
+            kept = flows[(self.home, self.entry_addr)]
+            if isinstance(kept, Exception):
+                raise kept.with_traceback(None)
+            (self.inline_calls, self.returns, self.reach, self.delay_only, self.jtables, self.vu_flags,
+             self.starts_dma) = kept
+            return
+        try:
+            self.inline_calls: set[int] = set()
+            self.returns: set[int] = set()
+            self.reach, self.delay_only, self.jtables = self._flow()
+            # VU0's MAC and STATUS flags are kept only by a function that reads them (CFC2 $vi16 or
+            # $vi17, after its own macro operations: the collision code's tests); elsewhere they would
+            # cost every vector operation a few more for nothing.
+            self.vu_flags = any((i := self.at(a)) is not None and i.op == "cfc2" and i.rd in (16, 17)
+                                for a in self.reach)
+            self.starts_dma = self.dma_stores and any((i := self.at(a)) is not None and i.op == "lui"
+                                                      and i.imm & 0xFFFF == 0x1000 for a in self.reach)
+            self._check_inputs()
+        except (AsmUnsupported, Unsupported) as e:
+            if flows is not None:
+                flows[(self.home, self.entry_addr)] = e
+            raise
+        if flows is not None:
+            flows[(self.home, self.entry_addr)] = (self.inline_calls, self.returns, self.reach, self.delay_only,
+                                                   self.jtables, self.vu_flags, self.starts_dma)
 
     _inline_cache: dict = {}
 
@@ -374,7 +397,7 @@ class Translator:
         if self.fit_declarations and f.symbol not in self.verified_signatures:
             f.sig = self._fitting_declaration(f)
         sig = self._signature(f)
-        if re.search(r"\b" + re.escape(cname(f.symbol)) + r"\b", self.host_text):
+        if host_names(self.host_text, cname(f.symbol)):
             return  # the port's own C calls it by the signature it has
         if not self.forward_unprototyped and not f.sig.prototyped and self._compatible(sig, f.sig):
             # Declared `int f()`: callers keep calling it so; the definition with its integer
@@ -1280,11 +1303,23 @@ class Translator:
         than in address order up to the first call or return: a parameter used past an early return
         counts). A call reads its callee's parameters and ends every argument register's life; a
         store of one to the frame that is never loaded again is no use (_reloaded_argument)."""
+        if not hasattr(self, "callees_of"):
+            self.callees_of: dict[str, set] = {}
+        lives = self._lives
+        place = (self.home, self.entry_addr)
+        if lives is not None and place in lives:
+            # The same code, whose calls reach callees with the signatures they had: the same answer.
+            syms, sigs, callees, answer = lives[place]
+            funcs = self.program.functions
+            if sigs == tuple(funcs[c].sig if c in funcs else None for c in syms):
+                self.callees_of.setdefault(self.f.symbol, set()).update(callees)
+                return answer
         args_g, args_f = set(ARG_REGS), set(FARG_REGS)
         caller_saved_g = set(range(1, 16)) | {24, 25}
         caller_saved_f = set(range(0, 20))
         nodes: dict = {}   # node -> (reads_g, reads_f, writes_g, writes_f, successors)
         callees: set = set()  # what its calls reach, for params_from_code's later passes (callees_of)
+        called: list = []     # the callee of each call, whose signature the answer depends on
 
         def effect(a: int):
             ins = self.at(a)
@@ -1299,6 +1334,7 @@ class Translator:
             sym = self._callee(target, self._operand_name(a)) if target is not None else None
             if sym:
                 callees.add(sym)
+                called.append(sym)
             f = self.program.functions.get(sym) if sym else None
             if f is not None and f.sig.prototyped and not f.sig.variadic:
                 ni = nf = 0
@@ -1380,12 +1416,14 @@ class Translator:
                     if q not in queued:
                         queued.add(q)
                         todo.append(q)
-        if not hasattr(self, "callees_of"):
-            self.callees_of: dict[str, set] = {}
         self.callees_of.setdefault(self.f.symbol, set()).update(callees)
         in_g, in_f = live.get(self.entry_addr, (set(), set()))
         ints = max([k + 1 for k, r in enumerate(ARG_REGS) if r in in_g & args_g], default=0)
         floats = max([k + 1 for k, r in enumerate(FARG_REGS) if r in in_f & args_f], default=0)
+        if lives is not None:
+            syms = tuple(dict.fromkeys(called))
+            funcs = self.program.functions
+            lives[place] = (syms, tuple(funcs[c].sig if c in funcs else None for c in syms), callees, (ints, floats))
         return ints, floats
 
     STACK_LOADS = {"lb": 1, "lbu": 1, "lh": 2, "lhu": 2, "lw": 4, "lwu": 4, "ld": 8, "lwc1": 4, "lq": 16}
@@ -2057,15 +2095,31 @@ class Translator:
 
 # ---- Which registers an instruction reads and writes (for the signature and the calls) ----
 
-def rw(i: asm.Insn) -> tuple[set, set, set, set]:
+_RW: dict = {}
+
+
+def rw(i: asm.Insn) -> tuple[frozenset, frozenset, frozenset, frozenset]:
+    """The general registers an instruction reads and writes, and the float registers it reads and
+    writes. Worked out once for each form (its operation and registers) and kept: every pass over
+    the code asks again."""
+    key = (i.op, i.rs, i.rt, i.rd, i.fs, i.ft, i.fd)
+    hit = _RW.get(key)
+    if hit is None:
+        hit = _RW[key] = tuple(frozenset(s) for s in _rw(i))
+    return hit
+
+
+_THREE = frozenset({"addu", "add", "subu", "sub", "daddu", "dadd", "dsubu", "dsub", "and", "or", "xor", "nor", "slt",
+                    "sltu", "sllv", "srlv", "srav", "dsllv", "dsrlv", "dsrav", "movz", "movn"} | MMI_OPS | {"qfsrv"})
+
+
+def _rw(i: asm.Insn) -> tuple[set, set, set, set]:
     op = i.op
     g_r: set = set()
     g_w: set = set()
     f_r: set = set()
     f_w: set = set()
-    three = {"addu", "add", "subu", "sub", "daddu", "dadd", "dsubu", "dsub", "and", "or", "xor", "nor", "slt",
-             "sltu", "sllv", "srlv", "srav", "dsllv", "dsrlv", "dsrav", "movz", "movn"} | MMI_OPS | {"qfsrv"}
-    if op in three:
+    if op in _THREE:
         g_r |= {i.rs, i.rt}
         g_w.add(i.rd)
     elif op in ("addiu", "addi", "daddiu", "daddi", "andi", "ori", "xori", "slti", "sltiu"):
@@ -2271,6 +2325,21 @@ def translate_shadows(stage: Stage, program: Program, a: dict) -> None:
         stage.shadows[alias] = r.text.replace(head, f" openrac_shadow_{alias}(", 1)
 
 
+@functools.lru_cache(maxsize=8)
+def _host_words(host_text: str) -> frozenset:
+    return frozenset(re.findall(r"\w+", host_text))
+
+
+def host_names(host_text: str, name: str) -> bool:
+    """Whether the port's own C (`host_text`) names `name` as a whole word (`\\bname\\b`): looked up
+    among its words, read once, rather than searched for through the whole text for each function."""
+    if not host_text:
+        return False
+    if re.fullmatch(r"\w+", name):
+        return name in _host_words(host_text)
+    return re.search(r"\b" + re.escape(name) + r"\b", host_text) is not None
+
+
 def apply_signatures(program: Program, a: dict, discovered: bool, host_text: str = "") -> None:
     """hostgen.json's "asm" "signatures": each function's verified prototype, a C function type,
     in place of the one its declarations or registers give. Only for functions with neither C nor
@@ -2282,7 +2351,7 @@ def apply_signatures(program: Program, a: dict, discovered: bool, host_text: str
     for sym, text in a.get("signatures", {}).items():
         f = program.functions.get(sym)
         if f is None and not discovered:
-            if not host_text or not re.search(r"\b" + re.escape(cname(sym)) + r"\b", host_text):
+            if not host_names(host_text, cname(sym)):
                 continue
             program.functions[sym] = Function(sym, Signature.of(ctype.parse(text)), None, asm=True)
             continue
@@ -2432,7 +2501,10 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
         # callers that hand those registers on read them too.
         # Each later pass reads again only the functions with C whose calls reach one that changed
         # (the callees their liveness saw, Translator.callees_of, under each of their spellings):
-        # a whole pass is minutes.
+        # a whole pass is minutes. The places' flows and what their code reads are kept meanwhile
+        # (no function changes its place or its unit here, only its signature): a function read
+        # again whose callees kept their signatures has the answer it had.
+        tr._flows, tr._lives = {}, {}
         stage.c_drops, stage.c_reads = c_argument_drops(tr, program, leave)
 
         def spellings(name: str) -> set:
@@ -2456,6 +2528,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
             drops, reads = c_argument_drops(tr, program, leave, only=again)
             stage.c_drops.update(drops)
             stage.c_reads.update(reads)
+        tr._flows = tr._lives = None
     # A C wrapper's result from a translated callee, known now, for the translations that read it
     # after their calls (asm.results_before_calls; hostgen.py does this again for the C).
     if a.get("results_before_calls"):
@@ -2490,7 +2563,7 @@ def params_from_code(tr: "Translator", program: Program, drops: dict[str, dict])
     kind = lambda t: "f" if canon(t, program.typedefs) == "float" else "i"
     for sym, d in sorted(drops.items()):
         f = program.functions.get(sym)
-        if f is None or tr.host_text and re.search(r"\b" + re.escape(cname(sym)) + r"\b", tr.host_text):
+        if f is None or host_names(tr.host_text, cname(sym)):
             continue
         if any(canon(p, program.typedefs) is None for p in f.sig.params):
             continue

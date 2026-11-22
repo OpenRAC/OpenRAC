@@ -101,7 +101,8 @@
  },
  "overrides": {
   "about": "The port's own C for the release's own matched functions: name, file in hand/, each file says why.",
-  "func_003446B8": "func_003446B8.c"
+  "func_003446B8": "func_003446B8.c",
+  "func_L20_00311A60": "func_L20_00311A60.c"
  },
  "extra": {
   "about": "The release's own additions to the carried hostgen.json (release_carry.py merges them): each with why.",

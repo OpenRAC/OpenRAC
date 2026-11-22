@@ -25,8 +25,8 @@
  * - DME at the session level: connecting to the game's world gives a connection of the room's
  *   party, joining its session calls the game's three session callbacks (joined, a client came or
  *   went, the host), and every message the game or DME sends is relayed, unread, to the other
- *   members by the server's RELAY packet; what comes back goes to DME's receive path (0x0014CE48),
- *   which runs the game's handlers.
+ *   members by the server's PACKET_RELAY packet; what comes back goes to DME's receive path
+ *   (0x0014CE48), which runs the game's handlers.
  *
  * The server: OPENRAC_SERVER=host[:port] (game.openrac.dev:7770 when unset). OPENRAC_RAC3_NET_LOG=1 logs
  * every lobby message and room packet. */
@@ -83,49 +83,49 @@ typedef int net_socket;
 #define DNAS_STATE 0x0024D1C0u
 #define PROFILES_SUBSTATE 0x00247C84u
 #endif
-#define MEDIUS_HANDLE RAC3_MADDR(0x001A30DCu) /* the lobby connection's handle, 0 when none */
-#define NET_PROFILES RAC3_MADDR(0x001FC6B0u)  /* the online profiles (8 x 0x1F0) */
-#define NET_SERVER_IP (NET_BLOCK + 0x182u)    /* the server's IP string in use (32 bytes) */
-#define NET_MASTER_IP (NET_BLOCK + 0x2A2u)    /* the master server's IP string */
-#define NET_AUSTRALIA_IP (NET_BLOCK + 0x242u) /* the second server's IP string */
-#define RT_NET_UP RAC3_MADDR(0x001A2A58u)     /* SCE-RT's "network started" word */
-#define RT_LOCAL_IP (RT_NET_UP + 4u)          /* SCE-RT's local address (first octet low) */
+#define NET_LOBBY_HANDLE RAC3_MADDR(0x001A30DCu) /* the lobby connection's handle, 0 when none */
+#define NET_PROFILES RAC3_MADDR(0x001FC6B0u)     /* the online profiles (8 x 0x1F0) */
+#define NET_SERVER_IP (NET_BLOCK + 0x182u)       /* the server's IP string in use (32 bytes) */
+#define NET_MASTER_IP (NET_BLOCK + 0x2A2u)       /* the master server's IP string */
+#define NET_AUSTRALIA_IP (NET_BLOCK + 0x242u)    /* the second server's IP string */
+#define NET_TRANSPORT_UP RAC3_MADDR(0x001A2A58u) /* SCE-RT's "network started" word */
+#define NET_TRANSPORT_LOCAL_IP (NET_TRANSPORT_UP + 4u) /* SCE-RT's local address (low octet 1st) */
 
 /* ---- The OpenRAC server's protocol (OpenRAC/Server README, "Wire format") ---- */
 
 enum {
-    PK_HELLO,
-    PK_PARTY,
-    PK_CHAT,
-    PK_DATA,
-    PK_ERROR,
-    PK_TIME,
-    PK_UDP,
-    PK_RELAY,
-    PK_REGIONS,
-    PK_REGISTER,
-    PK_UI
+    PACKET_HELLO,
+    PACKET_PARTY,
+    PACKET_CHAT,
+    PACKET_DATA,
+    PACKET_ERROR,
+    PACKET_TIME,
+    PACKET_UDP,
+    PACKET_RELAY,
+    PACKET_REGIONS,
+    PACKET_REGISTER,
+    PACKET_UI
 };
 
 enum {
-    OP_CREATE,
-    OP_JOIN,
-    OP_LEAVE,
-    OP_INFO,
-    OP_JOINED,
-    OP_LEFT,
-    OP_END,
-    OP_FIND,
-    OP_LIST,
-    OP_HOST_CHANGED,
-    OP_RESUME,
-    OP_KICK,
-    OP_KICKED,
-    OP_ADVERT,
-    OP_SLOTS
+    PARTY_CREATE,
+    PARTY_JOIN,
+    PARTY_LEAVE,
+    PARTY_INFO,
+    PARTY_JOINED,
+    PARTY_LEFT,
+    PARTY_END,
+    PARTY_FIND,
+    PARTY_LIST,
+    PARTY_HOST_CHANGED,
+    PARTY_RESUME,
+    PARTY_KICK,
+    PARTY_KICKED,
+    PARTY_ADVERT,
+    PARTY_SLOTS
 };
 
-/* The UI packet's opcodes (OpenRAC/Server README, "Lobby screens"): the lobby screens' description. */
+/* PACKET_UI's opcodes (OpenRAC/Server README, "Lobby screens"): the lobby screens' description. */
 enum {
     UI_GET,
     UI_DESCRIPTION,
@@ -134,10 +134,13 @@ enum {
 };
 
 #define LIST_ADVERTS 1
-#define FEATURE_REGIONS 16 /* the UDP offer's bit: the server answers REGIONS */
-#define FEATURE_UI 32      /* the UDP offer's bit: the server answers UI */
-#define CLIENT_SLOTS 2     /* HELLO's client bit: send SLOTS (the room's stable slots) */
+#define FEATURE_REGIONS 16 /* the UDP offer's bit: the server answers PACKET_REGIONS */
+#define FEATURE_UI 32      /* the UDP offer's bit: the server answers PACKET_UI */
 int rac3_mp_ui_describe(const char* json, size_t size); /* mp_ui.c */
+#define CLIENT_SLOTS 2 /* PACKET_HELLO's client bit: send PARTY_SLOTS (the room's stable slots) */
+#define CLIENT_KEEPS_ALIVE                                                                         \
+    4                      /* PACKET_HELLO's client bit: this client sends PACKET_TIME every 2 s */
+#define KEEP_ALIVE_MS 2000 /* how often: the server drops a client silent for 30 s */
 #ifdef RAC3_PAL
 #define NET_FAMILY "rac3-pal-1"
 #else
@@ -166,75 +169,75 @@ typedef struct {
 } lobby_reply;
 
 static const lobby_reply lobby_replies[] = {
-    {1, 0x03, 1, 0x04, 0x030, 0}, /* SessionOpenRequest */
-    {1, 0x05, 1, 0x06, 0x01C, 0}, /* SessionCloseRequest */
-    {1, 0x07, 1, 0x08, 0x0C4, 0}, /* LoginRequest */
-    {1, 0x11, 1, 0x12, 0x01C, 0}, /* CareerStatsUploadRequest */
-    {1, 0x15, 1, 0x16, 0x01C, 0}, /* LogoutRequest */
-    {1, 0x17, 1, 0x18, 0x020, 0}, /* AccountIdRequest */
-    {1, 0x1B, 1, 0x1C, 0x030, 0}, /* LobbyKeepAliveRequest */
-    {1, 0x25, 1, 0x26, 0x0B8, 0}, /* ChannelJoinRequest */
-    {1, 0x2F, 1, 0x30, 0x148, 1}, /* GamePlayerListRequest */
-    {1, 0x31, 1, 0x32, 0x148, 0}, /* AccountInfoRequest */
-    {1, 0x33, 1, 0x34, 0x18C, 0}, /* GameInfoRequest */
-    {1, 0x35, 1, 0x36, 0x064, 0}, /* ChannelInfoRequest */
-    {1, 0x39, 1, 0x3A, 0x070, 0}, /* PlayerFindRequest */
-    {1, 0x3F, 1, 0x40, 0x01C, 0}, /* BuddyAddRequest */
-    {1, 0x41, 1, 0x42, 0x01C, 0}, /* BuddyRemoveRequest */
-    {1, 0x47, 1, 0x48, 0x120, 1}, /* LicenceTextRequest (EndOfText) */
-    {1, 0x4B, 1, 0x4D, 0x40C, 1}, /* NewsRequest */
-    {1, 0x4C, 1, 0x4D, 0x40C, 1}, /* AllNewsRequest */
-    {1, 0x4E, 1, 0x4F, 0x01C, 0}, /* GameListFilterAddRequest */
-    {1, 0x50, 1, 0x51, 0x01C, 0}, /* GameListFilterRemoveRequest */
-    {1, 0x54, 1, 0x55, 0x020, 0}, /* ClanCreateRequest */
-    {1, 0x56, 1, 0x57, 0x01C, 0}, /* ClanDisbandRequest */
-    {1, 0x58, 1, 0x59, 0x168, 0}, /* ClanByIdRequest */
-    {1, 0x5A, 1, 0x5B, 0x148, 0}, /* ClanByNameRequest */
-    {1, 0x5C, 1, 0x5D, 0x01C, 0}, /* ClanLeaderTransferRequest */
-    {1, 0x60, 1, 0x61, 0x01C, 0}, /* ClanMemberRemoveRequest */
-    {1, 0x62, 1, 0x63, 0x01C, 0}, /* ClanInviteRequest */
-    {1, 0x64, 1, 0x65, 0x118, 1}, /* ClanInvitationListRequest */
-    {1, 0x66, 1, 0x67, 0x01C, 0}, /* ClanInvitationReplyRequest */
-    {1, 0x68, 1, 0x69, 0x01C, 0}, /* ClanInvitationRevokeRequest */
-    {1, 0x6A, 1, 0x6B, 0x01C, 0}, /* ClanChallengeRequest */
-    {1, 0x6C, 1, 0x6D, 0x0EC, 1}, /* ClanMessageListRequest */
-    {1, 0x6E, 1, 0x6F, 0x01C, 0}, /* ClanMessagePostRequest */
-    {1, 0x70, 1, 0x71, 0x01C, 0}, /* ClanMessageEditRequest */
-    {1, 0x72, 1, 0x73, 0x01C, 0}, /* ClanMessageDeleteRequest */
-    {1, 0x74, 1, 0x75, 0x01C, 0}, /* ClanChallengeReplyRequest */
-    {1, 0x76, 1, 0x77, 0x01C, 0}, /* ClanChallengeRevokeRequest */
-    {1, 0x78, 1, 0x79, 0x028, 1}, /* ClanChallengeHistoryRequest */
-    {1, 0x7A, 1, 0x7B, 0x114, 1}, /* ClanInvitationsSentRequest */
-    {1, 0x7C, 1, 0x7D, 0x170, 1}, /* MyClanRequest */
-    {1, 0x7E, 1, 0x7F, 0x0F0, 1}, /* ClanAllMessagesRequest */
-    {1, 0x82, 1, 0x83, 0x1C4, 1}, /* ClanChallengeListRequest */
-    {1, 0x84, 1, 0x85, 0x01C, 0}, /* ClanStatsUploadRequest */
-    {1, 0x88, 1, 0x89, 0x028, 0}, /* WorldSecurityRequest */
-    {1, 0x8C, 1, 0x8D, 0x064, 1}, /* CityListRequest */
-    {1, 0x96, 1, 0x97, 0x01C, 0}, /* LobbyChatToggleRequest */
-    {1, 0x98, 1, 0x99, 0x05C, 0}, /* ChatTextCheckRequest */
-    {1, 0xA3, 1, 0xA4, 0x01C, 0}, /* LocaleSetRequest */
-    {1, 0xA5, 1, 0xA6, 0x0C8, 0}, /* FileCreateRequest */
-    {1, 0xA7, 1, 0xA9, 0x028, 0}, /* FileUploadRequest */
-    {1, 0xAA, 1, 0xAB, 0x0C8, 0}, /* FileCloseRequest */
-    {1, 0xAC, 1, 0xAD, 0x1FC, 0}, /* FileDownloadRequest */
-    {1, 0xC0, 1, 0xC1, 0x048, 1}, /* IgnoreListRequest */
-    {1, 0xC2, 1, 0xC3, 0x01C, 0}, /* IgnoreAddRequest */
-    {1, 0xC4, 1, 0xC5, 0x01C, 0}, /* IgnoreRemoveRequest */
-    {1, 0xD2, 1, 0xD3, 0x048, 1}, /* ClanLadderRequest */
-    {1, 0xD6, 1, 0xD7, 0x0D0, 1}, /* BuddyListRequest */
-    {1, 0xDA, 1, 0xDB, 0x1DC, 1}, /* ClanMemberListRequest */
-    {1, 0xDC, 1, 0xDD, 0x0D0, 1}, /* ChannelPlayerListRequest */
-    {1, 0xEA, 1, 0xEB, 0x190, 1}, /* GameListRequest */
-    {1, 0xF1, 1, 0xF2, 0x024, 0}, /* LadderPositionRequest */
-    {1, 0xF3, 1, 0x24, 0x0BC, 0}, /* GameJoinRequest */
-    {1, 0xF4, 1, 0x1E, 0x020, 0}, /* GameCreateRequest */
-    {4, 0x0B, 1, 0xCF, 0x01C, 0}, /* LadderStatsWriteRequest */
-    {4, 0x0D, 4, 0x0E, 0x1B0, 0}, /* LadderStatsReadRequest */
-    {4, 0x0F, 1, 0xF0, 0x1D8, 1}, /* LadderPageRequest */
-    {4, 0x12, 4, 0x13, 0x034, 0}, /* ChannelFilterSetRequest */
-    {4, 0x14, 1, 0x22, 0x020, 0}, /* ChannelCreateRequest */
-    {4, 0x15, 1, 0xED, 0x080, 1}, /* ChannelListRequest */
+    {1, 0x03, 1, 0x04, 0x030, 0}, /* LOBBY_SESSION_OPEN_REQUEST */
+    {1, 0x05, 1, 0x06, 0x01C, 0}, /* LOBBY_SESSION_CLOSE_REQUEST */
+    {1, 0x07, 1, 0x08, 0x0C4, 0}, /* LOBBY_LOGIN_REQUEST */
+    {1, 0x11, 1, 0x12, 0x01C, 0}, /* LOBBY_CAREER_STATS_UPLOAD_REQUEST */
+    {1, 0x15, 1, 0x16, 0x01C, 0}, /* LOBBY_LOGOUT_REQUEST */
+    {1, 0x17, 1, 0x18, 0x020, 0}, /* LOBBY_ACCOUNT_ID_REQUEST */
+    {1, 0x1B, 1, 0x1C, 0x030, 0}, /* LOBBY_KEEP_ALIVE_REQUEST */
+    {1, 0x25, 1, 0x26, 0x0B8, 0}, /* LOBBY_CHANNEL_JOIN_REQUEST */
+    {1, 0x2F, 1, 0x30, 0x148, 1}, /* LOBBY_GAME_PLAYER_LIST_REQUEST */
+    {1, 0x31, 1, 0x32, 0x148, 0}, /* LOBBY_ACCOUNT_INFO_REQUEST */
+    {1, 0x33, 1, 0x34, 0x18C, 0}, /* LOBBY_GAME_INFO_REQUEST */
+    {1, 0x35, 1, 0x36, 0x064, 0}, /* LOBBY_CHANNEL_INFO_REQUEST */
+    {1, 0x39, 1, 0x3A, 0x070, 0}, /* LOBBY_PLAYER_FIND_REQUEST */
+    {1, 0x3F, 1, 0x40, 0x01C, 0}, /* LOBBY_BUDDY_ADD_REQUEST */
+    {1, 0x41, 1, 0x42, 0x01C, 0}, /* LOBBY_BUDDY_REMOVE_REQUEST */
+    {1, 0x47, 1, 0x48, 0x120, 1}, /* LOBBY_LICENCE_TEXT_REQUEST (EndOfText) */
+    {1, 0x4B, 1, 0x4D, 0x40C, 1}, /* LOBBY_NEWS_REQUEST */
+    {1, 0x4C, 1, 0x4D, 0x40C, 1}, /* LOBBY_ALL_NEWS_REQUEST */
+    {1, 0x4E, 1, 0x4F, 0x01C, 0}, /* LOBBY_GAME_LIST_FILTER_ADD_REQUEST */
+    {1, 0x50, 1, 0x51, 0x01C, 0}, /* LOBBY_GAME_LIST_FILTER_REMOVE_REQUEST */
+    {1, 0x54, 1, 0x55, 0x020, 0}, /* LOBBY_CLAN_CREATE_REQUEST */
+    {1, 0x56, 1, 0x57, 0x01C, 0}, /* LOBBY_CLAN_DISBAND_REQUEST */
+    {1, 0x58, 1, 0x59, 0x168, 0}, /* LOBBY_CLAN_BY_ID_REQUEST */
+    {1, 0x5A, 1, 0x5B, 0x148, 0}, /* LOBBY_CLAN_BY_NAME_REQUEST */
+    {1, 0x5C, 1, 0x5D, 0x01C, 0}, /* LOBBY_CLAN_LEADER_TRANSFER_REQUEST */
+    {1, 0x60, 1, 0x61, 0x01C, 0}, /* LOBBY_CLAN_MEMBER_REMOVE_REQUEST */
+    {1, 0x62, 1, 0x63, 0x01C, 0}, /* LOBBY_CLAN_INVITE_REQUEST */
+    {1, 0x64, 1, 0x65, 0x118, 1}, /* LOBBY_CLAN_INVITATION_LIST_REQUEST */
+    {1, 0x66, 1, 0x67, 0x01C, 0}, /* LOBBY_CLAN_INVITATION_REPLY_REQUEST */
+    {1, 0x68, 1, 0x69, 0x01C, 0}, /* LOBBY_CLAN_INVITATION_REVOKE_REQUEST */
+    {1, 0x6A, 1, 0x6B, 0x01C, 0}, /* LOBBY_CLAN_CHALLENGE_REQUEST */
+    {1, 0x6C, 1, 0x6D, 0x0EC, 1}, /* LOBBY_CLAN_MESSAGE_LIST_REQUEST */
+    {1, 0x6E, 1, 0x6F, 0x01C, 0}, /* LOBBY_CLAN_MESSAGE_POST_REQUEST */
+    {1, 0x70, 1, 0x71, 0x01C, 0}, /* LOBBY_CLAN_MESSAGE_EDIT_REQUEST */
+    {1, 0x72, 1, 0x73, 0x01C, 0}, /* LOBBY_CLAN_MESSAGE_DELETE_REQUEST */
+    {1, 0x74, 1, 0x75, 0x01C, 0}, /* LOBBY_CLAN_CHALLENGE_REPLY_REQUEST */
+    {1, 0x76, 1, 0x77, 0x01C, 0}, /* LOBBY_CLAN_CHALLENGE_REVOKE_REQUEST */
+    {1, 0x78, 1, 0x79, 0x028, 1}, /* LOBBY_CLAN_CHALLENGE_HISTORY_REQUEST */
+    {1, 0x7A, 1, 0x7B, 0x114, 1}, /* LOBBY_CLAN_INVITATIONS_SENT_REQUEST */
+    {1, 0x7C, 1, 0x7D, 0x170, 1}, /* LOBBY_MY_CLAN_REQUEST */
+    {1, 0x7E, 1, 0x7F, 0x0F0, 1}, /* LOBBY_CLAN_ALL_MESSAGES_REQUEST */
+    {1, 0x82, 1, 0x83, 0x1C4, 1}, /* LOBBY_CLAN_CHALLENGE_LIST_REQUEST */
+    {1, 0x84, 1, 0x85, 0x01C, 0}, /* LOBBY_CLAN_STATS_UPLOAD_REQUEST */
+    {1, 0x88, 1, 0x89, 0x028, 0}, /* LOBBY_WORLD_SECURITY_REQUEST */
+    {1, 0x8C, 1, 0x8D, 0x064, 1}, /* LOBBY_CITY_LIST_REQUEST */
+    {1, 0x96, 1, 0x97, 0x01C, 0}, /* LOBBY_CHAT_TOGGLE_REQUEST */
+    {1, 0x98, 1, 0x99, 0x05C, 0}, /* LOBBY_CHAT_TEXT_CHECK_REQUEST */
+    {1, 0xA3, 1, 0xA4, 0x01C, 0}, /* LOBBY_LOCALE_SET_REQUEST */
+    {1, 0xA5, 1, 0xA6, 0x0C8, 0}, /* LOBBY_FILE_CREATE_REQUEST */
+    {1, 0xA7, 1, 0xA9, 0x028, 0}, /* LOBBY_FILE_UPLOAD_REQUEST */
+    {1, 0xAA, 1, 0xAB, 0x0C8, 0}, /* LOBBY_FILE_CLOSE_REQUEST */
+    {1, 0xAC, 1, 0xAD, 0x1FC, 0}, /* LOBBY_FILE_DOWNLOAD_REQUEST */
+    {1, 0xC0, 1, 0xC1, 0x048, 1}, /* LOBBY_IGNORE_LIST_REQUEST */
+    {1, 0xC2, 1, 0xC3, 0x01C, 0}, /* LOBBY_IGNORE_ADD_REQUEST */
+    {1, 0xC4, 1, 0xC5, 0x01C, 0}, /* LOBBY_IGNORE_REMOVE_REQUEST */
+    {1, 0xD2, 1, 0xD3, 0x048, 1}, /* LOBBY_CLAN_LADDER_REQUEST */
+    {1, 0xD6, 1, 0xD7, 0x0D0, 1}, /* LOBBY_BUDDY_LIST_REQUEST */
+    {1, 0xDA, 1, 0xDB, 0x1DC, 1}, /* LOBBY_CLAN_MEMBER_LIST_REQUEST */
+    {1, 0xDC, 1, 0xDD, 0x0D0, 1}, /* LOBBY_CHANNEL_PLAYER_LIST_REQUEST */
+    {1, 0xEA, 1, 0xEB, 0x190, 1}, /* LOBBY_GAME_LIST_REQUEST */
+    {1, 0xF1, 1, 0xF2, 0x024, 0}, /* LOBBY_LADDER_POSITION_REQUEST */
+    {1, 0xF3, 1, 0x24, 0x0BC, 0}, /* LOBBY_GAME_JOIN_REQUEST */
+    {1, 0xF4, 1, 0x1E, 0x020, 0}, /* LOBBY_GAME_CREATE_REQUEST */
+    {4, 0x0B, 1, 0xCF, 0x01C, 0}, /* LOBBY_LADDER_STATS_WRITE_REQUEST */
+    {4, 0x0D, 4, 0x0E, 0x1B0, 0}, /* LOBBY_LADDER_STATS_READ_REQUEST */
+    {4, 0x0F, 1, 0xF0, 0x1D8, 1}, /* LOBBY_LADDER_PAGE_REQUEST */
+    {4, 0x12, 4, 0x13, 0x034, 0}, /* LOBBY_CHANNEL_FILTER_SET_REQUEST */
+    {4, 0x14, 1, 0x22, 0x020, 0}, /* LOBBY_CHANNEL_CREATE_REQUEST */
+    {4, 0x15, 1, 0xED, 0x080, 1}, /* LOBBY_CHANNEL_LIST_REQUEST */
 };
 
 /* ---- Little-endian fields of the game's structs, in host buffers ---- */
@@ -431,10 +434,10 @@ static int srv_open(const char* name) {
         port,
         name
     );
-    srv_begin(PK_HELLO, -1);
+    srv_begin(PACKET_HELLO, -1);
     srv_text(NET_VERSION);
     srv_text(name);
-    srv_u8(CLIENT_SLOTS);
+    srv_u8(CLIENT_SLOTS | CLIENT_KEEPS_ALIVE);
     srv_end();
     return 1;
 }
@@ -444,7 +447,7 @@ void rac3_mp_net_ui_action(const char* key, int value) {
     if (srv.state != 1) {
         return;
     }
-    srv_begin(PK_UI, UI_ACTION);
+    srv_begin(PACKET_UI, UI_ACTION);
     srv_text(key);
     srv_i32(value);
     srv_end();
@@ -537,7 +540,7 @@ static member* room_member_at(int index) {
 }
 
 /* A member comes in: the next index, the same order on every console (the party's order: the host,
- * then the members as they joined, which INFO lists and JOINED appends). */
+ * then the members as they joined, which PARTY_INFO lists and PARTY_JOINED appends). */
 static member* room_add(int32_t id, const char* name) {
     member* m = room_member(id);
     if (m != NULL || room.count == ROOM_MAX) {
@@ -591,7 +594,7 @@ static struct {
     int32_t connect_cb, connect_ud;
     int connect_due;     /* the connect callback is called at the next update */
     char name[33];       /* the account name logged in with */
-    uint8_t login[0x66]; /* the LoginRequest waiting for the server's hello */
+    uint8_t login[0x66]; /* the LOBBY_LOGIN_REQUEST waiting for the server's hello */
     int login_waiting;
     uint8_t list_req[0x1A];
     int list_waiting;
@@ -601,7 +604,7 @@ static struct {
     int join_waiting;
     listed_game games[32];
     int games_count;
-    game_advert own; /* this console's game, from GameCreateRequest and each GameReport */
+    game_advert own; /* this console's game: LOBBY_GAME_CREATE_REQUEST, each LOBBY_GAME_REPORT */
     uint8_t locations_req[0x26];
     int locations_waiting;
 
@@ -669,8 +672,8 @@ static void lobby_connect_info(uint8_t* p, int32_t world) {
     put_text(p + 0x78, "OPENRACSESSION01", 17);
 }
 
-/* The settings of a game as GameInfoRequest and the game list give them, from a
- * GameCreateRequest. */
+/* The settings of a game as LOBBY_GAME_INFO_REQUEST and the game list give them, from a
+ * LOBBY_GAME_CREATE_REQUEST. */
 static void advert_from_create(game_advert* a, const uint8_t* req) {
     memset(a, 0, sizeof *a);
     a->min_players = get32(req + 0x2C);
@@ -685,7 +688,8 @@ static void advert_from_create(game_advert* a, const uint8_t* req) {
     a->host_type = get32(req + 0xCC);
 }
 
-/* ...and from the host's GameReport, which the host's own GameInfoRequest poll must see again. */
+/* ...and from the host's LOBBY_GAME_REPORT, which the host's own LOBBY_GAME_INFO_REQUEST poll must
+ * see again. */
 static void advert_from_report(game_advert* a, const uint8_t* rep) {
     memcpy(a->name, rep + 0x1C, 63);
     a->name[63] = 0;
@@ -753,7 +757,7 @@ static void lobby_send_advert(void) {
     if (!room.in || srv.fd == NET_INVALID || !srv_room(400)) {
         return;
     }
-    srv_begin(PK_PARTY, OP_ADVERT);
+    srv_begin(PACKET_PARTY, PARTY_ADVERT);
     srv_advert(&lobby.own);
     srv_end();
 }
@@ -794,7 +798,7 @@ static void lobby_reply_login(int32_t status) {
     lobby.login_waiting = 0;
 }
 
-/* GetLocationsResponse (0x64 bytes: +0x18 the location id, +0x1C its name, +0x5C the status, +0x60
+/* LOBBY_CITY_LIST_ENTRY (0x64 bytes: +0x18 the location id, +0x1C its name, +0x5C the status, +0x60
  * EndOfList), one record per region; the city select lists them. */
 static void lobby_reply_locations(void) {
     const lobby_reply* r = lobby_reply_of(1, 0x8C);
@@ -934,7 +938,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
         );
     }
     if (cls == 1 && type == 0x00 && size >= 0x180) {
-        /* GameReport: the host's game as it is now, listed with its party. */
+        /* LOBBY_GAME_REPORT: the host's game as it is now, listed with its party. */
         game_advert before = lobby.own;
         advert_from_report(&lobby.own, req);
         lobby.own_valid = 1;
@@ -945,8 +949,8 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
     }
     if (cls == 1 && type == 0x49 && size >= 0x18 && get32(req + 0x14) == 2 && room.in
         && srv.fd != NET_INVALID) {
-        /* PresenceUpdate (left the game world): the game is left, so is its party. */
-        srv_begin(PK_PARTY, OP_LEAVE);
+        /* LOBBY_PRESENCE_UPDATE (left the game world): the game is left, so is its party. */
+        srv_begin(PACKET_PARTY, PARTY_LEAVE);
         srv_end();
         room.in = 0;
         room.count = 0;
@@ -957,10 +961,10 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
     }
     lobby_start(reply, r, req, M_SUCCESS);
     switch (cls << 8 | type) {
-        case MEDIUS_SessionOpenRequest: /* the session key */
+        case LOBBY_SESSION_OPEN_REQUEST: /* the session key */
             put_text(reply + 0x1C, "OPENRACSESSION01", 17);
             break;
-        case MEDIUS_LoginRequest: /* hello to the server, the reply when it answers */
+        case LOBBY_LOGIN_REQUEST: /* hello to the server, the reply when it answers */
             memcpy(lobby.login, req, sizeof lobby.login);
             memcpy(lobby.name, req + 0x26, 32);
             lobby.name[32] = 0;
@@ -975,41 +979,41 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
                 lobby_reply_login(M_LOGIN_FAILED);
             }
             return;
-        case MEDIUS_LobbyKeepAliveRequest:
+        case LOBBY_KEEP_ALIVE_REQUEST:
             put_text(reply + 0x1C, "127.0.0.1", 20);
             break;
-        case MEDIUS_ChannelJoinRequest: /* the one channel's lobby */
+        case LOBBY_CHANNEL_JOIN_REQUEST: /* the one channel's lobby */
             lobby_connect_info(reply + 0x1C, M_WORLD_LOBBY);
             break;
-        case MEDIUS_GamePlayerListRequest: /* the party's members */
+        case LOBBY_GAME_PLAYER_LIST_REQUEST: /* the party's members */
             lobby_reply_players(req);
             return;
-        case MEDIUS_GameInfoRequest:
+        case LOBBY_GAME_INFO_REQUEST:
             lobby_reply_game_info(req, size >= 0x2C ? get32(req + 0x28) : 0);
             return;
-        case MEDIUS_ChatTextCheckRequest: /* the text passes as it is */
+        case LOBBY_CHAT_TEXT_CHECK_REQUEST: /* the text passes as it is */
             memcpy(reply + 0x1C, req + 0x2C, 64);
             break;
-        case MEDIUS_LicenceTextRequest: /* waits for a text (+0x1C), then its end (+0x11C) */
+        case LOBBY_LICENCE_TEXT_REQUEST: /* waits for a text (+0x1C), then its end (+0x11C) */
             put_text(reply + 0x1C, "Online play on an OpenRAC server.", 256);
             break;
-        case MEDIUS_NewsRequest: /* none */
-        case MEDIUS_AllNewsRequest:
+        case LOBBY_NEWS_REQUEST: /* none */
+        case LOBBY_ALL_NEWS_REQUEST:
             put32(reply + M_STATUS, M_NO_RESULT);
             break;
-        case MEDIUS_CityListRequest: /* the hub's regions, the game's city list */
+        case LOBBY_CITY_LIST_REQUEST: /* the hub's regions, the game's city list */
             memcpy(lobby.locations_req, req, sizeof lobby.locations_req);
-            /* A server from before regions closes on REGIONS: the game's own cities then. */
+            /* A server from before regions closes on PACKET_REGIONS: the game's own cities then. */
             if (srv.fd == NET_INVALID || !(srv.features & FEATURE_REGIONS)) {
                 put32(reply + 0x5C, M_NO_RESULT);
                 break;
             }
             lobby.locations_waiting = 1;
-            srv_begin(PK_REGIONS, -1);
+            srv_begin(PACKET_REGIONS, -1);
             srv_text(NET_FAMILY);
             srv_end();
             return;
-        case MEDIUS_ChannelFilterSetRequest: /* logged, it carries the city chosen */
+        case LOBBY_CHANNEL_FILTER_SET_REQUEST: /* logged, it carries the city chosen */
             if (net_log()) {
                 char hex[3 * 0x30 + 1];
                 for (size_t k = 0; k < size && k < 0x30; k++) {
@@ -1018,17 +1022,17 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
                 fprintf(stderr, "[info] rac3: online: lobby world filter %s\n", hex);
             }
             break;
-        case MEDIUS_ChannelListRequest: /* one numbered channel ("%02X" at name + 0xB) */
+        case LOBBY_CHANNEL_LIST_REQUEST: /* one numbered channel ("%02X" at name + 0xB) */
             put32(reply + 0x1C, M_WORLD_LOBBY);
             put16(reply + 0x20, (int16_t)(room.count + 1));
             put16(reply + 0x22, 256);
             put32(reply + 0x28, 1);
             put_text(reply + 0x3C, "OpenRAC CH 01", 64);
             break;
-        case MEDIUS_ChannelCreateRequest:
+        case LOBBY_CHANNEL_CREATE_REQUEST:
             put32(reply + 0x1C, M_WORLD_LOBBY);
             break;
-        case MEDIUS_GameListRequest: /* the server's parties of this game */
+        case LOBBY_GAME_LIST_REQUEST: /* the server's parties of this game */
             memcpy(lobby.list_req, req, sizeof lobby.list_req);
             if (srv.fd == NET_INVALID || lobby.list_waiting) {
                 if (!lobby.list_waiting) {
@@ -1037,12 +1041,12 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
                 return;
             }
             lobby.list_waiting = 1;
-            srv_begin(PK_PARTY, OP_LIST);
+            srv_begin(PACKET_PARTY, PARTY_LIST);
             srv_text(NET_FAMILY);
             srv_u8(LIST_ADVERTS);
             srv_end();
             return;
-        case MEDIUS_GameCreateRequest: /* a party hosted, its settings its advert */
+        case LOBBY_GAME_CREATE_REQUEST: /* a party hosted, its settings its advert */
             memcpy(lobby.create_req, req, sizeof lobby.create_req);
             advert_from_create(&lobby.own, req);
             lobby.own_valid = 1;
@@ -1051,12 +1055,12 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
                 break;
             }
             lobby.create_waiting = 1;
-            srv_begin(PK_PARTY, OP_CREATE);
+            srv_begin(PACKET_PARTY, PARTY_CREATE);
             srv_text(lobby.own.name);
             srv_text(NET_FAMILY);
             srv_end();
             return;
-        case MEDIUS_GameJoinRequest: { /* own game at once, another's once the server took us in */
+        case LOBBY_GAME_JOIN_REQUEST: { /* own game at once, another's once the server took us in */
             const int32_t world = get32(req + 0x28);
             memcpy(lobby.join_req, req, sizeof lobby.join_req);
             if (world == M_WORLD_OWN && room.in) {
@@ -1069,7 +1073,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
                 return;
             }
             lobby.join_waiting = 1;
-            srv_begin(PK_PARTY, OP_JOIN);
+            srv_begin(PACKET_PARTY, PARTY_JOIN);
             srv_text(g->code);
             srv_text(NET_FAMILY);
             srv_end();
@@ -1096,9 +1100,9 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
 #define CONN_CLIENTS 0x43C
 #define CONN_SLOT 0x448
 
-/* The first byte of a RELAY payload is the kind (RELAY_* in mp_protocol.h): a DME packet follows
- * (RelayedDmePacket); a net object (RelayedObject): id, type, owner, creator, then its data; or
- * a net object released (RelayedObjectRelease): its id (the game never destroys one). */
+/* The first byte of a PACKET_RELAY payload is the kind (RELAY_* in mp_protocol.h): a DME packet
+ * follows (RELAY_ROOM_PACKET); a net object (RELAY_OBJECT): id, type, owner, creator, then its
+ * data; or a net object released (RELAY_OBJECT_RELEASE): its id (the game never destroys one). */
 
 static struct {
     gaddr conn; /* the room's connection, in the game's memory */
@@ -1204,9 +1208,9 @@ static int dme_relay(int dest, gaddr data, int len) {
     if (!srv_room((size_t)len + 8)) {
         return 0;
     }
-    srv_begin(PK_RELAY, -1);
+    srv_begin(PACKET_RELAY, -1);
     srv_i32(target);
-    srv_u8(RELAY_RelayedDmePacket);
+    srv_u8(RELAY_ROOM_PACKET);
     srv_bytes(G(data), (size_t)len);
     srv_end();
     if (net_log()) {
@@ -1278,9 +1282,9 @@ static void obj_send(int i, int32_t target) {
     if (srv.fd == NET_INVALID || !room.in || !srv_room((size_t)size + 32)) {
         return;
     }
-    srv_begin(PK_RELAY, -1);
+    srv_begin(PACKET_RELAY, -1);
     srv_i32(target);
-    srv_u8(RELAY_RelayedObject);
+    srv_u8(RELAY_OBJECT);
     srv_i32(objs[i].id);
     srv_i32(objs[i].type);
     srv_i32(objs[i].owner);
@@ -1329,7 +1333,7 @@ static void obj_receive(int kind, int32_t from, reader* r) {
     (void)from;
     const int32_t id = rd_i32(r);
     int i = obj_find(id);
-    if (kind == RELAY_RelayedObjectRelease) {
+    if (kind == RELAY_OBJECT_RELEASE) {
         if (i >= 0) {
             obj_callback(obj_type[objs[i].type].on_destroy, objs[i].creator, id, 0, 0);
             objs[i] = objs[--obj_count];
@@ -1393,7 +1397,7 @@ static void on_info(reader* r) {
         room.host
     );
     if (lobby.create_waiting) {
-        /* GameCreateRequest's answer: this console's own world; its settings listed. */
+        /* LOBBY_GAME_CREATE_REQUEST's answer: this console's own world; its settings listed. */
         const lobby_reply* rr = lobby_reply_of(1, 0xF4);
         uint8_t reply[0x20];
         lobby_start(reply, rr, lobby.create_req, M_SUCCESS);
@@ -1437,10 +1441,10 @@ static void on_list(reader* r) {
 static void on_party(reader* r) {
     const int op = rd_u8(r);
     switch (op) {
-        case OP_INFO:
+        case PARTY_INFO:
             on_info(r);
             break;
-        case OP_JOINED: {
+        case PARTY_JOINED: {
             char name[33];
             const int32_t id = rd_i32(r);
             rd_text(r, name, sizeof name);
@@ -1451,7 +1455,7 @@ static void on_party(reader* r) {
             dme_report_members();
             break;
         }
-        case OP_LEFT: {
+        case PARTY_LEFT: {
             const int32_t id = rd_i32(r);
             member* m = room_member(id);
             if (m != NULL) {
@@ -1460,14 +1464,14 @@ static void on_party(reader* r) {
             dme_report_members();
             break;
         }
-        case OP_END:
-        case OP_KICKED:
+        case PARTY_END:
+        case PARTY_KICKED:
             fprintf(stderr, "[info] rac3: online: the party is gone\n");
             room.in = 0;
             room.count = 0;
             dme_report_members();
             break;
-        case OP_HOST_CHANGED:
+        case PARTY_HOST_CHANGED:
             room.host = rd_i32(r);
             dme_conn_refresh();
             if (dme.joined) {
@@ -1475,7 +1479,7 @@ static void on_party(reader* r) {
                 dme_callback(dme.cb_host, 0, h != NULL ? h->index : 0, 0);
             }
             break;
-        case OP_SLOTS: {
+        case PARTY_SLOTS: {
             /* Each member's stable slot: its DME client index on every console. */
             const int count = rd_u8(r);
             for (int i = 0; i < count; i++) {
@@ -1490,7 +1494,7 @@ static void on_party(reader* r) {
             dme_report_members();
             break;
         }
-        case OP_LIST:
+        case PARTY_LIST:
             on_list(r);
             break;
         default:
@@ -1500,7 +1504,7 @@ static void on_party(reader* r) {
 
 static void on_frame(int id, reader* r) {
     switch (id) {
-        case PK_HELLO:
+        case PACKET_HELLO:
             srv.session = rd_i32(r);
             srv.state = 1;
             fprintf(stderr, "[info] rac3: online: session %d\n", srv.session);
@@ -1508,10 +1512,10 @@ static void on_frame(int id, reader* r) {
                 lobby_reply_login(M_SUCCESS);
             }
             break;
-        case PK_PARTY:
+        case PACKET_PARTY:
             on_party(r);
             break;
-        case PK_ERROR: {
+        case PACKET_ERROR: {
             const int reason = rd_u8(r);
             fprintf(
                 stderr, "[warning] rac3: online: the server refused a request (reason %d)\n", reason
@@ -1532,7 +1536,7 @@ static void on_frame(int id, reader* r) {
             }
             break;
         }
-        case PK_UDP:
+        case PACKET_UDP:
             /* The UDP offer: its token and port (unused here), then the server's feature bits. */
             rd_i32(r);
             rd_i32(r);
@@ -1540,12 +1544,12 @@ static void on_frame(int id, reader* r) {
             srv.features = rd_u8(r);
             /* A server that answers UI is asked for this disc's lobby screens. */
             if (srv.features & FEATURE_UI) {
-                srv_begin(PK_UI, UI_GET);
+                srv_begin(PACKET_UI, UI_GET);
                 srv_text(NET_FAMILY);
                 srv_end();
             }
             break;
-        case PK_REGIONS: {
+        case PACKET_REGIONS: {
             /* The hub's regions: name, host (empty: the hub's own address), port, players. */
             const int count = rd_u8(r);
             lobby.regions_count = 0;
@@ -1561,14 +1565,14 @@ static void on_frame(int id, reader* r) {
             }
             break;
         }
-        case PK_RELAY: {
+        case PACKET_RELAY: {
             const int32_t from = rd_i32(r);
             const int kind = rd_u8(r);
-            if (kind == RELAY_RelayedObject || kind == RELAY_RelayedObjectRelease) {
+            if (kind == RELAY_OBJECT || kind == RELAY_OBJECT_RELEASE) {
                 obj_receive(kind, from, r);
                 break;
             }
-            if (kind != RELAY_RelayedDmePacket || r->n == 0 || r->n > sizeof dme.inbox[0].data) {
+            if (kind != RELAY_ROOM_PACKET || r->n == 0 || r->n > sizeof dme.inbox[0].data) {
                 break;
             }
             if (dme.inbox_count == (int)(sizeof dme.inbox / sizeof dme.inbox[0])) {
@@ -1590,7 +1594,7 @@ static void on_frame(int id, reader* r) {
             dme.inbox_count++;
             break;
         }
-        case PK_UI: {
+        case PACKET_UI: {
             const int opcode = rd_u8(r);
             if (opcode == UI_DESCRIPTION) {
                 const int32_t revision = rd_i32(r);
@@ -1611,6 +1615,23 @@ static void on_frame(int id, reader* r) {
 }
 
 /* Reads what the server sent and handles every whole frame. */
+/* PACKET_TIME every KEEP_ALIVE_MS once greeted, which HELLO promised (CLIENT_KEEPS_ALIVE): a game
+ * that hangs or dies stops sending, and the server drops it from its party. The answer is ignored. */
+static void srv_keep_alive(void) {
+    static int64_t last;
+    struct timespec now;
+    timespec_get(&now, TIME_UTC);
+    const int64_t ms = (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+    if (srv.state != 1 || ms - last < KEEP_ALIVE_MS || !srv_room(16)) {
+        return;
+    }
+    last = ms;
+    srv_begin(PACKET_TIME, -1);
+    srv_i32((int32_t)(ms >> 32));
+    srv_i32((int32_t)ms);
+    srv_end();
+}
+
 static void srv_pump(void) {
     if (srv.fd == NET_INVALID) {
         return;
@@ -1651,6 +1672,7 @@ static void srv_pump(void) {
     }
     memmove(srv.in, srv.in + at, srv.in_len - at);
     srv.in_len -= at;
+    srv_keep_alive();
 }
 
 /* Everything that waits for a frame of the game: the server's packets, the lobby's callbacks. */
@@ -1741,8 +1763,8 @@ int mp_func_00137700(int a0, int a1, int a2) {
 /* SCE-RT's platform sockets: the network is up on 127.0.0.1 without libnet; no socket opens (the
  * lobby and the room are this file's). */
 int mp_func_0015FA00(void) {
-    GREF(uint32_t, RT_LOCAL_IP) = 0x0100007Fu;
-    GREF(uint32_t, RT_NET_UP) = 1;
+    GREF(uint32_t, NET_TRANSPORT_LOCAL_IP) = 0x0100007Fu;
+    GREF(uint32_t, NET_TRANSPORT_UP) = 1;
     return 0;
 }
 
@@ -1807,7 +1829,7 @@ int mp_func_0017DFA8(int cls, int type, int size, int data) {
  * at the next update, as the library's completion would call it. */
 int mp_func_0017DFE0(int params, int out, int ud) {
     const int32_t handle = 0x4F52;
-    GREF(int32_t, MEDIUS_HANDLE) = handle;
+    GREF(int32_t, NET_LOBBY_HANDLE) = handle;
     GREF(int32_t, out) = handle;
     GREF(int32_t, out + 4) = 0;
     lobby.connected = 1;
@@ -1823,7 +1845,7 @@ int mp_func_0017DFE0(int params, int out, int ud) {
 }
 
 int mp_func_0017E140(void) {
-    GREF(int32_t, MEDIUS_HANDLE) = 0;
+    GREF(int32_t, NET_LOBBY_HANDLE) = 0;
     lobby.connected = 0;
     return 0;
 }
@@ -1837,7 +1859,7 @@ static int medius_update(void) {
         lobby.connect_due = 0;
         if (lobby.connect_cb != 0) {
             GFN(void (*)(int, int),
-                (gaddr)lobby.connect_cb)(GREF(int32_t, MEDIUS_HANDLE), lobby.connect_ud);
+                (gaddr)lobby.connect_cb)(GREF(int32_t, NET_LOBBY_HANDLE), lobby.connect_ud);
         }
     }
     if (buf == 0) {
@@ -2197,8 +2219,8 @@ int mp_func_00195410(void) {
 /* DME's allocator and free hooks (0x00198608, 0x00198660, installed through 0x0014ADB8): newlib's
  * malloc within the budget the game gives DME (0xC4000 bytes), which the port's heap does not
  * give it. A heap of that size in the port's statics, first fit, with the sizes kept beside it. */
-#define DME_HEAP 0xC4000u
-#define DME_BLOCKS 1024
+#define NET_ROOM_HEAP 0xC4000u
+#define NET_ROOM_BLOCKS 1024
 
 static struct {
     gaddr base;
@@ -2206,7 +2228,7 @@ static struct {
     struct {
         uint32_t at, size;
         int used;
-    } block[DME_BLOCKS];
+    } block[NET_ROOM_BLOCKS];
 
     int count;
 } dme_heap;
@@ -2214,9 +2236,9 @@ static struct {
 int mp_func_00198608(int size) {
     const uint32_t want = ((uint32_t)size + 15u) & ~15u;
     if (dme_heap.base == 0) {
-        dme_heap.base = openrac_guest_static(DME_HEAP);
+        dme_heap.base = openrac_guest_static(NET_ROOM_HEAP);
         dme_heap.block[0].at = 0;
-        dme_heap.block[0].size = DME_HEAP;
+        dme_heap.block[0].size = NET_ROOM_HEAP;
         dme_heap.block[0].used = 0;
         dme_heap.count = 1;
     }
@@ -2224,7 +2246,7 @@ int mp_func_00198608(int size) {
         if (dme_heap.block[i].used || dme_heap.block[i].size < want) {
             continue;
         }
-        if (dme_heap.block[i].size > want && dme_heap.count < DME_BLOCKS) {
+        if (dme_heap.block[i].size > want && dme_heap.count < NET_ROOM_BLOCKS) {
             memmove(
                 &dme_heap.block[i + 2],
                 &dme_heap.block[i + 1],

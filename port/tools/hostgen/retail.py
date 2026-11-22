@@ -502,6 +502,7 @@ class RetailCode:
         self._sorted = {h: sorted(m) for h, m in starts.items()}
         self._blocks: dict[tuple[int, int], asm.Block] = {}
         self._pairs: dict[tuple[int, int], tuple[dict, dict]] = {}
+        self._reloc_at: dict[tuple[int, int], list[int]] = {}  # each program's relocated addresses, sorted
         self._lines: dict[tuple[int, int], tuple[asm.Line, asm.Block]] = {}
         self.follow_far = False                   # _follow's `far`
         self.pair_moves = False                   # pairs: a register move carries a %hi along
@@ -540,7 +541,12 @@ class RetailCode:
             n = len(part.data) // 4
             self._pairs[key] = self.pairs(home, part.base, list(struct.unpack_from(f"<{n}I", part.data)))
         all_relocs, all_tables = self._pairs[key]
-        relocs = {a: r for a, r in all_relocs.items() if start <= a < end}
+        # The block's own relocations, from the program's in address order (a filter over all of
+        # them for each block was quadratic in a level's code).
+        at = self._reloc_at.get(key)
+        if at is None:
+            at = self._reloc_at[key] = sorted(all_relocs)
+        relocs = {a: all_relocs[a] for a in at[bisect.bisect_left(at, start):bisect.bisect_left(at, end)]}
         tables = {a: t for a, t in all_tables.items() if start <= a < end}
         for k, w in enumerate(words):
             a = start + 4 * k

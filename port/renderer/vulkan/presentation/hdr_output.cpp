@@ -306,6 +306,13 @@ VkSurfaceFormatKHR choose_hdr_format(
     const SurfaceChoice choice = choose_surface_format(formats, wanted, can_write, nullptr);
     hdr.through_float = choice.output != Output::Sdr && !can_store(choice.format.format);
     hdr.direct = (caps.supportedUsageFlags & VK_IMAGE_USAGE_STORAGE_BIT) != 0 && !hdr.through_float;
+#if defined(__APPLE__) && !defined(OPENRAC_IOS)
+    // Keep compute writes off the macOS EDR drawable. Copy the completed scRGB frame
+    // to the acquired image just as the SDR path does.
+    if (choice.output == Output::ScRgb) {
+        hdr.direct = false;
+    }
+#endif
     hdr.made_for = hdr.asked.wanted;
     hdr.shown = choice.output;
     if (wanted != Output::Sdr && choice.output == Output::Sdr) {

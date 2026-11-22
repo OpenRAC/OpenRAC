@@ -1276,6 +1276,15 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
         const float w = attributes().fst ? static_cast<float>(v.v) / 16.0f
                                          : v.t / v.q * static_cast<float>(c.tex0.height());
         out.s = (u + static_cast<float>(frame_x)) / static_cast<float>(m_config.screen_width);
+        // Copied into an off-screen target, the frame is the game's picture: on a target wider
+        // than it, the middle part the world draws the game's view in. Going Commando's frame copy
+        // (the frame shrunk to 256 x 256 at block 0x3340, which the Aranos Prison energy fields
+        // refract while they appear, sampling it where their quads lie in the game's picture) took
+        // the whole wide target, so the fields showed the scene shifted out from the middle: dark
+        // pillars where the floor was, black discs.
+        if (offscreen && m_picture_scale_x > 0.0f && m_picture_scale_x < 1.0f) {
+            out.s = 0.5f + (out.s - 0.5f) * m_picture_scale_x;
+        }
         out.t = 1.0f - (w + static_cast<float>(frame_y)) / static_cast<float>(m_config.screen_height);
         out.q = 1.0f;
     } else if (attributes().fst) {

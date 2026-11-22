@@ -51,4 +51,19 @@ private:
     bool m_shown = false;  // a frame was shown
 };
 
+// Whether the mouse's turn has the picture (frontend/mouse_turn.h): from a frame the mouse or the
+// gyro moves in, until kRestSeconds after the last one. A gamepad player's mouse lies still, so the
+// stick keeps its latch and the interpolated camera when it comes back to rest.
+class MouseHold {
+public:
+    static constexpr double kRestSeconds = 0.25;
+
+    // A frame drawn `since` seconds after the last. `turns`: the mouse may turn the camera now.
+    // `moved`: it (or the gyro) moved since the last frame.
+    bool frame(bool turns, bool moved, double since);
+
+private:
+    double m_still = kRestSeconds;  // seconds since the mouse last moved
+};
+
 }  // namespace openrac::frontend
