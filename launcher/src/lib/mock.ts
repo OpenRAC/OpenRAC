@@ -800,6 +800,7 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
       return [`Imported 3 sound(s) into ${data}/overrides as ${name}`];
     case "audio-recipe": {
       const recipe = JSON.parse(String(args.option)) as { name: string };
+
       mockPacks.push({
         ...samplePack(recipe.name),
         id: recipe.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
@@ -807,6 +808,7 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
         models: 0,
         sounds: 2,
       });
+
       return ["Created recipe for 2 sounds; no recordings included."];
     }
     case "overrides-add":
@@ -2096,15 +2098,18 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
   const outputs =
     id === "editor-pack"
       ? [`/home/you/OpenRAC/assets/packed/${scope.kind === "version" ? scope.key : ""}`]
-      : id === "audio-recipe"
-        ? ["/home/you/exports/audio-recipe-20261101T0900"]
-        : id === "audio-export" || id === "audio-export-all"
-          ? [`/home/you/exports/audio-${String(args.option)}-20261101T0900`]
-          : id === "assets-export"
-            ? [
-                `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
-              ]
-            : [];
+      : id === "audio-export" || id === "audio-export-all"
+        ? [`/home/you/exports/audio-${String(args.option)}-20261101T0900`]
+        : id === "assets-export"
+          ? [
+              `/home/you/exports/level_${String(Number(args.level ?? 0)).padStart(2, "0")}-${typeof args.option === "string" ? args.option : "mobys"}`,
+            ]
+          : [];
+
+  if (id === "audio-recipe") {
+    outputs.push("/home/you/exports/audio-recipe-20261101T0900");
+  }
+
   const moved = () => {
     if (id === "editor-extract") mockEditor = ["outdated", "broken"].includes(mockEditor) ? "carried" : "ready";
     if (id === "editor-reexport") mockEditor = "carried";

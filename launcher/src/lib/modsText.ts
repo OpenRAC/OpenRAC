@@ -610,7 +610,8 @@ export const AUDIO = {
     "Speed changes pitch and duration together. Positive volume can clip loud sounds. Uses the level and sounds selected above.",
   recipeCreate: "Create shareable recipe",
   recipeBusy: "Preparing the recipe…",
-  recipeReady: "Recipe installed: share its ZIP. The sounds will be prepared when you play with mods.",
+  recipeReady:
+    "Recipe installed: share its ZIP. The sounds will be prepared when you play with mods.",
   recipeStopped: "The recipe could not be prepared. The activity log has what it said.",
 } as const;
 

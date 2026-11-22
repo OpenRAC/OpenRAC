@@ -101,8 +101,10 @@
       gain_db: gain,
     });
     const ok = await runChain(scope, [recipeCreator], { option });
+
     busy = null;
     const written = newest(["audio-recipe"])?.outputs[0];
+
     toast(ok ? AUDIO.recipeReady : AUDIO.recipeStopped, ok ? "info" : "error");
     if (ok) onimported?.();
     if (ok && written) await guardShown(api.openOutput(written));
