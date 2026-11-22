@@ -2422,6 +2422,11 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
                 # The entries only a table in the data names (vtables, update functions): a word in
                 # a program's data that is an address in its code just after a function's end.
                 found_entries |= source_of.pointed(levels, found_entries)
+            # hostgen.json "inner_extents": the catalogue's functions of those levels are entries
+            # too (a second executable's maps: callbacks only a pointer built at run time reaches,
+            # map 40's 0x004A0628 and 0x004EE358 among them).
+            for home, spans in (getattr(program, "inner_extents", {}) or {}).items():
+                found_entries |= {(home, start) for start, _end in spans}
             for home, address in sorted(found_entries):
                 if address % 4 or (home, address) in program.by_place:
                     continue
