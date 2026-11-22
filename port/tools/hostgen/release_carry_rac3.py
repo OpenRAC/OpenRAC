@@ -192,6 +192,10 @@ class Names:
         return NAME.sub(lambda m: self.function(m.group(0))[0], text)
 
 
+# NTSC-U's own multiplayer maps: split-screen builds of PAL's 44 and 45, which PAL does not have.
+MP_OWN_MAPS = {54: 44, 55: 45}
+
+
 class MpNames:
     """The multiplayer executable's names (port/game/rac3-pal/mp, the host C's mp_func_): its own
     functions paired by release/mp_pairs.json (rac3_mp_pairs.py), level 39's by their places
@@ -228,6 +232,28 @@ class MpNames:
                 if level >= 39 and level in us_rows[twin][1]:
                     self.levels.setdefault(level, {})[address] = us_rows[twin][1][level]
         self.l39 = self.levels.get(39, {})
+        # Every PAL place of a twinned row -> NTSC-U's places of that row (own_map).
+        self.us_places: dict[tuple[int, int], dict[int, int]] = {}
+        for pal, (kind, places) in pal_rows.items():
+            twin = names.front.get(pal) if kind == "frontbin" else names.levels.get(pal)
+            if twin and twin in us_rows:
+                for level, address in places.items():
+                    self.us_places[(level, address)] = us_rows[twin][1]
+
+    def own_map(self, name: str, us_level: int) -> str | None:
+        """PAL's func_L<pal>_ADDR as NTSC-U's own map us_level spells the same row (NTSC-U's maps 54
+        and 55 are split-screen builds of 44 and 45, which PAL does not have)."""
+        m = re.fullmatch(r"func_L(\d\d)_([0-9A-F]{8})(__\w+)?", name)
+        if not m:
+            return None
+        pal_level, address = int(m.group(1)), int(m.group(2), 16)
+        places = self.us_places.get((pal_level, address))
+        if places is None and (pal_level, address - 0x484) in self.us_places:
+            base = self.us_places[(pal_level, address - 0x484)].get(us_level)
+            return f"func_L{us_level}_{base + 0x484:08X}{m.group(3) or ''}" if base is not None else None
+        if places is None or us_level not in places:
+            return None
+        return f"func_L{us_level}_{places[us_level]:08X}{m.group(3) or ''}"
 
     def function(self, name: str) -> str | None:
         """NAME (func_..., without the mp_ prefix) as NTSC-U's executable spells it, or None."""
@@ -598,7 +624,28 @@ def main(argv: list[str] | None = None) -> int:
             if isinstance(value, str) and NAME.fullmatch(value):
                 return mp.function(value) or value
             return value
-        mp_cfg = mp_json(json.loads((PRIMARY / "mp/hostgen.json").read_text()))
+        pal_mp = json.loads((PRIMARY / "mp/hostgen.json").read_text())
+        mp_cfg = mp_json(pal_mp)
+        # NTSC-U's own maps (MP_OWN_MAPS): what PAL's hostgen.json says for the map each is a build
+        # of, in that map's spelling.
+        if pal_mp.get("level_copies"):
+            for us_level, pal_level in MP_OWN_MAPS.items():
+                for key in ("retail", ):
+                    mp_cfg["asm"][key]["levels"] = sorted({*mp_cfg["asm"][key]["levels"], us_level})
+                mp_cfg["asm"]["discover_levels"] = sorted({*mp_cfg["asm"]["discover_levels"], us_level})
+                for key in ("level_copies", "inner_extents"):
+                    if key in mp_cfg:
+                        mp_cfg[key]["levels"] = sorted({*mp_cfg[key]["levels"], us_level})
+                for key in ("roots", "inner_entries"):
+                    own = [mp.own_map(n, us_level) for n in pal_mp.get(key, [])
+                           if n.startswith(f"func_L{pal_level}_")]
+                    mp_cfg[key] = [*mp_cfg.get(key, []), *[n for n in own if n]]
+                sigs = mp_cfg["asm"].setdefault("copy_signatures", {})
+                for n, sig in pal_mp["asm"].get("copy_signatures", {}).items():
+                    if n.startswith(f"func_L{pal_level}_"):
+                        own = mp.own_map(n, us_level)
+                        if own:
+                            sigs[own] = sig
         mp_out = {"about": "Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/mp/hostgen.json "
                            "and release/mp_pairs.json; do not edit by hand."}
         mp_out.update(merge(mp_cfg, hand.get("mp_hostgen", {})))
@@ -614,6 +661,7 @@ def main(argv: list[str] | None = None) -> int:
                       " * NTSC-U's. */",
                       "/* clang-format off */"]
         maps_left = set()
+        own_lines: list[str] = []
         for line in (PRIMARY / "host/mp_maps.h").read_text().splitlines() if (PRIMARY / "host/mp_maps.h").is_file() else []:
             m = re.fullmatch(r"(MP_MAP\w*)\((\d+), (.*)\)", line)
             if not m:
@@ -624,6 +672,14 @@ def main(argv: list[str] | None = None) -> int:
                 maps_left.add(level)
                 continue
             maps_lines.append(f"{m.group(1)}({level}, " + ", ".join(p.split("_")[-1] for p in new_places) + ")")
+            for us_level, pal_level in MP_OWN_MAPS.items():
+                if level == pal_level:
+                    own = [mp.own_map(f"func_L{level}_{a}", us_level) for a in m.group(3).split(", ")]
+                    if all(own):
+                        own_lines.append(f"{m.group(1)}({us_level}, " + ", ".join(p.split("_")[-1] for p in own) + ")")
+                    else:
+                        maps_left.add(us_level)
+        maps_lines += own_lines
         maps_lines = [line for line in maps_lines
                       if not (re.match(r"MP_MAP\w*\((\d+),", line)
                               and int(re.match(r"MP_MAP\w*\((\d+),", line).group(1)) in maps_left)]
@@ -646,6 +702,20 @@ def main(argv: list[str] | None = None) -> int:
                 report["left_out"]["mp:" + cols[0]] = "no NTSC-U pair (release/mp_pairs.json)"
                 continue
             mp_rows.append("\t".join([new, *cols[1:]]))
+        for us_level, pal_level in MP_OWN_MAPS.items():
+            if us_level in maps_left:
+                continue
+            for line in (PRIMARY / "mp/libraries.tsv").read_text().splitlines():
+                cols = line.split("\t")
+                if line.startswith("#") or not cols[0].startswith(f"func_L{pal_level}_"):
+                    continue
+                own = mp.own_map(cols[0], us_level)
+                if own is None:
+                    report["left_out"][f"mp:{cols[0]} as map {us_level}"] = "no NTSC-U place"
+                    continue
+                cols[2] = cols[2].replace(f"Map{pal_level}", f"Map{us_level}")
+                cols[4] = cols[4].replace(f"map {pal_level}'s", f"map {us_level}'s (NTSC-U's, a build of map {pal_level})")
+                mp_rows.append("\t".join([own, *cols[1:]]))
         put("mp/libraries.tsv", "\n".join(mp_rows) + "\n")
     report["differs"] = dict(sorted(report["differs"].items()))
     put("release/release_carry.json", json.dumps(report, indent=1) + "\n")
