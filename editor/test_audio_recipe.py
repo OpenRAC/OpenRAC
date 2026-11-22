@@ -62,6 +62,7 @@ class AudioRecipes(unittest.TestCase):
             self.assertEqual(set(z.namelist()), {"openrac-mod.json", "README.txt"})
         self.assertEqual(overrides.check(out)[1:], ([], [], []))
         self.assertEqual(len(overrides.load_state(packs)["packs"]), 1)
+        self.assertEqual(overrides.load_state(packs)["packs"][0]["id"], created["id"])
         before = out.with_suffix(".zip").read_bytes()
         with self.assertRaises(ValueError):
             audio_recipe.create(self.iso, out, {"what": "music"})
@@ -130,7 +131,9 @@ class AudioRecipes(unittest.TestCase):
         packs, ident = self.install()
         out = self.root / "mods"
         iso_hash = hashlib.sha256(self.iso.read_bytes()).hexdigest()
-        overrides.stack(packs, out, iso=self.iso)
+        prepared = overrides.stack(packs, out, iso=self.iso)
+        self.assertEqual(prepared["layers"][0]["id"], "faster-music")
+        self.assertEqual(prepared["layers"][0]["version"], "1.0.0")
         first = (out / "audio" / (INTRO + ".wav")).read_bytes()
         self.assertEqual(audio.wav_format(first)[2], 45864)
         with self.assertRaisesRegex(ValueError, "original disc"):
@@ -183,6 +186,20 @@ class AudioRecipes(unittest.TestCase):
         second = audio_recipe.create(self.iso, self.root / "second", {"name": "Audio adjustments", "speed": .9}, packs)
         self.assertNotEqual(first["id"], second["id"])
         self.assertEqual(len(overrides.load_state(packs)["packs"]), 2)
+        self.assertEqual({p["id"] for p in overrides.load_state(packs)["packs"]}, {first["id"], second["id"]})
+
+    def test_recipe_identity_never_replaces_an_unrelated_pack(self):
+        ordinary = self.root / "ordinary"
+        ordinary.mkdir()
+        (ordinary / overrides.MANIFEST).write_text(json.dumps({
+            "format": 1, "game": "rac1", "version": "pal", "name": "Faster music",
+            "export": "audio-recipe:faster-music"}))
+        packs = self.root / "overrides"
+        ident, _, _ = overrides.add(ordinary, packs)
+        before = (packs / "packs" / ident / overrides.MANIFEST).read_bytes()
+        with self.assertRaisesRegex(ValueError, "different pack"):
+            self.install()
+        self.assertEqual((packs / "packs" / ident / overrides.MANIFEST).read_bytes(), before)
 
 
 if __name__ == "__main__":

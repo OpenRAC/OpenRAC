@@ -450,13 +450,22 @@ def install(staged: Path, folder: Path, replace_export: str | None = None) -> st
     taken = {p.name for p in (folder / "packs").iterdir()}
     existing = export_pack(folder, replace_export) if replace_export else None
     if existing:
+        if manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT:
+            previous = read_json(folder / "packs" / existing / MANIFEST)
+            if previous.get("format") != AUDIO_RECIPE_PACK_FORMAT or previous.get("id") != manifest["id"]:
+                raise PackError("a different pack already uses this recipe identity")
         old = folder / "packs" / f".{existing}-old"
         file_ops.rename(folder / "packs" / existing, old)
         file_ops.rename(staged, folder / "packs" / existing)
         shutil.rmtree(old)
         save_state(folder, state)
         return existing
-    new = pack_id(manifest["name"], taken)
+    if manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT:
+        new = manifest["id"]
+        if new in taken:
+            raise PackError(f"a different pack already uses the id {new}")
+    else:
+        new = pack_id(manifest["name"], taken)
     file_ops.rename(staged, folder / "packs" / new)
     state["packs"].append({"id": new, "enabled": True})
     save_state(folder, state)
@@ -1066,7 +1075,7 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
                                                          target.version if target is not None else None)
             except (OSError, ValueError) as error:
                 raise PackError(f"{name}: {error}") from error
-            manifest = dict(manifest, version=version)
+            manifest = dict(manifest, version=version, pack_version=manifest["version"])
         resolved.append((name, ident, root, manifest))
     layers = resolved
     requested_layers = list(layers)

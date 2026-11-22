@@ -803,7 +803,7 @@ function lastLines(id: string, args: Record<string, unknown>): string[] {
 
       mockPacks.push({
         ...samplePack(recipe.name),
-        id: recipe.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        id: "audio-recipe-" + crypto.randomUUID(),
         textures: 0,
         models: 0,
         sounds: 2,
