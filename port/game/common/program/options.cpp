@@ -378,10 +378,8 @@ Options parse(int argc, char** argv) {
     if (o.expect_destinations && o.destinations.empty()) {
         usage("--destinations requires prepared destination packs with mods enabled");
     }
-    if (o.ship_map
-        && (!o.custom_map || game_version() != "pal"
-            || std::string_view(openrac_game.game) != "rac1")) {
-        usage("--ship-map requires a RAC1 PAL map pack in --mods");
+    if (o.ship_map && (!o.custom_map || std::string_view(openrac_game.game) != "rac1")) {
+        usage("--ship-map requires a Ratchet & Clank map pack in --mods");
     }
     if (o.ship_map) {
         json::Value stack;

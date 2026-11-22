@@ -71,6 +71,16 @@ int main() {
     CHECK(
         !openrac::program::parse_destinations(registry(harbor), "rac1", "ntsc", destinations, error)
     );
+    // Every Ratchet & Clank disc has the ship's destinations, each its own disc's packs.
+    const auto ntsc = [](std::string text) {
+        for (auto at = text.find("\"pal\""); at != std::string::npos; at = text.find("\"pal\"")) {
+            text.replace(at, 5, "\"ntsc\"");
+        }
+        return text;
+    };
+    CHECK(openrac::program::parse_destinations(
+        ntsc(registry(harbor)), "rac1", "ntsc", destinations, error
+    ));
     std::string traversal = harbor;
     traversal.replace(traversal.find("harbor"), 6, "../escape");
     CHECK(!openrac::program::parse_destinations(

@@ -138,10 +138,8 @@ def map_settings(manifest: dict) -> dict | None:
     value = manifest["map"]
     if manifest.get("game") != "rac1" or not isinstance(value, dict):
         raise PackError('"map" must be an object in a Ratchet & Clank pack')
-    if manifest.get("version") not in ("pal", "ntsc"):
-        raise PackError('map packs must name their disc version ("pal" or "ntsc")')
-    if manifest.get("format") == DESTINATION_PACK_FORMAT and manifest.get("version") != "pal":
-        raise PackError('ship destinations currently require RAC1 PAL')
+    if not games.known("rac1", manifest.get("version")):
+        raise PackError(f'map packs must name their disc version ({", ".join(games.VERSIONS["rac1"])})')
     if manifest.get("format") == DESTINATION_PACK_FORMAT and "export" in manifest:
         identity = manifest["export"]
         if not isinstance(identity, str) or not identity.startswith("destination:") or len(identity) > 132:
@@ -1081,7 +1079,10 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
             for entry, layer in sorted(destinations, key=lambda pair: pair[0]["id"]):
                 write_layers(layers + [layer], target, temporary / "destinations" / entry["id"])
                 entries.append(entry)
-            registry = {"format": 1, "game": "rac1", "version": "pal", "destinations": entries}
+            versions = {entry["version"] for entry in entries}
+            if len(versions) != 1:
+                raise PackError("Ship destinations made for different discs cannot be on together")
+            registry = {"format": 1, "game": "rac1", "version": versions.pop(), "destinations": entries}
             (temporary / "destinations.json").write_text(json.dumps(registry, indent=1, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
             summary["destinations"] = [{"id": m["id"], "name": m["name"]} for m in entries]
             kept = {layer["id"]: layer for layer in summary["layers"]}

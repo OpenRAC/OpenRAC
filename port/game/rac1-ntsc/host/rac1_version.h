@@ -377,17 +377,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L00_0x001601C8u 0x00160108u
 #define RAC1_ADDR_L00_0x001B0830u 0x001B04B0u
 #define RAC1_ADDR_L00_0x001ABBC0u 0x001AB840u /* level_moby_groups */
-/* The ship computer's list (rac1/host/destinations.c): the NTSC decomp declares FUN_00221800
- * (the same bytes as PAL's) as void (menu, s32). */
-#define RAC1_SHIP_MENU_RESULT void
-#define RAC1_SHIP_MENU_PARAMS gaddr menu, int unused
-#define RAC1_SHIP_MENU_CALL(menu) (func_00222848__game(menu, unused), 0)
-#define RAC1_SHIP_MENU_RETURN(result)                                                              \
-    do {                                                                                           \
-        (void)(result);                                                                            \
-        return;                                                                                    \
-    } while (0)
-
 /* draw_visibomb_outside_zone_overlay in the NTSC decomp's visibomb_zone_timer.c:
  * PAL's DrawTiledScreenOverlay (func_L01_00303810), including the retail call under the wrap. */
 #define func_L01_00303810 game_FUN_L01_00302438
@@ -796,8 +785,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0013CC04u 0x0013CB04u
 #define func_0021BB90 game_FUN_0021abf8
 #define func_0021BB90__game game_FUN_0021abf8__game
-#define func_00222848 game_FUN_00221800
-#define func_00222848__game game_FUN_00221800__game
+#define func_00222848 game_FUN_L00_0027f448 /* the level copy: the executable's FUN_00221800 has no C and a level's list never calls it */
+#define func_00222848__game game_FUN_L00_0027f448__game
 #define func_L00_00290030 game_FUN_L00_0028ed58
 #define func_L00_00290030__game game_FUN_L00_0028ed58__game
 
