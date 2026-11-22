@@ -1031,7 +1031,7 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     for shared in [config.parent / d for d in cfg.get("host_shared", [])] or [
             config.parent.parent / str(cfg.get("game", "")) / "host"]:
         paths += sorted(shared.glob("*.c"))
-    for key in ("libraries", "hand", "assembly_allow", "result_allow", "data_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
+    for key in ("libraries", "hand", "assembly_allow", "result_allow", "data_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins", "folded_wrappers"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
     if cfg.get("drafts"):
@@ -1351,6 +1351,12 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
             program.sizes = {in_release(k): v for k, v in program.sizes.items()}
     if cfg.get("split_places"):
         read_split_places(args.game.parent / cfg["split_places"], program)
+    if cfg.get("folded_wrappers"):
+        # hostgen.json "folded_wrappers": a variant_callees.py table (its callers) of the wrappers
+        # whose level copies call different functions (asmc.py: their jals follow the running copy),
+        # under the levels' own names for them too (place_kinds_as_levels).
+        callers = {row[0] for row in variant_check.read(args.game.parent / cfg["folded_wrappers"])}
+        program.folded_wrappers = callers | {program.kind_renames[c] for c in callers if c in program.kind_renames}
     if cfg.get("call_copies"):
         read_call_copies(args.game.parent / cfg["call_copies"], program)
     program.call_copies_same_shape = cfg.get("call_copies_same_shape", False)

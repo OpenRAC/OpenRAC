@@ -2460,6 +2460,25 @@ class Unit:
         m = re.fullmatch(r"D_L\d\d_([0-9A-Fa-f]{8})", symbol or "")
         return m is None or int(m.group(1), 16) == address
 
+    def _folded_wrapper_callee(self, sym: str) -> tuple[int, int, int, int] | None:
+        """For a call from level code to a wrapper of hostgen.json "folded_wrappers": the level the
+        caller is written for, its place there, its size, and the wrapper's place there."""
+        fn = self.fn
+        if (fn is None or sym == fn.code or sym not in getattr(self.program, "folded_wrappers", ())
+                or not getattr(self.program, "relocate", None)):
+            return None
+        caller = [(o, a) for o, a in self.program.code_places(fn.code) if o >= 0]
+        size = getattr(self.program, "sizes", {}).get(fn.code)
+        if not caller or not size:
+            return None
+        level = self._shared_level()
+        home = level if level is not None else caller[0][0]
+        canon = next((a for o, a in caller if o == home), None)
+        own = next((a for o, a in self.program.code_places(sym) if o == home), None)
+        if canon is None or own is None:
+            return None
+        return home, canon, size, own
+
     def _variant_call(self, sym: str) -> tuple[int, int, int, int] | None:
         """For a call from a level function placed in several levels to a level function missing
         from some of them (a level whose copy of the caller calls a variant of its own there): the
@@ -2784,6 +2803,16 @@ class Unit:
                     # call): the function this copy's own call at that place calls (guest.h).
                     home, canon, size = copy
                     own = next((a for o, a in callee_places if o == home), callee_places[0][1])
+                    self.fn.report.calls.add(sym)
+                    self.fn.uses_self = True
+                    fp = f"openrac_call_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {hexaddr(own)})"
+                    named = self._function_at(home, own) or sym
+                elif not places and (wrapped := self._folded_wrapper_callee(sym)) is not None:
+                    # A one-call wrapper the catalogue folded across the levels although its copies
+                    # call different functions (hostgen.json "folded_wrappers"): by its name, every
+                    # level ran Veldin's copy's callee; through the address this copy's own call
+                    # reaches, the runtime follows that place's jal (guest.cpp).
+                    home, canon, size, own = wrapped
                     self.fn.report.calls.add(sym)
                     self.fn.uses_self = True
                     fp = f"openrac_call_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {hexaddr(own)})"
