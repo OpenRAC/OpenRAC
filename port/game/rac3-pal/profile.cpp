@@ -95,6 +95,8 @@ struct Release {
     std::uint32_t boot_light_bank;
     std::uint32_t veldin_light_bank;
     std::uint32_t multiplayer_light_bank;
+    // The boot program's occlusion mask (occlusion_mask), D_00227480.
+    std::uint32_t boot_occlusion;
     // Veldin's class tables (read_live_moby's drawn_class): the slots' class data, then their class
     // numbers.
     std::uint32_t veldin_class_data;
@@ -174,6 +176,7 @@ constexpr Release kPal{
     0x002FF200,
     0x001F1740,
     0x002663C0,
+    0x00227480,
     0x001FD180,
     0x001FD9F0,
 };
@@ -578,6 +581,20 @@ public:
         return release_.boot_light_bank;  // the boot program and frontbin
     }
 
+    // The occlusion mask MobyProc tests each moby's word (+0x36) against: a level program's is
+    // Veldin's 0x001EA840 relocated (tools.c, the front end's occlusion), the boot program's its own,
+    // D_00227480 (NTSC-U's D_00227500), which its UpdateOcclusion (0x00386B10) sets all visible
+    // outside a cell. The loading screen between planets is the boot program's (mode 6, its
+    // MobyProc at 0x003CB8F8): culled by the levels' copy, unloaded and zero there, every part of
+    // the ship (word 0x7F80, "always") was left out, and only its engines' effects were drawn.
+    std::uint32_t occlusion_mask() const override {
+        const int program = openrac_guest_overlay();
+        if (program >= 1 && program < static_cast<int>(std::size(kPal.levels))) {
+            return 0;  // a level's, the front end's relocated
+        }
+        return release_.boot_occlusion;  // the boot program and frontbin
+    }
+
     // The loaded level's class tables (read_live_moby): Veldin's, relocated as shadow_directions.
     // The class numbers sit at the same distance past the slots' data in every level's copy. The
     // multiplayer maps keep theirs elsewhere (level 40's 0x0026DD80): not read, their mobys are
@@ -731,6 +748,7 @@ constexpr Release kUs{
     0x002FF280,
     0x001F17C0,
     0x002664C0,
+    0x00227500,
     0x001FD200,
     0x001FDA70,
 };

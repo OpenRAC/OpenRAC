@@ -52,6 +52,7 @@ HOST_DEF = re.compile(r"^((?:unsigned |signed )?(?:void|int|float|gaddr|unsigned
 MP_TOKEN = re.compile(r"\bmp_func_(?:L\d\d_)?[0-9A-F]{8}(?:__\w+)?\b")
 MADDR = re.compile(r"\bRAC3_MADDR\(\s*0x([0-9A-Fa-f]{1,8})u?\s*\)")
 ALIAS = re.compile(r"(func_[0-9A-F]{8})(_[0-9A-F]{8})")
+ALIAS_TOKEN = re.compile(r"\bfunc_[0-9A-F]{8}_[0-9A-F]{8}(?![0-9A-Za-z_])")
 RESIDENT_END = 0x001D5680  # below: the engine core, at the same addresses on both discs
 CORE_TEXT_END = 0x0013D420  # the engine core's code ends here (core.text 0x116F80-0x13D420)
 LITERAL = re.compile(r"\b0x(00[1-3][0-9A-Fa-f]{5})u?\b")  # an address of the executable's memory
@@ -431,14 +432,17 @@ def main(argv: list[str] | None = None) -> int:
     for path in host_files():
         if path.suffix == ".cpp":
             continue
-        for m in NAME.finditer(strip_comments(path.read_text())):
-            if m.group(1) != "func":
-                continue
-            new, status = names.function(m.group(0))
-            if new != m.group(0):
-                used[m.group(0)] = new
+        text = strip_comments(path.read_text())
+        # A per-caller spelling (func_003CB798_003C3C18, a function's place of its own in the
+        # catalogue) is no NAME token: renamed as names.function renames it (ALIAS).
+        tokens = [m.group(0) for m in NAME.finditer(text) if m.group(1) == "func"]
+        tokens += [m.group(0) for m in ALIAS_TOKEN.finditer(text)]
+        for token in tokens:
+            new, status = names.function(token)
+            if new != token:
+                used[token] = new
                 if status not in ("match", "asm", "hand"):
-                    report["differs"].setdefault(m.group(0), {"is": new, "status": status, "port": "host C"})
+                    report["differs"].setdefault(token, {"is": new, "status": status, "port": "host C"})
     mp = MpNames(source, names)
     for path in host_files():
         if path.suffix == ".cpp":

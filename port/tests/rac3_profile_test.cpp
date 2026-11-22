@@ -273,6 +273,19 @@ void lights_from_each_programs_bank() {
     CHECK(host::game_profile("rac3-ntsc").light_bank() == 0x001F17C0u);
     g_overlay = 0;
     CHECK(host::game_profile("rac3-ntsc").light_bank() == 0x002FF280u);
+    // The occlusion mask: the boot program's own, D_00227480 (the loading screen's mobys), a
+    // level's the front end's relocated.
+    CHECK(host::game_profile("rac3-ntsc").occlusion_mask() == 0x00227500u);
+    CHECK(profile.occlusion_mask() == 0x00227480u);
+    g_overlay = -1;
+    CHECK(profile.occlusion_mask() == 0x00227480u);
+    g_overlay = 100;
+    CHECK(profile.occlusion_mask() == 0x00227480u);
+    g_overlay = 1;
+    CHECK(profile.occlusion_mask() == 0u);
+    g_overlay = 39;
+    CHECK(profile.occlusion_mask() == 0u);
+    g_overlay = 0;
     // His ship's paint job, kept by texture_slot_load at 0x0016C5B0.
     {
         std::vector<std::uint8_t> ram(0x02000000, 0);
