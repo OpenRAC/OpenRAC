@@ -174,6 +174,20 @@ class Names:
             out.append(f"func_{start:08X}" + ("__frontbin" if cols[0] == "frontbin" else ""))
         return out
 
+    def gone_twins(self, table: dict) -> list[str]:
+        """NTSC-U's names of the PAL definitions release_names.json leaves out ("gone"), in the
+        executable and frontbin: NTSC-U's own code there, translated from the disc."""
+        out = []
+        for pal in table.get("gone", []):
+            places = table.get("gone_in", {}).get(pal, ["src/boot_elf/"])
+            for program, suffix in (("boot_elf", ""), ("frontbin", "__frontbin")):
+                if not any(p.rstrip("/").endswith(program) for p in places):
+                    continue
+                new, _status = self.function(pal + suffix)
+                if NAME.fullmatch(new) and "PAL" not in new:
+                    out.append(new)
+        return sorted(set(out))
+
     def text(self, text: str) -> str:
         return NAME.sub(lambda m: self.function(m.group(0))[0], text)
 
@@ -363,7 +377,14 @@ def main(argv: list[str] | None = None) -> int:
     # holding a paired function after a remnant (0x003F0140 and its 0x003F0168) is that function's.
     own = names.own_functions(source)
     report["own_functions"] = own
-    out["roots"] = list(dict.fromkeys([*out.get("roots", []), *own]))
+    # The twins of PAL definitions the release view leaves out (release_names.json "gone": NTSC-U's
+    # code differs there): roots too. One no C calls by name has no stub for the assembly stage to
+    # write, so a call through a pointer table finds no function: level 27's and 28's load runs
+    # NTSC-U's 0x003BE710 (PAL's func_003BE800) from the loader's state table at 0x0031C910, and
+    # without it the pack's WAD destination is never set ("WAD buffer lies outside game RAM").
+    gone = names.gone_twins(table)
+    report["gone_roots"] = gone
+    out["roots"] = list(dict.fromkeys([*out.get("roots", []), *own, *gone]))
     # The levels' functions the shared host C defines (wraps and replacements): PAL's prototype is
     # its C's, NTSC-U's would be its registers' (its levels are translated from the disc), and the
     # two clash where the host C defines it. The host C's own prototype is the assembly signature.
