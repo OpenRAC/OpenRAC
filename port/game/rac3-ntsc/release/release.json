@@ -344,6 +344,7 @@
         "func_0038EB10": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
       },
       "signature_allow": {
+        "func_003BBD98__frontbin": "PAL func_003C12A8 (with C there), translated from its assembly on NTSC-U with the C's (int): its first call (0x003B7190, then the TEX0 builder 0x00395EB8, whose opening reads no float register) is given two floats by a prototype widened from declarations (asm.params_from_code), so its liveness reads $f12/$f13 it never sets; the frame draw hands on none",
         "func_001369D0": "a hidden entry inside a function on both discs, with no inventory row (no NTSC-U name): its translation from 0x001369D0 is the tail of the function around it and never sets $f0, while the multiplayer menu's callers (func_L39_0066C540, func_L39_0066C910) read the float the PAL C declares (f32 func_001369D0(f32)); the entry's real code is to be found",
         "func_00392B88": null,
         "func_L01_00410800": null,

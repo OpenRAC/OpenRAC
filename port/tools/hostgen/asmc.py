@@ -205,6 +205,9 @@ class Translator:
     # on the EE they are still in $f12-$f19 when it does not touch them (NTSC-U's
     # func_L01_00432FE8, the help box's frame: its four extents went to the frame drawer as 0).
     float_parameters_on_calls = False
+    # asm.stack_arguments in hostgen.json: integer arguments past the eighth, which the caller
+    # passes in its frame, count as read where the code loads them (_stack_arguments).
+    stack_arguments = False
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -628,6 +631,8 @@ class Translator:
             if self.live_arguments:
                 live_i, live_f = self._live_arguments()
                 ints, floats = max(ints, live_i), max(floats, live_f)
+            if self.stack_arguments and (stacked := self._stack_arguments()):
+                ints = max(ints, len(ARG_REGS) + stacked)
             have_i = sum(1 for p in sig.params if canon(p, self.program.typedefs) != "float")
             have_f = len(sig.params) - have_i
             extra = [ctype.Base("int")] * max(0, ints - have_i) + [ctype.Base("float")] * max(0, floats - have_f)
@@ -644,6 +649,8 @@ class Translator:
             # only after its first call.
             live_i, live_f = self._live_arguments()
             ints, floats = max(ints, live_i), max(floats, live_f)
+        if self.stack_arguments and (stacked := self._stack_arguments()):
+            ints = max(ints, len(ARG_REGS) + stacked)
         params = [ctype.Base("int")] * ints + [ctype.Base("float")] * floats
         ret = sig.ret
         if self.result_flow and sets_v0 and sets_f0:
@@ -1277,6 +1284,7 @@ class Translator:
         caller_saved_g = set(range(1, 16)) | {24, 25}
         caller_saved_f = set(range(0, 20))
         nodes: dict = {}   # node -> (reads_g, reads_f, writes_g, writes_f, successors)
+        callees: set = set()  # what its calls reach, for params_from_code's later passes (callees_of)
 
         def effect(a: int):
             ins = self.at(a)
@@ -1289,6 +1297,8 @@ class Translator:
             rg: set = set()
             rf: set = set()
             sym = self._callee(target, self._operand_name(a)) if target is not None else None
+            if sym:
+                callees.add(sym)
             f = self.program.functions.get(sym) if sym else None
             if f is not None and f.sig.prototyped and not f.sig.variadic:
                 ni = nf = 0
@@ -1370,10 +1380,57 @@ class Translator:
                     if q not in queued:
                         queued.add(q)
                         todo.append(q)
+        if not hasattr(self, "callees_of"):
+            self.callees_of: dict[str, set] = {}
+        self.callees_of.setdefault(self.f.symbol, set()).update(callees)
         in_g, in_f = live.get(self.entry_addr, (set(), set()))
         ints = max([k + 1 for k, r in enumerate(ARG_REGS) if r in in_g & args_g], default=0)
         floats = max([k + 1 for k, r in enumerate(FARG_REGS) if r in in_f & args_f], default=0)
         return ints, floats
+
+    STACK_LOADS = {"lb": 1, "lbu": 1, "lh": 2, "lhu": 2, "lw": 4, "lwu": 4, "ld": 8, "lwc1": 4, "lq": 16}
+
+    def _stack_arguments(self) -> int:
+        """The doublewords of its caller's outgoing arguments the code reads: the ninth integer
+        argument on is passed in the caller's frame, a doubleword each from its $sp, which the
+        callee reads above its own frame (the size its prologue takes off $sp). The levels' copy of
+        frontbin's func_003910C0 (func_L01_00412C08, the help frames) reads a ninth from 0x60($sp)
+        under a 0x60-byte frame; translated with eight, its C callers' ninth never reached it
+        (#719). Only loads count, within sixteen doublewords of the frame (Veldin's func_L01_004DD130 reads eleven)."""
+        frame = None
+        for a in range(self.entry_addr, self.entry_addr + 32, 4):
+            ins = self.at(a)
+            if ins is None:
+                break
+            if ins.op in ("addiu", "daddiu") and ins.rs == 29 and ins.rt == 29:
+                frame = -ins.imm if ins.imm < 0 else None
+                break
+        code = [i for a in sorted(self.reach) if (i := self.at(a)) is not None]
+        if frame is None:
+            # No frame of its own: only a leaf that never stores to $sp nor moves it reads its
+            # caller's arguments there; one that does is a fragment of another routine, inside its
+            # frame (the printf internals at func_0011D380).
+            if any((i.rs == 29 and i.op.startswith("s") and i.op not in ("sll", "srl", "sra", "slt", "slti", "sltu",
+                                                                           "sltiu", "sub", "subu", "sllv", "srlv", "srav"))
+                   or (i.op in ("addiu", "daddiu", "daddu", "addu") and i.rt == 29) for i in code):
+                return 0
+            frame = 0
+        most = 0
+        for a in sorted(x for x in self.reach if x >= self.entry_addr):
+            ins = self.at(a)
+            if ins is None:
+                continue
+            if a > self.entry_addr and ins.op in ("addiu", "daddiu") and ins.rs == 29 and ins.rt == 29:
+                # Its epilogue, or the next routine's prologue (a flow that runs on into it, NTSC-U's
+                # func_0038EB10 into 0x0038F3A0's frame): its own frame ends here.
+                break
+            width = self.STACK_LOADS.get(ins.op)
+            if width is None or ins.rs != 29:
+                continue
+            off = ins.imm - frame
+            if 0 <= off < 128:
+                most = max(most, (off + width + 7) // 8)
+        return most
 
     def _pointer_call_arguments(self, at: int) -> set:
         """The integer argument registers a call through a pointer at `at` takes, as far as its own
@@ -1399,12 +1456,14 @@ class Translator:
         if sig.variadic:
             return
         ints, floats = self._live_arguments()
+        if self.stack_arguments and (stacked := self._stack_arguments()):
+            ints = max(ints, len(ARG_REGS) + stacked)
         have_f = sum(1 for p in sig.params if canon(p, self.program.typedefs) == "float")
         have_i = len(sig.params) - have_f
         if ints > have_i or floats > have_f:
             self.dropped.setdefault(sym, []).append(
                 f"reads {ints} integer and {floats} float argument registers, its signature takes "
-                f"{have_i} and {have_f}")
+                f"{have_i} and {have_f}" + (" (integers past the eighth on the stack)" if ints > len(ARG_REGS) else ""))
         # A result the code never makes: no write of the register and no call whose result it could
         # hand on (a signature given by hand, asm.signatures, that is wrong the other way).
         if sym not in self.verified_signatures:
@@ -2107,6 +2166,9 @@ class Stage:
     inherited: list[str] = field(default_factory=list)  # results_before_calls's names
     external: list[str] = field(default_factory=list)  # built from the disc apart (asmext.py)
     program: "Program | None" = None             # for the external functions' trampolines
+    c_drops: dict = field(default_factory=dict)  # asm.signature_check over the C (c_argument_drops)
+    c_reads: dict = field(default_factory=dict)  # name -> [integer, float] argument registers its code reads
+    params_from_code: list = field(default_factory=list)  # asm.params_from_code's additions
 
 
 def asm_config(cfg: dict) -> dict | None:
@@ -2264,6 +2326,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.live_arguments = bool(a.get("live_arguments"))
     tr.wide_call_results = bool(a.get("wide_call_results"))
     tr.float_parameters_on_calls = bool(a.get("float_parameters_on_calls"))
+    tr.stack_arguments = bool(a.get("stack_arguments"))
     tr.verified_signatures = frozenset(a.get("signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)
@@ -2341,21 +2404,58 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
             found[f.symbol] = hit
     # The signatures first (a function declared nowhere gets the one its registers say), then
     # the places, so calls between translated functions find each other.
-    while True:
-        changed = False
-        for sym, hit in found.items():
-            f = program.functions[sym]
-            before = f.sig
-            try:
-                tr.prepare_signature(f, hit)
-            except (AsmUnsupported, Unsupported):
-                pass
-            changed |= f.sig != before
-        if not changed:
-            break
+    def prepare_all() -> set:
+        grown = set()
+        while True:
+            changed = False
+            for sym, hit in found.items():
+                f = program.functions[sym]
+                before = f.sig
+                try:
+                    tr.prepare_signature(f, hit)
+                except (AsmUnsupported, Unsupported):
+                    pass
+                if f.sig != before:
+                    changed = True
+                    grown.add(sym)
+            if not changed:
+                break
+        return grown
+    prepare_all()
     for sym in found:
         program.functions[sym].unit = "<asm>"
     program.index_places()
+    if tr.signature_check:
+        # asm.signature_check over the functions with C (c_argument_drops), and with
+        # asm.params_from_code each such definition given the parameters its code reads
+        # (params_from_code); again until none is left, as a definition that takes more makes its
+        # callers that hand those registers on read them too.
+        # Each later pass reads again only the functions with C whose calls reach one that changed
+        # (the callees their liveness saw, Translator.callees_of, under each of their spellings):
+        # a whole pass is minutes.
+        stage.c_drops, stage.c_reads = c_argument_drops(tr, program, leave)
+
+        def spellings(name: str) -> set:
+            return {name, program.canonical(name), re.sub(r"_[0-9A-F]{8}$", "", name)}
+
+        for _ in range(16):
+            if not a.get("params_from_code"):
+                break
+            added = params_from_code(tr, program, stage.c_drops)
+            if not added:
+                break
+            stage.params_from_code += added
+            given = {x.split(":", 1)[0] for x in added}
+            # Translated callers that hand those registers on take them as well.
+            changed = given | prepare_all()
+            reach = set().union(*(spellings(c) for c in changed))
+            again = given | {sym for sym, callees in getattr(tr, "callees_of", {}).items()
+                             if sym not in found and any(spellings(c) & reach for c in callees)}
+            for sym in again:
+                stage.c_drops.pop(sym, None)
+            drops, reads = c_argument_drops(tr, program, leave, only=again)
+            stage.c_drops.update(drops)
+            stage.c_reads.update(reads)
     # A C wrapper's result from a translated callee, known now, for the translations that read it
     # after their calls (asm.results_before_calls; hostgen.py does this again for the C).
     if a.get("results_before_calls"):
@@ -2376,6 +2476,91 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     stage.found = found
     translate_shadows(stage, program, a)
     return stage, results
+
+
+def params_from_code(tr: "Translator", program: Program, drops: dict[str, dict]) -> list[str]:
+    """asm.params_from_code: each definition c_argument_drops finds takes the argument registers its
+    code reads past the ones it names (Function.extra, as params_from_declarations gives them): its
+    callers pass their values, and its own short calls hand them on (lower.py), as the EE's
+    registers did. The types are those of the longest declaration that agrees with the definition
+    where it has them, else int and float. Not for a function the port's own C calls (it calls it
+    by the prototype it has), nor one with a record parameter (its calls must pass every argument).
+    Returns "symbol: n integer, m float" of each one given more; drops left keep their report."""
+    out = []
+    kind = lambda t: "f" if canon(t, program.typedefs) == "float" else "i"
+    for sym, d in sorted(drops.items()):
+        f = program.functions.get(sym)
+        if f is None or tr.host_text and re.search(r"\b" + re.escape(cname(sym)) + r"\b", tr.host_text):
+            continue
+        if any(canon(p, program.typedefs) is None for p in f.sig.params):
+            continue
+        need_i = max(0, d["reads"][0] - d["takes"][0])
+        need_f = max(0, d["reads"][1] - d["takes"][1])
+        n = len(f.sig.params)
+        own = [kind(t) for t in f.sig.params]
+        decl = None
+        for s2 in f.declared:
+            if (s2.prototyped and not s2.variadic and len(s2.params) > n and [kind(t) for t in s2.params[:n]] == own
+                    and all(canon(t, program.typedefs) is not None for t in s2.params[n:])
+                    and (decl is None or len(s2.params) > len(decl.params))):
+                decl = s2
+        ints = [t for t in (decl.params[n:] if decl else ()) if kind(t) == "i"][:need_i]
+        floats = [t for t in (decl.params[n:] if decl else ()) if kind(t) == "f"][:need_f]
+        ints += [ctype.Base("int")] * (need_i - len(ints))
+        floats += [ctype.Base("float")] * (need_f - len(floats))
+        new = tuple(ints) + tuple(floats)
+        if not new:
+            continue
+        f.extra = tuple(f.extra) + new
+        f.sig = Signature(f.sig.ret, tuple(f.sig.params) + new, False, True)
+        out.append(f"{sym}: {need_i} integer, {need_f} float")
+    return out
+
+
+def c_argument_drops(tr: "Translator", program: Program, leave: set,
+                     only: set | None = None) -> tuple[dict[str, dict], dict[str, list]]:
+    """asm.signature_check over the functions with C: the argument registers each one's retail code
+    reads on some path before writing them (_live_arguments) that its C definition does not name.
+    Matched C can leave out an argument it only hands on to a call, whose register keeps the
+    caller's value on the EE (Up Your Arsenal's random_vector, func_L01_00443B88, names only `out`
+    and calls rand_range with no arguments, which reads the range its callers left in $f12/$f13);
+    translated, the call passes nothing. hostgen.json "params_from_declarations" (the list) with
+    "extra_params" gives such a definition the parameters; what is left is the report's
+    "c_argument_drops" (name -> what its code reads, what its definition takes, the places read).
+    A function's places are read up to four of them (copies of one code). Returns the drops and what
+    each function with C reads (name -> [integer, float] counts), for the report's zero-filled
+    arguments (dropped_args.py)."""
+    out: dict[str, dict] = {}
+    reads: dict[str, list] = {}
+    for sym, f in sorted(program.functions.items()):
+        if only is not None and sym not in only:
+            continue
+        if (f.unit is None or f.unit == "<asm>" or f.static or f.sig.variadic or sym in program.host
+                or sym in program.wrap or sym in leave):
+            continue
+        have_f = sum(1 for p in f.sig.params if canon(p, program.typedefs) in ("float",))
+        have_i = len(f.sig.params) - have_f
+        reads_i = reads_f = 0
+        seen = 0
+        for place in program.code_places(sym):
+            if seen >= 4:
+                break
+            if tr.index.code.get(tuple(place)) is None:
+                continue
+            seen += 1
+            try:
+                tr._load(f, tuple(place))
+                i, fl = tr._live_arguments()
+                if tr.stack_arguments and (stacked := tr._stack_arguments()):
+                    i = max(i, len(ARG_REGS) + stacked)
+            except (AsmUnsupported, Unsupported):
+                continue
+            reads_i, reads_f = max(reads_i, i), max(reads_f, fl)
+        if seen:
+            reads[sym] = [reads_i, reads_f]
+        if reads_i > have_i or reads_f > have_f:
+            out[sym] = {"reads": [reads_i, reads_f], "takes": [have_i, have_f], "unit": f.unit}
+    return out, reads
 
 
 def file_head(game: str) -> list[str]:

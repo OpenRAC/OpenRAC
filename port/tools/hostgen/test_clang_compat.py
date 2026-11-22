@@ -226,6 +226,24 @@ class ClangCompatibility(unittest.TestCase):
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
 
 
+    def test_a_third_contradicting_declaration_keeps_the_functions_symbol(self):
+        # Veldin's L01_0035F480.c declares the vector scale func_0038CE20 three ways: the second
+        # became an alias (func_0038CE20__openrac_decl_140) labelled func_0038CE20, the third was
+        # renamed with it, and on Clang's next pass it contradicted the alias and was labelled with
+        # the alias's name. Its calls were taken for the executable's func_0038CE20 (another
+        # routine at that address) rather than the level's copy. Every alias is labelled with the
+        # function's own symbol.
+        text = (
+            "void f(void *v) { extern void func_0038CE20__openrac_decl_2(void *, void *, float) __asm__(\"func_0038CE20\"); }\n"
+            "extern void func_0038CE20__openrac_decl_2(long *, long *, float);\n"
+            "void g(long *v) { func_0038CE20__openrac_decl_2(v, v, 4.0f); }\n")
+        stderr = ("src/b.c:2:13: error: conflicting types for 'func_0038CE20__openrac_decl_2'\n"
+                  "src/b.c:1:32: note: previous declaration is here\n")
+        fixed, fixes = clangast.fix_from_diagnostics(text, stderr, "src/b.c")
+        self.assertIn('func_0038CE20__openrac_decl_2__openrac_decl_2(long *, long *, float) __asm__("func_0038CE20");',
+                      fixed)
+        self.assertIn("func_0038CE20__openrac_decl_2__openrac_decl_2(v, v, 4.0f)", fixed)
+
     def test_an_override_replaces_matched_c_in_the_port_only(self):
         # The port's own C for a function the decompilation matches (hostgen.json "overrides"):
         # the matched definition is left out of the prepared copy, its lines kept, and the

@@ -848,6 +848,12 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
             **(stage.translator.dropped if stage.translator else {}),
             **{name: (stage.translator.dropped.get(name, []) if stage.translator else []) + what
                for name, what in extra.pop("variant_signature_drops", {}).items()}}.items())),
+        # The same over the functions with C (asmc.c_argument_drops): argument registers their retail
+        # code reads that their definitions do not name, so their callers' values never reach them.
+        "c_argument_drops": dict(sorted(getattr(stage, "c_drops", {}).items())),
+        "c_argument_reads": dict(sorted(getattr(stage, "c_reads", {}).items())),
+        # asm.params_from_code: the definitions given the parameters their code reads (asmc.params_from_code).
+        "params_from_code": sorted(getattr(stage, "params_from_code", [])),
         "without_c_or_assembly": sorted(stage.without_asm),
         "shadows": {**{k: "translated" for k in stage.shadows}, **stage.shadow_why},
         # Each function with no C or with C from its assembly: where it sits, and the spelling with
