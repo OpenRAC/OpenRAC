@@ -368,13 +368,21 @@ class Translator:
                     break
         return rg, rf
 
+    def host_names(self) -> frozenset:
+        """The words of the port's own C (host_text), read once: scanning the whole text for each
+        function's name took most of a large program's translation (rac3's multiplayer maps)."""
+        if getattr(self, "_host_names_of", None) is not self.host_text:
+            self._host_names = frozenset(re.findall(r"\w+", self.host_text or ""))
+            self._host_names_of = self.host_text
+        return self._host_names
+
     def prepare_signature(self, f: Function, found: tuple[int, int]) -> None:
         """Gives f the signature its translation is written with (_signature)."""
         self._load(f, found)
         if self.fit_declarations and f.symbol not in self.verified_signatures:
             f.sig = self._fitting_declaration(f)
         sig = self._signature(f)
-        if re.search(r"\b" + re.escape(cname(f.symbol)) + r"\b", self.host_text):
+        if cname(f.symbol) in self.host_names():
             return  # the port's own C calls it by the signature it has
         if not self.forward_unprototyped and not f.sig.prototyped and self._compatible(sig, f.sig):
             # Declared `int f()`: callers keep calling it so; the definition with its integer
@@ -2496,7 +2504,7 @@ def params_from_code(tr: "Translator", program: Program, drops: dict[str, dict])
     kind = lambda t: "f" if canon(t, program.typedefs) == "float" else "i"
     for sym, d in sorted(drops.items()):
         f = program.functions.get(sym)
-        if f is None or tr.host_text and re.search(r"\b" + re.escape(cname(sym)) + r"\b", tr.host_text):
+        if f is None or tr.host_text and cname(sym) in tr.host_names():
             continue
         if any(canon(p, program.typedefs) is None for p in f.sig.params):
             continue
