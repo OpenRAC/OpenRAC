@@ -55,7 +55,9 @@
   "candidates": "nonmatching/functional.tsv",
   "places": "config/levels/functions.tsv",
   "split_places": "tables/split_places.tsv",
-  "params_from_declarations": true,
+  "params_from_declarations": [
+    "func_L01_00451290"
+  ],
   "call_copies": "tables/call_copies.tsv",
   "call_copies_same_shape": true,
   "place_kinds_as_levels": [
