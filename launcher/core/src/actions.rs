@@ -1191,12 +1191,12 @@ mod tests {
         let keyed = Config { multiplayer_key: key.clone(), ..installed.clone() };
         assert!(play.plan(&ctx(&keyed)).unwrap().env.contains(&("OPENRAC_IDENTITY_KEY".to_string(), key)));
         assert!(!play.plan(&ctx(&installed)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_IDENTITY_KEY"));
-        // Settings, "Multiplayer server": the official one by default, the player's own when set.
+        // Settings, "Multiplayer server": the official hub by default, the player's own when set.
         let server =
             |env: Vec<(String, String)>| env.into_iter().filter(|(k, _)| k == "OPENRAC_SERVER").collect::<Vec<_>>();
         assert_eq!(
             server(play.plan(&ctx(&installed)).unwrap().env),
-            [("OPENRAC_SERVER".to_string(), "game.openrac.dev:7770".to_string())]
+            [("OPENRAC_SERVER".to_string(), "hub.openrac.dev:7177".to_string())]
         );
         let own_server = Config {
             multiplayer_server_host: "mp.example.org".into(),

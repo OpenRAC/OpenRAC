@@ -977,15 +977,18 @@ native mod reads it with `getenv` (openrac-mods' `multiplayer` does, with a
 name of its own when there is none). The port itself does not read it. The
 Rust side is `core/src/multiplayer.rs`.
 
-Beside the name, Settings, General, has the **Multiplayer server**: a host
-and a port, the official `game.openrac.dev:7770` unless the player names
-another (anyone can host the OpenRAC/Server backend). Play gives it to every
-game as `OPENRAC_SERVER=host:port` (`[v6]:port` for an IPv6 address), always,
-the official one included; a mod reads it with `getenv`, as it reads the name
-(openrac-mods' `multiplayer` does when its own `server` setting is empty, and
-falls back to `game.openrac.dev:7770` when the variable is not set either: a
-game started without the launcher). The port itself does not read it for mods;
-Up Your Arsenal's own online play does.
+Beside the name, Settings, General, has the **Multiplayer server**: the hub
+online play starts at, a host and a port, the official `hub.openrac.dev:7177`
+unless the player names another (anyone can host the OpenRAC/Server backend).
+The hub logs players in and lists the game servers (OpenRAC/Server README,
+"The hub"). Play gives it to every game as `OPENRAC_SERVER=host:port`
+(`[v6]:port` for an IPv6 address), always, the official one included; a mod
+reads it with `getenv`, as it reads the name (openrac-mods' `multiplayer` does
+when its own `server` setting is empty, and falls back to
+`game.openrac.dev:7770` when the variable is not set either: a game started
+without the launcher; that mod still talks to a game server directly, not to
+a hub). The port itself does not read it for mods; Up Your Arsenal's own
+online play does, through the hub.
 
 Beside the name the launcher keeps a key: 128 random bits, made once and never
 shown, given to the game as `OPENRAC_IDENTITY_KEY`, which a mod reads with

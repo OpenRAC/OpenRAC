@@ -137,12 +137,15 @@ the game you used last.
 
 ### Multiplayer server
 
-Settings, General, has a **Multiplayer server**: a host name or an IP
-address and a port, `game.openrac.dev` and `7770` (the official OpenRAC
-server) unless changed. Anyone can host one (the
-[OpenRAC/Server](https://github.com/OpenRAC/Server) repository); everyone
-playing together names the same one. **Reset to official** puts the official
-server back, and **Test connection** says whether a server answers there. A
+Settings, General, has a **Multiplayer server**: the address of the hub
+online play starts at, a host name or an IP address and a port,
+`hub.openrac.dev` and `7177` (the official OpenRAC hub) unless changed. The
+hub logs players in to their accounts and lists the game servers they pick
+from. Anyone can host one (the
+[OpenRAC/Server](https://github.com/OpenRAC/Server) repository, "The hub" and
+"Self-hosting"); everyone playing together names the same one. **Reset to
+official** puts the official hub back, and **Test connection** says whether
+a server answers there. A
 host that is not a host name or an IP address, or a port outside 1 to 65535,
 is not saved.
 
@@ -152,7 +155,8 @@ an IPv6 address): Up Your Arsenal's online play and the
 (Ratchet & Clank and Going Commando co-op) read it. The mod's own **Server**
 setting, when set, still wins. It is kept in `launcher.json` as
 `multiplayerServerHost` and `multiplayerServerPort`; a settings file from
-before it has the official server. Android has the same setting; the iOS
+before it has the official hub, and one that still names the official game
+server from before the hub (`game.openrac.dev:7770`) reads as the hub. Android has the same setting; the iOS
 app has no online play, so it does not show it.
 
 ## Mods and level editing

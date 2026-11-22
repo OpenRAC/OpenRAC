@@ -28,8 +28,13 @@
  *   members by the server's PACKET_RELAY packet; what comes back goes to DME's receive path
  *   (0x0014CE48), which runs the game's handlers.
  *
- * The server: OPENRAC_SERVER=host[:port] (game.openrac.dev:7770 when unset). OPENRAC_RAC3_NET_LOG=1 logs
- * every lobby message and room packet. */
+ * The servers: OPENRAC_SERVER=host[:port] names the hub (hub.openrac.dev:7177 when unset), which
+ * logs the player in to its account (the game's login: a new name registers) and lists the game
+ * servers (the game's city list). The city picked is the game server the lobby and the rooms run
+ * on: a second connection, which proves the hub's login with the session token. A plain game
+ * server named in OPENRAC_SERVER (its UDP offer has no FEATURE_SERVERS) is played on directly, as
+ * before the hub, without accounts. OPENRAC_RAC3_NET_LOG=1 logs every lobby message and room
+ * packet. */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -104,7 +109,10 @@ enum {
     PACKET_RELAY,
     PACKET_REGIONS,
     PACKET_REGISTER,
-    PACKET_UI
+    PACKET_UI,
+    PACKET_HUB,
+    PACKET_SERVERS,
+    PACKET_ACCOUNT
 };
 
 enum {
@@ -133,10 +141,40 @@ enum {
     UI_NOTICE
 };
 
+/* PACKET_ACCOUNT's opcodes: log in at the hub (a new name registers), its answer, the session's
+ * token proved at a game server, and the session ended at the hub. */
+enum {
+    ACCOUNT_LOGIN,
+    ACCOUNT_LOGGED_IN,
+    ACCOUNT_TOKEN,
+    ACCOUNT_LOGOUT
+};
+
+/* PACKET_ERROR's reasons. */
+enum {
+    ERROR_PARTY_NOT_FOUND,
+    ERROR_PARTY_FULL,
+    ERROR_ALREADY_IN_PARTY,
+    ERROR_NOT_IN_PARTY,
+    ERROR_NOT_HOST,
+    ERROR_RESUME_REFUSED,
+    ERROR_OTHER_GAME,
+    ERROR_REGION_KEY,
+    ERROR_HUB_FULL,
+    ERROR_WRONG_PASSWORD,
+    ERROR_INVALID_ACCOUNT,
+    ERROR_SESSION_INVALID,
+    ERROR_TRY_LATER
+};
+
 #define LIST_ADVERTS 1
 #define FEATURE_REGIONS 16 /* the UDP offer's bit: the server answers PACKET_REGIONS */
 #define FEATURE_UI 32      /* the UDP offer's bit: the server answers PACKET_UI */
 int rac3_mp_ui_describe(const char* json, size_t size); /* mp_ui.c */
+#define FEATURE_SERVERS 64 /* the UDP offer's bit: a hub (log in, the game servers' list) */
+#define HUB_DEFAULT_HOST "hub.openrac.dev"
+#define HUB_DEFAULT_PORT "7177"
+#define SERVER_RETRY_MS 10000 /* a game server that did not take the connection, tried again after */
 #define CLIENT_SLOTS 2 /* PACKET_HELLO's client bit: send PARTY_SLOTS (the room's stable slots) */
 #define CLIENT_KEEPS_ALIVE                                                                         \
     4                      /* PACKET_HELLO's client bit: this client sends PACKET_TIME every 2 s */
@@ -155,6 +193,9 @@ int rac3_mp_ui_describe(const char* json, size_t size); /* mp_ui.c */
 #define M_NO_RESULT 1
 #define M_GAME_NOT_FOUND (-977)
 #define M_LOGIN_FAILED (-995)
+#define M_ACCOUNT_NOT_FOUND (-998) /* the login's message 0xF: the hub's ERROR_INVALID_ACCOUNT */
+#define M_SERVER_ERROR (-991)      /* message 1: the hub's ERROR_TRY_LATER */
+#define M_INVALID_PASSWORD (-978)  /* message 0xA: the hub's ERROR_WRONG_PASSWORD */
 #define M_WORLD_LOBBY 2     /* the one channel's world id */
 #define M_WORLD_OWN 900     /* this console's own game */
 #define M_WORLD_LISTED 1000 /* the first listed game's world id */
@@ -275,82 +316,107 @@ static int net_log(void) {
 #define LINK_IN 0x20000
 #define LINK_OUT 0x8000
 
-static struct {
+/* A connection to the hub or to a game server. */
+typedef struct {
     net_socket fd;
     int state; /* 0 not tried, 1 connected and greeted, 2 hello sent, -1 failed */
     int32_t session;
     int features; /* the UDP offer's bits: which requests the server takes */
+    int64_t alive_ms; /* when PACKET_TIME last went */
     uint8_t in[LINK_IN];
     size_t in_len;
     uint8_t out[LINK_OUT];
     size_t out_len, frame;
-} srv = {.fd = NET_INVALID};
+} net_link;
+
+/* The game server (the lobby's games, the rooms) and the hub (the login, the city list). */
+static net_link srv = {.fd = NET_INVALID}, hub = {.fd = NET_INVALID};
+
+/* The link the frame being written goes to: the game server's, unless hub_begin began it. */
+static net_link* tx = &srv;
 
 static void srv_begin(int id, int opcode) {
-    srv.frame = srv.out_len;
-    srv.out_len += 4;
-    srv.out[srv.out_len++] = (uint8_t)id;
+    tx->frame = tx->out_len;
+    tx->out_len += 4;
+    tx->out[tx->out_len++] = (uint8_t)id;
     if (opcode >= 0) {
-        srv.out[srv.out_len++] = (uint8_t)opcode;
+        tx->out[tx->out_len++] = (uint8_t)opcode;
     }
 }
 
+/* A frame for the hub; srv_end sends it, and the next frame is the game server's again. */
+static void hub_begin(int id, int opcode) {
+    tx = &hub;
+    srv_begin(id, opcode);
+}
+
 static void srv_u8(int v) {
-    srv.out[srv.out_len++] = (uint8_t)v;
+    tx->out[tx->out_len++] = (uint8_t)v;
 }
 
 static void srv_i32(int32_t v) {
-    srv.out[srv.out_len++] = (uint8_t)(v >> 24);
-    srv.out[srv.out_len++] = (uint8_t)(v >> 16);
-    srv.out[srv.out_len++] = (uint8_t)(v >> 8);
-    srv.out[srv.out_len++] = (uint8_t)v;
+    tx->out[tx->out_len++] = (uint8_t)(v >> 24);
+    tx->out[tx->out_len++] = (uint8_t)(v >> 16);
+    tx->out[tx->out_len++] = (uint8_t)(v >> 8);
+    tx->out[tx->out_len++] = (uint8_t)v;
 }
 
 static void srv_bytes(const void* p, size_t n) {
-    memcpy(srv.out + srv.out_len, p, n);
-    srv.out_len += n;
+    memcpy(tx->out + tx->out_len, p, n);
+    tx->out_len += n;
 }
 
 /* A string: its length as a big-endian short (-1 for an empty one), then its bytes. */
 static void srv_text(const char* s) {
     const size_t n = strlen(s);
     const uint16_t len = n == 0 ? 0xFFFFu : (uint16_t)n;
-    srv.out[srv.out_len++] = (uint8_t)(len >> 8);
-    srv.out[srv.out_len++] = (uint8_t)len;
+    tx->out[tx->out_len++] = (uint8_t)(len >> 8);
+    tx->out[tx->out_len++] = (uint8_t)len;
     srv_bytes(s, n);
+}
+
+static void link_close(net_link* l) {
+    if (l->fd != NET_INVALID) {
+        net_close(l->fd);
+    }
+    l->fd = NET_INVALID;
+    l->state = -1;
+    l->out_len = 0;
+    l->features = 0;
 }
 
 /* Ends the frame begun by srv_begin (its length first) and sends what is queued. */
 static void srv_end(void) {
-    const uint32_t len = (uint32_t)(srv.out_len - srv.frame - 4);
-    uint8_t* p = srv.out + srv.frame;
+    net_link* l = tx;
+    tx = &srv;
+    const uint32_t len = (uint32_t)(l->out_len - l->frame - 4);
+    uint8_t* p = l->out + l->frame;
     p[0] = (uint8_t)(len >> 24);
     p[1] = (uint8_t)(len >> 16);
     p[2] = (uint8_t)(len >> 8);
     p[3] = (uint8_t)len;
-    if (srv.fd == NET_INVALID) {
-        srv.out_len = 0;
+    if (l->fd == NET_INVALID) {
+        l->out_len = 0;
         return;
     }
     size_t sent = 0;
-    while (sent < srv.out_len) {
-        const long n =
-            (long)send(srv.fd, (const char*)srv.out + sent, (int)(srv.out_len - sent), 0);
+    while (sent < l->out_len) {
+        const long n = (long)send(l->fd, (const char*)l->out + sent, (int)(l->out_len - sent), 0);
         if (n <= 0) {
 #ifndef _WIN32
             if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
                 continue;
             }
 #endif
-            fprintf(stderr, "[warning] rac3: online: the server went away\n");
-            net_close(srv.fd);
-            srv.fd = NET_INVALID;
-            srv.state = -1;
+            fprintf(
+                stderr, "[warning] rac3: online: the %s went away\n", l == &hub ? "hub" : "server"
+            );
+            link_close(l);
             break;
         }
         sent += (size_t)n;
     }
-    srv.out_len = 0;
+    l->out_len = 0;
 }
 
 /* Room for a frame of N bytes more in the send buffer. */
@@ -358,12 +424,29 @@ static int srv_room(size_t n) {
     return srv.out_len + n + 16 < LINK_OUT;
 }
 
-/* Connects to the server and says hello under NAME. The game thread waits for the TCP connection
- * (a local or LAN server answers at once), never for an answer. */
-static int srv_open(const char* name) {
-    if (srv.fd != NET_INVALID) {
-        return 1;
+/* OPENRAC_SERVER's address: host:port, [v6]:port or [v6], a bare name or IPv4, or a bare IPv6
+ * address (more than one colon and no brackets: no port). HOST and PORT keep their defaults for
+ * what it leaves out. */
+static void net_split_address(const char* text, char* host, size_t host_size, char* port, size_t port_size) {
+    const char* close = text[0] == '[' ? strchr(text, ']') : NULL;
+    const char* colon = strrchr(text, ':');
+    if (close != NULL) {
+        snprintf(host, host_size, "%.*s", (int)(close - text - 1), text + 1);
+        if (close[1] == ':') {
+            snprintf(port, port_size, "%s", close + 2);
+        }
+    } else if (colon != NULL && strchr(text, ':') == colon) {
+        snprintf(host, host_size, "%.*s", (int)(colon - text), text);
+        snprintf(port, port_size, "%s", colon + 1);
+    } else {
+        snprintf(host, host_size, "%s", text);
     }
+}
+
+/* Connects L to HOST:PORT and says hello under NAME. The game thread waits for the TCP connection
+ * (a local or LAN server answers at once), never for an answer. */
+static int link_open(net_link* l, const char* host, const char* port, const char* name) {
+    const char* what = l == &hub ? "hub" : "game server";
 #ifdef _WIN32
     static int started;
     if (!started) {
@@ -372,33 +455,13 @@ static int srv_open(const char* name) {
         started = 1;
     }
 #endif
-    char host[128] = "game.openrac.dev";
-    char port[16] = "7770";
-    const char* env = openrac_env_string("OPENRAC_SERVER");
-    if (env != NULL && *env != 0) {
-        /* host:port, [v6]:port or [v6], a bare name or IPv4, or a bare IPv6 address (more than one
-         * colon and no brackets: no port). */
-        const char* close = env[0] == '[' ? strchr(env, ']') : NULL;
-        const char* colon = strrchr(env, ':');
-        if (close != NULL) {
-            snprintf(host, sizeof host, "%.*s", (int)(close - env - 1), env + 1);
-            if (close[1] == ':') {
-                snprintf(port, sizeof port, "%s", close + 2);
-            }
-        } else if (colon != NULL && strchr(env, ':') == colon) {
-            snprintf(host, sizeof host, "%.*s", (int)(colon - env), env);
-            snprintf(port, sizeof port, "%s", colon + 1);
-        } else {
-            snprintf(host, sizeof host, "%s", env);
-        }
-    }
     struct addrinfo hints, *found = NULL;
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     if (getaddrinfo(host, port, &hints, &found) != 0 || found == NULL) {
-        fprintf(stderr, "[warning] rac3: online: cannot resolve the server %s:%s\n", host, port);
-        srv.state = -1;
+        fprintf(stderr, "[warning] rac3: online: cannot resolve the %s %s:%s\n", what, host, port);
+        l->state = -1;
         return 0;
     }
     /* Each address the name gives, IPv6 and IPv4 alike, until one takes the connection. */
@@ -412,8 +475,8 @@ static int srv_open(const char* name) {
     }
     freeaddrinfo(found);
     if (fd == NET_INVALID) {
-        fprintf(stderr, "[warning] rac3: online: no OpenRAC server at %s:%s\n", host, port);
-        srv.state = -1;
+        fprintf(stderr, "[warning] rac3: online: no OpenRAC %s at %s:%s\n", what, host, port);
+        l->state = -1;
         return 0;
     }
     const int one = 1;
@@ -424,16 +487,15 @@ static int srv_open(const char* name) {
 #else
     fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
 #endif
-    srv.fd = fd;
-    srv.in_len = 0;
-    srv.state = 2;
+    l->fd = fd;
+    l->in_len = 0;
+    l->out_len = 0;
+    l->features = 0;
+    l->state = 2;
     fprintf(
-        stderr,
-        "[info] rac3: online: connected to the OpenRAC server at %s:%s as %s\n",
-        host,
-        port,
-        name
+        stderr, "[info] rac3: online: connected to the OpenRAC %s at %s:%s as %s\n", what, host, port, name
     );
+    tx = l;
     srv_begin(PACKET_HELLO, -1);
     srv_text(NET_VERSION);
     srv_text(name);
@@ -450,6 +512,52 @@ void rac3_mp_net_ui_action(const char* key, int value) {
     srv_begin(PACKET_UI, UI_ACTION);
     srv_text(key);
     srv_i32(value);
+    srv_end();
+}
+
+/* ---- The login: the hub's account, then the game server picked from its list ---- */
+
+static struct {
+    char host[128], port[16]; /* the hub's address, which a listed server with no host shares */
+    int direct;  /* OPENRAC_SERVER names a game server, not a hub: played on as before the hub */
+    char name[33], password[33];
+    char token[80]; /* the hub's session token, empty when logged out */
+    int32_t account; /* the account's id, the game's AccountID */
+    int region;      /* the region the game server link is to, -1 none */
+    int picked;      /* the city the game picked (an index of lobby.regions), -1 none */
+    int64_t tried_ms; /* when the game server was last tried */
+} net_login = {.region = -1, .picked = -1};
+
+/* Connects to the hub (OPENRAC_SERVER) and says hello under NAME; the login goes once its UDP offer
+ * says it is a hub. */
+static int hub_open(const char* name) {
+    if (hub.fd != NET_INVALID) {
+        return 1;
+    }
+    snprintf(net_login.host, sizeof net_login.host, "%s", HUB_DEFAULT_HOST);
+    snprintf(net_login.port, sizeof net_login.port, "%s", HUB_DEFAULT_PORT);
+    const char* env = openrac_env_string("OPENRAC_SERVER");
+    if (env != NULL && *env != 0) {
+        net_split_address(
+            env, net_login.host, sizeof net_login.host, net_login.port, sizeof net_login.port
+        );
+    }
+    net_login.direct = 0;
+    return link_open(&hub, net_login.host, net_login.port, name);
+}
+
+/* A game server named directly in OPENRAC_SERVER (no hub): connected and greeted under NAME. */
+static int srv_open(const char* name) {
+    if (srv.fd != NET_INVALID) {
+        return 1;
+    }
+    return link_open(&srv, net_login.host, net_login.port, name);
+}
+
+static void hub_send_login(void) {
+    hub_begin(PACKET_ACCOUNT, ACCOUNT_LOGIN);
+    srv_text(net_login.name);
+    srv_text(net_login.password);
     srv_end();
 }
 
@@ -617,6 +725,89 @@ static struct {
     int regions_count;
     int own_valid;
 } lobby;
+
+static int64_t net_now_ms(void) {
+    struct timespec now;
+    timespec_get(&now, TIME_UTC);
+    return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+
+/* Logged in at a hub: the game server comes from its list. */
+static int hub_logged_in(void) {
+    return !net_login.direct && net_login.token[0] != 0;
+}
+
+/* The game server of the city picked (the first listed when none is), connected once logged in at
+ * the hub: hello, then the hub's session token (ACCOUNT_TOKEN), which it checks with the hub. The
+ * lobby's requests that need the game server call this first. */
+static void srv_ensure(void) {
+    if (!hub_logged_in() || srv.fd != NET_INVALID || lobby.regions_count == 0) {
+        return;
+    }
+    const int64_t now = net_now_ms();
+    if (net_login.tried_ms != 0 && now - net_login.tried_ms < SERVER_RETRY_MS) {
+        return;
+    }
+    net_login.tried_ms = now;
+    const int k = net_login.picked >= 0 && net_login.picked < lobby.regions_count ? net_login.picked : 0;
+    char port[16];
+    snprintf(port, sizeof port, "%d", (int)lobby.regions[k].port);
+    const char* host = lobby.regions[k].host[0] != 0 ? lobby.regions[k].host : net_login.host;
+    fprintf(stderr, "[info] rac3: online: city %s\n", lobby.regions[k].name);
+    if (!link_open(&srv, host, port, net_login.name)) {
+        return;
+    }
+    net_login.region = k;
+    srv_begin(PACKET_ACCOUNT, ACCOUNT_TOKEN);
+    srv_text(net_login.token);
+    srv_end();
+}
+
+/* The city the game picked (LOBBY_CHANNEL_FILTER_SET_REQUEST's city bits): its game server from
+ * now on. Another city's link is closed, unless this console is in a game there. */
+static void lobby_pick_city(const uint8_t* req, size_t size) {
+    if (size < 0x2C || !hub_logged_in() || get32(req + 0x28) != 1) {
+        return;
+    }
+    const uint32_t bits = (uint32_t)get32(req + 0x1C);
+    if (bits == 0 || bits == 0xFFFFFFFFu) {
+        return;
+    }
+    int k = 0;
+    while (!(bits >> k & 1u)) {
+        k++;
+    }
+    if (k >= lobby.regions_count) {
+        return;
+    }
+    net_login.picked = k;
+    if (srv.fd != NET_INVALID && net_login.region != k && !room.in) {
+        link_close(&srv);
+        lobby.games_count = 0;
+        net_login.tried_ms = 0;
+    }
+    srv_ensure();
+}
+
+/* The session ended at the hub (the game logs out): the game server's link goes with it, unless
+ * this console is in a game there. */
+static void hub_logout(void) {
+    if (net_login.token[0] == 0) {
+        return;
+    }
+    if (hub.fd != NET_INVALID) {
+        hub_begin(PACKET_ACCOUNT, ACCOUNT_LOGOUT);
+        srv_text(net_login.token);
+        srv_end();
+    }
+    net_login.token[0] = 0;
+    if (!net_login.direct && !room.in) {
+        link_close(&srv);
+        net_login.region = -1;
+        net_login.tried_ms = 0;
+    }
+    fprintf(stderr, "[info] rac3: online: logged out\n");
+}
 
 static void lobby_push(int cls, int type, const uint8_t* body, size_t size) {
     if (lobby_queued == LOBBY_QUEUE || size + 2 > LOBBY_REPLY_MAX) {
@@ -791,7 +982,7 @@ static void lobby_reply_login(int32_t status) {
     const lobby_reply* r = lobby_reply_of(1, 0x07);
     uint8_t reply[0xC4];
     lobby_start(reply, r, lobby.login, status);
-    put32(reply + 0x1C, srv.session);
+    put32(reply + 0x1C, net_login.direct ? srv.session : net_login.account);
     put32(reply + 0x24, M_WORLD_LOBBY);
     lobby_connect_info(reply + 0x28, M_WORLD_LOBBY);
     lobby_push(r->reply_cls, r->reply_type, reply, r->size);
@@ -964,25 +1155,41 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
         case LOBBY_SESSION_OPEN_REQUEST: /* the session key */
             put_text(reply + 0x1C, "OPENRACSESSION01", 17);
             break;
-        case LOBBY_LOGIN_REQUEST: /* hello to the server, the reply when it answers */
+        case LOBBY_LOGIN_REQUEST: { /* the hub's account login, the reply when it answers */
+            char password[33];
             memcpy(lobby.login, req, sizeof lobby.login);
             memcpy(lobby.name, req + 0x26, 32);
             lobby.name[32] = 0;
+            memcpy(password, req + 0x46, 32);
+            password[32] = 0;
             if (lobby.name[0] == 0) {
                 snprintf(lobby.name, sizeof lobby.name, "Player");
             }
-            if (srv.state == 1) {
+            const int same = strcmp(net_login.name, lobby.name) == 0
+                             && strcmp(net_login.password, password) == 0;
+            snprintf(net_login.name, sizeof net_login.name, "%s", lobby.name);
+            snprintf(net_login.password, sizeof net_login.password, "%s", password);
+            if (net_login.direct ? srv.state == 1 : same && hub_logged_in()) {
                 lobby_reply_login(M_SUCCESS);
-            } else if (srv_open(lobby.name)) {
+            } else if (!net_login.direct && hub.state == 1 && (hub.features & FEATURE_SERVERS)) {
+                lobby.login_waiting = 1; /* another account, or a retry: the hub's link is up */
+                hub_send_login();
+            } else if (net_login.direct ? srv_open(lobby.name) : hub_open(lobby.name)) {
                 lobby.login_waiting = 1;
             } else {
                 lobby_reply_login(M_LOGIN_FAILED);
             }
             return;
+        }
+        case LOBBY_SESSION_CLOSE_REQUEST: /* the game logs out */
+        case LOBBY_LOGOUT_REQUEST:
+            hub_logout();
+            break;
         case LOBBY_KEEP_ALIVE_REQUEST:
             put_text(reply + 0x1C, "127.0.0.1", 20);
             break;
         case LOBBY_CHANNEL_JOIN_REQUEST: /* the one channel's lobby */
+            srv_ensure();
             lobby_connect_info(reply + 0x1C, M_WORLD_LOBBY);
             break;
         case LOBBY_GAME_PLAYER_LIST_REQUEST: /* the party's members */
@@ -1001,19 +1208,28 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
         case LOBBY_ALL_NEWS_REQUEST:
             put32(reply + M_STATUS, M_NO_RESULT);
             break;
-        case LOBBY_CITY_LIST_REQUEST: /* the hub's regions, the game's city list */
+        case LOBBY_CITY_LIST_REQUEST: { /* the hub's regions, the game's city list */
             memcpy(lobby.locations_req, req, sizeof lobby.locations_req);
-            /* A server from before regions closes on PACKET_REGIONS: the game's own cities then. */
-            if (srv.fd == NET_INVALID || !(srv.features & FEATURE_REGIONS)) {
+            /* The hub's list; a game server named directly that lists regions (one from before
+             * the hub) its own. A server that takes no PACKET_REGIONS closes on it: the game's
+             * own cities then. */
+            net_link* from = !net_login.direct ? &hub : &srv;
+            if (from->fd == NET_INVALID || !(from->features & FEATURE_REGIONS)) {
                 put32(reply + 0x5C, M_NO_RESULT);
                 break;
             }
             lobby.locations_waiting = 1;
-            srv_begin(PACKET_REGIONS, -1);
+            if (from == &hub) {
+                hub_begin(PACKET_REGIONS, -1);
+            } else {
+                srv_begin(PACKET_REGIONS, -1);
+            }
             srv_text(NET_FAMILY);
             srv_end();
             return;
-        case LOBBY_CHANNEL_FILTER_SET_REQUEST: /* logged, it carries the city chosen */
+        }
+        case LOBBY_CHANNEL_FILTER_SET_REQUEST: /* it carries the city chosen: its game server */
+            lobby_pick_city(req, size);
             if (net_log()) {
                 char hex[3 * 0x30 + 1];
                 for (size_t k = 0; k < size && k < 0x30; k++) {
@@ -1034,6 +1250,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
             break;
         case LOBBY_GAME_LIST_REQUEST: /* the server's parties of this game */
             memcpy(lobby.list_req, req, sizeof lobby.list_req);
+            srv_ensure();
             if (srv.fd == NET_INVALID || lobby.list_waiting) {
                 if (!lobby.list_waiting) {
                     lobby_reply_list();
@@ -1050,6 +1267,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
             memcpy(lobby.create_req, req, sizeof lobby.create_req);
             advert_from_create(&lobby.own, req);
             lobby.own_valid = 1;
+            srv_ensure();
             if (srv.fd == NET_INVALID) {
                 put32(reply + M_STATUS, -987);
                 break;
@@ -1067,6 +1285,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
                 lobby_reply_join(M_SUCCESS, world);
                 return;
             }
+            srv_ensure();
             const listed_game* g = lobby_game(world);
             if (g == NULL || srv.fd == NET_INVALID) {
                 lobby_reply_join(M_GAME_NOT_FOUND, world);
@@ -1502,14 +1721,45 @@ static void on_party(reader* r) {
     }
 }
 
+/* The hub's regions: name, host (empty: the hub's own address), port, players. */
+static void on_regions(reader* r) {
+    const int count = rd_u8(r);
+    lobby.regions_count = 0;
+    for (int i = 0; i < count && lobby.regions_count < 16; i++) {
+        const int k = lobby.regions_count++;
+        rd_text(r, lobby.regions[k].name, sizeof lobby.regions[k].name);
+        rd_text(r, lobby.regions[k].host, sizeof lobby.regions[k].host);
+        lobby.regions[k].port = rd_i32(r);
+        lobby.regions[k].players = rd_i32(r);
+    }
+    if (net_log()) {
+        fprintf(stderr, "[info] rac3: online: %d cities listed\n", lobby.regions_count);
+    }
+    if (lobby.locations_waiting) {
+        lobby_reply_locations();
+    }
+}
+
 static void on_frame(int id, reader* r) {
     switch (id) {
         case PACKET_HELLO:
             srv.session = rd_i32(r);
             srv.state = 1;
             fprintf(stderr, "[info] rac3: online: session %d\n", srv.session);
-            if (lobby.login_waiting) {
+            if (lobby.login_waiting && net_login.direct) {
                 lobby_reply_login(M_SUCCESS);
+            }
+            break;
+        case PACKET_ACCOUNT:
+            /* The game server checked the hub's token with the hub: the account plays here. */
+            if (rd_u8(r) == ACCOUNT_LOGGED_IN) {
+                char name[33];
+                rd_i32(r);
+                const int32_t account = rd_i32(r);
+                rd_text(r, name, sizeof name);
+                fprintf(
+                    stderr, "[info] rac3: online: the game server took account %d (%s)\n", account, name
+                );
             }
             break;
         case PACKET_PARTY:
@@ -1517,6 +1767,17 @@ static void on_frame(int id, reader* r) {
             break;
         case PACKET_ERROR: {
             const int reason = rd_u8(r);
+            if (reason == ERROR_SESSION_INVALID || reason == ERROR_TRY_LATER) {
+                /* ACCOUNT_TOKEN's answer: the hub knows no such session, or the server cannot
+                 * reach the hub. The game goes on under its hello's name, as a guest. */
+                fprintf(
+                    stderr,
+                    "[warning] rac3: online: the game server did not take the hub's login (%s); "
+                    "playing as a guest\n",
+                    reason == ERROR_SESSION_INVALID ? "session invalid" : "try later"
+                );
+                break;
+            }
             fprintf(
                 stderr, "[warning] rac3: online: the server refused a request (reason %d)\n", reason
             );
@@ -1549,22 +1810,9 @@ static void on_frame(int id, reader* r) {
                 srv_end();
             }
             break;
-        case PACKET_REGIONS: {
-            /* The hub's regions: name, host (empty: the hub's own address), port, players. */
-            const int count = rd_u8(r);
-            lobby.regions_count = 0;
-            for (int i = 0; i < count && lobby.regions_count < 16; i++) {
-                const int k = lobby.regions_count++;
-                rd_text(r, lobby.regions[k].name, sizeof lobby.regions[k].name);
-                rd_text(r, lobby.regions[k].host, sizeof lobby.regions[k].host);
-                lobby.regions[k].port = rd_i32(r);
-                lobby.regions[k].players = rd_i32(r);
-            }
-            if (lobby.locations_waiting) {
-                lobby_reply_locations();
-            }
+        case PACKET_REGIONS: /* from a game server from before the hub, named directly */
+            on_regions(r);
             break;
-        }
         case PACKET_RELAY: {
             const int32_t from = rd_i32(r);
             const int kind = rd_u8(r);
@@ -1614,69 +1862,181 @@ static void on_frame(int id, reader* r) {
     }
 }
 
-/* Reads what the server sent and handles every whole frame. */
 /* PACKET_TIME every KEEP_ALIVE_MS once greeted, which HELLO promised (CLIENT_KEEPS_ALIVE): a game
  * that hangs or dies stops sending, and the server drops it from its party. The answer is ignored. */
-static void srv_keep_alive(void) {
-    static int64_t last;
-    struct timespec now;
-    timespec_get(&now, TIME_UTC);
-    const int64_t ms = (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
-    if (srv.state != 1 || ms - last < KEEP_ALIVE_MS || !srv_room(16)) {
+static void link_keep_alive(net_link* l) {
+    const int64_t ms = net_now_ms();
+    if (l->state != 1 || ms - l->alive_ms < KEEP_ALIVE_MS || l->out_len + 32 >= LINK_OUT) {
         return;
     }
-    last = ms;
+    l->alive_ms = ms;
+    tx = l;
     srv_begin(PACKET_TIME, -1);
     srv_i32((int32_t)(ms >> 32));
     srv_i32((int32_t)ms);
     srv_end();
 }
 
-static void srv_pump(void) {
-    if (srv.fd == NET_INVALID) {
-        return;
+/* Reads what L's server sent and hands every whole frame to ON. Whether L is still connected. */
+static int link_pump(net_link* l, void (*on)(int, reader*)) {
+    if (l->fd == NET_INVALID) {
+        return 0;
     }
     for (;;) {
-        if (srv.in_len == LINK_IN) {
+        if (l->in_len == LINK_IN) {
             break;
         }
-        const long n =
-            (long)recv(srv.fd, (char*)srv.in + srv.in_len, (int)(LINK_IN - srv.in_len), 0);
+        const long n = (long)recv(l->fd, (char*)l->in + l->in_len, (int)(LINK_IN - l->in_len), 0);
         if (n > 0) {
-            srv.in_len += (size_t)n;
+            l->in_len += (size_t)n;
             continue;
         }
         if (n == 0) {
-            fprintf(stderr, "[warning] rac3: online: the server closed the connection\n");
-            net_close(srv.fd);
-            srv.fd = NET_INVALID;
-            srv.state = -1;
-            room.in = 0;
+            fprintf(
+                stderr,
+                "[warning] rac3: online: the %s closed the connection\n",
+                l == &hub ? "hub" : "server"
+            );
+            link_close(l);
         }
         break;
     }
     size_t at = 0;
-    while (srv.in_len - at >= 4) {
-        const uint8_t* p = srv.in + at;
+    while (l->in_len - at >= 4) {
+        const uint8_t* p = l->in + at;
         const size_t len = (size_t)p[0] << 24 | (size_t)p[1] << 16 | (size_t)p[2] << 8 | p[3];
         if (len == 0 || len > LINK_IN - 4) {
-            at = srv.in_len;
+            at = l->in_len;
             break;
         }
-        if (srv.in_len - at - 4 < len) {
+        if (l->in_len - at - 4 < len) {
             break;
         }
         reader r = {p + 5, len - 1};
-        on_frame(p[4], &r);
+        on(p[4], &r);
         at += 4 + len;
     }
-    memmove(srv.in, srv.in + at, srv.in_len - at);
-    srv.in_len -= at;
-    srv_keep_alive();
+    memmove(l->in, l->in + at, l->in_len - at);
+    l->in_len -= at;
+    link_keep_alive(l);
+    return l->fd != NET_INVALID;
+}
+
+static void srv_pump(void) {
+    if (srv.fd != NET_INVALID && !link_pump(&srv, on_frame)) {
+        room.in = 0;
+    }
+}
+
+/* The hub's answer to a login: the game's own login failures for the hub's reasons. */
+static void hub_login_failed(int reason) {
+    static const char* const why[] = {
+        [ERROR_WRONG_PASSWORD] = "the password is not the account's",
+        [ERROR_INVALID_ACCOUNT] = "the hub takes no such name or password (4 to 32 characters)",
+        [ERROR_TRY_LATER] = "too many attempts, or the hub cannot answer now",
+    };
+    const int32_t status = reason == ERROR_WRONG_PASSWORD    ? M_INVALID_PASSWORD
+                           : reason == ERROR_INVALID_ACCOUNT ? M_ACCOUNT_NOT_FOUND
+                           : reason == ERROR_TRY_LATER       ? M_SERVER_ERROR
+                                                             : M_LOGIN_FAILED;
+    fprintf(
+        stderr,
+        "[warning] rac3: online: the hub refused the login of %s: %s\n",
+        net_login.name,
+        reason >= 0 && reason < (int)(sizeof why / sizeof why[0]) && why[reason] != NULL
+            ? why[reason]
+            : "refused"
+    );
+    if (lobby.login_waiting) {
+        lobby_reply_login(status);
+    }
+}
+
+static void on_hub_frame(int id, reader* r) {
+    switch (id) {
+        case PACKET_HELLO:
+            hub.session = rd_i32(r);
+            hub.state = 1;
+            break;
+        case PACKET_UDP:
+            /* The UDP offer: no datagrams at a hub (token and port 0), then its feature bits. A
+             * server without FEATURE_SERVERS is a game server named directly: played on as before
+             * the hub (hub_pump moves to it). */
+            rd_i32(r);
+            rd_i32(r);
+            rd_i32(r);
+            hub.features = rd_u8(r);
+            if (!(hub.features & FEATURE_SERVERS)) {
+                net_login.direct = 1;
+            } else if (lobby.login_waiting) {
+                hub_send_login();
+            }
+            break;
+        case PACKET_ACCOUNT: {
+            if (rd_u8(r) != ACCOUNT_LOGGED_IN) {
+                break;
+            }
+            char name[33];
+            rd_i32(r); /* the account id's high word: ids stay small */
+            const int32_t account = rd_i32(r);
+            rd_text(r, name, sizeof name);
+            rd_text(r, net_login.token, sizeof net_login.token);
+            const int created = rd_u8(r);
+            fprintf(
+                stderr,
+                "[info] rac3: online: %s account %d (%s) at the hub\n",
+                created ? "registered" : "logged in to",
+                account,
+                name
+            );
+            /* Another account than the game server's link proved: that link goes. */
+            if (net_login.account != account && srv.fd != NET_INVALID && !room.in) {
+                link_close(&srv);
+                net_login.region = -1;
+            }
+            net_login.account = account;
+            net_login.tried_ms = 0;
+            if (lobby.login_waiting) {
+                lobby_reply_login(M_SUCCESS);
+            }
+            /* The list now, so that a game server is there before the game asks for the cities. */
+            hub_begin(PACKET_REGIONS, -1);
+            srv_text(NET_FAMILY);
+            srv_end();
+            break;
+        }
+        case PACKET_ERROR:
+            hub_login_failed(rd_u8(r));
+            break;
+        case PACKET_REGIONS:
+            on_regions(r);
+            break;
+        default:
+            break; /* the clock's answers */
+    }
+}
+
+static void hub_pump(void) {
+    if (hub.fd == NET_INVALID) {
+        return;
+    }
+    if (!link_pump(&hub, on_hub_frame) && lobby.login_waiting) {
+        lobby_reply_login(M_LOGIN_FAILED);
+    }
+    if (net_login.direct && hub.fd != NET_INVALID) {
+        /* Not a hub: the game server's own link to the same address takes the login (its hello's
+         * answer gives the reply), and this one closes. */
+        link_close(&hub);
+        fprintf(stderr, "[info] rac3: online: %s:%s is a game server, not a hub\n", net_login.host, net_login.port);
+        if (lobby.login_waiting && !srv_open(net_login.name)) {
+            lobby_reply_login(M_LOGIN_FAILED);
+        }
+    }
 }
 
 /* Everything that waits for a frame of the game: the server's packets, the lobby's callbacks. */
 static void net_pump(void) {
+    hub_pump();
     srv_pump();
     if (dme.join_due && dme.conn != 0) {
         /* dme_join_session's answer: joined (status 0), then the others. The host callback is for a
