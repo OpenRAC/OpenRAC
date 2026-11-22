@@ -215,6 +215,13 @@ static int draw_picture_rgba(
     const uint64_t tex0 = picture_tex0((uint32_t)frame, width, height);
     const uint32_t ofx = GREF(uint32_t, FRONT_END_REGS + 0x50u) & 0xFFFFu;
     const uint32_t ofy = GREF(uint32_t, FRONT_END_REGS + 0x54u) & 0xFFFFu;
+    /* A full-width picture fills the frame's lines: the frame is centred on 2048, so it is twice
+     * (2048 - the offset) lines tall. The main menu's background is 416 lines, the NTSC frame's;
+     * PAL's frame is 448, and the picture drawn at its own size left a 32-line black band at the
+     * bottom (as the PAL disc itself does). Stretched over the frame it has the NTSC disc's shape
+     * on both. */
+    const int lines = (int)((0x8000u - ofy) >> 3);
+    const int shown = width == 512 && height < lines && lines <= 512 ? lines : height;
     openrac_game_ui_rect q;
     memset(&q, 0, sizeof q);
     openrac_ui_rect(
@@ -222,7 +229,7 @@ static int draw_picture_rgba(
         (int)ofx,
         (int)ofy,
         (int)ofx + (width << 4),
-        (int)ofy + (height << 4),
+        (int)ofy + (shown << 4),
         0,
         0,
         width << 4,

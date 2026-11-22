@@ -57,6 +57,12 @@ bool before_mobys_writes_z(const EffectStrip& strip);
 // world's mobys (EffectStrip::before_mobys), drawn where the game drew it.
 bool liquid_pass_strip(const EffectStrip& strip);
 
+// A strip or quad's texture coordinates (s, t over TEX0's size) on the texture of an off-screen
+// target the 2D path drew at TEX0's block, which spans kOffscreenPixels chip pixels across and
+// down with its first row on top. Up Your Arsenal's frame copy (effect texture -1, 256 x 256) is
+// sampled so by the world's quads and by the strips of its strip routine (fx_strip).
+std::array<float, 2> offscreen_target_st(std::uint64_t tex0, float s, float t);
+
 bool opaque_effect_strip(const EffectStrip& strip, std::span<const EffectVertex> vertices);
 bool opaque_effect_quad(const EffectQuad& quad);
 

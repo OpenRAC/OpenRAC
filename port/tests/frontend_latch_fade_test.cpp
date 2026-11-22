@@ -235,9 +235,32 @@ void test_the_mouse_taking_over_fades() {
     CHECK(std::abs(fade.carry() + 0.3f) < 1e-5f);
 }
 
+// A gamepad player's mouse lies still: it never has the picture, so the stick keeps its latch when
+// it comes back to rest. A mouse that moves has it, and lets go a moment after it stops.
+void test_a_still_mouse_leaves_the_picture() {
+    using openrac::frontend::MouseHold;
+    MouseHold hold;
+    for (int i = 0; i < 120; ++i) {
+        CHECK(!hold.frame(true, false, kTick));
+    }
+    CHECK(hold.frame(true, true, kTick));
+    for (double t = kTick; t < MouseHold::kRestSeconds - 0.01; t += kTick) {
+        CHECK(hold.frame(true, false, kTick));
+    }
+    for (int i = 0; i < 3; ++i) {
+        hold.frame(true, false, kTick);
+    }
+    CHECK(!hold.frame(true, false, kTick));
+    // The mouse may not turn the camera (a swing, another camera): let go at once.
+    CHECK(hold.frame(true, true, kTick));
+    CHECK(!hold.frame(false, true, kTick));
+    CHECK(!hold.frame(true, false, kTick));
+}
+
 }  // namespace
 
 int main() {
+    test_a_still_mouse_leaves_the_picture();
     test_the_mouse_taking_over_fades();
     test_the_mouse_is_not_eased();
     test_the_game_turning_under_the_mouse_fades();
