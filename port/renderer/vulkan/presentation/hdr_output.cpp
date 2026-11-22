@@ -275,6 +275,14 @@ void set_metadata() {
     if (!hdr.metadata || vkSetHdrMetadataEXT == nullptr || hdr.shown == Output::Sdr) {
         return;
     }
+#if defined(__APPLE__)
+    // MoltenVK turns the metadata into the layer's CAEDRMetadata (HDR10, with an optical output
+    // scale of 1): Core Animation then reads scRGB's 1.0 as one nit, and the picture is black.
+    // EDR needs no metadata for scRGB: the system maps 1.0 to SDR white by itself.
+    if (hdr.shown == Output::ScRgb) {
+        return;
+    }
+#endif
     VkHdrMetadataEXT m{VK_STRUCTURE_TYPE_HDR_METADATA_EXT};
     m.displayPrimaryRed = {0.708f, 0.292f};
     m.displayPrimaryGreen = {0.170f, 0.797f};
