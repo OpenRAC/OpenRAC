@@ -442,6 +442,7 @@
       "func_L01_004059C8": "void (int, int, int, int)",
       "func_L01_00420AE8": "void (int, void *, float, float, float, float, float)",
       "func_L01_00421278": "float (int, int, long long, float, float, float, float, float)",
+      "func_L01_00412C08": "int (void *, int, int, int, int, int, int, int, int)",
       "func_L01_004CBC60": "void (void *, float, float, int, float, void *)",
       "func_L01_0041FE80": "void (void)",
       "func_L01_004202A8": "void (int, int, int, int, int, int)",
