@@ -692,6 +692,27 @@ void frame_copy_of_the_picture() {
     CHECK(near(wide_lo, 0.125f) && near(wide_hi, 0.875f));
 }
 
+// The world's strips and quads that sample an off-screen target take the target texture's
+// coordinates: Up Your Arsenal's frame copy (effect texture -1, PSMCT16 256 x 256), which the
+// Galactic Rangers' dropship's heat haze on Veldin samples through its strip routine (fx_strip) at
+// each point's place in the picture, sits in the top-left quarter of a target of
+// kOffscreenPixels, its first row on top. Sampled with the copy's own coordinates, the haze drew
+// black squares with an upside-down corner of the picture in them.
+void offscreen_target_coordinates() {
+    const std::uint64_t copy = openrac::test::tex0(0x3300, 4, gs::kPsmct16, 8, 8, true);
+    const auto at = [&](float s, float t, float want_s, float want_t) {
+        const auto [ts, tt] = offscreen_target_st(copy, s, t);
+        CHECK(near(ts, want_s) && near(tt, want_t));
+    };
+    at(0.0f, 0.0f, 0.0f, 1.0f);    // the copy's first texel: the target's top left
+    at(1.0f, 1.0f, 0.5f, 0.5f);    // its last: the middle of the target, not its far corner
+    at(0.5f, 0.25f, 0.25f, 0.875f);
+    // The 64 x 64 copy (effect texture -3) takes an eighth of the target.
+    const std::uint64_t small = openrac::test::tex0(0x3300, 1, gs::kPsmct16, 6, 6, true);
+    const auto [ss, st] = offscreen_target_st(small, 1.0f, 1.0f);
+    CHECK(near(ss, 0.125f) && near(st, 0.875f));
+}
+
 // Weights the GS takes above 1 (As, FIX up to 0xFF) go to the shader, and the strips' TEST keeps
 // a layer that writes no Z (Oltanis's ice) out of the liquids.
 void blend_weights() {
@@ -824,5 +845,6 @@ int main() {
     upload_over_offscreen();
     texture_under_draw_buffer();
     frame_copy_of_the_picture();
+    offscreen_target_coordinates();
     return openrac::test::result();
 }
