@@ -91,14 +91,26 @@
       app.info?.platform === "linux" ||
       app.info?.platform === "macos",
   );
-  const isIos = $derived(app.info?.platform === "ios");
-  const rendererLabel = $derived(app.info?.platform === "macos" ? "Metal" : "Vulkan");
+  /** The game's Metal renderer is offered on macOS only. */
+  const metalRenderer = $derived(app.info?.platform === "macos");
+  /** The renderer the game starts with, as core/src/config.rs renderer_for has it: a Mac's Metal
+   *  is Vulkan anywhere else, anything unknown OpenGL. */
+  const shownRenderer = $derived<Config["renderer"]>(
+    draft.renderer === "metal"
+      ? metalRenderer
+        ? "metal"
+        : "vulkan"
+      : draft.renderer === "vulkan"
+        ? "vulkan"
+        : "opengl",
+  );
   /** Advanced opens by itself when something in it is on. */
   let advancedOpen = $state(
     saved().detailedGameLog ||
       saved().developer ||
       saved().saveEditorAdvanced ||
       saved().renderer === "vulkan" ||
+      saved().renderer === "metal" ||
       saved().safeRendering,
   );
 
@@ -749,30 +761,42 @@
           />
         </label>
         {#if desktopRenderer}
+          <!-- What the game draws with (OPENRAC_GL_API, core/src/actions.rs); without Vulkan or
+               Metal it falls back to OpenGL by itself (port/platform/window.cpp). Metal is
+               offered on macOS only. -->
           <div class="setting">
             <span class="text">
               <strong>Renderer</strong>
               <small>
-                {draft.renderer === "vulkan"
-                  ? `${rendererLabel} is the default. The game falls back to OpenGL if it cannot start.`
-                  : "OpenGL 4.1."}
+                {shownRenderer === "vulkan"
+                  ? "Vulkan 1.3, the default; without it the game draws with OpenGL."
+                  : shownRenderer === "metal"
+                    ? "Metal; without it the game draws with OpenGL."
+                    : "OpenGL 4.1."}
                 From the game's next start: a running game keeps its renderer.
               </small>
             </span>
             <div class="segmented" role="radiogroup" aria-label="Renderer">
               <button
                 role="radio"
-                aria-checked={draft.renderer === "vulkan"}
-                onclick={() => (draft.renderer = "vulkan")}>{rendererLabel}</button
+                aria-checked={shownRenderer === "vulkan"}
+                onclick={() => (draft.renderer = "vulkan")}>Vulkan</button
               >
+              {#if metalRenderer}
+                <button
+                  role="radio"
+                  aria-checked={shownRenderer === "metal"}
+                  onclick={() => (draft.renderer = "metal")}>Metal</button
+                >
+              {/if}
               <button
                 role="radio"
-                aria-checked={draft.renderer === "opengl"}
+                aria-checked={shownRenderer === "opengl"}
                 onclick={() => (draft.renderer = "opengl")}>OpenGL</button
               >
             </div>
           </div>
-        {:else if isIos}
+        {:else if app.info?.platform === "ios"}
           <div class="setting">
             <span class="text">
               <strong>Renderer</strong>
