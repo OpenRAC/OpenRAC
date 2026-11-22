@@ -119,6 +119,13 @@ class ApiLockTest(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("is gone", err)
 
+    def test_a_fixed_row_may_change(self) -> None:
+        old, new = ["OPENRAC_HOOK_OK\t0"], ["OPENRAC_HOOK_OK\t2"]
+        self.assertTrue(gen_api_lock.compare("macros.lock", old, new, set()))
+        self.assertEqual(gen_api_lock.compare("macros.lock", old, new, {("macros.lock", old[0], new[0])}), [])
+        self.assertTrue(gen_api_lock.compare("macros.lock", old, ["OPENRAC_HOOK_OK\t3"],
+                                             {("macros.lock", old[0], new[0])}))
+
 
 @unittest.skipUnless(HAS_CLANG, "needs clang")
 class RealSdkTest(unittest.TestCase):

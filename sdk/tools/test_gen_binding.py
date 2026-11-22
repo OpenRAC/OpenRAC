@@ -2,6 +2,9 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Tests of gen_binding.py: python3 -m unittest discover -s sdk/tools -p test_gen_binding.py"""
 import json
+import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -88,7 +91,7 @@ class Fixture:
 
 class Binding(unittest.TestCase):
     def test_committed_outputs_are_the_tables(self):
-        self.assertEqual(gen_binding.main(["rac1", "--check"]), 0)
+        self.assertEqual(gen_binding.main(["--check"]), 0)  # every game's table
         self.assertEqual(gen_binding.main(["--table", str(ROOT / "port/tests/script_binding_test.json"),
                                            "--c", str(ROOT / "port/tests/script_binding_test.c"), "--check"]), 0)
 
@@ -306,6 +309,45 @@ class Binding(unittest.TestCase):
                 path.write_text(json.dumps(t))
                 with self.assertRaises(gen_binding.BindingError, msg=broken):
                     gen_binding.load("", None, path)
+
+
+GAMES = sorted(p.stem for p in (ROOT / "sdk" / "bindings").glob("*.json"))
+CXX = shutil.which("clang++") or shutil.which("g++")
+
+
+class GameHeaders(unittest.TestCase):
+    """games/<game>.h, partly written by hand, says what the binding table and <game>.hpp say."""
+
+    def test_every_signature_is_the_tables(self):
+        for game in GAMES:
+            sig = {h["name"]: h["signature"] for h in gen_binding.load(game)["hooks"]}
+            text = (ROOT / "sdk" / "include" / "openrac" / "games" / f"{game}.h").read_text()
+            up = game.upper()
+            for name in re.findall(rf"#define OPENRAC_{up}_HOOK_(\w+) ", text):
+                with self.subTest(game=game, hook=name):
+                    self.assertIn(name, sig, "a hook name the table does not have")
+            for name, s in re.findall(rf'#define OPENRAC_{up}_SIG_(\w+) "([^"]*)"', text):
+                with self.subTest(game=game, hook=name):
+                    # As the port compares them: i32 and u32 are one.
+                    self.assertEqual(s.replace("i32", "u32"), sig[name].replace("i32", "u32"))
+
+    @unittest.skipUnless(CXX, "needs a C++ compiler")
+    def test_c_and_cpp_types_agree(self):
+        for game in GAMES:
+            inc = ROOT / "sdk" / "include" / "openrac" / "games"
+            hpp, h = (inc / f"{game}.hpp").read_text(), (inc / f"{game}.h").read_text()
+            ns = re.search(r"namespace (openrac::\w+)", hpp).group(1)
+            typed = set(re.findall(rf"\(\*openrac_{game}_(\w+)\)", h))
+            names = [n for n in re.findall(r"^struct (\w+) \{\n    static constexpr const char\* id", hpp, re.M)
+                     if n in typed]
+            src = (f'#include "openrac/games/{game}.h"\n#include "openrac/games/{game}.hpp"\n#include <type_traits>\n'
+                   + "".join(f'static_assert(std::is_same<{ns}::{n}::fn, openrac_{game}_{n}>::value, "{n}");\n'
+                             for n in names))
+            with tempfile.TemporaryDirectory() as tmp, self.subTest(game=game):
+                (Path(tmp) / "t.cpp").write_text(src)
+                done = subprocess.run([CXX, "-std=c++17", "-fsyntax-only", f"-I{ROOT / 'sdk' / 'include'}",
+                                       str(Path(tmp) / "t.cpp")], capture_output=True, text=True)
+                self.assertEqual(done.returncode, 0, done.stderr[-2000:])
 
 
 if __name__ == "__main__":
