@@ -1235,7 +1235,9 @@ void func_00397A18(float x, float y, float w, float h, float ang, int tw, int th
  * "returns_64"): read as an int, its upper word (TH's high bits, CBP) was the sign of the lower
  * one, the icon was sampled from a 64 x 16384 texture of no palette, and the saving prompt showed
  * no turning icon. Its float result is the sine it last asked for, which the callers' $f0 holds. */
-float func_L01_00421278(int tw, int th, long long tex0, float x, float y, float w, float h, float ang) {
+float func_L01_00421278(
+    int tw, int th, long long tex0, float x, float y, float w, float h, float ang
+) {
     const Rac3Ui2d u = rac3_ui2d_level();
     const float s = func_L01_0040E910(ang), c = func_L01_0040E8F8(ang);
     const uint32_t z = GREF(uint32_t, u.hud_depth);
