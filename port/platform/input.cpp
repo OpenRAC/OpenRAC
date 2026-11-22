@@ -36,7 +36,152 @@ bool held(SDL_Gamepad* g) {
     return false;
 }
 
+// A device's own sensor reads along its natural way up (a phone's portrait); the game shows in
+// landscape. Turns `d` (x, y, z) into the axes of the screen as shown now.
+void device_axes(float* d) {
+    const SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    const auto quarter = [](SDL_DisplayOrientation o) {
+        switch (o) {
+            case SDL_ORIENTATION_LANDSCAPE:
+                return 1;
+            case SDL_ORIENTATION_PORTRAIT_FLIPPED:
+                return 2;
+            case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
+                return 3;
+            default:
+                return 0;
+        }
+    };
+    const int turns = (quarter(SDL_GetCurrentDisplayOrientation(display))
+                       - quarter(SDL_GetNaturalDisplayOrientation(display)) + 4)
+                      % 4;
+    const float x = d[0];
+    const float y = d[1];
+    // As Android's remapCoordinateSystem for the screen turned 90, 180 or 270 degrees.
+    switch (turns) {
+        case 1:
+            d[0] = y;
+            d[1] = -x;
+            break;
+        case 2:
+            d[0] = -x;
+            d[1] = -y;
+            break;
+        case 3:
+            d[0] = -y;
+            d[1] = x;
+            break;
+        default:
+            break;
+    }
+}
+
+// The gamepad's gyro and accelerometer (SDL_SensorType), 0 for none: the one in its middle, or a
+// Joy-Con's own.
+std::pair<int, int> gamepad_sensors(SDL_Gamepad* g) {
+    if (g == nullptr) {
+        return {0, 0};
+    }
+    if (SDL_GamepadHasSensor(g, SDL_SENSOR_GYRO)) {
+        return {SDL_SENSOR_GYRO, SDL_GamepadHasSensor(g, SDL_SENSOR_ACCEL) ? SDL_SENSOR_ACCEL : 0};
+    }
+    if (SDL_GamepadHasSensor(g, SDL_SENSOR_GYRO_R)) {
+        return {
+            SDL_SENSOR_GYRO_R, SDL_GamepadHasSensor(g, SDL_SENSOR_ACCEL_R) ? SDL_SENSOR_ACCEL_R : 0
+        };
+    }
+    if (SDL_GamepadHasSensor(g, SDL_SENSOR_GYRO_L)) {
+        return {
+            SDL_SENSOR_GYRO_L, SDL_GamepadHasSensor(g, SDL_SENSOR_ACCEL_L) ? SDL_SENSOR_ACCEL_L : 0
+        };
+    }
+    return {0, 0};
+}
+
+void gamepad_sensors_on(SDL_Gamepad* g, std::pair<int, int> sensors, bool on) {
+    if (g == nullptr) {
+        return;
+    }
+    if (sensors.first != 0) {
+        SDL_SetGamepadSensorEnabled(g, static_cast<SDL_SensorType>(sensors.first), on);
+    }
+    if (sensors.second != 0) {
+        SDL_SetGamepadSensorEnabled(g, static_cast<SDL_SensorType>(sensors.second), on);
+    }
+}
+
 }  // namespace
+
+void Input::set_gyro_options(const GyroOptions& options) {
+    const GyroOptions was = m_gyro.options();
+    m_gyro.set_options(options);
+    if (was.enabled != options.enabled) {
+        choose_gyro();
+    }
+}
+
+void Input::choose_gyro() {
+    SDL_Gamepad* const player = gamepad(0);
+    const bool on = m_gyro.options().enabled;
+    SDL_Gamepad* const want = on && gamepad_sensors(player).first != 0 ? player : nullptr;
+    m_gyro_for = player;
+    if (want != m_gyro_pad) {
+        gamepad_sensors_on(m_gyro_pad, {m_gyro_sensor, m_accel_sensor}, false);
+        m_gyro_pad = want;
+        const auto sensors = gamepad_sensors(want);
+        m_gyro_sensor = sensors.first;
+        m_accel_sensor = sensors.second;
+        gamepad_sensors_on(want, sensors, true);
+        m_gyro.reset();
+        if (want != nullptr) {
+            const char* name = SDL_GetGamepadName(want);
+            log::info("gyro: {}", name != nullptr ? name : "controller");
+        }
+    }
+
+    // No gamepad with a gyro: a phone's or a handheld's own, on those only (a desktop's sensors,
+    // where it has any, are not held in the hands).
+#if defined(SDL_PLATFORM_ANDROID) || defined(SDL_PLATFORM_IOS)
+    const bool device = on && m_gyro_pad == nullptr;
+    if (device && m_device_gyro == nullptr && !m_sensors_tried) {
+        m_sensors_tried = true;
+        if (SDL_InitSubSystem(SDL_INIT_SENSOR)) {
+            int count = 0;
+            SDL_SensorID* ids = SDL_GetSensors(&count);
+            for (int i = 0; ids != nullptr && i < count; ++i) {
+                const SDL_SensorType type = SDL_GetSensorTypeForID(ids[i]);
+                if (type == SDL_SENSOR_GYRO && m_device_gyro == nullptr) {
+                    m_device_gyro = SDL_OpenSensor(ids[i]);
+                } else if (type == SDL_SENSOR_ACCEL && m_device_accel == nullptr) {
+                    m_device_accel = SDL_OpenSensor(ids[i]);
+                }
+            }
+            SDL_free(ids);
+            log::info("gyro: the device's own {}", m_device_gyro != nullptr ? "sensor" : "(none)");
+            m_gyro.reset();
+        }
+    } else if (!device && m_device_gyro != nullptr) {
+        // Closed while not read: a phone's sensors cost battery.
+        SDL_CloseSensor(m_device_gyro);
+        m_device_gyro = nullptr;
+        if (m_device_accel != nullptr) {
+            SDL_CloseSensor(m_device_accel);
+            m_device_accel = nullptr;
+        }
+        m_sensors_tried = false;
+    }
+#endif
+}
+
+void Input::gyro_sample(const float* data, std::uint64_t ns) {
+    SDL_Gamepad* const pad = m_gyro_pad != nullptr ? m_gyro_pad : gamepad(0);
+    const int button = m_gyro.options().button;
+    m_gyro.button(
+        pad != nullptr && button >= 0 && button < SDL_GAMEPAD_BUTTON_COUNT
+        && SDL_GetGamepadButton(pad, static_cast<SDL_GamepadButton>(button))
+    );
+    m_gyro.gyro({data[0], data[1], data[2]}, ns);
+}
 
 void apply_keyboard(Pad& pad, std::span<const bool> keys) {
     static const Bindings defaults = default_bindings();
@@ -59,6 +204,12 @@ void Input::set_bindings(const std::array<Bindings, kPadPorts>& bindings) {
 
 Input::~Input() {
     stop_rumble();
+    if (m_device_gyro != nullptr) {
+        SDL_CloseSensor(m_device_gyro);
+    }
+    if (m_device_accel != nullptr) {
+        SDL_CloseSensor(m_device_accel);
+    }
     if (m_vibrator != nullptr) {
         SDL_CloseHaptic(m_vibrator);
     }
@@ -116,6 +267,13 @@ void Input::handle_event(const SDL_Event& event) {
                     if (r.gamepad == it->gamepad) {
                         r = Rumble{};
                     }
+                }
+                if (it->gamepad == m_gyro_pad) {
+                    m_gyro_pad = nullptr;
+                    m_gyro.reset();
+                }
+                if (it->gamepad == m_gyro_for) {
+                    m_gyro_for = nullptr;
                 }
                 SDL_CloseGamepad(it->gamepad);
                 m_gamepads.erase(it);
@@ -185,6 +343,30 @@ void Input::handle_event(const SDL_Event& event) {
             }
             break;
         }
+        // The gyro read (gyro.h): its own gamepad's, or the device's sensors.
+        case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
+            if (m_gyro_pad != nullptr && SDL_GetGamepadID(m_gyro_pad) == event.gsensor.which) {
+                if (event.gsensor.sensor == m_gyro_sensor) {
+                    gyro_sample(event.gsensor.data, event.gsensor.sensor_timestamp);
+                } else if (event.gsensor.sensor == m_accel_sensor) {
+                    m_gyro.accel(
+                        {event.gsensor.data[0], event.gsensor.data[1], event.gsensor.data[2]}
+                    );
+                }
+            }
+            break;
+        case SDL_EVENT_SENSOR_UPDATE:
+            if (m_gyro_pad == nullptr && m_device_gyro != nullptr) {
+                float d[3] = {event.sensor.data[0], event.sensor.data[1], event.sensor.data[2]};
+                device_axes(d);
+                if (event.sensor.which == SDL_GetSensorID(m_device_gyro)) {
+                    gyro_sample(d, event.sensor.sensor_timestamp);
+                } else if (m_device_accel != nullptr
+                           && event.sensor.which == SDL_GetSensorID(m_device_accel)) {
+                    m_gyro.accel({d[0], d[1], d[2]});
+                }
+            }
+            break;
         case SDL_EVENT_GAMEPAD_AXIS_MOTION:
             // A stick pushed well past its dead zone, not a resting stick's drift.
             if (event.gaxis.value > 16000 || event.gaxis.value < -16000) {
@@ -514,6 +696,15 @@ void Input::update() {
     m_km.wheel_y = keyboard_ours ? m_wheel_y : 0.0f;
     m_mouse_went_down = 0;
     m_dx = m_dy = m_wheel_x = m_wheel_y = 0.0f;
+
+    // The gyro: player 1's gamepad may have changed (another controller picked up).
+    if (m_gyro.options().enabled && gamepad(0) != m_gyro_for) {
+        choose_gyro();
+    }
+    m_gyro.take(m_gyro_yaw, m_gyro_pitch);
+    if (SDL_GetKeyboardFocus() == nullptr) {
+        m_gyro_yaw = m_gyro_pitch = 0.0f;  // another window has the player
+    }
 
     refresh_pads();
     play_rumble();

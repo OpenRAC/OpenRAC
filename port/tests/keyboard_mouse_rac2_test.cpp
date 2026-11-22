@@ -27,6 +27,7 @@
 #include "key_prompts_fonts.h"
 #include "openrac/game_host.h"
 #include "openrac/openrac_mod.h"
+#include "platform/gyro.h"
 
 #define CHECK(c)                                                                                   \
     do {                                                                                           \
@@ -51,6 +52,31 @@ void set_prompt_keys(const std::string* names, int count) {
     for (int i = 0; names != nullptr && i < count && i < 10; ++i) {
         g_prompt_keys[static_cast<std::size_t>(i)] = names[i];
     }
+}
+
+// The rest of the frontend's side (frontend/active_input.h): the gyro and the device options, kept
+// here for the checks.
+float g_gyro_yaw = 0.0f;
+float g_gyro_pitch = 0.0f;
+bool g_gyro_available = false;
+openrac::platform::GyroOptions g_gyro_options;
+
+void set_prompt_device(int) {}
+
+void set_mouse_with_gamepad(bool) {}
+
+void set_gyro_options(const openrac::platform::GyroOptions& options) {
+    g_gyro_options = options;
+}
+
+bool gyro_turn(float& yaw, float& pitch) {
+    yaw = g_gyro_available ? g_gyro_yaw : 0.0f;
+    pitch = g_gyro_available ? g_gyro_pitch : 0.0f;
+    return g_gyro_available;
+}
+
+void pending_gyro(float& yaw, float& pitch) {
+    yaw = pitch = 0.0f;
 }
 }  // namespace openrac::frontend
 
@@ -141,6 +167,8 @@ void* g_pad_user = nullptr;
 int g_capture = -1;
 std::uint32_t g_taken = 0;
 bool g_prompts = true;
+const char* g_gyro = "off";            // the "gyro" setting
+const char* g_prompt_device = "auto";  // the "prompt_device" setting
 
 void host_log(openrac_mod*, int level, const char* text) {
     std::printf("[%d] keyboard-mouse: %s\n", level, text);
@@ -180,6 +208,12 @@ const char* setting_string(openrac_mod*, const char* key) {
         if (std::strcmp(a.key, key) == 0) {
             return a.fallback;
         }
+    }
+    if (std::strcmp(key, "gyro") == 0) {
+        return g_gyro;
+    }
+    if (std::strcmp(key, "prompt_device") == 0) {
+        return g_prompt_device;
     }
     return std::strcmp(key, "camera_tilt") == 0 ? "hold" : "";
 }
@@ -441,6 +475,24 @@ void prompts() {
     read_pad();
     CHECK(unchanged());
     CHECK(openrac::frontend::g_prompt_keys[0].empty());
+
+    // Button icons fixed to the gamepad: never the keys.
+    g_prompt_device = "gamepad";
+    load_ok();
+    g_keyboard_mouse_in_use = true;
+    tick();
+    read_pad();
+    CHECK(unchanged());
+    // Fixed to the keys: they stay on the gamepad too (a mouse or gyro beside it).
+    g_prompt_device = "keyboard";
+    load_ok();
+    g_keyboard_mouse_in_use = false;
+    tick();
+    read_pad();
+    CHECK(!unchanged());
+    g_keyboard_mouse_in_use = false;
+    g_prompt_device = "auto";
+    load_ok();
 }
 
 void other_games() {
@@ -531,6 +583,73 @@ void follow_camera() {
     CHECK(mem_float(kData + 0x160u) == x);
 }
 
+// The gyro turns the follow camera as the mouse does, with the cursor free (a gamepad player), in
+// play only, and for "aiming" only while strafing.
+void gyro_follow() {
+    constexpr std::uint32_t kCamera = 0x00150000u, kData = 0x00160000u, kTilt = 0x00170000u;
+    constexpr std::uint32_t kTurn = 0x00170010u;
+    using openrac::frontend::g_gyro_available;
+    using openrac::frontend::g_gyro_yaw;
+    g_context = "foot";
+    g_gyro = "always";
+    load_ok();
+    CHECK(openrac::frontend::g_gyro_options.enabled);
+    std::memcpy(g_memory.data() + kCamera + 0x70u, &kData, 4);
+    const auto reset_offsets = [&] {
+        for (std::uint32_t off : {0x160u, 0x170u}) {
+            set_float(kData + off, -5.0f);
+            set_float(kData + off + 4u, 0.0f);
+            set_float(kData + off + 8u, 0.0f);
+        }
+    };
+    reset_offsets();
+    g_gyro_available = true;
+    g_gyro_yaw = 0.0f;
+    tick();
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);  // the camera is seen
+
+    // The controller turned 0.1 rad left: the camera too, with the cursor free.
+    tick();
+    g_input.captured = 0;
+    g_gyro_yaw = 0.1f;
+    CHECK(read_pad().bytes[2] == 0x80);
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(std::abs(mem_float(kData + 0x164u) - (-5.0f * std::sin(0.1f))) < 1e-4f);
+
+    // In a menu it does nothing.
+    reset_offsets();
+    g_context = "menu";
+    tick();
+    g_input.captured = 0;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x164u) == 0.0f);
+
+    // Only while aiming: not while walking, yes while L2 strafes.
+    g_context = "foot";
+    g_gyro = "aiming";
+    load_ok();
+    tick();
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    tick();
+    g_input.captured = 0;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x164u) == 0.0f);
+    tick();
+    g_input.captured = 0;
+    hold(kShiftLeft);  // the strafe key: L2
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(std::abs(mem_float(kData + 0x164u) - (-5.0f * std::sin(0.1f))) < 1e-4f);
+
+    g_gyro_available = false;
+    g_gyro_yaw = 0.0f;
+    g_gyro = "off";
+}
+
 int main() {
     contexts();
     for (const char* v : {"ntsc", "pal"}) {
@@ -541,6 +660,7 @@ int main() {
     g_version = "ntsc";
     prompts();
     follow_camera();
+    gyro_follow();
     other_games();
     std::puts("keyboard-mouse rac2: all passed");
     return 0;

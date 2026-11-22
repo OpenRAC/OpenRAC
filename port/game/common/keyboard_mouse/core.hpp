@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 
 #include "game/common/frontend/active_input.h"
@@ -22,10 +23,19 @@
 #include "game/common/keyboard_mouse/kbm.hpp"
 #include "openrac/keys.h"
 #include "openrac/mod.hpp"
+#include "platform/gyro.h"
 
 namespace kbm {
 
 // ---- Settings ----
+
+// When the gyro aims (platform/gyro.h): never, always in play, or only while aiming (the game's
+// own aim: first person, strafing).
+enum class GyroWhen {
+    Off,
+    Always,
+    Aiming
+};
 
 // The player's settings (openrac-mod.json, kbm_<key> lines of the version's settings file).
 struct Settings {
@@ -36,6 +46,10 @@ struct Settings {
     bool capture = true;
     bool menu_mouse = true;
     bool prompts = true;
+    int prompt_device = -1;  // the icons: -1 the device in use, 0 always the gamepad's, 1 the keys
+    bool mouse_with_gamepad = true;
+    GyroWhen gyro_when = GyroWhen::Off;
+    openrac::platform::GyroOptions gyro;
 };
 
 // A setting's text, "" for one this game's settings do not have (its default is then taken).
@@ -45,6 +59,77 @@ inline std::string text_setting(openrac::Mod& mod, const char* key) {
     } catch (const openrac::Error&) {
         return "";
     }
+}
+
+// A number setting, `fallback` for one this game's settings do not have.
+inline float float_setting(openrac::Mod& mod, const char* key, float fallback) {
+    try {
+        return static_cast<float>(mod.setting<double>(key));
+    } catch (const openrac::Error&) {
+        return fallback;
+    }
+}
+
+inline bool bool_setting(openrac::Mod& mod, const char* key, bool fallback) {
+    try {
+        return mod.setting<bool>(key);
+    } catch (const openrac::Error&) {
+        return fallback;
+    }
+}
+
+// The gyro button's setting: SDL's name for a gamepad button ("touchpad", "rightstick",
+// "paddle1"...), -1 for none.
+inline int gyro_button_of(const std::string& name) {
+    // SDL_GamepadButton's numbers (SDL_gamepad.h), which stay the same across SDL 3.
+    struct Name {
+        const char* name;
+        int button;
+    };
+
+    static constexpr Name kButtons[] = {
+        {"leftstick", 7},
+        {"rightstick", 8},
+        {"leftshoulder", 9},
+        {"rightshoulder", 10},
+        {"misc1", 15},
+        {"paddle1", 16},
+        {"paddle2", 17},
+        {"paddle3", 18},
+        {"paddle4", 19},
+        {"touchpad", 20},
+        {"back", 4},
+    };
+    for (const Name& n : kButtons) {
+        if (name == n.name) {
+            return n.button;
+        }
+    }
+    return -1;
+}
+
+// The gyro's settings (the "Gyro" section), its sensitivities as the camera's turn for the
+// controller's.
+inline void read_gyro(openrac::Mod& mod, Settings& s) {
+    const std::string when = text_setting(mod, "gyro");
+    s.gyro_when = when == "always"   ? GyroWhen::Always
+                  : when == "aiming" ? GyroWhen::Aiming
+                                     : GyroWhen::Off;
+    openrac::platform::GyroOptions& g = s.gyro;
+    g.enabled = s.gyro_when != GyroWhen::Off;
+    g.space = openrac::platform::gyro_space_from(text_setting(mod, "gyro_space").c_str());
+    g.sensitivity_x = float_setting(mod, "gyro_sensitivity", 2.0f);
+    g.sensitivity_y = float_setting(mod, "gyro_sensitivity_y", 2.0f);
+    g.invert_x = bool_setting(mod, "gyro_invert_x", false);
+    g.invert_y = bool_setting(mod, "gyro_invert_y", false);
+    // Degrees a second in the settings, radians here.
+    constexpr float kRadiansPerDegree = 0.017453292f;
+    g.dead_zone = float_setting(mod, "gyro_dead_zone", 0.0f) * kRadiansPerDegree;
+    g.smoothing = float_setting(mod, "gyro_smoothing", 0.0f) * kRadiansPerDegree;
+    g.auto_calibrate = bool_setting(mod, "gyro_calibrate", true);
+    g.button = gyro_button_of(text_setting(mod, "gyro_button"));
+    g.button_action =
+        openrac::platform::gyro_button_action_from(text_setting(mod, "gyro_button_action").c_str());
 }
 
 // The settings as they are now, warning of any two actions that share a bind. `ticks_per_second`
@@ -73,6 +158,15 @@ inline Settings read_settings(openrac::Mod& mod, float ticks_per_second) {
     s.capture = mod.setting<bool>("capture_cursor");
     s.menu_mouse = mod.setting<bool>("menu_mouse");
     s.prompts = mod.setting<bool>("key_prompts");
+    const std::string icons = text_setting(mod, "prompt_device");
+    s.prompt_device = icons == "keyboard" ? 1 : icons == "gamepad" ? 0 : -1;
+    s.mouse_with_gamepad = bool_setting(mod, "mouse_with_gamepad", true);
+    read_gyro(mod, s);
+
+    // What the port itself does with them: the cursor, the mods' button labels, the gyro.
+    openrac::frontend::set_mouse_with_gamepad(s.mouse_with_gamepad);
+    openrac::frontend::set_prompt_device(s.prompts ? s.prompt_device : 0);
+    openrac::frontend::set_gyro_options(s.gyro);
     return s;
 }
 
@@ -253,6 +347,48 @@ inline void left_stick(
     v.left_y = keys.y;
 }
 
+// ---- The gyro ----
+
+// The gyro's turn this tick as mouse motion (gyro_pixels): in play only, with the window focused
+// and the port's overlay shut, and for Aiming only while `aiming`. `on` says the gyro aims now.
+struct GyroLook {
+    float dx = 0.0f;
+    float dy = 0.0f;
+    bool on = false;
+};
+
+inline GyroLook gyro_look(const TickInput& t, const Settings& s, bool aiming) {
+    GyroLook g;
+    if (s.gyro_when == GyroWhen::Off || t.where != Context::Play || t.in->overlay != 0
+        || t.in->focused == 0 || (s.gyro_when == GyroWhen::Aiming && !aiming)) {
+        return g;
+    }
+    float yaw = 0.0f;
+    float pitch = 0.0f;
+    if (!openrac::frontend::gyro_turn(yaw, pitch)) {
+        return g;
+    }
+    g.on = true;
+    gyro_pixels(yaw, pitch, s.look, g.dx, g.dy);
+    return g;
+}
+
+// The frames between ticks: the gyro's turn the next tick will read, added to the mouse's, while
+// the gyro aims.
+inline void add_pending_gyro(bool on, const Settings& s, float& dx, float& dy) {
+    if (!on) {
+        return;
+    }
+    float yaw = 0.0f;
+    float pitch = 0.0f;
+    openrac::frontend::pending_gyro(yaw, pitch);
+    float gx = 0.0f;
+    float gy = 0.0f;
+    gyro_pixels(yaw, pitch, s.look, gx, gy);
+    dx += gx;
+    dy += gy;
+}
+
 // ---- The cursor ----
 
 // The cursor captured in play, free everywhere else, asked of the port only when that changes. The
@@ -337,7 +473,11 @@ inline void paint_prompts(
         return;
     }
     kp::Labels labels{};
-    if (settings.prompts && openrac::frontend::keyboard_mouse_in_use()) {
+    // The keys while the player is on the keyboard and mouse, or always or never as the player
+    // fixed them ("Button icons": a mouse or gyro beside the pad then does not flip them).
+    const bool keys = settings.prompt_device < 0 ? openrac::frontend::keyboard_mouse_in_use()
+                                                 : settings.prompt_device == 1;
+    if (settings.prompts && keys) {
         for (std::size_t i = 0; i < actions.size(); ++i) {
             const int bind = actions[i] != Action::Count ? settings.binds.of(actions[i])[0] : 0;
             if (bind != 0) {

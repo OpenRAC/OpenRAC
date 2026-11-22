@@ -166,6 +166,8 @@ enum class Looks {
     FirstPerson
 };
 Looks s_looks = Looks::None;
+// The gyro aimed at the last tick (core.hpp's gyro_look): the frames between ticks follow it too.
+bool s_gyro_on = false;
 kbm::Vec3 s_looks_up = kbm::kWorldUp;
 std::int32_t s_follow_locks = 0;
 
@@ -962,37 +964,46 @@ bool map_focused(const Tick& t) {
 }
 
 // The camera, in play and out of the ring: the follow camera and the first-person view turned by
-// the mouse itself; any other camera (a scene's own) by the mouse as the right stick.
+// the mouse (and the gyro) itself; any other camera (a scene's own) by them as the right stick.
 void mouse_camera(const Tick& t, bool play, bool ring, std::uint16_t pad_buttons, kbm::Virtual& v) {
-    const openrac_input* in = t.in;
     s_looks = Looks::None;
+    int id = -1;
+    const gaddr camera = play ? current_camera(&id) : 0;
 
-    // In play with the cursor captured and the Quick Select shut, the mouse turns the camera.
-    if (t.play && !ring) {
-        int id = -1;
-        const gaddr camera = current_camera(&id);
+    // The gyro aims (core.hpp): "only while aiming" is the first-person view, or L1 or L2 held
+    // (first person, the lock-strafe mod's strafe).
+    const bool aiming = (camera != 0 && id == KBM_CAMERA_FIRST_PERSON)
+                        || ((v.held | pad_buttons) & (kbm::kL1 | kbm::kL2)) != 0;
+    const kbm::GyroLook gyro = ring ? kbm::GyroLook{} : kbm::gyro_look(t, s_set, aiming);
+    s_gyro_on = gyro.on;
+
+    // In play with the cursor captured (or the gyro aiming) and the Quick Select shut, the mouse
+    // and the gyro turn the camera.
+    if ((t.play || gyro.on) && !ring) {
+        const float dx = (t.play ? t.in->mouse_dx : 0.0f) + gyro.dx;
+        const float dy = (t.play ? t.in->mouse_dy : 0.0f) + gyro.dy;
         const bool follow =
             id == 0 || (s_follow_tick != kNoTick && s_tick - s_follow_tick <= kFollowSeenTicks);
 
         // Which camera is in use decides how the mouse turns it.
         if (camera != 0 && id == KBM_CAMERA_FIRST_PERSON) {
-            first_person_look(camera, in->mouse_dx, in->mouse_dy);
+            first_person_look(camera, dx, dy);
             s_look.reset();
             s_looks = Looks::FirstPerson;
         } else if (camera != 0 && follow) {
             s_looks = Looks::Follow;
-            s_follow_dx = in->mouse_dx;
-            s_follow_dy = in->mouse_dy;
+            s_follow_dx = dx;
+            s_follow_dy = dy;
             s_look.reset();
         } else {
             const bool first_person = ((v.held | pad_buttons) & kbm::kL1) != 0;
-            s_look.step(in->mouse_dx, in->mouse_dy, first_person, s_set.look);
+            s_look.step(dx, dy, first_person, s_set.look);
             v.right_x = s_look.x;
             v.right_y = s_look.y;
         }
 
         // The player turns the camera sideways: the swing behind Ratchet stops.
-        if (s_reset_ticks > 0 && in->mouse_dx != 0.0f) {
+        if (s_reset_ticks > 0 && dx != 0.0f) {
             s_reset_ticks = 0;
         }
     } else if (!play) {
@@ -1209,6 +1220,7 @@ bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
         return false;
     }
 
+    kbm::add_pending_gyro(s_gyro_on, s_set, dx, dy);
     const bool first_person = s_looks == Looks::FirstPerson;
     const std::int32_t locks = first_person ? 0 : s_follow_locks;
     const kbm::OrbitLocks lock{(locks & kFollowLockTurn) != 0, (locks & kFollowLockTilt) != 0};
@@ -1233,6 +1245,7 @@ void read_settings(openrac::Mod& mod) {
 // Puts everything the keys and the mouse hold back to rest, as at the first tick.
 void reset_state() {
     s_pad = kbm::Virtual{};
+    s_gyro_on = false;
     s_keys = kbm::KeyStick{};
     s_look.reset();
     s_ring.reset();
@@ -1320,7 +1333,7 @@ void query(openrac_mod_info* info) {
     info->api_major = OPENRAC_MOD_API_MAJOR;
     info->api_minor = OPENRAC_MOD_API_MINOR;
     info->id = "keyboard-mouse";
-    info->version = "2.1.0";
+    info->version = "2.2.0";
 }
 
 int load(const openrac_api* api, openrac_mod* mod) {

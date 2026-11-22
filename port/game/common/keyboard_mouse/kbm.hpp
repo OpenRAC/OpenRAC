@@ -463,6 +463,17 @@ struct DirectLook {
     }
 };
 
+// A gyro's turn (platform/gyro.h: yaw > 0 left, pitch > 0 up, radians) as the mouse motion that
+// turns the camera as far at the mouse's sensitivity and invert: so the gyro takes every path the
+// mouse does, its own sensitivity already in the turn.
+inline void gyro_pixels(float yaw, float pitch, const LookTuning& t, float& dx, float& dy) {
+    const float sens = std::max(t.sensitivity, 0.01f);
+    const float sens_y = std::max(t.sensitivity_y, 0.01f);
+    dx = -yaw / (sens * kRadiansPerPixel);
+    const float down = -pitch / (sens_y * kRadiansPerPixel);
+    dy = t.invert_y ? -down : down;
+}
+
 // The follow camera's tilt. The game keeps the eye at an elevation above Ratchet that its right
 // stick sets: the stick's y (past a dead zone of 0.3, then scaled back to 0..1) is a target w in
 // -1..1, eased, and the eye is turned toward an elevation whose atan(sin) is w times 40 degrees

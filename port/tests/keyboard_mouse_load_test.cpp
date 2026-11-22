@@ -32,6 +32,7 @@
 #include "key_prompts_fonts.h"
 #include "keyboard_mouse.h"
 #include "openrac/openrac_mod.h"
+#include "platform/gyro.h"
 
 #define CHECK(c)                                                                                   \
     do {                                                                                           \
@@ -69,6 +70,31 @@ void set_prompt_keys(const std::string* names, int count) {
     for (int i = 0; names != nullptr && i < count && i < 10; ++i) {
         g_prompt_keys[static_cast<std::size_t>(i)] = names[i];
     }
+}
+
+// The rest of the frontend's side (frontend/active_input.h): the gyro and the device options, kept
+// here for the checks.
+float g_gyro_yaw = 0.0f;
+float g_gyro_pitch = 0.0f;
+bool g_gyro_available = false;
+openrac::platform::GyroOptions g_gyro_options;
+
+void set_prompt_device(int) {}
+
+void set_mouse_with_gamepad(bool) {}
+
+void set_gyro_options(const openrac::platform::GyroOptions& options) {
+    g_gyro_options = options;
+}
+
+bool gyro_turn(float& yaw, float& pitch) {
+    yaw = g_gyro_available ? g_gyro_yaw : 0.0f;
+    pitch = g_gyro_available ? g_gyro_pitch : 0.0f;
+    return g_gyro_available;
+}
+
+void pending_gyro(float& yaw, float& pitch) {
+    yaw = pitch = 0.0f;
 }
 }  // namespace openrac::frontend
 

@@ -106,6 +106,7 @@ float s_follow_dy = 0.0f;
 std::uint32_t s_follow_tick = kNoTick;
 constexpr std::uint32_t kFollowSeenTicks = 2;
 bool s_follows = false;   // the mouse turns the follow camera itself now
+bool s_gyro_on = false;   // the gyro aimed at the last tick: the frames between follow it too
 bool s_pad_look = false;  // the pad's right stick has the camera
 kbm::OrbitTilt s_tilt;
 kbm::OrbitLocks s_follow_locks;  // what the game locked at the camera's last turn
@@ -392,7 +393,7 @@ bool menu_mouse(const Tick& t, bool click) {
 }
 
 // The tick's pad from the keyboard and mouse.
-void step(const openrac_input* in, bool pad_look) {
+void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     Tick t;
     t.in = in;
     const char* hints[OPENRAC_TOUCH_HINTS_MAX] = {};
@@ -491,21 +492,30 @@ void step(const openrac_input* in, bool pad_look) {
     s_ring_open = ring;
     kbm::left_stick(t, held, ring, s_set, s_ring, s_keys, v);
 
+    // The gyro aims (core.hpp): "only while aiming" is a strafe, L2 or R2 held.
+    const bool aiming = ((v.held | pad_buttons) & (kbm::kL2 | kbm::kR2)) != 0;
+    const kbm::GyroLook gyro = ring ? kbm::GyroLook{} : kbm::gyro_look(t, s_set, aiming);
+    s_gyro_on = gyro.on;
+    // The mouse counts with the cursor captured in play; the gyro wherever it aims.
+    const bool looks = (t.play || gyro.on) && !ring && !pad_look;
+    const float dx = (t.play ? in->mouse_dx : 0.0f) + gyro.dx;
+    const float dy = (t.play ? in->mouse_dy : 0.0f) + gyro.dy;
+
     // In play with the cursor captured the mouse turns the follow camera itself (follow_mouse),
     // and is the right stick for any other camera; the pad's own stick wins.
     const bool follow = s_follow_tick != kNoTick && s_tick - s_follow_tick <= kFollowSeenTicks;
     s_pad_look = pad_look;
-    s_follows = t.play && !ring && !pad_look && follow;
+    s_follows = looks && follow;
     if (s_follows) {
-        s_follow_dx += in->mouse_dx;
-        s_follow_dy += in->mouse_dy;
+        s_follow_dx += dx;
+        s_follow_dy += dy;
         s_look.reset();
     } else {
         s_follow_dx = 0.0f;
         s_follow_dy = 0.0f;
-        s_tilt.held = s_tilt.held && t.play && !pad_look;
-        if (t.play && !ring && !pad_look) {
-            s_look.step(in->mouse_dx, in->mouse_dy, false, s_set.look);
+        s_tilt.held = s_tilt.held && (t.play || gyro.on) && !pad_look;
+        if (looks) {
+            s_look.step(dx, dy, false, s_set.look);
             v.right_x = s_look.x;
             v.right_y = s_look.y;
         } else if (!play) {
@@ -588,6 +598,7 @@ bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
     if (s_mod == nullptr || !s_follows || s_pad_look) {
         return false;
     }
+    kbm::add_pending_gyro(s_gyro_on, s_set, dx, dy);
     const float limit = s_follow_range > 0.0f ? kbm::follow_max_elevation(s_follow_range) : 0.0f;
     kbm::direct_turn(dx, dy, s_set.look, s_follow_up, s_follow_locks, limit, false, out);
     return true;
@@ -596,7 +607,7 @@ bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
 void on_pad(int port, std::uint8_t* report, int size) {
     kbm::on_pad(
         *s_mod, port, report, size, s_tick, s_pad, [](const openrac_input* in, kbm::PadState pad) {
-            step(in, pad.look);
+            step(in, pad.buttons, pad.look);
         }
     );
 }
@@ -650,6 +661,7 @@ void load(openrac::Mod& mod) {
     s_follow_dy = 0.0f;
     s_follow_tick = kNoTick;
     s_follows = false;
+    s_gyro_on = false;
     s_tilt = {};
 
     mod.take_input(OPENRAC_INPUT_KEYBOARD | OPENRAC_INPUT_MOUSE);
@@ -670,7 +682,7 @@ void query(openrac_mod_info* info) {
     info->api_major = OPENRAC_MOD_API_MAJOR;
     info->api_minor = OPENRAC_MOD_API_MINOR;
     info->id = "keyboard-mouse";
-    info->version = "2.1.0";
+    info->version = "2.2.0";
 }
 
 int load(const openrac_api* api, openrac_mod* mod) {
