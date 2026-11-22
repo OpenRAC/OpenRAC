@@ -17,6 +17,8 @@
 // turned on by that motion, sideways and up or down, and the picture follows the mouse at the
 // display's rate. This is on whatever responsive_controls says: the mouse's turn reaches the game
 // at the same tick either way, only the picture shows it sooner.
+// The mouse's own motion is never eased: at a new tick only what the game turned besides it fades
+// (LatchFade::frame_known), so a quick flick shows at once, as the plain interpolated camera did.
 //
 // When a tick comes the game's real camera takes over from the guess. A guess that was right goes
 // on without a step; whatever it missed by (a wall the camera met, a stick that moved between the
@@ -67,6 +69,7 @@ struct Latch {
     std::chrono::steady_clock::time_point shown{};
     bool has_shown = false;
     std::optional<std::uint8_t> scripted;  // latch_scripted_stick's
+    float mouse_kept = 0.0f;               // the last frame's kept camera heading
     // OPENRAC_CAMERA_LATCH_LOG: the turn the last tick's frames guessed for one tick, to compare.
     float guessed_tick = 0.0f;
     bool has_guess = false;
@@ -198,17 +201,26 @@ CameraTurn latch_camera(
     if (g_mouse_turn != nullptr && g && g->window) {
         g->input.pending_mouse(pending_x, pending_y);
     }
-    const bool mouse_on = interpolating() && g_mouse_turn != nullptr && g && g->window
-                          && g_mouse_turn(pending_x, pending_y, &mouse)
-                          && std::abs(mouse.up[2]) > 0.9f && (mouse.first_person || latch.has_hero);
+    // Asked every frame, so that the ticks' turn it reports is only theirs since the last frame.
+    const bool mouse_turns =
+        g_mouse_turn != nullptr && g && g->window && g_mouse_turn(pending_x, pending_y, &mouse);
+    const float kept_heading = heading(scene.state.forward);
+    const float last_kept = latch.mouse_kept;
+    latch.mouse_kept = kept_heading;
+    const bool mouse_on = interpolating() && mouse_turns && std::abs(mouse.up[2]) > 0.9f
+                          && (mouse.first_person || latch.has_hero);
     if (mouse_on) {
         const float up = mouse.up[2] > 0.0f ? 1.0f : -1.0f;
-        const float yaw = angle_between(heading(scene.state.forward), base) + up * mouse.yaw;
+        const float yaw = angle_between(kept_heading, base) + up * mouse.yaw;
         const double since =
             latch.has_shown
                 ? std::max(std::chrono::duration<double>(display - latch.shown).count(), 0.0)
                 : 0.0;
-        latch.fade.frame(base + yaw, true, new_tick, 0.0f, since, true);
+        // Where the picture is by the mouse alone: the last frame's kept camera, turned by what
+        // the ticks since read from the mouse and by what is still unread. Only the rest (the game
+        // turning the camera itself) fades; the mouse's motion shows at once.
+        const float expected = last_kept + up * (mouse.tick_yaw + mouse.yaw);
+        latch.fade.frame_known(base + yaw, expected, since);
         latch.shown = display;
         latch.has_shown = true;
         latch.coast = kCoastTicks + 1;  // the stick's coasting does not follow on

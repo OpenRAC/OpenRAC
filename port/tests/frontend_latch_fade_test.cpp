@@ -177,9 +177,60 @@ void test_off_shows_the_target() {
     }
 }
 
+// The mouse turning the camera itself (frame_known): a quick flick, at 60 frames a second (one a
+// tick) and at 144, read by the ticks as the frames go. The picture is the kept tick's camera
+// turned on by the motion not read yet, and it must show every bit of the motion at once: no
+// easing. `game_step`: the game also turns the camera by itself at one tick, which fades.
+std::vector<float> mouse_run(double frame, float game_step, std::vector<float>* targets) {
+    LatchFade fade;
+    std::vector<float> shown;
+    long last_tick = -1;
+    float kept = 0.0f;       // the kept tick's camera heading
+    float pending = 0.0f;    // the motion's turn the ticks have not read
+    float last_kept = 0.0f;  // the kept heading the last frame showed
+    for (int i = 0; i * frame < 0.5; ++i) {
+        const double t = i * frame + 1e-9;
+        // A flick: still, then fast for 60 ms, then still.
+        pending += t > 0.1 && t < 0.16 ? 0.02f : 0.0f;
+        const long tick = static_cast<long>(std::floor(t / kTick));
+        float tick_yaw = 0.0f;
+        if (tick != last_tick && last_tick >= 0) {
+            tick_yaw = pending;
+            kept += pending + (tick == 15 ? game_step : 0.0f);
+            pending = 0.0f;
+        }
+        last_tick = tick;
+        const float target = kept + pending;
+        targets->push_back(target);
+        shown.push_back(fade.frame_known(target, last_kept + tick_yaw + pending, frame));
+        last_kept = kept;
+    }
+    return shown;
+}
+
+void test_the_mouse_is_not_eased() {
+    for (const double frame : {kTick, 1.0 / 144.0}) {
+        std::vector<float> targets;
+        const std::vector<float> shown = mouse_run(frame, 0.0f, &targets);
+        for (std::size_t i = 0; i < shown.size(); ++i) {
+            CHECK(std::abs(shown[i] - targets[i]) < 1e-5f);
+        }
+    }
+}
+
+void test_the_game_turning_under_the_mouse_fades() {
+    std::vector<float> targets;
+    const std::vector<float> shown = mouse_run(kTick, 0.05f, &targets);
+    const std::size_t at = 15;
+    CHECK(std::abs(shown[at] - (targets[at] - 0.05f)) < 1e-5f);   // the game's step held back
+    CHECK(std::abs(shown[at + 10] - targets[at + 10]) < 0.005f);  // then faded in
+}
+
 }  // namespace
 
 int main() {
+    test_the_mouse_is_not_eased();
+    test_the_game_turning_under_the_mouse_fades();
     test_one_frame_a_tick_follows_the_camera();
     test_more_frames_than_ticks_follow_the_camera();
     test_ticks_without_a_frame_follow_the_camera();
