@@ -57,6 +57,7 @@
   "split_places": "tables/split_places.tsv",
   "folded_wrappers": "tables/variant_callees.tsv",
   "params_from_declarations": [
+    "func_L01_00443B88",
     "func_L01_00451290"
   ],
   "call_copies": "tables/call_copies.tsv",

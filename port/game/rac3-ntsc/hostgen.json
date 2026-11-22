@@ -224,6 +224,7 @@
   "split_places": "tables/split_places.tsv",
   "folded_wrappers": "tables/variant_callees.tsv",
   "params_from_declarations": [
+    "func_L01_00440A88",
     "func_L01_0044E010"
   ],
   "call_copies_same_shape": true,
