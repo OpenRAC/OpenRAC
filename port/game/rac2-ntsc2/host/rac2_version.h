@@ -134,6 +134,8 @@
 #define RAC2_LADDR_00_0x001B8E20u 0x001B8DA0u /* the release's build */
 #define RAC2_LADDR_00_0x001BF140u 0x001BF0C0u /* the release's build */
 #define RAC2_LADDR_00_0x001FACE0u 0x001FAC60u /* the release's build */
+#define RAC2_LADDR_00_0x0023B710u 0x0023B690u /* the release's build */
+#define RAC2_LADDR_00_0x00255BA0u 0x00255B20u /* the release's build */
 #define RAC2_LADDR_00_0x00262570u 0x002624F0u /* the release's build */
 /* Constants of the game's code (RAC2_K): the same instruction's in this release. */
 #define RAC2_K_CAMERA_CURSOR 0x2D8 /* v1.01 0x2A8; func_0033C738 as func_0033D780: 4 instructions */
