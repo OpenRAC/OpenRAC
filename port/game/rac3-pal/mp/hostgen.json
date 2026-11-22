@@ -93,12 +93,17 @@
       "func_0027EAC8": "unsigned long long (int, int, int, int, int)",
       "func_L39_00589FF8": "unsigned long long (int, int, int, int, int)",
       "func_L39_0058BD90": "int (int, int, int, int, unsigned int, long long, int, float, float, float, float)",
-      "func_L39_00592AC8": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)"
+      "func_L39_00592AC8": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
+      "func_0027E360": "long long (int)",
+      "func_L39_00589890": "long long (int)",
+      "func_00287A18": "unsigned long long (int)",
+      "func_L39_005A4ED8": "unsigned long long (int)"
     },
     "vu0_programs": {
       "0xC80": "rac3_vu0_rotation_rows",
       "0xDA0": "rac3_vu0_cosine",
-      "0xDB0": "rac3_vu0_sine"
+      "0xDB0": "rac3_vu0_sine",
+      "0xE98": "rac3_vu0_quaternion_rows"
     }
   },
   "unpassed_registers": true,

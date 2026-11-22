@@ -168,7 +168,7 @@
 #define RAC3_MADDR_0x00244428u 0x00244628u
 /* the same instruction of the same code: func 0x00284D30 (NTSC-U 0x00284D70) +0x20, 2 of 2 places agree */
 #define RAC3_MADDR_0x0024442Cu 0x0024462Cu
-/* the same instruction of the same code: func 0x0027EDA8 (NTSC-U 0x0027EDE8) +0x80, 73 of 73 places agree */
+/* the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 110 of 110 places agree */
 #define RAC3_MADDR_0x002446A8u 0x002448A8u
 /* the start of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200) */
 #define RAC3_MADDR_0x0027B100u 0x0027B200u
