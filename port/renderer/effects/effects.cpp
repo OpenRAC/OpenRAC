@@ -192,6 +192,7 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     (void)state;
     m_quad_shader.release();
     m_test_shader.release();
+    m_untextured_shader.release();
     m_depth_shader.release();
     if (m_part == EffectPart::Opaque
         && !m_depth_shader.build(
@@ -290,6 +291,31 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
         }
     }
 
+    // The untextured quads (particle lines): the same fragment, with `textured` a uniform that
+    // use_shader sets to 0. Without it they are not drawn (no line is then a textured one).
+    {
+        std::string untextured(shaders::direct_frag);
+        untextured
+            .insert(untextured.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");
+        std::string untextured_vertex(shaders::effect_vert);
+        if (m_material) {
+            const auto extension = m_material->vertex_source();
+            if (!extension.empty()) {
+                untextured_vertex.insert(untextured_vertex.find("void main()"), extension);
+                untextured_vertex.insert(
+                    untextured_vertex.find('\n') + 1, "#define OPENRAC_EFFECT_POSITION 1\n"
+                );
+            }
+            untextured.insert(untextured.find("void main()"), m_material->fragment_source());
+            untextured.insert(untextured.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
+        }
+        if (!m_untextured_shader.build("effect untextured", untextured_vertex, untextured, error)) {
+            log::warn("Effect lines are not drawn: {}", error);
+            m_untextured_shader.release();
+            error.clear();
+        }
+    }
+
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
     bind_vertex_stream(m_vao, 0);
@@ -381,7 +407,7 @@ void EffectRenderer::use_shader(Shader& shader, const Mat4& view_projection, con
     glUniformMatrix4fv(m_view, 1, GL_FALSE, view.data());
     glUniform1i(m_fog_enable, 0);
     glUniform1i(m_alpha_test, 0);
-    glUniform1i(m_textured, 1);
+    glUniform1i(m_textured, &shader == &m_untextured_shader ? 0 : 1);
     m_applied = AppliedState{};
 }
 
@@ -776,6 +802,7 @@ void EffectRenderer::release() {
     m_shader.release();
     m_depth_shader.release();
     m_quad_shader.release();
+    m_untextured_shader.release();
     m_active_shader = nullptr;
     if (m_quad_indices) {
         glDeleteVertexArrays(1, &m_quad_vao);

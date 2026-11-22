@@ -29,6 +29,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `stack_pop` | 1.0 | stable | yes | yes | yes |
 | `data_dir` | 1.11 | stable | yes | yes | yes |
 | `plugins_folder` | 1.14 | stable | yes | yes | yes |
+| `game_data_dir` | 1.33 | experimental | yes | yes | yes |
 
 ## settings
 
@@ -163,6 +164,10 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `weapon_look` | 1.29 | stable | no | yes | no |
 | `weapon_record` | 1.29 | stable | no | yes | no |
 | `weapon_ignore_culling` | 1.30 | experimental | no | yes | no |
+| `rac1_reserve_item_ids` | 1.33 | experimental | yes | no | no |
+| `rac1_ammo_panel_offset` | 1.33 | experimental | yes | yes | yes |
+| `rac1_weapon_register` | 1.33 | experimental | yes | yes | yes |
+| `rac1_weapon_grant` | 1.33 | experimental | yes | yes | yes |
 
 ## figures
 
@@ -224,6 +229,13 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `sprite_tint` | 1.22 | stable | yes | yes | yes |
 | `pickup_animation` | 1.22 | stable | yes | yes | yes |
 | `moby_material` | 1.23 | stable | yes | yes | yes |
+| `prop_set_skin` | 1.33 | experimental | yes | yes | yes |
+| `model_create` | 1.33 | experimental | yes | yes | yes |
+| `moby_model_slot` | 1.33 | experimental | yes | yes | yes |
+| `moby_model_class` | 1.33 | experimental | yes | yes | yes |
+| `moby_model_at` | 1.33 | experimental | yes | part | part |
+| `particle_spawn_ex` | 1.33 | experimental | yes | part | part |
+| `particle_texture_register` | 1.33 | experimental | yes | part | part |
 
 ## camera
 
@@ -236,6 +248,8 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `camera_script_play` | 1.14 | stable | yes | no | no |
 | `camera_script_view` | 1.14 | stable | yes | no | no |
 | `camera_script_show` | 1.14 | stable | yes | no | no |
+| `camera_shake` | 1.33 | experimental | yes | no | no |
+| `camera_visibility_bypass` | 1.33 | experimental | yes | yes | yes |
 
 ## sound
 

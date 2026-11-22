@@ -428,4 +428,34 @@ int api_weapon_ignore_culling(openrac_mod* mod, std::int32_t item, std::int32_t 
     return OPENRAC_OK;
 }
 
+int api_rac1_ammo_panel_offset(openrac_mod* mod, int handle, int x, int y) {
+    if (mod == nullptr || g_play == nullptr || handle < 0 || x < -512 || x > 512 || y < -512
+        || y > 512) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const auto loads = loads_now();
+    std::erase_if(g_ammo_panel_offsets, [loads](const auto& entry) {
+        return entry.second.loads != loads;
+    });
+    const auto found = g_ammo_panel_offsets.find(handle);
+    if (found != g_ammo_panel_offsets.end() && found->second.mod != mod) {
+        return OPENRAC_HOOK_REFUSED;
+    }
+    if (x == 0 && y == 0) {
+        if (found != g_ammo_panel_offsets.end()) {
+            g_ammo_panel_offsets.erase(found);
+        }
+        return OPENRAC_HOOK_OK;
+    }
+    std::int32_t level = -1;
+    if (phase_now(&level) != OPENRAC_PLAY_PLAYING || level < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (found == g_ammo_panel_offsets.end() && g_ammo_panel_offsets.size() >= 13) {
+        return OPENRAC_HOOK_FULL;
+    }
+    g_ammo_panel_offsets.insert_or_assign(handle, AmmoPanelOffset{mod, loads, x, y});
+    return OPENRAC_HOOK_OK;
+}
+
 }  // namespace openrac::mods::detail

@@ -81,6 +81,128 @@ void test_picture_transfers(unsigned framebuffer) {
     picture.release();
 }
 
+using Pixel = std::array<std::uint8_t, 4>;
+
+bool is(const Pixel& p, int r, int g, int b) {
+    return near(p[0], r) && near(p[1], g) && near(p[2], b);
+}
+
+// The frame cleared to (r, g, b, a), 0 to 255.
+void clear_to_bytes(unsigned framebuffer, int r, int g, int b, int a) {
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glViewport(0, 0, kWidth, kHeight);
+    glClearColor(
+        static_cast<float>(r) / 255.0f,
+        static_cast<float>(g) / 255.0f,
+        static_cast<float>(b) / 255.0f,
+        static_cast<float>(a) / 255.0f
+    );
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+// Alpha, add and subtract over a frame that is not black, for rectangles and text: the
+// subtraction is the frame's colour minus the colour times its alpha (not the colour minus the
+// frame's: that is what a swapped pair of factors would give, and a colour above the frame's would
+// then show), nothing goes below 0 or above 255, and the frame's alpha is whatever it was.
+void blends(renderer::ui::OverlayDraw& draw, unsigned frame) {
+    using renderer::ui::OverlayList;
+    constexpr std::uint32_t kAlpha = 0;
+    constexpr std::uint32_t kAdd = 1;
+    constexpr std::uint32_t kSubtract = 2;
+    OverlayList list;
+
+    const auto draw_over = [&](int r, int g, int b, int a) {
+        clear_to_bytes(frame, r, g, b, a);
+        draw.draw(frame, kWidth, kHeight, list.vertices(), list.batches());
+    };
+
+    // Subtract the game's way, cyan at half alpha from a mid colour: red untouched, green and blue
+    // lose half of 255.
+    list.begin(1.0f);
+    CHECK(list.set_blend(kSubtract));
+    list.rect(100, 100, 40, 40, 0x00FFFF80u);
+    draw_over(100, 150, 200, 255);
+    Pixel p = pixel(frame, 120, 120);
+    CHECK(is(p, 100, 150 - 128, 200 - 128));
+    CHECK(p[3] == 255);
+    CHECK(is(pixel(frame, 99, 120), 100, 150, 200));  // outside: as it was
+    CHECK(is(pixel(frame, 141, 120), 100, 150, 200));
+
+    // The direction: a colour above the frame's leaves 0, not "colour minus frame" (170 here).
+    list.begin(1.0f);
+    CHECK(list.set_blend(kSubtract));
+    list.rect(100, 100, 40, 40, 0xC8C8C8FFu);
+    draw_over(30, 30, 30, 255);
+    CHECK(is(pixel(frame, 120, 120), 0, 0, 0));
+    // A colour below it takes it down by that much, at full alpha; at no alpha, nothing.
+    list.begin(1.0f);
+    CHECK(list.set_blend(kSubtract));
+    list.rect(100, 100, 40, 40, 0x0A141EFFu);
+    list.rect(200, 100, 40, 40, 0xFFFFFF00u);
+    draw_over(100, 100, 100, 255);
+    CHECK(is(pixel(frame, 120, 120), 90, 80, 70));
+    CHECK(is(pixel(frame, 220, 120), 100, 100, 100));
+
+    // Add: the frame's colour plus the colour times alpha, held at 255.
+    list.begin(1.0f);
+    CHECK(list.set_blend(kAdd));
+    list.rect(100, 100, 40, 40, 0x32641480u);
+    list.rect(200, 100, 40, 40, 0xFFFFFFFFu);
+    draw_over(100, 150, 200, 255);
+    p = pixel(frame, 120, 120);
+    CHECK(is(p, 100 + 25, 150 + 50, 200 + 10));
+    CHECK(p[3] == 255);
+    CHECK(is(pixel(frame, 220, 120), 255, 255, 255));
+
+    // Alpha (the default) is what it was: colour over the frame by its alpha.
+    list.begin(1.0f);
+    list.rect(100, 100, 40, 40, 0xFFFFFF80u);
+    draw_over(0, 0, 0, 255);
+    CHECK(is(pixel(frame, 120, 120), 128, 128, 128));
+
+    // The frame's alpha is kept by all three, also when it is not 1.
+    for (const std::uint32_t blend : {kAlpha, kAdd, kSubtract}) {
+        list.begin(1.0f);
+        CHECK(list.set_blend(blend));
+        list.rect(100, 100, 40, 40, 0x80808080u);
+        draw_over(100, 100, 100, 128);
+        CHECK(near(pixel(frame, 120, 120)[3], 128));
+    }
+
+    // Order and what is set when: the blend of a rectangle is the one set when it was asked, and
+    // goes on until it is set again.
+    list.begin(1.0f);
+    list.rect(100, 100, 100, 40, 0x0000FFFFu);  // alpha: the blue over the frame
+    CHECK(list.set_blend(kSubtract));
+    list.rect(120, 100, 20, 40, 0x00001EFFu);   // blue 30 less
+    list.text(150, 110, 16, 0x00FFFFFFu, "I");  // text subtracts too: a bar of "I"
+    CHECK(list.set_blend(kAlpha));
+    list.rect(180, 100, 20, 40, 0xFFFFFFFFu);  // alpha again, white
+    draw_over(100, 150, 200, 255);
+    CHECK(is(pixel(frame, 105, 120), 0, 0, 255));      // alpha
+    CHECK(is(pixel(frame, 130, 120), 0, 0, 225));      // subtracted from the blue just drawn
+    CHECK(is(pixel(frame, 190, 120), 255, 255, 255));  // alpha again
+    // The text's strokes took all of the blue the frame had there (it is over the blue rectangle),
+    // between them the frame is as it was.
+    bool stroked = false;
+    bool bare = false;
+    for (int y = 110; y < 126; ++y) {
+        for (int x = 150; x < 170; ++x) {
+            const Pixel t = pixel(frame, x, y);
+            stroked = stroked || is(t, 0, 0, 0);
+            bare = bare || is(t, 0, 0, 255);
+        }
+    }
+    CHECK(stroked && bare);
+
+    // Draw after a subtract frame: an alpha rectangle is drawn by alpha, not by what was left.
+    list.begin(1.0f);
+    list.rect(100, 100, 40, 40, 0xFFFFFF80u);
+    draw_over(0, 0, 0, 255);
+    CHECK(is(pixel(frame, 120, 120), 128, 128, 128));
+}
+
 }  // namespace
 
 int main() {
@@ -139,6 +261,10 @@ int main() {
     CHECK(glGetError() == GL_NO_ERROR);
 
     test_picture_transfers(frame.id());
+    CHECK(glGetError() == GL_NO_ERROR);
+
+    blends(draw, frame.id());
+    CHECK(glGetError() == GL_NO_ERROR);
 
     draw.release();
     frame.release();

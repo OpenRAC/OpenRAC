@@ -181,6 +181,7 @@ openrac_add_test(frame_pacing INCLUDES .)
 openrac_add_test(latency_sleep INCLUDES .)
 openrac_add_test(swapchain_images INCLUDES .)
 openrac_add_test(shadow_atlas INCLUDES .)
+openrac_add_test(joint_name INCLUDES .)
 # HDR output's arithmetic and choices (renderer/hdr.h); no GPU.
 openrac_add_test(hdr INCLUDES .)
 openrac_add_test(frame_counter INCLUDES .)

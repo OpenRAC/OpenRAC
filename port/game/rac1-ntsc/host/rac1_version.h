@@ -29,6 +29,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 }
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
+/* The game's particle routines (particles.c, openrac_api.particle_spawn_ex) are checked at PAL's addresses only. */
+#define RAC1_OMIT_particle_spawn_ex 1
 /* Level 0's 0x2EC6B8: the NTSC decomp's catalogue places its func_001E9448 there, which returns 0. */
 #define RAC1_OMIT_func_L00_002EDB68 1
 /* PAL's assign_moby_class_data, whose level vtbl is at another address in each program. */
@@ -214,6 +216,9 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_00222B80 game_FUN_L00_002223f8
 #define func_L00_00217718__game game_FUN_L00_00216f90__game
 #define RAC1_ADDR_L00_0x00166F00u 0x00166E00u
+/* The level camera's shake channels (camera_override.c rac1_camera_shake): gCameraLvl is D_L00_00166C80 here (PAL D_L00_00166D80), its shake at +0x160. Paired by
+ * the code that reads it (93 sites for the camera, the shake word's own reader), both in the US level-0 program. */
+#define RAC1_ADDR_L00_0x00166EE0u 0x00166DE0u
 
 /* The page menu's (front_end.c, mod_ui.cpp), checked by hand in the US data and code: the title's
  * main page (initialize_menu_preview_scene's), the Options page (its back is the main page, its

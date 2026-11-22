@@ -15,6 +15,7 @@
 #include <deque>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -28,6 +29,8 @@
 #include "openrac/script_binding.h"
 
 namespace openrac::mods {
+
+int rac1_weapon_hud_icon(int native_icon);
 
 // One hook point as hostgen's hooks.c lists it (openrac_game_hook_points): the same layout.
 struct HookPoint {
@@ -147,6 +150,11 @@ struct Host {
     // Where each mod's own folder goes (interface 1.11, openrac_api.data_dir): <this>/<mod id>.
     // Empty: none, and data_dir gives null.
     std::filesystem::path mod_data;
+    // The installed games' data folders (interface 1.33, openrac_api.game_data_dir): the running game's
+    // own data folder (`data`), and the folder the installed games sit in (games_root: <games_root>/<game>/data
+    // each, the launcher's <install>/active). Empty games_root: the port cannot say for another game.
+    std::filesystem::path data;
+    std::filesystem::path games_root;
     // The mods' sounds (interface 1.12, openrac_api.sound_*): a file decoded and kept (its id, -1
     // when it cannot be read), a voice of it played (0 for none), changed (0: it has ended; a
     // volume below 0 changes nothing, only asks whether it still plays) and stopped. Null: no
@@ -252,6 +260,12 @@ const char* mod_id(const openrac_mod* mod);
 // holder of a hook point may make (interface 1.12, hero_set_pose).
 bool holds_hook(const openrac_mod* mod, const char* name);
 
+// The installed games (interface 1.33). The data folder of `game` (the running game's own, else
+// games_root/<game>/data); empty when the port has none for it.
+std::filesystem::path game_data_folder(const Host& host, std::string_view game);
+// Whether a data folder is an extracted game's: it holds iso_data or port.
+bool holds_game_data(const std::filesystem::path& data);
+
 // A file inside `mod`'s folder by its path there (relative, with /, no "." or ".." part), when it
 // is a file; empty otherwise (interface 1.12: a prop's mesh, a sound).
 std::filesystem::path mod_file(const openrac_mod* mod, const char* path);
@@ -270,6 +284,9 @@ struct PropDraw {
     // none), its joint, and `matrix` is then the offset in the joint's frame.
     std::uint32_t attached_moby = 0;
     int attached_joint = -1;
+    // Its joint matrices (interface 1.33, openrac_api.prop_set_skin): 16 floats each, column-major,
+    // the mesh's bind-pose vertex to where the joint puts it; null for a prop in its bind pose.
+    std::shared_ptr<const std::vector<std::array<float, 16>>> skin;
 };
 
 // The props shown in the level now (posed, not hidden, of this level load). From any thread.
@@ -278,12 +295,6 @@ std::vector<PropDraw> props_drawn();
 // The renderer drew prop `id`, fixed to a joint, with `matrix` this frame (interface 1.18,
 // prop_frame tells the mod). From any thread.
 void prop_placed(int id, const std::array<float, 16>& matrix);
-
-// Every mesh a prop was made of in this run, in the order first asked for, and a count that grows
-// when one is added: the front end reads them with each level's scenery, and reads the level's
-// again when the count has grown. From any thread.
-std::vector<std::filesystem::path> prop_meshes();
-unsigned prop_meshes_generation();
 
 // Render-only appearances, kept separately from game memory and scoped to one level load.
 std::vector<int> visual_classes();
@@ -326,6 +337,37 @@ MobyMaterial moby_material_drawn(std::uint32_t moby);
 // moby: the last material set on each, where it is energy. For the effects those mobys make
 // (energy_effects.h), read once a tick. From the game's thread.
 std::unordered_map<std::uint32_t, MobyMaterial> energy_materials();
+// The meshes the props of the level load now running were made of, each once, in the order first
+// asked for (empty for a level load none was made in), and a count that grows whenever the list
+// changes. The front end loads the meshes it does not hold into its scene when the count has
+// grown (no new read of the level); a level it reads reads the list's meshes with it. From any
+// thread.
+std::vector<std::filesystem::path> prop_meshes();
+unsigned prop_meshes_generation();
+
+// ---- Moby models (interface 1.33, mod_play.cpp) ----
+
+// A moby a mod draws with a mesh of its own (openrac_api.moby_model_slot): the moby by its address
+// and class (an override is for the moby that was in the slot when it was set), the mesh (a model of
+// the level's scene by its path, as a prop's is), the matrix from the mesh's coordinates to the
+// coordinates of the moby's own model, column-major, and whether the game's joint matrices pose it.
+//
+// A moby override by class (interface 1.33, openrac_api.moby_model_class) is the same with `address`
+// 0 and `scope` the one scope (OPENRAC_MODEL_WORLD or _MENU) it is for; a slot's, and an address's
+// (interface 1.33, moby_model_at: a moby the level's list may not hold), has `scope` 0.
+struct MobyModelDraw {
+    std::uint32_t address = 0;
+    int oclass = -1;
+    std::uint32_t scope = 0;
+    std::filesystem::path mesh;
+    std::array<float, 16> matrix{};
+    // Suppress this moby, including its native model, for this frame.
+    bool hidden = false;
+};
+
+// The mobys the mods draw with a mesh of their own in the level now (this level load's). From any
+// thread.
+std::vector<MobyModelDraw> moby_models_drawn();
 
 // The looks mods gave weapons' shots (openrac_api.weapon_look, interface 1.29) on the particle
 // records the game made for them (their mobys, blasts and guns), by record address (each look's
@@ -377,6 +419,13 @@ bool is_mod_code_link(std::string_view url);
 std::uint32_t overlay_phase();
 bool overlay_wanted(std::uint32_t phase);
 void run_overlays(const openrac_overlay& overlay);
+
+// The OPENRAC_OVERLAY_* bit of a frame of the game's phase `phase` (OPENRAC_PLAY_*); 0 for a phase
+// nothing is drawn over. openrac_overlay.phase holds this bit, not the game's phase.
+std::uint32_t overlay_bit(int phase);
+// The mod whose overlay callback is running (null outside one), so that what it draws is its own
+// (its blend is its own). On the window thread.
+const openrac_mod* overlay_mod();
 
 // Runs entry `index`'s page for a frame: its callback with `frame`, its drawing sent to the host's
 // menu_rect and menu_text. True when the page closes (the mod said so, or there is no such entry).

@@ -213,12 +213,54 @@ struct Prop {
     // Where the renderer drew it on that joint last (prop_frame), once it has.
     std::array<float, 16> placed{};
     bool was_placed = false;
+    // The joint matrices prop_set_skin gave it (interface 1.33), none for a prop drawn in its bind
+    // pose. Never changed once set, only replaced: the front end holds it while it draws.
+    std::shared_ptr<const std::vector<std::array<float, 16>>> skin;
 };
 
 // A sound a mod loaded: whose, and the host's id of it.
 struct Sound {
     const openrac_mod* mod = nullptr;
     int host = -1;
+};
+
+// Ammo panel queue handles are unique within a level load. The game draws and
+// mods register offsets on the same thread.
+struct AmmoPanelOffset {
+    const openrac_mod* mod;
+    std::uint32_t loads;
+    int x;
+    int y;
+};
+
+// A model a mod made (model_create): whose, its mesh and the level load it was made in. The mesh is
+// one of the level's prop meshes (g_prop_meshes), so the front end holds it in its scene as a
+// prop's, and goes with the same level load.
+struct Model {
+    const openrac_mod* mod = nullptr;
+    std::filesystem::path mesh;
+    std::uint32_t loads = 0;
+};
+
+// What a mod drew a moby with: whose, the moby it was set on (its address and class when it was
+// set), the model's mesh as the model was when it was set, and how it is placed and posed.
+struct SlotModel {
+    const openrac_mod* mod = nullptr;
+    gaddr address = 0;
+    int oclass = -1;
+    std::uint32_t loads = 0;
+    std::filesystem::path mesh;
+    std::array<float, 16> matrix{};
+    bool hidden = false;
+};
+
+// What a mod drew the mobys of a class with in one scope (interface 1.33): whose, the mesh, how it is
+// placed and posed, and the level load.
+struct ClassModel {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    std::filesystem::path mesh;
+    std::array<float, 16> matrix{};
 };
 
 struct VisualSet {
@@ -296,6 +338,28 @@ extern std::vector<SettingsCallback> g_settings_callbacks;
 extern std::vector<SaveDataCallback> g_save_data_callbacks;
 extern std::map<std::string, std::vector<std::uint8_t>, std::less<>> g_save_data;
 extern const openrac_game_play* g_play;
+
+// The class of each moby the game lists, by array slot: -1 for a slot it does not list. Read from
+// the game's list, which the mods ask for every tick. Game thread, outside g_props_lock.
+struct MobyClasses {
+    std::vector<openrac_game_moby_state> states;
+
+    MobyClasses() : states(kSlots) {
+        if (g_play != nullptr && g_play->mobys != nullptr) {
+            const int n = g_play->mobys(states.data(), static_cast<int>(states.size()));
+            states.resize(static_cast<std::size_t>(std::clamp(n, 0, static_cast<int>(kSlots))));
+        } else {
+            states.clear();
+        }
+    }
+
+    int of(int slot) const {
+        const auto s = std::find_if(states.begin(), states.end(), [&](const auto& m) {
+            return m.slot == slot;
+        });
+        return s != states.end() ? s->oclass : -1;
+    }
+};
 extern std::filesystem::path g_cards;
 extern std::array<Figure, OPENRAC_FIGURES_MAX> g_figures;
 extern Request g_request;
@@ -317,6 +381,14 @@ extern std::mutex g_props_lock;
 extern std::array<Prop, OPENRAC_PROPS_MAX> g_props;
 extern std::vector<std::filesystem::path> g_prop_meshes;
 extern unsigned g_prop_generation;
+extern std::uint32_t g_prop_meshes_loads;
+extern std::array<Model, OPENRAC_MODELS_MAX> g_models;
+extern std::map<int, SlotModel> g_slot_models;
+extern std::map<std::pair<int, std::uint32_t>, ClassModel> g_class_models;
+extern std::map<gaddr, SlotModel> g_address_models;
+extern std::mutex g_camera_visibility_lock;
+extern std::map<const openrac_mod*, std::uint32_t> g_camera_visibility;
+extern std::map<int, AmmoPanelOffset> g_ammo_panel_offsets;
 extern std::vector<VisualSet> g_visuals;
 extern std::vector<int> g_visual_classes;
 extern unsigned g_visual_generation;
@@ -359,6 +431,22 @@ int api_developer_menu(
     std::uint32_t count
 );
 std::uint32_t api_take_developer_menu_action(openrac_mod* mod);
+void note_prop_mesh(std::uint32_t loads, const std::filesystem::path& mesh);
+int api_prop_set_skin(
+    openrac_mod* mod, int id, const float* joint_matrices, std::uint32_t joint_count
+);
+int api_model_create(openrac_mod* mod, const char* mesh_path);
+int api_moby_model_slot(openrac_mod* mod, int slot, const openrac_moby_model* m);
+int api_moby_model_class(
+    openrac_mod* mod, int oclass, std::uint32_t scope, const openrac_moby_model* m
+);
+int api_moby_model_at(openrac_mod* mod, std::uint32_t address, const openrac_moby_model* m);
+int api_particle_spawn_ex(openrac_mod* mod, const openrac_particle_spawn* spawn);
+int api_particle_texture_register(openrac_mod* mod, const openrac_particle_texture* texture);
+int api_camera_visibility_bypass(openrac_mod* mod, int enabled);
+int api_rac1_ammo_panel_offset(openrac_mod* mod, int handle, int x, int y);
+int api_camera_shake(openrac_mod* mod, int channel, float amplitude, int frames);
+int api_game_data_dir(openrac_mod* mod, const char* game, char* out, std::uint32_t size);
 const char* api_data_dir(openrac_mod* mod);
 int api_developer_menu_set_label(openrac_mod* mod, std::uint32_t action, const char* label);
 DeveloperMenuItem* developer_menu_item(openrac_mod* mod, std::uint32_t action);

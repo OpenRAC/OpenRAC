@@ -53,6 +53,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_CARD_SAVING 0xFC
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
+/* The game's particle routines (particles.c, openrac_api.particle_spawn_ex) are checked at PAL's addresses only. */
+#define RAC1_OMIT_particle_spawn_ex 1
+/* The level camera's shake words (camera_override.c, openrac_api.camera_shake) are checked on PAL and NTSC-U only. */
+#define RAC1_OMIT_level_camera_shake 1
 /* The pause menu mobys' update at 0x0023B578: the decompilation has C for it (func_0023B578) since the
  * remnant in front of it was split off. */
 #define RAC1_OMIT_game_D_0023B578 1
