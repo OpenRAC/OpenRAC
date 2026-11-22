@@ -12,9 +12,8 @@ to the map's (OPENRAC_LDATA(39, ...): the runtime pairs level 39's program with 
 the catalogue's places, hostgen.json "level_copies").
 
 This writes, from the catalogue and the level programs' entries:
-- mp/hostgen.json: the maps as "asm" "retail" "levels" and "discover_levels", each map's two
-  entries as roots (main, 0x001932A0, runs the entry and the one 0x484 past it), and the maps for
-  "level_copies";
+- mp/hostgen.json: the maps as "asm" "retail" "levels" and "discover_levels", each map's entry as
+  a root, and the maps for "level_copies";
 - the rows between the markers in mp/libraries.tsv, one per map and function of CARRIED;
 - host/mp_maps.h, one MP_MAP(map, ...) line per map with each CARRIED function's place there, in
   CARRIED's order (host/mp_maps.c expands it).
@@ -35,7 +34,6 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
 MAPS = range(40, 54)
-SECOND_ENTRY = 0x484  # main (0x001932A0) calls a map's entry and the routine 0x484 past it
 
 # Level 39's function (its place), the library, the row's name (the map's number follows), the
 # port value, what it is, the host C's signature. host/mp_maps.c gives the host C in this order.
@@ -229,7 +227,9 @@ def main() -> int:
     base_roots = [r for r in cfg["roots"] if not r.startswith(tuple(f"func_L{m}_" for m in range(40, 56)))]
     roots = base_roots[:]
     for m in MAPS:
-        roots += [f"func_L{m}_{entries[m]:08X}", f"func_L{m}_{entries[m] + SECOND_ENTRY:08X}"]
+        # The entry alone: the routine 0x484 past it (which main calls too) is a second entry of
+        # the same function, whose jump table's labels lie on both sides of it (as level 39's).
+        roots.append(f"func_L{m}_{entries[m]:08X}")
     cfg["roots"] = roots
     levels = [39, *MAPS]
     cfg["asm"]["discover_levels"] = levels

@@ -175,7 +175,7 @@ with a callback, `0x001948B8`, which the music player keeps at `+0x14`) answers 
 The maps (levels 40 to 53 on PAL: 40 to 49 online and LAN, 50 to 53 their split-screen builds) are
 translated as level 39 is, each from its own program at its own addresses (`func_L40_...`):
 `mp/maps.py` writes them into `mp/hostgen.json` (`retail` `levels`, `discover_levels`, each map's
-entry and the routine 0x484 past it as roots, `level_copies`) and the rows at the end of
+entry as a root, `level_copies`) and the rows at the end of
 `mp/libraries.tsv`, from rac3-decomp's catalogue. Every map carries a copy of the engine level 39
 carries too, so the port stands level 39's host C in for each map's copy (`host/mp_maps.c`, the 2D
 layer in `ui2d.c`, the HUD sprites in `hud.c`, one `MP_MAP*` line a map in `host/mp_maps.h`), its
