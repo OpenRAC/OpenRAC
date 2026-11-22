@@ -1330,6 +1330,9 @@ def new_program(cfg: dict, source: Path) -> Program:
     program.expanded_target_table_addresses = {
         int(str(address), 0) for address in cfg.get("expanded_target_table_addresses", [])
     }
+    program.expanded_ram_top_addresses = {
+        int(str(address), 0) for address in cfg.get("expanded_ram_top_addresses", [])
+    }
     for table in cfg["symbols"]:
         read_symbols(source / table, program)
     return program

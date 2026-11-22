@@ -181,6 +181,7 @@ class Program:
     level_twins: dict[str, tuple[int, list[tuple[int, int]]]] = field(default_factory=dict)
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
     expanded_target_table_addresses: set = field(default_factory=set)  # globals redirected only in expanded RAM
+    expanded_ram_top_addresses: set = field(default_factory=set)  # 32 MiB top marks moved up in expanded RAM
     code_names: list = field(default_factory=lambda: [re.compile(p) for p in DEFAULT_CODE_NAMES])
     data_names: list = field(default_factory=lambda: [re.compile(p) for p in DEFAULT_DATA_NAMES])
 
