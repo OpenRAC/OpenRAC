@@ -95,6 +95,10 @@ struct Release {
     std::uint32_t boot_light_bank;
     std::uint32_t veldin_light_bank;
     std::uint32_t multiplayer_light_bank;
+    // Veldin's class tables (read_live_moby's drawn_class): the slots' class data, then their class
+    // numbers.
+    std::uint32_t veldin_class_data;
+    std::uint32_t veldin_class_numbers;
 };
 
 constexpr int kFrontbinOverlay = 100;
@@ -170,6 +174,8 @@ constexpr Release kPal{
     0x002FF200,
     0x001F1740,
     0x002663C0,
+    0x001FD180,
+    0x001FD9F0,
 };
 // clang-format on
 
@@ -223,8 +229,44 @@ std::array<float, 4> moby_sphere(std::span<const std::uint8_t> ram, std::uint32_
     return sphere;
 }
 
+// The level's class tables, as moby_set_class (Veldin's func_L01_00445F40) uses them: it keeps a
+// moby's class number at +0xAA, the class's slot (0x001FDBD0[class]) at +0x22 and the slot's class
+// data (0x001FD180[slot]) at +0x24, which MobyProc draws. 0x001FD9F0 holds each slot's class number.
+// Addresses of the loaded level's copies; 0 for none.
+struct ClassTables {
+    std::uint32_t data = 0;
+    std::uint32_t numbers = 0;
+};
+
+constexpr std::uint32_t kMobyClassSlot = 0x22;
+constexpr std::uint32_t kMobyClassData = 0x24;
+constexpr std::uint32_t kClassSlots = 0xF0;
+
+// The class a moby is drawn as: the class of the data at +0x24, when that is another class's slot.
+// The game draws a moby as another class by putting that class's slot there and leaving the number
+// alone: Veldin's walkers (class 6306) fight as class 7938, the Tyhrranoid in its walker, whose
+// skeleton +0x24 then gives (with 6306's animations). Drawn as 6306, its mesh posed by 7938's
+// skeleton threw the crest's fins out as long cyan spikes. -1 for its own class.
+int drawn_class(
+    std::span<const std::uint8_t> ram, std::uint32_t m, int class_id, const ClassTables& tables
+) {
+    if (tables.data == 0 || tables.numbers == 0) {
+        return -1;
+    }
+    const std::uint32_t slot = at<std::uint8_t>(ram, m + kMobyClassSlot);
+    const std::uint32_t data = at<std::uint32_t>(ram, m + kMobyClassData);
+    if (slot >= kClassSlots || data == 0
+        || at<std::uint32_t>(ram, tables.data + 4 * slot) != data) {
+        return -1;
+    }
+    const int drawn = at<std::int16_t>(ram, tables.numbers + 2 * slot);
+    return drawn > 0 && drawn != class_id ? drawn : -1;
+}
+
 // Returns a moby's placement from its complete record, none when it has none yet.
-std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, std::uint32_t m) {
+std::optional<host::LiveMoby> read_live_moby(
+    std::span<const std::uint8_t> ram, std::uint32_t m, const ClassTables& tables
+) {
     if (m == 0 || m + 0x100 > ram.size()) {
         return std::nullopt;
     }
@@ -238,6 +280,8 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
     live.class_id = at<std::int16_t>(ram, m + kMobyClass);
     if (live.class_id == 0) {
         live.model_class = hero_class(ram);
+    } else {
+        live.model_class = drawn_class(ram, m, live.class_id, tables);
     }
     live.occlusion = at<std::uint16_t>(ram, m + 0x36);
     live.world_sphere = moby_sphere(ram, m);
@@ -286,10 +330,12 @@ void add_drawn_parts(
     std::vector<host::LiveMoby>& mobys
 ) {
     const auto word = at<std::int16_t>(ram, live.address + kMobyBangles);
-    if (word == 0 || live.class_id <= 0 || live.model_class >= 0) {
+    if (word == 0 || live.class_id <= 0) {
         mobys.push_back(live);
         return;
     }
+    // The bangles of the class it is drawn as (read_live_moby's drawn_class).
+    const int owner = live.model_class > 0 ? live.model_class : live.class_id;
     unsigned mask = static_cast<std::uint16_t>(word) & 0x7FFFu;
     if (word < 0) {
         mask = std::max(mask, 1u);
@@ -299,7 +345,7 @@ void add_drawn_parts(
     for (int bangle = 0; bangle < kBangles; ++bangle) {
         if ((mask & (1u << bangle)) != 0) {
             host::LiveMoby part = live;
-            part.model_class = kBangleClasses + live.class_id * 16 + bangle;
+            part.model_class = kBangleClasses + owner * 16 + bangle;
             part.model_only = true;
             mobys.push_back(part);
         }
@@ -310,7 +356,9 @@ float colour_byte(std::span<const std::uint8_t> ram, std::uint32_t address) {
     return static_cast<float>(at<std::uint32_t>(ram, address) & 0xFF) / 255.0f;
 }
 
-host::GameState read_game_state(std::span<const std::uint8_t> ram, const Addresses& a) {
+host::GameState read_game_state(
+    std::span<const std::uint8_t> ram, const Addresses& a, const ClassTables& tables
+) {
     host::GameState s;
     s.camera_position = vec3(ram, a.camera_rows - kEyeBeforeRows);
     s.forward = vec3(ram, a.camera_rows);
@@ -375,7 +423,7 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const Address
         if (at<std::uint8_t>(ram, m + 0x20) >= 0x80) {
             continue;
         }
-        if (const auto live = read_live_moby(ram, m)) {
+        if (const auto live = read_live_moby(ram, m, tables)) {
             add_drawn_parts(ram, *live, s.mobys);
         }
     }
@@ -403,20 +451,20 @@ public:
     explicit constexpr Profile(const Release& release) : release_(release) {}
 
     host::GameState read_state(std::span<const std::uint8_t> ram, int level) const override {
-        return read_game_state(ram, addresses(level));
+        return read_game_state(ram, addresses(level), class_tables());
     }
 
     std::optional<host::LiveMoby> read_moby(
         std::span<const std::uint8_t> ram, std::uint32_t moby
     ) const override {
-        return read_live_moby(ram, moby);
+        return read_live_moby(ram, moby, class_tables());
     }
 
     // With its bangles (add_drawn_parts).
     void add_moby(
         std::span<const std::uint8_t> ram, std::uint32_t moby, std::vector<host::LiveMoby>& mobys
     ) const override {
-        if (const auto live = read_live_moby(ram, moby)) {
+        if (const auto live = read_live_moby(ram, moby, class_tables())) {
             add_drawn_parts(ram, *live, mobys);
         }
     }
@@ -528,6 +576,19 @@ public:
             return openrac_relocate_level_data(1, release_.veldin_light_bank);
         }
         return release_.boot_light_bank;  // the boot program and frontbin
+    }
+
+    // The loaded level's class tables (read_live_moby): Veldin's, relocated as shadow_directions.
+    // The class numbers sit at the same distance past the slots' data in every level's copy. The
+    // multiplayer maps keep theirs elsewhere (level 40's 0x0026DD80): not read, their mobys are
+    // drawn by their numbers.
+    ClassTables class_tables() const {
+        const int program = openrac_guest_overlay();
+        if (program < 1 || program >= kFirstMultiplayer) {
+            return {};
+        }
+        const std::uint32_t data = openrac_relocate_level_data(1, release_.veldin_class_data);
+        return {data, data + (release_.veldin_class_numbers - release_.veldin_class_data)};
     }
 
     // MobyProc lights each moby by the bank's point lights in reach as a third light, and the
@@ -670,6 +731,8 @@ constexpr Release kUs{
     0x002FF280,
     0x001F17C0,
     0x002664C0,
+    0x001FD200,
+    0x001FDA70,
 };
 // clang-format on
 
