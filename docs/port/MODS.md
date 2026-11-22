@@ -812,6 +812,27 @@ accent's ink tinted: port/renderer/ui/menu_icons.cpp). For a list of achievement
 OpenRAC's menu, drawn as the port's own rows (the C++ layer's `menu_look()`, `menu_look_clear()`,
 `has_menu_look()`).
 
+1.29 (SDK 1.29.0) the hero's weapons and their shots (Going Commando, every disc):
+`on_weapon_fire` tells a mod each shot the hero's weapon fires, after the tick that made it, with
+its weapon, moby, gun, target and a serial; a weapon with no shot moby of its own is told the ticks
+it spends rounds. From that call `weapon_refire(serial, yaw, pitch)` fires the shot again through
+the game's own spawn for its class, turned, at no ammo; the copy is the game's shot and is never
+told to `on_weapon_fire`. `on_shot_end` tells each such shot's end (an impact, its time out, gone,
+the level left) and where. `moby_spawn_live` makes a shot of one of the nine classes the port knows
+(the Minirocket Tube's and RYNO II's rockets, a seeker, a hoverbomb, a bomb, a gravity bomb, a
+bomblet, a decoy, a miniturret) through the same spawns, so the game runs it; one of the rockets
+can go off where it is made. `weapon_look(item, material, rgb)` draws a weapon's shots, what their
+updates make (their blasts, debris and particles, detached ones too) and the gun's muzzle effects
+with a moby material. `moby_status` freezes a moby (its update and animation left out but for one
+update for each new hit, so it is hurt and dies) or slows it to a half or a third, and
+`weapon_record(item)` gives a weapon's record in the level's weapon table (its shots' speed and rate,
+its damage). The spawns are wrapped and the moby loop is the game's written as host C
+(port/game/rac2/host/weapon_shots.c), which also calls the mods' gate (`on_moby_update`) on Going
+Commando now; `moby_hit` there posts through the game's QueueMobyImpact. A shot fired again or made
+live counts against 128 a tick and needs 32 spare moby slots (`moby_pool_raise`). The C++ layer's
+`has_weapon_shots()`, `on_weapon_fire()`, `weapon_refire()`, `on_shot_end()`, `moby_spawn_live()`,
+`weapon_look()`, `moby_status()`, `weapon_record()`.
+
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
 does. The port keeps every hook point it has had, with its

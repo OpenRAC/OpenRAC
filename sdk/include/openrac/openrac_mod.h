@@ -83,11 +83,15 @@ extern "C" {
  * (moby_copy_check, moby_copy), and 1.26 copies that wake and fight with
  * their squad (the table is unchanged: a 1.25 port's copies of a squad's
  * enemies never wake, so a mod asks for 1.26 before it makes them), 1.27
- * more room for spawned mobys (moby_pool_raise, moby_pool_status), and 1.28
+ * more room for spawned mobys (moby_pool_raise, moby_pool_status), 1.28
  * rows of a mod's tab in OpenRAC's menu to read, locked, with a value, a
- * progress bar or an icon (developer_menu_look).
+ * progress bar or an icon (developer_menu_look), and 1.29 the hero's weapons
+ * and their shots: a shot fired, fired again and ended, a shot the game runs
+ * made from a mod, a weapon's look, a moby frozen or slowed and a weapon's
+ * record (on_weapon_fire, weapon_refire, on_shot_end, moby_spawn_live,
+ * weapon_look, moby_status, weapon_record).
  */
-#define OPENRAC_MOD_API_MINOR 28
+#define OPENRAC_MOD_API_MINOR 29
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -892,6 +896,111 @@ typedef struct openrac_hit {
 /* Told a hit the game posted (openrac_api.on_moby_hit); returns 1 to take it back (the victim
  * never reads it), 0 to leave it. Since 1.9. */
 typedef int (*openrac_hit_fn)(void* user, const openrac_hit* hit);
+
+/* ---- Weapons and their shots (Going Commando; since 1.29) ---- */
+
+/* openrac_weapon_shot.flags and openrac_shot_end.flags: a shot weapon_refire
+ * made (never told to on_weapon_fire), one moby_spawn_live made, and a weapon
+ * with no shot moby of its own (the Blitz Gun's pellets, the Lancer, the Lava
+ * Gun: its rounds were spent, slot is -1). Since 1.29. */
+#define OPENRAC_WEAPON_SHOT_REFIRED 0x1u
+#define OPENRAC_WEAPON_SHOT_LIVE 0x2u
+#define OPENRAC_WEAPON_SHOT_ROUNDS 0x4u
+
+/* A shot the hero's weapon fired (openrac_api.on_weapon_fire): the weapon (the
+ * game's item id), the shot moby's slot and class, the gun that fired it and
+ * the moby it homes on (slots, -1 for none), the shot's number for
+ * weapon_refire (0 for none), where it starts, its direction (a unit vector)
+ * and speed (units a tick, 0 where the shot keeps none of its own). Since 1.29.
+ */
+typedef struct openrac_weapon_shot {
+  /* sizeof(openrac_weapon_shot), set by whoever fills it. */
+  uint32_t size;
+  int32_t item;
+  int32_t slot;
+  int32_t oclass;
+  int32_t owner;
+  int32_t target;
+  uint32_t serial;
+  uint32_t flags;
+  float position[3];
+  float direction[3];
+  float speed;
+} openrac_weapon_shot;
+
+/* Told a shot the hero's weapon fired (openrac_api.on_weapon_fire), once each,
+ * after the game's tick that made it and before the mods' tick callbacks.
+ * Since 1.29. */
+typedef void (*openrac_weapon_fire_fn)(void *user,
+                                       const openrac_weapon_shot *shot);
+
+/* openrac_shot_end.reason: gone without a sign of why, ended before its time
+ * ran out (a hit, a wall, a blast), its time ran out, or its level was left.
+ * Since 1.29. */
+#define OPENRAC_SHOT_END_GONE 0
+#define OPENRAC_SHOT_END_IMPACT 1
+#define OPENRAC_SHOT_END_EXPIRED 2
+#define OPENRAC_SHOT_END_LEVEL 3
+
+/* A shot of the hero's weapon (one on_weapon_fire told, or weapon_refire and
+ * moby_spawn_live made) that ended (openrac_api.on_shot_end): as
+ * openrac_weapon_shot (the slot is the dead moby's, already free for the game's
+ * next), why (OPENRAC_SHOT_END_*) and where it was last. Since 1.29. */
+typedef struct openrac_shot_end {
+  /* sizeof(openrac_shot_end), set by whoever fills it. */
+  uint32_t size;
+  int32_t item;
+  int32_t slot;
+  int32_t oclass;
+  int32_t owner;
+  int32_t target;
+  uint32_t serial;
+  uint32_t flags;
+  int32_t reason;
+  float position[3];
+} openrac_shot_end;
+
+/* Told a shot that ended (openrac_api.on_shot_end), once each, after the game's
+ * tick it ended in and before the mods' tick callbacks. Since 1.29. */
+typedef void (*openrac_shot_end_fn)(void *user, const openrac_shot_end *end);
+
+/* openrac_spawn_live.flags: the shot goes off where it is made, on its first
+ * update (a blast of the class's own, where the class has one). Since 1.29. */
+#define OPENRAC_SPAWN_LIVE_DETONATE 0x1u
+
+/* A shot made by the game's own spawn for its class
+ * (openrac_api.moby_spawn_live): the class, the weapon it counts for (its look,
+ * weapon_look; -1 the hero's in hand), the gun that fires it and the moby it
+ * homes on (slots; owner -1: the gun in the hero's hand, target -1: none),
+ * where, and its velocity (units a tick; its direction where the class keeps no
+ * speed). Since 1.29. */
+typedef struct openrac_spawn_live {
+  /* sizeof(openrac_spawn_live), set by the mod. */
+  uint32_t size;
+  int32_t oclass;
+  int32_t item;
+  int32_t owner;
+  int32_t target;
+  uint32_t flags;
+  float position[3];
+  float velocity[3];
+} openrac_spawn_live;
+
+/* moby_status: none (ends one), frozen (no update and no animation; the update
+ * still runs once for each hit posted to it, so it is hurt and dies), slowed to
+ * half and to a third (its update and animation every second or third tick).
+ * Since 1.29. */
+#define OPENRAC_MOBY_STATUS_NONE 0u
+#define OPENRAC_MOBY_STATUS_FREEZE 1u
+#define OPENRAC_MOBY_STATUS_SLOW_HALF 2u
+#define OPENRAC_MOBY_STATUS_SLOW_THIRD 3u
+
+/* The most mobys with a status at once, all mods together. Since 1.29. */
+#define OPENRAC_MOBY_STATUS_MAX 256
+
+/* The most shots weapon_refire and moby_spawn_live make in one tick, all mods
+ * together. Since 1.29. */
+#define OPENRAC_SHOTS_PER_TICK_MAX 128
 
 /* The most eyes (openrac_api.play_eyes). Since 1.9. */
 #define OPENRAC_EYES_MAX 8
@@ -2464,6 +2573,74 @@ typedef struct openrac_api {
         uint32_t action,
         const openrac_developer_menu_look* look
     );
+
+    /* The hero's weapons and their shots (since 1.29; Going Commando's, a game
+     * without them answers OPENRAC_HOOK_UNKNOWN). on_weapon_fire: calls
+     * `fn(user, shot)` for each shot the hero's weapon fires, after the game's
+     * tick that made it and before the mods' tick callbacks, every mod that
+     * asked in load order. A weapon whose shot is a moby (the Minirocket Tube,
+     * RYNO II, Seeker Gun, Hoverbomb Gun, Bomb Glove, Gravity Bomb, Bouncer,
+     * Decoy Glove, Miniturret Glove) is told each shot, with its slot and
+     * serial; any other weapon the hero holds is told once a tick it spends
+     * rounds (OPENRAC_WEAPON_SHOT_ROUNDS, slot -1, no serial). Only during
+     * openrac_mod_load. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TOO_LATE, or
+     * OPENRAC_HOOK_UNKNOWN. */
+    int (*on_weapon_fire)(openrac_mod *mod, openrac_weapon_fire_fn fn,
+                          void *user);
+    /* weapon_refire: from within the mod's on_weapon_fire callback for the shot
+     * `serial`, fires that shot again through the game's own spawn for its
+     * class, `yaw` radians turned about the up axis and `pitch` radians up from
+     * it, at no ammo: the copy is the game's shot, run, aimed, hitting and
+     * exploding as the first does. The copy is told to no mod's on_weapon_fire
+     * (no recursion), and on_shot_end tells its end with
+     * OPENRAC_WEAPON_SHOT_REFIRED. At most OPENRAC_SHOTS_PER_TICK_MAX a tick
+     * with moby_spawn_live, and none while the level's pool keeps fewer than 32
+     * spare slots. Returns the copy's slot, or OPENRAC_HOOK_UNKNOWN (outside
+     * the callback, another serial, a shot with none, the cap, the pool, the
+     * game's spawn made none). */
+    int (*weapon_refire)(openrac_mod *mod, uint32_t serial, float yaw,
+                         float pitch);
+    /* on_shot_end: calls `fn(user, end)` for each shot of the hero's weapons
+     * that ended (those on_weapon_fire told, weapon_refire and moby_spawn_live
+     * made), after the game's tick it ended in, every mod that asked in load
+     * order. Only during openrac_mod_load. */
+    int (*on_shot_end)(openrac_mod *mod, openrac_shot_end_fn fn, void *user);
+    /* moby_spawn_live: makes a shot of class spawn->oclass with the game's own
+     * spawn for the class, so the game runs it (it flies, homes, hits and
+     * explodes by its own update): 1498 the Minirocket Tube's homing rocket,
+     * 3799 the RYNO II's rocket, 3329 the Seeker Gun's seeker, 1496 the
+     * hoverbomb, 121 the Bomb Glove's bomb (a mini bomb), 3300 the gravity
+     * bomb, 3684 the Bouncer's bomblet, 203 a decoy, 4966 a miniturret.
+     * on_shot_end tells its end (OPENRAC_WEAPON_SHOT_LIVE). Counts toward
+     * OPENRAC_SHOTS_PER_TICK_MAX. Returns its slot, or OPENRAC_HOOK_UNKNOWN
+     * (another class, outside a level, the cap, the pool, the spawn made none).
+     * From the mod's tick callbacks, on_weapon_fire or on_shot_end. */
+    int (*moby_spawn_live)(openrac_mod *mod, const openrac_spawn_live *spawn);
+    /* weapon_look: draws every shot of weapon `item` from now on (the ones
+     * fired, refired and spawned live), what its update makes (its blast,
+     * debris and sparks, detached ones too) and the gun's own muzzle effects as
+     * moby_material draws one moby: `material` (OPENRAC_MOBY_MATERIAL_*;
+     * energy, with its level, recolours the effects) in `rgb`, until the mod
+     * sets OPENRAC_MOBY_MATERIAL_NONE for the item or is unloaded. Render-only.
+     * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN (an item outside 0 to
+     * 63, a material or rgb moby_material refuses). */
+    int (*weapon_look)(openrac_mod *mod, int32_t item, uint32_t material,
+                       uint32_t rgb);
+    /* moby_status: puts the moby in `slot` under `status`
+     * (OPENRAC_MOBY_STATUS_*) for `ticks` game ticks (NONE ends it at once); a
+     * later call replaces it. Writes no game memory: the moby loop leaves its
+     * update and animation out. Not for the hero. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN (no moby there, the hero, an unknown status,
+     * OPENRAC_MOBY_STATUS_MAX). */
+    int (*moby_status)(openrac_mod *mod, int32_t slot, uint32_t status,
+                       int32_t ticks);
+    /* weapon_record: the game address of weapon `item`'s record in the level's
+     * weapon table (0xE0 bytes; Going Commando: +0x50 the shots' speed in units
+     * a second, +0x54 the shots a second, +0x70 the damage, +0x8E the ammo it
+     * holds), or 0 (outside a level, no such weapon). The table is the level
+     * program's: a load writes it again, so a mod that changes it does so at
+     * each level load (rac2.level.load). */
+    openrac_gaddr (*weapon_record)(openrac_mod *mod, int32_t item);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

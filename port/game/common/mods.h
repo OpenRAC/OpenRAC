@@ -15,6 +15,7 @@
 #include <deque>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -325,6 +326,11 @@ MobyMaterial moby_material_drawn(std::uint32_t moby);
 // moby: the last material set on each, where it is energy. For the effects those mobys make
 // (energy_effects.h), read once a tick. From the game's thread.
 std::unordered_map<std::uint32_t, MobyMaterial> energy_materials();
+
+// The looks mods gave weapons' shots (openrac_api.weapon_look, interface 1.29) on the particle
+// records the game made for them (their mobys, blasts and guns), by record address (each look's
+// moby is the record's address), read once a tick. From the game's thread.
+std::unordered_map<std::uint32_t, MobyMaterial> particle_looks();
 
 // ---- Heat haze (interface 1.12, mod_play.cpp) ----
 

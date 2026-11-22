@@ -28,7 +28,7 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | Name | Value | |
 |---|---|---|
 | `OPENRAC_MOD_API_MAJOR` | `1` | The interface's major version. Changes when anything in the table changes or goes. |
-| `OPENRAC_MOD_API_MINOR` | `28` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a folder of the mod's own for its files and the memory card slot the game in progress saves into, 1.12 the hero moved by a mod (his update a hook point, his pose set), the collision triangles around a place, props (meshes of the mod's drawn in the level), sounds of the mod's own, the camera set by a mod, heat haze drawn over the picture and text in the game's HUD, 1.13 touch pad action buttons: button sets, icons, a mod's own context and hints, 1.14 the mods a party has to agree on: each loaded mod and its settings listed, and rules a mod publishes for the host's game that the same mod takes in the members' games, and what a shared game needs of the port: a party's own save slot, progress shared between players' games, a hero placed, held and revived, shots with more to say, the level's mobys with their mission, a picture drawn over the game, camera scripts and metal detector digs seen, the data packs applied, the clipboard and a link, and which world a game's disc belongs to, 1.15 a mod's own settings changed from the game (written into the launcher's list of mods) and told when the launcher changes them while the game runs, 1.16 a mod's own data kept with the game's saves, 1.17 the game's own collision query asked by a mod (collision_line), 1.18 a prop fixed to a moby's joint (prop_attach), 1.19 switches and choices in a mod's developer menu, which the menu turns over at once, the game paused or not (developer_menu_switch), 1.20 explicit native Vulkan access through the manifest's "vulkan_queue" field, 1.21 a hook point called as the game calls it, the mods' replacements included (hook_entry), 1.22 render-only reward models, guest text, sprite tint and pickup presentations, 1.23 a render-only material for one moby (moby_material: a tint, or platinum), 1.24 obsidian, a third material for moby_material, 1.25 energy, a fourth, which recolours the effects a moby draws, and copies of a level's placed enemies (moby_copy_check, moby_copy), and 1.26 copies that wake and fight with their squad (the table is unchanged: a 1.25 port's copies of a squad's enemies never wake, so a mod asks for 1.26 before it makes them), 1.27 more room for spawned mobys (moby_pool_raise, moby_pool_status), and 1.28 rows of a mod's tab in OpenRAC's menu to read, locked, with a value, a progress bar or an icon (developer_menu_look). |
+| `OPENRAC_MOD_API_MINOR` | `29` | The interface's minor version, which this header describes. It grows when something is added at the end of the table. 1.1 added script mods (the table is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of the game and a Vulkan device made with the mod (a VR headset, docs/views.md), 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world: the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's update with the hero standing in for another player, hits watched and posted, eyes that keep mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a folder of the mod's own for its files and the memory card slot the game in progress saves into, 1.12 the hero moved by a mod (his update a hook point, his pose set), the collision triangles around a place, props (meshes of the mod's drawn in the level), sounds of the mod's own, the camera set by a mod, heat haze drawn over the picture and text in the game's HUD, 1.13 touch pad action buttons: button sets, icons, a mod's own context and hints, 1.14 the mods a party has to agree on: each loaded mod and its settings listed, and rules a mod publishes for the host's game that the same mod takes in the members' games, and what a shared game needs of the port: a party's own save slot, progress shared between players' games, a hero placed, held and revived, shots with more to say, the level's mobys with their mission, a picture drawn over the game, camera scripts and metal detector digs seen, the data packs applied, the clipboard and a link, and which world a game's disc belongs to, 1.15 a mod's own settings changed from the game (written into the launcher's list of mods) and told when the launcher changes them while the game runs, 1.16 a mod's own data kept with the game's saves, 1.17 the game's own collision query asked by a mod (collision_line), 1.18 a prop fixed to a moby's joint (prop_attach), 1.19 switches and choices in a mod's developer menu, which the menu turns over at once, the game paused or not (developer_menu_switch), 1.20 explicit native Vulkan access through the manifest's "vulkan_queue" field, 1.21 a hook point called as the game calls it, the mods' replacements included (hook_entry), 1.22 render-only reward models, guest text, sprite tint and pickup presentations, 1.23 a render-only material for one moby (moby_material: a tint, or platinum), 1.24 obsidian, a third material for moby_material, 1.25 energy, a fourth, which recolours the effects a moby draws, and copies of a level's placed enemies (moby_copy_check, moby_copy), and 1.26 copies that wake and fight with their squad (the table is unchanged: a 1.25 port's copies of a squad's enemies never wake, so a mod asks for 1.26 before it makes them), 1.27 more room for spawned mobys (moby_pool_raise, moby_pool_status), 1.28 rows of a mod's tab in OpenRAC's menu to read, locked, with a value, a progress bar or an icon (developer_menu_look), and 1.29 the hero's weapons and their shots: a shot fired, fired again and ended, a shot the game runs made from a mod, a weapon's look, a moby frozen or slowed and a weapon's record (on_weapon_fire, weapon_refire, on_shot_end, moby_spawn_live, weapon_look, moby_status, weapon_record). |
 | `OPENRAC_LINE_LEVEL` | `0x1u` | What collision_line tests (openrac_api.collision_line): the level's walls and ground, the mobys (their collision meshes, and creatures' shapes on their joints), or both. Since 1.17. |
 | `OPENRAC_LINE_MOBYS` | `0x2u` |  |
 | `OPENRAC_ATTACH_HELD` | `0x1u` | prop_attach's flags: `joint` is one of the hero's attach points (openrac_held_piece.joint), not a joint of his skeleton. Since 1.18. |
@@ -153,6 +153,20 @@ checks api->api_minor before it uses anything newer than the minor it was built 
 | `OPENRAC_RUN_MENU_FREEZE` | `5` | A freeze dialog: the world run with the camera up (no swap). |
 | `OPENRAC_MOBY_BEFORE` | `0` | The gate's moments (openrac_moby_update_fn). Since 1.9. |
 | `OPENRAC_MOBY_AFTER` | `1` |  |
+| `OPENRAC_WEAPON_SHOT_REFIRED` | `0x1u` | openrac_weapon_shot.flags and openrac_shot_end.flags: a shot weapon_refire made (never told to on_weapon_fire), one moby_spawn_live made, and a weapon with no shot moby of its own (the Blitz Gun's pellets, the Lancer, the Lava Gun: its rounds were spent, slot is -1). Since 1.29. |
+| `OPENRAC_WEAPON_SHOT_LIVE` | `0x2u` |  |
+| `OPENRAC_WEAPON_SHOT_ROUNDS` | `0x4u` |  |
+| `OPENRAC_SHOT_END_GONE` | `0` | openrac_shot_end.reason: gone without a sign of why, ended before its time ran out (a hit, a wall, a blast), its time ran out, or its level was left. Since 1.29. |
+| `OPENRAC_SHOT_END_IMPACT` | `1` |  |
+| `OPENRAC_SHOT_END_EXPIRED` | `2` |  |
+| `OPENRAC_SHOT_END_LEVEL` | `3` |  |
+| `OPENRAC_SPAWN_LIVE_DETONATE` | `0x1u` | openrac_spawn_live.flags: the shot goes off where it is made, on its first update (a blast of the class's own, where the class has one). Since 1.29. |
+| `OPENRAC_MOBY_STATUS_NONE` | `0u` | moby_status: none (ends one), frozen (no update and no animation; the update still runs once for each hit posted to it, so it is hurt and dies), slowed to half and to a third (its update and animation every second or third tick). Since 1.29. |
+| `OPENRAC_MOBY_STATUS_FREEZE` | `1u` |  |
+| `OPENRAC_MOBY_STATUS_SLOW_HALF` | `2u` |  |
+| `OPENRAC_MOBY_STATUS_SLOW_THIRD` | `3u` |  |
+| `OPENRAC_MOBY_STATUS_MAX` | `256` | The most mobys with a status at once, all mods together. Since 1.29. |
+| `OPENRAC_SHOTS_PER_TICK_MAX` | `128` | The most shots weapon_refire and moby_spawn_live make in one tick, all mods together. Since 1.29. |
 | `OPENRAC_EYES_MAX` | `8` | The most eyes (openrac_api.play_eyes). Since 1.9. |
 | `OPENRAC_FIGURES_MAX` | `8` | The most figures the mods together have at once (openrac_api.figure_create). Since 1.8. |
 | `OPENRAC_HELD_MAX` | `8` | The pieces the hero wears and holds (openrac_api.hero_held, figure_held): the item in his hand (Ratchet & Clank: the wrench, or the weapon or gadget equipped), and the others the game draws on him (boots, helmet, the pack or Clank on his back). Since 1.9. |
@@ -279,6 +293,21 @@ typedef int (*openrac_hit_fn)(void* user, const openrac_hit* hit);
 
 Told a hit the game posted (openrac_api.on_moby_hit); returns 1 to take it back (the victim
 never reads it), 0 to leave it. Since 1.9.
+
+```c
+typedef void (*openrac_weapon_fire_fn)(void *user, const openrac_weapon_shot *shot);
+```
+
+Told a shot the hero's weapon fired (openrac_api.on_weapon_fire), once each,
+after the game's tick that made it and before the mods' tick callbacks.
+Since 1.29.
+
+```c
+typedef void (*openrac_shot_end_fn)(void *user, const openrac_shot_end *end);
+```
+
+Told a shot that ended (openrac_api.on_shot_end), once each, after the game's
+tick it ended in and before the mods' tick callbacks. Since 1.29.
 
 ```c
 typedef void (*openrac_frame_fn)(void* user);
@@ -656,6 +685,68 @@ the game's weapon or attack `mask`, `damage`, at `position` moving at `velocity`
 | `int32_t attacker` |  |
 | `uint32_t mask` |  |
 | `float damage` |  |
+| `float position[3]` |  |
+| `float velocity[3]` |  |
+
+## `openrac_weapon_shot`
+
+A shot the hero's weapon fired (openrac_api.on_weapon_fire): the weapon (the
+game's item id), the shot moby's slot and class, the gun that fired it and
+the moby it homes on (slots, -1 for none), the shot's number for
+weapon_refire (0 for none), where it starts, its direction (a unit vector)
+and speed (units a tick, 0 where the shot keeps none of its own). Since 1.29.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_weapon_shot), set by whoever fills it. |
+| `int32_t item` |  |
+| `int32_t slot` |  |
+| `int32_t oclass` |  |
+| `int32_t owner` |  |
+| `int32_t target` |  |
+| `uint32_t serial` |  |
+| `uint32_t flags` |  |
+| `float position[3]` |  |
+| `float direction[3]` |  |
+| `float speed` |  |
+
+## `openrac_shot_end`
+
+A shot of the hero's weapon (one on_weapon_fire told, or weapon_refire and
+moby_spawn_live made) that ended (openrac_api.on_shot_end): as
+openrac_weapon_shot (the slot is the dead moby's, already free for the game's
+next), why (OPENRAC_SHOT_END_*) and where it was last. Since 1.29.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_shot_end), set by whoever fills it. |
+| `int32_t item` |  |
+| `int32_t slot` |  |
+| `int32_t oclass` |  |
+| `int32_t owner` |  |
+| `int32_t target` |  |
+| `uint32_t serial` |  |
+| `uint32_t flags` |  |
+| `int32_t reason` |  |
+| `float position[3]` |  |
+
+## `openrac_spawn_live`
+
+A shot made by the game's own spawn for its class
+(openrac_api.moby_spawn_live): the class, the weapon it counts for (its look,
+weapon_look; -1 the hero's in hand), the gun that fires it and the moby it
+homes on (slots; owner -1: the gun in the hero's hand, target -1: none),
+where, and its velocity (units a tick; its direction where the class keeps no
+speed). Since 1.29.
+
+| Member | |
+|---|---|
+| `uint32_t size` | sizeof(openrac_spawn_live), set by the mod. |
+| `int32_t oclass` |  |
+| `int32_t item` |  |
+| `int32_t owner` |  |
+| `int32_t target` |  |
+| `uint32_t flags` |  |
 | `float position[3]` |  |
 | `float velocity[3]` |  |
 
@@ -1160,3 +1251,10 @@ Neither the moby's class, animation, collision nor update state is modified. Sin
 | `int (*moby_pool_raise)(openrac_mod* mod, int extra)` | The pool of spawned mobys (since 1.27; Going Commando's, a game without the call answers OPENRAC_HOOK_UNKNOWN). The game makes every spawned moby (a bolt, a shot, an effect, a copy) from a pool of spare slots its level's file sets, and a spawn with none free is lost, a bolt with it. A level has 200 to 400 and Barlow's enemy copies alone take 79. moby_pool_raise: asks for `extra` more spare slots in every level loaded from now on (each takes 0x180 bytes of the level's heap; the largest request of any mod counts, at most OPENRAC_MOBY_POOL_EXTRA_MAX). Ask in the mod's load, before the first level loads; a level already loaded keeps its pool. Returns the slots granted (the request cut to the most), or OPENRAC_HOOK_UNKNOWN. |
 | `int (*moby_pool_status)(openrac_mod* mod, openrac_moby_pool* out)` | moby_pool_status: fills `out` (out->size set by the mod) with the level's pool as it is now. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or for a game without a pool. |
 | `int (*developer_menu_look)( openrac_mod* mod, uint32_t action, const openrac_developer_menu_look* look )` | Sets how the mod's tab row `action` looks besides its label (openrac_developer_menu_look: a row to read, a locked one, a value at its right, a progress bar, an icon), or with `look` null as a plain row again. Called again, it replaces the look. From openrac_mod_load, after developer_menu, or the mod's tick-boundary callback, as developer_menu_switch. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN for an action the mod has not registered, a look whose size is too small or a progress that is not a number, or OPENRAC_HOOK_TOO_LATE at another time. Since 1.28. |
+| `int (*on_weapon_fire)(openrac_mod *mod, openrac_weapon_fire_fn fn, void *user)` | The hero's weapons and their shots (since 1.29; Going Commando's, a game without them answers OPENRAC_HOOK_UNKNOWN). on_weapon_fire: calls `fn(user, shot)` for each shot the hero's weapon fires, after the game's tick that made it and before the mods' tick callbacks, every mod that asked in load order. A weapon whose shot is a moby (the Minirocket Tube, RYNO II, Seeker Gun, Hoverbomb Gun, Bomb Glove, Gravity Bomb, Bouncer, Decoy Glove, Miniturret Glove) is told each shot, with its slot and serial; any other weapon the hero holds is told once a tick it spends rounds (OPENRAC_WEAPON_SHOT_ROUNDS, slot -1, no serial). Only during openrac_mod_load. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TOO_LATE, or OPENRAC_HOOK_UNKNOWN. |
+| `int (*weapon_refire)(openrac_mod *mod, uint32_t serial, float yaw, float pitch)` | weapon_refire: from within the mod's on_weapon_fire callback for the shot `serial`, fires that shot again through the game's own spawn for its class, `yaw` radians turned about the up axis and `pitch` radians up from it, at no ammo: the copy is the game's shot, run, aimed, hitting and exploding as the first does. The copy is told to no mod's on_weapon_fire (no recursion), and on_shot_end tells its end with OPENRAC_WEAPON_SHOT_REFIRED. At most OPENRAC_SHOTS_PER_TICK_MAX a tick with moby_spawn_live, and none while the level's pool keeps fewer than 32 spare slots. Returns the copy's slot, or OPENRAC_HOOK_UNKNOWN (outside the callback, another serial, a shot with none, the cap, the pool, the game's spawn made none). |
+| `int (*on_shot_end)(openrac_mod *mod, openrac_shot_end_fn fn, void *user)` | on_shot_end: calls `fn(user, end)` for each shot of the hero's weapons that ended (those on_weapon_fire told, weapon_refire and moby_spawn_live made), after the game's tick it ended in, every mod that asked in load order. Only during openrac_mod_load. |
+| `int (*moby_spawn_live)(openrac_mod *mod, const openrac_spawn_live *spawn)` | moby_spawn_live: makes a shot of class spawn->oclass with the game's own spawn for the class, so the game runs it (it flies, homes, hits and explodes by its own update): 1498 the Minirocket Tube's homing rocket, 3799 the RYNO II's rocket, 3329 the Seeker Gun's seeker, 1496 the hoverbomb, 121 the Bomb Glove's bomb (a mini bomb), 3300 the gravity bomb, 3684 the Bouncer's bomblet, 203 a decoy, 4966 a miniturret. on_shot_end tells its end (OPENRAC_WEAPON_SHOT_LIVE). Counts toward OPENRAC_SHOTS_PER_TICK_MAX. Returns its slot, or OPENRAC_HOOK_UNKNOWN (another class, outside a level, the cap, the pool, the spawn made none). From the mod's tick callbacks, on_weapon_fire or on_shot_end. |
+| `int (*weapon_look)(openrac_mod *mod, int32_t item, uint32_t material, uint32_t rgb)` | weapon_look: draws every shot of weapon `item` from now on (the ones fired, refired and spawned live), what its update makes (its blast, debris and sparks, detached ones too) and the gun's own muzzle effects as moby_material draws one moby: `material` (OPENRAC_MOBY_MATERIAL_*; energy, with its level, recolours the effects) in `rgb`, until the mod sets OPENRAC_MOBY_MATERIAL_NONE for the item or is unloaded. Render-only. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN (an item outside 0 to 63, a material or rgb moby_material refuses). |
+| `int (*moby_status)(openrac_mod *mod, int32_t slot, uint32_t status, int32_t ticks)` | moby_status: puts the moby in `slot` under `status` (OPENRAC_MOBY_STATUS_*) for `ticks` game ticks (NONE ends it at once); a later call replaces it. Writes no game memory: the moby loop leaves its update and animation out. Not for the hero. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN (no moby there, the hero, an unknown status, OPENRAC_MOBY_STATUS_MAX). |
+| `openrac_gaddr (*weapon_record)(openrac_mod *mod, int32_t item)` | weapon_record: the game address of weapon `item`'s record in the level's weapon table (0xE0 bytes; Going Commando: +0x50 the shots' speed in units a second, +0x54 the shots a second, +0x70 the damage, +0x8E the ammo it holds), or 0 (outside a level, no such weapon). The table is the level program's: a load writes it again, so a mod that changes it does so at each level load (rac2.level.load). |
