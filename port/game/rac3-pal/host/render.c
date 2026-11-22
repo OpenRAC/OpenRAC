@@ -271,7 +271,7 @@ int func_L01_00441B78(int a0, int a1, int a2, int a3) {
  * of the list lost its place in that stale data, and every other pass the planet's name after it
  * was dropped (the name flickered). It returns the job list's end (the caller keeps it at
  * 0x001DA498): no job queued, as it came. */
-gaddr func_003CB798(int a0, gaddr a1, int a2, int a3) {
+unsigned int func_003CB798(int a0, unsigned int a1, int a2, int a3) {
     (void)a3;
     mark_drawn_mobys(&kBoot, (gaddr)a0, a2);
     return a1;
@@ -279,7 +279,7 @@ gaddr func_003CB798(int a0, gaddr a1, int a2, int a3) {
 
 /* The same routine as 0x003C3C18 calls it (the catalogue's place of its own): the whole table. */
 int func_003CB798_003C3C18(int a0, int a1, int a2, int a3) {
-    return (int)func_003CB798(a0, (gaddr)a1, a2, a3);
+    return (int)func_003CB798(a0, (unsigned int)a1, a2, a3);
 }
 
 int func_L39_005B25C8(int a0, int a1, int a2, int a3) {
