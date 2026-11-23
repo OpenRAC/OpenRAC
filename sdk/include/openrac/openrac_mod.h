@@ -120,10 +120,10 @@ extern "C" {
  * paints in a texture of the 2D layer, kept apart from the built-in key
  * prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell), 1.37 the
  * pads' motors driven by a mod as the game's libvib drives them, each motor the
- * stronger of the game's and the mods' (set_motors), and 1.38 menu_option_set:
- * a mod greys out an option of the port's menu by name, or makes it usable.
+ * stronger of the game's and the mods' (set_motors), and an option of the
+ * port's menu greyed out or made usable by a mod, by name (menu_option_set).
  */
-#define OPENRAC_MOD_API_MINOR 38
+#define OPENRAC_MOD_API_MINOR 37
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1872,7 +1872,7 @@ typedef struct openrac_rac1_weapon {
     uint32_t hud_icon;
 } openrac_rac1_weapon;
 
-/* The states of an option of the port's menu (openrac_api.menu_option_set). Since 1.38. */
+/* The states of an option of the port's menu (openrac_api.menu_option_set). Since 1.37. */
 #define OPENRAC_MENU_OPTION_DEFAULT 0 /* the port's own choice */
 #define OPENRAC_MENU_OPTION_ON 1      /* usable, even where the port greys it out */
 #define OPENRAC_MENU_OPTION_OFF 2     /* greyed out: shown, but it cannot be changed */
@@ -3316,7 +3316,7 @@ typedef struct openrac_api {
      * OPENRAC_MENU_OPTION_OFF greys it out (a mod that sets the frame rate itself);
      * OPENRAC_MENU_OPTION_DEFAULT gives the port's choice back. The last call for an option wins;
      * a mod's calls go with it when it unloads. Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN for no
-     * name or another state. Since 1.38. */
+     * name or another state. Since 1.37. */
     int (*menu_option_set)(openrac_mod* mod, const char* option, int state);
 } openrac_api;
 

@@ -376,7 +376,7 @@ int api_ui_sound(openrac_mod* mod, int sound) {
     return OPENRAC_HOOK_OK;
 }
 
-// openrac_api.menu_option_set. Since 1.38.
+// openrac_api.menu_option_set. Since 1.37.
 namespace {
 
 // What the mods set the menu's options to (openrac_api.menu_option_set): one state an option.
