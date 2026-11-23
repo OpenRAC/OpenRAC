@@ -25,16 +25,17 @@
  * (rac3_mp_wide_set_slots: 8, 16 or 24) for the game's 8. In a room of 8 both are the identity.
  *
  * Only the PAL disc's tables are known (NTSC-U keeps 8: rac3_mp_wide_set_slots stays at 8). */
+#include "mp_wide.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "mp_wide.h"
 #include "openrac/guest.h"
 #include "rac3_version.h"
 
-#define WIDE_GAME 8  /* the game's own count */
-#define WIDE_MAX 24  /* the most the port gives a room */
+#define WIDE_GAME 8 /* the game's own count */
+#define WIDE_MAX 24 /* the most the port gives a room */
 #define WIDE_EXTRA (WIDE_MAX - WIDE_GAME)
 
 /* The settings object's data pointer ($gp - 0x6980, set by its on_create callback 0x00199968). */
@@ -69,7 +70,7 @@ enum {
 #define WIDE_ID(name, gs, base, stride) WIDE_##name,
     WIDE_TABLES(WIDE_ID)
 #undef WIDE_ID
-        WIDE_TABLE_COUNT
+    WIDE_TABLE_COUNT
 };
 
 static const struct {
@@ -77,14 +78,16 @@ static const struct {
     int gs;
     uint32_t base, stride;
 } wide_table[WIDE_TABLE_COUNT] = {
+
 #define WIDE_ROW(name, gs, base, stride) {#name, gs, base, stride},
     WIDE_TABLES(WIDE_ROW)
 #undef WIDE_ROW
 };
 
 static int wide_slots = WIDE_GAME;
-static gaddr wide_ext[WIDE_TABLE_COUNT];  /* the port's tables of entries 8-23 (net block, players) */
-static gaddr wide_object;                  /* OBJECT_GAME_SETTINGS_WIDE's data on this console */
+static gaddr
+    wide_ext[WIDE_TABLE_COUNT]; /* the port's tables of entries 8-23 (net block, players) */
+static gaddr wide_object;       /* OBJECT_GAME_SETTINGS_WIDE's data on this console */
 
 /* Where each settings array's slots 8-23 sit in OBJECT_GAME_SETTINGS_WIDE: the arrays in their
  * order, each WIDE_EXTRA entries long. */

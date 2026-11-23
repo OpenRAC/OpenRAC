@@ -2127,6 +2127,11 @@ int mp_func_0014B040(int status, int conn) {
 /* dme_update: the server's packets, the session's callbacks and the room's messages. */
 int mp_func_0014B118(void) {
     vblank_count();
+    if (dme.joined && rac3_mp_wide_slots() > 8) {
+        /* The room's capacity (net + 0x134, which the room join request checks a join against):
+         * the CREATE page offers up to 8, so a wider room's host sets it from the room's size. */
+        GREF(int32_t, NET_BLOCK + 0x134u) = rac3_mp_wide_slots();
+    }
     net_pump();
     dme_deliver();
     obj_send_changes();
