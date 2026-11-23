@@ -10,6 +10,7 @@
 // interface's comments (sdk/include/openrac/openrac_mod.h) and the fake game's own functions: the
 // one that doubles, the one that records the angles it is given. Ordering: the state and the fake
 // host first, the mod's load next, then one function per behaviour, and `main` last runs them.
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -1151,6 +1152,148 @@ void overlay_31(void*, const openrac_overlay*) {}
 
 void fire_watch(void *, const openrac_weapon_shot *) {}
 void end_watch(void *, const openrac_shot_end *) {}
+// What the fake host's 1.33 call was given: the prop, the count and the first matrix's translation.
+std::string g_skin;
+
+void fill_skin(openrac_api &api) {
+    api.prop_set_skin = [](openrac_mod*, int id, const float* matrices, uint32_t count) {
+        g_skin = "prop " + std::to_string(id) + " joints " + std::to_string(count)
+               + (count > 0 ? " first x " + std::to_string(static_cast<int>(matrices[12])) : "");
+        return id == 3 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+    };
+}
+
+// What the fake host's 1.33 calls were given.
+std::uint32_t g_blend_now = OPENRAC_OVERLAY_BLEND_ALPHA;
+
+// What the fake host's 1.33 camera shake was given, and whether it took it.
+std::string g_shake;
+
+// A port of 1.33: the game's shake takes channels 0 and 1, amplitudes 0 to 1 and counts to 600.
+int fake_camera_shake(openrac_mod*, int channel, float amplitude, int frames) {
+    g_shake = "shake " + std::to_string(channel) + " " + std::to_string(amplitude) + " "
+              + std::to_string(frames);
+    const bool ok = (channel == 0 || channel == 1) && amplitude >= 0.0f && amplitude <= 1.0f
+                    && frames >= 0 && frames <= OPENRAC_CAMERA_SHAKE_FRAMES_MAX;
+    return ok ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+// What the fake host's 1.33 call was asked for. It knows one installed game's folder, refuses one the
+// manifest does not declare, and has none for any other.
+std::string g_game_asked;
+
+int fake_game_data_dir(openrac_mod*, const char* game, char* out, uint32_t size) {
+    g_game_asked = game;
+    const std::string id = game;
+    if (id == "rac2") {
+        const std::string folder = "/games/rac2/data";
+        if (folder.size() + 1 > size) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        std::copy(folder.c_str(), folder.c_str() + folder.size() + 1, out);
+        return static_cast<int>(folder.size());
+    }
+    return id == "rac3" ? OPENRAC_HOOK_REFUSED : 0;
+}
+
+// What the fake host's 1.33 call was given (-1: not called), and whether it took it.
+int g_bypass = -1;
+
+int fake_camera_visibility_bypass(openrac_mod*, int enabled) {
+    g_bypass = enabled;
+    return enabled == 0 || enabled == 1 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+// What the fake host's 1.33 weapon calls were given.
+std::uint32_t g_reserved_first = 0;
+std::uint32_t g_reserved_count = 0;
+std::uint32_t g_registered_item = 0;
+std::uint32_t g_granted_item = 0;
+int g_panel_args[3] = {0, 0, 0};
+
+// A port that has the slots 1 and 36 free, takes one weapon per item and refuses a second one.
+int fake_rac1_reserve_item_ids(openrac_mod*, const std::uint32_t* ids, std::uint32_t count) {
+    if (ids == nullptr || count == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_reserved_first = ids[0];
+    g_reserved_count = count;
+    return ids[0] == 1 || ids[0] == 36 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_REFUSED;
+}
+
+int fake_rac1_ammo_panel_offset(openrac_mod*, std::int32_t handle, std::int32_t x, std::int32_t y) {
+    g_panel_args[0] = handle;
+    g_panel_args[1] = x;
+    g_panel_args[2] = y;
+    return OPENRAC_HOOK_OK;
+}
+
+int fake_rac1_weapon_register(openrac_mod*, const openrac_rac1_weapon* weapon) {
+    g_registered_item = weapon->item_id;
+    return OPENRAC_HOOK_OK;
+}
+
+int fake_rac1_weapon_grant(openrac_mod*, std::uint32_t item) {
+    g_granted_item = item;
+    return item == g_registered_item ? OPENRAC_HOOK_OK : OPENRAC_HOOK_REFUSED;
+}
+
+// A port of 1.33: it takes the three blends, refuses a number past them and keeps the last blend.
+int fake_set_blend(void*, uint32_t blend) {
+    if (blend > OPENRAC_OVERLAY_BLEND_SUBTRACT) {
+        return 0;
+    }
+    g_blend_now = blend;
+    return 1;
+}
+
+// What the fake host's 1.33 calls were given: the mesh of a model made, and the slot, model, flags and
+// the matrix's first and last values of the last moby_model_slot.
+std::string g_model;
+
+void fill_model(openrac_api &api) {
+    api.model_create = [](openrac_mod*, const char* path) {
+        g_model = std::string("model ") + path;
+        return std::string(path) == "a.glb" ? 4 : OPENRAC_HOOK_UNKNOWN;
+    };
+    api.moby_model_slot = [](openrac_mod*, int slot, const openrac_moby_model* m) {
+        g_model = "slot " + std::to_string(slot) + " model " + std::to_string(m->model) + " flags "
+               + std::to_string(m->flags) + " matrix " + std::to_string(static_cast<int>(m->matrix[0]))
+               + " " + std::to_string(static_cast<int>(m->matrix[12])) + " "
+               + std::to_string(static_cast<int>(m->matrix[15])) + " size "
+               + std::to_string(m->size == sizeof(openrac_moby_model));
+        return slot == 1 ? OPENRAC_HOOK_OK : slot == 2 ? OPENRAC_HOOK_TAKEN : OPENRAC_HOOK_UNKNOWN;
+    };
+}
+
+// What the fake host's 1.33 call was given: the class, scope, model and the matrix's first and last
+// values of the last moby_model_class.
+std::string g_model_class;
+
+void fill_model_class(openrac_api &api) {
+    api.moby_model_class = [](openrac_mod*, int oclass, uint32_t scope, const openrac_moby_model* m) {
+        g_model_class = "class " + std::to_string(oclass) + " scope " + std::to_string(scope) + " model "
+               + std::to_string(m->model) + " flags " + std::to_string(m->flags) + " matrix "
+               + std::to_string(static_cast<int>(m->matrix[0])) + " "
+               + std::to_string(static_cast<int>(m->matrix[15]));
+        return oclass == 1 ? OPENRAC_HOOK_OK : oclass == 2 ? OPENRAC_HOOK_TAKEN : OPENRAC_HOOK_UNKNOWN;
+    };
+}
+
+// What the fake host's 1.33 call was given: a copy of the options and the struct size it saw.
+openrac_particle_spawn g_particle{};
+std::uint32_t g_particle_size = 0;
+
+void fill_particle(openrac_api &api) {
+    api.particle_spawn_ex = [](openrac_mod*, const openrac_particle_spawn* spawn) {
+        if (spawn == nullptr) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        g_particle = *spawn;
+        g_particle_size = spawn->size;
+        return spawn->kind == OPENRAC_PARTICLE_SPARK ? OPENRAC_HOOK_OK : OPENRAC_HOOK_FULL;
+    };
+}
 
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
@@ -2371,6 +2514,300 @@ int main() {
               && g_31_phases == 0);
         CHECK(!mod.has_button_label() && mod.button_label(OPENRAC_PAD_SQUARE).empty());
         api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.33: a prop skinned with joint matrices, and a port without it.
+    {
+        fill_skin(api);
+        CHECK(mod.has_prop_skin());
+        std::array<float, 32> two{};
+        two[0] = two[5] = two[10] = two[15] = 1.0f;
+        two[16] = two[21] = two[26] = two[31] = 1.0f;
+        two[12] = 4.0f;
+        CHECK(mod.prop_set_skin(3, two.data(), 2) && g_skin == "prop 3 joints 2 first x 4");
+        // The port's answer is the call's: another mod's prop, a prop gone with its level.
+        CHECK(!mod.prop_set_skin(4, two.data(), 2) && g_skin == "prop 4 joints 2 first x 4");
+        CHECK(mod.prop_clear_skin(3) && g_skin == "prop 3 joints 0");
+        // The vector form: a size that is not a whole number of joints is refused here, unasked.
+        g_skin.clear();
+        CHECK(!mod.prop_set_skin(3, std::vector<float>(17, 0.0f)) && g_skin.empty());
+        CHECK(mod.prop_set_skin(3, std::vector<float>(two.begin(), two.end())));
+        CHECK(g_skin == "prop 3 joints 2 first x 4");
+        // More joints than the maximum are refused here, before the port is asked.
+        g_skin.clear();
+        std::vector<float> many(16 * (OPENRAC_PROP_JOINTS_MAX + 1), 0.0f);
+        CHECK(!mod.prop_set_skin(3, many.data(), OPENRAC_PROP_JOINTS_MAX + 1) && g_skin.empty());
+        CHECK(mod.prop_set_skin(3, many.data(), OPENRAC_PROP_JOINTS_MAX));
+
+        // A port of 1.15, or a table that ends before the slot, has none of it and is not asked.
+        g_skin.clear();
+        api.api_minor = 15;
+        CHECK(!mod.has_prop_skin() && !mod.prop_set_skin(3, two.data(), 2) && !mod.prop_clear_skin(3)
+              && g_skin.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        const std::uint32_t size = api.size;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, prop_set_skin));
+        CHECK(!mod.has_prop_skin() && !mod.prop_set_skin(3, two.data(), 2) && g_skin.empty());
+        api.size = size;
+        // The older props calls are still there.
+        CHECK(mod.has_props());
+    }
+    // Interface 1.33: blends that add and subtract in the overlay.
+    {
+        static_assert(OPENRAC_OVERLAY_BLEND_ALPHA == 0 && OPENRAC_OVERLAY_BLEND_ADD == 1
+                      && OPENRAC_OVERLAY_BLEND_SUBTRACT == 2);
+        openrac_overlay overlay{};
+        overlay.size = sizeof overlay;
+        overlay.set_blend = fake_set_blend;
+        CHECK(openrac::overlay_has_set_blend(&overlay));
+        CHECK(openrac::overlay_set_blend(&overlay, OPENRAC_OVERLAY_BLEND_SUBTRACT)
+              && g_blend_now == OPENRAC_OVERLAY_BLEND_SUBTRACT);
+        CHECK(openrac::overlay_set_blend(&overlay, OPENRAC_OVERLAY_BLEND_ADD)
+              && g_blend_now == OPENRAC_OVERLAY_BLEND_ADD);
+        // A blend the port does not have: no, and the last stays.
+        CHECK(!openrac::overlay_set_blend(&overlay, 3) && g_blend_now == OPENRAC_OVERLAY_BLEND_ADD);
+        CHECK(!openrac::overlay_set_blend(&overlay, 0xFFFFFFFFu));
+        CHECK(openrac::overlay_set_blend(&overlay, OPENRAC_OVERLAY_BLEND_ALPHA)
+              && g_blend_now == OPENRAC_OVERLAY_BLEND_ALPHA);
+        // A port of 1.31 made a struct that ends before it, and one with no function says no too.
+        g_blend_now = OPENRAC_OVERLAY_BLEND_SUBTRACT;
+        overlay.size = static_cast<std::uint32_t>(offsetof(openrac_overlay, set_blend));
+        CHECK(!openrac::overlay_has_set_blend(&overlay)
+              && !openrac::overlay_set_blend(&overlay, OPENRAC_OVERLAY_BLEND_ALPHA));
+        overlay.size = sizeof overlay;
+        overlay.set_blend = nullptr;
+        CHECK(!openrac::overlay_has_set_blend(&overlay)
+              && !openrac::overlay_set_blend(&overlay, OPENRAC_OVERLAY_BLEND_ALPHA));
+        CHECK(!openrac::overlay_has_set_blend(nullptr)
+              && !openrac::overlay_set_blend(nullptr, OPENRAC_OVERLAY_BLEND_ALPHA));
+        CHECK(g_blend_now == OPENRAC_OVERLAY_BLEND_SUBTRACT);  // nothing was called
+    }
+
+    // Interface 1.33: a mesh of the mod's drawn in place of a moby's model, and a port without it.
+    {
+        fill_model(api);
+        CHECK(mod.has_moby_models());
+        CHECK(mod.model_create("a.glb") == 4 && g_model == "model a.glb");
+        CHECK(mod.model_create("b.glb") == -1);
+        // No matrix is the identity, and the struct's size is the compatibility check.
+        CHECK(mod.moby_model_slot(1, 4) == OPENRAC_HOOK_OK
+              && g_model == "slot 1 model 4 flags 0 matrix 1 0 1 size 1");
+        const float moved[16] = {2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 2, 0, 5, 0, 0, 1};
+        CHECK(mod.moby_model_slot(1, 4, moved) == OPENRAC_HOOK_OK
+              && g_model == "slot 1 model 4 flags 0 matrix 2 5 1 size 1");
+        // The port's answer is the call's: another mod's moby, a slot with none.
+        CHECK(mod.moby_model_slot(2, 4) == OPENRAC_HOOK_TAKEN);
+        CHECK(mod.moby_model_slot(3, 4) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(mod.moby_model_clear(1) && g_model.find("model -1") != std::string::npos);
+
+        // A port of 1.15, or a table that ends before the slot, has none of it and is not asked.
+        g_model.clear();
+        api.api_minor = 15;
+        CHECK(!mod.has_moby_models() && mod.model_create("a.glb") == -1
+              && mod.moby_model_slot(1, 4) == OPENRAC_HOOK_UNKNOWN && !mod.moby_model_clear(1)
+              && g_model.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        const std::uint32_t size = api.size;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, moby_model_slot));
+        CHECK(!mod.has_moby_models() && mod.model_create("a.glb") == -1 && g_model.empty());
+        api.size = size;
+        CHECK(mod.has_props());
+    }
+    // Interface 1.33: every moby of a class drawn with a mesh of the mod's in a scope, and a port
+    // without it.
+    {
+        fill_model_class(api);
+        CHECK(mod.has_moby_model_class());
+        const float moved[16] = {3, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3, 0, 0, 0, 0, 1};
+        // The world scope, the identity matrix; the menu scope, a scaled one; both bits.
+        CHECK(mod.moby_model_class(1, OPENRAC_MODEL_WORLD, 4) == OPENRAC_HOOK_OK
+              && g_model_class == "class 1 scope 1 model 4 flags 0 matrix 1 1");
+        CHECK(mod.moby_model_class(1, OPENRAC_MODEL_MENU, 4, moved) == OPENRAC_HOOK_OK
+              && g_model_class == "class 1 scope 2 model 4 flags 0 matrix 3 1");
+        CHECK(mod.moby_model_class(1, OPENRAC_MODEL_WORLD | OPENRAC_MODEL_MENU, 4) == OPENRAC_HOOK_OK
+              && g_model_class == "class 1 scope 3 model 4 flags 0 matrix 1 1");
+        // The port's answer is the call's: another mod's class, a class with none.
+        CHECK(mod.moby_model_class(2, OPENRAC_MODEL_WORLD, 4) == OPENRAC_HOOK_TAKEN);
+        CHECK(mod.moby_model_class(3, OPENRAC_MODEL_WORLD, 4) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(mod.moby_model_class_clear(1, OPENRAC_MODEL_MENU) && g_model_class.find("model -1") != std::string::npos);
+
+        // A port of 1.31, or a table that ends before the field, has none of it and is not asked.
+        g_model_class.clear();
+        api.api_minor = 31;
+        CHECK(!mod.has_moby_model_class() && mod.moby_model_class(1, OPENRAC_MODEL_WORLD, 4) == OPENRAC_HOOK_UNKNOWN
+              && !mod.moby_model_class_clear(1, OPENRAC_MODEL_WORLD) && g_model_class.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        const std::uint32_t size = api.size;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, moby_model_class));
+        CHECK(!mod.has_moby_model_class() && mod.moby_model_class(1, OPENRAC_MODEL_WORLD, 4) == OPENRAC_HOOK_UNKNOWN
+              && g_model_class.empty());
+        api.size = size;
+        CHECK(mod.has_moby_models());
+    }
+
+    // Interface 1.33: the game's camera shake, handed to the port as it is and refused where the
+    // port lacks it (an older minor, or a table that stops before it).
+    {
+        api.camera_shake = fake_camera_shake;
+        CHECK(mod.has_camera_shake());
+        CHECK(mod.camera_shake(1, 0.15f, 30) && g_shake == "shake 1 0.150000 30");
+        CHECK(mod.camera_shake(0, 0.0f, 0) && g_shake == "shake 0 0.000000 0");
+        // A bad channel, amplitude or count is the port's to refuse, and the wrapper says no.
+        CHECK(!mod.camera_shake(2, 0.1f, 10));
+        CHECK(!mod.camera_shake(0, 1.5f, 10));
+        CHECK(!mod.camera_shake(0, 0.1f, OPENRAC_CAMERA_SHAKE_FRAMES_MAX + 1));
+        // A port of 1.31 has no shake even if its table is long enough: nothing is called.
+        g_shake.clear();
+        api.api_minor = 31;
+        CHECK(!mod.has_camera_shake() && !mod.camera_shake(1, 0.15f, 30) && g_shake.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        // A table that stops before camera_shake: not there.
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, camera_shake));
+        CHECK(!mod.has_camera_shake() && !mod.camera_shake(1, 0.15f, 30) && g_shake.empty());
+        api.size = sizeof api;
+        CHECK(mod.has_camera_shake());
+    }
+    // Interface 1.33: the options of a game particle effect (particle_spawn_ex) reach the port as the
+    // mod set them, with the struct's size; a port without the call, or of 1.31, has none of it.
+    {
+        fill_particle(api);
+        CHECK(mod.has_particle_spawn_ex());
+        openrac_particle_spawn spawn{};
+        spawn.kind = OPENRAC_PARTICLE_SPARK;
+        spawn.position[0] = 1.0f;
+        spawn.position[1] = 2.0f;
+        spawn.position[2] = 3.0f;
+        spawn.velocity[2] = 4.0f;
+        spawn.particle_size = 210000.0f;
+        spawn.life_ticks = 45;
+        spawn.color = 0x7F102030u;
+        spawn.color_end = 0x4F7F4F2Fu;
+        spawn.flags = OPENRAC_PARTICLE_CHILDREN;
+        spawn.texture = 30;
+        spawn.blend = -1;
+        spawn.rot = 0.0f;
+        CHECK(mod.particle_spawn_ex(spawn) == OPENRAC_HOOK_OK);
+        CHECK(g_particle.kind == OPENRAC_PARTICLE_SPARK && g_particle.position[2] == 3.0f && g_particle.velocity[2] == 4.0f
+              && g_particle.particle_size == 210000.0f && g_particle.life_ticks == 45 && g_particle.color == 0x7F102030u
+              && g_particle.color_end == 0x4F7F4F2Fu && g_particle.flags == OPENRAC_PARTICLE_CHILDREN
+              && g_particle.texture == 30 && g_particle.blend == -1 && g_particle_size == sizeof(openrac_particle_spawn));
+        // The call's own answer comes back: a kind the fake answers FULL for.
+        spawn.kind = OPENRAC_PARTICLE_SMOKE;
+        CHECK(mod.particle_spawn_ex(spawn) == OPENRAC_HOOK_FULL);
+        spawn.kind = OPENRAC_PARTICLE_SPARK;
+        // A port of 1.31, or a table that ends before the field, has none of it and is not asked.
+        g_particle = openrac_particle_spawn{};
+        api.api_minor = 31;
+        CHECK(!mod.has_particle_spawn_ex() && mod.particle_spawn_ex(spawn) == OPENRAC_HOOK_UNKNOWN
+              && g_particle.kind == 0);
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        const std::uint32_t size = api.size;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, particle_spawn_ex));
+        CHECK(!mod.has_particle_spawn_ex() && mod.particle_spawn_ex(spawn) == OPENRAC_HOOK_UNKNOWN
+              && g_particle.kind == 0);
+        api.size = size;
+        CHECK(mod.has_particle_spawn_ex());
+        CHECK(OPENRAC_HOOK_FULL == -5 && OPENRAC_PARTICLE_LIFE_MAX == 600);
+        CHECK(OPENRAC_PARTICLE_CHILDREN == 1u && OPENRAC_PARTICLE_BYTE_MAX == 255 && OPENRAC_PARTICLE_ROT_MAX == 1.0f);
+    }
+    // Interface 1.33: a particle texture (1024 indices and a 1024-byte palette) reaches the port as the mod
+    // gave it, and the port's id comes back; the size and the lengths are checked here; a port of 1.31 has none.
+    {
+        static openrac_particle_texture g_particle_texture{};
+        api.particle_texture_register = [](openrac_mod*, const openrac_particle_texture* t) {
+            if (t == nullptr) {
+                return OPENRAC_HOOK_UNKNOWN;
+            }
+            g_particle_texture = *t;
+            return t->indices[0] == 7 ? OPENRAC_HOOK_FULL
+                                      : static_cast<int>(OPENRAC_PARTICLE_TEXTURE_FIRST) + t->indices[0];
+        };
+        CHECK(mod.has_particle_texture_register());
+        const std::vector<std::uint8_t> indices(1024, 3), clut(1024, 5);
+        CHECK(mod.particle_texture_register(indices, clut) == OPENRAC_PARTICLE_TEXTURE_FIRST + 3);
+        CHECK(g_particle_texture.size == sizeof(openrac_particle_texture) && g_particle_texture.indices[1023] == 3 && g_particle_texture.clut[0] == 5
+              && g_particle_texture.clut[1023] == 5);
+        std::vector<std::uint8_t> seven(1024, 7);
+        CHECK(mod.particle_texture_register(seven, clut) == OPENRAC_HOOK_FULL);
+        // A length other than 1024 is refused before the port is asked (the port keeps the last one).
+        const std::vector<std::uint8_t> short_clut(1000, 9);
+        CHECK(mod.particle_texture_register(indices, short_clut) == OPENRAC_HOOK_UNKNOWN && g_particle_texture.clut[0] == 5);
+        CHECK(mod.particle_texture_register({}, clut) == OPENRAC_HOOK_UNKNOWN && g_particle_texture.indices[0] == 7);
+        CHECK(OPENRAC_PARTICLE_TEXTURE_SIDE == 32 && OPENRAC_PARTICLE_TEXTURE_FIRST == 128
+              && OPENRAC_PARTICLE_TEXTURE_COUNT == 128);
+        api.api_minor = 31;
+        CHECK(!mod.has_particle_texture_register() && mod.particle_texture_register(indices, clut) == OPENRAC_HOOK_UNKNOWN);
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        CHECK(mod.has_particle_texture_register());
+    }
+    // Interface 1.33: the data folder of an installed game, as the port answers it, and a port without it.
+    {
+        api.game_data_dir = fake_game_data_dir;
+        CHECK(mod.has_game_data());
+        std::string path = "stale";
+        CHECK(mod.game_data_dir("rac2", path) == 16 && path == "/games/rac2/data");
+        // Not installed: 0 and no path. A game the manifest does not declare: refused, no path.
+        CHECK(mod.game_data_dir("rac4", path) == 0 && path.empty());
+        CHECK(mod.game_data_dir("rac3", path) == OPENRAC_HOOK_REFUSED && path.empty());
+        // A port of 1.31, or a table that ends before the slot, has none of it and is not asked.
+        g_game_asked.clear();
+        api.api_minor = 31;
+        CHECK(!mod.has_game_data() && mod.game_data_dir("rac2", path) == OPENRAC_HOOK_UNKNOWN
+              && g_game_asked.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, game_data_dir));
+        CHECK(!mod.has_game_data() && mod.game_data_dir("rac2", path) == OPENRAC_HOOK_UNKNOWN
+              && g_game_asked.empty());
+        api.size = sizeof api;
+        CHECK(mod.has_game_data());
+    }
+    // Interface 1.33: the gameplay camera's visibility bypass taken and given back, and a port without it.
+    {
+        api.camera_visibility_bypass = fake_camera_visibility_bypass;
+        CHECK(mod.has_camera_visibility_bypass());
+        CHECK(mod.camera_visibility_bypass(true) && g_bypass == 1);
+        CHECK(mod.camera_visibility_bypass(false) && g_bypass == 0);
+        // A port of 1.31, or a table that ends before the slot, has none of it and is not asked.
+        g_bypass = -1;
+        api.api_minor = 31;
+        CHECK(!mod.has_camera_visibility_bypass() && !mod.camera_visibility_bypass(true) && g_bypass == -1);
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, camera_visibility_bypass));
+        CHECK(!mod.has_camera_visibility_bypass() && !mod.camera_visibility_bypass(true) && g_bypass == -1);
+        api.size = sizeof api;
+        CHECK(mod.has_camera_visibility_bypass());
+    }
+    // Interface 1.33: the RAC1 weapon calls reach the port with what the mod gave, and a port without them is not asked.
+    {
+        api.rac1_reserve_item_ids = fake_rac1_reserve_item_ids;
+        api.rac1_ammo_panel_offset = fake_rac1_ammo_panel_offset;
+        api.rac1_weapon_register = fake_rac1_weapon_register;
+        api.rac1_weapon_grant = fake_rac1_weapon_grant;
+        const std::uint32_t ids[2] = {36, 1};
+        CHECK(mod.rac1_reserve_item_ids(ids, 2) == OPENRAC_HOOK_OK && g_reserved_first == 36 && g_reserved_count == 2);
+        const std::uint32_t taken[1] = {9};
+        CHECK(mod.rac1_reserve_item_ids(taken, 1) == OPENRAC_HOOK_REFUSED);
+        CHECK(mod.rac1_ammo_panel_offset(7, -12, 30) == OPENRAC_HOOK_OK && g_panel_args[0] == 7 &&
+              g_panel_args[1] == -12 && g_panel_args[2] == 30);
+        openrac_rac1_weapon weapon{};
+        weapon.size = sizeof weapon;
+        weapon.item_id = 36;
+        CHECK(mod.rac1_weapon_register(weapon) == OPENRAC_HOOK_OK && g_registered_item == 36);
+        CHECK(mod.rac1_weapon_grant(36) == OPENRAC_HOOK_OK && g_granted_item == 36);
+        CHECK(mod.rac1_weapon_grant(1) == OPENRAC_HOOK_REFUSED);
+        // A port of 1.31, or a table that ends before the slot, has none of it and is not asked.
+        g_granted_item = 0;
+        g_reserved_count = 0;
+        api.api_minor = 31;
+        CHECK(mod.rac1_reserve_item_ids(ids, 2) == OPENRAC_HOOK_UNKNOWN && g_reserved_count == 0);
+        CHECK(mod.rac1_ammo_panel_offset(7, 1, 1) == OPENRAC_HOOK_UNKNOWN && g_panel_args[1] == -12);
+        CHECK(mod.rac1_weapon_register(weapon) == OPENRAC_HOOK_UNKNOWN);
+        CHECK(mod.rac1_weapon_grant(36) == OPENRAC_HOOK_UNKNOWN && g_granted_item == 0);
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, rac1_reserve_item_ids));
+        CHECK(mod.rac1_reserve_item_ids(ids, 2) == OPENRAC_HOOK_UNKNOWN && g_reserved_count == 0);
+        CHECK(mod.rac1_weapon_grant(36) == OPENRAC_HOOK_UNKNOWN && g_granted_item == 0);
+        api.size = sizeof api;
+        CHECK(mod.rac1_weapon_grant(36) == OPENRAC_HOOK_OK);
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);

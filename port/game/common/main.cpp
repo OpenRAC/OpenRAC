@@ -398,6 +398,8 @@ void load_mods() {
     host.play = openrac_game_play_host;
     host.cards = openrac_game_card_dir != nullptr ? openrac_game_card_dir : "memcard";
     host.mod_data = g_options.mod_data;
+    host.data = g_options.data;
+    host.games_root = g_options.games_root;
 #ifdef OPENRAC_FRONTEND
     // The mods' own sounds (interface 1.12), on the window's sound output.
     host.sound_load = frontend::mod_sound_load;

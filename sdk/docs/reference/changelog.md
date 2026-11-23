@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.33
+
+Props skinned with joint matrices of the mod's own (prop_set_skin), blends that add to or subtract from the screen for the overlay's rectangles and text (openrac_overlay.set_blend), a mesh of the mod's drawn in place of a moby's model (model_create, moby_model_slot, moby_model_class, moby_model_at), the game's camera shake (camera_shake), its particle effects and 32 x 32 particle textures (particle_spawn_ex, particle_texture_register), the data folder of an installed game declared in the manifest's reads_games (game_data_dir), the gameplay camera's visibility bypass (camera_visibility_bypass), and for Ratchet & Clank item id reservation, ammo panel offsets and native-backed weapons (rac1_reserve_item_ids, rac1_ammo_panel_offset, rac1_weapon_register, rac1_weapon_grant), and 1.33 Props skinned with joint matrices of the mod's own (prop_set_skin), blends that add to or subtract from the screen for the overlay's rectangles and text (openrac_overlay.set_blend), a mesh of the mod's drawn in place of a moby's model (model_create, moby_model_slot, moby_model_class, moby_model_at), the game's camera shake (camera_shake), its particle effects and 32 x 32 particle textures (particle_spawn_ex, particle_texture_register), the data folder of an installed game declared in the manifest's reads_games (game_data_dir), the gameplay camera's visibility bypass (camera_visibility_bypass), and for Ratchet & Clank item id reservation, ammo panel offsets and native-backed weapons (rac1_reserve_item_ids, rac1_ammo_panel_offset, rac1_weapon_register, rac1_weapon_grant).
+
+Members: `prop_set_skin`, `model_create`, `moby_model_slot`, `moby_model_class`, `moby_model_at`, `camera_shake`, `particle_spawn_ex`, `particle_texture_register`, `game_data_dir`, `camera_visibility_bypass`, `rac1_reserve_item_ids`, `rac1_ammo_panel_offset`, `rac1_weapon_register`, `rac1_weapon_grant`.
+
 ## 1.32
 
 An independent RAC1 other-game reward display identity (OPENRAC_RAC1_OTHER_GAME_VISUAL; the table is unchanged).

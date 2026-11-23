@@ -368,9 +368,9 @@ gaddr occlusion_in_ram() {
 // world's, or level 0's when the title world was not extracted.
 void use_level(int number) {
     static unsigned loaded_generation;
-    static unsigned loaded_props;
     static unsigned loaded_visuals;
     int wanted = number;
+
     if (number <= -2
         && std::filesystem::exists(
             g->levels / std::format("level_{:02d}", kFlightWorld + 2 + number)
@@ -381,17 +381,19 @@ void use_level(int number) {
                      ? kTitleWorld
                      : 0;
     }
-    // A prop of a mesh the level was read without (interface 1.12): the level is read again with it.
-    const unsigned props = mods::prop_meshes_generation();
+
+    // A prop of a mesh the level was read without (interface 1.12) does not read the level again:
+    // load_prop_meshes adds the mesh to the scene that is up. A render-only replacement class the
+    // level was read without does.
     if (wanted == g->loaded && loaded_generation == openrac_game_mods_generation
-        && loaded_props == props && loaded_visuals == mods::visual_classes_generation()) {
+        && loaded_visuals == mods::visual_classes_generation()) {
         return;
     }
     crash::level_breadcrumb("level load started", wanted);
     loaded_generation = openrac_game_mods_generation;
-    loaded_props = props;
     loaded_visuals = mods::visual_classes_generation();
     g->loaded = wanted;
+    g->prop_scene_ready = false;
     // One renderer for the whole run: a new level replaces the subsystem renderers, but its texture
     // pool is the GS memory, which keeps what the game uploaded (a card's text uploaded through the
     // display list, the fonts) across the change.
@@ -419,6 +421,7 @@ void use_level(int number) {
     g->special_pickup_clips.clear();
     g->infobot_pickup_model = -1;
     g->infobot_pickup_poses.clear();
+    g->prop_failed.clear();
     g->picker.clear();
     std::string error;
     const LevelSources sources = level_sources(wanted);
@@ -484,13 +487,19 @@ void use_level(int number) {
         });
         return;
     }
-    // The mods' prop meshes, read as an assets classes.json's are (MODS.md, section 6): a mesh that
-    // cannot be read leaves its props undrawn, and the level as it is.
+
+    // The meshes the props of this level load were made of by now, read as an assets classes.json's
+    // are (MODS.md, section 6): a mesh that cannot be read leaves its props undrawn, and the level
+    // as it is. The count is taken first: a mesh asked for from now on is added by
+    // load_prop_meshes. Models read here come before the scene's own copies and need no alignment.
+    g->prop_generation = mods::prop_meshes_generation();
+
     for (const std::filesystem::path& mesh : mods::prop_meshes()) {
         std::string why;
         if (const auto model = scene::load_model(mesh, g->render.level, why)) {
             g->prop_models.emplace_back(mesh, *model);
         } else {
+            g->prop_failed.push_back(mesh);
             log::warn("mods: prop mesh {}: {}", mesh.string(), why);
         }
     }
@@ -597,6 +606,7 @@ void use_level(int number) {
         log::error("level {}: {}", wanted, error);
         return;
     }
+    g->prop_scene_ready = true;
     run_graphics([&] {
         // The 2D path: its part before the world first, the rest after the world renderers.
         crash::level_breadcrumb("level renderers setup", wanted);
@@ -705,6 +715,97 @@ void use_level(int number) {
     log::info("drawing level {} natively ({} models)", wanted, g->render.level.models.size());
 }
 
+// Adds the meshes props have asked for since the last call (mods::prop_meshes) to the level and
+// the scene that are up, instead of reading the level again as a change of the list once did
+// (0.9 to 2 s a new mesh on a PAL level 1). Called by use_world after use_level, so with the
+// frame's render job finished (frame() starts with finish_render): nothing reads the scene or
+// the level while models are added to them, and no model changes its index, because models are
+// only ever added at the end (LevelScene::add_loaded_models). The instances and poses a frame
+// in flight kept name models by index, which stay what they were.
+void load_prop_meshes() {
+    if (!g || !g->prop_scene_ready) {
+        return;
+    }
+
+    const unsigned generation = mods::prop_meshes_generation();
+
+    if (generation == g->prop_generation) {
+        return;
+    }
+
+    g->prop_generation = generation;
+    const auto held = [](const std::filesystem::path& mesh) {
+        return std::any_of(
+                   g->prop_models.begin(),
+                   g->prop_models.end(),
+                   [&](const auto& model) { return model.first == mesh; }
+               )
+               || std::find(g->prop_failed.begin(), g->prop_failed.end(), mesh)
+                      != g->prop_failed.end();
+    };
+    std::vector<std::filesystem::path> wanted;
+
+    for (std::filesystem::path& mesh : mods::prop_meshes()) {
+        if (!held(mesh)) {
+            wanted.push_back(std::move(mesh));
+        }
+    }
+
+    if (wanted.empty()) {
+        return;
+    }
+
+    const auto started = std::chrono::steady_clock::now();
+    const std::size_t before = g->prop_models.size();
+    g->render.scene.align_models(g->render.level);
+
+    for (const std::filesystem::path& mesh : wanted) {
+        // A mesh that cannot be read leaves its props undrawn; what it appended before it failed
+        // (the vertices, indices) is taken back.
+        const std::size_t vertices = g->render.level.vertices.size();
+        const std::size_t indices = g->render.level.indices.size();
+        std::string why;
+
+        try {
+            if (const auto model = scene::load_model(mesh, g->render.level, why)) {
+                g->prop_models.emplace_back(mesh, *model);
+                continue;
+            }
+        } catch (const std::exception& failure) {
+            why = failure.what();
+        }
+
+        g->render.level.vertices.resize(vertices);
+        g->render.level.indices.resize(indices);
+        g->prop_failed.push_back(mesh);
+        log::warn("mods: prop mesh {}: {}", mesh.string(), why);
+    }
+
+    std::string error;
+    bool added = false;
+    run_graphics([&] {
+        added = g->render.scene
+                    .add_loaded_models(g->render.level, g->render.renderer->textures(), error);
+    });
+
+    if (!added) {
+        // The scene cannot take them: their props stay undrawn, and no more are tried this level.
+        log::error("mods: prop meshes could not be added to the level: {}", error);
+        g->prop_models.resize(before);
+        g->prop_scene_ready = false;
+        return;
+    }
+
+    log::verbose(
+        "mods: {} prop mesh(es) added to level {} in {:.1f} ms ({} models)",
+        g->prop_models.size() - before,
+        g->loaded,
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
+            .count(),
+        g->render.level.models.size()
+    );
+}
+
 void savestate_restored(std::uint64_t tick) {
     options_menu::savestate_restored();
     if (!g) {
@@ -728,6 +829,7 @@ void savestate_restored(std::uint64_t tick) {
     g->render.scene = scene::LevelScene();
     g->render.level = scene::LevelData();
     g->loaded = -2;
+    g->prop_scene_ready = false;
     g->index = tick;
     g->world_camera.reset();
     g->world_shrubs.reset();
@@ -1251,8 +1353,8 @@ void note_particles(std::span<const std::uint8_t> ram, const host::GameState& st
     };
     constexpr float kNear = 6.0f;
     std::array<int, 256> counts{};
-    // Per type, those particle_quads leaves out: lines (kind 2, not drawn yet), those without a
-    // texture, and those outside the record's near and far depth.
+    // Per type, those particle_quads leaves out: lines (kind 2) that are not drawn here, those
+    // without a texture, and those outside the record's near and far depth.
     std::array<int, 256> lines{}, untextured{}, beyond{};
     std::string near;
     int listed = 0;
@@ -1320,7 +1422,8 @@ void note_particles(std::span<const std::uint8_t> ram, const host::GameState& st
 // contributors): culled and faded by depth (the record's near and far, at most 500 units), back to
 // front; a sprite faces the camera, its half-diagonal size / 210000 units (y scaled by 1.0625 as the
 // game does on screen), turned by its rotation byte; a flat quad lies in the world's XY plane; a
-// ribbon joins its two ends across the view. Lines are not drawn yet.
+// ribbon joins its two ends across the view; a line (kind 2) is an untextured one-pixel strip
+// between its two ends, drawn with the colours of its records.
 void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& state) {
     const auto f32 = [](const std::uint8_t* b) {
         float v;
@@ -1399,8 +1502,81 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
     for (const State::Particle& p : g->particles) {
         const std::uint8_t* r = p.record.data();
         const int kind = r[1] & 3;
-        if (kind == 2 || p.pixels == 0 || p.clut == 0) {
-            cover(r, kind == 2 ? "lines" : "untextured");
+        if (kind != 2 && (p.pixels == 0 || p.clut == 0)) {
+            cover(r, "untextured");
+            continue;
+        }
+        if (kind == 2) {
+            // An untextured line (docs/engine/systems/PARTICLES.md section 5): colour 1 at end 1
+            // (+0x04, alpha included), colour 2 at end 2 (RGB at +0x0C; the spawner writes no alpha
+            // there, so end 2 takes colour 1's alpha), ends at +0x10 and +0x20, one pixel wide.
+            const std::array<float, 3> a{f32(r + 0x10), f32(r + 0x14), f32(r + 0x18)};
+            const std::array<float, 3> b{f32(r + 0x20), f32(r + 0x24), f32(r + 0x28)};
+            const std::array<float, 3>& fwd = state.forward;
+            const auto forward = [&](const std::array<float, 3>& v) {
+                return (v[0] - cam[0]) * fwd[0] + (v[1] - cam[1]) * fwd[1]
+                       + (v[2] - cam[2]) * fwd[2];
+            };
+            const float za = forward(a), zb = forward(b);
+            // Culled by its two ends against the global far (500 units), not by the near and far
+            // nibbles of byte 0x09, which lines do not use.
+            if (za > 500.0f && zb > 500.0f) {
+                cover(r, "beyond");
+                continue;
+            }
+            cover(r, "");
+            // The fade of the record (pass 2), at the first end; never negative (a line at or
+            // inside its near is not drawn).
+            const ParticleDepth depth = particle_depth(r, state);
+            const int fade = std::max(
+                0, std::min({(depth.far12 - depth.z12) >> 4, depth.z12 - depth.near12, 0x1000})
+            );
+            const auto faded = [fade](std::uint32_t c) {
+                return (c & 0x00FFFFFFu)
+                       | (((c >> 24) * static_cast<std::uint32_t>(fade) >> 12) << 24);
+            };
+            const std::uint32_t c1 = faded(u32(r + 4));
+            const std::uint32_t c2 = (c1 & 0xFF000000u) | (u32(r + 0xC) & 0x00FFFFFFu);
+            // One screen pixel is z / 406.35 world units at depth z (the scale of the sprites
+            // above: half-diagonal = 406.35 * size / 210000 / (z + 0.5) pixels); the half width is
+            // half a pixel at each end.
+            const float w1 = 0.5f * std::max(za, 0.0f) / 406.35f;
+            const float w2 = 0.5f * std::max(zb, 0.0f) / 406.35f;
+            // The line's width runs across the view: the normal of the line and the view ray.
+            const std::array<float, 3> e{b[0] - a[0], b[1] - a[1], b[2] - a[2]};
+            const std::array<float, 3> m{
+                0.5f * (a[0] + b[0]) - cam[0],
+                0.5f * (a[1] + b[1]) - cam[1],
+                0.5f * (a[2] + b[2]) - cam[2]
+            };
+            std::array<float, 3> n{
+                e[1] * m[2] - e[2] * m[1], e[2] * m[0] - e[0] * m[2], e[0] * m[1] - e[1] * m[0]
+            };
+            const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            if (len <= 0.0f) {
+                continue;
+            }
+            for (float& v : n) {
+                v /= len;
+            }
+            renderer::EffectQuad q{};
+            for (int i = 0; i < 3; ++i) {
+                q.corner[0][i] = a[i] + n[i] * w1;
+                q.corner[1][i] = a[i] - n[i] * w1;
+                q.corner[2][i] = b[i] + n[i] * w2;
+                q.corner[3][i] = b[i] - n[i] * w2;
+            }
+            q.rgba[0] = q.rgba[1] = c1;
+            q.rgba[2] = q.rgba[3] = c2;
+            const float st[4][2] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+            std::memcpy(q.st, st, sizeof(st));
+            q.clamp = 5;
+            q.tex1 = 0xFF9000000120ull;
+            q.alpha = r[3];
+            q.id = p.id;
+            q.rigid = false;
+            q.untextured = true;
+            items.push_back({za, q});
             continue;
         }
         std::array<float, 3> p1{f32(r + 0x10), f32(r + 0x14), f32(r + 0x18)};

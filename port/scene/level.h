@@ -359,7 +359,8 @@ std::vector<renderer::Rgba8Image> load_sky_textures(
 // Load one glTF or GLB file as one model (every mesh node, in its node's
 // transform, except skinned meshes, which are stored in their bind pose with
 // their skin: the joints by the number in their node's name, joint_NNN, the
-// game's joint numbers). Returns the model's index.
+// game's joint numbers: any other name takes the joint's place in the skin, and
+// a number past 255 is 255, logged; joint_name.h). Returns the model's index.
 std::optional<std::uint32_t> load_model(
     const std::filesystem::path& path, LevelData& level, std::string& error
 );

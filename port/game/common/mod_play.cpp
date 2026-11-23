@@ -18,6 +18,7 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -261,10 +262,25 @@ int game_moby_hit(
 
 // The props, the meshes asked for (and their count's generation), behind a lock: the front end
 // reads them on its own thread.
+//
+// g_prop_meshes are the meshes the props of one level load were made of (g_prop_meshes_loads), each
+// once, in the order first asked for: what the front end has to hold in the scene to draw them. A
+// new level load starts the list again (its props are all gone), so a level is not read with the
+// meshes of the ones before it. g_prop_generation grows each time the list changes, for the front
+// end to look at it again only then.
 std::mutex g_props_lock;
 std::array<Prop, OPENRAC_PROPS_MAX> g_props;
 std::vector<std::filesystem::path> g_prop_meshes;
+std::uint32_t g_prop_meshes_loads = 0;
 unsigned g_prop_generation = 0;
+
+// Under g_props_lock, which they share with the props: the front end reads them with the props'.
+std::array<Model, OPENRAC_MODELS_MAX> g_models;
+std::map<int, SlotModel> g_slot_models;
+// By class and scope (one bit: OPENRAC_MODEL_WORLD or OPENRAC_MODEL_MENU).
+std::map<std::pair<int, std::uint32_t>, ClassModel> g_class_models;
+// By address (interface 1.33): the mobys the level's own list may not hold, the game reads their class.
+std::map<gaddr, SlotModel> g_address_models;
 
 std::vector<VisualSet> g_visuals;
 std::vector<int> g_visual_classes;
@@ -441,13 +457,23 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.prop_frame = api_prop_frame;
     api.prop_hide = api_prop_hide;
     api.prop_remove = api_prop_remove;
+    api.prop_set_skin = api_prop_set_skin;
+    api.model_create = api_model_create;
+    api.moby_model_slot = api_moby_model_slot;
+    api.moby_model_class = api_moby_model_class;
+    api.particle_spawn_ex = api_particle_spawn_ex;
+    api.particle_texture_register = api_particle_texture_register;
+    api.moby_model_at = api_moby_model_at;
     api.sound_load = api_sound_load;
     api.sound_play = api_sound_play;
     api.sound_set = api_sound_set;
     api.sound_stop = api_sound_stop;
     api.camera_view = api_camera_view;
     api.camera_set = api_camera_set;
+    api.camera_visibility_bypass = api_camera_visibility_bypass;
+    api.rac1_ammo_panel_offset = api_rac1_ammo_panel_offset;
     api.haze_set = api_haze_set;
+    api.camera_shake = api_camera_shake;
     api.hud_text_set = api_hud_text_set;
     api.hero_sound_play = api_hero_sound_play;
     api.hero_sound_stop = api_hero_sound_stop;
@@ -456,6 +482,29 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.touch_icon = api_touch_icon;
     api.touch_push = api_touch_push;
     api.touch_hint = api_touch_hint;
+}
+
+bool ammo_panel_offset(int handle, int& x, int& y) {
+    const auto found = g_ammo_panel_offsets.find(handle);
+    if (found == g_ammo_panel_offsets.end() || found->second.loads != loads_now()) {
+        return false;
+    }
+    x = found->second.x;
+    y = found->second.y;
+    return true;
+}
+
+bool host_camera_overridden() {
+    return g_play != nullptr && g_play->camera_overridden != nullptr
+           && g_play->camera_overridden() != 0;
+}
+
+bool camera_visibility_bypassed() {
+    const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
+    const auto loads = loads_now();
+    return std::ranges::any_of(g_camera_visibility, [loads](const auto& request) {
+        return request.second == loads;
+    });
 }
 
 std::vector<HazeDraw> haze_drawn() {
@@ -499,8 +548,31 @@ std::vector<PropDraw> props_drawn() {
                  p.tint,
                  p.blend,
                  p.attached_moby,
-                 p.attached_joint}
+                 p.attached_joint,
+                 p.skin}
             );
+        }
+    }
+    return out;
+}
+
+std::vector<MobyModelDraw> moby_models_drawn() {
+    std::vector<MobyModelDraw> out;
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const std::uint32_t loads = loads_now();
+    for (const auto& [slot, s] : g_slot_models) {
+        if (s.mod != nullptr && s.loads == loads) {
+            out.push_back({s.address, s.oclass, 0, s.mesh, s.matrix, s.hidden});
+        }
+    }
+    for (const auto& [address, s] : g_address_models) {
+        if (s.mod != nullptr && s.loads == loads) {
+            out.push_back({address, s.oclass, 0, s.mesh, s.matrix, s.hidden});
+        }
+    }
+    for (const auto& [key, c] : g_class_models) {
+        if (c.mod != nullptr && c.loads == loads) {
+            out.push_back({0, key.first, key.second, c.mesh, c.matrix, false});
         }
     }
     return out;
@@ -520,7 +592,9 @@ void prop_placed(int id, const std::array<float, 16>& matrix) {
 
 std::vector<std::filesystem::path> prop_meshes() {
     const std::lock_guard<std::mutex> lock(g_props_lock);
-    return g_prop_meshes;
+    // The list of a level load that is over is not the next one's.
+    return g_prop_meshes_loads == loads_now() ? g_prop_meshes
+                                              : std::vector<std::filesystem::path>{};
 }
 
 std::uint32_t sprite_tint() {
@@ -658,7 +732,58 @@ void play_loading(const openrac_mod* mod) {
     openrac_game_moby_hit = g_play != nullptr ? game_moby_hit : nullptr;
 }
 
+// The overrides of mobys the game freed or made again in their slots are no one's: dropped. Once a
+// tick, on the game thread (the game's list is read outside the lock).
+void drop_gone_slot_models() {
+    std::vector<std::pair<int, SlotModel>> held;
+    {
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        held.assign(g_slot_models.begin(), g_slot_models.end());
+    }
+    if (held.empty()) {
+        return;
+    }
+    const MobyClasses classes;
+    for (const auto& [slot, s] : held) {
+        if (s.loads == loads_now() && moby_address(slot) == s.address
+            && classes.of(slot) == s.oclass) {
+            continue;
+        }
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        const auto now = g_slot_models.find(slot);
+        if (now != g_slot_models.end() && now->second.address == s.address) {
+            g_slot_models.erase(now);
+        }
+    }
+}
+
+// The overrides of mobys whose class at their address changed (or whose level went) are no one's:
+// dropped. Once a tick, on the game thread (the game's class is read outside the lock).
+void drop_gone_address_models() {
+    std::vector<std::pair<gaddr, SlotModel>> held;
+    {
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        held.assign(g_address_models.begin(), g_address_models.end());
+    }
+    for (const auto& [address, s] : held) {
+        const std::int32_t oclass = g_play != nullptr && g_play->moby_class_at != nullptr
+                                        ? g_play->moby_class_at(address)
+                                        : -1;
+        if (s.loads == loads_now() && oclass == s.oclass) {
+            continue;
+        }
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        const auto now = g_address_models.find(address);
+        if (now != g_address_models.end() && now->second.loads == s.loads
+            && now->second.oclass == s.oclass) {
+            g_address_models.erase(now);
+        }
+    }
+}
+
 void play_update() {
+    drop_gone_slot_models();
+    drop_gone_address_models();
     // The game's camera scripts, as they went.
     if (has_camera_scripts()) {
         std::int32_t id = 0;
@@ -741,6 +866,11 @@ std::uint32_t overlay_phase_now() {
 }
 
 void reset_play() {
+    g_ammo_panel_offsets.clear();
+    {
+        const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
+        g_camera_visibility.clear();
+    }
     {
         const std::lock_guard<std::mutex> lock(g_notice_lock);
         g_notice.clear();
@@ -759,6 +889,15 @@ void reset_play() {
         g_visual_classes.clear();
         ++g_visual_generation;
         g_materials.clear();
+        g_models.fill(Model{});
+        g_slot_models.clear();
+        g_class_models.clear();
+
+        // No prop is left to need its mesh; the scene lets it go with its level.
+        if (!g_prop_meshes.empty()) {
+            g_prop_meshes.clear();
+            ++g_prop_generation;
+        }
     }
     {
         const std::lock_guard<std::mutex> lock(g_haze_lock);
@@ -812,6 +951,13 @@ void drop_figures(const openrac_mod* mod) {
         std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod; });
         std::erase_if(g_materials, [&](const MaterialEntry& e) { return e.mod == mod; });
     }
+    std::erase_if(g_ammo_panel_offsets, [mod](const auto& entry) {
+        return entry.second.mod == mod;
+    });
+    {
+        const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
+        g_camera_visibility.erase(mod);
+    }
     for (Figure& f : g_figures) {
         if (f.mod == mod) {
             if (live(f)) {
@@ -830,6 +976,13 @@ void drop_figures(const openrac_mod* mod) {
                 p = Prop{};
             }
         }
+        for (Model& m : g_models) {
+            if (m.mod == mod) {
+                m = Model{};
+            }
+        }
+        std::erase_if(g_slot_models, [&](const auto& s) { return s.second.mod == mod; });
+        std::erase_if(g_class_models, [&](const auto& c) { return c.second.mod == mod; });
     }
     {
         const std::lock_guard<std::mutex> lock(g_haze_lock);

@@ -144,6 +144,11 @@ openrac_moby_deletion	by_class	8	int32_t
 openrac_moby_deletion	by_mod	12	int32_t
 openrac_moby_deletion	oclass	16	int32_t
 openrac_moby_deletion	loads	20	uint32_t
+openrac_moby_model	(size)	76	-
+openrac_moby_model	size	0	uint32_t
+openrac_moby_model	flags	4	uint32_t
+openrac_moby_model	model	8	int32_t
+openrac_moby_model	matrix	12	float[16]
 openrac_moby_pool	(size)	24	-
 openrac_moby_pool	size	0	uint32_t
 openrac_moby_pool	capacity	4	int32_t
@@ -190,7 +195,7 @@ openrac_mod_setting	value	24	const char *
 openrac_mod_setting	shown	32	const char *
 openrac_mod_setting	party	40	int32_t
 openrac_mod_setting	is_default	44	int32_t
-openrac_overlay	(size)	64	-
+openrac_overlay	(size)	72	-
 openrac_overlay	size	0	uint32_t
 openrac_overlay	context	8	void *
 openrac_overlay	project	16	int (*)(void *, const float *, float *, float *)
@@ -199,6 +204,7 @@ openrac_overlay	text	32	void (*)(void *, float, float, float, uint32_t, const ch
 openrac_overlay	fade	40	float (*)(void *, float, float, float)
 openrac_overlay	text_width	48	float (*)(void *, float, const char *)
 openrac_overlay	phase	56	uint32_t
+openrac_overlay	set_blend	64	int (*)(void *, uint32_t)
 openrac_pack_entry	(size)	40	-
 openrac_pack_entry	size	0	uint32_t
 openrac_pack_entry	id	8	const char *
@@ -209,6 +215,23 @@ openrac_packs_info	(size)	12	-
 openrac_packs_info	size	0	uint32_t
 openrac_packs_info	count	4	int32_t
 openrac_packs_info	digest	8	uint32_t
+openrac_particle_spawn	(size)	64	-
+openrac_particle_spawn	size	0	uint32_t
+openrac_particle_spawn	kind	4	uint32_t
+openrac_particle_spawn	position	8	float[3]
+openrac_particle_spawn	velocity	20	float[3]
+openrac_particle_spawn	particle_size	32	float
+openrac_particle_spawn	life_ticks	36	uint32_t
+openrac_particle_spawn	color	40	uint32_t
+openrac_particle_spawn	color_end	44	uint32_t
+openrac_particle_spawn	flags	48	uint32_t
+openrac_particle_spawn	texture	52	int32_t
+openrac_particle_spawn	blend	56	int32_t
+openrac_particle_spawn	rot	60	float
+openrac_particle_texture	(size)	2052	-
+openrac_particle_texture	size	0	uint32_t
+openrac_particle_texture	indices	4	uint8_t[1024]
+openrac_particle_texture	clut	1028	uint8_t[1024]
 openrac_play_status	(size)	20	-
 openrac_play_status	size	0	uint32_t
 openrac_play_status	phase	4	int32_t
@@ -243,6 +266,29 @@ openrac_prop_pose	blend	120	uint32_t
 openrac_rac1_save_block	(size)	8	-
 openrac_rac1_save_block	id	0	int32_t
 openrac_rac1_save_block	size	4	int32_t
+openrac_rac1_weapon	(size)	120	-
+openrac_rac1_weapon	size	0	uint32_t
+openrac_rac1_weapon	item_id	4	uint32_t
+openrac_rac1_weapon	presentation	8	uint32_t
+openrac_rac1_weapon	icon	12	uint32_t
+openrac_rac1_weapon	capacity	16	uint32_t
+openrac_rac1_weapon	initial_ammo	20	uint32_t
+openrac_rac1_weapon	ammo_per_shot	24	uint32_t
+openrac_rac1_weapon	ammo_price	28	uint32_t
+openrac_rac1_weapon	weapon_price	32	uint32_t
+openrac_rac1_weapon	cooldown_ticks	36	uint32_t
+openrac_rac1_weapon	repeat_fire	40	uint32_t
+openrac_rac1_weapon	flags	44	uint32_t
+openrac_rac1_weapon	weapon_mesh_scale	48	float
+openrac_rac1_weapon	weapon_preview_scale	52	float
+openrac_rac1_weapon	weapon_preview_z	56	float
+openrac_rac1_weapon	weapon_mesh	64	const char *
+openrac_rac1_weapon	ammo_mesh	72	const char *
+openrac_rac1_weapon	display_name	80	const char *
+openrac_rac1_weapon	fire	88	openrac_rac1_weapon_fire_fn
+openrac_rac1_weapon	user	96	void *
+openrac_rac1_weapon	weapon_preview_rotation	104	float[3]
+openrac_rac1_weapon	hud_icon	116	uint32_t
 openrac_save_info	(size)	20	-
 openrac_save_info	size	0	uint32_t
 openrac_save_info	level	4	int32_t
@@ -439,6 +485,7 @@ openrac_rac1_Weapon_GoldDevastator_PickTarget	(typedef)	-	void (*)(openrac_gaddr
 openrac_rac1_Weapon_Ryno_PickTarget	(typedef)	-	openrac_gaddr (*)(openrac_gaddr, openrac_gaddr, openrac_gaddr, float, float, float)
 openrac_rac1_Weapon_TakeAmmo	(typedef)	-	int32_t (*)(int32_t, int32_t)
 openrac_rac1_msg_string	(typedef)	-	int32_t (*)(int32_t)
+openrac_rac1_weapon_fire_fn	(typedef)	-	int (*)(void *, uint32_t)
 openrac_rac2_Arena_Prize	(typedef)	-	int32_t (*)(int32_t)
 openrac_rac2_Bolt_Collect	(typedef)	-	void (*)(uint32_t)
 openrac_rac2_Bolt_SpawnPickup	(typedef)	-	uint32_t (*)(uint32_t, uint32_t, uint32_t, uint32_t, int32_t, int32_t)

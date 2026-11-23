@@ -67,6 +67,10 @@ int api_camera_position(float out[3]) {
 }
 
 std::uint32_t g_camera_loads = 0;
+std::mutex g_camera_visibility_lock;
+std::map<const openrac_mod*, std::uint32_t> g_camera_visibility;
+
+std::map<int, AmmoPanelOffset> g_ammo_panel_offsets;
 
 int api_camera_view(openrac_camera* out) {
     if (out == nullptr || out->size < sizeof(openrac_camera) || g_play == nullptr
@@ -81,6 +85,23 @@ int api_camera_view(openrac_camera* out) {
     std::copy(rows, rows + 3, out->forward);
     std::copy(rows + 3, rows + 6, out->left);
     std::copy(rows + 6, rows + 9, out->up);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_camera_visibility_bypass(openrac_mod* mod, int enabled) {
+    if (mod == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
+    if (enabled == 0) {
+        g_camera_visibility.erase(mod);
+        return OPENRAC_HOOK_OK;
+    }
+    std::int32_t level = -1;
+    if (enabled != 1 || phase_now(&level) != OPENRAC_PLAY_PLAYING || level < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_camera_visibility[mod] = loads_now();
     return OPENRAC_HOOK_OK;
 }
 
@@ -120,6 +141,19 @@ int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
     g_camera_mod = mod;
     g_camera_loads = loads_now();
     return OPENRAC_HOOK_OK;
+}
+
+// Interface 1.33: the game's own camera shake on the level camera, channel 0 or 1. The game's routine
+// decays it; a new call replaces the channel's shake. Nothing is kept here: the shake lives in the
+// game's camera, so it ends with the level (the game's camera is made again).
+int api_camera_shake(openrac_mod* mod, int channel, float amplitude, int frames) {
+    if (mod == nullptr || g_play == nullptr || g_play->camera_shake == nullptr || channel < 0
+        || channel > 1 || !std::isfinite(amplitude) || amplitude < 0.0f || amplitude > 1.0f
+        || frames < 0 || frames > OPENRAC_CAMERA_SHAKE_FRAMES_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_play->camera_shake(channel, amplitude, frames) != 0 ? OPENRAC_HOOK_OK
+                                                                 : OPENRAC_HOOK_UNKNOWN;
 }
 
 }  // namespace openrac::mods::detail
