@@ -1076,8 +1076,11 @@ uint32_t openrac_game_effect_quad_marker(void);
 
 /* A scoped attachment for strips in a display list delayed by one tick: write this tag in bits
  * 48-63 and the parent moby's address in bits 0-31 to NOP; address 0 ends the scope. The frontend
- * moves these vertices from the previous parent transform to its displayed transform. */
+ * moves these vertices from the previous parent transform to its displayed transform; with
+ * OPENRAC_PREVIOUS_EFFECT_PARENT_POSITION_ONLY set too, by the parent's move alone (its world
+ * offsets kept, not turned with it: what is drawn on the hero, his weapon and his shield). */
 #define OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER 0x4550u
+#define OPENRAC_PREVIOUS_EFFECT_PARENT_POSITION_ONLY (1ull << 32)
 
 /* Where the game's moby renderer draws the world's mobys, for the display list: the game puts
  * (OPENRAC_WORLD_MOBYS_MARKER << 48) in it with an A+D write to the NOP register where the world's

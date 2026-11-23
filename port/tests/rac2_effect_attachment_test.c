@@ -2,7 +2,8 @@
  * Copyright (c) 2026 the OpenRAC contributors
  *
  * Tests the RAC2 draw callback attachment classifier against synthetic moby records. Class and
- * state meanings come from func_003136D0; no disc data is used.
+ * state meanings come from func_003136D0 and func_L00_003C3D90 (the shield's moby); no disc data
+ * is used.
  */
 #include <stdio.h>
 
@@ -42,6 +43,44 @@ int main(void) {
 
     GREF(uint16_t, ball + 0xAA) = 501;
     if (rac2_effect_attachment(ball) != 0) {
+        return 1;
+    }
+
+    /* The strips' anchors: the nanotech ball turned with it, the hero, his weapon and his shield
+     * by their position alone, any other callback's (a trail, a beam in the world) none. */
+    const gaddr hero = 0x080, hand = 0x180;
+    GREF(uint16_t, ball + 0xAA) = 806;
+    GREF(uint8_t, ball + 0x20) = 1;
+    rac2_strip_anchor a = rac2_strip_anchor_of(ball, hero, hand);
+    if (a.moby != ball || a.position_only) {
+        return 1;
+    }
+    a = rac2_strip_anchor_of(hero, hero, hand);
+    if (a.moby != hero || !a.position_only) {
+        return 1;
+    }
+    a = rac2_strip_anchor_of(hand, hero, hand);
+    if (a.moby != hand || !a.position_only) {
+        return 1;
+    }
+    const uint16_t shields[] = {RAC2_SHIELD_CHARGER_CLASS, RAC2_TESLA_BARRIER_CLASS};
+    for (unsigned i = 0; i < 2; ++i) {
+        GREF(uint16_t, ball + 0xAA) = shields[i];
+        GREF(uint8_t, ball + 0x20) = 1;
+        a = rac2_strip_anchor_of(ball, hero, hand);
+        if (a.moby != ball || !a.position_only) {
+            return 1;
+        }
+        /* Gone (dead or free): none. */
+        GREF(uint8_t, ball + 0x20) = 0xFE;
+        if (rac2_strip_anchor_of(ball, hero, hand).moby != 0) {
+            return 1;
+        }
+    }
+    GREF(uint16_t, ball + 0xAA) = 1490;
+    GREF(uint8_t, ball + 0x20) = 1;
+    if (rac2_strip_anchor_of(ball, hero, hand).moby != 0 || rac2_strip_anchor_of(0, 0, 0).moby != 0
+        || rac2_strip_anchor_of(0xFFFFFFFFu, hero, hand).moby != 0) {
         return 1;
     }
 

@@ -310,6 +310,7 @@ std::vector<std::uint8_t> direct_packets(
     bool strip_context = false;
     // Scoped parent of vertices in a display list produced one tick before the captured mobys.
     std::uint32_t previous_effect_parent = 0;
+    bool previous_effect_parent_position_only = false;
     // The fog line the liquid grid's packet gives the strip program (build_interpolated_dma_packet,
     // func_L02_002A52D0, unpacks it to VU addresses 0x3AC to 0x3AF): the view context's fog_mul
     // (0x3AC.w), screen_bias with fog_add in w (0x3AE), then the far and near F (0x3AF.x, .y).
@@ -396,6 +397,8 @@ std::vector<std::uint8_t> direct_packets(
                             // Only explicitly attached strips follow a delayed parent transform.
                             if ((value >> 48) == OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER) {
                                 previous_effect_parent = static_cast<std::uint32_t>(value);
+                                previous_effect_parent_position_only =
+                                    (value & OPENRAC_PREVIOUS_EFFECT_PARENT_POSITION_ONLY) != 0;
                             }
 
                             if ((value >> 48) == renderer::GifInterpreter::kWorldMarker
@@ -721,6 +724,7 @@ std::vector<std::uint8_t> direct_packets(
                 strip.blend_disabled = strip_blend_disabled;
                 strip.surface = surface;
                 strip.previous_parent = previous_effect_parent;
+                strip.previous_parent_position_only = previous_effect_parent_position_only;
                 strip.uv_motion = uv_motion;
                 static const bool& strip_fog_off = stats::probe(
                     "OPENRAC_STRIP_FOG_OFF", "reference: the effect strips drawn without the GS fog"
