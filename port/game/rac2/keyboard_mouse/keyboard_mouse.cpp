@@ -5,9 +5,9 @@
 // does alike (the settings, binds, sticks, cursor and pad report) is game/common/keyboard_mouse's
 // (core.hpp, kbm.hpp, the shared manifest); this file adds Going Commando's own: where the game is,
 // from the on-screen pad's context (touch.c), its menus under the mouse (menus.hpp, places.hpp)
-// and its follow camera, which the mouse turns itself (follow_mouse.h). Out of the follow camera
-// the mouse is the right stick. It writes the pad report, the fonts' button icons (key_prompts.h)
-// and, in play, the follow camera's view, never other game state.
+// and its follow and first-person cameras, which the mouse turns itself (follow_mouse.h). Out of
+// them the mouse is the right stick. It writes the pad report, the fonts' button icons
+// (key_prompts.h) and, in play, those cameras' views, never other game state.
 
 #include "keyboard_mouse.h"
 
@@ -115,6 +115,19 @@ kbm::Vec3 s_follow_up = kbm::kWorldUp;
 float s_follow_range = 0.0f;  // the game's tilt range, 0 for no tilt
 // The mouse's turn the ticks since the last frame made (frontend/mouse_turn.h's tick_yaw).
 float s_tick_yaw = 0.0f;
+// The first-person camera (L1's view, the first-person mode) turned by the mouse itself
+// (follow_mouse.h's aligned hook): the motion since its last turn, the tick it last ran at, the
+// hero's up and the game's locks then. While it runs the mouse turns it, not the follow camera.
+float s_aim_dx = 0.0f;
+float s_aim_dy = 0.0f;
+std::uint32_t s_aligned_tick = kNoTick;
+bool s_aims = false;  // the mouse turns the first-person camera itself now
+kbm::Vec3 s_aligned_up = kbm::kWorldUp;
+kbm::OrbitLocks s_aligned_locks;
+// The first-person view's tilt limit, radians from level (the game's, cam_aligned_update).
+constexpr float kAlignedTiltLimit = 1.4660767f;
+// The first-person camera's state: the view's tilt (radians, > 0 looks up).
+constexpr std::uint32_t kAlignedTilt = 0x10u;
 // The camera's data (its +0x70): the offset of the eye it wants from Ratchet, the offset it eases
 // towards that, the stick state (the tilt target and its spring's speed) and the locks.
 constexpr std::uint32_t kFollowWanted = 0x160u;
@@ -495,8 +508,10 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     s_ring_open = ring;
     kbm::left_stick(t, held, ring, s_set, s_ring, s_keys, v);
 
-    // The gyro aims (core.hpp): "only while aiming" is a strafe, L2 or R2 held.
-    const bool aiming = ((v.held | pad_buttons) & (kbm::kL2 | kbm::kR2)) != 0;
+    // The first-person camera ran lately (L1's view, the first-person mode): the mouse turns it.
+    const bool aligned = s_aligned_tick != kNoTick && s_tick - s_aligned_tick <= kFollowSeenTicks;
+    // The gyro aims (core.hpp): "only while aiming" is a strafe, L2 or R2 held, or first person.
+    const bool aiming = aligned || ((v.held | pad_buttons) & (kbm::kL2 | kbm::kR2)) != 0;
     const kbm::GyroLook gyro = ring ? kbm::GyroLook{} : kbm::gyro_look(t, s_set, aiming);
     s_gyro_on = gyro.on;
     s_mouse_counts = t.play;
@@ -509,14 +524,23 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     // and is the right stick for any other camera; the pad's own stick wins.
     const bool follow = s_follow_tick != kNoTick && s_tick - s_follow_tick <= kFollowSeenTicks;
     s_pad_look = pad_look;
-    s_follows = looks && follow;
-    if (s_follows) {
+    s_aims = looks && aligned;
+    s_follows = looks && follow && !aligned;
+    if (s_aims) {
+        s_aim_dx += dx;
+        s_aim_dy += dy;
+        s_follow_dx = 0.0f;
+        s_follow_dy = 0.0f;
+        s_look.reset();
+    } else if (s_follows) {
         s_follow_dx += dx;
         s_follow_dy += dy;
         s_look.reset();
     } else {
         s_follow_dx = 0.0f;
         s_follow_dy = 0.0f;
+        s_aim_dx = 0.0f;
+        s_aim_dy = 0.0f;
         s_tilt.held = s_tilt.held && (t.play || gyro.on) && !pad_look;
         if (looks) {
             s_look.step(dx, dy, false, s_set.look);
@@ -597,15 +621,66 @@ void follow_mouse(std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) 
     }
 }
 
+// The first-person camera, just after it turned by the stick (follow_mouse.h): its view turned by
+// the mouse's motion about the hero's up and tilted about its side, within the game's tilt limit,
+// its tilt kept with it; then its side and up rows built again from the view, as the game does.
+// The game's locks stop the mouse as they stop the stick.
+void aligned_mouse(
+    std::uint32_t camera, std::uint32_t state, const float up[3], int turn_locked, int tilt_locked
+) {
+    s_aligned_tick = s_tick;
+    const float dx = s_aim_dx;
+    const float dy = s_aim_dy;
+    s_aim_dx = 0.0f;
+    s_aim_dy = 0.0f;
+    s_aligned_up = kbm::unit_or({up[0], up[1], up[2]}, kbm::kWorldUp);
+    s_aligned_locks.turn = turn_locked != 0;
+    s_aligned_locks.tilt = tilt_locked != 0;
+    if (!s_aims || (dx == 0.0f && dy == 0.0f) || camera < 0x00100000u || camera >= kRamBytes - 0x40u
+        || state < 0x00100000u || state >= kRamBytes - 0x20u) {
+        return;
+    }
+    openrac::Memory m = s_mod->memory();
+    const kbm::Vec3 u = s_aligned_up;
+    kbm::Vec3 view = kbm::unit_or(read_vec(camera), {1.0f, 0.0f, 0.0f});
+    if (dx != 0.0f && !s_aligned_locks.turn) {
+        const float yaw = kbm::DirectLook::yaw(dx, dy, s_set.look);
+        view = kbm::rotate(view, u, yaw);
+        s_tick_yaw += yaw;
+    }
+    const float tilt = m.read<float>(state + kAlignedTilt);
+    if (dy != 0.0f && !s_aligned_locks.tilt && std::isfinite(tilt)) {
+        // Looking down lowers the view: a turn about its side (view x up) looks up.
+        const float now = kbm::clamp(
+            tilt - kbm::DirectLook::pitch(dx, dy, s_set.look), -kAlignedTiltLimit, kAlignedTiltLimit
+        );
+        const kbm::Vec3 side = kbm::unit_or(kbm::cross(view, u), {0.0f, -1.0f, 0.0f});
+        view = kbm::rotate(view, side, now - tilt);
+        m.write<float>(state + kAlignedTilt, now);
+    }
+    view = kbm::unit_or(view, {1.0f, 0.0f, 0.0f});
+    const kbm::Vec3 side = kbm::unit_or(kbm::cross(view, u), {0.0f, -1.0f, 0.0f});
+    write_vec(camera, view);
+    write_vec(camera + 0x10u, side);
+    write_vec(camera + 0x20u, kbm::cross(side, view));
+}
+
 // The turn the next tick makes for mouse motion it has not read yet (frontend/mouse_turn.h), while
-// the mouse turns the follow camera itself.
+// the mouse turns the follow camera or the first-person camera itself.
 bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
     const float tick_yaw = s_tick_yaw;
     s_tick_yaw = 0.0f;
-    if (s_mod == nullptr || !s_follows || s_pad_look) {
+    if (s_mod == nullptr || (!s_follows && !s_aims) || s_pad_look) {
         return false;
     }
     kbm::add_pending_gyro(s_gyro_on, s_mouse_counts, s_set, dx, dy);
+    if (s_aims) {
+        kbm::direct_turn(
+            dx, dy, s_set.look, s_aligned_up, s_aligned_locks, kAlignedTiltLimit, true, out
+        );
+        out->tick_yaw = tick_yaw;
+        return true;
+    }
     const float limit = s_follow_range > 0.0f ? kbm::follow_max_elevation(s_follow_range) : 0.0f;
     kbm::direct_turn(dx, dy, s_set.look, s_follow_up, s_follow_locks, limit, false, out);
     out->tick_yaw = tick_yaw;
@@ -670,6 +745,11 @@ void load(openrac::Mod& mod) {
     s_follow_tick = kNoTick;
     s_tick_yaw = 0.0f;
     s_follows = false;
+    s_aim_dx = 0.0f;
+    s_aim_dy = 0.0f;
+    s_aligned_tick = kNoTick;
+    s_aims = false;
+    s_aligned_locks = {};
     s_gyro_on = false;
     s_mouse_counts = false;
     s_tilt = {};
@@ -678,6 +758,11 @@ void load(openrac::Mod& mod) {
     openrac_rac2_set_follow_mouse([](std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) {
         follow_mouse(camera, turn, tilt);
     });
+    openrac_rac2_set_aligned_mouse(
+        [](std::uint32_t camera, std::uint32_t state, const float up[3], int turn, int tilt) {
+            aligned_mouse(camera, state, up, turn, tilt);
+        }
+    );
     openrac::frontend::set_mouse_turn(picture_turn);
     mod.on_settings([] { read_settings(*s_mod); });
     mod.on_pad([](int port, std::uint8_t* report, int size) { on_pad(port, report, size); });

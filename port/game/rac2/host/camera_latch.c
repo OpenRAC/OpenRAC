@@ -47,9 +47,21 @@
 
 static gaddr s_state;    /* the stick state the last read was for */
 static openrac_rac2_follow_mouse_fn s_follow_mouse; /* the mouse's turn (follow_mouse.h) */
+static openrac_rac2_aligned_mouse_fn s_aligned_mouse; /* the same for the first-person view */
+
+/* The first-person camera (func_L00_004266E8): the camera table (each entry's +0x1C points at the
+ * entry's parameters, whose +0x26 halfword stops the stick for one tick), the camera state block
+ * (+0x290: the view's blend phase) and the hero's block (+0x22A0: his aim mode). */
+#define CAMERA_TABLE OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001B1844u))
+#define CAMERA_PHASE (OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001B8C80u)) + 0x290u)
+#define HERO_AIM_MODE (RAC2_g_heroPos - 0x80u + 0x22A0u)
 
 void openrac_rac2_set_follow_mouse(openrac_rac2_follow_mouse_fn fn) {
     s_follow_mouse = fn;
+}
+
+void openrac_rac2_set_aligned_mouse(openrac_rac2_aligned_mouse_fn fn) {
+    s_aligned_mouse = fn;
 }
 
 int openrac_rac2_follow_axis(float up[3]) {
@@ -81,6 +93,40 @@ void func_L00_00424F98(gaddr camera, gaddr x, gaddr y) {
     if (s_follow_mouse != NULL) {
         s_follow_mouse(camera, x, y);
     }
+}
+
+/* The first-person camera's turn by the stick (cam_aligned_update_from_input), then the mouse's,
+ * which turns the view itself. The stick's locks are read first: the game clears them as it runs. */
+void func_L00_004266E8(gaddr camera) {
+    int turn_locked = 0;
+    int tilt_locked = 0;
+    if (s_aligned_mouse != NULL) {
+        const gaddr entry =
+            GREF(gaddr, CAMERA_TABLE) + (gaddr)(GREF(int16_t, camera + 0x84u) * 0x20);
+        const gaddr params = GREF(gaddr, entry + 0x1Cu);
+        turn_locked = GREF(int16_t, params + 0x26u) != 0;
+        tilt_locked =
+            turn_locked || (GREF(int16_t, CAMERA_PHASE) != 0 && GREF(int32_t, HERO_AIM_MODE) == 2);
+    }
+    func_L00_004266E8__game(camera);
+    const gaddr moby = GREF(gaddr, RAC2_g_pHeroMoby);
+    if (s_aligned_mouse == NULL || moby == 0) {
+        return;
+    }
+    float up[3];
+    float length = 0.0f;
+    for (int i = 0; i < 3; ++i) {
+        up[i] = GREF(float, moby + 0xE0u + 4u * (unsigned)i);
+        length += up[i] * up[i];
+    }
+    if (!(length > 1e-6f)) {
+        return;
+    }
+    length = sqrtf(length);
+    for (int i = 0; i < 3; ++i) {
+        up[i] /= length;
+    }
+    s_aligned_mouse(camera, GREF(gaddr, camera + 0x70u), up, turn_locked, tilt_locked);
 }
 
 /* The pad's analog x for a report byte (func_002B88F0), then as the camera reads it. */

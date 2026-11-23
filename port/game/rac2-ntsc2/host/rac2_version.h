@@ -129,9 +129,11 @@
 #define RAC2_LADDR_00_0x001B14ACu 0x001B144Cu /* the release's build */
 #define RAC2_LADDR_00_0x001B14B0u 0x001B1450u /* the release's build */
 #define RAC2_LADDR_00_0x001B14C4u 0x001B1464u /* the release's build */
+#define RAC2_LADDR_00_0x001B1844u 0x001B17C4u /* the release's build */
 #define RAC2_LADDR_00_0x001B19C8u 0x001B1948u /* the release's build */
 #define RAC2_LADDR_00_0x001B1E9Cu 0x001B1E1Cu /* the release's build */
 #define RAC2_LADDR_00_0x001B1EA8u 0x001B1E28u /* the release's build */
+#define RAC2_LADDR_00_0x001B8C80u 0x001B8C00u /* the release's build */
 #define RAC2_LADDR_00_0x001B8E10u 0x001B8D90u /* the release's build */
 #define RAC2_LADDR_00_0x001B8E20u 0x001B8DA0u /* the release's build */
 #define RAC2_LADDR_00_0x001BF140u 0x001BF0C0u /* the release's build */

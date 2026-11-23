@@ -27,8 +27,9 @@ set *Button icons* to *Always keys* or *Always gamepad*.
 - Raw input, no acceleration, on every system.
 - The mouse turns the camera behind Ratchet directly, by an angle for each
   pixel, in both games. Up and down tilt stays where you leave it.
-- R&C: first person works the same way. Frames between ticks already show the
-  turn, so the view follows the mouse at your screen's rate.
+- First person works the same way in both games (GC: L1's view and the
+  first-person mode). Frames between ticks already show the turn, so the view
+  follows the mouse at your screen's rate.
 - Other cameras (scenes, GC's ship and vehicles) get the mouse as the right
   stick. A pad's right stick always wins.
 
@@ -42,7 +43,7 @@ it). On a phone or a handheld with no such controller it reads the device's own
 gyro. It is off by default.
 
 - **Always** or **Only while aiming** (R&C: first person, L1 or L2 held; GC:
-  strafing, L2 or R2 held). Never in menus or the Quick Select.
+  first person, or strafing, L2 or R2 held). Never in menus or the Quick Select.
 - **Sensitivity** 1 turns the camera as far as the controller turned.
 - **Turn by:** *Player space* works however you hold the controller. *Yaw*,
   *Roll*, or both, are the classic ways.

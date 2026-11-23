@@ -128,6 +128,12 @@ void openrac_rac2_set_follow_mouse(openrac_rac2_follow_mouse_fn fn) {
     g_follow_mouse = fn;
 }
 
+openrac_rac2_aligned_mouse_fn g_aligned_mouse = nullptr;
+
+void openrac_rac2_set_aligned_mouse(openrac_rac2_aligned_mouse_fn fn) {
+    g_aligned_mouse = fn;
+}
+
 int openrac_rac2_follow_axis(float up[3]) {
     up[0] = 0.0f;
     up[1] = 0.0f;
