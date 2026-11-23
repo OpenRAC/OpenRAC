@@ -177,7 +177,7 @@ The C keeps the EE's registers as locals ([ee.h](../../runtime/include/openrac/e
 | a general register | a 64-bit local; a second 64-bit half where the function uses 128-bit loads, stores or MMI |
 | HI, LO (and HI1, LO1), SA | locals |
 | an FPU register, its condition bit, its accumulator | a float local, an int, a float |
-| VU0's registers (vf, vi, ACC, Q, I) | `openrac_vu0`: one for the program, as hand-written routines leave results there |
+| VU0's registers (vf, vi, ACC, Q, I) | `openrac_vu0`: one for the program, as hand-written routines leave results there (the C's own inline assembly has a local one, vu0asm.py) |
 | a branch target | a label |
 | a delay slot | runs after the branch's condition is read and before it jumps; a likely branch's only when taken |
 | `$sp` | the game stack: `openrac_guest_sp` at entry, given back at every return; each call sees it at the caller's `$sp` |
@@ -297,12 +297,48 @@ diagnostics:
   it, get an alias of the same symbol;
 - an asm label given after a function's first use is dropped, and the name
   followed to the label's symbol;
-- inline assembly whose constraints Clang does not know (`=j`, `=h`) is
+- inline assembly whose constraints Clang does not know (`=h`) is
   replaced by a call hostgen recognises, and the function becomes a stub;
+  in a statement of VU0 instructions, GCC's `j` (a vector register) is
+  written `m` instead, so Clang reads the operand as the C variable it is
+  (`vu0_register_operands`; see "VU0 inline assembly" below);
 - a call with too few arguments to a K&R function passes zeros.
 
 Game typedefs named like the host's standard types (`size_t`, `uint32_t`)
 are renamed.
+
+## VU0 inline assembly
+
+The decompilations keep the vector unit's macro-mode instructions in matched C
+as GCC inline assembly: one instruction a statement on C variables in GCC's
+`j` class (`__asm__("vadd.xyz %0, %1, %2" : "=j"(x) : "j"(x), "j"(y))`),
+or a block on named registers that loads and stores through its operands
+(`lqc2 $vf1, 0(%1)` ... `sqc2 $vf1, 0(%0)`). [vu0asm.py](vu0asm.py) writes
+each such statement as C (lower.py's `asm_stmt`), with no VU0 behind it:
+
+- an operand an instruction names as a vector register is that C variable's
+  sixteen bytes, in four float locals read before the statement and written
+  back after it, as GCC's register for it was. An output of its own written in
+  part keeps the fields of the register its instruction reads first (the
+  register GCC gives an output whose input dies there, as `headers/vu0.h`'s
+  helpers keep the first source's w);
+- named registers (`$vf1`, ACC, Q, `vi`) are a local `openrac_vu0_state` of
+  the function: what a statement leaves there the next one in the function
+  reads, and nothing outside the function sees it. A statement that reads a
+  named register no earlier statement of its function wrote (a hand-written
+  routine's result) is not written as C;
+- the integer registers a block names (`$at` between `mfc1` and `qmtc2`) are
+  locals of the block; `$4` ... `$11` that it reads before writing are the
+  function's arguments, when the statement is the function's first;
+- the arithmetic is the assembly's translation of the same instructions
+  (asmc.py's `Translator.vu0`): rounding, `vf0`, the broadcast fields and
+  `asm.vu_flush` as there.
+
+What it cannot write (a microprogram, `.word`, a control register, a branch)
+stays as before: a statement on named registers is a barrier, reported under
+"Inline assembly the host does not run"; one with a vector-register operand
+makes the function a stub ("VU0 inline assembly: ..."), which `from_assembly`
+can send to the assembly's translation instead.
 
 ## A game's configuration
 
