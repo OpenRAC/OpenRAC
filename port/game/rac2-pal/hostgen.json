@@ -344,12 +344,16 @@
     "src/pal/levels/shared/L01_003E4058-sw-g8.c": {
       "ref_L00_003DD6A8_00": "func_L00_00327350",
       "ref_L00_003DD6A8_12": "func_L00_003BBCE0",
-      "ref_L00_003DD6A8_25": "func_L00_003E3248"
+      "ref_L00_003DD6A8_18": "func_L00_002C4480",
+      "ref_L00_003DD6A8_25": "func_L00_003E3248",
+      "ref_L00_003DD6A8_41": "func_L00_003E20B8"
     },
     "src/pal/levels/shared/L00_003E1874-sw-g8.c": {
       "ref_L00_003DD6A8_00": "func_L00_00327350",
       "ref_L00_003DD6A8_12": "func_L00_003BBCE0",
-      "ref_L00_003DD6A8_25": "func_L00_003E3248"
+      "ref_L00_003DD6A8_18": "func_L00_002C4480",
+      "ref_L00_003DD6A8_25": "func_L00_003E3248",
+      "ref_L00_003DD6A8_41": "func_L00_003E20B8"
     }
   },
   "small_copies_own_data": 32,
