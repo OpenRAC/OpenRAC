@@ -92,6 +92,7 @@ func_00138E68	cdvd	sceCdRead	host	the instructions of the boot program's func_00
 func_00139048	cdvd	sceCdGetError	host	the instructions of the boot program's func_0012BC00
 func_001390E0	cdvd	sceCdBreak	host	the instructions of the boot program's func_0012BC98
 func_00139250	cdvd	sceCdMmode	host	the instructions of the boot program's func_0012BD50
+func_00139328	cdvd	sceCdReadClock	host	the instructions of the boot program's func_0012BE28: translated, its RPC answered nothing, so the multiplayer program read a clock of zeros and level 39's srand seed (0x00679DA0: the clock's bytes xor T0_COUNT) was 0 every match, the same spawns each time
 func_001393E8	graph	sceGsResetGraph	host	the instructions of the boot program's func_0012BEE8
 func_00139628	graph	_GetGsDxDyOffset	host	the instructions of the boot program's func_0012C128
 func_00139638	graph	sceGsSetDefDispEnv	host	the instructions of the boot program's func_0012C138
