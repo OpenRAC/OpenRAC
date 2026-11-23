@@ -1,5 +1,5 @@
 //! Finding what the launcher needs on this machine: the OpenRAC checkout,
-//! Python, Godot and Docker. Each finder returns candidates with
+//! Python and Docker. Each finder returns candidates with
 //! where they came from; the UI offers them, the user picks, and
 //! [`check_tool`] says whether a pick works.
 
@@ -16,7 +16,6 @@ use crate::is_openrac_root;
 #[serde(rename_all = "camelCase")]
 pub enum Tool {
     Python,
-    Godot,
     Docker,
 }
 
@@ -33,7 +32,6 @@ pub struct Candidate {
 pub struct Detected {
     pub roots: Vec<Candidate>,
     pub pythons: Vec<Candidate>,
-    pub godots: Vec<Candidate>,
     pub dockers: Vec<Candidate>,
 }
 
@@ -60,7 +58,7 @@ pub fn detect_all(start: &[PathBuf], bundled: Option<&Path>) -> Detected {
             pythons.insert(0, Candidate { path: python, source: "built in".into() });
         }
     }
-    Detected { roots, pythons, godots: tool_candidates(Tool::Godot), dockers: tool_candidates(Tool::Docker) }
+    Detected { roots, pythons, dockers: tool_candidates(Tool::Docker) }
 }
 
 /// The copy of OpenRAC an installed launcher carries in its resources (`openrac/`): the games'
@@ -188,7 +186,6 @@ fn names(tool: Tool) -> &'static [&'static str] {
     match tool {
         Tool::Python if cfg!(windows) => &["python", "py", "python3"],
         Tool::Python => &["python3", "python"],
-        Tool::Godot => &["godot", "godot4", "Godot", "org.godotengine.Godot"],
         Tool::Docker => &["docker", "podman"],
     }
 }
@@ -196,62 +193,7 @@ fn names(tool: Tool) -> &'static [&'static str] {
 /// Places installers put a tool, outside PATH.
 fn usual_places(tool: Tool) -> Vec<PathBuf> {
     let mut places = Vec::new();
-    let env = |name: &str| std::env::var_os(name).map(PathBuf::from);
     match tool {
-        Tool::Godot => {
-            if let Some(godot) = env("GODOT") {
-                places.push(godot);
-            }
-            if cfg!(target_os = "macos") {
-                places.push("/Applications/Godot.app/Contents/MacOS/Godot".into());
-            } else if cfg!(windows) {
-                // Godot for Windows is a zip with no installer: the player unpacks it wherever
-                // they like (Downloads, the desktop, Program Files), or winget, Scoop, Steam or
-                // itch put it in folders of their own. Each is looked through for its programs.
-                let local = env("LOCALAPPDATA");
-                if let Some(local) = &local {
-                    places.push(local.join("Microsoft").join("WinGet").join("Links").join("godot.exe"));
-                }
-                let mut bases: Vec<PathBuf> = Vec::new();
-                if let Some(home) = home() {
-                    bases.extend(["", "Downloads", "Desktop", "Documents", "Games", "Tools"].map(|d| home.join(d)));
-                    bases.push(home.join("scoop").join("apps"));
-                }
-                bases.extend(
-                    [
-                        env("ProgramFiles"),
-                        env("ProgramFiles(x86)"),
-                        env("SystemDrive").map(|d| PathBuf::from(format!(r"{}\", d.display()))),
-                    ]
-                    .into_iter()
-                    .flatten(),
-                );
-                if let Some(local) = &local {
-                    bases.push(local.join("Programs"));
-                    bases.push(local.clone());
-                    bases.push(local.join("Microsoft").join("WinGet").join("Packages"));
-                }
-                bases.extend(env("APPDATA").map(|d| d.join("itch").join("apps")));
-                bases.extend(env("ProgramData").map(|d| d.join("chocolatey").join("lib")));
-                bases.extend(steam_libraries().into_iter().map(|l| l.join("steamapps").join("common")));
-                for base in bases {
-                    places.extend(godot_programs_in(&base, false, 3));
-                }
-            } else {
-                for p in [
-                    "/var/lib/flatpak/exports/bin/org.godotengine.Godot",
-                    "/usr/bin/godot",
-                    "/usr/bin/godot4",
-                    "/usr/local/bin/godot",
-                    "/usr/local/bin/godot4",
-                ] {
-                    places.push(PathBuf::from(p));
-                }
-                if let Some(home) = home() {
-                    places.push(home.join(".local/share/flatpak/exports/bin/org.godotengine.Godot"));
-                }
-            }
-        }
         Tool::Docker if cfg!(target_os = "macos") => places.push("/usr/local/bin/docker".into()),
         // A desktop app started from the Finder or a menu gets a short PATH:
         // on macOS it ends at the system's Python, which is too old for the
@@ -265,85 +207,13 @@ fn usual_places(tool: Tool) -> Vec<PathBuf> {
     places
 }
 
-/// Godot's Windows programs in `dir`: `Godot_v4.7.2-stable_win64.exe`, Steam's
-/// `godot.windows.opt.tools.64.exe` and the like, the window program before the `_console` one
-/// beside it. Only folders named for Godot are gone into (`Godot_v4.7.2-stable_win64.exe\` is
-/// what Explorer's Extract All makes of the zip, `GodotEngine.GodotEngine_...` winget's,
-/// `Godot Engine` Steam's), and anything below one, `depth` levels down.
-fn godot_programs_in(dir: &Path, inside: bool, depth: u32) -> Vec<PathBuf> {
-    let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
-    let mut programs = Vec::new();
-    let mut folders = Vec::new();
-    for entry in entries.filter_map(Result::ok) {
-        let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
-        let godot = name.starts_with("godot");
-        let Ok(kind) = entry.file_type() else { continue };
-        if kind.is_dir() {
-            if depth > 0 && (godot || inside) {
-                folders.push(entry.path());
-            }
-        } else if godot && name.ends_with(".exe") {
-            programs.push((name.contains("_console"), entry.path()));
-        }
-    }
-    programs.sort();
-    let mut found: Vec<PathBuf> = programs.into_iter().map(|(_, p)| p).collect();
-    folders.sort();
-    for folder in folders {
-        found.extend(godot_programs_in(&folder, true, depth - 1));
-    }
-    found
+/// How long a version probe may take: Windows Defender reads a program through the first time
+/// it runs.
+fn probe_timeout(_tool: Tool) -> Duration {
+    Duration::from_secs(30)
 }
 
-/// Steam's library folders: its own and those `libraryfolders.vdf` names.
-#[cfg(windows)]
-fn steam_libraries() -> Vec<PathBuf> {
-    let Some(steam) = std::env::var_os("ProgramFiles(x86)").map(|d| PathBuf::from(d).join("Steam")) else {
-        return Vec::new();
-    };
-    let mut libraries = vec![steam.clone()];
-    let vdf = std::fs::read_to_string(steam.join("steamapps").join("libraryfolders.vdf")).unwrap_or_default();
-    for line in vdf.lines() {
-        // 		"path"		"D:\\SteamLibrary"
-        let mut quoted = line.split('"').skip(1).step_by(2);
-        if let (Some("path"), Some(path)) = (quoted.next(), quoted.next()) {
-            let path = PathBuf::from(path.replace("\\\\", "\\"));
-            if !libraries.contains(&path) {
-                libraries.push(path);
-            }
-        }
-    }
-    libraries
-}
-
-#[cfg(not(windows))]
-fn steam_libraries() -> Vec<PathBuf> {
-    Vec::new()
-}
-
-/// Why the Godot that answered `--version` with `line` (`4.7.2.stable.official.ed1daf0bf`) is
-/// not one the level editor opens in, if it is not: it needs Godot 4.
-pub fn godot_too_old(line: &str) -> Option<String> {
-    let major: u32 = line.trim().split('.').next()?.parse().ok()?;
-    (major < 4).then(|| format!("Godot {} is too old: the level editor needs Godot 4", line.trim()))
-}
-
-/// The version numbers at the start of what a tool printed, to put the newest first.
-fn version_numbers(line: &str) -> Vec<u32> {
-    let line = line.trim().trim_start_matches(|c: char| !c.is_ascii_digit());
-    line.split('.').map_while(|part| part.parse().ok()).collect()
-}
-
-/// How long a version probe may take. Windows Defender reads a program through the first time it
-/// runs: Godot's 180 MB took 13 s to answer on a small machine, and then a tenth of a second.
-fn probe_timeout(tool: Tool) -> Duration {
-    match tool {
-        Tool::Godot => Duration::from_secs(90),
-        Tool::Python | Tool::Docker => Duration::from_secs(30),
-    }
-}
-
-/// The oldest Python 3 the tools run on: `editor/` and `tools/` use syntax from 3.10.
+/// The oldest Python 3 the tools run on: `extractor/` and `tools/` use syntax from 3.10.
 pub const PYTHON_MINOR: u32 = 10;
 
 /// Why the Python that answered `--version` with `line` is too old, if it is.
@@ -369,21 +239,17 @@ pub fn tool_candidates(tool: Tool) -> Vec<Candidate> {
         }
     }
     // The first candidate is what Settings proposes, so a Python that works
-    // goes before one that is too old. The order is otherwise kept. Of the
-    // Godots that work, the newest goes first.
-    if matches!(tool, Tool::Python | Tool::Godot) {
+    // goes before one that is too old. The order is otherwise kept.
+    if tool == Tool::Python {
         let checked = found.into_iter().map(|c| {
             let check = check_tool(tool, &c.path);
             (c, check)
         });
-        let (mut good, mut bad): (Vec<_>, Vec<_>) = checked.partition(|(_, k)| k.ok);
+        let (good, mut bad): (Vec<_>, Vec<_>) = checked.partition(|(_, k)| k.ok);
         // A fresh Windows has `python.exe` in WindowsApps that only says "Python was not found"
         // and points at the Store: that one is no Python to offer. A Store Python that is
         // installed answers from the same folder, and stays.
         bad.retain(|(c, _)| !c.path.components().any(|p| p.as_os_str().eq_ignore_ascii_case("WindowsApps")));
-        if tool == Tool::Godot {
-            good.sort_by_key(|(_, k)| std::cmp::Reverse(version_numbers(k.version.as_deref().unwrap_or(""))));
-        }
         found = good.into_iter().chain(bad).map(|(c, _)| c).collect();
     }
     found
@@ -393,8 +259,6 @@ pub fn tool_candidates(tool: Tool) -> Vec<Candidate> {
 fn version_probe(tool: Tool) -> (&'static [&'static str], &'static str) {
     match tool {
         Tool::Python => (&["--version"], "Python 3."),
-        // `4.7.2.stable.official.ed1daf0bf` (or `.beta1.`, `.dev.`); godot_too_old checks the number.
-        Tool::Godot => (&["--version"], "."),
         Tool::Docker => (&["--version"], "version"),
     }
 }
@@ -425,13 +289,11 @@ pub fn check_tool(tool: Tool, path: &Path) -> Check {
             let line = out.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or("").to_string();
             let too_old = match tool {
                 Tool::Python => python_too_old(&line),
-                Tool::Godot => godot_too_old(&line),
                 Tool::Docker => None,
             };
-            let numbered = tool != Tool::Godot || line.starts_with(|c: char| c.is_ascii_digit());
             if let Some(why) = too_old {
                 Check { ok: false, message: why, version: Some(line) }
-            } else if numbered && line.contains(expect) {
+            } else if line.contains(expect) {
                 Check { ok: true, message: line.clone(), version: Some(line) }
             } else {
                 Check { ok: false, message: format!("unexpected answer: {line}"), version: Some(line) }
@@ -515,7 +377,7 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// A command for a console program that must not flash a console window on Windows, and that
 /// gets the system's environment rather than an AppImage's ([`crate::appimage::sanitize`]): the
-/// probes of Python and Godot, curl, git.
+/// probes of Python, curl, git.
 pub fn quiet(program: &Path) -> Command {
     #[allow(unused_mut)]
     let mut cmd = Command::new(program);
@@ -556,7 +418,7 @@ pub fn run(mut cmd: Command, timeout: Duration) -> Result<String, String> {
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("cannot start {program}: {e}"))?;
-    // The output is read while the program runs, not after: Godot on Windows flushes its
+    // The output is read while the program runs, not after: a program on Windows may flush its
     // output pipe as it exits, which waits for the pipe to be read, so it never ended.
     let drain = |stream: Option<Box<dyn std::io::Read + Send>>| {
         std::thread::spawn(move || {
@@ -606,32 +468,6 @@ mod tests {
         assert_eq!(desktop_exec(Path::new("/a/100%/$x\"y")), r#""/a/100%%/\\$x\\"y""#);
     }
 
-    /// Godot for Windows as players have it: Extract All's folder named for the zip in
-    /// Downloads, winget's package folder, Steam's, a renamed copy loose in a folder. The window
-    /// program goes before its `_console` twin; nothing outside a Godot folder is gone into.
-    #[test]
-    fn finds_godot_where_windows_players_unpack_it() {
-        let tmp = tempfile::tempdir().unwrap();
-        let base = tmp.path();
-        let file = |rel: &str| {
-            let path = base.join(rel);
-            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-            std::fs::write(&path, "").unwrap();
-            path
-        };
-        let unzipped = file("Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64.exe");
-        let console = file("Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe");
-        let winget =
-            file("GodotEngine.GodotEngine_Microsoft.Winget.Source_8wekyb3d8bbwe/Godot_v4.6.3-stable_win64.exe");
-        let steam = file("Godot Engine/godot.windows.opt.tools.64.exe");
-        let loose = file("godot.exe");
-        file("Some Game/godot.exe"); // another program's folder: not gone into
-        file("Godot Engine/readme.txt");
-        let found = godot_programs_in(base, false, 3);
-        assert_eq!(found, vec![loose, steam, winget, unzipped, console]);
-        assert_eq!(godot_programs_in(&base.join("missing"), false, 3), Vec::<PathBuf>::new());
-    }
-
     #[test]
     fn the_copy_is_the_copy_with_or_without_the_prefix() {
         let copy = Path::new(r"C:\Users\me\AppData\Local\OpenRAC Launcher\openrac");
@@ -646,19 +482,6 @@ mod tests {
         assert_eq!(plain(Path::new(r"\\?\C:\Users\me\openrac")), PathBuf::from(r"C:\Users\me\openrac"));
         assert_eq!(plain(Path::new(r"\\?\UNC\server\share")), PathBuf::from(r"\\?\UNC\server\share"));
         assert_eq!(plain(Path::new("/home/me/OpenRAC")), PathBuf::from("/home/me/OpenRAC"));
-    }
-
-    #[test]
-    fn takes_godot_4_or_newer_and_orders_by_version() {
-        assert_eq!(godot_too_old("4.7.2.stable.official.ed1daf0bf"), None);
-        assert_eq!(godot_too_old("4.8.beta1.official.0123abcd"), None);
-        assert_eq!(godot_too_old("5.0.stable.official"), None);
-        assert!(godot_too_old("3.6.3.stable.official.ab12").is_some_and(|w| w.contains("needs Godot 4")));
-        // "4." in 3.4 is not Godot 4.
-        assert!(godot_too_old("3.4.stable.official").is_some());
-        assert!(version_numbers("4.7.2.stable") > version_numbers("4.7.stable"));
-        assert!(version_numbers("4.10.stable") > version_numbers("4.9.1.stable"));
-        assert_eq!(version_numbers("Python 3.12.4"), vec![3, 12, 4]);
     }
 
     /// A carried copy is one only with its marker; it goes after a checkout that is found, and
@@ -745,13 +568,6 @@ mod tests {
         let check = check_tool(Tool::Python, &python.path);
         assert!(check.ok, "{check:?}");
         assert!(!check_tool(Tool::Python, Path::new("/no/such/python")).ok);
-    }
-
-    #[test]
-    fn checks_godot_when_it_is_installed() {
-        let Some(godot) = tool_candidates(Tool::Godot).into_iter().next() else { return };
-        let check = check_tool(Tool::Godot, &godot.path);
-        assert!(check.ok, "{godot:?}: {check:?}");
     }
 
     #[test]

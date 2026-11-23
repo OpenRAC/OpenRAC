@@ -6,7 +6,7 @@
  * The disc boots SCES_524.56, a small loader linked at 0x00800000 (i5bootn's code) whose
  * read-only data holds the game itself, WAD-compressed at file offset 0x7080: a list of records
  * (load address, size, type, entry; then the bytes), the format level programs use
- * (editor/formats.py, overlay_sections). The loader unpacks it and jumps to its entry,
+ * (extractor/formats.py, overlay_sections). The loader unpacks it and jumps to its entry,
  * 0x0013ADA8, the payload's crt0 (hand-written, rac3-decomp asm/boot_elf/handwritten): it clears
  * core.bss, makes the main thread and the heap ($gp 0x001DC8B0, stack below 0x01FFC000, heap end
  * 0x01FF8000), calls _InitSys (0x00124B90) and FlushCache(0), runs _init (0x0012A940, empty),

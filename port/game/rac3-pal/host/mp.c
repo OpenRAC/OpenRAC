@@ -32,6 +32,7 @@
 #include "openrac/guest.h"
 #include "rac3_coll_line.h"
 #include "rac3_version.h"
+#include "trig.h"
 
 void mp_openrac_game_register_functions(void);
 void rac3_program_set_overlay(int overlay); /* program.c */
@@ -243,11 +244,11 @@ int mp_func_00194DA0(void) {
 
 /* VU0's cosine and sine (trig.c). */
 float mp_func_00280498(float angle) {
-    return cosf(angle);
+    return rac3_cos(angle);
 }
 
 float mp_func_002804B0(float angle) {
-    return sinf(angle);
+    return rac3_sin(angle);
 }
 
 /* libpad (pad.c). */

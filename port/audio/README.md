@@ -22,7 +22,7 @@ a native float mixer.
 | `pitch.h` | notes to speeds, pitch bend |
 | `reverb.h` | a native stereo reverb with the character of each of the library's effect types (measured results, not the library's tables) |
 | `ui_sounds.h` | the port's own menu sounds (not the game's): rounded pops (falling sines, a little filtered air) with a soft start, through a low-pass and a small room, mixed over the game's sound by the output, while the game is paused too |
-| `sound_replacements.h` | the sounds packs replace (`audio/<key>.wav` of the mods folder, [editor/AUDIO_MODDING.md](../../editor/AUDIO_MODDING.md)): each sound's key, a hash of what it is, and its new sample |
+| `sound_replacements.h` | the sounds packs replace (`audio/<key>.wav` of the mods folder, [extractor/AUDIO_MODDING.md](../../extractor/AUDIO_MODDING.md)): each sound's key, a hash of what it is, and its new sample |
 
 The games drive it through `port/game/common/lib/sound_engine.cpp`: `snd.c`
 replaces the library at its API (rac1's calls, and Going Commando's and Up Your
@@ -42,5 +42,5 @@ reverb on streams, movie sound through this engine.
 rates, speeds, the limiter); banks built by the test: volume and pan, a tone
 keyed on a voice and released, register and skipping grains, instance limits, pausing,
 group volumes, unloading; sounds packs replace, and the keys, with the same
-answers as `editor/test_audio.py`; the menu sounds: soft starts, quiet peaks, short, and a held
+answers as `extractor/test_audio.py`; the menu sounds: soft starts, quiet peaks, short, and a held
 arrow's repeats no louder than one.

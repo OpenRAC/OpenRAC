@@ -152,7 +152,7 @@ constexpr std::int32_t kNanotechClass = 806;
 
 // Ratchet's class holds only his skeleton: the game loads his packets and textures over it from a
 // pack of the disc, the armour's unless one of four flags names another (func_00292078). The export
-// has each pack past the first as a class of its own (editor/moby_class.py, HERO_LOOK_CLASSES).
+// has each pack past the first as a class of its own (extractor/moby_class.py, HERO_LOOK_CLASSES).
 // He wears the last loaded armour (0x001A7290), not the owned one (0x001A7A18): the vendor
 // loads the armour under the cursor.
 constexpr std::int32_t kHeroLookClasses = 6000;
@@ -174,19 +174,19 @@ std::int32_t wrench_class(std::int32_t pack) {
 
 // His ship's hull is loaded over class 3412 on each load, by the hull he has (func_002925F0, which
 // keeps its number at +0x18 of 0x00152C00). The export has hull 0 as the class and the others as
-// classes of their own (editor/moby_class.py, SHIP_BODY_CLASSES).
+// classes of their own (extractor/moby_class.py, SHIP_BODY_CLASSES).
 constexpr std::int32_t kShipClass = 3412;
 constexpr std::int32_t kShipBodyClasses = 6030;
 constexpr std::int32_t kShipBodies = 3;
 // And its picture, one of 18 paint jobs, by func_002926B8, which keeps its number at +0x30
-// (editor/port.py's "ship_paints").
+// (extractor/port.py's "ship_paints").
 constexpr std::int32_t kShipPaints = 18;
 
 // A class's bangles: parts of its mesh past its LOD lists, which a moby draws by the bits of its
 // bangle word (+0x7C, an s16; MobyProc, func_002A4E68 at 0x2A5E78): bit 15 clear, the class's mesh
 // and the bangles of the bits set; set, those bangles alone (bangle 0 for none). A broken crate's
 // pieces and a destroyed enemy's are mobys of a class drawn so, one bit each. The export has each
-// bangle as a class of its own (editor/moby_class.py, BANGLE_CLASSES).
+// bangle as a class of its own (extractor/moby_class.py, BANGLE_CLASSES).
 constexpr std::uint32_t kMobyBangles = 0x7C;
 constexpr int kBangleClasses = 100000;
 constexpr int kBangles = 15;

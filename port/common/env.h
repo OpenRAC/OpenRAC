@@ -143,6 +143,7 @@ enum class Var : std::uint16_t {
     PauseAt,
     Pcsx2TexturePack,
     PerfCapture,
+    PickTrace,
     PlayTrace,
     PlayTraceSave,
     Press,

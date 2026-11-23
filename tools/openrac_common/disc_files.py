@@ -25,7 +25,7 @@ its own). The rows cover every sector of the image, in order, without overlappin
 (port/assets/disc/sector_map.h) gives the game the very bytes the disc has at any sector it
 asks for, without opening the image.
 
-Where a game's table of contents is known (editor/disc.py, editor/wads.py) its lumps are named;
+Where a game's table of contents is known (extractor/disc.py, extractor/wads.py) its lumps are named;
 when the editor's readers are not there or do not know the disc, the sectors are cut at the
 file system's files only, which the port reads the same way.
 
@@ -63,8 +63,8 @@ class Piece:
 
 
 def _editor() -> Path | None:
-    """The checkout's (or the standalone copy's) editor/, whose readers know the tables of contents."""
-    here = Path(__file__).resolve().parents[2] / "editor"
+    """The checkout's (or the standalone copy's) extractor/, whose readers know the tables of contents."""
+    here = Path(__file__).resolve().parents[2] / "extractor"
     return here if (here / "disc.py").is_file() else None
 
 
@@ -243,7 +243,7 @@ def unpack_programs(game: str, out: Path, log: Callable[[str], None] = print,
         return []
     editor = _editor()
     if editor is None:
-        raise ValueError("Up Your Arsenal's programs need the editor's WAD reader (editor/formats.py)")
+        raise ValueError("Up Your Arsenal's programs need the extractor's WAD reader (extractor/formats.py)")
     if str(editor) not in sys.path:
         sys.path.insert(1, str(editor))
     from formats import wad  # noqa: PLC0415

@@ -389,6 +389,7 @@ bool LevelScene::upload(
         scenery.drawn.clear();
         m_moved[k] = {};
     }
+    m_mod_hidden_ties.clear();
     // The shrubs' billboards and, for those that have one, their colour: their 24 lit colours'
     // average, channel by channel, truncated (LightShrubs' word at the instance's +0x1C).
     const auto& shrubs = level.instances[static_cast<std::size_t>(Layer::Shrubs)];

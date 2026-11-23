@@ -214,7 +214,7 @@ def extract(image: Path, game: str, proj: Path, minimum: int = MIN_IMAGE_SIZE, b
         print(f"  {disc_files.MAP_NAME}: {len(rows)} runs of sectors, each read from its file")
         disc_files.write_map(rows, temp)
 
-    # The level tools (editor/extract.py port) still read the image: keep it beside the
+    # The level tools (extractor/extract.py port) still read the image: keep it beside the
     # files, which are what the port reads. An image
     # inside the set-up being replaced (its own disc.iso, a copy, not a link)
     # moves into the new one at the end: a link to it would go with the old set-up.

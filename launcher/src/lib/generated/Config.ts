@@ -11,10 +11,6 @@ root: string | null,
  */
 python: string | null, 
 /**
- * Godot 4 (4.7+), for the level editor.
- */
-godot: string | null, 
-/**
  * Docker, which rac1/pal's and rac4's builds run in.
  */
 docker: string | null, 
@@ -158,10 +154,10 @@ multiplayerName: string,
  */
 multiplayerKey: string, 
 /**
- * The multiplayer server every game's online play goes to (multiplayer.rs): a host name or an
- * IP address, and a port. The official server (`game.openrac.dev:7770`) unless changed in
- * Settings; anyone can host one (the OpenRAC/Server repository). Given to the game as
- * `OPENRAC_SERVER=host:port`.
+ * The multiplayer hub every game's online play starts at (multiplayer.rs): a host name or an
+ * IP address, and a port. The hub logs players in and lists the game servers to pick from.
+ * The official hub (`hub.openrac.dev:7177`) unless changed in Settings; anyone can host one
+ * (the OpenRAC/Server repository). Given to the game as `OPENRAC_SERVER=host:port`.
  */
 multiplayerServerHost: string, 
 /**

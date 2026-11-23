@@ -1383,7 +1383,7 @@ its instructions). **Hook**: the hook point, or the name proposed for one and wh
 ## Hook-after candidates
 
 The game functions update functions call most, engine maths helpers left out
-([editor/engine_helpers.tsv](../../../editor/engine_helpers.tsv) lists those): a hook on one runs
+([extractor/engine_helpers.tsv](../../../extractor/engine_helpers.tsv) lists those): a hook on one runs
 for every update function that calls it.
 
 | Function | Name | Called by | C | Signature | Hook point |
@@ -5193,7 +5193,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ## Classes
 
-Every class with an update function, by number: its name (editor/moby_classes.tsv), the levels it is
+Every class with an update function, by number: its name (extractor/moby_classes.tsv), the levels it is
 updated in and the function.
 
 | Class | Name | Levels | Update function | Shares it with |

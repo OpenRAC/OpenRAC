@@ -13,14 +13,19 @@ pub const ENV: &str = "OPENRAC_PLAYER_NAME";
 /// The environment variable the game reads this installation's key from: what a host bans.
 pub const KEY_ENV: &str = "OPENRAC_IDENTITY_KEY";
 
-/// The environment variable the game reads the multiplayer server from, as `host:port`
-/// (`[v6]:port` for an IPv6 address): every game's online play goes there (Settings,
-/// "Multiplayer server").
+/// The environment variable the game reads the multiplayer hub from, as `host:port`
+/// (`[v6]:port` for an IPv6 address): every game's online play starts there (Settings,
+/// "Multiplayer server"). The hub logs players in and lists the game servers they pick from.
 pub const SERVER_ENV: &str = "OPENRAC_SERVER";
 
-/// The official OpenRAC server (the OpenRAC/Server repository), the default.
-pub const OFFICIAL_HOST: &str = "game.openrac.dev";
-pub const OFFICIAL_PORT: u16 = 7770;
+/// The official OpenRAC hub (the OpenRAC/Server repository, README "The hub"), the default.
+pub const OFFICIAL_HOST: &str = "hub.openrac.dev";
+pub const OFFICIAL_PORT: u16 = 7177;
+
+/// The official game server launchers named before the hub: a setting that still names it is the
+/// old default, not the player's choice, so it reads as the official hub ([`crate::config::load`]).
+pub const FORMER_OFFICIAL_HOST: &str = "game.openrac.dev";
+pub const FORMER_OFFICIAL_PORT: u16 = 7770;
 
 /// The shortest and the longest name, in characters.
 pub const MIN_LEN: usize = 3;
@@ -190,17 +195,17 @@ mod tests {
     #[test]
     fn the_server_is_host_colon_port_or_the_official_one() {
         let mut config = crate::config::Config::default();
-        assert_eq!(server(&config), "game.openrac.dev:7770");
+        assert_eq!(server(&config), "hub.openrac.dev:7177");
         config.multiplayer_server_host = "192.168.1.20".into();
         config.multiplayer_server_port = 7000;
         assert_eq!(server(&config), "192.168.1.20:7000");
         config.multiplayer_server_host = "::1".into();
         assert_eq!(server(&config), "[::1]:7000");
         config.multiplayer_server_host = "not a host".into();
-        assert_eq!(server(&config), "game.openrac.dev:7770");
+        assert_eq!(server(&config), "hub.openrac.dev:7177");
         config.multiplayer_server_host = "localhost".into();
         config.multiplayer_server_port = 0;
-        assert_eq!(server(&config), "game.openrac.dev:7770");
+        assert_eq!(server(&config), "hub.openrac.dev:7177");
     }
 
     #[test]

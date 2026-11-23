@@ -32,6 +32,10 @@
  *   a relay a late packet is a slow one, not a lost player: it is kept.
  * - The local player stalled ("waiting for response", no input) when the host had been silent
  *   for 3 s of net time: the stall is left out, the room's own drop handles a host that left.
+ * - Game time: in some states of the map's main loop (a jump table on the game state word, its
+ *   values 3, 5, 6 and 16) the loop updates the pads but never the net (NWUpdate), so the net time
+ *   and the room's messages stand still while the others' run on; when the net time has not moved
+ *   since the last frame in such a state, the net is updated before the pads.
  * - A remote gadget event (a shot; the local ones come with no message) arrives with the net time
  *   it should run at, which on a relay is in the future or the past of this client's clock: it
  *   runs now.
@@ -60,6 +64,10 @@
 #define NET_PLAYERS (NET_BLOCK + 0x12Cu)
 #define NET_NO_WAIT (NET_BLOCK + 0x170u) /* nonzero: the game never waits on the host */
 #define NET_HOST_HEARD (NET_BLOCK + 0x7D0u)
+
+/* The executable's net update (NWUpdate) and the game state word the maps' main loop switches on. */
+#define NET_UPDATE RAC3_MADDR(0x001959F8u)
+#define GAME_STATE RAC3_MADDR(0x00241128u)
 
 /* The game's times, in milliseconds of net time (the stock code's own constants). */
 #define LAG_OUT_TIME 7200
@@ -111,6 +119,7 @@ enum fix_kind {
     FIX_LAG_OUT,
     FIX_HOST_STALL,
     FIX_GADGET_EVENT_TIME,
+    FIX_GAME_TIME,
     FIX_KINDS
 };
 
@@ -126,6 +135,7 @@ static const char* const FIX_NAMES[FIX_KINDS] = {
     "remote player lagged out",
     "stall on a silent host",
     "remote gadget event time",
+    "net updated in a state that skips it",
 };
 
 static int fixes_on(void) {
@@ -324,15 +334,14 @@ static int fix_shot_collision(int moby, int from, int (*game)(int, int)) {
     return result;
 }
 
-static int fix_coll_line(
-    int map, int from, int to, int flags, int moby, int a4, int (*game)(int, int, int, int, int)
-) {
+/* The flags the collision line runs with, asked by mp_maps.c's wrap of each map's copy. */
+int rac3_mp_fix_coll_flags(int map, int from, int flags, int moby) {
     if (g_remote_shot_from != 0 && (gaddr)from == g_remote_shot_from
         && (gaddr)moby == g_remote_shot_moby && flags == 0) {
-        flags = COLL_THROUGH_WALLS;
         fixed(FIX_WALL_SNIPING, map);
+        return COLL_THROUGH_WALLS;
     }
-    return game(from, to, flags, moby, a4);
+    return flags;
 }
 
 /* ---- The net clock's stalls ----
@@ -401,6 +410,25 @@ static float fix_gadget_event(
     return game(player, type, time, gadget, kind, message);
 }
 
+/* The main loop's states that update the pads with no net update. */
+static int state_skips_net(int32_t state) {
+    return state == 3 || state == 5 || state == 6 || state == 16;
+}
+
+static int g_last_net_time;
+
+static int fix_pad_update(int map, int (*game)(void)) {
+    if (fixes_on() && NET_UPDATE != 0 && GAME_STATE != 0) {
+        const int32_t now = GREF(int32_t, NET_TIME);
+        if (state_skips_net(GREF(int32_t, GAME_STATE)) && now == g_last_net_time) {
+            GFN(int (*)(void), NET_UPDATE)();
+            fixed(FIX_GAME_TIME, map);
+        }
+        g_last_net_time = GREF(int32_t, NET_TIME);
+    }
+    return game();
+}
+
 /* One map's wraps, in mp/fixes.py FIXED's order. */
 #define MP_FIX(                                                                                    \
     m,                                                                                             \
@@ -414,12 +442,12 @@ static float fix_gadget_event(
     flux_fire,                                                                                     \
     delete_light,                                                                                  \
     shot_collision,                                                                                \
-    coll_line,                                                                                     \
     state_fresh,                                                                                   \
     net_apply,                                                                                     \
     local_update,                                                                                  \
     player_update,                                                                                 \
-    gadget_event                                                                                   \
+    gadget_event,                                                                                  \
+    pad_update                                                                                     \
 )                                                                                                  \
     int mp_func_L##m##_##equip(int a0) {                                                           \
         return fix_equip(m, a0, mp_func_L##m##_##equip##__game);                                   \
@@ -456,9 +484,6 @@ static float fix_gadget_event(
     int mp_func_L##m##_##shot_collision(int a0, int a1) {                                          \
         return fix_shot_collision(a0, a1, mp_func_L##m##_##shot_collision##__game);                \
     }                                                                                              \
-    int mp_func_L##m##_##coll_line(int a0, int a1, int a2, int a3, int a4) {                       \
-        return fix_coll_line(m, a0, a1, a2, a3, a4, mp_func_L##m##_##coll_line##__game);           \
-    }                                                                                              \
     int mp_func_L##m##_##state_fresh(int a0) {                                                     \
         return fix_state_fresh(m, a0, mp_func_L##m##_##state_fresh##__game);                       \
     }                                                                                              \
@@ -473,6 +498,9 @@ static float fix_gadget_event(
     }                                                                                              \
     float mp_func_L##m##_##gadget_event(int a0, int a1, int a2, int a3, int a4, int a5) {          \
         return fix_gadget_event(m, a0, a1, a2, a3, a4, a5, mp_func_L##m##_##gadget_event##__game); \
+    }                                                                                              \
+    int mp_func_L##m##_##pad_update(void) {                                                        \
+        return fix_pad_update(m, mp_func_L##m##_##pad_update##__game);                             \
     }
 
 #include "mp_fixes.h"

@@ -46,6 +46,13 @@ void set_moby_anim_fields(std::uint32_t first);
 void set_moby_layer_records(bool records);
 
 /**
+ * Guest memory past RAM that a class may live in: the port's own region the imported moby classes
+ * are kept in (GUEST_PORT_LOW, rac1/host/foreign_class.c), its bytes and its game address. Poses
+ * read a class there as in RAM. None until it is set.
+ */
+void set_moby_class_region(std::span<const std::uint8_t> bytes, std::uint32_t address);
+
+/**
  * The port's own game memory: `memory` holds the game addresses from `base` on (runtime's
  * GUEST_PORT region), which the game reaches but game RAM does not hold. A mod's copy of an enemy
  * keeps pvars larger than a pool slot's there, and with them its joint modifiers and pose layers.
@@ -116,9 +123,10 @@ std::vector<assets::rac1::JointMatrix> moby_pose_matrices(
 );
 
 /**
- * Joint modifiers of the port's own for one moby (a mod's, openrac_api.hero_set_joints), applied
- * after the moby's own list wherever its pose is evaluated (drawing, shadows, attachments).
- * Replaces the last set; an empty list or moby 0 clears it. Safe from any thread.
+ * Joint modifiers of the port's own for one moby (a mod's, openrac_api.hero_set_joints and
+ * moby_set_joints), applied after the moby's own list wherever its pose is evaluated (drawing,
+ * shadows, attachments). Replaces that moby's last set; an empty list clears it, moby 0 clears
+ * every moby's. Safe from any thread.
  */
 void set_extra_joint_modifiers(std::uint32_t moby, std::vector<assets::rac1::JointModifier> mods);
 

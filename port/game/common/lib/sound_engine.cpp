@@ -74,6 +74,29 @@ std::array<std::int32_t, audio::kVolumeGroups> g_master = [] {
     a.fill(audio::kFullVolume);
     return a;
 }();
+
+// The port's own gain on each group's streams (openrac_sound_set_stream_gain): where it heads, set
+// from any thread, and where the mix has got to, moved a little each mixed frame.
+struct StreamGainTargets {
+    StreamGainTargets() {
+        for (auto& g : gains) {
+            g.store(1.0f, std::memory_order_relaxed);
+        }
+    }
+
+    std::atomic<float>& operator[](std::size_t group) { return gains[group]; }
+
+    std::array<std::atomic<float>, audio::kVolumeGroups> gains;
+};
+
+StreamGainTargets g_stream_gain_target;
+std::array<double, audio::kVolumeGroups> g_stream_gain = [] {
+    std::array<double, audio::kVolumeGroups> a{};
+    a.fill(1.0);
+    return a;
+}();
+// How far the eased gain moves in one output frame: all the way in a tenth of a second.
+constexpr double kStreamGainStep = 10.0 / audio::kOutputRate;
 std::map<audio::BankHandle, std::vector<std::uint8_t>> g_bank_files;
 
 // The sounds packs replace (audio/sound_replacements.h), read again when the mods folder changes
@@ -352,6 +375,17 @@ void read_track(std::uint32_t sector, std::shared_ptr<Track> track) {
 // way to the next, the position's fraction carried over.
 void mix_streams(std::span<float> out) {
     const std::size_t frames = out.size() / 2;
+    // Each group's eased gain at the buffer's start and end, a straight line between.
+    std::array<double, audio::kVolumeGroups> gain_from = g_stream_gain;
+    std::array<double, audio::kVolumeGroups> gain_to{};
+    for (std::size_t g = 0; g < gain_to.size(); ++g) {
+        const double target = std::clamp(
+            static_cast<double>(g_stream_gain_target[g].load(std::memory_order_relaxed)), 0.0, 1.0
+        );
+        const double most = kStreamGainStep * static_cast<double>(frames);
+        gain_to[g] = gain_from[g] + std::clamp(target - gain_from[g], -most, most);
+    }
+    g_stream_gain = gain_to;
 
     for (auto it = g_streams.begin(); it != g_streams.end();) {
         Stream& s = **it;
@@ -363,6 +397,9 @@ void mix_streams(std::span<float> out) {
             static_cast<double>(g_master[static_cast<std::size_t>(s.group)]) / audio::kFullVolume;
         const double gain =
             static_cast<double>(s.volume) / audio::kFullVolume * master * master / 32768.0;
+        const auto group = static_cast<std::size_t>(s.group);
+        const double eased_from = gain_from[group];
+        const double eased_by = frames > 0 ? (gain_to[group] - eased_from) / frames : 0.0;
 
         for (std::size_t f = 0; f < frames && !s.parts.empty() && !s.paused;) {
             const Track& t = *s.parts.front().track;
@@ -401,14 +438,15 @@ void mix_streams(std::span<float> out) {
                     const std::size_t from = channels == 2 ? c : 0;
                     const double a = t.samples[i * channels + from];
                     const double b = i + 1 < n ? t.samples[(i + 1) * channels + from] : a;
-                    double v = (a + (b - a) * frac) * gain;
+                    const double eased = eased_from + eased_by * static_cast<double>(f);
+                    double v = (a + (b - a) * frac) * gain * eased;
 
                     // Stereo in two files: the left side from the left track, its first channel.
                     if (c == 0 && left != nullptr && i < left->frames()) {
                         const auto lc = static_cast<std::size_t>(left->channels);
                         const double la = left->samples[i * lc];
                         const double lb = i + 1 < left->frames() ? left->samples[(i + 1) * lc] : la;
-                        v = (la + (lb - la) * frac) * gain;
+                        v = (la + (lb - la) * frac) * gain * eased;
                     }
 
                     out[f * 2 + c] += static_cast<float>(v);
@@ -945,6 +983,15 @@ void openrac_sound_set_master_volume(int32_t group, int32_t volume) {
     std::lock_guard lock(g_lock);
     g_master[static_cast<std::size_t>(group)] = volume;
     player().set_master_volume(static_cast<std::size_t>(group), volume);
+}
+
+void openrac_sound_set_stream_gain(int32_t group, float gain) {
+    if (group < 0 || static_cast<std::size_t>(group) >= audio::kVolumeGroups
+        || !std::isfinite(gain)) {
+        return;
+    }
+    g_stream_gain_target[static_cast<std::size_t>(group)]
+        .store(std::clamp(gain, 0.0f, 1.0f), std::memory_order_relaxed);
 }
 
 void openrac_sound_pause_groups(uint32_t mask) {

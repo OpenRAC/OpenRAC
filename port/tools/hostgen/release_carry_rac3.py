@@ -646,6 +646,9 @@ def main(argv: list[str] | None = None) -> int:
                         own = mp.own_map(n, us_level)
                         if own:
                             sigs[own] = sig
+        # The 24-player widening (mp/wide.json) is PAL's: its sites are PAL's instructions, and NTSC-U's
+        # rooms stay at 8 players, so the carry leaves the sites out rather than name a file it lacks.
+        mp_cfg.get("asm", {}).pop("wide", None)
         mp_out = {"about": "Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/mp/hostgen.json "
                            "and release/mp_pairs.json; do not edit by hand."}
         mp_out.update(merge(mp_cfg, hand.get("mp_hostgen", {})))

@@ -1,8 +1,9 @@
 <script lang="ts">
-  // Settings: the multiplayer server every game's online play goes to (core/src/multiplayer.rs),
+  // Settings: the multiplayer hub every game's online play starts at (core/src/multiplayer.rs),
   // the official one unless the player names another, as anyone can host one (OpenRAC/Server).
-  // Play gives it to the game as OPENRAC_SERVER=host:port; the multiplayer mod and Up Your
-  // Arsenal's online play read it. "Test connection" makes a short TCP connection to it.
+  // The hub logs players in and lists the game servers they pick from. Play gives it to the game
+  // as OPENRAC_SERVER=host:port; the multiplayer mod and Up Your Arsenal's online play read it.
+  // "Test connection" makes a short TCP connection to it.
   import { api, errorText } from "$lib/api";
   import {
     hostProblem,
@@ -83,8 +84,8 @@
   <p id="multiplayer-server-note" class="dim note">
     {problem ??
       (official
-        ? "The official OpenRAC server. Online play in every game goes here."
-        : "Your own server: online play in every game goes here. Everyone you play with uses the same one.")}
+        ? "The official OpenRAC hub. Online play in every game logs in here and picks a game server from its list."
+        : "Your own hub: online play in every game logs in here and picks a game server from its list. Everyone you play with uses the same one.")}
   </p>
   <p class="dim note actions">
     <button class="link" disabled={official} onclick={reset}>Reset to official</button>

@@ -21,8 +21,25 @@ pub const FILE: &str = "launcher/actions.json";
 
 /// The only `{name}` placeholders an argument, `program` or `cwd` may hold.
 pub const PLACEHOLDERS: &[&str] = &[
-    "root", "dir", "python", "godot", "docker", "disc", "boot", "artifact", "serial", "key", "data", "level", "path",
+    "root",
+    "dir",
+    "python",
+    "docker",
+    "disc",
+    "boot",
+    "artifact",
+    "serial",
+    "key",
+    "data",
+    "level",
+    "path",
     "option",
+    "editor",
+    "editor_tools",
+    "projects",
+    "levels",
+    "packed",
+    "states",
 ];
 
 #[derive(Debug, Clone, Deserialize)]
@@ -56,7 +73,7 @@ pub struct Action {
     #[serde(default)]
     pub state: State,
     /// The program: a placeholder for a configured tool (`{python}`,
-    /// `{godot}`, `{docker}`) or a command found on PATH (`bash`, `make`).
+    /// `{editor}`, `{docker}`) or a command found on PATH (`bash`, `make`).
     #[serde(default)]
     pub program: Option<String>,
     #[serde(default)]
@@ -83,7 +100,7 @@ pub struct Action {
     /// to the checkout: each is `{"path": ..., "from": the step's label}`.
     #[serde(default)]
     pub needs: Vec<Need>,
-    /// Start it and let it run on its own (the game, Godot), instead of
+    /// Start it and let it run on its own (the game, the editor), instead of
     /// as a job in Tasks whose output the launcher shows.
     #[serde(default)]
     pub detached: bool,
@@ -207,7 +224,8 @@ pub enum Requirement {
     /// The shared toolchains/ folder holds a compiler.
     Toolchains,
     Python,
-    Godot,
+    /// OpenRAC Editor is downloaded and fits this OpenRAC (editor_install.rs).
+    Editor,
     Docker,
     /// `artifact` exists (a build to play).
     Artifact,
@@ -300,7 +318,24 @@ pub struct Inputs {
     pub option: Option<String>,
 }
 
+/// The checkout's actions, and the level editor's when OpenRAC Editor is downloaded
+/// (editor_install.rs): it brings its own, beside each version's.
 pub fn load(root: &Path) -> Result<ActionFile, String> {
+    let mut file = load_own(root)?;
+    if let Some(editor) = crate::editor_install::find() {
+        for (key, list) in file.versions.iter_mut() {
+            for action in editor.actions(key) {
+                if !list.iter().any(|a| a.id == action.id) {
+                    list.push(action);
+                }
+            }
+        }
+    }
+    Ok(file)
+}
+
+/// The checkout's actions.json alone.
+pub fn load_own(root: &Path) -> Result<ActionFile, String> {
     let path = under(root, FILE);
     let text = std::fs::read_to_string(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
     parse(&text).map_err(|e| format!("{}: {e}", path.display()))
@@ -387,7 +422,8 @@ impl ActionFile {
 }
 
 /// Placeholders that only mean something for a version.
-const VERSION_ONLY: &[&str] = &["dir", "disc", "boot", "serial", "key", "data"];
+const VERSION_ONLY: &[&str] =
+    &["dir", "disc", "boot", "serial", "key", "data", "projects", "levels", "packed", "states"];
 
 /// The `{name}`s in `text`.
 fn placeholders(text: &str) -> Vec<String> {
@@ -442,7 +478,7 @@ impl Action {
     }
 
     /// Whether the action is for `platform`: one of its `platforms`, or any when it lists none.
-    /// Android has no shell, Godot or compiler: only a play action, which starts the game's
+    /// Android has no shell, editor or compiler: only a play action, which starts the game's
     /// activity (src-tauri/src/android.rs), runs there unless it names Android, as the steps that
     /// get the levels ready do (they run on the Python the APK carries).
     fn runs_on(&self, platform: Platform) -> bool {
@@ -484,7 +520,13 @@ impl Action {
                         .then_some("the inputs Place inputs puts in the game"),
                     Requirement::Toolchains => (!ctx.toolchains).then_some("the compilers in toolchains/"),
                     Requirement::Python => ctx.config.python.is_none().then_some("Python (Settings)"),
-                    Requirement::Godot => ctx.config.godot.is_none().then_some("Godot (Settings)"),
+                    Requirement::Editor => {
+                        match crate::editor_install::find() {
+                            None => out.push("needs OpenRAC Editor (Mods, Level editor: Download)".to_string()),
+                            Some(editor) => out.extend(editor.problem(ctx.root)),
+                        }
+                        None
+                    }
                     Requirement::Docker => {
                         (ctx.config.docker.is_none() && crate::detect::which("docker").is_none()).then_some("Docker")
                     }
@@ -566,6 +608,10 @@ impl Action {
         };
         let mut env = Vec::new();
         // The bake transcript identifies the running launcher even when it uses another checkout.
+        if self.area == Area::Editor {
+            // OpenRAC Editor's tools find this OpenRAC's extractor by it (openrac_root.py).
+            env.push(("OPENRAC_ROOT".to_string(), crate::detect::plain(ctx.root).display().to_string()));
+        }
         if self.id == crate::enhanced::BAKE_ACTION {
             env.push(("OPENRAC_LAUNCHER_VERSION".to_string(), env!("CARGO_PKG_VERSION").to_string()));
         }
@@ -705,6 +751,11 @@ fn abs(root: &Path, path: &str) -> PathBuf {
     }
 }
 
+/// Whether `root` is the copy an installer carries (bundle_standalone.py), not a checkout.
+fn standalone(root: &Path) -> bool {
+    root.join("STANDALONE").is_file()
+}
+
 /// `text` with its placeholders filled in from `ctx` (and `{artifact}` from `artifact`).
 fn fill(text: &str, ctx: &Context, artifact: Option<&Path>) -> Result<String, String> {
     let mut out = text.to_string();
@@ -731,7 +782,42 @@ fn value(name: &str, ctx: &Context) -> Result<String, String> {
     Ok(match name {
         "root" => ctx.root.display().to_string(),
         "python" => path(&ctx.config.python, "Python")?,
-        "godot" => path(&ctx.config.godot, "Godot")?,
+        "editor" | "editor_tools" => {
+            let editor =
+                crate::editor_install::find().ok_or("OpenRAC Editor is not downloaded (Mods, Level editor)")?;
+            let path = if name == "editor" {
+                editor.program().ok_or("OpenRAC Editor has no program for this system")?
+            } else {
+                editor.tools()
+            };
+            crate::detect::plain(&path).display().to_string()
+        }
+        // The level editor's folders for the version: in a checkout under its assets/, in the
+        // copy an installer carries (read-only) in the game's data folder.
+        "projects" | "levels" | "packed" => {
+            let v = version()?;
+            let kind = match name {
+                "projects" => "levels",
+                "levels" => "port",
+                _ => "packed",
+            };
+            match (standalone(ctx.root), ctx.config.install_dir.as_ref()) {
+                (true, Some(install)) => {
+                    crate::install::data_dir(install, &v.game).join(kind).join(&v.name).display().to_string()
+                }
+                (true, None) => return Err("the install folder is not set (Settings)".into()),
+                (false, _) => under(ctx.root, &format!("assets/{kind}/{}", v.key)).display().to_string(),
+            }
+        }
+        // The game's states program, which the editor runs to see how a level starts its mobys
+        // (docs/port/MOBY_STATES.md): in the build folder, as a carried copy has it too.
+        "states" => {
+            let v = version()?;
+            let exe = if cfg!(windows) { ".exe" } else { "" };
+            under(ctx.root, &format!("port/build/release/openrac-{}-{}-states{exe}", v.game, v.name))
+                .display()
+                .to_string()
+        }
         "docker" => match &ctx.config.docker {
             Some(p) => p.display().to_string(),
             None => "docker".to_string(),
@@ -773,17 +859,16 @@ mod tests {
     use crate::testing::checkout;
 
     /// Going Commando plays (prebuilt, like rac1): none of its actions call it early access or
-    /// say the game is not playable. Its level edits are packed back and it plays with its mods.
+    /// say the game is not playable. It plays its edited levels with its mods; packing them back
+    /// is OpenRAC Editor's action (editor_install.rs), not the checkout's.
     #[test]
     fn going_commando_is_not_early_access() {
-        let file = load(&checkout()).unwrap();
+        let file = load_own(&checkout()).unwrap();
         for key in ["rac2/ntsc", "rac2/pal", "rac2/ntsc2"] {
             let list = &file.versions[key];
             let play = list.iter().find(|a| a.id == "play").unwrap_or_else(|| panic!("{key} has no play"));
             assert_ne!(play.state, State::Planned, "{key} play");
-            for id in ["editor-pack", "play-edited"] {
-                assert!(list.iter().any(|a| a.id == id), "{key} has no {id}");
-            }
+            assert!(list.iter().any(|a| a.id == "play-edited"), "{key} has no play-edited");
             let stack = list.iter().find(|a| a.id == "overrides-stack").expect("overrides-stack");
             assert!(stack.args.iter().any(|a| a == "--packed"), "{key}: the stack leaves the packed levels out");
             for a in list {
@@ -1061,7 +1146,7 @@ mod tests {
         let status = crate::status::version_status(&root, version);
         let action: Action = serde_json::from_str(
             r#"{"id": "x", "label": "Extract", "kind": "edit", "state": "connected", "program": "{python}",
-                "args": ["editor/extract.py", "{serial}", "{dir}/out"], "cwd": "{root}", "requires": ["python"]}"#,
+                "args": ["extractor/extract.py", "{serial}", "{dir}/out"], "cwd": "{root}", "requires": ["python"]}"#,
         )
         .unwrap();
 
@@ -1191,12 +1276,12 @@ mod tests {
         let keyed = Config { multiplayer_key: key.clone(), ..installed.clone() };
         assert!(play.plan(&ctx(&keyed)).unwrap().env.contains(&("OPENRAC_IDENTITY_KEY".to_string(), key)));
         assert!(!play.plan(&ctx(&installed)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_IDENTITY_KEY"));
-        // Settings, "Multiplayer server": the official one by default, the player's own when set.
+        // Settings, "Multiplayer server": the official hub by default, the player's own when set.
         let server =
             |env: Vec<(String, String)>| env.into_iter().filter(|(k, _)| k == "OPENRAC_SERVER").collect::<Vec<_>>();
         assert_eq!(
             server(play.plan(&ctx(&installed)).unwrap().env),
-            [("OPENRAC_SERVER".to_string(), "game.openrac.dev:7770".to_string())]
+            [("OPENRAC_SERVER".to_string(), "hub.openrac.dev:7177".to_string())]
         );
         let own_server = Config {
             multiplayer_server_host: "mp.example.org".into(),

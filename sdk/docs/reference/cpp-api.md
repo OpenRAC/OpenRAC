@@ -241,7 +241,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool moby_status(int slot, std::uint32_t status, int ticks) const` | Since 1.29: the moby in `slot` frozen or slowed (OPENRAC_MOBY_STATUS_*) for `ticks` game ticks; OPENRAC_MOBY_STATUS_NONE ends it. False when refused. |
 | `openrac_gaddr weapon_record(int item) const` | Since 1.29: the game address of weapon `item`'s record in the level's weapon table, 0 for none. The level's load writes it again. |
 | `bool has_weapon_culling() const` | Since 1.30: whether the port has weapon_ignore_culling(). |
-| `bool weapon_ignore_culling(int item, bool enabled = true) const` | Since 1.30: weapon `item`'s target picks take every enemy in range, on screen or not (true), or the game's drawn ones again (false). False when refused (a weapon the port does not know, or no such call). |
+| `bool weapon_ignore_culling(int item, bool enabled = true) const` | Since 1.30: weapon `item`'s target picks take every enemy in range and in sight, on screen or not (true), or the game's drawn ones again (false). False when refused (a weapon the port does not know, or no such call). |
 | `bool has_overlay_phases() const` | Since 1.31: whether the port draws a mod's overlay over the game's menus and scenes too (on_overlay_phases()). |
 | `bool on_overlay_phases(openrac_overlay_fn fn, void* user, std::uint32_t phases) const` | Since 1.31: `fn(user, overlay)` once a frame to draw over the game in the phases of `phases` (OPENRAC_OVERLAY_PLAYING, _MENU, _SCENE; overlay->phase says which). It replaces the mod's on_overlay(). Only during load; false when refused or the port has no such call. |
 | `bool has_button_label() const` | Since 1.31: whether the port gives the pad's buttons' labels (button_label()). |
@@ -441,6 +441,24 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `std::uint32_t sim_digest(int level) const` | Since 1.14: what must agree for two games to share `level`; 0 when it is not loaded or the port does not say. |
 | `std::string plugins_folder() const` | Since 1.14: the folder the mods are in, <data>/plugins; "" when the port does not say. |
 | `std::string identity_key() const` | Since 1.14: a key that stays the same for this installation; "" when the port has none. |
+| `bool camera_fov(float degrees) const` | Since 1.35: what a cutscene needs. The picture's vertical field of view in degrees while the mod holds the camera (0: the game's); false without the camera or the call. |
+| `bool hud_hide(bool hidden) const` | Since 1.35: hides the game's own HUD (the mods' lines stay) or shows it again. |
+| `bool music_volume(float gain) const` | Since 1.35: the game's music at `gain` (0 to 1), eased; 1 gives it back. |
+| `bool moby_set_joints(int slot, const std::vector<openrac_joint_offset>& joints) const` | Since 1.35: hero_set_joints for the moby in `slot`; an empty list takes them off. |
+| `bool moby_joint_position(int slot, int joint, float out[3]) const` | Since 1.35: where joint `joint` of the moby in `slot` is, as last drawn. |
+| `int moby_sound_play(int slot, int sound, bool loop) const` | Since 1.35: one of the moby's class's sounds on it; its voice, or -1. |
+| `void moby_sound_stop(int voice) const` | Since 1.35: stops a voice moby_sound_play gave. |
+| `bool scene_air(const openrac_air* air) const` | Since 1.35: the fog and background the picture is drawn with (nullptr: the game's again); false outside a level, for a value out of range or a port without it. |
+| `bool time_stretch(float stretch) const` | Since 1.35: slow motion, each tick `stretch` (1 to 8) times as long; false for a value out of range or a port without it. |
+| `bool tie_hide(int tie, bool hidden) const` | Since 1.35: hides the level's tie `tie` from the picture, or shows it again; false outside a level, for a number below 0 or past 65535 or a port without it. |
+| `bool prop_animate(int prop, int animation, float seconds, bool loop) const` | Since 1.35: plays animation `animation` of a skinned prop's .glb at `seconds` (-1: the mesh as stored); false for a prop not the mod's or a port without it. |
+| `bool moby_joint_frame(int slot, int joint, float (&out)[12]) const` | Since 1.35: a moby's joint's axes and place in the level, as last drawn, into `out` (x, y, z axes, then the place); false for no such joint or a port without it. |
+| `int moby_uid(int slot) const` | Since 1.35: the spawn id of the placed moby in `slot` (its record's uid, which stays when the level is edited; a key is the record's place), -1 for none or a port without it. |
+| `bool has_sharp_cells() const` | Since 1.36: whether the port draws sharper pictures of cells the mod paints in a 2D-layer texture (sharp_cells). |
+| `bool sharp_cells(const openrac_sharp_page* pages, int count) const` | Since 1.36: replaces the mod's pages of sharper cells with `count` (0 clears them; the port copies them), set before the mod paints the texels (see openrac_api.sharp_cells); each page's and cell's `size` is the mod's to set. False when refused or the port has no such call. |
+| `bool has_set_motors() const` | Since 1.37: whether the port lets the mod drive the pads' motors (set_motors). |
+| `bool set_motors(int port, int small_motor, int large_motor) const` | Since 1.37: drives pad `port`'s motors (0 or 1, as on_pad numbers it) as the game's own vibration does: `small_motor` 0 or 1, `large_motor` 0 to 255, each motor the stronger of the game's and the mods'. A command lasts a fifth of a second, so send it every tick while it rumbles; 0, 0 stops. Send 0, 0 at load to have the menu show the player's vibration settings in a game without rumble of its own. On the game's thread only (load, on_frame, a hook), never from a thread of the mod's. False when refused or the port has no such call. |
+| `bool menu_option_set(const char* option, int state) const` | Since 1.37: turns an option of the port's menu on or off, by its name (sdk/docs/menu-options.md): OPENRAC_MENU_OPTION_ON, _OFF, or _DEFAULT for the port's choice. A name the port does not know is taken and changes nothing. False for a port without the call, an empty name or another state. |
 | `bool moby_run(int slot, openrac_moby_run& out) const` | Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1: none) in it, into `out`; false outside a level or for a port without it. |
 | `int moby_slot_of(gaddr moby) const` | Since 1.9: the slot of the moby at game address `moby` (a hook point's argument), -1 none. |
 | `bool play_overlay_pause(bool on) const` | Since 1.9: the world keeps running under the game's menus while `on`; false for a game without it. |
