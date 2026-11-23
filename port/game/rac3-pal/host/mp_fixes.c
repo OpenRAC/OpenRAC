@@ -334,15 +334,14 @@ static int fix_shot_collision(int moby, int from, int (*game)(int, int)) {
     return result;
 }
 
-static int fix_coll_line(
-    int map, int from, int to, int flags, int moby, int a4, int (*game)(int, int, int, int, int)
-) {
+/* The flags the collision line runs with, asked by mp_maps.c's wrap of each map's copy. */
+int rac3_mp_fix_coll_flags(int map, int from, int flags, int moby) {
     if (g_remote_shot_from != 0 && (gaddr)from == g_remote_shot_from
         && (gaddr)moby == g_remote_shot_moby && flags == 0) {
-        flags = COLL_THROUGH_WALLS;
         fixed(FIX_WALL_SNIPING, map);
+        return COLL_THROUGH_WALLS;
     }
-    return game(from, to, flags, moby, a4);
+    return flags;
 }
 
 /* ---- The net clock's stalls ----
@@ -443,7 +442,6 @@ static int fix_pad_update(int map, int (*game)(void)) {
     flux_fire,                                                                                     \
     delete_light,                                                                                  \
     shot_collision,                                                                                \
-    coll_line,                                                                                     \
     state_fresh,                                                                                   \
     net_apply,                                                                                     \
     local_update,                                                                                  \
@@ -485,9 +483,6 @@ static int fix_pad_update(int map, int (*game)(void)) {
     }                                                                                              \
     int mp_func_L##m##_##shot_collision(int a0, int a1) {                                          \
         return fix_shot_collision(a0, a1, mp_func_L##m##_##shot_collision##__game);                \
-    }                                                                                              \
-    int mp_func_L##m##_##coll_line(int a0, int a1, int a2, int a3, int a4) {                       \
-        return fix_coll_line(m, a0, a1, a2, a3, a4, mp_func_L##m##_##coll_line##__game);           \
     }                                                                                              \
     int mp_func_L##m##_##state_fresh(int a0) {                                                     \
         return fix_state_fresh(m, a0, mp_func_L##m##_##state_fresh##__game);                       \

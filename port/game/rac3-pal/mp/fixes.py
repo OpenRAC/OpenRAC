@@ -29,6 +29,8 @@ MAPS = range(40, 54)
 
 # Level 39's place of each function, the library, the row's name (the map's number follows), the
 # port value ("wrap": host/mp_fixes.c stands in front of it; "ref": it only calls it), what it is.
+# The collision line test (level 39's 00580220) is mp/maps.py's wrap: mp_maps.c asks
+# rac3_mp_fix_coll_flags (host/mp_fixes.c) for its flags.
 FIXED = [
     ("0063FDA8", "gameplay", "rac3HeroEquipGadgetMap", "wrap",
      "the hero's gadget equip (creates the gadget's mobys)"),
@@ -41,7 +43,6 @@ FIXED = [
     ("0054F4E0", "gameplay", "rac3FluxFireMap", "wrap", "the flux rifle's shot (its muzzle light)"),
     ("0059ECB8", "", "", "ref", "a point light's delete (func_L01_00424D88)"),
     ("00550D48", "gameplay", "rac3ShotCollisionMap", "wrap", "a sniper shot's collision"),
-    ("00580220", "gameplay", "rac3CollLineMap", "wrap", "the collision line test (frontbin's func_003D3CB0)"),
     ("006481F8", "net", "rac3PlayerStateFreshMap", "wrap",
      "whether a remote player's state is recent (turrets wait on it)"),
     ("00666160", "net", "rac3PlayerNetApplyMap", "wrap",
