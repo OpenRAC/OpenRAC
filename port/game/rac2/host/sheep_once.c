@@ -20,6 +20,7 @@
 #include <stdint.h>
 
 #include "game_protos.h"
+#define RAC2_MOBY_TARGET_RECORD func_002AB1F0
 #include "moby_checks.h"
 #include "openrac/game_host.h"
 #include "rac2.h"

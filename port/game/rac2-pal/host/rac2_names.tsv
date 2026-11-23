@@ -211,6 +211,10 @@ func_00342118	func_00344180
 func_00342380	func_003443E8
 func_0034AD10	func_0034CED8
 func_0034AD10__game	func_0034CED8__game
+func_0034CEA0	func_0034F068
+func_0034CEA0__game	func_0034F068__game
+func_0034DB98	func_0034FD60
+func_0034DB98__game	func_0034FD60__game
 func_0034E4F8	func_003506E0
 func_0034E4F8__game	func_003506E0__game
 func_0034EF58	func_00351140

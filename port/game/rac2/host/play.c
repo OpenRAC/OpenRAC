@@ -49,6 +49,7 @@
 
 #include "enemy_copies.h"
 #include "game_protos.h"
+#define RAC2_MOBY_TARGET_RECORD func_002AB1F0
 #include "moby_checks.h"
 #include "moby_pool.h"
 #include "openrac/game_host.h"
