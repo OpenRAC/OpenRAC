@@ -1409,6 +1409,10 @@
    "is": "func_002804F0",
    "why": "the same instructions, the only place they occur"
   },
+  "func_00280670": {
+   "is": "func_002806B0",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_00281240": {
    "is": "func_00281280",
    "why": "the same instructions, the only place they occur"
@@ -1721,6 +1725,26 @@
    "is": "func_L39_0058F8D0",
    "why": "the same instructions, the only place they occur"
   },
+  "func_L39_00590CD8": {
+   "is": "func_L39_0058FB28",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00590CF8": {
+   "is": "func_L39_0058FB48",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00591220": {
+   "is": "func_L39_00590070",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00591240": {
+   "is": "func_L39_00590090",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005912A0": {
+   "is": "func_L39_005900F0",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_L39_00591BA0": {
    "is": "func_L39_005908F8",
    "why": "the same instructions, the only place they occur"
@@ -1783,6 +1807,14 @@
   },
   "func_L39_005AA510": {
    "is": "func_L39_005A8630",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005AD2B0": {
+   "is": "func_L39_005AB3B0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005AD450": {
+   "is": "func_L39_005AB550",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_005B25C8": {
@@ -1859,6 +1891,10 @@
   },
   "func_L39_005D69C0": {
    "is": "func_L39_005D4450",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005ECB30": {
+   "is": "func_L39_005EA5C0",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_005EDE28": {
