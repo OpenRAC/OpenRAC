@@ -111,6 +111,10 @@ int g_capture = -1;
 openrac_pad_fn g_pad = nullptr;
 void* g_pad_user = nullptr;
 void* g_camera_hook = nullptr;
+// The turrets' update hook points, by name: Batalia's cannon, Gaspar's turret, Hoven's turret.
+void* g_cannon_hook = nullptr;
+void* g_turret_hook = nullptr;
+void* g_hoven_hook = nullptr;
 std::vector<std::string> g_functions;  // the names the mod looked for
 int g_camera_calls = 0;
 int g_look_calls = 0;
@@ -128,6 +132,27 @@ T& at(std::uint32_t address) {
 
 void game_camera(std::uint32_t) {
     ++g_camera_calls;
+}
+
+// A turret's update as the game runs it: the turret's yaw and pitch it found (the mouse's turn
+// already in them), and for Hoven's whether it aims this tick (it builds its aim quaternion at
+// pvars +0x10).
+int g_turret_calls = 0;
+float g_turret_yaw = 0.0f;
+bool g_hoven_aims = true;
+std::uint32_t g_turret_vars = 0;
+
+void game_turret(std::uint32_t moby) {
+    ++g_turret_calls;
+    g_turret_yaw = at<float>(moby + 0x48u);
+}
+
+void game_hoven(std::uint32_t moby) {
+    game_turret(moby);
+    if (g_hoven_aims) {
+        at<float>(g_turret_vars + 0x10u) = 0.0f;
+        at<float>(g_turret_vars + 0x1Cu) = 1.0f;
+    }
 }
 
 float game_cos(float a) {
@@ -242,13 +267,26 @@ const char* setting_string(openrac_mod*, const char* key) {
 int host_hook(
     openrac_mod*, const char* name, const char* signature, void* replacement, void** original
 ) {
-    CHECK(
-        std::strcmp(name, "rac1.camera.follow.apply_overrides") == 0
-        || std::strcmp(name, "FollowCamera_ApplyOverrides") == 0
-    );
     CHECK(std::strcmp(signature, "void(u32)") == 0);
-    g_camera_hook = replacement;
-    *original = reinterpret_cast<void*>(&game_camera);
+    const auto is = [name](const char* id, const char* fn) {
+        return std::strcmp(name, id) == 0 || std::strcmp(name, fn) == 0;
+    };
+
+    if (is("rac1.moby.cannon.update", "Moby_Class440_Update")) {
+        g_cannon_hook = replacement;
+        *original = reinterpret_cast<void*>(&game_turret);
+    } else if (is("rac1.moby.mountable_turret.update", "Moby_Turret_Update")) {
+        g_turret_hook = replacement;
+        *original = reinterpret_cast<void*>(&game_turret);
+    } else if (is("rac1.moby.moby1267.update", "Moby_HovenTurret_Update")) {
+        g_hoven_hook = replacement;
+        *original = reinterpret_cast<void*>(&game_hoven);
+    } else {
+        CHECK(is("rac1.camera.follow.apply_overrides", "FollowCamera_ApplyOverrides"));
+        g_camera_hook = replacement;
+        *original = reinterpret_cast<void*>(&game_camera);
+    }
+
     return OPENRAC_HOOK_OK;
 }
 
@@ -458,6 +496,92 @@ void use_camera(std::uint32_t camera, int id) {
     at<std::uint32_t>(disc().cameras + KBM_CAMERAS_CURRENT) = camera;
     at<std::int16_t>(kCamera + KBM_CAMERA_ID) = static_cast<std::int16_t>(id);
     at<std::uint32_t>(kCamera + KBM_CAMERA_STATE) = kCameraState;
+}
+
+// The turrets the hero sits in, aimed by the mouse itself: the tick's motion turns the turret by
+// the camera's angle per pixel (mouse right to the right, mouse up looking up) before the game's
+// update, within its pitch range, and leaves the camera alone; not manned, or with no motion, the
+// update gets the turret as it was. Hoven's turn is taken back on a tick it does not aim.
+void turrets() {
+    constexpr std::uint32_t kMoby = 0x001E8000u;
+    constexpr std::uint32_t kVars = 0x001E9000u;
+    g_turret_vars = kVars;
+    auto cannon = reinterpret_cast<void (*)(std::uint32_t)>(g_cannon_hook);
+    auto gaspar = reinterpret_cast<void (*)(std::uint32_t)>(g_turret_hook);
+    auto hoven = reinterpret_cast<void (*)(std::uint32_t)>(g_hoven_hook);
+    CHECK(cannon != nullptr && gaspar != nullptr && hoven != nullptr);
+    kbm::LookTuning tuning;
+    const auto manned = [](std::uint8_t state) {
+        std::memset(&at<std::uint8_t>(kMoby), 0, 0x100);
+        std::memset(&at<std::uint8_t>(kVars), 0, 0x100);
+        at<std::uint8_t>(kMoby + 0x20u) = state;
+        at<std::uint32_t>(kMoby + 0x78u) = kVars;
+    };
+    // A tick with the mouse's motion; then the turret's update.
+    const auto mouse = [](float dx, float dy, void (*update)(std::uint32_t)) {
+        tick();
+        g_input.mouse_dx = dx;
+        g_input.mouse_dy = dy;
+        const Report r = read_pad();
+        CHECK(r.bytes[2] == 0x80 && r.bytes[3] == 0x80);  // the camera's stick untouched
+        update(kMoby);
+    };
+
+    // Batalia's cannon, manned (state 5): the first tick finds the hero seated; then mouse right
+    // and up turn it right and up (rot.y negative up), the game's update seeing the turn.
+    manned(5);
+    mouse(0.0f, 0.0f, cannon);
+    g_turret_calls = 0;
+    mouse(30.0f, -20.0f, cannon);
+    CHECK(g_turret_calls == 1);
+    CHECK(close_to(at<float>(kMoby + 0x48u), kbm::DirectLook::yaw(30.0f, 0.0f, tuning)));
+    CHECK(at<float>(kMoby + 0x48u) < 0.0f && g_turret_yaw == at<float>(kMoby + 0x48u));
+    CHECK(close_to(at<float>(kMoby + 0x44u), kbm::DirectLook::pitch(0.0f, -20.0f, tuning)));
+    CHECK(at<float>(kMoby + 0x44u) < 0.0f);
+    // Far up: held at the cannon's 45 degrees; no motion: nothing written.
+    mouse(0.0f, -5000.0f, cannon);
+    CHECK(at<float>(kMoby + 0x44u) == -0.7853982f);
+    const float yaw = at<float>(kMoby + 0x48u);
+    mouse(0.0f, 0.0f, cannon);
+    CHECK(at<float>(kMoby + 0x48u) == yaw && at<float>(kMoby + 0x44u) == -0.7853982f);
+
+    // Not manned (state 4): the turret is the game's, the mouse the camera's.
+    manned(4);
+    mouse(30.0f, -20.0f, cannon);
+    mouse(30.0f, -20.0f, cannon);
+    CHECK(at<float>(kMoby + 0x48u) == 0.0f && at<float>(kMoby + 0x44u) == 0.0f);
+
+    // Gaspar's turret (state 5): the pitch at pvars +0x44, positive up, within 30 degrees.
+    manned(5);
+    mouse(0.0f, 0.0f, gaspar);
+    mouse(-30.0f, -20.0f, gaspar);
+    CHECK(at<float>(kMoby + 0x48u) > 0.0f);  // mouse left: turned left
+    CHECK(close_to(at<float>(kVars + 0x44u), -kbm::DirectLook::pitch(0.0f, -20.0f, tuning)));
+    CHECK(at<float>(kVars + 0x44u) > 0.0f && at<float>(kMoby + 0x44u) == 0.0f);
+    mouse(0.0f, 5000.0f, gaspar);
+    CHECK(at<float>(kVars + 0x44u) == -0.5235988f);
+
+    // Hoven's turret (state 4): the pitch at pvars +0x74, positive up; kept on a tick it aims,
+    // taken back (with its quaternion) on one it does not.
+    manned(4);
+    mouse(0.0f, 0.0f, hoven);
+    mouse(30.0f, -20.0f, hoven);
+    const float hoven_yaw = at<float>(kMoby + 0x48u);
+    const float hoven_pitch = at<float>(kVars + 0x74u);
+    CHECK(hoven_yaw < 0.0f && hoven_pitch > 0.0f && at<float>(kVars + 0x1Cu) == 1.0f);
+    g_hoven_aims = false;
+    at<float>(kVars + 0x1Cu) = 0.5f;
+    mouse(30.0f, -20.0f, hoven);
+    CHECK(close_to(g_turret_yaw, 2.0f * hoven_yaw));  // the update saw the turn
+    CHECK(at<float>(kMoby + 0x48u) == hoven_yaw && at<float>(kVars + 0x74u) == hoven_pitch);
+    CHECK(at<float>(kVars + 0x1Cu) == 0.5f);
+    g_hoven_aims = true;
+
+    // Out of the turret: after a few ticks with no manned turret the mouse is the camera's again.
+    for (int i = 0; i < 4; ++i) {
+        tick();
+        read_pad();
+    }
 }
 
 // The follow camera and the first-person view turned by the mouse itself: at once and in
@@ -880,6 +1004,7 @@ void run() {
 
     direct_camera();
     gyro_camera();
+    turrets();
 
     // Right click held: Triangle held, the mouse pointing the ring's slot by the left stick.
     tick();
