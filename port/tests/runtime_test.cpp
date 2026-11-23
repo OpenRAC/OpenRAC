@@ -674,6 +674,57 @@ static void ee_float_mode() {
     std::fesetenv(&saved);
 }
 
+int gp_scratch(int a) {
+    return a;
+}
+
+int gp_table(int a) {
+    return a;
+}
+
+// Once a function writes $gp (rac2's func_00274D90 uses it as a work register), an access through
+// it is no global: it must not pair gp - 0x10 with itself before the table's real pair.
+void relocation_gp_as_work_register() {
+    const auto words = [](gaddr at, std::initializer_list<std::uint32_t> w) {
+        std::memcpy(G(at), w.begin(), w.size() * 4);
+    };
+    std::vector<std::uint8_t> exe(0x200, 0);
+    // lw $a0, 0x10($gp); addu $gp, $v1, $t6; sq $zero, -0x10($gp); jr $ra
+    const std::uint32_t scratch[] = {0x8F840010u, 0x006EE021u, 0x7F80FFF0u, 0x03E00008u, 0};
+    // lui $a1, 0x15; addiu $a1, $a1, 0x7FF0 (gp - 0x10); jr $ra
+    const std::uint32_t table[] = {0x3C050015u, 0x24A57FF0u, 0x03E00008u, 0};
+    std::memcpy(exe.data(), scratch, sizeof scratch);
+    std::memcpy(exe.data() + 0x100, table, sizeof table);
+    words(0x001C0000u, {0x8F840020u, 0x006EE021u, 0x7F80FFF0u, 0x03E00008u, 0});
+    words(0x001C0100u, {0x3C050015u, 0x24A57F80u, 0x03E00008u, 0});
+    const auto fn = [](auto f) {
+        return reinterpret_cast<openrac_host_fn>(f);
+    };
+    static const openrac_fn_entry exe_fns[] = {
+        {0x0010D000u, fn(gp_scratch), "scratch"},
+        {0x0010D100u, fn(gp_table), "table"},
+    };
+    static const openrac_fn_entry level_fns[] = {
+        {0x001C0000u, fn(gp_scratch), "scratch"},
+        {0x001C0100u, fn(gp_table), "table"},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, exe_fns, 2);
+    openrac_guest_register(11, level_fns, 2);
+    openrac_guest_set_relocation(
+        0x00140000u,
+        0x00170000u,
+        0x00158000u,
+        exe.data(),
+        0x0010D000u,
+        static_cast<std::uint32_t>(exe.size())
+    );
+    openrac_guest_set_overlay(11);
+    CHECK(OPENRAC_DATA(0x00158010u) == 0x00158020u);  // read through $gp before the write
+    CHECK(OPENRAC_DATA(0x00157FF0u) == 0x00157F80u);  // the table's own pair, not gp - 0x10's
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
+}
+
 int main() {
     Memory::create();
     ee_float_mode();
@@ -688,6 +739,7 @@ int main() {
     folded_address();
     relocation_with_folded_copies();
     relocation_between_pairs();
+    relocation_gp_as_work_register();
     level_data_in_the_executable();
     elf();
     reach_report_updates();
