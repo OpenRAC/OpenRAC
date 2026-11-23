@@ -118,6 +118,10 @@
 #define RAC3_ADDR_0x001D89B8u 0x001D89E8u
 /* D_001D89BC (names.tsv) */
 #define RAC3_ADDR_0x001D89BCu 0x001D89ECu
+/* D_001D934C (names.tsv) */
+#define RAC3_ADDR_0x001D934Cu 0x001D938Cu
+/* D_001D936C (names.tsv) */
+#define RAC3_ADDR_0x001D936Cu 0x001D93ACu
 /* D_001D9BE0 (names.tsv) */
 #define RAC3_ADDR_0x001D9BE0u 0x001D9C60u
 /* D_001D9BFC (names.tsv) */

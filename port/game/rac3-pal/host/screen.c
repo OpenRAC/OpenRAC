@@ -112,3 +112,37 @@ int func_L01_004DE6F0(void) {
 int func_L01_004DF310(void) {
     return rac3_screen_soften(OPENRAC_LDATA(1, kLevels.list));
 }
+
+/* The boot program's and frontbin's copies (the catalogue's func_003D85C0, func_003D8640 and
+ * func_003D9260 are frontbin's; the boot program's own are 0x003D8978, 0x003D89F8, 0x003D9618),
+ * run by their DrawFrames (boot 0x003BCEB0 and the loading screen's 0x00388ED8, frontbin 0x003BCAF8
+ * and 0x00388AF8) while 0x001D9348 is set. Both programs keep the glow's globals at the same
+ * addresses, not relocated: the glow word 0x001D934C, the blur byte 0x20 after it, the list pointer
+ * 0x001DA050. */
+static const Rac3Glow kBoot = {
+    RAC3_ADDR(0x001D934Cu), RAC3_ADDR(0x001D936Cu), RAC3_ADDR(0x001DA050u)
+};
+
+int func_003D8978(void) {
+    return rac3_screen_glow(&kBoot);
+}
+
+int func_003D89F8(void) {
+    return rac3_screen_glow_end(&kBoot);
+}
+
+int func_003D9618(void) {
+    return rac3_screen_soften(kBoot.list);
+}
+
+int func_003D85C0__frontbin(void) {
+    return rac3_screen_glow(&kBoot);
+}
+
+int func_003D8640__frontbin(void) {
+    return rac3_screen_glow_end(&kBoot);
+}
+
+int func_003D9260__frontbin(void) {
+    return rac3_screen_soften(kBoot.list);
+}

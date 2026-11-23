@@ -132,11 +132,34 @@ void late_and_resent_lists() {
     CHECK(recorder.match(std::vector<std::uint32_t>{0xC000}) == nullptr);
 }
 
+// A screen effect is recorded with its values beside the commands; closing keeps them with the
+// recording, and a new recording starts with none.
+void screen_effects_kept() {
+    FrameRecorder recorder;
+    ScreenEffect soften;
+    soften.kind = ScreenEffectKind::Soften;
+    soften.strength = 0x80;
+    recorder.open().screen_effects.push_back(soften);
+    recorder.push(op(FrameOp::ScreenEffect, 0));
+    recorder.close();
+    const FrameRecording* r = recorder.latest_unanchored();
+    CHECK(r != nullptr);
+    if (r != nullptr) {
+        CHECK(r->commands.size() == 1 && r->commands[0].op == FrameOp::ScreenEffect);
+        CHECK(r->screen_effects.size() == 1 && r->screen_effects[0] == soften);
+        FrameRecording copy = *r;
+        copy.clear();
+        CHECK(copy.screen_effects.empty() && copy.empty());
+    }
+    CHECK(recorder.open().screen_effects.empty());
+}
+
 }  // namespace
 
 int main() {
     order_without_dma();
     anchors_place_commands();
     late_and_resent_lists();
+    screen_effects_kept();
     return openrac::test::result();
 }

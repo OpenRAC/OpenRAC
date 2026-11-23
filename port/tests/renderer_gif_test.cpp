@@ -955,6 +955,44 @@ void recorded_frame_without_packets() {
     }
 }
 
+// A recorded screen effect is a draw of no vertices of its own, with the game's values, between
+// the draws before and after it; what is drawn after it starts a draw of its own.
+void recorded_screen_effect() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    FrameRecording r;
+    FrameCommand fill;
+    fill.op = FrameOp::Fill;
+    fill.blend = BlendMode::Add;
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    glow.tint = 0x80406080u;
+    glow.threshold = 0x40;
+    glow.strength = 0x60;
+    glow.blur = 1;
+    r.screen_effects.push_back(glow);
+    FrameCommand effect;
+    effect.op = FrameOp::ScreenEffect;
+    effect.index = 0;
+    // An index past the recording's effects draws nothing.
+    FrameCommand stray = effect;
+    stray.index = 5;
+    r.commands = {fill, effect, stray, fill};
+    const std::vector<FrameSplice> splices{{0, 0}, {0, 1}, {0, 2}, {0, 3}};
+    gif.set_commands(&r, splices, 0);
+    CHECK(gif.vif({}));
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 3);
+    if (gif.draws().size() == 3) {
+        const DirectDraw& d = gif.draws()[1];
+        CHECK(d.count == 0 && d.screen == glow && d.vertexless() && d.draws());
+        CHECK(d.state.target == 0);
+        CHECK(gif.draws()[0].count == 6 && gif.draws()[2].count == 6);
+        CHECK(gif.draws()[2].first == 6);
+        CHECK(gif.draws()[0].screen.kind == ScreenEffectKind::None);
+    }
+}
+
 // Recorded commands spliced into a stream: before the DIRECT at their offset, after what came
 // before it; those past the stream's end at finish_commands.
 void recorded_splices_in_a_stream() {
@@ -1002,6 +1040,7 @@ void recorded_splices_in_a_stream() {
 
 int main() {
     blend_weights();
+    recorded_screen_effect();
     opaque_effects();
     sprite();
     whole_target_marker();

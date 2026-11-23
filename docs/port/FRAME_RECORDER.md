@@ -68,6 +68,8 @@ the window scales them to the target's pixels.
 | `openrac_frame_snapshot(id)` | keeps the frame drawn so far as picture `id` (pause tiles, Holostar's frame-textured sprite) |
 | `openrac_frame_target_begin(id, w, h)` / `_end()` | draws into the off-screen panel `id` (a port id, never a GS block) until `_end` |
 | `openrac_frame_scissor(rect)` | cuts what follows to `rect` (NULL: the whole target) |
+| `openrac_frame_screen_effect(const openrac_frame_screen_effect*)` | a native post pass over the target as drawn so far, with the game's values: `OPENRAC_SCREEN_GLOW` (the pixels whose alpha passes the threshold, tinted, blurred at a half, a quarter and an eighth of the target, added back) or `OPENRAC_SCREEN_SOFTEN` (the frame blurred and mixed back); [SCREEN_EFFECTS.md](SCREEN_EFFECTS.md) |
+| `openrac_frame_snapshot_world(id)` | keeps the last frame the window drew with its world in (the world alone, before its 2D) as picture `id`, following the world while one is drawn under a menu: the frame a menu read back as it opened |
 | `openrac_frame_end()` | closes the recording (optional) |
 
 Blend modes are a fixed native set: `OPENRAC_BLEND_OPAQUE`, `_MIX` (source over, by source alpha),
@@ -227,7 +229,7 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 
 | Game | On the recorder | Still markers in its list |
 |---|---|---|
-| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
+| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; `host/screen.c`, `mp.c`, `mp_maps.c`: the screen glow and the second screen effect as `screen_effect`; `host/picture.c`: the pause menu's frame as `snapshot_world` + `picture` (no frame read back or written); the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
 | rac1, rac2 | nothing yet | all (R1) |
 
 ## 9. Tests
