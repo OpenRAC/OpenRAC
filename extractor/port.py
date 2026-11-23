@@ -97,7 +97,9 @@ FORMAT = 4
 # level.load_wad_loading), drawn natively and wide in place of the game's 4:3 packets. 18: the tie
 # materials the game blends opaque whatever their texels' alpha (ALPHA_1 0x20; glTF extras "opaque",
 # ties.tie_mesh): the dropship's hull, see-through before.
-GAME_FORMATS = {"rac2": 20, "rac3": 18}
+# Going Commando 21: the flight's flagged ship parts follow the selected paint, including occupied
+# texture slots.
+GAME_FORMATS = {"rac2": 21, "rac3": 18}
 
 
 def levels_format(game: str) -> int:
