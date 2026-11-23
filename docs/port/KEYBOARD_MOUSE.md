@@ -32,6 +32,9 @@ set *Button icons* to *Always keys* or *Always gamepad*.
   between ticks. *Low-latency mouse camera* makes them show the mouse's turn
   before the game reads it, carried on to when the frame is shown: about 25 ms
   less delay at 60 ticks a second. Turn it off if a fast turn looks uneven on your screen.
+- In rac1's turrets (Batalia, Gaspar, Hoven) the mouse aims the turret
+  directly, by the same angle for each pixel, within the turret's own range.
+  The keys and a pad's left stick aim it as before.
 - Other cameras (scenes, GC's ship and vehicles) get the mouse as the right
   stick. A pad's right stick always wins.
 
