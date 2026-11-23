@@ -1514,7 +1514,7 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # hostgen.json "inner_extents": {"places": <catalogue>, "levels": [...]}: each catalogue row's
     # span (its place and size) in those levels, inside which no address starts a function
     # (retail.starts_of): a second executable's levels whose functions the catalogue sizes but no
-    # C names (rac3's multiplayer maps).
+    # C names (rac3's multiplayer maps). Each row's place there is an entry too (asmc.py).
     program.inner_extents = {}
     if cfg.get("inner_extents"):
         wanted = {int(n) for n in cfg["inner_extents"]["levels"]}
