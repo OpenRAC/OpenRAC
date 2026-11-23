@@ -141,6 +141,11 @@ cursor (widget vtable +0x88) and focus (screen+0x290 = 8), then injects Cross, s
 join path runs; ready, team and start do the same on the staging widgets. Nothing calls the lobby's
 internals directly.
 
+The end-of-match scoreboard is level 39's results screen (0x12), which the map hands its results in
+a core block (0x001FD7E8): with a description's `scoreboard` screen its rows become a `scores`
+table (name, score as kills less suicides, kills, deaths, team; best first) that scrolls and pages
+past eight; Cross and Triangle stay the game's (continue, leave).
+
 ## 7. Drawing: one draw layer
 
 The core draws through one layer the game supplies (`openrac_mp_ui_skin`): text, filled rectangles,

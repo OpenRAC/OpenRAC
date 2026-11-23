@@ -78,6 +78,22 @@
 #define SCREEN_GAME_LIST_A 0x0F
 #define SCREEN_GAME_LIST_B 0x19
 #define SCREEN_STAGING 0x21
+#define SCREEN_RESULTS 0x12
+
+/* The end-of-match results the map leaves for level 39's results screen (0x82C bytes in the core,
+ * the same address in every program; filled by the map's end routine, L39_00670D90's copy): per
+ * slot a name (32 bytes), a team (s32), kills and deaths (s16 pairs) and suicides (s16); the score
+ * the screen shows is kills less suicides. Its eight rows are widgets 0x1A + 5r to 0x1E + 5r, their
+ * team colour bars 0xD + r (L39_006A83B8). */
+#define RESULTS RAC3_MADDR(0x001FD7E8u)
+#define RESULTS_NAME_BYTES 32u
+#define RESULTS_TEAMS 0x120u
+#define RESULTS_KILLS 0x140u
+#define RESULTS_SUICIDES 0x1B8u
+#define RESULTS_FIRST_WIDGET 0x0D
+#define RESULTS_HEADERS 0x15
+#define RESULTS_COLUMNS 5
+#define RESULTS_LAST_WIDGET (0x1E + 5 * (GS_SLOTS - 1))
 
 /* A game list screen: its list widget (number 8), the rows shown and the world id of each. The list
  * widget: its row count, its rows (256 bytes of text each) and the rows it shows at once. */
@@ -152,6 +168,12 @@ enum {
  * show through, with the menus' gold edge. */
 #define COLOUR_PANEL 0x7C000000u
 /* The modal area: the middle of the picture, as the game's message boxes sit. */
+/* The results screen's rows: the first row's centre, the pitch, and the table's left edge and width
+ * (its frame, 0.5 +- 0.41 of the picture's width). */
+#define RESULTS_TOP 230.0f
+#define RESULTS_PITCH 21.0f
+#define RESULTS_X 46.0f
+#define RESULTS_W 420.0f
 #define MODAL_X 88.0f
 #define MODAL_Y 112.0f
 #define MODAL_W 336.0f
@@ -471,8 +493,75 @@ static void add_mock_players(void) {
         openrac_mp_ui_table_cell(g_ui, "name", name);
         openrac_mp_ui_table_cell(g_ui, "team", n % 2 == 0 ? "1" : "2");
         openrac_mp_ui_table_cell(g_ui, "kills", score);
+        openrac_mp_ui_table_cell(g_ui, "score", score);
+        openrac_mp_ui_table_cell(g_ui, "deaths", n % 4 == 0 ? "2" : "1");
         openrac_mp_ui_table_cell(g_ui, "ready", n % 3 == 0 ? "\x11" : "");
     }
+}
+
+/* Whether slot `a` ranks above slot `b` on the results: a higher score, or the same with fewer
+ * deaths, as the game ranks its rows (seen in game code: L39_006A6FC8). */
+static int beats(int a, int b, const int score[GS_SLOTS]) {
+    const int16_t deaths_a = GREF(int16_t, RESULTS + RESULTS_KILLS + 4u * (gaddr)a + 2u);
+    const int16_t deaths_b = GREF(int16_t, RESULTS + RESULTS_KILLS + 4u * (gaddr)b + 2u);
+    return score[a] > score[b] || (score[a] == score[b] && deaths_a < deaths_b);
+}
+
+/* The "scores" table: the match's results, a row a slot with a name, keyed by slot, best first by
+ * the score the game shows (kills less suicides), then fewer deaths. */
+static void fill_scores(void) {
+    int order[GS_SLOTS];
+    int score[GS_SLOTS];
+    int count = 0;
+    /* The slots with a player, and each one's score. */
+    for (int slot = 0; slot < GS_SLOTS; slot++) {
+        const gaddr kills = RESULTS + RESULTS_KILLS + 4u * (gaddr)slot;
+        /* A slot whose name is empty had no player. */
+        if (GREF(uint8_t, RESULTS + RESULTS_NAME_BYTES * (gaddr)slot) == 0) {
+            continue;
+        }
+        score[slot] =
+            GREF(int16_t, kills) - GREF(int16_t, RESULTS + RESULTS_SUICIDES + 2u * (gaddr)slot);
+        order[count++] = slot;
+    }
+    /* Best first: a stable insertion sort, eight rows at most. */
+    for (int n = 1; n < count; n++) {
+        const int slot = order[n];
+        int k = n;
+        /* Moves past every row this one beats. */
+        while (k > 0 && beats(slot, order[k - 1], score)) {
+            order[k] = order[k - 1];
+            k--;
+        }
+        order[k] = slot;
+    }
+    openrac_mp_ui_table_begin(g_ui, "scores");
+    /* One row a player, in that order. */
+    for (int n = 0; n < count; n++) {
+        const int slot = order[n];
+        const gaddr kills = RESULTS + RESULTS_KILLS + 4u * (gaddr)slot;
+        char name[RESULTS_NAME_BYTES + 1];
+        char number[4][12];
+        memcpy(name, G(RESULTS + RESULTS_NAME_BYTES * (gaddr)slot), RESULTS_NAME_BYTES);
+        name[RESULTS_NAME_BYTES] = 0;
+        snprintf(number[0], sizeof number[0], "%d", score[slot]);
+        snprintf(number[1], sizeof number[1], "%d", GREF(int16_t, kills));
+        snprintf(number[2], sizeof number[2], "%d", GREF(int16_t, kills + 2u));
+        snprintf(
+            number[3],
+            sizeof number[3],
+            "%d",
+            GREF(int32_t, RESULTS + RESULTS_TEAMS + 4u * (gaddr)slot) + 1
+        );
+        openrac_mp_ui_table_row(g_ui, (uint32_t)slot, 1);
+        openrac_mp_ui_table_cell(g_ui, "name", name);
+        openrac_mp_ui_table_cell(g_ui, "score", number[0]);
+        openrac_mp_ui_table_cell(g_ui, "kills", number[1]);
+        openrac_mp_ui_table_cell(g_ui, "deaths", number[2]);
+        openrac_mp_ui_table_cell(g_ui, "team", number[3]);
+    }
+    add_mock_players();
+    openrac_mp_ui_table_end(g_ui);
 }
 
 /* The "players" table: tNW_GameSettings' filled slots, in slot order (the staging room compacts its
@@ -524,6 +613,8 @@ static const char* bound_screen(int id) {
             return "game_list";
         case SCREEN_STAGING:
             return "staging";
+        case SCREEN_RESULTS:
+            return "scoreboard";
         default:
             return NULL;
     }
@@ -550,8 +641,13 @@ static void open_for(int id, gaddr screen) {
         return;
     }
     float area[4];
-    /* The staging room's rows are its own table; the lists are a widget. */
-    if (id == SCREEN_STAGING) {
+    /* The results screen's eight rows: 230 + 21r pixels down, header 208 (L39_006A69C0's tables). */
+    if (id == SCREEN_RESULTS) {
+        g_line = RESULTS_PITCH;
+        area[0] = RESULTS_X, area[2] = RESULTS_W;
+        area[1] = RESULTS_TOP - g_line * 0.5f;
+        area[3] = g_line * GS_SLOTS;
+    } else if (id == SCREEN_STAGING) {
         /* The eight name rows of the staging room, 0.648 + (n - 3) * 0.412 / 9 of the picture's
          * height, from the left of the names to the ready ticks (L39_006C1730). */
         g_line = 0.412f / 9.0f * PICTURE_H;
@@ -575,6 +671,10 @@ static void open_for(int id, gaddr screen) {
  * game screen's focus. */
 static int native_focused(void) {
     const int32_t focus = GREF(int32_t, g_screen + SCREEN_FOCUS);
+    /* The results screen's rows take no cursor in the game: the native table always has it. */
+    if (g_bound == SCREEN_RESULTS) {
+        return 1;
+    }
     /* Staging: the name cells; the lists: the list widget. */
     if (g_bound == SCREEN_STAGING) {
         return focus >= STAGING_NAME_WIDGET && focus < STAGING_NAME_WIDGET + GS_SLOTS;
@@ -592,8 +692,17 @@ static int native_focused(void) {
  * the list. Returns how many were hidden; `saved` gets their modes. */
 static int hide_replaced(gaddr widgets[HIDDEN_MAX], int32_t saved[HIDDEN_MAX]) {
     int count = 0;
-    /* Staging: every cell of the eight rows; the lists: the list widget. */
-    if (g_bound == SCREEN_STAGING) {
+    /* Results: the rows' cells and colour bars; staging: every cell of the eight rows; the lists:
+     * the list widget. */
+    if (g_bound == SCREEN_RESULTS) {
+        /* Colour bars 0xD..0x14, the shown flags between, and the five cells of each row. */
+        for (int n = RESULTS_FIRST_WIDGET; n <= RESULTS_LAST_WIDGET; n++) {
+            /* The column headers 0x15..0x19 stay the game's. */
+            if (n < RESULTS_HEADERS || n >= RESULTS_HEADERS + RESULTS_COLUMNS) {
+                widgets[count++] = widget(g_screen, n);
+            }
+        }
+    } else if (g_bound == SCREEN_STAGING) {
         /* Name, skill, voice, team, skin and ready widgets of each row. */
         for (int n = STAGING_NAME_WIDGET; n <= STAGING_LAST_WIDGET; n++) {
             widgets[count++] = widget(g_screen, n);
@@ -728,7 +837,9 @@ int mp_func_L39_006862D0(int mgr) {
         return result;
     }
     /* Each bound screen reads its own rows. */
-    if (g_bound == SCREEN_STAGING) {
+    if (g_bound == SCREEN_RESULTS) {
+        fill_scores();
+    } else if (g_bound == SCREEN_STAGING) {
         fill_players();
     } else {
         fill_games(g_screen);
