@@ -29,10 +29,12 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "mp/game_protos.h"
 #include "openrac/guest.h"
+#include "openrac/host_env.h"
 #include "rac3_version.h"
 
 /* ---- The game's memory (PAL; seen in game code, L39_* in rac3-decomp's level 39) ---- */
@@ -111,6 +113,7 @@
 #define GS_STATES 0x0F0u
 #define GS_READY 6
 #define STAGING_NAME_WIDGET 0x0F
+#define STAGING_START_WIDGET 4 /* the host's START, the last widget above the rows */
 #define STAGING_LAST_WIDGET (0x57 + GS_SLOTS - 1)
 
 /* The game's menu events (L39_00686138) and sounds (L39_00688340: 3 move, 4 select, 0x17 back;
@@ -145,6 +148,16 @@ enum {
 #define COLOUR_DISABLED 0x80808080u
 #define COLOUR_PULSE 0x66D6EEFAu
 #define PULSE_FRAMES 0x25u
+/* A modal screen's panel: black at 0x7C of full, nearly opaque, so the screen under it does not
+ * show through; its gold edge a pixel wide; its bar in the game's bar colour (L39_00689F00). */
+#define COLOUR_PANEL 0x7C000000u
+#define COLOUR_BAR 0x332299DEu
+#define PANEL_EDGE 1
+/* The modal area: the middle of the picture, as the game's message boxes sit. */
+#define MODAL_X 88.0f
+#define MODAL_Y 112.0f
+#define MODAL_W 336.0f
+#define MODAL_H 224.0f
 /* FontPrint's flags word as the menus pass it, and its drop shadow's offset. */
 #define PRINT_FLAGS 0x80000000ull
 #define SHADOW_OFFSET 2.0f
@@ -154,6 +167,12 @@ enum {
 #define FONT_HEIGHT 22.0f
 #define BAR_SHARE 0.76f
 #define TEXT_BYTES 128
+/* The largest description file read (the schema's own limit). */
+#define DESCRIPTION_BYTES 32768
+/* The made-up players OPENRAC_RAC3_MP_UI_MOCK may add at most, and their first key (clear of the
+ * game's client ids). */
+#define MOCK_MAX 64
+#define MOCK_KEY 1000u
 
 void rac3_mp_net_ui_action(const char* key, int value); /* mp_net.c: a server action */
 
@@ -167,6 +186,7 @@ static int g_hidden;         /* 1 while a popup covers the screen: the native on
 static uint32_t g_frame;     /* frames drawn, for the focused colour's pulse */
 static float g_line = 20.0f; /* the open screen's row pitch */
 static int g_text_pass;      /* 1 in the pass after the elements: text only, else the bar only */
+static int g_modal_layer;    /* 1 while the modal layer draws: its own panel and bar, after all */
 
 /* The vanilla description: the game's own lists, a column of names, as many rows as the game's
  * list widget shows. No staging screen: the game's own rows stay. */
@@ -264,6 +284,14 @@ static void skin_text(void* user, float x, float y, const char* text, size_t len
 /* The skin's highlight bar: the game's own bar element over the row. */
 static void skin_highlight(void* user, float x, float y, float w, float h) {
     (void)user;
+    /* A modal screen's bar is a box in the bar's colour over its panel, after the elements. */
+    if (g_modal_layer) {
+        /* Only after the elements, so the box is over the panel. */
+        if (g_text_pass) {
+            mp_func_L39_0058B2C8((int)y, (int)(y + h), (int)x, (int)(x + w), COLOUR_BAR);
+        }
+        return;
+    }
     /* The bar is an element: placed in the pass before the elements draw. */
     if (g_text_pass) {
         return;
@@ -285,9 +313,18 @@ static void skin_highlight(void* user, float x, float y, float w, float h) {
 
 /* The skin's panel: none, the game's screen is under every bound screen. */
 static void skin_panel(void* user, float x, float y, float w, float h) {
-    /* The bound screens sit on the game's own panels; a modal one would need the game's frame
-     * sprite, which no screen opens yet. */
-    (void)user, (void)x, (void)y, (void)w, (void)h;
+    (void)user;
+    /* A modal screen's panel goes over the elements, so it is drawn in the text pass. */
+    if (!g_text_pass) {
+        return;
+    }
+    const int x0 = (int)x, y0 = (int)y, x1 = (int)(x + w), y1 = (int)(y + h);
+    /* The darkened field, then its gold edge a pixel wide, as the game's dialog boxes frame. */
+    mp_func_L39_0058B2C8(y0, y1, x0, x1, COLOUR_PANEL);
+    mp_func_L39_0058B2C8(y0, y0 + PANEL_EDGE, x0, x1, COLOUR_NORMAL);
+    mp_func_L39_0058B2C8(y1 - PANEL_EDGE, y1, x0, x1, COLOUR_NORMAL);
+    mp_func_L39_0058B2C8(y0, y1, x0, x0 + PANEL_EDGE, COLOUR_NORMAL);
+    mp_func_L39_0058B2C8(y0, y1, x1 - PANEL_EDGE, x1, COLOUR_NORMAL);
 }
 
 /* The skin's scroll marks: none beside the page count line. */
@@ -303,6 +340,12 @@ static void skin_sound(void* user, int sound) {
     mp_func_L39_00688340(MENU_SOUNDS[sound & 3], 0, 0);
 }
 
+/* The skin's layers: the modal one draws its own panel and bar. */
+static void skin_layer(void* user, int modal) {
+    (void)user;
+    g_modal_layer = modal;
+}
+
 /* The skin table for the open screen's row pitch. */
 static openrac_mp_ui_skin skin(void) {
     const openrac_mp_ui_skin s =
@@ -313,8 +356,29 @@ static openrac_mp_ui_skin skin(void) {
          skin_highlight,
          skin_panel,
          skin_scroll_marks,
-         skin_sound};
+         skin_sound,
+         skin_layer};
     return s;
+}
+
+/* OPENRAC_RAC3_MP_UI: a description file in place of the vanilla one, for trying one without a
+ * server. A file that cannot be read, or is refused, leaves the vanilla one (logged). */
+static void describe_from_file(void) {
+    const char* path = openrac_env_string("OPENRAC_RAC3_MP_UI");
+    /* Unset: the vanilla description stays. */
+    if (path == NULL || path[0] == 0) {
+        return;
+    }
+    FILE* file = fopen(path, "rb");
+    /* A missing file is the developer's to fix; the game runs on with the game's screens. */
+    if (file == NULL) {
+        fprintf(stderr, "[warning] rac3: lobby screens: cannot read %s\n", path);
+        return;
+    }
+    static char json[DESCRIPTION_BYTES];
+    const size_t size = fread(json, 1, sizeof json, file);
+    fclose(file);
+    openrac_mp_ui_describe(g_ui, json, size);
 }
 
 /* Makes the context and gives it the vanilla description, once. Returns 0 without memory. */
@@ -325,7 +389,10 @@ static int make_ui(void) {
     }
     /* The vanilla description is the one in force until a server's arrives. */
     if (g_ui != NULL && !g_described) {
-        g_described = openrac_mp_ui_describe(g_ui, VANILLA_DESCRIPTION, sizeof VANILLA_DESCRIPTION - 1);
+        g_described =
+            openrac_mp_ui_describe(g_ui, VANILLA_DESCRIPTION, sizeof VANILLA_DESCRIPTION - 1);
+        openrac_mp_ui_set_modal_area(g_ui, MODAL_X, MODAL_Y, MODAL_W, MODAL_H);
+        describe_from_file();
     }
     return g_ui != NULL && g_described;
 }
@@ -402,6 +469,29 @@ static void fill_games(gaddr screen) {
     openrac_mp_ui_table_end(g_ui);
 }
 
+/* OPENRAC_RAC3_MP_UI_MOCK: made-up players at the end of the table being filled, for trying the
+ * lists past eight rows before the game's tables can hold more. */
+static void add_mock_players(void) {
+    const char* value = openrac_env_string("OPENRAC_RAC3_MP_UI_MOCK");
+    int count = value != NULL ? atoi(value) : 0;
+    /* A count past the limit is cut to it. */
+    if (count > MOCK_MAX) {
+        count = MOCK_MAX;
+    }
+    /* One row a made-up player, alternating teams. */
+    for (int n = 0; n < count; n++) {
+        char name[16];
+        char score[8];
+        snprintf(name, sizeof name, "PLAYER %d", n + 2);
+        snprintf(score, sizeof score, "%d", (count - n) * 3);
+        openrac_mp_ui_table_row(g_ui, MOCK_KEY + (uint32_t)n, 1);
+        openrac_mp_ui_table_cell(g_ui, "name", name);
+        openrac_mp_ui_table_cell(g_ui, "team", n % 2 == 0 ? "1" : "2");
+        openrac_mp_ui_table_cell(g_ui, "kills", score);
+        openrac_mp_ui_table_cell(g_ui, "ready", n % 3 == 0 ? "\x11" : "");
+    }
+}
+
 /* The "players" table: tNW_GameSettings' filled slots, in slot order (the staging room compacts its
  * rows the same way, L39_006C20B0), keyed by client id. */
 static void fill_players(void) {
@@ -436,6 +526,7 @@ static void fill_players(void) {
             GREF(int16_t, gs + GS_STATES + 2u * (gaddr)slot) >= GS_READY ? "\x11" : ""
         );
     }
+    add_mock_players();
     openrac_mp_ui_table_end(g_ui);
 }
 
@@ -508,21 +599,35 @@ static int native_focused(void) {
     return focus == LIST_WIDGET;
 }
 
-/* Hides the game widgets the native screen draws in place of. */
-static void hide_replaced(void) {
-    /* Staging: every cell of the eight rows. */
+/* The game widgets the native screen draws in place of, at most HIDDEN_MAX: their pointers and
+ * their modes while hidden. */
+#define HIDDEN_MAX (STAGING_LAST_WIDGET - STAGING_NAME_WIDGET + 1)
+
+/* Hides the game widgets the native screen draws in place of, for the length of the screens' draw
+ * only (mode 0 hides a widget's elements as its draw runs, L39_00682308). Their modes come back
+ * before the next update: the game's focus skips a hidden widget, and the cursor must still reach
+ * the list. Returns how many were hidden; `saved` gets their modes. */
+static int hide_replaced(gaddr widgets[HIDDEN_MAX], int32_t saved[HIDDEN_MAX]) {
+    int count = 0;
+    /* Staging: every cell of the eight rows; the lists: the list widget. */
     if (g_bound == SCREEN_STAGING) {
         /* Name, skill, voice, team, skin and ready widgets of each row. */
         for (int n = STAGING_NAME_WIDGET; n <= STAGING_LAST_WIDGET; n++) {
-            GREF(int32_t, widget(g_screen, n) + WIDGET_MODE) = 0;
+            widgets[count++] = widget(g_screen, n);
         }
-        return;
+    } else {
+        const gaddr list = widget(g_screen, LIST_WIDGET);
+        /* An empty list keeps the game's own line saying so. */
+        if (GREF(int32_t, list + LIST_ROW_COUNT) > 0) {
+            widgets[count++] = list;
+        }
     }
-    const gaddr list = widget(g_screen, LIST_WIDGET);
-    /* An empty list keeps the game's own line saying so. */
-    if (GREF(int32_t, list + LIST_ROW_COUNT) > 0) {
-        GREF(int32_t, list + WIDGET_MODE) = 0;
+    /* Each widget hidden, its mode kept for after the draw. */
+    for (int n = 0; n < count; n++) {
+        saved[n] = GREF(int32_t, widgets[n] + WIDGET_MODE);
+        GREF(int32_t, widgets[n] + WIDGET_MODE) = 0;
     }
+    return count;
 }
 
 /* The game's event as a native one. */
@@ -577,21 +682,34 @@ static int game_action(const openrac_mp_ui_outcome* out) {
 /* The menu event read (L39_00686138): the native screen's, while it has the cursor. */
 int mp_func_L39_00686138(int mgr, int pad) {
     const int event = mp_func_L39_00686138__game(mgr, pad);
-    /* The game's own events while no native screen has the cursor, or for another pad. */
-    if (g_ui == NULL || g_bound < 0 || g_hidden || (gaddr)pad != GREF(gaddr, ACTIVE_PAD)
-        || !native_focused()) {
+    /* The game's own events for another pad, under a game popup, or with no native screen up. */
+    if (g_ui == NULL || g_hidden || (gaddr)pad != GREF(gaddr, ACTIVE_PAD)) {
+        return event;
+    }
+    const int modal = openrac_mp_ui_modal(g_ui);
+    /* Down from the staging room's START comes into the native player list, whose game widgets
+     * are hidden: the game's cursor goes to the first name and the native one to its top row. */
+    if (!modal && g_bound == SCREEN_STAGING && event == GAME_DOWN
+        && GREF(int32_t, g_screen + SCREEN_FOCUS) == STAGING_START_WIDGET) {
+        mp_func_L39_0068B2F8((int)g_screen, STAGING_NAME_WIDGET, 0);
+        openrac_mp_ui_enter(g_ui, 1);
+        mp_func_L39_00688340(SOUND_MOVE, 0, 0);
+        return 0;
+    }
+    /* A modal screen takes every event; else only a native screen with the cursor reads them. */
+    if (!modal && (g_bound < 0 || !native_focused())) {
         return event;
     }
     const int mapped = native_event(event);
-    /* An event the native screens do not read. */
+    /* An event the native screens do not read: the game's, unless a modal screen is up. */
     if (mapped == OPENRAC_MP_UI_NONE) {
-        return event;
+        return modal ? 0 : event;
     }
     openrac_mp_ui_skin s = skin();
     openrac_mp_ui_outcome out;
     openrac_mp_ui_event(g_ui, &s, mapped, &out);
-    /* An event the native screen did not use goes on to the game. */
-    if (!out.consumed) {
+    /* An event the native screen did not use goes on to the game, never past a modal screen. */
+    if (!out.consumed && !modal) {
         return event;
     }
     /* The game's own action: its cursor moved, then Cross for the game. */
@@ -632,7 +750,24 @@ int mp_func_L39_006862D0(int mgr) {
     } else {
         fill_games(g_screen);
     }
-    hide_replaced();
+    return result;
+}
+
+/* The screen manager's draw (L39_00686768), where the screens' widgets update their elements: the
+ * game widgets a native screen replaces are hidden for it alone. */
+int mp_func_L39_00686768(int mgr) {
+    /* Nothing replaced while no native screen is up, or under a game popup. */
+    if (g_ui == NULL || g_bound < 0 || g_hidden) {
+        return mp_func_L39_00686768__game(mgr);
+    }
+    gaddr widgets[HIDDEN_MAX];
+    int32_t saved[HIDDEN_MAX];
+    const int count = hide_replaced(widgets, saved);
+    const int result = mp_func_L39_00686768__game(mgr);
+    /* Their modes back, before the next update reads them. */
+    for (int n = 0; n < count; n++) {
+        GREF(int32_t, widgets[n] + WIDGET_MODE) = saved[n];
+    }
     return result;
 }
 
@@ -641,7 +776,8 @@ int mp_func_L39_006862D0(int mgr) {
  * the screen's panels. */
 int mp_func_L39_005D69C0(int a0) {
     /* Only with the lobby up and nothing over its screen. */
-    if (g_ui != NULL && g_bound >= 0 && !g_hidden && GREF(gaddr, SCREEN_MANAGER) != 0) {
+    if (g_ui != NULL && (g_bound >= 0 || openrac_mp_ui_modal(g_ui)) && !g_hidden
+        && GREF(gaddr, SCREEN_MANAGER) != 0) {
         openrac_mp_ui_skin s = skin();
         openrac_mp_ui_set_active(g_ui, native_focused());
         g_text_pass = 0;
@@ -668,4 +804,12 @@ int rac3_mp_ui_describe(const char* json, size_t size) {
 /* The players a room holds by the server's description, or `fallback`. */
 int rac3_mp_ui_max_players(int fallback) {
     return g_ui != NULL ? openrac_mp_ui_max_players(g_ui, fallback) : fallback;
+}
+
+/* A server's notice (the online layer hands it on): shown in a modal notice over the lobby. */
+void rac3_mp_ui_notice(const char* text) {
+    /* Without the context there are no native screens to show it on; the log has it. */
+    if (make_ui()) {
+        openrac_mp_ui_notice(g_ui, text);
+    }
 }

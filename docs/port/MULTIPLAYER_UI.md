@@ -111,13 +111,28 @@ int) -> `NOTICE` (server: text string, shown as a dialog) or a new `DESCRIPTION`
 `ui/<family>.json` from `UI_DIRECTORY` (validated at start, rejected files logged), falling back to
 its built-in vanilla description.
 
+## Modal screens and notices
+
+A screen opened by an `open:` action, or a server's `NOTICE`, is drawn modally over whatever is up,
+on a panel of its own (rac3: a dark box with the menus' gold edge, its bar a box in the game's bar
+colour). It takes every event; Back closes it, and the game's screen under it never sees the press.
+A notice is its text, wrapped, over an OK button.
+
+## Trying descriptions and long lists
+
+`OPENRAC_RAC3_MP_UI=FILE` makes the lobby use a description file in place of the vanilla one until a
+server sends its own, and `OPENRAC_RAC3_MP_UI_MOCK=N` adds `N` made-up players to the staging and
+score lists, to try their paging past eight rows before the game's tables hold more
+([DEBUGGING.md](DEBUGGING.md)).
+
 ## 6. Binding to rac3's lobby (level 39, PAL; NTSC-U carried)
 
 | Hook (mp/libraries.tsv wrap) | Why |
 |---|---|
 | 0x00686138 menu event from the pad | read the event first: a native screen takes what it uses, the rest goes on; injects `Cross` for mapped actions |
 | 0x006862D0 screen manager update | after it, note the current screen id (mgr+0x1C0[mgr+0x270]) and hide the game widgets the native screen replaces |
-| 0x005D69C0 GUI element render | after it, draw the native screen on top, in the same 2D list |
+| 0x00686768 screen manager draw | hide the game widgets the native screen replaces for this draw alone, so the game's focus still reaches them |
+| 0x005D69C0 GUI element render | place the native cursor's bar (the game's own element) before it, print the native text after it |
 
 Bound screens: staging (0x21: the player rows, widgets 0xF+n..0x57+n, become a `PlayerList` of up
 to 24, from tNW_GameSettings for slots 0-7 and the port's room for the rest), the two game lists

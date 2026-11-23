@@ -271,3 +271,4 @@ func_0012DCB0	kernel	rac3MpTimerTicks	wrap	timer 0's count as a 64-bit tick (the
 func_L39_00686138	ui	rac3MpUiMenuEvent	wrap	the lobby screen manager's menu event from a pad (manager, pad): the native multiplayer screen takes the events it uses while it has the cursor, and hands the game Cross for a choice that is the game's (host/mp_ui.c)
 func_L39_006862D0	ui	rac3MpUiScreenUpdate	wrap	the lobby screen manager's update (manager): afterwards the native screen follows the game's screen on top, fills its tables and hides the game widgets it replaces (host/mp_ui.c)
 func_L39_005D69C0	ui	rac3MpUiElementsDraw	wrap	the GUI elements' render (frontbin's func_003B3158 at level 39): the native multiplayer screen is drawn first, into the same 2D list (host/mp_ui.c)
+func_L39_00686768	ui	rac3MpUiScreensDraw	wrap	the lobby screen manager's draw (manager): the game widgets a native multiplayer screen replaces are hidden for it alone (host/mp_ui.c)

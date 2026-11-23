@@ -388,7 +388,8 @@
       "func_L39_005D69C0": "int (int)",
       "func_L39_00686138": "int (int, int)",
       "func_L39_006862D0": "int (int)",
-      "func_L39_0059A970": "int (int)"
+      "func_L39_0059A970": "int (int)",
+      "func_L39_00686768": "int (int)"
     },
     "vu0_programs": {
       "0xC80": "rac3_vu0_rotation_rows",
