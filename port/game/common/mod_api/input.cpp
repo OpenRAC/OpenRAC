@@ -59,9 +59,15 @@ int api_set_motors(openrac_mod* mod, int port, int small, int large) {
         || large > 255 || g_host == nullptr || g_host->motors == nullptr) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    return g_host->motors(mod, port, small != 0, static_cast<std::uint8_t>(large))
-               ? OPENRAC_HOOK_OK
-               : OPENRAC_HOOK_UNKNOWN;
+    {
+        // From now on the mod drives motors: the menu shows the player's vibration settings.
+        const std::lock_guard<std::mutex> lock(g_motor_mods_lock);
+        if (std::find(g_motor_mods.begin(), g_motor_mods.end(), mod) == g_motor_mods.end()) {
+            g_motor_mods.push_back(mod);
+        }
+    }
+    g_host->motors(mod, port, small != 0, static_cast<std::uint8_t>(large));
+    return OPENRAC_HOOK_OK;
 }
 
 }  // namespace openrac::mods::detail

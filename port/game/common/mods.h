@@ -199,10 +199,10 @@ struct Host {
     void (*music_gain)(int group, float gain) = nullptr;
     int (*joint_frame)(std::uint32_t moby, int joint, float* out) = nullptr;
     // A mod's motor values for pad `port` (interface 1.37, openrac_api.set_motors), played with
-    // the game's own (openrac_game_set_motors) and held as long; `mod` tells the mods apart. False
-    // when nothing plays them (no window yet). drop_motors forgets a mod's (null: every mod's).
-    // Null: no pads (a test's, or no window), and set_motors says so.
-    bool (*motors)(const void* mod, int port, bool small, std::uint8_t large) = nullptr;
+    // the game's own (openrac_game_set_motors) and held as long; `mod` tells the mods apart (none
+    // played before the window opens). drop_motors forgets a mod's (null: every mod's). Null: no
+    // pads (a test's, or a build without a window), and set_motors says so.
+    void (*motors)(const void* mod, int port, bool small, std::uint8_t large) = nullptr;
     void (*drop_motors)(const void* mod) = nullptr;
 };
 
@@ -439,6 +439,11 @@ float camera_fov();
 
 // Whether a mod hides the game's own HUD this level load (openrac_api.hud_hide).
 bool hud_hidden();
+
+// Whether a loaded mod drives the pads' motors: it has made a set_motors call the port took (0, 0
+// counts, so a mod can say so at load), until its unload or the mods' reset. The menu shows the
+// vibration settings then, in a game without rumble of its own too. From any thread.
+bool any_mod_motors();
 
 // The air a mod draws this level load with (openrac_api.scene_air), none for the game's own. From
 // any thread.

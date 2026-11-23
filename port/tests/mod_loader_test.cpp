@@ -2531,7 +2531,9 @@ std::string motor_owner(const void* mod) {
 
 // A mod's motors (interface 1.37, openrac_api.set_motors): what the call refuses (and then asks
 // nothing of the host), the values handed to the host as they are, a run without pads, and the
-// mod's motors dropped with its unload and every mod's with the mods' reset.
+// mod's motors dropped with its unload and every mod's with the mods' reset. A mod drives motors
+// (mods::any_mod_motors, which shows the menu's vibration rows) from its first call the port takes,
+// 0, 0 included, until its unload or the reset.
 void a_mod_drives_the_motors(const fs::path& plugins) {
     write(
         plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
@@ -2547,7 +2549,6 @@ void a_mod_drives_the_motors(const fs::path& plugins) {
             motor_owner(m) + " " + std::to_string(port) + " " + std::to_string(small ? 1 : 0) + " "
             + std::to_string(large)
         );
-        return true;
     };
     h.drop_motors = [](const void* m) {
         g_motor_calls.push_back("drop " + motor_owner(m));
@@ -2555,6 +2556,7 @@ void a_mod_drives_the_motors(const fs::path& plugins) {
     CHECK(mods::load(h) == "test-a 1.0.0");
     const openrac_api& api = mods::api_for_tests();
     g_motor_calls.clear();
+    CHECK(!mods::any_mod_motors());
 
     // Refused: no mod, a port out of range, the small motor neither off nor on, the large one out
     // of 0 to 255. Nothing reaches the host.
@@ -2566,28 +2568,41 @@ void a_mod_drives_the_motors(const fs::path& plugins) {
     CHECK(api.set_motors(mod, 0, 1, -1) == OPENRAC_HOOK_UNKNOWN);
     CHECK(api.set_motors(mod, 0, 1, 256) == OPENRAC_HOOK_UNKNOWN);
     CHECK(g_motor_calls.empty());
+    // A refused call does not make a mod one that drives motors.
+    CHECK(!mods::any_mod_motors());
+
+    // 0, 0 at load: the mod drives motors from now on, though nothing rumbles.
+    CHECK(api.set_motors(mod, 0, 0, 0) == OPENRAC_HOOK_OK);
+    CHECK(mods::any_mod_motors());
 
     // Taken: each mod's values reach the host as they are, the mod telling them apart.
+    g_motor_calls.clear();
     CHECK(api.set_motors(mod, 0, 1, 255) == OPENRAC_HOOK_OK);
     CHECK(api.set_motors(mod2, 1, 0, 40) == OPENRAC_HOOK_OK);
     CHECK(api.set_motors(mod, 0, 0, 0) == OPENRAC_HOOK_OK);
     CHECK((g_motor_calls == std::vector<std::string>{"a 0 1 255", "b 1 0 40", "a 0 0 0"}));
 
-    // A mod's unload stops its motors only; the mods' reset stops every mod's.
+    // A mod's unload stops its motors only, and while another mod drives motors the rows stay; the
+    // mods' reset stops every mod's.
     g_motor_calls.clear();
     mods::drop_figures(mod);
     CHECK((g_motor_calls == std::vector<std::string>{"drop a"}));
+    CHECK(mods::any_mod_motors());
+    mods::drop_figures(mod2);
+    CHECK(!mods::any_mod_motors());
+    CHECK(api.set_motors(mod2, 1, 0, 0) == OPENRAC_HOOK_OK);
+    CHECK(mods::any_mod_motors());
     g_motor_calls.clear();
     mods::reset();
-    CHECK(
-        std::find(g_motor_calls.begin(), g_motor_calls.end(), "drop all") != g_motor_calls.end()
-    );
+    CHECK(std::find(g_motor_calls.begin(), g_motor_calls.end(), "drop all") != g_motor_calls.end());
+    CHECK(!mods::any_mod_motors());
 
-    // A run without pads (no window, or a test's host): refused.
+    // A port without pads (a test's host, or a build without a window): refused, and not counted.
     CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
     g_motor_calls.clear();
     CHECK(mods::api_for_tests().set_motors(mod, 0, 1, 255) == OPENRAC_HOOK_UNKNOWN);
     CHECK(g_motor_calls.empty());
+    CHECK(!mods::any_mod_motors());
     mods::reset();
 }
 

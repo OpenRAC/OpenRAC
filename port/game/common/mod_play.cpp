@@ -395,6 +395,8 @@ void set_camera_fov(float degrees) {
 std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_hud_hidden;
 
 std::vector<MusicGain> g_music_gains;
+std::mutex g_motor_mods_lock;
+std::vector<const openrac_mod*> g_motor_mods;
 void (*g_music_gain)(int, float) = nullptr;
 int (*g_joint_frame)(std::uint32_t, int, float*) = nullptr;
 
@@ -663,6 +665,11 @@ std::vector<int> hidden_ties() {
     }
     std::sort(out.begin(), out.end());
     return out;
+}
+
+bool any_mod_motors() {
+    const std::lock_guard<std::mutex> lock(g_motor_mods_lock);
+    return !g_motor_mods.empty();
 }
 
 bool hud_hidden() {
@@ -1129,6 +1136,10 @@ void reset_play() {
     if (g_host != nullptr && g_host->drop_motors != nullptr) {
         g_host->drop_motors(nullptr);
     }
+    {
+        const std::lock_guard<std::mutex> lock(g_motor_mods_lock);
+        g_motor_mods.clear();
+    }
     if (!g_joint_sets.empty()) {
         g_joint_sets.clear();
         if (g_joint_offsets != nullptr) {
@@ -1177,6 +1188,10 @@ void drop_figures(const openrac_mod* mod) {
     // Its motors (openrac_api.set_motors) stop; the game's and the other mods' play on.
     if (mod != nullptr && g_host != nullptr && g_host->drop_motors != nullptr) {
         g_host->drop_motors(mod);
+    }
+    {
+        const std::lock_guard<std::mutex> lock(g_motor_mods_lock);
+        std::erase(g_motor_mods, mod);
     }
     {
         const std::lock_guard<std::mutex> lock(g_props_lock);

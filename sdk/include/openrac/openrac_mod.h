@@ -3297,9 +3297,12 @@ typedef struct openrac_api {
      * and style apply. Each motor plays the stronger of the game's own value and every mod's, so a
      * mod adds to the game's rumble and never takes it away. Like the game's, a command lasts a
      * fifth of a second unless sent again, so a mod sends it every tick while it rumbles; 0, 0
-     * stops the mod's. A mod's motors stop with its unload. Returns OPENRAC_HOOK_OK, or
-     * OPENRAC_HOOK_UNKNOWN for no mod, a port out of range, values out of range or a run without
-     * pads to play them (no window). Since 1.37. */
+     * stops the mod's. A mod's motors stop with its unload. Once a mod has made a call the port
+     * took (0, 0 too), the menu shows the player's vibration settings, which apply to its motors,
+     * in a game without rumble of its own (Ratchet & Clank) as well, until the mod unloads: a mod
+     * that will rumble sends 0, 0 at load. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no
+     * mod, a port out of range, values out of range or a port without pads (built without a
+     * window). Since 1.37. */
     int (*set_motors)(openrac_mod* mod, int port, int small, int large);
 } openrac_api;
 

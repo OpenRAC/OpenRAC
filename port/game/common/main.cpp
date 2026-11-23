@@ -415,11 +415,9 @@ void load_mods() {
     host.sound_stop = frontend::mod_sound_stop;
     // The mods' motor values (interface 1.37), played with the game's by the window's input.
     host.motors = [](const void* mod, int port, bool small, std::uint8_t large) {
-        if (!g_window) {
-            return false;
+        if (g_window) {
+            frontend::set_mod_motors(mod, port, small, large);
         }
-        frontend::set_mod_motors(mod, port, small, large);
-        return true;
     };
     host.drop_motors = [](const void* mod) {
         if (g_window) {

@@ -457,6 +457,11 @@ extern std::vector<HudTexts> g_hud;
 extern std::vector<HeroVoice> g_hero_voices;
 extern std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_hud_hidden;
 extern std::vector<MusicGain> g_music_gains;
+
+// The mods that drive the pads' motors (openrac_api.set_motors, mods::any_mod_motors), behind
+// g_motor_mods_lock.
+extern std::mutex g_motor_mods_lock;
+extern std::vector<const openrac_mod*> g_motor_mods;
 extern void (*g_music_gain)(int, float);
 extern int (*g_joint_frame)(std::uint32_t, int, float*);
 extern std::mutex g_air_lock;
