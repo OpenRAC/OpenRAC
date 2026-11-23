@@ -84,8 +84,13 @@
  * the same address in every program; filled by the map's end routine, L39_00670D90's copy): per
  * slot a name (32 bytes), a team (s32), kills and deaths (s16 pairs) and suicides (s16); the score
  * the screen shows is kills less suicides. Its eight rows are widgets 0x1A + 5r to 0x1E + 5r, their
- * team colour bars 0xD + r (L39_006A83B8). */
-#define RESULTS RAC3_MADDR(0x001FD7E8u)
+ * team colour bars 0xD + r (L39_006A83B8). rac3_mp_pairs.py pairs only the executable's code, so
+ * NTSC-U's address comes from level 39's instructions, as the words above. */
+#ifdef RAC3_PAL
+#define RESULTS 0x001FD7E8u
+#else
+#define RESULTS 0x001FD968u /* formed by the same instructions of level 39 (measured: 58 sites) */
+#endif
 #define RESULTS_NAME_BYTES 32u
 #define RESULTS_TEAMS 0x120u
 #define RESULTS_KILLS 0x140u
