@@ -220,9 +220,17 @@
     { id: "assets", label: PAGE.tabAssets, icon: "folder" },
     { id: "audio", label: PAGE.tabAudio, icon: "sound" },
   ];
-  /** The tabs of a version: Audio only where its sounds can be exported (Ratchet & Clank's two discs). */
+  /** The games OpenRAC Editor makes levels for: the later games' editing is not ready yet. */
+  const EDITOR_GAMES = ["rac1"];
+  const edits = (version: VersionView) => EDITOR_GAMES.includes(version.game);
+  /** The tabs of a version: Level editor only for a game the editor supports, Audio only where its
+   * sounds can be exported (Ratchet & Clank's two discs). */
   const tabsOf = (version: VersionView) =>
-    TABS.filter((t) => t.id !== "audio" || !!action(version, "audio-export"));
+    TABS.filter(
+      (t) =>
+        (t.id !== "audio" || !!action(version, "audio-export")) &&
+        (t.id !== "editor" || edits(version)),
+    );
   /** The tab shown: one the game does not have (Audio, another game picked) is My mods. */
   const shownTab = (version: VersionView): Tab =>
     tabsOf(version).some((t) => t.id === tab) ? tab : "mine";
@@ -447,12 +455,14 @@
                     makeTextures(true);
                   }}
                 />
-                <p class="make-own">
-                  <span class="muted">{PAGE.makeOwn}</span>
-                  <button class="small" onclick={() => (tab = "editor")}
-                    ><Icon name="edit" size={14} />{PAGE.makeOwnButton}</button
-                  >
-                </p>
+                {#if edits(v)}
+                  <p class="make-own">
+                    <span class="muted">{PAGE.makeOwn}</span>
+                    <button class="small" onclick={() => (tab = "editor")}
+                      ><Icon name="edit" size={14} />{PAGE.makeOwnButton}</button
+                    >
+                  </p>
+                {/if}
               {:else if current === "editor"}
                 <EditorFlow game={shown} version={v} onchanged={() => reload++} />
                 {#if v.game === "rac1"}
