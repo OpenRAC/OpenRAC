@@ -91,7 +91,8 @@ int func_0020C468(int src, int dst) {
  */
 static const float sincos_half_pi = 0x1.921fb4p+0f;
 static const float sincos_pi = 0x1.921fb4p+1f;
-static const float sincos_c[4] = {-0x1.555548p-3f, 0x1.110e7cp-7f, -0x1.9f643ap-13f, 0x1.5d3828p-19f};
+static const float sincos_c[4] =
+    {-0x1.555548p-3f, 0x1.110e7cp-7f, -0x1.9f643ap-13f, 0x1.5d3828p-19f};
 
 /* The microprogram's sine of an angle in radians (entry 0xC90). */
 static float vu0_sine(float a) {
