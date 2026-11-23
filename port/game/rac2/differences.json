@@ -3,6 +3,44 @@
   "game": "rac2",
   "differences": [
     {
+      "id": "planet-platinum-count",
+      "kind": "fix",
+      "name": "Planet platinum bolts",
+      "discs": [
+        "ntsc",
+        "pal"
+      ],
+      "original": "The ship's planet page displays global statistics rather than the selected planet's platinum bolt count.",
+      "port": "Show collected and total platinum bolts for the selected planet, following Greatest Hits. Maktar includes the Jamming Array. Original restores the disc's global statistics.",
+      "setting": {
+        "key": "fix_planet_platinum_count",
+        "default": true
+      },
+      "refs": [
+        "port/game/rac2/host/gh_fixes.c",
+        "port/game/rac2/host/gh_fixes.h"
+      ]
+    },
+    {
+      "id": "mining-reverse",
+      "kind": "fix",
+      "name": "Mining vehicle reverse",
+      "discs": [
+        "ntsc",
+        "pal"
+      ],
+      "original": "The mining vehicle scales its thrust by the signed acceleration twice, turning reverse thrust forward.",
+      "port": "Use the acceleration's magnitude for the second thrust scale, as Greatest Hits does, so Circle reverses. Original restores the disc's signed second scale.",
+      "setting": {
+        "key": "fix_mining_reverse",
+        "default": true
+      },
+      "refs": [
+        "port/game/rac2/host/gh_fixes.c",
+        "port/game/rac2/host/gh_fixes.h"
+      ]
+    },
+    {
       "id": "wide-moby-effects",
       "kind": "fix",
       "name": "Wide-screen effects",

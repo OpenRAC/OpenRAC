@@ -23,6 +23,18 @@ executable's hash (`games/rac2/game.json`).
 Game facts the port relies on (level hooks, layouts, flights, credits, the Barlow vendor):
 [RAC2_NOTES.md](../../../docs/port/RAC2_NOTES.md).
 
+## Optional Greatest Hits corrections
+
+The earlier USA and PAL discs can enable two Greatest Hits behaviors in **Game fixes**:
+**Planet platinum bolts** shows collected/total bolts for the selected planet in the ship,
+including the Jamming Array in Maktar's count; **Mining vehicle reverse** uses the magnitude
+of acceleration for the second thrust normalization, allowing Circle to reverse. **Original**
+restores the disc's behavior. Greatest Hits keeps its own implementation.
+
+These wrappers are in `host/gh_fixes.c`. The counter preserves the disc's localized labels;
+the thrust correction applies only to the mining vehicle's paired vector operations. The
+counts and thrust guards are covered by `rac2_gh_fixes_test`.
+
 ## Writing shared C
 
 - **Functions** by v1.01's names: `func_0027F538`, `func_L05_0041DF58`, `func_0027F640__game`.

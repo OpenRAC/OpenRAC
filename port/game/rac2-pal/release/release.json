@@ -84,6 +84,14 @@
   "func_0026F7A0": {
    "is": "func_0026F610",
    "why": "returns 0 (jr $ra; daddu $v0, $zero, $zero) at 0x0026F610, after the same two empty stubs as in v1.01; the catalogue does not list it"
+  },
+  "func_L08_0041EBF8": {
+   "is": "func_L08_00423EA0",
+   "why": "The PAL mining vehicle update in src/pal/levels/shared/L08_00423EA0-g8.c; same thrust sequence, including both signed scales, with PAL timing constants. Host wrapper calls the original body."
+  },
+  "func_0033ED88": {
+   "is": "func_00340D78",
+   "why": "The PAL ship statistics draw in src/pal/game/0033D838-g84.c; same three global counts with larger widgets and shifted label IDs. Host replacement uses release-specific fields and preserves the original when disabled."
   }
  },
  "constants": {
