@@ -68,7 +68,8 @@ openrac_warnings(sound_engine_test)
 add_test(NAME sound_engine COMMAND sound_engine_test)
 
 # The native sound client's answer/callback order, without a game or audio device.
-openrac_add_test(snd_client LIBS openrac_game_common)
+openrac_add_test(snd_client SOURCES tests/snd_client_test.cpp tests/snd_client_rac2.c
+                 INCLUDES game/rac2-ntsc/host LIBS openrac_game_common)
 
 # The decomps are git submodules (docs/SOURCES.md). A build folder made before that keeps its old
 # cached OPENRAC_<ID>_SOURCE; a submodule is empty until it is checked out, and upstream's own

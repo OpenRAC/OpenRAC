@@ -11,6 +11,8 @@
 #include "openrac/game_lib.h"
 #include "tests/check.h"
 
+extern "C" int snd_test_rac2_movie_results(void);
+
 const char* openrac_game_disc_files = nullptr;
 const char* openrac_game_mods_dir = nullptr;
 unsigned openrac_game_mods_generation = 0;
@@ -119,6 +121,7 @@ int main() {
     taking_a_request_pumps_the_previous_one();
     synchronous_requests_wait_for_callbacks();
     empty_requests_and_reset();
+    CHECK(snd_test_rac2_movie_results() == 0);
     openrac_snd_client_reset();
     openrac_guest_unregister_all();
     return openrac::test::result();

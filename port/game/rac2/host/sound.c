@@ -81,23 +81,23 @@ void func_001329B0(int a, int b, int c) {
 
 /* The synchronous requests of the movie's sound (0x001337F0, 0x00133820, 0x00133850, 0x001338C8:
  * the movie player's own, which plays its sound itself): nothing to do once the callbacks out
- * have run. */
-void func_001337F0(void) {
-    (void)openrac_snd_request_sync(NULL, NULL);
+ * have run. The status queries and initialization retain the integer result their callers read. */
+int func_001337F0(void) {
+    return openrac_snd_request_sync(NULL, NULL);
 }
 
-void func_00133820(void) {
-    (void)openrac_snd_request_sync(NULL, NULL);
+int func_00133820(void) {
+    return openrac_snd_request_sync(NULL, NULL);
 }
 
-void func_00133850(int a, int b, int c, int d, int e, int f) {
+int func_00133850(int a, int b, int c, int d, int e, int f) {
     (void)a;
     (void)b;
     (void)c;
     (void)d;
     (void)e;
     (void)f;
-    (void)openrac_snd_request_sync(NULL, NULL);
+    return openrac_snd_request_sync(NULL, NULL);
 }
 
 void func_001338C8(void) {

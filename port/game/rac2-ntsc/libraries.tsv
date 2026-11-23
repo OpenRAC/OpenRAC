@@ -182,9 +182,9 @@ func_00132978	989snd	rac2SndMixerMode	host	the decompilation's snd_send_cmd_0d: 
 func_00133710	989snd	rac2SndSetReverbEx	host	the decompilation's snd_send_cmd50_five_values: snd_SetReverbEx(core, type, depth, delay, feedback) (func_002E5898), the native reverb's effect, taken when the request is sent (host/sound.c)	void (int, int, int, int, int)
 func_001328C0	989snd	rac2SndEffectSettings	host	the decompilation's snd_send_cmd96_with_settings: a block of the IOP mixer's settings, likewise (host/sound.c)	void (int, void *)
 func_001329B0	989snd	rac2SndVoiceRange	host	the decompilation's snd_send_cmd78: the IOP's voice ranges, likewise (host/sound.c)	void (int, int, int)
-func_001337F0	989snd	rac2SndMovie4A	host	the decompilation's snd_send_cmd4a: a synchronous request of the movie's sound, which the movie player plays itself; nothing to do once the callbacks out have run (host/sound.c)	void (void)
-func_00133820	989snd	rac2SndMovie4B	host	the decompilation's snd_send_cmd4b: likewise (host/sound.c)	void (void)
-func_00133850	989snd	rac2SndMovie3B	host	the decompilation's snd_send_cmd3b: likewise (host/sound.c)	void (int, int, int, int, int, int)
+func_001337F0	989snd	rac2SndMovie4A	host	the decompilation's snd_send_cmd4a: a synchronous request of the movie's sound, which the movie player plays itself; nothing to do once the callbacks out have run (host/sound.c)	int (void)
+func_00133820	989snd	rac2SndMovie4B	host	the decompilation's snd_send_cmd4b: likewise (host/sound.c)	int (void)
+func_00133850	989snd	rac2SndMovie3B	host	the decompilation's snd_send_cmd3b: likewise (host/sound.c)	int (int, int, int, int, int, int)
 func_001338C8	989snd	rac2SndMovie3C	host	the decompilation's snd_send_cmd3c: likewise (host/sound.c)	void (void)
 func_00131DE8	989snd	rac2SndStartSoundSystem	host	snd_StartSoundSystem: the two sound servers' binds left out, its first request's wait kept (host/sound.c)	int (int)
 func_00133250	989snd	snd_InitVAGStreamingEx	host	same opening as rac4's
