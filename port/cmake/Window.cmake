@@ -957,6 +957,8 @@ openrac_add_test(renderer_math INCLUDES .)
 openrac_add_test(renderer_gif LIBS openrac_renderer)
 # The frame recorder's commands, anchors and kept recordings (docs/port/FRAME_RECORDER.md).
 openrac_add_test(frame_record LIBS openrac_renderer)
+openrac_add_test(game_image_sources SOURCES tests/game_image_sources_test.cpp
+                 game/common/frontend/game_image_sources.cpp INCLUDES . game/common/include runtime/include)
 
 openrac_add_test(renderer_direct LIBS openrac_renderer openrac_platform)
 set_tests_properties(renderer_direct PROPERTIES SKIP_RETURN_CODE 77)

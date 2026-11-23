@@ -46,6 +46,7 @@
 #ifdef OPENRAC_FRONTEND
 #include "debug/overlay.h"
 #include "frontend.h"
+#include "game/common/frontend/game_image_sources.h"
 #include "options_menu.h"
 #include "renderer/direct/direct.h"
 #include "renderer/textures/texture.h"
@@ -937,6 +938,19 @@ void openrac_frame_picture_image(
         (void)rect;
         (void)rgba;
         (void)blend;
+    });
+}
+
+void openrac_game_image_keep(gaddr data, uint32_t bytes) {
+    c_boundary::call("openrac_game_image_keep", [&] {
+#ifdef OPENRAC_FRONTEND
+        // Kept with or without a window yet: the game may send its images before the window opens.
+        if (bytes != 0) {
+            frontend::game_image_sources().keep(game_ram(), data, bytes);
+        }
+#endif
+        (void)data;
+        (void)bytes;
     });
 }
 

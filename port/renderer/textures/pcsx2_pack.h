@@ -27,11 +27,13 @@ bool replace(
     AlphaScale alpha = AlphaScale::Full
 );
 
+// `high`: the name of the same indices sent as the top byte of 32-bit words (PSMT8H).
 bool replace_indexed8(
     Rgba8Image& image,
     std::span<const std::uint8_t> indices,
     std::span<const std::uint32_t> palette,
-    AlphaScale alpha = AlphaScale::Full
+    AlphaScale alpha = AlphaScale::Full,
+    bool high = false
 );
 
 // Old PCSX2 names carry a rectangle in the source texture. The pool reads any
