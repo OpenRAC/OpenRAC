@@ -22,6 +22,7 @@
 #include "mp/game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_coll_line.h"
 #include "rac3_version.h"
 
 /* A global of level 39's program, in the map loaded now. */
@@ -116,7 +117,8 @@ static inline int world_quad(int a0, int a1) {
     moby_gifs,                                                                                     \
     sky,                                                                                           \
     particles,                                                                                     \
-    quad                                                                                           \
+    quad,                                                                                          \
+    coll                                                                                           \
 )                                                                                                  \
     void mp_func_L##m##_##vif0(unsigned int chain) {                                               \
         kick_vif0_chain(chain);                                                                    \
@@ -187,6 +189,10 @@ static inline int world_quad(int a0, int a1) {
     }                                                                                              \
     int mp_func_L##m##_##quad(int a0, int a1) {                                                    \
         return world_quad(a0, a1);                                                                 \
+    }                                                                                              \
+    int mp_func_L##m##_##coll##__game(int a0, int a1, int a2, int a3, int a4);                     \
+    int mp_func_L##m##_##coll(int a0, int a1, int a2, int a3, int a4) {                            \
+        return rac3_coll_line(mp_func_L##m##_##coll##__game, a0, a1, a2, a3, a4);                  \
     }
 
 #define MP_MAP_UI(...)

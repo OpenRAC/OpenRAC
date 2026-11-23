@@ -38,15 +38,7 @@ void memory_map() {
     CHECK(m.mapped(0, GUEST_RAM_SIZE));
     CHECK(!m.mapped(GUEST_RAM_SIZE, 4));
     CHECK(m.mapped(GUEST_SCRATCHPAD, GUEST_SCRATCHPAD_SIZE));
-    // The guard after it is backed (a write there lands, as a fault would not on the port) and
-    // reported once.
-    CHECK(m.mapped(GUEST_SCRATCHPAD_GUARD, GUEST_SCRATCHPAD_GUARD_SIZE));
-    CHECK(!m.mapped(GUEST_SCRATCHPAD_GUARD + GUEST_SCRATCHPAD_GUARD_SIZE, 1));
-    CHECK(!m.take_scratchpad_overrun());
-    GREF(std::uint32_t, GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE) = 0x50000000u;
-    CHECK(m.take_scratchpad_overrun());
-    CHECK(GREF(std::uint32_t, GUEST_SCRATCHPAD_GUARD) == 0);
-    CHECK(!m.take_scratchpad_overrun());
+    CHECK(!m.mapped(GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE, 1));
     CHECK(m.mapped(0x1000A000, 0x100));  // a DMA channel's registers
     CHECK(m.mapped(0x12000000, 0x100));  // GS privileged registers
 

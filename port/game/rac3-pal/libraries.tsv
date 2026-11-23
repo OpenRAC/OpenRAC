@@ -245,6 +245,9 @@ func_003A9BE8	draw	rac3LoadScreenPicture	wrap	puts a picture from EE memory (pix
 func_003A0B60	wad	rac3WadDecompress	host	the WAD decompressor (hand-written assembly, the instructions of rac2-ntsc func_0029D4D0's routine): the shared routine (host/wad.c)	int (int, int)
 func_003A0760__frontbin	wad	rac3WadDecompressFrontbin	host	frontbin copy of 0x003A0B60 (host/wad.c)	int (int, int)
 func_L01_00436F60	wad	rac3WadDecompressLevel	host	the levels' copies of 0x003A0B60 (the catalogue's frontbin row func_003A0760, named after Veldin's place: place_kinds_as_levels; host/wad.c)	int (int, int)
+func_003D4068	collision	rac3CollLine	wrap	coll_line (hand-written, IDENTIFIED.tsv), the boot program's copy: its gather of the cells a line crosses bounded to the scratchpad's 16 KB (host/coll_line.c)	int (int, int, int, int, int)
+func_003D3CB0__frontbin	collision	rac3CollLineFrontbin	wrap	frontbin's copy of coll_line (0x003D4068), bounded the same (host/coll_line.c)	int (int, int, int, int, int)
+func_L01_003FA5F0	collision	rac3CollLineLevel	wrap	the levels' copies of coll_line (the catalogue's frontbin row func_003D3CB0, named after Veldin's place), bounded the same (host/coll_line.c)	int (int, int, int, int, int)
 func_0038EBC8	draw	FontPrint	wrap	a string, glyph by glyph (frontbin's func_0038E7E8): its quads are marked as glyphs (host/ui2d.c), drawn from the font's distance field
 func_0038BA50	draw	DrawGlyph	wrap	a glyph of float corners in one colour, its cell a region clamp: drawn natively inside a print (host/ui2d.c)
 func_0038F458	draw	FontPrintShaded	wrap	func_0038EBC8 with a colour a corner (four RGBAQ doublewords; no caller in the boot program or frontbin, whose twin is func_0038F078): its quads are marked as glyphs (host/ui2d.c)
@@ -282,6 +285,8 @@ func_L01_00441B78	render	rac3MobyProc	host	MobyProc (hand-written, func_002A4E68
 func_L01_004417E8	render	rac3MobyTextures	host	the moby textures' DMA (func_002A4AD8): nothing to send (host/render.c)	int (int)
 func_L01_00441A98	render	rac3MobyDrawSide	host	MobyAnimProc's draw side (func_002A4D88): replaced (host/render.c)	int (int, int)
 func_L01_00440090	render	rac3MobyChain	host	moby_anim_eval_chain (func_002A4078): the marked joints' poses from the port's evaluator (host/render.c)	int (int, int)
+func_003CA9C0	render	rac3MobyChainBoot	host	the boot program's moby_anim_eval_chain (hand-written; the loading screen's ship): the marked joints' poses from the port's evaluator, as the levels' copies (host/render.c); retail fed the scratchpad by a DMA tag chain	int (int, int)
+func_003CA608__frontbin	render	rac3MobyChainFrontbin	host	frontbin's copy of moby_anim_eval_chain (0x003CA9C0), the same (host/render.c)	int (int, int)
 func_L01_004B27B8	render	rac3TfragLighting	host	the terrain's per-frame vertex lighting (func_002F0468): the extracted level carries it (host/render.c)	int (int)
 func_L01_004B1688	render	rac3TfragGifs	host	the terrain's texture packets (func_002EF310): none to patch (host/render.c)	int (void)
 func_L01_004B6ED0	render	rac3TieColours	host	the ties' colours (func_002F3E78): the extracted level carries them (host/render.c)	int (void)

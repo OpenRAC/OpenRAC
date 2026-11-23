@@ -98,6 +98,16 @@ HOST_MATH = {
 }
 
 
+
+def _spr_register(addr: str) -> int | None:
+    """The address of a scratchpad DMA channel's register (0x1000D000 to 0x1000D4FF) that C names
+    as a constant (`*(volatile u32 *)0x1000D400`), or None."""
+    m = re.fullmatch(r"[\s()]*(?:\((?:gaddr|uint32_t|openrac_u32|unsigned int|int)\)\s*)*\(?\s*(0[xX][0-9a-fA-F]+|\d+)[uUlL]*\s*\)?[\s)]*", addr)
+    if m is None:
+        return None
+    v = int(m.group(1), 0) & 0xFFFFFFFF
+    return v if 0x1000D000 <= v < 0x1000D100 or 0x1000D400 <= v < 0x1000D500 else None
+
 class Unsupported(Exception):
     """A construct this translator does not write; the function becomes a stub."""
 
@@ -2123,11 +2133,19 @@ class Unit:
             if sa.get("kind") == "DeclRefExpr" and sa["referencedDecl"].get("id") in self.fn.wide:
                 return f"({lv.text} = {self._wide_value(b, ctype.Base('long long'))})"
             ta = self.ty(a)
-            if (lv.addr is not None and getattr(self.program, "dma_stores", False) and self._volatile_word(ta)):
-                # A device register word (a DMA channel's CHCR starts its transfer): the store goes
-                # through the game's openrac_ee_sw_dma, as the hand-written kernels' stores do (asmc.py).
-                return (f"({{ extern void openrac_ee_sw_dma(uint32_t, uint64_t); "
-                        f"openrac_ee_sw_dma((gaddr)({lv.addr}), (uint64_t)({self.convert(b, ta)})); }})")
+            if (lv.addr is not None and getattr(self.program, "spr_copies", False) and self._volatile_word(ta)
+                    and (spr := _spr_register(lv.addr)) is not None):
+                # A scratchpad DMA channel's register written by C: there is no DMA controller and
+                # no register page behind it. A word that starts no transfer (a reset's QWC of 0,
+                # Going Commando's func_0029D050) does nothing; a CHCR with STR would start one,
+                # which only the kernels' copies do (asmc.py), so it stops the game (the SDK's MPEG
+                # library, which the native movie player leaves unreached).
+                value = self.convert(b, ta)
+                if spr & 0xFF:
+                    return f"((void)({value}))"
+                return (f"({{ extern void openrac_ee_dma_register(const char *, uint32_t, uint32_t); "
+                        f"if ((uint32_t)({value}) & 0x100u) "
+                        f"openrac_ee_dma_register(\"{self.fn.name}\", 0u, {spr:#010x}u); }})")
             return f"({lv.text} = {self.convert(b, ta)})"
         if op in ("+", "-"):
             ta, tb = self.ty(a), self.ty(b)

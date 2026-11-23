@@ -4,7 +4,7 @@
  * of v1.01's func_002A2450, whose candidate C (nonmatching/functional/func_002A2450.c) this is, with the
  * change its six more instructions make, the same as PAL's: in the copy of the translations from the
  * scratchpad's 0x2C00, a zero doubleword is written as 1. In this release's names. */
-/* functional: medium. Gate: SAME on 12 calls (level00 8, level03 4), all with flags 0x300/0x301, so the obj+80 and obj+84 list blocks (retail 0x2A2E88-0x2A2FEC, 0x2A3000-0x2A3104) and the negative-dot branches of the normalised blend never ran; they were read against the assembly instruction by instruction. Written from the hand-written assembly, plain floats in place of VU0 code in its order. The toSPR transfers (channel 9 at 0x1000D400) and the closing fromSPR transfer (channel 8 at 0x1000D000) are retail's register writes in retail's order; each toSPR wait polls the last doubleword of its destination (cleared first) or channel 9's CHCR busy bit, as retail does. Retail then waits for the fromSPR transfer with sync and bc0f (COP0's CPCOND0), which reads no memory and has no C form; it is left out: the port (asm.dma_done) and fcheck finish a transfer at the CHCR store that starts it. Retail's unrolled loops fill records past the bone count (to a multiple of 2 or 4) and so does the C; its loads of one entry past each list only read and are left out. Where retail loads the next record before storing the current one (the two blend lists and the obj+80 list) the C does the same, so a bone listed twice behaves as retail. vrsqrt of 0 gives the VU's largest float; VU ftoi saturates, as here; the VU multiply by 1 that makes the +48 copy of the default translations flushes a denormal to a signed 0, written out. */
+/* functional: medium. Gate: SAME on 12 calls (level00 8, level03 4), all with flags 0x300/0x301, so the obj+80 and obj+84 list blocks (retail 0x2A2E88-0x2A2FEC, 0x2A3000-0x2A3104) and the negative-dot branches of the normalised blend never ran; they were read against the assembly instruction by instruction. Written from the hand-written assembly, plain floats in place of VU0 code in its order. The toSPR transfers (channel 9) and the closing fromSPR transfer (channel 8) are copies made where retail starts the channel (spr_copy, in retail's order); each toSPR wait polls the last doubleword of its destination (cleared first), as retail does, and retail's polls of channel 9's CHCR busy bit and its wait for the fromSPR transfer (sync and bc0f, with D_STAT's channel 8 bit cleared first) are left out: the copy is over when it returns. Retail's unrolled loops fill records past the bone count (to a multiple of 2 or 4) and so does the C; its loads of one entry past each list only read and are left out. Where retail loads the next record before storing the current one (the two blend lists and the obj+80 list) the C does the same, so a bone listed twice behaves as retail. vrsqrt of 0 gives the VU's largest float; VU ftoi saturates, as here; the VU multiply by 1 that makes the +48 copy of the default translations flushes a denormal to a signed 0, written out. */
 
 extern float sqrtf(float);
 extern char D_001C54C0[];
@@ -13,6 +13,26 @@ typedef union {
     float f;
     unsigned int u;
 } FU_002A3288;
+
+/* The routine's scratchpad transfers, toSPR (to_spr 1) and fromSPR (0): qwc quadwords between main
+   memory at madr and the scratchpad at sadr, which wraps round its 16 KB. Retail starts a DMA
+   channel for each (SADR, MADR, QWC, then CHCR) and polls for its data; the port copies them where
+   retail starts the channel, so the polls find the data there. */
+static void spr_copy_002A3288(int to_spr, unsigned int sadr, unsigned int madr, unsigned int qwc)
+{
+    unsigned int k;
+
+    for (k = 0; k < qwc * 2; k++) {
+        unsigned long *s = (unsigned long *)(0x70000000 + ((sadr + k * 8) & 0x3FF8));
+        unsigned long *m = (unsigned long *)((madr & 0x01FFFFF0) + k * 8);
+
+        if (to_spr) {
+            *s = *m;
+        } else {
+            *m = *s;
+        }
+    }
+}
 
 static unsigned int fbits_002A3288(float f)
 {
@@ -144,8 +164,6 @@ void FUN_002A3288(void *obj, int flags)
 {
     unsigned char *o = obj;
     unsigned char *S = (unsigned char *)0x70000000;
-    volatile unsigned int *to = (volatile unsigned int *)0x1000D400;
-    volatile unsigned int *from = (volatile unsigned int *)0x1000D000;
     unsigned char *model = *(unsigned char **)(o + 36);
     unsigned char *A = *(unsigned char **)(o + 88);
     unsigned char *B = *(unsigned char **)(o + 92);
@@ -158,11 +176,8 @@ void FUN_002A3288(void *obj, int flags)
     unsigned int i;
     int k;
 
-    to[32] = 0x2000;
-    to[4] = defs;
-    to[8] = n;
     *(unsigned long *)(S + 0x1FF8 + n * 16) = 0;
-    to[0] = 0x100;
+    spr_copy_002A3288(1, 0x2000, defs, n);
     A += 16;
     B += 16;
     aq = *(short *)(A - 10);
@@ -179,10 +194,7 @@ void FUN_002A3288(void *obj, int flags)
 
     while (*(volatile unsigned long *)(S + 0x1FF8 + n * 16) == 0) {
     }
-    to[32] = 0x70003000;
-    to[4] = (unsigned int)A;
-    to[8] = aq;
-    to[0] = 0x100;
+    spr_copy_002A3288(1, 0x70003000, (unsigned int)A, aq);
 
     /* Default translations: +32 as sent, +48 times 1 (the VU flushes a denormal to a signed 0) with w = 0. */
     for (i = 0; i < ((n + 3) & ~3u); i++) {
@@ -222,10 +234,7 @@ void FUN_002A3288(void *obj, int flags)
         u = 1.0f - t;
         while (*(volatile unsigned long *)(S + 0x2FF0 + aq * 16) == 0) {
         }
-        to[4] = (unsigned int)B;
-        to[32] = 0x70003600;
-        to[8] = bq;
-        to[0] = 0x100;
+        spr_copy_002A3288(1, 0x70003600, (unsigned int)B, bq);
 
         /* Frame A: scales into +0 (listed in ls, +12 = -4), translations into +32 (listed in lt, +60 = -4). */
         e = S + 0x3000 + n * 8;
@@ -405,17 +414,12 @@ void FUN_002A3288(void *obj, int flags)
                 float t, u;
                 float ra[4], rb[4], rc[4];
 
-                to[32] = 0x2800;
-                to[4] = *(unsigned int *)(ent + 16);
-                to[8] = cnt;
-                to[0] = 0x100;
+                spr_copy_002A3288(1, 0x2800, *(unsigned int *)(ent + 16), cnt);
                 end = S + 0x2800 + cnt * 16;
                 t = *(float *)(ent + 8);
                 ent = *(unsigned char **)(ent + 28);
                 *(unsigned int *)(end + 44) = (unsigned int)(S + 0x1E00);
                 u = 1.0f - t;
-                while ((to[0] & 0x100) != 0) {
-                }
                 cur = *(unsigned char **)(in + 44);
                 get4_002A3288(ra, cur);
                 get4_002A3288(rb, cur + 16);
@@ -583,10 +587,6 @@ void FUN_002A3288(void *obj, int flags)
         }
         *(unsigned long *)out = 1;
 
-        from[32] = 0;
-        from[8] = qw + 1;
-        from[4] = (unsigned int)(D_001C54C0 + (flags & 0xFF) * 2048);
-        *(volatile unsigned int *)0x1000E010 = 0x100;
-        from[0] = 0x100;
+        spr_copy_002A3288(0, 0, (unsigned int)(D_001C54C0 + (flags & 0xFF) * 2048), qw + 1);
     }
 }
