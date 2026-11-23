@@ -190,8 +190,10 @@ def parse(text: str, n_ops: int) -> list[_Ins]:
     out = []
     for op, rest in _lines(text):
         args = [a.strip() for a in rest.split(",")] if rest else []
-        if op.startswith("."):
+        if op == ".set":
             continue  # .set noat, .set noreorder ...
+        if op.startswith("."):
+            raise Vu0Unsupported(f"{op} {rest}")  # .word: an instruction as its encoding
         if op in _NOTHING:
             continue
         base, _, suffix = op.partition(".")
