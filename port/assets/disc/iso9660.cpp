@@ -14,6 +14,8 @@
 #include <cstring>
 #include <fstream>
 
+#include "assets/disc/sector_map.h"
+
 namespace openrac::assets::disc {
 
 namespace {
@@ -113,6 +115,11 @@ std::unique_ptr<ImageSource> image_in_memory(std::vector<u8> bytes) {
 }
 
 IsoImage IsoImage::open(const std::filesystem::path& path) {
+    // A set-up's folder (iso_data/<game>): the disc read through its sector map, not an image.
+    std::error_code error;
+    if (std::filesystem::is_directory(path, error)) {
+        return IsoImage(open_sector_map(path));
+    }
     return IsoImage(open_image_file(path));
 }
 

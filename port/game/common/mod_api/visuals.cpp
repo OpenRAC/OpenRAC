@@ -114,24 +114,31 @@ int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int c
     return OPENRAC_HOOK_OK;
 }
 
+// Whether moby_material may draw `material` with `rgb`: a kind the port has, with a level only on
+// energy and paint.
+bool moby_material_known(std::uint32_t material, std::uint32_t rgb) {
+    constexpr std::uint32_t kRgbMax = 0xFFFFFF;
+    // Energy (1.25) and paint (1.34) carry a level in bits 8 to 11; the others none.
+    constexpr std::uint32_t kLevels = 0xF00;
+    const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material);
+    const std::uint32_t extra = material & ~0xFFu;
+    const bool levelled =
+        kind == OPENRAC_MOBY_MATERIAL_ENERGY || kind == OPENRAC_MOBY_MATERIAL_PAINT;
+    return kind <= OPENRAC_MOBY_MATERIAL_PAINT
+           && (extra == 0 || (levelled && (extra & ~kLevels) == 0)) && rgb <= kRgbMax;
+}
+
 // Sets, changes or clears (OPENRAC_MOBY_MATERIAL_NONE) `mod`'s material on `moby` for this level
-// load (interface 1.23, obsidian 1.24, energy 1.25); the renderer reads them with moby_materials. Writes no
-// game memory.
+// load (interface 1.23, obsidian 1.24, energy 1.25, paint 1.34); the renderer reads them with
+// moby_materials. Writes no game memory.
 int api_moby_material(
     openrac_mod* mod, openrac_gaddr moby, std::uint32_t material, std::uint32_t rgb
 ) {
     // A moby record is 0x100 bytes; one that would end past the address space is no moby.
     constexpr openrac_gaddr kMobyBytes = 0x100;
-    constexpr std::uint32_t kRgbMax = 0xFFFFFF;
-    // Energy carries its level in bits 8 to 11 (OPENRAC_MOBY_MATERIAL_ENERGY_AT); the others none.
-    constexpr std::uint32_t kEnergyLevels = 0xF00;
-    const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material);
-    const std::uint32_t extra = material & ~0xFFu;
-    const bool known =
-        kind <= OPENRAC_MOBY_MATERIAL_ENERGY
-        && (extra == 0 || (kind == OPENRAC_MOBY_MATERIAL_ENERGY && (extra & ~kEnergyLevels) == 0));
     // A call the interface does not describe changes nothing.
-    if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes || !known || rgb > kRgbMax) {
+    if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes
+        || !moby_material_known(material, rgb)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     const std::uint32_t loads = loads_now();
@@ -154,6 +161,62 @@ int api_moby_material(
     return OPENRAC_HOOK_OK;
 }
 
+// Sets or clears (OPENRAC_MOBY_MATERIAL_NONE) `mod`'s material on every moby of `oclass` in `scope`
+// for this level load (interface 1.34); the renderer reads them with class_materials. Writes no game
+// memory.
+int api_moby_material_class(
+    openrac_mod* mod, int oclass, std::uint32_t scope, std::uint32_t material, std::uint32_t rgb
+) {
+    constexpr std::uint32_t kScopes = OPENRAC_MODEL_WORLD | OPENRAC_MODEL_MENU;
+    // A call the interface does not describe changes nothing.
+    if (mod == nullptr || oclass < 0 || scope == 0 || (scope & ~kScopes) != 0
+        || !moby_material_known(material, rgb)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::uint32_t loads = loads_now();
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    // Each scope the call names, on its own.
+    for (const std::uint32_t bit : {OPENRAC_MODEL_WORLD, OPENRAC_MODEL_MENU}) {
+        if ((scope & bit) == 0) {
+            continue;
+        }
+        const auto held = g_class_materials.find({oclass, bit});
+        // NONE takes this mod's off; another mod's, or one of an older level load, stays or goes
+        // as the last set would.
+        if (material == OPENRAC_MOBY_MATERIAL_NONE) {
+            if (held != g_class_materials.end()
+                && (held->second.mod == mod || held->second.loads != loads)) {
+                g_class_materials.erase(held);
+            }
+            continue;
+        }
+        g_class_materials[{oclass, bit}] = ClassMaterial{mod, loads, material, rgb};
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+// A mesh a prop of level load `loads` is made of: the front end holds it in the scene it has. The
+// first mesh of a level load starts the list again (the last one's props are all gone, and their
+// meshes are not needed), and a mesh the load has asked for already is not added twice. Under
+// g_props_lock.
+void note_prop_mesh(std::uint32_t loads, const std::filesystem::path& mesh) {
+    if (g_prop_meshes_loads != loads) {
+        g_prop_meshes_loads = loads;
+
+        if (!g_prop_meshes.empty()) {
+            g_prop_meshes.clear();
+            ++g_prop_generation;
+        }
+    }
+
+    // A mesh no prop of this level load has asked for yet: the front end loads it into the scene
+    // it has (no new read of the level).
+    if (std::find(g_prop_meshes.begin(), g_prop_meshes.end(), mesh) == g_prop_meshes.end()) {
+        g_prop_meshes.push_back(mesh);
+        ++g_prop_generation;
+    }
+}
+
 int api_prop_create(openrac_mod* mod, const char* mesh_path) {
     std::int32_t level = -1;
     if (mod == nullptr || !in_level(phase_now(&level))) {
@@ -170,16 +233,26 @@ int api_prop_create(openrac_mod* mod, const char* mesh_path) {
             p = Prop{};
         }
     }
+    // A new mesh of this level load is refused past OPENRAC_PROP_MESHES_MAX, before a prop is made.
+    const bool same_load = g_prop_meshes_loads == loads;
+    const bool listed =
+        same_load
+        && std::find(g_prop_meshes.begin(), g_prop_meshes.end(), mesh) != g_prop_meshes.end();
+    if (!listed && same_load && g_prop_meshes.size() >= OPENRAC_PROP_MESHES_MAX) {
+        log::warn(
+            "mods: {} asked for prop mesh {} past the {} meshes a level load may use: not made",
+            mod_id(mod),
+            mesh.filename().string(),
+            OPENRAC_PROP_MESHES_MAX
+        );
+        return OPENRAC_HOOK_UNKNOWN;
+    }
     for (std::size_t i = 0; i < g_props.size(); ++i) {
         if (g_props[i].mod != nullptr) {
             continue;
         }
         g_props[i] = Prop{mod, mesh, loads};
-        // A mesh no level has read yet: the scenery is read again with it.
-        if (std::find(g_prop_meshes.begin(), g_prop_meshes.end(), mesh) == g_prop_meshes.end()) {
-            g_prop_meshes.push_back(mesh);
-            ++g_prop_generation;
-        }
+        note_prop_mesh(loads, mesh);
         return static_cast<int>(i);
     }
     return OPENRAC_HOOK_UNKNOWN;
@@ -301,6 +374,34 @@ int api_prop_frame(openrac_mod* mod, int id, float out[16]) {
     return OPENRAC_HOOK_OK;
 }
 
+// Interface 1.33: the prop's joint matrices, replacing its last (none: its bind pose). All of them or
+// none: a value that is not a number, or too many joints, leaves the skin as it was.
+int api_prop_set_skin(
+    openrac_mod* mod, int id, const float* joint_matrices, std::uint32_t joint_count
+) {
+    if (joint_count > OPENRAC_PROP_JOINTS_MAX || (joint_count > 0 && joint_matrices == nullptr)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::shared_ptr<std::vector<std::array<float, 16>>> skin;
+    if (joint_count > 0) {
+        const std::size_t count = static_cast<std::size_t>(joint_count);
+        for (std::size_t i = 0; i < count * 16; ++i) {
+            if (!std::isfinite(joint_matrices[i])) {
+                return OPENRAC_HOOK_UNKNOWN;
+            }
+        }
+        skin = std::make_shared<std::vector<std::array<float, 16>>>(count);
+        std::memcpy(skin->data(), joint_matrices, count * sizeof(std::array<float, 16>));
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    p->skin = std::move(skin);
+    return OPENRAC_HOOK_OK;
+}
+
 int api_prop_hide(openrac_mod* mod, int id, int hidden) {
     const std::lock_guard<std::mutex> lock(g_props_lock);
     Prop* p = own_prop(mod, id);
@@ -387,6 +488,259 @@ int api_hud_text_set(openrac_mod* mod, const openrac_hud_text* lines, int count)
         g_hud.push_back({mod, loads, std::vector<openrac_hud_text>(lines, lines + count)});
     }
     return OPENRAC_HOOK_OK;
+}
+
+// The mod's model `handle` of this level load, null for one that is not; one gone with its level is
+// let go. Under g_props_lock.
+Model* own_model(const openrac_mod* mod, int handle) {
+    if (mod == nullptr || handle < 0 || handle >= static_cast<int>(g_models.size())) {
+        return nullptr;
+    }
+    Model& m = g_models[static_cast<std::size_t>(handle)];
+    if (m.mod != mod) {
+        return nullptr;
+    }
+    if (m.loads != loads_now()) {
+        m = Model{};
+        return nullptr;
+    }
+    return &m;
+}
+
+int api_model_create(openrac_mod* mod, const char* mesh_path) {
+    std::int32_t level = -1;
+    if (mod == nullptr || !in_level(phase_now(&level))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::filesystem::path mesh = mod_file(mod, mesh_path);
+    if (mesh.empty() || mesh.extension() != ".glb") {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const std::uint32_t loads = loads_now();
+    int free_handle = -1;
+    for (std::size_t i = 0; i < g_models.size(); ++i) {
+        Model& m = g_models[i];
+        if (m.mod != nullptr && m.loads != loads) {
+            m = Model{};
+        }
+        if (m.mod == mod && m.mesh == mesh) {
+            return static_cast<int>(i);
+        }
+        if (m.mod == nullptr && free_handle < 0) {
+            free_handle = static_cast<int>(i);
+        }
+    }
+    if (free_handle < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_models[static_cast<std::size_t>(free_handle)] = Model{mod, mesh, loads};
+    note_prop_mesh(loads, mesh);
+    return free_handle;
+}
+
+int api_moby_model_class(
+    openrac_mod* mod, int oclass, std::uint32_t scope, const openrac_moby_model* m
+) {
+    constexpr std::uint32_t kScopes = OPENRAC_MODEL_WORLD | OPENRAC_MODEL_MENU;
+    if (mod == nullptr || oclass < 0 || scope == 0 || (scope & ~kScopes) != 0 || m == nullptr
+        || m->size < sizeof(openrac_moby_model) || m->flags != 0
+        || !std::all_of(m->matrix, m->matrix + 16, [](float f) { return std::isfinite(f); })) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const std::uint32_t loads = loads_now();
+    // One mod per class and scope: a live override of another mod in any of the scopes asked for.
+    for (const std::uint32_t bit : {OPENRAC_MODEL_WORLD, OPENRAC_MODEL_MENU}) {
+        const auto held = g_class_models.find({oclass, bit});
+        if ((scope & bit) != 0 && held != g_class_models.end()) {
+            if (held->second.loads != loads) {
+                g_class_models.erase(held);
+            } else if (held->second.mod != mod) {
+                return OPENRAC_HOOK_TAKEN;
+            }
+        }
+    }
+    const Model* model = m->model >= 0 ? own_model(mod, m->model) : nullptr;
+    if (m->model >= 0 && model == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    for (const std::uint32_t bit : {OPENRAC_MODEL_WORLD, OPENRAC_MODEL_MENU}) {
+        if ((scope & bit) == 0) {
+            continue;
+        }
+        if (model == nullptr) {
+            g_class_models.erase({oclass, bit});
+            continue;
+        }
+        ClassModel& c = g_class_models[{oclass, bit}];
+        c.mod = mod;
+        c.loads = loads;
+        c.mesh = model->mesh;
+        std::copy(m->matrix, m->matrix + 16, c.matrix.begin());
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_model_slot(openrac_mod* mod, int slot, const openrac_moby_model* m) {
+    if (mod == nullptr || g_play == nullptr || m == nullptr || m->size < sizeof(openrac_moby_model)
+        || m->flags != 0
+        || !std::all_of(m->matrix, m->matrix + 16, [](float f) { return std::isfinite(f); })) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const gaddr address = moby_address(slot);
+    const int oclass = address != 0 ? MobyClasses().of(slot) : -1;
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const auto now = g_slot_models.find(slot);
+    // An override the moby it was set on has left (its slot freed or made again) is no one's.
+    bool held = false;
+    if (now != g_slot_models.end()) {
+        held = now->second.loads == loads_now() && now->second.address == address
+               && now->second.oclass == oclass;
+        if (!held) {
+            g_slot_models.erase(now);
+        } else if (now->second.mod != mod) {
+            return OPENRAC_HOOK_TAKEN;
+        }
+    }
+    if (m->model < 0) {
+        if (held) {
+            g_slot_models.erase(slot);
+        }
+        return OPENRAC_HOOK_OK;
+    }
+    const Model* model = own_model(mod, m->model);
+    if (model == nullptr || address == 0 || oclass < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    SlotModel& s = g_slot_models[slot];
+    s.mod = mod;
+    s.address = address;
+    s.oclass = oclass;
+    s.loads = loads_now();
+    s.mesh = model->mesh;
+    std::copy(m->matrix, m->matrix + 16, s.matrix.begin());
+    s.hidden = false;
+    return OPENRAC_HOOK_OK;
+}
+
+// Interface 1.33: the moby at `address`, whether or not the level's list holds it. Its class is the game's
+// own at that address (moby_class_at), so an override goes when the class there changes.
+int api_moby_model_at(openrac_mod* mod, std::uint32_t address, const openrac_moby_model* m) {
+    if (mod == nullptr || g_play == nullptr || m == nullptr || m->size < sizeof(openrac_moby_model)
+        || (m->flags & ~OPENRAC_MODEL_HIDE_NATIVE) != 0
+        || ((m->flags & OPENRAC_MODEL_HIDE_NATIVE) != 0 && m->model >= 0)
+        || !std::all_of(m->matrix, m->matrix + 16, [](float f) { return std::isfinite(f); })) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::int32_t oclass =
+        address != 0 && g_play->moby_class_at != nullptr ? g_play->moby_class_at(address) : -1;
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const auto now = g_address_models.find(address);
+    // An override whose moby's class changed, or whose level is gone, is no one's.
+    bool held = false;
+    if (now != g_address_models.end()) {
+        held = now->second.loads == loads_now() && now->second.oclass == oclass;
+        if (!held) {
+            g_address_models.erase(now);
+        } else if (now->second.mod != mod) {
+            return OPENRAC_HOOK_TAKEN;
+        }
+    }
+    if (m->model < 0 && (m->flags & OPENRAC_MODEL_HIDE_NATIVE) == 0) {
+        if (held) {
+            g_address_models.erase(address);
+        }
+        return OPENRAC_HOOK_OK;
+    }
+    if ((m->flags & OPENRAC_MODEL_HIDE_NATIVE) != 0) {
+        if (address == 0 || oclass < 0) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        SlotModel& s = g_address_models[address];
+        s.mod = mod;
+        s.address = address;
+        s.oclass = oclass;
+        s.loads = loads_now();
+        s.mesh.clear();
+        std::copy(m->matrix, m->matrix + 16, s.matrix.begin());
+        s.hidden = true;
+        return OPENRAC_HOOK_OK;
+    }
+    const Model* model = own_model(mod, m->model);
+    if (model == nullptr || oclass < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    SlotModel& s = g_address_models[address];
+    s.mod = mod;
+    s.address = address;
+    s.oclass = oclass;
+    s.loads = loads_now();
+    s.mesh = model->mesh;
+    std::copy(m->matrix, m->matrix + 16, s.matrix.begin());
+    s.hidden = false;
+    return OPENRAC_HOOK_OK;
+}
+
+// Both particle calls: the play phase and the game's host. Returns the answer of the call.
+int particle_start_ex(const openrac_game_particle_spawn& spawn) {
+    std::int32_t level = -1;
+    if (g_play == nullptr || g_play->particle_spawn_ex == nullptr
+        || phase_now(&level) != OPENRAC_PLAY_PLAYING) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const int made = g_play->particle_spawn_ex(&spawn);
+    if (made > 0) {
+        return OPENRAC_HOOK_OK;
+    }
+    return made == 0 ? OPENRAC_HOOK_FULL : OPENRAC_HOOK_UNKNOWN;
+}
+
+bool particle_finite(const float v[3]) {
+    return std::all_of(v, v + 3, [](float x) { return std::isfinite(x); });
+}
+
+int api_particle_spawn_ex(openrac_mod* mod, const openrac_particle_spawn* spawn) {
+    if (mod == nullptr || spawn == nullptr || spawn->size < sizeof(openrac_particle_spawn)
+        || spawn->kind > OPENRAC_PARTICLE_SPARK || !particle_finite(spawn->position)
+        || !particle_finite(spawn->velocity) || !std::isfinite(spawn->particle_size)
+        || spawn->particle_size <= 0.0f || spawn->particle_size > OPENRAC_PARTICLE_SIZE_MAX
+        || spawn->life_ticks < 1 || spawn->life_ticks > OPENRAC_PARTICLE_LIFE_MAX
+        || (spawn->flags & ~OPENRAC_PARTICLE_CHILDREN) != 0 || spawn->texture < -1
+        || spawn->texture > OPENRAC_PARTICLE_BYTE_MAX || spawn->blend < -1
+        || spawn->blend > OPENRAC_PARTICLE_BYTE_MAX || !std::isfinite(spawn->rot)
+        || std::fabs(spawn->rot) > OPENRAC_PARTICLE_ROT_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    openrac_game_particle_spawn g{};
+    g.kind = spawn->kind;
+    std::copy(spawn->position, spawn->position + 3, g.position);
+    std::copy(spawn->velocity, spawn->velocity + 3, g.velocity);
+    g.size = spawn->particle_size;
+    g.life_ticks = spawn->life_ticks;
+    g.color = spawn->color;
+    g.color_end = spawn->color_end;
+    g.flags = spawn->flags;
+    g.texture = spawn->texture;
+    g.blend = spawn->blend;
+    g.rot = spawn->rot;
+    return particle_start_ex(g);
+}
+
+// openrac_api.particle_texture_register (1.33): the texture is checked here, then the game's renderer
+// stages it. Played levels only, as the particle calls.
+int api_particle_texture_register(openrac_mod* mod, const openrac_particle_texture* texture) {
+    std::int32_t level = -1;
+    if (mod == nullptr || texture == nullptr || texture->size < sizeof(openrac_particle_texture)
+        || g_play == nullptr || g_play->particle_texture_register == nullptr
+        || phase_now(&level) != OPENRAC_PLAY_PLAYING) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const int id = g_play->particle_texture_register(texture->indices, texture->clut);
+    if (id >= OPENRAC_PARTICLE_TEXTURE_FIRST) {
+        return id;
+    }
+    return id == 0 ? OPENRAC_HOOK_FULL : OPENRAC_HOOK_UNKNOWN;
 }
 
 }  // namespace openrac::mods::detail

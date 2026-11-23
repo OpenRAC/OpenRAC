@@ -296,6 +296,33 @@
         "todo": "Run it from the desktop app. From a shell on macOS: 66 tests, OK."
       },
       {
+        "id": "disc-files",
+        "label": "Unpack the disc's files",
+        "description": "Writes your disc's data out as files, with the map the game reads them by: the game reads these files, never the disc image. A few minutes and about as much space as the disc, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/extractor.py",
+          "{disc}",
+          "--game",
+          "rac1",
+          "--extract",
+          "--validate",
+          "--proj-path",
+          "{data}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "makes": "{data}/iso_data/rac1/sectors.tsv",
+        "docs": "port/assets/disc/README.md",
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv)."
+      },
+      {
         "id": "port-build",
         "label": "Build the game",
         "description": "Compiles the decompiled game for this computer with the compilers it finds (on Windows, Visual Studio's C++ tools, Clang and Ninja). A few minutes the first time; later builds redo only what changed.",
@@ -498,6 +525,10 @@
         "todo": "Built by port-build. The port reads each level's program from your disc image when decompiler_out (openrac-extractor --decompile) is not there. It draws from the levels port-levels writes (--levels): without them the menus have no world behind them and a level has no scenery. Runs on Windows, Linux and macOS: the port is one program for all three (it was listed for Windows and Linux only until 2026-10-13, though it had been built and run on macOS).",
         "needs": [
           {
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
+          },
+          {
             "path": "assets/port/rac1/pal/verified-4.json",
             "from": "a check of the levels (Check the levels)"
           }
@@ -615,8 +646,8 @@
         "artifact": "port/build/release/openrac-rac1-pal.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac1/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           }
         ],
         "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
@@ -669,8 +700,8 @@
         "artifact": "port/build/release/openrac-rac1-pal.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac1/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac1/pal/verified-4.json",
@@ -886,6 +917,10 @@
         "docs": "port/game/rac1-pal/README.md",
         "todo": "Built by port-build. The Mods page runs overrides-stack first, which puts the packed levels (assets/packed/rac1/pal) and the packs that are on into {data}/mods/pal. Run headless on macOS (--level 0 --frames 400): the port logged the sectors it took from the packed file and ran as it does without. Not run from the desktop app yet. Runs on Windows, Linux and macOS: the port is one program for all three (it was listed for Windows and Linux only until 2026-10-13, though it had been built and run on macOS).",
         "needs": [
+          {
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
+          },
           {
             "path": "assets/port/rac1/pal/verified-4.json",
             "from": "a check of the levels (Check the levels)"
@@ -1143,6 +1178,33 @@
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-16): level 0 extracted from SCUS_971.99, one bolt moved, packed to assets/packed/rac1/ntsc's level_00/gameplay_ntsc.wad at the NTSC copy's sectors, reading back as the disc's but for that bolt's record. Not yet played: the NTSC-U port does not reach a level."
       },
       {
+        "id": "disc-files",
+        "label": "Unpack the disc's files",
+        "description": "Writes your disc's data out as files, with the map the game reads them by: the game reads these files, never the disc image. A few minutes and about as much space as the disc, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/extractor.py",
+          "{disc}",
+          "--game",
+          "rac1",
+          "--extract",
+          "--validate",
+          "--proj-path",
+          "{data}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "makes": "{data}/iso_data/rac1/sectors.tsv",
+        "docs": "port/assets/disc/README.md",
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv)."
+      },
+      {
         "id": "port-build",
         "label": "Build the game",
         "description": "Compiles the decompiled game for this computer with the compilers it finds (on Windows, Visual Studio's C++ tools, Clang and Ninja). A few minutes the first time; later builds redo only what changed.",
@@ -1345,6 +1407,10 @@
         "artifact": "port/build/release/openrac-rac1-ntsc.exe",
         "needs": [
           {
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
+          },
+          {
             "path": "assets/port/rac1/ntsc/verified-4.json",
             "from": "a check of the levels (Check the levels)"
           }
@@ -1462,8 +1528,8 @@
         "artifact": "port/build/release/openrac-rac1-ntsc.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac1/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           }
         ],
         "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
@@ -1516,8 +1582,8 @@
         "artifact": "port/build/release/openrac-rac1-ntsc.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac1/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac1/ntsc/verified-4.json",
@@ -1733,6 +1799,10 @@
         ],
         "artifact": "port/build/release/openrac-rac1-ntsc.exe",
         "needs": [
+          {
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
+          },
           {
             "path": "assets/port/rac1/ntsc/verified-4.json",
             "from": "a check of the levels (Check the levels)"
@@ -2119,6 +2189,33 @@
         "docs": "editor/MODDING.md"
       },
       {
+        "id": "disc-files",
+        "label": "Unpack the disc's files",
+        "description": "Writes your disc's data out as files, with the map the game reads them by: the game reads these files, never the disc image. A few minutes and about as much space as the disc, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/extractor.py",
+          "{disc}",
+          "--game",
+          "rac1",
+          "--extract",
+          "--validate",
+          "--proj-path",
+          "{data}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "makes": "{data}/iso_data/rac1/sectors.tsv",
+        "docs": "port/assets/disc/README.md",
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv)."
+      },
+      {
         "id": "port-build",
         "label": "Build the game",
         "description": "Compiles the decompiled game for this computer with the compilers it finds (on Windows, Visual Studio's C++ tools, Clang and Ninja). A few minutes the first time; later builds redo only what changed.",
@@ -2224,6 +2321,10 @@
         "artifact": "port/build/release/openrac-rac1-pal1.exe",
         "needs": [
           {
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
+          },
+          {
             "path": "assets/port/rac1/pal1/verified-4.json",
             "from": "a check of the levels (Check the levels)"
           }
@@ -2253,6 +2354,10 @@
         ],
         "artifact": "port/build/release/openrac-rac1-pal1.exe",
         "needs": [
+          {
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
+          },
           {
             "path": "assets/port/rac1/pal1/verified-4.json",
             "from": "a check of the levels (Check the levels)"
@@ -2639,6 +2744,33 @@
         "docs": "editor/MODDING.md"
       },
       {
+        "id": "disc-files",
+        "label": "Unpack the disc's files",
+        "description": "Writes your disc's data out as files, with the map the game reads them by: the game reads these files, never the disc image. A few minutes and about as much space as the disc, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/extractor.py",
+          "{disc}",
+          "--game",
+          "rac1",
+          "--extract",
+          "--validate",
+          "--proj-path",
+          "{data}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "makes": "{data}/iso_data/rac1/sectors.tsv",
+        "docs": "port/assets/disc/README.md",
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv)."
+      },
+      {
         "id": "port-build",
         "label": "Build the game",
         "description": "Compiles the decompiled game for this computer with the compilers it finds (on Windows, Visual Studio's C++ tools, Clang and Ninja). A few minutes the first time; later builds redo only what changed.",
@@ -2744,6 +2876,10 @@
         "artifact": "port/build/release/openrac-rac1-jp.exe",
         "needs": [
           {
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
+          },
+          {
             "path": "assets/port/rac1/jp/verified-4.json",
             "from": "a check of the levels (Check the levels)"
           }
@@ -2773,6 +2909,10 @@
         ],
         "artifact": "port/build/release/openrac-rac1-jp.exe",
         "needs": [
+          {
+            "path": "{data}/iso_data/rac1/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
+          },
           {
             "path": "assets/port/rac1/jp/verified-4.json",
             "from": "a check of the levels (Check the levels)"
@@ -3126,8 +3266,8 @@
         "artifact": "port/build/release/openrac-rac2-ntsc.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac2/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac2/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           }
         ],
         "docs": "docs/port/TEXTURE_PACKS.md#export-without-playing"
@@ -3180,8 +3320,8 @@
         "artifact": "port/build/release/openrac-rac2-ntsc.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac2/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac2/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac2/ntsc/levels-20.json",
@@ -3244,6 +3384,39 @@
         ],
         "docs": "editor/MODDING.md",
         "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15): a texture pack of level 4 stacked into {data}/mods/ntsc and played with --mods drew every texture from it."
+      },
+      {
+        "id": "disc-files",
+        "label": "Unpack the disc's files",
+        "description": "Writes your disc's data out as files, with the map the game reads them by: the game reads these files, never the disc image. A few minutes and about as much space as the disc, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/extractor.py",
+          "{disc}",
+          "--game",
+          "rac2",
+          "--extract",
+          "--validate",
+          "--proj-path",
+          "{data}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "makes": "{data}/iso_data/rac2/sectors.tsv",
+        "docs": "port/assets/disc/README.md",
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv).",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ]
       },
       {
         "id": "port-build",
@@ -3362,8 +3535,8 @@
         "artifact": "port/build/release/openrac-rac2-ntsc.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac2/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac2/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac2/ntsc/levels-20.json",
@@ -3402,8 +3575,8 @@
         "artifact": "port/build/release/openrac-rac2-ntsc.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac2/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac2/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac2/ntsc/levels-20.json",
@@ -3778,6 +3951,39 @@
         "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15): a texture pack of level 4 stacked into {data}/mods/pal and played with --mods drew every texture from it."
       },
       {
+        "id": "disc-files",
+        "label": "Unpack the disc's files",
+        "description": "Writes your disc's data out as files, with the map the game reads them by: the game reads these files, never the disc image. A few minutes and about as much space as the disc, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/extractor.py",
+          "{disc}",
+          "--game",
+          "rac2",
+          "--extract",
+          "--validate",
+          "--proj-path",
+          "{data}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "makes": "{data}/iso_data/rac2/sectors.tsv",
+        "docs": "port/assets/disc/README.md",
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv).",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ]
+      },
+      {
         "id": "port-build",
         "label": "Build the game",
         "description": "Compiles Going Commando's decompiled C for this computer (openrac-rac2-pal), with the code still in assembly read from your disc. A few minutes the first time; later builds redo only what changed.",
@@ -3894,8 +4100,8 @@
         "artifact": "port/build/release/openrac-rac2-pal.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac2/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac2/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac2/pal/levels-20.json",
@@ -3934,8 +4140,8 @@
         "artifact": "port/build/release/openrac-rac2-pal.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac2/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac2/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac2/pal/levels-20.json",
@@ -4310,6 +4516,39 @@
         "todo": "Run it from the desktop app. From a shell on Linux (2026-11-15): a texture pack of level 4 stacked into {data}/mods/ntsc2 and played with --mods drew every texture from it."
       },
       {
+        "id": "disc-files",
+        "label": "Unpack the disc's files",
+        "description": "Writes your disc's data out as files, with the map the game reads them by: the game reads these files, never the disc image. A few minutes and about as much space as the disc, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/extractor.py",
+          "{disc}",
+          "--game",
+          "rac2",
+          "--extract",
+          "--validate",
+          "--proj-path",
+          "{data}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "makes": "{data}/iso_data/rac2/sectors.tsv",
+        "docs": "port/assets/disc/README.md",
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv).",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ]
+      },
+      {
         "id": "port-build",
         "label": "Build the game",
         "description": "Compiles Going Commando's decompiled C for this computer (openrac-rac2-ntsc2), with the code still in assembly read from your disc. A few minutes the first time; later builds redo only what changed.",
@@ -4426,8 +4665,8 @@
         "artifact": "port/build/release/openrac-rac2-ntsc2.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac2/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac2/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac2/ntsc2/levels-20.json",
@@ -4466,8 +4705,8 @@
         "artifact": "port/build/release/openrac-rac2-ntsc2.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac2/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac2/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac2/ntsc2/levels-20.json",
@@ -4806,6 +5045,38 @@
         "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
       },
       {
+        "id": "disc-files",
+        "label": "Unpack the disc's files",
+        "description": "Writes your disc's data out as files, with the map the game reads them by: the game reads these files, never the disc image. A few minutes and about as much space as the disc, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/extractor.py",
+          "{disc}",
+          "--game",
+          "rac3",
+          "--extract",
+          "--validate",
+          "--proj-path",
+          "{data}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "makes": "{data}/iso_data/rac3/sectors.tsv",
+        "docs": "port/assets/disc/README.md",
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv).",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ]
+      },
+      {
         "id": "port-build",
         "label": "Build the game",
         "description": "Compiles Up Your Arsenal's decompiled C for this computer (openrac-rac3-ntsc), with the code still in assembly translated from your disc. A few minutes the first time; later builds redo only what changed.",
@@ -4925,8 +5196,8 @@
         "artifact": "port/build/release/openrac-rac3-ntsc.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac3/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac3/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac3/ntsc/levels-16.json",
@@ -4964,8 +5235,8 @@
         "artifact": "port/build/release/openrac-rac3-ntsc.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac3/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac3/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac3/ntsc/levels-16.json",
@@ -5304,6 +5575,38 @@
         "todo": "Run it from the desktop app. Nothing reads the stack until the game loads a level."
       },
       {
+        "id": "disc-files",
+        "label": "Unpack the disc's files",
+        "description": "Writes your disc's data out as files, with the map the game reads them by: the game reads these files, never the disc image. A few minutes and about as much space as the disc, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/extractor.py",
+          "{disc}",
+          "--game",
+          "rac3",
+          "--extract",
+          "--validate",
+          "--proj-path",
+          "{data}"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "makes": "{data}/iso_data/rac3/sectors.tsv",
+        "docs": "port/assets/disc/README.md",
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv).",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ]
+      },
+      {
         "id": "port-build",
         "label": "Build the game",
         "description": "Compiles Up Your Arsenal's decompiled C for this computer (openrac-rac3-pal), with the code still in assembly translated from your disc. A few minutes the first time; later builds redo only what changed.",
@@ -5423,8 +5726,8 @@
         "artifact": "port/build/release/openrac-rac3-pal.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac3/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac3/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac3/pal/levels-16.json",
@@ -5462,8 +5765,8 @@
         "artifact": "port/build/release/openrac-rac3-pal.exe",
         "needs": [
           {
-            "path": "{data}/iso_data/rac3/buildinfo.json",
-            "from": "your disc set up (Set up from your disc)"
+            "path": "{data}/iso_data/rac3/sectors.tsv",
+            "from": "the disc's files (Unpack the disc's files)"
           },
           {
             "path": "assets/port/rac3/pal/levels-16.json",

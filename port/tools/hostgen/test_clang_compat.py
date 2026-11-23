@@ -46,6 +46,26 @@ class ClangRunsWithoutACompilerCache(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("clang"), "needs Clang")
+class AsmStubsKeepLines(unittest.TestCase):
+    def test_a_break_right_after_asm_is_kept(self):
+        # `__asm__ (` alone on its line is shorter than the stub call: the break after it was
+        # written over, every later line moved up one, and the fixes of later diagnostics went to
+        # the line above (rac3's L07_003C7468.c, whose definitions after the assembly then took
+        # their labels on their first local).
+        lines = ["void f(void) {", "    __asm__ (", '        "vsub.xyz $vf2, $vf2, $vf1\\n"',
+                 '        : : : "vf1");', "    g();", "}"]
+        self.assertTrue(clangast._replace_asm(lines, 3, 12))  # at a constraint, as Clang points
+        self.assertEqual(len(lines), 6)
+        self.assertEqual(lines[1].strip(), "openrac_hostgen_asm();")
+        self.assertEqual(lines[4], "    g();")
+
+    def test_a_one_line_statement_stays_on_its_line(self):
+        lines = ['    __asm__ volatile ("sync.l" : : : "memory");', "    g();"]
+        self.assertTrue(clangast._replace_asm(lines, 0, 30))
+        self.assertEqual(lines[0].strip(), "openrac_hostgen_asm();")
+        self.assertEqual(lines[1], "    g();")
+
+
 class ClangCompatibility(unittest.TestCase):
     def test_nested_source_and_anonymous_typedefs(self):
         with tempfile.TemporaryDirectory(prefix="hostgen compatibility ") as tmp:

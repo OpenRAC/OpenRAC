@@ -431,11 +431,15 @@ struct Texa {
     bool operator==(const Texa&) const = default;
 };
 
+// OpenRAC's host-generated packets mark runtime texture data in a reserved BITBLTBUF bit.
+inline constexpr u64 kGeneratedTextureUpload = u64{1} << 63;
+
 struct Bitbltbuf {
     std::uint32_t sbp, sbw;
     std::uint8_t spsm;
     std::uint32_t dbp, dbw;
     std::uint8_t dpsm;
+    bool generated;
 
     static Bitbltbuf decode(u64 v) {
         return {
@@ -444,7 +448,8 @@ struct Bitbltbuf {
             static_cast<std::uint8_t>(bits(v, 24, 6)),
             bits(v, 32, 14),
             bits(v, 48, 6),
-            static_cast<std::uint8_t>(bits(v, 56, 6))
+            static_cast<std::uint8_t>(bits(v, 56, 6)),
+            (v & kGeneratedTextureUpload) != 0
         };
     }
 };

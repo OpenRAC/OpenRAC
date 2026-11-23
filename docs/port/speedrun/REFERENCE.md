@@ -10,7 +10,7 @@ Parsed by `Options parse(int argc, char** argv)`
 
 | Flag | Meaning | Default |
 |---|---|---|
-| `--data <dir>` | The extractor's data folder (the disc image and the game's executable). Falls back to `$OPENRAC_DATA`. | required |
+| `--data <dir>` | The extractor's data folder (the disc's files, their sector map and the game's executable). Falls back to `$OPENRAC_DATA`. | required |
 | `--cards <dir>` | The memory-card folder. Port 0 is `<dir>`, port 1 is `<dir>.slot2`. A card is a plain folder of files. | `<data home>/openrac/memcard/<serial>` |
 | `--no-card` | No memory card in either port. | off |
 | `--window` | Open the window and run the game with graphics and input. Without it the game runs headless (no pad, no collision, no disc movies). | off |

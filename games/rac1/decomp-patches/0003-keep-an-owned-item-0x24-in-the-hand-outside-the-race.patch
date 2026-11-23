@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Clank700 <laborer-onto-acts@duck.com>
+Date: Fri, 20 Nov 2026 22:54:53 +0100
+Subject: keep an owned item 0x24 in the hand outside the race mode
+
+apply_hero_item_slot_selection clears a held item 0x24 whenever the game mode is not the
+race mode (0x16), because the item exists only there and is never owned. An item id a mod
+reserved with rac1_reserve_item_ids can be that one; while it is owned (item_available[0x24]
+non-zero) it must stay in the hand, so the clear now also requires it to be unowned. Stock
+play never owns item 0x24 outside the race mode, so behaviour there is unchanged.
+---
+ src/overlays/shared/hero_gadget_use.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/overlays/shared/hero_gadget_use.c b/src/overlays/shared/hero_gadget_use.c
+index f58f69b5..2c08c96e 100644
+--- a/src/overlays/shared/hero_gadget_use.c
++++ b/src/overlays/shared/hero_gadget_use.c
+@@ -132,6 +132,7 @@ typedef struct {
+     int d[7];
+ } Sel;
+ 
++extern unsigned char item_available[];
+ /* Applies the item selection for slot i: resolves pending, queued and requested items and refreshes the slot when it
+    changes. */
+ void apply_hero_item_slot_selection(int i) {
+@@ -158,7 +159,8 @@ void apply_hero_item_slot_selection(int i) {
+     }
+     {
+         Sel *g = (Sel *)(&g_hero);
+-        if (*(int *)((char *)g + 0x10B8) == 0x24 && g->f208C != 0x16) {
++        /* Item 0x24 only exists in the race mode (0x16) and is never owned there; an owned one is an item id a mod took with rac1_reserve_item_ids, which stays in the hand. */
++        if (*(int *)((char *)g + 0x10B8) == 0x24 && g->f208C != 0x16 && item_available[0x24] == 0) {
+             g->f20A6 = 1;
+         }
+     }

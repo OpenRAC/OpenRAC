@@ -48,6 +48,7 @@
 #include <system_error>
 #include <vector>
 
+#include "assets/disc/sector_map.h"
 #include "common/build_info.h"
 #include "common/cache_folder.h"
 #include "common/crash.h"
@@ -215,7 +216,7 @@ std::string campaign_mount;
 }  // namespace
 
 extern "C" {
-const char* openrac_game_disc_image = nullptr;
+const char* openrac_game_disc_files = nullptr;
 const char* openrac_game_card_dir = nullptr;
 const char* openrac_game_mods_dir = nullptr;
 const struct openrac_map_config* openrac_game_map = nullptr;
@@ -397,6 +398,8 @@ void load_mods() {
     host.play = openrac_game_play_host;
     host.cards = openrac_game_card_dir != nullptr ? openrac_game_card_dir : "memcard";
     host.mod_data = g_options.mod_data;
+    host.data = g_options.data;
+    host.games_root = g_options.games_root;
 #ifdef OPENRAC_FRONTEND
     // The mods' own sounds (interface 1.12), on the window's sound output.
     host.sound_load = frontend::mod_sound_load;
@@ -641,9 +644,9 @@ int main(int argc, char** argv) {
 #endif
     }
     if (!g_options.interface_export.empty()) {
-        // An export reads the run files and the disc and ends: no game is played.
+        // An export reads the run files and the disc's files and ends: no game is played.
         return export_interface(
-            g_options.data / "iso_data" / openrac_game.game / "disc.iso",
+            g_options.data / "iso_data" / openrac_game.game,
             openrac_game.id,
             g_options.interface_export,
             g_options.interface_runs,
@@ -660,13 +663,15 @@ int main(int argc, char** argv) {
     // The part of the game built from the disc, before any of its code runs, and after the log is
     // open so that one that does not load says why there.
     load_asm_part(g_options);
+    // The disc's files and their sector map (tools/openrac_common/disc_files.py): the game reads
+    // its sectors from them, never from the image. A set-up made before the map was written
+    // (or with --boot-only) has to be made again.
     const fs::path iso = g_options.data / "iso_data" / openrac_game.game;
     const fs::path exe = iso / openrac_game.serial;
-    const fs::path disc = iso / "disc.iso";
-    if (!fs::exists(exe) || !fs::exists(disc)) {
+    if (!fs::exists(exe) || !assets::disc::SectorMap::present(iso)) {
         log::fatalf(
-            "{} has no {} and disc.iso: set the game up from your disc first "
-            "(python3 tools/extractor.py <image> --game {} --proj-path {})",
+            "{} has no {} and sectors.tsv (the disc's files): set the game up from your disc "
+            "again (python3 tools/extractor.py <image> --game {} --extract --proj-path {})",
             iso.string(),
             openrac_game.serial,
             openrac_game.game,
@@ -676,7 +681,7 @@ int main(int argc, char** argv) {
     log::info("{}: {}", program_name(), openrac_game.title);
     if (!g_options.interface_run.empty()) {
         static fs::path run_disc;
-        run_disc = disc;
+        run_disc = iso;
         start_interface_run(g_options.interface_run);
         std::atexit([] { finish_interface_run(run_disc); });
     }
@@ -722,11 +727,11 @@ int main(int argc, char** argv) {
         image.entry
     );
 
-    static std::string disc_path = disc.string();
+    static std::string disc_path = iso.string();
     std::error_code made;
     fs::create_directories(g_options.cards, made);
     static std::string cards_path = g_options.cards.string();
-    openrac_game_disc_image = disc_path.c_str();
+    openrac_game_disc_files = disc_path.c_str();
     openrac_game_card_dir = cards_path.c_str();
     static std::string mods_path = g_options.mods.string();
     campaign_mount = g_options.ship_map ? std::string{} : mods_path;

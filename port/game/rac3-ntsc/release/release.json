@@ -226,7 +226,6 @@
         "func_L39_006DB418": "int (int, int, int, int, int)",
         "func_L39_006DE168": "float (void)",
         "func_L40_003F1C98": "float (int, float, float)",
-        "func_003C5098__frontbin": "int (int, int, float, float)",
         "func_L01_00308068": "float (int, int, float, int, int, int)",
         "func_L01_0030A958": "float (int, int, float, int, int, int)",
         "func_L01_0030D500": "float (int, int, float, int, int, int)",
@@ -346,7 +345,6 @@
         "func_L01_004369B8": "int (int, int, int, int)"
       },
       "signature_allow": {
-        "func_003BBD98__frontbin": "PAL func_003C12A8 (with C there), translated from its assembly on NTSC-U with the C's (int): its first call (0x003B7190, then the TEX0 builder 0x00395EB8, whose opening reads no float register) is given two floats by a prototype widened from declarations (asm.params_from_code), so its liveness reads $f12/$f13 it never sets; the frame draw hands on none",
         "func_001369D0": "a hidden entry inside a function on both discs, with no inventory row (no NTSC-U name): its translation from 0x001369D0 is the tail of the function around it and never sets $f0, while the multiplayer menu's callers (func_L39_0066C540, func_L39_0066C910) read the float the PAL C declares (f32 func_001369D0(f32)); the entry's real code is to be found",
         "func_00392B88": null,
         "func_L01_00410800": null,
@@ -473,6 +471,10 @@
   },
   "addresses": {
     "about": "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence.",
+    "0x001D55D0": {
+      "is": "0x001D55D0",
+      "why": "the two font headers (FontUpload func_0038E2B0 reads them, FontSelect func_0038E530 copies the selected one's into 0x001D55C0): NTSC-U's boot program registers a font's header at the same address (f_0038E140: lui 0x1D, addiu 0x55D0, the font's index times 4, sw), and Veldin's FontSelect reads it there too (f_0040D548)"
+    },
     "0x001A4D30": {
       "is": "0x001A4D30",
       "why": "hero_carried, hero + 0x150: the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes hero_carried at NTSC-U 0x001A4D30"
@@ -562,6 +564,18 @@
   },
   "level_addresses": {
     "about": "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
+    "L01:001DF960": {
+      "is": "001DF9E0",
+      "why": "the letterbox's height in lines (the levels' copy of func_0038AD28): PAL's func_L01_004054F0 and NTSC-U's func_L01_00403120 (the same routine, rac3_names.tsv) read and store it at $gp-relative 0x001DF960 and 0x001DF9E0, beside their set word (0x001DF95C, 0x001DF9DC)"
+    },
+    "L01:001D64F0": {
+      "is": "001D64F0",
+      "why": "the level's pointer to the current font's page handles (FontSelect's copy, PAL func_L01_0040FB70): NTSC-U's Veldin FontSelect f_0040D548 stores it at $gp - 0x63C0 as PAL's does, with the same $gp (its font index at $gp - 0x72C8 is 0x001D55E8 on both discs, and the level's 0x001D64EC moved by +0x0)"
+    },
+    "L01:001D64F4": {
+      "is": "001D64F4",
+      "why": "the level's pointer to the current font's palette handles, beside L01:001D64F0: NTSC-U's f_0040D548 stores it at $gp - 0x63BC"
+    },
     "L01:001E2A40": {
       "is": "001E2AC0",
       "why": "player 0's game camera (camera_platform_ride's base, +0x50 the current update object): PAL's camera entries 0x001E2AA0 (+0x60) are NTSC-U's 0x001E2B20 (rac3_level_pairs.py, 8 of 8 places), the same +0x80; names.tsv's camera_manager_update keeps the camera's position at NTSC-U 0x001E2AC0, the entry's +0"
@@ -817,6 +831,34 @@
     "L01:001E0020": {
       "is": "001E00A0",
       "why": "the same instruction of the same code: func_L01_0042AF50 (NTSC-U func_L01_004281A8) +0xB8, 19 of 19 places agree"
+    },
+    "L39:0024B9FC": {
+      "is": "0024BAFC",
+      "why": "the same instruction of the same code: func_L39_00589538 (NTSC-U func_L39_005883C8) +0x40, 6 of 6 places agree"
+    },
+    "L39:0024BCEC": {
+      "is": "0024BDEC",
+      "why": "between the same code's 0x0024BCE4 and 0x0024BCF8, both moved by +0x100 (NTSC-U 0x0024BDE4, 0x0024BDF8)"
+    },
+    "L39:0024C188": {
+      "is": "0024C288",
+      "why": "the same instruction of the same code: func_L01_004C97C8 (NTSC-U func_L01_004C5C08) +0x28, 4 of 4 places agree"
+    },
+    "L39:0024C190": {
+      "is": "0024C290",
+      "why": "the same instruction of the same code: func_L01_004C97C8 (NTSC-U func_L01_004C5C08) +0x8, 6 of 6 places agree"
+    },
+    "L39:0024C940": {
+      "is": "0024CA40",
+      "why": "between the same code's 0x0024C920 and 0x0024C9A0, both moved by +0x100 (NTSC-U 0x0024CA20, 0x0024CAA0)"
+    },
+    "L39:0025D9C0": {
+      "is": "0025DAC0",
+      "why": "the same instruction of the same code: func_L39_0059C910 (NTSC-U func_L39_0059B580) +0x60, 3 of 3 places agree"
+    },
+    "L39:002961C0": {
+      "is": "002962C0",
+      "why": "between the same code's 0x00294FC0 and 0x002965C0, both moved by +0x100 (NTSC-U 0x002950C0, 0x002966C0)"
     }
   },
   "mp_hostgen": {
@@ -842,6 +884,47 @@
       2366336,
       7340032
     ],
-    "relocate_why": "the programs' range from level 39's .lit, NTSC-U's 0x00241B80 (its level ELF; PAL's .lit starts at 0x00241A00, the boot program's rule: the first loaded program's .lit), up to 0x00700000 as PAL's"
+    "relocate_why": "the programs' range from level 39's .lit, NTSC-U's 0x00241B80 (its level ELF; PAL's .lit starts at 0x00241A00, the boot program's rule: the first loaded program's .lit), up to 0x00700000 as PAL's",
+    "inner_extents": {
+      "places": "config/us/levels/functions.tsv"
+    },
+    "level_copies": {
+      "places": "config/us/levels/functions.tsv"
+    }
+  },
+  "mp_addresses": {
+    "about": "NTSC-U's address of a multiplayer executable global the host C writes as RAC3_MADDR(address) that rac3_mp_pairs.py does not pair: PAL's address, NTSC-U's, why.",
+    "0x00241458": {
+      "is": "0x002415D8",
+      "why": "the two font headers: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U adds 0x15D8 to 0x00240000)"
+    },
+    "0x00241470": {
+      "is": "0x002415F0",
+      "why": "the font FontSelect chose last: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U's map copies store it at 0x002415F0)"
+    },
+    "0x00241CE8": {
+      "is": "0x00241E68",
+      "why": "the core's pointer to the current font's page handles: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U reads 0x00241E68 beside 0x00241E6C)"
+    },
+    "0x00241CEC": {
+      "is": "0x00241E6C",
+      "why": "the core's pointer to the current font's palette handles, beside 0x00241CE8: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00)"
+    },
+    "0x00242820": {
+      "is": "0x002429A0",
+      "why": "level 39's (and the maps') pointer to the current font's page handles: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U's map copies store 0x002429A0)"
+    },
+    "0x00242824": {
+      "is": "0x002429A4",
+      "why": "level 39's (and the maps') pointer to the palette handles, beside 0x00242820: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00)"
+    },
+    "0x00230000": {
+      "is": "0x00230000",
+      "why": "the screen whose size (+0x150, +0x152) SetScissor keeps its rectangle within: PAL mp_func_00299218 and NTSC-U mp_func_002991F8, the same instructions, both read 0x00230150 and 0x00230152"
+    },
+    "0x002412DC": {
+      "is": "0x0024145C",
+      "why": "the level whose program is loaded: read at $gp - 0x6CE4 in both cores (PAL 0x00199150, 0x002945BC, 0x00295534 with $gp 0x00247FC0; NTSC-U 0x00199290, 0x00295524 with $gp 0x00248140)"
+    }
   }
 }

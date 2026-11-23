@@ -33,6 +33,7 @@
 #define RAC2_ADDR_0x00152C26u 0x00152CA6u /* the release's build */
 #define RAC2_ADDR_0x00152C64u 0x00152CE4u /* versionmap: between */
 #define RAC2_ADDR_0x00152C68u 0x00152CE8u /* versionmap: between */
+#define RAC2_ADDR_0x0019B278u 0x0019B2F8u /* the release's build */
 #define RAC2_ADDR_0x0019B4A8u 0x0019B528u /* the release's build */
 #define RAC2_ADDR_0x001A72DCu 0x001A735Cu /* the release's build */
 #define RAC2_ADDR_0x001A7340u 0x001A73C0u /* the release's build */
@@ -62,6 +63,7 @@
 #define RAC2_ADDR_0x001ADE00u 0x001ADE78u /* the release's build */
 #define RAC2_ADDR_0x001ADE20u 0x001ADE98u /* the release's build */
 #define RAC2_ADDR_0x001ADE28u 0x001ADEA0u /* the release's build */
+#define RAC2_ADDR_0x001ADF90u 0x001AE008u /* the release's build */
 #define RAC2_ADDR_0x001AE0E0u 0x001AE158u /* the release's build */
 #define RAC2_ADDR_0x001AE0F4u 0x001AE16Cu /* the release's build */
 #define RAC2_ADDR_0x001AE120u 0x001AE198u /* the same instruction of the paired function */
@@ -83,7 +85,7 @@
 #define RAC2_ADDR_0x001B18D8u 0x001B18D8u /* versionmap: exact */
 #define RAC2_ADDR_0x001B18DCu 0x001B18DCu /* versionmap: exact */
 #define RAC2_ADDR_0x001B1B74u 0x001B1B74u /* versionmap: exact */
-#define RAC2_ADDR_0x001B1B78u 0x001B1B78u /* the release's build */
+#define RAC2_ADDR_0x001B1B78u 0x001B1B78u /* versionmap: exact */
 #define RAC2_ADDR_0x001B1D48u 0x001B1D48u /* versionmap: exact */
 #define RAC2_ADDR_0x001B1D90u 0x001B1D90u /* versionmap: exact */
 #define RAC2_ADDR_0x001B1D98u 0x001B1D98u /* versionmap: exact */
@@ -108,7 +110,7 @@
 #define RAC2_ADDR_0x001BF200u 0x001BF200u /* versionmap: exact */
 #define RAC2_ADDR_0x001C2740u 0x001C2740u /* versionmap: exact */
 #define RAC2_ADDR_0x001C4FA0u 0x001C4FA0u /* versionmap: exact */
-#define RAC2_ADDR_0x001EE5A0u 0x001EE5A0u /* the release's build */
+#define RAC2_ADDR_0x001EE5A0u 0x001EE5A0u /* versionmap: exact */
 #define RAC2_ADDR_0x001F1F40u 0x001F1F40u /* versionmap: exact */
 #define RAC2_ADDR_0x001F2840u 0x001F2840u /* versionmap: exact */
 #define RAC2_ADDR_0x00210D40u 0x00210D70u /* the release's build */
@@ -127,7 +129,7 @@
 #define RAC2_LADDR_00_0x001B14ACu 0x001B14BCu /* the release's build */
 #define RAC2_LADDR_00_0x001B14B0u 0x001B14C0u /* the release's build */
 #define RAC2_LADDR_00_0x001B14C4u 0x001B14D4u /* the release's build */
-#define RAC2_LADDR_00_0x001B19C8u 0x001B19C8u /* the release's build */
+#define RAC2_LADDR_00_0x001B19C8u 0x001B19C8u /* versionmap: exact */
 #define RAC2_LADDR_00_0x001B1E9Cu 0x001B1E9Cu /* versionmap: exact */
 #define RAC2_LADDR_00_0x001B1EA8u 0x001B1EA8u /* versionmap: exact */
 #define RAC2_LADDR_00_0x001B8E10u 0x001B8E50u /* the release's build */
@@ -166,6 +168,11 @@
 #define RAC2_K_PAUSE_LIST_OFFSET 0x3C210 /* v1.01 0x3BE08; func_0029C4C0 as func_0029CE58: 1 instructions */
 #define RAC2_K_PAUSE_LIST_WHICH 0x31C /* v1.01 0x2FC; func_00341610 as func_00343690: 1 instructions */
 #define RAC2_K_PAUSE_OPTIONS_ROWS 0x7 /* v1.01 0x8; by hand: func_00341610 as func_00343690: addiu $v1, $zero, 0x7 at +0x5c for v1.01's 0x8 (the Options list's rows, list 1) */
+#define RAC2_K_PLANET_INFO_COUNT_BUFFER 0x6C0 /* v1.01 0x600; func_0033ED88 as func_00340D78: 1 instructions */
+#define RAC2_K_PLANET_INFO_COUNT_LABEL 0xBCC /* v1.01 0x2DBB; func_0033ED88 as func_00340D78: 1 instructions */
+#define RAC2_K_PLANET_INFO_COUNT_TITLE 0x578 /* v1.01 0x4E8; func_0033ED88 as func_00340D78: 1 instructions */
+#define RAC2_K_PLANET_INFO_COUNT_WIDGET 0x470 /* v1.01 0x410; func_0033ED88 as func_00340D78: 1 instructions */
+#define RAC2_K_PLANET_INFO_TEXT_POINTER 0x40 /* v1.01 0x40; func_00336A38 as func_00338730: 1 instructions */
 #define RAC2_K_SEEKER_SPAWN_ARGS 0x4 /* v1.01 0x4; by hand: PAL's effect_spawn_owned_moby (func_PAL_L00_003ADC68, versionmap near, 572 bytes as v1.01's) takes v1.01's four arguments and stores the 5 at pvars +0x78 itself */
 #define RAC2_K_TEXT_CAMERA_ROW 0xBA9 /* v1.01 0x2D98; func_0033C468 as func_0033E338: 1 instructions */
 #define RAC2_K_TEXT_CAMERA_TITLE 0xBA9 /* v1.01 0x2D98; func_0033C468 as func_0033E338: 1 instructions */

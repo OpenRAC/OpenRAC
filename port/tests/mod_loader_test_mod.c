@@ -56,6 +56,7 @@ static int s_play;
 static int s_world;
 static int s_motion;
 static int s_prop = -1;
+static int s_model = -1;
 static int s_figure = -1;
 
 /* The menu page: a white rectangle and "HELLO" each frame; Cross closes it. */
@@ -173,6 +174,13 @@ static void play_frame(void) {
             7900 + (s_api->level_name(1) != NULL && s_api->level_name(1)[0] == 'N')
             + 2 * (s_api->level_name(99) == NULL)
         );
+        if (s_api->api_minor >= 32) {
+            /* Interface 1.33: a game the manifest does not declare is refused (-6), an id that is not a
+             * game's is 0. */
+            char folder[512];
+            s_record(7970 + -s_api->game_data_dir(s_mod, "rac2", folder, sizeof folder));
+            s_record(7980 + -s_api->game_data_dir(s_mod, "../up", folder, sizeof folder));
+        }
     } else if (s_frames == 3) {
         s_record(7600 + -s_api->figure_pose(s_mod, s_figure, &pose));
         s_record(7730 + -s_api->figure_held(s_mod, s_figure, &held));
@@ -300,11 +308,17 @@ static void world_frame(void) {
  * at scale 2, a second prop of it fixed to joint 5 of the moby in slot 3, then to the hero's attach
  * point 1 (interface 1.18; no moby in slot 4 and no attach point 2 refused), a sound loaded (a
  * missing one refused) and played, its voice changed and stopped.
- * Frame 2 (another hook point named, the level loaded again): the pose refused, the prop gone. */
+ * Frame 2 (another hook point named, the level loaded again): the pose refused, the prop gone, the
+ * same mesh asked for again. */
 static void motion_frame(void) {
     openrac_pose pose;
     openrac_collision_triangle tris[2];
     openrac_prop_pose where;
+    float skin[32] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+                      1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 3, 0, 0, 1};
+    float bad[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    openrac_moby_model mm;
+    volatile float zero = 0.0f;
     const float lo[3] = {0.0f, 0.0f, 0.0f};
     const float hi[3] = {8.0f, 8.0f, 8.0f};
     uint32_t voice;
@@ -346,6 +360,17 @@ static void motion_frame(void) {
                 s_record(9680 + -s_api->prop_frame(s_mod, s_prop + 2, at));
             }
         }
+        /* Interface 1.33: the prop's skin (two joints: the bind pose, and 3 along x), the refusals
+         * (a prop that is not there, a value that is not a number, too many joints, no matrices),
+         * the skin taken off and put on again. */
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, skin, 2));
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop + 2, skin, 2));
+        bad[0] = 0.0f / zero;
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, bad, 1));
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, skin, OPENRAC_PROP_JOINTS_MAX + 1));
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, NULL, 2));
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, NULL, 0));
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, skin, 2));
         sound = s_api->sound_load(s_mod, "beep.wav");
         s_record(9560 + sound);
         s_record(9560 + -s_api->sound_load(s_mod, "missing.wav"));
@@ -380,6 +405,31 @@ static void motion_frame(void) {
             memset(&cam, 0, sizeof cam);
             cam.size = sizeof cam;
             s_record(9600 + -s_api->camera_view(&cam) + (int)cam.eye[0]);
+            /* Interface 1.33: a bad channel, amplitude or count is refused (-1) and never reaches the
+             * host; a good one is handed on (0). */
+            s_record(9670 + -s_api->camera_shake(s_mod, 2, 0.1f, 10));
+            s_record(9670 + -s_api->camera_shake(s_mod, 0, 1.5f, 10));
+            s_record(9670 + -s_api->camera_shake(s_mod, 1, 0.1f, 601));
+            s_record(9670 + -s_api->camera_shake(s_mod, 0, 0.15f, 30));
+        }
+        if (s_api->api_minor >= 32) {
+            /* Interface 1.33: the culling bypass. A value other than 0 or 1 is refused (-1), 1 is taken
+             * in a level in play (0), 0 gives it back, and 1 again leaves it on for the host to read. */
+            s_record(9820 + -s_api->camera_visibility_bypass(s_mod, 2));
+            s_record(9820 + -s_api->camera_visibility_bypass(s_mod, 1));
+            s_record(9820 + -s_api->camera_visibility_bypass(s_mod, 0));
+            s_record(9820 + -s_api->camera_visibility_bypass(s_mod, 1));
+        }
+        if (s_api->api_minor >= 32) {
+            /* Interface 1.33. The test game is not Ratchet & Clank, so reserving item IDs is unknown
+             * (-1). An ammo panel offset past the range is refused (-1), one in range is taken (0) and
+             * zero gives it back (0). A weapon the mod never registered is not granted (-6). */
+            const uint32_t item = 36;
+            s_record(9830 + -s_api->rac1_reserve_item_ids(s_mod, &item, 1));
+            s_record(9840 + -s_api->rac1_ammo_panel_offset(s_mod, 3, 2000, 0));
+            s_record(9840 + -s_api->rac1_ammo_panel_offset(s_mod, 3, 10, -20));
+            s_record(9840 + -s_api->rac1_ammo_panel_offset(s_mod, 3, 0, 0));
+            s_record(9850 + -s_api->rac1_weapon_grant(s_mod, 36));
         }
         {
             openrac_hud_text line;
@@ -394,10 +444,172 @@ static void motion_frame(void) {
         }
         s_record(9620 + s_api->hero_sound_play(s_mod, 26, 0));
         s_record(9630 + s_api->hero_sound_play(s_mod, 0, 1));
+        /* Interface 1.33: a model of the mod's board.glb (asked for twice: the same handle; a path
+         * outside the mod's folder and a missing file refused), the moby in slot 1 drawn with it,
+         * and the refusals (a slot with no moby, a model that is not the mod's, unknown flags, a
+         * short size, a value that is not a number, no struct); a handle that is not the mod's
+         * finds the slot taken; cleared, cleared again, and set again with the game's joints. */
+        s_model = s_api->model_create(s_mod, "board.glb");
+        s_record(9700 + s_model);
+        s_record(9710 + s_api->model_create(s_mod, "board.glb"));
+        s_record(9720 + -s_api->model_create(s_mod, "../test-b/board.glb"));
+        s_record(9720 + -s_api->model_create(s_mod, "missing.glb"));
+        memset(&mm, 0, sizeof mm);
+        mm.size = sizeof mm;
+        mm.model = s_model;
+        mm.matrix[0] = mm.matrix[5] = mm.matrix[10] = mm.matrix[15] = 1.0f;
+        s_record(9730 + -s_api->moby_model_slot(s_mod, 1, &mm));
+        s_record(9730 + -s_api->moby_model_slot(s_mod, 5, &mm));
+        mm.model = s_model + 5;
+        s_record(9730 + -s_api->moby_model_slot(s_mod, 1, &mm));
+        mm.model = s_model;
+        mm.flags = 2;
+        s_record(9730 + -s_api->moby_model_slot(s_mod, 1, &mm));
+        mm.flags = 0;
+        mm.size = 8;
+        s_record(9730 + -s_api->moby_model_slot(s_mod, 1, &mm));
+        mm.size = sizeof mm;
+        mm.matrix[1] = 0.0f / zero;
+        s_record(9730 + -s_api->moby_model_slot(s_mod, 1, &mm));
+        mm.matrix[1] = 0.0f;
+        s_record(9730 + -s_api->moby_model_slot(s_mod, 1, NULL));
+        s_record(9730 + -s_api->moby_model_slot((openrac_mod*)&s_model, 1, &mm));
+        mm.model = -1;
+        s_record(9730 + -s_api->moby_model_slot(s_mod, 1, &mm));
+        s_record(9730 + -s_api->moby_model_slot(s_mod, 1, &mm));
+        mm.model = s_model;
+        mm.flags = 0;
+        mm.matrix[12] = 2.0f;
+        s_record(9730 + -s_api->moby_model_slot(s_mod, 1, &mm));
+        /* Interface 1.33: the mobys of class 511 in both scopes (the refusals: no scope, a scope
+         * that is none of the port's, a class below 0, a model that is not the mod's, unknown
+         * flags, no struct); another mod's handle finds the class taken in either scope while the
+         * mod holds one; the menu scope given up, free for anyone. */
+        mm.flags = 0;
+        mm.matrix[12] = 0.0f;
+        mm.matrix[13] = 3.0f;
+        s_record(
+            9740
+            + -s_api->moby_model_class(s_mod, 511, OPENRAC_MODEL_WORLD | OPENRAC_MODEL_MENU, &mm)
+        );
+        s_record(9740 + -s_api->moby_model_class(s_mod, 511, 0, &mm));
+        s_record(9740 + -s_api->moby_model_class(s_mod, 511, 4, &mm));
+        s_record(9740 + -s_api->moby_model_class(s_mod, -1, OPENRAC_MODEL_WORLD, &mm));
+        mm.model = s_model + 5;
+        s_record(9740 + -s_api->moby_model_class(s_mod, 511, OPENRAC_MODEL_WORLD, &mm));
+        mm.model = s_model;
+        mm.flags = 2;
+        s_record(9740 + -s_api->moby_model_class(s_mod, 511, OPENRAC_MODEL_WORLD, &mm));
+        mm.flags = 0;
+        s_record(9740 + -s_api->moby_model_class(s_mod, 511, OPENRAC_MODEL_WORLD, NULL));
+        mm.model = -1;
+        s_record(
+            9740 + -s_api->moby_model_class((openrac_mod*)&s_model, 511, OPENRAC_MODEL_WORLD, &mm)
+        );
+        s_record(9740 + -s_api->moby_model_class(s_mod, 511, OPENRAC_MODEL_MENU, &mm));
+        s_record(
+            9740 + -s_api->moby_model_class((openrac_mod*)&s_model, 511, OPENRAC_MODEL_MENU, &mm)
+        );
+        s_record(
+            9740
+            + -s_api->moby_model_class(
+                (openrac_mod*)&s_model, 511, OPENRAC_MODEL_WORLD | OPENRAC_MODEL_MENU, &mm
+            )
+        );
+        /* Interface 1.33: the smoke with the game's texture 1 and blend 0x44 is made; a texture past
+         * one byte, a spin rate past 1, a flag the port does not know and a null spawn are refused. */
+        {
+            static const float at[3] = {1.0f, 2.0f, 3.0f};
+            static const float go[3] = {0.0f, 0.0f, 4.0f};
+            openrac_particle_spawn sp = {0};
+            sp.size = sizeof sp;
+            sp.kind = OPENRAC_PARTICLE_SMOKE;
+            sp.position[0] = at[0];
+            sp.position[1] = at[1];
+            sp.position[2] = at[2];
+            sp.velocity[2] = go[2];
+            sp.particle_size = 40000.0f;
+            sp.life_ticks = 60;
+            sp.color = 0x7F606060u;
+            sp.texture = 1;
+            sp.blend = 0x44;
+            sp.rot = -0.0002f;
+            s_record(9760 + -s_api->particle_spawn_ex(s_mod, &sp));
+            sp.texture = 256;
+            s_record(9760 + -s_api->particle_spawn_ex(s_mod, &sp));
+            sp.texture = 1;
+            sp.rot = 2.0f;
+            s_record(9760 + -s_api->particle_spawn_ex(s_mod, &sp));
+            sp.rot = -0.0002f;
+            sp.flags = 2u;
+            s_record(9760 + -s_api->particle_spawn_ex(s_mod, &sp));
+            sp.flags = 0u;
+            s_record(9760 + -s_api->particle_spawn_ex(s_mod, NULL));
+        }
+        /* Interface 1.33: the moby at 0x3F00 (class 511 to the test's game, not in the level's list) is drawn
+         * with the model; the refusals: no moby there (0x4000, class -1), address 0, a model that is not the
+         * mod's, unknown flags, a matrix value that is not a number and no struct. */
+        {
+            memset(&mm, 0, sizeof mm);
+            mm.size = sizeof mm;
+            mm.model = s_model;
+            mm.matrix[0] = mm.matrix[5] = mm.matrix[10] = mm.matrix[15] = 1.0f;
+            s_record(9770 + -s_api->moby_model_at(s_mod, 0x3F00, &mm));
+            s_record(9770 + -s_api->moby_model_at(s_mod, 0x4000, &mm));
+            s_record(9770 + -s_api->moby_model_at(s_mod, 0, &mm));
+            mm.model = s_model + 5;
+            s_record(9770 + -s_api->moby_model_at(s_mod, 0x3F00, &mm));
+            mm.model = s_model;
+            mm.flags = 2;
+            s_record(9770 + -s_api->moby_model_at(s_mod, 0x3F00, &mm));
+            mm.flags = 0;
+            mm.matrix[1] = 0.0f / zero;
+            s_record(9770 + -s_api->moby_model_at(s_mod, 0x3F00, &mm));
+            mm.matrix[1] = 0.0f;
+            s_record(9770 + -s_api->moby_model_at(s_mod, 0x3F00, NULL));
+            if (s_api->api_minor >= 32) {
+                mm.model = -1;
+                mm.flags = OPENRAC_MODEL_HIDE_NATIVE;
+                s_record(9770 + -s_api->moby_model_at(s_mod, 0x3F00, &mm));
+            }
+        }
+        /* Interface 1.33: a texture of the game's format is registered and gets id 128; the same content
+         * gets 128 again, other content 129; a null texture and a size too small are refused. Recorded as
+         * 9790 + (id - 128) for an id, 9800 + -answer for a refusal. */
+        if (s_api->api_minor >= 32) {
+            static openrac_particle_texture pt;
+            int id;
+            memset(&pt, 0, sizeof pt);
+            pt.size = sizeof pt;
+            pt.indices[0] = 1;
+            pt.clut[0] = 0x10;
+            id = s_api->particle_texture_register(s_mod, &pt);
+            s_record(
+                id >= OPENRAC_PARTICLE_TEXTURE_FIRST ? 9790 + (id - OPENRAC_PARTICLE_TEXTURE_FIRST)
+                                                     : 9800 + -id
+            );
+            id = s_api->particle_texture_register(s_mod, &pt);
+            s_record(
+                id >= OPENRAC_PARTICLE_TEXTURE_FIRST ? 9790 + (id - OPENRAC_PARTICLE_TEXTURE_FIRST)
+                                                     : 9800 + -id
+            );
+            pt.indices[0] = 2;
+            id = s_api->particle_texture_register(s_mod, &pt);
+            s_record(
+                id >= OPENRAC_PARTICLE_TEXTURE_FIRST ? 9790 + (id - OPENRAC_PARTICLE_TEXTURE_FIRST)
+                                                     : 9800 + -id
+            );
+            pt.size = 4;
+            s_record(9800 + -s_api->particle_texture_register(s_mod, &pt));
+            pt.size = sizeof pt;
+            s_record(9800 + -s_api->particle_texture_register(s_mod, NULL));
+        }
     } else if (s_frames == 2) {
         openrac_joint_offset joints[2];
         s_record(9500 + -s_api->hero_set_pose(s_mod, &pose));
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop, &where));
+        /* The prop went with its level, and its skin with it. */
+        s_record(9660 + -s_api->prop_set_skin(s_mod, s_prop, skin, 2));
         /* The joints, from a mod that no longer holds the hero's update: taken all the same. */
         memset(joints, 0, sizeof joints);
         joints[0].joint = 1;
@@ -407,6 +619,15 @@ static void motion_frame(void) {
         s_record(9640 + -s_api->hero_set_joints(s_mod, joints, 2));
         s_record(9640 + -s_api->hero_set_joints(s_mod, joints, OPENRAC_JOINT_OFFSETS_MAX + 1));
         s_record(9650 + -s_api->hero_set_joints(s_mod, NULL, 0));
+        /* The level was loaded again: the meshes of the last load's props are not this one's, so
+         * the same mesh is asked for again (the port's list of them started again). */
+        s_record(9660 + s_api->prop_create(s_mod, "board.glb"));
+        /* The model went with its level too. */
+        memset(&mm, 0, sizeof mm);
+        mm.size = sizeof mm;
+        mm.model = s_model;
+        s_record(9730 + -s_api->moby_model_slot(s_mod, 1, &mm));
+        s_record(9740 + -s_api->moby_model_class(s_mod, 511, OPENRAC_MODEL_WORLD, &mm));
     }
 }
 

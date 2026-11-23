@@ -225,9 +225,11 @@ frame by frame.
   there are no frames to replace.
 - **Made while the game runs.** Fades, the picture drawn into a screen (the
   vendor's screen, the ship's cockpit display) and other textures the game
-  draws itself change every frame. They cannot be replaced. In the 2D layer
-  a dump skips them: a place that gets a new texture on almost every tick for
-  about a second is not dumped, and its first ones are removed again.
+  draws itself change every frame. They cannot be replaced reliably. Dumps
+  skip the interpolated effects in Ratchet & Clank from their first frame,
+  including Kerwan and Gaspar. In the 2D layer, if a place gets a new texture
+  on almost every tick for about a second, the dump drops those first frames
+  and skips subsequent ones.
 
 Examples from Going Commando (NTSC-U):
 

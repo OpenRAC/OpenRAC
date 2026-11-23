@@ -13,12 +13,16 @@
  * The port builds both into one program (the multiplayer one from hostgen.json beside mp/, its
  * C names starting with mp_) and does what the console does: LoadExecPS2 never returns, the stack
  * of the program that called it is dropped (a longjmp to func_0013ADA8, the port's entry), the
- * other executable is read from the disc, its packed game unpacked over memory, its functions
- * registered in place of the first's, and its crt0's steps run with the arguments the kernel
- * hands it (argv[0] the path, then the caller's). */
+ * other program's records are copied over memory, its functions registered in place of the
+ * first's, and its crt0's steps run with the arguments the kernel hands it (argv[0] the path,
+ * then the caller's).
+ *
+ * The packed games are unpacked when the disc is set up, not here: the extractor writes each
+ * loader's records (its WAD-compressed stream at file offset 0x7080, unpacked) to
+ * programs/<file>.records beside the disc's files (tools/openrac_common/disc_files.py). The
+ * port reads those, never the disc image or the loader's packed stream. */
 #include "exec.h"
 
-#include <ctype.h>
 #include <setjmp.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -28,12 +32,6 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac3_version.h"
-
-uint32_t openrac_lib_wad_decompress(const uint8_t* src, uint8_t* dst, uint32_t capacity);
-
-#define PAYLOAD_OFFSET 0x7080u /* in the file: the loader's .rodata, the packed game */
-#define PAYLOAD_MAX 0x00400000u
-#define SECTOR 2048u
 
 static jmp_buf exec_jump;
 static int exec_armed;
@@ -61,93 +59,37 @@ static uint32_t word_at(const uint8_t* p) {
     return v;
 }
 
-/* A file of the disc's root directory, read whole (ISO 9660: the primary volume descriptor at
- * sector 16, the root's directory record at its byte 156). NULL when it is not there. */
-uint8_t* rac3_exec_read_disc_file(const char* name, uint32_t* size) {
-    FILE* disc = openrac_game_disc_image != NULL ? fopen(openrac_game_disc_image, "rb") : NULL;
-    uint8_t sector[SECTOR];
-    uint8_t* out = NULL;
-    if (disc == NULL) {
-        return NULL;
-    }
-    if (fseek(disc, 16L * SECTOR, SEEK_SET) != 0 || fread(sector, 1, SECTOR, disc) != SECTOR) {
-        fclose(disc);
-        return NULL;
-    }
-    const uint32_t root = word_at(sector + 156 + 2), root_size = word_at(sector + 156 + 10);
-    const size_t name_length = strlen(name);
-    for (uint32_t s = 0; s < (root_size + SECTOR - 1) / SECTOR && out == NULL; ++s) {
-        if (fseek(disc, (long)(root + s) * (long)SECTOR, SEEK_SET) != 0
-            || fread(sector, 1, SECTOR, disc) != SECTOR) {
-            break;
-        }
-        for (uint32_t at = 0; at < SECTOR && sector[at] != 0; at += sector[at]) {
-            const uint8_t* r = sector + at;
-            const size_t n = r[32];
-            /* "NAME;1": compared without the version, as the game names it. */
-            size_t plain = n;
-            for (size_t k = 0; k < n; ++k) {
-                if (r[33 + k] == ';') {
-                    plain = k;
-                    break;
-                }
-            }
-            if (plain != name_length) {
-                continue;
-            }
-            size_t k = 0;
-            while (k < plain && toupper(r[33 + k]) == toupper((unsigned char)name[k])) {
-                ++k;
-            }
-            if (k != plain) {
-                continue;
-            }
-            const uint32_t lba = word_at(r + 2), bytes = word_at(r + 10);
-            out = (uint8_t*)malloc(bytes);
-            if (out != NULL
-                && (fseek(disc, (long)lba * (long)SECTOR, SEEK_SET) != 0
-                    || fread(out, 1, bytes, disc) != bytes)) {
-                free(out);
-                out = NULL;
-            }
-            *size = bytes;
-            break;
-        }
-    }
-    fclose(disc);
-    return out;
-}
-
-/* The loader's work: the packed game's records (the WAD-compressed stream at `payload`) copied to
- * their addresses; its entry, 0 when there is no game there. */
-uint32_t rac3_exec_unpack_payload(const uint8_t* payload) {
-    uint8_t* image = (uint8_t*)malloc(PAYLOAD_MAX);
-    uint32_t entry = 0;
-    if (image == NULL) {
+/* The records of a program (programs/<file>.records, the extractor's unpacking of the loader's
+ * packed game) copied to their addresses: (address, size, type, entry) and the bytes, type 1
+ * code and data, type 8 zeros; the register-use records (0x70000006) load nowhere. The entry of
+ * the last record, 0 when there is no program there. */
+uint32_t rac3_exec_load_program(const char* file) {
+    char path[160];
+    uint32_t entry = 0, at = 0;
+    snprintf(path, sizeof path, "programs/%s.records", file);
+    const uint64_t length = openrac_disc_file_size(path);
+    uint8_t* image =
+        length <= 0x02000000u ? (uint8_t*)malloc(length > 0 ? (size_t)length : 1) : NULL;
+    if (image == NULL || !openrac_disc_read_file(path, image, length)) {
+        fprintf(stderr, "rac3: %s is not among the disc's files: set the game up again\n", path);
+        free(image);
         return 0;
     }
-    const uint32_t unpacked = openrac_lib_wad_decompress(payload, image, PAYLOAD_MAX);
-    uint32_t at = 0;
-    while (at + 16 <= unpacked) {
+    const uint32_t size = (uint32_t)length;
+    while (size >= 16u && at <= size - 16u) {
         const uint32_t address = word_at(image + at), bytes = word_at(image + at + 4),
                        kind = word_at(image + at + 8);
-        if (bytes > unpacked - at - 16) {
+        if (bytes > size - at - 16) {
             break;
         }
         entry = word_at(image + at + 12);
-        /* Code and data (1) and zeros (8); the register-use records (0x70000006) load nowhere. */
         if ((kind == 1u || kind == 8u) && address + bytes <= 0x02000000u) {
             memcpy(G(address), image + at + 16, bytes);
         }
         at += 16 + bytes;
     }
     free(image);
-    return unpacked >= 16 ? entry : 0;
-}
-
-/* The same from the loader's file, read whole. */
-uint32_t rac3_exec_unpack(const uint8_t* file, uint32_t size) {
-    return size > PAYLOAD_OFFSET + 16u ? rac3_exec_unpack_payload(file + PAYLOAD_OFFSET) : 0;
+    return size >= 16u ? entry : 0;
 }
 
 /* The argument block a crt0 reads (its argc, then argv): the path the program was started by,

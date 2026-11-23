@@ -37,7 +37,14 @@ enum class Sound : std::uint8_t {
     DENIED,  // A disabled component was chosen.
 };
 
-// The game's look, as the screens draw it.
+// The parts of a modal screen's panel, each in a colour of the game's.
+enum class PanelPart : std::uint8_t {
+    FILL,  // The panel's field.
+    EDGE,  // Its edge, a pixel wide.
+};
+
+// The game's look, as the screens draw it: one draw layer of text, filled rectangles, the game's
+// images and its highlight bar, which a game implements with its own drawing.
 //
 // The binding owns it and keeps it alive while a screen draws; the screens call it on the game's
 // thread, inside the game's frame, so what it draws lands in the game's own 2D list.
@@ -58,11 +65,14 @@ public:
     // Draws the game's highlight bar over `rect`, behind the text drawn after it.
     virtual void highlight(const Rect& rect) = 0;
 
-    // Draws a panel behind a screen that has no game screen under it.
-    virtual void panel(const Rect& rect) = 0;
+    // Fills `rect` with `rgba` (0xAABBGGRR, the games' 0x80 alpha is full).
+    virtual void rect(const Rect& rect, std::uint32_t rgba) = 0;
 
-    // Draws the marks that say a table has rows above (`up`) or below (`down`) the ones shown.
-    virtual void scroll_marks(const Rect& table, bool up, bool down) = 0;
+    // Draws the game's image `sprite` (the skin's own numbering) stretched over `rect`.
+    virtual void sprite(const Rect& rect, int sprite) = 0;
+
+    // Returns the colour the game gives `part` of a modal screen's panel.
+    virtual std::uint32_t colour(PanelPart part) const = 0;
 
     // Plays a menu sound.
     virtual void sound(Sound sound) = 0;

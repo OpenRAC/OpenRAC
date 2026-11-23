@@ -126,22 +126,16 @@ void func_00129148(gaddr out, gaddr v, float s) {
 }
 
 /* Copies count quadwords from src to dst through the scratchpad (0x0029CFB0): at most 1024 at a
- * time, to scratchpad address 0 (toSPR, channel 9) and back out (fromSPR, channel 8). Each channel
- * start runs its transfer at once (spr_dma.c), where the routine polls STR until it clears. */
+ * time, to scratchpad address 0 (retail's toSPR transfer, channel 9) and back out (fromSPR, channel
+ * 8), each over before the next starts, as the routine waits for it. */
 void func_0029CFB0(gaddr dst, gaddr src, int count) {
-    const openrac_u32 to_spr = 0x1000D400u, from_spr = 0x1000D000u;
     while (count > 0) {
         const int n = count < 0x400 ? count : 0x400;
-        openrac_ee_sw_dma(to_spr + 0x80u, 0);
-        openrac_ee_sw_dma(to_spr + 0x20u, (openrac_u64)n);
-        openrac_ee_sw_dma(to_spr + 0x10u, src);
-        openrac_ee_sw_dma(to_spr, 0x100u);
-        openrac_ee_sw_dma(from_spr + 0x80u, 0);
-        openrac_ee_sw_dma(from_spr + 0x20u, (openrac_u64)n);
-        openrac_ee_sw_dma(from_spr + 0x10u, dst);
-        openrac_ee_sw_dma(from_spr, 0x100u);
-        src += (gaddr)n * 16u;
-        dst += (gaddr)n * 16u;
+        const size_t bytes = (size_t)n * 16u;
+        memmove(G(GUEST_SCRATCHPAD), G(src & 0x01FFFFF0u), bytes);
+        memmove(G(dst & 0x01FFFFF0u), G(GUEST_SCRATCHPAD), bytes);
+        src += (gaddr)bytes;
+        dst += (gaddr)bytes;
         count -= n;
     }
 }

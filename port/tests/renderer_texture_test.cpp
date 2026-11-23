@@ -19,6 +19,7 @@
 
 #include "check.h"
 #include "game/common/particle_texture_cache.h"
+#include "renderer/frame/ui_records.h"
 #include "renderer/textures/pcsx2_pack.h"
 #include "renderer/textures/texture.h"
 #include "renderer/textures/texture_pack.h"
@@ -79,6 +80,25 @@ void pcsx2_texture_pack() {
     image = Rgba8Image(32, 16);
     CHECK(pcsx2_pack::replace_indexed8(image, indices, palette));
     CHECK(image.texel(3, 3) == rgba(255, 0, 0, 128));
+    // A native 2D image (TexturePool::ui_image) is found by the game's own indices and palette, not
+    // by where the chip kept it: with them it takes the pack's picture, without them it stays.
+    {
+        TexturePool images;
+        const Rgba8Image decoded(32, 16);
+        UiIndexed source;
+        source.indices.assign(indices.begin(), indices.end());
+        source.palette.assign(palette.begin(), palette.end());
+        const TextureHandle plain = images.ui_image(1, decoded);
+        CHECK(!images.has_pcsx2_replacement(plain) && images.image(plain).width == 32);
+        const TextureHandle packed = images.ui_image(2, decoded, &source);
+        CHECK(images.has_pcsx2_replacement(packed));
+        CHECK(images.image(packed).width == 4);
+        CHECK(images.image(packed).texel(3, 3) == rgba(255, 0, 0, 64));
+        CHECK(images.ui_image(2, decoded, &source) == packed);
+        // The same indices sent as the top byte of 32-bit words have a name of their own.
+        image = Rgba8Image(32, 16);
+        CHECK(!pcsx2_pack::replace_indexed8(image, indices, palette, AlphaScale::Gs, true));
+    }
     fs::remove(file);
     image = Rgba8Image(32, 16);
     CHECK(pcsx2_pack::replace_indexed8(image, indices, palette));

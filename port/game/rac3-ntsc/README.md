@@ -14,7 +14,8 @@ rac3-decomp's level C is PAL's, named by PAL's level addresses.
 
 ```sh
 python3 tools/build_port.py rac3-ntsc --disc <your NTSC-U disc image>
-# a data folder with iso_data/rac3/SCUS_973.53 (the disc's boot executable) and iso_data/rac3/disc.iso
+# a data folder set up by python3 tools/extractor.py <image> --game rac3 -e --proj-path <data>:
+# iso_data/rac3/ with the disc's files, sectors.tsv and programs/ (the two programs, unpacked)
 SDL_AUDIODRIVER=dummy port/build/release/openrac-rac3-ntsc --data <data> --window --skip-movies
 ```
 

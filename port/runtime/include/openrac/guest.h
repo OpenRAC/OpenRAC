@@ -58,13 +58,6 @@ __extension__ typedef unsigned __int128 openrac_u128;
 #define GUEST_GS_REGS_SIZE 0x00002000u
 #define GUEST_SCRATCHPAD 0x70000000u
 #define GUEST_SCRATCHPAD_SIZE 0x00004000u /* 16 KB */
-/* The 16 KB after the scratchpad: the odd half of the console's scratchpad TLB entry, which maps
- * nothing there, so a write past the scratchpad takes a TLB miss. The hand-written line walks
- * (Going Commando's CollLine, Up Your Arsenal's coll_line) gather a long line's cells there with
- * no bound, as on the console: the port backs these pages so such a write lands instead of
- * faulting, and reports it (Memory::take_scratchpad_overrun). */
-#define GUEST_SCRATCHPAD_GUARD (GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE)
-#define GUEST_SCRATCHPAD_GUARD_SIZE 0x00004000u
 #define GUEST_PORT 0xE0000000u
 #define GUEST_PORT_SIZE 0x01000000u /* 16 MB */
 #define GUEST_STACK_TOP (GUEST_PORT + 0x00100000u)
@@ -401,6 +394,19 @@ int openrac_guest_prepare_level_program(int level);
 int openrac_guest_restore_level_program(int level);
 /* Drops program bytes cached only for the process; the configured source can reload them. */
 void openrac_guest_clear_level_programs(void);
+
+/* Copies of a level's functions in other levels that the port translated apart (each level at its
+ * own addresses, so no one host function stands for both): `address` in `level` is a copy of
+ * `from_address` in `from`, for the level-to-level pairs (OPENRAC_LDATA(from, ...)) with that level
+ * loaded. hostgen writes them from the catalogue (hostgen.json "level_copies"). */
+typedef struct openrac_level_copy {
+    int32_t level;
+    gaddr address;
+    int32_t from;
+    gaddr from_address;
+} openrac_level_copy;
+
+void openrac_guest_add_level_copies(const openrac_level_copy* copies, size_t count);
 gaddr openrac_relocate_level_data(int from, gaddr address);
 gaddr openrac_relocate_level_code(int from, gaddr address);
 #define OPENRAC_LDATA(from, a) openrac_relocate_level_data((from), (a))

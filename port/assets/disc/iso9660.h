@@ -67,6 +67,7 @@ struct IsoEntry {
 class IsoImage {
 public:
     explicit IsoImage(std::unique_ptr<ImageSource> source);
+    // An image file, or a set-up's folder read through its sector map (sector_map.h).
     static IsoImage open(const std::filesystem::path& path);
 
     u32 sector_count() const { return m_sector_count; }

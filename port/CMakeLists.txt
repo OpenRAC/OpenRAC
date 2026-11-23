@@ -174,10 +174,14 @@ target_link_libraries(openrac_mpui PUBLIC openrac_common)
 openrac_warnings(openrac_mpui)
 openrac_add_test(mpui_description LIBS openrac_mpui)
 openrac_add_test(mpui_screen_view LIBS openrac_mpui)
+# The C contract the games use (game/common/lib/mp_ui.cpp), on its own.
+openrac_add_test(mp_ui SOURCES tests/mp_ui_test.cpp game/common/lib/mp_ui.cpp
+                 INCLUDES . game/common/include runtime/include LIBS openrac_mpui)
 openrac_add_test(frame_pacing INCLUDES .)
 openrac_add_test(latency_sleep INCLUDES .)
 openrac_add_test(swapchain_images INCLUDES .)
 openrac_add_test(shadow_atlas INCLUDES .)
+openrac_add_test(joint_name INCLUDES .)
 # HDR output's arithmetic and choices (renderer/hdr.h); no GPU.
 openrac_add_test(hdr INCLUDES .)
 openrac_add_test(frame_counter INCLUDES .)
@@ -276,9 +280,9 @@ openrac_add_test(ship_destination
   LIBS openrac_runtime)
 
 openrac_add_test(cdvd_mount
-  SOURCES tests/cdvd_mount_test.cpp game/common/lib/cdvd.c
+  SOURCES tests/cdvd_mount_test.cpp game/common/lib/cdvd.c game/common/lib/disc_files.cpp
   INCLUDES game/common/include
-  LIBS openrac_runtime)
+  LIBS openrac_runtime openrac_assets_disc)
 
 openrac_add_test(custom_map
   SOURCES tests/custom_map_test.cpp game/common/program/custom_map.cpp
@@ -509,6 +513,7 @@ openrac_add_c_test(save_parts INCLUDES "${PROJECT_SOURCE_DIR}/../sdk/include")
 # Going Commando's nanotech render anchors before and after their crates break.
 openrac_add_c_test(rac2_effect_attachment INCLUDES game/rac2/host runtime/include)
 openrac_add_c_test(rac2_hero_attachments INCLUDES game/rac2/host)
+openrac_add_c_test(rac2_gh_fixes MATH)
 # Going Commando's enemy copies for the mods (moby_copy_check, moby_copy) on a level laid out as
 # LoadLevelData leaves one.
 openrac_add_c_test(rac2_enemy_copies NO_STRICT_ALIASING MATH

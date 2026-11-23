@@ -4,6 +4,24 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.34
+
+A paint material for moby_material that recolours a moby over its own shading, with a glowing rim (OPENRAC_MOBY_MATERIAL_PAINT, OPENRAC_MOBY_MATERIAL_PAINT_AT), a material on every moby of a class, the menus' pictures of it too (moby_material_class), and Going Commando's armour vendor as hook points (rac2.armor_vendor.build_list, rac2.armor_vendor.buy, rac2.vendor.preview).
+
+Members: `moby_material_class`.
+
+## 1.33
+
+Props skinned with joint matrices of the mod's own (prop_set_skin), blends that add to or subtract from the screen for the overlay's rectangles and text (openrac_overlay.set_blend), a mesh of the mod's drawn in place of a moby's model (model_create, moby_model_slot, moby_model_class, moby_model_at), the game's camera shake (camera_shake), its particle effects and 32 x 32 particle textures (particle_spawn_ex, particle_texture_register), the data folder of an installed game declared in the manifest's reads_games (game_data_dir), the gameplay camera's visibility bypass (camera_visibility_bypass), and for Ratchet & Clank item id reservation, ammo panel offsets and native-backed weapons (rac1_reserve_item_ids, rac1_ammo_panel_offset, rac1_weapon_register, rac1_weapon_grant), 1.33 Props skinned with joint matrices of the mod's own (prop_set_skin), blends that add to or subtract from the screen for the overlay's rectangles and text (openrac_overlay.set_blend), a mesh of the mod's drawn in place of a moby's model (model_create, moby_model_slot, moby_model_class, moby_model_at), the game's camera shake (camera_shake), its particle effects and 32 x 32 particle textures (particle_spawn_ex, particle_texture_register), the data folder of an installed game declared in the manifest's reads_games (game_data_dir), the gameplay camera's visibility bypass (camera_visibility_bypass), and for Ratchet & Clank item id reservation, ammo panel offsets and native-backed weapons (rac1_reserve_item_ids, rac1_ammo_panel_offset, rac1_weapon_register, rac1_weapon_grant).
+
+Members: `prop_set_skin`, `model_create`, `moby_model_slot`, `moby_model_class`, `moby_model_at`, `camera_shake`, `particle_spawn_ex`, `particle_texture_register`, `game_data_dir`, `camera_visibility_bypass`, `rac1_reserve_item_ids`, `rac1_ammo_panel_offset`, `rac1_weapon_register`, `rac1_weapon_grant`.
+
+## 1.32
+
+An independent RAC1 other-game reward display identity (OPENRAC_RAC1_OTHER_GAME_VISUAL; the table is unchanged).
+
+No new members (the table is unchanged).
+
 ## 1.31
 
 A mod's overlay drawn over the game's menus and scenes too (on_overlay_phases, openrac_overlay.phase), the pad's button icons in the HUD's and the overlay's text, each shown as the player's device has it (OPENRAC_UI_L1 ... OPENRAC_UI_RIGHT_STICK), and a button's label for the device in use (button_label).

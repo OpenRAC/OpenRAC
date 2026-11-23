@@ -179,6 +179,7 @@ enum {
 #define FEATURE_REGIONS 16 /* the UDP offer's bit: the server answers PACKET_REGIONS */
 #define FEATURE_UI 32      /* the UDP offer's bit: the server answers PACKET_UI */
 int rac3_mp_ui_describe(const char* json, size_t size); /* mp_ui.c */
+void rac3_mp_ui_notice(const char* text);               /* mp_ui.c */
 #define FEATURE_SERVERS 64 /* the UDP offer's bit: a hub (log in, the game servers' list) */
 #define HUB_DEFAULT_HOST "hub.openrac.dev"
 #define HUB_DEFAULT_PORT "7177"
@@ -350,13 +351,25 @@ typedef struct {
 #define HUB_REQUEST_BURST 8
 #define HUB_REQUEST_MS 550 /* one more frame may go every this many ms */
 
-static int64_t net_now_ms(void);
-
 /* The game server (the lobby's games, the rooms) and the hub (the login, the city list). */
 static net_link srv = {.fd = NET_INVALID}, hub = {.fd = NET_INVALID, .paced = 1};
 
 /* The link the frame being written goes to: the game server's, unless hub_begin began it. */
 static net_link* tx = &srv;
+
+/* The host's clock in milliseconds, for PACKET_TIME and the room's clock. */
+static int64_t host_ms(void) {
+    struct timespec now;
+    timespec_get(&now, TIME_UTC);
+    return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+
+/* The server's clock less the host's, from the last PACKET_TIME answer (half its round trip
+ * added): every console of a room reads the same room clock from it. */
+static struct {
+    int64_t offset;
+    int known;
+} server_clock;
 
 static void srv_begin(int id, int opcode) {
     tx->frame = tx->out_len;
@@ -406,6 +419,9 @@ static void link_close(net_link* l) {
     l->state = -1;
     l->out_len = 0;
     l->features = 0;
+    if (l == &srv) {
+        server_clock.known = 0; /* the next game server's clock is its own */
+    }
 }
 
 static void link_flush(net_link* l);
@@ -434,7 +450,7 @@ static void link_flush(net_link* l) {
     }
     size_t end = l->out_len;
     if (l->paced) {
-        const int64_t now = net_now_ms();
+        const int64_t now = host_ms();
         if (l->tokens_ms == 0) {
             l->tokens = HUB_REQUEST_BURST;
             l->tokens_ms = now;
@@ -801,12 +817,6 @@ static struct {
     int own_valid;
 } lobby;
 
-static int64_t net_now_ms(void) {
-    struct timespec now;
-    timespec_get(&now, TIME_UTC);
-    return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
-}
-
 /* ---- What the city list shows: the game server's name and its region ---- */
 
 /* The region codes game servers register with (Server REGION: every ISO 3166-1 alpha-2 code, then
@@ -1138,7 +1148,7 @@ static void srv_ensure(void) {
     if (!hub_logged_in() || srv.fd != NET_INVALID || lobby.regions_count == 0) {
         return;
     }
-    const int64_t now = net_now_ms();
+    const int64_t now = host_ms();
     if (net_login.tried_ms != 0 && now - net_login.tried_ms < SERVER_RETRY_MS) {
         return;
     }
@@ -1627,7 +1637,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
             /* The hub's list is kept current (SERVERS_WATCH): answered at once, unless the watch
              * has only just begun and its servers are still on the way. */
             if (from == &hub && lobby.watching) {
-                if (lobby.regions_count == 0 && net_now_ms() - lobby.watched_ms < 2000) {
+                if (lobby.regions_count == 0 && host_ms() - lobby.watched_ms < 2000) {
                     lobby.locations_waiting = 1;
                     return;
                 }
@@ -1844,6 +1854,17 @@ static int dme_relay(int dest, gaddr data, int len) {
         }
         target = m->id;
     }
+    /* A message to its own index comes straight back, as DME delivers it (the host's own
+     * CHANNEL_SLOT_UPDATE after a map load: state 8 in slot 0 opens the start barrier). */
+    if (target == srv.session) {
+        if (dme.inbox_count < (int)(sizeof dme.inbox / sizeof dme.inbox[0])) {
+            dme.inbox[dme.inbox_count].from = srv.session;
+            dme.inbox[dme.inbox_count].len = (uint16_t)len;
+            memcpy(dme.inbox[dme.inbox_count].data, G(data), (size_t)len);
+            dme.inbox_count++;
+        }
+        return 0;
+    }
     if (!srv_room((size_t)len + 8)) {
         return 0;
     }
@@ -1938,7 +1959,9 @@ static void obj_send(int i, int32_t target) {
 static void obj_send_changes(void) {
     const int me = room_index_of(srv.session);
     for (int i = 0; i < obj_count; i++) {
-        if (objs[i].owner == me
+        /* A released object (owner -1, GameSettings after START) is everyone's: whoever
+         * changes it sends it, as the host does its start time (+0x170) and slot states. */
+        if ((objs[i].owner == me || objs[i].owner == -1)
             && memcmp(objs[i].sent, G(objs[i].data), (size_t)obj_type[objs[i].type].size) != 0) {
             obj_send(i, 0);
         }
@@ -2344,18 +2367,27 @@ static void on_frame(int id, reader* r) {
                 char text[257];
                 rd_text(r, text, sizeof text);
                 fprintf(stderr, "[info] rac3: online: the server says: %s\n", text);
+                rac3_mp_ui_notice(text);
             }
             break;
         }
+        case PACKET_TIME: {
+            const int64_t sent = (int64_t)rd_i32(r) << 32 | (uint32_t)rd_i32(r);
+            const int64_t server = (int64_t)rd_i32(r) << 32 | (uint32_t)rd_i32(r);
+            const int64_t now = host_ms();
+            server_clock.offset = server + (now - sent) / 2 - now;
+            server_clock.known = 1;
+            break;
+        }
         default:
-            break; /* the clock, chat, data: unused here */
+            break; /* UDP offers, chat, data: unused here */
     }
 }
 
 /* PACKET_TIME every KEEP_ALIVE_MS once greeted, which HELLO promised (CLIENT_KEEPS_ALIVE): a game
  * that hangs or dies stops sending, and the server drops it from its party. The answer is ignored. */
 static void link_keep_alive(net_link* l) {
-    const int64_t ms = net_now_ms();
+    const int64_t ms = host_ms();
     const int64_t every = l == &hub ? HUB_KEEP_ALIVE_MS : KEEP_ALIVE_MS;
     if (l->state != 1 || ms - l->alive_ms < every || l->out_len + 32 >= LINK_OUT) {
         return;
@@ -2495,7 +2527,7 @@ static void on_hub_frame(int id, reader* r) {
              * and every change after (SERVERS_ADDED, _CHANGED, _REMOVED). */
             if (!lobby.watching) {
                 lobby.watching = 1;
-                lobby.watched_ms = net_now_ms();
+                lobby.watched_ms = host_ms();
                 lobby.regions_count = 0;
                 hub_begin(PACKET_SERVERS, SERVERS_WATCH);
                 srv_text(NET_FAMILY);
@@ -2776,6 +2808,35 @@ static void vblank_count(void) {
         written = now;
         GREF(int32_t, NET_VBLANKS) = now;
     }
+}
+
+/* dme_get_time(out): the room's clock in milliseconds, which the net tick (0x001959F8) copies to
+ * net + 0x128 each frame and the start barrier of a map compares with GameSettings +0x170 and
+ * +0x174. DME's own (0x0014C6B0) is synchronised by its server; here it is the OpenRAC server's
+ * clock, the same on every console of the room. */
+int mp_func_0014B008(int out) {
+    if (out != 0) {
+        const int64_t ms = host_ms() + (server_clock.known ? server_clock.offset : 0);
+        GREF(int32_t, (gaddr)out) = (int32_t)(ms & 0x7FFFFFFF);
+    }
+    return 0;
+}
+
+/* The kernel library's timer alarm (ticks, handler, argument): the handler runs as
+ * handler(id, 0, 0, argument) once the ticks are past. The port runs no timer interrupt, so the
+ * handler runs at once. The network's vblank timer (0x0019BC10) arms one each vblank with a count of
+ * sub-ticks that its handler 0x0019BCD0 counts down by arming the next; the voice stop at START
+ * (0x0019BF20, from L39_006C4448) waits in a loop for that count (0x002416E4) to reach 0, which
+ * without this never happens. The chain is as long as the count (6), so the recursion is short. */
+int mp_func_0012E3E8(int ticks, int handler, int argument) {
+    static int32_t next_id;
+    (void)ticks;
+    const int32_t id = ++next_id & 0x7FFFFFFF;
+    if (handler == 0) {
+        return id;
+    }
+    GFN(int (*)(int, int, int, int), (gaddr)handler)(id, 0, 0, argument);
+    return id;
 }
 
 /* DME's send of one message (kind, conn, dest, class, id, len, data), through the server (0x0014CAB8)

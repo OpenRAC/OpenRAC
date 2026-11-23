@@ -30,10 +30,14 @@
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
+#include "rac3_coll_line.h"
 #include "rac3_version.h"
 
 void mp_openrac_game_register_functions(void);
 void rac3_program_set_overlay(int overlay); /* program.c */
+void rac3_program_keep_level(int level, gaddr buffer_word);
+void rac3_program_forget_levels(void);
+void rac3_program_set_range(gaddr gp, gaddr low, gaddr high);
 
 #define MP_ARGUMENTS RAC3_MADDR(0x001EBE00u) /* crt0's argument block: argc, then argv */
 #define MP_FRONT_END                                                                               \
@@ -43,26 +47,35 @@ void rac3_program_set_overlay(int overlay); /* program.c */
 #define MP_SND_REPLY RAC3_MADDR(0x00240B80u) /* the sound server's reply word ($gp - 0x7440) */
 #define MP_MENU_ENTRY                                                                              \
     RAC3_LADDR(39, 0x00575CC8u) /* level 39's program's entry: the multiplayer menus */
+/* The level whose program is loaded or being loaded: 39 the menus, 40 and up a map. */
+#define MP_LEVEL RAC3_MADDR(0x002412DCu)
+/* Where the next program was read (the boot program's 0x001D4B50): a header word, its records. */
+#define MP_PROGRAM_BUFFER RAC3_MADDR(0x00240290u)
+/* crt0's $gp, the same in every program the executable loads (hostgen.json "gp"). */
+#ifdef RAC3_NTSC
+#define MP_GP 0x00248140u
+#else
+#define MP_GP 0x00247FC0u
+#endif
+/* What a program replaces: level 39's records up. */
+#define MP_PROGRAMS_LOW RAC3_MADDR(0x00241A00u)
+#define MP_PROGRAMS_HIGH 0x00700000u
+#define MP_MAPS_FIRST 40
+#define MP_MAPS_LAST 55
 
 /* LoadExecPS2("cdrom0:\I5BOOTN.ELF;1", ...) came back to func_0013ADA8: the multiplayer
- * executable read from the disc, unpacked over memory, its functions in place of the boot
- * program's, and its crt0 run. */
+ * program's records copied over memory (exec.c), its functions in place of the boot program's,
+ * and its crt0 run. */
 void rac3_mp_run(void) {
-    uint32_t size = 0;
-    uint8_t* file = rac3_exec_read_disc_file("I5BOOTN.ELF", &size);
-    if (file == NULL) {
-        fprintf(stderr, "rac3: I5BOOTN.ELF cannot be read from the disc image\n");
-        exit(1);
-    }
     memset(G(0x00100000u), 0, 0x02000000u - 0x00100000u);
     openrac_guest_unregister_all();
     openrac_game_kernel_reset();
     openrac_snd_ring_reset();
     openrac_guest_clear_level_programs();
+    rac3_program_forget_levels();
     mp_openrac_game_register_functions();
     rac3_program_set_overlay(OPENRAC_OVERLAY_EXE);
-    const uint32_t entry = rac3_exec_unpack(file, size);
-    free(file);
+    const uint32_t entry = rac3_exec_load_program("I5BOOTN.ELF");
     if (entry != RAC3_MADDR(0x00192D18u)) {
         fprintf(
             stderr, "rac3: I5BOOTN.ELF's game starts at 0x%08x, not this disc's 0x00192d18\n", entry
@@ -90,12 +103,23 @@ void mp_func_0012D318(unsigned int path, int argc, unsigned int argv) {
 
 /* The next program over the last (0x00192F68, the boot program's 0x0013AFF8): its entry. Which
  * program that is says which functions its code addresses are (the overlay hook, program.c): the
- * executable's own front end, or level 39's, the multiplayer menus. */
+ * executable's own front end, level 39's (the multiplayer menus), or a map's (40 and up), whose
+ * number the menus leave in 0x002412DC before they end. Level 39's and the map's programs are kept
+ * as read, so that level 39's copies of the engine pair with the map's (OPENRAC_LDATA(39, ...):
+ * mp_maps.c, render.c's level 39 copies). */
 unsigned int mp_func_00192F68(void) {
+    const int level = GREF(int32_t, MP_LEVEL);
+    rac3_program_set_range(MP_GP, MP_PROGRAMS_LOW, MP_PROGRAMS_HIGH);
+    if (level >= 39 && level <= MP_MAPS_LAST) {
+        rac3_program_keep_level(level, MP_PROGRAM_BUFFER);
+    }
     const unsigned int entry = mp_func_00192F68__game();
     int overlay = OPENRAC_OVERLAY_EXE;
     if (entry == MP_MENU_ENTRY) {
         overlay = 39;
+    } else if (level >= MP_MAPS_FIRST && level <= MP_MAPS_LAST
+               && (entry < MP_FRONT_END_LOW || entry >= MP_FRONT_END_HIGH)) {
+        overlay = level;
     } else if (entry < MP_FRONT_END_LOW || entry >= MP_FRONT_END_HIGH) {
         fprintf(
             stderr,
@@ -271,6 +295,13 @@ void mp_func_00193888(int sector, int offset, int callback, long long argument) 
  * the boot program's levels' (dma.c, wad.c). */
 void mp_func_L39_005FCB98(unsigned int chain) {
     func_0012D938(0x10008000u, (gaddr)chain & 0x0FFFFFFFu);
+}
+
+/* Level 39's coll_line (the catalogue's row func_003D3CB0), its gather bounded (coll_line.c). */
+int mp_func_L39_00580220__game(int from, int to, int flags, int moby, int x);
+
+int mp_func_L39_00580220(int from, int to, int flags, int moby, int x) {
+    return rac3_coll_line(mp_func_L39_00580220__game, from, to, flags, moby, x);
 }
 
 int mp_func_L39_005A9AA0(int source, int destination) {

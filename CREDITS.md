@@ -56,5 +56,17 @@ decomp-permuter, m2c, wibo, Himuro, the GNU toolchain, newlib, and the PS2
 reverse-engineering and decompilation communities. The NTSC decomp of
 Ratchet & Clank is credited by that name.
 
+## Bug research
+
+Up Your Arsenal online play: the Horizon Private Server project
+([github.com/Horizon-Private-Server](https://github.com/Horizon-Private-Server))
+found and fixed a long list of client-side problems in the game's online
+play (netcode, crashes, gameplay bugs and exploits) and documented their
+causes in its source and commit history. We read it for reference only and
+wrote our own fixes in the port (`port/game/rac3-pal/host/mp_fixes.c`); no
+code was copied. Thanks to Daniel "Dnawrkshp" Gerendasy, Troy "Metroynome"
+Pruitt, jello.giant, electrogecko, Philip762, Isaac Lal, John Janecek and the
+project's other contributors.
+
 The community hub for the Ratchet & Clank decompilations is
 [openrac.dev](https://openrac.dev/).
