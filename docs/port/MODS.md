@@ -820,6 +820,7 @@ and `_PLATINUM`; the C++ layer's `moby_material()`, `has_moby_material()`), afte
 1.24 (SDK 1.24.0) obsidian, a third material for `moby_material` (`OPENRAC_MOBY_MATERIAL_OBSIDIAN`):
 glossy black with an inner glow in `rgb`'s colour (0xFFFFFF the default violet-red). The table is
 unchanged; a port older than 1.24 refuses the material, so a mod falls back to another.
+
 1.25 (SDK 1.25.0) energy, a fourth material for `moby_material` (`OPENRAC_MOBY_MATERIAL_ENERGY`, or
 `OPENRAC_MOBY_MATERIAL_ENERGY_AT(level)` with a level from 0 to 15): the moby's body keeps its colours
 with a little of `rgb` and a glowing rim in it, and the effects it makes are drawn in `rgb` at their
@@ -949,11 +950,6 @@ menu in mode 3 (a Megacorp Vendor whose pvars +0x94 is 2): 12-byte rows {icon, p
 `g_vendorUi` +0x140, and its preview is Ratchet himself (class 0) in the row's armour, drawn with the
 menu's camera, so a mod colours it with `moby_material_class(0, OPENRAC_MODEL_MENU, ...)`
 (docs/port/RAC2_NOTES.md, "The armour vendor").
-
-1.27 (SDK 1.27.0) what OpenRAC Editor's levels need (`pack_folder`, `game_language`, `camera_fov`,
-`hud_hide`, `music_volume`, `moby_set_joints`, `moby_joint_position`, `moby_sound_play`, `moby_sound_stop`,
-`scene_air`, `time_stretch`, `tie_hide`, `prop_animate`, `moby_joint_frame`, `moby_set_joint_poses`,
-`moby_uid`), after `moby_copy`; check api->size before using them.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's

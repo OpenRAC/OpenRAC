@@ -2301,7 +2301,7 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK((g_motion == std::vector<std::string>{"camera off"}));
 }
 
-// SDK 1.15.1, what a scene needs, on the test's game: the field of view only with the camera and
+// What a scene needs, on the test's game: the field of view only with the camera and
 // gone with it and the level, the HUD hidden for the level, the music ducked through the host and
 // given back when the mods go, joints on a moby of the level, a joint's place and a moby's sound.
 std::vector<std::string> g_cutscene_calls;

@@ -192,7 +192,7 @@ struct Host {
     // so: no pack, English.
     const char* (*pack_folder)(void) = nullptr;
     int (*language)(void) = nullptr;
-    // What a cutscene needs (SDK 1.15.1): the game's streams of volume group `group` at `gain` (0
+    // What a cutscene needs: the game's streams of volume group `group` at `gain` (0
     // to 1, eased; openrac_api.music_volume), and joint `joint` of moby `moby` in the level, as
     // drawn: its x, y, z axes and its place, 12 floats (1, or 0 for none:
     // openrac_api.moby_joint_frame). Null: none (a test's), and the calls say so.

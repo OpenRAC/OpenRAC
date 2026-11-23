@@ -27,7 +27,7 @@
  * a mod that moves the hero (motion_frame: 9500s): his pose set, the collision triangles, a prop
  * and a sound (interface 1.12). With "cutscene" it uses what a scene needs (cutscene_frame:
  * 9800s): the camera's field of view, the HUD hidden, the music ducked, a moby's joints, a joint's
- * place, a moby's sound, the scene's air, slow motion and a hidden tie (SDK 1.15.1). It reports the interface it is
+ * place, a moby's sound, the scene's air, slow motion and a hidden tie. It reports the interface it is
  * built for
  * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
 #include <math.h>
