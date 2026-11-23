@@ -818,6 +818,159 @@ int openrac_game_pad(int port, uint16_t* buttons, uint8_t analog[4]) {
     });
 }
 
+// ---- The frame recorder (openrac/frame.h; frontend/recorder.cpp) ----
+// Without a window every call does nothing, and those that answer say the window did not draw.
+
+#ifdef OPENRAC_FRONTEND
+#define OPENRAC_RECORD(name, ...)                                                                  \
+    c_boundary::call(name, [&] {                                                                   \
+        if (g_window) {                                                                            \
+            frontend::recorder::__VA_ARGS__;                                                       \
+        }                                                                                          \
+    })
+
+namespace {
+std::span<const std::uint8_t> game_ram() {
+    const auto* ram = runtime::Memory::get().base();
+    return {ram, runtime::Memory::get().ram_size()};
+}
+}  // namespace
+#else
+#define OPENRAC_RECORD(name, ...) (void)0
+#endif
+
+void openrac_frame_begin(void) {
+    OPENRAC_RECORD("openrac_frame_begin", begin());
+}
+
+void openrac_frame_end(void) {
+    OPENRAC_RECORD("openrac_frame_end", end());
+}
+
+void openrac_frame_anchor(gaddr list_cursor) {
+    OPENRAC_RECORD("openrac_frame_anchor", anchor(list_cursor));
+    (void)list_cursor;
+}
+
+void openrac_frame_world(unsigned layers) {
+    OPENRAC_RECORD("openrac_frame_world", world(layers));
+    (void)layers;
+}
+
+void openrac_frame_world_mobys(void) {
+    OPENRAC_RECORD("openrac_frame_world_mobys", world_mobys());
+}
+
+int openrac_frame_mobys(gaddr list, int count) {
+    return c_boundary::call("openrac_frame_mobys", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return frontend::recorder::mobys(game_ram(), list, count) ? 1 : 0;
+        }
+#endif
+        (void)list;
+        (void)count;
+        return 0;
+    });
+}
+
+int openrac_frame_ui_item(const openrac_game_ui_item* item) {
+    return c_boundary::call("openrac_frame_ui_item", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && item != nullptr) {
+            return frontend::recorder::ui_item(game_ram(), *item) ? 1 : 0;
+        }
+#endif
+        (void)item;
+        return 0;
+    });
+}
+
+int openrac_frame_ui_quad(const struct openrac_game_ui_rect* quad) {
+    return c_boundary::call("openrac_frame_ui_quad", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && quad != nullptr) {
+            return frontend::recorder::ui_quad(*quad) ? 1 : 0;
+        }
+#endif
+        (void)quad;
+        return 0;
+    });
+}
+
+void openrac_frame_effect_quad(uint32_t marker) {
+    OPENRAC_RECORD("openrac_frame_effect_quad", effect_quad(marker));
+    (void)marker;
+}
+
+void openrac_frame_fill(const float* rect, uint32_t rgba, int blend) {
+    OPENRAC_RECORD("openrac_frame_fill", fill(rect, rgba, blend));
+    (void)rect;
+    (void)rgba;
+    (void)blend;
+}
+
+void openrac_frame_clear(uint32_t rgba, int what) {
+    OPENRAC_RECORD("openrac_frame_clear", clear(rgba, what));
+    (void)rgba;
+    (void)what;
+}
+
+void openrac_frame_picture(uint32_t id, const float* rect, uint32_t rgba, int blend) {
+    OPENRAC_RECORD("openrac_frame_picture", picture(id, rect, rgba, blend));
+    (void)id;
+    (void)rect;
+    (void)rgba;
+    (void)blend;
+}
+
+void openrac_frame_picture_image(
+    const openrac_game_ui_image* image, const float* rect, uint32_t rgba, int blend
+) {
+    c_boundary::call("openrac_frame_picture_image", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && image != nullptr) {
+            frontend::recorder::picture_image(game_ram(), *image, rect, rgba, blend);
+        }
+#endif
+        (void)image;
+        (void)rect;
+        (void)rgba;
+        (void)blend;
+    });
+}
+
+void openrac_frame_picture_set(uint32_t id, const uint8_t* rgba, int width, int height) {
+    OPENRAC_RECORD("openrac_frame_picture_set", picture_set(id, rgba, width, height));
+    (void)id;
+    (void)rgba;
+    (void)width;
+    (void)height;
+}
+
+void openrac_frame_snapshot(uint32_t id) {
+    OPENRAC_RECORD("openrac_frame_snapshot", snapshot(id));
+    (void)id;
+}
+
+void openrac_frame_target_begin(uint32_t id, int width, int height) {
+    OPENRAC_RECORD("openrac_frame_target_begin", target_begin(id, width, height));
+    (void)id;
+    (void)width;
+    (void)height;
+}
+
+void openrac_frame_target_end(void) {
+    OPENRAC_RECORD("openrac_frame_target_end", target_end());
+}
+
+void openrac_frame_scissor(const float* rect) {
+    OPENRAC_RECORD("openrac_frame_scissor", scissor(rect));
+    (void)rect;
+}
+
+#undef OPENRAC_RECORD
+
 }  // extern "C"
 
 }  // namespace openrac::program

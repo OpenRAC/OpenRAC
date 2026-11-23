@@ -168,6 +168,16 @@ TextureHandle TexturePool::add(Rgba8Image image, AlphaScale scale, std::string n
     return h;
 }
 
+TextureHandle TexturePool::ui_image(std::uint64_t hash, const Rgba8Image& image) {
+    if (const auto found = m_ui_images.find(hash); found != m_ui_images.end()) {
+        m_entries[found->second - 1].last_used = m_frame;
+        return found->second;
+    }
+    const TextureHandle handle = add(image, AlphaScale::Gs, "2D image", false, true);
+    m_ui_images.emplace(hash, handle);
+    return handle;
+}
+
 void TexturePool::place(std::uint32_t tbp, TextureHandle texture) {
     m_placed[tbp] = texture;
 }

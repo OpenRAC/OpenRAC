@@ -257,6 +257,7 @@ add_library(openrac_renderer STATIC
   renderer/effects/haze.cpp
   renderer/renderer.cpp
   renderer/frame/colour_graph.cpp
+  renderer/frame/frame_record.cpp
   renderer/frame/colour_transfer.cpp
   renderer/frame/raster_pass.cpp
   renderer/frame/window_quads.cpp
@@ -952,6 +953,8 @@ set_tests_properties(texture_blocks_gl_rgba8 PROPERTIES SKIP_RETURN_CODE 77 ENVI
 openrac_add_test(renderer_math INCLUDES .)
 
 openrac_add_test(renderer_gif LIBS openrac_renderer)
+# The frame recorder's commands, anchors and kept recordings (docs/port/FRAME_RECORDER.md).
+openrac_add_test(frame_record LIBS openrac_renderer)
 
 openrac_add_test(renderer_direct LIBS openrac_renderer openrac_platform)
 set_tests_properties(renderer_direct PROPERTIES SKIP_RETURN_CODE 77)

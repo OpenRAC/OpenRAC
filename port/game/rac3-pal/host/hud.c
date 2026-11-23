@@ -7,8 +7,9 @@
  * with Veldin's copies (IDENTIFIED.tsv), which hostgen names after Veldin's places:
  *
  * - its sprites, a HUD texture by its number drawn as a sprite (func_0028E868, func_0028ECD8,
- *   func_0028F078 and the gradient func_0028EA58 there), go to the window as records (ui2d.c's
- *   way), so nothing of the HUD is drawn from the game's packets;
+ *   func_0028F078 and the gradient func_0028EA58 there), go to the window as records through the
+ *   frame recorder (openrac/frame.h), placed by the list's cursor with nothing written into the
+ *   list, so nothing of the HUD is drawn from the game's packets;
  * - its 13 slots (0x90 bytes each, Veldin's at 0x002E60D0), whose update (func_L01_0041FE80, Going
  *   Commando's func_0028E458, from DrawFrame) runs each slot's draw: with the player's "HUD: Edges"
  *   the slots anchored left or right are drawn out at the sides of a picture wider than the game's
@@ -75,7 +76,7 @@ void func_L01_004202A8(int tex, int x, int y, int w, int h, int alpha) {
     rac3_ui2d_hud_size(&u, tex, &tw, &th);
     hud_common(&u, &q, hud_tex0(tex), alpha);
     hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, tw * 16, th * 16);
-    if (!openrac_ui_send(&q, u.cursor)) {
+    if (!openrac_ui_record(&q, u.cursor)) {
         func_L01_004202A8__game(tex, x, y, w, h, alpha);
     }
 }
@@ -87,7 +88,7 @@ void func_L01_00420720(int tex, int x, int y, int w, int h, int alpha) {
     openrac_game_ui_rect q;
     hud_common(&u, &q, hud_tex0(tex), alpha);
     hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, w * 16, h * 16);
-    if (!openrac_ui_send(&q, u.cursor)) {
+    if (!openrac_ui_record(&q, u.cursor)) {
         func_L01_00420720__game(tex, x, y, w, h, alpha);
     }
 }
@@ -101,7 +102,7 @@ void func_L01_004208E0(int tex, int x, int y, int w, int h, int alpha, unsigned 
     hud_common(&u, &q, hud_tex0(tex), alpha);
     q.rgba = ((uint32_t)alpha << 24) | (colour & 0xFFFFFFu);
     hud_rect(&q, x, y, x + w, y + h, 0, 0, tw * 16, th * 16);
-    if (!openrac_ui_send(&q, u.cursor)) {
+    if (!openrac_ui_record(&q, u.cursor)) {
         func_L01_004208E0__game(tex, x, y, w, h, alpha, colour);
     }
 }
@@ -119,7 +120,7 @@ void func_L01_00420498(int tex, int x, int y, int w, int h, gaddr colours) {
     for (int i = 0; i < 4; ++i) {
         q.corners[i] = GREF(uint32_t, colours + 4u * (gaddr)i);
     }
-    if (!openrac_ui_send(&q, u.cursor)) {
+    if (!openrac_ui_record(&q, u.cursor)) {
         func_L01_00420498__game(tex, x, y, w, h, colours);
     }
 }
@@ -185,7 +186,7 @@ void func_L01_004D24C0(gaddr a0) {
         rac3_ui2d_hud_size(&u, tex, &tw, &th);                                                     \
         hud_common(&u, &q, (unsigned long long)tex0_fn(tex), alpha);                               \
         hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, tw * 16, th * 16);          \
-        if (!openrac_ui_send(&q, u.cursor)) {                                                      \
+        if (!openrac_ui_record(&q, u.cursor)) {                                                    \
             sprite_fn##__game(tex, x, y, w, h, alpha);                                             \
         }                                                                                          \
     }                                                                                              \
@@ -200,7 +201,7 @@ void func_L01_004D24C0(gaddr a0) {
         for (int i = 0; i < 4; ++i) {                                                              \
             q.corners[i] = GREF(uint32_t, colours + 4u * (gaddr)i);                                \
         }                                                                                          \
-        if (!openrac_ui_send(&q, u.cursor)) {                                                      \
+        if (!openrac_ui_record(&q, u.cursor)) {                                                    \
             gradient_fn##__game(tex, x, y, w, h, colours);                                         \
         }                                                                                          \
     }

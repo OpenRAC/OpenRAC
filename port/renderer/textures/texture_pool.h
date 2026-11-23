@@ -192,6 +192,11 @@ public:
         return m_entries[texture - 1].pack_hash;
     }
 
+    // The texture of a native 2D image (renderer::UiImage) whose content hashes to `hash`: made
+    // from `image` the first time, the same handle from then on (for the pool's life). Its alpha
+    // is the game's (0x80 opaque); bilinear, one level.
+    TextureHandle ui_image(std::uint64_t hash, const Rgba8Image& image);
+
     // A distance field of `source` for drawing text sharp at any size, four times its size: in
     // alpha the signed distance to the glyphs' edge (0.5 on the edge, 1/8 per source texel), in red
     // the glyphs' own opacity (0..1) held up to that edge; made once per content of the source.
@@ -273,6 +278,7 @@ public:
 
 private:
     bool m_noting = true;
+    std::unordered_map<std::uint64_t, TextureHandle> m_ui_images;  // ui_image(), by hash
     struct Key {
         std::uint32_t tbp, tbw, tw, th, cbp;
         std::uint8_t psm, cpsm;

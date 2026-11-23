@@ -271,10 +271,10 @@ void draw_groups() {
     CHECK(gif.gif(b.bytes));
     CHECK(gif.draws().size() == 4);
     CHECK(gif.draws()[0].count == 12);
-    CHECK(gif.draws()[1].state.blend);
+    CHECK(gif.draws()[1].state.blend.enabled);
     CHECK(gif.draws()[2].state.scissor.x1 == 100);
     CHECK(gif.draws()[3].state.scissor.x1 == 511);
-    CHECK(!gif.draws()[3].state.blend);
+    CHECK(!gif.draws()[3].state.blend.enabled);
 }
 
 // The chip fills a pixel only when its sample point, its integer coordinates, is inside the
@@ -416,7 +416,7 @@ void scissor_of_a_shorter_buffer() {
             true);
     CHECK(gif.gif(b.bytes));
     CHECK(gif.draws().size() == 1);
-    const gs::Scissor& cut = gif.draws()[0].state.scissor;
+    const PixelRect& cut = gif.draws()[0].state.scissor;
     CHECK(cut.x0 == 0 && cut.x1 == 511 && cut.y0 == 0 && cut.y1 == 447);
     // Its bottom (416) is the picture's bottom edge.
     CHECK(near(gif.vertices()[4].y, -1.0f));
@@ -575,7 +575,9 @@ void movie_picture_strips() {
         const DirectState& s = gif.draws().back().state;
         CHECK(s.textured && !s.frame_source && s.source == 0);
         CHECK(s.texture != textures.placeholder() && textures.image(s.texture).width == 512);
-        CHECK(s.fbmsk == 0);  // drawn, not left out as a texture nothing was put at
+        CHECK(
+            s.colour_writes == kWriteColour
+        );  // drawn, not left out as a texture nothing was put at
         const DirectVertex& corner = gif.vertices()[4];
         CHECK(near(corner.s, 32.0f / 512.0f) && near(corner.t, 416.0f / 512.0f));
     }
@@ -868,6 +870,136 @@ void opaque_effects() {
 
 }  // namespace
 
+// The frame recorder's blends (draw_state.h BlendMode) are the GS blends the games use, to GL.
+void native_blends() {
+    using openrac::test::alpha_reg;
+    const auto same = [](const GlBlend& a, const GlBlend& b) {
+        return a.src == b.src && a.dst == b.dst && a.equation == b.equation
+               && a.constant == b.constant && a.source_scale == b.source_scale
+               && a.exact == b.exact;
+    };
+    // Mix (Cs - Cd) As + Cd, Add Cs As + Cd, Subtract Cd - Cs As, Multiply (0 - Cd) As + Cd.
+    CHECK(same(
+        translate_blend(Blend::of(BlendMode::Mix)),
+        translate_blend(gs::Alpha::decode(alpha_reg(0, 1, 0, 1)))
+    ));
+    CHECK(same(
+        translate_blend(Blend::of(BlendMode::Add)),
+        translate_blend(gs::Alpha::decode(alpha_reg(0, 2, 0, 1)))
+    ));
+    CHECK(same(
+        translate_blend(Blend::of(BlendMode::Subtract)),
+        translate_blend(gs::Alpha::decode(alpha_reg(2, 0, 0, 1)))
+    ));
+    CHECK(same(
+        translate_blend(Blend::of(BlendMode::Multiply)),
+        translate_blend(gs::Alpha::decode(alpha_reg(2, 1, 0, 1)))
+    ));
+    CHECK(!Blend::of(BlendMode::Opaque).enabled);
+    // The GS's tests as native ones: ATE off is no test; ZTE with GEQUAL.
+    const gs::Test t = gs::Test::decode(0x5360Bull);  // ATE GEQUAL 0x60, RGB_ONLY; ZTE GEQUAL
+    const AlphaTest a = alpha_test_from_gs(t);
+    CHECK(a.compare == Compare::GreaterEqual && a.reference == 0x60);
+    CHECK(
+        depth_test_from_gs(t).enabled && depth_test_from_gs(t).compare == DepthCompare::GreaterEqual
+    );
+    CHECK(alpha_test_from_gs(gs::Test::decode(0)).compare == Compare::Always);
+}
+
+// A recorded frame with no packets: its commands become draws in call order, with native state
+// (a fill and a flat item of the same state would share one draw).
+void recorded_frame_without_packets() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    FrameRecording r;
+    FrameCommand fill;
+    fill.op = FrameOp::Fill;
+    fill.whole = false;
+    fill.rect = {0.0f, 0.0f, 256.0f, 224.0f};
+    fill.rgba = 0x40000000u;
+    fill.blend = BlendMode::Add;
+    r.commands.push_back(fill);
+    UiItem flat;
+    flat.flags = kUiItemFlat | kUiItemShaded;
+    const float xs[4] = {0, 512, 0, 512}, ys[4] = {0, 0, 448, 448};
+    for (int i = 0; i < 4; ++i) {
+        flat.x[i] = xs[i];
+        flat.y[i] = ys[i];
+        flat.rgba[i] = 0x80FFFFFFu;
+    }
+    r.ui_items.push_back(flat);
+    FrameCommand item;
+    item.op = FrameOp::UiItem;
+    r.commands.push_back(item);
+    FrameCommand clear;
+    clear.op = FrameOp::Clear;
+    clear.clear = kClearDepth;
+    r.commands.push_back(clear);
+    const std::vector<FrameSplice> splices{{0, 0}, {0, 1}, {0, 2}};
+    gif.set_commands(&r, splices, 0);
+    CHECK(gif.vif({}));
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 3);
+    if (gif.draws().size() == 3) {
+        const DirectState& f = gif.draws()[0].state;
+        CHECK(f.blend == Blend::of(BlendMode::Add) && !f.textured && !f.depth_write);
+        CHECK(gif.draws()[0].count == 6);
+        // The fill's quarter of the screen, in normalised coordinates.
+        CHECK(near(gif.vertices()[0].x, -1.0f) && near(gif.vertices()[0].y, 1.0f));
+        CHECK(near(gif.vertices()[4].x, 0.0f) && near(gif.vertices()[4].y, 0.0f));
+        CHECK(gif.vertices()[0].rgba[3] == 0x40);
+        CHECK(gif.draws()[1].state.blend == Blend::of(BlendMode::Mix));
+        const DirectState& c = gif.draws()[2].state;
+        CHECK(c.colour_writes == 0 && c.depth_write && c.depth.enabled);
+        CHECK(near(gif.vertices()[12].z, 0.0f));
+    }
+}
+
+// Recorded commands spliced into a stream: before the DIRECT at their offset, after what came
+// before it; those past the stream's end at finish_commands.
+void recorded_splices_in_a_stream() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    const auto direct = [](const GifBuilder& b) {
+        std::vector<std::uint8_t> v(12, 0);
+        const std::uint32_t code = 0x50000000u | static_cast<std::uint32_t>(b.bytes.size() / 16);
+        for (int i = 0; i < 4; ++i) {
+            v.push_back(static_cast<std::uint8_t>(code >> (8 * i)));
+        }
+        v.insert(v.end(), b.bytes.begin(), b.bytes.end());
+        return v;
+    };
+    GifBuilder one;
+    one.ad(
+        {{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+         {gs::kRgbaq, rgbaq(0xFF, 0, 0, 0x80)},
+         {gs::kXyz2, xyz2(0, 0, 0)},
+         {gs::kXyz2, xyz2(16, 16, 0)}}
+    );
+    std::vector<std::uint8_t> stream = direct(one);
+    const std::size_t second = stream.size();
+    const std::vector<std::uint8_t> two = direct(one);
+    stream.insert(stream.end(), two.begin(), two.end());
+    FrameRecording r;
+    FrameCommand fill;
+    fill.op = FrameOp::Fill;
+    fill.blend = BlendMode::Add;
+    r.commands = {fill, fill};
+    // The stream is the part after the world, from byte 100 of the 2D path: the first fill goes
+    // between the two DIRECTs, the second after the last.
+    const std::vector<FrameSplice> splices{{100 + second, 0}, {100 + stream.size(), 1}};
+    gif.set_commands(&r, splices, 100);
+    CHECK(gif.vif(stream));
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 4);
+    if (gif.draws().size() == 4) {
+        CHECK(!gif.draws()[0].state.blend.enabled);
+        CHECK(gif.draws()[1].state.blend == Blend::of(BlendMode::Add));
+        CHECK(!gif.draws()[2].state.blend.enabled);
+        CHECK(gif.draws()[3].state.blend == Blend::of(BlendMode::Add));
+    }
+}
+
 int main() {
     blend_weights();
     opaque_effects();
@@ -890,5 +1022,8 @@ int main() {
     texture_under_draw_buffer();
     frame_copy_of_the_picture();
     offscreen_target_coordinates();
+    native_blends();
+    recorded_frame_without_packets();
+    recorded_splices_in_a_stream();
     return openrac::test::result();
 }

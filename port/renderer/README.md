@@ -30,6 +30,8 @@ Implementation files are grouped by responsibility:
 | `textures/texture_pool.h` | every texture as RGBA8 on the GPU, found by the base pointer in the game's TEX0 used as an **identifier**: textures converted ahead of time are `place`d there; images the game sends with IMAGE transfers are converted when first drawn and cached by content; `prepare` makes a level's textures at its load (`texture-prepare`, RENDER_PERF.md) | `TexturePool` |
 | `textures/texture.h` | conversions to RGBA8: PSMCT32/24/16, PSMT8 and PSMT4 (and their "H" forms) with CLUTs in CSM1 order, TEXA alpha; the chip's block layout only for a texture uploaded in one format and read in another | `texture_conversion.h` |
 | `direct/gs.h` | the GS registers and the GIF tag as fields (public hardware documentation) | `common/dma/gs.h` |
+| `frame/frame_record.h`, `frame/ui_records.h` | the frame recorder's commands, recordings and anchors (docs/port/FRAME_RECORDER.md), and the 2D layer's records (`UiQuad`, `UiItem`, `UiImage`); CPU only | |
+| `direct/draw_state.h` | a 2D draw's GPU state in native values (blend coefficients and modes, alpha and depth tests, texture combine, scissor, write mask, target ids); no GS register | |
 | `frame/subsystems.h` | placeholders for terrain (tfrag), ties, shrubs, mobys, sky and particles, each documenting what it must draw | `TFragment`, `Tie3`, `Shrub`, `Merc2`, `Sky`, `Sprite3` |
 | `debug/debug_lines.h` | Unlit visible/hidden wireframes and finite camera/shadow clip geometry; GPU resources are created only when diagnostics draw | |
 | [`graph/`](graph/README.md) | CPU-only pass/resource declarations, hazard validation and fixed-order barrier planning; used by Vulkan shadow, surface, lighting, water, colour and temporal passes | |

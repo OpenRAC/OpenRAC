@@ -90,44 +90,25 @@ static gaddr at_copy(const Copy* c, gaddr address) {
  * drawn takes (0x004A7E10 builds it from the shell's angles before each 0x004A8158). */
 #define SKY_MATRIX RAC3_LADDR(1, 0x001E0E10u)
 
-enum {
-    NOP_REGISTER = 0x7F
-};
-
-/* A marker in the display list: the A+D write of `value` to the chip's NOP register (the packet
- * 0x004C5B90, Going Commando's func_002FC560, appends: a DMA tag of two quadwords, DIRECT, a GIF
- * tag of one A+D register). The chip ignores it; the window reads its top 16 bits. Written here
- * for any list pointer, the boot program's too; the translated routine takes the doubleword whole
- * (hostgen.json asm signature void (int, unsigned long long)). */
-static void put_marker_at(gaddr pointer, uint64_t value) {
+/* The frame recorder's place for what follows (openrac/frame.h, docs/port/FRAME_RECORDER.md): the
+ * display list's write pointer, the word at `pointer`, where the console's packets would have gone.
+ * Nothing is written into the list; the window finds that place among what the list still draws.
+ * Any list pointer, the boot program's too. */
+static void anchor_at(gaddr pointer) {
     const gaddr at = GREF(gaddr, pointer);
-    if (at == 0 || at >= 0x02000000u - 0x30u) {
-        return;
-    }
-    uint32_t* w = (uint32_t*)G(at);
-    w[0] = 0x10000002u;
-    w[1] = 0;
-    w[2] = 0;
-    w[3] = 0x50000002u;
-    w[4] = 0x8001u;
-    w[5] = 0x10000000u;
-    w[6] = 0xEu;
-    w[7] = 0;
-    memcpy(G(at + 32u), &value, 8);
-    w[10] = NOP_REGISTER;
-    w[11] = 0;
-    GREF(gaddr, pointer) = at + 0x30u;
+    openrac_frame_anchor(at < 0x02000000u ? at : 0);
 }
 
-static void put_marker(const Copy* c, uint64_t value) {
-    put_marker_at(at_copy(c, c->list_pointer), value);
+static void anchor(const Copy* c) {
+    anchor_at(at_copy(c, c->list_pointer));
 }
 
 /* DrawTfrag (Going Commando's func_002EF3B0, the same 208 bytes): the world's first native pass
  * after the sky, so the world's marker goes here. */
 static void draw_tfrag(const Copy* c) {
     openrac_game_draw(OPENRAC_DRAW_TERRAIN);
-    put_marker(c, 0x574Cull << 48);
+    anchor(c);
+    openrac_frame_world(OPENRAC_DRAW_TERRAIN);
 }
 
 int func_L01_004B1728(void) {
@@ -255,13 +236,12 @@ static void mark_drawn_mobys(const Copy* c, gaddr first, int count) {
  * list, the world's draw). */
 static void moby_proc(const Copy* c, gaddr list, int count) {
     mark_drawn_mobys(c, list, count);
+    anchor(c);
     if (count < 0) {
-        put_marker(c, (uint64_t)OPENRAC_WORLD_MOBYS_MARKER << 48);
+        openrac_frame_world_mobys();
     }
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
-    if (openrac_game_mobys_drawn(list, count)) {
-        put_marker(c, (0x4D42ull << 48) | ((uint64_t)(count & 0xFFFF) << 32) | (uint32_t)list);
-    }
+    openrac_frame_mobys(list, count);
 }
 
 int func_L01_00441B78(int a0, int a1, int a2, int a3) {
@@ -445,7 +425,8 @@ void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, g
     openrac_game_effect_quad(&q);
     const uint32_t marker = openrac_game_effect_quad_marker();
     if (marker != 0) {
-        put_marker_at(list, (uint64_t)OPENRAC_EFFECT_QUAD_MARKER << 48 | marker);
+        anchor_at(list);
+        openrac_frame_effect_quad(marker);
     }
 }
 
@@ -524,7 +505,8 @@ void func_003CB6B8(int list, int count) {
     (void)list;
     (void)count;
     openrac_game_world_view();
-    put_marker_at(BOOT_LIST_POINTER, 0x574Cull << 48);
-    put_marker_at(BOOT_LIST_POINTER, (uint64_t)OPENRAC_WORLD_MOBYS_MARKER << 48);
+    anchor_at(BOOT_LIST_POINTER);
+    openrac_frame_world(OPENRAC_DRAW_MOBYS);
+    openrac_frame_world_mobys();
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
 }
