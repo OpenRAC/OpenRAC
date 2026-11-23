@@ -65,6 +65,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `take_input` | 1.2 | stable | yes | yes | yes |
 | `capture_mouse` | 1.2 | stable | yes | yes | yes |
 | `button_label` | 1.31 | stable | yes | yes | yes |
+| `set_motors` | 1.37 | experimental | yes | yes | yes |
 
 ## graphics
 

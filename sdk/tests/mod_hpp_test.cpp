@@ -1192,6 +1192,14 @@ int fake_sharp_cells(openrac_mod*, const openrac_sharp_page* pages, int count) {
     return count >= 0 && count <= 64 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+// What the fake host's 1.37 set_motors was given; it refuses a port past 1.
+std::string g_motors;
+
+int fake_set_motors(openrac_mod*, int port, int small, int large) {
+    g_motors = std::to_string(port) + " " + std::to_string(small) + " " + std::to_string(large);
+    return port >= 0 && port <= 1 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
 // What the fake host's 1.33 call was asked for. It knows one installed game's folder, refuses one the
 // manifest does not declare, and has none for any other.
 std::string g_game_asked;
@@ -2681,6 +2689,25 @@ int main() {
         CHECK(!mod.has_sharp_cells() && !mod.sharp_cells(&page, 1) && g_sharp.empty());
         api.size = sizeof api;
         CHECK(mod.has_sharp_cells());
+    }
+
+    // Interface 1.37: the pads' motors, handed to the port as they are, and refused where the port
+    // lacks the call (an older minor, or a table that stops before it).
+    {
+        api.set_motors = fake_set_motors;
+        CHECK(mod.has_set_motors());
+        CHECK(mod.set_motors(1, 1, 200) && g_motors == "1 1 200");
+        CHECK(mod.set_motors(0, 0, 0) && g_motors == "0 0 0");
+        // The port's refusal is the wrapper's false.
+        CHECK(!mod.set_motors(2, 0, 0));
+        g_motors.clear();
+        api.api_minor = 36;
+        CHECK(!mod.has_set_motors() && !mod.set_motors(0, 1, 255) && g_motors.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, set_motors));
+        CHECK(!mod.has_set_motors() && !mod.set_motors(0, 1, 255) && g_motors.empty());
+        api.size = sizeof api;
+        CHECK(mod.has_set_motors());
     }
 
     // Interface 1.33: the game's camera shake, handed to the port as it is and refused where the

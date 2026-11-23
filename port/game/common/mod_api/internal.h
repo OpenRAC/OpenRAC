@@ -775,4 +775,6 @@ int api_weapon_ignore_culling(openrac_mod* mod, std::int32_t item, std::int32_t 
 
 int api_sharp_cells(openrac_mod* mod, const openrac_sharp_page* pages, int count);
 
+int api_set_motors(openrac_mod* mod, int port, int small, int large);
+
 }  // namespace openrac::mods::detail

@@ -51,4 +51,17 @@ int api_button_label(openrac_mod*, std::uint32_t button, char* out, std::uint32_
     return button_labels::label_into(button, out, size);
 }
 
+// Interface 1.37: a mod's motor values for a pad (Host::motors), played with the game's own.
+int api_set_motors(openrac_mod* mod, int port, int small, int large) {
+    // The game's two pad ports (on_pad's), libvib's small motor off or on, its large 0 to 255.
+    constexpr int kPorts = 2;
+    if (mod == nullptr || port < 0 || port >= kPorts || (small != 0 && small != 1) || large < 0
+        || large > 255 || g_host == nullptr || g_host->motors == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_host->motors(mod, port, small != 0, static_cast<std::uint8_t>(large))
+               ? OPENRAC_HOOK_OK
+               : OPENRAC_HOOK_UNKNOWN;
+}
+
 }  // namespace openrac::mods::detail

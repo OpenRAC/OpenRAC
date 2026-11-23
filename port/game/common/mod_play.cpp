@@ -1125,6 +1125,10 @@ void reset_play() {
         g_music_gains.clear();
         apply_music_gain();
     }
+    // Every mod's motors (openrac_api.set_motors) stop.
+    if (g_host != nullptr && g_host->drop_motors != nullptr) {
+        g_host->drop_motors(nullptr);
+    }
     if (!g_joint_sets.empty()) {
         g_joint_sets.clear();
         if (g_joint_offsets != nullptr) {
@@ -1169,6 +1173,10 @@ void drop_figures(const openrac_mod* mod) {
     // Its sharper cells (openrac_api.sharp_cells); null is the built-ins', which stay.
     if (mod != nullptr) {
         renderer::sharp_cells::set(mod, {});
+    }
+    // Its motors (openrac_api.set_motors) stop; the game's and the other mods' play on.
+    if (mod != nullptr && g_host != nullptr && g_host->drop_motors != nullptr) {
+        g_host->drop_motors(mod);
     }
     {
         const std::lock_guard<std::mutex> lock(g_props_lock);

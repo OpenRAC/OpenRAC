@@ -198,6 +198,12 @@ struct Host {
     // openrac_api.moby_joint_frame). Null: none (a test's), and the calls say so.
     void (*music_gain)(int group, float gain) = nullptr;
     int (*joint_frame)(std::uint32_t moby, int joint, float* out) = nullptr;
+    // A mod's motor values for pad `port` (interface 1.37, openrac_api.set_motors), played with
+    // the game's own (openrac_game_set_motors) and held as long; `mod` tells the mods apart. False
+    // when nothing plays them (no window yet). drop_motors forgets a mod's (null: every mod's).
+    // Null: no pads (a test's, or no window), and set_motors says so.
+    bool (*motors)(const void* mod, int port, bool small, std::uint8_t large) = nullptr;
+    void (*drop_motors)(const void* mod) = nullptr;
 };
 
 // A built-in mod's setting (BuiltIn), for the port's own menu: its manifest entry and value, or

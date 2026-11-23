@@ -105,10 +105,23 @@ public:
     // on the player's gamepad, or the phone. Not renewed for kMotorHoldNs: both motors off.
     void set_motors(int port, const MotorCommand& command);
 
+    // Motor values of another source than the game (a mod's, openrac_api.set_motors), `owner`
+    // telling the sources apart: held as the game's are (kMotorHoldNs) and played with them, each
+    // motor the stronger of the game's and every source's (stronger()).
+    void set_extra_motors(const void* owner, int port, const MotorCommand& command);
+
+    // Forgets an owner's motor values (a mod unloaded): its motors stop. Null forgets every
+    // owner's.
+    void drop_extra_motors(const void* owner);
+
     // The last motor values, and what was sent to the pad (for tests and tools).
     const MotorCommand& motors(int port) const {
         return m_motors[static_cast<std::size_t>(port)].command;
     }
+
+    // What a port's motors play now: the game's values and every other source's still held,
+    // combined.
+    MotorCommand motors_now(int port) const;
 
     const RumbleOutput& rumble_output(int port) const {
         return m_rumble[static_cast<std::size_t>(port)].sent;
@@ -272,6 +285,17 @@ private:
     static constexpr std::uint32_t kRumbleMs = 250;
     static constexpr std::uint64_t kRumbleRenewNs = 100'000'000;
     std::array<Motors, kPadPorts> m_motors{};
+
+    // The other sources' motor commands (set_extra_motors): one per owner and port.
+    struct ExtraMotors {
+        const void* owner = nullptr;
+        int port = 0;
+        Motors motors;
+    };
+
+    std::vector<ExtraMotors> m_extra_motors;
+
+    MotorCommand motors_at(int port, std::uint64_t now) const;
 
     // Per port: the shaper, the gamepad it plays on, and what was sent when.
     struct Rumble {

@@ -116,11 +116,13 @@ extern "C" {
  * 1.35 what OpenRAC Editor's levels need: the pack's folder, the game's
  * language, the camera's field of view, the HUD hidden, the music's volume, any
  * moby's joints and sounds, the picture's air, slow motion, ties hidden,
- * animated props and a moby's spawn id, and 1.36 sharper pictures of cells a
- * mod paints in a texture of the 2D layer, kept apart from the built-in key
- * prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell).
+ * animated props and a moby's spawn id, 1.36 sharper pictures of cells a mod
+ * paints in a texture of the 2D layer, kept apart from the built-in key
+ * prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell), and 1.37 the
+ * pads' motors driven by a mod as the game's libvib drives them, each motor the
+ * stronger of the game's and the mods' (set_motors).
  */
-#define OPENRAC_MOD_API_MINOR 36
+#define OPENRAC_MOD_API_MINOR 37
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -3288,6 +3290,17 @@ typedef struct openrac_api {
      * size below its struct's, a page or cell out of range (openrac_sharp_page,
      * openrac_sharp_cell) or null data (nothing changes then). Any thread. Since 1.36. */
     int (*sharp_cells)(openrac_mod* mod, const openrac_sharp_page* pages, int count);
+
+    /* Drives pad `port`'s motors as the game's own vibration does (libvib): `port` the controller's
+     * port, 0 or 1, as on_pad numbers it (the game's pad 1 and pad 2); `small` 0 or 1 (the small
+     * motor off or on), `large` 0 to 255 (the large motor's strength). The player's rumble setting
+     * and style apply. Each motor plays the stronger of the game's own value and every mod's, so a
+     * mod adds to the game's rumble and never takes it away. Like the game's, a command lasts a
+     * fifth of a second unless sent again, so a mod sends it every tick while it rumbles; 0, 0
+     * stops the mod's. A mod's motors stop with its unload. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for no mod, a port out of range, values out of range or a run without
+     * pads to play them (no window). Since 1.37. */
+    int (*set_motors)(openrac_mod* mod, int port, int small, int large);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

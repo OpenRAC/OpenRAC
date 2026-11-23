@@ -3023,6 +3023,21 @@ public:
         return has_sharp_cells() && m_api->sharp_cells(m_handle, pages, count) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.37: whether the port lets the mod drive the pads' motors (set_motors).
+    bool has_set_motors() const {
+        return m_api->api_minor >= 37
+               && m_api->size >= offsetof(openrac_api, set_motors) + sizeof(void*);
+    }
+
+    // Since 1.37: drives pad `port`'s motors (0 or 1, as on_pad numbers it) as the game's own
+    // vibration does: `small` 0 or 1, `large` 0 to 255, each motor the stronger of the game's and
+    // the mods'. A command lasts a fifth of a second, so send it every tick while it rumbles; 0, 0
+    // stops. False when refused or the port has no such call.
+    bool set_motors(int port, int small, int large) const {
+        return has_set_motors()
+               && m_api->set_motors(m_handle, port, small, large) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:
     // none) in it, into `out`; false outside a level or for a port without it.
     bool moby_run(int slot, openrac_moby_run& out) const {

@@ -228,3 +228,4 @@ moby_joint_frame	world	1.35	experimental
 moby_set_joint_poses	world	1.35	experimental
 moby_uid	world	1.35	experimental
 sharp_cells	visuals	1.36	experimental
+set_motors	input	1.37	experimental

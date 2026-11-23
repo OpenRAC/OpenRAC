@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.37
+
+The pads' motors driven by a mod as the game's libvib drives them, each motor the stronger of the game's and the mods' (set_motors).
+
+Members: `set_motors`.
+
 ## 1.36
 
 Sharper pictures of cells a mod paints in a texture of the 2D layer, kept apart from the built-in key prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell).
