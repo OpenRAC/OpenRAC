@@ -37,8 +37,10 @@ The work continues from draft #782, preserving its two original commits. It is n
   call-ABI test pass. One muted Veldin run exited normally after 1,200 frames: a 20-second stereo
   48 kHz WAV, no full-scale samples, and no unexpected raw-send warning during that run. The capture
   remains private; these measurements do not replace listening or prove every sound path is covered.
-- RAC2 NTSC and RAC3 PAL/NTSC headless builds are being retried after the signature fix. RAC1/RAC2
-  game regressions and human listening are still pending. Earlier non-P11 runs are not mixer evidence.
+- After the signature fix, disc-less headless builds of RAC2 NTSC and RAC3 PAL/NTSC pass on the
+  separate integration branch with #809; all three call-ABI tests pass. These are build checks,
+  not gameplay validation. RAC1/RAC2/PAL game regressions and human listening remain pending.
+  Earlier non-P11 runs are not mixer evidence.
 
 ## Native-UI agent to P1 (2026-11-22)
 
