@@ -176,6 +176,8 @@
 #define RAC3_MADDR_0x00183BDCu 0x00183CCCu
 /* the function's pair: the executable's entry (its payload's records) */
 #define RAC3_MADDR_0x00192D18u 0x00192E08u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x001959F8u 0u
 /* the function's pair: the same instructions, the only place they occur */
 #define RAC3_MADDR_0x001981D8u 0x00198318u
 /* the same instruction of the same code: func 0x001619B8 (NTSC-U 0x001619B8) +0x8, 4 of 4 places agree */
@@ -196,6 +198,8 @@
 #define RAC3_MADDR_0x00240310u 0x00240490u
 /* the same instruction of the same code: func 0x00193590 (NTSC-U 0x00193680) +0x4, 12 of 12 places agree */
 #define RAC3_MADDR_0x00240B80u 0x00240D00u
+/* not paired (rac3_mp_pairs.py) */
+#define RAC3_MADDR_0x00241128u 0u
 /* release.json: the level whose program is loaded: read at $gp - 0x6CE4 in both cores (PAL 0x00199150, 0x002945BC, 0x00295534 with $gp 0x00247FC0; NTSC-U 0x00199290, 0x00295524 with $gp 0x00248140) */
 #define RAC3_MADDR_0x002412DCu 0x0024145Cu
 /* release.json: the two font headers: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U adds 0x15D8 to 0x00240000) */

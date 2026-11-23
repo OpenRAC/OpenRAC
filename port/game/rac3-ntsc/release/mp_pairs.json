@@ -1503,7 +1503,15 @@
    "is": "0x002A09C8",
    "why": "the end of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200, 0x257C8 bytes)"
   },
+  "0x001959F8": {
+   "is": null,
+   "why": "no instruction of the same code forms it"
+  },
   "0x00230000": {
+   "is": null,
+   "why": "no instruction of the same code forms it"
+  },
+  "0x00241128": {
    "is": null,
    "why": "no instruction of the same code forms it"
   },
@@ -1791,6 +1799,10 @@
   },
   "func_L39_005C2F50": {
    "is": "func_L39_005C0F08",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005C42A0": {
+   "is": "func_L39_005C2050",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_005C5C88": {

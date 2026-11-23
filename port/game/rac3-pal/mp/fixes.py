@@ -50,6 +50,8 @@ FIXED = [
      "the local player's update (stalls on a silent host)"),
     ("00656F28", "gameplay", "rac3PlayerUpdateMap", "wrap", "a player's update (deaths, the base)"),
     ("00672DD8", "net", "rac3GadgetEventMap", "wrap", "a gadget event's dispatch (shots, at a time)"),
+    ("005C42A0", "net", "rac3PadUpdateMap", "wrap",
+     "the pads' update the main loop runs each frame (func_L01_00461818)"),
 ]
 
 BEGIN = "# --- the stock-bug fixes' rows: written by mp/fixes.py, do not edit by hand ---"
