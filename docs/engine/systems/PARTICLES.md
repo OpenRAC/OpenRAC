@@ -119,6 +119,14 @@ alpha; then per kind:
 | 2 line | two projected points, Gouraud, one pixel |
 | 3 ribbon | a strip across the segment, normal from the cross product, two colours |
 
+Port: a line (kind 2) is drawn as an untextured effect quad in `particle_quads`
+(`port/game/common/frontend/world.cpp`): colour 1 at +0x04 (alpha included) at the
+first end (+0x10), colour 2 at +0x0C (RGB; the alpha of end 2 is colour 1's, an
+inference, see below) at the second (+0x20), one screen pixel wide, culled only by
+the global far (500 units, on both ends). The renderer draws it with
+`m_untextured_shader` (`EffectQuad::untextured`, no texture sampled). Open: the VU1
+program's alpha for end 2, and the sort depth of a line (the first end here).
+
 Blend per record (0x44 or 0x48; lines 0x44). Depth and alpha are written only
 where the modulated alpha reaches 0x80, colour always; no fog.
 

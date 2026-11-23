@@ -8,6 +8,7 @@
 #include <cstring>
 #include <optional>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "game/common/profile.h"
@@ -182,9 +183,35 @@ void test_extra_moby_keeps_its_bangles() {
     }
 }
 
+// The held wrench is drawn as the form whose pack the game loaded (the word at 0x001A72C0 on USA
+// v1.01): levels 1 and 2 as their own classes, and challenge mode's 3 to 5 as the same three.
+void test_wrench_takes_its_loaded_form() {
+    std::vector<std::uint8_t> ram(0x001A7300);
+    constexpr std::uint32_t kMoby = 0x100;
+    constexpr std::int16_t kWrench = 71;
+    std::memcpy(ram.data() + kMoby + 0xAA, &kWrench, sizeof(kWrench));
+    put_float(ram, kMoby + 0x2C, 1.0f);
+    put_float(ram, kMoby + 0xC0, 1.0f);
+    put_float(ram, kMoby + 0xD4, 1.0f);
+    put_float(ram, kMoby + 0xE8, 1.0f);
+
+    const host::GameProfile& profile = host::game_profile("rac2-ntsc");
+    const std::pair<std::int32_t, int> forms[] =
+        {{-1, -1}, {0, -1}, {1, 6021}, {2, 6022}, {3, -1}, {4, 6021}, {5, 6022}, {6, -1}};
+    for (const auto& [pack, drawn] : forms) {
+        put_word(ram, 0x001A72C0, pack);
+        const auto wrench = profile.read_moby(ram, kMoby);
+        CHECK(wrench.has_value());
+        if (wrench) {
+            CHECK(wrench->model_class == drawn);
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
+    test_wrench_takes_its_loaded_form();
     test_nanotech_keeps_its_position_without_a_mesh();
     test_extra_moby_keeps_its_bangles();
     test_nanotech_sparks_name_their_position_anchor();

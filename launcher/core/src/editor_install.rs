@@ -18,7 +18,7 @@ use crate::actions::{Action, Platform};
 use crate::remote::{Fetch, Hosts};
 
 /// The repository whose releases carry the editor.
-pub const REPOSITORY: &str = "nickyyOO/OpenRAC-Editor";
+pub const REPOSITORY: &str = "OpenRAC/OpenRAC-Editor";
 /// The editor's manifest, in its folder.
 pub const MANIFEST: &str = "openrac/editor.json";
 /// The editor's Python tools, in its folder (`{editor_tools}`).
@@ -590,7 +590,7 @@ mod tests {
         let actions = editor.actions("rac1/pal");
         assert_eq!(
             actions[0].docs.as_deref(),
-            Some("https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md")
+            Some("https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md")
         );
         assert!(editor.actions("rac2/pal").is_empty());
         // No program yet: that is the problem.

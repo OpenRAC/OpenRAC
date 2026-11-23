@@ -9,6 +9,7 @@ file names its source and the spec it follows.
 
 | File | |
 |---|---|
+| `sector_map.h` | the disc as the extractor's files: `sectors.tsv` (tools/openrac_common/disc_files.py) maps every sector to the file that holds it; an `ImageSource`, so `IsoImage::open` takes a set-up's folder in place of an image and the port never opens the image |
 | `iso9660.h` | the ISO 9660 file system and raw sector reads; plain 2048-byte images and raw 2352-byte dumps; reads only what is asked for |
 | `boot.h` | `SYSTEM.CNF` (the boot executable, the serial, the disc version, the video mode) and reads from the boot executable's segments |
 | `checksum.h` | SHA-1 and SHA-256, from the published algorithms: builds are named and extracted files checked by them |
@@ -21,7 +22,7 @@ file names its source and the spec it follows.
 | `scene.h` | the in-engine scenes (cutscenes): the scene table and its chunks |
 | `transition.h` | the flight between planets' lump |
 | `frontend.h` | the title world and the boot pictures |
-| `save_game.h` | the saved game on the memory card: chunk tables, the file, its CRC-16, the disc's template |
+| `save_game.h` | the saved game on the memory card: chunk descriptors, the file, its CRC-16, the disc's template |
 | `volumes.h` | the gameplay file's volumes: cuboids, spheres, cylinders, pills, paths, grind paths |
 
 ## Games

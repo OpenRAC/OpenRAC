@@ -70,7 +70,7 @@ LEVELS_STAMP = f"levels-{levels_format()}.json"
 
 # What a player's launcher offers for a version, from launcher/actions.json. The rest (the
 # decompilation's builds and checks, building the port, the tools' tests) needs a checkout.
-PLAY = ("port-levels", "port-levels-check", "probe-bake", "play")
+PLAY = ("disc-files", "port-levels", "port-levels-check", "probe-bake", "play")
 # Mods: models and textures, sounds, packs, and playing with them. In a checkout they work in its
 # assets/; the carried copy is read-only, so they work in the data folder instead (MOD_FOLDERS). The
 # level editor's own steps come with OpenRAC Editor, which the launcher downloads (its
@@ -158,7 +158,10 @@ def player_actions(android: bool = False, android_games: set[str] | None = None)
                 action["platforms"] = [p for p in action["platforms"] if p != "android"]
             if action.get("state") != "planned":
                 args = action.get("args", [])
-                if action["id"] == "port-levels" and not key.startswith("rac1/"):
+                if action["id"] == "disc-files":
+                    # tools/extractor.py into {data}/iso_data, run from the copy's own folder: as it is.
+                    pass
+                elif action["id"] == "port-levels" and not key.startswith("rac1/"):
                     # A later game's levels, read for packs (early access): no worlds behind the
                     # menus, and the first level's manifest is its own.
                     action["args"] = args[:3] + [levels, "--anywhere", "--replace"]

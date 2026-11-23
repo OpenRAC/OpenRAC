@@ -60,6 +60,7 @@ add_library(openrac_platform STATIC
   platform/clock.cpp
   platform/controls_file.cpp
   platform/gpu_driver.cpp
+  platform/gyro.cpp
   platform/input.cpp
   platform/menu_chord.cpp
   platform/pad.cpp
@@ -91,6 +92,10 @@ openrac_add_test(rumble SOURCES tests/rumble_test.cpp INCLUDES . LIBS openrac_pl
 openrac_add_test(menu_chord SOURCES tests/menu_chord_test.cpp INCLUDES . LIBS openrac_platform)
 # Which device the player uses now, the gamepad or the keyboard and mouse (platform/active_device.h).
 openrac_add_test(active_device INCLUDES . LIBS openrac_platform)
+# Gyro aiming: the sensor's turn into the camera's (platform/gyro.h).
+openrac_add_test(gyro INCLUDES . LIBS openrac_platform)
+# Gyro aiming as the input reads it from SDL's virtual gamepads (platform/input.h).
+openrac_add_test(input_gyro SOURCES tests/input_gyro_test.cpp INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp
@@ -252,6 +257,7 @@ add_library(openrac_renderer STATIC
   renderer/effects/haze.cpp
   renderer/renderer.cpp
   renderer/frame/colour_graph.cpp
+  renderer/frame/frame_record.cpp
   renderer/frame/colour_transfer.cpp
   renderer/frame/raster_pass.cpp
   renderer/frame/window_quads.cpp
@@ -264,6 +270,7 @@ add_library(openrac_renderer STATIC
   renderer/gl/program_cache.cpp
   renderer/gl/gl_warmup.cpp
   renderer/gl/shader.cpp
+  renderer/gl/shader_variants.cpp
   renderer/frame/subsystems.cpp
   renderer/textures/texture.cpp
   renderer/textures/texture_pack.cpp
@@ -324,6 +331,7 @@ add_library(openrac_renderer_ui STATIC
   renderer/ui/fps_counter.cpp
   renderer/ui/imgui_gl.cpp
   renderer/ui/logo.cpp
+  renderer/ui/menu_icons.cpp
   renderer/ui/overlay_draw.cpp
   renderer/ui/overlay_list.cpp
   renderer/ui/picture_blit.cpp
@@ -729,15 +737,17 @@ openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
 # Ratchet & Clank's built-in keyboard and mouse (game/rac1/keyboard_mouse): its logic alone, with
 # its manifest; and its code loaded as the port loads it, against a host table of the test's own.
 openrac_add_test(keyboard_mouse_logic INCLUDES . game/rac1/keyboard_mouse ../sdk/include
-                 DEFINITIONS "KBM_MANIFEST=\"${PROJECT_SOURCE_DIR}/game/rac1/keyboard_mouse/openrac-mod.json\"")
+                 DEFINITIONS "KBM_MANIFEST=\"${PROJECT_SOURCE_DIR}/game/common/keyboard_mouse/openrac-mod.json\"")
 openrac_add_test(keyboard_mouse_load
                  SOURCES tests/keyboard_mouse_load_test.cpp game/rac1/keyboard_mouse/keyboard_mouse.cpp
                          game/common/key_prompts.cpp renderer/textures/sharp_cells.cpp
+                         platform/gyro.cpp
                  INCLUDES . game/rac1/keyboard_mouse ../sdk/include)
 # Going Commando's built-in keyboard and mouse, loaded against a host table of the test's own.
 openrac_add_test(keyboard_mouse_rac2
                  SOURCES tests/keyboard_mouse_rac2_test.cpp game/rac2/keyboard_mouse/keyboard_mouse.cpp
                          game/common/key_prompts.cpp renderer/textures/sharp_cells.cpp
+                         platform/gyro.cpp
                  INCLUDES . ../sdk/include game/common/include runtime/include)
 # The keys painted over the game's button icons (game/common/key_prompts.h) and their labels.
 openrac_add_test(key_prompts SOURCES tests/key_prompts_test.cpp game/common/key_prompts.cpp
@@ -750,6 +760,17 @@ target_include_directories(openrac_game_rac2_profile PRIVATE runtime/include
 target_link_libraries(openrac_game_rac2_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
 openrac_warnings(openrac_game_rac2_profile)
 openrac_add_test(rac2_moby_view LIBS openrac_game_rac2_profile)
+
+# Up Your Arsenal's profile (game/rac3-pal/profile.cpp), which openrac-rac3-pal compiles itself, as a
+# library for its test and for openrac-rac3-ntsc, which finds it as the game's
+# (openrac_game_rac3_profile, cmake/Games.cmake): it holds both discs' tables, picked by the id.
+add_library(openrac_game_rac3_pal_profile STATIC game/rac3-pal/profile.cpp)
+target_include_directories(openrac_game_rac3_pal_profile PRIVATE runtime/include
+  "${CMAKE_CURRENT_BINARY_DIR}/generated")
+target_link_libraries(openrac_game_rac3_pal_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
+openrac_warnings(openrac_game_rac3_pal_profile)
+openrac_add_test(rac3_profile LIBS openrac_game_rac3_pal_profile)
+add_library(openrac_game_rac3_profile ALIAS openrac_game_rac3_pal_profile)
 
 # Tests are registered through openrac_add_test (cmake/Tests.cmake), which makes the program
 # <subject>_test and the ctest test <subject>; a program that runs under more names gets them with
@@ -843,6 +864,7 @@ openrac_warnings(hero_shadow_test)
 add_test(NAME hero_shadow_cpu COMMAND hero_shadow_test)
 openrac_add_test(moby_shadow LIBS openrac_scene)
 openrac_add_test(moby_key_gap LIBS openrac_scene)
+openrac_add_test(moby_port_memory LIBS openrac_scene)
 openrac_add_test(hero_attachments SOURCES tests/hero_attachments_test.cpp
   game/rac1/host/hero_attachments.c INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}")
 openrac_add_test(hero_shadow_rig INCLUDES . game/common/include runtime/include)
@@ -897,6 +919,8 @@ openrac_add_test(frontend_geometry SOURCES tests/frontend_geometry_test.cpp
                    INCLUDES . runtime/include)
 openrac_add_test(scenery_capture SOURCES tests/scenery_capture_test.cpp
                  game/common/frontend/scenery_capture.cpp INCLUDES . runtime/include)
+openrac_add_test(ui_images SOURCES tests/ui_images_test.cpp
+                 game/common/frontend/ui_images.cpp game/common/frontend/game_image_sources.cpp INCLUDES . game/common/include runtime/include)
 openrac_add_test(frontend_pacing SOURCES tests/frontend_pacing_test.cpp
                  game/common/frontend/pacing.cpp INCLUDES .)
 openrac_add_test(frame_limiter SOURCES tests/frame_limiter_test.cpp
@@ -935,6 +959,10 @@ set_tests_properties(texture_blocks_gl_rgba8 PROPERTIES SKIP_RETURN_CODE 77 ENVI
 openrac_add_test(renderer_math INCLUDES .)
 
 openrac_add_test(renderer_gif LIBS openrac_renderer)
+# The frame recorder's commands, anchors and kept recordings (docs/port/FRAME_RECORDER.md).
+openrac_add_test(frame_record LIBS openrac_renderer)
+openrac_add_test(game_image_sources SOURCES tests/game_image_sources_test.cpp
+                 game/common/frontend/game_image_sources.cpp INCLUDES . game/common/include runtime/include)
 
 openrac_add_test(renderer_direct LIBS openrac_renderer openrac_platform)
 set_tests_properties(renderer_direct PROPERTIES SKIP_RETURN_CODE 77)
@@ -1262,3 +1290,11 @@ if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
   set_tests_properties(atmosphere_precision PROPERTIES SKIP_RETURN_CODE 77
     ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
+
+# Native GL feature variants preserve logical uniforms across independent linked programs.
+openrac_add_test(gl_shader_variants LIBS openrac_renderer_world openrac_renderer openrac_platform)
+set_tests_properties(gl_shader_variants PROPERTIES SKIP_RETURN_CODE 77 LABELS "gpu"
+                    RESOURCE_LOCK "openrac_gpu")
+add_test(NAME gl_shader_variants_es COMMAND gl_shader_variants_test)
+set_tests_properties(gl_shader_variants_es PROPERTIES SKIP_RETURN_CODE 77 LABELS "gpu"
+                    RESOURCE_LOCK "openrac_gpu" ENVIRONMENT "OPENRAC_GL_API=es")

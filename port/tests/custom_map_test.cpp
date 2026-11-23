@@ -80,7 +80,10 @@ int main() {
     };
     CHECK(openrac::program::parse_destinations(
         ntsc(registry(harbor)), "rac1", "ntsc", destinations, error
+    ));    CHECK(!openrac::program::parse_destinations(
+        ntsc(registry(harbor)), "rac1", "pal1", destinations, error
     ));
+
     std::string traversal = harbor;
     traversal.replace(traversal.find("harbor"), 6, "../escape");
     CHECK(!openrac::program::parse_destinations(

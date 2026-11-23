@@ -29,6 +29,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 }
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
+/* The game's particle routines (particles.c, openrac_api.particle_spawn_ex) are checked at PAL's addresses only. */
+#define RAC1_OMIT_particle_spawn_ex 1
 /* Level 0's 0x2EC6B8: the NTSC decomp's catalogue places its func_001E9448 there, which returns 0. */
 #define RAC1_OMIT_func_L00_002EDB68 1
 /* PAL's assign_moby_class_data, whose level vtbl is at another address in each program. */
@@ -220,6 +222,9 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_00222B80 game_FUN_L00_002223f8
 #define func_L00_00217718__game game_FUN_L00_00216f90__game
 #define RAC1_ADDR_L00_0x00166F00u 0x00166E00u
+/* The level camera's shake channels (camera_override.c rac1_camera_shake): gCameraLvl is D_L00_00166C80 here (PAL D_L00_00166D80), its shake at +0x160. Paired by
+ * the code that reads it (93 sites for the camera, the shake word's own reader), both in the US level-0 program. */
+#define RAC1_ADDR_L00_0x00166EE0u 0x00166DE0u
 
 /* The page menu's (front_end.c, mod_ui.cpp), checked by hand in the US data and code: the title's
  * main page (initialize_menu_preview_scene's), the Options page (its back is the main page, its
@@ -354,6 +359,18 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_L02_0x0015FA1Cu 0x0015F944u
 #define RAC1_ADDR_L02_0x0015FA20u 0x0015F948u
 
+/* The ship computer's list (rac1/host/destinations.c): the NTSC decomp declares FUN_00221800
+ * (the same bytes as PAL's) as void (menu, s32). Its levels' copy, FUN_L00_0027f448, is a function
+ * of its own there, so host/ship_menu.c sends it through the same wrap and runs that copy's C. */
+int rac1_ntsc_ship_menu_game(gaddr menu, int unused);
+#define RAC1_SHIP_MENU_RESULT void
+#define RAC1_SHIP_MENU_PARAMS gaddr menu, int unused
+#define RAC1_SHIP_MENU_CALL(menu) rac1_ntsc_ship_menu_game(menu, unused)
+#define RAC1_SHIP_MENU_RETURN(result)                                                              \
+    do {                                                                                           \
+        (void)(result);                                                                            \
+        return;                                                                                    \
+    } while (0)
 /* print_moby_class_sizes, wrapped for the imported moby classes (foreign_class.c). */
 #define RAC1_FOREIGN_CLASSES 1
 #define func_L00_00242120 game_FUN_L00_00241788
@@ -618,7 +635,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* Addresses: games/rac1's, this version's (RAC1_LADDR: in level NN's program). */
 #define RAC1_ADDR(a) RAC1_ADDR_##a
 #define RAC1_LADDR(n, a) RAC1_ADDR_L##n##_##a
-#define RAC1_ADDR_0x0010E4C0u 0x0010E4C0u
 #define RAC1_ADDR_0x0013CA40u 0x0013C940u
 #define RAC1_ADDR_0x0013D010u 0x0013CF10u
 #define RAC1_ADDR_0x0013D490u 0x0013D388u
@@ -785,8 +801,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x0013CC04u 0x0013CB04u
 #define func_0021BB90 game_FUN_0021abf8
 #define func_0021BB90__game game_FUN_0021abf8__game
-#define func_00222848 game_FUN_L00_0027f448 /* the level copy: the executable's FUN_00221800 has no C and a level's list never calls it */
-#define func_00222848__game game_FUN_L00_0027f448__game
+#define func_00222848 game_FUN_00221800
+#define func_00222848__game game_FUN_00221800__game
 #define func_L00_00290030 game_FUN_L00_0028ed58
 #define func_L00_00290030__game game_FUN_L00_0028ed58__game
 

@@ -55,5 +55,6 @@ static __inline__ openrac_u32 openrac_ee_cvtws(float f) {
 /* Nothing to report to on the console; no string goes into the candidate's data. */
 #define openrac_ee_break(function, address) ((void)(address))
 #define openrac_ee_lost(function, target) ((void)(target))
+#define openrac_ee_dma_register(function, at, address) ((void)(address))
 
 #endif /* OPENRAC_ASMC_CONSOLE_H */

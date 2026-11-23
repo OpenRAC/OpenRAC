@@ -163,10 +163,16 @@ OpenRAC's are:
   (RAC1: `SYSTEM.CNF`, the boot executable and `IOPRP243.IMG`) and reads the
   rest by sector. So, unlike OpenGOAL's, the extract step keeps the image
   itself in `iso_data/<game>/disc.iso` (a hard link, a copy across file
-  systems; on Android a symbolic link to the launcher's own copy) and of the
-  disc's files only what the port reads (`--boot-only`): `SYSTEM.CNF` and the
-  boot executable. At start the launcher removes what older set-ups hold
-  beyond that (`install::tidy`).
+  systems; on Android a symbolic link to the launcher's own copy), which the
+  level tools read. The game itself never opens it: the extractor writes the
+  disc's files (the file system's at their paths, every other sector as lumps
+  cut where the game's table of contents points, `lumps/`) and `sectors.tsv`,
+  the map from each sector to its file, which the game reads by
+  (tools/openrac_common/disc_files.py, port/assets/disc/sector_map.h). A set-up
+  made before that has only `SYSTEM.CNF` and the boot executable beside the
+  image: Play waits for the step `disc-files` (_Unpack the disc's files_),
+  which the player's Play button runs first. At start the launcher removes
+  what older set-ups without a map hold beyond those (`install::tidy`).
 - A disc set up this way counts as the version's disc for the level editor
   (`{disc}` in its actions), so a player needs no `baserom/`.
 - Code: `core/src/install.rs` (the layout, the state on disk, the job's plan,
@@ -311,7 +317,7 @@ same way and no region is named; developer mode names the version.
 
 The level editor's own steps (`editor-extract`, `editor-reexport`, `editor-import`, `editor-open`,
 `editor-pack`, `editor-preview`, `editor-show-packs`, `editor-hide-packs`) are not in this file:
-[OpenRAC Editor](https://github.com/nickyyOO/OpenRAC-Editor) brings them in its
+[OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor) brings them in its
 `openrac/editor.json`, in this file's form, and the launcher lists them beside each version's
 own once the player downloaded the editor from its releases (core `editor_install.rs`). An editor
 written against another `extractor/extractor_api.json` version is refused with what to update.

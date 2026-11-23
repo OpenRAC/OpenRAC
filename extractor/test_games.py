@@ -50,7 +50,10 @@ class TableTests(unittest.TestCase):
         # Its terrain and shrubs are lit at level load as Ratchet & Clank's (checked byte for byte
         # against the console's memory in levels 0, 3, 4 and 22), by its own (cos, sin) table.
         self.assertTrue(RAC2.world_lighting and not RAC2.lighting)
-        self.assertFalse(RAC1.world_lighting or RAC3.world_lighting or RAC4.world_lighting)
+        self.assertFalse(RAC1.world_lighting or RAC4.world_lighting)
+        # Up Your Arsenal's are lit the same way (its PatchTfragVertexLighting and shrub lighting
+        # are Going Commando's instructions), by the table in each level's own program.
+        self.assertTrue(RAC3.world_lighting and not RAC3.lighting)
         self.assertEqual(wads.RAC2_NTSC.normal_table, 0x238F00)
         # Where func_002F0468 forms it in the PAL and v2.00 executables.
         self.assertEqual((wads.RAC2_PAL.normal_table, wads.RAC2_NTSC2.normal_table), (0x238F00, 0x238E80))
@@ -145,7 +148,10 @@ class ReaderTests(unittest.TestCase):
         # Going Commando: a vertex's place in its class's colour run, each packet's vertices in
         # their own order after the packets before (a vertex written twice keeps its one place).
         self.assertEqual(sorted(set(rac2.light_slots)), list(range(len(set(rac2.light_slots)))))
-        self.assertEqual(set(tie_mesh(gc_tie(), test_ties.REMAP, "tie", RAC3).light_slots), {0})
+        # Up Your Arsenal: the same colour run (its PatchTieVertexLighting is Going Commando's);
+        # Deadlocked's ties take one slot.
+        self.assertEqual(tie_mesh(gc_tie(), test_ties.REMAP, "tie", RAC3).light_slots, rac2.light_slots)
+        self.assertEqual(set(tie_mesh(gc_tie(), test_ties.REMAP, "tie", RAC4).light_slots), {0})
         with self.assertRaises(Exception):
             tie_mesh(gc_tie(winding=32), test_ties.REMAP, "tie", RAC2)  # Going Commando: 0 or 1 only.
         turned = tie_mesh(gc_tie(winding=32), test_ties.REMAP, "tie", RAC3)

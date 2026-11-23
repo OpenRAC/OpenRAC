@@ -413,7 +413,8 @@ bool replace_indexed8(
     Rgba8Image& image,
     std::span<const std::uint8_t> indices,
     std::span<const std::uint32_t> palette,
-    AlphaScale alpha
+    AlphaScale alpha,
+    bool high
 ) {
     const auto width = static_cast<unsigned>(image.width);
     const auto height = static_cast<unsigned>(image.height);
@@ -422,7 +423,7 @@ bool replace_indexed8(
         return false;
     }
     gs::Tex0 tex0{};
-    tex0.psm = gs::kPsmt8;
+    tex0.psm = high ? gs::kPsmt8h : gs::kPsmt8;
     tex0.tw = static_cast<std::uint32_t>(std::countr_zero(width));
     tex0.th = static_cast<std::uint32_t>(std::countr_zero(height));
     return replace(image, tex0, indices, palette, alpha);

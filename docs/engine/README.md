@@ -265,7 +265,7 @@ says for each.
   quantised vertices, a type byte per face whose low five bits are a surface
   id, and hero-only groups. Layout from ReRAC, checked on PAL
   ([ASSETS.md](../../games/rac1/decomp/docs/ASSETS.md#collision),
-  [OpenRAC Editor's guide](https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md#collision)).
+  [OpenRAC Editor's guide](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md#collision)).
 
 ### RAC1 US
 

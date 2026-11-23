@@ -73,7 +73,8 @@ Measured from the programs, not assumed (release_carry.json has each):
   RC2.HDR (`packs[]` at +0x4F08, by armour) over the class at run time. The export reads pack 0
   (`editor/wads.py`, `hero_pack`) as `mobys/moby_0.glb`, textures `moby_1000.png` on. Packs 1 to 8, his
   other looks, are classes 6001 to 6008 of the export, textures 16 places on for each; `port/game/rac2/profile.cpp`
-  has the window draw the one the game has (armour `0x001A7A18`, or the four flags before it), through
+  has the window draw the one the game has loaded (the pack word `0x001A7290`, PAL `0x001A7310`, which
+  `tex_load_level_pack` sets; the armour itself is `0x001A7A18`; or the four skin flags before it), through
   `LiveMoby::model_class`, so class 0 stays the hero everywhere else. His sequences are compressed on
   the disc, so the glTF has none: the game draws him from its memory.
 - What he holds is not in a level at all, unlike Ratchet & Clank's gadget table: the 42 items are banks
@@ -172,6 +173,31 @@ drawn by `func_L00_002E2958`'s copies (`levels/shared/L00_002D7940-wipe.c`), lef
   then `PopGameState` (`func_002B4B70`) goes back to the state they were asked from. With Skip
   cutscenes on (the default), Start presses R2 there (host/tools.c, `skip_buttons`), so the game
   takes them down itself, the same way it does when they finish.
+
+## The armour vendor
+
+The armour vendor is the weapon vendor's menu in mode 3: a Megacorp Vendor (class 11) whose pvars
++0x94 is 2 (`OpenVendorMenu`, func_002F8178: 0 weapons, 1 the channel list, 4 the equipment, 2
+armour). Its list (`shop_rebuild_unlocked_slot_list`, func_002F71B8, hook point
+`rac2.armor_vendor.build_list`) is 12-byte rows {icon, price, armour} at `g_vendorUi` +0x140 (the
+count at +0x740): each armour above the one worn that its planet unlocked (bit armour of
+`g_game_flag_table[0x8D]`, or the extras of a finished game), under the icon 0xEA92 + armour, priced 25,000,
+100,000, 250,000 and 1,000,000 bolts (`0x001AD268`). The worn armour is the save block's s16 +0x20
+(`0x001A7A18`; PAL `0x001A7AA0`, USA v2.00 `0x001A7A20`), 4 Carbonox the best: with it worn the
+list is empty. The armour vendors are on Dobbo, Boldan, Snivelak and Grelbin; the name under the
+preview is the armour's item record's (Carbonox's text 0x0AB0, USA v2.00 0x331B), its description
+`g_shop_armor_text_ids[armour]` (`0x001AD250`).
+
+Each level's copy of the mode-3 purchase dialog (func_L00_00373D40, hook point
+`rac2.armor_vendor.buy`; PAL func_L00_00376810, USA v2.00 func_L00_00375068) asks, then pays the row's
+price when the bolts cover it and the worn armour is not 4, and closes the menu; the close
+(`shop_close_sub_menu`, func_002F9198) then wears the row's armour and loads its pack. Its preview
+(`PrepareVendorSelectionPreview`, func_002FB1A0, hook point `rac2.vendor.preview`) loads the row's
+armour pack over class 0 and makes the preview objects at `g_vendorUi` +0x2C: class 0, Ratchet in
+that armour, then classes 1290 (Carbonox only) and 2675 (armours 3 and 4) for extra pieces, drawn
+with the vendor's camera, outside the level's list, so a mod reaches them by class in the menu scope
+(`moby_material_class`). Ratchet's fur and the armours 1 to 3 share their textures (one UV layout;
+only the plates' texels differ); Carbonox is the whole-body suit with a texture of its own.
 
 ## Ratchet & Clank's saves: the Barlow vendor's free weapons
 

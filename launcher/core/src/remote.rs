@@ -721,8 +721,8 @@ fn read_github(
     };
     // Newest first. GitHub's list is not in date order: a repository of many mods, each released
     // on its own tag, can list an older mod's release first, and every other mod's manifest would
-    // then be read as it was back then (openrac-mods listed xbox-icons-v1.1.0 first, from before
-    // the other mods took Going Commando, so they could not be installed for it). The dates are
+    // then be read as it was at that older release (a game added since would be missing, so the
+    // mods could not be installed for it). The dates are
     // GitHub's ISO 8601 in UTC, which sort as text; a release without one goes last.
     eligible.sort_by(|a, b| b.when().cmp(&a.when()));
     // What the manifests are read at: the release named, a branch or commit named, the newest

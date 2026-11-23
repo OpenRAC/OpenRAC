@@ -363,6 +363,9 @@ void keyboard_and_mouse(const fs::path& plugins) {
     install_script(plugins, "kbm", {{"main.luau", R"(
 openrac.take_input("keyboard")
 assert(not pcall(openrac.key, "NoSuchKey"), "an unknown name is an error")
+local label, kind = openrac.button_label(0x8000)
+assert(label == "\x13" and kind == "playstation", "Square on the game's own icons, interface 1.31")
+assert(openrac.button_label(0x8001) == nil, "two buttons are none")
 openrac.on_pad(function(port, report)
     local dx, dy, wx, wy = openrac.mouse()
     local focused, captured, overlay = openrac.window()

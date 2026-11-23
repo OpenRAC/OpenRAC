@@ -909,10 +909,6 @@ ProbeBaker::ProbeBaker(
 
 ProbeBaker::~ProbeBaker() = default;
 
-const Scene& ProbeBaker::traversal_scene() const {
-    return m_impl->scene;
-}
-
 // ---- Probe workers ----
 
 ProbeVolume ProbeBaker::bake(

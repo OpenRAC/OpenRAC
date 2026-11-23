@@ -79,7 +79,7 @@ def write_levels(root: Path, version: str = "pal", keys=((0, ("moby", 3)), (1, (
         (writer.dir / "textures").mkdir(parents=True, exist_ok=True)
         for name, tex in writer.textures.items():
             (writer.dir / "textures" / f"{name}.png").write_bytes(tex.png())
-        manifest = {"format": assets.LEVELS_FORMAT, "game": game, "version": version, "level": number,
+        manifest = {"format": assets.levels_format(game), "game": game, "version": version, "level": number,
                     "classes": {"moby": {"0": {"mesh": "mobys/moby_0.glb", "scale": 0.5, "name": "ratchet"},
                                          "1": {"mesh": None, "scale": 1.0}},
                                 "tie": {"3": {"mesh": "ties/tie_3.glb"}}, "shrub": {}},

@@ -120,6 +120,64 @@ class CatalogueTests(unittest.TestCase):
             self.assertTrue(f.sig.prototyped)
             self.assertEqual(len(f.sig.params), 2)
 
+    def test_cop0_count_reads_the_host_counter_when_asked(self):
+        # asm.cop0_count: mfc0 of Count ($9) is the host's cycle counter (Up Your Arsenal's
+        # multiplayer map 48's 0x0043F4F8 times its own work with it); without it, a stub.
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            name = 'func_00100000'
+            (folder / 'f.s').write_text(assembler.assemble(name, 0x100000,
+                'mfc0 $2, $9\njr $31\nnop\n'))
+            for asked in (False, True):
+                p = Program()
+                f = Function(name, Signature(ctype.Base('int'), (), False, False), asm=True)
+                p.functions[name] = f
+                tr = asmc.Translator(p, asm.read_index([folder], lambda _: -1))
+                tr.cop0_count = asked
+                if asked:
+                    tr.prepare_signature(f, tr.find(f))
+                result = tr.translate(f)
+                if asked:
+                    self.assertIn('openrac_ee_count()', result.text)
+                else:
+                    self.assertIsNone(result.text)
+
+    def test_wide_sites_map_addresses_and_bounds(self):
+        # asm.wide: Up Your Arsenal's 8-wide tables grown past 8 (mp/wide.json). An indexed load
+        # goes through the table's address function, a loop bound through the bound function, an
+        # element address handed to a call is mapped after the delay slot, and the rest is as it was.
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            name = 'func_00100000'
+            (folder / 'f.s').write_text(assembler.assemble(name, 0x100000,
+                'addiu $29, $29, -16\nsd $31, 0($29)\n'
+                'lui $2, 0x1A\naddu $2, $2, $4\nlw $3, 0x5E18($2)\n'   # 0x100008..10: load
+                'slti $2, $4, 8\n'                                    # 0x100014: bound
+                'addiu $5, $2, 0\n'                                    # 0x100018: value
+                'jal func_00100100\naddu $4, $3, $4\n'               # 0x10001C: arg a0
+                'lw $6, 0($4)\n'                                      # untouched
+                'ld $31, 0($29)\njr $31\naddiu $29, $29, 16\n', {'func_00100100': 0x100100}))
+            p = Program()
+            f = Function(name, Signature(ctype.Base('int'), (), False, False), asm=True)
+            p.functions[name] = f
+            tr = asmc.Translator(p, asm.read_index([folder], lambda _: -1))
+            tr.wide = asmc.parse_wide({
+                'address': 'wide_address', 'bound': 'wide_bound', 'span': 'wide_span', 'tables': ['A', 'B'],
+                'sites': {'core': {'00100010': 'ea B', '00100014': 'bound', '00100018': 'value A r5',
+                                   '0010001C': 'arg A r4; arg B r3'}}})
+            tr.prepare_signature(f, tr.find(f))
+            text = tr.translate(f).text
+            self.assertIn('wide_address((openrac_u32)(r2 + 24088), 1)', text)
+            self.assertIn('< (openrac_s64)wide_bound(8)', text)
+            self.assertIn('r5 = OPENRAC_EE_S32((openrac_u32)wide_address((openrac_u32)r5, 0));', text)
+            self.assertLess(text.index('r4 = OPENRAC_EE_S32((openrac_u32)r3 + (openrac_u32)r4)'),
+                            text.index('r4 = OPENRAC_EE_S32((openrac_u32)wide_address((openrac_u32)r4, 0));'))
+            self.assertIn('extern openrac_u32 wide_address(openrac_u32, int);', text)
+            self.assertIn('r3 = OPENRAC_EE_S32((openrac_u32)wide_address((openrac_u32)r3, 1));', text)
+            self.assertIn('openrac_ee_lw((openrac_u32)(r4 + 0))', text)
+        with self.assertRaises(ValueError):
+            asmc.parse_wide({'address': 'a', 'bound': 'b', 'tables': [], 'sites': {'40': {'0': 'what'}}})
+
     @unittest.skipUnless(shutil.which('clang'), 'needs Clang')
     def test_unprototyped_call_compiles_after_same_unit_definition(self):
         with tempfile.TemporaryDirectory() as temp:

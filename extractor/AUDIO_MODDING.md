@@ -5,7 +5,7 @@ effects in place of the game's. You export the sounds you want to change as WAV
 files, edit or replace them in any audio editor, and import them back as a pack.
 It works the same with either disc the game can be set up from.
 
-Going Commando plays a pack's sounds too: its speech can be spoken again in the
+Going Commando and Up Your Arsenal play a pack's sounds too: its speech can be spoken again in the
 characters' own voices by an AI voice model, in OpenRAC Editor's Voices dock,
 which makes the pack (the game plays it with mods on). Its video scenes cannot
 be changed.

@@ -95,7 +95,6 @@ public:
     BankHandle load_bank_at(
         BankHandle handle, std::span<const std::uint8_t> file, const BankReplacements& replaced = {}
     );
-    void reset_for_snapshot();
     void set_next_handles(BankHandle bank, SoundHandle sound);
     void swap_snapshot_state(SoundPlayer& other) noexcept;
 
@@ -118,7 +117,6 @@ public:
     void set_volume_pan(SoundHandle sound, std::int32_t volume, std::int32_t pan);
     void set_pitch_mod(SoundHandle sound, std::int32_t pitch_mod);
     void set_pitch_bend(SoundHandle sound, std::int32_t pitch_bend);
-    void set_register(SoundHandle sound, std::size_t which, std::int8_t value);
 
     void set_master_volume(std::size_t group, std::int32_t volume);
     // Groups by bit (bit g = group g).

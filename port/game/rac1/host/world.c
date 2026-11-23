@@ -344,6 +344,16 @@ int32_t rac1_world_moby_mission(int32_t slot) {
     return mission != 0xFFu ? mission : -1;
 }
 
+/* The class of the moby at `moby` (its class field, +0xA6), whether or not the level's list holds it:
+ * -1 outside a level, for 0, for an address whose field is past the game's RAM, or for a class below 0. */
+int32_t rac1_world_moby_class(gaddr moby) {
+    if (!in_level() || moby == 0 || moby > openrac_guest_ram_size - (MOBY_OCLASS + 2u)) {
+        return -1;
+    }
+    const int32_t oclass = GREF(int16_t, moby + MOBY_OCLASS);
+    return oclass >= 0 ? oclass : -1;
+}
+
 int32_t rac1_world_moby_slot(int32_t key) {
     if (!in_level() || key < 0 || key >= KEYS_MAX) {
         return -1;

@@ -24,12 +24,29 @@ TEXTURE_TABLES = {"terrain": 0x30, "moby": 0x38, "tie": 0x40, "shrub": 0x48}
 HERO_TEXTURES = 1000
 # Each of his looks past the first has this many places from there, its texture numbers.
 HERO_LOOK_TEXTURES = 16
+# Looks past what fits before ITEM_TEXTURES (Up Your Arsenal has 30: his armours and skins) take
+# their places from here instead.
+MORE_LOOK_TEXTURES = 2000
+
+
+def hero_look_texture(number: int, i: int) -> int:
+    """The texture number of texture I of his look NUMBER (1 up)."""
+    at = HERO_TEXTURES + number * HERO_LOOK_TEXTURES
+    return at + i if at + HERO_LOOK_TEXTURES <= ITEM_TEXTURES else MORE_LOOK_TEXTURES + number * HERO_LOOK_TEXTURES + i
 # And those of the items he holds, one each, past all his looks'.
 ITEM_TEXTURES = 1200
 # The forms of his wrench, each a pack with one texture (the first of those places).
 WRENCHES = 3
 # The picture on his ship, past those.
 SHIP_TEXTURE = 1300
+# Clank's picture (Up Your Arsenal), his first skin; the others go out as clank_skin_NN.
+CLANK_TEXTURE = 1310
+# The pictures of the classes a level's scenes load (Up Your Arsenal), past all his looks'.
+SCENE_TEXTURES = 3000
+# What a moby class table entry's word +8 binds over all of the class's faces at load
+# (games.Format.bound_textures; Up Your Arsenal's class loader, Veldin's func_L01_0042B4F8): 1 his ship's
+# picture (the ship's parts 4308 to 4325 and hull 3412, as Going Commando's), 2 Clank's (601, 87).
+BOUND_SHIP, BOUND_CLANK = 1, 2
 # A hero pack's texture record: its width and height, CLUT and 8-bit pixels (func_00292078).
 RECORD_SIZE, RECORD_CLUT, RECORD_PIXELS = 0x08, 0x20, 0x420
 # Class tables: (count, offset) pairs; each entry starts with a core offset.
@@ -64,6 +81,9 @@ class Level:
     # Going Commando's Ratchet: the file his class's packets are in (wads.WadDisc.hero_pack), which
     # the game loads over the class at run time. His textures are "moby" ones from HERO_TEXTURES.
     hero_mesh: bytes | None = None
+    # The level's own program (its code overlay, decoded), for what a later game keeps there rather
+    # than in its executable (Up Your Arsenal's normal table, lighting.program_normal_table).
+    program: bytes = b""
     # His other looks, as (pack number, mesh file), and the wrench's mesh file in each of its forms.
     hero_looks: list[tuple[int, bytes]] = field(default_factory=list)
     wrench_meshes: list[bytes] = field(default_factory=list)
@@ -75,6 +95,11 @@ class Level:
     ship_bodies: list[bytes] = field(default_factory=list)
     # Going Commando: every paint job of his ship, 0 first (also ("moby", SHIP_TEXTURE)).
     ship_paints: list[Texture] = field(default_factory=list)
+    # Up Your Arsenal: Clank's picture in each of his skins, 0 first (also ("moby", CLANK_TEXTURE)).
+    clank_skins: list[Texture] = field(default_factory=list)
+    # Up Your Arsenal: the moby classes its scenes load (scene_classes): class number to (class
+    # blob, the texture numbers of its slots).
+    scene_classes: dict[int, tuple[bytes, list[int]]] = field(default_factory=dict)
 
     @property
     def instances(self) -> bytes:
@@ -290,6 +315,7 @@ def load_wad_level(source, entry: dict) -> Level:
     level = Level(entry["id"], part["header"], stored, index, core, gameplay,
                   overlay or {"entry_point": 0, "sections": []})
     level.game, level.version, level.art = version.game, version.key, art
+    level.program = sections.get("overlay", b"")
     for chunk, sector, count in wads.chunk_ranges(part["header"]):
         if chunk == 0:
             continue  # chunk 0 is the core's own terrain and collision (Wrench reads it from the core)
@@ -301,7 +327,70 @@ def load_wad_level(source, entry: dict) -> Level:
     level.textures = textures(level, sections["gs_ram"])
     if version.hero_packs:
         hero_files(level, source)
+    if version.scene_classes:
+        scene_classes(level, source.scene_class_lumps(entry))
     return level
+
+
+# A scene class lump's picture: a PIF ("2FIP", +8 its width, +0xC its height, +0x10 its format,
+# 0x13 PSMT8), its CLUT at +0x20 and its pixels at +0x420; the spaceships' too (spaceships.py).
+PIF_SIZE, PIF_CLUT, PIF_PIXELS = 0x08, 0x20, 0x420
+
+
+def scene_classes(level: Level, lumps: list[bytes]) -> None:
+    """Up Your Arsenal's scenes play with moby classes of their own, which the scene loads into
+    free class slots while it plays (Veldin's first: Clank as class 10, slot 153, and the gun the
+    Ranger hands over, 7322, slot 154). Each lump (wads.WadDisc.scene_class_lumps) opens with
+    16-byte entries up to a word -1: the class number, the offset of its pictures (0 for none),
+    the offset of its blob, 0. The pictures are a count and each one's offset from there (PIF).
+    A class without pictures is Clank's, class 10 in every scene: its GS blocks were seen holding
+    his picture's TEX0 (0x001D4BA8), as class 601's do. Each class is taken once, from the first
+    scene that loads it, and only where the level has no class of that number of its own."""
+    own = {unpack("<i", entry, 4)[0] for entry in level.table(0x18, 32)}
+    place = SCENE_TEXTURES
+    for raw in lumps:
+        try:
+            lump = decoded(raw)
+        except FormatError as exc:
+            level.problems.append(f"scene classes: not unpacked ({exc})")
+            continue
+        entries = []
+        for at in range(0, len(lump) - 15, 16):
+            class_id, pictures, start, pad = unpack("<4i", lump, at)
+            if class_id == -1:
+                break
+            if pad or not 0 < start < len(lump) or not 0 <= pictures < len(lump):
+                entries = []
+                level.problems.append(f"scene classes: entry {at // 16} out of the lump")
+                break
+            entries.append((class_id, pictures, start))
+        bounds = sorted({len(lump)} | {start for _, _, start in entries}
+                        | {pictures for _, pictures, _ in entries if pictures})
+        for class_id, pictures, start in entries:
+            if class_id in own or class_id in level.scene_classes:
+                continue
+            blob = lump[start:bounds[bounds.index(start) + 1]]
+            if not pictures:
+                if ("moby", CLANK_TEXTURE) not in level.textures:
+                    continue
+                level.scene_classes[class_id] = (blob, [CLANK_TEXTURE] * 16)
+                continue
+            count, = unpack("<i", lump, pictures)
+            keys = []
+            for offset in unpack(f"<{count}i", lump, pictures + 4) if 0 < count <= 16 else ():
+                pif = pictures + offset
+                width, height, fmt = unpack("<3i", lump, pif + PIF_SIZE)
+                if lump[pif:pif + 4] != b"2FIP" or fmt != 0x13:
+                    break
+                level.textures[("moby", place)] = Texture(width, height,
+                                                          span(lump, pif + PIF_PIXELS, width * height),
+                                                          span(lump, pif + PIF_CLUT, 1024))
+                keys.append(place)
+                place += 1
+            if not keys:
+                level.problems.append(f"scene class {class_id}: pictures not read")
+                continue
+            level.scene_classes[class_id] = (blob, keys + [keys[-1]] * (16 - len(keys)))
 
 
 # The title world: the space flight behind the title and the main menu (the boot program's
@@ -386,10 +475,11 @@ def hero_files(level: Level, source) -> None:
         mesh, pack = source.hero_pack(number)
         level.hero_looks.append((number, mesh))
         for i, texture in enumerate(hero_textures(pack)):
-            level.textures[("moby", HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i)] = texture
+            level.textures[("moby", hero_look_texture(number, i))] = texture
     place = 0
-    for number in range(WRENCHES):
-        mesh, pack = source.hero_pack(source.version.hero_armours + number)
+    armours = source.version.hero_armours
+    for pack_number in source.version.wrench_packs or range(armours, armours + WRENCHES):
+        mesh, pack = source.hero_pack(pack_number)
         level.wrench_meshes.append(mesh)
         level.textures[("moby", ITEM_TEXTURES + place)] = hero_textures(pack)[0]
         place += 1
@@ -400,6 +490,56 @@ def hero_files(level: Level, source) -> None:
     level.ship_paints = [record_texture(raw, 0) for raw in source.ship_textures()]
     level.textures[("moby", SHIP_TEXTURE)] = level.ship_paints[0]
     level.ship_bodies = source.ship_bodies()
+    level.clank_skins = [record_texture(raw, 0) for raw in source.clank_textures()]
+    if level.clank_skins:
+        level.textures[("moby", CLANK_TEXTURE)] = level.clank_skins[0]
+
+
+# Up Your Arsenal's loading screen between levels, the ship's scene (wads.Version.loading_ship_pack):
+# its pack is a small core of its own. Its header's words as the boot program reads them (0x003C10B0,
+# the mobys' class data at the data base plus a class entry's offset, seen in the loading screen's
+# memory): 1 the GS RAM lump, 2 the data base, 4 and 5 the GS upload table, 0xa and 0xc the moby
+# classes (Ratchet, Clank, the ship's parts 4308 to 4325, the planet 7683), 0xe and 0xf the moby
+# textures, 0x17 the texture data. Exported as level 97 with those classes and Ratchet's pack, for
+# the window to draw the loading screen's mobys with (rac3-pal/profile.cpp); the stars, the
+# galaxy and the caption are the game's draws.
+LOADING_ID = 97
+
+
+def load_wad_loading(source) -> Level:
+    lump = decoded(source.loading_pack(source.version.loading_ship_pack))
+
+    def h(i: int) -> int:
+        return unpack("<i", lump, i * 4)[0]
+
+    gs_at, base, p = h(1), h(2), TITLE_INDEX_TABLES
+    if not 0 < gs_at < base <= len(lump):
+        raise FormatError(f"loading screen: GS RAM {gs_at:#x}, data base {base:#x}")
+    header = bytearray(TITLE_INDEX_TABLES)
+
+    def put(at: int, value: int) -> None:
+        struct.pack_into("<i", header, at, value)
+
+    def table(at: int, count: int, offset: int) -> None:
+        put(at, h(count))
+        put(at + 4, h(offset) + p)
+
+    table(0x00, 4, 5)          # the GS upload
+    put(0x0c, 0)
+    table(0x18, 0xa, 0xc)      # moby classes
+    table(0x38, 0xe, 0xf)      # moby textures
+    put(0x60, h(0x17))         # texture data
+    data = lump[base:]
+    put(0x8c, len(data))
+    index = bytes(header) + lump[:base]
+    level = Level(LOADING_ID, b"", {}, index, data, bytes(0x100), {"entry_point": 0, "sections": []})
+    level.game, level.version = source.version.game, source.version.key
+    level.boundaries = core_boundaries(level)
+    level.textures = textures(level, lump[gs_at:base])
+    level.no_terrain = True
+    if source.version.hero_packs:
+        hero_files(level, source)
+    return level
 
 
 def load_wad_flight(source, number: int) -> Level:

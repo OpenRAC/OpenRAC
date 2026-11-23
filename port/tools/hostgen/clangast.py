@@ -16,9 +16,16 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
+# Clang's JSON AST nests one level per operand, so a long chain of `else if`s or a
+# long sum in matched C goes past Python's default 1,000 frames in the recursive
+# walkers here and in the translators. Python 3.12+ keeps pure-Python frames off
+# the C stack, so a higher limit is safe.
+sys.setrecursionlimit(max(sys.getrecursionlimit(), 100_000))
 
 # GCC 2.95 accepted these; Clang makes them errors unless told otherwise.
 RELAXED = [
@@ -117,8 +124,9 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
       declaration, and the name recorded as an alias of the label's symbol
       ("alias NAME SYMBOL" in the fixes), which hostgen follows.
     - "too few arguments to function call": a call to a K&R function with
-      fewer arguments than its definition. The missing ones are passed as 0
-      (on the console they were whatever the registers held).
+      fewer arguments than its definition. The missing ones are passed as
+      openrac_hostgen_unset(): 0, or with hostgen.json "unpassed_registers" the
+      caller's own arguments in those registers, as on the console (lower.py).
 
     Both edits stay on their line, so line numbers do not move.
     """
@@ -196,6 +204,12 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                 alias = f"{name}__openrac_decl_{line + 1}"
                 decl = re.sub(rf"\b{name}\b", alias, lines[line], count=1)
                 what = "a second declaration"
+                # The symbol is the name's own, not an alias an earlier contradiction gave it: a
+                # third declaration of func_0038CE20 in Veldin's L01_0035F480.c, after a second one
+                # had become func_0038CE20__openrac_decl_140, contradicts that alias and was labelled
+                # with it, so its calls went to the executable's code at 0x0038CE20 (another routine)
+                # instead of the level's vector scale.
+                symbol = re.sub(r"(?:__openrac_decl_\d+)+$", "", name)
                 if re.search(r"__asm__\s*\(", decl):
                     # Already labelled with its symbol: the label stays the alias's.
                     n = 1
@@ -207,7 +221,7 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                     n = 1
                     what = "a local that repeats a parameter's name"
                 else:
-                    decl, n = re.subn(r"\)\s*;", f') __asm__("{name}");', decl, count=1)
+                    decl, n = re.subn(r"\)\s*;", f') __asm__("{symbol}");', decl, count=1)
                 if n == 0 and note["msg"].startswith("previous declaration is here"):
                     # Not a declaration but the definition, which says other types than a
                     # declaration before it (a shared header's `void *` where the body takes
@@ -219,7 +233,7 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                     heading = " ".join(lines[line:end] + [lines[end].split("{", 1)[0]])
                     if "{" in lines[end] and ";" not in heading:
                         heading = re.sub(rf"\b{name}\b", alias, heading, count=1).strip()
-                        decl = f'{heading} __asm__("{name}"); {decl}'
+                        decl = f'{heading} __asm__("{symbol}"); {decl}'
                         what = "the definition"
                         n = 1
                 if n == 0:
@@ -308,12 +322,12 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
         if m:
             want, have = int(m.group(1)), int(m.group(2))
             src = lines[line]
-            pad = ", ".join(["0"] * (want - have))
+            pad = ", ".join(["openrac_hostgen_unset()"] * (want - have))
             if have:
                 pad = ", " + pad
             if 0 <= col < len(src) and src[col] == ")":
                 lines[line] = src[:col] + pad + src[col:]
-                fixes.append(f"line {line + 1}: passed {want - have} missing argument(s) as 0")
+                fixes.append(f"line {line + 1}: passed {want - have} missing argument(s) as unset")
     for at, decls in inserts.items():
         lines[at] = " ".join(dict.fromkeys(decls)) + " " + lines[at]
     return "\n".join(lines), fixes
@@ -352,8 +366,14 @@ def _replace_asm(lines: list[str], line: int, col: int) -> bool:
         return False
     stmt = text[start:end + 1]
     call = "openrac_hostgen_asm();"
-    blank = "".join("\n" if ch == "\n" else " " for ch in stmt[len(call):])
-    new = text[:start] + call + blank + text[end + 1:]
+    # The statement's text blanked, its line breaks kept. The call takes the place of its start,
+    # up to its first line break: `__asm__ (` alone on a line is shorter than the call, and a
+    # break the call wrote over moved every later line up one, so the fixes of later diagnostics
+    # (L07_003C7468.c's definitions after func_L07_003C8BA0's assembly) went to the line above.
+    blank = "".join("\n" if ch == "\n" else " " for ch in stmt)
+    first_break = blank.find("\n")
+    cut = len(call) if first_break < 0 else min(len(call), first_break)
+    new = text[:start] + call + blank[cut:] + text[end + 1:]
     lines[:] = new.split("\n")
     return True
 

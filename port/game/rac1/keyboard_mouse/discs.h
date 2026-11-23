@@ -3,7 +3,8 @@
  *
  * What the keyboard and mouse mod reads and calls of the game on each disc it knows, by the names
  * each disc's build of the port gives them (openrac_api.function). The PAL disc's are games/rac1's
- * in OpenRAC, the NTSC-U disc's its rac1/ntsc decompilation's, as in the lock-strafe's discs.h.
+ * in OpenRAC, the NTSC-U disc's its rac1/ntsc decompilation's, as in the lock-strafe's discs.h;
+ * PAL v1's and NTSC-J's those the release views carry (port/game/rac1-pal1, rac1-jp).
  * Evidence: the per-disc addresses are (documented) by those decompilations; the structure offsets
  * below are (assumed) where a comment gives no other source.
  */
@@ -177,6 +178,52 @@ static const kbm_disc k_kbm_discs[] = {
      0x0018D440u,
      0x001CA4C0u,
      0x001A00F0u},
+    /* PAL v1 (SCES-50916 v1.00) and NTSC-J (SCPS-15037): the PAL disc's names and addresses as the
+     * release views carry them: data from release/release_names.json (names) and
+     * release/data_moves.tsv, the dialog's on NTSC-J from host/rac1_version.h (RAC1_ADDR); the
+     * functions' release names from release_names.json. Not yet run on these discs. */
+    {"pal1",
+     0x0013F350u,
+     0x00141EA0u,
+     0x0015F5E4u,
+     0x001D5B70u,
+     0x00193280u,
+     "func_0021B958",
+     0x0015F5A4u,
+     0x0013CA40u,
+     0x0015EDDCu,
+     0x00166C80u,
+     "func_001F98F8",
+     "func_001F9910",
+     "func_L00_002E82C0",
+     "func_0021B350",
+     "func_0021A6F0",
+     0x00160250u,
+     0x0015F460u,
+     0x0018D3C0u,
+     0x001CA440u,
+     0x001A0070u},
+    {"jp",
+     0x0013F450u,
+     0x00141FA0u,
+     0x0015F6E8u,
+     0x001D5D70u,
+     0x00193400u,
+     "func_0021DCC0",
+     0x0015F6A8u,
+     0x0013CB40u,
+     0x0015EEDCu,
+     0x00166D80u,
+     "func_001FB0B8",
+     "func_001FB0D0",
+     "func_L00_002EA988",
+     "func_0021D6A0",
+     "func_0021CA48",
+     0x00160390u,
+     0x0015F560u,
+     0x0018D540u,
+     0x001CABC0u,
+     0x0019FFF0u},
 };
 /* clang-format on */
 

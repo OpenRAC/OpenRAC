@@ -114,7 +114,7 @@ TERRAIN = re.compile(r"^level_(\d{2})/terrain\.glb$")
 IMAGE = re.compile(r"((?:\.\./)?textures/)([A-Za-z0-9_.-]+)\.png")  # a port GLB's image: a level texture
 AUDIO = re.compile(r"^audio/")
 # The games whose ports play a pack's audio/<key>.wav in place of the disc's stream (sound_engine.cpp).
-AUDIO_GAMES = ("rac1", "rac2")
+AUDIO_GAMES = ("rac1", "rac2", "rac3")
 PACKED = "packed.json"  # the level packer's note of the disc it packed (OpenRAC Editor's tools/pack.py)
 # The packed levels' format this OpenRAC plays (packed.json's "format"; extractor_api.json's
 # packed_format, which the editor's packer writes).
@@ -1081,7 +1081,7 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
                 entries.append(entry)
             versions = {entry["version"] for entry in entries}
             if len(versions) != 1:
-                raise PackError("Ship destinations made for different discs cannot be on together")
+                raise PackError("Ship destinations must all be made for the same disc")
             registry = {"format": 1, "game": "rac1", "version": versions.pop(), "destinations": entries}
             (temporary / "destinations.json").write_text(json.dumps(registry, indent=1, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
             summary["destinations"] = [{"id": m["id"], "name": m["name"]} for m in entries]

@@ -65,11 +65,17 @@ export function titleLines(title: string): { series: string; game: string } {
     : { series: title.slice(0, at + 1), game: title.slice(at + 2) };
 }
 
-/** `pal` -> "PAL", `ntsc` -> "NTSC-U", `ntsc-j` -> "NTSC-J". */
-export function regionLabel(name: string): string {
-  if (name === "ntsc") return "NTSC-U";
+/** A disc's short name: `pal` -> "PAL", `ntsc` -> "NTSC-U", `pal1` -> "PAL v1.00", ... */
+const REGIONS: Record<string, string> = {
+  pal: "PAL",
+  pal1: "PAL v1.00",
+  ntsc: "NTSC-U",
+  ntsc2: "NTSC-U v2.00",
+  jp: "NTSC-J",
+};
 
-  return name.toUpperCase();
+export function regionLabel(name: string): string {
+  return REGIONS[name] ?? name.toUpperCase();
 }
 
 export const DISC: Record<DiscState, { text: string; tone: "ok" | "warn" | "err" | "info" }> = {

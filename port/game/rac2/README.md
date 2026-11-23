@@ -23,6 +23,20 @@ executable's hash (`games/rac2/game.json`).
 Game facts the port relies on (level hooks, layouts, flights, credits, the Barlow vendor):
 [RAC2_NOTES.md](../../../docs/port/RAC2_NOTES.md).
 
+## Optional Greatest Hits corrections
+
+The earlier USA and PAL discs can enable two Greatest Hits behaviors in **Game fixes**:
+**Planet platinum bolts** shows collected/total bolts for the selected planet in the ship,
+including the Jamming Array in Maktar's count; **Mining vehicle reverse** uses the magnitude
+of acceleration for the second thrust normalization, allowing Circle to reverse. **Original**
+restores the disc's behavior. Greatest Hits keeps its own implementation.
+
+These wrappers are in `host/gh_fixes.c`. The counter preserves the disc's localized labels;
+the thrust correction applies only to the mining vehicle's paired vector operations. The
+counts and thrust guards are covered by `rac2_gh_fixes_test`. Greatest Hits compiles the same
+file but calls its own functions before reading a key, so `differences.json` marks both fixes
+`bypassed` on `ntsc2`: no setting there (docs/port/SETTINGS.md section 8).
+
 ## Writing shared C
 
 - **Functions** by v1.01's names: `func_0027F538`, `func_L05_0041DF58`, `func_0027F640__game`.
@@ -36,7 +50,7 @@ Game facts the port relies on (level hooks, layouts, flights, credits, the Barlo
 | File | |
 |---|---|
 | `entry.c`, `level.c` | crt0 without the thread and heap system calls; ParseBin wrapped (which level's program is loaded) |
-| `dma.c`, `spr_dma.c` | `sceDmaSend`, the scratchpad DMA the hand-written kernels poll |
+| `dma.c` | `sceDmaSend` |
 | `font.c`, `ui2d.c`, `picture.c` | text, 2D quads and the menus' picture, drawn by the window at its own resolution |
 | `hud.c`, `wide_view.c`, `options.c` | the HUD at a wide picture's edges, culling for the wider view, the game's 16:9 kept off |
 | `movie.c`, `sound.c`, `io.c`, `print.c` | movies, 989snd commands, file open, printing |

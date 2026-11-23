@@ -39,10 +39,10 @@ from formats import FormatError
 import errors
 import progress_line
 from spaceships import add_spaceships
-from level import load_flight, load_level, load_title, load_wad_flight
+from level import load_flight, load_level, load_title, load_wad_flight, load_wad_loading
 from level import load_wad_level
 from occlusion import write_stamp as write_pvs_stamp
-from lighting import normal_table
+from lighting import normal_table, program_normal_table
 from port import PortLevelWriter, levels_format
 from util import sha256
 import wads
@@ -186,7 +186,7 @@ def worker_pool(jobs: int, script: Path | None = None) -> Executor:
 # What SubprocessPool may run: the level exports below. Every function given to worker_pool's
 # submit must be here (test_extract checks it), or Android fails where a desktop works.
 WORKER_FUNCTIONS = ("export_port_level", "export_port_title", "export_port_flight", "export_port_wad_level",
-                    "export_port_wad_flight")
+                    "export_port_wad_flight", "export_port_wad_loading")
 # A phone's memory, not its cores, limits how many levels are written at once.
 SUBPROCESS_JOBS = 4
 
@@ -244,7 +244,15 @@ def export_port_wad_level(iso: Path, number: int, out: Path, lod: int) -> dict:
     """One later game's level in the port's layout (for the overrides packs and the viewer)."""
     disc, source = open_later(iso)
     with disc:
-        return PortLevelWriter(out, load_wad_level(source, source.level(number)), source.normals()).write(lod)
+        level = load_wad_level(source, source.level(number))
+        return PortLevelWriter(out, level, source.normals() or program_normal_table(level.program)).write(lod)
+
+
+def export_port_wad_loading(iso: Path, out: Path, lod: int) -> dict:
+    """Up Your Arsenal's loading screen (the ship's scene) as level 97 (level.load_wad_loading)."""
+    disc, source = open_later(iso)
+    with disc:
+        return PortLevelWriter(out, load_wad_loading(source), source.normals()).write(lod)
 
 
 def export_port_wad_flight(iso: Path, number: int, out: Path, lod: int) -> dict:
@@ -297,6 +305,8 @@ def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: P
             if game == "rac2":
                 running += [pool.submit(export_port_wad_flight, iso, i, out, lod)
                             for i in range(wads.RAC2_NTSC.flight_count)]
+            elif game == "rac3":
+                running.append(pool.submit(export_port_wad_loading, iso, out, lod))
         progress_line.say("read", 0, len(running))
         try:
             for count, done in enumerate(as_completed(running), 1):

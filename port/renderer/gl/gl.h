@@ -320,6 +320,7 @@ inline constexpr GLenum GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
     X(void, glUseProgram, (GLuint program))                                                        \
     X(GLint, glGetUniformLocation, (GLuint program, const GLchar *name))                           \
     X(void, glUniform1i, (GLint location, GLint v0))                                               \
+    X(void, glUniform1ui, (GLint location, GLuint v0))                                             \
     X(void, glUniform1f, (GLint location, GLfloat v0))                                             \
     X(void, glUniform2f, (GLint location, GLfloat v0, GLfloat v1))                                 \
     X(void, glUniform3f, (GLint location, GLfloat v0, GLfloat v1, GLfloat v2))                     \

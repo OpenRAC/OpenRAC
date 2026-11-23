@@ -6,6 +6,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "common/stats.h"
@@ -15,12 +16,60 @@
 #include "renderer/gl/gl.h"
 #include "renderer/world/gl_world.h"
 #ifdef OPENRAC_VULKAN
-#include "renderer/vulkan/vkgl.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #endif
 
 namespace openrac::enhanced::water_detail {
 using namespace gl;
 namespace wgl = renderer::world::gl;
+
+#ifdef OPENRAC_VULKAN
+namespace {
+// Ocean preparation can run inside the sky graph. Own the copies in a child
+// graph so neither scratch buffers nor displacement images belong to the sky pass.
+Result<void> copy_ocean_outputs(
+    unsigned displacement, unsigned detail_texture, unsigned choppy, unsigned choppy_texture
+) {
+    namespace graph = renderer::graph;
+    vkgl::GraphExecution execution;
+    graph::CommandBuffer commands;
+    const auto copy = [&](unsigned buffer, unsigned texture) -> Result<void> {
+        const auto source =
+            execution.read_buffer("ocean FFT output", buffer, graph::Stage::Transfer);
+        if (!source) {
+            return unexpected(source.error());
+        }
+        const auto destination =
+            execution.import_image("ocean detail texture", texture, vkgl::InitialContents::Discard);
+        if (!destination) {
+            return unexpected(destination.error());
+        }
+        commands.copy_buffer_to_image(source->buffer, source->range, *destination);
+        return {};
+    };
+    if (const auto result = copy(displacement, detail_texture); !result) {
+        return result;
+    }
+    if (choppy_texture) {
+        if (const auto result = copy(choppy, choppy_texture); !result) {
+            return result;
+        }
+    }
+    auto transfer = commands.declarations("ocean FFT texture uploads");
+    auto consumers = graph::shader_read_export(
+        "ocean FFT texture consumers",
+        transfer,
+        graph::Stage::VertexShader | graph::Stage::FragmentShader | graph::Stage::ComputeShader
+    );
+    consumers.buffers.clear();
+    if (const auto result = execution.add_pass(std::move(transfer), std::move(commands)); !result) {
+        return result;
+    }
+    execution.add_pass(std::move(consumers));
+    return execution.run();
+}
+}  // namespace
+#endif
 
 bool Water::init(std::string& error) {
     if (!m_window_prepare
@@ -276,16 +325,14 @@ void Water::update_ocean() {
                 throw std::runtime_error(dispatch.error().message);
             }
         }
-        if (!vkgl::copy_buffer_to_texture(
-                m_ocean_fft_buffers[3], m_ocean_detail_textures[i], kOceanSide, kOceanSide
-            )) {
-            return;
-        }
-        if (i == 0
-            && !vkgl::copy_buffer_to_texture(
-                m_ocean_fft_buffers[4], m_ocean_detail_textures[2], kOceanSide, kOceanSide
-            )) {
-            return;
+        const auto copied = copy_ocean_outputs(
+            m_ocean_fft_buffers[3],
+            m_ocean_detail_textures[i],
+            m_ocean_fft_buffers[4],
+            i == 0 ? m_ocean_detail_textures[2] : 0
+        );
+        if (!copied) {
+            throw std::runtime_error(copied.error().message);
         }
     }
     m_ocean_fft_time = m_time;

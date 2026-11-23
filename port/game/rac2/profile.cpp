@@ -157,9 +157,20 @@ constexpr std::int32_t kNanotechClass = 806;
 // loads the armour under the cursor.
 constexpr std::int32_t kHeroLookClasses = 6000;
 
-// The wrench is loaded the same way, by the form the game has (func_00292408).
+// The wrench is loaded the same way, by the form the game has (func_00292408): the word at
+// wrench_form is the pack it loaded, the wrench's record's level (+4 of its row of the item table).
+// Its six packs follow his looks': levels 0 to 2, and challenge mode's 3 to 5 (Tabora gives 4,
+// Aranos Prison 5 there: func_L08_003F6E18, func_L14_003F4F98), the same three wrenches again
+// (the disc's packs 12 to 14 are byte for byte 9 to 11). The export has forms 1 and 2.
 constexpr std::int32_t kWrenchClass = 71;
 constexpr std::int32_t kWrenchFormClasses = 6020;
+constexpr std::int32_t kWrenchForms = 3;
+constexpr std::int32_t kWrenchPacks = 6;
+
+std::int32_t wrench_class(std::int32_t pack) {
+    const std::int32_t form = pack >= 0 && pack < kWrenchPacks ? pack % kWrenchForms : 0;
+    return form > 0 ? kWrenchFormClasses + form : -1;
+}
 
 // His ship's hull is loaded over class 3412 on each load, by the hull he has (func_002925F0, which
 // keeps its number at +0x18 of 0x00152C00). The export has hull 0 as the class and the others as
@@ -282,8 +293,7 @@ std::optional<host::LiveMoby> read_live_moby(
     if (live.class_id == 0) {
         live.model_class = hero_class(ram, r);
     } else if (live.class_id == kWrenchClass) {
-        const auto form = at<std::int32_t>(ram, r.wrench_form);
-        live.model_class = form > 0 && form < 3 ? kWrenchFormClasses + form : -1;
+        live.model_class = wrench_class(at<std::int32_t>(ram, r.wrench_form));
     } else if (live.class_id == kShipClass) {
         const auto body = at<std::int32_t>(ram, r.ship_body);
         live.model_class = body > 0 && body < kShipBodies ? kShipBodyClasses + body : -1;

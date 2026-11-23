@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <format>
 #include <iterator>
 #include <optional>
 #include <stdexcept>
@@ -143,6 +144,47 @@ bool LevelScene::deformation_active() const {
 }
 
 // ---- Scene upload ----
+
+void LevelScene::add_textures(
+    const LevelData& level, std::size_t first_image, renderer::TexturePool& textures
+) {
+    // The cutout materials' moby textures (the hologram's lettering, fences, foliage) with one
+    // level, bilinear: the GS samples moby textures without mip levels (TEX1 MXL 0), and a mipmap
+    // chain averages a cutout's alpha away at a distance (thin, broken letters).
+    std::vector<bool> cutout_moby(level.images.size(), false);
+
+    for (const Material& m : level.materials) {
+        if (m.cutout && m.image >= 0 && static_cast<std::size_t>(m.image) < level.images.size()
+            && level.image_paths[static_cast<std::size_t>(m.image)].find("/textures/moby_")
+                   != std::string::npos) {
+            cutout_moby[static_cast<std::size_t>(m.image)] = true;
+        }
+    }
+
+    for (std::size_t i = first_image; i < level.images.size(); ++i) {
+        m_textures.push_back(
+            level.images[i].width > 0 ? textures.add(
+                                            level.images[i],
+                                            renderer::AlphaScale::Full,
+                                            level.image_paths[i],
+                                            !cutout_moby[i],
+                                            cutout_moby[i]
+                                        )
+                                      : m_white
+        );
+
+        // A texture pack's animated replacement draws its frames by the game's tick.
+        if (i < level.image_animations.size() && level.image_animations[i] != nullptr
+            && level.images[i].width > 0) {
+            textures.animate(m_textures.back(), level.image_animations[i]);
+        }
+        // A texture pack KTX2's picture is kept on the GPU in blocks.
+        if (i < level.image_blocks.size() && level.image_blocks[i] != nullptr
+            && level.images[i].width > 0) {
+            textures.set_blocks(m_textures.back(), level.image_blocks[i]);
+        }
+    }
+}
 
 bool LevelScene::upload(
     const LevelData& level, renderer::TexturePool& textures, std::string& error
@@ -396,39 +438,7 @@ bool LevelScene::upload(
     renderer::Rgba8Image white(1, 1);
     white.set_texel(0, 0, 0xFFFFFFFFu);
     m_white = textures.add(std::move(white), renderer::AlphaScale::Full, "white");
-    // The cutout materials' moby textures (the hologram's lettering, fences, foliage) with one
-    // level, bilinear: the GS samples moby textures without mip levels (TEX1 MXL 0), and a mipmap
-    // chain averages a cutout's alpha away at a distance (thin, broken letters).
-    std::vector<bool> cutout_moby(level.images.size(), false);
-    for (const Material& m : level.materials) {
-        if (m.cutout && m.image >= 0 && static_cast<std::size_t>(m.image) < level.images.size()
-            && level.image_paths[static_cast<std::size_t>(m.image)].find("/textures/moby_")
-                   != std::string::npos) {
-            cutout_moby[static_cast<std::size_t>(m.image)] = true;
-        }
-    }
-    for (std::size_t i = 0; i < level.images.size(); ++i) {
-        m_textures.push_back(
-            level.images[i].width > 0 ? textures.add(
-                                            level.images[i],
-                                            renderer::AlphaScale::Full,
-                                            level.image_paths[i],
-                                            !cutout_moby[i],
-                                            cutout_moby[i]
-                                        )
-                                      : m_white
-        );
-        // A texture pack's animated replacement draws its frames by the game's tick.
-        if (i < level.image_animations.size() && level.image_animations[i] != nullptr
-            && level.images[i].width > 0) {
-            textures.animate(m_textures.back(), level.image_animations[i]);
-        }
-        // A texture pack KTX2's picture is kept on the GPU in blocks.
-        if (i < level.image_blocks.size() && level.image_blocks[i] != nullptr
-            && level.images[i].width > 0) {
-            textures.set_blocks(m_textures.back(), level.image_blocks[i]);
-        }
-    }
+    add_textures(level, 0, textures);
     m_variant_image = -1;
     m_variants.clear();
     if (level.variant_image >= 0
@@ -689,6 +699,266 @@ bool LevelScene::upload(
         );
     }
 
+    m_known =
+        {level.models.size(),
+         level.vertices.size(),
+         level.indices.size(),
+         level.materials.size(),
+         level.images.size()};
+    return true;
+}
+
+void LevelScene::align_models(LevelData& level) const {
+    if (level.models.size() < m_models.size()) {
+        level.models.resize(m_models.size());
+    }
+}
+
+bool LevelScene::add_loaded_models(
+    const LevelData& level, renderer::TexturePool& textures, std::string& error
+) {
+    const std::size_t first = m_models.size();
+
+    if (m_vertices == 0 || m_materials.size() != m_known.materials
+        || m_textures.size() != m_known.images || level.models.size() < first
+        || level.vertices.size() < m_known.vertices || level.indices.size() < m_known.indices
+        || level.materials.size() < m_known.materials || level.images.size() < m_known.images) {
+        error = "the level is not the one uploaded, or its models were not aligned";
+        return false;
+    }
+
+    if (level.models.size() == first) {
+        return true;  // nothing was loaded
+    }
+
+    // Every index of the new primitives must be one of the vertices loaded since: the chunk is
+    // numbered from the first of them.
+    const std::size_t first_vertex = m_known.vertices;
+
+    for (std::size_t m = first; m < level.models.size(); ++m) {
+        for (const Primitive& p : level.models[m].primitives) {
+            const std::size_t end = static_cast<std::size_t>(p.first_index) + p.index_count;
+
+            if (end > level.indices.size() || p.material < 0
+                || static_cast<std::size_t>(p.material) >= level.materials.size()) {
+                error = std::format("model {} has a primitive that is out of range", m);
+                return false;
+            }
+
+            for (std::size_t i = p.first_index; i < end; ++i) {
+                if (level.indices[i] < first_vertex || level.indices[i] >= level.vertices.size()) {
+                    error = std::format("model {} has an index outside its own vertices", m);
+                    return false;
+                }
+            }
+        }
+    }
+
+    // The new models with their primitives' indices in the chunk's own numbering, in the order
+    // the primitives come, then (as upload does for the level) the triangles of the primitives
+    // that have a glow vertex copied after them, for the mobys' glow pass.
+    std::vector<Model> added(
+        level.models.begin() + static_cast<std::ptrdiff_t>(first), level.models.end()
+    );
+    std::vector<std::uint32_t> indices;
+    const auto glow_vertex = [&level](std::size_t absolute) {
+        return level.vertices[absolute].light_slot < -1.5f;
+    };
+
+    for (Model& model : added) {
+        for (Primitive& p : model.primitives) {
+            const std::size_t end = static_cast<std::size_t>(p.first_index) + p.index_count;
+            p.glow_vertices = std::any_of(
+                level.indices.begin() + p.first_index,
+                level.indices.begin() + static_cast<std::ptrdiff_t>(end),
+                glow_vertex
+            );
+            p.first_index = static_cast<std::uint32_t>(indices.size());
+
+            for (std::size_t i = end - p.index_count; i < end; ++i) {
+                indices.push_back(static_cast<std::uint32_t>(level.indices[i] - first_vertex));
+            }
+        }
+    }
+
+    for (Model& model : added) {
+        for (Primitive& p : model.primitives) {
+            const std::size_t end = static_cast<std::size_t>(p.first_index) + p.index_count;
+
+            if (!p.glow_vertices || p.index_count % 3 != 0) {
+                continue;
+            }
+
+            const auto glow_first = static_cast<std::uint32_t>(indices.size());
+
+            for (std::size_t t = p.first_index; t < end; t += 3) {
+                const std::array<std::uint32_t, 3> triangle{
+                    indices[t], indices[t + 1], indices[t + 2]
+                };
+
+                if (std::any_of(triangle.begin(), triangle.end(), [&](std::uint32_t v) {
+                        return glow_vertex(first_vertex + v);
+                    })) {
+                    indices.insert(indices.end(), triangle.begin(), triangle.end());
+                }
+            }
+
+            const auto count = static_cast<std::uint32_t>(indices.size()) - glow_first;
+
+            if (count == p.index_count) {
+                indices.resize(glow_first);  // every triangle glows: the primitive's own serve
+                continue;
+            }
+
+            p.glow_first = glow_first;
+            p.glow_count = count;
+        }
+    }
+
+    // The new materials and their textures.
+    const std::size_t first_material = m_materials.size();
+    m_materials.insert(
+        m_materials.end(),
+        level.materials.begin() + static_cast<std::ptrdiff_t>(m_known.materials),
+        level.materials.end()
+    );
+    add_textures(level, m_known.images, textures);
+
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::TexturePrepare)) {
+        const std::vector<Material> made(
+            m_materials.begin() + static_cast<std::ptrdiff_t>(first_material), m_materials.end()
+        );
+        textures.prepare(material_textures(made, m_textures, m_white));
+    }
+
+    // The chunk's buffers, written once like the level's.
+    std::uint32_t chunk = 0;
+    const std::size_t vertex_count = level.vertices.size() - first_vertex;
+
+    if (vertex_count != 0) {
+        MeshBuffers buffers;
+        glGenBuffers(1, &buffers.vertices);
+        glBindBuffer(GL_ARRAY_BUFFER, buffers.vertices);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(vertex_count * sizeof(Vertex)),
+            level.vertices.data() + first_vertex,
+            GL_STATIC_DRAW
+        );
+        std::vector<float> positions;
+        positions.reserve(vertex_count * 3);
+
+        for (std::size_t v = first_vertex; v < level.vertices.size(); ++v) {
+            positions.insert(
+                positions.end(),
+                std::begin(level.vertices[v].position),
+                std::end(level.vertices[v].position)
+            );
+        }
+
+        glGenBuffers(1, &buffers.positions);
+        glBindBuffer(GL_ARRAY_BUFFER, buffers.positions);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(positions.size() * sizeof(float)),
+            positions.data(),
+            GL_STATIC_DRAW
+        );
+        glGenBuffers(1, &buffers.indices);
+        glBindBuffer(GL_ARRAY_BUFFER, buffers.indices);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(indices.size() * sizeof(std::uint32_t)),
+            indices.data(),
+            GL_STATIC_DRAW
+        );
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        m_chunks.push_back(buffers);
+        chunk = static_cast<std::uint32_t>(m_chunks.size());
+    }
+
+    // What upload keeps per model, for the new ones: a model of the live layer is its own opaque
+    // copy (m_opaque), and the static layers' tables (shadow geometry and its ranges) are not
+    // read for it.
+    for (std::size_t n = m_opaque.size(); n < first; ++n) {
+        m_opaque.push_back(static_cast<std::uint32_t>(n));
+    }
+
+    m_model_chunk.resize(first, 0);
+
+    for (std::size_t k = 0; k < added.size(); ++k) {
+        const auto model = static_cast<std::uint32_t>(first + k);
+        std::vector<bool> solid_primitives;
+
+        for (const Primitive& p : added[k].primitives) {
+            bool solid = std::size_t(p.first_index) + p.index_count <= indices.size();
+
+            for (std::size_t i = p.first_index;
+                 solid && i < std::size_t(p.first_index) + p.index_count;
+                 ++i) {
+                const Vertex& vertex = level.vertices[first_vertex + indices[i]];
+                solid = std::isfinite(vertex.colour[3]) && vertex.colour[3] >= 0.5f;
+            }
+
+            solid_primitives.push_back(solid);
+        }
+
+        std::uint8_t prepass = 0;
+
+        for (const Primitive& p : added[k].primitives) {
+            const Material& material = m_materials[static_cast<std::size_t>(p.material)];
+
+            if (p.index_count && !material.metal) {
+                prepass |= material.cutout ? 2u : 1u;
+            }
+        }
+
+        std::array<std::vector<ShadowDrawRange>, 2> ranges;
+        std::uint8_t coverage = 0;
+
+        for (unsigned solid = 0; solid < 2; ++solid) {
+            ranges[solid] = prepare_shadow_draws(
+                added[k].primitives, m_materials, solid_primitives, solid != 0
+            );
+        }
+
+        for (const ShadowDrawRange& range : ranges[1]) {
+            coverage |= range.solid ? 2 : 1;
+        }
+
+        // The material slots the model's primitives use (the table upload fills for the level; the
+        // opaque copies upload appended after it are never looked up, so they stay empty).
+        m_classic_materials.resize(model);
+        auto& classic = m_classic_materials.emplace_back();
+        for (const Primitive& p : added[k].primitives) {
+            classic.slots.push_back(p.material);
+        }
+        std::ranges::sort(classic.slots);
+        classic.slots.erase(std::ranges::unique(classic.slots).begin(), classic.slots.end());
+        for (int slot : classic.slots) {
+            const auto& material = m_materials[static_cast<std::size_t>(slot)];
+            classic.cutout |= material.cutout && !material.metal;
+            classic.metal |= material.metal;
+        }
+
+        m_models.push_back(std::move(added[k]));
+        m_opaque.push_back(model);
+        m_model_chunk.push_back(chunk);
+        m_shadow_solid_primitives.push_back(std::move(solid_primitives));
+        m_prepass_coverage.push_back(prepass);
+        m_static_shadow_ranges.push_back(std::move(ranges));
+        m_static_shadow_coverage.push_back(coverage);
+        m_shadow_geometry.emplace_back();
+    }
+
+    m_pvs_models.resize(m_models.size());
+
+    m_known =
+        {level.models.size(),
+         level.vertices.size(),
+         level.indices.size(),
+         level.materials.size(),
+         level.images.size()};
     return true;
 }
 
@@ -735,6 +1005,13 @@ void LevelScene::release() {
     glDeleteVertexArrays(1, &m_shadow_compact.vao);
     glDeleteBuffers(1, &m_shadow_compact.instances);
     m_shadow_compact = {};
+
+    for (Group& compact : m_chunk_shadow_compact) {
+        glDeleteVertexArrays(1, &compact.vao);
+        glDeleteBuffers(1, &compact.instances);
+    }
+
+    m_chunk_shadow_compact.clear();
     m_shadow_survivors.clear();
     m_sun_culling = {};
     release_target(m_hero_map);
@@ -805,6 +1082,17 @@ void LevelScene::release() {
         glDeleteBuffers(1, &m_indices);
         m_indices = 0;
     }
+
+    for (const MeshBuffers& chunk : m_chunks) {
+        glDeleteBuffers(1, &chunk.vertices);
+        glDeleteBuffers(1, &chunk.positions);
+        glDeleteBuffers(1, &chunk.indices);
+    }
+
+    m_chunks.clear();
+    m_model_chunk.clear();
+    m_known = {};
+
     if (m_lights != 0) {
         glDeleteTextures(1, &m_lights);
         m_lights = 0;
@@ -1176,7 +1464,9 @@ void LevelScene::draw_layer(
     static const bool& pvs_off =
         stats::probe("OPENRAC_PVS_OFF", "Profiling reference: disable baked camera visibility");
     // Shadow casters can lie outside the gameplay camera's baked visibility set.
-    const bool skip_pvs = pvs_off || shadow_inspection;
+    // A camera the game did not make (input.pvs_bypass) sees what the zone mask would cull, so the
+    // mask is not applied: ties, shrubs, mobys and terrain, on the CPU and the GPU path alike.
+    const bool skip_pvs = pvs_off || shadow_inspection || input.pvs_bypass;
     // A game that gives its own frame mask needs no baked grid (Going Commando's, whose levels
     // have none exported): Pvs::follow takes the game's there.
     const bool use_pvs = !skip_pvs && (!m_pvs.grid.empty() || m_pvs.game.has_value());

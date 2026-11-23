@@ -28,6 +28,7 @@
 #include "materials/catalog.h"
 #include "renderer/textures/pcsx2_pack.h"
 #include "renderer/textures/texture_pack.h"
+#include "scene/joint_name.h"
 #include "scene/material_overrides.h"
 
 namespace openrac::scene {
@@ -35,19 +36,27 @@ namespace openrac::scene {
 namespace fs = std::filesystem;
 
 namespace {
-// The importer already maps exported joint_NNN names to the game's stable joint numbers.
-int bone_number(const cgltf_node* node, int fallback) {
-    if (node && node->name && std::strncmp(node->name, "joint_", 6) == 0) {
-        return std::clamp(std::atoi(node->name + 6), 0, 255);
+// The importer maps exported joint_NNN names to the game's stable joint numbers (joint_name.h). The
+// palette has 256 slots: a number past 255 is 255, so that joint shares slot 255. Clamped, not
+// refused, because every model loads through here (levels, mobys, props); logged.
+int skin_joint(const cgltf_node* node, int fallback) {
+    const int number =
+        node != nullptr && node->name != nullptr ? joint_number(node->name, fallback) : fallback;
+    if (number > 255) {
+        log::warn(
+            "joint {} is past 255: it shares palette slot 255",
+            node && node->name ? node->name : "(unnamed)"
+        );
+        return 255;
     }
-    return fallback;
+    return number;
 }
 
 // Retain bind frames so P*S skinning palettes can recover the attachment frame P.
 void retain_bones(Model& model, const cgltf_skin& skin) {
     for (cgltf_size j = 0; j < skin.joints_count; ++j) {
         const auto* joint = skin.joints[j];
-        const int number = bone_number(joint, int(j));
+        const int number = skin_joint(joint, int(j));
         model.bones.resize(std::max(model.bones.size(), std::size_t(number + 1)));
         auto& bone = model.bones[std::size_t(number)];
         bone.name = joint && joint->name ? joint->name : "joint_" + std::to_string(number);
@@ -67,7 +76,7 @@ void retain_bones(Model& model, const cgltf_skin& skin) {
         }
         for (cgltf_size p = 0; p < skin.joints_count; ++p) {
             if (joint && joint->parent == skin.joints[p]) {
-                bone.parent = bone_number(skin.joints[p], int(p));
+                bone.parent = skin_joint(skin.joints[p], int(p));
                 break;
             }
         }
@@ -519,12 +528,7 @@ std::optional<std::uint32_t> load_model(
             retain_bones(model, *node.skin);
             for (cgltf_size j = 0; j < node.skin->joints_count; ++j) {
                 const cgltf_node* joint = node.skin->joints[j];
-                int number = static_cast<int>(j);
-                if (joint != nullptr && joint->name != nullptr
-                    && std::strncmp(joint->name, "joint_", 6) == 0) {
-                    number = std::atoi(joint->name + 6);
-                }
-                skin_joints.push_back(static_cast<std::uint8_t>(std::clamp(number, 0, 255)));
+                skin_joints.push_back(static_cast<std::uint8_t>(skin_joint(joint, int(j))));
             }
         }
         for (cgltf_size p = 0; p < node.mesh->primitives_count; ++p) {
@@ -755,7 +759,7 @@ bool load_preview_animation(
         }
         std::vector<Mat4> pose(model.bones.size(), renderer::identity());
         for (cgltf_size j = 0; j < skin.joints_count; ++j) {
-            const auto number = std::size_t(bone_number(skin.joints[j], int(j)));
+            const auto number = std::size_t(skin_joint(skin.joints[j], int(j)));
             if (!skin.joints[j] || number >= pose.size()) {
                 return false;
             }
@@ -1573,8 +1577,8 @@ bool load_level(
         if (!edit.is_object()) {
             continue;
         }
-        // The old whole-material brightness bypass is retired. A legacy flag by
-        // itself must not silently turn an ordinary surface into an emitter.
+        // A preserve_authored_lighting flag by itself is ignored: it must not turn an ordinary
+        // surface into an emitter.
         const bool legacy_only =
             edit.members().size() == 1 && !edit["preserve_authored_lighting"].is_null();
         if (legacy_only) {

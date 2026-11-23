@@ -44,6 +44,8 @@ Generated from the SDK's headers, tables and type files by OpenRAC's
 never edited by hand:
 
 - [C interface](reference/c-api.md) (`include/openrac/openrac_mod.h`)
+- [The table by area](reference/by-area.md): each call's area, the minor that added it, and which games have it
+- [What each minor added](reference/changelog.md)
 - [C++ layer](reference/cpp-api.md) (`include/openrac/mod.hpp`)
 - [Luau API](reference/luau-api.md) (`types/rac1.d.luau`)
 - [Ratchet & Clank's hook points and fields](reference/hooks-rac1.md)

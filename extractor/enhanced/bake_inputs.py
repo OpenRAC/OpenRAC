@@ -2,7 +2,8 @@
 
 Ratchet & Clank's inputs are extraction only: no liquid geometry, colours or emission are derived.
 Going Commando's liquid surfaces are read from its gameplay and effect textures (liquids.py), and
-lit only where the tracked review lists their texture. All written files are disc data and must
+lit only where the tracked review lists their texture; Up Your Arsenal's from its gameplay's paths,
+lit only where the review lists their colour. All written files are disc data and must
 stay in the local extracted level.
 """
 
@@ -15,10 +16,11 @@ from . import liquids, profiles
 
 
 # The games and disc versions whose gameplay schema the baker reads, and the tag each export's
-# gameplay copy carries: Ratchet & Clank's PAL and NTSC-U, and Going Commando's three discs, whose light
-# bank and environment transitions port/assets/world/gameplay.cpp places.
+# gameplay copy carries: Ratchet & Clank's PAL and NTSC-U, Going Commando's three discs and Up Your
+# Arsenal's PAL disc, whose light bank and environment transitions port/assets/world/gameplay.cpp
+# places (Up Your Arsenal's header is Going Commando's).
 GAMEPLAY_TAGS = {("rac1", "pal"): "rac1-v1", ("rac1", "ntsc"): "rac1-v1", ("rac2", "ntsc"): "rac2-v1",
-                 ("rac2", "pal"): "rac2-v1", ("rac2", "ntsc2"): "rac2-v1"}
+                 ("rac2", "pal"): "rac2-v1", ("rac2", "ntsc2"): "rac2-v1", ("rac3", "pal"): "rac3-v1"}
 
 
 def write_bake_inputs(level, directory):
@@ -48,6 +50,13 @@ def write_bake_inputs(level, directory):
         reviewed = json.loads(reviewed_path.read_text()) if reviewed_path.is_file() else {}
         shas = {entry["texture_sha256"] for entry in reviewed.get("emissive", [])}
         found = liquids.write_liquids(level, games.of(level), directory, shas)
+        return {**metadata, **found} if found else metadata
+    if level.game == "rac3":
+        # Up Your Arsenal's liquid surfaces (enhanced/liquids.py), lit by the reviewed ones.
+        reviewed_path = profiles.PROFILE_ROOT / profiles.profile_name(level.game, level.version) / "liquids.json"
+        reviewed = json.loads(reviewed_path.read_text()) if reviewed_path.is_file() else {}
+        colours = {entry["colour"] for entry in reviewed.get("emissive", [])}
+        found = liquids.write_rac3_liquids(level, games.of(level), directory, colours)
         return {**metadata, **found} if found else metadata
     if level.game != "rac1" or level.id != 9:
         return metadata

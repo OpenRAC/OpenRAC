@@ -218,6 +218,11 @@ std::chrono::steady_clock::time_point g_tick_resumed{};
 // [debug tools] (debug_overlay.h).
 std::chrono::microseconds tick_period() {
     auto period = std::chrono::microseconds(1000000 / tick_rate());
+    if (openrac_game_tick_stretch > 1.0f) {
+        period = std::chrono::microseconds(
+            std::llround(static_cast<double>(period.count()) * openrac_game_tick_stretch)
+        );
+    }
     // A mod's slow motion (openrac_api.time_stretch): the same ticks, each lasting longer.
     if (const float stretch = mods::time_stretch(); stretch > 1.0f) {
         period =

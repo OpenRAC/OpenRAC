@@ -42,6 +42,15 @@ unsigned EffectRenderer::offscreen_texture(std::uint64_t tex0_bits, std::uint32_
 
 using namespace gl;
 
+std::array<float, 2> offscreen_target_st(std::uint64_t tex0_bits, float s, float t) {
+    const gs::Tex0 tex0 = gs::Tex0::decode(tex0_bits);
+    const float pixels = static_cast<float>(kOffscreenPixels);
+    return {
+        s * static_cast<float>(tex0.width()) / pixels,
+        1.0f - t * static_cast<float>(tex0.height()) / pixels
+    };
+}
+
 bool test_writes_z(std::uint64_t test) {
     // A TEST whose alpha test never passes and keeps only the colour writes no Z: a layer over
     // the picture, not a surface (Oltanis's ice, the first of its passes, drawn from callback
@@ -183,6 +192,7 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     (void)state;
     m_quad_shader.release();
     m_test_shader.release();
+    m_untextured_shader.release();
     m_depth_shader.release();
     if (m_part == EffectPart::Opaque
         && !m_depth_shader.build(
@@ -193,7 +203,10 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     m_test_plain = false;
     m_active_shader = nullptr;
     std::string fragment(shaders::direct_frag);
-    fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");
+    fragment.insert(
+        fragment.find('\n') + 1,
+        "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n#define OPENRAC_EFFECT_FOG 1\n"
+    );
     const std::string tested_fragment = fragment;  // the alpha test kept (m_test_shader)
     // Effect packets skip HUD distance fields and alpha tests; authored strip fog remains dynamic.
     // Keep texture functions/tcc dynamic: they can differ between effect strips.
@@ -274,6 +287,31 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
             log::warn("Effect quads keep no alpha test: {}", error);
             m_test_shader.release();
             m_test_plain = false;
+            error.clear();
+        }
+    }
+
+    // The untextured quads (particle lines): the same fragment, with `textured` a uniform that
+    // use_shader sets to 0. Without it they are not drawn (no line is then a textured one).
+    {
+        std::string untextured(shaders::direct_frag);
+        untextured
+            .insert(untextured.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");
+        std::string untextured_vertex(shaders::effect_vert);
+        if (m_material) {
+            const auto extension = m_material->vertex_source();
+            if (!extension.empty()) {
+                untextured_vertex.insert(untextured_vertex.find("void main()"), extension);
+                untextured_vertex.insert(
+                    untextured_vertex.find('\n') + 1, "#define OPENRAC_EFFECT_POSITION 1\n"
+                );
+            }
+            untextured.insert(untextured.find("void main()"), m_material->fragment_source());
+            untextured.insert(untextured.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
+        }
+        if (!m_untextured_shader.build("effect untextured", untextured_vertex, untextured, error)) {
+            log::warn("Effect lines are not drawn: {}", error);
+            m_untextured_shader.release();
             error.clear();
         }
     }
@@ -369,7 +407,7 @@ void EffectRenderer::use_shader(Shader& shader, const Mat4& view_projection, con
     glUniformMatrix4fv(m_view, 1, GL_FALSE, view.data());
     glUniform1i(m_fog_enable, 0);
     glUniform1i(m_alpha_test, 0);
-    glUniform1i(m_textured, 1);
+    glUniform1i(m_textured, &shader == &m_untextured_shader ? 0 : 1);
     m_applied = AppliedState{};
 }
 
@@ -461,9 +499,22 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
                 : std::nullopt;
         // Resident material meshes never enter the core's expanded vertex upload.
         if (!mesh) {
+            // A strip that samples an off-screen target the 2D path drew takes the target's
+            // coordinates, as the quads below do. Up Your Arsenal's heat haze (the Galactic
+            // Rangers' dropship's thrusters on Veldin, its strip routine fx_strip through the frame
+            // copy, effect texture -1, blended in by the destination alpha a mask strip wrote)
+            // sampled the whole target with the copy's own coordinates: a black square with a
+            // corner of the picture in it, upside down.
+            const bool target = offscreen_texture(strip.tex0, 0) != 0;
             for (std::uint32_t k = 0; k + 2 < strip.count; ++k) {
                 for (std::uint32_t c = 0; c < 3; ++c) {
-                    m_vertices.push_back(vertex(input.strip_vertices[strip.first + k + c]));
+                    Vertex v = vertex(input.strip_vertices[strip.first + k + c]);
+                    if (target) {
+                        const auto [s, t] = offscreen_target_st(strip.tex0, v.s, v.t);
+                        v.s = s;
+                        v.t = t;
+                    }
+                    m_vertices.push_back(v);
                 }
             }
         }
@@ -490,23 +541,18 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             continue;
         }
         // A quad that samples an off-screen target the 2D path drew (g_offscreen_textures): its
-        // coordinates over the TEX0's size become the target texture's, which spans
-        // kOffscreenPixels chip pixels with its first row on top.
-        float s_scale = 1.0f, t_scale = 1.0f, t_from = 0.0f;
-        if (offscreen_texture(q.tex0, q.tbp) != 0) {
-            const gs::Tex0 tex0 = gs::Tex0::decode(q.tex0);
-            s_scale = static_cast<float>(tex0.width()) / static_cast<float>(kOffscreenPixels);
-            t_scale = -static_cast<float>(tex0.height()) / static_cast<float>(kOffscreenPixels);
-            t_from = 1.0f;
-        }
+        // coordinates over the TEX0's size become the target texture's (offscreen_target_st).
+        const bool target = offscreen_texture(q.tex0, q.tbp) != 0;
         // The strip's two triangles, 0-1-2 and 1-2-3 (the faces are not culled).
         for (const int k : order) {
+            const auto [s, t] = target ? offscreen_target_st(q.tex0, q.st[k][0], q.st[k][1])
+                                       : std::array<float, 2>{q.st[k][0], q.st[k][1]};
             m_vertices.push_back(
                 {q.corner[k][0],
                  q.corner[k][1],
                  q.corner[k][2],
-                 q.st[k][0] * s_scale,
-                 t_from + q.st[k][1] * t_scale,
+                 s,
+                 t,
                  static_cast<std::uint8_t>(q.rgba[k] & 0xFF),
                  static_cast<std::uint8_t>((q.rgba[k] >> 8) & 0xFF),
                  static_cast<std::uint8_t>((q.rgba[k] >> 16) & 0xFF),
@@ -756,6 +802,7 @@ void EffectRenderer::release() {
     m_shader.release();
     m_depth_shader.release();
     m_quad_shader.release();
+    m_untextured_shader.release();
     m_active_shader = nullptr;
     if (m_quad_indices) {
         glDeleteVertexArrays(1, &m_quad_vao);

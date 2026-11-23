@@ -97,7 +97,8 @@ FAMILIES = {"mobys": ("moby",), "weapons": ("moby",), "scenery": ("tie", "shrub"
 # "weapons": the classes Ratchet holds or wears, each from the first level that has its model (any
 # --level is ignored: they are in many levels). Ratchet & Clank's are its levels' gadget table
 # (index +0x80, the same in every version) and the gold weapons and worn gadgets beside it; Going
-# Commando's the item banks his weapons and gadgets load from (wads.WadDisc.item_banks).
+# Commando's and Up Your Arsenal's the item banks his weapons and gadgets load from
+# (wads.WadDisc.item_banks).
 HELD_ITEMS = {
     "rac1": (71, 157, 163, 168, 175, 176, 177, 180, 185, 188, 190, 192, 208, 229, 454, 483, 562, 585, 619, 849,
              1251,  # the gadget table
@@ -107,6 +108,11 @@ HELD_ITEMS = {
              163, 177, 180, 188, 192, 208, 229, 562, 1481, 1482, 1483, 1485, 1486, 1487, 1489, 1490, 2078, 2085,
              2160, 2169, 2311, 2650, 2651, 2653, 2661, 2663, 2801, 2806, 3076, 3077, 3146, 3161, 3162, 3299, 3310,
              3604, 3631, 3655, 3706, 3757, 4016, 4100),  # the item banks
+    # Up Your Arsenal's as Going Commando's: the wrench (one form) and the item banks (both discs').
+    "rac3": (71,
+             1481, 1482, 2085, 2653, 2661, 3076, 3146, 3161, 3162, 3604, 3742, 3757, 5750, 6211, 6222, 6223, 6226,
+             6235, 6238, 6241, 6243, 6244, 6245, 6246, 6248, 6250, 6256, 6257, 6274, 6277, 6278, 6279, 6290, 6334,
+             6991, 7236, 7267, 7271, 7649, 7652),
 }
 # The sky's model is exported to look at and plan edits with (not with "all": it cannot come back
 # yet, ~/RACSwarm/plans/skybox/FEASIBILITY.md); its textures import like any other.

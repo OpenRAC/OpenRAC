@@ -93,10 +93,10 @@ bool infobot_screen_motion(scene::Model& model) {
     try {
         namespace disc = assets::disc;
         namespace anim = assets::rac1;
-        if (!openrac_game_disc_image || model.bones.empty()) {
+        if (!openrac_game_disc_files || model.bones.empty()) {
             return false;
         }
-        const auto image = disc::Disc::open(openrac_game_disc_image, disc::rac1_layout());
+        const auto image = disc::Disc::open(openrac_game_disc_files, disc::rac1_layout());
         if (const auto bytes = image.scene_speech(3, 10, 0)) {
             const auto vag = assets::parse_vag(assets::ByteView(*bytes));
             const auto pcm = assets::decode_adpcm(vag.body);
@@ -338,18 +338,39 @@ gaddr light_bank_address() {
     return openrac_game_front_end != nullptr ? openrac_game_front_end->light_bank : 0;
 }
 
+// The light bank in the loaded program: the profile's, for a game whose programs each carry their
+// own (GameProfile::light_bank), else the front end's relocated as data; 0 for none.
+gaddr light_bank_in_ram() {
+    if (const gaddr own = g->render.profile->light_bank(); own != 0) {
+        return own;
+    }
+    return light_bank_address() != 0 ? openrac_relocate_data(light_bank_address()) : 0;
+}
+
 // The game's occlusion mask (0x80 bytes), in the executable's terms; 0 when the game has none.
 gaddr occlusion_address() {
     return openrac_game_front_end != nullptr ? openrac_game_front_end->occlusion : 0;
+}
+
+// The occlusion mask in the loaded program: the profile's, for a game whose programs each keep their
+// own (GameProfile::occlusion_mask), else from the executable's address, or, for a game whose level
+// programs carry the engine (GameProfile::scenery_matrices_level), from that level's.
+gaddr occlusion_in_ram() {
+    if (const gaddr own = g->render.profile->occlusion_mask(); own != 0) {
+        return own;
+    }
+    const int level = g->render.profile->scenery_matrices_level();
+    return level >= 0 ? openrac_relocate_level_data(level, occlusion_address())
+                      : openrac_relocate_data(occlusion_address());
 }
 
 // Uploads a level's geometry; while the boot program runs (the title and the main menu), the title
 // world's, or level 0's when the title world was not extracted.
 void use_level(int number) {
     static unsigned loaded_generation;
-    static unsigned loaded_props;
     static unsigned loaded_visuals;
     int wanted = number;
+
     if (number <= -2
         && std::filesystem::exists(
             g->levels / std::format("level_{:02d}", kFlightWorld + 2 + number)
@@ -360,17 +381,19 @@ void use_level(int number) {
                      ? kTitleWorld
                      : 0;
     }
-    // A prop of a mesh the level was read without (interface 1.12): the level is read again with it.
-    const unsigned props = mods::prop_meshes_generation();
+
+    // A prop of a mesh the level was read without (interface 1.12) does not read the level again:
+    // load_prop_meshes adds the mesh to the scene that is up. A render-only replacement class the
+    // level was read without does.
     if (wanted == g->loaded && loaded_generation == openrac_game_mods_generation
-        && loaded_props == props && loaded_visuals == mods::visual_classes_generation()) {
+        && loaded_visuals == mods::visual_classes_generation()) {
         return;
     }
     crash::level_breadcrumb("level load started", wanted);
     loaded_generation = openrac_game_mods_generation;
-    loaded_props = props;
     loaded_visuals = mods::visual_classes_generation();
     g->loaded = wanted;
+    g->prop_scene_ready = false;
     // One renderer for the whole run: a new level replaces the subsystem renderers, but its texture
     // pool is the GS memory, which keeps what the game uploaded (a card's text uploaded through the
     // display list, the fonts) across the change.
@@ -400,16 +423,19 @@ void use_level(int number) {
     g->special_pickup_clips.clear();
     g->infobot_pickup_model = -1;
     g->infobot_pickup_poses.clear();
+    g->prop_failed.clear();
     g->picker.clear();
     std::string error;
     const LevelSources sources = level_sources(wanted);
     const auto& dir = sources.dir;
     debug_overlay::dismiss("level");
-    // Only Ratchet & Clank's levels are extracted for the port so far (its profile says so). The
-    // other games (Going Commando, Up Your Arsenal, Deadlocked at their menus) have no scenery to
-    // read: their whole picture is the 2D path, both its parts, and nothing is missing to tell the
-    // player about.
-    const bool has_levels = g->render.profile->has_levels();
+    // A game whose levels are extracted for the port says so in its profile. The others (Deadlocked
+    // at its menus), and the title of a game whose boot program draws no world (Up Your Arsenal's,
+    // has_title_world), have no scenery to read: their whole picture is the 2D path, both its parts,
+    // and nothing is missing to tell the player about.
+    const bool has_levels = g->render.profile->has_levels()
+                            && (number != -1 || g->render.profile->has_title_world())
+                            && !g->render.profile->level_is_menus(number);
     const bool read = read_level(wanted, sources, error);
     if (!has_levels && !read) {
         crash::level_breadcrumb("level scenery unavailable", wanted);
@@ -463,8 +489,13 @@ void use_level(int number) {
         });
         return;
     }
-    // The mods' prop meshes, read as an assets classes.json's are (MODS.md, section 6): a mesh that
-    // cannot be read leaves its props undrawn, and the level as it is.
+
+    // The meshes the props of this level load were made of by now, read as an assets classes.json's
+    // are (MODS.md, section 6): a mesh that cannot be read leaves its props undrawn, and the level
+    // as it is. The count is taken first: a mesh asked for from now on is added by
+    // load_prop_meshes. Models read here come before the scene's own copies and need no alignment.
+    g->prop_generation = mods::prop_meshes_generation();
+
     for (const std::filesystem::path& mesh : mods::prop_meshes()) {
         std::string why;
         if (const auto model = scene::load_model(mesh, g->render.level, why)) {
@@ -473,6 +504,7 @@ void use_level(int number) {
                 g->prop_rigs.emplace_back(mesh, std::move(*rig));
             }
         } else {
+            g->prop_failed.push_back(mesh);
             log::warn("mods: prop mesh {}: {}", mesh.string(), why);
         }
     }
@@ -535,13 +567,15 @@ void use_level(int number) {
     // game resource tables and the two weapon decode buffers remain untouched.
     auto visual_classes = mods::visual_classes();
     for (const int id : visual_classes) {
+        const int mesh_class =
+            g->render.level.game == "rac1" ? scene::vendor_preview::model_class(id) : id;
         // Gold meshes have their own display skeleton and seq_00 pose. A base
         // weapon's native joint palette must never be applied to a gold mesh.
         if (g->render.level.game == "rac1" && id >= 0x5B0 && id < 0x5BA) {
             bool loaded = false;
             for (int source = 0; source < 20; ++source) {
                 const auto mesh =
-                    g->levels / std::format("level_{:02d}/mobys/moby_{}.glb", source, id);
+                    g->levels / std::format("level_{:02d}/mobys/moby_{}.glb", source, mesh_class);
                 if (!std::filesystem::is_regular_file(mesh)) {
                     continue;
                 }
@@ -581,11 +615,13 @@ void use_level(int number) {
             }
         }
         if (const auto found = g->render.level.moby_classes.find(id);
-            found != g->render.level.moby_classes.end() && !found->second.second) {
+            mesh_class == id && found != g->render.level.moby_classes.end()
+            && !found->second.second) {
             continue;
         }
         for (int source = 0; source < 20; ++source) {
-            const auto mesh = g->levels / std::format("level_{:02d}/mobys/moby_{}.glb", source, id);
+            const auto mesh =
+                g->levels / std::format("level_{:02d}/mobys/moby_{}.glb", source, mesh_class);
             if (!std::filesystem::is_regular_file(mesh)) {
                 continue;
             }
@@ -617,6 +653,7 @@ void use_level(int number) {
         log::error("level {}: {}", wanted, error);
         return;
     }
+    g->prop_scene_ready = true;
     run_graphics([&] {
         // The 2D path: its part before the world first, the rest after the world renderers.
         crash::level_breadcrumb("level renderers setup", wanted);
@@ -725,6 +762,97 @@ void use_level(int number) {
     log::info("drawing level {} natively ({} models)", wanted, g->render.level.models.size());
 }
 
+// Adds the meshes props have asked for since the last call (mods::prop_meshes) to the level and
+// the scene that are up, instead of reading the level again as a change of the list once did
+// (0.9 to 2 s a new mesh on a PAL level 1). Called by use_world after use_level, so with the
+// frame's render job finished (frame() starts with finish_render): nothing reads the scene or
+// the level while models are added to them, and no model changes its index, because models are
+// only ever added at the end (LevelScene::add_loaded_models). The instances and poses a frame
+// in flight kept name models by index, which stay what they were.
+void load_prop_meshes() {
+    if (!g || !g->prop_scene_ready) {
+        return;
+    }
+
+    const unsigned generation = mods::prop_meshes_generation();
+
+    if (generation == g->prop_generation) {
+        return;
+    }
+
+    g->prop_generation = generation;
+    const auto held = [](const std::filesystem::path& mesh) {
+        return std::any_of(
+                   g->prop_models.begin(),
+                   g->prop_models.end(),
+                   [&](const auto& model) { return model.first == mesh; }
+               )
+               || std::find(g->prop_failed.begin(), g->prop_failed.end(), mesh)
+                      != g->prop_failed.end();
+    };
+    std::vector<std::filesystem::path> wanted;
+
+    for (std::filesystem::path& mesh : mods::prop_meshes()) {
+        if (!held(mesh)) {
+            wanted.push_back(std::move(mesh));
+        }
+    }
+
+    if (wanted.empty()) {
+        return;
+    }
+
+    const auto started = std::chrono::steady_clock::now();
+    const std::size_t before = g->prop_models.size();
+    g->render.scene.align_models(g->render.level);
+
+    for (const std::filesystem::path& mesh : wanted) {
+        // A mesh that cannot be read leaves its props undrawn; what it appended before it failed
+        // (the vertices, indices) is taken back.
+        const std::size_t vertices = g->render.level.vertices.size();
+        const std::size_t indices = g->render.level.indices.size();
+        std::string why;
+
+        try {
+            if (const auto model = scene::load_model(mesh, g->render.level, why)) {
+                g->prop_models.emplace_back(mesh, *model);
+                continue;
+            }
+        } catch (const std::exception& failure) {
+            why = failure.what();
+        }
+
+        g->render.level.vertices.resize(vertices);
+        g->render.level.indices.resize(indices);
+        g->prop_failed.push_back(mesh);
+        log::warn("mods: prop mesh {}: {}", mesh.string(), why);
+    }
+
+    std::string error;
+    bool added = false;
+    run_graphics([&] {
+        added = g->render.scene
+                    .add_loaded_models(g->render.level, g->render.renderer->textures(), error);
+    });
+
+    if (!added) {
+        // The scene cannot take them: their props stay undrawn, and no more are tried this level.
+        log::error("mods: prop meshes could not be added to the level: {}", error);
+        g->prop_models.resize(before);
+        g->prop_scene_ready = false;
+        return;
+    }
+
+    log::verbose(
+        "mods: {} prop mesh(es) added to level {} in {:.1f} ms ({} models)",
+        g->prop_models.size() - before,
+        g->loaded,
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
+            .count(),
+        g->render.level.models.size()
+    );
+}
+
 void savestate_restored(std::uint64_t tick) {
     options_menu::savestate_restored();
     if (!g) {
@@ -748,6 +876,7 @@ void savestate_restored(std::uint64_t tick) {
     g->render.scene = scene::LevelScene();
     g->render.level = scene::LevelData();
     g->loaded = -2;
+    g->prop_scene_ready = false;
     g->index = tick;
     g->world_camera.reset();
     g->world_shrubs.reset();
@@ -1131,10 +1260,14 @@ void particle(
     int log2_side,
     std::uint32_t id
 ) {
-    (void)ram;
     State::Particle p;
     std::memcpy(p.record.data(), record, p.record.size());
     p.id = id;
+    // Its record's game address, for a weapon's look on the particles its shots make
+    // (mods::particle_look, interface 1.29).
+    if (record >= ram.data() && record + p.record.size() <= ram.data() + ram.size()) {
+        p.address = static_cast<std::uint32_t>(record - ram.data());
+    }
     p.attachment = g->render.profile->particle_attachment(p.record);
     p.pixels = pixels & 0x01FFFFFF;
     p.clut = clut & 0x01FFFFFF;
@@ -1267,8 +1400,8 @@ void note_particles(std::span<const std::uint8_t> ram, const host::GameState& st
     };
     constexpr float kNear = 6.0f;
     std::array<int, 256> counts{};
-    // Per type, those particle_quads leaves out: lines (kind 2, not drawn yet), those without a
-    // texture, and those outside the record's near and far depth.
+    // Per type, those particle_quads leaves out: lines (kind 2) that are not drawn here, those
+    // without a texture, and those outside the record's near and far depth.
     std::array<int, 256> lines{}, untextured{}, beyond{};
     std::string near;
     int listed = 0;
@@ -1336,7 +1469,8 @@ void note_particles(std::span<const std::uint8_t> ram, const host::GameState& st
 // contributors): culled and faded by depth (the record's near and far, at most 500 units), back to
 // front; a sprite faces the camera, its half-diagonal size / 210000 units (y scaled by 1.0625 as the
 // game does on screen), turned by its rotation byte; a flat quad lies in the world's XY plane; a
-// ribbon joins its two ends across the view. Lines are not drawn yet.
+// ribbon joins its two ends across the view; a line (kind 2) is an untextured one-pixel strip
+// between its two ends, drawn with the colours of its records.
 void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& state) {
     const auto f32 = [](const std::uint8_t* b) {
         float v;
@@ -1377,7 +1511,18 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
     }
     // The mobys a mod draws as energy (interface 1.25): the particles tied to them take its colour.
     const auto energy_mobys = mods::energy_materials();
+    // The particles a weapon's shots made, detached ones too, in its look (interface 1.29).
+    const auto particle_looks = mods::particle_looks();
     const auto energy_of = [&](const State::Particle& p) -> std::optional<energy::Look> {
+        if (!particle_looks.empty() && p.address != 0) {
+            const auto found = particle_looks.find(p.address);
+            if (found != particle_looks.end()) {
+                if (const auto energy =
+                        energy::look_of(found->second.material, found->second.rgb)) {
+                    return energy;
+                }
+            }
+        }
         if (energy_mobys.empty()) {
             return std::nullopt;
         }
@@ -1404,8 +1549,81 @@ void particle_quads(std::span<const std::uint8_t> ram, const host::GameState& st
     for (const State::Particle& p : g->particles) {
         const std::uint8_t* r = p.record.data();
         const int kind = r[1] & 3;
-        if (kind == 2 || p.pixels == 0 || p.clut == 0) {
-            cover(r, kind == 2 ? "lines" : "untextured");
+        if (kind != 2 && (p.pixels == 0 || p.clut == 0)) {
+            cover(r, "untextured");
+            continue;
+        }
+        if (kind == 2) {
+            // An untextured line (docs/engine/systems/PARTICLES.md section 5): colour 1 at end 1
+            // (+0x04, alpha included), colour 2 at end 2 (RGB at +0x0C; the spawner writes no alpha
+            // there, so end 2 takes colour 1's alpha), ends at +0x10 and +0x20, one pixel wide.
+            const std::array<float, 3> a{f32(r + 0x10), f32(r + 0x14), f32(r + 0x18)};
+            const std::array<float, 3> b{f32(r + 0x20), f32(r + 0x24), f32(r + 0x28)};
+            const std::array<float, 3>& fwd = state.forward;
+            const auto forward = [&](const std::array<float, 3>& v) {
+                return (v[0] - cam[0]) * fwd[0] + (v[1] - cam[1]) * fwd[1]
+                       + (v[2] - cam[2]) * fwd[2];
+            };
+            const float za = forward(a), zb = forward(b);
+            // Culled by its two ends against the global far (500 units), not by the near and far
+            // nibbles of byte 0x09, which lines do not use.
+            if (za > 500.0f && zb > 500.0f) {
+                cover(r, "beyond");
+                continue;
+            }
+            cover(r, "");
+            // The fade of the record (pass 2), at the first end; never negative (a line at or
+            // inside its near is not drawn).
+            const ParticleDepth depth = particle_depth(r, state);
+            const int fade = std::max(
+                0, std::min({(depth.far12 - depth.z12) >> 4, depth.z12 - depth.near12, 0x1000})
+            );
+            const auto faded = [fade](std::uint32_t c) {
+                return (c & 0x00FFFFFFu)
+                       | (((c >> 24) * static_cast<std::uint32_t>(fade) >> 12) << 24);
+            };
+            const std::uint32_t c1 = faded(u32(r + 4));
+            const std::uint32_t c2 = (c1 & 0xFF000000u) | (u32(r + 0xC) & 0x00FFFFFFu);
+            // One screen pixel is z / 406.35 world units at depth z (the scale of the sprites
+            // above: half-diagonal = 406.35 * size / 210000 / (z + 0.5) pixels); the half width is
+            // half a pixel at each end.
+            const float w1 = 0.5f * std::max(za, 0.0f) / 406.35f;
+            const float w2 = 0.5f * std::max(zb, 0.0f) / 406.35f;
+            // The line's width runs across the view: the normal of the line and the view ray.
+            const std::array<float, 3> e{b[0] - a[0], b[1] - a[1], b[2] - a[2]};
+            const std::array<float, 3> m{
+                0.5f * (a[0] + b[0]) - cam[0],
+                0.5f * (a[1] + b[1]) - cam[1],
+                0.5f * (a[2] + b[2]) - cam[2]
+            };
+            std::array<float, 3> n{
+                e[1] * m[2] - e[2] * m[1], e[2] * m[0] - e[0] * m[2], e[0] * m[1] - e[1] * m[0]
+            };
+            const float len = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+            if (len <= 0.0f) {
+                continue;
+            }
+            for (float& v : n) {
+                v /= len;
+            }
+            renderer::EffectQuad q{};
+            for (int i = 0; i < 3; ++i) {
+                q.corner[0][i] = a[i] + n[i] * w1;
+                q.corner[1][i] = a[i] - n[i] * w1;
+                q.corner[2][i] = b[i] + n[i] * w2;
+                q.corner[3][i] = b[i] - n[i] * w2;
+            }
+            q.rgba[0] = q.rgba[1] = c1;
+            q.rgba[2] = q.rgba[3] = c2;
+            const float st[4][2] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+            std::memcpy(q.st, st, sizeof(st));
+            q.clamp = 5;
+            q.tex1 = 0xFF9000000120ull;
+            q.alpha = r[3];
+            q.id = p.id;
+            q.rigid = false;
+            q.untextured = true;
+            items.push_back({za, q});
             continue;
         }
         std::array<float, 3> p1{f32(r + 0x10), f32(r + 0x14), f32(r + 0x18)};
@@ -1520,13 +1738,7 @@ void moby_colour(std::uint32_t object, unsigned colour, int level) {
     g->scripted_moby_colours.set(level, object, colour);
 }
 
-int ui_quad(const openrac_game_ui_rect& quad) {
-    // The 2D layer's quads are drawn natively (on the way off the GS packets); OPENRAC_UI_REPLAY
-    // replays the game's packets instead, for comparing.
-    static const bool native = !env::flag(env::Var::UiReplay);
-    if (!g || !native || g->ui_quads.size() >= 0xFFFFFFu) {  // the marker's index is 24 bits
-        return -1;
-    }
+renderer::UiQuad ui_quad_record(const openrac_game_ui_rect& quad) {
     renderer::UiQuad q;
     for (int i = 0; i < 4; ++i) {
         q.x[i] = quad.x[i];
@@ -1542,7 +1754,17 @@ int ui_quad(const openrac_game_ui_rect& quad) {
                  : (quad.rgba & 0xFF000000u) | (mods::sprite_tint() & 0xFFFFFFu);
     q.tex0 = quad.tex0;
     q.flags = quad.flags;
-    g->ui_quads.push_back(q);
+    return q;
+}
+
+int ui_quad(const openrac_game_ui_rect& quad) {
+    // The 2D layer's quads are drawn natively (on the way off the GS packets); OPENRAC_UI_REPLAY
+    // replays the game's packets instead, for comparing.
+    static const bool native = !env::flag(env::Var::UiReplay);
+    if (!g || !native || g->ui_quads.size() >= 0xFFFFFFu) {  // the marker's index is 24 bits
+        return -1;
+    }
+    g->ui_quads.push_back(ui_quad_record(quad));
     return static_cast<int>((g->ui_quads.size() - 1) | (g->ui_generation & 0x3F) << 24);
 }
 
@@ -1580,13 +1802,6 @@ std::shared_ptr<const enhanced::MaterialEditor> material_editor() {
     }
     auto* lighting = lighting::scene_lighting(g->render.scene);
     return lighting ? lighting->materials().editor() : nullptr;
-}
-
-bool patch_material(
-    std::span<const std::size_t> bindings, materials::Properties properties, std::string& error
-) {
-    auto* editor = editable_materials(error);
-    return editor && material_edit_result(editor->patch(bindings, std::move(properties)), error);
 }
 
 bool assign_material(
@@ -1629,18 +1844,6 @@ bool patch_material_preset(
            && material_edit_result(
                editor->patch_preset(preset, std::move(key), std::move(value)), error
            );
-}
-
-bool delete_material_override(const std::string& id, std::string& error) {
-    auto* editor = editable_materials(error);
-    return editor && material_edit_result(editor->delete_override(id), error);
-}
-
-bool undo_material(
-    std::span<const std::size_t> bindings, const std::string& key, std::string& error
-) {
-    auto* editor = editable_materials(error);
-    return editor && material_edit_result(editor->undo(bindings, key), error);
 }
 
 bool undo_material_preset(const std::string& preset, const std::string& key, std::string& error) {

@@ -87,6 +87,25 @@ class Parity(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertIn("func_00100100 (03) runs differently", errors[0])
 
+    def test_a_row_binds_every_place_its_programs_catalogue_folds(self):
+        # a's own catalogue folds f2's level copy into the executable's name; b's names it apart
+        # (as PAL and the NTSC decomp do for the ship list), so b's executable row misses level 3.
+        parity.GAMES["toy"]["folded"] = True
+        for program, text in (("toy-a", "func_00100100\texe\t64\t0\t03:00300000\n"),
+                              ("toy-b", "func_00101000\texe\t64\t0\t\nfunc_L03_00300100\tshared\t64\t0\t03:00300100\n")):
+            (self.root / "src" / program).mkdir(parents=True, exist_ok=True)
+            (self.root / "src" / program / "places.tsv").write_text("# name\tkind\tsize\tfp\tplaces\n" + text)
+            (self.root / "port/game" / program / "hostgen.json").write_text(
+                json.dumps({"source": "src", "places": f"{program}/places.tsv"}))
+        errors = self.tables("func_00100100\tx\tf2\twrap\n", "func_00101000\tx\tf2\twrap\n")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("func_00100100 (03) runs differently", errors[0])
+        self.assertEqual(self.tables("func_00100100\tx\tf2\twrap\n",
+                                     "func_00101000\tx\tf2\twrap\nfunc_L03_00300100\tx\tf2l\twrap\n"), [])
+        # A reason for every place of a function: "*".
+        self.assertEqual(self.tables("func_00100100\tx\tf2\twrap\n", "func_00101000\tx\tf2\twrap\n",
+                                     "func_00100100\t*\ttoy-b\tb keeps the game's C in the levels\n"), [])
+
     def test_a_row_with_another_c_type(self):
         a = "func_00100000\tx\tf1\twrap\tnote\tint (gaddr menu)\n"
         self.assertEqual(self.tables(a, "func_00100F00\tx\tf1\twrap\tnote\tint (unsigned int)\n"), [])

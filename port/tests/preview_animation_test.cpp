@@ -23,6 +23,14 @@ int main(int argc, char** argv) {
     };
     {
         namespace preview = scene::vendor_preview;
+        check(
+            preview::model_class(preview::other_game_visual) == 1134
+                && preview::key(preview::other_game_visual, false) != preview::key(1134, false)
+                && preview::key(preview::other_game_visual, true) != preview::key(1134, true)
+                && preview::defaults(preview::other_game_visual).size
+                       != preview::defaults(1134).size,
+            "other-game vendor reward shares the Bolt mesh with independent framing profiles"
+        );
         for (float angle : {0.0f, 0.5f, 1.5f, 3.0f}) {
             preview::Adjustment native;
             native.pitch = 30;
@@ -135,7 +143,7 @@ int main(int argc, char** argv) {
         "approved Batch 1 RYNO middle change is retained"
     );
     check(
-        scene::vendor_preview::defaults(scene::vendor_preview::key(1134, true)).x == 10
+        scene::vendor_preview::defaults(scene::vendor_preview::key(1134, true)).x == 13.5f
             && scene::vendor_preview::defaults(scene::vendor_preview::key(1134, true))
                    .pivot_enabled,
         "Gold Bolt middle placement retains reviewed centering and pivot"
@@ -146,7 +154,7 @@ int main(int argc, char** argv) {
     );
     check(
         scene::vendor_preview::defaults(scene::vendor_preview::key(607, true)).x == 18
-            && scene::vendor_preview::defaults(scene::vendor_preview::key(407, true)).x == 4.25f,
+            && scene::vendor_preview::defaults(scene::vendor_preview::key(407, true)).x == 4.0f,
         "Heli-Pack centering and the latest approved Persuader middle placement are retained"
     );
     check(
@@ -156,7 +164,7 @@ int main(int argc, char** argv) {
         "latest user edits preserve left display position and Infobot size"
     );
     check(
-        std::abs(scene::vendor_preview::defaults(66995).x + 1.07f) < .001f
+        std::abs(scene::vendor_preview::defaults(66995).x + 13.31f) < .001f
             && scene::vendor_preview::defaults(66995).roll == 0,
         "Gold Glove of Doom retains the user's corrected middle placement"
     );
@@ -242,8 +250,8 @@ int main(int argc, char** argv) {
             "rotation and size preserve the model pivot"
         );
         check(
-            preview::get(preview::key(185, true)).x == 0,
-            "approved left offsets do not move the middle model"
+            preview::get(preview::key(185, true)).x == 22.25f,
+            "Morph-o-Ray retains its separately reviewed middle profile"
         );
         {
             const auto left = preview::defaults(609);

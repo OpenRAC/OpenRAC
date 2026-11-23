@@ -1,16 +1,16 @@
 {
  "about": "How release_carry.py paired what the primary release's port names: what rests on less than the same code, and what it found nowhere.",
  "counts": {
-  "function: by hand": 20,
+  "function: by hand": 32,
   "function: called": 28,
-  "function: changed": 72,
+  "function: changed": 83,
   "function: found": 28,
-  "function: near": 100,
-  "function: same": 697,
+  "function: near": 129,
+  "function: same": 721,
   "global: aligned": 5,
   "global: between": 16,
-  "global: exact": 148,
-  "global: the release's build": 88
+  "global: exact": 156,
+  "global: the release's build": 100
  },
  "functions": {
   "func_001158F8": [
@@ -159,14 +159,14 @@
    "RAC2_K PAUSE_LIST_OFFSET"
   ],
   "func_002A05A8": [
-   "func_002A0F68",
-   "near",
-   "ps2_float"
+   "game_FUN_002A0F68",
+   "by hand",
+   "host C"
   ],
   "func_002A6C58": [
    "func_002A7650",
    "changed",
-   "libraries.tsv Moby_RecordDeath"
+   "host C"
   ],
   "func_002A7470": [
    "func_002A7E68",
@@ -177,6 +177,11 @@
    "func_002AC3C0",
    "near",
    "unit_aliases src/levels/14_aranos_prison/L14_003F4F98.c"
+  ],
+  "func_002ADB78": [
+   "func_002AE6D8",
+   "changed",
+   "libraries.tsv Bolt_SpawnPickups"
   ],
   "func_002B6480": [
    "func_002B7038",
@@ -228,6 +233,21 @@
    "near",
    "libraries.tsv Vendor_DrawList"
   ],
+  "func_00301D10": [
+   "func_00302E18",
+   "near",
+   "libraries.tsv Bolt_Collect"
+  ],
+  "func_00302470": [
+   "func_00303578",
+   "near",
+   "libraries.tsv Bolt_SpawnPickup"
+  ],
+  "func_00302848": [
+   "func_00303950",
+   "near",
+   "host C"
+  ],
   "func_00310010": [
    "func_00311448",
    "found",
@@ -272,6 +292,11 @@
    "func_0033E608",
    "near",
    "RAC2_K TEXT_WIDESCREEN"
+  ],
+  "func_0033ED88": [
+   "func_00340D78",
+   "by hand",
+   "RAC2_K PLANET_INFO_COUNT_WIDGET"
   ],
   "func_00341540": [
    "func_003435C0",
@@ -343,6 +368,11 @@
    "changed",
    "extra_params"
   ],
+  "func_L00_00300618": [
+   "func_L00_003021B0",
+   "near",
+   "host C"
+  ],
   "func_L00_00303990": [
    "func_L00_00305570",
    "changed",
@@ -353,6 +383,11 @@
    "changed",
    "overrides"
   ],
+  "func_L00_00321878": [
+   "func_L00_00323918",
+   "changed",
+   "libraries.tsv Bolt_SpawnPickups"
+  ],
   "func_L00_0032A258": [
    "func_L00_0032C328",
    "changed",
@@ -362,6 +397,51 @@
    "func_L00_003676D8",
    "changed",
    "overrides"
+  ],
+  "func_L00_00387CA8": [
+   "func_L00_0038ACC8",
+   "near",
+   "host C"
+  ],
+  "func_L00_0038D530": [
+   "func_L00_00390608",
+   "near",
+   "host C"
+  ],
+  "func_L00_003A98E8": [
+   "func_L00_003AD088",
+   "near",
+   "host C"
+  ],
+  "func_L00_003AA4C8": [
+   "func_L00_003ADC68",
+   "near",
+   "host C"
+  ],
+  "func_L00_003AB9C0": [
+   "func_L00_003AF190",
+   "changed",
+   "host C"
+  ],
+  "func_L00_003EED10": [
+   "func_L00_003F3090",
+   "changed",
+   "host C"
+  ],
+  "func_L00_00403730": [
+   "func_L00_00408110",
+   "near",
+   "host C"
+  ],
+  "func_L00_00408800": [
+   "func_L00_0040D328",
+   "near",
+   "host C"
+  ],
+  "func_L00_00409E48": [
+   "func_L00_0040E9F0",
+   "near",
+   "host C"
   ],
   "func_L00_00424F98": [
    "func_L00_0042A488",
@@ -503,6 +583,11 @@
    "near",
    "host C"
   ],
+  "func_L08_0041EBF8": [
+   "func_L08_00423EA0",
+   "by hand",
+   "host C"
+  ],
   "func_L09_00404B90": [
    "func_L09_00409AC8",
    "near",
@@ -552,6 +637,11 @@
    "func_L13_002C56D8",
    "near",
    "calls_as"
+  ],
+  "func_L14_003F4F98": [
+   "func_L14_003F9660",
+   "near",
+   "overrides"
   ],
   "func_L15_0042E1B0": [
    "func_L15_004334B0",

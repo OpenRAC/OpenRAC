@@ -21,7 +21,7 @@ and where modders change it: [BEHAVIOUR.md](BEHAVIOUR.md).
 ## The level editor
 
 The level editor, its Godot projects, the level packer and their tests live in
-[OpenRAC Editor](https://github.com/nickyyOO/OpenRAC-Editor). Its tools read discs and levels with
+[OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor). Its tools read discs and levels with
 this folder's modules, so what they may use is a contract:
 
 - [extractor_api.json](extractor_api.json): the modules the editor's tools import, and a version

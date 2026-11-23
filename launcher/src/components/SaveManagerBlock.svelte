@@ -163,7 +163,7 @@
 
 {#if editing !== null}
   <!-- The save editor loads the first time a slot is edited. -->
-  {#await version.game === "rac2" ? import("$components/SaveEditorRac2.svelte") : import("$components/SaveEditor.svelte") then { default: SaveEditor }}
+  {#await version.game === "rac2" ? import("$components/SaveEditorRac2.svelte") : version.game === "rac3" ? import("$components/SaveEditorRac3.svelte") : import("$components/SaveEditor.svelte") then { default: SaveEditor }}
     <SaveEditor
       serial={version.serial}
       slot={editing}

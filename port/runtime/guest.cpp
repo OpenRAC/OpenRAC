@@ -165,6 +165,10 @@ std::map<int, Table> g_overlays;
 // folded into one name (their bytes are the same but for the address they call), each place a
 // different function. A call through one of their addresses goes where its code calls.
 std::unordered_map<openrac_host_fn, int> g_ambiguous;
+// Functions registered in two or more programs, by the overlay that registered them first: Up Your
+// Arsenal's catalogue folds its one-call wrappers across the levels by a fingerprint without the
+// call's address, so one name stands for each level's own wrapper (-1: seen in several).
+std::unordered_map<openrac_host_fn, int> g_folded;
 // Each game function's thunk (openrac_guest_call_regs), by its host function.
 std::unordered_map<openrac_host_fn, openrac_regs_thunk> g_thunks;
 int g_overlay = OPENRAC_OVERLAY_EXE;
@@ -198,6 +202,14 @@ const Entry* find(gaddr address) {
 // What a callback that is only `jr ra` does: nothing, with 0 in v0.
 std::uint64_t returns_nothing() {
     return 0;
+}
+
+// What a callback that is only `jr ra` with a constant put in v0 returns: the constant of the
+// leaf the call was last looked up for (openrac_guest_function sets it just before the call).
+thread_local std::uint64_t g_leaf_value = 0;
+
+std::uint64_t returns_leaf_value() {
+    return g_leaf_value;
 }
 
 // The calls to code addresses no function has, by address (the reach file reports them).
@@ -528,6 +540,9 @@ void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t
         if (++places[entries[i].fn] == 2) {
             g_ambiguous[entries[i].fn] = 1;
         }
+        if (auto [it, added] = g_folded.emplace(entries[i].fn, overlay); !added && it->second != overlay) {
+            it->second = -1;
+        }
     }
     for (size_t i = 0; i < count; i++) {
         auto [it, added] = table.emplace(entries[i].address, Entry{entries[i].fn, entries[i].name});
@@ -541,6 +556,17 @@ void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t
             );
         }
     }
+}
+
+void openrac_guest_unregister_all(void) {
+    forget_answers();
+    g_exe.clear();
+    g_overlays.clear();
+    g_ambiguous.clear();
+    g_folded.clear();
+    g_thunks.clear();
+    g_overlay = OPENRAC_OVERLAY_EXE;
+    g_cache_generation.fetch_add(1, std::memory_order_relaxed);
 }
 
 void openrac_guest_register_thunks(const openrac_thunk_entry* entries, size_t count) {
@@ -586,14 +612,24 @@ gaddr foreign_code_of(gaddr address);
 openrac_host_fn openrac_guest_function(gaddr address) {
     if (const Entry* e = find(address)) {
         // A folded wrapper (addiu sp, -16; sq ra; jal T; nop; lq ra; jr ra; addiu sp, 16): this
-        // place's own target, read from the program's code (another level's in a foreign run).
-        for (int depth = 0; depth < 4 && g_ambiguous.count(e->fn) != 0; ++depth) {
+        // place's own target, read from the program in memory. Up Your Arsenal's compiler saves ra
+        // with sd/ld, and its catalogue folds such wrappers across the levels: Starship Phoenix's
+        // place of func_L01_00451FB8 (0x00434898) calls func_0038DBD8's copy, not the HUD message
+        // Veldin's calls, whose label it then read uninitialised (0xCDCDCDCD).
+        for (int depth = 0; depth < 4; ++depth) {
+            const bool ambiguous = g_ambiguous.count(e->fn) != 0;
+            const auto folded = g_folded.find(e->fn);
+            if (!ambiguous && (folded == g_folded.end() || folded->second != -1)) {
+                break;
+            }
             std::uint32_t w[7];
             for (int i = 0; i < 7; ++i) {
                 w[i] = code_word(address + static_cast<gaddr>(i) * 4u);
             }
-            if (w[0] != 0x27BDFFF0u || w[1] != 0x7FBF0000u || (w[2] >> 26) != 3 || w[3] != 0
-                || w[4] != 0x7BBF0000u || w[5] != 0x03E00008u || w[6] != 0x27BD0010u) {
+            const bool quad = ambiguous && w[1] == 0x7FBF0000u && w[4] == 0x7BBF0000u;  // sq/lq ra
+            const bool dword = w[1] == 0xFFBF0000u && w[4] == 0xDFBF0000u;               // sd/ld ra
+            if (w[0] != 0x27BDFFF0u || !(quad || dword) || (w[2] >> 26) != 3 || w[3] != 0
+                || w[5] != 0x03E00008u || w[6] != 0x27BD0010u) {
                 break;
             }
             const gaddr target = (address & 0xF0000000u) | ((w[2] & 0x03FFFFFFu) << 2);
@@ -623,6 +659,15 @@ openrac_host_fn openrac_guest_function(gaddr address) {
         const bool returns_zero = w[1] == 0 || w[1] == 0x0000102Du || w[1] == 0x00001025u || w[1] == 0x00001021u;
         if (w[0] == 0x03E00008u && returns_zero) {
             return reinterpret_cast<openrac_host_fn>(&returns_nothing);
+        }
+        // Or one that returns a constant (jr ra; addiu or ori v0, zero, k): Up Your Arsenal's
+        // Veldin points at func_L01_0051F7F0's tail, `return 2`, as a callback.
+        if (w[0] == 0x03E00008u && ((w[1] >> 16) == 0x2402u || (w[1] >> 16) == 0x3402u)) {
+            const std::uint32_t k = w[1] & 0xFFFFu;
+            g_leaf_value = (w[1] >> 16) == 0x2402u
+                               ? static_cast<std::uint64_t>(static_cast<std::int16_t>(k))
+                               : k;
+            return reinterpret_cast<openrac_host_fn>(&returns_leaf_value);
         }
     }
     if (strict()) {
@@ -1601,6 +1646,7 @@ struct Chunk {
 void (*g_level_program_source)(int level) = nullptr;
 std::map<int, std::vector<Chunk>> g_level_programs;
 std::map<std::pair<int, int>, LevelMap> g_level_pair_maps;  // (from, loaded)
+std::vector<openrac_level_copy> g_level_copies;             // openrac_guest_add_level_copies
 // The addresses a level's program can name (openrac_guest_set_level_range).
 gaddr g_level_low = 0x0015F000u, g_level_high = 0x00400000u;
 
@@ -1664,6 +1710,16 @@ LevelMap& level_pair_map(int from, int loaded) {
     std::unordered_map<openrac_host_fn, std::vector<gaddr>> copies;
     for (const auto& [address, entry] : *loaded_table) {
         copies[entry.fn].push_back(address);
+    }
+    // The copies the port translated apart, by the source level's function at their source place.
+    for (const openrac_level_copy& c : g_level_copies) {
+        if (c.level != loaded || c.from != from) {
+            continue;
+        }
+        auto own_entry = source->second.find(c.from_address);
+        if (own_entry != source->second.end()) {
+            copies[own_entry->second.fn].push_back(c.address);
+        }
     }
     std::map<gaddr, std::int32_t> pairs;
     const CopiesFrom reading(loaded);
@@ -1949,6 +2005,14 @@ void openrac_guest_clear_level_programs(void) {
     std::scoped_lock hold(g_relocate_lock);
     g_level_programs.clear();
     g_level_pair_maps.clear();
+    g_level_copies.clear();
+    forget_answers();
+}
+
+void openrac_guest_add_level_copies(const openrac_level_copy* copies, size_t count) {
+    std::scoped_lock hold(g_relocate_lock);
+    g_level_copies.assign(copies, copies + count);
+    g_level_pair_maps.clear();
     forget_answers();
 }
 
@@ -1970,6 +2034,8 @@ gaddr openrac_relocate_level_data(int from, gaddr address) {
 }
 
 gaddr openrac_guest_last_entry = 0;
+uint64_t openrac_guest_hi_args[4] = {0, 0, 0, 0};
+int openrac_guest_hi_pending = 0;
 openrac_host_fn openrac_guest_last_fn = nullptr;
 
 // Which lui each register's upper half came from, as a function's code runs straight through: a

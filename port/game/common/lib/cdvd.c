@@ -3,9 +3,10 @@
  *
  * The disc library (libcdvd). The game reads its data by absolute sector
  * from the disc (docs/port/RAC1_PAL_SURVEY.md, section 6), so the port reads
- * the same sectors from the player's disc image that the extractor kept
- * (iso_data/<game>/disc.iso). A read completes before the call returns, so the
- * game's polling (sceCdSync) finds it done. */
+ * the same sectors from the files the extractor wrote, through its sector map
+ * (iso_data/<game>/sectors.tsv, lib/disc_files.cpp): no disc image is opened.
+ * A read completes before the call returns, so the game's polling (sceCdSync)
+ * finds it done. */
 #define _FILE_OFFSET_BITS 64
 #include <stdint.h>
 #include <stdio.h>
@@ -93,7 +94,6 @@ static FILE* select_sector_file(
     return *active;
 }
 
-static FILE* disc;
 static int last_error;
 
 /* Edited levels (--mods): runs of sectors read from a file instead of the
@@ -108,8 +108,8 @@ static size_t active_patch_index;
 static int active_patch_valid;
 
 /* Expanded mod-owned streams, outside the disc's LBA space. virtual.tsv has
- * first sector, sector count, file. With no such rows reads retain the direct
- * disc path. */
+ * first sector, sector count, file. With no such rows a read is one read of
+ * the disc's files. */
 static sector_file* virtuals;
 static size_t virtual_count, virtual_capacity;
 static int virtuals_loaded;
@@ -245,26 +245,16 @@ static void apply_patches(unsigned sector, unsigned count, unsigned char* out) {
     }
 }
 
-static FILE* open_disc(void) {
-    if (disc == NULL && openrac_game_disc_image != NULL) {
-        disc = fopen(openrac_game_disc_image, "rb");
-        if (disc == NULL) {
-            fprintf(stderr, "[error] cannot open the disc image %s\n", openrac_game_disc_image);
-        }
-    }
-    return disc;
-}
-
 /* sceCdInit */
 int openrac_lib_sceCdInit(int mode) {
     (void)mode;
-    return open_disc() != NULL;
+    return openrac_disc_available();
 }
 
 /* sceCdDiskReady: 2 is "ready". */
 int openrac_lib_sceCdDiskReady(int mode) {
     (void)mode;
-    return open_disc() != NULL ? 2 : 6;
+    return openrac_disc_available() ? 2 : 6;
 }
 
 /* sceCdMmode: the media type (DVD); nothing to set. */
@@ -282,23 +272,19 @@ int openrac_lib_sceCdRead(unsigned int sector, unsigned int count, gaddr buffer,
     if (openrac_cdvd_read_hook != NULL) {
         openrac_cdvd_read_hook(sector, count);
     }
-    FILE* f = open_disc();
     /* OPENRAC_TRACE_CD=1: each read, to see where the game's data lands. */
     if (openrac_env_string("OPENRAC_TRACE_CD") != NULL) {
-        fprintf(stderr, "[debug] CD read %u sectors at %u -> %08x\n", count, sector, (unsigned)buffer);
+        fprintf(
+            stderr, "[debug] CD read %u sectors at %u -> %08x\n", count, sector, (unsigned)buffer
+        );
     }
-    if (f == NULL) {
+    if (!openrac_disc_available()) {
         last_error = 0x01; /* any non-zero error: the game retries */
         return 0;
     }
     refresh_virtuals();
     if (virtual_count == 0) {
-#if defined(_WIN32)
-        if (_fseeki64(f, (long long)sector * SECTOR, SEEK_SET) != 0
-#else
-        if (fseeko(f, (off_t)sector * SECTOR, SEEK_SET) != 0
-#endif
-            || fread(G(buffer), SECTOR, count, f) != count) {
+        if (!openrac_disc_read((uint64_t)sector * SECTOR, G(buffer), (uint64_t)count * SECTOR)) {
             fprintf(stderr, "[error] disc read of %u sectors at %u failed\n", count, sector);
             last_error = 0x32;
             return 0;
@@ -307,7 +293,7 @@ int openrac_lib_sceCdRead(unsigned int sector, unsigned int count, gaddr buffer,
         last_error = 0;
         return 1;
     }
-    /* Reads may cross from the physical image into mod-owned virtual sectors.
+    /* Reads may cross from the disc's sectors into mod-owned virtual sectors.
      * Resolve sector by sector so mixed reads preserve the disc bytes too. */
     for (unsigned i = 0; i < count; ++i) {
         unsigned char* dst = (unsigned char*)G(buffer) + (size_t)i * SECTOR;
@@ -319,17 +305,11 @@ int openrac_lib_sceCdRead(unsigned int sector, unsigned int count, gaddr buffer,
         if (mapped > 0) {
             continue;
         }
-#if defined(_WIN32)
-    /* Windows' C library has no fseeko; _fseeki64 is its 64-bit seek. */
-    if (_fseeki64(f, (long long)(sector + i) * SECTOR, SEEK_SET) != 0
-#else
-        if (fseeko(f, (off_t)(sector + i) * SECTOR, SEEK_SET) != 0
-#endif
-        || fread(dst, SECTOR, 1, f) != 1) {
-        fprintf(stderr, "[error] disc read of sector %u failed\n", sector + i);
-        last_error = 0x32;
-        return 0;
-    }
+        if (!openrac_disc_read((uint64_t)(sector + i) * SECTOR, dst, SECTOR)) {
+            fprintf(stderr, "[error] disc read of sector %u failed\n", sector + i);
+            last_error = 0x32;
+            return 0;
+        }
     }
     apply_patches(sector, count, (unsigned char*)G(buffer));
     last_error = 0;

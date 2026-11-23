@@ -103,6 +103,13 @@ job it has the same `<area>.<name>` (`rac2.player.take_damage`), so a mod for
 both games ([several games](manifest.md#a-mod-for-several-games)) reads alike in
 each. Its signatures are rac2's own.
 
+Ratchet & Clank: Up Your Arsenal's are `rac3.<area>.<name>` on its PAL (`pal`)
+and NTSC-U (`ntsc`) discs, in `openrac/games/rac3.h` (`OPENRAC_RAC3_HOOK_<name>`)
+and [its reference](reference/hooks-rac3.md): the hero's damage and death, item
+gifts and upgrades, the vendor's price and list, ammo, bolt drops and pickups,
+enemies' deaths, hits and the level's load. Where one does a rac2 hook point's
+job it has the same `<area>.<name>` (`rac3.item.give`).
+
 ## Moby updates (experimental)
 
 The behaviour catalogue lists the game's moby classes (crates, enemies, ...),
@@ -139,6 +146,20 @@ mod.hook<openrac::rac1::Hero_Update>([&](auto /*original*/) {
 
 Keep calling the original when the mod is off (the board put away): the game
 moves him again from where the pose left him.
+
+A prop of a skinned `.glb` can bend: `mod.prop_set_skin(id, matrices, count)` (1.33)
+gives it one 4 by 4 matrix per joint, column-major, each taking the mesh's bind-pose
+vertex to where the joint puts it (the identity is the bind pose), and `prop_pose`
+still places the whole mesh. `openrac_api.prop_set_skin` in `openrac_mod.h` numbers the
+joints and says the rest.
+A moby of the game's can look like something else: `mod.model_create("x.glb")` makes a model
+of a mesh in the mod's folder (1.33), and `mod.moby_model_slot(slot, model)` draws the moby in
+that array slot with it (`moby_list` and `moby_slot_of` name the slot). The game's update,
+collision and animation are untouched; only what is drawn changes. `openrac_api.moby_model_slot`
+in `openrac_mod.h` says what the matrix, the pose flag and the slot's lifetime are.
+`mod.moby_model_class(class, scope, model)` (1.33) does the same for every moby of a class, in the world
+(`OPENRAC_MODEL_WORLD`) or in the game's menus (`OPENRAC_MODEL_MENU`, the bolt price icon and the vendor's
+preview); it changes all those mobys for every player running the mod, so a slot is the narrower choice.
 
 ## What a hook cannot do
 

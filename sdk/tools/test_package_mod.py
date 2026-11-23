@@ -206,6 +206,14 @@ class ManifestRules(unittest.TestCase):
         # A rac2 id in a mod that is not for rac2 is no hook point of its game.
         self.assertTrue(pm.check_manifest(changed(hooks=["rac2.player.take_damage"])))
 
+    def test_a_mod_for_up_your_arsenal(self):
+        # rac3's table: its hook points by id or alias, checked against it alone.
+        rac3 = {"rac3": ["pal", "ntsc"]}
+        self.assertEqual(pm.check_manifest(changed(games=rac3, hooks=["rac3.player.take_damage", "Item_Give"])), [])
+        self.assertIn("is not a hook point of rac3",
+                      " ".join(pm.check_manifest(changed(games=rac3, hooks=["rac3.player.turn_to_heading"]))))
+        self.assertIn("rac3.bolt.collect", pm.hook_names("rac3"))
+
     def test_a_setting_for_some_games(self):
         both = {"rac1": ["pal"], "rac2": ["ntsc"]}
         setting = {"key": "count", "name": "Count", "type": "bool", "default": False}

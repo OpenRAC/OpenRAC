@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The mods' play calls (mod_play.h, interface 1.8).
+// The mods' play state (mod_play.h, interface 1.8): what the play calls in mod_api/<area>.cpp share.
 
 #include "mod_play.h"
 
@@ -19,6 +19,7 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -27,6 +28,7 @@
 #include <vector>
 
 #include "common/log.h"
+#include "mod_api/internal.h"
 #include "mod_touch.h"
 #include "mods.h"
 #include "openrac/guest.h"
@@ -34,6 +36,10 @@
 // The game's calls into the mods' world (game_host.h), set while mods are loaded.
 int (*openrac_game_moby_update)(std::int32_t slot, int phase) = nullptr;
 int (*openrac_game_metal_detect)(std::int32_t slot, std::int32_t key) = nullptr;
+void (*openrac_game_weapon_fired)(const openrac_game_weapon_shot* shot) = nullptr;
+void (*openrac_game_shot_ended)(const openrac_game_shot_end* end) = nullptr;
+int (*openrac_game_moby_look)(gaddr moby, std::int32_t item) = nullptr;
+void (*openrac_game_particle_look)(gaddr record, std::int32_t item) = nullptr;
 int (*openrac_game_moby_hit)(
     std::int32_t victim,
     std::int32_t attacker,
@@ -44,6 +50,8 @@ int (*openrac_game_moby_hit)(
 ) = nullptr;
 
 namespace openrac::mods {
+
+using namespace detail;
 
 static_assert(OPENRAC_PLAY_NONE == OPENRAC_GAME_PHASE_NONE);
 static_assert(OPENRAC_PLAY_FRONT_END == OPENRAC_GAME_PHASE_FRONT_END);
@@ -81,84 +89,36 @@ static_assert(
     sizeof(openrac_moby_deletion) == sizeof(std::uint32_t) + sizeof(openrac_game_moby_deletion)
 );
 
+// So are a weapon's shots (interface 1.29).
+static_assert(offsetof(openrac_weapon_shot, item) == sizeof(std::uint32_t));
+static_assert(
+    sizeof(openrac_weapon_shot) == sizeof(std::uint32_t) + sizeof(openrac_game_weapon_shot)
+);
+static_assert(offsetof(openrac_shot_end, item) == sizeof(std::uint32_t));
+static_assert(sizeof(openrac_shot_end) == sizeof(std::uint32_t) + sizeof(openrac_game_shot_end));
+static_assert(offsetof(openrac_spawn_live, oclass) == sizeof(std::uint32_t));
+static_assert(
+    sizeof(openrac_spawn_live) == sizeof(std::uint32_t) + sizeof(openrac_game_spawn_live)
+);
+
 // The collision triangles are the game's records as they are (interface 1.12).
 static_assert(sizeof(openrac_collision_triangle) == 14 * sizeof(float));
 
-namespace {
-
-// A save file is read whole: none of a game's is larger.
-constexpr std::uintmax_t kSaveMax = 1u << 20;
-// The most sounds the mods load together (OPENRAC_SOUNDS_MAX each).
-constexpr std::size_t kSoundsMax = 4 * OPENRAC_SOUNDS_MAX;
-
-// A figure a mod made: whose, its moby, the level load it was made in.
-struct Figure {
-    const openrac_mod* mod = nullptr;
-    gaddr moby = 0;
-    std::uint32_t loads = 0;
-};
-
-// A start or travel a mod asked for, done at the frame's end (play_update).
-struct Request {
-    enum class Kind {
-        kNone,
-        kStart,
-        kTravel
-    };
-    Kind kind = Kind::kNone;
-    const openrac_mod* mod = nullptr;
-    int level = 0;
-    std::vector<std::uint8_t> save;
-};
+namespace detail {
 
 const openrac_game_play* g_play = nullptr;
 std::filesystem::path g_cards;
 std::array<Figure, OPENRAC_FIGURES_MAX> g_figures;
 Request g_request;
 
-// The world (interface 1.9): the mobys the mods drive, by slot (whose, in which level load), the
-// gate and the hit watcher (one mod's each), and the slot whose update the gate's call before it
-// is about (-1: none, where a stand-in is refused).
-constexpr std::size_t kSlots = 4096;
-
-struct Drive {
-    const openrac_mod* mod = nullptr;
-    std::uint32_t loads = 0;
-};
-
-struct Gate {
-    const openrac_mod* mod = nullptr;
-    openrac_moby_update_fn fn = nullptr;
-    void* user = nullptr;
-};
-
-struct HitWatch {
-    const openrac_mod* mod = nullptr;
-    openrac_hit_fn fn = nullptr;
-    void* user = nullptr;
-};
-
 std::vector<Drive> g_drives(kSlots);
 Gate g_gate;
-
-// The mod told of the metal detector's digs.
-struct MetalWatch {
-    openrac_mod* mod = nullptr;
-    openrac_metal_detect_fn fn = nullptr;
-    void* user = nullptr;
-};
 
 MetalWatch g_metal;
 HitWatch g_hits;
 int g_before_slot = -1;
 
-// The mod that holds the card filter, what it asked, and the card folder its writes go to.
-const openrac_mod* g_card_mod = nullptr;
 int g_card_mode = OPENRAC_CARD_PASS;
-std::string g_card_folder;
-// A mod's own card folder's name at most, and the note beside a save (card_note_write).
-constexpr std::size_t kCardFolderMost = 16;
-constexpr std::size_t kCardNoteMost = 1024;
 const openrac_mod* g_loading_mod = nullptr;
 
 int phase_now(std::int32_t* level) {
@@ -193,80 +153,6 @@ Figure* own_figure(const openrac_mod* mod, int id) {
     return &f;
 }
 
-// The card folder a mod's folder name means: the game's own for "", else the game's own with the
-// name after it ("coop": BESCES-50916RATCHET-coop). Empty for a name that is not one word, so a mod
-// reaches nothing outside the card.
-std::string card_folder(const char* name) {
-    if (g_play == nullptr || g_play->save_folder == nullptr || name == nullptr) {
-        return {};
-    }
-    const std::string word = name;
-    if (word.size() > kCardFolderMost
-        || !std::all_of(word.begin(), word.end(), [](unsigned char c) {
-               return std::isalnum(c) != 0 || c == '_';
-           })) {
-        return {};
-    }
-    return word.empty() ? std::string(g_play->save_folder) : g_play->save_folder + ("-" + word);
-}
-
-// The path of save `slot` in the card folder `folder`; empty past the last slot.
-std::filesystem::path save_path(const std::string& folder, int slot) {
-    if (g_play == nullptr || g_play->save_file == nullptr || folder.empty() || slot < 0
-        || slot >= g_play->save_slots) {
-        return {};
-    }
-    char name[64];
-    std::snprintf(name, sizeof name, g_play->save_file, slot);
-    return g_cards / folder / name;
-}
-
-// The bytes of the file at `path`; empty for none.
-std::vector<std::uint8_t> read_file(const std::filesystem::path& path) {
-    std::error_code e;
-    const std::uintmax_t size = std::filesystem::file_size(path, e);
-    if (e || size == 0 || size > kSaveMax) {
-        return {};
-    }
-    std::ifstream in(path, std::ios::binary);
-    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
-    if (!in.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(size))) {
-        return {};
-    }
-    return bytes;
-}
-
-// The bytes of save `slot` of the card folder `folder`; empty for none there. A write stopped
-// between its two renames (lib/mc.c) leaves the save before it beside it.
-std::vector<std::uint8_t> read_save(const std::string& folder, int slot) {
-    const std::filesystem::path path = save_path(folder, slot);
-    if (path.empty()) {
-        return {};
-    }
-    std::vector<std::uint8_t> bytes = read_file(path);
-    if (bytes.empty() && folder != g_play->save_folder) {
-        std::filesystem::path previous = path;
-        previous += ".bak";
-        bytes = read_file(previous);
-    }
-    return bytes;
-}
-
-std::vector<std::uint8_t> read_save(int slot) {
-    return g_play != nullptr && g_play->save_folder != nullptr
-               ? read_save(g_play->save_folder, slot)
-               : std::vector<std::uint8_t>{};
-}
-
-// The note beside a save in a mod's folder (card_note_write).
-std::filesystem::path note_path(const std::string& folder, int slot) {
-    std::filesystem::path path = save_path(folder, slot);
-    if (!path.empty()) {
-        path += ".party";
-    }
-    return path;
-}
-
 // What a save's bytes hold; false for one the game would not load.
 bool save_info(const std::uint8_t* save, std::size_t size, openrac_save_info* out) {
     if (g_play == nullptr || save == nullptr || size > std::numeric_limits<std::uint32_t>::max()) {
@@ -286,161 +172,11 @@ bool save_info(const std::uint8_t* save, std::size_t size, openrac_save_info* ou
     return true;
 }
 
-int api_play_status(openrac_play_status* out) {
-    if (out == nullptr || out->size < sizeof(openrac_play_status)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    out->phase = phase_now(&out->level);
-    out->levels = g_play != nullptr ? g_play->levels : 0;
-    out->loads = g_play != nullptr ? g_play->loads() : 0;
-    return g_play != nullptr ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-const char* api_level_name(int level) {
-    if (g_play == nullptr || g_play->level_names == nullptr || level < 0
-        || level >= g_play->levels) {
-        return nullptr;
-    }
-    return g_play->level_names[level];
-}
-
-int api_hero_pose(openrac_pose* out) {
-    if (out == nullptr || out->size < sizeof(openrac_pose) || g_play == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    openrac_game_pose pose{};
-    if (g_play->hero_pose(&pose) == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    std::memcpy(&out->level, &pose, sizeof pose);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_figure_create(openrac_mod* mod) {
-    std::int32_t level = -1;
-    if (mod == nullptr || !in_level(phase_now(&level))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    // Figures gone with an earlier level make room.
-    for (Figure& f : g_figures) {
-        if (f.mod != nullptr && !live(f)) {
-            f = Figure{};
-        }
-    }
-    for (std::size_t i = 0; i < g_figures.size(); ++i) {
-        if (g_figures[i].mod != nullptr) {
-            continue;
-        }
-        const gaddr moby = g_play->figure_spawn();
-        // The level's pool is full.
-        if (moby == 0) {
-            return OPENRAC_HOOK_UNKNOWN;
-        }
-        g_figures[i] = {mod, moby, g_play->loads()};
-        return static_cast<int>(i);
-    }
-    return OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_figure_pose(openrac_mod* mod, int id, const openrac_pose* pose) {
-    Figure* f = own_figure(mod, id);
-    if (f == nullptr || pose == nullptr || pose->size < sizeof(openrac_pose)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    openrac_game_pose p{};
-    std::memcpy(&p, &pose->level, sizeof p);
-    g_play->figure_pose(f->moby, &p);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_figure_remove(openrac_mod* mod, int id) {
-    Figure* f = own_figure(mod, id);
-    if (f == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_play->figure_remove(f->moby);
-    *f = Figure{};
-    return OPENRAC_HOOK_OK;
-}
-
-int api_play_start(openrac_mod* mod, int level, const void* save, size_t size) {
-    std::int32_t now = -1;
-    if (mod == nullptr || g_play == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if (g_request.kind != Request::Kind::kNone) {
-        return OPENRAC_HOOK_TAKEN;
-    }
-    const auto* bytes = static_cast<const std::uint8_t*>(save);
-    // The front end, a level the game has, a save it takes.
-    if (phase_now(&now) != OPENRAC_PLAY_FRONT_END || level >= g_play->levels
-        || (bytes != nullptr && !save_info(bytes, size, nullptr))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_request = {Request::Kind::kStart, mod, level, {}};
-    if (bytes != nullptr) {
-        g_request.save.assign(bytes, bytes + size);
-    }
-    return OPENRAC_HOOK_OK;
-}
-
 // A level's phases, where a travel may leave it from (1.9: its scenes and menus too, as the pause
 // menu's Quit Game leaves from the menu: a party's member goes with its host from anywhere).
 bool in_a_level(int phase) {
     return phase == OPENRAC_PLAY_PLAYING || phase == OPENRAC_PLAY_SCENE
            || phase == OPENRAC_PLAY_MENU;
-}
-
-int api_play_travel(openrac_mod* mod, int level) {
-    std::int32_t now = -1;
-    if (mod == nullptr || g_play == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if (g_request.kind != Request::Kind::kNone) {
-        return OPENRAC_HOOK_TAKEN;
-    }
-    if (!in_a_level(phase_now(&now)) || level < -1 || level >= g_play->levels) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_request = {Request::Kind::kTravel, mod, level, {}};
-    return OPENRAC_HOOK_OK;
-}
-
-size_t api_save_capture(void* out, size_t size) {
-    if (g_play == nullptr) {
-        return 0;
-    }
-    const auto room = static_cast<std::uint32_t>(
-        std::min<size_t>(size, std::numeric_limits<std::uint32_t>::max())
-    );
-    return g_play->save_capture(out != nullptr ? static_cast<std::uint8_t*>(out) : nullptr, room);
-}
-
-int api_save_slot_current(void) {
-    return g_play != nullptr && g_play->save_slot_current != nullptr ? g_play->save_slot_current()
-                                                                     : -1;
-}
-
-int api_save_slot(int slot, openrac_save_info* out) {
-    if (g_play == nullptr || slot < 0 || slot >= g_play->save_slots) {
-        return -1;
-    }
-    if (out == nullptr || out->size < sizeof(openrac_save_info)) {
-        return 0;
-    }
-    const std::vector<std::uint8_t> bytes = read_save(slot);
-    return save_info(bytes.data(), bytes.size(), out) ? 1 : 0;
-}
-
-size_t api_save_read(int slot, void* out, size_t size) {
-    const std::vector<std::uint8_t> bytes = read_save(slot);
-    if (bytes.empty() || !save_info(bytes.data(), bytes.size(), nullptr)) {
-        return 0;
-    }
-    if (out != nullptr && size >= bytes.size()) {
-        std::memcpy(out, bytes.data(), bytes.size());
-    }
-    return bytes.size();
 }
 
 // Whether a mod drives the moby in `slot` in this level load (whose: `mod` when given).
@@ -452,257 +188,10 @@ const openrac_mod* driver(int slot) {
     return d.mod != nullptr && d.loads == g_play->loads() ? d.mod : nullptr;
 }
 
-openrac_game_pose pose_of(const openrac_moby& m) {
-    openrac_game_pose p{};
-    std::copy(m.position, m.position + 3, p.position);
-    std::copy(m.rotation, m.rotation + 3, p.rotation);
-    p.scale = m.scale;
-    p.seq = m.seq;
-    p.frame = m.frame;
-    p.next_frame = m.next_frame;
-    p.anim_time = m.anim_time;
-    p.anim_speed = m.anim_speed;
-    p.item = -1;
-    return p;
-}
-
-int api_moby_list(openrac_moby* out, int max) {
-    if (g_play == nullptr || g_play->mobys == nullptr || max < 0) {
-        return 0;
-    }
-    std::vector<openrac_game_moby_state> states(static_cast<std::size_t>(max));
-    const int n = g_play->mobys(states.data(), max);
-    for (int i = 0; i < std::min(n, max) && out != nullptr; ++i) {
-        out[i].size = sizeof(openrac_moby);
-        std::memcpy(
-            &out[i].slot, &states[static_cast<std::size_t>(i)], sizeof(openrac_game_moby_state)
-        );
-        if (driver(out[i].slot) != nullptr) {
-            out[i].flags |= OPENRAC_MOBY_DRIVEN;
-        }
-    }
-    return n;
-}
-
-int api_moby_uid(int slot) {
-    return g_play != nullptr && g_play->moby_uid != nullptr ? g_play->moby_uid(slot) : -1;
-}
-
-int api_moby_slot(int key) {
-    return g_play != nullptr && g_play->moby_slot != nullptr ? g_play->moby_slot(key) : -1;
-}
-
 gaddr moby_address(int slot) {
     return g_play != nullptr && g_play->moby_at != nullptr ? g_play->moby_at(slot) : 0;
 }
 
-int api_moby_drive(openrac_mod* mod, int slot, int on) {
-    if (mod == nullptr || moby_address(slot) == 0 || static_cast<std::size_t>(slot) >= kSlots) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const openrac_mod* now = driver(slot);
-    if (now != nullptr && now != mod) {
-        return OPENRAC_HOOK_TAKEN;
-    }
-    g_drives[static_cast<std::size_t>(slot)] = on != 0 ? Drive{mod, g_play->loads()} : Drive{};
-    return OPENRAC_HOOK_OK;
-}
-
-int api_moby_pose(openrac_mod* mod, int slot, const openrac_moby* pose) {
-    const gaddr m = moby_address(slot);
-    if (mod == nullptr || m == 0 || pose == nullptr || pose->size < sizeof(openrac_moby)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const openrac_game_pose p = pose_of(*pose);
-    g_play->moby_pose(m, &p);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_moby_kill(openrac_mod* mod, int slot) {
-    const gaddr m = moby_address(slot);
-    if (mod == nullptr || m == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_play->moby_kill(m);
-    if (static_cast<std::size_t>(slot) < kSlots) {
-        g_drives[static_cast<std::size_t>(slot)] = Drive{};
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-int api_moby_spawn(openrac_mod* mod, int oclass, const openrac_moby* pose) {
-    if (mod == nullptr || g_play == nullptr || g_play->moby_spawn == nullptr || pose == nullptr
-        || pose->size < sizeof(openrac_moby)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const int slot = g_play->moby_spawn(oclass);
-    if (slot < 0 || static_cast<std::size_t>(slot) >= kSlots) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_drives[static_cast<std::size_t>(slot)] = Drive{mod, g_play->loads()};
-    api_moby_pose(mod, slot, pose);
-    return slot;
-}
-
-// Copies of a level's placed enemies (interface 1.25): the host's check and copy, by slot.
-int api_moby_copy_check(openrac_mod* mod, int slot) {
-    const gaddr m = moby_address(slot);
-    if (mod == nullptr || m == 0 || g_play->moby_copy_check == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const int why = g_play->moby_copy_check(m);
-    return why >= 0 ? why : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_moby_copy(openrac_mod* mod, int slot, int index) {
-    const gaddr m = moby_address(slot);
-    if (mod == nullptr || m == 0 || index < 0 || g_play->moby_copy == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const int copy = g_play->moby_copy(m, index);
-    if (copy < 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    // The game's moby, never driven: a mod that drove a moby gone from this slot lets go of it.
-    if (static_cast<std::size_t>(copy) < kSlots) {
-        g_drives[static_cast<std::size_t>(copy)] = Drive{};
-    }
-    return copy;
-}
-
-int api_figure_slot(openrac_mod* mod, int id) {
-    if (g_play == nullptr || g_play->hero_slot == nullptr) {
-        return -1;
-    }
-    if (id < 0) {
-        return g_play->hero_slot();
-    }
-    const Figure* f = own_figure(mod, id);
-    return f != nullptr ? g_play->slot_of(f->moby) : -1;
-}
-
-int api_on_moby_update(openrac_mod* mod, openrac_moby_update_fn fn, void* user) {
-    if (mod == nullptr || fn == nullptr || mod != g_loading_mod) {
-        return OPENRAC_HOOK_TOO_LATE;
-    }
-    if (g_gate.mod != nullptr) {
-        return OPENRAC_HOOK_TAKEN;
-    }
-    g_gate = {mod, fn, user};
-    return OPENRAC_HOOK_OK;
-}
-
-int api_hero_stand_in(openrac_mod* mod, const float position[3], int figure) {
-    if (mod == nullptr || mod != g_gate.mod || g_before_slot < 0 || position == nullptr
-        || g_play == nullptr || g_play->stand_in == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const Figure* f = figure >= 0 ? own_figure(mod, figure) : nullptr;
-    g_play->stand_in(position, f != nullptr ? f->moby : 0);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_on_moby_hit(openrac_mod* mod, openrac_hit_fn fn, void* user) {
-    if (mod == nullptr || fn == nullptr || mod != g_loading_mod) {
-        return OPENRAC_HOOK_TOO_LATE;
-    }
-    if (g_hits.mod != nullptr) {
-        return OPENRAC_HOOK_TAKEN;
-    }
-    g_hits = {mod, fn, user};
-    return OPENRAC_HOOK_OK;
-}
-
-int api_moby_hit(openrac_mod* mod, const openrac_hit* hit) {
-    const gaddr victim = hit != nullptr ? moby_address(hit->victim) : 0;
-    if (mod == nullptr || victim == 0 || hit->size < sizeof(openrac_hit)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_play->post_hit(
-        victim, moby_address(hit->attacker), hit->mask, hit->damage, hit->position, hit->velocity
-    );
-    return OPENRAC_HOOK_OK;
-}
-
-int api_play_eyes(openrac_mod* mod, const float* xyz, int count) {
-    if (mod == nullptr || g_play == nullptr || g_play->eyes == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_play->eyes(xyz, xyz != nullptr ? std::clamp(count, 0, OPENRAC_EYES_MAX) : 0);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_play_overlay_pause(openrac_mod* mod, int on) {
-    if (mod == nullptr || g_play == nullptr || g_play->keep_running == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_play->keep_running(on != 0 ? 1 : 0);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_moby_slot_of(openrac_gaddr moby);
-
-// The game's own segment query for a mod (interface 1.17): the host's, the moby hit named by its
-// slot.
-int api_collision_line(
-    const float from[3],
-    const float to[3],
-    std::uint32_t flags,
-    std::int32_t ignore,
-    openrac_line_hit* out
-) {
-    if (g_play == nullptr || g_play->collision_line == nullptr || from == nullptr || to == nullptr
-        || out == nullptr || out->size < sizeof(openrac_line_hit)
-        || (flags & (OPENRAC_LINE_LEVEL | OPENRAC_LINE_MOBYS)) == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    for (int k = 0; k < 3; ++k) {
-        if (!std::isfinite(from[k]) || !std::isfinite(to[k])) {
-            return OPENRAC_HOOK_UNKNOWN;
-        }
-    }
-    const gaddr skip = ignore >= 0 ? moby_address(ignore) : 0;
-    float point[3] = {}, normal[3] = {};
-    std::int32_t surface = -1;
-    std::uint32_t moby = 0;
-    const int hit = g_play->collision_line(
-        from,
-        to,
-        (flags & OPENRAC_LINE_LEVEL) != 0,
-        (flags & OPENRAC_LINE_MOBYS) != 0,
-        skip,
-        point,
-        normal,
-        &surface,
-        &moby
-    );
-    const std::uint32_t size = out->size;
-    *out = openrac_line_hit{};
-    out->size = size;
-    out->hit = hit != 0;
-    out->surface = -1;
-    out->moby = -1;
-    if (hit != 0) {
-        for (int k = 0; k < 3; ++k) {
-            out->point[k] = point[k];
-            out->normal[k] = normal[k];
-        }
-        out->surface = surface;
-        out->moby = moby != 0 ? api_moby_slot_of(moby) : -1;
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-int api_moby_slot_of(openrac_gaddr moby) {
-    return g_play != nullptr && g_play->slot_of != nullptr
-                   && moby_address(g_play->slot_of(moby)) == moby
-               ? g_play->slot_of(moby)
-               : -1;
-}
-
-// A skip a mod asked for: the ticks it is pressed for still (play_skipping), and what it was asked
-// in (the phase, the level's scene: -1 none), so it never presses into the next scene or movie.
-constexpr int kSkipTicks = 40;
 int g_skip_ticks = 0;
 int g_skip_phase = OPENRAC_PLAY_NONE;
 std::int32_t g_skip_scene = -1;
@@ -713,422 +202,13 @@ std::int32_t scene_now() {
                                                                  : -1;
 }
 
-int api_play_skip(openrac_mod* mod) {
-    if (mod == nullptr || g_play == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    std::int32_t level = -1;
-    g_skip_ticks = kSkipTicks;
-    g_skip_phase = phase_now(&level);
-    g_skip_scene = scene_now();
-    return OPENRAC_HOOK_OK;
-}
-
-int api_bolts(int add) {
-    return g_play != nullptr && g_play->bolts != nullptr ? g_play->bolts(add) : 0;
-}
-
-int api_hero_held(openrac_held* out) {
-    if (out == nullptr || out->size < sizeof(openrac_held) || g_play == nullptr
-        || g_play->hero_held == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    openrac_game_held held{};
-    if (g_play->hero_held(&held) == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    std::memcpy(&out->count, &held, sizeof held);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_figure_held(openrac_mod* mod, int id, const openrac_held* held) {
-    Figure* f = own_figure(mod, id);
-    if (f == nullptr || held == nullptr || held->size < sizeof(openrac_held)
-        || g_play->figure_held == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    openrac_game_held h{};
-    std::memcpy(&h, &held->count, sizeof h);
-    h.count = std::clamp<std::int32_t>(h.count, 0, OPENRAC_GAME_HELD_MAX);
-    g_play->figure_held(f->moby, &h);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_hero_shots(openrac_shot* out, int max) {
-    if (out == nullptr || max <= 0 || g_play == nullptr || g_play->hero_shots == nullptr) {
-        return 0;
-    }
-    std::array<openrac_game_shot, OPENRAC_SHOTS_MAX> shots{};
-    const int n = g_play->hero_shots(shots.data(), std::min(max, OPENRAC_SHOTS_MAX));
-    for (int i = 0; i < n; ++i) {
-        out[i].size = sizeof(openrac_shot);
-        std::memcpy(&out[i].item, &shots[static_cast<std::size_t>(i)], sizeof(openrac_game_shot));
-    }
-    return n;
-}
-
-int api_figure_shot(openrac_mod* mod, int id, const openrac_shot* shot) {
-    Figure* f = own_figure(mod, id);
-    if (f == nullptr || shot == nullptr || shot->size < sizeof(openrac_shot)
-        || g_play->figure_shot == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    openrac_game_shot s{};
-    std::memcpy(&s, &shot->item, sizeof s);
-    return g_play->figure_shot(f->moby, &s) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
 // One line over the game's picture, the last mod's to set it: set on the game's thread, drawn on
 // the window's.
 std::mutex g_notice_lock;
 std::string g_notice;
 
-int api_play_notice(openrac_mod* mod, const char* text) {
-    if (mod == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::lock_guard<std::mutex> lock(g_notice_lock);
-    g_notice = text != nullptr ? text : "";
-    return OPENRAC_HOOK_OK;
-}
-
-// The level's scenes: the one playing, and one to start as the level's own trigger does (the game
-// starts it once the player is in control; -1 drops a request still waiting).
-int api_scene_playing(int* frame) {
-    std::int32_t played = 0;
-    const std::int32_t scene =
-        g_play != nullptr && g_play->scene_playing != nullptr ? g_play->scene_playing(&played) : -1;
-    if (frame != nullptr) {
-        *frame = scene >= 0 ? played : 0;
-    }
-    return scene >= 0 ? scene : -1;
-}
-
-int api_play_scene(openrac_mod* mod, int scene) {
-    if (mod == nullptr || g_play == nullptr || g_play->scene_start == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_play->scene_start(scene < 0 ? -1 : scene) != 0 ? OPENRAC_HOOK_OK
-                                                            : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_moby_hide(openrac_mod* mod, int slot, int hidden) {
-    const gaddr m = moby_address(slot);
-    if (mod == nullptr || m == 0 || g_play->moby_hide == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_play->moby_hide(m, hidden != 0 ? 1 : 0);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_moby_deletion(int slot, openrac_moby_deletion* out) {
-    if (out == nullptr || out->size < sizeof(openrac_moby_deletion) || g_play == nullptr
-        || g_play->moby_deletion == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    openrac_game_moby_deletion d{};
-    if (g_play->moby_deletion(slot, &d) == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    out->size = sizeof(openrac_moby_deletion);
-    std::memcpy(&out->by, &d, sizeof d);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_moby_run(int slot, openrac_moby_run* out) {
-    if (out == nullptr || out->size < sizeof(openrac_moby_run) || g_play == nullptr
-        || g_play->moby_run == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    openrac_game_moby_run r{};
-    if (g_play->moby_run(slot, &r) == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    out->size = sizeof(openrac_moby_run);
-    std::memcpy(&out->runs, &r, sizeof r);
-    return OPENRAC_HOOK_OK;
-}
-
 // ---- Interface 1.14: the calls a shared game needs. Each answers "unknown" in a game that has not
 // got it (play_scene_from always, for now), so a mod tests for it before using it. ----
-
-int api_card_filter(openrac_mod* mod, int mode, const char* folder) {
-    if (mod == nullptr || g_play == nullptr || g_play->card_session == nullptr
-        || g_play->card_filter == nullptr || (g_card_mod != nullptr && g_card_mod != mod)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if (mode == OPENRAC_CARD_PASS) {
-        // Only once no write of the party's can reach the player's saves: the mod asks again.
-        if (g_card_mode != OPENRAC_CARD_PASS && g_play->card_session(0) == 0) {
-            return OPENRAC_HOOK_TAKEN;
-        }
-        g_play->card_filter(OPENRAC_CARD_PASS, "");
-        g_card_mod = nullptr;
-        g_card_mode = OPENRAC_CARD_PASS;
-        g_card_folder.clear();
-        return OPENRAC_HOOK_OK;
-    }
-    const std::string named = mode == OPENRAC_CARD_REDIRECT ? card_folder(folder) : std::string();
-    if ((mode == OPENRAC_CARD_REDIRECT && (named.empty() || named == g_play->save_folder))
-        || g_play->card_filter(mode, named.c_str()) == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_card_mod = mod;
-    g_card_mode = mode;
-    g_card_folder = named;
-    g_play->card_session(1);
-    log::info("mods: {} keeps the game's saves off the player's card", mod_id(mod));
-    return OPENRAC_HOOK_OK;
-}
-
-int api_card_slot_hint(openrac_mod* mod, int slot) {
-    if (g_play == nullptr || mod != g_card_mod || slot < -1 || slot >= g_play->save_slots) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_play->card_slot(slot);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_coop_save_write(openrac_mod* mod, int slot, const void* bytes, std::uint32_t size) {
-    // Bytes from anywhere, another player's game among them: only what the game would read.
-    if (g_play == nullptr || g_play->save_check == nullptr || mod != g_card_mod
-        || g_card_mode != OPENRAC_CARD_REDIRECT || slot < 0 || slot >= g_play->save_slots
-        || bytes == nullptr || size == 0 || size > kSaveMax
-        || g_play->save_check(static_cast<const std::uint8_t*>(bytes), size) == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_play->card_write(slot, static_cast<const std::uint8_t*>(bytes), size) != 0
-               ? OPENRAC_HOOK_OK
-               : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_save_slot2(const char* folder, int slot, openrac_save_info* out) {
-    if (g_play == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if (slot < 0 || slot >= g_play->save_slots) {
-        return -1;
-    }
-    if (out == nullptr || out->size < sizeof(openrac_save_info)) {
-        return 0;
-    }
-    const std::vector<std::uint8_t> bytes = read_save(card_folder(folder), slot);
-    return save_info(bytes.data(), bytes.size(), out) ? 1 : 0;
-}
-
-std::size_t api_save_read2(const char* folder, int slot, void* out, std::size_t size) {
-    const std::vector<std::uint8_t> bytes = read_save(card_folder(folder), slot);
-    if (bytes.empty() || !save_info(bytes.data(), bytes.size(), nullptr)) {
-        return 0;
-    }
-    if (out != nullptr && size >= bytes.size()) {
-        std::memcpy(out, bytes.data(), bytes.size());
-    }
-    return bytes.size();
-}
-
-std::uint32_t api_card_saves() {
-    return g_play != nullptr && g_play->card_saves != nullptr ? g_play->card_saves() : 0;
-}
-
-int api_card_note_write(openrac_mod* mod, int slot, const char* text) {
-    const std::filesystem::path path = mod != nullptr && mod == g_card_mod
-                                           ? note_path(g_card_folder, slot)
-                                           : std::filesystem::path{};
-    if (path.empty() || text == nullptr || std::strlen(text) >= kCardNoteMost) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    // A note half written would lose a party its slot: a whole one or the one before.
-    std::error_code e;
-    std::filesystem::create_directories(path.parent_path(), e);
-    std::filesystem::path temp = path;
-    temp += ".tmp";
-    {
-        std::ofstream out(temp, std::ios::binary | std::ios::trunc);
-        if (!(out << text)) {
-            return OPENRAC_HOOK_UNKNOWN;
-        }
-    }
-    std::filesystem::rename(temp, path, e);
-    return e ? OPENRAC_HOOK_UNKNOWN : OPENRAC_HOOK_OK;
-}
-
-int api_card_note_read(const char* folder, int slot, char* out, std::uint32_t size) {
-    const std::string named = card_folder(folder);
-    if (out == nullptr || size == 0 || named.empty() || named == g_play->save_folder) {
-        return 0;
-    }
-    // (card_folder is empty without a game, so g_play is there.)
-    std::ifstream in(note_path(named, slot), std::ios::binary);
-    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    if (text.empty() || text.size() >= size) {
-        return 0;
-    }
-    std::memcpy(out, text.c_str(), text.size() + 1);
-    return static_cast<int>(text.size());
-}
-
-int api_shared_read(int tag, void* out, std::uint32_t size) {
-    if (g_play == nullptr || g_play->shared_read == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-
-    return out != nullptr ? g_play->shared_read(tag, out, size) : -1;
-}
-
-int api_shared_give(int tag, const void* data, std::uint32_t size) {
-    if (g_play == nullptr || g_play->shared_give == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-
-    return data != nullptr && g_play->shared_give(tag, data, size) != 0 ? OPENRAC_HOOK_OK
-                                                                        : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_mission_state_read(int level, std::uint8_t* out) {
-    if (g_play == nullptr || g_play->mission_state_read == nullptr || out == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-
-    return g_play->mission_state_read(level, out) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_mission_state_write(int level, const std::uint8_t* in) {
-    if (g_play == nullptr || g_play->mission_state_write == nullptr || in == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-
-    return g_play->mission_state_write(level, in) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_mission_state_clear(int level, const std::uint8_t* flags) {
-    if (g_play == nullptr || g_play->mission_state_clear == nullptr || flags == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-
-    return g_play->mission_state_clear(level, flags) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_hero_place(openrac_mod* mod, const float position[3], float yaw, std::uint32_t flags) {
-    if (mod == nullptr || position == nullptr || g_play == nullptr || g_play->hero_place == nullptr
-        || !std::isfinite(position[0]) || !std::isfinite(position[1]) || !std::isfinite(position[2])
-        || !std::isfinite(yaw)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_play->hero_place(position, yaw, flags) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_hero_grab(openrac_mod* mod, int animation, std::uint32_t flags) {
-    if (mod == nullptr || g_play == nullptr || g_play->hero_grab == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_play->hero_grab(animation, flags) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_hero_release(openrac_mod* mod) {
-    if (mod == nullptr || g_play == nullptr || g_play->hero_let_go == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_play->hero_let_go() != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_hero_hold_at(openrac_mod* mod, const float position[3], float yaw) {
-    if (mod == nullptr || position == nullptr || g_play == nullptr
-        || g_play->hero_hold_at == nullptr || !std::isfinite(position[0])
-        || !std::isfinite(position[1]) || !std::isfinite(position[2]) || !std::isfinite(yaw)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_play->hero_hold_at(position, yaw) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_hero_stand_in_as(openrac_mod* mod, const openrac_stand_in* as, int figure) {
-    if (mod == nullptr || mod != g_gate.mod || g_before_slot < 0 || as == nullptr
-        || g_play == nullptr || g_play->stand_in_as == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const Figure* f = figure >= 0 ? own_figure(mod, figure) : nullptr;
-    g_play->stand_in_as(as->position, f != nullptr ? f->moby : 0, as->state, as->health, as->flags);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_hero_stand_in_read(openrac_mod* mod, openrac_stand_in* out) {
-    if (mod == nullptr || mod != g_gate.mod || out == nullptr || g_play == nullptr
-        || g_play->stand_in_read == nullptr
-        || g_play->stand_in_read(out->position, &out->yaw, &out->state, &out->health, &out->flags)
-               == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-int api_hero_revive(openrac_mod* mod, const float position[3], std::uint32_t flags) {
-    if (mod == nullptr || g_play == nullptr || g_play->hero_revive == nullptr
-        || (position != nullptr
-            && (!std::isfinite(position[0]) || !std::isfinite(position[1])
-                || !std::isfinite(position[2])))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_play->hero_revive(position, flags) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_hero_shots2(openrac_shot2* out, int max) {
-    if (out == nullptr || max <= 0 || g_play == nullptr || g_play->hero_shots2 == nullptr) {
-        return 0;
-    }
-    std::array<openrac_game_shot2, OPENRAC_SHOTS_MAX> shots{};
-    const int n = g_play->hero_shots2(shots.data(), std::min(max, OPENRAC_SHOTS_MAX));
-    for (int i = 0; i < n; ++i) {
-        out[i].size = sizeof(openrac_shot2);
-        std::memcpy(&out[i].item, &shots[static_cast<std::size_t>(i)], sizeof(openrac_game_shot2));
-    }
-    return n;
-}
-
-int api_figure_shot2(openrac_mod* mod, int id, const openrac_shot2* shot) {
-    Figure* f = own_figure(mod, id);
-    if (f == nullptr || shot == nullptr || shot->size < sizeof(openrac_shot2)
-        || g_play->figure_shot2 == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    openrac_game_shot2 s{};
-    std::memcpy(&s, &shot->item, sizeof s);
-    return g_play->figure_shot2(f->moby, &s) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_moby_list2(openrac_moby2* out, int max) {
-    if (g_play == nullptr || g_play->mobys == nullptr || max < 0) {
-        return 0;
-    }
-    std::vector<openrac_game_moby_state> states(static_cast<std::size_t>(max));
-    const int n = g_play->mobys(states.data(), max);
-    for (int i = 0; i < std::min(n, max) && out != nullptr; ++i) {
-        const openrac_game_moby_state& s = states[static_cast<std::size_t>(i)];
-        openrac_moby2& m = out[i];
-        m.size = sizeof(openrac_moby2);
-        m.slot = s.slot;
-        m.key = s.key;
-        m.oclass = s.oclass;
-        m.flags = s.flags | (driver(s.slot) != nullptr ? OPENRAC_MOBY_DRIVEN : 0u);
-        m.state = s.state;
-        m.mission = g_play->moby_mission != nullptr ? g_play->moby_mission(s.slot) : -1;
-        std::copy(std::begin(s.position), std::end(s.position), m.position);
-        std::copy(std::begin(s.rotation), std::end(s.rotation), m.rotation);
-        m.scale = s.scale;
-        m.seq = s.seq;
-        m.frame = s.frame;
-        m.next_frame = s.next_frame;
-        m.anim_time = s.anim_time;
-        m.anim_speed = s.anim_speed;
-    }
-    return n;
-}
-
-// Who hears of the game's camera scripts (on_camera_script), and the one showing one here.
-struct CameraScriptWatch {
-    const openrac_mod* mod = nullptr;
-    openrac_camera_script_fn fn = nullptr;
-    void* user = nullptr;
-};
 
 CameraScriptWatch g_camera_scripts;
 const openrac_mod* g_camera_shower = nullptr;
@@ -1137,98 +217,6 @@ bool has_camera_scripts() {
     return g_play != nullptr && g_play->camera_script_next != nullptr
            && g_play->camera_script_view != nullptr && g_play->camera_script_play != nullptr
            && g_play->camera_script_show != nullptr;
-}
-
-int api_on_camera_script(openrac_mod* mod, openrac_camera_script_fn fn, void* user) {
-    if (!has_camera_scripts()) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if (mod == nullptr || fn == nullptr || mod != g_loading_mod) {
-        return OPENRAC_HOOK_TOO_LATE;
-    }
-    if (g_camera_scripts.mod != nullptr) {
-        return OPENRAC_HOOK_TAKEN;
-    }
-    g_camera_scripts = {mod, fn, user};
-    return OPENRAC_HOOK_OK;
-}
-
-int api_camera_script_play(openrac_mod* mod, int id) {
-    if (mod == nullptr || !has_camera_scripts() || id < OPENRAC_CAMERA_SCRIPT_CUT
-        || (g_camera_shower != nullptr && g_camera_shower != mod)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if (g_play->camera_script_play(id) == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_camera_shower = id >= 0 ? mod : nullptr;
-    return OPENRAC_HOOK_OK;
-}
-
-int api_camera_script_view(float eye[3], float rotation[3], float where[3], int* stand_in) {
-    if (eye == nullptr || rotation == nullptr || where == nullptr || !has_camera_scripts()) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    std::int32_t standing = 0;
-    if (g_play->camera_script_view(eye, rotation, where, &standing) == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if (stand_in != nullptr) {
-        *stand_in = standing;
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-int api_camera_script_show(openrac_mod* mod, const float eye[3], const float rotation[3]) {
-    if (mod == nullptr || mod != g_camera_shower || eye == nullptr || rotation == nullptr
-        || !has_camera_scripts() || !std::isfinite(eye[0] + eye[1] + eye[2])
-        || !std::isfinite(rotation[0] + rotation[1] + rotation[2])) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_play->camera_script_show(eye, rotation) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_play_scene_from(openrac_mod*, int, int) {
-    return OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_play_live_picture(openrac_mod* mod, int on) {
-    if (mod == nullptr || g_play == nullptr || g_play->live_picture == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_play->live_picture(on != 0 ? 1 : 0);
-    return OPENRAC_HOOK_OK;
-}
-
-int game_metal_detect(std::int32_t slot, std::int32_t key) {
-    return g_metal.fn != nullptr ? g_metal.fn(g_metal.user, slot, key) : 1;
-}
-
-int api_on_metal_detect(openrac_mod* mod, openrac_metal_detect_fn fn, void* user) {
-    if (mod == nullptr || fn == nullptr || mod != g_loading_mod) {
-        return OPENRAC_HOOK_TOO_LATE;
-    }
-    if (g_metal.mod != nullptr) {
-        return OPENRAC_HOOK_TAKEN;
-    }
-    g_metal = {mod, fn, user};
-    openrac_game_metal_detect = game_metal_detect;
-    return OPENRAC_HOOK_OK;
-}
-
-int api_camera_position(float out[3]) {
-    if (out == nullptr || g_play == nullptr || g_play->camera_position == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_play->camera_position(out) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_level_line(const float from[3], const float to[3], int* blocked) {
-    if (from == nullptr || to == nullptr || blocked == nullptr || g_play == nullptr
-        || g_play->level_line == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_play->level_line(from, to, blocked) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
 // The game's calls (game_host.h): the gate around an update, and a hit posted.
@@ -1272,97 +260,40 @@ int game_moby_hit(
     return g_hits.fn(g_hits.user, &hit) != 0 ? 1 : 0;
 }
 
-int api_world_family(char* out, std::uint32_t size) {
-    if (g_play == nullptr || g_play->world_family == nullptr || out == nullptr || size == 0) {
-        return 0;
-    }
-
-    const std::size_t length = std::strlen(g_play->world_family);
-
-    if (length >= size) {
-        return 0;
-    }
-
-    std::memcpy(out, g_play->world_family, length + 1);
-    return static_cast<int>(length);
-}
-
-int api_sim_digest(std::int32_t level, std::uint32_t* out) {
-    if (g_play == nullptr || g_play->sim_digest == nullptr || out == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-
-    *out = g_play->sim_digest(level);
-    return *out != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
 // ---- Interface 1.12: the hero moved by a mod, the collision triangles, props and sounds ----
-
-// A prop a mod made: whose, its mesh, the level load it was made in, its matrix once posed.
-struct Prop {
-    const openrac_mod* mod = nullptr;
-    std::filesystem::path mesh;
-    std::uint32_t loads = 0;
-    bool posed = false;
-    bool hidden = false;
-    std::array<float, 16> matrix{};
-    std::array<float, 4> tint{1.0f, 1.0f, 1.0f, 1.0f};
-    int blend = 0;
-    // Fixed to a moby's joint (1.18): the moby, its joint; `matrix` is the offset then.
-    gaddr attached_moby = 0;
-    int attached_joint = -1;
-    // Where the renderer drew it on that joint last (prop_frame), once it has.
-    std::array<float, 16> placed{};
-    bool was_placed = false;
-    int animation = -1;  // prop_animate's: its .glb's animation, the time into it, looped
-    float seconds = 0.0f;
-    bool loop = false;
-};
-
-// A sound a mod loaded: whose, and the host's id of it.
-struct Sound {
-    const openrac_mod* mod = nullptr;
-    int host = -1;
-};
 
 // The props, the meshes asked for (and their count's generation), behind a lock: the front end
 // reads them on its own thread.
+//
+// g_prop_meshes are the meshes the props of one level load were made of (g_prop_meshes_loads), each
+// once, in the order first asked for: what the front end has to hold in the scene to draw them. A
+// new level load starts the list again (its props are all gone), so a level is not read with the
+// meshes of the ones before it. g_prop_generation grows each time the list changes, for the front
+// end to look at it again only then.
 std::mutex g_props_lock;
 std::array<Prop, OPENRAC_PROPS_MAX> g_props;
 std::vector<std::filesystem::path> g_prop_meshes;
+std::uint32_t g_prop_meshes_loads = 0;
 unsigned g_prop_generation = 0;
 
-struct VisualSet {
-    const openrac_mod* mod;
-    std::uint32_t loads;
-    std::vector<openrac_moby_visual> visuals;
-};
+// Under g_props_lock, which they share with the props: the front end reads them with the props'.
+std::array<Model, OPENRAC_MODELS_MAX> g_models;
+std::map<int, SlotModel> g_slot_models;
+// By class and scope (one bit: OPENRAC_MODEL_WORLD or OPENRAC_MODEL_MENU).
+std::map<std::pair<int, std::uint32_t>, ClassModel> g_class_models;
+// By address (interface 1.33): the mobys the level's own list may not hold, the game reads their class.
+std::map<gaddr, SlotModel> g_address_models;
 
 std::vector<VisualSet> g_visuals;
 std::vector<int> g_visual_classes;
 unsigned g_visual_generation = 0;
 std::uint32_t g_sprite_tint = UINT32_MAX;
 
-// A mod's material on one moby (interface 1.23), for the level load it was set in. `oclass` is the
-// moby's class when the renderer first listed it (-1 before that), so that a slot the game frees
-// and fills with another class drops it.
-struct MaterialEntry {
-    const openrac_mod* mod = nullptr;
-    std::uint32_t loads = 0;
-    MobyMaterial material;
-    int oclass = -1;
-};
-
 // Every mod's materials, in the order set (the last set is drawn), under g_props_lock.
 std::vector<MaterialEntry> g_materials;
+// The mods' materials on classes (interface 1.34), by class and scope bit, under g_props_lock.
+std::map<std::pair<int, std::uint32_t>, ClassMaterial> g_class_materials;
 
-std::uint32_t api_sprite_tint(openrac_mod* mod, std::uint32_t rgb) {
-    const auto previous = g_sprite_tint;
-    if (mod) {
-        g_sprite_tint = rgb;
-    }
-    return previous;
-}
 std::vector<Sound> g_sounds;
 std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_voices;
 int (*g_sound_load)(const std::filesystem::path&) = nullptr;
@@ -1370,16 +301,6 @@ std::uint32_t (*g_sound_play)(int, float, float, bool) = nullptr;
 int (*g_sound_set)(std::uint32_t, float, float) = nullptr;
 void (*g_sound_stop)(std::uint32_t) = nullptr;
 void (*g_joint_offsets)(std::uint32_t, const openrac_joint_offset*, int) = nullptr;
-
-// The joint offsets each mod set on a moby (hero_set_joints for the hero, moby_set_joints for any
-// other), in the order the mods first set theirs: all of a moby's go to it together, each mod's
-// composed after the ones before it, so two mods that turn its joints do not undo each other.
-struct JointSet {
-    const openrac_mod* mod = nullptr;
-    std::uint32_t moby = 0;
-    std::uint32_t loads = 0;  // the level load it was set in
-    std::vector<openrac_joint_offset> joints;
-};
 
 std::vector<JointSet> g_joint_sets;
 
@@ -1393,8 +314,6 @@ void apply_joint_sets(std::uint32_t moby) {
     }
     g_joint_offsets(moby, all.empty() ? nullptr : all.data(), static_cast<int>(all.size()));
 }
-
-std::uint32_t loads_now();
 
 // Offsets of an earlier level's mobies (not the hero's) are gone with that level: the address
 // may hold another moby now. Run each frame (play_update) and before each set.
@@ -1462,16 +381,17 @@ int set_joint_set(
 std::atomic<float> g_camera_fov{0.0f};
 std::atomic<std::uint32_t> g_camera_fov_loads{0};
 
+void release_camera_fov() {
+    g_camera_fov.store(0.0f, std::memory_order_relaxed);
+}
+
+void set_camera_fov(float degrees) {
+    g_camera_fov_loads.store(loads_now(), std::memory_order_relaxed);
+    g_camera_fov.store(degrees, std::memory_order_relaxed);
+}
+
 // The mods that hide the game's HUD (hud_hide), each with its level load, behind g_hud_lock.
 std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_hud_hidden;
-
-// Each mod's gain on the game's music (music_volume) and the level load it was set in: the
-// quietest of this load's applies.
-struct MusicGain {
-    const openrac_mod* mod = nullptr;
-    std::uint32_t loads = 0;
-    float gain = 1.0f;
-};
 
 std::vector<MusicGain> g_music_gains;
 void (*g_music_gain)(int, float) = nullptr;
@@ -1492,27 +412,27 @@ void apply_music_gain() {
     g_music_gain(group, gain);
 }
 
+std::mutex g_air_lock;
+std::optional<AirSet> g_air;
+std::vector<Stretch> g_stretches;
+std::vector<TieHidden> g_ties_hidden;
+
+// The air, slow motion and hidden ties of one mod (all: null) taken off.
+void drop_air(const openrac_mod* mod) {
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    if (g_air && (mod == nullptr || g_air->mod == mod)) {
+        g_air.reset();
+    }
+    std::erase_if(g_ties_hidden, [&](const TieHidden& h) { return mod == nullptr || h.mod == mod; });
+    std::erase_if(g_stretches, [&](const Stretch& s) { return mod == nullptr || s.mod == mod; });
+}
+
 // The mod holding the game's camera (camera_set), and the heat haze patches each mod drew, of a
 // level load, behind a lock: the front end reads them on its own thread.
 const openrac_mod* g_camera_mod = nullptr;
-std::uint32_t g_camera_loads = 0;
-
-struct Haze {
-    const openrac_mod* mod = nullptr;
-    std::uint32_t loads = 0;
-    std::vector<openrac_haze> patches;
-};
 
 std::mutex g_haze_lock;
 std::vector<Haze> g_haze;
-
-// The lines of text each mod shows in the game's HUD (hud_text_set), of a level load: set and read
-// on the game's thread, behind a lock as the haze is.
-struct HudTexts {
-    const openrac_mod* mod = nullptr;
-    std::uint32_t loads = 0;
-    std::vector<openrac_hud_text> lines;
-};
 
 std::mutex g_hud_lock;
 std::vector<HudTexts> g_hud;
@@ -1521,738 +441,13 @@ std::uint32_t loads_now() {
     return g_play != nullptr ? g_play->loads() : 0;
 }
 
-int api_hero_set_pose(openrac_mod* mod, const openrac_pose* pose) {
-    if (mod == nullptr || pose == nullptr || pose->size < sizeof(openrac_pose) || g_play == nullptr
-        || g_play->hero_set_pose == nullptr || !holds_hook(mod, g_play->hero_update_hook)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    openrac_game_pose p{};
-    std::memcpy(&p, &pose->level, sizeof p);
-    return g_play->hero_set_pose(&p) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-// Any mod may turn the hero's joints (ports before took them only from the holder of his update
-// hook): its offsets replace its own last ones and are composed with the other mods' (g_joint_sets).
-int api_hero_set_joints(openrac_mod* mod, const openrac_joint_offset* joints, int count) {
-    if (mod == nullptr || g_play == nullptr || g_play->hero_moby == nullptr
-        || g_joint_offsets == nullptr || count < 0 || count > OPENRAC_JOINT_OFFSETS_MAX
-        || (count > 0 && joints == nullptr)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::uint32_t moby = g_play->hero_moby();
-    if (moby == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return set_joint_set(mod, moby, joints, count);
-}
-
-int api_moby_set_joints(openrac_mod* mod, int slot, const openrac_joint_offset* joints, int count) {
-    std::int32_t level = -1;
-    if (mod == nullptr || g_play == nullptr || g_joint_offsets == nullptr || count < 0
-        || count > OPENRAC_JOINT_OFFSETS_MAX || (count > 0 && joints == nullptr)
-        || !in_level(phase_now(&level))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const gaddr moby = moby_address(slot);
-    if (moby == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return set_joint_set(mod, moby, joints, count);
-}
-
-// moby_set_joints with each joint's pose set, not composed: its number carries kJointPoseSet, which
-// the host's joint_offsets reads (mods.h).
-int api_moby_set_joint_poses(
-    openrac_mod* mod, int slot, const openrac_joint_offset* joints, int count
-) {
-    if (count < 0 || count > OPENRAC_JOINT_OFFSETS_MAX || (count > 0 && joints == nullptr)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    std::vector<openrac_joint_offset> set(joints, joints + count);
-    for (openrac_joint_offset& j : set) {
-        if (j.joint >= kJointPoseSet) {
-            return OPENRAC_HOOK_UNKNOWN;
-        }
-        j.joint |= kJointPoseSet;
-    }
-    return api_moby_set_joints(mod, slot, set.data(), count);
-}
-
-int api_moby_joint_frame(int slot, int joint, float out[12]) {
-    const gaddr moby = moby_address(slot);
-    if (out == nullptr || moby == 0 || joint < 0 || g_joint_frame == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_joint_frame(moby, joint, out) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_moby_joint_position(int slot, int joint, float out[3]) {
-    float frame[12];
-    if (out == nullptr || api_moby_joint_frame(slot, joint, frame) != OPENRAC_HOOK_OK) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    std::copy(frame + 9, frame + 12, out);
-    return OPENRAC_HOOK_OK;
-}
-
-void release_camera_fov() {
-    g_camera_fov.store(0.0f, std::memory_order_relaxed);
-}
-
-int api_camera_fov(openrac_mod* mod, float degrees) {
-    if (mod == nullptr || g_camera_mod != mod || g_camera_loads != loads_now()
-        || !std::isfinite(degrees) || (degrees != 0.0f && (degrees < 1.0f || degrees > 150.0f))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_camera_fov_loads.store(loads_now(), std::memory_order_relaxed);
-    g_camera_fov.store(degrees, std::memory_order_relaxed);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_hud_hide(openrac_mod* mod, int hidden) {
-    if (mod == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::lock_guard<std::mutex> lock(g_hud_lock);
-    const std::uint32_t loads = loads_now();
-    std::erase_if(g_hud_hidden, [&](const auto& h) { return h.first == mod || h.second != loads; });
-    if (hidden != 0) {
-        g_hud_hidden.emplace_back(mod, loads);
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-int api_music_volume(openrac_mod* mod, float gain) {
-    if (mod == nullptr || !std::isfinite(gain) || gain < 0.0f || gain > 1.0f
-        || g_music_gain == nullptr || g_play == nullptr || g_play->music_group == nullptr
-        || g_play->music_group() < 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::uint32_t loads = loads_now();
-    std::erase_if(g_music_gains, [&](const MusicGain& g) {
-        return g.mod == mod || g.loads != loads;
-    });
-    if (gain < 1.0f) {
-        g_music_gains.push_back({mod, loads, gain});
-    }
-    apply_music_gain();
-    return OPENRAC_HOOK_OK;
-}
-
-int api_collision_triangles(
-    const float lo[3], const float hi[3], openrac_collision_triangle* out, int max
-) {
-    if (g_play == nullptr || g_play->collision_triangles == nullptr || lo == nullptr
-        || hi == nullptr) {
-        return 0;
-    }
-    return g_play->collision_triangles(lo, hi, out, out != nullptr ? std::max(max, 0) : 0);
-}
-
-// The mod's prop `id` of this level load, null for one that is not; one gone with its level is let
-// go. Under g_props_lock.
-Prop* own_prop(const openrac_mod* mod, int id) {
-    if (mod == nullptr || id < 0 || id >= static_cast<int>(g_props.size())) {
-        return nullptr;
-    }
-    Prop& p = g_props[static_cast<std::size_t>(id)];
-    if (p.mod != mod) {
-        return nullptr;
-    }
-    if (p.loads != loads_now()) {
-        p = Prop{};
-        return nullptr;
-    }
-    return &p;
-}
-
-std::map<const openrac_mod*, std::map<std::string, openrac_gaddr>> g_guest_text;
-
-openrac_gaddr api_guest_text(openrac_mod* mod, const char* text) {
-    if (!mod || !text) {
-        return 0;
-    }
-    const std::size_t length = strnlen(text, 1024);
-    if (length >= 1024) {
-        return 0;
-    }
-    static std::uint64_t generation = UINT64_MAX;
-    const auto now = openrac_guest_cache_generation();
-    if (generation != now) {
-        g_guest_text.clear();
-        generation = now;
-    }
-    auto& strings = g_guest_text[mod];
-    if (const auto found = strings.find(text); found != strings.end()) {
-        return found->second;
-    }
-    std::size_t bytes = length + 1;
-    for (const auto& [s, address] : strings) {
-        (void)address;
-        bytes += s.size() + 1;
-    }
-    if (bytes > 65536) {
-        return 0;
-    }
-    const auto address = openrac_guest_string(text, length + 1);
-    strings.emplace(text, address);
-    return address;
-}
-
-int api_pickup_animation(openrac_mod* mod, int kind, int item) {
-    return mod && openrac_game_play_host && openrac_game_play_host->pickup_animation
-               ? openrac_game_play_host->pickup_animation(kind, item)
-               : 0;
-}
-
-int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int count) {
-    if (!mod || count < 0 || count > OPENRAC_MOBY_VISUALS_MAX || (count && !visuals)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    for (int i = 0; i < count; ++i) {
-        const auto& v = visuals[i];
-        if (!v.moby || v.moby > UINT32_MAX - 0x100u || v.oclass < -1 || v.oclass >= 0x800
-            || !std::isfinite(v.height) || v.height < 0 || v.height > 100) {
-            return OPENRAC_HOOK_UNKNOWN;
-        }
-    }
-    const std::lock_guard<std::mutex> lock(g_props_lock);
-    std::erase_if(g_visuals, [&](const auto& set) {
-        return set.mod == mod || set.loads != loads_now();
-    });
-    if (count) {
-        g_visuals.push_back({mod, loads_now(), {visuals, visuals + count}});
-    }
-    for (int i = 0; i < count; ++i) {
-        if (visuals[i].oclass < 0) {
-            continue;
-        }
-        if (std::find(g_visual_classes.begin(), g_visual_classes.end(), visuals[i].oclass)
-            == g_visual_classes.end()) {
-            g_visual_classes.push_back(visuals[i].oclass);
-            ++g_visual_generation;
-        }
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-// Sets, changes or clears (OPENRAC_MOBY_MATERIAL_NONE) `mod`'s material on `moby` for this level
-// load (interface 1.23, obsidian 1.24, energy 1.25); the renderer reads them with moby_materials. Writes no
-// game memory.
-int api_moby_material(
-    openrac_mod* mod, openrac_gaddr moby, std::uint32_t material, std::uint32_t rgb
-) {
-    // A moby record is 0x100 bytes; one that would end past the address space is no moby.
-    constexpr openrac_gaddr kMobyBytes = 0x100;
-    constexpr std::uint32_t kRgbMax = 0xFFFFFF;
-    // Energy carries its level in bits 8 to 11 (OPENRAC_MOBY_MATERIAL_ENERGY_AT); the others none.
-    constexpr std::uint32_t kEnergyLevels = 0xF00;
-    const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material);
-    const std::uint32_t extra = material & ~0xFFu;
-    const bool known =
-        kind <= OPENRAC_MOBY_MATERIAL_ENERGY
-        && (extra == 0 || (kind == OPENRAC_MOBY_MATERIAL_ENERGY && (extra & ~kEnergyLevels) == 0));
-    // A call the interface does not describe changes nothing.
-    if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes || !known || rgb > kRgbMax) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::uint32_t loads = loads_now();
-    const std::lock_guard<std::mutex> lock(g_props_lock);
-    std::erase_if(g_materials, [&](const MaterialEntry& e) {
-        return e.loads != loads || (e.mod == mod && e.material.moby == moby);
-    });
-    // NONE only clears; the others go last, so this mod's newest material is drawn over older ones.
-    if (material == OPENRAC_MOBY_MATERIAL_NONE) {
-        return OPENRAC_HOOK_OK;
-    }
-    const auto own = std::count_if(g_materials.begin(), g_materials.end(), [&](const auto& e) {
-        return e.mod == mod;
-    });
-    // A mod that never clears its materials stops at the cap, not at the memory's end.
-    if (own >= OPENRAC_MOBY_MATERIALS_MAX) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_materials.push_back({mod, loads, {moby, material, rgb}, -1});
-    return OPENRAC_HOOK_OK;
-}
-
-int api_prop_create(openrac_mod* mod, const char* mesh_path) {
-    std::int32_t level = -1;
-    if (mod == nullptr || !in_level(phase_now(&level))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::filesystem::path mesh = mod_file(mod, mesh_path);
-    if (mesh.empty() || mesh.extension() != ".glb") {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::lock_guard<std::mutex> lock(g_props_lock);
-    const std::uint32_t loads = loads_now();
-    for (Prop& p : g_props) {
-        if (p.mod != nullptr && p.loads != loads) {
-            p = Prop{};
-        }
-    }
-    for (std::size_t i = 0; i < g_props.size(); ++i) {
-        if (g_props[i].mod != nullptr) {
-            continue;
-        }
-        g_props[i] = Prop{mod, mesh, loads};
-        // A mesh no level has read yet: the scenery is read again with it.
-        if (std::find(g_prop_meshes.begin(), g_prop_meshes.end(), mesh) == g_prop_meshes.end()) {
-            g_prop_meshes.push_back(mesh);
-            ++g_prop_generation;
-        }
-        return static_cast<int>(i);
-    }
-    return OPENRAC_HOOK_UNKNOWN;
-}
-
-int api_prop_pose(openrac_mod* mod, int id, const openrac_prop_pose* pose) {
-    const auto finite = [](const float* v, int n) {
-        return std::all_of(v, v + n, [](float f) { return std::isfinite(f); });
-    };
-    if (pose == nullptr || pose->size < sizeof(openrac_prop_pose)
-        || !(
-            (pose->flags & OPENRAC_PROP_MATRIX) != 0
-                ? finite(pose->matrix, 16)
-                : finite(pose->position, 3) && finite(pose->rotation, 4) && finite(&pose->scale, 1)
-        )
-        || ((pose->flags & OPENRAC_PROP_TINT) != 0 && !finite(pose->tint, 4))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::lock_guard<std::mutex> lock(g_props_lock);
-    Prop* p = own_prop(mod, id);
-    if (p == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if ((pose->flags & OPENRAC_PROP_MATRIX) != 0) {
-        std::copy(pose->matrix, pose->matrix + 16, p->matrix.begin());
-    } else {
-        // The rotation's matrix (a unit quaternion), each axis scaled, then the place.
-        const float x = pose->rotation[0], y = pose->rotation[1], z = pose->rotation[2],
-                    w = pose->rotation[3], s = pose->scale;
-        const float m[9] = {
-            1 - 2 * (y * y + z * z),
-            2 * (x * y + z * w),
-            2 * (x * z - y * w),
-            2 * (x * y - z * w),
-            1 - 2 * (x * x + z * z),
-            2 * (y * z + x * w),
-            2 * (x * z + y * w),
-            2 * (y * z - x * w),
-            1 - 2 * (x * x + y * y),
-        };
-        for (int c = 0; c < 3; ++c) {
-            for (int r = 0; r < 3; ++r) {
-                p->matrix[static_cast<std::size_t>(4 * c + r)] = m[3 * c + r] * s;
-            }
-            p->matrix[static_cast<std::size_t>(4 * c + 3)] = 0.0f;
-        }
-        p->matrix[12] = pose->position[0];
-        p->matrix[13] = pose->position[1];
-        p->matrix[14] = pose->position[2];
-        p->matrix[15] = 1.0f;
-    }
-    if ((pose->flags & OPENRAC_PROP_TINT) != 0) {
-        std::copy(pose->tint, pose->tint + 4, p->tint.begin());
-        p->blend = pose->blend <= OPENRAC_PROP_ADD ? static_cast<int>(pose->blend) : 0;
-    } else {
-        p->tint = {1.0f, 1.0f, 1.0f, 1.0f};
-        p->blend = 0;
-    }
-    p->posed = true;
-    p->attached_moby = 0;
-    p->attached_joint = -1;
-    return OPENRAC_HOOK_OK;
-}
-
-// A prop fixed to a moby's joint (interface 1.18): the renderer places it each frame
-// (frontend/frame.cpp), `matrix` kept as its offset in the joint's frame.
-int api_prop_attach(
-    openrac_mod* mod,
-    int id,
-    std::int32_t slot,
-    std::int32_t joint,
-    std::uint32_t flags,
-    const float offset[16]
-) {
-    const gaddr moby = slot >= 0 ? moby_address(slot) : 0;
-    // An attach point of the hero's (as hero_held names them): the game's own list says its joint.
-    if ((flags & OPENRAC_ATTACH_HELD) != 0) {
-        joint = g_play != nullptr && g_play->attach_point_joint != nullptr && joint >= 0
-                    ? g_play->attach_point_joint(moby, joint)
-                    : -1;
-    }
-    if (moby == 0 || joint < 0
-        || (offset != nullptr
-            && !std::all_of(offset, offset + 16, [](float f) { return std::isfinite(f); }))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::lock_guard<std::mutex> lock(g_props_lock);
-    Prop* p = own_prop(mod, id);
-    if (p == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if (offset != nullptr) {
-        std::copy(offset, offset + 16, p->matrix.begin());
-    } else {
-        p->matrix = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-    }
-    if (p->attached_moby != moby || p->attached_joint != joint) {
-        p->was_placed = false;  // not drawn on this joint yet
-    }
-    p->attached_moby = moby;
-    p->attached_joint = joint;
-    p->posed = true;
-    return OPENRAC_HOOK_OK;
-}
-
-// Where a prop was drawn last (interface 1.18): its pose, or, fixed to a joint, the matrix the
-// renderer drew it with (prop_placed).
-int api_prop_frame(openrac_mod* mod, int id, float out[16]) {
-    if (out == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::lock_guard<std::mutex> lock(g_props_lock);
-    const Prop* p = own_prop(mod, id);
-    if (p == nullptr || !p->posed || (p->attached_moby != 0 && !p->was_placed)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::array<float, 16>& m = p->attached_moby != 0 ? p->placed : p->matrix;
-    std::copy(m.begin(), m.end(), out);
-    return OPENRAC_HOOK_OK;
-}
-
-int api_prop_animate(openrac_mod* mod, int id, int animation, float seconds, int loop) {
-    if (!std::isfinite(seconds)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::lock_guard<std::mutex> lock(g_props_lock);
-    Prop* p = own_prop(mod, id);
-    if (p == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    p->animation = std::max(animation, -1);
-    p->seconds = seconds;
-    p->loop = loop != 0;
-    return OPENRAC_HOOK_OK;
-}
-
-int api_prop_hide(openrac_mod* mod, int id, int hidden) {
-    const std::lock_guard<std::mutex> lock(g_props_lock);
-    Prop* p = own_prop(mod, id);
-    if (p == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    p->hidden = hidden != 0;
-    return OPENRAC_HOOK_OK;
-}
-
-int api_prop_remove(openrac_mod* mod, int id) {
-    const std::lock_guard<std::mutex> lock(g_props_lock);
-    Prop* p = own_prop(mod, id);
-    if (p == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    *p = Prop{};
-    return OPENRAC_HOOK_OK;
-}
-
-int api_camera_view(openrac_camera* out) {
-    if (out == nullptr || out->size < sizeof(openrac_camera) || g_play == nullptr
-        || g_play->camera_view == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    float eye[3], rows[9];
-    if (g_play->camera_view(eye, rows) == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    std::copy(eye, eye + 3, out->eye);
-    std::copy(rows, rows + 3, out->forward);
-    std::copy(rows + 3, rows + 6, out->left);
-    std::copy(rows + 6, rows + 9, out->up);
-    return OPENRAC_HOOK_OK;
-}
-
 // Whether `v` is a unit vector (to a few parts in a thousand).
 bool unit(const float v[3]) {
     const float n = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
     return std::isfinite(n) && std::fabs(n - 1.0f) < 0.01f;
 }
 
-int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
-    if (mod == nullptr || g_play == nullptr || g_play->camera_set == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if (g_camera_mod != nullptr && g_camera_loads != loads_now()) {
-        g_camera_mod = nullptr;  // its level went, and the camera with it
-        release_camera_fov();
-    }
-    if (g_camera_mod != nullptr && g_camera_mod != mod) {
-        return OPENRAC_HOOK_TAKEN;
-    }
-    if (camera == nullptr) {
-        if (g_camera_mod == mod) {
-            g_play->camera_set(nullptr, nullptr);
-            g_camera_mod = nullptr;
-            release_camera_fov();
-        }
-        return OPENRAC_HOOK_OK;
-    }
-    const auto square = [](const float a[3], const float b[3]) {
-        return std::fabs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) < 0.01f;
-    };
-    if (camera->size < sizeof(openrac_camera) || !unit(camera->forward) || !unit(camera->left)
-        || !unit(camera->up) || !square(camera->forward, camera->left)
-        || !square(camera->forward, camera->up) || !square(camera->left, camera->up)
-        || !std::all_of(camera->eye, camera->eye + 3, [](float v) { return std::isfinite(v); })) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    float rows[9];
-    std::copy(camera->forward, camera->forward + 3, rows);
-    std::copy(camera->left, camera->left + 3, rows + 3);
-    std::copy(camera->up, camera->up + 3, rows + 6);
-    if (g_play->camera_set(camera->eye, rows) == 0) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_camera_mod = mod;
-    g_camera_loads = loads_now();
-    return OPENRAC_HOOK_OK;
-}
-
-int api_haze_set(openrac_mod* mod, const openrac_haze* patches, int count) {
-    std::int32_t level = -1;
-    if (mod == nullptr || count < 0 || (count > 0 && patches == nullptr)
-        || (count > 0 && !in_level(phase_now(&level)))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::lock_guard<std::mutex> lock(g_haze_lock);
-    const std::uint32_t loads = loads_now();
-    std::size_t others = 0;
-    for (const Haze& h : g_haze) {
-        if (h.mod != mod && h.loads == loads) {
-            others += h.patches.size();
-        }
-    }
-    if (others + static_cast<std::size_t>(count) > OPENRAC_HAZE_MAX) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    for (int i = 0; i < count; ++i) {
-        const openrac_haze& p = patches[i];
-        if (!std::all_of(p.position, p.position + 3, [](float v) { return std::isfinite(v); })
-            || !std::isfinite(p.radius) || !std::isfinite(p.strength) || p.radius < 0.0f
-            || p.strength < 0.0f) {
-            return OPENRAC_HOOK_UNKNOWN;
-        }
-    }
-    std::erase_if(g_haze, [&](const Haze& h) { return h.mod == mod || h.loads != loads; });
-    if (count > 0) {
-        g_haze.push_back({mod, loads, std::vector<openrac_haze>(patches, patches + count)});
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-int api_hud_text_set(openrac_mod* mod, const openrac_hud_text* lines, int count) {
-    std::int32_t level = -1;
-    if (mod == nullptr || count < 0 || (count > 0 && lines == nullptr)
-        || (count > 0 && !in_level(phase_now(&level)))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    for (int i = 0; i < count; ++i) {
-        const openrac_hud_text& l = lines[i];
-        const bool ended =
-            std::find(std::begin(l.text), std::end(l.text), '\0') != std::end(l.text);
-        const auto within = [](float v, float lo, float hi) {
-            return std::isfinite(v) && v >= lo && v <= hi;
-        };
-        if (!ended || !within(l.x, 0.0f, 1.0f) || !within(l.y, 0.0f, 1.0f)
-            || !within(l.scale, 0.25f, 4.0f)) {
-            return OPENRAC_HOOK_UNKNOWN;
-        }
-    }
-    const std::lock_guard<std::mutex> lock(g_hud_lock);
-    const std::uint32_t loads = loads_now();
-    std::size_t others = 0;
-    for (const HudTexts& h : g_hud) {
-        if (h.mod != mod && h.loads == loads) {
-            others += h.lines.size();
-        }
-    }
-    if (others + static_cast<std::size_t>(count) > OPENRAC_HUD_TEXTS_MAX) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    std::erase_if(g_hud, [&](const HudTexts& h) { return h.mod == mod || h.loads != loads; });
-    if (count > 0) {
-        g_hud.push_back({mod, loads, std::vector<openrac_hud_text>(lines, lines + count)});
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-// The looping sounds each mod started on the hero (hero_sound_play, moby 0) or another moby
-// (moby_sound_play), stopped with the mod.
-struct HeroVoice {
-    openrac_mod* mod;
-    std::uint32_t loads;
-    int voice;
-    gaddr moby = 0;
-};
-
 std::vector<HeroVoice> g_hero_voices;
-
-int api_hero_sound_play(openrac_mod* mod, int sound, int loop) {
-    std::int32_t level = -1;
-    if (mod == nullptr || g_play == nullptr || g_play->hero_sound_play == nullptr || sound < 0
-        || !in_level(phase_now(&level))) {
-        return -1;
-    }
-    const int voice = g_play->hero_sound_play(sound, loop != 0 ? 1 : 0);
-    const std::uint32_t loads = loads_now();
-    std::erase_if(g_hero_voices, [&](const HeroVoice& v) {
-        return v.loads != loads || v.voice == voice;
-    });
-    if (voice >= 0 && loop != 0) {
-        g_hero_voices.push_back({mod, loads, voice});
-    }
-    return voice;
-}
-
-int api_moby_sound_play(openrac_mod* mod, int slot, int sound, int loop) {
-    std::int32_t level = -1;
-    const gaddr moby = moby_address(slot);
-    if (mod == nullptr || moby == 0 || g_play == nullptr || g_play->moby_sound_play == nullptr
-        || sound < 0 || !in_level(phase_now(&level))) {
-        return -1;
-    }
-    const int voice = g_play->moby_sound_play(moby, sound, loop != 0 ? 1 : 0);
-    const std::uint32_t loads = loads_now();
-    std::erase_if(g_hero_voices, [&](const HeroVoice& v) {
-        return v.loads != loads || v.voice == voice;
-    });
-    if (voice >= 0 && loop != 0) {
-        g_hero_voices.push_back({mod, loads, voice, moby});
-    }
-    return voice;
-}
-
-void api_moby_sound_stop(openrac_mod* mod, int voice) {
-    if (mod == nullptr || g_play == nullptr || g_play->moby_sound_stop == nullptr || voice < 0) {
-        return;
-    }
-    const auto it =
-        std::find_if(g_hero_voices.begin(), g_hero_voices.end(), [&](const HeroVoice& v) {
-            return v.mod == mod && v.voice == voice && v.moby != 0;
-        });
-    if (it == g_hero_voices.end()) {
-        return;  // not a looping voice of this mod's: a sound played once ends by itself
-    }
-    const gaddr moby = it->moby;
-    g_hero_voices.erase(it);
-    g_play->moby_sound_stop(moby, voice);
-}
-
-// The air a mod draws the picture with (scene_air): the last to set it, of a level load; slow motion
-// each mod asks for (time_stretch); the ties each mod hides (tie_hide). Behind g_air_lock: the
-// window's thread reads them.
-struct AirSet {
-    const openrac_mod* mod = nullptr;
-    std::uint32_t loads = 0;
-    openrac_air air{};
-};
-
-std::mutex g_air_lock;
-std::optional<AirSet> g_air;
-
-struct Stretch {
-    const openrac_mod* mod = nullptr;
-    std::uint32_t loads = 0;
-    float stretch = 1.0f;
-};
-
-std::vector<Stretch> g_stretches;
-
-struct TieHidden {
-    const openrac_mod* mod = nullptr;
-    std::uint32_t loads = 0;
-    int tie = 0;
-};
-
-std::vector<TieHidden> g_ties_hidden;
-
-int api_scene_air(openrac_mod* mod, const openrac_air* air) {
-    std::int32_t level = -1;
-    if (mod == nullptr || !in_level(phase_now(&level))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::lock_guard<std::mutex> lock(g_air_lock);
-    if (air == nullptr) {
-        if (g_air && g_air->mod == mod) {
-            g_air.reset();
-        }
-        return OPENRAC_HOOK_OK;
-    }
-    if (air->size < sizeof(openrac_air)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const auto unit = [](float v) {
-        return std::isfinite(v) && v >= 0.0f && v <= 1.0f;
-    };
-    bool ok = unit(air->weight) && unit(air->fog_thickness) && std::isfinite(air->fog_near)
-              && std::isfinite(air->fog_far) && air->fog_near >= 0.0f
-              && air->fog_far > air->fog_near;
-    for (int i = 0; i < 3; ++i) {
-        ok = ok && unit(air->fog_colour[i]) && unit(air->background[i]);
-    }
-    if (!ok) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_air = AirSet{mod, loads_now(), *air};
-    return OPENRAC_HOOK_OK;
-}
-
-int api_time_stretch(openrac_mod* mod, float stretch) {
-    if (mod == nullptr || !std::isfinite(stretch) || stretch < 1.0f || stretch > 8.0f) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::lock_guard<std::mutex> lock(g_air_lock);
-    const std::uint32_t loads = loads_now();
-    std::erase_if(g_stretches, [&](const Stretch& s) { return s.mod == mod || s.loads != loads; });
-    if (stretch > 1.0f) {
-        g_stretches.push_back({mod, loads, stretch});
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-int api_tie_hide(openrac_mod* mod, int tie, int hidden) {
-    std::int32_t level = -1;
-    if (mod == nullptr || tie < 0 || tie > 0xFFFF || !in_level(phase_now(&level))) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const std::lock_guard<std::mutex> lock(g_air_lock);
-    const std::uint32_t loads = loads_now();
-    std::erase_if(g_ties_hidden, [&](const TieHidden& h) {
-        return h.loads != loads || (h.mod == mod && h.tie == tie);
-    });
-    if (hidden != 0) {
-        g_ties_hidden.push_back({mod, loads, tie});
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-// The air, slow motion and hidden ties of one mod (all: null) taken off.
-void drop_air(const openrac_mod* mod) {
-    {
-        const std::lock_guard<std::mutex> lock(g_air_lock);
-        if (g_air && (mod == nullptr || g_air->mod == mod)) {
-            g_air.reset();
-        }
-        std::erase_if(g_ties_hidden, [&](const TieHidden& h) {
-            return mod == nullptr || h.mod == mod;
-        });
-        std::erase_if(g_stretches, [&](const Stretch& s) {
-            return mod == nullptr || s.mod == mod;
-        });
-    }
-}
 
 // The looping hero sounds of one mod (all: null) stopped, those of this level load still playing.
 void stop_hero_voices(const openrac_mod* mod) {
@@ -2270,132 +465,7 @@ void stop_hero_voices(const openrac_mod* mod) {
     });
 }
 
-void api_hero_sound_stop(openrac_mod* mod, int voice) {
-    if (mod == nullptr || g_play == nullptr || g_play->hero_sound_stop == nullptr || voice < 0) {
-        return;
-    }
-    std::erase_if(g_hero_voices, [&](const HeroVoice& v) { return v.voice == voice; });
-    g_play->hero_sound_stop(voice);
-}
-
-int api_hero_hurt(openrac_mod* mod, int damage) {
-    if (mod == nullptr || g_play == nullptr || g_play->hero_hurt == nullptr) {
-        return -1;
-    }
-    return g_play->hero_hurt(damage);
-}
-
-int api_touch_define(openrac_mod* mod, const char* json) {
-    std::string error;
-    if (mod == nullptr || json == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if (!touch::define(mod_id(mod), json, error)) {
-        log::warn("mods: {}", error);
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-int api_touch_icon(openrac_mod* mod, const char* name, const char* svg) {
-    std::string error;
-    if (mod == nullptr || name == nullptr || svg == nullptr) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    if (!touch::icon(mod_id(mod), name, svg, error)) {
-        log::warn("mods: {}", error);
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return OPENRAC_HOOK_OK;
-}
-
-void api_touch_push(openrac_mod* mod, const char* context) {
-    if (mod != nullptr) {
-        touch::push(mod_id(mod), context != nullptr ? context : "");
-    }
-}
-
-void api_touch_hint(openrac_mod* mod, const char* hint, int on) {
-    if (mod != nullptr && hint != nullptr) {
-        touch::hint(mod_id(mod), hint, on != 0);
-    }
-}
-
-int api_sound_load(openrac_mod* mod, const char* path) {
-    if (mod == nullptr || g_sound_load == nullptr || g_sounds.size() >= kSoundsMax) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const auto own = std::count_if(g_sounds.begin(), g_sounds.end(), [&](const Sound& s) {
-        return s.mod == mod;
-    });
-    const std::filesystem::path file = mod_file(mod, path);
-    const std::filesystem::path ext = file.extension();
-    if (own >= OPENRAC_SOUNDS_MAX || file.empty() || (ext != ".wav" && ext != ".ogg")) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    const int host = g_sound_load(file);
-    if (host < 0) {
-        log::warn("mods: {} could not read the sound {}", mod_id(mod), path);
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    g_sounds.push_back({mod, host});
-    return static_cast<int>(g_sounds.size() - 1);
-}
-
-// Voices that ended (the host's sound_set answers no more) are forgotten as new ones are asked for.
-void forget_ended_voices() {
-    std::erase_if(g_voices, [](const auto& v) {
-        return g_sound_set == nullptr || g_sound_set(v.second, -1.0f, -1.0f) == 0;
-    });
-}
-
-std::uint32_t api_sound_play(openrac_mod* mod, int sound, float volume, float pitch, int loop) {
-    if (mod == nullptr || g_sound_play == nullptr || sound < 0
-        || sound >= static_cast<int>(g_sounds.size())
-        || g_sounds[static_cast<std::size_t>(sound)].mod != mod || !std::isfinite(volume)
-        || !std::isfinite(pitch)) {
-        return 0;
-    }
-    forget_ended_voices();
-    if (g_voices.size() >= OPENRAC_SOUND_VOICES_MAX) {
-        return 0;
-    }
-    const std::uint32_t voice = g_sound_play(
-        g_sounds[static_cast<std::size_t>(sound)].host,
-        std::max(volume, 0.0f),
-        std::max(pitch, 0.0f),
-        loop != 0
-    );
-    if (voice != 0) {
-        g_voices.emplace_back(mod, voice);
-    }
-    return voice;
-}
-
-// Whether `voice` is one the mod played.
-bool own_voice(const openrac_mod* mod, std::uint32_t voice) {
-    return mod != nullptr && voice != 0
-           && std::find(g_voices.begin(), g_voices.end(), std::make_pair(mod, voice))
-                  != g_voices.end();
-}
-
-int api_sound_set(openrac_mod* mod, std::uint32_t voice, float volume, float pitch) {
-    if (g_sound_set == nullptr || !own_voice(mod, voice) || !std::isfinite(volume)
-        || !std::isfinite(pitch)) {
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    return g_sound_set(voice, std::max(volume, 0.0f), std::max(pitch, 0.0f)) != 0
-               ? OPENRAC_HOOK_OK
-               : OPENRAC_HOOK_UNKNOWN;
-}
-
-void api_sound_stop(openrac_mod* mod, std::uint32_t voice) {
-    if (g_sound_stop != nullptr && own_voice(mod, voice)) {
-        g_sound_stop(voice);
-        std::erase(g_voices, std::make_pair(static_cast<const openrac_mod*>(mod), voice));
-    }
-}
-}  // namespace
+}  // namespace detail
 
 void fill_play_api(
     openrac_api& api, const openrac_game_play* play, const std::filesystem::path& cards
@@ -2494,20 +564,40 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.sprite_tint = api_sprite_tint;
     api.pickup_animation = api_pickup_animation;
     api.moby_material = api_moby_material;
+    api.moby_material_class = api_moby_material_class;
     api.moby_copy_check = api_moby_copy_check;
     api.moby_copy = api_moby_copy;
+    api.moby_pool_raise = api_moby_pool_raise;
+    api.moby_pool_status = api_moby_pool_status;
+    api.on_weapon_fire = api_on_weapon_fire;
+    api.weapon_refire = api_weapon_refire;
+    api.on_shot_end = api_on_shot_end;
+    api.moby_spawn_live = api_moby_spawn_live;
+    api.weapon_look = api_weapon_look;
+    api.moby_status = api_moby_status;
+    api.weapon_record = api_weapon_record;
     api.prop_pose = api_prop_pose;
     api.prop_attach = api_prop_attach;
     api.prop_frame = api_prop_frame;
     api.prop_hide = api_prop_hide;
     api.prop_remove = api_prop_remove;
+    api.prop_set_skin = api_prop_set_skin;
+    api.model_create = api_model_create;
+    api.moby_model_slot = api_moby_model_slot;
+    api.moby_model_class = api_moby_model_class;
+    api.particle_spawn_ex = api_particle_spawn_ex;
+    api.particle_texture_register = api_particle_texture_register;
+    api.moby_model_at = api_moby_model_at;
     api.sound_load = api_sound_load;
     api.sound_play = api_sound_play;
     api.sound_set = api_sound_set;
     api.sound_stop = api_sound_stop;
     api.camera_view = api_camera_view;
     api.camera_set = api_camera_set;
+    api.camera_visibility_bypass = api_camera_visibility_bypass;
+    api.rac1_ammo_panel_offset = api_rac1_ammo_panel_offset;
     api.haze_set = api_haze_set;
+    api.camera_shake = api_camera_shake;
     api.hud_text_set = api_hud_text_set;
     api.hero_sound_play = api_hero_sound_play;
     api.hero_sound_stop = api_hero_sound_stop;
@@ -2580,6 +670,29 @@ bool hud_hidden() {
     });
 }
 
+bool ammo_panel_offset(int handle, int& x, int& y) {
+    const auto found = g_ammo_panel_offsets.find(handle);
+    if (found == g_ammo_panel_offsets.end() || found->second.loads != loads_now()) {
+        return false;
+    }
+    x = found->second.x;
+    y = found->second.y;
+    return true;
+}
+
+bool host_camera_overridden() {
+    return g_play != nullptr && g_play->camera_overridden != nullptr
+           && g_play->camera_overridden() != 0;
+}
+
+bool camera_visibility_bypassed() {
+    const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
+    const auto loads = loads_now();
+    return std::ranges::any_of(g_camera_visibility, [loads](const auto& request) {
+        return request.second == loads;
+    });
+}
+
 std::vector<HazeDraw> haze_drawn() {
     std::vector<HazeDraw> out;
     const std::lock_guard<std::mutex> lock(g_haze_lock);
@@ -2622,10 +735,33 @@ std::vector<PropDraw> props_drawn() {
                  p.blend,
                  p.attached_moby,
                  p.attached_joint,
+                 p.skin,
                  p.animation,
                  p.seconds,
                  p.loop}
             );
+        }
+    }
+    return out;
+}
+
+std::vector<MobyModelDraw> moby_models_drawn() {
+    std::vector<MobyModelDraw> out;
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    const std::uint32_t loads = loads_now();
+    for (const auto& [slot, s] : g_slot_models) {
+        if (s.mod != nullptr && s.loads == loads) {
+            out.push_back({s.address, s.oclass, 0, s.mesh, s.matrix, s.hidden});
+        }
+    }
+    for (const auto& [address, s] : g_address_models) {
+        if (s.mod != nullptr && s.loads == loads) {
+            out.push_back({address, s.oclass, 0, s.mesh, s.matrix, s.hidden});
+        }
+    }
+    for (const auto& [key, c] : g_class_models) {
+        if (c.mod != nullptr && c.loads == loads) {
+            out.push_back({0, key.first, key.second, c.mesh, c.matrix, false});
         }
     }
     return out;
@@ -2645,7 +781,9 @@ void prop_placed(int id, const std::array<float, 16>& matrix) {
 
 std::vector<std::filesystem::path> prop_meshes() {
     const std::lock_guard<std::mutex> lock(g_props_lock);
-    return g_prop_meshes;
+    // The list of a level load that is over is not the next one's.
+    return g_prop_meshes_loads == loads_now() ? g_prop_meshes
+                                              : std::vector<std::filesystem::path>{};
 }
 
 std::uint32_t sprite_tint() {
@@ -2721,6 +859,19 @@ std::vector<MobyMaterial> moby_materials(const std::vector<LiveMobyId>& live) {
     return result;
 }
 
+std::vector<ClassMaterialDraw> class_materials() {
+    const std::uint32_t loads = loads_now();
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    std::vector<ClassMaterialDraw> out;
+    // This level load's, one a class and scope.
+    for (const auto& [key, c] : g_class_materials) {
+        if (c.mod != nullptr && c.loads == loads) {
+            out.push_back({key.first, key.second, {0, c.material, c.rgb}});
+        }
+    }
+    return out;
+}
+
 MobyMaterial moby_material_drawn(std::uint32_t moby) {
     const std::uint32_t loads = loads_now();
     const std::lock_guard<std::mutex> lock(g_props_lock);
@@ -2755,6 +906,18 @@ std::unordered_map<std::uint32_t, MobyMaterial> energy_materials() {
     return out;
 }
 
+std::unordered_map<std::uint32_t, MobyMaterial> particle_looks() {
+    const std::uint32_t loads = loads_now();
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    std::unordered_map<std::uint32_t, MobyMaterial> out;
+    for (const auto& [record, look] : g_particle_looks) {
+        if (look.loads == loads) {
+            out.emplace(record, look.look);
+        }
+    }
+    return out;
+}
+
 bool moby_platinum(std::uint32_t moby) {
     return moby_material_drawn(moby).material == OPENRAC_MOBY_MATERIAL_PLATINUM;
 }
@@ -2771,7 +934,58 @@ void play_loading(const openrac_mod* mod) {
     openrac_game_moby_hit = g_play != nullptr ? game_moby_hit : nullptr;
 }
 
+// The overrides of mobys the game freed or made again in their slots are no one's: dropped. Once a
+// tick, on the game thread (the game's list is read outside the lock).
+void drop_gone_slot_models() {
+    std::vector<std::pair<int, SlotModel>> held;
+    {
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        held.assign(g_slot_models.begin(), g_slot_models.end());
+    }
+    if (held.empty()) {
+        return;
+    }
+    const MobyClasses classes;
+    for (const auto& [slot, s] : held) {
+        if (s.loads == loads_now() && moby_address(slot) == s.address
+            && classes.of(slot) == s.oclass) {
+            continue;
+        }
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        const auto now = g_slot_models.find(slot);
+        if (now != g_slot_models.end() && now->second.address == s.address) {
+            g_slot_models.erase(now);
+        }
+    }
+}
+
+// The overrides of mobys whose class at their address changed (or whose level went) are no one's:
+// dropped. Once a tick, on the game thread (the game's class is read outside the lock).
+void drop_gone_address_models() {
+    std::vector<std::pair<gaddr, SlotModel>> held;
+    {
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        held.assign(g_address_models.begin(), g_address_models.end());
+    }
+    for (const auto& [address, s] : held) {
+        const std::int32_t oclass = g_play != nullptr && g_play->moby_class_at != nullptr
+                                        ? g_play->moby_class_at(address)
+                                        : -1;
+        if (s.loads == loads_now() && oclass == s.oclass) {
+            continue;
+        }
+        const std::lock_guard<std::mutex> lock(g_props_lock);
+        const auto now = g_address_models.find(address);
+        if (now != g_address_models.end() && now->second.loads == s.loads
+            && now->second.oclass == s.oclass) {
+            g_address_models.erase(now);
+        }
+    }
+}
+
 void play_update() {
+    drop_gone_slot_models();
+    drop_gone_address_models();
     drop_stale_joint_sets();
     // The music's gains went with their level: back at full.
     const std::uint32_t loads = loads_now();
@@ -2845,13 +1059,27 @@ std::string play_notice() {
     return g_notice;
 }
 
-bool overlay_shows_level() {
+std::uint32_t overlay_phase_now() {
     std::int32_t level = -1;
-    return phase_now(&level) == OPENRAC_PLAY_PLAYING;
+    switch (phase_now(&level)) {
+        case OPENRAC_PLAY_PLAYING:
+            return OPENRAC_OVERLAY_PLAYING;
+        case OPENRAC_PLAY_MENU:
+            return OPENRAC_OVERLAY_MENU;
+        case OPENRAC_PLAY_SCENE:
+            return OPENRAC_OVERLAY_SCENE;
+        default:
+            return 0;
+    }
 }
 
 void reset_play() {
     drop_air(nullptr);
+    g_ammo_panel_offsets.clear();
+    {
+        const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
+        g_camera_visibility.clear();
+    }
     {
         const std::lock_guard<std::mutex> lock(g_notice_lock);
         g_notice.clear();
@@ -2870,6 +1098,16 @@ void reset_play() {
         g_visual_classes.clear();
         ++g_visual_generation;
         g_materials.clear();
+        g_class_materials.clear();
+        g_models.fill(Model{});
+        g_slot_models.clear();
+        g_class_models.clear();
+
+        // No prop is left to need its mesh; the scene lets it go with its level.
+        if (!g_prop_meshes.empty()) {
+            g_prop_meshes.clear();
+            ++g_prop_generation;
+        }
     }
     {
         const std::lock_guard<std::mutex> lock(g_haze_lock);
@@ -2919,14 +1157,24 @@ void reset_play() {
     openrac_game_moby_update = nullptr;
     openrac_game_moby_hit = nullptr;
     openrac_game_metal_detect = nullptr;
+    drop_weapon_shots(nullptr);
 }
 
 void drop_figures(const openrac_mod* mod) {
+    drop_weapon_shots(mod);
     drop_air(mod);
     {
         const std::lock_guard<std::mutex> lock(g_props_lock);
         std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod; });
         std::erase_if(g_materials, [&](const MaterialEntry& e) { return e.mod == mod; });
+        std::erase_if(g_class_materials, [&](const auto& c) { return c.second.mod == mod; });
+    }
+    std::erase_if(g_ammo_panel_offsets, [mod](const auto& entry) {
+        return entry.second.mod == mod;
+    });
+    {
+        const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
+        g_camera_visibility.erase(mod);
     }
     for (Figure& f : g_figures) {
         if (f.mod == mod) {
@@ -2946,6 +1194,13 @@ void drop_figures(const openrac_mod* mod) {
                 p = Prop{};
             }
         }
+        for (Model& m : g_models) {
+            if (m.mod == mod) {
+                m = Model{};
+            }
+        }
+        std::erase_if(g_slot_models, [&](const auto& s) { return s.second.mod == mod; });
+        std::erase_if(g_class_models, [&](const auto& c) { return c.second.mod == mod; });
     }
     {
         const std::lock_guard<std::mutex> lock(g_haze_lock);

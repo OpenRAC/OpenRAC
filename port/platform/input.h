@@ -34,6 +34,7 @@
 
 #include "platform/active_device.h"
 #include "platform/bindings.h"
+#include "platform/gyro.h"
 #include "platform/menu_chord.h"
 #include "platform/pad.h"
 #include "platform/players.h"
@@ -42,6 +43,7 @@
 
 union SDL_Event;
 struct SDL_Gamepad;
+struct SDL_Sensor;
 
 namespace openrac::platform {
 
@@ -124,6 +126,21 @@ public:
         dx = m_dx;
         dy = m_dy;
     }
+
+    // Gyro aiming (gyro.h): the options, from the keyboard and mouse's settings. The gyro read is
+    // player 1's gamepad's, or on a phone or handheld without one the device's own.
+    void set_gyro_options(const GyroOptions& options);
+
+    // The gyro's turn as update() last read it (yaw > 0 left, pitch > 0 up, radians), and whether a
+    // gyro is read at all.
+    float gyro_yaw() const { return m_gyro_yaw; }
+
+    float gyro_pitch() const { return m_gyro_pitch; }
+
+    bool gyro_available() const { return m_gyro_pad != nullptr || m_device_gyro != nullptr; }
+
+    // The gyro's turn since update() last read it: what the next tick will turn the camera by.
+    void pending_gyro(float& yaw, float& pitch) const { m_gyro.peek(yaw, pitch); }
 
     // Which device the player uses now, the gamepad or the keyboard and mouse (active_device.h).
     ActiveDevice active_device() const { return m_switch.active(); }
@@ -228,6 +245,11 @@ private:
     // Works out again which controller each player reads, and the devices' players.
     void assign_players();
 
+    // Works out again which gyro is read (set_gyro_options), its sensors on and the others off.
+    void choose_gyro();
+    // A sample of the gyro read: its button, then the filter.
+    void gyro_sample(const float* data, std::uint64_t ns);
+
     // One read of the capture: the first pad input pressed that was not held.
     void capture_step();
 
@@ -297,6 +319,18 @@ private:
     std::uint32_t m_mouse_went_down = 0;
     float m_dx = 0.0f, m_dy = 0.0f, m_wheel_x = 0.0f, m_wheel_y = 0.0f;
     DeviceSwitch m_switch;
+    // Gyro aiming: the filter, the gamepad read (or the device's sensors), the sensor it reads on
+    // that gamepad (SDL_SensorType), and the turn update() last took.
+    GyroAim m_gyro;
+    SDL_Gamepad* m_gyro_pad = nullptr;
+    SDL_Gamepad* m_gyro_for = nullptr;  // player 1's gamepad when the gyro was chosen
+    int m_gyro_sensor = 0;
+    int m_accel_sensor = 0;
+    SDL_Sensor* m_device_gyro = nullptr;
+    SDL_Sensor* m_device_accel = nullptr;
+    bool m_sensors_tried = false;
+    float m_gyro_yaw = 0.0f;
+    float m_gyro_pitch = 0.0f;
 };
 
 }  // namespace openrac::platform

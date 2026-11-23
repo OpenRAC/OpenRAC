@@ -153,17 +153,29 @@ void menu_heading(const char* title);
 // rows along presses none). As high as a thumb on a touch screen, a little lower on a desktop.
 // `right_width` > 0: what `right` draws takes that much, and a longer label ends in "...".
 using RowRight = std::function<void(ImDrawList* list, ImVec2 right)>;
+
+// What a row may show besides its label (a mod's tab, developer_menu_look): an icon before it,
+// drawn by `icon` into the square from `a`, `size` wide; a bar under it filled `progress` of the way
+// (0 to 1; negative: none), in the accent, or grey when `dim`.
+struct RowExtra {
+    std::function<void(ImDrawList* list, ImVec2 a, float size)> icon;
+    float progress = -1.0f;
+    bool dim = false;
+    bool quiet = false;  // a press plays no sound (a row to read, a locked one: the caller's)
+};
+
 bool menu_row(
     const char* label,
     ImU32 ink,
     const RowRight& right,
     float right_width = 0.0f,
-    const char* stable_id = nullptr
+    const char* stable_id = nullptr,
+    const RowExtra* extra = nullptr
 );
 bool menu_row(const char* label, ImU32 ink = ui().text);
 
 // A row that turns something on and off: true when pressed.
-bool menu_switch(const char* label, bool on, bool enabled = true);
+bool menu_switch(const char* label, bool on, bool enabled = true, const RowExtra* extra = nullptr);
 
 // A row with its value between two arrows: -1 or 1 when it was moved back or on (a press on the
 // value's left part moves it back, anywhere else on; left and right while it has the focus).
@@ -173,7 +185,8 @@ int menu_choice(
     bool can_lower = true,
     bool can_raise = true,
     bool enabled = true,
-    const char* stable_id = nullptr
+    const char* stable_id = nullptr,
+    const RowExtra* extra = nullptr
 );
 
 // A percentage slider in a menu row, between two arrows: the new value after a drag, a tap on the
@@ -189,6 +202,14 @@ int menu_number_slider(
 
 // The launcher's primary button, across the space left.
 bool menu_button(const char* label);
+
+// Sub tabs over a tab's rows (Controls: Gamepad, Keyboard and mouse), as the launcher's page tabs:
+// each a button of its own, the picked one (`current`) tinted in the accent, `helps[i]` the help
+// pane's words for one under the pointer or the focus (as a row of entry `entry`). Returns the one
+// picked now, `current` when none was pressed.
+int menu_sub_tabs(
+    const char* const* names, const char* const* helps, int count, int current, int entry
+);
 
 // A line of the card, in `ink` (the launcher's soft text by default): what is not pressed.
 void menu_note(const char* line, ImU32 ink = ui().soft);
@@ -215,15 +236,16 @@ bool draw_tab(menu::Tab tab, std::uint8_t where, const SectionFilter& only = {})
 // shows them in their own panel next to the drawer.
 bool controller_section(std::string_view section);
 
+// The Controls tab: on a desktop with the built-in keyboard and mouse, as two sub tabs, Gamepad
+// (the controller's sections and the gyro) and Keyboard and mouse, opening on the device in use;
+// else draw_tab's one page. False when nothing of it is shown.
+bool draw_controls_tab(std::uint8_t where);
+
 // Says whether `tab` has anything to show on `where` now.
 bool tab_shown(menu::Tab tab, std::uint8_t where);
 
 // Draws entry `id` alone (its row, or nothing while it is hidden).
 void draw_entry(menu::Id id, std::uint8_t where);
-
-// Does what entry `id` does when pressed (a switch turns over, a choice moves on), outside the rows:
-// a button of the menu's own (the desktop's Quit).
-void press_entry(menu::Id id);
 
 // Ends the game as the window's close button does (Quit, once confirmed).
 void quit_game();
@@ -245,8 +267,8 @@ std::string entry_label(menu::Id id, std::uint8_t where);
 // Remembers `entry` (a menu::Id) as the one under the pointer or the focus when the item just drawn
 // is, for the desktop's help: a focus moved by a controller or keys wins over the pointer.
 void note_hover(int entry);
-// The same for a row of the entry's panel with help of its own: its heading (after the entry's),
-// name and line take the help's place.
+// The same for a row of the entry's panel with help of its own: its heading (in place of the
+// entry's), name and line take the help's place.
 void note_hover_row(int entry, std::string section, std::string title, std::string help);
 
 // ---- The Controls tab (debug/menu_controls.cpp) ----
@@ -274,7 +296,8 @@ void draw_controls_panel(menu::Id id);
 // (true: the event is used up).
 bool keyboard_mouse_shown();
 void keyboard_mouse_panel();
-bool keyboard_mouse_capturing();
+// The built-in's gyro settings, a heading and a card of their own (the Gamepad sub tab).
+void keyboard_mouse_gyro();
 bool keyboard_mouse_capture_event(const SDL_Event& e);
 
 // Each frame: a press awaited for a binding arrives, gives up after a while, or ends with the

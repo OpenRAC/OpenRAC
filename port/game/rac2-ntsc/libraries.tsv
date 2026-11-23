@@ -8,6 +8,9 @@
 # their assembly (hostgen.json "asm").
 #
 # symbol	library	name	port	notes	signature (optional)
+func_L08_0041EBF8	vehicle	MiningVehicleUpdate	wrap	Optional GH reverse correction scoped to this vehicle's thrust calculation; original when disabled (host/gh_fixes.c).
+func_00282F20	math	MiningThrustScale	wrap	Keep other vector scales unchanged; the mining update's second thrust scale uses the acceleration magnitude with the fix on.
+func_0033ED88	menu	PlanetPlatinumCount	wrap	Optional GH per-planet platinum counter in the ship's planet page; original global statistics when disabled.
 func_00131AE8	boot	rac2NativeEntry	host	crt0 at the ELF entry: _InitSys, FlushCache(0), main(argc, argv) without the PS2 thread and heap syscalls	int (void)
 func_00115340	libc	memcmp	host	symbol_addrs.txt name
 func_001153D4	libc	memcpy	host	symbol_addrs.txt name
@@ -178,6 +181,7 @@ func_00133640	989snd	snd_StreamSafeCdBreak	host	symbol_addrs.txt CdStopRead; que
 func_00133688	989snd	snd_StreamSafeCdGetError	host	symbol_addrs.txt CdGetLoadStatus; the stream's error, else sceCdGetError (0x00125588)
 func_001336D0	989snd	snd_StreamSafeCdCallback	host	same opening as rac4's; installs the callback or forwards to sceCdCallback (0x001245D0); catalogue place 0x001336C0
 func_0027B858	graphics	StartFrameList	wrap	the frame's first packets: a picture written straight to the frame buffer is drawn after them (host/picture.c)
+func_002761F8	collision	CollLine	wrap	CollLine (hand-written): its gather of the cells a line crosses bounded to the scratchpad's 16 KB (host/coll_line.c)	int (int, int, int, int, int)
 func_002ECB70	graphics	ShipGlassDraw	wrap	the ship's cockpit glass, drawn as world quads: gives them ids so that a frame between ticks moves them with the hull (host/ship_glass.c)
 func_00131CB8	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's (host/level.c)
 func_0029D4D0	game	WadDecompress	host	the WAD decompressor (hand-written assembly): its result, the bytes written, is what the level loader sizes the moby area from	int (int, int)
@@ -249,7 +253,23 @@ func_0027DE50	draw	DrawFlatBox	wrap	a box of flat colour (the pages' frames): dr
 func_003136D0	moby	NanotechBallUpdate	wrap	the nanotech cluster's update: its sphere test runs against the picture's sides (host/wide_view.c)
 func_002A6C58	moby	SetDeathBits	wrap	a moby's death recorded: for an enemy's copy (host/enemy_copies.c) the marks it leaves on its original's save id are put back
 func_L00_00300618	level	LoadLevelData	wrap	the level's gameplay file read for the mods' enemy copies as the game has laid the level out from it (host/enemy_copies.c)
+func_L00_003AB9C0	weapon	ProjectileSpawnTargeted	wrap	the Minirocket Tube's homing rocket made (class 1498): the hero's noted for the mods, and made again for them (host/weapon_shots.c)
+func_L00_00409E48	weapon	SpawnAimedProjectile	wrap	the RYNO II's rocket made (class 3799): the hero's noted for the mods, and made again for them (host/weapon_shots.c)
+func_L00_003AA4C8	weapon	EffectSpawnOwnedMoby	wrap	the Seeker Gun's seeker made (class 3329): the hero's noted for the mods, and made again for them (host/weapon_shots.c)
+func_L00_003A98E8	weapon	SpawnProjectile	wrap	the Hoverbomb Gun's hoverbomb made (class 1496): the hero's noted for the mods, and made again for them (host/weapon_shots.c)
+func_L00_0038D530	weapon	SpawnSpinningDebris	wrap	the Bomb Glove's bomb made (class 121): the hero's noted for the mods, and made again for them (host/weapon_shots.c)
+func_L00_003EED10	weapon	GravityBombSpawnProjectile	wrap	the Gravity Bomb's bomb made (class 3300): the hero's noted for the mods, and made again for them (host/weapon_shots.c)
+func_L00_003FE2D0	weapon	BouncerSpawnDebris	wrap	the Bouncer's bomblet made (class 3684): the hero's noted for the mods, and made again for them (host/weapon_shots.c)
+func_L00_00398810	weapon	DecoyCreateProjectile	wrap	the Decoy Glove's decoy made (class 203): the hero's noted for the mods, and made again for them (host/weapon_shots.c)
+func_L00_00387CA8	weapon	MiniturretSpawnShot	wrap	the Miniturret Glove's turret made (class 4966): the hero's noted for the mods, and made again for them (host/weapon_shots.c)
+func_L00_0032CF60	moby	UpdateLiveMobys	wrap	the moby loop, as the game's, with the mods' gate around each update, their statuses (frozen, slowed) and the moby that runs now for the weapons' looks (host/weapon_shots.c)
+func_0029EFD0	moby	CreateMoby	wrap	a moby made: one a weapon's shot or gun makes in its update takes the weapon's look (host/weapon_shots.c)
+func_002B9030	effect	PartAlloc	wrap	a particle made: one a weapon's shot or gun makes in its update takes the weapon's look (host/weapon_shots.c)
+func_002AF580	target	SelectBestTargetInCone	wrap	the game's target pick (SelectBestTargetInCone): for the weapons a mod asked (weapon_ignore_culling) it takes the enemies in sight not drawn last frame too, and opens the drones' camera cone (host/weapon_culling.c)
+func_L00_003C3D90	weapon	TeslaBarrierUpdate	wrap	the Shield Charger's and Tesla Barrier's update (classes 2652, 4498): for a mod that asked (weapon_ignore_culling, item 45) its shield and arcs take the enemies in the hero's sight not drawn last frame too (host/weapon_culling.c)
+func_L00_00392530	weapon	TeslaClawUpdate	wrap	the Tesla Claw's update (class 177): for a mod that asked (weapon_ignore_culling, item 18) it keeps a held target in the hero's sight that was not drawn last frame (host/weapon_culling.c)
 func_L00_00424F98	camera	FollowCameraReadStick	wrap	the follow camera's stick read: notes the camera, for the picture's late camera latch (host/camera_latch.c)
+func_L00_004266E8	camera	AlignedCameraUpdate	wrap	the first-person camera's turn by the stick: then the mouse's own turn (host/camera_latch.c)
 func_002E48E8	sound	ResetSoundState	wrap	the sound's reset, which gives the mixer the Sound page's values: the remembered ones go in first (host/options.c)
 func_0027EA28	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)
 func_L08_002F2C48	game	func_L08_002F2C48	host	the fourth draw callback list's register, only in levels 8, 9, 19 and 30, folded with func_0027CFD0 by the catalogue (split_places.tsv, host/callback_lists.c)	void (unsigned int, unsigned int)
@@ -284,6 +304,9 @@ func_002F6510	vendor	Vendor_Price	hook	The price in bolts of the vendor entry un
 func_00336F20	item	Item_Colors	hook	Writes item id's experience bar colours and its version's tint to three u32 the caller has (the quick select, the weapons grid). A hook point for mods; the game's C with none.
 func_002F9C80	vendor	Vendor_DrawList	hook	Draws the vendor's list: each row around the cursor, its icon in Item_VersionColor's colour (an upgrade entry in the Mega gold), then its label. A hook point for mods; the game's C with none.
 func_00336EF8	item	Item_VersionColor	hook	The colour of an item version kind (2 the Mega gold); the vendor's list asks it for each icon. A hook point for mods; the game's C with none.
+func_002F71B8	vendor	ArmorVendor_BuildList	hook	Fills the armour vendor's list (mode 3; g_vendorUi +0x140, 12-byte rows icon, price, armour; the count at +0x740): the armours above the one worn. A hook point for mods; the game's C with none.
+func_L00_00373D40	vendor	ArmorVendor_Buy	hook	The armour vendor's purchase dialog (mode 3), each level's copy: asks, then pays the row's price and closes the menu, which then wears the row's armour. A hook point for mods; the game's C with none.
+func_002FB1A0	vendor	Vendor_Preview	hook	Sets up the vendor's preview of the row under the cursor (PrepareVendorSelectionPreview): the armour vendor loads the row's armour over Ratchet and makes the preview objects. A hook point for mods; the game's C with none.
 func_00288FB8	text	Text_ById	hook	The game's text of an id, under the port's own (host/options.c): the vendor's upgrade label (0x325F) and every name it prints ask it; ids 0x7F10 to 0x7F17 are the port's slots for a mod's own texts. A hook point for mods; the game's C with none.
 func_002AD7B8	planet	Planet_Unlock	hook	Puts a level on the ship's map (MarkLevelAvailable); every level load calls it for its own level too. A hook point for mods; the game's C with none.
 func_L01_003CEDA0	moby	Moby_DynamoPickup_Update	hook	Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte. A hook point for mods; the game's C with none.

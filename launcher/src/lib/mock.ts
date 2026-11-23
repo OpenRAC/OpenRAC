@@ -44,6 +44,9 @@ import type { Rac2ExtraWriteResult } from "./generated/Rac2ExtraWriteResult";
 import type { Rac2SaveFields } from "./generated/Rac2SaveFields";
 import type { Rac2SaveView } from "./generated/Rac2SaveView";
 import type { Rac2WriteResult } from "./generated/Rac2WriteResult";
+import type { Rac3SaveFields } from "./generated/Rac3SaveFields";
+import type { Rac3SaveView } from "./generated/Rac3SaveView";
+import type { Rac3WriteResult } from "./generated/Rac3WriteResult";
 import type { RemoteInstalled } from "./generated/RemoteInstalled";
 import type { RemotePreview } from "./generated/RemotePreview";
 import type { ReportEntry } from "./generated/ReportEntry";
@@ -85,6 +88,7 @@ import {
   mockUpdates,
 } from "./mockIndex";
 import { mockRac2Extra, mockWriteRac2Extra } from "./mockRac2Extra";
+import { RAC3_GATE } from "./rac3Gate";
 import type { UpdateInfo, UpdateProgressCallback } from "./updates";
 
 // ---- the files, as the Rust side parses them --------------------------------------
@@ -345,6 +349,7 @@ let config: Config = {
     typeof location === "undefined" ? "" : location.search,
   ).has("advanced"),
   incrementalBuilds: false,
+  rac3Dev: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("rac3"),
   // ?setup opens the first-run screen.
   setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
     "setup",
@@ -390,6 +395,8 @@ let config: Config = {
   discImages: {},
   multiplayerName: "BraveLombax42",
   multiplayerKey: "0123456789abcdef0123456789abcdef",
+  multiplayerServerHost: "hub.openrac.dev",
+  multiplayerServerPort: 7177,
   modIndexes: [],
   prereleaseMods: null,
   pendingDeepLink: null,
@@ -568,7 +575,10 @@ function view(action: RawAction, st: VersionStatus | null, version?: string): Ac
     : platform !== "android" || action.kind === "play";
   const blockers: string[] = [];
 
-  if (state === "planned") {
+  if (version?.startsWith("rac3/") && !config.rac3Dev) {
+    // As core/src/actions.rs (RAC3_GATE): first, before even "not connected".
+    blockers.push(RAC3_GATE);
+  } else if (state === "planned") {
     blockers.push("not connected to the launcher yet");
   } else {
     if (!thisPlatform) {
@@ -736,7 +746,7 @@ function mockEditorInstall(): EditorInstall {
     chosen: editorChosen,
     version: editorInstalled ? "v1.0.0" : null,
     problem: null,
-    repository: "https://github.com/nickyyOO/OpenRAC-Editor",
+    repository: "https://github.com/OpenRAC/OpenRAC-Editor",
   };
 }
 
@@ -1291,6 +1301,164 @@ let mockPlugins: PluginView[] = query.has("nomods")
             default: true,
             description:
               "Hides the cursor and keeps it in the window while you play; menus and pausing let it go.",
+            value: true,
+          },
+          {
+            key: "mouse_with_gamepad",
+            name: "Mouse with a gamepad",
+            section: "Mouse",
+            type: "bool",
+            default: true,
+            description:
+              "The mouse keeps turning the camera while you play on a gamepad, so you can use both at once. Needed for gyro that Steam Input or DS4Windows turns into a mouse.",
+            value: true,
+          },
+          {
+            key: "gyro",
+            name: "Gyro aiming",
+            section: "Gyro",
+            type: "choice",
+            default: "off",
+            choices: [
+              { value: "off", name: "Off" },
+              { value: "always", name: "Always" },
+              { value: "aiming", name: "Only while aiming" },
+            ],
+            description:
+              "Turn the camera by turning your controller. Read straight from its gyro: DualShock 4, DualSense, Switch Pro, Joy-Con, Steam Controller, Steam Deck, and a phone's or handheld's own gyro. Only while aiming: in first person and while strafing.",
+            value: "off",
+          },
+          {
+            key: "gyro_sensitivity",
+            name: "Horizontal sensitivity",
+            section: "Gyro",
+            type: "float",
+            default: 2.0,
+            min: 0.1,
+            max: 10.0,
+            step: 0.05,
+            description:
+              "How far the camera turns for a turn of the controller. At 1 it turns as far as the controller.",
+            value: 2.0,
+          },
+          {
+            key: "gyro_sensitivity_y",
+            name: "Vertical sensitivity",
+            section: "Gyro",
+            type: "float",
+            default: 2.0,
+            min: 0.1,
+            max: 10.0,
+            step: 0.05,
+            description: "The same for looking up and down.",
+            value: 2.0,
+          },
+          {
+            key: "gyro_space",
+            name: "Turn by",
+            section: "Gyro",
+            type: "choice",
+            default: "player",
+            choices: [
+              { value: "player", name: "Player space" },
+              { value: "yaw", name: "Yaw" },
+              { value: "roll", name: "Roll" },
+              { value: "local", name: "Yaw and roll" },
+            ],
+            description:
+              "Which turn of the controller moves the camera left and right. Player space works however you hold it. Yaw: twist it flat. Roll: lean it like a wheel. Yaw and roll: both.",
+            value: "player",
+          },
+          {
+            key: "gyro_invert_x",
+            name: "Invert horizontal",
+            section: "Gyro",
+            type: "bool",
+            default: false,
+            description: "Turning the controller left turns the camera right.",
+            value: false,
+          },
+          {
+            key: "gyro_invert_y",
+            name: "Invert vertical",
+            section: "Gyro",
+            type: "bool",
+            default: false,
+            description: "Tilting the controller up looks down.",
+            value: false,
+          },
+          {
+            key: "gyro_button",
+            name: "Gyro button",
+            section: "Gyro",
+            type: "choice",
+            default: "none",
+            choices: [
+              { value: "none", name: "None" },
+              { value: "touchpad", name: "Touchpad click" },
+              { value: "rightstick", name: "R3" },
+              { value: "leftstick", name: "L3" },
+              { value: "rightshoulder", name: "R1" },
+              { value: "leftshoulder", name: "L1" },
+              { value: "paddle1", name: "Right paddle 1" },
+              { value: "paddle2", name: "Left paddle 1" },
+              { value: "paddle3", name: "Right paddle 2" },
+              { value: "paddle4", name: "Left paddle 2" },
+              { value: "misc1", name: "Share / Capture / Mic" },
+            ],
+            description:
+              "A controller button for the gyro. It still presses its own button in the game.",
+            value: "none",
+          },
+          {
+            key: "gyro_button_action",
+            name: "Gyro button does",
+            section: "Gyro",
+            type: "choice",
+            default: "enable",
+            choices: [
+              { value: "enable", name: "Hold to aim" },
+              { value: "pause", name: "Hold to pause" },
+              { value: "toggle", name: "Press to switch" },
+            ],
+            description:
+              "Hold to aim: the gyro works only while you hold it. Hold to pause: lift the controller back to the middle while you hold it. Press to switch: turns the gyro on and off.",
+            value: "enable",
+          },
+          {
+            key: "gyro_dead_zone",
+            name: "Dead zone",
+            section: "Gyro",
+            type: "float",
+            default: 0.0,
+            min: 0.0,
+            max: 10.0,
+            step: 0.1,
+            description:
+              "Turns slower than this, in degrees a second, are ignored. Most players want 0.",
+            value: 0.0,
+          },
+          {
+            key: "gyro_smoothing",
+            name: "Smoothing",
+            section: "Gyro",
+            type: "float",
+            default: 3.0,
+            min: 0.0,
+            max: 20.0,
+            step: 0.5,
+            description:
+              "Turns slower than this, in degrees a second, are smoothed to hide hand shake. Fast turns are never smoothed. 0 turns it off.",
+            value: 3.0,
+          },
+          {
+            key: "gyro_calibrate",
+            name: "Calibrate when still",
+            section: "Gyro",
+            type: "bool",
+            default: true,
+            description:
+              "Put the controller down for two seconds and the gyro learns its resting drift, so the camera does not creep.",
             value: true,
           },
           {
@@ -2796,6 +2964,65 @@ function mockRac2Versions(
   ];
 }
 
+/** Up Your Arsenal's weapons as the save editor lists them: item, name, V1 full ammo. */
+const RAC3_WEAPONS: [number, string, number][] = [
+  [9, "OmniWrench", 0],
+  [39, "Shock Blaster", 30],
+  [119, "Nitro Launcher", 8],
+  [47, "N60 Storm", 150],
+  [127, "Plasma Whip", 25],
+  [55, "Infector", 15],
+  [135, "Suck Cannon", 0],
+  [71, "Spitting Hydra", 15],
+  [87, "Agents of Doom", 6],
+  [111, "Flux Rifle", 10],
+  [63, "Annihilator", 20],
+  [103, "Holo Shield Glove", 8],
+  [79, "Disc Blade Gun", 25],
+  [95, "Rift Inducer", 8],
+  [143, "Qwack-O-Ray", 0],
+  [151, "RY3NO", 25],
+  [21, "Miniturret Glove", 10],
+  [17, "Lava Gun", 150],
+  [22, "Shield Charger", 3],
+  [19, "Bouncer", 10],
+  [16, "Plasma Coil", 15],
+];
+
+const savedRac3: Record<string, Rac3SaveFields> = {};
+
+/** An Up Your Arsenal slot: on Veldin, with the wrench, the Shock Blaster and the Nitro Launcher. */
+function mockSaveRac3(serial: string, slot: number): Rac3SaveView {
+  const owned = new Set([9, 39, 119]);
+  const fields: Rac3SaveFields = savedRac3[`${serial}/${String(slot)}`] ?? {
+    bolts: 12345,
+    weapons: RAC3_WEAPONS.map(([id, , ammo]) => ({
+      id,
+      owned: owned.has(id),
+      ammo: owned.has(id) ? ammo : 0,
+    })),
+  };
+
+  return {
+    serial,
+    slot,
+    fingerprint: "mock",
+    planetName: "Veldin",
+    savedAt: "2026-11-19 14:15:30",
+    playSeconds: 3723,
+    fields,
+    weapons: RAC3_WEAPONS.map(([id, name, ammo]) => ({
+      id,
+      name,
+      versionName: name,
+      version: 1,
+      maxAmmo: ammo,
+      xp: 0,
+    })),
+    maxBolts: 9_999_999,
+  };
+}
+
 /** A Going Commando slot: early in the game, on Oozla, with the Lancer in hand. */
 function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
   const owned = new Set([24, 30, 42]);
@@ -3519,6 +3746,14 @@ export async function mockCall(
         path: "",
       });
     }
+    case "multiplayer_server_test":
+      // The official hub answers; any other does not, so both results can be seen.
+      await delay(null);
+
+      if (args.host !== "hub.openrac.dev")
+        throw new Error(`no answer from ${String(args.host)}:${String(args.port)}`);
+
+      return null;
     case "player_name_used":
       // A mod that uses the Multiplayer name is on, unless ?nomods.
       return delay(!query.has("nomods"));
@@ -4079,6 +4314,26 @@ export async function mockCall(
           Number(args.slot ?? 0),
         ),
       );
+    case "read_save_rac3":
+      return delay<Rac3SaveView>(mockSaveRac3(String(args.serial), Number(args.slot ?? 0)));
+    case "write_save_rac3": {
+      const fields = args.fields as Rac3SaveFields;
+
+      if (fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");
+      savedRac3[`${String(args.serial)}/${String(args.slot)}`] = structuredClone(fields);
+      const name = `.backup_${String(Math.floor(Date.now() / 1000))}_before_edit_slot${String(Number(args.slot) + 1)}`;
+
+      return delay<Rac3WriteResult>({
+        backup: {
+          name,
+          path: `/home/you/.local/share/openrac/memcard/${String(args.serial)}/${name}`,
+          note: `Before editing slot ${String(Number(args.slot) + 1)}`,
+          createdMillis: Date.now(),
+          totalSize: 552000,
+        },
+        view: mockSaveRac3(String(args.serial), Number(args.slot)),
+      });
+    }
     case "read_save_rac2":
       return delay<Rac2SaveView>(mockSaveRac2(String(args.serial), Number(args.slot ?? 0)));
     case "read_save_rac2_extra":
@@ -4207,7 +4462,7 @@ export async function mockCall(
 // ---- launcher updates ----------------------------------------------------------------
 
 /** The preview's answer to "is a newer launcher out?": ?update (one is, and installs itself;
- *  with ?download only from GitHub), ?latest (none), ?offline (GitHub cannot be reached); on the
+ *  with ?download only from GitHub, with ?nobuild none for this system yet), ?latest (none), ?offline (GitHub cannot be reached); on the
  *  other channel (SWITCHTO; ?devbuild with Stable chosen) the older release.
  *  Undefined: no switch, so the real check runs. */
 export function mockUpdate(
@@ -4236,7 +4491,8 @@ export function mockUpdate(
       "- Help beside your saves: a crash report to send in two clicks.",
     ].join("\n"),
     publishedAt: new Date(Date.now() - 86400000).toISOString(),
-    canInstallDirectly: !query.has("download"),
+    canInstallDirectly: !query.has("download") && !query.has("nobuild"),
+    missingBuild: query.has("nobuild"),
     switchTo,
   };
 }

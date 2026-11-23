@@ -135,6 +135,30 @@ the game you used last.
   Classic. Compact puts the game's name and its main button side by side
   (`src/layouts/compact.css`).
 
+### Multiplayer server
+
+Settings, General, has a **Multiplayer server**: the address of the hub
+online play starts at, a host name or an IP address and a port,
+`hub.openrac.dev` and `7177` (the official OpenRAC hub) unless changed. The
+hub logs players in to their accounts and lists the game servers they pick
+from. Anyone can host one (the
+[OpenRAC/Server](https://github.com/OpenRAC/Server) repository, "The hub" and
+"Self-hosting"); everyone playing together names the same one. **Reset to
+official** puts the official hub back, and **Test connection** says whether
+a server answers there. A
+host that is not a host name or an IP address, or a port outside 1 to 65535,
+is not saved.
+
+Play gives it to every game as `OPENRAC_SERVER=host:port` (`[v6]:port` for
+an IPv6 address): Up Your Arsenal's online play and the
+[multiplayer mod](https://github.com/OpenRAC/openrac-mods/tree/master/multiplayer)
+(Ratchet & Clank and Going Commando co-op) read it. The mod's own **Server**
+setting, when set, still wins. It is kept in `launcher.json` as
+`multiplayerServerHost` and `multiplayerServerPort`; a settings file from
+before it has the official hub, and one that still names the official game
+server from before the hub (`game.openrac.dev:7770`) reads as the hub. Android has the same setting; the iOS
+app has no online play, so it does not show it.
+
 ## Mods and level editing
 
 **Gameplay mods** come in two kinds, and each row says which: native mods
@@ -201,7 +225,7 @@ still looks whenever you ask.
 
 The disc image is never changed. With developer tools on, the page also shows
 the folders and commands behind the buttons
-([OpenRAC Editor's guide](https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md)).
+([OpenRAC Editor's guide](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md)).
 
 **Audio** exports the game's music, speech and effects as WAV files, and imports
 edited ones back as a pack ([extractor/AUDIO_MODDING.md](../extractor/AUDIO_MODDING.md)).
@@ -216,7 +240,7 @@ Going Commando (any of its three discs: USA v1.01, USA v2.00 and Europe's) is
 playable; Up Your Arsenal and Deadlocked (NTSC-U) are early access. Their
 levels open in OpenRAC Editor and **Models and textures** works, but level edits are
 not packed back yet. Their packs wait in Your mods
-([OpenRAC Editor's guide](https://github.com/nickyyOO/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md)). Up
+([OpenRAC Editor's guide](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md)). Up
 Your Arsenal and Deadlocked are not playable yet. Going Commando's decompilation
 is whole, so every installer carries its three programs built as Ratchet &
 Clank's are: pick the disc, get the levels ready, Play. Nothing is built on
@@ -351,6 +375,10 @@ Online:
   used.
 - **GitHub**, only when adding a mod from a link or checking for updates:
   `api.github.com`, raw files and release downloads.
+- **Test connection** (Settings, General, Multiplayer server), only when
+  pressed: one TCP connection to the server named there, closed at once, to
+  say whether it answers (5 seconds at most). The launcher itself never
+  talks to the server; the games do, while they play online.
 - **Discord**, unless switched off in Settings: Rich Presence over Discord's
   local socket (Linux, macOS) or named pipe (Windows). While a game plays it
   shows the game, planet, bolts and time, and links to openrac.dev and

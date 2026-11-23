@@ -1010,6 +1010,37 @@ def gone_words(text: str, values: dict[str, dict[str, int]], readable: dict[str,
     return out
 
 
+# A function the C declares by a name of its own, with no label (no __asm__("func_...")).
+DECLARED_ONLY = re.compile(r"\bextern\b[^;(]*?(?<![\w])([A-Za-z_]\w*)\s*\(([^;]*)\)\s*;")
+# A C body's name.
+BODY_NAME = re.compile(r"^[A-Za-z_][\w \*]*?\b(\w+)\s*\([^;{]*\)\s*\{", re.M)
+# The C library's, which the host provides.
+C_LIBRARY = {"memcpy", "memset", "memmove", "memcmp", "strlen", "strcpy", "strncpy", "strcmp", "strncmp",
+             "strcat", "sprintf", "snprintf", "printf", "sqrtf", "sinf", "cosf", "atan2f", "fabsf", "abs"}
+
+
+def link_only_words(text: str, values: dict[str, dict[str, int]], readable: dict[str, str], release: Release,
+                    row_at, defined_anywhere: set[str]) -> dict[str, str]:
+    """The functions the release's own C (TEXT) declares by a name no C defines and no catalogue
+    has, which only the release's build linked to an address (PAL's Dobbo Orbit hero calls PH_G1,
+    a copy of func_002836E0 at 0x002F5100): each with the release's function there, as gone_words
+    finds it. Without this the port called an empty body that returns 0."""
+    out = {}
+    for m in DECLARED_ONLY.finditer(text):
+        word = m.group(1)
+        if "__asm__" in m.group(2) or "MACRO_ADDR" in m.group(2) or word in readable or word in C_LIBRARY \
+                or word in defined_anywhere or NAME.fullmatch(word) is not None \
+                or re.match(r"(?:F[0-9a-f]{8}_|ref_|r1_|func_|FUN_|D_)", word):
+            continue
+        found = {release.name(row) for program, vals in values.items()
+                 if word in vals and (row := row_at(program, vals[word])) is not None}
+        if len(found) == 1:
+            new = found.pop()
+            if "_V1_" not in new and new != word:
+                out[word] = new
+    return out
+
+
 def names_word(text: str, word: str, address: bool) -> bool:
     """Whether TEXT has WORD: an address name (func_0026F790) as ANY reads one, so a suffix after
     an underscore is another name's; a readable one (stub_empty_17) whole."""
@@ -1054,6 +1085,8 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
         return (None if program == "boot" else r_at.get((int(program), value))) or r_exe.get(value)
     out: dict[str, dict[str, str]] = {}
     gone_in: dict[str, list[str]] = {}
+    defined_anywhere = {name for d in sources for path in (source / d).rglob("*.c")
+                        for name in BODY_NAME.findall(path.read_text(errors="replace"))}
     for d in sources:
         for path in sorted((source / d).rglob("*.c")):
             rel = path.relative_to(source).as_posix()
@@ -1061,11 +1094,12 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
             level = f"{int(unit_level.group(1)):02d}" if unit_level else "boot"
             mine = rel.startswith(f"src/{version}/")
             text = path.read_text(errors="replace")
+            defined = defined_kinds(text, readable or {}) if not mine else {}
             # A shared definition (C, or its assembly's marker) the release's build did not link into
             # any of its programs: not the release's code (a function it does not have, or changed:
             # its own C in src/<version>/ is), so it is left out here (Release.splice), as rac1's
             # releases leave theirs out. What the build placed is the release, byte for byte.
-            for name, how in (defined_kinds(text, readable or {}) if not mine else {}).items():
+            for name, how in defined.items():
                 # C the build did not place; or the assembly of a function the release's catalogue
                 # does not have (assembly the release has stays: the port's hand C stands in).
                 if name in parts.get("hooks", {}) and how == "c":
@@ -1089,6 +1123,22 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
                     if word not in out.get(rel, {}):
                         out.setdefault(rel, {})[word] = new
                         evidence["function: one the release lacks, where its build linked the release's own C"] += 1
+                for word, new in link_only_words(text, parts["r_values"], readable or {}, release, row_at,
+                                                 defined_anywhere).items():
+                    if word not in out.get(rel, {}):
+                        out.setdefault(rel, {})[word] = new
+                        evidence["function: one only the release's build gave an address, by a name of its own C"] += 1
+            else:
+                # The same for the primary's C: a call to a v1.01 function the release has no row
+                # for goes where the release's build linked it, not to an empty func_V1_ body. PAL's
+                # ResetGornStageCounters calls table_reset_working_values, which PAL has as
+                # func_PAL_L05_0037FEB0: the port called an empty body and the Nuke was not refilled.
+                # A word the file defines stays (its definition is the release's or left out).
+                for word, new in gone_words(text, parts["r_values"], readable or {}, release, row_at).items():
+                    if (readable or {}).get(word, word) in defined or word in out.get(rel, {}):
+                        continue
+                    out.setdefault(rel, {})[word] = new
+                    evidence["function: one the release lacks, where its build linked the primary's C"] += 1
             if unit_level is None:
                 continue
             found = {m.group(0) for m in SHORT.finditer(text)}

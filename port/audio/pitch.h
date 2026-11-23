@@ -41,11 +41,6 @@ std::uint16_t ps1_note_to_pitch(
     std::int8_t center_note, std::int8_t center_fine, std::int16_t note, std::int16_t fine
 );
 
-// The pitch word of a stream recorded at `rate` Hz: rate * 0x1000 / 48000,
-// truncated and capped at 0x3fff. Inferred by ReRAC: the stream player's own
-// computation is not reversed.
-std::uint16_t rate_to_pitch(std::uint32_t rate);
-
 // 989snd's PitchBend(tone, bend, modulation, note, fine): v = note * 128 +
 // fine + modulation, plus bend_up * (bend << 7) / 0x7fff for an upward bend
 // or bend_down * (bend << 7) / 0x8000 for a downward one; returns

@@ -26,6 +26,7 @@
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
+#include "game/common/mod_play.h"
 #include "mods.h"
 #include "openrac/game_host.h"
 #include "program/program.h"
@@ -92,19 +93,22 @@ bool hdr_frame() {
 
 // Recreates the target when its dimensions, samples, depth-sampling requirement or colour
 // format changes.
-void resize_target(SceneFrame& frame, int samples) {
+void resize_target(SceneFrame& frame) {
     auto& target = frame.owner.frame;
     const auto& output = frame.output;
     const bool float_colour = hdr_frame();
-    // Reserve sampleable depth while the level's probe data is still loading.
-    const bool wants_sampleable_depth =
+    // Enhanced passes require single-sample depth, including while probe data loads.
+    const bool sampleable_depth =
         gl::enhanced_rendering_available() && frame.graphics.enhanced_graphics;
-    const bool sampleable_depth = samples == 1 && wants_sampleable_depth;
 
     // Minimized pictures keep their last target until a drawable size returns.
     if (output.box.width <= 0 || output.box.height <= 0) {
         return;
     }
+
+    const int samples =
+        sampleable_depth ? 1
+                         : std::clamp(frame.graphics.msaa, 1, renderer::FrameBuffer::max_samples());
 
     // Stable settings reuse the existing attachments.
     if (target.width() == output.width && target.height() == output.height
@@ -120,9 +124,7 @@ void resize_target(SceneFrame& frame, int samples) {
     // Some drivers advertise sample counts they cannot attach; retry without multisampling.
     if (!created && samples > 1) {
         log::warn("{}; drawing without anti-aliasing", error);
-        created = target.create(
-            output.width, output.height, error, 1, wants_sampleable_depth, float_colour
-        );
+        created = target.create(output.width, output.height, error, 1, false, float_colour);
     }
 
     // Propagate attachment failure through the worker rather than recording against an incomplete target.
@@ -167,10 +169,7 @@ float prepare_target(SceneFrame& frame) {
         render_scale = std::min(render_scale, kNativeRenderScale);
     }
     frame_size(output.box.width, output.box.height, render_scale, output.width, output.height);
-    // Temporal reconstruction supplies antialiasing; native rendering keeps the saved MSAA preference.
-    const int samples =
-        frame.temporal ? 1 : std::clamp(graphics.msaa, 1, renderer::FrameBuffer::max_samples());
-    resize_target(frame, samples);
+    resize_target(frame);
 
     // A wider picture preserves the central television framing; a movie's fills the width.
     if (!frame.scene.movie && output.aspect > kTvAspect && output.box.width > 0
@@ -389,6 +388,8 @@ void set_camera(SceneFrame& frame) {
                              : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
     input.camera = drawn.value_or(camera);
+    input.pvs_bypass = mods::host_camera_overridden()
+                       || (scene.gameplay_camera && mods::camera_visibility_bypassed());
     // Adjust the guarded gameplay lens before the debug camera can replace it. Scaling both
     // projection axes preserves the native aspect ratio and the picture's widescreen expansion.
     // The level's world under the pause menu keeps the lens it was paused with (keep_tick). A tick
@@ -634,6 +635,7 @@ void render_scene(
     output.shown = owner.frame.resolved();
     output.camera = frame.input.camera;
     output.has_camera = frame.has_camera;
+    output.world_under_menu = snapshot.world_under_menu;
     output.tick = frame.input.frame;
     output.enhanced_graphics = graphics.enhanced_graphics && owner.enhanced_graphics_available();
     output.finished = std::chrono::steady_clock::now();

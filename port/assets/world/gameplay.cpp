@@ -70,12 +70,19 @@ constexpr std::array<std::string_view, kGameplaySectionCount> kSectionNames{
 // bank at 0x04 is the one extractor/lighting.light_bank exports (count at +0, 0x40-byte sets from
 // +0x10), and the environment transitions at 0x84 run from the bank's end to the cameras' start,
 // 0x10 + count x (16 + 0x80) bytes, with Ratchet & Clank's records (a world-to-cuboid matrix
-// ending in w = 1, hero light sets below the bank's count, flags 1 to 3).
+// ending in w = 1, hero light sets below the bank's count, flags 1 to 3). Up Your Arsenal's is the
+// same header: on its PAL disc (Veldin, Florana, Aquatos) the bank is at 0x04 and the transitions
+// at 0x84 run from the bank's end to the cameras' start (word 0x08) as Going Commando's.
 constexpr std::size_t kRac2HeaderWords = 40;
+
+// Whether `game` keeps Going Commando's header.
+bool later_header(Game game) {
+    return game == Game::Rac2 || game == Game::Rac3;
+}
 
 // The byte position of a section's offset in `game`'s header, or none when it is not placed.
 std::optional<std::size_t> pointer_of(Game game, GameplaySection section) {
-    if (game != Game::Rac2) {
+    if (!later_header(game)) {
         return 4 * static_cast<std::size_t>(section);
     }
 
@@ -91,7 +98,7 @@ std::optional<std::size_t> pointer_of(Game game, GameplaySection section) {
 
 // How many offsets `game`'s header holds.
 std::size_t header_words(Game game) {
-    return game == Game::Rac2 ? kRac2HeaderWords : kGameplaySectionCount;
+    return later_header(game) ? kRac2HeaderWords : kGameplaySectionCount;
 }
 
 // Checks that an s32 from the file is a valid count or index, and widens it. `what` names it.
@@ -113,8 +120,8 @@ std::string_view gameplay_section_name(GameplaySection section) {
 
 // Borrows the bytes; the caller keeps them alive. Fails when the header does not fit.
 GameplayFile::GameplayFile(Game game, ByteView bytes) : m_game(game), m_bytes(bytes) {
-    // Going Commando's header is known for the sections pointer_of() places.
-    if (game != Game::Rac2) {
+    // Going Commando's header (and Up Your Arsenal's) is known for the sections pointer_of() places.
+    if (!later_header(game)) {
         require_world_layout(game, "gameplay file");
     }
 
@@ -161,8 +168,8 @@ std::vector<GameplaySectionRange> GameplayFile::sections() const {
 
     // Each section runs to the start of the next one in the file, the last to the end.
     for (std::size_t k = 0; k < out.size(); ++k) {
-        if (m_game == Game::Rac2) {
-            // Going Commando: the next start of any section, placed or not.
+        if (later_header(m_game)) {
+            // Going Commando and Up Your Arsenal: the next start of any section, placed or not.
             const auto next = std::upper_bound(starts.begin(), starts.end(), out[k].start);
             out[k].end = next != starts.end() ? *next : m_bytes.size();
         } else {

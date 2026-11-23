@@ -22,6 +22,7 @@
     } while (0)
 
 #include "../game/rac2/host/enemy_copies.c"
+#include "../game/rac2/host/moby_pool.c"
 
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = 0x02000000u;
@@ -48,6 +49,13 @@ gaddr openrac_guest_static(uint32_t size) {
     const gaddr at = statics;
     statics += (size + 15u) & ~15u;
     return at;
+}
+
+static const char* pool_env;
+
+const char* openrac_env_string(const char* name) {
+    (void)name;
+    return pool_env;
 }
 
 static uint32_t program_loads = 1;
@@ -413,7 +421,7 @@ static void no_spot(void) {
     /* An original with no ground under it: no copy. */
     putf(placed(0) + 0x10u, 200.0f);
     CHECK(rac2_copy_make(&table, placed(0), 0) == 0);
-    /* Every spot crowded by others of its class: none. */
+    /* A pack around it out to 4 units: a spot in a ring farther out. */
     make_level();
     for (uint32_t i = 0; i < 40; ++i) {
         const gaddr m = func_0029EFD0(ENEMY);
@@ -422,13 +430,85 @@ static void no_spot(void) {
         putf(m + 0x14u, 10.0f + 3.25f * sinf(a));
         putf(m + 0x18u, 1.0f);
     }
-    CHECK(rac2_copy_make(&table, placed(0), 0) == 0);
-    /* Pvars that hold another moby (a part it made of its own): no copy; itself or none: one. */
+    const gaddr far = rac2_copy_make(&table, placed(0), 0);
+    CHECK(far != 0);
+    const float fx = GREF(float, far + 0x10u) - 10.0f, fy = GREF(float, far + 0x14u) - 10.0f;
+    CHECK(fx * fx + fy * fy > 4.0f * 4.0f && fx * fx + fy * fy <= 8.5f * 8.5f + 1e-3f);
+    /* A pack all around it, 2.5 units apart: a spot still, a unit from every one of them. */
+    make_level();
+    for (float x = -7.5f; x <= 7.5f; x += 2.5f) {
+        for (float y = -7.5f; y <= 7.5f; y += 2.5f) {
+            const gaddr m = func_0029EFD0(ENEMY);
+            CHECK(m != 0);
+            putf(m + 0x10u, 10.0f + x);
+            putf(m + 0x14u, 10.0f + y);
+            putf(m + 0x18u, 1.0f);
+        }
+    }
+    const gaddr close = rac2_copy_make(&table, placed(0), 0);
+    CHECK(close != 0);
+    for (gaddr m = DYNAMIC; m < END; m += 0x100u) {
+        if (m == close || GREF(uint8_t, m + 0x20u) >= 0x80u) {
+            continue;
+        }
+        const float dx = GREF(float, close + 0x10u) - GREF(float, m + 0x10u);
+        const float dy = GREF(float, close + 0x14u) - GREF(float, m + 0x14u);
+        CHECK(dx * dx + dy * dy >= 1.0f);
+    }
+}
+
+/* A moby that names others: a placed one (named alike by the copy), its own spawned parts (copied
+ * with it), or a spawned moby another one names too (no copy). */
+static void parts(void) {
     make_level();
     put32(blob_at(0) + 0x20u, placed(4));
-    CHECK(rac2_copy_make(&table, placed(0), 0) == 0);
-    put32(blob_at(0) + 0x20u, placed(0));
-    CHECK(rac2_copy_make(&table, placed(0), 0) != 0);
+    put32(blob_at(0) + 0x24u, placed(0));
+    gaddr c = rac2_copy_make(&table, placed(0), 0);
+    CHECK(c != 0);
+    CHECK(GREF(gaddr, GREF(gaddr, c + 0x68u) + 0x20u) == placed(4));
+    CHECK(GREF(gaddr, GREF(gaddr, c + 0x68u) + 0x24u) == c); /* itself: the copy */
+    /* A torso it spawned, naming it back, and an arm the torso names. */
+    make_level();
+    const gaddr torso = func_0029EFD0(THING);
+    const gaddr arm = func_0029EFD0(THING);
+    GREF(uint8_t, torso + 0x20u) = 1;
+    GREF(uint8_t, arm + 0x20u) = 1;
+    putf(torso + 0x10u, 10.0f);
+    putf(torso + 0x14u, 10.0f);
+    putf(torso + 0x18u, 2.0f);
+    put32(blob_at(0) + 0x28u, torso);
+    put32(GREF(gaddr, torso + 0x68u) + 0x70u, placed(0));
+    put32(GREF(gaddr, torso + 0x68u) + 0x10u, arm);
+    put32(GREF(gaddr, arm + 0x68u) + 0x8u, 0x12345678u);
+    /* Lists in their pvars (a joint modifier's node, named by the record's +0x64). */
+    put32(placed(0) + 0x64u, blob_at(0) + 0x30u);
+    put32(torso + 0x64u, GREF(gaddr, torso + 0x68u) + 0x40u);
+    put32(GREF(gaddr, torso + 0x68u) + 0x48u, GREF(gaddr, torso + 0x68u) + 0x40u);
+    c = rac2_copy_make(&table, placed(0), 0);
+    CHECK(c != 0);
+    const gaddr torso2 = GREF(gaddr, GREF(gaddr, c + 0x68u) + 0x28u);
+    CHECK(torso2 != torso && torso2 >= DYNAMIC && torso2 < END);
+    CHECK(GREF(int16_t, torso2 + 0xAAu) == THING && GREF(uint8_t, torso2 + 0x20u) == 1);
+    const gaddr tv = GREF(gaddr, torso2 + 0x68u);
+    CHECK(tv != GREF(gaddr, torso + 0x68u));
+    CHECK(GREF(gaddr, tv + 0x70u) == c); /* its copy of the legs */
+    CHECK(GREF(gaddr, c + 0x64u) == GREF(gaddr, c + 0x68u) + 0x30u);
+    CHECK(GREF(gaddr, torso2 + 0x64u) == tv + 0x40u && GREF(gaddr, tv + 0x48u) == tv + 0x40u);
+    const gaddr arm2 = GREF(gaddr, tv + 0x10u);
+    CHECK(arm2 != arm && arm2 >= DYNAMIC && GREF(int16_t, arm2 + 0xAAu) == THING);
+    CHECK(GREF(uint32_t, GREF(gaddr, arm2 + 0x68u) + 0x8u) == 0x12345678u);
+    /* Moved with the copy. */
+    CHECK(GREF(float, torso2 + 0x10u) == GREF(float, c + 0x10u));
+    CHECK(GREF(float, torso2 + 0x18u) == 2.0f);
+    /* The original's parts are left as they were. */
+    CHECK(GREF(gaddr, GREF(gaddr, torso + 0x68u) + 0x70u) == placed(0));
+    CHECK(GREF(gaddr, GREF(gaddr, torso + 0x68u) + 0x10u) == arm);
+    CHECK(GREF(gaddr, blob_at(0) + 0x28u) == torso);
+    /* Another moby names the torso too: no copy. */
+    const gaddr shared = func_0029EFD0(THING);
+    GREF(uint8_t, shared + 0x20u) = 1;
+    put32(GREF(gaddr, shared + 0x68u) + 0x4u, torso);
+    CHECK(rac2_copy_make(&table, placed(0), 1) == 0);
 }
 
 static void reserve(void) {
@@ -517,15 +597,157 @@ static void death(void) {
     CHECK(!rac2_copy_is(copy));
 }
 
+/* The moby pool: a request adds spare slots to the gameplay file a running loader named, once and
+ * only to that file; the status counts the level's pool. */
+static void pool(void) {
+    make_level();
+    const gaddr file = 0x00A00000u;
+    put32(file + 0x4Cu, 0x100u);
+    put32(file + 0x100u, 12);
+    put32(file + 0x104u, 200);
+    put32(LOAD_CONTEXT + CONTEXT_FILE, file);
+    /* No request: the file as it is. */
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    rac2_pool_loaded(0);
+    CHECK(GREF(int32_t, file + 0x104u) == 200);
+    /* A request of 100, 1,000 is cut to the most; only the loader's file is raised. */
+    CHECK(rac2_pool_raise(100) == 100);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file + 0x1000u);
+    CHECK(GREF(int32_t, file + 0x104u) == 200);
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 300);
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 300);
+    rac2_pool_loaded(0);
+    CHECK(rac2_pool_raise(5000) == RAC2_POOL_EXTRA_MAX);
+    put32(file + 0x104u, 200);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + RAC2_POOL_EXTRA_MAX);
+    rac2_pool_loaded(0);
+    /* The indices stay under 15 bits: placed 12 and spare 0x7FF0 leave room for 3. */
+    put32(file + 0x104u, 0x7FF0);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 0x7FF3);
+    rac2_pool_loaded(0);
+    /* The status of the level's table: 200 spare, the copies' and the level's own alive. */
+    int32_t out[5];
+    CHECK(rac2_pool_status(out) == 1);
+    CHECK(
+        out[0] == (int32_t)DYNAMIC_SLOTS && out[1] + out[2] <= out[0]
+        && out[4] == RAC2_POOL_EXTRA_MAX
+    );
+}
+
+/* The heap's ceiling: a level's first load runs without the raise and measures the room below the
+ * classes above it; the memory is put back and the load runs again with the raise that fits, and
+ * the level's next loads fit at once. */
+static void pool_ceiling(void) {
+    make_level();
+    const gaddr file = 0x00A00000u;
+    const gaddr start = 0x00300000u;
+    put32(file + 0x4Cu, 0x100u);
+    put32(file + 0x100u, 12);
+    put32(file + 0x104u, 200);
+    put32(LOAD_CONTEXT + CONTEXT_FILE, file);
+    put32(LOAD_CONTEXT + 0x48u, start);
+    CHECK(rac2_pool_raise(RAC2_POOL_EXTRA_MAX) == RAC2_POOL_EXTRA_MAX);
+    /* Room for all below the lowest class above the heap (0x500000): measured, then all of it. */
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200);
+    CHECK(rac2_pool_loaded(0x00480000u) == 1);
+    rac2_pool_restore();
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + RAC2_POOL_EXTRA_MAX);
+    CHECK(rac2_pool_loaded(0x00480000u + RAC2_POOL_EXTRA_MAX * 0x180u) == 0);
+    /* Another level's file (its own counts): room for 160 below 0x500000 less the gap; what the
+     * measure's load wrote is put back. */
+    put32(file + 0x100u, 13);
+    put32(file + 0x104u, 200);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200);
+    GREF(uint8_t, 0x00520000u) = 0x5Au;
+    CHECK(rac2_pool_loaded(0x004F0000u) == 1);
+    rac2_pool_restore();
+    CHECK(GREF(uint8_t, 0x00520000u) == 0);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + 160);
+    CHECK(rac2_pool_loaded(0x004F0000u + 160u * 0x180u) == 0);
+    /* Its load again (a death): what fits at once. */
+    put32(file + 0x104u, 200);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + 160);
+    CHECK(rac2_pool_loaded(0x004F0000u + 160u * 0x180u) == 0);
+    /* A level with no room: measured, and no load again; its next load adds none. */
+    put32(file + 0x100u, 14);
+    put32(file + 0x104u, 200);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(rac2_pool_loaded(0x004FF800u) == 0);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200);
+    CHECK(rac2_pool_loaded(0x004FF800u) == 0);
+    /* A raise that crossed the ceiling all the same (a level grown since): laid out again. */
+    put32(file + 0x100u, 13);
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + 160);
+    CHECK(rac2_pool_loaded(0x004F4000u + 160u * 0x180u) == 1);
+    rac2_pool_restore();
+    rac2_pool_loading();
+    rac2_wad_decompressed(file);
+    CHECK(GREF(int32_t, file + 0x104u) == 200 + 117);
+    CHECK(rac2_pool_loaded(0x004F4000u + 117u * 0x180u) == 0);
+}
+
+/* A dead copy's slot given out again: its index comes off its squad's list, the rest stay. */
+static void slot_taken(void) {
+    make_level();
+    const gaddr a = rac2_copy_make(&table, placed(0), 0);
+    const gaddr b = rac2_copy_make(&table, placed(0), 1);
+    CHECK(a != 0 && b != 0);
+    const gaddr list = GREF(gaddr, 0x001EE5A0u + 4u);
+    const uint16_t ia = (uint16_t)((a - BASE) / 0x100u), ib = (uint16_t)((b - BASE) / 0x100u);
+    CHECK(GREF(uint16_t, list + 4u) == ia && GREF(uint16_t, list + 6u) == (ib | 0x8000u));
+    /* A live moby's slot that no list names: the lists are left alone. */
+    const gaddr other = func_0029EFD0(THING);
+    rac2_copy_slot_taken(other);
+    CHECK(GREF(uint16_t, list + 4u) == ia && GREF(uint16_t, list + 6u) == (ib | 0x8000u));
+    /* The last copy dies and a bolt takes its slot: the one before it ends the list. */
+    func_0029F338(b);
+    CHECK(func_0029EFD0(THING) == b);
+    rac2_copy_slot_taken(b);
+    CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x0009u);
+    CHECK(GREF(uint16_t, list + 4u) == (ia | 0x8000u));
+    /* The first dies too: only the members are left, the last with its mark. */
+    func_0029F338(a);
+    CHECK(func_0029EFD0(THING) == a);
+    rac2_copy_slot_taken(a);
+    CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x8009u);
+}
+
 int main(void) {
     openrac_guest_base = calloc(1, openrac_guest_ram_size);
     CHECK(openrac_guest_base != NULL);
     answers();
     copies();
     no_spot();
+    parts();
     reserve();
     stale_and_new_load();
+    slot_taken();
     death();
+    pool();
+    pool_ceiling();
     puts("RAC2 enemy copies: OK");
     return 0;
 }

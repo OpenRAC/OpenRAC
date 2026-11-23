@@ -28,9 +28,11 @@ HERE = Path(__file__).resolve().parent
 
 import asm  # noqa: E402
 import clangast  # noqa: E402
+import data_refs  # noqa: E402
 import ctype  # noqa: E402
 import hostgen  # noqa: E402
 import prep  # noqa: E402
+import program as program_module  # noqa: E402
 
 sys.path.insert(0, str(HERE / "tests"))
 import assembler  # noqa: E402
@@ -122,6 +124,7 @@ class Translate(unittest.TestCase):
             self.assertEqual(report["functions_stubbed"], stubs, report["stubbed"])
             sources = [out / u.strip() for u in (out / "units.txt").read_text().splitlines()]
             self.last_generated = "\n".join(s.read_text() for s in sources)
+            self.last_functions_c = (out / "functions.c").read_text()
             sources += [out / "stubs.c", out / "functions.c", out / "hooks.c", out / "libraries.c", HERE / "tests" / "harness.c"]
             if host_c:
                 (tmp / "host.c").write_text('#include "openrac/guest.h"\n' + textwrap.dedent(host_c))
@@ -200,6 +203,36 @@ class Translate(unittest.TestCase):
                          ["func_00100100", "func_00100140", "func_00100180", "func_001001C0"])
         self.assertNotIn("int func_00100100(", self.last_generated)
         self.assertIn("int func_00100240(", self.last_generated)
+
+    def test_params_from_declarations_listed_hand_floats_on(self):
+        # hostgen.json "params_from_declarations" as a list: only the functions named. Up Your
+        # Arsenal's random_vector (func_L01_00443B88) is matched as (out) and calls rand_range
+        # with no arguments, which on the EE reads the range its callers left in $f12/$f13; the
+        # port handed rand_range whatever the host's float registers held, and a broken crate's
+        # pieces turned by a quaternion of any length grew without end. Listed, it takes its
+        # callers' two floats and hands them on; the function not listed keeps its own C.
+        files = {"a.c": """
+            float func_00100000(float lo, float hi) { return lo * 10.0f + hi; }
+        """, "b.c": """
+            extern float func_00100000(void);
+            void func_00100100(float *out) { *out = func_00100000(); }
+            void func_00100140(float *out) { *out = func_00100000(); }
+        """, "c.c": """
+            extern void func_00100100(float *, float, float);
+            extern void func_00100140(float *, float, float);
+            int test_main(void) {
+                float v = 0.0f, w = 0.0f;
+                func_00100100(&v, 2.0f, 3.0f);
+                func_00100140(&w, 2.0f, 3.0f);
+                test_print((int)v);
+                return 0;
+            }
+        """}
+        out = self.run_program(files, config={"params_from_declarations": ["func_00100100"]})
+        # The one not listed passes nothing there (its zero-arguments site is reached).
+        self.assertEqual(out, ["reach", "func_00100140", "23"])
+        self.assertIn("void func_00100100(gaddr out, float pass_1, float pass_2)", self.last_generated)
+        self.assertNotIn("func_00100140(gaddr out, float", self.last_generated)
 
     def test_a_user_of_a_derived_name_with_no_address_is_left_to_its_assembly(self):
         # rac2-decomp matched func_L00_003ABEC0 after the port's derived_names.json was written: its
@@ -899,6 +932,23 @@ class Translate(unittest.TestCase):
         self.assertEqual(out, ["4123", "5000", "7", "0", "68", "128", "-2", "-1",
                                str(-0x80000000), "-1", "0", "0", "0", "0"])
 
+    def test_a_variadic_function_called_through_its_address_goes_by_its_thunk(self):
+        # hostgen.json "variadic_thunks": the call through a code address (openrac_guest_call_regs)
+        # reaches a variadic function by its thunk on every platform, so its unnamed arguments travel
+        # where the platform's variadic calls put them (Apple's arm64: on the stack; the cast handed
+        # them on in registers, and Up Your Arsenal's sprintf printed the stack's leftovers).
+        files = {"a.c": """
+            int func_00100000(int n, ...) { return n; }
+            int test_main(void) {
+                test_print(((int (*)(int, ...))0x00100000)(3, 4, 5));
+                return 0;
+            }
+        """}
+        out = self.run_program(files, config={"variadic_thunks": True})
+        self.assertEqual(out, ["3"])
+        self.assertIn("k_variadic_thunks", self.last_functions_c)
+        self.assertIn("    openrac_guest_register_thunks(k_variadic_thunks,", self.last_functions_c)
+
     def test_a_local_of_an_unnamed_enum(self):
         # newlib's _vfprintf_r: enum { OCT, DEC, HEX } base; an int, its constants usable.
         out = self.run_program({"a.c": """
@@ -955,6 +1005,24 @@ class Translate(unittest.TestCase):
         self.assertEqual(out, ["42"])
         self.assertEqual(self.last_report["candidates_used"], [])
         self.assertEqual(self.last_report["problems"], {})
+
+    def test_a_scoped_candidate_replaces_stubs_of_its_own_program_only(self):
+        # Up Your Arsenal: frontbin's func_003EFBB0 is another function than the boot program's of
+        # that address; each program's candidate is for its own stubs (candidate_scopes).
+        cfg = {"candidate_scopes": {"nonmatching/boot_elf": "src/boot_elf",
+                                    "nonmatching/frontbin/": "src/frontbin"}}
+        files = {"func_003EFBB0": "nonmatching/frontbin/func_003EFBB0.c",
+                 "func_003EFF68": "nonmatching/boot_elf/func_003EFF68.c",
+                 "func_00100000": "nonmatching/func_00100000.c"}
+        decomp = {name: name for name in files}
+        scopes = hostgen.candidate_scopes(cfg, files, decomp)
+        self.assertEqual(scopes, {"func_003EFBB0": "src/frontbin", "func_003EFF68": "src/boot_elf"})
+        self.assertEqual(sorted(hostgen.scoped_candidates(decomp, scopes, "src/boot_elf")),
+                         ["func_00100000", "func_003EFF68"])
+        self.assertEqual(sorted(hostgen.scoped_candidates(decomp, scopes, "src/frontbin")),
+                         ["func_00100000", "func_003EFBB0"])
+        self.assertEqual(hostgen.candidate_scopes({}, files, decomp), {})
+        self.assertIs(hostgen.scoped_candidates(decomp, {}, "src/boot_elf"), decomp)
 
     def test_a_candidate_steps_aside_for_what_the_file_has_matched(self):
         """One file of the port's own C for two functions; the decompilation has since matched one:
@@ -1354,39 +1422,31 @@ class Translate(unittest.TestCase):
         self.assertIn("openrac_ps2_sub(", self.last_generated)
         self.assertIn("ps2_float: func_00100000 has no C here to translate", self.last_report["index_problems"])
 
-    def test_volatile_word_stores_go_through_the_dma_hook(self):
-        # asm.dma_stores: the game's host C answers the scratchpad DMA channels' stores
-        # (openrac_ee_sw_dma). Functional C that starts a channel by its registers and polls STR
-        # must reach it too, or the transfer never happens and the poll never ends; a plain
-        # word store, and the volatile store of a game without dma_stores, stay ordinary stores.
+    def test_a_scratchpad_dma_register_store_in_c_stops_the_game(self):
+        # asm.spr_copies: C that writes a scratchpad DMA channel's register by its constant address
+        # has no register page behind it: a word that starts no transfer does nothing, and a CHCR
+        # with STR (the SDK's MPEG library) stops the game (openrac_ee_dma_register). Other
+        # volatile words store as usual.
         files = {"a.c": """
             extern unsigned int D_00200000[3];
             void kick(void) {
-                volatile unsigned int *chcr = (volatile unsigned int *)&D_00200000[1] + 1;
-                *chcr = 0x100;
-                while (*chcr & 0x100) {
-                }
+                *(volatile unsigned int *)0x1000D420 = 3;
+                *(volatile unsigned int *)0x1000D400 = 0;
+                *(volatile unsigned int *)0x1000D400 = 0x100;
                 D_00200000[0] = 7;
-                test_print(D_00200000[1]);
+                test_print(D_00200000[0]);
             }
             int test_main(void) {
                 kick();
                 return 0;
             }
         """}
-        host = """
-            void openrac_ee_sw_dma(unsigned int a, unsigned long long v) {
-                GREF(unsigned int, a) = (unsigned int)v & ~0x100u;  /* the transfer done at once */
-                GREF(unsigned int, 0x00200004u) = a;
-            }
-        """
-        out = self.run_program(files, config={"asm": {"dma_stores": True}}, host_c=host)
-        self.assertEqual(out, [str(0x00200008)])
-        self.assertEqual(self.last_generated.count("openrac_ee_sw_dma((gaddr)"), 1)
-        files_plain = {"a.c": files["a.c"].replace("while (*chcr & 0x100) {\n                }", "")}
-        out = self.run_program(files_plain, host_c=host)
-        self.assertEqual(out, ["0"])
-        self.assertNotIn("openrac_ee_sw_dma(", self.last_generated)
+        out = self.run_program(files, config={"asm": {"spr_copies": True}})
+        self.assertEqual(out, ["dma", "register", "kick", "00000000", "1000D400", "7"])
+        files_other = {"a.c": files["a.c"].replace("0x1000D4", "0x002004")}
+        out = self.run_program(files_other, config={"asm": {"spr_copies": True}})
+        self.assertEqual(out, ["7"])
+        self.assertNotIn("openrac_ee_dma_register", self.last_generated)
 
     def test_ps2_float_reaches_the_static_helpers_of_its_candidate(self):
         # A ps2_float function's candidate C is that routine's arithmetic split up: its static
@@ -2496,6 +2556,63 @@ class Places(unittest.TestCase):
             self.assertNotIn("OPENRAC_LDATA(0, 0x001B3DB0u)", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_another_levels_data_name_is_that_levels_address(self):
+        # Up Your Arsenal's func_L13_003ABD48 was matched from level 16's copy and names the path
+        # table D_L16_0021ED00, which level 13 has at 0x0021D540. Read as level 13's 0x0021ED00,
+        # the walkers took a path pointer from other data and faulted in levels 13, 16 and 22.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L13_003ABD48.c").write_text(
+                "extern int *D_L16_0021ED00[];\n"
+                "int *func_L13_003ABD48(int i) { return D_L16_0021ED00[i]; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L13_003ABD48\tshared\t40\tfingerprint\t2\t13:003ABD48,16:003D8058\n")
+            (root / "names.json").write_text(json.dumps({"values": {"D_L16_0021ED00": "0x0021ed00"}}))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1D5680, 0x700000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L13_003ABD48.c").read_text()
+            self.assertIn("OPENRAC_LDATA(16, 0x0021ED00u)", text)
+            self.assertNotIn("OPENRAC_LDATA(13, 0x0021ED00u)", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_level_datums_second_name_is_its_own_address(self):
+        # Going Commando PAL's blast_clear_state clears D_L00_001B060C_1, the Mini-Nuke's blast
+        # pointer. The release table leaves it out where it did not move; read as the executable's
+        # D_001B060C (another datum) the pointer was never cleared and the third blast deleted itself.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L00_003E3258.c").write_text(
+                "extern int D_L00_001B060C_1;\n"
+                "void func_L00_003E95B0(void) { D_L00_001B060C_1 = 0; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_003E95B0\tshared\t8\tfingerprint\t2\t00:003E95B0,02:003EC0B0\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {},
+                "level_data": {"0": {"D_001B060C": "0x001b090c"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7C80, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L00_003E3258.c").read_text()
+            self.assertIn("0x001B060Cu", text)
+            self.assertNotIn("0x001B090Cu", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_the_gp_view_of_a_level_derived_global_is_that_global(self):
         # Going Commando's follow camera stick read (func_L00_00424F98, L00_00424F98-g8.c) says
         # `extern float ref_L00_00424F98_03 SDATA(ref_L00_00424F98_03)`: the label is the name with
@@ -2959,6 +3076,42 @@ class Places(unittest.TestCase):
             self.assertIn("a.c:3:", problems[0])
             self.assertIn("argument 3 is int for long long", problems[0])
 
+    def test_without_the_disc_a_verified_signature_the_port_calls_is_declared(self):
+        import asmc
+        from program import Program
+        program = Program()
+        a = {"signatures": {"func_00284D30": "unsigned long long (int)", "func_00284F80": "void (int)"}}
+        asmc.apply_signatures(program, a, discovered=False,
+                              host_text="u64 t = func_00284D30(tex);\n")
+        self.assertEqual(sorted(program.functions), ["func_00284D30"])
+        self.assertTrue(program.functions["func_00284D30"].sig.prototyped)
+
+    def test_abicheck_places_a_static_in_its_files_program(self):
+        # frontbin's static TextA_3EB728 calls 0x00391210, frontbin's function there, not the
+        # boot executable's other code at that address.
+        with tempfile.TemporaryDirectory() as tmp:
+            gen = Path(tmp)
+            (gen / "game_protos.h").write_text(
+                "void func_00391210(int a0, float a1);\nvoid func_00391210__frontbin(int a0, int a1);\n"
+                "void func_003EB7D0__frontbin(void);\n")
+            (gen / "functions.c").write_text(
+                "static const openrac_fn_entry k_exe[] = {\n"
+                "    {0x00391210u, (openrac_host_fn)func_00391210, \"func_00391210\"},\n};\n"
+                "static const openrac_fn_entry k_overlay_100[] = {\n"
+                "    {0x00391210u, (openrac_host_fn)func_00391210__frontbin, \"func_00391210__frontbin\"},\n"
+                "    {0x003EB7D0u, (openrac_host_fn)func_003EB7D0__frontbin, \"func_003EB7D0__frontbin\"},\n};\n")
+            (gen / "a.c").write_text(
+                "static void game_TextA_3EB728(int d)\n{\n"
+                "    GFN(void (*)(int, int), (0x00391210u))(d, 2);\n"
+                "}\n"
+                "void func_003EB7D0__frontbin(void)\n{\n"
+                "    game_TextA_3EB728(1);\n"
+                "}\n")
+            import abicheck
+            problems, stats = abicheck.check(gen)
+            self.assertEqual(problems, [])
+            self.assertEqual(stats["known"], 1)
+
     def test_abicheck_finds_a_call_whose_positions_differ(self):
         with tempfile.TemporaryDirectory() as tmp:
             gen = Path(tmp)
@@ -3291,6 +3444,23 @@ class Preparation(unittest.TestCase):
         program.executable_starts = {0x002CB038}
         self.assertEqual(program.canonical("func_002CB038"), "func_002CB038")
 
+    def test_another_name_of_a_host_place_calls_the_port_function(self):
+        # rac3-decomp names a function per caller file (func_0011A264_00398288 for memset); with a
+        # libraries.tsv host row at that address the name had no C and was a stub that did nothing.
+        program = hostgen.Program()
+        program.code_names = [re.compile(r"^func_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        program.host = {"func_00100000"}
+        sig = hostgen.Signature
+        program.functions["func_00100000"] = hostgen.Function(
+            "func_00100000", sig(ctype.Base("int"), (ctype.Base("int"), ctype.Base("float")), False, True))
+        alias = hostgen.Function(
+            "func_00100000_00200000", sig(ctype.Base("int"), (ctype.Base("float"), ctype.Base("int")), False, True))
+        program.functions[alias.symbol] = alias
+        program.symbols[alias.symbol] = 0x00100000
+        program.index_places()
+        self.assertEqual(hostgen.host_alias_call(program, alias), "func_00100000((int)a1, (float)a0)")
+        self.assertIsNone(hostgen.host_alias_call(program, program.functions["func_00100000"]))
+
     def test_each_declarator_keeps_its_own_assembler_name(self):
         # Batalia: several names in one extern statement each reach their own symbol, not the first's.
         src = ('extern float func_A(int),func_B(float), *D_C;\n'
@@ -3512,6 +3682,44 @@ class FromAssembly(unittest.TestCase):
                  for name, (start, text) in functions.items()}
         return self.run_program({"a.c": c}, config=config or ASM_CONFIG, extra_files=files)
 
+    def test_result_flow_a_scratch_v0_beside_f0_is_a_float_result(self):
+        # asm.result_flow: a function declared nowhere that sets $f0 and uses $v0 only for a test
+        # (slt, then a branch on it) returns a float, which its caller reads in $f0 (the text fit
+        # routine of Up Your Arsenal's multiplayer menus, 0x005946B0). Without it, int.
+        functions = {
+            "func_00100100": (0x100100, """
+                slt $2, $4, $5
+                beq $2, $0, big
+                mtc1 $4, $f0
+                jr $31
+                cvt.s.w $f0, $f0
+            big:
+                mtc1 $5, $f0
+                jr $31
+                cvt.s.w $f0, $f0
+            """),
+            "func_00100000": (0x100000, """
+                addiu $29, $29, -16
+                sd $31, 0($29)
+                jal func_00100100
+                nop
+                cvt.w.s $f0, $f0
+                mfc1 $2, $f0
+                ld $31, 0($29)
+                jr $31
+                addiu $29, $29, 16
+            """),
+        }
+        c = """
+            INCLUDE_ASM("asm", func_00100100);
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int a, int b);
+            int test_main(void) { test_print(func_00100000(3, 9)); test_print(func_00100000(8, 2)); return 0; }
+        """
+        config = {"asm": {**ASM_CONFIG["asm"], "result_flow": True}}
+        out = self.run_asm(c, functions, symbols={"func_00100100": 0x100100}, config=config)
+        self.assertEqual(out, ["3", "2"])
+
     def test_a_translated_caller_reads_a_result_a_c_wrapper_passes_on(self):
         # A wrapper matched `void` that ends in an assembly function: its caller, in assembly, reads
         # the result in $v0 (results_before_calls: Going Commando's func_L00_002B5590, func_002D5B38).
@@ -3543,6 +3751,298 @@ class FromAssembly(unittest.TestCase):
             """),
         }, symbols={"func_00100200": 0x100200}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], results_before_calls=True)))
         self.assertEqual(out, ["8"])
+
+    # asm.signature_check (asmc.Translator._check_result, _check_arguments): a float the callee hands
+    # back in $f0 while its registers made it an int function (it uses $v0 as a temporary, as Up Your
+    # Arsenal's vector library does), and a parameter its code reads only past an early return.
+    FLOAT_CALLEE = {
+        "func_00100000": (0x100000, """
+            lui $2, 0x3F80
+            mtc1 $2, $f1
+            add.s $f0, $f12, $f1
+            jr $31
+            nop
+        """),
+        "func_00100100": (0x100100, """
+            addiu $29, $29, -16
+            sq $31, 0($29)
+            lui $2, 0x4000
+            mtc1 $2, $f12
+            jal func_00100000
+            nop
+            cvt.w.s $f0, $f0
+            mfc1 $2, $f0
+            lq $31, 0($29)
+            jr $31
+            addiu $29, $29, 16
+        """),
+    }
+    FLOAT_C = """
+        INCLUDE_ASM("asm", func_00100000);
+        INCLUDE_ASM("asm", func_00100100);
+        extern int func_00100100(void);
+        int test_main(void) {
+            test_print(func_00100100());
+            return 0;
+        }
+    """
+
+    # Up Your Arsenal's random_vector: matched as (out), its call of rand_range passes nothing,
+    # and the EE's $f12/$f13 hand rand_range its callers' range. The C function's own code is in
+    # the assembly too, as the disc has every function's.
+    HANDED_ON = {
+        "func_00100000": (0x100000, """
+            add.s $f0, $f12, $f13
+            jr $31
+            nop
+        """),
+        "func_00100100": (0x100100, """
+            addiu $29, $29, -32
+            sd $16, 0($29)
+            sd $31, 8($29)
+            jal func_00100000
+            daddu $16, $4, $0
+            swc1 $f0, 0($16)
+            ld $31, 8($29)
+            ld $16, 0($29)
+            jr $31
+            addiu $29, $29, 32
+        """),
+    }
+    HANDED_ON_C = """
+        INCLUDE_ASM("asm", func_00100000);
+        extern float func_00100000(void);
+        void func_00100100(float *out) { *out = func_00100000(); }
+        int test_main(void) {
+            float v = 0.0f;
+            ((void (*)(float *, float, float))func_00100100)(&v, 2.0f, 3.0f);
+            test_print((int)v);
+            return 0;
+        }
+    """
+
+    def test_signature_check_finds_a_c_definition_that_drops_what_it_hands_on(self):
+        # asm.signature_check over the functions with C (c_argument_drops): func_00100100's code
+        # reads $f12 and $f13 (its call hands them on) that its definition does not name.
+        check = dict(ASM_CONFIG["asm"], signature_check=True)
+        self.run_asm(self.HANDED_ON_C, self.HANDED_ON, symbols={"func_00100000": 0x100000},
+                     config=dict(ASM_CONFIG, asm=check))
+        drops = self.last_report["c_argument_drops"]
+        self.assertEqual(drops["func_00100100"]["reads"], [1, 2])
+        self.assertEqual(drops["func_00100100"]["takes"], [1, 0])
+        self.assertEqual(self.last_report["params_from_code"], [])
+
+    def test_params_from_code_names_what_a_c_definition_hands_on(self):
+        # asm.params_from_code: the definition takes them, and its short call hands them on, as
+        # the EE's registers did (the range reaches rand_range: 2 + 3).
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, params_from_code=True)
+        out = self.run_asm(self.HANDED_ON_C, self.HANDED_ON, symbols={"func_00100000": 0x100000},
+                           config=dict(ASM_CONFIG, asm=fixed))
+        self.assertEqual(out, ["5"])
+        self.assertEqual(self.last_report["params_from_code"], ["func_00100100: 0 integer, 2 float"])
+        self.assertEqual(self.last_report["c_argument_drops"], {})
+        self.assertIn("void func_00100100(gaddr out, float pass_1, float pass_2)", self.last_generated)
+
+    def test_stack_arguments_a_ninth_argument_read_from_the_callers_frame(self):
+        # asm.stack_arguments: the levels' copy of frontbin's func_003910C0 (func_L01_00412C08)
+        # reads a ninth argument from its caller's frame, above its own; declared with eight, its
+        # translation took eight and C callers' ninth never reached it (#719).
+        functions = {"func_00100000": (0x100000, """
+            addiu $29, $29, -16
+            ld $2, 16($29)
+            jr $31
+            addiu $29, $29, 16
+        """)}
+        c = """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int, int, int, int, int, int, int, int);
+            int test_main(void) {
+                test_print(((int (*)(int, int, int, int, int, int, int, int, int))func_00100000)(1, 2, 3, 4, 5, 6, 7, 8, 42));
+                return 0;
+            }
+        """
+        config = {"asm": {**ASM_CONFIG["asm"], "live_arguments": True, "stack_arguments": True}}
+        out = self.run_asm(c, functions, config=config)
+        self.assertEqual(out, ["42"])
+        self.assertIn("func_00100000(int a0, int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8)",
+                      self.last_generated)
+
+    def test_signature_check_finds_a_float_result_an_int_signature_drops(self):
+        allow = dict(ASM_CONFIG["asm"], signature_check=True,
+                     signature_allow={"func_00100100": "the test: the finding itself"})
+        self.run_asm(self.FLOAT_C, self.FLOAT_CALLEE, symbols={"func_00100000": 0x100000}, config=dict(ASM_CONFIG, asm=allow))
+        drops = self.last_report["assembly_signature_drops"]
+        self.assertEqual(list(drops), ["func_00100100"])
+        self.assertIn("func_00100000: the code reads $f0 after the call", drops["func_00100100"][0])
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, signatures={"func_00100000": "float (float)"})
+        out = self.run_asm(self.FLOAT_C, self.FLOAT_CALLEE, symbols={"func_00100000": 0x100000}, config=dict(ASM_CONFIG, asm=fixed))
+        self.assertEqual(out, ["3"])
+        self.assertEqual(self.last_report["assembly_signature_drops"], {})
+
+    ARGUMENT_CALLEE = {
+        "func_00100200": (0x100200, """
+            bne $4, $0, more
+            nop
+            jr $31
+            daddu $2, $0, $0
+        more:
+            jr $31
+            addu $2, $4, $5
+        """),
+        "func_00100300": (0x100300, """
+            addiu $29, $29, -16
+            sq $31, 0($29)
+            addiu $4, $0, 1
+            jal func_00100200
+            addiu $5, $0, 5
+            lq $31, 0($29)
+            jr $31
+            addiu $29, $29, 16
+        """),
+    }
+    ARGUMENT_C = """
+        INCLUDE_ASM("asm", func_00100200);
+        extern int func_00100200(int a);
+        INCLUDE_ASM("asm", func_00100300);
+        extern int func_00100300(void);
+        int test_main(void) {
+            test_print(func_00100300());
+            return 0;
+        }
+    """
+
+    def test_signature_check_finds_a_parameter_read_past_an_early_return(self):
+        allow = dict(ASM_CONFIG["asm"], signature_check=True,
+                     signature_allow={"func_00100200": "the test: the finding itself"})
+        self.run_asm(self.ARGUMENT_C, self.ARGUMENT_CALLEE, symbols={"func_00100200": 0x100200}, config=dict(ASM_CONFIG, asm=allow))
+        drops = self.last_report["assembly_signature_drops"]
+        self.assertEqual(drops, {"func_00100200": [
+            "reads 2 integer and 0 float argument registers, its signature takes 1 and 0"]})
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, signatures={"func_00100200": "int (int, int)"})
+        out = self.run_asm(self.ARGUMENT_C, self.ARGUMENT_CALLEE, symbols={"func_00100200": 0x100200}, config=dict(ASM_CONFIG, asm=fixed))
+        self.assertEqual(out, ["6"])
+        self.assertEqual(self.last_report["assembly_signature_drops"], {})
+
+    # A call through a pointer (Up Your Arsenal's frame widget draw, func_003EEBF8): the callee is not
+    # known, but the call sets $a2, so it takes $a0 and $a1 as well, and the $a1 handed on from the
+    # entry is an argument the signature must take. The call's own register ($a3 here) says nothing.
+    POINTER_CALL = {
+        "func_00100400": (0x100400, """
+            addiu $29, $29, -16
+            sq $31, 0($29)
+            lw $7, 8($4)
+            daddu $6, $29, $0
+            jalr $31, $7
+            nop
+            lq $31, 0($29)
+            jr $31
+            addiu $29, $29, 16
+        """),
+        "func_00100500": (0x100500, """
+            addiu $29, $29, -16
+            sq $31, 0($29)
+            lw $7, 8($4)
+            jalr $31, $7
+            nop
+            lq $31, 0($29)
+            jr $31
+            addiu $29, $29, 16
+        """),
+    }
+    POINTER_C = """
+        INCLUDE_ASM("asm", func_00100400);
+        extern int func_00100400(int w);
+        INCLUDE_ASM("asm", func_00100500);
+        extern int func_00100500(int w);
+        int test_main(void) {
+            test_print(1);
+            return 0;
+        }
+    """
+
+    def test_signature_check_finds_a_parameter_handed_on_to_a_pointer_call(self):
+        allow = dict(ASM_CONFIG["asm"], signature_check=True,
+                     signature_allow={"func_00100400": "the test: the finding itself"})
+        self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=allow))
+        self.assertEqual(self.last_report["assembly_signature_drops"], {"func_00100400": [
+            "reads 2 integer and 0 float argument registers, its signature takes 1 and 0"]})
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, signatures={"func_00100400": "int (int, int)"})
+        self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=fixed))
+        self.assertEqual(self.last_report["assembly_signature_drops"], {})
+
+    def test_float_parameters_on_calls_hand_on_an_untouched_float(self):
+        # asm.float_parameters_on_calls: NTSC-U's func_L01_00432FE8 takes its help box's four
+        # extents in $f12-$f15 and calls the frame drawer through a code address without touching
+        # them; the call handed the drawer 0.0 for each, as no float register was written.
+        functions = {"func_00100600": (0x100600, """
+            addiu $29, $29, -16
+            sq $31, 0($29)
+            jalr $31, $4
+            nop
+            lq $31, 0($29)
+            jr $31
+            addiu $29, $29, 16
+        """)}
+        c = """
+            INCLUDE_ASM("asm", func_00100600);
+            extern int func_00100600(int (*f)(float, float), float x, float y);
+            int func_00100700(float x, float y) { return (int)(x + y); }
+            int test_main(void) { test_print(func_00100600(func_00100700, 2.5f, 4.5f)); return 0; }
+        """
+        config = {"asm": {**ASM_CONFIG["asm"], "signatures": {"func_00100600": "int (void *, float, float)"}}}
+        symbols = {"func_00100700": 0x100700}
+        self.run_asm(c, functions, symbols, config=config)
+        self.assertIn("(const float[8]){0.0f, 0.0f,", self.last_generated)
+        config["asm"]["float_parameters_on_calls"] = True
+        self.assertEqual(self.run_asm(c, functions, symbols, config=config), ["7"])
+        self.assertIn("(const float[8]){f12, f13,", self.last_generated)
+        self.assertIn("f12 = a1;", self.last_generated)
+
+    def test_live_arguments_take_a_parameter_handed_on_to_a_pointer_call(self):
+        # asm.live_arguments: the $a1 that func_00100400 hands on to its pointer call (which
+        # sets $a2) becomes its parameter, as func_00100400's signature above does by hand.
+        fixed = dict(ASM_CONFIG["asm"], signature_check=True, live_arguments=True)
+        self.run_asm(self.POINTER_C, self.POINTER_CALL, config=dict(ASM_CONFIG, asm=fixed))
+        self.assertEqual(self.last_report["assembly_signature_drops"], {})
+
+    # An argument saved to the frame and read through the slot's address (libgcc's dp-bit
+    # routines hand their doubles to unpack_d so, func_00128F90): the saving is a use of it.
+    FRAME_ADDRESS = {
+        "func_00100600": (0x100600, """
+            addiu $29, $29, -32
+            sq $31, 16($29)
+            sd $4, 0($29)
+            sd $5, 8($29)
+            jal func_00100700
+            addiu $4, $29, 8
+            lq $31, 16($29)
+            jr $31
+            addiu $29, $29, 32
+        """),
+        "func_00100700": (0x100700, """
+            jr $31
+            lw $2, 0($4)
+        """),
+    }
+    FRAME_ADDRESS_C = """
+        INCLUDE_ASM("asm", func_00100600);
+        extern int func_00100600();
+        INCLUDE_ASM("asm", func_00100700);
+        extern int func_00100700(int p);
+        int test_main(void) {
+            test_print(1);
+            return 0;
+        }
+    """
+
+    def test_signature_check_counts_a_parameter_read_through_its_frame_slot(self):
+        # Saved to the frame and its slot's address handed on: $a1 is an argument, so the inferred
+        # signature takes it (and nothing is reported dropped); before, it took $a0 alone.
+        check = dict(ASM_CONFIG["asm"], signature_check=True)
+        self.run_asm(self.FRAME_ADDRESS_C, self.FRAME_ADDRESS, symbols={"func_00100700": 0x100700},
+                     config=dict(ASM_CONFIG, asm=check))
+        self.assertEqual(self.last_report["assembly_signature_drops"], {})
+        self.assertRegex(self.last_generated, r"int func_00100600\(int a0, int a1\) \{")
 
     def test_branches_and_delay_slots(self):
         # sum of n..1, the counter decremented in the delay slot after the test read it; a likely
@@ -4225,6 +4725,44 @@ class FromAssembly(unittest.TestCase):
             extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source, symbols)})
         self.assertEqual(out, ["7", "6", "4"])
 
+    def test_a_computed_jump_runs_past_its_compares(self):
+        # A run of compares, each a branch forward over its own instructions, entered by a computed
+        # offset (Up Your Arsenal's func_003D37D8 at 0x003D3A4C): every compare is an entry, the
+        # branches' delay slots are not, and the run ends at the jump.
+        source = """
+                sll $4, $4, 4
+                lui $8, %hi(run)
+                addiu $8, $8, %lo(run)
+                addu $9, $8, $4
+                addiu $2, $0, 0
+                jr $9
+                nop
+            run:
+                bltz $5, one
+                nop
+                addiu $2, $2, 1
+                nop
+            one:
+                bltz $5, two
+                nop
+                addiu $2, $2, 2
+                nop
+            two:
+                addiu $2, $2, 4
+                jr $31
+                nop
+        """
+        symbols = {"run": assembler.label_addresses(0x00100000, source)["run"]}
+        out = self.run_program({"a.c": """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int, int);
+            int test_main(void) { test_print(func_00100000(0, 0)); test_print(func_00100000(1, 0));
+                                  test_print(func_00100000(2, 0)); test_print(func_00100000(0, -1));
+                                  return 0; }
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], register_jumps=True)),
+            extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source, symbols)})
+        self.assertEqual(out, ["7", "6", "4", "4"])
+
     def test_the_declaration_the_code_agrees_with(self):
         # One file declares a float where the register is an integer's and adds a parameter: its
         # length must not win over what the code reads ($4, $5 and $f12).
@@ -4293,7 +4831,7 @@ class FromAssembly(unittest.TestCase):
         self.assertEqual(out, ["5"])
 
     def test_a_dma_wait_is_over(self):
-        # bc0f back to itself: the wait for a transfer that has already finished here.
+        # bc0f back to itself: the wait for a scratchpad copy, which is over when it starts.
         source = """
             wait:
                 nop
@@ -4306,9 +4844,103 @@ class FromAssembly(unittest.TestCase):
             INCLUDE_ASM("asm", func_00100000);
             extern int func_00100000(int);
             int test_main(void) { test_print(func_00100000(5)); return 0; }
-        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], dma_done=True)),
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], spr_copies=True)),
             extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source)})
         self.assertEqual(out, ["6"])
+
+    def test_a_kernel_copies_to_the_scratchpad_where_it_starts_the_channel(self):
+        # asm.spr_copies: toSPR's MADR, QWC and SADR are the function's locals, the CHCR store
+        # with STR the copy (openrac_spr_copy), and the poll of STR reads it clear. The registers'
+        # address is built once and kept across a call; SADR wraps round the scratchpad's 16 KB.
+        source = """
+                lui $8, 0x1000
+                ori $8, $8, 0xD400
+                sw $4, 0x10($8)
+                ori $2, $0, 2
+                sw $2, 0x20($8)
+                lui $2, 0x7000
+                ori $2, $2, 0x3FF0
+                jal func_00100100
+                sw $2, 0x80($8)
+                ori $2, $0, 0x100
+                sw $2, 0x0($8)
+            poll:
+                lw $2, 0x0($8)
+                andi $2, $2, 0x100
+                bne $2, $0, poll
+                nop
+                lui $3, 0x7000
+                lw $2, 0x3FF4($3)
+                lw $3, 0x0($3)
+                lw $9, 0x20($8)
+                addu $2, $2, $3
+                jr $31
+                addu $2, $2, $9
+        """
+        out = self.run_asm("""
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            void func_00100100(void) { }
+            extern unsigned int D_00200000[8];
+            int test_main(void) {
+                D_00200000[1] = 30;
+                D_00200000[4] = 12;
+                test_print(func_00100000(0x00200000));
+                return 0;
+            }
+        """, {"func_00100000": (0x00100000, source)}, symbols={"func_00100100": 0x00100100},
+            config={"asm": {**ASM_CONFIG["asm"], "spr_copies": True}})
+        self.assertEqual(out, ["42"])
+        self.assertIn("openrac_spr_copy(1, &spr9_chcr", self.last_generated)
+        self.assertNotIn("0x1000D400", self.last_generated)
+
+    def test_a_scratchpad_channel_started_from_elsewhere_stops_the_game(self):
+        # A CHCR start whose MADR, QWC or SADR this function did not store on the way: copied from
+        # registers another function wrote, which the copies do not keep; it stops the game.
+        source = """
+                lui $8, 0x1000
+                ori $8, $8, 0xD000
+                ori $2, $0, 0x100
+                sw $2, 0x0($8)
+                jr $31
+                addiu $2, $0, 5
+        """
+        out = self.run_asm("""
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(void);
+            int test_main(void) { test_print(func_00100000()); return 0; }
+        """, {"func_00100000": (0x00100000, source)}, config={"asm": {**ASM_CONFIG["asm"], "spr_copies": True}})
+        self.assertEqual(out, ["dma", "register", "func_00100000", "0010000C", "1000D000", "5"])
+
+    def test_a_trap_that_always_fires_ends_the_path(self):
+        # asm.trap_ends: teq $0, $0 is code the routine cannot reach (Up Your Arsenal's moby grid,
+        # func_003C7D10); what lies below it is another routine's, whose system call would have made
+        # this one a stub.
+        source = """
+                beq $4, $0, trap
+                nop
+                jr $31
+                addiu $2, $4, 1
+            trap:
+                teq $0, $0
+                syscall
+                jr $31
+                nop
+        """
+        c = """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            int test_main(void) { test_print(func_00100000(5)); return 0; }
+        """
+        out = self.run_program({"a.c": c}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], trap_ends=True)),
+                               extra_files={"game/asm/func_00100000.s": assembler.assemble(
+                                   "func_00100000", 0x00100000, source)})
+        self.assertEqual(out, ["6"])
+        self.assertEqual(self.last_report["functions_from_assembly"], 1)
+        self.assertNotIn("syscall", self.last_generated)
+        self.run_program({"a.c": c}, extra_files={"game/asm/func_00100000.s": assembler.assemble(
+            "func_00100000", 0x00100000, source)}, config=ASM_CONFIG)
+        self.assertEqual(self.last_report["assembly_unsupported"], {"func_00100000": "a system call at 00100014"})
 
     def test_a_return_through_a_copy_of_ra(self):
         # A leaf that calls helpers keeps $ra in a temporary and ends with jr on it: a return, not a
@@ -4570,6 +5202,128 @@ class AssemblyGuard(unittest.TestCase):
         self.assertEqual(got["assembly_allow_unused"], [])
 
 
+class DataGuard(unittest.TestCase):
+    """hostgen.json "data_allow": a function with no C that a global's initializer or a wrap row reaches."""
+
+    def summary(self):
+        return {"without_c_places": {"func_A": {"kind": "no-c"}, "func_B": {"kind": "asm"},
+                                     "func_C": {"kind": "no-c", "other_spelling": "func_C2"},
+                                     "func_D": {"kind": "no-c", "other_spelling": "func_A"},
+                                     "func_W": {"kind": "no-c"}},
+                "from_assembly": {"func_B": "<disc>"},
+                "data_references": {"func_A": ["menu (a.c)"], "func_B": ["page (b.c)"],
+                                    "func_C": ["list (c.c)"], "func_D": ["list (d.c)"], "func_E": ["x (e.c)"]}}
+
+    def test_a_stub_in_data_or_behind_a_wrap_fails(self):
+        # func_C's other spelling has C; func_E has C; func_D is another name of func_A.
+        got = hostgen.data_guard(self.summary(), {}, ["func_W", "func_E"])
+        self.assertEqual(got["data_reached"], {
+            "func_A": ["data: list (d.c)", "data: menu (a.c)"], "func_B": ["data: page (b.c)"],
+            "func_W": ["libraries.tsv wrap row (host C calls func_W__game)"]})
+        self.assertEqual(got["data_unallowed"], ["func_A", "func_B", "func_W"])
+
+    def test_an_allowed_row_stands_and_an_unused_one_is_said(self):
+        got = hostgen.data_guard(self.summary(), {"func_A": "why", "func_Z": "why"}, [])
+        self.assertEqual(got["data_unallowed"], ["func_B"])
+        self.assertEqual(got["data_allow_unused"], ["func_Z"])
+
+    def test_a_place_the_disc_data_holds_needs_a_function_with_c(self):
+        # 01:00300000 has func_A (no C), boot:00100000 func_E (C), 02:00300010 nothing at all.
+        places = {"01:00300000": "func_A", "boot:00100000": "func_E", "02:00300010": None}
+        got = hostgen.data_guard(self.summary(), {"02:00300010": "a switch's case"}, [], places)
+        self.assertEqual(got["data_reached"]["func_A"][-1], "the disc's data holds 01:00300000")
+        self.assertEqual(got["data_unallowed"], ["func_A", "func_B"])
+        self.assertEqual(got["data_allow_unused"], [])
+        with tempfile.TemporaryDirectory() as tmp:
+            table = Path(tmp) / "data_refs.tsv"
+            table.write_text("# about\nplace\tname\nboot:00100000\tfunc_E\n01:00300000\tfunc_A\n")
+            self.assertEqual(data_refs.read(table), [(-1, 0x00100000), (1, 0x00300000)])
+
+    def test_a_global_initializer_names_its_functions(self):
+        decl = {"kind": "VarDecl", "name": "menu", "init": "list", "inner": [{"kind": "InitListExpr", "inner": [
+            {"kind": "ImplicitCastExpr", "inner": [{"kind": "DeclRefExpr", "referencedDecl": {
+                "kind": "FunctionDecl", "name": "func_B"}}]},
+            {"kind": "DeclRefExpr", "referencedDecl": {"kind": "FunctionDecl", "name": "func_A"}},
+            {"kind": "DeclRefExpr", "referencedDecl": {"kind": "VarDecl", "name": "D_1"}}]}]}
+        self.assertEqual(program_module.initializer_functions(decl), ["func_A", "func_B"])
+
+
+class CandidateFolders(unittest.TestCase):
+    """hostgen.json "candidate_folders_left_out": a program whose retail code the build reads (Up
+    Your Arsenal's frontbin) is translated from it, not from another release's drafts."""
+
+    def test_candidates_under_a_folder_are_left_out(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "nonmatching" / "frontbin").mkdir(parents=True)
+            (root / "nonmatching" / "boot").mkdir(parents=True)
+            (root / "nonmatching" / "frontbin" / "a.c").write_text("void func_A(void) {}\n")
+            (root / "nonmatching" / "boot" / "b.c").write_text("void func_B(void) {}\n")
+            (root / "functional.tsv").write_text("# name\tfile\nfunc_A\tnonmatching/frontbin/a.c\n"
+                                                 "func_B\tnonmatching/boot/b.c\n")
+            cfg = {"candidates": "functional.tsv"}
+            self.assertEqual(sorted(hostgen.read_candidates(root, cfg)), ["func_A", "func_B"])
+            cfg["candidate_folders_left_out"] = {"nonmatching/frontbin": "translated from the disc"}
+            self.assertEqual(sorted(hostgen.read_candidates(root, cfg)), ["func_B"])
+
+    def test_candidates_by_gate_verdict_are_left_out(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "f").mkdir()
+            for name in "ABCD":
+                (root / "f" / f"{name}.c").write_text(f"void func_{name}(void) {{}}\n")
+            (root / "functional.tsv").write_text(
+                "# name\tfile\tconfidence\tprogram\tdraft\tgate\n"
+                "func_A\tf/A.c\thigh\tlevels\tfunctional\tsame-fuzz 5/5 blocks\n"
+                "func_B\tf/B.c\thigh\tlevels\tfunctional\tdiffers-fuzz 3/9 blocks\n"
+                "func_C\tf/C.c\tmedium\tfrontbin\tfunctional\tnot-checkable: no twin\n"
+                "func_D\tf/D.c\thigh\tlevels\n")
+            cfg = {"candidates": "functional.tsv"}
+            self.assertEqual(sorted(hostgen.read_candidates(root, cfg)), ["func_A", "func_B", "func_C", "func_D"])
+            cfg["candidate_gates_left_out"] = {"differs-fuzz": "behaves otherwise", "not-checkable": "unchecked"}
+            self.assertEqual(sorted(hostgen.read_candidates(root, cfg)), ["func_A", "func_D"])
+
+
+class PortHeaders(unittest.TestCase):
+    """hostgen.json "headers": the port's own copy of a decompilation header, found first (Up Your
+    Arsenal's include/vu0.h, whose "=j" asm Clang refuses)."""
+
+    def run_hostgen(self, headers: bool) -> tuple[int, str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            src = tmp / "game"
+            (src / "include").mkdir(parents=True)
+            (src / "include" / "common.h").write_text(COMMON_H)
+            (src / "include" / "vu0.h").write_text(
+                'static __inline__ float fabs_asm(float x) { float r; __asm__("abs.s %0, %1" : "=j"(r) : "j"(x)); return r; }\n')
+            (src / "src").mkdir()
+            (src / "src" / "a.c").write_text('#include "common.h"\n#include "vu0.h"\n'
+                                              'float func_A(float x) { return fabs_asm(x); }\n')
+            cfg = {"name": "test", "sources": ["src"], "includes": ["include", "src"],
+                   "host_functions": HOST_FUNCTIONS}
+            if headers:
+                (tmp / "headers").mkdir()
+                (tmp / "headers" / "vu0.h").write_text(
+                    "static __inline__ float fabs_asm(float x) { return x < 0.0f ? -x : x; }\n")
+                cfg["headers"] = "headers"
+            (tmp / "hostgen.json").write_text(json.dumps(cfg))
+            out = tmp / "gen"
+            with contextlib.redirect_stderr(io.StringIO()):
+                rc = hostgen.main(["--game", str(tmp / "hostgen.json"), "--source", str(src), "--out", str(out),
+                                   "--jobs", "1", "--quiet"])
+            text = "".join(f.read_text() for f in out.rglob("*.c") if "prep" not in f.parts) if rc == 0 else ""
+            return rc, text
+
+    def test_the_ports_header_is_read_in_place_of_the_decompilations(self):
+        rc, text = self.run_hostgen(True)
+        self.assertEqual(rc, 0)
+        self.assertIn("func_A", text)
+        self.assertNotIn("openrac_hostgen_asm", text)
+
+    def test_without_it_the_unit_cannot_be_read(self):
+        self.assertNotEqual(self.run_hostgen(False)[0], 0)
+
+
 class ResultGuard(unittest.TestCase):
     """hostgen.json "result_allow": a call reading a result its callee does not set, taken as 0."""
 
@@ -4623,6 +5377,15 @@ class ResultGuard(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.run_hostgen("func_A\tfunc_B\n")
 
+    def test_a_callee_no_code_backs_is_neither_a_finding_nor_a_rows_use(self):
+        # A build without the disc: func_C and func_Z are stubs, their results unknown.
+        summary = {"results_zeroed": {"func_A": ["func_B", "func_C"]}}
+        allow = {("func_A", "func_B"): "why", ("func_A", "func_Z"): "why"}
+        self.assertEqual(hostgen.result_guard(summary, allow, {"func_C", "func_Z"}),
+                         {"results_zeroed_unallowed": [], "result_allow_unused": []})
+        self.assertEqual(hostgen.result_guard(summary, allow),
+                         {"results_zeroed_unallowed": ["func_A\tfunc_C"], "result_allow_unused": ["func_A\tfunc_Z"]})
+
 
 class CandidateTableTest(unittest.TestCase):
     def test_columns_after_the_file_are_ignored(self):
@@ -4639,6 +5402,23 @@ class CandidateTableTest(unittest.TestCase):
             got = hostgen.read_candidates(source, {"candidates": "t.tsv"}, files)
             self.assertEqual(list(got), ["func_00100000"])
             self.assertEqual(files["func_00100000"], "f/func_00100000.c")
+
+
+class LevelCopies(unittest.TestCase):
+    """hostgen.json "level_copies": each catalogue row's place in the source level and in each level
+    listed (the multiplayer maps' copies of level 39's functions, rac3-pal/mp)."""
+
+    def test_rows_with_a_source_place_give_a_copy_per_listed_level(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "functions.tsv"
+            path.write_text(
+                "# name\tkind\tsize\tfingerprint\tremnant\tlevels\tplaces\n"
+                "func_L39_005F4690\tshared\t208\tab\t0\t3\t39:005F4690,40:004C6DD8,41:004C8EF0\n"
+                "func_L01_00400000\tshared\t64\tcd\t0\t2\t01:00400000,40:00450000\n"
+                "func_003A8F90\tfrontbin\t188\tef\t0\t2\t39:005FCB98,40:004CF2E0\n")
+            copies = hostgen.read_level_copies(path, 39, {40})
+        self.assertEqual(copies, [(40, 0x004C6DD8, 39, 0x005F4690), (40, 0x004CF2E0, 39, 0x005FCB98)])
 
 
 if __name__ == "__main__":

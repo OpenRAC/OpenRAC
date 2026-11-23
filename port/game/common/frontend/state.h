@@ -65,6 +65,14 @@ enum class Var : std::uint16_t;
 
 namespace openrac::frontend {
 
+// A posed moby's identity between ticks: its address and the model it is drawn as. A moby the game
+// gives another class (Veldin's walkers take class 7938's data), a moby slot reused by another
+// class and a moby's bangles share an address but not a skeleton: a frame between ticks must not
+// blend one skeleton's palette into another's mesh.
+constexpr std::uint64_t pose_key(std::uint32_t address, std::uint32_t model) {
+    return (std::uint64_t{model} << 32) | address;
+}
+
 // One tick's scene, as frame() read it from the game, for the frames drawn until the next tick
 // (between), and the last tick's camera and moby matrices to move them from.
 struct Kept {
@@ -92,9 +100,10 @@ struct Kept {
     // The ties' and shrubs' matrices the tick before, when it was the one before (a frame between
     // ticks moves a moved one from there).
     std::array<std::vector<std::array<float, 12>>, 2> prev_scenery;
-    // The last tick's poses, by moby: where its joints start in prev_palette and how many.
+    // The last tick's poses, by moby and the model it was drawn as (pose_key): where its joints
+    // start in prev_palette and how many.
     std::vector<scene::LevelScene::JointColumns> prev_palette;
-    std::unordered_map<std::uint32_t, std::pair<int, int>> prev_poses;
+    std::unordered_map<std::uint64_t, std::pair<int, int>> prev_poses;
     std::vector<int> joints;            // each live moby's joints in `palette` (0 without a pose)
     std::vector<std::uint8_t> packets;  // the 2D path
     std::size_t before_world = 0;
@@ -111,6 +120,11 @@ struct Kept {
     std::array<renderer::Mat4, 8> sky_shells{};
     unsigned sky_shell_mask = 0;
     std::vector<renderer::UiQuad> ui_quads;
+    // The frame recorder's commands the tick's 2D path draws, and where (capture_2d_path,
+    // docs/port/FRAME_RECORDER.md): FrameInput::recording, splices, splices_before_world.
+    renderer::FrameRecording recording;
+    std::vector<renderer::FrameSplice> splices;
+    std::size_t splices_before_world = 0;
     // The mods' heat haze (interface 1.12): each patch's place (x, y, z), radius and strength.
     std::vector<std::array<float, 5>> haze;
 
@@ -137,6 +151,10 @@ struct Kept {
     bool world_under_menu = false;
     // A movie's tick (frontend::set_movie_playing).
     bool movie = false;
+    // What the mods' overlays are drawn over (mods::overlay_phase, an OPENRAC_OVERLAY_* bit), read
+    // on the game's thread when the tick was captured: not asked again when the frame is shown, as
+    // a queued frame of play can be shown just after the game opened a menu.
+    std::uint32_t overlay_phase = 0;
     std::uint64_t frame = 0;
 };
 
@@ -180,6 +198,11 @@ struct FramePresentation {
         finished{};           // Worker completion, excluding handoff idle time.
     renderer::Camera camera;  // Camera of the submitted scene, for the debug UI.
     bool has_camera = false;  // The scene drew a world with that camera.
+    // The phase the mods' overlays are drawn for (Kept::overlay_phase), fixed when the frame is
+    // submitted; 0 for a picture left standing (keep_picture).
+    std::uint32_t overlay_phase = 0;
+    // The world was drawn live under a menu (Kept::world_under_menu): `camera` matches the picture.
+    bool world_under_menu = false;
     CameraDebugFrame
         camera_debug;  // Window-thread inputs fixed before handing the scene to the worker.
     std::vector<scene::Instance> picker_live;
@@ -262,8 +285,11 @@ struct State {
     // The renderer owns the HUD, which consumes uploads on skipped ticks.
     renderer::DirectRenderer* hud = nullptr;
     renderer::FrameBuffer picture;  // show_picture's: a movie frame, a boot still
-    // The mods' prop meshes read with the level (interface 1.12, mods::prop_meshes): each one's
-    // model in `level`.
+    // The mods' prop meshes held for this level (interface 1.12, mods::prop_meshes): each one's
+    // model in `level` and in `scene` (the same index in both, LevelScene::align_models). Read
+    // with the level for the props that exist when it is read, and added to the scene by
+    // load_prop_meshes (frontend/world.cpp) as props ask for new ones. A new level starts them
+    // again.
     std::vector<std::pair<std::filesystem::path, std::uint32_t>> prop_models;
     // The skinned ones' skeletons and animations (openrac_api.prop_animate).
     std::vector<std::pair<std::filesystem::path, scene::PropRig>> prop_rigs;
@@ -272,6 +298,12 @@ struct State {
     std::map<int, scene::SpecialClip> special_pickup_clips;
     int infobot_pickup_model = -1;
     std::vector<std::vector<renderer::Mat4>> infobot_pickup_poses;
+    // The meshes that could not be read this level, so that they are not tried every tick.
+    std::vector<std::filesystem::path> prop_failed;
+    // The count of mods::prop_meshes_generation() the meshes above were taken at.
+    unsigned prop_generation = 0;
+    // Whether `level` is uploaded into `scene` and models can be added to both.
+    bool prop_scene_ready = false;
     scene::ObjectPicker picker;
     int loaded = -2;           // the level whose geometry is uploaded; -2 none
     std::uint64_t index = 0;
@@ -318,6 +350,7 @@ struct State {
         int log2_side;
         std::uint32_t id;              // its slot and type (particle), 0 when not known
         std::uint32_t attachment = 0;  // Position anchor, including particles with no slot history.
+        std::uint32_t address = 0;     // its record's game address, 0 when not in game memory
     };
 
     std::vector<Particle> particles;
@@ -366,6 +399,10 @@ struct State {
     // the tick that recorded it (ui_quad), and a list is drawn with that tick's quads (frame).
     std::uint32_t ui_generation = 0;
     std::array<std::pair<std::uint32_t, std::vector<renderer::UiQuad>>, 4> ui_kept{};
+    // The frame recorder (openrac/frame.h, frontend/recorder.cpp): what the game's host C appends,
+    // closed at each tick's capture; the port pictures given pixels (openrac_frame_picture_set).
+    renderer::FrameRecorder recorder;
+    std::unordered_map<std::uint32_t, renderer::UiImage> pictures;
     // How each tick's frames start (frontend/tick_picture.h): the last picture standing (the
     // ticks after the pause menu closes, a list the game has not finished), or under the tick's 2D
     // (a level's tick without a world: the vendor's darkening), else a cleared frame.
@@ -543,12 +580,19 @@ void apply_mouse_capture();
 // The directional light bank, in the executable's terms (relocated to the loaded program's copy);
 // 0 for a game without one (frontend/world.cpp).
 gaddr light_bank_address();
+gaddr light_bank_in_ram();
 gaddr occlusion_address();
+gaddr occlusion_in_ram();
 
 // Uploads level `number`'s geometry and makes the renderers that draw it. Below 0 the boot program
 // runs: the title world (level 0 where it was not extracted), or at -2 the flight between planets
 // where it was (frontend/world.cpp).
 void use_level(int number);
+
+// Loads the meshes props asked for since the last call into the level and the scene that are up,
+// without reading the level again. With no frame in flight, on the thread that owns the graphics
+// (frontend/world.cpp).
+void load_prop_meshes();
 
 // Configures the level shadow passes on the thread that owns the renderer.
 void configure_level_shadows(SceneRenderState& owner, int level);
@@ -582,8 +626,9 @@ void render_scene(
 
 // Draws the kept tick, the camera and mobys part way from the last tick's to its own (as far as
 // the refresh it will be shown at is between them, when frames are drawn between ticks), and shows
-// it. `first`: the tick's own frame (shots, the frame read back by store_image)
+// it. `first`: the tick's own frame (shots, the frame read back by store_image). `held`: the game
+// sent nothing this tick (keep_picture): a picture left standing, with no mod's overlay on it
 // (frontend/interpolation.cpp).
-void draw_kept(bool first);
+void draw_kept(bool first, bool held = false);
 
 }  // namespace openrac::frontend

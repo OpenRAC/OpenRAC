@@ -21,7 +21,7 @@ runs:
         node-version: "26.13.0"
         package-manager-cache: false
     - shell: bash
-      # Node 25 and later no longer bundle Corepack. --force: the Windows image now ships its own
+      # Node 25 and later do not bundle Corepack. --force: the Windows image ships its own
       # yarn shim in npm's prefix, which corepack's would otherwise refuse to replace.
       run: npm install --global --force corepack@0.36.0 && corepack enable
     - uses: ./.github/actions/yarn-cache

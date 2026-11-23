@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 import extractor
+from openrac_common import disc_files
 from test_openrac import image
 
 BOOT = b"\x7fELF" + bytes(3000)
@@ -52,13 +53,53 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(info["files"], 3)
         self.assertFalse((self.proj / "iso_data" / "_temp").exists())
 
-    def test_boot_only_writes_what_the_port_reads_and_checks_every_file(self):
+    def test_the_sector_map_gives_every_sector_of_the_image_from_the_files(self):
+        self.run_extract()
+        out = self.proj / "iso_data" / "rac9"
+        rows = disc_files.read_map(out)
+        whole = self.iso.read_bytes()
+        self.assertEqual(rows[0].first, 0)
+        self.assertEqual(sum(r.sectors for r in rows) * disc_files.SECTOR, len(whole))
+        rebuilt = bytearray()
+        for row in rows:
+            self.assertEqual(row.first * disc_files.SECTOR, len(rebuilt))
+            data = (out / row.path).read_bytes()
+            self.assertEqual(len(data), row.bytes)
+            rebuilt += data + bytes(row.sectors * disc_files.SECTOR - row.bytes)
+        self.assertEqual(bytes(rebuilt), whole)
+        # The file system's files are rows of their own; the rest are lumps.
+        self.assertIn("SCES_999.99", [r.path for r in rows])
+        self.assertTrue(all(r.path.startswith("lumps/") for r in rows if r.path not in ("SYSTEM.CNF", "SCES_999.99", "IOPRP.IMG")))
+
+    def test_lumps_are_cut_where_the_table_of_contents_points(self):
+        files = [("A.BIN", 20, 100), ("B.BIN", 30, 5000)]
+        rows = disc_files.plan(files, 50, {5: "toc", 40: "levels/00/level", 45: "global/001"})
+        self.assertEqual([(r.first, r.sectors, r.path) for r in rows], [
+            (0, 5, "lumps/sectors/0000000.bin"), (5, 15, "lumps/toc.bin"), (20, 1, "A.BIN"),
+            (21, 9, "lumps/sectors/0000021.bin"), (30, 3, "B.BIN"), (33, 7, "lumps/sectors/0000033.bin"),
+            (40, 5, "lumps/levels/00/level.bin"), (45, 5, "lumps/global/001.bin")])
+        self.assertEqual(rows[2].bytes, 100)
+
+    def test_a_file_whose_padding_is_not_zeros_leaves_its_last_sector_to_a_lump(self):
+        data = bytearray(self.iso.read_bytes())
+        lba = next(l for p, l, _ in extractor.files_of(self.iso) if p == "IOPRP.IMG")
+        data[lba * disc_files.SECTOR + 10] = 0x55
+        self.iso.write_bytes(bytes(data))
+        self.run_extract()
+        out = self.proj / "iso_data" / "rac9"
+        rows = {r.first: r for r in disc_files.read_map(out)}
+        self.assertEqual(rows[lba].path, f"lumps/sectors/{lba:07}.bin")
+        self.assertEqual((out / rows[lba].path).read_bytes()[10], 0x55)
+        self.assertEqual((out / "IOPRP.IMG").read_bytes(), b"iop")
+
+    def test_boot_only_writes_the_boot_executable_alone_and_checks_every_file(self):
         with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())):
             info = extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True)
         out = self.proj / "iso_data" / "rac9"
         self.assertEqual((out / "SCES_999.99").read_bytes(), BOOT)
         self.assertEqual((out / "SYSTEM.CNF").read_bytes(), CNF)
         self.assertFalse((out / "IOPRP.IMG").exists())
+        self.assertFalse((out / disc_files.MAP_NAME).exists())
         self.assertEqual((out / "disc.iso").read_bytes(), self.iso.read_bytes())
         self.assertEqual(info["files"], 3)
         self.assertEqual(info, self.run_extract())  # the same build info as a full extraction
@@ -123,7 +164,7 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 4002)
 
     def test_knows_the_rac2_pal_disc(self):
-        # Issue #66: the European R&C2 disc is a known build.
+        # The European R&C2 disc is a known build.
         [(_, name, version)] = extractor.builds("rac2")["SCES_516.07"]
         self.assertEqual(name, "pal")
         self.assertEqual(version["boot"]["sha1"], "cb59ce5396ddebb8aa539b0847f8bf66d6a47fe0")

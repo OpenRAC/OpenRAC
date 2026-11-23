@@ -172,6 +172,18 @@ fs::path levels_or_flat(const fs::path& own) {
     return own;
 }
 
+fs::path games_root_of(const fs::path& data) {
+    fs::path own = data.lexically_normal();
+    if (!own.has_filename()) {
+        own = own.parent_path();
+    }
+    if (own.filename() != "data") {
+        return {};
+    }
+    const fs::path active = own.parent_path().parent_path();
+    return active.filename() == "active" ? active : fs::path{};
+}
+
 fs::path default_levels(const fs::path& data) {
     return levels_or_flat(data / "port" / game_version());
 }
@@ -331,6 +343,13 @@ Options parse(int argc, char** argv) {
     // The mods' own files, a folder per mod's id, beside the cards (openrac_api.data_dir).
     if (o.mod_data.empty()) {
         o.mod_data = data_home() / "mod-data";
+    }
+
+    // The installed games' folders (interface 1.33): the launcher's layout beside --data, or
+    // OPENRAC_GAMES_ROOT (tests and development).
+    if (o.games_root.empty()) {
+        const std::optional<std::string_view> root = env::value(env::Var::GamesRoot);
+        o.games_root = root ? fs::path(std::string(*root)) : games_root_of(o.data);
     }
 
     if (o.plugins.empty()) {

@@ -11,6 +11,7 @@
 
 #include "common/env.h"
 #include "renderer/gl/program_cache.h"
+#include "renderer/gl/shader_variants.h"
 
 namespace openrac::gl {
 
@@ -177,6 +178,7 @@ bool load(GetProcAddress get, std::string& missing) {
     }
     // A new context: the programs kept in memory may be another driver's.
     renderer::program_cache::reset();
+    renderer::program_cache::variant_context().reset();
     g_loaded = missing.empty();
     return g_loaded;
 }

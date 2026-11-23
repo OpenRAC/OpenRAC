@@ -16,9 +16,23 @@ using namespace openrac::gl;
 
 namespace {
 
-// A driver that lists GL_EXT_multisampled_render_to_texture but would not complete such a target:
-// multisampled buffers from then on.
-bool g_implicit_refused = false;
+// Attaches implicit MSAA storage to the bound renderbuffer and framebuffer. A rejected colour
+// attachment can leave a complete depth-only framebuffer, so completeness alone is insufficient.
+bool attach_implicit_samples(
+    GLuint colour, GLenum depth_format, GLsizei samples, GLsizei width, GLsizei height
+) {
+    glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, samples, depth_format, width, height);
+
+    // Do not attempt the colour attachment if the depth allocation already failed.
+    if (glGetError() != GL_NO_ERROR) {
+        return false;
+    }
+
+    glFramebufferTexture2DMultisampleEXT(
+        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colour, 0, samples
+    );
+    return glGetError() == GL_NO_ERROR;
+}
 
 }  // namespace
 
@@ -64,6 +78,20 @@ void FrameBuffer::allocate_colour(bool float_colour) {
 bool FrameBuffer::create(
     int width, int height, std::string& error, int samples, bool texture_depth, bool float_colour
 ) {
+    return create_target(
+        width, height, error, samples, texture_depth, float_colour, ResolveMode::AllowImplicit
+    );
+}
+
+bool FrameBuffer::create_target(
+    int width,
+    int height,
+    std::string& error,
+    int samples,
+    bool texture_depth,
+    bool float_colour,
+    ResolveMode resolve_mode
+) {
     release();
     m_width = width;
     m_height = height;
@@ -91,14 +119,22 @@ bool FrameBuffer::create(
     // writes every sample to memory and reads it back for the resolve, four times a plain frame's
     // traffic at 4x, each frame. A second framebuffer holds the same texture with one sample, for
     // reading and copying what was drawn.
-    m_implicit = m_samples > 1 && !g_implicit_refused && glFramebufferTexture2DMultisampleEXT != nullptr
+    m_implicit = m_samples > 1 && resolve_mode == ResolveMode::AllowImplicit
+                 && glFramebufferTexture2DMultisampleEXT != nullptr
                  && glRenderbufferStorageMultisampleEXT != nullptr;
     if (m_implicit) {
-        glRenderbufferStorageMultisampleEXT(
-            GL_RENDERBUFFER, m_samples, depth_format, width, height
-        );
-        glFramebufferTexture2DMultisampleEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colour, 0,
-                                             m_samples);
+        // AMD ES can reject the colour attachment despite advertising the extension.
+        if (!attach_implicit_samples(m_colour, depth_format, m_samples, width, height)) {
+            return create_target(
+                width,
+                height,
+                error,
+                samples,
+                texture_depth,
+                float_colour,
+                ResolveMode::ExplicitOnly
+            );
+        }
     } else if (m_samples > 1) {
         glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_samples, depth_format, width, height);
         glGenRenderbuffers(1, &m_multisample);
@@ -147,8 +183,9 @@ bool FrameBuffer::create(
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     if (status != GL_FRAMEBUFFER_COMPLETE && m_implicit) {
-        g_implicit_refused = true;
-        return create(width, height, error, samples, texture_depth, float_colour);
+        return create_target(
+            width, height, error, samples, texture_depth, float_colour, ResolveMode::ExplicitOnly
+        );
     }
     if (status != GL_FRAMEBUFFER_COMPLETE) {
         error = std::format("framebuffer {}x{} with {} sample(s) incomplete ({:#x})", width, height, m_samples,

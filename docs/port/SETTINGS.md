@@ -40,9 +40,9 @@ Both read one list ([menu_catalog.cpp](../../port/game/common/menu_catalog.cpp),
 the entries marked `kGamePage`), so a row shows the same value and steps the
 same way in both. The page scrolls with the cursor. **Cross** or **Right**
 moves a row to its next value, **Left** to the one before. A change is applied
-and saved at once: no setting needs the game started again. Anti-aliasing says
-"(upscaler)" while the upscaler draws one sample a pixel and keeps the choice
-for later.
+and saved at once: no setting needs the game started again. Enhanced Graphics
+uses one sample per pixel. The Anti-aliasing row keeps the saved MSAA choice
+for standard graphics.
 
 Probe lighting is required by enhanced graphics and follows its master switch.
 The legacy `probe_lighting` key is accepted but ignored and is omitted when saving.
@@ -57,11 +57,11 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Field of View | `gameplay_fov` | `100` (default), `80` to `120` in steps of 5 | Under **Graphics > Picture**, adjusts the gameplay camera relative to its original field of view. Drag the slider, tap its arrows or use D-pad left and right. The world under the pause menu keeps it; cutscenes keep their original framing. The game's view tests (moby effects, liquids, fires, air traffic) open with it, sideways and up and down, as they do sideways for a wider picture. |
 | HUD | `hud` | `centre`, `edges` | In a picture wider than 4:3: the HUD where the game put it, in the 4:3 middle, or the elements the game anchors to the left or right of the screen (the weapon, the bolts, the side meters) out at the picture's sides. Menus and text stay in the middle either way |
 | Render scale | `render_scale` | `100`, `50`, `75`, `125`, `150`, `200` (a file may hold 25 to 400) | The frame's resolution as a percentage of the picture's pixels in the window. Over 100 is supersampling; enhanced rendering caps the effective scale at 100 without changing the saved value. Under 100 is for a slow graphics card. The frame is never larger than 8192 pixels a side |
-| Anti-aliasing | `msaa` | `1` (`off`), `2`, `4`, `8`, `16` | Samples a pixel (MSAA). The page offers what the card gives (`GL_MAX_SAMPLES`); a file's larger number is held to it |
+| Anti-aliasing | `msaa` | `1` (`off`), `2`, `4`, `8`, `16` | Samples per pixel in standard graphics, up to the device limit (`GL_MAX_SAMPLES`). Enhanced Graphics always uses one sample |
 | Enhanced rendering (experimental) | `enhanced_rendering` | `0` (default), `1` | Whether the game makes the enhanced renderer at all (probe lighting, modern sun/Ratchet shadows, GTAO; [port/enhanced](../../port/enhanced/README.md)). Read at start; Vulkan only. Ratchet & Clank (PAL, NTSC-U) and Going Commando (its three discs). Off, none of it is made and the game draws exactly as a build without it. The launcher's Mods tab writes it (**Enhanced graphics**, a built-in entry with the keys below on its page) and then plays with Vulkan (`OPENRAC_GL_API=vulkan`) and the player's probe bakes (`--probes <data>/probes/<version>`), which it makes from their own extracted levels. From a shell, `OPENRAC_ENHANCED=1` does the same as the key; `OPENRAC_ENHANCED=0` keeps it off |
 | Enhanced graphics (F4) | `enhanced_graphics` | `1` (default), `0` | With enhanced rendering on: the in-game master switch for probe lighting, modern sun/Ratchet shadows, GTAO and FSR. Turning it off restores original lighting/stencil shadows and native rendering without changing individual preferences |
-| Preset | (no key) | `Low`, `Medium`, `High`, `Custom` | Enhanced menu only. Sets the costly options together and saves each under its own key. Low: upscaling Performance, shadow quality Low, shadow filtering Fast, occlusion Low, motion blur off, texture upscaling Normal. Medium: upscaling Balanced, shadow quality Medium, the rest as High. High: upscaling Quality, shadow quality High, shadow filtering Soft, occlusion Performance, motion blur on, texture upscaling Edge-aware. The row shows Custom for any other mix. A new settings file starts at Medium on Android and Apple Silicon, at High elsewhere |
-| Temporal upscaling | `temporal_quality` | `off`, `native-aa`, `quality` (default; `balanced` on Android and Apple Silicon), `balanced`, `performance` | Enhanced Vulkan only, with compatible probe data. Reconstructs the world before the full-resolution HUD, with Arm ASR on a Snapdragon (Qualcomm) GPU and AMD FSR 3.1 elsewhere (`OPENRAC_TEMPORAL_UPSCALER`); no frame generation. Quality uses a 1.5x display-to-render ratio, Balanced 1.7x and Performance 2x. Native AA uses the existing render resolution. Active FSR replaces MSAA while preserving its saved setting. Requires a build with `OPENRAC_FSR3`; unsupported backends keep native rendering |
+| Preset | (no key) | `Low`, `Medium`, `High`, `Custom` | Enhanced menu only. Sets the costly options together and saves each under its own key. Low uses 75% render scale, Performance upscaling, Low shadow quality, Fast shadow filtering, Low occlusion, motion blur off and Normal texture upscaling. Medium uses 100% render scale, Balanced upscaling and Medium shadow quality, with the other options as High. High uses 100% render scale, Quality upscaling, High shadow quality, Soft shadow filtering, Performance occlusion, motion blur on and Edge-aware texture upscaling. A manual change to one of these options can make the preset Custom. A new settings file starts at Medium on Android and Apple Silicon, at High elsewhere |
+| Temporal upscaling | `temporal_quality` | `off`, `native-aa`, `quality` (default; `balanced` on Android and Apple Silicon), `balanced`, `performance` | Enhanced Vulkan only, with compatible probe data. Reconstructs the world before the full-resolution HUD, with Arm ASR on a Snapdragon (Qualcomm) GPU and AMD FSR 3.1 elsewhere (`OPENRAC_TEMPORAL_UPSCALER`); no frame generation. Quality uses a 1.5x display-to-render ratio, Balanced 1.7x and Performance 2x. Native AA uses the existing render resolution. Requires a build with `OPENRAC_FSR3`; unsupported backends keep native rendering |
 | Upscaling sharpening | `temporal_sharpness` | `0.0` to `1.0` (default `0.2`) | RCAS sharpening after temporal reconstruction; zero disables sharpening |
 | Probe spheres | `probe_spheres` | `0` (default), `1` | Enhanced Settings window placement overlay: cyan sparse, green dense, gold relocated, magenta invalid. Spheres follow camera/region selection and CPU-region fades; lighting blends up to three local regions per fragment |
 | Medial axis | `medial_axis_debug` | `0` (default), `1` | Enhanced > Diagnostics: green centre paths, pink junctions and white component centres from the bake |
@@ -143,7 +143,9 @@ section 3 are from before that. What it draws is its own business:
 - anything else: frames **between** ticks as well, the camera, the mobys and
   their poses moved from the last tick's to this one's by the time each frame
   is shown (half a tick behind the game, so that the next tick is ready
-  before the frame that needs it). `display` draws one a refresh, a number
+  before the frame that needs it; with Vulkan's render thread, or the
+  low-latency frames, no lag: their frames stop when the next tick is due,
+  and with the lag they only got half way before it). `display` draws one a refresh, a number
   that many a second, `unlimited` as many as the machine manages.
 - `vsync` decides only whether a frame waits for a refresh. With it off and
   `frame_rate = display`, the port's own clock keeps the display's rate.
@@ -501,13 +503,14 @@ Each entry:
 | `id` | lower-case words joined by hyphens: `wide-liquids` |
 | `kind` | `fix`: the player may switch it back. `guard`: keeps the game from crashing where the console carried on unnoticed; shown, never switched (off would only mean the crash). `always`: a fix that is always on (a soft lock, a feature one disc lacks); listed with the game fixes, never switched. `port`: a difference that comes with being a PC program, for the record |
 | `name` | a few words. A fix's is its row on the game's Options page: 22 letters at most |
-| `discs` | the game's versions it applies to: `pal`, `ntsc`, and Going Commando's `ntsc2` (USA v2.00) |
+| `discs` | the game's versions it applies to: `pal`, `ntsc`, Ratchet & Clank's `pal1` (PAL v1.00) and `jp` (NTSC-J), and Going Commando's `ntsc2` (USA v2.00). List every version whose program runs the code: the configure stops when host C reads a fix key a version it compiles into does not list |
 | `original` | what the PS2 game does |
 | `port` | what the port does, and why; for a fix, what off brings back |
 | `setting` | a fix only: `{"key": "fix_...", "default": true}`. On is the port's fix |
-| `refs` | where it is: commits, files, docs. Shown with the launcher's developer tools on |
+| `bypassed` | a fix only, optional: `{"<disc>": "why"}`, versions not in `discs` that compile host C naming its key but never reach the read, because that disc already behaves so and its C calls the game's own function first (Going Commando's Greatest Hits fixes on `ntsc2`). The disc gets no setting and shows no row, and its configure does not stop |
+| `refs` | where it is: files and docs. Shown with the launcher's developer tools on |
 
-Write only what the code or a commit shows. A fix is:
+Write only what the code shows. A fix is:
 
 - **a setting**: `fix_... = 1` or `0` in the settings file (section 1),
   written with the others, read at start;
@@ -530,10 +533,11 @@ must give the console's behaviour, exactly), and its key in
 `tests/game_fixes_test.cpp` if the test should hold it to its code. The
 configure refuses a file that breaks a rule (a fix without a setting, a
 setting on anything else, a key twice, a name too long), the launcher's
-tests the same, and `game_fixes` checks that every key the rac1 host C asks
+tests the same, and one whose `discs` leave out a version that compiles host
+C naming its key (unless `bypassed` names that version). `game_fixes` checks that every key the rac1 host C asks
 for is in the table.
 
-Ratchet & Clank's fixes now, all on by default and all for both discs:
+Ratchet & Clank's fixes, all on by default and on every disc:
 
 | Key | Off |
 |---|---|

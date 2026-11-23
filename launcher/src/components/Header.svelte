@@ -236,11 +236,14 @@
           <button
             class="update"
             onclick={() => (app.showUpdateModal = true)}
-            title={update.switchTo
-              ? `${updateLabel(update)}: the channel chosen in Settings`
-              : `Launcher ${update.version} is out: see what's new and update`}
+            title={update.missingBuild
+              ? `Launcher ${update.version} is not available for this system yet`
+              : update.switchTo
+                ? `${updateLabel(update)}: the channel chosen in Settings`
+                : `Launcher ${update.version} is out: see what's new and update`}
           >
-            <span class="pulse" aria-hidden="true"></span>{update.switchTo
+            {#if !update.missingBuild}<span class="pulse" aria-hidden="true"
+              ></span>{/if}{update.switchTo
               ? `Switch to ${channelName(update.switchTo)}`
               : "Update"}<span class="label">{update.version}</span>
           </button>

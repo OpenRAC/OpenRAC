@@ -185,6 +185,10 @@ export const KEYBOARD_MOUSE = {
   id: "keyboard-mouse",
   alwaysOn:
     "Always on: the game switches to the keyboard and mouse when you use them, and back to the gamepad when you press it.",
+  /** The page's two tabs, as the game's Controls tab: the gyro is a controller's, apart. */
+  tabsLabel: "Keyboard and mouse or gyro",
+  tabKeys: "Keyboard and mouse",
+  tabGyro: "Gyro",
   about:
     "Play with a keyboard and mouse like a PC game. The mouse turns the camera with raw input (no acceleration) and the picture follows it at your display's rate. The game starts on the gamepad and switches the moment you press a key or move the mouse, and back when you press the gamepad. Every key can be changed below.",
 } as const;

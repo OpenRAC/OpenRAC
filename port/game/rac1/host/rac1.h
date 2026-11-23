@@ -120,6 +120,19 @@ extern const char* const rac1_level_names[];
  * moby put in a pose (a figure, or a moby of the world a mod drives). */
 extern const openrac_game_play rac1_play;
 int rac1_landing(int level);
+/* particles.c: the game's own particle effect with its options (openrac_api.particle_spawn_ex). 1 made,
+ * 0 the pool full, -1 not made (no level played, or a kind or version without it). */
+struct openrac_game_particle_spawn;
+int rac1_particle_spawn_ex(const struct openrac_game_particle_spawn* spawn);
+/* particles.c: a mod's particle texture for the renderer (openrac_api.particle_texture_register): the id
+ * (128 to 255), 0 when all are taken, -1 no level played. rac1_particle_texture_at gives the guest
+ * addresses of an id's indices and palette (1 found, 0 not a registered id) for render_native.c. */
+/* The ids of a mod's particle textures (openrac_api.particle_texture_register, 1.33: the SDK's
+ * OPENRAC_PARTICLE_TEXTURE_FIRST and _COUNT). */
+#define RAC1_PARTICLE_TEXTURE_FIRST 128u
+#define RAC1_PARTICLE_TEXTURE_COUNT 128
+int rac1_particle_texture_register(const uint8_t* indices, const uint8_t* clut);
+int rac1_particle_texture_at(uint8_t texture, uint32_t* pixels, uint32_t* clut);
 void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
 
 /* shared.c: the progress a party shares. */
@@ -137,6 +150,10 @@ int rac1_collision_triangles(const float lo[3], const float hi[3], void* out, in
  * outside a level. */
 int rac1_camera_set(const float eye[3], const float rows[9]);
 int rac1_camera_view(float eye[3], float rows[9]);
+/* Whether a mod's or the debug camera replaces the game's camera in the view build: 1, or 0. */
+int rac1_camera_overridden(void);
+/* The game's camera shake on the level camera (openrac_api.camera_shake): 1, or 0 when not started. */
+int rac1_camera_shake(int channel, float amplitude, int frames);
 
 /* world.c: the level's mobys for the mods (interface 1.9): a moby's slot in the array (-1 none),
  * the mods' gate around each update (UpdateMobys, crash_state.c: 1 before it skips it), the hero's
@@ -159,6 +176,7 @@ int32_t rac1_world_moby_slot(int32_t key);
 /* A placed moby's key, -1 for a spawned one. */
 int32_t rac1_world_moby_key(gaddr moby);
 int32_t rac1_world_moby_mission(int32_t slot);
+int32_t rac1_world_moby_class(gaddr moby);
 int32_t rac1_world_moby_uid(int32_t slot);
 gaddr rac1_world_moby_at(int32_t slot);
 void rac1_world_moby_kill(gaddr moby);

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The VAG streams of the game's sound engine (port/game/common/lib/sound_engine.cpp) on a disc
-// image made here: the time a stream has left, from the frame it starts on, which RAC1's music
+// made here (one file and its sector map, as the extractor writes them): the time a stream has left, from the frame it starts on, which RAC1's music
 // crossfade measures its fade against (games/rac1/decomp/src/game/music.c, music_Update). And what the
 // game reads back while the output mixes ahead of its device: the sound as it is heard.
 
@@ -24,10 +24,10 @@
 #include "openrac/sound_engine.h"
 #include "tests/check.h"
 
-extern "C" const char* openrac_game_disc_image;
+extern "C" const char* openrac_game_disc_files;
 extern "C" const char* openrac_game_mods_dir;
 extern "C" unsigned openrac_game_mods_generation;
-const char* openrac_game_disc_image = nullptr;
+const char* openrac_game_disc_files = nullptr;
 const char* openrac_game_mods_dir = nullptr;
 unsigned openrac_game_mods_generation = 0;
 
@@ -108,10 +108,25 @@ int main() {
     put_vag(disc, 4, kFrames);  // a whole track
     put_vag(disc, 200, 0);      // a header whose body is past the image's end
     disc.resize(200 * 2048 + 0x30);
-    const std::filesystem::path path =
+    const std::filesystem::path disc_folder =
         std::filesystem::temp_directory_path()
         / ("openrac_sound_engine_test_"
-           + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".iso");
+           + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::filesystem::create_directories(disc_folder);
+    const std::filesystem::path path = disc_folder / "disc.bin";
+    // The disc as the extractor leaves it: its first sectors in disc.bin, the rest in later.bin,
+    // which a test below writes (until then a read there fails, as past the end of an image).
+    const std::size_t first_run = (disc.size() + 2047) / 2048;
+    constexpr std::size_t kSectors = 320;
+    std::ofstream(disc_folder / "sectors.tsv") << std::format(
+        "# openrac sector map 1: first sector, sectors, bytes, file\n0\t{}\t{}\tdisc.bin\n"
+        "{}\t{}\t{}\tlater.bin\n",
+        first_run,
+        disc.size(),
+        first_run,
+        kSectors - first_run,
+        (kSectors - first_run) * 2048
+    );
     {
         std::FILE* f = std::fopen(path.string().c_str(), "wb");
         CHECK(f != nullptr);
@@ -123,8 +138,8 @@ int main() {
         std::fwrite(disc.data(), 1, disc.size(), f);
         std::fclose(f);
     }
-    const std::string image = path.string();
-    openrac_game_disc_image = image.c_str();
+    const std::string files = disc_folder.string();
+    openrac_game_disc_files = files.c_str();
 
     // Read on its own thread, as in play: the answer the frame it starts is the whole track,
     // decoded or not (it was a made-up minute while the decode ran).
@@ -185,11 +200,14 @@ int main() {
             }
         }
 
-        std::FILE* again = std::fopen(image.c_str(), "wb");
+        // The sectors past the first run, whole.
+        std::vector<std::uint8_t> later(disc.begin() + first_run * 2048, disc.end());
+        later.resize((kSectors - first_run) * 2048, 0);
+        std::FILE* again = std::fopen((disc_folder / "later.bin").string().c_str(), "wb");
         CHECK(again != nullptr);
 
         if (again != nullptr) {
-            std::fwrite(disc.data(), 1, disc.size(), again);
+            std::fwrite(later.data(), 1, later.size(), again);
             std::fclose(again);
         }
 
@@ -404,6 +422,6 @@ int main() {
     openrac_stream_stop(0);
 
     std::error_code ignored;
-    std::filesystem::remove(path, ignored);
+    std::filesystem::remove_all(disc_folder, ignored);
     return openrac::test::result();
 }

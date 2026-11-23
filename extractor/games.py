@@ -106,6 +106,11 @@ GC_TIE = TieHeader(packet_count=0x0c, texture_count=0x0f, ad_gifs=0x1c, normals=
                    vertex_colours=True)
 UYA_DL_TIE = TieHeader(packet_count=0x0c, texture_count=0x0f, ad_gifs=0x1c, normals=0x34, light_slots=False,
                        winding_flag=True)
+# Up Your Arsenal's ties take their colours per vertex as Going Commando's: its PatchTieVertexLighting
+# (Veldin's 0x004B6ED0) is 0x2F3E78's instructions, and the gameplay file's word 0x94 points at one
+# colour entry per tie instance there too.
+UYA_TIE = TieHeader(packet_count=0x0c, texture_count=0x0f, ad_gifs=0x1c, normals=0x34, light_slots=False,
+                    winding_flag=True, vertex_colours=True)
 
 
 @dataclass(frozen=True)
@@ -130,6 +135,9 @@ class Format:
     stash: bool = False                 # +0x84 counts GS RAM entries of permanently stashed moby textures
     maps_in_textures: bool = False      # the chrome and glass maps' pixels are in the GS RAM lump's stash (Going Commando)
     ship_paint_slots: bool = False      # a face on an empty texture slot wears the ship's picture (Going Commando)
+    # A class table entry's word +8 names the picture the game binds over all of the class's faces at
+    # load (level.BOUND_SHIP, BOUND_CLANK): Up Your Arsenal's class loader (Veldin's func_L01_0042B4F8).
+    bound_textures: bool = False
     compact_vertex_table: bool = False  # moby packets' vertex table header: 8 u16 (else 8 u32)
     swizzled_textures: bool = False     # 8-bit textures stored in the GS's PSMT8 order (Deadlocked)
     skeleton_3x4: bool = False          # moby bind matrices are 3x4 (Deadlocked), not 4x4
@@ -220,8 +228,9 @@ RAC2 = Format("rac2", "Ratchet & Clank: Going Commando", ties=0x34, shrubs=0x40,
               level_names=LEVEL_NAMES["rac2"],
               **LATER)
 RAC3 = Format("rac3", "Ratchet & Clank: Up Your Arsenal", ties=0x34, shrubs=0x40, mobys=0x4c, moby=UYA_MOBY,
-              tie_header=UYA_DL_TIE, moby_sound_remap=True, sky_short_shells=True,
-              level_names=LEVEL_NAMES["rac3"], **LATER)
+              tie_header=UYA_TIE, moby_sound_remap=True, maps_in_textures=True, sky_short_shells=True,
+              world_lighting=True, moby_glow_tail=True, moby_lights=True, moby_bangles=True,
+              bound_textures=True, level_names=LEVEL_NAMES["rac3"], **LATER)
 RAC4 = Format("rac4", "Ratchet: Deadlocked", ties=0x08, shrubs=0x14, mobys=0x30, moby=DL_MOBY,
               tie_header=UYA_DL_TIE, ratchet_sequences=False, swizzled_textures=True, skeleton_3x4=True,
               moby_animations=False, sky_short_shells=True, level_names=LEVEL_NAMES["rac4"], **LATER)

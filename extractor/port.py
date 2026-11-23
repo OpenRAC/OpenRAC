@@ -39,7 +39,7 @@ import games
 import gc_tie_colours
 from gltf import Gltf
 from levelwrite import PANORAMA, STORED_W, LevelWriter, chunk_terrain, problem_summary
-from level import SHIP_TEXTURE, Level
+from level import CLANK_TEXTURE, SHIP_TEXTURE, Level
 from lighting import light_bank, light_shrub_instance, light_tie_instance
 from mesh import Mesh
 from moby_class import MobyClass, moby_classes
@@ -76,7 +76,25 @@ FORMAT = 4
 # and sun profiles (probe-bake.json) the baker reads, from port/enhanced/lighting/profiles/rac2-ntsc.
 # 20: the liquid surfaces the baker lights from (bake-inputs/liquids.json and their effect textures,
 # manifest bake_inputs "liquids").
-GAME_FORMATS = {"rac2": 20}
+# Up Your Arsenal, 5: Ratchet's mesh and textures from his first pack (wads.RAC3_PAL), where 4 had
+# none for class 0. 6: the terrain and shrubs lit as the game lights them at level load, by the
+# normal table in each level's program (lighting.program_normal_table), and the ties' vertex colours
+# (tie_vertex_colours), as Going Commando's. 7: his wrench (class 71), the banks of what he holds
+# and his ship's hulls and paint jobs (class 3412), from the disc as Going Commando's 7, 13 and 15.
+# 8: the chrome and glass maps from the GS RAM lump's stash, as Going Commando's 14 (they were grey).
+# 9: the mobys' glow vertices, their light sets and their bangles as classes of their own, as Going
+# Commando's 9 and 11. 10: his other 30 looks (his armours and skins) as classes of their own, as
+# Going Commando's 7. 11: the gameplay copy the probe baker plans enhanced lighting from
+# (bake-inputs/gameplay.bin, manifest bake_inputs), as Going Commando's 18. 12: the reviewed
+# catalog of glowing textures (materials/version, port/enhanced/lighting/profiles/rac3-pal) and the
+# levels' sun sets (probe-bake.json), as Going Commando's 19. 13: the loading screen's ship scene
+# as level 97 (level.load_wad_loading). 14: the liquid surfaces the baker lights from
+# (bake-inputs/liquids.json, manifest bake_inputs "liquids": the class 6576 strips), as Going
+# Commando's 20. 15: the pictures the class loader binds at load by a class entry's word +8 (his
+# ship's on the ship's parts, Clank's on Clank; manifest "clank_skins"), as Going Commando's 15.
+# 16: the moby classes the level's scenes load (level.scene_classes: Clank in a scene, the gun the
+# Ranger hands over on Veldin).
+GAME_FORMATS = {"rac2": 20, "rac3": 16}
 
 
 def levels_format(game: str) -> int:
@@ -330,6 +348,15 @@ class PortLevelWriter(LevelWriter):
                 name = ship if number == 0 else f"ship_paint_{number:02}"
                 self.textures[name] = texture
                 paints.append(f"textures/{name}.png")
+        # Clank's skins (Up Your Arsenal), as the ship's paint jobs: the faces that wear his picture
+        # are exported with skin 0; the others go out beside it for the port to bind.
+        clank = f"moby_{CLANK_TEXTURE:04}"
+        skins = []
+        if self.level.clank_skins and clank in self.textures:
+            for number, texture in enumerate(self.level.clank_skins):
+                name = clank if number == 0 else f"clank_skin_{number:02}"
+                self.textures[name] = texture
+                skins.append(f"textures/{name}.png")
         (self.dir / "textures").mkdir(parents=True, exist_ok=True)
         for name, texture in sorted(self.textures.items()):
             (self.dir / "textures" / f"{name}.png").write_bytes(texture.png())
@@ -350,6 +377,8 @@ class PortLevelWriter(LevelWriter):
                     "bounds": self.stats["bounds"], "stats": self.stats}
         if paints:
             manifest["ship_paints"] = {"texture": f"textures/{ship}.png", "paints": paints}
+        if skins:
+            manifest["clank_skins"] = {"texture": f"textures/{clank}.png", "skins": skins}
         bake_inputs = write_bake_inputs(self.level, self.dir)
         write_bake_profile(self.level, self.dir)
         if bake_inputs:

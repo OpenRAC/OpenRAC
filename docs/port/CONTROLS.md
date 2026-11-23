@@ -76,7 +76,7 @@ Resetting:
 - one player: that player's own lines (`p1.*` or `p2.*`) leave the file, and
   the player reads every player's controls again.
 
-The bindings that [#123](https://github.com/OpenRAC/OpenRAC/pull/123) kept in
+Bindings that older versions kept in
 `settings/<id>.ini` (`bind_*` keys) move once into `<game>.ini` at the next
 start, those the file does not already name, and leave the settings file.
 

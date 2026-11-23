@@ -28,6 +28,9 @@ env:
   OPENRAC_BUILD_JOBS: all
   # Reinstalling identical compiler bytes must not invalidate all cached objects.
   CCACHE_COMPILERCHECK: content
+  # The runners have no disc: games whose code is translated from it (rac3-pal's "retail"
+  # "required") build with stubs on purpose instead of stopping (port/tools/hostgen/asmc.py).
+  OPENRAC_HOSTGEN_NO_DISC: "1"
 
 # New PR pushes and develop merges supersede old runs; master's release checks all finish.
 concurrency:
@@ -125,11 +128,14 @@ jobs:
 
       # Every game version's tables, with no disc (port/tools/versionmap/check_versions.py): each
       # version binds each function alike or its game's parity.tsv says why, carried releases'
-      # tables are what their tool writes, and each version's names table covers the shared host C.
+      # tables are what their tool writes, each version's names table covers the shared host C, and
+      # the built-in keyboard and mouse has each version's addresses.
       # A new game or version is found by its files, so this step does not change.
       - name: Game versions' tables
         run: |
           python -m unittest discover -s port/tools/versionmap -p test_parity.py -v
+          python -m unittest discover -s port/tools/versionmap -p test_kbm_discs.py -v
+          python -m unittest discover -s port/tools/hostgen -p test_release_carry_rac3.py -v
           python port/tools/versionmap/check_versions.py
 
       # The extractor (what OpenRAC Editor's tools import: extractor_api.json), synthetic data only.
@@ -207,7 +213,7 @@ jobs:
       - name: rac4 progress reports are current with their source
         working-directory: games/rac4/decomp
         # rac4-decomp's reports (progress/report.json, progress/pal/), as its own CI checks them;
-        # gen_progress_report.py's legacy report is a build output now (build/legacy_report.json).
+        # gen_progress_report.py's report is a build output (build/legacy_report.json).
         run: |
           python tools/progress.py --version us --check
           python tools/progress.py --version pal --check
@@ -564,8 +570,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # cpu and baker take half a minute each: one runner for both.
-        group: [vulkan, equivalence, cpu-baker]
+        # cpu and baker take half a minute each: one runner for both. effects takes the locked
+        # Vulkan tests that need no other fixture (tools/ci_port_tests.py THIRD_RUNNER).
+        group: [vulkan, equivalence, effects, cpu-baker]
     env:
       SDL_VIDEO_DRIVER: x11
       LIBGL_ALWAYS_SOFTWARE: "1"
@@ -579,7 +586,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/mesa-cache
-        if: matrix.group == 'vulkan' || matrix.group == 'equivalence'
+        if: matrix.group != 'cpu-baker'
         with:
           # Each runner compiles different variants; immutable cache keys must not race.
           variant: ubuntu-enhanced-nopt-${{ matrix.group }}

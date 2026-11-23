@@ -165,8 +165,9 @@ so if it takes more than a second.
 **Kept light for a phone:**
 
 - the image is copied by the kernel (`copy_file_range` or `sendfile`);
-- the extractor writes only `SYSTEM.CNF` and the boot executable
-  (`--boot-only`, on every system), though it still checks every file;
+- the extractor writes the disc's files once (the game reads them through
+  their sector map, `sectors.tsv`, never the image): about as much space as
+  the disc again, on top of the linked image the level tools read;
 - files that levels have alike (a moby class, a texture) are written once and
   linked (`extractor/extract.py`, `share_identical_files`);
 - Android's Python has no process pools (no `sem_open`), so `extractor/extract.py`
@@ -300,7 +301,9 @@ path has three parts:
    It is the default except on Mali GPUs, where OpenGL ES is until Vulkan
    is played on one: Mali's shader compiler crashes on any clip distance
    write, which the vertex stages leave out there (`shader_compiler.cpp`,
-   `vertex_clip_distance`). "Renderer" in Settings picks either (the
+   `vertex_clip_distance`). Samsung's Xclipse GPUs (Exynos 2200 and later,
+   found by `Build.SOC_MANUFACTURER`) also start on OpenGL ES: their Vulkan
+   driver crashes and hangs in other apps. "Renderer" in Settings picks either (the
    launcher sets `OPENRAC_GL_API=vulkan` for Vulkan); if Vulkan 1.3 cannot
    start, the game falls back to OpenGL ES.
 

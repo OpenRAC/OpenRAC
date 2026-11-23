@@ -47,11 +47,26 @@
  * never woke, was never drawn and could not be hit (0.4.1's copies: in hidden runs of every planet
  * none of the copies past the first of a squad woke; now they wake with their originals).
  *
+ * Parts. A moby whose pvars hold a spawned moby of its own (a part it made as it started: Dobbo's
+ * and Yeedil's Megacorp Troopers are legs whose pvars hold their torso and two arms) gets copies of
+ * those parts too, so it drives its own and not its original's (a copy driving the original's
+ * parts, which the original frees as it dies, hung or faulted in Todano's and Dobbo's guards). A
+ * part is a live spawned moby the original's pvars name, or a part's do, that no other moby's pvars
+ * name; in the copies every word naming the original or a part names the copy or its part, and
+ * every word pointing into their pvars points into the copies' (the lists the game keeps there: a
+ * shared joint-modifier node made a loop the renderer walked for ever). A moby
+ * that names a spawned moby other mobys share is not copied; one naming a placed moby (whose slot
+ * the game never gives out again) is, and its copy names the same one.
+ *
  * Where. On the original's floor (the ground under the spot within a unit of the ground under the
  * original), in the open (no wall on the line from the original), 2.5 to 4 units away, at the
- * original's height over its floor, and no nearer than 2 units to a moby of its class. The turn
- * around the original follows the copy's index, so each copy of one moby finds its own spot.
- * Room: the pool keeps RESERVE free slots for what the level spawns. */
+ * original's height over its floor, and no nearer than 2 units to a moby of its class; when every
+ * spot that near is taken (a pack: Barlow's hounds), in the rings farther out, up to 8.5 units, and
+ * then 1.25 to 1.75 units away, a unit from the others (a guard in a narrow cell), and last at its
+ * side, 0.6 units away (a guard walled in on a ledge). The
+ * turn around the original follows the copy's index, so each copy of one moby finds its own spot.
+ * Room: the pool keeps RESERVE free slots for what the level spawns, and a slot more for each
+ * part. */
 #include "enemy_copies.h"
 
 #include <math.h>
@@ -59,6 +74,7 @@
 #include <string.h>
 
 #include "game_protos.h"
+#include "moby_pool.h"
 #include "rac2.h"
 
 /* ---- The game's data ---- */
@@ -120,12 +136,13 @@
 
 /* ---- What a copy may be ---- */
 
-/* The largest pvars a copy takes, the room for those over SLOT_PVARS, the pool's slots kept free,
- * the copies of one load at most. */
+/* The largest pvars a copy takes, the room for those over SLOT_PVARS (Barlow's hounds take 832
+ * bytes each, and a later challenge mode's Swarm three copies of each: 192 KB ran out there), the
+ * pool's slots kept free, the copies of one load at most. */
 #define PVARS_MAX 0x800u
-#define ROOM_BYTES 0x10000u
+#define ROOM_BYTES 0x80000u
 #define RESERVE 128
-#define COPIES_MAX 512
+#define COPIES_MAX 1024
 /* The records and blocks a file is believed to have at most, the entries of a list. */
 #define RECORDS_MAX 4096
 #define BLOBS_MAX 8192
@@ -138,9 +155,10 @@
  * counts from; a scan that found the file gone is tried again a tick later at most. */
 #define TICKS OPENRAC_LDATA(0, RAC2_LADDR(00, 0x001B19C8u))
 
-/* The spot: the tries, the turn between them, the jitter, the distances, the floor's tolerance, the
+/* The spot: the tries around each ring and the rings (each SPOT_RANGE farther out), the turn between them, the jitter, the distances, the floor's tolerance, the
  * line's height over the floor, the gap to the class's others. */
 #define SPOT_TRIES 8
+#define SPOT_RINGS 4
 #define SPOT_COPY_STRIDE 3
 #define SPOT_STEP 0.78539816f
 #define SPOT_JITTER 0.4f
@@ -151,6 +169,12 @@
 #define SPOT_PROBE_HEIGHT 0.5f
 #define SPOT_BELOW_FLOOR (-0.5f)
 #define SPOT_GAP 2.0f
+/* The close ring, where no ring out has a spot: its distance, its spread and the gap it keeps. */
+#define SPOT_CLOSE 1.25f
+#define SPOT_CLOSE_RANGE 0.5f
+#define SPOT_CLOSE_GAP 1.0f
+/* The last spot's distance, at the original's side. */
+#define SPOT_SIDE 0.6f
 
 /* The classes never copied, whatever their records say. Found in rac2-decomp: the classes
  * docs/game/moby-dispatch.tsv labels a turret or a spawner, the bosses (NG++'s kBossClasses, in
@@ -540,7 +564,16 @@ int rac2_copy_detail(const rac2_moby_table* t, gaddr moby) {
 /* LoadLevelData (func_L00_00300618; a level's own load, and its load again after a death): the
  * level's file read for the copies as the game has just laid the level out from it. */
 gaddr func_L00_00300618(int reload) {
-    const gaddr heap = func_L00_00300618__game(reload);
+    /* The level's gameplay file may get spare mobys beyond the disc's as it is decompressed. */
+    rac2_pool_loading();
+    gaddr heap = func_L00_00300618__game(reload);
+    /* A raise past the room above the level: laid out again with the raise that fits. */
+    if (rac2_pool_loaded(heap)) {
+        rac2_pool_restore();
+        rac2_pool_loading();
+        heap = func_L00_00300618__game(reload);
+        (void)rac2_pool_loaded(heap);
+    }
     const rac2_moby_table t =
         {GREF(gaddr, TABLE_BASE), GREF(gaddr, TABLE_DYNAMIC), GREF(gaddr, TABLE_END)};
     if (t.base != 0 && t.dynamic >= t.base && t.end >= t.dynamic
@@ -564,7 +597,7 @@ gaddr func_L00_00300618(int reload) {
 #define GROUP_NONE 0xFFu
 #define GROUP_LAST 0x8000u
 #define GROUP_MEMBERS_MAX 1024
-#define GROUP_ROOM_BYTES 0x8000u
+#define GROUP_ROOM_BYTES 0x40000u
 
 /* The lists the copies' groups were moved to, in room of the port's (one load's). */
 static struct {
@@ -601,7 +634,12 @@ static int join_group(const rac2_moby_table* t, gaddr m) {
     ++n; /* the last, with its mark */
     const uint32_t bytes = ((uint32_t)(n + 1) * 2u + 15u) & ~15u;
     if (lists.room == 0) {
-        lists.room = openrac_guest_static(GROUP_ROOM_BYTES);
+        /* Taken once for the program: the statics are never given back, and each level load asks again. */
+        static gaddr block;
+        if (block == 0) {
+            block = openrac_guest_static(GROUP_ROOM_BYTES);
+        }
+        lists.room = block;
     }
     if (lists.room == 0 || lists.used + bytes > GROUP_ROOM_BYTES) {
         return 0;
@@ -613,6 +651,65 @@ static int join_group(const rac2_moby_table* t, gaddr m) {
     GREF(uint16_t, moved + 2u * (uint32_t)n) = (uint16_t)(((m - t->base) / MOBY_SIZE) | GROUP_LAST);
     GREF(gaddr, at) = moved;
     return 1;
+}
+
+/* A slot CreateMoby has just given out (rac2_copy_slot_taken): a dead copy's index left on its
+ * group's list named the new moby. The game never takes a moby off a list (its lists hold only
+ * placed mobys, whose slots are never given out again), so it took the new one for a member of
+ * the squad: the moby loop (BuildActiveMobyChain, func_002A08A0) chained it a second time, which
+ * cut the mobys chained between the two out of that frame's updates (bolts and enemies frozen),
+ * and the squad's controller ran its member code on it, writing an enemy's floats into a bolt's
+ * pvars, whose update then read one as a pointer (Boldan, a crash at 0xBCF5FF88). Only the lists
+ * moved to the port's room have copies; the copy's own entry, if it is one, is added after. */
+void rac2_copy_slot_taken(gaddr m) {
+    if (lists.room == 0 || lists.used == 0 || lists.loads != this_load()) {
+        return;
+    }
+    const gaddr base = GREF(gaddr, TABLE_BASE);
+    if (base == 0 || m < base || (m - base) % MOBY_SIZE != 0) {
+        return;
+    }
+    const uint32_t id = (m - base) / MOBY_SIZE;
+    const int32_t groups = GREF(int32_t, GROUP_COUNT);
+    for (int32_t g = 0; g <= groups && g < 0x1000; ++g) {
+        const gaddr list = GREF(gaddr, GROUP_LISTS + 4u * (uint32_t)g);
+        if (list < lists.room || list >= lists.room + lists.used) {
+            continue;
+        }
+        int n = 0;
+        while (n < GROUP_MEMBERS_MAX + 1
+               && (GREF(uint16_t, list + 2u * (uint32_t)n) & GROUP_LAST) == 0) {
+            ++n;
+        }
+        if (n >= GROUP_MEMBERS_MAX + 1) {
+            continue;
+        }
+        ++n; /* the last, with its mark */
+        for (int j = 0; j < n && n > 1;) {
+            const uint16_t e = GREF(uint16_t, list + 2u * (uint32_t)j);
+            if ((uint32_t)(e & ~GROUP_LAST) != id) {
+                ++j;
+                continue;
+            }
+            memmove(
+                G(list + 2u * (uint32_t)j),
+                G(list + 2u * (uint32_t)(j + 1)),
+                2u * (uint32_t)(n - j - 1)
+            );
+            --n;
+            GREF(uint16_t, list + 2u * (uint32_t)(n - 1)) |= (uint16_t)GROUP_LAST;
+            static uint32_t told;
+            if (told != this_load()) {
+                told = this_load();
+                fprintf(
+                    stderr,
+                    "[info] moby groups: slot %u given out again, off group %d's list\n",
+                    (unsigned)id,
+                    (int)g
+                );
+            }
+        }
+    }
 }
 
 static int copy_alive(int i) {
@@ -691,8 +788,17 @@ static float ground(float x, float y, float z, float over) {
     return func_002A89A8(point, 0, over);
 }
 
+/* CollLine's result (D_001BAF80): +0x18 the moby it hit (0 for the level), +0x20 the hit point. */
+#define COLL_RESULT OPENRAC_DATA(RAC2_ADDR(0x001BAF80u))
+#define COLL_HIT_MOBY 0x18u
+#define COLL_HIT_POINT 0x20u
+/* The mobys a line is tried past before it counts as blocked, and how far past each hit it goes on. */
+#define LINE_PAST_MOBYS 8
+#define LINE_NUDGE 0.05f
+
 /* Whether a wall of the level stands on the line between two points (CollLine, func_002761F8; the
- * moby `ignore` passed over). */
+ * moby `ignore` passed over). A moby on the line is passed over too, a few (the original's own
+ * parts stand around it: a trooper's torso blocked every line from its legs). */
 static int blocked(const float a[3], const float b[3], gaddr ignore) {
     GFRAME(line, 32);
     for (unsigned c = 0; c < 3; ++c) {
@@ -701,7 +807,28 @@ static int blocked(const float a[3], const float b[3], gaddr ignore) {
     }
     GREF(float, line + 12u) = 0.0f;
     GREF(float, line + 28u) = 0.0f;
-    return func_002761F8(line, line + 16u, 0, ignore, 0) != 0;
+    for (int tries = 0; tries <= LINE_PAST_MOBYS; ++tries) {
+        if (func_002761F8(line, line + 16u, 0, ignore, 0) == 0) {
+            return 0;
+        }
+        const gaddr hit = GREF(gaddr, COLL_RESULT + COLL_HIT_MOBY);
+        if (hit == 0 || hit == ignore) {
+            return 1;
+        }
+        /* On from a little past the hit, past the moby it hit. */
+        ignore = hit;
+        float step[3], length = 0.0f;
+        for (unsigned c = 0; c < 3; ++c) {
+            step[c] = b[c] - a[c];
+            length += step[c] * step[c];
+        }
+        length = sqrtf(length);
+        for (unsigned c = 0; c < 3; ++c) {
+            const float on = length > 0.0f ? step[c] / length * LINE_NUDGE : 0.0f;
+            GREF(float, line + 4u * c) = GREF(float, COLL_RESULT + COLL_HIT_POINT + 4u * c) + on;
+        }
+    }
+    return 1;
 }
 
 /* A number in [0, 1) from three, the same on every machine. */
@@ -714,7 +841,7 @@ static float unit_hash(uint32_t a, uint32_t b, uint32_t c) {
     return (float)(h >> 8) / 16777216.0f;
 }
 
-static int crowded(const rac2_moby_table* t, int16_t oclass, const float at[3]) {
+static int crowded(const rac2_moby_table* t, int16_t oclass, const float at[3], float gap) {
     for (gaddr m = t->base; m < t->end; m += MOBY_SIZE) {
         if (GREF(uint8_t, m + MOBY_STATE) >= 0x80 || GREF(int16_t, m + MOBY_OCLASS) != oclass) {
             continue;
@@ -722,7 +849,7 @@ static int crowded(const rac2_moby_table* t, int16_t oclass, const float at[3]) 
         const float dx = at[0] - GREF(float, m + MOBY_POS);
         const float dy = at[1] - GREF(float, m + MOBY_POS + 4u);
         const float dz = at[2] - GREF(float, m + MOBY_POS + 8u);
-        if (dx * dx + dy * dy < SPOT_GAP * SPOT_GAP && fabsf(dz) < SPOT_GAP) {
+        if (dx * dx + dy * dy < gap * gap && fabsf(dz) < gap) {
             return 1;
         }
     }
@@ -739,11 +866,18 @@ static int find_spot(const rac2_moby_table* t, gaddr orig, int index, float out[
     }
     const float over = z - floor0;
     const uint32_t uid = (uint16_t)GREF(int16_t, orig + MOBY_UID);
-    for (int attempt = 0; attempt < SPOT_TRIES; ++attempt) {
+    /* The rings out from SPOT_NEAR, then the close one (a guard in a narrow cell), then the last
+     * one at its side, apart from none (a guard walled in on a ledge). */
+    for (int attempt = 0; attempt < SPOT_TRIES * (SPOT_RINGS + 2); ++attempt) {
+        const int ring = attempt / SPOT_TRIES;
+        const int tight = ring >= SPOT_RINGS;
+        const int last = ring == SPOT_RINGS + 1;
         const float angle = (float)(index * SPOT_COPY_STRIDE + attempt) * SPOT_STEP
                             + unit_hash(uid, (uint32_t)index, (uint32_t)attempt) * SPOT_JITTER;
-        const float r =
-            SPOT_NEAR + unit_hash(uid, (uint32_t)index, 100u + (uint32_t)attempt) * SPOT_RANGE;
+        const float spread = unit_hash(uid, (uint32_t)index, 100u + (uint32_t)attempt);
+        const float r = last    ? SPOT_SIDE
+                        : tight ? SPOT_CLOSE + spread * SPOT_CLOSE_RANGE
+                                : SPOT_NEAR + (float)ring * SPOT_RANGE + spread * SPOT_RANGE;
         const float cx = x + r * cosf(angle), cy = y + r * sinf(angle);
         const float from[3] = {x, y, floor0 + SPOT_LINE_HEIGHT};
         const float to[3] = {cx, cy, floor0 + SPOT_LINE_HEIGHT};
@@ -755,7 +889,8 @@ static int find_spot(const rac2_moby_table* t, gaddr orig, int index, float out[
             continue;
         }
         const float at[3] = {cx, cy, floor + over};
-        if (crowded(t, GREF(int16_t, orig + MOBY_OCLASS), at)) {
+        const float gap = tight ? SPOT_CLOSE_GAP : SPOT_GAP;
+        if (!last && crowded(t, GREF(int16_t, orig + MOBY_OCLASS), at, gap)) {
             continue;
         }
         memcpy(out, at, sizeof at);
@@ -774,50 +909,151 @@ static const struct {
     {MOBY_SLOT, 4},
 };
 
-/* Whether the `size` bytes of pvars at `pvars` hold the address of a moby of the pool other than
- * `self` and the hero's: a part the moby made of its own (a head, a gun, a shield) or one it
- * follows. A copy would drive the same one, and once the original died and freed it, a moby that
- * is no longer its (Todano's and Dobbo's guards: a hang or a fault in their update). */
-static int names_a_moby(const rac2_moby_table* t, gaddr pvars, uint32_t size, gaddr self) {
-    const gaddr hero = GREF(gaddr, OPENRAC_DATA(RAC2_g_pHeroMoby));
-    for (uint32_t off = 0; pvars != 0 && off + 4u <= size; off += 4u) {
-        const gaddr v = GREF(gaddr, pvars + off);
-        if (v >= t->base && v < t->end && (v - t->base) % MOBY_SIZE == 0 && v != self
-            && v != hero) {
+/* The most parts a copied moby may have. */
+#define PARTS_MAX 6
+
+/* Whether `m` is a live moby of the table's. */
+static int live_moby(const rac2_moby_table* t, gaddr m) {
+    return m >= t->base && m < t->end && (m - t->base) % MOBY_SIZE == 0
+           && GREF(uint8_t, m + MOBY_STATE) < 0x80;
+}
+
+/* The bytes of pvars at a moby of the table's: a placed one's from the scan, a spawned one's its
+ * slot's. */
+static uint32_t pvars_size(const rac2_moby_table* t, gaddr m) {
+    if (m >= t->dynamic) {
+        return SLOT_PVARS;
+    }
+    const uint32_t i = (m - t->base) / MOBY_SIZE;
+    return i < PLACED_MAX ? scan.size[i] : 0;
+}
+
+/* Whether the pvars of the moby at `m` name `who`. */
+static int names(const rac2_moby_table* t, gaddr m, gaddr who) {
+    const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+    const uint32_t size = pvars_size(t, m);
+    if (pvars == 0 || !in_ram(pvars, size)) {
+        return 0;
+    }
+    for (uint32_t off = 0; off + 4u <= size; off += 4u) {
+        if (GREF(gaddr, pvars + off) == who) {
             return 1;
         }
     }
     return 0;
 }
 
-gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
-    if (index < 0 || rac2_copy_check(t, orig) != RAC2_COPY_OK) {
-        return 0;
-    }
-    forget_old();
-    if (made.count >= COPIES_MAX || free_slots(t) <= RESERVE) {
-        return 0;
-    }
-    const int16_t k = scan.blob[(orig - t->base) / MOBY_SIZE];
-    const uint32_t size = scan.size[(orig - t->base) / MOBY_SIZE];
-    const uint32_t room_need = size > SLOT_PVARS ? (size + 15u) & ~15u : 0;
-    if (room_need > 0) {
-        if (made.room == 0) {
-            made.room = openrac_guest_static(ROOM_BYTES);
+/* The parts of `orig` (the header's rules) into `parts`: their count, or -1 when it may not be
+ * copied (it names a spawned moby another moby names too, or more than PARTS_MAX). */
+static int parts_of(const rac2_moby_table* t, gaddr orig, gaddr parts[PARTS_MAX]) {
+    const gaddr hero = GREF(gaddr, OPENRAC_DATA(RAC2_g_pHeroMoby));
+    int n = 0;
+    /* The original's and then each part's pvars, for the spawned mobys they name. */
+    for (int at = -1; at < n; ++at) {
+        const gaddr owner = at < 0 ? orig : parts[at];
+        const gaddr pvars = GREF(gaddr, owner + MOBY_PVARS);
+        const uint32_t size = pvars_size(t, owner);
+        if (pvars == 0 || !in_ram(pvars, size)) {
+            continue;
         }
-        if (made.room == 0 || made.room_used + room_need > ROOM_BYTES) {
-            return 0;
+        for (uint32_t off = 0; off + 4u <= size; off += 4u) {
+            const gaddr v = GREF(gaddr, pvars + off);
+            if (v < t->dynamic || v == hero || v == orig || !live_moby(t, v)) {
+                continue;
+            }
+            int known = 0;
+            for (int j = 0; j < n; ++j) {
+                known |= parts[j] == v;
+            }
+            if (known) {
+                continue;
+            }
+            if (n >= PARTS_MAX) {
+                return -1;
+            }
+            parts[n++] = v;
         }
     }
-    if (names_a_moby(t, GREF(gaddr, orig + MOBY_PVARS), size, orig)) {
-        return 0;
+    /* Each one the original's own: no other moby's pvars name it. */
+    for (gaddr m = t->base; n > 0 && m < t->end; m += MOBY_SIZE) {
+        int ours = m == orig;
+        for (int j = 0; j < n; ++j) {
+            ours |= parts[j] == m;
+        }
+        if (ours || GREF(uint8_t, m + MOBY_STATE) >= 0x80) {
+            continue;
+        }
+        for (int j = 0; j < n; ++j) {
+            if (names(t, m, parts[j])) {
+                return -1;
+            }
+        }
     }
-    float spot[3];
-    if (!find_spot(t, orig, index, spot)) {
-        return 0;
+    return n;
+}
+
+/* Whether `off` is one of the fields a copy keeps of its own slot. */
+static int own_field(uint32_t off) {
+    for (unsigned i = 0; i < sizeof own_fields / sizeof own_fields[0]; ++i) {
+        if (off >= own_fields[i].at && off < own_fields[i].at + own_fields[i].bytes) {
+            return 1;
+        }
     }
-    const int16_t oclass = GREF(int16_t, orig + MOBY_OCLASS);
-    const gaddr m = func_0029EFD0(oclass);
+    return 0;
+}
+
+/* What a copy and its parts were taken from and are: each moby, and its pvars and their bytes. */
+typedef struct {
+    int n;
+    gaddr from[1 + PARTS_MAX], to[1 + PARTS_MAX];
+    gaddr pvars_from[1 + PARTS_MAX], pvars_to[1 + PARTS_MAX];
+    uint32_t pvars_bytes[1 + PARTS_MAX];
+} copy_set;
+
+/* The words of `bytes` at `at` (a record when `record`, its slot's own fields left alone) that name
+ * one of the set's originals name its copy, and those that point into an original's pvars (the
+ * game keeps lists in them: a joint modifier's node, which the record's list at +0x64 names, and
+ * which a copy linking the original's node into its own list made a loop of) point into the
+ * copy's. */
+static void rename_mobys(gaddr at, uint32_t bytes, int record, const copy_set* set) {
+    for (uint32_t off = 0; at != 0 && off + 4u <= bytes; off += 4u) {
+        if (record && own_field(off)) {
+            continue;
+        }
+        const gaddr v = GREF(gaddr, at + off);
+        for (int j = 0; j < set->n; ++j) {
+            if (v == set->from[j]) {
+                GREF(gaddr, at + off) = set->to[j];
+                break;
+            }
+            const gaddr pv = set->pvars_from[j];
+            if (pv != 0 && set->pvars_to[j] != 0 && v >= pv && v < pv + set->pvars_bytes[j]) {
+                GREF(gaddr, at + off) = v - pv + set->pvars_to[j];
+                break;
+            }
+        }
+    }
+}
+
+/* Takes the original's record into the slot at `m`, but what is its slot's own, moved by `delta`. */
+static void take_record(gaddr m, gaddr orig, const float delta[3]) {
+    uint8_t own[MOBY_SIZE];
+    memcpy(own, G(m), MOBY_SIZE);
+    memcpy(G(m), G(orig), MOBY_SIZE);
+    for (unsigned i = 0; i < sizeof own_fields / sizeof own_fields[0]; ++i) {
+        memcpy(G(m + own_fields[i].at), own + own_fields[i].at, own_fields[i].bytes);
+    }
+    for (unsigned c = 0; c < 3; ++c) {
+        GREF(float, m + MOBY_POS + 4u * c) += delta[c];
+        if (GREF(float, m + MOBY_SPHERE + 12u) > 0.0f) {
+            GREF(float, m + MOBY_SPHERE + 4u * c) += delta[c];
+        }
+    }
+}
+
+/* A new slot of the class of the moby at `like`: 0 for none, or one left with no class. */
+static gaddr new_slot(gaddr like) {
+    const gaddr m = func_0029EFD0(GREF(int16_t, like + MOBY_OCLASS));
     if (m == 0) {
         return 0;
     }
@@ -826,18 +1062,64 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
         func_0029F338(m);
         return 0;
     }
-    uint8_t own[MOBY_SIZE];
-    memcpy(own, G(m), MOBY_SIZE);
-    memcpy(G(m), G(orig), MOBY_SIZE);
-    for (unsigned i = 0; i < sizeof own_fields / sizeof own_fields[0]; ++i) {
-        memcpy(G(m + own_fields[i].at), own + own_fields[i].at, own_fields[i].bytes);
+    return m;
+}
+
+gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
+    if (index < 0 || rac2_copy_check(t, orig) != RAC2_COPY_OK) {
+        return 0;
+    }
+    forget_old();
+    gaddr parts[PARTS_MAX];
+    const int nparts = parts_of(t, orig, parts);
+    if (nparts < 0 || made.count >= COPIES_MAX || free_slots(t) <= RESERVE + nparts) {
+        return 0;
+    }
+    const int16_t k = scan.blob[(orig - t->base) / MOBY_SIZE];
+    const uint32_t size = scan.size[(orig - t->base) / MOBY_SIZE];
+    const uint32_t room_need = size > SLOT_PVARS ? (size + 15u) & ~15u : 0;
+    if (room_need > 0) {
+        if (made.room == 0) {
+            /* Taken once for the program, as the groups' room is. */
+            static gaddr block;
+            if (block == 0) {
+                block = openrac_guest_static(ROOM_BYTES);
+            }
+            made.room = block;
+        }
+        if (made.room == 0 || made.room_used + room_need > ROOM_BYTES) {
+            return 0;
+        }
+    }
+    float spot[3];
+    if (!find_spot(t, orig, index, spot)) {
+        return 0;
+    }
+    /* The copy's slot and its parts', all or none. */
+    gaddr from_mobys[1 + PARTS_MAX], to_mobys[1 + PARTS_MAX];
+    from_mobys[0] = orig;
+    for (int i = 0; i <= nparts; ++i) {
+        if (i > 0) {
+            from_mobys[i] = parts[i - 1];
+        }
+        to_mobys[i] = new_slot(from_mobys[i]);
+        if (to_mobys[i] == 0) {
+            while (--i >= 0) {
+                func_0029F338(to_mobys[i]);
+            }
+            return 0;
+        }
+    }
+    const gaddr m = to_mobys[0];
+    float delta[3];
+    for (unsigned c = 0; c < 3; ++c) {
+        delta[c] = spot[c] - GREF(float, orig + MOBY_POS + 4u * c);
+    }
+    for (int i = 0; i <= nparts; ++i) {
+        take_record(to_mobys[i], from_mobys[i], delta);
     }
     for (unsigned c = 0; c < 3; ++c) {
-        const float delta = spot[c] - GREF(float, orig + MOBY_POS + 4u * c);
         GREF(float, m + MOBY_POS + 4u * c) = spot[c];
-        if (GREF(float, m + MOBY_SPHERE + 12u) > 0.0f) {
-            GREF(float, m + MOBY_SPHERE + 4u * c) += delta;
-        }
     }
     const gaddr from = GREF(gaddr, orig + MOBY_PVARS);
     gaddr to = GREF(gaddr, m + MOBY_PVARS);
@@ -860,10 +1142,34 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
             }
         }
     }
+    /* The parts' pvars, in their slots' own 0x80 bytes; then the copy and its parts name each
+     * other where the original and its parts did. */
+    for (int i = 1; i <= nparts; ++i) {
+        const gaddr part_from = GREF(gaddr, from_mobys[i] + MOBY_PVARS);
+        const gaddr part_to = GREF(gaddr, to_mobys[i] + MOBY_PVARS);
+        if (part_from != 0 && part_to != 0) {
+            memmove(G(part_to), G(part_from), SLOT_PVARS);
+        }
+    }
+    copy_set set;
+    set.n = 1 + nparts;
+    for (int i = 0; i <= nparts; ++i) {
+        set.from[i] = from_mobys[i];
+        set.to[i] = to_mobys[i];
+        set.pvars_from[i] = GREF(gaddr, from_mobys[i] + MOBY_PVARS);
+        set.pvars_to[i] = GREF(gaddr, to_mobys[i] + MOBY_PVARS);
+        set.pvars_bytes[i] = i == 0 ? size : SLOT_PVARS;
+    }
+    for (int i = 0; i <= nparts; ++i) {
+        rename_mobys(to_mobys[i], MOBY_SIZE, 1, &set);
+        rename_mobys(set.pvars_to[i], set.pvars_bytes[i], 0, &set);
+    }
     /* In the moby cells at its place, as a spawned moby is once placed (func_002A0F48 after the
      * place, as the game's spawners do): the cells near the hero are where the moby loop wakes a
      * sleeping enemy, so one in no cell sleeps forever. */
-    func_002A0F48(m);
+    for (int i = nparts; i >= 0; --i) {
+        func_002A0F48(to_mobys[i]);
+    }
     (void)join_group(t, m);
     made.moby[made.count] = m;
     made.orig[made.count] = orig;

@@ -21,6 +21,7 @@
 #include "common/log.h"
 #include "common/parallel.h"
 #include "common/stats.h"
+#include "renderer/frame/ui_records.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
 #include "renderer/textures/interface_run.h"
@@ -117,7 +118,7 @@ std::size_t TexturePool::KeyHash::operator()(const Key& key) const {
             | (std::uint64_t{key.cpsm} << 56)
             | (std::uint64_t{key.skip_empty_alpha} << kSkipEmptyAlphaShift),
         key.cbp | (std::uint64_t{key.texa.ta0} << 16) | (std::uint64_t{key.texa.ta1} << 24)
-            | (std::uint64_t{key.texa.aem} << 32),
+            | (std::uint64_t{key.texa.aem} << 32) | (std::uint64_t{key.generated} << 33),
         key.pixels_hash,
         key.clut_hash,
         key.crop_border_hash,
@@ -168,12 +169,43 @@ TextureHandle TexturePool::add(Rgba8Image image, AlphaScale scale, std::string n
     return h;
 }
 
-void TexturePool::place(std::uint32_t tbp, TextureHandle texture) {
-    m_placed[tbp] = texture;
+TextureHandle TexturePool::ui_image(
+    std::uint64_t hash, const Rgba8Image& image, const UiIndexed* indexed
+) {
+    if (const auto found = m_ui_images.find(hash); found != m_ui_images.end()) {
+        m_entries[found->second - 1].last_used = m_frame;
+        return found->second;
+    }
+    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md): named, as every texture of the
+    // 2D layer always was, by the hash of its size and RGBA texels, which the game's image decodes
+    // to the same as its upload did; else a PCSX2-format pack's, by its indices and palette (sent
+    // as 8-bit indices, or as the top byte of 32-bit words). Its texel coordinates stay fractions
+    // of the game's size (the item's), so a picture of any size fits.
+    Rgba8Image picture = image;
+    texture_pack::Replacement replaced;
+    const bool packed = texture_pack::replace(picture, {.interface = true}, &replaced);
+    bool pcsx2 = false;
+    if (!packed && indexed != nullptr) {
+        pcsx2 = pcsx2_pack::replace_indexed8(
+                    picture, indexed->indices, indexed->palette, AlphaScale::Gs
+                )
+                || pcsx2_pack::replace_indexed8(
+                    picture, indexed->indices, indexed->palette, AlphaScale::Gs, true
+                );
+    }
+    const TextureHandle handle = add(std::move(picture), AlphaScale::Gs, "2D image", false, true);
+    Entry& entry = m_entries[handle - 1];
+    entry.pack_replacement = packed;
+    entry.pcsx2_replacement = pcsx2;
+    entry.pack_hash = replaced.hash;
+    animate(handle, std::move(replaced.animation));
+    set_blocks(handle, std::move(replaced.blocks));
+    m_ui_images.emplace(hash, handle);
+    return handle;
 }
 
-void TexturePool::clear_placements() {
-    m_placed.clear();
+void TexturePool::place(std::uint32_t tbp, TextureHandle texture) {
+    m_placed[tbp] = texture;
 }
 
 // ---- Source uploads ----
@@ -186,7 +218,8 @@ bool TexturePool::repeat_upload(const ImageUpload& upload) {
     Stored& stored = found->second;
     const ImageUpload& old = stored.upload;
     if (old.dbw != upload.dbw || old.dpsm != upload.dpsm || old.x != upload.x || old.y != upload.y
-        || old.width != upload.width || old.height != upload.height || old.data != upload.data) {
+        || old.width != upload.width || old.height != upload.height
+        || old.generated != upload.generated || old.data != upload.data) {
         return false;
     }
     // Even unchanged transfers are ordering events. A later overlapping upload must not hide this
@@ -496,7 +529,8 @@ TextureHandle TexturePool::convert_upload(
         stored->hash ^ (static_cast<std::uint64_t>(offset) << 40),
         clut_hash,
         border_hash,
-        empty_alpha_is_invisible(tex0, dump_blend) && texture_pack::dumping()
+        empty_alpha_is_invisible(tex0, dump_blend) && texture_pack::dumping(),
+        stored->upload.generated
     };
     if (auto found = m_converted.find(key); found != m_converted.end()) {
         // A held texture still drawn after the place went quiet is a still picture: dumped now.
@@ -552,7 +586,7 @@ TextureHandle TexturePool::convert_upload(
     // An interface texture run (interface_run.h): what the picture was made from, for an export
     // that rebuilds it from the player's disc.
     std::uint64_t noted = 0;
-    if (m_noting && interface_run::recording()) {
+    if (!key.generated && m_noting && interface_run::recording()) {
         std::vector<interface_run::PoolUpload> used{{&stored->upload, stored->sequence}};
         for (const auto& block : border) {
             if (block.upload != nullptr) {
@@ -591,9 +625,9 @@ TextureHandle TexturePool::convert_upload(
     // and end_frame() has the texture converted again (no frame waits for the disk).
     // A texture the game makes anew each tick (a fade, a picture it draws) is not dumped: each
     // tick's would be a file of its own, and no pack can replace them.
-    bool dump = true;
+    bool dump = !key.generated;
     std::vector<std::uint64_t> taken_back;
-    if (texture_pack::dumping()) {
+    if (dump && texture_pack::dumping()) {
         const auto seen = m_live.see(
             std::uint64_t{tex0.tbp0} | (std::uint64_t{tex0.tw} << 20)
                 | (std::uint64_t{tex0.th} << 24) | (std::uint64_t{tex0.psm} << 28),
@@ -616,7 +650,7 @@ TextureHandle TexturePool::convert_upload(
     }
     // The original, for a dump later (Entry::held): a texture pack of PCSX2's may change `image`.
     std::shared_ptr<const Rgba8Image> held =
-        dump ? nullptr : std::make_shared<const Rgba8Image>(image);
+        !dump && !key.generated ? std::make_shared<const Rgba8Image>(image) : nullptr;
     const bool packed = texture_pack::replace(
         image,
         {.interface = true, .later = true, .dump = dump, .skip_empty_alpha = key.skip_empty_alpha},
@@ -700,8 +734,8 @@ TextureHandle TexturePool::convert_upload(
     if (!taken_back.empty()) {
         const std::set<std::uint64_t> back(taken_back.begin(), taken_back.end());
         for (Entry& other : m_entries) {
-            if (other.live && other.from_upload && other.held == nullptr && !other.pack_replacement
-                && back.contains(other.pack_hash) && &other != &entry
+            if (other.live && other.from_upload && !other.key.generated && other.held == nullptr
+                && !other.pack_replacement && back.contains(other.pack_hash) && &other != &entry
                 && texture_pack::image_hash(other.image) == other.pack_hash) {
                 other.held = std::make_shared<const Rgba8Image>(other.image);
                 other.held_tick = m_tick;
@@ -737,7 +771,7 @@ TextureHandle TexturePool::resolve(
     } else {
         h = convert_upload(tex0, texa, dump_blend);
         // A pack maker's dump groups the textures the game cycles in one place.
-        if (h != 0 && texture_pack::dumping()) {
+        if (h != 0 && !m_entries[h - 1].key.generated && texture_pack::dumping()) {
             watch_cycle(tex0, h);
         }
     }
@@ -1541,8 +1575,8 @@ TextureHandle TexturePool::distance_field(TextureHandle source) {
         return local[static_cast<std::size_t>(y * src.width + x)];
     };
     // The glyphs' shape is read through a Catmull-Rom cubic of the alpha, not the bilinear filter:
-    // a bilinear edge bends at every source texel, so a 16-pixel glyph drawn large got lumpy curves
-    // (issue #380, the save list's planet names). The cubic's curves are smooth across texels, and
+    // a bilinear edge bends at every source texel, so a 16-pixel glyph drawn large gets lumpy
+    // curves (the save list's planet names). The cubic's curves are smooth across texels, and
     // it passes through every texel, so thin strokes, accents and the TM sign keep their weight.
     auto smooth_alpha = [&](int x0, int y0, float fx, float fy) {
         const auto weights = [](float t, float* out) {

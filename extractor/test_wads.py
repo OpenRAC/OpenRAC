@@ -131,6 +131,73 @@ class ItemBankTests(unittest.TestCase):
         self.assertEqual((class_id, item[:4], texture[:4], Source.read), (192, b"item", b"tex0", [(103, 2)]))
 
 
+class ShipTableTests(unittest.TestCase):
+    def test_a_game_keeps_its_ship_where_its_version_says(self):
+        # Up Your Arsenal: hulls and paint jobs at offsets of its own, from its own base sector.
+        class Source:
+            version = wads.Version("rac3", "pal", "", "", "", 0, "", 0x60, ship_bodies=0x20,
+                                   ship_paints=0x38, ship_paint_count=2, flight_base=0x10)
+            toc = bytearray(0x60)
+            read = []
+
+            class disc:
+                @staticmethod
+                def sectors(lba, count):
+                    Source.read.append((lba, count))
+                    return b""
+
+        struct.pack_into("<i", Source.toc, 0x10, 1000)
+        struct.pack_into("<6i", Source.toc, 0x20, 1, 2, 3, 4, 5, 6)
+        struct.pack_into("<4i", Source.toc, 0x38, 7, 8, 9, 10)
+        Source.ship_body = lambda n: wads.WadDisc.ship_body(Source, n)
+        Source.ship_texture = lambda n: wads.WadDisc.ship_texture(Source, n)
+        self.assertEqual(len(wads.WadDisc.ship_bodies(Source)), 3)
+        self.assertEqual(len(wads.WadDisc.ship_textures(Source)), 2)
+        self.assertEqual(Source.read, [(1001, 2), (1003, 4), (1005, 6), (1007, 8), (1009, 10)])
+        self.assertEqual(wads.RAC3_PAL.wrench_packs, (31,))
+
+    def test_clanks_skins_from_the_hero_packs_base(self):
+        # Up Your Arsenal: (sector, sector count) pairs from the hero packs' base sector.
+        class Source:
+            version = wads.Version("rac3", "pal", "", "", "", 0, "", 0x60, hero_packs=0x10,
+                                   clank_skins=0x20, clank_skin_count=2)
+            toc = bytearray(0x40)
+            read = []
+
+            class disc:
+                @staticmethod
+                def sectors(lba, count):
+                    Source.read.append((lba, count))
+                    return b""
+
+        struct.pack_into("<i", Source.toc, 0x10, 700)
+        struct.pack_into("<4i", Source.toc, 0x20, 1, 2, 3, 4)
+        self.assertEqual(len(wads.WadDisc.clank_textures(Source)), 2)
+        self.assertEqual(Source.read, [(701, 2), (703, 4)])
+        self.assertEqual((wads.RAC3_PAL.clank_skins, wads.RAC3_NTSC.clank_skins), (0x2238, 0x2238))
+        Source.version = wads.Version("rac2", "ntsc", "", "", "", 0, "", 0x60)
+        self.assertEqual(wads.WadDisc.clank_textures(Source), [])
+
+    def test_a_loading_screen_pack(self):
+        # Up Your Arsenal: (sector, sector count) pairs after their base sector.
+        class Source:
+            version = wads.Version("rac3", "pal", "", "", "", 0, "", 0x60, loading_packs=0x14)
+            toc = bytearray(0x40)
+            read = []
+
+            class disc:
+                @staticmethod
+                def sectors(lba, count):
+                    Source.read.append((lba, count))
+                    return b""
+
+        struct.pack_into("<i", Source.toc, 0x10, 500)
+        struct.pack_into("<4i", Source.toc, 0x14, 1, 2, 30, 40)
+        wads.WadDisc.loading_pack(Source, 1)
+        self.assertEqual(Source.read, [(530, 40)])
+        self.assertEqual((wads.RAC3_PAL.loading_packs, wads.RAC3_PAL.loading_ship_pack), (0x1288, 11))
+
+
 class WadDiscTests(unittest.TestCase):
     def open(self, version: wads.Version, levels, swap=False) -> Disc:
         temp = tempfile.TemporaryDirectory()

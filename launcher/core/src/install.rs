@@ -5,7 +5,8 @@
 //!
 //! ```text
 //! <install dir>/active/<game>/data/
-//!     iso_data/<game>/        the disc's files, the image, buildinfo.json   (extract)
+//!     iso_data/<game>/        the disc's files, sectors.tsv, the image,     (extract)
+//!                             buildinfo.json
 //!     decompiler_out/<game>/  the assets in the port's formats              (decompile)
 //!     out/<game>/             the built port                                (compile, not yet)
 //! ```
@@ -93,11 +94,17 @@ pub fn build_info(iso_data: &Path) -> Option<BuildInfo> {
     serde_json::from_str::<Vec<BuildInfo>>(&text).ok()?.into_iter().next()
 }
 
+/// The map from every sector of the disc to the file the extractor wrote it to
+/// (tools/openrac_common/disc_files.py): what the game reads, in place of the image.
+pub const SECTOR_MAP: &str = "sectors.tsv";
+
 pub fn state(install: &Path, game: &str) -> InstallState {
     let dir = data_dir(install, game);
     let iso_data = dir.join("iso_data").join(game);
     // A set-up whose image is gone is none: on Android the image is a link to the copy in the
-    // Disc images folder, which the player can delete in the Files app.
+    // Disc images folder, which the player can delete in the Files app. One made before the
+    // extractor wrote the disc's files (no SECTOR_MAP) is still one: Play waits for its files,
+    // which the step "disc-files" (actions.json) writes from the image it kept.
     let extracted = build_info(&iso_data).filter(|_| iso_data.join("disc.iso").is_file());
     let filled = |sub: &str| std::fs::read_dir(dir.join(sub).join(game)).is_ok_and(|mut d| d.next().is_some());
     InstallState { decompiled: filled("decompiler_out"), compiled: filled("out"), extracted, dir }
@@ -131,9 +138,6 @@ pub fn plan_extract(config: &Config, install: &Path, game: &str, image: &Path) -
         "--proj-path".into(),
         data_dir(install, game).display().to_string(),
     ];
-    // Of the disc's files only what the port reads beside the image (every file is still
-    // checked), not gigabytes more to write.
-    args.push("--boot-only".into());
     // Android lets no app make hard links, and the image is the launcher's own copy (the Disc
     // images folder): a link to it, not a second copy of a multi-gigabyte file.
     if crate::actions::Platform::current() == crate::actions::Platform::Android {
@@ -157,8 +161,9 @@ pub struct Tidied {
     pub lines: Vec<String>,
 }
 
-/// What a set-up keeps of the disc beside the image: all the port reads (tools/extractor.py
-/// --boot-only), with the boot executable, named by its serial.
+/// What a set-up made with tools/extractor.py --boot-only keeps of the disc beside the image, with
+/// the boot executable, named by its serial. A set-up with a sector map keeps all its files: the
+/// game reads them.
 const KEPT_BESIDE_IMAGE: [&str; 3] = ["disc.iso", "buildinfo.json", "SYSTEM.CNF"];
 
 /// Frees what older set-ups hold and nothing reads, in every set-up under `install` (the one in
@@ -188,6 +193,10 @@ pub fn tidy(install: &Path, discs: Option<&Path>) -> Tidied {
 }
 
 fn drop_unread_files(dir: &Path, info: &BuildInfo, done: &mut Tidied) {
+    // The disc's files and their map: every one is read.
+    if dir.join(SECTOR_MAP).is_file() {
+        return;
+    }
     let Ok(entries) = std::fs::read_dir(dir) else { return };
     let (mut bytes, mut count) = (0, 0);
     for entry in entries.flatten() {
@@ -430,6 +439,21 @@ mod tests {
         assert_eq!(tidy(install, None), Tidied::default(), "nothing more the second time");
     }
 
+    #[test]
+    fn tidy_keeps_the_disc_files_the_game_reads() {
+        let dir = tempfile::tempdir().unwrap();
+        let install = dir.path();
+        extracted(install, "rac1", "SCES_509.16");
+        let set_up = data_dir(install, "rac1").join("iso_data").join("rac1");
+        std::fs::create_dir_all(set_up.join("lumps/global")).unwrap();
+        std::fs::write(set_up.join("lumps/global/000.bin"), vec![0; 2048]).unwrap();
+        std::fs::write(set_up.join("IOPRP243.IMG"), b"file").unwrap();
+        std::fs::write(set_up.join(SECTOR_MAP), b"# openrac sector map 1\n").unwrap();
+        assert_eq!(tidy(install, None), Tidied::default());
+        assert!(set_up.join("lumps/global/000.bin").is_file());
+        assert!(set_up.join("IOPRP243.IMG").is_file());
+    }
+
     #[cfg(unix)]
     #[test]
     fn tidy_links_a_second_copy_of_the_kept_image() {
@@ -525,7 +549,9 @@ mod tests {
         // Joined as the system joins paths: with backslashes on Windows.
         let data = Path::new("/data").join("active").join("rac1").join("data");
         assert_eq!(plan.args[7], data.display().to_string());
-        assert_eq!(plan.args[8], "--boot-only", "only what the port reads, on every system");
+        // The disc's files and their sector map, which the game reads: not --boot-only.
+        assert_eq!(plan.args.len(), if cfg!(target_os = "android") { 9 } else { 8 });
+        assert!(!plan.args.iter().any(|a| a == "--boot-only"));
         assert_eq!(plan.cwd, PathBuf::from("/openrac"));
         assert!(plan_extract(&Config::default(), Path::new("/data"), "rac1", &image).is_err());
         assert!(plan_extract(&config, Path::new("/data"), "rac 1", &image).is_err());

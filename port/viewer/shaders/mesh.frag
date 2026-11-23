@@ -30,7 +30,7 @@ uniform sampler2D tex_T0;
 uniform vec4 material_colour;
 uniform int cutout;
 uniform int lighting;
-// The pass and setting switches a pipeline may take as constants (vk-mode-constants).
+// The pass and setting switches every Vulkan pipeline fixes as constants (pipeline variants).
 // openrac_mode: glow_pass glow_split opacity_split translucent_pass effect_pass effect_additive
 // openrac_mode: metal_pass gtao_enabled hero_wetness_debug object_reflection_enabled
 // openrac_mode: gameplay_rim_enabled
@@ -262,18 +262,78 @@ vec3 energy_shine(vec3 rgb) {
     return min(rgb + energy_rgb() * (kEnergyRim * rim), vec3(1.0));
 }
 
-// A mod's material on the texel, the colour and the lit colour: platinum's, obsidian's or
-// energy's, the value as it is for a moby with none.
+// A mod's paint (OPENRAC_MOBY_MATERIAL_PAINT, interface 1.34): render-only, the moby repainted in
+// the mod's colour. The texel becomes its own grey, its contrast raised (paint_texel), and the
+// instance tint, which holds all of rgb (frame.cpp's apply_mod_material), colours it as the vertex
+// colour multiplies it: the same model and texture, shaded as before, in the paint's colour. After
+// the lighting a white highlight follows the sun and a rim glows in the colour by the paint's
+// level (paint_shine); a glow packet takes the colour at its luminance (paint_colour).
+// v_mod_material is kModMaterialPaint plus the level (scene::kModMaterialPaint).
+const int kModMaterialPaint = 16;
+const float kPaintContrast = 1.25;     // the grey's contrast around kPaintPivot
+const float kPaintPivot = 0.35;
+const float kPaintGain = 1.6;          // the grey's brightening before the colour multiplies it
+const float kPaintGloss = 24.0;        // the highlight's exponent
+const float kPaintHighlight = 0.35;    // the highlight's strength at its peak
+const float kPaintRim = 0.9;           // the rim's strength at a grazing angle, at the top level
+const float kPaintRimFalloff = 2.5;    // how fast it fades towards the middle
+const float kPaintGlowPacket = 2.0;    // a glow packet's brightening
+
+bool paint() {
+    return v_mod_material >= kModMaterialPaint && v_mod_material < kModMaterialPaint + 16;
+}
+
+float paint_level() {
+    return float(v_mod_material - kModMaterialPaint) / 15.0;
+}
+
+vec4 paint_texel(vec4 texel) {
+    if (!paint() || v_glow != 0) {
+        return texel;
+    }
+    float grey = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+    grey = clamp((grey - kPaintPivot) * kPaintContrast + kPaintPivot, 0.0, 1.0) * kPaintGain;
+    return vec4(vec3(min(grey, 1.0)), texel.a);
+}
+
+vec4 paint_colour(vec4 c) {
+    if (!paint() || v_glow == 0) {
+        return c;
+    }
+    // The tint is the paint's colour: a glow packet's grey is its colour's luminance, coloured.
+    float tint = max(dot(v_mod_rgb, vec3(0.299, 0.587, 0.114)), 0.05);
+    float grey = dot(c.rgb, vec3(0.299, 0.587, 0.114)) / tint;
+    return vec4(v_mod_rgb * grey * kPaintGlowPacket, c.a);
+}
+
+vec3 paint_shine(vec3 rgb) {
+    if (!paint() || v_glow != 0 || dot(v_normal, v_normal) < 1e-12) {
+        return rgb;
+    }
+    vec3 eye_position = (view * vec4(v_world_position, 1.0)).xyz;
+    vec3 to_eye = normalize(-eye_position);
+    vec3 n = normalize(mat3(view) * v_normal);
+    // Double-sided, as the game draws mobys.
+    n = dot(n, to_eye) < 0.0 ? -n : n;
+    vec3 half_way = normalize(normalize(mat3(view) * kSun) + to_eye);
+    float highlight = pow(max(dot(n, half_way), 0.0), kPaintGloss);
+    float rim = pow(1.0 - max(dot(n, to_eye), 0.0), kPaintRimFalloff);
+    vec3 glow = v_mod_rgb * (kPaintRim * paint_level() * rim);
+    return min(rgb + glow + vec3(kPaintHighlight * highlight), vec3(1.0));
+}
+
+// A mod's material on the texel, the colour and the lit colour: platinum's, obsidian's, energy's
+// or paint's, the value as it is for a moby with none.
 vec4 mod_texel(vec4 texel) {
-    return obsidian_texel(platinum_texel(texel));
+    return paint_texel(obsidian_texel(platinum_texel(texel)));
 }
 
 vec4 mod_colour(vec4 c) {
-    return energy_colour(obsidian_colour(platinum_colour(c)));
+    return paint_colour(energy_colour(obsidian_colour(platinum_colour(c))));
 }
 
 vec3 mod_shine(vec3 rgb) {
-    return energy_shine(obsidian_shine(platinum_shine(rgb)));
+    return paint_shine(energy_shine(obsidian_shine(platinum_shine(rgb))));
 }
 
 #ifdef OPENRAC_ENHANCED_RENDERING

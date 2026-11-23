@@ -15,7 +15,7 @@ openrac-extractor IMAGE --game rac1 [--proj-path DIR] [--extract] [--validate] \
 
 | Step | What it does |
 |---|---|
-| `--extract` | copies the disc's files into `DIR/iso_data/GAME/`, hashing each as it is copied, and keeps the image there as `disc.iso` (a hard link where it can): the games read most of their data by sector. Writes `buildinfo.json` as tools/extractor.py does |
+| `--extract` | copies the disc's files into `DIR/iso_data/GAME/`, hashing each as it is copied, and keeps the image there as `disc.iso` (a hard link where it can). Writes `buildinfo.json` as tools/extractor.py does. It does not write the lumps and sector map (`sectors.tsv`) the port reads: set a game up to play with tools/extractor.py (tools/openrac_common/disc_files.py) |
 | `--validate` | refuses an image whose boot executable is not a build OpenRAC knows (the table in [assets/version.h](../assets/version.h), written from `games/*/game.json`); implied by `--extract`. An unknown build prints the line a maintainer would add |
 | `--decompile` | turns the disc into what the port reads, in `DIR/decompiler_out/GAME/`: `toc.bin`, every level's own files (`levels/NN/level_header.bin`, `overlay.bin`, `core_data.bin`, ...), their WAD-compressed lumps unpacked (`levels/NN/unpacked/`), and `lumps.tsv`, the place in `disc.iso` of every other lump (movies, music, speech, global lumps), which stay where they are. Needs the game's disc layout ([assets/disc](../assets/disc/README.md)): RAC1 today |
 | `--compile` | builds the native port: not available yet (4060) |

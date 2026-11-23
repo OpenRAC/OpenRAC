@@ -143,6 +143,21 @@ fn app_info(app: AppHandle, state: State<'_, AppState>) -> AppInfo {
     }
 }
 
+/// What `launcher_update_check` answers when the manifest has a newer release but no build for this
+/// system: the release's build for it failed. The page (updates.ts) says so instead of sending the
+/// player to GitHub.
+#[cfg(desktop)]
+const NO_BUILD_FOR_PLATFORM: &str = "no build for this platform";
+
+#[cfg(desktop)]
+fn update_check_error(error: tauri_plugin_updater::Error) -> String {
+    use tauri_plugin_updater::Error;
+    match error {
+        Error::TargetNotFound(_) | Error::TargetsNotFound(_) => NO_BUILD_FOR_PLATFORM.into(),
+        other => other.to_string(),
+    }
+}
+
 /// A newer launcher on the player's channel, or None: Tauri's updater asked at that channel's
 /// manifest, and the update kept for its own download and install (plugin-updater's `Update`,
 /// rebuilt in the page from `rid`). A desktop's; Android's launcher has android::update_check.
@@ -166,7 +181,7 @@ async fn launcher_update_check(
             });
         }
         let updater = builder.endpoints(vec![url]).and_then(|b| b.build()).map_err(|e| e.to_string())?;
-        let Some(update) = updater.check().await.map_err(|e| e.to_string())? else { return Ok(None) };
+        let Some(update) = updater.check().await.map_err(update_check_error)? else { return Ok(None) };
         let date = update.raw_json.get("pub_date").cloned();
         let (current_version, version, body, raw_json) =
             (update.current_version.clone(), update.version.clone(), update.body.clone(), update.raw_json.clone());
@@ -244,6 +259,13 @@ fn save_config(state: State<'_, AppState>, mut config: Config) -> Result<Config,
             openrac_launcher_core::multiplayer::MIN_LEN,
             openrac_launcher_core::multiplayer::MAX_LEN
         ));
+    }
+    // The server likewise: a host name or an IP address, and a port the type keeps in range.
+    config.multiplayer_server_host = config.multiplayer_server_host.trim().to_string();
+    if !openrac_launcher_core::multiplayer::is_valid_host(&config.multiplayer_server_host)
+        || config.multiplayer_server_port == 0
+    {
+        return Err("the multiplayer server must be a host name or an IP address, and a port from 1 to 65535".into());
     }
     // Developer tools switched off: back to the carried copy (detect::settle).
     detect::settle(&mut config, state.bundled.as_deref());
@@ -1607,6 +1629,40 @@ async fn write_save_rac2(
     .map_err(|e| e.to_string())?
 }
 
+/// One Up Your Arsenal save slot for its save editor (core/src/save_edit_rac3.rs).
+#[tauri::command]
+async fn read_save_rac3(
+    serial: String,
+    slot: usize,
+) -> Result<openrac_launcher_core::save_edit_rac3::Rac3SaveView, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        openrac_launcher_core::save_edit_rac3::read_save(&card, &serial, slot)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Writes the Up Your Arsenal save editor's fields into a slot, with write_save_rac2's guards.
+#[tauri::command]
+async fn write_save_rac3(
+    app: AppHandle,
+    serial: String,
+    slot: usize,
+    fingerprint: String,
+    fields: openrac_launcher_core::save_edit_rac3::Rac3SaveFields,
+) -> Result<openrac_launcher_core::save_edit_rac3::Rac3WriteResult, String> {
+    let in_use = card_check(&app).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let card = openrac_launcher_core::saves::get_memcard_dir(&serial);
+        openrac_launcher_core::save_edit_rac3::write_save(&card, &serial, slot, &fingerprint, &fields, || {
+            in_use(&card, &serial)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// What the mods that are on keep beside a Going Commando save (core/src/mod_save_data.rs): their
 /// fields of its record, for the save editor.
 #[tauri::command]
@@ -1857,6 +1913,17 @@ async fn player_name_used(state: State<'_, AppState>, games: Vec<String>) -> Res
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+/// Settings, "Test connection": whether a multiplayer server answers at `host:port` (a TCP
+/// connection within 5 seconds), or why not.
+#[tauri::command]
+async fn multiplayer_server_test(host: String, port: u32) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        openrac_launcher_core::multiplayer::reachable(&host, port, std::time::Duration::from_secs(5))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// The launcher's Multiplayer name, for the mod settings that default to it (empty when invalid).
@@ -3192,6 +3259,8 @@ pub fn run() {
             write_save,
             read_save_rac2,
             write_save_rac2,
+            read_save_rac3,
+            write_save_rac3,
             read_save_rac2_extra,
             read_mod_save_data_rac2,
             write_mod_save_data_rac2,
@@ -3206,6 +3275,7 @@ pub fn run() {
             reset_apply,
             plugins_list,
             player_name_used,
+            multiplayer_server_test,
             enhanced_view,
             enhanced_set_enabled,
             texture_packs_view,

@@ -54,6 +54,7 @@ void Settings::reset_enhanced() {
 namespace {
 // What a preset sets. The rest of Enhanced graphics costs little or is a matter of taste.
 struct PresetValues {
+    int render_scale;
     renderer::TemporalQuality temporal;
     renderer::ShadowQuality shadows;
     renderer::ShadowFilter shadow_filter;
@@ -64,21 +65,24 @@ struct PresetValues {
 };
 
 constexpr PresetValues kPresets[] = {
-    {renderer::TemporalQuality::Performance,
+    {75,
+     renderer::TemporalQuality::Performance,
      renderer::ShadowQuality::Low,
      renderer::ShadowFilter::Fast,
      renderer::GtaoQuality::Low,
      false,
      renderer::TextureFilter::Normal,
      renderer::render_opt::EffectsDetail::Low},
-    {renderer::TemporalQuality::Balanced,
+    {100,
+     renderer::TemporalQuality::Balanced,
      renderer::ShadowQuality::Medium,
      renderer::ShadowFilter::Soft,
      renderer::GtaoQuality::Performance,
      true,
      renderer::TextureFilter::EdgeAware,
      renderer::render_opt::EffectsDetail::Medium},
-    {renderer::TemporalQuality::Quality,
+    {100,
+     renderer::TemporalQuality::Quality,
      renderer::ShadowQuality::High,
      renderer::ShadowFilter::Soft,
      renderer::GtaoQuality::Performance,
@@ -86,6 +90,15 @@ constexpr PresetValues kPresets[] = {
      renderer::TextureFilter::EdgeAware,
      renderer::render_opt::EffectsDetail::High},
 };
+
+// Older settings files used these options to identify a preset.
+bool matches_preset_quality(const Settings& settings, const PresetValues& values) {
+    return settings.temporal_quality == values.temporal && settings.shadow_quality == values.shadows
+           && settings.shadow_filter == values.shadow_filter
+           && settings.gtao_settings.quality == values.occlusion
+           && settings.motion_blur == values.motion_blur
+           && settings.texture_filter == values.textures;
+}
 }  // namespace
 
 void Settings::apply_enhanced_preset(EnhancedPreset preset) {
@@ -93,6 +106,7 @@ void Settings::apply_enhanced_preset(EnhancedPreset preset) {
         return;
     }
     const PresetValues& values = kPresets[static_cast<int>(preset)];
+    render_scale = values.render_scale;
     temporal_quality = values.temporal;
     shadow_quality = values.shadows;
     shadow_filter = values.shadow_filter;
@@ -105,10 +119,8 @@ void Settings::apply_enhanced_preset(EnhancedPreset preset) {
 EnhancedPreset Settings::enhanced_preset() const {
     for (int n = 0; n < static_cast<int>(EnhancedPreset::Custom); ++n) {
         const PresetValues& values = kPresets[n];
-        if (temporal_quality == values.temporal && shadow_quality == values.shadows
-            && shadow_filter == values.shadow_filter && gtao_settings.quality == values.occlusion
-            && motion_blur == values.motion_blur && texture_filter == values.textures
-            && effects_detail == values.detail) {
+        if (render_scale == values.render_scale && effects_detail == values.detail
+            && matches_preset_quality(*this, values)) {
             return static_cast<EnhancedPreset>(n);
         }
     }
@@ -389,10 +401,10 @@ void load(const std::filesystem::path& file) {
         } else if (key == "rim_light" || key == "rim_shadow_lift" || key == "rim_lift_exponent"
                    || key == "rim_lift_max_gain" || key == "rim_light_strength"
                    || key == "rim_light_falloff") {
-            // Legacy preferences: enhanced mode uses the built-in rim lighting.
+            // Read and ignored: enhanced mode uses the built-in rim lighting.
             known = true;
         } else if (key == "probe_lighting") {
-            // Legacy preference: probe lighting now follows enhanced graphics.
+            // Read and ignored: probe lighting follows enhanced graphics.
             bool ignored = true;
             known = parse_bool(value, ignored);
         } else if (key == "probe_spheres") {
@@ -615,12 +627,12 @@ void load(const std::filesystem::path& file) {
             );
         }
     }
-    for (int n = 0; !has_effects_detail && n < static_cast<int>(EnhancedPreset::Custom); ++n) {
-        Settings preset = s;
-        preset.effects_detail = kPresets[n].detail;
-        if (preset.enhanced_preset() == static_cast<EnhancedPreset>(n)) {
-            s.effects_detail = preset.effects_detail;
-            break;
+    if (!has_effects_detail) {
+        for (const auto& preset : kPresets) {
+            if (matches_preset_quality(s, preset)) {
+                s.effects_detail = preset.detail;
+                break;
+            }
         }
     }
     if (has_frame_rate && !has_vsync) {

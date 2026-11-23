@@ -92,6 +92,29 @@ public:
     bool upload(const LevelData& level, renderer::TexturePool& textures, std::string& error);
     void release();
 
+    // Models loaded into `level` (load_model) after upload, drawn without uploading the level
+    // again. Call from the thread that owns the graphics, with no frame in flight: it extends
+    // what a render job reads (the models, the materials, the textures).
+    //
+    // The index of a model is the same in the level and in the scene, so that an Instance and the
+    // level's own data (the models' bounds, the picker) agree. The scene keeps copies of some of
+    // the level's models after them (upload's material-order copies), so a model loaded later
+    // would be given an index the scene has in use: align_models first pads `level.models` with
+    // empty models up to the scene's count, and the next load_model then gets the index the scene
+    // will give it. Models the level was read with before upload need none of this.
+    std::size_t model_count() const { return m_models.size(); }
+
+    void align_models(LevelData& level) const;
+    // Adds what `level` gained since upload, or since the last call: its models after the aligned
+    // ones, the materials and images they came with. A model is drawn as a moby is (the live layer,
+    // Instance::model) and nowhere else (not in the static layers, not in a level's own tables).
+    // The vertices and indices of one call go into buffers of their own (a chunk), so the level's
+    // buffers are not touched, and the cost is that of the new meshes, not of the level. False,
+    // with `error`, when the level is not the one uploaded or the models were not aligned.
+    bool add_loaded_models(
+        const LevelData& level, renderer::TexturePool& textures, std::string& error
+    );
+
     void draw_layer(
         Layer layer,
         const renderer::FrameInput& input,
@@ -602,8 +625,20 @@ private:
     // Combines cached opaque and dynamic depth, restoring atlas casters when composition fails.
     void combine_scrolling_shadows(unsigned mask, renderer::RenderState& state);
     void release_scrolling_shadows();
+
+    // The three buffers a model's vertex arrays read: the level's (upload), or those of the chunk
+    // the model was added in (add_loaded_models).
+    struct MeshBuffers {
+        unsigned vertices = 0;
+        unsigned positions = 0;  // the vertices' positions alone (vertex-position-stream)
+        unsigned indices = 0;
+    };
+
+    MeshBuffers buffers_of(std::uint32_t model) const;
+    // The compact vertex array shadow casting shares between the groups of one set of buffers.
+    Group& shadow_compact_of(std::uint32_t model);
     Group make_group(std::uint32_t model);
-    void point_positions() const;
+    void point_positions(const MeshBuffers& buffers) const;
     void sync_position_stream();
     void fill_group(Group& g, const std::vector<InstanceData>& list, unsigned usage);
     void build_groups(Layer layer, const std::vector<Instance>& instances, bool live);
@@ -814,6 +849,27 @@ private:
     unsigned m_positions = 0;        // the vertices' positions alone (vertex-position-stream)
     bool m_position_stream = false;  // the vertex arrays read positions from m_positions
     unsigned m_indices = 0;
+    // The models add_loaded_models added: each call's meshes in a chunk of buffers of their own,
+    // never written again (a buffer of the level is written once, at upload, too). m_model_chunk
+    // names a model's chunk (1 + its place in m_chunks), 0 the level's buffers; models past its end
+    // are the level's. A chunk's vertex numbers and primitives' first indices are its own.
+    std::vector<MeshBuffers> m_chunks;
+    std::vector<std::uint32_t> m_model_chunk;
+    // The shadow casters' compact vertex array of each chunk (the level's is m_shadow_compact).
+    std::vector<Group> m_chunk_shadow_compact;
+
+    // The sizes of the level as the scene has it (upload, add_loaded_models): what is added next
+    // starts there.
+    struct LevelSizes {
+        std::size_t models = 0, vertices = 0, indices = 0, materials = 0, images = 0;
+    };
+
+    LevelSizes m_known;
+    // Makes the textures of the level's images from `first_image` on (m_textures), as upload and
+    // add_loaded_models take them.
+    void add_textures(
+        const LevelData& level, std::size_t first_image, renderer::TexturePool& textures
+    );
     unsigned m_palette = 0;           // RGBA32F texture, four texels per matrix
     unsigned m_lights = 0;            // RGBA8 texture, the ties' lit colours
     std::vector<float> m_light_sets;  // the level's 16 directional light sets (LevelData)

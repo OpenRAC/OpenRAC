@@ -12,8 +12,8 @@ share. The build makes a program for every folder whose decompilation is present
 | [rac2-ntsc](rac2-ntsc/README.md) | Going Commando, NTSC-U v1.01 (SCUS-97268) | `games/rac2/decomp` | `func_00131AE8` |
 | [rac2-ntsc2](rac2-ntsc2/README.md) | Going Commando, USA v2.00 (SCUS-97268) | `games/rac2/decomp`, release view | `func_00131AE8` |
 | [rac2-pal](rac2-pal/README.md) | Going Commando, PAL (SCES-51607) | `games/rac2/decomp`, release view | `func_00131B48` |
-| [rac3-ntsc](rac3-ntsc/README.md) | Up Your Arsenal, NTSC-U | `games/rac3/decomp`, release view | not known yet |
-| [rac3-pal](rac3-pal/README.md) | Up Your Arsenal, PAL | `games/rac3/decomp` | not known yet |
+| [rac3-ntsc](rac3-ntsc/README.md) | Up Your Arsenal, NTSC-U (SCUS-97353) | `games/rac3/decomp`, release view of rac3-pal | as rac3-pal |
+| [rac3-pal](rac3-pal/README.md) | Up Your Arsenal, PAL (SCES-52456); its host C and profile are both discs' | `games/rac3/decomp` | `func_0013ADA8` (the port's loader and crt0) |
 | [rac4-ntsc](rac4-ntsc/README.md) | Deadlocked, NTSC-U | `games/rac4/decomp` | not known yet |
 
 A *release view* builds a disc from another disc's C: the same functions at the release's
@@ -71,6 +71,7 @@ Shared code never compares a game id.
 | `hand`, `drafts`, `overrides` | the port's C for assembly-only functions, the decompilation's own drafts, and the port's C in place of matched C ([hostgen](../tools/hostgen/README.md#a-games-configuration)) |
 | `asm` | C written from the assembly where there is no C, read from the disc where the files are not there ([hostgen](../tools/hostgen/README.md#functions-with-no-c-c-from-their-assembly)) |
 | `roots` | where hostgen's frontier report starts |
+| `data_allow`, `data_refs` | the data guard's allow table and the disc's data places ([below](#the-functions-with-no-c)) |
 
 ## The functions with no C
 
@@ -79,6 +80,17 @@ jump, branch, address and data word that refers to a function in the executable 
 programs, and sorts it: class `a` needs no C (linker remnants, padding, pieces of other functions,
 unused), `b` is replaced by the host on purpose, `c` needs C. Every class `c` function has C now,
 translated from the disc. Rows whose evidence starts with "by hand:" are kept when it runs again.
+
+Calls are not the only way in. The game also reaches functions through addresses in its data (a
+moby's update, a menu page's callbacks) and the port through `wrap` rows. hostgen's data guard
+fails the build when any of these has no C, with no disc needed:
+
+- `checks/data_refs.tsv`: each place the disc's data holds a function's address, written from the
+  disc by [data_refs.py](../tools/hostgen/data_refs.py) (addresses only). Write it again when a
+  version is added or its catalogue moves.
+- functions a global's initializer in the decomp C names, and the `__game` side of `wrap` rows.
+- `checks/data_allow.tsv`: the ones allowed to stay without C, each with its reason (a name, or a
+  place where the port has no function).
 
 ## Moving a game on
 

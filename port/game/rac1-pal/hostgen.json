@@ -29,6 +29,7 @@
   "overlay_hook": true,
   "relocate": [1437696, 2424832],
   "expanded_target_table_addresses": ["0x001ABD80"],
+  "expanded_ram_top_addresses": ["0x01FF8000"],
   "returns_64": ["func_001F4868", "func_001FA8A8", "func_00200248"],
   "spilled_locals": {"func_001FBE80": ["c1"]},
   "ps2_float": ["func_001FA8A8"],
@@ -126,6 +127,8 @@
   "overrides": "hand/overrides.tsv",
   "assembly_allow": "checks/assembly_allow.tsv",
   "result_allow": "checks/result_allow.tsv",
+  "data_allow": "checks/data_allow.tsv",
+  "data_refs": "checks/data_refs.tsv",
   "asm": {
     "enabled": true,
     "dirs": ["asm/nonmatchings", "asm/handwritten", "asm/overlays", "asm/remnants"],

@@ -36,6 +36,7 @@ Color* field(Colors& c, std::string_view name) {
     };
 
     static constexpr Named kNames[] = {
+        {"ink", &Colors::ink},
         {"ink-deep", &Colors::ink_deep},
         {"panel", &Colors::panel},
         {"panel-hi", &Colors::panel_hi},

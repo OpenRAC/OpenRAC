@@ -84,6 +84,7 @@ Its sources, shaders, tools and tests are in [`enhanced/`](enhanced/README.md).
 | [audio/](audio/README.md), [media/](media/README.md) | The sound engine; the movie decoder |
 | [extract/](extract/README.md) | `openrac-extractor`: sets a game up from the player's disc |
 | [android/](android/README.md) | The Android build |
+| [mpui/](mpui/README.md) | The native multiplayer screens: lobby lists, staging, scoreboards and the servers' UI descriptions, drawn through each game's own 2D routines ([MULTIPLAYER_UI.md](../docs/port/MULTIPLAYER_UI.md)) |
 | [common/](common/README.md) | What every module may use: log, crash report, JSON reader, the PS2's float arithmetic, small helpers |
 | [tests/](tests) | The port's tests |
 | [docs/](docs/CODING_CONVENTIONS.md) | The coding conventions |

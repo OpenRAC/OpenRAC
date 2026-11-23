@@ -46,6 +46,26 @@ class ClangRunsWithoutACompilerCache(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("clang"), "needs Clang")
+class AsmStubsKeepLines(unittest.TestCase):
+    def test_a_break_right_after_asm_is_kept(self):
+        # `__asm__ (` alone on its line is shorter than the stub call: the break after it was
+        # written over, every later line moved up one, and the fixes of later diagnostics went to
+        # the line above (rac3's L07_003C7468.c, whose definitions after the assembly then took
+        # their labels on their first local).
+        lines = ["void f(void) {", "    __asm__ (", '        "vsub.xyz $vf2, $vf2, $vf1\\n"',
+                 '        : : : "vf1");', "    g();", "}"]
+        self.assertTrue(clangast._replace_asm(lines, 3, 12))  # at a constraint, as Clang points
+        self.assertEqual(len(lines), 6)
+        self.assertEqual(lines[1].strip(), "openrac_hostgen_asm();")
+        self.assertEqual(lines[4], "    g();")
+
+    def test_a_one_line_statement_stays_on_its_line(self):
+        lines = ['    __asm__ volatile ("sync.l" : : : "memory");', "    g();"]
+        self.assertTrue(clangast._replace_asm(lines, 0, 30))
+        self.assertEqual(lines[0].strip(), "openrac_hostgen_asm();")
+        self.assertEqual(lines[1], "    g();")
+
+
 class ClangCompatibility(unittest.TestCase):
     def test_nested_source_and_anonymous_typedefs(self):
         with tempfile.TemporaryDirectory(prefix="hostgen compatibility ") as tmp:
@@ -225,6 +245,24 @@ class ClangCompatibility(unittest.TestCase):
             ], capture_output=True, text=True)
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
 
+
+    def test_a_third_contradicting_declaration_keeps_the_functions_symbol(self):
+        # Veldin's L01_0035F480.c declares the vector scale func_0038CE20 three ways: the second
+        # became an alias (func_0038CE20__openrac_decl_140) labelled func_0038CE20, the third was
+        # renamed with it, and on Clang's next pass it contradicted the alias and was labelled with
+        # the alias's name. Its calls were taken for the executable's func_0038CE20 (another
+        # routine at that address) rather than the level's copy. Every alias is labelled with the
+        # function's own symbol.
+        text = (
+            "void f(void *v) { extern void func_0038CE20__openrac_decl_2(void *, void *, float) __asm__(\"func_0038CE20\"); }\n"
+            "extern void func_0038CE20__openrac_decl_2(long *, long *, float);\n"
+            "void g(long *v) { func_0038CE20__openrac_decl_2(v, v, 4.0f); }\n")
+        stderr = ("src/b.c:2:13: error: conflicting types for 'func_0038CE20__openrac_decl_2'\n"
+                  "src/b.c:1:32: note: previous declaration is here\n")
+        fixed, fixes = clangast.fix_from_diagnostics(text, stderr, "src/b.c")
+        self.assertIn('func_0038CE20__openrac_decl_2__openrac_decl_2(long *, long *, float) __asm__("func_0038CE20");',
+                      fixed)
+        self.assertIn("func_0038CE20__openrac_decl_2__openrac_decl_2(v, v, 4.0f)", fixed)
 
     def test_an_override_replaces_matched_c_in_the_port_only(self):
         # The port's own C for a function the decompilation matches (hostgen.json "overrides"):

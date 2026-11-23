@@ -8,7 +8,7 @@
 
 #include "game/rac1/keyboard_mouse/keyboard_mouse.h"
 
-// keyboard_mouse/openrac-mod.json's text (generated: openrac_rac1_built_in_manifests.cpp).
+// game/common/keyboard_mouse/openrac-mod.json's text (generated: openrac_rac1_built_in_manifests.cpp).
 extern const unsigned char openrac_keyboard_mouse_manifest[];
 
 namespace openrac::mods {

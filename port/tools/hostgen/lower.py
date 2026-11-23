@@ -39,6 +39,7 @@ import re
 from dataclasses import dataclass, field
 
 import ctype
+from program import level_unit as program_level_unit  # noqa: E402
 from program import BUILTINS, Program, call_copy as program_call_copy, call_copy_expr, canon, cname, has_body, symbol_of
 
 VA_NAMES = {"va_list", "__builtin_va_list", "__gnuc_va_list"}
@@ -83,6 +84,8 @@ HOST_TYPES = {
 
 # The call hostgen puts where Clang could not read inline assembly (clangast.py).
 HOSTGEN_ASM = "openrac_hostgen_asm"
+# An argument a call to a K&R function leaves out (clangast.py fixes such a call with it).
+HOSTGEN_UNSET = "openrac_hostgen_unset"
 
 # C library maths functions on plain values, called by the host's name when
 # the game uses them without defining them.
@@ -94,6 +97,16 @@ HOST_MATH = {
     "pow", "fmodf", "fmod", "expf", "exp", "logf", "log", "abs", "labs",
 }
 
+
+
+def _spr_register(addr: str) -> int | None:
+    """The address of a scratchpad DMA channel's register (0x1000D000 to 0x1000D4FF) that C names
+    as a constant (`*(volatile u32 *)0x1000D400`), or None."""
+    m = re.fullmatch(r"[\s()]*(?:\((?:gaddr|uint32_t|openrac_u32|unsigned int|int)\)\s*)*\(?\s*(0[xX][0-9a-fA-F]+|\d+)[uUlL]*\s*\)?[\s)]*", addr)
+    if m is None:
+        return None
+    v = int(m.group(1), 0) & 0xFFFFFFFF
+    return v if 0x1000D000 <= v < 0x1000D100 or 0x1000D400 <= v < 0x1000D500 else None
 
 class Unsupported(Exception):
     """A construct this translator does not write; the function becomes a stub."""
@@ -1919,6 +1932,8 @@ class Unit:
         d = self.decls.get(ref["referencedDecl"]["id"])
         raw = symbol_of(d) if d is not None else ref["referencedDecl"].get("name", "")
         raw = self.program.aliases.get((self.unit, raw), raw)
+        if program_level_unit(self.unit):
+            raw = self.program.kind_renames.get(raw, raw)
         if raw == sym or raw in self.program.places:
             return sym
         named = self.program.code_places(raw)
@@ -1954,6 +1969,11 @@ class Unit:
         d = self.decls.get(ref["referencedDecl"]["id"])
         sym = symbol_of(d) if d is not None else ref["referencedDecl"].get("name", "")
         sym = self.program.aliases.get((self.unit, sym), sym)
+        if program_level_unit(self.unit) and sym in self.program.kind_renames and \
+                (self.unit, sym) not in self.program.statics:
+            sym = self.program.kind_renames[sym]
+        if program_level_unit(self.unit) and (copy := self.program.level_copy_named(self.unit, sym)):
+            sym = copy
         if (self.unit, sym) in self.program.statics:
             return sym
         # hostgen.json "calls_as": a level's C names a routine its level has only as a variant of
@@ -1969,6 +1989,12 @@ class Unit:
             if problem not in self.report.problems:
                 self.report.problems.append(problem)
         sym = self._level_short_name(sym)
+        alias = CALLER_ALIAS.match(sym) if self.program.caller_aliases else None
+        if alias and (alias.group(1) in self.program.wrap or alias.group(1) in self.program.host):
+            # hostgen.json "caller_aliases": a per-caller declaration of a function the port wraps
+            # or replaces (rac3's func_0038EBC8_00390768, FontPrint as func_00390768's C declares
+            # it) is that function, or the call would run its own translation and miss the port's.
+            sym = alias.group(1)
         own = self.program.grouped(self.unit, sym)
         if own != sym and own in self.program.functions:
             return own  # the unit's group (a separate program) has its own
@@ -2107,11 +2133,19 @@ class Unit:
             if sa.get("kind") == "DeclRefExpr" and sa["referencedDecl"].get("id") in self.fn.wide:
                 return f"({lv.text} = {self._wide_value(b, ctype.Base('long long'))})"
             ta = self.ty(a)
-            if (lv.addr is not None and getattr(self.program, "dma_stores", False) and self._volatile_word(ta)):
-                # A device register word (a DMA channel's CHCR starts its transfer): the store goes
-                # through the game's openrac_ee_sw_dma, as the hand-written kernels' stores do (asmc.py).
-                return (f"({{ extern void openrac_ee_sw_dma(uint32_t, uint64_t); "
-                        f"openrac_ee_sw_dma((gaddr)({lv.addr}), (uint64_t)({self.convert(b, ta)})); }})")
+            if (lv.addr is not None and getattr(self.program, "spr_copies", False) and self._volatile_word(ta)
+                    and (spr := _spr_register(lv.addr)) is not None):
+                # A scratchpad DMA channel's register written by C: there is no DMA controller and
+                # no register page behind it. A word that starts no transfer (a reset's QWC of 0,
+                # Going Commando's func_0029D050) does nothing; a CHCR with STR would start one,
+                # which only the kernels' copies do (asmc.py), so it stops the game (the SDK's MPEG
+                # library, which the native movie player leaves unreached).
+                value = self.convert(b, ta)
+                if spr & 0xFF:
+                    return f"((void)({value}))"
+                return (f"({{ extern void openrac_ee_dma_register(const char *, uint32_t, uint32_t); "
+                        f"if ((uint32_t)({value}) & 0x100u) "
+                        f"openrac_ee_dma_register(\"{self.fn.name}\", 0u, {spr:#010x}u); }})")
             return f"({lv.text} = {self.convert(b, ta)})"
         if op in ("+", "-"):
             ta, tb = self.ty(a), self.ty(b)
@@ -2328,12 +2362,15 @@ class Unit:
             level = int(unit_level.group(1))
             moved = self.program.level_data.get(level, {})
             placed = moved.get(symbol)
-            if (placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}", symbol)
+            if (placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}(?:_\d+)?", symbol)
                     and symbol not in getattr(self.program, "level_names", {})):
                 # Another name of the executable's datum (r1_D_L01_00160058 and D_L02_001B359C are
                 # 0x001B1B5C, the moby table's base): where this level's build put that datum. Not
                 # a name a level's build derived (ref_L00_00424F98_00): its address is that
-                # level's already, and the executable's datum there is another.
+                # level's already, and the executable's datum there is another. Nor the build's
+                # own second name of the datum at its number (D_L00_001B060C_1): a release table
+                # leaves it out where it did not move, and D_001B060C is another datum (PAL's
+                # Mini-Nuke blast pointer was never cleared, so the third blast deleted itself).
                 placed = moved.get(f"D_{address:08X}")
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
             # Not a global that does not pair between levels (data_copies.tsv): that one is read
@@ -2420,9 +2457,21 @@ class Unit:
                 # ref_L02_00385E18_00, level 2's 0x001B3DB0; read as level 0's it was another word
                 # in every level, fade_get_value saw 0 and the shield went at once.
                 derived = DERIVED_REF.fullmatch(symbol or "")
-                addr = f"OPENRAC_LDATA({int(derived.group(1)) if derived else level}, {addr})"
+                from_level = int(derived.group(1)) if derived else level
+                if (not derived and named and int(named.group(1)) != level
+                        and int(named.group(2), 16) == address
+                        and any(o == int(named.group(1)) for o, _ in self.program.code_places(self.fn.code))):
+                    # A level function matched from another level's copy says that level's name for
+                    # the datum: that level's address, as the level loaded has it. Up Your
+                    # Arsenal's func_L13_003ABD48 names the path table D_L16_0021ED00, which level 13
+                    # has at 0x0021D540; read as level 13's 0x0021ED00, its walkers took a path
+                    # pointer from other data and faulted in levels 13, 16 and 22.
+                    from_level = int(named.group(1))
+                addr = f"OPENRAC_LDATA({from_level}, {addr})"
         if address in getattr(self.program, "expanded_target_table_addresses", set()):
             addr = f"OPENRAC_TARGET_TABLE({addr})"
+        if address in getattr(self.program, "expanded_ram_top_addresses", set()):
+            addr = f"OPENRAC_RAM_TOP({addr})"
         return addr
 
     def _in_a_level_file(self) -> bool:
@@ -2440,6 +2489,25 @@ class Unit:
         whose C took a level's spelling, is 0x001B14C0): that one is the executable's global."""
         m = re.fullmatch(r"D_L\d\d_([0-9A-Fa-f]{8})", symbol or "")
         return m is None or int(m.group(1), 16) == address
+
+    def _folded_wrapper_callee(self, sym: str) -> tuple[int, int, int, int] | None:
+        """For a call from level code to a wrapper of hostgen.json "folded_wrappers": the level the
+        caller is written for, its place there, its size, and the wrapper's place there."""
+        fn = self.fn
+        if (fn is None or sym == fn.code or sym not in getattr(self.program, "folded_wrappers", ())
+                or not getattr(self.program, "relocate", None)):
+            return None
+        caller = [(o, a) for o, a in self.program.code_places(fn.code) if o >= 0]
+        size = getattr(self.program, "sizes", {}).get(fn.code)
+        if not caller or not size:
+            return None
+        level = self._shared_level()
+        home = level if level is not None else caller[0][0]
+        canon = next((a for o, a in caller if o == home), None)
+        own = next((a for o, a in self.program.code_places(sym) if o == home), None)
+        if canon is None or own is None:
+            return None
+        return home, canon, size, own
 
     def _variant_call(self, sym: str) -> tuple[int, int, int, int] | None:
         """For a call from a level function placed in several levels to a level function missing
@@ -2769,6 +2837,16 @@ class Unit:
                     self.fn.uses_self = True
                     fp = f"openrac_call_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {hexaddr(own)})"
                     named = self._function_at(home, own) or sym
+                elif not places and (wrapped := self._folded_wrapper_callee(sym)) is not None:
+                    # A one-call wrapper the catalogue folded across the levels although its copies
+                    # call different functions (hostgen.json "folded_wrappers"): by its name, every
+                    # level ran Veldin's copy's callee; through the address this copy's own call
+                    # reaches, the runtime follows that place's jal (guest.cpp).
+                    home, canon, size, own = wrapped
+                    self.fn.report.calls.add(sym)
+                    self.fn.uses_self = True
+                    fp = f"openrac_call_in_copy({home}, {hexaddr(canon)}, {size}u, openrac_self_, {hexaddr(own)})"
+                    named = self._function_at(home, own) or sym
                 elif not places and (variant := self._variant_call(sym)) is not None:
                     # Engine code several levels carry, calling a level function some of those levels
                     # have another of in its place: the function this copy's own call calls.
@@ -2966,7 +3044,7 @@ class Unit:
         # level's copy: func_L00_003827C0's moby to func_0029F338's delete): passed on, as a direct
         # call does (_match_args). Through the call site's shorter type the callee read a register
         # the host had not set: Linux kept the caller's value by chance, AArch64 had a host address
-        # there, and Windows' thunk nothing (Going Commando's New Game, PR #511's reports).
+        # there, and Windows' thunk nothing (Going Commando's New Game).
         passes_on = any(
             k < len(regs)
             for kind, regs in (("i", self.fn.int_params), ("f", self.fn.float_params))
@@ -3270,6 +3348,8 @@ class Unit:
             return f"{BUILTINS[sym]}({', '.join(self.rv(a) for a in args)})"
         if sym == HOSTGEN_ASM:
             raise Unsupported("inline assembly Clang cannot read")
+        if sym == HOSTGEN_UNSET:
+            return "0"
         if sym == "__builtin_next_arg":
             return self._next_arg(result_t)
         f = self.program.lookup(self.unit, sym)
@@ -3374,7 +3454,24 @@ class Unit:
             return "agg"
         return self._reg_class(c)
 
+    def _is_unset(self, a: dict) -> bool:
+        """An argument clangast.py put in for one a call to a K&R function leaves out."""
+        while a.get("kind") in ("ImplicitCastExpr", "CStyleCastExpr", "ParenExpr") and _inner(a):
+            a = _inner(a)[0]
+        if a.get("kind") != "CallExpr" or not _inner(a):
+            return False
+        callee = _inner(a)[0]
+        while callee.get("kind") in ("ImplicitCastExpr", "ParenExpr") and _inner(callee):
+            callee = _inner(callee)[0]
+        return callee.get("kind") == "DeclRefExpr" and callee.get("referencedDecl", {}).get("name") == HOSTGEN_UNSET
+
     def _match_args(self, sym: str, sig, args: list) -> list[str]:
+        if getattr(self.program, "unpassed_registers", False):
+            # hostgen.json "unpassed_registers": an argument a call to a K&R function leaves out
+            # is the register the caller left: its own argument there, as for any call that
+            # passes fewer than the callee takes (Up Your Arsenal's func_003AB608 hands its
+            # second and third arguments to func_003AB3F0 that way).
+            args = [a for a in args if not self._is_unset(a)]
         if not sig.prototyped:
             return [self.rv(a) for a in args]
         classes = [self._arg_class(a) for a in args]

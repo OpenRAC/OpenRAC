@@ -15,6 +15,9 @@ namespace openrac::frontend {
 struct MouseTurn {
     float yaw = 0.0f;    // radians about `up`, right-handed
     float pitch = 0.0f;  // radians, > 0 looks down
+    // Radians about `up` the ticks since the last call turned the camera by the mouse's motion:
+    // so a new tick's step that is only the mouse's is shown as it is, not eased.
+    float tick_yaw = 0.0f;
     float up[3] = {0.0f, 0.0f, 1.0f};
     float pitch_limit = 0.0f;   // the view's elevation stays within +-this
     bool first_person = false;  // turns about the eye; else about the hero

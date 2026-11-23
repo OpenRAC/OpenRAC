@@ -30,6 +30,8 @@ Implementation files are grouped by responsibility:
 | `textures/texture_pool.h` | every texture as RGBA8 on the GPU, found by the base pointer in the game's TEX0 used as an **identifier**: textures converted ahead of time are `place`d there; images the game sends with IMAGE transfers are converted when first drawn and cached by content; `prepare` makes a level's textures at its load (`texture-prepare`, RENDER_PERF.md) | `TexturePool` |
 | `textures/texture.h` | conversions to RGBA8: PSMCT32/24/16, PSMT8 and PSMT4 (and their "H" forms) with CLUTs in CSM1 order, TEXA alpha; the chip's block layout only for a texture uploaded in one format and read in another | `texture_conversion.h` |
 | `direct/gs.h` | the GS registers and the GIF tag as fields (public hardware documentation) | `common/dma/gs.h` |
+| `frame/frame_record.h`, `frame/ui_records.h` | the frame recorder's commands, recordings and anchors (docs/port/FRAME_RECORDER.md), and the 2D layer's records (`UiQuad`, `UiItem`, `UiImage`); CPU only | |
+| `direct/draw_state.h` | a 2D draw's GPU state in native values (blend coefficients and modes, alpha and depth tests, texture combine, scissor, write mask, target ids); no GS register | |
 | `frame/subsystems.h` | placeholders for terrain (tfrag), ties, shrubs, mobys, sky and particles, each documenting what it must draw | `TFragment`, `Tie3`, `Shrub`, `Merc2`, `Sky`, `Sprite3` |
 | `debug/debug_lines.h` | Unlit visible/hidden wireframes and finite camera/shadow clip geometry; GPU resources are created only when diagnostics draw | |
 | [`graph/`](graph/README.md) | CPU-only pass/resource declarations, hazard validation and fixed-order barrier planning; used by Vulkan shadow, surface, lighting, water, colour and temporal passes | |
@@ -41,7 +43,11 @@ Implementation files are grouped by responsibility:
 | `gl/program_cache.h` | the driver's binaries of the programs `Shader` built (OpenGL and ES), in memory and on disk, so that a program built again from the same sources (each level, each run) is loaded instead of compiled | |
 
 Shaders are in `shaders/` and compiled into the library
-([cmake/Window.cmake](../cmake/Window.cmake)).
+([cmake/Window.cmake](../cmake/Window.cmake)). Feature markers (`// openrac_mode: ...`) select
+exact variants on native OpenGL/ES (`gl/shader_variants.h`) and Vulkan, including MoltenVK.
+OpenGL keeps logical uniform locations stable while switching native constant-only programs;
+observed combinations are cached and warmed at later loads. Unseen combinations compile before
+their draw rather than using a generic shader. See [shader feature variants](../../docs/port/RENDER_PERF.md#shader-feature-variants).
 
 `ui/` is a library of its own, `openrac_renderer_ui` ([ui/README.md](ui/README.md)): what the game
 programs draw over the game's picture with this GL (ImGui's draw lists on the Vulkan renderer's
