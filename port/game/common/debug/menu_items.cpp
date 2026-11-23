@@ -472,6 +472,7 @@ Item item(Id id, std::uint8_t where) {
             // debug/menu_controls.cpp's.
             const ControlsRow r = controls_row(id);
             it.shown = r.shown;
+            it.enabled = r.enabled;
             it.label = r.label;
             it.on = r.on;
             it.value = r.value;

@@ -426,6 +426,10 @@ public:
 
     // Visual attachments to enhanced water; collision and gameplay poses stay untouched.
     virtual bool floats_on_water(int /*class_id*/) const { return false; }
+
+    // Whether the game drives the controller's motors. Ratchet & Clank's never does, so its
+    // menu shows the vibration settings greyed out.
+    virtual bool has_rumble() const { return true; }
 };
 
 // Returns the profile of the game version `game` (its port id, "rac1-pal"), which lives as long as

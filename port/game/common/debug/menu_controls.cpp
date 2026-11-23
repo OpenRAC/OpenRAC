@@ -23,6 +23,8 @@
 #include "controls_store.h"
 #include "debug/menu_ui.h"
 #include "frontend.h"
+#include "game/common/profile.h"
+#include "openrac/game_host.h"
 #include "platform/bindings.h"
 #include "platform/input.h"
 #include "platform/players.h"
@@ -683,6 +685,11 @@ void menu_open_panel() {
     }
 }
 
+// Whether this game vibrates the controller at all (its profile's has_rumble).
+bool game_has_rumble() {
+    return host::game_profile(openrac_game.id).has_rumble();
+}
+
 }  // namespace
 
 ControlsRow controls_row(Id id) {
@@ -722,19 +729,24 @@ ControlsRow controls_row(Id id) {
             r.on = tuning.background;
             break;
         case Id::RumbleStrength:
-            r.value = tuning.rumble.strength == 0 ? std::string("Off")
-                                                  : std::format("{}%", tuning.rumble.strength);
+            r.enabled = game_has_rumble();
+            r.value = !r.enabled                    ? std::string("Not in this game")
+                      : tuning.rumble.strength == 0 ? std::string("Off")
+                                                    : std::format("{}%", tuning.rumble.strength);
             r.can_lower = tuning.rumble.strength > 0;
             r.can_raise = tuning.rumble.strength < 200;
             break;
         case Id::RumbleStyle:
+            r.enabled = game_has_rumble();
             r.value =
                 tuning.rumble.style == platform::RumbleStyle::Classic ? "Classic" : "Enhanced";
             break;
         case Id::RumbleTriggers:
+            r.enabled = game_has_rumble();
             r.on = tuning.rumble.triggers;
             break;
         case Id::RumblePhone:
+            r.enabled = game_has_rumble();
             r.on = tuning.rumble.phone;
             break;
         case Id::ControlsReset:

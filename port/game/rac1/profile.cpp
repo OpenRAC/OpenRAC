@@ -242,6 +242,9 @@ public:
 
     bool has_levels() const override { return true; }
 
+    // The game never sends the pad a motor command (no sceVib or scePadSetActDirect call).
+    bool has_rumble() const override { return false; }
+
     // Only quads with an id move (rac1_effect_quad_id: the ship's glass).
     bool interpolates_effect_quads() const override { return true; }
 
