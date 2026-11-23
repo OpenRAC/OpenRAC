@@ -83,6 +83,12 @@ UNSUPPORTED = {
 # bltzal and bgezal (and their likely forms): a call when the 64-bit register's sign says so; $ra
 # is written either way (hand-written code calls its helpers so: bgezal $t0, ...).
 COP0_BRANCHES = {"bc0f", "bc0t", "bc0fl", "bc0tl"}
+
+
+def cop0_count(ins) -> bool:
+    """mfc0 of COP0's Count register ($9): a read of the cycle counter, which the host answers
+    (openrac_ee_count, ee.h). The game reads it to time its own work."""
+    return ins.op == "mfc0" and ins.rd == 9
 COND_CALLS = {"bltzal", "bgezal", "bltzall", "bgezall"}
 # The parallel multiplies and divides on LO and HI (openrac_ee_pmul, ee_ops.h).
 PMUL_OPS = {"pmultw", "pmultuw", "pmaddw", "pmadduw", "pmsubw", "pmaddh", "pmsubh", "phmadh", "phmsbh",
@@ -174,6 +180,9 @@ class Translator:
     # asm.register_jumps in hostgen.json: a jump through a register keeps its target in j_, as a VU load
     # in the delay slot uses t_, and a computed jump into the function's own code stays in it (_computed_targets).
     register_jumps = False
+    # asm.cop0_count in hostgen.json: mfc0 of COP0's Count register reads the host's cycle counter
+    # (openrac_ee_count) in place of leaving the function a stub.
+    cop0_count = False
     # asm.vu_flush in hostgen.json: an FMAC result too small for VU0 is zero of its sign, as in
     # func_L00_00316F60's joints, where the host's denormal was the only difference from retail.
     vu_flush = False
@@ -334,6 +343,7 @@ class Translator:
         sub.float_parameters_on_calls = self.float_parameters_on_calls
         sub.fit_declarations = self.fit_declarations
         sub.register_jumps = self.register_jumps
+        sub.cop0_count = self.cop0_count
         sub.input_idioms = self.input_idioms
         sub.dma_done = self.dma_done
         sub.vu_flush = self.vu_flush
@@ -597,7 +607,8 @@ class Translator:
             heads.add(a)
             reach.add(a)
             done_wait = self.dma_done and ins.op in COP0_BRANCHES
-            if ins.op in UNSUPPORTED and self.microprogram(ins) is None and not done_wait:
+            counted = self.cop0_count and cop0_count(ins)
+            if ins.op in UNSUPPORTED and self.microprogram(ins) is None and not done_wait and not counted:
                 raise AsmUnsupported(f"{UNSUPPORTED[ins.op]} at {ins.addr:08X}")
             if not is_control(ins):
                 todo.append(a + 4)
@@ -1545,6 +1556,8 @@ class Translator:
             return []
         if self.microprogram(ins) is not None:
             return [f"{{ extern void {self.microprogram(ins)}(void); {self.microprogram(ins)}(); }}"]
+        if self.cop0_count and cop0_count(ins):
+            return W(rt, "OPENRAC_EE_S32(openrac_ee_count())")
         if op in UNSUPPORTED:
             raise AsmUnsupported(f"{UNSUPPORTED[op]} at {ins.addr:08X}")
         u32 = lambda x: f"(openrac_u32){x}"
@@ -2175,6 +2188,8 @@ def _rw(i: asm.Insn) -> tuple[set, set, set, set]:
     elif op == "mfc1":
         f_r.add(i.fs)
         g_w.add(i.rt)
+    elif cop0_count(i):
+        g_w.add(i.rt)
     elif op in ("ctc1", "ctc2", "qmtc2"):
         g_r.add(i.rt)
     elif op in ("cfc1", "cfc2", "qmfc2"):
@@ -2399,6 +2414,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.signature_check = bool(a.get("signature_check"))
     tr.result_flow = bool(a.get("result_flow"))
     tr.live_arguments = bool(a.get("live_arguments"))
+    tr.cop0_count = bool(a.get("cop0_count"))
     tr.wide_call_results = bool(a.get("wide_call_results"))
     tr.float_parameters_on_calls = bool(a.get("float_parameters_on_calls"))
     tr.stack_arguments = bool(a.get("stack_arguments"))

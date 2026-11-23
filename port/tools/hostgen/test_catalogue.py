@@ -120,6 +120,28 @@ class CatalogueTests(unittest.TestCase):
             self.assertTrue(f.sig.prototyped)
             self.assertEqual(len(f.sig.params), 2)
 
+    def test_cop0_count_reads_the_host_counter_when_asked(self):
+        # asm.cop0_count: mfc0 of Count ($9) is the host's cycle counter (Up Your Arsenal's
+        # multiplayer map 48's 0x0043F4F8 times its own work with it); without it, a stub.
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            name = 'func_00100000'
+            (folder / 'f.s').write_text(assembler.assemble(name, 0x100000,
+                'mfc0 $2, $9\njr $31\nnop\n'))
+            for asked in (False, True):
+                p = Program()
+                f = Function(name, Signature(ctype.Base('int'), (), False, False), asm=True)
+                p.functions[name] = f
+                tr = asmc.Translator(p, asm.read_index([folder], lambda _: -1))
+                tr.cop0_count = asked
+                if asked:
+                    tr.prepare_signature(f, tr.find(f))
+                result = tr.translate(f)
+                if asked:
+                    self.assertIn('openrac_ee_count()', result.text)
+                else:
+                    self.assertIsNone(result.text)
+
     @unittest.skipUnless(shutil.which('clang'), 'needs Clang')
     def test_unprototyped_call_compiles_after_same_unit_definition(self):
         with tempfile.TemporaryDirectory() as temp:
