@@ -160,7 +160,7 @@ void ScreenEffects::put_back(int mode, const RenderTarget& target) {
     const Level& half = m_levels[0];
     glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
     glViewport(0, 0, target.width, target.height);
-    glActiveTexture(GL_TEXTURE1);
+    glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_2D, half.texture());
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_frame);
