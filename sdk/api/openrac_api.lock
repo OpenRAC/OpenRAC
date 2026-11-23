@@ -227,3 +227,4 @@
 225	moby_uid	1784	int (*)(int)
 226	sharp_cells	1792	int (*)(openrac_mod *, const openrac_sharp_page *, int)
 227	set_motors	1800	int (*)(openrac_mod *, int, int, int)
+228	menu_option_set	1808	int (*)(openrac_mod *, const char *, int)

@@ -204,7 +204,7 @@ bool window_full_screen() {
     return s.window != nullptr && (SDL_GetWindowFlags(s.window) & SDL_WINDOW_FULLSCREEN) != 0;
 }
 
-Item item(Id id, std::uint8_t where) {
+Item own_item(Id id, std::uint8_t where) {
     using namespace options_menu;
     settings::Settings& set = settings::get();
     Item it;
@@ -597,6 +597,28 @@ Item item(Id id, std::uint8_t where) {
             break;
     }
     it.shown = false;
+    return it;
+}
+
+// What an entry shows now, with what the mods set it to (openrac_api.menu_option_set).
+Item item(Id id, std::uint8_t where) {
+    Item it = own_item(id, where);
+    const menu::Kind kind = menu::entry(id).kind;
+    const bool settable = kind == menu::Kind::Switch || kind == menu::Kind::Choice
+                          || kind == menu::Kind::Slider || kind == menu::Kind::Action;
+    if (!settable || id == Id::Quit) {
+        return it;  // a panel, a note or Quit: never turned off (sdk/docs/menu-options.md)
+    }
+    switch (mods::menu_option(menu::option_name(id))) {
+        case OPENRAC_MENU_OPTION_ON:
+            it.enabled = true;
+            break;
+        case OPENRAC_MENU_OPTION_OFF:
+            it.enabled = false;
+            break;
+        default:
+            break;
+    }
     return it;
 }
 
@@ -1152,9 +1174,11 @@ void draw_entry(Id id, std::uint8_t where) {
         case menu::Kind::Slider: {
             const Slider slider = slider_of(id);
             int& value = *slider.value;
+            ImGui::BeginDisabled(!it.enabled);
             const int next = menu_percent_slider(
                 label.c_str(), value, slider.minimum, slider.maximum, slider.step
             );
+            ImGui::EndDisabled();
             // Apply live and save once the mouse drag ends, or immediately for a discrete step.
             const bool edited = next != value;
             if (edited) {
@@ -1167,10 +1191,15 @@ void draw_entry(Id id, std::uint8_t where) {
             break;
         }
         case menu::Kind::Action: {
-            const auto ink = it.selected ? ui().gold : id == Id::Quit ? ui().err : ui().text;
-            if (menu_row(label.c_str(), ink)) {
+            const auto ink = !it.enabled      ? ui().dim
+                             : it.selected    ? ui().gold
+                             : id == Id::Quit ? ui().err
+                                              : ui().text;
+            ImGui::BeginDisabled(!it.enabled);
+            if (menu_row(label.c_str(), ink) && it.enabled) {
                 close = act(id, 1);
             }
+            ImGui::EndDisabled();
             break;
         }
         case menu::Kind::Note:

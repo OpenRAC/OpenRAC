@@ -2354,11 +2354,12 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     g_records.clear();
     CHECK(mods::camera_fov() == 0.0f);
     CHECK(!mods::hud_hidden());
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_DEFAULT);
     mods::frame();
-    CHECK((g_records == std::vector<int>{9801, 9800,       9811, 9811, 9810, 9820, 9831,
-                                         9830, 9840,       9841, 9841, 9840, 9841, 9840,
-                                         9850, 0x3100 + 3, 9851, 9850, 1,    9865, 9869,
-                                         9881, 9880,       9891, 9890, 9901, 9900, 9900}));
+    CHECK((g_records == std::vector<int>{9801, 9800,       9811, 9811, 9810, 9820, 9820, 9821,
+                                         9831, 9830,       9840, 9841, 9841, 9840, 9841, 9840,
+                                         9850, 0x3100 + 3, 9851, 9850, 1,    9865, 9869, 9881,
+                                         9880, 9891,       9890, 9901, 9900, 9900}));
     CHECK(
         (g_cutscene_calls
          == std::vector<std::string>{
@@ -2373,6 +2374,9 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     );
     CHECK(mods::camera_fov() == 40.0f);
     CHECK(mods::hud_hidden());
+    // A menu option turned on stays (it is not of the level load); a bad state sets nothing.
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_ON);
+    CHECK(mods::menu_option("vsync") == OPENRAC_MENU_OPTION_DEFAULT);
     const auto air = mods::scene_air();
     CHECK(air && air->fog_far == 50.0f && air->background[0] == 1.0f && air->weight == 1.0f);
     CHECK(mods::time_stretch() == 2.0f);
@@ -2397,7 +2401,9 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     mods::play_update();
     CHECK((g_cutscene_calls == std::vector<std::string>{"joints 12544 0"}));
     play.hero_moby = nullptr;
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_ON);
     mods::reset();
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_DEFAULT);
     g_loads = 1;
 }
 

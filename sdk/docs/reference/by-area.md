@@ -100,6 +100,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `developer_menu_choice` | 1.19 | stable | yes | yes | yes |
 | `developer_menu_value` | 1.19 | stable | yes | yes | yes |
 | `developer_menu_look` | 1.28 | stable | yes | yes | yes |
+| `menu_option_set` | 1.38 | experimental | yes | yes | yes |
 
 ## saves
 

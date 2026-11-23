@@ -118,11 +118,12 @@ extern "C" {
  * moby's joints and sounds, the picture's air, slow motion, ties hidden,
  * animated props and a moby's spawn id, 1.36 sharper pictures of cells a mod
  * paints in a texture of the 2D layer, kept apart from the built-in key
- * prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell), and 1.37 the
+ * prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell), 1.37 the
  * pads' motors driven by a mod as the game's libvib drives them, each motor the
- * stronger of the game's and the mods' (set_motors).
+ * stronger of the game's and the mods' (set_motors), and 1.38 menu_option_set:
+ * a mod greys out an option of the port's menu by name, or makes it usable.
  */
-#define OPENRAC_MOD_API_MINOR 37
+#define OPENRAC_MOD_API_MINOR 38
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1871,6 +1872,11 @@ typedef struct openrac_rac1_weapon {
     uint32_t hud_icon;
 } openrac_rac1_weapon;
 
+/* The states of an option of the port's menu (openrac_api.menu_option_set). Since 1.38. */
+#define OPENRAC_MENU_OPTION_DEFAULT 0 /* the port's own choice */
+#define OPENRAC_MENU_OPTION_ON 1      /* usable, even where the port greys it out */
+#define OPENRAC_MENU_OPTION_OFF 2     /* greyed out: shown, but it cannot be changed */
+
 typedef struct openrac_api {
     /* sizeof(openrac_api) as the port was built: a newer port's is larger. Since 1.0. */
     uint32_t size;
@@ -3304,6 +3310,14 @@ typedef struct openrac_api {
      * mod, a port out of range, values out of range or a port without pads (built without a
      * window). Since 1.37. */
     int (*set_motors)(openrac_mod* mod, int port, int small, int large);
+
+    /* Turns an option of the port's menu on or off, by its name (sdk/docs/menu-options.md, as
+     * "frame_rate"). OPENRAC_MENU_OPTION_ON makes it usable even where the port greys it out;
+     * OPENRAC_MENU_OPTION_OFF greys it out (a mod that sets the frame rate itself);
+     * OPENRAC_MENU_OPTION_DEFAULT gives the port's choice back. The last call for an option wins;
+     * a mod's calls go with it when it unloads. Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN for no
+     * name or another state. Since 1.38. */
+    int (*menu_option_set)(openrac_mod* mod, const char* option, int state);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

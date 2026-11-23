@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.38
+
+Menu_option_set: a mod greys out an option of the port's menu by name, or makes it usable.
+
+Members: `menu_option_set`.
+
 ## 1.37
 
 The pads' motors driven by a mod as the game's libvib drives them, each motor the stronger of the game's and the mods' (set_motors).

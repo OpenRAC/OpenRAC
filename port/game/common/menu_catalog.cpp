@@ -317,6 +317,121 @@ const Entry& entry(Id id) {
     return kEntries[static_cast<int>(id)];
 }
 
+// Each entry's name for the mods, in Id's order. Never rename one: mods use them.
+constexpr std::array<const char*, kIds> kOptionNames = {
+    "full_screen",
+    "display_mode",
+    "monitor",
+    "menu_size",
+    "picture",
+    "gameplay_fov",
+    "hud",
+    "render_scale",
+    "msaa",
+    "anisotropy",
+    "draw_distance",
+    "active_distance",
+    "frame_rate",
+    "frame_cap",
+    "vsync",
+    "frame_counter",
+    "hdr",
+    "hdr_paper_white",
+    "hdr_peak",
+    "hdr_highlights",
+    "hdr_sdr_hue",
+    "hdr_sdr_chroma",
+    "hdr_blowout",
+    "hdr_status",
+    "low_latency",
+    "responsive_controls",
+    "gpu_breadcrumbs",
+    "enhanced_status",
+    "enhanced_graphics",
+    "enhanced_low",
+    "enhanced_medium",
+    "enhanced_high",
+    "shadow_quality",
+    "shadow_filter",
+    "occlusion_quality",
+    "texture_upscaling",
+    "effects_detail",
+    "upscaling",
+    "sharpening",
+    "motion_blur",
+    "motion_blur_quality",
+    "color_correction",
+    "brightness",
+    "enhanced_reset",
+    "occlusion_hi_z",
+    "enhanced_advanced",
+    "enhanced_materials",
+    "volume",
+    "mute_in_background",
+    "skip_cutscenes",
+    "game_fixes",
+    "controls_file",
+    "controls_player",
+    "controls_player_reset",
+    "controls_status",
+    "controller_bindings",
+    "left_stick",
+    "right_stick",
+    "trigger_point",
+    "face_buttons",
+    "pad_background",
+    "rumble_strength",
+    "rumble_style",
+    "rumble_triggers",
+    "rumble_phone",
+    "connected_controllers",
+    "players_reset",
+    "player_one",
+    "player_two",
+    "menu_open",
+    "keyboard_mouse",
+    "touch_action_buttons",
+    "touch_button_size",
+    "touch_camera_speed",
+    "touch_move_controls",
+    "controls_reset",
+    "debug_overlay",
+    "moby_picker",
+    "object_viewer",
+    "meat_proxy_review",
+    "level_select",
+    "keep_paused",
+    "step_tick",
+    "speed",
+    "screenshot",
+    "record_gameplay",
+    "record_length",
+    "record_sweep",
+    "record_folder",
+    "slow_cpu",
+    "freecam",
+    "freecam_mode",
+    "freecam_inspect",
+    "freecam_speed",
+    "freecam_reset",
+    "freecam_exit",
+    "freecam_help",
+    "quit",
+};
+
+const char* option_name(Id id) {
+    return kOptionNames[static_cast<std::size_t>(id)];
+}
+
+std::optional<Id> option_named(std::string_view name) {
+    for (std::size_t i = 0; i < kOptionNames.size(); ++i) {
+        if (name == kOptionNames[i]) {
+            return static_cast<Id>(i);
+        }
+    }
+    return std::nullopt;
+}
+
 const char* tab_name(Tab tab) {
     return kTabNames[static_cast<std::size_t>(tab)];
 }

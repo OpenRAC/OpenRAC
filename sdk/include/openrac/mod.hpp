@@ -3039,6 +3039,14 @@ public:
                && m_api->set_motors(m_handle, port, small, large) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.38: turns an option of the port's menu on or off, by its name
+    // (sdk/docs/menu-options.md): OPENRAC_MENU_OPTION_ON, _OFF, or _DEFAULT for the port's choice.
+    // False for a port without the call, or a bad name or state.
+    bool menu_option_set(const char* option, int state) const {
+        return has_slot14(offsetof(openrac_api, menu_option_set))
+               && m_api->menu_option_set(m_handle, option, state) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:
     // none) in it, into `out`; false outside a level or for a port without it.
     bool moby_run(int slot, openrac_moby_run& out) const {

@@ -688,9 +688,10 @@ void menu_open_panel() {
 
 // Whether the controller vibrates in this game at all: the game drives its motors (its profile's
 // has_rumble), or a loaded mod does (openrac_api.set_motors), and then the vibration settings
-// apply to the mod's rumble.
+// apply to the mod's rumble. A mod may also turn Vibration on itself (openrac_api.menu_option_set).
 bool game_has_rumble() {
-    return host::game_profile(openrac_game.id).has_rumble() || mods::any_mod_motors();
+    return host::game_profile(openrac_game.id).has_rumble() || mods::any_mod_motors()
+           || mods::menu_option(menu::option_name(Id::RumbleStrength)) == OPENRAC_MENU_OPTION_ON;
 }
 
 }  // namespace

@@ -782,4 +782,8 @@ int api_sharp_cells(openrac_mod* mod, const openrac_sharp_page* pages, int count
 
 int api_set_motors(openrac_mod* mod, int port, int small, int large);
 
+int api_menu_option_set(openrac_mod* mod, const char* option, int state);
+// Forgets the menu options `mod` set (nullptr: every mod's).
+void drop_menu_options(const openrac_mod* mod);
+
 }  // namespace openrac::mods::detail
