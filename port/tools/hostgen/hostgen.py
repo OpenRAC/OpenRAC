@@ -587,7 +587,16 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
         # func_0011A264_00398288 for memset): the port's function, its arguments by kind.
         forward = host_alias_call(program, f)
         if forward is not None:
-            stubs.append(f"{p} {{\n    {'' if ret == 'void' else 'return '}{forward};\n}}\n")
+            # The port's function may hand back nothing where this name's callers read a result
+            # (the EE's $v0 left as it was): 0, as for a stub.
+            gives = canon(program.functions[program.canonical(f.symbol)].sig.ret, program.typedefs) != "void"
+            if ret == "void":
+                body = f"    {forward};"
+            elif gives:
+                body = f"    return ({ret}){forward};"
+            else:
+                body = f"    {forward};\n    return 0;"
+            stubs.append(f"{p} {{\n{body}\n}}\n")
             continue
         # Its own site (guest.h, openrac_reach_site): the calls are counted in a word of its own,
         # and the first is logged, as openrac_guest_missing does.
