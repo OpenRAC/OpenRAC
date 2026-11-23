@@ -113,12 +113,14 @@ extern "C" {
  * every moby of a class, the menus' pictures of it too (moby_material_class),
  * and Going Commando's armour vendor as hook points
  * (rac2.armor_vendor.build_list, rac2.armor_vendor.buy, rac2.vendor.preview),
- * and 1.35 what OpenRAC Editor's levels need: the pack's folder, the game's
+ * 1.35 what OpenRAC Editor's levels need: the pack's folder, the game's
  * language, the camera's field of view, the HUD hidden, the music's volume, any
  * moby's joints and sounds, the picture's air, slow motion, ties hidden,
- * animated props and a moby's spawn id.
+ * animated props and a moby's spawn id, and 1.36 sharper pictures of cells a
+ * mod paints in a texture of the 2D layer, kept apart from the built-in key
+ * prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell).
  */
-#define OPENRAC_MOD_API_MINOR 35
+#define OPENRAC_MOD_API_MINOR 36
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1271,6 +1273,35 @@ typedef struct openrac_air {
     /* 0 is the game's own, 1 is these values; in between blends them. */
     float weight;
 } openrac_air;
+
+/* One cell of a 2D-layer texture that the mod paints in game memory, and a sharper picture of it
+ * (openrac_api.sharp_cells). Since 1.36. */
+typedef struct openrac_sharp_cell {
+    /* sizeof(openrac_sharp_cell), set by the mod. */
+    uint32_t size;
+    /* The cell, in texels of the texture: inside it, w and h 1 or more. */
+    int32_t x, y, w, h;
+    /* w * h * 3 bytes: the cell's colours as its painted texels make them (the palette applied,
+     * RGB, top row first), to know the texture by. */
+    const uint8_t* rgb;
+    /* (w * scale) * (h * scale) * 3 bytes: its sharper picture, RGB, top row first. */
+    const uint8_t* sharp;
+} openrac_sharp_cell;
+
+/* A texture with sharper cells (openrac_api.sharp_cells). Since 1.36. */
+typedef struct openrac_sharp_page {
+    /* sizeof(openrac_sharp_page), set by the mod. */
+    uint32_t size;
+    /* The texture, in texels: 1 to 1024 each. */
+    int32_t width, height;
+    /* How many times as wide and tall the sharper pictures are: 1 to 16, and width * scale and
+     * height * scale at most 4096. */
+    int32_t scale;
+    /* Its cells. */
+    const openrac_sharp_cell* cells;
+    /* How many: 1 to 4096. */
+    int32_t count;
+} openrac_sharp_page;
 
 /* The most joints one hero_set_joints call turns. Since 1.12. */
 #define OPENRAC_JOINT_OFFSETS_MAX 128
@@ -3240,6 +3271,23 @@ typedef struct openrac_api {
      * pickups and which stays the same when the level is edited. -1 for none or a port without
      * it. Since 1.35. */
     int (*moby_uid)(int slot);
+
+    /* Sharper pictures of cells a mod paints in a texture of the 2D layer (the game's font, its
+     * icons): replaces this mod's pages with `count` new ones (0 clears them; the port copies the
+     * data). When the game's texture of a page's size has every cell of the page in its colours
+     * (`rgb`), the renderer draws it from a picture `scale` times as wide and tall: every texel
+     * scaled up smoothly, the cells' `sharp` pictures put in (their opacity stays the texels').
+     * Only the picture on the GPU changes; the texels, game memory and texture packs (a pack's
+     * picture of the texture wins) stay. The built-in key prompts' pages and every mod's are
+     * kept apart and all used: the matching pages of the first one's scale give their cells, the
+     * built-ins' first, then the mods' in the order they first set pages (the earlier on top
+     * where two overlap). Set the pages before painting the texels: a texture is read when its
+     * texels change, so pages set later reach it at its next change. At most 64 pages, and 64 MB
+     * of pictures, in one call. Kept through level loads; gone with the mod's unload. Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no mod, a count out of range, a null array, a
+     * size below its struct's, a page or cell out of range (openrac_sharp_page,
+     * openrac_sharp_cell) or null data (nothing changes then). Any thread. Since 1.36. */
+    int (*sharp_cells)(openrac_mod* mod, const openrac_sharp_page* pages, int count);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

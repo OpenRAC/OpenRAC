@@ -32,6 +32,7 @@
 #include "mod_touch.h"
 #include "mods.h"
 #include "openrac/guest.h"
+#include "renderer/textures/sharp_cells.h"
 
 // The game's calls into the mods' world (game_host.h), set while mods are loaded.
 int (*openrac_game_moby_update)(std::int32_t slot, int phase) = nullptr;
@@ -1165,6 +1166,10 @@ void reset_play() {
 void drop_figures(const openrac_mod* mod) {
     drop_weapon_shots(mod);
     drop_air(mod);
+    // Its sharper cells (openrac_api.sharp_cells); null is the built-ins', which stay.
+    if (mod != nullptr) {
+        renderer::sharp_cells::set(mod, {});
+    }
     {
         const std::lock_guard<std::mutex> lock(g_props_lock);
         std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod; });

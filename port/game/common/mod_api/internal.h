@@ -773,4 +773,6 @@ void drop_weapon_shots(const openrac_mod* mod);
 
 int api_weapon_ignore_culling(openrac_mod* mod, std::int32_t item, std::int32_t enabled);
 
+int api_sharp_cells(openrac_mod* mod, const openrac_sharp_page* pages, int count);
+
 }  // namespace openrac::mods::detail

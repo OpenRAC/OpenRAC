@@ -36,6 +36,7 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/script_binding.h"
+#include "renderer/textures/sharp_cells.h"
 
 // mod_play.cpp asks the game for its play host (pickup_animation); there is no game here.
 extern "C" {
@@ -2400,6 +2401,124 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     g_loads = 1;
 }
 
+// A mod's sharper cells (interface 1.36, openrac_api.sharp_cells): what the call refuses (and then
+// leaves the mod's pages as they were), the pages the renderer reads, a struct of a later
+// interface, and the pages gone with the mod while the built-ins' stay.
+void a_mod_gives_sharper_cells(const fs::path& plugins) {
+    namespace sharp = renderer::sharp_cells;
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    int owner = 0;
+    auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+    // A 4 x 2 texture, texel (x, y) (x, y, 9); its cell at (0, 0), 2 x 2, drawn white twice as big.
+    std::vector<std::uint8_t> texels;
+    for (int y = 0; y < 2; ++y) {
+        for (int x = 0; x < 4; ++x) {
+            texels.insert(
+                texels.end(), {static_cast<std::uint8_t>(x), static_cast<std::uint8_t>(y), 9, 255}
+            );
+        }
+    }
+    const std::vector<std::uint8_t> rgb{0, 0, 9, 1, 0, 9, 0, 1, 9, 1, 1, 9};
+    const std::vector<std::uint8_t> white(4 * 4 * 3, 255);
+    openrac_sharp_cell cell{sizeof(openrac_sharp_cell), 0, 0, 2, 2, rgb.data(), white.data()};
+    openrac_sharp_page page{sizeof(openrac_sharp_page), 4, 2, 2, &cell, 1};
+    sharp::Picture big;
+    CHECK(!sharp::picture(4, 2, texels.data(), big));
+    CHECK(api.sharp_cells(mod, &page, 1) == OPENRAC_HOOK_OK);
+    CHECK(sharp::picture(4, 2, texels.data(), big));
+    CHECK(big.width == 8 && big.height == 4 && big.pixels[0] == 255 && big.pixels[3] == 255);
+
+    // Refused: no mod, a count out of range or without pages, a struct too short; then each value
+    // of a page and a cell out of range, or null data. The mod's pages stay as they were.
+    CHECK(api.sharp_cells(nullptr, &page, 1) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.sharp_cells(mod, &page, -1) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.sharp_cells(mod, &page, 65) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.sharp_cells(mod, nullptr, 1) == OPENRAC_HOOK_UNKNOWN);
+    const auto refused_page = [&](auto change) {
+        openrac_sharp_page p = page;
+        change(p);
+        return api.sharp_cells(mod, &p, 1) == OPENRAC_HOOK_UNKNOWN;
+    };
+    CHECK(refused_page([](openrac_sharp_page& p) { p.size = 4; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.width = 0; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.height = 1025; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.scale = 0; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.scale = 17; }));
+    CHECK(refused_page([](openrac_sharp_page& p) {
+        p.width = 512;
+        p.scale = 9;
+    }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.count = 0; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.cells = nullptr; }));
+    const auto refused_cell = [&](auto change) {
+        openrac_sharp_cell c = cell;
+        change(c);
+        openrac_sharp_page p = page;
+        p.cells = &c;
+        return api.sharp_cells(mod, &p, 1) == OPENRAC_HOOK_UNKNOWN;
+    };
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.size = 8; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.x = -1; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.x = 3; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.h = 3; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.w = 0; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.rgb = nullptr; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.sharp = nullptr; }));
+    // Two pages of two sizes in one array: refused too.
+    openrac_sharp_page two[2] = {page, page};
+    two[1].size = sizeof(openrac_sharp_page) + 8;
+    CHECK(api.sharp_cells(mod, two, 2) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(sharp::picture(4, 2, texels.data(), big) && big.pixels[0] == 255);
+
+    // A mod built for a later interface, whose structs are longer: read a stride of their size.
+    struct LaterCell {
+        openrac_sharp_cell cell;
+        std::uint32_t more;
+    };
+
+    struct LaterPage {
+        openrac_sharp_page page;
+        std::uint64_t more;
+    };
+
+    const std::vector<std::uint8_t> grey(4 * 4 * 3, 128);
+    LaterCell later_cells[2] = {{cell, 1}, {cell, 2}};
+    later_cells[0].cell.size = sizeof(LaterCell);
+    later_cells[1].cell = {sizeof(LaterCell), 2, 0, 2, 2, rgb.data(), grey.data()};
+    // The second cell's colours: texels (2..3, 0..1).
+    const std::vector<std::uint8_t> right{2, 0, 9, 3, 0, 9, 2, 1, 9, 3, 1, 9};
+    later_cells[1].cell.rgb = right.data();
+    LaterPage later[2] = {{page, 0}, {page, 0}};
+    later[0].page.size = sizeof(LaterPage);
+    later[0].page.cells = &later_cells[0].cell;
+    later[0].page.count = 2;
+    later[1].page = later[0].page;
+    later[1].page.width = 8;
+    CHECK(api.sharp_cells(mod, &later[0].page, 2) == OPENRAC_HOOK_OK);
+    CHECK(sharp::picture(4, 2, texels.data(), big));
+    CHECK(big.pixels[0] == 255 && big.pixels[static_cast<std::size_t>(4 * 4)] == 128);
+
+    // The mod's unload takes its pages; the built-ins' stay.
+    const sharp::Cell builtin{0, 0, 2, 2, rgb, std::vector<std::uint8_t>(4 * 4 * 3, 64)};
+    sharp::set(std::vector<sharp::Page>{sharp::Page{4, 2, 2, {builtin}}});
+    CHECK(sharp::picture(4, 2, texels.data(), big) && big.pixels[0] == 64);
+    mods::drop_figures(mod);
+    CHECK(sharp::picture(4, 2, texels.data(), big) && big.pixels[0] == 64);
+    CHECK(big.pixels[static_cast<std::size_t>(4 * 4)] != 128);
+    sharp::set({});
+    CHECK(!sharp::picture(4, 2, texels.data(), big));
+
+    // A count of 0 clears the mod's pages.
+    CHECK(api.sharp_cells(mod, &page, 1) == OPENRAC_HOOK_OK);
+    CHECK(api.sharp_cells(mod, nullptr, 0) == OPENRAC_HOOK_OK);
+    CHECK(!sharp::picture(4, 2, texels.data(), big));
+    mods::reset();
+}
+
 // undo() drops these registrations before closing a refused mod's library.
 // Use resident callbacks here so a missed cleanup is reported instead of jumping
 // into unmapped DLL code when the next vendor camera event arrives.
@@ -2551,6 +2670,7 @@ int main() {
     a_mod_reads_the_pack(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
     a_library_others_can_change_is_refused(plugins);
+    a_mod_gives_sharper_cells(plugins);
     dropped_mod_watchers_are_not_called();
     refused_library_leaves_no_watchers(plugins);
     installed_games_and_their_folders(dir);

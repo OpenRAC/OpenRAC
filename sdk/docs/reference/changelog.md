@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.36
+
+Sharper pictures of cells a mod paints in a texture of the 2D layer, kept apart from the built-in key prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell).
+
+Members: `sharp_cells`.
+
 ## 1.35
 
 What OpenRAC Editor's levels need: the pack's folder, the game's language, the camera's field of view, the HUD hidden, the music's volume, any moby's joints and sounds, the picture's air, slow motion, ties hidden, animated props and a moby's spawn id.
