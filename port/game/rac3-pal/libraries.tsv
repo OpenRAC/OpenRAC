@@ -240,15 +240,6 @@ func_003C7C38__frontbin	vu0	rac3MobyMatrixFrontbin	host	frontbin's copy of func_
 func_003C7DD8__frontbin	vu0	rac3MobyMatrixKeptFrontbin	host	frontbin's copy of func_003C8190 (host/trig.c)	void (unsigned int)
 func_L01_0043C710	vu0	rac3MobyMatrixLevel	host	the levels' copy of func_003C7FF0, on Veldin's pose table relocated (host/trig.c)	void (unsigned int)
 func_L01_0043C8B0	vu0	rac3MobyMatrixKeptLevel	host	the levels' copy of func_003C8190 (host/trig.c)	void (unsigned int)
-func_L01_0040E8F8_003EBF40	vu0	alias_L01_0040E8F8_003EBF40	host	the decompilation's name for func_L01_0040E8F8 in its caller's file, the same function (host/trig.c)	float (float)
-func_L01_0040E910_003EBF40	vu0	alias_L01_0040E910_003EBF40	host	the decompilation's name for func_L01_0040E910 in its caller's file, the same function (host/trig.c)	float (float)
-func_L01_0040EB88_003EBA68	vu0	alias_L01_0040EB88_003EBA68	host	the decompilation's name for func_L01_0040EB88 in its caller's file, the same function (host/trig.c)	void (unsigned int, unsigned int)
-func_0038DBF0_00384028	vu0	alias_0038DBF0_00384028	host	the decompilation's name for func_0038DBF0 in its caller's file, the same function (host/trig.c)	void (unsigned int, unsigned int)
-func_0038DBF0_00384620	vu0	alias_0038DBF0_00384620	host	the decompilation's name for func_0038DBF0 in its caller's file, the same function (host/trig.c)	void (unsigned int, unsigned int)
-func_0038DBF0_00384640	vu0	alias_0038DBF0_00384640	host	the decompilation's name for func_0038DBF0 in its caller's file, the same function (host/trig.c)	void (unsigned int, unsigned int)
-func_0038DC10_00383E38	vu0	alias_0038DC10_00383E38	host	the decompilation's name for func_0038DC10 in its caller's file, the same function (host/trig.c)	void (unsigned int, unsigned int)
-func_0038DC10_00383E48	vu0	alias_0038DC10_00383E48	host	the decompilation's name for func_0038DC10 in its caller's file, the same function (host/trig.c)	void (unsigned int, unsigned int)
-func_003C7FF0_003A6C90	vu0	alias_003C7FF0_003A6C90	host	the decompilation's name for func_003C7FF0 in its caller's file, the same function (host/trig.c)	void (unsigned int)
 func_0012DA60	mc	sceMcInit	host	sends mcserv's RPC function 254, as rac2-ntsc's sceMcInit does
 func_0012DCA0	mc	sceMcOpen	host	sends mcserv's RPC function 2, as rac2-ntsc's sceMcOpen does
 func_0012DE00	mc	sceMcClose	host	sends mcserv's RPC function 3, as rac2-ntsc's sceMcClose does
