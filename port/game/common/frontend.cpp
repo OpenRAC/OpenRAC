@@ -64,6 +64,7 @@
 #include "renderer/gl/gl_warmup.h"
 #include "renderer/gl/precise_depth.h"
 #include "renderer/renderer.h"
+#include "renderer/textures/pcsx2_pack.h"
 #include "renderer/textures/texture_pack.h"
 #include "renderer/textures/texture_pool.h"
 #include "renderer/ui/fps_counter.h"
@@ -381,6 +382,7 @@ bool open(
             if (g && g->index != tick) {
                 tick = g->index;
                 cache->next_tick();
+                cache->set_keep_indexed(renderer::pcsx2_pack::enabled());
             }
             return cache->find(ram, image);
         }

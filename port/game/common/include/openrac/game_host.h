@@ -1050,6 +1050,14 @@ typedef struct openrac_game_quad {
 
 void openrac_game_effect_quad(const openrac_game_quad* quad);
 
+/* The game is handing over the `bytes` bytes at `data` (an image's pixels or palette) and may not
+ * keep them there: an image it sends once and draws from then on without sending it again (rac3's
+ * HUD bank, sent from a buffer it decompresses into and reuses). Images the window draws from that
+ * address (openrac_frame_ui_item, openrac_frame_picture_image) read these bytes, as they are now,
+ * instead of what game memory holds later, until the game hands over other bytes there. A copy of
+ * the game's own data; nothing about where the console kept it. */
+void openrac_game_image_keep(gaddr data, uint32_t bytes);
+
 /* The marker of the quad just given to openrac_game_effect_quad, for the display list: the game
  * puts (OPENRAC_EFFECT_QUAD_MARKER << 48 | marker) in it with an A+D write to the NOP register
  * where the console's quad packet would have gone, and the window draws that quad with the TEST

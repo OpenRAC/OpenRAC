@@ -53,6 +53,10 @@ public:
     // time its content is seen. No image when it names memory past `ram` or an unreadable shape.
     renderer::UiImage find(std::span<const std::uint8_t> ram, const openrac_game_ui_image& image);
 
+    // Whether decoded 8-bit images keep their indices and palette (renderer::UiImage::indexed), for
+    // a PCSX2-format texture pack's names: only while such a pack is loaded.
+    void set_keep_indexed(bool keep) { m_keep_indexed = keep; }
+
     // A new tick: the game may have changed what its addresses hold. Content not drawn for
     // `kKeepTicks` ticks is let go.
     void next_tick();
@@ -62,12 +66,14 @@ public:
 private:
     struct Kept {
         std::shared_ptr<const renderer::Rgba8Image> image;
+        std::shared_ptr<const renderer::UiIndexed> indexed;
         std::uint32_t last_tick = 0;
     };
 
     std::unordered_map<std::uint64_t, Kept> m_by_hash;
     std::unordered_map<std::uint64_t, std::uint64_t> m_this_tick;  // description key -> hash
     std::uint32_t m_tick = 0;
+    bool m_keep_indexed = false;
 };
 
 }  // namespace openrac::frontend
