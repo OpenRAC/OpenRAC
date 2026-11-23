@@ -358,7 +358,7 @@ public:
 
     // The extracted level the loading screen between levels (the game mode the window takes for a
     // flight between planets, world -2) is drawn with, or -1 for the flight world: Up Your
-    // Arsenal's loading screen is its ship's scene, exported as level 97 (editor/level.py
+    // Arsenal's loading screen is its ship's scene, exported as level 97 (extractor/level.py
     // load_wad_loading).
     virtual int loading_world() const { return -1; }
 

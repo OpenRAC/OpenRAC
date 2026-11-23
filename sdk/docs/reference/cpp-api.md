@@ -450,7 +450,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `void moby_sound_stop(int voice) const` | Since 1.35: stops a voice moby_sound_play gave. |
 | `bool scene_air(const openrac_air* air) const` | Since 1.35: the fog and background the picture is drawn with (nullptr: the game's again); false outside a level, for a value out of range or a port without it. |
 | `bool time_stretch(float stretch) const` | Since 1.35: slow motion, each tick `stretch` (1 to 8) times as long; false for a value out of range or a port without it. |
-| `bool tie_hide(int tie, bool hidden) const` | Since 1.35: hides the level's tie `tie` from the picture, or shows it again; false outside a level, for no such tie or a port without it. |
+| `bool tie_hide(int tie, bool hidden) const` | Since 1.35: hides the level's tie `tie` from the picture, or shows it again; false outside a level, for a number below 0 or past 65535 or a port without it. |
 | `bool prop_animate(int prop, int animation, float seconds, bool loop) const` | Since 1.35: plays animation `animation` of a skinned prop's .glb at `seconds` (-1: the mesh as stored); false for a prop not the mod's or a port without it. |
 | `bool moby_joint_frame(int slot, int joint, float (&out)[12]) const` | Since 1.35: a moby's joint's axes and place in the level, as last drawn, into `out` (x, y, z axes, then the place); false for no such joint or a port without it. |
 | `int moby_uid(int slot) const` | Since 1.35: the spawn id of the placed moby in `slot` (its record's uid, which stays when the level is edited; a key is the record's place), -1 for none or a port without it. |

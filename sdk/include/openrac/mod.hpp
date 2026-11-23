@@ -2984,7 +2984,7 @@ public:
     }
 
     // Since 1.35: hides the level's tie `tie` from the picture, or shows it again;
-    // false outside a level, for no such tie or a port without it.
+    // false outside a level, for a number below 0 or past 65535 or a port without it.
     bool tie_hide(int tie, bool hidden) const {
         return has_slot14(offsetof(openrac_api, tie_hide)) && m_api->tie_hide(m_handle, tie, hidden ? 1 : 0) == OPENRAC_HOOK_OK;
     }

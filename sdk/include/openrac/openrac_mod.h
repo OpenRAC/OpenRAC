@@ -3215,7 +3215,8 @@ typedef struct openrac_api {
 
     /* Hides tie `tie` (its index in the level, as the editor lists it) from the picture (1) or
      * shows it again (0). Its collision stays. Reset when the level or the mod ends. Returns
-     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or for no such tie. Since 1.35. */
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level or for a number below 0 or past
+     * 65535 (a number the level has no tie for hides nothing). Since 1.35. */
     int (*tie_hide)(openrac_mod* mod, int tie, int hidden);
 
     /* Poses a skinned prop at `seconds` into animation `animation` (its index in the .glb),

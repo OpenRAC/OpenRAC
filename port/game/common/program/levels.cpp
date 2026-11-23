@@ -90,7 +90,7 @@ bool rac2_level_program(int level, std::vector<std::uint8_t>* bytes) {
 #endif
 
 #ifdef OPENRAC_HAS_DISC
-// Up Your Arsenal's programs (editor/wads.py, WadDisc and level_ranges, the editor's reader of the
+// Up Your Arsenal's programs (extractor/wads.py, WadDisc and level_ranges, the editor's reader of the
 // disc): its table of contents from sector 1001, global headers (each sized by its first word,
 // the last padded with zeros) and then the level table, three (header sector, sector count) pairs
 // a level. A level's header is 0x60 bytes: +4 the file's first sector, +8 the level's number,
@@ -322,7 +322,7 @@ int check_levels(const fs::path& levels, const fs::path& mods) {
         ids.push_back(98);
         ids.push_back(99);
     } else {
-        // A later game's levels are what its disc has (editor/extract.py port): every level
+        // A later game's levels are what its disc has (extractor/extract.py port): every level
         // folder there. The export writes its stamp last, so a folder that is there is whole.
         for (const auto& entry : fs::directory_iterator(levels, ignored)) {
             int id = 0;

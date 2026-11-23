@@ -16,7 +16,7 @@ namespace openrac::lighting {
 inline constexpr const char* kRac2SurfacesSource = "rac2-surfaces-v1";
 std::vector<BakeTriangle> rac2_liquid_triangles(const json::Value& surfaces);
 
-// Up Your Arsenal's liquid surfaces (editor/enhanced/liquids.py, manifest bake_inputs "liquids":
+// Up Your Arsenal's liquid surfaces (extractor/enhanced/liquids.py, manifest bake_inputs "liquids":
 // "rac3-strips-v1"): each a triangle strip through its points at rest, as the draw of class 6576
 // strips a path. Only the surfaces the export marks emissive (a reviewed colour) become transport:
 // no diffuse, emitting their colour (their first layer is a white texture under it).
