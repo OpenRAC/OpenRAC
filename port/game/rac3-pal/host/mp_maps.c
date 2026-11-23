@@ -191,4 +191,5 @@ static inline int world_quad(int a0, int a1) {
 
 #define MP_MAP_UI(...)
 #define MP_MAP_HUD(...)
+#define MP_MAP_VU0(...)
 #include "mp_maps.h"

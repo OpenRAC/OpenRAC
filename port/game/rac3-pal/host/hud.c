@@ -210,7 +210,9 @@ MP_HUD(mp_func_L39_0059CB38, mp_func_L39_0059CD28, mp_func_L39_0059C910)
 #define MP_MAP_UI(...)
 #define MP_MAP_HUD(m, sprite, gradient, tex0)                                                      \
     MP_HUD(mp_func_L##m##_##sprite, mp_func_L##m##_##gradient, mp_func_L##m##_##tex0)
+#define MP_MAP_VU0(...)
 #include "mp_maps.h"
 #undef MP_MAP
 #undef MP_MAP_UI
 #undef MP_MAP_HUD
+#undef MP_MAP_VU0

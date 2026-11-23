@@ -4839,6 +4839,36 @@ class FromAssembly(unittest.TestCase):
             extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source)})
         self.assertEqual(out, ["6"])
 
+    def test_a_trap_that_always_fires_ends_the_path(self):
+        # asm.trap_ends: teq $0, $0 is code the routine cannot reach (Up Your Arsenal's moby grid,
+        # func_003C7D10); what lies below it is another routine's, whose system call would have made
+        # this one a stub.
+        source = """
+                beq $4, $0, trap
+                nop
+                jr $31
+                addiu $2, $4, 1
+            trap:
+                teq $0, $0
+                syscall
+                jr $31
+                nop
+        """
+        c = """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            int test_main(void) { test_print(func_00100000(5)); return 0; }
+        """
+        out = self.run_program({"a.c": c}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], trap_ends=True)),
+                               extra_files={"game/asm/func_00100000.s": assembler.assemble(
+                                   "func_00100000", 0x00100000, source)})
+        self.assertEqual(out, ["6"])
+        self.assertEqual(self.last_report["functions_from_assembly"], 1)
+        self.assertNotIn("syscall", self.last_generated)
+        self.run_program({"a.c": c}, extra_files={"game/asm/func_00100000.s": assembler.assemble(
+            "func_00100000", 0x00100000, source)}, config=ASM_CONFIG)
+        self.assertEqual(self.last_report["assembly_unsupported"], {"func_00100000": "a system call at 00100014"})
+
     def test_a_return_through_a_copy_of_ra(self):
         # A leaf that calls helpers keeps $ra in a temporary and ends with jr on it: a return, not a
         # call to that value (Going Commando's rotation builder, func_00283898).

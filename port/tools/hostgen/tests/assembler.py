@@ -97,6 +97,8 @@ def encode(op: str, args: list[str], addr: int, labels: dict[str, int], symbols:
         return reg(args[0]) << 21 | reg(args[1]) << 16 | SPECIAL[op]
     if op == "syscall":
         return SPECIAL[op]
+    if op == "teq":
+        return reg(args[0]) << 21 | reg(args[1]) << 16 | 0x34
     if op in ("ei", "di"):
         return 0x42000038 if op == "ei" else 0x42000039
     if op in SPECIAL:
