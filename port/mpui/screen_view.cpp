@@ -467,6 +467,12 @@ Outcome ScreenView::handle_cross(const Model& model, Skin& skin) {
 
     const Item& item = m_spec.items[m_focus];
 
+    // A table that only shows rows (a scoreboard) leaves Cross to the game's screen under it.
+    if (item.kind == ItemKind::TABLE && item.action.kind == ActionKind::NONE
+        && m_mode == Mode::OVERLAY) {
+        return outcome;
+    }
+
     // Cross steps a choice on, around its end.
     if (item.kind == ItemKind::CHOICE) {
         return step_choice(1, skin);

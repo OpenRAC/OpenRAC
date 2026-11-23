@@ -320,6 +320,19 @@ void test_up_leaves_a_table_with_neighbours() {
     CHECK(view.focus() == 0 && view.cursor() == 0);
 }
 
+// A table with no action over a game screen (a scoreboard) hands Cross to the game, yet scrolls.
+void test_a_table_without_action_leaves_cross_to_the_game() {
+    RecordingSkin skin;
+    Model model;
+    fill_players(model, 20);
+    ScreenSpec spec = player_screen(8);
+    spec.items[0].action = Action{};
+    ScreenView view(spec, Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
+    CHECK(!view.handle(Event::CROSS, model, skin).consumed);
+    CHECK(view.handle(Event::R1, model, skin).consumed);
+    CHECK(view.cursor() == 8);
+}
+
 }  // namespace
 }  // namespace openrac::mpui
 
@@ -339,5 +352,6 @@ int main() {
     test_a_notice_wraps_and_goes_back();
     test_the_page_count_takes_a_row_without_headings();
     test_up_leaves_a_table_with_neighbours();
+    test_a_table_without_action_leaves_cross_to_the_game();
     return openrac::test::result();
 }
