@@ -705,6 +705,7 @@ void close() {
             g->render.frame.release();
             g->picture.release();
             g->render.last_world.release();
+            release_split_views(g->render);
             g->render.renderer.reset();
             g->render.scene.release();
             if (g->window) {

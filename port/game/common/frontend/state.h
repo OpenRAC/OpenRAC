@@ -249,6 +249,17 @@ struct SceneRenderState {
     // The mod's additional views and the OpenGL framebuffers around their output textures.
     std::array<renderer::FrameBuffer, 4> views;
     std::vector<std::pair<unsigned, unsigned>> view_targets;
+
+    // Split screen (frontend/split_views.cpp): each local player's view's world as last drawn, the
+    // rectangle it goes in (x0, y0, x1, y1 as shares of the game's 2D screen) and whether it holds
+    // one. Forgotten at the first tick that records no view.
+    struct SplitView {
+        renderer::FrameBuffer picture;
+        std::array<float, 4> share{};
+        bool held = false;
+    };
+
+    std::array<SplitView, 4> split_views;
     scene::LevelData level;
     scene::LevelScene scene;
     DebugCamera debug_camera;

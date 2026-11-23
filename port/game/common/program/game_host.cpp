@@ -853,8 +853,16 @@ void openrac_frame_anchor(gaddr list_cursor) {
 }
 
 void openrac_frame_world(unsigned layers) {
-    OPENRAC_RECORD("openrac_frame_world", world(layers));
-    (void)layers;
+    c_boundary::call("openrac_frame_world", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            frontend::recorder::world(layers);
+            // In a split-screen view: the camera its world is drawn with.
+            frontend::recorder::view_camera(game_ram());
+        }
+#endif
+        (void)layers;
+    });
 }
 
 void openrac_frame_world_mobys(void) {
@@ -967,6 +975,28 @@ void openrac_frame_target_end(void) {
 void openrac_frame_scissor(const float* rect) {
     OPENRAC_RECORD("openrac_frame_scissor", scissor(rect));
     (void)rect;
+}
+
+void openrac_frame_screen(float width, float height) {
+    OPENRAC_RECORD("openrac_frame_screen", screen(width, height));
+    (void)width;
+    (void)height;
+}
+
+void openrac_frame_view_begin(int view, const openrac_frame_viewport* rect) {
+    c_boundary::call("openrac_frame_view_begin", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && rect != nullptr) {
+            frontend::recorder::view_begin(view, *rect);
+        }
+#endif
+        (void)view;
+        (void)rect;
+    });
+}
+
+void openrac_frame_view_end(void) {
+    OPENRAC_RECORD("openrac_frame_view_end", view_end());
 }
 
 #undef OPENRAC_RECORD

@@ -20,6 +20,7 @@
 
 #include "renderer/direct/draw_state.h"
 #include "renderer/frame/ui_records.h"
+#include "renderer/math.h"
 
 namespace openrac::renderer {
 
@@ -37,6 +38,8 @@ enum class FrameOp : std::uint8_t {
     TargetBegin,  // draws go into panel `index` (a port id >= kRecordedTargets), width x height
     TargetEnd,    // back to the screen
     Scissor,      // what follows is cut to rect (or the whole target)
+    ViewBegin,    // the world that follows is split-screen view `index`'s, into rect
+    ViewEnd,      // the open view ends (FrameRecording::views has its camera)
 };
 
 // FrameCommand::clear bits.
@@ -67,6 +70,31 @@ struct FrameCommand {
     bool operator==(const FrameCommand&) const = default;
 };
 
+// The camera a split-screen view was drawn with (the game's, read when the view ended): the eye,
+// its axes (forward, left, up, unit) and the tangents of half its fields of view.
+struct FrameViewCamera {
+    Vec3 position{};
+    Vec3 forward{1, 0, 0};
+    Vec3 left{0, 1, 0};
+    Vec3 up{0, 0, 1};
+    float tan_half_fov_x = 0.0f;
+    float tan_half_fov_y = 0.0f;
+
+    bool operator==(const FrameViewCamera&) const = default;
+};
+
+// A split-screen view of a recording (openrac_frame_view_begin / _end).
+struct FrameView {
+    std::uint32_t view = 0;
+    // x0, y0, x1, y1 in the game's 2D screen pixels (screen_width x screen_height).
+    std::array<float, 4> rect{};
+    float screen_width = 512.0f, screen_height = 448.0f;
+    FrameViewCamera camera;
+    bool has_camera = false;
+
+    bool operator==(const FrameView&) const = default;
+};
+
 // One recording: the commands of one pass of the game's frame code, in call order, and their
 // records.
 struct FrameRecording {
@@ -75,6 +103,8 @@ struct FrameRecording {
     std::vector<UiQuad> ui_quads;
     std::vector<UiItem> ui_items;
     std::vector<UiImage> images;
+    // The split-screen views drawn in it, in the order they ended; none for a full-screen frame.
+    std::vector<FrameView> views;
 
     bool empty() const { return commands.empty(); }
 
@@ -98,6 +128,20 @@ public:
     void set_anchor(std::uint32_t anchor) { m_anchor = anchor; }
 
     std::uint32_t anchor() const { return m_anchor; }
+
+    // The game's 2D screen the next commands' coordinates are in (openrac_frame_screen); kept
+    // across recordings.
+    void set_screen(float width, float height);
+
+    std::array<float, 2> screen() const { return m_screen; }
+
+    // Split screen: view `view` starts (ending an open one); the open view's camera (the first
+    // given is kept: the one its world was drawn with); the open view ends.
+    void view_begin(std::uint32_t view, const std::array<float, 4>& rect);
+    void view_camera(const FrameViewCamera& camera);
+    void view_end();
+
+    bool view_open() const { return m_view_open; }
 
     // Appends `command` with the current anchor; returns its index.
     std::uint32_t push(FrameCommand command);
@@ -126,6 +170,8 @@ private:
     std::array<FrameRecording, kKept> m_kept{};
     std::uint64_t m_serial = 0;
     std::uint32_t m_anchor = 0;
+    std::array<float, 2> m_screen{512.0f, 448.0f};
+    bool m_view_open = false;
 };
 
 // For each command of `recording`, the index of the tag of `tags` it goes before, or kDropped. A

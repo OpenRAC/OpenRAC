@@ -132,11 +132,86 @@ void late_and_resent_lists() {
     CHECK(recorder.match(std::vector<std::uint32_t>{0xC000}) == nullptr);
 }
 
+// The game's 2D screen goes with each command recorded after it is given, across recordings.
+void screen_size() {
+    FrameRecorder recorder;
+    recorder.push(op(FrameOp::Fill));
+    recorder.set_screen(512.0f, 416.0f);
+    recorder.push(op(FrameOp::Scissor));
+    recorder.set_screen(0.0f, 0.0f);  // no size: kept
+    recorder.close();
+    recorder.push(op(FrameOp::Fill));
+    recorder.close();
+    const FrameRecording* r = recorder.latest_unanchored();
+    CHECK(r != nullptr && r->commands.size() == 1 && r->commands[0].screen_height == 416.0f);
+    recorder.reset();
+    CHECK(recorder.screen()[1] == 448.0f);
+}
+
+// Split-screen views: in the recording in the order they begin, each with its rectangle, the
+// screen and the first camera given while it was open; a view begun while one is open ends that
+// one; a view still open when the recording closes ends with it.
+void views() {
+    FrameRecorder recorder;
+    recorder.set_screen(512.0f, 448.0f);
+    FrameViewCamera camera;
+    camera.position = {1.0f, 2.0f, 3.0f};
+    camera.tan_half_fov_y = 0.25f;
+    recorder.view_camera(camera);  // no view open: nobody's
+    recorder.view_begin(0, {0.0f, 0.0f, 512.0f, 224.0f});
+    recorder.push(op(FrameOp::World, 0x0F));
+    recorder.view_camera(camera);
+    FrameViewCamera later = camera;
+    later.position = {9.0f, 9.0f, 9.0f};
+    recorder.view_camera(later);  // the first is kept
+    recorder.view_end();
+    CHECK(!recorder.view_open());
+    recorder.view_begin(1, {0.0f, 224.0f, 512.0f, 448.0f});
+    recorder.push(op(FrameOp::World, 0x0F));
+    recorder.view_begin(2, {0.0f, 0.0f, 256.0f, 224.0f});
+    recorder.close();
+    const FrameRecording* r = recorder.latest_unanchored();
+    CHECK(r != nullptr);
+    if (r == nullptr) {
+        return;
+    }
+    CHECK(r->views.size() == 3);
+    if (r->views.size() == 3) {
+        CHECK(r->views[0].view == 0 && r->views[0].has_camera);
+        CHECK(r->views[0].camera == camera);
+        CHECK(r->views[0].rect[3] == 224.0f && r->views[0].screen_height == 448.0f);
+        CHECK(r->views[1].view == 1 && !r->views[1].has_camera);
+        CHECK(r->views[2].view == 2 && !r->views[2].has_camera);
+    }
+    const FrameOp expected[] = {
+        FrameOp::ViewBegin,
+        FrameOp::World,
+        FrameOp::ViewEnd,
+        FrameOp::ViewBegin,
+        FrameOp::World,
+        FrameOp::ViewEnd,
+        FrameOp::ViewBegin,
+        FrameOp::ViewEnd,
+    };
+    CHECK(r->commands.size() == 8);
+    for (std::size_t i = 0; i < 8 && i < r->commands.size(); ++i) {
+        CHECK(r->commands[i].op == expected[i]);
+    }
+    CHECK(!recorder.view_open());
+    // The next recording has none: a full-screen frame.
+    recorder.push(op(FrameOp::World, 0x0F));
+    recorder.close();
+    r = recorder.latest_unanchored();
+    CHECK(r != nullptr && r->views.empty());
+}
+
 }  // namespace
 
 int main() {
     order_without_dma();
     anchors_place_commands();
     late_and_resent_lists();
+    screen_size();
+    views();
     return openrac::test::result();
 }

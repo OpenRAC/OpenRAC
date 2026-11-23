@@ -1023,7 +1023,11 @@ void GifInterpreter::run_command(const FrameCommand& c) {
         case FrameOp::World:
         case FrameOp::WorldMobys:
         case FrameOp::EffectQuad:
-            break;  // the window's split and the effect quads' tests: read where they were recorded
+        case FrameOp::ViewBegin:
+        case FrameOp::ViewEnd:
+            // The window's split and the effect quads' tests, read where they were recorded; the
+            // views' worlds, drawn by the window (frontend/split_views.cpp).
+            break;
         case FrameOp::Mobys:
             moby_draw(c.value);
             break;

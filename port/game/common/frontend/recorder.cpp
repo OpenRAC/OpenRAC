@@ -15,6 +15,7 @@
 #include "common/env.h"
 #include "frontend.h"
 #include "game/common/frontend/state.h"
+#include "openrac/game_host.h"
 #include "renderer/textures/texture.h"
 
 namespace openrac::frontend::recorder {
@@ -271,6 +272,42 @@ void target_end() {
         renderer::FrameCommand c;
         c.op = renderer::FrameOp::TargetEnd;
         g->recorder.push(c);
+    }
+}
+
+void screen(float width, float height) {
+    if (g) {
+        g->recorder.set_screen(width, height);
+    }
+}
+
+void view_begin(int view, const openrac_frame_viewport& rect) {
+    if (!g || view < 0 || view >= OPENRAC_FRAME_VIEWS || !(rect.x1 > rect.x0)
+        || !(rect.y1 > rect.y0)) {
+        return;
+    }
+    g->recorder.view_begin(static_cast<std::uint32_t>(view), {rect.x0, rect.y0, rect.x1, rect.y1});
+}
+
+void view_camera(std::span<const std::uint8_t> ram) {
+    if (!g || !g->recorder.view_open() || g->render.profile == nullptr) {
+        return;
+    }
+    // The world of the open view is drawn now: the camera the game holds is the view's.
+    const host::GameState state = g->render.profile->read_state(ram, openrac_game_loaded_overlay());
+    renderer::FrameViewCamera camera;
+    camera.position = state.camera_position;
+    camera.forward = state.forward;
+    camera.left = state.left;
+    camera.up = state.up;
+    camera.tan_half_fov_x = state.tan_half_fov_x;
+    camera.tan_half_fov_y = state.tan_half_fov_y;
+    g->recorder.view_camera(camera);
+}
+
+void view_end() {
+    if (g) {
+        g->recorder.view_end();
     }
 }
 

@@ -19,6 +19,7 @@ void FrameRecording::clear() {
     ui_quads.clear();
     ui_items.clear();
     images.clear();
+    views.clear();
 }
 
 std::uint32_t FrameRecorder::push(FrameCommand command) {
@@ -28,12 +29,62 @@ std::uint32_t FrameRecorder::push(FrameCommand command) {
         close();
     }
     command.anchor = m_anchor;
+    command.screen_width = m_screen[0];
+    command.screen_height = m_screen[1];
     m_open.commands.push_back(command);
     return static_cast<std::uint32_t>(m_open.commands.size() - 1);
 }
 
+void FrameRecorder::set_screen(float width, float height) {
+    // A size no game draws in is none: the coordinates stay in the last one given.
+    if (width >= 1.0f && height >= 1.0f && width <= 8192.0f && height <= 8192.0f) {
+        m_screen = {width, height};
+    }
+}
+
+void FrameRecorder::view_begin(std::uint32_t view, const std::array<float, 4>& rect) {
+    if (m_view_open) {
+        view_end();
+    }
+    FrameCommand c;
+    c.op = FrameOp::ViewBegin;
+    c.index = view;
+    c.rect = rect;
+    c.whole = false;
+    push(c);
+    FrameView v;
+    v.view = view;
+    v.rect = rect;
+    v.screen_width = m_screen[0];
+    v.screen_height = m_screen[1];
+    m_open.views.push_back(v);
+    m_view_open = true;
+}
+
+void FrameRecorder::view_camera(const FrameViewCamera& camera) {
+    if (m_view_open && !m_open.views.empty() && !m_open.views.back().has_camera) {
+        m_open.views.back().camera = camera;
+        m_open.views.back().has_camera = true;
+    }
+}
+
+void FrameRecorder::view_end() {
+    if (!m_view_open) {
+        return;
+    }
+    m_view_open = false;
+    FrameCommand c;
+    c.op = FrameOp::ViewEnd;
+    c.index = m_open.views.empty() ? 0 : m_open.views.back().view;
+    push(c);
+}
+
 void FrameRecorder::close() {
     m_anchor = 0;
+    // A view still open when the frame closes ends with it.
+    if (m_view_open) {
+        view_end();
+    }
     if (m_open.empty()) {
         m_open.clear();
         return;
@@ -88,6 +139,8 @@ void FrameRecorder::reset() {
         r.clear();
     }
     m_anchor = 0;
+    m_screen = {512.0f, 448.0f};
+    m_view_open = false;
 }
 
 std::vector<std::size_t> place_commands(

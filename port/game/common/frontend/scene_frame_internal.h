@@ -46,6 +46,18 @@ void set_target_mobys(SceneFrame& frame);
 // Retains the last world where the original menu reads its background.
 void retain_background(SceneFrame& frame);
 
+// ---- Split screen (frontend/split_views.cpp, openrac/frame.h's openrac_frame_view_begin) ----
+// Whether the tick recorded split-screen views: its world is then drawn per view.
+bool split_screen(const Kept& scene);
+// Draws each view the tick recorded into its kept picture, with its own camera; forgets them all
+// when the tick recorded none.
+void draw_split_views(SceneFrame& frame);
+// Puts every kept view's picture on `target` (a framebuffer of `width` x `height`) at its
+// rectangle: the frame's world, under its 2D.
+void put_split_views(SceneRenderState& owner, unsigned target, int width, int height);
+// Before the graphics context goes.
+void release_split_views(SceneRenderState& owner);
+
 // ---- A mod's views (frontend/views.cpp, frontend.h's set_view_source) ----
 
 // True while a mod has registered views, including before the window opens.
