@@ -435,8 +435,6 @@
       "func_L39_0058B4A8": "void (unsigned int, unsigned int)",
       "func_L39_00589FE8": "void (int, int, int, int)",
       "func_L39_0058A0F8": "void (int, int, int, int, unsigned long long)",
-      "func_L39_0058F8B8": "float (float)",
-      "func_L39_0058F8D0": "float (float)",
       "func_0027EB08": "unsigned long long (int, int, int, int, int)",
       "func_L39_00588E88": "unsigned long long (int, int, int, int, int)",
       "func_L39_0058ABC0": "int (int, int, int, int, unsigned int, long long, int, float, float, float, float)",
