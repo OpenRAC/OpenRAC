@@ -3041,7 +3041,8 @@ public:
 
     // Since 1.37: turns an option of the port's menu on or off, by its name
     // (sdk/docs/menu-options.md): OPENRAC_MENU_OPTION_ON, _OFF, or _DEFAULT for the port's choice.
-    // False for a port without the call, or a bad name or state.
+    // A name the port does not know is taken and changes nothing. False for a port without the
+    // call, an empty name or another state.
     bool menu_option_set(const char* option, int state) const {
         return has_slot14(offsetof(openrac_api, menu_option_set))
                && m_api->menu_option_set(m_handle, option, state) == OPENRAC_HOOK_OK;
