@@ -23,6 +23,13 @@ constexpr float COLUMN_GAP = 4.0f;
 // Where a choice's value starts, as a share of the screen's width.
 constexpr float CHOICE_VALUE_AT = 0.6f;
 
+// A notice's screen id and its one button (the Cross token, as the games' dialogs show it).
+constexpr const char* NOTICE_SCREEN = "notice";
+constexpr const char* NOTICE_BUTTON = "\x10 OK";
+
+// The space between a modal screen's panel edge and its items, in the picture's pixels.
+constexpr float MODAL_MARGIN = 8.0f;
+
 // A column's width is a percentage of its table's.
 constexpr float PERCENT = 100.0f;
 
@@ -36,15 +43,16 @@ std::string_view fit(const Skin& skin, std::string_view text, float width, TextS
     return text;
 }
 
-// Returns how many lines `text` takes wrapped at `width`, at least one.
-std::size_t wrapped_lines(const Skin& skin, std::string_view text, float width) {
-    std::size_t lines = 1;
+// Returns `text` broken into the lines it takes at `width`, at least one. Lines break at spaces, as
+// the games' own wrapped prints do; a word wider than the line stays whole on its own.
+std::vector<std::string_view> wrap(const Skin& skin, std::string_view text, float width) {
+    std::vector<std::string_view> lines;
     std::size_t start = 0;
     std::size_t last_space = std::string_view::npos;
 
     // Walks the text once, breaking before the word that overflows a line.
     for (std::size_t n = 0; n < text.size(); ++n) {
-        // Lines break at spaces, as the games' own wrapped prints do.
+        // A space is where the line may break next.
         if (text[n] == ' ') {
             last_space = n;
         }
@@ -54,12 +62,13 @@ std::size_t wrapped_lines(const Skin& skin, std::string_view text, float width) 
         // The word that overflows goes to the next line, from the last space.
         if (last_space != std::string_view::npos && last_space > start
             && skin.text_width(line, TextStyle::NORMAL) > width) {
-            ++lines;
+            lines.push_back(text.substr(start, last_space - start));
             start = last_space + 1;
             last_space = std::string_view::npos;
         }
     }
 
+    lines.push_back(text.substr(start));
     return lines;
 }
 
@@ -74,7 +83,7 @@ bool has_headings(const ScreenSpec& spec) {
 float fixed_height(const Skin& skin, const Item& item, float width) {
     // Texts wrap; the other kinds are one line each.
     if (item.kind == ItemKind::TEXT) {
-        return static_cast<float>(wrapped_lines(skin, item.label, width)) * skin.line_height();
+        return static_cast<float>(wrap(skin, item.label, width).size()) * skin.line_height();
     }
 
     return item.kind == ItemKind::TABLE ? 0.0f : skin.line_height();
@@ -85,8 +94,19 @@ float fixed_height(const Skin& skin, const Item& item, float width) {
 ScreenView::ScreenView(ScreenSpec spec, Rect area, Mode mode)
     : m_spec(std::move(spec)),
       m_area(area),
+      m_panel(area),
       m_mode(mode),
       m_focus(m_spec.items.size()) {
+    // A modal screen keeps its items off its panel's edges.
+    if (m_mode == Mode::MODAL) {
+        m_area = Rect{
+            area.x + MODAL_MARGIN,
+            area.y + MODAL_MARGIN,
+            area.w - 2.0f * MODAL_MARGIN,
+            area.h - 2.0f * MODAL_MARGIN
+        };
+    }
+
     m_values.resize(m_spec.items.size());
 
     // Each choice starts at its spec's value.
@@ -123,6 +143,42 @@ bool ScreenView::focusable(std::size_t item, const Model& model) const {
     }
 
     return spec.kind != ItemKind::TEXT;
+}
+
+std::size_t ScreenView::focusable_count(const Model& model) const {
+    std::size_t count = 0;
+
+    // Every item that could take the cursor now.
+    for (std::size_t n = 0; n < m_spec.items.size(); ++n) {
+        count += focusable(n, model) ? 1 : 0;
+    }
+
+    return count;
+}
+
+void ScreenView::enter(bool from_top, const Model& model) {
+    m_focus = m_spec.items.size();
+
+    // The first item that takes the cursor from the top, or the last from the bottom.
+    for (std::size_t k = 0; k < m_spec.items.size(); ++k) {
+        const std::size_t n = from_top ? k : m_spec.items.size() - 1 - k;
+
+        // Text never takes the cursor; an empty table neither.
+        if (focusable(n, model)) {
+            m_focus = n;
+            break;
+        }
+    }
+
+    const Table* table = rows_of(m_focus, model);
+    const std::size_t count = table == nullptr ? 0 : table->rows().size();
+    m_cursor = from_top || count == 0 ? 0 : count - 1;
+
+    // The row entered is the one the cursor follows from now on.
+    if (count != 0) {
+        m_cursor_key = table->rows()[m_cursor].key;
+        m_has_cursor_key = true;
+    }
 }
 
 bool ScreenView::move_focus(int step, const Model& model) {
@@ -225,15 +281,22 @@ std::vector<Placed> ScreenView::layout(const Skin& skin, const Model& model) con
             const std::size_t wanted =
                 m_spec.rows > 0 ? static_cast<std::size_t>(m_spec.rows) : fit_rows;
             place.shown_rows = std::max<std::size_t>(std::min(wanted, fit_rows), 1);
+            const std::size_t count = table == nullptr ? 0 : table->rows().size();
+
+            // Without a headings line, a list longer than its page gives a row to its page count.
+            if (headings == 0.0f && count > place.shown_rows && place.shown_rows > 1) {
+                --place.shown_rows;
+                place.rect.h += line;
+            }
+
             place.first_row = m_first;
 
             // A table scrolled past its end after a refresh shows its last page.
-            if (table != nullptr && place.first_row + place.shown_rows > table->rows().size()) {
-                const std::size_t count = table->rows().size();
+            if (place.first_row + place.shown_rows > count) {
                 place.first_row = count > place.shown_rows ? count - place.shown_rows : 0;
             }
 
-            place.rect.h = headings + static_cast<float>(place.shown_rows) * line;
+            place.rect.h += headings + static_cast<float>(place.shown_rows) * line;
         }
 
         y += place.rect.h;
@@ -310,7 +373,12 @@ Outcome ScreenView::handle_vertical(int step, const Model& model, Skin& skin) {
         if (!at_end) {
             m_cursor = step < 0 ? m_cursor - 1 : m_cursor + 1;
         } else if (!move_focus(step, model)) {
-            // A table alone on its screen wraps round, as the games' lists do.
+            // A table alone on its screen (or modal) wraps round, as the games' lists do; else the
+            // press leaves it for the game's own widgets around it.
+            if (m_mode == Mode::OVERLAY && focusable_count(model) > 1) {
+                return outcome;
+            }
+
             m_cursor = step < 0 ? count - 1 : 0;
         }
 
@@ -433,7 +501,7 @@ void ScreenView::draw(Skin& skin, const Model& model) {
 
     // A screen with no game screen under it brings its own panel.
     if (m_mode == Mode::MODAL) {
-        skin.panel(m_area);
+        skin.panel(m_panel);
     }
 
     // The title line, when the description gives one.
@@ -459,9 +527,17 @@ void ScreenView::draw_item(Skin& skin, const Model& model, const Placed& placed)
 
     // Each kind of item draws its own way.
     switch (item.kind) {
-        case ItemKind::TEXT:
-            skin.text(rect.x, rect.y, item.label, TextStyle::NORMAL);
+        case ItemKind::TEXT: {
+            float y = rect.y;
+
+            // A text wraps at the screen's width, a line a row.
+            for (const std::string_view line : wrap(skin, item.label, rect.w)) {
+                skin.text(rect.x, y, line, TextStyle::NORMAL);
+                y += skin.line_height();
+            }
+
             break;
+        }
         case ItemKind::BUTTON:
             // The bar sits behind the component under the cursor, as in the game's menus.
             if (focused) {
@@ -532,7 +608,11 @@ void ScreenView::draw_table(Skin& skin, const Table* table, const Placed& placed
         const std::size_t last = std::min(m_first + placed.shown_rows, count);
         const std::string where = std::format("{}-{} / {}", m_first + 1, last, count);
         const float width = skin.text_width(where, TextStyle::HEADING);
-        skin.text(rect.x + rect.w - width, rect.y, where, TextStyle::HEADING);
+        const float rows_end = y + line * static_cast<float>(placed.shown_rows);
+        const float count_y = has_headings(m_spec) ? rect.y : rows_end;
+
+        // On the headings line when there is one, else on the line the layout gave under the rows.
+        skin.text(rect.x + rect.w - width, count_y, where, TextStyle::HEADING);
         skin.scroll_marks(
             Rect{rect.x, y, rect.w, line * static_cast<float>(placed.shown_rows)},
             m_first > 0,
@@ -566,6 +646,20 @@ void ScreenView::draw_table(Skin& skin, const Table* table, const Placed& placed
 
         y += line;
     }
+}
+
+ScreenSpec notice_screen(std::string text) {
+    ScreenSpec spec;
+    spec.id = NOTICE_SCREEN;
+    Item message;
+    message.kind = ItemKind::TEXT;
+    message.label = std::move(text);
+    Item ok;
+    ok.kind = ItemKind::BUTTON;
+    ok.label = NOTICE_BUTTON;
+    ok.action = Action{ActionKind::BACK, {}};
+    spec.items = {message, ok};
+    return spec;
 }
 
 }  // namespace openrac::mpui

@@ -174,6 +174,9 @@ target_link_libraries(openrac_mpui PUBLIC openrac_common)
 openrac_warnings(openrac_mpui)
 openrac_add_test(mpui_description LIBS openrac_mpui)
 openrac_add_test(mpui_screen_view LIBS openrac_mpui)
+# The C contract the games use (game/common/lib/mp_ui.cpp), on its own.
+openrac_add_test(mp_ui SOURCES tests/mp_ui_test.cpp game/common/lib/mp_ui.cpp
+                 INCLUDES . game/common/include runtime/include LIBS openrac_mpui)
 openrac_add_test(frame_pacing INCLUDES .)
 openrac_add_test(latency_sleep INCLUDES .)
 openrac_add_test(swapchain_images INCLUDES .)

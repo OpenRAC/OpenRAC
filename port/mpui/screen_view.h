@@ -83,6 +83,10 @@ public:
     // Draws the screen through `skin`.
     void draw(Skin& skin, const Model& model);
 
+    // Gives the screen the cursor from outside: on its first item that takes it (`from_top`), or its
+    // last, a table on its first or last row. For a press that comes in from the game's widgets.
+    void enter(bool from_top, const Model& model);
+
     // Says whether the screen has the cursor; inactive, it draws no highlight bar or focused text.
     void set_active(bool active) { m_active = active; }
 
@@ -111,6 +115,9 @@ private:
     // Returns whether `item` can take the cursor now.
     bool focusable(std::size_t item, const Model& model) const;
 
+    // Returns how many items can take the cursor now.
+    std::size_t focusable_count(const Model& model) const;
+
     // Moves the focus to the next (`step` 1) or previous (-1) item that takes it. False when there
     // is none that way.
     bool move_focus(int step, const Model& model);
@@ -137,7 +144,8 @@ private:
     void draw_table(Skin& skin, const Table* table, const Placed& placed);
 
     ScreenSpec m_spec;               // What the screen shows.
-    Rect m_area;                     // Where it is drawn.
+    Rect m_area;                     // Where its items are laid out.
+    Rect m_panel;                    // Where a modal screen's panel is drawn.
     Mode m_mode = Mode::OVERLAY;     // Whether a game screen is under it.
     std::size_t m_focus = 0;         // The item under the cursor; the item count for none.
     std::size_t m_cursor = 0;        // The table row under the cursor.
@@ -148,5 +156,8 @@ private:
     std::vector<int> m_values;       // Each choice item's value, by item index.
     bool m_active = true;            // False while the game's cursor is elsewhere.
 };
+
+// Returns a notice's screen: `text`, wrapped, over an OK button that goes back.
+ScreenSpec notice_screen(std::string text);
 
 }  // namespace openrac::mpui

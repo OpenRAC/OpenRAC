@@ -264,6 +264,55 @@ void test_long_cells_are_cut_to_their_column() {
     CHECK(cut);
 }
 
+// A notice wraps its text over lines a row apart and ends in an OK button that goes back: "aaaa bbbb
+// cccc" at 8 a character in 96 wide (80 inside the 8-pixel margins) breaks after "aaaa bbbb" (72).
+void test_a_notice_wraps_and_goes_back() {
+    RecordingSkin skin;
+    Model model;
+    ScreenView view(notice_screen("aaaa bbbb cccc"), Rect{0.0f, 0.0f, 96.0f, 200.0f}, Mode::MODAL);
+    view.draw(skin, model);
+    CHECK(skin.panels == 1);
+    CHECK(skin.texts.size() >= 3 && skin.texts[0] == "aaaa bbbb" && skin.texts[1] == "cccc");
+    CHECK(skin.text_y.size() >= 2 && skin.text_y[1] - skin.text_y[0] == LINE);
+    const Outcome ok = view.handle(Event::CROSS, model, skin);
+    CHECK(ok.consumed && ok.action.kind == ActionKind::BACK);
+}
+
+// A list longer than its page, with no headings line, gives its last row to the page count: a spec
+// of 8 rows shows 7 and "1-7 / 24" under them.
+void test_the_page_count_takes_a_row_without_headings() {
+    RecordingSkin skin;
+    Model model;
+    fill_players(model, 24);
+    ScreenSpec spec = player_screen(8);
+    spec.title.clear();
+    spec.columns = {Column{"name", "", 100}};
+    ScreenView view(spec, Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
+    CHECK(view.layout(skin, model)[0].shown_rows == 7);
+    view.draw(skin, model);
+    CHECK(!skin.texts.empty() && skin.texts[0] == "1-7 / 24");
+    CHECK(skin.text_y[0] == 7.0f * LINE);
+}
+
+// Over a game screen, a table with other items under it hands Up at its first row to the game; a
+// table alone wraps.
+void test_up_leaves_a_table_with_neighbours() {
+    RecordingSkin skin;
+    Model model;
+    fill_players(model, 3);
+    ScreenSpec spec = player_screen(8);
+    Item button;
+    button.kind = ItemKind::BUTTON;
+    button.label = "RULES";
+    spec.items.push_back(button);
+    ScreenView view(spec, Rect{0.0f, 0.0f, 400.0f, 400.0f}, Mode::OVERLAY);
+    CHECK(!view.handle(Event::UP, model, skin).consumed);
+    view.enter(false, model);
+    CHECK(view.focus() == 1);
+    view.enter(true, model);
+    CHECK(view.focus() == 0 && view.cursor() == 0);
+}
+
 }  // namespace
 }  // namespace openrac::mpui
 
@@ -280,5 +329,8 @@ int main() {
     test_a_choice_steps_around();
     test_drawing_a_long_list();
     test_long_cells_are_cut_to_their_column();
+    test_a_notice_wraps_and_goes_back();
+    test_the_page_count_takes_a_row_without_headings();
+    test_up_leaves_a_table_with_neighbours();
     return openrac::test::result();
 }
