@@ -35,6 +35,41 @@ void api_fail(openrac_mod* mod, const char* reason) {
     }
 }
 
+// openrac_api.game_data_dir (interface 1.33): the data folder of an installed game, as game_data_folder
+// finds it. A game the manifest does not declare (reads_games) is refused; the running game is not.
+int api_game_data_dir(openrac_mod* mod, const char* game, char* out, std::uint32_t size) {
+    if (mod == nullptr || game == nullptr || out == nullptr || size == 0 || g_host == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::string_view id = game;
+    if (!valid_game_id(id)) {
+        return 0;
+    }
+    if (id != g_host->game
+        && std::none_of(
+            mod->manifest.reads_games.begin(),
+            mod->manifest.reads_games.end(),
+            [id](const std::string& g) { return g == id; }
+        )) {
+        return OPENRAC_HOOK_REFUSED;
+    }
+    const fs::path data = game_data_folder(*g_host, id);
+    if (data.empty()) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (!holds_game_data(data)) {
+        return 0;
+    }
+    const std::u8string text = data.u8string();
+    std::string path;
+    path.assign(text.begin(), text.end());
+    if (path.size() + 1 > size) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::memcpy(out, path.c_str(), path.size() + 1);
+    return static_cast<int>(path.size());
+}
+
 // The mod's own folder (1.11): <mod data>/<its id>, made on the first ask. An id that is not a plain
 // name (a separator, "." or "..") has none.
 const char* api_data_dir(openrac_mod* mod) {

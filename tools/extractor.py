@@ -6,12 +6,15 @@ the way OpenGOAL's `extractor` does for Jak and Daxter. Standard library only.
   python3 tools/extractor.py IMAGE --game rac1 [--proj-path DIR] [steps]
 
 Steps (all of them when none is named):
-  --extract    copy the disc's files into PROJ/iso_data/GAME/ and keep the image
-               there too: Ratchet & Clank reads most of its data by sector, not
-               by file, so the image is linked (copied across file systems)
+  --extract    copy the disc's files into PROJ/iso_data/GAME/: the file system's
+               files, every other sector as lumps cut where the game's table of
+               contents points (lumps/), and sectors.tsv, the map from each sector
+               to its file, which is all the port reads (openrac_common/disc_files.py).
+               The image is kept there too, linked (copied across file systems), for
+               the level tools, which still read it
   --boot-only  with --extract: write out only SYSTEM.CNF and the boot executable,
-               which is all the port reads beside the image; every file is still
-               read and checked. Gigabytes less to write (the launcher's, on every system)
+               and no lumps or map; every file is still read and checked. Enough for
+               the level tools, not for the port, which reads the files only
   --link-image with --extract: when the image cannot be hard-linked, keep a
                symbolic link to it rather than a second copy. For an image the
                launcher keeps itself (Android's, which lets no app hard-link)
@@ -37,7 +40,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from openrac_common import digest, files, games, iso9660, paths
+from openrac_common import digest, disc_files, files, games, iso9660, paths
 
 SECTOR = iso9660.SECTOR
 
@@ -196,8 +199,23 @@ def extract(image: Path, game: str, proj: Path, minimum: int = MIN_IMAGE_SIZE, b
         raise
     print(f"validated: {g['title']} ({version['region']}, {serial}), boot executable SHA-1 matches games/{game}/game.json")
 
-    # Most of Ratchet & Clank's data is addressed by sector, outside the file
-    # system: keep the image beside the files for the decompile step. An image
+    # What the port reads at run time: the sectors the file system does not hold, as lumps, and
+    # the map from every sector to its file (disc_files). The map is written last.
+    if not boot_only:
+        written = {path for path, _, _ in entries}
+        with open(image, "rb") as f:
+            rows = disc_files.plan(entries, image.stat().st_size // SECTOR, disc_files.toc_lumps(image))
+            rows = disc_files.write_lumps(f, rows, temp, written.__contains__)
+        try:
+            disc_files.unpack_programs(game, temp, boot=serial)
+        except ValueError as e:
+            shutil.rmtree(temp)
+            raise ExtractError(4012, str(e)) from e
+        print(f"  {disc_files.MAP_NAME}: {len(rows)} runs of sectors, each read from its file")
+        disc_files.write_map(rows, temp)
+
+    # The level tools (editor/extract.py port) still read the image: keep it beside the
+    # files, which are what the port reads. An image
     # inside the set-up being replaced (its own disc.iso, a copy, not a link)
     # moves into the new one at the end: a link to it would go with the old set-up.
     inside = final.resolve() in image.resolve().parents

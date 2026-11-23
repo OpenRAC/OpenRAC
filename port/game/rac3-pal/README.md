@@ -27,14 +27,18 @@ comments).
 
 ```sh
 cmake --preset release && cmake --build --preset release --target openrac-rac3-pal
-# a data folder with iso_data/rac3/SCES_524.56 (the disc's boot executable) and iso_data/rac3/disc.iso
+# a data folder set up by python3 tools/extractor.py <image> --game rac3 -e --proj-path <data>:
+# iso_data/rac3/ with the disc's files, sectors.tsv and programs/ (the two programs, unpacked)
 SDL_AUDIODRIVER=dummy "port/build/release/apps/openrac-rac3-pal/Ratchet & Clank 3 (PAL).app/Contents/MacOS/Ratchet & Clank 3 (PAL)" \
     --data <data> --window --skip-movies
 ```
 
 From the launcher (launcher/actions.json, `rac3/pal`), as for Going Commando: *Set up from your
 disc* runs `tools/extractor.py`, which checks the disc against games/rac3/game.json and writes
-`iso_data/rac3/` (`SCES_524.56`, `disc.iso`, `buildinfo.json`) into the game's data folder;
+`iso_data/rac3/` into the game's data folder: the disc's files, every sector outside its file system
+as lumps (`lumps/`), `sectors.tsv` (the map the game reads its sectors by), the boot program's and
+I5BOOTN.ELF's records unpacked (`programs/*.records`, which LoadExecPS2 copies in: `host/exec.c`),
+`buildinfo.json`, and the image, which only the level tools read;
 *Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
 the levels into `assets/port/rac3/pal` (`levels-16.json`), and *Play* runs
 `openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that
@@ -172,9 +176,31 @@ The menus' music is the boot program's stereo stream (`openrac_stream_play_stere
 command `0x2C`): it plays from the multiplayer menus' first frames. Command `0x30` (a stream query
 with a callback, `0x001948B8`, which the music player keeps at `+0x14`) answers 0.
 
-What is left: a map (levels 40 to 55) is not loaded: they would be translated as level 39 is
-(`discover_levels`), with the native world renderers the boot program's levels use; NTSC-U's
-I5BOOTN.ELF is not paired yet.
+The maps (levels 40 to 53 on PAL: 40 to 49 online and LAN, 50 to 53 their split-screen builds) are
+translated as level 39 is, each from its own program at its own addresses (`func_L40_...`):
+`mp/maps.py` writes them into `mp/hostgen.json` (`retail` `levels`, `discover_levels`, each map's
+entry as a root, `level_copies`) and the rows at the end of
+`mp/libraries.tsv`, from rac3-decomp's catalogue. Every map carries a copy of the engine level 39
+carries too, so the port stands level 39's host C in for each map's copy (`host/mp_maps.c`, the 2D
+layer in `ui2d.c`, the HUD sprites in `hud.c`, one `MP_MAP*` line a map in `host/mp_maps.h`), its
+globals level 39's relocated to the map's: the next-program hook (`mp.c`, `0x00192F68`) keeps level
+39's and the map's programs as read and gives the map's number (the level word `0x002412DC`) as the
+overlay, and `level_copies` tells the runtime which of the map's functions are copies of which of
+level 39's (`openrac_guest_add_level_copies`), so `OPENRAC_LDATA(39, ...)` pairs them. The
+single-player levels' and level 39's `asm` `signatures` reach the maps' copies as
+`copy_signatures`. NTSC-U's are carried by `release_carry_rac3.py` (its maps 54 and 55, builds of
+44 and 45, are not yet).
+
+The maps' stock bugs that online play meets are fixed in `host/mp_fixes.c`, around each map's copy
+of the game's functions (`mp/fixes.py` writes their rows and `host/mp_fixes.h` from the
+catalogue, as `mp/maps.py` does): a gadget moby whose class the map never loaded (a crash), the
+credit for hitting a player already dead, shooting and moving while dead, the flux rifle's muzzle
+light left lit, a remote sniper shot stopped by a thin wall the shooter's client shot through,
+Metropolis's base flag, and the net clock's stalls (turrets waiting on a remote state, a late
+player dropped, the local player stalled on a silent host, a remote shot run at the sender's
+time). The Horizon Private Server project fixed the same bugs for the console; we read its work
+for reference only (CREDITS.md). `OPENRAC_RAC3_MP_STOCK=1` runs the stock code,
+`OPENRAC_RAC3_MP_FIXES_LOG=1` logs each fix as it acts.
 
 ### Online play
 
@@ -340,7 +366,6 @@ vertical blank callback (`func_0013D208`).
 | `host/program.c` | which program is loaded (the overlay hook), `OPENRAC_RAC3_NEXT` |
 | `headers/vu0.h` | the vector-library helpers of the decompilation's `include/vu0.h` (asm Clang refuses) in C, read in its place (hostgen.json `headers`) |
 | `host/trig.c`, `host/vu0.c` | VU0 cos/sin (the host's for now) and sceVu0UnitMatrix |
-| `host/spr_dma.c` | the scratchpad DMA channels the kernels start |
 | `host/ui2d.c` | the 2D layer's routines, wrapped as Going Commando's (rac2/host/ui2d.c): boxes, glyph quads, turned sprites, ring segments, the font's glyphs (drawn from its distance field) and the menus' Widget3D sprites become window records; the levels' copies of them too (below) |
 | `host/mp_ui.c` | the native multiplayer screens over level 39's lobby ([MULTIPLAYER_UI.md](../../../docs/port/MULTIPLAYER_UI.md)): the game lists (and the staging room's players when a server's description asks) drawn with the game's own print, colours, highlight bar and sounds, their rows from the game's memory, a choice made through the game's own cursor and Cross |
 | `host/hud.c` | the level HUD's sprites as records, and its slots out at the picture's sides with "HUD: Edges" (Going Commando's rac2/host/hud.c) |

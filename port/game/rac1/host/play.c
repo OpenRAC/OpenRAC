@@ -825,6 +825,8 @@ const openrac_game_play rac1_play = {
     .hero_hold_at = rac1_hero_hold_at,
     .hero_let_go = rac1_hero_let_go,
     .moby_mission = rac1_world_moby_mission,
+    .moby_class_at = rac1_world_moby_class,
+    .camera_overridden = rac1_camera_overridden,
     .camera_script_next = rac1_camera_script_next,
     .camera_script_view = rac1_camera_script_view,
     .camera_script_play = rac1_camera_script_play,
@@ -836,8 +838,11 @@ const openrac_game_play rac1_play = {
     .collision_triangles = rac1_collision_triangles,
     .camera_set = rac1_camera_set,
     .camera_view = rac1_camera_view,
+    .camera_shake = rac1_camera_shake,
     .hero_sound_play = hero_sound_play,
     .hero_sound_stop = hero_sound_stop,
     .hero_hurt = hero_hurt,
+    .particle_texture_register = rac1_particle_texture_register,
+    .particle_spawn_ex = rac1_particle_spawn_ex,
 };
 #endif

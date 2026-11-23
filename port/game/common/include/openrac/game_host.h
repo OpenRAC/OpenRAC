@@ -60,9 +60,24 @@ void openrac_game_register_functions(void);
 
 /* ---- Set by the program before the game starts ---- */
 
-/* The player's disc image, as the extractor kept it (iso_data/<game>/disc.iso).
- * The game reads it by sector. */
-extern const char* openrac_game_disc_image;
+/* The disc's files, as the extractor wrote them (iso_data/<game>/): the file system's files,
+ * every other sector as lumps, and sectors.tsv, the map from each sector to its file
+ * (assets/disc/sector_map.h). The game reads its data by sector through the map; the image
+ * itself is never opened. */
+extern const char* openrac_game_disc_files;
+
+/* Whether the map in openrac_game_disc_files could be read (lib/disc_files.cpp). */
+int openrac_disc_available(void);
+/* `size` bytes of the disc at byte `offset` (sector * 2048), into `dst`: 1, or 0 when the map
+ * cannot give them (logged). Safe from any thread. */
+int openrac_disc_read(uint64_t offset, void* dst, uint64_t size);
+/* As openrac_disc_read, but stopping at the disc's end: the bytes read. */
+uint64_t openrac_disc_read_some(uint64_t offset, void* dst, uint64_t size);
+/* A file the extractor wrote, by its path in openrac_game_disc_files
+ * ("programs/I5BOOTN.ELF.records"): its size, or UINT64_MAX when it is not there; and the first
+ * `size` bytes of it into `dst` (1, or 0 when it is shorter or cannot be read). */
+uint64_t openrac_disc_file_size(const char* path);
+int openrac_disc_read_file(const char* path, void* dst, uint64_t size);
 /* Portable presentation's own mechanical/chirp cues, mixed with game audio. */
 void openrac_game_infobot_sound(int opening);
 void openrac_game_special_sound(int item);
@@ -567,6 +582,25 @@ typedef struct openrac_infobot_presentation {
     float time, yaw;
 } openrac_infobot_presentation;
 
+/* The options of one of the game's own particle effects (openrac_api.particle_spawn_ex, 1.33): the
+ * fields of openrac_particle_spawn, already checked by the port. */
+typedef struct openrac_game_particle_spawn {
+    uint32_t kind;
+    float position[3];
+    float velocity[3];
+    float size;
+    uint32_t life_ticks;
+    uint32_t color;
+    uint32_t color_end;
+    /* Bit 0: the effect's secondary spawns. */
+    uint32_t flags;
+    /* -1 for the game's own texture and blend; else one byte. */
+    int32_t texture;
+    int32_t blend;
+    /* The smoke's spin rate. */
+    float rot;
+} openrac_game_particle_spawn;
+
 typedef struct openrac_game_play {
     /* The levels, by the game's own numbers, and their names. */
     int levels;
@@ -760,6 +794,10 @@ typedef struct openrac_game_play {
      * them. */
     int (*camera_set)(const float eye[3], const float rows[9]);
     int (*camera_view)(float eye[3], float rows[9]);
+    /* The game's own camera shake on the level camera (openrac_api.camera_shake): channel 0 or 1,
+     * amplitude, and the countdown in the game's ticks (converted by the game's scale_ticks):
+     * 1, or 0 outside a level or for a channel it lacks. NULL for a game without it. */
+    int (*camera_shake)(int channel, float amplitude, int frames);
     /* One of the hero's own sounds (openrac_api.hero_sound_play): entry `sound` of his class's
      * sound table on him, looped or once: its voice, or -1. And one of his voices stopped, if it
      * still plays on him (hero_sound_stop). NULL for a game without them. */
@@ -773,6 +811,14 @@ typedef struct openrac_game_play {
     int (*mission_state_clear)(int level, const uint8_t* flags);
     /* Whether the destination is playing its landing scene. NULL when unsupported. */
     int (*landing)(int level);
+    /* One of the game's own particle effects with its options (openrac_api.particle_spawn_ex):
+     * 1 made, 0 the pool full, -1 for a kind this game lacks or no level being played. NULL for a
+     * game without it. */
+    int (*particle_spawn_ex)(const openrac_game_particle_spawn* spawn);
+    /* A particle texture for the game's particle renderer (openrac_api.particle_texture_register): `indices`
+     * 1024 bytes and `clut` 1024 bytes, the game's own formats. Returns the id (128 to 255), 0 when all
+     * ids are taken, -1 for no level being played. NULL for a game without it. */
+    int (*particle_texture_register)(const uint8_t* indices, const uint8_t* clut);
     /* The game's own segment query for a mod (openrac_api.collision_line): the nearest of the
      * level's faces (with `level`) and the mobys' (with `mobys`, all but `ignore`) between two
      * points, the game seeing nothing of it: 1 for a hit (its point, its face's normal, the face's
@@ -823,6 +869,15 @@ typedef struct openrac_game_play {
      * the game's drawn ones (0) (openrac_api weapon_ignore_culling; interface 1.30): 1 for a weapon
      * the game has this for, 0 otherwise. NULL for a game without it. */
     int (*weapon_ignore_culling)(int32_t item, int enabled);
+    /* The class of the moby at `moby`, read from the moby's own field whether or not the level's list
+     * holds it (so the vendor's preview mobys too): -1 for an address past the game's RAM, 0, or
+     * outside a level. Reads the game's memory only. NULL for a game without it (interface 1.33:
+     * openrac_api.moby_model_at then answers OPENRAC_HOOK_UNKNOWN). */
+    int32_t (*moby_class_at)(gaddr moby);
+    /* Whether the view is built from a camera the game did not make (a mod's camera_set, or the
+     * developer camera): the baked zone visibility is made for the game's own camera and does not
+     * apply to it. 1 or 0. NULL for a game without it (never overridden). */
+    int (*camera_overridden)(void);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)
@@ -995,6 +1050,14 @@ typedef struct openrac_game_quad {
 
 void openrac_game_effect_quad(const openrac_game_quad* quad);
 
+/* The game is handing over the `bytes` bytes at `data` (an image's pixels or palette) and may not
+ * keep them there: an image it sends once and draws from then on without sending it again (rac3's
+ * HUD bank, sent from a buffer it decompresses into and reuses). Images the window draws from that
+ * address (openrac_frame_ui_item, openrac_frame_picture_image) read these bytes, as they are now,
+ * instead of what game memory holds later, until the game hands over other bytes there. A copy of
+ * the game's own data; nothing about where the console kept it. */
+void openrac_game_image_keep(gaddr data, uint32_t bytes);
+
 /* The marker of the quad just given to openrac_game_effect_quad, for the display list: the game
  * puts (OPENRAC_EFFECT_QUAD_MARKER << 48 | marker) in it with an A+D write to the NOP register
  * where the console's quad packet would have gone, and the window draws that quad with the TEST
@@ -1070,6 +1133,8 @@ typedef struct openrac_game_hud_text {
 /* The mods' HUD lines of this level load, up to `max` into `out`; returns how many there are. The
  * game draws them after its own HUD's elements. */
 int openrac_game_hud_texts(openrac_game_hud_text* out, int max);
+int openrac_game_ammo_panel_offset(int handle, int* x, int* y);
+int openrac_game_rac1_weapon_hud_icon(int native_icon);
 
 /* How many times wider than the game's 4:3 the picture is (the player's aspect setting): its
  * horizontal tangent is the game's times this. 1 for a 4:3 picture, and without a window. */
@@ -1233,5 +1298,8 @@ void openrac_game_kernel_reset(void);
 #ifdef __cplusplus
 }
 #endif
+
+/* The native frame recorder (openrac_frame_*). */
+#include "openrac/frame.h"
 
 #endif /* OPENRAC_GAME_HOST_H */

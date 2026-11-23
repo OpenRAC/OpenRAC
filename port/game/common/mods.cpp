@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -49,6 +50,17 @@ extern "C" void (*openrac_game_save_written)(const char* path, int players) = nu
 extern "C" void (*openrac_game_save_read)(const char* path, int slot) = nullptr;
 extern "C" void (*openrac_game_new_game)(void) = nullptr;
 using namespace openrac;
+
+std::uint32_t overlay_bit(int phase) {
+    switch (phase) {
+        case OPENRAC_PLAY_PLAYING:
+            return OPENRAC_OVERLAY_PLAYING;
+        case OPENRAC_PLAY_MENU:
+            return OPENRAC_OVERLAY_MENU;
+        default:
+            return 0;
+    }
+}
 
 namespace {
 
@@ -105,6 +117,17 @@ const char* hook_id(const Host& host, const char* name) {
 std::vector<OverlayCallback> g_overlays;
 
 openrac_mod* g_loading = nullptr;  // the mod whose openrac_mod_load runs: hooks are taken then only
+// RAC1 has 38 native weapon ammo counters (152 bytes in weapon_ammo_counts).
+std::array<const openrac_mod*, 38> g_rac1_item_owners{};
+
+struct WeaponUiEntry {
+    const openrac_mod* mod;
+    std::uint32_t id;
+};
+
+std::vector<WeaponUiEntry> g_weapon_ui;
+// The mod whose overlay callback runs (the window thread), null between them.
+const openrac_mod* g_overlay_mod = nullptr;
 std::vector<std::unique_ptr<openrac_mod>> g_loaded;
 std::vector<fs::path> g_asset_roots;  // the loaded mods' assets folders, the last loaded first
 std::vector<FrameCallback> g_frames;
@@ -311,10 +334,13 @@ const SettingValue* setting(openrac_mod* mod, const char* key, SettingType a, Se
     return &it->second;
 }
 
+void native_weapon_pad(int port, unsigned char* report, int size);
+
 void run_pads(int port, unsigned char* report, int size) {
     for (const PadCallback& c : g_pads) {
         c.fn(c.user, port, report, size);
     }
+    native_weapon_pad(port, report, size);
 }
 
 // The mod's developer menu item of `action`, or null.
@@ -922,6 +948,58 @@ void reset_save_data() {
     g_save_new_game = false;
 }
 
+constexpr std::array<std::uint32_t, 15> kRac1StockWheelWeapons{
+    9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25
+};
+
+void rac1_select_weapon_addresses();  // mod_weapon_native.inc
+
+int api_rac1_weapon_ui_add(openrac_mod* mod, std::uint32_t item) {
+    if (mod == nullptr || mod != g_loading || g_host == nullptr || g_host->game != "rac1"
+        || (g_host->version != "pal" && g_host->version != "ntsc") || item == 0 || item > 36) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    rac1_select_weapon_addresses();
+    const auto* owner = g_rac1_item_owners[item];
+    const bool stock =
+        std::ranges::find(kRac1StockWheelWeapons, item) != kRac1StockWheelWeapons.end();
+    if ((!stock && owner != mod) || (owner != nullptr && owner != mod)) {
+        return OPENRAC_HOOK_REFUSED;
+    }
+    if (std::ranges::none_of(g_weapon_ui, [mod, item](auto entry) {
+            return entry.mod == mod && entry.id == item;
+        })) {
+        g_weapon_ui.push_back({mod, item});
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_rac1_reserve_item_ids(openrac_mod* mod, const std::uint32_t* ids, std::uint32_t count) {
+    if (mod == nullptr || mod != g_loading || g_host == nullptr || g_host->game != "rac1"
+        || ids == nullptr || count == 0 || count > g_rac1_item_owners.size()) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if (ids[i] >= g_rac1_item_owners.size()) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        const auto* owner = g_rac1_item_owners[ids[i]];
+        if (owner != nullptr && owner != mod) {
+            return OPENRAC_HOOK_REFUSED;
+        }
+    }
+    for (std::uint32_t i = 0; i < count; ++i) {
+        g_rac1_item_owners[ids[i]] = mod;
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+// The wheel's addresses come first: the native file assigns them.
+// clang-format off
+#include "mod_weapon_wheel.inc"
+#include "mod_weapon_native.inc"
+// clang-format on
+
 void fill_api(const Host& host) {
     static std::string game, version, openrac_version;
     game = host.game;
@@ -971,6 +1049,10 @@ void fill_api(const Host& host) {
     g_api.developer_menu_look = api_developer_menu_look;
     g_api.hook_entry = api_hook_entry;
     g_api.data_dir = api_data_dir;
+    g_api.game_data_dir = api_game_data_dir;
+    g_api.rac1_reserve_item_ids = api_rac1_reserve_item_ids;
+    g_api.rac1_weapon_register = api_rac1_weapon_register;
+    g_api.rac1_weapon_grant = api_rac1_weapon_grant;
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
     g_api.savestate_load = snapshot_load;
@@ -1002,6 +1084,9 @@ void fill_api(const Host& host) {
     g_api.plugins_folder = api_plugins_folder;
     g_api.identity_key = api_identity_key;
     fill_play_api(g_api, host.play, host.cards);
+    if (host.game != "rac1") {
+        g_api.rac1_ammo_panel_offset = nullptr;
+    }
     fill_motion_api(g_api, host);
     g_api.setting_set_bool = api_setting_set_bool;
     g_api.setting_set_int = api_setting_set_int;
@@ -1163,6 +1248,14 @@ void script_stopped(openrac_mod* mod, const std::string& reason) {
 // Takes back what a mod did in a load that failed: its hooks (it was the last to take any), its
 // callbacks.
 void undo(openrac_mod* mod) {
+    release_native_weapons(mod);
+    std::erase_if(g_weapon_ui, [mod](auto entry) { return entry.mod == mod; });
+    std::replace(
+        g_rac1_item_owners.begin(),
+        g_rac1_item_owners.end(),
+        static_cast<const openrac_mod*>(mod),
+        static_cast<const openrac_mod*>(nullptr)
+    );
     for (auto it = mod->taken.rbegin(); it != mod->taken.rend(); ++it) {
         *it->first = it->second;
     }
@@ -1394,6 +1487,24 @@ bool load_built_in(const BuiltIn& b, std::unique_ptr<openrac_mod>& out, std::str
 
 }  // namespace detail
 
+bool holds_game_data(const fs::path& data) {
+    std::error_code iso_error;
+    std::error_code port_error;
+    return !data.empty()
+           && (fs::is_directory(data / "iso_data", iso_error)
+               || fs::is_directory(data / "port", port_error));
+}
+
+fs::path game_data_folder(const Host& host, std::string_view game) {
+    if (game == host.game) {
+        return host.data;
+    }
+    if (host.games_root.empty() || !valid_game_id(game)) {
+        return {};
+    }
+    return host.games_root / std::string(game) / "data";
+}
+
 const std::vector<fs::path>& asset_roots() {
     return g_asset_roots;
 }
@@ -1614,9 +1725,9 @@ std::string load(const Host& host) {
         }
         outcomes.push_back(std::move(o));
     }
-    g_frame_callbacks = !g_frames.empty() || !g_settings_callbacks.empty();
+    g_frame_callbacks = !g_frames.empty() || !g_settings_callbacks.empty() || !g_weapon_ui.empty();
     if (host.pad_hook != nullptr) {
-        *host.pad_hook = g_pads.empty() ? nullptr : run_pads;
+        *host.pad_hook = g_pads.empty() && !native_weapons_enabled() ? nullptr : run_pads;
     }
     if (g_views_mod != nullptr && host.set_views != nullptr) {
         log::info("mod {} draws views of the game", g_views_mod->id);
@@ -1634,6 +1745,8 @@ std::string load(const Host& host) {
             );
         }
     }
+    install_weapon_wheel_hooks();
+    install_native_weapon_hooks();
     g_outcomes = outcomes;
     if (!host.purist && !host.list.empty()) {
         write_status(kept, outcomes);
@@ -1697,9 +1810,27 @@ void unload() {
     }
 }
 
+int rac1_weapon_hud_icon(int native_icon) {
+    constexpr int base = 60000;
+    if (native_icon <= base || native_icon > base + 36) {
+        return 0;
+    }
+    auto* weapon = installed_weapon(native_icon - base);
+    if (weapon == nullptr || weapon->def.capacity == 0) {
+        return 0;
+    }
+    if (weapon->def.size >= sizeof(weapon->def) && weapon->def.hud_icon != 0) {
+        return static_cast<int>(weapon->def.hud_icon);
+    }
+    return weapon->def.icon != 0 ? static_cast<int>(weapon->def.icon)
+                                 : base + static_cast<int>(weapon->def.presentation);
+}
+
 void run_frame_callbacks() {
+    restore_weapon_grid_if_left();
     // The game in progress first (1.16): a mod's frame callback then sees its new data.
     follow_saves();
+    update_native_weapons();
     for (const FrameCallback& c : g_frames) {
         c.fn(c.user);
     }
@@ -1745,12 +1876,18 @@ bool overlay_wanted(std::uint32_t phase) {
            });
 }
 
+const openrac_mod* overlay_mod() {
+    return g_overlay_mod;
+}
+
 void run_overlays(const openrac_overlay& overlay) {
     for (const OverlayCallback& c : g_overlays) {
         if ((c.phases & overlay.phase) != 0) {
+            g_overlay_mod = c.mod;
             c.fn(c.user, &overlay);
         }
     }
+    g_overlay_mod = nullptr;
 }
 
 bool run_menu_page(int index, const openrac_menu_frame& frame) {
@@ -1942,6 +2079,7 @@ fs::path mod_file(const openrac_mod* mod, const char* path) {
 }
 
 void reset() {
+    remove_weapon_wheel_hooks();
     unload();
     for (auto it = g_loaded.rbegin(); it != g_loaded.rend(); ++it) {
         undo(it->get());

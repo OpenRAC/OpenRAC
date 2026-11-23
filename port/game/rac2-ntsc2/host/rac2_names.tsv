@@ -2,6 +2,7 @@
 # port/tools/hostgen/release_carry.py (release_carry.json says how each was paired); do not edit.
 func_0026F7A0	func_0026F7A8
 func_002761F8	func_00276208
+func_002761F8__game	func_00276208__game
 func_0027B858	func_0027BEB8
 func_0027B858__game	func_0027BEB8__game
 func_0027C540	func_0027CBA0
@@ -49,6 +50,8 @@ func_00282A28	func_002833D8
 func_00282C68	func_00283618
 func_00282D78	func_00283728
 func_00282DD8	func_00283788
+func_00282F20	func_002838D0
+func_00282F20__game	func_002838D0__game
 func_00283180	func_00283B30
 func_00283198	func_00283B48
 func_00283CF0	func_002846A0
@@ -162,12 +165,15 @@ func_002FC990	func_002FD820
 func_002FCB00	func_002FD990
 func_003136D0	func_003144C8
 func_003136D0__hooked	func_003144C8__hooked
+func_00335E10	func_00336C18
 func_00335E20	func_00336C28
 func_00335E38	func_00336C40
 func_00336320	func_00337128
 func_00336320__game	func_00337128__game
 func_00336828	func_00337630
 func_00336920	func_00337728
+func_00336A30	func_00337858
+func_00336A38	func_00337860
 func_00336A40	func_00337868
 func_00336A78	func_003378A0
 func_0033AF48	func_0033BF90
@@ -179,6 +185,8 @@ func_0033C468	func_0033D4B0
 func_0033C590	func_0033D5D8
 func_0033C590__game	func_0033D5D8__game
 func_0033C738	func_0033D780
+func_0033ED88	func_0033FDD8
+func_0033ED88__game	func_0033FDD8__game
 func_00341540	func_00342450
 func_00341540__game	func_00342450__game
 func_00341610	func_00342520
@@ -233,6 +241,8 @@ func_L08_002F2C48	func_L08_002F3618
 func_L08_003DB518	func_L08_003DC980
 func_L08_0041D808	func_L08_0041EDD0
 func_L08_0041D808__game	func_L08_0041EDD0__game
+func_L08_0041EBF8	func_L08_004201E0
+func_L08_0041EBF8__game	func_L08_004201E0__game
 func_L10_00421790	func_L10_00422CA8
 func_L15_0042E1B0	func_L15_0042F6D0
 func_L16_0042FB10	func_L16_00430F58

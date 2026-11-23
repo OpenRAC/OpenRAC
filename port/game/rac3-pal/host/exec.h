@@ -22,12 +22,9 @@ void rac3_exec_set_program(int program);
 jmp_buf* rac3_exec_jump(void);
 /* LoadExecPS2(path, argc, argv) of either executable: never returns for one of the game's. */
 void rac3_load_exec(gaddr path, int argc, gaddr argv);
-/* A file of the disc's root ("I5BOOTN.ELF"), malloc'd; NULL when it is not there. */
-uint8_t* rac3_exec_read_disc_file(const char* name, uint32_t* size);
-/* The loader's unpacking of a loader file's packed game into memory; its entry, 0 for none. */
-uint32_t rac3_exec_unpack(const uint8_t* file, uint32_t size);
-/* The same from the packed stream itself (the loader the port's loader placed: 0x00806080). */
-uint32_t rac3_exec_unpack_payload(const uint8_t* payload);
+/* The program a loader file carries ("I5BOOTN.ELF", RAC3_BOOT_FILE) copied into memory from the
+ * records the extractor unpacked (programs/<file>.records); its entry, 0 for none. */
+uint32_t rac3_exec_load_program(const char* file);
 /* The crt0's argument block at `block`: argc, argv, the strings. */
 void rac3_exec_write_arguments(gaddr block);
 

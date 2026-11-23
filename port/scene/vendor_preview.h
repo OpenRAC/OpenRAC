@@ -17,6 +17,13 @@ struct Adjustment {
     bool pivot_enabled = false;
 };
 
+// Render-only alternate identity for another game's reward; shares the Gold Bolt mesh.
+inline constexpr int other_game_visual = 0x7FF;
+
+inline int model_class(int id) {
+    return id == other_game_visual ? 1134 : id;
+}
+
 inline int key(int id, bool middle) {
     return id + (middle ? 65536 : 0);
 }
@@ -29,16 +36,44 @@ inline int normal_weapon_class(int id) {
 // Approved in-game vendor framing from Batches 1, 2 and 3; displays are independent.
 inline Adjustment defaults(int id) {
     switch (id) {
+        case 192:
+            return {5.25f, 9.5f, 0.708899378f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+        case 65721:
+            return {22.25f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, true, 0.0f, 3.4489994f, 0.0f, true};
+        case 65728:
+            return {2.75f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+        case 66385:
+            return {
+                17.25f, 0.0f, 0.845899403f, 0.0f, 0.0f, 0.0f, true, 0.0f, 3.17199754f, 0.0f, true
+            };
+        case 67583:
+            return {
+                -3.25f,
+                0.0f,
+                0.624899566f,
+                -26.0f,
+                -90.0f,
+                263.0f,
+                true,
+                0.123535118f,
+                0.0f,
+                0.0f,
+                true
+            };
+        case 2047:
+            return {
+                4.75f, -2.75f, 0.48149988f, -59.5f, -94.0f, 17.0f, true, 0.0f, 0.0f, 0.0f, false
+            };
         case 37:
-            return {32.5f, 7.0f, 1.97359955f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+            return {32.5f, 21.5f, 1.97359776f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 645:
-            return {-127.0f, -3.5f, 2.63739895f, 18.5f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+            return {-127.0f, 11.5f, 2.63739633f, 18.5f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 1002:
             return {3.0f, 0.0f, 0.699899852f, 0.0f, 0.0f, 18.5f, true, 0.0f, 0.0f, 0.0f, false};
         case 1428:
             return {31.75f, -12.75f, 1.0f, 180.0f, -90.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 1433:
-            return {21.75f, -7.25f, 1.27299964f, 190.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
+            return {21.75f, -2.75f, 1.27299785f, 190.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 65573:
             return {0.0f, 10.5f, 2.61739921f, -30.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 66181:
@@ -68,7 +103,7 @@ inline Adjustment defaults(int id) {
         case 208:
             return {46.75f, -13.0f, 1.72099888f, -2.5f, 0.0f, 13.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 407:
-            return {60.0f, 19.25f, 4.0f, 0.0f, 0.0f, 223.0f, true, 0.0f, 0.0f, 0.0f, false};
+            return {39.5f, 30.5f, 2.44879794f, 0.0f, 0.0f, 220.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 433:
             return {41.0f, -9.0f, 1.26399886f, 14.5f, 6.5f, -137.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 439:
@@ -108,7 +143,7 @@ inline Adjustment defaults(int id) {
         case 849:
             return {36.5f, -5.0f, 1.0f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 1134:
-            return {23.0f, 1.0f, 0.75879997f, -39.0f, -1.0f, 39.5f, true, 0.0f, 0.0f, 0.0f, false};
+            return {23.0f, 0.0f, 0.633899807f, -62.5f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, false};
         case 1251:
             return {
                 31.75f, -5.25f, 0.798999428f, 0.0f, 90.5f, 17.0f, true, 0.0f, 0.0f, 0.0f, false
@@ -159,7 +194,7 @@ inline Adjustment defaults(int id) {
             };
         case 1465:
             return {
-                18.75f, -0.25f, 0.102899961f, 97.5f, -185.5f, 90.5f, true, 0.0f, 0.0f, 0.0f, false
+                24.75f, -0.25f, 0.102899797f, 97.5f, -185.5f, 90.5f, true, 0.0f, 0.0f, 0.0f, false
             };
         case 65709:
             return {
@@ -208,7 +243,7 @@ inline Adjustment defaults(int id) {
                 18.0f, 0.0f, 1.70899891f, 0.0f, 0.0f, -32.0f, true, -0.949999451f, 1.0f, 0.0f, true
             };
         case 65943:
-            return {4.25f, 13.5f, 4.0f, -30.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, true};
+            return {4.0f, 13.5f, 4.0f, 149.5f, 0.0f, 19.0f, true, 0.0f, 0.0f, 0.0f, true};
         case 65969:
             return {
                 10.8799982f,
@@ -366,7 +401,9 @@ inline Adjustment defaults(int id) {
         case 66286:
             return {0.0f, 44.0f, 0.747899711f, 0.0f, 0.0f, 0.0f, true, 0.0f, 0.0f, 0.0f, true};
         case 66670:
-            return {10.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, true, 0.0f, 1.64799976f, 0.0f, true};
+            return {
+                13.5f, 0.0f, 0.555899798f, 0.0f, 0.0f, 0.0f, true, 0.0f, 3.42399907f, 0.0f, true
+            };
         case 66787:
             return {
                 33.8399925f,
@@ -425,15 +462,15 @@ inline Adjustment defaults(int id) {
             };
         case 66993:
             return {
-                -4.63999938f,
+                -10.3799982f,
                 8.5f,
-                0.10769996f,
+                0.107699796f,
                 -65.0f,
                 87.0f,
                 -66.0f,
                 true,
-                43.266983f,
-                53.2939834f,
+                43.2668991f,
+                53.2938995f,
                 0.0f,
                 true
             };
@@ -443,30 +480,30 @@ inline Adjustment defaults(int id) {
             };
         case 66995:
             return {
-                -1.06999993f,
+                -13.3099994f,
                 16.0f,
-                0.0878999605f,
-                -27.0f,
-                -7.0f,
+                0.0878998041f,
+                -40.0f,
+                37.0f,
                 0.0f,
                 true,
-                35.5449829f,
-                43.7209815f,
-                0.0f,
+                55.3629989f,
+                17.2919998f,
+                21.9969997f,
                 true
             };
         case 66996:
             return {
-                16.3999977f,
+                17.1199989f,
                 0.0f,
-                0.0668999627f,
-                -26.0f,
-                0.0f,
+                0.0668997988f,
+                -33.5f,
+                46.5f,
                 0.0f,
                 true,
-                21.9979915f,
-                60.115982f,
-                43.721981f,
+                27.4969997f,
+                48.3889999f,
+                43.7218971f,
                 true
             };
         case 66997:
@@ -517,14 +554,14 @@ inline Adjustment defaults(int id) {
             };
         case 67001:
             return {
-                16.8199977f,
+                11.3099985f,
                 0.0f,
-                0.10989996f,
+                0.109899796f,
                 90.0f,
                 0.0f,
                 90.0f,
                 true,
-                14.2239961f,
+                14.2239751f,
                 0.0f,
                 0.0f,
                 true

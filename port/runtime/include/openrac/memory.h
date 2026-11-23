@@ -53,11 +53,6 @@ public:
         std::span<const std::uint8_t> in, const openrac_guest_allocation_state& allocations
     );
 
-    // True when the game wrote past the scratchpad's 16 KB since the last call (into
-    // GUEST_SCRATCHPAD_GUARD, where the console would have taken a TLB miss); zeroes that guard.
-    // A written zero goes unseen.
-    bool take_scratchpad_overrun();
-
     // The game address that a host address inside the reservation stands
     // for, or false. Used by the crash handler.
     bool contains(const void* host, gaddr* address) const;

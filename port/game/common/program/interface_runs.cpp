@@ -13,6 +13,7 @@
 #include <format>
 #include <fstream>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <set>
@@ -23,6 +24,7 @@
 #include <thread>
 #include <unordered_map>
 
+#include "assets/disc/sector_map.h"
 #include "common/json.h"
 #include "common/log.h"
 #include "common/wad.h"
@@ -168,18 +170,24 @@ struct Place {
     std::optional<std::uint64_t> wad;
 };
 
-// The disc image, and its size: nothing is read past its end.
+// The disc, and its size: nothing is read past its end. A set-up's folder is read through its
+// sector map (the disc's files, assets/disc/sector_map.h), an image file as it is.
 struct Disc {
-    std::ifstream file;
+    std::unique_ptr<assets::disc::ImageSource> source;
     std::uint64_t size = 0;
 
-    explicit Disc(const fs::path& path) : file(path, std::ios::binary) {
-        std::error_code e;
-        const auto bytes = fs::file_size(path, e);
-        size = e ? 0 : static_cast<std::uint64_t>(bytes);
+    explicit Disc(const fs::path& path) {
+        try {
+            std::error_code e;
+            source = fs::is_directory(path, e) ? assets::disc::open_sector_map(path)
+                                               : assets::disc::open_image_file(path);
+            size = source->size();
+        } catch (const std::exception&) {
+            source.reset();
+        }
     }
 
-    explicit operator bool() const { return static_cast<bool>(file) && size > 0; }
+    explicit operator bool() const { return source != nullptr && size > 0; }
 };
 
 // Reads `size` bytes at byte `at` of the disc; empty when they are not all on it.
@@ -188,10 +196,9 @@ std::vector<std::uint8_t> read_at(Disc& disc, std::uint64_t at, std::uint64_t si
         return {};
     }
     std::vector<std::uint8_t> out(size);
-    disc.file.clear();
-    disc.file.seekg(static_cast<std::streamoff>(at));
-    disc.file.read(reinterpret_cast<char*>(out.data()), static_cast<std::streamsize>(size));
-    if (static_cast<std::uint64_t>(disc.file.gcount()) != size) {
+    try {
+        disc.source->read(at, out);
+    } catch (const std::exception&) {
         return {};
     }
     return out;

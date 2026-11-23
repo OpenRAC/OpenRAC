@@ -507,6 +507,7 @@ Each entry:
 | `original` | what the PS2 game does |
 | `port` | what the port does, and why; for a fix, what off brings back |
 | `setting` | a fix only: `{"key": "fix_...", "default": true}`. On is the port's fix |
+| `bypassed` | a fix only, optional: `{"<disc>": "why"}`, versions not in `discs` that compile host C naming its key but never reach the read, because that disc already behaves so and its C calls the game's own function first (Going Commando's Greatest Hits fixes on `ntsc2`). The disc gets no setting and shows no row, and its configure does not stop |
 | `refs` | where it is: files and docs. Shown with the launcher's developer tools on |
 
 Write only what the code shows. A fix is:
@@ -533,7 +534,7 @@ must give the console's behaviour, exactly), and its key in
 configure refuses a file that breaks a rule (a fix without a setting, a
 setting on anything else, a key twice, a name too long), the launcher's
 tests the same, and one whose `discs` leave out a version that compiles host
-C naming its key. `game_fixes` checks that every key the rac1 host C asks
+C naming its key (unless `bypassed` names that version). `game_fixes` checks that every key the rac1 host C asks
 for is in the table.
 
 Ratchet & Clank's fixes, all on by default and on every disc:

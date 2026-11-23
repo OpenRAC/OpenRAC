@@ -118,6 +118,11 @@ struct Kept {
     std::array<renderer::Mat4, 8> sky_shells{};
     unsigned sky_shell_mask = 0;
     std::vector<renderer::UiQuad> ui_quads;
+    // The frame recorder's commands the tick's 2D path draws, and where (capture_2d_path,
+    // docs/port/FRAME_RECORDER.md): FrameInput::recording, splices, splices_before_world.
+    renderer::FrameRecording recording;
+    std::vector<renderer::FrameSplice> splices;
+    std::size_t splices_before_world = 0;
     // The mods' heat haze (interface 1.12): each patch's place (x, y, z), radius and strength.
     std::vector<std::array<float, 5>> haze;
 
@@ -278,12 +283,21 @@ struct State {
     // The renderer owns the HUD, which consumes uploads on skipped ticks.
     renderer::DirectRenderer* hud = nullptr;
     renderer::FrameBuffer picture;  // show_picture's: a movie frame, a boot still
-    // The mods' prop meshes read with the level (interface 1.12, mods::prop_meshes): each one's
-    // model in `level`.
+    // The mods' prop meshes held for this level (interface 1.12, mods::prop_meshes): each one's
+    // model in `level` and in `scene` (the same index in both, LevelScene::align_models). Read
+    // with the level for the props that exist when it is read, and added to the scene by
+    // load_prop_meshes (frontend/world.cpp) as props ask for new ones. A new level starts them
+    // again.
     std::vector<std::pair<std::filesystem::path, std::uint32_t>> prop_models;
     std::map<int, scene::SpecialClip> special_pickup_clips;
     int infobot_pickup_model = -1;
     std::vector<std::vector<renderer::Mat4>> infobot_pickup_poses;
+    // The meshes that could not be read this level, so that they are not tried every tick.
+    std::vector<std::filesystem::path> prop_failed;
+    // The count of mods::prop_meshes_generation() the meshes above were taken at.
+    unsigned prop_generation = 0;
+    // Whether `level` is uploaded into `scene` and models can be added to both.
+    bool prop_scene_ready = false;
     scene::ObjectPicker picker;
     int loaded = -2;           // the level whose geometry is uploaded; -2 none
     std::uint64_t index = 0;
@@ -379,6 +393,10 @@ struct State {
     // the tick that recorded it (ui_quad), and a list is drawn with that tick's quads (frame).
     std::uint32_t ui_generation = 0;
     std::array<std::pair<std::uint32_t, std::vector<renderer::UiQuad>>, 4> ui_kept{};
+    // The frame recorder (openrac/frame.h, frontend/recorder.cpp): what the game's host C appends,
+    // closed at each tick's capture; the port pictures given pixels (openrac_frame_picture_set).
+    renderer::FrameRecorder recorder;
+    std::unordered_map<std::uint32_t, renderer::UiImage> pictures;
     // How each tick's frames start (frontend/tick_picture.h): the last picture standing (the
     // ticks after the pause menu closes, a list the game has not finished), or under the tick's 2D
     // (a level's tick without a world: the vendor's darkening), else a cleared frame.
@@ -564,6 +582,11 @@ gaddr occlusion_in_ram();
 // runs: the title world (level 0 where it was not extracted), or at -2 the flight between planets
 // where it was (frontend/world.cpp).
 void use_level(int number);
+
+// Loads the meshes props asked for since the last call into the level and the scene that are up,
+// without reading the level again. With no frame in flight, on the thread that owns the graphics
+// (frontend/world.cpp).
+void load_prop_meshes();
 
 // Configures the level shadow passes on the thread that owns the renderer.
 void configure_level_shadows(SceneRenderState& owner, int level);

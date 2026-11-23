@@ -11,6 +11,9 @@
 # their assembly (hostgen.json "asm").
 #
 # symbol	library	name	port	notes	signature (optional)
+func_L08_00423EA0	vehicle	MiningVehicleUpdate	wrap	Optional GH reverse correction scoped to this vehicle's thrust calculation; original when disabled (host/gh_fixes.c).
+func_002837E0	math	MiningThrustScale	wrap	Keep other vector scales unchanged; the mining update's second thrust scale uses the acceleration magnitude with the fix on.
+func_00340D78	menu	PlanetPlatinumCount	wrap	Optional GH per-planet platinum counter in the ship's planet page; original global statistics when disabled.
 func_00131B48	boot	rac2NativeEntry	host	crt0 at the ELF entry: _InitSys, FlushCache(0), main(argc, argv) without the PS2 thread and heap syscalls	int (void)
 func_00115340	libc	memcmp	host	symbol_addrs.txt name
 func_001153D4	libc	memcpy	host	symbol_addrs.txt name
@@ -181,6 +184,7 @@ func_001336A0	989snd	snd_StreamSafeCdBreak	host	symbol_addrs.txt CdStopRead; que
 func_001336E8	989snd	snd_StreamSafeCdGetError	host	symbol_addrs.txt CdGetLoadStatus; the stream's error, else sceCdGetError (0x00125588)
 func_00133730	989snd	snd_StreamSafeCdCallback	host	same opening as rac4's; installs the callback or forwards to sceCdCallback (0x001245D0); catalogue place 0x001336C0
 func_0027BD40	graphics	StartFrameList	wrap	the frame's first packets: a picture written straight to the frame buffer is drawn after them (host/picture.c)
+func_00276098	collision	CollLine	wrap	CollLine (hand-written): its gather of the cells a line crosses bounded to the scratchpad's 16 KB (host/coll_line.c)	int (int, int, int, int, int)
 func_002EDA88	graphics	ShipGlassDraw	wrap	the ship's cockpit glass, drawn as world quads: gives them ids so that a frame between ticks moves them with the hull (host/ship_glass.c)
 func_00131D18	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's (host/level.c)
 func_0029DE68	game	WadDecompress	host	the WAD decompressor (hand-written assembly): its result, the bytes written, is what the level loader sizes the moby area from	int (int, int)
@@ -300,6 +304,9 @@ func_002F7480	vendor	Vendor_Price	hook	The price in bolts of the vendor entry un
 func_00338C78	item	Item_Colors	hook	Writes item id's experience bar colours and its version's tint to three u32 the caller has (the quick select, the weapons grid). A hook point for mods; the game's C with none.
 func_002FACD0	vendor	Vendor_DrawList	hook	Draws the vendor's list: each row around the cursor, its icon in Item_VersionColor's colour (an upgrade entry in the Mega gold), then its label. A hook point for mods; the game's C with none.
 func_00338C50	item	Item_VersionColor	hook	The colour of an item version kind (2 the Mega gold); the vendor's list asks it for each icon. A hook point for mods; the game's C with none.
+func_002F8128	vendor	ArmorVendor_BuildList	hook	Fills the armour vendor's list (mode 3; g_vendorUi +0x140, 12-byte rows icon, price, armour; the count at +0x740): the armours above the one worn. A hook point for mods; the game's C with none.
+func_L00_00376810	vendor	ArmorVendor_Buy	hook	The armour vendor's purchase dialog (mode 3), each level's copy: asks, then pays the row's price and closes the menu, which then wears the row's armour. A hook point for mods; the game's C with none.
+func_002FC1D0	vendor	Vendor_Preview	hook	Sets up the vendor's preview of the row under the cursor (PrepareVendorSelectionPreview): the armour vendor loads the row's armour over Ratchet and makes the preview objects. A hook point for mods; the game's C with none.
 func_002898E8	text	Text_ById	hook	The game's text of an id, under the port's own (host/options.c): the vendor's upgrade label (0x325F) and every name it prints ask it; ids 0x7F10 to 0x7F17 are the port's slots for a mod's own texts. A hook point for mods; the game's C with none.
 func_002AE318	planet	Planet_Unlock	hook	Puts a level on the ship's map (MarkLevelAvailable); every level load calls it for its own level too. A hook point for mods; the game's C with none.
 func_L01_003D2EF0	moby	Moby_DynamoPickup_Update	hook	Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte. A hook point for mods; the game's C with none.

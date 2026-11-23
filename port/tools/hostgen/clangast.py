@@ -366,8 +366,14 @@ def _replace_asm(lines: list[str], line: int, col: int) -> bool:
         return False
     stmt = text[start:end + 1]
     call = "openrac_hostgen_asm();"
-    blank = "".join("\n" if ch == "\n" else " " for ch in stmt[len(call):])
-    new = text[:start] + call + blank + text[end + 1:]
+    # The statement's text blanked, its line breaks kept. The call takes the place of its start,
+    # up to its first line break: `__asm__ (` alone on a line is shorter than the call, and a
+    # break the call wrote over moved every later line up one, so the fixes of later diagnostics
+    # (L07_003C7468.c's definitions after func_L07_003C8BA0's assembly) went to the line above.
+    blank = "".join("\n" if ch == "\n" else " " for ch in stmt)
+    first_break = blank.find("\n")
+    cut = len(call) if first_break < 0 else min(len(call), first_break)
+    new = text[:start] + call + blank[cut:] + text[end + 1:]
     lines[:] = new.split("\n")
     return True
 

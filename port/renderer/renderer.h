@@ -31,6 +31,8 @@
 #include "renderer/effects/ambient_occlusion.h"
 #include "renderer/effects/shadow_volume.h"
 #include "renderer/effects/water_impulse.h"
+#include "renderer/frame/frame_record.h"
+#include "renderer/frame/ui_records.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/math.h"
 #include "renderer/settings/gtao_settings.h"
@@ -101,6 +103,9 @@ struct EffectQuad {
     // rather than each corner part way (which shrinks a quad turned between the two ticks).
     // With an attachment, it follows the anchor's position without rotating its world offset.
     bool rigid = false;
+    // Untextured: the chip's TME off, the vertex colours as drawn (a particle line, kind 2). No
+    // texture is sampled and tbp, cbp are not used.
+    bool untextured = false;
     // The moby it belongs to (its game address), or 0: a frame between ticks may move it with the
     // moby's body as that frame draws it, rather than leaving it at the tick's place, ahead.
     std::uint32_t parent = 0;
@@ -153,37 +158,6 @@ struct EffectStrip {
     bool blend_disabled = false;  // The strip's GIF tag explicitly clears PRIM.ABE.
 };
 
-// A textured quad of the 2D layer the game drew through one of its 2D routines (rac1:
-// DrawTexturedQuad, the HUD's sprite routines), drawn natively where its marker comes in the 2D
-// path (GifInterpreter): four corners in strip order (0-1-2, 1-2-3) in the chip's 12.4 screen
-// coordinates as the game computed them, with their texel coordinates (12.4 both ways), the depth,
-// the colour (RGBAQ's low word) and the texture (TEX0).
-struct UiQuad {
-    std::uint32_t x[4] = {}, y[4] = {};
-    std::uint32_t u[4] = {}, v[4] = {};
-    std::uint32_t z = 0xFFFFF0;
-    std::uint32_t rgba = 0;
-    std::uint64_t tex0 = 0;
-    std::uint32_t flags = 0;  // kUiGlyph: a glyph of text (drawn from a distance field); kUiSprite
-    std::uint32_t corners[4] = {};  // with kUiCorners: each corner's colour, in place of rgba
-    std::uint64_t clamp = 0;        // with kUiClamp: CLAMP_1, written before the quad
-};
-
-// UiQuad::flags: kUiSprite, an axis-aligned rectangle the game sends as a sprite (corners 0 and 3),
-// whose texel mapping follows the sprite's rules (a panel drawn off-screen and sampled back).
-inline constexpr std::uint32_t kUiSprite = 2;
-
-inline constexpr std::uint32_t kUiGlyph = 1;
-
-// UiQuad::flags: kUiCorners, a colour for each corner (`corners`), each triangle in its last
-// corner's colour as the GS draws one unshaded, or shaded between them with kUiShaded (the GS's
-// Gouraud); kUiFlat, no texture (flat colour; TEX0 stays as the game left it); kUiClamp, the
-// texture's wrap set first (`clamp`, CLAMP_1), as the game's packet does, so what follows sees it.
-inline constexpr std::uint32_t kUiCorners = 4;
-inline constexpr std::uint32_t kUiFlat = 8;
-inline constexpr std::uint32_t kUiClamp = 16;
-inline constexpr std::uint32_t kUiShaded = 32;
-
 struct RenderTarget;
 
 struct FrameInput {
@@ -223,6 +197,9 @@ struct FrameInput {
     std::optional<Camera> culling_camera;
     // Detached views can leave the baked PVS grid without inheriting gameplay's last cell.
     bool keep_pvs_history = true;
+    // The view is from a camera the baked visibility was not made for: no zone culling in the view
+    // (frustum and depth still decide what is drawn). Set when the camera is overridden.
+    bool pvs_bypass = false;
     // Opt-in culling preview: 0 for the main camera, 1-4 for near-to-far shadow cascades.
     std::optional<unsigned> culling_inspection;
     bool opaque_effects = false;  // The earlier world bucket for opaque effect draws is visible.
@@ -237,6 +214,15 @@ struct FrameInput {
     std::span<const EffectStrip> strips{};
     // The 2D layer's quads drawn natively (UiQuad), indexed by their markers in the 2D path.
     std::span<const UiQuad> ui_quads{};
+    // The frame recorder's commands (docs/port/FRAME_RECORDER.md) and where they go in the 2D
+    // path: `recording` drawn at `splices` (offsets into direct_before_world followed by the HUD
+    // bucket's packets); the first `splices_before_world` of them before the world. Null: none.
+    const FrameRecording* recording = nullptr;
+    std::span<const FrameSplice> splices{};
+    std::size_t splices_before_world = 0;
+    // Where the HUD bucket's packets start in the 2D path (the bytes before the world come first):
+    // the base of the splices after the world.
+    std::size_t hud_packets_offset = 0;
     // Mobys the game draws into a texture (the vendor's item and salesman screens, the page menus'
     // widgets): at their marker in the 2D path (GifInterpreter::kMobyMarker), called with the
     // marker's value and the off-screen target bound (its framebuffer, its side in GL pixels, and

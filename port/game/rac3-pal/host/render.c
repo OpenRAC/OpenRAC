@@ -27,6 +27,11 @@
 #include "openrac/guest.h"
 #include "rac3_version.h"
 
+/* Shared with the multiplayer maps' copies (mp_maps.c), which pass their own globals. */
+int rac3_sky_draw_shell(int shell, gaddr matrix);
+int rac3_part_proc(gaddr pool_word, gaddr highest_word, gaddr table);
+void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, gaddr list);
+
 /* A global of Veldin's program, in the program loaded now. */
 #define VELDIN(a) OPENRAC_LDATA(1, (gaddr)(a))
 
@@ -85,44 +90,25 @@ static gaddr at_copy(const Copy* c, gaddr address) {
  * drawn takes (0x004A7E10 builds it from the shell's angles before each 0x004A8158). */
 #define SKY_MATRIX RAC3_LADDR(1, 0x001E0E10u)
 
-enum {
-    NOP_REGISTER = 0x7F
-};
-
-/* A marker in the display list: the A+D write of `value` to the chip's NOP register (the packet
- * 0x004C5B90, Going Commando's func_002FC560, appends: a DMA tag of two quadwords, DIRECT, a GIF
- * tag of one A+D register). The chip ignores it; the window reads its top 16 bits. Written here
- * for any list pointer, the boot program's too; the translated routine takes the doubleword whole
- * (hostgen.json asm signature void (int, unsigned long long)). */
-static void put_marker_at(gaddr pointer, uint64_t value) {
+/* The frame recorder's place for what follows (openrac/frame.h, docs/port/FRAME_RECORDER.md): the
+ * display list's write pointer, the word at `pointer`, where the console's packets would have gone.
+ * Nothing is written into the list; the window finds that place among what the list still draws.
+ * Any list pointer, the boot program's too. */
+static void anchor_at(gaddr pointer) {
     const gaddr at = GREF(gaddr, pointer);
-    if (at == 0 || at >= 0x02000000u - 0x30u) {
-        return;
-    }
-    uint32_t* w = (uint32_t*)G(at);
-    w[0] = 0x10000002u;
-    w[1] = 0;
-    w[2] = 0;
-    w[3] = 0x50000002u;
-    w[4] = 0x8001u;
-    w[5] = 0x10000000u;
-    w[6] = 0xEu;
-    w[7] = 0;
-    memcpy(G(at + 32u), &value, 8);
-    w[10] = NOP_REGISTER;
-    w[11] = 0;
-    GREF(gaddr, pointer) = at + 0x30u;
+    openrac_frame_anchor(at < 0x02000000u ? at : 0);
 }
 
-static void put_marker(const Copy* c, uint64_t value) {
-    put_marker_at(at_copy(c, c->list_pointer), value);
+static void anchor(const Copy* c) {
+    anchor_at(at_copy(c, c->list_pointer));
 }
 
 /* DrawTfrag (Going Commando's func_002EF3B0, the same 208 bytes): the world's first native pass
  * after the sky, so the world's marker goes here. */
 static void draw_tfrag(const Copy* c) {
     openrac_game_draw(OPENRAC_DRAW_TERRAIN);
-    put_marker(c, 0x574Cull << 48);
+    anchor(c);
+    openrac_frame_world(OPENRAC_DRAW_TERRAIN);
 }
 
 int func_L01_004B1728(void) {
@@ -159,13 +145,17 @@ int func_L39_005EDE28(void) {
 
 /* SkyDrawShell(shell) (func_002E3940): the window draws the shell with the matrix the sky code
  * built for it. The sky is the world's first pass, so its camera is the world's. */
-int func_L01_004A8158(int shell) {
+int rac3_sky_draw_shell(int shell, gaddr matrix) {
     openrac_game_world_view();
     float m[16];
-    memcpy(m, G(VELDIN(SKY_MATRIX)), sizeof(m));
+    memcpy(m, G(matrix), sizeof(m));
     openrac_game_sky_shell(shell, m);
     openrac_game_draw(OPENRAC_DRAW_SKY);
     return 0;
+}
+
+int func_L01_004A8158(int shell) {
+    return rac3_sky_draw_shell(shell, VELDIN(SKY_MATRIX));
 }
 
 /*
@@ -246,13 +236,12 @@ static void mark_drawn_mobys(const Copy* c, gaddr first, int count) {
  * list, the world's draw). */
 static void moby_proc(const Copy* c, gaddr list, int count) {
     mark_drawn_mobys(c, list, count);
+    anchor(c);
     if (count < 0) {
-        put_marker(c, (uint64_t)OPENRAC_WORLD_MOBYS_MARKER << 48);
+        openrac_frame_world_mobys();
     }
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
-    if (openrac_game_mobys_drawn(list, count)) {
-        put_marker(c, (0x4D42ull << 48) | ((uint64_t)(count & 0xFFFF) << 32) | (uint32_t)list);
-    }
+    openrac_frame_mobys(list, count);
 }
 
 int func_L01_00441B78(int a0, int a1, int a2, int a3) {
@@ -308,6 +297,18 @@ int func_L01_00440090(int a0, int a1) {
     return 0;
 }
 
+/* The boot program's copy (the loading screen's ship) and frontbin's: the same evaluator, where
+ * retail streamed the joints into the scratchpad by a DMA tag chain. */
+int func_003CA9C0(int a0, int a1) {
+    openrac_game_moby_chain((gaddr)a0, (gaddr)a1);
+    return 0;
+}
+
+int func_003CA608__frontbin(int a0, int a1) {
+    openrac_game_moby_chain((gaddr)a0, (gaddr)a1);
+    return 0;
+}
+
 /*
  * PartProc (func_002B9420, the same instructions): each live record of the pool (0x40 bytes, byte
  * 1 bit 7 a free one), slots 0 to the highest in use, to the window, as Going Commando's. Its
@@ -319,10 +320,9 @@ int func_L01_00440090(int a0, int a1) {
 #define PARTICLE_HIGHEST RAC3_LADDR(1, 0x001E0280u)
 #define PARTICLE_TEXTURES RAC3_LADDR(1, 0x00220A40u)
 
-int func_L01_00461CB8(void) {
-    const gaddr pool = GREF(gaddr, VELDIN(PARTICLE_POOL));
-    const int highest = GREF(int, VELDIN(PARTICLE_HIGHEST));
-    const gaddr table = VELDIN(PARTICLE_TEXTURES);
+int rac3_part_proc(gaddr pool_word, gaddr highest_word, gaddr table) {
+    const gaddr pool = GREF(gaddr, pool_word);
+    const int highest = GREF(int, highest_word);
     if (pool == 0 || pool >= 0x01FE0000u) {
         return 0;
     }
@@ -343,6 +343,12 @@ int func_L01_00461CB8(void) {
         );
     }
     return 0;
+}
+
+int func_L01_00461CB8(void) {
+    return rac3_part_proc(
+        VELDIN(PARTICLE_POOL), VELDIN(PARTICLE_HIGHEST), VELDIN(PARTICLE_TEXTURES)
+    );
 }
 
 /*
@@ -392,7 +398,7 @@ extern unsigned rac3_draw_ordinal;
  * set, a matrix the corners go through first. The window draws it in the world, with the TEST and
  * ZBUF in effect at its marker (rac2/host/render.c's world_quad).
  */
-static void world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, gaddr list) {
+void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, gaddr list) {
     const uint8_t* r = G(record);
     openrac_game_quad q;
     memset(&q, 0, sizeof(q));
@@ -431,12 +437,13 @@ static void world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records,
     openrac_game_effect_quad(&q);
     const uint32_t marker = openrac_game_effect_quad_marker();
     if (marker != 0) {
-        put_marker_at(list, (uint64_t)OPENRAC_EFFECT_QUAD_MARKER << 48 | marker);
+        anchor_at(list);
+        openrac_frame_effect_quad(marker);
     }
 }
 
 int func_L01_00407E28(int a0, int a1) {
-    world_quad(
+    rac3_world_quad(
         (gaddr)a0,
         (gaddr)a1,
         VELDIN(TEXTURE_UPLOADS),
@@ -461,7 +468,9 @@ int func_L01_00407E28(int a0, int a1) {
 void func_003D3158(int a0, int a1, int a2, int a3) {
     (void)a2;
     (void)a3;
-    world_quad((gaddr)a0, (gaddr)a1, BOOT_TEXTURE_UPLOADS, BOOT_TEXTURE_RECORDS, BOOT_LIST_POINTER);
+    rac3_world_quad(
+        (gaddr)a0, (gaddr)a1, BOOT_TEXTURE_UPLOADS, BOOT_TEXTURE_RECORDS, BOOT_LIST_POINTER
+    );
 }
 
 /* What the console's renderers needed each frame (Going Commando's func_002F0468, 0x002EF310,
@@ -508,7 +517,8 @@ void func_003CB6B8(int list, int count) {
     (void)list;
     (void)count;
     openrac_game_world_view();
-    put_marker_at(BOOT_LIST_POINTER, 0x574Cull << 48);
-    put_marker_at(BOOT_LIST_POINTER, (uint64_t)OPENRAC_WORLD_MOBYS_MARKER << 48);
+    anchor_at(BOOT_LIST_POINTER);
+    openrac_frame_world(OPENRAC_DRAW_MOBYS);
+    openrac_frame_world_mobys();
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
 }

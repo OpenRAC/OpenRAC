@@ -22,12 +22,14 @@
 
 // The context a binding holds: the C name of the contract, a C++ object behind it.
 struct openrac_mp_ui {
-    openrac::mpui::Description description;         // The screens shown.
-    openrac::mpui::Model model;                     // The tables the binding fills.
-    std::optional<openrac::mpui::ScreenView> view;  // The screen open, if any.
-    std::string table;                              // The table being filled.
-    std::vector<openrac::mpui::Row> rows;           // Its rows so far.
-    std::string target;                             // The last outcome's target, kept for C.
+    openrac::mpui::Description description;          // The screens shown.
+    openrac::mpui::Model model;                      // The tables the binding fills.
+    std::optional<openrac::mpui::ScreenView> view;   // The screen open, if any.
+    std::optional<openrac::mpui::ScreenView> modal;  // The modal screen over it, if any.
+    openrac::mpui::Rect modal_area;                  // Where modal screens are drawn.
+    std::string table;                               // The table being filled.
+    std::vector<openrac::mpui::Row> rows;            // Its rows so far.
+    std::string target;                              // The last outcome's target, kept for C.
 };
 
 namespace openrac::mpui {
@@ -54,14 +56,16 @@ public:
         m_skin.highlight(m_skin.user, rect.x, rect.y, rect.w, rect.h);
     }
 
-    void panel(const Rect& rect) override {
-        m_skin.panel(m_skin.user, rect.x, rect.y, rect.w, rect.h);
+    void rect(const Rect& rect, std::uint32_t rgba) override {
+        m_skin.rect(m_skin.user, rect.x, rect.y, rect.w, rect.h, rgba);
     }
 
-    void scroll_marks(const Rect& table, bool up, bool down) override {
-        m_skin.scroll_marks(
-            m_skin.user, table.x, table.y, table.w, table.h, up ? 1 : 0, down ? 1 : 0
-        );
+    void sprite(const Rect& rect, int sprite) override {
+        m_skin.sprite(m_skin.user, rect.x, rect.y, rect.w, rect.h, sprite);
+    }
+
+    std::uint32_t colour(PanelPart part) const override {
+        return part == PanelPart::FILL ? m_skin.panel_rgba : m_skin.edge_rgba;
     }
 
     void sound(Sound sound) override { m_skin.sound(m_skin.user, static_cast<int>(sound)); }
@@ -82,6 +86,24 @@ Event event_of(int event) {
 
 }  // namespace
 }  // namespace openrac::mpui
+
+namespace {
+
+// Opens the description's screen `id` as the modal one in `ui`'s modal area. A screen the
+// description lacks opens nothing: the action was a server's mistake, logged.
+void open_modal(openrac_mp_ui& ui, const std::string& id) {
+    const openrac::mpui::ScreenSpec* spec = ui.description.screen(id);
+
+    // The description names a screen it does not describe.
+    if (spec == nullptr) {
+        openrac::log::warn("multiplayer screens: open:{} names no screen", id);
+        return;
+    }
+
+    ui.modal.emplace(*spec, ui.modal_area, openrac::mpui::Mode::MODAL);
+}
+
+}  // namespace
 
 using openrac::c_boundary::call;
 namespace mpui = openrac::mpui;
@@ -181,23 +203,56 @@ extern "C" void openrac_mp_ui_event(
 ) {
     *out = openrac_mp_ui_outcome{0, OPENRAC_MP_UI_ACTION_NONE, "", 0, 0, 0};
     call("mp_ui", [&] {
+        // A modal screen takes the event first; with none open, the screen over the game's.
+        std::optional<mpui::ScreenView>& target = ui->modal ? ui->modal : ui->view;
+
         // With no screen open every event is the game's.
-        if (!ui->view) {
+        if (!target) {
             return;
         }
 
         mpui::CSkin wrapped(*skin);
-        const mpui::Outcome outcome = ui->view->handle(mpui::event_of(event), ui->model, wrapped);
-        ui->target = outcome.action.target;
+        const mpui::Outcome outcome = target->handle(mpui::event_of(event), ui->model, wrapped);
+        mpui::Action action = outcome.action;
+
+        // Back on a modal screen closes it; the game's screen under it never sees the press.
+        if (ui->modal && action.kind == mpui::ActionKind::BACK) {
+            ui->modal.reset();
+            action = {};
+        }
+
+        // An open: action shows its screen modally, when the description has it.
+        if (action.kind == mpui::ActionKind::OPEN) {
+            open_modal(*ui, action.target);
+            action = {};
+        }
+
+        ui->target = action.target;
         *out = openrac_mp_ui_outcome{
             outcome.consumed ? 1 : 0,
-            static_cast<int>(outcome.action.kind),
+            static_cast<int>(action.kind),
             ui->target.c_str(),
             outcome.row_key,
             static_cast<int>(outcome.row),
             outcome.value
         };
     });
+}
+
+extern "C" void openrac_mp_ui_set_modal_area(
+    openrac_mp_ui* ui, float x, float y, float w, float h
+) {
+    ui->modal_area = mpui::Rect{x, y, w, h};
+}
+
+extern "C" void openrac_mp_ui_notice(openrac_mp_ui* ui, const char* text) {
+    call("mp_ui", [&] {
+        ui->modal.emplace(mpui::notice_screen(text), ui->modal_area, mpui::Mode::MODAL);
+    });
+}
+
+extern "C" int openrac_mp_ui_modal(openrac_mp_ui* ui) {
+    return ui->modal ? 1 : 0;
 }
 
 extern "C" void openrac_mp_ui_set_active(openrac_mp_ui* ui, int active) {
@@ -207,15 +262,30 @@ extern "C" void openrac_mp_ui_set_active(openrac_mp_ui* ui, int active) {
     }
 }
 
+extern "C" void openrac_mp_ui_enter(openrac_mp_ui* ui, int from_top) {
+    call("mp_ui", [&] {
+        // Only an open screen takes the cursor.
+        if (ui->view) {
+            ui->view->enter(from_top != 0, ui->model);
+        }
+    });
+}
+
 extern "C" void openrac_mp_ui_draw(openrac_mp_ui* ui, const openrac_mp_ui_skin* skin) {
     call("mp_ui", [&] {
-        // Nothing open, nothing drawn: the game's screen is all there is.
-        if (!ui->view) {
-            return;
+        mpui::CSkin wrapped(*skin);
+
+        // The screen over the game's, then a modal one over both.
+        if (ui->view) {
+            skin->layer(skin->user, 0);
+            ui->view->draw(wrapped, ui->model);
         }
 
-        mpui::CSkin wrapped(*skin);
-        ui->view->draw(wrapped, ui->model);
+        // The modal screen brings its own panel.
+        if (ui->modal) {
+            skin->layer(skin->user, 1);
+            ui->modal->draw(wrapped, ui->model);
+        }
     });
 }
 

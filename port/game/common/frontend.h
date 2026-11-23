@@ -23,6 +23,7 @@
 #include "materials/catalog.h"
 #include "openrac/game_host.h"
 #include "openrac/openrac_mod.h"
+#include "renderer/frame/ui_records.h"
 
 namespace openrac::enhanced {
 struct FoliageControls;
@@ -89,6 +90,43 @@ void sky_shell(int shell, const float* matrix);
 // A quad of the 2D layer drawn natively (openrac_game_ui_quad): its index for the marker, or -1
 // when the 2D layer is replayed from the game's packets.
 int ui_quad(const openrac_game_ui_rect& quad);
+// The record ui_quad keeps for `quad` (the mods' sprite tint applied).
+renderer::UiQuad ui_quad_record(const openrac_game_ui_rect& quad);
+
+// The frame recorder (openrac/frame.h, frontend/recorder.cpp): what the openrac_frame_* calls do
+// with a window. False / -1 where the C call returns 0 (no recording: the caller draws its way).
+namespace recorder {
+void begin();
+void end();
+void anchor(gaddr list_cursor);
+void world(unsigned layers);
+void world_mobys();
+bool mobys(std::span<const std::uint8_t> ram, gaddr list, int count);
+bool ui_item(std::span<const std::uint8_t> ram, const openrac_game_ui_item& item);
+bool ui_quad(const openrac_game_ui_rect& quad);
+void effect_quad(std::uint32_t marker);
+void fill(const float* rect, std::uint32_t rgba, int blend);
+void clear(std::uint32_t rgba, int what);
+void picture(std::uint32_t id, const float* rect, std::uint32_t rgba, int blend);
+void picture_image(
+    std::span<const std::uint8_t> ram,
+    const openrac_game_ui_image& image,
+    const float* rect,
+    std::uint32_t rgba,
+    int blend
+);
+void picture_set(std::uint32_t id, const std::uint8_t* rgba, int width, int height);
+void snapshot(std::uint32_t id);
+void target_begin(std::uint32_t id, int width, int height);
+void target_end();
+void scissor(const float* rect);
+// How a game image (openrac_game_ui_image) becomes a decoded image: set by the 2D layer's image
+// cache (frontend/ui_images); until it is, items with an image are not recorded (the caller draws
+// its way) and picture_image draws nothing.
+using ImageResolver =
+    std::function<renderer::UiImage(std::span<const std::uint8_t>, const openrac_game_ui_image&)>;
+void set_image_resolver(ImageResolver resolver);
+}  // namespace recorder
 
 // How far the HUD's side-anchored elements go out past the game's picture, in its 512ths of that
 // picture's width (openrac_game_hud_side): the player's "HUD: Edges" in a wider picture, else 0.

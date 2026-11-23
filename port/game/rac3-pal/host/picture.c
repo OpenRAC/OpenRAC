@@ -5,22 +5,23 @@
  * address in bytes, width, height) puts a picture from EE memory straight into the frame buffer as
  * 512x32 image transfers and returns its TEX0; the main menu calls it each frame with its
  * background (512x416 at 0x00EA5010, unpacked once at boot from the front end's data: a still
- * picture, not a video) before it draws the menu over it. Here the picture goes to the window as a
- * texture of its own (openrac_game_load_picture, kept at PICTURE_BLOCK and refilled only when its
- * pixels change) and the frame gets a full-screen 2D record reading it, in the display list where
- * the transfers were, as the 2D layer's quads do (lib/ui_quad.h); the game's darkening and boxes
- * are drawn over it as before. With no window to draw it (or the 2D layer replayed) the game's own
- * routine runs.
+ * picture, not a video) before it draws the menu over it. Here the picture is the game's own data:
+ * it goes to the window through the frame recorder (openrac_frame_picture_image, decoded once per
+ * content into a texture), over the whole picture, placed where the list has got to; nothing is
+ * written into the list or the frame buffer. The game's darkening and boxes are drawn over it as
+ * before.
  *
- * In a picture wider than 4:3 (the player's Picture setting) the record keeps its shape in the
- * middle, as the rest of the 2D layer does, and the window's sides are filled as Going Commando's
- * are behind its title (rac2/host/picture.c): the picture's own edges, shrunk and blurred (the
- * backdrop, a second texture), drawn out to the window's sides and darkening towards them, between
- * two kWholeMarker markers so that they span the whole window. At 4:3 nothing of it is drawn. */
+ * In a picture wider than 4:3 (the player's Picture setting) the window's sides are filled as Going
+ * Commando's are behind its title (rac2/host/picture.c): the picture shrunk, blurred and darkened
+ * (the backdrop, openrac_frame_picture_set), over the whole window under the picture.
+ *
+ * A movie's frame (rac3_picture_record, from movie.c) still goes as the older record of a picture
+ * the window holds, until the movies move to the recorder (P2). */
 #include <stdint.h>
 #include <string.h>
 
 #include "../../common/lib/ui_quad.h"
+#include "openrac/frame.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac3_version.h"
@@ -194,15 +195,41 @@ static int draw_picture_rgba(
     gaddr cursor, const uint8_t* rgba, int frame, int width, int height, uint64_t* tex0_out
 );
 
+/* A picture's backdrop for a window wider than the picture: the port's picture id it is kept at. */
+#define BACKDROP_PICTURE 0x52330002u
+
+/* A picture straight from game memory (`pixels`: 32-bit RGBA rows, `width` x `height`) drawn through
+ * the frame recorder as the game's own data (openrac_frame_picture_image), over the whole picture
+ * (as the console stretched it over its frame's lines), placed where the list at `cursor` has got
+ * to; in a picture wider than 4:3 the window's sides first get its backdrop (the picture shrunk,
+ * blurred and darkened), over the whole window. Nothing is written into the list. Its TEX0, the
+ * routine's result, in *tex0_out. */
 static int draw_picture(
     gaddr cursor, int pixels, int frame, int width, int height, uint64_t* tex0_out
 ) {
     if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
         return 0;
     }
-    return draw_picture_rgba(
-        cursor, (const uint8_t*)G((gaddr)pixels & 0x01FFFFFFu), frame, width, height, tex0_out
-    );
+    const gaddr at = GREF(gaddr, cursor);
+    openrac_frame_anchor(at < 0x02000000u ? at : 0);
+    const float wider = openrac_game_picture_wider();
+    if (wider > 1.001f && width == 512 && height <= BACKDROP_HEIGHT * BACKDROP_SHRINK) {
+        const uint8_t* rgba = (const uint8_t*)G((gaddr)pixels & 0x01FFFFFFu);
+        const uint32_t hash = picture_hash(rgba, (uint32_t)width * (uint32_t)height * 4u);
+        if (s_backdrop_rows == 0 || s_backdrop_hash != hash) {
+            s_backdrop_rows = make_backdrop(rgba, height);
+            s_backdrop_hash = hash;
+        }
+        openrac_frame_picture_set(BACKDROP_PICTURE, s_backdrop, BACKDROP_WIDTH, s_backdrop_rows);
+        openrac_frame_picture(
+            BACKDROP_PICTURE, NULL, 0x80808080u, OPENRAC_BLEND_OPAQUE | OPENRAC_PICTURE_WHOLE
+        );
+    }
+    const openrac_game_ui_image image =
+        {(uint32_t)pixels & 0x01FFFFFFu, 0, (uint16_t)width, (uint16_t)height, 32, 0, {0, 0}};
+    openrac_frame_picture_image(&image, NULL, 0x80808080u, OPENRAC_BLEND_OPAQUE);
+    *tex0_out = picture_tex0((uint32_t)frame, width, height);
+    return 1;
 }
 
 /* The picture from `rgba` (the port's memory or game memory) as the frame's record. */

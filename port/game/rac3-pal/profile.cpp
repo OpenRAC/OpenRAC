@@ -88,6 +88,10 @@ struct Release {
     std::uint32_t multiplayer_shadow_directions;
     // Veldin's scenery matrices and records (scenery_matrices).
     std::array<std::uint32_t, 4> scenery_matrices;
+    // The multiplayer maps' (level 39's copies, relocated to the map loaded): their scenery
+    // matrices and records, in scenery_matrices' order, and their occlusion mask.
+    std::array<std::uint32_t, 4> multiplayer_scenery_matrices;
+    std::uint32_t multiplayer_occlusion;
     // The block the game draws its frame in (draw_buffer_block), 0 to follow the display.
     std::uint32_t draw_buffer_block;
     // The light bank MobyProc sends to the scratchpad (light_bank): the boot program's, Veldin's
@@ -172,6 +176,8 @@ constexpr Release kPal{
     0x001E0070,
     0x002935A0,
     {0x001E0EDC, 0x001E0DD0, 0x001E0ED4, 0x001E0DC8},
+    {0x0024C9EC, 0x0024C900, 0x0024C9E4, 0x0024C8F8},
+    0x0025F580,
     0x1E00,
     0x002FF200,
     0x001F1740,
@@ -589,6 +595,10 @@ public:
     // the ship (word 0x7F80, "always") was left out, and only its engines' effects were drawn.
     std::uint32_t occlusion_mask() const override {
         const int program = openrac_guest_overlay();
+        if (multiplayer()) {
+            // A map's: level 39's mask (MobyProc's group masks, 0x0025F580), relocated.
+            return openrac_relocate_level_data(kFirstMultiplayer, release_.multiplayer_occlusion);
+        }
         if (program >= 1 && program < static_cast<int>(std::size(kPal.levels))) {
             return 0;  // a level's, the front end's relocated
         }
@@ -649,11 +659,14 @@ public:
     // records and count at gp + 0x45E0 and + 0x45E4 and its far cap at gp + 0x4610, ShrubProc its
     // cap at gp + 0x4528; TieProc's cap, gp + 0x4664, is 0x40 past the records' word, not 0x48.
     // The scenery the window draws is culled by them as the game's draw distance says.
+    // The multiplayer maps keep theirs in level 39's copy of the same code (the tie pass
+    // func_L39_005F62A0 reads the ties' matrices at 0x0024C9EC; paired with Veldin's instruction by
+    // instruction), relocated to the map loaded.
     std::array<std::uint32_t, 4> scenery_matrices() const override {
-        return release_.scenery_matrices;
+        return multiplayer() ? release_.multiplayer_scenery_matrices : release_.scenery_matrices;
     }
 
-    int scenery_matrices_level() const override { return 1; }
+    int scenery_matrices_level() const override { return multiplayer() ? kFirstMultiplayer : 1; }
 
     std::uint32_t tie_cap_after_records() const override { return 0x40; }
 
@@ -661,6 +674,12 @@ public:
     std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }
 
 private:
+    // A multiplayer map (40 and up) is loaded: level 39's copies of the engine, relocated.
+    static bool multiplayer() {
+        const int program = openrac_guest_overlay();
+        return program > kFirstMultiplayer && program < static_cast<int>(std::size(kPal.levels));
+    }
+
     const Addresses& addresses(int level) const {
         return level >= 0 && static_cast<std::size_t>(level) < std::size(release_.levels)
                        && release_.levels[level].camera_rows != 0
@@ -744,6 +763,8 @@ constexpr Release kUs{
     0x001E00F0,
     0x002936A0,
     {0x001E0F5C, 0x001E0E50, 0x001E0F54, 0x001E0E48},
+    {0x0024CAEC, 0x0024CA00, 0x0024CAE4, 0x0024C9F8},
+    0x0025F680,
     0x1E80,
     0x002FF280,
     0x001F17C0,

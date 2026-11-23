@@ -213,6 +213,10 @@ void set_packets(SceneFrame& frame) {
     input.sky_shell_mask = scene.sky_shell_mask;
     input.effect_uploads = scene.effect_uploads;
     input.ui_quads = scene.ui_quads;
+    input.recording = scene.recording.empty() ? nullptr : &scene.recording;
+    input.splices = scene.splices;
+    input.splices_before_world = std::min(scene.splices_before_world, scene.splices.size());
+    input.hud_packets_offset = scene.before_world;
     effects_dump::offer(input, input.water_interactor);
 }
 
