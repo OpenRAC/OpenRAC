@@ -916,7 +916,7 @@ openrac_add_test(frontend_geometry SOURCES tests/frontend_geometry_test.cpp
 openrac_add_test(scenery_capture SOURCES tests/scenery_capture_test.cpp
                  game/common/frontend/scenery_capture.cpp INCLUDES . runtime/include)
 openrac_add_test(ui_images SOURCES tests/ui_images_test.cpp
-                 game/common/frontend/ui_images.cpp INCLUDES . game/common/include runtime/include)
+                 game/common/frontend/ui_images.cpp game/common/frontend/game_image_sources.cpp INCLUDES . game/common/include runtime/include)
 openrac_add_test(frontend_pacing SOURCES tests/frontend_pacing_test.cpp
                  game/common/frontend/pacing.cpp INCLUDES .)
 openrac_add_test(frame_limiter SOURCES tests/frame_limiter_test.cpp
