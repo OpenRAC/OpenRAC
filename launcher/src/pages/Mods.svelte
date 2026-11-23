@@ -34,7 +34,7 @@
   import PluginsPanel from "$components/PluginsPanel.svelte";
   import TexturePacksBlock from "$components/TexturePacksBlock.svelte";
   import { type ActionView, api, type GameView, onAndroid, type VersionView } from "$lib/api";
-  import { app, guardShown, jobs, run } from "$lib/app.svelte";
+  import { app, guardShown, jobs, pickVersion, run } from "$lib/app.svelte";
   import { changeSet } from "$lib/deepLink.svelte";
   import type { EntryState } from "$lib/labels";
   import { EDITOR_DOCS_URL, SITE_URL } from "$lib/links";
@@ -290,6 +290,10 @@
         }
 
         picked = g.id;
+        // The pick is the launcher's own: the colours follow it, and Games shows it too.
+        const key = playerVersion(g)?.key ?? g.versions[0]?.key;
+
+        if (key) pickVersion(key);
       }}
   state={modState}
 >
