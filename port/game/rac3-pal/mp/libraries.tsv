@@ -282,6 +282,8 @@ func_L39_0059D368	draw	DrawHudQuadTurnedMenus	wrap	level 39's copy of the turned
 func_0027F5E8	draw	DrawGlyphQuadFloat	wrap	the multiplayer executable's glyph quad placed in floats (the boot program has none): the map loading screen's weapon icons, drawn natively (host/ui2d.c)
 func_L39_0058B9F8	draw	DrawGlyphQuadFloatMenus	wrap	level 39's copy of the core's glyph quad placed in floats (0x0027F5E8), drawn natively (host/ui2d.c)
 func_L39_00686768	ui	rac3MpUiScreensDraw	wrap	the lobby screen manager's draw (manager): the game widgets a native multiplayer screen replaces are hidden for it alone (host/mp_ui.c)
+func_00299218	draw	SetScissor	wrap	the instructions of the boot program's func_003A98B8 (the 2D layer's scissor, kept within the screen at 0x00230150): the native quads are cut to it too (host/ui2d.c)	int (int, int, int, int)
+func_L39_005FD128	draw	SetScissorMenus	wrap	level 39's copy of SetScissor (the catalogue's row func_003A9500 frontbin at 39:005FD128): the native quads are cut to it too (host/ui2d.c)	int (int, int, int, int)
 # --- the stock-bug fixes' rows: written by mp/fixes.py, do not edit by hand ---
 func_L40_00511CA0	gameplay	rac3HeroEquipGadgetMap40	wrap	map 40's copy of the hero's gadget equip (creates the gadget's mobys) (level 39's 0063FDA8): a stock bug fixed (host/mp_fixes.c)
 func_L40_00476900	gameplay	rac3CreateMobyMap40	wrap	map 40's copy of CreateMoby (frontbin's func_003C24B0) (level 39's 005AA140): a stock bug fixed (host/mp_fixes.c)

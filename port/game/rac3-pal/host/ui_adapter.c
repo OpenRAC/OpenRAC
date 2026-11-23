@@ -10,7 +10,9 @@
  *   0x001D4BD0, the multiplayer core's at 0x00240310) that centres its screen on 2048, so the screen
  *   is 2 x (2048 - offset) pixels each way (512 x 448 on PAL);
  * - the fonts: two font headers (the boot program's table at 0x001D55D0, which every
- *   single-player program's copy of FontUpload and FontSelect reads). A header holds, for each of its glyph pages p, the indices of its image and
+ *   single-player program's copy of FontUpload and FontSelect reads; the multiplayer core's at
+ *   0x00241458, which its level 39 and maps read too; the font selected at +0x18 of either). A
+ *   header holds, for each of its glyph pages p, the indices of its image and
  *   palette (+0x10 + 2p, +0x11 + 2p), the images' formats (+0x40[j]: 0x14 4-bit, else 8-bit), log2
  *   sizes (+0x50[j]: two halfwords) and offsets from the header (+0xD0[j]), and the palettes'
  *   formats (+0x30[k]: 0x14 16 colours, else 256 in the stored order) and offsets (+0x90[k]); the
@@ -26,10 +28,19 @@
 #include "rac3_version.h"
 #include "ui2d.h"
 
-/* The running program's font header table (two fonts); 0 for the multiplayer executable, whose
- * prints still go to the window as the older records. */
+/* The running program's font header table (two fonts): the boot program's, which every
+ * single-player program reads, or the multiplayer core's, which level 39 and the maps read. */
 static gaddr font_headers(void) {
-    return rac3_exec_program() == RAC3_EXEC_MULTIPLAYER ? 0 : RAC3_ADDR(0x001D55D0u);
+    return rac3_exec_program() == RAC3_EXEC_MULTIPLAYER ? RAC3_MADDR(0x00241458u)
+                                                        : RAC3_ADDR(0x001D55D0u);
+}
+
+int rac3_ui_font_index(void) {
+    return GREF(
+        int32_t,
+        rac3_exec_program() == RAC3_EXEC_MULTIPLAYER ? RAC3_MADDR(0x00241470u)
+                                                     : RAC3_ADDR(0x001D55E8u)
+    );
 }
 
 static void screen(float* width, float* height) {

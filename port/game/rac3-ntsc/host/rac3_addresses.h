@@ -186,6 +186,8 @@
 #define RAC3_MADDR_0x001EBE00u 0x001EBF80u
 /* the same instruction of the same code: func 0x00195010 (NTSC-U 0x00195100) +0x10, 1 of 1 places agree */
 #define RAC3_MADDR_0x001FC6B0u 0x001FC830u
+/* release.json: the screen whose size (+0x150, +0x152) SetScissor keeps its rectangle within: PAL mp_func_00299218 and NTSC-U mp_func_002991F8, the same instructions, both read 0x00230150 and 0x00230152 */
+#define RAC3_MADDR_0x00230000u 0x00230000u
 /* the same instruction of the same code: func 0x00192D18 (NTSC-U 0x00192E08) +0x254, 2 of 2 places agree */
 #define RAC3_MADDR_0x00240290u 0x00240410u
 /* the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 21 of 21 places agree */
@@ -194,15 +196,27 @@
 #define RAC3_MADDR_0x00240B80u 0x00240D00u
 /* release.json: the level whose program is loaded: read at $gp - 0x6CE4 in both cores (PAL 0x00199150, 0x002945BC, 0x00295534 with $gp 0x00247FC0; NTSC-U 0x00199290, 0x00295524 with $gp 0x00248140) */
 #define RAC3_MADDR_0x002412DCu 0x0024145Cu
+/* release.json: the two font headers: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U adds 0x15D8 to 0x00240000) */
+#define RAC3_MADDR_0x00241458u 0x002415D8u
+/* release.json: the font FontSelect chose last: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U's map copies store it at 0x002415F0) */
+#define RAC3_MADDR_0x00241470u 0x002415F0u
 /* the start of the payload's record at PAL 0x00241A00 (NTSC-U 0x00241B80) */
 #define RAC3_MADDR_0x00241A00u 0x00241B80u
+/* release.json: the core's pointer to the current font's page handles: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U reads 0x00241E68 beside 0x00241E6C) */
+#define RAC3_MADDR_0x00241CE8u 0x00241E68u
+/* release.json: the core's pointer to the current font's palette handles, beside 0x00241CE8: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) */
+#define RAC3_MADDR_0x00241CECu 0x00241E6Cu
+/* release.json: level 39's (and the maps') pointer to the current font's page handles: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U's map copies store 0x002429A0) */
+#define RAC3_MADDR_0x00242820u 0x002429A0u
+/* release.json: level 39's (and the maps') pointer to the palette handles, beside 0x00242820: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) */
+#define RAC3_MADDR_0x00242824u 0x002429A4u
 /* the same instruction of the same code: func 0x00285318 (NTSC-U 0x00285358) +0x1D8, 4 of 4 places agree */
 #define RAC3_MADDR_0x00244414u 0x00244614u
 /* the same instruction of the same code: func 0x00284D30 (NTSC-U 0x00284D70) +0x4, 2 of 2 places agree */
 #define RAC3_MADDR_0x00244428u 0x00244628u
 /* the same instruction of the same code: func 0x00284D30 (NTSC-U 0x00284D70) +0x20, 2 of 2 places agree */
 #define RAC3_MADDR_0x0024442Cu 0x0024462Cu
-/* the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 128 of 128 places agree */
+/* the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 141 of 141 places agree */
 #define RAC3_MADDR_0x002446A8u 0x002448A8u
 /* the start of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200) */
 #define RAC3_MADDR_0x0027B100u 0x0027B200u
