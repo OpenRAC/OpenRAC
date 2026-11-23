@@ -524,7 +524,7 @@ openrac_add_c_test(rac2_weapon_shots NO_STRICT_ALIASING MATH
   INCLUDES tests/rac2_host game/rac2/host game/rac2-ntsc/host runtime/include game/common/include
   "${PROJECT_SOURCE_DIR}/../sdk/include")
 # Going Commando's target picks on screen or not for the mods' weapons (weapon_ignore_culling).
-openrac_add_c_test(rac2_weapon_culling NO_STRICT_ALIASING
+openrac_add_c_test(rac2_weapon_culling NO_STRICT_ALIASING MATH
   INCLUDES tests/rac2_host game/rac2/host game/rac2-ntsc/host runtime/include game/common/include
   "${PROJECT_SOURCE_DIR}/../sdk/include")
 # Going Commando's saves as the play calls read them, on a save the game wrote.

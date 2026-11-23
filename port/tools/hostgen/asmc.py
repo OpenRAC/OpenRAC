@@ -191,6 +191,12 @@ class Translator:
     # asm.vu_flush in hostgen.json: an FMAC result too small for VU0 is zero of its sign, as in
     # func_L00_00316F60's joints, where the host's denormal was the only difference from retail.
     vu_flush = False
+    # asm.trap_ends in hostgen.json: a trap that always fires (teq with one register twice: a
+    # hand-written routine's "cannot get here", Up Your Arsenal's moby grid func_003C7D10 when a moby
+    # is not in its cell's list) ends the path: logged, and the function returns, rather than going
+    # on into the next routine's code below it (func_003C7FF0's, whose VU0 microprogram the port
+    # writes as a function of its own).
+    trap_ends = False
     # asm.input_idioms in hostgen.json: reads that are no inputs (_no_input): func_002A05A8's
     # `sub.s $f0, $f0, $f0`, func_002A3110 saving $t8 and $t9 to the scratchpad.
     input_idioms = False
@@ -219,6 +225,14 @@ class Translator:
     # asm.stack_arguments in hostgen.json: integer arguments past the eighth, which the caller
     # passes in its frame, count as read where the code loads them (_stack_arguments).
     stack_arguments = False
+    # asm.wide in hostgen.json: a table (a JSON file beside the configuration) of the instructions
+    # that index one of the game's fixed-size arrays the port widens past the game's own count
+    # (Up Your Arsenal's 8-player tables, mp/wide.json). The port keeps the game's first entries
+    # where they are and the further ones in tables of its own, so at each such instruction the
+    # address goes through the table's host function ("address", with the array's id), a loop's
+    # bound through "bound" (the game's constant in, the bound for the room out), and an element's
+    # address the code hands on through "address" too. Wide (parse_wide): (overlay, address) -> what.
+    wide: dict | None = None
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -345,6 +359,7 @@ class Translator:
         sub.register_jumps = self.register_jumps
         sub.cop0_count = self.cop0_count
         sub.input_idioms = self.input_idioms
+        sub.trap_ends = self.trap_ends
         sub.vu_flush = self.vu_flush
         sub.verified_signatures = self.verified_signatures
         sub.ps2 = self.ps2
@@ -775,7 +790,8 @@ class Translator:
             if ins.op in UNSUPPORTED and self.microprogram(ins) is None and not done_wait and not counted:
                 raise AsmUnsupported(f"{UNSUPPORTED[ins.op]} at {ins.addr:08X}")
             if not is_control(ins):
-                todo.append(a + 4)
+                if not self._ends(ins):
+                    todo.append(a + 4)
                 continue
             d = self._need(a + 4, "a delay slot")
             if is_control(d):
@@ -810,6 +826,10 @@ class Translator:
                 if not uncond:
                     todo.append(a + 8)
         return reach, delay - heads, tables
+
+    def _ends(self, ins: asm.Insn) -> bool:
+        """Whether the path ends at this instruction: a trap that always fires, with asm.trap_ends."""
+        return self.trap_ends and ins.op == "teq" and ins.rs == ins.rt
 
     # ---- The signature ----
 
@@ -1017,6 +1037,44 @@ class Translator:
 
     def addr(self, ins: asm.Insn) -> str:
         """The address a load or store reaches."""
+        site = self._wide_site(ins.addr, "ea")
+        if site is not None:
+            return f"(openrac_u32){self.wide['address']}({self._addr(ins)}, {site['table']})"
+        return self._addr(ins)
+
+    def _wide_site(self, address: int, kind: str) -> dict | None:
+        if not self.wide:
+            return None
+        sites = self._wide_sites(address, kind)
+        return sites[0] if sites else None
+
+    def _wide_sites(self, address: int, kind: str) -> list[dict]:
+        if not self.wide:
+            return []
+        return [s for s in self.wide["sites"].get((self.home, address & 0xFFFFFFFF), ()) if s["kind"] == kind]
+
+    def _wide_value(self, ins: asm.Insn, lines: list[str]) -> list[str]:
+        """asm.wide's "value" (the element address an instruction forms, mapped where it is formed)
+        and "bound" (a loop's or a check's constant: the count of the room's players) sites."""
+        site = self._wide_site(ins.addr, "value")
+        if site is not None:
+            return lines + self._wide_map(site)
+        return lines
+
+    def _wide_map(self, site: dict) -> list[str]:
+        """The element address in the site's register, mapped to where the port keeps it."""
+        reg = site["register"]
+        fn = self.wide["address"]
+        return [] if reg == 0 else [f"r{reg} = {S32(f'(openrac_u32){fn}((openrac_u32)r{reg}, {site['table']})')};"]
+
+    def _wide_bound(self, ins: asm.Insn) -> str:
+        """A bound site's constant: the game's, as the room's count gives it."""
+        site = self._wide_site(ins.addr, "bound")
+        if site is None:
+            return str(ins.imm)
+        return f"(openrac_s64){self.wide['bound']}({ins.imm})"
+
+    def _addr(self, ins: asm.Insn) -> str:
         if ins.rs == 28 and self.gp is not None:
             a = (self.gp + ins.imm) & 0xFFFFFFFF
             return f"(openrac_u32)({self._data(f'D_{a:08X}', a)})"
@@ -1086,6 +1144,9 @@ class Translator:
             if not is_control(ins):
                 out += self.stmt(ins)
                 falls = a + 4
+                if self._ends(ins):
+                    out += self.leave()
+                    falls = None
             else:
                 delay = self.stmt(self.at(a + 4))
                 out += self.control(ins, delay)
@@ -1139,6 +1200,9 @@ class Translator:
             if a in self.inline_calls:
                 return delay + [f"r31 = {S32(hx(a + 8))};", f"goto L_{ins.target:08X};"]
             self._check_result(ins.target, self._operand_name(a), a)
+            for site in self._wide_sites(a, "arg"):
+                # An element's address handed to the callee, mapped after the delay slot forms it.
+                delay = delay + self._wide_map(site)
             return delay + [f"r31 = {S32(hx(a + 8))};"] + self.call(ins.target, self._operand_name(a), a)
         if op == "jalr":
             # The target register is read before the delay slot runs.
@@ -1533,7 +1597,7 @@ class Translator:
             ins = self.at(a)
             r_g, r_f, w_g, w_f = effect(a)
             if not is_control(ins):
-                nodes[a] = (r_g, r_f, w_g, w_f, [a + 4])
+                nodes[a] = (r_g, r_f, w_g, w_f, [] if self._ends(ins) else [a + 4])
                 continue
             d = a + 4
             d_g, d_f, dw_g, dw_f = effect(d)
@@ -1713,6 +1777,9 @@ class Translator:
     # ---- One instruction ----
 
     def stmt(self, ins: asm.Insn) -> list[str]:
+        return self._wide_value(ins, self._stmt(ins)) if self.wide else self._stmt(ins)
+
+    def _stmt(self, ins: asm.Insn) -> list[str]:
         op = ins.op
         R, W = self.R, self.W
         rs, rt, rd, sa, imm = ins.rs, ins.rt, ins.rd, ins.sa, ins.imm
@@ -1737,6 +1804,11 @@ class Translator:
                 # A datum's address formed from $gp: it moves between programs as a load through
                 # $gp does (func_L01_003801B8's gp-0x110 in level 18's copy is another variable).
                 return W(rt, S32(self.addr(ins)))
+            if rs == 0 and self._wide_site(ins.addr, "bound") is not None:
+                return W(rt, S32(self._wide_bound(ins)))
+            if self._wide_site(ins.addr, "span") is not None:
+                # The end of a loop over a table's entries: the room's count of them.
+                return W(rt, S32(f"{u32(R(rs))} + (openrac_u32){self.wide['span']}({hx(imm)})"))
             return W(rt, S32(f"{u32(R(rs))} + {hx(imm)}"))
         if op in ("daddu", "dadd"):
             return W(rd, f"{R(rs)} + {R(rt)}")
@@ -1770,9 +1842,9 @@ class Translator:
         if op == "sltu":
             return W(rd, f"{R(rs)} < {R(rt)}")
         if op == "slti":
-            return W(rt, f"(openrac_s64){R(rs)} < {imm}")
+            return W(rt, f"(openrac_s64){R(rs)} < {self._wide_bound(ins)}")
         if op == "sltiu":
-            return W(rt, f"{R(rs)} < (openrac_u64)(openrac_s64){imm}")
+            return W(rt, f"{R(rs)} < (openrac_u64)(openrac_s64){self._wide_bound(ins)}")
         if op == "sll":
             return W(rd, S32(f"{u32(R(rt))} << {sa}"))
         if op == "srl":
@@ -2217,6 +2289,12 @@ class Translator:
         frame = 64 + sum(-i.imm for i in map(self.at, self.reach) if i.op in ("addiu", "daddiu") and i.rs == 29
                          and i.rt == 29 and i.imm < 0)
         decl.append(f"    OPENRAC_ASM_FRAME({frame});")
+        if self.wide and re.search(r"\b" + re.escape(self.wide["address"]) + r"\(", text):
+            decl.append(f"    extern openrac_u32 {self.wide['address']}(openrac_u32, int);")
+        if self.wide and re.search(r"\b" + re.escape(self.wide["bound"]) + r"\(", text):
+            decl.append(f"    extern int {self.wide['bound']}(int);")
+        if self.wide and re.search(r"\b" + re.escape(self.wide["span"]) + r"\(", text):
+            decl.append(f"    extern int {self.wide['span']}(int);")
         decl.append("    openrac_u64 " + ", ".join(f"r{n} = 0" for n in gprs) + ";")
         if highs:
             decl.append("    openrac_u64 " + ", ".join(f"h{n} = 0" for n in highs) + ";")
@@ -2408,6 +2486,33 @@ class Stage:
     params_from_code: list = field(default_factory=list)  # asm.params_from_code's additions
 
 
+def parse_wide(table: dict | None) -> dict | None:
+    """asm.wide's table (Translator.wide), as hostgen's load_config read it from its file:
+    {"address": fn, "bound": fn, "tables": [names], "sites": {program: {address: what}}}, where a
+    program is "core" (the executable) or a level's number and what is "ea TABLE", "value TABLE
+    rN", "arg TABLE rN", "bound" or "span" (several at one instruction joined by "; "). The table's
+    id is its place in "tables"."""
+    if not table:
+        return None
+    ids = {name: k for k, name in enumerate(table["tables"])}
+    sites: dict = {}
+    for program, rows in table.get("sites", {}).items():
+        home = -1 if program == "core" else int(program)
+        for address, text in rows.items():
+            for what in text.split(";"):
+                words = what.split()
+                site: dict = {"kind": words[0] if words else ""}
+                if site["kind"] in ("ea", "value", "arg"):
+                    site["table"] = ids[words[1]]
+                if site["kind"] in ("value", "arg"):
+                    site["register"] = int(words[2].lstrip("r"))
+                elif site["kind"] not in ("ea", "bound", "span"):
+                    raise ValueError(f"asm.wide: {program} {address}: {what!r} is no site")
+                sites.setdefault((home, int(address, 16)), []).append(site)
+    return {"address": table["address"], "bound": table["bound"], "span": table.get("span", ""),
+            "sites": sites}
+
+
 def asm_config(cfg: dict) -> dict | None:
     a = cfg.get("asm")
     if not a or not a.get("enabled", False):
@@ -2577,6 +2682,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.fit_declarations = bool(a.get("fit_declarations"))
     tr.register_jumps = bool(a.get("register_jumps"))
     tr.input_idioms = bool(a.get("input_idioms"))
+    tr.trap_ends = bool(a.get("trap_ends"))
     tr.vu_flush = bool(a.get("vu_flush"))
     tr.signature_check = bool(a.get("signature_check"))
     tr.result_flow = bool(a.get("result_flow"))
@@ -2585,6 +2691,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.wide_call_results = bool(a.get("wide_call_results"))
     tr.float_parameters_on_calls = bool(a.get("float_parameters_on_calls"))
     tr.stack_arguments = bool(a.get("stack_arguments"))
+    tr.wide = parse_wide(a.get("wide"))
     tr.verified_signatures = frozenset(a.get("signatures", {})) | frozenset(a.get("copy_signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)
