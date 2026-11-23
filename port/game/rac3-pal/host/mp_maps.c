@@ -137,9 +137,8 @@ static void view_layout(void (*game)(int), int layout) {
         return;
     }
     const int view = layout - (layout >= 6 ? 6 : layout >= 3 ? 3 : 1);
-    /* In the recorder's 512 x 448 (openrac_frame_screen is left as it is). */
-    const float kx = 512.0f / s_screen_w, ky = 448.0f / s_screen_h;
-    const openrac_frame_viewport rect = {r[0] * kx, r[1] * ky, r[2] * kx, r[3] * ky};
+    const openrac_frame_viewport rect = {r[0], r[1], r[2], r[3]};
+    openrac_frame_screen(s_screen_w, s_screen_h);
     openrac_frame_view_begin(view, &rect);
 }
 

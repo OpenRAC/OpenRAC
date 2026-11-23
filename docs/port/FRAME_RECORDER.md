@@ -68,11 +68,31 @@ the window scales them to the target's pixels.
 | `openrac_frame_snapshot(id)` | keeps the frame drawn so far as picture `id` (pause tiles, Holostar's frame-textured sprite) |
 | `openrac_frame_target_begin(id, w, h)` / `_end()` | draws into the off-screen panel `id` (a port id, never a GS block) until `_end` |
 | `openrac_frame_scissor(rect)` | cuts what follows to `rect` (NULL: the whole target) |
+| `openrac_frame_screen(width, height)` | the game's 2D screen the coordinates of the commands that follow are in (512 x 448 until set; kept across recordings): a game whose 2D is drawn on another size says so, and its rectangles, scissors and views are taken as they are |
+| `openrac_frame_view_begin(view, const openrac_frame_viewport* rect)` / `_view_end()` | split screen: the world recorded between them is local player view `view`'s (0 to `OPENRAC_FRAME_VIEWS` - 1), drawn into `rect` with the camera the game holds when that view's `openrac_frame_world` is recorded (see §3.1) |
 | `openrac_frame_end()` | closes the recording (optional) |
 
 Blend modes are a fixed native set: `OPENRAC_BLEND_OPAQUE`, `_MIX` (source over, by source alpha),
 `_ADD` (source times its alpha added), `_SUBTRACT` (taken away), `_MULTIPLY` (the destination
 darkened by the source's alpha). Colours are 0xAABBGGRR with 0x80 full (the games' units).
+
+### 3.1 Split screen
+
+A game with local split screen draws each player's view of the world into a part of its screen with
+that player's camera, then its 2D over the whole screen. Its host C brackets each view's world with
+`openrac_frame_view_begin(view, rect)` and `openrac_frame_view_end()`; the recording keeps each view
+(`FrameRecording::views`: the view, its rectangle and the game's screen, and the camera the game held
+when the view's `World` was recorded, read through the game's profile as the tick's camera is). The
+window (`frontend/split_views.cpp`) draws each recorded view's world alone (no 2D) with its camera
+into a picture of the view's size, the vertical field of view the game's and the horizontal one
+opened to the view's shape, and keeps it. Each frame every kept view's picture goes onto the frame at
+its rectangle in place of the one world, before anything that reads the world drawn and under the 2D
+(which still draws over the whole screen, the lines between the views included). So a game that
+draws one view a frame, alternating, keeps the others on screen as the console's frame buffer did,
+and one that draws every view in a frame refreshes them all. A recording with no view is a
+full-screen frame: the kept views are forgotten. Temporal reconstruction and the mods' heat haze,
+which follow one camera's history, are off while views are drawn. rac3's maps 50 to 53 (NTSC-U's 54
+and 55 too) do this from their view layout (`host/mp_maps.c`).
 
 `openrac_frame_strip` (vertices, ST, RGBA, material, fog line) is reserved for P5 with P4's
 material; the effect strips still come from the chain until then.
@@ -217,7 +237,7 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 |---|---|---|
 | P1 | this note; `frame.h`; recording, anchors and splices; `DrawState`; rac3's world hand-off (terrain, world mobys, moby lists, effect quads) and its UI records on the recorder; tests | P1 |
 | P1 → native UI | `openrac_frame_ui_item` drawn natively (UiItem, UiImage); the rac3 adapter, text, HUD, menus | native-UI agent |
-| P2 | the rest of rac3's markers (picture, movie, mp) onto the recorder | P2 |
+| P2 | the rest of rac3's markers (movie, mp) onto the recorder; the game's 2D screen (`openrac_frame_screen`); split-screen views (§3.1) | P2 |
 | P3, P6 | rac3's residual 2D and frame copies as `fill`/`clear`/`picture`/`snapshot`; rac3's full-screen pictures (menu backgrounds, loading, multiplayer city backgrounds) as `picture_image`/`picture_set` (P3), frame copies as `snapshot` (P6) | P3, P6 |
 | P4 | materials on effect quads, particles, strips; `ui_quad` and `effect_quad` retired | P4 |
 | R1–R3 | rac1 and rac2 onto the recorder and the core with their adapters; their full-screen pictures (rac2 title, pause and menu backgrounds, rac1 boot and pause pictures) under R2 | R1–R3 |
@@ -227,12 +247,13 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 
 | Game | On the recorder | Still markers in its list |
 |---|---|---|
-| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
+| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4); `host/movie.c`: each movie frame as a port picture (`picture_set` / `picture`, its backdrop across a wider window); `host/mp_maps.c`: the split-screen maps' views (§3.1); `host/mp_ui.c` and `host/mp_maps.c` write no marker of their own (the multiplayer screens and maps draw through `ui2d.c`, `hud.c` and `render.c`) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6) |
 | rac1, rac2 | nothing yet | all (R1) |
 
 ## 9. Tests
 
-- `frame_record_test`: a recorded frame ordered without any DMA data; anchors matched against a
+- `frame_record_test`: a recorded frame ordered without any DMA data; the game's screen stamped on
+  the commands after it; split-screen views kept in order with their rectangles and first cameras; anchors matched against a
   chain's tags and spliced in order (late list, resent list, missing anchor); recordings kept and
   chosen as the window does.
 - `renderer_direct_test` / `renderer_gif_test`: the native `DrawState` (blend presets and the GS
