@@ -143,9 +143,10 @@ int func_0013CAE8(void) {
     return 1;
 }
 
-/* The IOP mixer's settings the game sends: a block of effect settings (0x0013BF68), the voice
- * ranges (0x0013C028), the voice allocation mode (0x0013C068), the reverb (0x0013CF80), and a
- * three-word setting of the mixer's (0x0013C230). */
+/* The IOP mixer's settings the game sends, which the native mixer has no equivalent of: a block of
+ * effect settings (0x0013BF68), the voice ranges (0x0013C028), the voice allocation mode
+ * (0x0013C068) and a three-word setting of the mixer's (0x0013C230). The reverb (0x0013CF80) goes
+ * to the native reverb. */
 int func_0013BF68(int value, gaddr settings) {
     const int32_t args[2] = {value, (int32_t)settings};
     openrac_snd_request(NULL, args, 2, 0, 0);
@@ -164,9 +165,16 @@ int func_0013C068(int mode) {
     return 1;
 }
 
-int func_0013CF80(int a, int b, int c, int d, int e) {
-    const int32_t args[5] = {a, b, c, d, e};
-    openrac_snd_request(NULL, args, 5, 0, 0);
+/* snd_SetReverbEx(core, type, depth, delay, feedback): the native reverb (audio/reverb.h) takes the
+ * effect when the request is sent. */
+static int answer_reverb(const int32_t* a) {
+    openrac_sound_set_reverb(a[0], a[1], a[2], a[3], a[4]);
+    return 0;
+}
+
+int func_0013CF80(int core, int type, int depth, int delay, int feedback) {
+    const int32_t args[5] = {core, type, depth, delay, feedback};
+    openrac_snd_request(answer_reverb, args, 5, 0, 0);
     return 1;
 }
 

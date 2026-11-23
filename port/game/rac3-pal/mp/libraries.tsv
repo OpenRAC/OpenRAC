@@ -159,7 +159,7 @@ func_00193D98	989snd	rac3SndStopSound	host	snd_StopSound: the instructions of th
 func_00193BE8	989snd	rac3SndEffectSettings	host	the instructions of the boot program's func_0013BF68 (host/mp.c, sound.c)	int (int, void *)
 func_00193CA8	989snd	rac3SndVoiceRange	host	the instructions of the boot program's func_0013C028 (host/mp.c, sound.c)	int (int, int, int)
 func_00193CE8	989snd	rac3SndVoiceMode	host	the instructions of the boot program's func_0013C068 (host/mp.c, sound.c)	int (int)
-func_00194BC8	989snd	rac3SndReverbSettings	host	the instructions of the boot program's func_0013CF80 (host/mp.c, sound.c)	int (int, int, int, int, int)
+func_00194BC8	989snd	rac3SndSetReverbEx	host	the instructions of the boot program's func_0013CF80 (host/mp.c, sound.c)	int (int, int, int, int, int)
 func_00194CC8	989snd	rac3SndMovieOpen	host	the instructions of the boot program's func_0013D080 (host/mp.c, sound.c)	int (int, int, int, int, int, int)
 func_00194D40	989snd	rac3SndMovie3C	host	the instructions of the boot program's func_0013D0F8 (host/mp.c, sound.c)	int (void)
 func_00194D68	989snd	rac3SndMovie3E	host	the instructions of the boot program's func_0013D120 (host/mp.c, sound.c)	int (int, int, int, int, int)

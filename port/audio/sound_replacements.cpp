@@ -19,7 +19,7 @@
 
 #include "assets/disc/checksum.h"
 #include "assets/sound/wav.h"
-#include "audio/spu.h"
+#include "audio/mixer.h"
 #include "common/log.h"
 
 namespace openrac::audio {

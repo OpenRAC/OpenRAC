@@ -219,7 +219,7 @@ func_0013CAE8	989snd	rac3SndStopAllStreams	host	snd_StopAllStreams (rac2-ntsc fu
 func_0013BF68	989snd	rac3SndEffectSettings	host	a block of the IOP mixer's settings, which the native mixer has no equivalent of; taken as a request with nothing to do (host/sound.c)	int (int, void *)
 func_0013C028	989snd	rac3SndVoiceRange	host	the IOP's voice ranges, likewise (host/sound.c)	int (int, int, int)
 func_0013C068	989snd	rac3SndVoiceMode	host	the IOP's voice allocation mode, likewise (host/sound.c)	int (int)
-func_0013CF80	989snd	rac3SndReverbSettings	host	the IOP mixer's reverb, likewise (host/sound.c)	int (int, int, int, int, int)
+func_0013CF80	989snd	rac3SndSetReverbEx	host	snd_SetReverbEx(core, type, depth, delay, feedback) (rac2-ntsc func_00133710): the native reverb's effect, taken when the request is sent (host/sound.c)	int (int, int, int, int, int)
 func_0013C230	989snd	rac3SndMixerSetting	host	a three-word setting of the IOP's mixer, likewise (host/sound.c)	int (int, int, int)
 func_0013D080	989snd	rac3SndMovieOpen	host	snd_movie_command (IDENTIFIED.tsv): a synchronous request of the movie's sound, which the movie player plays itself; answered 0 (host/sound.c)	int (int, int, int, int, int, int)
 func_0013D0F8	989snd	rac3SndMovie3C	host	likewise (host/sound.c)	int (void)

@@ -49,9 +49,14 @@ int lfo_sine(int step) {
     return static_cast<int>(32767.0 * std::cos(2.0 * std::numbers::pi * step / 2048.0));
 }
 
-// The mixer's volume registers are half the library's signed 16-bit volume.
-std::uint16_t volume_register(std::int16_t v) {
-    return static_cast<std::uint16_t>(v >> 1);
+// The library's signed 16-bit volume as a voice's gain.
+float voice_gain(std::int16_t v) {
+    return static_cast<float>(v) / 32768.0f;
+}
+
+// A slot's left and right gain at a group's master volume.
+std::array<float, 2> slot_gain(const std::array<std::int16_t, 2>& base, std::int32_t master) {
+    return {voice_gain(group_volume(base[0], master)), voice_gain(group_volume(base[1], master))};
 }
 
 }  // namespace
@@ -143,7 +148,10 @@ void replace_sound_sample(
 
 struct SoundPlayer::Bank {
     assets::SoundBank bank;
-    SampleData samples;
+    // Each tone's sample, decoded once (by its offset in the sample chunk), and each envelope the
+    // tones' ADSR fields describe (by the two fields).
+    std::map<std::uint32_t, PcmData> pcm;
+    std::map<std::uint32_t, EnvelopeShape> envelopes;
     // RAND_PLAY's last pick and PLAY_CYCLE's position live in the grain on
     // the console, shared by every play of the sound: here, per grain.
     std::vector<std::int16_t> grain_state;
@@ -199,7 +207,7 @@ struct SoundPlayer::Script {
     std::array<Lfo, 4> lfos{};
 };
 
-SoundPlayer::SoundPlayer() : m_slots(kVoiceCount) {
+SoundPlayer::SoundPlayer() : m_mixer(kVoiceCount), m_slots(kVoiceCount) {
     m_master.fill(kFullVolume);
 }
 
@@ -232,7 +240,28 @@ BankHandle SoundPlayer::load_bank_at(
         }
     }
 
-    b->samples = std::make_shared<const std::vector<std::uint8_t>>(b->bank.samples);
+    // The tones' samples to float and their envelopes to rates and levels, once.
+    for (const assets::Grain& g : b->bank.grains) {
+        // Only tones have a sample.
+        if (!g.is_tone()) {
+            continue;
+        }
+
+        const assets::Tone tone = g.tone();
+
+        // A sample shared by several tones is decoded once.
+        if (!b->pcm.contains(tone.sample_offset)) {
+            b->pcm.emplace(tone.sample_offset, decode_sample(b->bank.samples, tone.sample_offset));
+        }
+
+        const std::uint32_t adsr = static_cast<std::uint32_t>(tone.adsr2) << 16 | tone.adsr1;
+
+        // An envelope shared by several tones is read once.
+        if (!b->envelopes.contains(adsr)) {
+            b->envelopes.emplace(adsr, envelope_shape(tone.adsr1, tone.adsr2));
+        }
+    }
+
     b->grain_state.assign(b->bank.grains.size(), 0);
     m_banks.emplace(handle, std::move(b));
     m_next_bank = std::max(m_next_bank, handle + 1);
@@ -454,10 +483,7 @@ void SoundPlayer::set_master_volume(std::size_t group, std::int32_t volume) {
         // Each voice of the sound gets its volume again, scaled by the new master.
         for (const std::size_t v : voices_of(*s)) {
             const Slot& slot = m_slots[v];
-            m_mixer.voice(v).set_volume({
-                volume_register(group_volume(slot.base[0], volume)),
-                volume_register(group_volume(slot.base[1], volume)),
-            });
+            m_mixer.voice(v).set_gain(slot_gain(slot.base, volume));
         }
     }
 }
@@ -474,8 +500,8 @@ void SoundPlayer::pause_groups(std::uint32_t mask) {
 
         // Pausing mutes the voice and stops its sample, so the position stays where it was.
         for (const std::size_t v : voices_of(*s)) {
-            m_mixer.voice(v).set_volume({0, 0});
-            m_mixer.voice(v).set_pitch(0);
+            m_mixer.voice(v).set_gain({0.0f, 0.0f});
+            m_mixer.voice(v).set_speed(0.0f);
         }
     }
 }
@@ -496,10 +522,7 @@ void SoundPlayer::continue_groups(std::uint32_t mask) {
         // the pitch.
         for (const std::size_t v : voices_of(*s)) {
             const Slot& slot = m_slots[v];
-            m_mixer.voice(v).set_volume({
-                volume_register(group_volume(slot.base[0], master)),
-                volume_register(group_volume(slot.base[1], master)),
-            });
+            m_mixer.voice(v).set_gain(slot_gain(slot.base, master));
         }
 
         apply_pitch(*s);
@@ -508,7 +531,7 @@ void SoundPlayer::continue_groups(std::uint32_t mask) {
 
 // ---- Ticking and voices ----
 
-void SoundPlayer::render(std::span<std::int16_t> interleaved) {
+void SoundPlayer::render(std::span<float> interleaved) {
     // One iteration per stereo frame; a trailing odd sample is left alone.
     for (std::size_t i = 0; i + 1 < interleaved.size(); i += 2) {
         // The library's tick comes every kFramesPerTick frames, so the grains run at the library's
@@ -699,21 +722,19 @@ void SoundPlayer::start_tone(Script& s, const assets::Tone& tone) {
     slot.tone_pan = pan;
     slot.base = make_volume(127, 0, s.volume, s.pan, vol, pan);
     Voice& voice = m_mixer.voice(*v);
-    voice.key_on_memory(
-        s.bank->samples,
-        tone.sample_offset,
-        tone_pitch(tone, s.pitch_bend, s.pitch_mod),
-        tone.adsr1,
-        tone.adsr2
+    const auto pcm = s.bank->pcm.find(tone.sample_offset);
+    const auto shape =
+        s.bank->envelopes.find(static_cast<std::uint32_t>(tone.adsr2) << 16 | tone.adsr1);
+    voice.key_on(
+        pcm != s.bank->pcm.end() ? pcm->second : nullptr,
+        tone_speed(tone, s.pitch_bend, s.pitch_mod),
+        shape != s.bank->envelopes.end() ? shape->second : envelope_shape(tone.adsr1, tone.adsr2)
     );
     slot.generation = voice.generation();
     voice.set_reverb((tone.flags & assets::kToneToReverb) != 0);
     const std::int32_t master =
         s.group < static_cast<int>(kVolumeGroups) ? m_master[s.group] : kFullVolume;
-    voice.set_volume({
-        volume_register(group_volume(slot.base[0], master)),
-        volume_register(group_volume(slot.base[1], master)),
-    });
+    voice.set_gain(slot_gain(slot.base, master));
 }
 
 void SoundPlayer::apply_volume(Script& s, std::int32_t volume, std::int32_t pan) {
@@ -757,10 +778,7 @@ void SoundPlayer::apply_volume(Script& s, std::int32_t volume, std::int32_t pan)
 
         // Paused sounds stay silent: they get the volume when they continue.
         if (!s.paused) {
-            m_mixer.voice(v).set_volume({
-                volume_register(group_volume(slot.base[0], master)),
-                volume_register(group_volume(slot.base[1], master)),
-            });
+            m_mixer.voice(v).set_gain(slot_gain(slot.base, master));
         }
     }
 }
@@ -776,7 +794,7 @@ void SoundPlayer::apply_pitch(Script& s) {
 
     // Every voice of the sound plays at the tone's pitch plus the sound's bend and modulation.
     for (const std::size_t v : voices_of(s)) {
-        m_mixer.voice(v).set_pitch(tone_pitch(m_slots[v].tone, s.pitch_bend, s.pitch_mod));
+        m_mixer.voice(v).set_speed(tone_speed(m_slots[v].tone, s.pitch_bend, s.pitch_mod));
     }
 }
 
@@ -1093,7 +1111,7 @@ void SoundPlayer::run_grain(Script& s) {
             // Cut every voice of the sound: release and mute.
             for (const std::size_t v : voices_of(s)) {
                 m_mixer.voice(v).key_off();
-                m_mixer.voice(v).set_volume({0, 0});
+                m_mixer.voice(v).set_gain({0.0f, 0.0f});
             }
 
             break;

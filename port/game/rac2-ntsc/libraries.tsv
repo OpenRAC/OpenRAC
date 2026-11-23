@@ -177,7 +177,7 @@ func_00132028	989snd	snd_Pump	host	symbol_addrs.txt snd_Pump: the callbacks of t
 func_00132A10	989snd	snd_PlaySoundVolPanPMPB_CB	host	the decompilation's snd_send_cmd11_six_values_callback: a sound played, its handle told to the callback at the next pump (lib/snd.c)
 func_00132BC0	989snd	snd_SetSoundParams_CB	host	the decompilation's snd_send_cmd21_callback: a sound's volume, pan and pitch set, its handle (0 once ended) told to the callback at the next pump (lib/snd.c)
 func_00132978	989snd	rac2SndMixerMode	host	the decompilation's snd_send_cmd_0d: the IOP mixer's mode, which the native mixer has no equivalent of; taken as a request with nothing to do (host/sound.c)	void (int, int)
-func_00133710	989snd	rac2SndReverbSettings	host	the decompilation's snd_send_cmd50_five_values: the IOP mixer's reverb, likewise (host/sound.c)	void (int, int, int, int, int)
+func_00133710	989snd	rac2SndSetReverbEx	host	the decompilation's snd_send_cmd50_five_values: snd_SetReverbEx(core, type, depth, delay, feedback) (func_002E5898), the native reverb's effect, taken when the request is sent (host/sound.c)	void (int, int, int, int, int)
 func_001328C0	989snd	rac2SndEffectSettings	host	the decompilation's snd_send_cmd96_with_settings: a block of the IOP mixer's settings, likewise (host/sound.c)	void (int, void *)
 func_001329B0	989snd	rac2SndVoiceRange	host	the decompilation's snd_send_cmd78: the IOP's voice ranges, likewise (host/sound.c)	void (int, int, int)
 func_001337F0	989snd	rac2SndMovie4A	host	the decompilation's snd_send_cmd4a: a synchronous request of the movie's sound, which the movie player plays itself; nothing to do once the callbacks out have run (host/sound.c)	void (void)

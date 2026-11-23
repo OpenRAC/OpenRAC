@@ -8,6 +8,7 @@
 #include "audio/sound_player.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "tests/check.h"
 
@@ -112,15 +113,15 @@ std::size_t active_voices(SoundPlayer& p) {
     return p.mixer().active_voices();
 }
 
-// Renders `ticks` script ticks and returns the loudest sample.
+// Renders `ticks` script ticks and returns the loudest sample, in 16-bit steps.
 int render_ticks(SoundPlayer& p, int ticks) {
-    std::vector<std::int16_t> out(static_cast<std::size_t>(2 * kFramesPerTick * ticks));
+    std::vector<float> out(static_cast<std::size_t>(2 * kFramesPerTick * ticks));
     p.render(out);
-    int loudest = 0;
-    for (const std::int16_t s : out) {
-        loudest = std::max(loudest, std::abs(static_cast<int>(s)));
+    float loudest = 0.0f;
+    for (const float s : out) {
+        loudest = std::max(loudest, std::abs(s));
     }
-    return loudest;
+    return static_cast<int>(std::lround(loudest * 32768.0f));
 }
 
 void volume_and_pan() {
@@ -207,17 +208,17 @@ void pausing_and_groups() {
     SoundPlayer p;
     const auto bank = p.load_bank(make_bank({{127, 3, 0, 0, {{kTone}}}}));
     p.play(bank, 0);
-    const auto before = p.mixer().voice(0).volume();
-    CHECK(before[0] != 0);
+    const auto before = p.mixer().voice(0).gain();
+    CHECK(before[0] != 0.0f);
     p.pause_groups(1u << 3);
-    CHECK((p.mixer().voice(0).volume() == std::array<std::uint16_t, 2>{0, 0}));
-    CHECK(p.mixer().voice(0).pitch() == 0);
+    CHECK((p.mixer().voice(0).gain() == std::array<float, 2>{0.0f, 0.0f}));
+    CHECK(p.mixer().voice(0).speed() == 0.0f);
     p.continue_groups(1u << 3);
-    CHECK(p.mixer().voice(0).volume() == before && p.mixer().voice(0).pitch() != 0);
+    CHECK(p.mixer().voice(0).gain() == before && p.mixer().voice(0).speed() != 0.0f);
     p.set_master_volume(3, 0);
-    CHECK((p.mixer().voice(0).volume() == std::array<std::uint16_t, 2>{0, 0}));
+    CHECK((p.mixer().voice(0).gain() == std::array<float, 2>{0.0f, 0.0f}));
     p.set_master_volume(3, kFullVolume);
-    CHECK(p.mixer().voice(0).volume() == before);
+    CHECK(p.mixer().voice(0).gain() == before);
     // Unloading the bank silences its sounds.
     p.unload_bank(bank);
     CHECK(p.sounds_playing() == 0 && active_voices(p) == 0 && !p.bank(bank));

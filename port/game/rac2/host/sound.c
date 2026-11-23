@@ -15,6 +15,7 @@
 
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
+#include "openrac/sound_engine.h"
 #include "rac2.h"
 
 /* snd_SendIOPCommandNoWait (0x00132DF0) and snd_SendCommandSync (0x00132C48): every entry point
@@ -48,17 +49,24 @@ int func_00132C48(int command_arg, int bytes, int data_arg) {
     return 0;
 }
 
-/* The IOP mixer's settings the game sends (one, two, three, five or seven words): the mixer mode
- * (0x00132978), the reverb (0x00133710), the effect settings block (0x001328C0) and the voice
- * ranges (0x001329B0). */
+/* The IOP mixer's settings the game sends, which the native mixer has no equivalent of: the mixer
+ * mode (0x00132978), the effect settings block (0x001328C0) and the voice ranges (0x001329B0). The
+ * reverb (0x00133710) goes to the native reverb. */
 void func_00132978(int a, int b) {
     const int32_t args[2] = {a, b};
     openrac_snd_request(NULL, args, 2, 0, 0);
 }
 
-void func_00133710(int a, int b, int c, int d, int e) {
-    const int32_t args[5] = {a, b, c, d, e};
-    openrac_snd_request(NULL, args, 5, 0, 0);
+/* snd_SetReverbEx(core, type, depth, delay, feedback): the native reverb (audio/reverb.h) takes the
+ * effect when the request is sent. */
+static int answer_reverb(const int32_t* a) {
+    openrac_sound_set_reverb(a[0], a[1], a[2], a[3], a[4]);
+    return 0;
+}
+
+void func_00133710(int core, int type, int depth, int delay, int feedback) {
+    const int32_t args[5] = {core, type, depth, delay, feedback};
+    openrac_snd_request(answer_reverb, args, 5, 0, 0);
 }
 
 void func_001328C0(int value, gaddr settings) {

@@ -262,11 +262,11 @@ void openrac_lib_snd_PreAllocReverbWorkArea(int a, int b) {
     (void)b;
 } /* snd_PreAllocReverbWorkArea */
 
+/* snd_AutoReverb(core, depth, delta, channels): the reverb's depth glides there over `delta`
+ * ticks. */
 void openrac_lib_snd_AutoReverb(int a, int b, int c, int d) {
-    (void)a;
-    (void)b;
-    (void)c;
     (void)d;
+    openrac_sound_auto_reverb(a, b, c);
 } /* snd_AutoReverb */
 
 void openrac_lib_snd_ResetMovieSound(void) {} /* snd_ResetMovieSound */

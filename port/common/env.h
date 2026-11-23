@@ -57,6 +57,8 @@ enum class Var : std::uint16_t {
     AsrQuality,
     AudioBufferMs,
     AudioDump,
+    AudioReverb,
+    AudioStats,
     AudioTicked,
     Camera,
     CameraInstanceCullOff,
