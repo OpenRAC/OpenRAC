@@ -1162,6 +1162,8 @@ impl SaveFile {
                 }
             }
         }
+        // Older launchers could leave a hole in the list, which hid the levels after it.
+        self.repair_map_order();
 
         for (d, (w, h)) in rac2_flags::all().zip(want.flags.iter().zip(&have.flags)) {
             if w.on != h.on {
@@ -1244,31 +1246,55 @@ impl SaveFile {
         }
     }
 
-    /// Available, and added to the galactic map's list after the levels available before it.
+    /// Available, and on the galactic map's list as the game's `MarkLevelAvailable` does it.
     fn make_available(&mut self, l: usize) {
-        let n = self.global.get(id::AVAILABLE).iter().filter(|&&u| u != 0).count();
         self.global.get_mut(id::AVAILABLE)[l] = 1;
-        let order = self.global.get_mut(id::MAP_ORDER);
-        let listed = (0..n.min(order.len() / 4)).any(|i| i32_at(order, i) == l as i32);
-        if !listed && n < order.len() / 4 {
-            set_i32(order, n, l as i32);
+        let mut list = self.map_order();
+        if map_listed(l) && !list.contains(&(l as i32)) {
+            list.push(l as i32);
         }
+        self.set_map_order(&list);
     }
 
     /// The reverse: not available, and off the galactic map's list, the later levels moving up.
     fn make_unavailable(&mut self, l: usize) {
-        let n = self.global.get(id::AVAILABLE).iter().filter(|&&u| u != 0).count();
         self.global.get_mut(id::AVAILABLE)[l] = 0;
-        let order = self.global.get_mut(id::MAP_ORDER);
-        let len = n.min(order.len() / 4);
-        let mut list: Vec<i32> = (0..len).map(|i| i32_at(order, i)).collect();
-        if let Some(at) = list.iter().position(|&q| q == l as i32) {
-            list.remove(at);
+        let list: Vec<i32> = self.map_order().into_iter().filter(|&q| q != l as i32).collect();
+        self.set_map_order(&list);
+    }
+
+    /// The galactic map's list without holes: the ship's map stops at the first 0, so a level
+    /// after a hole is never shown. Every available level the game lists is on it, in its order.
+    fn repair_map_order(&mut self) {
+        let mut list = self.map_order();
+        let available = self.global.get(id::AVAILABLE);
+        for l in (0..available.len()).filter(|&l| available[l] != 0 && map_listed(l)) {
+            if !list.contains(&(l as i32)) {
+                list.push(l as i32);
+            }
         }
-        for i in 0..len {
+        self.set_map_order(&list);
+    }
+
+    /// The list's levels in order, holes skipped.
+    fn map_order(&self) -> Vec<i32> {
+        let order = self.global.get(id::MAP_ORDER);
+        (0..order.len() / 4).map(|i| i32_at(order, i)).filter(|&q| q != 0).collect()
+    }
+
+    fn set_map_order(&mut self, list: &[i32]) {
+        let order = self.global.get_mut(id::MAP_ORDER);
+        for i in 0..order.len() / 4 {
             set_i32(order, i, list.get(i).copied().unwrap_or(0));
         }
     }
+}
+
+/// Whether the game puts level `l` on the galactic map's list when it becomes available:
+/// `MarkLevelAvailable` lists levels below 0x15 and the Ship Shack (24) only; the others get the
+/// flag alone. Level 0 is never listed (0 ends the list).
+fn map_listed(l: usize) -> bool {
+    l != 0 && (l < 0x15 || l == 24)
 }
 
 /// Whether Ratchet can hold `d`: a weapon he does not use up at once ([`NEVER_HELD`]).
@@ -2311,6 +2337,37 @@ mod tests {
         let order = f.global.get(id::MAP_ORDER);
         assert_eq!((0..3).map(|i| i32_at(order, i)).collect::<Vec<_>>(), [3, 4, 0]);
         assert_eq!(f.global.get(id::AVAILABLE)[1], 0);
+    }
+
+    #[test]
+    fn a_level_after_a_flag_only_level_has_no_hole_before_it() {
+        // Dobbo Orbit (22) gets the flag alone in the game: the next level must still follow 1.
+        let mut f = oozla();
+        f.global.get_mut(id::AVAILABLE)[22] = 1;
+        let mut want = f.fields();
+        want.planets.iter_mut().find(|p| p.id == 18).unwrap().available = true;
+        f.apply(&want).unwrap();
+        let order = f.global.get(id::MAP_ORDER);
+        assert_eq!((0..3).map(|i| i32_at(order, i)).collect::<Vec<_>>(), [1, 18, 0]);
+        let mut want = f.fields();
+        want.planets.iter_mut().find(|p| p.id == 23).unwrap().available = true;
+        f.apply(&want).unwrap();
+        assert_eq!(f.global.get(id::AVAILABLE)[23], 1);
+        let order = f.global.get(id::MAP_ORDER);
+        assert_eq!((0..3).map(|i| i32_at(order, i)).collect::<Vec<_>>(), [1, 18, 0], "23 is never listed");
+    }
+
+    #[test]
+    fn a_save_with_a_hole_in_the_list_is_repaired() {
+        // What older launchers wrote: Damosel two places after Oozla, so the ship's map hid it.
+        let mut f = oozla();
+        f.global.get_mut(id::AVAILABLE)[18] = 1;
+        set_i32(f.global.get_mut(id::MAP_ORDER), 2, 18);
+        let mut want = f.fields();
+        want.bolts += 1;
+        f.apply(&want).unwrap();
+        let order = f.global.get(id::MAP_ORDER);
+        assert_eq!((0..3).map(|i| i32_at(order, i)).collect::<Vec<_>>(), [1, 18, 0]);
     }
 
     #[test]
