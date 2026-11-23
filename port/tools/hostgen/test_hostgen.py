@@ -2628,6 +2628,35 @@ class Places(unittest.TestCase):
             self.assertNotIn("OPENRAC_LDATA(13, 0x0021ED00u)", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_level_files_name_for_an_executable_datum_is_where_the_build_put_it(self):
+        # PAL Todano lifts name the sound slots D_00701818; the level's build put them at
+        # 0x001886E0. Read at the name's number, a lift started its sound again every frame.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "12_x").mkdir(parents=True)
+            (src / "src" / "levels" / "12_x" / "L12_00423C50.c").write_text(
+                "extern unsigned char D_00701818[];\n"
+                "int func_L12_00423D70(int i) { return D_00701818[i * 112 + 0x74]; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L12_00423D70\t12_x\t4\tfingerprint\t1\t12:00423D70\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {},
+                "level_data": {"12": {"D_00701818": "0x001886e0"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7D00, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "12_x" / "L12_00423C50.c").read_text()
+            self.assertIn("0x001886E0u", text)
+            self.assertNotIn("0x00701818u", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_level_datums_second_name_is_its_own_address(self):
         # Going Commando PAL's blast_clear_state clears D_L00_001B060C_1, the Mini-Nuke's blast
         # pointer. The release table leaves it out where it did not move; read as the executable's

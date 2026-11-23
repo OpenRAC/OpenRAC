@@ -2448,6 +2448,10 @@ class Unit:
                         and (self.fn.code, placed) in getattr(self.program, "data_copies", ()))
             if placed is not None and low <= placed < high and not own_copy:
                 return f"OPENRAC_LDATA({level}, {hexaddr(placed)})"
+            if placed is not None and placed < low and placed != address:
+                # An executable datum the level's build placed below the moving range: use that
+                # address, not the name's number (PAL Todano lifts: D_00701818 is 0x001886E0).
+                return hexaddr(placed)
         formed =getattr(self.program, "formed_as", {}).get(symbol or "")
         if formed is not None:
             # An address the code only forms with something added (hostgen.json "formed_as"): pairing
