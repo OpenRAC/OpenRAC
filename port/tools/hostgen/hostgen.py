@@ -639,6 +639,11 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
         fn += [f"    {{(openrac_host_fn){cname(sym)}, thunk_{k}}}," for k, (sym, _t) in enumerate(thunks)
                if k not in kept]
         fn += ["};", "#endif", ""]
+    copies = getattr(program, "level_copies", [])
+    if copies:
+        fn.append("static const openrac_level_copy k_level_copies[] = {")
+        fn += [f"    {{{lv}, 0x{a:08X}u, {src}, 0x{sa:08X}u}}," for lv, a, src, sa in copies]
+        fn += ["};", ""]
     fn.append(f"void {program_module.NAME_PREFIX}openrac_game_register_functions(void) {{")
     for overlay in sorted(code_tables):
         name = "exe" if overlay < 0 else f"overlay_{overlay:02d}"
@@ -648,6 +653,8 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
     if thunks:
         fn += ["#if OPENRAC_REGS_THUNKS", "    openrac_guest_register_thunks(k_thunks, sizeof k_thunks / sizeof k_thunks[0]);",
                "#endif"]
+    if copies:
+        fn.append("    openrac_guest_add_level_copies(k_level_copies, sizeof k_level_copies / sizeof k_level_copies[0]);")
     fn.append("}")
     _write(out / "functions.c", "\n".join(fn) + "\n")
     return {"stubs": stub_count, "unprototyped": unprototyped,
@@ -1358,6 +1365,27 @@ def new_program(cfg: dict, source: Path) -> Program:
     return program
 
 
+def read_level_copies(path: Path, source: int, levels: set) -> list:
+    """(level, address, source level, its address) for each catalogue row with a place in `source`
+    and in one of `levels` (rac3-decomp's config/levels/functions.tsv: places in the 7th column)."""
+    out = []
+    for line in path.read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 7:
+            continue
+        places = {}
+        for item in cols[6].split(","):
+            if ":" in item:
+                level, address = item.split(":")
+                if level.isdigit():
+                    places.setdefault(int(level), int(address, 16))
+        if source not in places:
+            continue
+        for level in sorted(levels & set(places)):
+            out.append((level, places[level], source, places[source]))
+    return out
+
+
 def configure_program(program: Program, args: argparse.Namespace, cfg: dict, source: Path) -> dict:
     """The places, the host's functions and the hostgen.json lists the lowering reads, set on the
     program. Returns the signatures the port's own versions give (symbol -> text).
@@ -1374,6 +1402,16 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
             program.sizes = {in_release(k): v for k, v in program.sizes.items()}
     if cfg.get("split_places"):
         read_split_places(args.game.parent / cfg["split_places"], program)
+    # hostgen.json "level_copies": {"places": <catalogue>, "from": N, "levels": [...]}: for a program
+    # whose levels are translated each at its own addresses (the multiplayer executable's maps), the
+    # catalogue's places of each row in level N and in the levels listed, handed to the runtime
+    # (openrac_guest_add_level_copies) so that OPENRAC_LDATA(N, ...) pairs level N's functions with
+    # their copies in the loaded level, as it does for a program whose copies share one function.
+    program.level_copies = []
+    if cfg.get("level_copies"):
+        program.level_copies = read_level_copies(source / cfg["level_copies"]["places"],
+                                                 int(cfg["level_copies"]["from"]),
+                                                 {int(x) for x in cfg["level_copies"]["levels"]})
     if cfg.get("folded_wrappers"):
         # hostgen.json "folded_wrappers": a variant_callees.py table (its callers) of the wrappers
         # whose level copies call different functions (asmc.py: their jals follow the running copy),
@@ -1472,6 +1510,25 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # local names): lower.py keeps them 32-bit.
     program.spilled_locals = {sym: list(names) for sym, names in cfg.get("spilled_locals", {}).items()}
     program.entries = {sym: int(str(off), 0) for sym, off in cfg.get("entries", {}).items()}
+    program.inner_entries = set(cfg.get("inner_entries", []))
+    # hostgen.json "inner_extents": {"places": <catalogue>, "levels": [...]}: each catalogue row's
+    # span (its place and size) in those levels, inside which no address starts a function
+    # (retail.starts_of): a second executable's levels whose functions the catalogue sizes but no
+    # C names (rac3's multiplayer maps).
+    program.inner_extents = {}
+    if cfg.get("inner_extents"):
+        wanted = {int(n) for n in cfg["inner_extents"]["levels"]}
+        for line in (source / cfg["inner_extents"]["places"]).read_text().splitlines():
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 7 or not cols[2].isdigit() or int(cols[2]) <= 4:
+                continue
+            for item in cols[6].split(","):
+                level, _, address = item.partition(":")
+                if address and level.isdigit() and int(level) in wanted:
+                    start = int(address, 16)
+                    program.inner_extents.setdefault(int(level), []).append((start, start + int(cols[2])))
+        for spans in program.inner_extents.values():
+            spans.sort()
     # Stubs of the executable that every level program fills with a function of its own.
     program.level_hooks = set(cfg.get("level_hooks", []))
     program.level_hooks_by_registers = cfg.get("level_hooks_by_registers", False)
@@ -1547,7 +1604,8 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     # functions its retail program alone gives): declared with its verified signature, so that the
     # port's C that wraps it compiles against one prototype whether the build reads the disc or not.
     for sym in sorted(program.wrap):
-        text = (cfg.get("asm") or {}).get("signatures", {}).get(sym)
+        text = (cfg.get("asm") or {}).get("signatures", {}).get(sym) or (
+            (cfg.get("asm") or {}).get("copy_signatures", {}).get(sym))
         if sym not in program.functions and text:
             program.functions[sym] = Function(sym, Signature.of(ctype.parse(text)), None, asm=True)
     for sym, text in host_sigs.items():
@@ -1699,7 +1757,8 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
         if asm_stage is not None and not asm_stage.translated and not asm_stage.external:
             # Nothing translated from the disc (OPENRAC_HOSTGEN_NO_DISC, CI): whether a callee whose
             # result no code backs sets the register its callers read cannot be judged.
-            verified = set((cfg.get("asm") or {}).get("signatures", {}))
+            verified = set((cfg.get("asm") or {}).get("signatures", {})) | set(
+                (cfg.get("asm") or {}).get("copy_signatures", {}))
             extra["result_unjudged"] = sorted(unbacked_results(program, verified))
     (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units)
                                    + "".join(f + "\n" for f in asm_files))

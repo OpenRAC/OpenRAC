@@ -62,6 +62,20 @@ class Extents(unittest.TestCase):
         program.level_extents = False
         self.assertIn(0x003242C8, retail.starts_of(program)[1])
 
+    def test_inner_entries_and_extents_start_nothing(self):
+        # rac3's multiplayer map 40: its entry (func_L39_00575CC8's copy, 0xB70 bytes) has a second
+        # entry 0x484 in and a jump table whose labels lie past both it and 0x00442D00.
+        names = ("func_L40_004425C8", "func_L40_00442A4C", "func_L40_00442D00", "func_L40_00443138")
+        program = SimpleNamespace(
+            functions={n: SimpleNamespace(unit=None) for n in names},
+            code_places=lambda sym: [(40, int(sym[9:], 16))],
+            inner_entries={"func_L40_00442A4C"},
+            inner_extents={40: [(0x004425C8, 0x00443138)]},
+        )
+        self.assertEqual(sorted(retail.starts_of(program)[40]), [0x004425C8, 0x00443138])
+        program.inner_extents = {}
+        self.assertEqual(sorted(retail.starts_of(program)[40]), [0x004425C8, 0x00442D00, 0x00443138])
+
     def test_without_the_key_nothing_changes(self):
         self.assertEqual(hostgen.read_extents(None, Path(".")), {})
 

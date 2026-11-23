@@ -465,6 +465,20 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
         // player's by the pad's.
         latch_scripted_stick(analog[0]);
     }
+    // OPENRAC_PRESS2=FRAME:MASK:FRAMES,...: port 1's buttons by script (a second local player),
+    // counted on the window's frames as OPENRAC_PRESS's plain windows are.
+    static const std::optional<std::string> press2 = env_string(env::Var::Press2);
+    if (port == 1 && press2) {
+        for (const char* at = press2->c_str(); at && *at;) {
+            unsigned long frame = 0, mask = 0, length = 5;
+            if (std::sscanf(at, "%lu:%lx:%lu", &frame, &mask, &length) >= 2 && g->index >= frame
+                && g->index < frame + length) {
+                *buttons = static_cast<std::uint16_t>(*buttons & ~mask);
+            }
+            at = std::strchr(at, ',');
+            at = at ? at + 1 : nullptr;
+        }
+    }
     if (port == 0) {
         scripted_pad(*buttons, analog);  // [debug tools] OPENRAC_RECORD, _REPLAY and _WALK
     }

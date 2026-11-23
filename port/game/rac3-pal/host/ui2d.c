@@ -1402,6 +1402,48 @@ MP_GLYPH_SHADOWED(mp_func_0027FB60)
 MP_GLYPH_QUAD(mp_func_0027F458, MP_CURSOR)
 MP_GLYPH_QUAD(mp_func_L39_0058B868, MP_MENUS_CURSOR)
 
+/* The multiplayer executable's own glyph quad with its place in floats (the core's 0x0027F5E8,
+ * level 39's 0x0058B9F8, the maps' copies; the boot program has none): the texels (u, v) and their
+ * size, the colour and the TEX0, then x, y, w and h in pixels, scaled by 16 and cut to whole
+ * sixteenths as glyph_quad's are. It draws the map loading screen's weapon icons; from the game's
+ * packets they drew with no texture. */
+#define MP_FLOAT_GLYPH_QUAD(name, cursor)                                                          \
+    void name(                                                                                     \
+        int u,                                                                                     \
+        int v,                                                                                     \
+        int uw,                                                                                    \
+        int vh,                                                                                    \
+        long long rgba,                                                                            \
+        long long tex0,                                                                            \
+        float x,                                                                                   \
+        float y,                                                                                   \
+        float w,                                                                                   \
+        float h                                                                                    \
+    ) {                                                                                            \
+        openrac_game_ui_rect q;                                                                    \
+        memset(&q, 0, sizeof(q));                                                                  \
+        openrac_ui_rect(                                                                           \
+            &q,                                                                                    \
+            to_screen_x((int)(x * 16.0f)),                                                         \
+            to_screen_y((int)(y * 16.0f)),                                                         \
+            to_screen_x((int)((x + w) * 16.0f)),                                                   \
+            to_screen_y((int)((y + h) * 16.0f)),                                                   \
+            u * 16,                                                                                \
+            v * 16,                                                                                \
+            (u + uw) * 16,                                                                         \
+            (v + vh) * 16                                                                          \
+        );                                                                                         \
+        q.z = FAR_Z;                                                                               \
+        q.rgba = (uint32_t)rgba;                                                                   \
+        q.tex0 = (unsigned long long)tex0;                                                         \
+        q.flags = g_glyphs > 0 ? 1u : 0u;                                                          \
+        if (!openrac_ui_send(&q, cursor)) {                                                        \
+            name##__game(u, v, uw, vh, rgba, tex0, x, y, w, h);                                    \
+        }                                                                                          \
+    }
+MP_FLOAT_GLYPH_QUAD(mp_func_0027F5E8, MP_CURSOR)
+MP_FLOAT_GLYPH_QUAD(mp_func_L39_0058B9F8, MP_MENUS_CURSOR)
+
 #define MP_TURNED_GLYPH_QUAD(name, cursor, sine, cosine)                                           \
     void name(                                                                                     \
         int x,                                                                                     \
@@ -1486,9 +1528,207 @@ void mp_func_L39_0059CFD0(int tex, gaddr colours, float x, float y, float w, flo
     }
 }
 
+/* The core's turned HUD quad (0x00285318, the boot program's func_00397A18 instruction for
+ * instruction, its HUD depth word 0x00244414 where the boot program's is 0x001D9E94): the map
+ * loading screen's weapon icons, which the game's packets drew with no texture. */
+void mp_func_00285318(
+    float x, float y, float w, float h, float ang, int tw, int th, long long tex0
+) {
+    const float s = mp_func_002804B0(ang), c = mp_func_00280498(ang);
+    const uint32_t z = GREF(uint32_t, RAC3_MADDR(0x00244414u));
+    if (!hud_quad_turned(MP_CURSOR, x, y, w, h, s, c, tw, th, (unsigned long long)tex0, z)) {
+        mp_func_00285318__game(x, y, w, h, ang, tw, th, tex0);
+    }
+}
+
 /* Level 39's one-colour and shadowed glyphs, inside its prints. */
 MP_GLYPH(mp_func_L39_0058BBB0)
 MP_GLYPH_SHADOWED(mp_func_L39_0058BF70)
+
+/* The multiplayer maps' copies of level 39's 2D layer (mp/maps.py, host/mp_maps.h: each map's place
+ * of each), drawn as level 39's: its cursor and HUD tables relocated to the map's (OPENRAC_LDATA(39,
+ * ...): the programs the next-program hook keeps), and the HUD's depth word, which the menus leave
+ * at 0 and the maps' HUD sets (Veldin's 0x001DFD0C, level 39's 0x0024BCEC). */
+#define MP_MAP_CURSOR OPENRAC_LDATA(39, MP_MENUS_CURSOR)
+
+Rac3Ui2d rac3_ui2d_mp_level(void) {
+    const Rac3Ui2d u = {
+        MP_MAP_CURSOR,
+        OPENRAC_LDATA(39, RAC3_LADDR(39, 0x0024BD00u)),
+        OPENRAC_LDATA(39, RAC3_LADDR(39, 0x0024BD04u)),
+        OPENRAC_LDATA(39, RAC3_LADDR(39, 0x0024BCECu)),
+    };
+    return u;
+}
+
+/* The turned sprite and the turned HUD quad of level 39's copy (the boot program's func_0038C0B8
+ * and func_00397A18, as the single-player levels' func_L01_00406B10 and func_L01_00421278). */
+#define MP_ROTATED_SPRITE(name, sine, cosine)                                                      \
+    void name(                                                                                     \
+        float px,                                                                                  \
+        float py,                                                                                  \
+        float sx,                                                                                  \
+        float sy,                                                                                  \
+        float ang,                                                                                 \
+        int w,                                                                                     \
+        int h,                                                                                     \
+        long long tex,                                                                             \
+        int z,                                                                                     \
+        int rgba,                                                                                  \
+        int fx,                                                                                    \
+        int fy,                                                                                    \
+        float ax,                                                                                  \
+        float ay                                                                                   \
+    ) {                                                                                            \
+        const float s = sine(ang), c = cosine(ang);                                                \
+        if (!rotated_sprite(                                                                       \
+                MP_MAP_CURSOR, px, py, sx, sy, s, c, w, h, tex, z, rgba, fx, fy, ax, ay            \
+            )) {                                                                                   \
+            name##__game(px, py, sx, sy, ang, w, h, tex, z, rgba, fx, fy, ax, ay);                 \
+        }                                                                                          \
+    }
+#define MP_HUD_QUAD_TURNED(name, sine, cosine)                                                     \
+    float name(int tw, int th, long long tex0, float x, float y, float w, float h, float ang) {    \
+        const Rac3Ui2d u = rac3_ui2d_mp_level();                                                   \
+        const float s = sine(ang), c = cosine(ang);                                                \
+        const uint32_t z = GREF(uint32_t, u.hud_depth);                                            \
+        if (!hud_quad_turned(u.cursor, x, y, w, h, s, c, tw, th, (unsigned long long)tex0, z)) {   \
+            return name##__game(tw, th, tex0, x, y, w, h, ang);                                    \
+        }                                                                                          \
+        return s;                                                                                  \
+    }
+MP_ROTATED_SPRITE(mp_func_L39_0058C218, mp_func_L39_00590A80, mp_func_L39_00590A68)
+MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590A68)
+
+#define MP_MAP(...)
+#define MP_MAP_HUD(...)
+#define MP_MAP_UI(                                                                                 \
+    m,                                                                                             \
+    font_print,                                                                                    \
+    font_print_shaded,                                                                             \
+    glyph_one,                                                                                     \
+    glyph_shaded_one,                                                                              \
+    glyph_shadowed_one,                                                                            \
+    glyph_quad_one,                                                                                \
+    turned_glyph_quad_one,                                                                         \
+    shaded_box_one,                                                                                \
+    darken_one,                                                                                    \
+    flat_box_one,                                                                                  \
+    hud_sprite_shaded,                                                                             \
+    sine,                                                                                          \
+    cosine,                                                                                        \
+    hud_tex0,                                                                                      \
+    rotated_sprite_one,                                                                            \
+    hud_quad_turned_one,                                                                           \
+    float_glyph_quad_one                                                                           \
+)                                                                                                  \
+    MP_FLOAT_GLYPH_QUAD(mp_func_L##m##_##float_glyph_quad_one, MP_MAP_CURSOR)                      \
+    MP_ROTATED_SPRITE(                                                                             \
+        mp_func_L##m##_##rotated_sprite_one, mp_func_L##m##_##sine, mp_func_L##m##_##cosine        \
+    )                                                                                              \
+    MP_HUD_QUAD_TURNED(                                                                            \
+        mp_func_L##m##_##hud_quad_turned_one, mp_func_L##m##_##sine, mp_func_L##m##_##cosine       \
+    )                                                                                              \
+    void mp_func_L##m##_##font_print(                                                              \
+        float a0,                                                                                  \
+        float a1,                                                                                  \
+        float a2,                                                                                  \
+        float a3,                                                                                  \
+        int a4,                                                                                    \
+        int a5,                                                                                    \
+        int a6,                                                                                    \
+        int a7,                                                                                    \
+        int a8,                                                                                    \
+        unsigned long long a9,                                                                     \
+        float a10,                                                                                 \
+        float a11                                                                                  \
+    ) {                                                                                            \
+        rac3_menu_log_text(a0, a1, (gaddr)a5, a6);                                                 \
+        const gaddr cursor = MP_MAP_CURSOR;                                                        \
+        const Print p = print_begin(cursor);                                                       \
+        mp_func_L##m##_##font_print##__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);     \
+        print_end(cursor, p);                                                                      \
+    }                                                                                              \
+    void mp_func_L##m##_##font_print_shaded(                                                       \
+        float a0,                                                                                  \
+        float a1,                                                                                  \
+        float a2,                                                                                  \
+        float a3,                                                                                  \
+        int colours,                                                                               \
+        int a5,                                                                                    \
+        int a6,                                                                                    \
+        int a7,                                                                                    \
+        int a8,                                                                                    \
+        unsigned long long a9,                                                                     \
+        float a10,                                                                                 \
+        float a11                                                                                  \
+    ) {                                                                                            \
+        rac3_menu_log_text(a0, a1, (gaddr)a5, a6);                                                 \
+        const gaddr cursor = MP_MAP_CURSOR;                                                        \
+        const Print p = print_begin(cursor);                                                       \
+        mp_func_L##m##_##font_print_shaded##__game(                                                \
+            a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11                                  \
+        );                                                                                         \
+        print_end(cursor, p);                                                                      \
+    }                                                                                              \
+    MP_GLYPH(mp_func_L##m##_##glyph_one)                                                           \
+    int mp_func_L##m##_##glyph_shaded_one(                                                         \
+        int u,                                                                                     \
+        int v,                                                                                     \
+        int w,                                                                                     \
+        int h,                                                                                     \
+        gaddr colours,                                                                             \
+        long long t1,                                                                              \
+        int flag,                                                                                  \
+        float x,                                                                                   \
+        float y,                                                                                   \
+        float fw,                                                                                  \
+        float fh                                                                                   \
+    ) {                                                                                            \
+        const int r = glyph_shaded(u, v, w, h, colours, t1, flag, x, y, fw, fh);                   \
+        return r >= 0 ? r                                                                          \
+                      : mp_func_L##m##_##glyph_shaded_one##__game(                                 \
+                            u, v, w, h, colours, t1, flag, x, y, fw, fh                            \
+                        );                                                                         \
+    }                                                                                              \
+    MP_GLYPH_SHADOWED(mp_func_L##m##_##glyph_shadowed_one)                                         \
+    MP_GLYPH_QUAD(mp_func_L##m##_##glyph_quad_one, MP_MAP_CURSOR)                                  \
+    MP_TURNED_GLYPH_QUAD(                                                                          \
+        mp_func_L##m##_##turned_glyph_quad_one,                                                    \
+        MP_MAP_CURSOR,                                                                             \
+        mp_func_L##m##_##sine,                                                                     \
+        mp_func_L##m##_##cosine                                                                    \
+    )                                                                                              \
+    void mp_func_L##m##_##shaded_box_one(gaddr xyz, gaddr colours) {                               \
+        if (!shaded_box(MP_MAP_CURSOR, xyz, colours)) {                                            \
+            mp_func_L##m##_##shaded_box_one##__game(xyz, colours);                                 \
+        }                                                                                          \
+    }                                                                                              \
+    void mp_func_L##m##_##darken_one(int r, int g, int b, int a) {                                 \
+        if (!darken(MP_MAP_CURSOR, MP_DARKEN_PACKET, r, g, b, a)) {                                \
+            mp_func_L##m##_##darken_one##__game(r, g, b, a);                                       \
+        }                                                                                          \
+    }                                                                                              \
+    void mp_func_L##m##_##flat_box_one(int y0, int y1, int x0, int x1, unsigned long long c) {     \
+        if (!flat_box(MP_MAP_CURSOR, y0, y1, x0, x1, c)) {                                         \
+            mp_func_L##m##_##flat_box_one##__game(y0, y1, x0, x1, c);                              \
+        }                                                                                          \
+    }                                                                                              \
+    void mp_func_L##m##_##hud_sprite_shaded(                                                       \
+        int tex, gaddr colours, float x, float y, float w, float h, float ang                      \
+    ) {                                                                                            \
+        const float s = mp_func_L##m##_##sine(ang), c = mp_func_L##m##_##cosine(ang);              \
+        const unsigned long long tex0 = mp_func_L##m##_##hud_tex0(tex);                            \
+        const Rac3Ui2d u = rac3_ui2d_mp_level();                                                   \
+        if (!hud_sprite_turned(&u, tex, tex0, colours, x, y, w, h, s, c)) {                        \
+            mp_func_L##m##_##hud_sprite_shaded##__game(tex, colours, x, y, w, h, ang);             \
+        }                                                                                          \
+    }
+
+#include "mp_maps.h"
+#undef MP_MAP
+#undef MP_MAP_HUD
+#undef MP_MAP_UI
 
 /* frontbin's copies of the 2D layer (the program the front end runs after a level: Quit Game, a
  * level's exit to the menus), wrapped as the boot program's and the levels' are. Its globals are the

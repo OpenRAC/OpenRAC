@@ -22,6 +22,8 @@ typedef struct Rac3Ui2d {
 
 /* The loaded level's copy (Veldin's addresses, relocated to the level's). */
 Rac3Ui2d rac3_ui2d_level(void);
+/* Level 39's copy in the multiplayer executable, relocated to the map loaded (or level 39's own). */
+Rac3Ui2d rac3_ui2d_mp_level(void);
 /* A 2D position (12.4) on the chip's screen, with the game's offset. */
 int rac3_ui2d_screen_x(int sixteenths);
 int rac3_ui2d_screen_y(int sixteenths);
