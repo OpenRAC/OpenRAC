@@ -62,6 +62,8 @@
 #define RAC3_ADDR_0x001C5290u 0x001C5290u
 /* D_001CD0C0 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001CD0C0u 0x001CD0C0u
+/* D_001CFEC0 (names.tsv, the same address) */
+#define RAC3_ADDR_0x001CFEC0u 0x001CFEC0u
 /* D_001D4B48 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D4B48u 0x001D4B48u
 /* D_001D4B50 (names.tsv, the same address) */
@@ -86,6 +88,10 @@
 #define RAC3_ADDR_0x001D5458u 0x001D5458u
 /* D_001D545C (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D545Cu 0x001D545Cu
+/* release.json: the two font headers (FontUpload func_0038E2B0 reads them, FontSelect func_0038E530 copies the selected one's into 0x001D55C0): NTSC-U's boot program registers a font's header at the same address (f_0038E140: lui 0x1D, addiu 0x55D0, the font's index times 4, sw), and Veldin's FontSelect reads it there too (f_0040D548) */
+#define RAC3_ADDR_0x001D55D0u 0x001D55D0u
+/* D_001D55E8 (names.tsv, the same address) */
+#define RAC3_ADDR_0x001D55E8u 0x001D55E8u
 /* D_001D5688 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D5688u 0x001D5688u
 /* D_001D568C (names.tsv, the same address) */
@@ -94,6 +100,10 @@
 #define RAC3_ADDR_0x001D5690u 0x001D5690u
 /* D_001D5694 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D5694u 0x001D5694u
+/* D_001D5B38 (names.tsv, the same address) */
+#define RAC3_ADDR_0x001D5B38u 0x001D5B38u
+/* D_001D5B3C (names.tsv, the same address) */
+#define RAC3_ADDR_0x001D5B3Cu 0x001D5B3Cu
 /* D_001D5B74 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D5B74u 0x001D5B74u
 /* D_001D5B90 (names.tsv, the same address) */
@@ -208,6 +218,10 @@
 #define RAC3_LADDR_19_0x001D66D4u 0x001D66D4u
 /* between the same code's 0x001D64E8 and 0x001D64FA, both moved by +0x0 (NTSC-U 0x001D64E8, 0x001D64FA) */
 #define RAC3_LADDR_1_0x001D64ECu 0x001D64ECu
+/* the level's pointer to the current font's page handles (FontSelect's copy, PAL func_L01_0040FB70): NTSC-U's Veldin FontSelect f_0040D548 stores it at $gp - 0x63C0 as PAL's does, with the same $gp (its font index at $gp - 0x72C8 is 0x001D55E8 on both discs, and the level's 0x001D64EC moved by +0x0) */
+#define RAC3_LADDR_1_0x001D64F0u 0x001D64F0u
+/* the level's pointer to the current font's palette handles, beside L01:001D64F0: NTSC-U's f_0040D548 stores it at $gp - 0x63BC */
+#define RAC3_LADDR_1_0x001D64F4u 0x001D64F4u
 /* the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 46 of 46 places agree */
 #define RAC3_LADDR_1_0x001D6694u 0x001D6694u
 /* between the same code's 0x001DBCA0 and 0x001DBCBC, both moved by +0x40 (NTSC-U 0x001DBCE0, 0x001DBCFC) */

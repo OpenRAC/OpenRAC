@@ -49,6 +49,7 @@ module	scene/	scene
 module	enhanced/tests/	tests
 module	enhanced/	enhanced
 module	game/common/	game/common
+module	ui/	ui
 module	game/*/	game/*
 module	viewer/	viewer
 module	extract/	extract
@@ -66,7 +67,7 @@ layer	2	platform assets audio media mpui
 layer	3	renderer renderer/vulkan renderer/world materials
 layer	4	scene
 layer	5	enhanced
-layer	6	game/common
+layer	6	game/common ui
 layer	7	game/*
 layer	8	viewer extract tools android ios tests
 
@@ -79,6 +80,8 @@ allow	media	assets
 allow	renderer/world	renderer
 allow	renderer/vulkan	renderer renderer/world
 allow	tests	viewer extract ios
+# The 2D layer every game shares records through the host program's recorder (openrac/frame.h).
+allow	ui	game/common
 
 # Known violations (docs/restructure/PROGRESS.md names the packages).
 # platform -> renderer/vulkan: the window opens the Vulkan backend itself; no package yet.

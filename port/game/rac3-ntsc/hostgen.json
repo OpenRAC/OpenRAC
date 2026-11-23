@@ -867,6 +867,7 @@
       "func_L01_004CE800": "void (unsigned int)",
       "func_L01_004C23C8": "void (int, int, int)",
       "func_L01_004C2488": "void (int, int, int)",
+      "func_L01_004C20A8": "int (int, int, int, int)",
       "func_L01_00403120": "int (void)"
     },
     "discover_entries": true,

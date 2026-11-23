@@ -195,6 +195,10 @@
   "0x001A4D30": {
    "is": "0x001A4D30",
    "why": "hero_carried, hero + 0x150: the hero D_001A4BE0 is at the same address on both discs (names.tsv), and names.tsv describes hero_carried at NTSC-U 0x001A4D30"
+  },
+  "0x001D55D0": {
+   "is": "0x001D55D0",
+   "why": "the two font headers (FontUpload func_0038E2B0 reads them, FontSelect func_0038E530 copies the selected one's into 0x001D55C0): NTSC-U's boot program registers a font's header at the same address (f_0038E140: lui 0x1D, addiu 0x55D0, the font's index times 4, sw), and Veldin's FontSelect reads it there too (f_0040D548)"
   }
  },
  "hostgen_left_out": {

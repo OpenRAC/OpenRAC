@@ -37,6 +37,9 @@ set(OPENRAC_GAME_C_FLAGS -fno-strict-aliasing -fwrapv -fsigned-char -ffp-contrac
 file(GLOB openrac_game_common_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/lib/*.c"
      "${OPENRAC_GAME_DIR}/common/lib/*.cpp")
 add_library(openrac_game_common STATIC ${openrac_game_common_sources})
+# The 2D layer every game shares (port/ui, openrac/ui.h): built in, as its quads go through the
+# recorder these replacements hold.
+target_sources(openrac_game_common PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../ui/ui.cpp")
 target_include_directories(openrac_game_common PUBLIC "${OPENRAC_GAME_DIR}/common/include")
 # openrac_ps2float: the console's float arithmetic, for the functions hostgen.json "ps2_float" names
 # and the port's own C that computes as the console does (openrac/ps2float.h).
