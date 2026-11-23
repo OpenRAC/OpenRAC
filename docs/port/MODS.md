@@ -877,13 +877,28 @@ live counts against 128 a tick and needs 32 spare moby slots (`moby_pool_raise`)
 
 1.30 (SDK 1.30.0) weapons whose targets are picked on screen or not (Going Commando, every disc):
 `weapon_ignore_culling(item, enabled)`. The game picks a weapon's targets only among the mobys it
-drew last frame (their drawn flag, set for the 4:3 view and the draw distance), so the Zodiac's
-pulse and the Plasma Coil's and Plasma Storm's arcs miss the enemies behind the camera or off
-screen. For the Zodiac (43) and the Plasma Coil (28) a mod may have those picks take every enemy in
-the weapon's range instead; the range, angles and caps stay the game's. The port wraps the game's
-pick (SelectBestTargetInCone) and marks the live mobys drawn around it only while the moby loop runs
-that weapon's gun or shot (port/game/rac2/host/weapon_culling.c); nothing else sees the flag
-change. Several mods may ask; it holds while any does. The C++ layer's `has_weapon_culling()`,
+drew last frame (their drawn flag, set for the 4:3 view and the draw distance), and its drones aim
+along the camera, so the auto-targeting weapons miss the enemies behind the camera or off screen.
+For these items a mod may have those picks take every enemy in the weapon's range and in sight (no
+wall of the level on the line, by the game's own line test) instead; the range and caps stay the
+game's:
+
+| Item | Weapon | What changes |
+|---|---|---|
+| 43 | Zodiac | its pulse |
+| 28 | Plasma Coil | the arcs of the Plasma Coil's and the Plasma Storm's shots |
+| 31 | Synthenoid | its drones and the Kilonoids (its Mega): their nearest enemy all around, not in the camera's cone; the hero's own target still first |
+| 24 | Seeker Gun | its seekers homing |
+| 41 | Miniturret Glove | its turrets and the Megaturrets |
+| 45 | Shield Charger | the shield's damage and the Tesla Barrier's arcs |
+| 18 | Tesla Claw | it keeps a held target that went off screen |
+
+The port wraps the game's pick (SelectBestTargetInCone) and the Shield Charger's and Tesla Claw's
+updates, and marks the enemies drawn around them only while that weapon's gun, shot, drone or turret
+picks (port/game/rac2/host/weapon_culling.c); nothing else sees the flag change. The player-aimed
+locks (the hero's aim, the Lancer, the Minirocket Tube, the Gravity Bomb, the RYNO II and the like)
+follow the camera as the game has them. Several mods may ask; it holds while any does. The first
+1.30 ports knew only 43 and 28 and refuse the rest. The C++ layer's `has_weapon_culling()`,
 `weapon_ignore_culling()`.
 
 1.31 (SDK 1.31.0) a mod's overlay over the game's menus and scenes, and the pad's buttons in its

@@ -2905,16 +2905,21 @@ typedef struct openrac_api {
     openrac_gaddr (*weapon_record)(openrac_mod* mod, int32_t item);
 
     /* A weapon's targets on screen or not (Going Commando's; a game without it answers
-     * OPENRAC_E_UNKNOWN). enabled 1 has weapon item's target picks take every enemy in its range,
-     * drawn last frame or not; 0 gives it back. The game picks targets only among the mobys it drew
-     * last frame (their drawn flag), so a weapon that hits all around the hero misses what is
-     * behind the camera or off screen. Only the target picks of that weapon's own gun and shots
-     * change: their range, angles and caps stay the game's, and the drawn flag is the game's again
+     * OPENRAC_E_UNKNOWN). enabled 1 has weapon item's target picks take every enemy in its range
+     * and in sight (no wall of the level in between), drawn last frame or not; 0 gives it back. The
+     * game picks targets only among the mobys it drew last frame (their drawn flag), and its drones
+     * aim along the camera, so a weapon that hits all around the hero misses what is behind the
+     * camera or off screen. Only the target picks of that weapon's own gun, shots, drones or
+     * turrets change: their range and caps stay the game's, and the drawn flag is the game's again
      * for everything else. Several mods may ask; it is on while any of them holds it, and goes with
-     * the mod's unload. Going Commando: the Zodiac (item 43: its pulse) and the Plasma Coil (28:
-     * the arcs of the Plasma Coil's and the Plasma Storm's shots to the enemies around them).
-     * Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN (a weapon or game the port does not know). Since
-     * 1.30. */
+     * the mod's unload. Going Commando: the Zodiac (item 43: its pulse), the Plasma Coil (28: the
+     * arcs of the Plasma Coil's and the Plasma Storm's shots to the enemies around them), the
+     * Synthenoid (31: its drones and the Kilonoids, their nearest enemy all around instead of in
+     * the camera's cone), the Seeker Gun (24: its seekers homing), the Miniturret Glove (41: its
+     * turrets and the Megaturrets), the Shield Charger (45: the shield's damage and the Tesla
+     * Barrier's arcs) and the Tesla Claw (18: it keeps a held target). Returns OPENRAC_OK, or
+     * OPENRAC_E_UNKNOWN (a weapon or game the port does not know: the first 1.30 ports knew only
+     * 43 and 28, so a mod reads the answer for each item). Since 1.30. */
     int (*weapon_ignore_culling)(openrac_mod* mod, int32_t item, int32_t enabled);
 
     /* Calls `fn(user, overlay)` once a frame to draw over the game, as on_overlay, in the phases
