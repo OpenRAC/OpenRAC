@@ -702,6 +702,29 @@ static int32_t net_host_max_players(int32_t game) {
     return game;
 }
 
+/* The CREATE page (level 39's screen 0x0069A630, built by 0x00699838): its number of players
+ * (widget 3, a spinner the constructor makes with value 8, from 2 to 8) offers up to the room's
+ * most (ROOM_MAX, or OPENRAC_RAC3_MAX_PLAYERS) online, where the tables can grow (mp_wide.c). The
+ * game's own value stays 8 until the player turns it up; LOCAL PLAY keeps its 8. */
+#define CREATE_WIDGETS 0x110u     /* the screen's widget pointers */
+#define CREATE_PLAYERS_WIDGET 3u  /* the number of players */
+#define SPINNER_MAX 0x70u         /* a spinner's largest value (its constructor 0x00682840) */
+
+int mp_func_L39_00699838(int screen) {
+    const int r = mp_func_L39_00699838__game(screen);
+    if (lobby.connected && rac3_mp_wide_available()) {
+        const char* e = openrac_env_string("OPENRAC_RAC3_MAX_PLAYERS");
+        int most = e != NULL && atoi(e) > 0 ? atoi(e) : ROOM_MAX;
+        most = most < 8 ? 8 : most > ROOM_MAX ? ROOM_MAX : most;
+        const gaddr players
+            = GREF(gaddr, (gaddr)screen + CREATE_WIDGETS + 4u * CREATE_PLAYERS_WIDGET);
+        if (players != 0) {
+            GREF(int32_t, players + SPINNER_MAX) = most;
+        }
+    }
+    return r;
+}
+
 /* The settings of a game as LOBBY_GAME_INFO_REQUEST and the game list give them, from a
  * LOBBY_GAME_CREATE_REQUEST. */
 static void advert_from_create(game_advert* a, const uint8_t* req) {
