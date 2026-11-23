@@ -571,6 +571,8 @@ class Translator:
     # The two scratchpad DMA channels, by the address of their CHCR, and their registers' offsets.
     SPR_CHANNELS = {0x1000D000: 8, 0x1000D400: 9}
     SPR_FIELDS = {0x00: "chcr", 0x10: "madr", 0x20: "qwc", 0x30: "tadr", 0x80: "sadr"}
+    # _spr_registers' mark for a word access through a base it cannot follow (tested when it runs).
+    DYNAMIC = (None, "dynamic", None, frozenset(), None)
     MEMORY_OPS = {"lb", "lbu", "lh", "lhu", "lw", "lwu", "ld", "lwl", "lwr", "ldl", "ldr", "lq", "lwc1", "lqc2",
                   "sb", "sh", "sw", "sd", "swl", "swr", "sdl", "sdr", "sq", "swc1", "sqc2"}
 
@@ -670,6 +672,13 @@ class Translator:
                     state[s2] = new
                     todo.append(s2)
         found: dict = {}
+        # A kernel that builds a register block's address (lui 0x1000) may also reach it through a
+        # base the flow cannot follow: Up Your Arsenal's coll_line keeps toSPR's address in $t6 on
+        # one path and a dummy one (0x10010000) on another, and stores MADR, QWC, SADR and CHCR
+        # through it where the paths join. Its word loads and stores through such bases are
+        # DYNAMIC: the translation tests the address when it runs (_spr_access).
+        builds = any((i := self.at(a)) is not None and i.op == "lui" and i.imm & 0xFFFF in (0x1000, 0x1001)
+                     and not (i.reloc and i.reloc[0] == "hi") for a in self.reach)
         for n, (at, _) in nodes.items():
             if at is None or n not in state:
                 continue
@@ -678,6 +687,10 @@ class Translator:
                 continue
             base = value(state[n], ins.rs)
             if base is None:
+                if builds and ins.op in ("sw", "lw", "lwu"):
+                    found[at] = self.DYNAMIC
+                continue
+            if found.get(at) == self.DYNAMIC:
                 continue
             hit = self._spr_field((base + ins.imm) & mask)
             if hit is None:
@@ -711,6 +724,18 @@ class Translator:
         hit = self.spr.get(ins.addr)
         if hit is None:
             return None
+        if hit == self.DYNAMIC:
+            # The address is known only when it runs (_spr_registers): a scratchpad DMA channel's
+            # register there is the same local word, or the copy, as a constant address's; any
+            # other address is the plain load or store (openrac_spr_sw, openrac_spr_lw in ee_ops.h).
+            chans = ", ".join(f"&spr{ch}_{f}" for ch in (8, 9) for f in ("chcr", "madr", "qwc", "tadr", "sadr"))
+            where = f'"{self.f.symbol}", {hx(ins.addr)}'
+            head = f"{{ openrac_u32 spr_a_ = {self.addr(ins)};"
+            if ins.op == "sw":
+                return [f"{head} if (openrac_spr_register(spr_a_)) openrac_spr_sw(spr_a_, (openrac_u32){self.R(ins.rt)}, "
+                        f"{chans}, {where}); else openrac_ee_sw(spr_a_, {self.R(ins.rt)}); }}"]
+            value = f"(openrac_spr_register(spr_a_) ? openrac_spr_lw(spr_a_, {chans}, {where}) : (openrac_u32)openrac_ee_{ins.op}(spr_a_))"
+            return [head, *self.W(ins.rt, S32(value) if ins.op == "lw" else value), "}"]
         ch, field, stored, fields, where = hit
         word = ins.op in ("sw", "lw", "lwu")
         fault = f'openrac_ee_dma_register("{self.f.symbol}", {hx(ins.addr)}, {hx(where)});'
@@ -724,7 +749,7 @@ class Translator:
         lines = [f"{local} = (openrac_u32){self.R(ins.rt)};"]
         if field != "chcr" or (stored is not None and not stored & 0x100):
             return lines
-        if not {"madr", "qwc", "sadr"} <= fields:
+        if not {"madr", "qwc", "sadr"} <= fields and self.DYNAMIC not in self.spr.values():
             # Started with a field this function has not set on the way: from another function's
             # store, which the copies do not see.
             return [fault]
