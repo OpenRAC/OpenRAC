@@ -1291,4 +1291,7 @@ void openrac_game_kernel_reset(void);
 }
 #endif
 
+/* The native frame recorder (openrac_frame_*). */
+#include "openrac/frame.h"
+
 #endif /* OPENRAC_GAME_HOST_H */

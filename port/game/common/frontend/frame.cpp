@@ -144,7 +144,10 @@ std::vector<std::uint8_t> direct_packets(
     std::size_t* world_marker = nullptr,
     std::size_t* moby_marker = nullptr,
     std::vector<QuadMark>* quad_marks = nullptr,
-    std::vector<State::MarkedMobys>* texture_mobys = nullptr
+    std::vector<State::MarkedMobys>* texture_mobys = nullptr,
+    const renderer::FrameRecorder* recorder = nullptr,
+    const renderer::FrameRecording** recorded = nullptr,
+    std::vector<renderer::FrameSplice>* splices = nullptr
 ) {
     std::vector<std::uint8_t> vif;
     std::uint32_t tag_at =
@@ -176,7 +179,15 @@ std::vector<std::uint8_t> direct_packets(
             vif.insert(vif.end(), spr + at, spr + at + bytes);
         }
     };
+    // Every tag's address and where its data starts in `vif`: where the frame recorder's commands
+    // anchored to it go (docs/port/FRAME_RECORDER.md, section 4).
+    std::vector<std::uint32_t> tag_addresses;
+    std::vector<std::size_t> tag_vif;
     for (int steps = 0; tag_at != 0 && steps < 20000; ++steps) {
+        if (recorder != nullptr) {
+            tag_addresses.push_back(tag_at);
+            tag_vif.push_back(vif.size());
+        }
         // A list holds no more data than game memory does: a chain that runs past that loops (a tag
         // that points back, from a bad pointer) and would grow `vif` by up to 1 MB a tag, 20 GB over
         // the steps, which takes the computer's memory with it. It is cut there, once noted.
@@ -246,6 +257,42 @@ std::vector<std::uint8_t> direct_packets(
         }
     }
     std::vector<std::uint8_t> gif;
+
+    // The recording this list was built with, and where each of its commands goes in `vif`.
+    const renderer::FrameRecording* recording =
+        recorder != nullptr ? recorder->match(tag_addresses) : nullptr;
+    std::vector<std::size_t> command_vif;
+    if (recording != nullptr) {
+        for (const std::size_t t : renderer::place_commands(*recording, tag_addresses)) {
+            command_vif.push_back(
+                t == renderer::kDropped ? renderer::kDropped
+                : t < tag_vif.size()    ? tag_vif[t]
+                                        : vif.size()
+            );
+        }
+        // Anchors that name no tag of the list: their commands are dropped (the list never got
+        // there), as the markers once written there would not have been in it.
+        std::vector<std::uint32_t> sorted = tag_addresses;
+        std::sort(sorted.begin(), sorted.end());
+        int missed = 0;
+        for (const renderer::FrameCommand& c : recording->commands) {
+            missed += c.anchor != 0 && !std::binary_search(sorted.begin(), sorted.end(), c.anchor);
+        }
+        stats::gauge("recorder anchors missed", double(missed));
+        static log::Capped told(20);
+        if (missed > 0 && told()) {
+            log::warn(
+                "frame recorder: {} of {} commands anchored where the display list has no tag "
+                "(dropped)",
+                missed,
+                recording->commands.size()
+            );
+        }
+    }
+    if (recorded != nullptr) {
+        *recorded = recording;
+    }
+    std::size_t next_command = 0;
 
     // The GS registers the strips are drawn with, as the DIRECT data before them leaves them (A+D
     // writes), and the strip being unpacked: its GIF tag at VU address 0, then ST (V2-32) at 1,
@@ -489,8 +536,62 @@ std::vector<std::uint8_t> direct_packets(
                    : std::prev(it)->second
                          + static_cast<std::uint32_t>(offset - std::prev(it)->first);
     };
+    // The recorded commands that go before `vif` offset `upto`: each a splice of the 2D stream at
+    // its end so far, and what the window reads of the world, the mobys and the effect quads there
+    // (as it read the markers the host C used to write into the list).
+    const auto run_commands = [&](std::size_t upto) {
+        while (recording != nullptr && next_command < command_vif.size()
+               && (command_vif[next_command] <= upto
+                   || command_vif[next_command] == renderer::kDropped)) {
+            const auto index = static_cast<std::uint32_t>(next_command++);
+            const renderer::FrameCommand& c = recording->commands[index];
+            if (command_vif[index] == renderer::kDropped) {
+                continue;
+            }
+            if (splices != nullptr) {
+                splices->push_back({gif.size(), index});
+            }
+            switch (c.op) {
+                case renderer::FrameOp::World:
+                    if (world_marker != nullptr && *world_marker == SIZE_MAX) {
+                        *world_marker = gif.size();
+                    }
+                    if (strips != nullptr && !strips_at_world) {
+                        strips_at_world = strips->size();
+                    }
+                    break;
+                case renderer::FrameOp::WorldMobys:
+                    if (strips != nullptr && !strips_after_early_effects) {
+                        strips_after_early_effects = strips->size();
+                    }
+                    break;
+                case renderer::FrameOp::Mobys:
+                    if (moby_marker != nullptr && *moby_marker == SIZE_MAX) {
+                        *moby_marker = gif.size();
+                    }
+                    if (texture_mobys != nullptr) {
+                        texture_mobys->push_back(
+                            {static_cast<std::uint32_t>(c.value),
+                             static_cast<std::uint32_t>(c.value >> 32) & 0xFFFFu,
+                             frame_width[(reg_prim >> 9) & 1] < 512}
+                        );
+                    }
+                    break;
+                case renderer::FrameOp::EffectQuad:
+                    if (quad_marks != nullptr) {
+                        quad_marks->push_back(
+                            {c.index, contexts[0].test, contexts[0].zbuf, contexts[0].zbuf_seen}
+                        );
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
     std::size_t at = 0;
     while (at + 4 <= vif.size()) {
+        run_commands(at);
         std::uint32_t code;
         std::memcpy(&code, vif.data() + at, 4);
         at += 4;
@@ -672,6 +773,7 @@ std::vector<std::uint8_t> direct_packets(
             strip_tag = false;
         }
     }
+    run_commands(SIZE_MAX);
     // Keep the early effects below the scenery, including partially blended surface layers.
     if (strips != nullptr && strips_after_early_effects) {
         const std::size_t from = strips_at_world.value_or(strips_at_start);
@@ -2898,7 +3000,33 @@ struct TickPackets {
     std::vector<renderer::EffectStrip> strips;
     std::size_t before_world = 0;
     const std::vector<renderer::UiQuad>* named_quads = nullptr;
+    // The frame recorder's commands this list was built with, and where they go in `packets`.
+    renderer::FrameRecording recording;
+    std::vector<renderer::FrameSplice> splices;
 };
+
+// How many of `splices` (in order) go before the world, the 2D path split at `before_world`: those
+// before that byte, and those at it recorded before the recording's World command.
+std::size_t splices_before_world(
+    const renderer::FrameRecording& recording,
+    std::span<const renderer::FrameSplice> splices,
+    std::size_t before_world
+) {
+    std::uint32_t world = UINT32_MAX;
+    for (std::size_t i = 0; i < recording.commands.size(); ++i) {
+        if (recording.commands[i].op == renderer::FrameOp::World) {
+            world = static_cast<std::uint32_t>(i);
+            break;
+        }
+    }
+    std::size_t n = 0;
+    while (n < splices.size()
+           && (splices[n].offset < before_world
+               || (splices[n].offset == before_world && splices[n].command < world))) {
+        ++n;
+    }
+    return n;
+}
 
 // Keeps this tick's 2D path (the display list's direct GIF data, from `chain` where the game
 // sends it so, else the list the game's profile says is shown in the program `level`) and where its
@@ -2935,6 +3063,11 @@ TickPackets capture_2d_path(
     g->texture_mobys.clear();
     renderer::g_quads_sample_targets = g->render.profile->own_mobys_into_narrow_buffers();
     draw_coverage::begin_tick(level, g->index);
+    // What the game's host C recorded since the last capture (openrac/frame.h): closed, so that
+    // the list walked now can find the recording it was built with.
+    g->recorder.close();
+    const renderer::FrameRecording* recorded = nullptr;
+    std::vector<renderer::FrameSplice> splices;
     std::vector<std::uint8_t> packets = direct_packets(
         ram,
         shown,
@@ -2946,8 +3079,23 @@ TickPackets capture_2d_path(
         &world_marker,
         &moby_marker,
         &quad_marks,
-        &g->texture_mobys
+        &g->texture_mobys,
+        &g->recorder,
+        &recorded,
+        &splices
     );
+    if (recorded != nullptr) {
+        k.recording = *recorded;
+        k.splices = std::move(splices);
+    } else if (const renderer::FrameRecording* alone = g->recorder.latest_unanchored();
+               alone != nullptr && alone->serial == g->recorder.latest_serial()) {
+        // A recording made with no anchors (a frame the game hands over in commands alone): drawn
+        // in call order, at the 2D path's start.
+        k.recording = *alone;
+        for (std::size_t i = 0; i < alone->commands.size(); ++i) {
+            k.splices.push_back({0, static_cast<std::uint32_t>(i)});
+        }
+    }
     // The effect quads the list marks (openrac_game_effect_quad_marker) take the TEST and ZBUF in
     // effect there: Going Commando's flight sparks and flames test alpha GEQUAL 0x60, and the
     // pixels that pass write Z. A list of this tick marks this tick's quads. Going Commando's list
@@ -3570,6 +3718,10 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     g->kept->strip_vertices = std::move(packets.strip_vertices);
     g->kept->strips = std::move(packets.strips);
     g->kept->before_world = bytes_before_world(packets.before_world, under_menu);
+    g->kept->splices_before_world =
+        splices_before_world(packets.recording, packets.splices, g->kept->before_world);
+    g->kept->recording = std::move(packets.recording);
+    g->kept->splices = std::move(packets.splices);
     part.reset();
     return finish_tick(ram, state, packets.named_quads, level, debug, scene);
 }

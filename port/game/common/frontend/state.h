@@ -118,6 +118,11 @@ struct Kept {
     std::array<renderer::Mat4, 8> sky_shells{};
     unsigned sky_shell_mask = 0;
     std::vector<renderer::UiQuad> ui_quads;
+    // The frame recorder's commands the tick's 2D path draws, and where (capture_2d_path,
+    // docs/port/FRAME_RECORDER.md): FrameInput::recording, splices, splices_before_world.
+    renderer::FrameRecording recording;
+    std::vector<renderer::FrameSplice> splices;
+    std::size_t splices_before_world = 0;
     // The mods' heat haze (interface 1.12): each patch's place (x, y, z), radius and strength.
     std::vector<std::array<float, 5>> haze;
 
@@ -388,6 +393,10 @@ struct State {
     // the tick that recorded it (ui_quad), and a list is drawn with that tick's quads (frame).
     std::uint32_t ui_generation = 0;
     std::array<std::pair<std::uint32_t, std::vector<renderer::UiQuad>>, 4> ui_kept{};
+    // The frame recorder (openrac/frame.h, frontend/recorder.cpp): what the game's host C appends,
+    // closed at each tick's capture; the port pictures given pixels (openrac_frame_picture_set).
+    renderer::FrameRecorder recorder;
+    std::unordered_map<std::uint32_t, renderer::UiImage> pictures;
     // How each tick's frames start (frontend/tick_picture.h): the last picture standing (the
     // ticks after the pause menu closes, a list the game has not finished), or under the tick's 2D
     // (a level's tick without a world: the vendor's darkening), else a cleared frame.

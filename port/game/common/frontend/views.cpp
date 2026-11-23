@@ -105,6 +105,8 @@ void render_view(SceneFrame& frame, const openrac_view& v, renderer::FrameBuffer
 
     if (v.kind == OPENRAC_VIEW_2D) {
         input.direct_before_world = {};
+        input.splices = input.splices.subspan(input.splices_before_world);
+        input.splices_before_world = 0;
         input.clear_colour = {0.0f, 0.0f, 0.0f, 0.0f};
     } else {
         input.camera = view_camera(frame.input.camera, v);

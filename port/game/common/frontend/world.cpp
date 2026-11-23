@@ -1691,13 +1691,7 @@ void moby_colour(std::uint32_t object, unsigned colour, int level) {
     g->scripted_moby_colours.set(level, object, colour);
 }
 
-int ui_quad(const openrac_game_ui_rect& quad) {
-    // The 2D layer's quads are drawn natively (on the way off the GS packets); OPENRAC_UI_REPLAY
-    // replays the game's packets instead, for comparing.
-    static const bool native = !env::flag(env::Var::UiReplay);
-    if (!g || !native || g->ui_quads.size() >= 0xFFFFFFu) {  // the marker's index is 24 bits
-        return -1;
-    }
+renderer::UiQuad ui_quad_record(const openrac_game_ui_rect& quad) {
     renderer::UiQuad q;
     for (int i = 0; i < 4; ++i) {
         q.x[i] = quad.x[i];
@@ -1713,7 +1707,17 @@ int ui_quad(const openrac_game_ui_rect& quad) {
                  : (quad.rgba & 0xFF000000u) | (mods::sprite_tint() & 0xFFFFFFu);
     q.tex0 = quad.tex0;
     q.flags = quad.flags;
-    g->ui_quads.push_back(q);
+    return q;
+}
+
+int ui_quad(const openrac_game_ui_rect& quad) {
+    // The 2D layer's quads are drawn natively (on the way off the GS packets); OPENRAC_UI_REPLAY
+    // replays the game's packets instead, for comparing.
+    static const bool native = !env::flag(env::Var::UiReplay);
+    if (!g || !native || g->ui_quads.size() >= 0xFFFFFFu) {  // the marker's index is 24 bits
+        return -1;
+    }
+    g->ui_quads.push_back(ui_quad_record(quad));
     return static_cast<int>((g->ui_quads.size() - 1) | (g->ui_generation & 0x3F) << 24);
 }
 
