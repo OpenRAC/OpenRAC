@@ -1641,6 +1641,14 @@
    "is": "func_L39_005459E8",
    "why": "the same instructions, the only place they occur"
   },
+  "func_L39_0054F4E0": {
+   "is": "func_L39_0054EBC8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00550D48": {
+   "is": "func_L39_00550418",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_L39_00551660": {
    "is": "func_L39_00550D10",
    "why": "the same instructions, the only place they occur"
@@ -1651,6 +1659,10 @@
   },
   "func_L39_00575CC8": {
    "is": "func_L39_00574F88",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00580220": {
+   "is": "func_L39_0057F278",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_00589890": {
@@ -1749,6 +1761,10 @@
    "is": "func_L39_0059BFD8",
    "why": "the same instructions, the only place they occur"
   },
+  "func_L39_0059ECB8": {
+   "is": "func_L39_0059D050",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_L39_005A4ED8": {
    "is": "func_L39_005A3268",
    "why": "the same instructions, the only place they occur"
@@ -1761,8 +1777,20 @@
    "is": "func_L39_005A7BE0",
    "why": "the same instructions, the only place they occur"
   },
+  "func_L39_005AA140": {
+   "is": "func_L39_005A8280",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005AA510": {
+   "is": "func_L39_005A8630",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_L39_005B25C8": {
    "is": "func_L39_005B06C8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005C2F50": {
+   "is": "func_L39_005C0F08",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_005C5C88": {
@@ -1867,6 +1895,42 @@
   },
   "func_L39_0060EC68": {
    "is": "func_L39_0060C568",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00626998": {
+   "is": "func_L39_006241C0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00626D38": {
+   "is": "func_L39_00624560",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0063FDA8": {
+   "is": "func_L39_0063D538",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_006481F8": {
+   "is": "func_L39_00645998",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00656F28": {
+   "is": "func_L39_00654650",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0065F4B8": {
+   "is": "func_L39_0065CBE0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_006606E0": {
+   "is": "func_L39_0065DE08",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00666160": {
+   "is": "func_L39_00663888",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00672DD8": {
+   "is": "func_L39_00670488",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_006775E8": {
