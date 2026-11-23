@@ -61,6 +61,7 @@ typedef int net_socket;
 
 #include "mp/game_protos.h"
 #include "mp_protocol.h"
+#include "mp_wide.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
 #include "rac3_version.h"
@@ -515,12 +516,12 @@ static void rd_text(reader* r, char* out, size_t size) {
 
 /* ================================ The room (a party) ================================ */
 
-/* The room's members: the server's rooms go up to 24 players. The unmodified game's own tables
- * hold 8 clients (DME's per-client records, net + 0x148[8], the per-player net objects and arrays:
- * protocol.md, "Player-count limits"), so only slots below GAME_CLIENTS are given to the game; the
- * others are relayed to and from but the game is not told of them. */
+/* The room's members: the server's rooms go up to 24 players. The game's own tables hold 8 clients
+ * (net + 0x148[8], the remote players, the settings object's arrays: protocol.md 7.4); a room of
+ * more than 8 (its game's MaxPlayers) has them widened to its size by host/mp_wide.c, and only
+ * slots below GAME_CLIENTS are given to the game. */
 #define ROOM_MAX 24
-#define GAME_CLIENTS 8
+#define GAME_CLIENTS rac3_mp_wide_slots()
 
 typedef struct {
     int32_t id; /* the server's session id */
@@ -687,12 +688,26 @@ static void lobby_connect_info(uint8_t* p, int32_t world) {
     put_text(p + 0x78, "OPENRACSESSION01", 17);
 }
 
+/* The most players a game this console hosts takes: the create page's MaxPlayers, or
+ * OPENRAC_RAC3_MAX_PLAYERS (9-24: a room past the game's 8, mp_wide.c) where the tables can grow. */
+static int32_t net_own_game_max_players; /* this console's game's own MaxPlayers, as it set it */
+
+static int32_t net_host_max_players(int32_t game) {
+    net_own_game_max_players = game;
+    const char* e = openrac_env_string("OPENRAC_RAC3_MAX_PLAYERS");
+    const int want = e != NULL ? atoi(e) : 0;
+    if (want > 0 && rac3_mp_wide_available()) {
+        return want > ROOM_MAX ? ROOM_MAX : want;
+    }
+    return game;
+}
+
 /* The settings of a game as LOBBY_GAME_INFO_REQUEST and the game list give them, from a
  * LOBBY_GAME_CREATE_REQUEST. */
 static void advert_from_create(game_advert* a, const uint8_t* req) {
     memset(a, 0, sizeof *a);
     a->min_players = get32(req + 0x2C);
-    a->max_players = get32(req + 0x30);
+    a->max_players = net_host_max_players(get32(req + 0x30));
     a->level = get32(req + 0x34);
     memcpy(a->name, req + 0x38, 63);
     a->skill = get32(req + 0xB8);
@@ -710,7 +725,7 @@ static void advert_from_report(game_advert* a, const uint8_t* rep) {
     a->name[63] = 0;
     memcpy(a->stats, rep + 0x5C, 256);
     a->min_players = get32(rep + 0x15C);
-    a->max_players = get32(rep + 0x160);
+    a->max_players = net_host_max_players(get32(rep + 0x160));
     a->level = get32(rep + 0x164);
     a->skill = get32(rep + 0x168);
     a->rules = get32(rep + 0x16C);
@@ -887,9 +902,13 @@ static void lobby_reply_game_info(const uint8_t* req, int32_t world) {
     uint8_t reply[0x18C];
     const game_advert* a = NULL;
     int players = 1;
+    int32_t max_players = 0;
     if (world == M_WORLD_OWN && lobby.own_valid) {
         a = &lobby.own;
         players = room.count > 0 ? room.count : 1;
+        /* The host's own game as it made it (its CREATE page's 8): it waits for its info to agree
+         * with its settings; the room's wider size is in the advert the others list. */
+        max_players = net_own_game_max_players;
     } else {
         const listed_game* g = lobby_game(world);
         if (g != NULL) {
@@ -901,7 +920,7 @@ static void lobby_reply_game_info(const uint8_t* req, int32_t world) {
     if (a != NULL) {
         put32(reply + 0x1C, GFN(int (*)(void), RAC3_MADDR(0x00183BDCu))());
         put32(reply + 0x20, a->min_players);
-        put32(reply + 0x24, a->max_players);
+        put32(reply + 0x24, max_players != 0 ? max_players : a->max_players);
         put32(reply + 0x28, a->level);
         put32(reply + 0x2C, a->skill);
         put32(reply + 0x30, players);
@@ -1070,6 +1089,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
                 break;
             }
             lobby.create_waiting = 1;
+            rac3_mp_wide_set_slots(lobby.own.max_players);
             srv_begin(PACKET_PARTY, PARTY_CREATE);
             srv_text(lobby.own.name);
             srv_text(NET_FAMILY);
@@ -1088,6 +1108,7 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
                 return;
             }
             lobby.join_waiting = 1;
+            rac3_mp_wide_set_slots(g->ad.max_players);
             srv_begin(PACKET_PARTY, PARTY_JOIN);
             srv_text(g->code);
             srv_text(NET_FAMILY);
@@ -1274,6 +1295,29 @@ static struct {
 
 static int obj_count, obj_next = 1;
 
+/* OBJECT_GAME_SETTINGS_WIDE (host/mp_wide.c): slots 8-23 of the settings object's arrays, kept
+ * beside the game's object of that type ("tNW_GameSettings") and sent with it, first, in a room of
+ * more than 8. One a console, as the game has one settings object. */
+static struct {
+    int32_t type; /* the settings object's type, -1 until the game registers it */
+    gaddr data;
+    uint8_t* sent;
+} gs_wide = {-1, 0, NULL};
+
+static void gs_wide_make(void) {
+    if (gs_wide.data == 0) {
+        gs_wide.data = openrac_guest_static(rac3_mp_wide_object_size());
+        gs_wide.sent = calloc(1, rac3_mp_wide_object_size());
+    }
+    rac3_mp_wide_object_clear(gs_wide.data);
+    memcpy(gs_wide.sent, G(gs_wide.data), rac3_mp_wide_object_size());
+    rac3_mp_wide_object(gs_wide.data);
+}
+
+static int gs_wide_sends(int i) {
+    return objs[i].type == gs_wide.type && gs_wide.data != 0 && rac3_mp_wide_slots() > 8;
+}
+
 static int obj_find(int32_t id) {
     for (int i = 0; i < obj_count; i++) {
         if (objs[i].id == id) {
@@ -1299,6 +1343,9 @@ static int obj_new(int32_t id, int32_t type, int32_t owner, int32_t creator) {
     GREF(int32_t, objs[i].record + 0x4) = owner;
     GREF(int32_t, objs[i].record + 0x8) = creator;
     GREF(int32_t, objs[i].record + 0x1C) = (int32_t)objs[i].data;
+    if (type == gs_wide.type) {
+        gs_wide_make();
+    }
     return i;
 }
 
@@ -1307,6 +1354,19 @@ static void obj_send(int i, int32_t target) {
     const int32_t size = obj_type[objs[i].type].size;
     if (srv.fd == NET_INVALID || !room.in || !srv_room((size_t)size + 32)) {
         return;
+    }
+    if (gs_wide_sends(i)) {
+        const uint32_t wide = rac3_mp_wide_object_size();
+        if (!srv_room((size_t)wide + (size_t)size + 64)) {
+            return;
+        }
+        srv_begin(PACKET_RELAY, -1);
+        srv_i32(target);
+        srv_u8(RELAY_OBJECT_WIDE);
+        srv_i32(objs[i].id);
+        srv_bytes(G(gs_wide.data), wide);
+        srv_end();
+        memcpy(gs_wide.sent, G(gs_wide.data), wide);
     }
     srv_begin(PACKET_RELAY, -1);
     srv_i32(target);
@@ -1328,7 +1388,9 @@ static void obj_send_changes(void) {
         /* A released object (owner -1, GameSettings after START) is everyone's: whoever
          * changes it sends it, as the host does its start time (+0x170) and slot states. */
         if ((objs[i].owner == me || objs[i].owner == -1)
-            && memcmp(objs[i].sent, G(objs[i].data), (size_t)obj_type[objs[i].type].size) != 0) {
+            && (memcmp(objs[i].sent, G(objs[i].data), (size_t)obj_type[objs[i].type].size) != 0
+                || (gs_wide_sends(i)
+                    && memcmp(gs_wide.sent, G(gs_wide.data), rac3_mp_wide_object_size()) != 0))) {
             obj_send(i, 0);
         }
     }
@@ -1360,6 +1422,19 @@ static void obj_send_all_to(int32_t session) {
 static void obj_receive(int kind, int32_t from, reader* r) {
     (void)from;
     const int32_t id = rd_i32(r);
+    if (kind == RELAY_OBJECT_WIDE) {
+        /* Before the settings object it belongs to, which may be new: kept for it. */
+        const uint32_t wide = rac3_mp_wide_object_size();
+        if (r->n >= wide) {
+            if (gs_wide.data == 0) {
+                gs_wide_make();
+            }
+            memcpy(G(gs_wide.data), r->p, wide);
+            memcpy(gs_wide.sent, r->p, wide);
+            rac3_mp_wide_object(gs_wide.data);
+        }
+        return;
+    }
     int i = obj_find(id);
     if (kind == RELAY_OBJECT_RELEASE) {
         if (i >= 0) {
@@ -1373,7 +1448,20 @@ static void obj_receive(int kind, int32_t from, reader* r) {
     const int32_t creator = rd_i32(r);
     const int fresh = i < 0;
     if (fresh) {
+        /* The wide half came first: a new settings object keeps it. */
+        uint8_t* kept = NULL;
+        if (type == gs_wide.type && gs_wide.data != 0) {
+            kept = malloc(rac3_mp_wide_object_size());
+            if (kept != NULL) {
+                memcpy(kept, G(gs_wide.data), rac3_mp_wide_object_size());
+            }
+        }
         i = obj_new(id, type, owner, creator);
+        if (kept != NULL) {
+            memcpy(G(gs_wide.data), kept, rac3_mp_wide_object_size());
+            memcpy(gs_wide.sent, kept, rac3_mp_wide_object_size());
+            free(kept);
+        }
     }
     if (i < 0 || (int32_t)r->n < obj_type[objs[i].type].size) {
         return;
@@ -1495,6 +1583,7 @@ static void on_party(reader* r) {
         case PARTY_END:
         case PARTY_KICKED:
             fprintf(stderr, "[info] rac3: online: the party is gone\n");
+            rac3_mp_wide_set_slots(8);
             room.in = 0;
             room.count = 0;
             dme_report_members();
@@ -1596,7 +1685,7 @@ static void on_frame(int id, reader* r) {
         case PACKET_RELAY: {
             const int32_t from = rd_i32(r);
             const int kind = rd_u8(r);
-            if (kind == RELAY_OBJECT || kind == RELAY_OBJECT_RELEASE) {
+            if (kind == RELAY_OBJECT || kind == RELAY_OBJECT_RELEASE || kind == RELAY_OBJECT_WIDE) {
                 obj_receive(kind, from, r);
                 break;
             }
@@ -2019,6 +2108,7 @@ int mp_func_0014ADD0(int params, int out) {
     dme.connected = 1;
     dme.joined = 0;
     memset(dme.reported, 0, sizeof dme.reported);
+    rac3_mp_wide_reset();
     memset(G(out), 0, 0xC);
     GREF(int32_t, out + 8) = (int32_t)dme.conn;
     fprintf(
@@ -2044,6 +2134,11 @@ int mp_func_0014B040(int status, int conn) {
 /* dme_update: the server's packets, the session's callbacks and the room's messages. */
 int mp_func_0014B118(void) {
     vblank_count();
+    if (dme.joined && rac3_mp_wide_slots() > 8) {
+        /* The room's capacity (net + 0x134, which the room join request checks a join against):
+         * the CREATE page offers up to 8, so a wider room's host sets it from the room's size. */
+        GREF(int32_t, NET_BLOCK + 0x134u) = rac3_mp_wide_slots();
+    }
     net_pump();
     dme_deliver();
     obj_send_changes();
@@ -2366,6 +2461,9 @@ int mp_func_0016EE30(int type_out, int name, int size) {
     const int32_t type = GREF(int32_t, type_out);
     if (r == 0 && type >= 0 && type < OBJ_TYPES) {
         obj_type[type].size = size;
+        if (name != 0 && strcmp((const char*)G((gaddr)name), "tNW_GameSettings") == 0) {
+            gs_wide.type = type;
+        }
     }
     return r;
 }
