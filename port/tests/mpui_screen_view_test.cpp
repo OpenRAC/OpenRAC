@@ -19,6 +19,10 @@ namespace {
 constexpr float CHAR_WIDTH = 8.0f;
 constexpr float LINE = 16.0f;
 
+// The test skin's panel colours, told apart by the recording.
+constexpr std::uint32_t FILL_COLOUR = 0x7C000000u;
+constexpr std::uint32_t EDGE_COLOUR = 0x8066CCFFu;
+
 // A skin that records what it is asked to draw and play.
 class RecordingSkin final : public Skin {
 public:
@@ -36,11 +40,17 @@ public:
 
     void highlight(const Rect& rect) override { highlights.push_back(rect); }
 
-    void panel(const Rect& /*rect*/) override { ++panels; }
+    void rect(const Rect& /*rect*/, std::uint32_t rgba) override {
+        // The panel's field is the one rectangle drawn in the fill colour.
+        if (rgba == FILL_COLOUR) {
+            ++panels;
+        }
+    }
 
-    void scroll_marks(const Rect& /*table*/, bool up, bool down) override {
-        marks_up = up;
-        marks_down = down;
+    void sprite(const Rect& /*rect*/, int /*sprite*/) override {}
+
+    std::uint32_t colour(PanelPart part) const override {
+        return part == PanelPart::FILL ? FILL_COLOUR : EDGE_COLOUR;
     }
 
     void sound(Sound sound) override { sounds.push_back(sound); }
@@ -51,8 +61,6 @@ public:
     std::vector<Rect> highlights;    // Every highlight bar drawn.
     std::vector<Sound> sounds;       // Every sound played.
     int panels = 0;                  // Panels drawn.
-    bool marks_up = false;           // The last scroll marks' up.
-    bool marks_down = false;         // The last scroll marks' down.
 };
 
 // A screen of one table of `players`, titled, `rows` rows a page (0: what fits).
@@ -228,7 +236,6 @@ void test_drawing_a_long_list() {
     CHECK(skin.panels == 0);
     CHECK(skin.texts[0] == "STAGING");
     CHECK(skin.highlights.size() == 1);
-    CHECK(skin.marks_down && !skin.marks_up);
     bool counted = false;
     int names = 0;
 

@@ -27,6 +27,9 @@ constexpr float CHOICE_VALUE_AT = 0.6f;
 constexpr const char* NOTICE_SCREEN = "notice";
 constexpr const char* NOTICE_BUTTON = "\x10 OK";
 
+// A modal screen's panel edge, in the picture's pixels, as the games frame their dialog boxes.
+constexpr float PANEL_EDGE = 1.0f;
+
 // The space between a modal screen's panel edge and its items, in the picture's pixels.
 constexpr float MODAL_MARGIN = 8.0f;
 
@@ -501,7 +504,7 @@ void ScreenView::draw(Skin& skin, const Model& model) {
 
     // A screen with no game screen under it brings its own panel.
     if (m_mode == Mode::MODAL) {
-        skin.panel(m_panel);
+        draw_panel(skin);
     }
 
     // The title line, when the description gives one.
@@ -518,6 +521,16 @@ void ScreenView::draw(Skin& skin, const Model& model) {
 
         draw_item(skin, model, placed);
     }
+}
+
+void ScreenView::draw_panel(Skin& skin) const {
+    const Rect& p = m_panel;
+    const std::uint32_t edge = skin.colour(PanelPart::EDGE);
+    skin.rect(p, skin.colour(PanelPart::FILL));
+    skin.rect(Rect{p.x, p.y, p.w, PANEL_EDGE}, edge);
+    skin.rect(Rect{p.x, p.y + p.h - PANEL_EDGE, p.w, PANEL_EDGE}, edge);
+    skin.rect(Rect{p.x, p.y, PANEL_EDGE, p.h}, edge);
+    skin.rect(Rect{p.x + p.w - PANEL_EDGE, p.y, PANEL_EDGE, p.h}, edge);
 }
 
 void ScreenView::draw_item(Skin& skin, const Model& model, const Placed& placed) {
@@ -613,11 +626,6 @@ void ScreenView::draw_table(Skin& skin, const Table* table, const Placed& placed
 
         // On the headings line when there is one, else on the line the layout gave under the rows.
         skin.text(rect.x + rect.w - width, count_y, where, TextStyle::HEADING);
-        skin.scroll_marks(
-            Rect{rect.x, y, rect.w, line * static_cast<float>(placed.shown_rows)},
-            m_first > 0,
-            last < count
-        );
     }
 
     // Only the page of rows shown is drawn.

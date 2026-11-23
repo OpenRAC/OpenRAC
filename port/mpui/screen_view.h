@@ -137,6 +137,9 @@ private:
     // Keeps the cursor's row inside the rows shown, `shown` at a time.
     void scroll_to_cursor(std::size_t shown);
 
+    // Draws a modal screen's panel: its field, then its edge.
+    void draw_panel(Skin& skin) const;
+
     // Draws one item at its place.
     void draw_item(Skin& skin, const Model& model, const Placed& placed);
 

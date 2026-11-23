@@ -149,10 +149,8 @@ enum {
 #define COLOUR_PULSE 0x66D6EEFAu
 #define PULSE_FRAMES 0x25u
 /* A modal screen's panel: black at 0x7C of full, nearly opaque, so the screen under it does not
- * show through; its gold edge a pixel wide; its bar in the game's bar colour (L39_00689F00). */
+ * show through, with the menus' gold edge. */
 #define COLOUR_PANEL 0x7C000000u
-#define COLOUR_BAR 0x332299DEu
-#define PANEL_EDGE 1
 /* The modal area: the middle of the picture, as the game's message boxes sit. */
 #define MODAL_X 88.0f
 #define MODAL_Y 112.0f
@@ -186,7 +184,7 @@ static int g_hidden;         /* 1 while a popup covers the screen: the native on
 static uint32_t g_frame;     /* frames drawn, for the focused colour's pulse */
 static float g_line = 20.0f; /* the open screen's row pitch */
 static int g_text_pass;      /* 1 in the pass after the elements: text only, else the bar only */
-static int g_modal_layer;    /* 1 while the modal layer draws: its own panel and bar, after all */
+static int g_modal_layer;    /* 1 while the modal layer draws */
 
 /* The vanilla description: the game's own lists, a column of names, as many rows as the game's
  * list widget shows. No staging screen: the game's own rows stay. */
@@ -284,15 +282,7 @@ static void skin_text(void* user, float x, float y, const char* text, size_t len
 /* The skin's highlight bar: the game's own bar element over the row. */
 static void skin_highlight(void* user, float x, float y, float w, float h) {
     (void)user;
-    /* A modal screen's bar is a box in the bar's colour over its panel, after the elements. */
-    if (g_modal_layer) {
-        /* Only after the elements, so the box is over the panel. */
-        if (g_text_pass) {
-            mp_func_L39_0058B2C8((int)y, (int)(y + h), (int)x, (int)(x + w), COLOUR_BAR);
-        }
-        return;
-    }
-    /* The bar is an element: placed in the pass before the elements draw. */
+    /* The bar is an element: placed in the pass before the elements draw, a modal screen's too. */
     if (g_text_pass) {
         return;
     }
@@ -311,26 +301,17 @@ static void skin_highlight(void* user, float x, float y, float w, float h) {
     );
 }
 
-/* The skin's panel: none, the game's screen is under every bound screen. */
-static void skin_panel(void* user, float x, float y, float w, float h) {
-    (void)user;
-    /* A modal screen's panel goes over the elements, so it is drawn in the text pass. */
-    if (!g_text_pass) {
-        return;
-    }
-    const int x0 = (int)x, y0 = (int)y, x1 = (int)(x + w), y1 = (int)(y + h);
-    /* The darkened field, then its gold edge a pixel wide, as the game's dialog boxes frame. */
-    mp_func_L39_0058B2C8(y0, y1, x0, x1, COLOUR_PANEL);
-    mp_func_L39_0058B2C8(y0, y0 + PANEL_EDGE, x0, x1, COLOUR_NORMAL);
-    mp_func_L39_0058B2C8(y1 - PANEL_EDGE, y1, x0, x1, COLOUR_NORMAL);
-    mp_func_L39_0058B2C8(y0, y1, x0, x0 + PANEL_EDGE, COLOUR_NORMAL);
-    mp_func_L39_0058B2C8(y0, y1, x1 - PANEL_EDGE, x1, COLOUR_NORMAL);
+/* The skin's filled rectangles (a modal screen's panel) and the game's images: drawn by the native
+ * 2D path that replaces the game's GS packets (the native UI's phase 4, which takes over this
+ * file's draw functions); until it lands they draw nothing, and a modal screen shows its text and
+ * bar over the screen under it. */
+static void skin_rect(void* user, float x, float y, float w, float h, uint32_t rgba) {
+    (void)user, (void)x, (void)y, (void)w, (void)h, (void)rgba;
 }
 
-/* The skin's scroll marks: none beside the page count line. */
-static void skin_scroll_marks(void* user, float x, float y, float w, float h, int up, int down) {
-    /* The game's list marks more rows with the bar's arrows; the page count line says it here. */
-    (void)user, (void)x, (void)y, (void)w, (void)h, (void)up, (void)down;
+/* The skin's images: none yet (see skin_rect). */
+static void skin_sprite(void* user, float x, float y, float w, float h, int sprite) {
+    (void)user, (void)x, (void)y, (void)w, (void)h, (void)sprite;
 }
 
 /* The skin's sounds: the menus' own (L39_00688340). */
@@ -351,11 +332,13 @@ static openrac_mp_ui_skin skin(void) {
     const openrac_mp_ui_skin s =
         {NULL,
          g_line,
+         COLOUR_PANEL,
+         COLOUR_NORMAL,
          skin_text_width,
          skin_text,
+         skin_rect,
+         skin_sprite,
          skin_highlight,
-         skin_panel,
-         skin_scroll_marks,
          skin_sound,
          skin_layer};
     return s;

@@ -114,8 +114,7 @@ its built-in vanilla description.
 ## Modal screens and notices
 
 A screen opened by an `open:` action, or a server's `NOTICE`, is drawn modally over whatever is up,
-on a panel of its own (rac3: a dark box with the menus' gold edge, its bar a box in the game's bar
-colour). It takes every event; Back closes it, and the game's screen under it never sees the press.
+on a panel of its own (a field and a one-pixel edge in the game's colours). It takes every event; Back closes it, and the game's screen under it never sees the press.
 A notice is its text, wrapped, over an OK button.
 
 ## Trying descriptions and long lists
@@ -142,15 +141,19 @@ cursor (widget vtable +0x88) and focus (screen+0x290 = 8), then injects Cross, s
 join path runs; ready, team and start do the same on the staging widgets. Nothing calls the lobby's
 internals directly.
 
-## 7. Drawing natively (rac3 skin)
+## 7. Drawing: one draw layer
 
-Everything goes through level 39's own routines inside its frame, so the port's 2D records, the
-font's distance field and the menu colours are the game's: text with FontPrint (0x00592238, font
-via FontSelect 0x00591BA0, widths FontTextWidth 0x00591F98), gold 0x8066CCFF, focused pulse to
-0x66D6EEFA over 0x25 frames, disabled 0x80808080; the highlight bar in the game's translucent
-orange 0x332299DE; panels and separators with the shaded box (0x0058C678) and flat box
-(0x0058B2C8); sounds with 0x00688340 (3 move, 4 select, 0x17 back, 0x15/0x14 dialog). Button
-tokens are the SDK 1.31 characters (`\x10` Cross ...), drawn as the font's icon cells.
+The core draws through one layer the game supplies (`openrac_mp_ui_skin`): text, filled rectangles,
+the game's images (sprites, by the skin's own numbering) and the highlight bar, with the font's
+measures, the panel's colours and the menu sounds. Nothing in the core knows how they reach the
+screen, so a game's skin can move to the port's native 2D path without touching the screens.
+
+rac3's skin today prints with level 39's FontPrint (font via FontSelect 0x00591BA0, widths
+FontTextWidth 0x00591F98) in the menus' gold 0x8066CCFF, focused pulse to 0x66D6EEFA over 0x25
+frames, disabled 0x80808080, and places the game's own highlight-bar element (0x00689F00); sounds
+are 0x00688340 (3 move, 4 select, 0x17 back). Rectangles and images draw nothing yet: they arrive
+with the native UI work, which replaces those draw functions with the port's GS-free 2D items
+(`openrac_game_ui_item`). Button tokens are the SDK 1.31 characters (`\x10` Cross ...).
 
 ## 8. rac4 reuse
 

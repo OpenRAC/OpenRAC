@@ -7,6 +7,7 @@
 // measures; the expected values follow from the descriptions written here.
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -45,15 +46,19 @@ void text(
 // The skin's highlight bar: nothing to record.
 void highlight(void* /*user*/, float /*x*/, float /*y*/, float /*w*/, float /*h*/) {}
 
-// The skin's panel: counted.
-void panel(void* user, float /*x*/, float /*y*/, float /*w*/, float /*h*/) {
-    ++static_cast<Record*>(user)->panels;
+// The panel's field colour, told apart from its edge's.
+constexpr std::uint32_t FILL_COLOUR = 0x7C000000u;
+
+// The skin's rectangles: the panel's fields counted.
+void rect(void* user, float /*x*/, float /*y*/, float /*w*/, float /*h*/, std::uint32_t rgba) {
+    // Only the field is drawn in the fill colour.
+    if (rgba == FILL_COLOUR) {
+        ++static_cast<Record*>(user)->panels;
+    }
 }
 
-// The skin's scroll marks: nothing to record.
-void marks(
-    void* /*user*/, float /*x*/, float /*y*/, float /*w*/, float /*h*/, int /*up*/, int /*down*/
-) {}
+// The skin's images: none used.
+void sprite(void* /*user*/, float /*x*/, float /*y*/, float /*w*/, float /*h*/, int /*sprite*/) {}
 
 // The skin's sounds: nothing to record.
 void sound(void* /*user*/, int /*sound*/) {}
@@ -66,7 +71,17 @@ void layer(void* user, int modal) {
 // Returns a skin recording into `record`.
 openrac_mp_ui_skin skin_of(Record& record) {
     return openrac_mp_ui_skin{
-        &record, 16.0f, text_width, text, highlight, panel, marks, sound, layer
+        &record,
+        16.0f,
+        FILL_COLOUR,
+        0x8066CCFFu,
+        text_width,
+        text,
+        rect,
+        sprite,
+        highlight,
+        sound,
+        layer
     };
 }
 
