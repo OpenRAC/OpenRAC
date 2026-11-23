@@ -364,6 +364,16 @@ multiplayer failure); Veldin `OPENRAC_RAC3_NEXT=60:1 OPENRAC_GIVE=weapons@200` t
 - To test long lines: OPENRAC_TELEPORT far, then watch enemies' sight lines (coll_line clipping). Also run the MP maps, the boot loading screen (pose kernel 0x003CA9C0) and the frontbin menus.
 
 
+**Follow-up (2026-11-23): registers reached through a base the translation did not follow**
+
+#771 only gave a copy to a register address it could follow as a constant. Two kinds of code reach the registers another way, and after #771 their stores went to the empty register page: no copy was made, and a C poll of STR spun for ever.
+- **rac3: Ratchet fell through the ground.** `coll_line` (func_L01_003FA5F0, the boot program's 0x003D4068, frontbin's 0x003D3CB0) keeps toSPR's address in `$t6` on one path and a dummy 0x10010000 on another, and writes MADR, QWC, SADR and CHCR through it where the paths join. It also writes them after returns from its own subroutine (0x003FA550, called with jal and left with jr $ra), which the registers' flow does not follow. Those stores went to the empty register page, so the collision data never reached the scratchpad and every ground query found nothing.
+  - Fix: asmc.py marks such word accesses DYNAMIC (in a kernel that builds a register address with lui 0x1000/0x1001: through a base the flow does not know, or in code it does not reach). The translation tests the address when it runs (`openrac_spr_register`, `openrac_spr_sw`, `openrac_spr_lw` in ee_ops.h): a register is the function's own word, and a CHCR store with STR is the copy, as at a constant address; anything else is a plain access.
+- **rac2: level loads hung (every planet, Oozla and Yeedil among them).** CollLine (func_002761F8) is the decomp's functional C, which writes toSPR's registers through a pointer (`d[8]`, `d[32]`, `d[4]`, `d[0]`). The level setup's first line query (func_002A89A8, from func_L00_00300618) then polled CHCR for ever. The GS slot allocator func_002F35B0 (functional C, constant addresses) stopped the game instead.
+  - Fix: lower.py keeps C's MADR, QWC, SADR and TADR as the function's own words and makes a CHCR store with STR the copy, at constant addresses and through pointers alike (a volatile word store through a pointer tests the address when it runs). C reads of CHCR read it done. A chain-mode start still stops the game.
+- **Verified** (box2, hidden runs, 3,000 frames each): rac3 PAL Veldin, Florana and Marcadia stand on the ground from control to the end (frames in the air never above 1, no deaths; before, Ratchet fell from z 78 to 17 and respawned every ~180 frames), and Veldin's ground probes now hit. Tyhrranosis runs its opening sequence with no fault. rac2 NTSC-U v1.01 loads Oozla, Barlow, Dobbo, Boldan, Damosel and Yeedil (before, Oozla and Yeedil hung in CollLine's poll) and starts saves captured on Yeedil and Barlow from the title. No scratchpad DMA register fault in any run.
+- **coll_line's cut** applies only to lines over 248 cells (about 990 units). Ground probes, a few units long, never reach it.
+
 ## P2 (2026-11-23): split-screen views, the game's 2D screen, movies, on the recorder (PR #774)
 
 **API (stable, maps agent):** `openrac/frame.h`
