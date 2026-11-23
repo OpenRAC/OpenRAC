@@ -182,12 +182,14 @@ int rac3_mp_ui_describe(const char* json, size_t size); /* mp_ui.c */
 #define FEATURE_SERVERS 64 /* the UDP offer's bit: a hub (log in, the game servers' list) */
 #define HUB_DEFAULT_HOST "hub.openrac.dev"
 #define HUB_DEFAULT_PORT "7177"
-#define SERVER_RETRY_MS 10000 /* a game server that did not take the connection, tried again after */
+/* A game server that did not take the connection is tried again after this long. */
+#define SERVER_RETRY_MS 10000
 #define CLIENT_SLOTS 2 /* PACKET_HELLO's client bit: send PARTY_SLOTS (the room's stable slots) */
 #define CLIENT_KEEPS_ALIVE                                                                         \
     4                      /* PACKET_HELLO's client bit: this client sends PACKET_TIME every 2 s */
 #define KEEP_ALIVE_MS 2000 /* how often: the server drops a client silent for 30 s */
-#define HUB_KEEP_ALIVE_MS 30000 /* the hub drops no quiet client; this keeps routers' state, within its request budget */
+/* The hub drops no quiet client; this keeps routers' state, within its request budget. */
+#define HUB_KEEP_ALIVE_MS 30000
 #ifdef RAC3_PAL
 #define NET_FAMILY "rac3-pal-1"
 #else
@@ -336,9 +338,9 @@ typedef struct {
     size_t in_len;
     uint8_t out[LINK_OUT];
     size_t out_len, frame;
-    int paced;          /* frames go out within the hub's request budget (HUB_REQUEST_BURST) */
-    int tokens;         /* frames that may go now */
-    int64_t tokens_ms;  /* when the last token was added */
+    int paced;         /* frames go out within the hub's request budget (HUB_REQUEST_BURST) */
+    int tokens;        /* frames that may go now */
+    int64_t tokens_ms; /* when the last token was added */
 } net_link;
 
 /* The hub takes 10 frames at once from a player, then 2 a second, and drops what is over
@@ -486,7 +488,9 @@ static int srv_room(size_t n) {
 /* OPENRAC_SERVER's address: host:port, [v6]:port or [v6], a bare name or IPv4, or a bare IPv6
  * address (more than one colon and no brackets: no port). HOST and PORT keep their defaults for
  * what it leaves out. */
-static void net_split_address(const char* text, char* host, size_t host_size, char* port, size_t port_size) {
+static void net_split_address(
+    const char* text, char* host, size_t host_size, char* port, size_t port_size
+) {
     const char* close = text[0] == '[' ? strchr(text, ']') : NULL;
     const char* colon = strrchr(text, ':');
     if (close != NULL) {
@@ -553,7 +557,12 @@ static int link_open(net_link* l, const char* host, const char* port, const char
     l->tokens_ms = 0; /* a new connection: a full budget */
     l->state = 2;
     fprintf(
-        stderr, "[info] rac3: online: connected to the OpenRAC %s at %s:%s as %s\n", what, host, port, name
+        stderr,
+        "[info] rac3: online: connected to the OpenRAC %s at %s:%s as %s\n",
+        what,
+        host,
+        port,
+        name
     );
     tx = l;
     srv_begin(PACKET_HELLO, -1);
@@ -579,12 +588,12 @@ void rac3_mp_net_ui_action(const char* key, int value) {
 
 static struct {
     char host[128], port[16]; /* the hub's address, which a listed server with no host shares */
-    int direct;  /* OPENRAC_SERVER names a game server, not a hub: played on as before the hub */
+    int direct; /* OPENRAC_SERVER names a game server, not a hub: played on as before the hub */
     char name[33], password[33];
-    char token[80]; /* the hub's session token, empty when logged out */
-    int32_t account; /* the account's id, the game's AccountID */
-    int region;      /* the region the game server link is to, -1 none */
-    int picked;      /* the city the game picked (an index of lobby.regions), -1 none */
+    char token[80];   /* the hub's session token, empty when logged out */
+    int32_t account;  /* the account's id, the game's AccountID */
+    int region;       /* the region the game server link is to, -1 none */
+    int picked;       /* the city the game picked (an index of lobby.regions), -1 none */
     int64_t tried_ms; /* when the game server was last tried */
 } net_login = {.region = -1, .picked = -1};
 
@@ -787,8 +796,8 @@ static struct {
     } regions[16];
 
     int regions_count;
-    int watching;        /* SERVERS_WATCH sent on this hub link: the list stays current */
-    int64_t watched_ms;  /* when */
+    int watching;       /* SERVERS_WATCH sent on this hub link: the list stays current */
+    int64_t watched_ms; /* when */
     int own_valid;
 } lobby;
 
@@ -806,30 +815,12 @@ static const struct {
     const char* code;
     const char* name;
 } NET_REGION_NAMES[] = {
-    {"LOCAL", "Local"},
-    {"US", "United States"},
-    {"CA", "Canada"},
-    {"MX", "Mexico"},
-    {"BR", "Brazil"},
-    {"GB", "United Kingdom"},
-    {"UK", "United Kingdom"},
-    {"IE", "Ireland"},
-    {"FR", "France"},
-    {"DE", "Germany"},
-    {"NL", "Netherlands"},
-    {"ES", "Spain"},
-    {"IT", "Italy"},
-    {"PL", "Poland"},
-    {"SE", "Sweden"},
-    {"FI", "Finland"},
-    {"RU", "Russia"},
-    {"JP", "Japan"},
-    {"KR", "Korea"},
-    {"SG", "Singapore"},
-    {"IN", "India"},
-    {"AU", "Australia"},
-    {"NZ", "New Zealand"},
-    {"ZA", "South Africa"},
+    {"LOCAL", "Local"}, {"US", "United States"},  {"CA", "Canada"},         {"MX", "Mexico"},
+    {"BR", "Brazil"},   {"GB", "United Kingdom"}, {"UK", "United Kingdom"}, {"IE", "Ireland"},
+    {"FR", "France"},   {"DE", "Germany"},        {"NL", "Netherlands"},    {"ES", "Spain"},
+    {"IT", "Italy"},    {"PL", "Poland"},         {"SE", "Sweden"},         {"FI", "Finland"},
+    {"RU", "Russia"},   {"JP", "Japan"},          {"KR", "Korea"},          {"SG", "Singapore"},
+    {"IN", "India"},    {"AU", "Australia"},      {"NZ", "New Zealand"},    {"ZA", "South Africa"},
 };
 
 /* The longest city text, in characters: what one line of the city select fits (a longer one wraps
@@ -899,7 +890,8 @@ static void srv_ensure(void) {
         return;
     }
     net_login.tried_ms = now;
-    const int k = net_login.picked >= 0 && net_login.picked < lobby.regions_count ? net_login.picked : 0;
+    const int k =
+        net_login.picked >= 0 && net_login.picked < lobby.regions_count ? net_login.picked : 0;
     char port[16];
     snprintf(port, sizeof port, "%d", (int)lobby.regions[k].port);
     const char* host = lobby.regions[k].host[0] != 0 ? lobby.regions[k].host : net_login.host;
@@ -1358,7 +1350,9 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
         case LOBBY_LICENCE_TEXT_REQUEST: /* waits for a text (+0x1C), then its end (+0x11C) */
             /* What the player is connecting to: the city picked, else the first listed. */
             if (hub_logged_in() && lobby.regions_count > 0) {
-                const int k = net_login.picked >= 0 && net_login.picked < lobby.regions_count ? net_login.picked : 0;
+                const int k = net_login.picked >= 0 && net_login.picked < lobby.regions_count
+                                  ? net_login.picked
+                                  : 0;
                 char city[NET_CITY_LONG_TEXT + 1], text[96];
                 net_city_text(k, NET_CITY_LONG_TEXT, city, sizeof city);
                 snprintf(text, sizeof text, "Online play on %s, an OpenRAC server.", city);
@@ -1994,7 +1988,10 @@ static void on_frame(int id, reader* r) {
                 const int32_t account = rd_i32(r);
                 rd_text(r, name, sizeof name);
                 fprintf(
-                    stderr, "[info] rac3: online: the game server took account %d (%s)\n", account, name
+                    stderr,
+                    "[info] rac3: online: the game server took account %d (%s)\n",
+                    account,
+                    name
                 );
             }
             break;
@@ -2277,7 +2274,12 @@ static void hub_pump(void) {
         /* Not a hub: the game server's own link to the same address takes the login (its hello's
          * answer gives the reply), and this one closes. */
         link_close(&hub);
-        fprintf(stderr, "[info] rac3: online: %s:%s is a game server, not a hub\n", net_login.host, net_login.port);
+        fprintf(
+            stderr,
+            "[info] rac3: online: %s:%s is a game server, not a hub\n",
+            net_login.host,
+            net_login.port
+        );
         if (lobby.login_waiting && !srv_open(net_login.name)) {
             lobby_reply_login(M_LOGIN_FAILED);
         }
