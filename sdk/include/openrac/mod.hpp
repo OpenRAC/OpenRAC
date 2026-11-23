@@ -1316,9 +1316,9 @@ public:
                                 sizeof(void *);
     }
 
-    // Since 1.30: weapon `item`'s target picks take every enemy in range, on
-    // screen or not (true), or the game's drawn ones again (false). False when
-    // refused (a weapon the port does not know, or no such call).
+    // Since 1.30: weapon `item`'s target picks take every enemy in range and in
+    // sight, on screen or not (true), or the game's drawn ones again (false).
+    // False when refused (a weapon the port does not know, or no such call).
     bool weapon_ignore_culling(int item, bool enabled = true) const {
       return has_weapon_culling() &&
              m_api->weapon_ignore_culling(m_handle, item, enabled ? 1 : 0) ==
