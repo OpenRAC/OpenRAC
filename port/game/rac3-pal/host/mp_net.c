@@ -328,10 +328,22 @@ typedef struct {
     size_t in_len;
     uint8_t out[LINK_OUT];
     size_t out_len, frame;
+    int paced;          /* frames go out within the hub's request budget (HUB_REQUEST_BURST) */
+    int tokens;         /* frames that may go now */
+    int64_t tokens_ms;  /* when the last token was added */
 } net_link;
 
+/* The hub takes 10 frames at once from a player, then 2 a second, and drops what is over
+ * (Server HUB_REQUEST_BURST, HUB_REQUEST_PER_SECOND): the hub link keeps under that, holding a
+ * frame over budget until it may go. The game's login sends a dozen at once (stats, the city
+ * list), and a dropped one is retried by the game only after its own timeout. */
+#define HUB_REQUEST_BURST 8
+#define HUB_REQUEST_MS 550 /* one more frame may go every this many ms */
+
+static int64_t net_now_ms(void);
+
 /* The game server (the lobby's games, the rooms) and the hub (the login, the city list). */
-static net_link srv = {.fd = NET_INVALID}, hub = {.fd = NET_INVALID};
+static net_link srv = {.fd = NET_INVALID}, hub = {.fd = NET_INVALID, .paced = 1};
 
 /* The link the frame being written goes to: the game server's, unless hub_begin began it. */
 static net_link* tx = &srv;
@@ -386,6 +398,8 @@ static void link_close(net_link* l) {
     l->features = 0;
 }
 
+static void link_flush(net_link* l);
+
 /* Ends the frame begun by srv_begin (its length first) and sends what is queued. */
 static void srv_end(void) {
     net_link* l = tx;
@@ -400,9 +414,41 @@ static void srv_end(void) {
         l->out_len = 0;
         return;
     }
+    link_flush(l);
+}
+
+/* Sends what L has queued: all of it, or on a paced link the whole frames its budget allows. */
+static void link_flush(net_link* l) {
+    if (l->fd == NET_INVALID || l->out_len == 0) {
+        return;
+    }
+    size_t end = l->out_len;
+    if (l->paced) {
+        const int64_t now = net_now_ms();
+        if (l->tokens_ms == 0) {
+            l->tokens = HUB_REQUEST_BURST;
+            l->tokens_ms = now;
+        }
+        while (l->tokens < HUB_REQUEST_BURST && now - l->tokens_ms >= HUB_REQUEST_MS) {
+            l->tokens++;
+            l->tokens_ms += HUB_REQUEST_MS;
+        }
+        if (l->tokens == HUB_REQUEST_BURST) {
+            l->tokens_ms = now;
+        }
+        end = 0;
+        while (l->tokens > 0 && l->out_len - end >= 4) {
+            const uint8_t* p = l->out + end;
+            end += 4 + ((size_t)p[0] << 24 | (size_t)p[1] << 16 | (size_t)p[2] << 8 | p[3]);
+            l->tokens--;
+        }
+        if (end == 0) {
+            return;
+        }
+    }
     size_t sent = 0;
-    while (sent < l->out_len) {
-        const long n = (long)send(l->fd, (const char*)l->out + sent, (int)(l->out_len - sent), 0);
+    while (sent < end) {
+        const long n = (long)send(l->fd, (const char*)l->out + sent, (int)(end - sent), 0);
         if (n <= 0) {
 #ifndef _WIN32
             if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
@@ -417,7 +463,11 @@ static void srv_end(void) {
         }
         sent += (size_t)n;
     }
-    l->out_len = 0;
+    if (l->fd == NET_INVALID) {
+        return;
+    }
+    memmove(l->out, l->out + end, l->out_len - end);
+    l->out_len -= end;
 }
 
 /* Room for a frame of N bytes more in the send buffer. */
@@ -492,6 +542,7 @@ static int link_open(net_link* l, const char* host, const char* port, const char
     l->in_len = 0;
     l->out_len = 0;
     l->features = 0;
+    l->tokens_ms = 0; /* a new connection: a full budget */
     l->state = 2;
     fprintf(
         stderr, "[info] rac3: online: connected to the OpenRAC %s at %s:%s as %s\n", what, host, port, name
@@ -1920,6 +1971,7 @@ static int link_pump(net_link* l, void (*on)(int, reader*)) {
     }
     memmove(l->in, l->in + at, l->in_len - at);
     l->in_len -= at;
+    link_flush(l); /* a paced link's frames held over its budget */
     link_keep_alive(l);
     return l->fd != NET_INVALID;
 }
