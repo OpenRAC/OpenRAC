@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -167,8 +168,10 @@ std::map<int, Table> g_overlays;
 std::unordered_map<openrac_host_fn, int> g_ambiguous;
 // Functions registered in two or more programs, by the overlay that registered them first: Up Your
 // Arsenal's catalogue folds its one-call wrappers across the levels by a fingerprint without the
-// call's address, so one name stands for each level's own wrapper (-1: seen in several).
+// call's address, so one name stands for each level's own wrapper (kSeveral: seen in several).
 std::unordered_map<openrac_host_fn, int> g_folded;
+// Not -1: that is the executable's overlay number (OPENRAC_OVERLAY_EXE).
+constexpr int kSeveral = INT_MIN;
 // Each game function's thunk (openrac_guest_call_regs), by its host function.
 std::unordered_map<openrac_host_fn, openrac_regs_thunk> g_thunks;
 int g_overlay = OPENRAC_OVERLAY_EXE;
@@ -541,7 +544,7 @@ void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t
             g_ambiguous[entries[i].fn] = 1;
         }
         if (auto [it, added] = g_folded.emplace(entries[i].fn, overlay); !added && it->second != overlay) {
-            it->second = -1;
+            it->second = kSeveral;
         }
     }
     for (size_t i = 0; i < count; i++) {
@@ -619,7 +622,7 @@ openrac_host_fn openrac_guest_function(gaddr address) {
         for (int depth = 0; depth < 4; ++depth) {
             const bool ambiguous = g_ambiguous.count(e->fn) != 0;
             const auto folded = g_folded.find(e->fn);
-            if (!ambiguous && (folded == g_folded.end() || folded->second != -1)) {
+            if (!ambiguous && (folded == g_folded.end() || folded->second != kSeveral)) {
                 break;
             }
             std::uint32_t w[7];
