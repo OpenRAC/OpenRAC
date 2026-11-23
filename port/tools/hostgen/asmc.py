@@ -680,12 +680,15 @@ class Translator:
         builds = any((i := self.at(a)) is not None and i.op == "lui" and i.imm & 0xFFFF in (0x1000, 0x1001)
                      and not (i.reloc and i.reloc[0] == "hi") for a in self.reach)
         for n, (at, _) in nodes.items():
-            if at is None or n not in state:
+            if at is None:
                 continue
             ins = self.at(at)
             if ins.op not in self.MEMORY_OPS or ins.rs == 28:
                 continue
-            base = value(state[n], ins.rs)
+            # Code the flow does not reach from the entry (coll_line's returns from its own
+            # subroutine, a jal inside the function whose jr $ra the flow does not follow back)
+            # knows no base either.
+            base = value(state[n], ins.rs) if n in state else None
             if base is None:
                 if builds and ins.op in ("sw", "lw", "lwu"):
                     found[at] = self.DYNAMIC

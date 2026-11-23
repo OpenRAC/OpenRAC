@@ -4989,6 +4989,43 @@ class FromAssembly(unittest.TestCase):
         self.assertEqual(out, ["30", "256", "2097152", "1879048192"])
         self.assertIn("openrac_spr_sw(", self.last_generated)
 
+    def test_a_kernel_reaches_the_scratchpad_registers_after_its_own_subroutine(self):
+        # asm.spr_copies: code after a jal to the function's own subroutine (coll_line's returns
+        # from 0x003FA550) is code the registers' flow does not reach; its stores to them are
+        # tested when they run, so the copy still happens.
+        source = """
+                or $25, $31, $0
+                lui $8, 0x1000
+                jal sub
+                nop
+                ori $8, $8, 0xD400
+                sw $4, 0x10($8)
+                ori $2, $0, 1
+                sw $2, 0x20($8)
+                lui $2, 0x7000
+                sw $2, 0x80($8)
+                ori $2, $0, 0x100
+                sw $2, 0x0($8)
+                lui $3, 0x7000
+                lw $2, 0x8($3)
+                jr $25
+                nop
+            sub:
+                jr $31
+                addu $9, $24, $0
+        """
+        out = self.run_asm("""
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            extern unsigned int D_00200000[8];
+            int test_main(void) {
+                D_00200000[2] = 77;
+                test_print(func_00100000(0x00200000));
+                return 0;
+            }
+        """, {"func_00100000": (0x00100000, source)}, config={"asm": {**ASM_CONFIG["asm"], "spr_copies": True}})
+        self.assertEqual(out, ["77"])
+
     def test_a_scratchpad_channel_started_from_elsewhere_stops_the_game(self):
         # A CHCR start whose MADR, QWC or SADR this function did not store on the way: copied from
         # registers another function wrote, which the copies do not keep; it stops the game.
