@@ -1346,7 +1346,8 @@ std::unordered_map<std::uint32_t, mods::MobyMaterial> mod_materials(
 // channel as it is), and the material goes to mesh.frag (platinum) by Instance::mod_material.
 // Energy (interface 1.25) multiplies only its share of rgb (OPENRAC_MOBY_MATERIAL_ENERGY_BODY), which
 // mesh.frag takes back out for its rim and glow packets; its level stays with the effects
-// (energy_effects.h).
+// (energy_effects.h). Paint (interface 1.34) multiplies all of rgb, which mesh.frag lays over the
+// texel's grey; its glow level goes with the material (scene::kModMaterialPaint + the level).
 void apply_mod_material(scene::Instance& instance, const mods::MobyMaterial& material) {
     // 0xRRGGBB: a byte a channel, red highest.
     constexpr float kChannelMax = 255.0f;
@@ -1364,6 +1365,13 @@ void apply_mod_material(scene::Instance& instance, const mods::MobyMaterial& mat
     instance.tint[1] *= channel(kGreenShift);
     instance.tint[2] *= channel(0);
     instance.mod_material = static_cast<std::uint8_t>(kind);
+    if (kind == OPENRAC_MOBY_MATERIAL_PAINT) {
+        constexpr int kLevelShift = 8;
+        constexpr std::uint32_t kLevelMask = 0xF;
+        instance.mod_material = static_cast<std::uint8_t>(
+            scene::kModMaterialPaint + ((material.material >> kLevelShift) & kLevelMask)
+        );
+    }
 }
 
 // Returns the third light the moby program gives a moby from the point lights (Going Commando's
@@ -1771,6 +1779,11 @@ TickMobys pose_mobys(
     const std::vector<mods::MobyModelDraw> model_draws = mods::moby_models_drawn();
     std::unordered_map<std::uint32_t, const mods::MobyModelDraw*> model_overrides;
     std::map<std::pair<int, std::uint32_t>, const mods::MobyModelDraw*> class_overrides;
+    // The mods' materials on whole classes (interface 1.34), by class and scope.
+    std::map<std::pair<int, std::uint32_t>, mods::MobyMaterial> class_materials;
+    for (const mods::ClassMaterialDraw& draw : mods::class_materials()) {
+        class_materials.emplace(std::make_pair(draw.oclass, draw.scope), draw.material);
+    }
     for (const mods::MobyModelDraw& draw : model_draws) {
         if (draw.scope == 0) {
             model_overrides.emplace(draw.address, &draw);
@@ -2319,6 +2332,12 @@ TickMobys pose_mobys(
         // A mod's material on it (interface 1.23), wherever it is drawn: the world or a target.
         if (const auto material = materials.find(m.address); material != materials.end()) {
             apply_mod_material(instance, material->second);
+        } else if (const auto by_class = class_materials.find(
+                       {m.class_id, own_camera ? OPENRAC_MODEL_MENU : OPENRAC_MODEL_WORLD}
+                   );
+                   by_class != class_materials.end()) {
+            // Its class's (interface 1.34), when it has none of its own.
+            apply_mod_material(instance, by_class->second);
         }
         bool attached_bones = false;
 #ifdef OPENRAC_LIGHT_AUTHORING

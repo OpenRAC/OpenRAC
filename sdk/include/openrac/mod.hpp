@@ -1904,6 +1904,29 @@ public:
         return moby_model_class(oclass, scope, -1) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.34: whether the port draws OPENRAC_MOBY_MATERIAL_PAINT (and its glow levels).
+    bool has_paint() const {
+        return has_moby_material() && m_api->api_minor >= 34;
+    }
+
+    // Since 1.34: whether the port draws every moby of a class with a material
+    // (moby_material_class).
+    bool has_moby_material_class() const {
+        return m_api->api_minor >= 34
+               && m_api->size >= offsetof(openrac_api, moby_material_class) + sizeof(void*);
+    }
+
+    // Since 1.34: draws every moby of class `oclass` in `scope` (OPENRAC_MODEL_WORLD, _MENU or
+    // both) with `material` (OPENRAC_MOBY_MATERIAL_*, _NONE to take the mod's off) and `rgb`, the
+    // menus' own pictures of the class too in the menu scope; a moby's own moby_material wins (see
+    // openrac_api.moby_material_class). Returns false when refused or the port has no such call.
+    bool moby_material_class(int oclass, uint32_t scope, std::uint32_t material,
+                             std::uint32_t rgb = 0xFFFFFF) const {
+        return has_moby_material_class()
+               && m_api->moby_material_class(m_handle, oclass, scope, material, rgb)
+                      == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.33: whether the port takes the effect's options (particle_spawn_ex).
     bool has_particle_spawn_ex() const {
       return m_api->api_minor >= 32 &&

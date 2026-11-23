@@ -289,6 +289,8 @@ std::uint32_t g_sprite_tint = UINT32_MAX;
 
 // Every mod's materials, in the order set (the last set is drawn), under g_props_lock.
 std::vector<MaterialEntry> g_materials;
+// The mods' materials on classes (interface 1.34), by class and scope bit, under g_props_lock.
+std::map<std::pair<int, std::uint32_t>, ClassMaterial> g_class_materials;
 
 std::vector<Sound> g_sounds;
 std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_voices;
@@ -441,6 +443,7 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.sprite_tint = api_sprite_tint;
     api.pickup_animation = api_pickup_animation;
     api.moby_material = api_moby_material;
+    api.moby_material_class = api_moby_material_class;
     api.moby_copy_check = api_moby_copy_check;
     api.moby_copy = api_moby_copy;
     api.moby_pool_raise = api_moby_pool_raise;
@@ -670,6 +673,19 @@ std::vector<MobyMaterial> moby_materials(const std::vector<LiveMobyId>& live) {
     return result;
 }
 
+std::vector<ClassMaterialDraw> class_materials() {
+    const std::uint32_t loads = loads_now();
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    std::vector<ClassMaterialDraw> out;
+    // This level load's, one a class and scope.
+    for (const auto& [key, c] : g_class_materials) {
+        if (c.mod != nullptr && c.loads == loads) {
+            out.push_back({key.first, key.second, {0, c.material, c.rgb}});
+        }
+    }
+    return out;
+}
+
 MobyMaterial moby_material_drawn(std::uint32_t moby) {
     const std::uint32_t loads = loads_now();
     const std::lock_guard<std::mutex> lock(g_props_lock);
@@ -889,6 +905,7 @@ void reset_play() {
         g_visual_classes.clear();
         ++g_visual_generation;
         g_materials.clear();
+        g_class_materials.clear();
         g_models.fill(Model{});
         g_slot_models.clear();
         g_class_models.clear();
@@ -950,6 +967,7 @@ void drop_figures(const openrac_mod* mod) {
         const std::lock_guard<std::mutex> lock(g_props_lock);
         std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod; });
         std::erase_if(g_materials, [&](const MaterialEntry& e) { return e.mod == mod; });
+        std::erase_if(g_class_materials, [&](const auto& c) { return c.second.mod == mod; });
     }
     std::erase_if(g_ammo_panel_offsets, [mod](const auto& entry) {
         return entry.second.mod == mod;

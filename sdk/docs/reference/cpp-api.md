@@ -307,6 +307,9 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool has_moby_model_class() const` | Since 1.33: whether the port draws every moby of a class with a mesh of the mod's (moby_model_class). |
 | `int moby_model_class(int oclass, uint32_t scope, int model, const float* matrix = nullptr) const` | Since 1.33: draws every moby of class `oclass` in `scope` (OPENRAC_MODEL_WORLD, _MENU or both) with `model`: the game's own pictures of the item too, in the menu scope (see openrac_api.moby_model_class). Returns OPENRAC_HOOK_OK, _UNKNOWN or _TAKEN (another mod's). |
 | `bool moby_model_class_clear(int oclass, uint32_t scope) const` | Since 1.33: gives the class its own model back in `scope`. |
+| `bool has_paint() const` | Since 1.34: whether the port draws OPENRAC_MOBY_MATERIAL_PAINT (and its glow levels). |
+| `bool has_moby_material_class() const` | Since 1.34: whether the port draws every moby of a class with a material (moby_material_class). |
+| `bool moby_material_class(int oclass, uint32_t scope, std::uint32_t material, std::uint32_t rgb = 0xFFFFFF) const` | Since 1.34: draws every moby of class `oclass` in `scope` (OPENRAC_MODEL_WORLD, _MENU or both) with `material` (OPENRAC_MOBY_MATERIAL_*, _NONE to take the mod's off) and `rgb`, the menus' own pictures of the class too in the menu scope; a moby's own moby_material wins (see openrac_api.moby_material_class). Returns false when refused or the port has no such call. |
 | `bool has_particle_spawn_ex() const` | Since 1.33: whether the port takes the effect's options (particle_spawn_ex). |
 | `int particle_spawn_ex(openrac_particle_spawn spawn) const` | Since 1.33: starts the game's own particle effect with the options in `spawn` (see openrac_particle_spawn). The size is set here. Returns OPENRAC_HOOK_OK, _FULL or _UNKNOWN. |
 | `bool has_particle_texture_register() const` | Since 1.33: whether the port registers particle textures (particle_texture_register). |

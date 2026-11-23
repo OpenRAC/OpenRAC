@@ -197,6 +197,10 @@ struct Instance {
 // shine distance, which is a byte.
 inline constexpr int kMobyMaterialLightsStep = 512;
 
+// Instance::mod_material of OPENRAC_MOBY_MATERIAL_PAINT (interface 1.34): this plus its glow level
+// (0 to 15), so mesh.frag has the level with the kind; above every other kind's number.
+inline constexpr std::uint8_t kModMaterialPaint = 16;
+
 // Returns a live moby's `lights` as mesh.vert reads it: -1 - (its shine distance + the step times
 // `material`), so the per-instance attributes, all sixteen in use, carry the material too. A lit
 // tie (`lights` >= 0) and a moby with no material keep `lights` as they are.

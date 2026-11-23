@@ -114,24 +114,31 @@ int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int c
     return OPENRAC_HOOK_OK;
 }
 
+// Whether moby_material may draw `material` with `rgb`: a kind the port has, with a level only on
+// energy and paint.
+bool moby_material_known(std::uint32_t material, std::uint32_t rgb) {
+    constexpr std::uint32_t kRgbMax = 0xFFFFFF;
+    // Energy (1.25) and paint (1.34) carry a level in bits 8 to 11; the others none.
+    constexpr std::uint32_t kLevels = 0xF00;
+    const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material);
+    const std::uint32_t extra = material & ~0xFFu;
+    const bool levelled =
+        kind == OPENRAC_MOBY_MATERIAL_ENERGY || kind == OPENRAC_MOBY_MATERIAL_PAINT;
+    return kind <= OPENRAC_MOBY_MATERIAL_PAINT
+           && (extra == 0 || (levelled && (extra & ~kLevels) == 0)) && rgb <= kRgbMax;
+}
+
 // Sets, changes or clears (OPENRAC_MOBY_MATERIAL_NONE) `mod`'s material on `moby` for this level
-// load (interface 1.23, obsidian 1.24, energy 1.25); the renderer reads them with moby_materials. Writes no
-// game memory.
+// load (interface 1.23, obsidian 1.24, energy 1.25, paint 1.34); the renderer reads them with
+// moby_materials. Writes no game memory.
 int api_moby_material(
     openrac_mod* mod, openrac_gaddr moby, std::uint32_t material, std::uint32_t rgb
 ) {
     // A moby record is 0x100 bytes; one that would end past the address space is no moby.
     constexpr openrac_gaddr kMobyBytes = 0x100;
-    constexpr std::uint32_t kRgbMax = 0xFFFFFF;
-    // Energy carries its level in bits 8 to 11 (OPENRAC_MOBY_MATERIAL_ENERGY_AT); the others none.
-    constexpr std::uint32_t kEnergyLevels = 0xF00;
-    const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material);
-    const std::uint32_t extra = material & ~0xFFu;
-    const bool known =
-        kind <= OPENRAC_MOBY_MATERIAL_ENERGY
-        && (extra == 0 || (kind == OPENRAC_MOBY_MATERIAL_ENERGY && (extra & ~kEnergyLevels) == 0));
     // A call the interface does not describe changes nothing.
-    if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes || !known || rgb > kRgbMax) {
+    if (mod == nullptr || moby == 0 || moby > UINT32_MAX - kMobyBytes
+        || !moby_material_known(material, rgb)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     const std::uint32_t loads = loads_now();
@@ -151,6 +158,40 @@ int api_moby_material(
         return OPENRAC_HOOK_UNKNOWN;
     }
     g_materials.push_back({mod, loads, {moby, material, rgb}, -1});
+    return OPENRAC_HOOK_OK;
+}
+
+// Sets or clears (OPENRAC_MOBY_MATERIAL_NONE) `mod`'s material on every moby of `oclass` in `scope`
+// for this level load (interface 1.34); the renderer reads them with class_materials. Writes no game
+// memory.
+int api_moby_material_class(
+    openrac_mod* mod, int oclass, std::uint32_t scope, std::uint32_t material, std::uint32_t rgb
+) {
+    constexpr std::uint32_t kScopes = OPENRAC_MODEL_WORLD | OPENRAC_MODEL_MENU;
+    // A call the interface does not describe changes nothing.
+    if (mod == nullptr || oclass < 0 || scope == 0 || (scope & ~kScopes) != 0
+        || !moby_material_known(material, rgb)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::uint32_t loads = loads_now();
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    // Each scope the call names, on its own.
+    for (const std::uint32_t bit : {OPENRAC_MODEL_WORLD, OPENRAC_MODEL_MENU}) {
+        if ((scope & bit) == 0) {
+            continue;
+        }
+        const auto held = g_class_materials.find({oclass, bit});
+        // NONE takes this mod's off; another mod's, or one of an older level load, stays or goes
+        // as the last set would.
+        if (material == OPENRAC_MOBY_MATERIAL_NONE) {
+            if (held != g_class_materials.end()
+                && (held->second.mod == mod || held->second.loads != loads)) {
+                g_class_materials.erase(held);
+            }
+            continue;
+        }
+        g_class_materials[{oclass, bit}] = ClassMaterial{mod, loads, material, rgb};
+    }
     return OPENRAC_HOOK_OK;
 }
 
