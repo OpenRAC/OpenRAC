@@ -2339,7 +2339,8 @@
       "func_L53_00550CF0": "int (int)",
       "func_L53_00551588": "void (int, int, int, int)"
     },
-    "cop0_count": true
+    "cop0_count": true,
+    "wide": "wide.json"
   },
   "unpassed_registers": true,
   "library_api": "../../common/libraries.tsv",

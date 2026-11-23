@@ -162,6 +162,10 @@ def load_config(path: Path) -> dict:
     cfg.setdefault("names", {})
     cfg.setdefault("symbols", [])
     cfg.setdefault("groups", [])
+    # asm.wide: the widened arrays' sites (asmc.parse_wide), a JSON file beside the configuration.
+    wide = (cfg.get("asm") or {}).get("wide")
+    if isinstance(wide, str):
+        cfg["asm"]["wide"] = json.loads((path.parent / wide).read_text())
     # "prefix": every C name the program defines starts with it (program.cname), a second executable
     # of the disc built into the same port ("executables" of the first: cmake/Games.cmake).
     program_module.set_name_prefix(cfg.get("prefix", ""))
