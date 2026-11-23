@@ -18,7 +18,8 @@
 
 ## P11 continuation (2026-11-23)
 
-The work continues from draft #782, preserving its two original commits. It is not ready to merge.
+The work continues from draft #782, preserving its two original commits. The short first-level
+checks below are validated; review and CI are still required before merge.
 
 - Integrated develop `b568fe8b8`: retained per-group stream gain ramps with float PCM normalization,
   and regenerated the NTSC-U address table from the merged inputs.
@@ -53,6 +54,9 @@ The work continues from draft #782, preserving its two original commits. It is n
   | RAC2 NTSC | Aranos tutorial | 37.656 s |
   | RAC3 PAL | Veldin | 42.578 s |
   | RAC3 NTSC-U (additional check) | Veldin | 35.969 s |
+
+  The user confirmed that all audible test runs sounded good. This verdict covers these sessions,
+  not every sound or a comparison against console audio.
 
   Logs, control reports, disc data and WAV files remain private. These are short first-level smoke
   checks, not full playthroughs, movie or multiplayer validation, or a listening verdict for every
