@@ -54,8 +54,11 @@ frontend::pad(port, &buttons, analog[4])         port/game/common/frontend.cpp:3
 openrac_game_pad(port, &buttons, analog)          port/game/common/main.cpp:1220-1231
         |
         v
-openrac_lib_scePad2Read(socket, data)             port/game/common/lib/pad.c:42-64
-  18 bytes: 2 buttons + 4 sticks + 12 pressures
+openrac_pad_report(port, report)                  port/game/common/lib/pad.c
+  18 bytes: 2 buttons + 4 sticks + 12 pressures, through the mods' pad callbacks
+        |
+        v
+the port's pad update (no libpad2 call)           port/game/rac1/host/pad_state.c
         |
         v
 the game's Pad_ProcessReport                     games/rac1/decomp/src/game/pad.c:336-492
@@ -114,7 +117,7 @@ if (len >= 0x12) {
 *"[0..3] stick axes (-1..1), [4..15] pressure (0..1)"*.
 
 The order is right, left, up, down, triangle, circle, cross, square, L1, R1,
-L2, R2 — the port's own order (`port/game/common/lib/pad.c:43`,
+L2, R2 — the port's own order (`port/game/common/lib/pad_report.h`,
 `port/platform/pad.h:67-82`), matching the community's memory map
 (`games/rac1/decomp/docs/kb/data-structures.md:473-474`).
 
@@ -203,8 +206,8 @@ degradation.
 
 ### 3.4 What the port reports
 
-The port returns an all-ones button profile
-(`port/game/common/lib/pad.c:67-72`), so the game always takes the pressure
+The port's pad update gives the pad an all-ones button profile
+(`port/game/rac1/host/pad_state.c`), so the game always takes the pressure
 branch. That is the honest answer for what the port emulates — it does
 deliver twelve pressure bytes — but the values it delivers are binary.
 

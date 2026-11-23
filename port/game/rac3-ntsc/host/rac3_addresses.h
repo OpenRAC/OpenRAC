@@ -80,10 +80,16 @@
 #define RAC3_ADDR_0x001D4CE8u 0x001D4CE8u
 /* D_001D4CEC (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D4CECu 0x001D4CECu
+/* release.json: the active pad's not-ready flag the pad update writes ($gp - 0x7BBC: NTSC-U's func_003A3A00 stores to it as PAL's func_003A3B40 does, asm/us/boot_elf/13_text/f_003A3A00.s at 0x003A3A64, and both programs' $gp is 0x001DC8B0, config/gp.tsv) */
+#define RAC3_ADDR_0x001D4CF4u 0x001D4CF4u
 /* D_001D4DA0 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D4DA0u 0x001D4DA0u
 /* D_001D52FC (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D52FCu 0x001D52FCu
+/* D_001D5300 (names.tsv, the same address) */
+#define RAC3_ADDR_0x001D5300u 0x001D5300u
+/* D_001D5304 (names.tsv, the same address) */
+#define RAC3_ADDR_0x001D5304u 0x001D5304u
 /* D_001D5458 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D5458u 0x001D5458u
 /* D_001D545C (names.tsv, the same address) */
@@ -114,6 +120,8 @@
 #define RAC3_ADDR_0x001D5BDCu 0x001D5BDCu
 /* D_001D5C90 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D5C90u 0x001D5C90u
+/* D_001D6DF0 (names.tsv, the same address) */
+#define RAC3_ADDR_0x001D6DF0u 0x001D6DF0u
 /* D_001D89B8 (names.tsv) */
 #define RAC3_ADDR_0x001D89B8u 0x001D89E8u
 /* D_001D89BC (names.tsv) */

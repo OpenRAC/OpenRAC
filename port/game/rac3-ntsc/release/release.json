@@ -471,6 +471,10 @@
   },
   "addresses": {
     "about": "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence.",
+    "0x001D4CF4": {
+      "is": "0x001D4CF4",
+      "why": "the active pad's not-ready flag the pad update writes ($gp - 0x7BBC: NTSC-U's func_003A3A00 stores to it as PAL's func_003A3B40 does, asm/us/boot_elf/13_text/f_003A3A00.s at 0x003A3A64, and both programs' $gp is 0x001DC8B0, config/gp.tsv)"
+    },
     "0x001D55D0": {
       "is": "0x001D55D0",
       "why": "the two font headers (FontUpload func_0038E2B0 reads them, FontSelect func_0038E530 copies the selected one's into 0x001D55C0): NTSC-U's boot program registers a font's header at the same address (f_0038E140: lui 0x1D, addiu 0x55D0, the font's index times 4, sw), and Veldin's FontSelect reads it there too (f_0040D548)"

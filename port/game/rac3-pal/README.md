@@ -361,7 +361,7 @@ vertical blank callback (`func_0013D208`).
 | `host/entry.c` | the loader's unpacking, crt0, InitSystemCallTableAddress (no kernel to scan) |
 | `host/dma.c` | sceDmaSend leaving CHCR as the DMAC does (the VIF1 handler retires the frame's wait mask from it), KickVif0Chain |
 | `host/sound.c` | 989snd's command boundary (snd_Pump, snd_SendCommandSync, snd_QueueCommandToRing, the bank loads) on the ring rac2 shares (`common/lib/snd_ring.c`): the native sound engine plays the banks' sounds and the VAG streams |
-| `host/pad.c` | libpad 4.0, Deadlocked's host pad at this disc's addresses |
+| `host/pad.c` | the pad start-up and update of the boot program, frontbin and the levels, the port's: each record's report from the port's controllers, read by the game's own reader, no libpad; the multiplayer executable's libpad 4.0 answers (host/mp.c) |
 | `host/movie.c` | the movie player entry, the boot program's, frontbin's and every level's copy (`func_L01_004D28B0`, which the levels' story movies start): the shared native player |
 | `host/program.c` | which program is loaded (the overlay hook), `OPENRAC_RAC3_NEXT` |
 | `headers/vu0.h` | the vector-library helpers of the decompilation's `include/vu0.h` (asm Clang refuses) in C, read in its place (hostgen.json `headers`) |

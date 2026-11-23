@@ -109,13 +109,13 @@ func_001241F0	mc	sceMcGetDir	host
 func_00124340	mc	sceMcFormat	host
 func_00124410	mc	sceMcDelete	host
 func_00124528	mc	sceMcUnformat	host
-func_00124650	dbc	sceDbcInit	host	pads come from the platform layer
-func_00124B88	pad2	scePad2Init	game	it only sets libpad2's state (its init flag, its socket table cleared); the port's pad functions keep no state there
-func_00124BC8	pad2	scePad2CreateSocket	host
-func_00124D18	pad2	scePad2Read	host
-func_00124DF0	pad2	scePad2GetButtonProfile	host
-func_00124EE0	pad2	scePad2GetState	host
-func_00125218	vib	sceVibGetProfile	host
+func_00124650	dbc	sceDbcInit	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124B88	pad2	scePad2Init	game	libpad2's state only (its init flag, its socket table cleared); no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124BC8	pad2	scePad2CreateSocket	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124D18	pad2	scePad2Read	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124DF0	pad2	scePad2GetButtonProfile	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124EE0	pad2	scePad2GetState	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00125218	vib	sceVibGetProfile	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
 func_00125358	vu0	sceVu0UnitMatrix	host	port/game/rac1/host/vector.c
 func_001253F8	vu0	sceVu0RotMatrixZ	host
 func_001254A0	vu0	sceVu0RotMatrixX	host
@@ -367,6 +367,8 @@ func_L00_001FEE50	game	func_L00_001FEE50	host	a place the catalogue folds into a
 func_L00_001FEEC0	game	func_L00_001FEEC0	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	float (float)
 func_L00_001FEEF8	game	func_L00_001FEEF8	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	float (float)
 func_L00_001FEF08	game	func_L00_001FEF08	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	float (float)
+func_00217EE8	pad	InitPads	host	init_pads: the pad record's socket is its port; libdbc and libpad2 are not started, the port's pad update needs neither (rac1/host/pad_state.c)	void (void)
+func_00217F68	pad	Pad_UpdatePort	host	poll_pad_device_state: the profiles and the report a poll are the port's, from its controllers (openrac_pad_report, through the mods' pad callbacks), handed to the game's Pad_ProcessReport; no libpad2 call (rac1/host/pad_state.c)	void (unsigned int)
 func_002181F0	pad	Pad_ProcessReport	hook	the pad's report into its state, each poll: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none	void (unsigned int, unsigned int, int)
 func_L00_00211D28	hero	Hero_UpdateMotionInput	hook	the stick into the hero, early in his update: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none	void (void)
 func_L00_002124E8	hero	Hero_TurnToHeading	hook	eases the facing toward the move yaw: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none	void (int, float, float, float)

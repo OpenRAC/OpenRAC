@@ -1,18 +1,20 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright (c) 2026 the OpenRAC contributors
  *
- * The pad libraries (libdbc, libpad2, libvib). The pads come from the
- * platform layer (port/platform, through openrac_game_pad).
+ * The pad as the games' readers take it (pad_report.h), and the pad libraries (libdbc, libpad2,
+ * libvib) for the games still answered at them. The pads come from the platform layer
+ * (port/platform, through openrac_game_pad).
  *
- * Not done yet: the layout of what scePad2Read fills in. The game's own
- * reader (func_00217F68, matched C) and its post-processing (func_002181F0)
- * show which bytes it takes; the layout below is the one OpenRAC's earlier
- * runtime answered with, which the game played with. */
+ * Ratchet & Clank, Going Commando and Up Your Arsenal no longer reach the libraries: their pad
+ * updates are the port's (rac1/host/pad_state.c, rac2/host/pad_state.c, rac3-pal/host/pad.c), which
+ * hand the game's own reader openrac_pad_report's bytes. Deadlocked (rac4-ntsc/host/pad.c) still
+ * runs its libpad state machine and reads through scePad2Read. */
+#include <stdint.h>
+
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
-
-#include <stdint.h>
+#include "pad_report.h"
 
 void (*openrac_game_pad_report_hook)(int port, uint8_t* report, int size);
 
@@ -34,19 +36,13 @@ int openrac_lib_scePad2CreateSocket(gaddr params, gaddr work) { /* scePad2Create
     return port >= 0 && port < 2 ? port : 0;
 }
 
-/* scePad2Read(socket, data): two bytes of buttons (a clear bit is a pressed
- * button), the right stick, the left stick, then twelve pressures in the
- * order right, left, up, down, triangle, circle, cross, square, L1, R1, L2,
- * R2 (full when pressed). The result is the number of bytes written. The
- * socket number is the port. */
-int openrac_lib_scePad2Read(int socket, gaddr data) { /* scePad2Read */
+int openrac_pad_report(int port, uint8_t out[OPENRAC_PAD_REPORT]) {
     static const unsigned bit[12] = {5, 7, 4, 6, 12, 13, 14, 15, 10, 11, 8, 9};
     uint16_t buttons = 0xFFFF;
     uint8_t analog[4] = {0x80, 0x80, 0x80, 0x80};
-    uint8_t *out = (uint8_t *)G(data);
     unsigned n;
 
-    openrac_game_pad(socket, &buttons, analog);
+    const int connected = openrac_game_pad(port, &buttons, analog);
     out[0] = (uint8_t)buttons;
     out[1] = (uint8_t)(buttons >> 8);
     out[2] = analog[0];
@@ -57,10 +53,17 @@ int openrac_lib_scePad2Read(int socket, gaddr data) { /* scePad2Read */
         out[6 + n] = (buttons >> bit[n]) & 1 ? 0 : 0xFF;
     }
     if (openrac_game_pad_report_hook != 0) {
-        openrac_game_pad_report_hook(socket, out, 18);
-        openrac_game_pad_after_mods(socket, out, 18);
+        openrac_game_pad_report_hook(port, out, OPENRAC_PAD_REPORT);
+        openrac_game_pad_after_mods(port, out, OPENRAC_PAD_REPORT);
     }
-    return 18;
+    return connected;
+}
+
+/* scePad2Read(socket, data): openrac_pad_report's bytes; the result is the number of bytes
+ * written. The socket number is the port. */
+int openrac_lib_scePad2Read(int socket, gaddr data) { /* scePad2Read */
+    openrac_pad_report(socket, (uint8_t*)G(data));
+    return OPENRAC_PAD_REPORT;
 }
 
 /* Which buttons exist: every button and both sticks. */
