@@ -118,6 +118,8 @@
 #define RAC3_ADDR_0x001D89B8u 0x001D89E8u
 /* D_001D89BC (names.tsv) */
 #define RAC3_ADDR_0x001D89BCu 0x001D89ECu
+/* D_001D9BE0 (names.tsv) */
+#define RAC3_ADDR_0x001D9BE0u 0x001D9C60u
 /* D_001D9BFC (names.tsv) */
 #define RAC3_ADDR_0x001D9BFCu 0x001D9C7Cu
 /* D_001D9D04 (names.tsv) */
@@ -244,6 +246,8 @@
 #define RAC3_LADDR_1_0x001DCA14u 0x001DCA54u
 /* the same instruction of the same code: func_L01_003F1478 (NTSC-U func_L01_003EF538) +0xD0, 24 of 24 places agree */
 #define RAC3_LADDR_1_0x001DF948u 0x001DF9C8u
+/* the letterbox's height in lines (the levels' copy of func_0038AD28): PAL's func_L01_004054F0 and NTSC-U's func_L01_00403120 (the same routine, rac3_names.tsv) read and store it at $gp-relative 0x001DF960 and 0x001DF9E0, beside their set word (0x001DF95C, 0x001DF9DC) */
+#define RAC3_LADDR_1_0x001DF960u 0x001DF9E0u
 /* the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree */
 #define RAC3_LADDR_1_0x001DF97Cu 0x001DF9FCu
 /* the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x160, 6 of 6 places agree */
