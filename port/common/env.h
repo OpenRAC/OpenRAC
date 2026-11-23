@@ -163,6 +163,8 @@ enum class Var : std::uint16_t {
     Rac3Hero,
     Rac3MenuLog,
     Rac3Mobys,
+    Rac3MpFixesLog,
+    Rac3MpStock,
     Rac3MpUi,
     Rac3MpUiMock,
     Rac3NetLog,

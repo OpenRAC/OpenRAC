@@ -191,6 +191,17 @@ single-player levels' and level 39's `asm` `signatures` reach the maps' copies a
 `copy_signatures`. NTSC-U's are carried by `release_carry_rac3.py` (its maps 54 and 55, builds of
 44 and 45, are not yet).
 
+The maps' stock bugs that online play meets are fixed in `host/mp_fixes.c`, around each map's copy
+of the game's functions (`mp/fixes.py` writes their rows and `host/mp_fixes.h` from the
+catalogue, as `mp/maps.py` does): a gadget moby whose class the map never loaded (a crash), the
+credit for hitting a player already dead, shooting and moving while dead, the flux rifle's muzzle
+light left lit, a remote sniper shot stopped by a thin wall the shooter's client shot through,
+Metropolis's base flag, and the net clock's stalls (turrets waiting on a remote state, a late
+player dropped, the local player stalled on a silent host, a remote shot run at the sender's
+time). The Horizon Private Server project fixed the same bugs for the console; we read its work
+for reference only (CREDITS.md). `OPENRAC_RAC3_MP_STOCK=1` runs the stock code,
+`OPENRAC_RAC3_MP_FIXES_LOG=1` logs each fix as it acts.
+
 ### Online play
 
 ONLINE PLAY goes to the OpenRAC server (the OpenRAC/Server repository) instead of the retail
