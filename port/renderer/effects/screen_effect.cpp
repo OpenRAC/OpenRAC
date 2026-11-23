@@ -140,12 +140,9 @@ void ScreenEffects::pass(int mode, unsigned source, int width, int height, Level
     );
     const RasterTexture read{source};
     const RenderTarget target{out.id(), out.width(), out.height()};
-    raster_pass(
-        "screen effect",
-        target,
-        {{}, {&read, 1}, ColourAttachments::ColourOverwrite},
-        [] { glDrawArrays(GL_TRIANGLES, 0, 3); }
-    );
+    raster_pass("screen effect", target, {{}, {&read, 1}, ColourAttachments::ColourOverwrite}, [] {
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    });
     into.current ^= 1;
 }
 
@@ -175,10 +172,12 @@ void ScreenEffects::put_back(int mode, const RenderTarget& target) {
     });
 }
 
-void ScreenEffects::apply(const ScreenEffect& effect, const RenderTarget& target, unsigned readable) {
+void ScreenEffects::apply(
+    const ScreenEffect& effect, const RenderTarget& target, unsigned readable
+) {
     // Nothing to put back, or a program that would not build, draws nothing.
-    if (m_failed || effect.kind == ScreenEffectKind::None || target.width <= 0
-        || target.height <= 0 || !prepare(target.width, target.height)) {
+    if (m_failed || effect.kind == ScreenEffectKind::None || target.width <= 0 || target.height <= 0
+        || !prepare(target.width, target.height)) {
         return;
     }
     const stats::Scope timing("Screen effect", stats::kGpu);

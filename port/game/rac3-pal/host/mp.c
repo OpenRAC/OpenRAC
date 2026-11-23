@@ -314,9 +314,8 @@ int mp_func_L39_005A9AA0(int source, int destination) {
  * func_L01_004DF310 at 39:0060DFC8, 39:0060E048 and 39:0060EC68), drawn natively as the
  * single-player levels' are (screen.c), from level 39's globals: the glow word at $gp - 0x240C,
  * the blur byte 0x24 after it, the list pointer at 0x0024CAD0. */
-static const Rac3Glow kMenusGlow = {
-    RAC3_LADDR(39, 0x00245BB4u), RAC3_LADDR(39, 0x00245BD8u), RAC3_LADDR(39, 0x0024CAD0u)
-};
+static const Rac3Glow kMenusGlow =
+    {RAC3_LADDR(39, 0x00245BB4u), RAC3_LADDR(39, 0x00245BD8u), RAC3_LADDR(39, 0x0024CAD0u)};
 
 int mp_func_L39_0060DFC8(void) {
     return rac3_screen_glow(&kMenusGlow);

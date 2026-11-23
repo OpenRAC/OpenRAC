@@ -87,15 +87,14 @@ int rac3_screen_soften(gaddr list) {
 
 /* Veldin's (the single-player levels') globals: the glow word at $gp - 0xC0C, the blur byte after
  * the second effect's word, the list pointer DrawTfrag reads. */
-static const Rac3Glow kLevels = {
-    RAC3_LADDR(1, 0x001DBCA4u), RAC3_LADDR(1, 0x001DBCC8u), RAC3_LADDR(1, 0x001E1068u)
-};
+static const Rac3Glow kLevels =
+    {RAC3_LADDR(1, 0x001DBCA4u), RAC3_LADDR(1, 0x001DBCC8u), RAC3_LADDR(1, 0x001E1068u)};
 
 static Rac3Glow levels_glow(void) {
-    const Rac3Glow g = {
-        OPENRAC_LDATA(1, kLevels.word), OPENRAC_LDATA(1, kLevels.twice),
-        OPENRAC_LDATA(1, kLevels.list)
-    };
+    const Rac3Glow g =
+        {OPENRAC_LDATA(1, kLevels.word),
+         OPENRAC_LDATA(1, kLevels.twice),
+         OPENRAC_LDATA(1, kLevels.list)};
     return g;
 }
 
@@ -119,9 +118,8 @@ int func_L01_004DF310(void) {
  * and 0x00388AF8) while 0x001D9348 is set. Both programs keep the glow's globals at the same
  * addresses, not relocated: the glow word 0x001D934C, the blur byte 0x20 after it, the list pointer
  * 0x001DA050. */
-static const Rac3Glow kBoot = {
-    RAC3_ADDR(0x001D934Cu), RAC3_ADDR(0x001D936Cu), RAC3_ADDR(0x001DA050u)
-};
+static const Rac3Glow kBoot =
+    {RAC3_ADDR(0x001D934Cu), RAC3_ADDR(0x001D936Cu), RAC3_ADDR(0x001DA050u)};
 
 int func_003D8978(void) {
     return rac3_screen_glow(&kBoot);

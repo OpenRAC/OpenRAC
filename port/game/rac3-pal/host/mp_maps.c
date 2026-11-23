@@ -63,9 +63,8 @@ static inline int wad_decompress(int source, int destination) {
  * (screen.c), from the map's copy of level 39's globals: the glow word, the blur byte 0x24 after
  * it, the list pointer. */
 static Rac3Glow map_glow(void) {
-    const Rac3Glow g = {
-        L39(MAP_GLOW_WORD), L39(RAC3_LADDR(39, 0x00245BD8u)), L39(MAP_LIST_POINTER)
-    };
+    const Rac3Glow g =
+        {L39(MAP_GLOW_WORD), L39(RAC3_LADDR(39, 0x00245BD8u)), L39(MAP_LIST_POINTER)};
     return g;
 }
 
