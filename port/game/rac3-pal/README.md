@@ -27,14 +27,18 @@ comments).
 
 ```sh
 cmake --preset release && cmake --build --preset release --target openrac-rac3-pal
-# a data folder with iso_data/rac3/SCES_524.56 (the disc's boot executable) and iso_data/rac3/disc.iso
+# a data folder set up by python3 tools/extractor.py <image> --game rac3 -e --proj-path <data>:
+# iso_data/rac3/ with the disc's files, sectors.tsv and programs/ (the two programs, unpacked)
 SDL_AUDIODRIVER=dummy "port/build/release/apps/openrac-rac3-pal/Ratchet & Clank 3 (PAL).app/Contents/MacOS/Ratchet & Clank 3 (PAL)" \
     --data <data> --window --skip-movies
 ```
 
 From the launcher (launcher/actions.json, `rac3/pal`), as for Going Commando: *Set up from your
 disc* runs `tools/extractor.py`, which checks the disc against games/rac3/game.json and writes
-`iso_data/rac3/` (`SCES_524.56`, `disc.iso`, `buildinfo.json`) into the game's data folder;
+`iso_data/rac3/` into the game's data folder: the disc's files, every sector outside its file system
+as lumps (`lumps/`), `sectors.tsv` (the map the game reads its sectors by), the boot program's and
+I5BOOTN.ELF's records unpacked (`programs/*.records`, which LoadExecPS2 copies in: `host/exec.c`),
+`buildinfo.json`, and the image, which only the level tools read;
 *Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
 the levels into `assets/port/rac3/pal` (`levels-16.json`), and *Play* runs
 `openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that

@@ -4,7 +4,7 @@
 // Original receiving motions, read from the player's disc and posed over the current world.
 static void load_special_pickup_clips() {
     g->special_pickup_clips.clear();
-    if (!openrac_game_disc_image) {
+    if (!openrac_game_disc_files) {
         return;
     }
     namespace disc = assets::disc;
@@ -26,7 +26,7 @@ static void load_special_pickup_clips() {
          {645, 10, 0, 2.0f, 7.76f, .25f},
          {1433, 10, 1, 2.0f, 7.8f, 1.0f / 12}};
     try {
-        const auto image = disc::Disc::open(openrac_game_disc_image, disc::rac1_layout());
+        const auto image = disc::Disc::open(openrac_game_disc_files, disc::rac1_layout());
         for (const auto& source : sources) {
             try {
                 const auto bytes = image.scene_region(source.level, source.scene, pal);

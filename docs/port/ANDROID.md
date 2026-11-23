@@ -165,8 +165,9 @@ so if it takes more than a second.
 **Kept light for a phone:**
 
 - the image is copied by the kernel (`copy_file_range` or `sendfile`);
-- the extractor writes only `SYSTEM.CNF` and the boot executable
-  (`--boot-only`, on every system), though it still checks every file;
+- the extractor writes the disc's files once (the game reads them through
+  their sector map, `sectors.tsv`, never the image): about as much space as
+  the disc again, on top of the linked image the level tools read;
 - files that levels have alike (a moby class, a texture) are written once and
   linked (`editor/extract.py`, `share_identical_files`);
 - Android's Python has no process pools (no `sem_open`), so `editor/extract.py`

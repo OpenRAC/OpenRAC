@@ -244,6 +244,9 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
   /** Android: the game's code still in assembly, translated from the disc and compiled on the
    *  device (tools/asm_part.py), as a desktop's Build the game does with the whole game. */
   const part = action(v, "port-part");
+  /** The disc's files the game reads (tools/extractor.py writes them and their sector map): a
+   *  set-up made before the game read them has only the image. */
+  const files = action(v, "disc-files");
   const setUp = game.install?.extracted ?? null;
   const other =
     setUp && setUp.version !== v.key
@@ -378,6 +381,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
   }
 
   const building = jobOf(v, [
+    "disc-files",
     "port-build",
     "port-rebuild",
     "port-part",
@@ -413,6 +417,19 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       primary: true,
       status: "Ready to play",
       tone: "ok",
+    };
+  }
+
+  if (files?.runnable && !files.done) {
+    return {
+      ...base,
+      kind: "levels",
+      label: "Unpack and play",
+      icon: "disc",
+      hint: "Writes your disc's data out as the files the game reads, then gets the rest ready and starts it. A few minutes and about as much space as the disc, once.",
+      primary: true,
+      status: "Needs the disc's files",
+      tone: "warn",
     };
   }
 
@@ -550,7 +567,15 @@ async function addVisibility(v: VersionView): Promise<void> {
  */
 export async function prepare(v: VersionView): Promise<boolean> {
   const scope = { kind: "version" as const, key: v.key };
-  const build = action(v, "port-build");
+  // The disc's files first: the game reads them, never the image (a set-up made before has none).
+  const files = action(v, "disc-files");
+
+  if (files?.runnable && !files.done) {
+    if (!(await runChain(scope, [files]))) return false;
+    await refresh();
+  }
+
+  const build = action(freshVersion(v), "port-build");
 
   if (build?.runnable && !action(v, "play")?.done) {
     if (!(await runChain(scope, [build]))) return false;

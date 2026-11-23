@@ -10,7 +10,8 @@ port/build/release/openrac-rac1-pal --data <data> --window
 ```
 
 `--data` is the folder the extractor or the launcher's "Set up from your disc" wrote (it holds
-`iso_data/rac1/SCES_509.16` and `disc.iso`). Other options: `--cards DIR` (memory cards, default
+`iso_data/rac1/SCES_509.16`, the disc's files and `sectors.tsv`, the map the game reads its sectors
+by; the image itself is never opened). Other options: `--cards DIR` (memory cards, default
 the launcher's save folder), `--levels DIR`, `--frames N`, `--keep-going` (log a function without C
 and carry on), `--mods DIR` (levels edited in Godot,
 [editor](../../../editor/README.md#pack-your-edits)). `-DOPENRAC_RAC1_PAL_SOURCE=<dir>` builds

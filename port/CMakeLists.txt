@@ -279,9 +279,9 @@ openrac_add_test(ship_destination
   LIBS openrac_runtime)
 
 openrac_add_test(cdvd_mount
-  SOURCES tests/cdvd_mount_test.cpp game/common/lib/cdvd.c
+  SOURCES tests/cdvd_mount_test.cpp game/common/lib/cdvd.c game/common/lib/disc_files.cpp
   INCLUDES game/common/include
-  LIBS openrac_runtime)
+  LIBS openrac_runtime openrac_assets_disc)
 
 openrac_add_test(custom_map
   SOURCES tests/custom_map_test.cpp game/common/program/custom_map.cpp

@@ -39,9 +39,6 @@ void rac3_install_camera_latch(void); /* camera_latch.c */
 void openrac_game_register_functions(void);
 void rac3_program_set_overlay(int overlay); /* program.c */
 
-/* Where the loader's payload is: file offset 0x7080 of an executable whose one segment is file
- * offset 0x1000 at 0x00800000 (exec.c reads it from the file itself). */
-#define RAC3_PAYLOAD 0x00806080u
 #define RAC3_ARGUMENTS 0x0015C040u /* crt0's argument block: argc, then argv */
 
 static uint32_t word_at(const uint8_t* p) {
@@ -50,31 +47,22 @@ static uint32_t word_at(const uint8_t* p) {
     return v;
 }
 
-/* The loader's work, at the first boot: the payload's records copied to their addresses from the
- * loader the port's loader placed (main.cpp). */
+/* The loader's work, at the first boot: the boot program's records copied to their addresses
+ * (exec.c: the extractor unpacked them from the loader's packed game). */
 static void unpack_payload(void) {
-    if (rac3_exec_unpack_payload((const uint8_t*)G(RAC3_PAYLOAD)) == 0
+    if (rac3_exec_load_program(RAC3_BOOT_FILE) == 0
         || word_at((const uint8_t*)G(0x0013ADA8u)) == 0) {
-        fprintf(
-            stderr,
-            "rac3: the disc's loader holds no game at 0x%08x (not Up Your Arsenal's?)\n",
-            RAC3_PAYLOAD
-        );
+        fprintf(stderr, "rac3: %s holds no game (not Up Your Arsenal's?)\n", RAC3_BOOT_FILE);
         exit(1);
     }
 }
 
-/* Back to the boot program from the multiplayer one (its LoadExecPS2 of SCES_524.56): the
- * executable read from the disc again and unpacked over memory, its functions in place of the
- * multiplayer program's, the arguments it was started with in crt0's block. */
+/* Back to the boot program from the multiplayer one (its LoadExecPS2 of SCES_524.56): its
+ * records copied over memory again, its functions in place of the multiplayer program's, the
+ * arguments it was started with in crt0's block. */
 void rac3_program_forget_levels(void); /* program.c */
+
 static void reload_boot_program(void) {
-    uint32_t size = 0;
-    uint8_t* file = rac3_exec_read_disc_file(RAC3_BOOT_FILE, &size);
-    if (file == NULL) {
-        fprintf(stderr, "rac3: %s cannot be read from the disc image\n", RAC3_BOOT_FILE);
-        exit(1);
-    }
     memset(G(0x00100000u), 0, 0x02000000u - 0x00100000u);
     openrac_guest_unregister_all();
     openrac_game_kernel_reset();
@@ -83,11 +71,10 @@ static void reload_boot_program(void) {
     rac3_program_forget_levels();
     openrac_game_register_functions();
     rac3_program_set_overlay(OPENRAC_OVERLAY_EXE);
-    if (rac3_exec_unpack(file, size) == 0) {
-        fprintf(stderr, "rac3: %s on the disc holds no game\n", RAC3_BOOT_FILE);
+    if (rac3_exec_load_program(RAC3_BOOT_FILE) == 0) {
+        fprintf(stderr, "rac3: %s holds no game\n", RAC3_BOOT_FILE);
         exit(1);
     }
-    free(file);
     rac3_exec_write_arguments(RAC3_ARGUMENTS);
 }
 

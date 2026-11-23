@@ -60,9 +60,24 @@ void openrac_game_register_functions(void);
 
 /* ---- Set by the program before the game starts ---- */
 
-/* The player's disc image, as the extractor kept it (iso_data/<game>/disc.iso).
- * The game reads it by sector. */
-extern const char* openrac_game_disc_image;
+/* The disc's files, as the extractor wrote them (iso_data/<game>/): the file system's files,
+ * every other sector as lumps, and sectors.tsv, the map from each sector to its file
+ * (assets/disc/sector_map.h). The game reads its data by sector through the map; the image
+ * itself is never opened. */
+extern const char* openrac_game_disc_files;
+
+/* Whether the map in openrac_game_disc_files could be read (lib/disc_files.cpp). */
+int openrac_disc_available(void);
+/* `size` bytes of the disc at byte `offset` (sector * 2048), into `dst`: 1, or 0 when the map
+ * cannot give them (logged). Safe from any thread. */
+int openrac_disc_read(uint64_t offset, void* dst, uint64_t size);
+/* As openrac_disc_read, but stopping at the disc's end: the bytes read. */
+uint64_t openrac_disc_read_some(uint64_t offset, void* dst, uint64_t size);
+/* A file the extractor wrote, by its path in openrac_game_disc_files
+ * ("programs/I5BOOTN.ELF.records"): its size, or UINT64_MAX when it is not there; and the first
+ * `size` bytes of it into `dst` (1, or 0 when it is shorter or cannot be read). */
+uint64_t openrac_disc_file_size(const char* path);
+int openrac_disc_read_file(const char* path, void* dst, uint64_t size);
 /* Portable presentation's own mechanical/chirp cues, mixed with game audio. */
 void openrac_game_infobot_sound(int opening);
 void openrac_game_special_sound(int item);
