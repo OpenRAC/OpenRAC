@@ -41,7 +41,7 @@ runs:
           echo "::warning title=ccache::No ccache; this job may not build."
     # Configure after restoring so old cache settings cannot override this job's limits.
     # It only sets ccache up now (install: no), so its failure must not fail the job either.
-    - uses: hendrikmuhs/ccache-action@dbeefd73e8e2ffc1bbc412570072735eb4db3607 # v1.2.25
+    - uses: hendrikmuhs/ccache-action@e91f31892a1d1b8c44424b1a94c0b7f52d337168 # v1.2.26
       continue-on-error: true
       with:
         install: "no"
