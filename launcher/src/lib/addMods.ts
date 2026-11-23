@@ -44,7 +44,9 @@ async function addMap(v: VersionView, path: string): Promise<Added> {
   const ok = await runChain({ kind: "version", key: v.key }, [importer], { path });
 
   if (!ok) {
-    const job = jobs.list.filter((j) => j.scope.kind === "version" && j.actionId === "editor-import-map").at(-1);
+    const job = jobs.list
+      .filter((j) => j.scope.kind === "version" && j.actionId === "editor-import-map")
+      .at(-1);
     const failure = toolFailure(job?.lines ?? []);
 
     return { ...result, text: added.packFailed(nameOf(path), failure.line) };
