@@ -809,18 +809,269 @@ static int64_t net_now_ms(void) {
 
 /* ---- What the city list shows: the game server's name and its region ---- */
 
-/* The region codes game servers register with (Server REGION) and the names the game shows for
- * them. A code not listed here is shown as it came. */
+/* The region codes game servers register with (Server REGION: every ISO 3166-1 alpha-2 code, then
+ * EU and LOCAL, in the Server's Regions.java order), each with a short label (ISO alpha-3) and the
+ * name the game shows, in plain ASCII for the game's font. The same list as the rac1/rac2
+ * multiplayer mod's (openrac-mods multiplayer/src/regions.cpp). A code not listed is shown as it
+ * came. */
 static const struct {
     const char* code;
+    const char* label;
     const char* name;
 } NET_REGION_NAMES[] = {
-    {"LOCAL", "Local"}, {"US", "United States"},  {"CA", "Canada"},         {"MX", "Mexico"},
-    {"BR", "Brazil"},   {"GB", "United Kingdom"}, {"UK", "United Kingdom"}, {"IE", "Ireland"},
-    {"FR", "France"},   {"DE", "Germany"},        {"NL", "Netherlands"},    {"ES", "Spain"},
-    {"IT", "Italy"},    {"PL", "Poland"},         {"SE", "Sweden"},         {"FI", "Finland"},
-    {"RU", "Russia"},   {"JP", "Japan"},          {"KR", "Korea"},          {"SG", "Singapore"},
-    {"IN", "India"},    {"AU", "Australia"},      {"NZ", "New Zealand"},    {"ZA", "South Africa"},
+    // clang-format off
+    {"AD", "AND", "Andorra"},
+    {"AE", "ARE", "United Arab Emirates"},
+    {"AF", "AFG", "Afghanistan"},
+    {"AG", "ATG", "Antigua and Barbuda"},
+    {"AI", "AIA", "Anguilla"},
+    {"AL", "ALB", "Albania"},
+    {"AM", "ARM", "Armenia"},
+    {"AO", "AGO", "Angola"},
+    {"AQ", "ATA", "Antarctica"},
+    {"AR", "ARG", "Argentina"},
+    {"AS", "ASM", "American Samoa"},
+    {"AT", "AUT", "Austria"},
+    {"AU", "AUS", "Australia"},
+    {"AW", "ABW", "Aruba"},
+    {"AX", "ALA", "Aland Islands"},
+    {"AZ", "AZE", "Azerbaijan"},
+    {"BA", "BIH", "Bosnia and Herzegovina"},
+    {"BB", "BRB", "Barbados"},
+    {"BD", "BGD", "Bangladesh"},
+    {"BE", "BEL", "Belgium"},
+    {"BF", "BFA", "Burkina Faso"},
+    {"BG", "BGR", "Bulgaria"},
+    {"BH", "BHR", "Bahrain"},
+    {"BI", "BDI", "Burundi"},
+    {"BJ", "BEN", "Benin"},
+    {"BL", "BLM", "St. Barthelemy"},
+    {"BM", "BMU", "Bermuda"},
+    {"BN", "BRN", "Brunei"},
+    {"BO", "BOL", "Bolivia"},
+    {"BQ", "BES", "Caribbean Netherlands"},
+    {"BR", "BRA", "Brazil"},
+    {"BS", "BHS", "Bahamas"},
+    {"BT", "BTN", "Bhutan"},
+    {"BV", "BVT", "Bouvet Island"},
+    {"BW", "BWA", "Botswana"},
+    {"BY", "BLR", "Belarus"},
+    {"BZ", "BLZ", "Belize"},
+    {"CA", "CAN", "Canada"},
+    {"CC", "CCK", "Cocos (Keeling) Islands"},
+    {"CD", "COD", "Congo - Kinshasa"},
+    {"CF", "CAF", "Central African Republic"},
+    {"CG", "COG", "Congo - Brazzaville"},
+    {"CH", "CHE", "Switzerland"},
+    {"CI", "CIV", "Cote d'Ivoire"},
+    {"CK", "COK", "Cook Islands"},
+    {"CL", "CHL", "Chile"},
+    {"CM", "CMR", "Cameroon"},
+    {"CN", "CHN", "China"},
+    {"CO", "COL", "Colombia"},
+    {"CR", "CRI", "Costa Rica"},
+    {"CU", "CUB", "Cuba"},
+    {"CV", "CPV", "Cape Verde"},
+    {"CW", "CUW", "Curacao"},
+    {"CX", "CXR", "Christmas Island"},
+    {"CY", "CYP", "Cyprus"},
+    {"CZ", "CZE", "Czechia"},
+    {"DE", "DEU", "Germany"},
+    {"DJ", "DJI", "Djibouti"},
+    {"DK", "DNK", "Denmark"},
+    {"DM", "DMA", "Dominica"},
+    {"DO", "DOM", "Dominican Republic"},
+    {"DZ", "DZA", "Algeria"},
+    {"EC", "ECU", "Ecuador"},
+    {"EE", "EST", "Estonia"},
+    {"EG", "EGY", "Egypt"},
+    {"EH", "ESH", "Western Sahara"},
+    {"ER", "ERI", "Eritrea"},
+    {"ES", "ESP", "Spain"},
+    {"ET", "ETH", "Ethiopia"},
+    {"FI", "FIN", "Finland"},
+    {"FJ", "FJI", "Fiji"},
+    {"FK", "FLK", "Falkland Islands"},
+    {"FM", "FSM", "Micronesia"},
+    {"FO", "FRO", "Faroe Islands"},
+    {"FR", "FRA", "France"},
+    {"GA", "GAB", "Gabon"},
+    {"GB", "GBR", "United Kingdom"},
+    {"GD", "GRD", "Grenada"},
+    {"GE", "GEO", "Georgia"},
+    {"GF", "GUF", "French Guiana"},
+    {"GG", "GGY", "Guernsey"},
+    {"GH", "GHA", "Ghana"},
+    {"GI", "GIB", "Gibraltar"},
+    {"GL", "GRL", "Greenland"},
+    {"GM", "GMB", "Gambia"},
+    {"GN", "GIN", "Guinea"},
+    {"GP", "GLP", "Guadeloupe"},
+    {"GQ", "GNQ", "Equatorial Guinea"},
+    {"GR", "GRC", "Greece"},
+    {"GS", "SGS", "South Georgia and South Sandwich Islands"},
+    {"GT", "GTM", "Guatemala"},
+    {"GU", "GUM", "Guam"},
+    {"GW", "GNB", "Guinea-Bissau"},
+    {"GY", "GUY", "Guyana"},
+    {"HK", "HKG", "Hong Kong SAR China"},
+    {"HM", "HMD", "Heard and McDonald Islands"},
+    {"HN", "HND", "Honduras"},
+    {"HR", "HRV", "Croatia"},
+    {"HT", "HTI", "Haiti"},
+    {"HU", "HUN", "Hungary"},
+    {"ID", "IDN", "Indonesia"},
+    {"IE", "IRL", "Ireland"},
+    {"IL", "ISR", "Israel"},
+    {"IM", "IMN", "Isle of Man"},
+    {"IN", "IND", "India"},
+    {"IO", "IOT", "British Indian Ocean Territory"},
+    {"IQ", "IRQ", "Iraq"},
+    {"IR", "IRN", "Iran"},
+    {"IS", "ISL", "Iceland"},
+    {"IT", "ITA", "Italy"},
+    {"JE", "JEY", "Jersey"},
+    {"JM", "JAM", "Jamaica"},
+    {"JO", "JOR", "Jordan"},
+    {"JP", "JPN", "Japan"},
+    {"KE", "KEN", "Kenya"},
+    {"KG", "KGZ", "Kyrgyzstan"},
+    {"KH", "KHM", "Cambodia"},
+    {"KI", "KIR", "Kiribati"},
+    {"KM", "COM", "Comoros"},
+    {"KN", "KNA", "St. Kitts and Nevis"},
+    {"KP", "PRK", "North Korea"},
+    {"KR", "KOR", "South Korea"},
+    {"KW", "KWT", "Kuwait"},
+    {"KY", "CYM", "Cayman Islands"},
+    {"KZ", "KAZ", "Kazakhstan"},
+    {"LA", "LAO", "Laos"},
+    {"LB", "LBN", "Lebanon"},
+    {"LC", "LCA", "St. Lucia"},
+    {"LI", "LIE", "Liechtenstein"},
+    {"LK", "LKA", "Sri Lanka"},
+    {"LR", "LBR", "Liberia"},
+    {"LS", "LSO", "Lesotho"},
+    {"LT", "LTU", "Lithuania"},
+    {"LU", "LUX", "Luxembourg"},
+    {"LV", "LVA", "Latvia"},
+    {"LY", "LBY", "Libya"},
+    {"MA", "MAR", "Morocco"},
+    {"MC", "MCO", "Monaco"},
+    {"MD", "MDA", "Moldova"},
+    {"ME", "MNE", "Montenegro"},
+    {"MF", "MAF", "St. Martin"},
+    {"MG", "MDG", "Madagascar"},
+    {"MH", "MHL", "Marshall Islands"},
+    {"MK", "MKD", "North Macedonia"},
+    {"ML", "MLI", "Mali"},
+    {"MM", "MMR", "Myanmar (Burma)"},
+    {"MN", "MNG", "Mongolia"},
+    {"MO", "MAC", "Macao SAR China"},
+    {"MP", "MNP", "Northern Mariana Islands"},
+    {"MQ", "MTQ", "Martinique"},
+    {"MR", "MRT", "Mauritania"},
+    {"MS", "MSR", "Montserrat"},
+    {"MT", "MLT", "Malta"},
+    {"MU", "MUS", "Mauritius"},
+    {"MV", "MDV", "Maldives"},
+    {"MW", "MWI", "Malawi"},
+    {"MX", "MEX", "Mexico"},
+    {"MY", "MYS", "Malaysia"},
+    {"MZ", "MOZ", "Mozambique"},
+    {"NA", "NAM", "Namibia"},
+    {"NC", "NCL", "New Caledonia"},
+    {"NE", "NER", "Niger"},
+    {"NF", "NFK", "Norfolk Island"},
+    {"NG", "NGA", "Nigeria"},
+    {"NI", "NIC", "Nicaragua"},
+    {"NL", "NLD", "Netherlands"},
+    {"NO", "NOR", "Norway"},
+    {"NP", "NPL", "Nepal"},
+    {"NR", "NRU", "Nauru"},
+    {"NU", "NIU", "Niue"},
+    {"NZ", "NZL", "New Zealand"},
+    {"OM", "OMN", "Oman"},
+    {"PA", "PAN", "Panama"},
+    {"PE", "PER", "Peru"},
+    {"PF", "PYF", "French Polynesia"},
+    {"PG", "PNG", "Papua New Guinea"},
+    {"PH", "PHL", "Philippines"},
+    {"PK", "PAK", "Pakistan"},
+    {"PL", "POL", "Poland"},
+    {"PM", "SPM", "St. Pierre and Miquelon"},
+    {"PN", "PCN", "Pitcairn Islands"},
+    {"PR", "PRI", "Puerto Rico"},
+    {"PS", "PSE", "Palestinian Territories"},
+    {"PT", "PRT", "Portugal"},
+    {"PW", "PLW", "Palau"},
+    {"PY", "PRY", "Paraguay"},
+    {"QA", "QAT", "Qatar"},
+    {"RE", "REU", "Reunion"},
+    {"RO", "ROU", "Romania"},
+    {"RS", "SRB", "Serbia"},
+    {"RU", "RUS", "Russia"},
+    {"RW", "RWA", "Rwanda"},
+    {"SA", "SAU", "Saudi Arabia"},
+    {"SB", "SLB", "Solomon Islands"},
+    {"SC", "SYC", "Seychelles"},
+    {"SD", "SDN", "Sudan"},
+    {"SE", "SWE", "Sweden"},
+    {"SG", "SGP", "Singapore"},
+    {"SH", "SHN", "St. Helena"},
+    {"SI", "SVN", "Slovenia"},
+    {"SJ", "SJM", "Svalbard and Jan Mayen"},
+    {"SK", "SVK", "Slovakia"},
+    {"SL", "SLE", "Sierra Leone"},
+    {"SM", "SMR", "San Marino"},
+    {"SN", "SEN", "Senegal"},
+    {"SO", "SOM", "Somalia"},
+    {"SR", "SUR", "Suriname"},
+    {"SS", "SSD", "South Sudan"},
+    {"ST", "STP", "Sao Tome and Principe"},
+    {"SV", "SLV", "El Salvador"},
+    {"SX", "SXM", "Sint Maarten"},
+    {"SY", "SYR", "Syria"},
+    {"SZ", "SWZ", "Eswatini"},
+    {"TC", "TCA", "Turks and Caicos Islands"},
+    {"TD", "TCD", "Chad"},
+    {"TF", "ATF", "French Southern Territories"},
+    {"TG", "TGO", "Togo"},
+    {"TH", "THA", "Thailand"},
+    {"TJ", "TJK", "Tajikistan"},
+    {"TK", "TKL", "Tokelau"},
+    {"TL", "TLS", "Timor-Leste"},
+    {"TM", "TKM", "Turkmenistan"},
+    {"TN", "TUN", "Tunisia"},
+    {"TO", "TON", "Tonga"},
+    {"TR", "TUR", "Turkiye"},
+    {"TT", "TTO", "Trinidad and Tobago"},
+    {"TV", "TUV", "Tuvalu"},
+    {"TW", "TWN", "Taiwan"},
+    {"TZ", "TZA", "Tanzania"},
+    {"UA", "UKR", "Ukraine"},
+    {"UG", "UGA", "Uganda"},
+    {"UM", "UMI", "U.S. Outlying Islands"},
+    {"US", "USA", "United States"},
+    {"UY", "URY", "Uruguay"},
+    {"UZ", "UZB", "Uzbekistan"},
+    {"VA", "VAT", "Vatican City"},
+    {"VC", "VCT", "St. Vincent and Grenadines"},
+    {"VE", "VEN", "Venezuela"},
+    {"VG", "VGB", "British Virgin Islands"},
+    {"VI", "VIR", "U.S. Virgin Islands"},
+    {"VN", "VNM", "Vietnam"},
+    {"VU", "VUT", "Vanuatu"},
+    {"WF", "WLF", "Wallis and Futuna"},
+    {"WS", "WSM", "Samoa"},
+    {"YE", "YEM", "Yemen"},
+    {"YT", "MYT", "Mayotte"},
+    {"ZA", "ZAF", "South Africa"},
+    {"ZM", "ZMB", "Zambia"},
+    {"ZW", "ZWE", "Zimbabwe"},
+    {"EU", "EU", "Europe"},
+    {"LOCAL", "LAN", "Local network"},
+    // clang-format on
 };
 
 /* The longest city text, in characters: what one line of the city select fits (a longer one wraps
@@ -839,35 +1090,37 @@ static int net_same_text(const char* a, const char* b) {
     return *a == *b;
 }
 
-/* The name the game shows for region CODE. */
-static const char* net_region_name(const char* code) {
+/* Region CODE's row of NET_REGION_NAMES, -1 when it is not listed. */
+static int net_region(const char* code) {
     for (size_t i = 0; i < sizeof NET_REGION_NAMES / sizeof NET_REGION_NAMES[0]; i++) {
         if (net_same_text(code, NET_REGION_NAMES[i].code)) {
-            return NET_REGION_NAMES[i].name;
+            return (int)i;
         }
     }
-    return code;
+    return -1;
 }
 
 /* City K as the game shows it, at most MAX characters (NET_CITY_TEXT or NET_CITY_LONG_TEXT):
- * "<server name> (<region>)", the region alone when the server has no name (or is named as its
- * region). A long one keeps the region's code in place of its name, then shortens the server's
- * name. */
+ * "<server name> (<region>)", or the region alone when the server has no name. A long one gives
+ * the region's short label ("USA") in place of its name, then shortens the server's name. */
 static void net_city_text(int k, int max, char* out, size_t size) {
     const char* code = lobby.regions[k].name;
-    const char* region = net_region_name(code);
+    const int row = net_region(code);
+    const char* region = row >= 0 ? NET_REGION_NAMES[row].name : code;
+    const char* label = row >= 0 ? NET_REGION_NAMES[row].label : code;
     const char* server = lobby.regions[k].server;
+    const int length = (int)strlen(server);
     char text[NET_CITY_LONG_TEXT + 1];
-    if (server[0] == 0 || net_same_text(server, region) || net_same_text(server, code)) {
-        snprintf(text, sizeof text, "%.*s", max, region);
-    } else if ((int)(strlen(server) + strlen(region)) + 3 <= max) {
+    if (server[0] == 0) {
+        snprintf(text, sizeof text, "%.*s", max, (int)strlen(region) <= max ? region : label);
+    } else if (length + (int)strlen(region) + 3 <= max) {
         snprintf(text, sizeof text, "%s (%s)", server, region);
     } else {
-        const int room = max - (int)strlen(code) - 3;
+        const int room = max - (int)strlen(label) - 3;
         if (room < 4) {
             snprintf(text, sizeof text, "%.*s", max, server);
         } else {
-            snprintf(text, sizeof text, "%.*s (%s)", room, server, code);
+            snprintf(text, sizeof text, "%.*s (%s)", room, server, label);
         }
     }
     snprintf(out, size, "%s", text);
@@ -1900,6 +2153,10 @@ static void on_regions(reader* r) {
         rd_text(r, lobby.regions[k].host, sizeof lobby.regions[k].host);
         lobby.regions[k].port = rd_i32(r);
         lobby.regions[k].players = rd_i32(r);
+    }
+    /* Then each server's name, in the same order (a hub from before names stops at the list). */
+    for (int i = 0; i < lobby.regions_count && r->n >= 2; i++) {
+        rd_text(r, lobby.regions[i].server, sizeof lobby.regions[i].server);
     }
     if (net_log()) {
         fprintf(stderr, "[info] rac3: online: %d cities listed\n", lobby.regions_count);
