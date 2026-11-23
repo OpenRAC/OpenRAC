@@ -49,6 +49,7 @@
 
 #include "enemy_copies.h"
 #include "game_protos.h"
+#include "moby_checks.h"
 #include "moby_pool.h"
 #include "openrac/game_host.h"
 #include "openrac/host_env.h"
@@ -961,7 +962,7 @@ static void trace_coins(const char* script, unsigned playing) {
     if (kill_at != 0 && playing >= kill_at && playing < kill_at + 600 && playing % 30 == 0) {
         for (gaddr m = t.base; m < t.end; m += MOBY_SIZE) {
             const gaddr cls = GREF(gaddr, m + MOBY_CLASS);
-            if (GREF(uint8_t, m + MOBY_STATE) >= 0x80 || cls == 0 || m == hero
+            if (GREF(uint8_t, m + MOBY_STATE) >= 0x80 || !rac2_ram_at(cls, 0x48u) || m == hero
                 || GREF(int16_t, cls + 0x46u) != 5) {
                 continue;
             }
@@ -986,7 +987,7 @@ static void trace_coins(const char* script, unsigned playing) {
         if (dx * dx + dy * dy > 40.0f * 40.0f) {
             continue;
         }
-        const gaddr pv = GREF(gaddr, m + MOBY_PVARS);
+        const gaddr pv = rac2_moby_pvars(m, 1);
         ++n;
         fprintf(
             stderr,
