@@ -105,9 +105,6 @@ OPENRAC_EE_INLINE void openrac_ee_sw(openrac_u32 a, openrac_u64 v) {
     *(OPENRAC_EE_MEM openrac_u32 *)OPENRAC_EE_PTR(a & ~3u) = (openrac_u32)v;
 }
 
-/* A word store of a hand-written kernel that starts DMA by writing the channel's registers
- * (hostgen.json's asm.dma_stores); the game's host C defines it. */
-void openrac_ee_sw_dma(openrac_u32 a, openrac_u64 v);
 OPENRAC_EE_INLINE void openrac_ee_sd(openrac_u32 a, openrac_u64 v) {
     *(OPENRAC_EE_MEM openrac_u64 *)OPENRAC_EE_PTR(a & ~7u) = v;
 }
@@ -124,6 +121,56 @@ OPENRAC_EE_INLINE void openrac_ee_sq(openrac_u32 a, openrac_u64 lo, openrac_u64 
     a &= ~15u;
     *(OPENRAC_EE_MEM openrac_u64 *)OPENRAC_EE_PTR(a) = lo;
     *(OPENRAC_EE_MEM openrac_u64 *)OPENRAC_EE_PTR(a + 8u) = hi;
+}
+
+/* ---- The scratchpad's copies ----
+ *
+ * A hand-written kernel moves data between main memory and the scratchpad's 16 KB by writing a
+ * scratchpad DMA channel's MADR, QWC and SADR and then CHCR with STR (0x100): toSPR (channel 9)
+ * or fromSPR (channel 8). hostgen (asm.spr_copies, asmc.py) keeps those words in the function's
+ * own locals and makes the CHCR store this copy, over before the next instruction: the words read
+ * back as a finished transfer leaves them (STR clear, QWC 0, both addresses past the data), so the
+ * kernel's poll reads its data there. The scratchpad address wraps round its 16 KB. A transfer
+ * started in any other mode than normal (a tag chain), or a register reached any other way, stops
+ * the game: the port has no DMA controller. */
+#ifndef openrac_ee_dma_register
+void openrac_ee_dma_register(const char* function, openrac_u32 at, openrac_u32 address);
+#endif
+
+OPENRAC_EE_INLINE void openrac_spr_copy(
+    int to_spr,
+    openrac_u32* chcr,
+    openrac_u32* madr,
+    openrac_u32* qwc,
+    openrac_u32* sadr,
+    const char* function,
+    openrac_u32 at
+) {
+    openrac_u32 n = *qwc & 0xFFFFu, k, j;
+    if (!(*chcr & 0x100u)) {
+        return;
+    }
+    if ((*chcr >> 2) & 3u) {
+        openrac_ee_dma_register(function, at, to_spr ? 0x1000D400u : 0x1000D000u);
+        return;
+    }
+    for (k = 0; k < n; k++) {
+        openrac_u32 memory = (*madr + 16u * k) & 0x01FFFFF0u;
+        openrac_u32 spr = 0x70000000u + ((*sadr + 16u * k) & 0x3FF0u);
+        for (j = 0; j < 16u; j += 8u) {
+            if (to_spr) {
+                *(OPENRAC_EE_MEM openrac_u64*)OPENRAC_EE_PTR(spr + j) =
+                    *(OPENRAC_EE_MEM openrac_u64*)OPENRAC_EE_PTR(memory + j);
+            } else {
+                *(OPENRAC_EE_MEM openrac_u64*)OPENRAC_EE_PTR(memory + j) =
+                    *(OPENRAC_EE_MEM openrac_u64*)OPENRAC_EE_PTR(spr + j);
+            }
+        }
+    }
+    *madr += 16u * n;
+    *sadr += 16u * n;
+    *qwc = 0;
+    *chcr &= ~0x100u;
 }
 
 /* The unaligned halves (little-endian): lwl fills the register's high bytes from the aligned

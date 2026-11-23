@@ -366,7 +366,6 @@ vertical blank callback (`func_0013D208`).
 | `host/program.c` | which program is loaded (the overlay hook), `OPENRAC_RAC3_NEXT` |
 | `headers/vu0.h` | the vector-library helpers of the decompilation's `include/vu0.h` (asm Clang refuses) in C, read in its place (hostgen.json `headers`) |
 | `host/trig.c`, `host/vu0.c` | VU0 cos/sin (the host's for now) and sceVu0UnitMatrix |
-| `host/spr_dma.c` | the scratchpad DMA channels the kernels start |
 | `host/ui2d.c` | the 2D layer's routines, wrapped as Going Commando's (rac2/host/ui2d.c): boxes, glyph quads, turned sprites, ring segments, the font's glyphs (drawn from its distance field) and the menus' Widget3D sprites become window records; the levels' copies of them too (below) |
 | `host/mp_ui.c` | the native multiplayer screens over level 39's lobby ([MULTIPLAYER_UI.md](../../../docs/port/MULTIPLAYER_UI.md)): the game lists (and the staging room's players when a server's description asks) drawn with the game's own print, colours, highlight bar and sounds, their rows from the game's memory, a choice made through the game's own cursor and Cross |
 | `host/hud.c` | the level HUD's sprites as records, and its slots out at the picture's sides with "HUD: Edges" (Going Commando's rac2/host/hud.c) |

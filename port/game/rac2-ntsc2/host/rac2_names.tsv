@@ -2,6 +2,7 @@
 # port/tools/hostgen/release_carry.py (release_carry.json says how each was paired); do not edit.
 func_0026F7A0	func_0026F7A8
 func_002761F8	func_00276208
+func_002761F8__game	func_00276208__game
 func_0027B858	func_0027BEB8
 func_0027B858__game	func_0027BEB8__game
 func_0027C540	func_0027CBA0

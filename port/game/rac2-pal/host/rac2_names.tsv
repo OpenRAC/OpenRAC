@@ -12,6 +12,7 @@ func_00132DF0	func_00132E50
 func_00133350	func_001333B0
 func_0026F7A0	func_0026F610
 func_002761F8	func_00276098
+func_002761F8__game	func_00276098__game
 func_0027B858	func_0027BD40
 func_0027B858__game	func_0027BD40__game
 func_0027C540	func_0027CA28

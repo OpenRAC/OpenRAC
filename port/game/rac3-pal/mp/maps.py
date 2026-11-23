@@ -83,6 +83,9 @@ CARRIED = [
      "PartProc (func_L01_00461CB8): each live particle to the window", "int (void)"),
     ("0058D140", "render", "rac3DrawWorldQuadMap", "host",
      "DrawWorldQuad (func_L01_00407E28): drawn natively", "int (int, int)"),
+    ("00580220", "collision", "rac3CollLineMap", "wrap",
+     "coll_line (func_L01_003FA5F0): its gather bounded to the scratchpad (host/coll_line.c)",
+     "int (int, int, int, int, int)"),
 ]
 
 # Level 39's 2D layer (the wrap rows ui2d.c's MP_MAP_UI stands for; "ref" ones it only calls).

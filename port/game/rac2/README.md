@@ -50,7 +50,7 @@ file but calls its own functions before reading a key, so `differences.json` mar
 | File | |
 |---|---|
 | `entry.c`, `level.c` | crt0 without the thread and heap system calls; ParseBin wrapped (which level's program is loaded) |
-| `dma.c`, `spr_dma.c` | `sceDmaSend`, the scratchpad DMA the hand-written kernels poll |
+| `dma.c` | `sceDmaSend` |
 | `font.c`, `ui2d.c`, `picture.c` | text, 2D quads and the menus' picture, drawn by the window at its own resolution |
 | `hud.c`, `wide_view.c`, `options.c` | the HUD at a wide picture's edges, culling for the wider view, the game's 16:9 kept off |
 | `movie.c`, `sound.c`, `io.c`, `print.c` | movies, 989snd commands, file open, printing |

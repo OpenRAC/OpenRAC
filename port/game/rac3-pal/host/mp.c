@@ -30,6 +30,7 @@
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
+#include "rac3_coll_line.h"
 #include "rac3_version.h"
 
 void mp_openrac_game_register_functions(void);
@@ -294,6 +295,13 @@ void mp_func_00193888(int sector, int offset, int callback, long long argument) 
  * the boot program's levels' (dma.c, wad.c). */
 void mp_func_L39_005FCB98(unsigned int chain) {
     func_0012D938(0x10008000u, (gaddr)chain & 0x0FFFFFFFu);
+}
+
+/* Level 39's coll_line (the catalogue's row func_003D3CB0), its gather bounded (coll_line.c). */
+int mp_func_L39_00580220__game(int from, int to, int flags, int moby, int x);
+
+int mp_func_L39_00580220(int from, int to, int flags, int moby, int x) {
+    return rac3_coll_line(mp_func_L39_00580220__game, from, to, flags, moby, x);
 }
 
 int mp_func_L39_005A9AA0(int source, int destination) {
