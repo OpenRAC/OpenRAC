@@ -9,6 +9,24 @@ written as live status boards, so they mention machine names (box1, box2) and fo
 existed on the previous maintainer's machines; the technical content (addresses, causes, designs)
 is what matters.
 
+## 0. Known blocker: rac3 falls through the ground
+
+On develop since #771 (P9, scratchpad DMA removal, merged 2026-11-23), Ratchet falls straight
+through the ground in rac3: there is no floor collision. Fix this first; most rac3 testing depends
+on it.
+
+Likely cause: rac3's collision checks copy the nearby collision data into the scratchpad with DMA
+transfers and test against it there. #771 replaced the modelled DMA with plain copies made at
+translation time, and made DMA-register stores from decompiled C do nothing. If a collision
+transfer is started from C (not from the assembly hostgen rewrites), the copy never happens and the
+collision code finds no triangles. A second, less likely suspect is #771's new collision-line cut
+(`port/game/rac3-pal/host/coll_line.c`) shortening ground probes.
+
+First steps: build develop at the commit just before #771 (`553c51d5a^`) and confirm the ground
+holds there; then look at which collision transfers lost their copy (search the generated output
+and the C for stores to the scratchpad DMA channel registers) and give them a native copy, the way
+#771 did for the assembly kernels.
+
 ## 1. Set up
 
 ### 1.1 What you need
