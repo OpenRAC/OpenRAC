@@ -13,12 +13,16 @@ set comes back.
 
 An option that is off also ignores its key (F2 frame counter, F4 Enhanced, F9 and F10 volume, F11
 full screen, and the developer keys) and its row on the game's own Video page. The launcher and the
-settings file can still change it. Script mods do not have this call.
+settings file can still change it. Script mods use `openrac.menu_option_set(name, "on" | "off" | "default")`.
 
 Example: a mod that sets the frame rate itself greys out the menu's Frame rate:
 
 ```cpp
 mod.menu_option_set("frame_rate", OPENRAC_MENU_OPTION_OFF);
+```
+
+```lua
+openrac.menu_option_set("frame_rate", "off")
 ```
 
 A mod that vibrates the pad with `set_motors` does not need this: the port shows the Vibration

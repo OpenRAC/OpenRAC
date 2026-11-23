@@ -115,4 +115,8 @@ declare openrac: {
     on_settings: (fn: () -> ()) -> (),
     -- interface 1.31: a pad button's label (an OPENRAC_PAD_* bit: 0x8000 Square) for the device in use, and its kind
     button_label: (button: number) -> (string?, ("playstation" | "letters" | "keys")?),
+    -- interface 1.37: the pads' motors as the game's vibration drives them (small on or off, large 0 to 255)
+    set_motors: (port: number, small_motor: boolean, large_motor: number) -> boolean,
+    -- interface 1.37: an option of the port's menu greyed out or made usable, by its name (menu-options.md)
+    menu_option_set: (option: string, state: "on" | "off" | "default") -> boolean,
 }

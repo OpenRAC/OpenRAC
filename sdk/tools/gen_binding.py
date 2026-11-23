@@ -673,6 +673,10 @@ def luau_types(b: dict) -> str:
     out.append("    on_settings: (fn: () -> ()) -> (),")
     out.append("    -- interface 1.31: a pad button's label (an OPENRAC_PAD_* bit: 0x8000 Square) for the device in use, and its kind")
     out.append("    button_label: (button: number) -> (string?, (\"playstation\" | \"letters\" | \"keys\")?),")
+    out.append("    -- interface 1.37: the pads' motors as the game's vibration drives them (small on or off, large 0 to 255)")
+    out.append("    set_motors: (port: number, small_motor: boolean, large_motor: number) -> boolean,")
+    out.append("    -- interface 1.37: an option of the port's menu greyed out or made usable, by its name (menu-options.md)")
+    out.append("    menu_option_set: (option: string, state: \"on\" | \"off\" | \"default\") -> boolean,")
     if b["moby"] is not None:
         out.append("    -- experimental: a moby's pvars by name, from the behaviour catalogue")
         out.append("    pvars: (moby: number) -> { [string]: number }?,")

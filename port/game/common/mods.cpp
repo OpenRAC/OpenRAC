@@ -1332,7 +1332,9 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
             api_setting_set_float,
             api_setting_set_string,
             api_on_settings,
-            settings_of
+            settings_of,
+            api_set_motors,
+            api_menu_option_set
         };
         std::string why;
         g_loading = mod.get();
