@@ -1867,7 +1867,7 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
     ) {                                                                                            \
         rac3_menu_log_text(a0, a1, (gaddr)a5, a6);                                                 \
         const gaddr cursor = MP_MAP_CURSOR;                                                        \
-        const Print p = print_begin(cursor, NULL);                                                 \
+        const Print p = print_begin(cursor, &kMpMenuFonts);                                        \
         mp_func_L##m##_##font_print##__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);     \
         print_end(cursor, p);                                                                      \
     }                                                                                              \
@@ -1887,7 +1887,7 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
     ) {                                                                                            \
         rac3_menu_log_text(a0, a1, (gaddr)a5, a6);                                                 \
         const gaddr cursor = MP_MAP_CURSOR;                                                        \
-        const Print p = print_begin(cursor, NULL);                                                 \
+        const Print p = print_begin(cursor, &kMpMenuFonts);                                        \
         mp_func_L##m##_##font_print_shaded##__game(                                                \
             a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11                                  \
         );                                                                                         \
