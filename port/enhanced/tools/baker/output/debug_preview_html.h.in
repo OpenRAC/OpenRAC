@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#pragma once
+#include <string_view>
+
+namespace openrac::lighting {
+// The page is longer than the 64 KiB literal the standard asks every compiler to take; Clang,
+// which the port requires, takes it.
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Woverlength-strings"
+#endif
+inline constexpr std::string_view kDebugPreviewHtml = R"preview(
+@OPENRAC_DEBUG_PREVIEW_HTML@
+)preview";
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+}

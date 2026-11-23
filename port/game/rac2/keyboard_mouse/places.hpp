@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <string_view>
 
-#include "game/common/keyboard_mouse/kbm.hpp"
+#include "game/rac2/keyboard_mouse/menus.hpp"
 
 namespace kbm2 {
 
@@ -35,6 +35,13 @@ inline kbm::Context context_of(const char* touch) {
         return kbm::Context::Dialog;
     }
     return kbm::Context::Cutscene;
+}
+
+// Whether confirming presses Start as well: only on the title's own screens (its movie's "Press
+// START", the logos), where Cross may not go on. Not in its menus, which show a list (three or
+// more texts): there Start goes back, so a click or Enter would go in and back out at once.
+inline bool confirm_presses_start(const char* touch, int list_texts) {
+    return touch != nullptr && std::string_view(touch) == "front_end" && list_texts < 3;
 }
 
 // The ship fires with Square and fires missiles with Circle: there the fire key presses Square and

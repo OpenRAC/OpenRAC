@@ -140,3 +140,78 @@ def average_colour(pixels: bytes, palette: bytes, tint: float) -> list[float]:
         acc = sum(n * linear(min(1.0, palette[i * 4 + c] / 255 * tint)) for i, n in enumerate(counts) if n)
         out.append(round(display(acc / total), 6))
     return out
+
+
+# Up Your Arsenal's liquid surfaces (its pools, rivers and lava). A surface is a moby of class 6576
+# (RAC3_SURFACE_CLASS): its update registers its draw (level 14's 0x003B24C8, no pair in Going
+# Commando) in the draw callback list run after the ties, which draws one triangle strip through the
+# points of a path of the gameplay file (the pvar's +0x3C names it; the paths are the section header
+# word 0x78 points at): a point's height plus half the wave amplitude (+0x90, an integer) at rest.
+# The strip's first layer is effect texture 0x16, white, tinted by the pvar's first colour (bytes 0
+# to 3, 0x80 = 1.0) towards its last (the alpha byte 3's 0x80 bit picks the TEST: 0x5310B, as Going
+# Commando's Dobbo water, when it is set); so a surface looks the colour its pvar names, and that is
+# what the reviewed list (port/enhanced/lighting/profiles/rac3-pal/liquids.json) names it by: its
+# first colour word. Read in level 14 against a running game's memory: its pool's 23 points are path
+# 121 of the file, and the window draws it before the mobys as five strips of 23 vertices.
+RAC3_SURFACE_CLASS = 6576
+RAC3_PATHS = 0x78       # the gameplay header word of the paths section
+RAC3_PATH_INDEX = 0x3C  # the pvar's path number
+RAC3_WAVE = 0x90        # the pvar's wave amplitude, an integer
+RAC3_REST = 128         # a colour byte at full strength
+
+
+def path_points(gameplay: bytes, index: int) -> list[list[float]]:
+    """Path INDEX of the gameplay file: its points, x, y, z. The section opens with the path count,
+    the offset of its data (from the section's start) and its size; the paths' offsets in the data
+    follow from +0x10. A path is its point count, 12 bytes, then a 16-byte x, y, z, w per point."""
+    at, = struct.unpack_from("<I", gameplay, RAC3_PATHS)
+    if at <= 0 or at + 0x10 > len(gameplay):
+        return []
+    count, data = struct.unpack_from("<2I", gameplay, at)
+    if not 0 <= index < count:
+        raise FormatError(f"path {index} past the file's {count}")
+    offset, = struct.unpack_from("<I", gameplay, at + 0x10 + 4 * index)
+    start = at + data + offset
+    points, = struct.unpack_from("<I", gameplay, start)
+    if points > 4096 or start + 0x10 + 16 * points > len(gameplay):
+        raise FormatError(f"path {index} outside the gameplay file")
+    return [list(struct.unpack_from("<3f", gameplay, start + 0x10 + 16 * i)) for i in range(points)]
+
+
+def rac3_surfaces(level, fmt) -> list[dict]:
+    """The level's liquid surfaces: their strip's points at rest and their first colour, in
+    instance order."""
+    if len(level.gameplay) < 0xA0:
+        return []  # no header: a synthetic level
+    out = []
+    for m in moby_instances(level.gameplay, fmt):
+        if m["class_id"] != RAC3_SURFACE_CLASS:
+            continue
+        state = pvar(level.gameplay, m["fields"].get("pvar_index", -1))
+        if len(state) < RAC3_WAVE + 4:
+            continue
+        path, = struct.unpack_from("<i", state, RAC3_PATH_INDEX)
+        wave, = struct.unpack_from("<i", state, RAC3_WAVE)
+        points = path_points(level.gameplay, path) if path >= 0 else []
+        if len(points) < 3:
+            continue  # no strip
+        rise = int(wave / 2)  # the draw's integer halving, toward zero
+        out.append({"instance": m["index"], "path": path, "colour": state[0:4].hex(),
+                    "points": [[x, y, z + rise] for x, y, z in points]})
+    return out
+
+
+def write_rac3_liquids(level, fmt, directory, reviewed) -> dict | None:
+    """bake-inputs/liquids.json for Up Your Arsenal; None for a level without any. REVIEWED: the
+    first colour words (8 hex digits) of the surfaces that give off light."""
+    found = rac3_surfaces(level, fmt)
+    if not found:
+        return None
+    for surface in found:
+        surface["emissive"] = surface["colour"] in reviewed
+        if surface["emissive"]:
+            rgb = bytes.fromhex(surface["colour"])[:3]
+            # A white texture under the colour, as the draw's first layer is.
+            surface["emission"] = [round(min(1.0, c / RAC3_REST), 6) for c in rgb]
+    (directory / "liquids.json").write_text(json.dumps({"version": 1, "surfaces": found}, indent=1) + "\n")
+    return {"liquids": "rac3-strips-v1"}

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The Controls tab's Keyboard and mouse panel: the built-in keyboard and mouse's settings and keys
-// (game/rac1/keyboard_mouse), changed in the game. Each change is saved to the settings file and
+// (game/common/keyboard_mouse), changed in the game. Each change is saved to the settings file and
 // used from the next tick (mods::set_built_in_setting). A key is changed by pressing the new one.
 
 #include <algorithm>
@@ -12,6 +12,7 @@
 #include <format>
 #include <imgui.h>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <SDL3/SDL.h>
@@ -26,6 +27,9 @@ namespace openrac::frontend::debug_overlay {
 namespace {
 
 constexpr const char* kId = "keyboard-mouse";
+// The section of the gyro's settings: a controller's, shown on the Gamepad sub tab (the launcher's
+// page shows it on its Gyro tab, ModPage.svelte).
+constexpr std::string_view kGyro = "Gyro";
 // A key capture gives up after this long without a press, in seconds.
 constexpr double kCaptureTimeout = 6.0;
 
@@ -467,6 +471,9 @@ void keyboard_mouse_panel() {
         }
     }
     for (const std::string& section : sections) {
+        if (section == kGyro) {
+            continue;  // on the Gamepad sub tab (keyboard_mouse_gyro)
+        }
         if (!section.empty()) {
             card_end();
             menu_heading(section.c_str());
@@ -480,8 +487,22 @@ void keyboard_mouse_panel() {
     }
 }
 
-bool keyboard_mouse_capturing() {
-    return !g.capture.empty();
+void keyboard_mouse_gyro() {
+    std::vector<const mods::Setting*> gyro;
+    for (const mods::Setting* p : mods::built_in_settings(kId)) {
+        if (p->section == kGyro) {
+            gyro.push_back(p);
+        }
+    }
+    if (gyro.empty()) {
+        return;
+    }
+    menu_heading(std::string(kGyro).c_str());
+    card_begin();
+    for (const mods::Setting* p : gyro) {
+        setting_rows(*p, mods::built_in_setting(kId, p->key).value);
+    }
+    card_end();
 }
 
 bool keyboard_mouse_capture_event(const SDL_Event& e) {

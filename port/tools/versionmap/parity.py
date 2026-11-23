@@ -6,6 +6,7 @@
     parity.py rac1                 the check: errors, then exit 1 if any
     parity.py rac1 --table         also every function a table binds, version by version
     parity.py --program rac1-pal1  the same for that program's game (its build runs it)
+    parity.py rac3                 Up Your Arsenal's PAL and NTSC-U (rac3-decomp's config/us/map.tsv)
 
 Every row of a program's libraries.tsv (host, wrap, hook, game) is read as a place: the
 executable or a level, and an address. The decomp's catalogue of that version
@@ -32,7 +33,12 @@ Two more, the same way:
 A row naming a variant of the program's split_places.tsv binds it by name (a carried release
 keeps PAL v2.00's name there, with its own places): it is read at the variant's first place.
 
-parity.tsv: PAL v2.00 name, place (boot or NN), the programs that differ, why; or a table row's
+In rac1 a row also binds every other place its program's own catalogue (hostgen.json "places")
+folds into that function, and a split_places.tsv variant every place it lists: hostgen binds them
+there too. A version whose catalogue names a level copy apart needs a row for it as well, else that
+copy runs the game's C where the others run the port's.
+
+parity.tsv: PAL v2.00 name, place (boot, NN, or * for all of them), the programs that differ, why; or a table row's
 name, "row", the programs whose row is not at a function's start, why. A row there that no
 longer applies is an error too, so the file stays true.
 """
@@ -55,15 +61,27 @@ NAME = re.compile(r"^(?:FUN|func)_(?:L(\d\d)_)?([0-9A-Fa-f]{8})(?:_\w*)?$")
 GAMES = {
     "rac1": {"source": "games/rac1/decomp",
              "catalogue": ["config/versions/{v}/functions.tsv"],
-             "programs": {"rac1-pal": "pal", "rac1-ntsc": "us", "rac1-pal1": "pal_v1", "rac1-jp": "jp"}},
+             "programs": {"rac1-pal": "pal", "rac1-ntsc": "us", "rac1-pal1": "pal_v1", "rac1-jp": "jp"},
+             # Each program's own catalogue (hostgen.json "places") folds level copies into one
+             # name, and a row binds every place of it: those are read too (folded_places).
+             "folded": True},
     # rac2-decomp's own config is NTSC v1.01's; config/<v>/ the releases' (tools/carry.py).
     "rac2": {"source": "games/rac2/decomp",
              "catalogue": ["config/{v}boot/functions.tsv", "config/{v}levels/functions.tsv"],
              "programs": {"rac2-ntsc": "", "rac2-ntsc2": "us2/", "rac2-pal": "pal/"}},
+    # rac3-decomp's C is PAL's; NTSC-U's places of PAL's names are its config/us/map.tsv (read by
+    # rac3_catalogue). frontbin, a program of its own over the executable's addresses, is its own
+    # place ("frontbin": hostgen's func_..._frontbin names).
+    "rac3": {"source": "games/rac3/decomp",
+             "catalogue": ["config/inventory.tsv"],
+             "reader": "rac3",
+             "programs": {"rac3-pal": "pal", "rac3-ntsc": "us"}},
 }
 
 
 def catalogue(spec: dict, source: Path, version: str) -> "Catalogue":
+    if spec.get("reader") == "rac3":
+        return rac3_catalogue(source, version)
     files = spec.get("catalogue", ["config/versions/{v}/functions.tsv"])
     return Catalogue([source / f.format(v=version) for f in files])
 
@@ -113,6 +131,72 @@ class Catalogue:
         return None
 
 
+def rac3_catalogue(source: Path, version: str) -> "Catalogue":
+    """Up Your Arsenal's functions on one disc by PAL's names: PAL's own (config/inventory.tsv, the
+    level catalogue), or NTSC-U's places of them (config/us/map.tsv, NTSC-U's level catalogue for
+    every place of a level row, and rac3-ntsc's release.json pairs map.tsv does not make yet)."""
+    cat = Catalogue([])
+
+    def put(name: str, place: str, address: int, size: int) -> None:
+        cat.at.setdefault((place, address), name)
+        cat.spans[place].append((address, size, name))
+        cat.places[name].add(place)
+
+    def level_rows(path: Path) -> dict[str, tuple[str, int, list[tuple[str, int]]]]:
+        out = {}
+        for line in path.read_text().splitlines() if path.is_file() else []:
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 7:
+                continue
+            places = [(item[:2], int(item[3:], 16)) for item in cols[6].split(",") if ":" in item]
+            out[cols[0]] = (cols[1], int(cols[2]) if cols[2].isdigit() else 0, places)
+        return out
+
+    def own(program: str, name: str) -> str:
+        return f"{name}__frontbin" if program == "frontbin" else name
+
+    if version == "pal":
+        for line in (source / "config/inventory.tsv").read_text().splitlines():
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 4 or cols[0] not in ("boot_elf", "frontbin"):
+                continue
+            place = "frontbin" if cols[0] == "frontbin" else "boot"
+            put(own(cols[0], f"func_{int(cols[2], 16):08X}"), place, int(cols[2], 16), int(cols[3]))
+        for name, (_kind, size, places) in level_rows(source / "config/levels/functions.tsv").items():
+            for place, address in places:
+                put(name, place, address, size)
+        return cat
+    us_levels = level_rows(source / "config/us/levels/functions.tsv")
+    front_twin: dict[str, str] = {}
+    hand = ROOT / "port/game/rac3-ntsc/release/release.json"
+    pairs = {k: v["is"] for k, v in json.loads(hand.read_text()).get("pairs", {}).items()
+             if isinstance(v, dict)} if hand.is_file() else {}
+    for line in (source / "config/us/map.tsv").read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 7:
+            continue
+        pal, program, us, place, size = cols[0], cols[1], cols[2], cols[3], cols[4]
+        if program in ("boot_elf", "frontbin"):
+            us = pairs.get(own(program, pal), us).removesuffix("__frontbin")
+            if us == "-":
+                continue
+            put(own(program, pal), "frontbin" if program == "frontbin" else "boot", int(us[-8:], 16),
+                int(size) if size.isdigit() else 0)
+            if program == "frontbin":
+                front_twin[us] = pal
+        elif program == "levels" and us in us_levels:
+            _kind, us_size, places = us_levels[us]
+            for level, address in places:
+                put(pal, level, address, us_size)
+    # The levels' copies of frontbin's functions: NTSC-U's rows are named by NTSC-U's frontbin
+    # function, PAL's by PAL's.
+    for us, (kind, size, places) in us_levels.items():
+        if kind == "frontbin" and us in front_twin:
+            for level, address in places:
+                put(front_twin[us], level, address, size)
+    return cat
+
+
 def symbols(source: Path) -> dict[str, int]:
     """The named functions of a decomp whose rows use names, not addresses (the NTSC decomp)."""
     out = {}
@@ -125,11 +209,42 @@ def symbols(source: Path) -> dict[str, int]:
 
 def place_of(name: str, named: dict[str, int]) -> tuple[str, int] | None:
     m = NAME.match(name)
+    if m and name.endswith("__frontbin") and not m.group(1):
+        return ("frontbin", int(m.group(2), 16))  # rac3's front end, a program of its own
     if m:
         return (m.group(1) or "boot", int(m.group(2), 16))
     if name in named:
         return ("boot", named[name])
     return None
+
+
+def folded_places(cfg: dict, root: Path, variants: dict[str, list[tuple[str, int]]]
+                  ) -> dict[tuple[str, int], list[tuple[str, int]]]:
+    """Every place a function of a program's own catalogue (hostgen.json "places") stands for, by
+    each of those places: hostgen binds a row's function in all of them. The places split_places.tsv
+    gives a variant are the variant's, not the folded function's. PAL's func_00222848 covers the
+    levels' copies of the ship list; the NTSC decomp names those apart (FUN_L00_0027f448), so a row
+    for its executable's copy alone left the levels to the game's C."""
+    path = root / cfg["source"] / cfg["places"] if cfg.get("places") else None
+    out: dict[tuple[str, int], list[tuple[str, int]]] = {}
+    if path is None or not path.is_file():
+        return out
+    split = {at for places in variants.values() for at in places}
+    by_name: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    for place, spans in Catalogue([path]).spans.items():
+        for address, _size, name in spans:
+            if (place, address) not in split:
+                by_name[name].append((place, address))
+    for name, places in by_name.items():
+        # An executable function's row in hostgen's own catalogue lists only the levels; its name
+        # is its executable place (a release's catalogue lists that place itself).
+        own = place_of(name, {})
+        if own is not None and own[0] == "boot" and not any(p == "boot" for p, _ in places) \
+                and own not in split:
+            places.append(own)
+        for at in places:
+            out[at] = places
+    return out
 
 
 def rows(path: Path) -> list[list[str]]:
@@ -317,6 +432,7 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
         cat = cats[program] = catalogue(spec, source, version)
         cfg = json.loads((root / "port/game" / program / "hostgen.json").read_text())
         named = symbols(root / cfg["source"])
+        folded = folded_places(cfg, root, split[program]) if spec.get("folded") else {}
         kinds: dict[tuple[str, str], set[str]] = defaultdict(set)
         for cols in rows(root / "port/game" / program / "libraries.tsv"):
             if cols[0] in split[program]:
@@ -326,6 +442,10 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
                 at = split[program][cols[0]][0]
                 if at in cat.at:
                     kinds[(cat.at[at], at[0])].add(cols[3])
+                if spec.get("folded"):  # hostgen binds it in every one of those places
+                    for other in split[program][cols[0]][1:]:
+                        if other in cat.at:
+                            kinds[(cat.at[other], other[0])].add(cols[3])
                 continue
             at = place_of(cols[0], named)
             if at is None:
@@ -343,6 +463,9 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
                               f"wrong address, and the function it is for runs its console C")
                 continue
             kinds[(name, at[0])].add(cols[3])
+            for other in folded.get(at, ()):
+                if other != at and other in cat.at:
+                    kinds[(cat.at[other], other[0])].add(cols[3])
             if len(cols) > 5 and cols[5].strip():
                 typed[name][program] = signature(cols[5])
         for key, k in kinds.items():
@@ -362,9 +485,10 @@ def check(game: str, table: bool = False, root: Path = ROOT) -> list[str]:
         counts = list(seen.values())
         common = next(v for v in seen.values() if counts.count(v) == max(map(counts.count, counts)))
         odd = {p for p, v in seen.items() if v != common}
-        why = reasons.get((name, place))
+        key = (name, place) if (name, place) in reasons else (name, "*")
+        why = reasons.get(key)
         if why is not None:
-            used.add((name, place))
+            used.add(key)
             if why[0] == odd:
                 continue
         errors.append(f"{game}: {name} ({place}) runs differently: "

@@ -19,7 +19,8 @@ import re
 import sys
 from pathlib import Path
 
-TOKEN = re.compile(r"\bfunc_\w+\b")
+# A function name, or one of a second executable's with its prefix (rac3's multiplayer mp_func_).
+TOKEN = re.compile(r"\b(?:mp_)?func_\w+\b")
 
 
 def read_names(path: Path) -> dict[str, str]:

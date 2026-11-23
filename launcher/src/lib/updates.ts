@@ -22,6 +22,9 @@ export interface UpdateInfo {
   body: string;
   publishedAt: string;
   canInstallDirectly: boolean;
+  /** The release has no build for this system yet: its build for it failed, and a fixed build or
+   *  the next release brings one. Nothing to download until then. */
+  missingBuild: boolean;
   /** The channel the player chose when it is the other one than this launcher's: this is that
    *  channel's build, which may be older than this one (a development build going back to the
    *  release). Null on the launcher's own channel. */
@@ -34,6 +37,10 @@ export type UpdateProgressCallback = (progress: {
   downloadedBytes: number;
   totalBytes: number;
 }) => void;
+
+/** What src-tauri's launcher_update_check answers when the newer release has no build for this
+ *  system (lib.rs, NO_BUILD_FOR_PLATFORM). */
+export const NO_BUILD_FOR_PLATFORM = "no build for this platform";
 
 let activeTauriUpdate: Update | null = null;
 let activeAndroidRelease: AndroidRelease | null = null;
@@ -229,6 +236,7 @@ export async function checkGitHubRelease(
         body: data.body ?? "",
         publishedAt: data.published_at ?? "",
         canInstallDirectly: false,
+        missingBuild: false,
         switchTo: switching ? (source.channel ? "dev" : "stable") : null,
       };
     }
@@ -310,6 +318,7 @@ export async function checkForUpdate(
       body: release.notes,
       publishedAt: release.date,
       canInstallDirectly: !older,
+      missingBuild: false,
       switchTo: switching ? channel : null,
     };
   } else if (inTauri) {
@@ -333,10 +342,17 @@ export async function checkForUpdate(
           body: update.body ?? "",
           publishedAt: update.date ?? "",
           canInstallDirectly: true,
+          missingBuild: false,
           switchTo: switching ? channel : null,
         };
       }
     } catch (e) {
+      if (String(e).includes(NO_BUILD_FOR_PLATFORM)) {
+        const release = await checkGitHubRelease(currentVersion, source, switching);
+
+        return release && { ...release, missingBuild: true };
+      }
+
       console.warn("Tauri updater check failed, falling back to GitHub release check:", e);
     }
   }

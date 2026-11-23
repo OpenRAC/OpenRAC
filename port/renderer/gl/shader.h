@@ -54,11 +54,12 @@ public:
     bool build_compute(std::string_view name, std::string_view source, std::string& error);
     void use() const;
 
-    // -1 when the program has no such uniform (or the compiler removed it). The driver is asked
-    // once per name: a renderer looks its uniforms up by name every frame, and each lookup would
-    // otherwise be a call into the driver that compares strings.
+    // Returns a stable location, or -1 for an absent declaration. Feature programs keep CPU
+    // locations even when one exact variant removes the uniform; native locations are private.
+    // Name lookups are cached because renderers ask for the same uniforms every frame.
     int uniform(const char* name) const;
 
+    // Stable logical program handle; feature variants can bind a different native executable.
     unsigned id() const { return m_program; }
 
     // Delete the program (the context must be current).

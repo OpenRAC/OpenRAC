@@ -7,7 +7,7 @@ uniform sampler2D probe_moments;
 uniform sampler2D probe_spread;
 uniform sampler2D probe_depth_ranges;
 // Zero reads moments, one local ASTC, two linear RG8 and three curved RG16 UNORM.
-// The switches a pipeline may take as constants (vk-mode-constants).
+// The switches every Vulkan pipeline fixes as constants (pipeline variants).
 // openrac_mode: probe_depth_mode probe_retail_anchor probe_gpu_selection probe_mode probe_receiver
 // openrac_mode: probe_backlight sun_shadow_separate_maps shadow_atlas_enabled sun_shadow_enabled
 // openrac_mode: hero_shadow_enabled
@@ -15,7 +15,7 @@ uniform int probe_depth_mode;
 uniform sampler2D probe_metadata;
 uniform vec3 probe_origin;
 uniform vec3 probe_spacing;
-uniform vec2 probe_frame;
+uniform vec4 probe_frame;
 uniform vec3 probe_dimensions;
 uniform float probe_resolution;
 uniform int probe_tiles_x;
@@ -32,7 +32,7 @@ uniform float probe_normal_bias;
 uniform float probe_view_bias;
 uniform vec3 probe_dense_origin[3];
 uniform vec3 probe_dense_spacing[3];
-uniform vec2 probe_dense_frame[3];
+uniform vec4 probe_dense_frame[3];
 uniform vec3 probe_dense_dimensions[3];
 uniform int probe_dense_offset[3];
 uniform float probe_dense_weight[3];
@@ -42,7 +42,7 @@ uniform vec2 probe_tile_extent;
 uniform usamplerBuffer probe_region_masks;
 
 layout(std140) uniform ProbeRegions {
-    vec4 probe_regions[3072];
+    vec4 probe_regions[4096];
 };
 
 uniform int probe_mode;      // 0 original, 1 combined, 2 indirect, 3 direct, 4 coverage
@@ -173,8 +173,8 @@ vec2 probe_depth_sample(ivec2 tile, vec3 direction) {
 }
 
 vec2 probe_axis(vec2 axis) { return dot(axis,axis)>.5 ? axis : vec2(1,0); }
-vec3 probe_local(vec3 p,vec2 axis) { axis=probe_axis(axis);return vec3(dot(p.xy,axis),dot(p.xy,vec2(-axis.y,axis.x)),p.z); }
-vec3 probe_world(vec3 p,vec2 axis) { axis=probe_axis(axis);return vec3(axis.x*p.x-axis.y*p.y,axis.y*p.x+axis.x*p.y,p.z); }
+vec3 probe_world(vec3 p,vec4 q) { if(dot(q,q)<.5)q=vec4(0,0,0,1);return p+2.*cross(q.xyz,cross(q.xyz,p)+q.w*p); }
+vec3 probe_local(vec3 p,vec4 q) { return probe_world(p,vec4(-q.xyz,q.w)); }
 // Keep the irradiance power decode FP32: half SFU/conversion overhead regresses GI passes.
 bool sample_probe_grid(
     vec3 p,
@@ -182,7 +182,7 @@ bool sample_probe_grid(
     vec3 surface_bias,
     vec3 origin,
     vec3 spacing,
-    vec2 frame,
+    vec4 frame,
     vec3 dimensions,
     int index_offset,
     bool preserve_occlusion,
@@ -350,9 +350,9 @@ ivec3 probe_choose_regions(vec3 p) {
                 continue;
             }
             int id = int(texelFetch(probe_region_masks, 1 + slot).r);
-            vec3 step = probe_regions[id * 3 + 1].xyz;
-            vec3 c = probe_local(p - probe_regions[id * 3].xyz,vec2(probe_regions[id*3+1].w,probe_regions[id*3+2].w)) / step;
-            vec3 edge = min(c, (probe_regions[id * 3 + 2].xyz - 1.0 - c) * vec3(1.0, 1.0, 0.5));
+            vec3 step = probe_regions[id * 4 + 1].xyz;
+            vec3 c = probe_local(p - probe_regions[id * 4].xyz,probe_regions[id*4+3]) / step;
+            vec3 edge = min(c, (probe_regions[id * 4 + 2].xyz - 1.0 - c) * vec3(1.0, 1.0, 0.5));
             float influence = smoothstep(0.0, 1.0, min(edge.x, min(edge.y, edge.z)));
             float score = influence / (step.x * step.y * step.z);
             if (score > scores.x || (score > 0.0 && score == scores.x && id < best.x)) {
@@ -400,16 +400,16 @@ bool sample_probe_irradiance(
         vec3 origin = probe_dense_origin[slot];
         float weight = probe_dense_weight[slot];
         vec3 spacing = probe_dense_spacing[slot];
-        vec2 frame = probe_dense_frame[slot];
+        vec4 frame = probe_dense_frame[slot];
         vec3 dimensions = probe_dense_dimensions[slot];
         int offset = probe_dense_offset[slot];
         if (probe_gpu_selection != 0) {
-            origin = probe_regions[id * 3].xyz;
+            origin = probe_regions[id * 4].xyz;
             weight = 1.0;
-            spacing = probe_regions[id * 3 + 1].xyz;
-            dimensions = probe_regions[id * 3 + 2].xyz;
-            offset = int(probe_regions[id * 3].w);
-            frame = vec2(probe_regions[id*3+1].w,probe_regions[id*3+2].w);
+            spacing = probe_regions[id * 4 + 1].xyz;
+            dimensions = probe_regions[id * 4 + 2].xyz;
+            offset = int(probe_regions[id * 4].w);
+            frame = probe_regions[id*4+3];
         }
         if (weight <= 0.0) {
             continue;

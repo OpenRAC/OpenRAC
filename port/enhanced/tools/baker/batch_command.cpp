@@ -16,6 +16,7 @@
 #include "common/profiler.h"
 #include "enhanced/lighting/bake_material.h"
 #include "enhanced/tools/baker/batch.h"
+#include "enhanced/tools/baker/output/debug_preview.h"
 #include "enhanced/tools/baker/output/report.h"
 #include "enhanced/tools/baker/pipeline/pipeline_internal.h"
 #include "enhanced/tools/baker/planning/automatic_plan.h"
@@ -40,6 +41,7 @@ struct Request {
         values;              // CLI overrides, owned by this request.
     bool automatic = false;  // Own final planning without a client request.
     bool resume = false;     // Reuse grids only after their identity and bytes are verified.
+    bool debug_preview = false;
 };
 
 // Rejects single-grid operations before any scene or generated sidecar is touched.
@@ -58,7 +60,11 @@ void parse_request(std::span<const std::string> arguments, Request& request) {
             continue;
         }
 
-        // Resume is the batch protocol's only valueless flag.
+        if (key == "--debug-preview") {
+            request.debug_preview = true;
+            continue;
+        }
+
         if (key == "--resume") {
             request.resume = true;
             continue;
@@ -294,7 +300,7 @@ std::string game_version(const std::filesystem::path& directory) {
     const auto& version = manifest["version"].string();
 
     if (!bake_identity_supported(manifest["game"].string(), version)) {
-        throw std::runtime_error("expected a RAC1 PAL or NTSC export or a RAC2 NTSC one");
+        throw std::runtime_error("expected a RAC1 PAL or NTSC, RAC2 or RAC3 PAL export");
     }
 
     return manifest["game"].string() + "-" + version;
@@ -474,6 +480,11 @@ void execute(
         run_probe_batch(level, exported, grid, options, emission_cache, output);
 
     complete_batch(options, sources, environment_unavailable);
+    if (request.debug_preview) {
+        output << "Bake preview: "
+               << write_debug_preview(options.level_directory, options.output_directory).string()
+               << '\n';
+    }
     output << "Probe batch complete\n" << std::flush;
 }
 }  // namespace

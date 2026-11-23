@@ -677,8 +677,10 @@ def without_definitions(text: str, names: set[str]) -> str:
     return text
 
 
-# The records name_cast_records defined ahead of a function, on its first line.
-_CAST_RECORDS_AHEAD = r'(?:(?:struct|union) openrac_cast_\d+_\d+ \{.*?\}; )*'
+# The records name_cast_records defined ahead of a function, on its first line. A record's body
+# has no braces (_CAST_RECORD), so each record matches one way only: with `.*?` a line of a few
+# hundred records (a functional candidate's) had exponentially many ways to fail.
+_CAST_RECORDS_AHEAD = r'(?:(?:struct|union) openrac_cast_\d+_\d+ \{[^{}\n]*\}; )*'
 
 
 def _definition(text: str, name: str) -> tuple[int, int] | None:
@@ -834,8 +836,8 @@ def apply_decomp_workarounds(rel: str, text: str) -> str:
     if rel.endswith("src/us2/levels/shared/L18_00304470-cc.c"):
         # Going Commando v2.00's func_L18_00304470 hands func_0027F1D8 (the release's name by now)
         # its caller's scale, left in $f12 (the disc's code sets only a2); written with two
-        # parameters, the scale was lost. The declaration's result is void or int (rac2-decomp
-        # 005bfc4dd gave it the definition's int).
+        # parameters, the scale would be lost. The declaration's result is void or int (the
+        # decompilation may give it the definition's int).
         text = re.sub(
             r"extern (void|int) (func_\w+)\(void \*a0, void \*a1, const char \*a2\);",
             r"extern \1 \2(void *a0, void *a1, const char *a2, float a3);",

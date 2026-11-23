@@ -172,7 +172,7 @@ void test_reset_enhanced() {
 void test_enhanced_presets() {
     using namespace openrac;
     settings::Settings s;
-    s.render_scale = 75;
+    s.render_scale = 50;
     s.gtao_settings.half_resolution = false;
     s.volumetric_quality = renderer::VolumetricQuality::High;
 
@@ -190,6 +190,7 @@ void test_enhanced_presets() {
           settings::EnhancedPreset::High}) {
         s.apply_enhanced_preset(preset);
         CHECK(s.enhanced_preset() == preset);
+        CHECK(s.render_scale == (preset == settings::EnhancedPreset::Low ? 75 : 100));
     }
 
     s.apply_enhanced_preset(settings::EnhancedPreset::Low);
@@ -201,25 +202,34 @@ void test_enhanced_presets() {
     CHECK(s.effects_detail == renderer::render_opt::EffectsDetail::Low);
 
     // What a preset does not cover stays as the player set it.
-    CHECK(s.render_scale == 75 && s.gtao && s.enhanced_shadows && s.agx_preview);
+    CHECK(s.gtao && s.enhanced_shadows && s.agx_preview);
     CHECK(!s.gtao_settings.half_resolution);
     CHECK(s.volumetric_quality == renderer::VolumetricQuality::High);
 
     // Any other mix is Custom, and applying Custom changes nothing.
-    s.shadow_filter = renderer::ShadowFilter::Soft;
+    s.render_scale = 50;
     CHECK(s.enhanced_preset() == settings::EnhancedPreset::Custom);
     s.apply_enhanced_preset(settings::EnhancedPreset::Custom);
+    CHECK(s.render_scale == 50);
     CHECK(s.shadow_quality == renderer::ShadowQuality::Low);
 }
 
 // A file from before effects detail takes the detail of the preset its other values match.
 void test_effects_detail_default(const std::filesystem::path& file) {
     using namespace openrac;
-    std::ofstream(file) << "temporal_quality = performance\nshadow_quality = low\n"
-                        << "shadow_filter = fast\ngtao_quality = low\nmotion_blur = 0\n"
-                        << "texture_filter = normal\n";
+    std::ofstream(
+        file
+    ) << "render_scale = 50\ntemporal_quality = performance\nshadow_quality = low\n"
+      << "shadow_filter = fast\ngtao_quality = low\nmotion_blur = 0\n"
+      << "texture_filter = normal\n";
     settings::load(file);
     CHECK(settings::get().effects_detail == renderer::render_opt::EffectsDetail::Low);
+    CHECK(settings::get().render_scale == 50);
+    CHECK(settings::get().enhanced_preset() == settings::EnhancedPreset::Custom);
+    settings::get().apply_enhanced_preset(settings::EnhancedPreset::Low);
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().render_scale == 75);
     CHECK(settings::get().enhanced_preset() == settings::EnhancedPreset::Low);
 }
 

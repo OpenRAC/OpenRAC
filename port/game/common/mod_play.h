@@ -30,8 +30,9 @@ void fill_motion_api(openrac_api& api, const Host& host);
 // only then; and the game's calls into the world set (game_host.h).
 void play_loading(const openrac_mod* mod);
 
-// Whether the game shows a level with the player in it: no menu, no scene (openrac_overlay).
-bool overlay_shows_level();
+// What the game shows now, as an overlay's phase (openrac_overlay.phase): OPENRAC_OVERLAY_PLAYING,
+// _MENU or _SCENE in a level, 0 elsewhere (the title, a load).
+std::uint32_t overlay_phase_now();
 
 // Forgets the figures and a pending start or travel (mods::reset, the tests).
 void reset_play();

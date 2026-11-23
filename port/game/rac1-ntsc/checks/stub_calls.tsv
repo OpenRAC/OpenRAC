@@ -1,0 +1,3 @@
+# Calls from translated C to a function with no C that stub_calls.py allows (ctest <version>_stub_calls).
+# name	caller	why
+func_001271D8	game__doMC	libmpeg's motion compensation (hand-written MMI), as in assembly_allow.tsv: the port's movie player decodes the movies itself, so nothing of sceMpeg runs

@@ -249,4 +249,53 @@ std::vector<BakeTriangle> rac2_liquid_triangles(const json::Value& root) {
     }
     return triangles;
 }
+
+std::vector<BakeTriangle> rac3_liquid_triangles(const json::Value& root) {
+    using namespace assets;
+    if (root["version"].number() != 1 || !root["surfaces"].is_array()) {
+        fail("Unsupported Up Your Arsenal liquid surfaces");
+    }
+    std::vector<BakeTriangle> triangles;
+    for (const auto& surface : root["surfaces"].items()) {
+        if (!surface["emissive"].boolean()) {
+            continue;
+        }
+        Float3 emission{};
+        for (unsigned c = 0; c < 3; ++c) {
+            emission[c] = float(surface["emission"][c].number(NAN));
+        }
+        if (!(emission[0] >= 0 && emission[1] >= 0 && emission[2] >= 0)) {
+            fail("Up Your Arsenal liquid emission is not valid");
+        }
+        std::vector<Float3> points;
+        for (const auto& point : surface["points"].items()) {
+            Float3 p{};
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                p[axis] = float(point[axis].number(NAN));
+                if (!std::isfinite(p[axis])) {
+                    fail("Up Your Arsenal liquid point is not finite");
+                }
+            }
+            points.push_back(p);
+        }
+        // A triangle strip: each point with the two before it.
+        for (std::size_t i = 2; i < points.size(); ++i) {
+            BakeTriangle triangle;
+            triangle.diffuse = {};
+            triangle.emission = {1, 1, 1};
+            triangle.emission_vertex_colour = true;
+            triangle.vertices = {points[i - 2], points[i - 1], points[i]};
+            for (unsigned k = 0; k < 3; ++k) {
+                triangle.emission_colours[k] = emission;
+            }
+            const auto& a = triangle.vertices[0];
+            const auto& b = triangle.vertices[1];
+            const auto& c = triangle.vertices[2];
+            if (std::abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) > 1e-8f) {
+                triangles.push_back(triangle);
+            }
+        }
+    }
+    return triangles;
+}
 }  // namespace openrac::lighting

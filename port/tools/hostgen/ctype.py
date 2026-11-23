@@ -12,6 +12,7 @@ name, so typedefs, struct tags and the console's layouts carry over.
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass, field
 
@@ -204,6 +205,9 @@ class _Parser:
         return self.declarator()(base)
 
 
+# The same few thousand type strings come back millions of times in a game's translation; the
+# types are frozen, so one parse per string is shared. Errors are not cached: they raise again.
+@functools.lru_cache(maxsize=None)
 def parse(text: str) -> Type:
     p = _Parser(text)
     t = p.type_name()

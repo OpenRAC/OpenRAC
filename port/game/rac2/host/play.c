@@ -42,17 +42,20 @@
  *
  * Saves: save_format.h. SavePack (0x0029ADA0) writes the progress now, as the card's file.
  */
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "enemy_copies.h"
 #include "game_protos.h"
+#include "moby_pool.h"
 #include "openrac/game_host.h"
 #include "openrac/host_env.h"
 #include "openrac/pose_anim.h"
 #include "rac2.h"
 #include "save_format.h"
+#include "weapon_shots.h"
 
 #define LEVELS RAC2_LEVELS
 /* The museum is 21 to the game's level word and 30 to its program (level.c). */
@@ -665,6 +668,7 @@ static char world_family[32];
 static void play_trace(void);
 
 void rac2_play_frame(void) {
+    rac2_shots_frame();
     follow_motion();
     play_trace();
 }
@@ -701,6 +705,14 @@ static openrac_game_play play = {
     .hero_moby = hero_moby,
     .moby_copy_check = moby_copy_check,
     .moby_copy = moby_copy,
+    .moby_pool_raise = rac2_pool_raise,
+    .moby_pool_status = rac2_pool_status,
+    .post_hit = rac2_post_hit,
+    .weapon_refire = rac2_shot_refire,
+    .moby_spawn_live = rac2_shot_spawn_live,
+    .moby_status = rac2_moby_status,
+    .weapon_record = rac2_weapon_record,
+    .weapon_ignore_culling = rac2_weapon_ignore_culling,
 };
 
 void rac2_install_play(void) {
@@ -933,6 +945,170 @@ static void hit_hard(gaddr m) {
     func_002A8E20(m, req);
 }
 
+/* `coins`: every 30 frames of play, the bolts and each bolt pickup (classes 13 to 19) within 40
+ * units of the hero: its state, place, update, its distances and whether it is drawn, its flags, its
+ * pickup kind and its parent, to see each coin a drop makes flown to the hero and collected. */
+static void trace_coins(const char* script, unsigned playing) {
+    rac2_moby_table t;
+    const gaddr hero = hero_moby();
+    if (!copy_table(&t) || hero == 0) {
+        return;
+    }
+    /* `killnear=F`: from F frames into play, for 600 frames, every enemy (the bestiary's kind)
+     * within 25 units of the hero, copy or not, hit hard every 30 frames. */
+    const char* kn = strstr(script, "killnear=");
+    const unsigned kill_at = kn != NULL ? (unsigned)atoi(kn + 9) : 0u;
+    if (kill_at != 0 && playing >= kill_at && playing < kill_at + 600 && playing % 30 == 0) {
+        for (gaddr m = t.base; m < t.end; m += MOBY_SIZE) {
+            const gaddr cls = GREF(gaddr, m + MOBY_CLASS);
+            if (GREF(uint8_t, m + MOBY_STATE) >= 0x80 || cls == 0 || m == hero
+                || GREF(int16_t, cls + 0x46u) != 5) {
+                continue;
+            }
+            const float dx = GREF(float, m + MOBY_POS) - GREF(float, hero + MOBY_POS);
+            const float dy = GREF(float, m + MOBY_POS + 4u) - GREF(float, hero + MOBY_POS + 4u);
+            if (dx * dx + dy * dy < 25.0f * 25.0f) {
+                hit_hard(m);
+            }
+        }
+    }
+    if (strstr(script, "coins") == NULL || playing % 30 != 1) {
+        return;
+    }
+    int n = 0;
+    for (gaddr m = t.base; m < t.end; m += MOBY_SIZE) {
+        const int16_t c = GREF(int16_t, m + MOBY_OCLASS);
+        if (GREF(uint8_t, m + MOBY_STATE) >= 0x80 || c < 13 || c > 19) {
+            continue;
+        }
+        const float dx = GREF(float, m + MOBY_POS) - GREF(float, hero + MOBY_POS);
+        const float dy = GREF(float, m + MOBY_POS + 4u) - GREF(float, hero + MOBY_POS + 4u);
+        if (dx * dx + dy * dy > 40.0f * 40.0f) {
+            continue;
+        }
+        const gaddr pv = GREF(gaddr, m + MOBY_PVARS);
+        ++n;
+        fprintf(
+            stderr,
+            "PTRACE coin %u slot %d class %d state 0x%X pos %.2f %.2f %.2f update 0x%X dist %u "
+            "drawn "
+            "%u draw %d flags 0x%X kind %u vflags 0x%X parent 0x%X\n",
+            playing,
+            (int)slot_of(m),
+            (int)c,
+            (unsigned)GREF(uint8_t, m + MOBY_STATE),
+            GREF(float, m + MOBY_POS),
+            GREF(float, m + MOBY_POS + 4u),
+            GREF(float, m + MOBY_POS + 8u),
+            (unsigned)GREF(gaddr, m + MOBY_UPDATE),
+            (unsigned)GREF(uint8_t, m + MOBY_UPDATE_DIST),
+            (unsigned)GREF(uint8_t, m + MOBY_DRAWN),
+            (int)GREF(int16_t, m + MOBY_DRAW_DIST),
+            (unsigned)GREF(uint16_t, m + MOBY_FLAGS),
+            pv != 0 ? (unsigned)GREF(uint8_t, pv + 0x40u) : 0u,
+            pv != 0 ? (unsigned)GREF(uint8_t, pv + 0x55u) : 0u,
+            (unsigned)GREF(gaddr, m + 0xB8u)
+        );
+    }
+    fprintf(
+        stderr,
+        "PTRACE coins %u near %d bolts %d hero %.2f %.2f %.2f\n",
+        playing,
+        n,
+        (int)GREF(int32_t, OPENRAC_DATA(RAC2_g_boltCount)),
+        GREF(float, hero + MOBY_POS),
+        GREF(float, hero + MOBY_POS + 4u),
+        GREF(float, hero + MOBY_POS + 8u)
+    );
+}
+
+/* `mobys`: every 30 frames of play, the moby table's size and what fills it: the slots in all, those
+ * in use, free, the bolt pickups (classes 13 to 19) and the copies; with `copies`, each copy's place,
+ * state, draw flag and update distance, to find the game's moby limits and copies the player never
+ * sees. */
+static void trace_mobys(const char* script, unsigned playing) {
+    rac2_moby_table t;
+    if (strstr(script, "mobys") == NULL || playing % 30 != 2 || !copy_table(&t)) {
+        return;
+    }
+    int used = 0, freed = 0, coins = 0, copies = 0, asleep = 0;
+    for (gaddr m = t.base; m < t.end; m += MOBY_SIZE) {
+        const uint8_t st = GREF(uint8_t, m + MOBY_STATE);
+        const int16_t c = GREF(int16_t, m + MOBY_OCLASS);
+        if (st == 0xFF) {
+            break;
+        }
+        if (st >= 0xFE) {
+            ++freed;
+            continue;
+        }
+        if (st >= 0x80) {
+            continue;
+        }
+        ++used;
+        coins += c >= 13 && c <= 19;
+        if (rac2_copy_is(m)) {
+            ++copies;
+            asleep += GREF(uint8_t, m + MOBY_DRAWN) == 0;
+            if (strstr(script, "copies") != NULL) {
+                fprintf(
+                    stderr,
+                    "PTRACE copy %u slot %d class %d state 0x%X pos %.1f %.1f %.1f update 0x%X "
+                    "dist %u drawn %u flags 0x%X\n",
+                    playing,
+                    (int)slot_of(m),
+                    (int)c,
+                    (unsigned)st,
+                    GREF(float, m + MOBY_POS),
+                    GREF(float, m + MOBY_POS + 4u),
+                    GREF(float, m + MOBY_POS + 8u),
+                    (unsigned)GREF(gaddr, m + MOBY_UPDATE),
+                    (unsigned)GREF(uint8_t, m + MOBY_UPDATE_DIST),
+                    (unsigned)GREF(uint8_t, m + MOBY_DRAWN),
+                    (unsigned)GREF(uint16_t, m + MOBY_FLAGS)
+                );
+                gaddr orig = 0;
+                for (int i = 0; rac2_copy_at(i, &orig) != m && i < rac2_copy_count(); ++i) {
+                    orig = 0;
+                }
+                if (orig != 0) {
+                    fprintf(
+                        stderr,
+                        "PTRACE orig %u slot %d state 0x%X pos %.1f %.1f %.1f update 0x%X dist %u "
+                        "drawn %u flags 0x%X draw %d / copy draw %d\n",
+                        playing,
+                        (int)slot_of(orig),
+                        (unsigned)GREF(uint8_t, orig + MOBY_STATE),
+                        GREF(float, orig + MOBY_POS),
+                        GREF(float, orig + MOBY_POS + 4u),
+                        GREF(float, orig + MOBY_POS + 8u),
+                        (unsigned)GREF(gaddr, orig + MOBY_UPDATE),
+                        (unsigned)GREF(uint8_t, orig + MOBY_UPDATE_DIST),
+                        (unsigned)GREF(uint8_t, orig + MOBY_DRAWN),
+                        (unsigned)GREF(uint16_t, orig + MOBY_FLAGS),
+                        (int)GREF(int16_t, orig + MOBY_DRAW_DIST),
+                        (int)GREF(int16_t, m + MOBY_DRAW_DIST)
+                    );
+                }
+            }
+        }
+    }
+    fprintf(
+        stderr,
+        "PTRACE mobys %u table %u placed %u pool %u used %d free %d coins %d copies %d "
+        "copies_undrawn %d\n",
+        playing,
+        (unsigned)((t.end - t.base) / MOBY_SIZE),
+        (unsigned)((t.dynamic - t.base) / MOBY_SIZE),
+        (unsigned)((t.end - t.dynamic) / MOBY_SIZE),
+        used,
+        freed,
+        coins,
+        copies,
+        asleep
+    );
+}
+
 static void trace_copy_watch(const char* script, unsigned playing) {
     const int watch = strstr(script, "copywatch") != NULL;
     rac2_copy_trace = watch;
@@ -1025,6 +1201,8 @@ static void play_trace(void) {
     }
     ++playing;
     trace_copy_watch(script, (unsigned)playing);
+    trace_coins(script, (unsigned)playing);
+    trace_mobys(script, (unsigned)playing);
     history[playing % TRACE_DELAY] = pose;
     if (playing % 120 == 1) {
         const gaddr hero = hero_moby();

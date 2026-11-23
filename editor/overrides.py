@@ -114,7 +114,7 @@ TERRAIN = re.compile(r"^level_(\d{2})/terrain\.glb$")
 IMAGE = re.compile(r"((?:\.\./)?textures/)([A-Za-z0-9_.-]+)\.png")  # a port GLB's image: a level texture
 AUDIO = re.compile(r"^audio/")
 # The games whose ports play a pack's audio/<key>.wav in place of the disc's stream (sound_engine.cpp).
-AUDIO_GAMES = ("rac1", "rac2")
+AUDIO_GAMES = ("rac1", "rac2", "rac3")
 PACKED = "packed.json"  # the level packer's note of the disc it packed (pack.py)
 PEOPLE = re.compile(r"^(?:[^/]+\.(?:txt|md)|(?:README|LICENSE|CREDITS)[^/]*)$", re.IGNORECASE)
 MAX_FILES = 200_000
@@ -137,8 +137,6 @@ def map_settings(manifest: dict) -> dict | None:
         raise PackError('"map" must be an object in a Ratchet & Clank pack')
     if manifest.get("version") not in ("pal", "ntsc"):
         raise PackError('map packs must name their disc version ("pal" or "ntsc")')
-    if manifest.get("format") == DESTINATION_PACK_FORMAT and manifest.get("version") != "pal":
-        raise PackError('ship destinations currently require RAC1 PAL')
     if manifest.get("format") == DESTINATION_PACK_FORMAT and "export" in manifest:
         identity = manifest["export"]
         if not isinstance(identity, str) or not identity.startswith("destination:") or len(identity) > 132:
@@ -1075,7 +1073,10 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
             for entry, layer in sorted(destinations, key=lambda pair: pair[0]["id"]):
                 write_layers(layers + [layer], target, temporary / "destinations" / entry["id"])
                 entries.append(entry)
-            registry = {"format": 1, "game": "rac1", "version": "pal", "destinations": entries}
+            versions = {entry["version"] for entry in entries}
+            if len(versions) != 1:
+                raise PackError("Ship destinations must all be made for the same disc")
+            registry = {"format": 1, "game": "rac1", "version": versions.pop(), "destinations": entries}
             (temporary / "destinations.json").write_text(json.dumps(registry, indent=1, allow_nan=False) + "\n")
             summary["destinations"] = [{"id": m["id"], "name": m["name"]} for m in entries]
             kept = {layer["id"]: layer for layer in summary["layers"]}

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Ratchet & Clank's profiles (game/common/profile.h): one per disc, PAL (SCES-50916) and NTSC-U
-// (SCUS-97199), each answering the host program with game_state.h's reads over its own tables of
+// Ratchet & Clank's profiles (game/common/profile.h): one per disc (PAL v2.00 and v1.00,
+// NTSC-U, NTSC-J), each answering the host program with game_state.h's reads over its own tables of
 // addresses (game_state.cpp), the boot program's and each level program's, and with the
 // executable's addresses the frontend reads for the hero's shadow and state.
 //
@@ -57,6 +57,14 @@ constexpr ExecutableAddresses kNtscExecutable{0x001CAA80u, 0x0013F350u, 0x0015F6
 // PAL v1.00's and NTSC-J's, carried from PAL's (profile_rac1-pal1.h, profile_rac1-jp.h).
 constexpr ExecutableAddresses kPal1Executable OPENRAC_RAC1_PAL1_EXECUTABLE;
 constexpr ExecutableAddresses kJpExecutable OPENRAC_RAC1_JP_EXECUTABLE;
+
+// Each disc's gold bolt reads (host::GoldBoltReads): PAL's as games/rac1 has them, the others the
+// same data in their release (rac1-ntsc's rac1_version.h, release/release_names.json of rac1-pal1
+// and rac1-jp).
+constexpr host::GoldBoltReads kPalGoldBolt{1, 0x00161FA0u, 0x00160098u, 0x001600A0u, 0x0015EE6Cu};
+constexpr host::GoldBoltReads kNtscGoldBolt{1, 0x00161F10u, 0x0015FFD8u, 0x0015FFE0u, 0x0015ED6Cu};
+constexpr host::GoldBoltReads kPal1GoldBolt{1, 0x00161E90u, 0x0015FF98u, 0x0015FFA0u, 0x0015ED6Cu};
+constexpr host::GoldBoltReads kJpGoldBolt{1, 0x00161F90u, 0x00160098u, 0x001600A0u, 0x0015EE6Cu};
 
 // Developer tools, for a diagnostics recording: the moby table's spawn range (create_moby takes
 // a slot there whose state is 0xFE or more and whose +0x38 the frame clock has reached), with its
@@ -194,11 +202,13 @@ public:
     constexpr Profile(
         const GameAddresses& boot,
         const GameAddresses (&levels)[kLevels],
-        const ExecutableAddresses& executable
+        const ExecutableAddresses& executable,
+        const host::GoldBoltReads& gold_bolt
     ) noexcept
         : m_boot(boot),
           m_levels(levels),
-          m_executable(executable) {}
+          m_executable(executable),
+          m_gold_bolt(gold_bolt) {}
 
     host::GameState read_state(std::span<const std::uint8_t> ram, int level) const override {
         return read_game_state(ram, addresses(level));
@@ -253,6 +263,8 @@ public:
 
     // process_pad_input (games/rac1's func_002181F0): |byte - 0x7F| from 0x30, over 0x4C.
     std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }
+
+    std::optional<host::GoldBoltReads> gold_bolt_reads() const override { return m_gold_bolt; }
 
     std::string diagnostics(
         std::span<const std::uint8_t> ram,
@@ -337,13 +349,14 @@ private:
     const GameAddresses& m_boot;               // The boot program's table, a constant.
     const GameAddresses (&m_levels)[kLevels];  // The level programs' tables, constants.
     const ExecutableAddresses& m_executable;   // The executable's addresses, a constant.
+    const host::GoldBoltReads& m_gold_bolt;    // The gold bolt preview's reads, a constant.
 };
 
-// The two discs' profiles, constants for the program's life.
-const Profile kPalProfile{kRac1Pal, kRac1PalLevels, kPalExecutable};
-const Profile kNtscProfile{kRac1Ntsc, kRac1NtscLevels, kNtscExecutable};
-const Profile kPal1Profile{kRac1Pal1, kRac1Pal1Levels, kPal1Executable};
-const Profile kJpProfile{kRac1Jp, kRac1JpLevels, kJpExecutable};
+// The four discs' profiles, constants for the program's life.
+const Profile kPalProfile{kRac1Pal, kRac1PalLevels, kPalExecutable, kPalGoldBolt};
+const Profile kNtscProfile{kRac1Ntsc, kRac1NtscLevels, kNtscExecutable, kNtscGoldBolt};
+const Profile kPal1Profile{kRac1Pal1, kRac1Pal1Levels, kPal1Executable, kPal1GoldBolt};
+const Profile kJpProfile{kRac1Jp, kRac1JpLevels, kJpExecutable, kJpGoldBolt};
 
 }  // namespace
 }  // namespace openrac::game::rac1

@@ -401,6 +401,10 @@ fn placeholders(text: &str) -> Vec<String> {
     names
 }
 
+/// Why every rac3 action is blocked while the Up Your Arsenal switch (Settings, Developer) is off.
+/// The words after "needs" are what the UI shows ("Needs the Up Your Arsenal switch ...").
+pub const RAC3_GATE: &str = "needs the Up Your Arsenal switch in Settings, under Developer";
+
 impl Action {
     /// Whether the action can run in `ctx`, and if not, why.
     pub fn view(&self, ctx: &Context) -> ActionView {
@@ -453,6 +457,10 @@ impl Action {
         let mut out = Vec::new();
         if !self.shown(ctx.config) {
             out.push("for developers only: turn on Developer tools in Settings".to_string());
+            return out;
+        }
+        if ctx.version.is_some_and(|v| v.game == "rac3") && !ctx.config.rac3_dev {
+            out.push(RAC3_GATE.to_string());
             return out;
         }
         if self.state == State::Planned {
@@ -593,6 +601,11 @@ impl Action {
         }
         if self.kind == Kind::Play && crate::multiplayer::is_valid_key(&ctx.config.multiplayer_key) {
             env.push((crate::multiplayer::KEY_ENV.to_string(), ctx.config.multiplayer_key.clone()));
+        }
+        // Settings, "Multiplayer server": where every game's online play goes, the official
+        // server unless the player named another (multiplayer.rs).
+        if self.kind == Kind::Play {
+            env.push((crate::multiplayer::SERVER_ENV.to_string(), crate::multiplayer::server(ctx.config)));
         }
         // Settings, "Detailed game logs": the port's verbose log (port/common/log.h).
         if self.kind == Kind::Play && ctx.config.detailed_game_log {
@@ -921,6 +934,49 @@ mod tests {
         assert!(view.runnable && !view.developer && view.warning.is_none());
     }
 
+    /// Up Your Arsenal's actions (rac3/pal and rac3/ntsc) are blocked, with a note, until the
+    /// Developer switch is on; the other games are not asked.
+    #[test]
+    fn rac3_actions_wait_for_the_switch() {
+        let action: Action = serde_json::from_str(
+            r#"{"id": "p", "label": "Play", "kind": "play", "state": "unverified", "program": "make"}"#,
+        )
+        .unwrap();
+        let root = checkout();
+        let catalog = crate::catalog::load(&root).unwrap();
+        let base = catalog.version("rac1/pal").unwrap();
+        let status = crate::status::version_status(&root, base);
+        let off = Config::default();
+        let on = Config { rac3_dev: true, ..Config::default() };
+        for (key, game, blocked) in [
+            ("rac3/pal", "rac3", true),
+            ("rac3/ntsc", "rac3", true),
+            ("rac1/pal", "rac1", false),
+            ("rac2/pal", "rac2", false),
+            ("rac4/pal", "rac4", false),
+        ] {
+            let version = Version { key: key.into(), game: game.into(), ..base.clone() };
+            let ctx = |config| Context {
+                root: &root,
+                config,
+                version: Some(&version),
+                status: Some(&status),
+                toolchains: false,
+                platform: Platform::Linux,
+                level: None,
+                path: None,
+                option: None,
+            };
+            let view = action.view(&ctx(&off));
+            assert_eq!(!view.runnable, blocked, "{key}");
+            if blocked {
+                assert_eq!(view.blockers, [RAC3_GATE], "{key}");
+                assert!(action.plan(&ctx(&off)).is_err(), "{key}");
+            }
+            assert!(action.view(&ctx(&on)).runnable, "{key} with the switch on");
+        }
+    }
+
     /// A tool path with Windows' `\\?\` prefix (Tauri's resource folder adds it to the bundled
     /// Python) is filled in without it: Going Commando's build on Windows started hostgen through
     /// `cmd /C "\\?\D:\...\python.exe"`, which cmd cannot find.
@@ -1135,6 +1191,22 @@ mod tests {
         let keyed = Config { multiplayer_key: key.clone(), ..installed.clone() };
         assert!(play.plan(&ctx(&keyed)).unwrap().env.contains(&("OPENRAC_IDENTITY_KEY".to_string(), key)));
         assert!(!play.plan(&ctx(&installed)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_IDENTITY_KEY"));
+        // Settings, "Multiplayer server": the official one by default, the player's own when set.
+        let server =
+            |env: Vec<(String, String)>| env.into_iter().filter(|(k, _)| k == "OPENRAC_SERVER").collect::<Vec<_>>();
+        assert_eq!(
+            server(play.plan(&ctx(&installed)).unwrap().env),
+            [("OPENRAC_SERVER".to_string(), "game.openrac.dev:7770".to_string())]
+        );
+        let own_server = Config {
+            multiplayer_server_host: "mp.example.org".into(),
+            multiplayer_server_port: 7000,
+            ..installed.clone()
+        };
+        assert_eq!(
+            server(play.plan(&ctx(&own_server)).unwrap().env),
+            [("OPENRAC_SERVER".to_string(), "mp.example.org:7000".to_string())]
+        );
         // HDR is the game's own setting: the launcher never overrides it.
         assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_HDR"), "{:?}", plan.env);
         // Settings, "Renderer": Vulkan, the default, on the desktops; OpenGL sets nothing.

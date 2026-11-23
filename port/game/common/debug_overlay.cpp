@@ -42,6 +42,7 @@
 #include "renderer/ui/backdrop_blur.h"
 #include "renderer/ui/imgui_gl.h"
 #include "renderer/ui/logo.h"
+#include "renderer/ui/menu_icons.h"
 #include "scene/screenshot.h"
 #include "settings.h"
 
@@ -76,9 +77,17 @@ void configure() {
     s.configured = true;
     s.developer = env::flag(env::Var::Developer);
     // OPENRAC_MENU=TAB[@TICK]: the menu's tab when it opens, and the tick of the game it opens at
-    // (screenshots, checks of it); without a tick, its key opens it.
+    // (screenshots, checks of it); without a tick, its key opens it. A name none of the port's
+    // tabs has is a mod's tab's title (menu_window.cpp finds it when the menu opens).
     if (const std::optional<std::string_view> v = env::value(env::Var::Menu); v && !v->empty()) {
         const std::string_view tab = v->substr(0, v->find('@'));
+        s.menu_want_mod_tab = tab;
+        std::transform(
+            s.menu_want_mod_tab.begin(),
+            s.menu_want_mod_tab.end(),
+            s.menu_want_mod_tab.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); }
+        );
         for (int t = 0; t < static_cast<int>(menu::Tab::Program); ++t) {
             std::string name = menu::tab_name(static_cast<menu::Tab>(t));
             std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
@@ -86,6 +95,7 @@ void configure() {
             });
             if (name == tab) {
                 s.menu_tab = t;
+                s.menu_want_mod_tab.clear();
             }
         }
         if (const std::size_t at = v->find('@'); at != std::string_view::npos) {
@@ -1156,6 +1166,7 @@ void release() {
     release_object_viewer();
     renderer::ui::backdrop_blur::release();
     release_material_preview();
+    renderer::ui::menu_icons::release();
     if (s.initialised) {
         renderer::ui::imgui_gl::shutdown();
         ImGui_ImplSDL3_Shutdown();

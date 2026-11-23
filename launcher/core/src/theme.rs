@@ -7,6 +7,7 @@ const PALETTES: &str = include_str!("../../src/lib/palettes.json");
 
 /// The colours the game's menu (its drawer, its bar of tabs) draws with, by their app.css names.
 const DRAWER: &[&str] = &[
+    "--ink",
     "--ink-deep",
     "--panel",
     "--panel-hi",

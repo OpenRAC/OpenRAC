@@ -13,6 +13,7 @@
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "renderer/gl/shader_variants.h"
 
 namespace openrac::renderer::gl_stats {
 
@@ -676,6 +677,12 @@ const std::vector<std::string>& failures() {
 }
 
 bool reload(unsigned program, const std::string& root, std::string& message) {
+    // A single native relink would invalidate stable locations and bypass the feature constants.
+    if (shader_variants::owns(program)) {
+        message = "feature shaders require a rebuild; individual program hot reload is unavailable";
+        return false;
+    }
+
     State& s = state();
     auto found = s.programs.find(program);
     if (found == s.programs.end()) {

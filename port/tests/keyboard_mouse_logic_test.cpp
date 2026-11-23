@@ -19,6 +19,8 @@
 #include <vector>
 
 #include "game/common/keyboard_mouse/kbm.hpp"
+#include "game/rac1/keyboard_mouse/menus.hpp"
+#include "game/rac2/keyboard_mouse/menus.hpp"
 
 namespace {
 
@@ -989,9 +991,54 @@ void manifest(const char* path) {
             != std::string::npos
         );
     }
+
+    // Every setting core.hpp reads beside the binds is in the manifest (else it reads its default).
+    for (const char* key :
+         {"mouse_with_gamepad",
+          "prompt_device",
+          "gyro",
+          "gyro_sensitivity",
+          "gyro_sensitivity_y",
+          "gyro_space",
+          "gyro_invert_x",
+          "gyro_invert_y",
+          "gyro_button",
+          "gyro_button_action",
+          "gyro_dead_zone",
+          "gyro_smoothing",
+          "gyro_calibrate"}) {
+        CHECK(text.find(std::string("\"key\": \"") + key + "\"") != std::string::npos);
+    }
 }
 
 }  // namespace
+
+// The gyro as mouse motion (gyro_pixels): whatever the mouse's sensitivity and invert, the camera
+// turns by the gyro's own turn, the right way.
+void test_gyro_pixels() {
+    for (const float sens : {0.1f, 1.0f, 3.7f, 10.0f}) {
+        for (const bool invert : {false, true}) {
+            kbm::LookTuning t;
+            t.sensitivity = sens;
+            t.sensitivity_y = sens * 0.5f;
+            t.invert_y = invert;
+            float dx = 0.0f;
+            float dy = 0.0f;
+            kbm::gyro_pixels(0.05f, 0.02f, t, dx, dy);
+            // 0.05 rad left; 0.02 rad up, which is a pitch below zero (> 0 looks down).
+            CHECK(near(kbm::DirectLook::yaw(dx, dy, t), 0.05f, 1e-5f));
+            CHECK(near(kbm::DirectLook::pitch(dx, dy, t), -0.02f, 1e-5f));
+        }
+    }
+    // A sensitivity of 0 (a hand-edited file): no division by zero.
+    kbm::LookTuning zero;
+    zero.sensitivity = 0.0f;
+    zero.sensitivity_y = 0.0f;
+    float dx = 0.0f;
+    float dy = 0.0f;
+    kbm::gyro_pixels(0.05f, 0.02f, zero, dx, dy);
+    CHECK(std::isfinite(dx) && std::isfinite(dy));
+}
 
 // The edges of each piece: what an odd setting, an odd report or the end of a range does.
 void edges() {
@@ -1167,6 +1214,7 @@ int main(int argc, char** argv) {
     gc_vendor();
     prompts();
     edges();
+    test_gyro_pixels();
 
     manifest(argc > 1 ? argv[1] : KBM_MANIFEST);
 

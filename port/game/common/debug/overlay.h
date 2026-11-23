@@ -283,6 +283,7 @@ struct State {
     bool menu_focus_first = false;  // the next row drawn takes the focus (debug/menu_ui.cpp)
     MenuMotion menu_motion;         // the desktop's window's scroll and transitions
     int menu_want_tab = -1;         // a menu::Tab to open the window at (F13: Controls); -1 none
+    std::string menu_want_mod_tab;  // a mod's tab (OPENRAC_MENU), its title in lower case
     bool pad_locked = false;        // ImGui gets no gamepad: a binding's press until let go
     bool drew_last_frame = false;   // the overlay drew the frame before (ImGui's clock ran)
     Scroll menu_scroll;             // the finger's drag over the drawer's rows
@@ -293,6 +294,7 @@ struct State {
     bool quit_asked = false;          // Quit pressed in the drawer: its confirmation is shown
     bool quit_focus = false;          // the confirmation's first row takes the focus once
     int menu_tab = 0;                 // the desktop's open tab, by its place on the bar
+    int controls_sub_tab = -1;        // Controls: 0 Gamepad, 1 Keyboard and mouse, -1 unpicked
     long long menu_open_at = -1;      // OPENRAC_MENU: the tick to open the menu at; -1 none
     int menu_hover = -1;              // the entry under the pointer or the focus (menu::Id), or -1
     // A row of an entry's panel with help of its own (a mod setting): its heading, name and line,

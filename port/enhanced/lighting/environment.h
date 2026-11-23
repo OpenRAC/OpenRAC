@@ -5,6 +5,7 @@
 #pragma once
 #include <filesystem>
 #include <map>
+#include <optional>
 
 #include "enhanced/lighting/probes.h"
 
@@ -33,6 +34,7 @@ struct EnvironmentBakeSettings {
 struct EnvironmentProbe {
     Float3 position{};
     ProbeFrame frame;
+    // Legacy fallback influence only; explicit regions are stored on EnvironmentAsset.
     Float3 minimum{};
     Float3 maximum{};
     Float3 projection_minimum{}, projection_maximum{};
@@ -45,19 +47,41 @@ struct EnvironmentProbe {
           projection_maximum(hi) {}
 };
 
+struct EnvironmentProjection {
+    ProbeFrame frame;
+    Float3 minimum{}, maximum{};
+};
+
+// A cheap coverage patch referencing a photograph. Influence and parallax are
+// local to the patch; neither has to contain the photograph's camera.
+struct EnvironmentInfluence {
+    unsigned capture = 0;
+    ProbeFrame frame;
+    Float3 minimum{}, maximum{};
+    // Older assets and callers can inherit the capture's original proxy.
+    std::optional<EnvironmentProjection> projection = std::nullopt;
+};
+
+inline constexpr unsigned kEnvironmentMetadataStride = 6;
+
 // Optional bake diagnostics: accepted visible contributors at floor, body and head height.
 struct EnvironmentCoverageReceiver {
     Float3 position{};
     unsigned height = 0;
     std::vector<unsigned> probes;
+    bool water_surface = false;
 };
 
-// Five vec4s per capture; unused W components hold the orientation without growing GPU metadata.
-std::vector<std::array<float, 4>> environment_metadata(std::span<const EnvironmentProbe> probes);
+// Six vec4s per influence region: independent influence/projection frames and capture ID.
+std::vector<std::array<float, 4>> environment_metadata(
+    std::span<const EnvironmentProbe> probes, std::span<const EnvironmentInfluence> influences = {}
+);
 
 // Identifies capture ordering and both kinds of bounds without hashing the large radiance atlas.
 std::uint64_t environment_capture_hash(
-    std::span<const EnvironmentProbe> probes, std::uint64_t gi_hash = 0
+    std::span<const EnvironmentProbe> probes,
+    std::uint64_t gi_hash = 0,
+    std::span<const EnvironmentInfluence> influences = {}
 );
 
 // Each HDR face/level has a gutter and compression-block padding; the BRDF lookup stays separate.
@@ -67,6 +91,9 @@ struct EnvironmentAsset {
     unsigned level = 0;
     std::uint64_t scene_hash = 0, settings_hash = 0, gi_hash = 0;
     std::vector<EnvironmentProbe> probes;
+    // Empty only for legacy/in-memory callers: one implicit patch per capture.
+    // Atlas dimensions and filtering depend only on probes (photographs).
+    std::vector<EnvironmentInfluence> influences;
     std::vector<std::uint32_t> pixels;
     ProbeTextureFormat colour_format =
         ProbeTextureFormat::R11G11B10;    // Radiance encoding on disk/GPU.

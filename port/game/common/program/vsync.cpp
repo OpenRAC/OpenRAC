@@ -214,6 +214,11 @@ std::chrono::steady_clock::time_point g_tick_resumed{};
 // [debug tools] The game's tick length, stretched by the overlay's slow motion (debug_overlay.h).
 std::chrono::microseconds tick_period() {
     auto period = std::chrono::microseconds(1000000 / tick_rate());
+    if (openrac_game_tick_stretch > 1.0f) {
+        period = std::chrono::microseconds(
+            std::llround(static_cast<double>(period.count()) * openrac_game_tick_stretch)
+        );
+    }
 #ifdef OPENRAC_FRONTEND
     if (g_window) {
         period = std::chrono::microseconds(
@@ -276,6 +281,17 @@ int vsync() {
     // [debug tools] The game's own code stops here and goes on when this returns: its time is the
     // tick's (common/stats.h). The tick's frame of measurements begins.
     stats::game_yielded();
+    // A line walk that gathered past the scratchpad (guest.h, GUEST_SCRATCHPAD_GUARD): the console
+    // would have stopped there with a TLB miss; the port goes on and says so.
+    if (runtime::Memory::get().take_scratchpad_overrun()) {
+        static int overruns = 0;
+        if (overruns++ < 8) {
+            log::warn(
+                "frame {}: the game wrote past the scratchpad's 16 KB (a TLB miss on the console)",
+                g_frame
+            );
+        }
+    }
     // Render snapshots own their values, so next-tick writes precede the overlapping CPU capture.
     apply_writes();
 #ifdef OPENRAC_FRONTEND

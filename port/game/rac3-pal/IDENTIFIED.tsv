@@ -1,0 +1,497 @@
+# What bringing Up Your Arsenal (PAL, SCES_524.56) up to its main menu worked out: functions and
+# data of boot_elf (core.text 0x116F80-0x13D420, the front end's .text 0x381080-0x3F2778), with
+# PAL addresses. For the later backfill and naming (rac3-decomp's config/names.tsv). The library
+# entry points the port answers are in libraries.tsv, each with how it was identified; they are
+# not repeated here unless more is known.
+#
+# kind	symbol	address	name	what it does, and how it was seen
+code	func_0013ADA8	0x0013ADA8	crt0	payload entry (hand-written): clears core.bss, InitMainThread/SetupHeap syscalls ($gp 0x001DC8B0, stack 0x01FFC000, heap end 0x01FF8000), _InitSys, FlushCache(0), _init (0x0012A940), atexit(0x0012A948) through 0x00116FD0, main(argc, argv at 0x0015C040), then exit (0x00118670)
+code	func_0013B330	0x0013B330	main	parses argv (two option prefixes at 0x001D4D90 and 0x001D4D98, count in 0x001D551D), then forever: call the loaded program's entry (first 0x00381250), func_0013AFF8 for the next entry, FlushCache(0), FlushCache(2). The decompilation's draft calls the US entry 0x00381280
+code	func_0013AFF8	0x0013AFF8	load_next_program	reads the record list at *0x001D4B50 (address, size, type, entry: the level program format) and returns the entry of the program to run next
+code	func_00124B90	0x00124B90	_InitSys	libkernl start-up: 0x00124988, InitSystemCallTableAddress (0x00124A80), 0x00124FB8, 0x00125130(2), 0x00125290, 0x0011FAE8, 0x00124CB8, 0x00124488, then 0x00125F38
+code	func_00124A80	0x00124A80	InitSystemCallTableAddress	SetSyscall twice, then FindAddress scans of kernel memory (0x80000000-0x80080000) until two searches meet; never ends without a kernel (host stub)
+code	func_00116FD0	0x00116FD0	atexit	newlib atexit: appends to the function table at *0x0013D770 +0x148
+code	func_0012A940	0x0012A940	_init	empty (jr ra)
+code	func_00124ED8	0x00124ED8	LoadExecPS2_wrapper	(path, argc, argv): builds the argument block (0x00124DB8) and calls syscall 6, LoadExecPS2 (0x0011EA60)
+code	func_0011F720	0x0011F720	data_cache_range_op	hand-written: walks the data cache lines with cache 0x10/0x16 against a range (COP0 TagLo); nothing to do on the host
+code	func_0011F9A8	0x0011F9A8	EnableDmac_di	hand-written: DI, EnableDmac (0x0011EB80), EI if interrupts were on
+code	func_0011F940	0x0011F940	DisableDmac_di	hand-written: DI, DisableDmac (0x0011EB90), EI if interrupts were on
+code	func_0011F860	0x0011F860	interrupts_off	hand-written: !(COP0 Status & 1)
+code	func_00381250	0x00381250	frontend_main	the boot program's entry and loop (boot_elf's own .text, frontbin's twin): func_003983C8 (start-up), load (func_003826A8), widgets (func_003811E8), then per frame: VIF1 send (func_003A9588), pads (func_003A3F70), the mode switch on 0x001D5B94 (jtbl_0031BF80), sceGsSyncV
+code	func_003983C8	0x003983C8	frontend_startup	sceGsResetPath, sceDmaReset, CD init, sceSifRebootIop + sceSifSyncIop loop, RPC/heap/module loads, sound (func_003A44D0), pads (func_003A2FC0), the VU0 program chain 0x0010F1A0 (KickVif0Chain)
+code	func_003826A8	0x003826A8	frontend_load	streams the front end's data to 0x002D2100 through func_003A2AF0 (a CD read via snd_StreamSafeCdRead and its wait)
+code	func_00381C98	0x00381C98	boot_screens	switch on 0x001D5690 (jtbl_0031C000, 10 screens): memory card checks (0x00142430), messages 0x1FD9/0x1FDB/0x1B75, a 151-frame wait, then boot state 10; runs while 0x001D568C is set
+code	func_003824A8	0x003824A8	launch_sly2_demo	func_003980A0("cdrom0:\SLY2\SLY2.ELF;1" at 0x001D5790): the main menu's demo entry
+code	func_003980A0	0x003980A0	exit_to_elf	stops sound, streams and pads (scePadEnd) and calls LoadExecPS2 (0x00124ED8)
+code	func_003A3F70	0x003A3F70	pads_update	func_003A3B40 for each of the eight pad records at 0x001CD0C0
+code	func_003A3B40	0x003A3B40	pad_update_one	libpad state machine on pad +0x198 (jtbl_0031C500: 0 find id, 40-42 digital to analog, 70-78 actuators and pressure, 99 ready), then scePadRead into +0x574 and the reader func_003A31C8; held buttons at +0x1A0, new presses at +0x1A4
+code	func_003A2FC0	0x003A2FC0	pads_init	scePadInit, scePadPortOpen for ports 0-1, slots 0-3
+code	func_003A44D0	0x003A44D0	sound_init	snd_StartSoundSystem (0x0013B3F8) and the banks
+code	func_003A9348	0x003A9348	KickVif0Chain	VIF0 source chain (CHCR 0x145), polling CHCR before and after (host)
+code	func_003A9588	0x003A9588	send_frame	sets the frame's wait mask (0x001D8014 |= 0x1F), closes the list and sends it to VIF1 (sceDmaSend 0x0012D938)
+code	func_003A96A8	0x003A96A8	wait_frame_mask	spins while 0x001D8014 & mask
+code	func_003A9EF8	0x003A9EF8	vif1_handler	DMAC handler: an end tag in CHCR clears every stage of 0x001D8014, a stage tag one bit
+code	func_003AFC48	0x003AFC48	play_movie	(first sector, size, allocator, audio channel, flag): the movie player (host: the native player). Seen with sector 402944
+code	func_003AFE10	0x003AFE10	movie_loop	the playback loop: libmpeg decode (0x00139A70) through the IPU, pads, sound
+code	func_003B0188	0x003B0188	movie_start	starts the decoder for (sector, size, channel)
+code	func_003B0360	0x003B0360	movie_stop	stops it
+code	func_0013B3F8	0x0013B3F8	snd_StartSoundSystem	binds the 989snd servers 0x123456 and 0x123457 (clients 0x001D4900, 0x001D49C0)
+code	func_0013C348	0x0013C348	snd_SendCommandSync	(command, length, data): copies to 0x0015C1C0, waits for the last reply, sceSifCallRpc, waits for this reply (0x0013B818)
+code	func_0013B818	0x0013B818	snd_reply_done	1 when the server's reply named at 0x001D4DA0 is in (host: at once)
+code	func_0013B8B0	0x0013B8B0	snd_expect_reply	names the reply buffer (0x001D4DA0) and its length (0x001D4DA4)
+code	func_0013B620	0x0013B620	snd_Pump	called by every waiting loop of the loader and the sound code: the answers of the batch out (their callbacks), a bank load's callback, then the next batch (host: the shared ring, which also ends a stream read)
+code	func_0013D080	0x0013D080	snd_movie_command	sends command 59 with six words (the movie's sound)
+code	func_0013D3C0	0x0013D3C0	set_boot_state	0x001D5458 = a
+code	func_0013D3C8	0x0013D3C8	get_boot_state	returns 0x001D5458
+code	func_003A2998	0x003A2998	stream_read_start	starts a snd_StreamSafeCdRead of (sector, count, buffer) when the loader (0x001CCFD0) is idle
+code	func_003A2B50	0x003A2B50	stream_wait	runs the loader's state machine (func_003A2330) and the sound flush until 0x001CCFD4 is 0
+code	func_003A2330	0x003A2330	stream_update	the loader's and the music streams' state machine; completes a read when 0x001CCFD6 (set by the CD callback) is set
+code	func_003A2BF8	0x003A2BF8	stream_cd_callback	snd_StreamSafeCdCallback's callback (registered by func_003A1730)
+code	func_003A2958	0x003A2958	stream_read_done	snd_StreamSafeCdBreak, then 0x001CCFD6 = 1
+code	func_003AC270	0x003AC270	pool_alloc	fixed-size pool: the free list (+0x14) or the next element (+0xC used, +0x8 size, +0x4 capacity)
+code	func_003AB608	0x003AB608	gui_object_init	initialises a GUI object; forwards its callers' second and third arguments to func_003AB3F0 in their registers (the reason for hostgen's unpassed_registers)
+code	func_003AF470	0x003AF470	gui_build	builds the front end's widget tree (func_003AF1F0, func_003ADB90) after parsing the widget table ("PARSING WIDGET3D'S", 146 widgets)
+code	func_0038D478	0x0038D478	vu0_cos	cos through VU0 microprogram 0xDA0 (vf1.x)
+code	func_0038D490	0x0038D490	vu0_sin	sin through VU0 microprogram 0xDB0 (vf1.x)
+data	D_001D5B94	0x001D5B94	game_mode	the front end's mode: 0 menus, 1 movie; switch jtbl_0031BF80 in func_00381250
+data	D_001D5B90	0x001D5B90	next_game_mode	-2 none; the mode asked for, which game_mode_push writes (a level's is the word before its own mode word)
+data	D_001D5458	0x001D5458	boot_state	the front end's state in mode 0 (jtbl_0031BFD0, 11 states: 0 the main menu, 10 and 8 on the way to it)
+data	D_001D5688	0x001D5688	idle_frames	frames without input in the main menu; past 6000 the attract state; reset by a press
+data	D_001D568C	0x001D568C	in_boot_screens	1 while func_00381C98 runs the boot screens
+data	D_001D5690	0x001D5690	boot_screen	func_00381C98's screen (0 start, 1 card check, 4, 6 message, 8 done)
+data	D_001D5694	0x001D5694	boot_screen_timer	frames in the screen
+data	D_001D52FC	0x001D52FC	active_pad	the pad record the menus read (0x001CD0C0)
+data	D_001CD0C0	0x001CD0C0	pads	eight pad records (func_003A3F70)
+data	D_001D8014	0x001D8014	frame_wait_mask	VIF1 stages outstanding (func_003A9588, func_003A9EF8)
+data	D_00142430	0x00142430	memcard_status	the boot screens' card state (+0x15C, +0x164, +0x18)
+data	D_001D4DA0	0x001D4DA0	snd_reply_buffer	the 989snd reply awaited, 0 when none
+data	D_001CCFD0	0x001CCFD0	stream_loader	+0x4 busy, +0x6 read done, +0x8 count, +0x10 buffer, +0x14 sector, +0x18 callback, +0x1C its argument; +0x44 the music channel (handle, +0x48 track, +0x4A volume, +0x4C flags, +0x4E state), +0x6C, +0x94, +0xBC the other stream channels (0x28 bytes each)
+data	D_001D5790	0x001D5790	sly2_demo_path	"cdrom0:\SLY2\SLY2.ELF;1"
+data	D_0010F1A0	0x0010F1A0	vu0_program_chain	VIF0 chain loading VU0's microprograms (MPG at 0x0010F1AC: 96 pairs at 0xC80; entries 0xC80, 0xDA0 cos, 0xDB0 sin)
+data	D_0015C040	0x0015C040	main_args	argc, then argv for main
+data	D_1D4B50	0x001D4B50	program_buffer	where the next program is read to: a header word (the records' offset, 0x60 for frontbin), then its records; 0x0013AFF8 copies them over the boot program
+data	D_001D545C	0x001D545C	current_level	the level whose program is loaded or being loaded; -2 at the boot program's front end
+data	D_1D9D04	0x001D9D04	next_level	the level a menu asks for (1 for a new game); below zero, frontbin
+data	D_001D5B74	0x001D5B74	frontend_exit	set by a menu's choice (0x003B3A80, 0x003B6AA8): the front end's loop (0x00381250) ends and calls 0x003A7CB8
+code	func_003A7CB8	0x003A7CB8	frontend_leave	on the front end's way out: 0x003BD870 (frontbin when next_level < 0), else current_level = next_level and the level loader (0x0039A5C0) until it is read
+code	func_003BD870	0x003BD870	load_next_or_frontbin	next_level < 0: 0x003BD160 (frontbin) and returns 1; else 0x003BD3E8 and a loading-screen loop
+code	func_003BD160	0x003BD160	enter_frontbin	stops sound and streams, then 0x0039A530 and waits for the read
+code	func_0039A530	0x0039A530	read_frontbin	program_buffer = below 0x01FF7FF0 by frontbin's size; header 0x60; reads the MISC wad's frontend_code range (table of contents 0x00160C40 +0x648: sector +4, range +0x20) after it
+code	func_0039A5C0	0x0039A5C0	level_loader_step	the level loader's state machine (state 0x001D4B48, jtbl_0031C140), reading the level's program and data from the table of contents' level table (0x00160C40 +0x79A4...)
+code	func_00399230	0x00399230	parse_level_data	reads the level data WAD header at program_buffer (+0x18 core, +0x1C..+0x24 ranges)
+code	func_003B3A80	0x003B3A80	menu_start_game	a menu's confirm callback (registered by 0x003B3BA0 through 0x0039C1A0): frontend_exit = 1, next_level = current_level
+code	func_003B3CC8	0x003B3CC8	frontend_dialogs	the front end's dialog state machine (0x001D8888, jtbl_0031C660)
+code	func_0039C1A0	0x0039C1A0	gui_open_dialog	(draw callback, 0, confirm callback)
+code	func_003AF890__frontbin	0x003AF890	play_movie (frontbin)	frontbin's copy of 0x003AFC48 (the same instructions): the menus' background loop starts there
+code	func_003AB250__frontbin	0x003AB250	widget_init (frontbin)	takes (object, a1, a2) and forwards a1, a2 to 0x003AB038 unnamed (its C declares only the object): translated from its instructions (from_assembly)
+code	func_0038CB78	0x0038CB78	fill (hand-written)	ASM_FUNC, called as (buffer, 0, size) by both front ends: a fill; boot_elf and frontbin each have one, now translated from their own instructions
+data	D_00EA5000	0x00EA5000	menu_background	the main menu background picture: a 16-byte header (width 0x200, height 0x1A0), then 512x448 PSMCT32 pixels at 0x00EA5010 (416 rows of picture, alpha 0x7F), unpacked once at boot from the front end data; uploaded each frame into the draw buffer (block 0x1E00) by func_003A9BE8 (14 REF tags of 4096 qw in the list)
+data	D_00C73000	0x00C73000	frontend_assets	786 sectors from sector 673402: a header size (0x80), then (offset, size) pairs of WAD-compressed entries (the menu pictures among them)
+data	D_00142120	0x00142120	menu_frame_regs	GIF A+D packet: FRAME_1/FRAME_2 = FBP 0xF0 (block 0x1E00), FBW 8: the draw buffer the main menu is drawn in
+code	func_003A9BE8	0x003A9BE8	load_screen_picture	(pixels, frame address in bytes, width, height): puts a picture from EE memory into the frame as 512x32 image transfers at the list cursor 0x001DA050 and returns its TEX0; the main menu calls it each frame with its background (host: picture.c, a texture and a 2D record)
+code	func_003A9508	0x003A9508	swap_frame_lists	flips 0x001DA05C between the two list buffers (0x001DA048[2]) and puts the list cursor 0x001DA050 at the new one's start: the list func_003A9588 sends at the top of a pass is the one the last pass built
+code	func_00391708	0x00391708	reset_video_mode	sceGsResetGraph by the settings: word 0x00143950 nonzero gives mode 3 (PAL, 50 Hz), zero mode 2 (60 Hz); 0x001D5520 nonzero gives mode 0x50 instead
+code	func_0013D208	0x0013D208	vsync_callback	what func_003983C8 installs with sceGsSyncVCallback (0x0012D4D8)
+data	D_00143950	0x00143950	options_50hz	(the options block, 0xBC bytes, kept in the save: the table at 0x003324C8) word +0 is the 50 Hz flag (1 PAL 50 Hz, 0 the US code's 60 Hz), which func_003983C8 sets to 1 at boot and the PAL game never clears; func_00391708 and the pass timing in func_00381250 read it
+data	D_001D4AC0	0x001D4AC0	frame_timer_total	64-bit sum of T0_COUNT (0x10000800), which func_00381250 reads and clears once a pass
+data	D_001D9D0C	0x001D9D0C	frame_time	gp-0x2BA4: the pass's T0 count over one field's (9600 at 60 Hz, 11520 at 50 Hz, by 0x00143950), 1.0 at full speed; func_003E3E68 (called by func_003E2610) takes a step of 2 instead of 1 while it or 0x001D9D10 is over 1.0 (a pass that ran late). The port runs no EE timers, so it reads 0: every pass on time, as the port's pacing keeps it
+data	SCES_524.56+0x7080	0x00806080	loader_payload	the game the disc's loader carries, WAD-compressed: 18 records (address, size, type, entry 0x0013ADA8): type 1 code/data (0x00100080 the VU microcode, 0x00116F80 core.text, 0x00381080 .text, the rest data as boot_elf.elf's sections), type 8 zeros (bss 0x00152400, 0x001D9880), 0x70000006 register-use (0x00100000, 0x003F2780); hostgen reads it from the disc (hostgen.json asm loader, retail.py loader_parts)
+code	func_0039C7F0	0x0039C7F0	memcard_update	the memory card's state machine, once a frame from the front end: its block at 0x00142430 (two cards of 0xA0: +0x08 type, +0x0C free clusters, +0x14 formatted, +0x18 s16 the card's save state, +0x30 four slot entries of 0x1C; then +0x144 the last libmc result, +0x14C the card worked on, +0x154 busy, +0x15C step, +0x160 sub-state, +0x164 request (7 check, 0xF save, 0xD...), +0x16C the dialog's reason); needs 600 KB free (free + reserved under 0x258)
+code	func_0039E9C0	0x0039E9C0	save_pack	writes a save: the two section sizes, the global section (table 0x00332388) and 37 level sections (table 0x00332618)
+code	func_0039EA88	0x0039EA88	save_section_size	a table's section size: 8 + each chunk's 8 + size rounded to 4, + 8
+code	func_0039EAC0	0x0039EAC0	save_checksum	rac1's CRC-16 (seed 0xEDB88320, polynomial 0x1F45); 0 for data longer than the global section (14216)
+code	func_0039EB68	0x0039EB68	save_section_check	a section's stored checksum non-zero and equal
+code	func_0039EBA8	0x0039EBA8	save_write_section	one section from a table (entries {address, size, id, status}; id 0x1770 written as zeros): size, checksum, chunks, {-1, 0}
+code	func_0039ECC0	0x0039ECC0	save_slot_info	a slot entry of the card block from a save's global section: level, bolts (progress +0), progress byte +0x32, play time, clock
+code	func_0039ED78	0x0039ED78	save_read_section	copies a section's chunks back into memory by their table; counts unknown ids and other sizes as errors
+code	func_0039F008	0x0039F008	save_request	packs the game into the save buffers 0x001C5BD0 (global) and 0x001CBBD0 (level) and asks the card machine to write (+0x164 = 0xF)
+code	func_003932E8	0x003932E8	scratch_buffer	(size, out): a buffer below the top at 0x0022758C + 0x001DA058 (or the one at 0x001D5C90), -1 for more than 0x40000; the NTSC-U draft reads 0x0022760C
+code	func_003B7748	0x003B7748	save_slot_list_draw	the Load and Save pages' four slots: planet, date, play time (ticks / 216000 hours, 60 ticks a second), bolts
+code	func_0039B1C0	0x0039B1C0	memcard_dialog_update	runs the card dialog's handler from the table 0x003322F8 by its number (0x001D4CE8); flags 0x001D4CEC (0x20 No, 0x2000 Yes, 0x40 ...)
+code	func_003E7420	0x003E7420	page_update_call	calls a menu page's update callback (+0x0C) with the page still in a0 (as func_003E73D0, 73F8, 7448, 7470 for +0x04, +0x08, +0x10, +0x14)
+data	D_00142430	0x00142430	memcard_block	the card machine's block (func_0039C7F0)
+data	D_00332388	0x00332388	save_table_global	the global save table: 40 entries {address, size, id, status}
+data	D_00332618	0x00332618	save_table_level	the per-level save table: 9 entries
+data	D_001D4CE8	0x001D4CE8	memcard_dialog	the card dialog's number (handlers at 0x003322F8; 15 the create-save prompt, Yes on Circle)
+code	func_0013C578	0x0013C578	snd_QueueCommandToRing	(command, size, data, callback, argument): appends to the batch at D_001D4DC0[D_001D4DE0] (u16 command, u16 size, data), the callback and argument to D_001D4DD0, then commits (func_0013C8D0); command 0x68 carries a pointer and length to copy (host: the shared ring, lib/snd_ring.c)
+code	func_0013C8D0	0x0013C8D0	snd_CommitRingEntry	counts the entry in the batch, then snd_Pump
+code	func_0013C908	0x0013C908	snd_FlushCommandRing	sends the current batch with RPC 0x4D and switches to the other batch (0xFFC bytes free)
+code	func_0013BAB8	0x0013BAB8	snd_BankLoadAsync	(sector, offset, callback, argument): RPC 3 on the loader client 0x001D49C0; snd_Pump calls the callback with the handle (host: loaded at once from the disc)
+code	func_0013BC30	0x0013BC30	snd_BankLoadFromEE_CB	(bank in EE memory, callback, argument): RPC 0x57
+code	func_0013BD58	0x0013BD58	snd_BankLoadFromIOP	RPC 0x59: a bank in the IOP's memory, its handle
+code	func_0013CA30	0x0013CA30	snd_InitVAGStreamingEx	synchronous command 0x2A (streams, buffer size, ...), its answer kept at D_001D4DAC: nonzero sends snd_StreamSafeCd* through the sound server
+code	func_0013CB20	0x0013CB20	snd_PlayVAGStreamTwoParts_CB	command 0x2C: (right, left, 0, 0, volume, pan, group, queue on, 0, flags, callback, argument); words right, left, volume << 16, pan << 16, group, queue on, 0, flags
+code	func_0013C0B8	0x0013C0B8	snd_PlaySoundVolPanPMPB_CB	command 0x11: bank, sound, volume, pan, pitch mod, pitch bend; the callback gets the handle
+code	func_0013C2C0	0x0013C2C0	snd_SetSoundParams_CB	command 0x21: handle, mask, volume, pan, pitch mod, pitch bend; func_0013C2A0 without a callback
+code	func_003A1558	0x003A1558	sound_streams_init	snd_InitVAGStreamingEx(7, 0xA000, 0, 1)
+code	func_003A1580	0x003A1580	sound_bank_loaded	a bank load's callback: stores the handle at its argument
+code	func_003A1598	0x003A1598	sound_load_common_bank	snd_BankLoadAsync of the disc table's bank (D_00160C40 +0x79A4 base, +0x79B8), its handle at 0x001A30B0+0x90
+code	func_003A1638	0x003A1638	sound_load_bank	snd_BankLoadAsync of bank idx of the disc table (+0x79E8), its handle at 0x001A30B0+0x98+4*idx
+code	func_003A1C38	0x003A1C38	music_play	plays music track a0 (two mono files, the disc table +0x7A04 base) paused (flags 1) as stream channel 0 of 0x001CCFD0
+code	func_003A1F40	0x003A1F40	stream_play_mono	plays one mono file of the disc table as stream channel 2 (flags 0x20)
+code	func_003A53F8	0x003A53F8	sound_slot_start	takes one of the 52 sound slots (0x80 bytes each from 0x001A30C0) for a sound definition; the sound tick (func_003A4688) sends the play
+code	func_003A5748	0x003A5748	sound_play_global	plays sound a of the global sound table (D_001D9D2C, count D_001D5B9C) through func_003A53F8 (a sound slot the sound tick func_003A4688 plays)
+data	D_00160C40	0x00160C40	disc_table	the disc's table of contents read at boot: +0x79A4 the sound banks' base sector, +0x7A04 the streams' base sector, sector tables after them
+code	func_003A1D30	0x003A1D30	music_play_track	(track, flags, volume): music channel 0 of 0x001CCFD0 plays the track's two files (the level table at D_00160C40+0x7A04, which LoadLevelToc func_0013D310 fills; empty in the boot front end, so the boot menu has no music to play)
+code	func_003A8D38	0x003A8D38	movie_prepare	before a movie: stops the sounds and streams (func_003A2028), keeps the music track playing (0x001CD018) at D_001DA044 and the movie's arguments at D_001DA030
+code	func_003A8E10	0x003A8E10	movie_resume	after a movie: plays the kept music track again (func_003A1D30(D_001DA044, 1, 0x400)); -1 after the intro, which follows no music
+code	func_003A2028	0x003A2028	sound_streams_stop	stops every stream (snd_StopAllStreams, command 0x34) and the stream channels
+code	func_003A2120	0x003A2120	stream_channel_update	one of the four stream channels of 0x001CCFD0 (+0x44, +0x6C, +0x94, +0xBC): pause, continue, stop and the buffered question
+code	func_0038B310	0x0038B310	DrawFlatBox	(top, bottom, left, right, colour): a box of flat colour at the far depth; rac2-ntsc func_0027DE50 by opcode sequence (0.77)
+code	func_0038B8B0	0x0038B8B0	DrawGlyphQuad	(x, y, w, h, u, v, uw, vh, colour, TEX0): the 2D layer's textured quad, its own DMA tag; rac2-ntsc func_0027E018
+code	func_0038B500	0x0038B500	DrawTurnedGlyphQuad	func_0038B8B0 turned by an angle about its centre (VU0 adds of the half edges)
+code	func_0038BA50	0x0038BA50	DrawGlyph	(u, v, w, h, colour, TEX0, snap, x, y, w, h): one glyph loop (six quadwords: TEX0, PRIM, CLAMP region, RGBAQ, four UV/XYZ2) of a print's GIF packet, no tag of its own; 0 when off the 4096 window
+code	func_0038BC30	0x0038BC30	DrawGlyphShaded	func_0038BA50 with a colour a corner (four RGBAQ doublewords)
+code	func_0038BE10	0x0038BE10	DrawGlyphShadowed	a glyph and its drop shadow (two loops: the shadow's colour moved by dx, dy first)
+code	func_0038C0B8	0x0038C0B8	DrawRotatedSprite	a turned textured quad about a pivot, mirrored by two flags; rac2-ntsc func_0027E4A8 (0.67)
+code	func_0038C518	0x0038C518	DrawRingSegment	(XYZ2s, UVs, colours, TEX0, clamped); rac2-ntsc func_0027E920 (0.96)
+code	func_0038C628	0x0038C628	DrawShadedBox	(XYZ2s, two colours), strip order 0, 2, 1, 3; rac2-ntsc func_0027EA28 (0.94)
+code	func_0038C6F0	0x0038C6F0	DrawShadedRect	(x0, y0, x1, y1, z, colours) to func_0038C628; rac2-ntsc func_0027EAE8 (0.99): the menus' separators and highlighted row
+code	func_0038C790	0x0038C790	DrawBevelBox	seven func_0038B310 boxes; rac2-ntsc func_0027EB88 (0.99)
+code	func_0038EBC8	0x0038EBC8	FontPrint	(x, y, scale x, scale y, text, length, ...TEX0 colours): frontbin's func_0038E7E8; reserves 0x20 bytes, sends every glyph as one loop of one GIF packet (func_0038BA50, func_0038BE10) and writes the header (cnt and DIRECT of 6n + 1, the tag of D_001D77D0) last
+code	func_0038FDF8	0x0038FDF8	FontPrintWrapped	frontbin's func_0038FA18: lines of func_0038EBC8 within a window (the boot screens' notices)
+code	func_0038E928	0x0038E928	FontTextWidth	(text, length, scale): the width of a string in the font of func_0038E530
+code	func_0038E530	0x0038E530	FontSelect	(font): D_001D55C0/C4/C8 its metrics and glyph tables, D_001D5B38 its pages' TEX0 table (0x0031CF50 + 64 n), D_001D5B3C its palettes' (0x0031CFD0 + 64 n)
+code	func_0038E2B0	0x0038E2B0	FontUpload	uploads both fonts' palettes (func_0038A028) and pages (func_00389EF0) once a frame into the 2D layer's GS area (allocator D_001D4BB0)
+code	func_0038A0E0	0x0038A0E0	MakeTex0	(TBP, CBP, log2 width, log2 height, PSM): a whole TEX0, CLD 4, TCC 1
+code	func_003823D0	0x003823D0	TextGet	(text id): the string of the front end's text table (D_001D99A0, 16-byte entries, key at +4), else an empty string at D_001D5788
+code	func_003AA780	0x003AA780	DrawWidgetSprite	a Widget3D sprite (the menus' frames and art): poses its mesh (func_003AA168 bones, func_003A08E8/func_003A0A28 vertices to the scratchpad) and sends each quad as cnt + DIRECT 8 (GIF tag D_001D8020: TEX0, PRIM, four RGBAQ, ST, XYZ2; with PRIM's FST the REGLIST form RGBAQ, UV, XYZ2)
+code	func_003AA168	0x003AA168	WidgetSpritePose	the sprite's bone matrices at a frame, blended to the next: (widget, out 64-byte matrices, time in $f12), hostgen.json asm.signatures (its INCLUDE_ASM gave the translation no arguments, every bone zero, the menus' panels collapsed to their centres); frontbin 0x003A9DB0, Veldin 0x004CB648
+code	func_003EE038	0x003EE038	WidgetDraw	a Widget3D's draw through its vtable (+8, slot +0x1C) when its flag 1 is set
+code	func_003EE7E8	0x003EE7E8	WidgetContainerDraw	draws a container's children (+0x2C, count at +0x48 of it)
+code	func_003EFBB0	0x003EFBB0	WidgetBoxDraw	the box widget (vtable 0x001D9768): its separators and highlight through func_0038C6F0
+code	func_003F03F0	0x003F03F0	WidgetTextDraw	the text widget (vtable 0x001D9798, text at +0x3C): (widget, parent rectangle), its bounds through func_003F05C8, then func_0038EBC8
+code	func_003F2158	0x003F2158	WidgetSpriteDraw	the sprite widget (vtable 0x001D97F8): func_003AA6D8 to func_003AA780
+code	func_003EAF08	0x003EAF08	WidgetSetText	the text widget's handler of the set-text message (table 0x0031B8A0): +0x3C = the string
+code	func_003E8048	0x003E8048	WidgetSetTextById	(widget id, string): the set-text message to a widget found by its id
+code	func_003E9828	0x003E9828	WidgetMessagesInit	fills the message tables (0x0031B7C8 position, 0x0031B8A0 text, ...) for each widget class
+code	func_003B4C30	0x003B4C30	MainMenuBuild	the main menu's widgets: frames 0xD0000-0xD0003, the five items 0xD000C-0xD0010 (texts at 0x00337640: 0x14C, 0x14E, 0x11E6, 0x169C, 0x107), their container 0xD0025
+code	func_003F2740	0x003F2740	PlacementNew	returns its second argument (operator new in place)
+code	func_003B5580	0x003B5580	OptionsScreen	the title's Options screen object (D_001DA168): build func_003B55D8, update func_003B5890, leave func_003B5B80; func_003B4BC0 (the main menu's Options item) opens it
+code	func_003B55D8	0x003B55D8	OptionsBuild	builds the Options page: its frame and title (0x107), the list (func_003B6128), the preview widget 0x1C0003 and the footer 0x1C0004 (text 0x1EBD)
+code	func_003B5890	0x003B5890	OptionsUpdate	the Options page's states (gp - 0x3ECC): 0 the list (func_003BA8B0, func_003B6090, func_003B5F78, func_003B63D0), the others the screen adjustment's dialog
+code	func_003B6128	0x003B6128	OptionsListInit	sets up list 0 (func_003B9F88(0), func_003BA020): the items at D_0037F830 counted, up to 6 shown, 2 columns, 0x9000 bytes of cells
+code	func_003B63D0	0x003B63D0	OptionsRowsText	each frame: every row's name ("%s:") and value into the list's cells (values at D_0037F790, 0x20 bytes each), the footer's text
+code	func_003B6090	0x003B6090	OptionsPreview	the row under the cursor into D_001D89B8; 30 frames after it moved, the preview widget 0x1C0003 plays the row's animation (the item's fourth word)
+code	func_003B5F78	0x003B5F78	OptionsButtons	(screen, menu buttons): Cross the row's action, R1 the screen adjustment (text 0xB3B), Triangle back to the main menu
+code	func_003B6588	0x003B6588	OptionToggleWidescreen	flips the 16:9 byte (D_00143950 + 0xAD) and updates the view (func_003877A0)
+code	func_003B6608	0x003B6608	OptionToggleSubtitles	flips D_00143950 + 6
+code	func_003B6620	0x003B6620	OptionToggleSound	flips the word D_00143950 + 8 (0 mono, else stereo)
+code	func_003B65B8	0x003B65B8	OptionNextLanguage	D_00143950 + 0xB7 to the next of 1 to 5, then func_003B6638 (the texts in that language)
+code	func_003B5088	0x003B5088	MainMenuUpdate	the main menu's update: Up and Down over the enabled items of D_00337640 ({widget, text, enabled, action}), Cross the item's action
+code	func_003B9F88	0x003B9F88	ListGet	(n): list widget n of four at D_00280CF0 (0xB4 bytes each: +4 first row shown, +8 cursor among them, +0xC rows, +0x10 shown, +0x14 columns, +0xB0 cells of 0x44 bytes, +0x40 a cell's state, 4 skipped)
+code	func_003BA1E8	0x003BA1E8	ListCell	(list, column, row): the cell's address
+code	func_003BACD8	0x003BACD8	ListMoveCursor	Up and Down, skipping cells of state 4, scrolling the shown rows
+code	func_003983C8	0x003983C8	FrontEndStartup	(more) sets D_00143950 + 0xB7 from sceScfGetLanguage unless an argument says otherwise (D_001D551D): the console's 1 English, 2 French, 3 Spanish, 4 German, 5 Italian to the game's 1, 2, 4, 3, 5 (jtbl_0031C120)
+data	D_00143950	0x00143950	options	the game's options: +6 subtitles, +8 sound (0 mono), +0xAD 16:9, +0xB7 language (1 English, 2 French, 3 German, 4 Spanish, 5 Italian)
+data	D_0037F830	0x0037F830	options_items	the Options rows, 16 bytes each {text id, enabled, action, preview animation}: 16:9 0x508, Subtitles 0x148, Sound 0x146, Language 0x14F; ended by a zero text
+data	D_00337640	0x00337640	main_menu_items	the main menu's five items, 16 bytes each {widget id, text id, enabled, action}: Load Game, New Game, Multiplayer, Multiplayer Tutorial, Options
+code	func_003877A0	0x003877A0	UpdateViewContext	the view projection set-up (frontbin func_003873C0; rac2 UpdateViewContext func_0027AB40, 0.79 by opcode sequence): the view block's half-angle tangents, the vertical one divided by 4/3 with the 16:9 byte or in split screen (host/view.c)
+data	D_00225900	0x00225900	view_context	the view block UpdateViewContext fills: +0xB0 the horizontal half-angle tangent, +0xB4 the vertical one, +0xA8/+0xAC the screen's scales from +0x210-+0x21C
+data	D_001439FD	0x001439FD	option_widescreen	the Options page's 16:9 byte (+0xAD of the options at 0x00143950); kept 0 by the port (host/view.c)
+data	D_001D5B98	0x001D5B98	split_screen	1 in split screen (with view_context +0x268 set, UpdateViewContext narrows the vertical view as for 16:9)
+code	func_003AF7C0	0x003AF7C0	MessageBoxDraw	(x, y, w, h, message, button texts ..., flag byte at 88(sp)): forwards all twelve arguments, four of them on the stack, to func_003AC590 with the GUI memory base (*0x001D5C78 + 0x1FCA8); the memory card dialogs' box. The NTSC-U draft forwarded only seven, so the dialogs lost their Yes button and their wrap width (translated from assembly)
+code	func_003AC590	0x003AC590	MessageBoxDrawImpl	a message box: sprintf's its buttons into one line (\x11 Yes, spaces, \x12 No), then the message through FontPrintWrapped (func_0038FDF8) and the buttons line
+code	func_003E73D0	0x003E73D0	PageCallEnter	calls a menu page's callback at +4 with the page still in a0 (and +8 func_003E73F8, +12 func_003E7420 update, +16 func_003E7448, +20 func_003E7470 draw); the callbacks take the page as their argument
+code	func_003E62E0	0x003E62E0	PageStackUpdate	the front end's sixteen page slots (current, pending): switches pages and runs each page's update (func_003E7420)
+code	func_003B8040	0x003B8040	LoadGamePageUpdate	the memory card pages' update: a switch on D_001D8A40 (0 check, 1, 2-3 func_003B87E8, 6 the dialog's answer), then back to the main menu page (func_00381BD0)
+code	func_003B9AB8	0x003B9AB8	DialogOpen	(kind, yes text, no text, message, flag): a yes/no dialog's state at 0x001D8BB8-0x001D8BD0 when none is open (0x001D8BBC == 1); func_003B9B68 reads its answer from the pad (+0x1C4) against the masks at 0x001D8BD4/0x001D8BD8 (func_003B9A90: 64 Cross, 16 Triangle by default)
+data	D_001D99A0	0x001D99A0	text_table	the front end's text: a pointer (0x00873000 at the menu) to 16-byte entries (string, id, -1, 0xFFFF); 0x8DF "\x12 No", 0x8E2 "\x10 Yes", 0x8E3 "\x11 Yes", 0x8DD/0x8DE Continue
+data	D_001CD0C0	0x001CD0C0	pads	the button bits the menus read at a pad record's +0x1A0 (held) and +0x1A4 (pressed): 0x1 L2, 0x2 R2, 0x4 L1, 0x8 R1, 0x10 Triangle, 0x20 Circle, 0x40 Cross, 0x80 Square (seen with OPENRAC_RAC3_MENU_LOG)
+code	func_00381250	0x00381250	frontend_main	the Sly 2 demo: L1, L2, R1 and R2 held on the main menu (0x003816B0) set boot screen 9, which prints "Congratulations! You have accessed the Sly 2 demo." (text 0x1700) for 151 frames, then calls launch_sly2_demo (func_003824A8)
+code	func_0013C578	0x0013C578	snd_QueueCommandToRing	(command, size, data, callback, argument): appends to the batch at D_001D4DC0[D_001D4DE0] (u16 command, u16 size, data), the callback and argument to D_001D4DD0, then commits (func_0013C8D0); command 0x68 carries a pointer and length to copy (host: the shared ring, lib/snd_ring.c)
+code	func_0013C8D0	0x0013C8D0	snd_CommitRingEntry	counts the entry in the batch, then snd_Pump
+code	func_0013C908	0x0013C908	snd_FlushCommandRing	sends the current batch with RPC 0x4D and switches to the other batch (0xFFC bytes free)
+code	func_0013BAB8	0x0013BAB8	snd_BankLoadAsync	(sector, offset, callback, argument): RPC 3 on the loader client 0x001D49C0; snd_Pump calls the callback with the handle (host: loaded at once from the disc)
+code	func_0013BC30	0x0013BC30	snd_BankLoadFromEE_CB	(bank in EE memory, callback, argument): RPC 0x57
+code	func_0013BD58	0x0013BD58	snd_BankLoadFromIOP	RPC 0x59: a bank in the IOP's memory, its handle
+code	func_0013CA30	0x0013CA30	snd_InitVAGStreamingEx	synchronous command 0x2A (streams, buffer size, ...), its answer kept at D_001D4DAC: nonzero sends snd_StreamSafeCd* through the sound server
+code	func_0013CB20	0x0013CB20	snd_PlayVAGStreamTwoParts_CB	command 0x2C: (right, left, 0, 0, volume, pan, group, queue on, 0, flags, callback, argument); words right, left, volume << 16, pan << 16, group, queue on, 0, flags
+code	func_0013C0B8	0x0013C0B8	snd_PlaySoundVolPanPMPB_CB	command 0x11: bank, sound, volume, pan, pitch mod, pitch bend; the callback gets the handle
+code	func_0013C2C0	0x0013C2C0	snd_SetSoundParams_CB	command 0x21: handle, mask, volume, pan, pitch mod, pitch bend; func_0013C2A0 without a callback
+code	func_003A1558	0x003A1558	sound_streams_init	snd_InitVAGStreamingEx(7, 0xA000, 0, 1)
+code	func_003A1580	0x003A1580	sound_bank_loaded	a bank load's callback: stores the handle at its argument
+code	func_003A1598	0x003A1598	sound_load_common_bank	snd_BankLoadAsync of the disc table's bank (D_00160C40 +0x79A4 base, +0x79B8), its handle at 0x001A30B0+0x90
+code	func_003A1638	0x003A1638	sound_load_bank	snd_BankLoadAsync of bank idx of the disc table (+0x79E8), its handle at 0x001A30B0+0x98+4*idx
+code	func_003A1C38	0x003A1C38	music_play	plays music track a0 (two mono files, the disc table +0x7A04 base) paused (flags 1) as stream channel 0 of 0x001CCFD0
+code	func_003A1F40	0x003A1F40	stream_play_mono	plays one mono file of the disc table as stream channel 2 (flags 0x20)
+code	func_003A53F8	0x003A53F8	sound_slot_start	takes one of the 52 sound slots (0x80 bytes each from 0x001A30C0) for a sound definition; the sound tick (func_003A4688) sends the play
+code	func_003A5748	0x003A5748	sound_play_global	plays sound a of the global sound table (D_001D9D2C, count D_001D5B9C) through func_003A53F8 (a sound slot the sound tick func_003A4688 plays)
+data	D_00160C40	0x00160C40	disc_table	the disc's table of contents read at boot: +0x79A4 the sound banks' base sector, +0x7A04 the streams' base sector, sector tables after them
+code	func_003A1D30	0x003A1D30	music_play_track	(track, flags, volume): music channel 0 of 0x001CCFD0 plays the track's two files (the level table at D_00160C40+0x7A04, which LoadLevelToc func_0013D310 fills; empty in the boot front end, so the boot menu has no music to play)
+code	func_003A8D38	0x003A8D38	movie_prepare	before a movie: stops the sounds and streams (func_003A2028), keeps the music track playing (0x001CD018) at D_001DA044 and the movie's arguments at D_001DA030
+code	func_003A8E10	0x003A8E10	movie_resume	after a movie: plays the kept music track again (func_003A1D30(D_001DA044, 1, 0x400)); -1 after the intro, which follows no music
+code	func_003A2028	0x003A2028	sound_streams_stop	stops every stream (snd_StopAllStreams, command 0x34) and the stream channels
+code	func_003A2120	0x003A2120	stream_channel_update	one of the four stream channels of 0x001CCFD0 (+0x44, +0x6C, +0x94, +0xBC): pause, continue, stop and the buffered question
+code	func_0038B200	0x0038B200	DarkenPicture	(r, g, b, a): ZBUF_1 with ZMSK, RGBAQ the colour, then the fixed packet D_00141850 by a ref tag (TEST_1, PRIM 0x146 an untextured blended sprite, sixteen 32-pixel sprites over the picture), ZBUF_1 put back; the main menu's (0, 0, 0, 0x60) after its background picture (func_00381250)
+data	D_00141850	0x00141850	darken_packet	func_0038B200's GIF packet (0x14 quadwords): A+D TEST_1 0x30000 and PRIM 0x146, then a REGLIST tag of 16 loops of two XYZ2, the corners rewritten at start-up for the display mode
+code	func_0038F458	0x0038F458	FontPrintShaded	func_0038EBC8 with a colour a corner: (x, y, scale x, scale y, colours, text, length, ...) where colours are four RGBAQ doublewords (it reads their low words at +0, +8, +0x10, +0x18) and its glyphs go through func_0038BC30; no caller in the boot program or in frontbin (its twin func_0038F078 has none either)
+code	func_00397680	0x00397680	DrawHudSpriteShaded	(texture, colours, x, y, half width, half height, angle): a HUD texture (entry at D_001D9EA8 + 4 n, its image's log2 sizes at D_001D9EAC + 8 entry[+2] + 6, + 7) turned about (x, y), a colour a corner (four words), its whole texture in UV; one quad of cnt and DIRECT 8 with the REGLIST tag D_001D76F0 (TEX0 from func_00396E18, PRIM 0x15C, RGBAQ/UV/XYZ2 x4 at z 0xFFFFF0); the menus' four corner ornaments
+data	D_001D76F0	0x001D76F0	hud_quad_giftag	REGLIST GIF tag of 14 registers (TEX0, PRIM, then RGBAQ, UV, XYZ2 four times): func_00397680's quads, the same form as func_003AA780's UV quads
+code	func_003865D0	0x003865D0	BuildViewMatrices	rac2 func_00279D18 instruction for instruction (frontbin 0x003861F0): $s2 the camera's rows (forward, left, up) at 0x00222420, the view block 0x160 before them (view matrix +0x00..+0x30, eye +0x140 = rows - 0x20; rac2 0x370 and 0x230), the eye scaled by 1024 into the view context +0x280; the profile's camera_rows (profile.cpp, every program's from its own copy)
+code	func_003868A0	0x003868A0	UpdateFog	rac2 func_00279FF0 instruction for instruction (frontbin 0x003864C0): writes the fog into the view context 0x00225900, near +0x228, far +0x22C, F at them +0x238/+0x23C (rac2 +0x218..+0x22C), FOGCOL bytes as words +0x250..+0x258 (rac2 +0x230); the camera array 0x00222480 (0x460 a camera) checked first; then calls view_projection_setup
+code	func_003877A0	0x003877A0	view_projection_setup	frontbin 0x003873C0 (UpdateViewContext): near plane +0xA0, half-angle tangents +0xB0/+0xB4 (0.62, x 0.775; divided by 4/3 with 16:9 at 0x001439FD), focal lengths +0xC0/+0xD4, the frustum planes +0x1E0..+0x200, as rac2's view context
+code	func_003C2868	0x003C2868	moby_spawn	rac2 CreateMoby func_0029EFD0 (frontbin 0x003C24B0): walks the 0x100-byte mobys from *0x001DA4A0 (moby_first; the table starts at *0x001DA49C) to *0x001DA4A4 (moby_end) for a state 0xFE/0xFF slot; the profile's moby table
+code	func_003CB798	0x003CB798	MobyProc	hand-written (frontbin 0x003CB3E0): rac2 func_002A4E68's moby loop instruction for instruction (0x003CBB90 = rac2 0x002A5228): view block 0x002222C0 (+0x140 eye, +0x00..+0x30 matrix), view context 0x00225900 (+0xA0 near plane), the draw-distance cap in $s7 from $gp-0x23E0 = 0x001DA4D0 (moby_end + 0x2C; rac2 + 0x10), moby +0x32 draw distance, +0x36/+0x37 occlusion, +0x78 glow word, +0x7C bangles, +0x40..+0x5C animation fields as rac2's
+code	func_003A12C0	0x003A12C0	game_mode_push	frontbin 0x003A0EC0: the mode word 0x001D5B94 (the boot program's and frontbin's; 0x001D6694 in most levels, 0x001D66E4 in 12/18/26/29, 0x001D66D4 in 19), the mode asked for the word before; host/tools.c openrac_game_mode
+code	func_003A31C8	0x003A31C8	pad_read_sticks	the stick bytes' dead zone: |byte - 0x7F| from 0x30, over 76.0 (frontbin 0x003A2DC8 pad_update), as rac2's func_002B88F0; the profile's stick_dead_zone
+data	D_00222420	0x00222420	camera_rows	the boot program's camera rows (BuildViewMatrices' $s2); levels: profile.cpp kPal (Veldin 0x001E29E0)
+data	D_002222C0	0x002222C0	view_block	the boot program's view matrix block (MobyProc lqc2 +0x00..+0x30, the eye +0x140)
+data	D_00225900	0x00225900	view_context	the boot program's view context (Veldin 0x001E7580; NTSC-U Veldin's tangent at 0x001E76B0 = its +0xB0, 0x80 later as GameCamera is)
+data	D_00222480	0x00222480	game_cameras	the boot program's GameCamera array (0x460 each; +0x450 a flag UpdateFog tests); Veldin's 0x001E2A40, the PAL address include/structs/camera.h measured
+data	D_001DA4A0	0x001DA4A0	moby_first	the boot program's first spawned moby (*), the table's start the word before, moby_end (*) 0x001DA4A4, MobyProc's cap 0x001DA4D0
+data	D_001D545C	0x001D545C	level_current	the level whose program is loaded or loading (level_load, request_level_change); core data, every program's
+data	D_001D9D04	0x001D9D04	level_next	the boot program's and frontbin's level to go to ($gp-relative; a level's own copy elsewhere)
+data	D_001A4BE0	0x001A4BE0	hero	the hero code's base: position +0x80 (0x001A4C60, read by the boot program's 0x003A0180), frames off the ground +0x36E (lh 0x36E in Veldin's hero code); the profile's hero_state
+code	func_L01_00403440	0x00403440	DrawFrame	Veldin's copy (catalogue row func_00388AF8 frontbin, the 34 single-player levels): rac2 func_0027BD70's calls one for one (BuildViewMatrices 0x00400868, the sky 0x00407B38, DrawTfrag, the ties, the draw callback lists 0x00404920/0x00404998/0x00404858/0x00404A60, the shrubs, PartProc 0x00461CB8, ...); runs as translated, its passes end in host/render.c
+code	func_L01_004B1728	0x004B1728	DrawTfrag	rac2 func_002EF3B0, the same 208 bytes (frontbin row func_003CF0F0): the terrain's pass; host/render.c draws it natively and puts the world's marker in the list
+code	func_L01_004B3238	0x004B3238	DrawTies	rac2 func_002F0EF8 (frontbin row func_003D9CF0): the tie pass; host/render.c
+code	func_L01_004A59F8	0x004A59F8	DrawShrubs	rac2 func_002E11C0, the same 104 bytes (frontbin row func_003DEF28): the shrub pass; host/render.c
+code	func_L01_004A7F28	0x004A7F28	SkyDraw	the sky's shells in order: 0x004A7E10 then SkyDrawShell for each of the header's (*0x001E0DF0) +0x06 shells; called by 0x00407B38 (rac2 func_00291268's pair)
+code	func_L01_004A7E10	0x004A7E10	SkyShellMatrix	a shell's turn: its angles (+0x04..+0x08 shorts, 2pi/65536) advanced by its speeds (+0x0A..+0x0E) once a tick, built into the sky matrix 0x001E0E10 (0x0040EBA8)
+code	func_L01_004A8158	0x004A8158	SkyDrawShell	rac2 func_002E3940 (shell header +0x02 bit 0: textured 0x004A8360, else 0x004A81B8; rac2 tests +0x04): host/render.c hands the shell and 0x001E0E10 to the window
+code	func_L01_00441B78	0x00441B78	MobyProc	Veldin's copy of boot 0x003CB798 (frontbin row func_003CB3E0): the group masks 0x001EA840 (rac2 0x001BADC0), the cap $gp+0x37A0 = 0x001E0050; host/render.c sets the drawn flags as it does and the window draws the mobys
+code	func_L01_00441A98	0x00441A98	MobyDrawSide	rac2 func_002A4D88 (MobyAnimProc's draw side), the 224 bytes before MobyProc; the boot program's copy is 0x003CB6B8
+code	func_L01_004417E8	0x004417E8	DmaMobyTextures	rac2 func_002A4AD8, the same 688 bytes
+code	func_L01_00440090	0x00440090	moby_anim_eval_chain	rac2 func_002A4078: the marked joints' poses into the scratchpad; host/render.c asks the port's evaluator (openrac_game_moby_chain)
+code	func_L01_00461CB8	0x00461CB8	PartProc	rac2 func_002B9420, the same 3112 bytes (frontbin row func_003CD3D8): the pool $gp+0x39C8 (0x001E0278), the highest slot $gp+0x39D0 (0x001E0280), the texture table 0x00220A40 (rac2 0x001F1F40); host/render.c hands each live record to the window
+code	func_L01_004B27B8	0x004B27B8	PatchTfragVertexLighting	rac2 func_002F0468 (frontbin row func_003D0180); host/render.c: the extracted level carries the lighting
+code	func_L01_004B1688	0x004B1688	PatchTfragGifs	rac2 func_002EF310; host/render.c
+code	func_L01_004B6ED0	0x004B6ED0	TieColours	rac2 func_002F3E78 (frontbin row func_003DD768); host/render.c
+code	func_L01_004B3178	0x004B3178	PatchTieGifs	rac2 func_002F0E38; host/render.c
+code	func_L01_004A75E0	0x004A75E0	ShrubLighting	rac2 func_002E2C38 (frontbin row func_003E0B10); host/render.c
+code	func_L01_004A58F0	0x004A58F0	PatchShrubGifs	rac2 func_002E10B8; host/render.c
+code	func_L01_0043AAC0	0x0043AAC0	PatchMobyGifs	rac2 func_0029FEE0; host/render.c
+code	func_L01_004C5B90	0x004C5B90	VU1_addGSregister	rac2 func_002FC560, the same 180 bytes: appends an A+D register write (a DMA tag, DIRECT, a GIF tag) at the list pointer 0x001E1068 (+0x30); host/render.c writes its markers the same way
+code	func_L01_00407E28	0x00407E28	DrawWorldQuad	rac2 func_00280B90, the same 608 bytes: the draw callbacks' world quad; host/render.c draws it natively
+code	func_L01_004255E0	0x004255E0	LoadPlayerDisplayTextures	rac2 func_00292078: Ratchet's pack by his skin (0x005147D8) from the table of contents at 0x00160C40, base sector +0x1EB4, rows from +0x1EB8 (editor/wads.py RAC3_PAL hero_packs)
+data	D_001E1068	0x001E1068	display_list_pointer	Veldin's: the display list's write pointer (DrawTfrag, VU1_addGSregister)
+data	D_001E0E10	0x001E0E10	sky_matrix	Veldin's: the matrix the shell being drawn takes (rac2 0x001B20F0); the sky header's pointer at 0x001E0DF0 (rac2 0x001B20C0)
+data	D_00160C40	0x00160C40	table_of_contents	the disc's table of contents in memory (the level table at +0x7A04, Ratchet's packs at +0x1EB4)
+code	func_L39_005F4690	0x005F4690	DrawTfrag	the multiplayer maps' copy (levels 39 to 53), rac2 func_002EF3B0's 208 bytes: the list pointer 0x0024CAD0; the other render passes but these four are the single-player levels' rows (49 places)
+code	func_L39_005F61A0	0x005F61A0	DrawTies	the multiplayer maps' copy (rac2 func_002F0EF8)
+code	func_L39_005EDE28	0x005EDE28	DrawShrubs	the multiplayer maps' copy (rac2 func_002E11C0)
+code	func_L39_005B25C8	0x005B25C8	MobyProc	the multiplayer maps' copy (rac2 func_002A4E68): the group masks 0x0025F580, the draw-distance cap $gp+0x3FD0 = 0x001E0880 (not moby_end + 0x2C as in the single-player levels: profile.cpp's moby_cap 0 there)
+code	func_L01_00404040	0x00404040	GetEffectTex	rac2 func_0027C878 (0.64 by instructions; the record tail the same): the upload count 0x001DF97C, 16-byte records at 0x001E7880 (+0 CLUT address, +6 its block, +8 pixels' address, +0xE their block)
+code	func_L01_004DE670	0x004DE670	ScreenGlowCopy	rac3 only (catalogue row func_003D85C0, 49 places): REF to the packet 0x001D0A50 (size 0x001D55F0) that 0x004DDE98 builds: the frame (block 0x1E00) to FBP 0x198 (256 x 256), shrunk into FBP 0 and 0x1FD; sets $gp-0xC0C (0x001DBCA4) to 0x6000; run while 0x001DBCA0 is set
+code	func_L01_004DE6F0	0x004DE6F0	ScreenGlowAdd	rac3 only (row func_003D8640): REF to 0x001D2A50 (size 0x001D55F4), built by 0x004DE5B0 (0x004DD360 blits 64->128->256, 0x004DD900 blur, 0x004DCC70 add-back ALPHA 0x221); clears 0x001DBCA4
+code	func_L01_004DF310	0x004DF310	ScreenEffect2	rac3 only (row func_003D9260): REFs to 0x001D3650 and 0x001D3EF0 (sizes 0x001D55F8/FC, built by boot 0x003D9378/0x003D94B8), while 0x001DBCBC is set (cleared after; set by 0x004D94C0, 0x004D7120 and the entry's 0x004B8ED0): 0x004DF070 copies the frame and blurs it twice (0x004DD360, 0x004DD900), 0x004DF1B0 tints it (0x00FF82FF) and adds it back (0x004DCC70); left out as the glow is (host/render.c)
+data	D_001D4B60	0x001D4B60	hero_armour	the armour whose pack Ratchet wears (0x00425978 keeps it; LoadPlayerDisplayTextures takes it unless the skin byte 0x001427AB is set); the profile's hero_class
+data	D_001427AB	0x001427AB	hero_skin	the skin Ratchet wears in place of his armour when not 0 (0x005147D8 returns it); the profile's hero_class
+code	func_L01_003EA648	0x003EA648	FollowCamera_UpdateStick	rac2 func_L00_00426340 (0.96): func_L01_003E9908, then the stick read (func_L01_003E92F8) and the turn (func_L01_003E9500) on its two values, then 0x003E8360, 0x003EA190, 0x003E99E8; every single-player level's copy (34 places)
+code	func_L01_003E92F8	0x003E92F8	FollowCamera_ReadStick	rac2 func_L00_00424F98 (rac1 FollowCamera_ReadStickInput): x the pad's analog float (+0x100 of the pad block at +0x134 of the player's camera entry 0x001E2B90 + 0x460 a player), negated unless camera_invert_h_options[camera_setting][0] is set, 0 while the stick state (camera data +0x1E0) flags bit 0 locks it, else the state's +0x1C; the turn speed +0x14 from 0x001D5FF0[player] while the stick moves; y the vertical; host/camera_latch.c wraps it
+code	func_L01_003E9500	0x003E9500	FollowCamera_TurnByStick	rac2 func_L00_00425118: eases the state's value (+0x1E0, speed +0x1E4) to x through 0x00382BC8 (stiffness 2, damping 4, no limit; Going Commando's from the level), turns the offset from the hero (+0x180) by value x turn speed (+0x1F4) about the camera entry's axis (0x001E2AA0 + 0x20 + 0x460 a player); y through a dead zone of 0.3 and the same spring with a limit of 0.01 or 0.02 to a pitch (x 0.6981317)
+code	func_00382BC8	0x00382BC8	spring_step	rac2 func_002702C8 (frontbin; each level's copy, Veldin 0x003F3520): (speed*, value, target, stiffness, damping, limit): speed += stiffness (target - value) - damping speed, kept within the limit (when not 0) and within |target - value|; returns value + speed
+data	D_001439F4	0x001439F4	camera_setting	byte, the camera option in use (0 third person, 1 lock-strafe, 2 first person; names.tsv); the follow camera's stick read picks the invert row by it
+data	D_00143A70	0x00143A70	camera_invert_h_options	3 settings x 8 players' words (names.tsv); the follow camera's read takes the row's first word: 0 negates the stick
+data	D_L01_001E2B90	0x001E2B90	camera_pads	Veldin's: +0x134 of each player's camera entry (0x460 apart, the GameCamera array 0x001E2A40 + 0x150) points at the player's pad block, whose +0x100 is the right stick's x as a float
+code	func_L01_004B3590	0x004B3590	TieProc	rac2 func_002F1010 (hand-written; DrawFrame's tie pass func_L01_004B3238 calls it as Going Commando's 0x002F0EF8 calls 0x002F1010): the ties' records gp + 0x4624 (rac2 + 0x31C4) and count gp + 0x4620, the cap gp + 0x4664 (0x40 past the records' word; rac2 + 0x320C, 0x48 past) in 16-unit steps (srl 4, pminw with a record's +0x1C byte), +0x1A lights, +0x1E bit 2 hidden; profile.cpp scenery_matrices
+code	func_L01_004B1800	0x004B1800	CullAndEmitTfrags	rac2 func_002EF480: the terrain's 0x40-byte records gp + 0x45E0, their count gp + 0x45E4, the far cap gp + 0x4610 (each Going Commando's distance from the ties' records' word)
+code	func_L01_004A5A60	0x004A5A60	ShrubProc	rac2 0x002E1228 (the same gp loads at the same instructions): the shrubs' matrices gp + 0x4520, records gp + 0x4518 (32 bytes: +0x10 its distance, +0x16 bit 0 hidden, +0x1E lights), the cap gp + 0x4528 (rac2 + 0x30B8)
+data	D_L01_001E0ED4	0x001E0ED4	tie_records	Veldin's gp (0x001DC8B0) + 0x4624: the ties' 32-byte records; gp + 0x462C (0x001E0EDC) their matrices (64 bytes each), read by the tie colour pass (func_L01_004B6ED0 +0x168 and +0x174, as rac2 func_002F3E78)
+data	D_L01_001E0DC8	0x001E0DC8	shrub_records	Veldin's gp + 0x4518: the shrubs' 32-byte records; gp + 0x4520 (0x001E0DD0) their matrices, read by LightShrubs (func_L01_004A75E0 +0x14 and +0x1C, as rac2 func_002E2C38)
+code	func_L01_004DF310	0x004DF310	ScreenEffect2	rac3 only (row func_003D9260): REFs to 0x001D3650 and 0x001D3EF0 (sizes 0x001D55F8/FC, built by boot 0x003D9378/0x003D94B8), while 0x001DBCBC is set (cleared after); not identified, still replayed
+code	func_L01_00441B78	0x00441B78	MobyProc	rac2 func_002A4E68 (hand-written), the same moby offsets: copies the four shadow directions (0x001E0070, 0x40 bytes) to the scratchpad's +0x3300 at 0x00441C8C and queues the shadows of the mobys with mode 0x400 and a slab (+0x70, +0x74); host/render.c, the window draws the shadows from the mobys (profile shadow_directions)
+code	func_L01_0043AB98	0x0043AB98	AimHeroShadow	rac2 func_0029FFB8, the same 144 bytes: aims the first shadow direction (0x001E0070) by the angle 0x0043BA48 reads from the record at *0x001A71A0, z -0.99
+data	D_L01_001E0070	0x001E0070	shadow_directions	Veldin's four shadow directions (rac2 0x001B1B90), 16 bytes each: the slot a moby's +0xBD picks; moby_end + 0x4C in the single-player levels
+data	D_L39_002935A0	0x002935A0	shadow_directions	the multiplayer maps' copy (level 39's MobyProc 0x005B25C8 copies it at 0x005B26DC)
+code	func_00392DF0	0x00392DF0	request_level_change	(level, save): sets level_next and the change request the level main loop acts on; each story level has its own copy (Veldin 0x0041A3F0, 34 places), which host/program.c calls for the developer menu
+code	func_L01_0045E4B0	0x0045E4B0	MobyUpdateAll	links the live mobys (+0x28 next, from D_001E0028) and calls each one's update (+0x64); a class update that hands its moby on in a0 without naming it (func_L02_003AB1F0 -> moby_remove) needs its own registers: hostgen.json from_assembly
+code	func_003C2880	0x003C2880	moby_remove	frontbin; Veldin's copy func_L01_00439300; calls update_moby_grids (func_003C7958, Veldin 0x0043C430) with the moby
+code	func_0012BE28	0x0012BE28	sceCdReadClock	libcdvd's clock read, an S-command RPC (function 1 on the client at 0x00141480) into the buffer 0x00140B00, the eight BCD bytes at +4 copied out; its callers 0x003B3610 (boot) and frontbin 0x0039BEF0 read the clock into the save's chunk 4 (0x001D4BE0); a host row since the translation's RPC answered nothing (slots dated 95.00.00)
+code	func_0013AD58	0x0013AD58	sceScfGetLocalTimefromRTC	0.87 of rac2-pal func_00131AF8's opcodes (another SDK version): the clock to the console's time zone; a host row (the host's clock is local already)
+code	func_003B6B90	0x003B6B90	save_slots_page_build	frontbin: the Load/New Game slot page's widgets, four slots of: the slot box (0x4C0034+i), the level name (0x4C0010+i), the date (0x4C0014+i), the play time (0x4C0018+i), the bolts (0x4C001C+i) and their icon (0x4C0020+i, texture 0xED26), the level's picture (0x4C0008+i, func_003B42F8(i)), "EMPTY" over it (0x4C0040+i, text 0x238), two framed boxes (0x4C0000+i, 0x4C0004+i, colour 0x331465B7), and a hidden icon and number on the bolts' line (0x4C0048+i texture 0xEAA6, 0x4C0044+i)
+code	func_003B7288	0x003B7288	save_slots_page_title	frontbin: the slot page's title and buttons by its kind (D_001D8A18: 0 text 0x143, 1 0x144, 2 0x14E, 3 0x1750; Select 0x124, Exit 0x100)
+code	func_L01_004D28B0	0x004D28B0	PlayMovieLevel	every level's copy of the movie player entry (catalogue frontbin row func_003AF890, 49 levels): host/movie.c plays the stream natively
+code	func_L01_004AFFF8	0x004AFFF8	level_movie_start	the levels' copy of boot 0x003A7618 (catalogue frontbin row func_003A7618, 34 levels): calls the movie entry func_L01_004D28B0
+code	func_L01_004B88B0	0x004B88B0	level_movie_mode	the levels' copy of boot 0x003A8B10 (catalogue frontbin row func_003A8B10, 34 levels): calls the movie entry func_L01_004D28B0
+code	func_L01_004E52E0	0x004E52E0	hero_joint_table	fills the hero's nine joint indices (Veldin 0x001E14E0, from the class's joint list by the table at $gp - 0x8C8 = 0x001DBFE8; Florana's at $gp - 0xA08) once, then per mode (2, 5, 6) refreshes two matrices at 0x00251420
+data	D_L01_001D6694	0x001D6694	game_mode	Veldin's mode word (each level's own; tools.c level_mode_word): 0 play, 1 a movie, 2 a scene, 4 the pause menus and quick select pause, 5 the vendor, 6 a landing scene (Veldin's opening, frames 571 to 711 of a run sent there by OPENRAC_RAC3_NEXT; any button ends it, as on the console), 8 a weapon's upgrade; the word before it the mode asked for
+code	func_L14_003B24C8	0x003B24C8	LiquidSurfaceDraw	level 14's copy (no pair in Going Commando; func_00303070 draws its 8 x 8 grids instead): the draw callback of class 6576 (moby pvar at +0x68): one triangle strip through the points of path pvar+0x3C (the table at 0x0021DF80), each at its height plus half the wave pvar+0x90, first layer effect texture 0x16 (white) tinted from pvar bytes 0-3 toward 8-11, TEST 0x5310B when byte 3 has 0x80, a second layer of effect texture pvar+0x18; its strips are the ones the window draws before the mobys with the liquids (editor/enhanced/liquids.py rac3_surfaces)
+code	func_L14_003B1EA8	0x003B1EA8	LiquidSurfaceUpdate	class 6576's update: registers LiquidSurfaceDraw in the draw callback list run after the ties (0x003EF3B0, count 0x001DF090) and in the one at 0x003EF2E8
+code	func_L14_003EEB20	0x003EEB20	GetEffectTex	rac2 func_0027C878's role (1400 bytes): TEX0 of effect texture n from the level's table at 0x001E7380 (16 bytes each), negative n the frame's own buffers
+code	func_L14_003EF338	0x003EF338	RunDrawCallbacks	Veldin 0x00404858's copy: list count 0x001DF088, functions 0x001E7B80, arguments 0x001E7C80 (as 0x003EF400: 0x001DF090, 0x001E7F80, 0x001E8080, run after the ties; 0x003EF478: 0x001DF094; 0x003EF540: 0x001DF08C); adders 0x003EF2E8, 0x003EF3B0, 0x003EF4F0
+data	D_L14_0021DF80	0x0021DF80	path_table	level 14's pointers to the gameplay file's paths (header word 0x78: count, data offset, size, then one offset per path; a path is its point count, 12 bytes, then 16-byte x, y, z, w points)
+code	func_00131ED8	0x00131ED8	atof_like	returns a float in $f0 from the string in $a0 (the multiplayer menu's options parse the strings func_00118F70 hands it); the decompilation's `void (double)` dropped it: hostgen.json asm signature float (int)
+code	func_0013BC30	0x0013BC30	snd_BankLoadFromEE_CB	ends in sceSifCallRpc (func_00122810) and hands its result on; func_L39_005A61D8 reads it (host/sound.c returns 0, sent)
+data	D_001A71A4	0x001A71A4	hero_state	the hero's state (hero +0x25C4; rac3-decomp enums/hero_state.h, rac2's 0x0018C0B4 numbering): seen in the port, Veldin 2026-11-20 (OPENRAC_RAC3_HERO): 0 idle, 2 walk, 6 fall, 7 jump, 8 glide (heli-pack), 14 double jump (Cross again in the air), 19 the wrench combo (Square three times, attack_row 0, 1, 2), 22 hit, 57 death, 101/102/104 the level's opening walk, 116 the level's arrival, 121 fallen out of the level
+data	D_001A71AC	0x001A71AC	hero_state_type	the state's type (hero +0x25CC): 0 idle, 1 walk, 2 fall, 4 every jump, 6 attacks, 9 the arrival (116), 20 fallen out (121), 24 a scripted walk (101)
+data	D_001A7430	0x001A7430	hero_health	the hero's health, s32 (hero +0x2850; rac2's +0x24CC): 10 of hero_max_health 0x00142668 on a new game; a Tyhrranoid's (class 5821) blow takes 1, state 22; at 0 the state goes to 57 and the hero respawns at full health
+data	D_001A57BC	0x001A57BC	attack_row	s16, the attack table row under way: 0 to 2 the wrench combo's swings, 3 the throw, 4 the jump attack (rac3-decomp names.tsv)
+data	D_001A5E08	0x001A5E08	held_item	the item in the hero's hand: 9 the wrench, 47 the N60 Storm (Circle brings out equipped_gun 0x001D4C40), 0 while changing
+data	D_001427F0	0x001427F0	item_ammo	s32 per item: rounds; the N60 (47) takes one a shot, every 12 frames while Circle is held (ammo_use, Veldin func_L01_005118D0)
+data	D_00142CA0	0x00142CA0	item_owned	a byte per item; a new game on Veldin owns 2 (heli-pack), 3 (thruster-pack), 6, 23 (the suit), 36 to 38 (camera options), no gun (func_L01_004227D8 gives them at the level's start)
+data	D_001C5290	0x001C5290	area_deaths	s32 deaths per area, 16 areas a level (0x40 bytes); hero_death_done (Veldin func_L01_004EDE10) adds to it and to 0x001D4CA0 (the run's count, seen 1 and 2 after two falls)
+data	D_L01_001DCA14	0x001DCA14	last_checkpoint	Veldin's: the id of the last checkpoint reached (checkpoint_reached func_L01_00325F60 keeps the moby's pvars +0x00 there), -1 from the level's start
+data	D_L01_001E0100	0x001E0100	spawn_points	Veldin's: a pointer to the level's spawn points, 0x80 bytes each, +0x30 the position, +0x70 the rotation; checkpoint_reached respawns the hero at its save's +0x28-th
+data	D_L01_001E001C	0x001E001C	moby_first	Veldin's: the first moby of the 0x100-byte table (D_L01_001E0024 moby_end); OPENRAC_RAC3_MOBYS walks it
+code	func_L01_004227D8	0x004227D8	give_level_items	gives a level's standing items at its start: the suit (23, worn: 0x001D4C48), 6, the camera options 36 to 38, the thruster-pack 3, then func_L01_004228B0 for the level's own
+code	func_L01_00405AD8	0x00405AD8	DrawFlatBox	the levels' copy of the boot program's flat box func_0038B310 (catalogue row func_0038AF30 frontbin, 49 places), the same instructions: Veldin's display list cursor 0x001E1068 for the boot program's 0x001DA050; the 2D offset 0x001D4BD0/4 is the core's, shared
+code	func_L01_00406078	0x00406078	DrawGlyphQuad	the levels' copy of func_0038B8B0 (row func_0038B4D0 frontbin), the same instructions
+code	func_L01_00405CC8	0x00405CC8	DrawTurnedGlyphQuad	the levels' copy of func_0038B500 (row func_0038B120 frontbin)
+code	func_L01_00406B10	0x00406B10	DrawRotatedSprite	the levels' copy of func_0038C0B8 (row func_0038BCD8 frontbin)
+code	func_L01_00406F70	0x00406F70	DrawRingSegment	the levels' copy of func_0038C518 (rac2 func_0027E920)
+code	func_L01_00407080	0x00407080	DrawShadedBox	the levels' copy of func_0038C628 (row func_0038C248 frontbin)
+code	func_L01_004064A8	0x004064A8	DrawGlyph	the levels' copy of func_0038BA50 (row func_0038B670 frontbin)
+code	func_L01_00406688	0x00406688	DrawGlyphShaded	the levels' copy of func_0038BC30 (row func_0038B850 frontbin, 48 places)
+code	func_L01_00406868	0x00406868	DrawGlyphShadowed	the levels' copy of func_0038BE10 (row func_0038BA30 frontbin)
+code	func_L01_00410208	0x00410208	FontPrint	the levels' copy of func_0038EBC8 (row func_0038E7E8 frontbin)
+code	func_L01_00410A98	0x00410A98	FontPrintShaded	the levels' copy of func_0038F458 (row func_0038F078 frontbin)
+code	func_L01_004059C8	0x004059C8	DarkenPicture	the levels' copy of func_0038B200: the same core packet D_00141850
+code	func_L01_00420AE8	0x00420AE8	DrawHudSpriteShaded	the levels' copy of func_00397680 (row func_003972A0 frontbin); its HUD tables at *0x001DFD20 and *0x001DFD24 (the boot program's 0x001D9EA8, 0x001D9EAC)
+code	func_L01_00420080	0x00420080	HudTextureTex0	the levels' copy of func_00396E18 (row func_00396A38 frontbin, 34 places), rac2 func_0028E640: a HUD texture's TEX0 by its number
+code	func_L01_0040E910	0x0040E910	Sin	the levels' copy of func_0038D490 (row func_0038D0B0 frontbin)
+code	func_L01_0040E8F8	0x0040E8F8	Cos	the levels' copy of func_0038D478 (row func_0038D098 frontbin)
+code	func_L01_004CBC60	0x004CBC60	DrawWidgetSprite	the levels' copy of func_003AA780 (row func_003AA3C8 frontbin, 34 places)
+code	func_L01_0041FE80	0x0041FE80	UpdateHud	rac2 func_0028E458, the same 300 bytes (row func_00396838 frontbin, 49 places): the 13 HUD slots (0x90 bytes, Veldin's at 0x002E60D0; rac2's 0x00255330) each drawn by its +0x18 callback; writes the HUD depth 0x00FFFFF0 to 0x001DFD0C (rac2 0x001B187C); called from DrawFrame
+code	func_L01_004202A8	0x004202A8	DrawHudSprite	rac2 func_0028E868, the same 496 bytes (row func_00396C60 frontbin): a HUD texture as a sprite, its whole texture
+code	func_L01_00420720	0x00420720	DrawHudBar	rac2 func_0028ECD8, the same 424 bytes (row func_003970D8 frontbin, 34 places): a texel a pixel
+code	func_L01_004208E0	0x004208E0	DrawHudSpriteColour	rac2 func_0028F078, the same 512 bytes (shared row, 34 places)
+code	func_L01_00420498	0x00420498	DrawHudGradient	rac2 func_0028EA58 (0.875 of the opcodes; the same arguments and corners, PRIM 0x15C; row func_00396E50 frontbin, 49 places)
+code	func_L01_004C5F70	0x004C5F70	SaveFrame	rac2 func_002FC8D0, the same 188 bytes: the frame buffer read back to main memory
+code	func_L01_004C6030	0x004C6030	WriteFrameBack	rac2 func_002FC990, the same 364 bytes
+data	D_L01_001E1068	0x001E1068	g_listCursor	Veldin's display list cursor (the 2D layer's and DrawTfrag's)
+data	D_L01_002E60D0	0x002E60D0	g_hudSlots	Veldin's 13 HUD slots (rac2 0x00255330)
+code	func_L01_004D24C0	0x004D24C0	DrawHudWidgets	rac2 func_0034E4F8, its calls one for one (0x00401A38 = func_0027AB40, 0x004D1700 = the bolts counter func_0034DB98, 0x004D0CB0 = func_0034CA68, 0x004CF120 = func_00338F58 the HUD messages); called from func_L01_004365A0 (rac2 func_0029C108) with *0x001D67C8 + 0x1FCA8
+code	func_L01_004047A8	0x004047A8	FontTex0	the TEX0 the font's prints draw their glyphs with (boot func_0038A0E0, frontbin func_00389D00, C: unsigned long); a 64-bit result: translated as int f() the levels' text lost its upper word (CLUT and format) and every glyph drew blank
+code	func_L01_0051F940	0x0051F940	TextWidgetDraw	the levels' copy of the boot program's text widget draw func_003F03F0 (row func_003F0038 frontbin, 49 places): hands its second argument on to the widget's rectangle callback (vtable +0x20); as int f(a0) the pause menu's rows were laid out from a garbage rectangle (x -132509, off the screen)
+code	func_L01_004127C0	0x004127C0	FontWidth	a wrapper forwarding its registers to the text width func_L01_0040FF68 (int (int, int, float)); its matched C is void (void), so the width was lost: from_assembly with the width's signature (also func_L01_004127E8, func_L01_00412810, func_L01_00412708 with a scale of 1.0, func_L01_004126A8 to func_L01_0040FC08, func_L01_00412E30 to func_L01_0040F8F0, func_L01_00412E50 to the float func_L01_00412618); the HUD's counters were placed from it
+code	func_L01_004C61A0	0x004C61A0	LoadScreenPicture	the levels' copy of func_003A9BE8 (row func_003A9830 frontbin, 34 places; boot C long long): a picture from EE memory into the frame as image transfers, its TEX0 returned; called from func_L01_003FF240 (from func_L01_00423040); Holostar's (13, 14) video screens showed a solid blue box from its transfers
+code	func_003B1118	0x003B1118	movie_vblank_handler	hand-written; registered by func_003B0188 (the movie player's start, through 0x0012D4D8): each blank while a movie plays it sends the list func_003A1428 builds in one of the player's two 0x4000-byte buffers (0x001DA0C0), through sceDmaSend to VIF1
+code	func_003A1428	0x003A1428	movie_list_build	a movie blank's list: REF of the frame's set-up (*0x001D4CF8 + 0xC0, 9 qw), REF of the picture's sprites (0x001D0560), the blank count (0x00225700 + 0x34) stepped, then func_0038A798 while 0x00227400 is set (the title loop) or func_0038A8F8, then END
+code	func_00391880	0x00391880	movie_picture_sprites	builds the picture's 16 sprites at 0x001D0560 (TEX0 from the display block *0x001D4CF8: +0x156 TBP, +0x150 width, +0x154 PSM; 512 x 416 texels), full height or 115/160 of it by the 16:9 option
+code	func_0038A8F8	0x0038A8F8	movie_subtitles_draw	the PAL movies' subtitles: the table at the movie block's +0x48 (0x00225748; 18-byte rows: start, end in sixtieths (x*5+2)/6 for 50 Hz, a text offset per language, column by the language at 0x00143950+0xB7), shown against the blank count +0x34 when Subtitles (0x00143950+6) is on or the text starts with '*', printed with the font (func_0038EBC8) from y 0xD0 up; the New Game intro (sector 18444) has them ("Ha ha! My Blargian Snagglebeast devours your mutant swamp fly!"), the boot movie (402944) none
+code	func_0038A798	0x0038A798	movie_press_start	the title loop's pulsing "Press START" (text 0x244) at x 480 over a movie while 0x00227400 is set
+data	D_00142CA0	0x00142CA0	item_owned	a byte per item; after New Game's start of Veldin items 2, 3, 6, 23, 36, 37 and 38 are owned (a hidden run), while quick_select_rings (0x001D4C60) stay empty and the pause menu's Weapons grid lists none
+data	item 39	0x00142CC7	shock_blaster	item 39 (0x27), the first gun: Veldin gives it in a short scene (level mode 2, about 40 frames) as the hero reaches (384.3,137.5), 30 rounds, equipped_gun 39; seen 2026-11-20 with no write (OPENRAC_RAC3_HERO). The vendor's stock at 0x001D54D8 starts {0x27, 0x77}
+data	item 119	0x00142D17	n60_storm	item 119 (0x77), the second gun: given after the scene that plays on the spawner ledge above the first valley (388,190,86), about 770 frames of level mode 2; it goes into the quick select ring's first slot (0x001D4C60)
+code	func_L01_003138C8	0x003138C8	veldin_help_controller	class 3107's update (one, at (359.24,147.13,100)): help messages by cuboid (func_L01_0041A5B0), the guns 0x27 and 0x77 through item_give when the flag bits at 0x00142C04 are set and no vendor is open
+code	func_L01_0032A168	0x0032A168	veldin_exit_point	class 3950's update (5 in Veldin: (393,130,100), (402.4,190.4,80), (481.5,392.2,90), (310.1,413.0,100), (310.1,418.3,100)): calls request_level_change (Veldin's func_L01_0041A3F0) and gives item 0x1E
+code	func_L01_003B4FB0	0x003B4FB0	veldin_item_giver	class 6628's update (one, at (212,528,100)): by its state (+0x20, 1 to 7) gives the item of the table at 0x001DE748 its +0x52 byte picks
+data	class 5821	-	tyhrranoid	Veldin's Tyhrranoid trooper (update 0x00350750); a blow takes one of the hero's health; spawned from pods (class 7032 update 0x003326A8, class 6886 0x003C8E98) on the ledge above the first valley; each kill gives 20 bolts
+data	class 6306	-	galactic_ranger	Veldin's Galactic Rangers (update 0x003A0778), at (390.4,152.2), (405.1,149.3), (402.0,176.6)
+code	func_L01_00436150	0x00436150	MessageBoxDraw	the levels' copy of the message box (boot 0x003AF7C0, catalogue frontbin row func_003AF408): forwards ten arguments (two on the stack) to func_L01_004CDF20 (boot 0x003AC590); translated with seven, the in-level Quit Game question lost its "Square Yes" and its wrap width
+code	func_00398128	0x00398128	start_multiplayer	the main menu's MULTIPLAYER: argv[1] = "BOPT=" (0x001D5F00) and the boot options func_0013B0C8 writes after it, argv[0] the stack's own bytes, then func_003980A0("cdrom0:\I5BOOTN.ELF;1" at 0x001D5EE8, 2, argv at 0x001D9F48): the multiplayer executable (host/exec.c)
+code	func_0013B0C8	0x0013B0C8	write_boot_options	writes the boot options after "BOPT=" (the argument the multiplayer executable's main reads back, and this one's when it is started again)
+data	D_001D5EE8	0x001D5EE8	str_i5bootn_path	"cdrom0:\I5BOOTN.ELF;1", the multiplayer executable
+data	D_001D5F00	0x001D5F00	str_bopt	"BOPT=", the boot options' argument
+mp-code	func_00192D18	0x00192D18	mp_crt0	the multiplayer executable's payload entry (I5BOOTN.ELF, hand-written): clears core.bss (0x001C2B00-0x00240710), SetupThread ($gp 0x00247FC0, stack below 0x01FFC000, arguments 0x001EBE00), SetupHeap (0x01F48000), _InitSys (0x0012CFD0), FlushCache(0) (0x001264E0), _init (0x001330F0), atexit (0x00118ED0) of 0x001330F8, main(argc, argv) (0x001932A0), exit (0x0011A6F0)
+mp-code	func_001932A0	0x001932A0	mp_main	reads its arguments ("BOPT=" at 0x00240B70: func_00193178 on what follows; "gooey" at 0x00240B78: func_001205B0), counting them in 0x0024139D, then for ever: the loaded program's entry (first 0x0027B1C0), func_00192F68 for the next one, FlushCache(0), FlushCache(2): the boot program's main (0x0013B330)
+mp-code	func_00192F68	0x00192F68	mp_load_next_program	the boot program's func_0013AFF8 at this executable's addresses: the record list at *0x00240290 copied over the last program, the next entry returned (level 39's 0x00575CC8: the multiplayer menus)
+mp-code	func_0027B1C0	0x0027B1C0	mp_front_end	the executable's own program's entry (its .text 0x0027B100-0x002A0A38, the boot program's front end at 0x0038xxxx in this program): start-up, then the loading of the menus' level
+mp-code	func_0012D318	0x0012D318	mp_LoadExecPS2_wrapper	the boot program's func_00124ED8: the argument block, then syscall 6
+mp-code	func_0012CFD0	0x0012CFD0	mp_InitSys	the boot program's _InitSys (0x00124B90); InitSystemCallTableAddress is 0x0012CEC0
+mp-code	func_00281240	0x00281240	mp_FontPrint	the boot program's func_0038EBC8 (the font's print), the same instructions: wrapped as it is (host/ui2d.c)
+mp-code	func_0027F7A0	0x0027F7A0	mp_DrawGlyph	the boot program's func_0038BA50
+mp-code	func_0027F980	0x0027F980	mp_DrawGlyphShaded	the boot program's func_0038BC30
+mp-code	func_0027FB60	0x0027FB60	mp_DrawGlyphShadowed	the boot program's func_0038BE10
+mp-code	func_0027F458	0x0027F458	mp_DrawGlyphQuad	the boot program's func_0038B8B0
+mp-code	func_0027F0A8	0x0027F0A8	mp_DrawTurnedGlyphQuad	the boot program's func_0038B500
+mp-code	func_0027FE08	0x0027FE08	mp_DrawShadedBox	the boot program's func_0038C628
+mp-code	func_0027EDA8	0x0027EDA8	mp_DarkenPicture	the boot program's func_0038B200 (its fixed packet at 0x001A3800)
+mp-code	func_0027EEB8	0x0027EEB8	mp_DrawFlatBox	the boot program's func_0038B310
+mp-code	func_00284F80	0x00284F80	mp_DrawHudSpriteShaded	the boot program's func_00397680
+mp-code	func_00284D30	0x00284D30	mp_HudTextureTex0	the boot program's func_00396E18: a HUD texture's TEX0
+mp-code	func_00280498	0x00280498	mp_vu0_cos	the boot program's func_0038D478 (VU0 microprogram 0xDA0)
+mp-code	func_002804B0	0x002804B0	mp_vu0_sin	the boot program's func_0038D490 (0xDB0)
+mp-code	func_0028BBE0	0x0028BBE0	mp_WadDecompress	the boot program's func_003A0B60
+mp-code	func_00298D70	0x00298D70	mp_KickVif0Chain	the boot program's func_003A9348
+mp-data	D_00240310	0x00240310	mp_screen_offset	the 2D offset (12.4, x then y): the boot program's 0x001D4BD0
+mp-data	D_002446A8	0x002446A8	mp_list_cursor	the display list's cursor: the boot program's 0x001DA050
+mp-data	D_00244428	0x00244428	mp_hud_textures	the HUD's texture tables (entries, images): the boot program's 0x001D9EA8
+mp-data	D_00240B80	0x00240B80	mp_snd_reply	the sound server's reply word ($gp - 0x7440): the boot program's 0x001D4DA0
+mp-data	D_00240290	0x00240290	mp_program_buffer	where the next program is read (a header word, its records): the boot program's 0x001D4B50
+mp-data	D_001EBE00	0x001EBE00	mp_arguments	crt0's argument block (argc, argv): the boot program's 0x0015C040
+mp-code	func_L39_00575CC8	0x00575CC8	mp_menus_entry	level 39's program's entry: the multiplayer menus
+mp-code	func_L39_005FCB98	0x005FCB98	mp_menus_KickVif0Chain	the catalogue's frontbin row func_003A8F90 at 39:005FCB98 (host/mp.c)
+mp-code	func_L39_005A9AA0	0x005A9AA0	mp_menus_WadDecompress	the catalogue's func_003A0760 at 39:005A9AA0
+mp-code	func_L39_00592238	0x00592238	mp_menus_FontPrint	the front end's font print (frontbin func_0038E7E8 at 39:00592238), the boot program's func_0038EBC8 signature; wrapped (host/ui2d.c)
+mp-code	func_00193888	0x00193888	mp_snd_BankLoadAsync	the boot program's func_0013BAB8
+mp-code	func_0012C528	0x0012C528	mp_sceSifLoadModule	the loadfile RPC through 0x0012C300; loads cdrom0:\DEV9.IRX at start-up, retrying
+mp-code	func_002877A8	0x002877A8	mp_menus_loader	the front end's loader of level 39: states 0-5 at 0x00240288 (table 0x002786E0), state 3 waits for a sound bank's handle at 0x001FE0B0
+mp-data	D_001A43E0	0x001A43E0	mp_memcard_block	the memory card machine's block (0x00288CA8, the boot program's func_0039C7F0 and 0x00142430)
+code	func_0038AD28	0x0038AD28	DrawLetterbox	while D_001D9BDC is set D_001D9BE0 climbs a line a frame to 52 (down again when cleared); not with D_001439FD set: a cnt packet of 7 quadwords, REGLIST PRIM 0x104 and RGBAQ 0x80000000, then eight XYZ2 at z 0xFFFFF3, black bars that tall at the screen's top and bottom (D_001D4BD0 to D_001D4BDC)
+code	func_L01_004054F0	0x004054F0	DrawLetterbox	the levels' copy of func_0038AD28 (row func_0038A948 frontbin, 34 places), its words at 0x001DF95C (on) and 0x001DF960 (height), its GIF tags at 0x001DA120 and 0x001DA130
+code	func_L01_003B2DC8	0x003B2DC8	ForwardCall	a folded 28-byte wrapper (catalogue fingerprint 7ba17f652620d1a8, 83 such names, 35 to 49 places each): each copy calls its own level's function, handing on the registers it was given; Veldin's calls func_L01_00459AF8, Florana's and Marcadia's copies among the class updates call one that removes the moby in a0 (moby_remove), so it takes and passes a0 (hostgen.json signatures; a variant call goes through the registers, asmc.py)
+code	func_L01_004028B0	0x004028B0	ForwardCall	the same kind of wrapper: Veldin's calls func_L01_004152F8; Marcadia's (0x003C88C0) is class 6725's update and calls moby_remove (0x00448A80) with the moby it was given; translated from its instructions with a0
+code	func_003A9CB8__frontbin	0x003A9CB8	widget_relocate	frontbin's per-widget fix-up (the boot program's func_003AA070): adds the bank's base to a Widget3D's +0x10..+0x20 and unpacks its bones; its C is MIPS inline assembly, which the host build drops, so it ran empty and after Quit Game frontbin's main menu posed its widgets from unrelocated offsets (a frame table at 0x70: SIGBUS in func_003A9DB0__frontbin); translated from its instructions
+code	func_003AF0B8__frontbin	0x003AF0B8	frontbin_widgets_load	frontbin's start-up: reads its widget bank (func_003A26F0) and relocates it (func_003ABD38, each widget through func_003A9CB8)
+code	func_003F0038__frontbin	0x003F0038	TextWidgetDraw	frontbin's text widget draw (the boot program's func_003F03F0, the levels' func_L01_0051F940): hands its second argument on; with one argument the main menu after Quit Game printed its rows at the screen's left
+code	func_003F1DA0__frontbin	0x003F1DA0	SpriteWidgetDraw	frontbin's sprite widget draw (the levels' func_L01_005216A8): takes (widget, parent rectangle)
+code	func_003EEBF8	0x003EEBF8	WidgetFrameDraw	the frame widget (vtable 0x001D9730, made by func_003E9270 through func_003EA610): (widget, parent rectangle), its bounds through its vtable +0x20 (func_003EF1D8) with the parent rectangle a1 handed on, then four edges through func_0038C6F0 (the slot page's outlines round each slot's picture and info, 0x4C0000+i and 0x4C0004+i, and Options' frames); as int f(a0) the rectangle was lost and the edges drew around (0, 0), off the screen
+code	func_L01_0051E148	0x0051E148	WidgetFrameDraw	the levels' copy of func_003EEBF8 (row func_003EE840 frontbin, 49 places), the same: hands its second argument on to the widget's rectangle callback
+code	func_L01_005216A8	0x005216A8	WidgetSpriteDraw	the levels' copy of the sprite widget draw (boot func_003F2158, row func_003F1DA0 frontbin, 49 places): hands its second argument on to the widget's rectangle callback (vtable +0x20); as int f(a0) the in-level SAVE page's slot pictures and empty-slot emblems were placed from a null rectangle
+code	func_L01_0042D898	0x0042D898	PictureTex0	the levels' copy of boot func_0039B088 (row func_0039ACA8 frontbin, 49 places): a picture's TEX0, 64 bits in $v0, for the box widget's picture quad (func_003EF998's copy func_L01_0051EEE8 to func_L01_00405CC8); as int f(a0) its upper word (TBW, PSM, TW, TH, CBP) was cut, so the in-level SAVE page's empty-slot emblems and level pictures drew from a garbage texture (nothing)
+code	func_L01_004940C0	0x004940C0	ObjectCallSlot1C	the levels' copy of boot func_003B4610 (row func_003B4258 frontbin, 49 places): (object, a) calls the object's vtable (+4) slot +0x1C with (object, a, 0); as int f(a0) the a it hands on was lost (found by the signature check's pointer-call rule)
+code	func_003EE840__frontbin	0x003EE840	WidgetFrameDraw	frontbin's frame widget draw (boot func_003EEBF8, the levels' func_L01_0051E148): (widget, parent rectangle), the rectangle handed on to vtable +0x20
+mp-code	func_0027EAC8	0x0027EAC8	mp_FontPageTex0	the boot program's func_0038A0E0: a font page's TEX0, all 64 bits (its CBP and TH above bit 32)
+mp-code	func_L39_00589FF8	0x00589FF8	mp_menus_FontPageTex0	the catalogue's func_L01_004047A8 (frontbin func_00389D00) at 39:00589FF8, returning 64 bits
+mp-code	func_L39_0058BD90	0x0058BD90	mp_menus_DrawGlyphShaded	frontbin's glyph with a colour a corner, the boot program's func_0038BC30; wrapped (host/ui2d.c)
+mp-code	func_L39_00592AC8	0x00592AC8	mp_menus_FontPrintShaded	frontbin's func_0038F078 at 39:00592AC8, the print with a colour a corner; wrapped (host/ui2d.c)
+mp-code	func_L39_0060DFC8	0x0060DFC8	mp_menus_ScreenGlowCopy	the catalogue's func_L01_004DE670 at 39:0060DFC8: the glow word ($gp - 0x240C = 0x00245BB4) set, the packet left out (host/mp.c)
+mp-code	func_L39_0060E048	0x0060E048	mp_menus_ScreenGlowAdd	func_L01_004DE6F0 at 39:0060E048
+mp-code	func_L39_0060EC68	0x0060EC68	mp_menus_ScreenEffect2	func_L01_004DF310 at 39:0060EC68
+mp-code	func_L39_005946B0	0x005946B0	mp_menus_TextFitScale	the boot program's func_00390FD8 (f32): the scale that fits a string in a width, at most f12; returns $f0, $v0 a scratch (asm.result_flow)
+mp-code	func_L39_00619B48	0x00619B48	mp_menus_GuiTextDraw	the GUI text widget's draw (vtable 0x00245D38 +0x1C): its rect's centre times the screen size 0x00245C38, printed through func_L39_00592238
+mp-code	func_L39_00619D20	0x00619D20	mp_menus_GuiTextRect	the GUI text widget's rect (vtable +0x20): text width (func_L39_00594858) over the screen size, times func_L39_005946B0's fit scale
+mp-code	func_L39_00594858	0x00594858	mp_menus_TextWidth	the font's string width in pixels (func_L39_00591F98's, its registers handed on)
+mp-code	func_L39_0059CFD0	0x0059CFD0	mp_menus_DrawHudSpriteShaded	the boot program's func_00397680 instruction for instruction (HUD tables 0x0024BD00/0x0024BD04, cursor 0x0024CAD0); wrapped (host/ui2d.c)
+mp-code	func_00284F80	0x00284F80	mp_DrawHudSpriteShaded	the boot program's func_00397680 instruction for instruction (HUD tables 0x00244428/0x0024442C, cursor 0x002446A8); wrapped (host/ui2d.c)
+mp-code	func_001948B8	0x001948B8	mp_snd_VAGStreamQuery30_CB	989snd command 0x30 with a callback (the boot program's func_0013CC70): a stream query whose answer level 39's music player keeps at +0x14 (0x005C2E90); answered 0
+code	func_L01_004BED50	0x004BED50	VendorStripDraw	the vendor's item strip (1920 bytes; called from func_L01_004C0888): each item's icon and its "Ammo" label (text 0x583, at 0.75 scale through func_L01_00410208) faded with the item's distance from the cursor: 0x80 - (int)(distance * 0.75) through libgcc's __muldf3 and __fixdfsi
+code	func_00128F90	0x00128F90	__muldf3	libgcc dp-bit's dpmul (the soft-float double product); host (common/lib/libc.c) with __adddf3 0x00128ED0, __subdf3 0x00128F28, __divdf3 0x00129238, __cmpdf2 0x001294B8, __floatsidf 0x00129508, __fixdfsi 0x001295C0, __fixunsdfsi 0x00129658, __truncdfsf2 0x00129728
+code	func_L05_00328E98	0x00328E98	SetTwoVectors1B0	levels 5, 16 and 19 (16: 0x0032BEB0): copies two quadword vectors its callers hand by reference into +0x1B0 and +0x1C0 (the decompilation declares them by value, so it had no prototype and no table entry; translated from its instructions)
+code	func_L01_004048D0	0x004048D0	DrawCallbackAdd3	adds (function, argument) to DrawFrame's third callback list (count 0x001DF990, tables 0x001E8880/0x001E8980; run by func_L01_00404920); levels 3, 11, 16 and 23 have no copy: the catalogue's places there are the second list's adder (split_places)
+code	func_003BDFB0	0x003BDFB0	LoadingFlightLap	the loading flight's lap: the scene tick (0x00225734) goes up one a pass, the lap ends past its last (0x00225740)
+code	func_L01_00419188	0x00419188	item_give	(item): owned (0x00142CA0), new (0x00142D40), a first load of ammunition from its record (+0x84 price set: +0x8E), then the weapon lists (func_L01_00419248) and the quick select ring's first free slot (func_L01_00419060); every story level's copy folded with Veldin's; tools.c's OPENRAC_GIVE calls it
+data	D_L01_002C5600	0x002C5600	item_records	Veldin's item records, 0xF0 bytes each, 160 rows plus the later versions' (+0x46 the next version's row, +0x84 the ammunition's price, +0x8A and +0x8E full loads); D_001425C0 a byte an item, its row; +0 is set on every row from item 36 on, so it does not tell the guns apart; NTSC-U's at 0x002C5640, the same rows
+data	font_accents	-	font_accents	the font's accented capitals: 0x80 then the letter's number (Á 0x0C, Ä 0x0E, Ç 0x0F, É 0x11, Í 0x14, Ñ 0x17, Ü 0x1E: from the French, German and Spanish Options texts); options.c writes the port's texts so
+data	D_L01_001D6694	0x001D6694	game_mode_scene_skip	a level's scenes (mode 2, and the landing, mode 6) end on Start alone, as on the console: Veldin's opening ends 7 frames after a press (tools.c skip_buttons presses it for OPENRAC_SKIP_SCENES)
+code	func_L01_004DFEA0	0x004DFEA0	hero_damage	the hero's damage: health (0x001A7430) less the hit's points by the armour's factor and the help measure's, at least 1, never below 0; rac2 Hero_TakeDamage's job; hook rac3.player.take_damage
+code	func_L01_00419188	0x00419188	item_give	gives an item: owned and new bytes, the starting ammo, vendor_stock_add and the quick select; rac2 GiveInventoryItem's job; hook rac3.item.give
+code	func_L01_00418C90	0x00418C90	weapon_level_up	a gun to its next level (row +0x46), experience and ammo topped; hook rac3.weapon.level_up
+code	func_L01_00419D48	0x00419D48	weapon_buy_mega	the vendor's Mega upgrade (level 5); hook rac3.item.upgrade
+code	func_L01_004BA830	0x004BA830	vendor_price	the price of the vendor's row under the cursor; hook rac3.vendor.price
+code	func_L01_004BAA20	0x004BAA20	vendor_weapon_list	the vendor's weapons rows from vendor_stock (asm, signature int (int) from its callers' declarations); hook rac3.vendor.build_list
+code	func_L01_004443E8	0x004443E8	moby_killed	an enemy's death: experience, bolts (bolts_drop) (asm at the pin); rac2 Moby_RecordDeath's job; hook rac3.moby.record_death
+code	func_L01_00446978	0x00446978	damage_queue	a damage record queued in the hit ring 0x001EED00 (asm); rac2 Moby_PostHit's job; hook rac3.combat.post_hit
+code	func_L01_0044D360	0x0044D360	bolts_drop	a burst of bolt coins from a moby (asm); rac2 Bolt_SpawnPickups's job; hook rac3.bolt.spawn_pickups
+code	func_L01_002F8F20	0x002F8F20	bolt_coin_spawn	one bolt coin (asm); hook rac3.bolt.spawn_pickup
+code	func_L01_002F88E0	0x002F88E0	bolt_pickup_collect	a coin collected: its value to player_bolts 0x00142660 (asm); hook rac3.bolt.collect
+code	func_L01_004D7658	0x004D7658	level_load	the levels' copy of frontbin's level_load (catalogue row func_003BD030): the transition, level_current and the files' read; hook rac3.level.load
+code	func_L01_004227D8	0x004227D8	give_level_items	a level's standing items at its start; hook rac3.level.give_items
+code	func_L01_004EDE10	0x004EDE10	hero_death_done	the death counted and the respawn asked (0x001A71D2); hook rac3.player.death_done
+code	func_L01_00439300	0x00439300	moby_remove	Veldin's copy of frontbin's moby_remove (catalogue row func_003C2880, 49 places): play.c's moby_kill calls it
+data	D_L01_001E0020	0x001E0020	moby_dynamic	Veldin's: the first moby the game made (the placed mobys' end, func_L01_0042AF50's loop); NTSC-U 0x001E00A0 (rac3_level_pairs.py); play.c's moby keys
+code	func_L01_00448890	0x00448890	angle_approach	turns an angle towards a goal, speeding its rate up and easing it to a stop takes sqrt.s of a negative distance when it turns the other way, so headers/vu0.h sqrt_asm takes the root of |x| as the EE does
+code	func_L01_00457738	0x00457738	func_003C6680 (its level copy)	eleven arguments, three on the stack (Florana func_L02_0039F980 passes &D_L02_001DDC90, &D_L02_001DDC80, 0 there); the asm signature takes all eleven
+code	func_L01_00425FE0	0x00425FE0	load_clank_skin	loads Clank's picture for skin n (kept at 0x001D4BA0): a texture record of the TOC pair at +0x2238 + n*8 from the hero packs' base sector (+0x1EB4), uploaded to the GS; its TEX0 kept at 0x001D4BA8 (Florana's copy 0x003FE308)
+code	func_L01_0042B4F8	0x0042B4F8	load_level_moby_classes	per class table entry: word +8 0 its own slots, 1 his ship's paint TEX0 (0x0016C5B8), 2 Clank's (0x001D4BA8), put in a one-texture table and patched over every GS block of the class (func_00399810) (Florana 0x00403820, at 0x00403CA0)
+code	func_00399810	0x00399810	tex_draw_batches	Going Commando's tex_draw_batches (func_002932B8): remaps each GS block's slot through the class map and writes its TEX0 from a texture table (or the level's global one)
+data	D_001D4BA0	0x001D4BA0	clank_skin	Clank's loaded skin number (-1 none), TEX0 of his picture at +8 (0x001D4BA8)
+code	func_0038D750	0x0038D750	quat_from_axis_angle	hand-written (frontbin; Veldin 0x0040EFF0): (out, axis 0/1/2, angle in f12), the quaternion of a turn about one axis, stored with sqc2 to out; reads $4/$5 only after its sine and cosine calls, so hostgen needs its signature (asm.signatures void (int, int, float))
+code	func_003C3FC0	0x003C3FC0	quat_from_euler	(out, angles): three quat_from_axis_angle multiplied (Veldin 0x00447110); joint_layer_drive (Veldin 0x0044E850) makes each joint layer's quaternion (+0x10) with it
+data	D_002FF200	0x002FF200	light_bank	the boot program's light bank MobyProc sends to the scratchpad (toSPR 0x50 quadwords at 0x003CB8F8: 16 directional sets of 0x40, 8 point lights of 0x20), Going Commando's D_001C2740; Veldin's copy 0x001F1740 (0x00441CD8), level 39's 0x002663C0 (0x005B272C); NTSC-U 0x002FF280, 0x001F17C0, 0x002664C0. Set 13 is the bolts' gold at run time
+data	D_0016C5B0	0x0016C5B0	ship_paint	his ship's paint job number (0-31) texture_slot_load (func_00398C80, Veldin 0x00425E10) loaded, TEX0 at +8; same address on NTSC-U
+code	func_003C6FE0	0x003C6FE0	moby_anim_advance	the moby animation step (Veldin 0x0043BAB8), Going Commando's func_002A05A8: computed with the EE's floats (hostgen.json ps2_float) for the 0x7F800000 frame durations
+code	func_003D3CB0	0x003D3CB0	coll_line	the hand-written line query (Veldin 0x003FA5F0, every level's copy): a DDA over 4-unit cells of the [0,1024) world, the three axes' crossings at 0x70003000/3200/3400 (128 words each) merged into 8-byte entries from 0x70003800; no bound on the count, as on the console: a line crossing more than 255 cells (|dx|+|dy|+|dz| over about 1,020 units) writes at 0x70004000, past the scratchpad, where the console's TLB maps nothing; the port backs that 16 KB (GUEST_SCRATCHPAD_GUARD) and warns. Seen with OPENRAC_TELEPORT: the camera before #709, enemies' sight lines to the hero (func_L01_00458C98, func_L01_004E48C8) after a jump
+code	func_L01_003E77B0	0x003E77B0	camera_end_sphere	the follow camera's obstacle line from last frame's camera (update object +0x30) to the wanted spot (look point pvar +0x180 plus the arm +0xB0), through coll_line
+code	func_L01_003E4580	0x003E4580	camera_platform_ride	(update object, move quadword): adds the move to the camera, look point, follow point and height targets; OPENRAC_TELEPORT calls it with the jump
+data	D_L01_001E2A40	0x001E2A40	game_camera	player 0's game camera in Veldin (0x460 a player, NTSC-U 0x001E2AC0): +0 position, +0x50 the current update object (+0x30 position, +0x70 pvars, +0x8C mode, 0 the follow camera, +0x94 player)
+code	func_L01_00436020	0x00436020	help_box_frame	(kind, colour, top, bottom, left, right): the help box's frame through func_003AC638 on the help pack (D_L01_001D67C8 + 0x1FCA8); NTSC-U's copy (0x00432FE8) runs from its assembly and hands the four extents on in $f12-$f15 untouched (asm.float_parameters_on_calls)
+data	D_00227480	0x00227480	occlusion_mask	the boot program's occlusion mask (0x80 bytes, Going Commando's D_001BADC0), written by 0x00386B10 (all visible outside a cell, func_0038CF58 with -1); its MobyProc tests the loading screen's mobys (+0x36) against it, not Veldin's 0x001EA840; NTSC-U 0x00227500
+code	func_L01_00443B88	0x00443B88	random_vector	(out, lo, hi): a random direction of length rand_range(lo, hi) (func_003824E0, Veldin 0x004439C0); matched as (out) with the range handed on in $f12/$f13, so hostgen.json params_from_declarations lists it. drop_spawn (func_L01_003F79D8) builds a thrown piece's spin quaternion from it: without the range its length was whatever the host's float registers held, and a broken crate's pieces grew without end
+data	D_001FD180	0x001FD180	moby_class_slots	Veldin's class data of each class slot (0xF0); a scene puts the classes of its lump (the scene file, editor/level.py scene_classes) in free slots while it plays: Veldin's first scene Clank as class 10 in slot 153 and the gun the Ranger hands over, 7322, in 154 (0x001FD9F0 the slots' class numbers)
+mp-code	func_00287A18	0x00287A18	mp_PictureTex0	the boot program's func_0039B088 (frontbin func_0039ACA8): a picture's TEX0, all 64 bits in $v0 (TH's high bit, CBP and CLD above bit 32); translated as int f() the box widgets' pictures lost their CLUT and drew blank
+mp-code	func_L39_005A4ED8	0x005A4ED8	mp_menus_PictureTex0	the catalogue's func_L01_0042D898 (frontbin func_0039ACA8) at 39:005A4ED8, returning 64 bits: the multiplayer menus' scrolling background, the CREATE GAME map preview and minimap, the profile banner
+mp-code	func_0027E360	0x0027E360	mp_EffectTex0	the boot program's func_00389978: an effect texture's TEX0 by number, 64 bits in $v0
+mp-code	func_L39_00589890	0x00589890	mp_menus_EffectTex0	level 39's copy of the effect-texture TEX0 lookup (func_L01_00404040's shape), returning 64 bits
+mp-code	func_L39_00591240	0x00591240	mp_menus_QuatToMatrix	frontbin's func_0038D830 at 39:00591240: VU0 microprogram 0xE98 (rac3_vu0_quaternion_rows), a quaternion's rotation rows for the menus' mobys
+code	func_003BBD20	0x003BBD20	LoadingFreeSceneBanks	the loading flight's end of the stars: unloads the sound banks of every scene but the approach's (0x001DA1F4.., the count at 0x001D8CE0; the approach's at 0x001DA1F0 is kept) and clears 0x001D4B4C so the level loader goes on (host/loading.c)
+code	func_003BE2D0	0x003BE2D0	LoadingFilesRead	1 when the level's files are read (0x001D4B48 >= 2) and the scene banks are still held (0x001D4B4C); the flight (func_003C1510) frees them then
+code	func_003C1510	0x003C1510	LoadingFlightLap	the loading flight's lap end: frees the scene banks once the files are read (func_003BBD20), then the approach lap (0x002D2008+0x51) when told the files are read, else a random scene's lap (func_003BE0F0) with its sound
+code	func_00397A18	0x00397A18	DrawHudQuadTurned	(x, y, half width, half height in 12.4, angle, texels w, h, TEX0): a HUD texture's quad turned about its centre, grey 0x7F, at depth D_001D9E94 (frontbin func_00397638; levels' copy func_L01_00421278); drawn natively (host/ui2d.c)
+code	func_L01_00421278	0x00421278	DrawHudQuadTurnedLevel	the levels' copy of func_00397A18, its TEX0 a whole 64-bit register (asm.signatures); as an int its upper word was the sign of the lower one and the saving prompt's turning icon sampled nothing
+code	func_L01_003EB9C8	0x003EB9C8	SavingPromptDraw	"Progress is saving ..." in a level: the card (HUD texture 0x755D frame 0) and its turning arrow (frame 1, func_L01_00421278, a turn every 55 ticks)
+code	func_L01_00412C08	0x00412C08	TextBoxSetup	the levels' copy of frontbin's func_003910C0: (box, top, bottom, left, right, depth, x, y, mode) with the ninth on the stack (lw 0x20($sp)), handed to func_0038F9E0's copy; translated with eight, a C caller's mode was the stack's garbage (asm.signatures)
+code	func_L01_0041A9A0	0x0041A9A0	HelpOpen	opens a help message (the tooltip at the screen's bottom): measures its text in a box 44..468 (func_L01_00412C08, mode 7) through func_L01_00412D38, and keeps the frame's half sizes (+0x08, +0x0C) the draw (func_L01_0041B608) sizes it by

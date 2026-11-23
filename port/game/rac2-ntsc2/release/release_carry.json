@@ -5,12 +5,12 @@
   "function: called": 30,
   "function: changed": 88,
   "function: found": 28,
-  "function: near": 46,
-  "function: same": 733,
+  "function: near": 61,
+  "function: same": 767,
   "global: aligned": 6,
   "global: between": 18,
-  "global: exact": 112,
-  "global: the release's build": 122
+  "global: exact": 115,
+  "global: the release's build": 133
  },
  "functions": {
   "func_001158F8": [
@@ -156,7 +156,7 @@
   "func_002A6C58": [
    "func_002A7AA8",
    "near",
-   "libraries.tsv Moby_RecordDeath"
+   "host C"
   ],
   "func_002B6480": [
    "func_002B73A0",
@@ -298,10 +298,30 @@
    "changed",
    "libraries.tsv Hero_TakeDamage"
   ],
+  "func_L00_00300618": [
+   "func_L00_003012A0",
+   "near",
+   "host C"
+  ],
   "func_L00_00303990": [
    "func_L00_00304660",
    "changed",
    "libraries.tsv Level_Load"
+  ],
+  "func_L00_003AA4C8": [
+   "func_L00_003AB8F8",
+   "near",
+   "host C"
+  ],
+  "func_L00_00403730": [
+   "func_L00_00404C18",
+   "near",
+   "host C"
+  ],
+  "func_L00_00408800": [
+   "func_L00_00409CF0",
+   "near",
+   "host C"
   ],
   "func_L00_00438E68": [
    "func_L00_0043A470",

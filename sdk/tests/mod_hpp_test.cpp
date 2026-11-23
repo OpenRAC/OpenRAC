@@ -22,6 +22,8 @@
 #include <vector>
 
 #include "openrac/games/rac1.hpp"
+#include "openrac/games/rac3.h"
+#include "openrac/games/rac3.hpp"
 #include "openrac/mod.hpp"
 
 namespace {
@@ -1002,6 +1004,154 @@ void fill_25_copies(openrac_api &api) {
   };
 }
 
+// The fake host's 1.27 pool: a raise is cut to 1,024; the status has 400 spare slots, 90 alive.
+void fill_27_pool(openrac_api &api) {
+  api.moby_pool_raise = [](openrac_mod *, int extra) {
+    return extra > OPENRAC_MOBY_POOL_EXTRA_MAX ? OPENRAC_MOBY_POOL_EXTRA_MAX : extra;
+  };
+  api.moby_pool_status = [](openrac_mod *, openrac_moby_pool *out) {
+    out->capacity = 400;
+    out->live = 90;
+    out->free = 310;
+    out->extra = 128;
+    out->requested = 128;
+    return OPENRAC_HOOK_OK;
+  };
+}
+
+// The fake host's 1.28 row looks: only action 2, as a port keeps it.
+openrac_developer_menu_look g_28_look{};
+bool g_28_cleared = false;
+
+void fill_28_look(openrac_api &api) {
+  api.developer_menu_look = [](openrac_mod *, std::uint32_t action,
+                               const openrac_developer_menu_look *look) {
+    if (action != 2) {
+      return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (look == nullptr) {
+      g_28_cleared = true;
+    } else {
+      g_28_look = *look;
+    }
+    return OPENRAC_HOOK_OK;
+  };
+}
+
+// The fake host's developer menu (1.10) and presentation calls (1.22): what they were given.
+std::string g_10_title;
+std::uint32_t g_10_count = 0;
+std::string g_10_label;
+std::uint32_t g_10_queue = 0;
+int g_22_visuals = -1;
+std::string g_22_text;
+std::uint32_t g_22_tint = 0;
+
+void fill_10_and_22(openrac_api &api) {
+  api.developer_menu = [](openrac_mod *, const char *title,
+                          const openrac_developer_menu_item *, std::uint32_t count) {
+    g_10_title = title;
+    g_10_count = count;
+    g_10_queue = 7;
+    return OPENRAC_HOOK_OK;
+  };
+  api.take_developer_menu_action = [](openrac_mod *) {
+    const std::uint32_t action = g_10_queue;
+    g_10_queue = 0;
+    return action;
+  };
+  api.developer_menu_set_label = [](openrac_mod *, std::uint32_t, const char *label) {
+    g_10_label = label;
+    return OPENRAC_HOOK_OK;
+  };
+  api.moby_visuals = [](openrac_mod *, const openrac_moby_visual *, int count) {
+    g_22_visuals = count;
+    return OPENRAC_HOOK_OK;
+  };
+  api.guest_text = [](openrac_mod *, const char *text) {
+    g_22_text = text;
+    return static_cast<openrac_gaddr>(0x00200000u);
+  };
+  api.sprite_tint = [](openrac_mod *, std::uint32_t rgb) {
+    const std::uint32_t before = g_22_tint;
+    g_22_tint = rgb;
+    return before;
+  };
+  api.pickup_animation = [](openrac_mod *, int kind, int item) { return kind == 1 && item == 3 ? 1 : 0; };
+}
+
+// The fake host's 1.29 weapon calls: one shot (serial 7) to fire again, a spawn
+// of class 1498, a look on item 27, a status on slot 3, a record for item 27.
+openrac_spawn_live g_29_spawn{};
+std::uint32_t g_29_look = 0;
+
+void fill_29_weapons(openrac_api &api) {
+  api.on_weapon_fire = [](openrac_mod *, openrac_weapon_fire_fn fn, void *) {
+    return fn != nullptr ? OPENRAC_HOOK_OK : OPENRAC_HOOK_TOO_LATE;
+  };
+  api.weapon_refire = [](openrac_mod *, std::uint32_t serial, float, float) {
+    return serial == 7 ? 41 : OPENRAC_HOOK_UNKNOWN;
+  };
+  api.on_shot_end = [](openrac_mod *, openrac_shot_end_fn fn, void *) {
+    return fn != nullptr ? OPENRAC_HOOK_OK : OPENRAC_HOOK_TOO_LATE;
+  };
+  api.moby_spawn_live = [](openrac_mod *, const openrac_spawn_live *spawn) {
+    g_29_spawn = *spawn;
+    return spawn->oclass == 1498 ? 42 : OPENRAC_HOOK_UNKNOWN;
+  };
+  api.weapon_look = [](openrac_mod *, std::int32_t item, std::uint32_t material,
+                       std::uint32_t) {
+    g_29_look = material;
+    return item == 27 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+  };
+  api.moby_status = [](openrac_mod *, std::int32_t slot, std::uint32_t,
+                       std::int32_t) {
+    return slot == 3 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+  };
+  api.weapon_record = [](openrac_mod *, std::int32_t item) -> openrac_gaddr {
+    return item == 27 ? 0x00262570u : 0u;
+  };
+}
+
+// Interface 1.30's weapon_ignore_culling, as a port fills it: the Zodiac and
+// the Plasma Coil only.
+int g_30_culling = -1;
+void fill_30_culling(openrac_api &api) {
+  api.weapon_ignore_culling = [](openrac_mod *, std::int32_t item,
+                                 std::int32_t enabled) {
+    if (item != 43 && item != 28) {
+      return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_30_culling = enabled;
+    return OPENRAC_HOOK_OK;
+  };
+}
+
+// Interface 1.31: overlays over the menus and the buttons' labels.
+std::uint32_t g_31_phases = 0;
+
+void fill_31_overlays(openrac_api& api) {
+    api.on_overlay_phases = [](openrac_mod*, openrac_overlay_fn fn, void*, std::uint32_t phases) {
+        if (fn == nullptr || phases == 0) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        g_31_phases = phases;
+        return OPENRAC_HOOK_OK;
+    };
+    api.button_label = [](openrac_mod*, std::uint32_t button, char* out, std::uint32_t size) {
+        if (button != OPENRAC_PAD_SQUARE || out == nullptr || size < 2) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        std::strcpy(out, "F");
+        return OPENRAC_BUTTONS_KEYS;
+    };
+}
+
+void overlay_31(void*, const openrac_overlay*) {}
+
+void fire_watch(void *, const openrac_weapon_shot *) {}
+void end_watch(void *, const openrac_shot_end *) {}
+
 // Returns a table of the fake host's functions, as a port of the newest interface would fill it.
 openrac_api make_api() {
     openrac_api api{};
@@ -1187,6 +1337,18 @@ static_assert(
     std::string_view(openrac::rac1::hooks::moby::bolt::update::id) == "rac1.moby.bolt.update"
 );
 static_assert(std::string_view(openrac::detail::hook_id<Test_Twice>()) == "Test_Twice");
+// Up Your Arsenal's (games/rac3.hpp) by id too, and the C header's names and
+// signatures are the same hook points' (games/rac3.h).
+static_assert(std::is_same_v<openrac::rac3::hooks::player::take_damage,
+                             openrac::rac3::Hero_TakeDamage>);
+static_assert(std::string_view(openrac::rac3::hooks::moby::record_death::id) ==
+              "rac3.moby.record_death");
+static_assert(std::string_view(openrac::rac3::Hero_TakeDamage::signature) ==
+              OPENRAC_RAC3_SIG_Hero_TakeDamage);
+static_assert(std::string_view(openrac::rac3::Bolt_SpawnPickups::name) ==
+              OPENRAC_RAC3_HOOK_Bolt_SpawnPickups);
+static_assert(
+    std::is_same_v<openrac::rac3::Item_Give::fn, openrac_rac3_Item_Give>);
 
 namespace {
 
@@ -2100,6 +2262,115 @@ int main() {
       api.api_minor = 25;
       CHECK(mod.has_moby_copy() && !mod.has_squad_copies());
       api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.27: the pool of spawned mobys; a port of 1.26 has none.
+    {
+      fill_27_pool(api);
+      openrac_moby_pool pool{};
+      CHECK(mod.has_moby_pool() && mod.moby_pool_raise(100) == 100 && mod.moby_pool_raise(9000) == 1024);
+      CHECK(mod.moby_pool_status(pool) && pool.capacity == 400 && pool.free == 310 && pool.extra == 128);
+      api.api_minor = 26;
+      CHECK(!mod.has_moby_pool() && mod.moby_pool_raise(100) == 0 && !mod.moby_pool_status(pool));
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.28: a row's look in the mod's tab; a port of 1.27 has none.
+    {
+      fill_28_look(api);
+      CHECK(mod.has_menu_look() &&
+            mod.menu_look(2, OPENRAC_DEVELOPER_MENU_LOCKED, "24/40", 0.6f, "trophy"));
+      CHECK(g_28_look.size == sizeof g_28_look &&
+            g_28_look.flags == OPENRAC_DEVELOPER_MENU_LOCKED &&
+            std::string(g_28_look.value) == "24/40" && g_28_look.progress == 0.6f &&
+            std::string(g_28_look.icon) == "trophy");
+      CHECK(!mod.menu_look(5, 0) && mod.menu_look_clear(2) && g_28_cleared);
+      g_28_cleared = false;
+      api.api_minor = 27;
+      CHECK(!mod.has_menu_look() && !mod.menu_look_clear(2) && !g_28_cleared);
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interfaces 1.10 and 1.22: the developer menu's tab and the presentation calls; ports
+    // before them have none.
+    {
+      fill_10_and_22(api);
+      CHECK(mod.has_developer_menu() && mod.developer_menu("Cheats", nullptr, 3));
+      CHECK(g_10_title == "Cheats" && g_10_count == 3);
+      CHECK(mod.take_developer_menu_action() == 7 && mod.take_developer_menu_action() == 0);
+      CHECK(mod.developer_menu_set_label(1, "On") && g_10_label == "On");
+      CHECK(mod.has_presentation() && mod.moby_visuals(nullptr, 0) && g_22_visuals == 0);
+      CHECK(mod.guest_text("hi") == 0x00200000u && g_22_text == "hi");
+      CHECK(mod.sprite_tint(0x808080u) == 0 && mod.sprite_tint(UINT32_MAX) == 0x808080u);
+      CHECK(mod.pickup_animation(1, 3) == 1 && mod.pickup_animation(2, 0) == 0);
+      api.api_minor = 21;
+      CHECK(!mod.has_presentation() && mod.guest_text("x") == 0 && mod.sprite_tint(1) == UINT32_MAX);
+      CHECK(mod.pickup_animation(1, 3) == 0 && !mod.moby_visuals(nullptr, 0));
+      CHECK(mod.has_developer_menu());
+      api.api_minor = 9;
+      CHECK(!mod.has_developer_menu() && !mod.developer_menu("x", nullptr, 0));
+      CHECK(mod.take_developer_menu_action() == 0 && !mod.developer_menu_set_label(1, "x"));
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.29: the hero's weapons and their shots; a port of 1.28 has
+    // none.
+    {
+      fill_29_weapons(api);
+      const float at[3] = {1.0f, 2.0f, 3.0f};
+      const float velocity[3] = {0.0f, 0.5f, 0.0f};
+      CHECK(mod.has_weapon_shots() && mod.on_weapon_fire(fire_watch) &&
+            mod.on_shot_end(end_watch));
+      CHECK(mod.weapon_refire(7, 0.2f) == 41 &&
+            mod.weapon_refire(8, 0.2f) == -1);
+      CHECK(mod.moby_spawn_live(1498, at, velocity, -1, 5, 27,
+                                OPENRAC_SPAWN_LIVE_DETONATE) == 42);
+      CHECK(g_29_spawn.size == sizeof g_29_spawn && g_29_spawn.target == 5 &&
+            g_29_spawn.item == 27 &&
+            g_29_spawn.flags == OPENRAC_SPAWN_LIVE_DETONATE &&
+            g_29_spawn.position[2] == 3.0f && g_29_spawn.velocity[1] == 0.5f);
+      CHECK(mod.moby_spawn_live(9999, at, velocity) == -1);
+      CHECK(mod.weapon_look(27, OPENRAC_MOBY_MATERIAL_ENERGY_AT(6), 0x40C0FF) &&
+            g_29_look == OPENRAC_MOBY_MATERIAL_ENERGY_AT(6) &&
+            !mod.weapon_look(99, 0));
+      CHECK(mod.moby_status(3, OPENRAC_MOBY_STATUS_FREEZE, 60) &&
+            !mod.moby_status(4, OPENRAC_MOBY_STATUS_SLOW_HALF, 60));
+      CHECK(mod.weapon_record(27) == 0x00262570u && mod.weapon_record(5) == 0);
+      api.api_minor = 28;
+      CHECK(!mod.has_weapon_shots() && !mod.on_weapon_fire(fire_watch) &&
+            mod.weapon_refire(7, 0.2f) == -1 &&
+            mod.moby_spawn_live(1498, at, velocity) == -1 &&
+            !mod.moby_status(3, OPENRAC_MOBY_STATUS_FREEZE, 60) &&
+            mod.weapon_record(27) == 0);
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+    }
+    // Interface 1.30: a weapon's targets on screen or not; a port of 1.29 has
+    // none.
+    {
+      fill_30_culling(api);
+      CHECK(mod.has_weapon_culling() && mod.weapon_ignore_culling(43) &&
+            g_30_culling == 1);
+      CHECK(mod.weapon_ignore_culling(28, false) && g_30_culling == 0);
+      CHECK(!mod.weapon_ignore_culling(27));
+      g_30_culling = -1;
+      api.api_minor = 29;
+      CHECK(!mod.has_weapon_culling() && !mod.weapon_ignore_culling(43) &&
+            g_30_culling == -1);
+      api.api_minor = OPENRAC_MOD_API_MINOR;
+
+    }
+    // Interface 1.31: overlays over the menus and the buttons' labels; a port of 1.31 has none.
+    {
+        fill_31_overlays(api);
+        int kind = 0;
+        CHECK(mod.has_overlay_phases()
+              && mod.on_overlay_phases(overlay_31, nullptr, OPENRAC_OVERLAY_MENU)
+              && g_31_phases == OPENRAC_OVERLAY_MENU && !mod.on_overlay_phases(overlay_31, nullptr, 0));
+        CHECK(mod.has_button_label() && mod.button_label(OPENRAC_PAD_SQUARE, &kind) == "F"
+              && kind == OPENRAC_BUTTONS_KEYS);
+        CHECK(mod.button_label(OPENRAC_PAD_CROSS, &kind).empty() && kind == OPENRAC_HOOK_UNKNOWN);
+        api.api_minor = 30;
+        g_31_phases = 0;
+        CHECK(!mod.has_overlay_phases() && !mod.on_overlay_phases(overlay_31, nullptr, 1u)
+              && g_31_phases == 0);
+        CHECK(!mod.has_button_label() && mod.button_label(OPENRAC_PAD_SQUARE).empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     check_refused_loads(api, handle);
     check_reload(api, handle);

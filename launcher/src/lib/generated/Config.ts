@@ -24,6 +24,12 @@ docker: string | null,
  */
 developer: boolean, 
 /**
+ * Up Your Arsenal (rac3) is still in development: its build, set-up and Play stay blocked
+ * until a developer turns this on, after the launcher's three confirmations (Settings,
+ * Developer). Default off.
+ */
+rac3Dev: boolean, 
+/**
  * The save editor shows every field of a save, raw bytes included (for debugging). Off, the
  * player's safe set only.
  */
@@ -151,6 +157,17 @@ multiplayerName: string,
  * `OPENRAC_IDENTITY_KEY`.
  */
 multiplayerKey: string, 
+/**
+ * The multiplayer server every game's online play goes to (multiplayer.rs): a host name or an
+ * IP address, and a port. The official server (`game.openrac.dev:7770`) unless changed in
+ * Settings; anyone can host one (the OpenRAC/Server repository). Given to the game as
+ * `OPENRAC_SERVER=host:port`.
+ */
+multiplayerServerHost: string, 
+/**
+ * The server's port, 1 to 65535; a saved value out of range reads as the official port.
+ */
+multiplayerServerPort: number, 
 /**
  * The mod indexes to read (index.rs), in order; empty: the built-in list (`index::INDEXES`).
  */

@@ -55,7 +55,8 @@ constexpr Region kPlainRegions[] = {
     {GUEST_EE_REGS, GUEST_EE_REGS_SIZE},
     {GUEST_VU_MEM, GUEST_VU_MEM_SIZE},
     {GUEST_GS_REGS, GUEST_GS_REGS_SIZE},
-    {GUEST_SCRATCHPAD, GUEST_SCRATCHPAD_SIZE},
+    // With its guard, in one region: Windows maps whole 64 KB granules.
+    {GUEST_SCRATCHPAD, GUEST_SCRATCHPAD_SIZE + GUEST_SCRATCHPAD_GUARD_SIZE},
     {GUEST_PORT, GUEST_PORT_SIZE},
 };
 
@@ -475,6 +476,20 @@ bool Memory::restore_snapshot(
     } catch (const std::bad_alloc&) {
         return false;
     }
+}
+
+bool Memory::take_scratchpad_overrun() {
+    auto* words = reinterpret_cast<std::uint64_t*>(base_ + GUEST_SCRATCHPAD_GUARD);
+    constexpr std::size_t kWords = GUEST_SCRATCHPAD_GUARD_SIZE / sizeof(std::uint64_t);
+    std::uint64_t any = 0;
+    for (std::size_t i = 0; i < kWords; i++) {
+        any |= words[i];
+    }
+    if (any == 0) {
+        return false;
+    }
+    std::memset(words, 0, GUEST_SCRATCHPAD_GUARD_SIZE);
+    return true;
 }
 
 bool Memory::contains(const void* host, gaddr* address) const {

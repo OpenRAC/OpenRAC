@@ -143,10 +143,10 @@ The game keeps a deleted program's modules, layouts and pipelines (`vkgl::keep_p
 registry's `vk-program-keep`, `test_program_cache.cpp`). The next link of the same SPIR-V and
 layout takes them under its new serial, so a level's load makes no pipelines again.
 
-A shader's mode uniforms (`// openrac_mode: ...`) are specialisation constants of its pipelines
-(`vk-mode-constants`, `mode_sources` in `gl_program.cpp`). The key holds their values. A draw
-whose specialised pipeline is not made yet asks the workers for it and uses the pipeline that
-reads the uniforms (`stand_in_pipeline`).
+A shader's feature modes (`// openrac_mode: ...`) are mandatory specialisation constants
+(`mode_sources` in `gl_program.cpp`). Their GL setters update CPU-only values in the pipeline key.
+A draw compiles or waits for its exact variant; it never uses a generic shader. The manifest warms
+observed variants on later runs. Programs with modes do not prewarm unspecialised shader parts.
 
 With `vk-pipeline-library` (desktop), the workers also build each program's two shader parts. A
 draw with an unknown key links four parts (`PipelineLibraries`) at once; the whole pipeline is

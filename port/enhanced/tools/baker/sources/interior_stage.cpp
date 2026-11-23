@@ -29,10 +29,11 @@ void validate_identity(const json::Value& data) {
         throw std::runtime_error("unsupported inference input");
     }
 
-    // Level IDs span 0-18 (RAC1) or 0-30 (RAC2) and the source identity is a 64-character
-    // SHA-256 digest.
-    if (!bake_identity_supported(data["game"].string()) || data["level"].number(-1) < 0
-        || data["level"].number() > (data["game"].string().starts_with("rac2-") ? 30 : 18)
+    // Level IDs span 0-18 (RAC1), 0-30 (RAC2) or 0-53 (RAC3) and the source identity is a
+    // 64-character SHA-256 digest.
+    const auto& game = data["game"].string();
+    if (!bake_identity_supported(game) || data["level"].number(-1) < 0
+        || data["level"].number() > highest_level(game.substr(0, game.find('-')))
         || data["source_sha256"].string().size() != 64) {
         throw std::runtime_error("invalid source identity");
     }
@@ -213,6 +214,7 @@ std::string describe_report(
         << ",\"source_sha256\":\"" << input.source_sha256 << "\",\"spacing\":" << settings.spacing
         << ",\"height\":" << settings.height << ",\"radius\":" << settings.radius
         << ",\"step\":" << settings.step << ",\"sky_distance\":" << settings.sky_distance
+        << ",\"refined_cells\":" << result.refined_cells
         << ",\"blocked_portal_edges\":" << result.blocked_portal_edges;
 
     // Automatic reports carry stage identity; standalone reports preserve their existing schema.
@@ -255,7 +257,7 @@ std::string describe_report(
 std::string interior_stage_profile() {
     const in::Settings settings;
     // Bump this revision when inference changes independently of GI transport or binary rebuilds.
-    constexpr unsigned kInferenceRevision = 1;
+    constexpr unsigned kInferenceRevision = 3;
     return std::format(
         "{{\"revision\":{},\"spacing\":{},\"height\":{},\"radius\":{},\"step\":{},"
         "\"slope_cosine\":{},\"sky_distance\":{},\"max_cells\":{}}}",

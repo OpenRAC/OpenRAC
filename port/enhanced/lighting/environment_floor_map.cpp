@@ -3,6 +3,7 @@
 // Gameplay reachability and lighting-space segmentation for reflection captures.
 #include "enhanced/lighting/environment_floor_map.h"
 
+#include <map>
 #include <queue>
 
 #include "enhanced/lighting/bake_math.h"
@@ -37,6 +38,10 @@ std::vector<EnvironmentFloorSample> refine_floor_map(
     std::span<const EnvironmentFloorSample> input
 ) {
     std::vector<EnvironmentFloorSample> result(input.begin(), input.end());
+    std::map<Float2, std::vector<unsigned>> positions;
+    for (unsigned i = 0; i < result.size(); ++i) {
+        positions[{result[i].position[0], result[i].position[1]}].push_back(i);
+    }
 
     for (unsigned a = 0; a < input.size(); ++a) {
         for (auto b : input[a].neighbours) {
@@ -47,9 +52,22 @@ std::vector<EnvironmentFloorSample> refine_floor_map(
             if (b <= a) {
                 continue;
             }
+            if (input[a].underwater != input[b].underwater
+                || input[a].swimming_surface != input[b].swimming_surface) {
+                continue;  // A midpoint cannot inherit one endpoint's medium across a waterline.
+            }
 
             const auto p = mul(add(input[a].position, input[b].position), .5f);
+            auto& at_position = positions[{p[0], p[1]}];
+            if (std::any_of(at_position.begin(), at_position.end(), [&](unsigned id) {
+                    return std::abs(result[id].position[2] - p[2]) <= .75f;
+                })) {
+                // A real adaptive sample already owns this landing. An interpolated copy
+                // must not inherit a second component or reflection medium at the same spot.
+                continue;
+            }
             const auto id = static_cast<unsigned>(result.size());
+            at_position.push_back(id);
             auto sample = input[a];
             sample.position = p;
             sample.anchor = false;
@@ -106,6 +124,7 @@ std::optional<Float3> supported(const Scene& scene, Float3& floor, const BakeSet
 
 std::vector<EnvironmentFloor> playable_floors(
     const Scene& scene,
+    const Scene& support_scene,
     std::span<const ProbeVolume> volumes,
     std::span<const EnvironmentFloorSample> samples,
     const BakeSettings& settings,
@@ -141,6 +160,8 @@ std::vector<EnvironmentFloor> playable_floors(
     const CaptureGi field(volumes);
     std::vector<EnvironmentFloor> result;
     report.input_floors = static_cast<unsigned>(samples.size());
+    report.floor_locality_radii.clear();
+    report.floor_roofs.clear();
 
     for (unsigned i = 0; i < samples.size(); ++i) {
         if (!reached[i]) {
@@ -153,7 +174,7 @@ std::vector<EnvironmentFloor> playable_floors(
                                   ? std::optional<Float3>{Float3{
                                         ground[0], ground[1], ground[2] + kEnvironmentCaptureHeight
                                     }}
-                                  : supported(scene, ground, settings);
+                                  : supported(support_scene, ground, settings);
 
         if (!position) {
             ++report.unsupported_floors;
@@ -163,9 +184,23 @@ std::vector<EnvironmentFloor> playable_floors(
 
         EnvironmentFloor floor;
         floor.capture = *position;
+        // Gameplay collision establishes the receiver floor. Check the camera's
+        // headroom in visible geometry independently, without requiring a render deck.
+        if (&support_scene != &scene && !samples[i].swimming_surface) {
+            auto eye = ground;
+            eye[2] += .05f;
+            const float length = std::max(.01f, floor.capture[2] - eye[2] + .1f);
+            const auto roof = scene.trace(eye, {0, 0, 1}, settings.ray_bias, length);
+            if (roof.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
+                floor.capture[2] = std::min(floor.capture[2], eye[2] + roof.ray.tfar - .1f);
+            }
+        }
         floor.position = ground;
         floor.water_height = samples[i].water_height;
         floor.underwater = samples[i].underwater;
+        floor.swimming_surface = samples[i].swimming_surface;
+        floor.island = samples[i].island;
+        floor.component = samples[i].region;
 
         if (floor.water_height) {
             if (floor.underwater) {
@@ -208,6 +243,31 @@ std::vector<EnvironmentFloor> playable_floors(
 
         const bool roof =
             scene.occluded(floor.capture, {0, 0, 1}, settings.ray_bias, options.box_distance);
+        if (!roof && !floor.underwater && options.box_distance > options.spacing) {
+            std::array<float, 16> distances;
+            auto eye = floor.position;
+            eye[2] += 1.25f;
+            for (unsigned ray = 0; ray < 16; ++ray) {
+                const float angle = float(ray) * kPi / 8;
+                const auto hit = scene.trace(
+                    eye,
+                    {std::cos(angle), std::sin(angle), 0},
+                    settings.ray_bias,
+                    options.box_distance
+                );
+                distances[ray] = hit.ray.tfar;
+            }
+            // A nearby bank in one direction must not force small captures across
+            // an otherwise open view. Individual long links still require clear rays.
+            std::sort(distances.begin(), distances.end());
+            const float open_radius = distances[distances.size() / 2];
+            if (open_radius > options.spacing) {
+                floor.locality_radius = open_radius;
+            }
+        }
+
+        report.floor_locality_radii.push_back(std::max(options.spacing, floor.locality_radius));
+        report.floor_roofs.push_back(roof);
         floor.sky_band = samples[i].sky <= .1875f && roof && walls >= 5 ? 0 : 1;
         auto receiver = floor.position;
         receiver[2] += 1.25f;
@@ -227,16 +287,34 @@ EnvironmentFloorMap environment_floor_map(
     std::span<const EnvironmentFloorSample> input,
     const BakeSettings& settings,
     const EnvironmentBakeSettings& options,
-    EnvironmentPlacementReport& report
+    EnvironmentPlacementReport& report,
+    const Scene* gameplay_collision
 ) {
     // Capture validation refines the floor graph, but orientation comes from the same
     // unrefined analysis as GI fitting and its debug view. Extra validation samples must
     // not change corridor axes.
-    const auto samples = connected_room_floors(scene, input, settings, &report);
-    const auto alignment = room_layout(scene, samples, settings);
+    std::vector<EnvironmentFloorSample> samples(input.begin(), input.end());
+    if (std::any_of(samples.begin(), samples.end(), [](const auto& floor) {
+            return !floor.island;
+        })) {
+        samples = connected_room_floors(scene, input, settings, &report);
+        const auto layout = room_layout(scene, samples, settings, false, true);
+        for (unsigned a = 0; a < samples.size(); ++a) {
+            samples[a].island = layout.owners[a];
+            samples[a].island_clearance = layout.clearance[a];
+        }
+    }
     const auto refined = refine_floor_map(samples);
     EnvironmentFloorMap result;
-    result.floors = playable_floors(scene, volumes, refined, settings, options, report);
+    result.floors = playable_floors(
+        scene,
+        gameplay_collision ? *gameplay_collision : scene,
+        volumes,
+        refined,
+        settings,
+        options,
+        report
+    );
     // Original nodes and edge midpoints share the horizontal footprint of the source lattice.
     std::vector<float> edge_areas;
 
@@ -286,13 +364,60 @@ EnvironmentFloorMap environment_floor_map(
         }
     }
 
-    connect_environment_floor_fragments(scene, supported, result.floors, settings, options, report);
-    auto geometry = room_layout(scene, supported, settings, false, true);
-    result.rooms = geometry.rooms;
+    unsigned island_count = 0;
+    for (const auto& sample : samples) {
+        island_count = std::max(island_count, *sample.island + 1);
+    }
+    result.rooms.resize(island_count);
+    report.watershed.reserve(supported.size());
 
     for (unsigned a = 0; a < result.floors.size(); ++a) {
-        result.floors[a].room = geometry.owners[a];
-        result.floors[a].clearance = geometry.clearance[a];
+        const auto island = *supported[a].island;
+        result.floors[a].room = island;
+        result.floors[a].clearance = supported[a].island_clearance;
+        result.floors[a].neighbours = supported[a].neighbours;
+        result.rooms[island].push_back(a);
+        report.watershed.push_back(
+            {supported[a].position,
+             island,
+             supported[a].island_clearance,
+             supported[a].swimming_surface && !supported[a].underwater}
+        );
+    }
+
+    // Measure connected open space independently of watershed subdivisions.
+    // Small pockets retain nominal locality; broad seas/plains can share a view.
+    const double broad_area = 4 * double(kPi) * options.spacing * options.spacing;
+    std::vector<bool> visited(result.floors.size());
+    for (unsigned a = 0; a < result.floors.size(); ++a) {
+        if (visited[a] || result.floors[a].locality_radius <= options.spacing) {
+            continue;
+        }
+        std::vector<unsigned> domain{a};
+        visited[a] = true;
+        double area = 0;
+        for (unsigned i = 0; i < domain.size(); ++i) {
+            const auto& floor = result.floors[domain[i]];
+            area += floor.area;
+            for (auto next : floor.neighbours) {
+                const auto& other = result.floors[next];
+                if (!visited[next] && other.locality_radius > options.spacing
+                    && other.component == floor.component && other.underwater == floor.underwater
+                    && other.swimming_surface == floor.swimming_surface) {
+                    visited[next] = true;
+                    domain.push_back(next);
+                }
+            }
+        }
+        if (area < broad_area) {
+            for (auto i : domain) {
+                result.floors[i].locality_radius = 0;
+            }
+        }
+    }
+    for (unsigned i = 0; i < result.floors.size(); ++i) {
+        report.floor_locality_radii[i] =
+            std::max(options.spacing, result.floors[i].locality_radius);
     }
 
     merge_environment_spaces(
@@ -303,42 +428,9 @@ EnvironmentFloorMap environment_floor_map(
         result.rooms,
         report,
         options.minimum_space_area,
-        options
+        options,
+        true
     );
-    geometry.rooms = result.rooms;
-
-    for (unsigned room = 0; room < result.rooms.size(); ++room) {
-        result.centres.push_back(geometry.centre(supported, room));
-
-        for (auto a : result.rooms[room]) {
-            const auto source = result.floors[a].source;
-            auto original = source;
-
-            if (original >= samples.size()) {
-                const auto& ends = refined[source].neighbours;
-                original = ends.front();
-
-                for (auto candidate : ends) {
-                    const auto p =
-                        add(samples[candidate].position, mul(result.floors[a].position, -1));
-                    const auto q =
-                        add(samples[original].position, mul(result.floors[a].position, -1));
-
-                    if (dot(p, p) < dot(q, q)) {
-                        original = candidate;
-                    }
-                }
-            }
-
-            result.floors[a].frame = alignment.frame(
-                samples,
-                alignment.owners[original],
-                result.floors[a].position,
-                std::max(8.f, options.spacing)
-            );
-        }
-    }
-
     report.lighting_spaces = static_cast<unsigned>(result.rooms.size());
     return result;
 }

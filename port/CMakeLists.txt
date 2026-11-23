@@ -162,6 +162,21 @@ openrac_add_test(sampler LIBS openrac_common)
 openrac_add_test(staged_file LIBS openrac_common)
 openrac_add_test(result INCLUDES .)
 openrac_add_test(c_boundary LIBS openrac_common)
+
+# The native multiplayer screens (mpui/README.md): layout, navigation, the data model and the
+# servers' UI descriptions, knowing no game. The games reach them through openrac/mp_ui.h.
+add_library(openrac_mpui STATIC
+  mpui/description.cpp
+  mpui/model.cpp
+  mpui/screen_view.cpp
+)
+target_link_libraries(openrac_mpui PUBLIC openrac_common)
+openrac_warnings(openrac_mpui)
+openrac_add_test(mpui_description LIBS openrac_mpui)
+openrac_add_test(mpui_screen_view LIBS openrac_mpui)
+# The C contract the games use (game/common/lib/mp_ui.cpp), on its own.
+openrac_add_test(mp_ui SOURCES tests/mp_ui_test.cpp game/common/lib/mp_ui.cpp
+                 INCLUDES . game/common/include runtime/include LIBS openrac_mpui)
 openrac_add_test(frame_pacing INCLUDES .)
 openrac_add_test(latency_sleep INCLUDES .)
 openrac_add_test(swapchain_images INCLUDES .)
@@ -273,6 +288,24 @@ openrac_add_test(custom_map
   INCLUDES game/common LIBS openrac_common)
 include(Luau)
 add_library(openrac_mods STATIC
+  game/common/button_labels.cpp
+  game/common/mod_api/camera.cpp
+  game/common/mod_api/core.cpp
+  game/common/mod_api/figures.cpp
+  game/common/mod_api/graphics.cpp
+  game/common/mod_api/hero.cpp
+  game/common/mod_api/hooks.cpp
+  game/common/mod_api/input.cpp
+  game/common/mod_api/menus.cpp
+  game/common/mod_api/party.cpp
+  game/common/mod_api/play.cpp
+  game/common/mod_api/saves.cpp
+  game/common/mod_api/settings.cpp
+  game/common/mod_api/sound.cpp
+  game/common/mod_api/system.cpp
+  game/common/mod_api/touch.cpp
+  game/common/mod_api/visuals.cpp
+  game/common/mod_api/world.cpp
   game/common/mod_library.cpp
   game/common/mod_manifest.cpp
   game/common/mod_play.cpp
@@ -288,6 +321,8 @@ openrac_warnings(openrac_mods)
 openrac_add_test(mod_manifest LIBS openrac_mods)
 # What the mods ask of the on-screen pad's buttons (mod_touch.h).
 openrac_add_test(mod_touch LIBS openrac_mods)
+# The pad's buttons as the player's device has them (button_labels.h): the mods' labels and tokens.
+openrac_add_test(button_labels LIBS openrac_mods)
 # When the mods' pages of the game's menus take the pad (mod_ui.h): only while the title stays.
 openrac_add_test(mod_ui_menus INCLUDES game/common)
 # The shared progress of rac1 (game/rac1/host/shared.c) on an array in place of game memory.
@@ -353,9 +388,9 @@ openrac_add_c_test(rac4_io
           game/common/lib/pad.c
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
-openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include)
+openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
 # The other games' saves on the first card: read, never written (the Barlow vendor's free weapons).
-openrac_add_c_test(mc_shared_card INCLUDES runtime/include game/common/include)
+openrac_add_c_test(mc_shared_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
 
 # ---- assets, media, audio, the extractor: no window ----
 openrac_add_c_test(crate_init NO_STRICT_ALIASING WRAPV NO_FP_CONTRACT)
@@ -378,7 +413,7 @@ if(OPENRAC_ENHANCED_RENDERING OR OPENRAC_PROBE_BAKER)
 endif()
 
 # Probe assets and CPU sampling need neither a graphics context nor Embree.
-add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_depth.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
+add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_fit.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_depth.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
   enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp enhanced/lighting/bake_lz4.cpp)
 target_include_directories(openrac_lighting PUBLIC .)
 option(OPENRAC_BAKE_LZ4 "Enable LZ4 bake asset storage" ON)
@@ -481,9 +516,21 @@ openrac_add_c_test(rac2_hero_attachments INCLUDES game/rac2/host)
 # LoadLevelData leaves one.
 openrac_add_c_test(rac2_enemy_copies NO_STRICT_ALIASING MATH
   INCLUDES tests/rac2_host game/rac2/host game/rac2-ntsc/host runtime/include)
+# Going Commando's weapon shots for the mods (on_weapon_fire, weapon_refire, on_shot_end,
+# moby_spawn_live, weapon_look, moby_status) and its moby loop, on a level of the test's own.
+openrac_add_c_test(rac2_weapon_shots NO_STRICT_ALIASING MATH
+  INCLUDES tests/rac2_host game/rac2/host game/rac2-ntsc/host runtime/include game/common/include
+  "${PROJECT_SOURCE_DIR}/../sdk/include")
+# Going Commando's target picks on screen or not for the mods' weapons (weapon_ignore_culling).
+openrac_add_c_test(rac2_weapon_culling NO_STRICT_ALIASING
+  INCLUDES tests/rac2_host game/rac2/host game/rac2-ntsc/host runtime/include game/common/include
+  "${PROJECT_SOURCE_DIR}/../sdk/include")
 # Going Commando's saves as the play calls read them, on a save the game wrote.
 openrac_add_c_test(rac2_save INCLUDES game/rac2/host
   DEFINITIONS "RAC2_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac2/save-oozla.bin\"")
+# Up Your Arsenal's saves as the play calls read them, on a slot the game wrote.
+openrac_add_c_test(rac3_save INCLUDES game/rac3-pal/host
+  DEFINITIONS "RAC3_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac3/save-empty.bin\"")
 # The card filter against the game's calls on a real folder: a party never writes a player's saves.
 openrac_add_c_test(mc_filter SOURCES tests/mc_filter_test.c game/common/lib/mc.c
                    INCLUDES game/common/include runtime/include)
@@ -545,4 +592,14 @@ if(OPENRAC_PORT_GAMES)
   # Every rac1 version binds each function, its C type and its data alike, or parity.tsv says why.
   add_test(NAME parity_tool
            COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_parity.py")
+  # No translated C calls a function hostgen has no C for (an empty body that does nothing), or
+  # checks/stub_calls.tsv says why. Skipped (77) for a version not built here. rac1 and rac2: rac3
+  # and rac4 have thousands (most of their code has no C yet).
+  foreach(version rac1-pal rac1-ntsc rac1-pal1 rac1-jp rac2-ntsc rac2-pal rac2-ntsc2)
+    add_test(NAME ${version}_stub_calls
+             COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/hostgen/stub_calls.py"
+                     --gen "${CMAKE_BINARY_DIR}/games/${version}/gen"
+                     --allow "${PROJECT_SOURCE_DIR}/game/${version}/checks/stub_calls.tsv")
+    set_tests_properties(${version}_stub_calls PROPERTIES SKIP_RETURN_CODE 77 LABELS game-${version})
+  endforeach()
 endif()

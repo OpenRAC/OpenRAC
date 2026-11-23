@@ -124,6 +124,12 @@ class AuthoredSeeds(unittest.TestCase):
             self.assertEqual(seeds.coarse_header(file)['probe_format_version'], 7)
             file.write_bytes(struct.pack('<I', 0x5047524f) + struct.pack('<I', 8) + header[8:])
             self.assertEqual(seeds.coarse_header(file)['probe_format_version'], 8)
+            frame_end = 16 + len(b'rac1-ntsc') + 40
+            for version, rotation in ((9, (0.8, 0.6)), (10, (0.8, 0.6, 0.6, 0.8))):
+                with self.subTest(version=version):
+                    file.write_bytes(struct.pack('<2I', 0x5047524f, version) + header[8:frame_end]
+                                     + struct.pack(f'<{len(rotation)}f', *rotation) + header[frame_end:])
+                    self.assertEqual(seeds.coarse_header(file), dict(actual, probe_format_version=version))
             for version, revision in ((1, 1), (2, 1), (3, 1), (4, 1), (5, 5), (6, 99)):
                 file.write_bytes(struct.pack('<3I', 0x5047524f, version, revision)+header[12:])
                 with self.assertRaises(ValueError):

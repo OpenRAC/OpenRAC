@@ -190,8 +190,12 @@ constexpr Words kWords[] = {
 // Texts with a number in them: the words around it.
 constexpr Words kCustom = {{"Custom ", "Personnalisé ", "Eigenes ", "Personalizado ", "Personalizzato "}};
 constexpr Words kAnisotropic = {{"Anisotropic ", "Anisotrope ", "Anisotrop ", "Anisotrópico ", "Anisotropico "}};
-constexpr Words kUpscaler = {
-    {" (upscaler)", " (upscaler)", " (Upscaler)", " (escalador)", " (upscaler)"}
+constexpr Words kStandardGraphics = {
+    {" (standard graphics)",
+     " (graphismes standard)",
+     " (Standardgrafik)",
+     " (gráficos estándar)",
+     " (grafica standard)"}
 };
 constexpr Words kNotConnected =
     {{" (not connected)", " (non connecté)", " (nicht verbunden)", " (no conectado)", " (non collegato)"}};
@@ -231,7 +235,7 @@ std::string translated(const std::string& text, int lang) {
             return w->text[lang] + text.substr(std::strlen(w->text[0]));
         }
     }
-    for (const Words* w : {&kNotConnected, &kUpscaler}) {
+    for (const Words* w : {&kNotConnected, &kStandardGraphics}) {
         if (text.ends_with(w->text[0])) {
             return text.substr(0, text.size() - std::strlen(w->text[0])) + w->text[lang];
         }

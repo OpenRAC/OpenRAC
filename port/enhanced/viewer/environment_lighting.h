@@ -40,7 +40,8 @@ private:
     EnvironmentSelection m_selection;
     DebugLines m_debug;
     renderer::Shader m_preview_shader;
-    unsigned m_preview_vao = 0;
+    unsigned m_preview_vao = 0, m_preview_buffer = 0;
+    std::vector<std::array<float, 4>> m_preview_captures;
     bool m_debug_failed =
         false;  // A failed diagnostic does not disable reflections or retry every frame.
     unsigned m_texture = 0;

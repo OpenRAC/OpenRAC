@@ -46,10 +46,20 @@ float channel(unsigned bits, unsigned mantissa) {
         (exponent ? int(exponent) - 15 : -14) - int(mantissa)
     );
 }
+
+EnvironmentProjection region_projection(
+    const EnvironmentProbe& capture, const EnvironmentInfluence& region
+) {
+    return region.projection.value_or(
+        EnvironmentProjection{capture.frame, capture.projection_minimum, capture.projection_maximum}
+    );
+}
 }  // namespace
 
 std::uint64_t environment_capture_hash(
-    std::span<const EnvironmentProbe> probes, std::uint64_t gi_hash
+    std::span<const EnvironmentProbe> probes,
+    std::uint64_t gi_hash,
+    std::span<const EnvironmentInfluence> influences
 ) {
     std::uint64_t hash = 14695981039346656037ull;
     for (unsigned shift = 0; shift < 64; shift += 8) {
@@ -60,6 +70,20 @@ std::uint64_t environment_capture_hash(
             const auto bits = std::bit_cast<unsigned>(value);
             for (unsigned shift = 0; shift < 32; shift += 8) {
                 hash = (hash ^ ((bits >> shift) & 255)) * 1099511628211ull;
+            }
+        }
+        for (auto value : probe.frame.pitch) {
+            const auto bits = std::bit_cast<unsigned>(value);
+            for (unsigned shift = 0; shift < 32; shift += 8) {
+                hash = (hash ^ ((bits >> shift) & 255)) * 1099511628211ull;
+            }
+        }
+        if (probe.frame.roll != Float2{1, 0}) {
+            for (auto value : probe.frame.roll) {
+                const auto bits = std::bit_cast<unsigned>(value);
+                for (unsigned shift = 0; shift < 32; shift += 8) {
+                    hash = (hash ^ ((bits >> shift) & 255)) * 1099511628211ull;
+                }
             }
         }
         for (auto p :
@@ -76,19 +100,77 @@ std::uint64_t environment_capture_hash(
             }
         }
     }
+    const auto append = [&](unsigned bits) {
+        for (unsigned shift = 0; shift < 32; shift += 8) {
+            hash = (hash ^ ((bits >> shift) & 255)) * 1099511628211ull;
+        }
+    };
+    for (const auto& region : influences) {
+        append(region.capture);
+        for (auto v : region.frame.axis) {
+            append(std::bit_cast<unsigned>(v));
+        }
+        for (auto v : region.frame.pitch) {
+            append(std::bit_cast<unsigned>(v));
+        }
+        if (region.frame.roll != Float2{1, 0}) {
+            for (auto v : region.frame.roll) {
+                append(std::bit_cast<unsigned>(v));
+            }
+        }
+        for (auto p : {region.minimum, region.maximum}) {
+            for (auto v : p) {
+                append(std::bit_cast<unsigned>(v));
+            }
+        }
+        if (region.capture >= probes.size()) {
+            throw std::runtime_error("invalid reflection influence capture");
+        }
+        const auto proxy = region_projection(probes[region.capture], region);
+        for (auto v : proxy.frame.axis) {
+            append(std::bit_cast<unsigned>(v));
+        }
+        for (auto v : proxy.frame.pitch) {
+            append(std::bit_cast<unsigned>(v));
+        }
+        if (proxy.frame.roll != Float2{1, 0}) {
+            for (auto v : proxy.frame.roll) {
+                append(std::bit_cast<unsigned>(v));
+            }
+        }
+        for (auto p : {proxy.minimum, proxy.maximum}) {
+            for (auto v : p) {
+                append(std::bit_cast<unsigned>(v));
+            }
+        }
+    }
     return hash;
 }
 
-std::vector<std::array<float, 4>> environment_metadata(std::span<const EnvironmentProbe> probes) {
+std::vector<std::array<float, 4>> environment_metadata(
+    std::span<const EnvironmentProbe> probes, std::span<const EnvironmentInfluence> influences
+) {
     std::vector<std::array<float, 4>> result;
-    for (const auto& p : probes) {
-        const auto start = result.size();
-        for (auto v :
-             {p.position, p.minimum, p.maximum, p.projection_minimum, p.projection_maximum}) {
-            result.push_back({v[0], v[1], v[2], 0});
+    const unsigned count = unsigned(influences.empty() ? probes.size() : influences.size());
+    for (unsigned i = 0; i < count; ++i) {
+        const auto region =
+            influences.empty()
+                ? EnvironmentInfluence{i, probes[i].frame, probes[i].minimum, probes[i].maximum}
+                : influences[i];
+        if (region.capture >= probes.size()) {
+            throw std::runtime_error("invalid reflection influence capture");
         }
-        result[start][3] = p.frame.axis[0];
-        result[start + 1][3] = p.frame.axis[1];
+        const auto& p = probes[region.capture];
+        const auto proxy = region_projection(p, region);
+        const auto rotation = region.frame.quaternion();
+        result.push_back({p.position[0], p.position[1], p.position[2], rotation[0]});
+        result.push_back({region.minimum[0], region.minimum[1], region.minimum[2], rotation[1]});
+        result.push_back({region.maximum[0], region.maximum[1], region.maximum[2], rotation[2]});
+        result.push_back({proxy.minimum[0], proxy.minimum[1], proxy.minimum[2], rotation[3]});
+        result.push_back(
+            {proxy.maximum[0], proxy.maximum[1], proxy.maximum[2], float(region.capture)}
+        );
+        result.push_back(proxy.frame.quaternion());
     }
     return result;
 }
@@ -165,8 +247,10 @@ void EnvironmentAsset::validate() const {
         }
         for (unsigned a = 0; a < 3; ++a) {
             if (!std::isfinite(probe.position[a]) || !std::isfinite(probe.minimum[a])
-                || !std::isfinite(probe.maximum[a]) || probe.minimum[a] >= centre[a]
-                || probe.maximum[a] <= centre[a] || !std::isfinite(probe.projection_minimum[a])
+                || !std::isfinite(probe.maximum[a]) || probe.minimum[a] >= probe.maximum[a]
+                || (influences.empty()
+                    && (probe.minimum[a] >= centre[a] || probe.maximum[a] <= centre[a]))
+                || !std::isfinite(probe.projection_minimum[a])
                 || !std::isfinite(probe.projection_maximum[a])
                 || probe.projection_minimum[a] >= centre[a]
                 || probe.projection_maximum[a] <= centre[a]) {
@@ -179,6 +263,36 @@ void EnvironmentAsset::validate() const {
         }
     }
 
+    if (influences.size() > kEnvironmentProbeLimit) {
+        throw std::runtime_error("too many reflection influence regions");
+    }
+    for (const auto& region : influences) {
+        if (region.capture >= probes.size() || !region.frame.valid()) {
+            throw std::runtime_error("invalid reflection influence reference/orientation");
+        }
+        for (unsigned a = 0; a < 3; ++a) {
+            if (!std::isfinite(region.minimum[a]) || !std::isfinite(region.maximum[a])
+                || region.minimum[a] >= region.maximum[a]) {
+                throw std::runtime_error("invalid reflection influence bounds");
+            }
+        }
+    }
+
+    for (const auto& region : influences) {
+        if (!region.projection) {
+            continue;
+        }
+        const auto& proxy = *region.projection;
+        if (!proxy.frame.valid()) {
+            throw std::runtime_error("invalid reflection proxy orientation");
+        }
+        for (unsigned a = 0; a < 3; ++a) {
+            if (!std::isfinite(proxy.minimum[a]) || !std::isfinite(proxy.maximum[a])
+                || proxy.minimum[a] >= proxy.maximum[a]) {
+                throw std::runtime_error("invalid reflection proxy bounds");
+            }
+        }
+    }
     for (auto pixel : pixels) {
         if (((pixel >> 6) & 31) == 31 || ((pixel >> 17) & 31) == 31 || (pixel >> 27) == 31) {
             throw std::runtime_error("nonfinite environment radiance");
@@ -343,9 +457,9 @@ std::uint64_t environment_gi_hash(
 
 std::vector<std::uint8_t> encode_environment(const EnvironmentAsset& asset) {
     asset.validate();
-    std::vector<std::uint8_t> out{'O', 'R', 'E', 'N', 'V', '0', '0', '6'};
+    std::vector<std::uint8_t> out{'O', 'R', 'E', 'N', 'V', '0', '1', '0'};
     for (unsigned value :
-         {6u, asset.resolution, static_cast<unsigned>(asset.probes.size()), asset.level}) {
+         {10u, asset.resolution, static_cast<unsigned>(asset.probes.size()), asset.level}) {
         word(out, value);
     }
     for (auto hash : {asset.scene_hash, asset.settings_hash, asset.gi_hash}) {
@@ -353,9 +467,16 @@ std::vector<std::uint8_t> encode_environment(const EnvironmentAsset& asset) {
         word(out, static_cast<unsigned>(hash >> 32));
     }
     word(out, static_cast<unsigned>(asset.colour_format));
+    word(out, unsigned(asset.influences.size()));
     for (const auto& probe : asset.probes) {
         for (float value : probe.frame.axis) {
             word(out, std::bit_cast<unsigned>(value));
+        }
+        for (float value : probe.frame.pitch) {
+            word(out, std::bit_cast<unsigned>(value));
+        }
+        for (float v : probe.frame.roll) {
+            word(out, std::bit_cast<unsigned>(v));
         }
         for (const auto& vector :
              {probe.position,
@@ -365,6 +486,38 @@ std::vector<std::uint8_t> encode_environment(const EnvironmentAsset& asset) {
               probe.projection_maximum}) {
             for (float value : vector) {
                 word(out, std::bit_cast<unsigned>(value));
+            }
+        }
+    }
+    for (const auto& region : asset.influences) {
+        word(out, region.capture);
+        for (float v : region.frame.axis) {
+            word(out, std::bit_cast<unsigned>(v));
+        }
+        for (float v : region.frame.pitch) {
+            word(out, std::bit_cast<unsigned>(v));
+        }
+        for (float v : region.frame.roll) {
+            word(out, std::bit_cast<unsigned>(v));
+        }
+        for (auto p : {region.minimum, region.maximum}) {
+            for (float v : p) {
+                word(out, std::bit_cast<unsigned>(v));
+            }
+        }
+        const auto proxy = region_projection(asset.probes[region.capture], region);
+        for (float v : proxy.frame.axis) {
+            word(out, std::bit_cast<unsigned>(v));
+        }
+        for (float v : proxy.frame.pitch) {
+            word(out, std::bit_cast<unsigned>(v));
+        }
+        for (float v : proxy.frame.roll) {
+            word(out, std::bit_cast<unsigned>(v));
+        }
+        for (auto p : {proxy.minimum, proxy.maximum}) {
+            for (float v : p) {
+                word(out, std::bit_cast<unsigned>(v));
             }
         }
     }
@@ -396,11 +549,17 @@ namespace {
 // Read only bounded header fields before computing atlas dimensions or allocating texture data.
 EnvironmentAsset read_environment_header(std::span<const std::uint8_t> bytes, std::size_t& at) {
     if (bytes.size() < 52
-        || std::string_view(reinterpret_cast<const char*>(bytes.data()), 8) != "ORENV006") {
+        || (std::string_view(reinterpret_cast<const char*>(bytes.data()), 8) != "ORENV006"
+            && std::string_view(reinterpret_cast<const char*>(bytes.data()), 8) != "ORENV007"
+            && std::string_view(reinterpret_cast<const char*>(bytes.data()), 8) != "ORENV008"
+            && std::string_view(reinterpret_cast<const char*>(bytes.data()), 8) != "ORENV009"
+            && std::string_view(reinterpret_cast<const char*>(bytes.data()), 8) != "ORENV010")) {
         throw std::runtime_error("unsupported environment asset; rebake reflections");
     }
     at = 8;
-    if (word(bytes, at) != 6) {
+    const auto version = word(bytes, at);
+    if ((version != 6 && version != 7 && version != 8 && version != 9 && version != 10)
+        || (bytes[6] != '0' + version / 10 || bytes[7] != '0' + version % 10)) {
         throw std::runtime_error("unsupported environment asset version");
     }
     EnvironmentAsset asset;
@@ -416,6 +575,13 @@ EnvironmentAsset read_environment_header(std::span<const std::uint8_t> bytes, st
         || asset.resolution > 256 || !std::has_single_bit(asset.resolution)) {
         throw std::runtime_error("invalid environment asset bounds");
     }
+    if (version >= 8) {
+        const auto regions = word(bytes, at);
+        if (regions > kEnvironmentProbeLimit) {
+            throw std::runtime_error("invalid influence count");
+        }
+        asset.influences.resize(regions);
+    }
     asset.probes.resize(count);
     return asset;
 }
@@ -428,6 +594,16 @@ void read_environment_probes(
         for (auto& value : probe.frame.axis) {
             value = std::bit_cast<float>(word(bytes, at));
         }
+        if (bytes[8] >= 7) {
+            for (auto& value : probe.frame.pitch) {
+                value = std::bit_cast<float>(word(bytes, at));
+            }
+        }
+        if (bytes[8] >= 10) {
+            for (auto& v : probe.frame.roll) {
+                v = std::bit_cast<float>(word(bytes, at));
+            }
+        }
         for (auto* vector :
              {&probe.position,
               &probe.minimum,
@@ -437,6 +613,45 @@ void read_environment_probes(
             for (auto& value : *vector) {
                 value = std::bit_cast<float>(word(bytes, at));
             }
+        }
+    }
+    for (auto& region : asset.influences) {
+        region.capture = word(bytes, at);
+        for (auto& v : region.frame.axis) {
+            v = std::bit_cast<float>(word(bytes, at));
+        }
+        for (auto& v : region.frame.pitch) {
+            v = std::bit_cast<float>(word(bytes, at));
+        }
+        if (bytes[8] >= 10) {
+            for (auto& v : region.frame.roll) {
+                v = std::bit_cast<float>(word(bytes, at));
+            }
+        }
+        for (auto* p : {&region.minimum, &region.maximum}) {
+            for (auto& v : *p) {
+                v = std::bit_cast<float>(word(bytes, at));
+            }
+        }
+        if (bytes[8] >= 9) {
+            EnvironmentProjection proxy;
+            for (auto& v : proxy.frame.axis) {
+                v = std::bit_cast<float>(word(bytes, at));
+            }
+            for (auto& v : proxy.frame.pitch) {
+                v = std::bit_cast<float>(word(bytes, at));
+            }
+            if (bytes[8] >= 10) {
+                for (auto& v : proxy.frame.roll) {
+                    v = std::bit_cast<float>(word(bytes, at));
+                }
+            }
+            for (auto* p : {&proxy.minimum, &proxy.maximum}) {
+                for (auto& v : *p) {
+                    v = std::bit_cast<float>(word(bytes, at));
+                }
+            }
+            region.projection = proxy;
         }
     }
 }
@@ -486,7 +701,15 @@ EnvironmentAsset read_environment(std::span<const std::uint8_t> bytes, bool expa
     auto asset = read_environment_header(bytes, at);
     const auto radiance_bytes =
         probe_texture_bytes(asset.colour_format, asset.width(), asset.brdf_row());
-    const auto expected = asset.probes.size() * 68 + radiance_bytes
+    const auto expected = asset.probes.size()
+                              * (bytes[8] >= 10  ? 84
+                                 : bytes[8] >= 7 ? 76
+                                                 : 68)
+                          + asset.influences.size()
+                                * (bytes[8] >= 10  ? 100
+                                   : bytes[8] >= 9 ? 84
+                                                   : 44)
+                          + radiance_bytes
                           + std::size_t{kEnvironmentBrdfSize} * kEnvironmentBrdfSize * 4;
     // Reject truncation and extra bytes before reading any boxes or GPU payload.
     if (bytes.size() - at != expected) {

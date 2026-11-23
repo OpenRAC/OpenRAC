@@ -66,10 +66,16 @@ concurrency:
   # push waits behind it. Other branches still cancel an older run.
   cancel-in-progress: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/master' }}
 
+env:
+  # The runners have no disc: games whose code is translated from it (rac3-pal's "retail"
+  # "required") build with stubs on purpose instead of stopping (port/tools/hostgen/asmc.py).
+  OPENRAC_HOSTGEN_NO_DISC: "1"
+
 jobs:
-  # A branch build's version, worked out once for every build and the rolling release. Each used to
-  # ask scripts/dev_version.sh itself: a release tag pushed while a run was going made the installers
-  # X.Y.Z and their latest.json X.Y.(Z+1)-dev, and launchers on that channel updated forever.
+  # A branch build's version, worked out once for every build and the rolling release. Each build
+  # asking scripts/dev_version.sh itself could disagree when a release tag is pushed mid-run (the
+  # installers X.Y.Z, their latest.json X.Y.(Z+1)-dev), and launchers on that channel would update
+  # forever.
   version:
     runs-on: ubuntu-26.04
     timeout-minutes: 5

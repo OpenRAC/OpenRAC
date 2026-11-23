@@ -18,6 +18,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "button_labels.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "debug_menu.h"
@@ -26,6 +27,7 @@
 #include "game/common/frontend/active_input.h"
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/geometry.h"
+#include "game/common/frontend/input_latency.h"
 #include "game/common/frontend/state.h"
 #include "game/common/frontend/touch_controls.h"
 #include "mod_menu.h"
@@ -95,9 +97,76 @@ void draw_touch_pad(int window_width, int window_height) {
     }
 }
 
+// The player's device for the labels of the pad's buttons (button_labels.h, interface 1.31): the
+// keyboard and mouse, or the make of the first controller connected (none: the game's own icons).
+namespace {
+int g_prompt_device = -1;
+bool g_mouse_with_gamepad = true;
+}  // namespace
+
+void set_prompt_device(int device) {
+    g_prompt_device = device;
+}
+
+void set_mouse_with_gamepad(bool on) {
+    g_mouse_with_gamepad = on;
+}
+
+void set_gyro_options(const platform::GyroOptions& options) {
+    if (g) {
+        g->input.set_gyro_options(options);
+    }
+}
+
+bool gyro_turn(float& yaw, float& pitch) {
+    yaw = pitch = 0.0f;
+    if (!g || !g->input.gyro_available()) {
+        return false;
+    }
+    yaw = g->input.gyro_yaw();
+    pitch = g->input.gyro_pitch();
+    return true;
+}
+
+void pending_gyro(float& yaw, float& pitch) {
+    yaw = pitch = 0.0f;
+    if (g) {
+        g->input.pending_gyro(yaw, pitch);
+    }
+}
+
+void publish_button_device(bool keyboard_mouse) {
+    button_labels::Device device;
+    device.keys = g_prompt_device < 0 ? keyboard_mouse : g_prompt_device == 1;
+    int count = 0;
+    if (SDL_JoystickID* pads = SDL_GetGamepads(&count)) {
+        if (count > 0) {
+            switch (SDL_GetGamepadTypeForID(pads[0])) {
+                case SDL_GAMEPAD_TYPE_PS3:
+                case SDL_GAMEPAD_TYPE_PS4:
+                case SDL_GAMEPAD_TYPE_PS5:
+                    device.pad = button_labels::Pad::PlayStation;
+                    break;
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO:
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT:
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR:
+                    device.pad = button_labels::Pad::Nintendo;
+                    break;
+                default:
+                    device.pad = button_labels::Pad::Xbox;
+                    break;
+            }
+        }
+        SDL_free(pads);
+    }
+    button_labels::set_device(device);
+}
+
 // The cursor as the mods ask for it, while nothing else has the mouse: captured only with the
 // window focused, the overlay's windows, the menu and the debug menu shut, and the player on the
-// keyboard and mouse (platform/active_device.h): on a gamepad the mouse is left alone.
+// keyboard and mouse (platform/active_device.h), or on a gamepad too while the mouse plays beside
+// it (set_mouse_with_gamepad: a mouse, or a gyro a driver such as Steam Input turns into one).
 void apply_mouse_capture() {
     if (!g || !g->window || g->window->sdl() == nullptr) {
         return;
@@ -105,11 +174,19 @@ void apply_mouse_capture() {
     SDL_Window* w = g->window->sdl();
     const bool focused = (SDL_GetWindowFlags(w) & SDL_WINDOW_INPUT_FOCUS) != 0;
     const bool keyboard_mouse = g->input.active_device() == platform::ActiveDevice::KeyboardMouse;
+    publish_button_device(keyboard_mouse);
+    // On a gamepad too, where a mouse is connected; never on a phone or tablet, whose touch screen
+    // SDL may report as a mouse.
+#if defined(SDL_PLATFORM_ANDROID) || defined(SDL_PLATFORM_IOS)
+    const bool mouse_beside_pad = false;
+#else
+    const bool mouse_beside_pad = g_mouse_with_gamepad && SDL_HasMouse();
+#endif
     const bool capture =
         focused && !debug_menu::is_open()
         && (debug_overlay::camera_debug_capturing()
-            || (g->capture_wanted && keyboard_mouse && !debug_overlay::free_camera_enabled()
-                && !debug_overlay::wants_cursor()));
+            || (g->capture_wanted && (keyboard_mouse || mouse_beside_pad)
+                && !debug_overlay::free_camera_enabled() && !debug_overlay::wants_cursor()));
     if (SDL_GetWindowRelativeMouseMode(w) != capture) {
         // Captured, the window keeps the cursor as well: no click lands on another window.
         SDL_SetWindowMouseGrab(w, capture);
@@ -134,6 +211,14 @@ void apply_mouse_capture() {
 
 bool keyboard_mouse_in_use() {
     return g && g->input.active_device() == platform::ActiveDevice::KeyboardMouse;
+}
+
+void set_prompt_keys(const std::string* names, int count) {
+    button_labels::KeyNames keys;
+    for (int i = 0; names != nullptr && i < count && i < static_cast<int>(keys.size()); ++i) {
+        keys[static_cast<std::size_t>(i)] = names[i];
+    }
+    button_labels::set_key_names(keys);
 }
 
 KeyboardMouseView keyboard_mouse() {
@@ -297,6 +382,7 @@ void set_motors(int port, bool small, std::uint8_t large) {
 void refresh_pads() {
     if (g && g->window && settings::get().responsive_controls) {
         g->input.refresh_pads();
+        input_latency::sampled(g->input.pad(0).buttons);  // [debug tools] OPENRAC_INPUT_LATENCY
     }
 }
 
@@ -315,6 +401,9 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     analog[2] = p.left_x;
     analog[3] = p.left_y;
     g->input.taps_read(port);
+    if (port == 0) {
+        input_latency::pad_read(*buttons, g->index);  // [debug tools] OPENRAC_INPUT_LATENCY
+    }
     // OPENRAC_PRESS=FRAME:MASK:FRAMES[:LX:LY[:RX:RY]],... holds buttons (mask bits as the pad reports
     // them, 0x4000 cross, 0x8 start) and optionally the left and right sticks (0-255, 128 centred; 0
     // is left or up) for scripted checks. FRAME counts the window's frames (world, 2D and movie frames).
@@ -375,6 +464,20 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
         // The late camera latch turns a scripted run's frames by the scripted stick, as the
         // player's by the pad's.
         latch_scripted_stick(analog[0]);
+    }
+    // OPENRAC_PRESS2=FRAME:MASK:FRAMES,...: port 1's buttons by script (a second local player),
+    // counted on the window's frames as OPENRAC_PRESS's plain windows are.
+    static const std::optional<std::string> press2 = env_string(env::Var::Press2);
+    if (port == 1 && press2) {
+        for (const char* at = press2->c_str(); at && *at;) {
+            unsigned long frame = 0, mask = 0, length = 5;
+            if (std::sscanf(at, "%lu:%lx:%lu", &frame, &mask, &length) >= 2 && g->index >= frame
+                && g->index < frame + length) {
+                *buttons = static_cast<std::uint16_t>(*buttons & ~mask);
+            }
+            at = std::strchr(at, ',');
+            at = at ? at + 1 : nullptr;
+        }
     }
     if (port == 0) {
         scripted_pad(*buttons, analog);  // [debug tools] OPENRAC_RECORD, _REPLAY and _WALK

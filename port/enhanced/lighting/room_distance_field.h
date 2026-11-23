@@ -18,7 +18,10 @@ struct RoomWallDistance {
 
 // Unsigned Euclidean distance to the geometry's horizontal cross-section. No authored normals,
 // floor planes or artificial analysis caps participate in the horizontal field.
-RoomWallDistance room_wall_distance(const Scene& scene, Float3 position);
+// If no section is closer than the search radius, return the radius with found = false.
+RoomWallDistance room_wall_distance(
+    const Scene& scene, Float3 position, float radius = RoomWallDistance{}.distance
+);
 
 struct RoomFieldNode {
     Float3 position{};  // Supporting floor, not the sampling height.
@@ -29,6 +32,7 @@ struct RoomFieldNode {
 };
 
 struct RoomDistanceField {
+    bool water_footprint = false;
     float step = 1;
     std::vector<RoomFieldNode> nodes;
     std::map<std::tuple<unsigned, int, int>, std::vector<float>> domain;
@@ -37,6 +41,10 @@ struct RoomDistanceField {
     std::vector<std::optional<float>> water_heights;
     bool contains(Float3 position, unsigned room) const;
     bool connects(Float3 a, Float3 b, unsigned room) const;
+    // Debug water paths require both waterline and swimmer clearance; floors require body clearance.
+    bool path_clear(
+        const Scene& scene, Float3 a, Float3 b, unsigned room, const BakeSettings& settings
+    ) const;
 };
 
 RoomDistanceField room_distance_field(
@@ -50,6 +58,10 @@ std::optional<Float3> room_floor_position(
 );
 // Recheck real floor support and body/head visibility before smoothing or adding a shortcut.
 bool room_path_clear(const Scene& scene, Float3 a, Float3 b, const BakeSettings& settings);
+// Supported walking with slope-aware radius contact, lateral walls and full headroom.
+bool room_supported_path_clear(
+    const Scene& scene, Float3 a, Float3 b, const BakeSettings& settings
+);
 // Body/head clearance without requiring support between endpoints, for swimming and jump approaches.
 bool room_body_path_clear(
     const Scene& scene, Float3 a, Float3 b, const BakeSettings& settings, bool swimming = false

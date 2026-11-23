@@ -257,8 +257,7 @@ struct SubmissionCounters {
     std::uint64_t pipelines_created = 0;  // Draw-thread creations; excludes prewarm worker calls.
     // Pipelines a draw linked from parts (vk-pipeline-library), not counted in pipelines_created.
     std::uint64_t pipelines_linked = 0;
-    // Pipelines specialised with a program's modes (vk-mode-constants): asked of the workers, or
-    // made at their draw where there are none.
+    // Exact feature variants compiled for their first draw.
     std::uint64_t mode_pipelines = 0;
     // Pipelines made once the warm-up begin_pipeline_warmup started had passed.
     std::uint64_t pipelines_created_after_warmup = 0;
@@ -354,8 +353,7 @@ bool test_present_paths(std::vector<std::uint8_t>& single, std::vector<std::uint
 std::uint64_t wait_for_pipeline_prewarm();
 
 // Whether the pre-warm workers still have a pipeline to make; false while the backend is closed.
-// A draw whose specialised pipeline they have not made yet uses one that reads its modes from the
-// uniforms (vk-mode-constants), so a measurement waits for this to be false.
+// A draw waits for its exact variant when a worker is already compiling it.
 bool pipeline_prewarm_busy();
 
 // For a level's load, behind its loading screen: waits until the pre-warm workers have made every

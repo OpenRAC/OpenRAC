@@ -12,6 +12,9 @@ The files are OpenRAC's own, read only by the port or by OpenRAC:
   the port had no function for those names.
 - `src/ui/menus/confirm_prompt_input.c`: C for `FUN_00221ab8`, the memory card prompt's Yes/No
   input, which splat has as a text gap (rac1-decomp's `Menu_ConfirmPromptInput`, the same 148 bytes).
+- `src/ui/menus/menu_text_gaps.c`: C for three menu routines splat has as text gaps: the help
+  history list (`FUN_0021d168`), the Quit game page (`FUN_0021e7c8`) and the ship's planet list
+  (`FUN_00221800`). Without it these menu entries ran no code in the port.
 - `README.md`: Lombyte's README as OpenRAC keeps it, with the NTSC decomp named as OpenRAC names
   it (a patch would carry the old line).
 - `host/`: a runner that builds the project on an Apple Silicon Mac under rac1/pal's Wine.
@@ -36,4 +39,5 @@ Files under [files/](files) (copied as they are):
 - [`host/run.sh`](files/host/run.sh)
 - [`host/wine8-chroot.sh`](files/host/wine8-chroot.sh)
 - [`src/ui/menus/confirm_prompt_input.c`](files/src/ui/menus/confirm_prompt_input.c)
+- [`src/ui/menus/menu_text_gaps.c`](files/src/ui/menus/menu_text_gaps.c)
 <!-- patches:end -->

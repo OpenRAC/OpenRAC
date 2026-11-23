@@ -47,6 +47,8 @@ if(TARGET openrac_assets_disc)
   # program/levels.cpp reads a level's program from the player's image (load_level_program).
   target_compile_definitions(openrac_game_common PUBLIC OPENRAC_HAS_DISC=1)
 endif()
+# The native multiplayer screens behind openrac/mp_ui.h (lib/mp_ui.cpp).
+target_link_libraries(openrac_game_common PUBLIC openrac_mpui)
 # The sound engine the sound library's replacement drives (lib/sound_engine.cpp).
 target_link_libraries(openrac_game_common PUBLIC openrac_audio)
 # The moby animation code the blend snapshot runs (lib/moby_snapshot.cpp).
@@ -246,6 +248,19 @@ function(openrac_add_game config)
       if(NOT no_retail AND EXISTS "${asm_source}/${retail_exe}")
         list(APPEND inputs "${asm_source}/${retail_exe}")
       endif()
+      # The disc image the decompilation's setup links ("asm" "retail" "image"): hostgen runs again
+      # when it appears or changes, so a build configured before it was linked is not left with
+      # the stubs it wrote without it.
+      string(JSON retail_image ERROR_VARIABLE no_retail GET "${json}" asm retail image)
+      if(NOT no_retail)
+        if(EXISTS "${asm_source}/${retail_image}")
+          list(APPEND inputs "${asm_source}/${retail_image}")
+        endif()
+        get_filename_component(retail_image_dir "${asm_source}/${retail_image}" DIRECTORY)
+        if(IS_DIRECTORY "${retail_image_dir}")
+          list(APPEND inputs "${retail_image_dir}")
+        endif()
+      endif()
       string(JSON retail_dump ERROR_VARIABLE no_retail GET "${json}" asm retail dump)
       if(NOT no_retail AND IS_DIRECTORY "${asm_source}/${retail_dump}")
         file(GLOB retail_manifests CONFIGURE_DEPENDS "${asm_source}/${retail_dump}/level_*/manifest.json")
@@ -259,7 +274,7 @@ function(openrac_add_game config)
   get_filename_component(hostgen_dir "${OPENRAC_HOSTGEN}" DIRECTORY)
   file(GLOB tool CONFIGURE_DEPENDS "${hostgen_dir}/*.py" "${hostgen_dir}/include/*.h")
   file(GLOB tables CONFIGURE_DEPENDS "${config_dir}/*.json" "${config_dir}/*.tsv" "${config_dir}/tables/*"
-       "${config_dir}/release/*"
+       "${config_dir}/release/*" "${config_dir}/checks/*"
        "${config_dir}/hand/*" "${OPENRAC_GAME_DIR}/common/*.tsv")
   # hostgen rewrites only the files whose text changed, so after an edit only
   # those recompile: the stamp says when it last ran, the files are byproducts
@@ -301,7 +316,54 @@ function(openrac_add_game config)
     COMMENT "hostgen: ${id} from ${game_source}"
     JOB_POOL openrac_hostgen
     VERBATIM)
-  add_custom_target(openrac_${target_id}_hostgen DEPENDS "${gen}/hostgen.stamp")
+  # Other executables of the disc built into the same program ("executables": each a hostgen.json
+  # in a folder beside the game's, whose "prefix" starts every C name it writes): Up Your Arsenal's
+  # multiplayer game, I5BOOTN.ELF, which the boot program starts by LoadExecPS2. Each is translated
+  # into gen/<folder> and compiled into the game's library with the first.
+  set(stamps "${gen}/hostgen.stamp")
+  string(JSON exe_count ERROR_VARIABLE no_exes LENGTH "${json}" executables)
+  if(NOT no_exes AND exe_count GREATER 0)
+    math(EXPR last "${exe_count} - 1")
+    foreach(i RANGE ${last})
+      string(JSON exe_config GET "${json}" executables ${i})
+      set(exe_config "${config_dir}/${exe_config}")
+      get_filename_component(exe_dir "${exe_config}" DIRECTORY)
+      get_filename_component(exe_name "${exe_dir}" NAME)
+      set(exe_gen "${gen}/${exe_name}")
+      set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${exe_config}")
+      execute_process(
+        COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_HOSTGEN}" --game "${exe_config}"
+                --source "${game_source}" --out "${exe_gen}" --list
+        OUTPUT_VARIABLE exe_listing
+        RESULT_VARIABLE status)
+      if(NOT status EQUAL 0)
+        message(FATAL_ERROR "hostgen could not list the sources of ${id}'s ${exe_name}")
+      endif()
+      string(REPLACE "\n" ";" exe_listing "${exe_listing}")
+      set(exe_outputs "")
+      foreach(file IN LISTS exe_listing)
+        if(file)
+          list(APPEND exe_outputs "${exe_gen}/${file}")
+          if(file MATCHES "\\.c$")
+            list(APPEND sources "${exe_gen}/${file}")
+          endif()
+        endif()
+      endforeach()
+      file(GLOB exe_tables CONFIGURE_DEPENDS "${exe_dir}/*.json" "${exe_dir}/*.tsv")
+      add_custom_command(
+        OUTPUT "${exe_gen}/hostgen.stamp"
+        BYPRODUCTS ${exe_outputs}
+        COMMAND "${Python3_EXECUTABLE}" "${OPENRAC_HOSTGEN}" --game "${exe_config}"
+                --source "${game_source}" --out "${exe_gen}" --quiet ${asm_args}
+        COMMAND "${CMAKE_COMMAND}" -E touch "${exe_gen}/hostgen.stamp"
+        DEPENDS ${inputs} ${tool} ${exe_tables} "${OPENRAC_GAME_DIR}/common/libraries.tsv"
+        COMMENT "hostgen: ${id}'s ${exe_name} from ${game_source}"
+        JOB_POOL openrac_hostgen
+        VERBATIM)
+      list(APPEND stamps "${exe_gen}/hostgen.stamp")
+    endforeach()
+  endif()
+  add_custom_target(openrac_${target_id}_hostgen DEPENDS ${stamps})
   # Every call through a known code address passes its arguments as the function there takes them,
   # by position (Windows x64) as well as by kind (tools/hostgen/abicheck.py), and the game's host C
   # declares the game functions it calls or replaces as game_protos.h has them.
@@ -314,6 +376,8 @@ function(openrac_add_game config)
 
   # The game: generated C, and the game's own host C if it has any.
   file(GLOB host CONFIGURE_DEPENDS "${config_dir}/host/*.c")
+  # The host C as written, for the check that each fix it reads is listed for this disc.
+  set(fix_readers ${host})
   # Host C one game shares between its versions ("host_shared": directories relative to the game's,
   # rac1's ../rac1/host): compiled into each version's program on its own, finding that version's
   # names and addresses in the version's host/ (rac1_version.h).
@@ -324,6 +388,7 @@ function(openrac_add_game config)
     foreach(i RANGE ${last})
       string(JSON shared_dir GET "${json}" host_shared ${i})
       file(GLOB shared_host CONFIGURE_DEPENDS "${config_dir}/${shared_dir}/*.c")
+      list(APPEND fix_readers ${shared_host})
       list(APPEND shared_includes "${config_dir}/${shared_dir}")
       # Another release of one decompilation (hostgen.json "release"): the shared C in the
       # release's function names, written in one pass from its table (tools/hostgen/release_host.py).
@@ -390,7 +455,7 @@ function(openrac_add_game config)
   string(JSON game GET "${json}" game)
   string(REGEX REPLACE "^${game}-" "" version "${id}")
   set(fixes_cpp "${CMAKE_BINARY_DIR}/generated/openrac_fixes_${target_id}.cpp")
-  openrac_write_fixes("${game}" "${version}" "${fixes_cpp}")
+  openrac_write_fixes("${game}" "${version}" "${fixes_cpp}" READERS ${fix_readers})
   # The host program's source folders in game/common (port/game/README.md), globbed like the
   # library replacements so that a new file there adds no line here.
   # program/: the program itself (its options, vsync, levels, sound, movies, the host side of
@@ -550,7 +615,7 @@ endfunction()
 # The mods built into a game's program (game/common/built_in_mods.h), with a window only: the
 # game's built_in_mods.cpp and its keyboard and mouse (game/<game>/keyboard_mouse), or
 # built_in_mods_none.cpp for a game with none. Ratchet & Clank and Going Commando share one
-# manifest (game/rac1/keyboard_mouse/openrac-mod.json), embedded as a C++ string
+# manifest (game/common/keyboard_mouse/openrac-mod.json), embedded as a C++ string
 # (openrac_keyboard_mouse_manifest).
 function(openrac_built_in_mods target game_name)
   set(dir "${OPENRAC_GAME_DIR}/${game_name}")
@@ -558,7 +623,7 @@ function(openrac_built_in_mods target game_name)
     target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/built_in_mods_none.cpp")
     return()
   endif()
-  set(json "${OPENRAC_GAME_DIR}/rac1/keyboard_mouse/openrac-mod.json")
+  set(json "${OPENRAC_GAME_DIR}/common/keyboard_mouse/openrac-mod.json")
   set(cpp "${CMAKE_BINARY_DIR}/generated/openrac_${game_name}_built_in_manifests.cpp")
   set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${json}")
   file(READ "${json}" hex HEX)

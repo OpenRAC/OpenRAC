@@ -10,12 +10,15 @@ program need Clang, as test_hostgen.py's do.
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import re
 import shutil
 import struct
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -154,6 +157,24 @@ class Pairs(unittest.TestCase):
         code = self.code(program({0x00100000: words}), {0x00100000: "func_00100000"})
         self.assertEqual(code.get((-1, 0x00100004))[0].reloc, ("hi", "D_00300040", 0))
 
+    def test_a_lui_moved_to_another_register_pairs_with_asm_pair_through_moves(self):
+        # Up Your Arsenal's func_L01_00462978 registers particle updates: `lui $s6, %hi(f)` early,
+        # then `daddu $a2, $s6, $zero` and `addiu $a2, $a2, %lo(f)` later. Unpaired, the level's
+        # copy stored Veldin's address of f in its own update table.
+        source = """
+            lui $22, %hi(D_00300040)
+            daddu $6, $22, $0
+            addiu $6, $6, %lo(D_00300040)
+            jr $31
+            sw $6, 0($4)
+        """
+        words = words_of(assembler.assemble("func_00100000", 0x00100000, source, {"D_00300040": 0x00300040}))
+        code = self.code(program({0x00100000: words}), {0x00100000: "func_00100000"})
+        self.assertIsNone(code.get((-1, 0x00100000))[0].reloc)
+        code = self.code(program({0x00100000: words}), {0x00100000: "func_00100000"})
+        code.pair_moves = True
+        self.assertEqual(code.get((-1, 0x00100000))[0].reloc, ("hi", "D_00300040", 0))
+
     def test_a_function_address_names_the_function(self):
         source = """
             lui $4, %hi(func_00100100)
@@ -172,6 +193,22 @@ class Pairs(unittest.TestCase):
         image = elf([(0x00100000, struct.pack("<2I", 0x03E00008, 0))])
         (part,) = retail.elf_parts(image)
         self.assertEqual((part.base, part.code, part.word(0x00100000)), (0x00100000, True, 0x03E00008))
+
+    def test_a_loader_is_read_as_the_game_it_carries_packed(self):
+        # Up Your Arsenal's boot executable: a loader whose data holds the game WAD-compressed, as
+        # level-program records (address, size, type, entry; its zeros stored too); here a literal-only
+        # stream.
+        entry = 0x00100000
+        payload = struct.pack("<4I2I", entry, 8, 1, entry, 0x03E00008, 0) + struct.pack("<4I", 0x00100100, 64, 8, entry) + bytes(64)
+        stream = bytes([0x11 + len(payload)]) + payload
+        packed = b"WAD" + struct.pack("<I", 16 + len(stream)) + bytes(9) + stream
+        r = retail.Retail(elf([(0x00800000, struct.pack("<2I", 0x03E00008, 0) + packed)]), {}, 0x00200000)
+        self.assertEqual(r.entry, entry)
+        (part,) = r.exe  # the zeros record loads no bytes to read
+        self.assertEqual((part.base, part.code, part.word(entry)), (entry, True, 0x03E00008))
+        # Any other executable is read as it is.
+        plain = retail.Retail(elf([(0x00800000, struct.pack("<2I", 0x03E00008, 0) + b"WAD!")]), {}, 0x00200000)
+        self.assertEqual((plain.entry, [p.base for p in plain.exe]), (0x00800000, [0x00800000]))
 
     def _file(self, text: str) -> Path:
         d = Path(tempfile.mkdtemp())
@@ -372,6 +409,32 @@ def tiny_iso(files: dict[str, bytes]) -> bytes:
     for at, data in body.items():
         image[at * sector:at * sector + len(data)] = data
     return bytes(image)
+
+
+class RequiredRetail(unittest.TestCase):
+    """hostgen.json "asm" "retail" "required": no disc, or another game's, stops the build."""
+
+    def program(self):
+        from types import SimpleNamespace
+        return SimpleNamespace(entry_address=0x00100000, relocate=None)
+
+    def test_a_missing_or_wrong_disc_stops_the_build(self):
+        import asmc
+        import os
+        with unittest.mock.patch.dict(os.environ, {"OPENRAC_HOSTGEN_NO_DISC": ""}):
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                asmc.retail_required({"required": True}, Path("/nowhere.iso"), None, self.program())
+            other = retail.Retail(elf([(0x00200000, struct.pack("<2I", 0x03E00008, 0))]), {}, 0x00200000)
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                asmc.retail_required({"required": True}, Path("other.iso"), other, self.program())
+            game = retail.Retail(elf([(0x00100000, struct.pack("<2I", 0x03E00008, 0))]), {}, 0x00200000)
+            asmc.retail_required({"required": True}, Path("game.iso"), game, self.program())
+
+    def test_a_build_without_a_disc_on_purpose_goes_on(self):
+        import asmc
+        import os
+        with unittest.mock.patch.dict(os.environ, {"OPENRAC_HOSTGEN_NO_DISC": "1"}):
+            asmc.retail_required({"required": True}, None, None, self.program())
 
 
 class ReadImageTests(unittest.TestCase):

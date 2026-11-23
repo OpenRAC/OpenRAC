@@ -28,6 +28,7 @@
  * and a sound (interface 1.12). It reports the interface it is
  * built for
  * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
+#include <math.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -769,7 +770,16 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             return 17;
         }
     }
-    if (behaviour[0] == 'h') { /* hud: draws over the game */
+    if (strcmp(behaviour, "hud-menu") == 0) { /* draws over the level and its menus (1.31) */
+        if (api->on_overlay_phases(mod, on_overlay, &overlay_user, 0) != OPENRAC_HOOK_UNKNOWN
+            || api->on_overlay_phases(mod, on_overlay, &overlay_user, 0x80u) != OPENRAC_HOOK_UNKNOWN
+            || api->on_overlay_phases(mod, NULL, NULL, OPENRAC_OVERLAY_MENU) != OPENRAC_HOOK_UNKNOWN
+            || api->on_overlay_phases(
+                   mod, on_overlay, &overlay_user, OPENRAC_OVERLAY_PLAYING | OPENRAC_OVERLAY_MENU
+               ) != OPENRAC_HOOK_OK) {
+            return 18;
+        }
+    } else if (behaviour[0] == 'h') { /* hud: draws over the game */
         if (api->on_overlay(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE
             || api->on_overlay(mod, on_overlay, &overlay_user) != OPENRAC_HOOK_OK
             || api->play_live_picture(mod, 0) != OPENRAC_HOOK_OK) {
@@ -815,6 +825,29 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->developer_menu_value(mod, 4) != 1 || api->developer_menu_value(mod, 1) != -1
             || api->developer_menu_value(mod, 99) != -1) {
             return 23;
+        }
+        /* Interface 1.28: item 2 a locked row to read with a value, a progress bar and an icon;
+         * item 1 set and cleared again; nothing for an unknown action, a short look or a NaN. */
+        {
+            openrac_developer_menu_look look = {0};
+            openrac_developer_menu_look short_look = {0};
+            look.size = sizeof look;
+            look.flags = OPENRAC_DEVELOPER_MENU_INFO | OPENRAC_DEVELOPER_MENU_LOCKED;
+            look.value = "24/40";
+            look.progress = 1.5f;
+            look.icon = "trophy";
+            short_look.size = 8;
+            if (api->api_minor < 28 || api->developer_menu_look(mod, 2, &look) != OPENRAC_HOOK_OK
+                || api->developer_menu_look(mod, 1, &look) != OPENRAC_HOOK_OK
+                || api->developer_menu_look(mod, 1, NULL) != OPENRAC_HOOK_OK
+                || api->developer_menu_look(mod, 99, &look) != OPENRAC_HOOK_UNKNOWN
+                || api->developer_menu_look(mod, 1, &short_look) != OPENRAC_HOOK_UNKNOWN) {
+                return 24;
+            }
+            look.progress = NAN;
+            if (api->developer_menu_look(mod, 1, &look) != OPENRAC_HOOK_UNKNOWN) {
+                return 24;
+            }
         }
         /* The host copies its strings, so the caller's stack storage can go away. */
         items[0].label = "Changed after registration";

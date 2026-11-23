@@ -19,7 +19,7 @@ vec3 fur_environment_lighting(FurSurfaceData surface, vec3 p, vec3 irradiance, v
     // A broader prefilter and a groom-dependent bent normal approximate anisotropic environment reflection.
     float roughness = clamp(hero_fur_lighting_parameters.y * sqrt(1. + .5 * hero_fur_lighting_parameters.z), .35, 1.);
     vec3 eye = normalize(surface.eye);
-    vec3 reflection = environment_specular_frame(p, n, eye, dot(surface.normal, eye), roughness, .04, fallback);
+    vec3 reflection = environment_specular_surface_frame(p, p, surface.normal, n, eye, dot(surface.normal, eye), roughness, vec3(.04), fallback);
     vec3 scatter = fur_indirect_scattering(surface, irradiance, albedo);
     return (reflection * hero_fur_lighting_parameters.x + scatter) * (surface.coverage * hero_fur_environment_strength);
 }

@@ -123,7 +123,7 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 4002)
 
     def test_knows_the_rac2_pal_disc(self):
-        # Issue #66: the European R&C2 disc is a known build.
+        # The European R&C2 disc is a known build.
         [(_, name, version)] = extractor.builds("rac2")["SCES_516.07"]
         self.assertEqual(name, "pal")
         self.assertEqual(version["boot"]["sha1"], "cb59ce5396ddebb8aa539b0847f8bf66d6a47fe0")

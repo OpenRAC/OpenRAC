@@ -152,6 +152,10 @@ bool add(std::string_view name, std::string_view svg) {
     return true;
 }
 
+bool raster(std::string_view svg, std::vector<std::uint8_t>& out) {
+    return draw(svg, out);
+}
+
 bool has(std::string_view name) {
     return state().svgs.contains(name);
 }

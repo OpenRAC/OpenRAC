@@ -38,8 +38,10 @@ in [port/](../../port/README.md).
 |---|---|
 | [SETTINGS.md](SETTINGS.md) | The settings file, frame pacing against the game's tick, graphics card checks, game fixes a player can switch off |
 | [CONTROLS.md](CONTROLS.md) | The controls files, bindings, sticks, triggers, players |
+| [MULTIPLAYER_UI.md](MULTIPLAYER_UI.md) | The native multiplayer screens: components, the server's UI description (schema 1), how a game binds and skins them |
 | [CONTROLLERS.md](CONTROLLERS.md) | Controllers: what the game asks of a pad, DualSense features in SDL3, what to build |
 | [MODS.md](MODS.md) | Native and script mods, their manifest, hook points, purist mode, the [SDK](../../sdk/README.md) |
+| [MOD_API.md](MOD_API.md) | Adding a call to the mods' interface: where each part goes, naming, tests, the version |
 | [TEXTURE_PACKS.md](TEXTURE_PACKS.md) | Replacing the game's textures with your own pictures |
 | [HDR.md](HDR.md) | HDR output |
 | [SPEEDRUN.md](SPEEDRUN.md) | Timing, LiveSplit, practice tools, save states, the game's speedrun meta |

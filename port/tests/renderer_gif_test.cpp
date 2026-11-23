@@ -4,6 +4,7 @@
 // The direct renderer's CPU half: GIF packets in, triangles and draw groups
 // out. Synthetic packets, laid out the way the game's 2D code builds them.
 
+#include <algorithm>
 #include <cfenv>
 #include <cmath>
 #include <cstdio>
@@ -569,6 +570,8 @@ void offscreen_then_upload() {
         CHECK(s.source == 0);
         CHECK(s.textured && s.texture != textures.placeholder());
     }
+    // A texture starts at the target's block: the world's quads that sample it get the texture.
+    CHECK(gif.take_drawn_blocks().empty());
 }
 
 // The game names a block in FRAME (its register sets name a panel's target whether or not that
@@ -623,6 +626,11 @@ void upload_over_offscreen() {
     if (!gif.draws().empty()) {
         CHECK(gif.draws().back().state.source == 0);
     }
+    // The world's quads drawn before the upload (Up Your Arsenal's refraction rings through its
+    // frame copy) still read what was drawn there, once.
+    CHECK(gif.offscreen_blocks().empty());
+    CHECK(gif.take_drawn_blocks() == std::vector<std::uint32_t>{kTarget});
+    CHECK(gif.take_drawn_blocks().empty());
 }
 
 // A texture in the pages under the 448-line draw buffer (line 448 on) is a texture, not the frame.
@@ -648,6 +656,63 @@ void texture_under_draw_buffer() {
         CHECK(!s.frame_source);
         CHECK(s.textured && s.texture != textures.placeholder());
     }
+}
+
+// The frame drawn into an off-screen target (Going Commando's frame copy, which the Aranos Prison
+// energy fields refract): on a target wider than the game's picture, the copy is of the picture,
+// the target's middle, where the world draws the game's view; on a 4:3 target, the whole frame.
+void frame_copy_of_the_picture() {
+    TexturePool textures;
+    auto span = [&](float picture) {
+        GifInterpreter gif(textures);
+        gif.set_picture(picture, false);
+        set_draw_buffer_block(0x1000, 448);
+        GifBuilder b;
+        b.ad(
+            {{gs::kFrame1, std::uint64_t{0x1000 / 32} | (std::uint64_t{8} << 16)},
+             {gs::kFrame1, std::uint64_t{0x3340 / 32} | (std::uint64_t{4} << 16)},
+             {gs::kTex0_1, openrac::test::tex0(0x1000, 8, gs::kPsmct32, 9, 9, true)},
+             {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+             {gs::kUv, openrac::test::uv(0, 0)},
+             {gs::kXyz2, xyz2(0, 0, 0)},
+             {gs::kUv, openrac::test::uv(512, 416)},
+             {gs::kXyz2, xyz2(256, 256, 0)}}
+        );
+        CHECK(gif.gif(b.bytes));
+        float lo = 2.0f;
+        float hi = -2.0f;
+        for (const DirectVertex& v : gif.vertices()) {
+            lo = std::min(lo, v.s);
+            hi = std::max(hi, v.s);
+        }
+        CHECK(!gif.draws().empty() && gif.draws().back().state.frame_source);
+        return std::pair{lo, hi};
+    };
+    const auto [lo, hi] = span(1.0f);
+    CHECK(near(lo, 0.0f) && near(hi, 1.0f));
+    const auto [wide_lo, wide_hi] = span(0.75f);
+    CHECK(near(wide_lo, 0.125f) && near(wide_hi, 0.875f));
+}
+
+// The world's strips and quads that sample an off-screen target take the target texture's
+// coordinates: Up Your Arsenal's frame copy (effect texture -1, PSMCT16 256 x 256), which the
+// Galactic Rangers' dropship's heat haze on Veldin samples through its strip routine (fx_strip) at
+// each point's place in the picture, sits in the top-left quarter of a target of
+// kOffscreenPixels, its first row on top. Sampled with the copy's own coordinates, the haze drew
+// black squares with an upside-down corner of the picture in them.
+void offscreen_target_coordinates() {
+    const std::uint64_t copy = openrac::test::tex0(0x3300, 4, gs::kPsmct16, 8, 8, true);
+    const auto at = [&](float s, float t, float want_s, float want_t) {
+        const auto [ts, tt] = offscreen_target_st(copy, s, t);
+        CHECK(near(ts, want_s) && near(tt, want_t));
+    };
+    at(0.0f, 0.0f, 0.0f, 1.0f);  // the copy's first texel: the target's top left
+    at(1.0f, 1.0f, 0.5f, 0.5f);  // its last: the middle of the target, not its far corner
+    at(0.5f, 0.25f, 0.25f, 0.875f);
+    // The 64 x 64 copy (effect texture -3) takes an eighth of the target.
+    const std::uint64_t small = openrac::test::tex0(0x3300, 1, gs::kPsmct16, 6, 6, true);
+    const auto [ss, st] = offscreen_target_st(small, 1.0f, 1.0f);
+    CHECK(near(ss, 0.125f) && near(st, 0.875f));
 }
 
 // Weights the GS takes above 1 (As, FIX up to 0xFF) go to the shader, and the strips' TEST keeps
@@ -781,5 +846,7 @@ int main() {
     frame_named_without_draw();
     upload_over_offscreen();
     texture_under_draw_buffer();
+    frame_copy_of_the_picture();
+    offscreen_target_coordinates();
     return openrac::test::result();
 }

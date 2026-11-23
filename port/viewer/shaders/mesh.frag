@@ -30,7 +30,7 @@ uniform sampler2D tex_T0;
 uniform vec4 material_colour;
 uniform int cutout;
 uniform int lighting;
-// The pass and setting switches a pipeline may take as constants (vk-mode-constants).
+// The pass and setting switches every Vulkan pipeline fixes as constants (pipeline variants).
 // openrac_mode: glow_pass glow_split opacity_split translucent_pass effect_pass effect_additive
 // openrac_mode: metal_pass gtao_enabled hero_wetness_debug object_reflection_enabled
 // openrac_mode: gameplay_rim_enabled
@@ -411,7 +411,7 @@ vec3 retail_ambient_floor(vec3 indirect, vec3 ambient) {
 }
 
 vec3 standard_surface(vec3 diffuse, vec3 albedo, vec3 indirect, vec3 n, vec3 toward_camera,
-                      vec4 selector, float visibility) {
+                      vec4 selector, float visibility, vec3 receiver_normal) {
     bool metal_packet = metal_pass != 0;
     vec3 optics = metal_packet ? object_reflection_material : material_dielectric;
     if ((!metal_packet && probe_mode != 1) || translucent_pass != 0 || effect_pass != 0
@@ -429,7 +429,7 @@ vec3 standard_surface(vec3 diffuse, vec3 albedo, vec3 indirect, vec3 n, vec3 tow
         return base;
     }
     vec3 broad = max(indirect, vec3(0.)) / 3.14159265359 * surface_fresnel(nv, f0);
-    vec3 specular = environment_specular_rgb(v_world_position, n, eye, roughness, f0, broad)
+    vec3 specular = environment_specular_surface_frame(v_world_position, v_world_position + receiver_normal * .5, receiver_normal, n, eye, nv, roughness, f0, broad)
         + surface_specular_direct(v_world_position, n, eye, selector, visibility, roughness, f0);
     float grazing_tint = .5 * dielectric_fresnel(nv, 0.)
         * smoothstep(.35, .65, roughness) * (1. - metallic);
@@ -565,12 +565,14 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         * fur_grain * mix(0.1, 1.0, visibility) * hero_cue;
     vec3 metal_ambient = probe_linear(clamp(v_probe_ambient, 0., 1.));
     vec3 toward_camera = transpose(mat3(view)) * (-eye_position);
+    vec3 receiver_normal = dot(geometric, geometric) > 0. ? normalize(geometric) : n;
+    if (dot(receiver_normal, toward_camera) < 0.) receiver_normal = -receiver_normal;
     vec4 selector = probe_receiver == 1 ? vec4(0.) : v_probe_selector;
     if (probe_mode == 0) {
         if (metal_pass != 0) {
             return probe_display(standard_surface(
                 fallback_diffuse, albedo, metal_ambient * 3.14159265359,
-                surface_n, toward_camera, selector, visibility) + emitted);
+                surface_n, toward_camera, selector, visibility, receiver_normal) + emitted);
         }
         vec3 fallback = wet_coat(fallback_diffuse, surface_n, toward_camera, visibility)
             + fur_direct + emitted;
@@ -607,7 +609,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         // Direct lights and reflection captures have their own coverage. Only the broad
         // irradiance-based reflection fallback is unavailable here.
         vec3 surface = standard_surface(fallback_diffuse, albedo, vec3(0.), surface_n, toward_camera,
-                                        selector, visibility);
+                                        selector, visibility, receiver_normal);
         vec3 fallback = wet_coat(surface, surface_n, toward_camera, visibility) + fur_direct + emitted;
 #ifdef OPENRAC_HERO_FUR
         // A local capture can illuminate the fur even where diffuse probe coverage is absent.
@@ -681,7 +683,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     }
 #endif
     vec3 diffuse = albedo * illumination * material_diffuse_scale;
-    vec3 surface = standard_surface(diffuse, albedo, indirect, surface_n, toward_camera, selector, visibility);
+    vec3 surface = standard_surface(diffuse, albedo, indirect, surface_n, toward_camera, selector, visibility, receiver_normal);
     // Emission is independent of GI exposure, AO and shadow visibility.
     vec3 lit = wet_coat(surface + rim, surface_n, toward_camera, visibility)
         + fur_direct + fur_indirect;

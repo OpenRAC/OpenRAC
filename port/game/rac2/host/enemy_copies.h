@@ -60,7 +60,8 @@ int rac2_copy_check(const rac2_moby_table* table, gaddr moby);
 int rac2_copy_detail(const rac2_moby_table* table, gaddr moby);
 
 /* A copy of the placed moby at `moby`, its `index`-th (0 for its first), at a clear spot beside
- * it: its address, or 0 (not one that may be copied, no clear spot, no room in the pool). */
+ * it, with copies of its parts: its address, or 0 (not one that may be copied, no clear spot, no
+ * room in the pool, a spawned moby it names that others share). */
 gaddr rac2_copy_make(const rac2_moby_table* table, gaddr moby, int index);
 
 /* The `i`-th copy of this load (0 past the last), alive or not, and its original in *orig. */
@@ -71,6 +72,9 @@ extern int rac2_copy_trace;
 
 /* Whether the moby at `moby` is a live copy (rac2_copy_make's) of this load. */
 int rac2_copy_is(gaddr moby);
+
+/* CreateMoby gave out the slot `moby`: a dead copy's index is taken off the groups' lists. */
+void rac2_copy_slot_taken(gaddr moby);
 
 /* The copies made since the level's last load. */
 int rac2_copy_count(void);

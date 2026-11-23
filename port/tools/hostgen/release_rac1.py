@@ -265,6 +265,9 @@ def carry_config(c: Carry, cfg: dict, version: str, out_id: str, title: str, ser
         new["expanded_target_table_addresses"] = [
             f"0x{c.address(int(a, 16), None, 'expanded_target_table_addresses'):08X}"
             for a in cfg["expanded_target_table_addresses"]]
+    if "expanded_ram_top_addresses" in cfg:
+        # Marks at the top of the console's RAM, not data: the same in every release.
+        new["expanded_ram_top_addresses"] = list(cfg["expanded_ram_top_addresses"])
     asm = new.get("asm")
     if asm:
         asm["in_place"] = carry_names(c, asm.get("in_place", []), "asm in_place")

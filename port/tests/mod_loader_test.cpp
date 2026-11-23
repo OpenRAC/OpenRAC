@@ -12,7 +12,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -135,6 +137,7 @@ void install(
                                   {"value": "rules", "name": "Rules"},
                                   {"value": "twelve", "name": "Twelve"},
                                   {"value": "hud", "name": "Hud"},
+                                  {"value": "hud-menu", "name": "Hud over menus"},
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"},
@@ -493,6 +496,28 @@ void a_hook_point_is_called_as_the_game_calls_it(const fs::path& plugins) {
     CHECK(api.hook_entry("Test_Add", nullptr) == nullptr);
     mods::reset();
     CHECK(add(0) == 1);
+}
+
+// Every call of the table is filled: each member from `log` on is a function, and a mod built for
+// this minor finds none of them null (mod_api/<area>.cpp, sdk/api/members.tsv).
+void every_call_of_the_table_is_filled(const fs::path& plugins) {
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.size == sizeof(openrac_api));
+    const auto* bytes = reinterpret_cast<const unsigned char*>(&api);
+    for (std::size_t at = offsetof(openrac_api, log); at < sizeof(openrac_api);
+         at += sizeof(void*)) {
+        void* call = nullptr;
+        std::memcpy(&call, bytes + at, sizeof call);
+        if (call == nullptr) {
+            std::fprintf(stderr, "openrac_api member at offset %zu is null\n", at);
+        }
+        CHECK(call != nullptr);
+    }
+    mods::reset();
 }
 
 void a_mod_that_fails_is_taken_back(const fs::path& plugins) {
@@ -1113,6 +1138,14 @@ void a_mod_provides_a_desktop_menu(const fs::path& plugins) {
     CHECK(items[2].kind == mods::MenuItemKind::Switch && items[2].value == 0);
     CHECK(items[3].kind == mods::MenuItemKind::Choice && items[3].value == 1);
     CHECK(items[3].values == std::vector<std::string>({"x1", "x2", "x4"}));
+    // A row's look (interface 1.28): item 2 a locked row to read, its progress cut to 1; item 1
+    // set and cleared again. A locked row and a row to read queue nothing.
+    CHECK(items[1].info && items[1].locked && items[1].look_value == "24/40");
+    CHECK(items[1].progress == 1.0f && items[1].icon == "trophy");
+    CHECK(!items[0].info && !items[0].locked && items[0].look_value.empty());
+    CHECK(items[0].progress < 0.0f && items[0].icon.empty());
+    mods::queue_developer_menu_action(menus[0].mod, 2);
+    CHECK(menus[0].actions.empty());
     CHECK(std::find(g_records.begin(), g_records.end(), 1801) != g_records.end());
     mods::set_developer_menu_value(menus[0].mod, 3, 1);
     CHECK(items[2].value == 1);
@@ -1825,19 +1858,23 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     mods::Host h = host(plugins);
     h.play = &kPlay;
     h.cards = dir / "cards";
-    CHECK(!mods::overlay_wanted());  // nobody asked yet
+    const auto wanted = [] {
+        return mods::overlay_wanted(mods::overlay_phase());
+    };
+    CHECK(!wanted());  // nobody asked yet
     CHECK(mods::load(h) == "test-a 1.0.0");
     CHECK(g_live_picture == 0);  // play_live_picture reaches the game
     g_phase = OPENRAC_GAME_PHASE_FRONT_END;
-    CHECK(!mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == 0 && !wanted());
     g_phase = OPENRAC_GAME_PHASE_MENU;
-    CHECK(!mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == OPENRAC_OVERLAY_MENU && !wanted());
     g_phase = OPENRAC_GAME_PHASE_SCENE;
-    CHECK(!mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == OPENRAC_OVERLAY_SCENE && !wanted());
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
-    CHECK(mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == OPENRAC_OVERLAY_PLAYING && wanted());
     openrac_overlay overlay{};
     overlay.size = sizeof overlay;
+    overlay.phase = OPENRAC_OVERLAY_PLAYING;
     overlay.project = [](void*, const float world[3], float* x, float* y) {
         *x = world[0] * 10.0f;
         *y = world[1] * 10.0f;
@@ -1855,8 +1892,42 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     mods::run_overlays(overlay);
     CHECK(g_overlay_rect[0] == 10.0f && g_overlay_rect[1] == 20.0f);
     CHECK(g_overlay_rect[2] == 4.0f && g_overlay_rect[3] == 8.0f);
+    // A frame of a menu is not on_overlay's.
+    g_overlay_rect[0] = 0.0f;
+    overlay.phase = OPENRAC_OVERLAY_MENU;
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 0.0f);
     mods::reset();
-    CHECK(!mods::overlay_wanted());  // gone with the mods
+    CHECK(!mods::overlay_wanted(OPENRAC_OVERLAY_PLAYING));  // gone with the mods
+
+    // Interface 1.31: the phases a mod asks for (on_overlay_phases), the menus' here, not scenes'.
+    // A mod built for this interface (test-current): the call is past an older one's table.
+    write(
+        plugins / "plugins.json",
+        R"({"format": 1, "mods": [{"id": "test-current", "enabled": true, "settings": {"behaviour": "hud-menu"}}]})"
+    );
+    install(
+        plugins,
+        "current",
+        OPENRAC_TEST_MOD_CURRENT,
+        std::format("{}.{}", OPENRAC_MOD_API_MAJOR, OPENRAC_MOD_API_MINOR)
+    );
+    CHECK(mods::load(h) == "test-current 1.0.0");
+    g_phase = OPENRAC_GAME_PHASE_MENU;
+    CHECK(wanted());
+    g_phase = OPENRAC_GAME_PHASE_SCENE;
+    CHECK(!wanted());
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    CHECK(wanted());
+    g_overlay_rect[0] = 0.0f;
+    overlay.phase = OPENRAC_OVERLAY_MENU;
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 10.0f);
+    g_overlay_rect[0] = 0.0f;
+    overlay.phase = OPENRAC_OVERLAY_SCENE;
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 0.0f);
+    mods::reset();
     g_phase = OPENRAC_GAME_PHASE_FRONT_END;
 }
 
@@ -2129,6 +2200,7 @@ int main() {
     openrac_guest_register(OPENRAC_OVERLAY_EXE, functions, 1);
     two_mods_chain_in_load_order(plugins);
     a_hook_point_is_called_as_the_game_calls_it(plugins);
+    every_call_of_the_table_is_filled(plugins);
     a_mod_that_fails_is_taken_back(plugins);
     refused_before_opening(plugins);
     purist_and_no_list(plugins);

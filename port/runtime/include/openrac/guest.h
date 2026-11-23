@@ -58,6 +58,13 @@ __extension__ typedef unsigned __int128 openrac_u128;
 #define GUEST_GS_REGS_SIZE 0x00002000u
 #define GUEST_SCRATCHPAD 0x70000000u
 #define GUEST_SCRATCHPAD_SIZE 0x00004000u /* 16 KB */
+/* The 16 KB after the scratchpad: the odd half of the console's scratchpad TLB entry, which maps
+ * nothing there, so a write past the scratchpad takes a TLB miss. The hand-written line walks
+ * (Going Commando's CollLine, Up Your Arsenal's coll_line) gather a long line's cells there with
+ * no bound, as on the console: the port backs these pages so such a write lands instead of
+ * faulting, and reports it (Memory::take_scratchpad_overrun). */
+#define GUEST_SCRATCHPAD_GUARD (GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE)
+#define GUEST_SCRATCHPAD_GUARD_SIZE 0x00004000u
 #define GUEST_PORT 0xE0000000u
 #define GUEST_PORT_SIZE 0x01000000u /* 16 MB */
 #define GUEST_STACK_TOP (GUEST_PORT + 0x00100000u)
@@ -65,7 +72,7 @@ __extension__ typedef unsigned __int128 openrac_u128;
 #define GUEST_STRINGS (GUEST_PORT + 0x00100000u)
 #define GUEST_STRINGS_SIZE 0x00100000u
 #define GUEST_STATICS (GUEST_PORT + 0x00200000u)
-#define GUEST_STATICS_SIZE 0x00100000u
+#define GUEST_STATICS_SIZE 0x00400000u /* 4 MB of the port's 16: room for the mods' copies' pvars */
 
 /* ---- Addresses ---- */
 
@@ -130,6 +137,18 @@ static inline gaddr openrac_guest_target_table(gaddr original) {
 }
 
 #define OPENRAC_TARGET_TABLE(a) openrac_guest_target_table((gaddr)(a))
+
+/* An address the game forms down from the top of the console's 32 MiB (RAC1 loads its level
+ * archives below 0x01FF8000). In expanded RAM it keeps its distance from the top, but under the
+ * RAC1 reservations, so a large level archive does not reach low memory. */
+static inline gaddr openrac_guest_ram_top(gaddr original) {
+    if (openrac_guest_ram_size <= GUEST_RAM_SIZE) {
+        return original;
+    }
+    return original + (openrac_guest_ram_size - OPENRAC_EXPANDED_RAC1_RESERVE - GUEST_RAM_SIZE);
+}
+
+#define OPENRAC_RAM_TOP(a) openrac_guest_ram_top((gaddr)(a))
 
 /* Normalize a direct or aliased RAM pointer to the direct RAM view. Other bus addresses retain
  * the console's 25-bit physical-address behavior. */
@@ -263,6 +282,10 @@ typedef struct openrac_fn_entry {
 /* Overlay -1 is the executable; 0..n are the level programs. */
 #define OPENRAC_OVERLAY_EXE (-1)
 void openrac_guest_register(int overlay, const openrac_fn_entry* entries, size_t count);
+/* Forgets every function and thunk registered: another executable of the disc is loaded over the
+ * whole of memory (LoadExecPS2: Up Your Arsenal's multiplayer, I5BOOTN.ELF), whose functions sit
+ * at the same addresses as the first's; its own tables are registered next. */
+void openrac_guest_unregister_all(void);
 void openrac_guest_set_overlay(int overlay);
 int openrac_guest_overlay(void);
 openrac_host_fn openrac_guest_function(gaddr address);
@@ -378,6 +401,19 @@ int openrac_guest_prepare_level_program(int level);
 int openrac_guest_restore_level_program(int level);
 /* Drops program bytes cached only for the process; the configured source can reload them. */
 void openrac_guest_clear_level_programs(void);
+
+/* Copies of a level's functions in other levels that the port translated apart (each level at its
+ * own addresses, so no one host function stands for both): `address` in `level` is a copy of
+ * `from_address` in `from`, for the level-to-level pairs (OPENRAC_LDATA(from, ...)) with that level
+ * loaded. hostgen writes them from the catalogue (hostgen.json "level_copies"). */
+typedef struct openrac_level_copy {
+    int32_t level;
+    gaddr address;
+    int32_t from;
+    gaddr from_address;
+} openrac_level_copy;
+
+void openrac_guest_add_level_copies(const openrac_level_copy* copies, size_t count);
 gaddr openrac_relocate_level_data(int from, gaddr address);
 gaddr openrac_relocate_level_code(int from, gaddr address);
 #define OPENRAC_LDATA(from, a) openrac_relocate_level_data((from), (a))
@@ -393,6 +429,13 @@ gaddr openrac_relocate_level_code(int from, gaddr address);
  * folded into it), and reads the same instructions at `self`. Without a place, or one that does
  * not form it, it is OPENRAC_LCODE's. */
 extern OPENRAC_GUEST_GLOBAL gaddr openrac_guest_last_entry;
+/* The upper halves of $a0-$a3 for a call through a code address made by C written from assembly
+ * (hostgen's asmc.py): the EE's registers are 128 bits, and a function such as Up Your Arsenal's
+ * func_L01_003AB448 takes two vectors by value in $a1 and $a2. The caller sets them and the
+ * pending flag just before openrac_guest_call_regs; a callee written from assembly reads them at
+ * its entry when the flag is set, then clears it. */
+extern OPENRAC_GUEST_GLOBAL uint64_t openrac_guest_hi_args[4];
+extern OPENRAC_GUEST_GLOBAL int openrac_guest_hi_pending;
 extern OPENRAC_GUEST_GLOBAL openrac_host_fn openrac_guest_last_fn;
 static inline gaddr openrac_guest_entry(openrac_host_fn self) {
     return openrac_guest_last_fn == self ? openrac_guest_last_entry : 0;

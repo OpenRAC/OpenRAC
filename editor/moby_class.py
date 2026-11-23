@@ -21,7 +21,8 @@ import struct
 
 from formats import wad, FormatError, Texture, span, unpack
 import games
-from level import HERO_LOOK_TEXTURES, HERO_TEXTURES, ITEM_TEXTURES, SHIP_TEXTURE
+from level import (BOUND_CLANK, BOUND_SHIP, CLANK_TEXTURE, HERO_TEXTURES, ITEM_TEXTURES, SHIP_TEXTURE,
+                   hero_look_texture)
 from mesh import Mesh, spherical_normal as normal
 from moby_anim import Skeleton, class_sequences, ratchet_sequences, skeleton
 
@@ -473,12 +474,19 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
         hero, wrench = class_id == 0 and level.hero_mesh is not None, class_id == WRENCH_CLASS and level.wrench_meshes
         # The hero pack's packets name its own textures, in order. The wrench's pack has one.
         painted = ("moby", SHIP_TEXTURE) in level.textures
+        bound = unpack("<i", entry, 8)[0] if fmt.bound_textures else 0
         remap = ([HERO_TEXTURES + i for i in range(16)] if hero else [ITEM_TEXTURES] * 16 if wrench
                  else [SHIP_TEXTURE] * 16 if class_id == SHIP_CLASS and painted
                  # Going Commando binds a face on an empty slot to his ship's picture: its parts,
                  # classes with no textures of their own (read from the packets' TEX0 in a level's
                  # memory after load, func_002932B8).
                  else [SHIP_TEXTURE if slot == 255 else slot for slot in entry[16:32]] if painted and fmt.ship_paint_slots
+                 # Up Your Arsenal binds the same way, by the entry's word +8: its class loader (Veldin's
+                 # func_L01_0042B4F8) puts his ship's TEX0 (1) or Clank's (2, loaded by func_L01_00425FE0) in
+                 # a one-texture table and patches every GS block of the class through it
+                 # (func_00399810, Going Commando's tex_draw_batches).
+                 else [SHIP_TEXTURE] * 16 if bound == BOUND_SHIP and painted
+                 else [CLANK_TEXTURE] * 16 if bound == BOUND_CLANK and ("moby", CLANK_TEXTURE) in level.textures
                  else entry[16:32])
         mesh_file = level.hero_mesh if hero else level.wrench_meshes[0] if wrench else None
         try:
@@ -494,8 +502,9 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
     # His looks past the first are classes of their own: his skeleton with another pack's packets.
     # The port asks for the class of the pack the game loaded (rac2/profile.cpp).
     starts = {c: s for s, c in (unpack("<ii", e) for e in level.table(0x18, 32))}
-    for number, mesh_file in level.hero_looks:
-        remap = [HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i for i in range(16)]
+    # A level with no class 0 (no Ratchet of its own: the vid-comics, the ship levels) has no looks.
+    for number, mesh_file in level.hero_looks if 0 in starts else ():
+        remap = [hero_look_texture(number, i) for i in range(16)]
         result[HERO_LOOK_CLASSES + number] = lenient(level, level.block(starts[0]), remap, HERO_LOOK_CLASSES + number,
                                                      fmt, mesh_file)
     for number, mesh_file in enumerate(level.wrench_meshes[1:] if WRENCH_CLASS in starts else (), 1):
@@ -504,6 +513,11 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
                                                        fmt, mesh_file)
     for class_id, (blob, place) in level.items.items():
         result[class_id] = lenient(level, blob, [ITEM_TEXTURES + place] * 16, class_id, fmt)
+    # The classes Up Your Arsenal's scenes load while they play (level.scene_classes): Clank in a
+    # scene is class 10, the gun the Ranger hands over on Veldin 7322; not in the level's table.
+    for class_id, (blob, remap) in level.scene_classes.items():
+        if class_id not in result:
+            result[class_id] = lenient(level, blob, remap, class_id, fmt)
     # His ship's hull is the disc's in every level, over any class 3412 of the level's own: the
     # game loads it over the class on each load (func_002925F0, from func_L00_002A3B88).
     for number, body in enumerate(level.ship_bodies):

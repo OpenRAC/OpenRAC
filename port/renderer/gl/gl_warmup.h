@@ -24,6 +24,9 @@ void note_program(gl::GLuint program, const program_cache::Key& key);
 // if there are new states. Does nothing before install().
 void warm();
 
+// Joins the optional cache writer before a caller removes its cache or shuts down its owner.
+void finish_cache_save();
+
 // What the run did, for the tests and the log.
 struct Counts {
     int noted = 0;   // States noted since install().

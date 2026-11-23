@@ -8,6 +8,7 @@
 // the keys only while the keyboard and mouse are in use.
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -15,8 +16,11 @@
 #include <string>
 #include <vector>
 
+#include "game/common/frontend/mouse_turn.h"
 #include "game/common/key_prompts.h"
+#include "game/common/keyboard_mouse/core.hpp"
 #include "game/common/keyboard_mouse/kbm.hpp"
+#include "game/rac2/host/follow_mouse.h"
 #include "game/rac2/host/gui_texts.h"
 #include "game/rac2/host/ui_quads.h"
 #include "game/rac2/keyboard_mouse/keyboard_mouse.h"
@@ -24,6 +28,7 @@
 #include "key_prompts_fonts.h"
 #include "openrac/game_host.h"
 #include "openrac/openrac_mod.h"
+#include "platform/gyro.h"
 
 #define CHECK(c)                                                                                   \
     do {                                                                                           \
@@ -39,12 +44,63 @@ namespace openrac::frontend {
 bool keyboard_mouse_in_use() {
     return g_keyboard_mouse_in_use;
 }
+
+// The keys the mod hands on for the mods' button labels (interface 1.31), cell by cell.
+std::array<std::string, 10> g_prompt_keys;
+
+void set_prompt_keys(const std::string* names, int count) {
+    g_prompt_keys = {};
+    for (int i = 0; names != nullptr && i < count && i < 10; ++i) {
+        g_prompt_keys[static_cast<std::size_t>(i)] = names[i];
+    }
+}
+
+// The rest of the frontend's side (frontend/active_input.h): the gyro and the device options, kept
+// here for the checks.
+float g_gyro_yaw = 0.0f;
+float g_gyro_pitch = 0.0f;
+bool g_gyro_available = false;
+openrac::platform::GyroOptions g_gyro_options;
+
+void set_prompt_device(int) {}
+
+void set_mouse_with_gamepad(bool) {}
+
+void set_gyro_options(const openrac::platform::GyroOptions& options) {
+    g_gyro_options = options;
+}
+
+bool gyro_turn(float& yaw, float& pitch) {
+    yaw = g_gyro_available ? g_gyro_yaw : 0.0f;
+    pitch = g_gyro_available ? g_gyro_pitch : 0.0f;
+    return g_gyro_available;
+}
+
+void pending_gyro(float& yaw, float& pitch) {
+    yaw = pitch = 0.0f;
+}
 }  // namespace openrac::frontend
 
 // What the game drew (rac2/host/font.c, ui2d.c, map_markers.c): nothing in these checks.
 extern "C" {
-int openrac_rac2_take_gui_texts(openrac_rac2_gui_text*) {
-    return 0;
+// The texts the next take returns (a menu's list when set).
+int g_texts = 0;
+
+int openrac_rac2_take_gui_texts(openrac_rac2_gui_text* out) {
+    for (int i = 0; i < g_texts; ++i) {
+        // The first is the selected one: a colour of its own.
+        const std::uint32_t colour = i == 0 ? 0x80F0F0F0u : 0x80808080u;
+        out[i] = openrac_rac2_gui_text{
+            1u,
+            colour,
+            200.0f,
+            100.0f + 20.0f * static_cast<float>(i),
+            300.0f,
+            112.0f + 20.0f * static_cast<float>(i),
+            -1
+        };
+    }
+    return g_texts;
 }
 
 int openrac_rac2_take_prompt_spots(openrac_rac2_prompt_spot*) {
@@ -64,7 +120,33 @@ int openrac_rac2_take_map(float*) {
 void openrac_rac2_map_move(float, float, float) {}
 
 void openrac_rac2_screen_size(float*, float*) {}
+
+// The follow camera's hook (follow_mouse.h), as the host keeps it.
+openrac_rac2_follow_mouse_fn g_follow_mouse = nullptr;
+
+void openrac_rac2_set_follow_mouse(openrac_rac2_follow_mouse_fn fn) {
+    g_follow_mouse = fn;
 }
+
+int openrac_rac2_follow_axis(float up[3]) {
+    up[0] = 0.0f;
+    up[1] = 0.0f;
+    up[2] = 1.0f;
+    return 1;
+}
+
+float openrac_rac2_follow_tilt_range(void) {
+    return 0.69813168f;
+}
+}
+
+namespace openrac::frontend {
+MouseTurnFn g_mouse_turn = nullptr;
+
+void set_mouse_turn(MouseTurnFn fn) {
+    g_mouse_turn = fn;
+}
+}  // namespace openrac::frontend
 
 // Where the game is, as touch.c would say.
 const char* g_context = "foot";
@@ -86,6 +168,8 @@ void* g_pad_user = nullptr;
 int g_capture = -1;
 std::uint32_t g_taken = 0;
 bool g_prompts = true;
+const char* g_gyro = "off";            // the "gyro" setting
+const char* g_prompt_device = "auto";  // the "prompt_device" setting
 
 void host_log(openrac_mod*, int level, const char* text) {
     std::printf("[%d] keyboard-mouse: %s\n", level, text);
@@ -99,7 +183,7 @@ int setting_bool(openrac_mod*, const char* key) {
     if (std::strcmp(key, "key_prompts") == 0) {
         return g_prompts ? 1 : 0;
     }
-    return std::strcmp(key, "capture_cursor") == 0 ? 1 : 0;
+    return std::strcmp(key, "capture_cursor") == 0 || std::strcmp(key, "menu_mouse") == 0 ? 1 : 0;
 }
 
 std::int64_t setting_int(openrac_mod*, const char*) {
@@ -125,6 +209,12 @@ const char* setting_string(openrac_mod*, const char* key) {
         if (std::strcmp(a.key, key) == 0) {
             return a.fallback;
         }
+    }
+    if (std::strcmp(key, "gyro") == 0) {
+        return g_gyro;
+    }
+    if (std::strcmp(key, "prompt_device") == 0) {
+        return g_prompt_device;
     }
     return std::strcmp(key, "camera_tilt") == 0 ? "hold" : "";
 }
@@ -290,6 +380,42 @@ void menus() {
     r = read_pad();
     CHECK(r.held(kbm::kCross) && r.held(kbm::kStart));
 
+    // The title's menus (a list shown): Start would go back, so confirming is Cross only.
+    g_texts = 3;
+    tick();
+    tick();
+    hold(kKeyEnter);
+    r = read_pad();
+    CHECK(r.held(kbm::kCross) && !r.held(kbm::kStart));
+
+    // A click beside the list's items confirms nothing; one on the selected item confirms it.
+    const auto click = [](float x, float y) {
+        const auto point = [&] {
+            tick();
+            g_input.pointer_x = x / 512.0f;
+            g_input.pointer_y = y / 416.0f;
+            g_input.pointer_inside = 1;
+        };
+        point();
+        g_input.mouse_held = g_input.mouse_pressed = OPENRAC_MOUSE_LEFT;
+        bool cross = read_pad().held(kbm::kCross);
+        for (int i = 0; i < 3; ++i) {
+            point();
+            cross = read_pad().held(kbm::kCross) || cross;
+        }
+        return cross;
+    };
+    g_context = "menu";
+    tick();
+    tick();
+    CHECK(!click(450.0f, 380.0f));
+    CHECK(click(250.0f, 106.0f));
+    g_texts = 0;
+    CHECK(
+        kbm2::confirm_presses_start("front_end", 2) && !kbm2::confirm_presses_start("front_end", 3)
+    );
+    CHECK(!kbm2::confirm_presses_start("menu", 0) && !kbm2::confirm_presses_start(nullptr, 0));
+
     // A dialog: Escape goes back (Triangle), never Cross.
     g_context = "dialog";
     tick();
@@ -344,10 +470,30 @@ void prompts() {
     tick();
     read_pad();
     CHECK(!unchanged());
+    CHECK(!openrac::frontend::g_prompt_keys[0].empty());  // handed on for the mods' labels
     g_keyboard_mouse_in_use = false;
     tick();
     read_pad();
     CHECK(unchanged());
+    CHECK(openrac::frontend::g_prompt_keys[0].empty());
+
+    // Button icons fixed to the gamepad: never the keys.
+    g_prompt_device = "gamepad";
+    load_ok();
+    g_keyboard_mouse_in_use = true;
+    tick();
+    read_pad();
+    CHECK(unchanged());
+    // Fixed to the keys: they stay on the gamepad too (a mouse or gyro beside it).
+    g_prompt_device = "keyboard";
+    load_ok();
+    g_keyboard_mouse_in_use = false;
+    tick();
+    read_pad();
+    CHECK(!unchanged());
+    g_keyboard_mouse_in_use = false;
+    g_prompt_device = "auto";
+    load_ok();
 }
 
 void other_games() {
@@ -360,6 +506,226 @@ void other_games() {
 
 }  // namespace
 
+float mem_float(std::uint32_t a) {
+    float f = 0.0f;
+    std::memcpy(&f, g_memory.data() + a, 4);
+    return f;
+}
+
+void set_float(std::uint32_t a, float f) {
+    std::memcpy(g_memory.data() + a, &f, 4);
+}
+
+// The mouse turns the follow camera itself once the camera has been seen: no right stick, the
+// eye's offsets turned at once, and the tilt held through the game's target.
+void follow_camera() {
+    constexpr std::uint32_t kCamera = 0x00150000u, kData = 0x00160000u, kTilt = 0x00170000u;
+    constexpr std::uint32_t kTurn = 0x00170010u;
+    g_context = "foot";
+    load_ok();
+    CHECK(g_follow_mouse != nullptr);
+    std::memcpy(g_memory.data() + kCamera + 0x70u, &kData, 4);
+    for (std::uint32_t off : {0x160u, 0x170u}) {
+        set_float(kData + off, -5.0f);
+        set_float(kData + off + 4u, 0.0f);
+        set_float(kData + off + 8u, 0.0f);
+    }
+    set_float(kTilt, 0.0f);
+
+    // The first tick the camera is not known yet: the mouse is the right stick.
+    tick();
+    g_input.mouse_dx = 20.0f;
+    CHECK(read_pad().bytes[2] != 0x80);
+    g_follow_mouse(kCamera, kTurn, kTilt);
+
+    // Once seen, sideways motion turns both offsets about up, the stick stays at rest.
+    tick();
+    g_input.mouse_dx = 100.0f;
+    CHECK(read_pad().bytes[2] == 0x80);
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    const float yaw = -100.0f * kbm::kRadiansPerPixel;
+    CHECK(std::abs(mem_float(kData + 0x160u) - (-5.0f * std::cos(yaw))) < 1e-4f);
+    CHECK(std::abs(mem_float(kData + 0x164u) - (-5.0f * std::sin(yaw))) < 1e-4f);
+    CHECK(std::abs(mem_float(kData + 0x174u) - mem_float(kData + 0x164u)) < 1e-6f);
+    CHECK(mem_float(kData + 0x168u) == 0.0f);
+
+    // Mouse down raises the eye, and the tilt is held as the game's target.
+    tick();
+    g_input.mouse_dy = 100.0f;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x168u) > 0.5f && mem_float(kData + 0x178u) > 0.5f);
+    const float w = mem_float(kData + 0x1C8u);
+    CHECK(w > 0.0f && mem_float(kTilt) > 0.3f);
+    tick();
+    read_pad();
+    set_float(kTilt, 0.0f);
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x1C8u) == w && mem_float(kTilt) > 0.3f);
+
+    // The game locks the turn: the mouse leaves it be.
+    std::int32_t lock = 1;
+    std::memcpy(g_memory.data() + kData + 0x1D0u, &lock, 4);
+    const float x = mem_float(kData + 0x160u);
+    tick();
+    g_input.mouse_dx = 100.0f;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x160u) == x);
+    lock = 0;
+    std::memcpy(g_memory.data() + kData + 0x1D0u, &lock, 4);
+
+    // A menu: the camera is not the mouse's.
+    g_context = "menu";
+    tick();
+    g_input.mouse_dx = 100.0f;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x160u) == x);
+}
+
+// The gyro turns the follow camera as the mouse does, with the cursor free (a gamepad player), in
+// play only, and for "aiming" only while strafing.
+void gyro_follow() {
+    constexpr std::uint32_t kCamera = 0x00150000u, kData = 0x00160000u, kTilt = 0x00170000u;
+    constexpr std::uint32_t kTurn = 0x00170010u;
+    using openrac::frontend::g_gyro_available;
+    using openrac::frontend::g_gyro_yaw;
+    g_context = "foot";
+    g_gyro = "always";
+    load_ok();
+    CHECK(openrac::frontend::g_gyro_options.enabled);
+    std::memcpy(g_memory.data() + kCamera + 0x70u, &kData, 4);
+    const auto reset_offsets = [&] {
+        for (std::uint32_t off : {0x160u, 0x170u}) {
+            set_float(kData + off, -5.0f);
+            set_float(kData + off + 4u, 0.0f);
+            set_float(kData + off + 8u, 0.0f);
+        }
+    };
+    reset_offsets();
+    g_gyro_available = true;
+    g_gyro_yaw = 0.0f;
+    tick();
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);  // the camera is seen
+
+    // The controller turned 0.1 rad left: the camera too, with the cursor free.
+    tick();
+    g_input.captured = 0;
+    g_gyro_yaw = 0.1f;
+    CHECK(read_pad().bytes[2] == 0x80);
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(std::abs(mem_float(kData + 0x164u) - (-5.0f * std::sin(0.1f))) < 1e-4f);
+
+    // In a menu it does nothing.
+    reset_offsets();
+    g_context = "menu";
+    tick();
+    g_input.captured = 0;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x164u) == 0.0f);
+
+    // Only while aiming: not while walking, yes while L2 strafes.
+    g_context = "foot";
+    g_gyro = "aiming";
+    load_ok();
+    tick();
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    tick();
+    g_input.captured = 0;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x164u) == 0.0f);
+    tick();
+    g_input.captured = 0;
+    hold(kShiftLeft);  // the strafe key: L2
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(std::abs(mem_float(kData + 0x164u) - (-5.0f * std::sin(0.1f))) < 1e-4f);
+
+    // Edges, gyro always on: none of these turn the camera.
+    g_gyro = "always";
+    load_ok();
+    tick();
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    const auto no_turn = [&](auto&& setup) {
+        reset_offsets();
+        tick();
+        g_input.captured = 0;
+        setup();
+        read_pad();
+        g_follow_mouse(kCamera, kTurn, kTilt);
+        return mem_float(kData + 0x164u) == 0.0f;
+    };
+    // The Quick Select held open: the gyro does not move the ring or the camera.
+    CHECK(no_turn([] {
+        g_input.captured = 1;
+        g_input.mouse_held = OPENRAC_MOUSE_RIGHT;
+    }));
+    // The port's overlay open, or the window not focused.
+    CHECK(no_turn([] { g_input.overlay = 1; }));
+    CHECK(no_turn([] { g_input.focused = 0; }));
+    // No gyro read (no controller with one).
+    CHECK(no_turn([] { g_gyro_available = false; }));
+    g_gyro_available = true;
+    // The cursor free: the mouse's motion is not the camera's, the gyro's still is.
+    g_gyro_yaw = 0.0f;
+    CHECK(no_turn([] { g_input.mouse_dx = 100.0f; }));
+    // The pad's right stick out: it wins, as over the mouse.
+    reset_offsets();
+    tick();
+    g_input.captured = 0;
+    g_gyro_yaw = 0.1f;
+    {
+        Report r{};
+        r.bytes[0] = r.bytes[1] = 0xFF;
+        r.bytes[2] = 0xFF;  // right stick fully right
+        r.bytes[3] = r.bytes[4] = r.bytes[5] = 0x80;
+        g_pad(g_pad_user, 0, r.bytes, 18);
+    }
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(mem_float(kData + 0x164u) == 0.0f);
+
+    // The frames between ticks: with the cursor free they leave the mouse's motion out.
+    tick();
+    g_input.captured = 0;
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    openrac::frontend::MouseTurn turn;
+    CHECK(openrac::frontend::g_mouse_turn != nullptr);
+    CHECK(openrac::frontend::g_mouse_turn(200.0f, 0.0f, &turn));
+    CHECK(turn.yaw == 0.0f);
+    // Captured, they show it.
+    tick();
+    read_pad();
+    g_follow_mouse(kCamera, kTurn, kTilt);
+    CHECK(openrac::frontend::g_mouse_turn(200.0f, 0.0f, &turn) && turn.yaw != 0.0f);
+
+    // The gyro button's names: each choice of the manifest is a button, "none" none.
+    CHECK(kbm::gyro_button_of("none") == -1 && kbm::gyro_button_of("") == -1);
+    for (const char* name :
+         {"touchpad",
+          "rightstick",
+          "leftstick",
+          "rightshoulder",
+          "leftshoulder",
+          "paddle1",
+          "paddle2",
+          "paddle3",
+          "paddle4",
+          "misc1"}) {
+        CHECK(kbm::gyro_button_of(name) >= 0);
+    }
+
+    g_gyro_available = false;
+    g_gyro_yaw = 0.0f;
+    g_gyro = "off";
+}
+
 int main() {
     contexts();
     for (const char* v : {"ntsc", "pal"}) {
@@ -369,6 +735,8 @@ int main() {
     }
     g_version = "ntsc";
     prompts();
+    follow_camera();
+    gyro_follow();
     other_games();
     std::puts("keyboard-mouse rac2: all passed");
     return 0;

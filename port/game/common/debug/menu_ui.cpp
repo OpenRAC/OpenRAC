@@ -465,7 +465,12 @@ void menu_heading(const char* title) {
 }
 
 bool menu_row(
-    const char* label, ImU32 ink, const RowRight& right, float right_width, const char* stable_id
+    const char* label,
+    ImU32 ink,
+    const RowRight& right,
+    float right_width,
+    const char* stable_id,
+    const RowExtra* extra
 ) {
     const float height = dp(s.menu_row_height);
     const ImVec2 at = ImGui::GetCursorScreenPos();
@@ -480,7 +485,7 @@ bool menu_row(
     const bool pressed =
         ImGui::InvisibleButton("row", ImVec2(width, height), ImGuiButtonFlags_EnableNav);
     ImGui::PopID();
-    if (pressed && !g_quiet_row) {
+    if (pressed && !g_quiet_row && !(extra != nullptr && extra->quiet)) {
         menu_sound(MenuSound::Confirm);
     }
     // The menu just opened or changed tab: its first row takes the focus, so that the arrows and a
@@ -518,12 +523,40 @@ bool menu_row(
             dp(2.0f)
         );
     }
-    const ImVec2 text_at(
+    ImVec2 text_at(
         at.x + dp(16.0f) + dp(4.0f) * mark, at.y + (height - ImGui::GetFontSize()) * 0.5f
     );
+    const bool has_bar = extra != nullptr && extra->progress >= 0.0f;
+    if (extra != nullptr && extra->icon) {
+        // The icon a little larger than the letters, before them.
+        const float size = std::round(ImGui::GetFontSize() * 1.4f);
+        extra->icon(list, ImVec2(text_at.x, std::round(at.y + (height - size) * 0.5f)), size);
+        text_at.x += size + dp(10.0f);
+    }
+    const float until = at.x + width - dp(16.0f) - right_width - dp(10.0f);
+    const float bar_end = right_width > 0.0f ? until : at.x + width - dp(16.0f);
+    // No room for a bar (a narrow card, a wide value): none.
+    if (has_bar && bar_end > text_at.x + dp(4.0f) * 2.0f) {
+        // The label up a little, the bar under it, as long as the label's room.
+        text_at.y -= dp(4.0f);
+        const float top = std::round(text_at.y + ImGui::GetFontSize() + dp(3.0f));
+        const float end = bar_end;
+        const float h = dp(4.0f);
+        const float k = std::clamp(extra->progress, 0.0f, 1.0f);
+        list->AddRectFilled(
+            ImVec2(text_at.x, top), ImVec2(end, top + h), ui().line_strong, h * 0.5f
+        );
+        if (k > 0.0f) {
+            list->AddRectFilled(
+                ImVec2(text_at.x, top),
+                ImVec2(std::min(end, text_at.x + std::max(h, (end - text_at.x) * k)), top + h),
+                extra->dim ? ui().dim : ui().amber,
+                h * 0.5f
+            );
+        }
+    }
     if (right_width > 0.0f) {
         // Up to what the right side draws: a longer label is cut short with "...".
-        const float until = at.x + width - dp(16.0f) - right_width - dp(10.0f);
         ImGui::PushStyleColor(ImGuiCol_Text, ink);
         ImGui::RenderTextEllipsis(
             list,
@@ -549,10 +582,12 @@ bool menu_row(const char* label, ImU32 ink) {
     return menu_row(label, ink, RowRight());
 }
 
-bool menu_switch(const char* label, bool on, bool enabled) {
+bool menu_switch(const char* label, bool on, bool enabled, const RowExtra* extra) {
     ImGui::BeginDisabled(!enabled);
     const bool pressed = menu_row(
-        label, enabled ? ui().text : ui().dim, [on, enabled](ImDrawList* list, ImVec2 right) {
+        label,
+        enabled ? ui().text : ui().dim,
+        [on, enabled](ImDrawList* list, ImVec2 right) {
             const float k = tween(item_part("switch"), on ? 1.0f : 0.0f, kMedium);
             const float h = dp(26.0f);
             const ImVec2 a(right.x - dp(46.0f), right.y - h * 0.5f);
@@ -568,7 +603,10 @@ bool menu_switch(const char* label, bool on, bool enabled) {
                 knob,
                 enabled ? ui_colors::mix(ui().dim, ui().text, k) : ui().dim
             );
-        }
+        },
+        extra != nullptr ? dp(46.0f) : 0.0f,
+        nullptr,
+        extra
     );
     ImGui::EndDisabled();
     return pressed;
@@ -580,7 +618,8 @@ int menu_choice(
     bool can_lower,
     bool can_raise,
     bool enabled,
-    const char* stable_id
+    const char* stable_id,
+    const RowExtra* extra
 ) {
     float back_until = 0.0f;  // a press left of this moves the value back
     // The values of every row in one column, centred between its arrows; a label too long for
@@ -602,7 +641,7 @@ int menu_choice(
     g_quiet_row = true;  // the row's sound is the value's (below)
     ImGui::BeginDisabled(!enabled);
     const bool pressed =
-        menu_row(label, enabled ? ui().text : ui().dim, draw, column + dp(8.0f), stable_id);
+        menu_row(label, enabled ? ui().text : ui().dim, draw, column + dp(8.0f), stable_id, extra);
     ImGui::EndDisabled();
     g_quiet_row = false;
     if (!enabled) {
@@ -789,6 +828,65 @@ bool menu_button(const char* label) {
         label
     );
     return pressed;
+}
+
+int menu_sub_tabs(
+    const char* const* names, const char* const* helps, int count, int current, int entry
+) {
+    // As far under the title as a section's heading is, and as far over the first heading.
+    ImGui::Dummy(ImVec2(0.0f, dp(18.0f)));
+    ImFont* font = menu_fonts.strong;
+    const float height = dp(40.0f);
+    const float round = dp(6.0f);
+    // The picked one's tint: the launcher's --on-fill, its accent mixed 22 % into the page's ink.
+    const ImU32 on_fill = ui_colors::mix(ui().ink, ui().amber, 0.22f);
+    int picked = current;
+    for (int i = 0; i < count; ++i) {
+        if (i > 0) {
+            ImGui::SameLine(0.0f, dp(6.0f));  // each a button of its own, with room between
+        }
+        const ImVec2 text = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, names[i]);
+        const ImVec2 a = ImGui::GetCursorScreenPos();
+        const ImVec2 b(a.x + text.x + dp(36.0f), a.y + height);
+        const bool pressed =
+            ImGui::InvisibleButton(names[i], ImVec2(b.x - a.x, height), ImGuiButtonFlags_EnableNav);
+        if (pressed && i != current) {
+            menu_sound(MenuSound::Page);
+            picked = i;
+        }
+        // The menu just opened or changed tab: the picked one takes the focus, as a first row
+        // would.
+        if (s.menu_focus_first && i == current) {
+            s.menu_focus_first = false;
+            ImGui::FocusItem();
+        }
+        note_hover_row(entry, "", names[i], helps[i]);
+        ImDrawList* list = ImGui::GetWindowDrawList();
+        const float on = tween(item_part("on"), i == current ? 1.0f : 0.0f, kFast);
+        const float hover = tween(
+            item_part("hover"),
+            !drawer_possible() && ImGui::IsItemHovered() && i != current ? 1.0f : 0.0f,
+            kFast
+        );
+        const ImU32 rest = ui_colors::mix(control_fill(), pressed_fill(), hover);
+        list->AddRectFilled(a, b, ui_colors::mix(rest, on_fill, on), round);
+        focus_ring(
+            list,
+            ImVec2(a.x - dp(3.0f), a.y - dp(3.0f)),
+            ImVec2(b.x + dp(3.0f), b.y + dp(3.0f)),
+            round + dp(3.0f)
+        );
+        list->AddText(
+            font,
+            font->FontSize,
+            centred_text(
+                font, font->FontSize, names[i], ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
+            ),
+            ui_colors::mix(ui_colors::mix(ui().soft, ui().text, hover), ui().amber, on),
+            names[i]
+        );
+    }
+    return picked;
 }
 
 void menu_note(const char* line, ImU32 ink) {

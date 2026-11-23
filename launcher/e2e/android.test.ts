@@ -105,9 +105,9 @@ describe("Android launcher", () => {
     expect(text).not.toContain("This checkout");
     expect(text).not.toContain("more for other platforms");
     expect(text).not.toContain("Build the PS2 program");
-    await page.getByRole("tab", { name: /NTSC/ }).click();
+    await page.getByRole("tab", { name: /NTSC-U/ }).click();
     await expect(
-      page.getByRole("tab", { name: /NTSC/ }).getAttribute("aria-selected"),
+      page.getByRole("tab", { name: /NTSC-U/ }).getAttribute("aria-selected"),
     ).resolves.toBe("true");
   });
 
@@ -276,9 +276,10 @@ describe("A controller", () => {
 
   /** The name beside the disc, once the last game's has gone (the two cross for a moment). */
   async function shownName() {
-    await page.waitForFunction(() => document.querySelectorAll(".info").length === 1);
+    // div.info: a status line with the "info" tone ("Not playable yet") is a p.info too.
+    await page.waitForFunction(() => document.querySelectorAll("div.info").length === 1);
 
-    return page.locator(".info h1").textContent();
+    return page.locator("div.info h1").textContent();
   }
 
   /** What has the focus: its name as a screen reader says it, or its text. */

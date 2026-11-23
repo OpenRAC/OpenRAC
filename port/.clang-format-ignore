@@ -1,0 +1,4 @@
+# clang-format leaves JSON alone: the port's tables are written by tools in their own layout (rac3-ntsc's by
+# port/tools/hostgen/release_carry_rac3.py, which CI checks byte for byte), and a formatter run
+# over them (git-clang-format formats .json too) rewrites thousands of lines.
+**/*.json

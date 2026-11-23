@@ -40,6 +40,7 @@ module	platform/	platform
 module	assets/	assets
 module	audio/	audio
 module	media/	media
+module	mpui/	mpui
 module	renderer/vulkan/	renderer/vulkan
 module	renderer/world/	renderer/world
 module	renderer/	renderer
@@ -61,7 +62,7 @@ module	tests/	tests
 # android and ios (the apps' glue) and tests are the programs.
 layer	0	sdk common
 layer	1	runtime
-layer	2	platform assets audio media
+layer	2	platform assets audio media mpui
 layer	3	renderer renderer/vulkan renderer/world materials
 layer	4	scene
 layer	5	enhanced

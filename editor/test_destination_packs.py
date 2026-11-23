@@ -9,9 +9,9 @@ import overrides
 from test_overrides import glb
 
 
-def pack(root, name, byte, format=4, level=2):
+def pack(root, name, byte, format=4, level=2, version="pal"):
     root.mkdir(parents=True)
-    manifest = {"format": format, "game": "rac1", "version": "pal", "name": name}
+    manifest = {"format": format, "game": "rac1", "version": version, "name": name}
     if format in (3, 4):
         manifest["map"] = {"level": level, "spawn": [1, 2, 3]}
     (root / overrides.MANIFEST).write_text(json.dumps(manifest))
@@ -102,8 +102,19 @@ class DestinationPacks(unittest.TestCase):
             self.assertEqual(replacement, installed)
             self.assertEqual(len(overrides.load_state(r / 'installed')['packs']), 1)
             result['version'] = 'ntsc'
-            with self.assertRaisesRegex(overrides.PackError, 'PAL'):
-                overrides.map_settings(result)
+            self.assertEqual(overrides.map_settings(result)['level'], 2)
+
+    def test_ntsc_destinations_name_their_disc_and_never_mix_with_pal(self):
+        with tempfile.TemporaryDirectory() as d:
+            r = Path(d)
+            folder = r / 'installed'
+            overrides.add(pack(r / 'a', 'Harbor', 65, version='ntsc'), folder)
+            overrides.stack(folder, r / 'stack')
+            registry = json.loads((r / 'stack' / 'destinations.json').read_text())
+            self.assertEqual(registry['version'], 'ntsc')
+            overrides.add(pack(r / 'b', 'Arena', 66), folder)
+            with self.assertRaisesRegex(overrides.PackError, 'same disc'):
+                overrides.stack(folder, r / 'mixed')
 
 
 if __name__ == '__main__':

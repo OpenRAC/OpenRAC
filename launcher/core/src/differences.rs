@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 const BUILT_IN: &[(&str, &str)] = &[
     ("rac1", include_str!("../../../port/game/rac1/differences.json")),
     ("rac2", include_str!("../../../port/game/rac2/differences.json")),
+    ("rac3", include_str!("../../../port/game/rac3/differences.json")),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]

@@ -34,6 +34,7 @@ DATA = {
     "rac1-pal": ("build/data/pal", "assets/port/rac1/pal"),
     "rac1-ntsc": ("build/ntsc-data", "build/ntsc-levels"),
     "rac2-ntsc": ("build/rac2-data", "build/rac2-levels"),
+    "rac3-pal": ("build/rac3-data", "assets/port/rac3/pal"),
 }
 
 
@@ -203,7 +204,13 @@ def run(game: str, levels: list[int] | None, build: Path, out: Path | None = Non
     """Plays a set's routes (the standard level routes by default) whose level is in levels and,
     with only, whose key is listed; env: switches every run gets (OPENRAC_SOFTWARE_GL=1 on a
     machine without a graphics card); settings: settings.ini lines every run starts from."""
+    if game.startswith("rac3"):
+        # Its presses count window frames: frames between ticks would land them on other game ticks each run.
+        settings = {"frame_rate": "original", **(settings or {})}
     exe = build / f"openrac-{game}{'.exe' if os.name == 'nt' else ''}"
+    if not exe.exists():
+        # macOS builds the program inside an app bundle.
+        exe = next(iter(sorted((build / "apps" / f"openrac-{game}").glob("*.app/Contents/MacOS/*"))), exe)
     if not exe.exists():
         raise SystemExit(f"no {exe}: build the port first (cd port && cmake --build --preset release)")
     d, lv = default_inputs(game)

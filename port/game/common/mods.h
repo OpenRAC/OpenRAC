@@ -15,6 +15,7 @@
 #include <deque>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -65,6 +66,13 @@ struct DeveloperMenuItem {
     MenuItemKind kind = MenuItemKind::Press;
     int value = 0;                    // a switch's 0 or 1, a choice's index
     std::vector<std::string> values;  // a choice's values
+    // Its look (1.28, developer_menu_look): a row to read, a locked one, text at its right, a
+    // progress bar (negative: none), an icon of the mods' (touch_icon).
+    bool info = false;
+    bool locked = false;
+    std::string look_value;
+    float progress = -1.0f;
+    std::string icon;
 };
 
 struct DeveloperMenu {
@@ -221,7 +229,7 @@ inline void frame() {
 // callbacks run.
 void tick_boundary(std::uint32_t tick);
 
-// Optional mod-provided top-level menus for the in-window menu bar.
+// The mods' tabs in OpenRAC's menu (developer_menu).
 const std::vector<DeveloperMenu>& developer_menus();
 void queue_developer_menu_action(openrac_mod* mod, std::uint32_t action);
 // The menu turned a switch over or moved a choice (1.19): its new state, and its action queued as
@@ -319,6 +327,11 @@ MobyMaterial moby_material_drawn(std::uint32_t moby);
 // (energy_effects.h), read once a tick. From the game's thread.
 std::unordered_map<std::uint32_t, MobyMaterial> energy_materials();
 
+// The looks mods gave weapons' shots (openrac_api.weapon_look, interface 1.29) on the particle
+// records the game made for them (their mobys, blasts and guns), by record address (each look's
+// moby is the record's address), read once a tick. From the game's thread.
+std::unordered_map<std::uint32_t, MobyMaterial> particle_looks();
+
 // ---- Heat haze (interface 1.12, mod_play.cpp) ----
 
 // A patch of heat haze to draw this frame (openrac_haze), in the game's world.
@@ -357,10 +370,12 @@ std::string menu_entry_label(int index);
 // code, in the characters a code has.
 bool is_mod_code_link(std::string_view url);
 
-// Drawing over the game (interface 1.14): whether a mod draws now (one took on_overlay and the game
-// shows a level, not a menu or a scene), and each such mod's callback with `overlay`. On the window
-// thread, with the frame finished.
-bool overlay_wanted();
+// Drawing over the game (interface 1.14, and 1.31's phases): the phase a frame is drawn over (an
+// OPENRAC_OVERLAY_* bit, 0 for none or no mod drawing), read on the game's thread when the tick is
+// kept; whether a mod draws over a frame of that phase; and each such mod's callback with
+// `overlay` (its `phase` the frame's). On the window thread, with the frame finished.
+std::uint32_t overlay_phase();
+bool overlay_wanted(std::uint32_t phase);
 void run_overlays(const openrac_overlay& overlay);
 
 // Runs entry `index`'s page for a frame: its callback with `frame`, its drawing sent to the host's

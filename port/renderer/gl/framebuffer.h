@@ -105,6 +105,23 @@ public:
     void blit_to(unsigned target, int dst_width, int dst_height) const;
 
 private:
+    // Selects whether target creation may use the implicit resolve extension.
+    enum class ResolveMode {
+        AllowImplicit,
+        ExplicitOnly
+    };
+
+    // Creates the target, retrying with an explicit resolve if implicit setup is rejected.
+    bool create_target(
+        int width,
+        int height,
+        std::string& error,
+        int samples,
+        bool texture_depth,
+        bool float_colour,
+        ResolveMode resolve_mode
+    );
+
     void allocate_colour(bool float_colour);
     unsigned m_framebuffer = 0;
     unsigned m_colour = 0;

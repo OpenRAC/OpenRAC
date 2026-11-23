@@ -74,6 +74,8 @@
 
   const adreno = $derived(info?.device.gpu === "adreno");
   const mali = $derived(info?.device.gpu === "mali");
+  // OpenGL ES is the default on Mali and Xclipse (OpenracPlugin.kt renderer()).
+  const glesDefault = $derived(mali || info?.device.gpu === "xclipse");
 </script>
 
 <!-- One panel: what the game draws with, and on Vulkan the driver it loads. The drivers show only
@@ -86,9 +88,9 @@
       <strong>Renderer</strong>
       <small>
         {#if rendererPick === "vulkan"}
-          Vulkan 1.3{mali ? "" : ", the default"}; without it OpenGL ES.
+          Vulkan 1.3{glesDefault ? "" : ", the default"}; without it OpenGL ES.
         {:else}
-          OpenGL ES 3.2{mali ? ", the default on Mali GPUs" : ""}.
+          OpenGL ES 3.2{glesDefault ? `, the default on ${mali ? "Mali" : "Xclipse"} GPUs` : ""}.
         {/if}
         From the game's next start.
       </small>
@@ -125,7 +127,7 @@
           {[
             info.device.model,
             info.device.soc,
-            info.device.gpu === "other" ? "" : info.device.gpu === "adreno" ? "Adreno" : "Mali",
+            { adreno: "Adreno", mali: "Mali", xclipse: "Xclipse", other: "" }[info.device.gpu],
           ]
             .filter(Boolean)
             .join(" · ")}

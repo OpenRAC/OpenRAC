@@ -6,7 +6,9 @@
   import AddToSteam from "$components/AddToSteam.svelte";
   import GpuDrivers from "$components/GpuDrivers.svelte";
   import Logo from "$components/Logo.svelte";
+  import MultiplayerServer from "$components/MultiplayerServer.svelte";
   import PathField from "$components/PathField.svelte";
+  import Rac3Gate from "$components/Rac3Gate.svelte";
   import {
     api,
     type Check,
@@ -25,7 +27,9 @@
   import { DISCORD_URL, PYTHON_URL, REPO_URL, SITE_URL } from "$lib/links";
   import { SETTINGS_TEXT } from "$lib/modsText";
   import { nameProblem } from "$lib/multiplayerName";
+  import { serverProblem } from "$lib/multiplayerServer";
   import { applyPalette, PALETTES } from "$lib/palettes";
+  import { RAC3_SWITCH } from "$lib/rac3Gate";
   import { tablist } from "$lib/tabs";
   import { applyAccent } from "$lib/themes";
   import { channelName, devBranches } from "$lib/updates";
@@ -61,8 +65,11 @@
     "saveEditorAdvanced",
     "developer",
     "incrementalBuilds",
+    "rac3Dev",
     "discordClientId",
     "multiplayerName",
+    "multiplayerServerHost",
+    "multiplayerServerPort",
   ] as const satisfies (keyof Config)[];
   type Edited = Pick<Config, (typeof EDITED)[number]>;
 
@@ -166,7 +173,7 @@
   });
 
   /** Android saves by itself, so a change still waiting when the page is left is saved then. */
-  const kept = () => onAndroid && !setup && (saving || (changed && !nameError));
+  const kept = () => onAndroid && !setup && (saving || (changed && !formError));
 
   // A theme picked shows at once; left unsaved, the saved one comes back with the page's end.
   $effect(() => {
@@ -193,6 +200,13 @@
   );
   /** What is wrong with the multiplayer name typed, if anything: nothing is saved until it is right. */
   const nameError = $derived(nameProblem(draft.multiplayerName));
+  /** The multiplayer server likewise (MultiplayerServer says what is wrong). iOS plays with no
+   *  online play, so it has no server to name. */
+  const serverError = $derived(
+    isIos ? null : serverProblem(draft.multiplayerServerHost, draft.multiplayerServerPort),
+  );
+  /** Anything typed that cannot be saved yet. */
+  const formError = $derived(nameError ?? serverError);
   /** The Multiplayer name shows only while a mod that uses it (the multiplayer mod) is on in one
    *  of the games; hidden, it keeps its value. */
   let nameUsed = $state(false);
@@ -213,7 +227,7 @@
    *  A change that could not be written is not tried again until it changes again. */
   let unwritten = $state<string | null>(null);
   $effect(() => {
-    if (!onAndroid || setup || !changed || saving || nameError) return;
+    if (!onAndroid || setup || !changed || saving || formError) return;
     const now = JSON.stringify(edited(draft));
 
     if (now === unwritten) return;
@@ -258,6 +272,24 @@
       version: null,
       message: `Saves are kept in ${path}/<disc serial>`,
     });
+
+  let rac3Gate = $state<Rac3Gate>();
+
+  /** Off: at once. On: only after the three prompts are confirmed; a cancel leaves it off. */
+  async function toggleRac3(e: Event) {
+    const box = e.currentTarget as HTMLInputElement;
+
+    if (!box.checked) {
+      draft.rac3Dev = false;
+
+      return;
+    }
+
+    // Not on yet: the box waits for the answer.
+    box.checked = false;
+    draft.rac3Dev = (await rac3Gate?.run()) ?? false;
+    box.checked = draft.rac3Dev;
+  }
 
   async function save(finish: boolean) {
     saving = true;
@@ -546,6 +578,13 @@
           </p>
         </div>
       {/if}
+      <!-- Where every game's online play goes; the game gets it as OPENRAC_SERVER. -->
+      {#if !isIos}
+        <MultiplayerServer
+          bind:host={draft.multiplayerServerHost}
+          bind:port={draft.multiplayerServerPort}
+        />
+      {/if}
     </section>
 
     <section class="panel">
@@ -663,9 +702,10 @@
           disabled={looked === "looking" || !supports(app.info, "updates")}
           onclick={() => void checkNow()}>Check now</button
         >
-        {#if looked === "looking"}· Looking…{:else if app.update?.switchTo}· {channelName(
-            app.update.switchTo,
-          )}
+        {#if looked === "looking"}· Looking…{:else if app.update?.missingBuild}· {app.update.name}
+          is out, but not yet for this system.
+          <button class="link" onclick={() => (app.showUpdateModal = true)}>Details</button
+          >{:else if app.update?.switchTo}· {channelName(app.update.switchTo)}
           {app.update.version} can replace this build.
           <button class="link" onclick={() => (app.showUpdateModal = true)}>Switch</button
           >{:else if looked === "found" || app.update}· {app.update?.name ?? "A new version"} is out.
@@ -818,6 +858,19 @@
                 bind:checked={draft.incrementalBuilds}
               />
             </label>
+            <label class="setting">
+              <span class="text">
+                <strong>{RAC3_SWITCH.title}</strong>
+                <small>{RAC3_SWITCH.hint}</small>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                class="switch"
+                checked={draft.rac3Dev}
+                onchange={toggleRac3}
+              />
+            </label>
             {#if !rootHere && !onAndroid}
               <PathField
                 label="OpenRAC folder"
@@ -892,11 +945,13 @@
   {/if}
 </div>
 
+<Rac3Gate bind:this={rac3Gate} />
+
 {#if !setup && changed && !onAndroid}
   <div class="save-bar" role="status">
     <span class="grow">You have unsaved changes.</span>
     <button disabled={saving} onclick={() => (draft = saved())}>Discard</button>
-    <button class="primary" disabled={saving || !!nameError} onclick={() => void save(false)}
+    <button class="primary" disabled={saving || !!formError} onclick={() => void save(false)}
       >Save</button
     >
   </div>

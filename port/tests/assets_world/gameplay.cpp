@@ -136,11 +136,11 @@ void sections() {
     CHECK(gameplay_section_name(Section::PvarTable) != gameplay_section_name(Section::PvarData));
     bool refused = false;
     try {
-        GameplayFile other(Game::Rac3, bytes);
+        GameplayFile other(Game::Rac4, bytes);
     } catch (const AssetError&) {
         refused = true;
     }
-    CHECK(refused);  // the sequels' layouts are not known yet
+    CHECK(refused);  // Deadlocked's layout is not known yet
 }
 
 void settings_and_instances() {
