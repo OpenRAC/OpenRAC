@@ -2578,7 +2578,8 @@
       "func_L55_0054AE18": "int (int)",
       "func_L55_0054AEB0": "int (int)",
       "func_L55_0054B748": "void (int, int, int, int)"
-    }
+    },
+    "cop0_count": true
   },
   "unpassed_registers": true,
   "library_api": "../../common/libraries.tsv",
