@@ -95,6 +95,8 @@ class Level:
     ship_bodies: list[bytes] = field(default_factory=list)
     # Going Commando: every paint job of his ship, 0 first (also ("moby", SHIP_TEXTURE)).
     ship_paints: list[Texture] = field(default_factory=list)
+    # Going Commando's transition loader binds classes with a nonzero table word +8 to the paint.
+    flight_ship_textures: bool = False
     # Up Your Arsenal: Clank's picture in each of his skins, 0 first (also ("moby", CLANK_TEXTURE)).
     clank_skins: list[Texture] = field(default_factory=list)
     # Up Your Arsenal: the moby classes its scenes load (scene_classes): class number to (class
@@ -547,6 +549,7 @@ def load_wad_flight(source, number: int) -> Level:
     its transition loader (func_002EAB18) reads as Ratchet & Clank's does. Levels 98 down to 95."""
     level = flight_level(decoded(source.flight(number)), FLIGHT_ID - number, source.version.key)
     level.game = source.version.game
+    level.flight_ship_textures = True
     level.hero_mesh, pack = source.hero_pack()
     for i, texture in enumerate(hero_textures(pack)):
         level.textures[("moby", HERO_TEXTURES + i)] = texture

@@ -474,9 +474,14 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
         hero, wrench = class_id == 0 and level.hero_mesh is not None, class_id == WRENCH_CLASS and level.wrench_meshes
         # The hero pack's packets name its own textures, in order. The wrench's pack has one.
         painted = ("moby", SHIP_TEXTURE) in level.textures
-        bound = unpack("<i", entry, 8)[0] if fmt.bound_textures else 0
+        flight_ship = fmt.game == "rac2" and getattr(level, "flight_ship_textures", False)
+        bound = unpack("<i", entry, 8)[0] if fmt.bound_textures or flight_ship else 0
         remap = ([HERO_TEXTURES + i for i in range(16)] if hero else [ITEM_TEXTURES] * 16 if wrench
                  else [SHIP_TEXTURE] * 16 if class_id == SHIP_CLASS and painted
+                 # The transition loader (func_002EAB18, 0x002EAD70..0x002EADF4) binds every
+                 # packet of a flagged class to the ship's TEX0, even with occupied slots.
+                 # These are the flight's wings and other parts, not ordinary level classes.
+                 else [SHIP_TEXTURE] * 16 if flight_ship and bound and painted
                  # Going Commando binds a face on an empty slot to his ship's picture: its parts,
                  # classes with no textures of their own (read from the packets' TEX0 in a level's
                  # memory after load, func_002932B8).

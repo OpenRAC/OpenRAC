@@ -53,8 +53,9 @@ inline constexpr int kManifestFormat = 4;
 // for the shrubs a point light reaches; 18 with the gameplay copy
 // the probe baker reads (bake-inputs/gameplay.bin); 19 with the emission catalog's textures
 // (probe-emission.json) and the levels' sky and sun profiles (probe-bake.json); 20 with the liquid
-// surfaces the baker lights from (bake-inputs/liquids.json).
-inline constexpr int kManifestFormatNewest = 20;
+// surfaces the baker lights from (bake-inputs/liquids.json); 21 with the flight's flagged ship parts
+// bound to the selected paint even when their texture slots are occupied.
+inline constexpr int kManifestFormatNewest = 21;
 
 struct Vertex {
     float position[3];

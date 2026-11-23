@@ -94,7 +94,8 @@ FORMAT = 4
 # ship's on the ship's parts, Clank's on Clank; manifest "clank_skins"), as Going Commando's 15.
 # 16: the moby classes the level's scenes load (level.scene_classes: Clank in a scene, the gun the
 # Ranger hands over on Veldin).
-GAME_FORMATS = {"rac2": 20, "rac3": 16}
+# 21: the flight's flagged ship parts follow the selected paint, including occupied texture slots.
+GAME_FORMATS = {"rac2": 21, "rac3": 16}
 
 
 def levels_format(game: str) -> int:
