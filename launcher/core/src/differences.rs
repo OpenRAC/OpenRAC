@@ -60,6 +60,10 @@ pub struct Difference {
     pub port: String,
     #[serde(default)]
     pub setting: Option<FixSetting>,
+    /// A fix's discs that compile the host C reading its key but never reach the read (a disc that
+    /// already behaves so), each with why: no setting there, and not shown.
+    #[serde(default)]
+    pub bypassed: std::collections::BTreeMap<String, String>,
     #[serde(default)]
     pub refs: Vec<String>,
 }
@@ -125,6 +129,17 @@ pub fn parse(text: &str) -> Result<DifferenceFile, String> {
         if d.discs.is_empty() || d.discs.iter().any(|v| !matches!(v.as_str(), "pal" | "ntsc" | "ntsc2" | "pal1" | "jp"))
         {
             return Err(at("discs are pal, ntsc, ntsc2, pal1 or jp"));
+        }
+        for (disc, why) in &d.bypassed {
+            if d.kind != Kind::Fix {
+                return Err(at("only a fix is bypassed"));
+            }
+            if !matches!(disc.as_str(), "pal" | "ntsc" | "ntsc2" | "pal1" | "jp") || d.discs.contains(disc) {
+                return Err(at("a bypassed disc is pal, ntsc, ntsc2, pal1 or jp, and not in discs"));
+            }
+            if why.trim().is_empty() {
+                return Err(at("a bypassed disc says why"));
+            }
         }
         match (d.kind, &d.setting) {
             (Kind::Fix, None) => return Err(at("a fix needs a setting")),
@@ -382,6 +397,15 @@ mod tests {
         let on = |discs: &str| parse(&entry(r#""kind": "port""#).replace(r#"["pal"]"#, discs));
         assert!(on(r#"["pal1", "jp", "ntsc2", "ntsc"]"#).is_ok());
         assert!(on(r#"["xx"]"#).is_err() && on("[]").is_err());
+        // A fix's bypassed discs: other discs, each with why.
+        let fix = |bypassed: &str| {
+            parse(&entry(&format!(
+                r#""kind": "fix", "setting": {{"key": "fix_a_b", "default": true}}, "bypassed": {bypassed}"#
+            )))
+        };
+        assert!(fix(r#"{"ntsc2": "w"}"#).is_ok());
+        assert!(fix(r#"{"pal": "w"}"#).is_err() && fix(r#"{"xx": "w"}"#).is_err() && fix(r#"{"ntsc2": ""}"#).is_err());
+        assert!(parse(&entry(r#""kind": "port", "bypassed": {"ntsc2": "w"}"#)).is_err());
     }
 
     #[test]

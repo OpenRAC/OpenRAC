@@ -33,7 +33,9 @@ restores the disc's behavior. Greatest Hits keeps its own implementation.
 
 These wrappers are in `host/gh_fixes.c`. The counter preserves the disc's localized labels;
 the thrust correction applies only to the mining vehicle's paired vector operations. The
-counts and thrust guards are covered by `rac2_gh_fixes_test`.
+counts and thrust guards are covered by `rac2_gh_fixes_test`. Greatest Hits compiles the same
+file but calls its own functions before reading a key, so `differences.json` marks both fixes
+`bypassed` on `ntsc2`: no setting there (docs/port/SETTINGS.md section 8).
 
 ## Writing shared C
 

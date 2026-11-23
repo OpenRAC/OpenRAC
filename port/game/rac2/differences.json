@@ -12,6 +12,9 @@
       ],
       "original": "The ship's planet page displays global statistics rather than the selected planet's platinum bolt count.",
       "port": "Show collected and total platinum bolts for the selected planet, following Greatest Hits. Maktar includes the Jamming Array. Original restores the disc's global statistics.",
+      "bypassed": {
+        "ntsc2": "Greatest Hits already behaves so: host/gh_fixes.c calls its own function before it reads the key"
+      },
       "setting": {
         "key": "fix_planet_platinum_count",
         "default": true
@@ -31,6 +34,9 @@
       ],
       "original": "The mining vehicle scales its thrust by the signed acceleration twice, turning reverse thrust forward.",
       "port": "Use the acceleration's magnitude for the second thrust scale, as Greatest Hits does, so Circle reverses. Original restores the disc's signed second scale.",
+      "bypassed": {
+        "ntsc2": "Greatest Hits already behaves so: host/gh_fixes.c calls its own function before it reads the key"
+      },
       "setting": {
         "key": "fix_mining_reverse",
         "default": true
