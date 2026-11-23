@@ -690,7 +690,10 @@ static void lobby_connect_info(uint8_t* p, int32_t world) {
 
 /* The most players a game this console hosts takes: the create page's MaxPlayers, or
  * OPENRAC_RAC3_MAX_PLAYERS (9-24: a room past the game's 8, mp_wide.c) where the tables can grow. */
+static int32_t net_own_game_max_players; /* this console's game's own MaxPlayers, as it set it */
+
 static int32_t net_host_max_players(int32_t game) {
+    net_own_game_max_players = game;
     const char* e = openrac_env_string("OPENRAC_RAC3_MAX_PLAYERS");
     const int want = e != NULL ? atoi(e) : 0;
     if (want > 0 && rac3_mp_wide_available()) {
@@ -899,9 +902,13 @@ static void lobby_reply_game_info(const uint8_t* req, int32_t world) {
     uint8_t reply[0x18C];
     const game_advert* a = NULL;
     int players = 1;
+    int32_t max_players = 0;
     if (world == M_WORLD_OWN && lobby.own_valid) {
         a = &lobby.own;
         players = room.count > 0 ? room.count : 1;
+        /* The host's own game as it made it (its CREATE page's 8): it waits for its info to agree
+         * with its settings; the room's wider size is in the advert the others list. */
+        max_players = net_own_game_max_players;
     } else {
         const listed_game* g = lobby_game(world);
         if (g != NULL) {
@@ -913,7 +920,7 @@ static void lobby_reply_game_info(const uint8_t* req, int32_t world) {
     if (a != NULL) {
         put32(reply + 0x1C, GFN(int (*)(void), RAC3_MADDR(0x00183BDCu))());
         put32(reply + 0x20, a->min_players);
-        put32(reply + 0x24, a->max_players);
+        put32(reply + 0x24, max_players != 0 ? max_players : a->max_players);
         put32(reply + 0x28, a->level);
         put32(reply + 0x2C, a->skill);
         put32(reply + 0x30, players);
