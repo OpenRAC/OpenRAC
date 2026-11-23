@@ -73,6 +73,7 @@
 #include <stdlib.h>
 
 #include "game_protos.h"
+#define RAC2_MOBY_TARGET_RECORD func_002AB1F0
 #include "moby_checks.h"
 #include "openrac/host_env.h"
 #include "rac2.h"

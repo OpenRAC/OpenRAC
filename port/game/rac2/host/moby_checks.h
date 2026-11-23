@@ -59,6 +59,12 @@ static inline gaddr rac2_moby_pvars(gaddr m, int port) {
     return (port ? rac2_memory_at(pvars, 0x80u) : rac2_ram_at(pvars, 0x80u)) ? pvars : 0;
 }
 
+/* The including C names the function, `#define RAC2_MOBY_TARGET_RECORD func_002AB1F0` before the
+ * include: hostgen renames a release's functions in the .c files only, not in a header. */
+#ifndef RAC2_MOBY_TARGET_RECORD
+#define RAC2_MOBY_TARGET_RECORD func_002AB1F0
+#endif
+
 /* A moby's target record (moby_get_private_value_0, func_002AB1F0: its pvars' first word, with
  * +0x34's 0x20), read only from pvars in RAM and taken only when it is a record of RAM itself (its
  * health at +0, its target height at +0x10); else 0. */
@@ -66,7 +72,7 @@ static inline gaddr rac2_target_record(gaddr m) {
     if ((GREF(uint16_t, m + 0x34u) & 0x20u) == 0 || rac2_moby_pvars(m, 0) == 0) {
         return 0;
     }
-    const gaddr record = func_002AB1F0(m);
+    const gaddr record = RAC2_MOBY_TARGET_RECORD(m);
     return rac2_ram_at(record, 0x14u) ? record : 0;
 }
 
