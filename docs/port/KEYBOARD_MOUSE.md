@@ -30,8 +30,8 @@ set *Button icons* to *Always keys* or *Always gamepad*.
 - First person works the same way in both games (GC: L1's view and the
   first-person mode). Frames between ticks show the game's camera, smoothed
   between ticks. *Low-latency mouse camera* makes them show the mouse's turn
-  before the game reads it, carried on to when the frame is shown: up to one
-  tick less delay. Turn it off if a fast turn looks uneven on your screen.
+  before the game reads it, carried on to when the frame is shown: about 25 ms
+  less delay at 60 ticks a second. Turn it off if a fast turn looks uneven on your screen.
 - Other cameras (scenes, GC's ship and vehicles) get the mouse as the right
   stick. A pad's right stick always wins.
 
