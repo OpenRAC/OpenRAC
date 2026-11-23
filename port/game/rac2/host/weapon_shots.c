@@ -66,6 +66,7 @@
 
 #include "enemy_copies.h"
 #include "game_protos.h"
+#include "moby_checks.h"
 #include "moby_pool.h"
 #include "rac2.h"
 
@@ -92,6 +93,7 @@
 /* The impact queue (QueueMobyImpact, func_002A8E20): 64 entries of 0x40 bytes. */
 #define IMPACT_QUEUE OPENRAC_DATA(RAC2_ADDR(0x001BF200u))
 #define IMPACT_SIZE 0x40u
+#define IMPACT_ENTRIES 64u
 #define IMPACT_OWNER 0x38u
 #define IMPACT_DAMAGE 0x2Cu
 
@@ -228,8 +230,7 @@ static int table(gaddr* base, gaddr* end) {
 
 static int32_t slot_of(gaddr moby) {
     gaddr base, end;
-    if (moby == 0 || !table(&base, &end) || moby < base || moby >= end
-        || (moby - base) % MOBY_SIZE != 0) {
+    if (!table(&base, &end) || !rac2_moby_slot(moby)) {
         return -1;
     }
     const uint32_t slot = (moby - base) / MOBY_SIZE;
@@ -242,16 +243,18 @@ static gaddr moby_at(int32_t slot) {
         return 0;
     }
     const gaddr m = base + (gaddr)slot * MOBY_SIZE;
-    return m < end && GREF(uint8_t, m + MOBY_STATE) < 0x80 ? m : 0;
+    return m < end && rac2_moby_live(m) ? m : 0;
 }
 
+/* Whether `moby` is a live moby of the table, still of class `oclass` (moby_checks.h). */
 static int alive(gaddr moby, int16_t oclass) {
-    return moby != 0 && GREF(uint8_t, moby + MOBY_STATE) < 0x80
-           && GREF(int16_t, moby + MOBY_OCLASS) == oclass;
+    return rac2_moby_live(moby) && GREF(int16_t, moby + MOBY_OCLASS) == oclass;
 }
 
+/* The moby in the hero's hand, when it is a slot of the table. */
 static gaddr hand(void) {
-    return in_level() ? GREF(gaddr, HERO_ITEM_MOBY) : 0;
+    const gaddr m = in_level() ? GREF(gaddr, HERO_ITEM_MOBY) : 0;
+    return rac2_moby_slot(m) ? m : 0;
 }
 
 static int32_t hand_item(void) {
@@ -408,7 +411,7 @@ static gaddr trail_rings(int kind) {
 static void trail_own(gaddr m, int kind) {
     const gaddr rings = trail_rings(kind);
     const int32_t slot = slot_of(m);
-    const gaddr pvars = m != 0 ? GREF(gaddr, m + MOBY_PVARS) : 0;
+    const gaddr pvars = slot >= 0 ? rac2_moby_pvars(m, 1) : 0;
     if (rings == 0 || slot < 0 || pvars == 0) {
         return;
     }
@@ -423,6 +426,9 @@ static void trail_own(gaddr m, int kind) {
     const gaddr first = trail_block[b] + ((rings - trail_block[b]) & (TRAIL_SIZE - 1u));
     const gaddr ring = first + (gaddr)slot * TRAIL_SIZE;
     const gaddr made = rings + (gaddr)GREF(int32_t, pvars + TRAIL_INDEX) * TRAIL_SIZE;
+    if (!rac2_memory_at(made, TRAIL_SIZE)) {
+        return;
+    }
     float point[4];
     memcpy(point, G(made), 16);
     for (int i = 0; i < 4; ++i) {
@@ -434,11 +440,14 @@ static void trail_own(gaddr m, int kind) {
 /* The rocket `m` of `kind` was moved by `by` after its spawn: its trail's points move with it. */
 static void trail_moved(gaddr m, int kind, const float by[3]) {
     const gaddr rings = trail_rings(kind);
-    const gaddr pvars = m != 0 ? GREF(gaddr, m + MOBY_PVARS) : 0;
+    const gaddr pvars = rac2_moby_slot(m) ? rac2_moby_pvars(m, 1) : 0;
     if (rings == 0 || pvars == 0) {
         return;
     }
     const gaddr ring = rings + (gaddr)GREF(int32_t, pvars + TRAIL_INDEX) * TRAIL_SIZE;
+    if (!rac2_memory_at(ring, TRAIL_SIZE)) {
+        return;
+    }
     for (int i = 0; i < 4; ++i) {
         float p[3];
         read3(p, ring + (gaddr)i * 16u);
@@ -671,7 +680,7 @@ int rac2_moby_status(int32_t slot, uint32_t status, int32_t ticks) {
 /* The hit the impact queue holds for `moby`: its entry and damage, -1 for none. */
 static int32_t pending_impact(gaddr moby) {
     const uint8_t index = GREF(uint8_t, moby + MOBY_IMPACT);
-    if (index == 0xFF) {
+    if (index >= IMPACT_ENTRIES) {
         return -1;
     }
     const gaddr entry = IMPACT_QUEUE + (gaddr)index * IMPACT_SIZE;
@@ -729,11 +738,20 @@ static Shot* shot_of(gaddr moby) {
 /* A shot's moby died: why, and where. */
 static void shot_died(Shot* s, int made) {
     s->ended = 1;
-    read3(s->last, s->moby + MOBY_POS);
     const int kind = s->kind;
-    const gaddr pvars = GREF(gaddr, s->moby + MOBY_PVARS);
+    s->reason = made ? OPENRAC_SHOT_END_IMPACT : OPENRAC_SHOT_END_GONE;
+    /* No slot of the table now (a load moved it): gone, where it was last told. */
+    if (!rac2_moby_slot(s->moby)) {
+        return;
+    }
+    read3(s->last, s->moby + MOBY_POS);
+    /* Its slot taken by a moby of another class: its words are the new one's, never read as the
+     * shot's. A dead one's pvars word may be anything (a float, 0x4C58xxxx, on a new game started
+     * from Yeedil): its timer is read only from pvars in memory. */
+    const int same = GREF(int16_t, s->moby + MOBY_OCLASS) == s->oclass;
+    const gaddr pvars = same ? rac2_moby_pvars(s->moby, 1) : 0;
     if (made
-        || ((kind == RAC2_SHOT_MINIROCKET || kind == RAC2_SHOT_RYNO)
+        || ((kind == RAC2_SHOT_MINIROCKET || kind == RAC2_SHOT_RYNO) && same
             && GREF(uint8_t, s->moby + MOBY_HIT) != 0)) {
         s->reason = OPENRAC_SHOT_END_IMPACT;
     } else if (KINDS[kind].timer >= 0 && pvars != 0
@@ -894,7 +912,7 @@ static void turn_matrix(gaddr m, float yaw, float pitch) {
         rac2_shot_turn(v, forward, yaw, pitch);
         write3(m + rows[r], v);
     }
-    const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+    const gaddr pvars = rac2_moby_pvars(m, 1);
     if (pvars != 0) {
         float v[3];
         read3(v, pvars + 0x30u);
@@ -925,7 +943,7 @@ static void aim_matrix(gaddr m, const float velocity[3]) {
     write3(m + MOBY_FORWARD, f);
     write3(m + MOBY_RIGHT, r);
     write3(m + MOBY_UP, u);
-    const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+    const gaddr pvars = rac2_moby_pvars(m, 1);
     if (pvars != 0) {
         write3(pvars + 0x30u, f);
         GREF(float, pvars + 0x18u) = speed;
@@ -999,7 +1017,9 @@ int32_t rac2_shot_refire(uint32_t serial, float yaw, float pitch) {
 #define RYNO_HOMING_LIFE 294
 
 static void ryno_lock(gaddr m, gaddr pvars, gaddr target, const float velocity[3]) {
-    const gaddr info = func_002AB1F0(target);
+    /* Its target record only when it is one of RAM (an NG++ copy's pvars are the port's, and a
+     * pvars word may hold a float: moby_checks.h); else the rocket's own height. */
+    const gaddr info = rac2_target_record(target);
     const float height = info != 0 ? GREF(float, info + 0x10u) : GREF(float, pvars + 0x14u);
     float pos[3], up[3], offset[3], at[3];
     read3(pos, target + MOBY_POS);
@@ -1033,8 +1053,11 @@ static void ryno_lock(gaddr m, gaddr pvars, gaddr target, const float velocity[3
 
 int32_t rac2_shot_spawn_live(const openrac_game_spawn_live* in) {
     const int kind = rac2_shot_kind(in->oclass);
+    if (kind < 0 || !rac2_in_play()) {
+        return -1;
+    }
     const gaddr gun = in->owner >= 0 ? moby_at(in->owner) : hand();
-    if (kind < 0 || gun == 0 || !may_make()) {
+    if (gun == 0 || !may_make()) {
         return -1;
     }
     const gaddr target = in->target >= 0 ? moby_at(in->target) : 0;
@@ -1090,7 +1113,7 @@ int32_t rac2_shot_spawn_live(const openrac_game_spawn_live* in) {
         /* Their spawn only aims at the target and leaves the pvars' target (+0x10) empty, and their
          * update steers only after one (homing_l00_shot_update_3, from its sixth tick): a rocket the
          * mod gives a target is one that homes on it. */
-        const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+        const gaddr pvars = rac2_moby_pvars(m, 1);
         if (target != 0 && pvars != 0 && KINDS[kind].target >= 0
             && GREF(gaddr, pvars + (gaddr)KINDS[kind].target) == 0) {
             GREF(gaddr, pvars + (gaddr)KINDS[kind].target) = target;
@@ -1126,7 +1149,7 @@ void rac2_post_hit(
 ) {
     static gaddr request;
     (void)velocity;
-    if (victim == 0 || !in_level()) {
+    if (!in_level() || !rac2_moby_live(victim)) {
         return;
     }
     if (request == 0) {
@@ -1199,7 +1222,7 @@ static void heading(const Call* c, gaddr m, float direction[3], float* speed) {
     }
     *speed = KINDS[c->kind].takes_velocity ? length : 0.0f;
     if (!KINDS[c->kind].takes_velocity) {
-        const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+        const gaddr pvars = rac2_moby_pvars(m, 1);
         *speed = pvars != 0 ? GREF(float, pvars + 0x18u) : 0.0f;
     }
 }
@@ -1231,6 +1254,13 @@ void rac2_shots_frame(void) {
     }
     made_this_tick = 0;
     pool_free = -1;
+    /* Only in play: in a scene, a menu or a program's load (g_nGameState 6, a new game's from a
+     * level among them) the table is the game's to rewrite and a shot's slot may hold anything. The
+     * shots wait for play; the spawns noted meanwhile are not the hero's shots. */
+    if (!rac2_in_play()) {
+        call_count = 0;
+        return;
+    }
     /* The ends first: a shot can end in the tick it was made. Then any shot dead by other hands. */
     int k = 0;
     for (int i = 0; i < shot_count; ++i) {
@@ -1263,8 +1293,9 @@ void rac2_shots_frame(void) {
         }
         Shot* s = track(m, c->kind, item >= 0 ? item : KINDS[c->kind].item, 0, gun, c->target);
         if (s->target == 0 && KINDS[c->kind].target >= 0) {
-            const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
-            s->target = pvars != 0 ? GREF(gaddr, pvars + (gaddr)KINDS[c->kind].target) : 0;
+            const gaddr pvars = rac2_moby_pvars(m, 1);
+            const gaddr t = pvars != 0 ? GREF(gaddr, pvars + (gaddr)KINDS[c->kind].target) : 0;
+            s->target = rac2_moby_slot(t) ? t : 0;
         }
         if (openrac_game_moby_look != NULL && look_of(m) < 0) {
             give_look(m, s->item);

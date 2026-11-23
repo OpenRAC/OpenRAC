@@ -73,6 +73,7 @@
 #include <stdlib.h>
 
 #include "game_protos.h"
+#include "moby_checks.h"
 #include "openrac/host_env.h"
 #include "rac2.h"
 #include "weapon_shots.h"
@@ -140,40 +141,6 @@ enum {
 #define GAME_STATE OPENRAC_DATA(RAC2_g_nGameState)
 #define STATE_PLAY 0
 #define HERO_MOBY OPENRAC_DATA(RAC2_g_pHeroMoby)
-/* The first of the game's RAM where a moby, a class or a record may be: past the console kernel's. */
-#define RAM_LOW 0x00080000u
-
-/* Whether the `bytes` from `a` are the game's RAM, `a` a word's address. */
-static int ram_at(gaddr a, uint32_t bytes) {
-    return (a & 3u) == 0 && a >= RAM_LOW && a < openrac_guest_ram_size
-           && bytes <= openrac_guest_ram_size - a;
-}
-
-/* Whether they are the game's RAM or the port's own memory (GUEST_PORT: the mods' copies' pvars). */
-static int memory_at(gaddr a, uint32_t bytes) {
-    return ram_at(a, bytes)
-           || ((a & 3u) == 0 && a >= GUEST_PORT && a - GUEST_PORT < GUEST_PORT_SIZE
-               && bytes <= GUEST_PORT_SIZE - (a - GUEST_PORT));
-}
-
-/* Whether `m` is a slot of the moby table. */
-static int moby_slot(gaddr m) {
-    const gaddr base = GREF(gaddr, MOBY_BASE);
-    const gaddr end = GREF(gaddr, MOBY_END);
-    return ram_at(base, MOBY_SIZE) && end > base && end <= openrac_guest_ram_size && m >= base
-           && m < end && (m - base) % MOBY_SIZE == 0;
-}
-
-/* A moby's pvars, when they are in memory: in RAM or the port's for `port`, else 0. */
-static gaddr pvars_of(gaddr m, int port) {
-    const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
-    return (port ? memory_at(pvars, 0x80u) : ram_at(pvars, 0x80u)) ? pvars : 0;
-}
-
-/* Whether the game is in play: not a scene, a menu or a load, and the hero is there. */
-static int in_play(void) {
-    return GREF(int32_t, GAME_STATE) == STATE_PLAY && GREF(gaddr, HERO_MOBY) != 0;
-}
 
 /* A picker: the moby class whose update makes the pick and its weapon's item; `open` opens its
  * cone all around. */
@@ -227,7 +194,7 @@ static const Picker* picker_row(gaddr m) {
             continue;
         }
         if (oclass == CLASS_PLASMA_STORM_SHOT) {
-            const gaddr pvars = pvars_of(m, 1);
+            const gaddr pvars = rac2_moby_pvars(m, 1);
             const int32_t gun = pvars != 0 ? GREF(int32_t, pvars + SHOT_GUN_CLASS) : 0;
             if (gun != CLASS_PLASMA_COIL && gun != CLASS_PLASMA_STORM) {
                 return NULL;
@@ -244,10 +211,10 @@ static const Picker* picker_row(gaddr m) {
 static gaddr picker_of(gaddr origin) {
     const gaddr running = rac2_moby_updating();
     if (running != 0) {
-        return moby_slot(running) ? running : 0;
+        return rac2_moby_slot(running) ? running : 0;
     }
     const gaddr hand = GREF(gaddr, HAND_MOBY);
-    return moby_slot(hand) && origin == hand + MOBY_POS ? hand : 0;
+    return rac2_moby_slot(hand) && origin == hand + MOBY_POS ? hand : 0;
 }
 
 /* OPENRAC_PICK_TRACE: on (any value but "" and "0") logs the widened picks; the items it lists
@@ -286,19 +253,16 @@ static uint64_t widened(void) {
 
 /* Whether a pick is widened now for `item`: asked for, and in play. */
 static int holds(int item) {
-    return item >= 0 && (widened() >> item & 1u) != 0 && in_play();
+    return item >= 0 && (widened() >> item & 1u) != 0 && rac2_in_play();
 }
 
 /* The point a line of sight to the moby `m` aims at: its position raised by its target height (its
  * target record's +0x10, as SelectBestTargetInCone raises it). 0 when it is no live target. The
  * record is its pvars' first word (moby_get_private_value_0, func_002AB1F0, with +0x34's 0x20), read
- * only from pvars in RAM and taken only when it is a record of RAM itself. */
+ * only from pvars in RAM and taken only when it is a record of RAM itself (moby_checks.h). */
 static int aim_point(gaddr m, float to[3]) {
-    if ((GREF(uint16_t, m + MOBY_MODE) & MODE_RECORD) == 0 || pvars_of(m, 0) == 0) {
-        return 0;
-    }
-    const gaddr record = func_002AB1F0(m);
-    if (!ram_at(record, RECORD_HEIGHT + 4u) || !(GREF(float, record) > 0.0f)) {
+    const gaddr record = rac2_target_record(m);
+    if (record == 0 || !(GREF(float, record) > 0.0f)) {
         return 0;
     }
     to[0] = GREF(float, m + MOBY_POS);
@@ -326,7 +290,7 @@ static int walled(const float from[3], const float to[3], gaddr m) {
 /* Whether the moby `m` is an enemy not drawn that may be marked: a slot of the table, live (not
  * dying, dead or free), its class a record of RAM of an enemy kind, its pvars in RAM, not `self`. */
 static int undrawn_enemy(gaddr m, gaddr self) {
-    if (m == self || !moby_slot(m)) {
+    if (m == self || !rac2_moby_slot(m)) {
         return 0;
     }
     const uint8_t state = GREF(uint8_t, m + MOBY_STATE);
@@ -334,8 +298,8 @@ static int undrawn_enemy(gaddr m, gaddr self) {
         return 0;
     }
     const gaddr info = GREF(gaddr, m + MOBY_INFO);
-    return ram_at(info, INFO_KIND + 2u) && GREF(int16_t, info + INFO_KIND) == KIND_ENEMY
-           && pvars_of(m, 0) != 0;
+    return rac2_ram_at(info, INFO_KIND + 2u) && GREF(int16_t, info + INFO_KIND) == KIND_ENEMY
+           && rac2_moby_pvars(m, 0) != 0;
 }
 
 /* The mobys marked drawn for one call, by slot, to give back after it. */
@@ -373,7 +337,7 @@ static void mark_in_sight(Marks* k, const float from[3], float reach, gaddr self
     k->n = 0;
     k->base = GREF(gaddr, MOBY_BASE);
     const gaddr end = GREF(gaddr, MOBY_END);
-    if (!moby_slot(k->base) || end > openrac_guest_ram_size || !isfinite(from[0])
+    if (!rac2_moby_slot(k->base) || end > openrac_guest_ram_size || !isfinite(from[0])
         || !isfinite(from[1]) || !isfinite(from[2])) {
         return;
     }
@@ -431,7 +395,7 @@ gaddr func_002AF580(
     int allow_special,
     gaddr types
 ) {
-    const gaddr picker = widened() != 0 && in_play() ? picker_of(origin) : 0;
+    const gaddr picker = widened() != 0 && rac2_in_play() ? picker_of(origin) : 0;
     const Picker* row = picker != 0 ? picker_row(picker) : NULL;
     if (row == NULL || !holds(row->item) || origin == 0 || range <= 0.0f) {
         return func_002AF580__game(
@@ -516,7 +480,7 @@ void func_L00_003C3D90(gaddr self) {
         return;
     }
     /* The barrier's arcs: its four targets (its pvars +0x20), to see which it took. */
-    const gaddr pvars = pvars_of(self, 1);
+    const gaddr pvars = rac2_moby_pvars(self, 1);
     gaddr before[4] = {0, 0, 0, 0};
     for (unsigned i = 0; pvars != 0 && i < 4; ++i) {
         before[i] = GREF(gaddr, pvars + 0x20u + 4u * i);
@@ -524,7 +488,7 @@ void func_L00_003C3D90(gaddr self) {
     func_L00_003C3D90__game(self);
     for (unsigned i = 0; tracing() && pvars != 0 && i < 4; ++i) {
         const gaddr t = GREF(gaddr, pvars + 0x20u + 4u * i);
-        if (t != 0 && t != before[i] && moby_slot(t) && marked(&barrier_marks, t)) {
+        if (t != 0 && t != before[i] && rac2_moby_slot(t) && marked(&barrier_marks, t)) {
             fprintf(
                 stderr,
                 "[pick] class %d item %d: arc to %08x class %d at %.1f off screen (%u in sight)\n",
@@ -543,7 +507,8 @@ void func_L00_003C3D90(gaddr self) {
 /* tesla_claw_update: the game's update, with its held targets not drawn and in the hero's sight
  * marked drawn around it, so that it keeps them. */
 void func_L00_00392530(gaddr actor) {
-    const gaddr pvars = holds(ITEM_TESLA_CLAW) && moby_slot(actor) ? pvars_of(actor, 1) : 0;
+    const gaddr pvars =
+        holds(ITEM_TESLA_CLAW) && rac2_moby_slot(actor) ? rac2_moby_pvars(actor, 1) : 0;
     float from[3];
     hero_middle(from);
     if (pvars == 0 || !isfinite(from[0]) || !isfinite(from[1]) || !isfinite(from[2])) {
