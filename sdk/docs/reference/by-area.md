@@ -236,6 +236,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `moby_model_at` | 1.33 | experimental | yes | part | part |
 | `particle_spawn_ex` | 1.33 | experimental | yes | part | part |
 | `particle_texture_register` | 1.33 | experimental | yes | part | part |
+| `moby_material_class` | 1.34 | experimental | yes | yes | yes |
 
 ## camera
 

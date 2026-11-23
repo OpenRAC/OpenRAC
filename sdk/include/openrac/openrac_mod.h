@@ -107,8 +107,8 @@ extern "C" {
  * bypass (camera_visibility_bypass), and for Ratchet & Clank item id
  * reservation, ammo panel offsets and native-backed weapons
  * (rac1_reserve_item_ids, rac1_ammo_panel_offset, rac1_weapon_register,
- * rac1_weapon_grant), and 1.33 Props skinned with joint matrices of the mod's
- * own (prop_set_skin), blends that add to or subtract from the screen for the
+ * rac1_weapon_grant), 1.33 Props skinned with joint matrices of the mod's own
+ * (prop_set_skin), blends that add to or subtract from the screen for the
  * overlay's rectangles and text (openrac_overlay.set_blend), a mesh of the
  * mod's drawn in place of a moby's model (model_create, moby_model_slot,
  * moby_model_class, moby_model_at), the game's camera shake (camera_shake), its
@@ -118,9 +118,14 @@ extern "C" {
  * bypass (camera_visibility_bypass), and for Ratchet & Clank item id
  * reservation, ammo panel offsets and native-backed weapons
  * (rac1_reserve_item_ids, rac1_ammo_panel_offset, rac1_weapon_register,
- * rac1_weapon_grant).
+ * rac1_weapon_grant), and 1.34 a paint material for moby_material that
+ * recolours a moby over its own shading, with a glowing rim
+ * (OPENRAC_MOBY_MATERIAL_PAINT, OPENRAC_MOBY_MATERIAL_PAINT_AT), a material on
+ * every moby of a class, the menus' pictures of it too (moby_material_class),
+ * and Going Commando's armour vendor as hook points
+ * (rac2.armor_vendor.build_list, rac2.armor_vendor.buy, rac2.vendor.preview).
  */
-#define OPENRAC_MOD_API_MINOR 33
+#define OPENRAC_MOD_API_MINOR 34
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1744,6 +1749,21 @@ typedef struct openrac_moby_visual {
 #define OPENRAC_MOBY_MATERIAL_KIND(material) ((uint32_t)(material) & 0xFFu)
 /* Energy's share of rgb in its body's colours (the rest the body's own). Since 1.25. */
 #define OPENRAC_MOBY_MATERIAL_ENERGY_BODY 0.35f
+/* Paint: the moby repainted in rgb. Each texel keeps its brightness and shading (its grey, its
+ * contrast raised a little) but takes rgb's colour, as a coat of paint over the same model and
+ * texture: an armour recoloured, not lit over. A white highlight follows the sun, and a rim
+ * glows in rgb where the surface turns from the eye, by a level from 0 (none) to
+ * OPENRAC_MOBY_MATERIAL_PAINT_TOP in bits 8 to 11 (OPENRAC_MOBY_MATERIAL_PAINT_AT). Its glow
+ * packets take rgb at their luminance. Render-only, as the others; the effects the moby makes
+ * keep their colours (energy recolours them). A port older than 1.34 refuses it
+ * (OPENRAC_HOOK_UNKNOWN). Since 1.34. */
+#define OPENRAC_MOBY_MATERIAL_PAINT 5
+/* The highest paint glow level (OPENRAC_MOBY_MATERIAL_PAINT_AT). Since 1.34. */
+#define OPENRAC_MOBY_MATERIAL_PAINT_TOP 15
+/* OPENRAC_MOBY_MATERIAL_PAINT with its rim glowing at `level` (0 to
+ * OPENRAC_MOBY_MATERIAL_PAINT_TOP). Since 1.34. */
+#define OPENRAC_MOBY_MATERIAL_PAINT_AT(level) \
+    (OPENRAC_MOBY_MATERIAL_PAINT | ((uint32_t)(level) & 0xFu) << 8)
 /* What moby_copy_check says of a moby: OPENRAC_COPY_OK when moby_copy may copy it, else why not.
  * Since 1.25. */
 #define OPENRAC_COPY_OK 0
@@ -3096,6 +3116,21 @@ typedef struct openrac_api {
     /* Give a registered weapon and its initial ammunition during play.
      * Granting an already owned weapon preserves its current ammo. Since 1.33. */
     int (*rac1_weapon_grant)(openrac_mod* mod, uint32_t item_id);
+
+    /* Draws every moby of class `oclass` (openrac_moby.oclass) in `scope` (OPENRAC_MODEL_WORLD,
+     * OPENRAC_MODEL_MENU or both, as moby_model_class's) with `material` and `rgb`, as
+     * moby_material draws one moby: the mobys of the class the level has and makes later, and the
+     * menus' own pictures, which are not in the level's list (Going Commando: the armour vendor's
+     * Ratchet, class 0 in the armour it shows). A moby's own moby_material wins over its class's.
+     * OPENRAC_MOBY_MATERIAL_NONE takes the mod's material off the class in `scope`. Two mods on one
+     * class and scope: the last set is drawn. Only the class's own drawing changes: energy's
+     * effects (its particles and quads) are moby_material's alone. The material goes with its
+     * level and the mod's unload. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a class
+     * below 0, a `scope` of 0 or with other bits, a material or rgb moby_material refuses, or a
+     * port without it (nothing changes). At any time. Since 1.34. */
+    int (*moby_material_class)(
+        openrac_mod* mod, int oclass, uint32_t scope, uint32_t material, uint32_t rgb
+    );
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

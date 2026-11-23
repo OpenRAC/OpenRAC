@@ -208,3 +208,4 @@
 206	rac1_ammo_panel_offset	1632	int (*)(openrac_mod *, int32_t, int32_t, int32_t)
 207	rac1_weapon_register	1640	int (*)(openrac_mod *, const openrac_rac1_weapon *)
 208	rac1_weapon_grant	1648	int (*)(openrac_mod *, uint32_t)
+209	moby_material_class	1656	int (*)(openrac_mod *, int, uint32_t, uint32_t, uint32_t)
