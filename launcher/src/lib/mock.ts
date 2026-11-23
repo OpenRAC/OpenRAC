@@ -1232,6 +1232,16 @@ let mockPlugins: PluginView[] = query.has("nomods")
             value: true,
           },
           {
+            key: "mouse_low_latency",
+            name: "Low-latency mouse camera",
+            section: "Mouse",
+            type: "bool",
+            default: false,
+            description:
+              "Frames between game ticks show your mouse turn before the game reads it: up to one tick less delay. On some screens (like 90 Hz) a fast turn can look doubled. Off: smooth, as in the old mod.",
+            value: false,
+          },
+          {
             key: "gyro",
             name: "Gyro aiming",
             section: "Gyro",

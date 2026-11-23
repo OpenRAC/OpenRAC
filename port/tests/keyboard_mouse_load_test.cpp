@@ -178,9 +178,14 @@ void host_fail(openrac_mod*, const char* reason) {
 bool g_prompts = true;
 const char* g_gyro = "off";  // the "gyro" setting
 
+bool g_low_latency = true;  // the "mouse_low_latency" setting
+
 int setting_bool(openrac_mod*, const char* key) {
     if (std::strcmp(key, "key_prompts") == 0) {
         return g_prompts ? 1 : 0;
+    }
+    if (std::strcmp(key, "mouse_low_latency") == 0) {
+        return g_low_latency ? 1 : 0;
     }
     return std::strcmp(key, "capture_cursor") == 0 || std::strcmp(key, "menu_mouse") == 0 ? 1 : 0;
 }
@@ -527,6 +532,12 @@ void direct_camera() {
         g_settings_fn(g_settings_user);
         CHECK(g_mouse_turn(30.0f, 0.0f, &t) && close_to(t.yaw, 2.0f * one));
         g_sensitivity = 1.0;
+        g_settings_fn(g_settings_user);
+        // Low-latency mouse camera off (the default): the frames are the interpolated camera.
+        g_low_latency = false;
+        g_settings_fn(g_settings_user);
+        CHECK(!g_mouse_turn(30.0f, 0.0f, &t));
+        g_low_latency = true;
         g_settings_fn(g_settings_user);
     }
 

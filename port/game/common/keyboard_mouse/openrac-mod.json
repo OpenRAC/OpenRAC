@@ -89,6 +89,14 @@
       "description": "The mouse keeps turning the camera while you play on a gamepad, so you can use both at once. Needed for gyro that Steam Input or DS4Windows turns into a mouse."
     },
     {
+      "key": "mouse_low_latency",
+      "name": "Low-latency mouse camera",
+      "section": "Mouse",
+      "type": "bool",
+      "default": false,
+      "description": "Frames between game ticks show your mouse turn before the game reads it: up to one tick less delay. On some screens (like 90 Hz) a fast turn can look doubled. Off: smooth, as in the old mod."
+    },
+    {
       "key": "gyro",
       "name": "Gyro aiming",
       "section": "Gyro",
