@@ -471,6 +471,47 @@ void test_empty_alpha_draw_export() {
     CHECK(!error);
 }
 
+void test_generated_texture_export() {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "openrac_gif_generated_texture_dump_test";
+    std::error_code error;
+    fs::remove_all(root, error);
+    CHECK(!error);
+    texture_pack::configure({}, root, {.save = save_dump_marker});
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    constexpr std::uint32_t block = 0x800;
+    std::vector<std::uint8_t> pixels(4 * 4 * 4);
+    pixels[0] = 255;
+
+    // Like the interpolated effect, the draw samples RGB24 and uses a fixed blend weight.
+    const auto draw = [&](std::uint64_t transfer_flags) {
+        GifBuilder packet;
+        packet.image(block, 1, gs::kPsmct32, 4, 4, pixels, transfer_flags);
+        packet.ad(
+            {{gs::kTex0_1, openrac::test::tex0(block, 1, gs::kPsmct24, 2, 2, true)},
+             {gs::kAlpha1, 0x2000000064},
+             {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, true, true)},
+             {gs::kXyz2, xyz2(0, 0, 0)},
+             {gs::kXyz2, xyz2(8, 8, 0)}}
+        );
+        CHECK(gif.gif(packet.bytes));
+        return gif.draws().back().state.texture;
+    };
+    const TextureHandle generated = draw(gs::kGeneratedTextureUpload);
+    CHECK(generated != textures.placeholder());
+    const auto hash = texture_pack::image_hash(textures.image(generated));
+    const fs::path saved = root / "Interface" / texture_pack::file_name(hash);
+    CHECK(!fs::exists(saved));
+
+    // An ordinary upload of the same bytes to the same block is still a dump candidate.
+    CHECK(texture_pack::image_hash(textures.image(draw(0))) == hash);
+    CHECK(fs::is_regular_file(saved));
+    texture_pack::configure({}, {}, {});
+    fs::remove_all(root, error);
+    CHECK(!error);
+}
+
 void textures_and_vif() {
     TexturePool textures;
     GifInterpreter gif(textures);
@@ -842,6 +883,7 @@ int main() {
     textures_and_vif();
     movie_picture_strips();
     test_empty_alpha_draw_export();
+    test_generated_texture_export();
     offscreen_then_upload();
     frame_named_without_draw();
     upload_over_offscreen();

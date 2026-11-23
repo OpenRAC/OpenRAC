@@ -117,7 +117,7 @@ std::size_t TexturePool::KeyHash::operator()(const Key& key) const {
             | (std::uint64_t{key.cpsm} << 56)
             | (std::uint64_t{key.skip_empty_alpha} << kSkipEmptyAlphaShift),
         key.cbp | (std::uint64_t{key.texa.ta0} << 16) | (std::uint64_t{key.texa.ta1} << 24)
-            | (std::uint64_t{key.texa.aem} << 32),
+            | (std::uint64_t{key.texa.aem} << 32) | (std::uint64_t{key.generated} << 33),
         key.pixels_hash,
         key.clut_hash,
         key.crop_border_hash,
@@ -182,7 +182,8 @@ bool TexturePool::repeat_upload(const ImageUpload& upload) {
     Stored& stored = found->second;
     const ImageUpload& old = stored.upload;
     if (old.dbw != upload.dbw || old.dpsm != upload.dpsm || old.x != upload.x || old.y != upload.y
-        || old.width != upload.width || old.height != upload.height || old.data != upload.data) {
+        || old.width != upload.width || old.height != upload.height
+        || old.generated != upload.generated || old.data != upload.data) {
         return false;
     }
     // Even unchanged transfers are ordering events. A later overlapping upload must not hide this
@@ -492,7 +493,8 @@ TextureHandle TexturePool::convert_upload(
         stored->hash ^ (static_cast<std::uint64_t>(offset) << 40),
         clut_hash,
         border_hash,
-        empty_alpha_is_invisible(tex0, dump_blend) && texture_pack::dumping()
+        empty_alpha_is_invisible(tex0, dump_blend) && texture_pack::dumping(),
+        stored->upload.generated
     };
     if (auto found = m_converted.find(key); found != m_converted.end()) {
         // A held texture still drawn after the place went quiet is a still picture: dumped now.
@@ -548,7 +550,7 @@ TextureHandle TexturePool::convert_upload(
     // An interface texture run (interface_run.h): what the picture was made from, for an export
     // that rebuilds it from the player's disc.
     std::uint64_t noted = 0;
-    if (m_noting && interface_run::recording()) {
+    if (!key.generated && m_noting && interface_run::recording()) {
         std::vector<interface_run::PoolUpload> used{{&stored->upload, stored->sequence}};
         for (const auto& block : border) {
             if (block.upload != nullptr) {
@@ -587,9 +589,9 @@ TextureHandle TexturePool::convert_upload(
     // and end_frame() has the texture converted again (no frame waits for the disk).
     // A texture the game makes anew each tick (a fade, a picture it draws) is not dumped: each
     // tick's would be a file of its own, and no pack can replace them.
-    bool dump = true;
+    bool dump = !key.generated;
     std::vector<std::uint64_t> taken_back;
-    if (texture_pack::dumping()) {
+    if (dump && texture_pack::dumping()) {
         const auto seen = m_live.see(
             std::uint64_t{tex0.tbp0} | (std::uint64_t{tex0.tw} << 20)
                 | (std::uint64_t{tex0.th} << 24) | (std::uint64_t{tex0.psm} << 28),
@@ -612,7 +614,7 @@ TextureHandle TexturePool::convert_upload(
     }
     // The original, for a dump later (Entry::held): a texture pack of PCSX2's may change `image`.
     std::shared_ptr<const Rgba8Image> held =
-        dump ? nullptr : std::make_shared<const Rgba8Image>(image);
+        !dump && !key.generated ? std::make_shared<const Rgba8Image>(image) : nullptr;
     const bool packed = texture_pack::replace(
         image,
         {.interface = true, .later = true, .dump = dump, .skip_empty_alpha = key.skip_empty_alpha},
@@ -696,8 +698,8 @@ TextureHandle TexturePool::convert_upload(
     if (!taken_back.empty()) {
         const std::set<std::uint64_t> back(taken_back.begin(), taken_back.end());
         for (Entry& other : m_entries) {
-            if (other.live && other.from_upload && other.held == nullptr && !other.pack_replacement
-                && back.contains(other.pack_hash) && &other != &entry
+            if (other.live && other.from_upload && !other.key.generated && other.held == nullptr
+                && !other.pack_replacement && back.contains(other.pack_hash) && &other != &entry
                 && texture_pack::image_hash(other.image) == other.pack_hash) {
                 other.held = std::make_shared<const Rgba8Image>(other.image);
                 other.held_tick = m_tick;
@@ -733,7 +735,7 @@ TextureHandle TexturePool::resolve(
     } else {
         h = convert_upload(tex0, texa, dump_blend);
         // A pack maker's dump groups the textures the game cycles in one place.
-        if (h != 0 && texture_pack::dumping()) {
+        if (h != 0 && !m_entries[h - 1].key.generated && texture_pack::dumping()) {
             watch_cycle(tex0, h);
         }
     }

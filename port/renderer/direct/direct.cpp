@@ -539,7 +539,8 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
                     m_trxpos.dsay,
                     m_trxreg.rrw,
                     m_trxreg.rrh,
-                    {}
+                    {},
+                    m_bitbltbuf.generated
                 };
                 m_upload_bytes = image_bytes(
                     m_bitbltbuf.dpsm, static_cast<int>(m_trxreg.rrw), static_cast<int>(m_trxreg.rrh)

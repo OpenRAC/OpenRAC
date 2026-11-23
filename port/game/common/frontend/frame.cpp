@@ -288,10 +288,12 @@ std::vector<std::uint8_t> direct_packets(
     renderer::ImageUpload* filling = nullptr;
     std::size_t filling_bytes = 0;
     const auto start_image = [&]() {
+        const auto transfer = renderer::gs::Bitbltbuf::decode(reg_bitbltbuf);
         renderer::ImageUpload image;
-        image.dbp = static_cast<std::uint32_t>((reg_bitbltbuf >> 32) & 0x3FFF);
-        image.dbw = static_cast<std::uint32_t>((reg_bitbltbuf >> 48) & 0x3F);
-        image.dpsm = static_cast<std::uint8_t>((reg_bitbltbuf >> 56) & 0x3F);
+        image.dbp = transfer.dbp;
+        image.dbw = transfer.dbw;
+        image.dpsm = transfer.dpsm;
+        image.generated = transfer.generated;
         image.width = static_cast<std::uint32_t>(reg_trxreg & 0xFFF);
         image.height = static_cast<std::uint32_t>((reg_trxreg >> 32) & 0xFFF);
         const std::uint32_t bits = image.dpsm == 0x00                         ? 32
