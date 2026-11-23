@@ -59,6 +59,7 @@
 #include "openrac/host_env.h"
 #include "openrac/ui.h"
 #include "rac3_version.h"
+#include "textures.h"
 #include "ui_adapter.h"
 
 /* The offset the game adds to every 2D position (12.4): the core's, which every program shares
@@ -1130,42 +1131,36 @@ void func_L01_004059C8(int r, int g, int b, int a) {
     }
 }
 
-/* The letterbox (func_0038AD28, the levels' func_L01_004054F0: frontbin's func_0038A948): while
- * its word is set its height climbs a line a frame to 52 (down again when cleared), and it sends
- * two black bars that tall over the screen's top and bottom as one strip, a cnt tag of seven
- * quadwords: a REGLIST GIF tag of PRIM 0x104 (a strip, not blended) and RGBAQ (black, alpha 0x80),
- * then one of eight XYZ2, the bars' corners. The packet becomes two flat records in its place. */
+/* The letterbox (func_0038AD28, the levels' func_L01_004054F0): while its word is set its height
+ * climbs a line a frame to 52 (down again when cleared), and it sends two black bars that tall
+ * over the screen's top and bottom. The game's routine runs (it keeps the height); what it sent is
+ * taken back out of the list, and the bars go to the window through the shared 2D layer as colour
+ * alone, from the game's own data: the height (the boot program's 0x001D9BE0, a level's own) and
+ * the screen's edges the routine draws them to (0x001D4BD0 left and top, 0x001D4BD8 right and
+ * bottom, 12.4, with the game's 2D offset). */
 #define LETTERBOX_BYTES 0x80u
+#define SCREEN_EDGES RAC3_ADDR(0x001D4BD0u)
 
-static void letterbox_records(gaddr cursor, gaddr start) {
+static void letterbox_bars(gaddr cursor, gaddr start, gaddr height) {
     const gaddr end = GREF(gaddr, cursor);
-    if (end - start != LETTERBOX_BYTES || GREF(uint32_t, start) != 0x10000007u
-        || GREF(uint64_t, start + 32) != 0x104u) {
-        return; /* nothing sent, or not the bars' packet: left as it is */
+    const int n = GREF(int32_t, height);
+    if (end - start != LETTERBOX_BYTES || n <= 0) {
+        return; /* nothing sent (no bars, or the cutscene setting's off) */
     }
-    uint32_t x[8], y[8];
-    for (int i = 0; i < 8; ++i) {
-        const uint64_t w = GREF(uint64_t, start + 64u + 8u * (gaddr)i);
-        x[i] = (uint32_t)(w & 0xFFFFu);
-        y[i] = (uint32_t)((w >> 16) & 0xFFFFu);
-    }
-    const uint32_t z = (uint32_t)(GREF(uint64_t, start + 64u) >> 32);
-    const uint32_t rgba = (uint32_t)GREF(uint64_t, start + 40);
-    /* The top bar: corners 0 to 3; the bottom one: 4 to 7 (from the bottom edge up). */
-    const int bars[2][4] = {
-        {(int)x[0], (int)y[0], (int)x[2], (int)y[1]}, {(int)x[6], (int)y[5], (int)x[4], (int)y[4]}
-    };
-    openrac_game_ui_rect q[2];
-    for (int i = 0; i < 2; ++i) {
-        memset(&q[i], 0, sizeof(q[i]));
-        openrac_ui_rect(&q[i], bars[i][0], bars[i][1], bars[i][2], bars[i][3], 0, 0, 0, 0);
-        q[i].z = z;
-        q[i].rgba = rgba;
-        q[i].flags = 8u;
-    }
+    const float ofx = (float)(rac3_ui2d_screen_x(0) + 8);
+    const float ofy = (float)(rac3_ui2d_screen_y(0) + 8);
+    const float left = ((float)GREF(int32_t, SCREEN_EDGES) - ofx) / 16.0f;
+    const float top = ((float)GREF(int32_t, SCREEN_EDGES + 4u) - ofy) / 16.0f;
+    const float right = ((float)GREF(int32_t, SCREEN_EDGES + 8u) - ofx) / 16.0f;
+    const float bottom = ((float)GREF(int32_t, SCREEN_EDGES + 12u) - ofy) / 16.0f;
+    const float bars[2][4] =
+        {{left, top, right, top + (float)n}, {left, bottom - (float)n, right, bottom}};
+    const uint32_t black[4] = {0x80000000u, 0x80000000u, 0x80000000u, 0x80000000u};
     GREF(gaddr, cursor) = start;
+    rac3_ui_adapter_install();
     for (int i = 0; i < 2; ++i) {
-        if (!send_quad(&q[i], cursor)) {
+        anchor_at(cursor);
+        if (!openrac_ui_draw_rect(NULL, bars[i], NULL, black, OPENRAC_UI_FLAT)) {
             GREF(gaddr, cursor) = end; /* replaying: the game's packet is still there */
             return;
         }
@@ -1175,14 +1170,14 @@ static void letterbox_records(gaddr cursor, gaddr start) {
 void func_0038AD28(void) {
     const gaddr start = GREF(gaddr, kBoot.cursor);
     func_0038AD28__game();
-    letterbox_records(kBoot.cursor, start);
+    letterbox_bars(kBoot.cursor, start, RAC3_ADDR(0x001D9BE0u));
 }
 
 int func_L01_004054F0(void) {
     const gaddr cursor = rac3_ui2d_level().cursor;
     const gaddr start = GREF(gaddr, cursor);
     const int result = func_L01_004054F0__game();
-    letterbox_records(cursor, start);
+    letterbox_bars(cursor, start, OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001DF960u)));
     return result;
 }
 
@@ -1343,6 +1338,28 @@ static int hud_sprite_turned(
     const float px[4] = {(x - ax) + bx, (x - ax) - bx, (x + ax) + bx, (x + ax) - bx};
     const float py[4] = {(y - ay) + by, (y - ay) - by, (y + ay) + by, (y + ay) - by};
     const int us[4] = {0, tw << 4, 0, tw << 4}, vs[4] = {0, 0, th << 4, th << 4};
+    /* The image by the HUD bank's own tables (rac3_hud_image), as the game sent it: no TEX0. The
+     * multiplayer executable's are not kept at their sending yet. */
+    openrac_game_ui_image image;
+    if (rac3_exec_program() != RAC3_EXEC_MULTIPLAYER
+        && rac3_hud_image(u->hud_entries, tex, &image)) {
+        openrac_ui_quad quad;
+        memset(&quad, 0, sizeof(quad));
+        quad.image = image;
+        for (int i = 0; i < 4; ++i) {
+            quad.x[i] = (float)(int)px[i] - 0.5f;
+            quad.y[i] = (float)(int)py[i] - 0.5f;
+            quad.u[i] = (float)(us[i] >> 4);
+            quad.v[i] = (float)(vs[i] >> 4);
+            quad.rgba[i] = GREF(uint32_t, colours + 4u * (gaddr)i);
+        }
+        quad.flags = OPENRAC_UI_SHADED;
+        rac3_ui_adapter_install();
+        anchor_at(u->cursor);
+        if (openrac_ui_draw_quad(&quad)) {
+            return 1;
+        }
+    }
     openrac_game_ui_rect q;
     memset(&q, 0, sizeof(q));
     for (int i = 0; i < 4; ++i) {

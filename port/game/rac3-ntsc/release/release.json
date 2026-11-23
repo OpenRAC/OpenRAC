@@ -566,6 +566,10 @@
   },
   "level_addresses": {
     "about": "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
+    "L01:001DF960": {
+      "is": "001DF9E0",
+      "why": "the letterbox's height in lines (the levels' copy of func_0038AD28): PAL's func_L01_004054F0 and NTSC-U's func_L01_00403120 (the same routine, rac3_names.tsv) read and store it at $gp-relative 0x001DF960 and 0x001DF9E0, beside their set word (0x001DF95C, 0x001DF9DC)"
+    },
     "L01:001D64F0": {
       "is": "001D64F0",
       "why": "the level's pointer to the current font's page handles (FontSelect's copy, PAL func_L01_0040FB70): NTSC-U's Veldin FontSelect f_0040D548 stores it at $gp - 0x63C0 as PAL's does, with the same $gp (its font index at $gp - 0x72C8 is 0x001D55E8 on both discs, and the level's 0x001D64EC moved by +0x0)"
