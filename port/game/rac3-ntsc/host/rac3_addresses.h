@@ -80,8 +80,6 @@
 #define RAC3_ADDR_0x001D4CE8u 0x001D4CE8u
 /* D_001D4CEC (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D4CECu 0x001D4CECu
-/* D_001D4DA0 (names.tsv, the same address) */
-#define RAC3_ADDR_0x001D4DA0u 0x001D4DA0u
 /* D_001D52FC (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D52FCu 0x001D52FCu
 /* D_001D5458 (names.tsv, the same address) */
@@ -194,8 +192,6 @@
 #define RAC3_MADDR_0x00240290u 0x00240410u
 /* the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 21 of 21 places agree */
 #define RAC3_MADDR_0x00240310u 0x00240490u
-/* the same instruction of the same code: func 0x00193590 (NTSC-U 0x00193680) +0x4, 12 of 12 places agree */
-#define RAC3_MADDR_0x00240B80u 0x00240D00u
 /* release.json: the level whose program is loaded: read at $gp - 0x6CE4 in both cores (PAL 0x00199150, 0x002945BC, 0x00295534 with $gp 0x00247FC0; NTSC-U 0x00199290, 0x00295524 with $gp 0x00248140) */
 #define RAC3_MADDR_0x002412DCu 0x0024145Cu
 /* release.json: the two font headers: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U adds 0x15D8 to 0x00240000) */

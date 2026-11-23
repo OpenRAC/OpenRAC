@@ -143,10 +143,27 @@ func_0012CEC0	kernel	rac3InitSyscallTable	host	the instructions of the boot prog
 func_0012C6F0	sif	sceSifSyncIop	host	the instructions of the boot program's func_001242B8
 func_00298D70	dma	rac3KickVif0Chain	host	the instructions of the boot program's func_003A9348 (host/mp.c)	void (unsigned int)
 func_00193788	989snd	rac3SndReplyWait	host	the instructions of the boot program's func_0013B818 (host/mp.c)	int (void)
-func_00193590	989snd	rac3SndPump	host	the instructions of the boot program's func_0013B620 (host/mp.c)	int (void)
+func_00193590	989snd	snd_Pump	host	the instructions of the boot program's func_0013B620: the shared pump (lib/snd.c)
 func_00193F90	989snd	rac3SndSendCommandSync	host	the instructions of the boot program's func_0013C348 (host/mp.c)	int (int, int, int)
 func_001941C0	989snd	rac3SndQueueCommandToRing	host	the instructions of the boot program's func_0013C578 (host/mp.c)	int (int, int, int, int, long long)
 func_00193A00	989snd	snd_BankLoadFromEE_CB	host	the instructions of the boot program's func_0013BC30
+func_00193368	989snd	rac3SndStartSoundSystem	host	the instructions of the boot program's func_0013B3F8 (host/mp.c, sound.c)	int (int)
+func_00194678	989snd	rac3SndInitVAGStreamingEx	host	the instructions of the boot program's func_0013CA30 (host/mp.c, sound.c)	int (int, int, int, int)
+func_00193D38	989snd	snd_PlaySoundVolPanPMPB_CB	host	the instructions of the boot program's func_0013C0B8 (lib/snd.c)
+func_00193F08	989snd	snd_SetSoundParams_CB	host	the instructions of the boot program's func_0013C2C0 (lib/snd.c)
+func_00194768	989snd	snd_PlayVAGStreamTwoParts_CB	host	the instructions of the boot program's func_0013CB20 (lib/snd.c)
+func_00193E80	989snd	rac3SndSoundIsStillPlaying	host	the instructions of the boot program's func_0013C200 (host/mp.c, sound.c)	int (int, int, long long)
+func_001948B8	989snd	rac3SndStreamTimeLeft	host	the instructions of the boot program's func_0013CC70: level 39's music player's question (host/mp.c, sound.c)	int (int, int, long long)
+func_00194730	989snd	rac3SndStopAllStreams	host	the instructions of the boot program's func_0013CAE8 (host/mp.c, sound.c)	int (void)
+func_00193D98	989snd	rac3SndStopSound	host	snd_StopSound: the instructions of the boot program's func_0013C118, kept a request as this program's library sends it (host/mp.c, sound.c)	int (int)
+func_00193BE8	989snd	rac3SndEffectSettings	host	the instructions of the boot program's func_0013BF68 (host/mp.c, sound.c)	int (int, void *)
+func_00193CA8	989snd	rac3SndVoiceRange	host	the instructions of the boot program's func_0013C028 (host/mp.c, sound.c)	int (int, int, int)
+func_00193CE8	989snd	rac3SndVoiceMode	host	the instructions of the boot program's func_0013C068 (host/mp.c, sound.c)	int (int)
+func_00194BC8	989snd	rac3SndReverbSettings	host	the instructions of the boot program's func_0013CF80 (host/mp.c, sound.c)	int (int, int, int, int, int)
+func_00194CC8	989snd	rac3SndMovieOpen	host	the instructions of the boot program's func_0013D080 (host/mp.c, sound.c)	int (int, int, int, int, int, int)
+func_00194D40	989snd	rac3SndMovie3C	host	the instructions of the boot program's func_0013D0F8 (host/mp.c, sound.c)	int (void)
+func_00194D68	989snd	rac3SndMovie3E	host	the instructions of the boot program's func_0013D120 (host/mp.c, sound.c)	int (int, int, int, int, int)
+func_00194DA0	989snd	rac3SndMovie40	host	the instructions of the boot program's func_0013D158 (host/mp.c, sound.c)	int (void)
 func_00126E38	kernel	EnableDmac	host	the instructions of the boot program's func_0011F9A8
 func_00126DD0	kernel	DisableDmac	host	the instructions of the boot program's func_0011F940
 func_00280498	vu0	rac3Cosine	host	the instructions of the boot program's func_0038D478 (host/mp.c)	float (float)
