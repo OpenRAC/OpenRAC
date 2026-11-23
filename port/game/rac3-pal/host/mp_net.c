@@ -141,6 +141,14 @@ enum {
     UI_NOTICE
 };
 
+/* PACKET_SERVERS's opcodes: the hub's live list of game servers, every one then each change. */
+enum {
+    SERVERS_WATCH,
+    SERVERS_ADDED,
+    SERVERS_CHANGED,
+    SERVERS_REMOVED
+};
+
 /* PACKET_ACCOUNT's opcodes: log in at the hub (a new name registers), its answer, the session's
  * token proved at a game server, and the session ended at the hub. */
 enum {
@@ -768,13 +776,19 @@ static struct {
     uint8_t locations_req[0x26];
     int locations_waiting;
 
+    /* The game servers the hub lists, one city each: NAME its region code (or, from a game
+     * server before the hub, its region's name), SERVER its own name (empty: none). */
     struct {
+        int32_t id; /* the hub's id of the server, -1 from PACKET_REGIONS */
         char name[64];
+        char server[64];
         char host[128];
         int32_t port, players;
     } regions[16];
 
     int regions_count;
+    int watching;        /* SERVERS_WATCH sent on this hub link: the list stays current */
+    int64_t watched_ms;  /* when */
     int own_valid;
 } lobby;
 
@@ -782,6 +796,87 @@ static int64_t net_now_ms(void) {
     struct timespec now;
     timespec_get(&now, TIME_UTC);
     return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+
+/* ---- What the city list shows: the game server's name and its region ---- */
+
+/* The region codes game servers register with (Server REGION) and the names the game shows for
+ * them. A code not listed here is shown as it came. */
+static const struct {
+    const char* code;
+    const char* name;
+} NET_REGION_NAMES[] = {
+    {"LOCAL", "Local"},
+    {"US", "United States"},
+    {"CA", "Canada"},
+    {"MX", "Mexico"},
+    {"BR", "Brazil"},
+    {"GB", "United Kingdom"},
+    {"UK", "United Kingdom"},
+    {"IE", "Ireland"},
+    {"FR", "France"},
+    {"DE", "Germany"},
+    {"NL", "Netherlands"},
+    {"ES", "Spain"},
+    {"IT", "Italy"},
+    {"PL", "Poland"},
+    {"SE", "Sweden"},
+    {"FI", "Finland"},
+    {"RU", "Russia"},
+    {"JP", "Japan"},
+    {"KR", "Korea"},
+    {"SG", "Singapore"},
+    {"IN", "India"},
+    {"AU", "Australia"},
+    {"NZ", "New Zealand"},
+    {"ZA", "South Africa"},
+};
+
+/* The longest city text, in characters: what the city select and the licence line fit. */
+#define NET_CITY_TEXT 31
+
+static int net_same_text(const char* a, const char* b) {
+    for (; *a != 0 && *b != 0; a++, b++) {
+        const int x = *a >= 'a' && *a <= 'z' ? *a - 32 : *a;
+        const int y = *b >= 'a' && *b <= 'z' ? *b - 32 : *b;
+        if (x != y) {
+            return 0;
+        }
+    }
+    return *a == *b;
+}
+
+/* The name the game shows for region CODE. */
+static const char* net_region_name(const char* code) {
+    for (size_t i = 0; i < sizeof NET_REGION_NAMES / sizeof NET_REGION_NAMES[0]; i++) {
+        if (net_same_text(code, NET_REGION_NAMES[i].code)) {
+            return NET_REGION_NAMES[i].name;
+        }
+    }
+    return code;
+}
+
+/* City K as the game shows it, at most NET_CITY_TEXT characters: "<server name> (<region>)", the
+ * region alone when the server has no name (or is named as its region). A long one keeps the
+ * region's code in place of its name, then shortens the server's name. */
+static void net_city_text(int k, char* out, size_t size) {
+    const char* code = lobby.regions[k].name;
+    const char* region = net_region_name(code);
+    const char* server = lobby.regions[k].server;
+    char text[NET_CITY_TEXT + 1];
+    if (server[0] == 0 || net_same_text(server, region) || net_same_text(server, code)) {
+        snprintf(text, sizeof text, "%s", region);
+    } else if (strlen(server) + strlen(region) + 3 <= NET_CITY_TEXT) {
+        snprintf(text, sizeof text, "%s (%s)", server, region);
+    } else {
+        const int room = NET_CITY_TEXT - (int)strlen(code) - 3;
+        if (room < 4) {
+            snprintf(text, sizeof text, "%s", server);
+        } else {
+            snprintf(text, sizeof text, "%.*s (%s)", room, server, code);
+        }
+    }
+    snprintf(out, size, "%s", text);
 }
 
 /* Logged in at a hub: the game server comes from its list. */
@@ -805,7 +900,9 @@ static void srv_ensure(void) {
     char port[16];
     snprintf(port, sizeof port, "%d", (int)lobby.regions[k].port);
     const char* host = lobby.regions[k].host[0] != 0 ? lobby.regions[k].host : net_login.host;
-    fprintf(stderr, "[info] rac3: online: city %s\n", lobby.regions[k].name);
+    char city[NET_CITY_TEXT + 1];
+    net_city_text(k, city, sizeof city);
+    fprintf(stderr, "[info] rac3: online: city %s\n", city);
     if (!link_open(&srv, host, port, net_login.name)) {
         return;
     }
@@ -1049,7 +1146,9 @@ static void lobby_reply_locations(void) {
     for (int i = 0; i < lobby.regions_count; i++) {
         lobby_start(reply, r, lobby.locations_req, 0);
         put32(reply + 0x18, 40 + i); /* the city select keeps ids 40..99 only */
-        put_text(reply + 0x1C, lobby.regions[i].name, 64);
+        char city[NET_CITY_TEXT + 1];
+        net_city_text(i, city, sizeof city);
+        put_text(reply + 0x1C, city, 64);
         put32(reply + 0x5C, M_SUCCESS);
         put32(reply + 0x60, i == lobby.regions_count - 1);
         lobby_push(r->reply_cls, r->reply_type, reply, r->size);
@@ -1254,7 +1353,16 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
             memcpy(reply + 0x1C, req + 0x2C, 64);
             break;
         case LOBBY_LICENCE_TEXT_REQUEST: /* waits for a text (+0x1C), then its end (+0x11C) */
-            put_text(reply + 0x1C, "Online play on an OpenRAC server.", 256);
+            /* What the player is connecting to: the city picked, else the first listed. */
+            if (hub_logged_in() && lobby.regions_count > 0) {
+                const int k = net_login.picked >= 0 && net_login.picked < lobby.regions_count ? net_login.picked : 0;
+                char city[NET_CITY_TEXT + 1], text[96];
+                net_city_text(k, city, sizeof city);
+                snprintf(text, sizeof text, "Online play on %s, an OpenRAC server.", city);
+                put_text(reply + 0x1C, text, 256);
+            } else {
+                put_text(reply + 0x1C, "Online play on an OpenRAC server.", 256);
+            }
             break;
         case LOBBY_NEWS_REQUEST: /* none */
         case LOBBY_ALL_NEWS_REQUEST:
@@ -1266,6 +1374,16 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
              * the hub) its own. A server that takes no PACKET_REGIONS closes on it: the game's
              * own cities then. */
             net_link* from = !net_login.direct ? &hub : &srv;
+            /* The hub's list is kept current (SERVERS_WATCH): answered at once, unless the watch
+             * has only just begun and its servers are still on the way. */
+            if (from == &hub && lobby.watching) {
+                if (lobby.regions_count == 0 && net_now_ms() - lobby.watched_ms < 2000) {
+                    lobby.locations_waiting = 1;
+                    return;
+                }
+                lobby_reply_locations();
+                return;
+            }
             if (from->fd == NET_INVALID || !(from->features & FEATURE_REGIONS)) {
                 put32(reply + 0x5C, M_NO_RESULT);
                 break;
@@ -1779,6 +1897,8 @@ static void on_regions(reader* r) {
     lobby.regions_count = 0;
     for (int i = 0; i < count && lobby.regions_count < 16; i++) {
         const int k = lobby.regions_count++;
+        lobby.regions[k].id = -1;
+        lobby.regions[k].server[0] = 0;
         rd_text(r, lobby.regions[k].name, sizeof lobby.regions[k].name);
         rd_text(r, lobby.regions[k].host, sizeof lobby.regions[k].host);
         lobby.regions[k].port = rd_i32(r);
@@ -1788,6 +1908,67 @@ static void on_regions(reader* r) {
         fprintf(stderr, "[info] rac3: online: %d cities listed\n", lobby.regions_count);
     }
     if (lobby.locations_waiting) {
+        lobby_reply_locations();
+    }
+}
+
+/* The index in lobby.regions of the hub's server ID, -1 when it is not listed. */
+static int servers_find(int32_t id) {
+    for (int i = 0; i < lobby.regions_count; i++) {
+        if (lobby.regions[i].id == id) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* The hub's live list (PACKET_SERVERS): a server added (or listed again), its counts changed, or
+ * gone. The city the game picked and the one connected to are indices: they follow a removal. */
+static void on_servers(reader* r) {
+    const int opcode = rd_u8(r);
+    const int32_t id = rd_i32(r);
+    int k = servers_find(id);
+    if (opcode == SERVERS_ADDED) {
+        if (k < 0) {
+            if (lobby.regions_count == 16) {
+                return;
+            }
+            k = lobby.regions_count++;
+        }
+        lobby.regions[k].id = id;
+        rd_text(r, lobby.regions[k].name, sizeof lobby.regions[k].name);
+        rd_text(r, lobby.regions[k].server, sizeof lobby.regions[k].server);
+        rd_text(r, lobby.regions[k].host, sizeof lobby.regions[k].host);
+        lobby.regions[k].port = rd_i32(r);
+        lobby.regions[k].players = rd_i32(r);
+        if (net_log()) {
+            char city[NET_CITY_TEXT + 1];
+            net_city_text(k, city, sizeof city);
+            fprintf(stderr, "[info] rac3: online: city listed: %s\n", city);
+        }
+    } else if (opcode == SERVERS_CHANGED && k >= 0) {
+        lobby.regions[k].players = rd_i32(r);
+    } else if (opcode == SERVERS_REMOVED && k >= 0) {
+        memmove(
+            &lobby.regions[k],
+            &lobby.regions[k + 1],
+            sizeof lobby.regions[0] * (size_t)(lobby.regions_count - k - 1)
+        );
+        lobby.regions_count--;
+        if (net_login.picked == k) {
+            net_login.picked = -1;
+        } else if (net_login.picked > k) {
+            net_login.picked--;
+        }
+        if (net_login.region == k) {
+            net_login.region = -1; /* its link closes by itself when the server goes */
+        } else if (net_login.region > k) {
+            net_login.region--;
+        }
+    } else {
+        return;
+    }
+    if (lobby.locations_waiting && opcode == SERVERS_ADDED) {
         lobby_reply_locations();
     }
 }
@@ -2053,10 +2234,16 @@ static void on_hub_frame(int id, reader* r) {
             if (lobby.login_waiting) {
                 lobby_reply_login(M_SUCCESS);
             }
-            /* The list now, so that a game server is there before the game asks for the cities. */
-            hub_begin(PACKET_REGIONS, -1);
-            srv_text(NET_FAMILY);
-            srv_end();
+            /* The list now, so that a game server is there before the game asks for the cities,
+             * and every change after (SERVERS_ADDED, _CHANGED, _REMOVED). */
+            if (!lobby.watching) {
+                lobby.watching = 1;
+                lobby.watched_ms = net_now_ms();
+                lobby.regions_count = 0;
+                hub_begin(PACKET_SERVERS, SERVERS_WATCH);
+                srv_text(NET_FAMILY);
+                srv_end();
+            }
             break;
         }
         case PACKET_ERROR:
@@ -2064,6 +2251,9 @@ static void on_hub_frame(int id, reader* r) {
             break;
         case PACKET_REGIONS:
             on_regions(r);
+            break;
+        case PACKET_SERVERS:
+            on_servers(r);
             break;
         default:
             break; /* the clock's answers */
@@ -2074,8 +2264,11 @@ static void hub_pump(void) {
     if (hub.fd == NET_INVALID) {
         return;
     }
-    if (!link_pump(&hub, on_hub_frame) && lobby.login_waiting) {
-        lobby_reply_login(M_LOGIN_FAILED);
+    if (!link_pump(&hub, on_hub_frame)) {
+        lobby.watching = 0; /* a new hub link watches again */
+        if (lobby.login_waiting) {
+            lobby_reply_login(M_LOGIN_FAILED);
+        }
     }
     if (net_login.direct && hub.fd != NET_INVALID) {
         /* Not a hub: the game server's own link to the same address takes the login (its hello's
