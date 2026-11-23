@@ -36,11 +36,28 @@ The work continues from draft #782, preserving its two original commits. It is n
 - With the separate Windows/headless prerequisites of #809, RAC3 NTSC-U's windowed build and its
   call-ABI test pass. One muted Veldin run exited normally after 1,200 frames: a 20-second stereo
   48 kHz WAV, no full-scale samples, and no unexpected raw-send warning during that run. The capture
-  remains private; these measurements do not replace listening or prove every sound path is covered.
+  remains private. The user reported that this capture sounded good; no console comparison is claimed.
 - After the signature fix, disc-less headless builds of RAC2 NTSC and RAC3 PAL/NTSC pass on the
   separate integration branch with #809; all three call-ABI tests pass. These are build checks,
-  not gameplay validation. RAC1/RAC2/PAL game regressions and human listening remain pending.
-  Earlier non-P11 runs are not mixer evidence.
+  not gameplay validation. Windowed builds from the owner's discs and their call-ABI tests also
+  pass for RAC1 PAL, RAC2 NTSC, RAC3 PAL and RAC3 NTSC-U.
+- The user then requested audible tests with the assistant controlling the inputs. Each run below
+  reached its first level, ran 2,000 ticks after control at its normal PAL/NTSC rate, and exited
+  normally. Walking and jumping, weapon-button presses, a wrench attack and pause/resume were scripted;
+  the control reports confirmed the pause menu and return to play. No raw-send warnings or audio
+  output errors appeared. The recorded output was non-silent, with no full-scale samples at 40% gain.
+
+  | Version | First level | Elapsed time including startup |
+  |---|---|---|
+  | RAC1 PAL | Veldin | 61.109 s |
+  | RAC2 NTSC | Aranos tutorial | 37.656 s |
+  | RAC3 PAL | Veldin | 42.578 s |
+  | RAC3 NTSC-U (additional check) | Veldin | 35.969 s |
+
+  Logs, control reports, disc data and WAV files remain private. These are short first-level smoke
+  checks, not full playthroughs, movie or multiplayer validation, or a listening verdict for every
+  sound. The initial fast-forwarded NTSC-U control trial is not counted as a real-time listening run.
+  Earlier non-P11 runs are not mixer evidence. Nothing has been published or merged by this continuation.
 
 ## Native-UI agent to P1 (2026-11-22)
 
