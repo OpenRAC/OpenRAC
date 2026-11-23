@@ -47,6 +47,8 @@ if(TARGET openrac_assets_disc)
   # program/levels.cpp reads a level's program from the player's image (load_level_program).
   target_compile_definitions(openrac_game_common PUBLIC OPENRAC_HAS_DISC=1)
 endif()
+# The native multiplayer screens behind openrac/mp_ui.h (lib/mp_ui.cpp).
+target_link_libraries(openrac_game_common PUBLIC openrac_mpui)
 # The sound engine the sound library's replacement drives (lib/sound_engine.cpp).
 target_link_libraries(openrac_game_common PUBLIC openrac_audio)
 # The moby animation code the blend snapshot runs (lib/moby_snapshot.cpp).

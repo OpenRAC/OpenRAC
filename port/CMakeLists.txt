@@ -162,6 +162,18 @@ openrac_add_test(sampler LIBS openrac_common)
 openrac_add_test(staged_file LIBS openrac_common)
 openrac_add_test(result INCLUDES .)
 openrac_add_test(c_boundary LIBS openrac_common)
+
+# The native multiplayer screens (mpui/README.md): layout, navigation, the data model and the
+# servers' UI descriptions, knowing no game. The games reach them through openrac/mp_ui.h.
+add_library(openrac_mpui STATIC
+  mpui/description.cpp
+  mpui/model.cpp
+  mpui/screen_view.cpp
+)
+target_link_libraries(openrac_mpui PUBLIC openrac_common)
+openrac_warnings(openrac_mpui)
+openrac_add_test(mpui_description LIBS openrac_mpui)
+openrac_add_test(mpui_screen_view LIBS openrac_mpui)
 openrac_add_test(frame_pacing INCLUDES .)
 openrac_add_test(latency_sleep INCLUDES .)
 openrac_add_test(swapchain_images INCLUDES .)

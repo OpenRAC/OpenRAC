@@ -1665,12 +1665,24 @@
    "is": "func_L39_0058F8D0",
    "why": "the same instructions, the only place they occur"
   },
+  "func_L39_00591BA0": {
+   "is": "func_L39_005908F8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00591F98": {
+   "is": "func_L39_00590CF0",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_L39_00592238": {
    "is": "func_L39_00590F90",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_00592AC8": {
    "is": "func_L39_00591820",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0059A970": {
+   "is": "func_L39_00599618",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_0059C910": {
@@ -1773,6 +1785,10 @@
    "is": "func_L39_005D32D0",
    "why": "the same instructions, the only place they occur"
   },
+  "func_L39_005D69C0": {
+   "is": "func_L39_005D4450",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_L39_005EDE28": {
    "is": "func_L39_005EB8B8",
    "why": "the same instructions, the only place they occur"
@@ -1863,6 +1879,30 @@
   },
   "func_L39_0067CEA0": {
    "is": "func_L39_0067A390",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00682028": {
+   "is": "func_L39_0067F508",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00686138": {
+   "is": "func_L39_00683618",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_006862D0": {
+   "is": "func_L39_006837B0",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00688340": {
+   "is": "func_L39_00685798",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_00689F00": {
+   "is": "func_L39_00687358",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0068B2F8": {
+   "is": "func_L39_00688750",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_0068C0E0": {
