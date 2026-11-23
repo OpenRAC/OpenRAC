@@ -71,15 +71,18 @@ typedef struct openrac_mp_ui_skin {
     void* user;
     /* The pitch of a table's rows. */
     float line_height;
+    /* A modal screen's panel: its field's colour and its edge's (0xAABBGGRR, 0x80 alpha full). */
+    uint32_t panel_rgba;
+    uint32_t edge_rgba;
     /* The width of `length` bytes of `text` in `style`. */
     float (*text_width)(void* user, const char* text, size_t length, int style);
-    /* `length` bytes of `text`, top left at (x, y). */
+    /* The draw layer: `length` bytes of `text` with its top left at (x, y); a rectangle filled
+     * with `rgba`; the game's image `sprite` (the binding's own numbering) over a rectangle; the
+     * game's highlight bar over a rectangle. A game draws them with its own native 2D path. */
     void (*text)(void* user, float x, float y, const char* text, size_t length, int style);
-    /* The highlight bar, and a panel, over a rectangle. */
+    void (*rect)(void* user, float x, float y, float w, float h, uint32_t rgba);
+    void (*sprite)(void* user, float x, float y, float w, float h, int sprite);
     void (*highlight)(void* user, float x, float y, float w, float h);
-    void (*panel)(void* user, float x, float y, float w, float h);
-    /* Marks for rows above (`up`) and below (`down`) a table's rows shown at (x, y, w, h). */
-    void (*scroll_marks)(void* user, float x, float y, float w, float h, int up, int down);
     /* A menu sound, OPENRAC_MP_UI_SOUND_*. */
     void (*sound)(void* user, int sound);
     /* Called before each layer is drawn: 0 the screen over the game's, 1 a modal screen over it
