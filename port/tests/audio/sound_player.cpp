@@ -224,6 +224,40 @@ void pausing_and_groups() {
     CHECK(p.sounds_playing() == 0 && active_voices(p) == 0 && !p.bank(bank));
 }
 
+void pausing_keeps_envelopes() {
+    SoundPlayer p;
+    SoundPlayer reference;
+    const auto bytes = make_bank({{127, 3, 0, 0, {{kTone}}}});
+    const SoundHandle sound = p.play(p.load_bank(bytes), 0);
+    reference.play(reference.load_bank(bytes), 0);
+
+    // Pausing before the first frame must keep the attack at its start, even while the output
+    // keeps pulling audio. The first frames after continuing match an uninterrupted voice.
+    p.pause_groups(1u << 3);
+    CHECK(render_ticks(p, 4) == 0);
+    CHECK(p.mixer().voice(0).envelope().level() == 0.0f);
+    CHECK(p.mixer().voice(0).envelope().phase() == EnvelopePhase::Attack);
+    p.continue_groups(1u << 3);
+    std::vector<float> resumed(32);
+    std::vector<float> expected(resumed.size());
+    p.render(resumed);
+    reference.render(expected);
+    CHECK(resumed == expected);
+
+    // A paused release must not expire either. After continuing, the same remaining release
+    // plays and the voice can then be reclaimed normally.
+    p.stop(sound);
+    p.pause_groups(1u << 3);
+    const float level = p.mixer().voice(0).envelope().level();
+    CHECK(render_ticks(p, 4) == 0);
+    CHECK(p.playing(sound) && active_voices(p) == 1);
+    CHECK(p.mixer().voice(0).envelope().phase() == EnvelopePhase::Release);
+    CHECK(p.mixer().voice(0).envelope().level() == level);
+    p.continue_groups(1u << 3);
+    render_ticks(p, 4);
+    CHECK(!p.playing(sound) && active_voices(p) == 0);
+}
+
 }  // namespace
 
 int main() {
@@ -232,5 +266,6 @@ int main() {
     registers_and_skips();
     instance_limits();
     pausing_and_groups();
+    pausing_keeps_envelopes();
     return openrac::test::result();
 }

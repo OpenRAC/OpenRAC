@@ -113,7 +113,7 @@ public:
     bool active() const { return m_envelope.phase() != EnvelopePhase::Stopped; }
 
     // The sample's frames a frame of output: 1 at the console's rate, at most kMaxSpeed; 0 holds
-    // the position (a paused sound).
+    // the position and envelope, outputting silence (a paused sound).
     void set_speed(float speed);
 
     float speed() const { return m_speed; }

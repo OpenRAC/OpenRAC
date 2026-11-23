@@ -229,8 +229,9 @@ float Voice::at(std::ptrdiff_t i) const {
 }
 
 std::array<float, 2> Voice::run() {
-    // A stopped voice outputs silence.
-    if (m_envelope.phase() == EnvelopePhase::Stopped) {
+    // A stopped or paused voice outputs silence. Pausing holds the envelope as well as the sample,
+    // so an attack or release resumes at the same level after the output has kept mixing.
+    if (m_envelope.phase() == EnvelopePhase::Stopped || m_speed == 0.0f) {
         return {0.0f, 0.0f};
     }
 
