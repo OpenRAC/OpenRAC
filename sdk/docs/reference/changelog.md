@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.32
+
+An independent RAC1 other-game reward display identity (OPENRAC_RAC1_OTHER_GAME_VISUAL; the table is unchanged).
+
+No new members (the table is unchanged).
+
 ## 1.31
 
 A mod's overlay drawn over the game's menus and scenes too (on_overlay_phases, openrac_overlay.phase), the pad's button icons in the HUD's and the overlay's text, each shown as the player's device has it (OPENRAC_UI_L1 ... OPENRAC_UI_RIGHT_STICK), and a button's label for the device in use (button_label).

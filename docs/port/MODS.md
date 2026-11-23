@@ -1563,3 +1563,7 @@ callback that swaps two buttons, chosen in its settings.
   before it is loaded, and a hook that returns the original to call. Here the
   hook points are declared by the port, so nothing patches code at run time,
   which keeps Apple Silicon, Windows and Android alike.
+
+RAC1 reward display framing (interface 1.32): `OPENRAC_RAC1_OTHER_GAME_VISUAL` uses the
+Gold Bolt mesh with independent vendor monitor and hologram defaults. It is a render-only
+identity for another game's item; ordinary Gold Bolts retain their own display defaults.

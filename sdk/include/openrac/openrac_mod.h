@@ -90,14 +90,15 @@ extern "C" {
  * from a mod, a weapon's look, a moby frozen or slowed and a weapon's record
  * (on_weapon_fire, weapon_refire, on_shot_end, moby_spawn_live, weapon_look,
  * moby_status, weapon_record), 1.30 weapons whose targets are picked on
- * screen or not (weapon_ignore_culling), and
- * 1.31 a mod's overlay drawn over the game's menus and scenes too
- * (on_overlay_phases, openrac_overlay.phase), the pad's button icons in the
- * HUD's and the overlay's text, each shown as the player's device has it
- * (OPENRAC_UI_L1 ... OPENRAC_UI_RIGHT_STICK), and a button's label for the
- * device in use (button_label).
+ * screen or not (weapon_ignore_culling), 1.31 a mod's overlay drawn over the
+ * game's menus and scenes too (on_overlay_phases, openrac_overlay.phase), the
+ * pad's button icons in the HUD's and the overlay's text, each shown as the
+ * player's device has it (OPENRAC_UI_L1 ... OPENRAC_UI_RIGHT_STICK), and a
+ * button's label for the device in use (button_label), and 1.32 an independent
+ * RAC1 other-game reward display identity (OPENRAC_RAC1_OTHER_GAME_VISUAL; the
+ * table is unchanged).
  */
-#define OPENRAC_MOD_API_MINOR 31
+#define OPENRAC_MOD_API_MINOR 32
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1537,6 +1538,10 @@ typedef struct openrac_pack_entry {
 /* What the port offers a mod. Filled by the port; valid for the life of the program. Every function
  * is called on the game's thread. Members from "1.2" on are at the end: a mod built for 1.1 never
  * sees them, and one built for 1.2 loads on a 1.2 port or newer. */
+/* RAC1: another game's reward, drawn as a Gold Bolt with its own vendor framing.
+ * Render-only identity, not an inventory item or gameplay moby class. Since 1.32. */
+#define OPENRAC_RAC1_OTHER_GAME_VISUAL 0x7FF
+
 /* A render-only replacement: the live moby's address and a class from the extracted game (-1 hides it).
  * height 0 preserves the original model's displayed height; positive values set world units.
  * Neither the moby's class, animation, collision nor update state is modified. Since 1.22. */

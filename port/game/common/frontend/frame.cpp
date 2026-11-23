@@ -1753,10 +1753,14 @@ TickMobys pose_mobys(
             std::find_if(replacements.rbegin(), replacements.rend(), [&](const auto& v) {
                 return v.moby == m.address && g->render.level.moby_classes.contains(v.oclass);
             });
+        const int replacement_class = replacement == replacements.rend() ? -1
+                                      : g->render.level.game == "rac1"
+                                          ? scene::vendor_preview::model_class(replacement->oclass)
+                                          : replacement->oclass;
         const bool replaced =
             replacement != replacements.rend()
             && (scene::preview_replaces_class(
-                    replacement->oclass, m.model_class, m.class_id, into_texture.contains(m.address)
+                    replacement_class, m.model_class, m.class_id, into_texture.contains(m.address)
                 )
                 || (cases::source(m.class_id) && replacement->height > 0));
         auto cls =
@@ -1770,14 +1774,13 @@ TickMobys pose_mobys(
         scene::Instance instance{cls->second.first, m.matrix, {1, 1, 1, 1}};
         const bool native_gold =
             replaced && replacement->height == 0
-            && scene::vendor_preview::normal_weapon_class(replacement->oclass)
-                   != replacement->oclass
-            && scene::vendor_preview::normal_weapon_class(replacement->oclass) == m.class_id;
+            && scene::vendor_preview::normal_weapon_class(replacement_class) != replacement_class
+            && scene::vendor_preview::normal_weapon_class(replacement_class) == m.class_id;
         const bool custom_pose = replaced && !native_gold;
         const bool replacement_pose = custom_pose || native_gold;
         const std::optional<host::GoldBoltReads> bolt_reads = g->render.profile->gold_bolt_reads();
         const bool native_bolt_pickup =
-            bolt_reads && replaced && replacement->height > 0 && replacement->oclass == 0x46E
+            bolt_reads && replaced && replacement->height > 0 && replacement_class == 0x46E
             && scene::pickup_preview::equipment_source(m.class_id) && !own_camera;
         if (native_bolt_pickup) {
             // Read the same class scale and animation constants used by
@@ -1866,10 +1869,10 @@ TickMobys pose_mobys(
             instance.world_sphere = {};
         }
         if (custom_pose && !native_bolt_pickup) {
-            const bool infobot = replacement->oclass == 0x2EE;
+            const bool infobot = replacement_class == 0x2EE;
             const bool panel = into_texture.contains(m.address);
             const bool generic_vendor =
-                !infobot && replacement->oclass != 0x46E && replacement->height == 0;
+                !infobot && replacement_class != 0x46E && replacement->height == 0;
             const auto& target = g->render.level.models[instance.model];
             const auto& low = infobot && target.preview_bounds ? target.preview_min : target.min;
             const auto& high = infobot && target.preview_bounds ? target.preview_max : target.max;
@@ -1946,7 +1949,7 @@ TickMobys pose_mobys(
         }
         if (g->render.level.game == "rac1" && replaced && !native_bolt_pickup
             && scene::pickup_preview::should_adjust(
-                m.class_id, replacement->oclass, replacement->height, own_camera
+                m.class_id, replacement_class, replacement->height, own_camera
             )) {
             namespace pickup = scene::pickup_preview;
             const auto& shape = g->render.level.models[instance.model];
@@ -1959,7 +1962,7 @@ TickMobys pose_mobys(
             if (m.address + 0x4c <= ram.size()) {
                 std::memcpy(&angle, ram.data() + m.address + 0x48, sizeof angle);
             }
-            if (replacement->oclass != 0x2EE) {
+            if (replacement_class != 0x2EE) {
                 // Gold Bolts tumble around randomized X/Y axes. Equipment instead
                 // stands upright and turns around Z, with its own saved orientation.
                 const float scale = std::sqrt(
@@ -1980,7 +1983,7 @@ TickMobys pose_mobys(
                 }
             }
             instance.matrix = pickup::apply(
-                instance.matrix, center, angle, pickup::get(replacement->oclass, m.class_id == 750)
+                instance.matrix, center, angle, pickup::get(replacement_class, m.class_id == 750)
             );
             instance.world_sphere = {};
         }
@@ -1992,7 +1995,7 @@ TickMobys pose_mobys(
                 (shape.min[1] + shape.max[1]) * .5f,
                 (shape.min[2] + shape.max[2]) * .5f
             };
-            auto entry = cases::get(replacement->oclass);
+            auto entry = cases::get(replacement_class);
             // Every item uses the case's axes and center, independently of the
             // gold weapon originally displayed in this slot.
             const auto slot =
@@ -2114,7 +2117,7 @@ TickMobys pose_mobys(
             if (m.address + 0x4c <= ram.size()) {
                 std::memcpy(&spin_angle, ram.data() + m.address + 0x48, sizeof spin_angle);
             }
-            instance.matrix = preview::can_hologram_basis(instance.matrix, replacement->oclass);
+            instance.matrix = preview::can_hologram_basis(instance.matrix, replacement_class);
             instance.matrix = preview::orient(
                 preview::freeze_spin(instance.matrix, spin_angle, a.spin), a, pivot, true
             );
