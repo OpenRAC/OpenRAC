@@ -598,12 +598,7 @@
     "input_idioms": true,
     "vu_flush": true,
     "forward_unprototyped": true,
-    "vu0_programs": {
-      "0xC80": "rac3_vu0_rotation_rows",
-      "0xDA0": "rac3_vu0_cosine",
-      "0xDB0": "rac3_vu0_sine",
-      "0xE98": "rac3_vu0_quaternion_rows"
-    },
+    "trap_ends": true,
     "wide_register_calls": true,
     "wide_call_results": true,
     "float_parameters_on_calls": true,
