@@ -202,7 +202,10 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     m_test_plain = false;
     m_active_shader = nullptr;
     std::string fragment(shaders::direct_frag);
-    fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");
+    fragment.insert(
+        fragment.find('\n') + 1,
+        "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n#define OPENRAC_EFFECT_FOG 1\n"
+    );
     const std::string tested_fragment = fragment;  // the alpha test kept (m_test_shader)
     // Effect packets skip HUD distance fields and alpha tests; authored strip fog remains dynamic.
     // Keep texture functions/tcc dynamic: they can differ between effect strips.
