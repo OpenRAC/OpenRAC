@@ -23,6 +23,7 @@
 #include "materials/catalog.h"
 #include "openrac/game_host.h"
 #include "openrac/openrac_mod.h"
+#include "renderer/frame/frame_record.h"
 #include "renderer/frame/ui_records.h"
 
 namespace openrac::enhanced {
@@ -120,6 +121,9 @@ void snapshot(std::uint32_t id);
 void target_begin(std::uint32_t id, int width, int height);
 void target_end();
 void scissor(const float* rect);
+// A command that only places what follows (renderer::FrameOp's transitional placements: WorldShrubs,
+// EffectParent, HudSide, Wide, PictureBand, LastFrame).
+void placement(renderer::FrameOp op, std::uint32_t index, std::uint64_t value);
 // How a game image (openrac_game_ui_image) becomes a decoded image: set by the 2D layer's image
 // cache (frontend/ui_images); until it is, items with an image are not recorded (the caller draws
 // its way) and picture_image draws nothing.

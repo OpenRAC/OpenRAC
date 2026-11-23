@@ -29,9 +29,10 @@ static int g_effects;
 static float g_effect_wider = 1.0f;
 static float g_effect_taller = 1.0f;
 
-/* Writes an attachment scope through the GS NOP register; zero ends the scope (game_host.h). */
+/* An attachment scope for the strips drawn next, through the frame recorder; zero ends it. */
 static void put_attachment_marker(gaddr attachment) {
-    func_002FC560(0x7F, (uint64_t)OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER << 48 | attachment);
+    rac2_anchor();
+    openrac_frame_effect_parent(attachment);
 }
 
 static void run_list(void (*run)(void)) {

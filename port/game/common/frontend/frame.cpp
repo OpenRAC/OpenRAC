@@ -565,6 +565,15 @@ std::vector<std::uint8_t> direct_packets(
                         strips_after_early_effects = strips->size();
                     }
                     break;
+                case renderer::FrameOp::WorldShrubs:
+                    // Only after the world has started, as OPENRAC_WORLD_SHRUBS_MARKER's.
+                    if (strips != nullptr && strips_at_world && !strips_after_early_effects) {
+                        strips_after_early_effects = strips->size();
+                    }
+                    break;
+                case renderer::FrameOp::EffectParent:
+                    previous_effect_parent = c.index;
+                    break;
                 case renderer::FrameOp::Mobys:
                     if (moby_marker != nullptr && *moby_marker == SIZE_MAX) {
                         *moby_marker = gif.size();

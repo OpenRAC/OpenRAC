@@ -983,6 +983,43 @@ void openrac_frame_scissor(const float* rect) {
     (void)rect;
 }
 
+void openrac_frame_world_shrubs(void) {
+    OPENRAC_RECORD("openrac_frame_world_shrubs", placement(renderer::FrameOp::WorldShrubs, 0, 0));
+}
+
+void openrac_frame_effect_parent(uint32_t attachment) {
+    OPENRAC_RECORD(
+        "openrac_frame_effect_parent", placement(renderer::FrameOp::EffectParent, attachment, 0)
+    );
+    (void)attachment;
+}
+
+void openrac_frame_hud_side(int side, unsigned how) {
+    OPENRAC_RECORD(
+        "openrac_frame_hud_side",
+        placement(renderer::FrameOp::HudSide, static_cast<std::uint32_t>(side), how)
+    );
+    (void)side;
+    (void)how;
+}
+
+void openrac_frame_wide(int on) {
+    OPENRAC_RECORD("openrac_frame_wide", placement(renderer::FrameOp::Wide, on != 0 ? 1u : 0u, 0));
+    (void)on;
+}
+
+void openrac_frame_picture_band(int on) {
+    OPENRAC_RECORD(
+        "openrac_frame_picture_band",
+        placement(renderer::FrameOp::PictureBand, on != 0 ? 1u : 0u, 0)
+    );
+    (void)on;
+}
+
+void openrac_frame_last_frame(void) {
+    OPENRAC_RECORD("openrac_frame_last_frame", placement(renderer::FrameOp::LastFrame, 0, 0));
+}
+
 #undef OPENRAC_RECORD
 
 }  // extern "C"

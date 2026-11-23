@@ -274,6 +274,16 @@ void target_end() {
     }
 }
 
+void placement(renderer::FrameOp op, std::uint32_t index, std::uint64_t value) {
+    if (g) {
+        renderer::FrameCommand c;
+        c.op = op;
+        c.index = index;
+        c.value = value;
+        g->recorder.push(c);
+    }
+}
+
 void scissor(const float* rect) {
     if (g) {
         renderer::FrameCommand c;
