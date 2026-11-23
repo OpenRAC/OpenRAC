@@ -116,17 +116,21 @@ static void read_scissor(float out[4]) {
     out[3] = (float)(GREF(int32_t, context + 0x24Cu) + 1);
 }
 
-static void view_layout(void (*game)(int), int layout) {
-    float r[4];
-    /* The view before ends while its camera is the game's. */
+/* Before the game's layout: the view before ends while its camera is the game's, and the whole
+ * screen is known before a first view. */
+static void view_layout_before(int layout) {
     openrac_frame_view_end();
-    /* The whole screen as the frame was last laid out, before a first view. */
     if (s_screen_w <= 0.0f && layout > 0) {
+        float r[4];
         read_scissor(r);
         s_screen_w = r[2];
         s_screen_h = r[3];
     }
-    game(layout);
+}
+
+/* After it: layout 0 is the whole screen, any other a view of it. */
+static void view_layout_after(int layout) {
+    float r[4];
     read_scissor(r);
     if (layout <= 0) {
         s_screen_w = r[2];
@@ -239,8 +243,10 @@ static void view_layout(void (*game)(int), int layout) {
     int mp_func_L##m##_##quad(int a0, int a1) {                                                    \
         return world_quad(a0, a1);                                                                 \
     }                                                                                              \
-    void mp_func_L##m##_##layout(int a0) {                                                         \
-        view_layout(mp_func_L##m##_##layout##__game, a0);                                          \
+    void mp_func_L##m##_##layout(int a0, int a1, int a2, int a3) {                                 \
+        view_layout_before(a0);                                                                    \
+        mp_func_L##m##_##layout##__game(a0, a1, a2, a3);                                           \
+        view_layout_after(a0);                                                                     \
     }
 
 #define MP_MAP_UI(...)

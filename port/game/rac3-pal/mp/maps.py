@@ -85,7 +85,7 @@ CARRIED = [
      "DrawWorldQuad (func_L01_00407E28): drawn natively", "int (int, int)"),
     ("00588A08", "render", "rac3ViewLayoutMap", "wrap",
      "the view layout (func_L01_00403168): a split-screen view's rectangle to the frame recorder",
-     "void (int)"),
+     "void (int, int, int, int)"),
 ]
 
 # Level 39's 2D layer (the wrap rows ui2d.c's MP_MAP_UI stands for; "ref" ones it only calls).
