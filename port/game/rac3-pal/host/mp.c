@@ -63,15 +63,9 @@ void rac3_program_set_range(gaddr gp, gaddr low, gaddr high);
 #define MP_MAPS_LAST 55
 
 /* LoadExecPS2("cdrom0:\I5BOOTN.ELF;1", ...) came back to func_0013ADA8: the multiplayer
- * executable read from the disc, unpacked over memory, its functions in place of the boot
- * program's, and its crt0 run. */
+ * program's records copied over memory (exec.c), its functions in place of the boot program's,
+ * and its crt0 run. */
 void rac3_mp_run(void) {
-    uint32_t size = 0;
-    uint8_t* file = rac3_exec_read_disc_file("I5BOOTN.ELF", &size);
-    if (file == NULL) {
-        fprintf(stderr, "rac3: I5BOOTN.ELF cannot be read from the disc image\n");
-        exit(1);
-    }
     memset(G(0x00100000u), 0, 0x02000000u - 0x00100000u);
     openrac_guest_unregister_all();
     openrac_game_kernel_reset();
@@ -80,8 +74,7 @@ void rac3_mp_run(void) {
     rac3_program_forget_levels();
     mp_openrac_game_register_functions();
     rac3_program_set_overlay(OPENRAC_OVERLAY_EXE);
-    const uint32_t entry = rac3_exec_unpack(file, size);
-    free(file);
+    const uint32_t entry = rac3_exec_load_program("I5BOOTN.ELF");
     if (entry != RAC3_MADDR(0x00192D18u)) {
         fprintf(
             stderr, "rac3: I5BOOTN.ELF's game starts at 0x%08x, not this disc's 0x00192d18\n", entry

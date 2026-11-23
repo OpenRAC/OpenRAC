@@ -53,14 +53,10 @@ struct Reader {
 std::vector<Reader> g_readers;
 bool g_stopping = false;
 
-// A place on the disc image, which is larger than 2 GB: fseek takes a long, 32 bits on Windows,
-// where a sector past the first million (the music) would wrap.
-bool seek_disc(std::FILE* disc, std::uint64_t at) {
-#if defined(_WIN32)
-    return _fseeki64(disc, static_cast<long long>(at), SEEK_SET) == 0;
-#else
-    return fseeko(disc, static_cast<off_t>(at), SEEK_SET) == 0;
-#endif
+// `size` bytes of the disc at byte `at`, from the extractor's files (game_host.h's
+// openrac_disc_read): the music, speech and banks are read by sector, as the game names them.
+bool read_disc(std::uint64_t at, void* dst, std::size_t size) {
+    return openrac_disc_read(at, dst, size) != 0;
 }
 
 // Never destroyed: the output's thread may still render while the program exits.
@@ -244,13 +240,10 @@ Stream* find_stream(std::uint32_t handle) {
 constexpr std::size_t kVagHeader = 0x30;
 
 // The body's size and the rate from the header at `sector`, or false.
-bool read_vag_header(
-    std::FILE* disc, std::uint32_t sector, std::uint32_t& size, std::uint32_t& rate
-) {
+bool read_vag_header(std::uint32_t sector, std::uint32_t& size, std::uint32_t& rate) {
     std::uint8_t header[kVagHeader];
 
-    if (!seek_disc(disc, static_cast<std::uint64_t>(sector) * 2048)
-        || std::fread(header, 1, sizeof header, disc) != sizeof header
+    if (!read_disc(static_cast<std::uint64_t>(sector) * 2048, header, sizeof header)
         || std::memcmp(header, "VAGp", 4) != 0) {
         return false;
     }
@@ -308,18 +301,15 @@ void read_track(std::uint32_t sector, std::shared_ptr<Track> track) {
     const bool replaced = !track->replacement.empty()
                           && read_replacement(track->replacement, samples, rate, channels);
 
-    if (std::FILE* disc = replaced || !openrac_game_disc_image
-                              ? nullptr
-                              : std::fopen(openrac_game_disc_image, "rb")) {
+    if (!replaced && openrac_disc_available()) {
         const std::uint64_t at = static_cast<std::uint64_t>(sector) * 2048;
         std::uint32_t size = 0;
         std::uint32_t header_rate = 0;
 
-        if (read_vag_header(disc, sector, size, header_rate)) {
+        if (read_vag_header(sector, size, header_rate)) {
             std::vector<std::uint8_t> file(kVagHeader + size);
 
-            if (size > 0 && size < 64u * 1024 * 1024 && seek_disc(disc, at)
-                && std::fread(file.data(), 1, file.size(), disc) == file.size()) {
+            if (size > 0 && size < 64u * 1024 * 1024 && read_disc(at, file.data(), file.size())) {
                 try {
                     const assets::VagFile vag = assets::parse_vag(file);
                     rate = vag.header.sample_rate;
@@ -329,8 +319,6 @@ void read_track(std::uint32_t sector, std::shared_ptr<Track> track) {
                 }
             }
         }
-
-        std::fclose(disc);
     }
 
     std::lock_guard lock(g_lock);
@@ -499,7 +487,7 @@ void mix_mod_voices(std::span<std::int16_t> out) {
 
 // A pack's file in place of the stream at `sector`, into its track: its own length and rate are then
 // the header's answer. read_track reads it whole, or else the disc's.
-void apply_stream_replacement(std::FILE* disc, std::uint32_t sector, Track& track) {
+void apply_stream_replacement(std::uint32_t sector, Track& track) {
     std::filesystem::path file;
     {
         std::lock_guard lock(g_replacements_lock);
@@ -512,12 +500,10 @@ void apply_stream_replacement(std::FILE* disc, std::uint32_t sector, Track& trac
 
         std::vector<std::uint8_t> start(audio::kStreamKeyBytes);
 
-        // Nothing to go by: the stream is not one of the disc's. Near the disc's end there is less.
-        if (!seek_disc(disc, static_cast<std::uint64_t>(sector) * 2048)) {
-            return;
-        }
-
-        start.resize(std::fread(start.data(), 1, start.size(), disc));
+        // Near the disc's end there is less; past it, nothing to go by.
+        start.resize(openrac_disc_read_some(
+            static_cast<std::uint64_t>(sector) * 2048, start.data(), start.size()
+        ));
         file = replacements.stream(start);
     }
 
@@ -625,13 +611,7 @@ uint32_t openrac_sound_load_bank(const void* bytes, size_t size) {
 }
 
 uint32_t openrac_sound_load_bank_from_disc(uint32_t sector, uint32_t offset) {
-    if (openrac_game_disc_image == nullptr) {
-        return 0;
-    }
-
-    std::FILE* disc = std::fopen(openrac_game_disc_image, "rb");
-
-    if (disc == nullptr) {
+    if (!openrac_disc_available()) {
         return 0;
     }
 
@@ -639,16 +619,14 @@ uint32_t openrac_sound_load_bank_from_disc(uint32_t sector, uint32_t offset) {
     std::uint8_t header[72];
     std::vector<std::uint8_t> file;
 
-    if (seek_disc(disc, at) && std::fread(header, 1, sizeof header, disc) == sizeof header) {
+    if (read_disc(at, header, sizeof header)) {
         const std::size_t size = bank_size(header, sizeof header);
         file.resize(size);
 
-        if (size == 0 || !seek_disc(disc, at) || std::fread(file.data(), 1, size, disc) != size) {
+        if (size == 0 || !read_disc(at, file.data(), size)) {
             file.clear();
         }
     }
-
-    std::fclose(disc);
 
     if (file.empty()) {
         log::warn("sound: no bank at sector {} + {}", sector, offset);
@@ -951,18 +929,16 @@ void start_reading(std::uint32_t sector, const std::shared_ptr<Track>& track) {
 // from the next frame on, long before a track of minutes is read and decoded.
 std::shared_ptr<Track> new_track(std::uint32_t sector) {
     auto track = std::make_shared<Track>();
-    if (std::FILE* disc =
-            openrac_game_disc_image ? std::fopen(openrac_game_disc_image, "rb") : nullptr) {
+    if (openrac_disc_available()) {
         std::uint32_t size = 0;
         std::uint32_t rate = 0;
 
-        if (read_vag_header(disc, sector, size, rate) && rate != 0) {
+        if (read_vag_header(sector, size, rate) && rate != 0) {
             track->length = static_cast<std::size_t>(size / 16) * 28;
             track->rate = rate;
         }
 
-        apply_stream_replacement(disc, sector, *track);
-        std::fclose(disc);
+        apply_stream_replacement(sector, *track);
     }
     return track;
 }

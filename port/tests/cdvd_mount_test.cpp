@@ -11,7 +11,7 @@
 #include "openrac/memory.h"
 
 extern "C" {
-const char* openrac_game_disc_image;
+const char* openrac_game_disc_files;
 const char* openrac_game_mods_dir;
 unsigned openrac_game_mods_generation;
 int openrac_lib_sceCdRead(unsigned sector, unsigned count, gaddr buffer, gaddr mode);
@@ -25,9 +25,12 @@ int main() {
     CHECK(fs::create_directory(root));
     const std::string disc = (root / "disc.bin").string(), folder = root.string();
     std::ofstream(disc, std::ios::binary) << std::string(4096, 'A');
+    // The disc's files: one run of two sectors (assets/disc/sector_map.h).
+    std::ofstream(root / "sectors.tsv")
+        << "# openrac sector map 1: first sector, sectors, bytes, file\n0\t2\t4096\tdisc.bin\n";
     std::ofstream(root / "patch.bin", std::ios::binary) << std::string(2048, 'B');
     std::ofstream(root / "patches.tsv") << "1\t1\tpatch.bin\n";
-    openrac_game_disc_image = disc.c_str();
+    openrac_game_disc_files = folder.c_str();
     for (int pass = 0; pass < 4; ++pass) {
         const bool active = pass % 2 != 0;
         openrac_game_mods_dir = active ? folder.c_str() : nullptr;
@@ -36,7 +39,7 @@ int main() {
         CHECK(GREF(char, 0x10000) == 'A');
         CHECK(GREF(char, 0x10800) == (active ? 'B' : 'A'));
     }
-    // Release cached patch handles before cleanup. The disc handle lives until process exit.
+    // Release cached patch handles before cleanup. The disc's files stay open until process exit.
     openrac_game_mods_dir = nullptr;
     ++openrac_game_mods_generation;
     CHECK(openrac_lib_sceCdRead(1, 1, 0x10000, 0) == 1);
@@ -68,6 +71,7 @@ int main() {
     fs::remove(root / "patch.bin", ignored);
     fs::remove(root / "patches.tsv", ignored);
     fs::remove(root / "disc.bin", ignored);
+    fs::remove(root / "sectors.tsv", ignored);
     fs::remove(root, ignored);
     return openrac::test::result();
 }

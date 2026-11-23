@@ -118,7 +118,8 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual([need["path"] for need in exported["needs"]], ["{data}/port/pal/levels-4.json"])
         edited = self.pal["play-edited"]
         self.assertEqual(edited["args"][edited["args"].index("--levels") + 1], "{data}/port/pal")
-        self.assertEqual([need["path"] for need in edited["needs"]], [self.pal["port-levels-check"]["makes"]])
+        self.assertEqual([need["path"] for need in edited["needs"]],
+                         [self.pal["disc-files"]["makes"], self.pal["port-levels-check"]["makes"]])
         self.assertEqual(edited["cwd"], "{data}")
         # NTSC-U's editor folders are its own.
         self.assertEqual(self.ntsc["editor-extract"]["args"][-3], "{data}/levels/ntsc")
@@ -150,7 +151,13 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual(check["makes"], "{data}/port/pal/verified-4.json")
         self.assertEqual(check["args"][check["args"].index("--levels") + 1], "{data}/port/pal")
         self.assertEqual([need["path"] for need in check["needs"]], [self.pal["port-levels"]["artifact"]])
-        self.assertEqual([need["path"] for need in play["needs"]], [check["makes"]])
+        # And for the disc's files, which the game reads in place of the image.
+        files = self.pal["disc-files"]
+        self.assertEqual(files["makes"], "{data}/iso_data/rac1/sectors.tsv")
+        self.assertEqual(files["args"][:2], ["tools/extractor.py", "{disc}"])
+        self.assertEqual(files["args"][-2:], ["--proj-path", "{data}"])
+        self.assertEqual(files["cwd"], ".")
+        self.assertEqual([need["path"] for need in play["needs"]], [files["makes"], check["makes"]])
         self.assertNotIn("python", play.get("requires", []))
 
     def test_ci_smoke_checks_use_only_packaged_native_bake_entry_points(self):
@@ -201,7 +208,7 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual(play["args"], ["--data", "{data}", "--window", "--levels", "{data}/port/ntsc"])
         self.assertEqual(play["cwd"], "{data}")
         self.assertEqual([n["path"] for n in play["needs"]],
-                         ["{data}/iso_data/rac2/buildinfo.json", actions["port-levels"]["artifact"]])
+                         ["{data}/iso_data/rac2/sectors.tsv", actions["port-levels"]["artifact"]])
         self.assertEqual(actions["port-levels"]["artifact"], f"{{data}}/port/ntsc/levels-{going_commando_format()}.json")
         self.assertTrue(play["artifact"].endswith("openrac-rac2-ntsc.exe"))
         self.assertNotIn("todo", play)

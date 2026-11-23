@@ -93,10 +93,10 @@ bool infobot_screen_motion(scene::Model& model) {
     try {
         namespace disc = assets::disc;
         namespace anim = assets::rac1;
-        if (!openrac_game_disc_image || model.bones.empty()) {
+        if (!openrac_game_disc_files || model.bones.empty()) {
             return false;
         }
-        const auto image = disc::Disc::open(openrac_game_disc_image, disc::rac1_layout());
+        const auto image = disc::Disc::open(openrac_game_disc_files, disc::rac1_layout());
         if (const auto bytes = image.scene_speech(3, 10, 0)) {
             const auto vag = assets::parse_vag(assets::ByteView(*bytes));
             const auto pcm = assets::decode_adpcm(vag.body);
