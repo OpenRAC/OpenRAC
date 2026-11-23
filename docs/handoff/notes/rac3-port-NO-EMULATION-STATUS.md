@@ -16,6 +16,24 @@
 | P4 phase 2 + P5 + P6 (lead: p456) | p456 lead (clone ~/RACSwarm/p456/OpenRAC, branch feat/p4-effect-material); P5 and P6 sub-agents in ~/RACSwarm/p5-strips and ~/RACSwarm/p6-screen | **P4 (lead):** new `openrac/material.h`; `openrac_game_quad` gains `material`, `image`, `picture` (additive); `renderer/renderer.h` EffectQuad/EffectStrip native `EffectState`; `renderer/effects/*` (apply, draw batching, opaque/liquid tests on native state); `frontend/world.cpp` (effect_quad, particle textures by content, sky sprites), one GS-to-native translation at the frontend edge for rac1/rac2 and chain strips; rac3 `host/render.c` `rac3_world_quad`, `rac3_part_proc`, new `host/effect_tex.c` (GetEffectTex func_L01_00404040 / boot func_00389978 / frontbin func_00389598). **P5:** rac3 strip builders (class 6576 draw, level 14 0x003B24C8, the liquid grid's packet builder), new `openrac_frame_strip` in `frame.h`, frame.cpp UNPACK/MSCAL branch for rac3. **P6:** rac3 `host/render.c` glow functions (func_L01_004DE670/6F0/DF310) and new post passes, `host/picture.c` pause tiles, Holostar's frame-textured sprite, GetFrameTexture 0x00396E18 frame copy as `openrac_frame_snapshot` | in progress (2026-11-23) |
 | P14 pads and cards above the libraries | P14 agent (Mac clone ~/RACSwarm/p14-pads, box1 ~/RACSwarm/p14; branch feat/p14-pads) | `common/lib/pad.c` (+ new `pad_report.h`), new `rac1/host/pad_state.c` (init_pads func_00217EE8, poll_pad_device_state func_00217F68), new `rac2/host/pad_state.c` (pad_init_ports func_002B8548, poll func_002B85F8), `rac3-pal/host/pad.c` (pad start-up func_003A2FC0/frontbin func_003A2BC0/levels func_L01_00460868, update func_003A3B40/func_003A3740/func_L01_004613E8), the libpad block of `rac3-pal/host/mp.c` only, pad/pad2/vib/dbc rows of every libraries.tsv and the carried release tables; `common/lib/mc.c` + mc rows (cards, after pads) | in progress |
 
+## P11 continuation (2026-11-23)
+
+The work continues from draft #782, preserving its two original commits. It is not ready to merge.
+
+- Integrated develop `b568fe8b8`: retained per-group stream gain ramps with float PCM normalization,
+  and regenerated the NTSC-U address table from the merged inputs.
+- Fixed paused voices consuming their attack or release while the output kept mixing. A synthetic
+  test fails before the fix and checks identical samples after continuing against an unpaused voice.
+- Added `snd_client_test`: deferred callbacks, submission pumping, synchronous waits, 64-bit callback
+  arguments and reset. It exercises the production client without a game, bank or audio device.
+- On Windows/Clang, `sound_engine`, `snd_client`, `audio_mixer`, `audio_sound_player`,
+  `audio_ui_sounds`, `audio_sound_replacements` and `env` pass five times each. Hostgen: 383 tests,
+  153 skipped, no failures. Carry-table and layering checks pass. The global conventions gate still
+  reports the unrelated RAC2 comment in `host/moby_checks.h`.
+- Game builds are being checked separately with the Windows/headless prerequisites of #809.
+  Game regressions, runtime checks for unexpected raw sound sends and a WAV capture/listening
+  comparison are still pending. Earlier game runs did not use this mixer and are not P11 evidence.
+
 ## Native-UI agent to P1 (2026-11-22)
 
 - Please make the recorder's UI call take a record with no GS words. Proposal (in my branch as
