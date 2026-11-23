@@ -135,7 +135,7 @@ void set_attached_strips(SceneFrame& frame, const EffectParents& parents) {
 
         for (auto& vertex : std::span(frame.strip_vertices).subspan(first, count)) {
             float point[3] = {vertex.x, vertex.y, vertex.z};
-            follow_moby(parent->second.previous, parent->second.drawn, point);
+            follow_strip_parent(point, parent->second, strip.previous_parent_position_only);
             vertex.x = point[0];
             vertex.y = point[1];
             vertex.z = point[2];

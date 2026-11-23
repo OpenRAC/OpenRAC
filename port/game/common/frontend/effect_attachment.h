@@ -41,6 +41,11 @@ struct EffectParent {
 // preserving their world offset and shape even when the anchor turns; other quads follow its axes.
 void follow_effect_parent(renderer::EffectQuad& quad, const EffectParent& parent);
 
+// Moves a vertex of a strip laid out at the anchor's previous tick to its displayed anchor: with
+// `position_only`, by the anchor's move alone (its world offset kept, as for what is drawn on the
+// hero, whose axes turn while his shield and his weapon's beams do not), else through its axes.
+void follow_strip_parent(float point[3], const EffectParent& parent, bool position_only);
+
 // Blends retained world-space quad history, preserving rigid sprites' current shape.
 // Displacements of four world units or more are treated as reused slots and left unchanged.
 void blend_effect_quad(
