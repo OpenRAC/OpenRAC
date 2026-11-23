@@ -143,6 +143,7 @@ enum class Var : std::uint16_t {
     PlayTrace,
     PlayTraceSave,
     Press,
+    Press2,
     ProbeBacklight,
     ProbeComputeOff,
     ProbeDense,
