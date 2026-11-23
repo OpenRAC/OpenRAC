@@ -323,6 +323,7 @@ void Input::handle_event(const SDL_Event& event) {
                 if (!(m_km.captured && raw_mouse::active())) {
                     m_dx += event.motion.xrel;
                     m_dy += event.motion.yrel;
+                    m_rate.add(event.motion.timestamp, event.motion.xrel, event.motion.yrel);
                 }
                 m_switch.mouse_motion(event.motion.xrel, event.motion.yrel, event.motion.timestamp);
             }
@@ -658,7 +659,14 @@ void Input::pull_raw_mouse() {
     if (m_km.captured && raw_mouse::active()) {
         m_dx += dx;
         m_dy += dy;
+        if (dx != 0.0f || dy != 0.0f) {
+            m_rate.add(SDL_GetTicksNS(), dx, dy);
+        }
     }
+}
+
+void Input::mouse_rate(float& vx, float& vy) const {
+    m_rate.rate(SDL_GetTicksNS(), vx, vy);
 }
 
 void Input::update() {

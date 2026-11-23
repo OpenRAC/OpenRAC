@@ -185,9 +185,14 @@ void host_fail(openrac_mod*, const char* reason) {
     std::printf("failed: %s\n", reason);
 }
 
+bool g_low_latency = true;  // the "mouse_low_latency" setting
+
 int setting_bool(openrac_mod*, const char* key) {
     if (std::strcmp(key, "key_prompts") == 0) {
         return g_prompts ? 1 : 0;
+    }
+    if (std::strcmp(key, "mouse_low_latency") == 0) {
+        return g_low_latency ? 1 : 0;
     }
     return std::strcmp(key, "capture_cursor") == 0 || std::strcmp(key, "menu_mouse") == 0 ? 1 : 0;
 }

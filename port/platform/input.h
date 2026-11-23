@@ -36,6 +36,7 @@
 #include "platform/bindings.h"
 #include "platform/gyro.h"
 #include "platform/menu_chord.h"
+#include "platform/mouse_rate.h"
 #include "platform/pad.h"
 #include "platform/players.h"
 #include "platform/rumble.h"
@@ -126,6 +127,9 @@ public:
         dx = m_dx;
         dy = m_dy;
     }
+
+    // How fast the mouse moves now, in its units a second (mouse_rate.h).
+    void mouse_rate(float& vx, float& vy) const;
 
     // Gyro aiming (gyro.h): the options, from the keyboard and mouse's settings. The gyro read is
     // player 1's gamepad's, or on a phone or handheld without one the device's own.
@@ -318,6 +322,7 @@ private:
     std::array<std::uint8_t, kKeyCount> m_went_down{};
     std::uint32_t m_mouse_went_down = 0;
     float m_dx = 0.0f, m_dy = 0.0f, m_wheel_x = 0.0f, m_wheel_y = 0.0f;
+    MouseRate m_rate;  // the motion counted in m_dx and m_dy, with its time
     DeviceSwitch m_switch;
     // Gyro aiming: the filter, the gamepad read (or the device's sensors), the sensor it reads on
     // that gamepad (SDL_SensorType), and the turn update() last took.

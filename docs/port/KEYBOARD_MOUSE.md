@@ -28,8 +28,10 @@ set *Button icons* to *Always keys* or *Always gamepad*.
 - The mouse turns the camera behind Ratchet directly, by an angle for each
   pixel, in both games. Up and down tilt stays where you leave it.
 - First person works the same way in both games (GC: L1's view and the
-  first-person mode). Frames between ticks already show the turn, so the view
-  follows the mouse at your screen's rate.
+  first-person mode). Frames between ticks show the game's camera, smoothed
+  between ticks. *Low-latency mouse camera* makes them show the mouse's turn
+  before the game reads it, carried on to when the frame is shown: about 25 ms
+  less delay at 60 ticks a second. Turn it off if a fast turn looks uneven on your screen.
 - Other cameras (scenes, GC's ship and vehicles) get the mouse as the right
   stick. A pad's right stick always wins.
 
@@ -105,6 +107,7 @@ tab. The Controls tab opens on the device you used last. Changes apply at once. 
 | Camera tilt | Stays | *Levels out*: the tilt goes back when the mouse stops |
 | Lock the cursor in play | on | Off: free cursor, no mouse camera |
 | Mouse with a gamepad | on | The mouse turns the camera on the pad too |
+| Low-latency mouse camera | off | Frames show the mouse's turn before the tick |
 | Gyro aiming | Off | *Always* or *Only while aiming* |
 | Gyro sensitivity | 2.0 | Camera turn for a turn of the controller |
 | Gyro smoothing | 3 | Degrees a second below which turns are smoothed |

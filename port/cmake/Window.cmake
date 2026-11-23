@@ -927,6 +927,8 @@ openrac_add_test(frame_limiter SOURCES tests/frame_limiter_test.cpp
                  game/common/frontend/pacing.cpp INCLUDES .)
 openrac_add_test(frontend_latch_fade SOURCES tests/frontend_latch_fade_test.cpp
                  game/common/frontend/latch_fade.cpp INCLUDES .)
+# The mouse's rate the frames between ticks carry its motion on by (platform/mouse_rate.h).
+openrac_add_test(mouse_rate INCLUDES .)
 
 openrac_add_test(logo SOURCES tests/logo_test.cpp renderer/ui/logo.cpp INCLUDES .)
 # The debug overlay's scale on large and dense displays (game/common/debug/ui_scale.h).

@@ -1314,6 +1314,16 @@ let mockPlugins: PluginView[] = query.has("nomods")
             value: true,
           },
           {
+            key: "mouse_low_latency",
+            name: "Low-latency mouse camera",
+            section: "Mouse",
+            type: "bool",
+            default: false,
+            description:
+              "Frames between game ticks show your mouse turn before the game reads it: about 25 ms less delay at 60 ticks a second. If a fast turn looks uneven or doubled on your screen, turn it off. Off: smooth.",
+            value: false,
+          },
+          {
             key: "gyro",
             name: "Gyro aiming",
             section: "Gyro",

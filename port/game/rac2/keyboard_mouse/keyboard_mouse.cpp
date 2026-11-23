@@ -666,11 +666,12 @@ void aligned_mouse(
 }
 
 // The turn the next tick makes for mouse motion it has not read yet (frontend/mouse_turn.h), while
-// the mouse turns the follow camera or the first-person camera itself.
+// the mouse turns the follow camera or the first-person camera itself, with Low-latency mouse
+// camera on (else the frames are the interpolated camera).
 bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
     const float tick_yaw = s_tick_yaw;
     s_tick_yaw = 0.0f;
-    if (s_mod == nullptr || (!s_follows && !s_aims) || s_pad_look) {
+    if (s_mod == nullptr || !s_set.low_latency || (!s_follows && !s_aims) || s_pad_look) {
         return false;
     }
     kbm::add_pending_gyro(s_gyro_on, s_mouse_counts, s_set, dx, dy);
