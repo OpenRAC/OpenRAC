@@ -1866,6 +1866,23 @@ static void vblank_count(void) {
     }
 }
 
+/* The kernel library's timer alarm (ticks, handler, argument): the handler runs as
+ * handler(id, 0, 0, argument) once the ticks are past. The port runs no timer interrupt, so the
+ * handler runs at once. The network's vblank timer (0x0019BC10) arms one each vblank with a count of
+ * sub-ticks that its handler 0x0019BCD0 counts down by arming the next; the voice stop at START
+ * (0x0019BF20, from L39_006C4448) waits in a loop for that count (0x002416E4) to reach 0, which
+ * without this never happens. The chain is as long as the count (6), so the recursion is short. */
+int mp_func_0012E3E8(int ticks, int handler, int argument) {
+    static int32_t next_id;
+    (void)ticks;
+    const int32_t id = ++next_id & 0x7FFFFFFF;
+    if (handler == 0) {
+        return id;
+    }
+    GFN(int (*)(int, int, int, int), (gaddr)handler)(id, 0, 0, argument);
+    return id;
+}
+
 /* DME's send of one message (kind, conn, dest, class, id, len, data), through the server (0x0014CAB8)
  * or to a peer (0x0014C950): its internal messages and the net objects' too. To the room. */
 static int dme_send_one(int dest, int cls, int id, int len, int data) {
