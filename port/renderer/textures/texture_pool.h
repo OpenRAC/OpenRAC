@@ -52,6 +52,7 @@ struct ImageUpload {
     std::uint32_t width = 0;
     std::uint32_t height = 0;
     std::vector<std::uint8_t> data;  // raster order, in dpsm
+    bool generated = false;          // the game produces these pixels at runtime
 
     // Past the pages this transfer can replace, as TexturePool::upload_at resolves them.
     std::uint32_t end_block() const;
@@ -279,12 +280,13 @@ private:
         std::uint64_t pixels_hash, clut_hash, crop_border_hash;
         // Visible draws must not reuse a conversion that omitted its empty-alpha dump.
         bool skip_empty_alpha;
+        bool generated;
 
         bool operator==(const Key&) const = default;
     };
 
     struct KeyHash {
-        // Hashes the sampling fields and empty-alpha export policy.
+        // Hashes the sampling fields and export policy.
         std::size_t operator()(const Key& key) const;
     };
 

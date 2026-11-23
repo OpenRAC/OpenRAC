@@ -7,4 +7,5 @@ Applied to [rac1-decomp](https://github.com/OpenRAC/rac1-decomp) (`games/rac1/de
 | Patch | What |
 |---|---|
 | [0001-space-transition-globals.patch](0001-space-transition-globals.patch) | Name current_vu_chain and space_load_in_progress directly under OPENRAC_HOSTGEN. |
+| [0002-mark-interpolated-texture-uploads.patch](0002-mark-interpolated-texture-uploads.patch) | Mark interpolated texture uploads as generated. |
 <!-- patches:end -->
