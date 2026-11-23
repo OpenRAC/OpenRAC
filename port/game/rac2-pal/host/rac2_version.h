@@ -40,6 +40,7 @@
 #define RAC2_ADDR_0x001A7354u 0x001A73D4u /* the release's build */
 #define RAC2_ADDR_0x001A7420u 0x001A74A0u /* the release's build */
 #define RAC2_ADDR_0x001A79F0u 0x001A7A78u /* the release's build */
+#define RAC2_ADDR_0x001A79F8u 0x001A7A80u /* the release's build */
 #define RAC2_ADDR_0x001A7AF8u 0x001A7B80u /* the release's build */
 #define RAC2_ADDR_0x001A7B98u 0x001A7C20u /* the release's build */
 #define RAC2_ADDR_0x001A7BA4u 0x001A7C2Cu /* the release's build */
@@ -151,6 +152,7 @@
 #define RAC2_K_HELP_6 0xBBF /* v1.01 0x2DAC; word 6 of the table at 0x00265030 (v1.01's 0x002652B0) */
 #define RAC2_K_HELP_7 0x0 /* v1.01 0x2DAE; word 7 of the table at 0x00265030 (v1.01's 0x002652B0) */
 #define RAC2_K_HELP_8 0xC2C /* v1.01 0x2E1C; word 8 of the table at 0x00265030 (v1.01's 0x002652B0) */
+#define RAC2_K_HUD_BOLT_TEXT 0x22C /* v1.01 0x21C; func_0034CEA0 as func_0034F068: 1 instructions */
 #define RAC2_K_LIST_CURSOR 0x130 /* v1.01 0x130; func_00342118 as func_00344180: 1 instructions */
 #define RAC2_K_LIST_ICON 0x17C /* v1.01 0x17C; func_00341A88 as func_00343AF0: 1 instructions */
 #define RAC2_K_LIST_ICON_SHEET 0x1C4 /* v1.01 0x1C4; func_00341A88 as func_00343AF0: 2 instructions */

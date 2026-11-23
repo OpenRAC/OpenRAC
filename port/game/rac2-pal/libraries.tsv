@@ -14,6 +14,8 @@
 func_L08_00423EA0	vehicle	MiningVehicleUpdate	wrap	Optional GH reverse correction scoped to this vehicle's thrust calculation; original when disabled (host/gh_fixes.c).
 func_002837E0	math	MiningThrustScale	wrap	Keep other vector scales unchanged; the mining update's second thrust scale uses the acceleration magnitude with the fix on.
 func_00340D78	menu	PlanetPlatinumCount	wrap	Optional GH per-planet platinum counter in the ship's planet page; original global statistics when disabled.
+func_0034F068	menu	UpdateItemStatusHud	wrap	Bolt totals past 9,999,999 as 12.3M in the counter's text (host/bolt_totals.c).
+func_0034FD60	menu	DrawBoltCounterPanel	wrap	No thousands marks while the compact total is up (host/bolt_totals.c).
 func_00131B48	boot	rac2NativeEntry	host	crt0 at the ELF entry: _InitSys, FlushCache(0), main(argc, argv) without the PS2 thread and heap syscalls	int (void)
 func_00115340	libc	memcmp	host	symbol_addrs.txt name
 func_001153D4	libc	memcpy	host	symbol_addrs.txt name

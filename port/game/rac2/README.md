@@ -37,6 +37,15 @@ counts and thrust guards are covered by `rac2_gh_fixes_test`. Greatest Hits comp
 file but calls its own functions before reading a key, so `differences.json` marks both fixes
 `bypassed` on `ntsc2`: no setting there (docs/port/SETTINGS.md section 8).
 
+## Bolt totals past 9,999,999
+
+The HUD's counter panel has room for seven digits and the Load page clamps a slot's total to
+9,999,999. From 10,000,000 both show the total in millions to a tenth, `12.3M`; below that
+nothing changes. `host/bolt_totals.c` wraps the HUD update and panel draw, `host/save_marks.c`
+the Load page's slots (the font's printer swaps the clamped text), and `host/bolt_totals.h`
+holds the formatting, covered by `rac2_bolt_totals_test`. No setting: it only differs where the
+stock display was wrong.
+
 ## Writing shared C
 
 - **Functions** by v1.01's names: `func_0027F538`, `func_L05_0041DF58`, `func_0027F640__game`.
