@@ -749,6 +749,7 @@ static openrac_game_play play = {
     .loads = loads,
     .hero_pose = hero_pose,
     .hero_set_pose = hero_set_pose,
+    .collision_triangles = rac2_collision_triangles,
     .hero_update_hook = "Hero_Update",
     .figure_spawn = figure_spawn,
     .figure_alive = figure_alive,
