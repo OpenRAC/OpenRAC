@@ -423,7 +423,9 @@ void drop_air(const openrac_mod* mod) {
     if (g_air && (mod == nullptr || g_air->mod == mod)) {
         g_air.reset();
     }
-    std::erase_if(g_ties_hidden, [&](const TieHidden& h) { return mod == nullptr || h.mod == mod; });
+    std::erase_if(g_ties_hidden, [&](const TieHidden& h) {
+        return mod == nullptr || h.mod == mod;
+    });
     std::erase_if(g_stretches, [&](const Stretch& s) { return mod == nullptr || s.mod == mod; });
 }
 

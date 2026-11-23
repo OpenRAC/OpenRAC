@@ -39,13 +39,17 @@ export const isMap = (path: string) => path.toLowerCase().endsWith(".openrac-map
 async function addMap(v: VersionView, path: string): Promise<Added> {
   const result: Added = { text: "", failed: true, plugin: false, pack: false };
   const importer = v.actions.find((a) => a.id === "editor-import-map" && a.thisPlatform) ?? null;
+
   if (!importer?.runnable) return { ...result, text: added.mapNeedsEditor(nameOf(path)) };
   const ok = await runChain({ kind: "version", key: v.key }, [importer], { path });
+
   if (!ok) {
     const job = jobs.list.filter((j) => j.scope.kind === "version" && j.actionId === "editor-import-map").at(-1);
     const failure = toolFailure(job?.lines ?? []);
+
     return { ...result, text: added.packFailed(nameOf(path), failure.line) };
   }
+
   return { ...result, text: added.map(nameOf(path)), failed: false, pack: true };
 }
 
@@ -98,10 +102,12 @@ export async function addMods(v: VersionView, paths: string[]): Promise<Added> {
   for (const path of paths) {
     if (isMap(path)) {
       const map = await addMap(v, path);
+
       if (map.failed) return map;
       Object.assign(result, { text: map.text, pack: true });
       continue;
     }
+
     try {
       each.push(...(await api.pluginsModFolders(path)));
     } catch (e) {

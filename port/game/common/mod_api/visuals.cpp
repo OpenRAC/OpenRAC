@@ -786,7 +786,9 @@ int api_scene_air(openrac_mod* mod, const openrac_air* air) {
     if (air->size < sizeof(openrac_air)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    const auto in_unit = [](float v) { return std::isfinite(v) && v >= 0.0f && v <= 1.0f; };
+    const auto in_unit = [](float v) {
+        return std::isfinite(v) && v >= 0.0f && v <= 1.0f;
+    };
     bool ok = in_unit(air->weight) && in_unit(air->fog_thickness) && std::isfinite(air->fog_near)
               && std::isfinite(air->fog_far) && air->fog_near >= 0.0f
               && air->fog_far > air->fog_near;

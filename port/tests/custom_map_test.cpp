@@ -78,9 +78,12 @@ int main() {
         }
         return text;
     };
-    CHECK(openrac::program::parse_destinations(
-        ntsc(registry(harbor)), "rac1", "ntsc", destinations, error
-    ));    CHECK(!openrac::program::parse_destinations(
+    CHECK(
+        openrac::program::parse_destinations(
+            ntsc(registry(harbor)), "rac1", "ntsc", destinations, error
+        )
+    );
+    CHECK(!openrac::program::parse_destinations(
         ntsc(registry(harbor)), "rac1", "pal1", destinations, error
     ));
 
