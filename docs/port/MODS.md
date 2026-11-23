@@ -292,7 +292,7 @@ On a touch screen the pad can show action buttons with icons (drawer:
 "Action buttons"; off shows the DualShock's buttons). The buttons change with
 what the game is doing. Contexts: `foot`, `clank`, `giant_clank`, `swim`,
 `grind`, `hoverboard`, `ship`, `jet`, `turret`, `cutscene`, `minigame`, `menu`,
-`map`, `dialog`, `vendor`, `front_end`, `default`. The sets are JSON in
+`map`, `dialog`, `vendor`, `front_end`, `default` (rac2 also `look_around`). The sets are JSON in
 `port/game/common/touch/sets/` (`common.json`, then `<game>.json`). A mod adds
 its own on top:
 

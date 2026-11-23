@@ -325,6 +325,12 @@ void load_ok() {
 void contexts() {
     CHECK(kbm2::context_of("foot") == kbm::Context::Play);
     CHECK(kbm2::context_of("ship") == kbm::Context::Play);
+    // The free camera closes only with Select or R3: the map key must press Select there.
+    CHECK(kbm2::context_of("look_around") == kbm::Context::Play);
+    CHECK(
+        kbm::buttons_for(kbm2::context_of("look_around"), kbm::bit(kbm::Action::Map), -1)
+        == kbm::kSelect
+    );
     CHECK(kbm2::context_of("menu") == kbm::Context::Menu);
     CHECK(kbm2::context_of("front_end") == kbm::Context::Menu);
     CHECK(kbm2::context_of("vendor") == kbm::Context::Vendor);
