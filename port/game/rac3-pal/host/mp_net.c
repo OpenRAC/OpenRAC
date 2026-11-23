@@ -1183,6 +1183,17 @@ static int dme_relay(int dest, gaddr data, int len) {
         }
         target = m->id;
     }
+    /* A message to its own index comes straight back, as DME delivers it (the host's own
+     * CHANNEL_SLOT_UPDATE after a map load: state 8 in slot 0 opens the start barrier). */
+    if (target == srv.session) {
+        if (dme.inbox_count < (int)(sizeof dme.inbox / sizeof dme.inbox[0])) {
+            dme.inbox[dme.inbox_count].from = srv.session;
+            dme.inbox[dme.inbox_count].len = (uint16_t)len;
+            memcpy(dme.inbox[dme.inbox_count].data, G(data), (size_t)len);
+            dme.inbox_count++;
+        }
+        return 0;
+    }
     if (!srv_room((size_t)len + 8)) {
         return 0;
     }
@@ -1277,7 +1288,9 @@ static void obj_send(int i, int32_t target) {
 static void obj_send_changes(void) {
     const int me = room_index_of(srv.session);
     for (int i = 0; i < obj_count; i++) {
-        if (objs[i].owner == me
+        /* A released object (owner -1, GameSettings after START) is everyone's: whoever
+         * changes it sends it, as the host does its start time (+0x170) and slot states. */
+        if ((objs[i].owner == me || objs[i].owner == -1)
             && memcmp(objs[i].sent, G(objs[i].data), (size_t)obj_type[objs[i].type].size) != 0) {
             obj_send(i, 0);
         }
