@@ -1223,7 +1223,7 @@ void camera_overrides(Original original, gaddr camera) {
 // turns the follow camera or the first-person view itself (frontend/mouse_turn.h). Not during the
 // swing behind Ratchet or while the gamepad's stick has the camera; a lock of the game's stops the
 // turn here as it stops the mouse. Only with Low-latency mouse camera on: else the frames are the
-// interpolated camera, as with the old mod.
+// interpolated camera.
 bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
     const float tick_yaw = s_tick_yaw;
     s_tick_yaw = 0.0f;

@@ -667,7 +667,7 @@ void aligned_mouse(
 
 // The turn the next tick makes for mouse motion it has not read yet (frontend/mouse_turn.h), while
 // the mouse turns the follow camera or the first-person camera itself, with Low-latency mouse
-// camera on (else the frames are the interpolated camera, as with the old mod).
+// camera on (else the frames are the interpolated camera).
 bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
     const float tick_yaw = s_tick_yaw;
     s_tick_yaw = 0.0f;
