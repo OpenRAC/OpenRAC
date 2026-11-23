@@ -87,4 +87,8 @@ game's 4:3 picture is the middle `picture_scale_x` part.
   materials (P4): once a quad or strip can sample a recorder picture by id
   (`openrac_game_quad.picture`), the handles become `openrac_frame_snapshot(id)` at the list's
   place, with the game's allocator (0x001D4BB0) and its per-frame cache (0x001D6180 / 0x001D6188)
-  kept as the game keeps them, and the packet is not sent.
+  kept as the game keeps them, and the packet is not sent. The host half is written
+  (`rac3_frame_copy` in `host/screen.c`: the same TEX0 from the same allocator, the frame kept as
+  picture `RAC3_FRAME_COPY_LARGE` 0x52330010 / `RAC3_FRAME_COPY_SMALL` 0x52330011); it is not bound
+  to GetEffectTex yet, because until the effect quads sample a picture by id the rings would lose
+  the off-screen target they read today.

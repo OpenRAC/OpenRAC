@@ -144,3 +144,39 @@ int func_003D8640__frontbin(void) {
 int func_003D9260__frontbin(void) {
     return rac3_screen_soften(kBoot.list);
 }
+
+/* The frame copies GetEffectTex hands out for its handles -1 and -2 (Veldin's 0x00404040, the boot
+ * program's 0x00389978, frontbin's 0x00389598): the frame drawn into a 256 x 256 (-1) or 64 x 64
+ * (-2) PSMCT16 buffer, which the refraction rings and the heat haze sample. On the console the
+ * buffer comes from the effect textures' allocator (the word 0x001D4BB0, 8 KB pages) and the TEX0
+ * is kept for the rest of the frame (`cache`); a packet in the display list draws the frame into
+ * it. Here the window keeps the frame as drawn so far at that place as a port picture
+ * (openrac_frame_snapshot), and the game gets the same TEX0, from the same allocator, as before:
+ * what samples it names the picture (rac3_frame_copy_picture), not the chip's memory. */
+#define COPY_PAGE 0x2000u
+#define COPY_LARGE_BYTES 0x20000u
+#define COPY_SMALL_BYTES 0x2000u
+/* TEX0 past the block: TBW 4, PSMCT16, 256 x 256, TCC (-1); TBW 1, PSMCT16, 64 x 64, TCC (-2). */
+#define COPY_LARGE_TEX0 (0x20210000ull | 0x600000000ull)
+#define COPY_SMALL_TEX0 (0x18204000ull | 0x580000000ull)
+#define EFFECT_ALLOCATOR RAC3_ADDR(0x001D4BB0u)
+
+long long rac3_frame_copy(int handle, gaddr cache, gaddr list) {
+    const uint64_t kept = GREF(uint64_t, cache);
+    /* A second ask in the same frame gets the copy already made. */
+    if (kept != 0) {
+        return (long long)kept;
+    }
+    const int large = handle == -1;
+    const uint32_t at = (GREF(uint32_t, EFFECT_ALLOCATOR) + COPY_PAGE - 1u) & ~(COPY_PAGE - 1u);
+    GREF(uint32_t, EFFECT_ALLOCATOR) = at + (large ? COPY_LARGE_BYTES : COPY_SMALL_BYTES);
+    const uint64_t tex0 = (uint64_t)(at >> 8) | (large ? COPY_LARGE_TEX0 : COPY_SMALL_TEX0);
+    GREF(uint64_t, cache) = tex0;
+    anchor_at(list);
+    openrac_frame_snapshot(rac3_frame_copy_picture(handle));
+    return (long long)tex0;
+}
+
+uint32_t rac3_frame_copy_picture(int handle) {
+    return handle == -1 ? RAC3_FRAME_COPY_LARGE : RAC3_FRAME_COPY_SMALL;
+}
