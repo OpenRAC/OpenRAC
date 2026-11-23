@@ -56,11 +56,13 @@
  * locks (the hero's aim, the Lancer, the Minirocket Tube, the Gravity Bomb, the Bomb Glove, the
  * RYNO II, the Sheepinator's beam, the Tesla Claw's pick) follow the camera as the game has them.
  *
- * OPENRAC_PICK_TRACE=1 logs each widened pick that took an enemy not drawn.
+ * OPENRAC_PICK_TRACE=1 logs each widened pick that took an enemy not drawn; OPENRAC_PICK_TRACE=31,45
+ * also widens those items' picks, as if a mod had asked (docs/port/DEBUGGING.md).
  */
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "game_protos.h"
 #include "openrac/host_env.h"
@@ -167,10 +169,6 @@ int rac2_weapon_ignore_culling(int32_t item, int enabled) {
     return 1;
 }
 
-static int holds(int item) {
-    return item >= 0 && (held >> item & 1u) != 0;
-}
-
 /* The picker row of the moby `m`'s update, or null. */
 static const Picker* picker_row(gaddr m) {
     const int16_t oclass = GREF(int16_t, m + MOBY_OCLASS);
@@ -202,13 +200,42 @@ static gaddr picker_of(gaddr origin) {
     return hand != 0 && origin == hand + MOBY_POS ? hand : 0;
 }
 
-static int tracing(void) {
-    static int on = -1;
-    if (on < 0) {
-        const char* v = openrac_env_string("OPENRAC_PICK_TRACE");
-        on = v != NULL && v[0] != '\0' && v[0] != '0';
+/* OPENRAC_PICK_TRACE: on (any value but "" and "0") logs the widened picks; the items it lists
+ * ("31,45") are widened too, as if a mod had asked, for runs without one. */
+static int trace_on = -1;
+static uint64_t trace_held;
+
+static void read_trace(void) {
+    const char* v = openrac_env_string("OPENRAC_PICK_TRACE");
+    trace_on = v != NULL && v[0] != '\0' && !(v[0] == '0' && v[1] == '\0');
+    for (const char* c = v; trace_on && *c != '\0';) {
+        char* next;
+        const long item = strtol(c, &next, 10);
+        if (next == c) {
+            ++c;
+            continue;
+        }
+        if (item >= 0 && item < 64 && weapon_known((int32_t)item)) {
+            trace_held |= 1ull << item;
+        }
+        c = next;
     }
-    return on;
+}
+
+static int tracing(void) {
+    return trace_on > 0;
+}
+
+/* The weapons widened: the mods' and the trace's. */
+static uint64_t widened(void) {
+    if (trace_on < 0) {
+        read_trace();
+    }
+    return held | trace_held;
+}
+
+static int holds(int item) {
+    return item >= 0 && (widened() >> item & 1u) != 0;
 }
 
 /* The point a line of sight to the moby `m` aims at: its position raised by its target height (its
@@ -345,7 +372,7 @@ gaddr func_002AF580(
     int allow_special,
     gaddr types
 ) {
-    const gaddr picker = held != 0 ? picker_of(origin) : 0;
+    const gaddr picker = widened() != 0 ? picker_of(origin) : 0;
     const Picker* row = picker != 0 ? picker_row(picker) : NULL;
     if (row == NULL || !holds(row->item) || origin == 0 || range <= 0.0f) {
         return func_002AF580__game(

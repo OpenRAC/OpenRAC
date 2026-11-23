@@ -297,8 +297,9 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      Kind::Text, Truth::NotAFlag, "none",
      "FRAME:SECONDS[:FILE]: a performance capture from that window frame, its report to FILE"},
     {Var::PickTrace, "OPENRAC_PICK_TRACE",
-     Kind::Flag, Truth::NotEmptyOrZero, "off",
-     "Going Commando: each target pick a mod widened that took an enemy off screen, on stderr"},
+     Kind::Text, Truth::NotAFlag, "off",
+     "1 or ITEM,...: Going Commando's widened target picks that took an enemy off screen, on "
+     "stderr; the items listed widened as if a mod asked"},
     {Var::PlayTrace, "OPENRAC_PLAY_TRACE",
      Kind::Text, Truth::NotAFlag, "off",
      "WHAT,...: Going Commando's play calls run without a mod, on stderr (PTRACE lines)"},

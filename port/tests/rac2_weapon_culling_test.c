@@ -27,9 +27,11 @@ uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = 0x02000000u;
 gaddr openrac_relocate_low = 0, openrac_relocate_high = 0;
 
+static const char* trace_value;
+
 const char* openrac_env_string(const char* name) {
-    (void)name;
-    return NULL;
+    CHECK(strcmp(name, "OPENRAC_PICK_TRACE") == 0);
+    return trace_value;
 }
 
 gaddr openrac_relocate_data(gaddr a) {
@@ -374,6 +376,19 @@ int main(void) {
     CHECK(held == 0);
     CHECK(pick() == moby(2) && seen == ON_SCREEN);
     flags_kept();
+
+    /* OPENRAC_PICK_TRACE: on, and the weapons it lists widened without a mod (unknown ones not). */
+    trace_value = "31,45,27,x18";
+    read_trace();
+    CHECK(tracing() && held == 0);
+    CHECK(widened() == (1ull << 31 | 1ull << 45 | 1ull << 18));
+    put_class(PICKER, CLASS_KILONOID);
+    CHECK(pick() == moby(0) && seen == WIDENED && cone_open());
+    flags_kept();
+    trace_value = "0";
+    read_trace();
+    CHECK(!tracing());
+    trace_held = 0;
 
     free(openrac_guest_base);
     puts("rac2_weapon_culling: ok");
