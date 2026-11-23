@@ -1238,7 +1238,7 @@ let mockPlugins: PluginView[] = query.has("nomods")
             type: "bool",
             default: false,
             description:
-              "Frames between game ticks show your mouse turn before the game reads it: up to one tick less delay. On some screens (like 90 Hz) a fast turn can look doubled. Off: smooth, as in the old mod.",
+              "Frames between game ticks show your mouse turn before the game reads it: up to one tick less delay. If a fast turn looks uneven or doubled on your screen, turn it off. Off: smooth, as in the old mod.",
             value: false,
           },
           {
