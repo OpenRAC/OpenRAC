@@ -661,6 +661,8 @@ static void cutscene_frame(void) {
     s_record(9810 + -s_api->camera_fov(s_mod, 0.5f));
     s_record(9810 + -s_api->camera_fov(s_mod, 40.0f));
     s_record(9820 + -s_api->hud_hide(s_mod, 1));
+    s_record(9820 + -s_api->menu_option_set(s_mod, "rumble_strength", OPENRAC_MENU_OPTION_ON));
+    s_record(9820 + -s_api->menu_option_set(s_mod, "vsync", 7));
     s_record(9830 + -s_api->music_volume(s_mod, 2.0f));
     s_record(9830 + -s_api->music_volume(s_mod, 0.25f));
     memset(&joint, 0, sizeof joint);

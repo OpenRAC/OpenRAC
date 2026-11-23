@@ -30,6 +30,7 @@
 
 #include "check.h"
 #include "common/json.h"
+#include "mod_api/internal.h"
 #include "mod_manifest.h"
 #include "mod_play.h"
 #include "mods.h"
@@ -504,6 +505,42 @@ void a_hook_point_is_called_as_the_game_calls_it(const fs::path& plugins) {
     CHECK(api.hook_entry("Test_Add", nullptr) == nullptr);
     mods::reset();
     CHECK(add(0) == 1);
+}
+
+// menu_option_set: the newest call for an option wins, one mod's DEFAULT or unload gives back what
+// another mod set, and bad calls change nothing. Two handles of the test's own stand for mods.
+void menu_options_follow_the_newest_call(const fs::path& plugins) {
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    openrac_mod mod_a;
+    mod_a.id = "a";
+    openrac_mod mod_b;
+    mod_b.id = "b";
+    mod_b.manifest.name = "Mod B";
+    openrac_mod* a = &mod_a;
+    openrac_mod* b = &mod_b;
+    CHECK(api.menu_option_set(a, "frame_rate", OPENRAC_MENU_OPTION_ON) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_ON);
+    CHECK(api.menu_option_set(b, "frame_rate", OPENRAC_MENU_OPTION_OFF) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option_state("frame_rate").by == "Mod B");  // the manifest's name
+    CHECK(api.menu_option_set(b, "frame_rate", OPENRAC_MENU_OPTION_DEFAULT) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_ON);
+    CHECK(api.menu_option_set(a, "frame_rate", OPENRAC_MENU_OPTION_OFF) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option_state("frame_rate").by == "a");  // no name: the id
+    CHECK(api.menu_option_set(a, "", OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, nullptr, OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(nullptr, "vsync", OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, "frame_rate", 3) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, "frame_rate", -1) == OPENRAC_E_UNKNOWN);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option("vsync") == OPENRAC_MENU_OPTION_DEFAULT);
+    mods::reset();
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_DEFAULT);
 }
 
 // Every call of the table is filled: each member from `log` on is a function, and a mod built for
@@ -2354,11 +2391,12 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     g_records.clear();
     CHECK(mods::camera_fov() == 0.0f);
     CHECK(!mods::hud_hidden());
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_DEFAULT);
     mods::frame();
-    CHECK((g_records == std::vector<int>{9801, 9800,       9811, 9811, 9810, 9820, 9831,
-                                         9830, 9840,       9841, 9841, 9840, 9841, 9840,
-                                         9850, 0x3100 + 3, 9851, 9850, 1,    9865, 9869,
-                                         9881, 9880,       9891, 9890, 9901, 9900, 9900}));
+    CHECK((g_records == std::vector<int>{9801, 9800,       9811, 9811, 9810, 9820, 9820, 9821,
+                                         9831, 9830,       9840, 9841, 9841, 9840, 9841, 9840,
+                                         9850, 0x3100 + 3, 9851, 9850, 1,    9865, 9869, 9881,
+                                         9880, 9891,       9890, 9901, 9900, 9900}));
     CHECK(
         (g_cutscene_calls
          == std::vector<std::string>{
@@ -2373,6 +2411,9 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     );
     CHECK(mods::camera_fov() == 40.0f);
     CHECK(mods::hud_hidden());
+    // A menu option turned on stays (it is not of the level load); a bad state sets nothing.
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_ON);
+    CHECK(mods::menu_option("vsync") == OPENRAC_MENU_OPTION_DEFAULT);
     const auto air = mods::scene_air();
     CHECK(air && air->fog_far == 50.0f && air->background[0] == 1.0f && air->weight == 1.0f);
     CHECK(mods::time_stretch() == 2.0f);
@@ -2397,7 +2438,9 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     mods::play_update();
     CHECK((g_cutscene_calls == std::vector<std::string>{"joints 12544 0"}));
     play.hero_moby = nullptr;
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_ON);
     mods::reset();
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_DEFAULT);
     g_loads = 1;
 }
 
@@ -2516,6 +2559,93 @@ void a_mod_gives_sharper_cells(const fs::path& plugins) {
     CHECK(api.sharp_cells(mod, &page, 1) == OPENRAC_HOOK_OK);
     CHECK(api.sharp_cells(mod, nullptr, 0) == OPENRAC_HOOK_OK);
     CHECK(!sharp::picture(4, 2, texels.data(), big));
+    mods::reset();
+}
+
+// What the host was asked of the pads' motors (interface 1.37): "<mod> <port> <small> <large>",
+// "drop <mod>", "drop all"; the mods are named a and b.
+std::vector<std::string> g_motor_calls;
+const void* g_motor_a = nullptr;
+const void* g_motor_b = nullptr;
+
+std::string motor_owner(const void* mod) {
+    return mod == nullptr ? "all" : mod == g_motor_a ? "a" : mod == g_motor_b ? "b" : "?";
+}
+
+// A mod's motors (interface 1.37, openrac_api.set_motors): what the call refuses (and then asks
+// nothing of the host), the values handed to the host as they are, a run without pads, and the
+// mod's motors dropped with its unload and every mod's with the mods' reset. A mod drives motors
+// (mods::any_mod_motors, which shows the menu's vibration rows) from its first call the port takes,
+// 0, 0 included, until its unload or the reset.
+void a_mod_drives_the_motors(const fs::path& plugins) {
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    int owner = 0, other = 0;
+    auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+    auto* mod2 = reinterpret_cast<openrac_mod*>(&other);
+    g_motor_a = mod;
+    g_motor_b = mod2;
+    mods::Host h = host(plugins);
+    h.motors = [](const void* m, int port, bool small_motor, std::uint8_t large_motor) {
+        g_motor_calls.push_back(
+            motor_owner(m) + " " + std::to_string(port) + " " + std::to_string(small_motor ? 1 : 0)
+            + " " + std::to_string(large_motor)
+        );
+    };
+    h.drop_motors = [](const void* m) {
+        g_motor_calls.push_back("drop " + motor_owner(m));
+    };
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    g_motor_calls.clear();
+    CHECK(!mods::any_mod_motors());
+
+    // Refused: no mod, a port out of range, the small motor neither off nor on, the large one out
+    // of 0 to 255. Nothing reaches the host.
+    CHECK(api.set_motors(nullptr, 0, 1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, -1, 1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 2, 1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, 2, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, -1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, 1, -1) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, 1, 256) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(g_motor_calls.empty());
+    // A refused call does not make a mod one that drives motors.
+    CHECK(!mods::any_mod_motors());
+
+    // 0, 0 at load: the mod drives motors from now on, though nothing rumbles.
+    CHECK(api.set_motors(mod, 0, 0, 0) == OPENRAC_HOOK_OK);
+    CHECK(mods::any_mod_motors());
+
+    // Taken: each mod's values reach the host as they are, the mod telling them apart.
+    g_motor_calls.clear();
+    CHECK(api.set_motors(mod, 0, 1, 255) == OPENRAC_HOOK_OK);
+    CHECK(api.set_motors(mod2, 1, 0, 40) == OPENRAC_HOOK_OK);
+    CHECK(api.set_motors(mod, 0, 0, 0) == OPENRAC_HOOK_OK);
+    CHECK((g_motor_calls == std::vector<std::string>{"a 0 1 255", "b 1 0 40", "a 0 0 0"}));
+
+    // A mod's unload stops its motors only, and while another mod drives motors the rows stay; the
+    // mods' reset stops every mod's.
+    g_motor_calls.clear();
+    mods::drop_figures(mod);
+    CHECK((g_motor_calls == std::vector<std::string>{"drop a"}));
+    CHECK(mods::any_mod_motors());
+    mods::drop_figures(mod2);
+    CHECK(!mods::any_mod_motors());
+    CHECK(api.set_motors(mod2, 1, 0, 0) == OPENRAC_HOOK_OK);
+    CHECK(mods::any_mod_motors());
+    g_motor_calls.clear();
+    mods::reset();
+    CHECK(std::find(g_motor_calls.begin(), g_motor_calls.end(), "drop all") != g_motor_calls.end());
+    CHECK(!mods::any_mod_motors());
+
+    // A port without pads (a test's host, or a build without a window): refused, and not counted.
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    g_motor_calls.clear();
+    CHECK(mods::api_for_tests().set_motors(mod, 0, 1, 255) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(g_motor_calls.empty());
+    CHECK(!mods::any_mod_motors());
     mods::reset();
 }
 
@@ -2640,6 +2770,7 @@ int main() {
     two_mods_chain_in_load_order(plugins);
     a_hook_point_is_called_as_the_game_calls_it(plugins);
     every_call_of_the_table_is_filled(plugins);
+    menu_options_follow_the_newest_call(plugins);
     a_mod_that_fails_is_taken_back(plugins);
     refused_before_opening(plugins);
     purist_and_no_list(plugins);
@@ -2671,6 +2802,7 @@ int main() {
     a_mod_for_1_5_still_loads(plugins);
     a_library_others_can_change_is_refused(plugins);
     a_mod_gives_sharper_cells(plugins);
+    a_mod_drives_the_motors(plugins);
     dropped_mod_watchers_are_not_called();
     refused_library_leaves_no_watchers(plugins);
     installed_games_and_their_folders(dir);

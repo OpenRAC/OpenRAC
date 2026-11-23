@@ -116,11 +116,14 @@ extern "C" {
  * 1.35 what OpenRAC Editor's levels need: the pack's folder, the game's
  * language, the camera's field of view, the HUD hidden, the music's volume, any
  * moby's joints and sounds, the picture's air, slow motion, ties hidden,
- * animated props and a moby's spawn id, and 1.36 sharper pictures of cells a
- * mod paints in a texture of the 2D layer, kept apart from the built-in key
- * prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell).
+ * animated props and a moby's spawn id, 1.36 sharper pictures of cells a mod
+ * paints in a texture of the 2D layer, kept apart from the built-in key
+ * prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell), 1.37 the
+ * pads' motors driven by a mod as the game's libvib drives them, each motor the
+ * stronger of the game's and the mods' (set_motors), and an option of the
+ * port's menu greyed out or made usable by a mod, by name (menu_option_set).
  */
-#define OPENRAC_MOD_API_MINOR 36
+#define OPENRAC_MOD_API_MINOR 37
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1869,6 +1872,11 @@ typedef struct openrac_rac1_weapon {
     uint32_t hud_icon;
 } openrac_rac1_weapon;
 
+/* The states of an option of the port's menu (openrac_api.menu_option_set). Since 1.37. */
+#define OPENRAC_MENU_OPTION_DEFAULT 0 /* the port's own choice */
+#define OPENRAC_MENU_OPTION_ON 1      /* usable, even where the port greys it out */
+#define OPENRAC_MENU_OPTION_OFF 2     /* greyed out: shown, but it cannot be changed */
+
 typedef struct openrac_api {
     /* sizeof(openrac_api) as the port was built: a newer port's is larger. Since 1.0. */
     uint32_t size;
@@ -3288,6 +3296,31 @@ typedef struct openrac_api {
      * size below its struct's, a page or cell out of range (openrac_sharp_page,
      * openrac_sharp_cell) or null data (nothing changes then). Any thread. Since 1.36. */
     int (*sharp_cells)(openrac_mod* mod, const openrac_sharp_page* pages, int count);
+
+    /* Drives pad `port`'s motors as the game's own vibration does (libvib): `port` the controller's
+     * port, 0 or 1, as on_pad numbers it (the game's pad 1 and pad 2); `small_motor` 0 or 1 (the
+     * small motor off or on), `large_motor` 0 to 255 (the large motor's strength). The player's
+     * rumble setting and style apply. Each motor plays the stronger of the game's own value and
+     * every mod's, so a mod adds to the game's rumble and never takes it away. Like the game's, a
+     * command lasts a fifth of a second unless sent again, so a mod sends it every tick while it
+     * rumbles; 0, 0 stops the mod's. A mod's motors stop with its unload. Once a mod has made a
+     * call the port took (0, 0 too), the menu shows the player's vibration settings, which apply to
+     * its motors, in a game without rumble of its own (Ratchet & Clank) as well, until the mod
+     * unloads: a mod that will rumble sends 0, 0 at load. Call it on the game's thread only (from
+     * openrac_mod_load, on_frame, a hook or another callback of the port's), never from a thread of
+     * the mod's: the port's input reads the values without a lock. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for no mod, a port out of range, values out of range or a port without
+     * pads (built without a window). Since 1.37. */
+    int (*set_motors)(openrac_mod* mod, int port, int small_motor, int large_motor);
+
+    /* Turns an option of the port's menu on or off, by its name (sdk/docs/menu-options.md, as
+     * "frame_rate"). OPENRAC_MENU_OPTION_ON makes it usable even where the port greys it out;
+     * OPENRAC_MENU_OPTION_OFF greys it out with the mod's name (a mod that sets the frame rate
+     * itself; never the volume, the window or the controls);
+     * OPENRAC_MENU_OPTION_DEFAULT gives the port's choice back. The last call for an option wins;
+     * a mod's calls go with it when it unloads. Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN for no
+     * name or another state. Since 1.37. */
+    int (*menu_option_set)(openrac_mod* mod, const char* option, int state);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

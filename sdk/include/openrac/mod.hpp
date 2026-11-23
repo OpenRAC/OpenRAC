@@ -3023,6 +3023,32 @@ public:
         return has_sharp_cells() && m_api->sharp_cells(m_handle, pages, count) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.37: whether the port lets the mod drive the pads' motors (set_motors).
+    bool has_set_motors() const {
+        return m_api->api_minor >= 37
+               && m_api->size >= offsetof(openrac_api, set_motors) + sizeof(void*);
+    }
+
+    // Since 1.37: drives pad `port`'s motors (0 or 1, as on_pad numbers it) as the game's own
+    // vibration does: `small_motor` 0 or 1, `large_motor` 0 to 255, each motor the stronger of the
+    // game's and the mods'. A command lasts a fifth of a second, so send it every tick while it
+    // rumbles; 0, 0 stops. Send 0, 0 at load to have the menu show the player's vibration settings
+    // in a game without rumble of its own. On the game's thread only (load, on_frame, a hook),
+    // never from a thread of the mod's. False when refused or the port has no such call.
+    bool set_motors(int port, int small_motor, int large_motor) const {
+        return has_set_motors()
+               && m_api->set_motors(m_handle, port, small_motor, large_motor) == OPENRAC_HOOK_OK;
+    }
+
+    // Since 1.37: turns an option of the port's menu on or off, by its name
+    // (sdk/docs/menu-options.md): OPENRAC_MENU_OPTION_ON, _OFF, or _DEFAULT for the port's choice.
+    // A name the port does not know is taken and changes nothing. False for a port without the
+    // call, an empty name or another state.
+    bool menu_option_set(const char* option, int state) const {
+        return has_slot14(offsetof(openrac_api, menu_option_set))
+               && m_api->menu_option_set(m_handle, option, state) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:
     // none) in it, into `out`; false outside a level or for a port without it.
     bool moby_run(int slot, openrac_moby_run& out) const {

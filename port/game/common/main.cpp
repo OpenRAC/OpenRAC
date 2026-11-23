@@ -413,6 +413,17 @@ void load_mods() {
     host.sound_play = frontend::mod_sound_play;
     host.sound_set = frontend::mod_sound_set;
     host.sound_stop = frontend::mod_sound_stop;
+    // The mods' motor values (interface 1.37), played with the game's by the window's input.
+    host.motors = [](const void* mod, int port, bool small_motor, std::uint8_t large_motor) {
+        if (g_window) {
+            frontend::set_mod_motors(mod, port, small_motor, large_motor);
+        }
+    };
+    host.drop_motors = [](const void* mod) {
+        if (g_window) {
+            frontend::drop_mod_motors(mod);
+        }
+    };
     host.language = frontend::options_menu::language;
     host.joint_offsets = [](std::uint32_t moby, const openrac_joint_offset* joints, int count) {
         std::vector<assets::rac1::JointModifier> mods;

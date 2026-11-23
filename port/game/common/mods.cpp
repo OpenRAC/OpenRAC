@@ -1100,6 +1100,8 @@ void fill_api(const Host& host) {
     g_api.on_save_data = api_on_save_data;
     g_api.weapon_ignore_culling = api_weapon_ignore_culling;
     g_api.sharp_cells = api_sharp_cells;
+    g_api.set_motors = api_set_motors;
+    g_api.menu_option_set = api_menu_option_set;
     g_api_without_native_vulkan = g_api;
     g_api_without_native_vulkan.graphics = api_graphics_without_native_vulkan;
 }
@@ -1279,6 +1281,7 @@ void undo(openrac_mod* mod) {
     std::erase_if(g_ui_pages, [&](const UiPageCallback& c) { return c.mod == mod; });
     std::erase_if(g_tick_boundaries, [&](const TickBoundaryCallback& c) { return c.mod == mod; });
     drop_figures(mod);
+    drop_menu_options(mod);
     if (g_views_mod == mod) {
         g_views = {};
         g_views_mod = nullptr;
@@ -2119,6 +2122,7 @@ void reset() {
     g_list_unwritten_said = false;
     g_pads.clear();
     g_menus.clear();
+    drop_menu_options(nullptr);
     g_overlays.clear();
     g_developer_menus.clear();
     g_ui_pages.clear();
