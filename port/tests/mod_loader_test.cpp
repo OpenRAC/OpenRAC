@@ -2587,10 +2587,10 @@ void a_mod_drives_the_motors(const fs::path& plugins) {
     g_motor_a = mod;
     g_motor_b = mod2;
     mods::Host h = host(plugins);
-    h.motors = [](const void* m, int port, bool small, std::uint8_t large) {
+    h.motors = [](const void* m, int port, bool small_motor, std::uint8_t large_motor) {
         g_motor_calls.push_back(
-            motor_owner(m) + " " + std::to_string(port) + " " + std::to_string(small ? 1 : 0) + " "
-            + std::to_string(large)
+            motor_owner(m) + " " + std::to_string(port) + " " + std::to_string(small_motor ? 1 : 0)
+            + " " + std::to_string(large_motor)
         );
     };
     h.drop_motors = [](const void* m) {

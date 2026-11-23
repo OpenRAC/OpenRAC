@@ -202,7 +202,7 @@ struct Host {
     // the game's own (openrac_game_set_motors) and held as long; `mod` tells the mods apart (none
     // played before the window opens). drop_motors forgets a mod's (null: every mod's). Null: no
     // pads (a test's, or a build without a window), and set_motors says so.
-    void (*motors)(const void* mod, int port, bool small, std::uint8_t large) = nullptr;
+    void (*motors)(const void* mod, int port, bool small_motor, std::uint8_t large_motor) = nullptr;
     void (*drop_motors)(const void* mod) = nullptr;
 };
 

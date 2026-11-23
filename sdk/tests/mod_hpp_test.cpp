@@ -1195,8 +1195,8 @@ int fake_sharp_cells(openrac_mod*, const openrac_sharp_page* pages, int count) {
 // What the fake host's 1.37 set_motors was given; it refuses a port past 1.
 std::string g_motors;
 
-int fake_set_motors(openrac_mod*, int port, int small, int large) {
-    g_motors = std::to_string(port) + " " + std::to_string(small) + " " + std::to_string(large);
+int fake_set_motors(openrac_mod*, int port, int small_motor, int large_motor) {
+    g_motors = std::to_string(port) + " " + std::to_string(small_motor) + " " + std::to_string(large_motor);
     return port >= 0 && port <= 1 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 

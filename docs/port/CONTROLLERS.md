@@ -264,7 +264,8 @@ shaper (`port/platform/rumble.h`), following the `pad_rumble` strength and
 
 A mod's motor values (`set_motors`, interface 1.37) play with the game's:
 each motor the stronger of the game's and every mod's, held 0.2 s as the
-game's are, and a mod's stop with its unload.
+game's are, and a mod's stop with its unload. A mod calls it on the game's
+thread only: `Input` reads the values in `play_rumble` without a lock.
 
 ## 5. The DualSense feature by feature
 

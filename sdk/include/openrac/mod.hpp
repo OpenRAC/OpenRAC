@@ -3030,13 +3030,14 @@ public:
     }
 
     // Since 1.37: drives pad `port`'s motors (0 or 1, as on_pad numbers it) as the game's own
-    // vibration does: `small` 0 or 1, `large` 0 to 255, each motor the stronger of the game's and
-    // the mods'. A command lasts a fifth of a second, so send it every tick while it rumbles; 0, 0
-    // stops. Send 0, 0 at load to have the menu show the player's vibration settings in a game
-    // without rumble of its own. False when refused or the port has no such call.
-    bool set_motors(int port, int small, int large) const {
+    // vibration does: `small_motor` 0 or 1, `large_motor` 0 to 255, each motor the stronger of the
+    // game's and the mods'. A command lasts a fifth of a second, so send it every tick while it
+    // rumbles; 0, 0 stops. Send 0, 0 at load to have the menu show the player's vibration settings
+    // in a game without rumble of its own. On the game's thread only (load, on_frame, a hook),
+    // never from a thread of the mod's. False when refused or the port has no such call.
+    bool set_motors(int port, int small_motor, int large_motor) const {
         return has_set_motors()
-               && m_api->set_motors(m_handle, port, small, large) == OPENRAC_HOOK_OK;
+               && m_api->set_motors(m_handle, port, small_motor, large_motor) == OPENRAC_HOOK_OK;
     }
 
     // Since 1.37: turns an option of the port's menu on or off, by its name

@@ -3298,18 +3298,20 @@ typedef struct openrac_api {
     int (*sharp_cells)(openrac_mod* mod, const openrac_sharp_page* pages, int count);
 
     /* Drives pad `port`'s motors as the game's own vibration does (libvib): `port` the controller's
-     * port, 0 or 1, as on_pad numbers it (the game's pad 1 and pad 2); `small` 0 or 1 (the small
-     * motor off or on), `large` 0 to 255 (the large motor's strength). The player's rumble setting
-     * and style apply. Each motor plays the stronger of the game's own value and every mod's, so a
-     * mod adds to the game's rumble and never takes it away. Like the game's, a command lasts a
-     * fifth of a second unless sent again, so a mod sends it every tick while it rumbles; 0, 0
-     * stops the mod's. A mod's motors stop with its unload. Once a mod has made a call the port
-     * took (0, 0 too), the menu shows the player's vibration settings, which apply to its motors,
-     * in a game without rumble of its own (Ratchet & Clank) as well, until the mod unloads: a mod
-     * that will rumble sends 0, 0 at load. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no
-     * mod, a port out of range, values out of range or a port without pads (built without a
-     * window). Since 1.37. */
-    int (*set_motors)(openrac_mod* mod, int port, int small, int large);
+     * port, 0 or 1, as on_pad numbers it (the game's pad 1 and pad 2); `small_motor` 0 or 1 (the
+     * small motor off or on), `large_motor` 0 to 255 (the large motor's strength). The player's
+     * rumble setting and style apply. Each motor plays the stronger of the game's own value and
+     * every mod's, so a mod adds to the game's rumble and never takes it away. Like the game's, a
+     * command lasts a fifth of a second unless sent again, so a mod sends it every tick while it
+     * rumbles; 0, 0 stops the mod's. A mod's motors stop with its unload. Once a mod has made a
+     * call the port took (0, 0 too), the menu shows the player's vibration settings, which apply to
+     * its motors, in a game without rumble of its own (Ratchet & Clank) as well, until the mod
+     * unloads: a mod that will rumble sends 0, 0 at load. Call it on the game's thread only (from
+     * openrac_mod_load, on_frame, a hook or another callback of the port's), never from a thread of
+     * the mod's: the port's input reads the values without a lock. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for no mod, a port out of range, values out of range or a port without
+     * pads (built without a window). Since 1.37. */
+    int (*set_motors)(openrac_mod* mod, int port, int small_motor, int large_motor);
 
     /* Turns an option of the port's menu on or off, by its name (sdk/docs/menu-options.md, as
      * "frame_rate"). OPENRAC_MENU_OPTION_ON makes it usable even where the port greys it out;

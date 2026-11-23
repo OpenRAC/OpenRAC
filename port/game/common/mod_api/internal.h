@@ -780,7 +780,7 @@ int api_weapon_ignore_culling(openrac_mod* mod, std::int32_t item, std::int32_t 
 
 int api_sharp_cells(openrac_mod* mod, const openrac_sharp_page* pages, int count);
 
-int api_set_motors(openrac_mod* mod, int port, int small, int large);
+int api_set_motors(openrac_mod* mod, int port, int small_motor, int large_motor);
 
 int api_menu_option_set(openrac_mod* mod, const char* option, int state);
 // Forgets the menu options `mod` set (nullptr: every mod's).

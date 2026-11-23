@@ -52,11 +52,12 @@ int api_button_label(openrac_mod*, std::uint32_t button, char* out, std::uint32_
 }
 
 // Interface 1.37: a mod's motor values for a pad (Host::motors), played with the game's own.
-int api_set_motors(openrac_mod* mod, int port, int small, int large) {
+int api_set_motors(openrac_mod* mod, int port, int small_motor, int large_motor) {
     // The game's two pad ports (on_pad's), libvib's small motor off or on, its large 0 to 255.
+    // The game's thread only: the window's input reads the values without a lock.
     constexpr int kPorts = 2;
-    if (mod == nullptr || port < 0 || port >= kPorts || (small != 0 && small != 1) || large < 0
-        || large > 255 || g_host == nullptr || g_host->motors == nullptr) {
+    if (mod == nullptr || port < 0 || port >= kPorts || (small_motor != 0 && small_motor != 1)
+        || large_motor < 0 || large_motor > 255 || g_host == nullptr || g_host->motors == nullptr) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     {
@@ -66,7 +67,7 @@ int api_set_motors(openrac_mod* mod, int port, int small, int large) {
             g_motor_mods.push_back(mod);
         }
     }
-    g_host->motors(mod, port, small != 0, static_cast<std::uint8_t>(large));
+    g_host->motors(mod, port, small_motor != 0, static_cast<std::uint8_t>(large_motor));
     return OPENRAC_HOOK_OK;
 }
 

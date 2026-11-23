@@ -260,7 +260,7 @@ void set_motors(int port, bool small, std::uint8_t large);
 
 // A mod's motor values for a port's pad (openrac_api.set_motors), played with the game's: each
 // motor the stronger. `owner` is the mod; drop_mod_motors forgets its values (null: every mod's).
-void set_mod_motors(const void* owner, int port, bool small, std::uint8_t large);
+void set_mod_motors(const void* owner, int port, bool small_motor, std::uint8_t large_motor);
 void drop_mod_motors(const void* owner);
 
 // With the player's responsive_controls setting, reads the pads again just before the game's next

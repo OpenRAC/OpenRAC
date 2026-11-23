@@ -380,9 +380,9 @@ void set_motors(int port, bool small, std::uint8_t large) {
     }
 }
 
-void set_mod_motors(const void* owner, int port, bool small, std::uint8_t large) {
+void set_mod_motors(const void* owner, int port, bool small_motor, std::uint8_t large_motor) {
     if (g) {
-        g->input.set_extra_motors(owner, port, {small, large});
+        g->input.set_extra_motors(owner, port, {small_motor, large_motor});
     }
 }
 
