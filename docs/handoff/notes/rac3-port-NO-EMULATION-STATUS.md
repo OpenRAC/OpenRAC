@@ -26,13 +26,19 @@ The work continues from draft #782, preserving its two original commits. It is n
   test fails before the fix and checks identical samples after continuing against an unpaused voice.
 - Added `snd_client_test`: deferred callbacks, submission pumping, synchronous waits, 64-bit callback
   arguments and reset. It exercises the production client without a game, bank or audio device.
+- The RAC2 build exposed three movie-audio wrappers returning void where their callers read an
+  integer. They now return the native synchronous answer; C compile-time contracts reject the old
+  signatures. Regenerated the carried prototypes and removed three unused PAL client names.
 - On Windows/Clang, `sound_engine`, `snd_client`, `audio_mixer`, `audio_sound_player`,
-  `audio_ui_sounds`, `audio_sound_replacements` and `env` pass five times each. Hostgen: 383 tests,
+  `audio_ui_sounds`, `audio_sound_replacements` and `env` pass five times each. Hostgen: 384 tests,
   153 skipped, no failures. Carry-table and layering checks pass. The global conventions gate still
   reports the unrelated RAC2 comment in `host/moby_checks.h`.
-- Game builds are being checked separately with the Windows/headless prerequisites of #809.
-  Game regressions, runtime checks for unexpected raw sound sends and a WAV capture/listening
-  comparison are still pending. Earlier game runs did not use this mixer and are not P11 evidence.
+- With the separate Windows/headless prerequisites of #809, RAC3 NTSC-U's windowed build and its
+  call-ABI test pass. One muted Veldin run exited normally after 1,200 frames: a 20-second stereo
+  48 kHz WAV, no full-scale samples, and no unexpected raw-send warning during that run. The capture
+  remains private; these measurements do not replace listening or prove every sound path is covered.
+- RAC2 NTSC and RAC3 PAL/NTSC headless builds are being retried after the signature fix. RAC1/RAC2
+  game regressions and human listening are still pending. Earlier non-P11 runs are not mixer evidence.
 
 ## Native-UI agent to P1 (2026-11-22)
 
