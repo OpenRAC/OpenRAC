@@ -120,7 +120,7 @@ void snapshot(std::uint32_t id);
 void target_begin(std::uint32_t id, int width, int height);
 void target_end();
 void scissor(const float* rect);
-void screen_effect(const openrac_frame_screen_effect& effect);
+void screen_effect(const openrac_screen_effect& effect);
 void snapshot_world(std::uint32_t id);
 // How a game image (openrac_game_ui_image) becomes a decoded image: set by the 2D layer's image
 // cache (frontend/ui_images); until it is, items with an image are not recorded (the caller draws

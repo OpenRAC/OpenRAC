@@ -8,7 +8,7 @@ is read or written, and the values are the game's own.
 ## 1. Screen effects: `openrac_frame_screen_effect`
 
 ```c
-openrac_frame_screen_effect e = {OPENRAC_SCREEN_GLOW, tint, threshold, strength, blur};
+openrac_screen_effect e = {OPENRAC_SCREEN_GLOW, tint, threshold, strength, blur};
 openrac_frame_anchor(list_cursor);  /* while the game still sends residual packets */
 openrac_frame_screen_effect(&e);
 ```

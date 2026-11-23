@@ -58,7 +58,7 @@ static uint32_t byte_of(gaddr at) {
 int rac3_screen_glow(const Rac3Glow* glow) {
     GREF(int32_t, glow->word) = GLOW_ROOM;
     const gaddr tint = glow->word + TINT_OFFSET;
-    openrac_frame_screen_effect effect = {0};
+    openrac_screen_effect effect = {0};
     effect.kind = OPENRAC_SCREEN_GLOW;
     effect.tint = byte_of(tint) | byte_of(tint + 4u) << 8 | byte_of(tint + 8u) << 16
                   | byte_of(tint + 12u) << 24;
@@ -76,7 +76,7 @@ int rac3_screen_glow_end(const Rac3Glow* glow) {
 }
 
 int rac3_screen_soften(gaddr list) {
-    openrac_frame_screen_effect effect = {0};
+    openrac_screen_effect effect = {0};
     effect.kind = OPENRAC_SCREEN_SOFTEN;
     effect.tint = FULL | FULL << 8 | FULL << 16 | FULL << 24;
     effect.strength = FULL;

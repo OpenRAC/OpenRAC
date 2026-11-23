@@ -983,7 +983,7 @@ void openrac_frame_scissor(const float* rect) {
     (void)rect;
 }
 
-void openrac_frame_screen_effect(const openrac_frame_screen_effect* effect) {
+void openrac_frame_screen_effect(const openrac_screen_effect* effect) {
     c_boundary::call("openrac_frame_screen_effect", [&] {
 #ifdef OPENRAC_FRONTEND
         if (g_window && effect != nullptr) {

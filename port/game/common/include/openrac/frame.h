@@ -46,7 +46,7 @@ extern "C" {
 #define OPENRAC_SCREEN_SOFTEN 2 /* the frame blurred and mixed back over itself */
 
 /* A screen effect's parameters, the game's own values (colours 0xAABBGGRR, 0x80 = 1.0). */
-typedef struct openrac_frame_screen_effect {
+typedef struct openrac_screen_effect {
     int kind; /* OPENRAC_SCREEN_* */
     /* The copy's colour: each channel of the frame times it; its alpha times the frame's alpha. */
     uint32_t tint;
@@ -57,7 +57,7 @@ typedef struct openrac_frame_screen_effect {
     uint32_t strength;
     /* Extra blur passes at the copy's largest size (0 to 2). */
     uint32_t blur;
-} openrac_frame_screen_effect;
+} openrac_screen_effect;
 
 /* Starts a new recording (optional: the window closes one at each tick it captures). */
 void openrac_frame_begin(void);
@@ -119,7 +119,7 @@ void openrac_frame_target_end(void);
 void openrac_frame_scissor(const float* rect);
 /* A screen effect over the target as drawn so far (a native post pass: the frame copied, shrunk,
  * blurred and put back), at this point of the frame. */
-void openrac_frame_screen_effect(const openrac_frame_screen_effect* effect);
+void openrac_frame_screen_effect(const openrac_screen_effect* effect);
 /* Keeps the last frame the window drew with its world in (the world alone, before its 2D) as port
  * picture `id`: what a menu that read its frame back as it opened draws under itself. The picture
  * follows the world while the game draws one under the menu. */

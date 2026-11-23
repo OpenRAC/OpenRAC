@@ -283,7 +283,7 @@ void scissor(const float* rect) {
     }
 }
 
-void screen_effect(const openrac_frame_screen_effect& effect) {
+void screen_effect(const openrac_screen_effect& effect) {
     if (!g || (effect.kind != OPENRAC_SCREEN_GLOW && effect.kind != OPENRAC_SCREEN_SOFTEN)) {
         return;
     }
