@@ -512,6 +512,7 @@ openrac_add_c_test(save_parts INCLUDES "${PROJECT_SOURCE_DIR}/../sdk/include")
 # Going Commando's nanotech render anchors before and after their crates break.
 openrac_add_c_test(rac2_effect_attachment INCLUDES game/rac2/host runtime/include)
 openrac_add_c_test(rac2_hero_attachments INCLUDES game/rac2/host)
+openrac_add_c_test(rac2_gh_fixes MATH)
 # Going Commando's enemy copies for the mods (moby_copy_check, moby_copy) on a level laid out as
 # LoadLevelData leaves one.
 openrac_add_c_test(rac2_enemy_copies NO_STRICT_ALIASING MATH

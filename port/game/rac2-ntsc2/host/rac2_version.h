@@ -33,7 +33,8 @@
 #define RAC2_ADDR_0x00152C26u 0x00152C26u /* versionmap: between */
 #define RAC2_ADDR_0x00152C64u 0x00152C64u /* versionmap: between */
 #define RAC2_ADDR_0x00152C68u 0x00152C68u /* versionmap: between */
-#define RAC2_ADDR_0x0019B4A8u 0x0019B4A8u /* the release's build */
+#define RAC2_ADDR_0x0019B278u 0x0019B278u /* versionmap: exact */
+#define RAC2_ADDR_0x0019B4A8u 0x0019B4A8u /* versionmap: exact */
 #define RAC2_ADDR_0x001A72DCu 0x001A72DCu /* versionmap: exact */
 #define RAC2_ADDR_0x001A7340u 0x001A7340u /* versionmap: exact */
 #define RAC2_ADDR_0x001A7350u 0x001A7350u /* versionmap: exact */
@@ -62,6 +63,7 @@
 #define RAC2_ADDR_0x001ADE00u 0x001ADDD8u /* the release's build */
 #define RAC2_ADDR_0x001ADE20u 0x001ADDF8u /* the release's build */
 #define RAC2_ADDR_0x001ADE28u 0x001ADE00u /* the release's build */
+#define RAC2_ADDR_0x001ADF90u 0x001ADF68u /* the release's build */
 #define RAC2_ADDR_0x001AE0E0u 0x001AE0B8u /* the release's build */
 #define RAC2_ADDR_0x001AE0F4u 0x001AE0CCu /* the release's build */
 #define RAC2_ADDR_0x001AE120u 0x001AE0F8u /* the same instruction of the paired function */
@@ -166,6 +168,11 @@
 #define RAC2_K_PAUSE_LIST_OFFSET 0x3C160 /* v1.01 0x3BE08; func_0029C4C0 as func_0029D2F8: 1 instructions */
 #define RAC2_K_PAUSE_LIST_WHICH 0x31C /* v1.01 0x2FC; func_00341610 as func_00342520: 1 instructions */
 #define RAC2_K_PAUSE_OPTIONS_ROWS 0x8 /* v1.01 0x8; func_00341610 as func_00342520: 3 instructions */
+#define RAC2_K_PLANET_INFO_COUNT_BUFFER 0x6C0 /* v1.01 0x600; by hand: func_US2_0033FDD8 formats the collected/total pair into self+0x6C0 (src/us2/game/0033FDD8-g8.c). */
+#define RAC2_K_PLANET_INFO_COUNT_LABEL 0x2C51 /* v1.01 0x2DBB; by hand: func_US2_0033FDD8 passes text ID 0x2C51 to func_00288FB8 before drawing the count label. */
+#define RAC2_K_PLANET_INFO_COUNT_TITLE 0x578 /* v1.01 0x4E8; by hand: func_US2_0033FDD8 draws the existing heading at self+0x578 after the collected/total row. */
+#define RAC2_K_PLANET_INFO_COUNT_WIDGET 0x470 /* v1.01 0x410; by hand: func_US2_0033FDD8 draws its first text widget at self+0x470; the changed one-row body does not align with all three v1.01 rows. */
+#define RAC2_K_PLANET_INFO_TEXT_POINTER 0x40 /* v1.01 0x40; func_00336A38 as func_00337860: 1 instructions */
 #define RAC2_K_SEEKER_SPAWN_ARGS 0x5 /* v1.01 0x4; by hand: v2.00's effect_spawn_owned_moby (func_US2_L00_003AB8F8, src/us2/levels/shared/L00_003AB8F8-effects-g.c) takes a fifth argument, the 5 v1.01 stores at pvars +0x78, which its caller passes */
 #define RAC2_K_TEXT_CAMERA_ROW 0x2C2E /* v1.01 0x2D98; func_0033C468 as func_0033D4B0: 1 instructions */
 #define RAC2_K_TEXT_CAMERA_TITLE 0x2C2E /* v1.01 0x2D98; func_0033C468 as func_0033D4B0: 1 instructions */

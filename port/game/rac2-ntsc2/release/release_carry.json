@@ -1,16 +1,16 @@
 {
  "about": "How release_carry.py paired what the primary release's port names: what rests on less than the same code, and what it found nowhere.",
  "counts": {
-  "function: by hand": 16,
+  "function: by hand": 22,
   "function: called": 30,
   "function: changed": 88,
   "function: found": 28,
-  "function: near": 61,
-  "function: same": 767,
+  "function: near": 62,
+  "function: same": 776,
   "global: aligned": 6,
   "global: between": 18,
-  "global: exact": 115,
-  "global: the release's build": 133
+  "global: exact": 116,
+  "global: the release's build": 138
  },
  "functions": {
   "func_001158F8": [
@@ -253,6 +253,11 @@
    "changed",
    "RAC2_K TEXT_WIDESCREEN"
   ],
+  "func_0033ED88": [
+   "func_0033FDD8",
+   "by hand",
+   "host C"
+  ],
   "func_00341540": [
    "func_00342450",
    "changed",
@@ -403,6 +408,11 @@
    "near",
    "host C"
   ],
+  "func_L08_0041EBF8": [
+   "func_L08_004201E0",
+   "by hand",
+   "host C"
+  ],
   "func_L10_00421790": [
    "func_L10_00422CA8",
    "near",
@@ -432,6 +442,11 @@
    "func_L13_002C58E8",
    "near",
    "calls_as"
+  ],
+  "func_L14_003F4F98": [
+   "func_L14_003F64E0",
+   "near",
+   "overrides"
   ],
   "func_L15_0042E1B0": [
    "func_L15_0042F6D0",
