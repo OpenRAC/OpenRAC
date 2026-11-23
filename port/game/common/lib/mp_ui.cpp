@@ -56,14 +56,16 @@ public:
         m_skin.highlight(m_skin.user, rect.x, rect.y, rect.w, rect.h);
     }
 
-    void panel(const Rect& rect) override {
-        m_skin.panel(m_skin.user, rect.x, rect.y, rect.w, rect.h);
+    void rect(const Rect& rect, std::uint32_t rgba) override {
+        m_skin.rect(m_skin.user, rect.x, rect.y, rect.w, rect.h, rgba);
     }
 
-    void scroll_marks(const Rect& table, bool up, bool down) override {
-        m_skin.scroll_marks(
-            m_skin.user, table.x, table.y, table.w, table.h, up ? 1 : 0, down ? 1 : 0
-        );
+    void sprite(const Rect& rect, int sprite) override {
+        m_skin.sprite(m_skin.user, rect.x, rect.y, rect.w, rect.h, sprite);
+    }
+
+    std::uint32_t colour(PanelPart part) const override {
+        return part == PanelPart::FILL ? m_skin.panel_rgba : m_skin.edge_rgba;
     }
 
     void sound(Sound sound) override { m_skin.sound(m_skin.user, static_cast<int>(sound)); }
