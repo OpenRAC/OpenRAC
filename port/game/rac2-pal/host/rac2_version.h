@@ -20,7 +20,6 @@
 
 
 /* Addresses of the executable's memory. */
-#define RAC2_ADDR_0x0010E9F0u 0x0010E9F0u /* the same microcode at the same place */
 #define RAC2_ADDR_0x00137EA0u 0x00137F20u /* the release's build */
 #define RAC2_ADDR_0x00138180u 0x00138200u /* the release's build */
 #define RAC2_ADDR_0x00138280u 0x00138300u /* the release's build */

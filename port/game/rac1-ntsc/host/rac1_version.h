@@ -602,7 +602,6 @@ int rac1_ntsc_ship_menu_game(gaddr menu, int unused);
 /* Addresses: games/rac1's, this version's (RAC1_LADDR: in level NN's program). */
 #define RAC1_ADDR(a) RAC1_ADDR_##a
 #define RAC1_LADDR(n, a) RAC1_ADDR_L##n##_##a
-#define RAC1_ADDR_0x0010E4C0u 0x0010E4C0u
 #define RAC1_ADDR_0x0013CA40u 0x0013C940u
 #define RAC1_ADDR_0x0013D010u 0x0013CF10u
 #define RAC1_ADDR_0x0013D490u 0x0013D388u

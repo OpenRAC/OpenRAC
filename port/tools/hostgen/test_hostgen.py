@@ -3452,6 +3452,23 @@ class Preparation(unittest.TestCase):
         program.executable_starts = {0x002CB038}
         self.assertEqual(program.canonical("func_002CB038"), "func_002CB038")
 
+    def test_another_name_of_a_host_place_calls_the_port_function(self):
+        # rac3-decomp names a function per caller file (func_0011A264_00398288 for memset); with a
+        # libraries.tsv host row at that address the name had no C and was a stub that did nothing.
+        program = hostgen.Program()
+        program.code_names = [re.compile(r"^func_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        program.host = {"func_00100000"}
+        sig = hostgen.Signature
+        program.functions["func_00100000"] = hostgen.Function(
+            "func_00100000", sig(ctype.Base("int"), (ctype.Base("int"), ctype.Base("float")), False, True))
+        alias = hostgen.Function(
+            "func_00100000_00200000", sig(ctype.Base("int"), (ctype.Base("float"), ctype.Base("int")), False, True))
+        program.functions[alias.symbol] = alias
+        program.symbols[alias.symbol] = 0x00100000
+        program.index_places()
+        self.assertEqual(hostgen.host_alias_call(program, alias), "func_00100000((int)a1, (float)a0)")
+        self.assertIsNone(hostgen.host_alias_call(program, program.functions["func_00100000"]))
+
     def test_each_declarator_keeps_its_own_assembler_name(self):
         # Batalia: several names in one extern statement each reach their own symbol, not the first's.
         src = ('extern float func_A(int),func_B(float), *D_C;\n'

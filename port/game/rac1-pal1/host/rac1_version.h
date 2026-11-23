@@ -88,7 +88,6 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* Addresses: games/rac1's, this version's (RAC1_LADDR: in level NN's program). */
 #define RAC1_ADDR(a) RAC1_ADDR_##a
 #define RAC1_LADDR(n, a) RAC1_ADDR_L##n##_##a
-#define RAC1_ADDR_0x0010E4C0u 0x0010E4C0u
 #define RAC1_ADDR_0x00137C80u 0x00137B80u
 #define RAC1_ADDR_0x0013CA40u 0x0013C940u
 #define RAC1_ADDR_0x0013CC04u 0x0013CB04u
