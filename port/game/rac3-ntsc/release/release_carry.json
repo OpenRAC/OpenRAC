@@ -123,6 +123,9 @@
   }
  },
  "left_out": {
+  "func_L01_0040E8F8_003EBF40": "NTSC-U has no such function (None)",
+  "func_L01_0040E910_003EBF40": "NTSC-U has no such function (None)",
+  "func_L01_0040EB88_003EBA68": "NTSC-U has no such function (None)",
   "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again",
   "mp:func_L39_0067A7E0": "no NTSC-U pair (release/mp_pairs.json)"
  },

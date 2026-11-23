@@ -525,6 +525,45 @@ void func_L01_0043C8B0(gaddr moby) {
     moby_routine(moby, 1, &copy);
 }
 
+/* The decompilation's names for some of them in their callers' files (a declaration of its own
+ * per file, symbol_addrs_resolved.txt): the same functions. */
+
+float func_L01_0040E8F8_003EBF40(float angle) {
+    return cos_routine(angle);
+}
+
+float func_L01_0040E910_003EBF40(float angle) {
+    return sin_routine(angle);
+}
+
+void func_L01_0040EB88_003EBA68(gaddr out, gaddr angles) {
+    euler_routine(out, angles);
+}
+
+void func_0038DBF0_00384028(gaddr q, gaddr out) {
+    quaternion_routine(q, out, 0);
+}
+
+void func_0038DBF0_00384620(gaddr q, gaddr out) {
+    quaternion_routine(q, out, 0);
+}
+
+void func_0038DBF0_00384640(gaddr q, gaddr out) {
+    quaternion_routine(q, out, 0);
+}
+
+void func_0038DC10_00383E38(gaddr q, gaddr out) {
+    quaternion_routine(q, out, 1);
+}
+
+void func_0038DC10_00383E48(gaddr q, gaddr out) {
+    quaternion_routine(q, out, 1);
+}
+
+void func_003C7FF0_003A6C90(gaddr moby) {
+    func_003C7FF0(moby);
+}
+
 /* ---- The multiplayer executable's copies (its C names start with mp_): its own engine's Euler
  * rows, level 39's (the menus) and each map's, whose globals are level 39's relocated to the map
  * loaded (OPENRAC_LDATA(39, ...)). ---- */
