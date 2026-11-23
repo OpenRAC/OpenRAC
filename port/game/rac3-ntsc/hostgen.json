@@ -381,6 +381,7 @@
       "func_L07_00333600": "int (int, int)",
       "func_L07_00333AF8": "float (int)",
       "func_L07_00353060": "float (int)",
+      "func_L07_003C7B68": "float (int)",
       "func_L07_003CC8E0": "float (int)",
       "func_L31_00345960": "int (float, float, float, float, float, float, int, int)",
       "func_L33_003469A8": "int (int, int, int, int)",
