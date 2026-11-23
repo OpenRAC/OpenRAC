@@ -332,6 +332,21 @@ void relocation_with_folded_copies() {
     openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
 }
 
+int stand_in_update(int a) {
+    return a;
+}
+
+// A function the port registers at a code address past game memory (rac1's imported moby
+// classes' updates): a call through it finds it and reads no code there.
+void port_function_past_ram() {
+    static const openrac_fn_entry fns[] = {
+        {0x0FF00000u, reinterpret_cast<openrac_host_fn>(stand_in_update), "stand_in"},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, fns, 1);
+    const auto fn = reinterpret_cast<openrac_host_fn>(stand_in_update);
+    CHECK(openrac_guest_function(0x0FF00000u) == fn);
+}
+
 int block_head(int a) {
     return a;
 }
@@ -738,6 +753,7 @@ int main() {
     code_in_copy_jal();
     folded_address();
     relocation_with_folded_copies();
+    port_function_past_ram();
     relocation_between_pairs();
     relocation_gp_as_work_register();
     level_data_in_the_executable();
