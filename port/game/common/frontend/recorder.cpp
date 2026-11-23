@@ -283,4 +283,23 @@ void scissor(const float* rect) {
     }
 }
 
+void screen_effect(const openrac_frame_screen_effect& effect) {
+    if (!g || (effect.kind != OPENRAC_SCREEN_GLOW && effect.kind != OPENRAC_SCREEN_SOFTEN)) {
+        return;
+    }
+    renderer::ScreenEffect e;
+    e.kind = effect.kind == OPENRAC_SCREEN_GLOW ? renderer::ScreenEffectKind::Glow
+                                                : renderer::ScreenEffectKind::Soften;
+    e.tint = effect.tint;
+    e.threshold = std::min(effect.threshold, 0xFFu);
+    e.strength = std::min(effect.strength, 0x100u);
+    e.blur = static_cast<std::uint8_t>(std::min(effect.blur, 2u));
+    auto& effects = g->recorder.open().screen_effects;
+    renderer::FrameCommand c;
+    c.op = renderer::FrameOp::ScreenEffect;
+    c.index = static_cast<std::uint32_t>(effects.size());
+    effects.push_back(e);
+    g->recorder.push(c);
+}
+
 }  // namespace openrac::frontend::recorder

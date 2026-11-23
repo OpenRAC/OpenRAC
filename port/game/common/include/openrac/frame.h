@@ -40,6 +40,25 @@ extern "C" {
 /* The first port id of an off-screen panel. */
 #define OPENRAC_FRAME_TARGETS 0x10000u
 
+/* openrac_frame_screen_effect's kinds: native post passes over the target as drawn so far
+ * (docs/port/SCREEN_EFFECTS.md). */
+#define OPENRAC_SCREEN_GLOW 1   /* the frame's glowing pixels copied, tinted, blurred, added back */
+#define OPENRAC_SCREEN_SOFTEN 2 /* the frame blurred and mixed back over itself */
+
+/* A screen effect's parameters, the game's own values (colours 0xAABBGGRR, 0x80 = 1.0). */
+typedef struct openrac_frame_screen_effect {
+    int kind; /* OPENRAC_SCREEN_* */
+    /* The copy's colour: each channel of the frame times it; its alpha times the frame's alpha. */
+    uint32_t tint;
+    /* GLOW: a pixel glows when the frame's alpha times the tint's alpha is above this (0x80 = 1.0,
+     * the game's units); the rest of the copy is black. SOFTEN: not read. */
+    uint32_t threshold;
+    /* How much of the blurred copy goes back, 0x80 = all of it: added (GLOW) or mixed (SOFTEN). */
+    uint32_t strength;
+    /* Extra blur passes at the copy's largest size (0 to 2). */
+    uint32_t blur;
+} openrac_frame_screen_effect;
+
 /* Starts a new recording (optional: the window closes one at each tick it captures). */
 void openrac_frame_begin(void);
 /* Closes the recording (optional). */
@@ -98,6 +117,13 @@ void openrac_frame_target_end(void);
 
 /* What follows is cut to `rect` (x0, y0, x1, y1; NULL: the whole target). */
 void openrac_frame_scissor(const float* rect);
+/* A screen effect over the target as drawn so far (a native post pass: the frame copied, shrunk,
+ * blurred and put back), at this point of the frame. */
+void openrac_frame_screen_effect(const openrac_frame_screen_effect* effect);
+/* Keeps the last frame the window drew with its world in (the world alone, before its 2D) as port
+ * picture `id`: what a menu that read its frame back as it opened draws under itself. The picture
+ * follows the world while the game draws one under the menu. */
+void openrac_frame_snapshot_world(uint32_t id);
 
 #ifdef __cplusplus
 }

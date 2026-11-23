@@ -19,6 +19,7 @@ void FrameRecording::clear() {
     ui_quads.clear();
     ui_items.clear();
     images.clear();
+    screen_effects.clear();
 }
 
 std::uint32_t FrameRecorder::push(FrameCommand command) {

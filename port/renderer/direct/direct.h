@@ -40,6 +40,8 @@
 
 #include "renderer/direct/draw_state.h"
 #include "renderer/direct/gs.h"
+#include "renderer/effects/screen_effect.h"
+#include "renderer/frame/frame_record.h"
 #include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
 #include "renderer/textures/texture_pool.h"
@@ -169,6 +171,17 @@ struct DirectDraw {
     // Not 0: no vertices, the target as drawn so far kept as the recorder's snapshot `snapshot`
     // (openrac_frame_snapshot).
     std::uint32_t snapshot = 0;
+    // Not None: no vertices, a native post pass over the target as drawn so far
+    // (openrac_frame_screen_effect, renderer/effects/screen_effect.h).
+    ScreenEffect screen{};
+
+    // Drawn with no vertices of its own: mobys, a snapshot or a screen effect.
+    bool vertexless() const {
+        return mobys != 0 || snapshot != 0 || screen.kind != ScreenEffectKind::None;
+    }
+
+    // Has something to draw.
+    bool draws() const { return count != 0 || vertexless(); }
 };
 
 // Draw diagnostics belong to the graphics owner; render jobs capture the producer's setting.
@@ -203,6 +216,8 @@ struct FrameSnapshot {
     unsigned texture = 0;                   // GL, the frame as drawn (first row at the bottom)
     int width = 0, height = 0;              // its size
     std::vector<std::uint64_t> answered;  // hash_bytes() of each block of pixels handed back
+    // The port picture id it is drawn as (openrac_frame_snapshot_world), 0 for none.
+    std::uint32_t picture = 0;
 };
 inline FrameSnapshot g_frame_snapshot;
 
@@ -582,6 +597,8 @@ private:
 
     std::unordered_map<std::uint32_t, Picture> m_pictures;
     void keep_snapshot(std::uint32_t id, const RenderTarget& target);
+    // The recorder's screen effects (openrac_frame_screen_effect), drawn where they come.
+    ScreenEffects m_screen_effects;
     std::size_t m_vbo_bytes = 0;
     std::string m_last_error;
     std::array<unsigned, 16> m_samplers{};

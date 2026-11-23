@@ -1089,6 +1089,17 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             m_draws.push_back(d);
             break;
         }
+        case FrameOp::ScreenEffect: {
+            if (c.index >= r.screen_effects.size()) {
+                break;
+            }
+            DirectDraw d;
+            d.state.target = m_recorded_target;
+            d.first = static_cast<std::uint32_t>(m_vertices.size());
+            d.screen = r.screen_effects[c.index];
+            m_draws.push_back(d);
+            break;
+        }
         case FrameOp::TargetBegin:
             m_recorded_target = c.index;
             m_recorded_centre =
@@ -1136,8 +1147,7 @@ void GifInterpreter::native_rect(const FrameCommand& c, const DirectState& given
               };
     // The whole target (a fade, a backdrop) on a target wider than the picture.
     s.whole = c.wide;
-    if (m_draws.empty() || !(m_draws.back().state == s) || m_draws.back().mobys != 0
-        || m_draws.back().snapshot != 0) {
+    if (m_draws.empty() || !(m_draws.back().state == s) || m_draws.back().vertexless()) {
         m_draws.push_back({s, static_cast<std::uint32_t>(m_vertices.size()), 0});
     }
     float x0 = 0.0f, y0 = 0.0f, x1 = tw, y1 = th;
@@ -1226,8 +1236,7 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
     } else {
         s.scissor = {0, static_cast<std::uint32_t>(tw) - 1, 0, static_cast<std::uint32_t>(th) - 1};
     }
-    if (m_draws.empty() || !(m_draws.back().state == s) || m_draws.back().mobys != 0
-        || m_draws.back().snapshot != 0) {
+    if (m_draws.empty() || !(m_draws.back().state == s) || m_draws.back().vertexless()) {
         m_draws.push_back({s, static_cast<std::uint32_t>(m_vertices.size()), 0});
     }
     const float iw = image != nullptr ? static_cast<float>(std::max(image->image->width, 1)) : 1.0f;
@@ -1731,7 +1740,7 @@ void GifInterpreter::ensure_draw() {
             log::verbose("2D: drawn off-screen into block {:#x} (FRAME width {})", m_state.target, context().frame.fbw);
         }
     }
-    if (m_draws.empty() || !(m_draws.back().state == m_state) || m_draws.back().mobys != 0) {
+    if (m_draws.empty() || !(m_draws.back().state == m_state) || m_draws.back().vertexless()) {
         m_draws.push_back({m_state, static_cast<std::uint32_t>(m_vertices.size()), 0});
     }
 }
@@ -2243,6 +2252,7 @@ void DirectRenderer::release() {
         glDeleteTextures(1, &p.texture);
     }
     m_pictures.clear();
+    m_screen_effects.release();
     if (m_samplers[0] != 0) {
         glDeleteSamplers(16, m_samplers.data());
         m_samplers.fill(0);
@@ -2298,8 +2308,7 @@ bool DirectRenderer::draws_nothing() const {
                    m_interpreter->draws().begin(),
                    m_interpreter->draws().end(),
                    [](const DirectDraw& d) {
-                       return (d.count != 0 || d.mobys != 0 || d.snapshot != 0)
-                              && (d.state.target == 0 || d.state.frame_source);
+                       return d.draws() && (d.state.target == 0 || d.state.frame_source);
                    }
                ));
 }
@@ -2401,9 +2410,12 @@ std::array<unsigned, 2> DirectRenderer::apply(const DirectState& s, RenderState&
             textures[0] = g_frame_snapshot.texture;
         } else if (s.snapshot_picture != 0) {
             const auto found = m_pictures.find(s.snapshot_picture);
+            // The world a menu read back as it opened (openrac_frame_snapshot_world) is the frame
+            // snapshot, which the window keeps following the world drawn under the menu.
             textures[0] =
-                found != m_pictures.end()
-                    ? found->second.texture
+                found != m_pictures.end() ? found->second.texture
+                : g_frame_snapshot.picture == s.snapshot_picture && g_frame_snapshot.texture != 0
+                    ? g_frame_snapshot.texture
                     : render_state.textures.gl_texture(render_state.textures.placeholder());
         } else if (s.source != 0) {
             // A panel the game rendered off-screen, as the chip would read it from its memory.
@@ -2567,6 +2579,26 @@ void DirectRenderer::keep_snapshot(std::uint32_t id, const RenderTarget& target)
 
 void DirectRenderer::draw(const DirectDraw& d, RenderState& render_state) {
     const DirectState& s = d.state;
+    if (d.screen.kind != ScreenEffectKind::None) {
+        // A screen effect over the target as drawn so far, then this renderer's own state again.
+        RenderTarget target = render_state.target;
+        // An effect inside a panel works on the panel.
+        if (s.target != 0) {
+            const Offscreen& o = offscreen(s.target);
+            target =
+                {o.framebuffer,
+                 kOffscreenPixels * kOffscreenScale,
+                 kOffscreenPixels * kOffscreenScale};
+        }
+        m_screen_effects.apply(d.screen, target, readable(target));
+        m_bound_sampler = 0xFFFFFFFF;
+        glBindFramebuffer(GL_FRAMEBUFFER, render_state.target.framebuffer);
+        use_program(m_masked);
+        glBindVertexArray(m_vao);
+        glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+        glActiveTexture(GL_TEXTURE0);
+        return;
+    }
     if (d.snapshot != 0) {
         // The target as drawn so far, kept as the recorder's picture.
         RenderTarget target = render_state.target;
@@ -2735,7 +2767,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
     const auto& vertices = m_interpreter->vertices();
     const bool snapshots = std::any_of(
         m_interpreter->draws().begin(), m_interpreter->draws().end(), [](const DirectDraw& d) {
-            return d.snapshot != 0;
+            return d.snapshot != 0 || d.screen.kind != ScreenEffectKind::None;
         }
     );
     if (vertices.empty() && !snapshots) {
@@ -2832,7 +2864,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                 continue;
             }
             if (s.target != 0 || d.count == 0) {
-                if (d.count != 0 || d.mobys != 0 || d.snapshot != 0) {
+                if (d.draws()) {
                     runs.push_back({&d, d.first, d.count, true});  // an off-screen panel's own square
                 }
                 continue;
@@ -2905,7 +2937,8 @@ void DirectRenderer::flush(RenderState& state, bool background) {
                     r.draw->centre_x,
                     r.draw->centre_y,
                     r.draw->clear_depth,
-                    r.draw->snapshot
+                    r.draw->snapshot,
+                    r.draw->screen
                 },
                 state
             );
@@ -2913,7 +2946,7 @@ void DirectRenderer::flush(RenderState& state, bool background) {
         m_whole_target = true;
     } else {
         for (const DirectDraw& d : m_interpreter->draws()) {
-            if ((d.count != 0 || d.mobys != 0 || d.snapshot != 0) && !held(d)) {
+            if (d.draws() && !held(d)) {
                 draw(d, state);
             }
         }

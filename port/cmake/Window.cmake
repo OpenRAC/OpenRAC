@@ -255,6 +255,7 @@ add_library(openrac_renderer STATIC
   renderer/gl/gl.cpp
   renderer/gl/gl_stats.cpp
   renderer/effects/haze.cpp
+  renderer/effects/screen_effect.cpp
   renderer/renderer.cpp
   renderer/frame/colour_graph.cpp
   renderer/frame/frame_record.cpp
@@ -311,6 +312,8 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/screen_effect.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/screen_effect.frag"
 )
 target_link_libraries(openrac_renderer PUBLIC openrac_common PRIVATE openrac_renderer_graph)
 target_include_directories(openrac_renderer SYSTEM PRIVATE "${openrac_xxhash_SOURCE_DIR}")

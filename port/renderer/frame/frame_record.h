@@ -37,6 +37,25 @@ enum class FrameOp : std::uint8_t {
     TargetBegin,  // draws go into panel `index` (a port id >= kRecordedTargets), width x height
     TargetEnd,    // back to the screen
     Scissor,      // what follows is cut to rect (or the whole target)
+    ScreenEffect,  // screen_effects[index], a native post pass over the target as drawn so far
+};
+
+// A screen effect (openrac_frame_screen_effect, docs/port/SCREEN_EFFECTS.md): the game's values;
+// renderer/effects/screen_effect.h draws it.
+enum class ScreenEffectKind : std::uint8_t {
+    None,
+    Glow,    // the pixels whose alpha passes the threshold, tinted, blurred and added back
+    Soften,  // the frame blurred and mixed back over itself
+};
+
+struct ScreenEffect {
+    ScreenEffectKind kind = ScreenEffectKind::None;
+    std::uint32_t tint = 0x80808080u;  // 0xAABBGGRR, 0x80 = 1.0
+    std::uint32_t threshold = 0;       // Glow: alpha (0x80 = 1.0) a pixel must be above
+    std::uint32_t strength = 0x80;     // how much of the blurred copy goes back, 0x80 = all
+    std::uint8_t blur = 0;             // extra blur passes at the largest size (0 to 2)
+
+    bool operator==(const ScreenEffect&) const = default;
 };
 
 // FrameCommand::clear bits.
@@ -75,6 +94,7 @@ struct FrameRecording {
     std::vector<UiQuad> ui_quads;
     std::vector<UiItem> ui_items;
     std::vector<UiImage> images;
+    std::vector<ScreenEffect> screen_effects;
 
     bool empty() const { return commands.empty(); }
 

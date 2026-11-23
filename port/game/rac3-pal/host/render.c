@@ -351,35 +351,8 @@ int func_L01_00461CB8(void) {
     );
 }
 
-/*
- * The screen glow (Up Your Arsenal's own; Going Commando has none): DrawFrame, while the word
- * 0x001DBCA0 is set, appends two prebuilt GS packets by DMA reference. 0x004DE670 the first
- * (0x001D0A50, built by 0x004DDE98: the frame at block 0x1E00 copied into a 256 x 256 buffer at
- * FBP 0x198 and shrunk into FBP 0 and 0x1FD), 0x004DE6F0 the second (0x001D2A50, built by
- * 0x004DE5B0: blurred and added back over the frame, ALPHA 0x221, FIX 0x80). Replayed over the
- * native world they drew a ghost of the picture and a copy of it in its top left corner. The port
- * leaves them out: the enhanced renderer's bloom (enhanced/docs/bloom.md) is its glow. The word
- * each sets for the frame (0x6000 at $gp - 0xC0C, 0 again after) is kept.
- */
-#define GLOW_WORD RAC3_LADDR(1, 0x001DBCA4u)
-
-int func_L01_004DE670(void) {
-    GREF(int32_t, VELDIN(GLOW_WORD)) = 0x6000;
-    return 0;
-}
-
-int func_L01_004DE6F0(void) {
-    GREF(int32_t, VELDIN(GLOW_WORD)) = 0;
-    return 0;
-}
-
-/* The second screen effect (0x004DF310, while 0x001DBCBC is set; DrawFrame clears it after): the
- * same family, two more prebuilt packets, 0x001D3650 (0x004DF070: the frame copied and blurred
- * twice) and 0x001D3EF0 (0x004DF1B0: tinted and added back over the frame). Left out as the glow
- * is. */
-int func_L01_004DF310(void) {
-    return 0;
-}
+/* The screen glow and the second screen effect (func_L01_004DE670, 004DE6F0, 004DF310) are in
+ * screen.c. */
 
 /* The draw callback running and its argument (wide_view.c), the owner of the quads it draws. */
 extern gaddr rac3_draw_owner;
