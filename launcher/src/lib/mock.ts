@@ -325,8 +325,8 @@ let config: Config = {
   discImages: {},
   multiplayerName: "BraveLombax42",
   multiplayerKey: "0123456789abcdef0123456789abcdef",
-  multiplayerServerHost: "game.openrac.dev",
-  multiplayerServerPort: 7770,
+  multiplayerServerHost: "hub.openrac.dev",
+  multiplayerServerPort: 7177,
   modIndexes: [],
   prereleaseMods: null,
   pendingDeepLink: null,
@@ -3651,10 +3651,10 @@ export async function mockCall(
       });
     }
     case "multiplayer_server_test":
-      // The official server answers; any other does not, so both results can be seen.
+      // The official hub answers; any other does not, so both results can be seen.
       await delay(null);
 
-      if (args.host !== "game.openrac.dev")
+      if (args.host !== "hub.openrac.dev")
         throw new Error(`no answer from ${String(args.host)}:${String(args.port)}`);
 
       return null;

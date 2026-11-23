@@ -39,7 +39,7 @@ describe("multiplayer server", () => {
 
   it("says what is wrong with the host and the port", () => {
     expect(hostProblem(" ")).toBe("Type the server's host name or IP address.");
-    expect(hostProblem("game.openrac.dev:7770")).toBe("Put the port in its own field.");
+    expect(hostProblem("hub.openrac.dev:7177")).toBe("Put the port in its own field.");
     expect(hostProblem("two words")).toBe("Not a host name or an IP address.");
     expect(hostProblem(" localhost ")).toBeNull();
     for (const bad of [0, 65536, 1.5, null, undefined, Number.NaN])
@@ -51,10 +51,11 @@ describe("multiplayer server", () => {
   });
 
   it("writes the address the game gets, and knows the official server", () => {
-    expect(serverAddress(OFFICIAL_HOST, OFFICIAL_PORT)).toBe("game.openrac.dev:7770");
+    expect(serverAddress(OFFICIAL_HOST, OFFICIAL_PORT)).toBe("hub.openrac.dev:7177");
     expect(serverAddress(" ::1 ", 7000)).toBe("[::1]:7000");
-    expect(isOfficial("Game.OpenRAC.dev", 7770)).toBe(true);
-    expect(isOfficial("game.openrac.dev", 7771)).toBe(false);
-    expect(isOfficial("localhost", 7770)).toBe(false);
+    expect(isOfficial("Hub.OpenRAC.dev", 7177)).toBe(true);
+    expect(isOfficial("hub.openrac.dev", 7770)).toBe(false);
+    expect(isOfficial("game.openrac.dev", 7770)).toBe(false);
+    expect(isOfficial("localhost", 7177)).toBe(false);
   });
 });
