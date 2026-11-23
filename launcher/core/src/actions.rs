@@ -897,6 +897,34 @@ mod tests {
         }
     }
 
+    /// A file an action needs is made by a step that runs on the same platform: else Play waits
+    /// for a step the platform never offers (rac1 on Android waited for the disc's files).
+    #[test]
+    fn every_need_is_made_on_the_platforms_that_need_it() {
+        let file = load_own(&checkout()).unwrap();
+        let platforms = [Platform::Windows, Platform::Linux, Platform::Macos, Platform::Android];
+        let mut missing = Vec::new();
+        for (key, list) in &file.versions {
+            for action in list.iter().filter(|a| a.state != State::Planned) {
+                for platform in platforms.into_iter().filter(|p| action.runs_on(*p)) {
+                    for need in &action.needs {
+                        let made = list.iter().any(|a| {
+                            a.runs_on(platform)
+                                && [&a.makes, &a.artifact].iter().any(|m| m.as_ref() == Some(&need.path))
+                        });
+                        if !made {
+                            missing.push(format!(
+                                "{key} {} on {platform:?}: nothing there makes {}",
+                                action.id, need.path
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        assert_eq!(missing, Vec::<String>::new());
+    }
+
     #[test]
     fn only_a_versions_play_action_plays() {
         let file = parse(

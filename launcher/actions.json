@@ -153,7 +153,13 @@
         ],
         "makes": "{data}/iso_data/rac1/sectors.tsv",
         "docs": "port/assets/disc/README.md",
-        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv)."
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv).",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ]
       },
       {
         "id": "port-build",
@@ -843,7 +849,13 @@
         ],
         "makes": "{data}/iso_data/rac1/sectors.tsv",
         "docs": "port/assets/disc/README.md",
-        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv)."
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv).",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ]
       },
       {
         "id": "port-build",
@@ -1648,7 +1660,13 @@
         ],
         "makes": "{data}/iso_data/rac1/sectors.tsv",
         "docs": "port/assets/disc/README.md",
-        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv)."
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv).",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ]
       },
       {
         "id": "port-build",
@@ -2043,7 +2061,13 @@
         ],
         "makes": "{data}/iso_data/rac1/sectors.tsv",
         "docs": "port/assets/disc/README.md",
-        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv)."
+        "todo": "Run it from the desktop app. Set-ups made before the game read the disc's files (2026-11-22) have only the image and the boot executable: Play waits for this step, which reads the image the set-up kept (or the one in your games folder) into iso_data, the disc's file system's files at their paths, every other sector as lumps (lumps/) and the sector map (sectors.tsv).",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ]
       },
       {
         "id": "port-build",
