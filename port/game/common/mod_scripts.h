@@ -42,6 +42,10 @@ struct Services {
     int (*setting_set_string)(openrac_mod* mod, const char* key, const char* value) = nullptr;
     int (*on_settings)(openrac_mod* mod, openrac_frame_fn fn, void* user) = nullptr;
     const std::map<std::string, SettingValue>* (*settings_of)(openrac_mod* mod) = nullptr;
+    // Interface 1.37: the pads' motors (openrac_api.set_motors) and the port's menu options
+    // (openrac_api.menu_option_set).
+    int (*set_motors)(openrac_mod* mod, int port, int small_motor, int large_motor) = nullptr;
+    int (*menu_option_set)(openrac_mod* mod, const char* option, int state) = nullptr;
 };
 
 struct Mod {

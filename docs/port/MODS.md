@@ -967,7 +967,8 @@ are, the player's rumble settings applied, and a mod's stop with its unload. A m
 a call (0, 0 at load will do) brings the menu's vibration settings back in a game without rumble
 of its own. A mod also turns an option of the port's menu on or off by its stable name
 (`menu_option_set`, `OPENRAC_MENU_OPTION_DEFAULT`, `_ON`, `_OFF`; sdk/docs/menu-options.md). The
-C++ layer's `has_set_motors()`, `set_motors()`, `menu_option_set()`.
+C++ layer's `has_set_motors()`, `set_motors()`, `menu_option_set()`. Script mods get both as
+`openrac.set_motors` and `openrac.menu_option_set`.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
