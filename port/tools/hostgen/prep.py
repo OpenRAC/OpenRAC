@@ -137,6 +137,39 @@ def blank_file_scope_asm(text: str) -> str:
     return "".join(chars)
 
 
+_ASM_START = re.compile(r"\b(?:__asm__|__asm|asm)\b(?:\s*(?:__volatile__|volatile))*\s*\(")
+_J_CONSTRAINT = re.compile(r'"([=+]?)(&?)j"')
+
+
+def vu0_register_operands(text: str) -> str:
+    """Operands of inline assembly in GCC's "j" class (a VU0 vector register, which Clang does
+    not know) are written with "m" instead, the same length (`"=&j"` as `"=m" `): Clang then
+    reads the statement, with the operand as the C variable it is, and lower.py writes its VU0
+    instructions as C on that variable (vu0asm.py). Only the operand lists change."""
+    if "j\"" not in text:
+        return text
+    out, last = [], 0
+    for m in _ASM_START.finditer(text):
+        if m.start() < last:
+            continue
+        end = _statement_end(text, m.start())
+        if end is None:
+            continue
+        stmt = text[m.start():end]
+        j = m.end() - m.start()
+        while True:  # past the instructions
+            s = re.compile(r'\s*"(?:[^"\\]|\\.)*"').match(stmt, j)
+            if s is None:
+                break
+            j = s.end()
+        fixed = stmt[:j] + _J_CONSTRAINT.sub(lambda c: f'"{c.group(1)}m"' + (" " if c.group(2) else ""), stmt[j:])
+        out.append(text[last:m.start()])
+        out.append(fixed)
+        last = end
+    out.append(text[last:])
+    return "".join(out)
+
+
 def _skip_literal(text: str, i: int) -> int:
     quote = text[i]
     i += 1
@@ -524,7 +557,7 @@ def unalias(text: str, aliases: dict[str, str]) -> str:
 
 
 def prepare(text: str) -> str:
-    return rename_va_builtins(own_va_list(name_lvalue_casts(name_wide_casts(name_cast_records(expand_cast_macros(widen_long(split_multiline_strings(blank_file_scope_asm(text)))))))))
+    return vu0_register_operands(rename_va_builtins(own_va_list(name_lvalue_casts(name_wide_casts(name_cast_records(expand_cast_macros(widen_long(split_multiline_strings(blank_file_scope_asm(text))))))))))
 
 
 # The path may be several adjacent strings over as many lines (the NTSC decomp's long paths).

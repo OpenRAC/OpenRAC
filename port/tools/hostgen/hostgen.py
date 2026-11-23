@@ -1610,6 +1610,8 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     # is left out and the function is a stub, which the assembly stage then writes, reading those
     # registers as parameters.
     program.from_assembly = set(cfg.get("from_assembly", []))
+    # VU0 inline assembly in the C (vu0asm.py) flushes as the assembly's translation does.
+    program.vu_flush = bool((cfg.get("asm") or {}).get("vu_flush"))
     for sym in sorted(program.from_assembly):
         f = program.functions.get(sym)
         if f is not None and f.unit is not None and not f.static:

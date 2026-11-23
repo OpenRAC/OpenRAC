@@ -142,6 +142,7 @@ class Program:
     release_view: bool = False
     caller_aliases: bool = False  # hostgen.json "caller_aliases": per-caller declarations of wrapped functions are them
     from_assembly: set = field(default_factory=set)  # C left out for C from the instructions (hostgen.json "from_assembly")
+    vu_flush: bool = False  # hostgen.json asm.vu_flush, for VU0 inline assembly written as C (vu0asm.py)
     wrap: set = field(default_factory=set)  # translated as <name>__game, called by a host <name>
     wrap_host: set = field(default_factory=set)  # with a `wrap` row: a hook point among them is <name>__hooked
     hook: dict = field(default_factory=dict)  # hook points (in wrap too): symbol -> its name for mods

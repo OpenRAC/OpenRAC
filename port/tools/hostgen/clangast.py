@@ -299,7 +299,7 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                 break
             continue
         if re.match(r"(invalid (output|input) constraint|unknown register name|invalid operand in inline asm"
-                    r"|couldn't allocate .* inline asm)", msg):
+                    r"|couldn't allocate .* inline asm|invalid lvalue in asm (input|output))", msg):
             replaced = _replace_asm(lines, line, col)
             if replaced:
                 fixes.append(f"line {line + 1}: inline assembly Clang cannot read, made a stub")
@@ -530,8 +530,15 @@ def _asm_constraints(raw: str, at: int) -> dict | None:
     lists: list[list[str]] = []
     for _ in range(2):
         colon = re.compile(r"\s*:").match(raw, j)
-        if colon is None or raw.startswith("::", colon.end() - 1):
+        if colon is None:
             break
+        if raw.startswith("::", colon.end() - 1):
+            # `: :` written together (`__asm__("..." :: "r"(p))`): no outputs, then the inputs.
+            if lists:
+                break
+            lists.append([])
+            j = colon.end()
+            continue
         j, ops = colon.end(), []
         while True:
             op = re.compile(r'\s*(?:\[\s*\w+\s*\]\s*)?"((?:[^"\\]|\\.)*)"\s*\(').match(raw, j)
