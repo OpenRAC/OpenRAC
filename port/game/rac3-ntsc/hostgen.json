@@ -494,7 +494,7 @@
       "func_L01_00420360": "void (int, int)",
       "func_L01_00420380": "void (int, int)",
       "func_L01_00444318": "void (int, int, float)",
-      "func_L01_0044E068": "void (gaddr, float)",
+      "func_L01_0044E068": "void (unsigned int, float)",
       "func_L01_0044ED38": "void (int, int, int, int, float, float)",
       "func_L01_00478CC8": "void (int, int, int, int, float, float)",
       "func_L01_0047ACE8": "void (int, int, int, int, float, float)",
