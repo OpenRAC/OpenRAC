@@ -286,6 +286,20 @@ static struct {
     size_t out_len, frame;
 } srv = {.fd = NET_INVALID};
 
+/* The host's clock in milliseconds, for PACKET_TIME and the room's clock. */
+static int64_t host_ms(void) {
+    struct timespec now;
+    timespec_get(&now, TIME_UTC);
+    return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+
+/* The server's clock less the host's, from the last PACKET_TIME answer (half its round trip
+ * added): every console of a room reads the same room clock from it. */
+static struct {
+    int64_t offset;
+    int known;
+} server_clock;
+
 static void srv_begin(int id, int opcode) {
     srv.frame = srv.out_len;
     srv.out_len += 4;
@@ -1205,6 +1219,17 @@ static int dme_relay(int dest, gaddr data, int len) {
         }
         target = m->id;
     }
+    /* A message to its own index comes straight back, as DME delivers it (the host's own
+     * CHANNEL_SLOT_UPDATE after a map load: state 8 in slot 0 opens the start barrier). */
+    if (target == srv.session) {
+        if (dme.inbox_count < (int)(sizeof dme.inbox / sizeof dme.inbox[0])) {
+            dme.inbox[dme.inbox_count].from = srv.session;
+            dme.inbox[dme.inbox_count].len = (uint16_t)len;
+            memcpy(dme.inbox[dme.inbox_count].data, G(data), (size_t)len);
+            dme.inbox_count++;
+        }
+        return 0;
+    }
     if (!srv_room((size_t)len + 8)) {
         return 0;
     }
@@ -1299,7 +1324,9 @@ static void obj_send(int i, int32_t target) {
 static void obj_send_changes(void) {
     const int me = room_index_of(srv.session);
     for (int i = 0; i < obj_count; i++) {
-        if (objs[i].owner == me
+        /* A released object (owner -1, GameSettings after START) is everyone's: whoever
+         * changes it sends it, as the host does its start time (+0x170) and slot states. */
+        if ((objs[i].owner == me || objs[i].owner == -1)
             && memcmp(objs[i].sent, G(objs[i].data), (size_t)obj_type[objs[i].type].size) != 0) {
             obj_send(i, 0);
         }
@@ -1609,8 +1636,16 @@ static void on_frame(int id, reader* r) {
             }
             break;
         }
+        case PACKET_TIME: {
+            const int64_t sent = (int64_t)rd_i32(r) << 32 | (uint32_t)rd_i32(r);
+            const int64_t server = (int64_t)rd_i32(r) << 32 | (uint32_t)rd_i32(r);
+            const int64_t now = host_ms();
+            server_clock.offset = server + (now - sent) / 2 - now;
+            server_clock.known = 1;
+            break;
+        }
         default:
-            break; /* the clock, chat, data: unused here */
+            break; /* UDP offers, chat, data: unused here */
     }
 }
 
@@ -1619,9 +1654,7 @@ static void on_frame(int id, reader* r) {
  * that hangs or dies stops sending, and the server drops it from its party. The answer is ignored. */
 static void srv_keep_alive(void) {
     static int64_t last;
-    struct timespec now;
-    timespec_get(&now, TIME_UTC);
-    const int64_t ms = (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+    const int64_t ms = host_ms();
     if (srv.state != 1 || ms - last < KEEP_ALIVE_MS || !srv_room(16)) {
         return;
     }
@@ -1907,6 +1940,35 @@ static void vblank_count(void) {
         written = now;
         GREF(int32_t, NET_VBLANKS) = now;
     }
+}
+
+/* dme_get_time(out): the room's clock in milliseconds, which the net tick (0x001959F8) copies to
+ * net + 0x128 each frame and the start barrier of a map compares with GameSettings +0x170 and
+ * +0x174. DME's own (0x0014C6B0) is synchronised by its server; here it is the OpenRAC server's
+ * clock, the same on every console of the room. */
+int mp_func_0014B008(int out) {
+    if (out != 0) {
+        const int64_t ms = host_ms() + (server_clock.known ? server_clock.offset : 0);
+        GREF(int32_t, (gaddr)out) = (int32_t)(ms & 0x7FFFFFFF);
+    }
+    return 0;
+}
+
+/* The kernel library's timer alarm (ticks, handler, argument): the handler runs as
+ * handler(id, 0, 0, argument) once the ticks are past. The port runs no timer interrupt, so the
+ * handler runs at once. The network's vblank timer (0x0019BC10) arms one each vblank with a count of
+ * sub-ticks that its handler 0x0019BCD0 counts down by arming the next; the voice stop at START
+ * (0x0019BF20, from L39_006C4448) waits in a loop for that count (0x002416E4) to reach 0, which
+ * without this never happens. The chain is as long as the count (6), so the recursion is short. */
+int mp_func_0012E3E8(int ticks, int handler, int argument) {
+    static int32_t next_id;
+    (void)ticks;
+    const int32_t id = ++next_id & 0x7FFFFFFF;
+    if (handler == 0) {
+        return id;
+    }
+    GFN(int (*)(int, int, int, int), (gaddr)handler)(id, 0, 0, argument);
+    return id;
 }
 
 /* DME's send of one message (kind, conn, dest, class, id, len, data), through the server (0x0014CAB8)
