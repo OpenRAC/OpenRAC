@@ -204,8 +204,10 @@ int rac3_mp_ui_describe(const char* json, size_t size); /* mp_ui.c */
 #define LADDER_PAGE_MAX 32    /* the hub's longest ladder page */
 #define STATS_WAITS 16        /* the game's stats requests waiting for the hub */
 #define STATS_GIVE_UP_MS 4500 /* a request the hub has not answered: failed (the game waits 5 s) */
-#define STATS_BURST 8         /* the hub's request budget (HUB_REQUEST_BURST 10, a few left for the rest) */
-#define STATS_PER_SECOND 2    /* ...and its refill (HUB_REQUEST_PER_SECOND) */
+/* The stats requests' share of the hub's request budget (HUB_REQUEST_BURST 10, a few left for the
+ * rest), and its refill a second (HUB_REQUEST_PER_SECOND). */
+#define STATS_BURST 8
+#define STATS_PER_SECOND 2
 #define CLIENT_SLOTS 2 /* PACKET_HELLO's client bit: send PARTY_SLOTS (the room's stable slots) */
 #define CLIENT_KEEPS_ALIVE                                                                         \
     4                      /* PACKET_HELLO's client bit: this client sends PACKET_TIME every 2 s */
@@ -1281,8 +1283,8 @@ static void lobby_reply_join(int32_t status, int32_t world) {
  * rest unanswered, so they go out within its budget, and what the hub already has (the row and the
  * bytes this console wrote or read last) is answered here. */
 typedef struct {
-    int op;   /* STATS_* */
-    int sent; /* gone to the hub, else waiting for the budget */
+    int op;        /* STATS_* */
+    int sent;      /* gone to the hub, else waiting for the budget */
     int cls, type; /* the game's request (0, 0: the port's own read, no reply) */
     int32_t account;
     int64_t since_ms;
@@ -1350,7 +1352,12 @@ static void stats_reply(const stats_request* w, reader* r) {
             const int32_t position = r != NULL ? rd_i32(r) : 0;
             const int32_t total = r != NULL ? rd_i32(r) : 0;
             lobby_start(
-                reply, lr, w->req, r == NULL ? M_SERVER_ERROR : position > 0 ? M_SUCCESS : M_NO_RESULT
+                reply,
+                lr,
+                w->req,
+                r == NULL      ? M_SERVER_ERROR
+                : position > 0 ? M_SUCCESS
+                               : M_NO_RESULT
             );
             put32(reply + 0x1C, position);
             put32(reply + 0x20, total);
@@ -1412,7 +1419,9 @@ static void stats_reply(const stats_request* w, reader* r) {
 
 static void stats_drop(int i, reader* r) {
     const stats_request w = stats.wait[i];
-    memmove(&stats.wait[i], &stats.wait[i + 1], sizeof stats.wait[0] * (size_t)(stats.count - i - 1));
+    memmove(
+        &stats.wait[i], &stats.wait[i + 1], sizeof stats.wait[0] * (size_t)(stats.count - i - 1)
+    );
     stats.count--;
     stats_reply(&w, r);
 }
@@ -1465,7 +1474,12 @@ static void stats_send(stats_request* w) {
     srv_end();
     w->sent = 1;
     if (net_log()) {
-        fprintf(stderr, "[info] rac3: online: stats request %d to the hub (account %d)\n", w->op, w->account);
+        fprintf(
+            stderr,
+            "[info] rac3: online: stats request %d to the hub (account %d)\n",
+            w->op,
+            w->account
+        );
     }
 }
 
@@ -1481,7 +1495,11 @@ static void stats_pump(void) {
     stats.budget_ms = now;
     for (int i = 0; i < stats.count;) {
         if (now - stats.wait[i].since_ms > STATS_GIVE_UP_MS) {
-            fprintf(stderr, "[warning] rac3: online: the hub did not answer stats request %d\n", stats.wait[i].op);
+            fprintf(
+                stderr,
+                "[warning] rac3: online: the hub did not answer stats request %d\n",
+                stats.wait[i].op
+            );
             stats_drop(i, NULL);
             continue;
         }
@@ -1515,13 +1533,15 @@ static void stats_ask(int op, int cls, int type, const uint8_t* req, size_t size
 /* The hub's answer of opcode OP: the oldest request it answers (an account's read: that account's). */
 static void stats_answer(int op, reader* r) {
     int32_t account = 0;
-    const int by_account = op == STATS_LADDER_READ || op == STATS_LADDER_POSITION || op == STATS_CAREER_READ;
+    const int by_account =
+        op == STATS_LADDER_READ || op == STATS_LADDER_POSITION || op == STATS_CAREER_READ;
     if (by_account) {
         rd_i32(r);
         account = rd_i32(r);
     }
     for (int i = 0; i < stats.count; i++) {
-        if (stats.wait[i].sent && stats.wait[i].op == op && (!by_account || stats.wait[i].account == account)) {
+        if (stats.wait[i].sent && stats.wait[i].op == op
+            && (!by_account || stats.wait[i].account == account)) {
             stats_drop(i, r);
             return;
         }
@@ -1533,7 +1553,10 @@ static void stats_refused(int reason) {
     for (int i = 0; i < stats.count; i++) {
         if (stats.wait[i].sent) {
             fprintf(
-                stderr, "[warning] rac3: online: the hub refused stats request %d (reason %d)\n", stats.wait[i].op, reason
+                stderr,
+                "[warning] rac3: online: the hub refused stats request %d (reason %d)\n",
+                stats.wait[i].op,
+                reason
             );
             stats_drop(i, NULL);
             return;
