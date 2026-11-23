@@ -275,6 +275,20 @@ static struct {
     size_t out_len, frame;
 } srv = {.fd = NET_INVALID};
 
+/* The host's clock in milliseconds, for PACKET_TIME and the room's clock. */
+static int64_t host_ms(void) {
+    struct timespec now;
+    timespec_get(&now, TIME_UTC);
+    return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+
+/* The server's clock less the host's, from the last PACKET_TIME answer (half its round trip
+ * added): every console of a room reads the same room clock from it. */
+static struct {
+    int64_t offset;
+    int known;
+} server_clock;
+
 static void srv_begin(int id, int opcode) {
     srv.frame = srv.out_len;
     srv.out_len += 4;
@@ -1579,8 +1593,16 @@ static void on_frame(int id, reader* r) {
             dme.inbox_count++;
             break;
         }
+        case PACKET_TIME: {
+            const int64_t sent = (int64_t)rd_i32(r) << 32 | (uint32_t)rd_i32(r);
+            const int64_t server = (int64_t)rd_i32(r) << 32 | (uint32_t)rd_i32(r);
+            const int64_t now = host_ms();
+            server_clock.offset = server + (now - sent) / 2 - now;
+            server_clock.known = 1;
+            break;
+        }
         default:
-            break; /* UDP offers, the clock, chat, data: unused here */
+            break; /* UDP offers, chat, data: unused here */
     }
 }
 
@@ -1589,9 +1611,7 @@ static void on_frame(int id, reader* r) {
  * that hangs or dies stops sending, and the server drops it from its party. The answer is ignored. */
 static void srv_keep_alive(void) {
     static int64_t last;
-    struct timespec now;
-    timespec_get(&now, TIME_UTC);
-    const int64_t ms = (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+    const int64_t ms = host_ms();
     if (srv.state != 1 || ms - last < KEEP_ALIVE_MS || !srv_room(16)) {
         return;
     }
@@ -1877,6 +1897,18 @@ static void vblank_count(void) {
         written = now;
         GREF(int32_t, NET_VBLANKS) = now;
     }
+}
+
+/* dme_get_time(out): the room's clock in milliseconds, which the net tick (0x001959F8) copies to
+ * net + 0x128 each frame and the start barrier of a map compares with GameSettings +0x170 and
+ * +0x174. DME's own (0x0014C6B0) is synchronised by its server; here it is the OpenRAC server's
+ * clock, the same on every console of the room. */
+int mp_func_0014B008(int out) {
+    if (out != 0) {
+        const int64_t ms = host_ms() + (server_clock.known ? server_clock.offset : 0);
+        GREF(int32_t, (gaddr)out) = (int32_t)(ms & 0x7FFFFFFF);
+    }
+    return 0;
 }
 
 /* The kernel library's timer alarm (ticks, handler, argument): the handler runs as

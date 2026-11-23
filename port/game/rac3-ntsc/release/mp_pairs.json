@@ -341,6 +341,10 @@
    "is": "func_0012DCB0",
    "why": "the same instructions, the only place they occur"
   },
+  "func_0012E3E8": {
+   "is": "func_0012E3E8",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_0012E820": {
    "is": "func_0012E820",
    "why": "the same instructions, the only place they occur"
@@ -619,11 +623,15 @@
   },
   "func_0014AF70": {
    "is": "func_0014AF70",
-   "why": "the same instructions (6 places), at the distance the nearest paired function 0x0014B118 moved by (+0x0)"
+   "why": "the same instructions (6 places), at the distance the nearest paired function 0x0014B008 moved by (+0x0)"
+  },
+  "func_0014B008": {
+   "is": "func_0014B008",
+   "why": "the same instructions, the only place they occur"
   },
   "func_0014B040": {
    "is": "func_0014B040",
-   "why": "the same instructions (6 places), at the distance the nearest paired function 0x0014B118 moved by (+0x0)"
+   "why": "the same instructions (6 places), at the distance the nearest paired function 0x0014B008 moved by (+0x0)"
   },
   "func_0014B118": {
    "is": "func_0014B118",
