@@ -59,6 +59,7 @@
 #include "openrac/host_env.h"
 #include "openrac/ui.h"
 #include "rac3_version.h"
+#include "textures.h"
 #include "ui_adapter.h"
 
 /* The offset the game adds to every 2D position (12.4): the core's, which every program shares
@@ -1337,6 +1338,28 @@ static int hud_sprite_turned(
     const float px[4] = {(x - ax) + bx, (x - ax) - bx, (x + ax) + bx, (x + ax) - bx};
     const float py[4] = {(y - ay) + by, (y - ay) - by, (y + ay) + by, (y + ay) - by};
     const int us[4] = {0, tw << 4, 0, tw << 4}, vs[4] = {0, 0, th << 4, th << 4};
+    /* The image by the HUD bank's own tables (rac3_hud_image), as the game sent it: no TEX0. The
+     * multiplayer executable's are not kept at their sending yet. */
+    openrac_game_ui_image image;
+    if (rac3_exec_program() != RAC3_EXEC_MULTIPLAYER
+        && rac3_hud_image(u->hud_entries, tex, &image)) {
+        openrac_ui_quad quad;
+        memset(&quad, 0, sizeof(quad));
+        quad.image = image;
+        for (int i = 0; i < 4; ++i) {
+            quad.x[i] = (float)(int)px[i] - 0.5f;
+            quad.y[i] = (float)(int)py[i] - 0.5f;
+            quad.u[i] = (float)(us[i] >> 4);
+            quad.v[i] = (float)(vs[i] >> 4);
+            quad.rgba[i] = GREF(uint32_t, colours + 4u * (gaddr)i);
+        }
+        quad.flags = OPENRAC_UI_SHADED;
+        rac3_ui_adapter_install();
+        anchor_at(u->cursor);
+        if (openrac_ui_draw_quad(&quad)) {
+            return 1;
+        }
+    }
     openrac_game_ui_rect q;
     memset(&q, 0, sizeof(q));
     for (int i = 0; i < 4; ++i) {
