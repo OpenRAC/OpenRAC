@@ -8,7 +8,7 @@
  * slot keeps the last owner's words, a scene or a program's load (g_nGameState 6) rewrites the table
  * under the port's feet, and NG++'s copies of enemies keep their pvars in the port's own memory
  * (GUEST_PORT). Yeedil's scene before the last boss had a live enemy whose pvars word (+0x68) held
- * a float (179.7, 0x4333AC8F), read as a pointer for its target record (#797); a new game started
+ * a float (179.7, 0x4333AC8F), read as a pointer for its target record; a new game started
  * from Yeedil had a dead shot's pvars word hold another (0x4C58xxxx), read for its timer. So a
  * pointer taken from a moby is followed only when it is a word of the game's RAM (or, where the
  * code may, the port's), the moby a slot of the table, and the port's per-tick work runs only in
