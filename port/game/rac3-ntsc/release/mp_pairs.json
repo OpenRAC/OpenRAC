@@ -2029,6 +2029,10 @@
    "is": "func_L39_0067A390",
    "why": "the same instructions, the only place they occur"
   },
+  "func_L39_0067CED8": {
+   "is": "func_L39_0067A3C8",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_L39_00682028": {
    "is": "func_L39_0067F508",
    "why": "the same instructions, the only place they occur"

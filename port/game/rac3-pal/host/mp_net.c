@@ -1819,6 +1819,55 @@ static void net_pump(void) {
     }
 }
 
+/* ---- The NETWORK STARTUP page (level 39's 0x0067D758) ---- */
+
+/* The page's globals: its state ($gp - 0x175C on PAL, - 0x177C on NTSC-U), the message state's
+ * next states on Cross (two words) and on Triangle, and the message it shows (D_00372840, 0x100
+ * bytes, which the page prints through a 0xC0-byte buffer, D_00370C40). NTSC-U's from its own
+ * f_0067AC48 (the same code: $gp 0x00248140, the message at lui 0x37 + 0x2940). */
+#ifdef RAC3_PAL
+#define NETCNF_STATE 0x00246864u
+#define NETCNF_MESSAGE 0x00372840u
+#else
+#define NETCNF_STATE 0x002469C4u
+#define NETCNF_MESSAGE 0x00372940u
+#endif
+#define NETCNF_ON_CROSS (NETCNF_STATE + 4u)
+#define NETCNF_ON_CROSS_ELSE (NETCNF_STATE + 8u)
+#define NETCNF_ON_TRIANGLE (NETCNF_STATE + 12u)
+#define NETCNF_LIST_STATE 4     /* the configurations' list */
+#define NETCNF_MESSAGE_STATE 11 /* a message, left with Cross or Triangle */
+#define NETCNF_MESSAGE_SIZE 0xC0u
+
+/* The combination list: its slots' count (+0), then four slots of 0xC8 bytes from +0x30, the
+ * page's rows 1 to 4 (ezNetCnfGetCombination, 0x00137008, is list + 0x30 + 0xC8 (n - 1) for n up
+ * to the count, else NULL). A slot's first word is negative when it is empty: its row is hidden
+ * and the cursor skips it. +0x08 is the name ezNetCnfGetProperties reads, +0x48 the row's text
+ * ("%d. %s"), +0x88 the page's line under the list. */
+#define NETCNF_SLOTS 4
+#define NETCNF_SLOT 0xC8u
+#define NETCNF_SLOT_NAME 0x08u
+#define NETCNF_SLOT_ROW 0x48u
+#define NETCNF_SLOT_DESCRIPTION 0x88u
+
+/* The server OPENRAC_SERVER names, without its port and brackets, for the page. */
+static void netcnf_server_host(char* out, size_t size) {
+    const char* env = openrac_env_string("OPENRAC_SERVER");
+    if (env == NULL || *env == 0) {
+        snprintf(out, size, "%s", "game.openrac.dev");
+        return;
+    }
+    const char* close = env[0] == '[' ? strchr(env, ']') : NULL;
+    const char* colon = strrchr(env, ':');
+    if (close != NULL) {
+        snprintf(out, size, "%.*s", (int)(close - env - 1), env + 1);
+    } else if (colon != NULL && strchr(env, ':') == colon) {
+        snprintf(out, size, "%.*s", (int)(colon - env), env);
+    } else {
+        snprintf(out, size, "%s", env);
+    }
+}
+
 /* ================================ The game's functions ================================ */
 
 /* sceSifSearchModuleByName: the network adaptor's modules are loaded (the menus' "no network
@@ -1828,15 +1877,53 @@ int mp_func_0012C220(int name) {
     return 1;
 }
 
-/* ezNetCnfGetCombinationList(name, type, list): one combination, the first entry (+0x30; its first
- * word >= 0 is valid, its name at +0x88). */
+/* ezNetCnfGetCombinationList(name, type, list): one configuration, the OpenRAC server, in the first
+ * of the page's four slots; the other three are empty, so the page shows one row. Returns the
+ * configurations' count. */
 int mp_func_00136ED0(int a0, int a1, int list) {
     (void)a0;
     (void)a1;
-    memset(G(list), 0, 0x30 + 0xC8);
-    GREF(int32_t, list) = 1;
-    put_text((uint8_t*)G(list + 0x30 + 0x88), "OpenRAC server", 0x31);
+    memset(G(list), 0, 0x30 + NETCNF_SLOTS * NETCNF_SLOT);
+    GREF(int32_t, list) = NETCNF_SLOTS;
+    for (int n = 1; n < NETCNF_SLOTS; n++) {
+        GREF(int32_t, (gaddr)list + 0x30u + NETCNF_SLOT * (gaddr)n) = -1;
+    }
+    const gaddr slot = (gaddr)list + 0x30u;
+    char host[64];
+    char row[0x40];
+    netcnf_server_host(host, sizeof host);
+    snprintf(row, sizeof row, "OpenRAC server (%s)", host);
+    put_text((uint8_t*)G(slot + NETCNF_SLOT_NAME), "OpenRAC", 0x40);
+    put_text((uint8_t*)G(slot + NETCNF_SLOT_ROW), row, sizeof row);
+    put_text((uint8_t*)G(slot + NETCNF_SLOT_DESCRIPTION), "OpenRAC server", 0x31);
     return 1;
+}
+
+/* Square on the page (level 39's 0x0067CED8): the console ran the disc's network setup program
+ * (cdrom0:\NETGUI\NTGUI.ELF), which the port does not have. The page's own message says where the
+ * server is set instead; Cross or Triangle goes back to the list. */
+void mp_func_L39_0067CED8(void) {
+    char host[64];
+    char text[NETCNF_MESSAGE_SIZE];
+    netcnf_server_host(host, sizeof host);
+    snprintf(
+        text,
+        sizeof text,
+        "Online play goes through the OpenRAC server at %s. Set the multiplayer server in the "
+        "launcher: Settings > General.",
+        host
+    );
+    /* The page prints the message as a format. */
+    for (char* c = text; *c != 0; c++) {
+        if (*c == '%') {
+            *c = ' ';
+        }
+    }
+    put_text((uint8_t*)G(NETCNF_MESSAGE), text, sizeof text);
+    GREF(int32_t, NETCNF_STATE) = NETCNF_MESSAGE_STATE;
+    GREF(int32_t, NETCNF_ON_CROSS) = NETCNF_LIST_STATE;
+    GREF(int32_t, NETCNF_ON_CROSS_ELSE) = 0;
+    GREF(int32_t, NETCNF_ON_TRIANGLE) = NETCNF_LIST_STATE;
 }
 
 int mp_func_001370B8(int a0, int a1, int a2) {
