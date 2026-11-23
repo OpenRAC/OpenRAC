@@ -190,6 +190,12 @@ class Translator:
     # (asm.dma_stores), so a wait on COP0's condition has nothing to wait for: bc0t is always taken and
     # bc0f never (func_002A2450's copy back from the scratchpad).
     dma_done = False
+    # asm.trap_ends in hostgen.json: a trap that always fires (teq with one register twice: a
+    # hand-written routine's "cannot get here", Up Your Arsenal's moby grid func_003C7D10 when a moby
+    # is not in its cell's list) ends the path: logged, and the function returns, rather than going
+    # on into the next routine's code below it (func_003C7FF0's, whose VU0 microprogram the port
+    # writes as a function of its own).
+    trap_ends = False
     # asm.input_idioms in hostgen.json: reads that are no inputs (_no_input): func_002A05A8's
     # `sub.s $f0, $f0, $f0`, func_002A3110 saving $t8 and $t9 to the scratchpad.
     input_idioms = False
@@ -346,6 +352,7 @@ class Translator:
         sub.cop0_count = self.cop0_count
         sub.input_idioms = self.input_idioms
         sub.dma_done = self.dma_done
+        sub.trap_ends = self.trap_ends
         sub.vu_flush = self.vu_flush
         sub.verified_signatures = self.verified_signatures
         sub.ps2 = self.ps2
@@ -611,7 +618,8 @@ class Translator:
             if ins.op in UNSUPPORTED and self.microprogram(ins) is None and not done_wait and not counted:
                 raise AsmUnsupported(f"{UNSUPPORTED[ins.op]} at {ins.addr:08X}")
             if not is_control(ins):
-                todo.append(a + 4)
+                if not self._ends(ins):
+                    todo.append(a + 4)
                 continue
             d = self._need(a + 4, "a delay slot")
             if is_control(d):
@@ -646,6 +654,10 @@ class Translator:
                 if not uncond:
                     todo.append(a + 8)
         return reach, delay - heads, tables
+
+    def _ends(self, ins: asm.Insn) -> bool:
+        """Whether the path ends at this instruction: a trap that always fires, with asm.trap_ends."""
+        return self.trap_ends and ins.op == "teq" and ins.rs == ins.rt
 
     # ---- The signature ----
 
@@ -922,6 +934,9 @@ class Translator:
             if not is_control(ins):
                 out += self.stmt(ins)
                 falls = a + 4
+                if self._ends(ins):
+                    out += self.leave()
+                    falls = None
             else:
                 delay = self.stmt(self.at(a + 4))
                 out += self.control(ins, delay)
@@ -1369,7 +1384,7 @@ class Translator:
             ins = self.at(a)
             r_g, r_f, w_g, w_f = effect(a)
             if not is_control(ins):
-                nodes[a] = (r_g, r_f, w_g, w_f, [a + 4])
+                nodes[a] = (r_g, r_f, w_g, w_f, [] if self._ends(ins) else [a + 4])
                 continue
             d = a + 4
             d_g, d_f, dw_g, dw_f = effect(d)
@@ -2410,6 +2425,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.register_jumps = bool(a.get("register_jumps"))
     tr.input_idioms = bool(a.get("input_idioms"))
     tr.dma_done = bool(a.get("dma_done"))
+    tr.trap_ends = bool(a.get("trap_ends"))
     tr.vu_flush = bool(a.get("vu_flush"))
     tr.signature_check = bool(a.get("signature_check"))
     tr.result_flow = bool(a.get("result_flow"))
