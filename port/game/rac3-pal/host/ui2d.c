@@ -1947,10 +1947,12 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
         }                                                                                          \
     }
 
+#define MP_MAP_VU0(...)
 #include "mp_maps.h"
 #undef MP_MAP
 #undef MP_MAP_HUD
 #undef MP_MAP_UI
+#undef MP_MAP_VU0
 
 /* frontbin's copies of the 2D layer (the program the front end runs after a level: Quit Game, a
  * level's exit to the menus), wrapped as the boot program's and the levels' are. Its globals are the

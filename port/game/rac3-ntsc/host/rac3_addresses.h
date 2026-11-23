@@ -140,6 +140,14 @@
 #define RAC3_ADDR_0x001DA05Cu 0x001DA0DCu
 /* D_001DA4D0 (names.tsv) */
 #define RAC3_ADDR_0x001DA4D0u 0x001DA550u
+/* D_001DA6B0 (names.tsv) */
+#define RAC3_ADDR_0x001DA6B0u 0x001DA730u
+/* D_001DA6C0 (names.tsv) */
+#define RAC3_ADDR_0x001DA6C0u 0x001DA740u
+/* D_001DA6D0 (names.tsv) */
+#define RAC3_ADDR_0x001DA6D0u 0x001DA750u
+/* D_001DA6F0 (names.tsv) */
+#define RAC3_ADDR_0x001DA6F0u 0x001DA770u
 /* D_00222420 (names.tsv) */
 #define RAC3_ADDR_0x00222420u 0x002224A0u
 /* D_00225700 (names.tsv) */
@@ -160,6 +168,8 @@
 #define RAC3_ADDR_0x00280CF0u 0x00280D70u
 /* D_002D2008 (names.tsv) */
 #define RAC3_ADDR_0x002D2008u 0x002D2088u
+/* D_002DA100 (names.tsv) */
+#define RAC3_ADDR_0x002DA100u 0x002DA180u
 /* D_0037F830 (names.tsv) */
 #define RAC3_ADDR_0x0037F830u 0x0037F8B0u
 /* func_00381250 (map.tsv differs) */
@@ -270,6 +280,14 @@
 #define RAC3_LADDR_1_0x001E0278u 0x001E02F8u
 /* the same instruction of the same code: func_L01_004618E8 (NTSC-U func_L01_0045E440) +0xC, 8 of 8 places agree */
 #define RAC3_LADDR_1_0x001E0280u 0x001E0300u
+/* between the same code's 0x001E0D30 and 0x001E0DC0, both moved by +0x80 (NTSC-U 0x001E0DB0, 0x001E0E40) */
+#define RAC3_LADDR_1_0x001E0D70u 0x001E0DF0u
+/* between the same code's 0x001E0D30 and 0x001E0DC0, both moved by +0x80 (NTSC-U 0x001E0DB0, 0x001E0E40) */
+#define RAC3_LADDR_1_0x001E0D80u 0x001E0E00u
+/* between the same code's 0x001E0D30 and 0x001E0DC0, both moved by +0x80 (NTSC-U 0x001E0DB0, 0x001E0E40) */
+#define RAC3_LADDR_1_0x001E0D90u 0x001E0E10u
+/* between the same code's 0x001E0D30 and 0x001E0DC0, both moved by +0x80 (NTSC-U 0x001E0DB0, 0x001E0E40) */
+#define RAC3_LADDR_1_0x001E0DB0u 0x001E0E30u
 /* between the same code's 0x001E0DF0 and 0x001E0E90, both moved by +0x80 (NTSC-U 0x001E0E70, 0x001E0F10) */
 #define RAC3_LADDR_1_0x001E0E10u 0x001E0E90u
 /* the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x44, 8 of 8 places agree */
@@ -298,6 +316,8 @@
 #define RAC3_LADDR_1_0x001EA7C0u 0x001EA840u
 /* between the same code's 0x001EA7C0 and 0x001EA940, both moved by +0x80 (NTSC-U 0x001EA840, 0x001EA9C0) */
 #define RAC3_LADDR_1_0x001EA840u 0x001EA8C0u
+/* the same instruction of the same code: func_L01_00444F38 (NTSC-U func_L01_00441E00) +0xEC, 2 of 2 places agree */
+#define RAC3_LADDR_1_0x001FCB40u 0x001FCBC0u
 /* between the same code's 0x00220840 and 0x00220E40, both moved by +0x80 (NTSC-U 0x002208C0, 0x00220EC0) */
 #define RAC3_LADDR_1_0x00220A40u 0x00220AC0u
 /* the item records (0xF0 bytes each, 160 of them): Veldin's program on the NTSC-U disc has PAL's 160 rows at 0x002C5640 (read from both discs' level 1, 2026-11-21: gun byte, next version +0x46, ammo +0x84/+0x8A/+0x8E and name ids the same) */
@@ -330,6 +350,14 @@
 #define RAC3_LADDR_39_0x0024C188u 0x0024C288u
 /* the same instruction of the same code: func_L01_004C97C8 (NTSC-U func_L01_004C5C08) +0x8, 6 of 6 places agree */
 #define RAC3_LADDR_39_0x0024C190u 0x0024C290u
+/* between the same code's 0x0024C890 and 0x0024C8F0, both moved by +0x100 (NTSC-U 0x0024C990, 0x0024C9F0) */
+#define RAC3_LADDR_39_0x0024C8A0u 0x0024C9A0u
+/* between the same code's 0x0024C890 and 0x0024C8F0, both moved by +0x100 (NTSC-U 0x0024C990, 0x0024C9F0) */
+#define RAC3_LADDR_39_0x0024C8B0u 0x0024C9B0u
+/* between the same code's 0x0024C890 and 0x0024C8F0, both moved by +0x100 (NTSC-U 0x0024C990, 0x0024C9F0) */
+#define RAC3_LADDR_39_0x0024C8C0u 0x0024C9C0u
+/* between the same code's 0x0024C890 and 0x0024C8F0, both moved by +0x100 (NTSC-U 0x0024C990, 0x0024C9F0) */
+#define RAC3_LADDR_39_0x0024C8E0u 0x0024C9E0u
 /* between the same code's 0x0024C920 and 0x0024C9A0, both moved by +0x100 (NTSC-U 0x0024CA20, 0x0024CAA0) */
 #define RAC3_LADDR_39_0x0024C940u 0x0024CA40u
 /* the same instruction of the same code: func_L01_003F8820 (NTSC-U func_L01_003F6678) +0x6C, 95 of 95 places agree */
@@ -342,6 +370,8 @@
 #define RAC3_LADDR_39_0x0025D9C0u 0x0025DAC0u
 /* the same instruction of the same code: func_L39_005B25C8 (NTSC-U func_L39_005B06C8) +0xE8, 1 of 1 places agree */
 #define RAC3_LADDR_39_0x0025F580u 0x0025F680u
+/* the same instruction of the same code: func_L01_00444F38 (NTSC-U func_L01_00441E00) +0xEC, 2 of 2 places agree */
+#define RAC3_LADDR_39_0x00271500u 0x00271600u
 /* between the same code's 0x00294FC0 and 0x002965C0, both moved by +0x100 (NTSC-U 0x002950C0, 0x002966C0) */
 #define RAC3_LADDR_39_0x002961C0u 0x002962C0u
 /* the level program's entry (its ELF header: PAL 0x00575CC8, NTSC-U 0x00574F88) */

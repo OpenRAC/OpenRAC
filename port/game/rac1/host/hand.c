@@ -84,97 +84,20 @@ int func_0020C468(int src, int dst) {
  * InitOnce uploads from D_0010E4C0 to VU0 address 0xC80): the entry at 0xC80 adds pi/2 and goes on
  * into the sine at 0xC90, which folds the angle into [-pi/2, pi/2] (max(min(x, pi - x), -pi - x))
  * and sums x + c0 x^3 + c1 x^5 + c2 x^7 + c3 x^9 in that order. (ReRAC's moby_light.rs describes
- * the same microprogram, as a reference.) The constants are the microprogram's own: they are read
- * from its I-register immediates in the game's memory the first time, so nothing of the game is
- * copied here; the Taylor terms stand in only if they cannot be found.
+ * the same microprogram, as a reference.) The port computes it natively; the constants are the
+ * microprogram's I-register immediates, written here as numbers (data: the same words on every
+ * Ratchet & Clank disc): pi/2 0x3FC90FDA, pi 0x40490FDA, then 0xBE2AAAA4, 0x3C08873E, 0xB94FB21D
+ * and 0x362E9C14.
  */
-
-
-/* A word of the VU0 patch microprogram in the game's memory (D_0010E4C0). */
-static unsigned word(int i) {
-    unsigned w;
-    memcpy(&w, G(RAC1_ADDR(0x0010E4C0u) + (gaddr)i * 4u), 4);
-    return w;
-}
-
-static float as_float(unsigned w) {
-    float f;
-    memcpy(&f, &w, 4);
-    return f;
-}
-
-static float sincos_half_pi = 1.57079625f;
-static float sincos_pi = 3.1415925f;
-static float sincos_c[4] = {-1.0f / 6.0f, 1.0f / 120.0f, -1.0f / 5040.0f, 1.0f / 362880.0f};
-static int sincos_ready;
-
-/* True when `v` lies within a tenth of a percent of `want`. */
-static int sincos_near(float v, float want) {
-    float d = v - want;
-    float tolerance = want * 0.001f;
-    if (tolerance < 0.0f) {
-        tolerance = -tolerance;
-    }
-    return d <= tolerance && d >= -tolerance;
-}
-
-static void sincos_init(void) {
-    int i;
-    int found = 0;
-
-    sincos_ready = 1;
-    /* The program follows its MPG code (0x4A, 0x5E instructions, at 0x190); the immediates are the
-       lower words of the pairs whose upper word has the I bit (bit 31) set. */
-    for (i = 0; i < 64; i++) {
-        if (word(i) == 0x4A5E0190u) {
-            break;
-        }
-    }
-    if (i == 64) {
-        return;
-    }
-    i++;
-    if (i & 1) {
-        i++;
-    }
-    for (; i + 1 < 64 + 0x5E * 2; i += 2) {
-        unsigned upper = word(i + 1);
-        float v;
-
-        if ((upper & 0x80000000u) == 0) {
-            continue;
-        }
-        v = as_float(word(i));
-        if (sincos_near(v, 1.5707963f)) {
-            sincos_half_pi = v;
-            found |= 1;
-        } else if (sincos_near(v, 3.1415926f)) {
-            sincos_pi = v;
-            found |= 2;
-        } else if (sincos_near(v, -1.0f / 6.0f)) {
-            sincos_c[0] = v;
-            found |= 4;
-        } else if (sincos_near(v, 1.0f / 120.0f)) {
-            sincos_c[1] = v;
-            found |= 8;
-        } else if (sincos_near(v, -1.0f / 5040.0f) || (v < -1.9e-4f && v > -2.0e-4f)) {
-            sincos_c[2] = v;
-            found |= 16;
-        } else if (v > 2.5e-6f && v < 2.9e-6f) {
-            sincos_c[3] = v;
-            found |= 32;
-        }
-    }
-    (void)found;
-}
+static const float sincos_half_pi = 0x1.921fb4p+0f;
+static const float sincos_pi = 0x1.921fb4p+1f;
+static const float sincos_c[4] =
+    {-0x1.555548p-3f, 0x1.110e7cp-7f, -0x1.9f643ap-13f, 0x1.5d3828p-19f};
 
 /* The microprogram's sine of an angle in radians (entry 0xC90). */
 static float vu0_sine(float a) {
     float x, folded, x2, x3, x5, x7, x9, sum;
 
-    if (!sincos_ready) {
-        sincos_init();
-    }
     /* min(x, pi - x), then max with -pi - x */
     folded = sincos_pi - a;
     x = a < folded ? a : folded;
@@ -195,9 +118,6 @@ static float vu0_sine(float a) {
 
 /* FastCos(a): the sine of a + pi/2 (entry 0xC80). */
 float func_001F9F90(float a) {
-    if (!sincos_ready) {
-        sincos_init();
-    }
     return vu0_sine(a + sincos_half_pi);
 }
 
