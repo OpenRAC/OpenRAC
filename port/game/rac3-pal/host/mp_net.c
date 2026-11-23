@@ -113,7 +113,8 @@ enum {
     PACKET_UI,
     PACKET_HUB,
     PACKET_SERVERS,
-    PACKET_ACCOUNT
+    PACKET_ACCOUNT,
+    PACKET_STATS
 };
 
 enum {
@@ -159,6 +160,19 @@ enum {
     ACCOUNT_LOGOUT
 };
 
+/* PACKET_STATS's opcodes (between a client and the hub): the game's own ladder rows and career
+ * bytes, which the hub keeps per game family without reading them. Each answers one Medius request
+ * of the game, one to one (OpenRAC/Server README, "Stats and ladders"). */
+enum {
+    STATS_TOTALS,
+    STATS_LADDER_WRITE,
+    STATS_LADDER_READ,
+    STATS_LADDER_PAGE,
+    STATS_LADDER_POSITION,
+    STATS_CAREER_WRITE,
+    STATS_CAREER_READ
+};
+
 /* PACKET_ERROR's reasons. */
 enum {
     ERROR_PARTY_NOT_FOUND,
@@ -173,7 +187,8 @@ enum {
     ERROR_WRONG_PASSWORD,
     ERROR_INVALID_ACCOUNT,
     ERROR_SESSION_INVALID,
-    ERROR_TRY_LATER
+    ERROR_TRY_LATER,
+    ERROR_NOT_LOGGED_IN
 };
 
 #define LIST_ADVERTS 1
@@ -186,6 +201,15 @@ void rac3_mp_ui_notice(const char* text);               /* mp_ui.c */
 #define HUB_DEFAULT_PORT "7177"
 /* A game server that did not take the connection is tried again after this long. */
 #define SERVER_RETRY_MS 10000
+#define LADDER_VALUES 100     /* a ladder row's values (LOBBY_LADDER_STATS_WRITE_REQUEST's Stats) */
+#define CAREER_BYTES 256      /* the career stats (LOBBY_CAREER_STATS_UPLOAD_REQUEST's Stats) */
+#define LADDER_PAGE_MAX 32    /* the hub's longest ladder page */
+#define STATS_WAITS 16        /* the game's stats requests waiting for the hub */
+#define STATS_GIVE_UP_MS 4500 /* a request the hub has not answered: failed (the game waits 5 s) */
+/* The stats requests' share of the hub's request budget (HUB_REQUEST_BURST 10, a few left for the
+ * rest), and its refill a second (HUB_REQUEST_PER_SECOND). */
+#define STATS_BURST 8
+#define STATS_PER_SECOND 2
 #define CLIENT_SLOTS 2 /* PACKET_HELLO's client bit: send PARTY_SLOTS (the room's stable slots) */
 #define CLIENT_KEEPS_ALIVE                                                                         \
     4                      /* PACKET_HELLO's client bit: this client sends PACKET_TIME every 2 s */
@@ -1197,6 +1221,8 @@ static void lobby_pick_city(const uint8_t* req, size_t size) {
     srv_ensure();
 }
 
+static void stats_forget(void);
+
 /* The session ended at the hub (the game logs out): the game server's link goes with it, unless
  * this console is in a game there. */
 static void hub_logout(void) {
@@ -1209,6 +1235,7 @@ static void hub_logout(void) {
         srv_end();
     }
     net_login.token[0] = 0;
+    stats_forget();
     if (!net_login.direct && !room.in) {
         link_close(&srv);
         net_login.region = -1;
@@ -1531,6 +1558,380 @@ static void lobby_reply_join(int32_t status, int32_t world) {
     lobby.join_waiting = 0;
 }
 
+/* ---- The game's stats, kept by the hub ---- */
+
+/* The game's ladder and career requests go to the hub once logged in there (STATS_*); their
+ * replies wait for its answers. The hub takes a few requests a second from a client and drops the
+ * rest unanswered, so they go out within its budget, and what the hub already has (the row and the
+ * bytes this console wrote or read last) is answered here. */
+typedef struct {
+    int op;        /* STATS_* */
+    int sent;      /* gone to the hub, else waiting for the budget */
+    int cls, type; /* the game's request (0, 0: the port's own read, no reply) */
+    int32_t account;
+    int64_t since_ms;
+    size_t size;
+    uint8_t req[0x1AC];
+} stats_request;
+
+static struct {
+    stats_request wait[STATS_WAITS];
+    int count;
+    double budget;
+    int64_t budget_ms;
+    uint8_t career[CAREER_BYTES]; /* this account's career bytes, once read or written */
+    int career_known;
+    uint8_t ladder[4 * LADDER_VALUES]; /* this account's ladder row as last written */
+    int ladder_known;
+} stats = {.budget = STATS_BURST};
+
+static void srv_i64(int32_t v) {
+    srv_i32(v < 0 ? -1 : 0);
+    srv_i32(v);
+}
+
+/* The reply to the game's request W: from the hub's answer R (after the account id, which matched),
+ * or a failure when R is NULL. */
+static void stats_reply(const stats_request* w, reader* r) {
+    if (w->cls == 0) { /* the port's own read: this account's career bytes */
+        if (r != NULL && w->op == STATS_CAREER_READ) {
+            memset(stats.career, 0, sizeof stats.career);
+            memcpy(stats.career, r->p, r->n < CAREER_BYTES ? r->n : CAREER_BYTES);
+            stats.career_known = 1;
+        }
+        return;
+    }
+    const lobby_reply* lr = lobby_reply_of(w->cls, w->type);
+    uint8_t reply[LOBBY_REPLY_MAX];
+    switch (w->op) {
+        case STATS_LADDER_WRITE:
+        case STATS_CAREER_WRITE:
+            lobby_start(reply, lr, w->req, r != NULL ? M_SUCCESS : M_SERVER_ERROR);
+            if (r != NULL && w->op == STATS_CAREER_WRITE) {
+                memcpy(stats.career, w->req + 0x26, CAREER_BYTES);
+                stats.career_known = 1;
+            } else if (r != NULL && get32(w->req + 0x18) == 0) {
+                memcpy(stats.ladder, w->req + 0x1C, sizeof stats.ladder);
+                stats.ladder_known = 1;
+            }
+            break;
+        case STATS_LADDER_READ: { /* LOBBY_LADDER_STATS_READ_ANSWER: +0x1C the id, +0x20 Stats[100] */
+            lobby_start(reply, lr, w->req, r != NULL ? M_SUCCESS : M_SERVER_ERROR);
+            put32(reply + 0x1C, w->account);
+            if (r != NULL) {
+                rd_i32(r); /* the ladder type */
+                const int count = rd_u8(r);
+                for (int k = 0; k < count; k++) {
+                    const int32_t v = rd_i32(r);
+                    if (k < LADDER_VALUES) {
+                        put32(reply + 0x20 + 4 * k, v);
+                    }
+                }
+            }
+            break;
+        }
+        case STATS_LADDER_POSITION: { /* LOBBY_LADDER_POSITION_ANSWER: +0x1C position, +0x20 total */
+            const int32_t position = r != NULL ? rd_i32(r) : 0;
+            const int32_t total = r != NULL ? rd_i32(r) : 0;
+            lobby_start(
+                reply,
+                lr,
+                w->req,
+                r == NULL      ? M_SERVER_ERROR
+                : position > 0 ? M_SUCCESS
+                               : M_NO_RESULT
+            );
+            put32(reply + 0x1C, position);
+            put32(reply + 0x20, total);
+            break;
+        }
+        case STATS_LADDER_PAGE: { /* LOBBY_LADDER_PAGE_ENTRY records: +0x1C position, +0x20 the value
+                                   * sorted by, +0x24 AccountID, +0x28 AccountName, +0x1D4 EndOfList */
+            const int index = get32(w->req + 0x18);
+            int count = 0;
+            if (r != NULL) {
+                rd_i32(r); /* the accounts on the ladder */
+                count = rd_u8(r);
+            }
+            for (int i = 0; i < count; i++) {
+                int32_t values[LADDER_VALUES] = {0};
+                char name[33];
+                lobby_start(reply, lr, w->req, M_SUCCESS);
+                put32(reply + 0x1C, rd_i32(r));
+                rd_i32(r);
+                put32(reply + 0x24, rd_i32(r));
+                rd_text(r, name, sizeof name);
+                put_text(reply + 0x28, name, 32);
+                const int n = rd_u8(r);
+                for (int k = 0; k < n; k++) {
+                    const int32_t v = rd_i32(r);
+                    if (k < LADDER_VALUES) {
+                        values[k] = v;
+                    }
+                }
+                put32(reply + 0x20, index >= 0 && index < LADDER_VALUES ? values[index] : 0);
+                put32(reply + lr->size - 4, i == count - 1);
+                lobby_push(lr->reply_cls, lr->reply_type, reply, lr->size);
+            }
+            if (count > 0) {
+                return;
+            }
+            lobby_start(reply, lr, w->req, r != NULL ? M_NO_RESULT : M_SERVER_ERROR);
+            break;
+        }
+        case STATS_CAREER_READ: /* LOBBY_ACCOUNT_INFO_ANSWER: +0x1C AccountName, +0x48 Stats */
+            lobby_start(reply, lr, w->req, M_SUCCESS);
+            if (w->account == net_login.account) {
+                put_text(reply + 0x1C, net_login.name, 32);
+            }
+            if (r != NULL) {
+                memcpy(reply + 0x48, r->p, r->n < CAREER_BYTES ? r->n : CAREER_BYTES);
+                if (w->account == net_login.account) {
+                    memset(stats.career, 0, sizeof stats.career);
+                    memcpy(stats.career, r->p, r->n < CAREER_BYTES ? r->n : CAREER_BYTES);
+                    stats.career_known = 1;
+                }
+            }
+            break;
+        default:
+            return;
+    }
+    lobby_push(lr->reply_cls, lr->reply_type, reply, lr->size);
+}
+
+static void stats_drop(int i, reader* r) {
+    const stats_request w = stats.wait[i];
+    memmove(
+        &stats.wait[i], &stats.wait[i + 1], sizeof stats.wait[0] * (size_t)(stats.count - i - 1)
+    );
+    stats.count--;
+    stats_reply(&w, r);
+}
+
+/* Sends request W to the hub: the game family, then the opcode's fields. */
+static void stats_send(stats_request* w) {
+    const uint8_t* q = w->req;
+    hub_begin(PACKET_STATS, w->op);
+    srv_text(NET_FAMILY);
+    switch (w->op) {
+        case STATS_LADDER_WRITE: /* LadderType, Stats[100] */
+            srv_i32(get32(q + 0x18));
+            srv_u8(LADDER_VALUES);
+            for (int k = 0; k < LADDER_VALUES; k++) {
+                srv_i32(get32(q + 0x1C + 4 * k));
+            }
+            break;
+        case STATS_LADDER_READ: /* AccountID, LadderType */
+            srv_i64(w->account);
+            srv_i32(get32(q + 0x1C));
+            break;
+        case STATS_LADDER_PAGE: { /* the value to sort by, the order, the first position, the page */
+            const int index = get32(q + 0x18);
+            const int32_t start = get32(q + 0x20);
+            const int32_t page = get32(q + 0x24);
+            srv_i32(0);
+            srv_u8(index >= 0 && index < LADDER_VALUES ? index : 0);
+            srv_u8(get32(q + 0x1C) != 0);
+            srv_i32(start < 1 ? 1 : start);
+            srv_u8(page < 1 ? 1 : page > LADDER_PAGE_MAX ? LADDER_PAGE_MAX : page);
+            break;
+        }
+        case STATS_LADDER_POSITION: { /* AccountID, the value to sort by, the order */
+            const int index = get32(q + 0x1C);
+            srv_i64(w->account);
+            srv_i32(0);
+            srv_u8(index >= 0 && index < LADDER_VALUES ? index : 0);
+            srv_u8(get32(q + 0x20) != 0);
+            break;
+        }
+        case STATS_CAREER_WRITE: /* Stats[256] */
+            srv_bytes(q + 0x26, CAREER_BYTES);
+            break;
+        case STATS_CAREER_READ: /* the account */
+            srv_i64(w->account);
+            break;
+        default:
+            break;
+    }
+    srv_end();
+    w->sent = 1;
+    if (net_log()) {
+        fprintf(
+            stderr,
+            "[info] rac3: online: stats request %d to the hub (account %d)\n",
+            w->op,
+            w->account
+        );
+    }
+}
+
+/* Sends what the hub's budget allows, and fails what it left unanswered too long. */
+static void stats_pump(void) {
+    const int64_t now = host_ms();
+    if (stats.budget_ms != 0) {
+        stats.budget += (double)(now - stats.budget_ms) * STATS_PER_SECOND / 1000.0;
+        if (stats.budget > STATS_BURST) {
+            stats.budget = STATS_BURST;
+        }
+    }
+    stats.budget_ms = now;
+    for (int i = 0; i < stats.count;) {
+        if (now - stats.wait[i].since_ms > STATS_GIVE_UP_MS) {
+            fprintf(
+                stderr,
+                "[warning] rac3: online: the hub did not answer stats request %d\n",
+                stats.wait[i].op
+            );
+            stats_drop(i, NULL);
+            continue;
+        }
+        if (!stats.wait[i].sent && stats.budget >= 1.0 && hub.fd != NET_INVALID) {
+            stats.budget -= 1.0;
+            stats_send(&stats.wait[i]);
+        }
+        i++;
+    }
+}
+
+/* Queues one of the game's stats requests (or, with CLS 0, the port's own read) for the hub. */
+static void stats_ask(int op, int cls, int type, const uint8_t* req, size_t size, int32_t account) {
+    if (stats.count == STATS_WAITS) {
+        stats_drop(0, NULL);
+    }
+    stats_request* w = &stats.wait[stats.count++];
+    memset(w, 0, sizeof *w);
+    w->op = op;
+    w->cls = cls;
+    w->type = type;
+    w->account = account;
+    w->since_ms = host_ms();
+    w->size = size < sizeof w->req ? size : sizeof w->req;
+    if (req != NULL) {
+        memcpy(w->req, req, w->size);
+    }
+    stats_pump();
+}
+
+/* The hub's answer of opcode OP: the oldest request it answers (an account's read: that account's). */
+static void stats_answer(int op, reader* r) {
+    int32_t account = 0;
+    const int by_account =
+        op == STATS_LADDER_READ || op == STATS_LADDER_POSITION || op == STATS_CAREER_READ;
+    if (by_account) {
+        rd_i32(r);
+        account = rd_i32(r);
+    }
+    for (int i = 0; i < stats.count; i++) {
+        if (stats.wait[i].sent && stats.wait[i].op == op
+            && (!by_account || stats.wait[i].account == account)) {
+            stats_drop(i, r);
+            return;
+        }
+    }
+}
+
+/* The hub refused a stats request (ERROR_NOT_LOGGED_IN, ERROR_TRY_LATER): the oldest one sent. */
+static void stats_refused(int reason) {
+    for (int i = 0; i < stats.count; i++) {
+        if (stats.wait[i].sent) {
+            fprintf(
+                stderr,
+                "[warning] rac3: online: the hub refused stats request %d (reason %d)\n",
+                stats.wait[i].op,
+                reason
+            );
+            stats_drop(i, NULL);
+            return;
+        }
+    }
+}
+
+/* One of the game's ladder or career requests: to the hub when logged in there (1), else answered by
+ * the lobby's default (0). What the hub already has from this console is answered at once. */
+static int stats_request_from_game(int cls, int type, const uint8_t* req, size_t size) {
+    if (!hub_logged_in() || hub.fd == NET_INVALID) {
+        return 0;
+    }
+    switch (cls << 8 | type) {
+        case LOBBY_LADDER_STATS_WRITE_REQUEST:
+            if (size < 0x1AC) {
+                return 0;
+            }
+            if (get32(req + 0x18) == 0 && stats.ladder_known
+                && memcmp(stats.ladder, req + 0x1C, sizeof stats.ladder) == 0) {
+                return 0; /* the hub has this row */
+            }
+            stats_ask(STATS_LADDER_WRITE, cls, type, req, size, net_login.account);
+            return 1;
+        case LOBBY_CAREER_STATS_UPLOAD_REQUEST:
+            if (size < 0x126) {
+                return 0;
+            }
+            if (stats.career_known && memcmp(stats.career, req + 0x26, CAREER_BYTES) == 0) {
+                return 0;
+            }
+            stats_ask(STATS_CAREER_WRITE, cls, type, req, size, net_login.account);
+            return 1;
+        case LOBBY_LADDER_STATS_READ_REQUEST: {
+            if (size < 0x20) {
+                return 0;
+            }
+            const int32_t account = get32(req + 0x18);
+            if (account == net_login.account && stats.ladder_known && get32(req + 0x1C) == 0) {
+                const lobby_reply* lr = lobby_reply_of(cls, type);
+                uint8_t reply[0x1B0];
+                lobby_start(reply, lr, req, M_SUCCESS);
+                put32(reply + 0x1C, account);
+                memcpy(reply + 0x20, stats.ladder, sizeof stats.ladder);
+                lobby_push(lr->reply_cls, lr->reply_type, reply, lr->size);
+                return 1;
+            }
+            stats_ask(STATS_LADDER_READ, cls, type, req, size, account);
+            return 1;
+        }
+        case LOBBY_LADDER_PAGE_REQUEST:
+            if (size < 0x28) {
+                return 0;
+            }
+            stats_ask(STATS_LADDER_PAGE, cls, type, req, size, 0);
+            return 1;
+        case LOBBY_LADDER_POSITION_REQUEST:
+            if (size < 0x24) {
+                return 0;
+            }
+            stats_ask(STATS_LADDER_POSITION, cls, type, req, size, get32(req + 0x18));
+            return 1;
+        case LOBBY_ACCOUNT_INFO_REQUEST: {
+            if (size < 0x2C) {
+                return 0;
+            }
+            const int32_t account = get32(req + 0x28);
+            if (account == net_login.account && stats.career_known) {
+                const lobby_reply* lr = lobby_reply_of(cls, type);
+                uint8_t reply[0x148];
+                lobby_start(reply, lr, req, M_SUCCESS);
+                put_text(reply + 0x1C, net_login.name, 32);
+                memcpy(reply + 0x48, stats.career, CAREER_BYTES);
+                lobby_push(lr->reply_cls, lr->reply_type, reply, lr->size);
+                return 1;
+            }
+            stats_ask(STATS_CAREER_READ, cls, type, req, size, account);
+            return 1;
+        }
+        default:
+            return 0;
+    }
+}
+
+/* Every request waiting for the hub fails (the hub's link closed, or the account logged out). */
+static void stats_forget(void) {
+    while (stats.count > 0) {
+        stats_drop(0, NULL);
+    }
+    stats.career_known = 0;
+    stats.ladder_known = 0;
+}
+
 static void lobby_reply_players(const uint8_t* req) {
     const lobby_reply* r = lobby_reply_of(1, 0x2F);
     uint8_t reply[0x148];
@@ -1538,6 +1939,9 @@ static void lobby_reply_players(const uint8_t* req) {
         lobby_start(reply, r, req, M_SUCCESS);
         put32(reply + 0x1C, room.m[i].id);
         put_text(reply + 0x20, room.m[i].name, 32);
+        if (room.m[i].id == srv.session && stats.career_known) {
+            memcpy(reply + 0x40, stats.career, CAREER_BYTES); /* Stats: this account's career */
+        }
         put32(reply + 0x144, i == room.count - 1);
         lobby_push(r->reply_cls, r->reply_type, reply, r->size);
     }
@@ -1577,6 +1981,9 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
     }
     if (r == NULL) {
         return; /* no reply: the reports, chat, user state, the DNAS post */
+    }
+    if (stats_request_from_game(cls, type, req, size)) {
+        return;
     }
     lobby_start(reply, r, req, M_SUCCESS);
     switch (cls << 8 | type) {
@@ -2602,10 +3009,14 @@ static void on_hub_frame(int id, reader* r) {
                 account,
                 name
             );
-            /* Another account than the game server's link proved: that link goes. */
-            if (net_login.account != account && srv.fd != NET_INVALID && !room.in) {
-                link_close(&srv);
-                net_login.region = -1;
+            /* Another account than the game server's link proved: that link goes, and so do the
+             * stats kept for the last one. */
+            if (net_login.account != account) {
+                stats_forget();
+                if (srv.fd != NET_INVALID && !room.in) {
+                    link_close(&srv);
+                    net_login.region = -1;
+                }
             }
             net_login.account = account;
             net_login.tried_ms = 0;
@@ -2622,11 +3033,22 @@ static void on_hub_frame(int id, reader* r) {
                 srv_text(NET_FAMILY);
                 srv_end();
             }
+            /* This account's career bytes, which its player list entries and account info show. */
+            stats_ask(STATS_CAREER_READ, 0, 0, NULL, 0, account);
             break;
         }
-        case PACKET_ERROR:
-            hub_login_failed(rd_u8(r));
+        case PACKET_STATS:
+            stats_answer(rd_u8(r), r);
             break;
+        case PACKET_ERROR: {
+            const int reason = rd_u8(r);
+            if (lobby.login_waiting) {
+                hub_login_failed(reason);
+            } else {
+                stats_refused(reason);
+            }
+            break;
+        }
         case PACKET_REGIONS:
             on_regions(r);
             break;
@@ -2643,11 +3065,13 @@ static void hub_pump(void) {
         return;
     }
     if (!link_pump(&hub, on_hub_frame)) {
+        stats_forget();
         lobby.watching = 0; /* a new hub link watches again */
         if (lobby.login_waiting) {
             lobby_reply_login(M_LOGIN_FAILED);
         }
     }
+    stats_pump();
     if (net_login.direct && hub.fd != NET_INVALID) {
         /* Not a hub: the game server's own link to the same address takes the login (its hello's
          * answer gives the reply), and this one closes. */
