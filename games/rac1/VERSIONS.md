@@ -73,7 +73,7 @@ On an Apple Silicon Mac, build `ntsc-decomp/` through [ntsc-decomp/host/](ntsc-d
 its container's own Wine cannot run the project's Windows tools there, and
 that folder runs them under rac1/pal's Wine instead. Both of its gates pass
 that way, the boot ELF and all 1,540 overlay functions.
-The level editor ([editor/](../../editor/README.md)) reads the PAL disc.
+The level editor ([OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor)) reads the PAL disc.
 
 ## Where versions differ: variants
 

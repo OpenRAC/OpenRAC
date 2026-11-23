@@ -579,10 +579,10 @@ share most of them, but have their own DrawTfrag, tie and shrub passes and MobyP
 level 39's (`func_L39_...`, `OPENRAC_LDATA(39, ...)`). `IDENTIFIED.tsv` has each function and its
 Going Commando pair.
 
-The extracted levels are the shared export (`editor/extract.py port`), format 14 for this game
-(`editor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
+The extracted levels are the shared export (`extractor/extract.py port`), format 14 for this game
+(`extractor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
 sky's shells and its panorama, collision, (5) Ratchet's mesh and textures from his first pack
-(`editor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
+(`extractor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
 draws him with, and (6) the terrain and shrubs lit as the game lights them at load and the ties'
 colours per vertex, as Going Commando's (`games.py` `world_lighting`, `UYA_TIE`): the lighting
 routines are Going Commando's instructions, and the (cos, sin) table they light by is in each
@@ -612,7 +612,7 @@ boot program's table's: Ratchet's ship (class 3412) and its parts (4308 to 4325)
 (7683), whose classes are the scene's pack's: one of the loading packs the table of contents lists
 from `+0x1288` (after their base sector), pack 11 the ship's scene, which the loading screen unpacks
 at `0x006F3000` (picked at random among the scenes by `0x003BE0F0`). The export reads it as a small
-core (`editor/level.py` `load_wad_loading`: GS RAM at word 1, data base at word 2, the GS upload at
+core (`extractor/level.py` `load_wad_loading`: GS RAM at word 1, data base at word 2, the GS upload at
 4 and 5, the classes at 0xa and 0xc, the moby textures at 0xe and 0xf, the texture data at 0x17)
 and writes it as level 97, with Ratchet's pack. The profile names that level the loading screen's
 world (`loading_world`), and `0x003CB6B8` puts the world's and the mobys' markers in the list, so the
@@ -629,7 +629,7 @@ the timer at `0x00225734` once `0x002D2008 + 0x51` is set; no string is printed 
 To look at a level without the game (no game code runs; the viewer's own camera):
 
 ```sh
-python3 editor/extract.py port <disc> build/rac3pal --level 1 --anywhere
+python3 extractor/extract.py port <disc> build/rac3pal --level 1 --anywhere
 openrac-viewer build/rac3pal/level_01 --camera 365,103,82,90,-5 --screenshot veldin.png --frames 5
 ```
 

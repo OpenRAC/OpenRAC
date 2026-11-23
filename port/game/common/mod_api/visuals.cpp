@@ -5,6 +5,7 @@
 // sdk/api/members.tsv puts in this area, and what only they use.
 
 #include "mod_api/internal.h"
+#include "renderer/textures/sharp_cells.h"
 
 using namespace openrac;
 
@@ -741,6 +742,154 @@ int api_particle_texture_register(openrac_mod* mod, const openrac_particle_textu
         return id;
     }
     return id == 0 ? OPENRAC_HOOK_FULL : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_hud_hide(openrac_mod* mod, int hidden) {
+    if (mod == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_hud_lock);
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_hud_hidden, [&](const auto& h) { return h.first == mod || h.second != loads; });
+    if (hidden != 0) {
+        g_hud_hidden.emplace_back(mod, loads);
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_prop_animate(openrac_mod* mod, int id, int animation, float seconds, int loop) {
+    if (!std::isfinite(seconds)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    p->animation = std::max(animation, -1);
+    p->seconds = seconds;
+    p->loop = loop != 0;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_scene_air(openrac_mod* mod, const openrac_air* air) {
+    std::int32_t level = -1;
+    if (mod == nullptr || !in_level(phase_now(&level))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    if (air == nullptr) {
+        if (g_air && g_air->mod == mod) {
+            g_air.reset();
+        }
+        return OPENRAC_HOOK_OK;
+    }
+    if (air->size < sizeof(openrac_air)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const auto in_unit = [](float v) {
+        return std::isfinite(v) && v >= 0.0f && v <= 1.0f;
+    };
+    bool ok = in_unit(air->weight) && in_unit(air->fog_thickness) && std::isfinite(air->fog_near)
+              && std::isfinite(air->fog_far) && air->fog_near >= 0.0f
+              && air->fog_far > air->fog_near;
+    for (int i = 0; i < 3; ++i) {
+        ok = ok && in_unit(air->fog_colour[i]) && in_unit(air->background[i]);
+    }
+    if (!ok) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_air = AirSet{mod, loads_now(), *air};
+    return OPENRAC_HOOK_OK;
+}
+
+namespace {
+
+// What one sharp_cells call takes at most (openrac_api.sharp_cells): pages, cells a page, bytes of
+// colours and pictures in all; a texture's side and a picture's (texels).
+constexpr int kSharpPagesMax = 64;
+constexpr int kSharpCellsMax = 4096;
+constexpr std::size_t kSharpBytesMax = std::size_t{64} << 20;
+constexpr int kSharpTextureMax = 1024;
+constexpr int kSharpPictureMax = 4096;
+constexpr int kSharpScaleMax = 16;
+// The longest struct a mod built for a later interface may give: room to grow, not to overflow.
+constexpr std::uint32_t kSharpStructMax = 1024;
+
+// Element `i` of a mod's array of structs that start with their size, `stride` bytes apart (the
+// first one's size: a mod built for a later interface has longer ones).
+template <class T>
+const T& sized_element(const T* first, std::uint32_t stride, int i) {
+    return *reinterpret_cast<const T*>(
+        reinterpret_cast<const unsigned char*>(first)
+        + static_cast<std::size_t>(stride) * static_cast<std::size_t>(i)
+    );
+}
+
+// The stride of a mod's array of `T`: its first element's size, 0 when too short or too long.
+template <class T>
+std::uint32_t sized_stride(const T* first) {
+    const std::uint32_t size = first->size;
+    return size >= sizeof(T) && size <= kSharpStructMax ? size : 0;
+}
+
+// The mod's page `p` as the renderer keeps it, or false for one out of range; `bytes` counts its
+// colours and pictures.
+bool sharp_page(const openrac_sharp_page& p, renderer::sharp_cells::Page& out, std::size_t& bytes) {
+    if (p.width < 1 || p.width > kSharpTextureMax || p.height < 1 || p.height > kSharpTextureMax
+        || p.scale < 1 || p.scale > kSharpScaleMax || p.width * p.scale > kSharpPictureMax
+        || p.height * p.scale > kSharpPictureMax || p.count < 1 || p.count > kSharpCellsMax
+        || p.cells == nullptr) {
+        return false;
+    }
+    const std::uint32_t stride = sized_stride(p.cells);
+    if (stride == 0) {
+        return false;
+    }
+    out = {p.width, p.height, p.scale, {}};
+    out.cells.reserve(static_cast<std::size_t>(p.count));
+    for (int i = 0; i < p.count; ++i) {
+        const openrac_sharp_cell& c = sized_element(p.cells, stride, i);
+        if (c.size != stride || c.x < 0 || c.y < 0 || c.w < 1 || c.h < 1 || c.x > p.width - c.w
+            || c.y > p.height - c.h || c.rgb == nullptr || c.sharp == nullptr) {
+            return false;
+        }
+        const std::size_t colours =
+            static_cast<std::size_t>(c.w) * static_cast<std::size_t>(c.h) * 3;
+        const std::size_t sharp = colours * static_cast<std::size_t>(p.scale * p.scale);
+        bytes += colours + sharp;
+        if (bytes > kSharpBytesMax) {
+            return false;
+        }
+        out.cells.push_back(
+            {c.x, c.y, c.w, c.h, {c.rgb, c.rgb + colours}, {c.sharp, c.sharp + sharp}}
+        );
+    }
+    return true;
+}
+
+}  // namespace
+
+// openrac_api.sharp_cells. Since 1.36.
+int api_sharp_cells(openrac_mod* mod, const openrac_sharp_page* pages, int count) {
+    if (mod == nullptr || count < 0 || count > kSharpPagesMax || (count > 0 && pages == nullptr)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::uint32_t stride = count > 0 ? sized_stride(pages) : 0;
+    if (count > 0 && stride == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    // Every page read before any is set: a refusal leaves the mod's pages as they were.
+    std::vector<renderer::sharp_cells::Page> kept(static_cast<std::size_t>(count));
+    std::size_t bytes = 0;
+    for (int i = 0; i < count; ++i) {
+        const openrac_sharp_page& p = sized_element(pages, stride, i);
+        if (p.size != stride || !sharp_page(p, kept[static_cast<std::size_t>(i)], bytes)) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+    }
+    renderer::sharp_cells::set(mod, std::move(kept));
+    return OPENRAC_HOOK_OK;
 }
 
 }  // namespace openrac::mods::detail

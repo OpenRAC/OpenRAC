@@ -15,6 +15,8 @@
 #define RAC1_LADDR(n, a) a
 
 /* Level vtbl records carry moby update functions; the executable's vtbl is an empty sentinel. */
+/* print_moby_class_sizes is wrapped for the imported moby classes (rac1/host/foreign_class.c). */
+#define RAC1_FOREIGN_CLASSES 1
 #define RAC1_MOBY_VTBL(level) rac1_moby_vtbl_address(level)
 
 static inline unsigned rac1_moby_vtbl_address(int level) {

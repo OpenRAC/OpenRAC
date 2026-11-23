@@ -18,6 +18,8 @@
 #include "common/json.h"
 #include "common/log.h"
 #include "openrac/game_host.h"
+#include "program/control.h"
+#include "program/moby_states.h"
 
 namespace openrac::program {
 namespace {
@@ -33,7 +35,8 @@ namespace {
         "[--check-levels] [--interface-run FILE] "
         "[--interface-export DIR [--interface-runs FILE]... [--only font,interface,effects]] "
         "[--settings FILE] [--controls DIR] "
-        "[--plugins FILE] [--probes DIR] [--no-mods] [--debug-overlay] [--debug-dump FILE]",
+        "[--plugins FILE] [--probes DIR] [--no-mods] [--debug-overlay] [--debug-dump FILE] "
+        "[--moby-states FILE [--moby-states-ticks N]] [--control]",
         program_name(),
         openrac_game.game
     );
@@ -187,6 +190,8 @@ fs::path default_levels(const fs::path& data) {
 
 Options parse(int argc, char** argv) {
     Options o;
+    fs::path moby_states_out;
+    long moby_states_ticks = 300;
 
     for (int i = 1; i < argc; i++) {
         const std::string a = argv[i];
@@ -226,6 +231,12 @@ Options parse(int argc, char** argv) {
             o.frames = std::stol(value());
         } else if (a == "--level") {
             openrac_game_start_level = std::stoi(value());
+        } else if (a == "--moby-states") {
+            moby_states_out = value();
+        } else if (a == "--moby-states-ticks") {
+            moby_states_ticks = std::stol(value());
+        } else if (a == "--control") {
+            control::request();
         } else if (a == "--skip-movies") {
             o.skip_movies = true;
         } else if (a == "--unlock-all-weapons") {
@@ -265,6 +276,36 @@ Options parse(int argc, char** argv) {
         } else {
             usage("unknown option " + a);
         }
+    }
+
+    // --control (control.h): driven over stdin and stdout, without movies. tools/game_mcp.py also
+    // sets OPENRAC_DIRECT, which skips the title's notices (rac1/host/boot.c).
+    if (control::requested()) {
+        if (openrac_game_start_level >= 0) {
+            openrac_game_direct_start = 1;
+        }
+        o.skip_movies = true;
+    }
+
+    // --moby-states FILE (moby_states.h): straight into the --level, no movies, no card of the
+    // player's (an empty one in the temporary folder, which the game finds blank and asks nothing
+    // of), none of the player's native mods (a mod list that is not there), and no mods folder but
+    // the packed levels --mods names (OpenRAC Editor's openrac/tools/moby_states.py after_pack).
+    if (!moby_states_out.empty()) {
+        if (openrac_game_start_level < 0) {
+            usage("--moby-states needs --level");
+        }
+        moby_states::request(moby_states_out, moby_states_ticks);
+        openrac_game_direct_start = 1;
+        o.skip_movies = true;
+        o.no_mods = o.no_mods || o.mods.empty();
+        std::error_code e;
+        const fs::path temp = fs::temp_directory_path(e) / "openrac-moby-states-card";
+        if (o.cards.empty()) {
+            o.cards = temp;
+            fs::create_directories(o.cards, e);
+        }
+        o.plugins = temp / "no-plugins.json";
     }
 
     if (o.data.empty()) {
@@ -356,10 +397,8 @@ Options parse(int argc, char** argv) {
     if (o.expect_destinations && o.destinations.empty()) {
         usage("--destinations requires prepared destination packs with mods enabled");
     }
-    if (o.ship_map
-        && (!o.custom_map || (game_version() != "pal" && game_version() != "ntsc")
-            || std::string_view(openrac_game.game) != "rac1")) {
-        usage("--ship-map requires a RAC1 PAL or NTSC map pack in --mods");
+    if (o.ship_map && (!o.custom_map || std::string_view(openrac_game.game) != "rac1")) {
+        usage("--ship-map requires a Ratchet & Clank map pack in --mods");
     }
     if (o.ship_map) {
         json::Value stack;

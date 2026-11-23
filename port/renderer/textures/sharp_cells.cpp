@@ -7,13 +7,21 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <mutex>
 
 namespace openrac::renderer::sharp_cells {
 namespace {
 
+// One owner's pages, never empty, shared with a picture() that reads them.
+struct Owned {
+    Owner owner = kBuiltIn;
+    std::shared_ptr<const std::vector<Page>> pages;
+};
+
 std::mutex g_lock;
-std::vector<Page> g_pages;
+// The built-ins' first, then the mods' in the order they first set pages.
+std::vector<Owned> g_owners;
 
 bool matches(const Page& page, int width, int height, const std::uint8_t* rgba) {
     if (page.width != width || page.height != height || page.cells.empty()) {
@@ -41,26 +49,82 @@ bool matches(const Page& page, int width, int height, const std::uint8_t* rgba) 
     return true;
 }
 
+// The page's cells' own pictures put in `out`, the texture `s` times as big.
+void draw_cells(const Page& page, int s, Picture& out) {
+    for (const Cell& c : page.cells) {
+        if (c.sharp.size() != static_cast<std::size_t>(c.w * s * c.h * s * 3)) {
+            continue;
+        }
+        for (int y = 0; y < c.h * s; ++y) {
+            for (int x = 0; x < c.w * s; ++x) {
+                const std::uint8_t* from =
+                    c.sharp.data() + static_cast<std::size_t>(y * c.w * s + x) * 3;
+                std::uint8_t* o =
+                    out.pixels.data()
+                    + (static_cast<std::size_t>(c.y * s + y) * static_cast<std::size_t>(out.width)
+                       + static_cast<std::size_t>(c.x * s + x))
+                          * 4;
+                o[0] = from[0];
+                o[1] = from[1];
+                o[2] = from[2];
+            }
+        }
+    }
+}
+
 }  // namespace
 
-void set(std::vector<Page> pages) {
+void set(Owner owner, std::vector<Page> pages) {
+    std::shared_ptr<const std::vector<Page>> kept;
+    if (!pages.empty()) {
+        kept = std::make_shared<const std::vector<Page>>(std::move(pages));
+    }
+    // The pages replaced, freed after the lock.
+    std::shared_ptr<const std::vector<Page>> old;
     const std::lock_guard guard(g_lock);
-    g_pages = std::move(pages);
+    const auto found = std::find_if(g_owners.begin(), g_owners.end(), [&](const Owned& o) {
+        return o.owner == owner;
+    });
+    if (found != g_owners.end()) {
+        old = std::move(found->pages);
+        if (kept) {
+            found->pages = std::move(kept);
+        } else {
+            g_owners.erase(found);
+        }
+    } else if (kept) {
+        g_owners.insert(owner == kBuiltIn ? g_owners.begin() : g_owners.end(), {owner, kept});
+    }
+}
+
+void set(std::vector<Page> pages) {
+    set(kBuiltIn, std::move(pages));
 }
 
 bool picture(int width, int height, const std::uint8_t* rgba, Picture& out) {
-    Page page;
+    std::vector<std::shared_ptr<const std::vector<Page>>> owned;
     {
         const std::lock_guard guard(g_lock);
-        const auto found = std::find_if(g_pages.begin(), g_pages.end(), [&](const Page& p) {
-            return matches(p, width, height, rgba);
-        });
-        if (found == g_pages.end()) {
-            return false;
+        owned.reserve(g_owners.size());
+        for (const Owned& o : g_owners) {
+            owned.push_back(o.pages);
         }
-        page = *found;
     }
-    const int s = std::clamp(page.scale, 1, 16);
+    // The matching pages, first first: the first sets the scale, the others of that scale join.
+    std::vector<const Page*> found;
+    int s = 0;
+    for (const auto& pages : owned) {
+        for (const Page& page : *pages) {
+            const int scale = std::clamp(page.scale, 1, 16);
+            if ((s == 0 || scale == s) && matches(page, width, height, rgba)) {
+                s = scale;
+                found.push_back(&page);
+            }
+        }
+    }
+    if (found.empty()) {
+        return false;
+    }
     out.width = width * s;
     out.height = height * s;
     out.pixels.resize(
@@ -115,25 +179,10 @@ bool picture(int width, int height, const std::uint8_t* rgba, Picture& out) {
             }
         }
     }
-    // The cells' own pictures, over their colours; their opacity stays the texture's.
-    for (const Cell& c : page.cells) {
-        if (c.sharp.size() != static_cast<std::size_t>(c.w * s * c.h * s * 3)) {
-            continue;
-        }
-        for (int y = 0; y < c.h * s; ++y) {
-            for (int x = 0; x < c.w * s; ++x) {
-                const std::uint8_t* from =
-                    c.sharp.data() + static_cast<std::size_t>(y * c.w * s + x) * 3;
-                std::uint8_t* o =
-                    out.pixels.data()
-                    + (static_cast<std::size_t>(c.y * s + y) * static_cast<std::size_t>(out.width)
-                       + static_cast<std::size_t>(c.x * s + x))
-                          * 4;
-                o[0] = from[0];
-                o[1] = from[1];
-                o[2] = from[2];
-            }
-        }
+    // The cells' own pictures, over their colours; their opacity stays the texture's. The last
+    // page's first, so an earlier page's are drawn over them.
+    for (auto page = found.rbegin(); page != found.rend(); ++page) {
+        draw_cells(**page, s, out);
     }
     return true;
 }

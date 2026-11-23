@@ -91,7 +91,7 @@ describe("what a reset removes", () => {
   });
 
   it("says what stays", () => {
-    expect(keptLine("levels", false)).toMatch(/levels in Godot.*packs and edits/);
+    expect(keptLine("levels", false)).toMatch(/levels in OpenRAC Editor.*packs and edits/);
     expect(keptLine("editor", false)).toMatch(/packed levels, imported edits and added packs/);
     expect(keptLine("editor", true)).not.toMatch(/packed|edits/);
   });

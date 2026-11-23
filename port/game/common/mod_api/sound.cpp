@@ -113,4 +113,55 @@ void api_sound_stop(openrac_mod* mod, std::uint32_t voice) {
     }
 }
 
+int api_music_volume(openrac_mod* mod, float gain) {
+    if (mod == nullptr || !std::isfinite(gain) || gain < 0.0f || gain > 1.0f
+        || g_music_gain == nullptr || g_play == nullptr || g_play->music_group == nullptr
+        || g_play->music_group() < 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_music_gains, [&](const MusicGain& g) {
+        return g.mod == mod || g.loads != loads;
+    });
+    if (gain < 1.0f) {
+        g_music_gains.push_back({mod, loads, gain});
+    }
+    apply_music_gain();
+    return OPENRAC_HOOK_OK;
+}
+
+int api_moby_sound_play(openrac_mod* mod, int slot, int sound, int loop) {
+    std::int32_t level = -1;
+    const gaddr moby = moby_address(slot);
+    if (mod == nullptr || moby == 0 || g_play == nullptr || g_play->moby_sound_play == nullptr
+        || sound < 0 || !in_level(phase_now(&level))) {
+        return -1;
+    }
+    const int voice = g_play->moby_sound_play(moby, sound, loop != 0 ? 1 : 0);
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_hero_voices, [&](const HeroVoice& v) {
+        return v.loads != loads || v.voice == voice;
+    });
+    if (voice >= 0 && loop != 0) {
+        g_hero_voices.push_back({mod, loads, voice, moby});
+    }
+    return voice;
+}
+
+void api_moby_sound_stop(openrac_mod* mod, int voice) {
+    if (mod == nullptr || g_play == nullptr || g_play->moby_sound_stop == nullptr || voice < 0) {
+        return;
+    }
+    const auto it =
+        std::find_if(g_hero_voices.begin(), g_hero_voices.end(), [&](const HeroVoice& v) {
+            return v.mod == mod && v.voice == voice && v.moby != 0;
+        });
+    if (it == g_hero_voices.end()) {
+        return;  // not a looping voice of this mod's: a sound played once ends by itself
+    }
+    const gaddr moby = it->moby;
+    g_hero_voices.erase(it);
+    g_play->moby_sound_stop(moby, voice);
+}
+
 }  // namespace openrac::mods::detail

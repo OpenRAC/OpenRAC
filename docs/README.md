@@ -36,7 +36,8 @@ Where to find what. Start with the first table.
 | Document | For |
 |---|---|
 | [launcher/README.md](../launcher/README.md) | The launcher: using it, developing it, [connecting a game](../launcher/docs/INTEGRATION.md) |
-| [editor/README.md](../editor/README.md) | The Godot level editor: extracting your levels, what it reads, its code |
+| [extractor/README.md](../extractor/README.md) | The extractor: reading your disc's levels, models, textures and sounds for the port and for packs |
+| [OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor) | The level editor, a program of its own: the launcher downloads it from its releases ([its guide](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md)) |
 
 ## The decompilations
 

@@ -56,7 +56,10 @@ void func_0027F538(int x, int y, int style, gaddr text, int length) {
     func_0027F2A8(x, y, style, (int)text, length, func_0027C878(1), (int)OPENRAC_DATA(FONT_LARGE));
 }
 
+gaddr rac2_save_score_text(gaddr text); /* save_marks.c */
+
 void func_0027F5B8(int x, int y, int style, gaddr text, int length) {
+    text = rac2_save_score_text(text);
     record_print(
         x, y, (uint32_t)style, text, length, func_0027F198(text, length), OPENRAC_DATA(FONT_SMALL)
     );

@@ -714,7 +714,7 @@ mod tests {
         assert_eq!(player_folder(install, "assets/levels/rac1"), None);
         assert_eq!(player_folder(install, "assets/levels/rac1/pal/../../x"), None);
         assert_eq!(player_folder(install, "assets/godot/rac1/pal"), None);
-        assert_eq!(player_folder(install, "editor/README.md"), None);
+        assert_eq!(player_folder(install, "extractor/README.md"), None);
     }
 
     #[test]
