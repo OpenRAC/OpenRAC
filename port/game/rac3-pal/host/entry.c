@@ -67,6 +67,7 @@ static void unpack_payload(void) {
 /* Back to the boot program from the multiplayer one (its LoadExecPS2 of SCES_524.56): the
  * executable read from the disc again and unpacked over memory, its functions in place of the
  * multiplayer program's, the arguments it was started with in crt0's block. */
+void rac3_program_forget_levels(void); /* program.c */
 static void reload_boot_program(void) {
     uint32_t size = 0;
     uint8_t* file = rac3_exec_read_disc_file(RAC3_BOOT_FILE, &size);
@@ -79,6 +80,7 @@ static void reload_boot_program(void) {
     openrac_game_kernel_reset();
     openrac_snd_ring_reset();
     openrac_guest_clear_level_programs();
+    rac3_program_forget_levels();
     openrac_game_register_functions();
     rac3_program_set_overlay(OPENRAC_OVERLAY_EXE);
     if (rac3_exec_unpack(file, size) == 0) {

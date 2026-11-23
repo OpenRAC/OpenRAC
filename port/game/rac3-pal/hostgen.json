@@ -571,8 +571,6 @@
       "func_L01_003A9978": "int (int, int, int, int, int, int, int, int)",
       "func_L01_003ED1F8": "int (int, int, int, int, int, int)",
       "func_L01_003EFAA0": "float (int)",
-      "func_L01_004464C8": "float (int, int, int, int)",
-      "func_L01_00470150": "int (int, int, int, int, int, int, float, float, int, int, float, int, int)",
       "func_L01_00476750": "float (int, int, int, int)",
       "func_L06_00352FB0": "int (int, int, int, int, int)",
       "func_L01_002F8F20": "int (int, int, int, int, int, int)",

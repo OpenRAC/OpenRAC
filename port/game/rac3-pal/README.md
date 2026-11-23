@@ -172,9 +172,20 @@ The menus' music is the boot program's stereo stream (`openrac_stream_play_stere
 command `0x2C`): it plays from the multiplayer menus' first frames. Command `0x30` (a stream query
 with a callback, `0x001948B8`, which the music player keeps at `+0x14`) answers 0.
 
-What is left: a map (levels 40 to 55) is not loaded: they would be translated as level 39 is
-(`discover_levels`), with the native world renderers the boot program's levels use; NTSC-U's
-I5BOOTN.ELF is not paired yet.
+The maps (levels 40 to 53 on PAL: 40 to 49 online and LAN, 50 to 53 their split-screen builds) are
+translated as level 39 is, each from its own program at its own addresses (`func_L40_...`):
+`mp/maps.py` writes them into `mp/hostgen.json` (`retail` `levels`, `discover_levels`, each map's
+entry as a root, `level_copies`) and the rows at the end of
+`mp/libraries.tsv`, from rac3-decomp's catalogue. Every map carries a copy of the engine level 39
+carries too, so the port stands level 39's host C in for each map's copy (`host/mp_maps.c`, the 2D
+layer in `ui2d.c`, the HUD sprites in `hud.c`, one `MP_MAP*` line a map in `host/mp_maps.h`), its
+globals level 39's relocated to the map's: the next-program hook (`mp.c`, `0x00192F68`) keeps level
+39's and the map's programs as read and gives the map's number (the level word `0x002412DC`) as the
+overlay, and `level_copies` tells the runtime which of the map's functions are copies of which of
+level 39's (`openrac_guest_add_level_copies`), so `OPENRAC_LDATA(39, ...)` pairs them. The
+single-player levels' and level 39's `asm` `signatures` reach the maps' copies as
+`copy_signatures`. NTSC-U's are carried by `release_carry_rac3.py` (its maps 54 and 55, builds of
+44 and 45, are not yet).
 
 ### Online play
 
@@ -342,6 +353,7 @@ vertical blank callback (`func_0013D208`).
 | `host/trig.c`, `host/vu0.c` | VU0 cos/sin (the host's for now) and sceVu0UnitMatrix |
 | `host/spr_dma.c` | the scratchpad DMA channels the kernels start |
 | `host/ui2d.c` | the 2D layer's routines, wrapped as Going Commando's (rac2/host/ui2d.c): boxes, glyph quads, turned sprites, ring segments, the font's glyphs (drawn from its distance field) and the menus' Widget3D sprites become window records; the levels' copies of them too (below) |
+| `host/mp_ui.c` | the native multiplayer screens over level 39's lobby ([MULTIPLAYER_UI.md](../../../docs/port/MULTIPLAYER_UI.md)): the game lists (and the staging room's players when a server's description asks) drawn with the game's own print, colours, highlight bar and sounds, their rows from the game's memory, a choice made through the game's own cursor and Cross |
 | `host/hud.c` | the level HUD's sprites as records, and its slots out at the picture's sides with "HUD: Edges" (Going Commando's rac2/host/hud.c) |
 | `host/chain_census.c` | `OPENRAC_RAC3_CHAINS` (a rough census: it reads image data inside DIRECT as VIF codes) |
 | `host/menu_log.c` | `OPENRAC_RAC3_MENU_LOG`: the front end's state and printed strings a frame, for `menus.py` |

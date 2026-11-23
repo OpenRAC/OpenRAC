@@ -2348,7 +2348,13 @@ def apply_signatures(program: Program, a: dict, discovered: bool, host_text: str
     discovery finds: passed over, unless the port's own C (`host_text`) calls it (rac3's
     multiplayer HUD sprite, mp_func_00284F80, calls mp_func_00284D30), which then compiles against
     the same prototype, a stub's, as with the disc."""
-    for sym, text in a.get("signatures", {}).items():
+    # "copy_signatures": the same, carried to other copies of a function (rac3's multiplayer maps'
+    # copies of level 39's and the levels' routines, mp/maps.py): a copy the program does not reach,
+    # or one the port answers itself, is passed over.
+    copies = {sym: text for sym, text in a.get("copy_signatures", {}).items()
+              if sym not in a.get("signatures", {}) and program.functions.get(sym) is not None
+              and sym not in program.host and program.functions[sym].unit is None}
+    for sym, text in {**a.get("signatures", {}), **copies}.items():
         f = program.functions.get(sym)
         if f is None and not discovered:
             if not host_names(host_text, cname(sym)):
@@ -2396,7 +2402,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.wide_call_results = bool(a.get("wide_call_results"))
     tr.float_parameters_on_calls = bool(a.get("float_parameters_on_calls"))
     tr.stack_arguments = bool(a.get("stack_arguments"))
-    tr.verified_signatures = frozenset(a.get("signatures", {}))
+    tr.verified_signatures = frozenset(a.get("signatures", {})) | frozenset(a.get("copy_signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)
     tr.index = index
@@ -2416,6 +2422,11 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
                 # The entries only a table in the data names (vtables, update functions): a word in
                 # a program's data that is an address in its code just after a function's end.
                 found_entries |= source_of.pointed(levels, found_entries)
+            # hostgen.json "inner_extents": the catalogue's functions of those levels are entries
+            # too (a second executable's maps: callbacks only a pointer built at run time reaches,
+            # map 40's 0x004A0628 and 0x004EE358 among them).
+            for home, spans in (getattr(program, "inner_extents", {}) or {}).items():
+                found_entries |= {(home, start) for start, _end in spans}
             for home, address in sorted(found_entries):
                 if address % 4 or (home, address) in program.by_place:
                     continue

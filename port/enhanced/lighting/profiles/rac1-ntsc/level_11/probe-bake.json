@@ -33,7 +33,8 @@
           410,
           150
         ],
-        "spacing": [2, 2, 1]
+        "spacing": [2, 2, 1],
+        "fit_to_floor": false
       }
     ]
   },
