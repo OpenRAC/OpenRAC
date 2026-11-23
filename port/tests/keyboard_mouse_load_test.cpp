@@ -560,6 +560,17 @@ void turrets() {
     CHECK(at<float>(kVars + 0x44u) > 0.0f && at<float>(kMoby + 0x44u) == 0.0f);
     mouse(0.0f, 5000.0f, gaspar);
     CHECK(at<float>(kVars + 0x44u) == -0.5235988f);
+    // A pause (the turret's update does not run) leaves the hero seated: the first tick after it
+    // turns the turret, not the camera.
+    at<std::int32_t>(disc().level_mode) = 3;
+    for (int i = 0; i < 6; ++i) {
+        tick();
+        read_pad();
+    }
+    at<std::int32_t>(disc().level_mode) = 0;
+    const float paused_yaw = at<float>(kMoby + 0x48u);
+    mouse(30.0f, 0.0f, gaspar);
+    CHECK(at<float>(kMoby + 0x48u) < paused_yaw);
 
     // Hoven's turret (state 4): the pitch at pvars +0x74, positive up; kept on a tick it aims,
     // taken back (with its quaternion) on one it does not.

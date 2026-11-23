@@ -148,9 +148,11 @@ bool s_ring_open = false;
 std::uint32_t s_tick = kNoTick;
 
 // The mouse's turn of a turret the hero sits in: the tick's motion, for the turret's update to
-// apply (aim_turret), and the tick a manned turret last took it.
+// apply (aim_turret); the ticks in play so far (a pause does not count, so the hero is still
+// seated after it); and the tick in play a manned turret last took it.
 float s_turret_dx = 0.0f;
 float s_turret_dy = 0.0f;
+std::uint32_t s_play_ticks = 0;
 std::uint32_t s_turret_tick = kNoTick;
 
 // The cursor captured in play, free everywhere else.
@@ -1006,7 +1008,8 @@ void mouse_camera(const Tick& t, bool play, bool ring, std::uint16_t pad_buttons
         const bool follow =
             id == 0 || (s_follow_tick != kNoTick && s_tick - s_follow_tick <= kFollowSeenTicks);
 
-        const bool turret = s_turret_tick != kNoTick && s_tick - s_turret_tick <= kFollowSeenTicks;
+        const bool turret =
+            s_turret_tick != kNoTick && s_play_ticks - s_turret_tick <= kFollowSeenTicks;
 
         // In a turret the mouse aims the turret (aim_turret), not the camera; else which camera is
         // in use decides how the mouse turns it.
@@ -1055,6 +1058,7 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     s_follow_dy = 0.0f;
     s_turret_dx = 0.0f;
     s_turret_dy = 0.0f;
+    s_play_ticks += play ? 1u : 0u;
 
     s_capture.update(*s_mod, s_set.capture, play, in);
     take_prompt_spots();
@@ -1283,7 +1287,7 @@ void aim_turret(Original original, gaddr moby, const TurretAim& aim) {
         return;
     }
 
-    s_turret_tick = s_tick;
+    s_turret_tick = s_play_ticks;
     const float dx = s_turret_dx;
     const float dy = s_turret_dy;
     s_turret_dx = 0.0f;
@@ -1417,6 +1421,7 @@ void reset_state() {
     s_follow_tick = kNoTick;
     s_turret_dx = 0.0f;
     s_turret_dy = 0.0f;
+    s_play_ticks = 0;
     s_turret_tick = kNoTick;
     s_tilt = {};
     s_pad_look = false;
