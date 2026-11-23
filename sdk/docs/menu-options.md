@@ -4,7 +4,8 @@ A mod can turn an option of the port's menu on or off with `menu_option_set` (C)
 `mod.menu_option_set` (C++).
 
 - `OPENRAC_MENU_OPTION_ON`: the option can be used, even where the port greys it out.
-- `OPENRAC_MENU_OPTION_OFF`: the option is greyed out. It is shown, but cannot be changed.
+- `OPENRAC_MENU_OPTION_OFF`: the option is greyed out, with your mod's name beside it. It is shown,
+  but cannot be changed.
 - `OPENRAC_MENU_OPTION_DEFAULT`: the port decides again.
 
 The last call for an option wins. When a mod unloads, its calls go with it, and what another mod
@@ -27,6 +28,9 @@ settings again by itself.
 
 Names never change. A port that does not know a name ignores it. Panels, notes and Quit are not
 listed: they cannot be turned off.
+
+The player's essentials are never turned off, only on: `volume`, `full_screen`, `display_mode`,
+`monitor`, `menu_size` and every Controls option.
 
 - Graphics: `full_screen`, `display_mode`, `monitor`, `menu_size`, `picture`, `gameplay_fov`, `hud`, `render_scale`, `msaa`, `anisotropy`, `draw_distance`, `active_distance`, `frame_rate`, `frame_cap`, `vsync`, `frame_counter`, `hdr`, `hdr_paper_white`, `hdr_peak`, `hdr_highlights`, `hdr_sdr_hue`, `hdr_sdr_chroma`, `hdr_blowout`, `low_latency`, `responsive_controls`, `gpu_breadcrumbs`
 - Enhanced: `enhanced_graphics`, `enhanced_low`, `enhanced_medium`, `enhanced_high`, `shadow_quality`, `shadow_filter`, `occlusion_quality`, `texture_upscaling`, `effects_detail`, `upscaling`, `sharpening`, `motion_blur`, `motion_blur_quality`, `color_correction`, `brightness`, `enhanced_reset`, `occlusion_hi_z`, `enhanced_advanced`, `enhanced_materials`

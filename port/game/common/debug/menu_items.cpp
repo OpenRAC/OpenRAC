@@ -601,23 +601,38 @@ Item own_item(Id id, std::uint8_t where) {
 }
 
 // What an entry shows now, with what the mods set it to (openrac_api.menu_option_set).
+// What the mods set entry `id` to, as the menu takes it: a panel or a note never changes, and the
+// player's essentials (Quit, the volume, the window, the controls) are never turned off
+// (sdk/docs/menu-options.md).
+mods::MenuOptionState mods_state(Id id) {
+    const menu::Entry& e = menu::entry(id);
+    const bool settable = e.kind == menu::Kind::Switch || e.kind == menu::Kind::Choice
+                          || e.kind == menu::Kind::Slider || e.kind == menu::Kind::Action;
+    if (!settable) {
+        return {};
+    }
+    mods::MenuOptionState state = mods::menu_option_state(menu::option_name(id));
+    const bool essential = id == Id::Quit || id == Id::Volume || id == Id::FullScreen
+                           || id == Id::DisplayMode || id == Id::Monitor || id == Id::MenuSize
+                           || e.tab == menu::Tab::Controls;
+    if (state.state == OPENRAC_MENU_OPTION_OFF && essential) {
+        return {};
+    }
+    return state;
+}
+
+// What an entry shows now, with what the mods set it to (openrac_api.menu_option_set). A row a mod
+// greyed out names the mod, so the player knows why.
 Item item(Id id, std::uint8_t where) {
     Item it = own_item(id, where);
-    const menu::Kind kind = menu::entry(id).kind;
-    const bool settable = kind == menu::Kind::Switch || kind == menu::Kind::Choice
-                          || kind == menu::Kind::Slider || kind == menu::Kind::Action;
-    if (!settable || id == Id::Quit) {
-        return it;  // a panel, a note or Quit: never turned off (sdk/docs/menu-options.md)
-    }
-    switch (mods::menu_option(menu::option_name(id))) {
-        case OPENRAC_MENU_OPTION_ON:
-            it.enabled = true;
-            break;
-        case OPENRAC_MENU_OPTION_OFF:
-            it.enabled = false;
-            break;
-        default:
-            break;
+    const mods::MenuOptionState state = mods_state(id);
+    if (state.state == OPENRAC_MENU_OPTION_ON) {
+        it.enabled = true;
+    } else if (state.state == OPENRAC_MENU_OPTION_OFF) {
+        it.enabled = false;
+        const std::string label =
+            it.label.empty() ? std::string(menu::entry(id).label) : std::move(it.label);
+        it.label = std::format("{} (set by {})", label, state.by);
     }
     return it;
 }
@@ -1035,7 +1050,9 @@ std::string game_page_label(Id id) {
     if (id == Id::EnhancedGraphics) {
         return "Enhanced graphics";
     }
-    return entry_label(id, game_screen());
+    // Without the menu's "(set by ...)": the game's page is narrow, and its row is just greyed.
+    const Item it = own_item(id, game_screen());
+    return it.label.empty() ? std::string(menu::entry(id).label) : it.label;
 }
 
 std::string game_page_value(Id id) {
@@ -1146,7 +1163,7 @@ void freecam_help(std::uint8_t where) {
 }  // namespace
 
 bool option_off(Id id) {
-    return mods::menu_option(menu::option_name(id)) == OPENRAC_MENU_OPTION_OFF;
+    return mods_state(id).state == OPENRAC_MENU_OPTION_OFF;
 }
 
 void draw_entry(Id id, std::uint8_t where) {

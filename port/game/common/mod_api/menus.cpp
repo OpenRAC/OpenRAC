@@ -385,6 +385,7 @@ struct MenuOption {
     const openrac_mod* mod;
     std::string name;
     int state;
+    std::string by;  // the mod's name, as the menu shows it
 };
 
 std::mutex g_menu_options_lock;
@@ -403,7 +404,9 @@ int api_menu_option_set(openrac_mod* mod, const char* option, int state) {
         return o.mod == mod && o.name == option;
     });
     if (state != OPENRAC_MENU_OPTION_DEFAULT) {
-        g_menu_options.push_back({mod, option, state});
+        g_menu_options.push_back(
+            {mod, option, state, !mod->manifest.name.empty() ? mod->manifest.name : mod->id}
+        );
     }
     return OPENRAC_HOOK_OK;
 }
@@ -419,15 +422,19 @@ void drop_menu_options(const openrac_mod* mod) {
 
 namespace openrac::mods {
 
-int menu_option(std::string_view name) {
+MenuOptionState menu_option_state(std::string_view name) {
     // The newest call wins.
     const std::lock_guard<std::mutex> lock(detail::g_menu_options_lock);
     for (auto o = detail::g_menu_options.rbegin(); o != detail::g_menu_options.rend(); ++o) {
         if (o->name == name) {
-            return o->state;
+            return {o->state, o->by};
         }
     }
-    return OPENRAC_MENU_OPTION_DEFAULT;
+    return {};
+}
+
+int menu_option(std::string_view name) {
+    return menu_option_state(name).state;
 }
 
 }  // namespace openrac::mods

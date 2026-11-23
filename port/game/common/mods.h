@@ -449,6 +449,14 @@ bool any_mod_motors();
 // OPENRAC_MENU_OPTION_* state, DEFAULT when none did. From any thread.
 int menu_option(std::string_view name);
 
+// The same, with the name of the mod that set it (empty for DEFAULT).
+struct MenuOptionState {
+    int state = OPENRAC_MENU_OPTION_DEFAULT;
+    std::string by;
+};
+
+MenuOptionState menu_option_state(std::string_view name);
+
 // The air a mod draws this level load with (openrac_api.scene_air), none for the game's own. From
 // any thread.
 std::optional<openrac_air> scene_air();

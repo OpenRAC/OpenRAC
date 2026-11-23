@@ -3313,7 +3313,8 @@ typedef struct openrac_api {
 
     /* Turns an option of the port's menu on or off, by its name (sdk/docs/menu-options.md, as
      * "frame_rate"). OPENRAC_MENU_OPTION_ON makes it usable even where the port greys it out;
-     * OPENRAC_MENU_OPTION_OFF greys it out (a mod that sets the frame rate itself);
+     * OPENRAC_MENU_OPTION_OFF greys it out with the mod's name (a mod that sets the frame rate
+     * itself; never the volume, the window or the controls);
      * OPENRAC_MENU_OPTION_DEFAULT gives the port's choice back. The last call for an option wins;
      * a mod's calls go with it when it unloads. Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN for no
      * name or another state. Since 1.37. */

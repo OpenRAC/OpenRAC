@@ -30,6 +30,7 @@
 
 #include "check.h"
 #include "common/json.h"
+#include "mod_api/internal.h"
 #include "mod_manifest.h"
 #include "mod_play.h"
 #include "mods.h"
@@ -507,23 +508,30 @@ void a_hook_point_is_called_as_the_game_calls_it(const fs::path& plugins) {
 }
 
 // menu_option_set: the newest call for an option wins, one mod's DEFAULT or unload gives back what
-// another mod set, and bad calls change nothing. The handles only tell the mods apart here.
+// another mod set, and bad calls change nothing. Two handles of the test's own stand for mods.
 void menu_options_follow_the_newest_call(const fs::path& plugins) {
     write(
         plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
     );
     CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
     const openrac_api& api = mods::api_for_tests();
-    auto* a = reinterpret_cast<openrac_mod*>(0x10);
-    auto* b = reinterpret_cast<openrac_mod*>(0x20);
+    openrac_mod mod_a;
+    mod_a.id = "a";
+    openrac_mod mod_b;
+    mod_b.id = "b";
+    mod_b.manifest.name = "Mod B";
+    openrac_mod* a = &mod_a;
+    openrac_mod* b = &mod_b;
     CHECK(api.menu_option_set(a, "frame_rate", OPENRAC_MENU_OPTION_ON) == OPENRAC_OK);
     CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_ON);
     CHECK(api.menu_option_set(b, "frame_rate", OPENRAC_MENU_OPTION_OFF) == OPENRAC_OK);
     CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option_state("frame_rate").by == "Mod B");  // the manifest's name
     CHECK(api.menu_option_set(b, "frame_rate", OPENRAC_MENU_OPTION_DEFAULT) == OPENRAC_OK);
     CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_ON);
     CHECK(api.menu_option_set(a, "frame_rate", OPENRAC_MENU_OPTION_OFF) == OPENRAC_OK);
     CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option_state("frame_rate").by == "a");  // no name: the id
     CHECK(api.menu_option_set(a, "", OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
     CHECK(api.menu_option_set(a, nullptr, OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
     CHECK(api.menu_option_set(nullptr, "vsync", OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
