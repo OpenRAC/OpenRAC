@@ -25,7 +25,9 @@
  * the hit watcher and uses the world calls on the test's fake level (world_frame: 8000s, and the
  * gate's and the watcher's 8700s and 8800s) (interface 1.9). With "hoverboard" it uses the calls of
  * a mod that moves the hero (motion_frame: 9500s): his pose set, the collision triangles, a prop
- * and a sound (interface 1.12). It reports the interface it is
+ * and a sound (interface 1.12). With "cutscene" it uses what a scene needs (cutscene_frame:
+ * 9800s): the camera's field of view, the HUD hidden, the music ducked, a moby's joints, a joint's
+ * place, a moby's sound, the scene's air, slow motion and a hidden tie. It reports the interface it is
  * built for
  * (OPENRAC_MOD_TARGET_MINOR): test-old is built for 1.5. */
 #include <math.h>
@@ -55,6 +57,7 @@ static int s_ui_second = -1;
 static int s_play;
 static int s_world;
 static int s_motion;
+static int s_cutscene;
 static int s_prop = -1;
 static int s_model = -1;
 static int s_figure = -1;
@@ -243,6 +246,7 @@ static void world_frame(void) {
         s_record(8030 + s_api->moby_list(list, 2));
         s_record(8040 + s_api->moby_slot(1));
         s_record(8050 + s_api->moby_slot(7) + 1);
+        s_record(8055 + (s_api->moby_uid(1) == 1006) + (s_api->moby_uid(5) == -1));
         s_record(8060 + -s_api->moby_drive(s_mod, 0, 1));
         s_record(8060 + -s_api->moby_drive(s_mod, 0, 0));
         s_record(8060 + -s_api->moby_drive(s_mod, 1, 1));
@@ -343,6 +347,7 @@ static void motion_frame(void) {
         s_record(9540 + -s_api->prop_create(s_mod, "missing.glb"));
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop, &where));
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop + 1, &where));
+        s_api->prop_animate(s_mod, s_prop, 2, 1.5f, 1);
         {
             const float offset[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.5f, 0, 0, 1};
             const int held = s_api->prop_create(s_mod, "board.glb");
@@ -631,9 +636,79 @@ static void motion_frame(void) {
     }
 }
 
+/* What a scene needs, on frame 1 in a level: the field of view refused without the camera and out
+ * of range, taken with it; the HUD hidden; the music ducked (a gain past 1 refused); joints on the
+ * moby in slot 1 (none on a slot with no moby, nor too many); joint 3's place; a looping sound on
+ * the moby, stopped (none on a slot with no moby). */
+static void cutscene_frame(void) {
+    openrac_camera cam;
+    openrac_joint_offset joint;
+    float at[3] = {0.0f, 0.0f, 0.0f};
+    float frame[12] = {0.0f};
+    int voice;
+    openrac_air air;
+    if (s_frames != 1) {
+        return;
+    }
+    s_record(9800 + -s_api->camera_fov(s_mod, 40.0f));
+    memset(&cam, 0, sizeof cam);
+    cam.size = sizeof cam;
+    cam.forward[0] = 1.0f;
+    cam.left[1] = 1.0f;
+    cam.up[2] = 1.0f;
+    s_record(9800 + -s_api->camera_set(s_mod, &cam));
+    s_record(9810 + -s_api->camera_fov(s_mod, 200.0f));
+    s_record(9810 + -s_api->camera_fov(s_mod, 0.5f));
+    s_record(9810 + -s_api->camera_fov(s_mod, 40.0f));
+    s_record(9820 + -s_api->hud_hide(s_mod, 1));
+    s_record(9830 + -s_api->music_volume(s_mod, 2.0f));
+    s_record(9830 + -s_api->music_volume(s_mod, 0.25f));
+    memset(&joint, 0, sizeof joint);
+    joint.joint = 3;
+    joint.rotation[3] = 1.0f;
+    s_record(9840 + -s_api->moby_set_joints(s_mod, 1, &joint, 1));
+    s_record(9840 + -s_api->moby_set_joints(s_mod, 6, &joint, 1));
+    s_record(9840 + -s_api->moby_set_joints(s_mod, 1, &joint, OPENRAC_JOINT_OFFSETS_MAX + 1));
+    joint.joint = 4;
+    s_record(9840 + -s_api->moby_set_joint_poses(s_mod, 1, &joint, 1));
+    joint.joint = 0x80000004u;
+    s_record(9840 + -s_api->moby_set_joint_poses(s_mod, 1, &joint, 1));
+    joint.joint = 3;
+    s_record(9840 + -s_api->moby_set_joints(s_mod, 1, &joint, 1));
+    s_record(9850 + -s_api->moby_joint_position(1, 3, at));
+    s_record((int)at[0]);
+    s_record(9850 + -s_api->moby_joint_position(6, 3, at));
+    s_record(9850 + -s_api->moby_joint_frame(1, 3, frame));
+    s_record((int)frame[0]);
+    voice = s_api->moby_sound_play(s_mod, 1, 12, 1);
+    s_record(9860 + voice);
+    s_record(9870 + s_api->moby_sound_play(s_mod, 6, 12, 0));
+    s_api->moby_sound_stop(s_mod, voice);
+    memset(&air, 0, sizeof air);
+    air.size = sizeof air;
+    air.flags = OPENRAC_AIR_FOG | OPENRAC_AIR_BACKGROUND;
+    air.fog_near = 10.0f;
+    air.fog_far = 5.0f; /* nearer than it starts: refused */
+    s_record(9880 + -s_api->scene_air(s_mod, &air));
+    air.fog_far = 50.0f;
+    air.fog_thickness = 0.5f;
+    air.background[0] = 1.0f;
+    air.weight = 1.0f;
+    s_record(9880 + -s_api->scene_air(s_mod, &air));
+    s_record(9890 + -s_api->time_stretch(s_mod, 9.0f));
+    s_record(9890 + -s_api->time_stretch(s_mod, 2.0f));
+    s_record(9900 + -s_api->tie_hide(s_mod, -1, 1));
+    s_record(9900 + -s_api->tie_hide(s_mod, 7, 1));
+    s_record(9900 + -s_api->tie_hide(s_mod, 3, 1));
+}
+
 static void on_frame(void* user) {
     (void)user;
     s_frames++;
+    if (s_cutscene && s_record != NULL) {
+        cutscene_frame();
+        return;
+    }
     if (s_world && s_record != NULL) {
         world_frame();
         return;
@@ -900,7 +975,8 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             return 9;
         }
     }
-    if (behaviour[0] == 'k') { /* keep: sets its own settings, hears the launcher's (1.15) */
+    if (strcmp(behaviour, "keep")
+        == 0) { /* keep: sets its own settings, hears the launcher's (1.15) */
         if (api->api_minor < 15 || s_record == NULL
             || api->on_settings(mod, on_settings, NULL) != OPENRAC_HOOK_OK
             || api->on_settings(mod, NULL, NULL) != OPENRAC_HOOK_TOO_LATE) {
@@ -1073,6 +1149,29 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         /* The host copies its strings, so the caller's stack storage can go away. */
         items[0].label = "Changed after registration";
     }
+    if (strcmp(behaviour, "kerwan")
+        == 0) { /* kerwan: a pack's files (pack_folder, "pack:" paths) and the language */
+        char folder[512];
+        char code[3];
+        if (api->api_minor < 14 || s_record == NULL) {
+            return 18;
+        }
+        s_record(9700 + (api->pack_folder(folder, sizeof folder) > 0));
+        s_record(9700 + api->pack_folder(folder, 2));
+        s_record(9710 + api->sound_load(mod, "pack:level_03/cutscenes/line.wav"));
+        s_record(9720 + -api->sound_load(mod, "pack:../escape.wav"));
+        s_record(9720 + -api->sound_load(mod, "pack:level_03/missing.wav"));
+        s_record(9720 + -api->sound_load(mod, "pack:"));
+        s_record(9740 + api->game_language(code, sizeof code));
+        s_record(code[0] * 256 + code[1]);
+        s_record(9750 + api->game_language(code, 2));
+    }
+    if (strcmp(behaviour, "cutscene") == 0) {
+        s_cutscene = 1;
+        if (api->api_minor < 14 || api->size < sizeof(openrac_api) || s_record == NULL) {
+            return 19;
+        }
+    }
     if (behaviour[0] == 'h') { /* hoverboard */
         s_motion = 1;
         if (api->api_minor < 12 || s_record == NULL) {
@@ -1102,7 +1201,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             return 15;
         }
     }
-    if (behaviour[0] == 'c') { /* callback_only */
+    if (strcmp(behaviour, "callback_only") == 0) {
         if (api->on_tick_boundary(mod, on_tick_boundary, NULL) != OPENRAC_HOOK_OK
             || api->on_pad(mod, on_pad, NULL) != OPENRAC_HOOK_OK) {
             return 18;

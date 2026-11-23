@@ -38,7 +38,7 @@ WavFormat read_fmt(ByteView bytes, std::size_t at, std::size_t size) {
                          ? bytes.u16_at(at + 24)
                          : format;
 
-    // Anything else would need converting first, which an import does (editor/audio.py).
+    // Anything else would need converting first, which an import does (extractor/audio.py).
     if (kind != kFormatPcm || bits != 16) {
         fail("WAV: format {}, {} bits; the game reads 16-bit PCM", kind, bits);
     }

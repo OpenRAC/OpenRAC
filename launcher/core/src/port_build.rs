@@ -97,7 +97,7 @@ const BUILT_FROM: &[&str] = &[
     "port",
     "tools/build_port.py",
     "tools/build_port_tools.py",
-    "editor/moby_classes.tsv",
+    "extractor/moby_classes.tsv",
     "launcher/src-tauri/icons",
     "launcher/src-tauri/tauri.conf.json",
 ];

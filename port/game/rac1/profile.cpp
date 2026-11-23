@@ -288,7 +288,7 @@ public:
     }
 
     std::optional<std::array<float, 2>> water_projectile(int class_id) const override {
-        // Shared PAL/NTSC classes (editor/moby_classes.tsv); equipped weapons/ammo are excluded.
+        // Shared PAL/NTSC classes (extractor/moby_classes.tsv); equipped weapons/ammo are excluded.
         switch (class_id) {
             case 305:
                 return std::array{.25f, .45f};  // Blaster's homing shot (CLASS_HOMING_SHOT).
@@ -331,8 +331,15 @@ public:
         return &m_boot == &kRac1Ntsc ? add_ship_visor : nullptr;
     }
 
-    // The water lily class is shared by PAL and NTSC (editor/moby_classes.tsv).
+    // The water lily class is shared by PAL and NTSC (extractor/moby_classes.tsv).
     bool floats_on_water(int class_id) const override { return class_id == 695; }
+
+    // The moby's save_id (+0xB2, host/world.c MOBY_UID): its record's spawn id, 0xFFFF none.
+    int moby_spawn_id(const std::uint8_t* moby) const override {
+        std::uint16_t id = 0;
+        std::memcpy(&id, moby + 0xB2, sizeof id);
+        return id != 0xFFFFu ? id : -1;
+    }
 
 private:
     // Returns the table of the program loaded: a level's, or the boot program's when `level` is

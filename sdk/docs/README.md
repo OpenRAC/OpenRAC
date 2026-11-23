@@ -17,7 +17,7 @@ There are two kinds of behaviour mod:
 
 Start with a script mod unless you need the speed or the reach of native code.
 Mods of textures, models and levels are made with the level editor instead
-([editor/MODDING.md](https://github.com/OpenRAC/OpenRAC/blob/master/editor/MODDING.md)).
+([extractor/MODDING.md](https://github.com/OpenRAC/OpenRAC/blob/master/extractor/MODDING.md)).
 
 ## Guides
 

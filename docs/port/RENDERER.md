@@ -13,7 +13,7 @@ OpenGOAL draws Jak and Daxter ([OPENGOAL_NOTES.md](OPENGOAL_NOTES.md)).
 Sources: [RAC1_PAL_SURVEY.md](RAC1_PAL_SURVEY.md) (sections 1 to 4 and 10),
 [VU_PROGRAMS.md](VU_PROGRAMS.md), [OPENGOAL_NOTES.md](OPENGOAL_NOTES.md),
 [ASSETS.md](../../games/rac1/decomp/docs/ASSETS.md), the editor's readers
-([editor/](../../editor/README.md)) and the C in `games/rac1/decomp/src/game`
+([extractor/](../../extractor/README.md)) and the C in `games/rac1/decomp/src/game`
 (`vuchain.c`, `draw.c`, `framebuf.c`, `tfragfunc.c`, `tiefunc.c`,
 `shrubfunc.c`, `mobyfunc.c`, `skyfunc.c`, `lights.c`, `effects.c`). Names
 come from `config/names.tsv` and `include/names.h`; addresses are PAL. A
@@ -66,11 +66,11 @@ states.
 
 | Subsystem | Entry (C) and core | Core is | VU1 program | Data, and what already reads it |
 |---|---|---|---|---|
-| Terrain (tfrag) | `DrawTfrag` `func_002346C0`, `TfragProc` `func_002352C8`, `ComputeTfragTextureUsage` `func_00235EF0` | hand-written asm | 55907, and 903379 for the second strip list | 0x40-byte fragments with level-of-detail and refinement VIF streams; [editor/terrain.py](../../editor/terrain.py) (LOD 0 and 2) |
-| Ties (instanced scenery) | `DrawTies_1/_2` `func_00236BE0/00236CA8`, `TieProc` `func_00236F00`, `BuildTieTextureDma` `func_002383D8` | asm | 13507, and 224979 | [editor/ties.py](../../editor/ties.py) (LOD 0, 0xE0-byte placements) |
-| Shrubs | `DrawShrubs` `func_00229E50`, `ShrubProc` `func_00229F00`, `BuildShrubTextureDma` `func_0022B648` | asm | 56467, and 912339 | [editor/shrubs.py](../../editor/shrubs.py) (the billboard flag at class +0x1C is not used yet) |
-| Mobys (characters and objects) | `DrawMobys` `func_0020E2B0`, `DrawMobysSetup` `func_0020E0C8`, `DrawMobyList` `func_0020E180`, MobyProc `func_00212658`; animation `MobyAnimProc` `func_00212578`, `moby_anim_eval_chain` `func_00211808` | asm | 13859, VU0 104691 | [editor/moby_class.py](../../editor/moby_class.py) (high-detail packets), [editor/moby_anim.py](../../editor/moby_anim.py) (skeletons, animations); low-detail, metal and glow packets not read yet |
-| Sky | `SkyDrawShell` `func_0022C9A8` (C), `SkyDrawShellTextured/Gouraud` (not decompiled), `skyproc` asm | EE side | none for the shells; sprites reuse the particle program | [editor/sky.py](../../editor/sky.py) |
+| Terrain (tfrag) | `DrawTfrag` `func_002346C0`, `TfragProc` `func_002352C8`, `ComputeTfragTextureUsage` `func_00235EF0` | hand-written asm | 55907, and 903379 for the second strip list | 0x40-byte fragments with level-of-detail and refinement VIF streams; [extractor/terrain.py](../../extractor/terrain.py) (LOD 0 and 2) |
+| Ties (instanced scenery) | `DrawTies_1/_2` `func_00236BE0/00236CA8`, `TieProc` `func_00236F00`, `BuildTieTextureDma` `func_002383D8` | asm | 13507, and 224979 | [extractor/ties.py](../../extractor/ties.py) (LOD 0, 0xE0-byte placements) |
+| Shrubs | `DrawShrubs` `func_00229E50`, `ShrubProc` `func_00229F00`, `BuildShrubTextureDma` `func_0022B648` | asm | 56467, and 912339 | [extractor/shrubs.py](../../extractor/shrubs.py) (the billboard flag at class +0x1C is not used yet) |
+| Mobys (characters and objects) | `DrawMobys` `func_0020E2B0`, `DrawMobysSetup` `func_0020E0C8`, `DrawMobyList` `func_0020E180`, MobyProc `func_00212658`; animation `MobyAnimProc` `func_00212578`, `moby_anim_eval_chain` `func_00211808` | asm | 13859, VU0 104691 | [extractor/moby_class.py](../../extractor/moby_class.py) (high-detail packets), [extractor/moby_anim.py](../../extractor/moby_anim.py) (skeletons, animations); low-detail, metal and glow packets not read yet |
+| Sky | `SkyDrawShell` `func_0022C9A8` (C), `SkyDrawShellTextured/Gouraud` (not decompiled), `skyproc` asm | EE side | none for the shells; sprites reuse the particle program | [extractor/sky.py](../../extractor/sky.py) |
 | Particles | `PartProc` `func_00218B10`, `UpdateParts` `func_00218A80` | asm | 221571 | records come from level code; not read yet |
 | Sprites, billboards, light quads | `DrawSpriteHelper_A` `func_001F7868` (C); `drawquad` asm | mixed | 57843 | the setup packet is built in C (section 3) |
 | Shadows | `func_0020DEB0`, `shadowproc` asm | asm | not established | not read yet |

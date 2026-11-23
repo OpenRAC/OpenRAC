@@ -78,6 +78,7 @@
 #include "frontend/mod_media.h"
 #include "game/common/profile.h"
 #include "mod_menu.h"
+#include "options_menu.h"
 #include "platform/bindings.h"
 #include "platform/input.h"
 #include "platform/pump.h"
@@ -239,6 +240,7 @@ void openrac_game_select_destination(int index) {
 int openrac_game_language = 1;
 int openrac_game_no_card = 0;
 int openrac_game_start_level = -1;
+int openrac_game_direct_start = 0;
 void (*openrac_game_on_frame)(unsigned frame) = nullptr;
 int (*openrac_game_bolts)(void) = nullptr;
 int (*openrac_game_skip_buttons)(void) = nullptr;
@@ -313,7 +315,9 @@ void open_session(int argc, char** argv) {
         log::warn("the log cannot be written in {}", g_options.data.string());
     }
     crash::configure(g_options.data / "crashes", program_name(), started);
+#ifdef OPENRAC_FRONTEND
     frontend::debug_overlay::set_picker_report_folder(g_options.data.string());
+#endif
     crash::set_moby_source(updating_moby);
     const char* level = log::level() <= log::Level::Debug     ? "debug"
                         : log::level() <= log::Level::Verbose ? "verbose"
@@ -400,19 +404,29 @@ void load_mods() {
     host.mod_data = g_options.mod_data;
     host.data = g_options.data;
     host.games_root = g_options.games_root;
+    host.pack_folder = [] {
+        return openrac_game_mods_dir;
+    };
 #ifdef OPENRAC_FRONTEND
     // The mods' own sounds (interface 1.12), on the window's sound output.
     host.sound_load = frontend::mod_sound_load;
     host.sound_play = frontend::mod_sound_play;
     host.sound_set = frontend::mod_sound_set;
     host.sound_stop = frontend::mod_sound_stop;
+    host.language = frontend::options_menu::language;
     host.joint_offsets = [](std::uint32_t moby, const openrac_joint_offset* joints, int count) {
         std::vector<assets::rac1::JointModifier> mods;
         mods.reserve(static_cast<std::size_t>(count));
         for (int i = 0; i < count; ++i) {
             assets::rac1::JointModifier m;
-            m.joint = static_cast<std::uint8_t>(std::min<std::uint32_t>(joints[i].joint, 0xFF));
-            m.mode = 0;  // composed with the pose: q * rotation, translation added
+            const bool set = (joints[i].joint & mods::kJointPoseSet) != 0;
+            m.joint = static_cast<std::uint8_t>(
+                std::min<std::uint32_t>(joints[i].joint & ~mods::kJointPoseSet, 0xFF)
+            );
+            // Composed with the pose (q * rotation, translation added), or the pose set: the game's
+            // blend toward the modifier, at weight 1.
+            m.mode = set ? 1 : 0;
+            m.weight = set ? 1.0f : 0.0f;
             for (int k = 0; k < 4; ++k) {
                 m.quat[k] = joints[i].rotation[k];
             }
@@ -424,7 +438,51 @@ void load_mods() {
         }
         scene::set_extra_joint_modifiers(moby, std::move(mods));
     };
+    // Ratchet & Clank's moby: its place at +0x10, its scale at +0x2C and its turn's rows at +0xC0;
+    // the pose's translations are in 1/1024 of the model's units.
+    if (std::string_view(openrac_game.game) == "rac1") {
+        host.joint_frame = [](std::uint32_t moby, int joint, float* out) -> int {
+            const auto& memory = runtime::Memory::get();
+            const std::span<const std::uint8_t> ram(memory.base(), memory.ram_size());
+            if (moby == 0 || joint < 0 || moby > ram.size() || ram.size() - moby < 0x100) {
+                return 0;
+            }
+            const auto pose = scene::moby_pose_matrices(ram, moby);
+            if (static_cast<std::size_t>(joint) >= pose.size()) {
+                return 0;
+            }
+            const auto f32 = [&](std::uint32_t at) {
+                float v = 0.0f;
+                std::memcpy(&v, ram.data() + moby + at, 4);
+                return v;
+            };
+            const float scale = f32(0x2C);
+            const auto& f = pose[static_cast<std::size_t>(joint)];
+            // The axes (no place, no 1/1024), then the place; each a sum of the moby's turn's rows.
+            for (int a = 0; a < 4; ++a) {
+                const float unit = a < 3 ? scale : scale / 1024.0f;
+                for (int k = 0; k < 3; ++k) {
+                    float v = a < 3 ? 0.0f : f32(0x10 + 4u * static_cast<std::uint32_t>(k));
+                    for (int r = 0; r < 3; ++r) {
+                        v += f[static_cast<std::size_t>(a)][r] * unit
+                             * f32(
+                                 0xC0 + 0x10u * static_cast<std::uint32_t>(r)
+                                 + 4u * static_cast<std::uint32_t>(k)
+                             );
+                    }
+                    if (!std::isfinite(v)) {
+                        return 0;
+                    }
+                    out[3 * a + k] = v;
+                }
+            }
+            return 1;
+        };
+    }
 #endif
+    host.music_gain = [](int group, float gain) {
+        openrac_sound_set_stream_gain(group, gain);
+    };
     host.capture_savestate_runtime = [](mods::SavestateRuntime* state) {
         if (state == nullptr) {
             return false;

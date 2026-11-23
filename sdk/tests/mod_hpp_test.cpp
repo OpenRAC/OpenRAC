@@ -446,6 +446,10 @@ int host_moby_slot(int key) {
     return key == 7 ? 7 : -1;
 }
 
+int host_moby_uid(int slot) {
+    return slot == 7 ? 1006 : -1;
+}
+
 int host_moby_drive(openrac_mod*, int slot, int on) {
     g_world.push_back("drive " + std::to_string(slot) + " " + std::to_string(on));
     return slot < g_world_count ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
@@ -1366,6 +1370,7 @@ openrac_api make_api() {
     api.save_read = host_save_read;
     api.moby_list = host_moby_list;
     api.moby_slot = host_moby_slot;
+    api.moby_uid = host_moby_uid;
     api.moby_drive = host_moby_drive;
     api.moby_pose = host_moby_pose;
     api.moby_kill = host_moby_kill;
@@ -1555,6 +1560,7 @@ void check_world(openrac::Mod& mod, openrac_api& api) {
     CHECK((g_world == std::vector<std::string>{"list 256", "list 300"}));
     g_world_count = 3;
     CHECK(mod.moby_slot(7) == 7 && mod.moby_slot(1) == -1);
+    CHECK(mod.moby_uid(7) == 1006 && mod.moby_uid(1) == -1);
     g_world.clear();
     CHECK(mod.moby_drive(1) && mod.moby_drive(1, false) && !mod.moby_drive(5));
     openrac_moby pose{};

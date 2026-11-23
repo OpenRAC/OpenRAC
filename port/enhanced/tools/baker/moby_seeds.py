@@ -74,7 +74,7 @@ class Ground:
 
     @staticmethod
     def read_triangles(path: Path):
-        sys.path.insert(0, str(paths.repo_root(__file__)/'editor'))
+        sys.path.insert(0, str(paths.repo_root(__file__)/'extractor'))
         import gltf_read
         doc = gltf_read.read(path)
         triangles = []

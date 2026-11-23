@@ -743,4 +743,63 @@ int api_particle_texture_register(openrac_mod* mod, const openrac_particle_textu
     return id == 0 ? OPENRAC_HOOK_FULL : OPENRAC_HOOK_UNKNOWN;
 }
 
+int api_hud_hide(openrac_mod* mod, int hidden) {
+    if (mod == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_hud_lock);
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_hud_hidden, [&](const auto& h) { return h.first == mod || h.second != loads; });
+    if (hidden != 0) {
+        g_hud_hidden.emplace_back(mod, loads);
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_prop_animate(openrac_mod* mod, int id, int animation, float seconds, int loop) {
+    if (!std::isfinite(seconds)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_props_lock);
+    Prop* p = own_prop(mod, id);
+    if (p == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    p->animation = std::max(animation, -1);
+    p->seconds = seconds;
+    p->loop = loop != 0;
+    return OPENRAC_HOOK_OK;
+}
+
+int api_scene_air(openrac_mod* mod, const openrac_air* air) {
+    std::int32_t level = -1;
+    if (mod == nullptr || !in_level(phase_now(&level))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    if (air == nullptr) {
+        if (g_air && g_air->mod == mod) {
+            g_air.reset();
+        }
+        return OPENRAC_HOOK_OK;
+    }
+    if (air->size < sizeof(openrac_air)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const auto in_unit = [](float v) {
+        return std::isfinite(v) && v >= 0.0f && v <= 1.0f;
+    };
+    bool ok = in_unit(air->weight) && in_unit(air->fog_thickness) && std::isfinite(air->fog_near)
+              && std::isfinite(air->fog_far) && air->fog_near >= 0.0f
+              && air->fog_far > air->fog_near;
+    for (int i = 0; i < 3; ++i) {
+        ok = ok && in_unit(air->fog_colour[i]) && in_unit(air->background[i]);
+    }
+    if (!ok) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    g_air = AirSet{mod, loads_now(), *air};
+    return OPENRAC_HOOK_OK;
+}
+
 }  // namespace openrac::mods::detail

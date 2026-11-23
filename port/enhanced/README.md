@@ -38,7 +38,7 @@ through `lighting::use_scene_lighting`. Loader and baker share explicit emission
 in exported `probe-emission.json`.
 
 Shared integration and core Vulkan optimisations stay in `port/renderer/` and
-`port/scene/`. Editor bake inputs live in `editor/enhanced/`.
+`port/scene/`. Editor bake inputs live in `extractor/enhanced/`.
 
 Texture upscaling and its 64 MiB cache live in `renderer/texture_upscale.*`.
 Edge-aware mode combines 2x colour reconstruction with conservative directional

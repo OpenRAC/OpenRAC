@@ -9,6 +9,7 @@
 #include <bit>
 #include <cgltf.h>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <format>
@@ -370,7 +371,7 @@ int material_index(
     // static layers' and mobys' alpha test, GEQUAL 0x80 for the static layers and TEST 0x5360b for
     // mobys: texels at 0x80 written with depth, the others blended, colour only), whatever the
     // export's alpha mode says: the export marks a texture MASK only when it has fully clear texels
-    // (editor/formats.py, Texture.cutout), so a sheet of glass, part-clear all over, came out
+    // (extractor/formats.py, Texture.cutout), so a sheet of glass, part-clear all over, came out
     // opaque. Kalebo III's glass sheets (moby class 800, alpha 0x32..0x53) were solid teal walls,
     // Novalis's windows by the plumber (a tie, glass at alpha 0x1F in an opaque frame) solid
     // blue-grey panes; part-clear terrain, tie and shrub textures of other levels (Veldin's,
@@ -498,6 +499,12 @@ std::optional<std::uint32_t> load_model(
         error = std::format("cannot read the buffers of {}", name);
         return std::nullopt;
     }
+    // Accessors past their buffers, joints with no matrix: read nothing of a broken file.
+    if (cgltf_validate(data) != cgltf_result_success) {
+        cgltf_free(data);
+        error = std::format("{} is not valid glTF", name);
+        return std::nullopt;
+    }
     const fs::path base = path.parent_path();
     Model model;
     model.name = path.filename().string();
@@ -617,7 +624,7 @@ std::optional<std::uint32_t> load_model(
                 out.shell = std::atoi(node.name + 4);
             }
             if (node.name != nullptr && std::strncmp(node.name, "Terrain_", 8) == 0) {
-                // Terrain_MMM, or Terrain_cN_MMM for a streamed chunk's (editor/godot.py
+                // Terrain_MMM, or Terrain_cN_MMM for a streamed chunk's (OpenRAC Editor's openrac/tools/godot.py
                 // chunk_terrain).
                 const char* at = node.name + 8;
                 long chunk = 0;
@@ -1149,6 +1156,52 @@ bool load_level(
                     fades_known = fades_known && cls["billboard_fade"].is_number();
                 }
             }
+        }
+    }
+
+    // Moby classes the level imports from other levels (the editor's classes.tsv beside the
+    // edited placements, "class<TAB>level" lines; rac1/host/foreign_class.c runs them): each
+    // class's model as its own level's manifest has it.
+    if (!out.overrides.empty()) {
+        std::ifstream imported(out.overrides / "classes.tsv");
+        std::string line;
+        while (std::getline(imported, line)) {
+            int id = -1, from = -1;
+            if (line.empty() || line[0] == '#'
+                || std::sscanf(line.c_str(), "%d\t%d", &id, &from) != 2 || id < 0 || from < 0
+                || mobys.contains(id)) {
+                continue;
+            }
+            const fs::path other = dir.parent_path() / std::format("level_{:02}", from);
+            if (other.filename() == dir.filename()) {
+                continue;  // its own level's: the runtime leaves it out too (foreign_class.c)
+            }
+            json::Value other_manifest;
+            std::string other_error;
+            if (!json::parse_file(
+                    (other / "manifest.json").string(), other_manifest, other_error
+                )) {
+                log::warn("imported moby class {}: {}", id, other_error);
+                continue;
+            }
+            const json::Value& cls = other_manifest["classes"]["moby"][std::to_string(id)];
+            if (!cls["mesh"].is_string()) {
+                // A class with no data (a controller or trigger) has no model, and says so by its
+                // empty blob; any other is worth a warning.
+                std::error_code e;
+                const auto blob = out.overrides / "classes" / std::format("{}.bin", id);
+                if (fs::file_size(blob, e) != 0 || e) {
+                    log::warn("imported moby class {}: level {} has no model of it", id, from);
+                }
+                continue;
+            }
+            std::string model_error;
+            auto model = load_model(other / cls["mesh"].string(), out, model_error);
+            if (!model) {
+                log::warn("imported moby class {}: {}", id, model_error);
+                continue;
+            }
+            mobys[id] = {*model, static_cast<float>(cls["scale"].number(1.0)), false};
         }
     }
 
