@@ -263,6 +263,15 @@ struct ClassModel {
     std::array<float, 16> matrix{};
 };
 
+// A mod's material on every moby of a class in one scope (openrac_api.moby_material_class,
+// interface 1.34): the material and rgb moby_material takes.
+struct ClassMaterial {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    std::uint32_t material = OPENRAC_MOBY_MATERIAL_NONE;
+    std::uint32_t rgb = 0xFFFFFF;
+};
+
 struct VisualSet {
     const openrac_mod* mod;
     std::uint32_t loads;
@@ -360,6 +369,7 @@ struct MobyClasses {
         return s != states.end() ? s->oclass : -1;
     }
 };
+
 extern std::filesystem::path g_cards;
 extern std::array<Figure, OPENRAC_FIGURES_MAX> g_figures;
 extern Request g_request;
@@ -386,6 +396,7 @@ extern std::array<Model, OPENRAC_MODELS_MAX> g_models;
 extern std::map<int, SlotModel> g_slot_models;
 extern std::map<std::pair<int, std::uint32_t>, ClassModel> g_class_models;
 extern std::map<gaddr, SlotModel> g_address_models;
+extern std::map<std::pair<int, std::uint32_t>, ClassMaterial> g_class_materials;
 extern std::mutex g_camera_visibility_lock;
 extern std::map<const openrac_mod*, std::uint32_t> g_camera_visibility;
 extern std::map<int, AmmoPanelOffset> g_ammo_panel_offsets;
@@ -634,6 +645,10 @@ int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int c
 int api_moby_material(
     openrac_mod* mod, openrac_gaddr moby, std::uint32_t material, std::uint32_t rgb
 );
+int api_moby_material_class(
+    openrac_mod* mod, int oclass, std::uint32_t scope, std::uint32_t material, std::uint32_t rgb
+);
+bool moby_material_known(std::uint32_t material, std::uint32_t rgb);
 int api_prop_create(openrac_mod* mod, const char* mesh_path);
 int api_prop_pose(openrac_mod* mod, int id, const openrac_prop_pose* pose);
 int api_prop_attach(

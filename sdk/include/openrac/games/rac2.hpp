@@ -299,10 +299,38 @@ struct Arena_Prize {
     using fn = int32_t (*)(int32_t);
 };
 
+// Fills the armour vendor's list (the vendor in mode 3: a Megacorp Vendor whose pvars +0x94 is 2): g_vendorUi +0x140, 12-byte rows {i32 icon (0xEA92 + armour, a HUD icon id), i32 price (bolts), i32 armour (0 to 4: the armour the row sells, whose item record names it and whose pack the preview loads)}, the count at +0x740 (up to 128): each armour above the one worn (s16 at the save block +0x20) that its planet unlocked (g_game_flag_table[0x8D] bit, or the extras of a finished game), icon 0xEA92 + armour, price 0, 25000, 100000, 250000 or 1000000. With Carbonox (4) worn it lists nothing. The vendor calls it as it opens. A replacement can add rows after the original's; a row's armour must stay 0 to 4 (the preview, the name, the description table and the close index by it). The armour vendors are on Dobbo, Boldan, Snivelak and Grelbin.
+struct ArmorVendor_BuildList {
+    static constexpr const char* id = "rac2.armor_vendor.build_list";
+    static constexpr const char* name = "ArmorVendor_BuildList";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// The armour vendor's purchase dialog, once a frame while it is up (shop_dispatch_purchase_confirm, mode 3; every level's copy). answer: the address of its i32 answer (1 yes); the second word the dispatcher passes (the answer's neighbour) is not read. Its state is g_vendorUi +0x84: 1 opens it (too few bolts for the row's price: refused, state 2), 2 waits for Cross (answer 1) or Triangle (answer 0), then 3 decides: answer 1, the bolts at least the price and the armour worn not 4: pays the row's price, plays the purchase sound and message and closes the menu, which then wears the row's armour (shop_close_sub_menu); otherwise the refusal or nothing, state 0. The row is the one under the cursor (+0x80). A replacement can buy a row of its own at state 3 (pay, then set the answer to 0 so that the original closes the dialog as a refusal does) and call the original for the game's rows.
+struct ArmorVendor_Buy {
+    static constexpr const char* id = "rac2.armor_vendor.buy";
+    static constexpr const char* name = "ArmorVendor_Buy";
+    static constexpr const char* signature = "void(u32,u32)";
+    using fn = void (*)(uint32_t, uint32_t);
+};
+
+// Sets up the vendor's preview of the row under the cursor (PrepareVendorSelectionPreview), in every mode, as the cursor moves and the menu opens: the armour vendor's (mode 3) loads the row's armour over Ratchet's class 0 when it is not the one loaded and makes the preview objects (g_vendorUi +0x2C, the count at +0x34, 0x100-byte mobys outside the level's list: class 0, Ratchet in that armour, then 1290 and 2675 for its extra pieces), turned to the camera, and shows the armour's description; the weapon vendor's, the weapon's model or picture. A replacement can call the original and then change the message or the objects' look (moby_material_class with OPENRAC_MODEL_MENU).
+struct Vendor_Preview {
+    static constexpr const char* id = "rac2.vendor.preview";
+    static constexpr const char* name = "Vendor_Preview";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
     }  // namespace arena
+    namespace armor_vendor {
+        using build_list = rac2::ArmorVendor_BuildList;
+        using buy = rac2::ArmorVendor_Buy;
+    }  // namespace armor_vendor
     namespace bolt {
         using collect = rac2::Bolt_Collect;
         using spawn_pickup = rac2::Bolt_SpawnPickup;
@@ -378,6 +406,7 @@ namespace hooks {
     namespace vendor {
         using build_list = rac2::Vendor_BuildList;
         using draw_list = rac2::Vendor_DrawList;
+        using preview = rac2::Vendor_Preview;
         using price = rac2::Vendor_Price;
     }  // namespace vendor
     namespace weapon {

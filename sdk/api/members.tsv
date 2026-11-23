@@ -210,3 +210,4 @@ rac1_reserve_item_ids	hero	1.33	experimental
 rac1_ammo_panel_offset	hero	1.33	experimental
 rac1_weapon_register	hero	1.33	experimental
 rac1_weapon_grant	hero	1.33	experimental
+moby_material_class	visuals	1.34	experimental

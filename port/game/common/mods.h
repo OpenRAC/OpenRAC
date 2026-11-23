@@ -103,9 +103,9 @@ struct Host {
     std::string openrac_version;  // build_info::version()
     const HookPoint* hooks = nullptr;
     int hook_count = 0;
-    std::filesystem::path list;  // plugins.json; the mods' folders are beside it
+    std::filesystem::path list;   // plugins.json; the mods' folders are beside it
     std::filesystem::path stack;  // the stacked data packs' stack.json; empty: none in this run
-    bool purist = false;         // --no-mods: nothing is read or loaded
+    bool purist = false;          // --no-mods: nothing is read or loaded
     int (*loaded_level)(void) = nullptr;
     // Where the pad library looks for a callback on each report (game_host.h,
     // openrac_game_pad_report_hook): set when a mod asks for one.
@@ -227,6 +227,7 @@ void unload();
 // The mods' frame callbacks, after each game tick.
 extern bool g_frame_callbacks;
 void run_frame_callbacks();
+
 inline void frame() {
     if (g_frame_callbacks) {
         run_frame_callbacks();
@@ -332,6 +333,18 @@ bool moby_platinum(std::uint32_t moby);
 // OPENRAC_MOBY_MATERIAL_NONE when there is none, for the game's own effects of that moby
 // (openrac_moby_obsidian). From the game's thread.
 MobyMaterial moby_material_drawn(std::uint32_t moby);
+
+// A mod's material on every moby of class `oclass` in `scope` (one bit: OPENRAC_MODEL_WORLD or
+// OPENRAC_MODEL_MENU; openrac_api.moby_material_class, interface 1.34); `material.moby` is 0.
+struct ClassMaterialDraw {
+    int oclass = -1;
+    std::uint32_t scope = 0;
+    MobyMaterial material;
+};
+
+// The mods' materials on classes this level load, one for each class and scope (the last set).
+// From any thread.
+std::vector<ClassMaterialDraw> class_materials();
 
 // The energy materials (OPENRAC_MOBY_MATERIAL_ENERGY, interface 1.25) drawn this level load, by
 // moby: the last material set on each, where it is energy. For the effects those mobys make
