@@ -39,6 +39,7 @@
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "game/common/frontend/state.h"
+#include "game/common/frontend/ui_images.h"
 #include "game/common/particle_texture_cache.h"
 #include "game/common/profile.h"
 #include "mod_menu.h"
@@ -371,6 +372,19 @@ bool open(
     std::string& error
 ) {
     g = std::make_unique<State>();
+    // The recorder's game images (openrac_frame_ui_item, _picture_image) come from one cache,
+    // decoded once per content; a new tick lets the game's addresses hold something else.
+    recorder::set_image_resolver(
+        [cache = std::make_shared<UiImageCache>(), tick = std::uint64_t{0}](
+            std::span<const std::uint8_t> ram, const openrac_game_ui_image& image
+        ) mutable {
+            if (g && g->index != tick) {
+                tick = g->index;
+                cache->next_tick();
+            }
+            return cache->find(ram, image);
+        }
+    );
     g->render.game = game_id;
     g->render.profile = &host::game_profile(game_id);
     scene::set_moby_anim_fields(g->render.profile->moby_anim_fields());

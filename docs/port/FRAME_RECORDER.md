@@ -227,7 +227,7 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 
 | Game | On the recorder | Still markers in its list |
 |---|---|---|
-| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; `host/hud.c`: the HUD's sprites and gradients (`openrac_ui_record`, `common/lib/ui_quad.h`) | `ui2d.c` (text, menus: the native-UI agent moves them to `ui_item`), `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
+| rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
 | rac1, rac2 | nothing yet | all (R1) |
 
 ## 9. Tests

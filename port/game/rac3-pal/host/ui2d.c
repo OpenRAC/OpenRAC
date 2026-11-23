@@ -2,11 +2,14 @@
 /* Copyright (c) 2026 the OpenRAC contributors */
 
 /*
- * Up Your Arsenal: the 2D layer's draw routines, wrapped (libraries.tsv, port = wrap) as Going
- * Commando's are (port/game/rac2/host/ui2d.c) and Ratchet & Clank's (rac1/host/ui2d.c): each
- * routine's quad goes to the window as a record, marked as a glyph of text inside the font's
- * prints, so text is drawn from the font's distance field, sharp at any size (OPENRAC_UI_REPLAY
- * replays the game's packets, for comparing).
+ * Up Your Arsenal: the 2D layer's draw routines, wrapped (libraries.tsv, port = wrap): what each
+ * would draw goes to the window through the frame recorder (openrac/frame.h), placed by the
+ * display list's cursor with nothing written into the list. Text goes through the shared 2D layer
+ * (openrac/ui.h, ui_adapter.c): a glyph of a font's print is its cell of the font page as the game
+ * keeps it in its font header, no word of the console's graphics chip, drawn from the page's
+ * distance field, sharp at any size. The other routines still hand the window the older records
+ * (with the chip's TEX0) until they move to the shared layer as well. OPENRAC_UI_REPLAY sends the
+ * game's own packets, for comparing.
  *
  * The routines were paired with Going Commando's instruction by instruction (their opcode
  * sequences against the boot program's functions): the flat box (func_0038B310, rac2's
@@ -43,15 +46,20 @@
 #include "ui2d.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "../../common/lib/ui_quad.h"
 #include "exec.h"
 #include "game_protos.h"
 #include "mp/game_protos.h"
+#include "openrac/frame.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "openrac/host_env.h"
+#include "openrac/ui.h"
 #include "rac3_version.h"
+#include "ui_adapter.h"
 
 /* The offset the game adds to every 2D position (12.4): the core's, which every program shares
  * (the multiplayer executable's core has it at 0x00240310). */
@@ -134,18 +142,152 @@ static int glyph_corners(float x, float y, float w, float h, int snap, int out[4
     return 1;
 }
 
-/* The glyphs of the print being drawn: their records' indices, for their markers. The print sends
- * its glyphs as one GIF packet, a loop of six quadwords each, behind a header it writes last; a
- * glyph's marker cannot go where its loop would have, so the print's wrapper puts them all in the
- * packet's place when it returns. */
-#define MOST_GLYPHS 1024
-static int g_pending[MOST_GLYPHS];
-static int g_npending = 0;
+/* A program's copy of the font's handle tables: the words holding its pointers to the current
+ * font's table of page handles and of palette handles (what FontSelect sets: the boot program's
+ * and frontbin's D_001D5B38 and D_001D5B3C, a level's own). A glyph's builder is given its page as
+ * the handles the font's print looked up there; the page's image itself is the font header's
+ * (rac3_ui_font_page). */
+typedef struct FontTables {
+    gaddr pages;
+    gaddr palettes;
+} FontTables;
 
-/* A glyph's record: the cell (u, v) to (u + w, v + h) texels of tex0 at the corners c, in rgba, or
- * with a colour a corner (corners, else NULL; each triangle in its last corner's, as the packet's
- * PRIM 0x154 is unshaded). False when the window replays the 2D layer (or the print has too many
- * glyphs), and the caller sends the game's packet. */
+static const FontTables kBootFonts = {RAC3_ADDR(0x001D5B38u), RAC3_ADDR(0x001D5B3Cu)};
+
+static FontTables level_fonts(void) {
+    const FontTables f = {
+        OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001D64F0u)),
+        OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001D64F4u)),
+    };
+    return f;
+}
+
+/* The print being drawn: where the list had got to when it started (its glyphs go there, before
+ * what it sends itself), whose font tables it reads (none: a copy whose tables are not known yet,
+ * whose glyphs go to the window as the older records), and how many of its glyphs were drawn
+ * natively and how many the game sent itself. */
+static struct {
+    gaddr anchor;
+    FontTables fonts;
+    int fonts_known;
+    int native;
+    int sent;
+} g_print;
+
+/* Where the window places what is recorded now: inside a print, at the print's start; else at the
+ * list's cursor (the word at `cursor`). Nothing is written into the list. */
+static void anchor_at(gaddr cursor) {
+    const gaddr at = g_glyphs > 0 ? g_print.anchor : GREF(gaddr, cursor);
+    openrac_frame_anchor(at < 0x02000000u ? at : 0);
+}
+
+/* A quad the game draws in flat colour (boxes, the darkening, the letterbox's bars): through the
+ * shared 2D layer as colour alone, its corners (the chip's 12.4 with the game's offset, as the
+ * game computes them) in the game's 2D pixels, a colour each corner, shaded or not as the record
+ * says. */
+static int send_flat(const openrac_game_ui_rect* q, gaddr cursor) {
+    openrac_ui_quad quad;
+    memset(&quad, 0, sizeof(quad));
+    const float ofx = (float)(rac3_ui2d_screen_x(0) + 8);
+    const float ofy = (float)(rac3_ui2d_screen_y(0) + 8);
+    for (int i = 0; i < 4; ++i) {
+        quad.x[i] = ((float)(int)q->x[i] - ofx) / 16.0f;
+        quad.y[i] = ((float)(int)q->y[i] - ofy) / 16.0f;
+        quad.rgba[i] = (q->flags & 4u) != 0 ? q->corners[i] : q->rgba;
+    }
+    quad.flags = OPENRAC_UI_FLAT | ((q->flags & 32u) != 0 ? OPENRAC_UI_SHADED : 0u);
+    rac3_ui_adapter_install();
+    anchor_at(cursor);
+    return openrac_ui_draw_quad(&quad);
+}
+
+/* A record to the window through the frame recorder, placed by the list's cursor: in flat colour
+ * through the shared 2D layer, else of the older kind (with the chip's TEX0, until its texture
+ * comes from the game's tables, and in the multiplayer executable). False when the 2D layer is replayed (the caller sends the game's). */
+static int send_quad(const openrac_game_ui_rect* q, gaddr cursor) {
+    /* The multiplayer executable's scissor is not followed yet: its boxes stay the older records. */
+    if ((q->flags & 8u) != 0 && rac3_exec_program() != RAC3_EXEC_MULTIPLAYER) {
+        return send_flat(q, cursor);
+    }
+    anchor_at(cursor);
+    return openrac_frame_ui_quad(q);
+}
+
+/* The image of the glyph page whose handles are tex0's (its TBP and CBP fields, the values the
+ * print read from the copy's tables), from the current font's header. */
+static int glyph_page(unsigned long long tex0, openrac_game_ui_image* out) {
+    if (!g_print.fonts_known) {
+        return 0;
+    }
+    const gaddr pages = GREF(gaddr, g_print.fonts.pages);
+    const gaddr palettes = GREF(gaddr, g_print.fonts.palettes);
+    if (pages == 0 || palettes == 0) {
+        return 0;
+    }
+    const int font = GREF(int32_t, RAC3_ADDR(0x001D55E8u));
+    const int page = rac3_ui_font_page_of(
+        font, (uint32_t)(tex0 & 0x3FFFu), (uint32_t)((tex0 >> 37) & 0x3FFFu), pages, palettes
+    );
+    return page >= 0 && rac3_ui_font_page(font, page, out);
+}
+
+/* The 2D layer's scissor (SetScissor: the boot program's func_003A98B8, frontbin's func_003A9500,
+ * the levels' copy func_L01_004C5C50): what the game cuts its 2D to, x0 to x1 and y0 to y1
+ * inclusive, kept within its screen (the size at +0x150 and +0x152 of 0x001CFEC0). Natively drawn
+ * quads are cut to the same, placed where the game's own scissor goes in its list; the game's is
+ * still sent, for what the list draws itself. */
+static void record_scissor(gaddr cursor, int x0, int x1, int y0, int y1) {
+    const gaddr screen = RAC3_ADDR(0x001CFEC0u);
+    const int w = GREF(int16_t, screen + 0x150u) - 1;
+    const int h = GREF(int16_t, screen + 0x152u) - 1;
+    x0 = x0 < 0 ? 0 : x0;
+    y0 = y0 < 0 ? 0 : y0;
+    x1 = w < x1 ? w : x1;
+    y1 = h < y1 ? h : y1;
+    const float rect[4] = {(float)x0, (float)y0, (float)(x1 + 1), (float)(y1 + 1)};
+    rac3_ui_adapter_install();
+    anchor_at(cursor);
+    openrac_ui_scissor(rect);
+}
+
+void func_003A98B8(int x0, int x1, int y0, int y1) {
+    record_scissor(kBoot.cursor, x0, x1, y0, y1);
+    func_003A98B8__game(x0, x1, y0, y1);
+}
+
+void func_003A9500__frontbin(int x0, int x1, int y0, int y1) {
+    record_scissor(kBoot.cursor, x0, x1, y0, y1);
+    func_003A9500__frontbin__game(x0, x1, y0, y1);
+}
+
+int func_L01_004C5C50(int x0, int x1, int y0, int y1) {
+    record_scissor(rac3_ui2d_level().cursor, x0, x1, y0, y1);
+    return func_L01_004C5C50__game(x0, x1, y0, y1);
+}
+
+/* OPENRAC_UI_LOG: how the prints' glyphs went to the window, now and then in the log. */
+static void note_glyph(int from_page) {
+    static int log = -1;
+    static unsigned pages = 0, older = 0;
+    if (log < 0) {
+        log = openrac_env_string("OPENRAC_UI_LOG") != NULL;
+    }
+    if (!log) {
+        return;
+    }
+    from_page ? ++pages : ++older;
+    if ((pages + older) % 2000 == 1) {
+        fprintf(
+            stderr, "ui2d: glyphs from their font page %u, as older records %u\n", pages, older
+        );
+    }
+}
+
+/* A glyph: the cell (u, v) to (u + w, v + h) texels of tex0's page at the corners c (12.4, with the
+ * game's offset), in rgba, or with a colour a corner (corners, else NULL; each triangle in its last
+ * corner's, as the packet's PRIM 0x154 is unshaded). From the font's own page image when the
+ * print's copy is known, else as the older record. False when the window does not draw it, and the
+ * caller sends the game's packet. */
 static int record_glyph_corners(
     const int c[4],
     int u,
@@ -156,8 +298,30 @@ static int record_glyph_corners(
     unsigned long long tex0,
     const uint32_t* corners
 ) {
-    if (g_npending >= MOST_GLYPHS) {
-        return 0;
+    openrac_ui_glyph glyph;
+    const int from_page = glyph_page(tex0, &glyph.page);
+    note_glyph(from_page);
+    if (from_page) {
+        const float ofx = (float)(rac3_ui2d_screen_x(0) + 8);
+        const float ofy = (float)(rac3_ui2d_screen_y(0) + 8);
+        glyph.cell[0] = (float)u;
+        glyph.cell[1] = (float)v;
+        glyph.cell[2] = (float)(u + w);
+        glyph.cell[3] = (float)(v + h);
+        glyph.rect[0] = ((float)c[0] - ofx) / 16.0f;
+        glyph.rect[1] = ((float)c[1] - ofy) / 16.0f;
+        glyph.rect[2] = ((float)c[2] - ofx) / 16.0f;
+        glyph.rect[3] = ((float)c[3] - ofy) / 16.0f;
+        for (int i = 0; i < 4; ++i) {
+            glyph.rgba[i] = corners != NULL ? corners[i] : rgba;
+        }
+        anchor_at(0);
+        if (!openrac_ui_draw_glyph(&glyph)) {
+            ++g_print.sent;
+            return 0;
+        }
+        ++g_print.native;
+        return 1;
     }
     openrac_game_ui_rect q;
     memset(&q, 0, sizeof(q));
@@ -169,11 +333,12 @@ static int record_glyph_corners(
         memcpy(q.corners, corners, sizeof(q.corners));
         q.flags |= 4u;
     }
-    const int index = openrac_game_ui_quad(&q);
-    if (index < 0) {
+    anchor_at(0);
+    if (!openrac_frame_ui_quad(&q)) {
+        ++g_print.sent;
         return 0;
     }
-    g_pending[g_npending++] = index;
+    ++g_print.native;
     return 1;
 }
 
@@ -184,7 +349,7 @@ static int record_glyph(
 }
 
 /* A marker at the list's cursor (the word at `cursor`): an A+D write of `value` to the NOP
- * register, as openrac_ui_send writes a record's. */
+ * register. Only for what has no recorder call yet (hud.c's HUD side, picture.c's frame). */
 void rac3_ui2d_marker(gaddr cursor, uint64_t value) {
     const gaddr at = GREF(gaddr, cursor);
     GREF(uint32_t, at + 0) = 0x10000002u;
@@ -198,16 +363,11 @@ void rac3_ui2d_marker(gaddr cursor, uint64_t value) {
     GREF(gaddr, cursor) = at + 48;
 }
 
-/* A record's marker at the list's cursor, as openrac_ui_send writes it. */
-static void write_marker(gaddr cursor, int index) {
-    rac3_ui2d_marker(cursor, (0x4E55ull << 48) | (uint32_t)index);
-}
-
-/* After a print whose glyphs were recorded: its packet's header (a cnt tag and VIF DIRECT of
- * 6n + 1 quadwords, then the GIF tag) stands where the glyphs' loops, none of them written, would
- * have followed it, then the scissor the print restores. The glyphs' markers go in the header's
- * place, what followed it after them. */
-static void place_glyph_markers(gaddr cursor, gaddr start, int first) {
+/* After a print whose glyphs were all drawn natively: its packet's header (a cnt tag and VIF
+ * DIRECT of 6n + 1 quadwords, then the GIF tag), which the print writes last where the glyphs'
+ * loops, none of them written, would have followed it, is taken out; what followed it (the
+ * register the print restores) moves up in its place. */
+static void drop_print_header(gaddr cursor, gaddr start) {
     const gaddr end = GREF(gaddr, cursor);
     gaddr h = start;
     while (h + 32 <= end) {
@@ -219,38 +379,38 @@ static void place_glyph_markers(gaddr cursor, gaddr start, int first) {
         h += 16;
     }
     if (h + 32 > end || end - (h + 32) > 256) {
-        return; /* not the packet the print writes: the glyphs' records go unused */
+        return; /* not the packet the print writes */
     }
-    uint8_t tail[256];
     const uint32_t rest = end - (h + 32);
-    memcpy(tail, G(h + 32), rest);
-    GREF(gaddr, cursor) = h;
-    for (int i = first; i < g_npending; ++i) {
-        write_marker(cursor, g_pending[i]);
-    }
-    const gaddr at = GREF(gaddr, cursor);
-    memcpy(G(at), tail, rest);
-    GREF(gaddr, cursor) = at + rest;
+    memmove(G(h), G(h + 32), rest);
+    GREF(gaddr, cursor) = h + rest;
 }
 
-/* A print starts: its glyphs are records from here on. */
+/* A print starts: its glyphs are recorded from here on, read with `fonts` (NULL: as older
+ * records). */
 typedef struct Print {
     gaddr start;
-    int first;
 } Print;
 
-static Print print_begin(gaddr cursor) {
-    const Print p = {GREF(gaddr, cursor), g_npending};
+static Print print_begin(gaddr cursor, const FontTables* fonts) {
+    const Print p = {GREF(gaddr, cursor)};
+    g_print.anchor = p.start;
+    g_print.fonts_known = fonts != NULL;
+    if (fonts != NULL) {
+        g_print.fonts = *fonts;
+    }
+    g_print.native = 0;
+    g_print.sent = 0;
     ++g_glyphs;
+    rac3_ui_adapter_install();
     return p;
 }
 
 static void print_end(gaddr cursor, Print p) {
     --g_glyphs;
-    if (g_npending > p.first) {
-        place_glyph_markers(cursor, p.start, p.first);
+    if (g_print.native > 0 && g_print.sent == 0) {
+        drop_print_header(cursor, p.start);
     }
-    g_npending = p.first;
 }
 
 void rac3_menu_log_text(float x, float y, gaddr text, int length); /* menu_log.c */
@@ -271,7 +431,7 @@ void func_0038EBC8(
     float a11
 ) {
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6); /* x, y, the text, its length (-1: to its end) */
-    const Print p = print_begin(kBoot.cursor);
+    const Print p = print_begin(kBoot.cursor, &kBootFonts);
     func_0038EBC8__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     print_end(kBoot.cursor, p);
 }
@@ -295,7 +455,7 @@ void func_0038F458(
     float a11
 ) {
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(kBoot.cursor);
+    const Print p = print_begin(kBoot.cursor, &kBootFonts);
     func_0038F458__game(a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11);
     print_end(kBoot.cursor, p);
 }
@@ -317,7 +477,8 @@ void func_L01_00410208(
 ) {
     const gaddr cursor = rac3_ui2d_level().cursor;
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(cursor);
+    const FontTables fonts = level_fonts();
+    const Print p = print_begin(cursor, &fonts);
     func_L01_00410208__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     print_end(cursor, p);
 }
@@ -338,7 +499,8 @@ void func_L01_00410A98(
 ) {
     const gaddr cursor = rac3_ui2d_level().cursor;
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(cursor);
+    const FontTables fonts = level_fonts();
+    const Print p = print_begin(cursor, &fonts);
     func_L01_00410A98__game(a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11);
     print_end(cursor, p);
 }
@@ -514,8 +676,7 @@ static int glyph_shadowed(
         y0 = (y0 & 0xFFF0) + 8, y1 = (y1 & 0xFFF0) + 8;
     }
     c[0] = x0, c[1] = y0, c[2] = x1, c[3] = y1;
-    if (g_npending + 2 > MOST_GLYPHS
-        || !record_glyph(shadow, x, y, w, h, (uint32_t)t1, (unsigned long long)t2)) {
+    if (!record_glyph(shadow, x, y, w, h, (uint32_t)t1, (unsigned long long)t2)) {
         return -1;
     }
     record_glyph(c, x, y, w, h, (uint32_t)t0, (unsigned long long)t2);
@@ -578,6 +739,23 @@ static int glyph_quad(
     long long a8,
     long long a9
 ) {
+    /* Inside a print, a glyph of the font's page (the button icons in a text): from the page. */
+    openrac_ui_glyph glyph;
+    if (g_glyphs > 0 && glyph_page((unsigned long long)a9, &glyph.page)) {
+        glyph.cell[0] = (float)u;
+        glyph.cell[1] = (float)v;
+        glyph.cell[2] = (float)(u + uw);
+        glyph.cell[3] = (float)(v + vh);
+        glyph.rect[0] = (float)x - 0.5f;
+        glyph.rect[1] = (float)y - 0.5f;
+        glyph.rect[2] = (float)(x + w) - 0.5f;
+        glyph.rect[3] = (float)(y + h) - 0.5f;
+        for (int i = 0; i < 4; ++i) {
+            glyph.rgba[i] = (uint32_t)a8;
+        }
+        anchor_at(cursor);
+        return openrac_ui_draw_glyph(&glyph);
+    }
     openrac_game_ui_rect q;
     memset(&q, 0, sizeof(q));
     openrac_ui_rect(
@@ -595,7 +773,7 @@ static int glyph_quad(
     q.rgba = (uint32_t)a8;
     q.tex0 = (unsigned long long)a9;
     q.flags = g_glyphs > 0 ? 1u : 0u;
-    return openrac_ui_send(&q, cursor);
+    return send_quad(&q, cursor);
 }
 
 void func_0038B8B0(
@@ -651,7 +829,7 @@ static int turned_glyph_quad(
     q.rgba = (uint32_t)col;
     q.tex0 = (unsigned long long)tex;
     q.flags = g_glyphs > 0 ? 1u : 0u;
-    return openrac_ui_send(&q, cursor);
+    return send_quad(&q, cursor);
 }
 
 void func_0038B500(
@@ -740,7 +918,7 @@ static int rotated_sprite(
     q.z = (uint32_t)z;
     q.rgba = (uint32_t)rgba;
     q.tex0 = (unsigned long long)tex;
-    return openrac_ui_send(&q, cursor);
+    return send_quad(&q, cursor);
 }
 
 void func_0038C0B8(
@@ -810,7 +988,7 @@ static int ring_segment(
     q.tex0 = (unsigned long long)tex0;
     q.flags = 4u | 16u;
     q.clamp = clamped ? 5u : 0u;
-    return openrac_ui_send(&q, cursor);
+    return send_quad(&q, cursor);
 }
 
 void func_0038C518(gaddr xyz, gaddr uv, gaddr colours, long long tex0, int clamped) {
@@ -840,7 +1018,7 @@ static int shaded_box(gaddr cursor, gaddr xyz, gaddr colours) {
     }
     q.z = (uint32_t)(GREF(uint64_t, xyz) >> 32);
     q.flags = 4u | 8u | 32u;
-    return openrac_ui_send(&q, cursor);
+    return send_quad(&q, cursor);
 }
 
 void func_0038C628(gaddr xyz, gaddr colours) {
@@ -874,7 +1052,7 @@ static int flat_box(gaddr cursor, int y0, int y1, int x0, int x1, unsigned long 
     q.z = FAR_Z;
     q.rgba = (uint32_t)c;
     q.flags = 8u;
-    return openrac_ui_send(&q, cursor);
+    return send_quad(&q, cursor);
 }
 
 void func_0038B310(int y0, int y1, int x0, int x1, unsigned long long c) {
@@ -922,7 +1100,7 @@ static int darken(gaddr cursor, gaddr packet, int r, int g, int b, int a) {
     q.rgba = ((uint32_t)r & 0xFFu) | (((uint32_t)g & 0xFFu) << 8) | (((uint32_t)b & 0xFFu) << 16)
              | ((uint32_t)a << 24);
     q.flags = 2u | 8u; /* a sprite, flat */
-    return openrac_ui_send(&q, cursor);
+    return send_quad(&q, cursor);
 }
 
 void func_0038B200(int r, int g, int b, int a) {
@@ -972,7 +1150,7 @@ static void letterbox_records(gaddr cursor, gaddr start) {
     }
     GREF(gaddr, cursor) = start;
     for (int i = 0; i < 2; ++i) {
-        if (!openrac_ui_send(&q[i], cursor)) {
+        if (!send_quad(&q[i], cursor)) {
             GREF(gaddr, cursor) = end; /* replaying: the game's packet is still there */
             return;
         }
@@ -1093,7 +1271,7 @@ static void quads_to_records(gaddr cursor, gaddr at) {
     }
     GREF(gaddr, cursor) = at;
     for (int i = 0; i < n; ++i) {
-        if (!openrac_ui_send(&quads[i], cursor)) {
+        if (!send_quad(&quads[i], cursor)) {
             GREF(gaddr, cursor) = end; /* replaying: the packets are still there, untouched */
             return;
         }
@@ -1163,7 +1341,7 @@ static int hud_sprite_turned(
     q.rgba = q.corners[3];
     q.tex0 = tex0;
     q.flags = 4u | 32u; /* a colour a corner, shaded */
-    return openrac_ui_send(&q, u->cursor);
+    return send_quad(&q, u->cursor);
 }
 
 void func_00397680(int tex, gaddr colours, float x, float y, float w, float h, float ang) {
@@ -1219,7 +1397,7 @@ static int hud_quad_turned(
     q.z = z;
     q.rgba = 0x807F7F7Fu;
     q.tex0 = tex0;
-    return openrac_ui_send(&q, cursor);
+    return send_quad(&q, cursor);
 }
 
 void func_00397A18(float x, float y, float w, float h, float ang, int tw, int th, long long tex0) {
@@ -1271,7 +1449,7 @@ void mp_func_00281240(
     float a11
 ) {
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(MP_CURSOR);
+    const Print p = print_begin(MP_CURSOR, NULL);
     mp_func_00281240__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     print_end(MP_CURSOR, p);
 }
@@ -1291,7 +1469,7 @@ void mp_func_L39_00592238(
     float a11
 ) {
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(MP_MENUS_CURSOR);
+    const Print p = print_begin(MP_MENUS_CURSOR, NULL);
     mp_func_L39_00592238__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     print_end(MP_MENUS_CURSOR, p);
 }
@@ -1364,7 +1542,7 @@ void mp_func_L39_00592AC8(
     float a11
 ) {
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(MP_MENUS_CURSOR);
+    const Print p = print_begin(MP_MENUS_CURSOR, NULL);
     mp_func_L39_00592AC8__game(a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11);
     print_end(MP_MENUS_CURSOR, p);
 }
@@ -1437,7 +1615,7 @@ MP_GLYPH_QUAD(mp_func_L39_0058B868, MP_MENUS_CURSOR)
         q.rgba = (uint32_t)rgba;                                                                   \
         q.tex0 = (unsigned long long)tex0;                                                         \
         q.flags = g_glyphs > 0 ? 1u : 0u;                                                          \
-        if (!openrac_ui_send(&q, cursor)) {                                                        \
+        if (!send_quad(&q, cursor)) {                                                              \
             name##__game(u, v, uw, vh, rgba, tex0, x, y, w, h);                                    \
         }                                                                                          \
     }
@@ -1645,7 +1823,7 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
     ) {                                                                                            \
         rac3_menu_log_text(a0, a1, (gaddr)a5, a6);                                                 \
         const gaddr cursor = MP_MAP_CURSOR;                                                        \
-        const Print p = print_begin(cursor);                                                       \
+        const Print p = print_begin(cursor, NULL);                                                 \
         mp_func_L##m##_##font_print##__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);     \
         print_end(cursor, p);                                                                      \
     }                                                                                              \
@@ -1665,7 +1843,7 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
     ) {                                                                                            \
         rac3_menu_log_text(a0, a1, (gaddr)a5, a6);                                                 \
         const gaddr cursor = MP_MAP_CURSOR;                                                        \
-        const Print p = print_begin(cursor);                                                       \
+        const Print p = print_begin(cursor, NULL);                                                 \
         mp_func_L##m##_##font_print_shaded##__game(                                                \
             a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11                                  \
         );                                                                                         \
@@ -1881,7 +2059,7 @@ void func_0038E7E8__frontbin(
 ) {
     const gaddr cursor = kBoot.cursor;
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(cursor);
+    const Print p = print_begin(cursor, &kBootFonts);
     func_0038E7E8__frontbin__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     print_end(cursor, p);
 }
@@ -1902,7 +2080,7 @@ void func_0038F078__frontbin(
 ) {
     const gaddr cursor = kBoot.cursor;
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(cursor);
+    const Print p = print_begin(cursor, &kBootFonts);
     func_0038F078__frontbin__game(a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11);
     print_end(cursor, p);
 }
