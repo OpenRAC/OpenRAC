@@ -1182,6 +1182,16 @@ int fake_camera_shake(openrac_mod*, int channel, float amplitude, int frames) {
     return ok ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+// What the fake host's 1.36 sharp_cells was given: its count, and its first page's width; it
+// refuses a count past 64.
+std::string g_sharp;
+
+int fake_sharp_cells(openrac_mod*, const openrac_sharp_page* pages, int count) {
+    g_sharp = "pages " + std::to_string(count)
+              + (count > 0 ? " width " + std::to_string(pages[0].width) : std::string());
+    return count >= 0 && count <= 64 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
 // What the fake host's 1.33 call was asked for. It knows one installed game's folder, refuses one the
 // manifest does not declare, and has none for any other.
 std::string g_game_asked;
@@ -2648,6 +2658,29 @@ int main() {
               && g_model_class.empty());
         api.size = size;
         CHECK(mod.has_moby_models());
+    }
+
+    // Interface 1.36: a mod's pages of sharper cells, handed to the port as they are, and refused
+    // where the port lacks the call (an older minor, or a table that stops before it).
+    {
+        api.sharp_cells = fake_sharp_cells;
+        CHECK(mod.has_sharp_cells());
+        const std::uint8_t colours[3] = {1, 2, 3};
+        const std::uint8_t sharp[12] = {};
+        openrac_sharp_cell cell{sizeof(openrac_sharp_cell), 4, 5, 1, 1, colours, sharp};
+        openrac_sharp_page page{sizeof(openrac_sharp_page), 256, 128, 2, &cell, 1};
+        CHECK(mod.sharp_cells(&page, 1) && g_sharp == "pages 1 width 256");
+        CHECK(mod.sharp_cells(nullptr, 0) && g_sharp == "pages 0");
+        // The port's refusal is the wrapper's false.
+        CHECK(!mod.sharp_cells(&page, 65));
+        g_sharp.clear();
+        api.api_minor = 35;
+        CHECK(!mod.has_sharp_cells() && !mod.sharp_cells(&page, 1) && g_sharp.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, sharp_cells));
+        CHECK(!mod.has_sharp_cells() && !mod.sharp_cells(&page, 1) && g_sharp.empty());
+        api.size = sizeof api;
+        CHECK(mod.has_sharp_cells());
     }
 
     // Interface 1.33: the game's camera shake, handed to the port as it is and refused where the

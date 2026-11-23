@@ -304,6 +304,21 @@ openrac_save_info	level	4	int32_t
 openrac_save_info	bolts	8	int32_t
 openrac_save_info	gold_bolts	12	int32_t
 openrac_save_info	seconds	16	int32_t
+openrac_sharp_cell	(size)	40	-
+openrac_sharp_cell	size	0	uint32_t
+openrac_sharp_cell	x	4	int32_t
+openrac_sharp_cell	y	8	int32_t
+openrac_sharp_cell	w	12	int32_t
+openrac_sharp_cell	h	16	int32_t
+openrac_sharp_cell	rgb	24	const uint8_t *
+openrac_sharp_cell	sharp	32	const uint8_t *
+openrac_sharp_page	(size)	32	-
+openrac_sharp_page	size	0	uint32_t
+openrac_sharp_page	width	4	int32_t
+openrac_sharp_page	height	8	int32_t
+openrac_sharp_page	scale	12	int32_t
+openrac_sharp_page	cells	16	const openrac_sharp_cell *
+openrac_sharp_page	count	24	int32_t
 openrac_shot	(size)	48	-
 openrac_shot	size	0	uint32_t
 openrac_shot	item	4	int32_t

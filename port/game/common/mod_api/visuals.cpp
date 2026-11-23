@@ -5,6 +5,7 @@
 // sdk/api/members.tsv puts in this area, and what only they use.
 
 #include "mod_api/internal.h"
+#include "renderer/textures/sharp_cells.h"
 
 using namespace openrac;
 
@@ -799,6 +800,95 @@ int api_scene_air(openrac_mod* mod, const openrac_air* air) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     g_air = AirSet{mod, loads_now(), *air};
+    return OPENRAC_HOOK_OK;
+}
+
+namespace {
+
+// What one sharp_cells call takes at most (openrac_api.sharp_cells): pages, cells a page, bytes of
+// colours and pictures in all; a texture's side and a picture's (texels).
+constexpr int kSharpPagesMax = 64;
+constexpr int kSharpCellsMax = 4096;
+constexpr std::size_t kSharpBytesMax = std::size_t{64} << 20;
+constexpr int kSharpTextureMax = 1024;
+constexpr int kSharpPictureMax = 4096;
+constexpr int kSharpScaleMax = 16;
+// The longest struct a mod built for a later interface may give: room to grow, not to overflow.
+constexpr std::uint32_t kSharpStructMax = 1024;
+
+// Element `i` of a mod's array of structs that start with their size, `stride` bytes apart (the
+// first one's size: a mod built for a later interface has longer ones).
+template <class T>
+const T& sized_element(const T* first, std::uint32_t stride, int i) {
+    return *reinterpret_cast<const T*>(
+        reinterpret_cast<const unsigned char*>(first)
+        + static_cast<std::size_t>(stride) * static_cast<std::size_t>(i)
+    );
+}
+
+// The stride of a mod's array of `T`: its first element's size, 0 when too short or too long.
+template <class T>
+std::uint32_t sized_stride(const T* first) {
+    const std::uint32_t size = first->size;
+    return size >= sizeof(T) && size <= kSharpStructMax ? size : 0;
+}
+
+// The mod's page `p` as the renderer keeps it, or false for one out of range; `bytes` counts its
+// colours and pictures.
+bool sharp_page(const openrac_sharp_page& p, renderer::sharp_cells::Page& out, std::size_t& bytes) {
+    if (p.width < 1 || p.width > kSharpTextureMax || p.height < 1 || p.height > kSharpTextureMax
+        || p.scale < 1 || p.scale > kSharpScaleMax || p.width * p.scale > kSharpPictureMax
+        || p.height * p.scale > kSharpPictureMax || p.count < 1 || p.count > kSharpCellsMax
+        || p.cells == nullptr) {
+        return false;
+    }
+    const std::uint32_t stride = sized_stride(p.cells);
+    if (stride == 0) {
+        return false;
+    }
+    out = {p.width, p.height, p.scale, {}};
+    out.cells.reserve(static_cast<std::size_t>(p.count));
+    for (int i = 0; i < p.count; ++i) {
+        const openrac_sharp_cell& c = sized_element(p.cells, stride, i);
+        if (c.size != stride || c.x < 0 || c.y < 0 || c.w < 1 || c.h < 1 || c.x > p.width - c.w
+            || c.y > p.height - c.h || c.rgb == nullptr || c.sharp == nullptr) {
+            return false;
+        }
+        const std::size_t colours =
+            static_cast<std::size_t>(c.w) * static_cast<std::size_t>(c.h) * 3;
+        const std::size_t sharp = colours * static_cast<std::size_t>(p.scale * p.scale);
+        bytes += colours + sharp;
+        if (bytes > kSharpBytesMax) {
+            return false;
+        }
+        out.cells.push_back(
+            {c.x, c.y, c.w, c.h, {c.rgb, c.rgb + colours}, {c.sharp, c.sharp + sharp}}
+        );
+    }
+    return true;
+}
+
+}  // namespace
+
+// openrac_api.sharp_cells. Since 1.36.
+int api_sharp_cells(openrac_mod* mod, const openrac_sharp_page* pages, int count) {
+    if (mod == nullptr || count < 0 || count > kSharpPagesMax || (count > 0 && pages == nullptr)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::uint32_t stride = count > 0 ? sized_stride(pages) : 0;
+    if (count > 0 && stride == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    // Every page read before any is set: a refusal leaves the mod's pages as they were.
+    std::vector<renderer::sharp_cells::Page> kept(static_cast<std::size_t>(count));
+    std::size_t bytes = 0;
+    for (int i = 0; i < count; ++i) {
+        const openrac_sharp_page& p = sized_element(pages, stride, i);
+        if (p.size != stride || !sharp_page(p, kept[static_cast<std::size_t>(i)], bytes)) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+    }
+    renderer::sharp_cells::set(mod, std::move(kept));
     return OPENRAC_HOOK_OK;
 }
 

@@ -3009,6 +3009,20 @@ public:
         return has_slot14(offsetof(openrac_api, moby_uid)) && m_api->moby_uid != nullptr ? m_api->moby_uid(slot) : -1;
     }
 
+    // Since 1.36: whether the port draws sharper pictures of cells the mod paints in a 2D-layer
+    // texture (sharp_cells).
+    bool has_sharp_cells() const {
+        return m_api->api_minor >= 36
+               && m_api->size >= offsetof(openrac_api, sharp_cells) + sizeof(void*);
+    }
+
+    // Since 1.36: replaces the mod's pages of sharper cells with `count` (0 clears them; the port
+    // copies them), set before the mod paints the texels (see openrac_api.sharp_cells); each page's
+    // and cell's `size` is the mod's to set. False when refused or the port has no such call.
+    bool sharp_cells(const openrac_sharp_page* pages, int count) const {
+        return has_sharp_cells() && m_api->sharp_cells(m_handle, pages, count) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.9: how the game ran the level's mobys in the last tick, and the moby in `slot` (-1:
     // none) in it, into `out`; false outside a level or for a port without it.
     bool moby_run(int slot, openrac_moby_run& out) const {

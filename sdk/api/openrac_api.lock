@@ -225,3 +225,4 @@
 223	moby_joint_frame	1768	int (*)(int, int, float *)
 224	moby_set_joint_poses	1776	int (*)(openrac_mod *, int, const openrac_joint_offset *, int)
 225	moby_uid	1784	int (*)(int)
+226	sharp_cells	1792	int (*)(openrac_mod *, const openrac_sharp_page *, int)
