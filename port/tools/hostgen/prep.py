@@ -45,6 +45,8 @@ import textwrap
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+import vu0asm
+
 # A C token that can contain the word long without being the keyword.
 _SKIP = re.compile(
     r'"(?:\\.|[^"\\])*"'       # string literal (one line)
@@ -145,7 +147,8 @@ def vu0_register_operands(text: str) -> str:
     """Operands of inline assembly in GCC's "j" class (a VU0 vector register, which Clang does
     not know) are written with "m" instead, the same length (`"=&j"` as `"=m" `): Clang then
     reads the statement, with the operand as the C variable it is, and lower.py writes its VU0
-    instructions as C on that variable (vu0asm.py). Only the operand lists change."""
+    instructions as C on that variable (vu0asm.py). Only the operand lists of statements with
+    VU0 instructions change."""
     if "j\"" not in text:
         return text
     out, last = [], 0
@@ -156,12 +159,15 @@ def vu0_register_operands(text: str) -> str:
         if end is None:
             continue
         stmt = text[m.start():end]
-        j = m.end() - m.start()
+        j, parts = m.end() - m.start(), []
         while True:  # past the instructions
-            s = re.compile(r'\s*"(?:[^"\\]|\\.)*"').match(stmt, j)
+            s = re.compile(r'\s*"((?:[^"\\]|\\.)*)"').match(stmt, j)
             if s is None:
                 break
+            parts.append(s.group(1))
             j = s.end()
+        if not vu0asm.is_vu0("".join(parts).replace("\\n", "\n").replace("\\t", "\t")):
+            continue  # another unit's registers (abs.s on "j"): left for Clang to refuse, as before
         fixed = stmt[:j] + _J_CONSTRAINT.sub(lambda c: f'"{c.group(1)}m"' + (" " if c.group(2) else ""), stmt[j:])
         out.append(text[last:m.start()])
         out.append(fixed)

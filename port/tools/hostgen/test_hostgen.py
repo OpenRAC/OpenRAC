@@ -3667,6 +3667,18 @@ class Preparation(unittest.TestCase):
         self.assertNotIn("nop", out)
         self.assertIn('__asm__("sync")', out)
 
+    def test_vu0_register_operands_reach_clang_as_memory(self):
+        # GCC's "j" (a VU0 register) is "m" for Clang, in statements with VU0 instructions only and
+        # with every column kept; strings outside the operand lists stay as they are.
+        src = ('void f(void) { __asm__("vadd.xyz %0, %1, %2" : "=j"(x) : "j"(x), "j"(y));\n'
+               '__asm__ __volatile__("lqc2 %0, %1" : "=&j"(a) : "m"(b)); char *s = "=j";\n'
+               '__asm__("abs.s %0, %1" : "=j"(r) : "j"(q)); }\n')
+        out = prep.vu0_register_operands(src)
+        self.assertEqual([len(line) for line in out.split("\n")], [len(line) for line in src.split("\n")])
+        self.assertIn('"=m"(x) : "m"(x), "m"(y)', out)
+        self.assertIn('"=m" (a) : "m"(b)); char *s = "=j"', out)
+        self.assertIn('"abs.s %0, %1" : "=j"(r) : "j"(q)', out)
+
     def test_a_record_defined_in_a_cast_is_named_before_its_function(self):
         # Clang's JSON leaves such a record out; named and defined ahead of the function (the
         # statement may be a loop's whole body), hostgen can lay it out.
