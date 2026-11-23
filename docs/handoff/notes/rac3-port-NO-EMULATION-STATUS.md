@@ -61,7 +61,8 @@ checks below are validated; review and CI are still required before merge.
   Logs, control reports, disc data and WAV files remain private. These are short first-level smoke
   checks, not full playthroughs, movie or multiplayer validation, or a listening verdict for every
   sound. The initial fast-forwarded NTSC-U control trial is not counted as a real-time listening run.
-  Earlier non-P11 runs are not mixer evidence. Nothing has been published or merged by this continuation.
+  Earlier non-P11 runs are not mixer evidence. No disc data or recordings are included in this
+  continuation, and no merge is claimed.
 
 ## Native-UI agent to P1 (2026-11-22)
 
