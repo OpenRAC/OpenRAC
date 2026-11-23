@@ -219,13 +219,17 @@ def extract(image: Path, game: str, proj: Path, minimum: int = MIN_IMAGE_SIZE, b
     # inside the set-up being replaced (its own disc.iso, a copy, not a link)
     # moves into the new one at the end: a link to it would go with the old set-up.
     inside = final.resolve() in image.resolve().parents
+    # The set-up's own disc.iso that is a link (Android, Unpack the disc's files): the new one
+    # links to the same image, never a copy of it, and keeps the image's name.
+    own_link = image.is_symlink() and image.parent.resolve() == final.resolve()
     if inside:
         print(f"  disc.iso: kept from {image}")
     else:
-        how = files.link_or_copy(image, temp / "disc.iso", keep_metadata=False, symlink=link_image)
-        print(f"  disc.iso: {how} from {image}")
+        source = image.resolve() if own_link else image
+        how = files.link_or_copy(source, temp / "disc.iso", keep_metadata=False, symlink=link_image or own_link)
+        print(f"  disc.iso: {how} from {source}")
     earlier = final / "buildinfo.json"
-    named = json.loads(earlier.read_text())[0].get("image") if inside and earlier.is_file() else None
+    named = json.loads(earlier.read_text())[0].get("image") if (inside or own_link) and earlier.is_file() else None
     info = [{
         "serial": serial,
         "version": f"{game}/{name}",
