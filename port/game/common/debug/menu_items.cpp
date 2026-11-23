@@ -1198,11 +1198,9 @@ void draw_entry(Id id, std::uint8_t where) {
         case menu::Kind::Slider: {
             const Slider slider = slider_of(id);
             int& value = *slider.value;
-            ImGui::BeginDisabled(!it.enabled);
             const int next = menu_percent_slider(
-                label.c_str(), value, slider.minimum, slider.maximum, slider.step
+                label.c_str(), value, slider.minimum, slider.maximum, slider.step, it.enabled
             );
-            ImGui::EndDisabled();
             // Apply live and save once the mouse drag ends, or immediately for a discrete step.
             const bool edited = next != value;
             if (edited) {
