@@ -2966,15 +2966,15 @@ function mockRac2Versions(
   });
 
   // Every weapon counts experience; the last version takes any count (the core's rule).
-  if (xp === null) return [v(0, "first", 0, 9_999_999), v(1, "bought", 0, 9_999_999)];
+  if (xp === null) return [v(0, "first", 0, 67_108_863), v(1, "bought", 0, 67_108_863)];
   if (id === 9)
-    return [v(0, "first", 0, xp - 1), { ...v(1, "experience", xp, 9_999_999), minXp: 0 }];
+    return [v(0, "first", 0, xp - 1), { ...v(1, "experience", xp, 67_108_863), minXp: 0 }];
 
   return [
     v(0, "first", 0, xp - 1),
-    v(1, "experience", xp, 9_999_999),
+    v(1, "experience", xp, 67_108_863),
     v(2, "bought", 0, xp * 10 - 1),
-    { ...v(3, "experience", xp * 10, 9_999_999), minXp: 0 },
+    { ...v(3, "experience", xp * 10, 67_108_863), minXp: 0 },
   ];
 }
 
@@ -3033,7 +3033,7 @@ function mockSaveRac3(serial: string, slot: number): Rac3SaveView {
       maxAmmo: ammo,
       xp: 0,
     })),
-    maxBolts: 9_999_999,
+    maxBolts: 2_147_483_647,
   };
 }
 
@@ -3082,14 +3082,14 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
       maxAmmo: ammo,
       upgradeName: up,
       upgradeXp: xp,
-      maxXp: kind !== "weapon" ? null : xp === null ? 9_999_999 : xp - 1,
+      maxXp: kind !== "weapon" ? null : xp === null ? 67_108_863 : xp - 1,
       versions: versions ? mockRac2Versions(id, name, ammo, up, xp) : [],
       worn: false,
       holdable: kind === "weapon" && ![9, 31, 45].includes(id),
     })),
     planets: RAC2_LEVELS.map(([id, name]) => ({ id, name })),
-    maxBolts: 9_999_999,
-    maxXp: 9_999_999,
+    maxBolts: 2_147_483_647,
+    maxXp: 67_108_863,
     challengeMode: 1,
     bootsEditable: true,
     flags: RAC2_FLAGS.map(([id, level, name, description, confidence]) => ({
@@ -3254,7 +3254,7 @@ function mockSave(serial: string, slot: number): SaveView {
       canUnlock: id >= 1 && id <= 16,
       canLand: id >= 1 && id <= 16,
     })),
-    maxBolts: 9_999_999,
+    maxBolts: 2_147_483_647,
     chunks: mockChunks(serial, slot, fields),
     playedSeconds: slot === 1 ? 3 * 3600 + 12 * 60 : 47 * 60,
     // The names come from the player's disc; the preview has none, so ?skillnames shows sample ones.
@@ -4333,7 +4333,7 @@ export async function mockCall(
     case "write_save_rac3": {
       const fields = args.fields as Rac3SaveFields;
 
-      if (fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");
+      if (fields.bolts > 2_147_483_647) throw new Error("bolts go up to 2147483647");
       savedRac3[`${String(args.serial)}/${String(args.slot)}`] = structuredClone(fields);
       const name = `.backup_${String(Math.floor(Date.now() / 1000))}_before_edit_slot${String(Number(args.slot) + 1)}`;
 
@@ -4375,7 +4375,7 @@ export async function mockCall(
     case "write_save_rac2": {
       const fields = args.fields as Rac2SaveFields;
 
-      if (fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");
+      if (fields.bolts > 2_147_483_647) throw new Error("bolts go up to 2147483647");
       savedRac2[`${String(args.serial)}/${String(args.slot)}`] = structuredClone(fields);
       const name = `.backup_${Math.floor(Date.now() / 1000)}_before_edit_slot${Number(args.slot) + 1}`;
 
@@ -4396,7 +4396,7 @@ export async function mockCall(
       const change = args.change as SaveChange;
 
       if (change.kind === "fields") {
-        if (change.fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");
+        if (change.fields.bolts > 2_147_483_647) throw new Error("bolts go up to 2147483647");
         savedFields[key] = structuredClone(change.fields);
       } else {
         if (!config.saveEditorAdvanced)

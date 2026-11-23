@@ -403,11 +403,11 @@ pub const PLATINUM_PER_LEVEL: usize = 4;
 pub const MAX_ARMOR: u8 = 4;
 /// Ship paint jobs (the disc's 18 paint pictures, RC2.HDR +0x48F0).
 pub const SHIP_PAINTS: u8 = 18;
-/// The editor's limit for bolts and raritanium (the HUD shows seven digits).
-pub const MAX_BOLTS: u32 = 9_999_999;
+/// The editor's limit for bolts and raritanium: the game keeps them as signed 32-bit words.
+pub const MAX_BOLTS: u32 = i32::MAX as u32;
 /// The editor's limit for nanotech and weapon experience, in the units the game compares
-/// (`experience >> 5`): stored shifted up by 5, it still fits the game's s32.
-pub const MAX_XP: u32 = 9_999_999;
+/// (`experience >> 5`): stored shifted up by 5, the most the game's s32 holds.
+pub const MAX_XP: u32 = (i32::MAX >> 5) as u32;
 const _: () = assert!((MAX_XP as u64) << 5 <= i32::MAX as u64);
 
 /// A stored experience count in the units the game compares with its steps (`>> 5`); a negative
@@ -921,8 +921,8 @@ impl SaveFile {
             })
             .collect();
         Rac2SaveFields {
-            bolts: word(p, P_BOLTS),
-            raritanium: word(p, P_RARITANIUM),
+            bolts: (word(p, P_BOLTS) as i32).max(0) as u32,
+            raritanium: (word(p, P_RARITANIUM) as i32).max(0) as u32,
             nanotech_xp: shown_xp(word(p, P_NANOTECH_XP) as i32),
             boosts: p[P_BOOSTS..P_BOOSTS + BOOSTS].iter().map(|&b| b != 0).collect(),
             armor: p[P_ARMOR],
