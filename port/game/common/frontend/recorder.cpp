@@ -121,6 +121,8 @@ bool ui_item(std::span<const std::uint8_t> ram, const openrac_game_ui_item& item
     out.screen_width = item.screen_width > 0.0f ? item.screen_width : 512.0f;
     out.screen_height = item.screen_height > 0.0f ? item.screen_height : 448.0f;
     out.flags = item.flags;
+    out.side = item.side;
+    out.place = item.side != 0.0f ? item.place : 0u;
     if ((item.flags & OPENRAC_UI_FLAT) == 0) {
         if (!g_resolver) {
             return false;
@@ -160,6 +162,10 @@ void effect_quad(std::uint32_t marker) {
         c.index = marker;
         g->recorder.push(c);
     }
+}
+
+bool drawing() {
+    return native();
 }
 
 void fill(const float* rect, std::uint32_t rgba, int blend) {

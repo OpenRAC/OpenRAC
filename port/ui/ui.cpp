@@ -6,6 +6,7 @@
 
 #include "openrac/ui.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "openrac/frame.h"
@@ -13,6 +14,20 @@
 namespace {
 
 const openrac_ui_adapter* g_adapter = nullptr;
+
+// The HUD's placement in effect (openrac_ui_place_begin): its width, its number, how deep.
+float g_side = 0.0f;
+std::uint32_t g_place = 0;
+int g_place_depth = 0;
+
+// An item to the recorder, with the placement in effect.
+int record(openrac_game_ui_item& item) {
+    if (g_place_depth > 0 && g_side != 0.0f) {
+        item.side = g_side;
+        item.place = g_place;
+    }
+    return openrac_frame_ui_item(&item);
+}
 
 // An axis-aligned quad over `rect` with the texels of `cell`, as a strip.
 void place(openrac_game_ui_item& item, const float rect[4], const float cell[4]) {
@@ -50,7 +65,7 @@ int openrac_ui_draw_glyph(const openrac_ui_glyph* glyph) {
     item.flags = OPENRAC_UI_GLYPH;
     item.image = glyph->page;
     openrac_ui_screen(&item.screen_width, &item.screen_height);
-    return openrac_frame_ui_item(&item);
+    return record(item);
 }
 
 int openrac_ui_draw_quad(const openrac_ui_quad* quad) {
@@ -61,12 +76,12 @@ int openrac_ui_draw_quad(const openrac_ui_quad* quad) {
     std::memcpy(item.u, quad->u, sizeof(item.u));
     std::memcpy(item.v, quad->v, sizeof(item.v));
     std::memcpy(item.rgba, quad->rgba, sizeof(item.rgba));
-    item.flags = quad->flags & (OPENRAC_UI_FLAT | OPENRAC_UI_SHADED | OPENRAC_UI_NEAREST);
+    item.flags = quad->flags & (OPENRAC_UI_FLAT | OPENRAC_UI_SHADED | OPENRAC_UI_NEAREST | OPENRAC_UI_REPEAT);
     if ((item.flags & OPENRAC_UI_FLAT) == 0) {
         item.image = quad->image;
     }
     openrac_ui_screen(&item.screen_width, &item.screen_height);
-    return openrac_frame_ui_item(&item);
+    return record(item);
 }
 
 int openrac_ui_draw_rect(
@@ -81,14 +96,14 @@ int openrac_ui_draw_rect(
     const float none[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     place(item, rect, cell != nullptr ? cell : none);
     std::memcpy(item.rgba, rgba, sizeof(item.rgba));
-    item.flags = flags & (OPENRAC_UI_FLAT | OPENRAC_UI_SHADED | OPENRAC_UI_NEAREST);
+    item.flags = flags & (OPENRAC_UI_FLAT | OPENRAC_UI_SHADED | OPENRAC_UI_NEAREST | OPENRAC_UI_REPEAT);
     if (image != nullptr && (item.flags & OPENRAC_UI_FLAT) == 0) {
         item.image = *image;
     } else {
         item.flags |= OPENRAC_UI_FLAT;
     }
     openrac_ui_screen(&item.screen_width, &item.screen_height);
-    return openrac_frame_ui_item(&item);
+    return record(item);
 }
 
 void openrac_ui_scissor(const float* rect) {
@@ -105,6 +120,19 @@ void openrac_ui_scissor(const float* rect) {
     const float ky = 448.0f / height;
     const float scaled[4] = {rect[0] * kx, rect[1] * ky, rect[2] * kx, rect[3] * ky};
     openrac_frame_scissor(scaled);
+}
+
+void openrac_ui_place_begin(int side) {
+    if (g_place_depth++ == 0) {
+        g_side = static_cast<float>(side);
+        g_place = g_place + 1 != 0 ? g_place + 1 : 1;
+    }
+}
+
+void openrac_ui_place_end(void) {
+    if (g_place_depth > 0 && --g_place_depth == 0) {
+        g_side = 0.0f;
+    }
 }
 
 int openrac_ui_image(int table, int index, openrac_game_ui_image* out) {

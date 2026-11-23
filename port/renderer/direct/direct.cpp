@@ -99,6 +99,8 @@ void GifInterpreter::clear() {
     m_hud_side = 0;
     m_hud_stretch = false;
     m_hud_split = -1;
+    m_place = 0;
+    m_place_first.clear();
     m_whole = false;
     m_picture = false;
     m_recorded_target = 0;
@@ -1012,6 +1014,7 @@ void GifInterpreter::run_splices(std::size_t at) {
 
 void GifInterpreter::finish_commands() {
     run_splices(SIZE_MAX - m_splice_base);
+    place_items();
     m_recording = nullptr;
     m_splices = {};
     m_next_splice = 0;
@@ -1198,8 +1201,8 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
         s.combine = TextureCombine::Modulate;
         s.linear_mag = (item.flags & kUiItemNearest) == 0;
         s.linear_min = s.linear_mag;
-        s.clamp_s = true;
-        s.clamp_t = true;
+        s.clamp_s = (item.flags & kUiItemRepeat) == 0;
+        s.clamp_t = s.clamp_s;
         if (glyph) {
             s.field = m_textures.distance_field(s.texture);
             s.distance_field = s.field != s.texture;
@@ -1238,6 +1241,14 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
     const float top = *std::min_element(item.v, item.v + 4);
     const float bottom = *std::max_element(item.v, item.v + 4);
     const float inset = glyph && bottom - top > 1.0f ? 0.5f : 0.0f;
+    if (item.place != m_place) {
+        place_items();
+        m_place = item.place;
+        m_place_move = item.side * 2.0f / std::max(item.screen_width, 1.0f);
+    }
+    if (m_place != 0 && target == 0) {
+        m_place_first.push_back(static_cast<std::uint32_t>(m_vertices.size()));
+    }
     DirectVertex corners[4]{};
     for (int i = 0; i < 4; ++i) {
         DirectVertex& v = corners[i];
@@ -1268,6 +1279,80 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
             {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
         append_vertices(order);
     }
+}
+
+// The HUD's placement (openrac_ui_place_begin): the items of one placement that overlap are one
+// element, and an element whose middle is past the picture's middle third goes out to its side by
+// the placement's width, as hud_side moves what lies between two kHudSideMarker markers. Each item
+// is two triangles (six vertices) from its first.
+void GifInterpreter::place_items() {
+    if (m_place == 0 || m_place_first.empty() || m_place_move == 0.0f) {
+        m_place_first.clear();
+        m_place = 0;
+        return;
+    }
+    constexpr float kMiddle = 56.0f / 256.0f;
+    struct Element {
+        float left, right, top, bottom;
+        int parent;
+    };
+    std::vector<Element> items;
+    items.reserve(m_place_first.size());
+    for (const std::uint32_t first : m_place_first) {
+        Element e{
+            std::numeric_limits<float>::max(),
+            std::numeric_limits<float>::lowest(),
+            std::numeric_limits<float>::max(),
+            std::numeric_limits<float>::lowest(),
+            static_cast<int>(items.size())
+        };
+        for (std::uint32_t k = first; k < first + 6 && k < m_vertices.size(); ++k) {
+            e.left = std::min(e.left, m_vertices[k].x);
+            e.right = std::max(e.right, m_vertices[k].x);
+            e.top = std::min(e.top, m_vertices[k].y);
+            e.bottom = std::max(e.bottom, m_vertices[k].y);
+        }
+        items.push_back(e);
+    }
+    const auto root = [&](int n) {
+        while (items[static_cast<std::size_t>(n)].parent != n) {
+            auto& parent = items[static_cast<std::size_t>(n)].parent;
+            parent = items[static_cast<std::size_t>(parent)].parent;
+            n = parent;
+        }
+        return n;
+    };
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        for (std::size_t k = i + 1; k < items.size(); ++k) {
+            const Element& p = items[i];
+            const Element& q = items[k];
+            if (p.left <= q.right && q.left <= p.right && p.top <= q.bottom && q.top <= p.bottom) {
+                items[static_cast<std::size_t>(root(static_cast<int>(k)))].parent =
+                    root(static_cast<int>(i));
+            }
+        }
+    }
+    std::vector<std::pair<float, float>> extent(
+        items.size(), {std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()}
+    );
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
+        e.first = std::min(e.first, items[i].left);
+        e.second = std::max(e.second, items[i].right);
+    }
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        const auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
+        const float mid = (e.first + e.second) / 2.0f;
+        if (std::abs(mid) < kMiddle) {
+            continue;
+        }
+        const std::uint32_t first = m_place_first[i];
+        for (std::uint32_t k = first; k < first + 6 && k < m_vertices.size(); ++k) {
+            m_vertices[k].x += mid < 0.0f ? -m_place_move : m_place_move;
+        }
+    }
+    m_place_first.clear();
+    m_place = 0;
 }
 
 // OPENRAC_UI_RESIDUAL: each kind of 2D primitive still drawn from the game's packets (not a native

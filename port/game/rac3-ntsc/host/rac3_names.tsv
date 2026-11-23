@@ -1,5 +1,9 @@
 # The shared host C's function names (PAL's, port/game/rac3-pal/host) and NTSC-U's. Written by
 # port/tools/hostgen/release_carry_rac3.py from config/us/map.tsv; do not edit.
+func_00389598__frontbin	func_00384EC0__frontbin
+func_00389598__frontbin__game	func_00384EC0__frontbin__game
+func_00389978	func_00389920
+func_00389978__game	func_00389920__game
 func_0038A3B8__frontbin	func_00385CE0__frontbin
 func_0038A518__frontbin	func_00385E40__frontbin
 func_0038A798	func_0038A740
@@ -59,7 +63,9 @@ func_0038F078__frontbin__game	func_0038A848__frontbin__game
 func_0038F458	func_0038F3A0
 func_0038F458__game	func_0038F3A0__game
 func_00396A38__frontbin	func_003921D8__frontbin
+func_00396A38__frontbin__game	func_003921D8__frontbin__game
 func_00396E18	func_00396D30
+func_00396E18__game	func_00396D30__game
 func_003972A0__frontbin	func_00392A40__frontbin
 func_003972A0__frontbin__game	func_00392A40__frontbin__game
 func_00397680	func_00397598
@@ -72,6 +78,10 @@ func_00397D60	func_00397C78
 func_00397D60__game	func_00397C78__game
 func_003983C8	func_003982E0
 func_003983C8__game	func_003982E0__game
+func_0039ACA8__frontbin	func_00395EB8__frontbin
+func_0039ACA8__frontbin__game	func_00395EB8__frontbin__game
+func_0039B088	func_0039AF70
+func_0039B088__game	func_0039AF70__game
 func_003A0760__frontbin	func_0039B760__frontbin
 func_003A0B60	func_003A0A20
 func_003A5748	func_003A5608
@@ -119,6 +129,8 @@ func_L01_003E92F8	func_L01_003E7478
 func_L01_003E92F8__game	func_L01_003E7478__game
 func_L01_003FA5F0	func_L01_003F8448
 func_L01_003FA5F0__game	func_L01_003F8448__game
+func_L01_00404040	func_L01_00401CD0
+func_L01_00404040__game	func_L01_00401CD0__game
 func_L01_00404858	func_L01_004024E8
 func_L01_00404920	func_L01_004025B0
 func_L01_00404998	func_L01_00402628
@@ -161,6 +173,7 @@ func_L01_00419188	func_L01_00416B38
 func_L01_0041FE80	func_L01_0041D750
 func_L01_0041FE80__game	func_L01_0041D750__game
 func_L01_00420080	func_L01_0041D950
+func_L01_00420080__game	func_L01_0041D950__game
 func_L01_004202A8	func_L01_0041DB78
 func_L01_004202A8__game	func_L01_0041DB78__game
 func_L01_00420498	func_L01_0041DD68
@@ -175,6 +188,8 @@ func_L01_00421278	func_L01_0041EB48
 func_L01_00421278__game	func_L01_0041EB48__game
 func_L01_004215C0	func_L01_0041EE90
 func_L01_004215C0__game	func_L01_0041EE90__game
+func_L01_0042D898	func_L01_0042AA88
+func_L01_0042D898__game	func_L01_0042AA88__game
 func_L01_00436F60	func_L01_00433EA0
 func_L01_00439300	func_L01_00436220
 func_L01_0043AAC0	func_L01_004379E0
