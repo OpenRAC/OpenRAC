@@ -686,6 +686,43 @@ def main(argv: list[str] | None = None) -> int:
         if maps_left:
             report["mp_maps_left_out"] = sorted(maps_left)
         put("host/mp_maps.h", "\n".join(maps_lines) + "\n/* clang-format on */\n")
+        # host/mp_fixes.h (rac3-pal/mp/fixes.py) the same way: a map whose places are not all known,
+        # or that mp_maps.h left out, loses its MP_FIX line and the fixes' rows.
+        fixes_left = set(maps_left)
+        fixes_found: list[tuple[int, str]] = []
+        for line in (PRIMARY / "host/mp_fixes.h").read_text().splitlines() if (PRIMARY / "host/mp_fixes.h").is_file() else []:
+            m = re.fullmatch(r"(MP_FIX)\((\d+), (.*)\)", line)
+            if not m:
+                continue
+            level = int(m.group(2))
+            new_places = [mp.function(f"func_L{level}_{a}") for a in m.group(3).split(", ")]
+            if any(p is None for p in new_places):
+                fixes_left.add(level)
+            else:
+                fixes_found.append((level, f"MP_FIX({level}, " + ", ".join(p.split("_")[-1] for p in new_places) + ")"))
+            for us_level, pal_level in MP_OWN_MAPS.items():
+                if level == pal_level:
+                    own = [mp.own_map(f"func_L{level}_{a}", us_level) for a in m.group(3).split(", ")]
+                    if all(own):
+                        fixes_found.append((us_level, f"MP_FIX({us_level}, " + ", ".join(p.split("_")[-1] for p in own) + ")"))
+                    else:
+                        fixes_left.add(us_level)
+        if fixes_left - maps_left:
+            report["mp_fixes_left_out"] = sorted(fixes_left - maps_left)
+        if (PRIMARY / "host/mp_fixes.h").is_file():
+            put("host/mp_fixes.h", "\n".join(
+                ["/* SPDX-License-Identifier: GPL-3.0-or-later",
+                 " * Copyright (c) 2026 the OpenRAC contributors",
+                 " *",
+                 " * Written by port/tools/hostgen/release_carry_rac3.py from rac3-pal's (port/game/rac3-pal/mp/fixes.py):",
+                 " * do not edit by hand. Each multiplayer map's places of the functions mp/fixes.py FIXED lists,",
+                 " * NTSC-U's. */",
+                 "/* clang-format off */"]
+                + [line for level, line in fixes_found if level not in fixes_left]) + "\n/* clang-format on */\n")
+
+        def fixes_row_left(cols: list[str], level: int) -> bool:
+            return level in fixes_left and len(cols) > 4 and cols[4].endswith("(host/mp_fixes.c)")
+
         mp_rows = ["# Written by port/tools/hostgen/release_carry_rac3.py from port/game/rac3-pal/mp/libraries.tsv in",
                    "# NTSC-U's names (release/mp_pairs.json); do not edit. The notes are PAL's."]
         for line in (PRIMARY / "mp/libraries.tsv").read_text().splitlines():
@@ -698,6 +735,8 @@ def main(argv: list[str] | None = None) -> int:
             mm = re.match(r"func_L(\d\d)_", cols[0])
             if mm and int(mm.group(1)) in maps_left:
                 new = None
+            if mm and fixes_row_left(cols, int(mm.group(1))):
+                new = None
             if new is None:
                 report["left_out"]["mp:" + cols[0]] = "no NTSC-U pair (release/mp_pairs.json)"
                 continue
@@ -708,6 +747,8 @@ def main(argv: list[str] | None = None) -> int:
             for line in (PRIMARY / "mp/libraries.tsv").read_text().splitlines():
                 cols = line.split("\t")
                 if line.startswith("#") or not cols[0].startswith(f"func_L{pal_level}_"):
+                    continue
+                if fixes_row_left(cols, us_level):
                     continue
                 own = mp.own_map(cols[0], us_level)
                 if own is None:
