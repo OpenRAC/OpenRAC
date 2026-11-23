@@ -276,6 +276,7 @@ void note_hover_row(int entry, std::string section, std::string title, std::stri
 // What one of the Controls tab's plain entries shows now (its file, its player, a setting).
 struct ControlsRow {
     bool shown = true;
+    bool enabled = true;  // false: drawn greyed out, takes no press
     std::string label;  // empty: the catalog's
     bool on = false;
     std::string value;
