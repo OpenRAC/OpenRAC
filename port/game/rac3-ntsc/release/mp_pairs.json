@@ -1436,6 +1436,10 @@
   "func_00298D70": {
    "is": "func_00298D50",
    "why": "the same instructions, the only place they occur"
+  },
+  "func_00299218": {
+   "is": "func_002991F8",
+   "why": "the same instructions, the only place they occur"
   }
  },
  "addresses": {
@@ -1489,7 +1493,7 @@
   },
   "0x002446A8": {
    "is": "0x002448A8",
-   "why": "the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 128 of 128 places agree"
+   "why": "the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 141 of 141 places agree"
   },
   "0x0027B100": {
    "is": "0x0027B200",
@@ -1499,7 +1503,35 @@
    "is": "0x002A09C8",
    "why": "the end of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200, 0x257C8 bytes)"
   },
+  "0x00230000": {
+   "is": null,
+   "why": "no instruction of the same code forms it"
+  },
   "0x002412DC": {
+   "is": null,
+   "why": "no instruction of the same code forms it"
+  },
+  "0x00241458": {
+   "is": null,
+   "why": "no instruction of the same code forms it"
+  },
+  "0x00241470": {
+   "is": null,
+   "why": "no instruction of the same code forms it"
+  },
+  "0x00241CE8": {
+   "is": null,
+   "why": "no instruction of the same code forms it"
+  },
+  "0x00241CEC": {
+   "is": null,
+   "why": "no instruction of the same code forms it"
+  },
+  "0x00242820": {
+   "is": null,
+   "why": "no instruction of the same code forms it"
+  },
+  "0x00242824": {
    "is": null,
    "why": "no instruction of the same code forms it"
   }
@@ -1819,6 +1851,10 @@
   },
   "func_L39_005FCB98": {
    "is": "func_L39_005FA400",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005FD128": {
+   "is": "func_L39_005FA990",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_0060DFC8": {

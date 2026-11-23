@@ -12,6 +12,9 @@
 /* Gives the shared 2D layer this game's adapter (once; later calls do nothing). */
 void rac3_ui_adapter_install(void);
 
+/* The font FontSelect chose last in the running program (0, 1). */
+int rac3_ui_font_index(void);
+
 /* Glyph page `page` (0 to 15) of font `font` (0, 1) of the running program, as an image in game
  * memory: nonzero when the font has it. */
 int rac3_ui_font_page(int font, int page, openrac_game_ui_image* out);

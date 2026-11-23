@@ -892,6 +892,34 @@
   },
   "mp_addresses": {
     "about": "NTSC-U's address of a multiplayer executable global the host C writes as RAC3_MADDR(address) that rac3_mp_pairs.py does not pair: PAL's address, NTSC-U's, why.",
+    "0x00241458": {
+      "is": "0x002415D8",
+      "why": "the two font headers: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U adds 0x15D8 to 0x00240000)"
+    },
+    "0x00241470": {
+      "is": "0x002415F0",
+      "why": "the font FontSelect chose last: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U's map copies store it at 0x002415F0)"
+    },
+    "0x00241CE8": {
+      "is": "0x00241E68",
+      "why": "the core's pointer to the current font's page handles: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U reads 0x00241E68 beside 0x00241E6C)"
+    },
+    "0x00241CEC": {
+      "is": "0x00241E6C",
+      "why": "the core's pointer to the current font's palette handles, beside 0x00241CE8: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00)"
+    },
+    "0x00242820": {
+      "is": "0x002429A0",
+      "why": "level 39's (and the maps') pointer to the current font's page handles: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00) (NTSC-U's map copies store 0x002429A0)"
+    },
+    "0x00242824": {
+      "is": "0x002429A4",
+      "why": "level 39's (and the maps') pointer to the palette handles, beside 0x00242820: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00)"
+    },
+    "0x00230000": {
+      "is": "0x00230000",
+      "why": "the screen whose size (+0x150, +0x152) SetScissor keeps its rectangle within: PAL mp_func_00299218 and NTSC-U mp_func_002991F8, the same instructions, both read 0x00230150 and 0x00230152"
+    },
     "0x002412DC": {
       "is": "0x0024145C",
       "why": "the level whose program is loaded: read at $gp - 0x6CE4 in both cores (PAL 0x00199150, 0x002945BC, 0x00295534 with $gp 0x00247FC0; NTSC-U 0x00199290, 0x00295524 with $gp 0x00248140)"

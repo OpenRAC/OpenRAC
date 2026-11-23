@@ -153,6 +153,9 @@ typedef struct FontTables {
 } FontTables;
 
 static const FontTables kBootFonts = {RAC3_ADDR(0x001D5B38u), RAC3_ADDR(0x001D5B3Cu)};
+/* The multiplayer core's, and level 39's (which the maps' copies share). */
+static const FontTables kMpCoreFonts = {RAC3_MADDR(0x00241CE8u), RAC3_MADDR(0x00241CECu)};
+static const FontTables kMpMenuFonts = {RAC3_MADDR(0x00242820u), RAC3_MADDR(0x00242824u)};
 
 static FontTables level_fonts(void) {
     const FontTables f = {
@@ -201,12 +204,21 @@ static int send_flat(const openrac_game_ui_rect* q, gaddr cursor) {
     return openrac_ui_draw_quad(&quad);
 }
 
+/* Whether a box drawn on the list at `cursor` is drawn natively: in the single-player programs, and in
+ * the multiplayer executable from its core and level 39, whose scissor is followed (SetScissor). */
+static int flat_native(gaddr cursor) {
+    if (rac3_exec_program() != RAC3_EXEC_MULTIPLAYER) {
+        return 1;
+    }
+    return cursor == RAC3_MADDR(0x002446A8u) || GREF(int32_t, RAC3_MADDR(0x002412DCu)) == 39;
+}
+
 /* A record to the window through the frame recorder, placed by the list's cursor: in flat colour
  * through the shared 2D layer, else of the older kind (with the chip's TEX0, until its texture
- * comes from the game's tables, and in the multiplayer executable). False when the 2D layer is replayed (the caller sends the game's). */
+ * comes from the game's tables, and the maps' boxes). False when the 2D layer is replayed (the caller sends the game's). */
 static int send_quad(const openrac_game_ui_rect* q, gaddr cursor) {
-    /* The multiplayer executable's scissor is not followed yet: its boxes stay the older records. */
-    if ((q->flags & 8u) != 0 && rac3_exec_program() != RAC3_EXEC_MULTIPLAYER) {
+    /* The maps' scissor is not followed yet: their boxes stay the older records. */
+    if ((q->flags & 8u) != 0 && flat_native(cursor)) {
         return send_flat(q, cursor);
     }
     anchor_at(cursor);
@@ -224,7 +236,7 @@ static int glyph_page(unsigned long long tex0, openrac_game_ui_image* out) {
     if (pages == 0 || palettes == 0) {
         return 0;
     }
-    const int font = GREF(int32_t, RAC3_ADDR(0x001D55E8u));
+    const int font = rac3_ui_font_index();
     const int page = rac3_ui_font_page_of(
         font, (uint32_t)(tex0 & 0x3FFFu), (uint32_t)((tex0 >> 37) & 0x3FFFu), pages, palettes
     );
@@ -236,8 +248,7 @@ static int glyph_page(unsigned long long tex0, openrac_game_ui_image* out) {
  * inclusive, kept within its screen (the size at +0x150 and +0x152 of 0x001CFEC0). Natively drawn
  * quads are cut to the same, placed where the game's own scissor goes in its list; the game's is
  * still sent, for what the list draws itself. */
-static void record_scissor(gaddr cursor, int x0, int x1, int y0, int y1) {
-    const gaddr screen = RAC3_ADDR(0x001CFEC0u);
+static void record_scissor_of(gaddr screen, gaddr cursor, int x0, int x1, int y0, int y1) {
     const int w = GREF(int16_t, screen + 0x150u) - 1;
     const int h = GREF(int16_t, screen + 0x152u) - 1;
     x0 = x0 < 0 ? 0 : x0;
@@ -248,6 +259,10 @@ static void record_scissor(gaddr cursor, int x0, int x1, int y0, int y1) {
     rac3_ui_adapter_install();
     anchor_at(cursor);
     openrac_ui_scissor(rect);
+}
+
+static void record_scissor(gaddr cursor, int x0, int x1, int y0, int y1) {
+    record_scissor_of(RAC3_ADDR(0x001CFEC0u), cursor, x0, x1, y0, y1);
 }
 
 void func_003A98B8(int x0, int x1, int y0, int y1) {
@@ -1434,6 +1449,18 @@ float func_L01_00421278(
 #define MP_MENUS_CURSOR RAC3_LADDR(39, 0x0024CAD0u)
 #define MP_DARKEN_PACKET RAC3_MADDR(0x001A3800u)
 
+/* The multiplayer executable's SetScissor, its core's and level 39's (the screen's size at
+ * 0x00230150 in both). */
+int mp_func_00299218(int x0, int x1, int y0, int y1) {
+    record_scissor_of(RAC3_MADDR(0x00230000u), MP_CURSOR, x0, x1, y0, y1);
+    return mp_func_00299218__game(x0, x1, y0, y1);
+}
+
+int mp_func_L39_005FD128(int x0, int x1, int y0, int y1) {
+    record_scissor_of(RAC3_MADDR(0x00230000u), MP_MENUS_CURSOR, x0, x1, y0, y1);
+    return mp_func_L39_005FD128__game(x0, x1, y0, y1);
+}
+
 void mp_func_00281240(
     float a0,
     float a1,
@@ -1449,7 +1476,7 @@ void mp_func_00281240(
     float a11
 ) {
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(MP_CURSOR, NULL);
+    const Print p = print_begin(MP_CURSOR, &kMpCoreFonts);
     mp_func_00281240__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     print_end(MP_CURSOR, p);
 }
@@ -1469,7 +1496,7 @@ void mp_func_L39_00592238(
     float a11
 ) {
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(MP_MENUS_CURSOR, NULL);
+    const Print p = print_begin(MP_MENUS_CURSOR, &kMpMenuFonts);
     mp_func_L39_00592238__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     print_end(MP_MENUS_CURSOR, p);
 }
@@ -1542,7 +1569,7 @@ void mp_func_L39_00592AC8(
     float a11
 ) {
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(MP_MENUS_CURSOR, NULL);
+    const Print p = print_begin(MP_MENUS_CURSOR, &kMpMenuFonts);
     mp_func_L39_00592AC8__game(a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11);
     print_end(MP_MENUS_CURSOR, p);
 }
