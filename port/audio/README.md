@@ -44,3 +44,6 @@ keyed on a voice and released, register and skipping grains, instance limits, pa
 group volumes, unloading; sounds packs replace, and the keys, with the same
 answers as `extractor/test_audio.py`; the menu sounds: soft starts, quiet peaks, short, and a held
 arrow's repeats no louder than one.
+
+`snd_client_test` checks the native request client's engine/callback ordering, synchronous waits,
+64-bit callback arguments and dropping pending callbacks on a program reset, without a game or device.
