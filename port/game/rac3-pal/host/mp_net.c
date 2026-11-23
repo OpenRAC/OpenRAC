@@ -854,8 +854,10 @@ static const struct {
     {"ZA", "South Africa"},
 };
 
-/* The longest city text, in characters: what the city select and the licence line fit. */
-#define NET_CITY_TEXT 31
+/* The longest city text, in characters: what one line of the city select fits (a longer one wraps
+ * onto the next city's line), and what the licence text and the log give it. */
+#define NET_CITY_TEXT 23
+#define NET_CITY_LONG_TEXT 47
 
 static int net_same_text(const char* a, const char* b) {
     for (; *a != 0 && *b != 0; a++, b++) {
@@ -878,22 +880,23 @@ static const char* net_region_name(const char* code) {
     return code;
 }
 
-/* City K as the game shows it, at most NET_CITY_TEXT characters: "<server name> (<region>)", the
- * region alone when the server has no name (or is named as its region). A long one keeps the
- * region's code in place of its name, then shortens the server's name. */
-static void net_city_text(int k, char* out, size_t size) {
+/* City K as the game shows it, at most MAX characters (NET_CITY_TEXT or NET_CITY_LONG_TEXT):
+ * "<server name> (<region>)", the region alone when the server has no name (or is named as its
+ * region). A long one keeps the region's code in place of its name, then shortens the server's
+ * name. */
+static void net_city_text(int k, int max, char* out, size_t size) {
     const char* code = lobby.regions[k].name;
     const char* region = net_region_name(code);
     const char* server = lobby.regions[k].server;
-    char text[NET_CITY_TEXT + 1];
+    char text[NET_CITY_LONG_TEXT + 1];
     if (server[0] == 0 || net_same_text(server, region) || net_same_text(server, code)) {
-        snprintf(text, sizeof text, "%s", region);
-    } else if (strlen(server) + strlen(region) + 3 <= NET_CITY_TEXT) {
+        snprintf(text, sizeof text, "%.*s", max, region);
+    } else if ((int)(strlen(server) + strlen(region)) + 3 <= max) {
         snprintf(text, sizeof text, "%s (%s)", server, region);
     } else {
-        const int room = NET_CITY_TEXT - (int)strlen(code) - 3;
+        const int room = max - (int)strlen(code) - 3;
         if (room < 4) {
-            snprintf(text, sizeof text, "%s", server);
+            snprintf(text, sizeof text, "%.*s", max, server);
         } else {
             snprintf(text, sizeof text, "%.*s (%s)", room, server, code);
         }
@@ -922,8 +925,8 @@ static void srv_ensure(void) {
     char port[16];
     snprintf(port, sizeof port, "%d", (int)lobby.regions[k].port);
     const char* host = lobby.regions[k].host[0] != 0 ? lobby.regions[k].host : net_login.host;
-    char city[NET_CITY_TEXT + 1];
-    net_city_text(k, city, sizeof city);
+    char city[NET_CITY_LONG_TEXT + 1];
+    net_city_text(k, NET_CITY_LONG_TEXT, city, sizeof city);
     fprintf(stderr, "[info] rac3: online: city %s\n", city);
     if (!link_open(&srv, host, port, net_login.name)) {
         return;
@@ -1172,7 +1175,7 @@ static void lobby_reply_locations(void) {
         lobby_start(reply, r, lobby.locations_req, 0);
         put32(reply + 0x18, 40 + i); /* the city select keeps ids 40..99 only */
         char city[NET_CITY_TEXT + 1];
-        net_city_text(i, city, sizeof city);
+        net_city_text(i, NET_CITY_TEXT, city, sizeof city);
         put_text(reply + 0x1C, city, 64);
         put32(reply + 0x5C, M_SUCCESS);
         put32(reply + 0x60, i == lobby.regions_count - 1);
@@ -1740,8 +1743,8 @@ static void lobby_request(int cls, int type, const uint8_t* req, size_t size) {
             /* What the player is connecting to: the city picked, else the first listed. */
             if (hub_logged_in() && lobby.regions_count > 0) {
                 const int k = net_login.picked >= 0 && net_login.picked < lobby.regions_count ? net_login.picked : 0;
-                char city[NET_CITY_TEXT + 1], text[96];
-                net_city_text(k, city, sizeof city);
+                char city[NET_CITY_LONG_TEXT + 1], text[96];
+                net_city_text(k, NET_CITY_LONG_TEXT, city, sizeof city);
                 snprintf(text, sizeof text, "Online play on %s, an OpenRAC server.", city);
                 put_text(reply + 0x1C, text, 256);
             } else {
@@ -2327,7 +2330,7 @@ static void on_servers(reader* r) {
         lobby.regions[k].players = rd_i32(r);
         if (net_log()) {
             char city[NET_CITY_TEXT + 1];
-            net_city_text(k, city, sizeof city);
+            net_city_text(k, NET_CITY_TEXT, city, sizeof city);
             fprintf(stderr, "[info] rac3: online: city listed: %s\n", city);
         }
     } else if (opcode == SERVERS_CHANGED && k >= 0) {
