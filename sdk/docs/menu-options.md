@@ -7,7 +7,12 @@ A mod can turn an option of the port's menu on or off with `menu_option_set` (C)
 - `OPENRAC_MENU_OPTION_OFF`: the option is greyed out. It is shown, but cannot be changed.
 - `OPENRAC_MENU_OPTION_DEFAULT`: the port decides again.
 
-The last call for an option wins. When a mod unloads, its calls go with it.
+The last call for an option wins. When a mod unloads, its calls go with it, and what another mod
+set comes back.
+
+An option that is off also ignores its key (F2 frame counter, F4 Enhanced, F9 and F10 volume, F11
+full screen, and the developer keys) and its row on the game's own Video page. The launcher and the
+settings file can still change it. Script mods do not have this call.
 
 Example: a mod that sets the frame rate itself greys out the menu's Frame rate:
 

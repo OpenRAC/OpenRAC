@@ -2122,6 +2122,7 @@ void reset() {
     g_list_unwritten_said = false;
     g_pads.clear();
     g_menus.clear();
+    drop_menu_options(nullptr);
     g_overlays.clear();
     g_developer_menus.clear();
     g_ui_pages.clear();

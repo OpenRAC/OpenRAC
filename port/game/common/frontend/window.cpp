@@ -194,18 +194,26 @@ std::string hdr_status() {
 
 // The window's own keys: F11 and Alt+Return change between fullscreen and the window, F9 and F10
 // turn the port's volume down and up a tenth, F2 shows or hides the frame counter,
-// and F4 toggles enhanced graphics. True when the event was one of them.
+// and F4 toggles enhanced graphics; none of them while a mod greys its option out (option_off).
+// True when the event was one of them.
 bool window_key(const SDL_Event& event) {
     window_event(event);
     if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) {
         return false;
     }
+    using debug_overlay::option_off;
     if (event.key.key == SDLK_F2) {  // the frame counter, as the Video options' row
+        if (option_off(menu::Id::FrameCounter)) {
+            return true;
+        }
         settings::step_frame_counter(1);
         settings::save();
         return true;
     }
     if (event.key.key == SDLK_F4 && gl::enhanced_rendering_available()) {
+        if (option_off(menu::Id::EnhancedGraphics)) {
+            return true;
+        }
         if (!enhanced_graphics_available()) {
             debug_overlay::notify({
                 .id = "enhanced",
@@ -223,6 +231,9 @@ bool window_key(const SDL_Event& event) {
         return true;
     }
     if (event.key.key == SDLK_F9 || event.key.key == SDLK_F10) {
+        if (option_off(menu::Id::Volume)) {
+            return true;
+        }
         settings::set_volume(settings::get().volume + (event.key.key == SDLK_F10 ? 10 : -10));
         settings::save();
         log::info("volume {}", settings::get().volume);
@@ -232,6 +243,9 @@ bool window_key(const SDL_Event& event) {
                             && (event.key.mod & SDL_KMOD_ALT) != 0;
     if (event.key.key != SDLK_F11 && !alt_return) {
         return false;
+    }
+    if (option_off(menu::Id::FullScreen) || option_off(menu::Id::DisplayMode)) {
+        return true;
     }
     // Between the window and borderless full screen.
     settings::Settings& s = settings::get();

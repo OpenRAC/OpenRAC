@@ -1060,6 +1060,9 @@ std::string game_page_value(Id id) {
 
 void game_page_step(Id id, int by) {
     const menu::Entry& e = menu::entry(id);
+    if (!item(id, game_screen()).enabled) {
+        return;  // greyed out, as in the menus
+    }
     if (e.kind == menu::Kind::Slider) {
         const Slider slider = slider_of(id);
         const int next =
@@ -1141,6 +1144,10 @@ void freecam_help(std::uint8_t where) {
 }
 
 }  // namespace
+
+bool option_off(Id id) {
+    return mods::menu_option(menu::option_name(id)) == OPENRAC_MENU_OPTION_OFF;
+}
 
 void draw_entry(Id id, std::uint8_t where) {
     const menu::Entry& e = menu::entry(id);

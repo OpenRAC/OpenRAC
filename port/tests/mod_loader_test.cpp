@@ -506,6 +506,35 @@ void a_hook_point_is_called_as_the_game_calls_it(const fs::path& plugins) {
     CHECK(add(0) == 1);
 }
 
+// menu_option_set: the newest call for an option wins, one mod's DEFAULT or unload gives back what
+// another mod set, and bad calls change nothing. The handles only tell the mods apart here.
+void menu_options_follow_the_newest_call(const fs::path& plugins) {
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    auto* a = reinterpret_cast<openrac_mod*>(0x10);
+    auto* b = reinterpret_cast<openrac_mod*>(0x20);
+    CHECK(api.menu_option_set(a, "frame_rate", OPENRAC_MENU_OPTION_ON) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_ON);
+    CHECK(api.menu_option_set(b, "frame_rate", OPENRAC_MENU_OPTION_OFF) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(api.menu_option_set(b, "frame_rate", OPENRAC_MENU_OPTION_DEFAULT) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_ON);
+    CHECK(api.menu_option_set(a, "frame_rate", OPENRAC_MENU_OPTION_OFF) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(api.menu_option_set(a, "", OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, nullptr, OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(nullptr, "vsync", OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, "frame_rate", 3) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, "frame_rate", -1) == OPENRAC_E_UNKNOWN);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option("vsync") == OPENRAC_MENU_OPTION_DEFAULT);
+    mods::reset();
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_DEFAULT);
+}
+
 // Every call of the table is filled: each member from `log` on is a function, and a mod built for
 // this minor finds none of them null (mod_api/<area>.cpp, sdk/api/members.tsv).
 void every_call_of_the_table_is_filled(const fs::path& plugins) {
@@ -2733,6 +2762,7 @@ int main() {
     two_mods_chain_in_load_order(plugins);
     a_hook_point_is_called_as_the_game_calls_it(plugins);
     every_call_of_the_table_is_filled(plugins);
+    menu_options_follow_the_newest_call(plugins);
     a_mod_that_fails_is_taken_back(plugins);
     refused_before_opening(plugins);
     purist_and_no_list(plugins);

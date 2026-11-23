@@ -379,7 +379,8 @@ int api_ui_sound(openrac_mod* mod, int sound) {
 // openrac_api.menu_option_set. Since 1.37.
 namespace {
 
-// What the mods set the menu's options to (openrac_api.menu_option_set): one state an option.
+// What the mods set the menu's options to (openrac_api.menu_option_set), oldest call first: one
+// row a mod and option, so a mod's unload gives back what another mod set.
 struct MenuOption {
     const openrac_mod* mod;
     std::string name;
@@ -391,14 +392,16 @@ std::vector<MenuOption> g_menu_options;
 
 }  // namespace
 
-// Interface 1.36: a mod turns an option of the port's menu on or off.
+// Interface 1.37: a mod turns an option of the port's menu on or off.
 int api_menu_option_set(openrac_mod* mod, const char* option, int state) {
     if (mod == nullptr || option == nullptr || option[0] == '\0'
         || state < OPENRAC_MENU_OPTION_DEFAULT || state > OPENRAC_MENU_OPTION_OFF) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     const std::lock_guard<std::mutex> lock(g_menu_options_lock);
-    std::erase_if(g_menu_options, [&](const MenuOption& o) { return o.name == option; });
+    std::erase_if(g_menu_options, [&](const MenuOption& o) {
+        return o.mod == mod && o.name == option;
+    });
     if (state != OPENRAC_MENU_OPTION_DEFAULT) {
         g_menu_options.push_back({mod, option, state});
     }
@@ -417,10 +420,11 @@ void drop_menu_options(const openrac_mod* mod) {
 namespace openrac::mods {
 
 int menu_option(std::string_view name) {
+    // The newest call wins.
     const std::lock_guard<std::mutex> lock(detail::g_menu_options_lock);
-    for (const detail::MenuOption& o : detail::g_menu_options) {
-        if (o.name == name) {
-            return o.state;
+    for (auto o = detail::g_menu_options.rbegin(); o != detail::g_menu_options.rend(); ++o) {
+        if (o->name == name) {
+            return o->state;
         }
     }
     return OPENRAC_MENU_OPTION_DEFAULT;

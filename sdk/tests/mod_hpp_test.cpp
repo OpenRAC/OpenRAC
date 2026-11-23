@@ -1200,6 +1200,16 @@ int fake_set_motors(openrac_mod*, int port, int small, int large) {
     return port >= 0 && port <= 1 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+// What the fake host's 1.37 menu_option_set was given; it refuses a state past OFF.
+std::string g_menu_option;
+
+int fake_menu_option_set(openrac_mod*, const char* option, int state) {
+    g_menu_option = std::string(option) + " " + std::to_string(state);
+    return state >= OPENRAC_MENU_OPTION_DEFAULT && state <= OPENRAC_MENU_OPTION_OFF
+               ? OPENRAC_HOOK_OK
+               : OPENRAC_HOOK_UNKNOWN;
+}
+
 // What the fake host's 1.33 call was asked for. It knows one installed game's folder, refuses one the
 // manifest does not declare, and has none for any other.
 std::string g_game_asked;
@@ -2708,6 +2718,18 @@ int main() {
         CHECK(!mod.has_set_motors() && !mod.set_motors(0, 1, 255) && g_motors.empty());
         api.size = sizeof api;
         CHECK(mod.has_set_motors());
+    }
+
+    // Interface 1.37: a menu option turned on or off by name, refused by a port without the call.
+    {
+        api.menu_option_set = fake_menu_option_set;
+        CHECK(mod.menu_option_set("frame_rate", OPENRAC_MENU_OPTION_OFF));
+        CHECK(g_menu_option == "frame_rate 2");
+        CHECK(!mod.menu_option_set("frame_rate", 7));
+        g_menu_option.clear();
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, menu_option_set));
+        CHECK(!mod.menu_option_set("vsync", OPENRAC_MENU_OPTION_ON) && g_menu_option.empty());
+        api.size = sizeof api;
     }
 
     // Interface 1.33: the game's camera shake, handed to the port as it is and refused where the
