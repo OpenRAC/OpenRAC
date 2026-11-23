@@ -17,7 +17,8 @@ This writes, from the catalogue and the level programs' entries:
   "level_copies";
 - the rows between the markers in mp/libraries.tsv, one per map and function of CARRIED;
 - host/mp_maps.h, one MP_MAP(map, ...) line per map with each CARRIED function's place there, in
-  CARRIED's order (host/mp_maps.c expands it).
+  CARRIED's order (host/mp_maps.c expands it), and the MP_MAP_UI, MP_MAP_HUD and MP_MAP_VU0 lines of
+  CARRIED_UI, CARRIED_HUD and CARRIED_VU0 (host/ui2d.c, host/hud.c and host/trig.c expand them).
 
     python3 port/game/rac3-pal/mp/maps.py [--source games/rac3/decomp] [--check]
 
@@ -114,6 +115,26 @@ CARRIED_HUD = [
     ("0059CB38", "hud", "DrawHudSpriteMap", "wrap", "DrawHudSprite (func_L01_004202A8)"),
     ("0059CD28", "hud", "DrawHudGradientMap", "wrap", "DrawHudGradient (func_L01_00420498)"),
     ("0059C910", "", "", "ref", "a HUD texture's TEX0"),
+]
+
+# Level 39's copies of the routines that started VU0's microprogram (trig.c's MP_MAP_VU0, in its
+# order: the grid's relink last, which the moby routines end in and the port does not replace).
+CARRIED_VU0 = [
+    ("00590A68", "rac3CosineMap", "the cosine (the boot program's func_0038D478)", "float (float)"),
+    ("00590A80", "rac3SineMap", "the sine (func_0038D490)", "float (float)"),
+    ("00590CD8", "rac3EulerRowsMap", "the Euler rows (func_0038D6E8)", "void (unsigned int, unsigned int)"),
+    ("00590CF8", "rac3EulerRows2Map", "the Euler rows (func_0038D708)", "void (unsigned int, unsigned int)"),
+    ("00591220", "rac3QuaternionRowsMap", "the quaternion rows (func_0038DBF0)",
+     "void (unsigned int, unsigned int)"),
+    ("00591240", "rac3QuaternionMatrixMap", "the quaternion matrix (func_0038DC10)",
+     "void (unsigned int, unsigned int)"),
+    ("005912A0", "rac3TurnAboutAxisMap", "the turn about an axis (func_0038DC70)",
+     "void (unsigned int, unsigned int, unsigned int, float)"),
+    ("005AD2B0", "rac3MobyMatrixMap", "the moby matrix (func_003C7FF0)", "void (unsigned int)"),
+    ("005AD450", "rac3MobyMatrixKeptMap", "the moby matrix on its own rows (func_003C8190)",
+     "void (unsigned int)"),
+    ("005ECB30", "rac3RingPointsMap", "the ring of points (func_003D1DD8)", "void (unsigned int)"),
+    ("005ACFD0", "", "the moby grid's relink (func_003C7D10)", ""),
 ]
 
 BEGIN = "# --- the maps' rows: written by mp/maps.py, do not edit by hand ---"
@@ -218,6 +239,16 @@ def build(source: Path) -> tuple[dict, list[str], list[str]]:
                 lines.append(f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what}, "
                              f"wrapped as level 39's {l39} (host/hud.c)")
         macros.append(f"MP_MAP_HUD({m}, " + ", ".join(hud) + ")")
+        vu0 = []
+        for l39, name, what, sig in CARRIED_VU0:
+            place = rows.get(l39, {}).get(m)
+            if place is None:
+                raise SystemExit(f"maps.py: level 39's {l39} has no place in map {m} in the catalogue")
+            vu0.append(place)
+            if name:
+                lines.append(f"func_L{m}_{place}\tvu0\t{name}{m}\thost\tmap {m}'s copy of {what} "
+                             f"(level 39's {l39}; host/trig.c)\t{sig}")
+        macros.append(f"MP_MAP_VU0({m}, " + ", ".join(vu0) + ")")
     return entries, lines, macros
 
 

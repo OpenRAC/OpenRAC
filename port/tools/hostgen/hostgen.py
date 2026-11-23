@@ -162,6 +162,10 @@ def load_config(path: Path) -> dict:
     cfg.setdefault("names", {})
     cfg.setdefault("symbols", [])
     cfg.setdefault("groups", [])
+    # asm.wide: the widened arrays' sites (asmc.parse_wide), a JSON file beside the configuration.
+    wide = (cfg.get("asm") or {}).get("wide")
+    if isinstance(wide, str):
+        cfg["asm"]["wide"] = json.loads((path.parent / wide).read_text())
     # "prefix": every C name the program defines starts with it (program.cname), a second executable
     # of the disc built into the same port ("executables" of the first: cmake/Games.cmake).
     program_module.set_name_prefix(cfg.get("prefix", ""))
@@ -579,6 +583,21 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
         if p is None:
             continue
         ret = canon(f.sig.ret, program.typedefs)
+        # Another name of a place the port writes itself (rac3-decomp's per-file names,
+        # func_0011A264_00398288 for memset): the port's function, its arguments by kind.
+        forward = host_alias_call(program, f)
+        if forward is not None:
+            # The port's function may hand back nothing where this name's callers read a result
+            # (the EE's $v0 left as it was): 0, as for a stub.
+            gives = canon(program.functions[program.canonical(f.symbol)].sig.ret, program.typedefs) != "void"
+            if ret == "void":
+                body = f"    {forward};"
+            elif gives:
+                body = f"    return ({ret}){forward};"
+            else:
+                body = f"    {forward};\n    return 0;"
+            stubs.append(f"{p} {{\n{body}\n}}\n")
+            continue
         # Its own site (guest.h, openrac_reach_site): the calls are counted in a word of its own,
         # and the first is logged, as openrac_guest_missing does.
         kind = "asm" if f.asm else "no-c"
@@ -714,6 +733,26 @@ def rows_without_function(program: Program, host_rows: dict) -> list[str]:
     without a word. hostgen fails on them."""
     rows = set(host_rows) | program.wrap | set(program.hook)
     return sorted(sym for sym in rows if sym not in program.functions)
+
+
+def host_alias_call(program: Program, f: Function) -> str | None:
+    """The call of the port's own function at the place of F, a function with no C, when F is
+    another name of that place (Program.canonical); its parameters given to the port's function's
+    by kind, in order, as the EE's registers carry them. None when F is no such name."""
+    other = program.canonical(f.symbol)
+    if other == f.symbol or other not in program.host:
+        return None
+    target = program.functions.get(other)
+    if target is None or f.sig.variadic or target.sig.variadic:
+        return None
+    floats = [f"a{i}" for i, t in enumerate(f.sig.params) if canon(t, program.typedefs) == "float"]
+    ints = [f"a{i}" for i, t in enumerate(f.sig.params) if canon(t, program.typedefs) != "float"]
+    args = []
+    for t in target.sig.params:
+        c = canon(t, program.typedefs)
+        pool = floats if c == "float" else ints
+        args.append(f"({c}){pool.pop(0)}" if pool else f"({c})0")
+    return f"{cname(other)}({', '.join(args)})"
 
 
 def write_libraries(program: Program, out: Path, rows: dict, api: dict) -> int:
