@@ -1152,6 +1152,25 @@ std::uint32_t game_word(gaddr at) {
 // own places.
 using WordReader = std::uint32_t (*)(int program, gaddr at);
 
+// The general register an EE instruction writes, or 0 (none, or $zero).
+std::uint32_t writes_gpr(std::uint32_t w) {
+    const std::uint32_t op = w >> 26, rs = (w >> 21) & 31, rt = (w >> 16) & 31, rd = (w >> 11) & 31;
+    if (op == 0x00 || op == 0x1C) {
+        return rd;  // special and mmi (jr and the like have rd 0)
+    }
+    if (op == 0x03 || (op == 0x01 && (rt & 0x10) != 0)) {
+        return 31;  // jal, bltzal and the like
+    }
+    if ((op >= 0x08 && op <= 0x0F) || (op >= 0x18 && op <= 0x1B) || op == 0x1E
+        || (op >= 0x20 && op <= 0x27) || op == 0x37) {
+        return rt;  // immediates, lui, the loads
+    }
+    if (op >= 0x10 && op <= 0x12 && rs <= 2) {
+        return rt;  // mfc0, mfc1, cfc1, qmfc2, cfc2
+    }
+    return 0;
+}
+
 std::uint32_t exe_reader(int, gaddr at) {
     return exe_word(at);
 }
@@ -1215,6 +1234,9 @@ void pair_code(
     Registers annulled{};
     std::uint32_t likely_from = 0;
     bool likely = false;
+    // $gp is the global pointer until the code writes it: Going Commando's collision code
+    // (func_00274D90) uses it as a work register (sq $zero, -0x10($gp)), which is no global.
+    bool gp_global = true;
     for (std::uint32_t i = 0; i + 4 <= size; i += 4) {
         if (call && i == call_slot + 4) {
             forget_call();
@@ -1292,7 +1314,7 @@ void pair_code(
         const bool add = op == 0x09 || op == 0x19 || op == 0x0D;  // addiu, daddiu, ori
         std::uint32_t ae = 0, al = 0, formed = i;
         bool have = false, offset = false;
-        if ((load || store || fpu || add) && rs == 28 && g_relocate_gp != 0) {
+        if ((load || store || fpu || add) && rs == 28 && gp_global && g_relocate_gp != 0) {
             ae = g_relocate_gp + se;
             al = g_relocate_gp + sl;
             have = true;
@@ -1306,6 +1328,9 @@ void pair_code(
         // What the instruction writes is no longer a known value (unless it is the address just
         // formed by addiu/ori); a call leaves only the callee-saved registers.
         const std::uint32_t funct = we & 0x3F, rd = (we >> 11) & 31;
+        if (writes_gpr(we) == 28) {
+            gp_global = false;
+        }
         if (op == 0x00 && (funct == 0x21 || funct == 0x25 || funct == 0x2D) && rt == 0 && rd != 0) {
             // A move (addu, or, daddu with $zero): the value goes along.
             ve[rd] = ve[rs];
