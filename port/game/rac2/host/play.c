@@ -280,6 +280,73 @@ static int hero_pose(openrac_game_pose* out) {
     return 1;
 }
 
+/* ---- The hero moved by a mod (openrac_api.hero_set_pose) ----
+ *
+ * A mod that holds the hero's whole update (Hero_Update: each family of levels' frame update,
+ * hero_l00_update_frame_2, game_update_frame, level_update_frame) and does not run it puts him in
+ * its pose here. As the update does: his animation first (set_hero_animation for a new seq, then
+ * AdvanceHeroAnimation); his place, rotation and velocity in the record; his matrices from the
+ * rotation (euler_to_matrix, and its inverse, a copy with rows as columns, as
+ * UpdateHeroInputAndHistory makes them); then the update's steps that show him (the face's
+ * manipulators, his moby, what is attached to him and what he holds, his scale). His state machine,
+ * the stick, ledges and rails are the mod's to leave out. */
+#define HERO_MOTION_POS (HERO + 0x80u)
+#define HERO_MOTION_ROT (HERO + 0x90u)
+#define HERO_INV_ROT_MATRIX (HERO + 0x40u)
+/* A tick's move (UpdateHeroMotion's velocity). */
+#define HERO_VELOCITY (HERO + 0x160u)
+/* The animation's speed and rate (AdvanceHeroAnimation: the time steps by speed times rate). */
+#define HERO_ANIM_SPEED (HERO + 0xC20u)
+/* A vehicle or ship is driving him (the frame update hands over to its own update). */
+#define HERO_VEHICLE (HERO + 0x22B4u)
+/* The ticks a new seq blends in over, as set_hero_animation's callers pass. */
+#define HERO_SET_BLEND 4.0f
+
+static int hero_set_pose(const openrac_game_pose* pose) {
+    const gaddr moby = hero_moby();
+    if (moby == 0 || GREF(uint8_t, HERO_VEHICLE) != 0) {
+        return 0;
+    }
+    const int frames = seq_frames(moby, pose->seq);
+    if (frames > 0 && pose->seq != GREF(uint8_t, moby + MOBY_TARGET_SEQ)) {
+        func_L00_002D2168(
+            (int)pose->seq, (int)pose->frame < frames ? (int)pose->frame : frames - 1, HERO_SET_BLEND
+        );
+    }
+    /* A queued seq or frame his last state asked for is for that state's animation. */
+    func_L00_002D24B8();
+    GREF(float, HERO_ANIM_SPEED) = pose->anim_speed;
+    func_L00_002D24E8();
+    for (unsigned i = 0; i < 3; ++i) {
+        GREF(float, HERO_MOTION_POS + 4u * i) = pose->position[i];
+        GREF(float, HERO_MOTION_ROT + 4u * i) = pose->rotation[i];
+        GREF(float, HERO_VELOCITY + 4u * i) = pose->velocity[i] / (float)openrac_game.frame_rate;
+    }
+    /* On the ground or in the air, as the mod says (OPENRAC_POSE_ON_GROUND, _IN_AIR): the count
+     * the follow camera reads. */
+    if (pose->flags & 2u) {
+        GREF(int16_t, HERO_FRAMES_OFF_GROUND) = 0;
+    } else if (pose->flags & 4u) {
+        const int16_t off = GREF(int16_t, HERO_FRAMES_OFF_GROUND);
+        GREF(int16_t, HERO_FRAMES_OFF_GROUND) = (int16_t)(off < 0x7FFF ? off + 1 : off);
+    }
+    func_00283410(HERO, HERO_MOTION_ROT);
+    for (unsigned r = 0; r < 4; ++r) {
+        for (unsigned c = 0; c < 4; ++c) {
+            const float v =
+                r < 3 && c < 3 ? GREF(float, HERO + 16u * c + 4u * r) : (r == c ? 1.0f : 0.0f);
+            GREF(float, HERO_INV_ROT_MATRIX + 16u * r + 4u * c) = v;
+        }
+    }
+    func_L00_002A5840();
+    func_L00_002A5368();
+    func_L00_002A9460();
+    func_L00_002B2120();
+    func_L00_002AFBC0();
+    func_L00_002A7748();
+    return 1;
+}
+
 static int32_t slot_of(gaddr moby);
 
 static int figure_alive(gaddr moby) {
@@ -681,6 +748,8 @@ static openrac_game_play play = {
     .phase = phase,
     .loads = loads,
     .hero_pose = hero_pose,
+    .hero_set_pose = hero_set_pose,
+    .hero_update_hook = "Hero_Update",
     .figure_spawn = figure_spawn,
     .figure_alive = figure_alive,
     .figure_pose = figure_pose,

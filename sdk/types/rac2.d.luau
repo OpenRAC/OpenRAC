@@ -45,6 +45,7 @@ type HookPoint =
     | "rac2.armor_vendor.build_list"
     | "rac2.armor_vendor.buy"
     | "rac2.vendor.preview"
+    | "rac2.player.update"
     | "Arena_Prize"
     | "ArmorVendor_BuildList"
     | "ArmorVendor_Buy"
@@ -54,6 +55,7 @@ type HookPoint =
     | "Hero_ApproachSpeed"
     | "Hero_NanotechSteps"
     | "Hero_TakeDamage"
+    | "Hero_Update"
     | "Item_Colors"
     | "Item_Equip"
     | "Item_Give"
@@ -167,6 +169,8 @@ type ArmorVendor_BuildListFn = () -> ()
 type ArmorVendor_BuyFn = (answer: number, unused: number) -> ()
 -- rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the row under the cursor (PrepareVendorSelectionPreview), in every mode, as the cursor moves and the menu opens: the armour vendor's (mode 3) loads the row's armour over Ratchet's class 0 when it is not the one loaded and makes the preview objects (g_vendorUi +0x2C, the count at +0x34, 0x100-byte mobys outside the level's list: class 0, Ratchet in that armour, then 1290 and 2675 for its extra pieces), turned to the camera, and shows the armour's description; the weapon vendor's, the weapon's model or picture. A replacement can call the original and then change the message or the objects' look (moby_material_class with OPENRAC_MODEL_MENU).
 type Vendor_PreviewFn = () -> ()
+-- rac2.player.update (Hero_Update) void(): The hero's whole update, once a tick from the level loop (each family of levels has its own copy: one hook point): his animation's advance, the stick, ledges and grind rails, his state machine, his body's easing, his moby, what he holds and the hero record's flags (+0x22B4 set: the ship's or a vehicle's update in its place). A replacement that does not call the original moves him by itself and shows him with openrac_api.hero_set_pose.
+type Hero_UpdateFn = () -> ()
 
 declare openrac: {
     game: string,
