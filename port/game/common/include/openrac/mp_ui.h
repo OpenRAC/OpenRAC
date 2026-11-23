@@ -82,6 +82,9 @@ typedef struct openrac_mp_ui_skin {
     void (*scroll_marks)(void* user, float x, float y, float w, float h, int up, int down);
     /* A menu sound, OPENRAC_MP_UI_SOUND_*. */
     void (*sound)(void* user, int sound);
+    /* Called before each layer is drawn: 0 the screen over the game's, 1 a modal screen over it
+     * (a notice, a screen opened with open:), which has no game screen under it. */
+    void (*layer)(void* user, int modal);
 } openrac_mp_ui_skin;
 
 /* What one event did (mpui::Outcome). `target` is valid until the next call. */
@@ -118,20 +121,32 @@ void openrac_mp_ui_close(openrac_mp_ui* ui);
 /* The id of the screen open, or "" for none. */
 const char* openrac_mp_ui_current(openrac_mp_ui* ui);
 
+/* Where modal screens are drawn: the notices and the screens an `open:` action opens. */
+void openrac_mp_ui_set_modal_area(openrac_mp_ui* ui, float x, float y, float w, float h);
+/* Shows `text` in a modal notice with an OK button, over whatever is open, in place of a modal
+ * screen open before. */
+void openrac_mp_ui_notice(openrac_mp_ui* ui, const char* text);
+/* 1 while a modal screen is up: it takes every event, and the game sees none. */
+int openrac_mp_ui_modal(openrac_mp_ui* ui);
+
 /* Fills table `name`: begin, then per row a row and its cells, then end, which replaces the rows. */
 void openrac_mp_ui_table_begin(openrac_mp_ui* ui, const char* name);
 void openrac_mp_ui_table_row(openrac_mp_ui* ui, uint32_t key, int enabled);
 void openrac_mp_ui_table_cell(openrac_mp_ui* ui, const char* field, const char* text);
 void openrac_mp_ui_table_end(openrac_mp_ui* ui);
 
-/* Hands the screen open one OPENRAC_MP_UI_* event; `out` says what it did (consumed 0 when no
- * screen is open). */
+/* Hands the screen open one OPENRAC_MP_UI_* event, the modal one first; `out` says what it did
+ * (consumed 0 when no screen is open). Back on a modal screen closes it and an `open:` action opens
+ * its screen as a modal one, both here: `out` reports them consumed with no action. */
 void openrac_mp_ui_event(
     openrac_mp_ui* ui, const openrac_mp_ui_skin* skin, int event, openrac_mp_ui_outcome* out
 );
 /* Says whether the screen open has the cursor: 0 draws it without its highlight bar and focused
  * colours (the game's cursor is on another of its widgets). A screen opens active. */
 void openrac_mp_ui_set_active(openrac_mp_ui* ui, int active);
+/* Gives the screen open the cursor from the game's widgets: its first item (`from_top` 1) or its
+ * last. */
+void openrac_mp_ui_enter(openrac_mp_ui* ui, int from_top);
 /* Draws the screen open, if any. */
 void openrac_mp_ui_draw(openrac_mp_ui* ui, const openrac_mp_ui_skin* skin);
 /* The open screen's cursor row and first row shown (both 0 when none is open). */

@@ -453,6 +453,7 @@
       "func_L39_00683618": "int (int, int)",
       "func_L39_006837B0": "int (int)",
       "func_L39_00599618": "int (int)",
+      "func_L39_00683C48": "int (int)",
       "func_L39_0059B7A8": "void (int, int, int, int, int, int)",
       "func_L39_0059B998": "void (int, int, int, int, int, void *)",
       "func_L39_0058B048": "void (float, float, float, float, float, int, int, long long, int, int, int, int, float, float)",

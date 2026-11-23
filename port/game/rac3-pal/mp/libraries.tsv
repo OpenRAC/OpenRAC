@@ -280,6 +280,7 @@ func_L39_0058C218	draw	DrawRotatedSpriteMenus	wrap	level 39's copy of the turned
 func_L39_0059D368	draw	DrawHudQuadTurnedMenus	wrap	level 39's copy of the turned HUD quad (func_L01_00421278, the boot program's func_00397A18): drawn natively (host/ui2d.c)
 func_0027F5E8	draw	DrawGlyphQuadFloat	wrap	the multiplayer executable's glyph quad placed in floats (the boot program has none): the map loading screen's weapon icons, drawn natively (host/ui2d.c)
 func_L39_0058B9F8	draw	DrawGlyphQuadFloatMenus	wrap	level 39's copy of the core's glyph quad placed in floats (0x0027F5E8), drawn natively (host/ui2d.c)
+func_L39_00686768	ui	rac3MpUiScreensDraw	wrap	the lobby screen manager's draw (manager): the game widgets a native multiplayer screen replaces are hidden for it alone (host/mp_ui.c)
 # --- the maps' rows: written by mp/maps.py, do not edit by hand ---
 func_L40_004CF2E0	dma	rac3KickVif0ChainMap40	host	map 40's copy of KickVif0Chain (the catalogue's frontbin row func_003A8F90): it polled VIF0's CHCR for ever (level 39's 005FCB98; host/mp_maps.c)	void (unsigned int)
 func_L40_00476260	wad	rac3WadDecompressMap40	host	map 40's copy of the WAD decompressor (func_003A0760) (level 39's 005A9AA0; host/mp_maps.c)	int (int, int)

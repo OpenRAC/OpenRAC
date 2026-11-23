@@ -137,6 +137,7 @@ enum {
 #define FEATURE_REGIONS 16 /* the UDP offer's bit: the server answers PACKET_REGIONS */
 #define FEATURE_UI 32      /* the UDP offer's bit: the server answers PACKET_UI */
 int rac3_mp_ui_describe(const char* json, size_t size); /* mp_ui.c */
+void rac3_mp_ui_notice(const char* text);               /* mp_ui.c */
 #define CLIENT_SLOTS 2 /* PACKET_HELLO's client bit: send PARTY_SLOTS (the room's stable slots) */
 #define CLIENT_KEEPS_ALIVE                                                                         \
     4                      /* PACKET_HELLO's client bit: this client sends PACKET_TIME every 2 s */
@@ -1633,6 +1634,7 @@ static void on_frame(int id, reader* r) {
                 char text[257];
                 rd_text(r, text, sizeof text);
                 fprintf(stderr, "[info] rac3: online: the server says: %s\n", text);
+                rac3_mp_ui_notice(text);
             }
             break;
         }
