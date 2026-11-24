@@ -612,11 +612,14 @@ std::optional<bool> mouse_on_page(gaddr page, bool moved, bool click, float px, 
     return std::nullopt;
 }
 
+bool beside_items(const Tick& t);
+
 // The mouse in a menu: over a page's item, it is the one the game focuses (as the d-pad moves the
 // focus between a page's items: the next tick's focus change plays the game's own sound); over a
 // row of the focused list or a cell of the focused item grid, the d-pad steps the selection to it.
-// Elsewhere (the vendor, the dialogs) its motion steps the d-pad. A click on an item not yet
-// focused focuses it first. Returns false when the click must wait for the focus to move.
+// Beside a page's items nothing moves. Elsewhere (the dialogs) its motion steps the d-pad. A click
+// on an item not yet focused focuses it first. Returns false when the click must wait for the focus
+// to move.
 bool menu_mouse(const Tick& t, bool click) {
     const openrac_input* in = t.in;
     const bool moved = in->mouse_dx != 0.0f || in->mouse_dy != 0.0f;
@@ -638,10 +641,17 @@ bool menu_mouse(const Tick& t, bool click) {
         if (result.has_value()) {
             return *result;
         }
+
+        // Beside every item: nothing is selected, the selection stays where it is.
+        if (beside_items(t)) {
+            s_stepper.reset();
+            return true;
+        }
     }
 
-    // Elsewhere (and over a grid) the mouse's motion steps the d-pad, except on the title, which
-    // has nothing to step, and at the vendor, where the mouse points (vendor_mouse).
+    // Elsewhere (a dialog, or an item whose rows it cannot read) the mouse's motion steps the
+    // d-pad, except on the title, which has nothing to step, and at the vendor, where the mouse
+    // points (vendor_mouse).
     if (moved && t.where != Context::Title && t.where != Context::Vendor && !s_map_shown) {
         const std::uint16_t dir = s_stepper.step(in->mouse_dx, in->mouse_dy);
 
