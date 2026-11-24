@@ -554,6 +554,8 @@ void gpu() {
     renderer::FrameBuffer target;
     CHECK(target.create(size, size, error));
     renderer::FrameInput input;
+    // The cascade checks below sample a narrow shadow at fixed screen coordinates.
+    input.early_lighting_quality = renderer::EarlyLightingQuality::High;
     const renderer::RenderTarget rt{target.id(), size, size};
     // Modern shadows must skip stencil generation/compositing, even if the
     // game still submits valid retail proxy capsules.

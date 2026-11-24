@@ -126,6 +126,7 @@ std::string SceneLighting::motion_fragment(std::string source) const {
 void SceneLighting::prepare_deformation(
     const renderer::FrameInput& input, const scene::LevelScene& scene
 ) {
+    m_early_lighting.prepare_cloud_noise(input);
 #ifdef OPENRAC_LIGHT_AUTHORING
     if (gl::enhanced_rendering_available()) {
         const auto attached = m_object_lights.prepare(input.frame, scene.joint_palette());

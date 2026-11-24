@@ -111,12 +111,13 @@ void LevelScene::bind_surface_lighting(
 }
 
 void LevelScene::bind_sun_shadow(
-    const renderer::Shader& shader, const renderer::Camera& camera
+    const renderer::Shader& shader, const renderer::Camera& camera, renderer::ShadowFilter filter
 ) const {
     if (!enhanced_rendering_available()) {
         return;
     }
     glUniform1i(shader.uniform("sun_shadow_enabled"), m_sun_ready ? 1 : 0);
+    glUniform1i(shader.uniform("sun_shadow_fast"), filter == renderer::ShadowFilter::Fast ? 1 : 0);
     int separate = 0;
     for (unsigned i = 0; i < kSunCascades; ++i) {
         if (m_scroll_shadows[i].active) {
@@ -175,7 +176,8 @@ void LevelScene::render_early_lighting(
             state.target,
             [&](const renderer::Shader& shader) {
                 m_lighting->bind(shader, Layer::Terrain, true, &input.camera, true);
-                bind_sun_shadow(shader, input.camera);
+                bind_sun_shadow(shader, input.camera, input.shadow_filter);
+                bind_cloud_shadows(shader, input, true);
                 bind_hero_shadow(shader);
                 glUniform1i(shader.uniform("early_ao_enabled"), state.gtao_raw != 0 ? 1 : 0);
                 glUniform1i(shader.uniform("early_ao"), 18);
@@ -193,5 +195,33 @@ void LevelScene::render_early_lighting(
     if (!error.empty()) {
         log::warn("early lighting: {}", error);
     }
+}
+
+void LevelScene::bind_cloud_shadows(
+    const renderer::Shader& shader, const renderer::FrameInput& input, bool world_view
+) const {
+    const GLint shape = shader.uniform("cloud_shadow_shape");
+    if (shape < 0) {
+        return;
+    }
+    const auto& clouds = input.cloud_shadows;
+    const auto& travel = m_sun_cascades.travel_direction;
+    const float strength =
+        world_view && m_sun_ready && travel[2] <= 0.f ? clouds.effective_strength() : 0.f;
+    glUniform4f(shape, clouds.minimum, clouds.maximum, clouds.scale, strength);
+    if (strength <= 0.f) {
+        return;
+    }
+
+    const float angle = clouds.direction * 0.01745329252f;
+    const auto seconds = static_cast<float>(input.cloud_seconds);
+    const float drift = seconds * clouds.speed;
+    glUniform3f(
+        shader.uniform("cloud_shadow_motion"),
+        std::cos(angle) * drift,
+        std::sin(angle) * drift,
+        seconds * clouds.undulation
+    );
+    glUniform3f(shader.uniform("cloud_shadow_to_sun"), -travel[0], -travel[1], -travel[2]);
 }
 }  // namespace openrac::scene

@@ -20,6 +20,8 @@
 
 #include "common/hdr.h"
 #include "renderer/settings/bloom_settings.h"
+#include "renderer/settings/cloud_shadow_settings.h"
+#include "renderer/settings/early_lighting_settings.h"
 #include "renderer/settings/gtao_settings.h"
 #include "renderer/settings/motion_blur_settings.h"
 #include "renderer/settings/render_opt.h"
@@ -122,10 +124,12 @@ struct Settings {
     // only. Off, nothing of it is made and the game draws as a build without it.
     bool enhanced_rendering = false;
     bool enhanced_graphics = true;  // F4 within it; retains individual feature preferences
+    std::optional<renderer::CloudShadowSettings> cloud_shadow_override;  // Session tuning.
     bool enhanced_shadows = true;   // cascades and Ratchet map; off restores original shadows
     renderer::ShadowQuality shadow_quality =
         kHandheldDefaults ? renderer::ShadowQuality::Medium : renderer::ShadowQuality::High;
     renderer::ShadowFilter shadow_filter = renderer::ShadowFilter::Soft;
+    renderer::EarlyLightingQuality early_lighting_quality = renderer::EarlyLightingQuality::Normal;
     renderer::VolumetricQuality volumetric_quality = renderer::VolumetricQuality::Off;
 
     struct NanotechLight {
@@ -205,8 +209,7 @@ struct Settings {
     float motion_blur_strength = 0.5f;       // Exposure strength in [0, 1].
     float temporal_sharpness = 0.2f;         // AMD RCAS strength in [0, 1].
     renderer::TextureFilter texture_filter = renderer::TextureFilter::EdgeAware;
-    // Effects detail: High draws every Enhanced effect in full; Medium and Low allow the lossy
-    // shortcuts that cost visibly little (renderer/render_opt.h).
+    // Effects detail allows more approximate rendering at Medium and Low.
     renderer::render_opt::EffectsDetail effects_detail =
         kHandheldDefaults ? renderer::render_opt::EffectsDetail::Medium
                           : renderer::render_opt::EffectsDetail::High;
