@@ -20,6 +20,7 @@ rac2.moby.charge_boots_rider.update	ntsc:L11:003F8510	Moby_ChargeBootsRider_Upda
 rac2.moby.dynamo_pickup.update	ntsc:L01:003CEDA0	Moby_DynamoPickup_Update,func_L01_003CEDA0,func_L01_003D01F8,func_L01_003D2EF0
 rac2.moby.glider_pickup.update	ntsc:L08:0040E9B8	Moby_GliderPickup_Update,func_L08_0040E9B8,func_L08_0040FF80,func_L08_004137E8
 rac2.moby.hypnomatic_maker.update	ntsc:L18:00440718	Moby_HypnomaticMaker_Update,func_L18_00440718,func_L18_00441C08,func_L18_00445BB0
+rac2.moby.hypnomatic_part.update	ntsc:L18:0043FC70	APRac2_HypnomaticPart,Moby_HypnomaticPart_Update,func_L18_0043FC70,func_L18_004450C8
 rac2.moby.levitator_seller.update	ntsc:L11:004618C0	Moby_LevitatorSeller_Update,func_L11_004618C0,func_L11_00463368,func_L11_004676D0
 rac2.moby.mapper_return.update	ntsc:L18:003F90A0	Moby_MapperReturn_Update,func_L18_003F90A0,func_L18_003FA510,func_L18_003FD180
 rac2.moby.nanotech_ball.update	ntsc:003136D0	Moby_NanotechBall_Update,func_003136D0,func_003144C8,func_00314B5C

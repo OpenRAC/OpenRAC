@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Updates the Hypnomatic part pickup on Damosel.
+struct Moby_HypnomaticPart_Update {
+    static constexpr const char* id = "rac2.moby.hypnomatic_part.update";
+    static constexpr const char* name = "Moby_HypnomaticPart_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -366,6 +374,9 @@ namespace hooks {
         namespace hypnomatic_maker {
             using update = rac2::Moby_HypnomaticMaker_Update;
         }  // namespace hypnomatic_maker
+        namespace hypnomatic_part {
+            using update = rac2::Moby_HypnomaticPart_Update;
+        }  // namespace hypnomatic_part
         namespace levitator_seller {
             using update = rac2::Moby_LevitatorSeller_Update;
         }  // namespace levitator_seller

@@ -329,6 +329,11 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* Moby_HypnomaticPart_Update: Updates the Hypnomatic part pickup on Damosel. */
+#define OPENRAC_RAC2_HOOK_Moby_HypnomaticPart_Update "Moby_HypnomaticPart_Update"
+#define OPENRAC_RAC2_SIG_Moby_HypnomaticPart_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_HypnomaticPart_Update)(uint32_t moby);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus
