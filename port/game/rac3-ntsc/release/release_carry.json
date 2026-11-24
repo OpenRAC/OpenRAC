@@ -137,6 +137,8 @@
   "mp:func_L39_0067A7E0": "no NTSC-U pair (release/mp_pairs.json)"
  },
  "addresses_not_found": [
+  "L01:004D8220",
+  "L01:004DB780",
   "mp:001959F8",
   "mp:00241128"
  ],

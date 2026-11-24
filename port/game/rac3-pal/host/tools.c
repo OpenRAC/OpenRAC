@@ -166,7 +166,9 @@ static int loaded_level(void) {
  * screen. It is the loading screen's world instead, as the boot program's flight is
  * (GameProfile::loading_world, level 97: the ship's scene's mobys, no terrain and no sky). The
  * multiplayer maps have no flight. */
-static int level_flight(void) {
+int rac3_level_flight(void);
+
+int rac3_level_flight(void) {
     const int level = loaded_level();
     if (level < 1 || level > 36) {
         return -1;
@@ -443,13 +445,15 @@ static openrac_front_end front_end = {
 /* From crt0 (entry.c), not a constructor: the game is a static library, and nothing else names this
  * file, so a constructor here is dropped with it at the link. */
 void rac3_loading_skip(void);   /* host/loading.c */
+void rac3_loading_install(void); /* host/loading.c */
 gaddr rac3_language_word(void); /* host/options.c */
 int rac3_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]); /* host/touch.c */
 
 void rac3_install_tools(void) {
     openrac_game_skip = rac3_loading_skip;
     openrac_game_mode = rac3_level_mode;
-    openrac_game_flight = level_flight;
+    openrac_game_flight = rac3_level_flight;
+    rac3_loading_install();
     openrac_game_bolts = bolts;
     openrac_game_skip_buttons = skip_buttons;
     openrac_game_touch = rac3_touch;
