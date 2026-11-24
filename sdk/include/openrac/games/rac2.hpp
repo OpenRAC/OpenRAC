@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Updates the Tabora controller, including its wrench reward.
+struct Moby_TaboraWrench_Update {
+    static constexpr const char* id = "rac2.moby.tabora_wrench.update";
+    static constexpr const char* name = "Moby_TaboraWrench_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -382,6 +390,9 @@ namespace hooks {
         namespace swingshot_area {
             using update = rac2::Moby_SwingshotArea_Update;
         }  // namespace swingshot_area
+        namespace tabora_wrench {
+            using update = rac2::Moby_TaboraWrench_Update;
+        }  // namespace tabora_wrench
         namespace thermanator_area {
             using update = rac2::Moby_ThermanatorArea_Update;
         }  // namespace thermanator_area

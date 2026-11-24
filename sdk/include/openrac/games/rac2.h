@@ -329,6 +329,11 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* Moby_TaboraWrench_Update: Updates the Tabora controller, including its wrench reward. */
+#define OPENRAC_RAC2_HOOK_Moby_TaboraWrench_Update "Moby_TaboraWrench_Update"
+#define OPENRAC_RAC2_SIG_Moby_TaboraWrench_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_TaboraWrench_Update)(uint32_t moby);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

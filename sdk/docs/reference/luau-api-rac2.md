@@ -373,3 +373,11 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 ```lua
 type Vendor_PreviewFn = () -> ()
 ```
+
+### `Moby_TaboraWrench_UpdateFn`
+
+rac2.moby.tabora_wrench.update (Moby_TaboraWrench_Update) void(u32): Updates the Tabora controller, including its wrench reward.
+
+```lua
+type Moby_TaboraWrench_UpdateFn = (moby: number) -> ()
+```
