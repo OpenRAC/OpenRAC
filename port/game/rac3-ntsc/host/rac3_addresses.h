@@ -342,6 +342,12 @@
 #define RAC3_LADDR_1_0x004D8220u 0u
 /* not paired (rac3_level_pairs.py) */
 #define RAC3_LADDR_1_0x004DB780u 0u
+/* the same instruction of the same code: func_L01_0032FF68 (NTSC-U func_L01_0032FA40) +0x8, 47 of 47 places agree */
+#define RAC3_LADDR_2_0x001DE4C0u 0x001DE540u
+/* the same instruction of the same code: func_L01_00305D30 (NTSC-U func_L01_00305AD0) +0x68, 21 of 21 places agree */
+#define RAC3_LADDR_2_0x001E1140u 0x001E11C0u
+/* the same instruction of the same code: func_L02_0030FC68 (NTSC-U func_L02_0030F930) +0x1C, 3 of 3 places agree */
+#define RAC3_LADDR_2_0x0026EB80u 0x0026EC00u
 /* between the same code's 0x00245BB0 and 0x00245BCC, both moved by +0x180 (NTSC-U 0x00245D30, 0x00245D4C) */
 #define RAC3_LADDR_39_0x00245BB4u 0x00245D34u
 /* the same instruction of the same code: func_L39_00589538 (NTSC-U func_L39_005883C8) +0x40, 6 of 6 places agree */
