@@ -49,6 +49,25 @@ enum class FrameOp : std::uint8_t {
     Wide,          // `index` 1: what follows covers the whole target, as a fade does; 0 ends it
     PictureBand,   // `index` 1: a full-width scissor stays the picture's with "HUD: Edges"; 0 ends
     LastFrame,     // the frame the window last drew with its world in, over the whole target
+    ScreenEffect,  // screen_effects[index], a native post pass over the target as drawn so far
+};
+
+// A screen effect (openrac_frame_screen_effect, docs/port/SCREEN_EFFECTS.md): the game's values;
+// renderer/effects/screen_effect.h draws it.
+enum class ScreenEffectKind : std::uint8_t {
+    None,
+    Glow,    // the pixels whose alpha passes the threshold, tinted, blurred and added back
+    Soften,  // the frame blurred and mixed back over itself
+};
+
+struct ScreenEffect {
+    ScreenEffectKind kind = ScreenEffectKind::None;
+    std::uint32_t tint = 0x80808080u;  // 0xAABBGGRR, 0x80 = 1.0
+    std::uint32_t threshold = 0;       // Glow: alpha (0x80 = 1.0) a pixel must be above
+    std::uint32_t strength = 0x80;     // how much of the blurred copy goes back, 0x80 = all
+    std::uint8_t blur = 0;             // extra blur passes at the largest size (0 to 2)
+
+    bool operator==(const ScreenEffect&) const = default;
 };
 
 // Returns the command's contract name for recorder diagnostics, or "Unknown" for an invalid value.
@@ -134,6 +153,7 @@ struct FrameRecording {
     std::vector<UiImage> images;
     // The split-screen views drawn in it, in the order they ended; none for a full-screen frame.
     std::vector<FrameView> views;
+    std::vector<ScreenEffect> screen_effects;
 
     bool empty() const { return commands.empty(); }
 
@@ -174,6 +194,9 @@ public:
 
     // Appends `command` with the current anchor; returns its index.
     std::uint32_t push(FrameCommand command);
+
+    // Appends an effect and its command to the same recording, including at the command limit.
+    void push_screen_effect(const ScreenEffect& effect);
 
     // Closes the open recording into the kept ones (when it has commands) and starts another.
     // The anchor is forgotten.

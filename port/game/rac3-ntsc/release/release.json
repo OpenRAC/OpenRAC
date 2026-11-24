@@ -592,6 +592,10 @@
       "is": "001DBCE4",
       "why": "between the same code's 0x001DBCA0 and 0x001DBCBC, both moved by +0x40 (NTSC-U 0x001DBCE0, 0x001DBCFC)"
     },
+    "L01:001DBCC8": {
+      "is": "001DBD08",
+      "why": "the glow builder's lbu of the blur byte: PAL func_L01_004DDE98 reads 0x001DBCC8, NTSC-U func_L01_004DA1B8 (the same code) reads 0x001DBD08 at the same two places; the glow block moved by +0x40"
+    },
     "L01:001DF97C": {
       "is": "001DF9FC",
       "why": "the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree"
@@ -815,6 +819,10 @@
     "L39:00245BB4": {
       "is": "00245D34",
       "why": "between the same code's 0x00245BB0 and 0x00245BCC, both moved by +0x180 (NTSC-U 0x00245D30, 0x00245D4C)"
+    },
+    "L39:00245BD8": {
+      "is": "00245D58",
+      "why": "the glow builder's lbu of the blur byte: PAL level 39 func_L39_0060D7F0 reads 0x00245BD8, NTSC-U's builder (and every map's copy, e.g. func_L51_004F0918) reads 0x00245D58 at the same two places; the glow block moved by +0x180"
     },
     "L39:0024BD00": {
       "is": "0024BE00",

@@ -89,6 +89,8 @@ const char* frame_op_name(FrameOp op) {
             return "PictureBand";
         case FrameOp::LastFrame:
             return "LastFrame";
+        case FrameOp::ScreenEffect:
+            return "ScreenEffect";
     }
 
     return "Unknown";
@@ -107,6 +109,7 @@ void FrameRecording::clear() {
     ui_items.clear();
     images.clear();
     views.clear();
+    screen_effects.clear();
 }
 
 std::uint32_t FrameRecorder::push(FrameCommand command) {
@@ -179,6 +182,16 @@ void FrameRecorder::view_end() {
     c.op = FrameOp::ViewEnd;
     c.index = m_open.views.empty() ? 0 : m_open.views.back().view;
     push(c);
+}
+
+void FrameRecorder::push_screen_effect(const ScreenEffect& effect) {
+    FrameCommand command;
+    command.op = FrameOp::ScreenEffect;
+    const std::uint32_t at = push(command);
+
+    // push() can close the full recording, so payload storage is selected after it returns.
+    m_open.commands[at].index = static_cast<std::uint32_t>(m_open.screen_effects.size());
+    m_open.screen_effects.push_back(effect);
 }
 
 void FrameRecorder::close() {

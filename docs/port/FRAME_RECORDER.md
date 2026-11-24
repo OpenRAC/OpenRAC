@@ -71,6 +71,8 @@ the window scales them to the target's pixels.
 | `openrac_frame_scissor(rect)` | cuts what follows to `rect` (NULL: the whole target) |
 | `openrac_frame_screen(width, height)` | the game's 2D screen the coordinates of the commands that follow are in (512 x 448 until set; kept across recordings): a game whose 2D is drawn on another size says so, and its rectangles, scissors and views are taken as they are |
 | `openrac_frame_view_begin(view, const openrac_frame_viewport* rect)` / `_view_end()` | split screen: the world recorded between them is local player view `view`'s (0 to `OPENRAC_FRAME_VIEWS` - 1), drawn into `rect` with the camera the game holds when that view's `openrac_frame_world` is recorded (see §3.1) |
+| `openrac_frame_screen_effect(const openrac_screen_effect*)` | a native post pass over the target as drawn so far, with the game's values: `OPENRAC_SCREEN_GLOW` (the pixels whose alpha passes the threshold, tinted, blurred at a half, a quarter and an eighth of the target, added back) or `OPENRAC_SCREEN_SOFTEN` (the frame blurred and mixed back); [SCREEN_EFFECTS.md](SCREEN_EFFECTS.md) |
+| `openrac_frame_snapshot_world(id)` | keeps the last frame the window drew with its world in (the world alone, before its 2D) as picture `id`, following the world while one is drawn under a menu: the frame a menu read back as it opened |
 | `openrac_frame_end()` | closes the recording (optional) |
 
 Blend modes are a fixed native set: `OPENRAC_BLEND_OPAQUE`, `_MIX` (source over, by source alpha),
@@ -270,6 +272,9 @@ rows. `openrac_frame_effect_parent_position` keeps a strip's world-space orienta
 the delayed parent's move; `openrac_frame_effect_parent` follows its axes too. Both scopes end at 0.
 RAC1 PAL title's reported two dropped commands out of three still need an identified runtime trace;
 the old aggregate warning alone does not identify them.
+
+Rac3 also records native glow/soften passes from `screen.c`, `mp.c` and the maps, and the pause
+picture through `snapshot_world` plus `picture`. Runtime and per-view integration proof are pending.
 
 ## 9. Tests
 

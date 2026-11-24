@@ -347,6 +347,55 @@ void test_diagnostic_command_names() {
     CHECK(std::strcmp(frame_op_name(static_cast<FrameOp>(UINT8_MAX)), "Unknown") == 0);
 }
 
+// A screen effect is recorded with its values beside the commands; closing keeps them with the
+// recording, and a new recording starts with none.
+void screen_effects_kept() {
+    FrameRecorder recorder;
+    ScreenEffect soften;
+    soften.kind = ScreenEffectKind::Soften;
+    soften.strength = 0x80;
+    recorder.push_screen_effect(soften);
+    recorder.close();
+    const FrameRecording* r = recorder.latest_unanchored();
+    CHECK(r != nullptr);
+    if (r != nullptr) {
+        CHECK(r->commands.size() == 1 && r->commands[0].op == FrameOp::ScreenEffect);
+        CHECK(r->screen_effects.size() == 1 && r->screen_effects[0] == soften);
+        FrameRecording copy = *r;
+        copy.clear();
+        CHECK(copy.screen_effects.empty() && copy.empty());
+    }
+    CHECK(recorder.open().screen_effects.empty());
+}
+
+// Keeps the payload with its command when appending an effect closes a full recording.
+void test_screen_effect_rollover() {
+    FrameRecorder recorder;
+    recorder.open().commands.resize(FrameRecorder::kMostCommands);
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    recorder.push_screen_effect(glow);
+
+    CHECK(recorder.open().commands.size() == 1);
+    CHECK(recorder.open().screen_effects.size() == 1);
+
+    // A missing payload is already a failure; do not read it while reporting that failure.
+    if (recorder.open().commands.size() != 1 || recorder.open().screen_effects.size() != 1) {
+        return;
+    }
+
+    CHECK(recorder.open().commands.front().index == 0);
+    CHECK(recorder.open().screen_effects.front() == glow);
+    const FrameRecording* previous = recorder.latest_unanchored();
+    CHECK(previous != nullptr);
+
+    // The full recording contains no command for the newly appended effect.
+    if (previous != nullptr) {
+        CHECK(previous->commands.size() == FrameRecorder::kMostCommands);
+        CHECK(previous->screen_effects.empty());
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -362,5 +411,7 @@ int main() {
     test_texture_paging_preserves_walk_order();
     test_unchanged_cursor_and_terminal_tag();
     test_diagnostic_command_names();
+    screen_effects_kept();
+    test_screen_effect_rollover();
     return openrac::test::result();
 }

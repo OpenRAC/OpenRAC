@@ -1065,6 +1065,22 @@ void openrac_frame_last_frame(void) {
     OPENRAC_RECORD("openrac_frame_last_frame", placement(renderer::FrameOp::LastFrame, 0, 0));
 }
 
+void openrac_frame_screen_effect(const openrac_screen_effect* effect) {
+    c_boundary::call("openrac_frame_screen_effect", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window && effect != nullptr) {
+            frontend::recorder::screen_effect(*effect);
+        }
+#endif
+        (void)effect;
+    });
+}
+
+void openrac_frame_snapshot_world(uint32_t id) {
+    OPENRAC_RECORD("openrac_frame_snapshot_world", snapshot_world(id));
+    (void)id;
+}
+
 #undef OPENRAC_RECORD
 
 }  // extern "C"

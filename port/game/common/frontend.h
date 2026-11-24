@@ -129,6 +129,8 @@ void view_end();
 // A command that only places what follows (renderer::FrameOp's transitional placements: WorldShrubs,
 // EffectParent, HudSide, Wide, PictureBand, LastFrame).
 void placement(renderer::FrameOp op, std::uint32_t index, std::uint64_t value);
+void screen_effect(const openrac_screen_effect& effect);
+void snapshot_world(std::uint32_t id);
 // How a game image (openrac_game_ui_image) becomes a decoded image: set by the 2D layer's image
 // cache (frontend/ui_images); until it is, items with an image are not recorded (the caller draws
 // its way) and picture_image draws nothing.

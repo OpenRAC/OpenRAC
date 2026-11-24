@@ -255,6 +255,7 @@ add_library(openrac_renderer STATIC
   renderer/gl/gl.cpp
   renderer/gl/gl_stats.cpp
   renderer/effects/haze.cpp
+  renderer/effects/screen_effect.cpp
   renderer/renderer.cpp
   renderer/frame/colour_graph.cpp
   renderer/frame/frame_record.cpp
@@ -310,6 +311,8 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/screen_effect.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/screen_effect.frag"
 )
 target_link_libraries(openrac_renderer PUBLIC openrac_common openrac_sharp_cells
                       PRIVATE openrac_renderer_graph)
@@ -963,6 +966,10 @@ openrac_add_test(renderer_gif LIBS openrac_renderer)
 # The frame recorder's commands, anchors and kept recordings (docs/port/FRAME_RECORDER.md).
 openrac_add_test(frame_record LIBS openrac_renderer)
 openrac_add_test(frame_anchor INCLUDES game/common/include runtime/include)
+
+# Screen pass scheduling with fake GL resources, without a GPU context.
+openrac_add_test(screen_effect SOURCES tests/screen_effect_test.cpp renderer/effects/screen_effect.cpp
+  INCLUDES . "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_common)
 openrac_add_test(game_image_sources SOURCES tests/game_image_sources_test.cpp
                  game/common/frontend/game_image_sources.cpp INCLUDES . game/common/include runtime/include)
 
