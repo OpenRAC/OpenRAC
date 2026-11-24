@@ -43,29 +43,37 @@ int create(
         if (why != nullptr) {
             *why = r;
         }
+
         return 0;
     };
+
     if (owner == nullptr || width < 1 || height < 1 || width > kSideMax || height > kSideMax) {
         return refuse(Refusal::Bad);
     }
+
     const std::size_t bytes =
         static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * kChannels;
+
     if (rgba.size() < bytes) {
         return refuse(Refusal::Bad);
     }
+
     Store& s = store();
     const std::lock_guard<std::mutex> lock(s.lock);
     std::size_t kept = 0;
     std::size_t kept_bytes = 0;
+
     for (const auto& [id, entry] : s.pictures) {
         if (entry.owner == owner) {
             ++kept;
             kept_bytes += entry.picture->rgba.size();
         }
     }
+
     if (kept >= kPerOwnerMax || kept_bytes + bytes > kBytesPerOwnerMax) {
         return refuse(Refusal::Full);
     }
+
     auto picture = std::make_shared<Picture>();
     picture->width = width;
     picture->height = height;
@@ -74,9 +82,11 @@ int create(
     const int id = s.next++;
     s.pictures[id] = Entry{owner, std::move(picture)};
     ++s.changes;
+
     if (why != nullptr) {
         *why = Refusal::None;
     }
+
     return id;
 }
 
@@ -84,9 +94,11 @@ bool destroy(const void* owner, int id) {
     Store& s = store();
     const std::lock_guard<std::mutex> lock(s.lock);
     const auto it = s.pictures.find(id);
+
     if (owner == nullptr || it == s.pictures.end() || it->second.owner != owner) {
         return false;
     }
+
     s.pictures.erase(it);
     ++s.changes;
     return true;
@@ -97,6 +109,7 @@ void drop(const void* owner) {
     const std::lock_guard<std::mutex> lock(s.lock);
     const std::size_t before = s.pictures.size();
     std::erase_if(s.pictures, [&](const auto& item) { return item.second.owner == owner; });
+
     if (s.pictures.size() != before) {
         ++s.changes;
     }

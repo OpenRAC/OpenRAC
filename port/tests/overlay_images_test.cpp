@@ -63,10 +63,12 @@ void an_owner_has_a_limit_and_an_unload() {
     overlay_images::Refusal why = overlay_images::Refusal::None;
     const auto one = pixels(1, 1, 0);
     std::vector<int> ids;
+
     for (std::size_t i = 0; i < overlay_images::kPerOwnerMax; ++i) {
         ids.push_back(overlay_images::create(&kA, 1, 1, one, false));
         CHECK(ids.back() > 0);
     }
+
     CHECK(
         overlay_images::create(&kA, 1, 1, one, false, &why) == 0
         && why == overlay_images::Refusal::Full
@@ -75,9 +77,11 @@ void an_owner_has_a_limit_and_an_unload() {
     const int other = overlay_images::create(&kB, 1, 1, one, false);
     CHECK(other > 0);
     overlay_images::drop(&kA);
+
     for (const int id : ids) {
         CHECK(overlay_images::find(id) == nullptr);
     }
+
     CHECK(overlay_images::find(other) != nullptr && overlay_images::count() == 1);
     overlay_images::drop(&kB);
     CHECK(overlay_images::count() == 0);
