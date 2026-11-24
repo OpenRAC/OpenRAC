@@ -101,6 +101,15 @@ class ClearColourTests(unittest.TestCase):
         level.index = bytes(0x20)
         self.assertIsNone(level_sky(level))
 
+    def test_sky_at_the_data_base(self):
+        """Up Your Arsenal's loading screen keeps its sky at offset 0, which the index cannot name."""
+        data = fixture()
+        offsets = []
+        level = SimpleNamespace(index=bytes(0x20), gameplay=b"", sky_at=0,
+                                block=lambda offset: offsets.append(offset) or bytes(data))
+        self.assertIsNotNone(level_sky(level, games.RAC3))
+        self.assertEqual(offsets, [0])
+
 
 class PanoramaTests(unittest.TestCase):
     def test_shells_blend_in_order_over_the_background(self):

@@ -42,7 +42,7 @@ as lumps (`lumps/`), `sectors.tsv` (the map the game reads its sectors by), the 
 I5BOOTN.ELF's records unpacked (`programs/*.records`, which LoadExecPS2 copies in: `host/exec.c`),
 `buildinfo.json`, and the image, which only the level tools read;
 *Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
-the levels into `assets/port/rac3/pal` (`levels-16.json`), and *Play* runs
+the levels into `assets/port/rac3/pal` (`levels-17.json`), and *Play* runs
 `openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that
 the port is early. The game draws a level's world from them ([Drawing the levels](#drawing-the-levels)).
 
@@ -605,12 +605,13 @@ his slot holds its packet table. (11) adds the gameplay copy the probe baker
 plans enhanced lighting from (`bake-inputs/gameplay.bin`), as Going Commando's 18. (12) adds the
 reviewed glowing textures and the levels' sun sets, as Going Commando's 19. (13) adds level 97, the loading
 screen's ship scene (below). (14) adds the liquid surfaces the baker lights from
-(`bake-inputs/liquids.json`), as Going Commando's 20.
+(`bake-inputs/liquids.json`), as Going Commando's 20. (17) adds level 97's sky, the loading screen's
+stars and galaxy (below).
 
 ## The loading screen
 
-Between levels the boot program runs its loading screen (mode 6, the pass `0x003C3BB8`): the game
-draws its stars and its galaxy picture itself (2D), then the scene's mobys through MobyProc's draw
+Between levels the boot program runs its loading screen (mode 6, the pass `0x003C3BB8`): its draw,
+`0x003BCEB0`, draws the scene's sky (the stars and the galaxy), then the scene's mobys through MobyProc's draw
 side, `0x003CB6B8`, which walks the jobs the boot program's MobyProc queued. Those mobys are the
 boot program's table's: Ratchet's ship (class 3412) and its parts (4308 to 4325) and a planet
 (7683), whose classes are the scene's pack's: one of the loading packs the table of contents lists
@@ -620,8 +621,19 @@ core (`extractor/level.py` `load_wad_loading`: GS RAM at word 1, data base at wo
 4 and 5, the classes at 0xa and 0xc, the moby textures at 0xe and 0xf, the texture data at 0x17)
 and writes it as level 97, with Ratchet's pack. The profile names that level the loading screen's
 world (`loading_world`), and `0x003CB6B8` puts the world's and the mobys' markers in the list, so the
-window draws those mobys natively with the boot program's camera, over the stars and the galaxy
-(the game's own triangles of texture `0x2DAF`). While the game reads the disc it resends a list that
+window draws those mobys natively with the boot program's camera.
+
+The stars and the galaxy are a sky of the scene's own: the pack's word 0 holds the parts it has
+(`0x003BBDC0` keeps it at `0x001D8CD4`), and with bit 0 its word 9 is a sky, at the data base itself
+on both discs, which LoadSky's copy (`0x00398A48`) makes the boot program's (`0x001DA5F0`): three
+shells, the star field (untextured), a 256 x 256 and the 512 x 512 galaxy picture. SkyDraw's copy
+(`0x003CE568`, under `0x003BD108`) turns each shell into `0x001DA610` (`0x003CE450`) and draws it with
+SkyDrawShell's copy (`0x003CE798`). Its triangles went out as the game's GS packets, which the window
+drew in the 4:3 middle while the ship and its trail filled a wide window. The export writes that sky
+as level 97's (`Level.sky_at`, the index's `+0x10` cannot name offset 0) and `host/render.c` draws
+`0x003CE798` natively, as the levels' `0x004A8158`: around the camera with the window's view, so a
+wide window shows more of the sky. The levels' flights (below) run the levels' SkyDrawShell copy,
+already native, with the same sky, which their LoadSky copy took. While the game reads the disc it resends a list that
 ends before that pass's markers: such a list is drawn whole under the world (`frame.cpp`), else
 its clear covered the ship.
 
@@ -631,9 +643,16 @@ level_load; Veldin's `0x004D7AE0` and `0x004D7658`), which runs before the next 
 in. level_load sets level_current (`0x001D545C`) to the level asked for as the loop starts, so
 `host/tools.c` (`openrac_game_flight`) names the loading world while it differs from the level
 loaded: the window draws level 97 then too, not the planet being left (whose sky, and terrain, the
-flight's DrawTfrag copy marks, were drawn round the ship). The boot program's wraps of the hold
-and the ship's glass are at its own addresses; the levels' copies of those two are not wrapped yet
-(their planet quads go through the levels' DrawWorldQuad, `func_L01_00407E28`, which is).
+flight's DrawTfrag copy marks, were drawn round the ship). The boot program's wrap of the hold is
+at its own addresses; the levels' copy of the ship's glass is wrapped too (`func_L01_004B04D8`, the
+catalogue's frontbin row `func_003A7AF8`), and their planet quads go through the levels'
+DrawWorldQuad, `func_L01_00407E28`.
+
+Between ticks the ship and the flight's camera move fast: in the approach (its ticks stretched
+2.5 times, `host/loading.c`) more than the 4 units a moby (8 for the camera) may move in a tick and
+still be drawn part way (`frontend/geometry.cpp`), so they were drawn where each tick left them,
+about 20 times a second. A moby or a camera that keeps its pace (this tick's move within that step
+of the last tick's) is now drawn part way at any speed (`Kept::prev_paces`, `camera_pace`).
 
 Not drawn yet: the planet (class 7683, a picture on a quad the ship flies towards, past its draw
 distance until the scene's last part, which the port's quicker loading never reaches) and the

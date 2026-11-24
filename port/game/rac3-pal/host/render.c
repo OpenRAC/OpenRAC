@@ -158,6 +158,20 @@ int func_L01_004A8158(int shell) {
     return rac3_sky_draw_shell(shell, VELDIN(SKY_MATRIX));
 }
 
+/* The boot program's SkyDrawShell (0x003CE798, frontbin's func_003CE3E0, the levels' 0x004A8158):
+ * the loading screen's sky, the stars and the galaxy, three shells of the scene pack's sky
+ * (0x003BBDC0 hands it to LoadSky, 0x00398A48; SkyDraw 0x003CE568 turns each into the matrix at
+ * 0x001DA610 before drawing it). Its triangles went out as the game's GS packets, which the window
+ * draws in the 4:3 middle of a wide window, while the ship and its trail filled it. Drawn natively
+ * instead, from the scene's export (level 97's sky): around the camera with the window's own view,
+ * so a wider window shows more of the sky, as it shows more of the levels' skies. Leaving a planet
+ * the level's copy (0x004A8158 above) draws the same sky, which the level's LoadSky copy took. */
+void func_003CE798(int shell) {
+    if (shell < GREF(int16_t, GREF(gaddr, RAC3_ADDR(0x001DA5F0u)) + 6u)) {
+        rac3_sky_draw_shell(shell, RAC3_ADDR(0x001DA610u));
+    }
+}
+
 /*
  * MobyProc's drawn flag (+0x31), as the console sets it (Going Commando's mark_drawn_mobys,
  * rac2/host/render.c): group mask, mode bits 0x81, alpha below 8, draw distance (+0x32, capped)
@@ -514,6 +528,22 @@ void func_003A7EF8(gaddr a0) {
     rac3_draw_callback = 0; /* no callback runner's function: the ids are the ship's alone */
     rac3_draw_ordinal = 0;
     func_003A7EF8__game(a0);
+    rac3_draw_owner = outer;
+    rac3_draw_callback = outer_callback;
+    rac3_draw_ordinal = outer_ordinal;
+}
+
+/* The levels' copy of the cockpit glass (the catalogue's frontbin row func_003A7AF8, Veldin's
+ * 0x004B04D8, the 34 single-player levels), which the level's own flight runs leaving a planet
+ * (its copy of 0x003C1848): owned by the ship and with ids as the boot program's above, else its
+ * quads stayed where each tick left them while the hull moved between ticks. */
+void func_L01_004B04D8(gaddr a0) {
+    const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
+    const unsigned outer_ordinal = rac3_draw_ordinal;
+    rac3_draw_owner = a0;
+    rac3_draw_callback = 0;
+    rac3_draw_ordinal = 0;
+    func_L01_004B04D8__game(a0);
     rac3_draw_owner = outer;
     rac3_draw_callback = outer_callback;
     rac3_draw_ordinal = outer_ordinal;

@@ -3039,6 +3039,23 @@ void keep_tick(
         g->water_impulses.clear();
     }
     const bool adjacent = g->index == k.frame + 1;
+    // The moves into the tick about to become the last one, from the one before it: the pace each
+    // moby and the eye kept (geometry.h kept_pace).
+    k.camera_pace.reset();
+    if (adjacent && k.has_state && k.has_prev_state) {
+        const auto& p0 = k.prev_state.camera_position;
+        const auto& p1 = k.state.camera_position;
+        k.camera_pace = renderer::Vec3{p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
+    }
+    k.prev_paces.clear();
+    for (std::size_t i = 0; adjacent && i < k.live.size() && i < k.addresses.size(); ++i) {
+        const auto before = k.prev_matrices.find(k.addresses[i]);
+        if (before != k.prev_matrices.end()) {
+            const auto& m0 = before->second;
+            const auto& m1 = k.live[i].matrix;
+            k.prev_paces[k.addresses[i]] = {m1[12] - m0[12], m1[13] - m0[13], m1[14] - m0[14]};
+        }
+    }
     k.prev_state = k.state;
     k.has_prev_state = k.has_state && adjacent;
     k.prev_matrices.clear();

@@ -306,7 +306,9 @@ scissor; NTSC-U evidence); #773 6551b9239 (levels' HUD sprites and menu ornament
 rac3_hud_image; letterbox from the game's height and screen edges); #775 c9e81719 (maps' prints from font pages).
 
 **Not done (still older TEX0 records or game packets):**
-- Loading screen's stars and galaxy (texture 0x2DAF): still the game's GS packets; routines not identified yet.
+- Loading screen's stars and galaxy: done (2026-11-24). They are the scene pack's sky (word 9 with flag bit 0), drawn by
+  the boot program's SkyDraw copy 0x003CE568 / SkyDrawShell 0x003CE798 (the levels' 0x004A7F28 / 0x004A8158); exported
+  as level 97's sky (levels format 17) and 0x003CE798 drawn natively (host/render.c), wide.
 - The fade (no rac3 fade counter wrapped yet; only the letterbox).
 - Widget3D quads (menu frames and art, help-box frame func_003AC9F0): still read back from the game's GIF packets after
   it writes them; needs capture from the posed mesh (func_003AA168 bones, func_003A08E8/0A28 vertices).

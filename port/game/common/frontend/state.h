@@ -84,6 +84,11 @@ struct Kept {
     std::vector<scene::Instance> live;
     std::vector<std::uint32_t> addresses;  // each live moby's address, for its last matrix
     std::unordered_map<std::uint32_t, renderer::Mat4> prev_matrices;
+    // Each moby's move the tick before the last (from two ticks ago to prev_matrices), where both
+    // ticks had it, and the eye's (prev_state's from the one before): a frame between ticks moves
+    // a thing that moves farther than a step in a tick but keeps its pace (geometry.h same_moby).
+    std::unordered_map<std::uint32_t, renderer::Vec3> prev_paces;
+    std::optional<renderer::Vec3> camera_pace;
     std::unordered_map<std::uint32_t, std::array<float, 4>> prev_spheres;
     std::vector<scene::LevelScene::JointColumns> palette;
     std::vector<renderer::ShadowCapsule> shadows, prev_shadows;
