@@ -204,7 +204,7 @@ openrac_mod_setting	value	24	const char *
 openrac_mod_setting	shown	32	const char *
 openrac_mod_setting	party	40	int32_t
 openrac_mod_setting	is_default	44	int32_t
-openrac_overlay	(size)	72	-
+openrac_overlay	(size)	96	-
 openrac_overlay	size	0	uint32_t
 openrac_overlay	context	8	void *
 openrac_overlay	project	16	int (*)(void *, const float *, float *, float *)
@@ -214,6 +214,16 @@ openrac_overlay	fade	40	float (*)(void *, float, float, float)
 openrac_overlay	text_width	48	float (*)(void *, float, const char *)
 openrac_overlay	phase	56	uint32_t
 openrac_overlay	set_blend	64	int (*)(void *, uint32_t)
+openrac_overlay	image	72	void (*)(void *, int, float, float, float, float, float, uint32_t)
+openrac_overlay	image_quad	80	void (*)(void *, int, const float *, const float *, uint32_t)
+openrac_overlay	layer	88	uint32_t
+openrac_overlay	aspect	92	float
+openrac_overlay_image	(size)	32	-
+openrac_overlay_image	size	0	uint32_t
+openrac_overlay_image	width	4	int32_t
+openrac_overlay_image	height	8	int32_t
+openrac_overlay_image	rgba	16	const uint8_t *
+openrac_overlay_image	flags	24	uint32_t
 openrac_pack_entry	(size)	40	-
 openrac_pack_entry	size	0	uint32_t
 openrac_pack_entry	id	8	const char *
