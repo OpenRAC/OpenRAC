@@ -62,6 +62,7 @@ the window scales them to the target's pixels.
 | `openrac_frame_ui_quad(const openrac_game_ui_rect*)` | transitional: the older UiQuad record (TEX0, CLAMP), drawn in the 2D state in effect where it lands, as before. Retired by P4 |
 | `openrac_frame_effect_quad(index)` | transitional: the world effect quad `index` (from `openrac_game_effect_quad_marker`) takes the alpha test and depth mode in effect here. Retired by P4 (materials on the record) |
 | `openrac_frame_fill(rect, rgba, blend)` | a flat rectangle (fades, letterbox bars, darkening); `rect` NULL for the whole target, which on a wide picture is the whole window |
+| `openrac_frame_fill_depth(rect, rgba, blend, depth, depth_bits, depth_test, writes)` | a flat rectangle as `_fill` with a depth of its own, for a cover whose depth later drawing tests: `depth` in the units of a `depth_bits`-bit buffer (16, 24 or 32, bigger nearer), tested by `OPENRAC_DEPTH_ALWAYS` / `_GEQUAL` / `_GREATER` against the target's depth; where it passes, the `OPENRAC_WRITE_*` colour channels and, with `OPENRAC_WRITE_DEPTH`, the depth are written. Into the current target, cut to the current scissor. 1 drawn; 0 (no window, `OPENRAC_UI_REPLAY`, a value out of range): the caller draws the game's way |
 | `openrac_frame_clear(rgba, what)` | clears the target's colour and/or depth (`OPENRAC_CLEAR_COLOUR`, `_DEPTH`) |
 | `openrac_frame_picture(id, rect, rgba, blend)` | draws a picture the port holds (a snapshot, or one set with `_picture_set`) over `rect`; `rect` NULL: the whole picture area, and with `OPENRAC_PICTURE_WHOLE` in `blend`'s high bits the whole target (a backdrop's sides on a wide window) |
 | `openrac_frame_picture_image(const openrac_game_ui_image*, rect, rgba, blend)` | a full-screen or large picture straight from the game's own data (menu backgrounds, loading pictures, the multiplayer menus' city pictures): decoded once per content into a normal texture, no GS image transfer |
@@ -192,7 +193,10 @@ in the interpreter only because it shares its draw list) builds draws from comma
 recorded and residual draws merge in one ordered list and one flush. `UiItem`s are drawn by
 `native_item` from their own state (the usual 2D blend, no depth, the image's texture or its distance
 field for glyphs); fills, clears and pictures by `native_rect`; a snapshot is a draw of no vertices
-that copies the target as drawn so far into the picture's texture.
+that copies the target as drawn so far into the picture's texture. A plain fill neither tests nor
+writes depth. A depth fill's value is placed as a residual vertex's (`depth_clip`: `z / (2^bits -
+1)` in the pass's clip range), so a rectangle at the game's own Z meets the packets' depth exactly;
+a depth clear writes the far value (0, clip -1 in the 2D pass).
 
 Images: `openrac_frame_ui_item` and `openrac_frame_picture_image` resolve the game image on the game
 thread through `frontend::recorder::set_image_resolver` (the 2D layer's content-hash cache,
@@ -222,7 +226,9 @@ into drawing is shared.
   the HUD side width); the native-resolution scale is the back end's (items are in game pixels,
   drawn at the target's resolution, glyphs from the distance field).
 - **Fades and letterbox**: `openrac_frame_fill` over the whole target; the fade's level and the bars'
-  height come from the game's own counters, read by the adapter.
+  height come from the game's own counters, read by the adapter. Where later drawing tests the
+  depth the bars wrote (rac1's level 6), `openrac_frame_fill_depth` with the producer's depth, test
+  and write mask (docs/port/RAC1_COVERS.md).
 - **Pictures and frame copies**: `openrac_frame_snapshot` / `_picture` / `_picture_image` /
   `_picture_set`. **Full-screen pictures are in scope for every game**: the rac2 and rac3 menu
   backgrounds (rac3 `host/picture.c`, rac2 `host/picture.c`), the multiplayer menus' moving city
@@ -283,7 +289,7 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 | Game | On the recorder | Still markers in its list |
 |---|---|---|
 | rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4); `host/movie.c`: each movie frame as a port picture (`picture_set` / `picture`, its backdrop across a wider window); `host/mp_maps.c`: the split-screen maps' views (§3.1); `host/mp_ui.c` and `host/mp_maps.c` write no marker of their own (the multiplayer screens and maps draw through `ui2d.c`, `hud.c` and `render.c`) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6) |
-| rac1 | `render_native.c`: world, shrubs boundary and positive-count moby lists; `ui2d.c`: transitional `ui_quad` records; `hud.c`: picture-band and whole-target placement (HUD side placement uses the game's coordinates) | water surface/UV scopes (`water_surfaces.c`, per-version `water.c`); boot-picture uploads and their residual draws; frame copies, blur, fades, clears and strips remain packet consumers |
+| rac1 | `render_native.c`: world, shrubs boundary and positive-count moby lists; `ui2d.c`: transitional `ui_quad` records; `hud.c`: picture-band and whole-target placement (HUD side placement uses the game's coordinates); `letterbox.c` (PAL v2.00 only): level 6's letterbox bars as depth-writing fills | water surface/UV scopes (`water_surfaces.c`, per-version `water.c`); boot-picture uploads and their residual draws; frame copies, blur, fades, clears and strips remain packet consumers |
 | rac2 | `render.c`: world, world-moby boundary, positive-count moby lists and effect-quad state placement; `ui2d.c`: transitional `ui_quad` records; `hud.c`: HUD side placement; `wide_view.c`: effect-parent scopes, including position-only scopes | `picture.c`: whole-target, saved-frame and credits-world markers; movie pictures/overlays, scissor, off-screen targets and strips remain packet consumers |
 
 This is a recorder hand-off milestone, not the full R1-R3 audit scope. No rac1/rac2 adapter to the

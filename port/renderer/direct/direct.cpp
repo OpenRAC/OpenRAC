@@ -1091,10 +1091,40 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             }
             break;
         case FrameOp::Fill: {
+            // A plain fill neither tests nor writes depth (depth_bits 0); a depth fill
+            // (openrac_frame_fill_depth) tests and writes as its producer asked, at its depth placed
+            // as a residual vertex's would be, so the two compare equal at the same value.
             DirectState s;
             s.blend = Blend::of(c.blend);
-            s.depth_write = false;
-            native_rect(c, s, 1.0f);
+            s.depth = c.depth;
+            s.depth_write = c.depth_write;
+            s.colour_writes = c.writes;
+            const bool own_depth = c.depth_bits != 0;
+            // A plain fill's depth is never compared or stored: the nearest value, as before.
+            const float depth =
+                own_depth ? depth_clip(static_cast<double>(c.depth_value), depth_max(c.depth_bits))
+                          : 1.0f;
+
+            // OPENRAC_DUMP_DRAWS lists the depth fills beside the residual draws they replace.
+            if (g_dump_draws && own_depth) {
+                log::info(
+                    "recorded fill ({},{})-({},{}) whole {} rgba {:08x} depth {:#x}/{} bits "
+                    "test {} write {} channels {:#x}",
+                    c.rect[0],
+                    c.rect[1],
+                    c.rect[2],
+                    c.rect[3],
+                    c.whole,
+                    c.rgba,
+                    c.depth_value,
+                    static_cast<int>(c.depth_bits),
+                    static_cast<int>(c.depth.compare),
+                    c.depth_write,
+                    static_cast<int>(c.writes)
+                );
+            }
+
+            native_rect(c, s, depth);
             break;
         }
         case FrameOp::Clear: {
@@ -1104,7 +1134,9 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             s.depth = {s.depth_write, DepthCompare::Always};
             FrameCommand whole = c;
             whole.whole = true;
-            native_rect(whole, s, 0.0f);  // reversed depth: cleared to 0
+            // Reversed depth is cleared to its far value 0, which the 2D pass's -1..1 clip range
+            // places at -1 (clip-space 0 stored 0.5).
+            native_rect(whole, s, depth_clip(0.0, 1.0));
             break;
         }
         case FrameOp::Picture: {
@@ -1700,8 +1732,7 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
     out.y = 1.0f - py / target_h * 2.0f;
     // The chip's depth, bigger nearer, straight into GL's [0, 1] window
     // depth: with the buffer cleared to 0 and GEQUAL, as on the console.
-    const double depth = std::clamp(static_cast<double>(v.z) / c.zbuf.max_z(), 0.0, 1.0);
-    out.z = static_cast<float>(depth * 2.0 - 1.0);
+    out.z = depth_clip(static_cast<double>(v.z), c.zbuf.max_z());
     int frame_x = 0;
     int frame_y = 0;
     if (attributes().tme

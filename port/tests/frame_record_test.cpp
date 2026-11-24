@@ -849,6 +849,90 @@ void test_owned_empty_build_blocks_standalone_fallback() {
     CHECK(recorder.latest_unanchored() != nullptr);
 }
 
+// A depth rectangle (openrac_frame_fill_depth) keeps its producer's depth, test and writes in native
+// values; values its buffer or the contract cannot hold leave it to the caller.
+void test_depth_fill_command() {
+    constexpr std::uint32_t kBar = 0xFFFFF3;  // the letterbox bars' 24-bit depth
+    constexpr int kDepth24 = 24;
+    const float rect[]{0.0f, 0.0f, 512.0f, 24.0f};
+    const auto bar = depth_fill_command(
+        rect,
+        0x80000000u,
+        BlendMode::Opaque,
+        true,
+        kBar,
+        kDepth24,
+        DepthCompare::GreaterEqual,
+        true,
+        kWriteColour
+    );
+    CHECK(bar.has_value());
+
+    // What it carries, when it was made.
+    if (bar) {
+        CHECK(bar->op == FrameOp::Fill && !bar->whole && bar->wide);
+        CHECK(bar->rect[3] == 24.0f && bar->rgba == 0x80000000u);
+        CHECK(bar->depth.enabled && bar->depth.compare == DepthCompare::GreaterEqual);
+        CHECK(bar->depth_write && bar->depth_bits == kDepth24 && bar->depth_value == kBar);
+        CHECK(bar->writes == kWriteColour);
+    }
+
+    // Written without a test is still a depth pass; neither tested nor written is none.
+    const auto stamp = depth_fill_command(
+        nullptr, 0, BlendMode::Mix, true, 0, kDepth24, DepthCompare::Always, true, kWriteAlpha
+    );
+    const auto tint = depth_fill_command(
+        nullptr, 0, BlendMode::Mix, true, 0, kDepth24, DepthCompare::Always, false, kWriteColour
+    );
+    CHECK(stamp && stamp->whole && stamp->depth.enabled && stamp->writes == kWriteAlpha);
+    CHECK(tint && !tint->depth.enabled && !tint->depth_write);
+
+    // Another bit count, a depth past the buffer, Never and a channel past the colour's.
+    constexpr int kOddBits = 20;
+    constexpr std::uint32_t kPastZ24 = 0x1000000;
+    constexpr std::uint8_t kPastColour = 0x10;
+    CHECK(!depth_fill_command(
+        rect,
+        0,
+        BlendMode::Opaque,
+        false,
+        kBar,
+        kOddBits,
+        DepthCompare::GreaterEqual,
+        true,
+        kWriteColour
+    ));
+    CHECK(!depth_fill_command(
+        rect,
+        0,
+        BlendMode::Opaque,
+        false,
+        kPastZ24,
+        kDepth24,
+        DepthCompare::GreaterEqual,
+        true,
+        kWriteColour
+    ));
+    CHECK(!depth_fill_command(
+        rect, 0, BlendMode::Opaque, false, kBar, kDepth24, DepthCompare::Never, true, kWriteColour
+    ));
+    CHECK(!depth_fill_command(
+        rect,
+        0,
+        BlendMode::Opaque,
+        false,
+        kBar,
+        kDepth24,
+        DepthCompare::GreaterEqual,
+        true,
+        kPastColour
+    ));
+
+    // A plain fill command keeps no depth of its own.
+    const FrameCommand plain = op(FrameOp::Fill);
+    CHECK(plain.depth_bits == 0 && !plain.depth.enabled && !plain.depth_write);
+}
+
 }  // namespace
 
 int main() {
@@ -882,5 +966,6 @@ int main() {
     test_owned_partial_and_truncated_resends();
     test_owned_identical_tag_layout_is_a_new_generation();
     test_owned_empty_build_blocks_standalone_fallback();
+    test_depth_fill_command();
     return openrac::test::result();
 }

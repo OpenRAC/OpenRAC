@@ -189,6 +189,73 @@ void fill(const float* rect, std::uint32_t rgba, int blend) {
     g->recorder.push(c);
 }
 
+// The C contract's channel bits are the native ones, so `writes` passes through unchanged.
+static_assert(
+    OPENRAC_WRITE_RED == renderer::kWriteRed && OPENRAC_WRITE_GREEN == renderer::kWriteGreen
+    && OPENRAC_WRITE_BLUE == renderer::kWriteBlue && OPENRAC_WRITE_ALPHA == renderer::kWriteAlpha
+    && OPENRAC_WRITE_COLOUR == renderer::kWriteColour
+);
+
+bool fill_depth(
+    const float* rect,
+    std::uint32_t rgba,
+    int blend,
+    std::uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+) {
+    // OPENRAC_UI_REPLAY compares against the game's own packets, as for the 2D layer's quads.
+    if (!native()) {
+        return false;
+    }
+
+    renderer::DepthCompare compare = renderer::DepthCompare::Always;
+
+    // Only the tests the contract names; another value is refused, never guessed.
+    switch (depth_test) {
+        case OPENRAC_DEPTH_ALWAYS:
+            break;
+        case OPENRAC_DEPTH_GEQUAL:
+            compare = renderer::DepthCompare::GreaterEqual;
+            break;
+        case OPENRAC_DEPTH_GREATER:
+            compare = renderer::DepthCompare::Greater;
+            break;
+        default:
+            return false;
+    }
+
+    // The low byte names the blend; OPENRAC_PICTURE_WHOLE is above it.
+    const int mode = blend & 0xFF;
+
+    // An unknown blend or write bit would otherwise draw as something the producer did not ask for.
+    if (mode > static_cast<int>(renderer::BlendMode::Multiply)
+        || (writes & ~(OPENRAC_WRITE_COLOUR | OPENRAC_WRITE_DEPTH)) != 0) {
+        return false;
+    }
+
+    const auto c = renderer::depth_fill_command(
+        rect,
+        rgba,
+        blend_mode(blend),
+        (blend & OPENRAC_PICTURE_WHOLE) != 0 || rect == nullptr,
+        depth,
+        depth_bits,
+        compare,
+        (writes & OPENRAC_WRITE_DEPTH) != 0,
+        static_cast<std::uint8_t>(writes & OPENRAC_WRITE_COLOUR)
+    );
+
+    // A bit count or depth the buffer cannot hold leaves the rectangle to the caller.
+    if (!c) {
+        return false;
+    }
+
+    g->recorder.push(*c);
+    return true;
+}
+
 void clear(std::uint32_t rgba, int what) {
     if (!g || (what & (OPENRAC_CLEAR_COLOUR | OPENRAC_CLEAR_DEPTH)) == 0) {
         return;
