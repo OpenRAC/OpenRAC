@@ -343,6 +343,9 @@ void test_diagnostic_command_names() {
     CHECK(std::strcmp(frame_op_name(FrameOp::WorldShrubs), "WorldShrubs") == 0);
     CHECK(std::strcmp(frame_op_name(FrameOp::Mobys), "Mobys") == 0);
     CHECK(std::strcmp(frame_op_name(FrameOp::PictureBand), "PictureBand") == 0);
+    CHECK(std::strcmp(frame_op_name(FrameOp::ViewBegin), "ViewBegin") == 0);
+    CHECK(std::strcmp(frame_op_name(FrameOp::ViewEnd), "ViewEnd") == 0);
+    CHECK(std::strcmp(frame_op_name(FrameOp::ScreenEffect), "ScreenEffect") == 0);
     // A corrupt enum must still produce a printable diagnostic.
     CHECK(std::strcmp(frame_op_name(static_cast<FrameOp>(UINT8_MAX)), "Unknown") == 0);
 }
@@ -396,6 +399,205 @@ void test_screen_effect_rollover() {
     }
 }
 
+// Builds the same reachable command subset as the list walker, using synthetic tag addresses.
+std::vector<FrameSplice> submitted_commands(
+    const FrameRecording& recording, std::span<const std::uint32_t> tags
+) {
+    const std::vector<std::size_t> places = place_commands(recording, tags);
+    std::vector<FrameSplice> submitted;
+
+    // Missing and inherited drops must not become drawable views or post effects.
+    for (std::size_t n = 0; n < places.size(); ++n) {
+        if (places[n] != kDropped) {
+            submitted.push_back({0, static_cast<std::uint32_t>(n)});
+        }
+    }
+
+    return submitted;
+}
+
+// A cut list selects only reachable views and layers, even when later explicit anchors resume.
+void test_submitted_views_exclude_unreachable_worlds() {
+    FrameRecorder recorder;
+    recorder.set_anchor(0x1000);  // First reachable view and layer.
+    recorder.view_begin(0, {0, 0, 512, 224});
+    recorder.push(op(FrameOp::World, 1));
+    recorder.set_anchor(0x2000);  // A missing extra layer and the whole next view.
+    recorder.push(op(FrameOp::World, 2));
+    recorder.view_begin(1, {0, 224, 512, 448});
+    recorder.push(op(FrameOp::World, 4));
+    recorder.set_anchor(0x3000);  // A later explicit anchor resumes, despite the preceding drops.
+    recorder.view_begin(2, {0, 0, 256, 224});
+    recorder.push(op(FrameOp::World, 8));
+    FrameRecording recording = recorder.open();
+    const std::uint32_t tags[]{0x1000, 0x3000};
+    CHECK(recording.resolve_views(submitted_commands(recording, tags)));
+    CHECK(recording.views[0].has_world && recording.views[0].layers == 1);
+    CHECK(!recording.views[1].has_world && recording.views[1].layers == 0);
+    CHECK(recording.views[2].has_world && recording.views[2].layers == 8);
+    // A fully cut list keeps old pictures, not a new full-screen world.
+    CHECK(recording.resolve_views({}));
+    CHECK(recording.has_split_world());
+    CHECK(!recording.views[0].has_world && !recording.views[2].has_world);
+}
+
+// A reachable World retains its captured camera and viewport even if the begin marker was truncated.
+void test_world_owner_does_not_depend_on_begin_reachability() {
+    FrameRecorder recorder;
+    // The transitional begin marker is absent from the submitted list.
+    recorder.set_anchor(0x2000);
+    recorder.view_begin(1, {0, 224, 512, 448});
+    FrameViewCamera camera;
+    camera.position = {1, 2, 3};  // Synthetic camera, owned by the recording rather than game RAM.
+    recorder.view_camera(camera);
+    recorder.set_anchor(0x3000);  // A later explicit world anchor is reached.
+    recorder.push(op(FrameOp::World, 8));
+    FrameRecording recording = recorder.open();
+    const std::uint32_t tags[]{0x3000};
+    CHECK(recording.resolve_views(submitted_commands(recording, tags)));
+    CHECK(recording.views[0].has_world && recording.views[0].layers == 8);
+    CHECK(recording.views[0].view == 1 && recording.views[0].camera == camera);
+    CHECK(recording.views[0].rect[1] == 224.0f);
+}
+
+// A post-effect payload remains diagnostic evidence but is not scheduled when its anchor is absent.
+void test_unreachable_view_effect_is_not_scheduled() {
+    FrameRecorder recorder;
+    recorder.set_anchor(0x1000);  // Only the world reaches the submitted list.
+    recorder.view_begin(0, {0, 0, 512, 224});
+    recorder.push(op(FrameOp::World, 1));
+    recorder.set_anchor(0x2000);  // Neither this effect nor its unanchored followers may execute.
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    recorder.push_screen_effect(glow);
+    recorder.set_anchor(0);
+    recorder.view_end();
+    FrameRecording recording = recorder.open();
+    const std::uint32_t tags[]{0x1000};
+    CHECK(recording.resolve_views(submitted_commands(recording, tags)));
+    CHECK(recording.views[0].has_world);
+    CHECK(recording.views[0].screen_effects.empty());
+    CHECK(recording.screen_effects[0] == glow);
+    CHECK(!recording.commands[2].view_effect_prepared);
+}
+
+// Each terminal post pass belongs to one view, while a later unscoped effect remains global.
+void test_view_effect_submission_owns_payloads() {
+    FrameRecorder recorder;
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    ScreenEffect soften;
+    soften.kind = ScreenEffectKind::Soften;
+    recorder.view_begin(0, {0, 0, 512, 224});
+    recorder.push(op(FrameOp::World, 1));
+    recorder.push_screen_effect(glow);
+    recorder.view_end();
+    recorder.view_begin(1, {0, 224, 512, 448});
+    recorder.push(op(FrameOp::World, 1));
+    recorder.push_screen_effect(soften);
+    recorder.view_end();
+    recorder.push_screen_effect(glow);
+    FrameRecording recording = recorder.open();
+    const std::vector<FrameSplice> submitted = submitted_commands(recording, {});
+    CHECK(recording.resolve_views(submitted));
+    CHECK(recording.commands[2].view == 0 && recording.commands[2].view_effect_prepared);
+    CHECK(recording.commands[6].view == 1 && recording.commands[6].view_effect_prepared);
+    CHECK(recording.commands[8].view == kNoFrameView);
+    CHECK(!recording.commands[8].view_effect_prepared);
+    CHECK((recording.views[0].screen_effects == std::vector<std::uint32_t>{0}));
+    CHECK((recording.views[1].screen_effects == std::vector<std::uint32_t>{1}));
+    recorder.open().screen_effects[0].kind = ScreenEffectKind::None;
+    CHECK(recording.screen_effects[0] == glow);
+    CHECK(recording.resolve_views(submitted));  // Resolving a copied tick twice is idempotent.
+    CHECK(recording.views[0].screen_effects.size() == 1);
+}
+
+// Explicit panel effects keep their recorded target rather than being routed to the player's world.
+void test_view_panel_effect_keeps_its_target_scope() {
+    FrameRecorder recorder;
+    recorder.view_begin(0, {0, 0, 512, 224});
+    recorder.push(op(FrameOp::World, 1));
+    recorder.push(op(FrameOp::TargetBegin, kRecordedTargets));
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    recorder.push_screen_effect(glow);
+    recorder.push(op(FrameOp::TargetEnd));
+    recorder.push_screen_effect(glow);
+    FrameRecording recording = recorder.open();
+    CHECK(recording.resolve_views(submitted_commands(recording, {})));
+    CHECK(!recording.commands[3].view_effect_prepared);
+    CHECK(recording.commands[5].view_effect_prepared);
+    CHECK((recording.views[0].screen_effects == std::vector<std::uint32_t>{1}));
+}
+
+// Unsupported ordering fails before publishing a partial schedule or inferring a global effect.
+void test_view_effect_rejects_orphans_and_interleaved_drawing() {
+    FrameRecorder recorder;
+    recorder.view_begin(0, {0, 0, 512, 224});
+    recorder.push(op(FrameOp::World, 1));
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    recorder.push_screen_effect(glow);
+    FrameRecording orphan = recorder.open();
+    const FrameSplice effect_only{0, 2};  // The effect is reachable, but its world was truncated.
+    CHECK(!orphan.resolve_views({&effect_only, 1}));
+    CHECK(!orphan.commands[2].view_effect_prepared);
+    recorder.push(op(FrameOp::World, 2));  // Later drawing cannot move ahead of the first effect.
+    FrameRecording interleaved = recorder.open();
+    CHECK(!interleaved.resolve_views(submitted_commands(interleaved, {})));
+    CHECK(!interleaved.commands[2].view_effect_prepared);
+    recorder.reset();
+    recorder.view_begin(0, {0, 0, 512, 224});
+    recorder.push(op(FrameOp::World, 1));
+    // Native UI before the effect needs a richer per-view stream.
+    recorder.push(op(FrameOp::Fill));
+    recorder.push_screen_effect(glow);
+    FrameRecording ui_before = recorder.open();
+    CHECK(!ui_before.resolve_views(submitted_commands(ui_before, {})));
+}
+
+// Rollover keeps a post effect's view identity and payload instead of promoting it to the whole frame.
+void test_view_effect_rollover_preserves_owner() {
+    FrameRecorder recorder;
+    recorder.set_anchor(0x1000);  // The owner and its resumed effect still belong to this list tag.
+    recorder.view_begin(1, {0, 224, 512, 448});
+    recorder.push(op(FrameOp::World, 1));
+    recorder.open().commands.resize(FrameRecorder::kMostCommands);
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    recorder.push_screen_effect(glow);
+    CHECK(recorder.open().commands.size() == 1);
+    CHECK(recorder.open().views.size() == 1);
+    CHECK(recorder.open().views[0].view == 1);
+    CHECK(recorder.open().commands[0].view == 0);
+    CHECK(recorder.open().commands[0].anchor == 0x1000);
+    CHECK(recorder.open().screen_effects[0] == glow);
+    FrameRecording orphan = recorder.open();
+    const std::uint32_t tags[]{0x1000};
+    CHECK(!orphan.resolve_views(submitted_commands(orphan, tags)));
+    recorder.close();  // Closing a full open view must not recurse through push() indefinitely.
+}
+
+// Unproved colour ordering fails explicitly; global effects retain their existing context policy.
+void test_view_effect_context_contract() {
+    FrameRecorder recorder;
+    recorder.view_begin(0, {0, 0, 512, 224});
+    recorder.push(op(FrameOp::World, 1));
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    recorder.push_screen_effect(glow);
+    FrameRecording recording = recorder.open();
+    CHECK(recording.resolve_views(submitted_commands(recording, {})));
+    CHECK(recording.validate_view_effect_context({true, false, false}));
+    CHECK(!recording.validate_view_effect_context({false, false, false}));
+    CHECK(!recording.validate_view_effect_context({true, true, false}));
+    CHECK(!recording.validate_view_effect_context({true, false, true}));
+    recorder.reset();
+    // An unscoped effect remains valid with the legacy 2D stream.
+    recorder.push_screen_effect(glow);
+    CHECK(recorder.open().validate_view_effect_context({false, true, true}));
+}
+
 }  // namespace
 
 int main() {
@@ -413,5 +615,13 @@ int main() {
     test_diagnostic_command_names();
     screen_effects_kept();
     test_screen_effect_rollover();
+    test_submitted_views_exclude_unreachable_worlds();
+    test_world_owner_does_not_depend_on_begin_reachability();
+    test_unreachable_view_effect_is_not_scheduled();
+    test_view_effect_submission_owns_payloads();
+    test_view_panel_effect_keeps_its_target_scope();
+    test_view_effect_rejects_orphans_and_interleaved_drawing();
+    test_view_effect_rollover_preserves_owner();
+    test_view_effect_context_contract();
     return openrac::test::result();
 }

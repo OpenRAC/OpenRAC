@@ -1199,6 +1199,42 @@ void recorded_native_hud_placement() {
 
 }  // namespace
 
+// Prepared view effects execute only in the view pass; an unscoped effect still reaches the main pass.
+void test_prepared_view_effect_is_not_replayed_on_composite() {
+    FrameRecorder recorder;
+    recorder.view_begin(0, {0, 0, 512, 224});
+    FrameCommand world;
+    world.op = FrameOp::World;
+    world.index = 1;
+    recorder.push(world);
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    recorder.push_screen_effect(glow);
+    recorder.view_end();
+    recorder.push_screen_effect(glow);
+    FrameRecording recording = recorder.open();
+    std::vector<FrameSplice> splices;
+
+    // This native-only submission reaches every command, without any graphics packets.
+    for (std::uint32_t n = 0; n < recording.commands.size(); ++n) {
+        splices.push_back({0, n});
+    }
+
+    CHECK(recording.resolve_views(splices));
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    gif.set_commands(&recording, splices, 0);
+    gif.finish_commands();
+    CHECK(recording.views[0].screen_effects.size() == 1);
+    CHECK(gif.draws().size() == 1);
+
+    // The global post effect remains a real draw rather than being lost with the prepared one.
+    if (gif.draws().size() == 1) {
+        CHECK(gif.draws()[0].screen == glow);
+        CHECK(gif.draws()[0].state.target == 0);
+    }
+}
+
 int main() {
     blend_weights();
     recorded_screen_effect();
@@ -1229,5 +1265,6 @@ int main() {
     test_recorded_screen_scissor();
     test_empty_recorded_scissors();
     recorded_native_hud_placement();
+    test_prepared_view_effect_is_not_replayed_on_composite();
     return openrac::test::result();
 }

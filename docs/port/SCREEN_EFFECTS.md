@@ -19,6 +19,11 @@ The window runs the effect where the call puts it in the frame, over the target 
 (`FrameOp::ScreenEffect`, a draw of no vertices). On a panel target (`openrac_frame_target_begin`)
 it works on the panel.
 
+Inside a split-screen view, a terminal native world effect instead runs on that view's own picture
+before composition, with its local dimensions and copied payload. It is not replayed on the combined
+frame. The supported ordering and explicit residual-2D/composite-colour blockers are in
+[FRAME_RECORDER.md section 3.2](FRAME_RECORDER.md#32-submitted-views-and-isolated-post-effects).
+
 | Kind | Passes |
 |---|---|
 | `OPENRAC_SCREEN_GLOW` | the frame copied at half size: each channel times `tint`, and a pixel kept only when the frame's alpha times the tint's alpha is above `threshold` (the game's alpha test, 0x80 = 1.0; the world writes the game's alpha into the frame, clamped at 1); blurred `blur` more times; shrunk to a quarter (blurred once more, twice with `blur`) and an eighth (blurred five times); made large again, blurred once, and **added** over the frame times `strength` / 0x80 |
@@ -99,6 +104,10 @@ game's 4:3 picture is the middle `picture_scale_x` part.
 the post-pass scheduler with fake GL resources: consecutive glow/soften effects never sample their
 output attachment, resizing keeps positive buffer sizes, and shader failure stays latched until
 release. It does not compile GLSL or check pixels. `renderer_gif` checks placement between draws.
+
+The integration tests also cover submitted-view filtering, owner retention at rollover, independent
+post-pass source/output targets and local viewports, and no second execution on the composite.
+They do not prove residual-packet ordering, composite bloom/grading order or multiplayer pixels.
 
 Runtime and visual behavior remain unverified. In particular, the soften pass is the whole-frame
 approximation described above, not the game's depth-weighted effect. These passes do not finish

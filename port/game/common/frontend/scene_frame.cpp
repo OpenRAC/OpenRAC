@@ -611,6 +611,11 @@ void render_scene(
     FramePresentation& output,
     bool views_begun
 ) {
+    // An unsupported view effect must fail explicitly, never process the composited frame instead.
+    if (!snapshot.recording.view_error.empty()) {
+        throw std::runtime_error(snapshot.recording.view_error);
+    }
+
     const crash::BreadcrumbScope breadcrumbs(output.source_frame);
     crash::breadcrumb("scene setup");
     SceneFrame frame{owner, snapshot, graphics, output};

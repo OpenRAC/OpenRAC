@@ -3242,6 +3242,13 @@ TickPackets capture_2d_path(
             k.splices.push_back({0, static_cast<std::uint32_t>(i)});
         }
     }
+    const Result<void> view_submission = k.recording.resolve_views(k.splices);
+
+    // The render worker reports unsupported scoping before any partial or whole-target effect can run.
+    if (!view_submission) {
+        k.recording.view_error = view_submission.error().message;
+    }
+
     // The effect quads the list marks (openrac_game_effect_quad_marker) take the TEST and ZBUF in
     // effect there: Going Commando's flight sparks and flames test alpha GEQUAL 0x60, and the
     // pixels that pass write Z. A list of this tick marks this tick's quads. Going Commando's list

@@ -87,6 +87,11 @@ void openrac_frame_screen(float width, float height);
 void openrac_frame_view_begin(int view, const openrac_frame_viewport* rect);
 void openrac_frame_view_end(void);
 
+/* A screen effect inside a view, outside an explicit panel, is a terminal world post pass on that
+ * view's picture before composition. Native 2D before it, world drawing after it, unowned residual
+ * packets and composite bloom/grading need richer ordering and are reported as unsupported, never
+ * replayed over every view or silently omitted. Unscoped and explicit-panel effects are unchanged. */
+
 /* Transitional, while the game still sends residual 2D as packets in its own display list: the
  * list's write pointer (its value, a game address) the commands that follow belong at. The window
  * finds the list's tag at that address and draws them there; 0 for none. Goes when the game sends

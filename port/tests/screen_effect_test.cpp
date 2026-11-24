@@ -24,9 +24,21 @@ namespace {
 
 // Tracks resources and bindings for GL callbacks that have no user pointer, on the test thread.
 struct Context {
-    unsigned next = 1;                               // Next synthetic resource name.
-    unsigned unit = 0;                               // Active texture unit.
-    unsigned framebuffer = 0;                        // Current draw framebuffer.
+    unsigned next = 1;              // Next synthetic resource name.
+    unsigned unit = 0;              // Active texture unit.
+    unsigned framebuffer = 0;       // Current draw framebuffer.
+    unsigned read_framebuffer = 0;  // Copy source, distinct from a pass's output binding.
+    std::array<int, 4> viewport{};  // Current pass extent in target-local pixels.
+
+    // The source framebuffer and dimensions of each full input copy.
+    struct Copy {
+        unsigned source = 0;  // Framebuffer that owns the copied view.
+        int width = 0;        // Copied columns.
+        int height = 0;       // Copied rows.
+    };
+
+    std::vector<Copy> sources;      // Input isolation across consecutive view effects.
+    std::vector<unsigned> outputs;  // Temporary targets and final view destinations, in pass order.
     std::array<unsigned, 2> textures{};              // Textures bound to the shader's two samplers.
     std::unordered_map<unsigned, unsigned> colours;  // Framebuffer to colour attachment.
     std::vector<std::array<int, 2>> sizes;           // Sizes allocated for blur targets.
@@ -60,6 +72,11 @@ void bind_texture(unsigned, unsigned texture) {
 
 // Only the draw binding determines the raster output; read bindings are used for frame copies.
 void bind_framebuffer(unsigned binding, unsigned framebuffer) {
+    // ScreenEffects names its copy source explicitly; it must never inherit the preceding view.
+    if (binding == openrac::gl::GL_READ_FRAMEBUFFER) {
+        g_context->read_framebuffer = framebuffer;
+    }
+
     // A read-only bind does not change where subsequent draws land.
     if (binding != openrac::gl::GL_READ_FRAMEBUFFER) {
         g_context->framebuffer = framebuffer;
@@ -67,8 +84,14 @@ void bind_framebuffer(unsigned binding, unsigned framebuffer) {
 }
 
 // Counts copies without pretending to validate pixels or framebuffer resolve behavior.
-void copy_texture(unsigned, int, int, int, int, int, int, int) {
+void copy_texture(unsigned, int, int, int, int, int, int width, int height) {
     ++g_context->copies;
+    g_context->sources.push_back({g_context->read_framebuffer, width, height});
+}
+
+// Tracks the local viewport that each scheduler pass declares to the raster layer.
+void viewport(int x, int y, int width, int height) {
+    g_context->viewport = {x, y, width, height};
 }
 
 // Accepts GL calls whose state does not affect texture feedback, on the test thread.
@@ -126,6 +149,33 @@ void test_disabled_and_failed_effects_do_not_draw() {
     effects.release();
 }
 
+// Two view post passes copy distinct sources and write each view target once, never the composite.
+void test_independent_view_targets() {
+    Context context;
+    g_context = &context;
+    openrac::renderer::ScreenEffects effects;
+    openrac::renderer::ScreenEffect effect;
+    effect.kind = openrac::renderer::ScreenEffectKind::Glow;
+    const openrac::renderer::RenderTarget upper{10'000, 64, 32};  // Synthetic half-screen targets.
+    const openrac::renderer::RenderTarget lower{20'000, 64, 32};
+    effects.apply(effect, upper, upper.framebuffer);
+    effect.kind = openrac::renderer::ScreenEffectKind::Soften;
+    effects.apply(effect, lower, lower.framebuffer);
+    CHECK(context.sources.size() == 2);
+
+    // No resource or source binding from the first view can stand in for the second view's copy.
+    if (context.sources.size() == 2) {
+        CHECK(context.sources[0].source == upper.framebuffer);
+        CHECK(context.sources[1].source == lower.framebuffer);
+        CHECK(context.sources[0].width == upper.width && context.sources[0].height == upper.height);
+        CHECK(context.sources[1].width == lower.width && context.sources[1].height == lower.height);
+    }
+
+    CHECK(std::count(context.outputs.begin(), context.outputs.end(), upper.framebuffer) == 1);
+    CHECK(std::count(context.outputs.begin(), context.outputs.end(), lower.framebuffer) == 1);
+    effects.release();
+}
+
 }  // namespace
 
 namespace openrac::gl {
@@ -142,7 +192,7 @@ PFN_glCopyTexSubImage2D glCopyTexSubImage2D = copy_texture;
 PFN_glTexImage2D glTexImage2D =
     ignore<unsigned, int, int, int, int, int, unsigned, unsigned, const void*>;
 PFN_glTexParameteri glTexParameteri = ignore<unsigned, unsigned, int>;
-PFN_glViewport glViewport = ignore<int, int, int, int>;
+PFN_glViewport glViewport = viewport;
 PFN_glUniform1i glUniform1i = ignore<int, int>;
 PFN_glUniform1f glUniform1f = ignore<int, float>;
 PFN_glUniform2f glUniform2f = ignore<int, float, float>;
@@ -213,6 +263,8 @@ void raster_pass(
     const std::function<void()>& record
 ) {
     CHECK(g_context->framebuffer == target.framebuffer);
+    CHECK((g_context->viewport == std::array<int, 4>{0, 0, target.width, target.height}));
+    g_context->outputs.push_back(target.framebuffer);
     const auto attachment = g_context->colours.find(target.framebuffer);
     const unsigned output = attachment == g_context->colours.end() ? 0 : attachment->second;
 
@@ -245,5 +297,6 @@ const char* const screen_effect_frag = "";
 int main() {
     test_consecutive_effects_do_not_sample_the_output();
     test_disabled_and_failed_effects_do_not_draw();
+    test_independent_view_targets();
     return openrac::test::result();
 }

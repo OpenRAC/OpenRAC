@@ -16,8 +16,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <vector>
 
+#include "common/result.h"
 #include "renderer/direct/draw_state.h"
 #include "renderer/frame/ui_records.h"
 #include "renderer/math.h"
@@ -42,7 +44,7 @@ enum class FrameOp : std::uint8_t {
     ViewEnd,      // the open view ends (FrameRecording::views has its camera)
     // Transitional placements, read where they land among the residual packets as the markers
     // the host C once wrote into the list were (rac1 and rac2 until R2/R3):
-    WorldShrubs,   // the world's shrub pass starts here: effect strips before it come first
+    WorldShrubs,  // the world's shrub pass starts here: effect strips before it come first
     EffectParent,  // strips follow attachment `index`'s parent (0 ends it), value bit 0: position only
     HudSide,       // what follows goes out to the HUD's side `index` (0 ends it); value bit 0
                    // stretches what crosses the middle, bit 1 parts it at value >> 2 instead
@@ -79,6 +81,9 @@ inline constexpr std::uint8_t kClearColour = 1, kClearDepth = 2;
 // A Picture command whose picture is the recording's images[value] (openrac_frame_picture_image).
 inline constexpr std::uint32_t kImagePicture = 0xFFFFFFFFu;
 
+// A command outside every local-player view; otherwise `view` indexes this recording's views.
+inline constexpr std::uint32_t kNoFrameView = UINT32_MAX;
+
 struct FrameCommand {
     FrameOp op = FrameOp::World;
     // The game's display-list write pointer when the command was recorded (openrac_frame_anchor),
@@ -86,6 +91,10 @@ struct FrameCommand {
     std::uint32_t anchor = 0;
     std::uint32_t index = 0;
     std::uint64_t value = 0;
+    // Capture-time owner, independent of whether the ViewBegin anchor reaches the submitted list.
+    std::uint32_t view = kNoFrameView;
+    // Set only after submission validation schedules this effect on its owner's framebuffer.
+    bool view_effect_prepared = false;
     // Fill, Picture, Scissor: x0, y0, x1, y1 in the game's 2D screen pixels; `whole` for the whole
     // target (rect not read). `wide`: on a target wider than the picture, the whole target rather
     // than the picture's middle.
@@ -129,6 +138,8 @@ struct FrameView {
     std::uint32_t layers = 0;
     // Layout setup without a World call must not replace a full-screen frame with cached views.
     bool has_world = false;
+    // Submitted screen-effect payload indices, in order, applied before this picture is composited.
+    std::vector<std::uint32_t> screen_effects;
 
     // Returns whether the view id, screen and rectangle can be placed in a render target.
     bool valid() const;
@@ -143,6 +154,15 @@ struct FrameView {
     bool operator==(const FrameView&) const = default;
 };
 
+struct FrameSplice;
+
+// Conditions required to execute isolated native view effects without reordering other colour work.
+struct FrameViewContext {
+    bool has_camera = false;        // A usable world camera is available for the view pass.
+    bool residual_2d = false;       // Unowned residual packets remain in the frame's colour stream.
+    bool composite_colour = false;  // Composite bloom/grading would precede global effects.
+};
+
 // One recording: the commands of one pass of the game's frame code, in call order, and their
 // records.
 struct FrameRecording {
@@ -154,11 +174,20 @@ struct FrameRecording {
     // The split-screen views drawn in it, in the order they ended; none for a full-screen frame.
     std::vector<FrameView> views;
     std::vector<ScreenEffect> screen_effects;
+    // A submission contract failure is reported by the render worker before drawing any of the frame.
+    std::string view_error;
 
     bool empty() const { return commands.empty(); }
 
     bool anchored() const;
     void clear();
+    // Keeps split composition selected even when a cut list refreshes none of its recorded worlds.
+    bool has_split_world() const;
+    // Rebuilds drawable views from submitted World commands and schedules their terminal post effects.
+    // Failure leaves commands/views unchanged: orphan effects or interleaved drawing need richer scoping.
+    [[nodiscard]] Result<void> resolve_views(std::span<const FrameSplice> submitted);
+    // Rejects unproved render contexts for scheduled view effects; unscoped/panel effects are unchanged.
+    [[nodiscard]] Result<void> validate_view_effect_context(FrameViewContext context) const;
 };
 
 // Where a command of a recording goes: before byte `offset` of the window's 2D stream.

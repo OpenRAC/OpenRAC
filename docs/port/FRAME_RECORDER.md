@@ -102,6 +102,26 @@ picture. Alternating views retain their pictures only while their screen-relativ
 compatible: a resized player rectangle or an overlap with another player's old rectangle forgets the
 old layout before any new view is drawn. Non-finite and inverted view rectangles are rejected.
 
+### 3.2 Submitted views and isolated post effects
+
+Every command captures its owner as an index in that recording's `views`, or no owner. Ownership
+does not depend on finding a transitional `ViewBegin` tag in the submitted chain. After anchor
+placement, `resolve_views` rebuilds each view's layers from reachable `World` commands only. A cut
+list refreshes no unreachable view. A fully cut split-world recording retains the split compositor
+and old pictures rather than drawing a speculative new full-screen world.
+
+Terminal native `ScreenEffect` commands outside explicit panels are scheduled on their owning
+view's framebuffer, in order, before its picture is composited. Payloads and camera values belong
+to the immutable tick. The main 2D executor keeps those commands for diagnostics but does not run
+them a second time. Explicit-panel and unscoped effects retain their original ordered execution.
+
+The supported path is deliberately narrow: a submitted world, then its native world post effects,
+then whole-screen native 2D. An orphan effect, native 2D before a view effect, later world drawing,
+residual 2D packets without view ownership, or composite bloom/grading reports a render-worker
+error before unsafe effect execution. These are open integration blockers, not omitted effects or
+claims of multiplayer pixel parity. View snapshots, per-view moby/effect geometry and arbitrary
+interleaved colour streams still need their own ownership and runtime proof.
+
 `openrac_frame_strip` (vertices, ST, RGBA, material, fog line) is reserved for P5 with P4's
 material; the effect strips still come from the chain until then.
 
