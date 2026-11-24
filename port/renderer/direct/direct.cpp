@@ -31,6 +31,34 @@ namespace {
 // may leave a few out at the edges).
 constexpr std::int64_t kFrameFillLines = 400;
 
+// Converts an exclusive native clip to bounded inclusive pixels; malformed or empty clips stay empty.
+PixelRect native_clip(
+    std::span<const float, 4> rect, float sx, float sy, float width, float height
+) {
+    // Floating-point edges from the game must be finite before any integer conversion.
+    if (!std::isfinite(sx) || !std::isfinite(sy)
+        || !std::all_of(rect.begin(), rect.end(), [](float edge) { return std::isfinite(edge); })) {
+        return {1, 0, 1, 0};
+    }
+
+    const float x0 = std::clamp(rect[0] * sx, 0.0f, width);
+    const float x1 = std::clamp(rect[2] * sx, 0.0f, width);
+    const float y0 = std::clamp(rect[1] * sy, 0.0f, height);
+    const float y1 = std::clamp(rect[3] * sy, 0.0f, height);
+
+    // A clip wholly outside the target must not become a one-pixel strip at its edge.
+    if (x1 <= x0 || y1 <= y0) {
+        return {1, 0, 1, 0};
+    }
+
+    return {
+        static_cast<std::uint32_t>(std::floor(x0)),
+        static_cast<std::uint32_t>(std::ceil(x1)) - 1,
+        static_cast<std::uint32_t>(std::floor(y0)),
+        static_cast<std::uint32_t>(std::ceil(y1)) - 1
+    };
+}
+
 // A frame buffer is read back as a texture only in a colour format; an indexed texture (PSMT8,
 // PSMT4) at the same address is a texture of its own that the game pages in there.
 // The first pixel at or after a 12.4 position: the chip samples a pixel at its integer coordinates.
@@ -1106,16 +1134,15 @@ void GifInterpreter::run_command(const FrameCommand& c) {
         case FrameOp::Scissor:
             m_recorded_scissor_set = !c.whole;
             if (!c.whole) {
-                const float sx = static_cast<float>(m_config.screen_width) / c.screen_width;
-                const float sy = static_cast<float>(m_config.screen_height) / c.screen_height;
-                const auto edge = [](float v) {
-                    return static_cast<std::uint32_t>(std::max(0.0f, v));
-                };
-                m_recorded_scissor =
-                    {edge(c.rect[0] * sx),
-                     edge(c.rect[2] * sx - 1.0f),
-                     edge(c.rect[1] * sy),
-                     edge(c.rect[3] * sy - 1.0f)};
+                const bool panel = m_recorded_target != 0;
+                const float width =
+                    static_cast<float>(panel ? kOffscreenPixels : m_config.screen_width);
+                const float height =
+                    static_cast<float>(panel ? kOffscreenPixels : m_config.screen_height);
+                // Panels keep their own pixels, as native_rect and native_item do.
+                const float sx = panel ? 1.0f : width / c.screen_width;
+                const float sy = panel ? 1.0f : height / c.screen_height;
+                m_recorded_scissor = native_clip(c.rect, sx, sy, width, height);
             }
             break;
     }
@@ -1217,14 +1244,16 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
     const float kx = target != 0 ? 1.0f : tw / std::max(item.screen_width, 1.0f);
     const float ky = target != 0 ? 1.0f : th / std::max(item.screen_height, 1.0f);
     if ((item.flags & kUiItemClip) != 0) {
-        const auto edge = [](float v, float most) {
-            return static_cast<std::uint32_t>(std::clamp(v, 0.0f, most));
-        };
-        s.scissor =
-            {edge(item.clip[0] * kx, tw - 1.0f),
-             edge(item.clip[2] * kx - 1.0f, tw - 1.0f),
-             edge(item.clip[1] * ky, th - 1.0f),
-             edge(item.clip[3] * ky - 1.0f, th - 1.0f)};
+        s.scissor = native_clip(item.clip, kx, ky, tw, th);
+
+        // An item's local clip narrows the active recorder scissor rather than replacing it.
+        if (m_recorded_scissor_set) {
+            s.scissor =
+                {std::max(s.scissor.x0, m_recorded_scissor.x0),
+                 std::min(s.scissor.x1, m_recorded_scissor.x1),
+                 std::max(s.scissor.y0, m_recorded_scissor.y0),
+                 std::min(s.scissor.y1, m_recorded_scissor.y1)};
+        }
     } else if (m_recorded_scissor_set) {
         s.scissor = m_recorded_scissor;
     } else {

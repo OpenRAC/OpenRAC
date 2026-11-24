@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <system_error>
 #include <utility>
 
@@ -1000,6 +1001,105 @@ void recorded_splices_in_a_stream() {
     }
 }
 
+// Keeps a recorder panel's scissor in the same unscaled pixel coordinates as its rectangles.
+void test_recorded_panel_scissor() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    FrameRecording recording;
+    FrameCommand panel;
+    panel.op = FrameOp::TargetBegin;
+    panel.index = kRecordedTargets;
+    panel.width = 256;  // A panel smaller than the screen, with its own pixel coordinates.
+    panel.height = 256;
+    FrameCommand scissor;
+    scissor.op = FrameOp::Scissor;
+    scissor.whole = false;
+    // A preceding UI pass changed the screen's coordinate height.
+    scissor.screen_height = 512.0f;
+    scissor.rect = {16.0f, 32.0f, 96.0f, 128.0f};
+    FrameCommand fill;
+    fill.op = FrameOp::Fill;
+    recording.commands = {panel, scissor, fill};
+    const std::vector<FrameSplice> splices{{0, 0}, {0, 1}, {0, 2}};
+    gif.set_commands(&recording, splices, 0);
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 1);
+
+    // Exclusive API edges become inclusive draw-state bounds without screen scaling on a panel.
+    if (gif.draws().size() == 1) {
+        const PixelRect expected{16, 95, 32, 127};
+        CHECK(gif.draws()[0].state.scissor == expected);
+    }
+}
+
+// Scales screen clips once and intersects an item's own clip with the active recorder scissor.
+void test_recorded_screen_scissor() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    FrameRecording recording;
+    FrameCommand scissor;
+    scissor.op = FrameOp::Scissor;
+    scissor.whole = false;
+    scissor.screen_height = 512.0f;  // Twice 256 source rows maps onto the renderer's 448 rows.
+    scissor.rect = {64.0f, 64.0f, 448.0f, 256.0f};
+    UiItem flat;
+    flat.flags = kUiItemFlat | kUiItemClip;
+    flat.screen_height = 512.0f;
+    flat.clip[0] = 128.0f;
+    flat.clip[1] = 0.0f;
+    flat.clip[2] = 512.0f;
+    flat.clip[3] = 512.0f;
+    recording.ui_items.push_back(flat);
+    FrameCommand item;
+    item.op = FrameOp::UiItem;
+    recording.commands = {scissor, item};
+    const std::vector<FrameSplice> splices{{0, 0}, {0, 1}};
+    gif.set_commands(&recording, splices, 0);
+    gif.finish_commands();
+    CHECK(gif.draws().size() == 1);
+
+    // Y is scaled by 448/512; exclusive right and bottom edges become inclusive draw bounds.
+    if (gif.draws().size() == 1) {
+        const PixelRect expected{128, 447, 56, 223};
+        CHECK(gif.draws()[0].state.scissor == expected);
+    }
+}
+
+// Keeps off-target, inverted and non-finite scissors empty instead of drawing an edge pixel.
+void test_empty_recorded_scissors() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    const float infinity = std::numeric_limits<float>::infinity();
+    const std::array<std::array<float, 4>, 3> clips{{
+        {-32.0f, 0.0f, -1.0f, 1.0f},  // Entirely left of the screen.
+        {32.0f, 0.0f, 16.0f, 1.0f},   // Inverted horizontal bounds.
+        {0.0f, 0.0f, infinity, 1.0f},
+    }};
+
+    // Each malformed input is isolated from the preceding frame's scissor.
+    for (const auto& clip : clips) {
+        gif.clear();
+        FrameRecording recording;
+        FrameCommand scissor;
+        scissor.op = FrameOp::Scissor;
+        scissor.whole = false;
+        scissor.rect = clip;
+        FrameCommand fill;
+        fill.op = FrameOp::Fill;
+        recording.commands = {scissor, fill};
+        const std::vector<FrameSplice> splices{{0, 0}, {0, 1}};
+        gif.set_commands(&recording, splices, 0);
+        gif.finish_commands();
+        CHECK(gif.draws().size() == 1);
+
+        // Empty inclusive bounds become a zero-sized GPU scissor, without dropping the draw record.
+        if (gif.draws().size() == 1) {
+            const PixelRect& bounds = gif.draws()[0].state.scissor;
+            CHECK(bounds.x1 < bounds.x0 || bounds.y1 < bounds.y0);
+        }
+    }
+}
+
 int main() {
     blend_weights();
     opaque_effects();
@@ -1025,5 +1125,8 @@ int main() {
     native_blends();
     recorded_frame_without_packets();
     recorded_splices_in_a_stream();
+    test_recorded_panel_scissor();
+    test_recorded_screen_scissor();
+    test_empty_recorded_scissors();
     return openrac::test::result();
 }
