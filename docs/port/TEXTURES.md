@@ -65,9 +65,23 @@ A world effect quad can now carry a native material instead of the chip's words:
   the alpha test (comparison, reference, what a failing pixel still writes); the depth test against
   the world and the depth write; the channels written; the texture function and whether the
   texel's alpha counts; the filters and the wrap. No field is a GS word.
-- **Ownership:** host C fills a material only from state its own record's code sets. State a draw
-  inherits from the display list around it (TEST and ZBUF for rac3's DrawWorldQuad callers) is not
-  guessed: such a quad stays on `openrac_game_effect_quad` and its marker.
+- **Ownership:** host C fills a material only from state its own record's code sets, or that a
+  capture of the game's own register sets proves. State a draw only inherits from the display list
+  around it is not guessed: such a quad stays on `openrac_game_effect_quad` and its marker.
+- **Capture (rac3):** `rac3-pal/host/effect_state.h` keeps TEST_1, ZBUF_1, ALPHA_1, FBA_1 and
+  FRAME_1 as native values where the levels' VU1_addGSregister is given them, while the levels'
+  DrawFrame runs (opened from nothing known: the frame's first packets, its draw environment, are
+  prebuilt data it does not read). It knows a register only while nothing it did not see was
+  appended to the list since that register's set: a sprite, a texture block or a prebuilt packet by
+  reference (the one before each draw callback list sets TEST_1 and ALPHA_1 itself) forgets
+  everything. It walks no list and keeps no GS word.
+- **The first producer (rac3 PAL levels):** the alpha-fail masks, DrawWorldQuad calls right after
+  their caller's own TEST_1 set with nothing between, where that TEST fails every pixel and keeps
+  its colour and alpha (0x31001: the refraction masks of the shared explosion's ring, the Nitro
+  blast's implosion, the V5 duck and their twins in other levels). Such a draw writes no depth, so
+  ZBUF does not matter; its blend, texture function, filters and wrap are the record's, its image
+  the one EffectTex0 named (`rac3_effect_image`). Every other DrawWorldQuad, and a mask whose proof
+  fails, keeps its marker.
 - **Lifetime:** the game thread checks the material (a field out of range: the call returns 0 and
   the caller draws its older way) and decodes the image at the call, through the 2D layer's cache
   (`frontend/effect_material`). The tick's capture owns the quad's native state and the decoded
@@ -78,12 +92,15 @@ A world effect quad can now carry a native material instead of the chip's words:
   `translate_blend` its blend, `effect_passes` the alpha test's draws (also those of the quads that
   still carry words). A native quad is never moved to the opaque pass and never samples an
   off-screen target.
-- **Not yet:** no game calls it (rac3's quads inherit TEST and ZBUF); particles, sky sprites and
-  strips (P5) keep their words; frame copies (GetEffectTex -1, -2) keep their block path.
+- **NTSC-U:** `release_carry_rac3.py` carries both wraps (VU1_addGSregister's and DrawFrame's
+  level copies, the same code on both discs); the shared host C does the rest.
+- **Not yet:** rac3's quads that inherit their TEST or need their ZBUF (the glows, the loading
+  screen's planet) keep their marker; particles, sky sprites and strips (P5) keep their words; frame
+  copies (GetEffectTex -1, -2, the masks' second quads) keep their block path.
 
 ## 5. Where each game stands
 
 | Game | By the game's data | Still by the chip's memory |
 |---|---|---|
-| rac3 | font pages; HUD images (`rac3_hud_image`, with group 0 kept at SendImage); the native effect quad path is ready, unused (section 4) | the HUD's other routines until they draw `ui_item`s; effect quads and particles (TEX0, ALPHA, upload records matched by block; TEST and ZBUF from the list); the multiplayer executable's HUD |
+| rac3 | font pages; HUD images (`rac3_hud_image`, with group 0 kept at SendImage); the levels' alpha-fail mask quads, with a native material from the captured TEST (section 4) | the HUD's other routines until they draw `ui_item`s; the other effect quads and particles (TEX0, ALPHA, upload records matched by block; TEST and ZBUF from the list); the multiplayer executable's HUD |
 | rac1, rac2 | nothing yet | all (R1 to R3) |
