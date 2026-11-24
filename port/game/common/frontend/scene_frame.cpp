@@ -242,10 +242,20 @@ void set_lighting(SceneFrame& frame) {
     owner.scene.set_environment_probe_debug(graphics.environment_probe_debug);
     input.shadow_quality = graphics.shadow_quality;
     input.shadow_filter = graphics.shadow_filter;
+    input.early_lighting_quality = graphics.early_lighting_quality;
     input.volumetric_quality = graphics.volumetric_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
                              && openrac_game_has_level(scene.level);
+    input.cloud_shadows =
+        graphics.cloud_shadow_override.value_or(owner.profile->cloud_shadow_defaults(scene.level));
+    static const bool& clouds_off =
+        stats::probe("OPENRAC_CLOUD_SHADOWS_OFF", "Reference: disable cloud shadows");
+    input.cloud_shadows.enabled &= input.sun_pixel_shadow && !clouds_off;
+    // Match the sky's authored clock when the game exposes it.
+    const auto cloud_tick =
+        scene.state.sky_tick ? std::uint64_t(*scene.state.sky_tick) : scene.frame;
+    input.cloud_seconds = static_cast<double>(cloud_tick) / program::tick_rate();
     input.hero_pixel_shadow = enhanced && graphics.enhanced_shadows
                               && owner.scene.hero_shadow_enabled()
                               && scene.hero_airborne.has_value() && scene.has_camera
@@ -577,6 +587,11 @@ bool draw_world(SceneFrame& frame) {
     return false;
 }
 }  // namespace
+
+renderer::CloudShadowSettings level_cloud_shadows() {
+    return g ? g->render.profile->cloud_shadow_defaults(g->kept->level)
+             : renderer::CloudShadowSettings{};
+}
 
 void render_scene(
     SceneRenderState& owner,

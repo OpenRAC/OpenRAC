@@ -125,8 +125,9 @@ constexpr Entry kEntries[] = {
      "Normal draws the world's textures as they are; Edge-aware enlarges them twice with sharp "
      "edges."},
     {Id::EffectsDetail, Tab::Enhanced, "Advanced", kChoice, A, "Effects detail",
-     "High draws every effect in full. Medium and Low take cheaper shortcuts that change the "
-     "picture a little: coarser water, simpler leaf shadows, and on Low coarser lighting."},
+     "Controls water geometry, foliage and blended lighting, and far shadow updates."},
+    {Id::EarlyLightingQuality, Tab::Enhanced, "Advanced", kChoice, A, "Early Lit cache quality",
+     "Normal stores one lighting sample per 4x4 pixels. High stores one per 2x2 pixels."},
     {Id::Upscaling, Tab::Enhanced, "Advanced", kChoice, A, "Upscaling",
      "Draws fewer pixels and builds the full picture from several frames. The named upscaler is "
      "the one this device uses."},
@@ -356,6 +357,7 @@ constexpr std::array<const char*, kIds> kOptionNames = {
     "occlusion_quality",
     "texture_upscaling",
     "effects_detail",
+    "early_lighting_quality",
     "upscaling",
     "sharpening",
     "motion_blur",

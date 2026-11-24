@@ -485,3 +485,15 @@ Found: the brief's "GetFrameTexture 0x00396E18" is HudTextureTex0; the frame cop
 heat haze sample is **GetEffectTex's handles -1 and -2** (func_L01_00404040 / boot func_00389978 / frontbin
 func_00389598, P4's function): it appends GS packets drawing the frame into a 256 x 256 PSMCT16 buffer
 (-1; -2 a smaller one) from the allocator 0x001D4BB0, and caches the TEX0 at L01 0x001D6180 / 0x001D6188.
+
+## Frame copy for effect strips (2026-11-23, fix/rac3-dropship-haze)
+
+Strips that sample GetEffectTex's frame copies (-1/-2: TEX0 shape 0x6_2021_0000, -3/-4:
+0x5_9820_4000 over any block, no image sent there; rac3 `GameProfile::frame_copy_texture`) are
+marked `EffectStrip::frame_copy` in the frontend. The effect pass that draws one first snapshots its
+target natively (`EffectRenderer::snapshot_frame_copy`, `colour_snapshot`, colour only) and binds
+that snapshot, the strip's ST mapped by `frame_copy_st` (the game's picture in the target's middle,
+first row at the bottom). The chip's frame copy at the block is no longer read for them. Veldin's
+Galactic Rangers' dropship (class 6877, draw callback 0x003C8D60, haze 0x003C8400) draws its
+thrusters' heat haze this way. Quads that sample the copy (the refraction rings) still go through
+`offscreen_texture`; moving them is left to P4b/P6.

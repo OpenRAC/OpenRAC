@@ -170,12 +170,13 @@ SunCascades sun_cascades(
     }
     const auto inv_projection = inverse(camera.projection), inv_view = inverse(camera.view);
     SunCascades result;
+    result.travel_direction = normalize(direction);
     result.near_distance =
         std::clamp(-unproject(inv_projection, 0, 0, 1)[2], 0.05f, distance * 0.1f);
     const auto basis = look_along(
         {0, 0, 0},
         direction,
-        std::abs(normalize(direction)[2]) > .95f ? Vec3{0, 1, 0} : Vec3{0, 0, 1}
+        std::abs(result.travel_direction[2]) > .95f ? Vec3{0, 1, 0} : Vec3{0, 0, 1}
     );
     float previous = result.near_distance;
     for (unsigned i = 0; i < kSunCascades; ++i) {

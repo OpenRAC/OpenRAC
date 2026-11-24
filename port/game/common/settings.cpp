@@ -25,6 +25,8 @@ void Settings::reset_enhanced() {
     enhanced_shadows = defaults.enhanced_shadows;
     shadow_quality = defaults.shadow_quality;
     shadow_filter = defaults.shadow_filter;
+    early_lighting_quality = defaults.early_lighting_quality;
+    cloud_shadow_override.reset();
     volumetric_quality = defaults.volumetric_quality;
     nanotech_light = defaults.nanotech_light;
     probe_spheres = defaults.probe_spheres;
@@ -114,9 +116,13 @@ void Settings::apply_enhanced_preset(EnhancedPreset preset) {
     motion_blur = values.motion_blur;
     texture_filter = values.textures;
     effects_detail = values.detail;
+    early_lighting_quality = renderer::EarlyLightingQuality::Normal;
 }
 
 EnhancedPreset Settings::enhanced_preset() const {
+    if (early_lighting_quality != renderer::EarlyLightingQuality::Normal) {
+        return EnhancedPreset::Custom;
+    }
     for (int n = 0; n < static_cast<int>(EnhancedPreset::Custom); ++n) {
         const PresetValues& values = kPresets[n];
         if (render_scale == values.render_scale && effects_detail == values.detail
@@ -500,6 +506,8 @@ void load(const std::filesystem::path& file) {
         } else if (key == "effects_detail") {
             has_effects_detail = true;
             known = parse(value, kEffectsDetail, s.effects_detail);
+        } else if (key == "early_lighting_quality") {
+            known = parse(value, renderer::kEarlyLightingQualityKeys, s.early_lighting_quality);
         } else if (key == "anisotropy") {
             if (value == "auto") {
                 s.anisotropy = 0;
@@ -748,6 +756,8 @@ void save() {
         << "gtao_strength = " << s.gtao_settings.strength << "\n"
         << "texture_filter = " << kTextureFilter[static_cast<int>(s.texture_filter)] << "\n"
         << "effects_detail = " << kEffectsDetail[static_cast<int>(s.effects_detail)] << "\n"
+        << "early_lighting_quality = "
+        << renderer::kEarlyLightingQualityKeys[static_cast<int>(s.early_lighting_quality)] << "\n"
         << "temporal_quality = " << renderer::kTemporalKeys[static_cast<int>(s.temporal_quality)]
         << "\n"
         << "bloom_enabled = " << (s.bloom.enabled ? 1 : 0) << "\n"

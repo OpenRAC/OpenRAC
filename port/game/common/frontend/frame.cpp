@@ -3172,6 +3172,11 @@ TickPackets capture_2d_path(
         &recorded,
         &splices
     );
+    // The strips that sample the game's frame copy are drawn from the window's own picture.
+    for (renderer::EffectStrip& strip : strips) {
+        strip.frame_copy =
+            strip.upload_count == 0 && g->render.profile->frame_copy_texture(strip.tex0);
+    }
     if (recorded != nullptr) {
         k.recording = *recorded;
         k.splices = std::move(splices);
