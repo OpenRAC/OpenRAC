@@ -93,12 +93,12 @@
   },
   "func_L01_0041FE80": {
    "is": "func_L01_0041D750",
-   "status": "nomatch",
+   "status": "differs",
    "port": "wrap"
   },
   "func_L01_0041FE80__game": {
    "is": "func_L01_0041D750__game",
-   "status": "nomatch",
+   "status": "differs",
    "port": "host C"
   },
   "func_L01_004443E8": {
@@ -259,7 +259,6 @@
    "func_PAL_L40_0048BE98",
    "func_PAL_L39_00518A18",
    "func_PAL_L46_004A6FC0",
-   "func_PAL_L01_004AB368",
    "func_PAL_L39_005A6020",
    "func_L39_006AE8F8_006AE3D8",
    "func_PAL_L39_006CCD08",
@@ -286,13 +285,10 @@
   ]
  },
  "own_functions": [
-  "func_00393290__frontbin",
   "func_00395FE0__frontbin",
   "func_0039DB38__frontbin",
-  "func_003A0170__frontbin",
   "func_003B0C70__frontbin",
   "func_003B0D18__frontbin",
-  "func_003A5850",
   "func_003B6430",
   "func_003B64D8"
  ],
@@ -325,6 +321,7 @@
   "func_00391B70__frontbin",
   "func_00391D08__frontbin",
   "func_00391FD8__frontbin",
+  "func_003932B0__frontbin",
   "func_00393C18",
   "func_00393EF8",
   "func_00395240",
@@ -334,6 +331,7 @@
   "func_00397E08",
   "func_00399708__frontbin",
   "func_0039CEA8__frontbin",
+  "func_003A0178__frontbin",
   "func_003A04A0__frontbin",
   "func_003A0EB0__frontbin",
   "func_003A1438__frontbin",
@@ -345,6 +343,7 @@
   "func_003A3088",
   "func_003A4A78__frontbin",
   "func_003A4E70__frontbin",
+  "func_003A5858",
   "func_003A5B80",
   "func_003A6590",
   "func_003A6B18",
