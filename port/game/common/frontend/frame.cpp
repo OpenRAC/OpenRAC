@@ -213,6 +213,8 @@ std::vector<std::uint8_t> direct_packets(
     std::vector<std::uint8_t> vif;
     std::uint32_t tag_at =
         openrac_guest_ram_address_for_size(chain, static_cast<std::uint32_t>(ram.size())) & ~0xFu;
+    // The submitted root selects a producer-owned generation before any anchor is considered.
+    const std::uint32_t list_root = tag_at;
     std::uint32_t stack[2] = {0, 0};
     int depth = 0;
     // For OPENRAC_DRAW_COVERAGE, where each run of the VIF data came from in game memory (the
@@ -324,7 +326,7 @@ std::vector<std::uint8_t> direct_packets(
 
     // The recording this list was built with, and where each of its commands goes in `vif`.
     const renderer::FrameRecording* recording =
-        recorder != nullptr ? recorder->match(tag_addresses) : nullptr;
+        recorder != nullptr ? recorder->match(list_root, tag_addresses) : nullptr;
     std::vector<std::size_t> command_vif;
     if (recording != nullptr) {
         const std::vector<std::size_t> places = renderer::place_commands(*recording, tag_addresses);
