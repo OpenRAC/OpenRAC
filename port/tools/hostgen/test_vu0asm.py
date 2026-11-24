@@ -63,6 +63,33 @@ class UnsupportedState(unittest.TestCase):
                                                      state, vu_flush=False))
 
 
+class PreparedClobbers(unittest.TestCase):
+    def test_vector_clobbers_change_only_after_the_operand_sections(self):
+        import prep
+
+        source = 'asm("lqc2 $vf1, %0" :: "m"(take ? a : b) : "vf1", "$1", "memory");\n'
+        out = prep.prepare(source)
+        self.assertNotIn('"vf1"', out)
+        self.assertIn('"lqc2 $vf1, %0"', out)
+        self.assertIn('"m"(take ? a : b)', out)
+        self.assertIn('"$1"', out)
+        self.assertEqual(out.count('"memory"'), 2)
+        self.assertEqual(out.count("\n"), source.count("\n"))
+
+    def test_non_vector_assembly_keeps_its_clobbers(self):
+        import prep
+
+        source = 'void f(void) { asm("abs.s $f0, $f1" ::: "vf1"); }\n'
+        self.assertEqual(prep.prepare(source), source)
+
+    def test_comments_cannot_start_a_clobber_list(self):
+        import prep
+
+        source = 'asm("lqc2 $vf1, %0" /* : "vf1" */ :: "m"(x) : "vf1");\n'
+        expected = source.replace(': "vf1");', ': "memory");')
+        self.assertEqual(prep.prepare(source), expected)
+
+
 @unittest.skipUnless(CLANG, "needs the installed host Clang")
 class NativeArithmetic(unittest.TestCase):
     def execute(self, declarations: str, body: str) -> list[float]:
@@ -143,6 +170,17 @@ class ReportReasons(unittest.TestCase):
         self.assertEqual(report.get("inline_assembly_unsupported"), {
             "read_status": ["cfc2 of untracked control register 16"]
         })
+
+    def test_vector_clobbers_do_not_hide_a_supported_native_statement(self):
+        report = self.report('''
+            typedef struct { float x, y, z, w; } V4;
+            void doubled(V4 *in, V4 *out) {
+                __asm__("lqc2 $vf1, %1\\nvadd.xyzw $vf2, $vf1, $vf1\\nsqc2 $vf2, %0"
+                        : "=m"(*out) : "m"(*in) : "vf1", "vf2", "memory");
+            }
+        ''')
+        self.assertEqual(report["stubbed"], {})
+        self.assertEqual(report["inline_assembly_skipped"], {})
 
     def test_a_conditional_write_does_not_initialize_the_following_region(self):
         report = self.report('''

@@ -334,6 +334,11 @@ each such statement as C (lower.py's `asm_stmt`), with no VU0 behind it:
   (asmc.py's `Translator.vu0`): rounding, `vf0`, the broadcast fields and
   `asm.vu_flush` as there.
 
+During preparation, literal vector-register clobbers (`"vf1"`, `"$vf2"`) become
+`"memory"` only in VU0 statements. This lets Clang read operands instead of
+stubbing the function for unknown register names; the instructions themselves
+are still lowered to C or refused with a reason, never executed as host assembly.
+
 What it cannot write (a microprogram, `.word`, a control register, a branch)
 stays as before: a statement on named registers is a barrier, reported under
 "Inline assembly the host does not run"; one with a vector-register operand
