@@ -329,6 +329,12 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* Save_NewGame: Resets game data from disc defaults for a new campaign, before its starting
+ * level is entered. */
+#define OPENRAC_RAC2_HOOK_Save_NewGame "Save_NewGame"
+#define OPENRAC_RAC2_SIG_Save_NewGame "void()"
+typedef void (*openrac_rac2_Save_NewGame)(void);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

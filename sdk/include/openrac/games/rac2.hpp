@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Resets game data from disc defaults for a new campaign, before its starting level is entered.
+struct Save_NewGame {
+    static constexpr const char* id = "rac2.save.new_game";
+    static constexpr const char* name = "Save_NewGame";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -400,6 +408,9 @@ namespace hooks {
         using nanotech_steps = rac2::Hero_NanotechSteps;
         using take_damage = rac2::Hero_TakeDamage;
     }  // namespace player
+    namespace save {
+        using new_game = rac2::Save_NewGame;
+    }  // namespace save
     namespace text {
         using by_id = rac2::Text_ById;
     }  // namespace text

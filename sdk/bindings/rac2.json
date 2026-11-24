@@ -581,6 +581,17 @@
         "ntsc2": "func_002FC008"
       },
       "about": "Sets up the vendor's preview of the row under the cursor (PrepareVendorSelectionPreview), in every mode, as the cursor moves and the menu opens: the armour vendor's (mode 3) loads the row's armour over Ratchet's class 0 when it is not the one loaded and makes the preview objects (g_vendorUi +0x2C, the count at +0x34, 0x100-byte mobys outside the level's list: class 0, Ratchet in that armour, then 1290 and 2675 for its extra pieces), turned to the camera, and shows the armour's description; the weapon vendor's, the weapon's model or picture. A replacement can call the original and then change the message or the objects' look (moby_material_class with OPENRAC_MODEL_MENU)."
+    },
+    {
+      "id": "rac2.save.new_game",
+      "name": "Save_NewGame",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "ntsc": "func_00298E08",
+        "pal": "func_002997A0"
+      },
+      "about": "Resets game data from disc defaults for a new campaign, before its starting level is entered."
     }
   ]
 }
