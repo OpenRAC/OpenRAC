@@ -85,6 +85,8 @@ func_003983C8__game	func_003982E0__game
 func_003A0760__frontbin	func_0039B760__frontbin
 func_003A0B60	func_003A0A20
 func_003A5748	func_003A5608
+func_003A7EF8	func_003A7DB0
+func_003A7EF8__game	func_003A7DB0__game
 func_003A8F90__frontbin	func_003A3A40__frontbin
 func_003A9348	func_003A9200
 func_003A9500__frontbin	func_003A3FB0__frontbin
