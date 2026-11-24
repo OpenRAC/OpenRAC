@@ -78,8 +78,8 @@ class Operand:
 class FunctionState:
     """What the statements already written in one function left in its named registers."""
 
-    vf: set = field(default_factory=lambda: {0})
-    acc: bool = False
+    vf: dict[int, int] = field(default_factory=lambda: {0: 15})  # initialized component masks
+    acc: int = 0               # initialized accumulator components
     q: bool = False
     vi: set = field(default_factory=lambda: {0})
     used: bool = False         # the function needs its openrac_vu0_state
@@ -392,6 +392,51 @@ def _effects(i: _Ins) -> tuple[set, set, set]:
     return reads, wfull, wpart
 
 
+def _component_reads(i: _Ins) -> dict[int | str, int]:
+    """The vector and accumulator components actually read, including broadcasts and rotations."""
+    reads: dict[int | str, int] = {}
+
+    def add(register: int | str, mask: int) -> None:
+        if mask:
+            reads[register] = reads.get(register, 0) | mask
+
+    if i.op == "sqc2":
+        add(i.ft, 15)
+    elif i.op == "qmfc2":
+        add(i.rd, 15)
+    elif i.op in ("vdiv", "vrsqrt"):
+        add(i.fs, 8 >> i.bc)
+        add(i.ft, 8 >> i.ftf)
+    elif i.op == "vsqrt":
+        add(i.ft, 8 >> i.ftf)
+    elif i.op in _MOVES:
+        mask = i.dest
+        if i.op == "vmr32":
+            mask = sum(8 >> ((c + 1) % 4) for c in _comps(i.dest))
+        add(i.fs, mask)
+    elif i.op == "vclipw":
+        add(i.fs, 14)
+        add(i.ft, 1)
+    elif i.op in ("vopmula", "vopmsub"):
+        components = [c for c in _comps(i.dest) if c < 3]
+        add(i.fs, sum(8 >> ((c + 1) % 3) for c in components))
+        add(i.ft, sum(8 >> ((c + 2) % 3) for c in components))
+        if i.op == "vopmsub":
+            add("acc", i.dest & 14)
+    else:
+        arithmetic = re.fullmatch(r"v(add|sub|mul|max|mini|madd|msub)(a?)(bc|q|i)?", i.op)
+        if arithmetic:
+            kind, _, source = arithmetic.groups()
+            add(i.fs, i.dest)
+            if source == "bc" and i.dest:
+                add(i.ft, 8 >> i.bc)
+            elif source not in ("q", "i"):
+                add(i.ft, i.dest)
+            if kind in ("madd", "msub"):
+                add("acc", i.dest)
+    return reads
+
+
 class _Emitter:
     """The pieces of asmc.py's Translator that its vu0() reads, on this statement's locals."""
 
@@ -496,19 +541,23 @@ def lower_statement(text: str, operands: list[Operand], state: FunctionState, *,
 
     # The named registers: what this statement reads that neither it nor an earlier statement
     # of the function wrote is a value from outside the function.
-    written_vf, acc, q, vi = set(state.vf), state.acc, state.q, set(state.vi)
+    written_vf, acc, q, vi = dict(state.vf), state.acc, state.q, set(state.vi)
     gpr_written: set[int] = set()
     gpr_args: dict[int, str] = {}
     for i in insns:
         reads, wfull, wpart = _effects(i)
-        # A register written in part keeps its other fields: zero here (the function's unit starts
-        # cleared), what the console's register last held there. Retail's code does not read them
-        # (vaddw.xyz $vf3, $vf0, $vf0w then only vf3.x, L02_003E71A8), so that is no read.
+        # A masked write initializes only its selected components. A read of another component
+        # still depends on a value from outside this function, not the local state's zero.
+        for register, mask in _component_reads(i).items():
+            if isinstance(register, int) and register >= 32:
+                continue  # an operand's C variable supplies its value
+            available = acc if register == "acc" else written_vf.get(register, 0)
+            missing = mask & ~available
+            if missing:
+                name = "ACC" if register == "acc" else f"$vf{register}"
+                components = "".join(_LANES[c] for c in _comps(missing))
+                raise Vu0Unsupported(f"{name}.{components} read before the function writes it")
         for r in reads:
-            if isinstance(r, int) and r < 32 and r not in written_vf:
-                raise Vu0Unsupported(f"$vf{r} read before the function writes it")
-            if r == "acc" and not acc and r in reads:
-                raise Vu0Unsupported("ACC read before the function writes it")
             if r == "q" and not q:
                 raise Vu0Unsupported("Q read before the function writes it")
             if isinstance(r, tuple) and r[0] == "vi" and r[1] not in vi:
@@ -521,9 +570,10 @@ def lower_statement(text: str, operands: list[Operand], state: FunctionState, *,
                 gpr_written.add(r[1])
         for r in wfull | wpart:
             if isinstance(r, int) and r < 32:
-                written_vf.add(r)
+                mask = i.dest & 14 if i.op == "vopmsub" else (15 if r in wfull else i.dest)
+                written_vf[r] = written_vf.get(r, 0) | mask
             elif r == "acc":
-                acc = True
+                acc |= i.dest & 14 if i.op == "vopmula" else i.dest
             elif r == "q":
                 q = True
             elif isinstance(r, tuple) and r[0] == "vi":

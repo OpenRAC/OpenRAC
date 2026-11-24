@@ -340,6 +340,17 @@ stays as before: a statement on named registers is a barrier, reported under
 makes the function a stub ("VU0 inline assembly: ..."), which `from_assembly`
 can send to the assembly's translation instead.
 
+`report.json` keeps skipped mnemonics in `inline_assembly_skipped` and the native
+VU0 lowering's refusal reasons in `inline_assembly_unsupported`. A function with
+skipped VU0 instructions is not evidence that its forced-assembly entry can go,
+even when the rest of its C translated without a stub.
+
+Initialization is checked per vector/accumulator component. A write to `x` does
+not supply `y`, and a broadcast or rotation checks the components it reads.
+Named-register state is inferred only within a straight-line region: branches,
+loops, labels and C calls are conservative boundaries, not proof that another
+path wrote the value.
+
 ## A game's configuration
 
 `port/game/<id>/hostgen.json` ([port/game/README.md](../../game/README.md)

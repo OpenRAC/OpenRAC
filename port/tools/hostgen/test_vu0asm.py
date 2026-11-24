@@ -6,6 +6,7 @@ These use host-local arrays and the runtime's inline arithmetic, not the POSIX g
 Expected values are small exact arithmetic; no disc data, game function or global vector unit is used.
 """
 from pathlib import Path
+import json
 import os
 import shutil
 import subprocess
@@ -38,6 +39,28 @@ class UnsupportedState(unittest.TestCase):
         with self.assertRaises(vu0asm.Vu0Unsupported):
             vu0asm.lower_statement("vaddi.xyzw $vf1, $vf0, I", [],
                                   vu0asm.FunctionState(), vu_flush=False)
+
+    def test_a_partial_vector_write_does_not_initialize_other_components(self):
+        with self.assertRaises(vu0asm.Vu0Unsupported):
+            vu0asm.lower_statement("vmove.x $vf1, $vf0\nvadd.y $vf2, $vf1, $vf0", [],
+                                  vu0asm.FunctionState(), vu_flush=False)
+
+    def test_a_partial_accumulator_write_does_not_initialize_other_components(self):
+        with self.assertRaises(vu0asm.Vu0Unsupported):
+            vu0asm.lower_statement("vaddax.x ACC, $vf0, $vf0x\nvmadd.y $vf1, $vf0, $vf0", [],
+                                  vu0asm.FunctionState(), vu_flush=False)
+
+    def test_a_rotation_reads_the_next_source_component(self):
+        with self.assertRaises(vu0asm.Vu0Unsupported):
+            vu0asm.lower_statement("vmove.x $vf1, $vf0\nvmr32.x $vf2, $vf1", [],
+                                  vu0asm.FunctionState(), vu_flush=False)
+
+    def test_separate_masked_writes_can_initialize_the_whole_vector(self):
+        state = vu0asm.FunctionState()
+        for component in "xyzw":
+            vu0asm.lower_statement(f"vmove.{component} $vf1, $vf0", [], state, vu_flush=False)
+        self.assertIn("memcpy", vu0asm.lower_statement("sqc2 $vf1, %0", [memory(0, "out", True)],
+                                                     state, vu_flush=False))
 
 
 @unittest.skipUnless(CLANG, "needs the installed host Clang")
@@ -93,6 +116,65 @@ class NativeArithmetic(unittest.TestCase):
             [memory(0, "out", True), memory(1, "a")], vu0asm.FunctionState(), vu_flush=False)
         result = self.execute("float out[4] = {0}, a[4] = {4, 8, 12, 16};", body)
         self.assertEqual(result, [1.0, 2.0, 3.0, 4.0])
+
+
+@unittest.skipUnless(CLANG, "needs the installed host Clang")
+class ReportReasons(unittest.TestCase):
+    def report(self, source: str) -> dict:
+        """Translate a synthetic unit and return its report without a platform-specific runtime."""
+        import hostgen
+
+        with tempfile.TemporaryDirectory(prefix="hostgen vu0 reason ") as directory:
+            root = Path(directory)
+            (root / "src").mkdir()
+            (root / "src/main.c").write_text(source, encoding="utf-8")
+            config = root / "hostgen.json"
+            config.write_text(json.dumps({"name": "test", "sources": ["src"], "includes": []}), encoding="utf-8")
+            out = root / "generated"
+            self.assertEqual(hostgen.main(["--game", str(config), "--source", str(root),
+                                          "--out", str(out), "--jobs", "1", "--quiet"]), 0)
+            return json.loads((out / "report.json").read_text(encoding="utf-8"))
+
+    def test_a_skipped_control_read_keeps_its_reason(self):
+        # Mnemonics alone cannot explain why a statement still needs its assembly implementation.
+        report = self.report(
+            'int read_status(void) { int value; __asm__("cfc2 %0, $16" : "=r"(value)); return value; }\n')
+        self.assertEqual(report["inline_assembly_skipped"], {"read_status": "cfc2"})
+        self.assertEqual(report.get("inline_assembly_unsupported"), {
+            "read_status": ["cfc2 of untracked control register 16"]
+        })
+
+    def test_a_conditional_write_does_not_initialize_the_following_region(self):
+        report = self.report('''
+            typedef struct { float x, y, z, w; } V4;
+            void conditional(int take, V4 *in, V4 *out) {
+                if (take) { __asm__("lqc2 $vf1, %0" : : "m"(*in)); }
+                __asm__("sqc2 $vf1, %0" : "=m"(*out));
+            }
+        ''')
+        self.assertIn("conditional", report.get("inline_assembly_unsupported", {}))
+
+    def test_then_state_is_not_available_in_the_else_branch(self):
+        report = self.report('''
+            typedef struct { float x, y, z, w; } V4;
+            void alternate(int take, V4 *in, V4 *out) {
+                if (take) { __asm__("lqc2 $vf1, %0" : : "m"(*in)); }
+                else { __asm__("sqc2 $vf1, %0" : "=m"(*out)); }
+            }
+        ''')
+        self.assertIn("alternate", report.get("inline_assembly_unsupported", {}))
+
+    def test_named_state_is_not_assumed_to_survive_a_c_call(self):
+        report = self.report('''
+            typedef struct { float x, y, z, w; } V4;
+            extern void other(void);
+            void crossing(V4 *in, V4 *out) {
+                __asm__("lqc2 $vf1, %0" : : "m"(*in));
+                other();
+                __asm__("sqc2 $vf1, %0" : "=m"(*out));
+            }
+        ''')
+        self.assertIn("crossing", report.get("inline_assembly_unsupported", {}))
 
 
 if __name__ == "__main__":

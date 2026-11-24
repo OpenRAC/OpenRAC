@@ -884,6 +884,8 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         "problems": {r.unit: r.problems for r in reports if r.problems},
         "stubbed": {f.name: f.reason for f in stubbed},
         "inline_assembly_skipped": {f.name: ", ".join(f.asm_skipped) for f in translated if f.asm_skipped},
+        "inline_assembly_unsupported": {f.name: sorted(set(f.asm_unsupported)) for f in translated
+                                        if getattr(f, "asm_unsupported", None)},
         "functions_from_assembly": len(stage.translated),
         "from_assembly": {r.name: r.source for r in stage.translated},
         "assembly_unsupported": dict(sorted(stage.unsupported.items())),

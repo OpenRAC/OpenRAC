@@ -150,6 +150,8 @@ class FnReport:
     # Instructions of its asm statements that the host does not run (asm_stmt): what they compute is
     # missing from the translation.
     asm_skipped: list = field(default_factory=list)
+    # Why a native inline-assembly translation was refused, alongside the skipped mnemonics.
+    asm_unsupported: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -1381,13 +1383,15 @@ class Unit:
         kids = _inner(n)
         outs, ins = list(cons.get("out") or ()), list(cons.get("in") or ())
         in_register = vu0asm.operand_in_register(text)
+        fn = self.fn
 
         def give_up(why: str) -> None:
+            if fn is not None and fn.report is not None:
+                fn.report.asm_unsupported.append(why)
             if in_register:
                 raise Unsupported(f"VU0 inline assembly: {why}")
             return None
 
-        fn = self.fn
         if fn is None or len(kids) != len(outs) + len(ins):
             return give_up("operands hostgen cannot read")
         if self._ps2():
@@ -1415,9 +1419,13 @@ class Unit:
             at = r - 4
             return fn.int_params[at] if leading and 0 <= at < len(fn.int_params) else None
 
-        state = getattr(fn, "vu0_state", None)
-        if state is None:
-            state = fn.vu0_state = vu0asm.FunctionState()
+        states = getattr(fn, "vu0_states", None)
+        if states is None:
+            states = fn.vu0_states = {}
+        region = self._vu0_region(n)
+        if region not in states:
+            states[region] = vu0asm.FunctionState()
+        state = states[region]
         try:
             c_text = vu0asm.lower_statement(text, operands, state, vu_flush=getattr(self.program, "vu_flush", False),
                                             arg_register=arg_register)
@@ -1429,6 +1437,34 @@ class Unit:
             fn.uses_vu0 = True
         self.uses_ee = True
         return c_text
+
+    def _vu0_region(self, statement: dict) -> tuple:
+        """A straight-line region: do not infer named-register values across branches or calls."""
+        fn = self.fn
+        regions = getattr(fn, "vu0_regions", None)
+        if regions is None:
+            regions = fn.vu0_regions = {}
+            controls = {"IfStmt", "WhileStmt", "DoStmt", "ForStmt", "SwitchStmt", "CaseStmt",
+                        "DefaultStmt", "LabelStmt", "GotoStmt", "IndirectGotoStmt",
+                        "ConditionalOperator", "BinaryConditionalOperator"}
+
+            def walk(node: dict, path: tuple, epoch: int) -> int:
+                kind = node.get("kind")
+                conditional = kind == "BinaryOperator" and node.get("opcode") in ("&&", "||")
+                if kind in controls or conditional:
+                    # Each arm starts independently, and following code learns nothing from it.
+                    for index, child in enumerate(_inner(node)):
+                        walk(child, path + ((node.get("id"), index),), 0)
+                    return epoch + 1
+                for child in _inner(node):
+                    epoch = walk(child, path, epoch)
+                if kind == "GCCAsmStmt":
+                    regions[node.get("id")] = path + (epoch,)
+                # A C callee may overwrite the console's named vector registers.
+                return epoch + 1 if kind == "CallExpr" else epoch
+
+            walk(fn.body_node or {}, (), 0)
+        return regions.get(statement.get("id"), ("isolated", statement.get("id", id(statement))))
 
     def _asm_call(self, text: str, cons: dict, kids: list) -> str | None:
         """A call through a register written as inline assembly: `move $4, %A` then `jal $31, %F` (or
