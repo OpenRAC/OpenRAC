@@ -917,7 +917,8 @@ void GifInterpreter::native_quad(const UiQuad& quad) {
         prim |= 0x8;
     }
     write_prim(prim);
-    m_glyph = (quad.flags & kUiGlyph) != 0;
+    m_glyph = (quad.flags & kUiGlyph) != 0 && (quad.flags & kUiShadow) == 0;
+    m_shadow = (quad.flags & kUiShadow) != 0;
     m_in_native = true;
     // A glyph's top and bottom sit half a texel inside its cell. Its distance field is smooth and
     // reaches across the cell's edge, so at the very edge it read the next row of the font page: a
@@ -949,8 +950,9 @@ void GifInterpreter::native_quad(const UiQuad& quad) {
         kick(true);
     }
     m_in_native = false;
-    if (m_glyph) {
+    if (m_glyph || m_shadow) {
         m_glyph = false;
+        m_shadow = false;
         m_state_dirty = true;
     }
 }
@@ -1638,18 +1640,32 @@ void GifInterpreter::ensure_draw() {
                 interface_run::mark_font(m_textures.pack_hash(s.texture));
             }
             // A pack's picture is drawn as its maker made it: a field of a big one would also
-            // take seconds of CPU (four times its size).
-            if (m_glyph && s.texture != m_textures.placeholder()
-                && !m_textures.has_cropped_replacement(s.texture)
-                && !m_textures.has_pack_replacement(s.texture)) {
+            // take seconds of CPU (four times its size). Its soft edges are also its own: a field
+            // made from their alpha would promote the picture's dark fringe at the edge to a hard
+            // black outline over the letters.
+            const bool replaced = s.texture != m_textures.placeholder()
+                                  && (m_textures.has_cropped_replacement(s.texture)
+                                      || m_textures.has_pack_replacement(s.texture)
+                                      || m_textures.has_pcsx2_replacement(s.texture));
+            if (m_glyph && s.texture != m_textures.placeholder() && !replaced) {
                 s.field = m_textures.distance_field(s.texture);
                 s.distance_field = s.field != s.texture;
             }
+            // A font a pack replaced is the pack's own soft picture: the text's own edge is made
+            // crisp so it covers the shadow behind it (2); the shadow keeps its soft edge (1).
+            s.sharpen_alpha = replaced ? (m_shadow ? 1 : (m_glyph ? 2 : 0)) : 0;
             s.texture_full_alpha = m_textures.alpha_scale(s.texture) == AlphaScale::Full;
             s.tcc = c.tex0.tcc;
             s.combine = static_cast<TextureCombine>(c.tex0.tfx);
             s.linear_mag = c.tex1.mmag;
             s.linear_min = c.tex1.mmin == 1 || c.tex1.mmin == 4 || c.tex1.mmin == 5;
+            // A pack's picture is often several times the game's texels and drawn smaller: sampled
+            // as the game sampled the original, a texel a screen pixel, its letters and their
+            // shadow came out hard and jagged. Filtered, it is the picture its maker made.
+            if (replaced) {
+                s.linear_mag = true;
+                s.linear_min = true;
+            }
             if (s.distance_field) {
                 s.linear_mag = true;
                 s.linear_min = true;
@@ -2173,6 +2189,7 @@ bool DirectRenderer::init(RenderState& state, std::string& error) {
         u.alpha_ref = p.uniform("alpha_ref");
         u.alpha_keep_failing = p.uniform("alpha_keep_failing");
         u.distance_field = p.uniform("distance_field");
+        u.sharpen_alpha = p.uniform("sharpen_alpha");
         u.tex_T1 = p.uniform("tex_T1");
         u.pixel_offset = p.uniform("pixel_offset");
         u.source_scale = p.uniform("source_scale");
@@ -2404,6 +2421,7 @@ std::array<unsigned, 2> DirectRenderer::apply(const DirectState& s, RenderState&
                     -0.5f / static_cast<float>(std::max(render_state.target.height, 1)));
     }
     glUniform1i(m_uniforms.textured, s.textured ? 1 : 0);
+    glUniform1i(m_uniforms.sharpen_alpha, s.sharpen_alpha);
     if (s.textured) {
         glActiveTexture(GL_TEXTURE0);
         if (s.snapshot) {
