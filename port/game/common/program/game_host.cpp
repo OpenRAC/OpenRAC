@@ -881,6 +881,11 @@ void openrac_frame_end(void) {
     OPENRAC_RECORD("openrac_frame_end", end());
 }
 
+void openrac_frame_list_begin(gaddr root) {
+    OPENRAC_RECORD("openrac_frame_list_begin", list_begin(openrac_frame_ram_cursor(root)));
+    (void)root;
+}
+
 void openrac_frame_anchor(gaddr list_cursor) {
     OPENRAC_RECORD("openrac_frame_anchor", anchor(list_cursor));
     (void)list_cursor;

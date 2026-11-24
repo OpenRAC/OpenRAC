@@ -73,6 +73,13 @@ void end() {
     }
 }
 
+void list_begin(gaddr root) {
+    // Only an actual producer reset retires a buffer; empty window ticks must not do so.
+    if (g) {
+        g->recorder.begin_list(root);
+    }
+}
+
 void anchor(gaddr list_cursor) {
     if (g) {
         g->recorder.set_anchor(list_cursor);

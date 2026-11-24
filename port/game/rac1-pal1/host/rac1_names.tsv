@@ -180,6 +180,10 @@ func_00230A90	func_0022F288
 func_00230A90__game	func_0022F288__game
 func_00234620	func_00232E18
 func_002347F0	func_00232FE8
+func_002348E8	func_002330E0
+func_002348E8__game	func_002330E0__game
+func_00234948	func_00233140
+func_00234948__game	func_00233140__game
 func_00234C98	func_00233490
 func_00235118	func_00233910
 func_002352C8	func_00233AC0
