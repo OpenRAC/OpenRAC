@@ -56,17 +56,39 @@ chip put it.
   This is the re-keying the user approved: the pack's names are matched against the converted
   texture's source data, not against the chip's memory.
 
-## 4. Materials (to do)
+## 4. Materials
 
-Effect quads, particles, sky sprites and strips still carry the chip's words (`openrac_game_quad`'s
-CLAMP, TEX0, TEX1, ALPHA; the TEST and ZBUF taken from the list at their marker). They move to a
-native material: a blend from the fixed set (opaque, mix, add, subtract, multiply), the alpha test
-(compare and reference), depth test and write, filtering and wrap, translated once in host C where
-the record is made, and a texture named as in section 1.
+A world effect quad can now carry a native material instead of the chip's words:
+`openrac_game_material_effect_quad(const openrac_game_material_quad*)` (`openrac/game_host.h`), with
+`openrac_material` (`openrac/material.h`) and the image as section 1 names it.
+
+- **The material:** a blend in the one linear form the 2D path already uses (`renderer::Blend`:
+  coefficients of Cs and Cd weighed by the source alpha, the target's alpha or a constant), so the
+  fixed set (opaque, mix, add, subtract, multiply) and the layers weighed by the target's alpha
+  (a mask that keeps the colour and writes alpha, Cs Ad + Cd, (Cs - Cd) Ad + Cd) are all one form;
+  the alpha test (comparison, reference, what a failing pixel still writes); the depth test against
+  the world and the depth write; the channels written; the texture function and whether the
+  texel's alpha counts; the filters and the wrap. No field is a GS word.
+- **Ownership:** host C fills a material only from state its own record's code sets. State a draw
+  inherits from the display list around it (TEST and ZBUF for rac3's DrawWorldQuad callers) is not
+  guessed: such a quad stays on `openrac_game_effect_quad` and its marker.
+- **Lifetime:** the game thread checks the material (a field out of range: the call returns 0 and
+  the caller draws its older way) and decodes the image at the call, through the 2D layer's cache
+  (`frontend/effect_material`). The tick's capture owns the quad's native state and the decoded
+  pixels (`Kept::effect_images`); the render thread draws that capture alone, through
+  `TexturePool::ui_image`, and never reads game memory or a handle map.
+- **Drawing:** `EffectRenderer` draws a native quad in its place among the frame's quads, from
+  `EffectState` (`renderer/effects/effect_state.h`): `effect_gl_state` gives the batch's GL values,
+  `translate_blend` its blend, `effect_passes` the alpha test's draws (also those of the quads that
+  still carry words). A native quad is never moved to the opaque pass and never samples an
+  off-screen target.
+- **Not yet:** no game calls it (rac3's quads inherit TEST and ZBUF); particles, sky sprites and
+  strips (P5) keep their words; frame copies (GetEffectTex -1, -2) keep their block path.
 
 ## 5. Where each game stands
 
 | Game | By the game's data | Still by the chip's memory |
 |---|---|---|
 | rac3 | font pages; HUD images (`rac3_hud_image`, with group 0 kept at SendImage), the multiplayer executable's too (its HUD sprites, gradients and turned sprites, in level 39 and the maps) | the HUD's other routines until they draw `ui_item`s; effect quads and particles (TEX0, ALPHA, upload records matched by block); the multiplayer executable's routines given a texture handle (glyph quads, turned sprites, the turned HUD quad), until its texture getters are wrapped |
+| rac3 | font pages; HUD images (`rac3_hud_image`, with group 0 kept at SendImage); the native effect quad path is ready, unused (section 4) | the HUD's other routines until they draw `ui_item`s; effect quads and particles (TEX0, ALPHA, upload records matched by block; TEST and ZBUF from the list); the multiplayer executable's HUD |
 | rac1, rac2 | nothing yet | all (R1 to R3) |
