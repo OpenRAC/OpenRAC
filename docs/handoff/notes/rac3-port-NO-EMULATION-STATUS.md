@@ -306,7 +306,9 @@ scissor; NTSC-U evidence); #773 6551b9239 (levels' HUD sprites and menu ornament
 rac3_hud_image; letterbox from the game's height and screen edges); #775 c9e81719 (maps' prints from font pages).
 
 **Not done (still older TEX0 records or game packets):**
-- Loading screen's stars and galaxy (texture 0x2DAF): still the game's GS packets; routines not identified yet.
+- Loading screen's stars and galaxy: done (2026-11-24). They are the scene pack's sky (word 9 with flag bit 0), drawn by
+  the boot program's SkyDraw copy 0x003CE568 / SkyDrawShell 0x003CE798 (the levels' 0x004A7F28 / 0x004A8158); exported
+  as level 97's sky (levels format 17) and 0x003CE798 drawn natively (host/render.c), wide.
 - The fade (no rac3 fade counter wrapped yet; only the letterbox).
 - Widget3D quads (menu frames and art, help-box frame func_003AC9F0): still read back from the game's GIF packets after
   it writes them; needs capture from the posed mesh (func_003AA168 bones, func_003A08E8/0A28 vertices).
@@ -497,3 +499,29 @@ first row at the bottom). The chip's frame copy at the block is no longer read f
 Galactic Rangers' dropship (class 6877, draw callback 0x003C8D60, haze 0x003C8400) draws its
 thrusters' heat haze this way. Quads that sample the copy (the refraction rings) still go through
 `offscreen_texture`; moving them is left to P4b/P6.
+
+## Dropship heat haze as native patches (2026-11-24)
+
+The snapshot above still drew squares: the haze is two strips per patch (0x003C8400), a mask of
+effect texture 0x3B that keeps the colour and writes only the destination alpha (ALPHA 0x6A), then
+the frame copy blended in by that alpha (ALPHA 0x54). The window's target never held a round mask
+there, so every copy came out as a whole square, tinted by its vertex colour, at the vertices'
+alpha. The frontend now turns each mask and copy pair over the same corners into a round patch of
+the native heat haze (`renderer::frame_copy_haze` → `Kept::haze` → `Haze`, the mods' haze
+renderer): its centre, half the square's side, and the mask's alpha as its strength. The pairs
+leave the strips; a copy strip without its mask still goes the snapshot way. Only frames that draw
+the world do this (the loading screen keeps its strips).
+
+## Dropship heat haze: the TEX0 was cut to 32 bits (2026-11-24)
+
+Neither of the two changes above ever ran in a game. The port draws 0x003C8400 from the decomp's
+functional C (nonmatching/functional/func_L01_003C8400.c), which declared GetEffectTex
+(func_00389598) as returning `s32`: hostgen kept the cast, and the copy strips' TEX0 reached the
+list as 0x20213240 instead of 0x6_2021_3240 (no TH, no TCC). `frame_copy_texture` never matched,
+so no strip was a frame copy, no mask paired with one, and the copies were drawn as the squares
+from the 2D path's target. Found with `OPENRAC_HAZE_LOG` in a hidden Veldin run on box2; fixed in
+rac3-decomp 3e4df279 (`extern long func_00389598(s32)`). With it the same run turns the 36 pairs a
+frame into 36 haze patches and the squares are gone. The same 32-bit declaration is still in
+src/levels/shared/L01_00363E68.c, src/levels/07_annihilation_nation/L07_003CE2B8.c,
+src/levels/09_tyhrranosis/L09_00317D00.c and nonmatching/functional/func_L07_003BFAE8.c and
+func_L32_003BE098.c (their effect textures lose TH, TCC and the CLUT block in the port).

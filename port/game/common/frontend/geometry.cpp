@@ -71,14 +71,27 @@ void frame_size(int box_width, int box_height, int render_scale, int& width, int
         std::max(1, static_cast<int>(std::lround(static_cast<float>(box_height) * scale * fit)));
 }
 
-bool same_moby(const renderer::Mat4& from, const renderer::Mat4& to) {
-    // Elements 12 to 14 are the translation (column-major, renderer/math.h).
-    const float dx = to[12] - from[12];
-    const float dy = to[13] - from[13];
-    const float dz = to[14] - from[14];
+bool kept_pace(const renderer::Vec3& step, float limit_squared, const renderer::Vec3* pace) {
+    if (step[0] * step[0] + step[1] * step[1] + step[2] * step[2] <= limit_squared) {
+        return true;
+    }
+    if (pace == nullptr) {
+        return false;
+    }
+    // Far, but as far and the same way as the tick before: the same thing at speed. A jump after a
+    // steady move differs from that move by about the jump.
+    const float ex = step[0] - (*pace)[0];
+    const float ey = step[1] - (*pace)[1];
+    const float ez = step[2] - (*pace)[2];
+    return ex * ex + ey * ey + ez * ez <= limit_squared;
+}
 
-    // Moved too far in a tick: another moby, or a teleport.
-    if (dx * dx + dy * dy + dz * dz > kMobyStepSquared) {
+bool same_moby(const renderer::Mat4& from, const renderer::Mat4& to, const renderer::Vec3* pace) {
+    // Elements 12 to 14 are the translation (column-major, renderer/math.h).
+    const renderer::Vec3 step{to[12] - from[12], to[13] - from[13], to[14] - from[14]};
+
+    // Moved too far in a tick, and not at the pace it kept: another moby, or a teleport.
+    if (!kept_pace(step, kMobyStepSquared, pace)) {
         return false;
     }
 
@@ -136,13 +149,13 @@ void follow_moby(const renderer::Mat4& now, const renderer::Mat4& drawn, float p
     }
 }
 
-renderer::Mat4 blend_matrix(const renderer::Mat4& from, const renderer::Mat4& to, float t) {
-    const float dx = to[12] - from[12];
-    const float dy = to[13] - from[13];
-    const float dz = to[14] - from[14];
+renderer::Mat4 blend_matrix(
+    const renderer::Mat4& from, const renderer::Mat4& to, float t, const renderer::Vec3* pace
+) {
+    const renderer::Vec3 step{to[12] - from[12], to[13] - from[13], to[14] - from[14]};
 
-    // Moved too far in a tick to be drawn part way.
-    if (dx * dx + dy * dy + dz * dz > kMobyStepSquared) {
+    // Moved too far in a tick to be drawn part way, and not at the pace it kept.
+    if (!kept_pace(step, kMobyStepSquared, pace)) {
         return to;  // a moby slot used again, a teleport
     }
 
@@ -152,7 +165,7 @@ renderer::Mat4 blend_matrix(const renderer::Mat4& from, const renderer::Mat4& to
     // turning is taken whole when it turned too far to blend its axes.
     renderer::Mat4 m = to;
     // The three axes are elements 0 to 11; none of them when the moby turned too far.
-    const int upto = same_moby(from, to) ? 12 : 0;
+    const int upto = same_moby(from, to, pace) ? 12 : 0;
 
     // The axes, part way.
     for (int i = 0; i < upto; ++i) {
@@ -167,17 +180,18 @@ renderer::Mat4 blend_matrix(const renderer::Mat4& from, const renderer::Mat4& to
     return m;
 }
 
-CameraPose blend_pose(const CameraPose& from, const CameraPose& to, float t) {
+CameraPose blend_pose(
+    const CameraPose& from, const CameraPose& to, float t, const renderer::Vec3* pace
+) {
     CameraPose c = to;
     const renderer::Vec3& p0 = from.position;
     const renderer::Vec3& p1 = to.position;
-    const float d2 = (p1[0] - p0[0]) * (p1[0] - p0[0]) + (p1[1] - p0[1]) * (p1[1] - p0[1])
-                     + (p1[2] - p0[2]) * (p1[2] - p0[2]);
+    const renderer::Vec3 step{p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
     const float turn = from.forward[0] * to.forward[0] + from.forward[1] * to.forward[1]
                        + from.forward[2] * to.forward[2];
 
-    // A cut: the camera moved or turned too far in a tick to be the same shot moving.
-    if (d2 > kCameraStepSquared || turn < kSameTurnCosine) {
+    // A cut: the camera moved (off its pace) or turned too far in a tick to be the same shot moving.
+    if (!kept_pace(step, kCameraStepSquared, pace) || turn < kSameTurnCosine) {
         return c;
     }
 

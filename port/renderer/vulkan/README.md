@@ -158,6 +158,11 @@ program or stage compiled before from it, by a hash of its kind, sources and com
 second hash and the length, and glslang runs only for the rest. It is read at open and written at
 close, beside the pipeline cache, and off when the pipeline cache is.
 
+Renderer shader builds parse Vulkan stages when linking the program. A failed link checks
+the individual stages to retain stage-specific diagnostics. The pinned glslang dependency
+uses its translation arena for temporary SPIR-V operands through
+[`glslang-operand-pool.patch`](../../cmake/glslang-operand-pool.patch), applied by CMake.
+
 `Context::persistent_sets` keeps, from frame to frame, the descriptor sets that bind only
 textures, samplers and the ring (R-14, `vk-persistent-descriptors`), keyed by the program's serial
 and each image's `Image::serial`, which is never reused, so a set of a deleted texture is never

@@ -216,6 +216,22 @@ void test_blend_pose_takes_a_cut_whole() {
     CHECK(near(blend_pose(from, edge, 0.5f).position[0], 4.0f));
 }
 
+// A moby or camera moving farther than a step in a tick, but at the pace it kept the tick before, is
+// the same thing at speed (a ship flying through a loading flight); a jump off that pace is not.
+void test_a_kept_pace_is_blended() {
+    const Vec3 pace{10, 0, 0};
+    CHECK(same_moby(moby_at(0, 0, 0), moby_at(12, 1, 0), &pace));
+    CHECK(!same_moby(moby_at(0, 0, 0), moby_at(12, 1, 0)));
+    CHECK(!same_moby(moby_at(0, 0, 0), moby_at(-10, 0, 0), &pace));
+    CHECK(near(blend_matrix(moby_at(0, 0, 0), moby_at(12, 0, 0), 0.5f, &pace)[12], 6.0f));
+    CHECK(blend_matrix(moby_at(0, 0, 0), moby_at(40, 0, 0), 0.5f, &pace) == moby_at(40, 0, 0));
+    const Vec3 eye_pace{20, 0, 0};
+    const CameraPose from = camera({0, 0, 0}, {1, 0, 0});
+    const CameraPose moved = camera({22, 0, 0}, {1, 0, 0});
+    CHECK(near(blend_pose(from, moved, 0.5f, &eye_pace).position[0], 11.0f));
+    CHECK(blend_pose(from, moved, 0.5f).position == moved.position);
+}
+
 // Joint poses and model transforms both interpolate. Endpoint world bounds alone need not contain
 // the intermediate product (rotation plus changing pose); the envelope holds every point of it.
 void test_the_moby_envelope_holds_the_blended_moby() {
@@ -387,6 +403,7 @@ int main() {
     test_blend_matrix_takes_a_jump_or_a_turn_whole();
     test_blend_pose_moves_and_turns_part_way();
     test_blend_pose_takes_a_cut_whole();
+    test_a_kept_pace_is_blended();
     test_the_moby_envelope_holds_the_blended_moby();
     test_usable_camera_refuses_what_cannot_be_drawn();
     test_usable_view_refuses_broken_matrices();

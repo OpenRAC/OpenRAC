@@ -774,6 +774,12 @@ void frame_copy_strips() {
     CHECK(
         (openrac::test::tex0(0x1200, 1, gs::kPsmct16, 6, 6, true) & ~0x3FFFull) == 0x598204000ull
     );
+    // The TEX0 Veldin's dropship sends for its copy strips (a hidden run on 2026-11-24): the whole
+    // 64 bits, its shape the first. Its low half alone (0x20213240, what the port drew while the
+    // decomp's C took GetEffectTex as 32-bit) has neither TH nor TCC and is not a frame copy, so
+    // the copy strips stayed squares: frame_copy never set, no mask pairs, no haze patches.
+    CHECK((0x620213240ull & ~0x3FFFull) == 0x620210000ull);
+    CHECK((0x20213240ull & ~0x3FFFull) != 0x620210000ull);
 
     const auto at = [](float s, float t, float k, float want_s, float want_t) {
         const auto [u, v] = frame_copy_st(s, t, k);
@@ -804,6 +810,54 @@ void frame_copy_strips() {
     CHECK(mask.src == 0u && mask.dst == 1u && mask.equation == 0x8006u);  // ZERO, ONE, ADD
     const GlBlend haze = translate_blend(gs::Alpha::decode(alpha_reg(0, 1, 1, 1, 0x80)));
     CHECK(haze.src == 0x0304u && haze.dst == 0x0305u && haze.equation == 0x8006u);
+}
+
+// Each mask and frame-copy pair of the heat haze becomes one round patch of the native haze (its
+// centre, half the square's side, the mask's alpha as its strength); the pair is left out of the
+// strips. A frame-copy strip with no mask over the same corners stays, and so do the others.
+void frame_copy_haze_patches() {
+    const auto square = [](std::vector<EffectVertex>& v, float x, float z, std::uint32_t alpha) {
+        const auto first = static_cast<std::uint32_t>(v.size());
+        // A square of side 2 around (x, 0, z), as a strip.
+        v.push_back({x - 1, 0, z - 1, 0, 0, alpha << 24 | 0x804040});
+        v.push_back({x + 1, 0, z - 1, 1, 0, alpha << 24 | 0x804040});
+        v.push_back({x - 1, 0, z + 1, 0, 1, alpha << 24 | 0x804040});
+        v.push_back({x + 1, 0, z + 1, 1, 1, alpha << 24 | 0x804040});
+        return first;
+    };
+    std::vector<EffectVertex> v;
+    std::vector<EffectStrip> strips(5);
+    // Another effect first, untouched.
+    strips[0].first = square(v, 50, 50, 0x80);
+    strips[0].count = 4;
+    // The mask (ALPHA 0x6A: (0 - 0) FIX + Cd) at half alpha, then its copy (ALPHA 0x54).
+    strips[1].first = square(v, 10, 20, 0x40);
+    strips[1].count = 4;
+    strips[1].alpha = 0x800000006Aull;
+    strips[2].first = square(v, 10, 20, 0x80);
+    strips[2].count = 4;
+    strips[2].alpha = 0x8000000054ull;
+    strips[2].frame_copy = true;
+    // A mask somewhere else, then a copy with no mask of its own: both kept.
+    strips[3].first = square(v, 30, 20, 0x80);
+    strips[3].count = 4;
+    strips[3].alpha = 0x6A;
+    strips[4].first = square(v, 0, 0, 0x80);
+    strips[4].count = 4;
+    strips[4].alpha = 0x54;
+    strips[4].frame_copy = true;
+
+    std::vector<std::array<float, 5>> haze;
+    frame_copy_haze(strips, v, haze);
+    CHECK(haze.size() == 1);
+    CHECK(strips.size() == 3);
+    CHECK(strips[0].first == 0 && strips[1].alpha == 0x6A && strips[2].frame_copy);
+    if (haze.size() == 1) {
+        const auto& p = haze[0];
+        CHECK(near(p[0], 10.0f) && near(p[1], 0.0f) && near(p[2], 20.0f));
+        CHECK(near(p[3], 1.0f));  // half the side
+        CHECK(p[4] > 0.0f && p[4] < 0.1f);  // half the mask's alpha: a faint patch
+    }
 }
 
 // Weights the GS takes above 1 (As, FIX up to 0xFF) go to the shader, and the strips' TEST keeps
@@ -1003,6 +1057,44 @@ void recorded_frame_without_packets() {
     }
 }
 
+// A flat item of the 2D layer over the screen's last column or line goes on to its edge, as a
+// packet's fill does: the pause menu's darkening runs from -0.5 to 511.5 and -0.5 to 447.5, and
+// drawn there it left a line of the undarkened world along the right and bottom. Edges inside the
+// screen stay where they are, and so does a textured item.
+void flat_item_to_the_edges() {
+    TexturePool textures;
+    auto corners = [&](float x0, float y0, float x1, float y1, std::uint32_t flags) {
+        GifInterpreter gif(textures);
+        FrameRecording r;
+        UiItem quad;
+        quad.flags = flags;
+        const float xs[4] = {x0, x1, x0, x1}, ys[4] = {y0, y0, y1, y1};
+        for (int i = 0; i < 4; ++i) {
+            quad.x[i] = xs[i];
+            quad.y[i] = ys[i];
+            quad.rgba[i] = 0x60000000u;
+        }
+        r.ui_items.push_back(quad);
+        FrameCommand item;
+        item.op = FrameOp::UiItem;
+        r.commands.push_back(item);
+        const std::vector<FrameSplice> splices{{0, 0}};
+        gif.set_commands(&r, splices, 0);
+        CHECK(gif.vif({}));
+        gif.finish_commands();
+        CHECK(gif.vertices().size() == 6);
+        return gif.vertices().size() == 6 ? std::make_pair(gif.vertices()[0], gif.vertices()[4])
+                                          : std::make_pair(DirectVertex{}, DirectVertex{});
+    };
+    const auto [first, last] = corners(-0.5f, -0.5f, 511.5f, 447.5f, kUiItemFlat);
+    CHECK(near(first.x, -1.0f - 0.5f / 256.0f) && near(first.y, 1.0f + 0.5f / 224.0f));
+    CHECK(near(last.x, 1.0f) && near(last.y, -1.0f));
+    const auto [inner_first, inner_last] = corners(9.5f, 99.5f, 300.5f, 200.5f, kUiItemFlat);
+    CHECK(near(inner_last.x, 300.5f / 256.0f - 1.0f) && near(inner_last.y, 1.0f - 200.5f / 224.0f));
+    const auto [past_first, past_last] = corners(520.5f, 99.5f, 530.5f, 200.5f, kUiItemFlat);
+    CHECK(near(past_first.x, 520.5f / 256.0f - 1.0f) && near(past_last.x, 530.5f / 256.0f - 1.0f));
+}
+
 // Recorded commands spliced into a stream: before the DIRECT at their offset, after what came
 // before it; those past the stream's end at finish_commands.
 void recorded_splices_in_a_stream() {
@@ -1071,8 +1163,10 @@ int main() {
     frame_copy_of_the_picture();
     offscreen_target_coordinates();
     frame_copy_strips();
+    frame_copy_haze_patches();
     native_blends();
     recorded_frame_without_packets();
+    flat_item_to_the_edges();
     recorded_splices_in_a_stream();
     return openrac::test::result();
 }

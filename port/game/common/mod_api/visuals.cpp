@@ -116,7 +116,7 @@ int api_moby_visuals(openrac_mod* mod, const openrac_moby_visual* visuals, int c
 }
 
 // Whether moby_material may draw `material` with `rgb`: a kind the port has, with a level only on
-// energy and paint.
+// energy and paint, an accent and the effects bit only on paint.
 bool moby_material_known(std::uint32_t material, std::uint32_t rgb) {
     constexpr std::uint32_t kRgbMax = 0xFFFFFF;
     // Energy (1.25) and paint (1.34) carry a level in bits 8 to 11; the others none.
@@ -134,6 +134,10 @@ bool moby_material_known(std::uint32_t material, std::uint32_t rgb) {
         && ((extra & OPENRAC_MOBY_MATERIAL_PAINT_ACCENT) != 0 || (extra & kAccentColour) == 0);
     if (accent_ok) {
         extra &= ~kAccentBits;
+    }
+    // Paint (1.39) may draw the moby's effects in its colour too.
+    if (kind == OPENRAC_MOBY_MATERIAL_PAINT) {
+        extra &= ~OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS;
     }
     return kind <= OPENRAC_MOBY_MATERIAL_PAINT
            && (extra == 0 || (levelled && (extra & ~kLevels) == 0)) && rgb <= kRgbMax;

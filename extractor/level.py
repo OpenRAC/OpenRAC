@@ -100,6 +100,9 @@ class Level:
     # Up Your Arsenal: the moby classes its scenes load (scene_classes): class number to (class
     # blob, the texture numbers of its slots).
     scene_classes: dict[int, tuple[bytes, list[int]]] = field(default_factory=dict)
+    # The sky's core block where the index cannot name it: Up Your Arsenal's loading screen keeps
+    # its sky at the data base itself (offset 0, which the index's +0x10 reads as no sky).
+    sky_at: int | None = None
 
     @property
     def instances(self) -> bytes:
@@ -500,9 +503,11 @@ def hero_files(level: Level, source) -> None:
 # the mobys' class data at the data base plus a class entry's offset, seen in the loading screen's
 # memory): 1 the GS RAM lump, 2 the data base, 4 and 5 the GS upload table, 0xa and 0xc the moby
 # classes (Ratchet, Clank, the ship's parts 4308 to 4325, the planet 7683), 0xe and 0xf the moby
-# textures, 0x17 the texture data. Exported as level 97 with those classes and Ratchet's pack, for
-# the window to draw the loading screen's mobys with (rac3-pal/profile.cpp); the stars, the
-# galaxy and the caption are the game's draws.
+# textures, 0x17 the texture data. Word 0 holds the parts the scene has (0x003BBDC0's flags,
+# 0x001D8CD4): with bit 0, word 9 is its sky, from the data base, which LoadSky (0x00398A48) makes
+# the boot program's: three shells, the stars and the galaxy, turned by SkyDraw (0x003CE568) each
+# pass. Exported as level 97 with those classes, that sky and Ratchet's pack, for the window to draw
+# the loading screen's sky and mobys with (rac3-pal/profile.cpp); the caption is the game's draw.
 LOADING_ID = 97
 
 
@@ -537,6 +542,8 @@ def load_wad_loading(source) -> Level:
     level.boundaries = core_boundaries(level)
     level.textures = textures(level, lump[gs_at:base])
     level.no_terrain = True
+    if h(0) & 1:
+        level.sky_at = h(9)
     if source.version.hero_packs:
         hero_files(level, source)
     return level

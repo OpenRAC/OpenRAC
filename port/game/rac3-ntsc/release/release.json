@@ -387,6 +387,13 @@
     "call_copies": null,
     "call_copies_why": "rac3-pal's table (call_copies_rac3.py) holds PAL's places; NTSC-U's catalogue has its own, to be written the same way",
     "split_places_why": "NTSC-U's own tables/split_places.tsv: the multiplayer maps' copies of the font width wrapper (func_L01_00410820) are their own function, func_L39_005187A0, whose name the carry leaves out as no function of NTSC-U's catalogue; its signature below, as rac3-pal's func_L39_005189A0",
+    "more_places": {
+      "replace": true,
+      "func_L01_004C78E0": "03:004B4EE0,24:004AC6D0",
+      "func_L01_004D4C50": "03:004C2250,24:004B9A40",
+      "func_L01_004D75F8": "03:004C4BF8,24:004BC3E8"
+    },
+    "more_places_why": "rac3-pal's are PAL's places: on the Phoenix (03) and in the Insomniac Museum (24) the catalogue folds the Vid-comic password panel's byte getter and clear into func_L01_004C78E0 and func_L01_004D75F8 and func_L01_004C78E0's real twin into func_L01_004D4C50 (tables/split_places.tsv splits them off); the real twins at NTSC-U's places",
     "from_assembly": [
       "func_L39_004B4008",
       "func_L39_004B5548",
@@ -566,23 +573,23 @@
     "about": "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
     "L01:001DF960": {
       "is": "001DF9E0",
-      "why": "the letterbox's height in lines (the levels' copy of func_0038AD28): PAL's func_L01_004054F0 and NTSC-U's func_L01_00403120 (the same routine, rac3_names.tsv) read and store it at $gp-relative 0x001DF960 and 0x001DF9E0, beside their set word (0x001DF95C, 0x001DF9DC)"
+      "why": "the same instruction of the same code: func_L01_004B9810 (NTSC-U func_L01_004B5C78) +0x2C8, 1 of 1 places agree"
     },
     "L01:001D64F0": {
       "is": "001D64F0",
-      "why": "the level's pointer to the current font's page handles (FontSelect's copy, PAL func_L01_0040FB70): NTSC-U's Veldin FontSelect f_0040D548 stores it at $gp - 0x63C0 as PAL's does, with the same $gp (its font index at $gp - 0x72C8 is 0x001D55E8 on both discs, and the level's 0x001D64EC moved by +0x0)"
+      "why": "between the same code's 0x001D64E8 and 0x001D64FA, both moved by +0x0 (NTSC-U 0x001D64E8, 0x001D64FA)"
     },
     "L01:001D64F4": {
       "is": "001D64F4",
-      "why": "the level's pointer to the current font's palette handles, beside L01:001D64F0: NTSC-U's f_0040D548 stores it at $gp - 0x63BC"
+      "why": "between the same code's 0x001D64E8 and 0x001D64FA, both moved by +0x0 (NTSC-U 0x001D64E8, 0x001D64FA)"
     },
     "L01:001E2A40": {
       "is": "001E2AC0",
-      "why": "player 0's game camera (camera_platform_ride's base, +0x50 the current update object): PAL's camera entries 0x001E2AA0 (+0x60) are NTSC-U's 0x001E2B20 (rac3_level_pairs.py, 8 of 8 places), the same +0x80; names.tsv's camera_manager_update keeps the camera's position at NTSC-U 0x001E2AC0, the entry's +0"
+      "why": "the same instruction of the same code: func_L01_00313708 (NTSC-U func_L01_00313400) +0x5C, 65 of 65 places agree"
     },
     "L01:002C5600": {
       "is": "002C5640",
-      "why": "the item records (0xF0 bytes each, 160 of them): Veldin's program on the NTSC-U disc has PAL's 160 rows at 0x002C5640 (read from both discs' level 1, 2026-11-21: gun byte, next version +0x46, ammo +0x84/+0x8A/+0x8E and name ids the same)"
+      "why": "the same instruction of the same code: func_L01_00305880 (NTSC-U func_L01_00305620) +0x24, 133 of 133 places agree"
     },
     "L01:001D6694": {
       "is": "001D6694",
@@ -630,7 +637,7 @@
     },
     "L01:001E7580": {
       "is": "001E7600",
-      "why": "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 10 of 10 places agree"
+      "why": "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 9 of 9 places agree"
     },
     "L01:001E7880": {
       "is": "001E7900",
@@ -803,6 +810,18 @@
     "L01:00404B28": {
       "is": "004027B8",
       "why": "the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404B28's twin is NTSC-U's func_L01_004027B8, the pair rac3-ntsc's carried libraries.tsv binds"
+    },
+    "L02:001DE4C0": {
+      "is": "001DE540",
+      "why": "the same instruction of the same code: func_L01_0032FF68 (NTSC-U func_L01_0032FA40) +0x8, 47 of 47 places agree"
+    },
+    "L02:001E1140": {
+      "is": "001E11C0",
+      "why": "the same instruction of the same code: func_L01_00305D30 (NTSC-U func_L01_00305AD0) +0x68, 21 of 21 places agree"
+    },
+    "L02:0026EB80": {
+      "is": "0026EC00",
+      "why": "the same instruction of the same code: func_L02_0030FC68 (NTSC-U func_L02_0030F930) +0x1C, 3 of 3 places agree"
     },
     "L01:001D64EC": {
       "is": "001D64EC",

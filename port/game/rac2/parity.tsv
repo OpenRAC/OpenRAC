@@ -25,8 +25,5 @@ func_00120FA4	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_0012
 func_0012118C	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_001210E0 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_001210E0 is unchanged
 func_00130004	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_0012FEC0 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_0012FEC0 is unchanged
 func_00302848	boot	rac2-ntsc2	part_spawn_trail_puff: a platinum bolt coin's trail made silver, an obsidian one's its glow colour (host/platinum_trail.c) is USA v1.01's alone (RAC2_PRIMARY) until v2.00's tables are carried again; v2.00 runs the game's C
-func_L13_0041CD18	row	rac2-ntsc	The catalogue anchors this function eight bytes before its entry (13:0041CD20); Randomizer hooks the canonical C symbol, whose placements supply the actual entry.
-func_00298E08	boot	rac2-ntsc2	Randomizer New Game hook is introduced for USA v1.01 and PAL only; USA v2.00 is not a supported target of this native mod.
-func_002A6AE0	boot	rac2-ntsc2	Randomizer kill-counter hook is introduced for USA v1.01 and PAL only; USA v2.00 remains unchanged.
-func_L14_004265B8	14	rac2-ntsc2	Randomizer inventory-preserving prison-controller hook is introduced for USA v1.01 and PAL only.
-func_0029ADA0	boot	rac2-ntsc2	Randomizer save serialization hooks are installed for USA v1.01 and PAL; USA v2.00 remains unsupported.
+func_L13_0041CD18	row	rac2-ntsc	The catalogue anchors this function eight bytes before its entry (13:0041CD20); the hook uses the canonical C symbol and its recorded placements.
+func_L13_0041E1E0	row	rac2-ntsc2	The USA v2.00 catalogue anchors this function eight bytes before its entry (13:0041E1E8); the hook uses the canonical C symbol and its recorded placements.

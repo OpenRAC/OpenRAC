@@ -4,6 +4,7 @@
 #include "renderer/effects/effects.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <optional>
 #include <set>
@@ -60,6 +61,100 @@ bool any_frame_copy(std::span<const EffectStrip> strips) {
     return std::ranges::any_of(strips, [](const EffectStrip& s) {
         return s.frame_copy && s.count >= 3;
     });
+}
+
+namespace {
+
+// How far a haze patch at full strength moves the picture behind it, a part of its radius on the
+// screen (Haze: the offset in pixels is the strength times the radius in pixels). The game moves
+// its corners by a few hundredths of the picture; this keeps the shimmer subtle at any size.
+constexpr float kFrameCopyHazeStrength = 0.12f;
+
+// A strip that only writes the destination alpha: the colour is (A - B) C + Cd with A = B.
+bool alpha_only_strip(const EffectStrip& strip) {
+    const gs::Alpha a = gs::Alpha::decode(strip.alpha);
+    return !strip.blend_disabled && !strip.frame_copy && a.a == a.b && a.d == 1;
+}
+
+}  // namespace
+
+void frame_copy_haze(
+    std::vector<EffectStrip>& strips,
+    std::span<const EffectVertex> vertices,
+    std::vector<std::array<float, 5>>& haze
+) {
+    std::vector<bool> drop(strips.size(), false);
+    const auto in_range = [&](const EffectStrip& s) {
+        return s.count >= 3 && s.first <= vertices.size() && s.count <= vertices.size() - s.first;
+    };
+    // The mask and the copy over the same corners: the copy's mask is the last strip before it
+    // that writes only alpha there (the game's first frame copy of a frame may come between).
+    const auto mask_of = [&](std::size_t i) -> std::optional<std::size_t> {
+        const EffectStrip& copy = strips[i];
+        for (std::size_t j = i; j-- > 0 && i - j <= 4;) {
+            const EffectStrip& mask = strips[j];
+            if (drop[j] || !alpha_only_strip(mask) || !in_range(mask) || mask.count != copy.count) {
+                continue;
+            }
+            bool same = true;
+            for (std::uint32_t k = 0; k < copy.count; ++k) {
+                const EffectVertex& a = vertices[copy.first + k];
+                const EffectVertex& b = vertices[mask.first + k];
+                same = same && std::abs(a.x - b.x) < 1e-3f && std::abs(a.y - b.y) < 1e-3f
+                       && std::abs(a.z - b.z) < 1e-3f;
+            }
+            if (same) {
+                return j;
+            }
+        }
+        return std::nullopt;
+    };
+    for (std::size_t i = 1; i < strips.size(); ++i) {
+        const EffectStrip& copy = strips[i];
+        if (!copy.frame_copy || !in_range(copy)) {
+            continue;
+        }
+        const auto m = mask_of(i);
+        if (!m) {
+            continue;
+        }
+        const EffectStrip& mask = strips[*m];
+        const auto corners = vertices.subspan(copy.first, copy.count);
+        const auto masked = vertices.subspan(mask.first, mask.count);
+        float cx = 0.0f, cy = 0.0f, cz = 0.0f;
+        for (const EffectVertex& v : corners) {
+            cx += v.x;
+            cy += v.y;
+            cz += v.z;
+        }
+        const float n = static_cast<float>(corners.size());
+        cx /= n;
+        cy /= n;
+        cz /= n;
+        // The square's corners are its half diagonal from the centre: half its side is that over
+        // the square root of two, the circle inside the square.
+        float reach = 0.0f;
+        for (const EffectVertex& v : corners) {
+            reach = std::max(reach, std::hypot(v.x - cx, v.y - cy, v.z - cz));
+        }
+        // The mask's alpha (0x80 opaque): how much of the copy the patch lets through.
+        float fade = 0.0f;
+        for (const EffectVertex& v : masked) {
+            fade = std::max(fade, static_cast<float>(v.rgba >> 24) / 128.0f);
+        }
+        fade = std::clamp(fade, 0.0f, 1.0f);
+        drop[*m] = drop[i] = true;
+        if (reach > 0.0f && fade > 0.0f) {
+            haze.push_back({cx, cy, cz, reach / std::sqrt(2.0f), kFrameCopyHazeStrength * fade});
+        }
+    }
+    std::size_t kept = 0;
+    for (std::size_t i = 0; i < strips.size(); ++i) {
+        if (!drop[i]) {
+            strips[kept++] = std::move(strips[i]);
+        }
+    }
+    strips.resize(kept);
 }
 
 bool test_writes_z(std::uint64_t test) {
