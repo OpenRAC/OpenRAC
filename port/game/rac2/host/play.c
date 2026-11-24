@@ -287,8 +287,8 @@ static int hero_pose(openrac_game_pose* out) {
  * its pose here. As the update does: his animation first (set_hero_animation for a new seq, then
  * AdvanceHeroAnimation); his place, rotation and velocity in the record; his matrices from the
  * rotation (euler_to_matrix, and its inverse, a copy with rows as columns, as
- * UpdateHeroInputAndHistory makes them); then the update's steps that show him (the face's
- * manipulators, his moby, what he wears on his head (func_L00_002AA178 poses it from his joints, a
+ * UpdateHeroInputAndHistory makes them); then the update's steps that show him (his blinks, the
+ * face's manipulators, his moby, what he wears on his head (func_L00_002AA178 poses it from his joints, a
  * mod's joint offsets included), what is attached to him and what he holds, his scale). His state machine,
  * the stick, ledges and rails are the mod's to leave out.
  *
@@ -343,6 +343,10 @@ static int hero_set_pose(const openrac_game_pose* pose) {
             GREF(float, HERO_INV_ROT_MATRIX + 16u * r + 4u * c) = v;
         }
     }
+    /* His blinks (ClampHeroControlAndUpdateEffects): the face's manipulators on their timer, as
+     * his update runs them, so a blink under way when the mod took over does not hold his eyes
+     * shut. */
+    func_L00_002A5518();
     func_L00_002A5840();
     func_L00_002A5368();
     func_L00_002A9460();
