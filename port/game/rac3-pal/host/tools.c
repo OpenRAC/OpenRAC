@@ -155,6 +155,26 @@ static int loaded_level(void) {
     return level >= 0 && level < RAC3_LEVELS && level_names[level] != NULL ? level : -1;
 }
 
+/* openrac_game_flight: the loading flight between planets played by a level's own program. Leaving
+ * a planet, the level's program runs its own copy of the loading screen (the catalogue's frontbin
+ * rows func_003BD4B8, the loop, and func_003BD030, level_load: Veldin's 0x004D7AE0 and 0x004D7658),
+ * not the boot program's: no program is loaded until the flight ends and 0x0013AFF8 copies the next
+ * level over this one. level_load sets level_current to the level asked for as the loop starts, so
+ * from then on it is not the loaded level. The window took the loaded level for the world drawn
+ * and drew the planet being left (its sky, and its terrain, which the flight's DrawTfrag copy,
+ * Veldin's 0x004B1728, marks) round the ship with the flight's camera: Veldin's sky over the loading
+ * screen. It is the loading screen's world instead, as the boot program's flight is
+ * (GameProfile::loading_world, level 97: the ship's scene's mobys, no terrain and no sky). The
+ * multiplayer maps have no flight. */
+static int level_flight(void) {
+    const int level = loaded_level();
+    if (level < 1 || level > 36) {
+        return -1;
+    }
+    const int32_t current = GREF(int32_t, LEVEL_CURRENT);
+    return current >= 0 && current < RAC3_LEVELS && current != level ? 0 : -1;
+}
+
 /* openrac_game_mode: the loaded level's mode word; none outside a level (the front end's word is
  * openrac_front_end.game_mode). play.c's phase reads it too. */
 int rac3_level_mode(uint32_t* mode);
@@ -429,6 +449,7 @@ int rac3_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX])
 void rac3_install_tools(void) {
     openrac_game_skip = rac3_loading_skip;
     openrac_game_mode = rac3_level_mode;
+    openrac_game_flight = level_flight;
     openrac_game_bolts = bolts;
     openrac_game_skip_buttons = skip_buttons;
     openrac_game_touch = rac3_touch;
