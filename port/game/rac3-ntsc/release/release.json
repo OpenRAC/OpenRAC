@@ -966,10 +966,6 @@
       "is": "0x002429A4",
       "why": "level 39's (and the maps') pointer to the palette handles, beside 0x00242820: the multiplayer core's FontUpload and FontSelect (PAL mp_func_00280B18 / mp_func_00280D98) and level 39's and the maps' FontSelect copies (PAL mp_func_L39_00591BA0, NTSC-U mp_func_L40_0045DC68 among others) read and write it; NTSC-U's translation has it 0x180 on, as the core's other globals there (0x002412DC, 0x00241A00)"
     },
-    "0x00230000": {
-      "is": "0x00230000",
-      "why": "the screen whose size (+0x150, +0x152) SetScissor keeps its rectangle within: PAL mp_func_00299218 and NTSC-U mp_func_002991F8, the same instructions, both read 0x00230150 and 0x00230152"
-    },
     "0x002412DC": {
       "is": "0x0024145C",
       "why": "the level whose program is loaded: read at $gp - 0x6CE4 in both cores (PAL 0x00199150, 0x002945BC, 0x00295534 with $gp 0x00247FC0; NTSC-U 0x00199290, 0x00295524 with $gp 0x00248140)"

@@ -67,17 +67,9 @@
 #include "textures.h"
 #include "ui_adapter.h"
 
-/* The offset the game adds to every 2D position (12.4): the core's, which every program shares
- * (the multiplayer executable's core has it at 0x00240310). */
-static gaddr screen_offset(void) {
-    if (rac3_exec_program() == RAC3_EXEC_MULTIPLAYER) {
-        return RAC3_MADDR(0x00240310u);
-    }
-    return RAC3_ADDR(0x001D4BD0u);
-}
-
-#define SCREEN_OFX GREF(int32_t, screen_offset())
-#define SCREEN_OFY GREF(int32_t, screen_offset() + 4u)
+/* The offset the game adds to every 2D position (12.4): the running program's (rac3_ui_offset). */
+#define SCREEN_OFX GREF(int32_t, rac3_ui_offset())
+#define SCREEN_OFY GREF(int32_t, rac3_ui_offset() + 4u)
 /* The far depth the 2D layer's boxes and glyph quads are drawn at (0xFFFFF0 in XYZ2's z). */
 #define FAR_Z 0xFFFFF0u
 
@@ -117,6 +109,15 @@ int rac3_ui2d_screen_x(int sixteenths) {
 
 int rac3_ui2d_screen_y(int sixteenths) {
     return to_screen_y(sixteenths);
+}
+
+/* The whole screen's top left in the chip's 12.4 (rac3_ui_origin): a native quad's corners are
+ * taken from it, so what a split-screen view draws lands in its view of the screen. */
+static void origin(float* x, float* y) {
+    int ox, oy;
+    rac3_ui_origin(&ox, &oy);
+    *x = (float)ox;
+    *y = (float)oy;
 }
 
 /* A HUD texture's size: 1 << its entry's +6/+7 log2 sizes. */
@@ -197,8 +198,8 @@ static void anchor_at(gaddr cursor) {
 static int send_flat(const openrac_game_ui_rect* q, gaddr cursor) {
     openrac_ui_quad quad;
     memset(&quad, 0, sizeof(quad));
-    const float ofx = (float)(rac3_ui2d_screen_x(0) + 8);
-    const float ofy = (float)(rac3_ui2d_screen_y(0) + 8);
+    float ofx, ofy;
+    origin(&ofx, &ofy);
     for (int i = 0; i < 4; ++i) {
         quad.x[i] = ((float)(int)q->x[i] - ofx) / 16.0f;
         quad.y[i] = ((float)(int)q->y[i] - ofy) / 16.0f;
@@ -237,8 +238,8 @@ static int send_textured(const openrac_game_ui_rect* q, gaddr cursor) {
         || !rac3_texture_image(q->tex0, hud_tables_of(cursor), &quad.image)) {
         return 0;
     }
-    const float ofx = (float)(rac3_ui2d_screen_x(0) + 8);
-    const float ofy = (float)(rac3_ui2d_screen_y(0) + 8);
+    float ofx, ofy;
+    origin(&ofx, &ofy);
     for (int i = 0; i < 4; ++i) {
         quad.x[i] = ((float)(int)q->x[i] - ofx) / 16.0f;
         quad.y[i] = ((float)(int)q->y[i] - ofy) / 16.0f;
@@ -288,13 +289,14 @@ static int glyph_page(unsigned long long tex0, openrac_game_ui_image* out) {
 }
 
 /* The 2D layer's scissor (SetScissor: the boot program's func_003A98B8, frontbin's func_003A9500,
- * the levels' copy func_L01_004C5C50): what the game cuts its 2D to, x0 to x1 and y0 to y1
- * inclusive, kept within its screen (the size at +0x150 and +0x152 of 0x001CFEC0). Natively drawn
- * quads are cut to the same, placed where the game's own scissor goes in its list; the game's is
- * still sent, for what the list draws itself. */
-static void record_scissor_of(gaddr screen, gaddr cursor, int x0, int x1, int y0, int y1) {
-    const int w = GREF(int16_t, screen + 0x150u) - 1;
-    const int h = GREF(int16_t, screen + 0x152u) - 1;
+ * the levels' copy func_L01_004C5C50, the multiplayer executable's): what the game cuts its 2D to,
+ * x0 to x1 and y0 to y1 inclusive in the whole screen's pixels, kept within its screen (the size at
+ * +0x150 and +0x152 of the program's frame block, rac3_ui_frame). Natively drawn quads are cut to
+ * the same, placed where the game's own scissor goes in its list; the game's is still sent, for
+ * what the list draws itself. */
+static void record_scissor(gaddr cursor, int x0, int x1, int y0, int y1) {
+    const int w = GREF(int16_t, rac3_ui_frame() + 0x150u) - 1;
+    const int h = GREF(int16_t, rac3_ui_frame() + 0x152u) - 1;
     x0 = x0 < 0 ? 0 : x0;
     y0 = y0 < 0 ? 0 : y0;
     x1 = w < x1 ? w : x1;
@@ -303,10 +305,6 @@ static void record_scissor_of(gaddr screen, gaddr cursor, int x0, int x1, int y0
     rac3_ui_adapter_install();
     anchor_at(cursor);
     openrac_ui_scissor(rect);
-}
-
-static void record_scissor(gaddr cursor, int x0, int x1, int y0, int y1) {
-    record_scissor_of(RAC3_ADDR(0x001CFEC0u), cursor, x0, x1, y0, y1);
 }
 
 void func_003A98B8(int x0, int x1, int y0, int y1) {
@@ -361,8 +359,8 @@ static int record_glyph_corners(
     const int from_page = glyph_page(tex0, &glyph.page);
     note_glyph(from_page);
     if (from_page) {
-        const float ofx = (float)(rac3_ui2d_screen_x(0) + 8);
-        const float ofy = (float)(rac3_ui2d_screen_y(0) + 8);
+        float ofx, ofy;
+        origin(&ofx, &ofy);
         glyph.cell[0] = (float)u;
         glyph.cell[1] = (float)v;
         glyph.cell[2] = (float)(u + w);
@@ -801,14 +799,16 @@ static int glyph_quad(
     /* Inside a print, a glyph of the font's page (the button icons in a text): from the page. */
     openrac_ui_glyph glyph;
     if (g_glyphs > 0 && glyph_page((unsigned long long)a9, &glyph.page)) {
+        float vx, vy;
+        rac3_ui_view_corner(&vx, &vy);
         glyph.cell[0] = (float)u;
         glyph.cell[1] = (float)v;
         glyph.cell[2] = (float)(u + uw);
         glyph.cell[3] = (float)(v + vh);
-        glyph.rect[0] = (float)x - 0.5f;
-        glyph.rect[1] = (float)y - 0.5f;
-        glyph.rect[2] = (float)(x + w) - 0.5f;
-        glyph.rect[3] = (float)(y + h) - 0.5f;
+        glyph.rect[0] = (float)x - 0.5f + vx;
+        glyph.rect[1] = (float)y - 0.5f + vy;
+        glyph.rect[2] = (float)(x + w) - 0.5f + vx;
+        glyph.rect[3] = (float)(y + h) - 0.5f + vy;
         for (int i = 0; i < 4; ++i) {
             glyph.rgba[i] = (uint32_t)a8;
         }
@@ -1476,15 +1476,15 @@ float func_L01_00421278(
 #define MP_MENUS_CURSOR RAC3_LADDR(39, 0x0024CAD0u)
 #define MP_DARKEN_PACKET RAC3_MADDR(0x001A3800u)
 
-/* The multiplayer executable's SetScissor, its core's and level 39's (the screen's size at
- * 0x00230150 in both). */
+/* The multiplayer executable's SetScissor, its core's and level 39's: the screen's size at +0x150
+ * of its frame block 0x00228580 (rac3_ui_frame), which both read (seen in game code). */
 int mp_func_00299218(int x0, int x1, int y0, int y1) {
-    record_scissor_of(RAC3_MADDR(0x00230000u), MP_CURSOR, x0, x1, y0, y1);
+    record_scissor(MP_CURSOR, x0, x1, y0, y1);
     return mp_func_00299218__game(x0, x1, y0, y1);
 }
 
 int mp_func_L39_005FD128(int x0, int x1, int y0, int y1) {
-    record_scissor_of(RAC3_MADDR(0x00230000u), MP_MENUS_CURSOR, x0, x1, y0, y1);
+    record_scissor(MP_MENUS_CURSOR, x0, x1, y0, y1);
     return mp_func_L39_005FD128__game(x0, x1, y0, y1);
 }
 

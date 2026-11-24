@@ -26,7 +26,8 @@ section 6.
 ## Games
 
 - Up Your Arsenal: `port/game/rac3-pal/host/ui_adapter.c` (its 2D screen, fonts from the font
-  headers), `host/ui2d.c` (the prints' glyphs, flat boxes, the scissor).
+  headers; the multiplayer executable's whole screen from its frame block, so what a split-screen
+  view draws is placed in the view), `host/ui2d.c` (the prints' glyphs, flat boxes, the scissor).
 
 ## Tests
 
@@ -35,3 +36,4 @@ It checks adapter screen defaults, rejection of invalid dimensions, native textu
 flat rectangles, nested HUD placement, recorder failures and full-target scissor requests.
 `renderer_gif_test` also checks native HUD-part grouping and displacement directly from recorder
 items, including centred/unplaced items and repeated finish, without any graphics packet input.
+`rac3_mp_images_test` checks Up Your Arsenal's multiplayer 2D screen, origin and view corner.
