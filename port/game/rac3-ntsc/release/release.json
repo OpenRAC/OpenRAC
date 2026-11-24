@@ -918,6 +918,42 @@
     "L39:00271500": {
       "is": "00271600",
       "why": "the same instruction of the same code: func_L01_00444F38 (NTSC-U func_L01_00441E00) +0xEC, 2 of 2 places agree"
+    },
+    "L02:001E5E40": {
+      "is": "001E5EC0",
+      "why": "the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 13 of 13 places agree"
+    },
+    "L02:001D5477": {
+      "is": "001D5477",
+      "why": "the same instruction of the same code: func_L01_003F1E98 (NTSC-U func_L01_003EFF58) +0x20, 4 of 4 places agree"
+    },
+    "L02:001DC568": {
+      "is": "001DC5A8",
+      "why": "between the same code's 0x001DC518 and 0x001DC570, both moved by +0x40 (NTSC-U 0x001DC558, 0x001DC5B0)"
+    },
+    "L02:001E00D4": {
+      "is": "001E0154",
+      "why": "the same instruction of the same code: func_L02_003102A8 (NTSC-U func_L02_0030FF70) +0x10, 5 of 5 places agree"
+    },
+    "L02:001E00DC": {
+      "is": "001E015C",
+      "why": "the same instruction of the same code: func_L02_0030FC68 (NTSC-U func_L02_0030F930) +0x280, 1 of 1 places agree"
+    },
+    "L02:001E00E0": {
+      "is": "001E0160",
+      "why": "the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0x84, 1 of 1 places agree"
+    },
+    "L02:001E00E4": {
+      "is": "001E0164",
+      "why": "the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0x78, 1 of 1 places agree"
+    },
+    "L02:001E00E8": {
+      "is": "001E0168",
+      "why": "the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0xB4, 1 of 1 places agree"
+    },
+    "L02:001E00EC": {
+      "is": "001E016C",
+      "why": "the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0xAC, 1 of 1 places agree"
     }
   },
   "mp_hostgen": {
