@@ -239,6 +239,15 @@ public:
     // the screen's quad of block 0x3BE0.
     virtual bool own_mobys_into_narrow_buffers() const { return false; }
 
+    // Whether an effect strip drawn with this TEX0 samples the game's copy of the frame drawn so
+    // far (a refraction: Up Your Arsenal's heat haze), which the window draws from a native
+    // snapshot of its own picture instead of the chip's frame copy (renderer::EffectStrip::
+    // frame_copy).
+    virtual bool frame_copy_texture(std::uint64_t tex0) const {
+        (void)tex0;
+        return false;
+    }
+
     // Whether an image the game sends outside its display list stays over what that tick's list,
     // built before it and replayed after it, puts at the same block: the game reloads a block
     // that the list was still paging into (Going Commando's flight, func_002E80B0).
