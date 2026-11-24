@@ -30,6 +30,13 @@ extern "C" {
  * The result is openrac_game_pad's: nonzero while a controller or the keyboard drives the port. */
 int openrac_pad_report(int port, uint8_t out[OPENRAC_PAD_REPORT]);
 
+/* Builds a report from one platform sample, then runs the same mod callbacks as
+ * openrac_pad_report. `buttons` is active-low; `analog` holds right x/y, then left x/y.
+ * Does not poll input: a caller can check connection/setup state without consuming a mod report. */
+void openrac_pad_report_from_state(
+    int port, uint16_t buttons, const uint8_t analog[4], uint8_t out[OPENRAC_PAD_REPORT]
+);
+
 #ifdef __cplusplus
 }
 #endif
