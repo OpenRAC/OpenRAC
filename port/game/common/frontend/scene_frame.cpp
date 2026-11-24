@@ -589,7 +589,8 @@ bool draw_world(SceneFrame& frame) {
 }  // namespace
 
 renderer::CloudShadowSettings level_cloud_shadows() {
-    return g ? g->profile->cloud_shadow_defaults(g->kept->level) : renderer::CloudShadowSettings{};
+    return g ? g->render.profile->cloud_shadow_defaults(g->kept->level)
+             : renderer::CloudShadowSettings{};
 }
 
 void render_scene(
