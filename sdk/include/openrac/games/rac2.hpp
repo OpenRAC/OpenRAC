@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Serializes live game state to the save packet at output. Inventory substitutions made by a mod must be restored before calling the original.
+struct Save_Serialize {
+    static constexpr const char* id = "rac2.save.serialize";
+    static constexpr const char* name = "Save_Serialize";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -400,6 +408,9 @@ namespace hooks {
         using nanotech_steps = rac2::Hero_NanotechSteps;
         using take_damage = rac2::Hero_TakeDamage;
     }  // namespace player
+    namespace save {
+        using serialize = rac2::Save_Serialize;
+    }  // namespace save
     namespace text {
         using by_id = rac2::Text_ById;
     }  // namespace text

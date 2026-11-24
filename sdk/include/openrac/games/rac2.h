@@ -329,6 +329,12 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* Save_Serialize: Serializes live game state to the save packet at output. Inventory
+ * substitutions made by a mod must be restored before calling the original. */
+#define OPENRAC_RAC2_HOOK_Save_Serialize "Save_Serialize"
+#define OPENRAC_RAC2_SIG_Save_Serialize "void(u32)"
+typedef void (*openrac_rac2_Save_Serialize)(uint32_t output);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

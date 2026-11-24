@@ -373,3 +373,11 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 ```lua
 type Vendor_PreviewFn = () -> ()
 ```
+
+### `Save_SerializeFn`
+
+rac2.save.serialize (Save_Serialize) void(u32): Serializes live game state to the save packet at output. Inventory substitutions made by a mod must be restored before calling the original.
+
+```lua
+type Save_SerializeFn = (output: number) -> ()
+```
