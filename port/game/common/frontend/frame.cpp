@@ -3494,6 +3494,11 @@ TickPackets capture_2d_path(
     // state the last tick drew with two TESTs, is drawn as before: no alpha test, no Z).
     std::size_t quads_marked = 0, marks_stale = 0;
     const auto apply = [&](renderer::EffectQuad& q, std::uint64_t test, std::uint64_t zbuf) {
+        // A native quad's material is its whole state: the list's registers are not its own.
+        if (q.native) {
+            return;
+        }
+
         q.test = test;
         q.zbuf = zbuf;
         q.registers = test != 0;
@@ -3740,6 +3745,7 @@ void keep_effects(
     // stars and galaxy turn a little each pass (SkyDraw's copy, 0x003CE568).
     k.prev_sky_shells = k.sky_shells;
     k.prev_sky_shell_mask = sky_adjacent ? k.sky_shell_mask : 0u;
+    k.effect_images = std::move(g->effect_images);
     k.sky_shells = g->sky_shells;
     k.sky_shell_mask = std::exchange(g->sky_shell_mask, 0u);
     // The list's own tick's quads (above). The game's FadeToBlack (after a story card, between
@@ -3754,6 +3760,7 @@ void keep_effects(
     g->ui_quads.clear();
     g->effects.clear();
     g->effect_uploads.clear();
+    g->effect_images.clear();
     g->particles.clear();
     g->sky_sprites.clear();
 }
@@ -4079,6 +4086,7 @@ bool frame(
         ++g->effect_generation;
         g->effect_states_before.clear();
         g->effect_uploads.clear();
+        g->effect_images.clear();
         // effect_quad's notes of the cleared quads go with them: effect_textures() would read
         // them against the next tick's quads.
         g->effect_texture_ids.clear();

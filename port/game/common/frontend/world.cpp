@@ -52,6 +52,7 @@
 #include "enhanced/viewer/scene_lighting.h"
 #include "frontend.h"
 #include "game/common/frontend/draw_coverage.h"
+#include "game/common/frontend/effect_material.h"
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/energy_effects.h"
 #include "game/common/frontend/geometry.h"
@@ -884,6 +885,7 @@ void savestate_restored(std::uint64_t tick) {
     g->view_states = {};
     g->effects.clear();
     g->effect_uploads.clear();
+    g->effect_images.clear();
     g->sky_shell_mask = 0;
     g->sky_sprites.clear();
     g->particles.clear();
@@ -1030,7 +1032,21 @@ std::uint32_t effect_quad_marker() {
     if (!g || g->effects.empty() || g->effects.size() > 0xFFFFF) {
         return 0;
     }
+
+    // A native quad takes nothing from the list: no marker names it.
+    if (g->effects.back().native) {
+        return 0;
+    }
+
     return (g->effect_generation & 0xFFF) << 20 | static_cast<std::uint32_t>(g->effects.size() - 1);
+}
+
+bool material_quad(std::span<const std::uint8_t> ram, const openrac_game_material_quad& quad) {
+    // The tick's capture reads the image through the 2D layer's cache, on this (the game's) thread.
+    const EffectImageLookup lookup = [ram](const openrac_game_ui_image& image) {
+        return recorder::resolve_image(ram, image);
+    };
+    return g != nullptr && capture_material_quad(quad, lookup, g->effects, g->effect_images);
 }
 
 void effect_textures() {

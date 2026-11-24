@@ -990,6 +990,12 @@ openrac_add_test(screen_effect SOURCES tests/screen_effect_test.cpp renderer/eff
   INCLUDES . "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_common)
 openrac_add_test(game_image_sources SOURCES tests/game_image_sources_test.cpp
                  game/common/frontend/game_image_sources.cpp INCLUDES . game/common/include runtime/include)
+# A world quad's native material (openrac/material.h): checked and captured on the game's thread
+# with its image, then the renderer's state for it (renderer/effects/effect_state.h).
+openrac_add_test(native_material SOURCES tests/native_material_test.cpp
+                 game/common/frontend/effect_material.cpp game/common/frontend/ui_images.cpp
+                 game/common/frontend/game_image_sources.cpp
+                 INCLUDES . game/common/include runtime/include LIBS openrac_renderer)
 
 openrac_add_test(renderer_direct LIBS openrac_renderer openrac_platform)
 set_tests_properties(renderer_direct PROPERTIES SKIP_RETURN_CODE 77)
