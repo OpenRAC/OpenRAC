@@ -184,7 +184,7 @@ enum {
     ERROR_OTHER_GAME,
     ERROR_REGION_KEY,
     ERROR_HUB_FULL,
-    ERROR_WRONG_PASSWORD,
+    HUB_ERROR_WRONG_PASSWORD,
     ERROR_INVALID_ACCOUNT,
     ERROR_SESSION_INVALID,
     ERROR_TRY_LATER,
@@ -2951,14 +2951,14 @@ static void srv_pump(void) {
 /* The hub's answer to a login: the game's own login failures for the hub's reasons. */
 static void hub_login_failed(int reason) {
     static const char* const why[] = {
-        [ERROR_WRONG_PASSWORD] = "the password is not the account's",
+        [HUB_ERROR_WRONG_PASSWORD] = "the password is not the account's",
         [ERROR_INVALID_ACCOUNT] = "the hub takes no such name or password (4 to 32 characters)",
         [ERROR_TRY_LATER] = "too many attempts, or the hub cannot answer now",
     };
-    const int32_t status = reason == ERROR_WRONG_PASSWORD    ? M_INVALID_PASSWORD
-                           : reason == ERROR_INVALID_ACCOUNT ? M_ACCOUNT_NOT_FOUND
-                           : reason == ERROR_TRY_LATER       ? M_SERVER_ERROR
-                                                             : M_LOGIN_FAILED;
+    const int32_t status = reason == HUB_ERROR_WRONG_PASSWORD ? M_INVALID_PASSWORD
+                           : reason == ERROR_INVALID_ACCOUNT  ? M_ACCOUNT_NOT_FOUND
+                           : reason == ERROR_TRY_LATER        ? M_SERVER_ERROR
+                                                              : M_LOGIN_FAILED;
     fprintf(
         stderr,
         "[warning] rac3: online: the hub refused the login of %s: %s\n",
