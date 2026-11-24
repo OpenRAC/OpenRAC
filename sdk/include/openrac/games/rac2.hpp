@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Processes the extras menu and returns its menu result.
+struct Menu_Extras {
+    static constexpr const char* id = "rac2.menu.extras";
+    static constexpr const char* name = "Menu_Extras";
+    static constexpr const char* signature = "i32()";
+    using fn = int32_t (*)();
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -350,6 +358,9 @@ namespace hooks {
     namespace level {
         using load = rac2::Level_Load;
     }  // namespace level
+    namespace menu {
+        using extras = rac2::Menu_Extras;
+    }  // namespace menu
     namespace moby {
         namespace box_breaker_pickup {
             using update = rac2::Moby_BoxBreakerPickup_Update;

@@ -329,6 +329,11 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* Menu_Extras: Processes the extras menu and returns its menu result. */
+#define OPENRAC_RAC2_HOOK_Menu_Extras "Menu_Extras"
+#define OPENRAC_RAC2_SIG_Menu_Extras "i32()"
+typedef int32_t (*openrac_rac2_Menu_Extras)(void);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

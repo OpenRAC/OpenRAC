@@ -373,3 +373,11 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 ```lua
 type Vendor_PreviewFn = () -> ()
 ```
+
+### `Menu_ExtrasFn`
+
+rac2.menu.extras (Menu_Extras) i32(): Processes the extras menu and returns its menu result.
+
+```lua
+type Menu_ExtrasFn = () -> number
+```
