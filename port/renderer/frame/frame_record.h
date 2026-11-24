@@ -167,6 +167,9 @@ struct FrameViewContext {
 // records.
 struct FrameRecording {
     std::uint64_t serial = 0;  // 0: never closed
+    // A producer-announced build identity, independent of coincident tag addresses; 0: legacy mode.
+    std::uint32_t list_root = 0;
+    std::uint64_t list_generation = 0;
     std::vector<FrameCommand> commands;
     std::vector<UiQuad> ui_quads;
     std::vector<UiItem> ui_items;
@@ -227,13 +230,24 @@ public:
     // Appends an effect and its command to the same recording, including at the command limit.
     void push_screen_effect(const ScreenEffect& effect);
 
-    // Closes the open recording into the kept ones (when it has commands) and starts another.
-    // The anchor is forgotten.
+    // Starts a fresh build at `root`, retiring commands from its previous use even if this build
+    // records nothing. Other buffers remain eligible for late/resent submission. The game calls
+    // this only at its actual list reset/swap, before recording any commands of the new build.
+    void begin_list(std::uint32_t root);
+
+    // Keeps the open recording when nonempty and forgets the anchor. In producer-owned mode this
+    // snapshots the current build without losing earlier commands when capture splits the build;
+    // otherwise it starts another legacy recording. Empty owned builds still retire old ownership.
     void close();
 
     // The kept recording a display list draws with: the most recent one (non-empty) any of whose
     // anchors is one of `tags` (the list's DMA tag addresses, in walk order). Null for none.
     const FrameRecording* match(std::span<const std::uint32_t> tags) const;
+
+    // Matches the build that owns `root`, then requires anchor membership as before. Once the
+    // producer announces list builds, numerical tag coincidence alone cannot choose a recording.
+    // Legacy producers that announce none retain the tag-only matching behavior.
+    const FrameRecording* match(std::uint32_t root, std::span<const std::uint32_t> tags) const;
 
     // The most recent kept recording with no anchors (a frame with no display list at all), or null.
     const FrameRecording* latest_unanchored() const;
@@ -253,6 +267,12 @@ private:
     std::uint32_t m_anchor = 0;
     std::array<float, 2> m_screen{512.0f, 448.0f};
     bool m_view_open = false;
+    // Build generations are monotonic for this recorder; reset clears ownership but not this clock.
+    std::uint64_t m_list_generation = 0;
+    // True after a producer opts into list ownership; legacy matching cannot reappear on empty builds.
+    bool m_owns_lists = false;
+    // Only a push changes a build's captured payload; empty ticks must not evict a valid resend.
+    bool m_open_dirty = false;
 };
 
 // For each command of `recording`, the index of the tag of `tags` it goes before, or kDropped. A

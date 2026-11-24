@@ -92,11 +92,37 @@ void openrac_frame_view_end(void);
  * packets and composite bloom/grading need richer ordering and are reported as unsupported, never
  * replayed over every view or silently omitted. Unscoped and explicit-panel effects are unchanged. */
 
+/* Announces a fresh construction in the display-list buffer at `root`, after its real reset/swap
+ * and before its first recorded command. Previous commands belonging to that buffer are retired
+ * even if the new build records nothing; untouched buffers remain valid for late/resent lists.
+ * This is not a tick boundary or a DMA send. Native commands still require reached anchors.
+ * Producers that never call this retain the transitional tag-only matching behavior. */
+void openrac_frame_list_begin(gaddr root);
+
 /* Transitional, while the game still sends residual 2D as packets in its own display list: the
  * list's write pointer (its value, a game address) the commands that follow belong at. The window
  * finds the list's tag at that address and draws them there; 0 for none. Goes when the game sends
  * no residual packets (P7, R3). */
 void openrac_frame_anchor(gaddr list_cursor);
+
+/* Normalizes a complete aligned RAM list cursor, or returns UINT32_MAX (unreachable) for invalid
+ * input. Shared by the cursor-word helper and explicit list ownership at the C boundary. */
+static inline gaddr openrac_frame_ram_cursor(gaddr at) {
+    const int at_in_ram =
+        at < openrac_guest_ram_size
+        || (at >= GUEST_RAM_UNCACHED && at - GUEST_RAM_UNCACHED < openrac_guest_ram_size)
+        || (at >= GUEST_RAM_UNCACHED_ACCEL
+            && at - GUEST_RAM_UNCACHED_ACCEL < openrac_guest_ram_size);
+    at = openrac_guest_ram_address(at);
+
+    /* List tags occupy aligned quadwords, including the eventual terminating tag. */
+    if (!at_in_ram || at == 0 || (at & 15u) != 0 || at > openrac_guest_ram_size
+        || 16u > openrac_guest_ram_size - at) {
+        return UINT32_MAX;
+    }
+
+    return at;
+}
 
 /* Anchors at the write pointer in the readable game word at `cursor`, accepting RAM and its aliases.
  * Invalid, null or unaligned list pointers use an unreachable anchor, never unanchored drawing.
@@ -110,21 +136,7 @@ static inline void openrac_frame_anchor_at(gaddr cursor) {
 
     gaddr at;
     memcpy(&at, G(cursor), sizeof(at));
-    const int at_in_ram =
-        at < openrac_guest_ram_size
-        || (at >= GUEST_RAM_UNCACHED && at - GUEST_RAM_UNCACHED < openrac_guest_ram_size)
-        || (at >= GUEST_RAM_UNCACHED_ACCEL
-            && at - GUEST_RAM_UNCACHED_ACCEL < openrac_guest_ram_size);
-    at = openrac_guest_ram_address(at);
-
-    /* List tags occupy aligned quadwords, including the eventual terminating tag. */
-    if (!at_in_ram || at == 0 || (at & 15u) != 0 || at > openrac_guest_ram_size
-        || 16u > openrac_guest_ram_size - at) {
-        openrac_frame_anchor(UINT32_MAX);
-        return;
-    }
-
-    openrac_frame_anchor(at);
+    openrac_frame_anchor(openrac_frame_ram_cursor(at));
 }
 
 /* The world (OPENRAC_DRAW_* layers) is drawn here: the 2D before it goes under the world. */
