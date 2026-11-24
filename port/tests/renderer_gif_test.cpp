@@ -951,7 +951,9 @@ void recorded_frame_without_packets() {
         CHECK(gif.draws()[1].state.blend == Blend::of(BlendMode::Mix));
         const DirectState& c = gif.draws()[2].state;
         CHECK(c.colour_writes == 0 && c.depth_write && c.depth.enabled);
-        CHECK(near(gif.vertices()[12].z, 0.0f));
+        // Cleared to the far value 0 of reversed depth: -1 in the 2D pass's -1..1 clip range (0,
+        // as this once checked, is the middle of the buffer, 0.5).
+        CHECK(near(gif.vertices()[12].z, -1.0f));
     }
 }
 

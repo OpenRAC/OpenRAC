@@ -36,9 +36,9 @@ production adapter code, not evidence that a retail call satisfies their contrac
 - The depth helper writes only `OPENRAC_CLEAR_DEPTH`. It rejects partial clips
   and picture-only placement because the existing Clear is whole-target only.
   It does not pretend that any given retail clear is depth-only. The recorder's
-  Clear executor draws its depth at clip-space 0, which the 2D pass (GL's -1..1
-  range; the world passes switch to 0..1 and back) stores as 0.5, not the far 0.
-  Fix that, with a test, before any depth clear is bound.
+  Clear executor writes the far value: clip -1 in the 2D pass (GL's -1..1 range;
+  the world passes switch to 0..1 and back), stored 0. It used to draw clip-space
+  0, which that range stores as 0.5; `renderer_gif_test` checks the vertex depth.
 - Each emitted command takes the supplied reached anchor. No helper begins or
   ends a recording, reorders a world boundary, sends a list or changes a clock.
 

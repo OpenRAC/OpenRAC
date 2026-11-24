@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 
 namespace openrac::renderer {
@@ -113,6 +114,14 @@ struct DepthTest {
 
     bool operator==(const DepthTest&) const = default;
 };
+
+// A depth `z` of a buffer whose largest value is `max` (bigger is nearer) where the 2D path draws
+// it: the window's [0, 1] through GL's -1..1 clip range. The GIF interpreter places its vertices'
+// depth through this function; 0 is the far value a depth clear leaves.
+inline float depth_clip(double z, double max) {
+    const double depth = std::clamp(z / max, 0.0, 1.0);
+    return static_cast<float>(depth * 2.0 - 1.0);
+}
 
 // How a texel and the vertex colour combine (the shader's tfx).
 enum class TextureCombine : std::uint8_t {

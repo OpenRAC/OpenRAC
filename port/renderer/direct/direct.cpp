@@ -1069,7 +1069,9 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             s.depth = {s.depth_write, DepthCompare::Always};
             FrameCommand whole = c;
             whole.whole = true;
-            native_rect(whole, s, 0.0f);  // reversed depth: cleared to 0
+            // Reversed depth is cleared to its far value 0, which the 2D pass's -1..1 clip range
+            // places at -1 (clip-space 0 stored 0.5).
+            native_rect(whole, s, depth_clip(0.0, 1.0));
             break;
         }
         case FrameOp::Picture: {
@@ -1566,8 +1568,7 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
     out.y = 1.0f - py / target_h * 2.0f;
     // The chip's depth, bigger nearer, straight into GL's [0, 1] window
     // depth: with the buffer cleared to 0 and GEQUAL, as on the console.
-    const double depth = std::clamp(static_cast<double>(v.z) / c.zbuf.max_z(), 0.0, 1.0);
-    out.z = static_cast<float>(depth * 2.0 - 1.0);
+    out.z = depth_clip(static_cast<double>(v.z), c.zbuf.max_z());
     int frame_x = 0;
     int frame_y = 0;
     if (attributes().tme
