@@ -4,7 +4,7 @@
 |---|---|---|---|
 | P1 native frame recorder | P1 agent (Opus) | new `port/renderer/frame/` (recorder back end), `game/common/include/openrac/game_host.h` (`openrac_frame_*` API, additive), `game/common/program/game_host.cpp` (recorder entry points), `game/common/frontend/frame.cpp` (consume the recorded list beside `capture_2d_path`), `renderer/renderer.h` (`FrameInput` gains the recorded list), `renderer/direct/` (state code split out as the back end, no behaviour change), docs/port/FRAME_RECORDER.md, tests under `port/tests` | in progress (clone ~/RACSwarm/p1-recorder) |
 | P10a VU0 microprograms | P10a agent (clone ~/RACSwarm/p10a-vu0, branch feat/rac3-vu0-programs-native) | rac3-pal: `host/trig.c`, `hostgen.json` `asm.vu0_programs`, callers of `vcallms` (func_0038D478/490/6E8/708, func_L01_0040F0B0/0D0 + MP copies); rac2: `host/trig.c`, its `vu0_programs`; `common/lib/vu0_sine.c` constants | **merged: #776 (f4d0728f7)**; builds, unit tests and checks pass; game runs left to testing (see "P10a hand-off") |
-| P10b VU0 inline asm as C | Original draft #785, continued locally on `codex/p10b-native-vu0` | hostgen: `prep.py` (VU0 constraints/clobbers), `clangast.py`, `lower.py`, `vu0asm.py`, `asmc.py` (local register-file name), tests; rac3-pal/ntsc `hostgen.json` VU0-only forced routes and retained-case audit | local continuation; Windows/Linux hostgen, RAC1 build/ABI, RAC3 PAL/NTSC builds/ABI and bounded Veldin checks pass; Windows RAC3 validation includes separate #809 prerequisites (see "P10b local continuation") |
+| P10b VU0 inline asm as C | Original draft #785, continued on `codex/p10b-native-vu0` | hostgen: `prep.py` (VU0 constraints/clobbers), `clangast.py`, `lower.py`, `vu0asm.py`, `asmc.py` (local register-file name), tests; rac3-pal/ntsc `hostgen.json` VU0-only forced routes and retained-case audit | continuation for review; Windows/Linux hostgen, RAC1 build/ABI, RAC3 PAL/NTSC builds/ABI and bounded Veldin checks pass; Windows RAC3 validation includes separate #809 prerequisites (see "P10b continuation and validation") |
 | P13 files instead of disc sectors | P13 agent | `common/lib/cdvd.c`, new `common/lib/disc_files.cpp`, `assets/disc/sector_map.{h,cpp}`, `sound_engine.cpp`/`movie.cpp`/`levels.cpp`/`interface_runs.cpp` disc reads, `rac3-pal/host/exec.c`+`entry.c`+`mp.c` (program loads only), `tools/extractor.py` + `tools/openrac_common/disc_files.py`, launcher `disc-files` step | PR #755 open (branch feat/p13-files-not-sectors), merge pending: no run-time read of disc.iso; rac3 programs unpacked at extraction into `programs/*.records` |
 | P3 rac3 residual 2D + the rac3 UI (HUD, text, menus, help boxes, loading/saving, pause, vendors, mpui skin), and P4's UI part (font and HUD images by the game's tables) | native-UI agent (clone ~/RACSwarm/rac3-native-ui, branch feat/rac3-native-ui) | rac3-pal: `host/ui2d.c`, `ui2d.h`, `hud.c`, `options.c`, `loading.c`, `picture.c` (2D parts), `print.c`, `menu_log.c`; the drawing functions of `host/mp_ui.c` (phase 4, after telling the UI agent in rac3-mp/STATUS.md); new `game/common/include/openrac/ui_item.h` (the GS-free UI record and game image descriptor), new `game/common/frontend/ui_images.cpp` (game image decode to RGBA, by content hash), `renderer/textures/texture_pool.{h,cpp}` `ui_image()` (additive); NOT frame.cpp, renderer/direct, renderer.h or game_host.* (P1's): the UI record reaches the window only through P1's recorder | rac3 adapter data mapped (native-ui.md section 5); waiting for P1's design note before any shared code; nothing landed |
 | P4 textures by the game's tables, materials without GS words | P4 agent (Mac clone ~/RACSwarm/p4-tex/OpenRAC, box1 ~/RACSwarm/p4-tex, branch feat/p4-game-textures on top of develop + the native-UI agent's text commit) | new `game/common/frontend/ui_images.{h,cpp}` additions only (`GameImageSources`, the indexed source for PCSX2 names; the native-UI agent's decoder otherwise untouched), `openrac_game_image_keep` in `game_host.h`/`game_host.cpp` (additive), `renderer/frame/ui_records.h` (`UiImage::indexed`, additive), `TexturePool::ui_image` (packs), `pcsx2_pack` (PSMT8H name), new rac3-pal `host/textures.{c,h}` (SendImage wraps func_00397D60 / func_00397980__frontbin / func_L01_004215C0, `rac3_hud_image`), docs/port/TEXTURES.md; later: effect quad / particle / strip records' materials (`openrac_game_quad`, `renderer/effects`, `frontend/world.cpp` effect_quad), rac3 `render.c` effect quads and particles, then rac1/rac2 | phase 1 (rac3 HUD images) **merged #764 (11b814a84)**; phase 2 (effect/particle/strip materials) planned, not started: game runs refused by the permission check |
@@ -125,10 +125,11 @@ through it).
   `openrac_frame_ui_quad`), a one-word change per call. **I did not touch `ui2d.c`, `picture.c`, `print.c`**: yours.
   hud.c's two `HUD_SIDE_MARKER` writes stay until the UI core's placement replaces them.
 
-## P10b local continuation (2026-11-23)
+## P10b continuation and validation (2026-11-23)
 
 The history of draft #785 is preserved, with develop `5d2c1a6b1` integrated normally.
-This continuation is local: no P10b publication or merge is implied by these results.
+This continuation is for review, not a merge. The validation below was completed locally
+before publication; the original draft and its history are preserved.
 P10a #776 is already merged and is not redone here.
 
 - Native lowering refuses untracked control state and immediate I. Initialization is tracked
@@ -207,7 +208,8 @@ Limitations remain explicit:
   is a smoke observation, not a numerical camera-equivalence check. These silent runs do not
   validate audio. MP was built, not played; other levels and a full playthrough remain untested.
 - There is no pixel-equivalence claim. Earlier P11 runs were consulted only to classify existing
-  warnings, never counted as P10b game validation. No P10b push or publication was performed.
+  warnings, never counted as P10b game validation. No game data or captured pictures are part
+  of the delivery.
 
 ## P10a notes for P10b (2026-11-22)
 
