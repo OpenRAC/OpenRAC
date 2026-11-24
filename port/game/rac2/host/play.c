@@ -125,9 +125,20 @@ enum {
 #define FLAG_NOT_RUN 0x2u
 #define FLAG_KEEP_MATRIX 0x4u
 #define FLAG_NO_ANIMATION 0x40u
+/* The flags that keep a moby from being drawn (render.c); a mod hides one with the first. */
+#define FLAG_HIDDEN 0x81u
 /* A class's seq count and seq table, a seq's key count (func_002A7398, MobyAnimAdvance). */
 #define CLASS_SEQ_COUNT 0x0Cu
 #define CLASS_SEQS 0x48u
+/* A class's kind (+0x46): 5 a creature, an enemy (enemy_copies.c). */
+#define CLASS_KIND 0x46u
+#define KIND_CREATURE 5
+/* openrac_moby's flags (openrac_mod.h). */
+#define OPENRAC_MOBY_UPDATES 0x1u
+#define OPENRAC_MOBY_PLACED 0x4u
+#define OPENRAC_MOBY_CREATURE 0x8u
+#define OPENRAC_MOBY_HIDDEN 0x40u
+#define OPENRAC_MOBY_DRAWN 0x80u
 #define SEQ_FRAMES 0x10u
 #define SEQ_FRAME_TABLE 0x1Cu
 
@@ -277,6 +288,76 @@ static int hero_pose(openrac_game_pose* out) {
         out->flags |= 16u; /* OPENRAC_POSE_AIRBORNE */
     }
     out->anim_speed = GREF(float, moby + MOBY_ANIM_SPEED);
+    return 1;
+}
+
+/* ---- The hero moved by a mod (openrac_api.hero_set_pose) ----
+ *
+ * For a mod that holds Hero_Update and does not call it. This does what the update does to show
+ * him: his animation, his place, rotation and velocity, his matrices, then the steps after his
+ * movement (blinks, face, moby, helmet, held item, scale). His state machine, the stick, ledges and
+ * rails do not run. */
+#define HERO_MOTION_POS (HERO + 0x80u)
+#define HERO_MOTION_ROT (HERO + 0x90u)
+#define HERO_INV_ROT_MATRIX (HERO + 0x40u)
+/* A tick's move (UpdateHeroMotion's velocity). */
+#define HERO_VELOCITY (HERO + 0x160u)
+/* The animation's speed and rate (AdvanceHeroAnimation: the time steps by speed times rate). */
+#define HERO_ANIM_SPEED (HERO + 0xC20u)
+/* A vehicle or ship is driving him (the frame update hands over to its own update). */
+#define HERO_VEHICLE (HERO + 0x22B4u)
+/* The ticks a new seq blends in over, as set_hero_animation's callers pass. */
+#define HERO_SET_BLEND 4.0f
+
+static int hero_set_pose(const openrac_game_pose* pose) {
+    const gaddr moby = hero_moby();
+    if (moby == 0 || GREF(uint8_t, HERO_VEHICLE) != 0) {
+        return 0;
+    }
+    const int frames = seq_frames(moby, pose->seq);
+    if (frames > 0 && pose->seq != GREF(uint8_t, moby + MOBY_TARGET_SEQ)) {
+        func_L00_002D2168(
+            (int)pose->seq,
+            (int)pose->frame < frames ? (int)pose->frame : frames - 1,
+            HERO_SET_BLEND
+        );
+    }
+    /* A queued seq or frame his last state asked for is for that state's animation. */
+    func_L00_002D24B8();
+    GREF(float, HERO_ANIM_SPEED) = pose->anim_speed;
+    func_L00_002D24E8();
+    for (unsigned i = 0; i < 3; ++i) {
+        GREF(float, HERO_MOTION_POS + 4u * i) = pose->position[i];
+        GREF(float, HERO_MOTION_ROT + 4u * i) = pose->rotation[i];
+        GREF(float, HERO_VELOCITY + 4u * i) = pose->velocity[i] / (float)openrac_game.frame_rate;
+    }
+    /* On the ground or in the air, as the mod says (OPENRAC_POSE_ON_GROUND, _IN_AIR): the count
+     * the follow camera reads. */
+    if (pose->flags & 2u) {
+        GREF(int16_t, HERO_FRAMES_OFF_GROUND) = 0;
+    } else if (pose->flags & 4u) {
+        const int16_t off = GREF(int16_t, HERO_FRAMES_OFF_GROUND);
+        GREF(int16_t, HERO_FRAMES_OFF_GROUND) = (int16_t)(off < 0x7FFF ? off + 1 : off);
+    }
+    func_00283410(HERO, HERO_MOTION_ROT);
+    for (unsigned r = 0; r < 4; ++r) {
+        for (unsigned c = 0; c < 4; ++c) {
+            const float v =
+                r < 3 && c < 3 ? GREF(float, HERO + 16u * c + 4u * r) : (r == c ? 1.0f : 0.0f);
+            GREF(float, HERO_INV_ROT_MATRIX + 16u * r + 4u * c) = v;
+        }
+    }
+    /* His blinks (ClampHeroControlAndUpdateEffects): the face's manipulators on their timer, as
+     * his update runs them, so a blink under way when the mod took over does not hold his eyes
+     * shut. */
+    func_L00_002A5518();
+    func_L00_002A5840();
+    func_L00_002A5368();
+    func_L00_002A9460();
+    func_L00_002AA178(0);
+    func_L00_002B2120();
+    func_L00_002AFBC0();
+    func_L00_002A7748();
     return 1;
 }
 
@@ -479,7 +560,16 @@ static int mobys(openrac_game_moby_state* out, int max) {
             s->slot = (int32_t)((m - base) / MOBY_SIZE);
             s->key = moby_key(m, dynamic);
             s->oclass = GREF(int16_t, m + MOBY_OCLASS);
-            s->flags = GREF(uint16_t, m + MOBY_FLAGS);
+            const gaddr cls = GREF(gaddr, m + MOBY_CLASS);
+            s->flags =
+                (GREF(gaddr, m + MOBY_UPDATE) != 0 ? OPENRAC_MOBY_UPDATES : 0u)
+                | (m < dynamic ? OPENRAC_MOBY_PLACED : 0u)
+                | (rac2_ram_at(cls, CLASS_KIND + 2u)
+                           && GREF(int16_t, cls + CLASS_KIND) == KIND_CREATURE
+                       ? OPENRAC_MOBY_CREATURE
+                       : 0u)
+                | ((GREF(uint16_t, m + MOBY_FLAGS) & FLAG_HIDDEN) != 0 ? OPENRAC_MOBY_HIDDEN : 0u)
+                | (GREF(uint8_t, m + MOBY_DRAWN) != 0 ? OPENRAC_MOBY_DRAWN : 0u);
             s->state = GREF(uint8_t, m + MOBY_STATE);
             for (unsigned i = 0; i < 3; ++i) {
                 s->position[i] = GREF(float, m + MOBY_POS + 4u * i);
@@ -495,6 +585,36 @@ static int mobys(openrac_game_moby_state* out, int max) {
         ++n;
     }
     return n;
+}
+
+/* A mod hides a moby (openrac_api.moby_hide) as the game hides one: flag 0x1, which the drawing
+ * reads. Shown again, only that flag is cleared. */
+static void moby_hide(gaddr moby, int hidden) {
+    if (slot_of(moby) < 0 || GREF(uint8_t, moby + MOBY_STATE) >= 0x80) {
+        return;
+    }
+    const uint16_t flags = GREF(uint16_t, moby + MOBY_FLAGS);
+    GREF(uint16_t, moby + MOBY_FLAGS) = (uint16_t)(hidden ? flags | 0x1u : flags & ~0x1u);
+}
+
+/* What the hero holds (openrac_api.hero_held): the item in his hand (+0x1220, its id +0x1248), as
+ * the one piece of hand slot 0. */
+static int hero_held(openrac_game_held* out) {
+    memset(out, 0, sizeof *out);
+    const gaddr item = GREF(gaddr, HERO_ITEM_MOBY);
+    if (item == 0 || slot_of(item) < 0 || GREF(uint8_t, item + MOBY_STATE) >= 0x80) {
+        return 1;
+    }
+    openrac_game_held_piece* p = &out->pieces[0];
+    p->slot = 0;
+    p->item = GREF(int32_t, HERO_ITEM_ID);
+    p->oclass = GREF(int16_t, item + MOBY_OCLASS);
+    for (unsigned i = 0; i < 3; ++i) {
+        p->position[i] = GREF(float, item + MOBY_POS + 4u * i);
+        p->rotation[i] = GREF(float, item + MOBY_ROT + 4u * i);
+    }
+    out->count = 1;
+    return 1;
 }
 
 static int32_t moby_slot(int32_t key) {
@@ -682,6 +802,9 @@ static openrac_game_play play = {
     .phase = phase,
     .loads = loads,
     .hero_pose = hero_pose,
+    .hero_set_pose = hero_set_pose,
+    .collision_triangles = rac2_collision_triangles,
+    .hero_update_hook = "Hero_Update",
     .figure_spawn = figure_spawn,
     .figure_alive = figure_alive,
     .figure_pose = figure_pose,
@@ -702,6 +825,8 @@ static openrac_game_play play = {
     .moby_kill = moby_kill,
     .moby_spawn = moby_spawn,
     .hero_slot = hero_slot,
+    .hero_held = hero_held,
+    .moby_hide = moby_hide,
     .bolts = bolts,
     .camera_position = camera_position,
     .world_family = world_family,
