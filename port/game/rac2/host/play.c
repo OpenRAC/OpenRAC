@@ -125,6 +125,8 @@ enum {
 #define FLAG_NOT_RUN 0x2u
 #define FLAG_KEEP_MATRIX 0x4u
 #define FLAG_NO_ANIMATION 0x40u
+/* The flags that keep a moby from being drawn (render.c); a mod hides one with the first. */
+#define FLAG_HIDDEN 0x81u
 /* A class's seq count and seq table, a seq's key count (func_002A7398, MobyAnimAdvance). */
 #define CLASS_SEQ_COUNT 0x0Cu
 #define CLASS_SEQS 0x48u
@@ -135,6 +137,7 @@ enum {
 #define OPENRAC_MOBY_UPDATES 0x1u
 #define OPENRAC_MOBY_PLACED 0x4u
 #define OPENRAC_MOBY_CREATURE 0x8u
+#define OPENRAC_MOBY_HIDDEN 0x40u
 #define OPENRAC_MOBY_DRAWN 0x80u
 #define SEQ_FRAMES 0x10u
 #define SEQ_FRAME_TABLE 0x1Cu
@@ -563,13 +566,15 @@ static int mobys(openrac_game_moby_state* out, int max) {
             s->key = moby_key(m, dynamic);
             s->oclass = GREF(int16_t, m + MOBY_OCLASS);
             const gaddr cls = GREF(gaddr, m + MOBY_CLASS);
-            s->flags = (GREF(gaddr, m + MOBY_UPDATE) != 0 ? OPENRAC_MOBY_UPDATES : 0u)
-                       | (m < dynamic ? OPENRAC_MOBY_PLACED : 0u)
-                       | (rac2_ram_at(cls, CLASS_KIND + 2u)
-                                  && GREF(int16_t, cls + CLASS_KIND) == KIND_CREATURE
-                              ? OPENRAC_MOBY_CREATURE
-                              : 0u)
-                       | (GREF(uint8_t, m + MOBY_DRAWN) != 0 ? OPENRAC_MOBY_DRAWN : 0u);
+            s->flags =
+                (GREF(gaddr, m + MOBY_UPDATE) != 0 ? OPENRAC_MOBY_UPDATES : 0u)
+                | (m < dynamic ? OPENRAC_MOBY_PLACED : 0u)
+                | (rac2_ram_at(cls, CLASS_KIND + 2u)
+                           && GREF(int16_t, cls + CLASS_KIND) == KIND_CREATURE
+                       ? OPENRAC_MOBY_CREATURE
+                       : 0u)
+                | ((GREF(uint16_t, m + MOBY_FLAGS) & FLAG_HIDDEN) != 0 ? OPENRAC_MOBY_HIDDEN : 0u)
+                | (GREF(uint8_t, m + MOBY_DRAWN) != 0 ? OPENRAC_MOBY_DRAWN : 0u);
             s->state = GREF(uint8_t, m + MOBY_STATE);
             for (unsigned i = 0; i < 3; ++i) {
                 s->position[i] = GREF(float, m + MOBY_POS + 4u * i);
@@ -585,6 +590,36 @@ static int mobys(openrac_game_moby_state* out, int max) {
         ++n;
     }
     return n;
+}
+
+/* A mod hides a moby (openrac_api.moby_hide) as the game hides one: flag 0x1, which the drawing
+ * reads. Shown again, only that flag is cleared. */
+static void moby_hide(gaddr moby, int hidden) {
+    if (slot_of(moby) < 0 || GREF(uint8_t, moby + MOBY_STATE) >= 0x80) {
+        return;
+    }
+    const uint16_t flags = GREF(uint16_t, moby + MOBY_FLAGS);
+    GREF(uint16_t, moby + MOBY_FLAGS) = (uint16_t)(hidden ? flags | 0x1u : flags & ~0x1u);
+}
+
+/* What the hero holds (openrac_api.hero_held): the item in his hand (+0x1220, its id +0x1248), as
+ * the one piece of hand slot 0. */
+static int hero_held(openrac_game_held* out) {
+    memset(out, 0, sizeof *out);
+    const gaddr item = GREF(gaddr, HERO_ITEM_MOBY);
+    if (item == 0 || slot_of(item) < 0 || GREF(uint8_t, item + MOBY_STATE) >= 0x80) {
+        return 1;
+    }
+    openrac_game_held_piece* p = &out->pieces[0];
+    p->slot = 0;
+    p->item = GREF(int32_t, HERO_ITEM_ID);
+    p->oclass = GREF(int16_t, item + MOBY_OCLASS);
+    for (unsigned i = 0; i < 3; ++i) {
+        p->position[i] = GREF(float, item + MOBY_POS + 4u * i);
+        p->rotation[i] = GREF(float, item + MOBY_ROT + 4u * i);
+    }
+    out->count = 1;
+    return 1;
 }
 
 static int32_t moby_slot(int32_t key) {
@@ -794,6 +829,8 @@ static openrac_game_play play = {
     .moby_kill = moby_kill,
     .moby_spawn = moby_spawn,
     .hero_slot = hero_slot,
+    .hero_held = hero_held,
+    .moby_hide = moby_hide,
     .bolts = bolts,
     .camera_position = camera_position,
     .world_family = world_family,
