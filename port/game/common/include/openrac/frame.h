@@ -143,6 +143,10 @@ int openrac_frame_ui_quad(const struct openrac_game_ui_rect* quad);
  * depth mode in effect here among the residual packets. Retired by P4. */
 void openrac_frame_effect_quad(uint32_t marker);
 
+/* 1 when the window draws what is recorded natively; 0 without a window or under OPENRAC_UI_REPLAY,
+ * where the caller draws the game's way: for the calls below that return nothing. */
+int openrac_frame_native(void);
+
 /* A flat rectangle (x0, y0, x1, y1; NULL: the whole target) in colour `rgba`, blended. */
 void openrac_frame_fill(const float* rect, uint32_t rgba, int blend);
 /* Clears the target's colour to `rgba` and/or its depth (OPENRAC_CLEAR_*). */

@@ -918,6 +918,17 @@ void openrac_frame_effect_quad(uint32_t marker) {
     (void)marker;
 }
 
+int openrac_frame_native(void) {
+    return c_boundary::call("openrac_frame_native", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return frontend::recorder::drawing() ? 1 : 0;
+        }
+#endif
+        return 0;
+    });
+}
+
 void openrac_frame_fill(const float* rect, uint32_t rgba, int blend) {
     OPENRAC_RECORD("openrac_frame_fill", fill(rect, rgba, blend));
     (void)rect;

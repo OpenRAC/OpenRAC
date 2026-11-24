@@ -7,9 +7,8 @@
  * display list's cursor with nothing written into the list. Text goes through the shared 2D layer
  * (openrac/ui.h, ui_adapter.c): a glyph of a font's print is its cell of the font page as the game
  * keeps it in its font header, no word of the console's graphics chip, drawn from the page's
- * distance field, sharp at any size. The other routines still hand the window the older records
- * (with the chip's TEX0) until they move to the shared layer as well. OPENRAC_UI_REPLAY sends the
- * game's own packets, for comparing.
+ * distance field, sharp at any size. OPENRAC_UI_REPLAY sends the game's own packets, for
+ * comparing.
  *
  * The routines were paired with Going Commando's instruction by instruction (their opcode
  * sequences against the boot program's functions): the flat box (func_0038B310, rac2's
@@ -24,15 +23,21 @@
  * frontbin calls (frontbin's twin is func_0038F078) but which is wrapped as its twin is, so that
  * nothing of the font is drawn from the game's packets.
  *
- * The darkening over the main menu's background picture (func_0038B200, a colour over the picture
- * as sixteen 32-pixel sprites of a fixed packet, D_00141850) is one record of flat colour.
+ * The darkening over the main menu's background picture and the fade between screens
+ * (func_0038B200, a colour over the picture as sixteen 32-pixel sprites of a fixed packet,
+ * D_00141850) is a fill of the whole window.
  *
- * The menus' frames and art are Widget3D sprites: a small animated mesh of quads that
- * func_003AA780 poses (its bones through func_003AA168, its vertices to the scratchpad through
- * func_003A08E8 or func_003A0A28) and sends one quad at a time, a GIF tag, TEX0, PRIM and four
- * corners each: RGBAQ, ST, XYZ2, or for a quad whose PRIM takes texel coordinates (FST: the
- * menus' corner ornaments) RGBAQ, UV, XYZ2. Its wrapper takes those quads, which it alone builds, as
- * records in their place.
+ * The menus' frames and art (the help boxes' frames too, func_003AC9F0) are Widget3D sprites: a
+ * small animated mesh of quads that func_003AA780 poses (its bones through func_003AA168, its
+ * vertices to the scratchpad through func_003A08E8 or func_003A0A28) and sends one quad at a time.
+ * Its wrapper draws those quads from the posed vertices and the mesh's own quad list and textures
+ * (widget_sprite), and takes what the routine sent back out of the list unread.
+ *
+ * The other textured routines (glyph quads outside a print, turned glyph quads, turned sprites,
+ * ring segments, the turned HUD quad) are given their texture as the handle a texture getter
+ * returned; the getters are wrapped (textures.c), so the handle names the image the game's tables
+ * hold (rac3_texture_image), drawn through the shared layer. A handle no getter named stays the
+ * older record.
  *
  * Every level's program carries its own copy of all of these (rac3-decomp's catalogue folds them
  * with frontbin's, and hostgen names them after Veldin's places, func_L01_...): the same
@@ -214,13 +219,51 @@ static int flat_native(gaddr cursor) {
     return cursor == RAC3_MADDR(0x002446A8u) || GREF(int32_t, RAC3_MADDR(0x002412DCu)) == 39;
 }
 
-/* A record to the window through the frame recorder, placed by the list's cursor: in flat colour
- * through the shared 2D layer, else of the older kind (with the chip's TEX0, until its texture
- * comes from the game's tables, and the maps' boxes). False when the 2D layer is replayed (the caller sends the game's). */
+/* The HUD bank whose handles a quad drawn on the list at `cursor` may hold: the boot program's and
+ * frontbin's, or the loaded level's. */
+static gaddr hud_tables_of(gaddr cursor) {
+    return cursor == kBoot.cursor ? kBoot.hud_entries : rac3_ui2d_level().hud_entries;
+}
+
+/* A textured quad through the shared 2D layer, its image the one the game's texture getters named
+ * for its handle (rac3_texture_image: HUD, effect and picture textures by their tables): its
+ * corners (12.4 with the game's offset) and texels (12.4) in the game's pixels and the image's, a
+ * colour each corner, shaded or not, the image repeated when the record's wrap says so. False when
+ * no image is known for the handle, or the window does not draw it. */
+static int send_textured(const openrac_game_ui_rect* q, gaddr cursor) {
+    openrac_ui_quad quad;
+    memset(&quad, 0, sizeof(quad));
+    if (rac3_exec_program() == RAC3_EXEC_MULTIPLAYER
+        || !rac3_texture_image(q->tex0, hud_tables_of(cursor), &quad.image)) {
+        return 0;
+    }
+    const float ofx = (float)(rac3_ui2d_screen_x(0) + 8);
+    const float ofy = (float)(rac3_ui2d_screen_y(0) + 8);
+    for (int i = 0; i < 4; ++i) {
+        quad.x[i] = ((float)(int)q->x[i] - ofx) / 16.0f;
+        quad.y[i] = ((float)(int)q->y[i] - ofy) / 16.0f;
+        quad.u[i] = (float)(int32_t)q->u[i] / 16.0f;
+        quad.v[i] = (float)(int32_t)q->v[i] / 16.0f;
+        quad.rgba[i] = (q->flags & 4u) != 0 ? q->corners[i] : q->rgba;
+    }
+    quad.flags = ((q->flags & 32u) != 0 ? OPENRAC_UI_SHADED : 0u)
+                 | ((q->flags & 16u) != 0 && (q->clamp & 3u) == 0 ? OPENRAC_UI_REPEAT : 0u);
+    rac3_ui_adapter_install();
+    anchor_at(cursor);
+    return openrac_ui_draw_quad(&quad);
+}
+
+/* A record to the window through the frame recorder, placed by the list's cursor: through the
+ * shared 2D layer in flat colour, or textured when its image is known by the game's tables; else
+ * of the older kind (with the chip's TEX0: a texture the tables do not name, the maps' boxes). False
+ * when the 2D layer is replayed (the caller sends the game's). */
 static int send_quad(const openrac_game_ui_rect* q, gaddr cursor) {
     /* The maps' scissor is not followed yet: their boxes stay the older records. */
     if ((q->flags & 8u) != 0 && flat_native(cursor)) {
         return send_flat(q, cursor);
+    }
+    if ((q->flags & 8u) == 0 && q->tex0 != 0 && send_textured(q, cursor)) {
+        return 1;
     }
     anchor_at(cursor);
     return openrac_frame_ui_quad(q);
@@ -365,7 +408,7 @@ static int record_glyph(
 }
 
 /* A marker at the list's cursor (the word at `cursor`): an A+D write of `value` to the NOP
- * register. Only for what has no recorder call yet (hud.c's HUD side, picture.c's frame). */
+ * register. Only for what has no recorder call yet (picture.c's frame copy, P6). */
 void rac3_ui2d_marker(gaddr cursor, uint64_t value) {
     const gaddr at = GREF(gaddr, cursor);
     GREF(uint32_t, at + 0) = 0x10000002u;
@@ -1088,35 +1131,23 @@ void func_L01_00405AD8(int y0, int y1, int x0, int x1, unsigned long long c) {
  * picture in 32-pixel columns, their corners as the front end's start-up set them. The core's: the
  * level's copy (Veldin's 0x004059C8) sends the same. */
 #define DARKEN_PACKET RAC3_ADDR(0x00141850u)
-#define DARKEN_SPRITES 16u
 
-/* The picture darkened: (r, g, b, a) over the whole of it, z writes masked (ZBUF_1's ZMSK, which
- * the routine sets and puts back), as one record of flat colour over the sixteen sprites' extent
- * (the main menu's 0x60 of black over its background; in a level, the pause menu's over the
- * world). */
+/* The picture darkened: (r, g, b, a) over the whole of it (the routine's sixteen sprites span the
+ * game's screen), as a fill of the whole window, so a wider window darkens to its sides: the main
+ * menu's 0x60 of black over its background, the pause menu's over the world, and the fade between
+ * the boot program's screens (func_003BCC10's, black at the fade's level 0x001D8CF0 times 128). No
+ * packet of the game's is read. `packet` is the routine's (its sprites' place), unused natively.
+ * False when the window does not draw it (the caller runs the game's). */
 static int darken(gaddr cursor, gaddr packet, int r, int g, int b, int a) {
-    const gaddr first = packet + 0x40u;
-    const gaddr last = first + 16u * (DARKEN_SPRITES - 1u);
-    const uint64_t top_left = GREF(uint64_t, first);
-    const uint64_t bottom_right = GREF(uint64_t, last + 8u);
-    openrac_game_ui_rect q;
-    memset(&q, 0, sizeof(q));
-    openrac_ui_rect(
-        &q,
-        (int)(top_left & 0xFFFFu),
-        (int)((top_left >> 16) & 0xFFFFu),
-        (int)(bottom_right & 0xFFFFu),
-        (int)((bottom_right >> 16) & 0xFFFFu),
-        0,
-        0,
-        0,
-        0
-    );
-    q.z = (uint32_t)(top_left >> 32);
-    q.rgba = ((uint32_t)r & 0xFFu) | (((uint32_t)g & 0xFFu) << 8) | (((uint32_t)b & 0xFFu) << 16)
-             | ((uint32_t)a << 24);
-    q.flags = 2u | 8u; /* a sprite, flat */
-    return send_quad(&q, cursor);
+    (void)packet;
+    if (!openrac_frame_native()) {
+        return 0;
+    }
+    const uint32_t rgba = ((uint32_t)r & 0xFFu) | (((uint32_t)g & 0xFFu) << 8)
+                          | (((uint32_t)b & 0xFFu) << 16) | (((uint32_t)a & 0xFFu) << 24);
+    anchor_at(cursor);
+    openrac_frame_fill(NULL, rgba, OPENRAC_BLEND_MIX | OPENRAC_PICTURE_WHOLE);
+    return 1;
 }
 
 void func_0038B200(int r, int g, int b, int a) {
@@ -1181,136 +1212,115 @@ int func_L01_004054F0(void) {
     return result;
 }
 
-/* One of func_003AA780's quads, at `at` in the display list: a cnt tag of 8 quadwords with VIF
- * DIRECT 8, its GIF tag (D_001D8020: one loop of TEX0, PRIM and four RGBAQ, ST, XYZ2), then the
- * registers. */
-#define SPRITE_QUAD_BYTES 0x90u
+/*
+ * A Widget3D sprite from its posed mesh (func_003AA780, frontbin's func_003AA3C8, the levels'
+ * func_L01_004CBC60). The game's routine runs: it sets its textures' places, poses the mesh's bones
+ * (func_003AA168) and its vertices onto the screen (func_003A08E8, or func_003A0A28 for a packed
+ * mesh), each to the scratchpad's 32 bytes from 0x70000000: +0 the colour (the vertex's times the
+ * sprite's), +8 and +0xC its S and T (of the texture's size, Q 1), +0x10 its X and Y (12.4, with the
+ * game's 2D offset). Its quads are then the mesh's own list: the mesh (+0x2 its quads, +0x6 its
+ * textures, +0x14 the list, +0x18 the texture table, +0x1C the textures' data) lists u32 entries, a
+ * texture's choice (the top 24 bits all set, the low byte its index) or a quad's four vertices (a
+ * byte each, drawn in the order 0, 1, 3, 2); a mesh of no textures starts one entry later and is
+ * drawn in its colours alone. A texture (16 bytes: +8 its pixels' and +0xA its palette's offsets in
+ * quadwords from the data, +0xC and +0xE its log2 width and height) is 8-bit with a 256-colour
+ * palette in the stored order, repeated past its edges. What the routine sent into the list is
+ * taken back out unread, and each quad goes to the window through the shared 2D layer, shaded
+ * between its corners, from that data alone.
+ */
+#define WIDGET_VERTICES 0x70000000u
 
-/* The GIF tag's register lists (REGLIST, fourteen registers): TEX0, PRIM, then four corners of
- * RGBAQ, ST, XYZ2 (a quad of ST over Q), or of RGBAQ, UV, XYZ2 (PRIM's FST: texel coordinates). */
-#define SPRITE_REGS_ST 0x0052152152152106ull
-#define SPRITE_REGS_UV 0x0053153153153106ull
-
-static int sprite_quad_at(gaddr at) {
-    const uint64_t regs = GREF(uint64_t, at + 24);
-    const int fst = (GREF(uint64_t, at + 40) & 0x100u) != 0;
-    return GREF(uint32_t, at) == 0x10000008u && GREF(uint32_t, at + 12) == 0x50000008u
-           && GREF(uint64_t, at + 16) == 0xE400000000008001ull
-           && regs == (fst ? SPRITE_REGS_UV : SPRITE_REGS_ST);
+static int widget_corner(
+    gaddr mesh_vertex, float tw, float th, float ofx, float ofy, openrac_ui_quad* quad, int i
+) {
+    const uint32_t xy = GREF(uint32_t, mesh_vertex + 0x10u);
+    float s, t;
+    memcpy(&s, G(mesh_vertex + 8u), 4);
+    memcpy(&t, G(mesh_vertex + 0xCu), 4);
+    quad->x[i] = ((float)(xy & 0xFFFFu) - ofx) / 16.0f;
+    quad->y[i] = ((float)(xy >> 16) - ofy) / 16.0f;
+    quad->u[i] = s * tw;
+    quad->v[i] = t * th;
+    quad->rgba[i] = GREF(uint32_t, mesh_vertex);
+    return 1;
 }
 
-/* The quad's record: its corners in the order sent (a strip), each corner's colour, shaded when
- * its PRIM is (IIP), textured when it is (TME, with ST over Q into texels of TEX0's size, or the
- * UV register's texels with FST), the texture repeated as the routine's setup (D_001D8030:
- * CLAMP_1 0) leaves it. */
-static void sprite_record(gaddr at, openrac_game_ui_rect* q) {
-    const gaddr r = at + 32;
-    const uint64_t tex0 = GREF(uint64_t, r);
-    const uint64_t prim = GREF(uint64_t, r + 8);
-    const float tw = (float)(1u << ((tex0 >> 26) & 15u)), th = (float)(1u << ((tex0 >> 30) & 15u));
-    float us[4], vs[4];
-    float umin = 0.0f, vmin = 0.0f;
-    const int fst = (prim & 0x100u) != 0;
-    memset(q, 0, sizeof(*q));
-    for (int i = 0; i < 4; ++i) {
-        const gaddr v = r + 16 + 24u * (gaddr)i;
-        const uint64_t rgbaq = GREF(uint64_t, v);
-        const uint64_t st = GREF(uint64_t, v + 8);
-        const uint64_t xyz = GREF(uint64_t, v + 16);
-        if (fst) {
-            /* UV: 12.4 texels, U in bits 0 to 13 and V in 16 to 29, as the record holds them. */
-            q->x[i] = (uint32_t)(xyz & 0xFFFFu);
-            q->y[i] = (uint32_t)((xyz >> 16) & 0xFFFFu);
-            q->u[i] = (uint32_t)(st & 0x3FFFu);
-            q->v[i] = (uint32_t)((st >> 16) & 0x3FFFu);
-            q->corners[i] = (uint32_t)rgbaq;
-            continue;
-        }
-        float s, t, w;
-        uint32_t bits = (uint32_t)st, tbits = (uint32_t)(st >> 32), qbits = (uint32_t)(rgbaq >> 32);
-        memcpy(&s, &bits, 4);
-        memcpy(&t, &tbits, 4);
-        memcpy(&w, &qbits, 4);
-        if (w == 0.0f) {
-            w = 1.0f;
-        }
-        q->x[i] = (uint32_t)(xyz & 0xFFFFu);
-        q->y[i] = (uint32_t)((xyz >> 16) & 0xFFFFu);
-        us[i] = s / w * tw;
-        vs[i] = t / w * th;
-        umin = i == 0 || us[i] < umin ? us[i] : umin;
-        vmin = i == 0 || vs[i] < vmin ? vs[i] : vmin;
-        q->corners[i] = (uint32_t)rgbaq;
-    }
-    /* The texture repeats (CLAMP_1 0), and the quads reach above its top (t below 0): moved by
-     * whole repeats to texel coordinates of 0 on, which the record's UV holds. */
-    if (!fst) {
-        const float du = tw * (float)(int)(umin < 0.0f ? (umin / tw) - 1.0f : umin / tw);
-        const float dv = th * (float)(int)(vmin < 0.0f ? (vmin / th) - 1.0f : vmin / th);
-        for (int i = 0; i < 4; ++i) {
-            q->u[i] = (uint32_t)(int32_t)((us[i] - du) * 16.0f);
-            q->v[i] = (uint32_t)(int32_t)((vs[i] - dv) * 16.0f);
-        }
-    }
-    q->z = (uint32_t)(GREF(uint64_t, r + 16 + 16) >> 32);
-    q->rgba = q->corners[3];
-    q->tex0 = tex0;
-    q->flags = 4u | 16u | ((prim & 8u) ? 32u : 0u) | ((prim & 16u) ? 0u : 8u);
-    q->clamp = 0u;
-}
-
-/* The quads a routine sent from `at` to the list's cursor as records in their place (markers), what
- * came before `at` left as it is. Should the window replay the 2D layer, or something else be
- * among the quads, the packets stay the game's. */
-static void quads_to_records(gaddr cursor, gaddr at) {
+static void widget_sprite(gaddr cursor, gaddr start, gaddr mesh) {
     const gaddr end = GREF(gaddr, cursor);
-    if (at >= end) {
+    if (end == start || mesh == 0 || !openrac_frame_native()) {
+        return; /* nothing drawn (no colour), or the game's packets are replayed */
+    }
+    const int vertices = GREF(int16_t, mesh + 0x0u);
+    const int quads = GREF(int16_t, mesh + 0x2u);
+    const int textures = GREF(int16_t, mesh + 0x6u);
+    gaddr list = GREF(gaddr, mesh + 0x14u);
+    const gaddr table = GREF(gaddr, mesh + 0x18u);
+    const gaddr data = GREF(gaddr, mesh + 0x1Cu);
+    if (list == 0 || vertices <= 0 || vertices > 256 || quads <= 0 || quads > 4096) {
         return;
     }
-    /* Records first, all of them, before the list is written over: markers are shorter than the
-     * quads, so each lands before the quads not read yet. */
-    openrac_game_ui_rect quads[64];
-    int n = 0;
-    gaddr q = at;
-    while (q + SPRITE_QUAD_BYTES <= end && sprite_quad_at(q) && n < 64) {
-        sprite_record(q, &quads[n++]);
-        q += SPRITE_QUAD_BYTES;
+    if (textures == 0) {
+        list += 4u;
     }
-    if (q != end) {
-        return; /* something else among the quads, or more than 64: the game's packets stay */
-    }
-    GREF(gaddr, cursor) = at;
-    for (int i = 0; i < n; ++i) {
-        if (!send_quad(&quads[i], cursor)) {
-            GREF(gaddr, cursor) = end; /* replaying: the packets are still there, untouched */
-            return;
+    const float ofx = (float)(rac3_ui2d_screen_x(0) + 8);
+    const float ofy = (float)(rac3_ui2d_screen_y(0) + 8);
+    GREF(gaddr, cursor) = start;
+    rac3_ui_adapter_install();
+    openrac_ui_quad quad;
+    memset(&quad, 0, sizeof(quad));
+    int texture = -1;
+    float tw = 1.0f, th = 1.0f;
+    static const int order[4] = {0, 1, 3, 2};
+    for (int n = 0; n < quads; list += 4u) {
+        const uint32_t w = GREF(uint32_t, list);
+        if (textures != 0 && ((int32_t)w >> 8) == -1) {
+            const int index = (int)(w & 0xFFu);
+            texture = index < textures ? index : -1;
+            if (texture >= 0) {
+                const gaddr e = table + 16u * (gaddr)texture;
+                const int log2_width = GREF(int16_t, e + 0xCu);
+                const int log2_height = GREF(int16_t, e + 0xEu);
+                if (log2_width < 0 || log2_width > 10 || log2_height < 0 || log2_height > 10) {
+                    texture = -1;
+                    continue;
+                }
+                quad.image.pixels = data + 16u * (gaddr)GREF(uint16_t, e + 8u);
+                quad.image.palette = data + 16u * (gaddr)GREF(uint16_t, e + 0xAu);
+                quad.image.width = (uint16_t)(1u << log2_width);
+                quad.image.height = (uint16_t)(1u << log2_height);
+                quad.image.bits = 8;
+                quad.image.swizzled = 1;
+                tw = (float)quad.image.width;
+                th = (float)quad.image.height;
+            }
+            continue;
         }
+        ++n;
+        if (textures != 0 && texture < 0) {
+            continue; /* no texture chosen yet: the game's placeholder, nothing of the mesh's */
+        }
+        for (int i = 0; i < 4; ++i) {
+            const unsigned v = (w >> (8 * order[i])) & 0xFFu;
+            widget_corner(WIDGET_VERTICES + 32u * v, tw, th, ofx, ofy, &quad, i);
+        }
+        quad.flags = OPENRAC_UI_SHADED | (textures == 0 ? OPENRAC_UI_FLAT : OPENRAC_UI_REPEAT);
+        anchor_at(cursor);
+        openrac_ui_draw_quad(&quad);
     }
 }
 
-/* The quads a Widget3D sprite's routine sent, from `start` on, to records. */
-static void widget_quads(gaddr cursor, gaddr start) {
-    const gaddr end = GREF(gaddr, cursor);
-    gaddr at = start;
-    while (at + 16 <= end && !sprite_quad_at(at)) {
-        at += 16; /* the setup before the quads (func_003AA328's reference to D_001D8030) */
-    }
-    quads_to_records(cursor, at);
-}
-
-/* A Widget3D sprite: the game poses it and sends its quads, which become records in their place
- * (markers), the routine's other packets left as they are. */
+/* A Widget3D sprite: the game poses it, and its quads go to the window from the posed mesh. */
 void func_003AA780(gaddr a0, float a1, float a2, int a3, float a4, gaddr a5) {
     const gaddr start = GREF(gaddr, kBoot.cursor);
     func_003AA780__game(a0, a1, a2, a3, a4, a5);
-    widget_quads(kBoot.cursor, start);
+    widget_sprite(kBoot.cursor, start, a0);
 }
 
 void func_L01_004CBC60(gaddr a0, float a1, float a2, int a3, float a4, gaddr a5) {
     const gaddr cursor = rac3_ui2d_level().cursor;
     const gaddr start = GREF(gaddr, cursor);
     func_L01_004CBC60__game(a0, a1, a2, a3, a4, a5);
-    widget_quads(cursor, start);
+    widget_sprite(cursor, start, a0);
 }
 
 /* A HUD texture (by its number, tex0 its TEX0) as a quad centred on (x, y), w and h its half
@@ -2149,6 +2159,6 @@ void func_003AA3C8__frontbin(gaddr a0, float a1, float a2, int a3, float a4, gad
     const gaddr cursor = kBoot.cursor;
     const gaddr start = GREF(gaddr, cursor);
     func_003AA3C8__frontbin__game(a0, a1, a2, a3, a4, a5);
-    widget_quads(cursor, start);
+    widget_sprite(cursor, start, a0);
 }
 #endif /* RAC3_NTSC */

@@ -427,6 +427,12 @@ private:
     bool m_hud_stretch = false;
     int m_hud_split = -1;  // the split line in the chip's pixels, -1 for none
     std::uint32_t m_hud_side_first = 0;
+    // The HUD's placement as item data (UiItem::side, ::place): the items of one placement, their
+    // first vertices, moved out together when it ends (place_items).
+    void place_items();
+    std::uint32_t m_place = 0;
+    float m_place_move = 0.0f;
+    std::vector<std::uint32_t> m_place_first;
     bool m_whole = false;    // between kWholeMarker's two markers
     bool m_picture = false;  // between kPictureMarker's two markers
     DirectVertex convert(const GsVertex& v) const;

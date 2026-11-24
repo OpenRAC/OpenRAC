@@ -126,6 +126,8 @@
 #define RAC3_ADDR_0x001D9BE0u 0x001D9C60u
 /* D_001D9BFC (names.tsv) */
 #define RAC3_ADDR_0x001D9BFCu 0x001D9C7Cu
+/* D_001D9C00 (names.tsv) */
+#define RAC3_ADDR_0x001D9C00u 0x001D9C80u
 /* D_001D9D04 (names.tsv) */
 #define RAC3_ADDR_0x001D9D04u 0x001D9D84u
 /* D_001D9E94 (names.tsv) */
@@ -162,6 +164,8 @@
 #define RAC3_ADDR_0x00225900u 0x00225980u
 /* D_00225C00 (names.tsv) */
 #define RAC3_ADDR_0x00225C00u 0x00225C80u
+/* D_00226000 (names.tsv) */
+#define RAC3_ADDR_0x00226000u 0x00226080u
 /* D_00227400 (names.tsv) */
 #define RAC3_ADDR_0x00227400u 0x00227480u
 /* D_00227480 (names.tsv) */
@@ -270,6 +274,8 @@
 #define RAC3_LADDR_1_0x001DF960u 0x001DF9E0u
 /* the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree */
 #define RAC3_LADDR_1_0x001DF97Cu 0x001DF9FCu
+/* between the same code's 0x001DF97C and 0x001DF984, both moved by +0x80 (NTSC-U 0x001DF9FC, 0x001DFA04) */
+#define RAC3_LADDR_1_0x001DF980u 0x001DFA00u
 /* the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x160, 6 of 6 places agree */
 #define RAC3_LADDR_1_0x001DFD0Cu 0x001DFD8Cu
 /* the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x8, 1 of 1 places agree */
@@ -322,6 +328,8 @@
 #define RAC3_LADDR_1_0x001E7580u 0x001E7600u
 /* the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x88, 1 of 1 places agree */
 #define RAC3_LADDR_1_0x001E7880u 0x001E7900u
+/* between the same code's 0x001E7880 and 0x001E8480, both moved by +0x80 (NTSC-U 0x001E7900, 0x001E8500) */
+#define RAC3_LADDR_1_0x001E7C80u 0x001E7D00u
 /* the same instruction of the same code: func_L01_0047E908 (NTSC-U func_L01_0047B0A8) +0x124, 13 of 13 places agree */
 #define RAC3_LADDR_1_0x001EA7C0u 0x001EA840u
 /* between the same code's 0x001EA7C0 and 0x001EA940, both moved by +0x80 (NTSC-U 0x001EA840, 0x001EA9C0) */

@@ -868,6 +868,14 @@
       "is": "002962C0",
       "why": "between the same code's 0x00294FC0 and 0x002965C0, both moved by +0x100 (NTSC-U 0x002950C0, 0x002966C0)"
     },
+    "L01:001DF980": {
+      "is": "001DFA00",
+      "why": "between the same code's 0x001DF97C and 0x001DF984, both moved by +0x80 (NTSC-U 0x001DF9FC, 0x001DFA04)"
+    },
+    "L01:001E7C80": {
+      "is": "001E7D00",
+      "why": "between the same code's 0x001E7880 and 0x001E8480, both moved by +0x80 (NTSC-U 0x001E7900, 0x001E8500)"
+    },
     "L01:001E0D70": {
       "is": "001E0DF0",
       "why": "between the same code's 0x001E0D30 and 0x001E0DC0, both moved by +0x80 (NTSC-U 0x001E0DB0, 0x001E0E40)"
