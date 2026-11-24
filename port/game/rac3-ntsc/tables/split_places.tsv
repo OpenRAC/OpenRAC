@@ -39,3 +39,9 @@ func_L01_004026A0	func_L03_00440F80	03:00440F80,11:0042B7B8,16:004642C0,23:00437
 func_L01_004C78E0	func_L03_0047EFA0	03:0047EFA0,24:004769D8
 func_L01_004D75F8	func_L03_0047EFA8	03:0047EFA8,24:004769E0
 func_L01_004D4C50	func_L03_004B4EE0	03:004B4EE0,24:004AC6D0
+# The help box's flag setter in Holostar Studios as Clank (23), folded into func_L01_004C78D8 (another
+# flag's setter, 0x004594C8) and its real twin (0x004A9230, the byte func_L01_004C78E0 at 0x004A9238
+# reads) into func_L01_004D4B48. As in rac3-pal's split_places.tsv; the real twin is its row's place
+# (hostgen.json "more_places").
+func_L01_004C78D8	func_L23_004594C8	23:004594C8
+func_L01_004D4B48	func_L23_004A9230	23:004A9230

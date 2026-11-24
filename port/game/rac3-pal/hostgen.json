@@ -56,6 +56,7 @@
   "places": "config/levels/functions.tsv",
   "split_places": "tables/split_places.tsv",
   "more_places": {
+    "func_L01_004CB540": "23:004ACE68",
     "func_L01_004CB548": "03:004B8F30,24:004B03B8",
     "func_L01_004D8928": "03:004C6310,24:004BD798",
     "func_L01_004DB2E8": "03:004C8CD0,24:004C0158"

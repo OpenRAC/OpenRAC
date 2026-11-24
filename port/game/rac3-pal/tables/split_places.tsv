@@ -104,3 +104,12 @@ func_0039BD90	func_L01_00432E38	01:00432E38,02:0040B160,03:00420840,04:004425E8,
 func_L01_004CB548	func_L03_00482B80	03:00482B80,24:0047A250
 func_L01_004DB2E8	func_L03_00482B88	03:00482B88,24:0047A258
 func_L01_004D8928	func_L03_004B8F30	03:004B8F30,24:004B03B8
+# The help box's flag setter in Holostar Studios as Clank (23): the catalogue folds the 8-byte $gp
+# byte stores by fingerprint and puts another flag's setter (0x0045CCE8: sb $a0, -0x483A($gp), read by
+# func_L01_0047B388's and func_L01_0047B5B0's copies) in the row of func_L01_004CB540, and
+# func_L01_004CB540's real twin (0x004ACE68: sb $a0, -0x186C($gp), the byte the getter func_L01_004CB548
+# at 0x004ACE70 reads) in the row of func_L01_004D8820. Paired by those rows, Veldin's flag 0x001DB084
+# went to 0x001D8076 there: the help box's setter wrote the other flag. As the Phoenix's rows above;
+# the real twin is its row's place (hostgen.json "more_places").
+func_L01_004CB540	func_L23_0045CCE8	23:0045CCE8
+func_L01_004D8820	func_L23_004ACE68	23:004ACE68
