@@ -21,11 +21,13 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "renderer/direct/gs.h"
+#include "renderer/gl/framebuffer.h"
 #include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
 
@@ -62,6 +64,15 @@ bool liquid_pass_strip(const EffectStrip& strip);
 // down with its first row on top. Up Your Arsenal's frame copy (effect texture -1, 256 x 256) is
 // sampled so by the world's quads and by the strips of its strip routine (fx_strip).
 std::array<float, 2> offscreen_target_st(std::uint64_t tex0, float s, float t);
+
+// A frame-copy strip's texture coordinates (EffectStrip::frame_copy: s, t over the game's picture,
+// t down from its top, as Up Your Arsenal's 0x00403F20 projects a point) on the native snapshot of
+// the target, which spans the whole target with its first row at the bottom. On a target wider
+// than the picture the game's picture is the target's middle, `picture_scale_x` of its width.
+std::array<float, 2> frame_copy_st(float s, float t, float picture_scale_x);
+
+// Whether any strip of `strips` this pass draws samples the frame copy.
+bool any_frame_copy(std::span<const EffectStrip> strips);
 
 bool opaque_effect_strip(const EffectStrip& strip, std::span<const EffectVertex> vertices);
 bool opaque_effect_quad(const EffectQuad& quad);
@@ -187,6 +198,12 @@ private:
     void reserve_quad_indices(std::size_t quads);
     // Resolves a panel drawn by the 2D renderer before this effect pass.
     static unsigned offscreen_texture(std::uint64_t tex0_bits, std::uint32_t tbp);
+    // Whether this pass draws a strip that samples the frame copy (EffectStrip::frame_copy).
+    bool draws_frame_copy(const FrameInput& input) const;
+    // Copies the target's colour as drawn so far into m_frame_copy (the game's frame copy, made
+    // natively), for the frame-copy strips that follow; m_frame_copy_texture is then its texture,
+    // else 0. Records into the colour graph where it is on.
+    void snapshot_frame_copy(const RenderTarget& target);
     // Binds TEX0's texture with TEX1's filtering and CLAMP's wrapping, and sets ALPHA's blend.
     // False when the pool has nothing at TEX0's block (the draw is left out, not the placeholder).
     bool apply(
@@ -196,7 +213,8 @@ private:
         std::uint64_t alpha,
         RenderState& state,
         std::uint32_t tbp = 0,
-        std::uint32_t cbp = 0
+        std::uint32_t cbp = 0,
+        bool frame_copy = false
     );
 
     // The rest of apply, once the texture is bound: TEX0's TCC and TFX, the texture's alpha scale
@@ -228,6 +246,9 @@ private:
     static constexpr TextureHandle kOffscreenHandle = ~TextureHandle{0};
 
     EffectPart m_part = EffectPart::All;
+    // The pass's snapshot of the target for the frame-copy strips (snapshot_frame_copy).
+    FrameBuffer m_frame_copy;
+    unsigned m_frame_copy_texture = 0;
     Shader m_shader;
     Shader m_depth_shader;
     Shader m_quad_shader;

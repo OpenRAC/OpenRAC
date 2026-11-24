@@ -51,6 +51,17 @@ std::array<float, 2> offscreen_target_st(std::uint64_t tex0_bits, float s, float
     };
 }
 
+std::array<float, 2> frame_copy_st(float s, float t, float picture_scale_x) {
+    const float k = picture_scale_x > 0.0f ? picture_scale_x : 1.0f;
+    return {0.5f + (s - 0.5f) * k, 1.0f - t};
+}
+
+bool any_frame_copy(std::span<const EffectStrip> strips) {
+    return std::ranges::any_of(strips, [](const EffectStrip& s) {
+        return s.frame_copy && s.count >= 3;
+    });
+}
+
 bool test_writes_z(std::uint64_t test) {
     // A TEST whose alpha test never passes and keeps only the colour writes no Z: a layer over
     // the picture, not a surface (Oltanis's ice, the first of its passes, drawn from callback
@@ -505,11 +516,17 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             // copy, effect texture -1, blended in by the destination alpha a mask strip wrote)
             // sampled the whole target with the copy's own coordinates: a black square with a
             // corner of the picture in it, upside down.
-            const bool target = offscreen_texture(strip.tex0, 0) != 0;
+            // A frame-copy strip samples the pass's native snapshot of the target instead
+            // (frame_copy_st), never the chip's copy the 2D path may have drawn at its block.
+            const bool target = !strip.frame_copy && offscreen_texture(strip.tex0, 0) != 0;
             for (std::uint32_t k = 0; k + 2 < strip.count; ++k) {
                 for (std::uint32_t c = 0; c < 3; ++c) {
                     Vertex v = vertex(input.strip_vertices[strip.first + k + c]);
-                    if (target) {
+                    if (strip.frame_copy) {
+                        const auto [s, t] = frame_copy_st(v.s, v.t, state.target.picture_scale_x);
+                        v.s = s;
+                        v.t = t;
+                    } else if (target) {
                         const auto [s, t] = offscreen_target_st(strip.tex0, v.s, v.t);
                         v.s = s;
                         v.t = t;
@@ -664,6 +681,63 @@ void EffectRenderer::render_depth(const FrameInput& input, RenderState& state) {
     glBindVertexArray(0);
 }
 
+bool EffectRenderer::draws_frame_copy(const FrameInput& input) const {
+    return std::ranges::any_of(input.strips, [&](const EffectStrip& strip) {
+        return strip.frame_copy && strip.count >= 3
+               && static_cast<std::size_t>(strip.first) + strip.count <= input.strip_vertices.size()
+               && draws(strip, input);
+    });
+}
+
+void EffectRenderer::snapshot_frame_copy(const RenderTarget& target) {
+    m_frame_copy_texture = 0;
+
+    if (target.width <= 0 || target.height <= 0) {
+        return;
+    }
+
+    // The chip copied the frame as drawn when the first strip asked for it (GetEffectTex -1),
+    // the world and what the callbacks drew before: the target as drawn so far, at its own size.
+    if (m_frame_copy.width() != target.width || m_frame_copy.height() != target.height) {
+        std::string error;
+
+        if (!m_frame_copy.create_colour(target.width, target.height, error)) {
+            log::warn("Effect frame copy unavailable: {}", error);
+            glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+            return;
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+    GLint samples = 1;
+    glGetIntegerv(GL_SAMPLES, &samples);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, target.framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_frame_copy.id());
+    const int width = target.width;
+    const int height = target.height;
+    const auto copied = colour_snapshot(
+        target,
+        m_frame_copy.id(),
+        std::max(1, samples),
+        [width, height](bool depth) {
+            if (!depth) {
+                glBlitFramebuffer(
+                    0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST
+                );
+            }
+        },
+        SnapshotAttachments::Colour
+    );
+    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+
+    if (!copied) {
+        log::warn("Effect frame copy failed: {}", copied.error().message);
+        return;
+    }
+
+    m_frame_copy_texture = m_frame_copy.colour_texture();
+}
+
 bool EffectRenderer::apply(
     std::uint64_t tex0_bits,
     std::uint64_t tex1_bits,
@@ -671,7 +745,8 @@ bool EffectRenderer::apply(
     std::uint64_t alpha_bits,
     RenderState& state,
     std::uint32_t tbp,
-    std::uint32_t cbp
+    std::uint32_t cbp,
+    bool frame_copy
 ) {
     const profiling::Zone trace("Effects state setup");
     const gs::Texa texa{0, false, 0x80};
@@ -680,8 +755,14 @@ bool EffectRenderer::apply(
         tex0.tbp0 = tbp;
         tex0.cbp = cbp;
     }
-    // An off-screen target the 2D path drew, sampled from the texture it was drawn in.
-    if (const unsigned target = offscreen_texture(tex0_bits, tbp); target != 0) {
+    // The game's frame copy: the pass's native snapshot of the target (snapshot_frame_copy), or,
+    // without one, nothing (the strip is left out rather than drawn from the chip's copy).
+    // Otherwise an off-screen target the 2D path drew, sampled from the texture it was drawn in.
+    const unsigned target = frame_copy ? m_frame_copy_texture : offscreen_texture(tex0_bits, tbp);
+    if (frame_copy && target == 0) {
+        return false;
+    }
+    if (target != 0) {
         if (m_applied.texture != kOffscreenHandle || m_applied.offscreen != target
             || clamp_bits != m_applied.clamp_bits) {
             glActiveTexture(GL_TEXTURE0);
@@ -799,6 +880,8 @@ void EffectRenderer::release() {
     if (m_material) {
         m_material->release();
     }
+    m_frame_copy.release();
+    m_frame_copy_texture = 0;
     m_shader.release();
     m_depth_shader.release();
     m_quad_shader.release();

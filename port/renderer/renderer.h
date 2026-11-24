@@ -159,6 +159,11 @@ struct EffectStrip {
     bool z_masked = false;
     bool z_written = false;
     bool blend_disabled = false;  // The strip's GIF tag explicitly clears PRIM.ABE.
+    // The strip samples the game's copy of the frame drawn so far (GameProfile::
+    // frame_copy_texture: Up Your Arsenal's heat haze), its ST the place in the game's picture.
+    // Drawn from a native snapshot of the target taken before the pass's first such strip, never
+    // from the chip's frame copy (EffectRenderer, frame_copy_st).
+    bool frame_copy = false;
 };
 
 struct RenderTarget;

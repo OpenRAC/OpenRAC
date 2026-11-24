@@ -12,6 +12,7 @@
 #include <fstream>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #include "check.h"
 #include "renderer/direct/direct.h"
@@ -758,6 +759,53 @@ void offscreen_target_coordinates() {
     CHECK(near(ss, 0.125f) && near(st, 0.875f));
 }
 
+// Up Your Arsenal's heat haze under the Galactic Rangers' dropship's thrusters (class 6877's draw
+// callback 0x003C8D60, its haze 0x003C8400) samples the game's frame copy (GetEffectTex -1) at each
+// point's place in the game's picture (0x00403F20: s over its width, t down from its top). The
+// window draws it from a native snapshot of its own target, first row at the bottom, the game's
+// picture in the middle of a wider target; never from the chip's frame copy, which on the
+// recorder's frames held no world: the haze drew black boxes.
+void frame_copy_strips() {
+    // The game's two frame-copy shapes (rac3-pal profile.cpp, frame_copy_texture): 256 x 256 and
+    // 64 x 64 PSMCT16, TCC, no CLUT, over any block.
+    CHECK(
+        (openrac::test::tex0(0x3300, 4, gs::kPsmct16, 8, 8, true) & ~0x3FFFull) == 0x620210000ull
+    );
+    CHECK(
+        (openrac::test::tex0(0x1200, 1, gs::kPsmct16, 6, 6, true) & ~0x3FFFull) == 0x598204000ull
+    );
+
+    const auto at = [](float s, float t, float k, float want_s, float want_t) {
+        const auto [u, v] = frame_copy_st(s, t, k);
+        CHECK(near(u, want_s) && near(v, want_t));
+    };
+    at(0.0f, 0.0f, 1.0f, 0.0f, 1.0f);  // the picture's top left: the snapshot's top left
+    at(1.0f, 1.0f, 1.0f, 1.0f, 0.0f);  // its bottom right: the snapshot's far corner
+    at(0.5f, 0.5f, 1.0f, 0.5f, 0.5f);
+    // A 16:9 target, the 4:3 picture in its middle three quarters.
+    at(0.0f, 0.25f, 0.75f, 0.125f, 0.75f);
+    at(1.0f, 0.25f, 0.75f, 0.875f, 0.75f);
+    at(0.25f, 0.0f, 0.0f, 0.25f, 1.0f);  // no picture scale: the whole target
+
+    // Only a strip that samples the copy asks the pass for a snapshot.
+    std::vector<EffectStrip> strips(2);
+    strips[0].count = strips[1].count = 4;
+    CHECK(!any_frame_copy(strips));
+    strips[1].frame_copy = true;
+    CHECK(any_frame_copy(strips));
+    strips[1].count = 2;  // no triangle: nothing drawn
+    CHECK(!any_frame_copy(strips));
+
+    // The two passes: a mask strip of effect texture 0x3B (ALPHA 0x6A, (0 - 0) FIX + Cd) keeps the
+    // colour and writes its alpha (the effect pass writes the source's alpha), then the copy is
+    // blended in by it (ALPHA 0x54, (Cs - Cd) Ad + Cd): the destination's alpha, not the source's.
+    using openrac::test::alpha_reg;
+    const GlBlend mask = translate_blend(gs::Alpha::decode(alpha_reg(2, 2, 2, 1, 0x80)));
+    CHECK(mask.src == 0u && mask.dst == 1u && mask.equation == 0x8006u);  // ZERO, ONE, ADD
+    const GlBlend haze = translate_blend(gs::Alpha::decode(alpha_reg(0, 1, 1, 1, 0x80)));
+    CHECK(haze.src == 0x0304u && haze.dst == 0x0305u && haze.equation == 0x8006u);
+}
+
 // Weights the GS takes above 1 (As, FIX up to 0xFF) go to the shader, and the strips' TEST keeps
 // a layer that writes no Z (Oltanis's ice) out of the liquids.
 void blend_weights() {
@@ -1022,6 +1070,7 @@ int main() {
     texture_under_draw_buffer();
     frame_copy_of_the_picture();
     offscreen_target_coordinates();
+    frame_copy_strips();
     native_blends();
     recorded_frame_without_packets();
     recorded_splices_in_a_stream();

@@ -500,6 +500,16 @@ public:
     // the world she stood in front of the ship's exterior and in the hangar.
     bool own_mobys_into_narrow_buffers() const override { return true; }
 
+    // GetEffectTex's frame copies (Veldin's 0x00404040 and the other levels' copies): handles -1
+    // and -2 give the frame shrunk into a 256 x 256 PSMCT16 buffer (TEX0 0x6_2021_0000 over its
+    // block), -3 and -4 into a 64 x 64 one (0x5_9820_4000), both with TCC and no CLUT. Galactic
+    // Rangers' dropship (class 6877, its draw callback 0x003C8D60) draws its thrusters' heat haze
+    // with the first. The frontend also requires that no image was sent to the block.
+    bool frame_copy_texture(std::uint64_t tex0) const override {
+        const std::uint64_t shape = tex0 & ~std::uint64_t{0x3FFF};  // all but TBP0
+        return shape == 0x620210000ull || shape == 0x598204000ull;
+    }
+
     // The levels are extracted for the port (extractor/extract.py port: --levels), and drawn natively
     // from them (host/render.c). The boot program's title and menus draw no world: a picture.
     bool has_levels() const override { return true; }
