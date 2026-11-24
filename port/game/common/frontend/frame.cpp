@@ -119,6 +119,51 @@ std::uint32_t word_at(std::span<const std::uint8_t> ram, std::uint32_t at) {
     return w;
 }
 
+// What the game is doing for the frame recorder's warnings: the level program loaded and the game's
+// touch context (play, menu, a weapon's upgrade as "dialog", a scene), set by capture_2d_path
+// before it walks the list. The dropped-anchor warning is told a few times in each of these, not
+// 20 times a session: a session's first 20 were all spent on the front end and its movies, so a
+// screen reached later (a weapon's upgrade) logged none whatever it dropped.
+struct RecorderSituation {
+    int level = -1;
+    std::string context;
+
+    bool operator==(const RecorderSituation&) const = default;
+};
+
+RecorderSituation g_recorder_situation;
+
+RecorderSituation recorder_situation(int level) {
+    RecorderSituation s;
+    s.level = level;
+    s.context = "-";
+    if (openrac_game_touch != nullptr) {
+        const char* context = nullptr;
+        const char* hints[OPENRAC_TOUCH_HINTS_MAX] = {};
+        if (openrac_game_touch(&context, hints) >= 0 && context != nullptr && *context != '\0') {
+            s.context = context;
+        }
+    }
+    return s;
+}
+
+// Whether the dropped-anchor warning is told now: at most kTimes in a row of frames in one
+// situation; a new situation is told again.
+bool tell_dropped_anchors() {
+    constexpr int kTimes = 5;
+    static RecorderSituation told_for{-2, {}};
+    static int left = 0;
+    if (!(g_recorder_situation == told_for)) {
+        told_for = g_recorder_situation;
+        left = kTimes;
+    }
+    if (left <= 0) {
+        return false;
+    }
+    --left;
+    return true;
+}
+
 /*
  * The GIF data a frame's display list sends straight to the GS (VIF DIRECT): the 2D path (HUD,
  * menus, text, fades). The chain is followed as the DMA controller follows a source chain (the
@@ -280,13 +325,15 @@ std::vector<std::uint8_t> direct_packets(
             missed += c.anchor != 0 && !std::binary_search(sorted.begin(), sorted.end(), c.anchor);
         }
         stats::gauge("recorder anchors missed", double(missed));
-        static log::Capped told(20);
-        if (missed > 0 && told()) {
+        if (missed > 0 && tell_dropped_anchors()) {
             log::warn(
                 "frame recorder: {} of {} commands anchored where the display list has no tag "
-                "(dropped)",
+                "(dropped; frame {}, level {}, {})",
                 missed,
-                recording->commands.size()
+                recording->commands.size(),
+                g->index,
+                g_recorder_situation.level,
+                g_recorder_situation.context
             );
         }
     }
@@ -3169,6 +3216,7 @@ TickPackets capture_2d_path(
     g->recorder.close();
     const renderer::FrameRecording* recorded = nullptr;
     std::vector<renderer::FrameSplice> splices;
+    g_recorder_situation = recorder_situation(level);
     std::vector<std::uint8_t> packets = direct_packets(
         ram,
         shown,
