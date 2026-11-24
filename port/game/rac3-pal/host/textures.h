@@ -32,3 +32,8 @@ int rac3_hud_image(gaddr tables, int n, openrac_game_ui_image* out);
  * negative numbers, are none).
  */
 int rac3_texture_image(unsigned long long handle, gaddr hud_tables, openrac_game_ui_image* out);
+
+/* The image EffectTex0 named for `handle` (effect texture n >= 0 of its scene's table), as
+ * rac3_texture_image keeps it; 0 when the last getter to hand the handle out was another (or none:
+ * the frame buffer's numbers). */
+int rac3_effect_image(unsigned long long handle, openrac_game_ui_image* out);

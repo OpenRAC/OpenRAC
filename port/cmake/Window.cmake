@@ -971,6 +971,12 @@ openrac_add_test(native_material SOURCES tests/native_material_test.cpp
                  game/common/frontend/effect_material.cpp game/common/frontend/ui_images.cpp
                  game/common/frontend/game_image_sources.cpp
                  INCLUDES . game/common/include runtime/include LIBS openrac_renderer)
+# Up Your Arsenal's draw state capture (game/rac3-pal/host/effect_state.h): the registers its C
+# sets, the alpha-fail masks' material, the frontend's capture of it and the renderer's plan.
+openrac_add_test(rac3_effect_state SOURCES tests/rac3_effect_state_test.cpp
+                 game/rac3-pal/host/effect_state.c game/common/frontend/effect_material.cpp
+                 game/common/frontend/ui_images.cpp game/common/frontend/game_image_sources.cpp
+                 INCLUDES . game/common/include runtime/include LIBS openrac_renderer)
 
 openrac_add_test(renderer_direct LIBS openrac_renderer openrac_platform)
 set_tests_properties(renderer_direct PROPERTIES SKIP_RETURN_CODE 77)

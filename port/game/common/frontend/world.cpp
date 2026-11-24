@@ -1122,6 +1122,12 @@ void effect_textures() {
         stats::gauge("effect quads without texture source", g->effect_sources[0]);
         stats::gauge("effect quads paged this frame", g->effect_sources[1]);
         stats::gauge("effect quads paged before", g->effect_sources[2]);
+        // Those drawn with a native material (material_quad), whose state no marker gives.
+        const auto native = [](const renderer::EffectQuad& q) {
+            return q.native;
+        };
+        const auto drawn = std::count_if(g->effects.begin(), g->effects.end(), native);
+        stats::gauge("effect quads native", static_cast<double>(drawn));
     }
     g->effect_texture_ids.clear();
     g->effect_hashed.clear();
