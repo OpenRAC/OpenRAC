@@ -64,7 +64,8 @@ static uint32_t cell_word(gaddr mesh, int x, int y, int z) {
 /* A packed vertex (x and y 10 bits at 1/16, z 12 bits at 1/64 of a unit from the cell's centre). */
 static void cell_vertex(gaddr vertices, int i, const float centre[3], float out[3]) {
     const uint32_t w = U32(vertices + 4 * (gaddr)i);
-    const int32_t f[3] = {((int32_t)(w << 22)) >> 22, ((int32_t)(w << 12)) >> 22, ((int32_t)w) >> 20};
+    const int32_t f[3] =
+        {((int32_t)(w << 22)) >> 22, ((int32_t)(w << 12)) >> 22, ((int32_t)w) >> 20};
     out[0] = centre[0] + (float)f[0] / 16.0f;
     out[1] = centre[1] + (float)f[1] / 16.0f;
     out[2] = centre[2] + (float)f[2] / 64.0f;
@@ -89,9 +90,10 @@ static void sink_triangle(Sink* s, const float p[3][3], uint32_t type) {
             e1[k] = p[1][k] - p[0][k];
             e2[k] = p[2][k] - p[0][k];
         }
-        const float n[3] = {
-            e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]
-        };
+        const float n[3] =
+            {e1[1] * e2[2] - e1[2] * e2[1],
+             e1[2] * e2[0] - e1[0] * e2[2],
+             e1[0] * e2[1] - e1[1] * e2[0]};
         const float len = sqrtf(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
         for (int k = 0; k < 3; ++k) {
             t->normal[k] = len > 0.0f ? n[k] / len : 0.0f;
@@ -138,9 +140,10 @@ static void level_triangles(gaddr mesh, Sink* s) {
                 const float centre[3] = {x * 4.0f + 2.0f, y * 4.0f + 2.0f, z * 4.0f + 2.0f};
                 for (int j = 0; j < nf + nq; ++j) {
                     const gaddr f = faces + 4 * (gaddr)(j < nf ? j : j - nf);
-                    const int v[3] = {
-                        U8(f), j < nf ? U8(f + 1) : U8(f + 2), j < nf ? U8(f + 2) : U8(fourth + (gaddr)(j - nf))
-                    };
+                    const int v[3] =
+                        {U8(f),
+                         j < nf ? U8(f + 1) : U8(f + 2),
+                         j < nf ? U8(f + 2) : U8(fourth + (gaddr)(j - nf))};
                     if (v[0] >= nv || v[1] >= nv || v[2] >= nv) {
                         continue;
                     }

@@ -50,7 +50,9 @@ static unsigned long long gs_colour(uint32_t rgba) {
     return (unsigned long long)(((rgba << 8) >> 8) | (alpha << 24));
 }
 
-static void draw_line(const openrac_game_hud_text* line, gaddr text, float dx, float dy, uint32_t rgba) {
+static void draw_line(
+    const openrac_game_hud_text* line, gaddr text, float dx, float dy, uint32_t rgba
+) {
     const int small = (line->flags & 1u) != 0;
     const float width =
         (float)(small ? func_0027F198(text, -1) : func_0027F178(text, -1)) * line->scale;

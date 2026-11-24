@@ -289,7 +289,11 @@ static int hero_pose(openrac_game_pose* out) {
  * rotation (euler_to_matrix, and its inverse, a copy with rows as columns, as
  * UpdateHeroInputAndHistory makes them); then the update's steps that show him (the face's
  * manipulators, his moby, what is attached to him and what he holds, his scale). His state machine,
- * the stick, ledges and rails are the mod's to leave out. */
+ * the stick, ledges and rails are the mod's to leave out.
+ *
+ * USA v1.01 alone until the carried releases' tables are written again (rac2.h, RAC2_PRIMARY): PAL
+ * and v2.00 have no names for these functions yet. */
+#if defined(RAC2_PRIMARY)
 #define HERO_MOTION_POS (HERO + 0x80u)
 #define HERO_MOTION_ROT (HERO + 0x90u)
 #define HERO_INV_ROT_MATRIX (HERO + 0x40u)
@@ -346,6 +350,7 @@ static int hero_set_pose(const openrac_game_pose* pose) {
     func_L00_002A7748();
     return 1;
 }
+#endif
 
 static int32_t slot_of(gaddr moby);
 
@@ -748,7 +753,9 @@ static openrac_game_play play = {
     .phase = phase,
     .loads = loads,
     .hero_pose = hero_pose,
+#if defined(RAC2_PRIMARY)
     .hero_set_pose = hero_set_pose,
+#endif
     .collision_triangles = rac2_collision_triangles,
     .hero_update_hook = "Hero_Update",
     .figure_spawn = figure_spawn,
