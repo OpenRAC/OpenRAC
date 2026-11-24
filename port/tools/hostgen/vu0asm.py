@@ -206,6 +206,9 @@ def parse(text: str, n_ops: int) -> list[_Ins]:
                 if not m:
                     raise Vu0Unsupported(f"{op} {rest}")
                 rd = int(m.group(1) or m.group(2))
+                # Only integer registers and Q have tracked values in the function-local state.
+                if rd >= 16 and rd != 22:
+                    raise Vu0Unsupported(f"{base} of untracked control register {rd}")
             else:
                 rd = _vf(args[1], n_ops)[0]
             out.append(_Ins(base, op, rt=_gpr(args[0], n_ops), rd=rd))
@@ -273,6 +276,9 @@ def parse(text: str, n_ops: int) -> list[_Ins]:
             kind, src = "mini", "i"
         elif kind == "maxi":
             raise Vu0Unsupported(f"{op}")
+        # I is a control-register input, not an implicit zero in a fresh local state.
+        if src == "i":
+            raise Vu0Unsupported("the untracked immediate scalar I")
         if to_acc and kind not in _ARITH_ACC:
             raise Vu0Unsupported(f"{op}")
         name = f"v{kind}{'a' if to_acc else ''}" + ("bc" if src in tuple(_LANES) else (src or ""))
