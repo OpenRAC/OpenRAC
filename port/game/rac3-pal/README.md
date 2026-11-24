@@ -686,20 +686,32 @@ water, and layers blended over it, ALPHA 0x58 and 0x6A), hidden runs on box1 at 
 
 The open water of Florana, Marcadia, Daxx and nine more levels (rivers and pools at one height, the
 plane class 2871 on Florana, `func_L02_0030FA80`) is not a strip of the game's: its draw callback
-(`func_L02_00310838`, DrawFrame's third list) ran a VU1 program of its own (microprogram 10) that
-tessellated the plane in front of the camera, which the port does not run, so the water was not
-drawn at all while swimming in it worked. `host/water_plane.c` draws that callback natively through
-the liquids' strip routine (Veldin's `0x00408AAC` after its setup `0x00407588`): a disc of rings
-around the camera at the pvar's height (+0x4C), the game's eight waves (its table at `0x0026EB80`,
-filled by `func_L02_0030FC68`) fading out where the rings are too far apart, and the two layers of
-the callback's GS packet (`func_L02_0030FF48`), the second drawn first: the reflection, opaque in
-eleven of the twelve levels, under the surface blended over it. The first is coloured by pvar bytes
-+0x30..+0x33 (effect texture +0x00, white when -1), mapped every +0x24 units and scrolled, writing
-depth; the second, colour only, effect texture +0x04 (Florana's 100, a sphere map of a cloudy sky)
-read by the view's reflection off the waves, coloured and blended by +0x34..+0x37. The VU1 program's
-own grid and its exact reflection mapping are not read: the mapping is the one the parameters point
-to, not the console's to the texel. The levels with such water (class 2871, one plane each but
-Tyhrranosis's two): 2, 4, 5, 9, 12, 14, 17, 18, 19, 20, 22 and 29.
+(`func_L02_00310838`, DrawFrame's third list) sends a VU1 program of its own (microprogram 10, the
+boot program's `0x00116070`) a grid's parameters, and the program draws it. `host/water_plane.c` is
+that callback, the grid and the program's per-vertex arithmetic in C (read from the program, checked
+vertex for vertex against it with synthetic parameters, offline), drawn through the liquids' strip
+routine (Veldin's `0x00408AAC` after its setup `0x00407588`):
+
+- the grid follows the view, what is on it does not: its first row is the middle of the line where
+  the view's bottom edge meets the plane (a bottom corner by the camera's roll, run along the view's
+  horizontal right axis to the other side plane), then 50 rows a unit (`0x001DC568`) apart along the
+  view's horizontal forward axis, 50 two apart and 5 two hundred apart; 33 points either side of a
+  row's centre, the step the bottom line's length over 64, widened row by row as the view widens;
+- the height is the plane (pvar +0x4C) plus the eight waves (`0x0026EB80`, `func_L02_0030FC68`):
+  waves 4 to 7 fade over the first 50 rows, 0 to 3 over the next 50, the last 5 rows are flat;
+- the surface (effect texture +0x00, none on Florana) is mapped in the world, one repeat every
+  +0x24 units, scrolled +0x2C units a second towards +0x28 degrees, coloured by +0x30..+0x32 shaded
+  by the waves' slope along the view (`0x001E00D4`), blended by FIX +0x33, writing depth;
+- the reflection (effect texture +0x04, Florana's 100) is the view's ray reflected by the waves'
+  normal, read from a paraboloid map with the zenith at ST (0, 0) (S, T, Q = R.x, R.y,
+  2(|R| + R.z)): flat water reads the zenith everywhere and only the waves move it, so nothing swims
+  with the camera; coloured by +0x34..+0x36 and blended by FIX +0x37 (opaque on Florana);
+- both are fogged by depth towards FOGCOL +0x3A..+0x3C, from +0x3D percent at +0x40 units to +0x3E
+  percent at +0x44 (`func_L02_00310368`), not the level's fog: the strip program's fog line (VU
+  `0x3AC`..`0x3AF`) is uploaded with the water's for its strips and put back after them.
+
+The program's mipmapped surface texture is drawn without mipmaps. The levels with such water (class
+2871, one plane each but Tyhrranosis's two): 2, 4, 5, 9, 12, 14, 17, 18, 19, 20, 22 and 29.
 
 ### Shadows, enhanced graphics and texture packs
 
