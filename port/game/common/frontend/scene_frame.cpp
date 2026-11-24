@@ -551,6 +551,23 @@ bool draw_world(SceneFrame& frame) {
         }
 
         // The mods' heat haze (interface 1.12), over the world and under the HUD.
+        static const bool& haze_log = stats::probe(
+            "OPENRAC_HAZE_LOG", "the frame-copy strips and their heat haze patches, in the log"
+        );
+        static int haze_logged = 0;
+        if (haze_log && !scene.haze.empty() && haze_logged < 24) {
+            ++haze_logged;
+            log::info(
+                "haze drawn frame {}: {} patches, camera {}, keep colour {}, under menu {}, draws "
+                "{:#x}",
+                scene.frame,
+                scene.haze.size(),
+                scene.has_camera,
+                input.keep_colour,
+                scene.world_under_menu,
+                scene.draws
+            );
+        }
         if (!scene.haze.empty() && scene.has_camera && !input.keep_colour && !scene.world_under_menu
             && (scene.draws & 0x1Fu) != 0) {
             auto before_hud = std::move(input.before_hud);

@@ -3258,8 +3258,66 @@ TickPackets capture_2d_path(
     // Up Your Arsenal's heat haze (the Galactic Rangers' dropship's thrusters): each mask and
     // frame-copy pair is a round patch of the native haze over the world, sized by the window's
     // own projection, instead of two squares blended by the destination alpha.
+    static const bool& haze_log = stats::probe(
+        "OPENRAC_HAZE_LOG", "the frame-copy strips and their heat haze patches, in the log"
+    );
+    static int haze_logged = 0;
+    const bool log_haze = haze_log && haze_logged < 12
+                          && std::ranges::any_of(strips, [](const renderer::EffectStrip& s) {
+                                 return s.frame_copy || ((s.alpha & 0xFF) == 0x54);
+                             });
+    if (log_haze) {
+        ++haze_logged;
+        log::info(
+            "haze frame {}: {} strips, draws {:#x}, level {}", g->index, strips.size(), draws, level
+        );
+        for (std::size_t i = 0; i < strips.size(); ++i) {
+            const renderer::EffectStrip& s = strips[i];
+            const bool near_copy = std::ranges::any_of(
+                std::span(strips).subspan(i, std::min<std::size_t>(5, strips.size() - i)),
+                [](const renderer::EffectStrip& c) {
+                    return c.frame_copy || ((c.alpha & 0xFF) == 0x54);
+                }
+            );
+            if (!near_copy) {
+                continue;
+            }
+            const renderer::EffectVertex v0 =
+                s.count > 0 && s.first < strip_vertices.size() ? strip_vertices[s.first]
+                                                               : renderer::EffectVertex{};
+            log::info(
+                "  strip {}: count {} tex0 {:#x} alpha {:#x} test {:#x} copy {} uploads {} "
+                "noblend {} v0 ({:.3f} {:.3f} {:.3f}) st ({:.3f} {:.3f}) rgba {:#010x}",
+                i,
+                s.count,
+                s.tex0,
+                s.alpha,
+                s.test,
+                s.frame_copy,
+                s.upload_count,
+                s.blend_disabled,
+                v0.x,
+                v0.y,
+                v0.z,
+                v0.s,
+                v0.t,
+                v0.rgba
+            );
+        }
+    }
+    const std::size_t haze_before = k.haze.size();
     if ((draws & 0x1Fu) != 0) {
         renderer::frame_copy_haze(strips, strip_vertices, k.haze);
+    }
+    if (log_haze) {
+        log::info("  -> {} haze patches, {} strips left", k.haze.size() - haze_before, strips.size());
+        for (std::size_t i = haze_before; i < k.haze.size(); ++i) {
+            const auto& p = k.haze[i];
+            log::info(
+                "  patch ({:.2f} {:.2f} {:.2f}) radius {:.3f} strength {:.4f}",
+                p[0], p[1], p[2], p[3], p[4]
+            );
+        }
     }
     if (recorded != nullptr) {
         k.recording = *recorded;
