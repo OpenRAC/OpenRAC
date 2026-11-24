@@ -983,6 +983,10 @@ openrac_add_test(rac1_letterbox SOURCES tests/rac1_letterbox_test.cpp
                  game/rac1/host/letterbox.c game/rac1/host/screen_cover.c
                  renderer/frame/frame_record.cpp
                  INCLUDES . tests/rac1_letterbox game/rac1-pal/host game/common/include runtime/include)
+
+# Screen pass scheduling with fake GL resources, without a GPU context.
+openrac_add_test(screen_effect SOURCES tests/screen_effect_test.cpp renderer/effects/screen_effect.cpp
+  INCLUDES . "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_common)
 openrac_add_test(game_image_sources SOURCES tests/game_image_sources_test.cpp
                  game/common/frontend/game_image_sources.cpp INCLUDES . game/common/include runtime/include)
 

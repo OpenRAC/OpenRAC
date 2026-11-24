@@ -13,6 +13,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 
 #include "renderer/frame/frame_record.h"
 #include "renderer/gl/framebuffer.h"
@@ -39,7 +40,7 @@ private:
     // One size of the copy: two framebuffers to blur from one into the other, and which holds it.
     struct Level {
         std::array<FrameBuffer, 2> buffers;
-        int current = 0;
+        std::size_t current = 0;  // Index of the last buffer written, always 0 or 1.
 
         unsigned texture() const { return buffers[current].colour_texture(); }
 
