@@ -329,6 +329,12 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* Moby_PrisonController_Update: Updates the Aranos prison controller, including inventory
+ * restoration. */
+#define OPENRAC_RAC2_HOOK_Moby_PrisonController_Update "Moby_PrisonController_Update"
+#define OPENRAC_RAC2_SIG_Moby_PrisonController_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_PrisonController_Update)(uint32_t moby);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

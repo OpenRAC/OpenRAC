@@ -373,3 +373,11 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 ```lua
 type Vendor_PreviewFn = () -> ()
 ```
+
+### `Moby_PrisonController_UpdateFn`
+
+rac2.moby.prison_controller.update (Moby_PrisonController_Update) void(u32): Updates the Aranos prison controller, including inventory restoration.
+
+```lua
+type Moby_PrisonController_UpdateFn = (moby: number) -> ()
+```

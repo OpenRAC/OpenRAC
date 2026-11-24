@@ -380,3 +380,4 @@ func_0012118C	libgcc	rac2RethrowLanding	host	a fragment of __rethrow (001210E0-u
 func_00130004	mpeg	rac2DecodeFrameTail	host	a fragment of func_0012FEC0 (its epilogue), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
 func_L00_00403730	moby	sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)
 func_L00_00408800	moby	dark_sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)
+func_L14_004265B8	moby	Moby_PrisonController_Update	hook	Updates the Aranos prison controller, including inventory restoration.

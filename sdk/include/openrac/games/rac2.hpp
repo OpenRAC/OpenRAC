@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Updates the Aranos prison controller, including inventory restoration.
+struct Moby_PrisonController_Update {
+    static constexpr const char* id = "rac2.moby.prison_controller.update";
+    static constexpr const char* name = "Moby_PrisonController_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -375,6 +383,9 @@ namespace hooks {
         namespace nanotech_ball {
             using update = rac2::Moby_NanotechBall_Update;
         }  // namespace nanotech_ball
+        namespace prison_controller {
+            using update = rac2::Moby_PrisonController_Update;
+        }  // namespace prison_controller
         namespace race_controller {
             using update = rac2::Moby_RaceController_Update;
         }  // namespace race_controller
