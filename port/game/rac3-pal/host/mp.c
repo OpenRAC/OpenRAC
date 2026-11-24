@@ -33,6 +33,7 @@
 #include "rac3_coll_line.h"
 #include "rac3_screen.h"
 #include "rac3_version.h"
+#include "textures.h"
 #include "trig.h"
 
 void mp_openrac_game_register_functions(void);
@@ -66,10 +67,11 @@ void rac3_program_set_range(gaddr gp, gaddr low, gaddr high);
 #define MP_MAPS_LAST 55
 
 /* LoadExecPS2("cdrom0:\I5BOOTN.ELF;1", ...) came back to func_0013ADA8: the multiplayer
- * program's records copied over memory (exec.c), its functions in place of the boot program's,
- * and its crt0 run. */
+ * program's records copied over memory (exec.c), the images the boot program handed over let go
+ * with its memory (textures.c), its functions in place of the boot program's, and its crt0 run. */
 void rac3_mp_run(void) {
     memset(G(0x00100000u), 0, 0x02000000u - 0x00100000u);
+    rac3_textures_forget();
     openrac_guest_unregister_all();
     openrac_game_kernel_reset();
     openrac_snd_ring_reset();

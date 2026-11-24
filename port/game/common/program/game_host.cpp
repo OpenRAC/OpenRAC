@@ -1011,6 +1011,15 @@ void openrac_game_image_keep(gaddr data, uint32_t bytes) {
     });
 }
 
+void openrac_game_images_forget(void) {
+    c_boundary::call("openrac_game_images_forget", [] {
+#ifdef OPENRAC_FRONTEND
+        // Let go with or without a window, as openrac_game_image_keep keeps them.
+        frontend::game_image_sources().clear();
+#endif
+    });
+}
+
 void openrac_frame_picture_set(uint32_t id, const uint8_t* rgba, int width, int height) {
     OPENRAC_RECORD("openrac_frame_picture_set", picture_set(id, rgba, width, height));
     (void)id;

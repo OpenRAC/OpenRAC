@@ -22,6 +22,11 @@ import program
 
 GAMES = Path(__file__).resolve().parents[2] / "game"
 WRAPPERS = (("mp_maps", "MP_MAP"), ("mp_fixes", "MP_FIX"))
+MAPS_SPEC = util.spec_from_file_location("rac3_maps_config", GAMES / "rac3-pal/mp/maps.py")
+MAPS = util.module_from_spec(MAPS_SPEC)
+# Match the script's CLI import context: maps.py imports its sibling fixes.py.
+with mock.patch("sys.path", [str(GAMES / "rac3-pal/mp"), *sys.path]):
+    MAPS_SPEC.loader.exec_module(MAPS)
 
 
 def map_exports(source: str, header: str, macro: str) -> list[str]:
@@ -79,7 +84,12 @@ class Rac3MultiplayerBuildConfig(unittest.TestCase):
                     self.assertEqual(sorted(compiled.wrap - compiled.functions.keys()), [])
 
     def test_map_macro_references_exist_without_the_disc(self):
-        # HUD's TEX0 getter and VU0's grid relink are calls, not host replacements.
+        # HUD's TEX0 getter and VU0's grid relink are calls, not host replacements: maps.py's
+        # "ref" entries, wherever they sit in their macro rows.
+        ref_columns = {
+            "HUD": [n + 1 for n, row in enumerate(MAPS.CARRIED_HUD) if row[3] == "ref"],
+            "VU0": [n + 1 for n, row in enumerate(MAPS.CARRIED_VU0) if not row[1]],
+        }
         self.addCleanup(program.set_name_prefix, program.NAME_PREFIX)
         with tempfile.TemporaryDirectory() as temp:
             for region in ("pal", "ntsc"):
@@ -92,9 +102,9 @@ class Rac3MultiplayerBuildConfig(unittest.TestCase):
                     hostgen.settle_signatures(compiled, config, Path(temp), {})
                     references = set()
                     header = (folder.parent / "host/mp_maps.h").read_text(encoding="utf-8")
-                    for row in re.finditer(r"^MP_MAP_(?:HUD|VU0)\(([^)]*)\)", header, re.MULTILINE):
-                        fields = [part.strip() for part in row[1].split(",")]
-                        references.add(f"func_L{fields[0]}_{fields[-1]}")
+                    for row in re.finditer(r"^MP_MAP_(HUD|VU0)\(([^)]*)\)", header, re.MULTILINE):
+                        fields = [part.strip() for part in row[2].split(",")]
+                        references.update(f"func_L{fields[0]}_{fields[n]}" for n in ref_columns[row[1]])
                     source = (GAMES / "rac3-pal/host/mp_fixes.c").read_text(encoding="utf-8").replace("\\\n", "")
                     definition = re.search(r"^#define MP_FIX\(([^)]*)\)", source, re.MULTILINE)
                     parameters = [part.strip() for part in definition[1].split(",")]

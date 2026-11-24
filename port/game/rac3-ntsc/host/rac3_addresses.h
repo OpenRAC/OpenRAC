@@ -208,8 +208,8 @@
 #define RAC3_MADDR_0x001EBE00u 0x001EBF80u
 /* the same instruction of the same code: func 0x00195010 (NTSC-U 0x00195100) +0x10, 1 of 1 places agree */
 #define RAC3_MADDR_0x001FC6B0u 0x001FC830u
-/* release.json: the screen whose size (+0x150, +0x152) SetScissor keeps its rectangle within: PAL mp_func_00299218 and NTSC-U mp_func_002991F8, the same instructions, both read 0x00230150 and 0x00230152 */
-#define RAC3_MADDR_0x00230000u 0x00230000u
+/* the same instruction of the same code: func 0x00299218 (NTSC-U 0x002991F8) +0xC, 1 of 1 places agree */
+#define RAC3_MADDR_0x00228580u 0x00228700u
 /* the same instruction of the same code: func 0x00192D18 (NTSC-U 0x00192E08) +0x254, 2 of 2 places agree */
 #define RAC3_MADDR_0x00240290u 0x00240410u
 /* the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 21 of 21 places agree */
@@ -240,7 +240,7 @@
 #define RAC3_MADDR_0x00244428u 0x00244628u
 /* the same instruction of the same code: func 0x00284D30 (NTSC-U 0x00284D70) +0x20, 2 of 2 places agree */
 #define RAC3_MADDR_0x0024442Cu 0x0024462Cu
-/* the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 141 of 141 places agree */
+/* the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 153 of 153 places agree */
 #define RAC3_MADDR_0x002446A8u 0x002448A8u
 /* the start of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200) */
 #define RAC3_MADDR_0x0027B100u 0x0027B200u

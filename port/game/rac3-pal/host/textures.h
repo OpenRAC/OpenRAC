@@ -32,3 +32,10 @@ int rac3_hud_image(gaddr tables, int n, openrac_game_ui_image* out);
  * negative numbers, are none).
  */
 int rac3_texture_image(unsigned long long handle, gaddr hud_tables, openrac_game_ui_image* out);
+
+/*
+ * Another executable starts over the game's memory (LoadExecPS2: mp.c, entry.c): the images every
+ * SendImage copy handed over (openrac_game_images_forget) and the images kept against handles were
+ * the old program's, and are let go. The new program sends its own and names its own handles.
+ */
+void rac3_textures_forget(void);

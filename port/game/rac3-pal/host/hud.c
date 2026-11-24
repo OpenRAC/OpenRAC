@@ -70,16 +70,19 @@ static void hud_rect(
 /* A HUD sprite of texture `tex` of copy `u`, as `q` says where (its corners and texels in the chip's
  * 12.4 with the game's offset, as the game computes them) and in what colours: through the shared
  * 2D layer, its image by the HUD bank's own tables as the game sent it (rac3_hud_image, textures.c),
- * placed by the list's cursor; as the older record when the tables do not give it. False when the
- * window does not draw it. */
+ * its corners in the whole screen's pixels (rac3_ui_origin), placed by the list's cursor; as the
+ * older record when the tables do not give it. False when the window does not draw it. */
 static int hud_send(const Rac3Ui2d* u, int tex, const openrac_game_ui_rect* q) {
     openrac_ui_quad quad;
     memset(&quad, 0, sizeof(quad));
     if (!rac3_hud_image(u->hud_entries, tex, &quad.image)) {
         return openrac_ui_record(q, u->cursor);
     }
-    const float ofx = (float)(rac3_ui2d_screen_x(0) + 8);
-    const float ofy = (float)(rac3_ui2d_screen_y(0) + 8);
+    /* From the whole screen's top left, so a split-screen view's HUD lands in its own view. */
+    int ox, oy;
+    rac3_ui_origin(&ox, &oy);
+    const float ofx = (float)ox;
+    const float ofy = (float)oy;
     for (int i = 0; i < 4; ++i) {
         quad.x[i] = ((float)(int)q->x[i] - ofx) / 16.0f;
         quad.y[i] = ((float)(int)q->y[i] - ofy) / 16.0f;
@@ -191,7 +194,8 @@ void func_L01_004D24C0(gaddr a0) {
 /* The multiplayer executable's level 39 (the menus, the map's loading screen: the weapons' icons)
  * and the maps (mp/maps.py, host/mp_maps.h): their copies of DrawHudSprite and DrawHudGradient,
  * drawn as the single-player levels' above with level 39's tables relocated to the program loaded
- * (rac3_ui2d_mp_level). Unwrapped, their packets reached the window with no texture. */
+ * (rac3_ui2d_mp_level), their images as each program's SendImage handed them over (textures.c).
+ * Unwrapped, their packets reached the window with no texture. */
 #define MP_HUD(sprite_fn, gradient_fn, tex0_fn)                                                    \
     void sprite_fn(int tex, int x, int y, int w, int h, int alpha) {                               \
         const Rac3Ui2d u = rac3_ui2d_mp_level();                                                   \
@@ -200,7 +204,7 @@ void func_L01_004D24C0(gaddr a0) {
         rac3_ui2d_hud_size(&u, tex, &tw, &th);                                                     \
         hud_common(&u, &q, (unsigned long long)tex0_fn(tex), alpha);                               \
         hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, tw * 16, th * 16);          \
-        if (!openrac_ui_record(&q, u.cursor)) {                                                    \
+        if (!hud_send(&u, tex, &q)) {                                                              \
             sprite_fn##__game(tex, x, y, w, h, alpha);                                             \
         }                                                                                          \
     }                                                                                              \
@@ -215,7 +219,7 @@ void func_L01_004D24C0(gaddr a0) {
         for (int i = 0; i < 4; ++i) {                                                              \
             q.corners[i] = GREF(uint32_t, colours + 4u * (gaddr)i);                                \
         }                                                                                          \
-        if (!openrac_ui_record(&q, u.cursor)) {                                                    \
+        if (!hud_send(&u, tex, &q)) {                                                              \
             gradient_fn##__game(tex, x, y, w, h, colours);                                         \
         }                                                                                          \
     }
@@ -223,7 +227,7 @@ MP_HUD(mp_func_L39_0059CB38, mp_func_L39_0059CD28, mp_func_L39_0059C910)
 
 #define MP_MAP(...)
 #define MP_MAP_UI(...)
-#define MP_MAP_HUD(m, sprite, gradient, tex0)                                                      \
+#define MP_MAP_HUD(m, sprite, gradient, tex0, send_image)                                          \
     MP_HUD(mp_func_L##m##_##sprite, mp_func_L##m##_##gradient, mp_func_L##m##_##tex0)
 #define MP_MAP_VU0(...)
 #include "mp_maps.h"

@@ -16,11 +16,16 @@
  *
  * The port keeps what SendImage was given, as it was then (openrac_game_image_keep): an image the
  * 2D layer draws from that address is what the game sent. SendImage itself still runs for the
- * routines that hand the window TEX0 records, until they are native.
+ * routines that hand the window TEX0 records, until they are native. The multiplayer executable's
+ * banks are the same (the table pointers of its core's at 0x00244428, level 39's at 0x0024BD00, a
+ * map's at its own place of level 39's), sent by its own copies of SendImage. What was kept, and
+ * the handles' images below, go when another executable starts over the game's memory
+ * (rac3_textures_forget).
  */
 #include "textures.h"
 
 #include <stdint.h>
+#include <string.h>
 
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
@@ -116,6 +121,51 @@ int func_L01_004215C0(int data, int address, int format, int log2_width, int log
     keep_sent_image(data, format, log2_width, log2_height);
     return func_L01_004215C0__game(data, address, format, log2_width, log2_height, now);
 }
+
+/* The multiplayer executable's copies of SendImage: its core's (0x00285660), level 39's
+ * (0x0059D6B0) and each map's (mp/maps.py CARRIED_HUD), func_00397D60's instructions, each called
+ * only by its program's HUD bank's group upload (the core's 0x002849D8, level 39's 0x0059C088, the
+ * maps' copies), which sends group 0 from a buffer it reuses as the boot program's does (seen in
+ * game code). */
+int mp_func_00285660__game(
+    int data, int address, int format, int log2_width, int log2_height, int now
+);
+int mp_func_L39_0059D6B0__game(
+    int data, int address, int format, int log2_width, int log2_height, int now
+);
+
+int mp_func_00285660(int data, int address, int format, int log2_width, int log2_height, int now) {
+    keep_sent_image(data, format, log2_width, log2_height);
+    return mp_func_00285660__game(data, address, format, log2_width, log2_height, now);
+}
+
+int mp_func_L39_0059D6B0(
+    int data, int address, int format, int log2_width, int log2_height, int now
+) {
+    keep_sent_image(data, format, log2_width, log2_height);
+    return mp_func_L39_0059D6B0__game(data, address, format, log2_width, log2_height, now);
+}
+
+#define MP_MAP(...)
+#define MP_MAP_UI(...)
+#define MP_MAP_HUD(m, sprite, gradient, tex0, send_image)                                          \
+    int mp_func_L##m##_##send_image##__game(                                                       \
+        int data, int address, int format, int log2_width, int log2_height, int now                \
+    );                                                                                             \
+    int mp_func_L##m##_##send_image(                                                               \
+        int data, int address, int format, int log2_width, int log2_height, int now                \
+    ) {                                                                                            \
+        keep_sent_image(data, format, log2_width, log2_height);                                    \
+        return mp_func_L##m##_##send_image##__game(                                                \
+            data, address, format, log2_width, log2_height, now                                    \
+        );                                                                                         \
+    }
+#define MP_MAP_VU0(...)
+#include "mp_maps.h"
+#undef MP_MAP
+#undef MP_MAP_UI
+#undef MP_MAP_HUD
+#undef MP_MAP_VU0
 
 /*
  * Texture handles back to images (rac3_texture_image). The getters, per program copy (rac3-decomp
@@ -384,4 +434,10 @@ unsigned long long func_L01_0042D898(int header) {
     const unsigned long long handle = func_L01_0042D898__game(header);
     keep_picture(handle, (gaddr)header);
     return handle;
+}
+
+void rac3_textures_forget(void) {
+    memset(s_handles, 0, sizeof s_handles);
+    s_next_handle = 0;
+    openrac_game_images_forget();
 }

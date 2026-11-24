@@ -1429,6 +1429,10 @@
    "is": "func_00285358",
    "why": "the same instructions, the only place they occur"
   },
+  "func_00285660": {
+   "is": "func_002856A0",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_00287A18": {
    "is": "func_002879E0",
    "why": "the same instructions, the only place they occur"
@@ -1467,6 +1471,10 @@
    "is": "0x001FC830",
    "why": "the same instruction of the same code: func 0x00195010 (NTSC-U 0x00195100) +0x10, 1 of 1 places agree"
   },
+  "0x00228580": {
+   "is": "0x00228700",
+   "why": "the same instruction of the same code: func 0x00299218 (NTSC-U 0x002991F8) +0xC, 1 of 1 places agree"
+  },
   "0x00240290": {
    "is": "0x00240410",
    "why": "the same instruction of the same code: func 0x00192D18 (NTSC-U 0x00192E08) +0x254, 2 of 2 places agree"
@@ -1497,7 +1505,7 @@
   },
   "0x002446A8": {
    "is": "0x002448A8",
-   "why": "the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 141 of 141 places agree"
+   "why": "the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 153 of 153 places agree"
   },
   "0x0027B100": {
    "is": "0x0027B200",
@@ -1508,10 +1516,6 @@
    "why": "the end of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200, 0x257C8 bytes)"
   },
   "0x001959F8": {
-   "is": null,
-   "why": "no instruction of the same code forms it"
-  },
-  "0x00230000": {
    "is": null,
    "why": "no instruction of the same code forms it"
   },
@@ -1791,6 +1795,10 @@
   },
   "func_L39_0059D368": {
    "is": "func_L39_0059BFD8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0059D6B0": {
+   "is": "func_L39_0059C320",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_0059ECB8": {

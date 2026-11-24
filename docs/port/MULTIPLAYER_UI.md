@@ -156,9 +156,11 @@ screen, so a game's skin can move to the port's native 2D path without touching 
 rac3's skin today prints with level 39's FontPrint (font via FontSelect 0x00591BA0, widths
 FontTextWidth 0x00591F98) in the menus' gold 0x8066CCFF, focused pulse to 0x66D6EEFA over 0x25
 frames, disabled 0x80808080, and places the game's own highlight-bar element (0x00689F00); sounds
-are 0x00688340 (3 move, 4 select, 0x17 back). Rectangles and images draw nothing yet: they arrive
-with the native UI work, which replaces those draw functions with the port's GS-free 2D items
-(`openrac_game_ui_item`). Button tokens are the SDK 1.31 characters (`\x10` Cross ...).
+are 0x00688340 (3 move, 4 select, 0x17 back). Rectangles are the port's GS-free 2D items
+(`openrac_game_ui_item`, through `openrac/ui.h`). Images draw nothing yet: no screen of the core
+asks for one (`Skin::sprite` has no caller), though level 39's HUD bank images they would draw
+from are kept as the game sent them (`host/textures.c`). Button tokens are the SDK 1.31
+characters (`\x10` Cross ...).
 
 ## 8. rac4 reuse
 

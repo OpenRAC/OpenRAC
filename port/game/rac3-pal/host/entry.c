@@ -30,6 +30,7 @@
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
 #include "rac3_version.h"
+#include "textures.h"
 
 int func_00124B90(void);              /* _InitSys */
 void func_0011F0A0(int a0);           /* FlushCache */
@@ -58,12 +59,14 @@ static void unpack_payload(void) {
 }
 
 /* Back to the boot program from the multiplayer one (its LoadExecPS2 of SCES_524.56): its
- * records copied over memory again, its functions in place of the multiplayer program's, the
- * arguments it was started with in crt0's block. */
+ * records copied over memory again, the images the multiplayer program handed over let go with its
+ * memory (textures.c), its functions in place of the multiplayer program's, the arguments it was
+ * started with in crt0's block. */
 void rac3_program_forget_levels(void); /* program.c */
 
 static void reload_boot_program(void) {
     memset(G(0x00100000u), 0, 0x02000000u - 0x00100000u);
+    rac3_textures_forget();
     openrac_guest_unregister_all();
     openrac_game_kernel_reset();
     openrac_snd_ring_reset();
