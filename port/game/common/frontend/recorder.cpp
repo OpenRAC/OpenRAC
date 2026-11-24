@@ -60,6 +60,17 @@ void set_image_resolver(ImageResolver resolver) {
     g_resolver = std::move(resolver);
 }
 
+renderer::UiImage resolve_image(
+    std::span<const std::uint8_t> ram, const openrac_game_ui_image& image
+) {
+    // Without the window's cache there is nothing to decode with: no image.
+    if (!g_resolver) {
+        return {};
+    }
+
+    return g_resolver(ram, image);
+}
+
 void begin() {
     if (g) {
         g->recorder.close();

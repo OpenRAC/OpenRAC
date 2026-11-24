@@ -212,6 +212,7 @@ void set_packets(SceneFrame& frame) {
     input.sky_shells = scene.sky_shells;
     input.sky_shell_mask = scene.sky_shell_mask;
     input.effect_uploads = scene.effect_uploads;
+    input.effect_images = scene.effect_images;
     input.ui_quads = scene.ui_quads;
     input.recording = scene.recording.empty() ? nullptr : &scene.recording;
     input.splices = scene.splices;

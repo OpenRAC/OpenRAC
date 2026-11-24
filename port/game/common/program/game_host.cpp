@@ -454,6 +454,21 @@ void openrac_game_effect_quad(const openrac_game_quad* quad) {
     });
 }
 
+int openrac_game_material_effect_quad(const openrac_game_material_quad* quad) {
+    return c_boundary::call("openrac_game_material_effect_quad", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        // Only a window draws it; without one the caller keeps its older way.
+        if (g_window && quad != nullptr) {
+            const auto* ram = runtime::Memory::get().base();
+            const std::span<const std::uint8_t> memory(ram, runtime::Memory::get().ram_size());
+            return frontend::material_quad(memory, *quad) ? 1 : 0;
+        }
+#endif
+        (void)quad;
+        return 0;
+    });
+}
+
 void openrac_game_water_explosion(const float position[3], float radius, float strength) {
     c_boundary::call("openrac_game_water_explosion", [&] {
 #ifdef OPENRAC_FRONTEND
