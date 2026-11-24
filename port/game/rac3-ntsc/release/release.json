@@ -387,6 +387,13 @@
     "call_copies": null,
     "call_copies_why": "rac3-pal's table (call_copies_rac3.py) holds PAL's places; NTSC-U's catalogue has its own, to be written the same way",
     "split_places_why": "NTSC-U's own tables/split_places.tsv: the multiplayer maps' copies of the font width wrapper (func_L01_00410820) are their own function, func_L39_005187A0, whose name the carry leaves out as no function of NTSC-U's catalogue; its signature below, as rac3-pal's func_L39_005189A0",
+    "more_places": {
+      "replace": true,
+      "func_L01_004C78E0": "03:004B4EE0,24:004AC6D0",
+      "func_L01_004D4C50": "03:004C2250,24:004B9A40",
+      "func_L01_004D75F8": "03:004C4BF8,24:004BC3E8"
+    },
+    "more_places_why": "rac3-pal's are PAL's places: on the Phoenix (03) and in the Insomniac Museum (24) the catalogue folds the Vid-comic password panel's byte getter and clear into func_L01_004C78E0 and func_L01_004D75F8 and func_L01_004C78E0's real twin into func_L01_004D4C50 (tables/split_places.tsv splits them off); the real twins at NTSC-U's places",
     "from_assembly": [
       "func_L39_004B4008",
       "func_L39_004B5548",

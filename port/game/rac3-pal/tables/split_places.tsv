@@ -91,3 +91,16 @@ func_L01_004048D0	func_L03_003F24D8	03:003F24D8,11:003DE7C0,16:00414C20,23:003E7
 # executable's C the name took no arguments and the level copies handed none on; the copies are
 # their own function.
 func_0039BD90	func_L01_00432E38	01:00432E38,02:0040B160,03:00420840,04:004425E8,05:0042C458,06:004162E8,07:004336A8,08:00415B20,09:0044C6D0,10:00416620,11:0040B3C0,12:00434128,13:00413948,14:0041DB20,16:004438E0,17:0040DC30,18:00445440,19:004276D8,20:004528D0,21:0040C150,22:00438120,23:00415E58,24:00419B98,26:0043B8F8,27:0040B378,28:003FDC30,29:0043E200,30:004052F8,31:004096B8,32:00411F38,33:0040A2F0,34:0040BA60,35:0040AA60,36:00410478,39:005A5E68,40:00472618,41:004741C8,42:0046AFC8,43:00468B58,44:00467E98,45:004656C8,46:00465FC0,47:00468840,48:00467B40,49:004674C0,50:00483618,51:004851C8,52:0047BFC8,53:00479B58
+# The byte getters and the clear in front of the Vid-comic password panel (8-byte leaves: jr $ra;
+# lbu $v0 / sb $zero, off($gp)): the catalogue folds them by fingerprint and, in the Phoenix (03) and
+# the Insomniac Museum (24), the two levels with the panel (func_L03_003A3838, "Enter Password",
+# text 0x18C2), puts the panel's own getter and clear (0x00482B80, 0x00482B88: its entry flag, Veldin's
+# gp-0x37DC) in the rows of func_L01_004CB548 and func_L01_004DB2E8, and func_L01_004CB548's real twin
+# (0x004B8F30, the flag func_L01_004CB540 sets: the help box and HUD set it every few frames) in the
+# row of func_L01_004D8928. Paired by those rows, Veldin's flag 0x001DB084 had two places on the
+# Phoenix, the panel read the help box's flag and opened on every arrival ("Enter Password" over the
+# corridor). The panel's leaves are their own functions; the real twins are their rows' places
+# (hostgen.json "more_places").
+func_L01_004CB548	func_L03_00482B80	03:00482B80,24:0047A250
+func_L01_004DB2E8	func_L03_00482B88	03:00482B88,24:0047A258
+func_L01_004D8928	func_L03_004B8F30	03:004B8F30,24:004B03B8
