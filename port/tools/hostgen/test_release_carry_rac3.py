@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2026 the OpenRAC contributors
-"""Tests rac3 release configuration merging and syntax of the renamed native pad declarations.
+"""Tests rac3 configuration merging, native pad carry and per-program function identities.
 
 Run with python3 -m unittest discover -s port/tools/hostgen -p test_release_carry_rac3.py.
 The syntax test needs Clang, not private disc or generated game inputs.
 """
+import json
 import re
 import shutil
 import subprocess
@@ -112,6 +113,20 @@ class NativePads(unittest.TestCase):
         bindings = {row[0] for row in rows if len(row) > 3 and row[1] == "pad" and row[3] == "host"}
         self.assertIn("func_003A2E80", bindings, "the real boot initializer must remain native")
         self.assertEqual(bindings, definitions)
+
+
+class ProgramIdentity(unittest.TestCase):
+    """Program entry identity must not overwrite an existing per-program function mapping."""
+
+    def test_boot_and_frontbin_function_mappings_stay_distinct(self):
+        """Keeps program classification fixes from rewriting the genuine boot function mapping."""
+        port = Path(__file__).resolve().parents[2]
+        path = port / "game/rac3-ntsc/release/release_names.json"
+        table = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(table["names"]["func_00381250"], "func_00381280")
+        front = {names["func_00381250"] for names in table["units"].values()
+                 if "func_00381250" in names}
+        self.assertEqual(front, {"func_0037D200"})
 
 
 if __name__ == "__main__":
