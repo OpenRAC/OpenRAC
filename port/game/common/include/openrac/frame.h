@@ -116,6 +116,34 @@ void openrac_frame_effect_quad(uint32_t marker);
 
 /* A flat rectangle (x0, y0, x1, y1; NULL: the whole target) in colour `rgba`, blended. */
 void openrac_frame_fill(const float* rect, uint32_t rgba, int blend);
+
+/* openrac_frame_fill_depth's tests, against the target's depth (bigger is nearer, cleared to 0). */
+#define OPENRAC_DEPTH_ALWAYS 0
+#define OPENRAC_DEPTH_GEQUAL 1  /* where the rectangle is as near as what is there, or nearer */
+#define OPENRAC_DEPTH_GREATER 2 /* only where it is nearer */
+/* openrac_frame_fill_depth's `writes`: what it writes where it passes. */
+#define OPENRAC_WRITE_RED 1u
+#define OPENRAC_WRITE_GREEN 2u
+#define OPENRAC_WRITE_BLUE 4u
+#define OPENRAC_WRITE_ALPHA 8u
+#define OPENRAC_WRITE_COLOUR 15u /* the four channels above */
+#define OPENRAC_WRITE_DEPTH 16u  /* the rectangle's depth */
+
+/* A flat rectangle as openrac_frame_fill, with a depth of its own: `depth`, in the units of a
+ * `depth_bits`-bit depth buffer (16, 24 or 32, bigger nearer, as the game's own), is compared with
+ * the target's by `depth_test` (OPENRAC_DEPTH_*), and where it passes `writes` (OPENRAC_WRITE_*)
+ * are written. It goes into the current target (the screen, or openrac_frame_target_begin's panel),
+ * cut to the current scissor. 1 when the window draws it; 0 (no window, OPENRAC_UI_REPLAY, a value
+ * out of range): the caller draws the game's way. */
+int openrac_frame_fill_depth(
+    const float* rect,
+    uint32_t rgba,
+    int blend,
+    uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+);
 /* Clears the target's colour to `rgba` and/or its depth (OPENRAC_CLEAR_*). */
 void openrac_frame_clear(uint32_t rgba, int what);
 

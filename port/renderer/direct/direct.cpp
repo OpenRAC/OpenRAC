@@ -1056,10 +1056,40 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             }
             break;
         case FrameOp::Fill: {
+            // A plain fill neither tests nor writes depth (depth_bits 0); a depth fill
+            // (openrac_frame_fill_depth) tests and writes as its producer asked, at its depth placed
+            // as a residual vertex's would be, so the two compare equal at the same value.
             DirectState s;
             s.blend = Blend::of(c.blend);
-            s.depth_write = false;
-            native_rect(c, s, 1.0f);
+            s.depth = c.depth;
+            s.depth_write = c.depth_write;
+            s.colour_writes = c.writes;
+            const bool own_depth = c.depth_bits != 0;
+            // A plain fill's depth is never compared or stored: the nearest value, as before.
+            const float depth =
+                own_depth ? depth_clip(static_cast<double>(c.depth_value), depth_max(c.depth_bits))
+                          : 1.0f;
+
+            // OPENRAC_DUMP_DRAWS lists the depth fills beside the residual draws they replace.
+            if (g_dump_draws && own_depth) {
+                log::info(
+                    "recorded fill ({},{})-({},{}) whole {} rgba {:08x} depth {:#x}/{} bits "
+                    "test {} write {} channels {:#x}",
+                    c.rect[0],
+                    c.rect[1],
+                    c.rect[2],
+                    c.rect[3],
+                    c.whole,
+                    c.rgba,
+                    c.depth_value,
+                    static_cast<int>(c.depth_bits),
+                    static_cast<int>(c.depth.compare),
+                    c.depth_write,
+                    static_cast<int>(c.writes)
+                );
+            }
+
+            native_rect(c, s, depth);
             break;
         }
         case FrameOp::Clear: {

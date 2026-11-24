@@ -922,6 +922,36 @@ void openrac_frame_fill(const float* rect, uint32_t rgba, int blend) {
     (void)blend;
 }
 
+int openrac_frame_fill_depth(
+    const float* rect,
+    uint32_t rgba,
+    int blend,
+    uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+) {
+    return c_boundary::call("openrac_frame_fill_depth", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        // Only a window records it; without one the caller keeps the game's own drawing.
+        if (g_window) {
+            const bool drawn = frontend::recorder::fill_depth(
+                rect, rgba, blend, depth, depth_bits, depth_test, writes
+            );
+            return drawn ? 1 : 0;
+        }
+#endif
+        (void)rect;
+        (void)rgba;
+        (void)blend;
+        (void)depth;
+        (void)depth_bits;
+        (void)depth_test;
+        (void)writes;
+        return 0;
+    });
+}
+
 void openrac_frame_clear(uint32_t rgba, int what) {
     OPENRAC_RECORD("openrac_frame_clear", clear(rgba, what));
     (void)rgba;

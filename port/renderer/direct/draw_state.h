@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace openrac::renderer {
@@ -115,9 +116,15 @@ struct DepthTest {
     bool operator==(const DepthTest&) const = default;
 };
 
+// The largest depth of a `bits`-bit depth buffer (16, 24 or 32): the games' buffers' formats.
+inline double depth_max(int bits) {
+    return std::ldexp(1.0, bits) - 1.0;
+}
+
 // A depth `z` of a buffer whose largest value is `max` (bigger is nearer) where the 2D path draws
 // it: the window's [0, 1] through GL's -1..1 clip range. The GIF interpreter places its vertices'
-// depth through this function; 0 is the far value a depth clear leaves.
+// depth and the frame recorder its depth rectangles' through this one function, so the two
+// compare equal at the same value. 0 is the far value a depth clear leaves.
 inline float depth_clip(double z, double max) {
     const double depth = std::clamp(z / max, 0.0, 1.0);
     return static_cast<float>(depth * 2.0 - 1.0);

@@ -15,6 +15,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -75,9 +76,35 @@ struct FrameCommand {
     std::uint8_t clear = 0;                               // kClear*
     std::uint16_t width = 0, height = 0;                  // TargetBegin
     float screen_width = 512.0f, screen_height = 448.0f;  // the game's 2D screen for rect
+    // Fill: a depth of its own (openrac_frame_fill_depth). `depth_bits` 0 is the plain fill, which
+    // neither tests nor writes depth; else `depth_value`, out of a `depth_bits`-bit buffer, is
+    // compared by `depth` and stored when `depth_write`. `writes`: the colour channels written.
+    DepthTest depth{};
+    bool depth_write = false;
+    std::uint8_t depth_bits = 0;
+    std::uint32_t depth_value = 0;
+    std::uint8_t writes = kWriteColour;  // kWrite* bits
 
     bool operator==(const FrameCommand&) const = default;
 };
+
+// A flat rectangle with a depth of its own (openrac_frame_fill_depth), in native values: `rect`
+// x0, y0, x1, y1 of the game's 2D screen (null: the whole target), `wide` as FrameCommand's;
+// `depth` out of a `depth_bits`-bit buffer (16, 24 or 32, bigger nearer), compared by `compare`
+// and stored when `write_depth`; `writes` the colour channels (kWrite* bits). Empty for another
+// bit count, a depth the buffer cannot hold, another comparison than Always, GreaterEqual or
+// Greater, or channels outside kWriteColour: the caller draws its own way.
+std::optional<FrameCommand> depth_fill_command(
+    const float* rect,
+    std::uint32_t rgba,
+    BlendMode blend,
+    bool wide,
+    std::uint32_t depth,
+    int depth_bits,
+    DepthCompare compare,
+    bool write_depth,
+    std::uint8_t writes
+);
 
 // One recording: the commands of one pass of the game's frame code, in call order, and their
 // records.

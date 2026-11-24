@@ -53,6 +53,55 @@ const char* frame_op_name(FrameOp op) {
     return "Unknown";
 }
 
+std::optional<FrameCommand> depth_fill_command(
+    const float* rect,
+    std::uint32_t rgba,
+    BlendMode blend,
+    bool wide,
+    std::uint32_t depth,
+    int depth_bits,
+    DepthCompare compare,
+    bool write_depth,
+    std::uint8_t writes
+) {
+    // The games' depth buffers are 16, 24 or 32 bits; a depth past the buffer's largest value
+    // would be clamped where the producer asked for an exact one.
+    constexpr int kDepth16 = 16, kDepth24 = 24, kDepth32 = 32;
+    const bool known_bits =
+        depth_bits == kDepth16 || depth_bits == kDepth24 || depth_bits == kDepth32;
+
+    // Never is no rectangle at all, and a channel outside the colour's is no channel.
+    const bool known_compare = compare == DepthCompare::Always
+                               || compare == DepthCompare::GreaterEqual
+                               || compare == DepthCompare::Greater;
+
+    // Any of these leaves the rectangle to the caller's own drawing.
+    if (!known_bits || static_cast<double>(depth) > depth_max(depth_bits) || !known_compare
+        || (writes & ~kWriteColour) != 0) {
+        return std::nullopt;
+    }
+
+    FrameCommand c;
+    c.op = FrameOp::Fill;
+    c.whole = rect == nullptr;
+
+    // Only an explicit rectangle has coordinates; null is the whole target.
+    if (rect != nullptr) {
+        std::copy(rect, rect + c.rect.size(), c.rect.begin());
+    }
+
+    c.wide = wide;
+    c.rgba = rgba;
+    c.blend = blend;
+    // A depth written without a comparison is still a depth pass: the back end tests to write.
+    c.depth = {compare != DepthCompare::Always || write_depth, compare};
+    c.depth_write = write_depth;
+    c.depth_bits = static_cast<std::uint8_t>(depth_bits);
+    c.depth_value = depth;
+    c.writes = writes;
+    return c;
+}
+
 bool FrameRecording::anchored() const {
     return std::any_of(commands.begin(), commands.end(), [](const FrameCommand& c) {
         return c.anchor != 0;

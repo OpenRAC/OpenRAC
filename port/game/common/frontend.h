@@ -109,6 +109,16 @@ bool ui_item(std::span<const std::uint8_t> ram, const openrac_game_ui_item& item
 bool ui_quad(const openrac_game_ui_rect& quad);
 void effect_quad(std::uint32_t marker);
 void fill(const float* rect, std::uint32_t rgba, int blend);
+// openrac_frame_fill_depth: false (nothing recorded) for a value out of range or OPENRAC_UI_REPLAY.
+bool fill_depth(
+    const float* rect,
+    std::uint32_t rgba,
+    int blend,
+    std::uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+);
 void clear(std::uint32_t rgba, int what);
 void picture(std::uint32_t id, const float* rect, std::uint32_t rgba, int blend);
 void picture_image(
