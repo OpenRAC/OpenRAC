@@ -338,6 +338,10 @@
 #define RAC3_LADDR_1_0x00404A60u 0x004026F0u
 /* the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404B28's twin is NTSC-U's func_L01_004027B8, the pair rac3-ntsc's carried libraries.tsv binds */
 #define RAC3_LADDR_1_0x00404B28u 0x004027B8u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_1_0x004D8220u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_1_0x004DB780u 0u
 /* between the same code's 0x00245BB0 and 0x00245BCC, both moved by +0x180 (NTSC-U 0x00245D30, 0x00245D4C) */
 #define RAC3_LADDR_39_0x00245BB4u 0x00245D34u
 /* the same instruction of the same code: func_L39_00589538 (NTSC-U func_L39_005883C8) +0x40, 6 of 6 places agree */
