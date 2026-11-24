@@ -121,9 +121,12 @@ extern "C" {
  * prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell), 1.37 the
  * pads' motors driven by a mod as the game's libvib drives them, each motor the
  * stronger of the game's and the mods' (set_motors), and an option of the
- * port's menu greyed out or made usable by a mod, by name (menu_option_set).
+ * port's menu greyed out or made usable by a mod, by name (menu_option_set),
+ * and 1.38 an accent colour for the paint material, drawn on the model's own
+ * strongly saturated texels, a visor or lamps
+ * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT).
  */
-#define OPENRAC_MOD_API_MINOR 37
+#define OPENRAC_MOD_API_MINOR 38
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1816,6 +1819,22 @@ typedef struct openrac_moby_visual {
  * OPENRAC_MOBY_MATERIAL_PAINT_TOP). Since 1.34. */
 #define OPENRAC_MOBY_MATERIAL_PAINT_AT(level) \
     (OPENRAC_MOBY_MATERIAL_PAINT | ((uint32_t)(level) & 0xFu) << 8)
+/* The bit of a moby_material value that says its paint carries an accent (bits 12 to 23 hold the
+ * accent's colour, 4 bits a channel, red highest). Since 1.38. */
+#define OPENRAC_MOBY_MATERIAL_PAINT_ACCENT 0x1000000u
+/* Paint with an accent: OPENRAC_MOBY_MATERIAL_PAINT_AT(level), and the texels of the model that
+ * are strongly saturated (a visor, a lamp, a stripe: the model's own coloured details, where the
+ * rest is grey metal or cloth) drawn in `accent_rgb` (0xRRGGBB) instead of the body's `rgb`, a
+ * little brighter, as a lit glass would be. The accent takes the texel's own brightness and the
+ * moby's lighting, as the body does; the rim glows in the body's colour. The accent keeps the
+ * top 3 bits of each channel (eight steps). A model with no such texels is painted as without the
+ * accent. A port older than 1.38 refuses it (OPENRAC_HOOK_UNKNOWN): call
+ * OPENRAC_MOBY_MATERIAL_PAINT_AT there. Since 1.38. */
+#define OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT(level, accent_rgb)    \
+    (OPENRAC_MOBY_MATERIAL_PAINT_AT(level) | OPENRAC_MOBY_MATERIAL_PAINT_ACCENT \
+     | ((((uint32_t)(accent_rgb) >> 20) & 0xFu) << 20)              \
+     | ((((uint32_t)(accent_rgb) >> 12) & 0xFu) << 16)              \
+     | ((((uint32_t)(accent_rgb) >> 4) & 0xFu) << 12))
 /* What moby_copy_check says of a moby: OPENRAC_COPY_OK when moby_copy may copy it, else why not.
  * Since 1.25. */
 #define OPENRAC_COPY_OK 0

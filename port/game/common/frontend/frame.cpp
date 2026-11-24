@@ -1368,13 +1368,22 @@ void apply_mod_material(scene::Instance& instance, const mods::MobyMaterial& mat
     instance.tint[0] *= channel(kRedShift);
     instance.tint[1] *= channel(kGreenShift);
     instance.tint[2] *= channel(0);
-    instance.mod_material = static_cast<std::uint8_t>(kind);
+    instance.mod_material = static_cast<std::uint16_t>(kind);
     if (kind == OPENRAC_MOBY_MATERIAL_PAINT) {
         constexpr int kLevelShift = 8;
         constexpr std::uint32_t kLevelMask = 0xF;
-        instance.mod_material = static_cast<std::uint8_t>(
-            scene::kModMaterialPaint + ((material.material >> kLevelShift) & kLevelMask)
-        );
+        constexpr int kAccentRedShift = 20;
+        constexpr int kAccentGreenShift = 16;
+        constexpr int kAccentBlueShift = 12;
+        constexpr std::uint32_t kNibble = 0xF;
+        const std::uint32_t level = (material.material >> kLevelShift) & kLevelMask;
+        // An accent (1.38): each channel's nibble as a 0xRRGGBB top nibble, for paint_material.
+        const bool accent = (material.material & OPENRAC_MOBY_MATERIAL_PAINT_ACCENT) != 0;
+        const std::uint32_t accent_rgb =
+            ((material.material >> kAccentRedShift & kNibble) << 20)
+            | ((material.material >> kAccentGreenShift & kNibble) << 12)
+            | ((material.material >> kAccentBlueShift & kNibble) << 4);
+        instance.mod_material = scene::paint_material(level, accent, accent_rgb);
     }
 }
 

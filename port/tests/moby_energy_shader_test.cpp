@@ -7,6 +7,8 @@
 // packet comes out in the mod's colour, brightened. Without the material both are drawn as the
 // texel times their colour, as before. A mod's paint (interface 1.34) on the same surface: the
 // texel's grey in the mod's colour (the instance tint holds all of it), and its glow packet in it.
+// A paint with an accent (interface 1.38): a strongly saturated texel (a red visor) is drawn in the
+// accent instead, a grey one still in the body's colour.
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -21,6 +23,7 @@
 #include "renderer/renderer.h"
 #include "renderer/textures/texture_pool.h"
 #include "renderer_gl_context.h"
+#include "scene/level.h"
 #include "scene_shaders.h"
 #include "tests/graph_fixture.h"
 
@@ -38,6 +41,10 @@ constexpr int kMaterialPaint = 16;
 constexpr float kBody = 0.35f;
 // The coin texture's grey (level textures moby_0022 and its kind: 87..118 of 255).
 constexpr unsigned char kGrey = 110;
+// The texels the fixture has: the grey, a bright red, a dark red, a teal, a pale pink, near black.
+constexpr std::size_t kTexels = 6;
+constexpr std::size_t kTexelGrey = 0, kTexelRed = 1, kTexelDarkRed = 2, kTexelTeal = 3,
+                      kTexelPale = 4, kTexelBlack = 5;
 // A gold vertex colour, 0x80 = 1.0 as mesh.vert gives it.
 constexpr std::array<float, 4> kGold = {1.0f, 0.75f, 0.25f, 1.0f};
 
@@ -104,30 +111,50 @@ public:
         glDisable(GL_BLEND);
         glDisable(GL_DEPTH_TEST);
         glDisable(GL_CULL_FACE);
-        renderer::Rgba8Image image(8, 8);
+        // The coin's grey, and a visor's red (Carbonox's texture has 69,0,0 to 155,7,6 ones) and
+        // a dark teal lamp, 0,172,146, a still darker red and a pale pink of low saturation.
+        const std::array<std::array<unsigned char, 3>, kTexels> colours = {
+            {{kGrey, kGrey, kGrey},
+             {155, 7, 6},
+             {69, 0, 0},
+             {0, 172, 146},
+             {230, 190, 190},
+             {8, 0, 0}}
+        };
 
-        for (std::size_t i = 0; i < image.pixels.size(); i += 4) {
-            image.pixels[i] = image.pixels[i + 1] = image.pixels[i + 2] = kGrey;
-            image.pixels[i + 3] = 255;
+        for (std::size_t t = 0; t < kTexels; ++t) {
+            renderer::Rgba8Image image(8, 8);
+
+            for (std::size_t i = 0; i < image.pixels.size(); i += 4) {
+                image.pixels[i] = colours[t][0];
+                image.pixels[i + 1] = colours[t][1];
+                image.pixels[i + 2] = colours[t][2];
+                image.pixels[i + 3] = 255;
+            }
+
+            m_sources[t] =
+                m_pool.add(std::move(image), renderer::AlphaScale::Full, "texel", false, true);
+            m_textures[t] = m_pool.gl_texture(m_sources[t]);
         }
 
-        m_source =
-            m_pool.add(std::move(image), renderer::AlphaScale::Full, "coin grey", false, true);
-        m_texture = m_pool.gl_texture(m_source);
         return m_frame.create(kSize, kSize, m_error);
     }
 
     // Returns the centre pixel drawn with `material` and the mod's `rgb` (the moby's tint) on a
     // gold surface (`glow` 0) or glow packet.
-    Colour draw(int material, int glow, const std::array<float, 3>& rgb = {1, 1, 1}) {
+    Colour draw(
+        int material, int glow, const std::array<float, 3>& rgb = {1, 1, 1}, std::size_t texel = 0
+    ) {
         glBindFramebuffer(GL_FRAMEBUFFER, m_frame.id());
         glViewport(0, 0, kSize, kSize);
         glClearColor(0, 0, 0, 0);
         glClear(GL_COLOR_BUFFER_BIT);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, m_texture);
+        glBindTexture(GL_TEXTURE_2D, m_textures[texel]);
         m_shader.use();
-        m_pool.bind_upscaled_texture_colours(m_source, m_shader, renderer::TextureFilter::Normal);
+        m_pool.bind_upscaled_texture_colours(
+            m_sources[texel], m_shader, renderer::TextureFilter::Normal
+        );
         glUniform4f(m_shader.uniform("test_colour"), kGold[0], kGold[1], kGold[2], kGold[3]);
         glUniform1i(m_shader.uniform("test_material"), material);
         glUniform1i(m_shader.uniform("test_glow"), glow);
@@ -148,8 +175,9 @@ private:
     renderer::Shader m_shader;
     renderer::TexturePool m_pool;
     renderer::FrameBuffer m_frame;
-    renderer::TextureHandle m_source = 0;
-    unsigned m_vao = 0, m_texture = 0;
+    std::array<renderer::TextureHandle, kTexels> m_sources{};
+    std::array<unsigned, kTexels> m_textures{};
+    unsigned m_vao = 0;
     std::string m_error;
 };
 
@@ -230,5 +258,57 @@ int main() {
     CHECK(painted.b / std::max(painted.r, 1e-3f) > 2.0f * surface.b / std::max(surface.r, 1e-3f));
     CHECK(painted.luminance() >= 0.5f * surface.luminance());
     CHECK(green(painted_glow));
+
+    // Paint with an accent: a magenta body (0xE040C0, the tint) and a cyan accent (0x40F0FF).
+    // Without the accent a red texel is the body's grey in the body's colour, as paint always was.
+    const std::array<float, 3> body = {224.0f / 255.0f, 64.0f / 255.0f, 192.0f / 255.0f};
+    const int plain = scene::paint_material(8);
+    const int accent = scene::paint_material(8, true, 0x40F0FF);
+    CHECK(accent > plain && accent < 8224);
+    const Colour grey_plain = fixture.draw(plain, 0, body, kTexelGrey);
+    const Colour red_plain = fixture.draw(plain, 0, body, kTexelRed);
+    const Colour grey_accent = fixture.draw(accent, 0, body, kTexelGrey);
+    const Colour red_accent = fixture.draw(accent, 0, body, kTexelRed);
+    const Colour dark_accent = fixture.draw(accent, 0, body, kTexelDarkRed);
+    const Colour teal_accent = fixture.draw(accent, 0, body, kTexelTeal);
+    const Colour pale_accent = fixture.draw(accent, 0, body, kTexelPale);
+    const Colour black_accent = fixture.draw(accent, 0, body, kTexelBlack);
+    const Colour accent_glow = fixture.draw(accent, 1, body, kTexelGrey);
+    const Colour plain_glow = fixture.draw(plain, 1, body, kTexelGrey);
+    print("body grey", grey_accent);
+    print("accent red", red_accent);
+    print("accent dark red", dark_accent);
+    print("accent teal", teal_accent);
+    // The surface is lit gold (kGold), so a colour's hue is read after taking the light out.
+    const auto unlit = [](const Colour& c) {
+        return Colour{c.r / kGold[0], c.g / kGold[1], c.b / kGold[2]};
+    };
+    const auto cyan = [&](const Colour& lit) {
+        const Colour c = unlit(lit);
+        return c.g > 2.0f * c.r && c.b > 2.0f * c.r;
+    };
+    const auto magenta = [&](const Colour& lit) {
+        const Colour c = unlit(lit);
+        return c.r > 2.0f * c.g && c.b > 1.5f * c.g;
+    };
+    // The body is the same with and without the accent, and is the body's colour.
+    CHECK(magenta(grey_plain));
+    CHECK(magenta(grey_accent));
+    CHECK(std::fabs(grey_plain.r - grey_accent.r) < 1.5f / 255.0f);
+    CHECK(std::fabs(grey_plain.g - grey_accent.g) < 1.5f / 255.0f);
+    // A saturated red texel keeps the body's colour without an accent (the old look) and takes
+    // the accent with it, a dark one too, and a teal one as well; and brighter than the body.
+    CHECK(magenta(red_plain));
+    CHECK(cyan(red_accent));
+    CHECK(cyan(dark_accent));
+    CHECK(cyan(teal_accent));
+    CHECK(red_accent.luminance() > grey_accent.luminance());
+    CHECK(red_accent.luminance() > dark_accent.luminance());
+    // A pale, weakly saturated texel stays the body's, a near black one dark, not the accent.
+    CHECK(magenta(pale_accent));
+    CHECK(!cyan(black_accent) && black_accent.luminance() < 0.05f);
+    // A glow packet is the body's colour as ever.
+    CHECK(std::fabs(accent_glow.r - plain_glow.r) < 1.5f / 255.0f);
+    CHECK(std::fabs(accent_glow.b - plain_glow.b) < 1.5f / 255.0f);
     return test::result();
 }
