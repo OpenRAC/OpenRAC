@@ -17,8 +17,10 @@ capturing a tick; rendering consumes the captured scene and does not read live g
 - `scene_hud.cpp`: captured HUD data, offscreen menu objects and retained backgrounds.
 
 Physical effect attachments use the parent's displayed transform. Directly captured quads start
-at its current tick; marked strips in a delayed display list start at its previous tick. Callback
-ownership alone leaves world-space trails and beams unchanged.
+at its current tick; marked strips in a delayed display list start at its previous tick. A strip
+marked position-only (what is drawn on the hero, his weapon and his shield) moves by its parent's
+move alone, its world offsets kept. Callback ownership alone leaves world-space trails and beams
+unchanged.
 Explicit particle position anchors also apply before a new slot has interpolation history.
 Rigid sprites retain their world offsets and orientation while following the displayed anchor.
 

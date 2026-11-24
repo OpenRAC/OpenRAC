@@ -277,7 +277,6 @@ add_library(openrac_renderer STATIC
   renderer/textures/texture_pack.cpp
   renderer/textures/pcsx2_pack.cpp
   renderer/textures/pcsx2_dds.cpp
-  renderer/textures/sharp_cells.cpp
   renderer/textures/texture_pool.cpp
   renderer/textures/interface_run.cpp
 )
@@ -315,7 +314,8 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/screen_effect.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/screen_effect.frag"
 )
-target_link_libraries(openrac_renderer PUBLIC openrac_common PRIVATE openrac_renderer_graph)
+target_link_libraries(openrac_renderer PUBLIC openrac_common openrac_sharp_cells
+                      PRIVATE openrac_renderer_graph)
 target_include_directories(openrac_renderer SYSTEM PRIVATE "${openrac_xxhash_SOURCE_DIR}")
 if(OPENRAC_VULKAN)
   target_link_libraries(openrac_renderer PRIVATE openrac_renderer_vulkan)
@@ -412,6 +412,8 @@ add_library(openrac_scene STATIC
   scene/object_picker.cpp
   scene/object_preview_mesh.cpp
   scene/moby_pose.cpp
+  scene/prop_rig.cpp
+  scene/moby_skin.cpp
   scene/moby_shadow.cpp
   scene/screenshot.cpp
   scene/sun_shadow.cpp
@@ -424,6 +426,8 @@ target_link_libraries(openrac_scene PUBLIC openrac_materials openrac_renderer op
   openrac_assets_geometry)
 openrac_warnings(openrac_scene)
 openrac_add_test(material_bindings SOURCES tests/material_bindings_test.cpp LIBS openrac_scene)
+openrac_add_test(prop_rig LIBS openrac_scene)
+openrac_add_test(moby_skin LIBS openrac_scene)
 
 # Scene conversion/fingerprinting is shared by activation checks and the
 # offline tool. It contains no Embree calls and is available in normal builds.
@@ -739,18 +743,17 @@ openrac_add_test(keyboard_mouse_logic INCLUDES . game/rac1/keyboard_mouse ../sdk
                  DEFINITIONS "KBM_MANIFEST=\"${PROJECT_SOURCE_DIR}/game/common/keyboard_mouse/openrac-mod.json\"")
 openrac_add_test(keyboard_mouse_load
                  SOURCES tests/keyboard_mouse_load_test.cpp game/rac1/keyboard_mouse/keyboard_mouse.cpp
-                         game/common/key_prompts.cpp renderer/textures/sharp_cells.cpp
-                         platform/gyro.cpp
-                 INCLUDES . game/rac1/keyboard_mouse ../sdk/include)
+                         game/common/key_prompts.cpp platform/gyro.cpp
+                 INCLUDES . game/rac1/keyboard_mouse ../sdk/include LIBS openrac_sharp_cells)
 # Going Commando's built-in keyboard and mouse, loaded against a host table of the test's own.
 openrac_add_test(keyboard_mouse_rac2
                  SOURCES tests/keyboard_mouse_rac2_test.cpp game/rac2/keyboard_mouse/keyboard_mouse.cpp
-                         game/common/key_prompts.cpp renderer/textures/sharp_cells.cpp
-                         platform/gyro.cpp
-                 INCLUDES . ../sdk/include game/common/include runtime/include)
+                         game/common/key_prompts.cpp platform/gyro.cpp
+                 INCLUDES . ../sdk/include game/common/include runtime/include
+                 LIBS openrac_sharp_cells)
 # The keys painted over the game's button icons (game/common/key_prompts.h) and their labels.
 openrac_add_test(key_prompts SOURCES tests/key_prompts_test.cpp game/common/key_prompts.cpp
-                             renderer/textures/sharp_cells.cpp INCLUDES . ../sdk/include)
+                             INCLUDES . ../sdk/include LIBS openrac_sharp_cells)
 
 # Going Commando's profile, one for its three discs (game/rac2/profile.cpp), for rac2's programs.
 add_library(openrac_game_rac2_profile STATIC game/rac2/profile.cpp)
@@ -926,6 +929,8 @@ openrac_add_test(frame_limiter SOURCES tests/frame_limiter_test.cpp
                  game/common/frontend/pacing.cpp INCLUDES .)
 openrac_add_test(frontend_latch_fade SOURCES tests/frontend_latch_fade_test.cpp
                  game/common/frontend/latch_fade.cpp INCLUDES .)
+# The mouse's rate the frames between ticks carry its motion on by (platform/mouse_rate.h).
+openrac_add_test(mouse_rate INCLUDES .)
 
 openrac_add_test(logo SOURCES tests/logo_test.cpp renderer/ui/logo.cpp INCLUDES .)
 # The debug overlay's scale on large and dense displays (game/common/debug/ui_scale.h).

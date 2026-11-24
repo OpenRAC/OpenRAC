@@ -6,7 +6,7 @@
 // func_L00_0036AE00), and PatchTieVertexLighting (0x2F3E78) lights its slots again by its matrix
 // now: each slot's colour plus its two directional lights on the slot's normal turned into the
 // world, then the class's remap spreads the slots over the vertices. The export lit each tie once,
-// by its matrix at load (editor/gc_tie_colours.py); format 15 keeps what it was lit from
+// by its matrix at load (extractor/gc_tie_colours.py); format 15 keeps what it was lit from
 // (LevelData::tie_relight), and this lights it the same way, in the same float32 steps rounded
 // toward zero as the editor's, which match retail's cache byte for byte.
 

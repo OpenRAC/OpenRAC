@@ -242,7 +242,7 @@ has what was found.
 Wrench classifies the sequels' headers by their size alone (for example
 RAC2 level 0x60, audio 0x1018, scene 0x137C; Deadlocked level 0xC68). The
 table is in ReRAC's `disc_layout.md` section 4; it is ambiguous by
-construction. The editor ([wads.py](../../../editor/wads.py)) uses only the
+construction. The editor ([wads.py](../../../extractor/wads.py)) uses only the
 sizes the three NTSC-U discs have, and checks each against its game's
 level header size.
 

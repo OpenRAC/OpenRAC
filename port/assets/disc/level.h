@@ -10,7 +10,7 @@
 // GS RAM image, HUD and the WAD-compressed core data), the core index (the
 // 0xbc-byte core header and its tables) and the named blocks of the
 // decompressed core data. The same layout holds on NTSC-U and PAL
-// (editor/level.py reads the PAL disc with the same table).
+// (extractor/level.py reads the PAL disc with the same table).
 
 #pragma once
 

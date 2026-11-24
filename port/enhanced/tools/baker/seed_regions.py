@@ -226,7 +226,7 @@ def read_gameplay(level_dir: Path, manifest: dict, disc_path: Path | None = None
         return (level_dir/'bake-inputs/gameplay.bin').read_bytes()
     if disc_path is None:
         raise ValueError('missing gameplay bake input; re-extract the level or pass --disc for an older export')
-    sys.path.insert(0, str(ROOT/'editor'))
+    sys.path.insert(0, str(ROOT/'extractor'))
     from disc import Disc
     from level import decoded
     with Disc(disc_path) as disc:

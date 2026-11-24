@@ -505,6 +505,44 @@ openrac.on_pad(function(port, report) buffer.writeu8(report, 1, heard) end)
     mods::reset();
 }
 
+// The pads' motors and the port's menu options (interface 1.37) from a script: the values handed
+// to the host, the refusals, and an option the mod greys out, given back with its unload.
+std::vector<std::string> g_script_motors;
+
+void a_script_drives_motors_and_menu_options(const fs::path& plugins) {
+    install_script(plugins, "rumble", {{"main.luau", R"(
+assert(openrac.set_motors(0, true, 200) == true, "pad 1, both motors")
+assert(openrac.set_motors(1, false, 0) == true, "pad 2 stopped")
+assert(openrac.set_motors(2, true, 0) == false, "no third pad")
+assert(openrac.set_motors(0, true, 256) == false, "past 255")
+assert(openrac.set_motors(0, true, 1.5) == false, "not whole")
+assert(not pcall(openrac.set_motors, 0, 1, 0), "small_motor is a boolean")
+assert(openrac.menu_option_set("frame_rate", "off") == true, "greyed out")
+assert(openrac.menu_option_set("fov", "on") == true, "made usable")
+assert(openrac.menu_option_set("fov", "default") == true, "the port's choice again")
+assert(not pcall(openrac.menu_option_set, "fov", "maybe"), "an unknown state is an error")
+)"}});
+    list(plugins, R"({"id": "rumble", "enabled": true})");
+    mods::Host h = host(plugins);
+    g_script_motors.clear();
+    h.motors = [](const void*, int port, bool small_motor, std::uint8_t large_motor) {
+        g_script_motors.push_back(
+            std::to_string(port) + " " + (small_motor ? "1" : "0") + " "
+            + std::to_string(large_motor)
+        );
+    };
+    h.drop_motors = [](const void*) {
+    };
+    CHECK(mods::load(h) == "rumble 1.0.0");
+    CHECK(g_script_motors == std::vector<std::string>({"0 1 200", "1 0 0"}));
+    CHECK(mods::any_mod_motors());
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option("fov") == OPENRAC_MENU_OPTION_DEFAULT);
+    mods::reset();
+    CHECK(!mods::any_mod_motors());
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_DEFAULT);
+}
+
 int main() {
     runtime::Memory::create();
     mods::scripts::set_budget_ms(kBudgetMs);
@@ -522,6 +560,7 @@ int main() {
     ids_and_old_names(plugins);
     keyboard_and_mouse(plugins);
     a_script_sets_its_settings(plugins);
+    a_script_drives_motors_and_menu_options(plugins);
     refused_without_a_binding(plugins);
     std::error_code e;
     fs::remove_all(dir, e);

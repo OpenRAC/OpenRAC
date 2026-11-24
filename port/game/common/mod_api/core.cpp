@@ -135,4 +135,42 @@ int api_plugins_folder(char* out, std::uint32_t size) {
     return static_cast<int>(folder.size());
 }
 
+const char* pack_folder() {
+    return g_host != nullptr && g_host->pack_folder != nullptr ? g_host->pack_folder() : nullptr;
+}
+
+// The edited levels' pack this game reads (--mods, or the destination being played): its level_NN/
+// folders hold what the editor packed, cutscenes among them.
+int api_pack_folder(char* out, std::uint32_t size) {
+    const char* pack = pack_folder();
+    if (out == nullptr || size == 0 || pack == nullptr) {
+        return 0;
+    }
+    const std::string folder = pack;
+    if (folder.empty() || folder.size() >= size) {
+        return 0;
+    }
+    std::memcpy(out, folder.c_str(), folder.size() + 1);
+    return static_cast<int>(folder.size());
+}
+
+// The language the game shows its text in, as a code: "en", "fr", "de", "es", "it" (the PAL
+// disc's five), "ja" for a Japanese disc.
+int api_game_language(char* out, std::uint32_t size) {
+    static constexpr const char* kCodes[] = {"en", "fr", "de", "es", "it"};
+    if (out == nullptr || size < 3) {
+        return 0;
+    }
+    const std::string_view version = g_host != nullptr ? std::string_view(g_host->version) : "";
+    const int lang = g_host != nullptr && g_host->language != nullptr ? g_host->language() : 0;
+    const char* code = "en";
+    if (version.find("jp") != std::string_view::npos) {
+        code = "ja";
+    } else if (lang >= 0 && lang < 5) {
+        code = kCodes[lang];
+    }
+    std::memcpy(out, code, 3);
+    return 2;
+}
+
 }  // namespace openrac::mods::detail

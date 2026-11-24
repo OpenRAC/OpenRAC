@@ -53,7 +53,7 @@ if(OPENRAC_ANDROID_ADRENOTOOLS)
 endif()
 
 # ---- the Python the launcher's tools run with ----
-# The launcher runs tools/extractor.py and editor/extract.py as it does on the desktop
+# The launcher runs tools/extractor.py and extractor/extract.py as it does on the desktop
 # (launcher/core/src/jobs.rs), so it needs a Python program. CPython's Android release is a library
 # and its standard library; openrac-python is the program around it, named lib*.so so that Android
 # installs it in the app's native library folder, the one place an app may run a program from.

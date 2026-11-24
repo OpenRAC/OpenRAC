@@ -17,8 +17,9 @@
 //! - whether the game's copy of the levels was read at all (`levels-*.json`; the page compares it
 //!   with the stamp its actions expect).
 //!
-//! What a project should be is the editor's `project_format.json` (`schema`, and the gameplay copy
-//! per version), the file `editor/godot.py` reads too; without it no project is called outdated.
+//! What a project should be is OpenRAC Editor's `openrac/project/project_format.json` (`schema`,
+//! and the gameplay copy per version), the file its tools write projects by; without the editor no
+//! project is called outdated.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -31,7 +32,7 @@ use crate::reset::Layout;
 /// A scene saved this long after its level.json is an edit: the extractor writes both at once.
 const SAME_WRITE_MS: u64 = 2_000;
 
-/// What a level project of this editor is (`editor/project_format.json`).
+/// What a level project of this editor is (OpenRAC Editor's `openrac/project/project_format.json`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 pub struct ProjectFormat {
     pub schema: u32,
@@ -41,11 +42,19 @@ pub struct ProjectFormat {
 }
 
 impl ProjectFormat {
-    /// The editor's, from the checkout (or an installed launcher's copy) at `root`; None when it has
-    /// none or it cannot be read (an older copy), and then nothing is called outdated.
-    pub fn load(root: &Path) -> Option<ProjectFormat> {
-        let text = std::fs::read_to_string(root.join("editor").join("project_format.json")).ok()?;
+    /// Where it is in OpenRAC Editor's folder.
+    pub const FILE: &'static str = "openrac/project/project_format.json";
+
+    /// The editor's, from OpenRAC Editor's folder `editor`; None when it has none or it cannot be
+    /// read, and then nothing is called outdated.
+    pub fn load(editor: &Path) -> Option<ProjectFormat> {
+        let text = std::fs::read_to_string(crate::under(editor, Self::FILE)).ok()?;
         serde_json::from_str(&text).ok()
+    }
+
+    /// The downloaded editor's (editor_install.rs), if there is one.
+    pub fn installed() -> Option<ProjectFormat> {
+        Self::load(&crate::editor_install::find()?.dir)
     }
 }
 
@@ -70,7 +79,7 @@ pub struct Outdated {
     pub reason: Reason,
 }
 
-/// What the last update carried over for one level (editor/carry.py's `carried.json`).
+/// What the last update carried over for one level (OpenRAC Editor's carry.py, `carried.json`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Carried {
@@ -481,10 +490,14 @@ mod tests {
     }
 
     #[test]
-    fn the_editors_own_project_format_reads() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let format = ProjectFormat::load(&root).expect("editor/project_format.json");
-        assert!(format.schema >= 3);
+    fn the_project_format_is_read_from_the_editors_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(ProjectFormat::load(dir.path()), None);
+        let file = crate::under(dir.path(), ProjectFormat::FILE);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, r#"{"schema": 4, "gameplay": {"rac1/pal": "gameplay_ntsc"}}"#).unwrap();
+        let format = ProjectFormat::load(dir.path()).unwrap();
+        assert_eq!(format.schema, 4);
         assert_eq!(format.gameplay.get("rac1/pal").map(String::as_str), Some("gameplay_ntsc"));
     }
 }

@@ -105,9 +105,9 @@ def write_json(path, value, *, replace=False):
 
 
 def profile_name(game: str, version: str) -> str:
-    """The reviewed profiles' folder for GAME and VERSION: the editor's (editor/enhanced/profiles.py),
+    """The reviewed profiles' folder for GAME and VERSION: the editor's (extractor/enhanced/profiles.py),
     which names one folder for releases that share their levels (Going Commando's three discs)."""
-    sys.path.insert(0, str(seeds.ROOT/'editor'))
+    sys.path.insert(0, str(seeds.ROOT/'extractor'))
     from enhanced import profiles  # noqa: E402
     return profiles.profile_name(game, version)
 

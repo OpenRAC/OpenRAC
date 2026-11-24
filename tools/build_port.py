@@ -183,8 +183,11 @@ def default_source(game: str) -> Path:
 
 
 def targets(names: list[str], more: list[str] | None = None) -> list[str]:
-    """What is built: each game's program, the extractor, and any target asked for besides."""
-    return [f"openrac-{name}" for name in names] + ["openrac-extractor"] + list(more or [])
+    """What is built: each game's program, the extractor, and any target asked for besides. A
+    Ratchet & Clank game also builds its states program (openrac-<id>-states), which the level
+    editor runs to see how the game starts a level's mobys (OpenRAC Editor's openrac/tools/moby_states.py)."""
+    states = [f"openrac-{name}-states" for name in names if name.startswith("rac1-")]
+    return [f"openrac-{name}" for name in names] + states + ["openrac-extractor"] + list(more or [])
 
 
 def is_x86(machine: str | None = None) -> bool:

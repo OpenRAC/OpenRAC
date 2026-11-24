@@ -1,14 +1,14 @@
 # Mods: plugins, the SDK and the launcher
 
 Named map mods have their own data-pack format (3), export workflow and startup
-settings: [Map mods](../../editor/MAP_MODDING.md). The launcher installs them as
+settings: [Map mods](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/MAP_MODDING.md). The launcher installs them as
 packs; a map session uses a fresh game with campaign saves disabled.
 
 How a mod changes what the native port does without being built into it: a
 **native mod** is a shared library the port loads at start, through a small
 versioned C interface; a **data mod** is a pack of textures, models, level
-edits or sound, which the level editor and the overrides packs already cover ([editor/MODDING.md](../../editor/MODDING.md),
-[editor/AUDIO_MODDING.md](../../editor/AUDIO_MODDING.md)). The launcher installs both,
+edits or sound, which the level editor and the overrides packs already cover ([extractor/MODDING.md](../../extractor/MODDING.md),
+[extractor/AUDIO_MODDING.md](../../extractor/AUDIO_MODDING.md)). The launcher installs both,
 switches them on and off, orders them and shows why one was not loaded. A
 player who wants the game as the console plays it leaves the **Mods** switch
 under Play off (the default) and nothing is loaded (Purist mode).
@@ -106,7 +106,7 @@ OpenRAC
 │   └── <id>/                          one native mod, as installed
 │       ├── openrac-mod.json
 │       └── lib/<platform>/<library>
-├── overrides/                         the data packs (unchanged: editor/overrides.py)
+├── overrides/                         the data packs (unchanged: extractor/overrides.py)
 └── mods/<version>/                    the packs stacked for one disc (unchanged)
 ```
 
@@ -152,7 +152,7 @@ files. Script mods and data packs work there as elsewhere.
 
 ```jsonc
 {
-  "format": 2,                           // 1 is a data pack (editor/MODDING.md)
+  "format": 2,                           // 1 is a data pack (extractor/MODDING.md)
   "id": "lock-strafe",                   // lower case, digits and hyphens; the folder's name
   "name": "Lock-strafe",
   "version": "1.0.0",                    // semantic version
@@ -292,7 +292,7 @@ On a touch screen the pad can show action buttons with icons (drawer:
 "Action buttons"; off shows the DualShock's buttons). The buttons change with
 what the game is doing. Contexts: `foot`, `clank`, `giant_clank`, `swim`,
 `grind`, `hoverboard`, `ship`, `jet`, `turret`, `cutscene`, `minigame`, `menu`,
-`map`, `dialog`, `vendor`, `front_end`, `default`. The sets are JSON in
+`map`, `dialog`, `vendor`, `front_end`, `default` (rac2 also `look_around`). The sets are JSON in
 `port/game/common/touch/sets/` (`common.json`, then `<game>.json`). A mod adds
 its own on top:
 
@@ -681,6 +681,9 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `moby_model_class(mod, class, scope, &model)`, `moby_model_at(mod, address, &model)` (1.33) | every moby of a class drawn with a mesh of the mod's instead of the class's model, in a scope: `OPENRAC_MODEL_WORLD` (the level's world) and/or `OPENRAC_MODEL_MENU` (the game's own pictures of the item in its menus. Ratchet & Clank: the bolt price icon, the Gadgetron vendor's item preview and its hologram, the pause menu's item previews). `moby_model_at` targets a single moby by guest address, whether or not the level's array holds it (such as menu preview mobys), and also supports `OPENRAC_MODEL_HIDE_NATIVE` (with `model` -1) to suppress the native model. A slot's or address's override wins over the class's. One mod per class and scope (`OPENRAC_HOOK_TAKEN` for another), gone with its level and the mod's unload. `model` -1 gives the original model back. |
 | `particle_spawn_ex(mod, &spawn)` (1.33) | starts one of the game's own particle effects (`OPENRAC_PARTICLE_SMOKE`, `_BURST`, `_SPARK`) with the game's own options in `openrac_particle_spawn`: position, velocity, `particle_size`, `life_ticks`, `color`, `color_end`, `flags` (`OPENRAC_PARTICLE_CHILDREN`), `texture`, `blend` (-1 keeps the game's default), and `rot` (spin rate). The game's routine makes the particle and its update and renderer carry it until its life or level ends. Only in a level being played; `OPENRAC_HOOK_FULL` when the game's particle pool has no room. Refused for a null or short struct, unknown kind or flag, non-finite vectors, size or life out of range, texture or blend outside -1 to 255, or spin rate over 1 in magnitude. |
 | `particle_texture_register(mod, &texture)` (1.33) | registers a 32 x 32 particle texture in the game's own format (`openrac_particle_texture`: its 1024 indices and its 1024-byte palette, as the game stores them) and returns its id, 128 to 255: the value a particle record's texture byte takes to draw it. The texture byte of a `particle_spawn_ex` SPARK or SMOKE takes the id, and so does a record the mod writes itself (a fade the game makes with its level's texture byte; the game's children inherit the parent's byte). The same content gets the same id; 128 ids in all, kept for the game. Only in a level being played. `OPENRAC_HOOK_FULL` when all are taken; `OPENRAC_HOOK_UNKNOWN` for a null texture, a size too small or no level played. Ids past the level's own 128-entry table are only drawn from here. |
+| `sharp_cells(mod, pages, count)` (1.36) | sharper pictures of cells the mod paints in a texture of the 2D layer (the game's font, its icons), as the built-in keyboard and mouse's key prompts have them: each `openrac_sharp_page` is a texture's size (1 to 1024 texels a side), a `scale` (1 to 16, the picture at most 4096 a side) and its cells (`openrac_sharp_cell`: where, in texels; their colours as the painted texels make them, the palette applied, RGB; and the sharper picture, `scale` times as wide and tall, RGB). When a texture of that size has every cell of a page in its colours, the renderer draws it from a picture `scale` times as big: every texel scaled up smoothly, the cells' pictures put in, their opacity the texels'. Only the picture on the GPU changes: texels, hash and game memory stay, and a texture pack's picture of the texture wins. Replaces the mod's pages (0 clears them; the port copies them; at most 64 pages, 4096 cells a page and 64 MB in one call). The built-ins' pages and each mod's are kept apart and all used: the first matching page sets the scale and the matching pages of that scale add their cells, the built-ins' first, then the mods' in the order they first set pages, the earlier drawn over the later where cells overlap; a page of another scale waits until the first is gone. Set the pages before painting the texels: the renderer reads a texture when its texels change. Kept through level loads, gone with the mod's unload. `OPENRAC_HOOK_UNKNOWN` for a struct size below its type's, a value out of range or null data (the mod's pages stay as they were). Any thread. Port side: renderer/textures/sharp_cells.cpp |
+| `set_motors(mod, port, small_motor, large_motor)` (1.37) | drives pad `port`'s motors (0 or 1, the controller's port as `on_pad` numbers it: the game's pad 1 and pad 2) as the game's own vibration does (libvib): `small_motor` 0 or 1 (the small motor off or on), `large_motor` 0 to 255 (the large motor's strength). The player's `pad_rumble` strength and `pad_rumble_style` apply. Each motor plays the stronger of the game's own value and every mod's, per port, so a mod adds to Going Commando's rumble and never takes it away (Ratchet \& Clank sends none). Like the game's, a command lasts 0.2 s unless sent again: a mod sends it every tick while it rumbles; 0, 0 stops its own. A mod's motors stop with its unload. Call it on the game's thread only (load, `on_frame`, a hook), never from a thread of the mod's: the window's input reads the values without a lock. Once a mod has made a call the port took (0, 0 included), the menu's vibration rows (strength, style, triggers, the phone), greyed out as "Not in this game" in Ratchet \& Clank, which has no rumble of its own, show and apply to its motors until the mod unloads (`mods::any_mod_motors`): a mod that will rumble sends 0, 0 at load so the player's vibration settings show in games without rumble of their own. `OPENRAC_HOOK_UNKNOWN` for a port or value out of range, or a port built without a window. Port side: game/common/mod_api/input.cpp, platform/input.cpp (`Input::set_extra_motors`), debug/menu_controls.cpp (`game_has_rumble`) |
+| `menu_option_set(mod, option, state)` (1.37) | an option of the port's menu, by its stable name ([sdk/docs/menu-options.md](../../sdk/docs/menu-options.md): `"frame_rate"`, `"rumble_strength"`), turned `OPENRAC_MENU_OPTION_ON` (usable, even where the port greys it out), `_OFF` (greyed out with "(set by <the mod's name>)"; its keys, such as F2, F4, F11 and the developer keys, and its row on the game's own Video page leave it alone too) or `_DEFAULT` (the port's choice again). Panels, notes and Quit never change, and the volume, the window options and every Controls option are never turned off, only on. Each mod keeps its own state of an option and the newest call wins; a mod's `_DEFAULT` or unload gives back what another mod set, and the mods' reset forgets them all. `rumble_strength` turned on also shows the other vibration rows. A name the port does not know is taken and does nothing. `OPENRAC_HOOK_UNKNOWN` for no mod, a null or empty name, or another state. The launcher and the settings file can still change an option. Port side: game/common/mod_api/menus.cpp, menu_catalog.cpp (`option_name`), debug/menu_items.cpp (`mods_state`) |
 
 A call answers `OPENRAC_HOOK_UNKNOWN` (0 for a count or a size) in a game that has not got it, and `play_scene_from` always; Ratchet \& Clank has the others on both discs. The C++ layer's `has_save_filter()`, `has_shared_progress()`, `has_hero_place()`, `has_overlay()`, `has_shots2()`, `has_moby_list2()`, `has_camera_scripts()` and `has_metal_detect()` say whether the table has them, `has_overlay_phases()` whether it has `on_overlay_phases`, and `has_camera_shake()` whether it has `camera_shake` (1.33).
 
@@ -950,6 +953,22 @@ menu in mode 3 (a Megacorp Vendor whose pvars +0x94 is 2): 12-byte rows {icon, p
 `g_vendorUi` +0x140, and its preview is Ratchet himself (class 0) in the row's armour, drawn with the
 menu's camera, so a mod colours it with `moby_material_class(0, OPENRAC_MODEL_MENU, ...)`
 (docs/port/RAC2_NOTES.md, "The armour vendor").
+
+1.36 (SDK 1.36.0) sharper pictures of cells a mod paints in a texture of the 2D layer
+(`sharp_cells`, `openrac_sharp_page`, `openrac_sharp_cell`): what the built-in keyboard and mouse's
+key prompts do for the font's button icons, open to mods, so a mod's own glyphs or icons stay sharp
+on a 4K screen. The renderer keeps the built-ins' pages and each mod's apart (a mod's no longer
+replace the key prompts' or another mod's) and draws the cells of every matching page of one
+scale. The C++ layer's `has_sharp_cells()`, `sharp_cells()`.
+
+1.37 (SDK 1.37.0) the pads' motors driven by a mod (`set_motors`), as the game's libvib drives
+them: each motor plays the stronger of the game's value and every mod's, held 0.2 s as the game's
+are, the player's rumble settings applied, and a mod's stop with its unload. A mod that has made
+a call (0, 0 at load will do) brings the menu's vibration settings back in a game without rumble
+of its own. A mod also turns an option of the port's menu on or off by its stable name
+(`menu_option_set`, `OPENRAC_MENU_OPTION_DEFAULT`, `_ON`, `_OFF`; sdk/docs/menu-options.md). The
+C++ layer's `has_set_motors()`, `set_motors()`, `menu_option_set()`. Script mods get both as
+`openrac.set_motors` and `openrac.menu_option_set`.
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
@@ -1233,7 +1252,7 @@ openrac-mod.json        the manifest (section 3)
 README.md, LICENSE      shown to players before they install
 CMakeLists.txt, src/    a native mod's sources (built by the workflow, never by the launcher)
 tests/                  its tests
-level_NN/, ...          a data pack's files, as editor/MODDING.md lays them out (format 1)
+level_NN/, ...          a data pack's files, as extractor/MODDING.md lays them out (format 1)
 ```
 
 **Releases carry the built mods.** A tag `v<version>` (or, in a repository

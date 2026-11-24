@@ -140,7 +140,7 @@ export interface LevelName {
 }
 
 /** The later games' levels the editor reads (early access), by the number in their level header,
- *  as editor/games.py has them (names from Wrench's data/underlay). */
+ *  as extractor/games.py has them (names from Wrench's data/underlay). */
 const LATER_LEVELS: Record<string, Record<number, string>> = {
   rac2: {
     0: "Aranos Tutorial",

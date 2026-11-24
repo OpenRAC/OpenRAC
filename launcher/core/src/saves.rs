@@ -352,7 +352,7 @@ pub const RAC1_LOCATIONS: &[&str] = &[
 ];
 
 /// Going Commando (NTSC-U) planet names by level number, as its level headers number them (the
-/// launcher's labels.ts and editor/games.py name them the same).
+/// launcher's labels.ts and extractor/games.py name them the same).
 pub const RAC2_PLANETS: &[(u32, &str)] = &[
     (0, "Aranos Tutorial"),
     (1, "Oozla"),
