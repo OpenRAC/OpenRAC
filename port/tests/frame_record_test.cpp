@@ -7,6 +7,7 @@
 // tick late or sent again, and a place the list never reached drops its commands.
 
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "check.h"
@@ -205,6 +206,66 @@ void views() {
     CHECK(r != nullptr && r->views.empty());
 }
 
+// Rejects non-finite rectangles before split-screen placement can round them into target pixels.
+void test_invalid_view_rectangles() {
+    FrameRecorder recorder;
+    const float infinity = std::numeric_limits<float>::infinity();
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    recorder.view_begin(0, {0.0f, 0.0f, infinity, 1.0f});
+    recorder.view_begin(0, {nan, 0.0f, 1.0f, 1.0f});
+    recorder.view_begin(0, {1.0f, 0.0f, 0.0f, 1.0f});
+    recorder.view_begin(0, {0.0f, 1.0f, 1.0f, 1.0f});
+    recorder.view_begin(kFrameViews, {0.0f, 0.0f, 1.0f, 1.0f});
+    CHECK(!recorder.view_open());
+    CHECK(recorder.open().views.empty());
+    CHECK(recorder.open().commands.empty());
+}
+
+// Keeps alternating players' pictures only while their rectangles belong to the same layout.
+void test_retained_view_layouts() {
+    FrameView upper;
+    upper.rect = {0.0f, 0.0f, 512.0f, 224.0f};  // Upper half of the default screen.
+    FrameView lower = upper;
+    lower.view = 1;
+    lower.rect = {0.0f, 224.0f, 512.0f, 448.0f};  // Lower half, sharing only an edge.
+    CHECK(upper.compatible_with(upper));
+    CHECK(upper.compatible_with(lower));
+    CHECK(lower.compatible_with(upper));
+
+    FrameView quarter = lower;
+    quarter.view = 2;  // A former four-player layout's lower-left quarter overlaps the new half.
+    quarter.rect[2] = 256.0f;
+    CHECK(!lower.compatible_with(quarter));
+    quarter.view = lower.view;
+    CHECK(!lower.compatible_with(quarter));
+
+    FrameView resized = upper;
+    resized.screen_height *= 2.0f;  // Doubled source pixels, unchanged screen fractions.
+    resized.rect[3] *= 2.0f;
+    CHECK(upper.compatible_with(resized));
+}
+
+// Keeps each view's World layer union separate and distinguishes layout-only calls from drawing.
+void test_view_world_layers() {
+    FrameRecorder recorder;
+    recorder.push(op(FrameOp::World, 1));  // The unscoped world belongs to no split-screen view.
+    recorder.view_begin(0, {0.0f, 0.0f, 512.0f, 224.0f});
+    recorder.push(op(FrameOp::World, 1));
+    recorder.push(op(FrameOp::World, 2));  // A second pass adds only this view's next layer.
+    recorder.view_begin(1, {0.0f, 224.0f, 512.0f, 448.0f});
+    recorder.push(op(FrameOp::World, 4));  // The other player's layer is not part of view zero.
+    recorder.view_begin(2, {0.0f, 0.0f, 256.0f, 224.0f});
+    const auto& views = recorder.open().views;
+    CHECK(views.size() == 3);
+
+    // The last layout has not drawn anything and must not replace a retained picture.
+    if (views.size() == 3) {
+        CHECK(views[0].has_world && views[0].layers == (1u | 2u));
+        CHECK(views[1].has_world && views[1].layers == 4u);
+        CHECK(!views[2].has_world && views[2].layers == 0);
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -213,5 +274,8 @@ int main() {
     late_and_resent_lists();
     screen_size();
     views();
+    test_invalid_view_rectangles();
+    test_retained_view_layouts();
+    test_view_world_layers();
     return openrac::test::result();
 }

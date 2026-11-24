@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -36,9 +37,10 @@ struct ViewPixels {
     int height() const { return y1 - y0; }
 };
 
+// Converts screen fractions to bounded pixels without rounding an unbounded floating-point value.
 ViewPixels view_pixels(const std::array<float, 4>& share, int width, int height) {
     const auto at = [](float s, int size) {
-        return std::clamp(static_cast<int>(std::lround(s * static_cast<float>(size))), 0, size);
+        return static_cast<int>(std::lround(std::clamp(s, 0.0f, 1.0f) * static_cast<float>(size)));
     };
     return {at(share[0], width), at(share[1], height), at(share[2], width), at(share[3], height)};
 }
@@ -96,12 +98,16 @@ void render_view(SceneFrame& frame, const renderer::FrameView& v, renderer::Fram
     renderer::RenderTarget target{picture.id(), picture.width(), picture.height(), 1.0f};
     target.depth_texture = picture.depth_texture();
 
-    // The world alone: the 2D bucket is the frame's.
+    // The world alone, with only the layers this player recorded; the 2D bucket is the frame's.
     std::vector<std::pair<renderer::BucketRenderer*, bool>> kept;
     for (const auto& bucket : owner.renderer->renderers()) {
+        kept.emplace_back(bucket.get(), bucket->enabled);
         if (bucket->bucket() == renderer::Bucket::Hud) {
-            kept.emplace_back(bucket.get(), bucket->enabled);
             bucket->enabled = false;
+        } else if (bucket->bucket() < renderer::Bucket::Particles) {
+            // One player's World calls must not enable another player's undrawn layers.
+            bucket->enabled = bucket->enabled
+                              && (v.layers & (1u << static_cast<unsigned>(bucket->bucket()))) != 0;
         }
     }
     owner.renderer->render(input, target);
@@ -116,10 +122,36 @@ void forget(SceneRenderState& owner) {
     }
 }
 
+// Forgets old pictures before drawing any view whose rectangle replaces the retained layout.
+void forget_changed_layout(SceneRenderState& owner, std::span<const renderer::FrameView> views) {
+    // The game may refresh all players or only one, so missing views alone do not change layout.
+    for (const renderer::FrameView& v : views) {
+        // The game also selects layouts while preparing a frame, before drawing any world.
+        if (!v.has_world) {
+            continue;
+        }
+
+        const bool changed =
+            std::any_of(owner.split_views.begin(), owner.split_views.end(), [&v](const auto& kept) {
+                return kept.held && !v.compatible_with(kept.layout);
+            });
+
+        // Forget once before drawing any replacement, so later views keep the new pictures.
+        if (changed) {
+            forget(owner);
+            return;
+        }
+    }
+}
+
 }  // namespace
 
 bool split_screen(const Kept& scene) {
-    return !scene.recording.views.empty();
+    return std::any_of(
+        scene.recording.views.begin(), scene.recording.views.end(), [](const auto& v) {
+            return v.has_world;
+        }
+    );
 }
 
 void draw_split_views(SceneFrame& frame) {
@@ -134,19 +166,18 @@ void draw_split_views(SceneFrame& frame) {
     const int width = frame.output.width;
     const int height = frame.output.height;
     const bool sampleable = owner.enhanced_graphics_available() && frame.graphics.enhanced_graphics;
+
+    forget_changed_layout(owner, frame.scene.recording.views);
+
+    // Only a recorded world refreshes a player's retained picture.
     for (const renderer::FrameView& v : frame.scene.recording.views) {
-        if (v.view >= owner.split_views.size() || v.screen_width <= 0.0f
-            || v.screen_height <= 0.0f) {
+        // Layout-only calls and malformed coordinates do not describe a drawable view.
+        if (!v.valid() || !v.has_world) {
             continue;
         }
         SceneRenderState::SplitView& kept = owner.split_views[v.view];
-        kept.share = {
-            v.rect[0] / v.screen_width,
-            v.rect[1] / v.screen_height,
-            v.rect[2] / v.screen_width,
-            v.rect[3] / v.screen_height,
-        };
-        const ViewPixels p = view_pixels(kept.share, width, height);
+        kept.layout = v;
+        const ViewPixels p = view_pixels(v.relative_rect(), width, height);
         if (p.width() < 1 || p.height() < 1) {
             kept.held = false;
             continue;
@@ -183,7 +214,7 @@ void put_split_views(SceneRenderState& owner, unsigned target, int width, int he
         if (!v.held) {
             continue;
         }
-        const ViewPixels p = view_pixels(v.share, width, height);
+        const ViewPixels p = view_pixels(v.layout.relative_rect(), width, height);
         // A window resized since the view was drawn: it waits for the next.
         if (p.width() != v.picture.width() || p.height() != v.picture.height()) {
             continue;

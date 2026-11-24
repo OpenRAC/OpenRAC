@@ -253,15 +253,15 @@ struct SceneRenderState {
     std::vector<std::pair<unsigned, unsigned>> view_targets;
 
     // Split screen (frontend/split_views.cpp): each local player's view's world as last drawn, the
-    // rectangle it goes in (x0, y0, x1, y1 as shares of the game's 2D screen) and whether it holds
-    // one. Forgotten at the first tick that records no view.
+    // recorded layout and whether it holds one. Forgotten at the first tick with no view's world
+    // or when the next view's layout no longer fits the retained pictures.
     struct SplitView {
         renderer::FrameBuffer picture;
-        std::array<float, 4> share{};
+        renderer::FrameView layout;  // Source rectangle and screen size of the retained picture.
         bool held = false;
     };
 
-    std::array<SplitView, 4> split_views;
+    std::array<SplitView, renderer::kFrameViews> split_views;
     scene::LevelData level;
     scene::LevelScene scene;
     DebugCamera debug_camera;

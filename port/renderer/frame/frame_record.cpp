@@ -4,8 +4,45 @@
 #include "renderer/frame/frame_record.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace openrac::renderer {
+
+bool FrameView::valid() const {
+    return view < kFrameViews && std::isfinite(screen_width) && std::isfinite(screen_height)
+           && screen_width >= 1.0f && screen_height >= 1.0f
+           && std::all_of(
+               rect.begin(), rect.end(), [](float edge) { return std::isfinite(edge); }
+           )
+           && rect[2] > rect[0] && rect[3] > rect[1];
+}
+
+std::array<float, 4> FrameView::relative_rect() const {
+    return {
+        rect[0] / screen_width,
+        rect[1] / screen_height,
+        rect[2] / screen_width,
+        rect[3] / screen_height
+    };
+}
+
+bool FrameView::compatible_with(const FrameView& other) const {
+    // Malformed geometry cannot describe a retained picture's place.
+    if (!valid() || !other.valid()) {
+        return false;
+    }
+
+    const std::array<float, 4> first = relative_rect();
+    const std::array<float, 4> second = other.relative_rect();
+
+    // A changed rectangle replaces the layout, not only that player's old picture.
+    if (view == other.view) {
+        return first == second;
+    }
+
+    return first[2] <= second[0] || second[2] <= first[0] || first[3] <= second[1]
+           || second[3] <= first[1];
+}
 
 bool FrameRecording::anchored() const {
     return std::any_of(commands.begin(), commands.end(), [](const FrameCommand& c) {
@@ -31,6 +68,13 @@ std::uint32_t FrameRecorder::push(FrameCommand command) {
     command.anchor = m_anchor;
     command.screen_width = m_screen[0];
     command.screen_height = m_screen[1];
+
+    // Each player's world layers stay with that view, not the frame-wide union.
+    if (m_view_open && command.op == FrameOp::World && !m_open.views.empty()) {
+        m_open.views.back().layers |= command.index;
+        m_open.views.back().has_world = true;
+    }
+
     m_open.commands.push_back(command);
     return static_cast<std::uint32_t>(m_open.commands.size() - 1);
 }
@@ -43,20 +87,28 @@ void FrameRecorder::set_screen(float width, float height) {
 }
 
 void FrameRecorder::view_begin(std::uint32_t view, const std::array<float, 4>& rect) {
+    FrameView v;
+    v.view = view;
+    v.rect = rect;
+    v.screen_width = m_screen[0];
+    v.screen_height = m_screen[1];
+
+    // Invalid coordinates cannot reach the compositor's floating-point to pixel conversion.
+    if (!v.valid()) {
+        return;
+    }
+
+    // A new valid view closes the preceding player's world.
     if (m_view_open) {
         view_end();
     }
+
     FrameCommand c;
     c.op = FrameOp::ViewBegin;
     c.index = view;
     c.rect = rect;
     c.whole = false;
     push(c);
-    FrameView v;
-    v.view = view;
-    v.rect = rect;
-    v.screen_width = m_screen[0];
-    v.screen_height = m_screen[1];
     m_open.views.push_back(v);
     m_view_open = true;
 }

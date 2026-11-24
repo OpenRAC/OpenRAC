@@ -70,7 +70,10 @@ struct FrameCommand {
     bool operator==(const FrameCommand&) const = default;
 };
 
-// The camera a split-screen view was drawn with (the game's, read when the view ended): the eye,
+// The number of local-player pictures the split-screen compositor retains.
+inline constexpr std::uint32_t kFrameViews = 4;
+
+// The camera a split-screen view was drawn with (the game's, read at its first World): the eye,
 // its axes (forward, left, up, unit) and the tangents of half its fields of view.
 struct FrameViewCamera {
     Vec3 position{};
@@ -91,6 +94,20 @@ struct FrameView {
     float screen_width = 512.0f, screen_height = 448.0f;
     FrameViewCamera camera;
     bool has_camera = false;
+    // The World calls in this view, separate from other players' layer masks.
+    std::uint32_t layers = 0;
+    // Layout setup without a World call must not replace a full-screen frame with cached views.
+    bool has_world = false;
+
+    // Returns whether the view id, screen and rectangle can be placed in a render target.
+    bool valid() const;
+
+    // Returns the rectangle as fractions of the screen; requires valid().
+    std::array<float, 4> relative_rect() const;
+
+    // Returns whether both views can belong to one retained layout: equal ids keep their rectangle,
+    // and different ids occupy disjoint rectangles, independent of the screen's pixel dimensions.
+    bool compatible_with(const FrameView& other) const;
 
     bool operator==(const FrameView&) const = default;
 };

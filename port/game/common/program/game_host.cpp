@@ -1006,6 +1006,7 @@ void openrac_frame_screen(float width, float height) {
 void openrac_frame_view_begin(int view, const openrac_frame_viewport* rect) {
     c_boundary::call("openrac_frame_view_begin", [&] {
 #ifdef OPENRAC_FRONTEND
+        static_assert(OPENRAC_FRAME_VIEWS == renderer::kFrameViews);
         if (g_window && rect != nullptr) {
             frontend::recorder::view_begin(view, *rect);
         }
