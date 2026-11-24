@@ -86,6 +86,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "death_trace.h"
 #include "game_protos.h"
 #include "moby_pool.h"
 #include "rac2.h"
@@ -263,7 +264,11 @@ static struct {
     gaddr moby[COPIES_MAX];
     gaddr orig[COPIES_MAX];
     int16_t uid[COPIES_MAX];
+    int16_t oclass[COPIES_MAX];
     uint8_t died[COPIES_MAX];
+    /* Its pvars as made (in its slot's 0x80 bytes or the port's room) and their size. */
+    gaddr pvars[COPIES_MAX];
+    uint32_t bytes[COPIES_MAX];
     gaddr room;
     uint32_t room_used;
 } made;
@@ -666,23 +671,9 @@ static int join_group(const rac2_moby_table* t, gaddr m) {
     return 1;
 }
 
-/* A slot CreateMoby has just given out (rac2_copy_slot_taken): a dead copy's index left on its
- * group's list named the new moby. The game never takes a moby off a list (its lists hold only
- * placed mobys, whose slots are never given out again), so it took the new one for a member of
- * the squad: the moby loop (BuildActiveMobyChain, func_002A08A0) chained it a second time, which
- * cut the mobys chained between the two out of that frame's updates (bolts and enemies frozen),
- * and the squad's controller ran its member code on it, writing an enemy's floats into a bolt's
- * pvars, whose update then read one as a pointer (Boldan, a crash at 0xBCF5FF88). Only the lists
- * moved to the port's room have copies; the copy's own entry, if it is one, is added after. */
-void rac2_copy_slot_taken(gaddr m) {
-    if (lists.room == 0 || lists.used == 0 || lists.loads != this_load()) {
-        return;
-    }
-    const gaddr base = GREF(gaddr, TABLE_BASE);
-    if (base == 0 || m < base || (m - base) % MOBY_SIZE != 0) {
-        return;
-    }
-    const uint32_t id = (m - base) / MOBY_SIZE;
+/* Takes the moby of pool index `id` off every list moved to the port's room that names it (the last
+ * left keeps the end mark); `why` is logged once a load. Only those lists have copies on them. */
+static void drop_index(uint32_t id, const char* why) {
     const int32_t groups = GREF(int32_t, GROUP_COUNT);
     for (int32_t g = 0; g <= groups && g < 0x1000; ++g) {
         const gaddr list = GREF(gaddr, GROUP_LISTS + 4u * (uint32_t)g);
@@ -716,13 +707,44 @@ void rac2_copy_slot_taken(gaddr m) {
                 told = this_load();
                 fprintf(
                     stderr,
-                    "[info] moby groups: slot %u given out again, off group %d's list\n",
+                    "[info] moby groups: slot %u %s, off group %d's list\n",
                     (unsigned)id,
+                    why,
                     (int)g
                 );
             }
         }
     }
+}
+
+/* Whether the lists moved to the port's room are this load's and hold anything. */
+static int lists_held(void) {
+    return lists.room != 0 && lists.used != 0 && lists.loads == this_load();
+}
+
+/* The pool index of the slot `m`, or -1 when it is no slot of the table. */
+static int32_t pool_index(gaddr m) {
+    const gaddr base = GREF(gaddr, TABLE_BASE);
+    if (base == 0 || m < base || (m - base) % MOBY_SIZE != 0) {
+        return -1;
+    }
+    return (int32_t)((m - base) / MOBY_SIZE);
+}
+
+/* A slot CreateMoby has just given out (rac2_copy_slot_taken): a dead copy's index left on its
+ * group's list named the new moby. The game never takes a moby off a list (its lists hold only
+ * placed mobys, whose slots are never given out again), so it took the new one for a member of
+ * the squad: the moby loop (BuildActiveMobyChain, func_002A08A0) chained it a second time, which
+ * cut the mobys chained between the two out of that frame's updates (bolts and enemies frozen),
+ * and the squad's controller ran its member code on it, writing an enemy's floats into a bolt's
+ * pvars, whose update then read one as a pointer (Boldan, a crash at 0xBCF5FF88). Only the lists
+ * moved to the port's room have copies; the copy's own entry, if it is one, is added after. */
+void rac2_copy_slot_taken(gaddr m) {
+    const int32_t id = pool_index(m);
+    if (!lists_held() || id < 0) {
+        return;
+    }
+    drop_index((uint32_t)id, "given out again");
 }
 
 static int copy_alive(int i) {
@@ -774,6 +796,77 @@ static int copy_index(gaddr moby) {
 
 int rac2_copy_is(gaddr moby) {
     return copy_index(moby) >= 0;
+}
+
+/* Whether the spawned slot `m` on a list is still the copy that joined it: a live copy of this load,
+ * of the class it was made of (a slot given out again to another class is not). */
+static int member_ok(gaddr m) {
+    for (int i = 0; i < made.count; ++i) {
+        if (made.moby[i] == m) {
+            return copy_alive(i) && GREF(int16_t, m + MOBY_OCLASS) == made.oclass[i];
+        }
+    }
+    return 0;
+}
+
+void rac2_copy_groups_tidy(void) {
+    if (!lists_held()) {
+        return;
+    }
+    forget_old();
+    const gaddr base = GREF(gaddr, TABLE_BASE);
+    const gaddr dynamic = GREF(gaddr, TABLE_DYNAMIC);
+    if (base == 0 || dynamic < base) {
+        return;
+    }
+    const int32_t groups = GREF(int32_t, GROUP_COUNT);
+    for (int32_t g = 0; g <= groups && g < 0x1000; ++g) {
+        const gaddr list = GREF(gaddr, GROUP_LISTS + 4u * (uint32_t)g);
+        if (list < lists.room || list >= lists.room + lists.used) {
+            continue;
+        }
+        /* Each entry past the placed mobys must be its copy still. One that is not is taken off
+         * (drop_index walks every list) and the walk starts again; a list of one entry is left
+         * whole, as drop_index leaves it. Each drop shrinks the list, so the walk ends. */
+        for (int n = 0; n < GROUP_MEMBERS_MAX + 1; ++n) {
+            const uint16_t e = GREF(uint16_t, list + 2u * (uint32_t)n);
+            const uint32_t id = e & ~GROUP_LAST;
+            const gaddr m = base + id * MOBY_SIZE;
+            if (m >= dynamic && !member_ok(m) && !(n == 0 && (e & GROUP_LAST) != 0)) {
+                drop_index(id, GREF(uint8_t, m + MOBY_STATE) >= 0x80 ? "dead" : "of another moby");
+                n = -1;
+                continue;
+            }
+            if ((e & GROUP_LAST) != 0) {
+                break;
+            }
+        }
+    }
+}
+
+void rac2_copy_gone(gaddr m) {
+    const int32_t id = pool_index(m);
+    if (!lists_held() || id < 0 || GREF(uint8_t, m + MOBY_STATE) < 0x80) {
+        return;
+    }
+    for (int i = 0; i < made.count; ++i) {
+        if (made.moby[i] == m && made.loads == this_load()) {
+            drop_index((uint32_t)id, "dead");
+            return;
+        }
+    }
+}
+
+gaddr rac2_copy_pvars(gaddr moby, uint32_t* bytes) {
+    const int i = copy_index(moby);
+    if (i < 0 || GREF(int16_t, moby + MOBY_OCLASS) != made.oclass[i]
+        || GREF(gaddr, moby + MOBY_PVARS) != made.pvars[i] || made.pvars[i] == 0) {
+        return 0;
+    }
+    if (bytes != NULL) {
+        *bytes = made.bytes[i];
+    }
+    return made.pvars[i];
 }
 
 /* The pool's free slots: each one given back (0xFE), and every one from the first never used on
@@ -1266,6 +1359,9 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
     made.orig[made.count] = orig;
     made.died[made.count] = 0;
     made.uid[made.count] = GREF(int16_t, m + MOBY_UID);
+    made.oclass[made.count] = GREF(int16_t, m + MOBY_OCLASS);
+    made.pvars[made.count] = to;
+    made.bytes[made.count] = room_need > 0 ? room_need : SLOT_PVARS;
     ++made.count;
     return m;
 }
@@ -1279,6 +1375,7 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
 int rac2_copy_trace;
 
 void func_002A6C58(gaddr moby, int flags, int arg) {
+    rac2_death_trace_death(moby, flags, arg);
     const int index = copy_index(moby);
     if (index < 0) {
         if (rac2_copy_trace) {
