@@ -108,13 +108,13 @@ SceMcFormat	mc	sceMcFormat	host	PAL func_00124340
 sceMcDelete	mc	sceMcDelete	host	PAL func_00124410
 SceMcUnformat	mc	sceMcUnformat	host	PAL func_00124528
 sceMcChdir	mc	sceMcChdir	host	the US game enters its save folder before reading it; PAL does not
-sceDbcInit	dbc	sceDbcInit	host	pads come from the platform layer; PAL func_00124650
-scePad2Init	pad2	scePad2Init	host	PAL func_00124B88
-scePad2CreateSocket	pad2	scePad2CreateSocket	host	PAL func_00124BC8
-scePad2Read	pad2	scePad2Read	host	PAL func_00124D18
-scePad2GetButtonProfile	pad2	scePad2GetButtonProfile	host	PAL func_00124DF0
-scePad2GetState	pad2	scePad2GetState	host	PAL func_00124EE0
-sceVibGetProfile	vib	sceVibGetProfile	host	PAL func_00125218, paired as found
+sceDbcInit	dbc	sceDbcInit	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); pads come from the platform layer; PAL func_00124650
+scePad2Init	pad2	scePad2Init	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00124B88
+scePad2CreateSocket	pad2	scePad2CreateSocket	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00124BC8
+scePad2Read	pad2	scePad2Read	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00124D18
+scePad2GetButtonProfile	pad2	scePad2GetButtonProfile	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00124DF0
+scePad2GetState	pad2	scePad2GetState	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00124EE0
+sceVibGetProfile	vib	sceVibGetProfile	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00125218, paired as found
 sceVu0UnitMatrix	vu0	(UnitMatrix or InterVector)	todo	which one it is decides its host version; PAL func_00125358, paired as called
 sceVu0RotMatrixZ	vu0	sceVu0RotMatrixZ	host	PAL func_001253F8
 FUN_00125360	vu0	sceVu0RotMatrixX	host	PAL func_001254A0
@@ -337,6 +337,8 @@ Rfu091Tail	kernel	GetEntryAddress	host	system call 0x5B; PAL func_0011DE28
 __muldi3	libgcc	__muldi3	host	64-bit multiply; PAL func_0011EEC8
 __udivdi3	libgcc	__udivdi3	host	64-bit unsigned divide (src/sdk/soft_float/udivdi3.c, which hostgen.json skips: libgcc's GCC-only assembly); newlib's printf, strtol and malloc call it
 __umoddi3	libgcc	__umoddi3	host	64-bit unsigned remainder (src/sdk/soft_float/umoddi3.c, skipped as above)
+FUN_00217048	pad	InitPads	host	init_pads: the pad record's socket is its port; libdbc and libpad2 are not started, the port's pad update needs neither (rac1/host/pad_state.c); PAL func_00217EE8	void (void)
+FUN_002170c8	pad	Pad_UpdatePort	host	poll_pad_device_state: the profiles and the report a poll are the port's, from its controllers (openrac_pad_report, through the mods' pad callbacks), handed to the game's Pad_ProcessReport; no libpad2 call (rac1/host/pad_state.c); PAL func_00217F68	void (unsigned int)
 FUN_00217328	pad	Pad_ProcessReport	hook	the pad's report into its state, each poll: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none; PAL func_002181F0	void (unsigned int, unsigned int, int)
 FUN_L00_00211670	hero	Hero_UpdateMotionInput	hook	the stick into the hero, early in his update: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none; PAL func_L00_00211D28	void (void)
 FUN_L00_00211e30	hero	Hero_TurnToHeading	hook	eases the facing toward the move yaw: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none; PAL func_L00_002124E8	void (int, float, float, float)

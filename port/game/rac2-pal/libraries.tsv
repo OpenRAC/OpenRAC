@@ -115,7 +115,7 @@ func_001252E0	cdvd	sceCdMmode	host	symbol_addrs.txt name
 func_001253A8	cdvd	sceCdRead	host	symbol_addrs.txt name
 func_001256D8	cdvd	sceCdReadClock	host	symbol_addrs.txt name
 func_001257D0	graph	sceGsResetGraph	host	symbol_addrs.txt name
-func_001282A8	dbc	sceDbcInit	host	symbol_addrs.txt name
+func_001282A8	dbc	sceDbcInit	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
 func_00124418	vu	sceGsResetPath	host	resets VU1/VIF1/GIF (VU0 FBRST, then VIF and GIF reset writes); the native renderer has no paths to reset
 func_001244B8	vu	sceGsSyncPath	host	symbol_addrs.txt WaitGsPathsIdle: polls the DMA, VIF1 and GIF status; native hand-offs are synchronous
 func_001158F8	libc	strncmp	host	same instructions as rac4's strncmp (relocations masked)
@@ -165,13 +165,15 @@ func_00127E48	mc	sceMcGetDir	host	same instructions as rac1-pal's
 func_00127F98	mc	sceMcFormat	host	same instructions as rac1-pal's sceMcFormat (and its sceMcUnformat; the library's order decides)
 func_00128068	mc	sceMcDelete	host	same instructions as rac1-pal's
 func_00128180	mc	sceMcUnformat	host	same instructions as rac1-pal's sceMcUnformat (and its sceMcFormat; the library's order decides)
-func_001288C0	pad2	scePad2Init	host	same instructions as rac1-pal's
-func_00128900	pad2	scePad2CreateSocket	host	same instructions as rac1-pal's
-func_00128A50	pad2	scePad2Read	host	same instructions as rac1-pal's
-func_00128B28	pad2	scePad2GetButtonProfile	host	same instructions as rac1-pal's
-func_00128C18	pad2	scePad2GetState	host	same instructions as rac1-pal's
-func_00128F50	vib	sceVibGetProfile	host	same instructions as rac1-pal's
-func_00128FD0	vib	sceVibSetActParam	host	the motors the pad poll (func_002B85F8) sends each read, packed by the profile sceVibGetProfile gave; played by the window (lib/pad.c)
+func_001288C0	pad2	scePad2Init	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128900	pad2	scePad2CreateSocket	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128A50	pad2	scePad2Read	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128B28	pad2	scePad2GetButtonProfile	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128C18	pad2	scePad2GetState	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128F50	vib	sceVibGetProfile	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c)
+func_00128FD0	vib	sceVibSetActParam	host	no call reaches it: pad_init_ports and poll_pad_device_state are the port's (rac2/host/pad_state.c); the motors the game sets go to the window from there
+func_002B9100	pad	pad_init_ports	host	each pad record's socket is its port; libdbc and libpad2 are not started, the port's pad update needs neither (rac2/host/pad_state.c)	void (unsigned int)
+func_002B91B0	pad	poll_pad_device_state	host	the profiles and the report a poll are the port's, from its controllers (openrac_pad_report, through the mods' pad callbacks), the motors the game set go to the window, and the game's reader takes the report; no libpad2 or libvib call (rac2/host/pad_state.c)	void (unsigned int)
 # sceVu0RotMatrixZ, X and Y (func_00129218, func_001292C0, func_00129368) run from the disc's own
 # instructions (hostgen.json "asm"): the shared replacement (common/lib/vu0.c) takes its sine and cosine
 # from the host's libm, whose last bit differs between macOS and glibc, and level starts built the
