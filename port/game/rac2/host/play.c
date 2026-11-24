@@ -290,11 +290,7 @@ static int hero_pose(openrac_game_pose* out) {
  * UpdateHeroInputAndHistory makes them); then the update's steps that show him (his blinks, the
  * face's manipulators, his moby, what he wears on his head (func_L00_002AA178 poses it from his joints, a
  * mod's joint offsets included), what is attached to him and what he holds, his scale). His state machine,
- * the stick, ledges and rails are the mod's to leave out.
- *
- * USA v1.01 alone until the carried releases' tables are written again (rac2.h, RAC2_PRIMARY): PAL
- * and v2.00 have no names for these functions yet. */
-#if defined(RAC2_PRIMARY)
+ * the stick, ledges and rails are the mod's to leave out. */
 #define HERO_MOTION_POS (HERO + 0x80u)
 #define HERO_MOTION_ROT (HERO + 0x90u)
 #define HERO_INV_ROT_MATRIX (HERO + 0x40u)
@@ -315,7 +311,9 @@ static int hero_set_pose(const openrac_game_pose* pose) {
     const int frames = seq_frames(moby, pose->seq);
     if (frames > 0 && pose->seq != GREF(uint8_t, moby + MOBY_TARGET_SEQ)) {
         func_L00_002D2168(
-            (int)pose->seq, (int)pose->frame < frames ? (int)pose->frame : frames - 1, HERO_SET_BLEND
+            (int)pose->seq,
+            (int)pose->frame < frames ? (int)pose->frame : frames - 1,
+            HERO_SET_BLEND
         );
     }
     /* A queued seq or frame his last state asked for is for that state's animation. */
@@ -356,7 +354,6 @@ static int hero_set_pose(const openrac_game_pose* pose) {
     func_L00_002A7748();
     return 1;
 }
-#endif
 
 static int32_t slot_of(gaddr moby);
 
@@ -759,9 +756,7 @@ static openrac_game_play play = {
     .phase = phase,
     .loads = loads,
     .hero_pose = hero_pose,
-#if defined(RAC2_PRIMARY)
     .hero_set_pose = hero_set_pose,
-#endif
     .collision_triangles = rac2_collision_triangles,
     .hero_update_hook = "Hero_Update",
     .figure_spawn = figure_spawn,
