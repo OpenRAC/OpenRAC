@@ -310,6 +310,38 @@ void draws_the_extracted_levels() {
     CHECK(!profile.has_title_world());
 }
 
+// Inferno Mode (hero_mesh_swap, Veldin's 0x00425A08): Ratchet's slot (0) takes the packet table of
+// class 0x1F3A's slot while the armour and the skin stay, so he is drawn as 0x1F3A, Infernox; and
+// as his look again once the loaded pack is re-attached.
+void draws_inferno_mode_as_infernox() {
+    const host::GameProfile& profile = host::game_profile("rac3-pal");
+    g_overlay = 1;
+    auto ram = memory(kVeldin);
+    put_moby(ram, kTable, 0, 10.0f);
+    constexpr std::uint32_t kData = 0x001FD180;     // the slots' class data
+    constexpr std::uint32_t kNumbers = 0x001FD9F0;  // their class numbers
+    constexpr std::uint32_t kBySlot = 0x001FDBD0;   // the slots by class
+    constexpr std::uint32_t kSlot = 37;
+    put_word(ram, kData, 0x00900000);
+    put_word(ram, kData + 4 * kSlot, 0x00900100);
+    put_word(ram, 0x00900000, 0x00A00000);  // his pack's packet table
+    put_word(ram, 0x00900100, 0x00A10000);  // Infernox's
+    const std::int16_t inferno = 0x1F3A;
+    std::memcpy(ram.data() + kNumbers + 2 * kSlot, &inferno, sizeof(inferno));
+    ram[kBySlot + 0x1F3A] = kSlot;
+    ram[0x001D4B60] = 2;  // the armour he wears
+    CHECK(profile.read_state(ram, 1).mobys[0].model_class == 6002);
+    put_word(ram, 0x00900000, 0x00A10000);  // hero_mesh_swap(1)
+    CHECK(profile.read_state(ram, 1).mobys[0].model_class == 0x1F3A);
+    ram[0x001427AB] = 9;  // a skin worn: Inferno Mode still shows Infernox
+    CHECK(profile.read_state(ram, 1).mobys[0].model_class == 0x1F3A);
+    put_word(ram, 0x00900000, 0x00A00000);  // hero_mesh_swap(0): his pack again
+    CHECK(profile.read_state(ram, 1).mobys[0].model_class == 6009);
+    ram[0x001427AB] = 0;
+    CHECK(profile.read_state(ram, 1).mobys[0].model_class == 6002);
+    g_overlay = 0;
+}
+
 }  // namespace
 
 int main() {
@@ -320,5 +352,6 @@ int main() {
     draws_the_extracted_levels();
     casts_going_commandos_shadows();
     lights_from_each_programs_bank();
+    draws_inferno_mode_as_infernox();
     return openrac::test::result();
 }

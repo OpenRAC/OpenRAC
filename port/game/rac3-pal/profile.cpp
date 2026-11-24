@@ -217,12 +217,6 @@ constexpr std::int32_t kHeroLooks = 31;
 constexpr std::uint32_t kHeroArmour = 0x001D4B60;
 constexpr std::uint32_t kHeroSkin = 0x001427AB;
 
-std::int32_t hero_class(std::span<const std::uint8_t> ram) {
-    const std::int32_t skin = at<std::uint8_t>(ram, kHeroSkin);
-    const std::int32_t look = skin != 0 ? skin : at<std::int32_t>(ram, kHeroArmour);
-    return look > 0 && look < kHeroLooks ? kHeroLookClasses + look : -1;
-}
-
 // Reads a complete record's sphere in world units (MobyProc's lqc2 of +0x00, in 1/1024 units).
 std::array<float, 4> moby_sphere(std::span<const std::uint8_t> ram, std::uint32_t address) {
     std::array<float, 4> sphere;
@@ -272,6 +266,47 @@ int drawn_class(
     return drawn > 0 && drawn != class_id ? drawn : -1;
 }
 
+// Inferno Mode's look (the Inferno crate, crate_break, Veldin's 0x0033C520): the game sets the
+// armour worn (0x001426A0) to 4 for a while but loads no pack. hero_mesh_swap (Veldin's 0x00425A08)
+// copies the class data of the level's class 0x1F3A, Infernox, over Ratchet's slot instead: its
+// packet table (+0x00), counts (+4 to +7) and texture usage (+0x20), with the slot's words at
+// 0x00200670 and 0x00200DF0. Ending it re-attaches the loaded pack (armor_attach). The armour kept
+// at 0x001D4B60 and the skin byte stay as they were, so while the swap holds he is drawn as
+// 0x1F3A, whose export has his skeleton, and not as the pack they name. 0x001FDBD0, the slots by
+// class, sits 0xA50 past the slots' data in every level's copy.
+constexpr std::int16_t kInfernoClass = 0x1F3A;
+constexpr std::uint32_t kClassSlotsByClass = 0xA50;
+
+bool inferno_look(std::span<const std::uint8_t> ram, const ClassTables& tables) {
+    if (tables.data == 0 || tables.numbers == 0) {
+        return false;
+    }
+    const std::uint32_t slot =
+        at<std::uint8_t>(ram, tables.data + kClassSlotsByClass + kInfernoClass);
+    if (slot == 0 || slot >= kClassSlots
+        || at<std::int16_t>(ram, tables.numbers + 2 * slot) != kInfernoClass) {
+        return false;
+    }
+    const std::uint32_t hero = at<std::uint32_t>(ram, tables.data);
+    const std::uint32_t inferno = at<std::uint32_t>(ram, tables.data + 4 * slot);
+    if (hero == 0 || inferno == 0 || hero == inferno) {
+        return false;
+    }
+    const std::uint32_t packets = at<std::uint32_t>(ram, inferno);
+    return packets != 0 && at<std::uint32_t>(ram, hero) == packets;
+}
+
+// The class Ratchet (class 0) is drawn as: Infernox in Inferno Mode, else his skin's or his
+// armour's pack, as LoadPlayerDisplayTextures picks it; -1 for pack 0, the level's class 0.
+std::int32_t hero_class(std::span<const std::uint8_t> ram, const ClassTables& tables) {
+    if (inferno_look(ram, tables)) {
+        return kInfernoClass;
+    }
+    const std::int32_t skin = at<std::uint8_t>(ram, kHeroSkin);
+    const std::int32_t look = skin != 0 ? skin : at<std::int32_t>(ram, kHeroArmour);
+    return look > 0 && look < kHeroLooks ? kHeroLookClasses + look : -1;
+}
+
 // Returns a moby's placement from its complete record, none when it has none yet.
 std::optional<host::LiveMoby> read_live_moby(
     std::span<const std::uint8_t> ram, std::uint32_t m, const ClassTables& tables
@@ -288,7 +323,7 @@ std::optional<host::LiveMoby> read_live_moby(
     live.address = m;
     live.class_id = at<std::int16_t>(ram, m + kMobyClass);
     if (live.class_id == 0) {
-        live.model_class = hero_class(ram);
+        live.model_class = hero_class(ram, tables);
     } else {
         live.model_class = drawn_class(ram, m, live.class_id, tables);
     }
