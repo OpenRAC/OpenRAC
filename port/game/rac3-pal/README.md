@@ -597,7 +597,9 @@ light sets and their bangles as classes of their own (`moby_glow_tail`, `moby_li
 `moby_bangles`): the profile draws a moby's bangles by its bangle word (+0x7C), as Going
 Commando's. (10) adds his other 30 looks, packs 1 to 30, as classes 6001 to 6030: the profile
 draws class 0 as the look of the armour at `0x001D4B60`, or of the skin byte at `0x001427AB` when it
-is set, as LoadPlayerDisplayTextures picks the pack. (11) adds the gameplay copy the probe baker
+is set, as LoadPlayerDisplayTextures picks the pack. In Inferno Mode the game draws him as the level's class 0x1F3A
+(Infernox), whose class data hero_mesh_swap copies over his slot; the profile draws that class while
+his slot holds its packet table. (11) adds the gameplay copy the probe baker
 plans enhanced lighting from (`bake-inputs/gameplay.bin`), as Going Commando's 18. (12) adds the
 reviewed glowing textures and the levels' sun sets, as Going Commando's 19. (13) adds level 97, the loading
 screen's ship scene (below). (14) adds the liquid surfaces the baker lights from
