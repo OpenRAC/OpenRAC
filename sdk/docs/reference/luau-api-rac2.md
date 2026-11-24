@@ -373,3 +373,11 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 ```lua
 type Vendor_PreviewFn = () -> ()
 ```
+
+### `Moby_CountKillFn`
+
+rac2.combat.count_kill (Moby_CountKill) void(u32,i32): Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
+
+```lua
+type Moby_CountKillFn = (moby: number, type: number) -> ()
+```

@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
+struct Moby_CountKill {
+    static constexpr const char* id = "rac2.combat.count_kill";
+    static constexpr const char* name = "Moby_CountKill";
+    static constexpr const char* signature = "void(u32,i32)";
+    using fn = void (*)(uint32_t, int32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -337,6 +345,7 @@ namespace hooks {
         using spawn_pickups = rac2::Bolt_SpawnPickups;
     }  // namespace bolt
     namespace combat {
+        using count_kill = rac2::Moby_CountKill;
         using get_hit = rac2::Moby_GetHitMessage;
         using post_hit = rac2::Moby_PostHit;
     }  // namespace combat

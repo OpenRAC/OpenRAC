@@ -329,6 +329,12 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* Moby_CountKill: Records a kill or event and grants its rewards. A replacement can adjust
+ * reward state around the original call. */
+#define OPENRAC_RAC2_HOOK_Moby_CountKill "Moby_CountKill"
+#define OPENRAC_RAC2_SIG_Moby_CountKill "void(u32,i32)"
+typedef void (*openrac_rac2_Moby_CountKill)(uint32_t moby, int32_t type);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

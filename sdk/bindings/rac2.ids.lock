@@ -7,6 +7,7 @@ rac2.armor_vendor.buy	ntsc:L00:00373D40	ArmorVendor_Buy,func_L00_00373D40,func_L
 rac2.bolt.collect	ntsc:00301D10	Bolt_Collect,func_00301D10,func_00302B08,func_00302E18
 rac2.bolt.spawn_pickup	ntsc:00302470	Bolt_SpawnPickup,func_00302470,func_00303268,func_00303578
 rac2.bolt.spawn_pickups	ntsc:002ADB78	Bolt_SpawnPickups,func_002ADB78,func_002AE6D8,func_002AE9E0,func_L00_00321878,func_L00_00322AF0,func_L00_00323918
+rac2.combat.count_kill	ntsc:002A6AE0	APRac2_CountKill,Moby_CountKill,func_002A6AE0,func_002A74D8
 rac2.combat.get_hit	ntsc:002A9640	Moby_GetHitMessage,func_002A9640,func_002AA0A8,func_002AA4A8
 rac2.combat.post_hit	ntsc:002A8E20	Moby_PostHit,func_002A8E20,func_002A9838,func_002A9C88
 rac2.item.colors	ntsc:00336F20	Item_Colors,func_00336F20,func_00337DC8,func_00338C78
