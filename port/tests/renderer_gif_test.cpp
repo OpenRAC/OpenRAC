@@ -5,6 +5,7 @@
 // out. Synthetic packets, laid out the way the game's 2D code builds them.
 
 #include <algorithm>
+#include <array>
 #include <cfenv>
 #include <cmath>
 #include <cstdio>
@@ -1000,6 +1001,66 @@ void recorded_splices_in_a_stream() {
     }
 }
 
+namespace {
+
+// A synthetic flat HUD element needs neither an image nor a graphics packet to be recorded.
+UiItem placed_item(const std::array<float, 4>& rect, std::uint32_t place, float side) {
+    UiItem item;
+    item.flags = kUiItemFlat | kUiItemShaded;
+    item.place = place;
+    item.side = side;
+    item.x[0] = item.x[2] = rect[0];
+    item.x[1] = item.x[3] = rect[2];
+    item.y[0] = item.y[1] = rect[1];
+    item.y[2] = item.y[3] = rect[3];
+    return item;
+}
+
+// Overlapping HUD parts move together, while centred and unplaced items keep their positions.
+void recorded_native_hud_placement() {
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    FrameRecording r;
+    constexpr float kSide = 32.0f;  // Synthetic HUD shift, in the item's 512-wide screen pixels.
+    r.ui_items =
+        {placed_item({8.0f, 0.0f, 264.0f, 10.0f}, 1, kSide),
+         placed_item({256.0f, 0.0f, 280.0f, 10.0f}, 1, kSide),
+         placed_item({244.0f, 100.0f, 268.0f, 110.0f}, 1, kSide),
+         placed_item({448.0f, 0.0f, 464.0f, 10.0f}, 1, kSide),
+         placed_item({8.0f, 0.0f, 24.0f, 10.0f}, 0, 0.0f)};
+    std::vector<FrameSplice> splices;
+    for (std::uint32_t i = 0; i < r.ui_items.size(); ++i) {
+        FrameCommand command;
+        command.op = FrameOp::UiItem;
+        command.index = i;
+        r.commands.push_back(command);
+        splices.push_back({0, i});
+    }
+    gif.set_commands(&r, splices, 0);
+    CHECK(gif.vif({}));
+    gif.finish_commands();
+    constexpr std::size_t kVerticesPerItem = 6;  // Each strip quad becomes two native triangles.
+    CHECK(gif.vertices().size() == kVerticesPerItem * r.ui_items.size());
+    if (gif.vertices().size() != kVerticesPerItem * r.ui_items.size()) {
+        return;  // A failed size check must not turn the diagnostic into an out-of-bounds read.
+    }
+    constexpr float kShift = 2.0f * kSide / 512.0f;
+    const auto x = [](float value) {
+        return 2.0f * value / 512.0f - 1.0f;
+    };
+    CHECK(near(gif.vertices()[0].x, x(8.0f) - kShift));
+    // The second part is centred on its own, but overlaps the left element and follows it out.
+    CHECK(near(gif.vertices()[kVerticesPerItem].x, x(256.0f) - kShift));
+    CHECK(near(gif.vertices()[2 * kVerticesPerItem].x, x(244.0f)));
+    CHECK(near(gif.vertices()[3 * kVerticesPerItem].x, x(448.0f) + kShift));
+    CHECK(near(gif.vertices()[4 * kVerticesPerItem].x, x(8.0f)));
+    const float shifted = gif.vertices()[0].x;
+    gif.finish_commands();
+    CHECK(near(gif.vertices()[0].x, shifted));
+}
+
+}  // namespace
+
 int main() {
     blend_weights();
     opaque_effects();
@@ -1025,5 +1086,6 @@ int main() {
     native_blends();
     recorded_frame_without_packets();
     recorded_splices_in_a_stream();
+    recorded_native_hud_placement();
     return openrac::test::result();
 }

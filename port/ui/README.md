@@ -33,3 +33,5 @@ section 6.
 `ui_core_test` compiles the production core with a recorder stand-in, without a window or game.
 It checks adapter screen defaults, rejection of invalid dimensions, native texture flags,
 flat rectangles, nested HUD placement, recorder failures and full-target scissor requests.
+`renderer_gif_test` also checks native HUD-part grouping and displacement directly from recorder
+items, including centred/unplaced items and repeated finish, without any graphics packet input.
