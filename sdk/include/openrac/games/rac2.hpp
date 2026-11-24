@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Updates the Todano trader and his reward exchange.
+struct Moby_TodanoTrader_Update {
+    static constexpr const char* id = "rac2.moby.todano_trader.update";
+    static constexpr const char* name = "Moby_TodanoTrader_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -388,6 +396,9 @@ namespace hooks {
         namespace thermanator_seller {
             using update = rac2::Moby_ThermanatorSeller_Update;
         }  // namespace thermanator_seller
+        namespace todano_trader {
+            using update = rac2::Moby_TodanoTrader_Update;
+        }  // namespace todano_trader
         namespace tractor_beam_seller {
             using update = rac2::Moby_TractorBeamSeller_Update;
         }  // namespace tractor_beam_seller

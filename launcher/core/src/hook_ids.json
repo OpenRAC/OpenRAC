@@ -745,6 +745,7 @@
    "Moby_SwingshotArea_Update": "rac2.moby.swingshot_area.update",
    "Moby_ThermanatorArea_Update": "rac2.moby.thermanator_area.update",
    "Moby_ThermanatorSeller_Update": "rac2.moby.thermanator_seller.update",
+   "Moby_TodanoTrader_Update": "rac2.moby.todano_trader.update",
    "Moby_TractorBeamSeller_Update": "rac2.moby.tractor_beam_seller.update",
    "Planet_Unlock": "rac2.planet.unlock",
    "Text_ById": "rac2.text.by_id",

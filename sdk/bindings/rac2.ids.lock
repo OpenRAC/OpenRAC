@@ -28,6 +28,7 @@ rac2.moby.record_death	ntsc:002A6C58	Moby_RecordDeath,func_002A6C58,func_002A765
 rac2.moby.swingshot_area.update	ntsc:L03:003F09C0	Moby_SwingshotArea_Update,func_L03_003F09C0,func_L03_003F2000,func_L03_003F5090
 rac2.moby.thermanator_area.update	ntsc:L04:00456628	Moby_ThermanatorArea_Update,func_L04_00456628,func_L04_00457DD8,func_L04_0045C268
 rac2.moby.thermanator_seller.update	ntsc:L04:00434BB0	Moby_ThermanatorSeller_Update,func_L04_00434BB0,func_L04_004362F0,func_L04_00439C28
+rac2.moby.todano_trader.update	ntsc:L12:003B5240	APRac2_TodanoTrader,Moby_TodanoTrader_Update,func_L12_003B5240,func_L12_003B8918
 rac2.moby.tractor_beam_seller.update	ntsc:L01:003D2E50	Moby_TractorBeamSeller_Update,func_L01_003D2E50,func_L01_003D42B0,func_L01_003D7098
 rac2.planet.unlock	ntsc:002AD7B8	Planet_Unlock,func_002AD7B8,func_002AE318,func_002AE620
 rac2.player.approach_speed	ntsc:L00:002B41B8	Hero_ApproachSpeed,func_L00_002B40E0,func_L00_002B41B8,func_L00_002B42C0

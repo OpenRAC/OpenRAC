@@ -373,3 +373,11 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 ```lua
 type Vendor_PreviewFn = () -> ()
 ```
+
+### `Moby_TodanoTrader_UpdateFn`
+
+rac2.moby.todano_trader.update (Moby_TodanoTrader_Update) void(u32): Updates the Todano trader and his reward exchange.
+
+```lua
+type Moby_TodanoTrader_UpdateFn = (moby: number) -> ()
+```

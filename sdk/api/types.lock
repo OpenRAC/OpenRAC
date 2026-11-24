@@ -529,6 +529,7 @@ openrac_rac2_Moby_GetHitMessage	(typedef)	-	uint32_t (*)(uint32_t, uint32_t, int
 openrac_rac2_Moby_NanotechBall_Update	(typedef)	-	void (*)(uint32_t)
 openrac_rac2_Moby_PostHit	(typedef)	-	void (*)(uint32_t, uint32_t)
 openrac_rac2_Moby_RecordDeath	(typedef)	-	void (*)(uint32_t, int32_t, int32_t)
+openrac_rac2_Moby_TodanoTrader_Update	(typedef)	-	void (*)(uint32_t)
 openrac_rac2_Moby_Update	(typedef)	-	void (*)(uint32_t)
 openrac_rac2_Planet_Unlock	(typedef)	-	void (*)(int32_t)
 openrac_rac2_Text_ById	(typedef)	-	int32_t (*)(int32_t)
