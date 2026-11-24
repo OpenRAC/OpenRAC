@@ -115,4 +115,17 @@ int api_play_scene_from(openrac_mod*, int, int) {
     return OPENRAC_HOOK_UNKNOWN;
 }
 
+int api_time_stretch(openrac_mod* mod, float stretch) {
+    if (mod == nullptr || !std::isfinite(stretch) || stretch < 1.0f || stretch > 8.0f) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_stretches, [&](const Stretch& s) { return s.mod == mod || s.loads != loads; });
+    if (stretch > 1.0f) {
+        g_stretches.push_back({mod, loads, stretch});
+    }
+    return OPENRAC_HOOK_OK;
+}
+
 }  // namespace openrac::mods::detail

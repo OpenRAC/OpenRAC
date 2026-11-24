@@ -9,7 +9,7 @@
 //
 // They share one plan (RENDERER.md section 6, after OpenGOAL's TFRAG, TIE,
 // Merc2 and Sprite3 renderers): geometry is converted when the level is
-// extracted (the editor's readers: editor/terrain.py, ties.py, shrubs.py,
+// extracted (the editor's readers: extractor/terrain.py, ties.py, shrubs.py,
 // moby_class.py, sky.py), uploaded when the level loads, and drawn with what
 // the game computes each frame: the camera, the visibility bits of the
 // occlusion grid, the level-of-detail weights, the lights, the joint
@@ -40,7 +40,7 @@ private:
 // fragments with the level-of-detail morph SetTfragDists func_00234380
 // computes (three distances, two morph weights for the refinement streams),
 // culled by the occlusion mask, with baked vertex colours and the level's
-// fog. Converted at extraction from editor/terrain.py (LOD 0 and 2 today).
+// fog. Converted at extraction from extractor/terrain.py (LOD 0 and 2 today).
 class TfragRenderer : public PlaceholderRenderer {
 public:
     TfragRenderer() : PlaceholderRenderer("tfrag", Bucket::Terrain) {}
@@ -51,7 +51,7 @@ public:
 // visible instance (0xE0-byte placements: matrix, draw distance, occlusion
 // index, ambient colours at +0x50, directional lights at +0xD0) with its
 // class's level of detail, lit by LightTies func_00238688; the second
-// program adds an environment map. Classes from editor/ties.py.
+// program adds an environment map. Classes from extractor/ties.py.
 class TieRenderer : public PlaceholderRenderer {
 public:
     TieRenderer() : PlaceholderRenderer("tie", Bucket::Ties) {}
@@ -60,7 +60,7 @@ public:
 // Shrubs: DrawShrubs func_00229E50, ShrubProc func_00229F00 (asm), VU1
 // programs 56467 and 912339. Must draw shrub instances with their colour and
 // lights (LightShrubs func_0022B8F8), switching to the class's billboard
-// (class +0x1C, not read yet) at distance. Classes from editor/shrubs.py.
+// (class +0x1C, not read yet) at distance. Classes from extractor/shrubs.py.
 class ShrubRenderer : public PlaceholderRenderer {
 public:
     ShrubRenderer() : PlaceholderRenderer("shrub", Bucket::Shrubs) {}
@@ -72,7 +72,7 @@ public:
 // builds on the scratchpad (0x70000000 + 0x40 * i), high or low detail by
 // the class's distance table, with alpha test GEQUAL 0x60 and "keep colour
 // on fail" (the double draw), metal and glow packets (not read yet). Meshes
-// and skeletons from editor/moby_class.py and moby_anim.py.
+// and skeletons from extractor/moby_class.py and moby_anim.py.
 class MobyRenderer : public PlaceholderRenderer {
 public:
     MobyRenderer() : PlaceholderRenderer("moby", Bucket::Mobys) {}
@@ -81,7 +81,7 @@ public:
 // The sky: SkyDrawShell func_0022C9A8 (C), the textured and Gouraud shell
 // drawers (not decompiled). Must draw the level's shells centred on the
 // camera, in order, each blended over the last, with the sky's sprites (the
-// particle program). Shells from editor/sky.py.
+// particle program). Shells from extractor/sky.py.
 class SkyRenderer : public PlaceholderRenderer {
 public:
     SkyRenderer() : PlaceholderRenderer("sky", Bucket::Sky) {}

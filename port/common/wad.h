@@ -3,7 +3,7 @@
 //
 // The games' WAD compression: a 16-byte header ("WAD", then the stream's size at +3) and LZO-like
 // packets, which every Ratchet & Clank game decompresses the same way (rac1's func_0020C468). The
-// same reading as editor/formats.py's wad(), which the editor uses on the disc's files; the
+// same reading as extractor/formats.py's wad(), which the extractor uses on the disc's files; the
 // interface texture runs (renderer/textures/interface_run.h) use it to find where a texture's
 // bytes lie on the disc.
 

@@ -4,7 +4,7 @@
  * Up Your Arsenal: the game's own renderers, which the native port does not run. As Going
  * Commando's (rac2/host/render.c) and Ratchet & Clank's (rac1/host/render_native.c): on the console
  * they are hand-written assembly that turns level data into VU1 and GS packets; the port draws the
- * same things with its own renderers from the extracted level (editor/extract.py port, --levels).
+ * same things with its own renderers from the extracted level (extractor/extract.py port, --levels).
  * The frame's draw pass (DrawFrame, Veldin's 0x00403440, Going Commando's func_0027BD70) still runs:
  * its passes end here, where the window is told which layers the game drew, with what camera, and
  * where the world goes in the display list.

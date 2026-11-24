@@ -128,6 +128,12 @@ void openrac_rac2_set_follow_mouse(openrac_rac2_follow_mouse_fn fn) {
     g_follow_mouse = fn;
 }
 
+openrac_rac2_aligned_mouse_fn g_aligned_mouse = nullptr;
+
+void openrac_rac2_set_aligned_mouse(openrac_rac2_aligned_mouse_fn fn) {
+    g_aligned_mouse = fn;
+}
+
 int openrac_rac2_follow_axis(float up[3]) {
     up[0] = 0.0f;
     up[1] = 0.0f;
@@ -179,9 +185,14 @@ void host_fail(openrac_mod*, const char* reason) {
     std::printf("failed: %s\n", reason);
 }
 
+bool g_low_latency = true;  // the "mouse_low_latency" setting
+
 int setting_bool(openrac_mod*, const char* key) {
     if (std::strcmp(key, "key_prompts") == 0) {
         return g_prompts ? 1 : 0;
+    }
+    if (std::strcmp(key, "mouse_low_latency") == 0) {
+        return g_low_latency ? 1 : 0;
     }
     return std::strcmp(key, "capture_cursor") == 0 || std::strcmp(key, "menu_mouse") == 0 ? 1 : 0;
 }
@@ -314,6 +325,12 @@ void load_ok() {
 void contexts() {
     CHECK(kbm2::context_of("foot") == kbm::Context::Play);
     CHECK(kbm2::context_of("ship") == kbm::Context::Play);
+    // The free camera closes only with Select or R3: the map key must press Select there.
+    CHECK(kbm2::context_of("look_around") == kbm::Context::Play);
+    CHECK(
+        kbm::buttons_for(kbm2::context_of("look_around"), kbm::bit(kbm::Action::Map), -1)
+        == kbm::kSelect
+    );
     CHECK(kbm2::context_of("menu") == kbm::Context::Menu);
     CHECK(kbm2::context_of("front_end") == kbm::Context::Menu);
     CHECK(kbm2::context_of("vendor") == kbm::Context::Vendor);

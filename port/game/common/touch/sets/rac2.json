@@ -16,6 +16,10 @@
         { "id": "roll_right", "icon": "next", "press": ["r1"], "at": 5, "size": "small" }
       ]
     },
+    "look_around": {
+      "extends": "base",
+      "actions": []
+    },
     "map": {
       "replace": true,
       "extends": "base",

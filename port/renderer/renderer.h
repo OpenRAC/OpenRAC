@@ -134,6 +134,9 @@ struct EffectUvMotion {
 struct EffectStrip {
     // Physical parent at the previous tick, for geometry from a delayed display list; 0 is unbound.
     std::uint32_t previous_parent = 0;
+    // The strip follows its parent's move alone, its world offsets kept (what is drawn on the
+    // hero, his weapon and his shield), rather than turning with the parent's axes.
+    bool previous_parent_position_only = false;
     std::uint32_t first = 0, count = 0;
     std::uint64_t clamp = 0, tex0 = 0, tex1 = 0, alpha = 0x44;
     std::uint64_t test = 0;  // TEST as the DIRECT data before the strip leaves it (0: none seen)

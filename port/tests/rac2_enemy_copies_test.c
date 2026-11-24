@@ -6,7 +6,8 @@
  * Tabora's crystal creatures of the port's table; a moby of another kind; one with no reward), the
  * copies (their spot on the floor, in the open and apart, what they keep of their slot and take of
  * their original, their pvars and the pointers into them, the moby cells and their squad's list),
- * the pool's reserve, a stale file, a new load, and a copy's death, once, leaving the original's
+ * moving platforms (a copy on its original's, a rider that has found its own not copied), the
+ * pool's reserve, a stale file, a new load, and a copy's death, once, leaving the original's
  * record as it was. */
 #include <math.h>
 #include <stdio.h>
@@ -258,11 +259,44 @@ float func_002A89A8(gaddr point, int mode, float over) {
     return GREF(float, point) < 150.0f ? 1.0f : 0.0f;
 }
 
+/* A moving platform (a moby that carries its riders), when one is set: its rectangle in x and y,
+ * which a line straight down within it hits. */
+static gaddr platform;
+static float platform_box[4]; /* x from, x to, y from, y to */
+
 int func_002761F8(gaddr from, gaddr to, int mask, gaddr ignore, gaddr out) {
     (void)mask;
     (void)ignore;
     (void)out;
+    const float x = GREF(float, from), y = GREF(float, from + 4u);
+    GREF(gaddr, COLL_RESULT + COLL_HIT_MOBY) = 0;
+    if (platform != 0 && x == GREF(float, to) && y == GREF(float, to + 4u) && x >= platform_box[0]
+        && x < platform_box[1] && y >= platform_box[2] && y < platform_box[3]) {
+        GREF(gaddr, COLL_RESULT + COLL_HIT_MOBY) = platform;
+        return 1;
+    }
     return GREF(float, from) >= WALL_X || GREF(float, to) >= WALL_X;
+}
+
+/* A moby that carries what stands on it over the rectangle given, as the game marks one (flag 0x20
+ * of +0x34, a motion record in its pvars' third word). */
+static gaddr make_platform(float x0, float x1, float y0, float y1) {
+    platform = func_0029EFD0(THING);
+    CHECK(platform != 0);
+    GREF(uint8_t, platform + 0x20u) = 1;
+    put16(platform + 0x34u, 0x20u);
+    put32(GREF(gaddr, platform + 0x68u) + 0x8u, 0x00654320u);
+    platform_box[0] = x0;
+    platform_box[1] = x1;
+    platform_box[2] = y0;
+    platform_box[3] = y1;
+    return platform;
+}
+
+static int on_platform(gaddr m) {
+    const float x = GREF(float, m + 0x10u), y = GREF(float, m + 0x14u);
+    return x >= platform_box[0] && x < platform_box[1] && y >= platform_box[2]
+           && y < platform_box[3];
 }
 
 static int deaths;
@@ -511,6 +545,35 @@ static void parts(void) {
     CHECK(rac2_copy_make(&table, placed(0), 1) == 0);
 }
 
+/* Moving platforms: a copy of an enemy on one stands on the same one, a copy of one on the ground
+ * on none, and an enemy whose pvars name its platform (it has found it and keeps its place on it)
+ * is not copied. */
+static void platforms(void) {
+    make_level();
+    make_platform(6.0f, 13.0f, 6.0f, 14.0f);
+    for (int k = 0; k < 3; ++k) {
+        const gaddr c = rac2_copy_make(&table, placed(0), k);
+        CHECK(c != 0);
+        CHECK(on_platform(c));
+    }
+    /* On the ground beside a platform: never on it. */
+    make_level();
+    make_platform(0.0f, 13.0f, 11.5f, 30.0f);
+    for (int k = 0; k < 3; ++k) {
+        const gaddr c = rac2_copy_make(&table, placed(0), k);
+        CHECK(c != 0);
+        CHECK(!on_platform(c));
+    }
+    /* A rider that has found its platform: no copy. A platform no longer carrying: copied. */
+    make_level();
+    const gaddr cart = make_platform(6.0f, 13.0f, 6.0f, 14.0f);
+    put32(blob_at(0) + 0x30u, cart);
+    CHECK(rac2_copy_make(&table, placed(0), 0) == 0);
+    put16(cart + 0x34u, 0);
+    CHECK(rac2_copy_make(&table, placed(0), 0) != 0);
+    platform = 0;
+}
+
 static void reserve(void) {
     make_level();
     /* The pool as the game leaves it: given-back slots, then the never-used mark and zeros past. */
@@ -742,6 +805,7 @@ int main(void) {
     copies();
     no_spot();
     parts();
+    platforms();
     reserve();
     stale_and_new_load();
     slot_taken();

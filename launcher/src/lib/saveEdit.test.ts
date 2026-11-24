@@ -50,7 +50,7 @@ function view(): SaveView {
       { id: 1, name: "Novalis", location: "Tobruk Crater", canUnlock: true, canLand: true },
     ],
     levels: [],
-    maxBolts: 9_999_999,
+    maxBolts: 2_147_483_647,
     chunks: [],
     playedSeconds: 3 * 3600 + 12 * 60 + 5,
     skillNames: [],
@@ -69,7 +69,7 @@ describe("the save editor's checks", () => {
     const v = view();
     const f = structuredClone(v.fields);
 
-    f.bolts = 10_000_000;
+    f.bolts = 2_147_483_648;
     const blaster = f.items.find((i) => i.id === 15);
 
     if (blaster) blaster.ammo = 201;

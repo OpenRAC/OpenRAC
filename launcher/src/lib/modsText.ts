@@ -73,14 +73,14 @@ export const PAGE = {
   toolsLabel: "Tools",
   earlyTitle: "Early access",
   earlyLine:
-    "Its levels open in Godot and you can make texture and model packs. Packing level edits and playing come later.",
+    "Its levels open in OpenRAC Editor and you can make texture and model packs. Packing level edits and playing come later.",
   packLaterLine:
-    "Its levels open in Godot and you can make texture and model packs. Packing level edits back into the game comes later.",
+    "Its levels open in OpenRAC Editor and you can make texture and model packs. Packing level edits back comes later.",
   noneTitle: "No mods for this game yet",
   noneLine: "Mods arrive once the level editor can read its levels.",
   noneLink: "Follow the progress on openrac.dev",
   makeOwn: "Want to make your own?",
-  makeOwnButton: "Edit a level in Godot",
+  makeOwnButton: "Edit a level in OpenRAC Editor",
   developerTitle: "For developers",
 } as const;
 
@@ -360,25 +360,22 @@ export const WITH_MODS = {
 
 /** The level editor's tab (Mods.svelte). */
 export const EDITOR = {
-  lead: "Change a level in Godot, then pack your changes and play them.",
-  leadEarly: "Look around a level in Godot.",
-  openTitle: "Open a level in Godot",
+  lead: "Change a level in OpenRAC Editor, then pack your changes and play them.",
+  leadEarly: "Look around a level in OpenRAC Editor.",
+  openTitle: "Open a level in OpenRAC Editor",
   packTitle: "Pack your changes",
   levelLabel: "Level to edit",
   noDisc: "Set the game up from your disc first.",
   setUp: "Set up the disc",
-  noGodot: "Levels open in Godot 4, a free editor: get it, then choose where it is.",
-  getGodot: "Get Godot",
-  chooseGodot: "Choose Godot…",
-  pickGodot: "Godot 4",
-  ready: "Move, turn or scale objects, then save in Godot.",
+  noEditor: "Levels open in OpenRAC Editor, OpenRAC's own level editor: download it once.",
+  getEditor: "Download OpenRAC Editor",
+  ready: "Move, turn or scale objects, then save in OpenRAC Editor.",
   readyEarly: "Look around a level's objects and textures.",
   firstTime: "The first time reads the levels from your disc: about 20 seconds.",
   firstTimeEarly: "The first time reads the levels from your disc: a few minutes.",
-  open: "Open in Godot",
+  open: "Open in OpenRAC Editor",
   prepare: "Prepare and open",
-  opening: (level: string) => `Godot is opening ${level}.`,
-  notGodot: (why: string) => `That is not a Godot 4 the editor can use: ${why}`,
+  opening: (level: string) => `OpenRAC Editor is opening ${level}.`,
   packLine: "Turns what you saved into level data the game reads.",
   packEarly: "Not yet for this game. Texture and model packs work.",
   packReading: "Reading your levels…",
@@ -500,6 +497,9 @@ export const added = {
   on: (name: string) => `Added ${name}. It is on from the game's next start.`,
   off: (name: string) => `Added ${name}. It is off: its row says why.`,
   pack: (name: string) => `Added ${name}.`,
+  map: (name: string) => `Added the map ${name} as a new planet: board the ship and pick it.`,
+  mapNeedsEditor: (name: string) =>
+    `${name} is a map: download OpenRAC Editor (Mods, Level editor) to add it.`,
   several: (count: number) => `Added or updated ${count} mods; their settings are kept.`,
   packHereNot: (name: string) =>
     `${name} is a texture and model pack, which cannot be added here yet.`,

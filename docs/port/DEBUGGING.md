@@ -150,7 +150,7 @@ The game's own heaps are not shown: their headers are not identified yet.
 The live mobys, nearest the hero first, within a radius or all of them:
 address, class number and name, state, mode bits, animation sequence and
 frame, position, distance and update function by name. The names are the
-editor's ([editor/moby_classes.tsv](../../editor/moby_classes.tsv)), built
+editor's ([extractor/moby_classes.tsv](../../extractor/moby_classes.tsv)), built
 into the program.
 
 - A click on a row selects the moby: a ring marks it in the picture and
@@ -396,7 +396,7 @@ same variables, so a new variable gets a row in both.
 | `OPENRAC_PERF_CAPTURE` | `FRAME:SECONDS[:FILE]`, `FRAME:sweep[:FILE]` | A performance capture by script: from that window frame, that many seconds (`sweep`: the graphics settings sweep); the report to `FILE` and the frames beside it as `.jsonl`, else both zipped in `perf/perf_<game>_<time>.zip`. See [PERFORMANCE_CAPTURE.md](PERFORMANCE_CAPTURE.md). | `port/game/common/debug/capture.cpp` |
 | `OPENRAC_TIME_SCALE` | `X` (1/64 to 1) | The game's speed from the start: `0.25` is quarter speed. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_SCROLLING_SHADOWS` | any (set; unset for default) | Experimental Vulkan toroidal static shadow caches for all four sun cascades, with compute depth composition. | `port/scene/level_shadows.cpp` |
-| `OPENRAC_SERVER` | `HOST[:PORT]` | The OpenRAC server (the OpenRAC/Server repository) Up Your Arsenal's online play goes to; `game.openrac.dev:7770` when unset (the launcher sets it). | `port/game/rac3-pal/host/mp_net.c` |
+| `OPENRAC_SERVER` | `HOST[:PORT]` | The OpenRAC hub (the OpenRAC/Server repository) Up Your Arsenal's online play logs in at and takes its city list (the game servers) from; `hub.openrac.dev:7177` when unset (the launcher sets it). A plain game server named here (no hub) is played on directly, without accounts. | `port/game/rac3-pal/host/mp_net.c` |
 | `OPENRAC_SHADER_DIR` | folder | Where a shader reload reads the files, laid out as `port/`; the build's source tree when unset. | `port/game/common/debug/shaders.cpp` |
 | `OPENRAC_SHADER_RELOAD` | `TICK` | Reloads every shader program at that window frame, with the result in the log. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_SCRIPT_BUDGET_MS` | `MS` (a positive number) | The time a script mod may run each time the game calls into it (a hook, a callback, its first run), not counting the game's own code it calls on to; over it, the mod stops ([MODS.md](MODS.md), section 11). Default 2. | `port/game/common/mod_scripts.cpp` |
@@ -672,7 +672,7 @@ Vulkan and OpenGL/ES both use it: it is part of the picture, not only a speed-up
 add them to an existing export with:
 
 ```sh
-python editor/occlusion.py <owned-disc.iso> <port-levels-directory>
+python extractor/occlusion.py <owned-disc.iso> <port-levels-directory>
 ```
 
 Terrain mappings check counts/triangle keys for staleness. Ties use placement

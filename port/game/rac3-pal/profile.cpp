@@ -210,7 +210,7 @@ constexpr std::uint32_t kMobyClass = 0xAA;
 // Ratchet's class holds only his skeleton: the game loads his packets and textures over it from one
 // of 31 packs of the disc (LoadPlayerDisplayTextures, Veldin's 0x004255E0, as Going Commando's
 // func_00292078): the armour it keeps at 0x001D4B60, or the skin byte at 0x001427AB when that is
-// not 0. The export has each pack past the first as a class of its own (editor/moby_class.py,
+// not 0. The export has each pack past the first as a class of its own (extractor/moby_class.py,
 // HERO_LOOK_CLASSES), as Going Commando's (game/rac2/profile.cpp's hero_class).
 constexpr std::int32_t kHeroLookClasses = 6000;
 constexpr std::int32_t kHeroLooks = 31;
@@ -327,7 +327,7 @@ std::optional<host::LiveMoby> read_live_moby(
 // lists, which a moby draws by the bits of its bangle word (+0x7C, an s16, which MobyProc copies to
 // its job: boot 0x003CBEDC): bit 15 clear, the class's mesh and the bangles of the bits set; set,
 // those bangles alone (bangle 0 for none). The export has each bangle as a class of its own
-// (editor/moby_class.py, BANGLE_CLASSES, format 9).
+// (extractor/moby_class.py, BANGLE_CLASSES, format 9).
 constexpr std::uint32_t kMobyBangles = 0x7C;
 constexpr int kBangleClasses = 100000;
 constexpr int kBangles = 15;
@@ -449,7 +449,7 @@ bool essential_moby(int class_id) {
 
 // His ship's paint job: texture_slot_load (frontbin func_00398C80, Veldin's 0x00425E10) loads paint
 // n of 32 (ship_config bits 16-20) over the ship's picture and keeps n at 0x0016C5B0 (sw s0,
-// 0x30 of 0x0016C580, on both discs); the export writes every paint (editor/port.py
+// 0x30 of 0x0016C580, on both discs); the export writes every paint (extractor/port.py
 // "ship_paints", levels format 15).
 constexpr std::uint32_t kShipPaint = 0x0016C5B0;
 constexpr std::int32_t kShipPaints = 32;
@@ -500,7 +500,7 @@ public:
     // the world she stood in front of the ship's exterior and in the hangar.
     bool own_mobys_into_narrow_buffers() const override { return true; }
 
-    // The levels are extracted for the port (editor/extract.py port: --levels), and drawn natively
+    // The levels are extracted for the port (extractor/extract.py port: --levels), and drawn natively
     // from them (host/render.c). The boot program's title and menus draw no world: a picture.
     bool has_levels() const override { return true; }
 
@@ -508,7 +508,7 @@ public:
 
     // The loading screen (the boot program in mode 6, 0x003C3BB8) draws the ship's scene's mobys of
     // the boot program's table through MobyProc's draw side (host/render.c): their classes are the
-    // scene pack's, exported as level 97 (editor/level.py load_wad_loading).
+    // scene pack's, exported as level 97 (extractor/level.py load_wad_loading).
     int loading_world() const override { return 97; }
 
     // Level 39 is the multiplayer menus (the multiplayer executable's, host/mp.c): its picture is

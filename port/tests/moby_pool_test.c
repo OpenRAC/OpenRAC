@@ -69,6 +69,13 @@ gaddr openrac_relocate_level_data(int from, gaddr a) {
     return a;
 }
 
+/* Imported classes (foreign_class.c): none in this test, so the pool runs as retail. */
+void rac1_foreign_worlds_load(void) {}
+
+int rac1_foreign_class_count(void) {
+    return 0;
+}
+
 /* The mods' eyes for the run list (world.c): none in this test. */
 int rac1_moby_eyes(const float** xyz) {
     *xyz = 0;

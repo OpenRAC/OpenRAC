@@ -65,6 +65,19 @@ void follow_effect_parent(renderer::EffectQuad& quad, const EffectParent& parent
     }
 }
 
+void follow_strip_parent(float point[3], const EffectParent& parent, bool position_only) {
+    // The anchor's move between the tick the strip was laid out at and the frame drawn.
+    if (position_only) {
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            point[axis] += parent.drawn[12 + axis] - parent.previous[12 + axis];
+        }
+
+        return;
+    }
+
+    follow_moby(parent.previous, parent.drawn, point);
+}
+
 void blend_effect_quad(
     renderer::EffectQuad& quad, const std::array<std::array<float, 4>, 4>& previous, float alpha
 ) {
