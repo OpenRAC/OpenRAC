@@ -36,4 +36,5 @@ It checks adapter screen defaults, rejection of invalid dimensions, native textu
 flat rectangles, nested HUD placement, recorder failures and full-target scissor requests.
 `renderer_gif_test` also checks native HUD-part grouping and displacement directly from recorder
 items, including centred/unplaced items and repeated finish, without any graphics packet input.
-`rac3_mp_images_test` checks Up Your Arsenal's multiplayer 2D screen, origin and view corner.
+`rac3_mp_images_test` checks Up Your Arsenal's multiplayer images as its SendImage copies hand them
+over and let go with the executable, and its 2D screen, origin and view corner.

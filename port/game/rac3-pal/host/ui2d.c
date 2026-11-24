@@ -211,15 +211,6 @@ static int send_flat(const openrac_game_ui_rect* q, gaddr cursor) {
     return openrac_ui_draw_quad(&quad);
 }
 
-/* Whether a box drawn on the list at `cursor` is drawn natively: in the single-player programs, and in
- * the multiplayer executable from its core and level 39, whose scissor is followed (SetScissor). */
-static int flat_native(gaddr cursor) {
-    if (rac3_exec_program() != RAC3_EXEC_MULTIPLAYER) {
-        return 1;
-    }
-    return cursor == RAC3_MADDR(0x002446A8u) || GREF(int32_t, RAC3_MADDR(0x002412DCu)) == 39;
-}
-
 /* The HUD bank whose handles a quad drawn on the list at `cursor` may hold: the boot program's and
  * frontbin's, or the loaded level's. */
 static gaddr hud_tables_of(gaddr cursor) {
@@ -255,12 +246,13 @@ static int send_textured(const openrac_game_ui_rect* q, gaddr cursor) {
 }
 
 /* A record to the window through the frame recorder, placed by the list's cursor: through the
- * shared 2D layer in flat colour, or textured when its image is known by the game's tables; else
- * of the older kind (with the chip's TEX0: a texture the tables do not name, the maps' boxes). False
- * when the 2D layer is replayed (the caller sends the game's). */
+ * shared 2D layer in flat colour (every program's scissor is followed: SetScissor), or textured
+ * when its image is known by the game's tables; else of the older kind (with the chip's TEX0: a
+ * texture the tables do not name). False when the 2D layer is replayed (the caller sends the
+ * game's). */
 static int send_quad(const openrac_game_ui_rect* q, gaddr cursor) {
-    /* The maps' scissor is not followed yet: their boxes stay the older records. */
-    if ((q->flags & 8u) != 0 && flat_native(cursor)) {
+    /* A box has no texture to find: always the 2D layer's, cut by the scissor recorded before. */
+    if ((q->flags & 8u) != 0) {
         return send_flat(q, cursor);
     }
     if ((q->flags & 8u) == 0 && q->tex0 != 0 && send_textured(q, cursor)) {
@@ -1348,17 +1340,18 @@ static int hud_sprite_turned(
     const float px[4] = {(x - ax) + bx, (x - ax) - bx, (x + ax) + bx, (x + ax) - bx};
     const float py[4] = {(y - ay) + by, (y - ay) - by, (y + ay) + by, (y + ay) - by};
     const int us[4] = {0, tw << 4, 0, tw << 4}, vs[4] = {0, 0, th << 4, th << 4};
-    /* The image by the HUD bank's own tables (rac3_hud_image), as the game sent it: no TEX0. The
-     * multiplayer executable's are not kept at their sending yet. */
+    /* The image by the HUD bank's own tables (rac3_hud_image), as the game sent it (every program's
+     * SendImage keeps it, textures.c): no TEX0. Its corners in the whole screen's pixels. */
     openrac_game_ui_image image;
-    if (rac3_exec_program() != RAC3_EXEC_MULTIPLAYER
-        && rac3_hud_image(u->hud_entries, tex, &image)) {
+    if (rac3_hud_image(u->hud_entries, tex, &image)) {
+        float vx, vy;
+        rac3_ui_view_corner(&vx, &vy);
         openrac_ui_quad quad;
         memset(&quad, 0, sizeof(quad));
         quad.image = image;
         for (int i = 0; i < 4; ++i) {
-            quad.x[i] = (float)(int)px[i] - 0.5f;
-            quad.y[i] = (float)(int)py[i] - 0.5f;
+            quad.x[i] = (float)(int)px[i] - 0.5f + vx;
+            quad.y[i] = (float)(int)py[i] - 0.5f + vy;
             quad.u[i] = (float)(us[i] >> 4);
             quad.v[i] = (float)(vs[i] >> 4);
             quad.rgba[i] = GREF(uint32_t, colours + 4u * (gaddr)i);
@@ -1476,8 +1469,9 @@ float func_L01_00421278(
 #define MP_MENUS_CURSOR RAC3_LADDR(39, 0x0024CAD0u)
 #define MP_DARKEN_PACKET RAC3_MADDR(0x001A3800u)
 
-/* The multiplayer executable's SetScissor, its core's and level 39's: the screen's size at +0x150
- * of its frame block 0x00228580 (rac3_ui_frame), which both read (seen in game code). */
+/* The multiplayer executable's SetScissor, its core's and level 39's (each map's below): the
+ * screen's size at +0x150 of its frame block 0x00228580 (rac3_ui_frame), which each reads (seen in
+ * game code). The split-screen maps' view layout calls it with each view's rectangle. */
 int mp_func_00299218(int x0, int x1, int y0, int y1) {
     record_scissor(MP_CURSOR, x0, x1, y0, y1);
     return mp_func_00299218__game(x0, x1, y0, y1);
@@ -1852,8 +1846,13 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
     hud_tex0,                                                                                      \
     rotated_sprite_one,                                                                            \
     hud_quad_turned_one,                                                                           \
-    float_glyph_quad_one                                                                           \
+    float_glyph_quad_one,                                                                          \
+    scissor                                                                                        \
 )                                                                                                  \
+    int mp_func_L##m##_##scissor(int x0, int x1, int y0, int y1) {                                 \
+        record_scissor(MP_MAP_CURSOR, x0, x1, y0, y1);                                             \
+        return mp_func_L##m##_##scissor##__game(x0, x1, y0, y1);                                   \
+    }                                                                                              \
     MP_FLOAT_GLYPH_QUAD(mp_func_L##m##_##float_glyph_quad_one, MP_MAP_CURSOR)                      \
     MP_ROTATED_SPRITE(                                                                             \
         mp_func_L##m##_##rotated_sprite_one, mp_func_L##m##_##sine, mp_func_L##m##_##cosine        \

@@ -18,7 +18,8 @@ This writes, from the catalogue and the level programs' entries:
 - the rows between the markers in mp/libraries.tsv, one per map and function of CARRIED;
 - host/mp_maps.h, one MP_MAP(map, ...) line per map with each CARRIED function's place there, in
   CARRIED's order (host/mp_maps.c expands it), and the MP_MAP_UI, MP_MAP_HUD and MP_MAP_VU0 lines of
-  CARRIED_UI, CARRIED_HUD and CARRIED_VU0 (host/ui2d.c, host/hud.c and host/trig.c expand them).
+  CARRIED_UI, CARRIED_HUD and CARRIED_VU0 (host/ui2d.c, host/hud.c and host/textures.c, and
+  host/trig.c expand them).
 
     python3 port/game/rac3-pal/mp/maps.py [--source games/rac3/decomp] [--check]
 
@@ -89,7 +90,9 @@ CARRIED = [
      "int (int, int, int, int, int)"),
 ]
 
-# Level 39's 2D layer (the wrap rows ui2d.c's MP_MAP_UI stands for; "ref" ones it only calls).
+# Level 39's 2D layer (the wrap rows ui2d.c's MP_MAP_UI stands for; "ref" ones it only calls). A
+# row may carry the host C's signature, when level 39's has none in "asm" "signatures" for
+# map_signatures to give the maps' copies: a build without the disc declares them from it.
 CARRIED_UI = [
     ("00592238", "draw", "FontPrintMap", "wrap", "FontPrint (the boot program's func_0038EBC8)"),
     ("00592AC8", "draw", "FontPrintShadedMap", "wrap", "FontPrintShaded (func_0038F458)"),
@@ -108,13 +111,21 @@ CARRIED_UI = [
     ("0058C218", "draw", "DrawRotatedSpriteMap", "wrap", "the turned sprite (func_0038C0B8)"),
     ("0059D368", "draw", "DrawHudQuadTurnedMap", "wrap", "the turned HUD quad (func_00397A18)"),
     ("0058B9F8", "draw", "DrawGlyphQuadFloatMap", "wrap", "the glyph quad placed in floats"),
+    ("005FD128", "draw", "SetScissorMap", "wrap",
+     "SetScissor (the catalogue's frontbin row func_003A9500), which the view layout calls with each "
+     "split-screen view: the native quads are cut to it too", "int (int, int, int, int)"),
 ]
 
-# Level 39's HUD sprites (hud.c's MP_MAP_HUD: the sprite, the gradient, then the TEX0 getter they call).
+# Level 39's HUD sprites (hud.c's MP_MAP_HUD: the sprite, the gradient, then the TEX0 getter they
+# call) and the SendImage its HUD bank's group upload calls (textures.c's MP_MAP_HUD), with a
+# signature and a host file as CARRIED_UI's may have.
 CARRIED_HUD = [
     ("0059CB38", "hud", "DrawHudSpriteMap", "wrap", "DrawHudSprite (func_L01_004202A8)"),
     ("0059CD28", "hud", "DrawHudGradientMap", "wrap", "DrawHudGradient (func_L01_00420498)"),
     ("0059C910", "", "", "ref", "a HUD texture's TEX0"),
+    ("0059D6B0", "draw", "SendImageMap", "wrap",
+     "SendImage (func_L01_004215C0): the image its HUD bank's group upload hands over kept as it was "
+     "given", "int (int, int, int, int, int, int)", "host/textures.c"),
 ]
 
 # Level 39's copies of the routines that started VU0's microprogram (trig.c's MP_MAP_VU0, in its
@@ -198,6 +209,17 @@ def map_signatures(source: Path, mp_cfg: dict) -> dict[str, str]:
     return out
 
 
+def wrapped_row(m: int, place: str, l39: str, row: tuple, host: str) -> str:
+    """A map's row of a CARRIED_UI or CARRIED_HUD entry (level 39's place, library, name, port,
+    what[, signature[, host file]]), wrapped as level 39's in `host` unless the entry names its own."""
+    _, lib, name, port, what, *more = row
+    signature = more[0] if more else ""
+    host = more[1] if len(more) > 1 else host
+    line = (f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what}, "
+            f"wrapped as level 39's {l39} ({host})")
+    return line + (f"\t{signature}" if signature else "")
+
+
 def entry(source: Path, level: int) -> int:
     """The level program's entry, its ELF's e_entry."""
     path = next((source / "baserom/levels").glob(f"{level:02d}_*.elf"))
@@ -220,24 +242,24 @@ def build(source: Path) -> tuple[dict, list[str], list[str]]:
                          f"(level 39's {l39}; host/mp_maps.c)\t{sig}")
         macros.append(f"MP_MAP({m}, " + ", ".join(places) + ")")
         ui = []
-        for l39, lib, name, port, what in CARRIED_UI:
+        for row in CARRIED_UI:
+            l39, port = row[0], row[3]
             place = rows.get(l39, {}).get(m)
             if place is None:
                 raise SystemExit(f"maps.py: level 39's {l39} has no place in map {m} in the catalogue")
             ui.append(place)
             if port != "ref":
-                lines.append(f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what}, "
-                             f"wrapped as level 39's {l39} (host/ui2d.c)")
+                lines.append(wrapped_row(m, place, l39, row, "host/ui2d.c"))
         macros.append(f"MP_MAP_UI({m}, " + ", ".join(ui) + ")")
         hud = []
-        for l39, lib, name, port, what in CARRIED_HUD:
+        for row in CARRIED_HUD:
+            l39, port = row[0], row[3]
             place = rows.get(l39, {}).get(m)
             if place is None:
                 raise SystemExit(f"maps.py: level 39's {l39} has no place in map {m} in the catalogue")
             hud.append(place)
             if port != "ref":
-                lines.append(f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what}, "
-                             f"wrapped as level 39's {l39} (host/hud.c)")
+                lines.append(wrapped_row(m, place, l39, row, "host/hud.c"))
         macros.append(f"MP_MAP_HUD({m}, " + ", ".join(hud) + ")")
         vu0 = []
         for l39, name, what, sig in CARRIED_VU0:

@@ -1067,6 +1067,11 @@ void openrac_game_effect_quad(const openrac_game_quad* quad);
  * the game's own data; nothing about where the console kept it. */
 void openrac_game_image_keep(gaddr data, uint32_t bytes);
 
+/* Another program has replaced the game's memory (a game that starts another executable over it):
+ * every image openrac_game_image_keep kept was the old program's and is let go, so images are read
+ * from game memory again until the new program hands its own over. Game thread only. */
+void openrac_game_images_forget(void);
+
 /* The marker of the quad just given to openrac_game_effect_quad, for the display list: the game
  * puts (OPENRAC_EFFECT_QUAD_MARKER << 48 | marker) in it with an A+D write to the NOP register
  * where the console's quad packet would have gone, and the window draws that quad with the TEST

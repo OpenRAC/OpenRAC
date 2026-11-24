@@ -194,7 +194,8 @@ void func_L01_004D24C0(gaddr a0) {
 /* The multiplayer executable's level 39 (the menus, the map's loading screen: the weapons' icons)
  * and the maps (mp/maps.py, host/mp_maps.h): their copies of DrawHudSprite and DrawHudGradient,
  * drawn as the single-player levels' above with level 39's tables relocated to the program loaded
- * (rac3_ui2d_mp_level). Unwrapped, their packets reached the window with no texture. */
+ * (rac3_ui2d_mp_level), their images as each program's SendImage handed them over (textures.c).
+ * Unwrapped, their packets reached the window with no texture. */
 #define MP_HUD(sprite_fn, gradient_fn, tex0_fn)                                                    \
     void sprite_fn(int tex, int x, int y, int w, int h, int alpha) {                               \
         const Rac3Ui2d u = rac3_ui2d_mp_level();                                                   \
@@ -203,7 +204,7 @@ void func_L01_004D24C0(gaddr a0) {
         rac3_ui2d_hud_size(&u, tex, &tw, &th);                                                     \
         hud_common(&u, &q, (unsigned long long)tex0_fn(tex), alpha);                               \
         hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, tw * 16, th * 16);          \
-        if (!openrac_ui_record(&q, u.cursor)) {                                                    \
+        if (!hud_send(&u, tex, &q)) {                                                              \
             sprite_fn##__game(tex, x, y, w, h, alpha);                                             \
         }                                                                                          \
     }                                                                                              \
@@ -218,7 +219,7 @@ void func_L01_004D24C0(gaddr a0) {
         for (int i = 0; i < 4; ++i) {                                                              \
             q.corners[i] = GREF(uint32_t, colours + 4u * (gaddr)i);                                \
         }                                                                                          \
-        if (!openrac_ui_record(&q, u.cursor)) {                                                    \
+        if (!hud_send(&u, tex, &q)) {                                                              \
             gradient_fn##__game(tex, x, y, w, h, colours);                                         \
         }                                                                                          \
     }
@@ -226,7 +227,7 @@ MP_HUD(mp_func_L39_0059CB38, mp_func_L39_0059CD28, mp_func_L39_0059C910)
 
 #define MP_MAP(...)
 #define MP_MAP_UI(...)
-#define MP_MAP_HUD(m, sprite, gradient, tex0)                                                      \
+#define MP_MAP_HUD(m, sprite, gradient, tex0, send_image)                                          \
     MP_HUD(mp_func_L##m##_##sprite, mp_func_L##m##_##gradient, mp_func_L##m##_##tex0)
 #define MP_MAP_VU0(...)
 #include "mp_maps.h"
