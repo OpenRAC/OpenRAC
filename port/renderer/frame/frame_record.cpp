@@ -120,6 +120,13 @@ void FrameRecorder::view_camera(const FrameViewCamera& camera) {
     }
 }
 
+void FrameRecorder::view_layers(std::uint32_t layers) {
+    // What the game draws while a view is open is that player's world, whichever pass names it.
+    if (m_view_open && !m_open.views.empty()) {
+        m_open.views.back().layers |= layers;
+    }
+}
+
 void FrameRecorder::view_end() {
     if (!m_view_open) {
         return;

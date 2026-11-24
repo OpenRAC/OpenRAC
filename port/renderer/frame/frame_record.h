@@ -94,7 +94,9 @@ struct FrameView {
     float screen_width = 512.0f, screen_height = 448.0f;
     FrameViewCamera camera;
     bool has_camera = false;
-    // The World calls in this view, separate from other players' layer masks.
+    // The layers drawn in this view (OPENRAC_DRAW_*, one bit a Bucket): its World calls' and those
+    // the game said it drew while the view was open (openrac_game_draw), separate from other
+    // players' layer masks.
     std::uint32_t layers = 0;
     // Layout setup without a World call must not replace a full-screen frame with cached views.
     bool has_world = false;
@@ -153,9 +155,11 @@ public:
     std::array<float, 2> screen() const { return m_screen; }
 
     // Split screen: view `view` starts (ending an open one); the open view's camera (the first
-    // given is kept: the one its world was drawn with); the open view ends.
+    // given is kept: the one its world was drawn with); layers the game draws in the open view (its
+    // sky, ties, shrubs and mobys, which need no World call of their own); the open view ends.
     void view_begin(std::uint32_t view, const std::array<float, 4>& rect);
     void view_camera(const FrameViewCamera& camera);
+    void view_layers(std::uint32_t layers);
     void view_end();
 
     bool view_open() const { return m_view_open; }

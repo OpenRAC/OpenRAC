@@ -124,6 +124,8 @@ void screen(float width, float height);
 void view_begin(int view, const openrac_frame_viewport& rect);
 // With a view open: its camera, read from `ram` (the game's profile) where its world is recorded.
 void view_camera(std::span<const std::uint8_t> ram);
+// With a view open: layers the game draws in it (openrac_game_draw's).
+void view_layers(unsigned layers);
 void view_end();
 // How a game image (openrac_game_ui_image) becomes a decoded image: set by the 2D layer's image
 // cache (frontend/ui_images); until it is, items with an image are not recorded (the caller draws

@@ -266,6 +266,28 @@ void test_view_world_layers() {
     }
 }
 
+// Up Your Arsenal's split-screen maps record one World call a view, at its terrain; the sky before
+// it and the ties, shrubs and mobys after it are named only by openrac_game_draw. Those are the
+// open view's layers too, or the player's picture would hold terrain alone (no sky, no player).
+void test_view_drawn_layers() {
+    FrameRecorder recorder;
+    recorder.view_layers(16);  // No view open: nobody's.
+    recorder.view_begin(0, {0.0f, 0.0f, 341.0f, 224.0f});
+    recorder.view_layers(1);
+    recorder.push(op(FrameOp::World, 2));
+    recorder.view_layers(2 | 4 | 8 | 16);
+    recorder.view_begin(1, {170.0f, 224.0f, 512.0f, 448.0f});
+    recorder.view_layers(16);  // A layout's own draws: still no World call.
+    recorder.view_end();
+    recorder.view_layers(4);  // After the views: the screen's, nobody's.
+    const auto& views = recorder.open().views;
+    CHECK(views.size() == 2);
+    if (views.size() == 2) {
+        CHECK(views[0].has_world && views[0].layers == 0x1Fu);
+        CHECK(!views[1].has_world && views[1].layers == 16u);
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -277,5 +299,6 @@ int main() {
     test_invalid_view_rectangles();
     test_retained_view_layouts();
     test_view_world_layers();
+    test_view_drawn_layers();
     return openrac::test::result();
 }

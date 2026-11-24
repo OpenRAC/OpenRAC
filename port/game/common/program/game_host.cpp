@@ -182,6 +182,10 @@ void openrac_game_draw(unsigned layers) {
         g_draws |= layers;
         g_reports_draws = true;
 #ifdef OPENRAC_FRONTEND
+        // In a split-screen view: the layers that player's world has.
+        if (g_window) {
+            frontend::recorder::view_layers(layers);
+        }
         // The world's terrain: the camera it is drawn with is the frame's world camera.
         if (g_window && (layers & OPENRAC_DRAW_TERRAIN) != 0) {
             const auto* ram = runtime::Memory::get().base();

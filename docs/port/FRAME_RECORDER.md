@@ -94,8 +94,10 @@ full-screen frame: the kept views are forgotten. Temporal reconstruction and the
 which follow one camera's history, are off while views are drawn. rac3's maps 50 to 53 (NTSC-U's 54
 and 55 too) do this from their view layout (`host/mp_maps.c`).
 
-Each view keeps its own `World` layer mask. Layout calls without a world draw do not replace a
-picture. Alternating views retain their pictures only while their screen-relative rectangles remain
+Each view keeps its own layer mask: its `World` calls' and the layers the game says it draws
+(`openrac_game_draw`) while the view is open, so a game whose only `World` call is at its terrain
+(rac3's) still gets its sky, ties, shrubs and mobys in each view. Layout calls without a world draw
+do not replace a picture. Alternating views retain their pictures only while their screen-relative rectangles remain
 compatible: a resized player rectangle or an overlap with another player's old rectangle forgets the
 old layout before any new view is drawn. Non-finite and inverted view rectangles are rejected.
 
