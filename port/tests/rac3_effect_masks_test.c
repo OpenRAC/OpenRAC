@@ -165,6 +165,53 @@ void openrac_frame_world(unsigned layers) {
 
 void openrac_frame_world_mobys(void) {}
 
+/* textures.c also keeps the multiplayer executable's SendImage copies (rac3_mp_images_test covers
+ * them) and lets kept images go at an executable switch. This level test runs neither: their game
+ * bodies and the 2D layer's call only need to link. */
+static int unused_send_image(int data, int address, int format, int log2_width, int log2_height) {
+    (void)data;
+    (void)address;
+    (void)format;
+    (void)log2_width;
+    (void)log2_height;
+    return 0;
+}
+
+int mp_func_00285660__game(
+    int data, int address, int format, int log2_width, int log2_height, int now
+) {
+    (void)now;
+    return unused_send_image(data, address, format, log2_width, log2_height);
+}
+
+int mp_func_L39_0059D6B0__game(
+    int data, int address, int format, int log2_width, int log2_height, int now
+) {
+    (void)now;
+    return unused_send_image(data, address, format, log2_width, log2_height);
+}
+
+#define MP_MAP(...)
+#define MP_MAP_UI(...)
+#define MP_MAP_HUD(m, sprite, gradient, tex0, send_image)                                          \
+    int mp_func_L##m##_##send_image##__game(                                                       \
+        int data, int address, int format, int log2_width, int log2_height, int now                \
+    );                                                                                             \
+    int mp_func_L##m##_##send_image##__game(                                                       \
+        int data, int address, int format, int log2_width, int log2_height, int now                \
+    ) {                                                                                            \
+        (void)now;                                                                                 \
+        return unused_send_image(data, address, format, log2_width, log2_height);                  \
+    }
+#define MP_MAP_VU0(...)
+#include "mp_maps.h"
+#undef MP_MAP
+#undef MP_MAP_UI
+#undef MP_MAP_HUD
+#undef MP_MAP_VU0
+
+void openrac_game_images_forget(void) {}
+
 int openrac_frame_mobys(gaddr list, int count) {
     (void)list;
     (void)count;
