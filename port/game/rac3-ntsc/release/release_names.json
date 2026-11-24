@@ -1,22 +1,21 @@
 {
  "about": "The NTSC-U view of rac3-decomp: each PAL address name and NTSC-U's name for it, the PAL definitions NTSC-U has other code for, and the values of the names with no address of their own. Written by port/tools/hostgen/release_rac3.py from config/us/map.tsv and config/us/names.tsv; do not edit.",
  "source": {
-  "commit": "bbf261a18ae7072999f96b693762749483fe80fc",
+  "commit": "d3f574b8af5b26cb998474c9a1b2f6d29a15341a",
   "version": "us",
   "table": "config/us/map.tsv, config/us/names.tsv"
  },
  "evidence": {
-  "function: a second row of one name (the first kept)": 16,
-  "function: asm": 66,
-  "function: differs": 202,
-  "function: match": 4480,
-  "function: nomatch": 1,
-  "function: none": 37,
+  "function: a second row of one name (the first kept)": 17,
+  "function: asm": 64,
+  "function: differs": 205,
+  "function: match": 4488,
+  "function: none": 27,
   "global: placed by hand (release.json)": 3,
   "global: renamed to its NTSC-U address": 1689,
   "global: the front end's own address": 323,
-  "no NTSC-U place (marked)": 3347,
-  "src/us: its own name, without the mark": 991,
+  "no NTSC-U place (marked)": 3359,
+  "src/us: its own name, without the mark": 1042,
   "value: a name with no address of its own": 6180,
   "value: the executable's kept over the front end's": 1
  },
@@ -1360,8 +1359,6 @@
   "func_003A0460": "func_003A0348",
   "func_003A0470": "func_003A0358",
   "func_003A0510": "func_003A03F8",
-  "func_003A0518": "func_PAL_003A0518",
-  "func_003A0540": "func_PAL_003A0540",
   "func_003A0580": "func_003A0440",
   "func_003A05C0": "func_003A0480",
   "func_003A0658": "func_003A0518",
@@ -1457,8 +1454,8 @@
   "func_003A58F0": "func_003A57B0",
   "func_003A5908": "func_003A57C8",
   "func_003A5950": "func_003A5810",
-  "func_003A5990": "func_PAL_003A5990",
-  "func_003A5998": "func_PAL_003A5998",
+  "func_003A5990": "func_003A5850",
+  "func_003A5998": "func_003A5858",
   "func_003A5A18": "func_003A58D8",
   "func_003A5A20": "func_003A58E0",
   "func_003A5A88": "func_003A5948",
@@ -2899,8 +2896,8 @@
   "func_00802508": "func_00802508",
   "func_00802588": "func_00802588",
   "func_008025D8": "func_008025D8",
-  "func_008025F0": "func_PAL_008025F0",
-  "func_00802640": "func_PAL_00802640",
+  "func_008025F0": "func_008025F0",
+  "func_00802640": "func_00802640",
   "func_008026F0": "func_008026F0",
   "func_00802710": "func_00802710",
   "func_00802E00": "func_00802E00",
@@ -4761,11 +4758,16 @@
   "D_U_001D9D90": "D_001D9D90",
   "D_U_001D9DD0": "D_001D9DD0",
   "D_U_001D9DD4": "D_001D9DD4",
+  "D_U_001D9E78": "D_001D9E78",
+  "D_U_001D9E7C": "D_001D9E7C",
+  "D_U_001D9E80": "D_001D9E80",
+  "D_U_001D9F14": "D_001D9F14",
   "D_U_001D9F24": "D_001D9F24",
   "D_U_001D9F34": "D_001D9F34",
   "D_U_001D9F38": "D_001D9F38",
   "D_U_001D9F3A": "D_001D9F3A",
   "D_U_001D9F3C": "D_001D9F3C",
+  "D_U_001D9F40": "D_001D9F40",
   "D_U_001D9FA8": "D_001D9FA8",
   "D_U_001D9FAC": "D_001D9FAC",
   "D_U_001D9FB0": "D_001D9FB0",
@@ -4859,15 +4861,22 @@
   "func_U_0037E250": "func_0037E250",
   "func_U_0037E2A8": "func_0037E2A8",
   "func_U_0037E368": "func_0037E368",
+  "func_U_0037F228": "func_0037F228",
+  "func_U_0037F420": "func_0037F420",
+  "func_U_0037F4F8": "func_0037F4F8",
+  "func_U_0037F550": "func_0037F550",
+  "func_U_0037F588": "func_0037F588",
   "func_U_0037F7A8": "func_0037F7A8",
   "func_U_00380AB0": "func_00380AB0",
   "func_U_00381228": "func_00381228",
+  "func_U_003813E0": "func_003813E0",
   "func_U_00381BC8": "func_00381BC8",
   "func_U_00381BE8": "func_00381BE8",
   "func_U_00381C68": "func_00381C68",
   "func_U_00381C90": "func_00381C90",
   "func_U_00381CA0": "func_00381CA0",
   "func_U_00381CB0": "func_00381CB0",
+  "func_U_00381DD0": "func_00381DD0",
   "func_U_003821E8": "func_003821E8",
   "func_U_003823F0": "func_003823F0",
   "func_U_00382488": "func_00382488",
@@ -4905,9 +4914,11 @@
   "func_U_00386878": "func_00386878",
   "func_U_003869E8": "func_003869E8",
   "func_U_00386D98": "func_00386D98",
+  "func_U_003875A0": "func_003875A0",
   "func_U_00387620": "func_00387620",
   "func_U_00387778": "func_00387778",
   "func_U_00387C78": "func_00387C78",
+  "func_U_00387DC8": "func_00387DC8",
   "func_U_00388018": "func_00388018",
   "func_U_003882A8": "func_003882A8",
   "func_U_00388398": "func_00388398",
@@ -4925,6 +4936,7 @@
   "func_U_00388730": "func_00388730",
   "func_U_00388758": "func_00388758",
   "func_U_00388770": "func_00388770",
+  "func_U_003887A0": "func_003887A0",
   "func_U_003887C8": "func_003887C8",
   "func_U_00388800": "func_00388800",
   "func_U_00388830": "func_00388830",
@@ -5010,6 +5022,7 @@
   "func_U_0038D8B8": "func_0038D8B8",
   "func_U_0038D8D8": "func_0038D8D8",
   "func_U_0038D918": "func_0038D918",
+  "func_U_0038D968": "func_0038D968",
   "func_U_0038D9F0": "func_0038D9F0",
   "func_U_0038DA28": "func_0038DA28",
   "func_U_0038DB38": "func_0038DB38",
@@ -5018,6 +5031,7 @@
   "func_U_0038DDE0": "func_0038DDE0",
   "func_U_0038DE28": "func_0038DE28",
   "func_U_0038DE70": "func_0038DE70",
+  "func_U_0038DEC8": "func_0038DEC8",
   "func_U_0038DF00": "func_0038DF00",
   "func_U_0038DF48": "func_0038DF48",
   "func_U_0038E1E0": "func_0038E1E0",
@@ -5053,6 +5067,7 @@
   "func_U_00391B70": "func_00391B70",
   "func_U_00391D08": "func_00391D08",
   "func_U_00391E78": "func_00391E78",
+  "func_U_00391FD8": "func_00391FD8",
   "func_U_00392108": "func_00392108",
   "func_U_003921D8": "func_003921D8",
   "func_U_00392400": "func_00392400",
@@ -5060,6 +5075,7 @@
   "func_U_00392D38": "func_00392D38",
   "func_U_00392DD8": "func_00392DD8",
   "func_U_00393288": "func_00393288",
+  "func_U_003932B0": "func_003932B0",
   "func_U_00393370": "func_00393370",
   "func_U_00393420": "func_00393420",
   "func_U_00393428": "func_00393428",
@@ -5070,6 +5086,7 @@
   "func_U_003936A8": "func_003936A8",
   "func_U_00393770": "func_00393770",
   "func_U_003937C8": "func_003937C8",
+  "func_U_003937D8": "func_003937D8",
   "func_U_00393878": "func_00393878",
   "func_U_00393A18": "func_00393A18",
   "func_U_00393B28": "func_00393B28",
@@ -5098,6 +5115,7 @@
   "func_U_003966C8": "func_003966C8",
   "func_U_00396860": "func_00396860",
   "func_U_003969D0": "func_003969D0",
+  "func_U_00396B30": "func_00396B30",
   "func_U_00396C60": "func_00396C60",
   "func_U_00396D30": "func_00396D30",
   "func_U_00396F58": "func_00396F58",
@@ -5153,6 +5171,7 @@
   "func_U_0039D6C8": "func_0039D6C8",
   "func_U_0039DA08": "func_0039DA08",
   "func_U_0039DAE0": "func_0039DAE0",
+  "func_U_0039DB38": "func_0039DB38",
   "func_U_0039E928": "func_0039E928",
   "func_U_0039EE68": "func_0039EE68",
   "func_U_0039FF28": "func_0039FF28",
@@ -5160,6 +5179,8 @@
   "func_U_003A0010": "func_003A0010",
   "func_U_003A02D8": "func_003A02D8",
   "func_U_003A04A0": "func_003A04A0",
+  "func_U_003A07A8": "func_003A07A8",
+  "func_U_003A08E8": "func_003A08E8",
   "func_U_003A0A20": "func_003A0A20",
   "func_U_003A0D58": "func_003A0D58",
   "func_U_003A0EB0": "func_003A0EB0",
@@ -5191,6 +5212,7 @@
   "func_U_003A2E28": "func_003A2E28",
   "func_U_003A2E40": "func_003A2E40",
   "func_U_003A2EE0": "func_003A2EE0",
+  "func_U_003A3088": "func_003A3088",
   "func_U_003A3A00": "func_003A3A00",
   "func_U_003A3BB8": "func_003A3BB8",
   "func_U_003A3EF0": "func_003A3EF0",
@@ -5232,8 +5254,10 @@
   "func_U_003A9E60": "func_003A9E60",
   "func_U_003A9F18": "func_003A9F18",
   "func_U_003AA020": "func_003AA020",
+  "func_U_003AA1E0": "func_003AA1E0",
   "func_U_003AA238": "func_003AA238",
   "func_U_003AA290": "func_003AA290",
+  "func_U_003AA630": "func_003AA630",
   "func_U_003AB0D0": "func_003AB0D0",
   "func_U_003AB670": "func_003AB670",
   "func_U_003ACB60": "func_003ACB60",
@@ -5380,6 +5404,7 @@
   "func_U_003BEA80": "func_003BEA80",
   "func_U_003BEB48": "func_003BEB48",
   "func_U_003BEB58": "func_003BEB58",
+  "func_U_003BEBF8": "func_003BEBF8",
   "func_U_003BEC60": "func_003BEC60",
   "func_U_003BEE20": "func_003BEE20",
   "func_U_003BF1C8": "func_003BF1C8",
@@ -5544,6 +5569,7 @@
   "func_U_003E3C60": "func_003E3C60",
   "func_U_003E3D20": "func_003E3D20",
   "func_U_003E3F08": "func_003E3F08",
+  "func_U_003E4030": "func_003E4030",
   "func_U_003E4060": "func_003E4060",
   "func_U_003E4078": "func_003E4078",
   "func_U_003E4090": "func_003E4090",
@@ -5606,8 +5632,30 @@
   "func_U_003F0D48": "func_003F0D48",
   "func_U_003F0D58": "func_003F0D58",
   "func_U_003F2580": "func_003F2580",
+  "func_U_L03_0039FEF0": "func_L03_0039FEF0",
   "func_U_L03_003AE8E0": "func_L03_003AE8E0",
+  "func_U_L03_003F75F8": "func_L03_003F75F8",
+  "func_U_L03_003F9820": "func_L03_003F9820",
   "func_U_L06_00351718": "func_L06_00351718",
+  "func_U_L08_0037B8B8": "func_L08_0037B8B8",
+  "func_U_L08_0039AF00": "func_L08_0039AF00",
+  "func_U_L08_003EF580": "func_L08_003EF580",
+  "func_U_L08_003EF678": "func_L08_003EF678",
+  "func_U_L08_003EF690": "func_L08_003EF690",
+  "func_U_L08_00422D38": "func_L08_00422D38",
+  "func_U_L08_00422D68": "func_L08_00422D68",
+  "func_U_L08_00422DB0": "func_L08_00422DB0",
+  "func_U_L08_00422E68": "func_L08_00422E68",
+  "func_U_L08_0044B380": "func_L08_0044B380",
+  "func_U_L14_0035C9C0": "func_L14_0035C9C0",
+  "func_U_L35_003A3920": "func_L35_003A3920",
+  "func_U_L35_00418340": "func_L35_00418340",
+  "func_U_L35_00418370": "func_L35_00418370",
+  "func_U_L35_00418628": "func_L35_00418628",
+  "func_U_L35_004410B0": "func_L35_004410B0",
+  "func_U_L41_0041AE28": "func_L41_0041AE28",
+  "func_U_L41_0045E410": "func_L41_0045E410",
+  "func_U_L41_00480A08": "func_L41_00480A08",
   "D_001D5680": "D_PAL_001D5680",
   "D_001D5684": "D_PAL_001D5684",
   "D_001D56C0": "D_PAL_001D56C0",
@@ -5630,6 +5678,7 @@
   "D_001D5A50": "D_PAL_001D5A50",
   "D_001D5A54": "D_PAL_001D5A54",
   "D_001D5A8C": "D_PAL_001D5A8C",
+  "D_001D5B70": "D_PAL_001D5B70",
   "D_001D5BC4": "D_PAL_001D5BC4",
   "D_001D5D60": "D_PAL_001D5D60",
   "D_001D5D80": "D_PAL_001D5D80",
@@ -5640,6 +5689,7 @@
   "D_001D5DAC": "D_PAL_001D5DAC",
   "D_001D5F38": "D_PAL_001D5F38",
   "D_001D5FE8": "D_PAL_001D5FE8",
+  "D_001D5FF0": "D_PAL_001D5FF0",
   "D_001D6000": "D_PAL_001D6000",
   "D_001D6004": "D_PAL_001D6004",
   "D_001D6008": "D_PAL_001D6008",
@@ -6111,7 +6161,10 @@
   "D_001D9CB8": "D_PAL_001D9CB8",
   "D_001D9CD0": "D_PAL_001D9CD0",
   "D_001D9DD4": "D_PAL_001D9DD4",
+  "D_001D9E78": "D_PAL_001D9E78",
+  "D_001D9E7C": "D_PAL_001D9E7C",
   "D_001D9E88": "D_PAL_001D9E88",
+  "D_001D9F3C": "D_PAL_001D9F3C",
   "D_001D9F64": "D_PAL_001D9F64",
   "D_001D9F68": "D_PAL_001D9F68",
   "D_001D9F6C": "D_PAL_001D9F6C",
@@ -6867,6 +6920,7 @@
   "D_001DE430": "D_PAL_001DE430",
   "D_001DE4C0": "D_PAL_001DE4C0",
   "D_001DE508": "D_PAL_001DE508",
+  "D_001DE510": "D_PAL_001DE510",
   "D_001DE520": "D_PAL_001DE520",
   "D_001DE53C": "D_PAL_001DE53C",
   "D_001DE540": "D_PAL_001DE540",
@@ -7503,6 +7557,7 @@
   "D_00357398": "D_PAL_00357398",
   "D_00357930": "D_PAL_00357930",
   "D_00358630": "D_PAL_00358630",
+  "D_00358FF0": "D_PAL_00358FF0",
   "D_0037F880": "D_PAL_0037F880",
   "D_003847C8": "D_PAL_003847C8",
   "D_003B0290": "D_PAL_003B0290",
@@ -7514,6 +7569,7 @@
   "D_0043C3B0": "D_PAL_0043C3B0",
   "D_0046D2B0": "D_PAL_0046D2B0",
   "D_0046F550": "D_PAL_0046F550",
+  "D_00478E50": "D_PAL_00478E50",
   "D_00479470": "D_PAL_00479470",
   "D_00479AB8": "D_PAL_00479AB8",
   "D_0049C950": "D_PAL_0049C950",
@@ -7956,7 +8012,6 @@
   "func_00396860": "func_PAL_00396860",
   "func_00396968": "func_PAL_00396968",
   "func_00396A38": "func_PAL_00396A38",
-  "func_00396B30": "func_PAL_00396B30",
   "func_00396C60": "func_PAL_00396C60",
   "func_00396E50": "func_PAL_00396E50",
   "func_00397058": "func_PAL_00397058",
@@ -8028,11 +8083,14 @@
   "func_0039FB08": "func_PAL_0039FB08",
   "func_0039FDA0": "func_PAL_0039FDA0",
   "func_0039FE80": "func_PAL_0039FE80",
+  "func_003A0138": "func_PAL_003A0138",
   "func_003A0200": "func_PAL_003A0200",
   "func_003A0280": "func_PAL_003A0280",
   "func_003A02D8": "func_PAL_003A02D8",
   "func_003A02E8": "func_PAL_003A02E8",
   "func_003A04A0": "func_PAL_003A04A0",
+  "func_003A0518": "func_PAL_003A0518",
+  "func_003A0540": "func_PAL_003A0540",
   "func_003A06DC": "func_PAL_003A06DC",
   "func_003A0760": "func_PAL_003A0760",
   "func_003A0D48": "func_PAL_003A0D48",
@@ -8075,6 +8133,7 @@
   "func_003A3BB8": "func_PAL_003A3BB8",
   "func_003A3C00": "func_PAL_003A3C00",
   "func_003A3C30": "func_PAL_003A3C30",
+  "func_003A3CF0": "func_PAL_003A3CF0",
   "func_003A3DA0": "func_PAL_003A3DA0",
   "func_003A3DC8": "func_PAL_003A3DC8",
   "func_003A3DE8": "func_PAL_003A3DE8",
@@ -8094,6 +8153,7 @@
   "func_003A5430": "func_PAL_003A5430",
   "func_003A5508": "func_PAL_003A5508",
   "func_003A5550": "func_PAL_003A5550",
+  "func_003A5598": "func_PAL_003A5598",
   "func_003A5620": "func_PAL_003A5620",
   "func_003A56F8": "func_PAL_003A56F8",
   "func_003A6590": "func_PAL_003A6590",
@@ -8588,6 +8648,7 @@
   "func_003E5360": "func_PAL_003E5360",
   "func_003E54E0": "func_PAL_003E54E0",
   "func_003E5520": "func_PAL_003E5520",
+  "func_003E56E0": "func_PAL_003E56E0",
   "func_003E5828": "func_PAL_003E5828",
   "func_003E5928": "func_PAL_003E5928",
   "func_003E59C8": "func_PAL_003E59C8",
@@ -8656,10 +8717,10 @@
   "func_003EDBA8": "func_PAL_003EDBA8",
   "func_003EE160": "func_PAL_003EE160",
   "func_003EE800": "func_PAL_003EE800",
-  "func_003EE840": "func_PAL_003EE840",
   "func_003EE9B8": "func_PAL_003EE9B8",
   "func_003EEE20": "func_PAL_003EEE20",
   "func_003EF1B8": "func_PAL_003EF1B8",
+  "func_003EF2E0": "func_PAL_003EF2E0",
   "func_003EF5E0": "func_PAL_003EF5E0",
   "func_003EF7F8": "func_PAL_003EF7F8",
   "func_003EFFA0": "func_PAL_003EFFA0",
@@ -8909,7 +8970,6 @@
   "func_00399A00": "func_PAL_00399A00",
   "func_0039ABB0": "func_PAL_0039ABB0",
   "func_0039B0F8": "func_PAL_0039B0F8",
-  "func_003A0138": "func_PAL_003A0138",
   "func_003A02DC": "func_PAL_003A02DC",
   "func_003A0BC8": "func_PAL_003A0BC8",
   "func_003A0EB0": "func_PAL_003A0EB0",
@@ -8963,6 +9023,7 @@
   "src/frontbin/381140.c": {
    "D_0031CC80": "D_00318CC0",
    "D_0031CCD0": "D_00318D10",
+   "func_00381080": "func_PAL_00381080",
    "func_00381140": "func_0037D100",
    "func_00381160": "func_0037D120",
    "func_003811A0": "func_0037D160",
@@ -9039,6 +9100,8 @@
    "func_003A26F0": "func_0039D668",
    "func_003A2750": "func_0039D6C8",
    "func_003A3B70": "func_0039E8E0",
+   "func_003A4288": "func_0039EE68",
+   "func_003A78B8": "func_003A2460",
    "func_003A8630": "func_003A30E0",
    "func_003A8B10": "func_003A35C0",
    "func_003A9050": "func_003A3B00",
@@ -9051,6 +9114,7 @@
    "func_003A9A40": "func_003A44F0",
    "func_003AAE60": "func_PAL_003AAE60",
    "func_003AF0B8": "func_003A9B10",
+   "func_003B2E50": "func_003AD8A8",
    "func_003B3050": "func_003ADAA8",
    "func_003B3088": "func_003ADAE0",
    "func_003B30E8": "func_003ADB40",
@@ -9763,7 +9827,7 @@
    "func_00396690": "func_00391E30",
    "func_003966D8": "func_00391E78",
    "func_00396838": "func_00391FD8",
-   "func_00397B10": "func_PAL_00397B10"
+   "func_00397B10": "func_003932B0"
   },
   "src/frontbin/396838.c": {
    "D_00331AE0": "D_0032DB20",
@@ -9795,7 +9859,7 @@
    "func_00396A38": "func_003921D8",
    "func_003972A0": "func_00392A40",
    "func_00397980": "func_00393120",
-   "func_00397B10": "func_PAL_00397B10"
+   "func_00397B10": "func_003932B0"
   },
   "src/frontbin/397638.c": {
    "func_0038AE20": "func_003866E8",
@@ -9803,8 +9867,8 @@
    "func_0038D0B0": "func_00388978",
    "func_00397638": "func_00392DD8",
    "func_00397980": "func_00393120",
-   "func_00397AF0": "func_PAL_00397AF0",
-   "func_00397B10": "func_PAL_00397B10",
+   "func_00397AF0": "func_00393290",
+   "func_00397B10": "func_003932B0",
    "func_00397BC0": "func_00393360",
    "func_00397BD0": "func_00393370",
    "func_00397BE0": "func_00393380",
@@ -10281,8 +10345,8 @@
    "func_003A54F0": "func_003A00D0",
    "func_003A5508": "func_003A00E8",
    "func_003A5550": "func_003A0130",
-   "func_003A5590": "func_PAL_003A5590",
-   "func_003A5598": "func_PAL_003A5598",
+   "func_003A5590": "func_003A0170",
+   "func_003A5598": "func_003A0178",
    "func_003A5618": "func_003A01F8",
    "func_003A5620": "func_003A0200",
    "func_003A5688": "func_003A0268",
@@ -14050,8 +14114,14 @@
   "src/us/frontbin/0037E368.c": {
    "func_003825F8": "func_0037E368"
   },
+  "src/us/frontbin/0037F588.c": {
+   "func_00383830": "func_0037F588"
+  },
   "src/us/frontbin/0037F7A8.c": {
    "func_00383A68": "func_0037F7A8"
+  },
+  "src/us/frontbin/003813E0.c": {
+   "func_003856B8": "func_003813E0"
   },
   "src/us/frontbin/00383BB0.c": {
    "D_U_001D5948": "D_001D5948",
@@ -14098,8 +14168,14 @@
   "src/us/frontbin/00391D08.c": {
    "func_00396568": "func_00391D08"
   },
+  "src/us/frontbin/00391FD8.c": {
+   "func_00396838": "func_00391FD8"
+  },
   "src/us/frontbin/0039CEA8.c": {
    "func_003A1F30": "func_0039CEA8"
+  },
+  "src/us/frontbin/0039DB38.c": {
+   "func_003A2DC8": "func_PAL_003A2DC8"
   },
   "src/us/frontbin/003A04A0.c": {
    "func_003A58C0": "func_003A04A0"
@@ -14576,17 +14652,26 @@
    "func_00396968": "func_00392108",
    "func_003972A0": "func_00392A40",
    "func_003EDAF8": "func_003E8590",
-   "func_003EF2E0": "func_003E9D78"
+   "func_003EF2E0": "func_003E9D78",
+   "func_003EF7F8": "func_003EA290"
   },
   "nonmatching/frontbin/func_003EF7F8.c": {
    "func_0038C310": "func_00387BD8",
    "func_003EDAF8": "func_003E8590",
    "func_003EDCF0": "func_003E8788",
-   "func_003EE840": "func_003E92D8",
+   "func_003EF0B8": "func_003E9B50",
+   "func_003EF110": "func_003E9BA8",
+   "func_003EF1B8": "func_003E9C50",
    "func_003EF2E0": "func_003E9D78",
    "func_003EF5E0": "func_003EA078",
    "func_003EF7F8": "func_003EA290",
-   "func_003EFBB0": "func_003EA648"
+   "func_003EFBB0": "func_003EA648",
+   "func_003EFE98": "func_003EA930",
+   "func_003EFEB8": "func_003EA950",
+   "func_003EFF18": "func_003EA9B0",
+   "func_003F0210": "func_003EAC88",
+   "func_003F06B8": "func_003EB130",
+   "func_003F0708": "func_003EB180"
   },
   "nonmatching/frontbin/func_003F08E0.c": {
    "func_003E6C08": "func_003E16B8",
@@ -14598,6 +14683,7 @@
  "gone": [
   "func_00381080",
   "func_003811E8",
+  "func_00381250",
   "func_00381D88",
   "func_003820B8",
   "func_003820F0",
@@ -14633,6 +14719,7 @@
   "func_003967B0",
   "func_00396838",
   "func_00396948",
+  "func_00396C18",
   "func_00397B10",
   "func_00397DD0",
   "func_00397DF8",
@@ -14650,9 +14737,7 @@
   "func_003A2DC8",
   "func_003A31C8",
   "func_003A40D0",
-  "func_003A5598",
   "func_003A58C0",
-  "func_003A5998",
   "func_003A5CC0",
   "func_003A62D0",
   "func_003A66D0",
@@ -14669,6 +14754,7 @@
   "func_003A9FC8",
   "func_003AA380",
   "func_003AA3C8",
+  "func_003AA780",
   "func_003AAE60",
   "func_003AB218",
   "func_003AC948",
@@ -14770,8 +14856,7 @@
   "func_003F0B48",
   "func_003F0EB8",
   "func_003F0ED8",
-  "func_003F0F00",
-  "func_00802640"
+  "func_003F0F00"
  ],
  "gone_in": {
   "func_00381080": [
@@ -14788,6 +14873,11 @@
    "src/boot_elf/",
    "src/frontbin/",
    "src/us/boot_elf/",
+   "src/us/frontbin/"
+  ],
+  "func_00381250": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
    "src/us/frontbin/"
   ],
   "func_00381D88": [
@@ -14965,6 +15055,11 @@
    "src/boot_elf/",
    "src/us/boot_elf/"
   ],
+  "func_00396C18": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
   "func_00397B10": [
    "nonmatching/frontbin/",
    "src/frontbin/",
@@ -15050,20 +15145,10 @@
    "src/frontbin/",
    "src/us/frontbin/"
   ],
-  "func_003A5598": [
-   "nonmatching/frontbin/",
-   "src/frontbin/",
-   "src/us/frontbin/"
-  ],
   "func_003A58C0": [
    "nonmatching/frontbin/",
    "src/frontbin/",
    "src/us/frontbin/"
-  ],
-  "func_003A5998": [
-   "nonmatching/boot_elf/",
-   "src/boot_elf/",
-   "src/us/boot_elf/"
   ],
   "func_003A5CC0": [
    "nonmatching/boot_elf/",
@@ -15144,6 +15229,11 @@
    "nonmatching/frontbin/",
    "src/frontbin/",
    "src/us/frontbin/"
+  ],
+  "func_003AA780": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
   ],
   "func_003AAE60": [
    "nonmatching/frontbin/",
@@ -15657,11 +15747,6 @@
    "nonmatching/boot_elf/",
    "src/boot_elf/",
    "src/us/boot_elf/"
-  ],
-  "func_00802640": [
-   "nonmatching/i5bootn/",
-   "src/i5bootn/",
-   "src/us/i5bootn/"
   ]
  },
  "values": {

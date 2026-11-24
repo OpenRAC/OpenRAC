@@ -12,7 +12,7 @@ file still matches.
  1 file changed, 4 insertions(+), 8 deletions(-)
 
 diff --git a/src/levels/07_annihilation_nation/L07_003C7468.c b/src/levels/07_annihilation_nation/L07_003C7468.c
-index 65cf3b6..835f9d5 100644
+index 65cf3b6a..835f9d5b 100644
 --- a/src/levels/07_annihilation_nation/L07_003C7468.c
 +++ b/src/levels/07_annihilation_nation/L07_003C7468.c
 @@ -745,14 +745,10 @@ void func_L07_003C8BA0(u8 *obj)
