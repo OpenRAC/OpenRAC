@@ -6,12 +6,13 @@
  * the level-6 one there; other versions leave this out (RAC1_OMIT_func_001F5148).
  *
  * draw_letterbox_bars (func_001F5148) runs as the game's C, once, every time: it steps the height
- * and appends the bars' packet. Only where the state the packet draws in is proved (level 6, the
- * bars enabled, so update_hud returned before drawing) is that packet taken back and the two bars
- * recorded at the cursor it began at, with its own depth (0xFFFFF3 of the 24-bit buffer, tested
- * greater-or-equal and written) and colour (unblended black, alpha 128). The shrinking frames, whose
- * HUD callbacks run first, other levels, no window, OPENRAC_UI_REPLAY and OPENRAC_UI_SKIP naming
- * this function keep the packet.
+ * and appends the bars' packet. Only where the state the packet draws in is known on level 6 is
+ * that packet taken back and the two bars recorded at the cursor it began at, with its own depth
+ * (0xFFFFF3 of the 24-bit buffer, tested greater-or-equal and written) and colour (unblended
+ * black, alpha 128): while the bars are enabled (update_hud returns before drawing: proved from the
+ * C), and while they shrink in play (game mode 0: the HUD's callbacks run first and left the same
+ * state in the in-game check). The shrinking frames of the freeze dialog (game mode 4), other
+ * levels, no window, OPENRAC_UI_REPLAY and OPENRAC_UI_SKIP naming this function keep the packet.
  */
 #include <string.h>
 
@@ -23,6 +24,7 @@
 #if !RAC1_OMIT(func_001F5148)
 enum {
     BLARG = 6,                /* the level whose frame draw's state is proved */
+    PLAY = 0,                 /* the game mode whose shrinking frames were measured */
     BAR_PACKET = 0x80,        /* the bars' packet: its DMA tag, two GIF tags and eight vertices */
     BAR_DEPTH = 0xFFFFF3,     /* the depth of its vertices (draw_letterbox_bars' XYZF2 words) */
     DEPTH_BITS = 24,          /* the depth buffer SetPalMode sets up (ZBUF's 24-bit format) */
@@ -36,6 +38,8 @@ enum {
 #define LIST_CURSOR RAC1_ADDR(0x00161000u)
 #define CURRENT_LEVEL RAC1_ADDR(0x0015EE84u)
 #define SCREEN_EXTENT RAC1_ADDR(0x0013E600u)
+/* The game mode (D_L00_0015F6A8, level data: the loaded level's copy of level 0's word). */
+#define LEVEL_MODE OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F6A8u))
 
 /* OPENRAC_UI_SKIP naming draw_letterbox_bars keeps its packet, for comparing in one build. */
 static int letterbox_skipped(void) {
@@ -46,12 +50,19 @@ static int letterbox_skipped(void) {
 void func_001F5148(void) {
     const gaddr cursor = OPENRAC_DATA(LIST_CURSOR);
     const gaddr before = GREF(gaddr, cursor);
-    /* The enable word is read before the game's own step, which never writes it. */
+    /* Read before the game's own step, which steps the height and never writes the enable word. */
     const int enabled = GREF(int, OPENRAC_DATA(BARS_ENABLED)) != 0;
+    const int shrinking = !enabled && GREF(int, OPENRAC_DATA(BARS_HEIGHT)) > 0;
     func_001F5148__game();
 
-    /* Only the proved edge: Blarg's frame draw with the bars enabled, so no HUD ran before them. */
-    if (!enabled || GREF(int, OPENRAC_DATA(CURRENT_LEVEL)) != BLARG || letterbox_skipped()) {
+    /* Only on Blarg, and not when OPENRAC_UI_SKIP asks for the packet. */
+    if (GREF(int, OPENRAC_DATA(CURRENT_LEVEL)) != BLARG || letterbox_skipped()) {
+        return;
+    }
+
+    /* The known states: enabled (no HUD before the bars), or shrinking in play (the HUD's
+     * callbacks first, then the same state at the bars); the freeze dialog keeps its packet. */
+    if (!enabled && !(shrinking && GREF(int, LEVEL_MODE) == PLAY)) {
         return;
     }
 

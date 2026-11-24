@@ -3,8 +3,8 @@
 //
 // The real RAC1 PAL letterbox wrapper (game/rac1/host/letterbox.c) over a synthetic original
 // operation and the actual CPU FrameRecorder commands. The words the wrapper names (enable, height,
-// list cursor, level, screen extent) live in the fixture; the cursor values are invented RAM
-// addresses, and no packet byte is read or written.
+// list cursor, level, game mode, screen extent) live in the fixture; the cursor values are
+// invented RAM addresses, and no packet byte is read or written.
 
 #include <array>
 #include <cstdint>
@@ -28,6 +28,8 @@ constexpr gaddr kEnable = 0x0015F544, kHeight = 0x0015F548, kCursor = 0x00161000
 constexpr gaddr kLevel = 0x0015EE84, kExtent = 0x0013E600;
 constexpr std::size_t kEnableWord = 0, kHeightWord = 1, kCursorWord = 2, kLevelWord = 3;
 constexpr std::size_t kExtentWord = 4;  // width, then height
+constexpr gaddr kMode = 0x0015F6A8;     // level 0's game mode, a level datum
+constexpr std::size_t kModeWord = 6;    // 0, play, unless a test sets it
 
 // Invented reached list positions; the bars' packet is 0x80 bytes (draw_letterbox_bars).
 constexpr gaddr kList = 0x16000;
@@ -116,13 +118,45 @@ void test_enabled_bars_are_recorded_once() {
     CHECK(fixture.commands().size() == 4 && fixture.words[kCursorWord] == kList);
 }
 
-// The shrinking frames run the HUD first: the game's packet stays, nothing is recorded.
-void test_shrinking_bars_keep_their_packet() {
+// Shrinking in play: the HUD ran first and left the bars' state (measured in game), so one game
+// step (24 to 23), the packet taken back and both bars recorded at the shrunk height.
+void test_shrinking_bars_in_play_are_recorded() {
     Fixture fixture(0, kFull);
+    func_001F5148();
+    CHECK(fixture.game_calls == 1 && fixture.words[kHeightWord] == kFull - 1);
+    CHECK(fixture.words[kCursorWord] == kList);
+    CHECK(fixture.commands().size() == 2);
+
+    // The top bar then the bottom one, at the height the game's step left.
+    if (fixture.commands().size() == 2) {
+        const float bar = static_cast<float>(kFull - 1);
+        check_bar(fixture.commands()[0], 0.0f, bar, kList);
+        check_bar(fixture.commands()[1], kHeight448 - bar, kHeight448, kList);
+    }
+
+    // The last step (1 to 0) appends nothing: nothing to take back or to record.
+    fixture.words[kHeightWord] = 1;
+    func_001F5148();
+    CHECK(fixture.game_calls == 2 && fixture.words[kHeightWord] == 0);
+    CHECK(fixture.words[kCursorWord] == kList && fixture.commands().size() == 2);
+}
+
+// The freeze dialog's shrinking frames (game mode 4) were not measured: they keep the packet. While
+// the bars are enabled its frames are the proved edge, recorded.
+void test_freeze_dialog_shrink_keeps_its_packet() {
+    constexpr std::uint32_t kFreezeDialog = 4;
+    Fixture fixture(0, kFull);
+    fixture.words[kModeWord] = kFreezeDialog;
     func_001F5148();
     CHECK(fixture.game_calls == 1 && fixture.words[kHeightWord] == kFull - 1);
     CHECK(fixture.words[kCursorWord] == kList + kPacket);
     CHECK(fixture.commands().empty());
+
+    // Enabled again in the same mode: the packet appended after the kept one is taken back.
+    fixture.words[kEnableWord] = 1;
+    func_001F5148();
+    CHECK(fixture.words[kHeightWord] == kFull && fixture.words[kCursorWord] == kList + kPacket);
+    CHECK(fixture.commands().size() == 2);
 }
 
 // Runs the wrapper once on a fixture prepared by `setup` and checks that the packet stayed.
@@ -143,6 +177,13 @@ void test_unproved_cases_keep_their_packet() {
     check_packet_kept(kBlarg, kPacket, [](Fixture& f) { f.window = false; });
     check_packet_kept(kBlarg, kPacket, [](Fixture& f) { f.skip = "func_001F5800,func_001F5148"; });
     check_packet_kept(kBlarg, kOtherPacket, [](Fixture&) {});
+
+    // The same while the bars shrink in play.
+    check_packet_kept(kKerwan, kPacket, [](Fixture& f) { f.words[kEnableWord] = 0; });
+    check_packet_kept(kBlarg, kPacket, [](Fixture& f) {
+        f.words[kEnableWord] = 0;
+        f.skip = "func_001F5148";
+    });
 }
 
 // An aliased cursor anchors at its RAM address and is put back as the game wrote it; 416 lines keep
@@ -192,6 +233,12 @@ gaddr openrac_test_data_address(gaddr canonical) {
             CHECK(false);
             return at(kEnableWord);
     }
+}
+
+// The game mode, read as level 0's datum (OPENRAC_LDATA); any other is a test failure.
+gaddr openrac_relocate_level_data(int from, gaddr address) {
+    CHECK(from == 0 && address == kMode);
+    return static_cast<gaddr>(kModeWord * sizeof(std::uint32_t));
 }
 
 // The original operation: the game's step of the height and, when it is not 0, its packet.
@@ -273,7 +320,8 @@ void openrac_frame_clear(std::uint32_t /*rgba*/, int /*what*/) {
 // Runs the production wrapper on the proved edge and on every case that keeps the packet.
 int main() {
     test_enabled_bars_are_recorded_once();
-    test_shrinking_bars_keep_their_packet();
+    test_shrinking_bars_in_play_are_recorded();
+    test_freeze_dialog_shrink_keeps_its_packet();
     test_unproved_cases_keep_their_packet();
     test_aliased_cursor_and_416_lines();
     return openrac::test::result();

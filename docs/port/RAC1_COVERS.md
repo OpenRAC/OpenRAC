@@ -9,7 +9,8 @@ depth through `openrac_frame_fill_depth`) and issues a depth-only clear through
 the Fill/Clear C API. It carries no GS words.
 
 **One retail cover entry point is bound: PAL v2.00's `draw_letterbox_bars`
-(`func_001F5148`), on level 6's enabled edge only** (`port/game/rac1/host/letterbox.c`,
+(`func_001F5148`), on level 6 only: while the bars are enabled and while they shrink in
+play** (`port/game/rac1/host/letterbox.c`,
 "The level-6 binding" below). Every other site, level and release keeps its
 packets: source inspection found state and target dependencies that the
 Fill/Clear calls do not express, and keeping those sites residual avoids silently
@@ -58,7 +59,7 @@ The evidence is the pinned RAC1 PAL C under `src/game/render/draw.c` and
 |---|---|---|
 | `FadeToBlack`, `func_001F4E08` | The C takes one integer count, not an extra colour argument suggested by an old symbol spelling. It waits, bumps the game clock, initializes chains, draws through both large/small buffers and sends/swaps once per fade step, then initializes another chain. | Replacing the loop with a Fill changes timing and buffer/copy semantics. Its lower `emit_rgba_draw_packet` call is not independent of residual blend, target, mask and depth state. AA/copy targets are outside this milestone. |
 | `emit_rgba_draw_packet`, `func_001F55C0` | Four integer colour channels; writes RGBAQ and references the full-screen strip packet. The owned PAL disc's packet metadata sets TEST to always pass and draws a blended sprite. | Fill does not inherit ALPHA, FRAME masks/target, ZBUF write policy or scissor. Keeping only the colour write does not preserve these effects. Byte-range colour packing alone is not an activation proof. |
-| `draw_letterbox_bars`, `func_001F5148` | Updates the height toward 24 while enabled, toward 0 otherwise; zero emits nothing. The draw sets PRIM and RGBAQ, then top/bottom geometry at the viewport edges. | The caller proof below establishes a depth-tested, depth-writing bar at Z `0xFFFFF3`, not a depth-independent Fill. Bound on PAL v2.00 level 6's enabled edge only, as two depth fills ("The level-6 binding"); the shrinking frames, other levels and the other releases keep the packet. |
+| `draw_letterbox_bars`, `func_001F5148` | Updates the height toward 24 while enabled, toward 0 otherwise; zero emits nothing. The draw sets PRIM and RGBAQ, then top/bottom geometry at the viewport edges. | The caller proof below establishes a depth-tested, depth-writing bar at Z `0xFFFFF3`, not a depth-independent Fill. Bound on PAL v2.00 level 6 (the enabled edge, and the shrinking frames in play), as two depth fills ("The level-6 binding"); the freeze dialog's shrinking frames, other levels and the other releases keep the packet. |
 | Audit "Z clear", `func_001FB908` | The current function is `draw_centered_capture_background(int w, int h)`, a vendor/capture-background draw. It sets destination-preserving RGB blending and TEST, uses alpha 128, and emits `w / 32` centred sprite strips. | It is not a generic depth-only clear: alpha writes, inherited write masks and ZBUF policy matter, and the centred region need not cover the current target. Whole-target Clear would widen partial coverage and can lose alpha effects. Framebuffer target conversion is a separate unit. |
 
 Do not use the audit label as a signature or replace `func_001FB908` with a
@@ -118,7 +119,7 @@ joined by two zero-area triangles. It writes no TEST, FRAME, ZBUF, scissor or of
 
 | Inherited | Value at the bar | Evidence, and what is not proved |
 |---|---|---|
-| TEST_1 | alpha GEQUAL 128, failing pixels write RGB only, DATE off, depth GEQUAL | Level packet `0x001C2FF0` (split place of `func_00234F40`), sent at `0x00210998`. Only on the **enabled edge**: `update_hud` returns at its first test while enable is set, and `draw_help`'s C, read three calls deep, writes no TEST: it draws through `DrawRectOverlay`, `DrawTexturedQuad` (REGLIST TEX0, PRIM, RGBAQ, UV, XYZ2) and `FontPrintWindow`. On the shrinking edge (enable 0, height 23 to 1) the 13 HUD bank callbacks run first, through pointers: not proved. |
+| TEST_1 | alpha GEQUAL 128, failing pixels write RGB only, DATE off, depth GEQUAL | Level packet `0x001C2FF0` (split place of `func_00234F40`), sent at `0x00210998`. Only on the **enabled edge**: `update_hud` returns at its first test while enable is set, and `draw_help`'s C, read three calls deep, writes no TEST: it draws through `DrawRectOverlay`, `DrawTexturedQuad` (REGLIST TEX0, PRIM, RGBAQ, UV, XYZ2) and `FontPrintWindow`. On the shrinking edge (enable 0, height 23 to 1) the 13 HUD bank callbacks run first, through pointers: not proved from the C; measured equal in play in game ("The level-6 binding"). |
 | FRAME_1, ZBUF_1, XYOFFSET_1, SCISSOR_1 | `SetPalMode`'s draw environment (below), sent by `ResetGsRegisters` each frame | Every C writer before the bar puts the same value back: the sky's and `draw_fogged_fullscreen_sprite`'s unmasked ZBUF; the moby shadow pass (`DrawMobysCleanUp` -> `configure_graphics_setup_dma_chain` -> `submit_graphics_setup_command_stream`: level packet `0x001BCAD0` masks FRAME to alpha, the function restores `0x80080`, or `0x80070` at 416 lines); `vu1_gs_regs_font` re-sending `draw_environment`; `FontPrintWindow` restoring the full scissor at its single exit. Not covered: functions that are still assembly (`PartProc` among 552 in the inspected trees), three registered draw callbacks with no C (`draw_level16_reflection_mesh_batch`, `draw_mine_predicted_impact_marker`, `draw_moby_radial_ripple_mesh_buffers`), and the VU1 programs' own GIF output (retail only; the port does not run it). |
 | PRMODECONT | 1 | Reset packet; no other writer in C. |
 | FBA_1, DTHE, COLCLAMP, PABE | 0 (its writers restore 0), 0, on, 0 | None changes an unblended black alpha-128 bar in 32-bit colour. |
@@ -172,7 +173,9 @@ missing without the omission).
 1. **The game's update, once.** The wrapper reads the list cursor and the enable
    word, runs `draw_letterbox_bars`' own C (the height step and the packet; the
    counter is never animated from the port's frame tick), and then, only when the
-   enable word was set before the step, the current level (`0x0015EE84`) is 6, the
+   enable word was set before the step (growing or holding) or it was clear with the
+   height above 0 and the game mode (`D_L00_0015F6A8`) is play, 0 (shrinking), the
+   current level (`0x0015EE84`) is 6, the
    game appended exactly the 128-byte packet at a reachable RAM position and
    `OPENRAC_UI_SKIP` does not name `func_001F5148`, records the two bars at the
    cursor the packet began at and moves the cursor back. That address then holds
@@ -197,17 +200,25 @@ missing without the omission).
    passes an alpha-128 bar, as on the console. Dropped: the PRIM and RGBAQ the
    packet leaves, which no inspected following producer reads (each sets its own).
 
+Measured, not proved from the C: the shrinking frames in play (enable 0, height 23
+to 1, game mode 0). There the 13 HUD bank callbacks run before the bars through
+pointers. The in-game check of 2026-11-24 (R2-COVERS-REPORT) logged the same
+`fbp 0x70 fbmsk 0x0 test a15/80/f3 d00 z12` at the bars' vertices in shrinking
+frames as on the enabled edge, and the packet and the binding gave identical bar
+rows over 71 compared frames. That is evidence for the measured scene, not a proof
+for every callback the HUD can run.
+
 Limits, not proved here (the first two keep the packet):
 
-- The shrinking frames (enable 0, height 23 to 1): the 13 HUD bank callbacks run
-  before the bars through pointers, so TEST at the bar is not proved there.
+- The freeze dialog's shrinking frames (game mode 4): not measured.
 - Other levels: only level 6's caller state was read.
 - The memory-card handlers `Menu_RunStateHandler` runs after the bars, not
   inspected for PRIM or RGBAQ reads.
 - What the static proof does not cover (functions still in assembly, the three
   callbacks without C, the VU1 programs' own output) and the depth write mask,
   which `OPENRAC_DUMP_DRAWS` does not log: the in-game comparison of the two paths
-  (`OPENRAC_UI_SKIP=func_001F5148`) checks them for the port's own path.
+  (`OPENRAC_UI_SKIP=func_001F5148`) matched in the measured scene, which checks the
+  port's own path there only.
 - The other releases: names and places match (below), packet data and state are
   not checked; their enable and height mappings must come from versionmap.
 
@@ -252,10 +263,13 @@ synthetic original operation (it steps the height and appends a 128-byte packet,
 nothing else) and the real CPU FrameRecorder. On level 6 with the bars enabled: one
 game step (18 to 19), the cursor put back and two depth fills at `0xFFFFF3`,
 GEQUAL, colour and depth written, at the packet's anchor; at full height the step
-holds 24. The shrinking frames, another level, no window, `OPENRAC_UI_SKIP` and a
-packet of another size keep the packet; an uncached-alias cursor is put back as
-the game wrote it; 416 lines scale into the 448-line space. `rac1_screen_cover_test`
-checks `rac1_cover_letterbox_depth`'s commands and its no-window answer, and
+holds 24. Shrinking in play: one step (24 to 23), the packet taken back and the bars
+recorded at 23; the last step (1 to 0) appends and records nothing. The freeze
+dialog's shrinking frames keep the packet (its enabled frames are recorded); another
+level and `OPENRAC_UI_SKIP` (both also while shrinking), no window and a packet of
+another size keep the packet; an uncached-alias cursor is put back as the game wrote
+it; 416 lines scale into the 448-line space. `rac1_screen_cover_test` checks
+`rac1_cover_letterbox_depth`'s commands and its no-window answer, and
 `renderer_gif_test` that a depth fill at a residual vertex's Z gets that vertex's
 clip depth.
 
