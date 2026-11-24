@@ -37,7 +37,7 @@ function view(): Rac3SaveView {
       },
       { id: 47, name: "N60 Storm", versionName: "N60 Storm", version: 1, maxAmmo: 150, xp: 0 },
     ],
-    maxBolts: 9_999_999,
+    maxBolts: 2_147_483_647,
   };
 }
 
@@ -59,7 +59,7 @@ describe("the Up Your Arsenal save editor", () => {
     const v = view();
     const f = structuredClone(v.fields);
 
-    f.bolts = 10_000_000;
+    f.bolts = 2_147_483_648;
     weapon(f, 0).ammo = 36;
     weapon(f, 1).ammo = 5;
     expect(Object.keys(fieldErrorsRac3(v, f)).sort()).toEqual(["ammo-39", "ammo-47", "bolts"]);

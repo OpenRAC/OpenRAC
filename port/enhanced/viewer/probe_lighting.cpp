@@ -196,20 +196,19 @@ std::string probe_mesh_fragment(std::string source) {
     source.insert(source.find('\n') + 1, shaders::environment_glsl);
     source += std::string("\n#if !defined(OPENRAC_SOLID)\n") + std::string(shaders::thin_glass_glsl)
               + "\n#endif\n";
-    return probe_shader_source(std::move(source));
+    source = probe_shader_source(std::move(source));
+    // Shared sunlight code reads the cloud attenuation declared by this prelude.
+    source.insert(source.find('\n') + 1, shaders::cloud_shadows_glsl);
+    return source;
 }
 
 std::string probe_early_fragment(std::string source) {
-    if (!enhanced_rendering_available()) {
-        return probe_mesh_fragment(std::move(source));
+    if (enhanced_rendering_available()) {
+        source.insert(source.find('\n') + 1, "#define OPENRAC_EARLY_LIGHTING 1\n");
+        source += shaders::early_lighting_glsl;
     }
-    source += shaders::early_lighting_glsl;
-    source.insert(source.find('\n') + 1, shaders::environment_glsl);
-    source += std::string("\n#if !defined(OPENRAC_SOLID)\n") + std::string(shaders::thin_glass_glsl)
-              + "\n#endif\n";
-    source.insert(source.find('\n') + 1, "#define OPENRAC_EARLY_LIGHTING 1\n");
 
-    return probe_shader_source(std::move(source));
+    return probe_mesh_fragment(std::move(source));
 }
 
 bool ProbeLighting::upload(

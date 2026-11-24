@@ -49,7 +49,7 @@ import variant_check  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import LEVEL_SHORT_MISS, Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, canon, cname, index_unit, prototype, inherit_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, users_of_vu0_assembly, canon, cname, index_unit, prototype, inherit_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
 import program as program_module  # noqa: E402  (its NAME_PREFIX)
 
 HERE = Path(__file__).resolve().parent
@@ -1660,6 +1660,9 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     # A definition that uses a derived name with no address (a ref_ name a stale table does not value) is left to
     # its assembly too (program.py users_of_unresolved_derived): its call would reach a stub that does nothing.
     program.unresolved_derived = users_of_unresolved_derived(program)
+    # hostgen.json "vu0_assembly_from_retail": a definition whose inline assembly runs VU0 instructions the lowering
+    # would skip (explicit $vf registers) is left to its assembly as well (program.py users_of_vu0_assembly).
+    program.vu0_assembly_moved = users_of_vu0_assembly(program) if cfg.get("vu0_assembly_from_retail") else {}
     # A parameter the C only passes on to 64-bit parameters is 64-bit itself (program.py widen_forwarded): the EE's
     # register carries all its bits through (FontPrintCenter's colour to FontPrint's u64).
     # A definition that names fewer parameters than its callers pass, which it hands on in their registers (program.py
@@ -1744,6 +1747,7 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     extra["results_widened"] = sorted(getattr(program, "results_widened", []))
     extra["unprototyped_callers"] = sorted(getattr(program, "unprototyped_callers", []))
     extra["unresolved_derived"] = dict(sorted(getattr(program, "unresolved_derived", {}).items()))
+    extra["vu0_assembly_from_retail"] = dict(sorted(getattr(program, "vu0_assembly_moved", {}).items()))
     extra["bound_libraries"] = write_libraries(program, out, host_rows, library_api(args.game.parent, cfg))
     extra["rows_without_function"] = rows_without_function(program, host_rows)
     for sym in extra["rows_without_function"]:

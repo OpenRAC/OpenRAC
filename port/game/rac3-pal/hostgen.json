@@ -55,6 +55,11 @@
   "candidates": "nonmatching/functional.tsv",
   "places": "config/levels/functions.tsv",
   "split_places": "tables/split_places.tsv",
+  "more_places": {
+    "func_L01_004CB548": "03:004B8F30,24:004B03B8",
+    "func_L01_004D8928": "03:004C6310,24:004BD798",
+    "func_L01_004DB2E8": "03:004C8CD0,24:004C0158"
+  },
   "folded_wrappers": "tables/variant_callees.tsv",
   "params_from_declarations": [
     "func_L01_00443B88",
@@ -571,7 +576,8 @@
       "func_L06_00352FB0": "int (int, int, int, int, int)",
       "func_L01_002F8F20": "int (int, int, int, int, int, int)",
       "func_L01_002F88E0": "int (int)",
-      "func_L01_003E4428": "float (int, float)"
+      "func_L01_003E4428": "float (int, float)",
+      "func_L01_004B04D8": "void (unsigned int)"
     },
     "discover_entries": true,
     "dirs": [],
@@ -1384,6 +1390,7 @@
     7340032
   ],
   "headers": "headers",
+  "vu0_assembly_from_retail": true,
   "unpassed_registers": true,
   "ps2_float": [
     "func_003C6FE0__frontbin",
@@ -1394,6 +1401,7 @@
     "func_00389598__frontbin",
     "func_00396A38__frontbin",
     "func_003A9830__frontbin",
+    "func_L01_00404040",
     "func_L01_00420080"
   ],
   "executable_extents": {

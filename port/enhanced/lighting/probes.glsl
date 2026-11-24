@@ -10,7 +10,7 @@ uniform sampler2D probe_depth_ranges;
 // The switches every Vulkan pipeline fixes as constants (pipeline variants).
 // openrac_mode: probe_depth_mode probe_retail_anchor probe_gpu_selection probe_mode probe_receiver
 // openrac_mode: probe_backlight sun_shadow_separate_maps shadow_atlas_enabled sun_shadow_enabled
-// openrac_mode: hero_shadow_enabled
+// openrac_mode: hero_shadow_enabled sun_shadow_fast
 uniform int probe_depth_mode;
 uniform sampler2D probe_metadata;
 uniform vec3 probe_origin;
@@ -65,6 +65,7 @@ uniform mat4 sun_shadow_view;
 uniform vec4 sun_shadow_ends;
 uniform float sun_shadow_near;
 uniform int sun_shadow_enabled;
+uniform int sun_shadow_fast;
 uniform int sun_shadow_separate_maps;
 uniform int shadow_atlas_enabled;
 uniform vec4 shadow_atlas_rects[5];
@@ -652,6 +653,11 @@ float sun_shadow_pcf_rect(sampler2D map, ivec4 rect, mat4 matrix, vec3 p, vec3 n
     // A world-space bias (half a texel of the cascade, at least 0.01) avoids detachment growing
     // with whole-level depth.
     float bias = length(row_z) * 0.5 * max(0.01, kSunDepthBiasTexels * texel);
+#if !defined(OPENRAC_PROBE_FAST) && !defined(OPENRAC_CHEAP_SHADOWS)
+    if (sun_shadow_fast != 0) {
+        return shadow_bilinear_rect(map, rect, position, bias, slope);
+    }
+#endif
     return shadow_pcf_kernel_rect(map, rect, position, bias, slope, true);
 }
 
@@ -684,15 +690,35 @@ float sun_shadow_visibility(vec3 p, vec3 n, vec3 plane_normal) {
                       ? 0
                       : (distance < sun_shadow_ends.y ? 1 : (distance < sun_shadow_ends.z ? 2 : 3));
     float visibility = sun_cascade_visibility(cascade, p, n, plane_normal);
+#if defined(OPENRAC_PROBE_FAST) || defined(OPENRAC_CHEAP_SHADOWS)
+    return visibility;
+#else
+    if (sun_shadow_fast != 0) {
+        return visibility;
+    }
     float start = cascade == 0 ? sun_shadow_near : sun_shadow_ends[cascade - 1];
     float blend =
         smoothstep(mix(start, sun_shadow_ends[cascade], 0.9), sun_shadow_ends[cascade], distance);
-#if defined(OPENRAC_PROBE_FAST) || defined(OPENRAC_CHEAP_SHADOWS)
-    blend = 0.0;
-#endif
     float next =
         blend > 0.0 && cascade < 3 ? sun_cascade_visibility(cascade + 1, p, n, plane_normal) : 1.0;
     return mix(visibility, next, blend);
+#endif
+}
+
+// Legacy diffuse has no separate direct light channel. Its floor keeps authored ambient light.
+float probe_fallback_diffuse_shadow(float visibility) {
+#ifdef OPENRAC_CLOUD_SHADOWS
+    visibility *= cloud_sun_attenuation;
+#endif
+    return mix(0.1, 1.0, visibility);
+}
+
+// Clouds attenuate the visible sun above the artistic shadow floor.
+vec3 probe_shadowed_directional(
+    vec3 directional, vec3 cloud_loss, float visibility, float shadow_floor
+) {
+    return directional * shadow_floor
+           + (directional - cloud_loss) * ((1.0 - shadow_floor) * visibility);
 }
 
 #ifdef OPENRAC_SHADING_BRDF
@@ -705,12 +731,16 @@ vec3 surface_specular_direct(vec3 p,vec3 n,vec3 eye,vec4 selector,float visibili
         int offset=light*2;
         vec3 radiance=max(mix(light_sets[a+offset].rgb,light_sets[b+offset].rgb,blend),vec3(0));
         vec3 travel=probe_unit(mix(light_sets[a+offset+1].xyz,light_sets[b+offset+1].xyz,blend));
+        vec3 cloud_loss = vec3(0.0);
         if(light==0) {
             if(probe_sunlight_direction.w!=0.) travel=probe_sunlight_direction.xyz;
             radiance*=probe_sunlight_scale;
+#ifdef OPENRAC_CLOUD_SHADOWS
+            cloud_loss = radiance * (1.0 - cloud_sun_attenuation);
+#endif
         }
-        result+=radiance*mix(.1,1.,visibility)*ggx_specular(n,eye,-travel,
-                    roughness,f0);
+        result += probe_shadowed_directional(radiance, cloud_loss, visibility, .1)
+                  * ggx_specular(n, eye, -travel, roughness, f0);
     }
     LOCAL_LIGHT_LOOP(i) {
         vec3 delta=LOCAL_POSITION(i).xyz-p;
@@ -724,14 +754,16 @@ vec3 surface_specular_direct(vec3 p,vec3 n,vec3 eye,vec4 selector,float visibili
 }
 #endif
 
-// The directional lights at full visibility and the local lights, apart: probe_direct is
-// `directional * mix(0.1, 1.0, visibility) + local`, so callers needing several visibilities loop once.
-void probe_direct_parts(vec3 p, vec3 n, vec4 selector, out vec3 directional, out vec3 local) {
+// Split full directional and local radiance, and report how much of the primary light clouds remove.
+void probe_direct_parts(
+    vec3 p, vec3 n, vec4 selector, out vec3 directional, out vec3 local, out vec3 cloud_loss
+) {
     int a = (int(selector.x + 0.5) & 15) * 4;
     int b = (int(selector.y + 0.5) & 15) * 4;
     float blend = clamp(selector.z, 0.0, 1.0);
     directional = vec3(0.0);
     local = vec3(0.0);
+    cloud_loss = vec3(0.0);
     for (int light = 0; light < 2; ++light) {
         int offset = light * 2;
         vec4 colour = mix(light_sets[a + offset], light_sets[b + offset], blend);
@@ -750,6 +782,11 @@ void probe_direct_parts(vec3 p, vec3 n, vec4 selector, out vec3 directional, out
         mp_vec3 contribution = max(mp_vec3(colour.rgb), mp_vec3(0)) * mp_vec3(correction)
             * mp_float(response);
         directional += vec3(contribution);
+#ifdef OPENRAC_CLOUD_SHADOWS
+        if (light == 0) {
+            cloud_loss = vec3(contribution) * (1.0 - cloud_sun_attenuation);
+        }
+#endif
     }
     LOCAL_LIGHT_LOOP(i) {
         vec3 delta = LOCAL_POSITION(i).xyz - p;
@@ -777,9 +814,9 @@ void probe_direct_parts(vec3 p, vec3 n, vec4 selector, out vec3 directional, out
 }
 
 vec3 probe_direct(vec3 p, vec3 n, vec4 selector, float visibility) {
-    vec3 directional, local;
-    probe_direct_parts(p, n, selector, directional, local);
-    return directional * mix(0.1, 1.0, visibility) + local;
+    vec3 directional, local, cloud_loss;
+    probe_direct_parts(p, n, selector, directional, local, cloud_loss);
+    return probe_shadowed_directional(directional, cloud_loss, visibility, 0.1) + local;
 }
 
 // Keep the display transfer curves FP32: chained half powers amplify byte-level banding.

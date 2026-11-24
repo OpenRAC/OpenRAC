@@ -114,6 +114,9 @@ class Function:
     # the names its definition uses that only the decompilation's build values (derived.DERIVED_NAME: a matched
     # function's `ref_L00_003ABEC0_00`), called, taken or read, its unit's static helpers' included (derived_uses)
     derived: tuple = ()
+    # the VU0 instructions of its inline assembly, its unit's static helpers' included, that the translation does not
+    # run (vu0_assembly): explicit-register statements such as divide_vector_xyz's `lqc2 $vf1, 0(%1)` ... `sqc2`
+    vu0_asm: tuple = ()
 
 
 # The primary's C under the release's name for a place (release.py: FUN_<place>, F<hash>_FUN_<place>).
@@ -267,9 +270,22 @@ class Program:
         """A level unit's name of another program's function with the calling function's address
         after it (rac3-decomp's per-function spellings: func_003EDB08_0051BC88 in func_L01_0051BC88
         is frontbin's 0x003EDB08): the levels' copy of that function the catalogue places
-        (kind_renames), or None."""
+        (kind_renames), or None.
+
+        So too a level tree's spelling of a front-end function (rac3-decomp's tools/level_tree.py):
+        fe_func_0038CE20 in a level's C is that level's copy of frontbin's func_0038CE20 (vec_scale),
+        and fe_func_003D3CB0 its coll_line. Read as a name of its own it had no C, and every call did
+        nothing: the camera's line test in func_L01_003E4198 never hit a wall. An fe_ name the
+        catalogue has no front-end row for (fe_func_00443948, an address in level 1 itself) is the
+        bare name, which the file's level then places (level_short_name)."""
+        if not level_unit(unit):
+            return None
+        fe = re.fullmatch(r"fe_(func_([0-9A-Fa-f]{8}))", name)
+        if fe:
+            bare = f"func_{fe.group(2).upper()}"
+            return self.kind_renames.get(bare, bare)
         m = re.fullmatch(r"(func|FUN)_([0-9A-Fa-f]{8})_[0-9A-Fa-f]{8}", name)
-        if not m or not level_unit(unit):
+        if not m:
             return None
         return self.kind_renames.get(f"func_{m.group(2).upper()}")
 
@@ -924,6 +940,59 @@ def derived_uses(decl: dict, statics: dict) -> tuple:
     return tuple(out)
 
 
+def _vu0_op(op: str) -> bool:
+    """Whether an instruction of inline assembly is VU0's (macro mode, COP2), which no C the lowering writes runs."""
+    return op in ("lqc2", "sqc2", "qmtc2", "qmtc2.i", "qmtc2.ni", "qmfc2", "qmfc2.i", "qmfc2.ni", "cfc2", "cfc2.i",
+                  "cfc2.ni", "ctc2", "ctc2.i", "ctc2.ni") or (op.startswith("v") and op[1:2].isalpha())
+
+
+def vu0_assembly(decl: dict, statics: dict) -> tuple:
+    """The VU0 instructions in a definition's inline assembly statements, and in its unit's static functions
+    (STATICS: name -> definition) it calls, which are translated as part of it. lower.py keeps such a statement
+    as a barrier and the instructions do nothing: rac3's divide_vector_xyz (func_L01_0040E408) and its
+    identity setter func_L01_0040E388 are whole bodies of such assembly with C around them, and wrote nothing.
+    VU0 assembly on GCC's "j" registers is C already (clangast.vu0_macro_c), and asm text hostgen cannot read
+    (a macro's argument) is not counted."""
+    out: list[str] = []
+    seen: set[int] = set()
+    stack = [decl]
+    while stack:
+        n = stack.pop()
+        kind = n.get("kind")
+        if kind == "GCCAsmStmt" and n.get("asmString"):
+            for word in n["asmString"].replace(";", "\n").split("\n"):
+                op = word.strip().split()[0] if word.strip() else ""
+                if op and _vu0_op(op) and op not in out:
+                    out.append(op)
+        elif kind == "DeclRefExpr":
+            ref = n.get("referencedDecl") or {}
+            helper = statics.get(ref.get("name", "")) if ref.get("kind") == "FunctionDecl" else None
+            if helper is not None and id(helper) not in seen:
+                seen.add(id(helper))
+                stack.append(helper)
+        stack.extend(reversed(n.get("inner", ())))
+    return tuple(out)
+
+
+def users_of_vu0_assembly(program: Program) -> dict[str, list[str]]:
+    """hostgen.json "vu0_assembly_from_retail": a definition whose inline assembly runs VU0 instructions
+    (vu0_assembly) is translated from the retail assembly instead, as a "from_assembly" row would leave it
+    (settle_signatures): its C would skip them. The port's own host and wrapped functions keep their C, and so do
+    the functions with no place in the program. Returns each function moved and the instructions its C skipped."""
+    moved: dict[str, list[str]] = {}
+    for sym, f in sorted(program.functions.items()):
+        if f.unit is None or f.static or not f.vu0_asm or sym in program.host or sym in program.wrap:
+            continue
+        if not program.code_places(sym) or any(op.startswith("vcallms") for op in f.vu0_asm):
+            # A VU0 microprogram (vcallms) the assembly stage cannot translate either: its C stays, which
+            # at least runs the rest (frontbin's func_003D1DA8).
+            continue
+        program.functions[sym] = Function(sym, f.sig, None, asm=True, declared=f.declared)
+        program.from_assembly.add(sym)
+        moved[sym] = list(f.vu0_asm)
+    return moved
+
+
 def level_unit(unit: str | None) -> bool:
     """A unit of a level's program (src/levels/...), whose names of another program's functions mean
     the level's own copies (Program.kind_renames)."""
@@ -1060,6 +1129,7 @@ def tail_callee(program: Program, f: Function) -> Function | None:
     """The function a definition's closing call (Function.tail) reaches, as its unit names it: a
     static of the unit, the unit's level's own copy, else the program's function; None if none."""
     sym = program.aliases.get((f.unit, f.tail), f.tail)
+    sym = program.level_copy_named(f.unit, sym) or sym
     sym = program.level_short_name(f.unit, sym, f.symbol)
     g = program.statics.get((f.unit, sym))
     if g is None:
@@ -1218,7 +1288,8 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
                                               returns=returned_calls(decl, by_id),
                                               arg_area=sig.variadic and uses_arg_area(decl),
                                               calls=direct_calls(decl, by_id),
-                                              derived=derived_uses(decl, statics))
+                                              derived=derived_uses(decl, statics),
+                                              vu0_asm=vu0_assembly(decl, statics))
         else:
             f = program.functions.get(sym)
             if f is None:
@@ -1483,7 +1554,7 @@ def merge(into: Program, part: Program) -> list[str]:
             declared = have.declared + f.declared
             into.functions[sym] = Function(sym, f.sig, f.unit, asm=have.asm, declared=declared, tail=f.tail,
                                            forwards=f.forwards, returns=f.returns, arg_area=f.arg_area,
-                                           calls=f.calls, derived=f.derived)
+                                           calls=f.calls, derived=f.derived, vu0_asm=f.vu0_asm)
         else:
             have.declared.extend(f.declared)
             if have.unit is None and have.declared:

@@ -334,7 +334,13 @@ Result<void> GraphExecution::record_plan(
     return {};
 }
 
-Result<void> GraphExecution::run(const std::function<void(unsigned)>& record) {
+Result<void> GraphExecution::run_uncached(const std::function<void(unsigned)>& record) {
+    return run(record, std::nullopt);
+}
+
+Result<void> GraphExecution::run(
+    const std::function<void(unsigned)>& record, std::optional<graph::PlanCache::Imports> imports
+) {
     using namespace detail;
     graph::BreadcrumbScope operation{"graph recording"};
 
@@ -414,14 +420,14 @@ Result<void> GraphExecution::run(const std::function<void(unsigned)>& record) {
     const auto& builder = m_recording->graph;
     const auto retention = frame_capture_retention();
     // Leave transient upload ranges and diagnostic captures outside the recurring draw cache.
-    if (g && g->open && retention == graph::DeclarationRetention::Discard
+    if (imports && g && g->open && retention == graph::DeclarationRetention::Discard
         && (m_recording->target == VK_NULL_HANDLE || m_recording->target == frame().main)
         && m_recording->transient_images.empty() && small_graph(builder)) {
         if (!m_recording->cache) {
             m_recording->cache.emplace(8);
         }
         // This recording owns the cache throughout execution, including nested callbacks.
-        const auto compiled = m_recording->cache->compile_borrowed(builder);
+        const auto compiled = m_recording->cache->compile_borrowed(builder, *imports);
         if (!compiled) {
             return unexpected(compiled.error());
         }
@@ -451,12 +457,14 @@ bool GraphExecution::Recording::needs_callback(const graph::Plan* plan) const {
     return false;
 }
 
-Result<void> GraphExecution::run_prepared(const std::function<void(unsigned)>& record) {
+Result<void> GraphExecution::run_prepared(
+    const std::function<void(unsigned)>& record, graph::PlanCache::Imports imports
+) {
     // Prepared callbacks explicitly retain their bindings through the enclosing execution scope.
     if (detail::collecting_surface_chain()) {
         return detail::collect_surface_graph(*this, record, detail::SurfaceWork::Prepared);
     }
-    return run(record);
+    return run(record, imports);
 }
 
 Result<void> GraphExecution::run_prepared(const std::function<void()>& record) {

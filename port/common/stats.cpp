@@ -48,11 +48,21 @@ struct OpenSection {
 constexpr std::uint64_t kDumpWait = 16;
 
 struct State {
+    State() {
+        frames.reserve(kHistory);
+        for (std::size_t index = 0; index < kHistory; ++index) {
+            frames.emplace_back(&frame_storage);
+        }
+    }
+
     std::mutex probes_mutex;  // Guards lazy probe registration across game and render threads.
     // Each consumer can stop without disabling the others' measurements.
     std::array<bool, static_cast<std::size_t>(Client::Count)> clients{};
     // The frames, a ring by serial; frames[serial % kHistory]. `open`: the one being filled.
-    std::vector<Frame> frames = std::vector<Frame>(kHistory);
+    // The history has one measurement owner at a time. Pool its small buffers and labels
+    // so filling a new ring slot does not allocate each section and gauge from the heap.
+    std::pmr::unsynchronized_pool_resource frame_storage;
+    std::vector<Frame> frames;
     std::uint64_t next_serial = 0;  // the serial the next frame gets
     Frame* open = nullptr;
     std::size_t section_count = 0;
@@ -95,7 +105,7 @@ std::size_t section_count(const Frame& frame) {
 Section& append_section(State& s, std::string_view name) {
     auto& sections = s.open->sections;
     if (s.section_count == sections.size()) {
-        sections.emplace_back();
+        sections.push_back({std::pmr::string{sections.get_allocator().resource()}});
     }
     Section& section = sections[s.section_count];
     section.name.assign(name);
@@ -487,7 +497,7 @@ bool gpu_timers() {
 std::string gpu_section_name(std::uint64_t serial, int section) {
     const auto* f = frame_of(serial);
     return f && section >= 0 && std::size_t(section) < section_count(*f)
-               ? f->sections[std::size_t(section)].name
+               ? std::string(f->sections[std::size_t(section)].name)
                : std::string{};
 }
 #endif

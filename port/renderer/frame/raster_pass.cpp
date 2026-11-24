@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <stdexcept>
 #include <utility>
-#include <vector>
 
 #include "renderer/frame/colour_graph_backend.h"
 #include "renderer/frame/surface_chain.h"
@@ -138,29 +137,22 @@ void record_vulkan(
     RasterInputs inputs,
     const std::function<void()>& record
 ) {
-    std::vector<unsigned> textures;
-    for (const RasterTexture& texture : inputs.textures) {
-        if (texture.name) {
-            textures.push_back(texture.name);
-        }
-    }
-    std::vector<unsigned> buffers;
-    for (const RasterBuffer& buffer : inputs.geometry) {
-        buffers.push_back(buffer.name);
-    }
     // End deferred work before borrowing the callback's prepared state.
-    const auto result = run_surface_setup([&] {
+    const auto setup = [&] {
         const auto drawn = colour_pass(
             name,
             target,
             record,
             inputs.attachments,
-            {{}, textures, ColourRecording::Prepared, buffers, inputs.bound_shader_reads}
+            {.geometry = inputs.geometry,
+             .raster_textures = inputs.textures,
+             .bound_shader_reads = inputs.bound_shader_reads}
         );
         if (!drawn) {
             throw std::runtime_error(drawn.error().message);
         }
-    });
+    };
+    const auto result = run_surface_setup(std::cref(setup));
     if (!result) {
         throw std::runtime_error(result.error().message);
     }

@@ -43,16 +43,14 @@
     "func_0013B330",
     "func_00381280",
     "func_003932B0__frontbin",
-    "func_00393290__frontbin",
     "func_00395FE0__frontbin",
     "func_0039DB38__frontbin",
-    "func_003A0170__frontbin",
     "func_003B0C70__frontbin",
     "func_003B0D18__frontbin",
-    "func_003A5850",
     "func_003B6430",
     "func_003B64D8",
     "func_0037D1A8__frontbin",
+    "func_0037D200__frontbin",
     "func_0037DD30__frontbin",
     "func_0037E060__frontbin",
     "func_0037E368__frontbin",
@@ -86,6 +84,7 @@
     "func_00396688",
     "func_003966C8",
     "func_00396860",
+    "func_00396B30",
     "func_00397E08",
     "func_00399708__frontbin",
     "func_0039CEA8__frontbin",
@@ -109,6 +108,7 @@
     "func_003A7DB0",
     "func_003A82F8",
     "func_003AA238",
+    "func_003AA630",
     "func_003ACB60",
     "func_003AD8A8__frontbin",
     "func_003AE438__frontbin",
@@ -223,6 +223,11 @@
   "candidates": "nonmatching/functional.tsv",
   "places": "config/us/levels/functions.tsv",
   "split_places": "tables/split_places.tsv",
+  "more_places": {
+    "func_L01_004C78E0": "03:004B4EE0,24:004AC6D0",
+    "func_L01_004D4C50": "03:004C2250,24:004B9A40",
+    "func_L01_004D75F8": "03:004C4BF8,24:004BC3E8"
+  },
   "folded_wrappers": "tables/variant_callees.tsv",
   "params_from_declarations": [
     "func_L01_00440A88",
@@ -364,6 +369,7 @@
       "func_L01_004871B8": "int (int, int, float)",
       "func_L01_004A53C8": "int (int, int, float, float, float)",
       "func_L01_004A53D0": "int (int, int, float, float, float)",
+      "func_L01_004A7978": "int (int, int, int)",
       "func_L01_004BBAB8": "int (void)",
       "func_L01_004C8620": "int (int, int, float)",
       "func_L01_004CF108": "int (void)",
@@ -591,6 +597,7 @@
       "func_L01_002F8F60": "int (int, int, int, int, int, int)",
       "func_L01_002F8918": "int (int)",
       "func_L01_003E2638": "float (int, float)",
+      "func_L01_004ACA98": "void (unsigned int)",
       "func_L01_0044A0E8": "void (unsigned int, int, int, int, int, int, float)",
       "func_L01_004EA040": "void (void)",
       "func_L01_004DC1C0": "void (int)",
@@ -1682,6 +1689,7 @@
     7340032
   ],
   "headers": "../rac3-pal/headers",
+  "vu0_assembly_from_retail": true,
   "unpassed_registers": true,
   "ps2_float": [
     "func_003C1A90__frontbin",
@@ -1692,7 +1700,9 @@
     "func_00384EC0__frontbin",
     "func_003921D8__frontbin",
     "func_003A42E0__frontbin",
-    "func_L01_0041D950"
+    "func_L01_00401CD0",
+    "func_L01_0041D950",
+    "func_L39_00588720"
   ],
   "executable_extents": {
     "sources": [

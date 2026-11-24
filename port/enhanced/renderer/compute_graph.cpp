@@ -31,7 +31,7 @@ Result<graph::Pass> compute_pass(
     // Output allocations stay stable through synchronous recording.
     for (const auto& output : outputs) {
         const auto handle = execution.import_buffer(
-            name,
+            "compute output",
             output.buffer,
             vkgl::InitialContents::Discard,
             output.track_shader_reads ? vkgl::BufferVisibility::TrackShaderReads
@@ -98,7 +98,8 @@ bool run_compute_graph(
         execution.add_pass(std::move(*pass));
         execution.add_pass(std::move(consumers));
         // The executor calls this on the render thread before returning.
-        const auto result = execution.run([&](unsigned) { record(); });
+        const auto result =
+            execution.run([&](unsigned) { record(); }, graph::PlanCache::Imports::Rebind);
 
         // Compilation and recording errors leave the caller on its existing lighting fallback.
         if (!result) {

@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <array>
 #include <limits>
+#include <tuple>
+#include <type_traits>
 #include <utility>
 
 #include "common/profiler.h"
@@ -23,7 +25,8 @@ struct Span {
     State state;                     // Most recent write or union of compatible reads.
     bool defined = false;            // Whether its contents can be read.
     std::optional<unsigned> writer;  // Most recent graph writer, not an imported external writer.
-    std::vector<unsigned> readers;   // Graph readers that must precede a later write/transition.
+    std::optional<unsigned> last_reader;
+    std::vector<unsigned> earlier_readers;  // Allocate only once a second reader is recorded.
     bool accessed = false;
 };
 
@@ -70,8 +73,11 @@ void order(Plan& plan, const Span& span, const detail::Use& use, unsigned pass) 
     // Writers and layout changes must wait for every overlapping reader.
     if (detail::writes(use.state.access) || span.state.layout != use.state.layout) {
         // Compatible reads accumulate until an access needs exclusive ownership.
-        for (unsigned reader : span.readers) {
+        for (unsigned reader : span.earlier_readers) {
             dependency(plan, reader, pass, use.resource);
+        }
+        if (span.last_reader) {
+            dependency(plan, *span.last_reader, pass, use.resource);
         }
     }
 }
@@ -130,13 +136,16 @@ Result<void> apply(
     // A writer replaces the contents and completes the previous reader history.
     if (detail::writes(use.state.access)) {
         span.writer = pass;
-        span.readers.clear();
+        span.last_reader.reset();
+        span.earlier_readers.clear();
         span.defined = use.store != Store::Discard
                        && (use.load == Load::Clear || !use.partial_write
                            || (use.load != Load::Discard && span.defined));
-    } else if (plan.resources[use.resource].last != pass
-               && (span.readers.empty() || span.readers.back() != pass)) {
-        span.readers.push_back(pass);
+    } else if (plan.resources[use.resource].last != pass && span.last_reader != pass) {
+        if (span.last_reader) {
+            span.earlier_readers.push_back(*span.last_reader);
+        }
+        span.last_reader = pass;
     }
 
     span.state = after;
@@ -188,7 +197,7 @@ Result<void> apply_range(
 
 Span imported_span(const Resource& resource, std::uint64_t begin, std::uint64_t end) {
     return std::visit(
-        [=](const auto& desc) { return Span{begin, end, desc.initial, desc.defined, {}, {}}; },
+        [=](const auto& desc) { return Span{begin, end, desc.initial, desc.defined, {}, {}, {}}; },
         resource.description
     );
 }
@@ -333,8 +342,33 @@ void cull_unused(Plan& plan, std::span<const Pass> declarations, const Producers
     }
 }
 
-// A validated plan is reusable across recordings with the same declarations and entry states.
-bool same_pass(const Pass& cached, const Pass& current) {
+// An imported buffer that is already readable and never written in the graph has
+// no range-specific barriers or dependencies. Its read offset can move within the allocation.
+bool same_buffer_use(const BufferUse& cached, BufferUse current, const Plan* rebind) {
+    current.buffer.owner = cached.buffer.owner;
+    if (cached == current) {
+        return true;
+    }
+    if (!rebind || cached.buffer != current.buffer || cached.state != current.state
+        || current.state.access != Access::Read || cached.range.size != current.range.size) {
+        return false;
+    }
+    const auto index = current.buffer.index;
+    const auto& buffer = std::get<BufferDesc>(rebind->resources[index].description);
+    if (!buffer.defined || detail::writes(buffer.initial.access)
+        || current.range.offset >= buffer.size
+        || current.range.size > buffer.size - current.range.offset) {
+        return false;
+    }
+    return std::ranges::none_of(rebind->declarations, [index](const Pass& pass) {
+        return std::ranges::any_of(pass.buffers, [index](const BufferUse& use) {
+            return use.buffer.index == index && detail::writes(use.state.access);
+        });
+    });
+}
+
+// A validated plan is reusable across recordings with equivalent declarations and entry states.
+bool same_pass(const Pass& cached, const Pass& current, const Plan* rebind) {
     return cached.name == current.name && cached.kind == current.kind
            && cached.separate == current.separate && cached.execution == current.execution
            && cached.cull_if_unused == current.cull_if_unused
@@ -348,10 +382,62 @@ bool same_pass(const Pass& cached, const Pass& current) {
                    return a == b;
                }
            )
-           && std::ranges::equal(cached.buffers, current.buffers, [](const auto& a, auto b) {
-                  b.buffer.owner = a.buffer.owner;
-                  return a == b;
+           && std::ranges::equal(cached.buffers, current.buffers, [rebind](const auto& a, auto b) {
+                  return same_buffer_use(a, b, rebind);
               });
+}
+
+// Compilation operates on canonical indices. Allocation keys have already done their
+// job by coalescing aliases in the builder, so they cannot affect this comparison.
+bool same_import_state(const Resource& cached, const Resource& current) {
+    if (cached.name != current.name || cached.description.index() != current.description.index()) {
+        return false;
+    }
+    if (const auto* image = std::get_if<ImageDesc>(&cached.description)) {
+        const auto& other = std::get<ImageDesc>(current.description);
+        return std::tie(
+                   image->mips,
+                   image->layers,
+                   image->aspects,
+                   image->initial,
+                   image->defined,
+                   image->initial_ranges
+               )
+               == std::tie(
+                   other.mips,
+                   other.layers,
+                   other.aspects,
+                   other.initial,
+                   other.defined,
+                   other.initial_ranges
+               );
+    }
+    auto buffer = std::get<BufferDesc>(cached.description);
+    const auto& other = std::get<BufferDesc>(current.description);
+    buffer.key = other.key;
+    return buffer == other;
+}
+
+void rebind_plan(Plan& plan, const Graph& graph) {
+    const auto imports = graph.resources();
+    for (std::size_t index = 0; index < imports.size(); ++index) {
+        std::visit(
+            [&](auto& desc) {
+                using Description = std::remove_reference_t<decltype(desc)>;
+                desc.key = std::get<Description>(imports[index].description).key;
+            },
+            plan.resources[index].description
+        );
+    }
+    plan.owner = graph.owner();
+    const auto passes = graph.passes();
+    for (std::size_t index = 0; index < passes.size(); ++index) {
+        auto& pass = plan.declarations[index];
+        for (auto& image : pass.images) {
+            image.image.owner = plan.owner;
+        }
+        std::ranges::copy(passes[index].buffers, pass.buffers.begin());
+    }
 }
 }  // namespace
 
@@ -435,7 +521,7 @@ Result<void> Graph::compile_into(Plan& plan, DeclarationRetention retention) con
 PlanCache::PlanCache(std::size_t capacity) : m_entries(std::max<std::size_t>(capacity, 1)) {}
 
 Result<std::shared_ptr<const Plan>> PlanCache::compile(const Graph& graph) {
-    const auto result = find_or_compile(graph);
+    const auto result = find_or_compile(graph, Imports::Exact);
     if (!result) {
         return unexpected(result.error());
     }
@@ -444,37 +530,54 @@ Result<std::shared_ptr<const Plan>> PlanCache::compile(const Graph& graph) {
     return std::shared_ptr<const Plan>(entry.plan);
 }
 
-Result<const Plan*> PlanCache::compile_borrowed(const Graph& graph) {
-    const auto result = find_or_compile(graph);
+Result<const Plan*> PlanCache::compile_borrowed(const Graph& graph, Imports imports) {
+    const auto result = find_or_compile(graph, imports);
     if (!result) {
         return unexpected(result.error());
     }
     return (*result)->plan.get();
 }
 
-Result<PlanCache::Entry*> PlanCache::find_or_compile(const Graph& graph) {
+Result<PlanCache::Entry*> PlanCache::find_or_compile(const Graph& graph, Imports imports) {
     const profiling::Zone timing("Find validated graph plan");
-    const auto matches_resource = [](const Resource& cached, const Resource& current) {
-        return cached.name == current.name && cached.description == current.description;
-    };
     auto* oldest = &m_entries.front();
     for (auto& entry : m_entries) {
-        const auto& plan = entry.plan;
-        // Entry contents and layouts can change even when the allocations and passes are stable.
-        if (plan && std::ranges::equal(plan->declarations, graph.passes(), same_pass)
-            && std::ranges::equal(plan->resources, graph.resources(), matches_resource)) {
-            for (const auto& pass : graph.passes()) {
-                if (auto owned = graph.validate_handles(pass); !owned) {
-                    return unexpected(owned.error());
-                }
-            }
-            const profiling::Zone reused("Reuse validated graph plan");
-            entry.last_used = ++m_clock;
-            return &entry;
-        }
+        // Keep the eviction candidate even when this entry cannot match.
         if (entry.last_used < oldest->last_used) {
             oldest = &entry;
         }
+        const auto& plan = entry.plan;
+        const bool rebind = imports == Imports::Rebind && !entry.shared;
+        const Plan* rebound = rebind ? plan.get() : nullptr;
+        // Entry contents and layouts can change even when the allocations and passes are stable.
+        const bool matches =
+            plan
+            && std::ranges::equal(
+                plan->declarations,
+                graph.passes(),
+                [rebound](const Pass& a, const Pass& b) { return same_pass(a, b, rebound); }
+            )
+            && std::ranges::equal(
+                plan->resources, graph.resources(), [rebind](const Resource& a, const Resource& b) {
+                    return rebind ? same_import_state(a, b)
+                                  : a.name == b.name && a.description == b.description;
+                }
+            );
+        // A miss leaves the entry intact while the search continues.
+        if (!matches) {
+            continue;
+        }
+        for (const auto& pass : graph.passes()) {
+            if (auto owned = graph.validate_handles(pass); !owned) {
+                return unexpected(owned.error());
+            }
+        }
+        if (rebind) {
+            rebind_plan(*plan, graph);
+        }
+        const profiling::Zone reused("Reuse validated graph plan");
+        entry.last_used = ++m_clock;
+        return &entry;
     }
 
     if (!m_scratch) {

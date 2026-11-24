@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstring>
 #include <format>
+#include <functional>
 #include <iterator>
 #include <optional>
 #include <stdexcept>
@@ -976,7 +977,7 @@ void LevelScene::draw_mobys(
     std::vector<Group> own;
     own.swap(groups);
     build_groups(Layer::Mobys, instances, true);
-    draw_layer(Layer::Mobys, input, state, "menu mobys");
+    draw_layer(Layer::Mobys, input, state, "menu mobys", false);
     idle.insert(
         idle.end(), std::make_move_iterator(groups.begin()), std::make_move_iterator(groups.end())
     );
@@ -1398,7 +1399,8 @@ void LevelScene::draw_layer(
     Layer layer,
     const renderer::FrameInput& input,
     renderer::RenderState& state,
-    std::string_view pass_name
+    std::string_view pass_name,
+    bool world_view
 ) {
     sync_position_stream();
     if (m_lighting) {
@@ -1636,7 +1638,8 @@ void LevelScene::draw_layer(
             inspection,
             colour_batch,
             !pvs_off && (!m_pvs.grid.empty() || m_pvs.game),
-            pvs_rejected
+            pvs_rejected,
+            world_view
         );
     };
     // The enclosing prepass owns the attachments. Declare reads after culling chooses the streams.
@@ -1656,7 +1659,7 @@ void LevelScene::draw_layer(
     const auto inputs = classic_colour_inputs(layer, state, gpu_view, inspection);
     // Standalone layer draws preserve the original blend and material order.
     renderer::raster_pass(
-        pass_name.empty() ? layer_name(layer) : pass_name, state.target, inputs, draw
+        pass_name.empty() ? layer_name(layer) : pass_name, state.target, inputs, std::cref(draw)
     );
 }
 
@@ -1668,7 +1671,8 @@ void LevelScene::draw_visible_layer(
     bool inspection,
     bool colour_batch,
     bool pvs_enabled,
-    std::uint64_t pvs_rejected
+    std::uint64_t pvs_rejected,
+    bool world_view
 ) {
     const auto index = static_cast<std::size_t>(layer);
     auto& groups = m_groups[index];
@@ -1760,7 +1764,8 @@ void LevelScene::draw_visible_layer(
         if (m_lighting) {
             m_lighting->bind_wetness(shader);
         }
-        bind_sun_shadow(shader, input.camera);
+        bind_sun_shadow(shader, input.camera, input.shadow_filter);
+        bind_cloud_shadows(shader, input, world_view);
         // The early lighting's result, where registered lighting drew one.
         if (m_lighting) {
             m_lighting->bind_early(shader, input, state);
