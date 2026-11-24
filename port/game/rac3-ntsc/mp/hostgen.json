@@ -353,6 +353,8 @@
     "live_arguments": true,
     "forward_unprototyped": true,
     "signatures": {
+      "func_002991F8": "int (int, int, int, int)",
+      "func_L39_005FA990": "int (int, int, int, int)",
       "func_0012DCB0": "unsigned long long (void)",
       "func_0016EE30": "int (int, int, int)",
       "func_0016EEB0": "int (int, int, int, int)",
