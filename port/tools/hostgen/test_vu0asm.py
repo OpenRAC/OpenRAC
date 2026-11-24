@@ -106,6 +106,29 @@ class PreparedClobbers(unittest.TestCase):
         self.assertEqual(prep.prepare(source), expected)
 
 
+class CommittedPolicy(unittest.TestCase):
+    def test_retention_reasons_name_existing_forced_entries(self):
+        # This audit is not an allow list: removing a proved entry also updates its old reason.
+        folder = Path(__file__).resolve().parents[3] / "port/game/rac3-pal"
+        config = json.loads((folder / "hostgen.json").read_text(encoding="utf-8"))
+        rows = [line.split("\t", 1) for line in (folder / "checks/vu0_inline.tsv").read_text(
+            encoding="utf-8").splitlines() if line and not line.startswith("#")]
+        self.assertTrue(rows)
+        self.assertEqual(len({row[0] for row in rows}), len(rows))
+        for name, reason in rows:
+            with self.subTest(name=name):
+                self.assertIn(name, config["from_assembly"])
+                self.assertTrue(reason.strip())
+
+    def test_direct_native_vector_bindings_do_not_also_force_assembly(self):
+        folder = Path(__file__).resolve().parents[3] / "port/game/rac3-pal"
+        config = json.loads((folder / "hostgen.json").read_text(encoding="utf-8"))
+        native = {columns[0] for line in (folder / "libraries.tsv").read_text(encoding="utf-8").splitlines()
+                  if not line.startswith("#") and len(columns := line.split("\t")) > 3
+                  and columns[1] == "vu0" and columns[3] == "host"}
+        self.assertEqual(native & set(config["from_assembly"]), set())
+
+
 @unittest.skipUnless(CLANG, "needs the installed host Clang")
 class NativeArithmetic(unittest.TestCase):
     def execute(self, declarations: str, body: str) -> list[float]:
@@ -140,6 +163,40 @@ class NativeArithmetic(unittest.TestCase):
         result = self.execute("float out[4] = {0}, a[4] = {1, 2, 3, 9}, b[4] = {0.5f, -1, 0.25f, 7};", body)
         self.assertEqual(result, [1.5, 1.0, 3.25, 16.0])
         self.assertNotIn("OPENRAC_VU0", body)
+
+    def test_an_untied_partial_output_keeps_the_first_source_tail(self):
+        body = vu0asm.lower_statement("vadd.xyz %0, %1, %2", [
+            memory(0, "out", True), memory(1, "a"), memory(2, "b")
+        ], vu0asm.FunctionState(), vu_flush=False)
+        result = self.execute("float out[4] = {0}, a[4] = {1, 2, 3, 9}, b[4] = {0.5f, -1, 0.25f, 7};", body)
+        self.assertEqual(result, [1.5, 1.0, 3.25, 9.0])
+
+    def test_a_read_write_partial_output_keeps_its_own_tail(self):
+        output = memory(0, "out", True)
+        output.constraint = "+m"
+        body = vu0asm.lower_statement("vadd.xyz %0, %0, %1", [output, memory(1, "b")],
+                                     vu0asm.FunctionState(), vu_flush=False)
+        result = self.execute("float out[4] = {1, 2, 3, 12}, b[4] = {0.5f, -1, 0.25f, 7};", body)
+        self.assertEqual(result, [1.5, 1.0, 3.25, 12.0])
+
+    def test_a_tied_partial_output_starts_from_the_tied_input(self):
+        tied = memory(1, "a")
+        tied.constraint = "0"
+        body = vu0asm.lower_statement("vadd.xyz %0, %1, %2", [
+            memory(0, "out", True), tied, memory(2, "b")
+        ], vu0asm.FunctionState(), vu_flush=False)
+        result = self.execute("float out[4] = {0}, a[4] = {1, 2, 3, 9}, b[4] = {0.5f, -1, 0.25f, 7};", body)
+        self.assertEqual(result, [1.5, 1.0, 3.25, 9.0])
+
+    def test_integer_outputs_preserve_vector_bits_through_a_64_bit_shift(self):
+        output = vu0asm.Operand(0, "=r", True, "int", "long long", lv_text="bits")
+        body = vu0asm.lower_statement("lqc2 $vf1, %1\nqmfc2 %0, $vf1\ndsll32 %0, %0, 0", [
+            output, memory(1, "a")
+        ], vu0asm.FunctionState(), vu_flush=False)
+        result = self.execute("float out[4] = {0}, a[4] = {-1, 2, 3, 4}; long long bits = 0;",
+                              body + "out[0] = bits < 0;")
+        # The sign bit of -1.0f moves to bit 63 after qmfc2 and the left shift.
+        self.assertEqual(result, [1.0, 0.0, 0.0, 0.0])
 
     def test_named_registers_and_accumulator_carry_between_statements(self):
         state = vu0asm.FunctionState()
