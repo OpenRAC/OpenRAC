@@ -329,6 +329,12 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* PlatinumBolts_CountTotal: Counts the platinum bolts recorded in the save. A replacement can
+ * return received currency independently of physical pickups. */
+#define OPENRAC_RAC2_HOOK_PlatinumBolts_CountTotal "PlatinumBolts_CountTotal"
+#define OPENRAC_RAC2_SIG_PlatinumBolts_CountTotal "i32()"
+typedef int32_t (*openrac_rac2_PlatinumBolts_CountTotal)(void);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

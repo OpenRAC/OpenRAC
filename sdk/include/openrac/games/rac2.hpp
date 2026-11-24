@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Counts the platinum bolts recorded in the save. A replacement can return received currency independently of physical pickups.
+struct PlatinumBolts_CountTotal {
+    static constexpr const char* id = "rac2.collectibles.platinum_count";
+    static constexpr const char* name = "PlatinumBolts_CountTotal";
+    static constexpr const char* signature = "i32()";
+    using fn = int32_t (*)();
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -336,6 +344,9 @@ namespace hooks {
         using spawn_pickup = rac2::Bolt_SpawnPickup;
         using spawn_pickups = rac2::Bolt_SpawnPickups;
     }  // namespace bolt
+    namespace collectibles {
+        using platinum_count = rac2::PlatinumBolts_CountTotal;
+    }  // namespace collectibles
     namespace combat {
         using get_hit = rac2::Moby_GetHitMessage;
         using post_hit = rac2::Moby_PostHit;

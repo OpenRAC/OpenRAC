@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[39];
+static const openrac_script_point k_points[40];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -464,8 +464,9 @@ S19_POINT(Arena_Prize, 35) /* rac2.arena.prize */
 S13_POINT(ArmorVendor_BuildList, 36) /* rac2.armor_vendor.build_list */
 S20_POINT(ArmorVendor_Buy, 37) /* rac2.armor_vendor.buy */
 S13_POINT(Vendor_Preview, 38) /* rac2.vendor.preview */
+S11_POINT(PlatinumBolts_CountTotal, 39) /* rac2.collectibles.platinum_count */
 
-static const openrac_script_point k_points[39] = {
+static const openrac_script_point k_points[40] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.combat.post_hit", "void(u32,u32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Moby_PostHit_links, k_Moby_PostHit_thunks, S2_call},
@@ -505,9 +506,10 @@ static const openrac_script_point k_points[39] = {
     {"rac2.armor_vendor.build_list", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_ArmorVendor_BuildList_links, k_ArmorVendor_BuildList_thunks, S13_call},
     {"rac2.armor_vendor.buy", "void(u32,u32)", 2, k_S20_kinds, k_S20_names, OPENRAC_SV_VOID, k_ArmorVendor_Buy_links, k_ArmorVendor_Buy_thunks, S20_call},
     {"rac2.vendor.preview", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Vendor_Preview_links, k_Vendor_Preview_thunks, S13_call},
+    {"rac2.collectibles.platinum_count", "i32()", 0, k_S11_kinds, k_S11_names, OPENRAC_SV_I32, k_PlatinumBolts_CountTotal_links, k_PlatinumBolts_CountTotal_thunks, S11_call},
 };
 
-static const openrac_script_alias k_aliases[158] = {
+static const openrac_script_alias k_aliases[161] = {
     {"Arena_Prize", "rac2.arena.prize"},
     {"ArmorVendor_BuildList", "rac2.armor_vendor.build_list"},
     {"ArmorVendor_Buy", "rac2.armor_vendor.buy"},
@@ -540,6 +542,7 @@ static const openrac_script_alias k_aliases[158] = {
     {"Moby_ThermanatorSeller_Update", "rac2.moby.thermanator_seller.update"},
     {"Moby_TractorBeamSeller_Update", "rac2.moby.tractor_beam_seller.update"},
     {"Planet_Unlock", "rac2.planet.unlock"},
+    {"PlatinumBolts_CountTotal", "rac2.collectibles.platinum_count"},
     {"Text_ById", "rac2.text.by_id"},
     {"Vendor_BuildList", "rac2.vendor.build_list"},
     {"Vendor_DrawList", "rac2.vendor.draw_list"},
@@ -577,6 +580,8 @@ static const openrac_script_alias k_aliases[158] = {
     {"func_002AE6C8", "rac2.item.equip"},
     {"func_002AE6D8", "rac2.bolt.spawn_pickups"},
     {"func_002AE9E0", "rac2.bolt.spawn_pickups"},
+    {"func_002B0DB8", "rac2.collectibles.platinum_count"},
+    {"func_002B1930", "rac2.collectibles.platinum_count"},
     {"func_002F6510", "rac2.vendor.price"},
     {"func_002F6608", "rac2.vendor.build_list"},
     {"func_002F71B8", "rac2.armor_vendor.build_list"},
@@ -674,8 +679,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 39, k_points, 0, k_fields, NULL,
-    158, k_aliases,
+    "rac2", 3, k_discs, 40, k_points, 0, k_fields, NULL,
+    161, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {
