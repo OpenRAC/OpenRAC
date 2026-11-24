@@ -995,6 +995,7 @@ void manifest(const char* path) {
     // Every setting core.hpp reads beside the binds is in the manifest (else it reads its default).
     for (const char* key :
          {"mouse_with_gamepad",
+          "mouse_low_latency",
           "prompt_device",
           "gyro",
           "gyro_sensitivity",

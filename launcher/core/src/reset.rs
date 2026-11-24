@@ -6,7 +6,7 @@
 //!   and textures read, with its readiness stamps `levels-<format>.json` and `verified-<format>.json`
 //!   and the visibility added to it) and the enhanced lighting baked from them. The page reads them
 //!   from the disc again straight after. Nothing the player made is touched.
-//! - [`Reset::Editor`], "Delete the level project": the Godot projects the levels were read into and
+//! - [`Reset::Editor`], "Delete the level project": the level projects the levels were read into and
 //!   the models and textures exported from them. With `with_edits`, also what the player made: the
 //!   packed levels and the mods put together from them, the imported edits and added packs, and the
 //!   copies of older projects the extractor kept aside.
@@ -17,7 +17,7 @@
 //! ```text
 //! assets/port/<game>/<version>/       <data>/port/<version>/       the game's levels      Levels
 //! <data>/probes/<version>/                                         enhanced lighting      Levels
-//! assets/levels/<game>/<version>/     <data>/levels/<version>/     Godot projects         Editor
+//! assets/levels/<game>/<version>/     <data>/levels/<version>/     Level projects         Editor
 //! <data>/exports/                                                  models and textures    Editor
 //! assets/packed/<game>/<version>/     <data>/packed/<version>/     packed levels          Editor + edits
 //! <data>/mods/<version>/                                           the mods put together  Editor + edits
@@ -26,7 +26,7 @@
 //! ```
 //!
 //! plus the hidden `.<version>-*` folders the tools leave beside their output when a run is stopped
-//! midway (editor/extract.py `publish`). Nothing else is ever removed: not the disc's files
+//! midway (extractor/extract.py `publish`). Nothing else is ever removed: not the disc's files
 //! (`iso_data`), the saves, the settings, the native mods (`plugins`) or the built game.
 //!
 //! The folders are made here from the game and version ids, never from a path the page sends. Each
@@ -57,7 +57,7 @@ pub enum Reset {
 pub enum Part {
     /// The game's levels (with their stamps and visibility) and the lighting baked from them.
     GameLevels,
-    /// The Godot projects the levels were read into, with any change not packed.
+    /// The level projects the levels were read into, with any change not packed.
     Projects,
     /// The models and textures exported for editing.
     Exports,
@@ -158,7 +158,7 @@ impl Layout {
         self.assets_of("port")
     }
 
-    /// The level editor's Godot projects, one folder per level (`level_NN`).
+    /// The level editor's projects, one folder per level (`level_NN`).
     pub fn projects(&self) -> PathBuf {
         self.assets_of("levels")
     }

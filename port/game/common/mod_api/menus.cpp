@@ -376,4 +376,65 @@ int api_ui_sound(openrac_mod* mod, int sound) {
     return OPENRAC_HOOK_OK;
 }
 
+// openrac_api.menu_option_set. Since 1.37.
+namespace {
+
+// What the mods set the menu's options to (openrac_api.menu_option_set), oldest call first: one
+// row a mod and option, so a mod's unload gives back what another mod set.
+struct MenuOption {
+    const openrac_mod* mod;
+    std::string name;
+    int state;
+    std::string by;  // the mod's name, as the menu shows it
+};
+
+std::mutex g_menu_options_lock;
+std::vector<MenuOption> g_menu_options;
+
+}  // namespace
+
+// Interface 1.37: a mod turns an option of the port's menu on or off.
+int api_menu_option_set(openrac_mod* mod, const char* option, int state) {
+    if (mod == nullptr || option == nullptr || option[0] == '\0'
+        || state < OPENRAC_MENU_OPTION_DEFAULT || state > OPENRAC_MENU_OPTION_OFF) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_menu_options_lock);
+    std::erase_if(g_menu_options, [&](const MenuOption& o) {
+        return o.mod == mod && o.name == option;
+    });
+    if (state != OPENRAC_MENU_OPTION_DEFAULT) {
+        g_menu_options.push_back(
+            {mod, option, state, !mod->manifest.name.empty() ? mod->manifest.name : mod->id}
+        );
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+void drop_menu_options(const openrac_mod* mod) {
+    const std::lock_guard<std::mutex> lock(g_menu_options_lock);
+    std::erase_if(g_menu_options, [&](const MenuOption& o) {
+        return mod == nullptr || o.mod == mod;
+    });
+}
+
 }  // namespace openrac::mods::detail
+
+namespace openrac::mods {
+
+MenuOptionState menu_option_state(std::string_view name) {
+    // The newest call wins.
+    const std::lock_guard<std::mutex> lock(detail::g_menu_options_lock);
+    for (auto o = detail::g_menu_options.rbegin(); o != detail::g_menu_options.rend(); ++o) {
+        if (o->name == name) {
+            return {o->state, o->by};
+        }
+    }
+    return {};
+}
+
+int menu_option(std::string_view name) {
+    return menu_option_state(name).state;
+}
+
+}  // namespace openrac::mods

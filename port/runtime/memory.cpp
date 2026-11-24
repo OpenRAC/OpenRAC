@@ -48,6 +48,7 @@ constexpr std::uint64_t kReservation = 0x100000000ull;  // 4 GB: every gaddr
 struct Region {
     gaddr address;
     std::uint32_t size;
+    bool saved = true;  // in a snapshot, and cleared with the rest
 };
 
 // Everything but main RAM and its aliases, which are mapped separately.
@@ -57,6 +58,8 @@ constexpr Region kPlainRegions[] = {
     {GUEST_GS_REGS, GUEST_GS_REGS_SIZE},
     {GUEST_SCRATCHPAD, GUEST_SCRATCHPAD_SIZE},
     {GUEST_PORT, GUEST_PORT_SIZE},
+    {GUEST_PORT_LOW, GUEST_PORT_LOW_SIZE},
+    {GUEST_PORT_WORLDS, GUEST_PORT_WORLDS_SIZE, false},
 };
 
 constexpr gaddr kRamViews[] = {GUEST_RAM, GUEST_RAM_UNCACHED, GUEST_RAM_UNCACHED_ACCEL};
@@ -353,7 +356,9 @@ std::span<std::uint8_t> Memory::bytes(gaddr address, std::size_t size) {
 void Memory::clear() {
     std::memset(base_ + GUEST_RAM, 0, ram_size_);
     for (const Region& r : kPlainRegions) {
-        std::memset(base_ + r.address, 0, r.size);
+        if (r.saved) {
+            std::memset(base_ + r.address, 0, r.size);
+        }
     }
     openrac_guest_sp = GUEST_STACK_TOP;
 }
@@ -361,7 +366,7 @@ void Memory::clear() {
 std::size_t Memory::snapshot_size() {
     std::size_t size = openrac_guest_ram_size;
     for (const Region& r : kPlainRegions) {
-        size += r.size;
+        size += r.saved ? r.size : 0;
     }
     return size;
 }
@@ -374,8 +379,10 @@ bool Memory::save_snapshot(std::span<std::uint8_t> out) const {
     std::memcpy(out.data() + at, base_ + GUEST_RAM, ram_size_);
     at += ram_size_;
     for (const Region& r : kPlainRegions) {
-        std::memcpy(out.data() + at, base_ + r.address, r.size);
-        at += r.size;
+        if (r.saved) {
+            std::memcpy(out.data() + at, base_ + r.address, r.size);
+            at += r.size;
+        }
     }
     return true;
 }
@@ -448,8 +455,10 @@ bool Memory::restore_snapshot(
         std::memcpy(base_ + GUEST_RAM, in.data() + at, ram_size_);
         at += ram_size_;
         for (const Region& r : kPlainRegions) {
-            std::memcpy(base_ + r.address, in.data() + at, r.size);
-            at += r.size;
+            if (r.saved) {
+                std::memcpy(base_ + r.address, in.data() + at, r.size);
+                at += r.size;
+            }
         }
         if (!strings_tail.empty()) {
             std::memcpy(base_ + allocations.strings_end, strings_tail.data(), strings_tail.size());

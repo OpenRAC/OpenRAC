@@ -34,6 +34,7 @@
 #include "mod_ui.h"
 #include "mods.h"
 #include "openrac/game_host.h"
+#include "program/control.h"
 #include "renderer/ui/touch_overlay.h"
 #include "settings.h"
 
@@ -379,6 +380,18 @@ void set_motors(int port, bool small, std::uint8_t large) {
     }
 }
 
+void set_mod_motors(const void* owner, int port, bool small_motor, std::uint8_t large_motor) {
+    if (g) {
+        g->input.set_extra_motors(owner, port, {small_motor, large_motor});
+    }
+}
+
+void drop_mod_motors(const void* owner) {
+    if (g) {
+        g->input.drop_extra_motors(owner);
+    }
+}
+
 void refresh_pads() {
     if (g && g->window && settings::get().responsive_controls) {
         g->input.refresh_pads();
@@ -481,6 +494,7 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     }
     if (port == 0) {
         scripted_pad(*buttons, analog);  // [debug tools] OPENRAC_RECORD, _REPLAY and _WALK
+        program::control::pad(*buttons, analog);  // --control's step and wait
     }
     if (port == 0) {
         // Scripted and replayed sticks turn at normal speed.

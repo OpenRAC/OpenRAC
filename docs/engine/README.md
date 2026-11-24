@@ -175,7 +175,7 @@ shows the method on one retail data path (RAC1 US).
 
 RAC1 PAL: **reference** layouts from ReRAC, checked on all 19 PAL levels
 ([ASSETS.md](../../games/rac1/decomp/docs/ASSETS.md#mobys),
-[editor/mobys.py](../../editor/mobys.py)).
+[extractor/mobys.py](../../extractor/mobys.py)).
 
 - The gameplay file's word at +0x44 points to a count, 12 bytes of padding,
   then 0x78-byte instance records: 16,232 on the 19 levels.
@@ -232,7 +232,7 @@ Sources: [OVERLAYS.md, "Roles"](../../games/rac1/decomp/docs/OVERLAYS.md#roles),
   giving 6,356 proposed names (**prerelease** identifiers).
 - The editor's RAC1 class names come from Lombyte, which joins each level's
   dispatch table with Wrench's class names
-  ([editor/moby_classes.tsv](../../editor/moby_classes.tsv)). Lombyte also
+  ([extractor/moby_classes.tsv](../../extractor/moby_classes.tsv)). Lombyte also
   lists `update/mobyNNN.cpp` module names seen in 2002 development builds
   (**prerelease**, [engine-source-layout.md](../../games/rac1/ntsc-decomp/docs/game/engine-source-layout.md)).
 
@@ -265,7 +265,7 @@ says for each.
   quantised vertices, a type byte per face whose low five bits are a surface
   id, and hero-only groups. Layout from ReRAC, checked on PAL
   ([ASSETS.md](../../games/rac1/decomp/docs/ASSETS.md#collision),
-  [editor README](../../editor/README.md#collision-layer)).
+  [OpenRAC Editor's guide](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md#collision)).
 
 ### RAC1 US
 
@@ -313,7 +313,7 @@ discs ([formats/LATER_GAMES.md](formats/LATER_GAMES.md)). The table of
 contents is at sector 1001 on all three; RAC2's 27 levels, RAC3's 51 and
 RAC4's 47 are numbered by their level headers (RAC2: 0–20, 22–26, 30, as
 above). The level core is RAC1's format with a few per-game values
-([editor/games.py](../../editor/games.py)); large levels stream part of
+([extractor/games.py](../../extractor/games.py)); large levels stream part of
 their terrain and collision in chunks; RAC4 keeps its instances in the level
 data and swizzles its textures.
 

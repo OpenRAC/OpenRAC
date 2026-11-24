@@ -49,4 +49,43 @@ static inline gaddr rac2_effect_attachment(gaddr owner) {
     return owner;
 }
 
+/* The Shield Charger's and the Tesla Barrier's moby (tesla_barrier_update, func_L00_003C3D90: it
+ * sits on the hero, and its draw callback lays the shield's glow sphere and arcs around him). */
+#define RAC2_SHIELD_CHARGER_CLASS 2652
+#define RAC2_TESLA_BARRIER_CLASS 4498
+
+/* What a draw callback's strips follow between ticks: a moby, and whether only its position (its
+ * world offset kept, not turned with it). */
+typedef struct rac2_strip_anchor {
+    gaddr moby;
+    int position_only;
+} rac2_strip_anchor;
+
+/* The anchor of the strips the callback given `owner` lays out, for the display list sent a tick
+ * late (wide_view.c): the nanotech ball's (rac2_effect_attachment, turned with it), and those drawn
+ * on the hero (`hero`, his moby), the weapon in his hand (`hand`, its moby) and his shield, which
+ * follow their position only. Laid out a tick before the mobys drawn with them, they were left a
+ * tick's travel behind the hero: on Siberius's cart the shield dragged behind him and his weapons'
+ * beams started off the gun. Others (trails and beams in the world) stay where the tick has them. */
+static inline rac2_strip_anchor rac2_strip_anchor_of(gaddr owner, gaddr hero, gaddr hand) {
+    rac2_strip_anchor anchor = {rac2_effect_attachment(owner), 0};
+    if (anchor.moby != 0 || owner == 0 || owner > 0x01FFFF00u) {
+        return anchor;
+    }
+    if (owner == hero || owner == hand) {
+        anchor.moby = owner;
+        anchor.position_only = 1;
+        return anchor;
+    }
+    uint16_t class_id;
+    memcpy(&class_id, G(owner + 0xAAu), sizeof(class_id));
+    /* A live moby of the shield's classes (state +0x20 under 0x80). */
+    if ((class_id == RAC2_SHIELD_CHARGER_CLASS || class_id == RAC2_TESLA_BARRIER_CLASS)
+        && GREF(uint8_t, owner + 0x20u) < 0x80u) {
+        anchor.moby = owner;
+        anchor.position_only = 1;
+    }
+    return anchor;
+}
+
 #endif

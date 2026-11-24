@@ -188,10 +188,14 @@ self-contained.
 
 ## 4. Open drafts and branches
 
-Listed at handoff time; check `gh pr list --state open` for the current state. Each draft's
-description says what is done, what is left and how to continue. None of the recent drafts has been
-built and run in game; start by building one and checking the area it touches.
+The state at handoff (2026-11-23). Check `gh pr list --state open` for anything newer. Each draft's
+description says what is done, what is left and how to continue. None of the recent drafts has
+been built and run in game; start by building one and checking the area it touches.
 
+- #790 (draft) `wip/p4b-p5-p6-native-effects`: wip: p4b-p5-p6-native-effects (unfinished, unbuilt)
+- #789 (draft) `wip/p12-p14-native-kernel`: wip: p12-p14-native-kernel (unfinished, unbuilt)
+- #788 `fix/rac2-flight-paint-t111`: fix(rac2): bind flight ship parts to the selected paint
+- #785 (draft) `feat/vu0-inline-asm-native`: feat(hostgen): VU0 inline assembly in matched C as C on locals (draft)
 - #783 (draft) `feat/rac3-native-ui-rest`: feat(rac3): textures by the getters' tables, Widget3D from the posed mesh, fade fill, HUD placement as item data
 - #782 (draft) `feat/p11a-sound-api`: feat(port): sound at the 989snd API and a native float mixer (P11)
 - #781 (draft) `feat/rac3-mp-24-step2`: feat(rac3): online rooms past 8 players, step 2 (work in progress)
@@ -202,7 +206,24 @@ built and run in game; start by building one and checking the area it touches.
 - #655 (draft) `feat/mod-interfaces`: feat(sdk): tables mods offer each other by name, interface 1.29
 - #639 (draft) `feature/editor-new-planet`: feat: OpenRAC Editor support: editor moved out, imported classes, AI control, SDK 1.25
 
-Also watch for: rac3 NTSC-U's multiplayer config referencing `rac3-ntsc/mp/wide.json`, which does
-not exist (since #769), and duplicate `mp_func_L4x_*` wrappers between `mp_fixes.c` and `mp_maps.c`
-in rac3 PAL's multiplayer build. A fix was in progress at handoff; if develop still fails to
-configure or link rac3, that is the first thing to fix.
+What each recent draft is, in the plan's terms:
+
+| PR | Package | State |
+|---|---|---|
+| #774 | P2: rac3's last markers, split-screen views, movies on the recorder | Last commit not seen to build |
+| #778 | Map 48 (Aquatos Sewers) blue tint: the camera starts from the head point | Unbuilt; a game-logic fix, check against the console |
+| #779 | R1: rac1 and rac2 on the frame recorder | Builds; rac1's title screen drops 2 of 3 recorder commands per frame |
+| #781 | rac3 rooms past 8 players, step 2 | Unbuilt; the 9th joiner still backs out; turns NTSC-U widening on too early |
+| #782 | P11: sound at the 989snd API, native float mixer | Unbuilt against the games |
+| #783 | rac3 native UI rest: Widget3D, getter textures, fade, HUD placement | Unbuilt; loading stars and multiplayer images not started |
+| #785 | P10b: VU0 inline asm as C | hostgen tests pass; games not built |
+| #789 / #790 | P12/P14 kernel, IOP, pads (`wip/p12-p14-native-kernel`) and P4b/P5/P6 effects (`wip/p4b-p5-p6-native-effects`) | Raw work in progress, stopped mid-build |
+
+Recently merged and only compile-checked (worth a first look when testing): #786 Network Startup
+page (it keeps its own server-address parser with a `game.openrac.dev` fallback, which should use
+the hub default from #744 instead), #787 NTSC-U multiplayer config, #780 stock-bug fixes and the
+rac3 PAL link fix, #776 VU0 microprograms, #771 scratchpad DMA removal.
+
+## 5. Status
+
+FINALIZED

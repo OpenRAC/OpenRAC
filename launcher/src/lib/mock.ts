@@ -20,6 +20,7 @@ import type { ControlsView } from "./generated/ControlsView";
 import type { Detected } from "./generated/Detected";
 import type { Differences } from "./generated/Differences";
 import type { DifferenceView } from "./generated/DifferenceView";
+import type { EditorInstall } from "./generated/EditorInstall";
 import type { EditorState } from "./generated/EditorState";
 import type { ExportedSaves } from "./generated/ExportedSaves";
 import type { GameView } from "./generated/GameView";
@@ -195,6 +196,90 @@ const actions = actionsFile as {
   repository: RawAction[];
   versions: Record<string, RawAction[] | undefined>;
 };
+
+/** OpenRAC Editor in the preview: downloaded unless ?noeditor (core/src/editor_install.rs). */
+let editorChosen = false;
+let editorInstalled = !(
+  typeof location !== "undefined" && new URLSearchParams(location.search).has("noeditor")
+);
+
+/** The steps OpenRAC Editor's manifest (openrac/editor.json, in its own repository) brings a
+ *  version, as the preview has them: the levels read, opened and, for Ratchet & Clank's two main
+ *  discs, packed back. */
+function editorActions(key: string): RawAction[] {
+  if (!editorInstalled || !actions.versions[key]?.some((a) => a.id === "assets-export")) return [];
+  const projects = `assets/levels/${key}`;
+  const base = { kind: "edit" as const, area: "editor" as const, state: "unverified" as const };
+  const list: RawAction[] = [
+    {
+      ...base,
+      id: "editor-extract",
+      label: "Extract the levels",
+      program: "{python}",
+      requires: ["disc", "python", "editor"],
+    },
+    {
+      ...base,
+      id: "editor-reexport",
+      label: "Rebuild your level projects",
+      program: "{python}",
+      requires: ["disc", "python", "editor"],
+    },
+    {
+      ...base,
+      id: "editor-preview",
+      label: "Preview a level in OpenRAC Editor",
+      program: "{editor}",
+      detached: true,
+      requires: ["editor", "artifact"],
+      artifact: `${projects}/level_{level}/project.godot`,
+    },
+    {
+      ...base,
+      id: "editor-import",
+      label: "Import a level into OpenRAC Editor",
+      program: "{editor}",
+      requires: ["editor", "artifact"],
+      artifact: `${projects}/level_{level}/project.godot`,
+    },
+    {
+      ...base,
+      id: "editor-open",
+      label: "Open a level in OpenRAC Editor",
+      program: "{editor}",
+      detached: true,
+      requires: ["editor", "artifact"],
+      artifact: `${projects}/level_{level}/project.godot`,
+    },
+  ];
+
+  if (key === "rac1/pal" || key === "rac1/ntsc") {
+    list.push({
+      ...base,
+      id: "editor-pack",
+      label: "Pack your edited levels",
+      program: "{python}",
+      requires: ["disc", "python", "artifact"],
+      artifact: `${projects}/level_00/project.godot`,
+    });
+    list.push({
+      ...base,
+      id: "editor-new-planet",
+      label: "Add as a new planet",
+      program: "{python}",
+      requires: ["disc", "python", "artifact", "editor"],
+      artifact: `${projects}/level_{level}/project.godot`,
+    });
+  }
+
+  return list;
+}
+
+/** A version's actions: its own and OpenRAC Editor's. */
+const versionActions = (key: string): RawAction[] => [
+  ...(actions.versions[key] ?? []),
+  ...editorActions(key),
+];
 const summary = summaryFile as RawSummary;
 
 // ---- made-up state -------------------------------------------------------------------
@@ -248,27 +333,12 @@ const DEV = {
 /** A fork's branches with development builds, as the preview has them (updates.ts, devBranches). */
 export const MOCK_DEV_BRANCHES = ["develop", "feature-launcher-logo", "fix-pad-navigation"];
 
-/** Long Godot paths for ?longpaths: Settings must keep them inside the window. */
-const LONG_GODOTS: [string, string] = [
-  "C:\\Users\\someone\\Downloads\\Godot_v4.7.2-stable_win64.exe\\Godot_v4.7.2-stable_win64\\Godot_v4.7.2-stable_win64.exe",
-  "C:\\Users\\someone\\AppData\\Local\\Programs\\OpenRAC Editor\\nightly-2026-11-14\\openrac-editor.windows.editor.x86_64.exe",
-];
-
 let config: Config = {
   // ?setup: a first start where no OpenRAC folder was found, so the welcome screen asks for one.
   root: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup")
     ? null
     : "/home/you/OpenRAC",
   python: "/usr/bin/python3",
-  // ?godot: Godot is chosen, so the Mods tab's level editor can open a level.
-  // ?longpaths: a Godot deep in a Windows user folder, as a download leaves it (PathField.svelte).
-  godot: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
-    "longpaths",
-  )
-    ? LONG_GODOTS[0]
-    : new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("godot")
-      ? "/usr/bin/godot"
-      : null,
   docker: "/usr/bin/docker",
   // ?developer shows the contributor's pages.
   developer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has(
@@ -525,7 +595,7 @@ function view(action: RawAction, st: VersionStatus | null, version?: string): Ac
         inputs: !st?.inputsReady,
         toolchains: !toolchains,
         python: !config.python,
-        godot: !config.godot,
+        editor: !editorInstalled,
         docker: !config.docker,
         artifact: artifactMissing,
       };
@@ -534,7 +604,7 @@ function view(action: RawAction, st: VersionStatus | null, version?: string): Ac
         inputs: "the inputs Place inputs puts in the game",
         toolchains: "the compilers in toolchains/",
         python: "Python (Settings)",
-        godot: "Godot (Settings)",
+        editor: "OpenRAC Editor (Mods, Level editor: Download)",
         docker: "Docker",
         artifact: `${action.artifact ?? "its artifact"}, which an earlier step makes`,
       };
@@ -560,7 +630,11 @@ function view(action: RawAction, st: VersionStatus | null, version?: string): Ac
     blockers,
     // The mock tracks the bundled program and the files implied by ?built. Exports and editor
     // projects still need their own steps.
-    done: bundledPlay || (built && BUILT_DONE.has(action.id)),
+    // A set-up has the disc's files: the extractor writes them as it sets the disc up.
+    done:
+      bundledPlay ||
+      (built && BUILT_DONE.has(action.id)) ||
+      (action.id === "disc-files" && !!installs[version?.split("/")[0] ?? ""]),
     missingArtifact: state !== "planned" && artifactMissing,
     developer: action.developer ?? false,
     warning: action.warning ?? null,
@@ -642,7 +716,9 @@ function library(): Library {
             : null,
           progress: progress(key),
           status: st,
-          actions: (actions.versions[key] ?? []).filter(shown).map((a) => view(a, st, key)),
+          actions: versionActions(key)
+            .filter(shown)
+            .map((a) => view(a, st, key)),
           portOutdated: false,
           portCleanReason: null,
         };
@@ -667,6 +743,17 @@ function library(): Library {
   };
 }
 
+function mockEditorInstall(): EditorInstall {
+  return {
+    folder: "/home/you/.local/share/openrac/editor",
+    installedApp: false,
+    chosen: editorChosen,
+    version: editorInstalled ? "v1.0.0" : null,
+    problem: null,
+    repository: "https://github.com/OpenRAC/OpenRAC-Editor",
+  };
+}
+
 // ---- jobs ----------------------------------------------------------------------------
 
 type Listener = (event: JobEvent) => void;
@@ -687,8 +774,7 @@ function emit(event: JobEvent) {
 }
 
 function findAction(scope: Scope, id: string): RawAction | undefined {
-  const list =
-    scope.kind === "repository" ? actions.repository : (actions.versions[scope.key] ?? []);
+  const list = scope.kind === "repository" ? actions.repository : versionActions(scope.key);
 
   return list.find((a) => a.id === id);
 }
@@ -826,7 +912,7 @@ function mockReview(text: string): Review {
 let mockEditor = query.get("editor") ?? "ready";
 const mockHold = /^([a-z]+):(\d+)\/(\d+)(?::(\d+))?$/.exec(query.get("progress") ?? "");
 
-/** What the editor's tools print as they go (editor/progress_line.py), a few counts of each step. */
+/** What the editor's tools print as they go (extractor/progress_line.py), a few counts of each step. */
 function progressLines(
   step: string,
   total: number,
@@ -993,13 +1079,13 @@ function lastLines(id: string, args: Record<string, unknown>, scope?: Scope): st
       return [
         "openrac-progress: project",
         ...progressLines("read", 19),
-        "Godot projects, one per level: done",
+        "Level projects, one per level: done",
       ];
     case "editor-reexport":
       return [
         ...progressLines("read", 19),
         ...progressLines("carry", 19),
-        "Godot projects: 19 written again; the old ones, with any edits, are in the backups folder.",
+        "Level projects: 19 written again; the old ones, with any edits, are in the backups folder.",
       ];
     case "editor-pack":
       return [
@@ -1230,6 +1316,16 @@ let mockPlugins: PluginView[] = query.has("nomods")
             description:
               "The mouse keeps turning the camera while you play on a gamepad, so you can use both at once. Needed for gyro that Steam Input or DS4Windows turns into a mouse.",
             value: true,
+          },
+          {
+            key: "mouse_low_latency",
+            name: "Low-latency mouse camera",
+            section: "Mouse",
+            type: "bool",
+            default: false,
+            description:
+              "Frames between game ticks show your mouse turn before the game reads it: about 25 ms less delay at 60 ticks a second. If a fast turn looks uneven or doubled on your screen, turn it off. Off: smooth.",
+            value: false,
           },
           {
             key: "gyro",
@@ -2870,15 +2966,15 @@ function mockRac2Versions(
   });
 
   // Every weapon counts experience; the last version takes any count (the core's rule).
-  if (xp === null) return [v(0, "first", 0, 9_999_999), v(1, "bought", 0, 9_999_999)];
+  if (xp === null) return [v(0, "first", 0, 67_108_863), v(1, "bought", 0, 67_108_863)];
   if (id === 9)
-    return [v(0, "first", 0, xp - 1), { ...v(1, "experience", xp, 9_999_999), minXp: 0 }];
+    return [v(0, "first", 0, xp - 1), { ...v(1, "experience", xp, 67_108_863), minXp: 0 }];
 
   return [
     v(0, "first", 0, xp - 1),
-    v(1, "experience", xp, 9_999_999),
+    v(1, "experience", xp, 67_108_863),
     v(2, "bought", 0, xp * 10 - 1),
-    { ...v(3, "experience", xp * 10, 9_999_999), minXp: 0 },
+    { ...v(3, "experience", xp * 10, 67_108_863), minXp: 0 },
   ];
 }
 
@@ -2937,7 +3033,7 @@ function mockSaveRac3(serial: string, slot: number): Rac3SaveView {
       maxAmmo: ammo,
       xp: 0,
     })),
-    maxBolts: 9_999_999,
+    maxBolts: 2_147_483_647,
   };
 }
 
@@ -2986,14 +3082,14 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
       maxAmmo: ammo,
       upgradeName: up,
       upgradeXp: xp,
-      maxXp: kind !== "weapon" ? null : xp === null ? 9_999_999 : xp - 1,
+      maxXp: kind !== "weapon" ? null : xp === null ? 67_108_863 : xp - 1,
       versions: versions ? mockRac2Versions(id, name, ammo, up, xp) : [],
       worn: false,
       holdable: kind === "weapon" && ![9, 31, 45].includes(id),
     })),
     planets: RAC2_LEVELS.map(([id, name]) => ({ id, name })),
-    maxBolts: 9_999_999,
-    maxXp: 9_999_999,
+    maxBolts: 2_147_483_647,
+    maxXp: 67_108_863,
     challengeMode: 1,
     bootsEditable: true,
     flags: RAC2_FLAGS.map(([id, level, name, description, confidence]) => ({
@@ -3158,7 +3254,7 @@ function mockSave(serial: string, slot: number): SaveView {
       canUnlock: id >= 1 && id <= 16,
       canLand: id >= 1 && id <= 16,
     })),
-    maxBolts: 9_999_999,
+    maxBolts: 2_147_483_647,
     chunks: mockChunks(serial, slot, fields),
     playedSeconds: slot === 1 ? 3 * 3600 + 12 * 60 : 47 * 60,
     // The names come from the player's disc; the preview has none, so ?skillnames shows sample ones.
@@ -3224,18 +3320,33 @@ export async function mockCall(
 
       return delay<Config>({ ...config });
     }
+    case "editor_install_status":
+      return delay<EditorInstall>(mockEditorInstall());
+    case "editor_newest":
+      return delay<string>("v1.0.0");
+    case "install_editor":
+      editorInstalled = true;
 
-    case "adopt_godot":
-      return delay<Config>({ ...config });
+      return delay<EditorInstall>(mockEditorInstall());
+    case "choose_editor":
+      editorInstalled = true;
+      editorChosen = true;
+
+      return delay<EditorInstall>(mockEditorInstall());
+    case "forget_editor":
+      editorChosen = false;
+
+      return delay<EditorInstall>(mockEditorInstall());
+    case "remove_editor":
+      editorInstalled = false;
+
+      return delay<EditorInstall>(mockEditorInstall());
     case "detect":
       return delay<Detected>({
         roots: query.has("setup")
           ? []
           : [{ path: "/home/you/OpenRAC", source: "next to the launcher" }],
         pythons: [{ path: "/usr/bin/python3", source: "PATH" }],
-        godots: query.has("longpaths")
-          ? LONG_GODOTS.map((path) => ({ path, source: "Downloads" }))
-          : [],
         dockers: [{ path: "/usr/bin/docker", source: "PATH" }],
       });
     case "check_root":
@@ -3249,7 +3360,6 @@ export async function mockCall(
       // What each program says about itself, as core/src/detect.rs reads it.
       const versions: Record<string, string> = {
         python: "Python 3.12.4",
-        godot: "Godot 4.7.stable",
         docker: "Docker version 28.3.2",
       };
       const version = versions[String(args.tool)] ?? null;
@@ -3875,7 +3985,7 @@ export async function mockCall(
     }
 
     case "open_output":
-    case "open_level_in_godot":
+    case "open_level_in_editor":
     case "open_game_folder":
       console.info(`[preview] ${command}`, args);
 
@@ -4223,7 +4333,7 @@ export async function mockCall(
     case "write_save_rac3": {
       const fields = args.fields as Rac3SaveFields;
 
-      if (fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");
+      if (fields.bolts > 2_147_483_647) throw new Error("bolts go up to 2147483647");
       savedRac3[`${String(args.serial)}/${String(args.slot)}`] = structuredClone(fields);
       const name = `.backup_${String(Math.floor(Date.now() / 1000))}_before_edit_slot${String(Number(args.slot) + 1)}`;
 
@@ -4265,7 +4375,7 @@ export async function mockCall(
     case "write_save_rac2": {
       const fields = args.fields as Rac2SaveFields;
 
-      if (fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");
+      if (fields.bolts > 2_147_483_647) throw new Error("bolts go up to 2147483647");
       savedRac2[`${String(args.serial)}/${String(args.slot)}`] = structuredClone(fields);
       const name = `.backup_${Math.floor(Date.now() / 1000)}_before_edit_slot${Number(args.slot) + 1}`;
 
@@ -4286,7 +4396,7 @@ export async function mockCall(
       const change = args.change as SaveChange;
 
       if (change.kind === "fields") {
-        if (change.fields.bolts > 9_999_999) throw new Error("bolts go up to 9999999");
+        if (change.fields.bolts > 2_147_483_647) throw new Error("bolts go up to 2147483647");
         savedFields[key] = structuredClone(change.fields);
       } else {
         if (!config.saveEditorAdvanced)

@@ -284,7 +284,7 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
         return ["the manifest is not a JSON object"]
     if m.get("format") != FORMAT:
         if m.get("format") == 1:
-            return ["format 1 is a data pack (editor/MODDING.md): it is added as a pack, not packaged here"]
+            return ["format 1 is a data pack (extractor/MODDING.md): it is added as a pack, not packaged here"]
         return [f"format must be {FORMAT}"]
     mid = m.get("id")
     if not isinstance(mid, str) or not ID.match(mid) or len(mid) > 64:

@@ -323,6 +323,7 @@ void Input::handle_event(const SDL_Event& event) {
                 if (!(m_km.captured && raw_mouse::active())) {
                     m_dx += event.motion.xrel;
                     m_dy += event.motion.yrel;
+                    m_rate.add(event.motion.timestamp, event.motion.xrel, event.motion.yrel);
                 }
                 m_switch.mouse_motion(event.motion.xrel, event.motion.yrel, event.motion.timestamp);
             }
@@ -658,7 +659,14 @@ void Input::pull_raw_mouse() {
     if (m_km.captured && raw_mouse::active()) {
         m_dx += dx;
         m_dy += dy;
+        if (dx != 0.0f || dy != 0.0f) {
+            m_rate.add(SDL_GetTicksNS(), dx, dy);
+        }
     }
+}
+
+void Input::mouse_rate(float& vx, float& vy) const {
+    m_rate.rate(SDL_GetTicksNS(), vx, vy);
 }
 
 void Input::update() {
@@ -713,6 +721,46 @@ void Input::set_motors(int port, const MotorCommand& command) {
         return;
     }
     m_motors[static_cast<std::size_t>(port)] = {command, SDL_GetTicksNS()};
+}
+
+void Input::set_extra_motors(const void* owner, int port, const MotorCommand& command) {
+    if (owner == nullptr || port < 0 || port >= kPadPorts) {
+        return;
+    }
+    const Motors motors{command, SDL_GetTicksNS()};
+    for (ExtraMotors& e : m_extra_motors) {
+        if (e.owner == owner && e.port == port) {
+            e.motors = motors;
+            return;
+        }
+    }
+    m_extra_motors.push_back({owner, port, motors});
+}
+
+void Input::drop_extra_motors(const void* owner) {
+    std::erase_if(m_extra_motors, [&](const ExtraMotors& e) {
+        return owner == nullptr || e.owner == owner;
+    });
+}
+
+MotorCommand Input::motors_now(int port) const {
+    if (port < 0 || port >= kPadPorts) {
+        return {};
+    }
+    return motors_at(port, SDL_GetTicksNS());
+}
+
+MotorCommand Input::motors_at(int port, std::uint64_t now) const {
+    const auto held = [&](const Motors& m) {
+        return m.ns != 0 && now - m.ns < kMotorHoldNs ? m.command : MotorCommand{};
+    };
+    MotorCommand command = held(m_motors[static_cast<std::size_t>(port)]);
+    for (const ExtraMotors& e : m_extra_motors) {
+        if (e.port == port) {
+            command = stronger(command, held(e.motors));
+        }
+    }
+    return command;
 }
 
 SDL_Haptic* Input::device_vibrator() {
@@ -783,9 +831,7 @@ void Input::play_rumble() {
     for (int port = 0; port < kPadPorts; ++port) {
         const auto p = static_cast<std::size_t>(port);
         const RumbleTuning& tuning = m_bindings[p].tuning.rumble;
-        const Motors& motors = m_motors[p];
-        const MotorCommand command =
-            motors.ns != 0 && now - motors.ns < kMotorHoldNs ? motors.command : MotorCommand{};
+        const MotorCommand command = motors_at(port, now);
         Rumble& r = m_rumble[p];
         SDL_Gamepad* g = r.gamepad;
         const bool vibrator = r.vibrator;
@@ -836,6 +882,7 @@ void Input::stop_rumble() {
         SDL_StopHapticRumble(m_vibrator);
     }
     m_motors = {};
+    m_extra_motors.clear();
 }
 
 void Input::refresh_pads() {

@@ -371,4 +371,73 @@ int api_moby_status(openrac_mod* mod, std::int32_t slot, std::uint32_t status, s
     return g_play->moby_status(slot, status, ticks) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+int api_moby_uid(int slot) {
+    return g_play != nullptr && g_play->moby_uid != nullptr ? g_play->moby_uid(slot) : -1;
+}
+
+int api_moby_set_joints(openrac_mod* mod, int slot, const openrac_joint_offset* joints, int count) {
+    std::int32_t level = -1;
+    if (mod == nullptr || g_play == nullptr || g_joint_offsets == nullptr || count < 0
+        || count > OPENRAC_JOINT_OFFSETS_MAX || (count > 0 && joints == nullptr)
+        || !in_level(phase_now(&level))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const gaddr moby = moby_address(slot);
+    if (moby == 0) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return set_joint_set(mod, moby, joints, count);
+}
+
+// moby_set_joints with each joint's pose set, not composed: its number carries kJointPoseSet, which
+// the host's joint_offsets reads (mods.h).
+int api_moby_set_joint_poses(
+    openrac_mod* mod, int slot, const openrac_joint_offset* joints, int count
+) {
+    if (count < 0 || count > OPENRAC_JOINT_OFFSETS_MAX || (count > 0 && joints == nullptr)) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::vector<openrac_joint_offset> set(joints, joints + count);
+    for (openrac_joint_offset& j : set) {
+        if (j.joint >= kJointPoseSet) {
+            return OPENRAC_HOOK_UNKNOWN;
+        }
+        j.joint |= kJointPoseSet;
+    }
+    return api_moby_set_joints(mod, slot, set.data(), count);
+}
+
+int api_moby_joint_frame(int slot, int joint, float out[12]) {
+    const gaddr moby = moby_address(slot);
+    if (out == nullptr || moby == 0 || joint < 0 || g_joint_frame == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return g_joint_frame(moby, joint, out) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_moby_joint_position(int slot, int joint, float out[3]) {
+    float frame[12];
+    if (out == nullptr || api_moby_joint_frame(slot, joint, frame) != OPENRAC_HOOK_OK) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    std::copy(frame + 9, frame + 12, out);
+    return OPENRAC_HOOK_OK;
+}
+
+int api_tie_hide(openrac_mod* mod, int tie, int hidden) {
+    std::int32_t level = -1;
+    if (mod == nullptr || tie < 0 || tie > 0xFFFF || !in_level(phase_now(&level))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    const std::uint32_t loads = loads_now();
+    std::erase_if(g_ties_hidden, [&](const TieHidden& h) {
+        return h.loads != loads || (h.mod == mod && h.tie == tie);
+    });
+    if (hidden != 0) {
+        g_ties_hidden.push_back({mod, loads, tie});
+    }
+    return OPENRAC_HOOK_OK;
+}
+
 }  // namespace openrac::mods::detail

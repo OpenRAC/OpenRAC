@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "bolt_totals.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac2.h"
@@ -121,9 +122,57 @@ static int slots_shown(void) {
            && GREF(int32_t, card + CARD_PHASE) == 2;
 }
 
+/*
+ * A total past 9,999,999 on the Load and Save pages. The game clamps a slot's total to 9,999,999
+ * and prints that; this swaps the printed text for the compact form (bolt_totals.h). The game
+ * draws one "9,999,999" for each shown slot whose total is that or more, in slot order, through
+ * the small font (func_0027F5B8), so the draw is wrapped to list those slots and the font's
+ * printer asks here for each such text in turn.
+ */
+#define SCORE_ROW_SCORE 4u /* a summary's total */
+#define SCORE_CAP_TEXT "9,999,999"
+
+static int32_t capped_scores[SLOTS];
+static int capped_count, capped_next;
+static char compact_text[RAC2_BOLTS_COMPACT_SIZE];
+static gaddr compact_guest;
+
+static void list_capped_scores(void) {
+    capped_count = 0;
+    capped_next = 0;
+    if (!slots_shown()) {
+        return;
+    }
+    for (int s = 0; s < SLOTS; ++s) {
+        const gaddr row = OPENRAC_DATA(CARD_ROWS) + CARD_ROW_BYTES * (gaddr)s;
+        const int32_t score = GREF(int32_t, row + SCORE_ROW_SCORE);
+        if (GREF(int32_t, row) != CARD_ROW_EMPTY && score >= RAC2_BOLTS_STOCK_MAX) {
+            capped_scores[capped_count++] = score;
+        }
+    }
+}
+
+/* The text the small font is about to print: the compact form of the next capped total where it is
+ * the game's clamped one, else the same text. */
+gaddr rac2_save_score_text(gaddr text) {
+    if (capped_next >= capped_count || strcmp((const char*)G(text), SCORE_CAP_TEXT) != 0) {
+        return text;
+    }
+    if (!rac2_bolts_compact(compact_text, sizeof compact_text, capped_scores[capped_next++])) {
+        return text;
+    }
+    if (compact_guest == 0) {
+        compact_guest = openrac_guest_static(sizeof compact_text);
+    }
+    memcpy(G(compact_guest), compact_text, sizeof compact_text);
+    return compact_guest;
+}
+
 /* save_slot_list_draw: the game's four slots, then a badge on each one written with mods. */
 int func_002DDA10(gaddr menu) {
+    list_capped_scores();
     const int drawn = func_002DDA10__game(menu);
+    capped_count = 0;
     if (menu == 0 || !slots_shown()) {
         return drawn;
     }
