@@ -330,6 +330,12 @@ each such statement as C (lower.py's `asm_stmt`), with no VU0 behind it:
 - the integer registers a block names (`$at` between `mfc1` and `qmtc2`) are
   locals of the block; `$4` ... `$11` that it reads before writing are the
   function's arguments, when the statement is the function's first;
+- a leading `mfc1` from a named float argument register uses the corresponding
+  declared float parameter, with the same argument-register order as asmc.py.
+  Missing parameters, later reads after C code and implicit float results stay
+  unsupported rather than taking zero;
+- a symbolic memory operand uses the same global-address and level-relocation
+  path as a C global. An unknown symbol is refused, never guessed;
 - the arithmetic is the assembly's translation of the same instructions
   (asmc.py's `Translator.vu0`): rounding, `vf0`, the broadcast fields and
   `asm.vu_flush` as there.

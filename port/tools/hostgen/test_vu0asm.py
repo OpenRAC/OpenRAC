@@ -62,6 +62,22 @@ class UnsupportedState(unittest.TestCase):
         self.assertIn("memcpy", vu0asm.lower_statement("sqc2 $vf1, %0", [memory(0, "out", True)],
                                                      state, vu_flush=False))
 
+    def test_a_named_float_read_without_a_proved_argument_is_refused(self):
+        with self.assertRaises(vu0asm.Vu0Unsupported):
+            vu0asm.lower_statement("mfc1 $at, $f12\nqmtc2 $at, $vf1", [],
+                                  vu0asm.FunctionState(), vu_flush=False)
+
+    def test_a_named_float_result_is_not_invented_from_a_void_definition(self):
+        with self.assertRaises(vu0asm.Vu0Unsupported):
+            vu0asm.lower_statement("mtc1 %0, $f0\nvadd.xyzw $vf1, $vf0, $vf0", [
+                vu0asm.Operand(0, "r", False, value="bits")
+            ], vu0asm.FunctionState(), vu_flush=False)
+
+    def test_a_memory_symbol_without_an_address_is_refused(self):
+        with self.assertRaises(vu0asm.Vu0Unsupported):
+            vu0asm.lower_statement("lqc2 $vf1, missing_table", [],
+                                  vu0asm.FunctionState(), vu_flush=False)
+
 
 class PreparedClobbers(unittest.TestCase):
     def test_vector_clobbers_change_only_after_the_operand_sections(self):
@@ -100,7 +116,8 @@ class NativeArithmetic(unittest.TestCase):
             binary = root / ("test.exe" if sys.platform == "win32" else "test")
             source.write_text(
                 '#include <stdio.h>\n#include "openrac/ee.h"\n'
-                '__extension__ typedef unsigned __int128 openrac_uti;\nint main(void) {\n'
+                '__extension__ typedef unsigned __int128 openrac_uti;\n'
+                'uint8_t *openrac_guest_base;\nint main(void) {\n'
                 'openrac_vu0_state state = {{{0.0f, 0.0f, 0.0f, 1.0f}}};\n'
                 'openrac_vu0_state *const openrac_vu_ = &state; (void)openrac_vu_;\n'
                 + declarations + '\n' + body
@@ -144,6 +161,24 @@ class NativeArithmetic(unittest.TestCase):
         result = self.execute("float out[4] = {0}, a[4] = {4, 8, 12, 16};", body)
         self.assertEqual(result, [1.0, 2.0, 3.0, 4.0])
 
+    def test_a_leading_float_argument_preserves_its_bits_through_mfc1(self):
+        body = vu0asm.lower_statement(
+            "mfc1 $at, $f12\nqmtc2 $at, $vf2\nlqc2 $vf1, %1\n"
+            "vmulx.xyzw $vf1, $vf1, $vf2x\nsqc2 $vf1, %0",
+            [memory(0, "out", True), memory(1, "a")], vu0asm.FunctionState(), vu_flush=False,
+            float_arg_register=lambda register: "factor" if register == 12 else None)
+        result = self.execute("float out[4] = {0}, a[4] = {4, 8, 12, 16}, factor = -0.5f;", body)
+        self.assertEqual(result, [-2.0, -4.0, -6.0, -8.0])
+
+    def test_a_symbolic_load_reads_the_resolved_memory(self):
+        body = vu0asm.lower_statement(
+            "lqc2 $vf1, fixture_table\nvaddw.xyzw $vf1, $vf1, $vf0w\nsqc2 $vf1, %0",
+            [memory(0, "out", True)], vu0asm.FunctionState(), vu_flush=False,
+            symbol_address=lambda name: "0u" if name == "fixture_table" else None)
+        result = self.execute("float out[4] = {0}, data[4] = {1, 2, 3, 4}; "
+                              "openrac_guest_base = (uint8_t *)data;", body)
+        self.assertEqual(result, [2.0, 3.0, 4.0, 5.0])
+
 
 @unittest.skipUnless(CLANG, "needs the installed host Clang")
 class ReportReasons(unittest.TestCase):
@@ -181,6 +216,50 @@ class ReportReasons(unittest.TestCase):
         ''')
         self.assertEqual(report["stubbed"], {})
         self.assertEqual(report["inline_assembly_skipped"], {})
+
+    def test_a_leading_named_float_read_uses_a_declared_argument(self):
+        report = self.report('''
+            typedef struct { float x, y, z, w; } V4;
+            void scale(V4 *in, V4 *out, float factor) {
+                __asm__("mfc1 $at, $f12\\nqmtc2 $at, $vf2\\nlqc2 $vf1, %1\\n"
+                        "vmulx.xyzw $vf1, $vf1, $vf2x\\nsqc2 $vf1, %0"
+                        : "=m"(*out) : "m"(*in) : "$1", "memory");
+            }
+        ''')
+        self.assertEqual(report["stubbed"], {})
+        self.assertEqual(report["inline_assembly_skipped"], {})
+
+    def test_a_symbolic_load_uses_the_normal_global_address_path(self):
+        report = self.report('''
+            typedef struct { float x, y, z, w; } V4;
+            extern V4 D_00200000; /* Synthetic fixture address, not game data. */
+            void constant(V4 *out) {
+                __asm__("lqc2 $vf1, D_00200000\\nsqc2 $vf1, %0" : "=m"(*out));
+            }
+        ''')
+        self.assertEqual(report["stubbed"], {})
+        self.assertEqual(report["inline_assembly_skipped"], {})
+
+    def test_a_call_before_a_named_float_read_prevents_argument_inference(self):
+        report = self.report('''
+            extern void other(void);
+            void later(float factor) {
+                other();
+                __asm__("mfc1 $at, $f12\\nqmtc2 $at, $vf1" : : : "$1");
+            }
+        ''')
+        self.assertIn("later", report["inline_assembly_unsupported"])
+
+    def test_a_call_in_an_operand_prevents_named_argument_inference(self):
+        report = self.report('''
+            typedef struct { float x, y, z, w; } V4;
+            extern V4 *address(void);
+            void operand_call(float factor) {
+                __asm__("mfc1 $at, $f12\\nqmtc2 $at, $vf1\\nsqc2 $vf1, %0"
+                        : "=m"(*address()) : : "$1");
+            }
+        ''')
+        self.assertIn("operand_call", report["inline_assembly_unsupported"])
 
     def test_a_conditional_write_does_not_initialize_the_following_region(self):
         report = self.report('''

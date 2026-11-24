@@ -98,7 +98,8 @@ class _Ins:
     rt: int = 0
     rd: int = 0
     sa: int = 0
-    mem: tuple | None = None   # lqc2/sqc2/lq/sq: ("op", k, offset) | ("gpr", n, offset)
+    mem: tuple | None = None   # ("op", k, 0), ("base", register, offset), ("symbol", name, offset)
+    float_register: int | None = None  # a named FPR input, proved by the leading function argument
 
 
 def is_vu0(text: str) -> bool:
@@ -173,6 +174,10 @@ def _mem(tok: str, n_ops: int) -> tuple:
         if b and int(b.group(1)) < n_ops:
             return ("base", 32 + int(b.group(1)), off)
         return ("base", _gpr(base, n_ops), off)
+    m = re.fullmatch(r"([A-Za-z_]\w*)(?:\s*([+-])\s*(0[xX][0-9A-Fa-f]+|\d+))?", tok)
+    if m:
+        offset = int(m[3], 0) if m[3] else 0
+        return ("symbol", m[1], -offset if m[2] == "-" else offset)
     raise Vu0Unsupported(f"memory operand {tok!r}")
 
 
@@ -224,6 +229,10 @@ def parse(text: str, n_ops: int) -> list[_Ins]:
             out.append(_Ins(base, op, rt=_gpr(args[0], n_ops), mem=_mem(args[1], n_ops)))
             continue
         if base in ("mfc1", "mtc1"):
+            named = re.fullmatch(r"\$f(\d+)", args[1]) if len(args) == 2 else None
+            if base == "mfc1" and named is not None and int(named[1]) < 32:
+                out.append(_Ins(base, op, rt=_gpr(args[0], n_ops), float_register=int(named[1])))
+                continue
             m = re.fullmatch(r"%(\d+)", args[1]) if len(args) == 2 else None
             if m is None or int(m.group(1)) >= n_ops:
                 raise Vu0Unsupported(f"{op} {rest}")
@@ -482,11 +491,14 @@ class _Emitter:
 
 
 def lower_statement(text: str, operands: list[Operand], state: FunctionState, *, vu_flush: bool,
-                    arg_register=None, vu: str = "openrac_vu_") -> str:
+                    arg_register=None, vu: str = "openrac_vu_", float_arg_register=None,
+                    symbol_address=None) -> str:
     """The C of one asm statement whose instructions are VU0's (is_vu0), on the operands lower.py
     read (each with its lvalue or value as host C). STATE is the function's: what earlier statements
     left in the named registers, updated here. ARG_REGISTER(n) gives the function's argument in
-    integer register n as host C, or None where the statement cannot take it from there."""
+    integer register n as host C, or None where the statement cannot take it from there.
+    FLOAT_ARG_REGISTER does the same for a leading FPR input; SYMBOL_ADDRESS resolves a data
+    label through the caller's normal global-address rules. Neither invents an unknown value."""
     n_ops = len(operands)
     if not is_vu0(text):
         raise NotVu0()
@@ -521,6 +533,8 @@ def lower_statement(text: str, operands: list[Operand], state: FunctionState, *,
     # What each operand is to the instructions: a vector register, an integer register, a float
     # register (mfc1 / mtc1), or a place in memory.
     vec, gpr, fpr, mem = set(), set(), set(), set()
+    named_floats: dict[int, str] = {}
+    float_written = False
     for i in insns:
         reads, wfull, wpart = _effects(i)
         for r in reads | wfull | wpart:
@@ -528,8 +542,15 @@ def lower_statement(text: str, operands: list[Operand], state: FunctionState, *,
                 vec.add(r - 32)
             elif isinstance(r, tuple) and r[0] == "r" and r[1] >= 32:
                 gpr.add(r[1] - 32)
-        if i.op in ("mfc1", "mtc1"):
+        if i.op == "mfc1" and i.float_register is not None:
+            value = float_arg_register(i.float_register) if float_arg_register is not None else None
+            if value is None or float_written:
+                raise Vu0Unsupported(f"$f{i.float_register} has no proved leading float argument")
+            named_floats[i.float_register] = value
+        elif i.op in ("mfc1", "mtc1"):
             fpr.add(alias.get(i.fs, i.fs))
+        if i.op == "mtc1":
+            float_written = True
         if i.mem and i.mem[0] == "op":
             mem.add(i.mem[1])
     kinds = [vec, gpr, fpr, mem]
@@ -584,6 +605,8 @@ def lower_statement(text: str, operands: list[Operand], state: FunctionState, *,
     pre: list[str] = []
     body: list[str] = []
     post: list[str] = []
+    for register, value in sorted(named_floats.items()):
+        pre.append(f"openrac_f32 openrac_argf{register}_ = {value};")
 
     def ptr_of(o: Operand) -> str:
         if o.lv_addr is not None:
@@ -679,6 +702,11 @@ def lower_statement(text: str, operands: list[Operand], state: FunctionState, *,
     def address(m: tuple) -> str:
         if m[0] == "op":
             return f"(uint8_t *)openrac_m{m[1]}_"
+        if m[0] == "symbol":
+            value = symbol_address(m[1]) if symbol_address is not None else None
+            if value is None:
+                raise Vu0Unsupported(f"memory symbol {m[1]!r} has no known address")
+            return f"(uint8_t *)G(openrac_quadword_address((gaddr)({value}) + (gaddr)({m[2]})))"
         reg = em.R(m[1])
         return f"(uint8_t *)G(openrac_quadword_address((gaddr)({reg}) + (gaddr)({m[2]})))"
 
@@ -703,7 +731,9 @@ def lower_statement(text: str, operands: list[Operand], state: FunctionState, *,
             body.append(f"openrac_q_ = ((openrac_uti){em.H(i.rt)} << 64) | (openrac_uti){em.R(i.rt)};")
             body.append(f"memcpy({address(i.mem)}, &openrac_q_, 16);")
         elif op == "mfc1":
-            body += em.W(i.rt, f"(openrac_u64)(openrac_s64)(openrac_s32)openrac_ee_bits(openrac_f{alias.get(i.fs, i.fs)}_)")
+            value = (f"openrac_argf{i.float_register}_" if i.float_register is not None
+                     else f"openrac_f{alias.get(i.fs, i.fs)}_")
+            body += em.W(i.rt, f"(openrac_u64)(openrac_s64)(openrac_s32)openrac_ee_bits({value})")
         elif op == "mtc1":
             body.append(f"openrac_f{alias.get(i.fs, i.fs)}_ = openrac_ee_f((openrac_u32){em.R(i.rt)});")
         elif op.startswith("ds"):

@@ -1413,22 +1413,32 @@ class Unit:
             operands.append(o)
         body = fn.body_node or {}
         first = next(iter(_inner(body)), None)
-        leading = first is not None and first.get("id") == n.get("id")
+        region = self._vu0_region(n)
+        # Operand evaluation can itself call C and overwrite the incoming physical registers.
+        leading = first is not None and first.get("id") == n.get("id") and region == (0,)
 
         def arg_register(r: int) -> str | None:
             at = r - 4
             return fn.int_params[at] if leading and 0 <= at < len(fn.int_params) else None
 
+        def float_arg_register(register: int) -> str | None:
+            import asmc
+
+            if not leading or register not in asmc.FARG_REGS:
+                return None
+            at = asmc.FARG_REGS.index(register)
+            return fn.float_params[at] if at < len(fn.float_params) else None
+
         states = getattr(fn, "vu0_states", None)
         if states is None:
             states = fn.vu0_states = {}
-        region = self._vu0_region(n)
         if region not in states:
             states[region] = vu0asm.FunctionState()
         state = states[region]
         try:
             c_text = vu0asm.lower_statement(text, operands, state, vu_flush=getattr(self.program, "vu_flush", False),
-                                            arg_register=arg_register)
+                                            arg_register=arg_register, float_arg_register=float_arg_register,
+                                            symbol_address=self._global_symbol_address)
         except vu0asm.Vu0Unsupported as e:
             return give_up(str(e))
         except vu0asm.NotVu0:
@@ -2490,20 +2500,26 @@ class Unit:
         sym = symbol_of(d)
         if ref.get("kind") == "FunctionDecl":
             raise Unsupported(f"function {sym} as an lvalue")
+        addr = self._global_symbol_address(sym)
+        if addr is None:
+            value = self._static_constant(d)
+            if value is not None:
+                return LV(value)
+            raise Unsupported(f"global {sym} has no known address")
+        return LV(self.gref(t, addr), addr)
+
+    def _global_symbol_address(self, sym: str) -> str | None:
+        """A C global or assembly label through the same release/level relocation rules."""
         address = self.program.data_address(sym)
         only_level = None
         if address is None:
             only_level, address = self._level_only_data(sym) or (None, None)
         if address is None:
-            value = self._static_constant(d)
-            if value is not None:
-                return LV(value)
-            raise Unsupported(f"global {sym} has no known address")
+            return None
         named_level = self.program.data_level(sym) if hasattr(self.program, "data_level") else None
         if only_level is not None:
             named_level = only_level
-        addr = self.global_address(address, self._code_symbol(sym) is not None, named_level, sym)
-        return LV(self.gref(t, addr), addr)
+        return self.global_address(address, self._code_symbol(sym) is not None, named_level, sym)
 
     def global_address(self, address: int, code: bool = False, named_level: int | None = None,
                        symbol: str | None = None) -> str:
