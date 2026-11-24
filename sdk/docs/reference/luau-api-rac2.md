@@ -373,3 +373,11 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 ```lua
 type Vendor_PreviewFn = () -> ()
 ```
+
+### `Moby_PrisonWrench_InitFn`
+
+rac2.moby.prison_wrench.init (Moby_PrisonWrench_Init) void(u32): Initializes the Aranos prison wrench pickup.
+
+```lua
+type Moby_PrisonWrench_InitFn = (moby: number) -> ()
+```

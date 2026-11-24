@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Initializes the Aranos prison wrench pickup.
+struct Moby_PrisonWrench_Init {
+    static constexpr const char* id = "rac2.moby.prison_wrench.init";
+    static constexpr const char* name = "Moby_PrisonWrench_Init";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -375,6 +383,9 @@ namespace hooks {
         namespace nanotech_ball {
             using update = rac2::Moby_NanotechBall_Update;
         }  // namespace nanotech_ball
+        namespace prison_wrench {
+            using init = rac2::Moby_PrisonWrench_Init;
+        }  // namespace prison_wrench
         namespace race_controller {
             using update = rac2::Moby_RaceController_Update;
         }  // namespace race_controller

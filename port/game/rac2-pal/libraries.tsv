@@ -380,3 +380,4 @@ func_00120748	libgcc	rac2SjpopnthrowTail	host	a fragment of __sjpopnthrow, enter
 func_00120FA4	libgcc	rac2ThrowLanding	host	a fragment of __throw (00120F00-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
 func_0012118C	libgcc	rac2RethrowLanding	host	a fragment of __rethrow (001210E0-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
 func_00130004	mpeg	rac2DecodeFrameTail	host	a fragment of func_0012FEC0 (its epilogue), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_L14_003F9660	moby	Moby_PrisonWrench_Init	hook	Initializes the Aranos prison wrench pickup.
