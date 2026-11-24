@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[39];
+static const openrac_script_point k_points[40];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -464,8 +464,9 @@ S19_POINT(Arena_Prize, 35) /* rac2.arena.prize */
 S13_POINT(ArmorVendor_BuildList, 36) /* rac2.armor_vendor.build_list */
 S20_POINT(ArmorVendor_Buy, 37) /* rac2.armor_vendor.buy */
 S13_POINT(Vendor_Preview, 38) /* rac2.vendor.preview */
+S16_POINT(Moby_EndakoRescue_Update, 39) /* rac2.moby.endako_rescue.update */
 
-static const openrac_script_point k_points[39] = {
+static const openrac_script_point k_points[40] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.combat.post_hit", "void(u32,u32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Moby_PostHit_links, k_Moby_PostHit_thunks, S2_call},
@@ -505,9 +506,11 @@ static const openrac_script_point k_points[39] = {
     {"rac2.armor_vendor.build_list", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_ArmorVendor_BuildList_links, k_ArmorVendor_BuildList_thunks, S13_call},
     {"rac2.armor_vendor.buy", "void(u32,u32)", 2, k_S20_kinds, k_S20_names, OPENRAC_SV_VOID, k_ArmorVendor_Buy_links, k_ArmorVendor_Buy_thunks, S20_call},
     {"rac2.vendor.preview", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Vendor_Preview_links, k_Vendor_Preview_thunks, S13_call},
+    {"rac2.moby.endako_rescue.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_EndakoRescue_Update_links, k_Moby_EndakoRescue_Update_thunks, S16_call},
 };
 
-static const openrac_script_alias k_aliases[158] = {
+static const openrac_script_alias k_aliases[162] = {
+    {"APRac2_EndakoRescue", "rac2.moby.endako_rescue.update"},
     {"Arena_Prize", "rac2.arena.prize"},
     {"ArmorVendor_BuildList", "rac2.armor_vendor.build_list"},
     {"ArmorVendor_Buy", "rac2.armor_vendor.buy"},
@@ -526,6 +529,7 @@ static const openrac_script_alias k_aliases[158] = {
     {"Moby_BoxBreakerPickup_Update", "rac2.moby.box_breaker_pickup.update"},
     {"Moby_ChargeBootsRider_Update", "rac2.moby.charge_boots_rider.update"},
     {"Moby_DynamoPickup_Update", "rac2.moby.dynamo_pickup.update"},
+    {"Moby_EndakoRescue_Update", "rac2.moby.endako_rescue.update"},
     {"Moby_GetHitMessage", "rac2.combat.get_hit"},
     {"Moby_GliderPickup_Update", "rac2.moby.glider_pickup.update"},
     {"Moby_HypnomaticMaker_Update", "rac2.moby.hypnomatic_maker.update"},
@@ -639,6 +643,8 @@ static const openrac_script_alias k_aliases[158] = {
     {"func_L02_003FCDF8", "rac2.arena.prize"},
     {"func_L02_003FE398", "rac2.arena.prize"},
     {"func_L02_00401550", "rac2.arena.prize"},
+    {"func_L03_003D20F8", "rac2.moby.endako_rescue.update"},
+    {"func_L03_003D6298", "rac2.moby.endako_rescue.update"},
     {"func_L03_003F09C0", "rac2.moby.swingshot_area.update"},
     {"func_L03_003F2000", "rac2.moby.swingshot_area.update"},
     {"func_L03_003F5090", "rac2.moby.swingshot_area.update"},
@@ -674,8 +680,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 39, k_points, 0, k_fields, NULL,
-    158, k_aliases,
+    "rac2", 3, k_discs, 40, k_points, 0, k_fields, NULL,
+    162, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

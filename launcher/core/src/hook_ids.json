@@ -733,6 +733,7 @@
    "Moby_BoxBreakerPickup_Update": "rac2.moby.box_breaker_pickup.update",
    "Moby_ChargeBootsRider_Update": "rac2.moby.charge_boots_rider.update",
    "Moby_DynamoPickup_Update": "rac2.moby.dynamo_pickup.update",
+   "Moby_EndakoRescue_Update": "rac2.moby.endako_rescue.update",
    "Moby_GetHitMessage": "rac2.combat.get_hit",
    "Moby_GliderPickup_Update": "rac2.moby.glider_pickup.update",
    "Moby_HypnomaticMaker_Update": "rac2.moby.hypnomatic_maker.update",

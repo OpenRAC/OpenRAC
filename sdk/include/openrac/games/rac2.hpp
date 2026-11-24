@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Updates the Endako rescue sequence that returns Clank and the Swingshot.
+struct Moby_EndakoRescue_Update {
+    static constexpr const char* id = "rac2.moby.endako_rescue.update";
+    static constexpr const char* name = "Moby_EndakoRescue_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -360,6 +368,9 @@ namespace hooks {
         namespace dynamo_pickup {
             using update = rac2::Moby_DynamoPickup_Update;
         }  // namespace dynamo_pickup
+        namespace endako_rescue {
+            using update = rac2::Moby_EndakoRescue_Update;
+        }  // namespace endako_rescue
         namespace glider_pickup {
             using update = rac2::Moby_GliderPickup_Update;
         }  // namespace glider_pickup

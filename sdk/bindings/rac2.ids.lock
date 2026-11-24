@@ -18,6 +18,7 @@ rac2.level.load	ntsc:L00:00303990	Level_Load,func_L00_00303990,func_L00_00304660
 rac2.moby.box_breaker_pickup.update	ntsc:L01:00416440	Moby_BoxBreakerPickup_Update,func_L01_00416440,func_L01_004179C0,func_L01_0041B900
 rac2.moby.charge_boots_rider.update	ntsc:L11:003F8510	Moby_ChargeBootsRider_Update,func_L11_003F8510,func_L11_003F9A50,func_L11_003FCA30
 rac2.moby.dynamo_pickup.update	ntsc:L01:003CEDA0	Moby_DynamoPickup_Update,func_L01_003CEDA0,func_L01_003D01F8,func_L01_003D2EF0
+rac2.moby.endako_rescue.update	ntsc:L03:003D20F8	APRac2_EndakoRescue,Moby_EndakoRescue_Update,func_L03_003D20F8,func_L03_003D6298
 rac2.moby.glider_pickup.update	ntsc:L08:0040E9B8	Moby_GliderPickup_Update,func_L08_0040E9B8,func_L08_0040FF80,func_L08_004137E8
 rac2.moby.hypnomatic_maker.update	ntsc:L18:00440718	Moby_HypnomaticMaker_Update,func_L18_00440718,func_L18_00441C08,func_L18_00445BB0
 rac2.moby.levitator_seller.update	ntsc:L11:004618C0	Moby_LevitatorSeller_Update,func_L11_004618C0,func_L11_00463368,func_L11_004676D0
