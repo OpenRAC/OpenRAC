@@ -128,6 +128,12 @@ struct Kept {
     renderer::FrameRecording recording;
     std::vector<renderer::FrameSplice> splices;
     std::size_t splices_before_world = 0;
+    // The split-screen views whose worlds the game drew last (FrameRecorder::latest's, through
+    // renderer::world_views), drawn by frontend/split_views.cpp: not `recording`'s, which is the
+    // one the 2D path's list was built with and can be older, and whose views carry the scheduled
+    // post effects. `views_serial`: their recording's serial (0: none).
+    std::vector<renderer::FrameView> views;
+    std::uint64_t views_serial = 0;
     // The mods' heat haze (interface 1.12): each patch's place (x, y, z), radius and strength.
     std::vector<std::array<float, 5>> haze;
 
@@ -262,6 +268,10 @@ struct SceneRenderState {
         renderer::FrameBuffer picture;
         renderer::FrameView layout;  // Source rectangle and screen size of the retained picture.
         bool held = false;
+        // The recording whose world the picture holds, and the one whose scheduled post effects
+        // have run on it (renderer::pair_view_effects); 0 for none.
+        std::uint64_t world = 0;
+        std::uint64_t effects = 0;
     };
 
     std::array<SplitView, renderer::kFrameViews> split_views;

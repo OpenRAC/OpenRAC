@@ -396,6 +396,12 @@ void view_camera(std::span<const std::uint8_t> ram) {
     g->recorder.view_camera(camera);
 }
 
+void view_layers(unsigned layers) {
+    if (g) {
+        g->recorder.view_layers(layers);
+    }
+}
+
 void view_end() {
     if (g) {
         g->recorder.view_end();

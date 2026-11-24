@@ -98,8 +98,17 @@ full-screen frame: the kept views are forgotten. Temporal reconstruction and the
 which follow one camera's history, are off while views are drawn. rac3's maps 50 to 53 (NTSC-U's 54
 and 55 too) do this from their view layout (`host/mp_maps.c`).
 
-Each view keeps its own `World` layer mask. Layout calls without a world draw do not replace a
-picture. Alternating views retain their pictures only while their screen-relative rectangles remain
+The worlds a tick draws are those of the recording closed last (`FrameRecorder::latest`, through
+`world_views`), not of the one its 2D path matched. rac3's maps send each player's view in a display
+list of its own with no vertical blank between them, so each send ends a tick
+(`openrac_game_dma_send`): each capture closes one player's view while the list it walks is the one
+sent before, built with the recording before. A tick with nothing recorded keeps the latest
+recording's views. Their post effects are not taken from there (3.2).
+
+Each view keeps its own layer mask: its `World` calls' and the layers the game says it draws
+(`openrac_game_draw`) while the view is open, so a game whose only `World` call is at its terrain
+(rac3's) still gets its sky, ties, shrubs and mobys in each view. Layout calls without a world draw
+do not replace a picture. Alternating views retain their pictures only while their screen-relative rectangles remain
 compatible: a resized player rectangle or an overlap with another player's old rectangle forgets the
 old layout before any new view is drawn. Non-finite and inverted view rectangles are rejected.
 
@@ -107,14 +116,23 @@ old layout before any new view is drawn. Non-finite and inverted view rectangles
 
 Every command captures its owner as an index in that recording's `views`, or no owner. Ownership
 does not depend on finding a transitional `ViewBegin` tag in the submitted chain. After anchor
-placement, `resolve_views` rebuilds each view's layers from reachable `World` commands only. A cut
-list refreshes no unreachable view. A fully cut split-world recording retains the split compositor
-and old pictures rather than drawing a speculative new full-screen world.
+placement, `resolve_views` rebuilds the submitted recording's views from its reachable `World`
+commands only. When that recording is also the latest, a cut list refreshes no unreachable view
+(`world_views` takes its `has_world`); a list walked a send behind proves nothing about the latest
+recording's worlds, which the game drew with their cameras, so they refresh. A fully cut
+split-world recording retains the split compositor and old pictures rather than drawing a
+speculative new full-screen world.
 
-Terminal native `ScreenEffect` commands outside explicit panels are scheduled on their owning
-view's framebuffer, in order, before its picture is composited. Payloads and camera values belong
-to the immutable tick. The main 2D executor keeps those commands for diagnostics but does not run
-them a second time. Explicit-panel and unscoped effects retain their original ordered execution.
+Terminal native `ScreenEffect` commands outside explicit panels are scheduled from the submitted
+chain alone on their owning view's framebuffer, in order, before its picture is composited.
+Payloads and camera values belong to the immutable tick. They run only while that picture holds
+the world of the effect's own recording, and once (`pair_view_effects`, `SplitView::world` and
+`effects`). With rac3's maps the submitted recording is a send behind the latest, so a player's
+effects reach its picture a tick after its world (the tick it is redrawn shows it without them),
+and the player whose list the window never walks gets none. An effect that cannot pair is
+reported (`split screen:` warning) and runs nowhere. The main 2D executor keeps those commands for
+diagnostics but never runs them. Explicit-panel and unscoped effects retain their original
+ordered execution.
 
 The supported path is deliberately narrow: a submitted world, then its native world post effects,
 then whole-screen native 2D. An orphan effect, native 2D before a view effect, later world drawing,
@@ -305,7 +323,9 @@ picture through `snapshot_world` plus `picture`. Runtime and per-view integratio
 ## 9. Tests
 
 - `frame_record_test`: a recorded frame ordered without any DMA data; the game's screen stamped on
-  the commands after it; split-screen views kept in order with their rectangles and first cameras; anchors matched against a
+  the commands after it; split-screen views kept in order with their rectangles, first cameras and the layers drawn in
+  them, the staggered two-player layout kept whole, and the latest recording's views when the list
+  matches an older recording; anchors matched against a
   chain's tags and spliced in order (late list, resent list, missing anchor); recordings kept and
   chosen as the window does.
 - `frame_anchor_test`: C-contract cursor reads with synthetic addresses: direct and aliased RAM,

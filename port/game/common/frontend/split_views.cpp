@@ -115,11 +115,52 @@ void render_view(SceneFrame& frame, const renderer::FrameView& v, renderer::Fram
     for (const auto& [bucket, enabled] : kept) {
         bucket->enabled = enabled;
     }
+}
 
-    // Each validated post pass copies and writes only this view's target, before any composition.
-    for (const std::uint32_t index : v.screen_effects) {
-        owner.split_screen_effects
-            .apply(frame.scene.recording.screen_effects.at(index), target, picture.resolved());
+// Runs the submitted recording's scheduled post effects of each view on that player's picture,
+// before any composition, only while the picture holds that same recording's world and once
+// (renderer::pair_view_effects). The worlds come from the recording closed last and the submitted
+// one can be a send behind (Up Your Arsenal's split-screen maps): a player's effects then reach its
+// picture a tick after its world, and a picture since redrawn from another recording never takes
+// them. Either way the main 2D path skips them (FrameCommand::view_effect_prepared).
+void apply_view_effects(SceneFrame& frame) {
+    SceneRenderState& owner = frame.owner;
+    const renderer::FrameRecording& submitted = frame.scene.recording;
+    for (const renderer::FrameView& v : submitted.views) {
+        if (v.screen_effects.empty() || !v.valid()) {
+            continue;
+        }
+        SceneRenderState::SplitView& kept = owner.split_views[v.view];
+        const std::uint64_t world = kept.held ? kept.world : 0;
+        const renderer::ViewEffectPairing pairing =
+            renderer::pair_view_effects(submitted.serial, world, kept.effects);
+        if (pairing == renderer::ViewEffectPairing::Applied) {
+            continue;
+        }
+        // Not run over another recording's world nor the composite: reported, never guessed.
+        if (pairing == renderer::ViewEffectPairing::Unpaired) {
+            static log::Capped told(4);
+            if (told()) {
+                log::warn(
+                    "split screen: view {}: {} post effect(s) of recording {} not run: its picture "
+                    "holds recording {}'s world",
+                    v.view,
+                    v.screen_effects.size(),
+                    submitted.serial,
+                    world
+                );
+            }
+            continue;
+        }
+        renderer::FrameBuffer& picture = kept.picture;
+        renderer::RenderTarget target{picture.id(), picture.width(), picture.height(), 1.0f};
+        target.depth_texture = picture.depth_texture();
+        // Each validated post pass copies and writes only this view's target.
+        for (const std::uint32_t index : v.screen_effects) {
+            owner.split_screen_effects
+                .apply(submitted.screen_effects.at(index), target, picture.resolved());
+        }
+        kept.effects = submitted.serial;
     }
 }
 
@@ -170,7 +211,12 @@ void require_effect_context(const SceneFrame& frame) {
 }  // namespace
 
 bool split_screen(const Kept& scene) {
-    return scene.recording.has_split_world();
+    // The latest recording's worlds, or a submitted split recording whose cut list refreshed none
+    // of them: the retained pictures stay rather than a new full-screen world.
+    return scene.recording.has_split_world()
+           || std::any_of(scene.views.begin(), scene.views.end(), [](const auto& v) {
+                  return v.has_world;
+              });
 }
 
 void draw_split_views(SceneFrame& frame) {
@@ -188,10 +234,10 @@ void draw_split_views(SceneFrame& frame) {
     const int height = frame.output.height;
     const bool sampleable = owner.enhanced_graphics_available() && frame.graphics.enhanced_graphics;
 
-    forget_changed_layout(owner, frame.scene.recording.views);
+    forget_changed_layout(owner, frame.scene.views);
 
     // Only a recorded world refreshes a player's retained picture.
-    for (const renderer::FrameView& v : frame.scene.recording.views) {
+    for (const renderer::FrameView& v : frame.scene.views) {
         // Layout-only calls and malformed coordinates do not describe a drawable view.
         if (!v.valid() || !v.has_world) {
             continue;
@@ -221,7 +267,11 @@ void draw_split_views(SceneFrame& frame) {
         }
         render_view(frame, v, picture);
         kept.held = true;
+        // A fresh world of the latest recording: none of its post effects has run on it yet.
+        kept.world = frame.scene.views_serial;
+        kept.effects = 0;
     }
+    apply_view_effects(frame);
     // The frame's own scenery choice again, for what else reads it this frame.
     owner.scene.choose_scenery(
         frame.graphics.draw_distance_scale(),

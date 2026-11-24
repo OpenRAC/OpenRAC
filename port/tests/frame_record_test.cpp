@@ -933,6 +933,160 @@ void test_depth_fill_command() {
     CHECK(plain.depth_bits == 0 && !plain.depth.enabled && !plain.depth_write);
 }
 
+// Up Your Arsenal's split-screen maps record one World call a view, at its terrain; the sky before
+// it and the ties, shrubs and mobys after it are named only by openrac_game_draw. Those are the
+// open view's layers too, or the player's picture would hold terrain alone (no sky, no player).
+void test_view_drawn_layers() {
+    FrameRecorder recorder;
+    recorder.view_layers(16);  // No view open: nobody's.
+    recorder.view_begin(0, {0.0f, 0.0f, 341.0f, 224.0f});
+    recorder.view_layers(1);
+    recorder.push(op(FrameOp::World, 2));
+    recorder.view_layers(2 | 4 | 8 | 16);
+    recorder.view_begin(1, {170.0f, 224.0f, 512.0f, 448.0f});
+    recorder.view_layers(16);  // A layout's own draws: still no World call.
+    recorder.view_end();
+    recorder.view_layers(4);  // After the views: the screen's, nobody's.
+    const auto& views = recorder.open().views;
+    CHECK(views.size() == 2);
+    if (views.size() == 2) {
+        CHECK(views[0].has_world && views[0].layers == 0x1Fu);
+        CHECK(!views[1].has_world && views[1].layers == 16u);
+    }
+}
+
+// Up Your Arsenal's two-player layout is staggered: player 0 top left and player 1 bottom right,
+// each two thirds of the screen wide. They share x 170 to 341 and touch at y 224 (208 on NTSC-U's
+// 416-line screen) without overlapping, so both players' pictures stay in one layout.
+void test_staggered_views() {
+    FrameView upper;
+    upper.view = 0;
+    upper.rect = {0.0f, 0.0f, 341.0f, 224.0f};
+    FrameView lower;
+    lower.view = 1;
+    lower.rect = {170.0f, 224.0f, 512.0f, 448.0f};
+    CHECK(upper.compatible_with(lower) && lower.compatible_with(upper));
+    upper.rect[3] = lower.rect[1] = 208.0f;
+    lower.rect[3] = upper.screen_height = lower.screen_height = 416.0f;
+    CHECK(upper.compatible_with(lower) && lower.compatible_with(upper));
+}
+
+// The same maps send each player's view in a display list of its own with no vertical blank
+// between them, so every send ends a tick: each capture closes one player's view while the list
+// it walks is the other player's, sent before and built with the recording before. That list
+// matches the older recording; the views a tick draws are the latest recording's. A capture with
+// nothing recorded keeps the latest.
+void test_latest_views() {
+    FrameRecorder recorder;
+    CHECK(recorder.latest() == nullptr);
+    recorder.view_begin(0, {0.0f, 0.0f, 341.0f, 224.0f});
+    recorder.set_anchor(0x0068F1A0u);
+    recorder.push(op(FrameOp::World, 2));
+    recorder.close();  // Player 0's view, into list B.
+    recorder.view_begin(1, {170.0f, 224.0f, 512.0f, 448.0f});
+    recorder.set_anchor(0x0056F1A0u);
+    recorder.push(op(FrameOp::World, 2));
+    recorder.close();  // Player 1's view, into list A, while the window walks list B.
+    const std::vector<std::uint32_t> list_b = {0x0068F000u, 0x0068F1A0u};
+    const FrameRecording* matched = recorder.match(list_b);
+    const FrameRecording* latest = recorder.latest();
+    CHECK(matched != nullptr && latest != nullptr && matched != latest);
+    if (matched != nullptr && latest != nullptr && matched->views.size() == 1
+        && latest->views.size() == 1) {
+        CHECK(matched->views[0].view == 0);
+        CHECK(latest->views[0].view == 1 && latest->views[0].has_world);
+        CHECK(latest->serial == recorder.latest_serial());
+    }
+    recorder.close();  // Nothing recorded since.
+    CHECK(recorder.latest() == latest);
+    recorder.reset();
+    CHECK(recorder.latest() == nullptr);
+}
+
+// Up Your Arsenal's cycle with the effects path: the list walked is the one sent before, so the
+// submitted recording schedules player 0's glow while the latest recording holds player 1's world.
+// The world pictures take the latest views, with every layer drawn in them and no post effect;
+// the glow runs only on the picture of its own recording's world, and once.
+void test_latest_worlds_beside_submitted_effects() {
+    FrameRecorder recorder;
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    recorder.set_anchor(0x0068F1A0u);
+    recorder.view_begin(0, {0.0f, 0.0f, 341.0f, 224.0f});
+    recorder.view_layers(1);
+    recorder.push(op(FrameOp::World, 2));
+    recorder.view_layers(4 | 8 | 16);
+    recorder.push_screen_effect(glow);
+    recorder.close();  // Player 0's view and glow, into list B.
+    recorder.set_anchor(0x0056F1A0u);
+    recorder.view_begin(1, {170.0f, 224.0f, 512.0f, 448.0f});
+    recorder.view_layers(1);
+    recorder.push(op(FrameOp::World, 2));
+    recorder.view_layers(4 | 8 | 16);
+    recorder.close();  // Player 1's view, into list A, while the window walks list B.
+    const std::uint32_t list_b[]{0x0068F000u, 0x0068F1A0u};
+    const FrameRecording* matched = recorder.match(list_b);
+    const FrameRecording* latest = recorder.latest();
+    CHECK(matched != nullptr && latest != nullptr && matched != latest);
+    if (matched == nullptr || latest == nullptr) {
+        return;
+    }
+    FrameRecording submitted = *matched;
+    CHECK(submitted.resolve_views(submitted_commands(submitted, list_b)));
+    CHECK(submitted.views.size() == 1 && submitted.views[0].layers == 2u);
+    CHECK((submitted.views[0].screen_effects == std::vector<std::uint32_t>{0}));
+    CHECK(submitted.commands[2].op == FrameOp::ScreenEffect);
+    CHECK(submitted.commands[2].view_effect_prepared);
+    const std::vector<FrameView> worlds = world_views(*latest, submitted);
+    CHECK(worlds.size() == 1);
+    if (worlds.size() == 1) {
+        CHECK(worlds[0].view == 1 && worlds[0].has_world && worlds[0].layers == 0x1Fu);
+        CHECK(worlds[0].screen_effects.empty());
+    }
+    // Player 0's picture holds the submitted recording's world, drawn a tick before: once.
+    CHECK(pair_view_effects(submitted.serial, matched->serial, 0) == ViewEffectPairing::Apply);
+    CHECK(
+        pair_view_effects(submitted.serial, matched->serial, submitted.serial)
+        == ViewEffectPairing::Applied
+    );
+    // Redrawn from a newer recording, or not held: never another recording's effect.
+    CHECK(pair_view_effects(submitted.serial, latest->serial, 0) == ViewEffectPairing::Unpaired);
+    CHECK(pair_view_effects(submitted.serial, 0, 0) == ViewEffectPairing::Unpaired);
+    CHECK(pair_view_effects(0, 0, 0) == ViewEffectPairing::Unpaired);
+}
+
+// The latest recording resolved against its own list: a view refreshes only where its World was
+// reached, with every layer drawn in it (its resolved views keep the reached World's alone). With
+// no list matched, nothing disproves the latest worlds.
+void test_world_views_of_the_submitted_recording() {
+    FrameRecorder recorder;
+    recorder.set_anchor(0x1000);
+    recorder.view_begin(0, {0.0f, 0.0f, 341.0f, 224.0f});
+    recorder.view_layers(1);
+    recorder.push(op(FrameOp::World, 2));
+    recorder.view_layers(16);
+    recorder.set_anchor(0x2000);  // Cut: the second player's world is not reached.
+    recorder.view_begin(1, {170.0f, 224.0f, 512.0f, 448.0f});
+    recorder.push(op(FrameOp::World, 2));
+    recorder.close();
+    const FrameRecording* latest = recorder.latest();
+    CHECK(latest != nullptr);
+    if (latest == nullptr) {
+        return;
+    }
+    FrameRecording submitted = *latest;
+    const std::uint32_t tags[]{0x1000};
+    CHECK(submitted.resolve_views(submitted_commands(submitted, tags)));
+    const std::vector<FrameView> worlds = world_views(*latest, submitted);
+    CHECK(worlds.size() == 2);
+    if (worlds.size() == 2) {
+        CHECK(worlds[0].has_world && worlds[0].layers == (1u | 2u | 16u));
+        CHECK(!worlds[1].has_world);
+    }
+    const std::vector<FrameView> unproved = world_views(*latest, FrameRecording{});
+    CHECK(unproved.size() == 2 && unproved[1].has_world);
+}
+
 }  // namespace
 
 int main() {
@@ -967,5 +1121,10 @@ int main() {
     test_owned_identical_tag_layout_is_a_new_generation();
     test_owned_empty_build_blocks_standalone_fallback();
     test_depth_fill_command();
+    test_view_drawn_layers();
+    test_staggered_views();
+    test_latest_views();
+    test_latest_worlds_beside_submitted_effects();
+    test_world_views_of_the_submitted_recording();
     return openrac::test::result();
 }

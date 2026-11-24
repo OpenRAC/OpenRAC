@@ -191,6 +191,36 @@ Result<void> FrameRecording::resolve_views(std::span<const FrameSplice> submitte
     return {};
 }
 
+std::vector<FrameView> world_views(const FrameRecording& latest, const FrameRecording& submitted) {
+    std::vector<FrameView> views = latest.views;
+    // Reachability is proved only against the list this recording was built for.
+    const bool same = submitted.serial != 0 && submitted.serial == latest.serial
+                      && submitted.views.size() == views.size();
+
+    for (std::size_t n = 0; n < views.size(); ++n) {
+        // Post effects run only as the submitted chain scheduled them, on their own world.
+        views[n].screen_effects.clear();
+
+        // A cut list of this very recording refreshes no unreached view.
+        if (same) {
+            views[n].has_world = submitted.views[n].has_world;
+        }
+    }
+
+    return views;
+}
+
+ViewEffectPairing pair_view_effects(
+    std::uint64_t submitted, std::uint64_t world, std::uint64_t applied
+) {
+    // Serial 0 is no recording: neither an effect's source nor a picture's world.
+    if (submitted == 0 || world != submitted) {
+        return ViewEffectPairing::Unpaired;
+    }
+
+    return applied == submitted ? ViewEffectPairing::Applied : ViewEffectPairing::Apply;
+}
+
 bool FrameView::valid() const {
     return view < kFrameViews && std::isfinite(screen_width) && std::isfinite(screen_height)
            && screen_width >= 1.0f && screen_height >= 1.0f
@@ -479,6 +509,13 @@ void FrameRecorder::view_camera(const FrameViewCamera& camera) {
     }
 }
 
+void FrameRecorder::view_layers(std::uint32_t layers) {
+    // What the game draws while a view is open is that player's world, whichever pass names it.
+    if (m_view_open && !m_open.views.empty()) {
+        m_open.views.back().layers |= layers;
+    }
+}
+
 void FrameRecorder::view_end() {
     if (!m_view_open) {
         return;
@@ -630,6 +667,13 @@ const FrameRecording* FrameRecorder::latest_unanchored() const {
         }
     }
     return best;
+}
+
+const FrameRecording* FrameRecorder::latest() const {
+    const auto found = std::find_if(m_kept.begin(), m_kept.end(), [this](const FrameRecording& r) {
+        return r.serial != 0 && r.serial == m_serial;
+    });
+    return found != m_kept.end() ? &*found : nullptr;
 }
 
 void FrameRecorder::reset() {

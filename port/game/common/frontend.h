@@ -144,6 +144,8 @@ void screen(float width, float height);
 void view_begin(int view, const openrac_frame_viewport& rect);
 // With a view open: its camera, read from `ram` (the game's profile) where its world is recorded.
 void view_camera(std::span<const std::uint8_t> ram);
+// With a view open: layers the game draws in it (openrac_game_draw's).
+void view_layers(unsigned layers);
 void view_end();
 // A command that only places what follows (renderer::FrameOp's transitional placements: WorldShrubs,
 // EffectParent, HudSide, Wide, PictureBand, LastFrame).

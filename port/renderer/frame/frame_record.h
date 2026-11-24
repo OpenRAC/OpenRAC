@@ -143,7 +143,10 @@ struct FrameView {
     float screen_width = 512.0f, screen_height = 448.0f;
     FrameViewCamera camera;
     bool has_camera = false;
-    // The World calls in this view, separate from other players' layer masks.
+    // The layers drawn in this view (OPENRAC_DRAW_*, one bit a Bucket): its World calls' and those
+    // the game said it drew while the view was open (openrac_game_draw), separate from other
+    // players' layer masks. resolve_views rebuilds a submitted recording's from its reached World
+    // commands alone; the world pictures take the latest recording's (world_views).
     std::uint32_t layers = 0;
     // Layout setup without a World call must not replace a full-screen frame with cached views.
     bool has_world = false;
@@ -220,6 +223,25 @@ struct FrameRecording {
     [[nodiscard]] Result<void> validate_view_effect_context(FrameViewContext context) const;
 };
 
+// The views whose worlds a tick refreshes (Kept::views): `latest`'s, the recording closed last,
+// whether or not its own list is the one walked, with no post effect (those are scheduled from the
+// submitted chain alone, resolve_views). When `submitted` is that same recording, resolved against
+// the commands its list reached, a view refreshes only where its World was reached; a list walked
+// a send behind (Up Your Arsenal's split-screen maps) proves nothing about the latest worlds.
+std::vector<FrameView> world_views(const FrameRecording& latest, const FrameRecording& submitted);
+
+// Whether the submitted recording's scheduled post effects of one view run on that player's
+// retained picture (frontend/split_views.cpp): `submitted` the recording's serial, `world` the one
+// whose world the picture holds (0: none), `applied` the one whose effects already ran on it.
+enum class ViewEffectPairing : std::uint8_t {
+    Apply,     // the picture holds that recording's world and has not had its effects
+    Applied,   // they already ran on it (the list sent again, the frame drawn again)
+    Unpaired,  // another recording's world, or none: they run nowhere (the 2D path skips them)
+};
+ViewEffectPairing pair_view_effects(
+    std::uint64_t submitted, std::uint64_t world, std::uint64_t applied
+);
+
 // Where a command of a recording goes: before byte `offset` of the window's 2D stream.
 struct FrameSplice {
     std::size_t offset = 0;
@@ -244,9 +266,11 @@ public:
     std::array<float, 2> screen() const { return m_screen; }
 
     // Split screen: view `view` starts (ending an open one); the open view's camera (the first
-    // given is kept: the one its world was drawn with); the open view ends.
+    // given is kept: the one its world was drawn with); layers the game draws in the open view (its
+    // sky, ties, shrubs and mobys, which need no World call of their own); the open view ends.
     void view_begin(std::uint32_t view, const std::array<float, 4>& rect);
     void view_camera(const FrameViewCamera& camera);
+    void view_layers(std::uint32_t layers);
     void view_end();
 
     bool view_open() const { return m_view_open; }
@@ -278,6 +302,12 @@ public:
 
     // The most recent kept recording with no anchors (a frame with no display list at all), or null.
     const FrameRecording* latest_unanchored() const;
+
+    // The recording closed last (latest_serial()), anchored or not and whichever a list matches, or
+    // null. Its views hold the split-screen worlds the game drew last (world_views): a game that
+    // sends each player's view in a display list of its own closes one view a capture, while the
+    // list that capture walks is the one sent before, built with an older recording.
+    const FrameRecording* latest() const;
 
     // The serial of the recording closed last (0 before any).
     std::uint64_t latest_serial() const { return m_serial; }
