@@ -479,12 +479,6 @@
       "func_L39_00670488": "float (int, int, int, int, int, int)",
       "func_L39_005C2050": "int (void)"
     },
-    "vu0_programs": {
-      "0xC80": "rac3_vu0_rotation_rows",
-      "0xDA0": "rac3_vu0_cosine",
-      "0xDB0": "rac3_vu0_sine",
-      "0xE98": "rac3_vu0_quaternion_rows"
-    },
     "trap_ends": true,
     "copy_signatures": {
       "func_L40_003C6F78": "int (int, int)",
