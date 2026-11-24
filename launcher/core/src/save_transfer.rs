@@ -1076,8 +1076,8 @@ mod tests {
         let (from, to, file) = (tmp.path().join("a"), tmp.path().join("b"), tmp.path().join("saves.zip"));
         card(&from);
         fs::write(from.join(FOLDER).join("save1.bin.moddata"), b"{\"ng-plus-plus\": \"AAEC\"}").unwrap();
-        // The tiers: the save's clock (save()'s record 4) with the RYNO II at Ultima (2) and the
-        // started mark, another save's line before it.
+        // The tiers: the save's clock (save()'s record 4), legacy RYNO II tier 2 and the
+        // started mark, another save's line before it. Reading maps tier 2 to layout 4's Alpha (4).
         let clock = "0014142300101026";
         let mut tiers = [0u8; 56];
         tiers[44] = 0x82;
@@ -1113,7 +1113,7 @@ mod tests {
         )
         .unwrap();
         assert!(read_back.found);
-        assert_eq!(read_back.fields[0].value, 2, "the RYNO II at Ultima");
+        assert_eq!(read_back.fields[0].value, 4, "the legacy RYNO II tier reads as layout 4 Alpha");
 
         // Exported again from there: the same records.
         let again = tmp.path().join("again.zip");
@@ -1144,7 +1144,7 @@ mod tests {
         import_into(&to, PAL, &file, &one, &there).unwrap();
         let merged = fs::read_to_string(there.mod_data.join("ng-plus-plus/tiers.txt")).unwrap();
         // The editor's write also put the layout marker in the file.
-        assert_eq!(merged, format!("2222222222222222 {}\nngpp-tiers 3\n{clock} {record}\n", "01".repeat(56)));
+        assert_eq!(merged, format!("2222222222222222 {}\nngpp-tiers 4\n{clock} {record}\n", "01".repeat(56)));
     }
 
     /// A record in a file is data, never a path: a mod id or file name that would leave the mods'
