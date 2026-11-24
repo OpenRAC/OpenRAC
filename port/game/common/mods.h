@@ -97,15 +97,19 @@ struct BuiltIn {
 };
 
 // What the loader needs of the program.
+// The flag on a joint offset's number that sets the joint's pose (openrac_api.moby_set_joint_poses)
+// rather than composing with it.
+constexpr std::uint32_t kJointPoseSet = 0x80000000u;
+
 struct Host {
     std::string game;             // "rac1"
     std::string version;          // "pal"
     std::string openrac_version;  // build_info::version()
     const HookPoint* hooks = nullptr;
     int hook_count = 0;
-    std::filesystem::path list;  // plugins.json; the mods' folders are beside it
+    std::filesystem::path list;   // plugins.json; the mods' folders are beside it
     std::filesystem::path stack;  // the stacked data packs' stack.json; empty: none in this run
-    bool purist = false;         // --no-mods: nothing is read or loaded
+    bool purist = false;          // --no-mods: nothing is read or loaded
     int (*loaded_level)(void) = nullptr;
     // Where the pad library looks for a callback on each report (game_host.h,
     // openrac_game_pad_report_hook): set when a mod asks for one.
@@ -164,8 +168,9 @@ struct Host {
     int (*sound_set)(std::uint32_t voice, float volume, float pitch) = nullptr;
     void (*sound_stop)(std::uint32_t voice) = nullptr;
     // The hero's joints turned by a mod (interface 1.12, openrac_api.hero_set_joints): the offsets
-    // put on moby `moby`'s pose wherever it is evaluated (count 0: taken off). Null: no drawing (a
-    // test's), and the call says so.
+    // put on moby `moby`'s pose wherever it is evaluated (count 0: taken off). A joint number
+    // with kJointPoseSet (moby_set_joint_poses) sets that joint's turn and place instead of
+    // composing with them. Null: no drawing (a test's), and the call says so.
     void (*joint_offsets)(std::uint32_t moby, const openrac_joint_offset* joints, int count) =
         nullptr;
     // The mods built into this program, and the values of their settings by mod id, as text
@@ -181,6 +186,24 @@ struct Host {
     // game runs; false when nothing changed. Null: never.
     bool (*built_in_reread)(std::map<std::string, std::map<std::string, std::string>>& out) =
         nullptr;
+    // The edited levels' pack the game reads now (interface 1.14, openrac_api.pack_folder; it
+    // changes with the destination played), and the game's language (options_menu::language: 0
+    // English, 1 French, 2 German, 3 Spanish, 4 Italian). Null: none (a test's), and the calls say
+    // so: no pack, English.
+    const char* (*pack_folder)(void) = nullptr;
+    int (*language)(void) = nullptr;
+    // What a cutscene needs: the game's streams of volume group `group` at `gain` (0
+    // to 1, eased; openrac_api.music_volume), and joint `joint` of moby `moby` in the level, as
+    // drawn: its x, y, z axes and its place, 12 floats (1, or 0 for none:
+    // openrac_api.moby_joint_frame). Null: none (a test's), and the calls say so.
+    void (*music_gain)(int group, float gain) = nullptr;
+    int (*joint_frame)(std::uint32_t moby, int joint, float* out) = nullptr;
+    // A mod's motor values for pad `port` (interface 1.37, openrac_api.set_motors), played with
+    // the game's own (openrac_game_set_motors) and held as long; `mod` tells the mods apart (none
+    // played before the window opens). drop_motors forgets a mod's (null: every mod's). Null: no
+    // pads (a test's, or a build without a window), and set_motors says so.
+    void (*motors)(const void* mod, int port, bool small_motor, std::uint8_t large_motor) = nullptr;
+    void (*drop_motors)(const void* mod) = nullptr;
 };
 
 // A built-in mod's setting (BuiltIn), for the port's own menu: its manifest entry and value, or
@@ -227,6 +250,7 @@ void unload();
 // The mods' frame callbacks, after each game tick.
 extern bool g_frame_callbacks;
 void run_frame_callbacks();
+
 inline void frame() {
     if (g_frame_callbacks) {
         run_frame_callbacks();
@@ -246,6 +270,8 @@ void set_developer_menu_value(openrac_mod* mod, std::uint32_t action, int value)
 
 // How many mods are loaded.
 int loaded_count();
+// Whether the mod `id` is loaded (on, and its load went through).
+bool loaded(std::string_view id);
 // The table the mods are given, for the tests' direct calls.
 const openrac_api& api_for_tests();
 
@@ -287,6 +313,11 @@ struct PropDraw {
     // Its joint matrices (interface 1.33, openrac_api.prop_set_skin): 16 floats each, column-major,
     // the mesh's bind-pose vertex to where the joint puts it; null for a prop in its bind pose.
     std::shared_ptr<const std::vector<std::array<float, 16>>> skin;
+    // Its .glb's animation to draw it in (-1: the mesh as stored), the time into it, looped
+    // (openrac_api.prop_animate).
+    int animation = -1;
+    float seconds = 0.0f;
+    bool loop = false;
 };
 
 // The props shown in the level now (posed, not hidden, of this level load). From any thread.
@@ -332,6 +363,18 @@ bool moby_platinum(std::uint32_t moby);
 // OPENRAC_MOBY_MATERIAL_NONE when there is none, for the game's own effects of that moby
 // (openrac_moby_obsidian). From the game's thread.
 MobyMaterial moby_material_drawn(std::uint32_t moby);
+
+// A mod's material on every moby of class `oclass` in `scope` (one bit: OPENRAC_MODEL_WORLD or
+// OPENRAC_MODEL_MENU; openrac_api.moby_material_class, interface 1.34); `material.moby` is 0.
+struct ClassMaterialDraw {
+    int oclass = -1;
+    std::uint32_t scope = 0;
+    MobyMaterial material;
+};
+
+// The mods' materials on classes this level load, one for each class and scope (the last set).
+// From any thread.
+std::vector<ClassMaterialDraw> class_materials();
 
 // The energy materials (OPENRAC_MOBY_MATERIAL_ENERGY, interface 1.25) drawn this level load, by
 // moby: the last material set on each, where it is energy. For the effects those mobys make
@@ -389,6 +432,42 @@ std::vector<HazeDraw> haze_drawn();
 // The lines of text the mods show in the game's HUD this level load (openrac_hud_text), every
 // mod's, in the order they set them. From any thread.
 std::vector<openrac_hud_text> hud_texts();
+
+// The vertical field of view a mod's camera asks for this level load, in degrees (openrac_api
+// camera_fov), 0 for the game's own. Read by the window's thread.
+float camera_fov();
+
+// Whether a mod hides the game's own HUD this level load (openrac_api.hud_hide).
+bool hud_hidden();
+
+// Whether a loaded mod drives the pads' motors: it has made a set_motors call the port took (0, 0
+// counts, so a mod can say so at load), until its unload or the mods' reset. The menu shows the
+// vibration settings then, in a game without rumble of its own too. From any thread.
+bool any_mod_motors();
+
+// What the mods set the menu's option `name` to (openrac_api.menu_option_set): an
+// OPENRAC_MENU_OPTION_* state, DEFAULT when none did. From any thread.
+int menu_option(std::string_view name);
+
+// The same, with the name of the mod that set it (empty for DEFAULT).
+struct MenuOptionState {
+    int state = OPENRAC_MENU_OPTION_DEFAULT;
+    std::string by;
+};
+
+MenuOptionState menu_option_state(std::string_view name);
+
+// The air a mod draws this level load with (openrac_api.scene_air), none for the game's own. From
+// any thread.
+std::optional<openrac_air> scene_air();
+
+// How many times as long a game tick lasts for the mods' slow motion this level load
+// (openrac_api.time_stretch), 1 for the game's speed. From any thread.
+float time_stretch();
+
+// The level's ties the mods hide from the picture this level load (openrac_api.tie_hide), sorted.
+// From any thread.
+std::vector<int> hidden_ties();
 
 // Play (interface 1.8, mod_play.h): the start or travel a mod asked for, done now, on the game's
 // thread after the frame's menus (frontend/frame.cpp, beside the developer menu's start); nothing

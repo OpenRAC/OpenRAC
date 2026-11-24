@@ -6,7 +6,10 @@ export const REPO_URL = "https://github.com/OpenRAC/OpenRAC";
 
 export const DISCORD_URL = "https://discord.gg/Sfd2B54PDG";
 
-export const GODOT_URL = "https://godotengine.org/download";
+/** OpenRAC Editor, the level editor: its repository and its guide. */
+export const EDITOR_REPO_URL = "https://github.com/OpenRAC/OpenRAC-Editor";
+
+export const EDITOR_DOCS_URL = `${EDITOR_REPO_URL}/blob/main/docs/LEVEL_EDITOR.md`;
 
 /** Where players report a crash or a bug. */
 export const ISSUES_URL = "https://github.com/OpenRAC/OpenRAC/issues";

@@ -150,7 +150,7 @@ The game's own heaps are not shown: their headers are not identified yet.
 The live mobys, nearest the hero first, within a radius or all of them:
 address, class number and name, state, mode bits, animation sequence and
 frame, position, distance and update function by name. The names are the
-editor's ([editor/moby_classes.tsv](../../editor/moby_classes.tsv)), built
+editor's ([extractor/moby_classes.tsv](../../extractor/moby_classes.tsv)), built
 into the program.
 
 - A click on a row selects the moby: a ring marks it in the picture and
@@ -396,7 +396,7 @@ same variables, so a new variable gets a row in both.
 | `OPENRAC_PERF_CAPTURE` | `FRAME:SECONDS[:FILE]`, `FRAME:sweep[:FILE]` | A performance capture by script: from that window frame, that many seconds (`sweep`: the graphics settings sweep); the report to `FILE` and the frames beside it as `.jsonl`, else both zipped in `perf/perf_<game>_<time>.zip`. See [PERFORMANCE_CAPTURE.md](PERFORMANCE_CAPTURE.md). | `port/game/common/debug/capture.cpp` |
 | `OPENRAC_TIME_SCALE` | `X` (1/64 to 1) | The game's speed from the start: `0.25` is quarter speed. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_SCROLLING_SHADOWS` | any (set; unset for default) | Experimental Vulkan toroidal static shadow caches for all four sun cascades, with compute depth composition. | `port/scene/level_shadows.cpp` |
-| `OPENRAC_SERVER` | `HOST[:PORT]` | The OpenRAC server (the OpenRAC/Server repository) Up Your Arsenal's online play goes to; `game.openrac.dev:7770` when unset (the launcher sets it). | `port/game/rac3-pal/host/mp_net.c` |
+| `OPENRAC_SERVER` | `HOST[:PORT]` | The OpenRAC hub (the OpenRAC/Server repository) Up Your Arsenal's online play logs in at and takes its city list (the game servers) from; `hub.openrac.dev:7177` when unset (the launcher sets it). A plain game server named here (no hub) is played on directly, without accounts. | `port/game/rac3-pal/host/mp_net.c` |
 | `OPENRAC_SHADER_DIR` | folder | Where a shader reload reads the files, laid out as `port/`; the build's source tree when unset. | `port/game/common/debug/shaders.cpp` |
 | `OPENRAC_SHADER_RELOAD` | `TICK` | Reloads every shader program at that window frame, with the result in the log. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_SCRIPT_BUDGET_MS` | `MS` (a positive number) | The time a script mod may run each time the game calls into it (a hook, a callback, its first run), not counting the game's own code it calls on to; over it, the mod stops ([MODS.md](MODS.md), section 11). Default 2. | `port/game/common/mod_scripts.cpp` |
@@ -491,6 +491,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_ITEMS_DEBUG` | `1` (not `0`) | Prints what the hero and each co-op figure hold, the pieces made, the classes decoded and the shots fired or kept from hitting, on stderr. | `port/game/rac1/host/figure_items.c`, `figure_shots.c` |
 | `OPENRAC_ANIM_TRACE` | any (set) | Prints each co-op figure's animation as it is posed (its seq, blend target, key, next key, time and speed before and after, and what was done: run, blend, blending, snap) on stderr, one `ATRACE F` line each; the multiplayer mod prints the poses it sends, receives and shows beside them. | `port/game/rac1/host/play.c` |
 | `OPENRAC_MOBY_EXTRA` | number | Going Commando: adds that many spare moby slots (at most 1,024) to every level loaded, as a mod's `moby_pool_raise` does; a mod's own request wins. | `port/game/rac2/host/moby_pool.c` |
+| `OPENRAC_PICK_TRACE` | `1`, or `ITEM,...` | Going Commando: prints each target pick that `weapon_ignore_culling` widened and that took an enemy not drawn last frame (`[pick]` lines: the picking moby's class and weapon, the target, its distance, how many of its list were off screen), the Tesla Barrier's arcs to such enemies and the Tesla Claw's held targets kept off screen, on stderr. The items listed (`31,45`; any of 18, 24, 28, 31, 41, 43, 45) are widened as if a mod had asked, for runs without one. | `port/game/rac2/host/weapon_culling.c` |
 | `OPENRAC_PLAY_TRACE` | `WHAT,...` | Going Commando: runs the mods' play calls without a mod and prints what they see on stderr (`PTRACE` lines): each change of the phase, the level and the program loads, and the hero's pose every 120 frames. `figure` makes a co-op figure once the hero plays and poses it as the hero was 30 frames before, 2 units aside; `capture` takes the save 300 frames into play and checks it (and writes it to `OPENRAC_PLAY_TRACE_SAVE` when that names a file); `travel=N` leaves for level N 600 frames into play; `start=FILE` starts that save from the title, `start=N` a new game in level N. `copies` lists each placed enemy with what `moby_copy_check` says of it once a load, `copies=N` makes N copies of each one allowed; `copywatch` prints every 30 frames each copy near the hero and its original, and each death (`PTRACE copy death`, `orig death`); `mobys` prints every 30 frames the moby table's size, the pool's slots alive and free, the bolt pickups and the copies (`mobys,copies` also each copy's place, state and draw flags); `coins` lists the bolt pickups near the hero and `killnear=F` hits every enemy within 25 units from F frames in; `copykill=F` and `origkill=F` hit those copies (originals) hard every 30 frames for 600 frames from F frames into play, to see them die, drop their bolts once and go. | `port/game/rac2/host/play.c` |
 | `OPENRAC_PLAY_TRACE` (rac3) | any, or `travel=N` | Up Your Arsenal: each change of the phase, the level and the program loads, and every 120 frames of play the hero's pose and the level's mobys (their count, the hero's slot, the first placed one, the bolts); `travel=N` leaves for level N 600 frames into play. | `port/game/rac3-pal/host/play.c` |
 | `OPENRAC_PLAY_TRACE_SAVE` | file path | The file `OPENRAC_PLAY_TRACE`'s `capture` writes the save it took to. | `port/game/rac2/host/play.c` |
@@ -536,6 +537,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_RAC3_CHAINS` | N | Up Your Arsenal: the VIF codes of the first N display lists sent to VIF1, and the front end's state words, on stderr. | `port/game/rac3-pal/host/chain_census.c` |
 | `OPENRAC_RAC3_NEXT` | `FRAME:LEVEL` | Up Your Arsenal, a development probe until its menus can be read: at the boot program's FRAME-th display list, writes what a menu's choice does (the front end's exit word and the level to go to), so the game loads that level's program itself, or frontbin for a LEVEL below zero. | `port/game/rac3-pal/host/program.c` |
 | `OPENRAC_RAC3_HERO` | path | Up Your Arsenal: in a level, a line for each frame the hero's state words changed (and every 60th): level mode, state and its type, health, the combo's swing, the held item and gun with their ammunition, bolts, area, deaths, the last checkpoint, the level's progress flags, then the frames in the state, frames off the ground, position and the pad; `-` writes to stderr. | `port/game/rac3-pal/host/hero_log.c` |
+| `OPENRAC_RAC3_MAX_PLAYERS` | `9`-`24` | Up Your Arsenal online play (PAL): the players a game this console hosts takes, past the CREATE page's 8 (the room's per-player tables grow to it, `mp_wide.c`). | `port/game/rac3-pal/host/mp_net.c` |
 | `OPENRAC_RAC3_MENU_LOG` | path | Up Your Arsenal: one line a frame of the front end's state words (mode, boot state, boot screen, the pad's held and pressed buttons) and every string the font printed, with its place; read by the scripted menu walk (`port/game/rac3-pal/menus.py`). | `port/game/rac3-pal/host/menu_log.c` |
 | `OPENRAC_RAC3_MOBYS` | `FRAME,...` | Up Your Arsenal, with `OPENRAC_RAC3_HERO`: at those frames, a line for each live moby within 500 units of the hero, in its log. | `port/game/rac3-pal/host/hero_log.c` |
 | `OPENRAC_RAC3_MP_FIXES_LOG` | any but empty or 0 | Up Your Arsenal multiplayer maps: each stock-bug fix (a gadget moby with no class, kill stealing, dead shooting, the flux light, the net clock's stalls...) the first times it acts, in the log. | `port/game/rac3-pal/host/mp_fixes.c` |
@@ -670,7 +672,7 @@ Vulkan and OpenGL/ES both use it: it is part of the picture, not only a speed-up
 add them to an existing export with:
 
 ```sh
-python editor/occlusion.py <owned-disc.iso> <port-levels-directory>
+python extractor/occlusion.py <owned-disc.iso> <port-levels-directory>
 ```
 
 Terrain mappings check counts/triangle keys for staleness. Ties use placement

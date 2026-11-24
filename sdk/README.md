@@ -9,7 +9,7 @@ tick, read the pad and have its own settings. The design and rules are in
 
 Mods that only change textures, models or levels do not need the SDK. Make
 them with the level editor
-([editor/MODDING.md](https://github.com/OpenRAC/OpenRAC/blob/master/editor/MODDING.md)).
+([extractor/MODDING.md](https://github.com/OpenRAC/OpenRAC/blob/master/extractor/MODDING.md)).
 
 **New to modding? Start with [the guides](docs/README.md).**
 [Getting started](docs/getting-started.md) goes from the template to a mod

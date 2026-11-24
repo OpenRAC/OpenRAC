@@ -1422,39 +1422,76 @@ class Translate(unittest.TestCase):
         self.assertIn("openrac_ps2_sub(", self.last_generated)
         self.assertIn("ps2_float: func_00100000 has no C here to translate", self.last_report["index_problems"])
 
-    def test_volatile_word_stores_go_through_the_dma_hook(self):
-        # asm.dma_stores: the game's host C answers the scratchpad DMA channels' stores
-        # (openrac_ee_sw_dma). Functional C that starts a channel by its registers and polls STR
-        # must reach it too, or the transfer never happens and the poll never ends; a plain
-        # word store, and the volatile store of a game without dma_stores, stay ordinary stores.
+    def test_a_scratchpad_dma_transfer_in_c_is_a_copy(self):
+        # asm.spr_copies: C that writes a scratchpad DMA channel's registers by their constant
+        # addresses has no register page behind it. MADR, QWC and SADR are the function's own
+        # words, and the CHCR store with STR is the copy, over before the next statement, so the
+        # poll of STR reads it done (Going Commando's GS slot allocator, func_002F35B0). A start
+        # in chain mode stops the game (openrac_ee_dma_register). Other volatile words store as usual.
         files = {"a.c": """
-            extern unsigned int D_00200000[3];
-            void kick(void) {
-                volatile unsigned int *chcr = (volatile unsigned int *)&D_00200000[1] + 1;
-                *chcr = 0x100;
-                while (*chcr & 0x100) {
+            extern unsigned int D_00200000[8];
+            extern unsigned int D_00200040[8];
+            void kick(int mode) {
+                *(volatile unsigned int *)0x1000D480 = 0x10;
+                *(volatile unsigned int *)0x1000D410 = (unsigned int)D_00200000;
+                *(volatile unsigned int *)0x1000D420 = 2;
+                *(volatile unsigned int *)0x1000D400 = 0x100 | mode;
+                while (*(volatile unsigned int *)0x1000D400 & 0x100) {
                 }
-                D_00200000[0] = 7;
-                test_print(D_00200000[1]);
+                test_print(*(unsigned int *)0x70000014);
+                test_print(*(unsigned int *)0x7000002C);
+                *(volatile unsigned int *)0x1000D080 = 0x10;
+                *(volatile unsigned int *)0x1000D010 = (unsigned int)D_00200040;
+                *(volatile unsigned int *)0x1000D020 = 2;
+                *(volatile unsigned int *)0x1000D000 = 0x100;
+                while (*(volatile unsigned int *)0x1000D000 & 0x100) {
+                }
+                while (*(volatile unsigned int *)0x1000D020) {
+                }
+                test_print(D_00200040[7]);
+            }
+            static void start(volatile unsigned int *d, unsigned int from, unsigned int to) {
+                d[32] = to;
+                d[4] = from;
+                d[8] = 1;
+                d[0] = 0x100;
+            }
+            void kick_through_a_pointer(void) {
+                start((volatile unsigned int *)0x1000D400, (unsigned int)&D_00200000[4], 0x100);
+                while (*(volatile unsigned int *)0x1000D400 & 0x100) {
+                }
+                test_print(*(unsigned int *)0x70000108);
+            }
+            int test_main(void) {
+                int i;
+                for (i = 0; i < 8; i++) {
+                    D_00200000[i] = 0x100 + i;
+                }
+                kick(0);
+                kick_through_a_pointer();
+                kick(4);
+                return 0;
+            }
+        """}
+        out = self.run_program(files, config={"asm": {"spr_copies": True}})
+        # The test's harness reports the chain start and goes on (the port stops there).
+        self.assertEqual(out, ["257", "263", "263", "262", "dma", "register", "kick", "00000000", "1000D400",
+                               "257", "263", "263"])
+        files_other = {"a.c": """
+            void kick(void) {
+                *(volatile unsigned int *)0x00200420 = 3;
+                *(volatile unsigned int *)0x00200400 = 0x100;
+                test_print(*(volatile unsigned int *)0x00200420 + *(volatile unsigned int *)0x00200400);
             }
             int test_main(void) {
                 kick();
                 return 0;
             }
         """}
-        host = """
-            void openrac_ee_sw_dma(unsigned int a, unsigned long long v) {
-                GREF(unsigned int, a) = (unsigned int)v & ~0x100u;  /* the transfer done at once */
-                GREF(unsigned int, 0x00200004u) = a;
-            }
-        """
-        out = self.run_program(files, config={"asm": {"dma_stores": True}}, host_c=host)
-        self.assertEqual(out, [str(0x00200008)])
-        self.assertEqual(self.last_generated.count("openrac_ee_sw_dma((gaddr)"), 1)
-        files_plain = {"a.c": files["a.c"].replace("while (*chcr & 0x100) {\n                }", "")}
-        out = self.run_program(files_plain, host_c=host)
-        self.assertEqual(out, ["0"])
-        self.assertNotIn("openrac_ee_sw_dma(", self.last_generated)
+        out = self.run_program(files_other, config={"asm": {"spr_copies": True}})
+        self.assertEqual(out, ["259"])
+        self.assertNotIn("openrac_ee_dma_register", self.last_generated)
+        self.assertNotIn("openrac_spr9_madr", self.last_generated)
 
     def test_ps2_float_reaches_the_static_helpers_of_its_candidate(self):
         # A ps2_float function's candidate C is that routine's arithmetic split up: its static
@@ -2591,6 +2628,35 @@ class Places(unittest.TestCase):
             self.assertNotIn("OPENRAC_LDATA(13, 0x0021ED00u)", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_level_files_name_for_an_executable_datum_is_where_the_build_put_it(self):
+        # PAL Todano lifts name the sound slots D_00701818; the level's build put them at
+        # 0x001886E0. Read at the name's number, a lift started its sound again every frame.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "12_x").mkdir(parents=True)
+            (src / "src" / "levels" / "12_x" / "L12_00423C50.c").write_text(
+                "extern unsigned char D_00701818[];\n"
+                "int func_L12_00423D70(int i) { return D_00701818[i * 112 + 0x74]; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L12_00423D70\t12_x\t4\tfingerprint\t1\t12:00423D70\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {},
+                "level_data": {"12": {"D_00701818": "0x001886e0"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7D00, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "12_x" / "L12_00423C50.c").read_text()
+            self.assertIn("0x001886E0u", text)
+            self.assertNotIn("0x00701818u", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_level_datums_second_name_is_its_own_address(self):
         # Going Commando PAL's blast_clear_state clears D_L00_001B060C_1, the Mini-Nuke's blast
         # pointer. The release table leaves it out where it did not move; read as the executable's
@@ -3451,6 +3517,23 @@ class Preparation(unittest.TestCase):
         self.assertEqual(program.canonical("func_002CB038"), "func_L00_002CB038")
         program.executable_starts = {0x002CB038}
         self.assertEqual(program.canonical("func_002CB038"), "func_002CB038")
+
+    def test_another_name_of_a_host_place_calls_the_port_function(self):
+        # rac3-decomp names a function per caller file (func_0011A264_00398288 for memset); with a
+        # libraries.tsv host row at that address the name had no C and was a stub that did nothing.
+        program = hostgen.Program()
+        program.code_names = [re.compile(r"^func_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        program.host = {"func_00100000"}
+        sig = hostgen.Signature
+        program.functions["func_00100000"] = hostgen.Function(
+            "func_00100000", sig(ctype.Base("int"), (ctype.Base("int"), ctype.Base("float")), False, True))
+        alias = hostgen.Function(
+            "func_00100000_00200000", sig(ctype.Base("int"), (ctype.Base("float"), ctype.Base("int")), False, True))
+        program.functions[alias.symbol] = alias
+        program.symbols[alias.symbol] = 0x00100000
+        program.index_places()
+        self.assertEqual(hostgen.host_alias_call(program, alias), "func_00100000((int)a1, (float)a0)")
+        self.assertIsNone(hostgen.host_alias_call(program, program.functions["func_00100000"]))
 
     def test_each_declarator_keeps_its_own_assembler_name(self):
         # Batalia: several names in one extern statement each reach their own symbol, not the first's.
@@ -4822,7 +4905,7 @@ class FromAssembly(unittest.TestCase):
         self.assertEqual(out, ["5"])
 
     def test_a_dma_wait_is_over(self):
-        # bc0f back to itself: the wait for a transfer that has already finished here.
+        # bc0f back to itself: the wait for a scratchpad copy, which is over when it starts.
         source = """
             wait:
                 nop
@@ -4835,9 +4918,190 @@ class FromAssembly(unittest.TestCase):
             INCLUDE_ASM("asm", func_00100000);
             extern int func_00100000(int);
             int test_main(void) { test_print(func_00100000(5)); return 0; }
-        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], dma_done=True)),
+        """}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], spr_copies=True)),
             extra_files={"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source)})
         self.assertEqual(out, ["6"])
+
+    def test_a_kernel_copies_to_the_scratchpad_where_it_starts_the_channel(self):
+        # asm.spr_copies: toSPR's MADR, QWC and SADR are the function's locals, the CHCR store
+        # with STR the copy (openrac_spr_copy), and the poll of STR reads it clear. The registers'
+        # address is built once and kept across a call; SADR wraps round the scratchpad's 16 KB.
+        source = """
+                lui $8, 0x1000
+                ori $8, $8, 0xD400
+                sw $4, 0x10($8)
+                ori $2, $0, 2
+                sw $2, 0x20($8)
+                lui $2, 0x7000
+                ori $2, $2, 0x3FF0
+                jal func_00100100
+                sw $2, 0x80($8)
+                ori $2, $0, 0x100
+                sw $2, 0x0($8)
+            poll:
+                lw $2, 0x0($8)
+                andi $2, $2, 0x100
+                bne $2, $0, poll
+                nop
+                lui $3, 0x7000
+                lw $2, 0x3FF4($3)
+                lw $3, 0x0($3)
+                lw $9, 0x20($8)
+                addu $2, $2, $3
+                jr $31
+                addu $2, $2, $9
+        """
+        out = self.run_asm("""
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            void func_00100100(void) { }
+            extern unsigned int D_00200000[8];
+            int test_main(void) {
+                D_00200000[1] = 30;
+                D_00200000[4] = 12;
+                test_print(func_00100000(0x00200000));
+                return 0;
+            }
+        """, {"func_00100000": (0x00100000, source)}, symbols={"func_00100100": 0x00100100},
+            config={"asm": {**ASM_CONFIG["asm"], "spr_copies": True}})
+        self.assertEqual(out, ["42"])
+        self.assertIn("openrac_spr_copy(1, &spr9_chcr", self.last_generated)
+        self.assertNotIn("0x1000D400", self.last_generated)
+
+    def test_a_kernel_reaches_the_scratchpad_registers_through_a_base_known_when_it_runs(self):
+        # asm.spr_copies: a base that holds toSPR's registers on one path and other memory on the
+        # other (Up Your Arsenal's coll_line keeps 0x1000D400 or a dummy in $t6): its word stores
+        # are tested when they run, the registers' the locals and the copy, the others plain stores.
+        source = """
+                lui $9, 0x1000
+                beq $5, $0, other
+                ori $8, $9, 0xD400
+                beq $0, $0, join
+                nop
+            other:
+                lui $8, 0x0020
+                ori $8, $8, 0x0100
+            join:
+                sw $4, 0x10($8)
+                ori $2, $0, 1
+                sw $2, 0x20($8)
+                lui $2, 0x7000
+                sw $2, 0x80($8)
+                ori $2, $0, 0x100
+                sw $2, 0x0($8)
+            poll:
+                lw $2, 0x0($8)
+                beq $5, $0, done
+                andi $2, $2, 0x100
+                bne $2, $0, poll
+                nop
+                lui $3, 0x7000
+                lw $2, 0x4($3)
+            done:
+                jr $31
+                nop
+        """
+        out = self.run_asm("""
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int, int);
+            extern unsigned int D_00200000[8];
+            extern unsigned int D_00200100[40];
+            int test_main(void) {
+                D_00200000[1] = 30;
+                test_print(func_00100000(0x00200000, 1));
+                test_print(func_00100000(0x00200000, 0));
+                test_print(D_00200100[4]);
+                test_print(D_00200100[32]);
+                return 0;
+            }
+        """, {"func_00100000": (0x00100000, source)}, config={"asm": {**ASM_CONFIG["asm"], "spr_copies": True}})
+        self.assertEqual(out, ["30", "256", "2097152", "1879048192"])
+        self.assertIn("openrac_spr_sw(", self.last_generated)
+
+    def test_a_kernel_reaches_the_scratchpad_registers_after_its_own_subroutine(self):
+        # asm.spr_copies: code after a jal to the function's own subroutine (coll_line's returns
+        # from 0x003FA550) is code the registers' flow does not reach; its stores to them are
+        # tested when they run, so the copy still happens.
+        source = """
+                or $25, $31, $0
+                lui $8, 0x1000
+                jal sub
+                nop
+                ori $8, $8, 0xD400
+                sw $4, 0x10($8)
+                ori $2, $0, 1
+                sw $2, 0x20($8)
+                lui $2, 0x7000
+                sw $2, 0x80($8)
+                ori $2, $0, 0x100
+                sw $2, 0x0($8)
+                lui $3, 0x7000
+                lw $2, 0x8($3)
+                jr $25
+                nop
+            sub:
+                jr $31
+                addu $9, $24, $0
+        """
+        out = self.run_asm("""
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            extern unsigned int D_00200000[8];
+            int test_main(void) {
+                D_00200000[2] = 77;
+                test_print(func_00100000(0x00200000));
+                return 0;
+            }
+        """, {"func_00100000": (0x00100000, source)}, config={"asm": {**ASM_CONFIG["asm"], "spr_copies": True}})
+        self.assertEqual(out, ["77"])
+
+    def test_a_scratchpad_channel_started_from_elsewhere_stops_the_game(self):
+        # A CHCR start whose MADR, QWC or SADR this function did not store on the way: copied from
+        # registers another function wrote, which the copies do not keep; it stops the game.
+        source = """
+                lui $8, 0x1000
+                ori $8, $8, 0xD000
+                ori $2, $0, 0x100
+                sw $2, 0x0($8)
+                jr $31
+                addiu $2, $0, 5
+        """
+        out = self.run_asm("""
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(void);
+            int test_main(void) { test_print(func_00100000()); return 0; }
+        """, {"func_00100000": (0x00100000, source)}, config={"asm": {**ASM_CONFIG["asm"], "spr_copies": True}})
+        self.assertEqual(out, ["dma", "register", "func_00100000", "0010000C", "1000D000", "5"])
+
+    def test_a_trap_that_always_fires_ends_the_path(self):
+        # asm.trap_ends: teq $0, $0 is code the routine cannot reach (Up Your Arsenal's moby grid,
+        # func_003C7D10); what lies below it is another routine's, whose system call would have made
+        # this one a stub.
+        source = """
+                beq $4, $0, trap
+                nop
+                jr $31
+                addiu $2, $4, 1
+            trap:
+                teq $0, $0
+                syscall
+                jr $31
+                nop
+        """
+        c = """
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int);
+            int test_main(void) { test_print(func_00100000(5)); return 0; }
+        """
+        out = self.run_program({"a.c": c}, config=dict(ASM_CONFIG, asm=dict(ASM_CONFIG["asm"], trap_ends=True)),
+                               extra_files={"game/asm/func_00100000.s": assembler.assemble(
+                                   "func_00100000", 0x00100000, source)})
+        self.assertEqual(out, ["6"])
+        self.assertEqual(self.last_report["functions_from_assembly"], 1)
+        self.assertNotIn("syscall", self.last_generated)
+        self.run_program({"a.c": c}, extra_files={"game/asm/func_00100000.s": assembler.assemble(
+            "func_00100000", 0x00100000, source)}, config=ASM_CONFIG)
+        self.assertEqual(self.last_report["assembly_unsupported"], {"func_00100000": "a system call at 00100014"})
 
     def test_a_return_through_a_copy_of_ra(self):
         # A leaf that calls helpers keeps $ra in a temporary and ends with jr on it: a return, not a

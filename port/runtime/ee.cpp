@@ -77,6 +77,16 @@ extern "C" uint32_t openrac_ee_count(void) {
     return static_cast<uint32_t>(static_cast<std::uint64_t>(ns) * 294912u / 1000000u);
 }
 
+extern "C" void openrac_ee_dma_register(const char* function, uint32_t at, uint32_t address) {
+    openrac::log::fatalf(
+        "{} at {:08X} reached the scratchpad DMA register {:08X} in a way the port does not copy "
+        "(asm.spr_copies): there is no DMA controller",
+        function,
+        at,
+        address
+    );
+}
+
 extern "C" void openrac_ee_lost(const char* function, uint32_t target) {
     if (first(function, target | 1u)) {
         warn("{} jumped through a register to {:08X}, which its tables do not list; returning", function, target);

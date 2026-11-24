@@ -58,15 +58,16 @@ __extension__ typedef unsigned __int128 openrac_u128;
 #define GUEST_GS_REGS_SIZE 0x00002000u
 #define GUEST_SCRATCHPAD 0x70000000u
 #define GUEST_SCRATCHPAD_SIZE 0x00004000u /* 16 KB */
-/* The 16 KB after the scratchpad: the odd half of the console's scratchpad TLB entry, which maps
- * nothing there, so a write past the scratchpad takes a TLB miss. The hand-written line walks
- * (Going Commando's CollLine, Up Your Arsenal's coll_line) gather a long line's cells there with
- * no bound, as on the console: the port backs these pages so such a write lands instead of
- * faulting, and reports it (Memory::take_scratchpad_overrun). */
-#define GUEST_SCRATCHPAD_GUARD (GUEST_SCRATCHPAD + GUEST_SCRATCHPAD_SIZE)
-#define GUEST_SCRATCHPAD_GUARD_SIZE 0x00004000u
 #define GUEST_PORT 0xE0000000u
-#define GUEST_PORT_SIZE 0x01000000u /* 16 MB */
+#define GUEST_PORT_SIZE 0x00800000u /* 8 MB */
+/* The port's data the game reads as its own and adds to its addresses as signed words, so below
+ * 0x80000000 (imported moby classes, rac1/host/foreign_class.c). */
+#define GUEST_PORT_LOW 0x50000000u
+#define GUEST_PORT_LOW_SIZE 0x00800000u /* 8 MB */
+/* The port's data a level builds again each time it loads, which a snapshot leaves out (the
+ * imported moby classes' tables of their own levels, rac1/host/foreign_class.c). */
+#define GUEST_PORT_WORLDS 0x58000000u
+#define GUEST_PORT_WORLDS_SIZE 0x01000000u /* 16 MB */
 #define GUEST_STACK_TOP (GUEST_PORT + 0x00100000u)
 #define GUEST_STACK_BOTTOM GUEST_PORT
 #define GUEST_STRINGS (GUEST_PORT + 0x00100000u)

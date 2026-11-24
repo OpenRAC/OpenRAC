@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "game/common/frontend/game_image_sources.h"
 #include "game/common/frontend/ui_images.h"
 #include "renderer/textures/texture.h"
 #include "tests/check.h"
@@ -112,6 +113,40 @@ void test_cache_by_content() {
     CHECK(cache.find(ram, image).image == nullptr);
 }
 
+// What the game handed over at an address stands in for what memory holds there later
+// (openrac_game_image_keep: rac3's HUD bank, sent from a buffer it reuses); the indices and the
+// palette in index order are kept for a PCSX2-format pack's names.
+void test_kept_sources() {
+    auto& sources = openrac::frontend::game_image_sources();
+    sources.clear();
+    std::vector<std::uint8_t> ram(0x1000, 0);
+    openrac_game_ui_image image{};
+    image.pixels = 0x100;
+    image.palette = 0x200;
+    image.width = 2;
+    image.height = 2;
+    image.bits = 8;
+    image.swizzled = 1;
+    for (std::uint32_t i = 0; i < 256; ++i) {
+        ram[0x200 + i * 4] = static_cast<std::uint8_t>(i);
+        ram[0x200 + i * 4 + 3] = 0x80;
+    }
+    ram[0x100] = 3;
+    sources.keep(ram, 0x100, 4);
+    ram[0x100] = 9;  // the game reuses its buffer
+    UiImageCache cache;
+    cache.set_keep_indexed(true);
+    const auto kept = cache.find(ram, image);
+    CHECK(kept.image != nullptr && kept.image->pixels[0] == 3);
+    CHECK(kept.indexed != nullptr && kept.indexed->indices[0] == 3);
+    CHECK(kept.indexed != nullptr && kept.indexed->palette[11] == 0x80000013u);  // stored at 19
+    // Handed over again: what it is now, even within the tick.
+    sources.keep(ram, 0x100, 4);
+    const auto again = cache.find(ram, image);
+    CHECK(again.indexed != nullptr && again.indexed->indices[0] == 9);
+    sources.clear();
+}
+
 }  // namespace
 
 int main() {
@@ -119,5 +154,6 @@ int main() {
     test_eight_bits_stored_palette();
     test_thirty_two_bits_and_short_input();
     test_cache_by_content();
+    test_kept_sources();
     return openrac::test::result();
 }

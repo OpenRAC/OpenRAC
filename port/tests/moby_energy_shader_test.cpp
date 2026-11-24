@@ -5,7 +5,9 @@
 // its gold with a little of the mod's colour (the instance tint holds only its share,
 // OPENRAC_MOBY_MATERIAL_ENERGY_BODY, as frame.cpp's apply_mod_material sets it), and a gold glow
 // packet comes out in the mod's colour, brightened. Without the material both are drawn as the
-// texel times their colour, as before.
+// texel times their colour, as before. A mod's paint (interface 1.34) on the same surface: the
+// texel's grey in the mod's colour (the instance tint holds all of it), and its glow packet in it.
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -30,6 +32,8 @@ namespace {
 constexpr int kSize = 16;
 constexpr int kMaterialNone = 0;
 constexpr int kMaterialEnergy = 4;
+// scene::kModMaterialPaint, at glow level 0 (no normal here, so no rim either way).
+constexpr int kMaterialPaint = 16;
 // OPENRAC_MOBY_MATERIAL_ENERGY_BODY: the share of the mod's colour in the tint.
 constexpr float kBody = 0.35f;
 // The coin texture's grey (level textures moby_0022 and its kind: 87..118 of 255).
@@ -213,5 +217,18 @@ int main() {
     // Its glow packet is the mod's green, and brighter than the gold one's luminance.
     CHECK(green(charged_glow));
     CHECK(charged_glow.luminance() > glow.luminance());
+
+    // Paint: an azure armour tier (0x40A0FF) over the gold-lit grey. The grey takes the colour:
+    // far bluer and greener against its red than the gold surface, still lit (not much darker
+    // than it), and its glow packet is the colour too.
+    const std::array<float, 3> azure = {64.0f / 255.0f, 160.0f / 255.0f, 1.0f};
+    const Colour painted = fixture.draw(kMaterialPaint, 0, azure);
+    const Colour painted_glow = fixture.draw(kMaterialPaint, 1, emerald);
+    print("paint", painted);
+    print("paint glow", painted_glow);
+    CHECK(painted.g / std::max(painted.r, 1e-3f) > surface.g / std::max(surface.r, 1e-3f));
+    CHECK(painted.b / std::max(painted.r, 1e-3f) > 2.0f * surface.b / std::max(surface.r, 1e-3f));
+    CHECK(painted.luminance() >= 0.5f * surface.luminance());
+    CHECK(green(painted_glow));
     return test::result();
 }

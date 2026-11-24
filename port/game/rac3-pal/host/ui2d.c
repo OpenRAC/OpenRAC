@@ -59,6 +59,7 @@
 #include "openrac/host_env.h"
 #include "openrac/ui.h"
 #include "rac3_version.h"
+#include "textures.h"
 #include "ui_adapter.h"
 
 /* The offset the game adds to every 2D position (12.4): the core's, which every program shares
@@ -153,6 +154,9 @@ typedef struct FontTables {
 } FontTables;
 
 static const FontTables kBootFonts = {RAC3_ADDR(0x001D5B38u), RAC3_ADDR(0x001D5B3Cu)};
+/* The multiplayer core's, and level 39's (which the maps' copies share). */
+static const FontTables kMpCoreFonts = {RAC3_MADDR(0x00241CE8u), RAC3_MADDR(0x00241CECu)};
+static const FontTables kMpMenuFonts = {RAC3_MADDR(0x00242820u), RAC3_MADDR(0x00242824u)};
 
 static FontTables level_fonts(void) {
     const FontTables f = {
@@ -201,12 +205,21 @@ static int send_flat(const openrac_game_ui_rect* q, gaddr cursor) {
     return openrac_ui_draw_quad(&quad);
 }
 
+/* Whether a box drawn on the list at `cursor` is drawn natively: in the single-player programs, and in
+ * the multiplayer executable from its core and level 39, whose scissor is followed (SetScissor). */
+static int flat_native(gaddr cursor) {
+    if (rac3_exec_program() != RAC3_EXEC_MULTIPLAYER) {
+        return 1;
+    }
+    return cursor == RAC3_MADDR(0x002446A8u) || GREF(int32_t, RAC3_MADDR(0x002412DCu)) == 39;
+}
+
 /* A record to the window through the frame recorder, placed by the list's cursor: in flat colour
  * through the shared 2D layer, else of the older kind (with the chip's TEX0, until its texture
- * comes from the game's tables, and in the multiplayer executable). False when the 2D layer is replayed (the caller sends the game's). */
+ * comes from the game's tables, and the maps' boxes). False when the 2D layer is replayed (the caller sends the game's). */
 static int send_quad(const openrac_game_ui_rect* q, gaddr cursor) {
-    /* The multiplayer executable's scissor is not followed yet: its boxes stay the older records. */
-    if ((q->flags & 8u) != 0 && rac3_exec_program() != RAC3_EXEC_MULTIPLAYER) {
+    /* The maps' scissor is not followed yet: their boxes stay the older records. */
+    if ((q->flags & 8u) != 0 && flat_native(cursor)) {
         return send_flat(q, cursor);
     }
     anchor_at(cursor);
@@ -224,7 +237,7 @@ static int glyph_page(unsigned long long tex0, openrac_game_ui_image* out) {
     if (pages == 0 || palettes == 0) {
         return 0;
     }
-    const int font = GREF(int32_t, RAC3_ADDR(0x001D55E8u));
+    const int font = rac3_ui_font_index();
     const int page = rac3_ui_font_page_of(
         font, (uint32_t)(tex0 & 0x3FFFu), (uint32_t)((tex0 >> 37) & 0x3FFFu), pages, palettes
     );
@@ -236,8 +249,7 @@ static int glyph_page(unsigned long long tex0, openrac_game_ui_image* out) {
  * inclusive, kept within its screen (the size at +0x150 and +0x152 of 0x001CFEC0). Natively drawn
  * quads are cut to the same, placed where the game's own scissor goes in its list; the game's is
  * still sent, for what the list draws itself. */
-static void record_scissor(gaddr cursor, int x0, int x1, int y0, int y1) {
-    const gaddr screen = RAC3_ADDR(0x001CFEC0u);
+static void record_scissor_of(gaddr screen, gaddr cursor, int x0, int x1, int y0, int y1) {
     const int w = GREF(int16_t, screen + 0x150u) - 1;
     const int h = GREF(int16_t, screen + 0x152u) - 1;
     x0 = x0 < 0 ? 0 : x0;
@@ -248,6 +260,10 @@ static void record_scissor(gaddr cursor, int x0, int x1, int y0, int y1) {
     rac3_ui_adapter_install();
     anchor_at(cursor);
     openrac_ui_scissor(rect);
+}
+
+static void record_scissor(gaddr cursor, int x0, int x1, int y0, int y1) {
+    record_scissor_of(RAC3_ADDR(0x001CFEC0u), cursor, x0, x1, y0, y1);
 }
 
 void func_003A98B8(int x0, int x1, int y0, int y1) {
@@ -1115,42 +1131,36 @@ void func_L01_004059C8(int r, int g, int b, int a) {
     }
 }
 
-/* The letterbox (func_0038AD28, the levels' func_L01_004054F0: frontbin's func_0038A948): while
- * its word is set its height climbs a line a frame to 52 (down again when cleared), and it sends
- * two black bars that tall over the screen's top and bottom as one strip, a cnt tag of seven
- * quadwords: a REGLIST GIF tag of PRIM 0x104 (a strip, not blended) and RGBAQ (black, alpha 0x80),
- * then one of eight XYZ2, the bars' corners. The packet becomes two flat records in its place. */
+/* The letterbox (func_0038AD28, the levels' func_L01_004054F0): while its word is set its height
+ * climbs a line a frame to 52 (down again when cleared), and it sends two black bars that tall
+ * over the screen's top and bottom. The game's routine runs (it keeps the height); what it sent is
+ * taken back out of the list, and the bars go to the window through the shared 2D layer as colour
+ * alone, from the game's own data: the height (the boot program's 0x001D9BE0, a level's own) and
+ * the screen's edges the routine draws them to (0x001D4BD0 left and top, 0x001D4BD8 right and
+ * bottom, 12.4, with the game's 2D offset). */
 #define LETTERBOX_BYTES 0x80u
+#define SCREEN_EDGES RAC3_ADDR(0x001D4BD0u)
 
-static void letterbox_records(gaddr cursor, gaddr start) {
+static void letterbox_bars(gaddr cursor, gaddr start, gaddr height) {
     const gaddr end = GREF(gaddr, cursor);
-    if (end - start != LETTERBOX_BYTES || GREF(uint32_t, start) != 0x10000007u
-        || GREF(uint64_t, start + 32) != 0x104u) {
-        return; /* nothing sent, or not the bars' packet: left as it is */
+    const int n = GREF(int32_t, height);
+    if (end - start != LETTERBOX_BYTES || n <= 0) {
+        return; /* nothing sent (no bars, or the cutscene setting's off) */
     }
-    uint32_t x[8], y[8];
-    for (int i = 0; i < 8; ++i) {
-        const uint64_t w = GREF(uint64_t, start + 64u + 8u * (gaddr)i);
-        x[i] = (uint32_t)(w & 0xFFFFu);
-        y[i] = (uint32_t)((w >> 16) & 0xFFFFu);
-    }
-    const uint32_t z = (uint32_t)(GREF(uint64_t, start + 64u) >> 32);
-    const uint32_t rgba = (uint32_t)GREF(uint64_t, start + 40);
-    /* The top bar: corners 0 to 3; the bottom one: 4 to 7 (from the bottom edge up). */
-    const int bars[2][4] = {
-        {(int)x[0], (int)y[0], (int)x[2], (int)y[1]}, {(int)x[6], (int)y[5], (int)x[4], (int)y[4]}
-    };
-    openrac_game_ui_rect q[2];
-    for (int i = 0; i < 2; ++i) {
-        memset(&q[i], 0, sizeof(q[i]));
-        openrac_ui_rect(&q[i], bars[i][0], bars[i][1], bars[i][2], bars[i][3], 0, 0, 0, 0);
-        q[i].z = z;
-        q[i].rgba = rgba;
-        q[i].flags = 8u;
-    }
+    const float ofx = (float)(rac3_ui2d_screen_x(0) + 8);
+    const float ofy = (float)(rac3_ui2d_screen_y(0) + 8);
+    const float left = ((float)GREF(int32_t, SCREEN_EDGES) - ofx) / 16.0f;
+    const float top = ((float)GREF(int32_t, SCREEN_EDGES + 4u) - ofy) / 16.0f;
+    const float right = ((float)GREF(int32_t, SCREEN_EDGES + 8u) - ofx) / 16.0f;
+    const float bottom = ((float)GREF(int32_t, SCREEN_EDGES + 12u) - ofy) / 16.0f;
+    const float bars[2][4] =
+        {{left, top, right, top + (float)n}, {left, bottom - (float)n, right, bottom}};
+    const uint32_t black[4] = {0x80000000u, 0x80000000u, 0x80000000u, 0x80000000u};
     GREF(gaddr, cursor) = start;
+    rac3_ui_adapter_install();
     for (int i = 0; i < 2; ++i) {
-        if (!send_quad(&q[i], cursor)) {
+        anchor_at(cursor);
+        if (!openrac_ui_draw_rect(NULL, bars[i], NULL, black, OPENRAC_UI_FLAT)) {
             GREF(gaddr, cursor) = end; /* replaying: the game's packet is still there */
             return;
         }
@@ -1160,14 +1170,14 @@ static void letterbox_records(gaddr cursor, gaddr start) {
 void func_0038AD28(void) {
     const gaddr start = GREF(gaddr, kBoot.cursor);
     func_0038AD28__game();
-    letterbox_records(kBoot.cursor, start);
+    letterbox_bars(kBoot.cursor, start, RAC3_ADDR(0x001D9BE0u));
 }
 
 int func_L01_004054F0(void) {
     const gaddr cursor = rac3_ui2d_level().cursor;
     const gaddr start = GREF(gaddr, cursor);
     const int result = func_L01_004054F0__game();
-    letterbox_records(cursor, start);
+    letterbox_bars(cursor, start, OPENRAC_LDATA(1, RAC3_LADDR(1, 0x001DF960u)));
     return result;
 }
 
@@ -1328,6 +1338,28 @@ static int hud_sprite_turned(
     const float px[4] = {(x - ax) + bx, (x - ax) - bx, (x + ax) + bx, (x + ax) - bx};
     const float py[4] = {(y - ay) + by, (y - ay) - by, (y + ay) + by, (y + ay) - by};
     const int us[4] = {0, tw << 4, 0, tw << 4}, vs[4] = {0, 0, th << 4, th << 4};
+    /* The image by the HUD bank's own tables (rac3_hud_image), as the game sent it: no TEX0. The
+     * multiplayer executable's are not kept at their sending yet. */
+    openrac_game_ui_image image;
+    if (rac3_exec_program() != RAC3_EXEC_MULTIPLAYER
+        && rac3_hud_image(u->hud_entries, tex, &image)) {
+        openrac_ui_quad quad;
+        memset(&quad, 0, sizeof(quad));
+        quad.image = image;
+        for (int i = 0; i < 4; ++i) {
+            quad.x[i] = (float)(int)px[i] - 0.5f;
+            quad.y[i] = (float)(int)py[i] - 0.5f;
+            quad.u[i] = (float)(us[i] >> 4);
+            quad.v[i] = (float)(vs[i] >> 4);
+            quad.rgba[i] = GREF(uint32_t, colours + 4u * (gaddr)i);
+        }
+        quad.flags = OPENRAC_UI_SHADED;
+        rac3_ui_adapter_install();
+        anchor_at(u->cursor);
+        if (openrac_ui_draw_quad(&quad)) {
+            return 1;
+        }
+    }
     openrac_game_ui_rect q;
     memset(&q, 0, sizeof(q));
     for (int i = 0; i < 4; ++i) {
@@ -1434,6 +1466,18 @@ float func_L01_00421278(
 #define MP_MENUS_CURSOR RAC3_LADDR(39, 0x0024CAD0u)
 #define MP_DARKEN_PACKET RAC3_MADDR(0x001A3800u)
 
+/* The multiplayer executable's SetScissor, its core's and level 39's (the screen's size at
+ * 0x00230150 in both). */
+int mp_func_00299218(int x0, int x1, int y0, int y1) {
+    record_scissor_of(RAC3_MADDR(0x00230000u), MP_CURSOR, x0, x1, y0, y1);
+    return mp_func_00299218__game(x0, x1, y0, y1);
+}
+
+int mp_func_L39_005FD128(int x0, int x1, int y0, int y1) {
+    record_scissor_of(RAC3_MADDR(0x00230000u), MP_MENUS_CURSOR, x0, x1, y0, y1);
+    return mp_func_L39_005FD128__game(x0, x1, y0, y1);
+}
+
 void mp_func_00281240(
     float a0,
     float a1,
@@ -1449,7 +1493,7 @@ void mp_func_00281240(
     float a11
 ) {
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(MP_CURSOR, NULL);
+    const Print p = print_begin(MP_CURSOR, &kMpCoreFonts);
     mp_func_00281240__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     print_end(MP_CURSOR, p);
 }
@@ -1469,7 +1513,7 @@ void mp_func_L39_00592238(
     float a11
 ) {
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(MP_MENUS_CURSOR, NULL);
+    const Print p = print_begin(MP_MENUS_CURSOR, &kMpMenuFonts);
     mp_func_L39_00592238__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
     print_end(MP_MENUS_CURSOR, p);
 }
@@ -1542,7 +1586,7 @@ void mp_func_L39_00592AC8(
     float a11
 ) {
     rac3_menu_log_text(a0, a1, (gaddr)a5, a6);
-    const Print p = print_begin(MP_MENUS_CURSOR, NULL);
+    const Print p = print_begin(MP_MENUS_CURSOR, &kMpMenuFonts);
     mp_func_L39_00592AC8__game(a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11);
     print_end(MP_MENUS_CURSOR, p);
 }
@@ -1823,7 +1867,7 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
     ) {                                                                                            \
         rac3_menu_log_text(a0, a1, (gaddr)a5, a6);                                                 \
         const gaddr cursor = MP_MAP_CURSOR;                                                        \
-        const Print p = print_begin(cursor, NULL);                                                 \
+        const Print p = print_begin(cursor, &kMpMenuFonts);                                        \
         mp_func_L##m##_##font_print##__game(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);     \
         print_end(cursor, p);                                                                      \
     }                                                                                              \
@@ -1843,7 +1887,7 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
     ) {                                                                                            \
         rac3_menu_log_text(a0, a1, (gaddr)a5, a6);                                                 \
         const gaddr cursor = MP_MAP_CURSOR;                                                        \
-        const Print p = print_begin(cursor, NULL);                                                 \
+        const Print p = print_begin(cursor, &kMpMenuFonts);                                        \
         mp_func_L##m##_##font_print_shaded##__game(                                                \
             a0, a1, a2, a3, colours, a5, a6, a7, a8, a9, a10, a11                                  \
         );                                                                                         \
@@ -1903,10 +1947,12 @@ MP_HUD_QUAD_TURNED(mp_func_L39_0059D368, mp_func_L39_00590A80, mp_func_L39_00590
         }                                                                                          \
     }
 
+#define MP_MAP_VU0(...)
 #include "mp_maps.h"
 #undef MP_MAP
 #undef MP_MAP_HUD
 #undef MP_MAP_UI
+#undef MP_MAP_VU0
 
 /* frontbin's copies of the 2D layer (the program the front end runs after a level: Quit Game, a
  * level's exit to the menus), wrapped as the boot program's and the levels' are. Its globals are the

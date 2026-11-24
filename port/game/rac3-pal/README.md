@@ -228,7 +228,7 @@ port does not have, so it is cut at four places:
   (the server's `RELAY`); what comes back goes to DME's receive path (`0x0014CE48`) in its update
   (`0x0014B118`), which runs the game's handlers.
 
-`OPENRAC_SERVER=host[:port]` (`[v6]:port` for IPv6; the launcher sets it) names the server (`game.openrac.dev:7770` when unset);
+`OPENRAC_SERVER=host[:port]` (`[v6]:port` for IPv6; the launcher sets it) names the hub (`hub.openrac.dev:7177` when unset): the game's login is the hub's account login (a new name registers), its city list the hub's game servers, and the city picked the game server the lobby and the rooms run on (a second connection, proving the login with the hub's session token); a plain game server named there is played on directly, without accounts;
 `OPENRAC_RAC3_NET_LOG=1` logs every lobby message and room packet. The protocol analysis these
 cuts come from (every layer, message and struct, with addresses) is kept with the port's planning
 notes (`rac3-mp/protocol.md`). NTSC-U carries the rows rac3_mp_pairs.py pairs; its resolver thread
@@ -366,7 +366,6 @@ vertical blank callback (`func_0013D208`).
 | `host/program.c` | which program is loaded (the overlay hook), `OPENRAC_RAC3_NEXT` |
 | `headers/vu0.h` | the vector-library helpers of the decompilation's `include/vu0.h` (asm Clang refuses) in C, read in its place (hostgen.json `headers`) |
 | `host/trig.c`, `host/vu0.c` | VU0 cos/sin (the host's for now) and sceVu0UnitMatrix |
-| `host/spr_dma.c` | the scratchpad DMA channels the kernels start |
 | `host/ui2d.c` | the 2D layer's routines, wrapped as Going Commando's (rac2/host/ui2d.c): boxes, glyph quads, turned sprites, ring segments, the font's glyphs (drawn from its distance field) and the menus' Widget3D sprites become window records; the levels' copies of them too (below) |
 | `host/mp_ui.c` | the native multiplayer screens over level 39's lobby ([MULTIPLAYER_UI.md](../../../docs/port/MULTIPLAYER_UI.md)): the game lists (and the staging room's players when a server's description asks) drawn with the game's own print, colours, highlight bar and sounds, their rows from the game's memory, a choice made through the game's own cursor and Cross |
 | `host/hud.c` | the level HUD's sprites as records, and its slots out at the picture's sides with "HUD: Edges" (Going Commando's rac2/host/hud.c) |
@@ -580,10 +579,10 @@ share most of them, but have their own DrawTfrag, tie and shrub passes and MobyP
 level 39's (`func_L39_...`, `OPENRAC_LDATA(39, ...)`). `IDENTIFIED.tsv` has each function and its
 Going Commando pair.
 
-The extracted levels are the shared export (`editor/extract.py port`), format 14 for this game
-(`editor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
+The extracted levels are the shared export (`extractor/extract.py port`), format 14 for this game
+(`extractor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
 sky's shells and its panorama, collision, (5) Ratchet's mesh and textures from his first pack
-(`editor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
+(`extractor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
 draws him with, and (6) the terrain and shrubs lit as the game lights them at load and the ties'
 colours per vertex, as Going Commando's (`games.py` `world_lighting`, `UYA_TIE`): the lighting
 routines are Going Commando's instructions, and the (cos, sin) table they light by is in each
@@ -613,7 +612,7 @@ boot program's table's: Ratchet's ship (class 3412) and its parts (4308 to 4325)
 (7683), whose classes are the scene's pack's: one of the loading packs the table of contents lists
 from `+0x1288` (after their base sector), pack 11 the ship's scene, which the loading screen unpacks
 at `0x006F3000` (picked at random among the scenes by `0x003BE0F0`). The export reads it as a small
-core (`editor/level.py` `load_wad_loading`: GS RAM at word 1, data base at word 2, the GS upload at
+core (`extractor/level.py` `load_wad_loading`: GS RAM at word 1, data base at word 2, the GS upload at
 4 and 5, the classes at 0xa and 0xc, the moby textures at 0xe and 0xf, the texture data at 0x17)
 and writes it as level 97, with Ratchet's pack. The profile names that level the loading screen's
 world (`loading_world`), and `0x003CB6B8` puts the world's and the mobys' markers in the list, so the
@@ -630,7 +629,7 @@ the timer at `0x00225734` once `0x002D2008 + 0x51` is set; no string is printed 
 To look at a level without the game (no game code runs; the viewer's own camera):
 
 ```sh
-python3 editor/extract.py port <disc> build/rac3pal --level 1 --anywhere
+python3 extractor/extract.py port <disc> build/rac3pal --level 1 --anywhere
 openrac-viewer build/rac3pal/level_01 --camera 365,103,82,90,-5 --screenshot veldin.png --frames 5
 ```
 

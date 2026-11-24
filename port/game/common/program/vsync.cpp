@@ -33,6 +33,8 @@
 #include "openrac/guest.h"
 #include "openrac/memory.h"
 #include "openrac/sound_engine.h"
+#include "program/control.h"
+#include "program/moby_states.h"
 #include "program/program.h"
 #include "program/undrawn_ticks.h"
 
@@ -40,6 +42,7 @@
 #include "debug_overlay.h"
 #include "frontend.h"
 #include "platform/performance_hint.h"
+#include "scene/moby_pose.h"
 #endif
 
 namespace openrac::program {
@@ -211,13 +214,19 @@ void apply_writes() {
 // before the first).
 std::chrono::steady_clock::time_point g_tick_resumed{};
 
-// [debug tools] The game's tick length, stretched by the overlay's slow motion (debug_overlay.h).
+// The game's tick length, stretched by a mod's slow motion (time_stretch) and the overlay's
+// [debug tools] (debug_overlay.h).
 std::chrono::microseconds tick_period() {
     auto period = std::chrono::microseconds(1000000 / tick_rate());
     if (openrac_game_tick_stretch > 1.0f) {
         period = std::chrono::microseconds(
             std::llround(static_cast<double>(period.count()) * openrac_game_tick_stretch)
         );
+    }
+    // A mod's slow motion (openrac_api.time_stretch): the same ticks, each lasting longer.
+    if (const float stretch = mods::time_stretch(); stretch > 1.0f) {
+        period =
+            std::chrono::microseconds(std::llround(static_cast<double>(period.count()) * stretch));
     }
 #ifdef OPENRAC_FRONTEND
     if (g_window) {
@@ -274,6 +283,16 @@ void finish() {
 
 // ---- The vertical blank ----
 
+// The game's own 50/60 Hz choice kept at 60 Hz, as options_menu::update does with a window. Without
+// one, a PAL game stayed at 50 Hz: it read the 50 Hz copy of each level, which edited levels do not
+// replace, and counted its time in fiftieths.
+static void keep_sixty_hz() {
+    const openrac_front_end* fe = openrac_game_front_end;
+    if (fe != nullptr && fe->video_mode != 0 && GREF(std::uint8_t, fe->video_mode) != 0) {
+        GREF(std::uint8_t, fe->video_mode) = 0;
+    }
+}
+
 int vsync() {
     crash::breadcrumb(
         crash::BreadcrumbThread::Main, "game tick yielded", g_frame, crash::BreadcrumbValue::Tick
@@ -281,24 +300,16 @@ int vsync() {
     // [debug tools] The game's own code stops here and goes on when this returns: its time is the
     // tick's (common/stats.h). The tick's frame of measurements begins.
     stats::game_yielded();
-    // A line walk that gathered past the scratchpad (guest.h, GUEST_SCRATCHPAD_GUARD): the console
-    // would have stopped there with a TLB miss; the port goes on and says so.
-    if (runtime::Memory::get().take_scratchpad_overrun()) {
-        static int overruns = 0;
-        if (overruns++ < 8) {
-            log::warn(
-                "frame {}: the game wrote past the scratchpad's 16 KB (a TLB miss on the console)",
-                g_frame
-            );
-        }
-    }
     // Render snapshots own their values, so next-tick writes precede the overlapping CPU capture.
     apply_writes();
+    keep_sixty_hz();
 #ifdef OPENRAC_FRONTEND
     // Prepare owned CPU data before waiting; graphics and profiling storage still transfer at completion.
     if (g_window) {
         const auto* ram = runtime::Memory::get().base();
         const std::span<const std::uint8_t> memory(ram, runtime::Memory::get().ram_size());
+        // Imported moby classes live past RAM (rac1/host/foreign_class.c): poses read them there.
+        scene::set_moby_class_region({ram + GUEST_PORT_LOW, GUEST_PORT_LOW_SIZE}, GUEST_PORT_LOW);
 
         // Only a completed handoff may present or begin the next graphics measurement frame.
         if (!frontend::prepare_frame(memory) || !frontend::finish_render()) {
@@ -379,6 +390,8 @@ int vsync() {
     sample_state();
     crash_test();
     mods::frame();
+    moby_states::tick();
+    control::tick();
     // The level being played, once per change: the launcher reads this line for Discord's presence.
     static int shown_level = OPENRAC_OVERLAY_EXE;
     static int shown_bolts = -1;
@@ -414,7 +427,7 @@ int vsync() {
         write_state_dump();
     }
 
-    if (g_options.frames >= 0 && g_frame >= g_options.frames) {
+    if ((g_options.frames >= 0 && g_frame >= g_options.frames) || control::quitting()) {
 #ifdef OPENRAC_FRONTEND
         // A fixed-length run can stop with its last owned snapshot still recording.
         if (g_window) {
@@ -431,7 +444,8 @@ int vsync() {
     // not a way to play, since the game's tick is its frame).
     static const bool& fps =
         stats::probe("OPENRAC_FPS", "the ticks per second over each 300 ticks, in the log");
-    static const bool uncapped = env::flag(env::Var::Uncapped);
+    static const bool uncapped =
+        env::flag(env::Var::Uncapped) || moby_states::requested() || control::requested();
     static steady_clock::time_point fps_from = now;
     // OPENRAC_WATCH=ADDRESS:COUNT[:i|d|l|h],...: COUNT floats (or words, with i) from each ADDRESS,
     // each frame, in the log. d: words of an executable's global, at the loaded level's copy of it.

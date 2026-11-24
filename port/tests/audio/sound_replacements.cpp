@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The sounds packs replace, on banks and folders made here: the keys, with the answers
-// editor/test_audio.py has for the same bytes; a new sample as a voice plays it; what is left alone.
+// extractor/test_audio.py has for the same bytes; a new sample as a voice plays it; what is left alone.
 
 #include "audio/sound_replacements.h"
 
@@ -30,7 +30,7 @@ constexpr std::uint32_t kRandPlay = 25;
 constexpr std::uint32_t kKeyOff = 41;
 constexpr std::uint32_t kOnStop = 43;
 
-// The same answers as editor/test_audio.py's for the same bytes.
+// The same answers as extractor/test_audio.py's for the same bytes.
 constexpr SoundKey kSoundKey = 0x3d5f9cc75b576b92;
 constexpr SoundKey kStreamKey = 0xe9b65507686eaed0;
 
@@ -40,7 +40,7 @@ struct GrainSpec {
     std::uint8_t sample = 16;  // a tone's: 0 the first frame, 16 the second
 };
 
-// editor/test_audio.py's bank_file: a frame that ends by itself and is not the sound's, then one that
+// extractor/test_audio.py's bank_file: a frame that ends by itself and is not the sound's, then one that
 // is (silent, with these flags), and one sound of the grains given.
 std::vector<std::uint8_t> make_bank(
     const std::vector<GrainSpec>& grains, std::uint8_t last_flags = 1

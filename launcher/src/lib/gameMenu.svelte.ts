@@ -66,7 +66,7 @@ export function gameMenu(
   const action = (id: string) => v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
   const scope = { kind: "version" as const, key: v.key };
   const setUp = !!game.install?.extracted;
-  const playGodot = action("editor-preview");
+  const preview = action("editor-preview");
   const items: MenuItem[] = [];
 
   if (next?.kind === "return") {
@@ -84,11 +84,11 @@ export function gameMenu(
     items.push({ label: "Rebuild the game", icon: "build", run: () => void rebuild(v) });
   }
 
-  if (playGodot?.runnable) {
+  if (preview?.runnable) {
     items.push({
-      label: "Preview a level in Godot",
+      label: "Preview a level in OpenRAC Editor",
       icon: "play",
-      run: () => void run(scope, playGodot),
+      run: () => void run(scope, preview),
     });
   }
 

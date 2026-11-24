@@ -310,6 +310,7 @@ std::vector<std::uint8_t> direct_packets(
     bool strip_context = false;
     // Scoped parent of vertices in a display list produced one tick before the captured mobys.
     std::uint32_t previous_effect_parent = 0;
+    bool previous_effect_parent_position_only = false;
     // The fog line the liquid grid's packet gives the strip program (build_interpolated_dma_packet,
     // func_L02_002A52D0, unpacks it to VU addresses 0x3AC to 0x3AF): the view context's fog_mul
     // (0x3AC.w), screen_bias with fog_add in w (0x3AE), then the far and near F (0x3AF.x, .y).
@@ -396,6 +397,8 @@ std::vector<std::uint8_t> direct_packets(
                             // Only explicitly attached strips follow a delayed parent transform.
                             if ((value >> 48) == OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER) {
                                 previous_effect_parent = static_cast<std::uint32_t>(value);
+                                previous_effect_parent_position_only =
+                                    (value & OPENRAC_PREVIOUS_EFFECT_PARENT_POSITION_ONLY) != 0;
                             }
 
                             if ((value >> 48) == renderer::GifInterpreter::kWorldMarker
@@ -721,6 +724,7 @@ std::vector<std::uint8_t> direct_packets(
                 strip.blend_disabled = strip_blend_disabled;
                 strip.surface = surface;
                 strip.previous_parent = previous_effect_parent;
+                strip.previous_parent_position_only = previous_effect_parent_position_only;
                 strip.uv_motion = uv_motion;
                 static const bool& strip_fog_off = stats::probe(
                     "OPENRAC_STRIP_FOG_OFF", "reference: the effect strips drawn without the GS fog"
@@ -1346,7 +1350,8 @@ std::unordered_map<std::uint32_t, mods::MobyMaterial> mod_materials(
 // channel as it is), and the material goes to mesh.frag (platinum) by Instance::mod_material.
 // Energy (interface 1.25) multiplies only its share of rgb (OPENRAC_MOBY_MATERIAL_ENERGY_BODY), which
 // mesh.frag takes back out for its rim and glow packets; its level stays with the effects
-// (energy_effects.h).
+// (energy_effects.h). Paint (interface 1.34) multiplies all of rgb, which mesh.frag lays over the
+// texel's grey; its glow level goes with the material (scene::kModMaterialPaint + the level).
 void apply_mod_material(scene::Instance& instance, const mods::MobyMaterial& material) {
     // 0xRRGGBB: a byte a channel, red highest.
     constexpr float kChannelMax = 255.0f;
@@ -1364,6 +1369,13 @@ void apply_mod_material(scene::Instance& instance, const mods::MobyMaterial& mat
     instance.tint[1] *= channel(kGreenShift);
     instance.tint[2] *= channel(0);
     instance.mod_material = static_cast<std::uint8_t>(kind);
+    if (kind == OPENRAC_MOBY_MATERIAL_PAINT) {
+        constexpr int kLevelShift = 8;
+        constexpr std::uint32_t kLevelMask = 0xF;
+        instance.mod_material = static_cast<std::uint8_t>(
+            scene::kModMaterialPaint + ((material.material >> kLevelShift) & kLevelMask)
+        );
+    }
 }
 
 // Returns the third light the moby program gives a moby from the point lights (Going Commando's
@@ -1771,6 +1783,11 @@ TickMobys pose_mobys(
     const std::vector<mods::MobyModelDraw> model_draws = mods::moby_models_drawn();
     std::unordered_map<std::uint32_t, const mods::MobyModelDraw*> model_overrides;
     std::map<std::pair<int, std::uint32_t>, const mods::MobyModelDraw*> class_overrides;
+    // The mods' materials on whole classes (interface 1.34), by class and scope.
+    std::map<std::pair<int, std::uint32_t>, mods::MobyMaterial> class_materials;
+    for (const mods::ClassMaterialDraw& draw : mods::class_materials()) {
+        class_materials.emplace(std::make_pair(draw.oclass, draw.scope), draw.material);
+    }
     for (const mods::MobyModelDraw& draw : model_draws) {
         if (draw.scope == 0) {
             model_overrides.emplace(draw.address, &draw);
@@ -2191,6 +2208,21 @@ TickMobys pose_mobys(
             && g->render.level.overridden_models == 0) {
             instance.world_sphere = m.world_sphere;
         }
+        // A moby drawn as another model (scene/moby_skin.h): its class's logic, the skin's look, at
+        // the skin's scale. Its pose is the skin's own animation, below.
+        const scene::MobySkin* skin = nullptr;
+        if (!g->moby_skins.empty() && m.address + 0x100 <= ram.size()) {
+            const int id = g->render.profile->moby_spawn_id(ram.data() + m.address);
+            const auto found = g->moby_skins.by_spawn_id.find(id);
+            if (id >= 0 && found != g->moby_skins.by_spawn_id.end()) {
+                skin = &found->second;
+                instance.model = skin->model;
+                instance.world_sphere = {};
+                for (int i = 0; i < 12; ++i) {
+                    instance.matrix[static_cast<std::size_t>(i)] *= skin->scale;
+                }
+            }
+        }
         // How MobyProc blends it (ReRAC's MobyBlend, from the game's moby draw). Its vertex alpha is
         // its alpha byte (+0x23) times its distance fade (GameProfile::moby_distance_fade: the last 16
         // units of its draw distance) >> 7. Mode bit 0x200 (+0x34) adds it; the fade below 0x80 or
@@ -2319,6 +2351,12 @@ TickMobys pose_mobys(
         // A mod's material on it (interface 1.23), wherever it is drawn: the world or a target.
         if (const auto material = materials.find(m.address); material != materials.end()) {
             apply_mod_material(instance, material->second);
+        } else if (const auto by_class = class_materials.find(
+                       {m.class_id, own_camera ? OPENRAC_MODEL_MENU : OPENRAC_MODEL_WORLD}
+                   );
+                   by_class != class_materials.end()) {
+            // Its class's (interface 1.34), when it has none of its own.
+            apply_mod_material(instance, by_class->second);
         }
         bool attached_bones = false;
 #ifdef OPENRAC_LIGHT_AUTHORING
@@ -2346,7 +2384,24 @@ TickMobys pose_mobys(
         if (mod_model != nullptr) {
             joints = 0;
         }
-        if (animate && replacement_pose && !model.preview_poses.empty()) {
+        if (skin != nullptr) {
+            // The skin's animation for the class's sequence, from when the sequence began.
+            const int sequence = ram[m.address + g->render.profile->moby_anim_fields() + 2];
+            const auto pose =
+                animate ? scene::prop_rig_palette(
+                              skin->rig,
+                              scene::moby_skin_animation(*skin, sequence),
+                              scene::moby_skin_seconds(g->moby_skins, m.address, sequence),
+                              true
+                          )
+                        : std::vector<std::array<float, 16>>{};
+            joints = 0;
+            if (!pose.empty()) {
+                instance.palette = static_cast<int>(palette.size());
+                palette.insert(palette.end(), pose.begin(), pose.end());
+                joints = static_cast<int>(pose.size());
+            }
+        } else if (animate && replacement_pose && !model.preview_poses.empty()) {
             const auto& pose = model.preview_poses[g->index % model.preview_poses.size()];
             instance.palette = int(palette.size());
             palette.insert(palette.end(), pose.begin(), pose.end());
@@ -2385,7 +2440,7 @@ TickMobys pose_mobys(
             );
         }
         // Its pose, evaluated after the loop with the others' on several threads.
-        if (animate && joints > 0 && !replacement_pose) {
+        if (animate && joints > 0 && skin == nullptr && !replacement_pose) {
             const bool target = into_texture.contains(m.address) || on_screen.contains(m.address);
             pose_jobs.push_back(
                 {m.address, joints, target, target ? target_mobys.size() : live.size()}
@@ -2714,6 +2769,22 @@ TickMobys pose_mobys(
                 for (std::size_t j = 0; j < static_cast<std::size_t>(joints); ++j) {
                     palette.push_back(j < skin.size() ? skin[j] : stored);
                 }
+            } else if (props[i].animation >= 0) {
+                // A skinned prop in its animation (prop_animate): its palette after the mobys'.
+                const auto rig =
+                    std::find_if(g->prop_rigs.begin(), g->prop_rigs.end(), [&](const auto& r) {
+                        return r.first == props[i].mesh;
+                    });
+                if (rig != g->prop_rigs.end()) {
+                    const auto pose = scene::prop_rig_palette(
+                        rig->second, props[i].animation, props[i].seconds, props[i].loop
+                    );
+                    if (!pose.empty()) {
+                        instance.palette = static_cast<int>(palette.size());
+                        palette.insert(palette.end(), pose.begin(), pose.end());
+                        joints = static_cast<int>(pose.size());
+                    }
+                }
             }
             if (instance.blend != 0) {
                 // A glow or a spark: drawn with the mobys' blended groups, no shadow.
@@ -2834,9 +2905,25 @@ TickMobys pose_mobys(
 
 // Gives the scene this tick's fog and the lights as the game holds them.
 void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state) {
-    g->render.scene.set_fog(
-        state.fog_colour, state.fog_near, state.fog_far, state.fog_near_f, state.fog_far_f
-    );
+    // A mod's scene air (openrac_api.scene_air) over the game's fog: in the picture only.
+    std::array<float, 3> fog_colour = state.fog_colour;
+    float fog_near = state.fog_near, fog_far = state.fog_far;
+    float fog_near_f = state.fog_near_f, fog_far_f = state.fog_far_f;
+    if (const auto air = mods::scene_air(); air && (air->flags & OPENRAC_AIR_FOG) != 0) {
+        const float w = air->weight;
+        const auto mix = [w](float a, float b) {
+            return a + (b - a) * w;
+        };
+        for (int i = 0; i < 3; ++i) {
+            fog_colour[i] = mix(fog_colour[i], air->fog_colour[i]);
+        }
+        // The game's depths are its units x 1024; F is 255 for none, 0 for all fog.
+        fog_near = mix(fog_near, air->fog_near * 1024.0f);
+        fog_far = mix(fog_far, air->fog_far * 1024.0f);
+        fog_near_f = mix(fog_near_f, 255.0f);
+        fog_far_f = mix(fog_far_f, 255.0f * (1.0f - air->fog_thickness));
+    }
+    g->render.scene.set_fog(fog_colour, fog_near, fog_far, fog_near_f, fog_far_f);
     // The light bank as the game holds it now (16 sets of 0x40 bytes; the executable's, each
     // level's copy elsewhere): the level loader fills it from the gameplay file, and the game changes
     // sets at run time (the page menus write set 14 for their frame mobys, fog zones the hero's).
@@ -2938,6 +3025,7 @@ void keep_tick(
                                   : std::array<std::vector<std::array<float, 12>>, 2>{};
         k.scenery = std::move(*mobys.scenery);
     }
+    k.scenery.mod_hidden_ties = mods::hidden_ties();
     k.hero_airborne = g->render.profile->hero_state() != 0
                           ? scene::hero_airborne(
                                 ram,

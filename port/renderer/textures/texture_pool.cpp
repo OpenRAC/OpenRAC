@@ -21,6 +21,7 @@
 #include "common/log.h"
 #include "common/parallel.h"
 #include "common/stats.h"
+#include "renderer/frame/ui_records.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/shader.h"
 #include "renderer/textures/interface_run.h"
@@ -168,12 +169,37 @@ TextureHandle TexturePool::add(Rgba8Image image, AlphaScale scale, std::string n
     return h;
 }
 
-TextureHandle TexturePool::ui_image(std::uint64_t hash, const Rgba8Image& image) {
+TextureHandle TexturePool::ui_image(
+    std::uint64_t hash, const Rgba8Image& image, const UiIndexed* indexed
+) {
     if (const auto found = m_ui_images.find(hash); found != m_ui_images.end()) {
         m_entries[found->second - 1].last_used = m_frame;
         return found->second;
     }
-    const TextureHandle handle = add(image, AlphaScale::Gs, "2D image", false, true);
+    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md): named, as every texture of the
+    // 2D layer always was, by the hash of its size and RGBA texels, which the game's image decodes
+    // to the same as its upload did; else a PCSX2-format pack's, by its indices and palette (sent
+    // as 8-bit indices, or as the top byte of 32-bit words). Its texel coordinates stay fractions
+    // of the game's size (the item's), so a picture of any size fits.
+    Rgba8Image picture = image;
+    texture_pack::Replacement replaced;
+    const bool packed = texture_pack::replace(picture, {.interface = true}, &replaced);
+    bool pcsx2 = false;
+    if (!packed && indexed != nullptr) {
+        pcsx2 = pcsx2_pack::replace_indexed8(
+                    picture, indexed->indices, indexed->palette, AlphaScale::Gs
+                )
+                || pcsx2_pack::replace_indexed8(
+                    picture, indexed->indices, indexed->palette, AlphaScale::Gs, true
+                );
+    }
+    const TextureHandle handle = add(std::move(picture), AlphaScale::Gs, "2D image", false, true);
+    Entry& entry = m_entries[handle - 1];
+    entry.pack_replacement = packed;
+    entry.pcsx2_replacement = pcsx2;
+    entry.pack_hash = replaced.hash;
+    animate(handle, std::move(replaced.animation));
+    set_blocks(handle, std::move(replaced.blocks));
     m_ui_images.emplace(hash, handle);
     return handle;
 }

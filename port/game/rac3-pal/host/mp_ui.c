@@ -33,9 +33,13 @@
 #include <string.h>
 
 #include "mp/game_protos.h"
+#include "openrac/frame.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
+#include "openrac/ui.h"
 #include "rac3_version.h"
+#include "ui2d.h"
+#include "ui_adapter.h"
 
 /* ---- The game's memory (PAL; seen in game code, L39_* in rac3-decomp's level 39) ---- */
 
@@ -328,15 +332,24 @@ static void skin_highlight(void* user, float x, float y, float w, float h) {
     );
 }
 
-/* The skin's filled rectangles (a modal screen's panel) and the game's images: drawn by the native
- * 2D path that replaces the game's GS packets (the native UI's phase 4, which takes over this
- * file's draw functions); until it lands they draw nothing, and a modal screen shows its text and
- * bar over the screen under it. */
+/* The skin's filled rectangles (a modal screen's panel and its edges): through the shared native 2D
+ * layer (openrac/ui.h) as colour alone, in the game's 2D pixels as the skin's positions are, placed
+ * where level 39's list has got to. Drawn in the pass before the elements, so the game's bar and
+ * the text go over the panel. */
 static void skin_rect(void* user, float x, float y, float w, float h, uint32_t rgba) {
-    (void)user, (void)x, (void)y, (void)w, (void)h, (void)rgba;
+    (void)user;
+    if (g_text_pass) {
+        return;
+    }
+    const float rect[4] = {x, y, x + w, y + h};
+    const uint32_t colours[4] = {rgba, rgba, rgba, rgba};
+    const gaddr at = GREF(gaddr, rac3_ui2d_mp_level().cursor);
+    rac3_ui_adapter_install();
+    openrac_frame_anchor(at < 0x02000000u ? at : 0);
+    openrac_ui_draw_rect(NULL, rect, NULL, colours, OPENRAC_UI_FLAT);
 }
 
-/* The skin's images: none yet (see skin_rect). */
+/* The skin's images: none yet; they come with the game's image tables (P4's texture work). */
 static void skin_sprite(void* user, float x, float y, float w, float h, int sprite) {
     (void)user, (void)x, (void)y, (void)w, (void)h, (void)sprite;
 }

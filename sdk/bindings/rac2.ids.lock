@@ -2,6 +2,8 @@
 # on the first disc) and every alias it has had. It only grows: an id is never removed or reused,
 # and an alias once given stays (docs/port/MODS.md, section 4). Regenerated, never edited.
 rac2.arena.prize	ntsc:L02:003FCDF8	Arena_Prize,func_L02_003FCDF8,func_L02_003FE398,func_L02_00401550
+rac2.armor_vendor.build_list	ntsc:002F71B8	ArmorVendor_BuildList,func_002F71B8,func_002F8038,func_002F8128
+rac2.armor_vendor.buy	ntsc:L00:00373D40	ArmorVendor_Buy,func_L00_00373D40,func_L00_00375068,func_L00_00376810
 rac2.bolt.collect	ntsc:00301D10	Bolt_Collect,func_00301D10,func_00302B08,func_00302E18
 rac2.bolt.spawn_pickup	ntsc:00302470	Bolt_SpawnPickup,func_00302470,func_00303268,func_00303578
 rac2.bolt.spawn_pickups	ntsc:002ADB78	Bolt_SpawnPickups,func_002ADB78,func_002AE6D8,func_002AE9E0,func_L00_00321878,func_L00_00322AF0,func_L00_00323918
@@ -34,6 +36,7 @@ rac2.player.take_damage	ntsc:L00:002A4EF8	Hero_TakeDamage,func_L00_002A4D58,func
 rac2.text.by_id	ntsc:00288FB8	Text_ById,func_00288FB8,func_002898E8,func_002899F8
 rac2.vendor.build_list	ntsc:002F6608	Vendor_BuildList,func_002F6608,func_002F7488,func_002F7578
 rac2.vendor.draw_list	ntsc:002F9C80	Vendor_DrawList,func_002F9C80,func_002FAB0C,func_002FACD0
+rac2.vendor.preview	ntsc:002FB1A0	Vendor_Preview,func_002FB1A0,func_002FC008,func_002FC1D0
 rac2.vendor.price	ntsc:002F6510	Vendor_Price,func_002F6510,func_002F7390,func_002F7480
 rac2.weapon.level_up	ntsc:00287EB0	Weapon_LevelUp,func_00287EB0,func_002887C8,func_002888D8
 rac2.weapon.take_ammo	ntsc:L00:002D3F30	Weapon_TakeAmmo,func_L00_002D3F30,func_L00_002D42D0,func_L00_002D4458

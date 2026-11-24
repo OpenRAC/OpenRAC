@@ -1143,7 +1143,8 @@ mod tests {
             SaveImportChoice { replace_all: false, slots: vec![SaveSlotRef { folder: FOLDER.into(), slot_index: 1 }] };
         import_into(&to, PAL, &file, &one, &there).unwrap();
         let merged = fs::read_to_string(there.mod_data.join("ng-plus-plus/tiers.txt")).unwrap();
-        assert_eq!(merged, format!("2222222222222222 {}\n{clock} {record}\n", "01".repeat(56)));
+        // The editor's write also put the layout marker in the file.
+        assert_eq!(merged, format!("2222222222222222 {}\nngpp-tiers 3\n{clock} {record}\n", "01".repeat(56)));
     }
 
     /// A record in a file is data, never a path: a mod id or file name that would leave the mods'

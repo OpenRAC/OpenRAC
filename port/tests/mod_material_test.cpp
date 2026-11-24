@@ -70,8 +70,8 @@ int main() {
         api.moby_material(first, 0, OPENRAC_MOBY_MATERIAL_PLATINUM, 0xFFFFFF)
         == OPENRAC_HOOK_UNKNOWN
     );
-    CHECK(api.moby_material(first, kCoin, 5, 0xFFFFFF) == OPENRAC_HOOK_UNKNOWN);
-    // A level is energy's alone, at most OPENRAC_MOBY_MATERIAL_ENERGY_TOP, in bits 8 to 11.
+    CHECK(api.moby_material(first, kCoin, 6, 0xFFFFFF) == OPENRAC_HOOK_UNKNOWN);
+    // A level is energy's and paint's alone, at most 15, in bits 8 to 11.
     CHECK(
         api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_TINT | 0x100u, 0xFFFFFF)
         == OPENRAC_HOOK_UNKNOWN
@@ -156,6 +156,85 @@ int main() {
     CHECK(api.moby_material(second, kOther, OPENRAC_MOBY_MATERIAL_NONE, 0) == OPENRAC_HOOK_OK);
     mods::drop_figures(first);
     CHECK(mods::moby_materials({{kCoin, kBolt}}).empty());
+
+    // Paint (1.34) at a level: drawn as set, and no energy, platinum or obsidian.
+    CHECK(
+        api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_PAINT | 0x1000u, 0xFFFFFF)
+        == OPENRAC_HOOK_UNKNOWN
+    );
+    CHECK(
+        api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_PAINT_AT(12), 0xFFB020)
+        == OPENRAC_HOOK_OK
+    );
+    list = mods::moby_materials({{kCoin, kBolt}});
+    CHECK(material_of(list, kCoin).material == OPENRAC_MOBY_MATERIAL_PAINT_AT(12));
+    CHECK(material_of(list, kCoin).rgb == 0xFFB020);
+    CHECK(mods::energy_materials().empty() && openrac_moby_platinum(kCoin) == 0);
+    CHECK(api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_NONE, 0) == OPENRAC_HOOK_OK);
+    CHECK(mods::moby_materials({{kCoin, kBolt}}).empty());
+
+    // A class's material (1.34): what it refuses, one a class and scope, the last set wins,
+    // NONE takes the mod's off in the scope named, a mod's unload and a level load end it.
+    const auto by_class = [](int oclass, std::uint32_t scope) {
+        for (const mods::ClassMaterialDraw& d : mods::class_materials()) {
+            if (d.oclass == oclass && d.scope == scope) {
+                return d.material;
+            }
+        }
+        return mods::MobyMaterial{};
+    };
+    constexpr std::uint32_t kBoth = OPENRAC_MODEL_WORLD | OPENRAC_MODEL_MENU;
+    CHECK(
+        api.moby_material_class(nullptr, 0, kBoth, OPENRAC_MOBY_MATERIAL_TINT, 0)
+        == OPENRAC_HOOK_UNKNOWN
+    );
+    CHECK(
+        api.moby_material_class(first, -1, kBoth, OPENRAC_MOBY_MATERIAL_TINT, 0)
+        == OPENRAC_HOOK_UNKNOWN
+    );
+    CHECK(
+        api.moby_material_class(first, 0, 0, OPENRAC_MOBY_MATERIAL_TINT, 0) == OPENRAC_HOOK_UNKNOWN
+    );
+    CHECK(
+        api.moby_material_class(first, 0, 4, OPENRAC_MOBY_MATERIAL_TINT, 0) == OPENRAC_HOOK_UNKNOWN
+    );
+    CHECK(api.moby_material_class(first, 0, kBoth, 6, 0) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(
+        api.moby_material_class(first, 0, kBoth, OPENRAC_MOBY_MATERIAL_TINT, 0x1000000)
+        == OPENRAC_HOOK_UNKNOWN
+    );
+    CHECK(mods::class_materials().empty());
+    CHECK(
+        api.moby_material_class(first, 0, kBoth, OPENRAC_MOBY_MATERIAL_PAINT_AT(3), 0x40C0FF)
+        == OPENRAC_HOOK_OK
+    );
+    CHECK(mods::class_materials().size() == 2);
+    CHECK(by_class(0, OPENRAC_MODEL_WORLD).material == OPENRAC_MOBY_MATERIAL_PAINT_AT(3));
+    CHECK(by_class(0, OPENRAC_MODEL_MENU).rgb == 0x40C0FF);
+    CHECK(
+        api.moby_material_class(second, 0, OPENRAC_MODEL_MENU, OPENRAC_MOBY_MATERIAL_TINT, 0x808080)
+        == OPENRAC_HOOK_OK
+    );
+    CHECK(by_class(0, OPENRAC_MODEL_MENU).rgb == 0x808080);
+    CHECK(by_class(0, OPENRAC_MODEL_WORLD).rgb == 0x40C0FF);
+    // Another mod's NONE leaves the first's; its own takes it off.
+    CHECK(
+        api.moby_material_class(second, 0, OPENRAC_MODEL_WORLD, OPENRAC_MOBY_MATERIAL_NONE, 0)
+        == OPENRAC_HOOK_OK
+    );
+    CHECK(by_class(0, OPENRAC_MODEL_WORLD).rgb == 0x40C0FF);
+    CHECK(
+        api.moby_material_class(first, 0, OPENRAC_MODEL_WORLD, OPENRAC_MOBY_MATERIAL_NONE, 0)
+        == OPENRAC_HOOK_OK
+    );
+    CHECK(mods::class_materials().size() == 1);
+    mods::drop_figures(second);
+    CHECK(mods::class_materials().empty());
+    CHECK(
+        api.moby_material_class(first, 7, kBoth, OPENRAC_MOBY_MATERIAL_TINT, 0) == OPENRAC_HOOK_OK
+    );
+    ++g_load;
+    CHECK(mods::class_materials().empty());
 
     // Listed once, then not: the game removed the moby, and its slot's next moby has none.
     CHECK(

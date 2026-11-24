@@ -84,7 +84,7 @@ void openrac_game_special_sound(int item);
 int openrac_game_special_available(int item);
 
 /* A folder of edited levels (--mods), or NULL: its patches.tsv lists the disc
- * sectors that are read from files beside it instead (editor/pack.py writes
+ * sectors that are read from files beside it instead (OpenRAC Editor's openrac/tools/pack.py writes
  * both). The disc image itself is never changed. */
 extern const char* openrac_game_mods_dir;
 
@@ -878,6 +878,15 @@ typedef struct openrac_game_play {
      * developer camera): the baked zone visibility is made for the game's own camera and does not
      * apply to it. 1 or 0. NULL for a game without it (never overridden). */
     int (*camera_overridden)(void);
+    /* hero_sound_play and hero_sound_stop on any moby of the level (openrac_api.moby_sound_play,
+     * moby_sound_stop), and the volume group the game's music streams play in (openrac_api
+     * music_volume), -1 for none. NULL for a game without them. */
+    int (*moby_sound_play)(gaddr moby, int sound, int loop);
+    void (*moby_sound_stop)(gaddr moby, int voice);
+    int (*music_group)(void);
+    /* A placed moby's spawn id (the record's uid), -1 for none (openrac_api.moby_uid). NULL for a
+     * game without it. */
+    int32_t (*moby_uid)(int32_t slot);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)
@@ -1050,6 +1059,14 @@ typedef struct openrac_game_quad {
 
 void openrac_game_effect_quad(const openrac_game_quad* quad);
 
+/* The game is handing over the `bytes` bytes at `data` (an image's pixels or palette) and may not
+ * keep them there: an image it sends once and draws from then on without sending it again (rac3's
+ * HUD bank, sent from a buffer it decompresses into and reuses). Images the window draws from that
+ * address (openrac_frame_ui_item, openrac_frame_picture_image) read these bytes, as they are now,
+ * instead of what game memory holds later, until the game hands over other bytes there. A copy of
+ * the game's own data; nothing about where the console kept it. */
+void openrac_game_image_keep(gaddr data, uint32_t bytes);
+
 /* The marker of the quad just given to openrac_game_effect_quad, for the display list: the game
  * puts (OPENRAC_EFFECT_QUAD_MARKER << 48 | marker) in it with an A+D write to the NOP register
  * where the console's quad packet would have gone, and the window draws that quad with the TEST
@@ -1059,8 +1076,11 @@ uint32_t openrac_game_effect_quad_marker(void);
 
 /* A scoped attachment for strips in a display list delayed by one tick: write this tag in bits
  * 48-63 and the parent moby's address in bits 0-31 to NOP; address 0 ends the scope. The frontend
- * moves these vertices from the previous parent transform to its displayed transform. */
+ * moves these vertices from the previous parent transform to its displayed transform; with
+ * OPENRAC_PREVIOUS_EFFECT_PARENT_POSITION_ONLY set too, by the parent's move alone (its world
+ * offsets kept, not turned with it: what is drawn on the hero, his weapon and his shield). */
 #define OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER 0x4550u
+#define OPENRAC_PREVIOUS_EFFECT_PARENT_POSITION_ONLY (1ull << 32)
 
 /* Where the game's moby renderer draws the world's mobys, for the display list: the game puts
  * (OPENRAC_WORLD_MOBYS_MARKER << 48) in it with an A+D write to the NOP register where the world's
@@ -1127,6 +1147,8 @@ typedef struct openrac_game_hud_text {
 int openrac_game_hud_texts(openrac_game_hud_text* out, int max);
 int openrac_game_ammo_panel_offset(int handle, int* x, int* y);
 int openrac_game_rac1_weapon_hud_icon(int native_icon);
+/* Whether a mod hides the game's own HUD now (openrac_api.hud_hide): 1, else 0. */
+int openrac_game_hud_hidden(void);
 
 /* How many times wider than the game's 4:3 the picture is (the player's aspect setting): its
  * horizontal tangent is the game's times this. 1 for a 4:3 picture, and without a window. */
@@ -1229,6 +1251,10 @@ uint32_t openrac_game_card_saves(void);
 /* --level N: the level a new game starts in (the game's own number), or -1 for the game's own
  * first level. For getting to a level directly, as the behaviour checker's level write does. */
 extern int openrac_game_start_level;
+
+/* Non-zero: a new game goes straight into openrac_game_start_level from the title, as
+ * OPENRAC_DIRECT does (--moby-states sets it). */
+extern int openrac_game_direct_start;
 
 int openrac_game_pad(int port, uint16_t* buttons, uint8_t analog[4]);
 

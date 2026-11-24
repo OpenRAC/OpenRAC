@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace openrac::renderer {
 
@@ -47,11 +48,20 @@ inline constexpr std::uint32_t kUiFlat = 8;
 inline constexpr std::uint32_t kUiClamp = 16;
 inline constexpr std::uint32_t kUiShaded = 32;
 
+// An 8-bit image's indices and its 256 colours in index order, as the game keeps them: what a
+// PCSX2-format texture pack names a texture by (renderer/textures/pcsx2_pack.h).
+struct UiIndexed {
+    std::vector<std::uint8_t> indices;
+    std::vector<std::uint32_t> palette;
+};
+
 // An image the 2D layer draws natively (UiItem, pictures), decoded from the game's memory once per
 // content: its hash names it, and the texture pool keeps one texture for each.
 struct UiImage {
     std::uint64_t hash = 0;
     std::shared_ptr<const Rgba8Image> image;  // alpha in the game's units (0x80 opaque)
+    // Its indices and palette, kept only while a PCSX2-format pack is loaded; null otherwise.
+    std::shared_ptr<const UiIndexed> indexed;
 };
 
 // A quad of the 2D layer the game drew natively from its data (openrac_game_ui_item): no GS

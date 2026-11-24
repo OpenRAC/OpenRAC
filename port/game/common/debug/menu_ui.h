@@ -190,8 +190,11 @@ int menu_choice(
 );
 
 // A percentage slider in a menu row, between two arrows: the new value after a drag, a tap on the
-// track or an arrow, or left and right while it has the focus (the d-pad).
-int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step);
+// track or an arrow, or left and right while it has the focus (the d-pad). Not `enabled`: greyed
+// out, and the value stays.
+int menu_percent_slider(
+    const char* label, int value, int minimum, int maximum, int step, bool enabled = true
+);
 
 // The same slider over `count` steps (0..count), its value shown as `text`: the new step after a
 // drag, a tap or an arrow (Shift with an arrow moves ten). `label_pressed`, when given, is set when
@@ -276,6 +279,7 @@ void note_hover_row(int entry, std::string section, std::string title, std::stri
 // What one of the Controls tab's plain entries shows now (its file, its player, a setting).
 struct ControlsRow {
     bool shown = true;
+    bool enabled = true;  // false: drawn greyed out, takes no press
     std::string label;  // empty: the catalog's
     bool on = false;
     std::string value;

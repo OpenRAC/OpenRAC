@@ -37,6 +37,15 @@ counts and thrust guards are covered by `rac2_gh_fixes_test`. Greatest Hits comp
 file but calls its own functions before reading a key, so `differences.json` marks both fixes
 `bypassed` on `ntsc2`: no setting there (docs/port/SETTINGS.md section 8).
 
+## Bolt totals past 9,999,999
+
+The HUD's counter panel has room for seven digits and the Load page clamps a slot's total to
+9,999,999. From 10,000,000 both show the total in millions to a tenth, `12.3M`; below that
+nothing changes. `host/bolt_totals.c` wraps the HUD update and panel draw, `host/save_marks.c`
+the Load page's slots (the font's printer swaps the clamped text), and `host/bolt_totals.h`
+holds the formatting, covered by `rac2_bolt_totals_test`. No setting: it only differs where the
+stock display was wrong.
+
 ## Writing shared C
 
 - **Functions** by v1.01's names: `func_0027F538`, `func_L05_0041DF58`, `func_0027F640__game`.
@@ -50,7 +59,7 @@ file but calls its own functions before reading a key, so `differences.json` mar
 | File | |
 |---|---|
 | `entry.c`, `level.c` | crt0 without the thread and heap system calls; ParseBin wrapped (which level's program is loaded) |
-| `dma.c`, `spr_dma.c` | `sceDmaSend`, the scratchpad DMA the hand-written kernels poll |
+| `dma.c` | `sceDmaSend` |
 | `font.c`, `ui2d.c`, `picture.c` | text, 2D quads and the menus' picture, drawn by the window at its own resolution |
 | `hud.c`, `wide_view.c`, `options.c` | the HUD at a wide picture's edges, culling for the wider view, the game's 16:9 kept off |
 | `movie.c`, `sound.c`, `io.c`, `print.c` | movies, 989snd commands, file open, printing |

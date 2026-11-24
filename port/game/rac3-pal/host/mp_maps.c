@@ -23,6 +23,10 @@
 #include "mp/game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "rac3_coll_line.h"
+
+/* host/mp_fixes.c: the flags a map's collision line runs with (wall sniping's fix). */
+int rac3_mp_fix_coll_flags(int map, int from, int flags, int moby);
 #include "rac3_version.h"
 
 /* A global of level 39's program, in the map loaded now. */
@@ -171,7 +175,8 @@ static void view_layout_after(int layout) {
     sky,                                                                                           \
     particles,                                                                                     \
     quad,                                                                                          \
-    layout                                                                                         \
+    layout,                                                                                        \
+    coll                                                                                           \
 )                                                                                                  \
     void mp_func_L##m##_##vif0(unsigned int chain) {                                               \
         kick_vif0_chain(chain);                                                                    \
@@ -247,8 +252,14 @@ static void view_layout_after(int layout) {
         view_layout_before(a0);                                                                    \
         mp_func_L##m##_##layout##__game(a0, a1, a2, a3);                                           \
         view_layout_after(a0);                                                                     \
+    }                                                                                              \
+    int mp_func_L##m##_##coll##__game(int a0, int a1, int a2, int a3, int a4);                     \
+    int mp_func_L##m##_##coll(int a0, int a1, int a2, int a3, int a4) {                            \
+        const int flags = rac3_mp_fix_coll_flags(m, a0, a2, a3);                                   \
+        return rac3_coll_line(mp_func_L##m##_##coll##__game, a0, a1, flags, a3, a4);               \
     }
 
 #define MP_MAP_UI(...)
 #define MP_MAP_HUD(...)
+#define MP_MAP_VU0(...)
 #include "mp_maps.h"

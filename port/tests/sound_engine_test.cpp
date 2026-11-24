@@ -211,7 +211,7 @@ int main() {
             std::fclose(again);
         }
 
-        // As editor/audio.py works it out, from the stream's own bytes.
+        // As extractor/audio.py works it out, from the stream's own bytes.
         const std::string key = std::format(
             "{:016x}",
             openrac::audio::stream_key(
@@ -285,6 +285,30 @@ int main() {
         CHECK(sides[100] == 8000);
         CHECK(sides[101] == -16000);
         openrac_stream_stop(replaced);
+
+        // A mod's scene ducks the group's streams (openrac_sound_set_stream_gain): eased, not cut,
+        // then held; another group is not touched; given back the same way.
+        {
+            const std::uint32_t ducked = openrac_stream_play(loud_sector, 0x400, 1, 0, 0x20);
+            openrac_sound_set_stream_gain(1, 0.5f);
+            openrac_sound_set_stream_gain(1, 0.5f);
+            openrac_sound_set_stream_gain(-1, 0.0f);
+            openrac_sound_set_stream_gain(99, 0.0f);
+            std::vector<std::int16_t> ease(2 * 1200);
+            openrac_sound_render(ease.data(), ease.size() / 2);
+            CHECK(ease[0] == 8000);                                 // the first frame as it was
+            CHECK(ease[2 * 1199] < 8000 && ease[2 * 1199] > 4000);  // a quarter of the way down
+            std::vector<std::int16_t> rest(2 * 4800);
+            openrac_sound_render(rest.data(), rest.size() / 2);
+            openrac_sound_render(sides.data(), sides.size() / 2);
+            CHECK(sides[100] == 4000);
+            CHECK(sides[101] == -8000);
+            openrac_sound_set_stream_gain(1, 1.0f);
+            openrac_sound_render(rest.data(), rest.size() / 2);
+            openrac_sound_render(sides.data(), sides.size() / 2);
+            CHECK(sides[100] == 8000);
+            openrac_stream_stop(ducked);
+        }
 
         // Read on its own thread as in play: the header's length, then the file's sound.
         openrac_stream_read_at_once(0);

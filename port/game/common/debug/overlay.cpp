@@ -15,7 +15,7 @@
 
 #include "openrac/guest.h"
 
-// The editor's moby class names (cmake/Games.cmake, from editor/moby_classes.tsv).
+// The editor's moby class names (cmake/Games.cmake, from extractor/moby_classes.tsv).
 extern const char* const openrac_moby_class_names;
 
 namespace openrac::frontend::debug_overlay {

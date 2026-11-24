@@ -42,7 +42,12 @@ type HookPoint =
     | "rac2.bolt.spawn_pickup"
     | "rac2.bolt.collect"
     | "rac2.arena.prize"
+    | "rac2.armor_vendor.build_list"
+    | "rac2.armor_vendor.buy"
+    | "rac2.vendor.preview"
     | "Arena_Prize"
+    | "ArmorVendor_BuildList"
+    | "ArmorVendor_Buy"
     | "Bolt_Collect"
     | "Bolt_SpawnPickup"
     | "Bolt_SpawnPickups"
@@ -75,6 +80,7 @@ type HookPoint =
     | "Text_ById"
     | "Vendor_BuildList"
     | "Vendor_DrawList"
+    | "Vendor_Preview"
     | "Vendor_Price"
     | "Weapon_LevelUp"
     | "Weapon_TakeAmmo"
@@ -155,6 +161,12 @@ type Bolt_SpawnPickupFn = (source: number, position: number, velocity: number, f
 type Bolt_CollectFn = (moby: number) -> ()
 -- rac2.arena.prize (Arena_Prize) i32(i32): The bolts an arena challenge pays (moby_compute_scaled_entry_value, Maktar's and Joba's arena: one function in both levels): the challenge record's prize (+0xC of its entry in the level's challenge table), times 0.3 for each time it was won before, kept between 500 and the prize, ten times that in challenge mode. The arena's menu prints it and the win adds it to the bolts (and keeps it for the results screen), so a replacement changes a prize everywhere it shows.
 type Arena_PrizeFn = (challenge: number) -> number
+-- rac2.armor_vendor.build_list (ArmorVendor_BuildList) void(): Fills the armour vendor's list (the vendor in mode 3: a Megacorp Vendor whose pvars +0x94 is 2): g_vendorUi +0x140, 12-byte rows {i32 icon (0xEA92 + armour, a HUD icon id), i32 price (bolts), i32 armour (0 to 4: the armour the row sells, whose item record names it and whose pack the preview loads)}, the count at +0x740 (up to 128): each armour above the one worn (s16 at the save block +0x20) that its planet unlocked (g_game_flag_table[0x8D] bit, or the extras of a finished game), icon 0xEA92 + armour, price 0, 25000, 100000, 250000 or 1000000. With Carbonox (4) worn it lists nothing. The vendor calls it as it opens. A replacement can add rows after the original's; a row's armour must stay 0 to 4 (the preview, the name, the description table and the close index by it). The armour vendors are on Dobbo, Boldan, Snivelak and Grelbin.
+type ArmorVendor_BuildListFn = () -> ()
+-- rac2.armor_vendor.buy (ArmorVendor_Buy) void(u32,u32): The armour vendor's purchase dialog, once a frame while it is up (shop_dispatch_purchase_confirm, mode 3; every level's copy). answer: the address of its i32 answer (1 yes); the second word the dispatcher passes (the answer's neighbour) is not read. Its state is g_vendorUi +0x84: 1 opens it (too few bolts for the row's price: refused, state 2), 2 waits for Cross (answer 1) or Triangle (answer 0), then 3 decides: answer 1, the bolts at least the price and the armour worn not 4: pays the row's price, plays the purchase sound and message and closes the menu, which then wears the row's armour (shop_close_sub_menu); otherwise the refusal or nothing, state 0. The row is the one under the cursor (+0x80). A replacement can buy a row of its own at state 3 (pay, then set the answer to 0 so that the original closes the dialog as a refusal does) and call the original for the game's rows.
+type ArmorVendor_BuyFn = (answer: number, unused: number) -> ()
+-- rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the row under the cursor (PrepareVendorSelectionPreview), in every mode, as the cursor moves and the menu opens: the armour vendor's (mode 3) loads the row's armour over Ratchet's class 0 when it is not the one loaded and makes the preview objects (g_vendorUi +0x2C, the count at +0x34, 0x100-byte mobys outside the level's list: class 0, Ratchet in that armour, then 1290 and 2675 for its extra pieces), turned to the camera, and shows the armour's description; the weapon vendor's, the weapon's model or picture. A replacement can call the original and then change the message or the objects' look (moby_material_class with OPENRAC_MODEL_MENU).
+type Vendor_PreviewFn = () -> ()
 
 declare openrac: {
     game: string,
@@ -191,4 +203,8 @@ declare openrac: {
     on_settings: (fn: () -> ()) -> (),
     -- interface 1.31: a pad button's label (an OPENRAC_PAD_* bit: 0x8000 Square) for the device in use, and its kind
     button_label: (button: number) -> (string?, ("playstation" | "letters" | "keys")?),
+    -- interface 1.37: the pads' motors as the game's vibration drives them (small on or off, large 0 to 255)
+    set_motors: (port: number, small_motor: boolean, large_motor: number) -> boolean,
+    -- interface 1.37: an option of the port's menu greyed out or made usable, by its name (menu-options.md)
+    menu_option_set: (option: string, state: "on" | "off" | "default") -> boolean,
 }

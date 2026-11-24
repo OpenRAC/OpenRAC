@@ -165,10 +165,15 @@ class Translator:
     # asm.in_place in hostgen.json: hand-written routines called in their own register convention,
     # whose code a translation runs in place whatever C they have (rac1's collision cell lookup).
     in_place: frozenset = frozenset()
-    # asm.dma_stores in hostgen.json: the kernels that start the scratchpad's DMA channels by writing
-    # their registers (lui 0x1000), which no DMA controller answers: their word stores go through
-    # openrac_ee_sw_dma, which does the transfer (openrac/ee_ops.h).
-    dma_stores = False
+    # asm.spr_copies in hostgen.json: the hand-written kernels that move data between main memory
+    # and the scratchpad by writing a scratchpad DMA channel's registers (fromSPR at 0x1000D000,
+    # toSPR at 0x1000D400) at addresses their code builds from constants (_spr_registers). Those
+    # words are the function's own locals, not memory, and the CHCR store that starts a transfer is
+    # the copy itself (openrac_spr_copy, openrac/ee_ops.h), over before the next instruction: the
+    # kernel's poll of STR reads it clear, and a COP0 wait for the channel (bc0t) is taken at once.
+    # Any other reach of those registers stops the game (openrac_ee_dma_register). Nothing models a
+    # DMA controller.
+    spr_copies = False
     # asm.wide_register_calls in hostgen.json: a call through a code address hands on the upper
     # halves of $a0-$a3 as well (openrac_guest_hi_args), and a function's entry takes them in, so a
     # 128-bit argument survives the call (Up Your Arsenal's func_L01_003AB448, two vectors by value).
@@ -186,10 +191,12 @@ class Translator:
     # asm.vu_flush in hostgen.json: an FMAC result too small for VU0 is zero of its sign, as in
     # func_L00_00316F60's joints, where the host's denormal was the only difference from retail.
     vu_flush = False
-    # asm.dma_done in hostgen.json: a transfer here is over when the store that starts it returns
-    # (asm.dma_stores), so a wait on COP0's condition has nothing to wait for: bc0t is always taken and
-    # bc0f never (func_002A2450's copy back from the scratchpad).
-    dma_done = False
+    # asm.trap_ends in hostgen.json: a trap that always fires (teq with one register twice: a
+    # hand-written routine's "cannot get here", Up Your Arsenal's moby grid func_003C7D10 when a moby
+    # is not in its cell's list) ends the path: logged, and the function returns, rather than going
+    # on into the next routine's code below it (func_003C7FF0's, whose VU0 microprogram the port
+    # writes as a function of its own).
+    trap_ends = False
     # asm.input_idioms in hostgen.json: reads that are no inputs (_no_input): func_002A05A8's
     # `sub.s $f0, $f0, $f0`, func_002A3110 saving $t8 and $t9 to the scratchpad.
     input_idioms = False
@@ -218,6 +225,14 @@ class Translator:
     # asm.stack_arguments in hostgen.json: integer arguments past the eighth, which the caller
     # passes in its frame, count as read where the code loads them (_stack_arguments).
     stack_arguments = False
+    # asm.wide in hostgen.json: a table (a JSON file beside the configuration) of the instructions
+    # that index one of the game's fixed-size arrays the port widens past the game's own count
+    # (Up Your Arsenal's 8-player tables, mp/wide.json). The port keeps the game's first entries
+    # where they are and the further ones in tables of its own, so at each such instruction the
+    # address goes through the table's host function ("address", with the array's id), a loop's
+    # bound through "bound" (the game's constant in, the bound for the room out), and an element's
+    # address the code hands on through "address" too. Wide (parse_wide): (overlay, address) -> what.
+    wide: dict | None = None
     # The float arithmetic computed as the EE's (openrac/ps2float.h) rather than in the host's
     # floats: the shadows (translate_shadows), checked bit for bit against the port's own C.
     ps2: bool = False
@@ -295,7 +310,7 @@ class Translator:
             if isinstance(kept, Exception):
                 raise kept.with_traceback(None)
             (self.inline_calls, self.returns, self.reach, self.delay_only, self.jtables, self.vu_flags,
-             self.starts_dma) = kept
+             self.spr) = kept
             return
         try:
             self.inline_calls: set[int] = set()
@@ -306,8 +321,7 @@ class Translator:
             # cost every vector operation a few more for nothing.
             self.vu_flags = any((i := self.at(a)) is not None and i.op == "cfc2" and i.rd in (16, 17)
                                 for a in self.reach)
-            self.starts_dma = self.dma_stores and any((i := self.at(a)) is not None and i.op == "lui"
-                                                      and i.imm & 0xFFFF == 0x1000 for a in self.reach)
+            self.spr = self._spr_registers() if self.spr_copies else {}
             self._check_inputs()
         except (AsmUnsupported, Unsupported) as e:
             if flows is not None:
@@ -315,7 +329,7 @@ class Translator:
             raise
         if flows is not None:
             flows[(self.home, self.entry_addr)] = (self.inline_calls, self.returns, self.reach, self.delay_only,
-                                                   self.jtables, self.vu_flags, self.starts_dma)
+                                                   self.jtables, self.vu_flags, self.spr)
 
     _inline_cache: dict = {}
 
@@ -338,14 +352,14 @@ class Translator:
         sub.gp_addresses = self.gp_addresses
         sub.forward_unprototyped = self.forward_unprototyped
         sub.in_place = self.in_place
-        sub.dma_stores = self.dma_stores
+        sub.spr_copies = self.spr_copies
         sub.wide_register_calls = self.wide_register_calls
         sub.float_parameters_on_calls = self.float_parameters_on_calls
         sub.fit_declarations = self.fit_declarations
         sub.register_jumps = self.register_jumps
         sub.cop0_count = self.cop0_count
         sub.input_idioms = self.input_idioms
-        sub.dma_done = self.dma_done
+        sub.trap_ends = self.trap_ends
         sub.vu_flush = self.vu_flush
         sub.verified_signatures = self.verified_signatures
         sub.ps2 = self.ps2
@@ -552,6 +566,199 @@ class Translator:
                 return None
         return None
 
+    # ---- The scratchpad's copies (asm.spr_copies) ----
+
+    # The two scratchpad DMA channels, by the address of their CHCR, and their registers' offsets.
+    SPR_CHANNELS = {0x1000D000: 8, 0x1000D400: 9}
+    SPR_FIELDS = {0x00: "chcr", 0x10: "madr", 0x20: "qwc", 0x30: "tadr", 0x80: "sadr"}
+    # _spr_registers' mark for a word access through a base it cannot follow (tested when it runs).
+    DYNAMIC = (None, "dynamic", None, frozenset(), None)
+    MEMORY_OPS = {"lb", "lbu", "lh", "lhu", "lw", "lwu", "ld", "lwl", "lwr", "ldl", "ldr", "lq", "lwc1", "lqc2",
+                  "sb", "sh", "sw", "sd", "swl", "swr", "sdl", "sdr", "sq", "swc1", "sqc2"}
+
+    def _spr_registers(self) -> dict:
+        """Each load and store of the function that reaches a scratchpad DMA channel's registers, by
+        its address: (channel, field or None, the word stored when the code makes it a constant, the
+        channel's fields stored on every path from the entry to it, the register's address). The registers' addresses are
+        followed as constants through the flow (lui, ori, addiu and adds of known values); a call
+        keeps the caller's registers but $v0, $v1 and $ra, as the translation's calls do."""
+        mask = 0xFFFFFFFF
+
+        def value(env: dict, r: int):
+            return 0 if r == 0 else env.get(r)
+
+        def step(ins: asm.Insn, env: dict) -> dict:
+            op = ins.op
+            out = dict(env)
+            for r in rw(ins)[1]:
+                out.pop(r, None)
+            dest, v = None, None
+            if op == "lui" and not (ins.reloc and ins.reloc[0] == "hi"):
+                dest, v = ins.rt, (ins.word & 0xFFFF) << 16
+            elif op == "ori" and value(env, ins.rs) is not None:
+                dest, v = ins.rt, value(env, ins.rs) | (ins.imm & 0xFFFF)
+            elif op in ("addiu", "addi", "daddiu", "daddi") and value(env, ins.rs) is not None and not ins.reloc:
+                dest, v = ins.rt, (value(env, ins.rs) + ins.imm) & mask
+            elif op in ("addu", "add", "daddu", "dadd", "or"):
+                x, y = value(env, ins.rs), value(env, ins.rt)
+                if x is not None and y is not None:
+                    dest, v = ins.rd, ((x + y) if op != "or" else (x | y)) & mask
+            if dest:
+                out[dest] = v
+            if op in ("sw",) and ins.rs != 28:
+                base = value(env, ins.rs)
+                hit = self._spr_field((base + ins.imm) & mask) if base is not None else None
+                if hit is not None and hit[1] is not None:
+                    out[("stored", hit[0], hit[1])] = True
+            return out
+
+        def meet(a: dict | None, b: dict) -> dict:
+            if a is None:
+                return dict(b)
+            return {k: v for k, v in a.items() if k in b and b[k] == v}
+
+        nodes: dict = {}   # node -> (instruction address or None, successors)
+        for a in self.reach:
+            if a in self.delay_only:
+                continue
+            ins = self.at(a)
+            if not is_control(ins):
+                nodes[a] = (a, [a + 4])
+                continue
+            op = ins.op
+            after: list = []
+            skip: list = []
+            calls = op in ("jalr", *COND_CALLS) or (op == "jal" and a not in self.inline_calls)
+            if op in ("jal", *COND_CALLS) and a in self.inline_calls:
+                after = [ins.target]
+            elif calls:
+                nodes[("call", a)] = (None, [a + 8])
+                after = [("call", a)] + ([a + 8] if op in COND_CALLS else [])
+                if op in COND_CALLS and ins.likely:
+                    after, skip = [("call", a)], [a + 8]
+            elif op == "jr":
+                after = list(self.jtables.get(a, []))
+            elif op == "j":
+                after = [] if self._is_other_entry(ins.target) else [ins.target]
+            elif op in COP0_BRANCHES:
+                after = [ins.target if op.startswith("bc0t") else a + 8]
+            else:
+                uncond = op in ("beq", "beql") and ins.rs == ins.rt
+                if ins.likely and not uncond:
+                    after, skip = [ins.target], [a + 8]
+                else:
+                    after = [ins.target] if uncond else [ins.target, a + 8]
+            nodes[("delay", a)] = (a + 4, after)
+            nodes[a] = (a, [("delay", a)] + skip)
+        state: dict = {self.entry_addr: {}}
+        todo = [self.entry_addr]
+        while todo:
+            n = todo.pop()
+            if n not in nodes:
+                continue
+            at, succ = nodes[n]
+            env = state[n]
+            if isinstance(n, tuple) and n[0] == "call":
+                out = {k: v for k, v in env.items() if k not in (2, 3, 31)}
+            elif at is not None:
+                out = step(self.at(at), env)
+                if self.at(at).op in ("jal", "jalr", *COND_CALLS):
+                    out.pop(31, None)
+            else:
+                out = env
+            for s2 in succ:
+                new = meet(state.get(s2), out)
+                if state.get(s2) != new:
+                    state[s2] = new
+                    todo.append(s2)
+        found: dict = {}
+        # A kernel that builds a register block's address (lui 0x1000) may also reach it through a
+        # base the flow cannot follow: Up Your Arsenal's coll_line keeps toSPR's address in $t6 on
+        # one path and a dummy one (0x10010000) on another, and stores MADR, QWC, SADR and CHCR
+        # through it where the paths join. Its word loads and stores through such bases are
+        # DYNAMIC: the translation tests the address when it runs (_spr_access).
+        builds = any((i := self.at(a)) is not None and i.op == "lui" and i.imm & 0xFFFF in (0x1000, 0x1001)
+                     and not (i.reloc and i.reloc[0] == "hi") for a in self.reach)
+        for n, (at, _) in nodes.items():
+            if at is None:
+                continue
+            ins = self.at(at)
+            if ins.op not in self.MEMORY_OPS or ins.rs == 28:
+                continue
+            # Code the flow does not reach from the entry (coll_line's returns from its own
+            # subroutine, a jal inside the function whose jr $ra the flow does not follow back)
+            # knows no base either.
+            base = value(state[n], ins.rs) if n in state else None
+            if base is None:
+                if builds and ins.op in ("sw", "lw", "lwu"):
+                    found[at] = self.DYNAMIC
+                continue
+            if found.get(at) == self.DYNAMIC:
+                continue
+            hit = self._spr_field((base + ins.imm) & mask)
+            if hit is None:
+                continue
+            ch, field = hit
+            where = (base + ins.imm) & mask
+            stored = value(state[n], ins.rt) if ins.op == "sw" else None
+            fields = frozenset(k[2] for k in state[n] if isinstance(k, tuple) and k[1] == ch)
+            if at in found:
+                # Run both as a jump's delay slot and on its own: what holds on both ways.
+                och, ofield, ostored, ofields, owhere = found[at]
+                if owhere != where:
+                    found[at] = (ch, None, None, frozenset(), where)
+                    continue
+                found[at] = (ch, field, stored if stored == ostored else None, fields & ofields, where)
+            else:
+                found[at] = (ch, field, stored, fields, where)
+        return found
+
+    def _spr_field(self, address: int) -> tuple[int, str | None] | None:
+        """(channel, field) for an address in a scratchpad DMA channel's register block, field None
+        for a word there that is not one of the fields the copies keep; None elsewhere."""
+        for chcr, ch in self.SPR_CHANNELS.items():
+            if chcr <= address < chcr + 0x100:
+                return ch, self.SPR_FIELDS.get(address - chcr)
+        return None
+
+    def _spr_access(self, ins: asm.Insn) -> list[str] | None:
+        """The C for a load or store that reaches a scratchpad DMA channel's register
+        (_spr_registers), or None for any other."""
+        hit = self.spr.get(ins.addr)
+        if hit is None:
+            return None
+        if hit == self.DYNAMIC:
+            # The address is known only when it runs (_spr_registers): a scratchpad DMA channel's
+            # register there is the same local word, or the copy, as a constant address's; any
+            # other address is the plain load or store (openrac_spr_sw, openrac_spr_lw in ee_ops.h).
+            chans = ", ".join(f"&spr{ch}_{f}" for ch in (8, 9) for f in ("chcr", "madr", "qwc", "tadr", "sadr"))
+            where = f'"{self.f.symbol}", {hx(ins.addr)}'
+            head = f"{{ openrac_u32 spr_a_ = {self.addr(ins)};"
+            if ins.op == "sw":
+                return [f"{head} if (openrac_spr_register(spr_a_)) openrac_spr_sw(spr_a_, (openrac_u32){self.R(ins.rt)}, "
+                        f"{chans}, {where}); else openrac_ee_sw(spr_a_, {self.R(ins.rt)}); }}"]
+            value = f"(openrac_spr_register(spr_a_) ? openrac_spr_lw(spr_a_, {chans}, {where}) : (openrac_u32)openrac_ee_{ins.op}(spr_a_))"
+            return [head, *self.W(ins.rt, S32(value) if ins.op == "lw" else value), "}"]
+        ch, field, stored, fields, where = hit
+        word = ins.op in ("sw", "lw", "lwu")
+        fault = f'openrac_ee_dma_register("{self.f.symbol}", {hx(ins.addr)}, {hx(where)});'
+        if field is None or not word:
+            # A register the copies do not keep, or not a word: no kernel here does that.
+            return [fault] if ins.op.startswith("s") else [fault] + self.W(ins.rt, "0")
+        local = f"spr{ch}_{field}"
+        if ins.op in ("lw", "lwu"):
+            value = f"(openrac_u32){local}"
+            return self.W(ins.rt, S32(value) if ins.op == "lw" else value)
+        lines = [f"{local} = (openrac_u32){self.R(ins.rt)};"]
+        if field != "chcr" or (stored is not None and not stored & 0x100):
+            return lines
+        if not {"madr", "qwc", "sadr"} <= fields and self.DYNAMIC not in self.spr.values():
+            # Started with a field this function has not set on the way: from another function's
+            # store, which the copies do not see.
+            return [fault]
+        return lines + [f'openrac_spr_copy({1 if ch == 9 else 0}, &spr{ch}_chcr, &spr{ch}_madr, &spr{ch}_qwc, '
+                        f'&spr{ch}_sadr, "{self.f.symbol}", {hx(ins.addr)});']
+
     def _computed_targets(self, at: int) -> list[int]:
         """A jump to a label of the function plus a computed offset (`la t0, L; addu t1, t0, t9; jr t1`):
         into a run of instructions, as func_00280B90 enters the middle of its loads for the vertices
@@ -606,12 +813,13 @@ class Translator:
             ins = self._need(a, "it")
             heads.add(a)
             reach.add(a)
-            done_wait = self.dma_done and ins.op in COP0_BRANCHES
+            done_wait = self.spr_copies and ins.op in COP0_BRANCHES
             counted = self.cop0_count and cop0_count(ins)
             if ins.op in UNSUPPORTED and self.microprogram(ins) is None and not done_wait and not counted:
                 raise AsmUnsupported(f"{UNSUPPORTED[ins.op]} at {ins.addr:08X}")
             if not is_control(ins):
-                todo.append(a + 4)
+                if not self._ends(ins):
+                    todo.append(a + 4)
                 continue
             d = self._need(a + 4, "a delay slot")
             if is_control(d):
@@ -646,6 +854,10 @@ class Translator:
                 if not uncond:
                     todo.append(a + 8)
         return reach, delay - heads, tables
+
+    def _ends(self, ins: asm.Insn) -> bool:
+        """Whether the path ends at this instruction: a trap that always fires, with asm.trap_ends."""
+        return self.trap_ends and ins.op == "teq" and ins.rs == ins.rt
 
     # ---- The signature ----
 
@@ -853,6 +1065,44 @@ class Translator:
 
     def addr(self, ins: asm.Insn) -> str:
         """The address a load or store reaches."""
+        site = self._wide_site(ins.addr, "ea")
+        if site is not None:
+            return f"(openrac_u32){self.wide['address']}({self._addr(ins)}, {site['table']})"
+        return self._addr(ins)
+
+    def _wide_site(self, address: int, kind: str) -> dict | None:
+        if not self.wide:
+            return None
+        sites = self._wide_sites(address, kind)
+        return sites[0] if sites else None
+
+    def _wide_sites(self, address: int, kind: str) -> list[dict]:
+        if not self.wide:
+            return []
+        return [s for s in self.wide["sites"].get((self.home, address & 0xFFFFFFFF), ()) if s["kind"] == kind]
+
+    def _wide_value(self, ins: asm.Insn, lines: list[str]) -> list[str]:
+        """asm.wide's "value" (the element address an instruction forms, mapped where it is formed)
+        and "bound" (a loop's or a check's constant: the count of the room's players) sites."""
+        site = self._wide_site(ins.addr, "value")
+        if site is not None:
+            return lines + self._wide_map(site)
+        return lines
+
+    def _wide_map(self, site: dict) -> list[str]:
+        """The element address in the site's register, mapped to where the port keeps it."""
+        reg = site["register"]
+        fn = self.wide["address"]
+        return [] if reg == 0 else [f"r{reg} = {S32(f'(openrac_u32){fn}((openrac_u32)r{reg}, {site['table']})')};"]
+
+    def _wide_bound(self, ins: asm.Insn) -> str:
+        """A bound site's constant: the game's, as the room's count gives it."""
+        site = self._wide_site(ins.addr, "bound")
+        if site is None:
+            return str(ins.imm)
+        return f"(openrac_s64){self.wide['bound']}({ins.imm})"
+
+    def _addr(self, ins: asm.Insn) -> str:
         if ins.rs == 28 and self.gp is not None:
             a = (self.gp + ins.imm) & 0xFFFFFFFF
             return f"(openrac_u32)({self._data(f'D_{a:08X}', a)})"
@@ -922,6 +1172,9 @@ class Translator:
             if not is_control(ins):
                 out += self.stmt(ins)
                 falls = a + 4
+                if self._ends(ins):
+                    out += self.leave()
+                    falls = None
             else:
                 delay = self.stmt(self.at(a + 4))
                 out += self.control(ins, delay)
@@ -975,6 +1228,9 @@ class Translator:
             if a in self.inline_calls:
                 return delay + [f"r31 = {S32(hx(a + 8))};", f"goto L_{ins.target:08X};"]
             self._check_result(ins.target, self._operand_name(a), a)
+            for site in self._wide_sites(a, "arg"):
+                # An element's address handed to the callee, mapped after the delay slot forms it.
+                delay = delay + self._wide_map(site)
             return delay + [f"r31 = {S32(hx(a + 8))};"] + self.call(ins.target, self._operand_name(a), a)
         if op == "jalr":
             # The target register is read before the delay slot runs.
@@ -1369,7 +1625,7 @@ class Translator:
             ins = self.at(a)
             r_g, r_f, w_g, w_f = effect(a)
             if not is_control(ins):
-                nodes[a] = (r_g, r_f, w_g, w_f, [a + 4])
+                nodes[a] = (r_g, r_f, w_g, w_f, [] if self._ends(ins) else [a + 4])
                 continue
             d = a + 4
             d_g, d_f, dw_g, dw_f = effect(d)
@@ -1391,7 +1647,7 @@ class Translator:
             elif op == "j":
                 after = [call_node(a, ins.target, [])] if self._is_other_entry(ins.target) else [ins.target]
             elif op in COP0_BRANCHES:
-                after = [ins.target if op.startswith("bc0t") and self.dma_done else a + 8]
+                after = [ins.target if op.startswith("bc0t") and self.spr_copies else a + 8]
             else:
                 uncond = op in ("beq", "beql") and ins.rs == ins.rt
                 if ins.likely and not uncond:
@@ -1549,6 +1805,9 @@ class Translator:
     # ---- One instruction ----
 
     def stmt(self, ins: asm.Insn) -> list[str]:
+        return self._wide_value(ins, self._stmt(ins)) if self.wide else self._stmt(ins)
+
+    def _stmt(self, ins: asm.Insn) -> list[str]:
         op = ins.op
         R, W = self.R, self.W
         rs, rt, rd, sa, imm = ins.rs, ins.rt, ins.rd, ins.sa, ins.imm
@@ -1573,6 +1832,11 @@ class Translator:
                 # A datum's address formed from $gp: it moves between programs as a load through
                 # $gp does (func_L01_003801B8's gp-0x110 in level 18's copy is another variable).
                 return W(rt, S32(self.addr(ins)))
+            if rs == 0 and self._wide_site(ins.addr, "bound") is not None:
+                return W(rt, S32(self._wide_bound(ins)))
+            if self._wide_site(ins.addr, "span") is not None:
+                # The end of a loop over a table's entries: the room's count of them.
+                return W(rt, S32(f"{u32(R(rs))} + (openrac_u32){self.wide['span']}({hx(imm)})"))
             return W(rt, S32(f"{u32(R(rs))} + {hx(imm)}"))
         if op in ("daddu", "dadd"):
             return W(rd, f"{R(rs)} + {R(rt)}")
@@ -1606,9 +1870,9 @@ class Translator:
         if op == "sltu":
             return W(rd, f"{R(rs)} < {R(rt)}")
         if op == "slti":
-            return W(rt, f"(openrac_s64){R(rs)} < {imm}")
+            return W(rt, f"(openrac_s64){R(rs)} < {self._wide_bound(ins)}")
         if op == "sltiu":
-            return W(rt, f"{R(rs)} < (openrac_u64)(openrac_s64){imm}")
+            return W(rt, f"{R(rs)} < (openrac_u64)(openrac_s64){self._wide_bound(ins)}")
         if op == "sll":
             return W(rd, S32(f"{u32(R(rt))} << {sa}"))
         if op == "srl":
@@ -1676,14 +1940,17 @@ class Translator:
                 cond = f"(openrac_s64){R(rs)} {c} {imm}"
             return [f"if ({cond}) openrac_ee_break(\"{self.f.symbol}\", {hx(ins.addr)});"]
         # Loads and stores.
+        if self.spr and op in self.MEMORY_OPS:
+            spr = self._spr_access(ins)
+            if spr is not None:
+                return spr
         loads = {"lb", "lbu", "lh", "lhu", "lw", "lwu", "ld"}
         if op in loads:
             return W(rt, f"openrac_ee_{op}({self.addr(ins)})")
         if op in ("lwl", "lwr", "ldl", "ldr"):
             return W(rt, f"openrac_ee_{op}({self.addr(ins)}, {R(rt)})")
         if op in ("sb", "sh", "sw", "sd", "swl", "swr", "sdl", "sdr"):
-            store = "sw_dma" if op == "sw" and self.starts_dma else op
-            return [f"openrac_ee_{store}({self.addr(ins)}, {R(rt)});"]
+            return [f"openrac_ee_{op}({self.addr(ins)}, {R(rt)});"]
         if op == "lq":
             if rt == 0:
                 return []
@@ -2050,6 +2317,12 @@ class Translator:
         frame = 64 + sum(-i.imm for i in map(self.at, self.reach) if i.op in ("addiu", "daddiu") and i.rs == 29
                          and i.rt == 29 and i.imm < 0)
         decl.append(f"    OPENRAC_ASM_FRAME({frame});")
+        if self.wide and re.search(r"\b" + re.escape(self.wide["address"]) + r"\(", text):
+            decl.append(f"    extern openrac_u32 {self.wide['address']}(openrac_u32, int);")
+        if self.wide and re.search(r"\b" + re.escape(self.wide["bound"]) + r"\(", text):
+            decl.append(f"    extern int {self.wide['bound']}(int);")
+        if self.wide and re.search(r"\b" + re.escape(self.wide["span"]) + r"\(", text):
+            decl.append(f"    extern int {self.wide['span']}(int);")
         decl.append("    openrac_u64 " + ", ".join(f"r{n} = 0" for n in gprs) + ";")
         if highs:
             decl.append("    openrac_u64 " + ", ".join(f"h{n} = 0" for n in highs) + ";")
@@ -2059,6 +2332,7 @@ class Translator:
                   ("int", "c_"), ("int", "fcc_"), ("openrac_f32", "facc_"), ("openrac_u32", "t_"), ("openrac_u32", "j_"),
                   ("openrac_u32", "sa_"), ("openrac_ee_q", "q_"), ("openrac_ee_q", "qlo_"), ("openrac_ee_q", "qhi_"),
                   ("openrac_f32", "v_[4]"), ("openrac_u32", "m_")]
+        extras += [("openrac_u32", f"spr{ch}_{field}") for ch in (8, 9) for field in self.SPR_FIELDS.values()]
         for t, name in extras:
             bare = name.split("[")[0]
             if re.search(r"\b" + re.escape(bare) + r"\b", text):
@@ -2240,6 +2514,33 @@ class Stage:
     params_from_code: list = field(default_factory=list)  # asm.params_from_code's additions
 
 
+def parse_wide(table: dict | None) -> dict | None:
+    """asm.wide's table (Translator.wide), as hostgen's load_config read it from its file:
+    {"address": fn, "bound": fn, "tables": [names], "sites": {program: {address: what}}}, where a
+    program is "core" (the executable) or a level's number and what is "ea TABLE", "value TABLE
+    rN", "arg TABLE rN", "bound" or "span" (several at one instruction joined by "; "). The table's
+    id is its place in "tables"."""
+    if not table:
+        return None
+    ids = {name: k for k, name in enumerate(table["tables"])}
+    sites: dict = {}
+    for program, rows in table.get("sites", {}).items():
+        home = -1 if program == "core" else int(program)
+        for address, text in rows.items():
+            for what in text.split(";"):
+                words = what.split()
+                site: dict = {"kind": words[0] if words else ""}
+                if site["kind"] in ("ea", "value", "arg"):
+                    site["table"] = ids[words[1]]
+                if site["kind"] in ("value", "arg"):
+                    site["register"] = int(words[2].lstrip("r"))
+                elif site["kind"] not in ("ea", "bound", "span"):
+                    raise ValueError(f"asm.wide: {program} {address}: {what!r} is no site")
+                sites.setdefault((home, int(address, 16)), []).append(site)
+    return {"address": table["address"], "bound": table["bound"], "span": table.get("span", ""),
+            "sites": sites}
+
+
 def asm_config(cfg: dict) -> dict | None:
     a = cfg.get("asm")
     if not a or not a.get("enabled", False):
@@ -2404,12 +2705,12 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.gp_addresses = bool(a.get("gp_addresses"))
     tr.forward_unprototyped = bool(a.get("forward_unprototyped"))
     tr.in_place = frozenset(a.get("in_place", []))
-    tr.dma_stores = bool(a.get("dma_stores"))
+    tr.spr_copies = bool(a.get("spr_copies"))
     tr.wide_register_calls = bool(a.get("wide_register_calls"))
     tr.fit_declarations = bool(a.get("fit_declarations"))
     tr.register_jumps = bool(a.get("register_jumps"))
     tr.input_idioms = bool(a.get("input_idioms"))
-    tr.dma_done = bool(a.get("dma_done"))
+    tr.trap_ends = bool(a.get("trap_ends"))
     tr.vu_flush = bool(a.get("vu_flush"))
     tr.signature_check = bool(a.get("signature_check"))
     tr.result_flow = bool(a.get("result_flow"))
@@ -2418,6 +2719,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     tr.wide_call_results = bool(a.get("wide_call_results"))
     tr.float_parameters_on_calls = bool(a.get("float_parameters_on_calls"))
     tr.stack_arguments = bool(a.get("stack_arguments"))
+    tr.wide = parse_wide(a.get("wide"))
     tr.verified_signatures = frozenset(a.get("signatures", {})) | frozenset(a.get("copy_signatures", {}))
     tr.host_text = host_text
     index = asm.read_index(dirs, tr.overlay_of)

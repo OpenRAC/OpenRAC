@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstring>
 
+#include "game/common/frontend/game_image_sources.h"
 #include "openrac/guest.h"
 #include "renderer/textures/texture.h"
 
@@ -121,10 +122,17 @@ renderer::UiImage UiImageCache::find(
     if (pixel_bytes == 0) {
         return {};
     }
+    // What the game handed over at an address and may not keep there (openrac_game_image_keep:
+    // an image it sends once, from a buffer it reuses), else what memory holds there now.
+    const GameImageSources& sources = game_image_sources();
+    const auto read = [&](std::uint32_t address, std::size_t size) {
+        const auto kept = sources.find(address, size);
+        return !kept.empty() ? kept : bytes_at(ram, address, size);
+    };
     // A tick reads an address's content once: keyed by the description and the image's first and
     // last 16 bytes, so a page the game rewrites between two draws of one tick (one buffer several
     // pictures go through) is read again.
-    const auto edges = bytes_at(ram, image.pixels, pixel_bytes);
+    const auto edges = read(image.pixels, pixel_bytes);
     if (edges.empty()) {
         return {};
     }
@@ -138,9 +146,9 @@ renderer::UiImage UiImageCache::find(
     if (const auto seen = m_this_tick.find(key); seen != m_this_tick.end()) {
         hash = seen->second;
     } else {
-        const auto pixels = bytes_at(ram, image.pixels, pixel_bytes);
+        const auto pixels = read(image.pixels, pixel_bytes);
         const std::size_t palette_bytes = ui_image_palette_bytes(image);
-        const auto palette = palette_bytes != 0 ? bytes_at(ram, image.palette, palette_bytes)
+        const auto palette = palette_bytes != 0 ? read(image.palette, palette_bytes)
                                                 : std::span<const std::uint8_t>{};
         if (pixels.empty() || palette.size() != palette_bytes) {
             return {};
@@ -155,13 +163,24 @@ renderer::UiImage UiImageCache::find(
             rgba->width = decoded.width;
             rgba->height = decoded.height;
             rgba->pixels = std::move(decoded.rgba);
-            m_by_hash.emplace(hash, Kept{std::move(rgba), m_tick});
+            // For a PCSX2-format pack's names: the indices and the palette in index order.
+            std::shared_ptr<renderer::UiIndexed> indexed;
+            if (m_keep_indexed && image.bits == 8 && palette.size() == 256u * 4u) {
+                indexed = std::make_shared<renderer::UiIndexed>();
+                indexed->indices.assign(pixels.begin(), pixels.end());
+                indexed->palette.resize(256);
+                for (std::uint32_t i = 0; i < 256; ++i) {
+                    const std::uint32_t at = image.swizzled != 0 ? stored_entry(i) : i;
+                    std::memcpy(&indexed->palette[i], palette.data() + at * 4, 4);
+                }
+            }
+            m_by_hash.emplace(hash, Kept{std::move(rgba), std::move(indexed), m_tick});
         }
         m_this_tick.emplace(key, hash);
     }
     Kept& kept = m_by_hash.at(hash);
     kept.last_tick = m_tick;
-    return {hash, kept.image};
+    return {hash, kept.image, kept.indexed};
 }
 
 void UiImageCache::next_tick() {

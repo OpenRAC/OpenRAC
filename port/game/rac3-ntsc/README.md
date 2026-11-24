@@ -90,7 +90,7 @@ exceptions).
   functions whose catalogue rows start there, 2,161 are PAL's C (`match`), 1,251 assembly on both
   discs and 781 other code on NTSC-U (`differs`).
 - **The editor's export** reads Ratchet's looks, wrench, items and ship where PAL's does (the
-  same table of contents): editor/wads.py.
+  same table of contents): extractor/wads.py.
 
 ## What is left
 

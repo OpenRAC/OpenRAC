@@ -14,7 +14,7 @@
 // 19-slot level table at +0x28c8 last (PAL: D_0013A548, read by
 // func_0012F4A8). Each slot names the sector of a 0x2434-byte level header.
 // NTSC-U from ReRAC (docs/formats/disc_layout.md section 2); PAL from
-// OpenRAC's own reader of the PAL disc, editor/disc.py, which gives the same
+// OpenRAC's own reader of the PAL disc, extractor/disc.py, which gives the same
 // sector, sizes, field offsets and level header layout.
 //
 // RAC2, RAC3 and RAC4: not known yet. Their versions are identified (serial

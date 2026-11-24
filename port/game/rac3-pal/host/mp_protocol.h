@@ -265,6 +265,9 @@ enum rac3_mp_relay_kind {
     RELAY_ROOM_PACKET = 1,
     RELAY_OBJECT = 2,
     RELAY_OBJECT_RELEASE = 3,
+    /* OBJECT_GAME_SETTINGS_WIDE: slots 8-23 of the settings object's arrays (host/mp_wide.c), sent
+     * just before the settings object itself, and only in a room of more than 8 players. */
+    RELAY_OBJECT_WIDE = 4,
 };
 
 #endif /* OPENRAC_RAC3_MP_PROTOCOL_H */

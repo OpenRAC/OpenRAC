@@ -1074,7 +1074,9 @@ void GifInterpreter::run_command(const FrameCommand& c) {
                 if (i >= r.images.size() || !r.images[i].image) {
                     break;
                 }
-                s.texture = m_textures.ui_image(r.images[i].hash, *r.images[i].image);
+                s.texture = m_textures.ui_image(
+                    r.images[i].hash, *r.images[i].image, r.images[i].indexed.get()
+                );
             } else {
                 s.snapshot_picture = c.index;
                 s.combine = TextureCombine::Decal;
@@ -1195,7 +1197,7 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
     s.depth_write = false;
     s.textured = !flat;
     if (image != nullptr) {
-        s.texture = m_textures.ui_image(image->hash, *image->image);
+        s.texture = m_textures.ui_image(image->hash, *image->image, image->indexed.get());
         s.tcc = true;
         s.combine = TextureCombine::Modulate;
         s.linear_mag = (item.flags & kUiItemNearest) == 0;

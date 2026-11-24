@@ -22,10 +22,14 @@
 #include "../../common/lib/ui_quad.h"
 #include "game_protos.h"
 #include "mp/game_protos.h"
+#include "openrac/frame.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "openrac/ui.h"
 #include "rac3_version.h"
+#include "textures.h"
 #include "ui2d.h"
+#include "ui_adapter.h"
 
 static void draw_slots(void) {
     func_L01_0041FE80__game();
@@ -63,6 +67,33 @@ static void hud_rect(
     );
 }
 
+/* A HUD sprite of texture `tex` of copy `u`, as `q` says where (its corners and texels in the chip's
+ * 12.4 with the game's offset, as the game computes them) and in what colours: through the shared
+ * 2D layer, its image by the HUD bank's own tables as the game sent it (rac3_hud_image, textures.c),
+ * placed by the list's cursor; as the older record when the tables do not give it. False when the
+ * window does not draw it. */
+static int hud_send(const Rac3Ui2d* u, int tex, const openrac_game_ui_rect* q) {
+    openrac_ui_quad quad;
+    memset(&quad, 0, sizeof(quad));
+    if (!rac3_hud_image(u->hud_entries, tex, &quad.image)) {
+        return openrac_ui_record(q, u->cursor);
+    }
+    const float ofx = (float)(rac3_ui2d_screen_x(0) + 8);
+    const float ofy = (float)(rac3_ui2d_screen_y(0) + 8);
+    for (int i = 0; i < 4; ++i) {
+        quad.x[i] = ((float)(int)q->x[i] - ofx) / 16.0f;
+        quad.y[i] = ((float)(int)q->y[i] - ofy) / 16.0f;
+        quad.u[i] = (float)q->u[i] / 16.0f;
+        quad.v[i] = (float)q->v[i] / 16.0f;
+        quad.rgba[i] = (q->flags & 4u) != 0 ? q->corners[i] : q->rgba;
+    }
+    quad.flags = (q->flags & 32u) != 0 ? OPENRAC_UI_SHADED : 0u;
+    rac3_ui_adapter_install();
+    const gaddr at = GREF(gaddr, u->cursor);
+    openrac_frame_anchor(at < 0x02000000u ? at : 0);
+    return openrac_ui_draw_quad(&quad) || openrac_ui_record(q, u->cursor);
+}
+
 static unsigned long long hud_tex0(int tex) {
     return (unsigned long long)func_L01_00420080(tex);
 }
@@ -76,7 +107,7 @@ void func_L01_004202A8(int tex, int x, int y, int w, int h, int alpha) {
     rac3_ui2d_hud_size(&u, tex, &tw, &th);
     hud_common(&u, &q, hud_tex0(tex), alpha);
     hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, tw * 16, th * 16);
-    if (!openrac_ui_record(&q, u.cursor)) {
+    if (!hud_send(&u, tex, &q)) {
         func_L01_004202A8__game(tex, x, y, w, h, alpha);
     }
 }
@@ -88,7 +119,7 @@ void func_L01_00420720(int tex, int x, int y, int w, int h, int alpha) {
     openrac_game_ui_rect q;
     hud_common(&u, &q, hud_tex0(tex), alpha);
     hud_rect(&q, x * 16, y * 16, (x + w) * 16, (y + h) * 16, 0, 0, w * 16, h * 16);
-    if (!openrac_ui_record(&q, u.cursor)) {
+    if (!hud_send(&u, tex, &q)) {
         func_L01_00420720__game(tex, x, y, w, h, alpha);
     }
 }
@@ -102,7 +133,7 @@ void func_L01_004208E0(int tex, int x, int y, int w, int h, int alpha, unsigned 
     hud_common(&u, &q, hud_tex0(tex), alpha);
     q.rgba = ((uint32_t)alpha << 24) | (colour & 0xFFFFFFu);
     hud_rect(&q, x, y, x + w, y + h, 0, 0, tw * 16, th * 16);
-    if (!openrac_ui_record(&q, u.cursor)) {
+    if (!hud_send(&u, tex, &q)) {
         func_L01_004208E0__game(tex, x, y, w, h, alpha, colour);
     }
 }
@@ -120,7 +151,7 @@ void func_L01_00420498(int tex, int x, int y, int w, int h, gaddr colours) {
     for (int i = 0; i < 4; ++i) {
         q.corners[i] = GREF(uint32_t, colours + 4u * (gaddr)i);
     }
-    if (!openrac_ui_record(&q, u.cursor)) {
+    if (!hud_send(&u, tex, &q)) {
         func_L01_00420498__game(tex, x, y, w, h, colours);
     }
 }
@@ -211,7 +242,9 @@ MP_HUD(mp_func_L39_0059CB38, mp_func_L39_0059CD28, mp_func_L39_0059C910)
 #define MP_MAP_UI(...)
 #define MP_MAP_HUD(m, sprite, gradient, tex0)                                                      \
     MP_HUD(mp_func_L##m##_##sprite, mp_func_L##m##_##gradient, mp_func_L##m##_##tex0)
+#define MP_MAP_VU0(...)
 #include "mp_maps.h"
 #undef MP_MAP
 #undef MP_MAP_UI
 #undef MP_MAP_HUD
+#undef MP_MAP_VU0

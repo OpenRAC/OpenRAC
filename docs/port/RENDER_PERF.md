@@ -503,7 +503,7 @@ CPU time per pass, Mac / box1 (base): mobys 0.357 / 0.640 ms, ties 0.086 / 0.143
 ### The maintainers' commands for real levels
 
 The level is the editor's port export of it (`manifest.json` beside `placements.json`,
-`editor/port.py`); with the release preset built:
+`extractor/port.py`); with the release preset built:
 
 ```sh
 python3 port/tools/perf/render_bench.py --level assets/port/rac1/pal/level_01 --reduced --sections --label level_01

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// One level as the editor's port export writes it (editor/port.py):
+// One level as the editor's port export writes it (extractor/port.py):
 //
 //   manifest.json      format 1: the level, its files, the classes
 //   placements.json    ties, shrubs and mobys: class, 4 x 4 matrix (game
@@ -37,12 +37,12 @@ namespace openrac::scene {
 using renderer::Mat4;
 using renderer::Vec3;
 
-// The extracted levels' format (editor/port.py FORMAT). editor/extract.py writes levels-<format>.json,
+// The extracted levels' format (extractor/port.py FORMAT). extractor/extract.py writes levels-<format>.json,
 // and the launcher's level actions look for that name, so older exports are read from the disc
 // again. Only rac1 has --check-levels: its Play also needs that check's verified-<format>.json
 // (launcher/actions.json). 4: the textures the game clamps carry clamping samplers.
 inline constexpr int kManifestFormat = 4;
-// The newest format of a game whose export moved on alone (editor/port.py GAME_FORMATS): the same
+// The newest format of a game whose export moved on alone (extractor/port.py GAME_FORMATS): the same
 // layout, so the reader takes all from kManifestFormat up; which levels are read again is the
 // stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
 // his other looks and his ship's picture; 11 with each moby class's bangles as classes of their own;
@@ -197,6 +197,10 @@ struct Instance {
 // shine distance, which is a byte.
 inline constexpr int kMobyMaterialLightsStep = 512;
 
+// Instance::mod_material of OPENRAC_MOBY_MATERIAL_PAINT (interface 1.34): this plus its glow level
+// (0 to 15), so mesh.frag has the level with the kind; above every other kind's number.
+inline constexpr std::uint8_t kModMaterialPaint = 16;
+
 // Returns a live moby's `lights` as mesh.vert reads it: -1 - (its shine distance + the step times
 // `material`), so the per-instance attributes, all sixteen in use, carry the material too. A lit
 // tie (`lights` >= 0) and a moby with no material keep `lights` as they are.
@@ -242,7 +246,7 @@ struct LevelData {
 
     Pvs pvs;
     std::filesystem::path dir;
-    // A mod's folder for this level (the --mods folder's level_NN, editor/overrides.py): a mesh or
+    // A mod's folder for this level (the --mods folder's level_NN, extractor/overrides.py): a mesh or
     // texture there is read in place of the level's own of the same path (an upscaled texture, a
     // replacement moby model). Empty without mods.
     std::filesystem::path overrides;

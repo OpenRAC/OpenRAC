@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[36];
+static const openrac_script_point k_points[39];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -405,6 +405,26 @@ static void S19_call(void* original, const openrac_script_value* v, openrac_scri
 }
 #define S19_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S19_THUNK(N, I, 0) S19_THUNK(N, I, 1) S19_THUNK(N, I, 2) S19_THUNK(N, I, 3) S19_THUNK(N, I, 4) S19_THUNK(N, I, 5) S19_THUNK(N, I, 6) S19_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
+/* Shape S20: void(u32,u32) (answer, unused). */
+typedef void (*S20_fn)(uint32_t, uint32_t);
+static const uint8_t k_S20_kinds[] = {OPENRAC_SV_U32, OPENRAC_SV_U32};
+static const char* const k_S20_names[] = {"answer", "unused"};
+static void S20_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S20_fn)original)((uint32_t)v[0].i, (uint32_t)v[1].i);
+}
+#define S20_THUNK(N, I, K) static void N##_##K(uint32_t answer, uint32_t unused) { \
+    openrac_script_value v[2] = {{0, 0.0}}; \
+    v[0].i = (int64_t)answer; \
+    v[1].i = (int64_t)unused; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S20_fn)k_##N##_links[K].original)(answer, unused); \
+        return; \
+    } \
+}
+#define S20_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S20_THUNK(N, I, 0) S20_THUNK(N, I, 1) S20_THUNK(N, I, 2) S20_THUNK(N, I, 3) S20_THUNK(N, I, 4) S20_THUNK(N, I, 5) S20_THUNK(N, I, 6) S20_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
 S0_POINT(Hero_TakeDamage, 0) /* rac2.player.take_damage */
 S1_POINT(Moby_GetHitMessage, 1) /* rac2.combat.get_hit */
 S2_POINT(Moby_PostHit, 2) /* rac2.combat.post_hit */
@@ -441,8 +461,11 @@ S17_POINT(Bolt_SpawnPickups, 32) /* rac2.bolt.spawn_pickups */
 S18_POINT(Bolt_SpawnPickup, 33) /* rac2.bolt.spawn_pickup */
 S16_POINT(Bolt_Collect, 34) /* rac2.bolt.collect */
 S19_POINT(Arena_Prize, 35) /* rac2.arena.prize */
+S13_POINT(ArmorVendor_BuildList, 36) /* rac2.armor_vendor.build_list */
+S20_POINT(ArmorVendor_Buy, 37) /* rac2.armor_vendor.buy */
+S13_POINT(Vendor_Preview, 38) /* rac2.vendor.preview */
 
-static const openrac_script_point k_points[36] = {
+static const openrac_script_point k_points[39] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.combat.post_hit", "void(u32,u32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Moby_PostHit_links, k_Moby_PostHit_thunks, S2_call},
@@ -479,10 +502,15 @@ static const openrac_script_point k_points[36] = {
     {"rac2.bolt.spawn_pickup", "u32(u32,u32,u32,u32,i32,i32)", 6, k_S18_kinds, k_S18_names, OPENRAC_SV_U32, k_Bolt_SpawnPickup_links, k_Bolt_SpawnPickup_thunks, S18_call},
     {"rac2.bolt.collect", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Bolt_Collect_links, k_Bolt_Collect_thunks, S16_call},
     {"rac2.arena.prize", "i32(i32)", 1, k_S19_kinds, k_S19_names, OPENRAC_SV_I32, k_Arena_Prize_links, k_Arena_Prize_thunks, S19_call},
+    {"rac2.armor_vendor.build_list", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_ArmorVendor_BuildList_links, k_ArmorVendor_BuildList_thunks, S13_call},
+    {"rac2.armor_vendor.buy", "void(u32,u32)", 2, k_S20_kinds, k_S20_names, OPENRAC_SV_VOID, k_ArmorVendor_Buy_links, k_ArmorVendor_Buy_thunks, S20_call},
+    {"rac2.vendor.preview", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Vendor_Preview_links, k_Vendor_Preview_thunks, S13_call},
 };
 
-static const openrac_script_alias k_aliases[146] = {
+static const openrac_script_alias k_aliases[158] = {
     {"Arena_Prize", "rac2.arena.prize"},
+    {"ArmorVendor_BuildList", "rac2.armor_vendor.build_list"},
+    {"ArmorVendor_Buy", "rac2.armor_vendor.buy"},
     {"Bolt_Collect", "rac2.bolt.collect"},
     {"Bolt_SpawnPickup", "rac2.bolt.spawn_pickup"},
     {"Bolt_SpawnPickups", "rac2.bolt.spawn_pickups"},
@@ -515,6 +543,7 @@ static const openrac_script_alias k_aliases[146] = {
     {"Text_ById", "rac2.text.by_id"},
     {"Vendor_BuildList", "rac2.vendor.build_list"},
     {"Vendor_DrawList", "rac2.vendor.draw_list"},
+    {"Vendor_Preview", "rac2.vendor.preview"},
     {"Vendor_Price", "rac2.vendor.price"},
     {"Weapon_LevelUp", "rac2.weapon.level_up"},
     {"Weapon_TakeAmmo", "rac2.weapon.take_ammo"},
@@ -550,13 +579,19 @@ static const openrac_script_alias k_aliases[146] = {
     {"func_002AE9E0", "rac2.bolt.spawn_pickups"},
     {"func_002F6510", "rac2.vendor.price"},
     {"func_002F6608", "rac2.vendor.build_list"},
+    {"func_002F71B8", "rac2.armor_vendor.build_list"},
     {"func_002F7390", "rac2.vendor.price"},
     {"func_002F7480", "rac2.vendor.price"},
     {"func_002F7488", "rac2.vendor.build_list"},
     {"func_002F7578", "rac2.vendor.build_list"},
+    {"func_002F8038", "rac2.armor_vendor.build_list"},
+    {"func_002F8128", "rac2.armor_vendor.build_list"},
     {"func_002F9C80", "rac2.vendor.draw_list"},
     {"func_002FAB0C", "rac2.vendor.draw_list"},
     {"func_002FACD0", "rac2.vendor.draw_list"},
+    {"func_002FB1A0", "rac2.vendor.preview"},
+    {"func_002FC008", "rac2.vendor.preview"},
+    {"func_002FC1D0", "rac2.vendor.preview"},
     {"func_00301D10", "rac2.bolt.collect"},
     {"func_00302470", "rac2.bolt.spawn_pickup"},
     {"func_00302B08", "rac2.bolt.collect"},
@@ -589,6 +624,9 @@ static const openrac_script_alias k_aliases[146] = {
     {"func_L00_00321878", "rac2.bolt.spawn_pickups"},
     {"func_L00_00322AF0", "rac2.bolt.spawn_pickups"},
     {"func_L00_00323918", "rac2.bolt.spawn_pickups"},
+    {"func_L00_00373D40", "rac2.armor_vendor.buy"},
+    {"func_L00_00375068", "rac2.armor_vendor.buy"},
+    {"func_L00_00376810", "rac2.armor_vendor.buy"},
     {"func_L01_003CEDA0", "rac2.moby.dynamo_pickup.update"},
     {"func_L01_003D01F8", "rac2.moby.dynamo_pickup.update"},
     {"func_L01_003D2E50", "rac2.moby.tractor_beam_seller.update"},
@@ -636,8 +674,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 36, k_points, 0, k_fields, NULL,
-    146, k_aliases,
+    "rac2", 3, k_discs, 39, k_points, 0, k_fields, NULL,
+    158, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

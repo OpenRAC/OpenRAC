@@ -4,9 +4,33 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.37
+
+The pads' motors driven by a mod as the game's libvib drives them, each motor the stronger of the game's and the mods' (set_motors), and an option of the port's menu greyed out or made usable by a mod, by name (menu_option_set).
+
+Members: `set_motors`, `menu_option_set`.
+
+## 1.36
+
+Sharper pictures of cells a mod paints in a texture of the 2D layer, kept apart from the built-in key prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell).
+
+Members: `sharp_cells`.
+
+## 1.35
+
+What OpenRAC Editor's levels need: the pack's folder, the game's language, the camera's field of view, the HUD hidden, the music's volume, any moby's joints and sounds, the picture's air, slow motion, ties hidden, animated props and a moby's spawn id.
+
+Members: `pack_folder`, `game_language`, `camera_fov`, `hud_hide`, `music_volume`, `moby_set_joints`, `moby_joint_position`, `moby_sound_play`, `moby_sound_stop`, `scene_air`, `time_stretch`, `tie_hide`, `prop_animate`, `moby_joint_frame`, `moby_set_joint_poses`, `moby_uid`.
+
+## 1.34
+
+A paint material for moby_material that recolours a moby over its own shading, with a glowing rim (OPENRAC_MOBY_MATERIAL_PAINT, OPENRAC_MOBY_MATERIAL_PAINT_AT), a material on every moby of a class, the menus' pictures of it too (moby_material_class), and Going Commando's armour vendor as hook points (rac2.armor_vendor.build_list, rac2.armor_vendor.buy, rac2.vendor.preview).
+
+Members: `moby_material_class`.
+
 ## 1.33
 
-Props skinned with joint matrices of the mod's own (prop_set_skin), blends that add to or subtract from the screen for the overlay's rectangles and text (openrac_overlay.set_blend), a mesh of the mod's drawn in place of a moby's model (model_create, moby_model_slot, moby_model_class, moby_model_at), the game's camera shake (camera_shake), its particle effects and 32 x 32 particle textures (particle_spawn_ex, particle_texture_register), the data folder of an installed game declared in the manifest's reads_games (game_data_dir), the gameplay camera's visibility bypass (camera_visibility_bypass), and for Ratchet & Clank item id reservation, ammo panel offsets and native-backed weapons (rac1_reserve_item_ids, rac1_ammo_panel_offset, rac1_weapon_register, rac1_weapon_grant), and 1.33 Props skinned with joint matrices of the mod's own (prop_set_skin), blends that add to or subtract from the screen for the overlay's rectangles and text (openrac_overlay.set_blend), a mesh of the mod's drawn in place of a moby's model (model_create, moby_model_slot, moby_model_class, moby_model_at), the game's camera shake (camera_shake), its particle effects and 32 x 32 particle textures (particle_spawn_ex, particle_texture_register), the data folder of an installed game declared in the manifest's reads_games (game_data_dir), the gameplay camera's visibility bypass (camera_visibility_bypass), and for Ratchet & Clank item id reservation, ammo panel offsets and native-backed weapons (rac1_reserve_item_ids, rac1_ammo_panel_offset, rac1_weapon_register, rac1_weapon_grant).
+Props skinned with joint matrices of the mod's own (prop_set_skin), blends that add to or subtract from the screen for the overlay's rectangles and text (openrac_overlay.set_blend), a mesh of the mod's drawn in place of a moby's model (model_create, moby_model_slot, moby_model_class, moby_model_at), the game's camera shake (camera_shake), its particle effects and 32 x 32 particle textures (particle_spawn_ex, particle_texture_register), the data folder of an installed game declared in the manifest's reads_games (game_data_dir), the gameplay camera's visibility bypass (camera_visibility_bypass), and for Ratchet & Clank item id reservation, ammo panel offsets and native-backed weapons (rac1_reserve_item_ids, rac1_ammo_panel_offset, rac1_weapon_register, rac1_weapon_grant).
 
 Members: `prop_set_skin`, `model_create`, `moby_model_slot`, `moby_model_class`, `moby_model_at`, `camera_shake`, `particle_spawn_ex`, `particle_texture_register`, `game_data_dir`, `camera_visibility_bypass`, `rac1_reserve_item_ids`, `rac1_ammo_panel_offset`, `rac1_weapon_register`, `rac1_weapon_grant`.
 
