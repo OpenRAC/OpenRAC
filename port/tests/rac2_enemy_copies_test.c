@@ -128,6 +128,7 @@ static gaddr class_of(int16_t oclass) {
         case ENEMY:
             return CLASS_ENEMY;
         case THING:
+        case 2722: /* a Siberius rider's claw */
             return CLASS_THING;
         case SPAWNER:
         case DUNE_MONSTER:
@@ -555,17 +556,16 @@ static void parts(void) {
     CHECK(rac2_copy_make(&table, placed(0), 1) == 0);
 }
 
-/* Moving platforms: a copy of an enemy on one stands on the same one, a copy of one on the ground
- * on none, and an enemy whose pvars name its platform (it has found it and keeps its place on it)
- * is not copied. */
+/* Moving platforms: an enemy on one is not copied, a copy of one on the ground stands on none, and
+ * an enemy whose pvars name its platform (it has found it and keeps its place on it) is not
+ * copied. */
 static void platforms(void) {
     make_level();
     make_platform(6.0f, 13.0f, 6.0f, 14.0f);
     for (int k = 0; k < 3; ++k) {
-        const gaddr c = rac2_copy_make(&table, placed(0), k);
-        CHECK(c != 0);
-        CHECK(on_platform(c));
+        CHECK(rac2_copy_make(&table, placed(0), k) == 0);
     }
+    CHECK(rac2_copy_count() == 0);
     /* On the ground beside a platform: never on it. */
     make_level();
     make_platform(0.0f, 13.0f, 11.5f, 30.0f);
@@ -582,6 +582,64 @@ static void platforms(void) {
     put16(cart + 0x34u, 0);
     CHECK(rac2_copy_make(&table, placed(0), 0) != 0);
     platform = 0;
+}
+
+/* Siberius's cart riders (3369, two claws of class 2722 at pvars +0x330 and +0x334) and shooters
+ * (3370) are never copied: the original keeps its claws, no slot is taken for a copy or its parts,
+ * and its death is the game's, once, as is a copy's of another class (its claws freed by the
+ * game's own death, group_destroy_attached_parts). */
+static void cart_riders(void) {
+    const int16_t riders[] = {3369, 3370};
+    for (unsigned r = 0; r < 2; ++r) {
+        make_level();
+        put16(placed(0) + 0xAAu, (uint16_t)riders[r]);
+        const gaddr claws[2] = {func_0029EFD0(2722), func_0029EFD0(2722)};
+        for (int j = 0; j < 2; ++j) {
+            CHECK(claws[j] != 0);
+            GREF(uint8_t, claws[j] + 0x20u) = 1;
+            put32(blob_at(0) + 0x30u + 4u * (uint32_t)j, claws[j]);
+        }
+        CHECK(rac2_copy_check(&table, placed(0)) == RAC2_COPY_LISTED);
+        int taken = 0;
+        for (gaddr m = DYNAMIC; m < END; m += 0x100u) {
+            taken += GREF(uint8_t, m + 0x20u) < 0xFEu;
+        }
+        for (int k = 0; k < 3; ++k) {
+            CHECK(rac2_copy_make(&table, placed(0), k) == 0);
+        }
+        int taken_after = 0;
+        for (gaddr m = DYNAMIC; m < END; m += 0x100u) {
+            taken_after += GREF(uint8_t, m + 0x20u) < 0xFEu;
+        }
+        CHECK(taken_after == taken);
+        CHECK(rac2_copy_count() == 0 && !rac2_copy_is(placed(0)));
+        CHECK(GREF(gaddr, blob_at(0) + 0x30u) == claws[0]);
+        CHECK(GREF(gaddr, blob_at(0) + 0x34u) == claws[1]);
+        deaths = 0;
+        func_002A6C58(placed(0), 0, 3);
+        CHECK(deaths == 1);
+    }
+    /* An enemy of another class with two claws of its own: its copy takes copies of them, and the
+     * copy's death is the game's once. */
+    make_level();
+    const gaddr claws[2] = {func_0029EFD0(2722), func_0029EFD0(2722)};
+    for (int j = 0; j < 2; ++j) {
+        GREF(uint8_t, claws[j] + 0x20u) = 1;
+        put32(blob_at(0) + 0x30u + 4u * (uint32_t)j, claws[j]);
+    }
+    const gaddr c = rac2_copy_make(&table, placed(0), 0);
+    CHECK(c != 0);
+    const gaddr cv = GREF(gaddr, c + 0x68u);
+    for (int j = 0; j < 2; ++j) {
+        const gaddr mine = GREF(gaddr, cv + 0x30u + 4u * (uint32_t)j);
+        CHECK(mine != claws[0] && mine != claws[1] && mine >= DYNAMIC && mine < END);
+        CHECK(GREF(int16_t, mine + 0xAAu) == 2722);
+    }
+    CHECK(GREF(gaddr, blob_at(0) + 0x30u) == claws[0]);
+    deaths = 0;
+    func_002A6C58(c, 0, 3);
+    func_002A6C58(c, 0, 3);
+    CHECK(deaths == 1);
 }
 
 static void reserve(void) {
@@ -880,6 +938,7 @@ int main(void) {
     no_spot();
     parts();
     platforms();
+    cart_riders();
     reserve();
     stale_and_new_load();
     slot_taken();

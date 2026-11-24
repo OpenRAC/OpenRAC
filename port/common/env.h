@@ -160,6 +160,7 @@ enum class Var : std::uint16_t {
     ProbeView,
     ProbeZeroWeightReference,
     PvsOff,
+    Rac2DeathTrace,
     Rac3Chains,
     Rac3Hero,
     Rac3MaxPlayers,

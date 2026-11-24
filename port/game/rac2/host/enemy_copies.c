@@ -68,15 +68,15 @@
  *
  * Moving platforms. A moby that carries what stands on it (moby_get_private_value_2,
  * func_002AD0B0: flag 0x20 of its +0x34 and the third word of its pvars, the motion that
- * moby_transform_point_and_rotation_by_parent, func_002AD0E0, moves a rider by) is a floor of its
- * own: a copy stands on the one its original stands on, or on none when its original stands on the
- * level (the ground under each found as Siberius's riders look for their cart, from 2 units above
- * to 3 below: entity_ride_platform_snap_height, func_L07_003EB838). A copy beside the cart, or on
- * it beside an original on the ground, is left behind or carried off where its original is not. A
- * rider finds its platform itself and keeps its place on it in its pvars (Siberius's shooters,
- * class 3370, at +0x314 and +0x2F0; its squads at +0x260 and +0x220): a copy of one that has done so
- * would take the original's place on it, so an original whose pvars name a platform is not copied
- * (a copy made before, at the level's load, finds its own).
+ * moby_transform_point_and_rotation_by_parent, func_002AD0E0, moves a rider by) is no floor for a
+ * copy: an enemy standing on one (the ground under it found as Siberius's riders look for their
+ * cart, from 2 units above to 3 below: entity_ride_platform_snap_height, func_L07_003EB838) is not
+ * copied, and a copy of one on the ground never stands on one. Siberius's cart riders and shooters
+ * (classes 3369 and 3370) are not copied at all (rac2_copy_never): copies of them on and beside the
+ * cart, as 0.6.17 made them, went invisible when killed by any weapon, their claws left showing,
+ * until a second hit finished them. A rider finds its platform itself and keeps its place on it in
+ * its pvars (the shooters at +0x314 and +0x2F0; their squads at +0x260 and +0x220), so an original
+ * whose pvars name a platform is not copied either.
  *
  * Room: the pool keeps RESERVE free slots for what the level spawns, and a slot more for each
  * part. */
@@ -198,6 +198,11 @@
 const rac2_copy_class rac2_copy_never[] = {
     {3098, "Spawner (moby-dispatch.tsv): makes the level's waves"},
     {3104, "Turret (moby-dispatch.tsv): fixed in its place"},
+    /* Siberius's cart: the riders thrown onto it (each with two claws of class 2722, pvars +0x330
+     * and +0x334) and the shooters. Their copies, on the cart or beside it, went invisible when
+     * killed, their claws left showing, until a second hit finished them. */
+    {3369, "Siberius's cart rider: UpdateSiberiusEntityActions (func_L07_003E61E0) rides the cart"},
+    {3370, "Siberius's cart shooter: func_L07_003EA900 rides the cart"},
     /* Tabora's crystal field: the creatures whose death makes the crystals the collector buys
      * (class 2244, whose pickup marks its maker's save id killed: func_L08_003CC750). A copy's
      * crystals would mark its original and pay the collector twice. */
@@ -1040,8 +1045,11 @@ static int find_spot(const rac2_moby_table* t, gaddr orig, int index, float out[
         return 0;
     }
     const float over = z - floor0;
-    /* The moving platform it stands on, or none: the copy's the same. */
+    /* One on a moving platform is not copied; the copy of one on the ground stands on none. */
     const gaddr platform = platform_under(x, y, z, orig);
+    if (platform != 0) {
+        return 0;
+    }
     const uint32_t uid = (uint16_t)GREF(int16_t, orig + MOBY_UID);
     /* The rings out from SPOT_NEAR, then the close one (a guard in a narrow cell), then the last
      * one at its side, apart from none (a guard walled in on a ledge). */
