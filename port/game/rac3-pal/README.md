@@ -387,6 +387,11 @@ and fixture to NTSC-U's names and checks its boot-only initialization and retain
 ([native pad lifecycle](../../../docs/port/NATIVE_PADS.md)). The MP library path remains in use;
 full game generation and runtime behavior are unverified.
 
+`rac3_program` and `rac3_program_ntsc` test the real loader dispatch wrapper with synthetic
+records. Frontbin's program entry is release-specific metadata, not the boot front-end function's
+address ([program lifecycle](../../../docs/port/PROGRAM_LIFECYCLE.md)); the tests do not run
+LoadExec or the real function registry.
+
 `hostgen.json` also lists `from_assembly` (C that forwards registers or has VU0 inline assembly,
 translated from its instructions), `candidate_folders_left_out` (the NTSC-U drafts of boot_elf and
 frontbin give way to the programs' own instructions, which the build reads from the disc: some

@@ -180,8 +180,6 @@
 #define RAC3_ADDR_0x002DA100u 0x002DA180u
 /* D_0037F830 (names.tsv) */
 #define RAC3_ADDR_0x0037F830u 0x0037F8B0u
-/* func_00381250 (map.tsv differs) */
-#define RAC3_ADDR_0x00381250u 0x00381280u
 
 /* The multiplayer executable's (release/mp_pairs.json). */
 /* the function's pair: the same instructions (135 places), at the distance the nearest paired function 0x001266C0 moved by (+0x0) */
