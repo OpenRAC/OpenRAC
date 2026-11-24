@@ -150,7 +150,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 |---|---|---|---|---|---|
 | `hero_pose` | 1.8 | stable | yes | yes | yes |
 | `hero_stand_in` | 1.9 | stable | yes | part | part |
-| `hero_held` | 1.9 | stable | yes | no | no |
+| `hero_held` | 1.9 | stable | yes | yes | no |
 | `hero_shots` | 1.9 | stable | yes | no | no |
 | `hero_set_pose` | 1.12 | stable | yes | yes | no |
 | `hero_set_joints` | 1.12 | stable | yes | yes | yes |
@@ -201,7 +201,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `moby_hit` | 1.9 | stable | yes | yes | part |
 | `play_eyes` | 1.9 | stable | yes | no | no |
 | `moby_slot_of` | 1.9 | stable | yes | yes | yes |
-| `moby_hide` | 1.9 | stable | yes | part | part |
+| `moby_hide` | 1.9 | stable | yes | yes | part |
 | `moby_deletion` | 1.9 | stable | yes | no | no |
 | `moby_run` | 1.9 | stable | yes | no | no |
 | `collision_triangles` | 1.12 | stable | yes | yes | no |

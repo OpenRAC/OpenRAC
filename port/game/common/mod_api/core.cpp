@@ -4,8 +4,6 @@
 // The mods' interface, area "core": the api_<member> functions of the openrac_api members
 // sdk/api/members.tsv puts in this area, and what only they use.
 
-#include <cstring>
-
 #include "mod_api/internal.h"
 
 using namespace openrac;
@@ -93,25 +91,16 @@ const char* api_data_dir(openrac_mod* mod) {
     return mod->data_dir.c_str();
 }
 
-// The game's function by its name, or by a hook point's name (its id or an alias): a game whose
-// functions keep their addresses as names (Going Commando's) is found by the point's symbol, as
-// api_hook_entry finds it.
+// A game function by its name. Going Commando's functions are named by address, so a hook point's
+// name finds its function too.
 void* api_function(const char* name) {
     if (openrac_host_fn fn = openrac_guest_function_named(name)) {
         return reinterpret_cast<void*>(fn);
     }
-    if (g_host == nullptr || name == nullptr) {
-        return nullptr;
-    }
-    const char* id = hook_id(*g_host, name);
-    for (int i = 0; i < g_host->hook_count; ++i) {
-        const HookPoint& p = g_host->hooks[i];
-        if (p.name != nullptr && p.symbol != nullptr
-            && std::strcmp(hook_id(*g_host, p.name), id) == 0) {
-            return reinterpret_cast<void*>(openrac_guest_function_named(p.symbol));
-        }
-    }
-    return nullptr;
+    const HookPoint* p = find_hook_point(name);
+    return p != nullptr && p->symbol != nullptr
+               ? reinterpret_cast<void*>(openrac_guest_function_named(p->symbol))
+               : nullptr;
 }
 
 void* api_function_at(openrac_gaddr address) {

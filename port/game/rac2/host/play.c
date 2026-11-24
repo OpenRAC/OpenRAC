@@ -293,15 +293,10 @@ static int hero_pose(openrac_game_pose* out) {
 
 /* ---- The hero moved by a mod (openrac_api.hero_set_pose) ----
  *
- * A mod that holds the hero's whole update (Hero_Update: each family of levels' frame update,
- * hero_l00_update_frame_2, game_update_frame, level_update_frame) and does not run it puts him in
- * its pose here. As the update does: his animation first (set_hero_animation for a new seq, then
- * AdvanceHeroAnimation); his place, rotation and velocity in the record; his matrices from the
- * rotation (euler_to_matrix, and its inverse, a copy with rows as columns, as
- * UpdateHeroInputAndHistory makes them); then the update's steps that show him (his blinks, the
- * face's manipulators, his moby, what he wears on his head (func_L00_002AA178 poses it from his joints, a
- * mod's joint offsets included), what is attached to him and what he holds, his scale). His state machine,
- * the stick, ledges and rails are the mod's to leave out. */
+ * For a mod that holds Hero_Update and does not call it. This does what the update does to show
+ * him: his animation, his place, rotation and velocity, his matrices, then the steps after his
+ * movement (blinks, face, moby, helmet, held item, scale). His state machine, the stick, ledges and
+ * rails do not run. */
 #define HERO_MOTION_POS (HERO + 0x80u)
 #define HERO_MOTION_ROT (HERO + 0x90u)
 #define HERO_INV_ROT_MATRIX (HERO + 0x40u)

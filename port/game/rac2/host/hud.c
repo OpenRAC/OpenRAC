@@ -15,11 +15,11 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "../../common/lib/hud_edges.h"
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac2.h"
-#include "../../common/lib/hud_edges.h"
 
 unsigned long long func_0027C878(int index);
 int func_0027F178(gaddr text, int length);

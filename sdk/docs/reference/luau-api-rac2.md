@@ -376,7 +376,7 @@ type Vendor_PreviewFn = () -> ()
 
 ### `Hero_UpdateFn`
 
-rac2.player.update (Hero_Update) void(): The hero's whole update, once a tick from the level loop (each family of levels has its own copy: one hook point): his animation's advance, the stick, ledges and grind rails, his state machine, his body's easing, his moby, what he holds and the hero record's flags (+0x22B4 set: the ship's or a vehicle's update in its place). A replacement that does not call the original moves him by itself and shows him with openrac_api.hero_set_pose.
+rac2.player.update (Hero_Update) void(): The hero's whole update each tick: his animation, the stick, ledges, grind rails, his state machine, his moby and what he holds. Each group of levels has its own copy; together they are one hook point. A ship or vehicle update runs in its place while one drives him (hero +0x22B4). A replacement that skips the original moves him itself and shows him with openrac_api.hero_set_pose.
 
 ```lua
 type Hero_UpdateFn = () -> ()

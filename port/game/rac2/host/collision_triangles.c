@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright (c) 2026 the OpenRAC contributors
  *
- * The level's collision triangles in a box, for mods (openrac_api.collision_triangles). Going
- * Commando's world collision is Ratchet & Clank's format (extractor/collision.py reads both): a tree
- * of 4-unit cells (Z, then Y, then X) whose leaves hold packed vertices and faces. The tree is the
- * first word of the collision queries' output block (g_collision_hit, 0x001BAF80 on USA v1.01; its
- * +4 is the moby mesh cache, g_collMobyMeshCache), as in rac1/host/collision.c. Only the console's
- * layout is read here: Going Commando has no expanded collision. Then the mesh of each live moby
- * near the box (its collision blob at +0x98; Ratchet & Clank's is at +0x94), as the collision
- * queries meet it: crates, the ship, doors. */
+ * The collision triangles in a box, for mods (openrac_api.collision_triangles). The level's
+ * collision uses Ratchet & Clank's format (rac1/host/collision.c): a tree of 4-unit cells whose
+ * leaves hold packed vertices and faces. Its root is the first word of g_collision_hit. After the
+ * level come the collision meshes of the live mobys near the box (crates, ships, doors). */
 #include <math.h>
 #include <stdint.h>
 
@@ -20,7 +16,17 @@
 #include "openrac/guest.h"
 #include "rac2.h"
 
-#define COLL_OUT RAC2_ADDR(0x001BAF80u)
+#define COLL_OUT RAC2_ADDR(0x001BAF80u) /* g_collision_hit */
+
+/* A moby: its bounding sphere (+0, radius +0xC, 1/1024 units), place, scale, state, collision
+ * blob and rows. */
+#define MOBY_SIZE 0x100u
+#define MOBY_RADIUS 0x0Cu
+#define MOBY_POS 0x10u
+#define MOBY_STATE 0x20u
+#define MOBY_SCALE 0x2Cu
+#define MOBY_COLLISION 0x98u
+#define MOBY_ROWS 0xC0u
 
 #define U8(a) GREF(uint8_t, (a))
 #define U16(a) GREF(uint16_t, (a))
@@ -167,11 +173,11 @@ static void level_triangles(gaddr mesh, Sink* s) {
     }
 }
 
-/* A moby's mesh: its blob holds the primitives' bytes (+4, high bit: u16 indices), the face bytes
- * (+8) and the vertex bytes (+0xC); from +0x10, past the primitives, the vertices (three s16 and a
- * pad, 1/1024 of the moby's scaled rows) and the faces (v0, v1, v2, type; u16 each when wide). */
+/* A moby's mesh. Its blob holds the primitives' size (+4, high bit: u16 indices), the faces' size
+ * (+8) and the vertices' size (+0xC). From +0x10, after the primitives: the vertices (three s16 and
+ * a pad, in 1/1024 of the moby's scaled rows), then the faces (v0, v1, v2, type). */
 static void moby_mesh(gaddr m, int32_t slot, Sink* s) {
-    const gaddr blob = U32(m + 0x98u);
+    const gaddr blob = U32(m + MOBY_COLLISION);
     if (!rac2_ram_at(blob, 0x10u)) {
         return;
     }
@@ -192,10 +198,11 @@ static void moby_mesh(gaddr m, int32_t slot, Sink* s) {
     float rows[3][3];
     for (int r = 0; r < 3; ++r) {
         for (int k = 0; k < 3; ++k) {
-            rows[r][k] = F32(m + 0xC0u + 0x10u * (gaddr)r + 4u * (gaddr)k) * F32(m + 0x2Cu);
+            rows[r][k] =
+                F32(m + MOBY_ROWS + 0x10u * (gaddr)r + 4u * (gaddr)k) * F32(m + MOBY_SCALE);
         }
     }
-    const float pos[3] = {F32(m + 0x10u), F32(m + 0x14u), F32(m + 0x18u)};
+    const float pos[3] = {F32(m + MOBY_POS), F32(m + MOBY_POS + 4u), F32(m + MOBY_POS + 8u)};
     for (int i = 0; i < nfaces; ++i) {
         const gaddr f = faces + (wide ? 8u : 4u) * (gaddr)i;
         const int v[3] =
@@ -216,19 +223,18 @@ static void moby_mesh(gaddr m, int32_t slot, Sink* s) {
     }
 }
 
-/* The live mobys whose bounding sphere (+0, radius +0xC, 1024 to a unit) meets the box, but the
- * hero's own. */
+/* The live mobys whose bounding sphere meets the box, except the hero. */
 static void moby_triangles(gaddr hero, Sink* s) {
     const gaddr base = GREF(gaddr, OPENRAC_DATA(RAC2_g_mobyTableBase));
     const gaddr end = GREF(gaddr, OPENRAC_DATA(RAC2_g_mobyTableEnd));
     if (!rac2_moby_slot(base)) {
         return;
     }
-    for (gaddr m = base; m < end; m += 0x100u) {
-        if (U8(m + 0x20u) >= 0x80u || m == hero || U32(m + 0x98u) == 0) {
+    for (gaddr m = base; m < end; m += MOBY_SIZE) {
+        if (U8(m + MOBY_STATE) >= 0x80u || m == hero || U32(m + MOBY_COLLISION) == 0) {
             continue;
         }
-        const float radius = F32(m + 0xCu) / 1024.0f;
+        const float radius = F32(m + MOBY_RADIUS) / 1024.0f;
         if (!isfinite(radius)) {
             continue;
         }
@@ -241,7 +247,7 @@ static void moby_triangles(gaddr hero, Sink* s) {
         if (!(d2 <= radius * radius)) {
             continue;
         }
-        moby_mesh(m, (int32_t)((m - base) / 0x100u), s);
+        moby_mesh(m, (int32_t)((m - base) / MOBY_SIZE), s);
     }
 }
 
