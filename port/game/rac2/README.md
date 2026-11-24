@@ -119,3 +119,22 @@ are dropped and the release's host C no longer compiles.
 | `release/release_carry.json` | what rests on less than the same code (`near`, `called`, between moved neighbours, not found) |
 | `release/data_moves.tsv` | how the release moved v1.01's data, from versionmap's map (addresses only) |
 | `hostgen.json`, `libraries.tsv`, `hand/`, `tables/`, `host/` | rac2-ntsc's, in the release's names and places |
+
+## Randomizer hook points
+
+The SDK exposes fifteen additional hook points for USA v1.01 and PAL to separate
+physical pickups from received inventory, preserve real inventory during saves,
+and intercept story rewards. They cover platinum counts, collection progress,
+save serialization/new-game initialization, kill rewards, extras and nine story
+controllers/pickups. The generated [hook reference](../../../sdk/docs/reference/hooks-rac2.md)
+records their signatures and addresses. USA v2.00 is not mapped by this change.
+
+The public names describe the game functions. Earlier `APRac2_*` names remain
+aliases for the released ArchipelagoRAC2 mod. With no mod taking a hook, the
+original game function runs. This adds hook exposure only: it does not install
+randomizer gameplay overrides, modify save formats or include disc data.
+
+The integration was developed for [ArchipelagoRAC2](https://github.com/SavedbyBlood9/ArchipelagoRAC2),
+based on [evilwb/APRac2](https://github.com/evilwb/APRac2) by Will Becker (MIT).
+Function/address mappings come from the pinned OpenRAC/rac2-decomp metadata and
+local comparison of the supported USA v1.01 and SCES_516.07 discs.

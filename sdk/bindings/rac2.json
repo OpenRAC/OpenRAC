@@ -581,6 +581,227 @@
         "ntsc2": "func_002FC008"
       },
       "about": "Sets up the vendor's preview of the row under the cursor (PrepareVendorSelectionPreview), in every mode, as the cursor moves and the menu opens: the armour vendor's (mode 3) loads the row's armour over Ratchet's class 0 when it is not the one loaded and makes the preview objects (g_vendorUi +0x2C, the count at +0x34, 0x100-byte mobys outside the level's list: class 0, Ratchet in that armour, then 1290 and 2675 for its extra pieces), turned to the camera, and shows the armour's description; the weapon vendor's, the weapon's model or picture. A replacement can call the original and then change the message or the objects' look (moby_material_class with OPENRAC_MODEL_MENU)."
+    },
+    {
+      "id": "rac2.collectibles.platinum_count",
+      "name": "PlatinumBolts_CountTotal",
+      "signature": "i32()",
+      "params": [],
+      "symbols": {
+        "ntsc": "func_002B0DB8",
+        "pal": "func_002B1930"
+      },
+      "about": "Counts the platinum bolts recorded in the save. A replacement can return received currency independently of physical pickups."
+    },
+    {
+      "id": "rac2.hero.update_collection_progress",
+      "name": "Hero_UpdateCollectionProgress",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "ntsc": "func_L00_002D5EB8",
+        "pal": "func_L00_002D6408"
+      },
+      "about": "Recounts nanotech and weapon collection progress from inventory; mods can separate pickup flags from received ownership."
+    },
+    {
+      "id": "rac2.save.serialize",
+      "name": "Save_Serialize",
+      "signature": "void(u32)",
+      "params": [
+        "output"
+      ],
+      "symbols": {
+        "ntsc": "func_0029ADA0",
+        "pal": "func_0029B738"
+      },
+      "about": "Serializes live game state to the save packet at output. Inventory substitutions made by a mod must be restored before calling the original."
+    },
+    {
+      "id": "rac2.save.new_game",
+      "name": "Save_NewGame",
+      "signature": "void()",
+      "params": [],
+      "symbols": {
+        "ntsc": "func_00298E08",
+        "pal": "func_002997A0"
+      },
+      "about": "Resets game data from disc defaults for a new campaign, before its starting level is entered."
+    },
+    {
+      "id": "rac2.moby.endako_rescue.update",
+      "name": "Moby_EndakoRescue_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_L03_003D20F8",
+        "pal": "func_L03_003D6298"
+      },
+      "about": "Updates the Endako rescue sequence that returns Clank and the Swingshot.",
+      "aliases": [
+        "APRac2_EndakoRescue"
+      ]
+    },
+    {
+      "id": "rac2.moby.tabora_wrench.update",
+      "name": "Moby_TaboraWrench_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_L08_003F6E18",
+        "pal": "func_L08_003FB598"
+      },
+      "about": "Updates the Tabora controller, including its wrench reward.",
+      "aliases": [
+        "APRac2_TaboraWrench"
+      ]
+    },
+    {
+      "id": "rac2.moby.prison_wrench.init",
+      "name": "Moby_PrisonWrench_Init",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_L14_003F4F98",
+        "pal": "func_L14_003F9660"
+      },
+      "about": "Initializes the Aranos prison wrench pickup.",
+      "aliases": [
+        "APRac2_PrisonWrench"
+      ]
+    },
+    {
+      "id": "rac2.moby.todano_trader.update",
+      "name": "Moby_TodanoTrader_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_L12_003B5240",
+        "pal": "func_L12_003B8918"
+      },
+      "about": "Updates the Todano trader and his reward exchange.",
+      "aliases": [
+        "APRac2_TodanoTrader"
+      ]
+    },
+    {
+      "id": "rac2.moby.prison_plumber.update",
+      "name": "Moby_PrisonPlumber_Update",
+      "signature": "void(i32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_L14_00425CB0",
+        "pal": "func_L14_0042B290"
+      },
+      "about": "Updates the Aranos plumber and his reward. The game declaration takes a signed 32-bit moby address.",
+      "aliases": [
+        "APRac2_PrisonPlumber"
+      ]
+    },
+    {
+      "id": "rac2.moby.prison_controller.update",
+      "name": "Moby_PrisonController_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_L14_004265B8",
+        "pal": "func_L14_0042BC18"
+      },
+      "about": "Updates the Aranos prison controller, including inventory restoration.",
+      "aliases": [
+        "APRac2_PrisonController"
+      ]
+    },
+    {
+      "id": "rac2.moby.siberius_thief.update",
+      "name": "Moby_SiberiusThief_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_L07_003F7048",
+        "pal": "func_L07_003FB840"
+      },
+      "about": "Updates the Siberius thief sequence and its progression state.",
+      "aliases": [
+        "APRac2_SiberiusThief"
+      ]
+    },
+    {
+      "id": "rac2.moby.boldan_cutscene.update",
+      "name": "Moby_BoldanCutscene_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_L13_0041CD18",
+        "pal": "func_L13_00421C70"
+      },
+      "about": "Updates the Boldan cutscene trigger and its temporary inventory state.",
+      "aliases": [
+        "APRac2_BoldanCutscene"
+      ]
+    },
+    {
+      "id": "rac2.moby.hypnomatic_part.update",
+      "name": "Moby_HypnomaticPart_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_L18_0043FC70",
+        "pal": "func_L18_004450C8"
+      },
+      "about": "Updates the Hypnomatic part pickup on Damosel.",
+      "aliases": [
+        "APRac2_HypnomaticPart"
+      ]
+    },
+    {
+      "id": "rac2.combat.count_kill",
+      "name": "Moby_CountKill",
+      "signature": "void(u32,i32)",
+      "params": [
+        "moby",
+        "type"
+      ],
+      "symbols": {
+        "ntsc": "func_002A6AE0",
+        "pal": "func_002A74D8"
+      },
+      "about": "Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.",
+      "aliases": [
+        "APRac2_CountKill"
+      ]
+    },
+    {
+      "id": "rac2.menu.extras",
+      "name": "Menu_Extras",
+      "signature": "i32()",
+      "params": [],
+      "symbols": {
+        "ntsc": "func_002CF340",
+        "pal": "func_002D0290"
+      },
+      "about": "Processes the extras menu and returns its menu result.",
+      "aliases": [
+        "APRac2_ExtrasMenu"
+      ]
     }
   ]
 }

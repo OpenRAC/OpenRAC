@@ -329,6 +329,90 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* PlatinumBolts_CountTotal: Counts the platinum bolts recorded in the save. A replacement can
+ * return received currency independently of physical pickups. */
+#define OPENRAC_RAC2_HOOK_PlatinumBolts_CountTotal "PlatinumBolts_CountTotal"
+#define OPENRAC_RAC2_SIG_PlatinumBolts_CountTotal "i32()"
+typedef int32_t (*openrac_rac2_PlatinumBolts_CountTotal)(void);
+
+/* Hero_UpdateCollectionProgress: Recounts nanotech and weapon collection progress from
+ * inventory; mods can separate pickup flags from received ownership. */
+#define OPENRAC_RAC2_HOOK_Hero_UpdateCollectionProgress "Hero_UpdateCollectionProgress"
+#define OPENRAC_RAC2_SIG_Hero_UpdateCollectionProgress "void()"
+typedef void (*openrac_rac2_Hero_UpdateCollectionProgress)(void);
+
+/* Save_Serialize: Serializes live game state to the save packet at output. Inventory
+ * substitutions made by a mod must be restored before calling the original. */
+#define OPENRAC_RAC2_HOOK_Save_Serialize "Save_Serialize"
+#define OPENRAC_RAC2_SIG_Save_Serialize "void(u32)"
+typedef void (*openrac_rac2_Save_Serialize)(uint32_t output);
+
+/* Save_NewGame: Resets game data from disc defaults for a new campaign, before its starting
+ * level is entered. */
+#define OPENRAC_RAC2_HOOK_Save_NewGame "Save_NewGame"
+#define OPENRAC_RAC2_SIG_Save_NewGame "void()"
+typedef void (*openrac_rac2_Save_NewGame)(void);
+
+/* Moby_EndakoRescue_Update: Updates the Endako rescue sequence that returns Clank and the
+ * Swingshot. */
+#define OPENRAC_RAC2_HOOK_Moby_EndakoRescue_Update "Moby_EndakoRescue_Update"
+#define OPENRAC_RAC2_SIG_Moby_EndakoRescue_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_EndakoRescue_Update)(uint32_t moby);
+
+/* Moby_TaboraWrench_Update: Updates the Tabora controller, including its wrench reward. */
+#define OPENRAC_RAC2_HOOK_Moby_TaboraWrench_Update "Moby_TaboraWrench_Update"
+#define OPENRAC_RAC2_SIG_Moby_TaboraWrench_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_TaboraWrench_Update)(uint32_t moby);
+
+/* Moby_PrisonWrench_Init: Initializes the Aranos prison wrench pickup. */
+#define OPENRAC_RAC2_HOOK_Moby_PrisonWrench_Init "Moby_PrisonWrench_Init"
+#define OPENRAC_RAC2_SIG_Moby_PrisonWrench_Init "void(u32)"
+typedef void (*openrac_rac2_Moby_PrisonWrench_Init)(uint32_t moby);
+
+/* Moby_TodanoTrader_Update: Updates the Todano trader and his reward exchange. */
+#define OPENRAC_RAC2_HOOK_Moby_TodanoTrader_Update "Moby_TodanoTrader_Update"
+#define OPENRAC_RAC2_SIG_Moby_TodanoTrader_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_TodanoTrader_Update)(uint32_t moby);
+
+/* Moby_PrisonPlumber_Update: Updates the Aranos plumber and his reward. The game declaration
+ * takes a signed 32-bit moby address. */
+#define OPENRAC_RAC2_HOOK_Moby_PrisonPlumber_Update "Moby_PrisonPlumber_Update"
+#define OPENRAC_RAC2_SIG_Moby_PrisonPlumber_Update "void(i32)"
+typedef void (*openrac_rac2_Moby_PrisonPlumber_Update)(int32_t moby);
+
+/* Moby_PrisonController_Update: Updates the Aranos prison controller, including inventory
+ * restoration. */
+#define OPENRAC_RAC2_HOOK_Moby_PrisonController_Update "Moby_PrisonController_Update"
+#define OPENRAC_RAC2_SIG_Moby_PrisonController_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_PrisonController_Update)(uint32_t moby);
+
+/* Moby_SiberiusThief_Update: Updates the Siberius thief sequence and its progression state. */
+#define OPENRAC_RAC2_HOOK_Moby_SiberiusThief_Update "Moby_SiberiusThief_Update"
+#define OPENRAC_RAC2_SIG_Moby_SiberiusThief_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_SiberiusThief_Update)(uint32_t moby);
+
+/* Moby_BoldanCutscene_Update: Updates the Boldan cutscene trigger and its temporary inventory
+ * state. */
+#define OPENRAC_RAC2_HOOK_Moby_BoldanCutscene_Update "Moby_BoldanCutscene_Update"
+#define OPENRAC_RAC2_SIG_Moby_BoldanCutscene_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_BoldanCutscene_Update)(uint32_t moby);
+
+/* Moby_HypnomaticPart_Update: Updates the Hypnomatic part pickup on Damosel. */
+#define OPENRAC_RAC2_HOOK_Moby_HypnomaticPart_Update "Moby_HypnomaticPart_Update"
+#define OPENRAC_RAC2_SIG_Moby_HypnomaticPart_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_HypnomaticPart_Update)(uint32_t moby);
+
+/* Moby_CountKill: Records a kill or event and grants its rewards. A replacement can adjust
+ * reward state around the original call. */
+#define OPENRAC_RAC2_HOOK_Moby_CountKill "Moby_CountKill"
+#define OPENRAC_RAC2_SIG_Moby_CountKill "void(u32,i32)"
+typedef void (*openrac_rac2_Moby_CountKill)(uint32_t moby, int32_t type);
+
+/* Menu_Extras: Processes the extras menu and returns its menu result. */
+#define OPENRAC_RAC2_HOOK_Menu_Extras "Menu_Extras"
+#define OPENRAC_RAC2_SIG_Menu_Extras "i32()"
+typedef int32_t (*openrac_rac2_Menu_Extras)(void);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

@@ -373,3 +373,123 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 ```lua
 type Vendor_PreviewFn = () -> ()
 ```
+
+### `PlatinumBolts_CountTotalFn`
+
+rac2.collectibles.platinum_count (PlatinumBolts_CountTotal) i32(): Counts the platinum bolts recorded in the save. A replacement can return received currency independently of physical pickups.
+
+```lua
+type PlatinumBolts_CountTotalFn = () -> number
+```
+
+### `Hero_UpdateCollectionProgressFn`
+
+rac2.hero.update_collection_progress (Hero_UpdateCollectionProgress) void(): Recounts nanotech and weapon collection progress from inventory; mods can separate pickup flags from received ownership.
+
+```lua
+type Hero_UpdateCollectionProgressFn = () -> ()
+```
+
+### `Save_SerializeFn`
+
+rac2.save.serialize (Save_Serialize) void(u32): Serializes live game state to the save packet at output. Inventory substitutions made by a mod must be restored before calling the original.
+
+```lua
+type Save_SerializeFn = (output: number) -> ()
+```
+
+### `Save_NewGameFn`
+
+rac2.save.new_game (Save_NewGame) void(): Resets game data from disc defaults for a new campaign, before its starting level is entered.
+
+```lua
+type Save_NewGameFn = () -> ()
+```
+
+### `Moby_EndakoRescue_UpdateFn`
+
+rac2.moby.endako_rescue.update (Moby_EndakoRescue_Update) void(u32): Updates the Endako rescue sequence that returns Clank and the Swingshot.
+
+```lua
+type Moby_EndakoRescue_UpdateFn = (moby: number) -> ()
+```
+
+### `Moby_TaboraWrench_UpdateFn`
+
+rac2.moby.tabora_wrench.update (Moby_TaboraWrench_Update) void(u32): Updates the Tabora controller, including its wrench reward.
+
+```lua
+type Moby_TaboraWrench_UpdateFn = (moby: number) -> ()
+```
+
+### `Moby_PrisonWrench_InitFn`
+
+rac2.moby.prison_wrench.init (Moby_PrisonWrench_Init) void(u32): Initializes the Aranos prison wrench pickup.
+
+```lua
+type Moby_PrisonWrench_InitFn = (moby: number) -> ()
+```
+
+### `Moby_TodanoTrader_UpdateFn`
+
+rac2.moby.todano_trader.update (Moby_TodanoTrader_Update) void(u32): Updates the Todano trader and his reward exchange.
+
+```lua
+type Moby_TodanoTrader_UpdateFn = (moby: number) -> ()
+```
+
+### `Moby_PrisonPlumber_UpdateFn`
+
+rac2.moby.prison_plumber.update (Moby_PrisonPlumber_Update) void(i32): Updates the Aranos plumber and his reward. The game declaration takes a signed 32-bit moby address.
+
+```lua
+type Moby_PrisonPlumber_UpdateFn = (moby: number) -> ()
+```
+
+### `Moby_PrisonController_UpdateFn`
+
+rac2.moby.prison_controller.update (Moby_PrisonController_Update) void(u32): Updates the Aranos prison controller, including inventory restoration.
+
+```lua
+type Moby_PrisonController_UpdateFn = (moby: number) -> ()
+```
+
+### `Moby_SiberiusThief_UpdateFn`
+
+rac2.moby.siberius_thief.update (Moby_SiberiusThief_Update) void(u32): Updates the Siberius thief sequence and its progression state.
+
+```lua
+type Moby_SiberiusThief_UpdateFn = (moby: number) -> ()
+```
+
+### `Moby_BoldanCutscene_UpdateFn`
+
+rac2.moby.boldan_cutscene.update (Moby_BoldanCutscene_Update) void(u32): Updates the Boldan cutscene trigger and its temporary inventory state.
+
+```lua
+type Moby_BoldanCutscene_UpdateFn = (moby: number) -> ()
+```
+
+### `Moby_HypnomaticPart_UpdateFn`
+
+rac2.moby.hypnomatic_part.update (Moby_HypnomaticPart_Update) void(u32): Updates the Hypnomatic part pickup on Damosel.
+
+```lua
+type Moby_HypnomaticPart_UpdateFn = (moby: number) -> ()
+```
+
+### `Moby_CountKillFn`
+
+rac2.combat.count_kill (Moby_CountKill) void(u32,i32): Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
+
+```lua
+type Moby_CountKillFn = (moby: number, type: number) -> ()
+```
+
+### `Menu_ExtrasFn`
+
+rac2.menu.extras (Menu_Extras) i32(): Processes the extras menu and returns its menu result.
+
+```lua
+type Menu_ExtrasFn = () -> number
+```

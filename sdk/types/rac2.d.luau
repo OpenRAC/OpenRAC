@@ -45,6 +45,21 @@ type HookPoint =
     | "rac2.armor_vendor.build_list"
     | "rac2.armor_vendor.buy"
     | "rac2.vendor.preview"
+    | "rac2.collectibles.platinum_count"
+    | "rac2.hero.update_collection_progress"
+    | "rac2.save.serialize"
+    | "rac2.save.new_game"
+    | "rac2.moby.endako_rescue.update"
+    | "rac2.moby.tabora_wrench.update"
+    | "rac2.moby.prison_wrench.init"
+    | "rac2.moby.todano_trader.update"
+    | "rac2.moby.prison_plumber.update"
+    | "rac2.moby.prison_controller.update"
+    | "rac2.moby.siberius_thief.update"
+    | "rac2.moby.boldan_cutscene.update"
+    | "rac2.moby.hypnomatic_part.update"
+    | "rac2.combat.count_kill"
+    | "rac2.menu.extras"
     | "Arena_Prize"
     | "ArmorVendor_BuildList"
     | "ArmorVendor_Buy"
@@ -54,29 +69,44 @@ type HookPoint =
     | "Hero_ApproachSpeed"
     | "Hero_NanotechSteps"
     | "Hero_TakeDamage"
+    | "Hero_UpdateCollectionProgress"
     | "Item_Colors"
     | "Item_Equip"
     | "Item_Give"
     | "Item_Upgrade"
     | "Item_VersionColor"
     | "Level_Load"
+    | "Menu_Extras"
+    | "Moby_BoldanCutscene_Update"
     | "Moby_BoxBreakerPickup_Update"
     | "Moby_ChargeBootsRider_Update"
+    | "Moby_CountKill"
     | "Moby_DynamoPickup_Update"
+    | "Moby_EndakoRescue_Update"
     | "Moby_GetHitMessage"
     | "Moby_GliderPickup_Update"
     | "Moby_HypnomaticMaker_Update"
+    | "Moby_HypnomaticPart_Update"
     | "Moby_LevitatorSeller_Update"
     | "Moby_MapperReturn_Update"
     | "Moby_NanotechBall_Update"
     | "Moby_PostHit"
+    | "Moby_PrisonController_Update"
+    | "Moby_PrisonPlumber_Update"
+    | "Moby_PrisonWrench_Init"
     | "Moby_RaceController_Update"
     | "Moby_RecordDeath"
+    | "Moby_SiberiusThief_Update"
     | "Moby_SwingshotArea_Update"
+    | "Moby_TaboraWrench_Update"
     | "Moby_ThermanatorArea_Update"
     | "Moby_ThermanatorSeller_Update"
+    | "Moby_TodanoTrader_Update"
     | "Moby_TractorBeamSeller_Update"
     | "Planet_Unlock"
+    | "PlatinumBolts_CountTotal"
+    | "Save_NewGame"
+    | "Save_Serialize"
     | "Text_ById"
     | "Vendor_BuildList"
     | "Vendor_DrawList"
@@ -167,6 +197,36 @@ type ArmorVendor_BuildListFn = () -> ()
 type ArmorVendor_BuyFn = (answer: number, unused: number) -> ()
 -- rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the row under the cursor (PrepareVendorSelectionPreview), in every mode, as the cursor moves and the menu opens: the armour vendor's (mode 3) loads the row's armour over Ratchet's class 0 when it is not the one loaded and makes the preview objects (g_vendorUi +0x2C, the count at +0x34, 0x100-byte mobys outside the level's list: class 0, Ratchet in that armour, then 1290 and 2675 for its extra pieces), turned to the camera, and shows the armour's description; the weapon vendor's, the weapon's model or picture. A replacement can call the original and then change the message or the objects' look (moby_material_class with OPENRAC_MODEL_MENU).
 type Vendor_PreviewFn = () -> ()
+-- rac2.collectibles.platinum_count (PlatinumBolts_CountTotal) i32(): Counts the platinum bolts recorded in the save. A replacement can return received currency independently of physical pickups.
+type PlatinumBolts_CountTotalFn = () -> number
+-- rac2.hero.update_collection_progress (Hero_UpdateCollectionProgress) void(): Recounts nanotech and weapon collection progress from inventory; mods can separate pickup flags from received ownership.
+type Hero_UpdateCollectionProgressFn = () -> ()
+-- rac2.save.serialize (Save_Serialize) void(u32): Serializes live game state to the save packet at output. Inventory substitutions made by a mod must be restored before calling the original.
+type Save_SerializeFn = (output: number) -> ()
+-- rac2.save.new_game (Save_NewGame) void(): Resets game data from disc defaults for a new campaign, before its starting level is entered.
+type Save_NewGameFn = () -> ()
+-- rac2.moby.endako_rescue.update (Moby_EndakoRescue_Update) void(u32): Updates the Endako rescue sequence that returns Clank and the Swingshot.
+type Moby_EndakoRescue_UpdateFn = (moby: number) -> ()
+-- rac2.moby.tabora_wrench.update (Moby_TaboraWrench_Update) void(u32): Updates the Tabora controller, including its wrench reward.
+type Moby_TaboraWrench_UpdateFn = (moby: number) -> ()
+-- rac2.moby.prison_wrench.init (Moby_PrisonWrench_Init) void(u32): Initializes the Aranos prison wrench pickup.
+type Moby_PrisonWrench_InitFn = (moby: number) -> ()
+-- rac2.moby.todano_trader.update (Moby_TodanoTrader_Update) void(u32): Updates the Todano trader and his reward exchange.
+type Moby_TodanoTrader_UpdateFn = (moby: number) -> ()
+-- rac2.moby.prison_plumber.update (Moby_PrisonPlumber_Update) void(i32): Updates the Aranos plumber and his reward. The game declaration takes a signed 32-bit moby address.
+type Moby_PrisonPlumber_UpdateFn = (moby: number) -> ()
+-- rac2.moby.prison_controller.update (Moby_PrisonController_Update) void(u32): Updates the Aranos prison controller, including inventory restoration.
+type Moby_PrisonController_UpdateFn = (moby: number) -> ()
+-- rac2.moby.siberius_thief.update (Moby_SiberiusThief_Update) void(u32): Updates the Siberius thief sequence and its progression state.
+type Moby_SiberiusThief_UpdateFn = (moby: number) -> ()
+-- rac2.moby.boldan_cutscene.update (Moby_BoldanCutscene_Update) void(u32): Updates the Boldan cutscene trigger and its temporary inventory state.
+type Moby_BoldanCutscene_UpdateFn = (moby: number) -> ()
+-- rac2.moby.hypnomatic_part.update (Moby_HypnomaticPart_Update) void(u32): Updates the Hypnomatic part pickup on Damosel.
+type Moby_HypnomaticPart_UpdateFn = (moby: number) -> ()
+-- rac2.combat.count_kill (Moby_CountKill) void(u32,i32): Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
+type Moby_CountKillFn = (moby: number, type: number) -> ()
+-- rac2.menu.extras (Menu_Extras) i32(): Processes the extras menu and returns its menu result.
+type Menu_ExtrasFn = () -> number
 
 declare openrac: {
     game: string,
