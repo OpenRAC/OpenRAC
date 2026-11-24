@@ -441,6 +441,46 @@ void test_submitted_views_exclude_unreachable_worlds() {
     CHECK(!recording.views[0].has_world && !recording.views[2].has_world);
 }
 
+// A synthetic cut loading list keeps late UI reachable without promoting missing world scopes.
+void test_cut_loading_shape_keeps_only_late_ui() {
+    // The 39-tag/late-UI shape was measured by the coordinator; addresses here are invented.
+    constexpr std::size_t kTags = 39;
+    constexpr std::size_t kUiTag = 35;
+    constexpr std::uint32_t kBase = 0x1000;
+    constexpr std::uint32_t kTagBytes = 16;
+    constexpr std::uint32_t kMissingWorld = 0x5000;
+    constexpr std::uint32_t kMissingShrubs = 0x6000;
+    constexpr std::uint32_t kUi = 0x8000;
+    std::vector<std::uint32_t> tags(kTags);
+
+    // Tags remain in physical walk order, not sorted by their synthetic addresses.
+    for (std::size_t n = 0; n < tags.size(); ++n) {
+        tags[n] = kBase + static_cast<std::uint32_t>(n) * kTagBytes;
+    }
+
+    tags[kUiTag] = kUi;
+    FrameRecorder recorder;
+    recorder.set_anchor(kMissingWorld);
+    recorder.view_begin(0, {0, 0, 512, 224});
+    recorder.push(op(FrameOp::World, 1));
+    recorder.set_anchor(kMissingShrubs);
+    recorder.push(op(FrameOp::WorldShrubs));
+    recorder.view_end();
+    recorder.set_anchor(kUi);
+    recorder.push(op(FrameOp::UiQuad));
+    FrameRecording recording = recorder.open();
+    const std::vector<std::size_t> places = place_commands(recording, tags);
+    CHECK(places[1] == kDropped && places[2] == kDropped);
+    CHECK(places.back() == kUiTag);
+    const std::vector<FrameSplice> submitted = submitted_commands(recording, tags);
+    CHECK(submitted.size() == 1);
+    CHECK(recording.resolve_views(submitted));
+    CHECK(!recording.views[0].has_world && recording.views[0].layers == 0);
+    CHECK(recording.commands.back().view == kNoFrameView);
+    // Retain old pictures, never invent a newly submitted world.
+    CHECK(recording.has_split_world());
+}
+
 // A reachable World retains its captured camera and viewport even if the begin marker was truncated.
 void test_world_owner_does_not_depend_on_begin_reachability() {
     FrameRecorder recorder;
@@ -616,6 +656,7 @@ int main() {
     screen_effects_kept();
     test_screen_effect_rollover();
     test_submitted_views_exclude_unreachable_worlds();
+    test_cut_loading_shape_keeps_only_late_ui();
     test_world_owner_does_not_depend_on_begin_reachability();
     test_unreachable_view_effect_is_not_scheduled();
     test_view_effect_submission_owns_payloads();
