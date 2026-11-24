@@ -379,6 +379,12 @@ vertical blank callback (`func_0013D208`).
 | `host/view.c` | the game's own 16:9 option kept off, so that the window's Picture setting alone shapes the view (as Going Commando's) |
 | `IDENTIFIED.tsv` | every function and global worked out on the way, for the backfill |
 
+The `rac3_pad_state` ctest compiles the real pad wrapper and shared report code with synthetic RAM
+and input. It covers one sample/mod report per ready update, quiet setup and reconnect frames,
+disconnects, unopened slots, game callback/reader ordering, and motor forwarding. It does not run
+the game or decode input through its retail reader. The MP library path remains in use, and NTSC-U
+startup/clear pairing gaps still prevent a complete native-pad readiness claim.
+
 `hostgen.json` also lists `from_assembly` (C that forwards registers or has VU0 inline assembly,
 translated from its instructions), `candidate_folders_left_out` (the NTSC-U drafts of boot_elf and
 frontbin give way to the programs' own instructions, which the build reads from the disc: some

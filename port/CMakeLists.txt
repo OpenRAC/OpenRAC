@@ -399,6 +399,10 @@ openrac_add_c_test(rac4_io
           game/common/lib/pad.c
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
+# Native rac3 pad updates and shared report mods with synthetic RAM, no game or platform library.
+openrac_add_test(rac3_pad_state
+  SOURCES tests/rac3_pad_state_test.cpp game/rac3-pal/host/pad.c game/common/lib/pad.c
+  INCLUDES . runtime/include game/common/include)
 openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
 # The other games' saves on the first card: read, never written (the Barlow vendor's free weapons).
 openrac_add_c_test(mc_shared_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)

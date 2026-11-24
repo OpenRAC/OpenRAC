@@ -100,12 +100,6 @@ typedef struct {
 #define W(pad, field) GREF(int32_t, (pad) + (field))
 #define B(pad, field) GREF(uint8_t, (pad) + (field))
 
-static int pad_connected(gaddr pad) {
-    uint8_t report[OPENRAC_PAD_REPORT];
-    return B(pad, PAD_SLOT) == 0 && B(pad, PAD_PORT) < 2
-           && openrac_pad_report(B(pad, PAD_PORT), report);
-}
-
 /* The record's callback, if it has one, then the reader, on `size` bytes at `report`. */
 static void pad_read(const pad_copy* copy, gaddr pad, gaddr report, int size) {
     const gaddr callback = (gaddr)W(pad, PAD_CALLBACK);
@@ -134,8 +128,11 @@ static void pads_start(const pad_copy* copy) {
     GREF(gaddr, copy->port1_too) = copy->pads + 4 * PAD_SIZE;
 }
 
+/* Samples once for connection state; only a ready read consumes the mods' report callbacks. */
 static void pad_update(const pad_copy* copy, gaddr pad) {
     const int active = copy->active_flag && pad == GREF(gaddr, copy->active);
+    uint16_t buttons = 0xFFFF;
+    uint8_t analog[4] = {0x80, 0x80, 0x80, 0x80};
 
     W(pad, PAD_HELD) = 0;
     W(pad, PAD_PREV_HELD) = W(pad, PAD_LATCHED_HELD);
@@ -144,7 +141,9 @@ static void pad_update(const pad_copy* copy, gaddr pad) {
     if (B(pad, PAD_SLOT) != 0 || B(pad, PAD_PORT) >= 2) {
         W(pad, PAD_LIB_STATE) = LIB_NOT_OPENED;
     } else {
-        W(pad, PAD_LIB_STATE) = pad_connected(pad) ? LIB_STABLE : LIB_NONE;
+        /* Connection checks do not run report mods, which may consume per-read input state. */
+        const int connected = openrac_game_pad(B(pad, PAD_PORT), &buttons, analog);
+        W(pad, PAD_LIB_STATE) = connected ? LIB_STABLE : LIB_NONE;
     }
     if (W(pad, PAD_LIB_STATE) == LIB_NONE) {
         W(pad, PAD_STATE) = STATE_FIND;
@@ -186,7 +185,7 @@ static void pad_update(const pad_copy* copy, gaddr pad) {
     uint8_t* report = (uint8_t*)G(pad + PAD_REPORT);
     memset(report, 0, REPORT_BYTES);
     report[1] = ID_PRESSURES;
-    openrac_pad_report(B(pad, PAD_PORT), report + 2);
+    openrac_pad_report_from_state(B(pad, PAD_PORT), buttons, analog, report + 2);
     pad_read(copy, pad, pad + PAD_REPORT, REPORT_READ);
     W(pad, PAD_ID) = ID_PRESSURES;
     if (W(pad, PAD_WANT_ID) != 0 && W(pad, PAD_ID) != W(pad, PAD_WANT_ID)) {
