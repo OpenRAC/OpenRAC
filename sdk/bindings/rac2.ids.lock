@@ -9,6 +9,7 @@ rac2.bolt.spawn_pickup	ntsc:00302470	Bolt_SpawnPickup,func_00302470,func_0030326
 rac2.bolt.spawn_pickups	ntsc:002ADB78	Bolt_SpawnPickups,func_002ADB78,func_002AE6D8,func_002AE9E0,func_L00_00321878,func_L00_00322AF0,func_L00_00323918
 rac2.combat.get_hit	ntsc:002A9640	Moby_GetHitMessage,func_002A9640,func_002AA0A8,func_002AA4A8
 rac2.combat.post_hit	ntsc:002A8E20	Moby_PostHit,func_002A8E20,func_002A9838,func_002A9C88
+rac2.hero.update_collection_progress	ntsc:L00:002D5EB8	Hero_UpdateCollectionProgress,func_L00_002D5EB8,func_L00_002D6408
 rac2.item.colors	ntsc:00336F20	Item_Colors,func_00336F20,func_00337DC8,func_00338C78
 rac2.item.equip	ntsc:002AD860	Item_Equip,func_002AD860,func_002AE3C0,func_002AE6C8
 rac2.item.give	ntsc:00288308	Item_Give,func_00288308,func_00288C20,func_00288D30

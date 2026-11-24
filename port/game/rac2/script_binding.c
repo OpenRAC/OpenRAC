@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[39];
+static const openrac_script_point k_points[40];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -464,8 +464,9 @@ S19_POINT(Arena_Prize, 35) /* rac2.arena.prize */
 S13_POINT(ArmorVendor_BuildList, 36) /* rac2.armor_vendor.build_list */
 S20_POINT(ArmorVendor_Buy, 37) /* rac2.armor_vendor.buy */
 S13_POINT(Vendor_Preview, 38) /* rac2.vendor.preview */
+S13_POINT(Hero_UpdateCollectionProgress, 39) /* rac2.hero.update_collection_progress */
 
-static const openrac_script_point k_points[39] = {
+static const openrac_script_point k_points[40] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.combat.post_hit", "void(u32,u32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Moby_PostHit_links, k_Moby_PostHit_thunks, S2_call},
@@ -505,9 +506,10 @@ static const openrac_script_point k_points[39] = {
     {"rac2.armor_vendor.build_list", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_ArmorVendor_BuildList_links, k_ArmorVendor_BuildList_thunks, S13_call},
     {"rac2.armor_vendor.buy", "void(u32,u32)", 2, k_S20_kinds, k_S20_names, OPENRAC_SV_VOID, k_ArmorVendor_Buy_links, k_ArmorVendor_Buy_thunks, S20_call},
     {"rac2.vendor.preview", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Vendor_Preview_links, k_Vendor_Preview_thunks, S13_call},
+    {"rac2.hero.update_collection_progress", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Hero_UpdateCollectionProgress_links, k_Hero_UpdateCollectionProgress_thunks, S13_call},
 };
 
-static const openrac_script_alias k_aliases[158] = {
+static const openrac_script_alias k_aliases[161] = {
     {"Arena_Prize", "rac2.arena.prize"},
     {"ArmorVendor_BuildList", "rac2.armor_vendor.build_list"},
     {"ArmorVendor_Buy", "rac2.armor_vendor.buy"},
@@ -517,6 +519,7 @@ static const openrac_script_alias k_aliases[158] = {
     {"Hero_ApproachSpeed", "rac2.player.approach_speed"},
     {"Hero_NanotechSteps", "rac2.player.nanotech_steps"},
     {"Hero_TakeDamage", "rac2.player.take_damage"},
+    {"Hero_UpdateCollectionProgress", "rac2.hero.update_collection_progress"},
     {"Item_Colors", "rac2.item.colors"},
     {"Item_Equip", "rac2.item.equip"},
     {"Item_Give", "rac2.item.give"},
@@ -616,8 +619,10 @@ static const openrac_script_alias k_aliases[158] = {
     {"func_L00_002D42D0", "rac2.weapon.take_ammo"},
     {"func_L00_002D4458", "rac2.weapon.take_ammo"},
     {"func_L00_002D5E30", "rac2.player.nanotech_steps"},
+    {"func_L00_002D5EB8", "rac2.hero.update_collection_progress"},
     {"func_L00_002D61D0", "rac2.player.nanotech_steps"},
     {"func_L00_002D6380", "rac2.player.nanotech_steps"},
+    {"func_L00_002D6408", "rac2.hero.update_collection_progress"},
     {"func_L00_00303990", "rac2.level.load"},
     {"func_L00_00304660", "rac2.level.load"},
     {"func_L00_00305570", "rac2.level.load"},
@@ -674,8 +679,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 39, k_points, 0, k_fields, NULL,
-    158, k_aliases,
+    "rac2", 3, k_discs, 40, k_points, 0, k_fields, NULL,
+    161, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

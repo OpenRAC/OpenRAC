@@ -373,3 +373,11 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 ```lua
 type Vendor_PreviewFn = () -> ()
 ```
+
+### `Hero_UpdateCollectionProgressFn`
+
+rac2.hero.update_collection_progress (Hero_UpdateCollectionProgress) void(): Recounts nanotech and weapon collection progress from inventory; mods can separate pickup flags from received ownership.
+
+```lua
+type Hero_UpdateCollectionProgressFn = () -> ()
+```

@@ -329,6 +329,12 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* Hero_UpdateCollectionProgress: Recounts nanotech and weapon collection progress from
+ * inventory; mods can separate pickup flags from received ownership. */
+#define OPENRAC_RAC2_HOOK_Hero_UpdateCollectionProgress "Hero_UpdateCollectionProgress"
+#define OPENRAC_RAC2_SIG_Hero_UpdateCollectionProgress "void()"
+typedef void (*openrac_rac2_Hero_UpdateCollectionProgress)(void);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

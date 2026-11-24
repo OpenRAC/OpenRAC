@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Recounts nanotech and weapon collection progress from inventory; mods can separate pickup flags from received ownership.
+struct Hero_UpdateCollectionProgress {
+    static constexpr const char* id = "rac2.hero.update_collection_progress";
+    static constexpr const char* name = "Hero_UpdateCollectionProgress";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -340,6 +348,9 @@ namespace hooks {
         using get_hit = rac2::Moby_GetHitMessage;
         using post_hit = rac2::Moby_PostHit;
     }  // namespace combat
+    namespace hero {
+        using update_collection_progress = rac2::Hero_UpdateCollectionProgress;
+    }  // namespace hero
     namespace item {
         using colors = rac2::Item_Colors;
         using equip = rac2::Item_Equip;
