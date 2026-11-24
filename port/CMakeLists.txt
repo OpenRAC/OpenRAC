@@ -402,7 +402,24 @@ openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
 # Native rac3 pad updates and shared report mods with synthetic RAM, no game or platform library.
 openrac_add_test(rac3_pad_state
   SOURCES tests/rac3_pad_state_test.cpp game/rac3-pal/host/pad.c game/common/lib/pad.c
-  INCLUDES . runtime/include game/common/include)
+  INCLUDES . runtime/include game/common/include game/rac3-pal/host)
+if(Python3_FOUND)
+  # Carry only the port's own fixture and host source; this does not run hostgen or read game data.
+  set(pad_ntsc_dir "${CMAKE_CURRENT_BINARY_DIR}/tests/rac3_pad_ntsc")
+  add_custom_command(
+    OUTPUT "${pad_ntsc_dir}/pad.c" "${pad_ntsc_dir}/rac3_pad_state_test.cpp"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/hostgen/release_host.py"
+      --names "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-ntsc/host/rac3_names.tsv"
+      --out "${pad_ntsc_dir}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/game/rac3-pal/host/pad.c"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/rac3_pad_state_test.cpp"
+    DEPENDS tools/hostgen/release_host.py game/rac3-ntsc/host/rac3_names.tsv
+      game/rac3-pal/host/pad.c tests/rac3_pad_state_test.cpp
+    VERBATIM)
+  openrac_add_test(rac3_pad_ntsc
+    SOURCES "${pad_ntsc_dir}/rac3_pad_state_test.cpp" "${pad_ntsc_dir}/pad.c" game/common/lib/pad.c
+    INCLUDES . tests runtime/include game/common/include game/rac3-ntsc/host game/rac3-pal/host)
+endif()
 openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
 # The other games' saves on the first card: read, never written (the Barlow vendor's free weapons).
 openrac_add_c_test(mc_shared_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)

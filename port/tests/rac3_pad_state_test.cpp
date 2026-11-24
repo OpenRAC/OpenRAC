@@ -5,6 +5,7 @@
 // Field offsets and report sizes are the contracts documented in host/pad.c and pad_report.h.
 // Fake game readers record which copy was called and what the mod/callback pipeline handed it.
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -16,13 +17,16 @@
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
+#include "rac3_version.h"
 
 extern "C" {
 void func_003A2FC0(void);
 void func_003A3B40(gaddr pad);
+#if defined(RAC3_PAL)
 void func_003A2BC0__frontbin(void);
-void func_003A3740__frontbin(gaddr pad);
 int func_L01_00460868(void);
+#endif
+void func_003A3740__frontbin(gaddr pad);
 int func_L01_004613E8(int pad);
 }
 
@@ -31,6 +35,8 @@ namespace {
 // The SP pad record and globals, as named in rac3-pal/host/pad.c (seen in game code).
 constexpr gaddr kPads = 0x001CD0C0u;
 constexpr gaddr kActive = 0x001D52FCu;
+constexpr gaddr kPortOne = 0x001D5300u;
+constexpr gaddr kPortOneToo = 0x001D5304u;
 constexpr gaddr kNotReady = 0x001D4CF4u;
 constexpr gaddr kNone = 0x001D6DF0u;
 constexpr gaddr kPadBytes = 0x5C0u;
@@ -187,6 +193,8 @@ void test_connection_setup_does_not_consume_a_mod_report() {
     // The second controller is the first slot after four records, not a multitap slot.
     CHECK(GREF(std::uint8_t, kPads + kPort) == 0);
     CHECK(GREF(std::uint8_t, kPads + 4 * kPadBytes + kPort) == 1);
+    CHECK(GREF(gaddr, kPortOne) == kPads + 4 * kPadBytes);
+    CHECK(GREF(gaddr, kPortOneToo) == kPads + 4 * kPadBytes);
 }
 
 // Disconnect uses the game's empty report and readiness flag, without invoking report mods.
@@ -257,7 +265,8 @@ void test_ready_without_hooks_keeps_the_reader() {
     );  // Cross pressure in the 20-byte report.
 }
 
-// The frontbin and level wrappers retain their own game decoders, not the boot decoder.
+#if defined(RAC3_PAL)
+// The PAL frontbin and level startups retain their own decoders and clear operations.
 void test_program_copies_keep_their_readers() {
     Context context;
     use(context);
@@ -278,6 +287,52 @@ void test_program_copies_keep_their_readers() {
     CHECK(func_L01_004613E8(static_cast<int>(kPads)) == 0);
     CHECK(context.reader_copy == Copy::Level && context.readers == 1 && context.mods == 1);
 }
+#endif
+
+#if defined(RAC3_NTSC)
+// Replaces synthetic overlay memory while checking the retained core records and pointers.
+void replace_overlay(Context& context) {
+    // All NTSC SP records begin here, above the pad records and core pointers (disc record layout).
+    constexpr gaddr kOverlayLow = 0x001D5680u;
+    constexpr gaddr kPadEnd = kPads + 8 * kPadBytes;
+    static_assert(kPadEnd <= kOverlayLow && kActive < kOverlayLow);
+    const std::vector<std::uint8_t> saved(
+        context.ram.begin() + kPads, context.ram.begin() + kPadEnd
+    );
+    const std::array<gaddr, 3> pointers{
+        GREF(gaddr, kActive), GREF(gaddr, kPortOne), GREF(gaddr, kPortOneToo)
+    };
+    const std::uint8_t not_ready = GREF(std::uint8_t, kNotReady);
+    std::fill(
+        context.ram.begin() + kOverlayLow, context.ram.end(), 0xA5
+    );  // Synthetic program data.
+    CHECK(std::equal(saved.begin(), saved.end(), context.ram.begin() + kPads));
+    CHECK(GREF(gaddr, kActive) == pointers[0]);
+    CHECK(GREF(gaddr, kPortOne) == pointers[1] && GREF(gaddr, kPortOneToo) == pointers[2]);
+    CHECK(GREF(std::uint8_t, kNotReady) == not_ready);
+}
+
+// NTSC initializes once at the real boot entry, then uses new readers on retained core records.
+void test_ntsc_overlays_keep_boot_initialized_pads() {
+    Context context;
+    ready_pad(context);
+    GREF(gaddr, kPads + kCallback) = kCallbackAddress;
+    GREF(std::uint32_t, kPads + kCallbackArgument) = kCallbackArgumentValue;
+    CHECK(context.clears == 8);  // The real boot wrapper cleared each record once.
+    replace_overlay(context);
+    func_003A3740__frontbin(kPads);
+    CHECK(context.reader_copy == Copy::Frontbin && context.readers == 1);
+    CHECK(context.polls == 1 && context.mods == 1 && context.order == "pmacrv");
+    CHECK(context.clears == 8 && GREF(std::uint8_t, kNotReady) == 0);
+
+    reset_observations(context);
+    replace_overlay(context);
+    CHECK(func_L01_004613E8(static_cast<int>(kPads)) == 0);
+    CHECK(context.reader_copy == Copy::Level && context.readers == 1);
+    CHECK(context.polls == 1 && context.mods == 1 && context.order == "pmacrv");
+    CHECK(context.clears == 8 && GREF(std::uint8_t, kNotReady) == 0);
+}
+#endif
 
 // Existing shared callers keep one mod pipeline even for a disconnected neutral report.
 void test_shared_report_preserves_existing_mod_policy() {
@@ -366,6 +421,7 @@ void func_003A30D8(gaddr pad) {
     std::memset(G(pad), 0, kPadBytes);
 }
 
+#if defined(RAC3_PAL)
 void func_003A2CD8__frontbin(gaddr pad) {
     func_003A30D8(pad);
 }
@@ -373,6 +429,7 @@ void func_003A2CD8__frontbin(gaddr pad) {
 void func_L01_00460980(gaddr pad) {
     func_003A30D8(pad);
 }
+#endif
 
 }  // extern "C"
 
@@ -384,7 +441,12 @@ int main() {
     test_unopened_slot_never_polls();
     test_reconnect_keeps_the_quiet_frame();
     test_ready_without_hooks_keeps_the_reader();
+#if defined(RAC3_PAL)
     test_program_copies_keep_their_readers();
+#endif
+#if defined(RAC3_NTSC)
+    test_ntsc_overlays_keep_boot_initialized_pads();
+#endif
     test_shared_report_preserves_existing_mod_policy();
     return openrac::test::result();
 }
