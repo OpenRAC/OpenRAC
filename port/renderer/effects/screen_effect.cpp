@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
+//
+// Implements screen_effect.h's post passes, with separate input and output textures at every size.
 #include "renderer/effects/screen_effect.h"
 
 #include <algorithm>
@@ -130,6 +132,9 @@ void ScreenEffects::pass(int mode, unsigned source, int width, int height, Level
     FrameBuffer& out = into.buffers[into.current ^ 1];
     glBindFramebuffer(GL_FRAMEBUFFER, out.id());
     glViewport(0, 0, out.width(), out.height());
+    // Both samplers belong to one program; an unused sampler must not retain the next blur output.
+    glActiveTexture(GL_TEXTURE0 + 1);
+    glBindTexture(GL_TEXTURE_2D, source);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, source);
     glUniform1i(m_shader.uniform("mode"), mode);

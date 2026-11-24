@@ -92,3 +92,14 @@ game's 4:3 picture is the middle `picture_scale_x` part.
   picture `RAC3_FRAME_COPY_LARGE` 0x52330010 / `RAC3_FRAME_COPY_SMALL` 0x52330011); it is not bound
   to GetEffectTex yet, because until the effect quads sample a picture by id the rings would lose
   the off-screen target they read today.
+
+## 4. Validation limits
+
+`frame_record` tests effect payload retention and command-limit rollover. `screen_effect` exercises
+the post-pass scheduler with fake GL resources: consecutive glow/soften effects never sample their
+output attachment, resizing keeps positive buffer sizes, and shader failure stays latched until
+release. It does not compile GLSL or check pixels. `renderer_gif` checks placement between draws.
+
+Runtime and visual behavior remain unverified. In particular, the soften pass is the whole-frame
+approximation described above, not the game's depth-weighted effect. These passes do not finish
+native effect textures/materials or liquid strips, and do not permit retiring the residual chain.
