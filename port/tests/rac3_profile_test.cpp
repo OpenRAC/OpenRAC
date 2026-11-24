@@ -228,6 +228,8 @@ void shares_going_commandos_moby_fields() {
     CHECK(profile.hero_air_frames() == 0x36E);
     CHECK(profile.cutscene_mode() == std::optional<std::uint32_t>{2});
     CHECK(profile.pause_mode() == std::optional<std::uint32_t>{4});
+    // Ratchet & Clank's freeze screens (its mode 4) keep the gameplay lens; this game has none known.
+    CHECK(!profile.freeze_mode().has_value());
     CHECK(profile.sends_display_list());
 }
 
