@@ -786,4 +786,8 @@ int api_menu_option_set(openrac_mod* mod, const char* option, int state);
 // Forgets the menu options `mod` set (nullptr: every mod's).
 void drop_menu_options(const openrac_mod* mod);
 
+int api_overlay_image_create(openrac_mod* mod, const openrac_overlay_image* image);
+
+int api_overlay_image_destroy(openrac_mod* mod, int image);
+
 }  // namespace openrac::mods::detail

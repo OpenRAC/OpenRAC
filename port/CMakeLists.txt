@@ -203,6 +203,8 @@ openrac_add_test(ui_canvas SOURCES tests/ui_canvas_test.cpp renderer/ui/canvas.c
 # What mods draw over the game, gathered on the CPU, and a point of the level found on the picture.
 openrac_add_test(ui_overlay_list SOURCES tests/ui_overlay_list_test.cpp renderer/ui/overlay_list.cpp
                  renderer/ui/canvas.cpp INCLUDES .)
+# The mods' overlay pictures (renderer/ui/overlay_images.h): owners, limits and let-gos.
+openrac_add_test(overlay_images LIBS openrac_overlay_images)
 openrac_add_test(scripted_moby_colour SOURCES enhanced/tests/scripted_moby_colour_test.cpp
                                       INCLUDES .)
 openrac_add_test(pause_options INCLUDES .)
@@ -293,6 +295,12 @@ openrac_add_test(custom_map
 add_library(openrac_sharp_cells STATIC renderer/textures/sharp_cells.cpp)
 target_include_directories(openrac_sharp_cells PUBLIC .)
 openrac_warnings(openrac_sharp_cells)
+# The mods' overlay pictures (renderer/ui/overlay_images.h), a library of their own for the same
+# reason: the mods' interface (openrac_api.overlay_image_create) keeps them, the renderer's overlay
+# draws them.
+add_library(openrac_overlay_images STATIC renderer/ui/overlay_images.cpp)
+target_include_directories(openrac_overlay_images PUBLIC .)
+openrac_warnings(openrac_overlay_images)
 
 include(Luau)
 add_library(openrac_mods STATIC
@@ -323,7 +331,7 @@ add_library(openrac_mods STATIC
 )
 target_include_directories(openrac_mods PUBLIC game/common game/common/include "${PROJECT_SOURCE_DIR}/../sdk/include")
 target_link_libraries(openrac_mods PUBLIC openrac_runtime ${CMAKE_DL_LIBS}
-                      PRIVATE openrac_luau openrac_sharp_cells)
+                      PRIVATE openrac_luau openrac_sharp_cells openrac_overlay_images)
 openrac_warnings(openrac_mods)
 
 openrac_add_test(mod_manifest LIBS openrac_mods)
@@ -342,7 +350,8 @@ add_test(NAME rac1_shared COMMAND rac1_shared_test)
 # loader with hook points of the test's own; test-old is built for interface 1.5, as a mod made
 # before the snapshot calls is.
 add_executable(mod_loader_test tests/mod_loader_test.cpp)
-target_link_libraries(mod_loader_test PRIVATE openrac_mods openrac_sharp_cells)
+target_link_libraries(mod_loader_test PRIVATE openrac_mods openrac_sharp_cells
+                      openrac_overlay_images)
 foreach(which a b old current)
   add_library(mod_loader_test_${which} MODULE tests/mod_loader_test_mod.c)
   target_include_directories(mod_loader_test_${which} PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")

@@ -43,6 +43,7 @@
 #include "renderer/effects/shadows.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/renderer.h"
+#include "renderer/ui/overlay_list.h"
 #include "scene/level.h"
 #include "scene/level_renderer.h"
 #include "scene/moby_shadow.h"
@@ -208,6 +209,9 @@ struct FramePresentation {
     std::uint32_t overlay_phase = 0;
     // The world was drawn live under a menu (Kept::world_under_menu): `camera` matches the picture.
     bool world_under_menu = false;
+    // What the mods draw under the game's 2D in this frame (OPENRAC_OVERLAY_UNDER_HUD, interface
+    // 1.40), recorded on the window thread at submission and drawn before the HUD.
+    renderer::ui::OverlayList under_hud;
     CameraDebugFrame
         camera_debug;  // Window-thread inputs fixed before handing the scene to the worker.
     std::vector<scene::Instance> picker_live;

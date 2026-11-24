@@ -124,11 +124,14 @@ extern "C" {
  * port's menu greyed out or made usable by a mod, by name (menu_option_set),
  * 1.38 an accent colour for the paint material, drawn on the model's own
  * strongly saturated texels, a visor or lamps
- * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT), and 1.39 paint that draws the effects
- * a moby makes in its colour, and paint in weapon_look
- * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS).
+ * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT), 1.39 paint that draws the effects a
+ * moby makes in its colour, and paint in weapon_look
+ * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS), and 1.40 pictures of a mod's own for
+ * its overlay, drawn turned, tinted and kept in shape, and a call of the
+ * overlay under the game's 2D (overlay_image_create, overlay_image_destroy,
+ * openrac_overlay.image, image_quad, layer, aspect, OPENRAC_OVERLAY_UNDER_HUD).
  */
-#define OPENRAC_MOD_API_MINOR 39
+#define OPENRAC_MOD_API_MINOR 40
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1591,6 +1594,37 @@ typedef struct openrac_moby2 {
 #define OPENRAC_OVERLAY_MENU 0x2u
 /* A level with a scene playing (OPENRAC_PLAY_SCENE): a cutscene, the ship's landing. Since 1.31. */
 #define OPENRAC_OVERLAY_SCENE 0x4u
+/* Not a phase but a layer, for on_overlay_phases' `phases` with the phases it is for: the callback
+ * is also called once a frame before the game's own 2D (its HUD, text and menus) is drawn, over the
+ * world, and what it draws in that call goes under the game's 2D, as heat haze does
+ * (openrac_overlay.layer says which call it is). That call comes before the frame is drawn: its
+ * `project` always answers 0. Drawn only in a frame that draws the level. Since 1.40. */
+#define OPENRAC_OVERLAY_UNDER_HUD 0x8u
+
+/* openrac_overlay.layer: the call over the finished frame (the game's 2D and menus included), or
+ * the one under the game's 2D (OPENRAC_OVERLAY_UNDER_HUD). Since 1.40. */
+#define OPENRAC_OVERLAY_LAYER_TOP 0u
+#define OPENRAC_OVERLAY_LAYER_UNDER_HUD 1u
+
+/* openrac_overlay_image.flags: sampled smoothly (bilinear, with mipmaps), not by the nearest pixel.
+ * Since 1.40. */
+#define OPENRAC_OVERLAY_IMAGE_SMOOTH 0x1u
+/* The largest side of an openrac_overlay_image, in pixels. Since 1.40. */
+#define OPENRAC_OVERLAY_IMAGE_SIDE_MAX 4096
+
+/* A picture of the mod's for its overlay (openrac_api.overlay_image_create), which the port
+ * copies. Since 1.40. */
+typedef struct openrac_overlay_image {
+    /* sizeof(openrac_overlay_image), set by the mod. */
+    uint32_t size;
+    /* Its size in pixels, 1 to OPENRAC_OVERLAY_IMAGE_SIDE_MAX each. */
+    int32_t width;
+    int32_t height;
+    /* width * height * 4 bytes: R G B A, top row first, the colour straight (not premultiplied). */
+    const uint8_t* rgba;
+    /* OPENRAC_OVERLAY_IMAGE_SMOOTH or 0. */
+    uint32_t flags;
+} openrac_overlay_image;
 
 /* The port's drawing over the game, handed to an overlay callback for the length of the call.
  * Screen positions are in the game's 512 x 448 picture, as menu_rect and menu_text's. It goes over
@@ -1624,6 +1658,28 @@ typedef struct openrac_overlay {
      * blend this port does not have: the last stays). Only if `size` reaches it (mod.hpp:
      * overlay_has_set_blend). Since 1.33. */
     int (*set_blend)(void* context, uint32_t blend);
+    /* Picture `image` of the mod's (overlay_image_create) centred on (x, y), `w` by `h` in the
+     * picture's units down (448 the picture's height), so that it keeps its shape on a wide
+     * picture as text does (w == h is square as shown), turned `angle` radians counter-clockwise as
+     * shown about its centre. Each texel is times `rgba` (0xRRGGBBAA: 0xFFFFFFFF as it is; the
+     * alpha fades it) and goes over the frame as set_blend says. An id that is not the mod's draws
+     * nothing. Only if `size` reaches it (mod.hpp: overlay_has_images). Since 1.40. */
+    void (*image)(
+        void* context, int image, float x, float y, float w, float h, float angle, uint32_t rgba
+    );
+    /* Picture `image` stretched over the four corners `xy` (x, y pairs in the picture's 512 x 448
+     * units, not kept in shape: top left, top right, bottom left, bottom right), each taking the
+     * place `uv` gives it in the picture (u, v pairs, 0 to 1 from the picture's top left), times
+     * `rgba`. Since 1.40. */
+    void (*image_quad)(
+        void* context, int image, const float xy[8], const float uv[8], uint32_t rgba
+    );
+    /* Which call this is: OPENRAC_OVERLAY_LAYER_TOP or OPENRAC_OVERLAY_LAYER_UNDER_HUD. Since
+     * 1.40. */
+    uint32_t layer;
+    /* The frame's width to its height as shown (16:9 is 1.78): a unit of the picture across is
+     * aspect * 448 / 512 of one down. Since 1.40. */
+    float aspect;
 } openrac_overlay;
 
 /* openrac_overlay.set_blend's `blend`: how an overlay's colour (a rectangle's or a letter's: `src`,
@@ -3036,7 +3092,8 @@ typedef struct openrac_api {
      * of `phases` (OPENRAC_OVERLAY_PLAYING, _MENU, _SCENE; openrac_overlay.phase says which one a
      * frame is). It replaces the mod's on_overlay: one a mod. Only during openrac_mod_load.
      * Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_TOO_LATE, or OPENRAC_HOOK_UNKNOWN (no fn, no phase, a
-     * bit the port has not). Since 1.31. */
+     * bit the port has not). Since 1.31. Since 1.40 OPENRAC_OVERLAY_UNDER_HUD may be added to the
+     * phases: the callback is called a second time each frame, under the game's 2D. */
     int (*on_overlay_phases)(openrac_mod* mod, openrac_overlay_fn fn, void* user, uint32_t phases);
 
     /* The label of the pad's button `button` (one OPENRAC_PAD_* bit) for the player's device now,
@@ -3353,6 +3410,19 @@ typedef struct openrac_api {
      * a mod's calls go with it when it unloads. Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN for no
      * name or another state. Since 1.37. */
     int (*menu_option_set)(openrac_mod* mod, const char* option, int state);
+
+    /* Keeps a copy of a picture of the mod's (openrac_overlay_image: RGBA, 1 to 4096 pixels a side)
+     * for its overlay callbacks to draw with openrac_overlay.image and image_quad. Returns its id,
+     * 1 or more (never given again in this run), or OPENRAC_HOOK_UNKNOWN for a null picture, a size
+     * below its struct's, a side out of range or no pixels, or OPENRAC_HOOK_FULL when the mod keeps
+     * 256 pictures or 128 MB of them already. Kept through level loads; gone with
+     * overlay_image_destroy or the mod's unload. Any thread. Since 1.40. */
+    int (*overlay_image_create)(openrac_mod* mod, const openrac_overlay_image* image);
+
+    /* Lets go of the mod's picture image (overlay_image_create): it draws nothing from then on.
+     * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for an id that is not one of the mod's. Any
+     * thread. Since 1.40. */
+    int (*overlay_image_destroy)(openrac_mod* mod, int image);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

@@ -1210,6 +1210,42 @@ int fake_menu_option_set(openrac_mod*, const char* option, int state) {
                : OPENRAC_HOOK_UNKNOWN;
 }
 
+// What the fake host's 1.40 picture calls were asked: "create <w>x<h> <flags>", "destroy <id>"; it
+// refuses a side of 0 and any id but 7.
+std::string g_picture;
+
+int fake_overlay_image_create(openrac_mod*, const openrac_overlay_image* image) {
+    g_picture = "create " + std::to_string(image->width) + "x" + std::to_string(image->height) + " "
+                + std::to_string(image->flags);
+    return image->width > 0 && image->height > 0 && image->size == sizeof(openrac_overlay_image)
+               ? 7
+               : OPENRAC_HOOK_UNKNOWN;
+}
+
+int fake_overlay_image_destroy(openrac_mod*, int image) {
+    g_picture = "destroy " + std::to_string(image);
+    return image == 7 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+// What the fake overlay's 1.40 image and image_quad drew: "image <id> <x> <w> <angle> <rgba>",
+// "quad <id> <x3> <v3>".
+std::string g_drawn;
+
+void fake_overlay_image(
+    void*, int image, float x, float, float w, float, float angle, std::uint32_t rgba
+) {
+    g_drawn = "image " + std::to_string(image) + " " + std::to_string(static_cast<int>(x)) + " "
+              + std::to_string(static_cast<int>(w)) + " "
+              + std::to_string(static_cast<int>(angle * 100.0f)) + " " + std::to_string(rgba);
+}
+
+void fake_overlay_image_quad(
+    void*, int image, const float xy[8], const float uv[8], std::uint32_t
+) {
+    g_drawn = "quad " + std::to_string(image) + " " + std::to_string(static_cast<int>(xy[6])) + " "
+              + std::to_string(static_cast<int>(uv[7]));
+}
+
 // What the fake host's 1.33 call was asked for. It knows one installed game's folder, refuses one the
 // manifest does not declare, and has none for any other.
 std::string g_game_asked;
@@ -2699,6 +2735,52 @@ int main() {
         CHECK(!mod.has_sharp_cells() && !mod.sharp_cells(&page, 1) && g_sharp.empty());
         api.size = sizeof api;
         CHECK(mod.has_sharp_cells());
+    }
+
+    // Interface 1.40: pictures of the mod's for its overlay, handed to the port with the struct's
+    // size, and refused where the port lacks the calls (an older minor, or a table before them).
+    {
+        api.overlay_image_create = fake_overlay_image_create;
+        api.overlay_image_destroy = fake_overlay_image_destroy;
+        CHECK(mod.has_overlay_images());
+        const std::uint8_t rgba[16] = {};
+        CHECK(mod.overlay_image_create(2, 2, rgba) == 7 && g_picture == "create 2x2 1");
+        CHECK(mod.overlay_image_create(2, 2, rgba, false) == 7 && g_picture == "create 2x2 0");
+        // The port's refusal is the wrapper's 0, never a negative id.
+        CHECK(mod.overlay_image_create(0, 2, rgba) == 0);
+        CHECK(mod.overlay_image_destroy(7) && g_picture == "destroy 7");
+        CHECK(!mod.overlay_image_destroy(8));
+        g_picture.clear();
+        api.api_minor = 39;
+        CHECK(!mod.has_overlay_images() && mod.overlay_image_create(2, 2, rgba) == 0
+              && !mod.overlay_image_destroy(7) && g_picture.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, overlay_image_destroy));
+        CHECK(!mod.has_overlay_images() && mod.overlay_image_create(2, 2, rgba) == 0
+              && g_picture.empty());
+        api.size = sizeof api;
+        CHECK(mod.has_overlay_images());
+
+        // The overlay's own members: drawn when the port's struct has them, else the top layer.
+        openrac_overlay overlay{};
+        overlay.size = sizeof overlay;
+        overlay.image = fake_overlay_image;
+        overlay.image_quad = fake_overlay_image_quad;
+        overlay.layer = OPENRAC_OVERLAY_LAYER_UNDER_HUD;
+        CHECK(openrac::overlay_has_images(&overlay));
+        CHECK(openrac::overlay_layer(&overlay) == OPENRAC_OVERLAY_LAYER_UNDER_HUD);
+        CHECK(openrac::overlay_image(&overlay, 7, 256, 224, 100, 50, 1.5f)
+              && g_drawn == "image 7 256 100 150 4294967295");
+        const float xy[8] = {0, 0, 1, 0, 0, 1, 33, 1};
+        const float uv[8] = {0, 0, 1, 0, 0, 1, 1, 1};
+        CHECK(openrac::overlay_image_quad(&overlay, 7, xy, uv) && g_drawn == "quad 7 33 1");
+        g_drawn.clear();
+        overlay.size = static_cast<std::uint32_t>(offsetof(openrac_overlay, image));
+        CHECK(!openrac::overlay_has_images(&overlay)
+              && !openrac::overlay_image(&overlay, 7, 0, 0, 1, 1)
+              && !openrac::overlay_image_quad(&overlay, 7, xy, uv) && g_drawn.empty());
+        CHECK(openrac::overlay_layer(&overlay) == OPENRAC_OVERLAY_LAYER_TOP);
+        CHECK(!openrac::overlay_has_images(nullptr));
     }
 
     // Interface 1.37: the pads' motors, handed to the port as they are, and refused where the port

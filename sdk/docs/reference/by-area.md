@@ -77,6 +77,8 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `on_overlay` | 1.14 | stable | yes | yes | yes |
 | `play_live_picture` | 1.14 | stable | yes | no | no |
 | `on_overlay_phases` | 1.31 | stable | yes | yes | yes |
+| `overlay_image_create` | 1.40 | experimental | yes | yes | yes |
+| `overlay_image_destroy` | 1.40 | experimental | yes | yes | yes |
 
 ## menus
 
