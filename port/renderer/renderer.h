@@ -169,7 +169,8 @@ struct FrameInput {
     TextureFilter texture_filter = TextureFilter::Normal;
     ShadowQuality shadow_quality = ShadowQuality::High;
     ShadowFilter shadow_filter = ShadowFilter::Soft;
-    EarlyLightingQuality early_lighting_quality = EarlyLightingQuality::Normal;
+    // The game frontend supplies its setting. Standalone renderer callers use 2x2 cells.
+    EarlyLightingQuality early_lighting_quality = EarlyLightingQuality::High;
     CloudShadowSettings cloud_shadows;
     double cloud_seconds = 0.0;
     VolumetricQuality volumetric_quality = VolumetricQuality::Off;
