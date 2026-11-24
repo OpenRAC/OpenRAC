@@ -5,8 +5,10 @@
  * A native material: how a draw of the world's effects blends, tests alpha and depth, writes, and
  * samples its image, in the window's own terms (docs/port/TEXTURES.md, section 4). No field is a
  * word of the console's graphics chip. Host C fills one where it makes the record, from state the
- * record's own code sets; state a draw only inherits from the display list around it is not a
- * material's to guess (keep such a draw on openrac_game_effect_quad and its marker).
+ * record's own code sets, or that a capture of the game's own register sets proves (Up Your
+ * Arsenal's alpha-fail masks: rac3-pal/host/effect_state.h); state a draw only inherits from the
+ * display list around it is not a material's to guess (keep such a draw on openrac_game_effect_quad
+ * and its marker).
  *
  * Colours, alphas and weights are in the games' units: 0x80 = 1.0.
  */
