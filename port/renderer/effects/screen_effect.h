@@ -33,6 +33,7 @@ public:
     // `effect` over `target` (its colour as drawn so far, read through `readable`, the
     // framebuffer it is resolved into when multisampled). Leaves the framebuffer, program, vertex
     // array and textures changed: the caller sets its own again.
+    // Resource creation and copies select unit zero; processing owns texture units zero and one.
     void apply(const ScreenEffect& effect, const RenderTarget& target, unsigned readable);
     void release();
 
@@ -56,6 +57,8 @@ private:
     void resample(const Level& from, Level& into);
     // The copy put back over the target, from the frame's copy and the blurred half.
     void put_back(int mode, const RenderTarget& target);
+    // Copies only `target`'s local extent from `readable`, using the effect's owned texture unit zero.
+    void copy_frame(const RenderTarget& target, unsigned readable);
 
     Shader m_shader;
     unsigned m_vao = 0;

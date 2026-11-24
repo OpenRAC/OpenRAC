@@ -35,6 +35,7 @@ struct Context {
         unsigned source = 0;  // Framebuffer that owns the copied view.
         int width = 0;        // Copied columns.
         int height = 0;       // Copied rows.
+        unsigned unit = 0;    // Texture unit used for the input copy.
     };
 
     std::vector<Copy> sources;      // Input isolation across consecutive view effects.
@@ -86,7 +87,7 @@ void bind_framebuffer(unsigned binding, unsigned framebuffer) {
 // Counts copies without pretending to validate pixels or framebuffer resolve behavior.
 void copy_texture(unsigned, int, int, int, int, int, int width, int height) {
     ++g_context->copies;
-    g_context->sources.push_back({g_context->read_framebuffer, width, height});
+    g_context->sources.push_back({g_context->read_framebuffer, width, height, g_context->unit});
 }
 
 // Tracks the local viewport that each scheduler pass declares to the raster layer.
@@ -153,6 +154,7 @@ void test_disabled_and_failed_effects_do_not_draw() {
 void test_independent_view_targets() {
     Context context;
     g_context = &context;
+    context.unit = 1;  // A preceding world pass need not leave texture unit zero active.
     openrac::renderer::ScreenEffects effects;
     openrac::renderer::ScreenEffect effect;
     effect.kind = openrac::renderer::ScreenEffectKind::Glow;
@@ -167,6 +169,7 @@ void test_independent_view_targets() {
     if (context.sources.size() == 2) {
         CHECK(context.sources[0].source == upper.framebuffer);
         CHECK(context.sources[1].source == lower.framebuffer);
+        CHECK(context.sources[0].unit == 0 && context.sources[1].unit == 0);
         CHECK(context.sources[0].width == upper.width && context.sources[0].height == upper.height);
         CHECK(context.sources[1].width == lower.width && context.sources[1].height == lower.height);
     }
