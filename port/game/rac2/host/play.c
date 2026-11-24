@@ -128,6 +128,14 @@ enum {
 /* A class's seq count and seq table, a seq's key count (func_002A7398, MobyAnimAdvance). */
 #define CLASS_SEQ_COUNT 0x0Cu
 #define CLASS_SEQS 0x48u
+/* A class's kind (+0x46): 5 a creature, an enemy (enemy_copies.c). */
+#define CLASS_KIND 0x46u
+#define KIND_CREATURE 5
+/* openrac_moby's flags (openrac_mod.h). */
+#define OPENRAC_MOBY_UPDATES 0x1u
+#define OPENRAC_MOBY_PLACED 0x4u
+#define OPENRAC_MOBY_CREATURE 0x8u
+#define OPENRAC_MOBY_DRAWN 0x80u
 #define SEQ_FRAMES 0x10u
 #define SEQ_FRAME_TABLE 0x1Cu
 
@@ -554,7 +562,14 @@ static int mobys(openrac_game_moby_state* out, int max) {
             s->slot = (int32_t)((m - base) / MOBY_SIZE);
             s->key = moby_key(m, dynamic);
             s->oclass = GREF(int16_t, m + MOBY_OCLASS);
-            s->flags = GREF(uint16_t, m + MOBY_FLAGS);
+            const gaddr cls = GREF(gaddr, m + MOBY_CLASS);
+            s->flags = (GREF(gaddr, m + MOBY_UPDATE) != 0 ? OPENRAC_MOBY_UPDATES : 0u)
+                       | (m < dynamic ? OPENRAC_MOBY_PLACED : 0u)
+                       | (rac2_ram_at(cls, CLASS_KIND + 2u)
+                                  && GREF(int16_t, cls + CLASS_KIND) == KIND_CREATURE
+                              ? OPENRAC_MOBY_CREATURE
+                              : 0u)
+                       | (GREF(uint8_t, m + MOBY_DRAWN) != 0 ? OPENRAC_MOBY_DRAWN : 0u);
             s->state = GREF(uint8_t, m + MOBY_STATE);
             for (unsigned i = 0; i < 3; ++i) {
                 s->position[i] = GREF(float, m + MOBY_POS + 4u * i);

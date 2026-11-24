@@ -6,10 +6,16 @@
  * of 4-unit cells (Z, then Y, then X) whose leaves hold packed vertices and faces. The tree is the
  * first word of the collision queries' output block (g_collision_hit, 0x001BAF80 on USA v1.01; its
  * +4 is the moby mesh cache, g_collMobyMeshCache), as in rac1/host/collision.c. Only the console's
- * layout is read here: Going Commando has no expanded collision. Mobys are not in it yet. */
+ * layout is read here: Going Commando has no expanded collision. Then the mesh of each live moby
+ * near the box (its collision blob at +0x98; Ratchet & Clank's is at +0x94), as the collision
+ * queries meet it: crates, the ship, doors. */
 #include <math.h>
 #include <stdint.h>
 
+#include "game_protos.h"
+/* hostgen names a release's function in the .c files only (moby_checks.h). */
+#define RAC2_MOBY_TARGET_RECORD func_002AB1F0
+#include "moby_checks.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "rac2.h"
@@ -19,6 +25,9 @@
 #define U8(a) GREF(uint8_t, (a))
 #define U16(a) GREF(uint16_t, (a))
 #define U32(a) GREF(uint32_t, (a))
+#define S16(a) GREF(int16_t, (a))
+#define S32(a) GREF(int32_t, (a))
+#define F32(a) GREF(float, (a))
 
 typedef struct {
     float corners[3][3];
@@ -72,7 +81,7 @@ static void cell_vertex(gaddr vertices, int i, const float centre[3], float out[
 }
 
 /* Adds the triangle when its bounds meet the box; its normal from its corners. */
-static void sink_triangle(Sink* s, const float p[3][3], uint32_t type) {
+static void sink_triangle(Sink* s, const float p[3][3], uint32_t type, int32_t moby) {
     for (int k = 0; k < 3; ++k) {
         const float lo = fminf(p[0][k], fminf(p[1][k], p[2][k]));
         const float hi = fmaxf(p[0][k], fmaxf(p[1][k], p[2][k]));
@@ -99,7 +108,7 @@ static void sink_triangle(Sink* s, const float p[3][3], uint32_t type) {
             t->normal[k] = len > 0.0f ? n[k] / len : 0.0f;
         }
         t->type = type;
-        t->moby = -1;
+        t->moby = moby;
     }
     ++s->count;
 }
@@ -151,10 +160,88 @@ static void level_triangles(gaddr mesh, Sink* s) {
                     for (int c = 0; c < 3; ++c) {
                         cell_vertex(vertices, v[c], centre, p[c]);
                     }
-                    sink_triangle(s, p, U8(f + 3));
+                    sink_triangle(s, p, U8(f + 3), -1);
                 }
             }
         }
+    }
+}
+
+/* A moby's mesh: its blob holds the primitives' bytes (+4, high bit: u16 indices), the face bytes
+ * (+8) and the vertex bytes (+0xC); from +0x10, past the primitives, the vertices (three s16 and a
+ * pad, 1/1024 of the moby's scaled rows) and the faces (v0, v1, v2, type; u16 each when wide). */
+static void moby_mesh(gaddr m, int32_t slot, Sink* s) {
+    const gaddr blob = U32(m + 0x98u);
+    if (!rac2_ram_at(blob, 0x10u)) {
+        return;
+    }
+    const uint32_t primitives = U32(blob + 4);
+    const int wide = (primitives & 0x80000000u) != 0;
+    const int32_t face_bytes = S32(blob + 8);
+    const int32_t vertex_bytes = S32(blob + 0xC);
+    if (vertex_bytes <= 0 || face_bytes <= 0) {
+        return;
+    }
+    const gaddr verts = blob + 0x10u + (primitives & 0x7fffffffu);
+    const gaddr faces = verts + (gaddr)vertex_bytes;
+    if (!rac2_ram_at(verts, (uint32_t)vertex_bytes + (uint32_t)face_bytes)) {
+        return;
+    }
+    const int nverts = vertex_bytes / 8;
+    const int nfaces = face_bytes / (wide ? 8 : 4);
+    float rows[3][3];
+    for (int r = 0; r < 3; ++r) {
+        for (int k = 0; k < 3; ++k) {
+            rows[r][k] = F32(m + 0xC0u + 0x10u * (gaddr)r + 4u * (gaddr)k) * F32(m + 0x2Cu);
+        }
+    }
+    const float pos[3] = {F32(m + 0x10u), F32(m + 0x14u), F32(m + 0x18u)};
+    for (int i = 0; i < nfaces; ++i) {
+        const gaddr f = faces + (wide ? 8u : 4u) * (gaddr)i;
+        const int v[3] =
+            {wide ? U16(f) : U8(f), wide ? U16(f + 2) : U8(f + 1), wide ? U16(f + 4) : U8(f + 2)};
+        if (v[0] >= nverts || v[1] >= nverts || v[2] >= nverts) {
+            continue;
+        }
+        float p[3][3];
+        for (int c = 0; c < 3; ++c) {
+            const gaddr a = verts + 8u * (gaddr)v[c];
+            const float l[3] = {(float)S16(a), (float)S16(a + 2), (float)S16(a + 4)};
+            for (int k = 0; k < 3; ++k) {
+                p[c][k] =
+                    pos[k] + (rows[0][k] * l[0] + rows[1][k] * l[1] + rows[2][k] * l[2]) / 1024.0f;
+            }
+        }
+        sink_triangle(s, p, U8(f + (wide ? 6u : 3u)), slot);
+    }
+}
+
+/* The live mobys whose bounding sphere (+0, radius +0xC, 1024 to a unit) meets the box, but the
+ * hero's own. */
+static void moby_triangles(gaddr hero, Sink* s) {
+    const gaddr base = GREF(gaddr, OPENRAC_DATA(RAC2_g_mobyTableBase));
+    const gaddr end = GREF(gaddr, OPENRAC_DATA(RAC2_g_mobyTableEnd));
+    if (!rac2_moby_slot(base)) {
+        return;
+    }
+    for (gaddr m = base; m < end; m += 0x100u) {
+        if (U8(m + 0x20u) >= 0x80u || m == hero || U32(m + 0x98u) == 0) {
+            continue;
+        }
+        const float radius = F32(m + 0xCu) / 1024.0f;
+        if (!isfinite(radius)) {
+            continue;
+        }
+        float d2 = 0.0f;
+        for (int k = 0; k < 3; ++k) {
+            const float c = F32(m + 4u * (gaddr)k) / 1024.0f;
+            const float e = c < s->lo[k] ? s->lo[k] - c : (c > s->hi[k] ? c - s->hi[k] : 0.0f);
+            d2 += e * e;
+        }
+        if (!(d2 <= radius * radius)) {
+            continue;
+        }
+        moby_mesh(m, (int32_t)((m - base) / 0x100u), s);
     }
 }
 
@@ -178,5 +265,6 @@ int rac2_collision_triangles(const float lo[3], const float hi[3], void* out, in
     if (mesh != 0) {
         level_triangles(mesh, &s);
     }
+    moby_triangles(openrac_game_play_host->hero_moby(), &s);
     return s.count;
 }
