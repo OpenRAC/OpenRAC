@@ -806,6 +806,54 @@ void frame_copy_strips() {
     CHECK(haze.src == 0x0304u && haze.dst == 0x0305u && haze.equation == 0x8006u);
 }
 
+// Each mask and frame-copy pair of the heat haze becomes one round patch of the native haze (its
+// centre, half the square's side, the mask's alpha as its strength); the pair is left out of the
+// strips. A frame-copy strip with no mask over the same corners stays, and so do the others.
+void frame_copy_haze_patches() {
+    const auto square = [](std::vector<EffectVertex>& v, float x, float z, std::uint32_t alpha) {
+        const auto first = static_cast<std::uint32_t>(v.size());
+        // A square of side 2 around (x, 0, z), as a strip.
+        v.push_back({x - 1, 0, z - 1, 0, 0, alpha << 24 | 0x804040});
+        v.push_back({x + 1, 0, z - 1, 1, 0, alpha << 24 | 0x804040});
+        v.push_back({x - 1, 0, z + 1, 0, 1, alpha << 24 | 0x804040});
+        v.push_back({x + 1, 0, z + 1, 1, 1, alpha << 24 | 0x804040});
+        return first;
+    };
+    std::vector<EffectVertex> v;
+    std::vector<EffectStrip> strips(5);
+    // Another effect first, untouched.
+    strips[0].first = square(v, 50, 50, 0x80);
+    strips[0].count = 4;
+    // The mask (ALPHA 0x6A: (0 - 0) FIX + Cd) at half alpha, then its copy (ALPHA 0x54).
+    strips[1].first = square(v, 10, 20, 0x40);
+    strips[1].count = 4;
+    strips[1].alpha = 0x800000006Aull;
+    strips[2].first = square(v, 10, 20, 0x80);
+    strips[2].count = 4;
+    strips[2].alpha = 0x8000000054ull;
+    strips[2].frame_copy = true;
+    // A mask somewhere else, then a copy with no mask of its own: both kept.
+    strips[3].first = square(v, 30, 20, 0x80);
+    strips[3].count = 4;
+    strips[3].alpha = 0x6A;
+    strips[4].first = square(v, 0, 0, 0x80);
+    strips[4].count = 4;
+    strips[4].alpha = 0x54;
+    strips[4].frame_copy = true;
+
+    std::vector<std::array<float, 5>> haze;
+    frame_copy_haze(strips, v, haze);
+    CHECK(haze.size() == 1);
+    CHECK(strips.size() == 3);
+    CHECK(strips[0].first == 0 && strips[1].alpha == 0x6A && strips[2].frame_copy);
+    if (haze.size() == 1) {
+        const auto& p = haze[0];
+        CHECK(near(p[0], 10.0f) && near(p[1], 0.0f) && near(p[2], 20.0f));
+        CHECK(near(p[3], 1.0f));  // half the side
+        CHECK(p[4] > 0.0f && p[4] < 0.1f);  // half the mask's alpha: a faint patch
+    }
+}
+
 // Weights the GS takes above 1 (As, FIX up to 0xFF) go to the shader, and the strips' TEST keeps
 // a layer that writes no Z (Oltanis's ice) out of the liquids.
 void blend_weights() {
@@ -1109,6 +1157,7 @@ int main() {
     frame_copy_of_the_picture();
     offscreen_target_coordinates();
     frame_copy_strips();
+    frame_copy_haze_patches();
     native_blends();
     recorded_frame_without_packets();
     flat_item_to_the_edges();

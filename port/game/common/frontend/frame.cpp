@@ -68,6 +68,7 @@
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "renderer/direct/direct.h"
+#include "renderer/effects/effects.h"
 #include "renderer/effects/shadows.h"
 #include "renderer/renderer.h"
 #include "renderer/world/fog.h"
@@ -3100,6 +3101,9 @@ struct TickPackets {
     // The frame recorder's commands this list was built with, and where they go in `packets`.
     renderer::FrameRecording recording;
     std::vector<renderer::FrameSplice> splices;
+    // The heat haze of the strips that sample the game's frame copy through a mask of their own
+    // (renderer::frame_copy_haze), drawn natively with the mods' patches (Haze).
+    std::vector<std::array<float, 5>> haze;
 };
 
 // How many of `splices` (in order) go before the world, the 2D path split at `before_world`: those
@@ -3185,6 +3189,12 @@ TickPackets capture_2d_path(
     for (renderer::EffectStrip& strip : strips) {
         strip.frame_copy =
             strip.upload_count == 0 && g->render.profile->frame_copy_texture(strip.tex0);
+    }
+    // Up Your Arsenal's heat haze (the Galactic Rangers' dropship's thrusters): each mask and
+    // frame-copy pair is a round patch of the native haze over the world, sized by the window's
+    // own projection, instead of two squares blended by the destination alpha.
+    if ((draws & 0x1Fu) != 0) {
+        renderer::frame_copy_haze(strips, strip_vertices, k.haze);
     }
     if (recorded != nullptr) {
         k.recording = *recorded;
@@ -3819,6 +3829,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     g->kept->packets = std::move(packets.packets);
     g->kept->strip_vertices = std::move(packets.strip_vertices);
     g->kept->strips = std::move(packets.strips);
+    g->kept->haze.insert(g->kept->haze.end(), packets.haze.begin(), packets.haze.end());
     g->kept->before_world = bytes_before_world(packets.before_world, under_menu);
     g->kept->splices_before_world =
         splices_before_world(packets.recording, packets.splices, g->kept->before_world);
