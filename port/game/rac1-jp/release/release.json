@@ -14,7 +14,8 @@
   "omit": {
     "func_00201AF0": "draw_bootImage: NTSC-J's catalogue (config/versions/jp/functions.tsv) has no counterpart of it, so the shared C's wrapper of it is left out.",
     "func_001F75D0": "FontPrintWindow in the small font: NTSC-J has no counterpart of it (its catalogue's func_J_001F8688 is a second copy of the large font's), so the shared C's replacement is left out.",
-    "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here)."
+    "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here).",
+    "func_001F5148": "Native letterbox bars (letterbox.c): their caller state is proved on PAL v2.00's level 6 only."
   },
   "defines_extra": {
     "RAC1_FONT_PRINT_WINDOW": [

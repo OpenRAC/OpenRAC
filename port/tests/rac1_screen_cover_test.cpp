@@ -25,6 +25,8 @@ constexpr std::uint32_t kCursor = 0x1000;
 
 // The callbacks carry no user pointer; each synchronous test lends its recorder to the C helper.
 openrac::renderer::FrameRecorder* g_recorder = nullptr;
+// Whether openrac_frame_fill_depth draws (a window), for the helper's keep-the-packet answer.
+bool g_window = true;
 
 // The helper's test recorder, installed only for the lifetime of one test.
 struct Capture {
@@ -236,6 +238,45 @@ void test_depth_clear_scope_fallback() {
     CHECK(capture.commands().empty());
 }
 
+// Emits the bars at their own depth, tested and written, and says when no window drew them.
+void test_letterbox_depth() {
+    constexpr std::uint32_t kBarDepth = 0xFFFFF3;  // draw_letterbox_bars' vertex depth
+    constexpr int kDepthBits = 24;
+    constexpr int kBarHeight = 24;
+    Capture capture;
+    const rac1_cover_view view = screen();
+    CHECK(
+        rac1_cover_letterbox_depth(&view, kBarHeight, kBarDepth, kDepthBits, OPENRAC_DEPTH_GEQUAL)
+    );
+    CHECK(capture.commands().size() == 2);
+    const float top[]{0, 0, kWidth, kBarHeight};
+    const float bottom[]{0, kHeight - kBarHeight, kWidth, kHeight};
+    check_rect(capture.commands().at(0), top);
+    check_rect(capture.commands().at(1), bottom);
+
+    // The packet's own depth policy and colour, every channel written.
+    for (const auto& command : capture.commands()) {
+        CHECK(command.rgba == 0x80000000u && command.wide && command.anchor == kCursor);
+        CHECK(command.blend == openrac::renderer::BlendMode::Opaque);
+        CHECK(command.depth.enabled && command.depth_write && command.depth_value == kBarDepth);
+        CHECK(command.depth.compare == openrac::renderer::DepthCompare::GreaterEqual);
+        CHECK(command.depth_bits == kDepthBits);
+        CHECK(command.writes == openrac::renderer::kWriteColour);
+    }
+
+    // No window: nothing drawn, so the caller keeps its packet; 0 and 25 behave as for plain bars.
+    g_window = false;
+    CHECK(
+        !rac1_cover_letterbox_depth(&view, kBarHeight, kBarDepth, kDepthBits, OPENRAC_DEPTH_GEQUAL)
+    );
+    g_window = true;
+    CHECK(rac1_cover_letterbox_depth(&view, 0, kBarDepth, kDepthBits, OPENRAC_DEPTH_GEQUAL));
+    CHECK(!rac1_cover_letterbox_depth(
+        &view, kBarHeight + 1, kBarDepth, kDepthBits, OPENRAC_DEPTH_GEQUAL
+    ));
+    CHECK(capture.commands().size() == 2);
+}
+
 // Leaves unsupported dimensions, counter values and blend policies to the caller's original path.
 void test_invalid_inputs_fall_back() {
     Capture capture;
@@ -285,6 +326,41 @@ void openrac_frame_fill(const float* rect, std::uint32_t rgba, int blend) {
     g_recorder->push(command);
 }
 
+// Captures the depth fill through the production command builder, as recorder.cpp does.
+int openrac_frame_fill_depth(
+    const float* rect,
+    std::uint32_t rgba,
+    int blend,
+    std::uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+) {
+    // The helper's tests use GEQUAL only; another value is a failure of this fixture.
+    CHECK(depth_test == OPENRAC_DEPTH_GEQUAL);
+    const auto mode = static_cast<openrac::renderer::BlendMode>(blend & UINT8_MAX);
+    const bool wide = rect == nullptr || (blend & OPENRAC_PICTURE_WHOLE) != 0;
+    const auto command = openrac::renderer::depth_fill_command(
+        rect,
+        rgba,
+        mode,
+        wide,
+        depth,
+        depth_bits,
+        openrac::renderer::DepthCompare::GreaterEqual,
+        (writes & OPENRAC_WRITE_DEPTH) != 0,
+        static_cast<std::uint8_t>(writes & OPENRAC_WRITE_COLOUR)
+    );
+
+    // Without a window nothing is recorded, and the helper reports it.
+    if (!g_window || !command) {
+        return 0;
+    }
+
+    g_recorder->push(*command);
+    return 1;
+}
+
 // Captures the clear mask so tests can reject accidental colour/alpha clearing.
 void openrac_frame_clear(std::uint32_t rgba, int what) {
     openrac::renderer::FrameCommand command;
@@ -309,5 +385,6 @@ int main() {
     test_depth_only_clear_and_order();
     test_depth_clear_scope_fallback();
     test_invalid_inputs_fall_back();
+    test_letterbox_depth();
     return openrac::test::result();
 }

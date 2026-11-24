@@ -4,14 +4,17 @@
 
 `port/game/rac1/host/screen_cover.{h,c}` implements cover commands for a caller
 that already owns a native 2D target, clip and blend/test policy. It packs game
-colours, clips rectangles, draws letterbox geometry and issues a depth-only
-clear through the existing Fill/Clear C API. It carries no GS words.
+colours, clips rectangles, draws letterbox geometry (plain, or at the bars' own
+depth through `openrac_frame_fill_depth`) and issues a depth-only clear through
+the Fill/Clear C API. It carries no GS words.
 
-**No retail cover entry point is replaced yet.** There are no new `libraries.tsv`
-or hostgen bindings. Source inspection found state and target dependencies that
-the current Fill/Clear calls do not express. Keeping those sites residual avoids
-silently losing their rendering or their state changes. The helpers are tested
-production adapter code, not evidence that a retail call satisfies their contract.
+**One retail cover entry point is bound: PAL v2.00's `draw_letterbox_bars`
+(`func_001F5148`), on level 6's enabled edge only** (`port/game/rac1/host/letterbox.c`,
+"The level-6 binding" below). Every other site, level and release keeps its
+packets: source inspection found state and target dependencies that the
+Fill/Clear calls do not express, and keeping those sites residual avoids silently
+losing their rendering or their state changes. The helpers are tested production
+adapter code, not evidence that another retail call satisfies their contract.
 
 ## Native helper contract
 
@@ -29,6 +32,10 @@ production adapter code, not evidence that a retail call satisfies their contrac
   full-alpha black and an already-updated height in 0..24 game pixels.
 - Height animation, enable flags and frame timing remain the game's responsibility.
   The helper does not run the letterbox update a second time.
+- `rac1_cover_fill_depth` and `rac1_cover_letterbox_depth` take a depth, its bit
+  count and a test (`openrac_frame_fill_depth`); the bars write every colour
+  channel and the depth. They return 0 when the window did not draw (no window,
+  `OPENRAC_UI_REPLAY`, a value out of range): the caller keeps its packet.
 - Fill coordinates are normalized to the existing recorder default of 512x448.
   A 416-line game view keeps its bar height through that ratio. This boundary must
   be reconciled with P2's explicit screen/view records before those contracts are
@@ -51,7 +58,7 @@ The evidence is the pinned RAC1 PAL C under `src/game/render/draw.c` and
 |---|---|---|
 | `FadeToBlack`, `func_001F4E08` | The C takes one integer count, not an extra colour argument suggested by an old symbol spelling. It waits, bumps the game clock, initializes chains, draws through both large/small buffers and sends/swaps once per fade step, then initializes another chain. | Replacing the loop with a Fill changes timing and buffer/copy semantics. Its lower `emit_rgba_draw_packet` call is not independent of residual blend, target, mask and depth state. AA/copy targets are outside this milestone. |
 | `emit_rgba_draw_packet`, `func_001F55C0` | Four integer colour channels; writes RGBAQ and references the full-screen strip packet. The owned PAL disc's packet metadata sets TEST to always pass and draws a blended sprite. | Fill does not inherit ALPHA, FRAME masks/target, ZBUF write policy or scissor. Keeping only the colour write does not preserve these effects. Byte-range colour packing alone is not an activation proof. |
-| `draw_letterbox_bars`, `func_001F5148` | Updates the height toward 24 while enabled, toward 0 otherwise; zero emits nothing. The draw sets PRIM and RGBAQ, then top/bottom geometry at the viewport edges. | The caller proof below establishes a depth-tested, depth-writing bar at Z `0xFFFFF3`, not a depth-independent Fill. A binding still needs a native rectangle with depth, the other releases' enable/height addresses and the open prefix closed (see "What a binding needs"); the helper is not a retail binding. |
+| `draw_letterbox_bars`, `func_001F5148` | Updates the height toward 24 while enabled, toward 0 otherwise; zero emits nothing. The draw sets PRIM and RGBAQ, then top/bottom geometry at the viewport edges. | The caller proof below establishes a depth-tested, depth-writing bar at Z `0xFFFFF3`, not a depth-independent Fill. Bound on PAL v2.00 level 6's enabled edge only, as two depth fills ("The level-6 binding"); the shrinking frames, other levels and the other releases keep the packet. |
 | Audit "Z clear", `func_001FB908` | The current function is `draw_centered_capture_background(int w, int h)`, a vendor/capture-background draw. It sets destination-preserving RGB blending and TEST, uses alpha 128, and emits `w / 32` centred sprite strips. | It is not a generic depth-only clear: alpha writes, inherited write masks and ZBUF policy matter, and the centred region need not cover the current target. Whole-target Clear would widen partial coverage and can lose alpha effects. Framebuffer target conversion is a separate unit. |
 
 Do not use the audit label as a signature or replace `func_001FB908` with a
@@ -59,11 +66,12 @@ zero-argument depth clear. No other retail depth-only site has been proved by
 this milestone.
 
 PAL v2.00 has the directly inspected bodies and level catalogue placements.
-PAL v1.00 and NTSC-J release tables carry these function identities, but their
-generated host-name tables do not yet contain bindings for this work. The NTSC-U
-host table likewise lacks these wrapper mappings. The helper itself uses no game
-addresses and needs no per-version table edits. Activation requires checked
-signatures/state evidence and tool-generated carry, not hand-edited tables.
+PAL v1.00 and NTSC-J release tables carry these function identities; their
+generated name tables now list `draw_letterbox_bars`' names, but both releases
+leave its wrapper out (`release.json` `omit`, `RAC1_OMIT_func_001F5148`), as
+NTSC-U's header does. The helper itself uses no game addresses. Activation
+elsewhere requires checked signatures/state evidence and tool-generated carry,
+not hand-edited tables.
 
 ## Letterbox caller proof: PAL level 6
 
@@ -152,33 +160,56 @@ Every inspected following producer sets its own PRIM and RGBAQ: the bar's PRIM/R
 have no reader there (open: the memory-card handlers). Its depth has one,
 `draw_screen_effect`.
 
-### What a binding needs
+### The level-6 binding
 
-1. **A native rectangle with depth.** With the Z24 target the bar compares and writes
-   window depth `(2^24 - 13) / (2^24 - 1)`, about `0.9999992847442201`. Plain Fill
-   turns depth test and write off. Example: over an old depth of `0xFFFFEF` the retail
-   bar passes and stores `0xFFFFF3`, so a later rectangle at `0xFFFFF0` fails there; a
-   Fill leaves `0xFFFFEF` and the rectangle passes. An old depth of `0xFFFFF4` rejects
-   the retail bar but not a Fill. Needed: a flat rectangle with an explicit GEQUAL
-   test, that depth (mapped as the interpreter maps a vertex Z: `z / max_z`, then
-   `2d - 1`, so equal depths compare equal) and depth writes, on the screen target with
-   the whole scissor, telling the caller whether the window drew it (as
-   `openrac_frame_ui_item` does). No register-shaped record is needed.
-2. **The game's update, once.** A wrapper runs `draw_letterbox_bars`' own C, which
-   steps the height and appends the packet, records the native bar at the cursor the
-   packet began at, and moves the cursor back. That address then holds `DoGifPaging`'s
-   tail tag, walked after the HUD/help range, so the bar keeps its place. Until the HUD
-   callbacks are proved, only on the enabled edge; the shrinking frames keep the packet.
-3. **Per-version addresses.** The wrapper reads the enable and height words
-   (`RAC1_ADDR(0x0015F544u)`, `RAC1_ADDR(0x0015F548u)`). No other release's
-   `rac1_version.h` has them, and those tables are generated: PAL v1.00 and NTSC-J by
-   `release_rac1.py` with versionmap's `--map`, NTSC-U by `versionmap/hostnames.py
-   write --map --gen`. Without those inputs `hostnames.py check` fails for the other
-   releases, and the tables are never edited by hand.
-4. **The prefix, at runtime.** For the port's own path, a bounded `OPENRAC_DUMP_DRAWS`
-   run over the tube's shot logs each bar vertex with its target block, write mask and
-   TEST, and the FRAME, offset and scissor writes before it. The depth write mask is not
-   in that log.
+`letterbox.c` wraps `draw_letterbox_bars` on PAL v2.00 (its `libraries.tsv` `wrap`
+row). PAL v1.00 and NTSC-J (`release.json` `omit`, `rac1_version.h`) and NTSC-U
+(`rac1_version.h`) define `RAC1_OMIT_func_001F5148` and keep their own path: the
+packet and state facts above are PAL v2.00's only, and those releases have no
+checked mapping of the enable and height words (`hostnames.py check` reports them
+missing without the omission).
+
+1. **The game's update, once.** The wrapper reads the list cursor and the enable
+   word, runs `draw_letterbox_bars`' own C (the height step and the packet; the
+   counter is never animated from the port's frame tick), and then, only when the
+   enable word was set before the step, the current level (`0x0015EE84`) is 6, the
+   game appended exactly the 128-byte packet at a reachable RAM position and
+   `OPENRAC_UI_SKIP` does not name `func_001F5148`, records the two bars at the
+   cursor the packet began at and moves the cursor back. That address then holds
+   `DoGifPaging`'s tail tag, walked after the HUD/help range, so the bars keep their
+   place. When the window does not draw them (no window, `OPENRAC_UI_REPLAY`) the
+   packet stays.
+2. **The bar's own depth.** Each bar is an `openrac_frame_fill_depth`: opaque black
+   with alpha 128, every colour channel and the depth written (FRAME's and ZBUF's
+   write masks are 0), tested GEQUAL at `0xFFFFF3` of the 24-bit buffer. The depth
+   maps as a residual vertex's (`depth_clip`: `z / (2^24 - 1)`, then `2d - 1`),
+   window depth `(2^24 - 13) / (2^24 - 1)`, about `0.9999992847442201`, so equal
+   depths compare equal. A plain Fill would not do: over an old depth of `0xFFFFEF`
+   the retail bar passes and stores `0xFFFFF3`, so `draw_screen_effect`'s rectangle
+   at `0xFFFFF0` fails there, while a Fill leaves `0xFFFFEF` and the rectangle
+   passes; an old depth of `0xFFFFF4` rejects the bar but not a Fill. The bars span
+   the target's whole width (`OPENRAC_PICTURE_WHOLE`, as the wide renderer treated
+   the full-width triangles) from the screen extent (416 lines scale into the
+   recorder's 448), on the screen with the whole scissor: the bar's own target and
+   scissor (rac1's host C records no panel or scissor).
+3. **Kept and dropped.** Kept: colour, coverage, the depth test and the depth write
+   `draw_screen_effect` reads, the place in the walk. The alpha test (GEQUAL 128)
+   passes an alpha-128 bar, as on the console. Dropped: the PRIM and RGBAQ the
+   packet leaves, which no inspected following producer reads (each sets its own).
+
+Limits, not proved here (the first two keep the packet):
+
+- The shrinking frames (enable 0, height 23 to 1): the 13 HUD bank callbacks run
+  before the bars through pointers, so TEST at the bar is not proved there.
+- Other levels: only level 6's caller state was read.
+- The memory-card handlers `Menu_RunStateHandler` runs after the bars, not
+  inspected for PRIM or RGBAQ reads.
+- What the static proof does not cover (functions still in assembly, the three
+  callbacks without C, the VU1 programs' own output) and the depth write mask,
+  which `OPENRAC_DUMP_DRAWS` does not log: the in-game comparison of the two paths
+  (`OPENRAC_UI_SKIP=func_001F5148`) checks them for the port's own path.
+- The other releases: names and places match (below), packet data and state are
+  not checked; their enable and height mappings must come from versionmap.
 
 ### Chain placement and release coverage
 
@@ -204,8 +235,8 @@ Both functions have checked fingerprint mappings and executable plus 19 level
 placements; the PAL v1.00 and NTSC-J release tables carry both with the same code, and
 NTSC-U's `us_map.tsv` gives the same identity. These establish names and places, not
 equal packet data: the packet and state facts above are PAL v2.00 only. The
-height-seeding actor's NTSC-U row is an unchecked aligned match. No table was edited
-and no retail binding is enabled on any release.
+height-seeding actor's NTSC-U row is an unchecked aligned match. The binding is
+enabled on PAL v2.00 only; no generated table was edited by hand.
 
 ## Tests
 
@@ -214,7 +245,19 @@ captures its Fill/Clear values with the real CPU FrameRecorder. Synthetic cases
 check colour/alpha limits, whole-target versus picture placement, clipping and
 empty intersections, bar geometry in 448/416-line views, depth-only masks,
 unsupported clear scope and before/after-world anchor order. They do not exercise
-the GPU or claim the blocked retail bindings are active.
+the GPU.
+
+`rac1_letterbox_test` compiles the production wrapper `letterbox.c` as C over a
+synthetic original operation (it steps the height and appends a 128-byte packet,
+nothing else) and the real CPU FrameRecorder. On level 6 with the bars enabled: one
+game step (18 to 19), the cursor put back and two depth fills at `0xFFFFF3`,
+GEQUAL, colour and depth written, at the packet's anchor; at full height the step
+holds 24. The shrinking frames, another level, no window, `OPENRAC_UI_SKIP` and a
+packet of another size keep the packet; an uncached-alias cursor is put back as
+the game wrote it; 416 lines scale into the 448-line space. `rac1_screen_cover_test`
+checks `rac1_cover_letterbox_depth`'s commands and its no-window answer, and
+`renderer_gif_test` that a depth fill at a residual vertex's Z gets that vertex's
+clip depth.
 
 Future scissor work should keep half-open native clips explicit. Movie overlays
 need P2's screen/view scope and target lifetime. Strip materials must preserve

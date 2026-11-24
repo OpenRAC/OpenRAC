@@ -35,9 +35,31 @@ int rac1_cover_colour(int red, int green, int blue, int alpha, uint32_t* rgba);
  * Explicit transparent draws are retained because their alpha writes need not be invisible. */
 int rac1_cover_fill(const rac1_cover_view* view, const int* rect, uint32_t rgba, int blend);
 
+/* As rac1_cover_fill, with a depth of its own (openrac_frame_fill_depth): `depth` of a
+ * `depth_bits`-bit buffer, compared by `depth_test` (OPENRAC_DEPTH_*), and the `writes`
+ * (OPENRAC_WRITE_*) where it passes. Returns 1 when the window drew it or the intersection is empty;
+ * 0 requires the caller's original path (invalid view or blend, no window, value out of range). */
+int rac1_cover_fill_depth(
+    const rac1_cover_view* view,
+    const int* rect,
+    uint32_t rgba,
+    int blend,
+    uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+);
+
 /* Emits opaque black letterbox bars for an already updated retail height in 0..24 game pixels.
  * Returns 0 for an invalid view/height; does not update the game's enable flag, height or clock. */
 int rac1_cover_letterbox(const rac1_cover_view* view, int height);
+
+/* The same bars at `depth` of a `depth_bits`-bit buffer, compared by `depth_test` and written with
+ * every colour channel, as the retail bar's own packet draws them. Returns 1 when both were drawn,
+ * 0 when the caller must keep its packet (invalid view or height, no window). */
+int rac1_cover_letterbox_depth(
+    const rac1_cover_view* view, int height, uint32_t depth, int depth_bits, int depth_test
+);
 
 /* Clears only depth of an explicitly owned whole target, leaving colour and alpha untouched.
  * Returns 1 for a full or empty clip; 0 for invalid views, partial clips or picture-only scope,

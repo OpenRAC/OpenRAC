@@ -21,6 +21,8 @@ func_001F4A78	func_001F4FD8
 func_001F4AF0	func_001F5050
 func_001F4B68	func_001F50C8
 func_001F4BB8	func_001F5118
+func_001F5148	func_001F56A8
+func_001F5148__game	func_001F56A8__game
 func_001F5800	func_001F5D60
 func_001F5800__game	func_001F5D60__game
 func_001F6668	func_001F6C68

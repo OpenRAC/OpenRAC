@@ -74,10 +74,19 @@ int rac1_cover_colour(int red, int green, int blue, int alpha, uint32_t* rgba) {
     return 1;
 }
 
-int rac1_cover_fill(const rac1_cover_view* view, const int* rect, uint32_t rgba, int blend) {
+/* A clipped cover's rectangle in Fill's screen space and its placement flags. */
+typedef struct cover_rect {
+    float normalized[4];
+    const float* rect; /* NULL for the whole target, else normalized */
+    int placement;     /* OPENRAC_PICTURE_WHOLE when it extends past the 4:3 picture */
+} cover_rect;
+
+/* Clips and normalizes a cover. Returns -1 for an unsupported blend or invalid view (the caller's
+ * original path), 0 for an empty intersection (nothing to draw), 1 with `out` filled. */
+static int prepare_cover(const rac1_cover_view* view, const int* rect, int blend, cover_rect* out) {
     /* Other blends belong to the still-residual screen effects, not this cover contract. */
     if (blend != OPENRAC_BLEND_OPAQUE && blend != OPENRAC_BLEND_MIX) {
-        return 0;
+        return -1;
     }
 
     cover_bounds bounds;
@@ -85,49 +94,131 @@ int rac1_cover_fill(const rac1_cover_view* view, const int* rect, uint32_t rgba,
 
     /* Empty coverage is handled without drawing; an invalid view must take the original path. */
     if (clipped <= 0) {
-        return clipped == 0;
+        return clipped;
     }
 
     /* Normalize into Fill's existing screen space, including PAL's 416-line video mode. */
-    const float normalized[] =
-        {(float)bounds.x0 * cover_width / (float)view->width,
-         (float)bounds.y0 * cover_height / (float)view->height,
-         (float)bounds.x1 * cover_width / (float)view->width,
-         (float)bounds.y1 * cover_height / (float)view->height};
-    openrac_frame_anchor(view->anchor);
+    out->normalized[0] = (float)bounds.x0 * cover_width / (float)view->width;
+    out->normalized[1] = (float)bounds.y0 * cover_height / (float)view->height;
+    out->normalized[2] = (float)bounds.x1 * cover_width / (float)view->width;
+    out->normalized[3] = (float)bounds.y1 * cover_height / (float)view->height;
 
     /* NULL means the whole target, so a picture-only fill must keep its explicit rectangle. */
-    if (view->whole_target && whole_view(view, &bounds)) {
-        openrac_frame_fill(NULL, rgba, blend);
-    } else {
-        const int placement = view->whole_target ? OPENRAC_PICTURE_WHOLE : 0;
-        openrac_frame_fill(normalized, rgba, blend | placement);
-    }
-
+    const int whole = view->whole_target && whole_view(view, &bounds);
+    out->rect = whole ? NULL : out->normalized;
+    out->placement = view->whole_target && !whole ? OPENRAC_PICTURE_WHOLE : 0;
     return 1;
 }
 
-int rac1_cover_letterbox(const rac1_cover_view* view, int height) {
+int rac1_cover_fill(const rac1_cover_view* view, const int* rect, uint32_t rgba, int blend) {
+    cover_rect cover;
+    const int prepared = prepare_cover(view, rect, blend, &cover);
+
+    /* Empty coverage is handled; an unsupported blend or view keeps the original path. */
+    if (prepared <= 0) {
+        return prepared == 0;
+    }
+
+    openrac_frame_anchor(view->anchor);
+    openrac_frame_fill(cover.rect, rgba, blend | cover.placement);
+    return 1;
+}
+
+int rac1_cover_fill_depth(
+    const rac1_cover_view* view,
+    const int* rect,
+    uint32_t rgba,
+    int blend,
+    uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+) {
+    cover_rect cover;
+    const int prepared = prepare_cover(view, rect, blend, &cover);
+
+    /* Empty coverage is handled; an unsupported blend or view keeps the original path. */
+    if (prepared <= 0) {
+        return prepared == 0;
+    }
+
+    /* Without a window (or with a value the recorder refuses) nothing is drawn: say so. */
+    openrac_frame_anchor(view->anchor);
+    const int placed = blend | cover.placement;
+    return openrac_frame_fill_depth(cover.rect, rgba, placed, depth, depth_bits, depth_test, writes)
+           != 0;
+}
+
+/* The bars are unblended, full-alpha black (seen in game code: draw_letterbox_bars). */
+static const uint32_t letterbox_black = 0x80000000u;
+
+/* One bar at its own depth: every channel and the depth, as the bar's packet writes them under
+ * the game's open masks. */
+static int letterbox_bar_depth(
+    const rac1_cover_view* view, const int* rect, uint32_t depth, int depth_bits, int depth_test
+) {
+    const unsigned writes = OPENRAC_WRITE_COLOUR | OPENRAC_WRITE_DEPTH;
+    return rac1_cover_fill_depth(
+        view, rect, letterbox_black, OPENRAC_BLEND_OPAQUE, depth, depth_bits, depth_test, writes
+    );
+}
+
+/* The two bars' rows for an already updated height. Returns -1 for an out-of-contract height or
+ * invalid view (the retail path), 0 for a retracted bar (no geometry), 1 with both rows filled. */
+static int letterbox_rows(const rac1_cover_view* view, int height, int* top, int* bottom) {
     cover_bounds bounds;
 
     /* Out-of-contract counters must retain the retail path rather than being silently clamped. */
     if (height < 0 || height > LETTERBOX_HEIGHT || clipped_bounds(view, NULL, &bounds) < 0) {
-        return 0;
+        return -1;
     }
 
     /* A fully retracted bar emits no geometry (seen in game code: draw_letterbox_bars). */
     if (height == 0) {
-        return 1;
+        return 0;
     }
 
     /* Clip before subtraction so malformed tiny native views cannot overflow integer arithmetic. */
     const int rows = height < view->height ? height : view->height;
-    const int top[] = {0, 0, view->width, rows};
-    const int bottom[] = {0, view->height - rows, view->width, view->height};
-    /* The bars are unblended, full-alpha black (seen in game code: draw_letterbox_bars). */
-    const uint32_t black = 0x80000000u;
-    return rac1_cover_fill(view, top, black, OPENRAC_BLEND_OPAQUE)
-           && rac1_cover_fill(view, bottom, black, OPENRAC_BLEND_OPAQUE);
+    top[0] = 0;
+    top[1] = 0;
+    top[2] = view->width;
+    top[3] = rows;
+    bottom[0] = 0;
+    bottom[1] = view->height - rows;
+    bottom[2] = view->width;
+    bottom[3] = view->height;
+    return 1;
+}
+
+int rac1_cover_letterbox(const rac1_cover_view* view, int height) {
+    int top[4];
+    int bottom[4];
+    const int rows = letterbox_rows(view, height, top, bottom);
+
+    /* A retracted bar is handled without geometry; an invalid one keeps the retail path. */
+    if (rows <= 0) {
+        return rows == 0;
+    }
+
+    return rac1_cover_fill(view, top, letterbox_black, OPENRAC_BLEND_OPAQUE)
+           && rac1_cover_fill(view, bottom, letterbox_black, OPENRAC_BLEND_OPAQUE);
+}
+
+int rac1_cover_letterbox_depth(
+    const rac1_cover_view* view, int height, uint32_t depth, int depth_bits, int depth_test
+) {
+    int top[4];
+    int bottom[4];
+    const int rows = letterbox_rows(view, height, top, bottom);
+
+    /* A retracted bar is handled without geometry; an invalid one keeps the retail path. */
+    if (rows <= 0) {
+        return rows == 0;
+    }
+
+    return letterbox_bar_depth(view, top, depth, depth_bits, depth_test)
+           && letterbox_bar_depth(view, bottom, depth, depth_bits, depth_test);
 }
 
 int rac1_cover_clear_depth(const rac1_cover_view* view) {

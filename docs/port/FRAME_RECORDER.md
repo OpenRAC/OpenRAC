@@ -179,7 +179,9 @@ into drawing is shared.
   the HUD side width); the native-resolution scale is the back end's (items are in game pixels,
   drawn at the target's resolution, glyphs from the distance field).
 - **Fades and letterbox**: `openrac_frame_fill` over the whole target; the fade's level and the bars'
-  height come from the game's own counters, read by the adapter.
+  height come from the game's own counters, read by the adapter. Where later drawing tests the
+  depth the bars wrote (rac1's level 6), `openrac_frame_fill_depth` with the producer's depth, test
+  and write mask (docs/port/RAC1_COVERS.md).
 - **Pictures and frame copies**: `openrac_frame_snapshot` / `_picture` / `_picture_image` /
   `_picture_set`. **Full-screen pictures are in scope for every game**: the rac2 and rac3 menu
   backgrounds (rac3 `host/picture.c`, rac2 `host/picture.c`), the multiplayer menus' moving city
@@ -240,7 +242,7 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 | Game | On the recorder | Still markers in its list |
 |---|---|---|
 | rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
-| rac1 | `render_native.c`: world, shrubs boundary and positive-count moby lists; `ui2d.c`: transitional `ui_quad` records; `hud.c`: picture-band and whole-target placement (HUD side placement uses the game's coordinates) | water surface/UV scopes (`water_surfaces.c`, per-version `water.c`); boot-picture uploads and their residual draws; frame copies, blur, fades, clears and strips remain packet consumers |
+| rac1 | `render_native.c`: world, shrubs boundary and positive-count moby lists; `ui2d.c`: transitional `ui_quad` records; `hud.c`: picture-band and whole-target placement (HUD side placement uses the game's coordinates); `letterbox.c` (PAL v2.00 only): level 6's letterbox bars as depth-writing fills | water surface/UV scopes (`water_surfaces.c`, per-version `water.c`); boot-picture uploads and their residual draws; frame copies, blur, fades, clears and strips remain packet consumers |
 | rac2 | `render.c`: world, world-moby boundary, positive-count moby lists and effect-quad state placement; `ui2d.c`: transitional `ui_quad` records; `hud.c`: HUD side placement; `wide_view.c`: effect-parent scopes, including position-only scopes | `picture.c`: whole-target, saved-frame and credits-world markers; movie pictures/overlays, scissor, off-screen targets and strips remain packet consumers |
 
 This is a recorder hand-off milestone, not the full R1-R3 audit scope. No rac1/rac2 adapter to the
