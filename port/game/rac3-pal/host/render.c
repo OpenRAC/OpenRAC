@@ -26,6 +26,7 @@
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "openrac/host_env.h"
 #include "rac3_version.h"
 #include "textures.h"
 
@@ -418,6 +419,13 @@ void func_L01_00403440(int view) {
     rac3_effect_state_close(&s_effects);
 }
 
+/* OPENRAC_UI_SKIP naming rac3_effect_masks: the masks keep their older way while the capture runs
+ * on, to compare the two in one program (docs/port/DEBUGGING.md). */
+static int masks_skipped(void) {
+    const char* list = openrac_env_string("OPENRAC_UI_SKIP");
+    return list != NULL && strstr(list, "rac3_effect_masks") != NULL;
+}
+
 /* An alpha-fail mask (rac3_effect_mask_material: the refraction masks before their frame copy)
  * drawn with a native material, its image the one EffectTex0 named for its TEX0. 0: the quad
  * keeps its older way. */
@@ -426,7 +434,7 @@ static int draw_mask(const openrac_game_quad* q, gaddr list) {
     openrac_game_material_quad m;
     memset(&m, 0, sizeof(m));
     if (!rac3_effect_mask_material(&s_effects, list, GREF(gaddr, list), &words, &m.material)
-        || !rac3_effect_image(q->tex0, &m.image)) {
+        || !rac3_effect_image(q->tex0, &m.image) || masks_skipped()) {
         return 0;
     }
     memcpy(m.corner, q->corner, sizeof(m.corner));

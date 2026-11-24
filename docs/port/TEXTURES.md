@@ -85,7 +85,8 @@ A world effect quad can now carry a native material instead of the chip's words:
   blast's implosion, the V5 duck and their twins in other levels). Such a draw writes no depth, so
   ZBUF does not matter; its blend, texture function, filters and wrap are the record's, its image
   the one EffectTex0 named (`rac3_effect_image`). Every other DrawWorldQuad, and a mask whose proof
-  fails, keeps its marker.
+  fails, keeps its marker; `OPENRAC_UI_SKIP=rac3_effect_masks` keeps the masks there too, with the
+  capture still running, to compare the two in one program (DEBUGGING.md).
 - **Lifetime:** the game thread checks the material (a field out of range: the call returns 0 and
   the caller draws its older way) and decodes the image at the call, through the 2D layer's cache
   (`frontend/effect_material`). The tick's capture owns the quad's native state and the decoded
