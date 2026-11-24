@@ -111,6 +111,16 @@
    "status": "differs",
    "port": "hook"
   },
+  "func_L01_004B04D8": {
+   "is": "func_L01_004ACA98",
+   "status": "differs",
+   "port": "wrap"
+  },
+  "func_L01_004B04D8__game": {
+   "is": "func_L01_004ACA98__game",
+   "status": "differs",
+   "port": "host C"
+  },
   "func_L01_004CBC60": {
    "is": "func_L01_004C7FF0",
    "status": "differs",

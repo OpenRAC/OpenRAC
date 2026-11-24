@@ -93,8 +93,9 @@ FORMAT = 4
 # Commando's 20. 15: the pictures the class loader binds at load by a class entry's word +8 (his
 # ship's on the ship's parts, Clank's on Clank; manifest "clank_skins"), as Going Commando's 15.
 # 16: the moby classes the level's scenes load (level.scene_classes: Clank in a scene, the gun the
-# Ranger hands over on Veldin).
-GAME_FORMATS = {"rac2": 20, "rac3": 16}
+# Ranger hands over on Veldin). 17: the loading screen's sky (level 97's: the stars and the galaxy,
+# level.load_wad_loading), drawn natively and wide in place of the game's 4:3 packets.
+GAME_FORMATS = {"rac2": 20, "rac3": 17}
 
 
 def levels_format(game: str) -> int:

@@ -140,6 +140,10 @@
 #define RAC3_ADDR_0x001DA05Cu 0x001DA0DCu
 /* D_001DA4D0 (names.tsv) */
 #define RAC3_ADDR_0x001DA4D0u 0x001DA550u
+/* D_001DA5F0 (names.tsv) */
+#define RAC3_ADDR_0x001DA5F0u 0x001DA670u
+/* D_001DA610 (names.tsv) */
+#define RAC3_ADDR_0x001DA610u 0x001DA690u
 /* D_001DA6B0 (names.tsv) */
 #define RAC3_ADDR_0x001DA6B0u 0x001DA730u
 /* D_001DA6C0 (names.tsv) */
