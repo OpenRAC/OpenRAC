@@ -288,7 +288,8 @@ static int hero_pose(openrac_game_pose* out) {
  * AdvanceHeroAnimation); his place, rotation and velocity in the record; his matrices from the
  * rotation (euler_to_matrix, and its inverse, a copy with rows as columns, as
  * UpdateHeroInputAndHistory makes them); then the update's steps that show him (the face's
- * manipulators, his moby, what is attached to him and what he holds, his scale). His state machine,
+ * manipulators, his moby, what he wears on his head (func_L00_002AA178 poses it from his joints, a
+ * mod's joint offsets included), what is attached to him and what he holds, his scale). His state machine,
  * the stick, ledges and rails are the mod's to leave out.
  *
  * USA v1.01 alone until the carried releases' tables are written again (rac2.h, RAC2_PRIMARY): PAL
@@ -345,6 +346,7 @@ static int hero_set_pose(const openrac_game_pose* pose) {
     func_L00_002A5840();
     func_L00_002A5368();
     func_L00_002A9460();
+    func_L00_002AA178(0);
     func_L00_002B2120();
     func_L00_002AFBC0();
     func_L00_002A7748();
