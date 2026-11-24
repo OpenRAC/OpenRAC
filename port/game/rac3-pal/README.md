@@ -621,6 +621,16 @@ window draws those mobys natively with the boot program's camera, over the stars
 ends before that pass's markers: such a list is drawn whole under the world (`frame.cpp`), else
 its clear covered the ship.
 
+Leaving a planet, the flight is the level's own: each story level's program carries a copy of the
+loading screen (the catalogue's frontbin rows `func_003BD4B8`, the loop, and `func_003BD030`,
+level_load; Veldin's `0x004D7AE0` and `0x004D7658`), which runs before the next program is copied
+in. level_load sets level_current (`0x001D545C`) to the level asked for as the loop starts, so
+`host/tools.c` (`openrac_game_flight`) names the loading world while it differs from the level
+loaded: the window draws level 97 then too, not the planet being left (whose sky, and terrain, the
+flight's DrawTfrag copy marks, were drawn round the ship). The boot program's wraps of the hold
+and the ship's glass are at its own addresses; the levels' copies of those two are not wrapped yet
+(their planet quads go through the levels' DrawWorldQuad, `func_L01_00407E28`, which is).
+
 Not drawn yet: the planet (class 7683, a picture on a quad the ship flies towards, past its draw
 distance until the scene's last part, which the port's quicker loading never reaches) and the
 level's name ("Veldin" at `0x002D2018`, which `0x003C1890` prints through FontPrint fading in with
