@@ -34,6 +34,7 @@
 #include "game/rac1/host/prompt_spots.h"
 #include "game/rac1/keyboard_mouse/menus.hpp"
 #include "openrac/games/rac1.hpp"
+#include "openrac/guest.h"
 #include "openrac/mod.hpp"
 
 namespace {
@@ -234,9 +235,12 @@ gaddr hero() {
     return s_disc->hero;
 }
 
-// A game address worth reading: in the console's 32 MB, aligned.
+// A game address worth reading: in the console's 32 MB or the port's statics (the menu rows the
+// port adds, such as Exit and the mods' rows, live there), aligned.
 bool plausible(gaddr address) {
-    return address >= kGameMemoryStart && address < kGameMemoryEnd && (address & 3u) == 0;
+    const bool console = address >= kGameMemoryStart && address < kGameMemoryEnd;
+    const bool port = address >= GUEST_STATICS && address - GUEST_STATICS < GUEST_STATICS_SIZE;
+    return (console || port) && (address & 3u) == 0;
 }
 
 // Three floats from the game's memory as a vector.
