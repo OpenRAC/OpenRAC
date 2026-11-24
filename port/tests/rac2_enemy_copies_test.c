@@ -326,6 +326,16 @@ void func_002A6C58__hooked(gaddr moby, int flags, int arg) {
     ++deaths;
 }
 
+/* death_trace.c's: SetDeathBits's line, counted. */
+static int traced_deaths;
+
+void rac2_death_trace_death(gaddr moby, int flags, int arg) {
+    (void)moby;
+    (void)flags;
+    (void)arg;
+    ++traced_deaths;
+}
+
 /* ---- The checks ---- */
 
 static const rac2_moby_table table = {BASE, DYNAMIC, END};
@@ -648,9 +658,10 @@ static void death(void) {
         GREF(uint8_t, nibble) == 0x31u && GREF(uint8_t, collected) == 0
         && GREF(uint8_t, checkpoint) == 0
     );
-    /* The original's death: the game's marks stay. */
+    /* The original's death: the game's marks stay. Each of the three went by the death trace. */
     func_002A6C58(placed(0), 0, 0);
     CHECK(deaths == 2);
+    CHECK(traced_deaths >= 3);
     CHECK(
         GREF(uint8_t, nibble) == 0x32u && GREF(uint8_t, collected) == 2
         && GREF(uint8_t, checkpoint) == 2
@@ -798,6 +809,69 @@ static void slot_taken(void) {
     CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x8009u);
 }
 
+/* The copies on a squad's list as they die: a copy that dies comes off at once (rac2_copy_gone);
+ * the tick's tidy takes off any other that is no longer its live copy (dead, or its slot given out
+ * to another class where rac2_copy_slot_taken did not see it), so a squad's alerts never write past
+ * a new moby's 0x80 bytes of pvars and its count of live members reaches zero. The placed members
+ * stay, dead or not, as the game keeps them. */
+static void groups_tidy(void) {
+    make_level();
+    const gaddr a = rac2_copy_make(&table, placed(0), 0);
+    const gaddr b = rac2_copy_make(&table, placed(0), 1);
+    const gaddr c = rac2_copy_make(&table, placed(0), 2);
+    CHECK(a != 0 && b != 0 && c != 0);
+    const gaddr list = GREF(gaddr, 0x001EE5A0u + 4u);
+    const uint16_t ia = (uint16_t)((a - BASE) / 0x100u), ib = (uint16_t)((b - BASE) / 0x100u),
+                   ic = (uint16_t)((c - BASE) / 0x100u);
+    const uint16_t all[] = {0x0000u, 0x0009u, ia, ib, (uint16_t)(ic | 0x8000u)};
+    for (unsigned i = 0; i < 5; ++i) {
+        CHECK(GREF(uint16_t, list + 2u * i) == all[i]);
+    }
+    /* All alive: nothing taken off. */
+    rac2_copy_groups_tidy();
+    for (unsigned i = 0; i < 5; ++i) {
+        CHECK(GREF(uint16_t, list + 2u * i) == all[i]);
+    }
+    /* A dies: off at once; a live one's call changes nothing. */
+    rac2_copy_gone(b);
+    func_0029F338(a);
+    rac2_copy_gone(a);
+    CHECK(GREF(uint16_t, list + 4u) == ib && GREF(uint16_t, list + 6u) == (ic | 0x8000u));
+    /* B's slot given to a claw behind CreateMoby's back (alive, of another class): the tidy. */
+    func_0029F338(b);
+    put16(b + 0xAAu, 2722);
+    GREF(uint8_t, b + 0x20u) = 1;
+    rac2_copy_groups_tidy();
+    CHECK(GREF(uint16_t, list + 2u) == 0x0009u && GREF(uint16_t, list + 4u) == (ic | 0x8000u));
+    /* C dies with no call: the tidy; the members alone are left, the last with its mark. */
+    func_0029F338(c);
+    rac2_copy_groups_tidy();
+    CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x8009u);
+    /* A placed member that dies stays, as the game keeps it. */
+    func_0029F338(placed(9));
+    rac2_copy_groups_tidy();
+    CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x8009u);
+}
+
+/* A copy's pvars as the port laid them out (rac2_copy_pvars): in the port's room for a larger
+ * block, in its slot's 0x80 bytes for a small one; none for an original, a dead copy or a copy
+ * whose pvars word names something else. */
+static void copy_pvars(void) {
+    make_level();
+    const gaddr big = rac2_copy_make(&table, placed(7), 0);
+    const gaddr small = rac2_copy_make(&table, placed(0), 0);
+    CHECK(big != 0 && small != 0);
+    uint32_t bytes = 0;
+    CHECK(rac2_copy_pvars(big, &bytes) == GREF(gaddr, big + 0x68u) && bytes == 0x200u);
+    CHECK(GREF(gaddr, big + 0x68u) >= 0x01C00000u); /* the port's room (the test's statics) */
+    CHECK(rac2_copy_pvars(small, &bytes) == GREF(gaddr, small + 0x68u) && bytes == 0x80u);
+    CHECK(rac2_copy_pvars(placed(7), NULL) == 0);
+    put32(small + 0x68u, 0x4333AC8Fu);
+    CHECK(rac2_copy_pvars(small, NULL) == 0);
+    func_0029F338(big);
+    CHECK(rac2_copy_pvars(big, NULL) == 0);
+}
+
 int main(void) {
     openrac_guest_base = calloc(1, openrac_guest_ram_size);
     CHECK(openrac_guest_base != NULL);
@@ -809,6 +883,8 @@ int main(void) {
     reserve();
     stale_and_new_load();
     slot_taken();
+    groups_tidy();
+    copy_pvars();
     death();
     pool();
     pool_ceiling();

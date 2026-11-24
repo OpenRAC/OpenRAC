@@ -513,6 +513,7 @@ static int32_t moby_slot(int32_t key) {
 static void moby_kill(gaddr moby) {
     if (slot_of(moby) >= 0 && GREF(uint8_t, moby + MOBY_STATE) < 0x80 && moby != hero_moby()) {
         func_0029F338(moby);
+        rac2_copy_gone(moby);
     }
 }
 
