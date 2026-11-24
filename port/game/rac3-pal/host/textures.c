@@ -195,11 +195,13 @@ int mp_func_L39_0059D6B0(
 static struct {
     unsigned long long key;
     openrac_game_ui_image image;
+    /* 1 when EffectTex0 handed the handle out (rac3_effect_image). */
+    int effect;
 } s_handles[KEPT_HANDLES];
 
 static int s_next_handle;
 
-static void keep_handle(unsigned long long handle, const openrac_game_ui_image* image) {
+static void keep_handle(unsigned long long handle, const openrac_game_ui_image* image, int effect) {
     const unsigned long long key = handle & HANDLE_KEY_MASK;
     if (key == 0) {
         return;
@@ -207,11 +209,13 @@ static void keep_handle(unsigned long long handle, const openrac_game_ui_image* 
     for (int i = 0; i < KEPT_HANDLES; ++i) {
         if (s_handles[i].key == key) {
             s_handles[i].image = *image;
+            s_handles[i].effect = effect;
             return;
         }
     }
     s_handles[s_next_handle].key = key;
     s_handles[s_next_handle].image = *image;
+    s_handles[s_next_handle].effect = effect;
     s_next_handle = (s_next_handle + 1) % KEPT_HANDLES;
 }
 
@@ -299,6 +303,20 @@ int rac3_texture_image(unsigned long long handle, gaddr hud_tables, openrac_game
     return hud_image_of(handle, hud_tables, out);
 }
 
+int rac3_effect_image(unsigned long long handle, openrac_game_ui_image* out) {
+    const unsigned long long key = handle & HANDLE_KEY_MASK;
+    for (int i = 0; key != 0 && i < KEPT_HANDLES; ++i) {
+        if (s_handles[i].key == key) {
+            if (!s_handles[i].effect) {
+                return 0;
+            }
+            *out = s_handles[i].image;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* Effect texture n of the table at `table`, its count and base at `count` and `count + 4`. */
 static int effect_image(gaddr table, gaddr count, int n, openrac_game_ui_image* out) {
     const int32_t entries = GREF(int32_t, count);
@@ -347,21 +365,34 @@ static int picture_image(gaddr header, openrac_game_ui_image* out) {
 static void keep_hud(unsigned long long handle, gaddr tables, int n) {
     openrac_game_ui_image image;
     if (rac3_hud_image(tables, n, &image)) {
-        keep_handle(handle, &image);
+        keep_handle(handle, &image, 0);
+    }
+}
+
+/* A handle EffectTex0 gives for no image (the frame buffer's numbers) is a new allocation too: an
+ * effect image kept for the same fields before is not what it names now (rac3_effect_image). */
+static void forget_effect(unsigned long long handle) {
+    const unsigned long long key = handle & HANDLE_KEY_MASK;
+    for (int i = 0; key != 0 && i < KEPT_HANDLES; ++i) {
+        if (s_handles[i].key == key) {
+            s_handles[i].effect = 0;
+        }
     }
 }
 
 static void keep_effect(unsigned long long handle, gaddr table, gaddr count, int n) {
     openrac_game_ui_image image;
     if (effect_image(table, count, n, &image)) {
-        keep_handle(handle, &image);
+        keep_handle(handle, &image, 1);
+    } else {
+        forget_effect(handle);
     }
 }
 
 static void keep_picture(unsigned long long handle, gaddr header) {
     openrac_game_ui_image image;
     if (picture_image(header, &image)) {
-        keep_handle(handle, &image);
+        keep_handle(handle, &image, 0);
     }
 }
 
