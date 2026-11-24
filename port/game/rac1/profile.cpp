@@ -214,6 +214,22 @@ public:
         return read_game_state(ram, addresses(level));
     }
 
+    renderer::CloudShadowSettings cloud_shadow_defaults(int level) const override {
+        if (level != 5) {
+            return {};
+        }
+
+        // Rilgar's rainy gameplay scene.
+        return {
+            .enabled = true,
+            .speed = .25f,
+            .undulation = .285f,
+            .scale = .063f,
+            .maximum = .69f,
+            .strength = 1.f,
+        };
+    }
+
     std::optional<host::LiveMoby> read_moby(
         std::span<const std::uint8_t> ram, std::uint32_t moby
     ) const override {

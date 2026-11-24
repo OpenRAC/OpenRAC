@@ -95,6 +95,7 @@ constexpr Old kOld[] = {
     {kTouch, "Hierarchical depth (Hi-Z)", Id::OcclusionHiZ},
     {kTouch, "Texture upscaling", Id::TextureUpscaling},
     {kTouch, "Effects detail", Id::EffectsDetail},
+    {kTouch, "Early Lit cache quality", Id::EarlyLightingQuality},
     {kTouch, "Upscaling", Id::Upscaling},
     {kTouch, "Sharpening", Id::Sharpening},
     {kTouch, "Motion blur", Id::MotionBlur},
@@ -258,6 +259,7 @@ void names_each_option_once() {
     }
     CHECK(option_named("rumble_strength") == Id::RumbleStrength);
     CHECK(option_named("vsync") == Id::VSync);
+    CHECK(option_named("early_lighting_quality") == Id::EarlyLightingQuality);
     CHECK(!option_named("no_such_option"));
 }
 

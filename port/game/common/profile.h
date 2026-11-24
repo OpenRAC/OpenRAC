@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "renderer/math.h"
+#include "renderer/settings/cloud_shadow_settings.h"
 #include "scene/shrub_draw.h"
 
 namespace openrac::scene {
@@ -48,6 +49,8 @@ struct LiveMoby {
 
 // The game's state at one frame: the camera the world is drawn from, and the live mobys.
 struct GameState {
+    // The level's animation clock, also used by authored sky motion where available.
+    std::optional<std::uint32_t> sky_tick;
     renderer::Vec3 camera_position{};  // The eye, in game units.
     std::optional<renderer::Vec3> camera_target;  // Smoothed follow focus, when known.
     std::uint64_t camera_target_id = 0;           // Camera record and saved-state identity.
@@ -148,6 +151,9 @@ public:
 
     // Returns immutable preparation for supported exports; no callback keeps retail geometry.
     virtual LevelGeometryPreparer level_geometry_preparer() const { return nullptr; }
+
+    // Cloud shadows are opt-in per level.
+    virtual renderer::CloudShadowSettings cloud_shadow_defaults(int /*level*/) const { return {}; }
 
     // Reads the camera and the live mobys from the game's active main memory, `ram`. `level` is
     // the level program loaded now (-1 for the boot program, the title and the menus): each has its

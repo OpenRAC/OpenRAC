@@ -35,6 +35,8 @@
 #include "renderer/frame/ui_records.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/math.h"
+#include "renderer/settings/cloud_shadow_settings.h"
+#include "renderer/settings/early_lighting_settings.h"
 #include "renderer/settings/gtao_settings.h"
 #include "renderer/settings/shadow_settings.h"
 #include "renderer/settings/volumetric_settings.h"
@@ -167,6 +169,9 @@ struct FrameInput {
     TextureFilter texture_filter = TextureFilter::Normal;
     ShadowQuality shadow_quality = ShadowQuality::High;
     ShadowFilter shadow_filter = ShadowFilter::Soft;
+    EarlyLightingQuality early_lighting_quality = EarlyLightingQuality::Normal;
+    CloudShadowSettings cloud_shadows;
+    double cloud_seconds = 0.0;
     VolumetricQuality volumetric_quality = VolumetricQuality::Off;
     bool sun_pixel_shadow = false;
     bool hero_pixel_shadow = false;

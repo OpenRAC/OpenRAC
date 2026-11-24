@@ -119,7 +119,8 @@ public:
         Layer layer,
         const renderer::FrameInput& input,
         renderer::RenderState& state,
-        std::string_view pass_name = {}
+        std::string_view pass_name = {},
+        bool world_view = true
     );
     // The mod-only animated scenery layer at this presentation time (seconds since startup).
     std::vector<Instance> animated_instances(double seconds) const;
@@ -526,7 +527,8 @@ private:
         bool inspection,
         bool colour_batch,
         bool pvs_enabled,
-        std::uint64_t pvs_rejected
+        std::uint64_t pvs_rejected,
+        bool world_view
     );
     // Updates the hero projection and renders its separate map when the atlas is unavailable.
     void prepare_hero_shadow(const renderer::FrameInput& input, renderer::RenderState& state);
@@ -888,7 +890,14 @@ private:
     bool m_early_capable = false;
     void bind_hero_shadow(const renderer::Shader& shader) const;
     void bind_shadow_atlas(const renderer::Shader& shader) const;
-    void bind_sun_shadow(const renderer::Shader& shader, const renderer::Camera& camera) const;
+    void bind_sun_shadow(
+        const renderer::Shader& shader,
+        const renderer::Camera& camera,
+        renderer::ShadowFilter filter = renderer::ShadowFilter::Soft
+    ) const;
+    void bind_cloud_shadows(
+        const renderer::Shader& shader, const renderer::FrameInput& input, bool world_view
+    ) const;
     std::array<float, 4> m_fog_colour{0, 0, 0, 0};        // w = 1: fog on
     std::array<float, 4> m_fog_params{0, 255, 255, 255};  // slope, offset, lower, upper clamp
     std::vector<JointColumns> m_palette_data;

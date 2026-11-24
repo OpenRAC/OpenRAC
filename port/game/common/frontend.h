@@ -38,6 +38,10 @@ namespace openrac::platform {
 class Input;
 }
 
+namespace openrac::renderer {
+struct CloudShadowSettings;
+}
+
 namespace openrac::frontend {
 
 // HDR output's state for the settings (docs/port/HDR.md): what the screen is sent, and what the
@@ -331,6 +335,9 @@ bool keep_picture();
 // Current level has validated, uploaded probes and a supported renderer.
 bool enhanced_graphics_available();
 std::string enhanced_graphics_error();
+
+// Authored cloud settings for the level shown by the developer menu.
+renderer::CloudShadowSettings level_cloud_shadows();
 
 // Shares immutable material inspector data only while the render worker is idle.
 std::shared_ptr<const enhanced::MaterialEditor> material_editor();
