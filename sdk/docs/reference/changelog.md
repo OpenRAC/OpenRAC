@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.39
+
+Paint that draws the effects a moby makes in its colour, and paint in weapon_look (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS).
+
+No new members (the table is unchanged).
+
 ## 1.38
 
 An accent colour for the paint material, drawn on the model's own strongly saturated texels, a visor or lamps (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT).

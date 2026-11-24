@@ -300,14 +300,9 @@ int api_on_shot_end(openrac_mod* mod, openrac_shot_end_fn fn, void* user) {
 int api_weapon_look(
     openrac_mod* mod, std::int32_t item, std::uint32_t material, std::uint32_t rgb
 ) {
-    constexpr std::uint32_t kRgbMax = 0xFFFFFF;
-    constexpr std::uint32_t kEnergyLevels = 0xF00;
-    const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material);
-    const std::uint32_t extra = material & ~0xFFu;
-    const bool known =
-        kind <= OPENRAC_MOBY_MATERIAL_ENERGY
-        && (extra == 0 || (kind == OPENRAC_MOBY_MATERIAL_ENERGY && (extra & ~kEnergyLevels) == 0));
-    if (mod == nullptr || item < 0 || item >= kWeaponItems || !known || rgb > kRgbMax
+    // Any material moby_material draws: paint too since 1.39 (with its effects bit, the shots'
+    // effects in its colour).
+    if (mod == nullptr || item < 0 || item >= kWeaponItems || !moby_material_known(material, rgb)
         || g_play == nullptr || g_play->weapon_refire == nullptr) {
         return OPENRAC_HOOK_UNKNOWN;
     }
