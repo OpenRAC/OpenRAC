@@ -606,7 +606,11 @@ plans enhanced lighting from (`bake-inputs/gameplay.bin`), as Going Commando's 1
 reviewed glowing textures and the levels' sun sets, as Going Commando's 19. (13) adds level 97, the loading
 screen's ship scene (below). (14) adds the liquid surfaces the baker lights from
 (`bake-inputs/liquids.json`), as Going Commando's 20. (17) adds level 97's sky, the loading screen's
-stars and galaxy (below).
+stars and galaxy (below). (18) marks the tie materials the game blends opaque whatever their texels'
+alpha (ALPHA_1 0x20, Cs; glTF extras `"opaque"`, `extractor/ties.py`), which the window draws solid
+where a picture below full alpha would make a material part-transparent: the Galactic Rangers'
+dropship on Veldin is three ties (6759, 6760 and 6762, moved with it by the game and drawn with the
+mobys) whose hull pictures are at alpha 0x0B to 0x1E, and it was see-through.
 
 ## The loading screen
 
