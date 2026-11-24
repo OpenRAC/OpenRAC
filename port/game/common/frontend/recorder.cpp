@@ -243,7 +243,7 @@ void picture_set(std::uint32_t id, const std::uint8_t* rgba, int width, int heig
     for (const std::uint8_t b : pixels->pixels) {
         hash = (hash ^ b) * 1099511628211ull;
     }
-    g->pictures[id] = {hash, std::move(pixels)};
+    g->pictures[id] = {hash, std::move(pixels), {}};
 }
 
 void snapshot(std::uint32_t id) {
