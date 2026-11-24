@@ -1915,12 +1915,6 @@ public:
         return has_paint() && m_api->api_minor >= 38;
     }
 
-    // Since 1.39: whether the port takes OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS (paint that draws the
-    // moby's effects in its colour too) and paint in weapon_look.
-    bool has_paint_effects() const {
-        return has_paint() && m_api->api_minor >= 39;
-    }
-
     // Since 1.34: whether the port draws every moby of a class with a material
     // (moby_material_class).
     bool has_moby_material_class() const {

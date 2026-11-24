@@ -149,3 +149,65 @@ class MisnamedCalleeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FrontEndNamesInLevels(unittest.TestCase):
+    """rac3-decomp's level trees write a front-end function as fe_func_XXXXXXXX: in a level's C it
+    is that level's copy (tools/level_tree.py). func_L01_003E4198's fe_func_003D3CB0, the camera's
+    coll_line, was a stub that did nothing."""
+
+    def test_an_fe_name_is_the_levels_copy(self):
+        program = Program()
+        program.kind_renames = {"func_003D3CB0": "func_L01_003FA5F0", "func_0038CE20": "func_L01_0040E3C0"}
+        unit = "src/levels/shared/L01_003E3930.c"
+        self.assertEqual(program.level_copy_named(unit, "fe_func_003D3CB0"), "func_L01_003FA5F0")
+        self.assertEqual(program.level_copy_named(unit, "fe_func_0038CE20"), "func_L01_0040E3C0")
+        # One the catalogue has no front-end row for: the bare name, which the file's level places.
+        self.assertEqual(program.level_copy_named(unit, "fe_func_00443948"), "func_00443948")
+        # Not in a front end's own files.
+        self.assertIsNone(program.level_copy_named("src/frontbin/3D1030.c", "fe_func_003D3CB0"))
+
+
+class Vu0AssemblyFromRetail(unittest.TestCase):
+    """hostgen.json "vu0_assembly_from_retail": C whose inline assembly runs VU0 instructions on named
+    registers (rac3's divide_vector_xyz, func_L01_0040E408) is translated from its assembly: as C it
+    kept a barrier and wrote nothing."""
+
+    @staticmethod
+    def asm(text: str) -> dict:
+        return {"kind": "GCCAsmStmt", "asmString": text}
+
+    def test_the_instructions_of_the_body_and_its_static_helpers(self):
+        from program import vu0_assembly
+        helper = {"kind": "FunctionDecl", "name": "vec_div", "inner": [
+            self.asm("mfc1 $at, %2\nlqc2 $vf1, 0(%1)\nqmtc2.ni $at, $vf2\nvdiv Q, $vf0w, $vf2x\nvwaitq")]}
+        body = {"kind": "FunctionDecl", "inner": [
+            self.asm("sync.l"),
+            {"kind": "CallExpr", "inner": [{"kind": "DeclRefExpr",
+                                            "referencedDecl": {"kind": "FunctionDecl", "name": "vec_div"}}]},
+            self.asm("vmulq.xyz $vf1, $vf1, Q; sqc2 $vf1, 0(%0)")]}
+        self.assertEqual(vu0_assembly(body, {"vec_div": helper}),
+                         ("lqc2", "qmtc2.ni", "vdiv", "vwaitq", "vmulq.xyz", "sqc2"))
+        self.assertEqual(vu0_assembly({"kind": "FunctionDecl", "inner": [self.asm("sync.l"), self.asm("di")]}, {}),
+                         ())
+
+    def test_such_a_definition_is_left_to_its_assembly(self):
+        from program import users_of_vu0_assembly
+        program = Program()
+        program.places = {"func_L01_0040E408": [(1, 0x0040E408)], "func_L01_0040E3C0": [(1, 0x0040E3C0)]}
+        sig = Signature.of(ctype.parse("void (int, int, float)"))
+        program.functions["func_L01_0040E408"] = Function("func_L01_0040E408", sig, "src/levels/a.c",
+                                                          vu0_asm=("lqc2", "vdiv"))
+        program.functions["func_L01_0040E3C0"] = Function("func_L01_0040E3C0", sig, "src/levels/a.c")
+        self.assertEqual(users_of_vu0_assembly(program), {"func_L01_0040E408": ["lqc2", "vdiv"]})
+        self.assertIsNone(program.functions["func_L01_0040E408"].unit)
+        self.assertIn("func_L01_0040E408", program.from_assembly)
+        self.assertEqual(program.functions["func_L01_0040E3C0"].unit, "src/levels/a.c")
+
+    def test_a_microprogram_call_keeps_its_c(self):
+        from program import users_of_vu0_assembly
+        program = Program()
+        program.places = {"func_L01_003D1DA8": [(1, 0x003D1DA8)]}
+        program.functions["func_L01_003D1DA8"] = Function(
+            "func_L01_003D1DA8", Signature.of(ctype.parse("void (int)")), "src/levels/a.c", vu0_asm=("vcallms", "qmfc2.i"))
+        self.assertEqual(users_of_vu0_assembly(program), {})

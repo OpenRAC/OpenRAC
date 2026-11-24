@@ -193,7 +193,7 @@ int main() {
         api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_PAINT | 0x2000u, 0xFFFFFF)
         == OPENRAC_HOOK_UNKNOWN
     );
-    CHECK(api.moby_material(first, kCoin, kAccent | 0x4000000u, 0) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.moby_material(first, kCoin, kAccent | 0x2000000u, 0) == OPENRAC_HOOK_UNKNOWN);
     CHECK(
         api.moby_material(
             first, kCoin, OPENRAC_MOBY_MATERIAL_PLATINUM | OPENRAC_MOBY_MATERIAL_PAINT_ACCENT, 0
@@ -206,36 +206,6 @@ int main() {
         )
         == OPENRAC_HOOK_UNKNOWN
     );
-    CHECK(api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_NONE, 0) == OPENRAC_HOOK_OK);
-
-    // Paint whose effects take its colour (1.39): taken with or without an accent, its effects
-    // listed with the energy materials; refused on energy, platinum or the tint, and plain paint
-    // stays out of the list.
-    constexpr std::uint32_t kPaintEffects =
-        OPENRAC_MOBY_MATERIAL_PAINT_AT(10) | OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS;
-    CHECK(api.moby_material(first, kCoin, kPaintEffects, 0x60C8FF) == OPENRAC_HOOK_OK);
-    energy = mods::energy_materials();
-    CHECK(energy.size() == 1 && energy[kCoin].material == kPaintEffects);
-    CHECK(energy[kCoin].rgb == 0x60C8FF);
-    CHECK(
-        api.moby_material(first, kCoin, kAccent | OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS, 0x60C8FF)
-        == OPENRAC_HOOK_OK
-    );
-    CHECK(mods::energy_materials().size() == 1);
-    CHECK(
-        api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_PAINT_AT(10), 0x60C8FF)
-        == OPENRAC_HOOK_OK
-    );
-    CHECK(mods::energy_materials().empty());
-    for (const std::uint32_t other :
-         {OPENRAC_MOBY_MATERIAL_ENERGY_AT(3),
-          static_cast<std::uint32_t>(OPENRAC_MOBY_MATERIAL_TINT),
-          static_cast<std::uint32_t>(OPENRAC_MOBY_MATERIAL_PLATINUM)}) {
-        CHECK(
-            api.moby_material(first, kCoin, other | OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS, 0)
-            == OPENRAC_HOOK_UNKNOWN
-        );
-    }
     CHECK(api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_NONE, 0) == OPENRAC_HOOK_OK);
 
     // A class's material (1.34): what it refuses, one a class and scope, the last set wins,

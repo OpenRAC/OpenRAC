@@ -21,16 +21,6 @@
    "status": "differs",
    "port": "host C"
   },
-  "func_003A7EF8": {
-   "is": "func_003A7DB0",
-   "status": "differs",
-   "port": "wrap"
-  },
-  "func_003A7EF8__game": {
-   "is": "func_003A7DB0__game",
-   "status": "differs",
-   "port": "host C"
-  },
   "func_003AA3C8__frontbin": {
    "is": "func_003A4E70__frontbin",
    "status": "differs",

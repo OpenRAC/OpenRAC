@@ -1384,6 +1384,7 @@
     7340032
   ],
   "headers": "headers",
+  "vu0_assembly_from_retail": true,
   "unpassed_registers": true,
   "ps2_float": [
     "func_003C6FE0__frontbin",

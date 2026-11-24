@@ -2,9 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Tests the energy material's effects (game/common/frontend/energy_effects.h, interface 1.25): which
-// materials give a look (paint with its effects bit too, 1.39), the colour an effect quad takes at
-// its own brightness, brighter with the level, and a particle's corners spread from its centre.
-// Needs no game and no window.
+// materials give a look, the colour an effect quad takes at its own brightness, brighter with the
+// level, and a particle's corners spread from its centre. Needs no game and no window.
 
 #include <cmath>
 #include <cstdint>
@@ -36,22 +35,6 @@ int main() {
     const auto look = energy::look_of(OPENRAC_MOBY_MATERIAL_ENERGY_AT(8), 0x20FF40);
     CHECK(look && look->level == 8 && look->rgb == 0x20FF40);
     CHECK(energy::look_of(OPENRAC_MOBY_MATERIAL_ENERGY, 0xFF0000)->level == 0);
-
-    // Paint gives one only with its effects bit (1.39), at the paint's level, an accent or not.
-    CHECK(!energy::look_of(OPENRAC_MOBY_MATERIAL_PAINT_AT(9), 0x60C8FF));
-    const auto painted = energy::look_of(
-        OPENRAC_MOBY_MATERIAL_PAINT_AT(9) | OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS, 0x60C8FF
-    );
-    CHECK(painted && painted->level == 9 && painted->rgb == 0x60C8FF);
-    CHECK(
-        energy::look_of(
-            OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT(4, 0xFF2010)
-                | OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS,
-            0x60C8FF
-        )
-            ->level
-        == 4
-    );
 
     // A blue flash (the chip's word: R low, 0x80 = 1.0) comes out green at its own brightness, its
     // alpha as it was.

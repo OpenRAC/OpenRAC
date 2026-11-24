@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// A mod's energy material (OPENRAC_MOBY_MATERIAL_ENERGY, interface 1.25), or paint with its effects
-// bit (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS, 1.39), on the effects a moby makes: the world quads its
-// draw callbacks draw (EffectQuad::parent) and the particles tied to it (EffectQuad::attachment,
-// GameProfile::particle_owners). Each is drawn in the material's colour at
+// A mod's energy material (OPENRAC_MOBY_MATERIAL_ENERGY, interface 1.25) on the effects a moby
+// makes: the world quads its draw callbacks draw (EffectQuad::parent) and the particles tied to it
+// (EffectQuad::attachment, GameProfile::particle_owners). Each is drawn in the material's colour at
 // its own colour's brightness, brighter with the material's level, and a particle a little larger.
 // Render-only: the quads are the window's copies; the game's particles and quads keep their colours.
 // mesh.frag draws the moby's own body and glow packets.
@@ -32,16 +31,10 @@ inline constexpr float kGainPerLevel = 0.04f;
 inline constexpr float kSizePerLevel = 1.0f / 45.0f;
 
 // Returns the energy look of a moby with material `material` (as moby_material took it) and `rgb`,
-// or none when the material is not energy. Paint with its effects bit
-// (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS, interface 1.39) draws the effects as energy at the paint's
-// level.
+// or none when the material is not energy.
 inline std::optional<Look> look_of(std::uint32_t material, std::uint32_t rgb) {
-    const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(material);
-    const bool painted = kind == OPENRAC_MOBY_MATERIAL_PAINT
-                         && (material & OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS) != 0;
-
-    // Only energy, and paint that asks for it, recolours what a moby makes.
-    if (kind != OPENRAC_MOBY_MATERIAL_ENERGY && !painted) {
+    // Only energy recolours what a moby makes.
+    if (OPENRAC_MOBY_MATERIAL_KIND(material) != OPENRAC_MOBY_MATERIAL_ENERGY) {
         return std::nullopt;
     }
 

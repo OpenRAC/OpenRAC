@@ -473,27 +473,6 @@ void func_003D3158(int a0, int a1, int a2, int a3) {
     );
 }
 
-/* The ship's cockpit glass on the loading screen (0x003A7EF8, the boot program's copy of Going
- * Commando's render_environment_mapped_object, func_002ECB70): not in the hull's model, but 38 world
- * quads the game writes each tick at the place joint 0 of the ship (its argument, class 3412) has
- * that tick, called by the flight (0x003C1848 from the planet's draw callback 0x003C1660) and as the
- * ship's draw callback (0x003A6C90). The boot program's callback lists are not run by wide_view.c,
- * so its quads had no owner and no id: a frame between ticks drew the hull part way from the last
- * tick and the glass where this tick has it, and at the loading screen's 20 ticks a second the
- * glass slid off the ship. Owned by the ship and with ids, they move from the last tick's corners
- * as the hull does (frontend scene_effects.cpp), as Going Commando's (rac2/host/ship_glass.c). */
-void func_003A7EF8(gaddr a0) {
-    const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
-    const unsigned outer_ordinal = rac3_draw_ordinal;
-    rac3_draw_owner = a0;
-    rac3_draw_callback = 0; /* no callback runner's function: the ids are the ship's alone */
-    rac3_draw_ordinal = 0;
-    func_003A7EF8__game(a0);
-    rac3_draw_owner = outer;
-    rac3_draw_callback = outer_callback;
-    rac3_draw_ordinal = outer_ordinal;
-}
-
 /* What the console's renderers needed each frame (Going Commando's func_002F0468, 0x002EF310,
  * 0x002F3E78, 0x002F0E38, 0x002E2C38, 0x002E10B8, 0x0029FEE0): the texture packets, and the baked
  * lights of terrain, ties and shrubs, which the extracted level carries. */

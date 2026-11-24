@@ -377,8 +377,7 @@ struct ClassMaterialDraw {
 std::vector<ClassMaterialDraw> class_materials();
 
 // The energy materials (OPENRAC_MOBY_MATERIAL_ENERGY, interface 1.25) drawn this level load, by
-// moby: the last material set on each, where it is energy or paint with its effects bit
-// (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS, 1.39). For the effects those mobys make
+// moby: the last material set on each, where it is energy. For the effects those mobys make
 // (energy_effects.h), read once a tick. From the game's thread.
 std::unordered_map<std::uint32_t, MobyMaterial> energy_materials();
 // The meshes the props of the level load now running were made of, each once, in the order first

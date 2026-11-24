@@ -122,13 +122,11 @@ extern "C" {
  * pads' motors driven by a mod as the game's libvib drives them, each motor the
  * stronger of the game's and the mods' (set_motors), and an option of the
  * port's menu greyed out or made usable by a mod, by name (menu_option_set),
- * 1.38 an accent colour for the paint material, drawn on the model's own
+ * and 1.38 an accent colour for the paint material, drawn on the model's own
  * strongly saturated texels, a visor or lamps
- * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT), and 1.39 paint that draws the effects
- * a moby makes in its colour, and paint in weapon_look
- * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS).
+ * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT).
  */
-#define OPENRAC_MOD_API_MINOR 39
+#define OPENRAC_MOD_API_MINOR 38
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1837,15 +1835,6 @@ typedef struct openrac_moby_visual {
      | ((((uint32_t)(accent_rgb) >> 20) & 0xFu) << 20)              \
      | ((((uint32_t)(accent_rgb) >> 12) & 0xFu) << 16)              \
      | ((((uint32_t)(accent_rgb) >> 4) & 0xFu) << 12))
-/* The bit of a paint material (OPENRAC_MOBY_MATERIAL_PAINT_AT, with or without an accent) that
- * draws the effects the moby makes in the paint's rgb too, as energy draws them: the world quads
- * its draw callbacks draw and the particles tied to it (attached to it, naming it as their owner,
- * or made by a shot that weapon_look gave this paint) take rgb at their own brightness, brighter
- * and larger with the paint's level as energy's are with its level. The model is painted as
- * without the bit. A paint without it leaves the effects their colours. A port older than 1.39
- * refuses the bit (OPENRAC_HOOK_UNKNOWN), and weapon_look takes paint only since 1.39. Since
- * 1.39. */
-#define OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS 0x2000000u
 /* What moby_copy_check says of a moby: OPENRAC_COPY_OK when moby_copy may copy it, else why not.
  * Since 1.25. */
 #define OPENRAC_COPY_OK 0
@@ -2990,10 +2979,8 @@ typedef struct openrac_api {
      * fired, refired and spawned live), what its update makes (its blast,
      * debris and sparks, detached ones too) and the gun's own muzzle effects as
      * moby_material draws one moby: `material` (OPENRAC_MOBY_MATERIAL_*;
-     * energy, with its level, recolours the effects, and so does paint with
-     * OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS; paint since 1.39) in `rgb`, until
-     * the mod sets OPENRAC_MOBY_MATERIAL_NONE for the item or is unloaded.
-     * Render-only.
+     * energy, with its level, recolours the effects) in `rgb`, until the mod
+     * sets OPENRAC_MOBY_MATERIAL_NONE for the item or is unloaded. Render-only.
      * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN (an item outside 0 to
      * 63, a material or rgb moby_material refuses). */
     int (*weapon_look)(openrac_mod* mod, int32_t item, uint32_t material,
