@@ -130,6 +130,11 @@
    "is": "func_L01_004EA040",
    "status": "differs",
    "port": "hook"
+  },
+  "func_L02_00310838": {
+   "is": "func_L02_00310500",
+   "status": "differs",
+   "port": "host"
   }
  },
  "left_out": {

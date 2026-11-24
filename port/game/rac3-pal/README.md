@@ -663,6 +663,23 @@ its strips (115 vertices in the frame's five liquid strips: ALPHA 0x44 TEST 0x53
 water, and layers blended over it, ALPHA 0x58 and 0x6A), hidden runs on box1 at 84b906a67 with
 `--level 14`.
 
+The open water of Florana, Marcadia, Daxx and nine more levels (rivers and pools at one height, the
+plane class 2871 on Florana, `func_L02_0030FA80`) is not a strip of the game's: its draw callback
+(`func_L02_00310838`, DrawFrame's third list) ran a VU1 program of its own (microprogram 10) that
+tessellated the plane in front of the camera, which the port does not run, so the water was not
+drawn at all while swimming in it worked. `host/water_plane.c` draws that callback natively through
+the liquids' strip routine (Veldin's `0x00408AAC` after its setup `0x00407588`): a disc of rings
+around the camera at the pvar's height (+0x4C), the game's eight waves (its table at `0x0026EB80`,
+filled by `func_L02_0030FC68`) fading out where the rings are too far apart, and the two layers of
+the callback's GS packet (`func_L02_0030FF48`), the second drawn first: the reflection, opaque in
+eleven of the twelve levels, under the surface blended over it. The first is coloured by pvar bytes
++0x30..+0x33 (effect texture +0x00, white when -1), mapped every +0x24 units and scrolled, writing
+depth; the second, colour only, effect texture +0x04 (Florana's 100, a sphere map of a cloudy sky)
+read by the view's reflection off the waves, coloured and blended by +0x34..+0x37. The VU1 program's
+own grid and its exact reflection mapping are not read: the mapping is the one the parameters point
+to, not the console's to the texel. The levels with such water (class 2871, one plane each but
+Tyhrranosis's two): 2, 4, 5, 9, 12, 14, 17, 18, 19, 20, 22 and 29.
+
 ### Shadows, enhanced graphics and texture packs
 
 The mobys' shadows are Going Commando's shadow volumes (`profile.cpp`): MobyProc (Veldin's
