@@ -7,7 +7,7 @@ import unittest
 import zlib
 
 from disc import Disc
-from formats import FormatError, Texture, check, overlay_sections, span, wad
+from formats import FormatError, Texture, check, gs_alpha_opaque, overlay_sections, span, wad
 
 
 def compressed(payload: bytes) -> bytes:
@@ -74,6 +74,16 @@ class TextureTests(unittest.TestCase):
         self.assertEqual(chunks[b"tRNS"][8], 255)
         self.assertEqual(zlib.decompress(chunks[b"IDAT"]), b"\0\x08\0")
         self.assertTrue(texture.cutout)  # Index 0 is fully transparent and in use.
+
+    def test_alpha_opaque_only_where_the_blend_is_the_source(self):
+        def quadword(lo, hi=0x80, address=0x42):
+            return struct.pack("<IIB", lo, hi, address) + bytes(7)
+        self.assertTrue(gs_alpha_opaque(quadword(0x20), 0))       # (Cs - Cs) FIX + Cs
+        self.assertTrue(gs_alpha_opaque(quadword(0x64), 0))       # (Cs - Cd) FIX 0x80 + Cd
+        self.assertFalse(gs_alpha_opaque(quadword(0x64, 0x40), 0))
+        self.assertFalse(gs_alpha_opaque(quadword(0x44), 0))      # (Cs - Cd) As + Cd
+        self.assertFalse(gs_alpha_opaque(quadword(0x58), 0))      # Cs Ad + Cd
+        self.assertFalse(gs_alpha_opaque(quadword(0x20, address=0x08), 0))
 
     def test_cutout_only_counts_pixels_in_use(self):
         palette = bytes((255, 0, 0, 0x80)) * 255 + bytes(4)

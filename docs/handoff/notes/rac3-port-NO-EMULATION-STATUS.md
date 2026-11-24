@@ -525,3 +525,19 @@ frame into 36 haze patches and the squares are gone. The same 32-bit declaration
 src/levels/shared/L01_00363E68.c, src/levels/07_annihilation_nation/L07_003CE2B8.c,
 src/levels/09_tyhrranosis/L09_00317D00.c and nonmatching/functional/func_L07_003BFAE8.c and
 func_L32_003BE098.c (their effect textures lose TH, TCC and the CLUT block in the port).
+
+## Dropship hull see-through: the ties' own ALPHA_1 (2026-11-24, levels format 18)
+
+The dropship's hull is not a moby: class 6877 (no model in the level; +0x24 stays 0) moves three
+ties of the level, 6759, 6760 and 6762 (placements 119 to 124, two ships), to its place each tick,
+and the window draws moved ties with the mobys (`LevelScene::add_moved_scenery`). Their hull pictures
+(tie_0020, 0021, 0022, 0028) are at alpha 0x0B to 0x1E with some texels at 0. Each tie material's
+fifth A+D quadword is its ALPHA_1: 0x44 for most, but 0x20 ((Cs - Cs) FIX + Cs, the source colour
+whatever the alpha) for those pictures, so the console draws the hull opaque. The export kept only
+the pictures' alpha (MASK, or "below full alpha" in `scene/level.cpp`), and the window blended the
+hull by it: in a hidden Veldin run with Ratchet teleported into the ship's call cuboid (22, centre
+372.96 325.73 80) the flying ship showed the cliffs and the towers through it. The extractor now
+reads ALPHA_1 (`formats.gs_alpha_opaque`) and marks such materials `extras: {"opaque": true}`
+without MASK; the port leaves them solid. 23 materials on Veldin, 43 on the Phoenix; Going
+Commando's ties (all 0x44) are unchanged. Also in the ties' ALPHA_1 and still drawn as 0x44: 0x58
+(Cs Ad + Cd) and 0x68 (Cs FIX + Cd), additive.

@@ -3631,7 +3631,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac3/ntsc/levels-17.json",
+        "artifact": "assets/port/rac3/ntsc/levels-18.json",
         "docs": "extractor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (extractor/README.md, \"The later games\")."
       },
@@ -3668,7 +3668,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/levels-17.json",
+            "path": "assets/port/rac3/ntsc/levels-18.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -3699,7 +3699,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/levels-17.json",
+            "path": "assets/port/rac3/ntsc/levels-18.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -3752,7 +3752,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/levels-17.json",
+            "path": "assets/port/rac3/ntsc/levels-18.json",
             "from": "the levels (Read the levels for packs)"
           }
         ],
@@ -3849,7 +3849,7 @@
         "artifact": "port/build/release/openrac-enhanced-baker.exe",
         "needs": [
           {
-            "path": "assets/port/rac3/ntsc/levels-17.json",
+            "path": "assets/port/rac3/ntsc/levels-18.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -3915,7 +3915,7 @@
             "from": "the disc's files (Unpack the disc's files)"
           },
           {
-            "path": "assets/port/rac3/ntsc/levels-17.json",
+            "path": "assets/port/rac3/ntsc/levels-18.json",
             "from": "the levels (Get the levels ready)"
           }
         ]
@@ -3954,7 +3954,7 @@
             "from": "the disc's files (Unpack the disc's files)"
           },
           {
-            "path": "assets/port/rac3/ntsc/levels-17.json",
+            "path": "assets/port/rac3/ntsc/levels-18.json",
             "from": "the levels (Get the levels ready)"
           }
         ]
@@ -4015,7 +4015,7 @@
           "disc",
           "python"
         ],
-        "artifact": "assets/port/rac3/pal/levels-17.json",
+        "artifact": "assets/port/rac3/pal/levels-18.json",
         "docs": "extractor/README.md",
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (extractor/README.md, \"The later games\")."
       },
@@ -4052,7 +4052,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/pal/levels-17.json",
+            "path": "assets/port/rac3/pal/levels-18.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -4083,7 +4083,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/pal/levels-17.json",
+            "path": "assets/port/rac3/pal/levels-18.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -4136,7 +4136,7 @@
         ],
         "needs": [
           {
-            "path": "assets/port/rac3/pal/levels-17.json",
+            "path": "assets/port/rac3/pal/levels-18.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -4233,7 +4233,7 @@
         "artifact": "port/build/release/openrac-enhanced-baker.exe",
         "needs": [
           {
-            "path": "assets/port/rac3/pal/levels-17.json",
+            "path": "assets/port/rac3/pal/levels-18.json",
             "from": "the levels (Get the levels ready)"
           }
         ],
@@ -4299,7 +4299,7 @@
             "from": "the disc's files (Unpack the disc's files)"
           },
           {
-            "path": "assets/port/rac3/pal/levels-17.json",
+            "path": "assets/port/rac3/pal/levels-18.json",
             "from": "the levels (Get the levels ready)"
           }
         ]
@@ -4338,7 +4338,7 @@
             "from": "the disc's files (Unpack the disc's files)"
           },
           {
-            "path": "assets/port/rac3/pal/levels-17.json",
+            "path": "assets/port/rac3/pal/levels-18.json",
             "from": "the levels (Get the levels ready)"
           }
         ]
