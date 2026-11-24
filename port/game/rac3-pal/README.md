@@ -384,8 +384,10 @@ vertical blank callback (`func_0013D208`).
 The `rac3_pad_state` ctest compiles the real pad wrapper and shared report code with synthetic RAM
 and input. It covers one sample/mod report per ready update, quiet setup and reconnect frames,
 disconnects, unopened slots, game callback/reader ordering, and motor forwarding. It does not run
-the game or decode input through its retail reader. The MP library path remains in use, and NTSC-U
-startup/clear pairing gaps still prevent a complete native-pad readiness claim.
+the game or decode input through its retail reader. `rac3_pad_ntsc` carries that real host source
+and fixture to NTSC-U's names and checks its boot-only initialization and retained overlay state
+([native pad lifecycle](../../../docs/port/NATIVE_PADS.md)). The MP library path remains in use;
+full game generation and runtime behavior are unverified.
 
 `hostgen.json` also lists `from_assembly` (C that forwards registers or has VU0 inline assembly,
 translated from its instructions), `candidate_folders_left_out` (the NTSC-U drafts of boot_elf and

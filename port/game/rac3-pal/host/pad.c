@@ -19,7 +19,9 @@
  * func_L39_005C3EA0; their update leaves out the active pad's flag) carry their own copies of the
  * start-up and the update, with their own readers.
  *
- * Here the start-up and the update are the port's, for every copy. The start-up sets each record
+ * PAL repeats pad start-up in its overlays; NTSC-U initializes the retained core records only in
+ * the boot program (docs/port/NATIVE_PADS.md), then changes readers without reinitializing them.
+ * The native start-up sets each record
  * up as the game's does, with no library to start and no multitap. The update keeps the record's
  * state where the game's would have it, but a controller is ready as soon as it is there: state 0
  * for the frame it is found, then 99, the analog mode with pressures (id 0x79) and the motors
@@ -89,12 +91,11 @@ enum {
     REPORT_READ = 2 + 2 * (ID_PRESSURES & 0xF), /* what the reader is handed: 20 bytes */
 };
 
-/* One copy of the pad code: its program's records and globals, its reader and its clear. */
+/* One copy of the pad update: its program's records and globals, and its reader. */
 typedef struct {
     gaddr pads, active, port1, port1_too, none;
     int active_flag; /* whether its update keeps NOT_READY */
     void (*read)(gaddr pad, gaddr report, int size);
-    void (*clear)(gaddr pad);
 } pad_copy;
 
 #define W(pad, field) GREF(int32_t, (pad) + (field))
@@ -112,10 +113,11 @@ static void pad_read(const pad_copy* copy, gaddr pad, gaddr report, int size) {
     copy->read(pad, report, size);
 }
 
-static void pads_start(const pad_copy* copy) {
+/* Initializes the core records at a real start-up entry, using that program's clear operation. */
+static void pads_start(const pad_copy* copy, void (*clear)(gaddr pad)) {
     for (unsigned i = 0; i < PAD_COUNT; i++) {
         const gaddr pad = copy->pads + i * PAD_SIZE;
-        copy->clear(pad);
+        clear(pad);
         B(pad, PAD_SLOT) = (uint8_t)(i % 4);
         B(pad, PAD_PORT) = (uint8_t)(i >= 4);
         W(pad, PAD_STATE) = STATE_FIND;
@@ -214,18 +216,24 @@ static void pad_update(const pad_copy* copy, gaddr pad) {
 void func_003A31C8(gaddr pad, gaddr report, int size);
 void func_003A30D8(gaddr pad);
 void func_003A2DC8__frontbin(gaddr pad, gaddr report, int size);
-void func_003A2CD8__frontbin(gaddr pad);
 void func_L01_00460A70(int pad, int report, int size);
+
+/* NTSC-U overlays have no pad start-up entry and preserve the initialized core records. */
+#if defined(RAC3_PAL)
+void func_003A2CD8__frontbin(gaddr pad);
 /* One guest record pointer, as the boot clear takes; NTSC-U folds this name into that clear. */
 void func_L01_00460980(gaddr pad);
+#endif
 
 static void level_read(gaddr pad, gaddr report, int size) {
     func_L01_00460A70((int)pad, (int)report, size);
 }
 
+#if defined(RAC3_PAL)
 static void level_clear(gaddr pad) {
     func_L01_00460980(pad);
 }
+#endif
 
 static const pad_copy boot = {
     PADS,
@@ -235,7 +243,6 @@ static const pad_copy boot = {
     NO_PAD,
     1,
     func_003A31C8,
-    func_003A30D8,
 };
 static const pad_copy frontbin = {
     PADS,
@@ -245,7 +252,6 @@ static const pad_copy frontbin = {
     NO_PAD,
     1,
     func_003A2DC8__frontbin,
-    func_003A2CD8__frontbin,
 };
 static const pad_copy level = {
     PADS,
@@ -255,29 +261,32 @@ static const pad_copy level = {
     NO_PAD,
     1,
     level_read,
-    level_clear,
 };
 
 void func_003A2FC0(void) { /* the boot program's pad start-up */
-    pads_start(&boot);
+    pads_start(&boot, func_003A30D8);
 }
 
 void func_003A3B40(gaddr pad) { /* its pad update */
     pad_update(&boot, pad);
 }
 
+#if defined(RAC3_PAL)
 void func_003A2BC0__frontbin(void) {
-    pads_start(&frontbin);
+    pads_start(&frontbin, func_003A2CD8__frontbin);
 }
+#endif
 
 void func_003A3740__frontbin(gaddr pad) {
     pad_update(&frontbin, pad);
 }
 
+#if defined(RAC3_PAL)
 int func_L01_00460868(void) {
-    pads_start(&level);
+    pads_start(&level, level_clear);
     return 0;
 }
+#endif
 
 int func_L01_004613E8(int pad) {
     pad_update(&level, (gaddr)pad);
