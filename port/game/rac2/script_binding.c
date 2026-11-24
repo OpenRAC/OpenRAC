@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[39];
+static const openrac_script_point k_points[40];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -425,6 +425,25 @@ static void S20_call(void* original, const openrac_script_value* v, openrac_scri
 }
 #define S20_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S20_THUNK(N, I, 0) S20_THUNK(N, I, 1) S20_THUNK(N, I, 2) S20_THUNK(N, I, 3) S20_THUNK(N, I, 4) S20_THUNK(N, I, 5) S20_THUNK(N, I, 6) S20_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
 
+/* Shape S21: void(i32) (moby). */
+typedef void (*S21_fn)(int32_t);
+static const uint8_t k_S21_kinds[] = {OPENRAC_SV_I32};
+static const char* const k_S21_names[] = {"moby"};
+static void S21_call(void* original, const openrac_script_value* v, openrac_script_value* r) {
+    (void)r;
+    ((S21_fn)original)((int32_t)v[0].i);
+}
+#define S21_THUNK(N, I, K) static void N##_##K(int32_t moby) { \
+    openrac_script_value v[1] = {{0, 0.0}}; \
+    v[0].i = (int64_t)moby; \
+    openrac_script_value r = {0, 0.0}; \
+    if (!openrac_script_dispatch(&k_points[I], &k_##N##_links[K], v, &r)) { \
+        ((S21_fn)k_##N##_links[K].original)(moby); \
+        return; \
+    } \
+}
+#define S21_POINT(N, I) static openrac_script_link k_##N##_links[OPENRAC_SCRIPT_LINKS]; S21_THUNK(N, I, 0) S21_THUNK(N, I, 1) S21_THUNK(N, I, 2) S21_THUNK(N, I, 3) S21_THUNK(N, I, 4) S21_THUNK(N, I, 5) S21_THUNK(N, I, 6) S21_THUNK(N, I, 7) static void* const k_##N##_thunks[OPENRAC_SCRIPT_LINKS] = {(void*)N##_0, (void*)N##_1, (void*)N##_2, (void*)N##_3, (void*)N##_4, (void*)N##_5, (void*)N##_6, (void*)N##_7};
+
 S0_POINT(Hero_TakeDamage, 0) /* rac2.player.take_damage */
 S1_POINT(Moby_GetHitMessage, 1) /* rac2.combat.get_hit */
 S2_POINT(Moby_PostHit, 2) /* rac2.combat.post_hit */
@@ -464,8 +483,9 @@ S19_POINT(Arena_Prize, 35) /* rac2.arena.prize */
 S13_POINT(ArmorVendor_BuildList, 36) /* rac2.armor_vendor.build_list */
 S20_POINT(ArmorVendor_Buy, 37) /* rac2.armor_vendor.buy */
 S13_POINT(Vendor_Preview, 38) /* rac2.vendor.preview */
+S21_POINT(Moby_PrisonPlumber_Update, 39) /* rac2.moby.prison_plumber.update */
 
-static const openrac_script_point k_points[39] = {
+static const openrac_script_point k_points[40] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.combat.post_hit", "void(u32,u32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Moby_PostHit_links, k_Moby_PostHit_thunks, S2_call},
@@ -505,9 +525,11 @@ static const openrac_script_point k_points[39] = {
     {"rac2.armor_vendor.build_list", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_ArmorVendor_BuildList_links, k_ArmorVendor_BuildList_thunks, S13_call},
     {"rac2.armor_vendor.buy", "void(u32,u32)", 2, k_S20_kinds, k_S20_names, OPENRAC_SV_VOID, k_ArmorVendor_Buy_links, k_ArmorVendor_Buy_thunks, S20_call},
     {"rac2.vendor.preview", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Vendor_Preview_links, k_Vendor_Preview_thunks, S13_call},
+    {"rac2.moby.prison_plumber.update", "void(i32)", 1, k_S21_kinds, k_S21_names, OPENRAC_SV_VOID, k_Moby_PrisonPlumber_Update_links, k_Moby_PrisonPlumber_Update_thunks, S21_call},
 };
 
-static const openrac_script_alias k_aliases[158] = {
+static const openrac_script_alias k_aliases[162] = {
+    {"APRac2_PrisonPlumber", "rac2.moby.prison_plumber.update"},
     {"Arena_Prize", "rac2.arena.prize"},
     {"ArmorVendor_BuildList", "rac2.armor_vendor.build_list"},
     {"ArmorVendor_Buy", "rac2.armor_vendor.buy"},
@@ -533,6 +555,7 @@ static const openrac_script_alias k_aliases[158] = {
     {"Moby_MapperReturn_Update", "rac2.moby.mapper_return.update"},
     {"Moby_NanotechBall_Update", "rac2.moby.nanotech_ball.update"},
     {"Moby_PostHit", "rac2.combat.post_hit"},
+    {"Moby_PrisonPlumber_Update", "rac2.moby.prison_plumber.update"},
     {"Moby_RaceController_Update", "rac2.moby.race_controller.update"},
     {"Moby_RecordDeath", "rac2.moby.record_death"},
     {"Moby_SwingshotArea_Update", "rac2.moby.swingshot_area.update"},
@@ -660,6 +683,8 @@ static const openrac_script_alias k_aliases[158] = {
     {"func_L11_004618C0", "rac2.moby.levitator_seller.update"},
     {"func_L11_00463368", "rac2.moby.levitator_seller.update"},
     {"func_L11_004676D0", "rac2.moby.levitator_seller.update"},
+    {"func_L14_00425CB0", "rac2.moby.prison_plumber.update"},
+    {"func_L14_0042B290", "rac2.moby.prison_plumber.update"},
     {"func_L18_003F90A0", "rac2.moby.mapper_return.update"},
     {"func_L18_003FA510", "rac2.moby.mapper_return.update"},
     {"func_L18_003FD180", "rac2.moby.mapper_return.update"},
@@ -674,8 +699,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 39, k_points, 0, k_fields, NULL,
-    158, k_aliases,
+    "rac2", 3, k_discs, 40, k_points, 0, k_fields, NULL,
+    162, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

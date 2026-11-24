@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Updates the Aranos plumber and his reward. The game declaration takes a signed 32-bit moby address.
+struct Moby_PrisonPlumber_Update {
+    static constexpr const char* id = "rac2.moby.prison_plumber.update";
+    static constexpr const char* name = "Moby_PrisonPlumber_Update";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -375,6 +383,9 @@ namespace hooks {
         namespace nanotech_ball {
             using update = rac2::Moby_NanotechBall_Update;
         }  // namespace nanotech_ball
+        namespace prison_plumber {
+            using update = rac2::Moby_PrisonPlumber_Update;
+        }  // namespace prison_plumber
         namespace race_controller {
             using update = rac2::Moby_RaceController_Update;
         }  // namespace race_controller
