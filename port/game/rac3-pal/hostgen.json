@@ -212,7 +212,7 @@
       "func_0038F078__frontbin": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_0038D750__frontbin": "void (int, int, float)",
       "func_L01_0040EFF0": "void (int, int, float)",
-      "func_L01_00460980": "void (int)",
+      "func_L01_00460980": "void (unsigned int)",
       "func_L01_00460A70": "void (int, int, int)",
       "func_L01_005216A8": "int (int, int)",
       "func_003AA168": "int (int, int, float)",

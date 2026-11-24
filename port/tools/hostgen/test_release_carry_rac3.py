@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
-"""release_carry_rac3.py's merge of rac3-ntsc's release.json "hostgen" keys over rac3-pal's carried
-hostgen.json: dicts merge, a list of function names gets the release's added, another list is replaced, a value replaces, null removes."""
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (c) 2026 the OpenRAC contributors
+"""Tests rac3 release configuration merging and syntax of the renamed native pad declarations.
+
+Run with python3 -m unittest discover -s port/tools/hostgen -p test_release_carry_rac3.py.
+The syntax test needs Clang, not private disc or generated game inputs.
+"""
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -9,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from release_carry_rac3 import merge  # noqa: E402
 import release_rac3  # noqa: E402
+from release_host import read_names, rename  # noqa: E402
 
 
 class Merge(unittest.TestCase):
@@ -53,6 +61,27 @@ class FrontGlobals(unittest.TestCase):
             self.assertEqual(after["names"]["D_0037FBE0"], "D_0037FC70")
             self.assertEqual(after["units"]["src/frontbin/b.c"]["D_0037FBE0"], "D_0037BC30")
             self.assertNotIn("src/boot_elf/a.c", after["units"])
+
+
+class NativePads(unittest.TestCase):
+    """The real host source must compile when release pairs fold two clear names into one."""
+
+    @unittest.skipUnless(shutil.which("clang"), "clang not available")
+    def test_renamed_pad_declarations_agree(self):
+        """Compiles the real carried C so conflicting folded declarations cannot pass silently."""
+        port = Path(__file__).resolve().parents[2]
+        names = read_names(port / "game/rac3-ntsc/host/rac3_names.tsv")
+        text = rename((port / "game/rac3-pal/host/pad.c").read_text(encoding="utf-8"), names)
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "pad.c"
+            source.write_text(text, encoding="utf-8")
+            includes = [port, port / "runtime/include", port / "game/common/include",
+                        port / "game/rac3-ntsc/host", port / "game/rac3-pal/host"]
+            command = [shutil.which("clang"), "-std=gnu11", "-fsyntax-only", "-Wall", "-Wextra"]
+            for path in includes:
+                command += ["-I", str(path)]
+            result = subprocess.run([*command, str(source)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

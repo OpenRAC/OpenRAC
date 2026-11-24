@@ -21,6 +21,21 @@
    "status": "differs",
    "port": "host C"
   },
+  "func_003A2BC0__frontbin": {
+   "is": "func_PAL_003A2BC0__frontbin",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_003A2CD8__frontbin": {
+   "is": "func_PAL_003A2CD8__frontbin",
+   "status": "none",
+   "port": "host C"
+  },
+  "func_003A31C8": {
+   "is": "func_003A3088",
+   "status": "differs",
+   "port": "host C"
+  },
   "func_003A7EF8": {
    "is": "func_003A7DB0",
    "status": "differs",
@@ -111,6 +126,11 @@
    "status": "differs",
    "port": "hook"
   },
+  "func_L01_00460868": {
+   "is": "func_PAL_L01_00460868",
+   "status": "none",
+   "port": "host C"
+  },
   "func_L01_004B04D8": {
    "is": "func_L01_004ACA98",
    "status": "differs",
@@ -148,6 +168,8 @@
   }
  },
  "left_out": {
+  "func_003A2BC0__frontbin": "NTSC-U has no such function (none)",
+  "func_L01_00460868": "NTSC-U has no such function (none)",
   "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again",
   "mp:func_L39_0067A7E0": "no NTSC-U pair (release/mp_pairs.json)"
  },
@@ -209,6 +231,10 @@
   "0x001BBC40": {
    "is": "0x001BBC40",
    "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x78, 24 of 24 places agree"
+  },
+  "0x001D4CF4": {
+   "is": "0x001D4CF4",
+   "why": "the active pad's not-ready flag the pad update writes ($gp - 0x7BBC: NTSC-U's func_003A3A00 stores to it as PAL's func_003A3B40 does, asm/us/boot_elf/13_text/f_003A3A00.s at 0x003A3A64, and both programs' $gp is 0x001DC8B0, config/gp.tsv)"
   },
   "0x001A71A0": {
    "is": "0x001A71A0",
@@ -301,7 +327,6 @@
  },
  "own_functions": [
   "func_00395FE0__frontbin",
-  "func_0039DB38__frontbin",
   "func_003B0C70__frontbin",
   "func_003B0D18__frontbin",
   "func_003B6430",

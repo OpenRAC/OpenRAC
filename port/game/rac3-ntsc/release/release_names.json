@@ -9,8 +9,9 @@
   "function: a second row of one name (the first kept)": 17,
   "function: asm": 61,
   "function: differs": 205,
-  "function: match": 4491,
-  "function: none": 27,
+  "function: match": 4492,
+  "function: none": 26,
+  "function: paired by hand (release.json)": 2,
   "global: placed by hand (release.json)": 3,
   "global: renamed to its NTSC-U address": 1689,
   "global: the front end's own address": 325,
@@ -5899,6 +5900,8 @@
   "func_U_L41_0041AE28": "func_L41_0041AE28",
   "func_U_L41_0045E410": "func_L41_0045E410",
   "func_U_L41_00480A08": "func_L41_00480A08",
+  "func_L01_00460980": "func_003A2F98",
+  "func_L01_00460A70": "func_L01_0045D5C8",
   "D_001D5680": "D_PAL_001D5680",
   "D_001D5684": "D_PAL_001D5684",
   "D_001D56C0": "D_PAL_001D56C0",
@@ -10527,7 +10530,7 @@
    "func_0038CED8": "func_003887A0",
    "func_0038D160": "func_00388A28",
    "func_0038DBA0": "func_00389468",
-   "func_003A2DC8": "func_PAL_003A2DC8",
+   "func_003A2DC8": "func_0039DB38",
    "func_003A3738": "func_0039E4A8",
    "func_003A3740": "func_0039E4B0"
   },
@@ -10546,7 +10549,7 @@
    "func_0038DAB8": "func_00389380",
    "func_0038DB00": "func_003893C8",
    "func_0038DBA0": "func_00389468",
-   "func_003A2DC8": "func_PAL_003A2DC8",
+   "func_003A2DC8": "func_0039DB38",
    "func_003A3740": "func_0039E4B0",
    "func_003A3B70": "func_0039E8E0",
    "func_003A3BB8": "func_0039E928",
@@ -10580,7 +10583,7 @@
    "func_0038DAB8": "func_00389380",
    "func_0038DB00": "func_003893C8",
    "func_0038DBA0": "func_00389468",
-   "func_003A2DC8": "func_PAL_003A2DC8",
+   "func_003A2DC8": "func_0039DB38",
    "func_003A3740": "func_0039E4B0",
    "func_003A3CF0": "func_0039EA60",
    "func_003A3DC8": "func_0039EB38",
@@ -14456,7 +14459,7 @@
    "func_003A1F30": "func_0039CEA8"
   },
   "src/us/frontbin/0039DB38.c": {
-   "func_003A2DC8": "func_PAL_003A2DC8"
+   "func_003A2DC8": "func_0039DB38"
   },
   "src/us/frontbin/003A04A0.c": {
    "func_003A58C0": "func_003A04A0"
@@ -15009,7 +15012,6 @@
   "func_003A2330",
   "func_003A2BC0",
   "func_003A2CD8",
-  "func_003A2DC8",
   "func_003A31C8",
   "func_003A40D0",
   "func_003A58C0",
@@ -15406,11 +15408,6 @@
    "src/us/frontbin/"
   ],
   "func_003A2CD8": [
-   "nonmatching/frontbin/",
-   "src/frontbin/",
-   "src/us/frontbin/"
-  ],
-  "func_003A2DC8": [
    "nonmatching/frontbin/",
    "src/frontbin/",
    "src/us/frontbin/"

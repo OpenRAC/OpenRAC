@@ -419,8 +419,10 @@
       "func_003AD9F0",
       "func_003C0160",
       "func_00391E78__frontbin",
-      "func_003BE710"
+      "func_003BE710",
+      "func_0039DB38__frontbin"
     ],
+    "pad_reader_why": "func_0039DB38__frontbin is the proven pad reader, but two flick-history lookback bounds differ from PAL at +0x7F0 and +0x850 (3 to 4 and 4 to 5). Keep NTSC-U's instructions rather than compiling PAL's C after the hand pair makes its name available.",
     "roots": [
       "func_003932B0__frontbin"
     ],
@@ -488,6 +490,18 @@
     "func_003F0700__frontbin": {
       "is": "func_003EB178__frontbin",
       "why": "frontbin's copy of func_003F0AB8: the same 8 bytes at 0x003EB178 after the same 20-byte remnant (PAL 0x003F06E8, NTSC-U 0x003EB160), the only place they occur"
+    },
+    "func_003A2DC8__frontbin": {
+      "is": "func_0039DB38__frontbin",
+      "why": "config/us/names.tsv places frontbin's func_003A2DC8 at 0x0039DB38; its inventory gives the same 2412-byte extent. Both discs' frontbin programs give one masked instruction-window match there, with all 603 words matching apart from relocated calls and flick-history lookback bounds at +0x7F0 and +0x850 (3 to 4, 4 to 5). The paired NTSC-U update 0x0039E4B0 calls this reader at +0xE8 and +0x3B0. The release keeps the reader from assembly, not PAL's C."
+    },
+    "func_L01_00460980": {
+      "is": "func_003A2F98",
+      "why": "Veldin's clear is byte-identical for all 240 bytes at PAL 0x00460980 and NTSC-U 0x0045D4D8, the only masked-window match. config/us/levels/functions.tsv names the NTSC-U row func_003A2F98, kind boot_elf, with 34 level places and the same da03d6c8989f4d0d digest as PAL's func_003A2CD8 row; the host symbol is the catalogue's boot name, not a fabricated L01 name."
+    },
+    "func_L01_00460A70": {
+      "is": "func_L01_0045D5C8",
+      "why": "PAL's func_003A2DC8 row places the reader at L01 0x00460A70; NTSC-U's func_0039DB38 frontbin row places it at L01 0x0045D5C8. Both discs' Veldin programs give one masked-window match there across all 603 words, differing only in three relocated calls and the two NTSC-U flick-history lookback bounds also present in frontbin. The paired NTSC-U update 0x0045DF40 calls 0x0045D5C8 at +0xE8 and +0x3B0."
     }
   },
   "addresses": {
