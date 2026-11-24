@@ -216,14 +216,15 @@ void func_003A30D8(gaddr pad);
 void func_003A2DC8__frontbin(gaddr pad, gaddr report, int size);
 void func_003A2CD8__frontbin(gaddr pad);
 void func_L01_00460A70(int pad, int report, int size);
-void func_L01_00460980(int pad);
+/* One guest record pointer, as the boot clear takes; NTSC-U folds this name into that clear. */
+void func_L01_00460980(gaddr pad);
 
 static void level_read(gaddr pad, gaddr report, int size) {
     func_L01_00460A70((int)pad, (int)report, size);
 }
 
 static void level_clear(gaddr pad) {
-    func_L01_00460980((int)pad);
+    func_L01_00460980(pad);
 }
 
 static const pad_copy boot = {

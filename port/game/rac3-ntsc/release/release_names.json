@@ -9,9 +9,10 @@
   "function: a second row of one name (the first kept)": 16,
   "function: asm": 66,
   "function: differs": 202,
-  "function: match": 4480,
+  "function: match": 4481,
   "function: nomatch": 1,
-  "function: none": 37,
+  "function: none": 36,
+  "function: paired by hand (release.json)": 2,
   "global: placed by hand (release.json)": 3,
   "global: renamed to its NTSC-U address": 1689,
   "global: the front end's own address": 323,
@@ -5608,6 +5609,8 @@
   "func_U_003F2580": "func_003F2580",
   "func_U_L03_003AE8E0": "func_L03_003AE8E0",
   "func_U_L06_00351718": "func_L06_00351718",
+  "func_L01_00460980": "func_003A2F98",
+  "func_L01_00460A70": "func_L01_0045D5C8",
   "D_001D5680": "D_PAL_001D5680",
   "D_001D5684": "D_PAL_001D5684",
   "D_001D56C0": "D_PAL_001D56C0",
@@ -10211,7 +10214,7 @@
    "func_0038CED8": "func_003887A0",
    "func_0038D160": "func_00388A28",
    "func_0038DBA0": "func_00389468",
-   "func_003A2DC8": "func_PAL_003A2DC8",
+   "func_003A2DC8": "func_0039DB38",
    "func_003A3738": "func_0039E4A8",
    "func_003A3740": "func_0039E4B0"
   },
@@ -10230,7 +10233,7 @@
    "func_0038DAB8": "func_00389380",
    "func_0038DB00": "func_003893C8",
    "func_0038DBA0": "func_00389468",
-   "func_003A2DC8": "func_PAL_003A2DC8",
+   "func_003A2DC8": "func_0039DB38",
    "func_003A3740": "func_0039E4B0",
    "func_003A3B70": "func_0039E8E0",
    "func_003A3BB8": "func_0039E928",
@@ -10264,7 +10267,7 @@
    "func_0038DAB8": "func_00389380",
    "func_0038DB00": "func_003893C8",
    "func_0038DBA0": "func_00389468",
-   "func_003A2DC8": "func_PAL_003A2DC8",
+   "func_003A2DC8": "func_0039DB38",
    "func_003A3740": "func_0039E4B0",
    "func_003A3CF0": "func_0039EA60",
    "func_003A3DC8": "func_0039EB38",
@@ -14647,7 +14650,6 @@
   "func_003A2330",
   "func_003A2BC0",
   "func_003A2CD8",
-  "func_003A2DC8",
   "func_003A31C8",
   "func_003A40D0",
   "func_003A5598",
@@ -15031,11 +15033,6 @@
    "src/us/frontbin/"
   ],
   "func_003A2CD8": [
-   "nonmatching/frontbin/",
-   "src/frontbin/",
-   "src/us/frontbin/"
-  ],
-  "func_003A2DC8": [
    "nonmatching/frontbin/",
    "src/frontbin/",
    "src/us/frontbin/"

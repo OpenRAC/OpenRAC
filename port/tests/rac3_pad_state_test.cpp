@@ -370,8 +370,8 @@ void func_003A2CD8__frontbin(gaddr pad) {
     func_003A30D8(pad);
 }
 
-void func_L01_00460980(int pad) {
-    func_003A30D8(static_cast<gaddr>(pad));
+void func_L01_00460980(gaddr pad) {
+    func_003A30D8(pad);
 }
 
 }  // extern "C"

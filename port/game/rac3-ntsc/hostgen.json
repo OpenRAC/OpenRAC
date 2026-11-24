@@ -45,7 +45,6 @@
     "func_003932B0__frontbin",
     "func_00393290__frontbin",
     "func_00395FE0__frontbin",
-    "func_0039DB38__frontbin",
     "func_003A0170__frontbin",
     "func_003B0C70__frontbin",
     "func_003B0D18__frontbin",
@@ -260,6 +259,8 @@
       "func_0038A848__frontbin": "void (float, float, float, float, int, int, int, int, int, unsigned long long, float, float)",
       "func_00389018__frontbin": "void (int, int, float)",
       "func_L01_0040CAC0": "void (int, int, float)",
+      "func_003A2F98": "void (unsigned int)",
+      "func_L01_0045D5C8": "void (int, int, int)",
       "func_L01_0051D658": "int (int, int)",
       "func_003AA020": "int (int, int, float)",
       "func_00391040": "int (int, int, float)",
@@ -1674,7 +1675,8 @@
     "func_003AD9F0",
     "func_003C0160",
     "func_00391E78__frontbin",
-    "func_003BE710"
+    "func_003BE710",
+    "func_0039DB38__frontbin"
   ],
   "overlay_hook": true,
   "relocate": [
