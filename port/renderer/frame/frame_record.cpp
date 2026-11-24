@@ -61,6 +61,8 @@ bool FrameRecording::anchored() const {
 
 void FrameRecording::clear() {
     serial = 0;
+    list_root = 0;
+    list_generation = 0;
     commands.clear();
     ui_quads.clear();
     ui_items.clear();
@@ -71,31 +73,98 @@ std::uint32_t FrameRecorder::push(FrameCommand command) {
     // A game that records and is never captured (no window frame for a long while) keeps the last
     // ones only.
     if (m_open.commands.size() >= kMostCommands) {
+        const std::uint32_t root = m_open.list_root;
+        const std::uint64_t generation = m_open.list_generation;
         close();
+        // The existing command bound starts a new payload; ownership still belongs to this build.
+        m_open.clear();
+        m_open.list_root = root;
+        m_open.list_generation = generation;
     }
     command.anchor = m_anchor;
     m_open.commands.push_back(command);
+    m_open_dirty = true;
     return static_cast<std::uint32_t>(m_open.commands.size() - 1);
+}
+
+void FrameRecorder::begin_list(std::uint32_t root) {
+    close();
+
+    // Reusing a buffer invalidates its old command ownership, not just its old world anchors.
+    for (FrameRecording& recording : m_kept) {
+        if (recording.list_root == root) {
+            recording.clear();
+        }
+    }
+
+    m_owns_lists = true;
+    m_open.clear();
+    m_open.list_root = root;
+    m_open.list_generation = ++m_list_generation;
+    m_open_dirty = false;
 }
 
 void FrameRecorder::close() {
     m_anchor = 0;
+
+    // A residual-only owned build is meaningful: its predecessor was retired by begin_list.
     if (m_open.empty()) {
-        m_open.clear();
+        // Legacy capture still releases payloads that have no command; owned builds keep their identity.
+        if (m_open.list_generation == 0) {
+            m_open.clear();
+        }
+
+        m_open_dirty = false;
         return;
     }
+
+    // Repeated captures without new commands keep the same build and must not consume history slots.
+    if (m_open.list_generation != 0 && !m_open_dirty) {
+        return;
+    }
+
     // The oldest kept goes.
     auto oldest = std::min_element(
         m_kept.begin(), m_kept.end(), [](const FrameRecording& a, const FrameRecording& b) {
             return a.serial < b.serial;
         }
     );
+
+    // A second capture of one build replaces its snapshot, retaining its earlier commands/payloads.
+    if (m_open.list_generation != 0) {
+        auto same =
+            std::find_if(m_kept.begin(), m_kept.end(), [&](const FrameRecording& recording) {
+                return recording.list_generation == m_open.list_generation;
+            });
+
+        if (same != m_kept.end()) {
+            oldest = same;
+        }
+
+        *oldest = m_open;
+        oldest->serial = ++m_serial;
+        m_open_dirty = false;
+        return;
+    }
+
     *oldest = std::move(m_open);
     oldest->serial = ++m_serial;
     m_open = {};
+    m_open_dirty = false;
 }
 
 const FrameRecording* FrameRecorder::match(std::span<const std::uint32_t> tags) const {
+    return match(0, tags);
+}
+
+const FrameRecording* FrameRecorder::match(
+    std::uint32_t root, std::span<const std::uint32_t> tags
+) const {
+    // An owned recording must be requested with the submitted root, never an inferred anchor alone.
+    if (m_owns_lists && root == 0) {
+        return nullptr;
+    }
+
     if (tags.empty()) {
         return nullptr;
     }
@@ -106,6 +175,18 @@ const FrameRecording* FrameRecorder::match(std::span<const std::uint32_t> tags) 
         if (r.serial == 0 || r.empty() || (best != nullptr && r.serial < best->serial)) {
             continue;
         }
+
+        // An empty new build cannot revive either an older owner or a legacy unowned recording.
+        if (m_owns_lists && (r.list_generation == 0 || r.list_root != root)) {
+            continue;
+        }
+
+        // Explicit unanchored commands may belong to a reached owned list, but not to another root.
+        if (m_owns_lists && !r.anchored()) {
+            best = &r;
+            continue;
+        }
+
         const bool found =
             std::any_of(r.commands.begin(), r.commands.end(), [&](const FrameCommand& c) {
                 return c.anchor != 0 && std::binary_search(sorted.begin(), sorted.end(), c.anchor);
@@ -118,6 +199,11 @@ const FrameRecording* FrameRecorder::match(std::span<const std::uint32_t> tags) 
 }
 
 const FrameRecording* FrameRecorder::latest_unanchored() const {
+    // Native commands of owned builds must not bypass list ownership through the standalone fallback.
+    if (m_owns_lists) {
+        return nullptr;
+    }
+
     const FrameRecording* best = nullptr;
     for (const FrameRecording& r : m_kept) {
         if (r.serial != 0 && !r.empty() && !r.anchored()
@@ -134,6 +220,8 @@ void FrameRecorder::reset() {
         r.clear();
     }
     m_anchor = 0;
+    m_owns_lists = false;
+    m_open_dirty = false;
 }
 
 std::vector<std::size_t> place_commands(

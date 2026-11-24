@@ -99,6 +99,8 @@ renderer::UiQuad ui_quad_record(const openrac_game_ui_rect& quad);
 namespace recorder {
 void begin();
 void end();
+// Starts the producer-announced construction at a normalized RAM root, retiring only its old build.
+void list_begin(gaddr root);
 void anchor(gaddr list_cursor);
 void world(unsigned layers);
 void world_mobys();

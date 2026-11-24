@@ -966,6 +966,9 @@ openrac_add_test(frame_anchor INCLUDES game/common/include runtime/include)
 openrac_add_test(rac1_screen_cover SOURCES tests/rac1_screen_cover_test.cpp
                  game/rac1/host/screen_cover.c renderer/frame/frame_record.cpp
                  INCLUDES . game/common/include runtime/include)
+openrac_add_test(frame_list_owner SOURCES tests/frame_list_owner_test.cpp
+                 game/rac1/host/frame_list_owner.c renderer/frame/frame_record.cpp
+                 INCLUDES . tests/frame_list_owner game/rac1-pal/host game/common/include runtime/include)
 openrac_add_test(game_image_sources SOURCES tests/game_image_sources_test.cpp
                  game/common/frontend/game_image_sources.cpp INCLUDES . game/common/include runtime/include)
 
