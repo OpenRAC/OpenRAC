@@ -59,6 +59,11 @@ bool same_moby(
 // or within `limit` of `pace`, the move the tick before, when known (kept its pace).
 bool kept_pace(const renderer::Vec3& step, float limit_squared, const renderer::Vec3* pace);
 
+// `from` turned part way to `to` with its translation, `t` from 0 (`from`) to 1 (`to`), however far
+// it moved; `to` when its X axis turned more than about 45 degrees (a cut). For what turns in place
+// and is far by its own units: a sky shell (its translation in the game's sky units).
+renderer::Mat4 blend_turning(const renderer::Mat4& from, const renderer::Mat4& to, float t);
+
 // Moves an attached world-space point from its source parent transform to the displayed one.
 // Singular source axes fall back to translation, preserving the point's finite position.
 void follow_moby(const renderer::Mat4& source, const renderer::Mat4& drawn, float point[3]);

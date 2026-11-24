@@ -658,6 +658,17 @@ still be drawn part way (`frontend/geometry.cpp`), so they were drawn where each
 about 20 times a second. A moby or a camera that keeps its pace (this tick's move within that step
 of the last tick's) is now drawn part way at any speed (`Kept::prev_paces`, `camera_pace`).
 
+Measured in a run (`OPENRAC_MOTION_LOG`, docs/port/DEBUGGING.md), the ship, its glass and the eye
+were drawn part way through the approach, but the exhaust was not: the engine flames (`0x003A6B90`,
+two rows of world quads laid along the engines from their joints each tick) and the trail (`0x003A8850`,
+a pool of 512 puffs at `*0x001D6EEC` that drift, grow and fade) went out through DrawWorldQuad with
+no owner and no id, up to about 135 quads a tick, so between ticks they stood where the tick left
+them while the hull moved on: at the approach's 20 ticks a second the exhaust stepped behind the
+smoothly moving ship. The flames are now owned by the ship (as the glass, levels' copy
+`func_L01_004AD768` too) and each puff carries its record's place as its id (`0x003D98C0`'s wrap), so
+frames between ticks move both. The sky's shells, which turn about 0.04 degrees a tick there, are
+turned part way too (`Kept::prev_sky_shells`).
+
 Not drawn yet: the planet (class 7683, a picture on a quad the ship flies towards, past its draw
 distance until the scene's last part, which the port's quicker loading never reaches) and the
 level's name ("Veldin" at `0x002D2018`, which `0x003C1890` prints through FontPrint fading in with
