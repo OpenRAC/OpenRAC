@@ -774,6 +774,12 @@ void frame_copy_strips() {
     CHECK(
         (openrac::test::tex0(0x1200, 1, gs::kPsmct16, 6, 6, true) & ~0x3FFFull) == 0x598204000ull
     );
+    // The TEX0 Veldin's dropship sends for its copy strips (a hidden run on 2026-11-24): the whole
+    // 64 bits, its shape the first. Its low half alone (0x20213240, what the port drew while the
+    // decomp's C took GetEffectTex as 32-bit) has neither TH nor TCC and is not a frame copy, so
+    // the copy strips stayed squares: frame_copy never set, no mask pairs, no haze patches.
+    CHECK((0x620213240ull & ~0x3FFFull) == 0x620210000ull);
+    CHECK((0x20213240ull & ~0x3FFFull) != 0x620210000ull);
 
     const auto at = [](float s, float t, float k, float want_s, float want_t) {
         const auto [u, v] = frame_copy_st(s, t, k);

@@ -511,3 +511,17 @@ the native heat haze (`renderer::frame_copy_haze` → `Kept::haze` → `Haze`, t
 renderer): its centre, half the square's side, and the mask's alpha as its strength. The pairs
 leave the strips; a copy strip without its mask still goes the snapshot way. Only frames that draw
 the world do this (the loading screen keeps its strips).
+
+## Dropship heat haze: the TEX0 was cut to 32 bits (2026-11-24)
+
+Neither of the two changes above ever ran in a game. The port draws 0x003C8400 from the decomp's
+functional C (nonmatching/functional/func_L01_003C8400.c), which declared GetEffectTex
+(func_00389598) as returning `s32`: hostgen kept the cast, and the copy strips' TEX0 reached the
+list as 0x20213240 instead of 0x6_2021_3240 (no TH, no TCC). `frame_copy_texture` never matched,
+so no strip was a frame copy, no mask paired with one, and the copies were drawn as the squares
+from the 2D path's target. Found with `OPENRAC_HAZE_LOG` in a hidden Veldin run on box2; fixed in
+rac3-decomp 3e4df279 (`extern long func_00389598(s32)`). With it the same run turns the 36 pairs a
+frame into 36 haze patches and the squares are gone. The same 32-bit declaration is still in
+src/levels/shared/L01_00363E68.c, src/levels/07_annihilation_nation/L07_003CE2B8.c,
+src/levels/09_tyhrranosis/L09_00317D00.c and nonmatching/functional/func_L07_003BFAE8.c and
+func_L32_003BE098.c (their effect textures lose TH, TCC and the CLUT block in the port).
