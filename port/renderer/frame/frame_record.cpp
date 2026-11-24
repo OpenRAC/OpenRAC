@@ -192,6 +192,13 @@ const FrameRecording* FrameRecorder::latest_unanchored() const {
     return best;
 }
 
+const FrameRecording* FrameRecorder::latest() const {
+    const auto found = std::find_if(m_kept.begin(), m_kept.end(), [this](const FrameRecording& r) {
+        return r.serial != 0 && r.serial == m_serial;
+    });
+    return found != m_kept.end() ? &*found : nullptr;
+}
+
 void FrameRecorder::reset() {
     m_open.clear();
     for (FrameRecording& r : m_kept) {

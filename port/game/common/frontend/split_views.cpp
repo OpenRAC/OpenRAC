@@ -147,11 +147,9 @@ void forget_changed_layout(SceneRenderState& owner, std::span<const renderer::Fr
 }  // namespace
 
 bool split_screen(const Kept& scene) {
-    return std::any_of(
-        scene.recording.views.begin(), scene.recording.views.end(), [](const auto& v) {
-            return v.has_world;
-        }
-    );
+    return std::any_of(scene.views.begin(), scene.views.end(), [](const auto& v) {
+        return v.has_world;
+    });
 }
 
 void draw_split_views(SceneFrame& frame) {
@@ -167,10 +165,10 @@ void draw_split_views(SceneFrame& frame) {
     const int height = frame.output.height;
     const bool sampleable = owner.enhanced_graphics_available() && frame.graphics.enhanced_graphics;
 
-    forget_changed_layout(owner, frame.scene.recording.views);
+    forget_changed_layout(owner, frame.scene.views);
 
     // Only a recorded world refreshes a player's retained picture.
-    for (const renderer::FrameView& v : frame.scene.recording.views) {
+    for (const renderer::FrameView& v : frame.scene.views) {
         // Layout-only calls and malformed coordinates do not describe a drawable view.
         if (!v.valid() || !v.has_world) {
             continue;

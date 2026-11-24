@@ -3091,6 +3091,8 @@ struct TickPackets {
     // The frame recorder's commands this list was built with, and where they go in `packets`.
     renderer::FrameRecording recording;
     std::vector<renderer::FrameSplice> splices;
+    // The split-screen views the game drew last (Kept::views).
+    std::vector<renderer::FrameView> views;
 };
 
 // How many of `splices` (in order) go before the world, the 2D path split at `before_world`: those
@@ -3183,6 +3185,13 @@ TickPackets capture_2d_path(
         for (std::size_t i = 0; i < alone->commands.size(); ++i) {
             k.splices.push_back({0, static_cast<std::uint32_t>(i)});
         }
+    }
+    // Split screen: the views come from the recording closed last, not from the one the list
+    // matched. Up Your Arsenal's split-screen maps send each player's view in a list of its own
+    // without waiting for a vertical blank, so each send ends a tick (openrac_game_dma_send): a
+    // tick closes one player's view while the list it walks is the other player's, sent before.
+    if (const renderer::FrameRecording* last = g->recorder.latest()) {
+        k.views = last->views;
     }
     // The effect quads the list marks (openrac_game_effect_quad_marker) take the TEST and ZBUF in
     // effect there: Going Commando's flight sparks and flames test alpha GEQUAL 0x60, and the
@@ -3810,6 +3819,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         splices_before_world(packets.recording, packets.splices, g->kept->before_world);
     g->kept->recording = std::move(packets.recording);
     g->kept->splices = std::move(packets.splices);
+    g->kept->views = std::move(packets.views);
     part.reset();
     return finish_tick(ram, state, packets.named_quads, level, debug, scene);
 }

@@ -94,6 +94,12 @@ full-screen frame: the kept views are forgotten. Temporal reconstruction and the
 which follow one camera's history, are off while views are drawn. rac3's maps 50 to 53 (NTSC-U's 54
 and 55 too) do this from their view layout (`host/mp_maps.c`).
 
+The views a tick draws are those of the recording closed last (`FrameRecorder::latest`), not of the
+one its 2D path matched. rac3's maps send each player's view in a display list of its own with no
+vertical blank between them, so each send ends a tick (`openrac_game_dma_send`): each capture
+closes one player's view while the list it walks is the one sent before, built with the recording
+before. A tick with nothing recorded keeps the latest recording's views.
+
 Each view keeps its own layer mask: its `World` calls' and the layers the game says it draws
 (`openrac_game_draw`) while the view is open, so a game whose only `World` call is at its terrain
 (rac3's) still gets its sky, ties, shrubs and mobys in each view. Layout calls without a world draw
@@ -260,7 +266,9 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 ## 9. Tests
 
 - `frame_record_test`: a recorded frame ordered without any DMA data; the game's screen stamped on
-  the commands after it; split-screen views kept in order with their rectangles and first cameras; anchors matched against a
+  the commands after it; split-screen views kept in order with their rectangles, first cameras and the layers drawn in
+  them, the staggered two-player layout kept whole, and the latest recording's views when the list
+  matches an older recording; anchors matched against a
   chain's tags and spliced in order (late list, resent list, missing anchor); recordings kept and
   chosen as the window does.
 - `renderer_direct_test` / `renderer_gif_test`: the native `DrawState` (blend presets and the GS

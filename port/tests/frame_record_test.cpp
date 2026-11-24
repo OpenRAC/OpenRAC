@@ -288,6 +288,54 @@ void test_view_drawn_layers() {
     }
 }
 
+// Up Your Arsenal's two-player layout is staggered: player 0 top left and player 1 bottom right,
+// each two thirds of the screen wide. They share x 170 to 341 and touch at y 224 (208 on NTSC-U's
+// 416-line screen) without overlapping, so both players' pictures stay in one layout.
+void test_staggered_views() {
+    FrameView upper;
+    upper.view = 0;
+    upper.rect = {0.0f, 0.0f, 341.0f, 224.0f};
+    FrameView lower;
+    lower.view = 1;
+    lower.rect = {170.0f, 224.0f, 512.0f, 448.0f};
+    CHECK(upper.compatible_with(lower) && lower.compatible_with(upper));
+    upper.rect[3] = lower.rect[1] = 208.0f;
+    lower.rect[3] = upper.screen_height = lower.screen_height = 416.0f;
+    CHECK(upper.compatible_with(lower) && lower.compatible_with(upper));
+}
+
+// The same maps send each player's view in a display list of its own with no vertical blank
+// between them, so every send ends a tick: each capture closes one player's view while the list
+// it walks is the other player's, sent before and built with the recording before. That list
+// matches the older recording; the views a tick draws are the latest recording's. A capture with
+// nothing recorded keeps the latest.
+void test_latest_views() {
+    FrameRecorder recorder;
+    CHECK(recorder.latest() == nullptr);
+    recorder.view_begin(0, {0.0f, 0.0f, 341.0f, 224.0f});
+    recorder.set_anchor(0x0068F1A0u);
+    recorder.push(op(FrameOp::World, 2));
+    recorder.close();  // Player 0's view, into list B.
+    recorder.view_begin(1, {170.0f, 224.0f, 512.0f, 448.0f});
+    recorder.set_anchor(0x0056F1A0u);
+    recorder.push(op(FrameOp::World, 2));
+    recorder.close();  // Player 1's view, into list A, while the window walks list B.
+    const std::vector<std::uint32_t> list_b = {0x0068F000u, 0x0068F1A0u};
+    const FrameRecording* matched = recorder.match(list_b);
+    const FrameRecording* latest = recorder.latest();
+    CHECK(matched != nullptr && latest != nullptr && matched != latest);
+    if (matched != nullptr && latest != nullptr && matched->views.size() == 1
+        && latest->views.size() == 1) {
+        CHECK(matched->views[0].view == 0);
+        CHECK(latest->views[0].view == 1 && latest->views[0].has_world);
+        CHECK(latest->serial == recorder.latest_serial());
+    }
+    recorder.close();  // Nothing recorded since.
+    CHECK(recorder.latest() == latest);
+    recorder.reset();
+    CHECK(recorder.latest() == nullptr);
+}
+
 }  // namespace
 
 int main() {
@@ -300,5 +348,7 @@ int main() {
     test_retained_view_layouts();
     test_view_world_layers();
     test_view_drawn_layers();
+    test_staggered_views();
+    test_latest_views();
     return openrac::test::result();
 }

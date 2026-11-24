@@ -178,6 +178,12 @@ public:
     // The most recent kept recording with no anchors (a frame with no display list at all), or null.
     const FrameRecording* latest_unanchored() const;
 
+    // The recording closed last (latest_serial()), anchored or not and whichever a list matches, or
+    // null. Its views are the split-screen views the game drew last: a game that sends each
+    // player's view in a display list of its own closes one view a capture, while the list that
+    // capture walks is the one sent before, built with an older recording.
+    const FrameRecording* latest() const;
+
     // The serial of the recording closed last (0 before any).
     std::uint64_t latest_serial() const { return m_serial; }
 

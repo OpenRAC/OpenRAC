@@ -125,6 +125,10 @@ struct Kept {
     renderer::FrameRecording recording;
     std::vector<renderer::FrameSplice> splices;
     std::size_t splices_before_world = 0;
+    // The split-screen views the game drew last (FrameRecorder::latest's), drawn by
+    // frontend/split_views.cpp: not `recording`'s, which is the one the 2D path's list was built
+    // with and can be older.
+    std::vector<renderer::FrameView> views;
     // The mods' heat haze (interface 1.12): each patch's place (x, y, z), radius and strength.
     std::vector<std::array<float, 5>> haze;
 
