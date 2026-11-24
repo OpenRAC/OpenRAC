@@ -19,6 +19,9 @@ The window runs the effect where the call puts it in the frame, over the target 
 (`FrameOp::ScreenEffect`, a draw of no vertices). On a panel target (`openrac_frame_target_begin`)
 it works on the panel.
 
+Resource creation and the input copy select texture unit zero explicitly. Processing owns units
+zero and one, not whichever unit the preceding world renderer left active.
+
 Inside a split-screen view, a terminal native world effect instead runs on that view's own picture
 before composition, with its local dimensions and copied payload. It is not replayed on the combined
 frame. The supported ordering and explicit residual-2D/composite-colour blockers are in

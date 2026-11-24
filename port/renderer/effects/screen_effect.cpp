@@ -177,21 +177,36 @@ void ScreenEffects::put_back(int mode, const RenderTarget& target) {
     });
 }
 
-void ScreenEffects::apply(
-    const ScreenEffect& effect, const RenderTarget& target, unsigned readable
-) {
-    // Nothing to put back, or a program that would not build, draws nothing.
-    if (m_failed || effect.kind == ScreenEffectKind::None || target.width <= 0 || target.height <= 0
-        || !prepare(target.width, target.height)) {
-        return;
-    }
-    const stats::Scope timing("Screen effect", stats::kGpu);
-    m_effect = effect;
-    // The target as drawn so far: every pass reads this copy, and the last writes the target.
+void ScreenEffects::copy_frame(const RenderTarget& target, unsigned readable) {
+    // World renderers may leave another unit active; the post pass owns only units zero and one.
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_frame);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, readable);
     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, target.width, target.height);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+}
+
+void ScreenEffects::apply(
+    const ScreenEffect& effect, const RenderTarget& target, unsigned readable
+) {
+    // Nothing to put back, or a program that would not build, draws nothing.
+    if (m_failed || effect.kind == ScreenEffectKind::None || target.width <= 0
+        || target.height <= 0) {
+        return;
+    }
+
+    // Resource creation must not overwrite a texture unit owned by the preceding world renderer.
+    glActiveTexture(GL_TEXTURE0);
+
+    // prepare() logs creation failures and latches them until release().
+    if (!prepare(target.width, target.height)) {
+        return;
+    }
+
+    const stats::Scope timing("Screen effect", stats::kGpu);
+    m_effect = effect;
+    // The target as drawn so far: every pass reads this copy, and the last writes the target.
+    copy_frame(target, readable);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
@@ -211,9 +226,7 @@ void ScreenEffects::apply(
     glUniform4f(m_shader.uniform("tint"), tint[0], tint[1], tint[2], tint[3]);
     glUniform1f(m_shader.uniform("threshold"), static_cast<float>(effect.threshold) / kUnit);
 
-    Level& half = m_levels[0];
-    Level& quarter = m_levels[1];
-    Level& eighth = m_levels[2];
+    auto& [half, quarter, eighth] = m_levels;
     // The glow: its pixels shrunk and blurred down to an eighth, made large again and added.
     if (effect.kind == ScreenEffectKind::Glow) {
         pass(kCopy, m_frame, target.width, target.height, half);
