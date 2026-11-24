@@ -3,7 +3,9 @@
 Up Your Arsenal's PAL disc (`SCES_524.56`), built by [hostgen](../../tools/hostgen/README.md) from
 [games/rac3](../../../games/rac3/decomp), whose C is PAL's own (`src/boot_elf`, `src/frontbin`,
 `src/levels`). The NTSC-U drafts are read only where PAL's code is the same; NTSC-U's own program is
-this one carried to that disc's addresses ([rac3-ntsc](../rac3-ntsc/README.md)).
+this one carried to that disc's addresses ([rac3-ntsc](../rac3-ntsc/README.md)). OpenRAC carries no
+patches to rac3-decomp: fixes hostgen needs in its C (such as `func_L07_003C8BA0`'s assembly lines,
+written with `\n` escapes so Clang reads them) go into rac3-decomp's master, and the pin follows it.
 
 **An early port, playable in parts.** It boots through the boot screens and the intro movie to the
 main menu, whose pages run and take the pad; a new game or a save loads its level, which is drawn
