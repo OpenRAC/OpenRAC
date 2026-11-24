@@ -3468,6 +3468,23 @@ TickPackets capture_2d_path(
     if (const renderer::FrameRecording* last = g->recorder.latest()) {
         k.views = last->views;
     }
+    const Result<void> view_submission = k.recording.resolve_views(k.splices);
+
+    // The render worker reports unsupported scoping before any partial or whole-target effect can run.
+    if (!view_submission) {
+        k.recording.view_error = view_submission.error().message;
+    }
+
+    // The views the window draws are the latest recording's: they take the effects scheduled on the
+    // matched recording's own view of the same player.
+    for (renderer::FrameView& drawn : k.views) {
+        for (const renderer::FrameView& own : k.recording.views) {
+            if (own.view == drawn.view) {
+                drawn.screen_effects = own.screen_effects;
+            }
+        }
+    }
+
     // The effect quads the list marks (openrac_game_effect_quad_marker) take the TEST and ZBUF in
     // effect there: Going Commando's flight sparks and flames test alpha GEQUAL 0x60, and the
     // pixels that pass write Z. A list of this tick marks this tick's quads. Going Commando's list

@@ -1064,7 +1064,9 @@ void GifInterpreter::run_command(const FrameCommand& c) {
         case FrameOp::EffectQuad:
         case FrameOp::ViewBegin:
         case FrameOp::ViewEnd:
-            break;  // the window's split, strips and effect quads' tests: read where recorded
+            // The window's split and the effect quads' tests, read where they were recorded; the
+            // views' worlds, drawn by the window (frontend/split_views.cpp).
+            break;
         case FrameOp::HudSide:
             hud_side(
                 static_cast<std::int32_t>(c.index),
@@ -1179,6 +1181,11 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             break;
         }
         case FrameOp::ScreenEffect: {
+            // A validated view-owned post pass has already run on that view's framebuffer.
+            if (c.view_effect_prepared) {
+                break;
+            }
+
             if (c.index >= r.screen_effects.size()) {
                 break;
             }

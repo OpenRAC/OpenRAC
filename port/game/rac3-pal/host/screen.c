@@ -45,8 +45,7 @@
 /* The display list's write pointer, as the place the recorded effect goes among what the list
  * still draws (openrac/frame.h, docs/port/FRAME_RECORDER.md section 4). */
 static void anchor_at(gaddr pointer) {
-    const gaddr at = GREF(gaddr, pointer);
-    openrac_frame_anchor(at < 0x02000000u ? at : 0);
+    openrac_frame_anchor_at(pointer);
 }
 
 /* A byte of the game's 0..255 from a word it keeps the value in. */

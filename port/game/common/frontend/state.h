@@ -40,6 +40,7 @@
 #include "platform/input.h"
 #include "platform/window.h"
 #include "renderer/effects/haze.h"
+#include "renderer/effects/screen_effect.h"
 #include "renderer/effects/shadows.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/renderer.h"
@@ -280,6 +281,8 @@ struct SceneRenderState {
     };
 
     std::array<SplitView, renderer::kFrameViews> split_views;
+    // Post-pass resources belong to the renderer/context; their sources are individual view pictures.
+    renderer::ScreenEffects split_screen_effects;
     scene::LevelData level;
     scene::LevelScene scene;
     DebugCamera debug_camera;
