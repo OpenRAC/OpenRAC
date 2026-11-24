@@ -74,6 +74,21 @@ std::array<float, 2> frame_copy_st(float s, float t, float picture_scale_x);
 // Whether any strip of `strips` this pass draws samples the frame copy.
 bool any_frame_copy(std::span<const EffectStrip> strips);
 
+// Up Your Arsenal's heat haze (the Galactic Rangers' dropship's thrusters, Veldin's 0x003C8400 and
+// its copies in the other levels) draws each patch as two square strips at the same place: a mask
+// of effect texture 0x3B that keeps the colour and writes only the destination alpha (ALPHA 0x6A,
+// (0 - 0) FIX + Cd), then the frame copy blended in by that alpha (ALPHA 0x54, (Cs - Cd) Ad + Cd),
+// its ST the corners' places in the picture pushed outwards. The window draws each such pair as a
+// round patch of the native heat haze (Haze): its centre, its radius (half the square's side, in
+// the game's units) and its strength from the mask's alpha, which fades as the patch drifts away.
+// Moves those pairs' patches into `haze` (x, y, z, radius, strength) and leaves the pairs out of
+// `strips`; a frame-copy strip without its mask stays.
+void frame_copy_haze(
+    std::vector<EffectStrip>& strips,
+    std::span<const EffectVertex> vertices,
+    std::vector<std::array<float, 5>>& haze
+);
+
 bool opaque_effect_strip(const EffectStrip& strip, std::span<const EffectVertex> vertices);
 bool opaque_effect_quad(const EffectQuad& quad);
 

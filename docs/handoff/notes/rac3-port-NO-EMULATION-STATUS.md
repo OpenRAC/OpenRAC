@@ -497,3 +497,15 @@ first row at the bottom). The chip's frame copy at the block is no longer read f
 Galactic Rangers' dropship (class 6877, draw callback 0x003C8D60, haze 0x003C8400) draws its
 thrusters' heat haze this way. Quads that sample the copy (the refraction rings) still go through
 `offscreen_texture`; moving them is left to P4b/P6.
+
+## Dropship heat haze as native patches (2026-11-24)
+
+The snapshot above still drew squares: the haze is two strips per patch (0x003C8400), a mask of
+effect texture 0x3B that keeps the colour and writes only the destination alpha (ALPHA 0x6A), then
+the frame copy blended in by that alpha (ALPHA 0x54). The window's target never held a round mask
+there, so every copy came out as a whole square, tinted by its vertex colour, at the vertices'
+alpha. The frontend now turns each mask and copy pair over the same corners into a round patch of
+the native heat haze (`renderer::frame_copy_haze` → `Kept::haze` → `Haze`, the mods' haze
+renderer): its centre, half the square's side, and the mask's alpha as its strength. The pairs
+leave the strips; a copy strip without its mask still goes the snapshot way. Only frames that draw
+the world do this (the loading screen keeps its strips).
