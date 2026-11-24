@@ -422,10 +422,13 @@ void scissor(const float* rect) {
     }
 }
 
+// Records supported effects with bounded parameters before the renderer consumes the recording.
 void screen_effect(const openrac_screen_effect& effect) {
+    // Unknown kinds have no native pass and must not consume a payload slot.
     if (!g || (effect.kind != OPENRAC_SCREEN_GLOW && effect.kind != OPENRAC_SCREEN_SOFTEN)) {
         return;
     }
+
     renderer::ScreenEffect e;
     e.kind = effect.kind == OPENRAC_SCREEN_GLOW ? renderer::ScreenEffectKind::Glow
                                                 : renderer::ScreenEffectKind::Soften;
@@ -433,12 +436,7 @@ void screen_effect(const openrac_screen_effect& effect) {
     e.threshold = std::min(effect.threshold, 0xFFu);
     e.strength = std::min(effect.strength, 0x100u);
     e.blur = static_cast<std::uint8_t>(std::min(effect.blur, 2u));
-    auto& effects = g->recorder.open().screen_effects;
-    renderer::FrameCommand c;
-    c.op = renderer::FrameOp::ScreenEffect;
-    c.index = static_cast<std::uint32_t>(effects.size());
-    effects.push_back(e);
-    g->recorder.push(c);
+    g->recorder.push_screen_effect(e);
 }
 
 }  // namespace openrac::frontend::recorder

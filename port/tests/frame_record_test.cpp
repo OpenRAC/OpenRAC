@@ -141,8 +141,7 @@ void screen_effects_kept() {
     ScreenEffect soften;
     soften.kind = ScreenEffectKind::Soften;
     soften.strength = 0x80;
-    recorder.open().screen_effects.push_back(soften);
-    recorder.push(op(FrameOp::ScreenEffect, 0));
+    recorder.push_screen_effect(soften);
     recorder.close();
     const FrameRecording* r = recorder.latest_unanchored();
     CHECK(r != nullptr);
@@ -734,6 +733,34 @@ void test_latest_views() {
     CHECK(recorder.latest() == nullptr);
 }
 
+// Keeps the payload with its command when appending an effect closes a full recording.
+void test_screen_effect_rollover() {
+    FrameRecorder recorder;
+    recorder.open().commands.resize(FrameRecorder::kMostCommands);
+    ScreenEffect glow;
+    glow.kind = ScreenEffectKind::Glow;
+    recorder.push_screen_effect(glow);
+
+    CHECK(recorder.open().commands.size() == 1);
+    CHECK(recorder.open().screen_effects.size() == 1);
+
+    // A missing payload is already a failure; do not read it while reporting that failure.
+    if (recorder.open().commands.size() != 1 || recorder.open().screen_effects.size() != 1) {
+        return;
+    }
+
+    CHECK(recorder.open().commands.front().index == 0);
+    CHECK(recorder.open().screen_effects.front() == glow);
+    const FrameRecording* previous = recorder.latest_unanchored();
+    CHECK(previous != nullptr);
+
+    // The full recording contains no command for the newly appended effect.
+    if (previous != nullptr) {
+        CHECK(previous->commands.size() == FrameRecorder::kMostCommands);
+        CHECK(previous->screen_effects.empty());
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -761,5 +788,6 @@ int main() {
     test_view_drawn_layers();
     test_staggered_views();
     test_latest_views();
+    test_screen_effect_rollover();
     return openrac::test::result();
 }

@@ -239,6 +239,9 @@ public:
     // this only at its actual list reset/swap, before recording any commands of the new build.
     void begin_list(std::uint32_t root);
 
+    // Appends an effect and its command to the same recording, including at the command limit.
+    void push_screen_effect(const ScreenEffect& effect);
+
     // Keeps the open recording when nonempty and forgets the anchor. In producer-owned mode this
     // snapshots the current build without losing earlier commands when capture splits the build;
     // otherwise it starts another legacy recording. Empty owned builds still retire old ownership.
