@@ -122,6 +122,9 @@ public:
     // Appends `command` with the current anchor; returns its index.
     std::uint32_t push(FrameCommand command);
 
+    // Appends an effect and its command to the same recording, including at the command limit.
+    void push_screen_effect(const ScreenEffect& effect);
+
     // Closes the open recording into the kept ones (when it has commands) and starts another.
     // The anchor is forgotten.
     void close();

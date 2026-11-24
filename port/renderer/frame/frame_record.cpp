@@ -33,6 +33,16 @@ std::uint32_t FrameRecorder::push(FrameCommand command) {
     return static_cast<std::uint32_t>(m_open.commands.size() - 1);
 }
 
+void FrameRecorder::push_screen_effect(const ScreenEffect& effect) {
+    FrameCommand command;
+    command.op = FrameOp::ScreenEffect;
+    const std::uint32_t at = push(command);
+
+    // push() can close the full recording, so payload storage is selected after it returns.
+    m_open.commands[at].index = static_cast<std::uint32_t>(m_open.screen_effects.size());
+    m_open.screen_effects.push_back(effect);
+}
+
 void FrameRecorder::close() {
     m_anchor = 0;
     if (m_open.empty()) {
