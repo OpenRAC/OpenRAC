@@ -354,7 +354,7 @@ void set_camera(SceneFrame& frame) {
     // Turned by the late camera latch (frontend/camera_latch.h) when it is on.
     const auto state = turned_camera(
         scene.has_prev_state && frame.output.alpha < 1.0f
-            ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
+            ? blend_camera(scene.prev_state, scene.state, frame.output.alpha, camera_pace(scene))
             : scene.state,
         {frame.output.latch_yaw, frame.output.latch_pivot, frame.output.latch_pitch}
     );
