@@ -1000,6 +1000,14 @@ void openrac_frame_effect_parent(uint32_t attachment) {
     (void)attachment;
 }
 
+void openrac_frame_effect_parent_position(uint32_t attachment) {
+    OPENRAC_RECORD(
+        "openrac_frame_effect_parent_position",
+        placement(renderer::FrameOp::EffectParent, attachment, 1)
+    );
+    (void)attachment;
+}
+
 void openrac_frame_hud_side(int side, unsigned how) {
     OPENRAC_RECORD(
         "openrac_frame_hud_side",

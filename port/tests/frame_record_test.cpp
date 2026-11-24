@@ -7,6 +7,7 @@
 // tick late or sent again, and a place the list never reached drops its commands.
 
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 #include "check.h"
@@ -132,11 +133,95 @@ void late_and_resent_lists() {
     CHECK(recorder.match(std::vector<std::uint32_t>{0xC000}) == nullptr);
 }
 
+// Drops an unanchored follower of an unreachable command until a later anchor is reached.
+void test_dropped_anchor_keeps_its_unanchored_followers_dropped() {
+    // These invented addresses model a resent list cut short before its final native draw.
+    constexpr std::uint32_t kReached = 0x1000;
+    constexpr std::uint32_t kMissing = 0x2000;
+    constexpr std::uint32_t kResumed = 0x3000;
+    FrameRecorder recorder;
+    recorder.set_anchor(kReached);
+    recorder.push(op(FrameOp::World));
+    recorder.set_anchor(kMissing);
+    recorder.push(op(FrameOp::TargetBegin));
+    recorder.set_anchor(0);
+    recorder.push(op(FrameOp::Fill));
+    recorder.push(op(FrameOp::TargetEnd));
+    recorder.set_anchor(kResumed);
+    recorder.push(op(FrameOp::UiQuad));
+
+    const std::uint32_t tags[]{kReached, kResumed};
+    const std::vector<std::size_t> places = place_commands(recorder.open(), tags);
+    const std::vector<std::size_t> expected{0, kDropped, kDropped, kDropped, 1};
+    CHECK(places == expected);
+}
+
+// Follows walk order through a texture-paging splice rather than sorting cursor addresses.
+void test_texture_paging_preserves_walk_order() {
+    // Uploads can run before earlier allocations (seen in game code: DmaTfragTextures, DoGifPaging).
+    constexpr std::uint32_t kUpload = 0x3000;
+    constexpr std::uint32_t kDraw = 0x2000;
+    constexpr std::uint32_t kExit = 0x4000;
+    FrameRecorder recorder;
+    recorder.set_anchor(kUpload);
+    recorder.push(op(FrameOp::Picture));
+    recorder.set_anchor(kDraw);
+    recorder.push(op(FrameOp::World));
+    recorder.set_anchor(kExit);
+    recorder.push(op(FrameOp::WorldShrubs));
+    recorder.set_anchor(kDraw);
+    recorder.push(op(FrameOp::UiQuad));
+    recorder.set_anchor(0);
+    recorder.push(op(FrameOp::Fill));
+
+    const std::uint32_t tags[]{kUpload, kDraw, kExit};
+    const std::vector<std::size_t> places = place_commands(recorder.open(), tags);
+    const std::vector<std::size_t> expected{0, 1, 2, kDropped, kDropped};
+    CHECK(places == expected);
+}
+
+// Keeps multiple native draws at an unchanged cursor, including the list's terminating tag.
+void test_unchanged_cursor_and_terminal_tag() {
+    // Native draws append no packet, so both draws can precede the same eventual END tag.
+    constexpr std::uint32_t kEnd = 0x2000;
+    FrameRecorder recorder;
+    recorder.set_anchor(kEnd);
+    recorder.push(op(FrameOp::UiQuad));
+    recorder.push(op(FrameOp::UiQuad));
+    recorder.close();
+
+    const std::uint32_t tags[]{kEnd};
+    const FrameRecording* recording = recorder.match(tags);
+    CHECK(recording != nullptr);
+
+    // A failed match has no placement to inspect.
+    if (recording == nullptr) {
+        return;
+    }
+
+    const std::vector<std::size_t> expected{0, 0};
+    CHECK(place_commands(*recording, tags) == expected);
+}
+
+// Gives dropped-command diagnostics native operation names instead of packet encodings.
+void test_diagnostic_command_names() {
+    CHECK(std::strcmp(frame_op_name(FrameOp::World), "World") == 0);
+    CHECK(std::strcmp(frame_op_name(FrameOp::WorldShrubs), "WorldShrubs") == 0);
+    CHECK(std::strcmp(frame_op_name(FrameOp::Mobys), "Mobys") == 0);
+    CHECK(std::strcmp(frame_op_name(FrameOp::PictureBand), "PictureBand") == 0);
+    // A corrupt enum must still produce a printable diagnostic.
+    CHECK(std::strcmp(frame_op_name(static_cast<FrameOp>(UINT8_MAX)), "Unknown") == 0);
+}
+
 }  // namespace
 
 int main() {
     order_without_dma();
     anchors_place_commands();
     late_and_resent_lists();
+    test_dropped_anchor_keeps_its_unanchored_followers_dropped();
+    test_texture_paging_preserves_walk_order();
+    test_unchanged_cursor_and_terminal_tag();
+    test_diagnostic_command_names();
     return openrac::test::result();
 }

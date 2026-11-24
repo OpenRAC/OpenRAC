@@ -54,6 +54,7 @@ the window scales them to the target's pixels.
 |---|---|
 | `openrac_frame_begin()` | starts a new recording (optional: the window also closes one at each tick it captures) |
 | `openrac_frame_anchor(gaddr list_cursor)` | transitional (§4): the game's display-list write pointer the next commands belong at; 0 for none |
+| `openrac_frame_anchor_at(gaddr cursor_word)` | reads a readable game word holding that pointer; normalizes RAM aliases, accepts active expanded RAM, and leaves invalid/null/unaligned pointers unreachable rather than unanchored |
 | `openrac_frame_world(layers)` | the world (sky, terrain, ties, shrubs: `OPENRAC_DRAW_*`) is drawn here; the 2D before it goes under the world |
 | `openrac_frame_world_mobys()` | the world's moby pass starts here; effect strips sent before it are drawn before the mobys |
 | `openrac_frame_mobys(list, count)` | a moby list drawn with a camera of its own, into the current target (a panel, or the screen over a menu's world); nonzero when the window draws it |
@@ -94,9 +95,16 @@ command is then **spliced** before the first tag (searching forward from the pre
 whose address equals its anchor. A command whose anchor is found nowhere is dropped: the list
 never reached that place (a list sent again and cut short, as the loading screen's while it reads the
 disc), just as a marker written there would not have been in it. A command with no anchor goes where
-the one before it went.
+the one before it went, including being dropped. A later reachable anchor can resume the recording.
 The splice is an offset into the window's own 2D stream, kept beside it (`FrameSplice`), never bytes
 in it.
+
+Tag addresses are compared in the direct RAM view. Search order is chain walk order, not address
+order: texture paging can allocate uploads after draw data and splice them before it. Several
+native commands can share one unchanged cursor, including the eventual terminating tag. An anchor
+found only before the preceding successful placement still drops its command. Diagnostics count
+actual placement drops and name the first eight commands, their anchors and the selected recording
+when reporting a partial match; they do not draw the dropped commands.
 
 The walk applies the transitional semantics at the splice points exactly where the markers applied
 them: `World` gives the split before the world, `WorldMobys` closes the early strips, `Mobys`
@@ -228,13 +236,25 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 | Game | On the recorder | Still markers in its list |
 |---|---|---|
 | rac3 | `host/render.c`: world, world mobys, moby lists, effect quads, loading screen; the 2D core (`openrac/ui.h`, `host/ui_adapter.c`): the single-player prints' text from the font headers, flat boxes, shaded boxes, the darkening and the letterbox bars as colour-only quads, the 2D scissor (SetScissor); `host/ui2d.c` and `host/hud.c`: the other 2D routines as `ui_quad` records (TEX0, until their textures come from the game's tables: the HUD's images are not resident in game memory after their upload, so they need capturing at the upload or extracting, P4) | `hud.c`'s two HUD-side markers (until the core's placement), `picture.c` (P3, P6), `mp_ui.c`, `mp_maps.c`, `movie.c` (P2) |
-| rac1, rac2 | nothing yet | all (R1) |
+| rac1 | `render_native.c`: world, shrubs boundary and positive-count moby lists; `ui2d.c`: transitional `ui_quad` records; `hud.c`: picture-band and whole-target placement (HUD side placement uses the game's coordinates) | water surface/UV scopes (`water_surfaces.c`, per-version `water.c`); boot-picture uploads and their residual draws; frame copies, blur, fades, clears and strips remain packet consumers |
+| rac2 | `render.c`: world, world-moby boundary, positive-count moby lists and effect-quad state placement; `ui2d.c`: transitional `ui_quad` records; `hud.c`: HUD side placement; `wide_view.c`: effect-parent scopes, including position-only scopes | `picture.c`: whole-target, saved-frame and credits-world markers; movie pictures/overlays, scissor, off-screen targets and strips remain packet consumers |
+
+This is a recorder hand-off milestone, not the full R1-R3 audit scope. No rac1/rac2 adapter to the
+shared native 2D core, residual-picture conversion or native strip conversion is implied by these
+rows. `openrac_frame_effect_parent_position` keeps a strip's world-space orientation while following
+the delayed parent's move; `openrac_frame_effect_parent` follows its axes too. Both scopes end at 0.
+RAC1 PAL title's reported two dropped commands out of three still need an identified runtime trace;
+the old aggregate warning alone does not identify them.
 
 ## 9. Tests
 
 - `frame_record_test`: a recorded frame ordered without any DMA data; anchors matched against a
   chain's tags and spliced in order (late list, resent list, missing anchor); recordings kept and
   chosen as the window does.
+- `frame_anchor_test`: C-contract cursor reads with synthetic addresses: direct and aliased RAM,
+  expanded RAM, null/invalid/unaligned pointers and the last complete tag.
+- Recorder placement regressions cover dropped unanchored followers, non-monotonic texture-paging
+  addresses, forward-only rejection, unchanged cursors and the terminating tag.
 - `renderer_direct_test` / `renderer_gif_test`: the native `DrawState` (blend presets and the GS
   translation give the same GL factors as before; the double draw), and the executor drawing a fill
   and a UiItem with no packets.
