@@ -861,6 +861,7 @@
       "func_L01_0041E1B0": "void (int, int, int, int, int, int, unsigned int)",
       "func_L01_004752B8": "int (int)",
       "func_L01_004CE800": "void (unsigned int)",
+      "func_L01_004010D0": "void (int)",
       "func_L01_0041EE90": "int (int, int, int, int, int, int)",
       "func_L01_004C20A8": "int (int, int, int, int)",
       "func_L01_00403120": "int (void)"

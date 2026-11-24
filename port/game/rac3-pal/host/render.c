@@ -21,11 +21,14 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "effect_state.h"
 #include "game/common/lib/effect_texture.h"
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "openrac/host_env.h"
 #include "rac3_version.h"
+#include "textures.h"
 
 /* Shared with the multiplayer maps' copies (mp_maps.c), which pass their own globals. */
 int rac3_sky_draw_shell(int shell, gaddr matrix);
@@ -364,12 +367,66 @@ extern unsigned rac3_draw_ordinal;
 #define TEXTURE_UPLOADS RAC3_LADDR(1, 0x001DF97Cu)
 #define TEXTURE_RECORDS RAC3_LADDR(1, 0x001E7880u)
 
+/* The draw state the levels' C sets while DrawFrame runs (effect_state.h), on the game's thread. */
+static rac3_effect_state s_effects;
+
+/* The levels' VU1_addGSregister (frontbin's func_003A9440, Veldin's 0x004C5B90): one register's
+ * packet (CNT, DIRECT, one A+D) appended through the list pointer. Run as the game's; the register
+ * and its value go to the capture with where the packet lies in the list. */
+void func_L01_004C5B90__game(int reg, unsigned long long value);
+
+void func_L01_004C5B90(int reg, unsigned long long value) {
+    const gaddr list = at_copy(&kVeldin, kVeldin.list_pointer);
+    const gaddr before = GREF(gaddr, list);
+    func_L01_004C5B90__game(reg, value);
+    rac3_effect_state_set(&s_effects, list, before, GREF(gaddr, list), reg, value);
+}
+
+/* DrawFrame, the levels' copy (frontbin's func_00388AF8, Veldin's 0x00403440): the capture is open
+ * while it runs, from nothing known; the draw callbacks run inside it. */
+void func_L01_00403440__game(int view);
+
+void func_L01_00403440(int view) {
+    const gaddr list = at_copy(&kVeldin, kVeldin.list_pointer);
+    rac3_effect_state_open(&s_effects, list, GREF(gaddr, list));
+    func_L01_00403440__game(view);
+    rac3_effect_state_close(&s_effects);
+}
+
+/* OPENRAC_UI_SKIP naming rac3_effect_masks: the masks keep their older way while the capture runs
+ * on, to compare the two in one program (docs/port/DEBUGGING.md). */
+static int masks_skipped(void) {
+    const char* list = openrac_env_string("OPENRAC_UI_SKIP");
+    return list != NULL && strstr(list, "rac3_effect_masks") != NULL;
+}
+
+/* An alpha-fail mask (rac3_effect_mask_material: the refraction masks before their frame copy)
+ * drawn with a native material, its image the one EffectTex0 named for its TEX0. 0: the quad
+ * keeps its older way. */
+static int draw_mask(const openrac_game_quad* q, gaddr list) {
+    const rac3_quad_words words = {q->clamp, q->tex0, q->tex1, q->alpha};
+    openrac_game_material_quad m;
+    memset(&m, 0, sizeof(m));
+    if (!rac3_effect_mask_material(&s_effects, list, GREF(gaddr, list), &words, &m.material)
+        || !rac3_effect_image(q->tex0, &m.image) || masks_skipped()) {
+        return 0;
+    }
+    memcpy(m.corner, q->corner, sizeof(m.corner));
+    memcpy(m.rgba, q->rgba, sizeof(m.rgba));
+    memcpy(m.st, q->st, sizeof(m.st));
+    m.id = q->id;
+    m.parent = q->parent;
+    m.attachment = q->attachment;
+    return openrac_game_material_effect_quad(&m);
+}
+
 /*
  * DrawWorldQuad (0x00407E28, Going Commando's func_00280B90, the same 608 bytes): the draw
  * callbacks' world quad. a0 a quad record as Going Commando's: four corners (+0x00), four RGBA words
  * (+0x40), four ST pairs (+0x50), then CLAMP_1, TEX0_1, TEX1_1 and ALPHA_1 (+0x70..+0x88); a1, when
- * set, a matrix the corners go through first. The window draws it in the world, with the TEST and
- * ZBUF in effect at its marker (rac2/host/render.c's world_quad).
+ * set, a matrix the corners go through first. The window draws it in the world: an alpha-fail
+ * mask whose state the capture proves with a native material (draw_mask), any other with the TEST
+ * and ZBUF in effect at its marker (rac2/host/render.c's world_quad).
  */
 void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, gaddr list) {
     const uint8_t* r = G(record);
@@ -407,12 +464,15 @@ void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, g
         }
         q.id = 0x40000000u | (h & 0x3FFFFFFFu);
     }
-    openrac_game_effect_quad(&q);
-    const uint32_t marker = openrac_game_effect_quad_marker();
-    if (marker != 0) {
-        anchor_at(list);
-        openrac_frame_effect_quad(marker);
+    if (!draw_mask(&q, list)) {
+        openrac_game_effect_quad(&q);
+        const uint32_t marker = openrac_game_effect_quad_marker();
+        if (marker != 0) {
+            anchor_at(list);
+            openrac_frame_effect_quad(marker);
+        }
     }
+    rac3_effect_state_quad(&s_effects);
 }
 
 int func_L01_00407E28(int a0, int a1) {

@@ -18,6 +18,8 @@
 #define OPENRAC_GAME_HOST_H
 
 #include "openrac/guest.h"
+#include "openrac/material.h"
+#include "openrac/ui_item.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1058,6 +1060,28 @@ typedef struct openrac_game_quad {
 } openrac_game_quad;
 
 void openrac_game_effect_quad(const openrac_game_quad* quad);
+
+/* A quad the game draws in the world with a native material (openrac/material.h), for host C that
+ * owns every part of the quad's draw state: corners, colours and texel coordinates (fractions of
+ * the image across and down) as openrac_game_quad's; the material; the image as the game keeps it
+ * (openrac/ui_item.h; not read with OPENRAC_MATERIAL_UNTEXTURED); id, parent and attachment as
+ * openrac_game_quad's. No marker goes with it and the display list around it gives it nothing. */
+typedef struct openrac_game_material_quad {
+    float corner[4][4];
+    uint32_t rgba[4];
+    float st[4][2];
+    openrac_material material;
+    openrac_game_ui_image image;
+    uint32_t id;
+    uint32_t parent;
+    uint32_t attachment;
+} openrac_game_material_quad;
+
+/* Draws `quad` with the frame's other effect quads, in call order. Its image is read now (or from
+ * what openrac_game_image_keep kept there) and kept with the tick; nothing reads game memory for it
+ * later. 1 when the window takes it; 0 when it does not (no window, a material out of range, an
+ * image it cannot read): the caller then draws it its older way. */
+int openrac_game_material_effect_quad(const openrac_game_material_quad* quad);
 
 /* The game is handing over the `bytes` bytes at `data` (an image's pixels or palette) and may not
  * keep them there: an image it sends once and draws from then on without sending it again (rac3's

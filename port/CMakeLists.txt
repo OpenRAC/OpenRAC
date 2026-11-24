@@ -548,6 +548,14 @@ openrac_add_c_test(rac3_save INCLUDES game/rac3-pal/host
 # executable, and its 2D screen from the frame block a split-screen view does not move.
 openrac_add_c_test(rac3_mp_images NO_STRICT_ALIASING
   INCLUDES game/common/include runtime/include game/rac3-pal/host)
+
+# Up Your Arsenal's alpha-fail masks through the levels' host C (render.c, textures.c,
+# effect_state.c) on a synthetic level: native, or the older call when OPENRAC_UI_SKIP names
+# rac3_effect_masks.
+openrac_add_c_test(rac3_effect_masks NO_STRICT_ALIASING MATH
+  SOURCES tests/rac3_effect_masks_test.c game/rac3-pal/host/render.c game/rac3-pal/host/textures.c
+          game/rac3-pal/host/effect_state.c
+  INCLUDES tests/rac3_host game/rac3-pal/host . game/common/include runtime/include)
 # The card filter against the game's calls on a real folder: a party never writes a player's saves.
 openrac_add_c_test(mc_filter SOURCES tests/mc_filter_test.c game/common/lib/mc.c
                    INCLUDES game/common/include runtime/include)

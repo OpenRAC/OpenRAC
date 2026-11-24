@@ -15,7 +15,9 @@
 #include <vector>
 
 #include "common/stats.h"
+#include "renderer/direct/direct.h"
 #include "renderer/direct/gs.h"
+#include "renderer/effects/effect_state.h"
 #include "renderer/effects/effects.h"
 #include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
@@ -64,6 +66,7 @@ void EffectRenderer::draw_prepared(
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GEQUAL);  // reversed depth
+    m_depth_function = GL_GEQUAL;
     glDepthMask(m_part == EffectPart::Liquids || m_part == EffectPart::Opaque ? GL_TRUE : GL_FALSE);
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
@@ -110,6 +113,11 @@ void EffectRenderer::draw_prepared(
         bool z_masked = false;
         // An untextured quad (EffectQuad::untextured): drawn by m_untextured_shader, no texture.
         bool untextured = false;
+        // A native quad (EffectQuad::native): its state and its image's pool texture (0 none)
+        // instead of the words above, which stay 0.
+        bool native = false;
+        EffectState material{};
+        TextureHandle image = 0;
         bool operator==(const State&) const = default;
     };
 
@@ -147,46 +155,41 @@ void EffectRenderer::draw_prepared(
         state.stats.triangles += static_cast<std::uint64_t>(batch.count / 3);
     };
     const auto draw_batch_with_alpha_test = [&] {
-        // TEST and depth-writing batches may require separate alpha-pass and alpha-fail draws.
-        if (batch.count > 0 && set && (set->test != 0 || set->z_write)) {
+        // TEST and depth-writing batches may require separate alpha-pass and alpha-fail draws; a
+        // native batch is always drawn by its passes (its channels and depth write are its own).
+        if (batch.count > 0 && set && (set->native || set->test != 0 || set->z_write)) {
             // A quad drawn with the list's TEST and ZBUF, as the chip draws it: the pixels that
             // pass the alpha test with every write (Z unless ZMSK), then, as OpenGOAL does, those
             // that fail with what AFAIL still writes. Going Commando's sparks and flames: GEQUAL
-            // 0x60, the failing pixels colour only.
+            // 0x60, the failing pixels colour only. ATST NEVER needs no shader's alpha test: every
+            // pixel fails, and only what AFAIL keeps is written. Going Commando's nanotech orb
+            // draws its glow and the crate's glass faces so (TEST 0x53001: NEVER, RGB_ONLY, ZBUF
+            // without ZMSK): colour only, no Z. Taken as passing, with Z, the glass faces hid the
+            // orb's sparks inside the crate. A native quad's material says the same in its terms.
             const profiling::Zone trace("Effects draw batch");
-            const gs::Test t = gs::Test::decode(set->test);
-            const auto call = [&](int test, bool keep_failing, bool colour, bool alpha, bool z) {
-                glUniform1i(m_alpha_test, test);
-                glUniform1f(m_alpha_ref, static_cast<float>(t.aref));
-                glUniform1i(m_alpha_keep_failing, keep_failing ? 1 : 0);
-                glColorMask(colour, colour, colour, alpha);
-                glDepthMask(z ? GL_TRUE : GL_FALSE);
+            const AlphaTest test = set->native ? set->material.alpha_test
+                                               : alpha_test_from_gs(gs::Test::decode(set->test));
+            const std::uint8_t writes = set->native ? set->material.colour_writes : kWriteColour;
+            // The untextured shader keeps the alpha test in its source too (it is not built with
+            // EffectStaticControls): a native untextured quad's test runs there.
+            const bool tested = m_active_shader == &m_test_shader
+                                || (set->native && m_active_shader == &m_untextured_shader);
+            const EffectPasses passes = effect_passes(test, set->z_write, writes, tested);
+
+            // Each planned draw takes its test, the pixels it keeps and its writes.
+            for (std::size_t i = 0; i < passes.count; ++i) {
+                const EffectPass& pass = passes.pass[i];
+                glUniform1i(m_alpha_test, pass.alpha_test);
+                glUniform1f(m_alpha_ref, static_cast<float>(test.reference));
+                glUniform1i(m_alpha_keep_failing, pass.keep_failing ? 1 : 0);
+                glColorMask(
+                    (pass.colour_writes & kWriteRed) != 0,
+                    (pass.colour_writes & kWriteGreen) != 0,
+                    (pass.colour_writes & kWriteBlue) != 0,
+                    (pass.colour_writes & kWriteAlpha) != 0
+                );
+                glDepthMask(pass.depth_write ? GL_TRUE : GL_FALSE);
                 draw_batch();
-            };
-            const bool fail_colour =
-                t.afail == gs::AlphaFail::FbOnly || t.afail == gs::AlphaFail::RgbOnly;
-            const bool fail_alpha = t.afail == gs::AlphaFail::FbOnly;
-            const bool fail_z = t.afail == gs::AlphaFail::ZbOnly && set->z_write;
-
-            // ATST NEVER needs no shader's alpha test: every pixel fails, and only what AFAIL keeps
-            // is written. Going Commando's nanotech orb draws its glow and the crate's glass faces
-            // so (TEST 0x53001: NEVER, RGB_ONLY, ZBUF without ZMSK): colour only, no Z. Taken as
-            // passing, with Z, the glass faces hid the orb's sparks inside the crate.
-            if (t.ate && t.atst == gs::AlphaTest::Never) {
-                if (t.afail != gs::AlphaFail::Keep) {
-                    call(0, false, fail_colour, fail_alpha, fail_z);
-                }
-            } else if (!t.ate || t.atst == gs::AlphaTest::Always
-                       || m_active_shader != &m_test_shader) {
-                // An untested shader writes every covered pixel once.
-                call(0, false, true, true, set->z_write);
-            } else {
-                call(static_cast<int>(t.atst), false, true, true, set->z_write);
-
-                // AFAIL preserves selected channels for pixels rejected by the alpha test.
-                if (t.afail != gs::AlphaFail::Keep) {
-                    call(static_cast<int>(t.atst), true, fail_colour, fail_alpha, fail_z);
-                }
             }
 
             glUniform1i(m_alpha_test, 0);
@@ -239,17 +242,25 @@ void EffectRenderer::draw_prepared(
         // State changes flush earlier geometry before installing the next material.
         if (!set || !(*set == wanted)) {
             flush();
-            // An untextured state binds nothing: its shader does not sample.
-            drawable = wanted.untextured
-                       || apply(
-                           wanted.tex0,
-                           wanted.tex1,
-                           wanted.clamp,
-                           wanted.alpha,
-                           state,
-                           wanted.tbp,
-                           wanted.cbp
-                       );
+
+            // A native state sets its own image, blend and depth comparison; an older untextured
+            // state binds nothing (its shader does not sample), and the older states test depth as
+            // the pass does.
+            if (wanted.native) {
+                drawable = apply_native(wanted.material, wanted.image, wanted.untextured, state);
+            } else {
+                set_depth_function(GL_GEQUAL);
+                drawable = wanted.untextured
+                           || apply(
+                               wanted.tex0,
+                               wanted.tex1,
+                               wanted.clamp,
+                               wanted.alpha,
+                               state,
+                               wanted.tbp,
+                               wanted.cbp
+                           );
+            }
 
             // Material bindings precede the shared descriptor read declaration.
             if (m_material) {
@@ -448,6 +459,26 @@ void EffectRenderer::draw_prepared(
     unsigned tested_quads = 0;
     unsigned texture_splits = 0, sampler_splits = 0, blend_splits = 0;
 
+    // The pool textures of the tick's native images (FrameInput::effect_images), made the first
+    // time a quad samples one: the pixels are the capture's own, never game memory.
+    std::vector<TextureHandle> native_images(input.effect_images.size());
+    const auto native_image = [&](const EffectQuad& q) -> TextureHandle {
+        // An untextured quad, or an index the capture did not give, samples nothing.
+        if (q.untextured || q.image == 0 || q.image > native_images.size()) {
+            return 0;
+        }
+
+        TextureHandle& handle = native_images[q.image - 1];
+        const UiImage& image = input.effect_images[q.image - 1];
+
+        // Made once a frame per image; an image without pixels stays without a texture.
+        if (handle == 0 && image.image) {
+            handle = state.textures.ui_image(image.hash, *image.image, image.indexed.get());
+        }
+
+        return handle;
+    };
+
     const auto draw_quads = [&] {
         // Captured quad order preserves back-to-front blending across shader switches.
         for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
@@ -457,6 +488,37 @@ void EffectRenderer::draw_prepared(
             if (q.untextured && m_untextured_shader.id() == 0) {
                 continue;
             }
+
+            // A native quad's state is its material's; it takes nothing from the list.
+            if (q.native) {
+                State wanted{};
+                wanted.native = true;
+                wanted.material = q.state;
+                wanted.image = native_image(q);
+                wanted.untextured = q.untextured;
+                wanted.z_write = q.state.depth_write;
+                Shader* shader = q.untextured ? &m_untextured_shader : quad_shader;
+                const Compare compare = q.state.alpha_test.compare;
+
+                // Only a test that keeps some pixels needs the shader that keeps the test.
+                if (!q.untextured && compare != Compare::Always && compare != Compare::Never
+                    && m_test_shader.id()) {
+                    shader = &m_test_shader;
+                    ++tested_quads;
+                }
+
+                // A shader change finishes the quads drawn so far first.
+                if (m_active_shader != shader) {
+                    flush();
+                    use_shader(*shader, view_projection, input.camera.view);
+                    set.reset();
+                }
+
+                add(wanted, at, 6, !q.untextured);
+                at += 6;
+                continue;
+            }
+
             State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
             wanted.untextured = q.untextured;
             if (quad_indices) {
@@ -510,6 +572,15 @@ void EffectRenderer::draw_prepared(
         std::vector<RasterTexture> textures;
         std::set<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> sources;
         for (const EffectQuad& quad : input.effects) {
+            // A native quad's image is declared by its own texture, not by its zero words.
+            if (quad.native) {
+                // Only a drawn quad with an image has a texture to declare.
+                if (const TextureHandle handle = draws(quad, input) ? native_image(quad) : 0) {
+                    const auto [texture, mips] = state.textures.prepare_draw_texture(handle);
+                    textures.push_back({texture, mips});
+                }
+                continue;
+            }
             if (!draws(quad, input) || quad.untextured
                 || !sources.emplace(quad.tex0, quad.tbp, quad.cbp).second) {
                 continue;
@@ -552,6 +623,8 @@ void EffectRenderer::draw_prepared(
     if (clamp_quads) {
         glDisable(GL_DEPTH_CLAMP);
     }
+    // A native quad may have changed the comparison: the next renderer finds the pass's.
+    set_depth_function(GL_GEQUAL);
     stats::gauge("effect quads alpha tested", tested_quads);
     if (quads && gl::is_vulkan()) {
         stats::gauge("effect quad texture splits", texture_splits);
