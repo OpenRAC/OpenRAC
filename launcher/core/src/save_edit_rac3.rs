@@ -301,8 +301,8 @@ mod id {
     pub const ROW: i32 = 30;
 }
 
-/// The most bolts the editor writes (the HUD's seven digits).
-pub const MAX_BOLTS: u32 = 9_999_999;
+/// The most bolts the editor writes: the game keeps them as a signed 32-bit word.
+pub const MAX_BOLTS: u32 = i32::MAX as u32;
 
 const TICKS_A_SECOND: u32 = 60;
 

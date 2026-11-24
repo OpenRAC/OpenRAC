@@ -555,7 +555,7 @@ class Rac3(unittest.TestCase):
         self.assertEqual(routes.load()["addresses"]["rac3-pal"], {})
 
     def test_the_routes_are_named_after_the_disc_s_levels(self):
-        sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "editor"))
+        sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "extractor"))
         import games
         names = games.LEVEL_NAMES["rac3"]
         for r in routes.set_routes("rac3-tour", "rac3-pal"):

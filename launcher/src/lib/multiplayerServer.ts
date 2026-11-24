@@ -1,10 +1,11 @@
 // The multiplayer server, as the launcher's core checks it (core/src/multiplayer.rs): what Settings
 // tells the player while it is typed, so the save bar never sends a server the core refuses.
 
-/** The official OpenRAC server (the OpenRAC/Server repository), the default. */
-export const OFFICIAL_HOST = "game.openrac.dev";
+/** The official OpenRAC hub (the OpenRAC/Server repository), the default: players log in there and
+ *  pick a game server from its list. */
+export const OFFICIAL_HOST = "hub.openrac.dev";
 
-export const OFFICIAL_PORT = 7770;
+export const OFFICIAL_PORT = 7177;
 
 const LABEL = /^[A-Za-z0-9-]{1,63}$/;
 const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
@@ -66,7 +67,7 @@ export function serverAddress(host: string, port: number): string {
   return h.includes(":") ? `[${h}]:${port}` : `${h}:${port}`;
 }
 
-/** Whether the server is the official one. */
+/** Whether the server is the official hub. */
 export function isOfficial(host: string, port: number | null | undefined): boolean {
   return host.trim().toLowerCase() === OFFICIAL_HOST && port === OFFICIAL_PORT;
 }

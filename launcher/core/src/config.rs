@@ -14,8 +14,6 @@ pub struct Config {
     pub root: Option<PathBuf>,
     /// Python 3.10+, for tools/openrac.py, the editor and the games' Python tools.
     pub python: Option<PathBuf>,
-    /// Godot 4 (4.7+), for the level editor.
-    pub godot: Option<PathBuf>,
     /// Docker, which rac1/pal's and rac4's builds run in.
     pub docker: Option<PathBuf>,
     /// Show what contributors use: builds, checks, toolchains, progress.
@@ -109,10 +107,10 @@ pub struct Config {
     /// `OPENRAC_IDENTITY_KEY`.
     #[serde(default)]
     pub multiplayer_key: String,
-    /// The multiplayer server every game's online play goes to (multiplayer.rs): a host name or an
-    /// IP address, and a port. The official server (`game.openrac.dev:7770`) unless changed in
-    /// Settings; anyone can host one (the OpenRAC/Server repository). Given to the game as
-    /// `OPENRAC_SERVER=host:port`.
+    /// The multiplayer hub every game's online play starts at (multiplayer.rs): a host name or an
+    /// IP address, and a port. The hub logs players in and lists the game servers to pick from.
+    /// The official hub (`hub.openrac.dev:7177`) unless changed in Settings; anyone can host one
+    /// (the OpenRAC/Server repository). Given to the game as `OPENRAC_SERVER=host:port`.
     pub multiplayer_server_host: String,
     /// The server's port, 1 to 65535; a saved value out of range reads as the official port.
     #[serde(deserialize_with = "deserialize_port")]
@@ -143,7 +141,6 @@ impl Default for Config {
         Self {
             root: None,
             python: None,
-            godot: None,
             docker: None,
             install_dir: None,
             discs_dir: None,
@@ -190,9 +187,19 @@ impl Config {
 }
 
 /// Reads `path`; a missing or unreadable file gives the defaults, so a
-/// broken settings file never stops the launcher from starting.
+/// broken settings file never stops the launcher from starting. A multiplayer server saved as the
+/// official game server from before the hub (every launcher saved its default) reads as the
+/// official hub.
 pub fn load(path: &Path) -> Config {
-    std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default()
+    let mut config: Config =
+        std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default();
+    if config.multiplayer_server_host.trim().eq_ignore_ascii_case(crate::multiplayer::FORMER_OFFICIAL_HOST)
+        && config.multiplayer_server_port == crate::multiplayer::FORMER_OFFICIAL_PORT
+    {
+        config.multiplayer_server_host = crate::multiplayer::OFFICIAL_HOST.into();
+        config.multiplayer_server_port = crate::multiplayer::OFFICIAL_PORT;
+    }
+    config
 }
 
 /// Normalizes saved renderer names and names passed to Play.
@@ -260,16 +267,33 @@ mod tests {
         assert_eq!(load(&path), Config::default());
     }
 
-    /// A settings file from before the multiplayer server has the official one; another is kept,
-    /// and a port out of range reads as the official port without losing the rest.
+    /// A settings file from before the multiplayer server has the official hub, as has one that
+    /// names the official game server from before the hub; another is kept, and a port out of
+    /// range reads as the official port without losing the rest.
     #[test]
     fn the_multiplayer_server_defaults_to_the_official_one_and_round_trips() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("launcher.json");
         std::fs::write(&path, r#"{"setupComplete": true, "multiplayerName": "SwiftRobot42"}"#).unwrap();
         let old = load(&path);
-        assert_eq!((old.multiplayer_server_host.as_str(), old.multiplayer_server_port), ("game.openrac.dev", 7770));
+        assert_eq!((old.multiplayer_server_host.as_str(), old.multiplayer_server_port), ("hub.openrac.dev", 7177));
         assert_eq!(old.multiplayer_name, "SwiftRobot42");
+        std::fs::write(
+            &path,
+            r#"{"setupComplete": true, "multiplayerServerHost": "game.openrac.dev", "multiplayerServerPort": 7770}"#,
+        )
+        .unwrap();
+        let before_hub = load(&path);
+        assert_eq!(
+            (before_hub.multiplayer_server_host.as_str(), before_hub.multiplayer_server_port),
+            ("hub.openrac.dev", 7177)
+        );
+        std::fs::write(
+            &path,
+            r#"{"setupComplete": true, "multiplayerServerHost": "game.openrac.dev", "multiplayerServerPort": 7000}"#,
+        )
+        .unwrap();
+        assert_eq!(load(&path).multiplayer_server_port, 7000);
         let mine = Config {
             multiplayer_server_host: "192.168.1.20".into(),
             multiplayer_server_port: 7000,
@@ -280,12 +304,12 @@ mod tests {
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains("\"multiplayerServerHost\": \"192.168.1.20\""), "{text}");
         assert!(text.contains("\"multiplayerServerPort\": 7000"), "{text}");
-        for bad in ["0", "70000", "-1", "\"7770\"", "null"] {
+        for bad in ["0", "70000", "-1", "\"7177\"", "null"] {
             let json = format!(r#"{{"setupComplete": true, "multiplayerServerPort": {bad}}}"#);
             std::fs::write(&path, json).unwrap();
             let read = load(&path);
             assert!(read.setup_complete, "{bad}");
-            assert_eq!(read.multiplayer_server_port, 7770, "{bad}");
+            assert_eq!(read.multiplayer_server_port, 7177, "{bad}");
         }
     }
 

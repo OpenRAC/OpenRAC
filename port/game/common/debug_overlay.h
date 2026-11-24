@@ -210,4 +210,7 @@ std::string game_page_label(menu::Id id);
 std::string game_page_value(menu::Id id);
 void game_page_step(menu::Id id, int by);
 
+// Whether a mod greyed out entry `id` (openrac_api.menu_option_set): its keys leave it alone too.
+bool option_off(menu::Id id);
+
 }  // namespace openrac::frontend::debug_overlay

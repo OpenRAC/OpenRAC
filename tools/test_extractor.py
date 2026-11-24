@@ -133,6 +133,19 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(info["image"], self.iso.name, "the name of the image it was first set up from")
         self.assertFalse((self.proj / "iso_data" / "_temp").exists())
 
+    def test_unpacking_a_linked_set_up_keeps_the_link(self):
+        # Android: the set-up's disc.iso links to the Disc images copy. Unpack the disc's files
+        # runs on it without --link-image: the new set-up links to that copy, never copies it.
+        with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())), \
+                mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True, link_image=True)
+            own = self.proj / "iso_data" / "rac9" / "disc.iso"
+            info = extractor.extract(own, "rac9", self.proj, minimum=0)
+        self.assertTrue(own.is_symlink())
+        self.assertEqual(own.resolve(), self.iso.resolve())
+        self.assertTrue((self.proj / "iso_data" / "rac9" / disc_files.MAP_NAME).is_file())
+        self.assertEqual(info["image"], self.iso.name, "the name of the image it was first set up from")
+
     def test_without_link_image_a_failed_hard_link_copies(self):
         with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())), \
                 mock.patch("os.link", side_effect=PermissionError("no hard links")):

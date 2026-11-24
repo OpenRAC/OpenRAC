@@ -86,7 +86,11 @@
         {/if}
         {#if action.docs}
           {@const docs = action.docs}
-          <button class="ghost small mono" onclick={() => void guard(api.openPath(docs))}>
+          <button
+            class="ghost small mono"
+            onclick={() =>
+              void guard(docs.startsWith("https://") ? api.openUrl(docs) : api.openPath(docs))}
+          >
             <Icon name="book" size={14} />{docs}
           </button>
         {/if}

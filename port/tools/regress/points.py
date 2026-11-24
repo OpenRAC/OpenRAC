@@ -5,7 +5,7 @@
 
     points.py LEVEL [--levels DIR] [--max N]
 
-The extractor's placements.json (editor/port.py) lists every moby a level places. The hero's start
+The extractor's placements.json (extractor/port.py) lists every moby a level places. The hero's start
 (class 0), the respawn points (805: the level's checkpoints), the gold bolts (1134), the infobots
 (750), the teleporters (1135) and the vendors (11) mark the level's main path and its ends; the
 path is those, the start first, then each time the nearest one not yet visited (at most --max);

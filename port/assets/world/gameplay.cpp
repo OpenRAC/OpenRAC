@@ -67,7 +67,7 @@ constexpr std::array<std::string_view, kGameplaySectionCount> kSectionNames{
 // Going Commando's header: 40 offsets in an order of its own (tie and shrub groups, the tie
 // colours at 0x94, the level settings at 0x8C). Only the sections a reader here takes from it are
 // placed; the others read as absent. Both were read across all 28 of the disc's levels: the light
-// bank at 0x04 is the one editor/lighting.light_bank exports (count at +0, 0x40-byte sets from
+// bank at 0x04 is the one extractor/lighting.light_bank exports (count at +0, 0x40-byte sets from
 // +0x10), and the environment transitions at 0x84 run from the bank's end to the cameras' start,
 // 0x10 + count x (16 + 0x80) bytes, with Ratchet & Clank's records (a world-to-cuboid matrix
 // ending in w = 1, hero light sets below the bank's count, flags 1 to 3). Up Your Arsenal's is the

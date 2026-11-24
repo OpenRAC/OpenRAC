@@ -65,6 +65,19 @@
  * then 1.25 to 1.75 units away, a unit from the others (a guard in a narrow cell), and last at its
  * side, 0.6 units away (a guard walled in on a ledge). The
  * turn around the original follows the copy's index, so each copy of one moby finds its own spot.
+ *
+ * Moving platforms. A moby that carries what stands on it (moby_get_private_value_2,
+ * func_002AD0B0: flag 0x20 of its +0x34 and the third word of its pvars, the motion that
+ * moby_transform_point_and_rotation_by_parent, func_002AD0E0, moves a rider by) is a floor of its
+ * own: a copy stands on the one its original stands on, or on none when its original stands on the
+ * level (the ground under each found as Siberius's riders look for their cart, from 2 units above
+ * to 3 below: entity_ride_platform_snap_height, func_L07_003EB838). A copy beside the cart, or on
+ * it beside an original on the ground, is left behind or carried off where its original is not. A
+ * rider finds its platform itself and keeps its place on it in its pvars (Siberius's shooters,
+ * class 3370, at +0x314 and +0x2F0; its squads at +0x260 and +0x220): a copy of one that has done so
+ * would take the original's place on it, so an original whose pvars name a platform is not copied
+ * (a copy made before, at the level's load, finds its own).
+ *
  * Room: the pool keeps RESERVE free slots for what the level spawns, and a slot more for each
  * part. */
 #include "enemy_copies.h"
@@ -831,6 +844,75 @@ static int blocked(const float a[3], const float b[3], gaddr ignore) {
     return 1;
 }
 
+/* A moby that carries what stands on it (the header's moving platforms): flag 0x20 of its +0x34
+ * and a motion record, its pvars' third word (moby_get_private_value_2, func_002AD0B0). */
+#define MOBY_FLAGS 0x34u
+#define FLAG_CARRIES 0x20u
+#define CARRIER_MOTION 0x08u
+/* The rider's probe for its platform: from this far above the point to this far below. */
+#define RIDE_PROBE_ABOVE 2.0f
+#define RIDE_PROBE_BELOW 3.0f
+
+static int carrier(gaddr m) {
+    if (m == 0 || !in_ram(m, MOBY_SIZE) || GREF(uint8_t, m + MOBY_STATE) >= 0x80
+        || (GREF(uint16_t, m + MOBY_FLAGS) & FLAG_CARRIES) == 0) {
+        return 0;
+    }
+    const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+    return pvars != 0 && in_ram(pvars, CARRIER_MOTION + 4u)
+           && GREF(gaddr, pvars + CARRIER_MOTION) != 0;
+}
+
+/* The moving platform under the point (x, y, z), 0 for the level's ground or none (CollLine down,
+ * as the riders probe: entity_ride_platform_snap_height). `ignore` and a few other mobys on the
+ * way down are passed over (an original's own parts, a neighbour), as blocked() passes them. */
+static gaddr platform_under(float x, float y, float z, gaddr ignore) {
+    GFRAME(line, 32);
+    GREF(float, line) = x;
+    GREF(float, line + 4u) = y;
+    GREF(float, line + 8u) = z + RIDE_PROBE_ABOVE;
+    GREF(float, line + 12u) = 0.0f;
+    GREF(float, line + 16u) = x;
+    GREF(float, line + 20u) = y;
+    GREF(float, line + 24u) = z - RIDE_PROBE_BELOW;
+    GREF(float, line + 28u) = 0.0f;
+    for (int tries = 0; tries <= LINE_PAST_MOBYS; ++tries) {
+        if (func_002761F8(line, line + 16u, 0, ignore, 0) == 0) {
+            return 0;
+        }
+        const gaddr hit = GREF(gaddr, COLL_RESULT + COLL_HIT_MOBY);
+        if (hit == 0 || hit == ignore) {
+            return 0;
+        }
+        if (carrier(hit)) {
+            return hit;
+        }
+        /* On down from a little under the hit, past the moby it hit. */
+        ignore = hit;
+        const float below = GREF(float, COLL_RESULT + COLL_HIT_POINT + 8u) - LINE_NUDGE;
+        if (!(below > z - RIDE_PROBE_BELOW)) {
+            return 0;
+        }
+        GREF(float, line + 8u) = below;
+    }
+    return 0;
+}
+
+/* Whether the `size` bytes of pvars at `pvars` name a moving platform: a rider that has found its
+ * own and keeps its place on it there. */
+static int rides(const rac2_moby_table* t, gaddr pvars, uint32_t size) {
+    if (pvars == 0 || !in_ram(pvars, size)) {
+        return 0;
+    }
+    for (uint32_t off = 0; off + 4u <= size; off += 4u) {
+        const gaddr v = GREF(gaddr, pvars + off);
+        if (v >= t->base && v < t->end && (v - t->base) % MOBY_SIZE == 0 && carrier(v)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* A number in [0, 1) from three, the same on every machine. */
 static float unit_hash(uint32_t a, uint32_t b, uint32_t c) {
     uint32_t h =
@@ -865,6 +947,8 @@ static int find_spot(const rac2_moby_table* t, gaddr orig, int index, float out[
         return 0;
     }
     const float over = z - floor0;
+    /* The moving platform it stands on, or none: the copy's the same. */
+    const gaddr platform = platform_under(x, y, z, orig);
     const uint32_t uid = (uint16_t)GREF(int16_t, orig + MOBY_UID);
     /* The rings out from SPOT_NEAR, then the close one (a guard in a narrow cell), then the last
      * one at its side, apart from none (a guard walled in on a ledge). */
@@ -889,6 +973,9 @@ static int find_spot(const rac2_moby_table* t, gaddr orig, int index, float out[
             continue;
         }
         const float at[3] = {cx, cy, floor + over};
+        if (platform_under(at[0], at[1], at[2], orig) != platform) {
+            continue;
+        }
         const float gap = tight ? SPOT_CLOSE_GAP : SPOT_GAP;
         if (!last && crowded(t, GREF(int16_t, orig + MOBY_OCLASS), at, gap)) {
             continue;
@@ -1077,6 +1164,10 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
     }
     const int16_t k = scan.blob[(orig - t->base) / MOBY_SIZE];
     const uint32_t size = scan.size[(orig - t->base) / MOBY_SIZE];
+    /* A rider that has found its platform: a copy would take its place on it. */
+    if (rides(t, GREF(gaddr, orig + MOBY_PVARS), size)) {
+        return 0;
+    }
     const uint32_t room_need = size > SLOT_PVARS ? (size + 15u) & ~15u : 0;
     if (room_need > 0) {
         if (made.room == 0) {

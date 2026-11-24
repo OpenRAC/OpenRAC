@@ -155,31 +155,7 @@ int api_hero_set_joints(openrac_mod* mod, const openrac_joint_offset* joints, in
     if (moby == 0) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    auto it = std::find_if(g_joint_sets.begin(), g_joint_sets.end(), [&](const JointSet& s) {
-        return s.mod == mod;
-    });
-    if (count == 0) {
-        if (it != g_joint_sets.end()) {
-            g_joint_sets.erase(it);
-        }
-    } else {
-        if (it == g_joint_sets.end()) {
-            it = g_joint_sets.insert(g_joint_sets.end(), JointSet{mod, {}});
-        }
-        it->joints.assign(joints, joints + count);
-    }
-    std::size_t total = 0;
-    for (const JointSet& s : g_joint_sets) {
-        total += s.joints.size();
-    }
-    if (total > OPENRAC_JOINT_OFFSETS_MAX) {
-        // More than the hero takes in all: this mod's last call is undone.
-        std::erase_if(g_joint_sets, [&](const JointSet& s) { return s.mod == mod; });
-        apply_joint_sets(moby);
-        return OPENRAC_HOOK_UNKNOWN;
-    }
-    apply_joint_sets(moby);
-    return OPENRAC_HOOK_OK;
+    return set_joint_set(mod, moby, joints, count);
 }
 
 int api_hero_hurt(openrac_mod* mod, int damage) {

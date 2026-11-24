@@ -15,6 +15,7 @@
 #include <fstream>
 #include <memory>
 #include <sstream>
+#include <string_view>
 
 #include "button_labels.h"
 #include "common/c_boundary.h"
@@ -781,6 +782,46 @@ int api_pointer(lua_State* L) {
     return 3;
 }
 
+// Interface 1.37: drives pad `port`'s motors as the game's vibration does (openrac_api.set_motors):
+// `small_motor` a boolean, `large_motor` 0 to 255. True when the port took it.
+int api_set_motors(lua_State* L) {
+    State* s = state_of(L);
+    const double port = luaL_checknumber(L, 1);
+    luaL_checktype(L, 2, LUA_TBOOLEAN);
+    const double large = luaL_checknumber(L, 3);
+    const bool whole = std::floor(port) == port && std::floor(large) == large;
+    const bool ok = whole && port >= 0 && port <= 1 && large >= 0 && large <= 255
+                    && s->services.set_motors != nullptr
+                    && s->services.set_motors(
+                           s->mod.handle,
+                           static_cast<int>(port),
+                           lua_toboolean(L, 2) ? 1 : 0,
+                           static_cast<int>(large)
+                       ) == OPENRAC_HOOK_OK;
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+}
+
+// Interface 1.37: greys an option of the port's menu out or makes it usable, by its name
+// (openrac_api.menu_option_set): "on", "off" or "default". True when the port took it.
+int api_menu_option_set(lua_State* L) {
+    State* s = state_of(L);
+    const char* option = luaL_checkstring(L, 1);
+    const std::string_view state = luaL_checkstring(L, 2);
+    int value = OPENRAC_MENU_OPTION_DEFAULT;
+    if (state == "on") {
+        value = OPENRAC_MENU_OPTION_ON;
+    } else if (state == "off") {
+        value = OPENRAC_MENU_OPTION_OFF;
+    } else if (state != "default") {
+        luaL_argerror(L, 2, "\"on\", \"off\" or \"default\"");
+    }
+    const bool ok = s->services.menu_option_set != nullptr
+                    && s->services.menu_option_set(s->mod.handle, option, value) == OPENRAC_HOOK_OK;
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+}
+
 // Interface 1.31: the label of the pad's button `button` (an OPENRAC_PAD_* bit) for the player's
 // device now, and its kind: "playstation", "letters" or "keys"; nil, nil for no single button.
 int api_button_label(lua_State* L) {
@@ -1014,6 +1055,8 @@ void push_openrac(lua_State* L, State* s) {
     set_function(L, "window", api_window);
     set_function(L, "pointer", api_pointer);
     set_function(L, "button_label", api_button_label);
+    set_function(L, "set_motors", api_set_motors);
+    set_function(L, "menu_option_set", api_menu_option_set);
     set_function(L, "take_input", api_take_input);
     set_function(L, "capture_mouse", api_capture_mouse);
     set_function(L, "touch_define", api_touch_define);

@@ -12,7 +12,7 @@ fcheck_gate.fcheck_commit); once their callers have moved and a copy is gone, it
 goes with it, as the copies in tools/, port/tools, the probe tools and the editor's disc reader
 already went (hostgen's readers keep their characterisation in
 port/tools/hostgen/test_tables.py; the editor's reader, now on iso9660, keeps its stricter
-checks' tests in editor/test_disc.py).
+checks' tests in extractor/test_disc.py).
 """
 import contextlib
 import hashlib
@@ -206,7 +206,7 @@ class PathsTests(TempDir):
 # the editor imports nothing of tools/ but the package, and its port.py keeps its name beside
 # tools/port.py because a script's own folder comes before tools/ on the path
 # (test_the_editor_runs_from_the_launchers_bundled_copy).
-BOOTSTRAPPED = ("port/tools", "port/enhanced/tools/baker", "editor")
+BOOTSTRAPPED = ("port/tools", "port/enhanced/tools/baker", "extractor")
 NAMES_CHECKED = ("port/tools", "port/enhanced/tools/baker")
 
 
@@ -246,16 +246,16 @@ class BootstrapTests(TempDir):
         self.assertEqual(self.run_script(top), [top / paths.PACKAGE_DIR, top])
 
     def test_the_editor_runs_from_the_launchers_bundled_copy(self):
-        # The copy carries editor/ beside tools/ (openrac_common and port.py among them) and
+        # The copy carries extractor/ beside tools/ (openrac_common and port.py among them) and
         # games/*/game.json, without CONTRIBUTING.md (tools/bundle_standalone.py). Every module of the
         # editor imports there, takes the package from the copy, and its own port.py comes first.
         top = self.layout("bundle", paths.STANDALONE_MARKER).resolve()
-        shutil.copytree(ROOT / "editor", top / "editor", ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copytree(ROOT / "extractor", top / "extractor", ignore=shutil.ignore_patterns("__pycache__"))
         shutil.copy(ROOT / "tools/port.py", top / "tools/port.py")
         for manifest in (ROOT / "games").glob("*/game.json"):
             (top / "games" / manifest.parent.name).mkdir()
             shutil.copy(manifest, top / "games" / manifest.parent.name / "game.json")
-        script = top / "editor/probe.py"
+        script = top / "extractor/probe.py"
         script.write_text(
             "import importlib\nfrom pathlib import Path\n"
             "here = Path(__file__).parent\n"
@@ -267,7 +267,7 @@ class BootstrapTests(TempDir):
         done = subprocess.run([sys.executable, "-E", str(script)], cwd=self.dir, capture_output=True, text=True)
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertEqual(done.stdout.splitlines(), [str(top / paths.PACKAGE_DIR), str(top / paths.PACKAGE_DIR),
-                                                    str(top / "editor/port.py"),
+                                                    str(top / "extractor/port.py"),
                                                     games.load("rac1")["versions"]["pal"]["boot"]["file"]])
 
     def test_the_documented_line_is_the_constant(self):

@@ -469,11 +469,6 @@
       "func_00284458_10": "float (float, float)"
     },
     "results_before_calls": true,
-    "vu0_programs": {
-      "0xC80": "rac2_vu0_cosine",
-      "0xC90": "rac2_vu0_sine",
-      "0xD18": "rac2_vu0_rotation_rows"
-    },
     "enabled": true,
     "discover_entries": true,
     "spr_copies": true,

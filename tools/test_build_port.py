@@ -23,7 +23,7 @@ OPENRAC_RAC1_PAL_SOURCE:PATH=C:/work/rac1-decomp
 WITH_EQUALS:STRING=a=b
 """
 BUILD = ["cmake", "--build", "--preset", "release", "--parallel", str(build_port.build_jobs()),
-         "--target", "openrac-rac1-pal", "openrac-extractor"]
+         "--target", "openrac-rac1-pal", "openrac-rac1-pal-states", "openrac-extractor"]
 
 # main() lowers its own priority (background.lower_priority); not the test runner's.
 _priority = mock.patch.object(build_port.background, "lower_priority", return_value=True)
@@ -59,7 +59,9 @@ class Reading(unittest.TestCase):
 
     def test_names_follow_the_games(self):
         self.assertEqual(build_port.source_variable("rac1-pal"), "OPENRAC_RAC1_PAL_SOURCE")
-        self.assertEqual(build_port.targets(["rac1-pal"]), ["openrac-rac1-pal", "openrac-extractor"])
+        self.assertEqual(build_port.targets(["rac1-pal"]),
+                         ["openrac-rac1-pal", "openrac-rac1-pal-states", "openrac-extractor"])
+        self.assertEqual(build_port.targets(["rac2-ntsc"]), ["openrac-rac2-ntsc", "openrac-extractor"])
         self.assertIn("rac1-pal", build_port.games())
         self.assertEqual(build_port.default_source("rac1-pal"), build_port.ROOT / "games" / "rac1" / "decomp")
 

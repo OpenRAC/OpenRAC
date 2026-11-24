@@ -52,5 +52,7 @@ gaddr func_002AF580__game(
     int a11,
     gaddr a12
 );
+void func_L00_003C3D90__game(gaddr a0);
+void func_L00_00392530__game(gaddr a0);
 
 #endif /* OPENRAC_GAME_PROTOS_H */

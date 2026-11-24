@@ -5,12 +5,12 @@
   "function: called": 30,
   "function: changed": 88,
   "function: found": 28,
-  "function: near": 62,
+  "function: near": 64,
   "function: same": 776,
   "global: aligned": 6,
   "global: between": 18,
   "global: exact": 116,
-  "global: the release's build": 138
+  "global: the release's build": 139
  },
  "functions": {
   "func_001158F8": [
@@ -291,6 +291,16 @@
   "func_00342380": [
    "func_00343290",
    "changed",
+   "host C"
+  ],
+  "func_0034CEA0": [
+   "func_0034DBE0",
+   "near",
+   "RAC2_K HUD_BOLT_TEXT"
+  ],
+  "func_0034DB98": [
+   "func_0034E8D8",
+   "near",
    "host C"
   ],
   "func_0034E4F8": [
