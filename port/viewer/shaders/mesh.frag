@@ -268,7 +268,10 @@ vec3 energy_shine(vec3 rgb) {
 // colour multiplies it: the same model and texture, shaded as before, in the paint's colour. After
 // the lighting a white highlight follows the sun and a rim glows in the colour by the paint's
 // level (paint_shine); a glow packet takes the colour at its luminance (paint_colour).
-// v_mod_material is kModMaterialPaint plus the level (scene::kModMaterialPaint).
+// v_mod_material is kModMaterialPaint plus the level (scene::kModMaterialPaint), plus 16 x (1 + the
+// accent's colour, 3 bits a channel) for a paint with an accent (interface 1.38,
+// scene::paint_material): the model's strongly saturated texels (paint_accent_mask) are drawn in the
+// accent instead of the body's colour, brighter.
 const int kModMaterialPaint = 16;
 const float kPaintContrast = 1.25;     // the grey's contrast around kPaintPivot
 const float kPaintPivot = 0.35;
@@ -278,13 +281,42 @@ const float kPaintHighlight = 0.35;    // the highlight's strength at its peak
 const float kPaintRim = 0.9;           // the rim's strength at a grazing angle, at the top level
 const float kPaintRimFalloff = 2.5;    // how fast it fades towards the middle
 const float kPaintGlowPacket = 2.0;    // a glow packet's brightening
+// The accent's mask: a texel is accent where its saturation passes kPaintAccentSat and it is not
+// nearly black (kPaintAccentValue). Carbonox's grey metal has none; its visor's reds and its teal
+// lamps have 0.9 and more.
+const vec2 kPaintAccentSat = vec2(0.45, 0.70);
+const vec2 kPaintAccentValue = vec2(0.10, 0.22);
+const float kPaintAccentDim = 0.55;    // the accent's brightness at the darkest accent texel
+const float kPaintAccentGlow = 1.4;    // and at the brightest: a lit glass, a little over white
+const float kPaintAccentRange = 1.8;   // the texel's value that reaches kPaintAccentGlow is 1 / this
+const float kPaintAccentTint = 0.05;   // the lowest body colour the accent divides by
 
 bool paint() {
-    return v_mod_material >= kModMaterialPaint && v_mod_material < kModMaterialPaint + 16;
+    return v_mod_material >= kModMaterialPaint;
 }
 
 float paint_level() {
-    return float(v_mod_material - kModMaterialPaint) / 15.0;
+    return float((v_mod_material - kModMaterialPaint) & 15) / 15.0;
+}
+
+// The accent's code of the paint: 0 for none, else 1 + r << 6 | g << 3 | b (3 bits a channel).
+int paint_accent_code() {
+    return (v_mod_material - kModMaterialPaint) >> 4;
+}
+
+// Returns how far `rgb` is an accent texel, 0 (grey metal, cloth) to 1 (a strongly saturated one).
+float paint_accent_mask(vec3 rgb) {
+    float high = max(rgb.r, max(rgb.g, rgb.b));
+    float low = min(rgb.r, min(rgb.g, rgb.b));
+    float saturation = (high - low) / max(high, 1e-4);
+    return smoothstep(kPaintAccentSat.x, kPaintAccentSat.y, saturation)
+           * smoothstep(kPaintAccentValue.x, kPaintAccentValue.y, high);
+}
+
+// Returns the paint's accent colour, 0 to 1 a channel.
+vec3 paint_accent_rgb() {
+    int code = paint_accent_code() - 1;
+    return vec3(float((code >> 6) & 7), float((code >> 3) & 7), float(code & 7)) / 7.0;
 }
 
 vec4 paint_texel(vec4 texel) {
@@ -293,7 +325,16 @@ vec4 paint_texel(vec4 texel) {
     }
     float grey = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
     grey = clamp((grey - kPaintPivot) * kPaintContrast + kPaintPivot, 0.0, 1.0) * kPaintGain;
-    return vec4(vec3(min(grey, 1.0)), texel.a);
+    vec3 body = vec3(min(grey, 1.0));
+    if (paint_accent_code() > 0) {
+        // The accent texel keeps its own brightness (its value), lifted; the tint colours the
+        // vertex colour that multiplies it, so divide it out to leave the accent itself.
+        float value = max(texel.r, max(texel.g, texel.b));
+        float shine = mix(kPaintAccentDim, kPaintAccentGlow, clamp(value * kPaintAccentRange, 0.0, 1.0));
+        vec3 accent = paint_accent_rgb() * shine / max(v_mod_rgb, vec3(kPaintAccentTint));
+        body = mix(body, accent, paint_accent_mask(texel.rgb));
+    }
+    return vec4(body, texel.a);
 }
 
 vec4 paint_colour(vec4 c) {

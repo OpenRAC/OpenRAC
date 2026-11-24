@@ -173,6 +173,41 @@ int main() {
     CHECK(api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_NONE, 0) == OPENRAC_HOOK_OK);
     CHECK(mods::moby_materials({{kCoin, kBolt}}).empty());
 
+    // Paint with an accent (1.38): the macro keeps the accent's top 3+ bits a channel, the port
+    // takes it, and refuses a colour without the flag, bits past it, and an accent on other kinds.
+    constexpr std::uint32_t kAccent = OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT(9, 0xFF2010);
+    CHECK((kAccent & 0xFFu) == OPENRAC_MOBY_MATERIAL_PAINT && (kAccent >> 8 & 0xFu) == 9);
+    CHECK((kAccent & OPENRAC_MOBY_MATERIAL_PAINT_ACCENT) != 0);
+    CHECK(
+        (kAccent >> 20 & 0xFu) == 0xF && (kAccent >> 16 & 0xFu) == 0x2
+        && (kAccent >> 12 & 0xFu) == 0x1
+    );
+    CHECK(api.moby_material(first, kCoin, kAccent, 0x2080FF) == OPENRAC_HOOK_OK);
+    list = mods::moby_materials({{kCoin, kBolt}});
+    CHECK(material_of(list, kCoin).material == kAccent && material_of(list, kCoin).rgb == 0x2080FF);
+    CHECK(
+        OPENRAC_MOBY_MATERIAL_KIND(material_of(list, kCoin).material) == OPENRAC_MOBY_MATERIAL_PAINT
+    );
+    // A colour with no flag, a bit above the flag, and an accent on platinum or energy.
+    CHECK(
+        api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_PAINT | 0x2000u, 0xFFFFFF)
+        == OPENRAC_HOOK_UNKNOWN
+    );
+    CHECK(api.moby_material(first, kCoin, kAccent | 0x2000000u, 0) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(
+        api.moby_material(
+            first, kCoin, OPENRAC_MOBY_MATERIAL_PLATINUM | OPENRAC_MOBY_MATERIAL_PAINT_ACCENT, 0
+        )
+        == OPENRAC_HOOK_UNKNOWN
+    );
+    CHECK(
+        api.moby_material(
+            first, kCoin, OPENRAC_MOBY_MATERIAL_ENERGY_AT(3) | OPENRAC_MOBY_MATERIAL_PAINT_ACCENT, 0
+        )
+        == OPENRAC_HOOK_UNKNOWN
+    );
+    CHECK(api.moby_material(first, kCoin, OPENRAC_MOBY_MATERIAL_NONE, 0) == OPENRAC_HOOK_OK);
+
     // A class's material (1.34): what it refuses, one a class and scope, the last set wins,
     // NONE takes the mod's off in the scope named, a mod's unload and a level load end it.
     const auto by_class = [](int oclass, std::uint32_t scope) {
