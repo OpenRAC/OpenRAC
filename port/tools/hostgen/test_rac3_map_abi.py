@@ -10,15 +10,46 @@ import importlib.util
 import json
 from pathlib import Path
 import re
+import sys
+import tempfile
 import unittest
+from unittest import mock
 
 GAME = Path(__file__).resolve().parents[2] / "game"
 SPEC = importlib.util.spec_from_file_location("rac3_maps", GAME / "rac3-pal/mp/maps.py")
 MAPS = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(MAPS)
+# Match the script's CLI import context now that native reference roots also use sibling fixes.py.
+with mock.patch("sys.path", [str(GAME / "rac3-pal/mp"), *sys.path]):
+    SPEC.loader.exec_module(MAPS)
 
 
 class MapAbi(unittest.TestCase):
+    def test_no_disc_layout_wrappers_keep_four_ints(self):
+        """No-disc signature settlement preserves the layout ABI, not merely the JSON spelling."""
+        import ctype
+        import hostgen
+        import program
+
+        self.addCleanup(program.set_name_prefix, program.NAME_PREFIX)
+        expected = program.Signature.of(ctype.parse("void (int, int, int, int)"))
+        with tempfile.TemporaryDirectory() as temp:
+            for version in ("rac3-pal", "rac3-ntsc"):
+                root = GAME / version
+                cfg = hostgen.load_config(root / "mp/hostgen.json")
+                compiled = program.Program()
+                compiled.wrap = hostgen.wrapped(root / "mp", cfg)
+                compiled.ps2_float = set(cfg.get("ps2_float", []))
+                compiled.spilled_locals = cfg.get("spilled_locals", {})
+                hostgen.settle_signatures(compiled, cfg, Path(temp), {})
+                layouts = [cols[0] for line in (root / "mp/libraries.tsv").read_text().splitlines()
+                           if len(cols := line.split("\t")) >= 6
+                           and re.fullmatch(r"rac3ViewLayoutMap\d+", cols[2])]
+                self.assertEqual(len(layouts), 14 if version == "rac3-pal" else 16)
+                for symbol in layouts:
+                    with self.subTest(version=version, function=symbol):
+                        self.assertIn(symbol, compiled.wrap)
+                        self.assertEqual(compiled.functions[symbol].sig, expected)
+
     def test_layout_and_collision_keep_their_own_macro_slots(self):
         """Both PAL and carried NTSC macro rows have the generator's arity and library order."""
         for version in ("rac3-pal", "rac3-ntsc"):
