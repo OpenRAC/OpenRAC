@@ -242,6 +242,7 @@ add_library(openrac_renderer STATIC
   renderer/debug/debug_lines.cpp
   renderer/debug/debug_geometry.cpp
   renderer/direct/direct.cpp
+  renderer/effects/effect_state.cpp
   renderer/effects/effects.cpp
   renderer/effects/effects_colour.cpp renderer/effects/effects_draw.cpp
   renderer/gl/framebuffer.cpp
@@ -967,6 +968,10 @@ openrac_add_test(game_image_sources SOURCES tests/game_image_sources_test.cpp
 
 openrac_add_test(renderer_direct LIBS openrac_renderer openrac_platform)
 set_tests_properties(renderer_direct PROPERTIES SKIP_RETURN_CODE 77)
+# Native effect quads on a real GPU context: the same pixels as their GS-word twins, and
+# blends weighed by the target's alpha (renderer/effects/effect_state.h).
+openrac_add_test(native_material_gpu LIBS openrac_renderer openrac_platform)
+set_tests_properties(native_material_gpu PROPERTIES SKIP_RETURN_CODE 77)
 
 openrac_add_test(program_cache LIBS openrac_renderer openrac_platform)
 set_tests_properties(program_cache PROPERTIES SKIP_RETURN_CODE 77)

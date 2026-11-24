@@ -203,6 +203,16 @@ private:
     // (0.5 for a texture whose alpha is 0..255 with 0x80 as 1), ALPHA's blend.
     void apply_colour_state(const gs::Tex0& tex0, float scale, std::uint64_t alpha_bits);
 
+    // apply for a native quad (EffectQuad::native): binds `image` (a pool texture; none when
+    // `untextured`) with the state's filter and wrap, and sets its texture function, blend and
+    // depth comparison (effect_gl_state). False when a textured quad's image has no texture.
+    bool apply_native(
+        const EffectState& material, TextureHandle image, bool untextured, RenderState& state
+    );
+
+    // Sets the depth comparison of the next draws, when it changed.
+    void set_depth_function(unsigned function);
+
     struct Vertex {
         float x, y, z;
         float s, t;
@@ -223,6 +233,10 @@ private:
         float alpha_scale = -1.0f;
         unsigned offscreen = 0;  // the off-screen target's GL texture bound (kOffscreenHandle)
     } m_applied;
+
+    // The depth comparison in GL now (set_depth_function), across shader changes: GL_GEQUAL from
+    // the start of each pass's draws.
+    unsigned m_depth_function = 0;
 
     // m_applied.texture while an off-screen target's texture is bound (no pool handle is ~0).
     static constexpr TextureHandle kOffscreenHandle = ~TextureHandle{0};
