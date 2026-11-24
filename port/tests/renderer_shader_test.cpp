@@ -361,6 +361,15 @@ sample_result[0]=vec4(light,valid?confidence:0.);})";
 #endif
     namespace renderer_src = openrac::renderer::shaders;
     namespace viewer_src = openrac::scene::shaders;
+    Shader invalid;
+    CHECK(!invalid.build(
+        "invalid vertex",
+        "#version 410 core\nvoid main() { gl_Position = missing_position; }\n",
+        renderer_src::direct_frag,
+        why
+    ));
+    CHECK(contains(why, "invalid vertex: vertex shader:"));
+    CHECK(contains(why, "missing_position"));
     build("direct", renderer_src::direct_vert, renderer_src::direct_frag);
     build("effect", renderer_src::effect_vert, renderer_src::direct_frag);
     const std::string mesh_fragment = openrac::lighting::probe_mesh_fragment(viewer_src::mesh_frag);

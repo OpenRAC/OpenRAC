@@ -765,11 +765,11 @@ VkCommandBuffer upload_cmd() {
     return f.upload;
 }
 
-void count_where(std::string_view event) {
+void count_where(std::string_view event, std::string_view suffix) {
     const auto section = stats::open_section();
     auto& key = g->where_key;
     key.assign(event);
-    key.append(" in ").append(section.empty() ? "frame" : section);
+    key.append(suffix).append(" in ").append(section.empty() ? "frame" : section);
     g->where[key] += 1.0;
 }
 

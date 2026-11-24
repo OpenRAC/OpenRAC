@@ -237,8 +237,9 @@ void GraphImmediateWork::prepare_material_reads(std::span<const Sampled> texture
         if (!owner) {
             throw std::logic_error("bindless material requires a renderer-owned image");
         }
+        // This label is copied into each compiled plan. Keep it short enough for inline storage.
         const auto image =
-            execution.m_recording->import_image("material texture", std::move(owner), true);
+            execution.m_recording->import_image("material image", std::move(owner), true);
         if (!image) {
             throw std::runtime_error(image.error().message);
         }

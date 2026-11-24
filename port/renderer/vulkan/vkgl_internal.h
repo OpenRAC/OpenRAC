@@ -1540,7 +1540,7 @@ inline void count_command(Command kind, std::uint64_t count = 1) {
 }
 
 // Counts `event` in the section open now, as a gauge of this frame (published by present).
-void count_where(std::string_view event);
+void count_where(std::string_view event, std::string_view suffix = {});
 
 // Counts one vkCmdPipelineBarrier that waits on `source` stages for `destination` stages; `site`
 // names the code that recorded it.
@@ -1556,7 +1556,7 @@ inline void count_barrier(
         ++g->submission.barriers_all_commands;
 
         if (stats::enabled()) {
-            count_where(std::string("vk_barrier_all ").append(site));
+            count_where("vk_barrier_all ", site);
         }
     }
 }
