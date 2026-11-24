@@ -372,7 +372,16 @@ void LevelScene::draw_shadow_map(
                     }
                     if (batch && !batch_off) {
                         const unsigned alpha_pass = skinning ? 2 : 1;
-                        shadow_draws[solid ? 0 : alpha_pass].push_back(command);
+                        auto& bucket = shadow_draws[solid ? 0 : alpha_pass];
+                        if (bucket.size() == bucket.capacity()) {
+                            // Atlas buckets can span layers and cascades. Reserve only for buckets
+                            // that receive draws, then grow geometrically as the queues get denser.
+                            constexpr std::size_t initial_draws = 256;
+                            const auto size = bucket.size();
+                            const auto growth = std::min(size, bucket.max_size() - size);
+                            bucket.reserve(std::max(initial_draws, size + growth));
+                        }
+                        bucket.push_back(command);
                     } else {
                         // The CPU culling fallback reuses one compact instance buffer;
                         // consume it before the next group can overwrite its contents.

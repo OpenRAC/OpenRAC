@@ -114,48 +114,73 @@ std::string stage_source(std::string_view desktop_source) {
     return std::string(source);
 }
 
-// Hands a stage to the driver to compile. Its status is not asked yet: with parallel compiles
-// (gl::parallel_shader_compile) the driver works on it while the next stage is handed over.
-GLuint start_compile(GLenum type, const std::string& source) {
+struct ShaderStage {
+    GLuint object;
+    GLenum type;
+};
+
+// GL can compile stages in parallel before linking. Vulkan parses them during program linking.
+ShaderStage create_stage(GLenum type, const std::string& source) {
     const GLuint shader = glCreateShader(type);
     const GLchar* text = source.data();
     const auto length = static_cast<GLint>(source.size());
     glShaderSource(shader, 1, &text, &length);
-    glCompileShader(shader);
-    return shader;
+    if (!is_vulkan()) {
+        glCompileShader(shader);
+    }
+    return {shader, type};
 }
 
-// Waits for the stage's compile: the shader, or 0 (deleted) with the compiler's log.
-GLuint finish_compile(GLuint shader, std::string& log) {
+// Waits for the stage and reports its compiler diagnostics on failure.
+bool check_stage(ShaderStage stage, std::string_view name, std::string& error) {
     GLint ok = 0;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
-    if (ok == 0) {
-        GLint size = 0;
-        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &size);
-        log.assign(static_cast<std::size_t>(size > 0 ? size : 1), '\0');
-        glGetShaderInfoLog(shader, size, nullptr, log.data());
-        glDeleteShader(shader);
+    glGetShaderiv(stage.object, GL_COMPILE_STATUS, &ok);
+    if (ok != 0) {
+        return true;
+    }
+
+    GLint size = 0;
+    glGetShaderiv(stage.object, GL_INFO_LOG_LENGTH, &size);
+    std::string log(static_cast<std::size_t>(std::max(size, 1)), '\0');
+    glGetShaderInfoLog(stage.object, size, nullptr, log.data());
+    const char* label = stage.type == GL_VERTEX_SHADER     ? "vertex shader"
+                        : stage.type == GL_FRAGMENT_SHADER ? "fragment shader"
+                                                           : "compute shader";
+    error = std::format("{}: {}: {}", name, label, log);
+    return false;
+}
+
+// Owns these stages until compilation and linking have finished.
+GLuint build_stages(
+    std::string_view name,
+    std::string_view step,
+    std::span<const ShaderStage> stages,
+    std::string& error
+) {
+    struct ReleaseStages {
+        std::span<const ShaderStage> stages;
+
+        ~ReleaseStages() {
+            for (const auto& stage : stages) {
+                glDeleteShader(stage.object);
+            }
+        }
+    } release{stages};
+
+    const bool vulkan = is_vulkan();
+    if (!vulkan && !std::ranges::all_of(stages, [&](auto stage) {
+            return check_stage(stage, name, error);
+        })) {
         return 0;
     }
-    return shader;
-}
-
-// Links compiled stages and releases them on either outcome.
-GLuint link_stages(
-    std::string_view name, std::string_view step, std::span<const GLuint> stages, std::string& error
-) {
     const GLuint program = glCreateProgram();
     program_cache::prepare(program);
 
-    for (const GLuint stage : stages) {
-        glAttachShader(program, stage);
+    for (const auto& stage : stages) {
+        glAttachShader(program, stage.object);
     }
 
     glLinkProgram(program);
-
-    for (const GLuint stage : stages) {
-        glDeleteShader(stage);
-    }
 
     GLint ok = 0;
     glGetProgramiv(program, GL_LINK_STATUS, &ok);
@@ -167,10 +192,18 @@ GLuint link_stages(
         glGetProgramInfoLog(program, size, nullptr, log.data());
         glDeleteProgram(program);
         error = std::format("{}: {}: {}", name, step, log);
-        return 0;
+        // Recover the stage-specific error when a Vulkan link failed to parse its source.
+        if (vulkan) {
+            for (const auto& stage : stages) {
+                glCompileShader(stage.object);
+                if (!check_stage(stage, name, error)) {
+                    break;
+                }
+            }
+        }
     }
 
-    return program;
+    return ok != 0 ? program : 0;
 }
 
 // Compiles and links a graphics program from final stage sources, or returns 0 with an error.
@@ -180,28 +213,9 @@ GLuint compile_program(
     const std::string& fragment,
     std::string& error
 ) {
-    // Submit both stages before waiting, so parallel driver compilation can overlap them.
-    const GLuint vs_started = start_compile(GL_VERTEX_SHADER, vertex);
-    const GLuint fs_started = start_compile(GL_FRAGMENT_SHADER, fragment);
-    std::string log;
-    const GLuint vs = finish_compile(vs_started, log);
-
-    if (vs == 0) {
-        glDeleteShader(fs_started);
-        error = std::format("{}: vertex shader: {}", name, log);
-        return 0;
-    }
-
-    const GLuint fs = finish_compile(fs_started, log);
-
-    if (fs == 0) {
-        glDeleteShader(vs);
-        error = std::format("{}: fragment shader: {}", name, log);
-        return 0;
-    }
-
-    const GLuint stages[] = {vs, fs};
-    return link_stages(name, "link", stages, error);
+    const ShaderStage stages[] =
+        {create_stage(GL_VERTEX_SHADER, vertex), create_stage(GL_FRAGMENT_SHADER, fragment)};
+    return build_stages(name, "link", stages, error);
 }
 
 // Lists declared feature modes; Vulkan and MoltenVK select them in their pipeline backend.
@@ -275,15 +289,8 @@ std::string compute_source(std::string_view source) {
 
 // Links one native compute executable from final, already specialised stage source.
 GLuint compile_compute(std::string_view name, const std::string& source, std::string& error) {
-    std::string log;
-    const GLuint shader = finish_compile(start_compile(GL_COMPUTE_SHADER, source), log);
-
-    if (shader == 0) {
-        error = std::format("{}: compute shader: {}", name, log);
-        return 0;
-    }
-
-    return link_stages(name, "compute link", std::span(&shader, 1), error);
+    const auto stage = create_stage(GL_COMPUTE_SHADER, source);
+    return build_stages(name, "compute link", std::span(&stage, 1), error);
 }
 
 // Owns compute templates and caches each exact set of feature constants independently.

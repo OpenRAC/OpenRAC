@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <functional>
 #include <iterator>
 #include <stdexcept>
 
@@ -166,29 +167,24 @@ void LevelScene::render_early_lighting(
     }
     state.world_shadows_prepared = true;
     std::string error;
+    const auto bind_lighting = [&](const renderer::Shader& shader) {
+        m_lighting->bind(shader, Layer::Terrain, true, &input.camera, true);
+        bind_sun_shadow(shader, input.camera);
+        bind_hero_shadow(shader);
+        glUniform1i(shader.uniform("early_ao_enabled"), state.gtao_raw != 0 ? 1 : 0);
+        glUniform1i(shader.uniform("early_ao"), 18);
+        glUniform1i(shader.uniform("early_ao_scale"), state.gtao_scale);
+        glUniform1f(
+            shader.uniform("early_ao_strength"), std::clamp(state.gtao_strength, 0.0f, 3.0f)
+        );
+        glActiveTexture(GL_TEXTURE0 + 18);
+        glBindTexture(renderer::world::gl::GL_TEXTURE_BUFFER, state.gtao_raw);
+        glActiveTexture(GL_TEXTURE0);
+    };
     // Drawn only where it is needed (needs_early_lighting), which takes registered lighting.
     state.early_lighting =
         m_lighting
-        && m_lighting->render_early(
-            depth,
-            input,
-            state.target,
-            [&](const renderer::Shader& shader) {
-                m_lighting->bind(shader, Layer::Terrain, true, &input.camera, true);
-                bind_sun_shadow(shader, input.camera);
-                bind_hero_shadow(shader);
-                glUniform1i(shader.uniform("early_ao_enabled"), state.gtao_raw != 0 ? 1 : 0);
-                glUniform1i(shader.uniform("early_ao"), 18);
-                glUniform1i(shader.uniform("early_ao_scale"), state.gtao_scale);
-                glUniform1f(
-                    shader.uniform("early_ao_strength"), std::clamp(state.gtao_strength, 0.0f, 3.0f)
-                );
-                glActiveTexture(GL_TEXTURE0 + 18);
-                glBindTexture(renderer::world::gl::GL_TEXTURE_BUFFER, state.gtao_raw);
-                glActiveTexture(GL_TEXTURE0);
-            },
-            error
-        );
+        && m_lighting->render_early(depth, input, state.target, std::cref(bind_lighting), error);
     stats::gauge("early lighting active", state.early_lighting ? 1 : 0);
     if (!error.empty()) {
         log::warn("early lighting: {}", error);

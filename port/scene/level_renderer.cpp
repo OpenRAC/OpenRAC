@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstring>
 #include <format>
+#include <functional>
 #include <iterator>
 #include <optional>
 #include <stdexcept>
@@ -1656,7 +1657,7 @@ void LevelScene::draw_layer(
     const auto inputs = classic_colour_inputs(layer, state, gpu_view, inspection);
     // Standalone layer draws preserve the original blend and material order.
     renderer::raster_pass(
-        pass_name.empty() ? layer_name(layer) : pass_name, state.target, inputs, draw
+        pass_name.empty() ? layer_name(layer) : pass_name, state.target, inputs, std::cref(draw)
     );
 }
 

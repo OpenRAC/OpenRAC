@@ -84,7 +84,7 @@ void renderer_section(const Shown& shown) {
             }
 
             auto found = std::find_if(passes.begin(), passes.end(), [&](const auto& p) {
-                return p.first == section.name;
+                return p.first == std::string_view(section.name);
             });
 
             if (found == passes.end()) {
