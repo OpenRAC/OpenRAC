@@ -15,6 +15,7 @@
 #define OPENRAC_FRAME_H
 
 #include <stdint.h>
+#include <string.h>
 
 #include "openrac/guest.h"
 #include "openrac/ui_item.h"
@@ -73,6 +74,35 @@ void openrac_frame_view_end(void);
  * no residual packets (P7, R3). */
 void openrac_frame_anchor(gaddr list_cursor);
 
+/* Anchors at the write pointer in the readable game word at `cursor`, accepting RAM and its aliases.
+ * Invalid, null or unaligned list pointers use an unreachable anchor, never unanchored drawing.
+ * Only an explicit openrac_frame_anchor(0) clears the anchor. */
+static inline void openrac_frame_anchor_at(gaddr cursor) {
+    /* UINT32_MAX cannot name a RAM tag and keeps a bad cursor's commands eligible for dropping. */
+    if (cursor == 0) {
+        openrac_frame_anchor(UINT32_MAX);
+        return;
+    }
+
+    gaddr at;
+    memcpy(&at, G(cursor), sizeof(at));
+    const int at_in_ram =
+        at < openrac_guest_ram_size
+        || (at >= GUEST_RAM_UNCACHED && at - GUEST_RAM_UNCACHED < openrac_guest_ram_size)
+        || (at >= GUEST_RAM_UNCACHED_ACCEL
+            && at - GUEST_RAM_UNCACHED_ACCEL < openrac_guest_ram_size);
+    at = openrac_guest_ram_address(at);
+
+    /* List tags occupy aligned quadwords, including the eventual terminating tag. */
+    if (!at_in_ram || at == 0 || (at & 15u) != 0 || at > openrac_guest_ram_size
+        || 16u > openrac_guest_ram_size - at) {
+        openrac_frame_anchor(UINT32_MAX);
+        return;
+    }
+
+    openrac_frame_anchor(at);
+}
+
 /* The world (OPENRAC_DRAW_* layers) is drawn here: the 2D before it goes under the world. */
 void openrac_frame_world(unsigned layers);
 /* The world's moby pass starts here: effect strips sent before it are drawn before the mobys. */
@@ -120,6 +150,35 @@ void openrac_frame_target_end(void);
 
 /* What follows is cut to `rect` (x0, y0, x1, y1; NULL: the whole target). */
 void openrac_frame_scissor(const float* rect);
+
+/*
+ * Transitional placements, while a game still draws part of its 2D or its effect strips as its own
+ * packets (Ratchet & Clank and Going Commando, until R2 and R3): each says where something starts
+ * among them, as the markers host C once wrote into the list did. Nothing is written into the list.
+ */
+/* The world's shrub pass starts here: the effect strips sent before it are drawn before it. */
+void openrac_frame_world_shrubs(void);
+/* The effect strips that follow move with attachment `attachment`'s parent of the tick before (the
+ * scope game_host.h's OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER named); 0 ends it. */
+void openrac_frame_effect_parent(uint32_t attachment);
+/* The same scope following only the parent's position, preserving world-space orientation. */
+void openrac_frame_effect_parent_position(uint32_t attachment);
+/* With "HUD: Edges": what follows goes out to the HUD's side, `side` (openrac_game_hud_side) past
+ * the picture's; 0 ends it. OPENRAC_HUD_STRETCH: an element across the middle stretches out with the
+ * rest; OPENRAC_HUD_SPLIT(x): what follows parts at x (the game's 2D pixels) instead, each side as
+ * one block. */
+#define OPENRAC_HUD_STRETCH 1u
+#define OPENRAC_HUD_SPLIT(x) (2u | (unsigned)(x) << 2)
+void openrac_frame_hud_side(int side, unsigned how);
+/* `on`: what follows covers the whole target on a window wider than the picture (as a fade does),
+ * rather than keeping its shape in the picture's middle; 0 ends it. */
+void openrac_frame_wide(int on);
+/* `on`: a scissor of the screen's whole width stays the picture's, even with "HUD: Edges" (a menu
+ * parks its hidden panels past the screen's sides); 0 ends it. */
+void openrac_frame_picture_band(int on);
+/* The frame the window last drew with its world in (kept when the game read its frame back,
+ * openrac_game_store_image), over the whole target. */
+void openrac_frame_last_frame(void);
 
 #ifdef __cplusplus
 }

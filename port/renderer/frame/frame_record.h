@@ -40,7 +40,19 @@ enum class FrameOp : std::uint8_t {
     Scissor,      // what follows is cut to rect (or the whole target)
     ViewBegin,    // the world that follows is split-screen view `index`'s, into rect
     ViewEnd,      // the open view ends (FrameRecording::views has its camera)
+    // Transitional placements, read where they land among the residual packets as the markers
+    // the host C once wrote into the list were (rac1 and rac2 until R2/R3):
+    WorldShrubs,   // the world's shrub pass starts here: effect strips before it come first
+    EffectParent,  // strips follow attachment `index`'s parent (0 ends it), value bit 0: position only
+    HudSide,       // what follows goes out to the HUD's side `index` (0 ends it); value bit 0
+                   // stretches what crosses the middle, bit 1 parts it at value >> 2 instead
+    Wide,          // `index` 1: what follows covers the whole target, as a fade does; 0 ends it
+    PictureBand,   // `index` 1: a full-width scissor stays the picture's with "HUD: Edges"; 0 ends
+    LastFrame,     // the frame the window last drew with its world in, over the whole target
 };
+
+// Returns the command's contract name for recorder diagnostics, or "Unknown" for an invalid value.
+const char* frame_op_name(FrameOp op);
 
 // FrameCommand::clear bits.
 inline constexpr std::uint8_t kClearColour = 1, kClearDepth = 2;
@@ -195,8 +207,8 @@ private:
 // command goes before the first tag, from the one the command before it went to, whose address is
 // its anchor. One whose anchor is not found there is dropped: the list never reached the place it
 // was recorded at (a list the game sent again, cut short), as a marker written there would not have
-// been in it. One with no anchor goes where the command before it went (the list's start for the
-// first). Non-decreasing, kDropped aside.
+// been in it. One with no anchor goes where the command before it went, including kDropped (the
+// list's start for the first). Non-decreasing, kDropped aside.
 inline constexpr std::size_t kDropped = static_cast<std::size_t>(-1);
 std::vector<std::size_t> place_commands(
     const FrameRecording& recording, std::span<const std::uint32_t> tags

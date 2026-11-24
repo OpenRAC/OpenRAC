@@ -44,6 +44,56 @@ bool FrameView::compatible_with(const FrameView& other) const {
            || second[3] <= first[1];
 }
 
+const char* frame_op_name(FrameOp op) {
+    // Names follow the native command vocabulary, not the residual packet encoding.
+    switch (op) {
+        case FrameOp::World:
+            return "World";
+        case FrameOp::WorldMobys:
+            return "WorldMobys";
+        case FrameOp::Mobys:
+            return "Mobys";
+        case FrameOp::UiQuad:
+            return "UiQuad";
+        case FrameOp::UiItem:
+            return "UiItem";
+        case FrameOp::EffectQuad:
+            return "EffectQuad";
+        case FrameOp::Fill:
+            return "Fill";
+        case FrameOp::Clear:
+            return "Clear";
+        case FrameOp::Picture:
+            return "Picture";
+        case FrameOp::Snapshot:
+            return "Snapshot";
+        case FrameOp::TargetBegin:
+            return "TargetBegin";
+        case FrameOp::TargetEnd:
+            return "TargetEnd";
+        case FrameOp::Scissor:
+            return "Scissor";
+        case FrameOp::ViewBegin:
+            return "ViewBegin";
+        case FrameOp::ViewEnd:
+            return "ViewEnd";
+        case FrameOp::WorldShrubs:
+            return "WorldShrubs";
+        case FrameOp::EffectParent:
+            return "EffectParent";
+        case FrameOp::HudSide:
+            return "HudSide";
+        case FrameOp::Wide:
+            return "Wide";
+        case FrameOp::PictureBand:
+            return "PictureBand";
+        case FrameOp::LastFrame:
+            return "LastFrame";
+    }
+
+    return "Unknown";
+}
+
 bool FrameRecording::anchored() const {
     return std::any_of(commands.begin(), commands.end(), [](const FrameCommand& c) {
         return c.anchor != 0;
@@ -201,21 +251,32 @@ std::vector<std::size_t> place_commands(
     std::vector<std::size_t> out;
     out.reserve(recording.commands.size());
     std::size_t at = 0;
+    std::size_t previous = 0;
+
+    // Search forward in walk order; paging can place lower addresses after higher ones.
     for (const FrameCommand& c : recording.commands) {
+        // An unanchored command inherits even an unreachable predecessor's placement.
         if (c.anchor == 0) {
-            out.push_back(at);
+            out.push_back(previous);
             continue;
         }
+
         std::size_t found = kDropped;
+
+        // A tag reached only before the previous successful placement cannot draw this command.
         for (std::size_t t = at; t < tags.size(); ++t) {
             if (tags[t] == c.anchor) {
                 found = t;
                 break;
             }
         }
+
+        // A missing anchor must not prevent a later reachable anchor from resuming the recording.
         if (found != kDropped) {
             at = found;
         }
+
+        previous = found;
         out.push_back(found);
     }
     return out;
