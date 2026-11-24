@@ -329,6 +329,11 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* Moby_SiberiusThief_Update: Updates the Siberius thief sequence and its progression state. */
+#define OPENRAC_RAC2_HOOK_Moby_SiberiusThief_Update "Moby_SiberiusThief_Update"
+#define OPENRAC_RAC2_SIG_Moby_SiberiusThief_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_SiberiusThief_Update)(uint32_t moby);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

@@ -373,3 +373,11 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 ```lua
 type Vendor_PreviewFn = () -> ()
 ```
+
+### `Moby_SiberiusThief_UpdateFn`
+
+rac2.moby.siberius_thief.update (Moby_SiberiusThief_Update) void(u32): Updates the Siberius thief sequence and its progression state.
+
+```lua
+type Moby_SiberiusThief_UpdateFn = (moby: number) -> ()
+```

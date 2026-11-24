@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Updates the Siberius thief sequence and its progression state.
+struct Moby_SiberiusThief_Update {
+    static constexpr const char* id = "rac2.moby.siberius_thief.update";
+    static constexpr const char* name = "Moby_SiberiusThief_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -379,6 +387,9 @@ namespace hooks {
             using update = rac2::Moby_RaceController_Update;
         }  // namespace race_controller
         using record_death = rac2::Moby_RecordDeath;
+        namespace siberius_thief {
+            using update = rac2::Moby_SiberiusThief_Update;
+        }  // namespace siberius_thief
         namespace swingshot_area {
             using update = rac2::Moby_SwingshotArea_Update;
         }  // namespace swingshot_area
