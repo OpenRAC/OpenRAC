@@ -1292,10 +1292,12 @@ void GifInterpreter::place_items() {
         return;
     }
     constexpr float kMiddle = 56.0f / 256.0f;
+
     struct Element {
         float left, right, top, bottom;
         int parent;
     };
+
     std::vector<Element> items;
     items.reserve(m_place_first.size());
     for (const std::uint32_t first : m_place_first) {

@@ -33,7 +33,8 @@ typedef struct openrac_ui_adapter {
 /* The game's adapter, kept (not copied) from now on. */
 void openrac_ui_set_adapter(const openrac_ui_adapter* adapter);
 
-/* The game's 2D screen, as its adapter says (512 x 448 without one). */
+/* The game's 2D screen, as its adapter says (512 x 448 without one). A non-finite or nonpositive
+ * dimension also takes its corresponding default, keeping native scaling usable during loading. */
 void openrac_ui_screen(float* width, float* height);
 
 /* A glyph of text: the cell `cell` (u0, v0, u1, v1, in the page's texels) of `page`, drawn over

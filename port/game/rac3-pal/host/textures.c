@@ -146,6 +146,7 @@ static struct {
     unsigned long long key;
     openrac_game_ui_image image;
 } s_handles[KEPT_HANDLES];
+
 static int s_next_handle;
 
 static void keep_handle(unsigned long long handle, const openrac_game_ui_image* image) {

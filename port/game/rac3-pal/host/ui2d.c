@@ -1230,8 +1230,9 @@ int func_L01_004054F0(void) {
  */
 #define WIDGET_VERTICES 0x70000000u
 
-static int widget_corner(gaddr mesh_vertex, float tw, float th, float ofx, float ofy,
-                         openrac_ui_quad* quad, int i) {
+static int widget_corner(
+    gaddr mesh_vertex, float tw, float th, float ofx, float ofy, openrac_ui_quad* quad, int i
+) {
     const uint32_t xy = GREF(uint32_t, mesh_vertex + 0x10u);
     float s, t;
     memcpy(&s, G(mesh_vertex + 8u), 4);

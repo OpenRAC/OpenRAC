@@ -60,6 +60,10 @@ if(TARGET openrac_assets_geometry)
 endif()
 target_compile_options(openrac_game_common PRIVATE ${OPENRAC_GAME_C_FLAGS} -Wall -Wextra)
 
+# The native UI core can be checked without game code, a window or the runtime library.
+openrac_add_test(ui_core SOURCES tests/ui_core_test.cpp ui/ui.cpp
+  INCLUDES . game/common/include runtime/include)
+
 # The VAG streams of the sound engine, on a disc image the test writes.
 add_executable(sound_engine_test "${CMAKE_CURRENT_LIST_DIR}/../tests/sound_engine_test.cpp")
 target_include_directories(sound_engine_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/..")

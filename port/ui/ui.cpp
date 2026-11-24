@@ -6,6 +6,7 @@
 
 #include "openrac/ui.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 
@@ -14,6 +15,10 @@
 namespace {
 
 const openrac_ui_adapter* g_adapter = nullptr;
+
+// The public fallback screen keeps recordings usable while an adapter is not ready.
+constexpr float kDefaultScreenWidth = 512.0f;
+constexpr float kDefaultScreenHeight = 448.0f;
 
 // The HUD's placement in effect (openrac_ui_place_begin): its width, its number, how deep.
 float g_side = 0.0f;
@@ -50,10 +55,18 @@ void openrac_ui_set_adapter(const openrac_ui_adapter* adapter) {
 }
 
 void openrac_ui_screen(float* width, float* height) {
-    *width = 512.0f;
-    *height = 448.0f;
+    *width = kDefaultScreenWidth;
+    *height = kDefaultScreenHeight;
     if (g_adapter != nullptr && g_adapter->screen != nullptr) {
         g_adapter->screen(width, height);
+    }
+    // Program loading can leave an adapter unready; scaling must not divide by zero or use NaN.
+    if (!std::isfinite(*width) || *width <= 0.0f) {
+        *width = kDefaultScreenWidth;
+    }
+    // Validate each dimension independently so a usable width does not hide an invalid height.
+    if (!std::isfinite(*height) || *height <= 0.0f) {
+        *height = kDefaultScreenHeight;
     }
 }
 
@@ -76,7 +89,8 @@ int openrac_ui_draw_quad(const openrac_ui_quad* quad) {
     std::memcpy(item.u, quad->u, sizeof(item.u));
     std::memcpy(item.v, quad->v, sizeof(item.v));
     std::memcpy(item.rgba, quad->rgba, sizeof(item.rgba));
-    item.flags = quad->flags & (OPENRAC_UI_FLAT | OPENRAC_UI_SHADED | OPENRAC_UI_NEAREST | OPENRAC_UI_REPEAT);
+    item.flags = quad->flags
+                 & (OPENRAC_UI_FLAT | OPENRAC_UI_SHADED | OPENRAC_UI_NEAREST | OPENRAC_UI_REPEAT);
     if ((item.flags & OPENRAC_UI_FLAT) == 0) {
         item.image = quad->image;
     }
@@ -96,7 +110,8 @@ int openrac_ui_draw_rect(
     const float none[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     place(item, rect, cell != nullptr ? cell : none);
     std::memcpy(item.rgba, rgba, sizeof(item.rgba));
-    item.flags = flags & (OPENRAC_UI_FLAT | OPENRAC_UI_SHADED | OPENRAC_UI_NEAREST | OPENRAC_UI_REPEAT);
+    item.flags =
+        flags & (OPENRAC_UI_FLAT | OPENRAC_UI_SHADED | OPENRAC_UI_NEAREST | OPENRAC_UI_REPEAT);
     if (image != nullptr && (item.flags & OPENRAC_UI_FLAT) == 0) {
         item.image = *image;
     } else {
