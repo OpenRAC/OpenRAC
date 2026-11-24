@@ -4,7 +4,7 @@
 
 The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The table's own order never changes (it is the ABI); this page is the map. **Since** is the minor that added the member: check `api->api_minor` before using a newer one. **Games** says whether each game's port gives the game-side part of the call: *yes*, *part* (some of it) or *no* (the call answers `OPENRAC_HOOK_UNKNOWN` there). It is read from the port's code, so test a call on the game you target.
 
-[core](#core) · [settings](#settings) · [hooks](#hooks) · [input](#input) · [graphics](#graphics) · [menus](#menus) · [saves](#saves) · [play](#play) · [hero](#hero) · [figures](#figures) · [world](#world) · [visuals](#visuals) · [camera](#camera) · [sound](#sound) · [touch](#touch) · [party](#party) · [system](#system)
+[core](#core) Â· [settings](#settings) Â· [hooks](#hooks) Â· [input](#input) Â· [graphics](#graphics) Â· [menus](#menus) Â· [saves](#saves) Â· [play](#play) Â· [hero](#hero) Â· [figures](#figures) Â· [world](#world) Â· [visuals](#visuals) Â· [camera](#camera) Â· [sound](#sound) Â· [touch](#touch) Â· [party](#party) Â· [system](#system)
 
 ## core
 
