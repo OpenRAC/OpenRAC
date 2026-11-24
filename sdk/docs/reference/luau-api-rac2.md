@@ -373,3 +373,11 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 ```lua
 type Vendor_PreviewFn = () -> ()
 ```
+
+### `Moby_BoldanCutscene_UpdateFn`
+
+rac2.moby.boldan_cutscene.update (Moby_BoldanCutscene_Update) void(u32): Updates the Boldan cutscene trigger and its temporary inventory state.
+
+```lua
+type Moby_BoldanCutscene_UpdateFn = (moby: number) -> ()
+```

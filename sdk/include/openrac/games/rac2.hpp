@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// Updates the Boldan cutscene trigger and its temporary inventory state.
+struct Moby_BoldanCutscene_Update {
+    static constexpr const char* id = "rac2.moby.boldan_cutscene.update";
+    static constexpr const char* name = "Moby_BoldanCutscene_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -351,6 +359,9 @@ namespace hooks {
         using load = rac2::Level_Load;
     }  // namespace level
     namespace moby {
+        namespace boldan_cutscene {
+            using update = rac2::Moby_BoldanCutscene_Update;
+        }  // namespace boldan_cutscene
         namespace box_breaker_pickup {
             using update = rac2::Moby_BoxBreakerPickup_Update;
         }  // namespace box_breaker_pickup

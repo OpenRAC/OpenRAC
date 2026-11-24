@@ -730,6 +730,7 @@
    "Item_Upgrade": "rac2.item.upgrade",
    "Item_VersionColor": "rac2.item.version_color",
    "Level_Load": "rac2.level.load",
+   "Moby_BoldanCutscene_Update": "rac2.moby.boldan_cutscene.update",
    "Moby_BoxBreakerPickup_Update": "rac2.moby.box_breaker_pickup.update",
    "Moby_ChargeBootsRider_Update": "rac2.moby.charge_boots_rider.update",
    "Moby_DynamoPickup_Update": "rac2.moby.dynamo_pickup.update",
