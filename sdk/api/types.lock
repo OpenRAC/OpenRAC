@@ -241,6 +241,15 @@ openrac_particle_texture	(size)	2052	-
 openrac_particle_texture	size	0	uint32_t
 openrac_particle_texture	indices	4	uint8_t[1024]
 openrac_particle_texture	clut	1028	uint8_t[1024]
+openrac_play_query	(size)	32	-
+openrac_play_query	size	0	uint32_t
+openrac_play_query	kind	4	uint32_t
+openrac_play_query	level	8	int32_t
+openrac_play_query	subject	12	openrac_gaddr
+openrac_play_query	index	16	int32_t
+openrac_play_query	original	20	int32_t
+openrac_play_query	alternate	24	int32_t
+openrac_play_query	value	28	int32_t
 openrac_play_status	(size)	20	-
 openrac_play_status	size	0	uint32_t
 openrac_play_status	phase	4	int32_t
@@ -436,6 +445,7 @@ openrac_mod_unload_fn	(typedef)	-	void (*)(void)
 openrac_overlay_fn	(typedef)	-	void (*)(void *, const openrac_overlay *)
 openrac_pad_fn	(typedef)	-	void (*)(void *, int, uint8_t *, int)
 openrac_party_rules_fn	(typedef)	-	void (*)(void *, const void *, uint32_t)
+openrac_play_query_fn	(typedef)	-	void (*)(void *, openrac_play_query *)
 openrac_rac1_Ammo_ChooseDrop	(typedef)	-	int32_t (*)(uint32_t, uint32_t)
 openrac_rac1_Ammo_SpawnDrop	(typedef)	-	uint32_t (*)(uint32_t, int32_t, int32_t, int32_t)
 openrac_rac1_FX_DrawWorldQuad	(typedef)	-	void (*)(openrac_gaddr, openrac_gaddr, int32_t)

@@ -17,6 +17,7 @@ std::string hook_signature_form(std::string signature) {
          at = signature.find("i32", at)) {
         signature[at] = 'u';
     }
+
     return signature;
 }
 
@@ -26,16 +27,21 @@ int api_hook(
     if (mod == nullptr || mod != g_loading || g_host == nullptr) {
         return OPENRAC_HOOK_TOO_LATE;
     }
+
     if (name == nullptr || replacement == nullptr || original == nullptr) {
         return OPENRAC_HOOK_UNKNOWN;
     }
+
     // Asked for by its id or any alias (an earlier name, a symbol): the hook point's id decides.
     const char* id = hook_id(*g_host, name);
+
     for (int i = 0; i < g_host->hook_count; ++i) {
         const HookPoint& p = g_host->hooks[i];
+
         if (p.name == nullptr || std::strcmp(hook_id(*g_host, p.name), id) != 0) {
             continue;
         }
+
         if (signature == nullptr
             || hook_signature_form(p.signature) != hook_signature_form(signature)) {
             mod->hook_refused = true;
@@ -47,6 +53,7 @@ int api_hook(
             );
             return OPENRAC_HOOK_SIGNATURE;
         }
+
         // Detours' way: the replacement gets what was there (an earlier mod's, or the game's C).
         void* before = *p.slot;
         *original = before != nullptr ? before : p.original;
@@ -56,6 +63,7 @@ int api_hook(
         const auto listed = [&](const std::string& h) {
             return std::strcmp(hook_id(*g_host, h.c_str()), id) == 0;
         };
+
         if (std::none_of(mod->manifest.hooks.begin(), mod->manifest.hooks.end(), listed)) {
             log::warn(
                 "mod {} takes hook point {}, which its manifest's \"hooks\" does not list",
@@ -63,8 +71,10 @@ int api_hook(
                 name
             );
         }
+
         return OPENRAC_HOOK_OK;
     }
+
     mod->hook_refused = true;
     mod->failure = std::format(
         "this OpenRAC has no hook point {} for {}/{}", name, g_host->game, g_host->version
@@ -76,6 +86,7 @@ int api_on_frame(openrac_mod* mod, openrac_frame_fn fn, void* user) {
     if (mod == nullptr || mod != g_loading || fn == nullptr) {
         return OPENRAC_HOOK_TOO_LATE;
     }
+
     g_frames.push_back({fn, user, mod});
     return OPENRAC_HOOK_OK;
 }
@@ -84,6 +95,7 @@ int api_on_tick_boundary(openrac_mod* mod, openrac_tick_boundary_fn fn, void* us
     if (mod == nullptr || mod != g_loading || fn == nullptr) {
         return OPENRAC_HOOK_TOO_LATE;
     }
+
     g_tick_boundaries.push_back({fn, user, mod});
     return OPENRAC_HOOK_OK;
 }
@@ -95,18 +107,24 @@ void* api_hook_entry(const char* name, const char* signature) {
     if (g_host == nullptr || name == nullptr || signature == nullptr) {
         return nullptr;
     }
+
     const char* id = hook_id(*g_host, name);
+
     for (int i = 0; i < g_host->hook_count; ++i) {
         const HookPoint& p = g_host->hooks[i];
+
         if (p.name == nullptr || std::strcmp(hook_id(*g_host, p.name), id) != 0) {
             continue;
         }
+
         if (p.symbol == nullptr
             || hook_signature_form(p.signature) != hook_signature_form(signature)) {
             return nullptr;
         }
+
         return reinterpret_cast<void*>(openrac_guest_function_named(p.symbol));
     }
+
     return nullptr;
 }
 
@@ -114,8 +132,22 @@ int api_on_pad(openrac_mod* mod, openrac_pad_fn fn, void* user) {
     if (mod == nullptr || mod != g_loading || fn == nullptr) {
         return OPENRAC_HOOK_TOO_LATE;
     }
+
     g_pads.push_back({fn, user, mod});
     return OPENRAC_HOOK_OK;
+}
+
+// openrac_api.on_play_query. Since 1.40. Registrations disappear on unload/load failure.
+int api_on_play_query(openrac_mod* mod, std::uint32_t kinds, openrac_play_query_fn fn, void* user) {
+    if (mod == nullptr || mod != g_loading || fn == nullptr) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+
+    if (g_host == nullptr || std::string_view(g_host->game) != "rac2") {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+
+    return g_play_queries.add(mod, kinds, fn, user);
 }
 
 }  // namespace openrac::mods::detail

@@ -279,6 +279,10 @@ function(openrac_add_game config)
   file(GLOB tables CONFIGURE_DEPENDS "${config_dir}/*.json" "${config_dir}/*.tsv" "${config_dir}/tables/*"
        "${config_dir}/release/*" "${config_dir}/checks/*"
        "${config_dir}/hand/*" "${OPENRAC_GAME_DIR}/common/*.tsv")
+  string(JSON query_points ERROR_VARIABLE no_query_points GET "${json}" play_queries)
+  if(NOT no_query_points)
+    list(APPEND tables "${config_dir}/${query_points}")
+  endif()
   # hostgen rewrites only the files whose text changed, so after an edit only
   # those recompile: the stamp says when it last ran, the files are byproducts
   # whose times the build looks at again.

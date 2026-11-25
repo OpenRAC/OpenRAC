@@ -56,6 +56,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `on_pad` | 1.0 | stable | yes | yes | yes |
 | `on_tick_boundary` | 1.6 | stable | yes | yes | yes |
 | `hook_entry` | 1.21 | stable | yes | yes | yes |
+| `on_play_query` | 1.40 | experimental | yes | yes | yes |
 
 ## input
 
