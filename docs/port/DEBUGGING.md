@@ -398,6 +398,7 @@ same variables, so a new variable gets a row in both.
 | `OPENRAC_SCROLLING_SHADOWS` | any (set; unset for default) | Experimental Vulkan toroidal static shadow caches for all four sun cascades, with compute depth composition. | `port/scene/level_shadows.cpp` |
 | `OPENRAC_SERVER` | `HOST[:PORT]` | The OpenRAC hub (the OpenRAC/Server repository) Up Your Arsenal's online play logs in at and takes its city list (the game servers) from; `hub.openrac.dev:7177` when unset (the launcher sets it). A plain game server named here (no hub) is played on directly, without accounts. | `port/game/rac3-pal/host/mp_net.c` |
 | `OPENRAC_SHADER_DIR` | folder | Where a shader reload reads the files, laid out as `port/`; the build's source tree when unset. | `port/game/common/debug/shaders.cpp` |
+| `OPENRAC_SHADER_PACKAGE_STRICT` | `1` | Requires shipped Vulkan shader variants and refuses runtime compilation, including when a writable cache has the program. | `port/renderer/vulkan/pipelines/shader_compiler.cpp` |
 | `OPENRAC_SHADER_RELOAD` | `TICK` | Reloads every shader program at that window frame, with the result in the log. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_SCRIPT_BUDGET_MS` | `MS` (a positive number) | The time a script mod may run each time the game calls into it (a hook, a callback, its first run), not counting the game's own code it calls on to; over it, the mod stops ([MODS.md](MODS.md), section 11). Default 2. | `port/game/common/mod_scripts.cpp` |
 

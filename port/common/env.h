@@ -189,6 +189,7 @@ enum class Var : std::uint16_t {
     ScrollingShadows,
     Server,
     ShaderDir,
+    ShaderPackageStrict,
     ShaderReload,
     ShadowAtlasOff,
     ShadowBatchOff,
