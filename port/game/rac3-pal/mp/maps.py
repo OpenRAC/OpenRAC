@@ -290,6 +290,9 @@ def refresh_references(cfg: dict, source: Path) -> None:
     references = [r[0] for r in (*CARRIED_UI, *CARRIED_HUD) if r[3] == "ref"]
     references += [r[0] for r in CARRIED_VU0 if not r[1]]
     references += [r[0] for r in FIXED if r[3] in ("ref", "wrap")]
+    # A wrap with its own signature is reached through the macro too: typed like the references.
+    row_signatures = {r[0]: r[5] for r in (*CARRIED_UI, *CARRIED_HUD) if r[3] == "wrap" and len(r) > 5}
+    references += list(row_signatures)
     provided = {r[0] for r in CARRIED if r[3] == "host"}
     provided.update(r[0] for r in CARRIED_VU0 if r[1])
     needed = list(dict.fromkeys(r for r in references if r not in provided))
@@ -301,6 +304,11 @@ def refresh_references(cfg: dict, source: Path) -> None:
                 raise SystemExit(f"maps.py: level 39's {name} has no place in map {level}")
             roots.append(f"func_L{level}_{place}")
     signatures = {**map_signatures(source, cfg), **cfg["asm"].get("copy_signatures", {})}
+    for level in MAPS:
+        for name, sig in row_signatures.items():
+            place = rows.get(name, {}).get(level)
+            if place is not None:
+                signatures.setdefault(f"func_L{level}_{place}", sig)
     missing = [name for name in roots if name not in signatures]
     if missing:
         raise SystemExit(f"maps.py: native map references need verified signatures: {', '.join(missing)}")
@@ -308,6 +316,17 @@ def refresh_references(cfg: dict, source: Path) -> None:
     cfg["roots"] = list(dict.fromkeys([*cfg["roots"], *roots]))
     copies = cfg["asm"].setdefault("copy_signatures", {})
     copies.update((name, signatures[name]) for name in roots)
+    cfg["asm"]["copy_signatures"] = dict(sorted(copies.items()))
+
+
+def keep_wrap_signatures(cfg: dict) -> None:
+    """The boot program's and level 39's wraps of libraries.tsv state their prototypes in the row;
+    a build without the disc takes them from "copy_signatures"."""
+    copies = cfg["asm"].setdefault("copy_signatures", {})
+    for line in (HERE / "libraries.tsv").read_text(encoding="utf-8").splitlines():
+        cols = line.split("\t")
+        if len(cols) >= 6 and cols[3] == "wrap" and cols[5] and re.fullmatch(r"func_(L39_)?[0-9A-F]{8}", cols[0]):
+            copies.setdefault(cols[0], cols[5])
     cfg["asm"]["copy_signatures"] = dict(sorted(copies.items()))
 
 
@@ -322,6 +341,7 @@ def main() -> int:
         cfg_path = HERE / "hostgen.json"
         cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
         refresh_references(cfg, args.source)
+        keep_wrap_signatures(cfg)
         text = json.dumps(cfg, indent=2) + "\n"
         stale = cfg_path.read_text(encoding="utf-8") != text
         if stale and args.check:
@@ -358,6 +378,7 @@ def main() -> int:
     cfg["asm"]["copy_signatures"] = {k: v for k, v in sorted(map_signatures(
         args.source, {"asm": {"signatures": own}}).items()) if k not in host_rows}
     refresh_references(cfg, args.source)
+    keep_wrap_signatures(cfg)
     outputs = {cfg_path: json.dumps(cfg, indent=2) + "\n"}
 
     lib_path = HERE / "libraries.tsv"
