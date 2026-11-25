@@ -11,6 +11,7 @@ import json
 import math
 import re
 import struct
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -65,6 +66,14 @@ class Compare(unittest.TestCase):
         self.assertEqual(n, 50)
         self.assertIsNone(first)
         self.assertEqual(note, "")
+
+    def test_a_kept_picture_is_not_compared(self):
+        # A frame that kept the last picture (k) repeats the last tick's values: left out.
+        a = trace(500, 50)
+        a.append(tick(550, 50, k=1, mb=7))
+        n, first, _ = compare.compare_ticks(a, trace(500, 51), list(compare.FIELDS), self.tol)
+        self.assertEqual(n, 50)
+        self.assertIsNone(first)
 
     def test_first_diverging_tick_and_field(self):
         def bend(c, t):
@@ -334,7 +343,7 @@ class RouteSets(unittest.TestCase):
             routes.set_routes("nope", "rac1-pal", self.data)
 
     def test_the_wide_set_resolves_for_both_versions(self):
-        for game in routes.GAMES:
+        for game in (g for g in routes.GAMES if g != "rac3-pal"):  # its hero's words are not mapped
             rs = routes.set_routes("wide", game)
             self.assertGreater(len(rs), 40)
             for r in rs:
@@ -434,6 +443,8 @@ class Outcome(unittest.TestCase):
         ticks = trace(10, 21)
         self.assertEqual(runner.classify(0, False, ticks, 20), "ok")
         self.assertEqual(runner.classify(0, False, ticks, 40), "exit")
+        # A run that ends on a kept picture still reaches its length (Gaspar).
+        self.assertEqual(runner.classify(0, False, trace(10, 19) + [tick(29, 19), tick(30, 20, k=1)], 20), "ok")
         self.assertEqual(runner.classify(0, False, [tick(1, None)], 20), "no-control")
         self.assertEqual(runner.classify(3, False, ticks, 20), "crash")
         self.assertEqual(runner.classify(-9, True, ticks, 20), "hang")
@@ -529,6 +540,27 @@ class Rac2(unittest.TestCase):
         row = reach.merge(files)["rac2-ntsc"][0]
         self.assertEqual((row.name, row.kind, row.calls), ("func_00288308", "unmapped", 7))
         self.assertEqual(row.details, {"write 0x02000000"})
+
+
+class Rac3(unittest.TestCase):
+    """Up Your Arsenal's tour."""
+
+    def test_the_tour_has_a_route_per_single_player_level(self):
+        tour = routes.set_routes("rac3-tour", "rac3-pal")
+        self.assertEqual([r.level for r in tour], list(routes.RAC3_LEVELS))
+        env = tour[0].env()
+        self.assertEqual(env["OPENRAC_DIRECT"], "1")
+        self.assertEqual(env["OPENRAC_INVINCIBLE"], "1")
+        self.assertNotIn("OPENRAC_GIVE", env)  # rac3's tools do not give items yet
+        self.assertEqual(routes.load()["addresses"]["rac3-pal"], {})
+
+    def test_the_routes_are_named_after_the_disc_s_levels(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "extractor"))
+        import games
+        names = games.LEVEL_NAMES["rac3"]
+        for r in routes.set_routes("rac3-tour", "rac3-pal"):
+            self.assertIn(r.level, names)
+            self.assertEqual(r.name, "".join(c if c.isalnum() else "_" for c in names[r.level].lower()).strip("_"))
 
 
 if __name__ == "__main__":

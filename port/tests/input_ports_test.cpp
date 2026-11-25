@@ -439,6 +439,61 @@ void test_rumble() {
     CHECK(input.rumble_output(0).silent());
 }
 
+// Another source's motors (a mod's, openrac_api.set_motors) play with the game's, each motor the
+// stronger of them, held as long as the game's; an owner dropped stops its own only.
+void test_extra_rumble() {
+    using openrac::platform::MotorCommand;
+    Input input;
+    play_in_background(input);
+    const SDL_JoystickID a = attach_rumble("Rumble pad");
+    pump(input);
+    int mod = 0, other = 0;
+    // A mod's alone reaches the pad.
+    g_felt = {};
+    input.set_extra_motors(&mod, 0, {false, 200});
+    CHECK(input.motors_now(0) == (MotorCommand{false, 200}));
+    input.update();
+    CHECK(g_felt.calls >= 1 && g_felt.low > 0);
+    // With the game's: each motor the stronger, per port; the game's own values are kept as given.
+    input.set_motors(0, {true, 100});
+    CHECK(input.motors_now(0) == (MotorCommand{true, 200}));
+    CHECK(input.motors(0) == (MotorCommand{true, 100}));
+    input.set_extra_motors(&other, 0, {false, 250});
+    input.set_extra_motors(&other, 1, {true, 30});
+    CHECK(input.motors_now(0) == (MotorCommand{true, 250}));
+    CHECK(input.motors_now(1) == (MotorCommand{true, 30}));
+    // An owner sends again: its value is replaced, not added.
+    input.set_extra_motors(&other, 0, {false, 10});
+    CHECK(input.motors_now(0) == (MotorCommand{true, 200}));
+    // Dropped (its unload): its motors stop, the others' and the game's play on.
+    input.drop_extra_motors(&mod);
+    CHECK(input.motors_now(0) == (MotorCommand{true, 100}));
+    CHECK(input.motors_now(1) == (MotorCommand{true, 30}));
+    input.drop_extra_motors(nullptr);
+    CHECK(input.motors_now(1) == MotorCommand{});
+    // Not sent again: past the hold, a mod's stop as the game's do, and the pad comes to rest.
+    input.set_extra_motors(&mod, 0, {true, 255});
+    CHECK(input.motors_now(0) == (MotorCommand{true, 255}));
+    SDL_Delay(250);
+    CHECK(input.motors_now(0) == MotorCommand{});
+    for (int i = 0; i < 40; ++i) {
+        input.update();
+        SDL_Delay(16);
+    }
+    CHECK(g_felt.low == 0 && g_felt.high == 0);
+    // The player's rumble off: a mod's reach the pad no more than the game's.
+    Bindings bindings = input.bindings(0);
+    bindings.tuning.rumble.strength = 0;
+    input.set_bindings({bindings, input.bindings(1)});
+    input.set_extra_motors(&mod, 0, {true, 255});
+    input.update();
+    CHECK(g_felt.low == 0 && g_felt.high == 0);
+    input.stop_rumble();
+    CHECK(input.motors_now(0) == MotorCommand{});
+    SDL_DetachVirtualJoystick(a);
+    pump(input);
+}
+
 }  // namespace
 
 int main() {
@@ -457,6 +512,7 @@ int main() {
     test_unfocused();
     test_quick_tap();
     test_rumble();
+    test_extra_rumble();
     SDL_Quit();
     return openrac::test::result();
 }

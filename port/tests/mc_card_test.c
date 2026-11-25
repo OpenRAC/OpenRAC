@@ -49,8 +49,11 @@ static void* test_guest(gaddr address) {
 
 const char* openrac_game_card_dir;
 const char* openrac_game_loaded_mods;
+void (*openrac_game_save_written)(const char* path, int players);
+void (*openrac_game_save_read)(const char* path, int slot);
 const openrac_game_play* openrac_game_play_host;
 int openrac_game_no_card;
+int openrac_game_active_destination = -1;  // the campaign, not an added planet
 
 enum {
     NAME = 0x100,
@@ -137,9 +140,16 @@ int main(void) {
         write_file(path, save, (int)sizeof save, 1);
     }
 
-    /* What Finder, Explorer, the port and the launcher put beside them. */
+    /* What Finder, Explorer, PCSX2, the port and the launcher put beside them. */
     const char* clutter[] =
-        {".DS_Store", "._save0.bin", "Thumbs.db", "DESKTOP.INI", "save0.bin.mods"};
+        {".DS_Store",
+         "._save0.bin",
+         "Thumbs.db",
+         "DESKTOP.INI",
+         "_pcsx2_index",
+         "save0.bin.mods",
+         "save0.bin.moddata",
+         ".save1.bin.moddata.tmp"};
     for (size_t i = 0; i < sizeof clutter / sizeof clutter[0]; i++) {
         snprintf(path, sizeof path, "%s/BASCUS-97268RATCHET/%s", card, clutter[i]);
         FILE* f = fopen(path, "wb");

@@ -5,36 +5,37 @@
   // (a recent crash, the logs); the level editor is under Mods. Each button runs
   // the actions the Develop tab lists (launcher/actions.json), found by their ids.
   // With developer tools on, one row of chips under the band leads there.
+  import { tick } from "svelte";
+  import { cubicOut } from "svelte/easing";
+  import { fly, slide } from "svelte/transition";
+
   import CountUp from "$components/CountUp.svelte";
   import CrashNotice from "$components/CrashNotice.svelte";
   import DifferencesBlock from "$components/DifferencesBlock.svelte";
   import DiscSwitch from "$components/DiscSwitch.svelte";
   import FolderPrompt from "$components/FolderPrompt.svelte";
-  import GameShortcuts from "$components/GameShortcuts.svelte";
   import GamesFrame from "$components/GamesFrame.svelte";
+  import GameShortcuts from "$components/GameShortcuts.svelte";
   import Icon from "$components/Icon.svelte";
-  import { toolFailure } from "$lib/toolErrors";
   import JobProgress from "$components/JobProgress.svelte";
-  import ProgressBar from "$components/ProgressBar.svelte";
   import Menu from "$components/Menu.svelte";
   import ModsSwitch from "$components/ModsSwitch.svelte";
+  import ProgressBar from "$components/ProgressBar.svelte";
   import ReportsBlock from "$components/ReportsBlock.svelte";
   import SaveManagerBlock from "$components/SaveManagerBlock.svelte";
-  import { api, onAndroid, type ActionView, type ReportEntry } from "$lib/api";
+  import { type ActionView, api, onAndroid, type ReportEntry } from "$lib/api";
   import { app, clock, currentVersion, guard, jobs, openDevelop, run } from "$lib/app.svelte";
   import { choiceFor, programOf } from "$lib/discChoice";
-  import { gameMenu, pageAsks, startsPlay } from "$lib/gameMenu.svelte";
   import { pct } from "$lib/format";
-  import { SITE_URL } from "$lib/links";
+  import { gameMenu, pageAsks, startsPlay } from "$lib/gameMenu.svelte";
   import { titleLines } from "$lib/labels";
+  import { SITE_URL } from "$lib/links";
   import { gameArt, hideMissing } from "$lib/media";
   import { arrive, reduced } from "$lib/motion";
-  import { cubicOut } from "svelte/easing";
-  import { tick } from "svelte";
-  import { fly, slide } from "svelte/transition";
-  import { place, when } from "$lib/reports";
   import { isBuilt, playerAct, playerState, playerVersion, updateStep } from "$lib/player.svelte";
+  import { place, when } from "$lib/reports";
   import { themeStyle } from "$lib/themes";
+  import { toolFailure } from "$lib/toolErrors";
 
   // One game, whatever the region: the page plays the version your disc is (playerVersion),
   // always. Each disc's decompilation and actions are in the Develop tab.
@@ -45,7 +46,8 @@
   const scope = $derived({ kind: "version" as const, key: v?.key ?? "" });
   // Developer tools on and two of the game's discs found: the switch beside Play (DiscSwitch).
   const choice = $derived(developer && game ? choiceFor(app.discChoices, game.id) : null);
-  const action = (id: string): ActionView | null => v?.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
+  const action = (id: string): ActionView | null =>
+    v?.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
 
   const levels = $derived(action("port-levels"));
   const levelsCheck = $derived(action("port-levels-check"));
@@ -54,6 +56,7 @@
 
   // Each game's still picture, under its band and behind the page.
   const art = $derived(v ? gameArt(v.game) : null);
+  const name = $derived(titleLines(v?.title ?? ""));
 
   /** The game has a PC port to play (or to build and play); without one, the page says how far it is. */
   const portReady = $derived(!!action("play") && action("play")?.state !== "planned");
@@ -67,7 +70,9 @@
   const setUp = $derived(game?.install?.extracted ?? null);
   const built = $derived(!!v && !!game && isBuilt(game, v));
   /** The steps are shown while there is one left that the player can take. */
-  const showSteps = $derived(!!next && next.kind !== "play" && next.kind !== "playing" && next.kind !== "return");
+  const showSteps = $derived(
+    !!next && next.kind !== "play" && next.kind !== "playing" && next.kind !== "return",
+  );
 
   /** The last step towards playing that stopped with an error (set-up, build, levels), while nothing
    *  runs: the page says so under the main button, with the way to what it printed. */
@@ -85,6 +90,7 @@
       (j) => ids.includes(j.actionId) && (j.scope.kind === "repository" || j.scope.key === v.key),
     );
     const last = mine.at(-1);
+
     return last?.state === "failed" ? last : null;
   });
 
@@ -96,6 +102,7 @@
     // Again whenever the game ends (app.reportsChanged) or another game is shown.
     const game = v?.game;
     const mine = ++reading;
+
     last = null;
     if (!game || !setUp) return;
     void api
@@ -108,6 +115,7 @@
   const lastPlayed = $derived.by(() => {
     if (!last) return "";
     const day = when(last.time);
+
     return `Last played ${day.charAt(0).toLowerCase()}${day.slice(1)} ${place(last)}`;
   });
 
@@ -120,6 +128,7 @@
     await tick();
     document.getElementById("logs-list")?.setAttribute("open", "");
     const logs = document.getElementById("logs");
+
     logs?.scrollIntoView({ behavior: "smooth", block: "start" });
     logs?.focus({ preventScroll: true });
   }
@@ -183,11 +192,11 @@
             <Icon name="warn" />
             <p class="grow">
               {#if update.incremental}
-                An update is ready. Build {v.title} again to play the latest version: only what changed is built (the Incremental
-                builds setting), and your saves and levels are kept.
+                An update is ready. Build {v.title} again to play the latest version: only what changed
+                is built (the Incremental builds setting), and your saves and levels are kept.
               {:else}
-                An update is ready. Rebuild {v.title} to play the latest version: it takes a few minutes, and your saves and
-                levels are kept.
+                An update is ready. Rebuild {v.title} to play the latest version: it takes a few minutes,
+                and your saves and levels are kept.
                 {#if update.cleanBecause}
                   From scratch even with Incremental builds on, because {update.cleanBecause}.
                 {/if}
@@ -207,29 +216,39 @@
         <section class="hero" aria-label={v.title} in:fly|global={arrive()}>
           {#if art}
             <div class="hero-backdrop" aria-hidden="true">
-              <img src={art} alt="" class="hero-bg" decoding="sync" fetchpriority="high" onerror={hideMissing} />
+              <img
+                src={art}
+                alt=""
+                class="hero-bg"
+                decoding="sync"
+                fetchpriority="high"
+                onerror={hideMissing}
+              />
               <div class="hero-overlay"></div>
             </div>
           {/if}
           <div class="title box">
-            {#if onAndroid}
-              <!-- As on Games' banner: the series, then the game's own name on its own line. -->
-              {@const name = titleLines(v.title)}
-              <span>{name.series}</span>{#if name.game}<span>{name.game}</span>{/if}
-            {:else}
-              {v.title}
-            {/if}
+            <!-- The series, then the game's own name: on its own line on Android (as on Games' banner);
+                 on the desktop it goes to a line of its own, whole, when both do not fit on one. -->
+            <span class="part">{name.series}</span>
+            {#if name.game}<span class="part">{name.game}</span>{/if}
             {#if game.year}<small>{game.year}</small>{/if}
           </div>
 
           {#if onAndroid}
             <!-- Android: Play, the Mods switch and the menu are beside the disc on Games; the band only
                  leads back there, and says what stopped. -->
-            <button class="back" onclick={() => (app.page = "library")}><Icon name="arrow" size={16} />Games</button>
+            <button class="back" onclick={() => (app.page = "library")}
+              ><Icon name="arrow" size={16} />Games</button
+            >
             {#if stopped}
               <p class="stopped">
-                <Icon name="warn" size={14} />{stopped.title} stopped: {toolFailure(stopped.lines).title.toLowerCase()}.
-                <button class="link" onclick={() => (app.page = "tasks")}>See what it printed</button>
+                <Icon name="warn" size={14} />{stopped.title} stopped: {toolFailure(
+                  stopped.lines,
+                ).title.toLowerCase()}.
+                <button class="link" onclick={() => (app.page = "tasks")}
+                  >See what it printed</button
+                >
               </p>
             {/if}
           {:else}
@@ -241,10 +260,16 @@
                   disabled={next.disabled}
                   onclick={() => void playerAct(v, next)}
                 >
-                  {#if next.job}<span class="spinner"></span>{:else}<Icon name={next.icon} size={22} />{/if}{next.label}
+                  {#if next.job}<span class="spinner"></span>{:else}<Icon
+                      name={next.icon}
+                      size={22}
+                    />{/if}{next.label}
                 </button>
                 <!-- An empty menu is not shown, but keeps its place: the button does not move when it fills. -->
-                {#if menu.length}<Menu items={menu} />{:else}<span class="menu-slot" aria-hidden="true"></span>{/if}
+                {#if menu.length}<Menu items={menu} />{:else}<span
+                    class="menu-slot"
+                    aria-hidden="true"
+                  ></span>{/if}
               </div>
               {#if choice}<DiscSwitch {game} {choice} busy={!!next.job} />{/if}
               <!-- What comes and goes under the button (a read that arrives late, a job's end)
@@ -254,14 +279,20 @@
                   <ModsSwitch version={v} setUp={!!setUp} onopen={() => (app.page = "mods")} />
                 </div>
               {/if}
-              {#if next.hint && !next.job}<p class="line" transition:slide={GROW}>{next.hint}</p>{/if}
-              {#if lastPlayed && next.kind === "play"}<p class="line last" transition:slide={GROW}>{lastPlayed}</p>{/if}
+              {#if next.hint && !next.job}<p class="line" transition:slide={GROW}>
+                  {next.hint}
+                </p>{/if}
+              {#if lastPlayed && next.kind === "play"}<p class="line last" transition:slide={GROW}>
+                  {lastPlayed}
+                </p>{/if}
               {#if stopped}
                 <p class="stopped" transition:slide={GROW}>
                   <Icon name="warn" size={14} />{stopped.title} stopped: {toolFailure(
                     stopped.lines,
                   ).title.toLowerCase()}.
-                  <button class="link" onclick={() => (app.page = "tasks")}>See what it printed</button>
+                  <button class="link" onclick={() => (app.page = "tasks")}
+                    >See what it printed</button
+                  >
                 </p>
               {/if}
             </div>
@@ -299,7 +330,8 @@
           <section class="panel coming" aria-labelledby="coming-title" in:fly|global={arrive(90)}>
             <h2 id="coming-title">Not playable yet</h2>
             <p class="muted">
-              OpenRAC is rebuilding {v.title} so it runs natively on your computer. Play appears here when it is ready{setUp
+              OpenRAC is rebuilding {v.title} so it runs natively on your computer. Play appears here
+              when it is ready{setUp
                 ? "; your disc is already set up for it."
                 : ". You can set your disc up now, so it is ready too."}
             </p>
@@ -321,7 +353,10 @@
           <!-- Android: the saves alone here; Help folds at the page's foot, as a player seldom needs it. -->
           <div class="below" class:pair={!!setUp && !onAndroid} in:fly|global={arrive(90)}>
             <SaveManagerBlock version={v} />
-            {#if setUp && !onAndroid}<ReportsBlock game={v.game} program={choice ? programOf(v.key) : null} />{/if}
+            {#if setUp && !onAndroid}<ReportsBlock
+                game={v.game}
+                program={choice ? programOf(v.key) : null}
+              />{/if}
           </div>
         {/if}
         {#if portReady && !onAndroid}
@@ -335,7 +370,12 @@
         {/if}
         {#if setUp && onAndroid}
           <div in:fly|global={arrive(120)}>
-            <ReportsBlock game={v.game} program={choice ? programOf(v.key) : null} foldable bind:unfolded={helpOpen} />
+            <ReportsBlock
+              game={v.game}
+              program={choice ? programOf(v.key) : null}
+              foldable
+              bind:unfolded={helpOpen}
+            />
           </div>
         {/if}
       </div>
@@ -433,7 +473,8 @@
     padding: 34px 28px 30px;
     border-radius: var(--radius);
     background:
-      radial-gradient(90% 70% at 70% 0, var(--from), transparent 70%), linear-gradient(160deg, var(--from), var(--to));
+      radial-gradient(90% 70% at 70% 0, var(--from), transparent 70%),
+      linear-gradient(160deg, var(--from), var(--to));
     /* Down more than out: the column beside the game list cuts what passes its edge, and the usual
        shadow's sides showed there as a dark band along the list. This one ends inside the margin. */
     box-shadow: 0 22px 36px -20px rgb(0 0 0 / 0.6);
@@ -524,6 +565,17 @@
     padding: 18px 30px;
   }
 
+  /* Each part stays whole: the game's own name moves to a line of its own instead of breaking.
+     A one-part name ("Secret Agent Clank") may still wrap, so it never runs under the buttons. */
+  .title .part {
+    display: inline-block;
+  }
+
+  .title .part:has(+ .part),
+  .title .part + .part {
+    white-space: nowrap;
+  }
+
   .title small {
     display: block;
     margin-top: 6px;
@@ -606,7 +658,12 @@
 
   :global(html[data-platform="android"]) .hero-overlay {
     background:
-      linear-gradient(90deg, var(--ink) 0%, color-mix(in srgb, var(--ink) 80%, transparent) 26%, transparent 60%),
+      linear-gradient(
+        90deg,
+        var(--ink) 0%,
+        color-mix(in srgb, var(--ink) 80%, transparent) 26%,
+        transparent 60%
+      ),
       linear-gradient(0deg, color-mix(in srgb, var(--ink) 92%, transparent) 0%, transparent 55%),
       linear-gradient(
         270deg,

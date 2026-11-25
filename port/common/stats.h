@@ -4,7 +4,7 @@
 // What the port measures about itself, for the debug overlay (game/common/debug_overlay.h) and the
 // per-frame dump (--debug-dump): counters, timed sections and the frames they belong to. Any code
 // of the port may count and time through here; nothing here draws or knows OpenGL (the renderer
-// installs the GPU timers: renderer/gl_stats.h).
+// installs the GPU timers: renderer/gl/gl_stats.h).
 //
 // The shape is OpenGOAL's frame profiler (game/graphics/opengl_renderer/Profiler.h; ISC License,
 // Copyright (c) 2020-2026 OpenGOAL Team): a tree of named sections per frame, each with its time
@@ -28,6 +28,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <memory_resource>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -85,7 +86,7 @@ void set_enabled(Client client, bool on);
 inline constexpr unsigned kGpu = 1;  // Scope: time the section's GL commands on the GPU as well
 
 struct Section {
-    std::string name;
+    std::pmr::string name;
     int depth = 0;
     double cpu_ms = 0.0;
     double gpu_ms = -1.0;  // -1: not measured (not asked for, no timer queries, or not back yet)
@@ -155,8 +156,8 @@ void lap(std::string_view name);
 void gauge(std::string_view name, double value);
 
 // The innermost section open now, its name ("hud", "ties solid"); empty when none is or nothing is
-// measured. For a backend that says where in the frame a costly event happened.
-std::string open_section();
+// measured. The view is valid until the next change to the recorded sections.
+std::string_view open_section();
 
 // ---- Frames ----
 
@@ -170,6 +171,10 @@ enum class FrameKind : std::uint8_t {
 const char* frame_kind_name(FrameKind kind);
 
 struct Frame {
+    explicit Frame(std::pmr::memory_resource* storage = std::pmr::get_default_resource())
+        : sections(storage),
+          gauges(storage) {}
+
     std::uint64_t serial = 0;  // counts every frame begun
     std::uint64_t tick = 0;    // the game tick it shows
     FrameKind kind = FrameKind::Tick;
@@ -188,8 +193,8 @@ struct Frame {
     bool passes_sampled = false;
     bool passes_split = false;
     std::array<std::uint64_t, kCounterCount> counters{};
-    std::vector<Section> sections;
-    std::vector<std::pair<std::string, double>> gauges;
+    std::pmr::vector<Section> sections;
+    std::pmr::vector<std::pair<std::pmr::string, double>> gauges;
 
     // The time of the top-level section of that name, or 0.
     double cpu_ms(std::string_view section) const;
@@ -215,7 +220,7 @@ inline constexpr std::size_t kHistory = 512;
 const Frame* history(std::size_t back);
 std::size_t history_size();
 
-// ---- GPU timers: installed by the renderer (renderer/gl_stats.h) ----
+// ---- GPU timers: installed by the renderer (renderer/gl/gl_stats.h) ----
 
 struct GpuHooks {
     // Starts timing what is drawn from now for that frame's section; false if it cannot (a timer
@@ -290,7 +295,7 @@ std::vector<Probe*>& probes();
 //
 // Each embedded file with its path under port/ and its text as built in, and the port/ folder the
 // build read them from: what a program's sources are matched against to find the files to read
-// again (renderer/gl_stats.h, reload).
+// again (renderer/gl/gl_stats.h, reload).
 
 struct ShaderFile {
     const char* path;  // under port/, as "renderer/shaders/direct.vert"

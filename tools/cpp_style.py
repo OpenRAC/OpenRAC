@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2026 the OpenRAC contributors
 """
-The layout of OpenRAC's own C++ (port/docs/CODING_CONVENTIONS.md, sections 5 and 12).
+The layout of OpenRAC's own C++ (docs/CODING_CONVENTIONS.md, sections 5 and 12).
 
   python3 tools/cpp_style.py                    list the files that need formatting; exit 1 if any
   python3 tools/cpp_style.py --fix              rewrite them

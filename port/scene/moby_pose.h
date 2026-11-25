@@ -25,6 +25,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -45,12 +46,48 @@ void set_moby_anim_fields(std::uint32_t first);
 void set_moby_layer_records(bool records);
 
 /**
+ * Guest memory past RAM that a class may live in: the port's own region the imported moby classes
+ * are kept in (GUEST_PORT_LOW, rac1/host/foreign_class.c), its bytes and its game address. Poses
+ * read a class there as in RAM. None until it is set.
+ */
+void set_moby_class_region(std::span<const std::uint8_t> bytes, std::uint32_t address);
+
+/**
+ * The port's own game memory: `memory` holds the game addresses from `base` on (runtime's
+ * GUEST_PORT region), which the game reaches but game RAM does not hold. A mod's copy of an enemy
+ * keeps pvars larger than a pool slot's there, and with them its joint modifiers and pose layers.
+ * Said once, as above; until then such addresses read as RAM's.
+ */
+void set_port_memory(std::uint32_t base, std::span<const std::uint8_t> memory);
+
+/**
+ * Keys and blend to pose a moby with in place of its own animation fields: a pose the port gives a
+ * moby the game leaves asleep (game/common/frontend/sleeping_mobys.h). `a` and `b` are game
+ * addresses of two frames of its class, `t` the blend, `plain` whether they are consecutive keys
+ * of one sequence (the game's plain lerp).
+ */
+struct AnimKeys {
+    std::uint32_t a = 0;
+    std::uint32_t b = 0;
+    float t = 0.0f;
+    bool plain = true;
+};
+
+/**
  * The joint palette of the moby at `moby` (a game address): one matrix per joint of the class's
  * high LOD, F_j = P_j S_j in packed model units (rows: the images of the axes, then the
  * translation). Empty when the moby has no class, no joints or no readable key: draw it as stored.
  */
 std::vector<assets::rac1::JointMatrix> moby_palette(
     std::span<const std::uint8_t> ram, std::uint32_t moby
+);
+
+/**
+ * The same palette posed by `keys` instead of the moby's own keys and blend; its joint modifiers
+ * and pose layers are still its own. Reads the game's memory only.
+ */
+std::vector<assets::rac1::JointMatrix> moby_palette(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, const AnimKeys& keys
 );
 
 /**
@@ -63,9 +100,33 @@ std::vector<assets::rac1::JointMatrix> moby_pose_matrices(
 );
 
 /**
- * Joint modifiers of the port's own for one moby (a mod's, openrac_api.hero_set_joints), applied
- * after the moby's own list wherever its pose is evaluated (drawing, shadows, attachments).
- * Replaces the last set; an empty list or moby 0 clears it. Safe from any thread.
+ * How far apart two frames of a class pose its joints: the largest turn of any joint (radians) and
+ * the largest move of any joint's translation (packed model units). A joint a frame does not
+ * translate stands at its rest translation, as the evaluator leaves it.
+ */
+struct KeyGap {
+    float turn = 0.0f;
+    float move = 0.0f;
+};
+
+/**
+ * The gap between the frames at game addresses `a` and `b` of the class at `cls`; none when either
+ * is not a frame of it.
+ */
+std::optional<KeyGap> key_gap(
+    std::span<const std::uint8_t> ram, std::uint32_t cls, std::uint32_t a, std::uint32_t b
+);
+
+/** The same pose matrices posed by `keys`, as moby_palette with keys. */
+std::vector<assets::rac1::JointMatrix> moby_pose_matrices(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, const AnimKeys& keys
+);
+
+/**
+ * Joint modifiers of the port's own for one moby (a mod's, openrac_api.hero_set_joints and
+ * moby_set_joints), applied after the moby's own list wherever its pose is evaluated (drawing,
+ * shadows, attachments). Replaces that moby's last set; an empty list clears it, moby 0 clears
+ * every moby's. Safe from any thread.
  */
 void set_extra_joint_modifiers(std::uint32_t moby, std::vector<assets::rac1::JointModifier> mods);
 

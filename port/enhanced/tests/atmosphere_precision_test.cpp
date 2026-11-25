@@ -8,16 +8,17 @@
 #include <string>
 
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
-#include "renderer/shader_precision.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/gl/shader_precision.h"
 #include "renderer_shaders.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 #ifdef OPENRAC_VULKAN
-#include "renderer/vulkan/shader_compiler.h"
-#include "renderer/vulkan/spirv_precision.h"
+#include "renderer/vulkan/pipelines/shader_compiler.h"
+#include "renderer/vulkan/pipelines/spirv_precision.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 using namespace openrac;
@@ -129,7 +130,7 @@ void main() {
                 glUniform1i(shader.uniform("point_light"), point);
                 for (int c = 0; c < 4; ++c) {
                     glUniform1i(shader.uniform("channel"), c);
-                    glDrawArrays(GL_TRIANGLES, 0, 3);
+                    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                     std::array<std::uint8_t, 4> pixel{};
                     glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
                     const auto bits = std::uint32_t(pixel[0]) | (std::uint32_t(pixel[1]) << 8)

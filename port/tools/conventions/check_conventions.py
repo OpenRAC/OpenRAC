@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2026 the OpenRAC contributors
 """
-Checks the port's C and C++ against the rules of port/docs/CODING_CONVENTIONS.md
+Checks the port's C and C++ against the rules of docs/CODING_CONVENTIONS.md
 that a program can count.
 
   check_conventions.py                      every file: the rules that hold everywhere
@@ -13,7 +13,8 @@ that a program can count.
 
 Three kinds of rule (CODING_CONVENTIONS.md, "What the machines check"):
 
-- every file in scope: the first line is an SPDX licence line; no tab; no em or en dash;
+- every file in scope: the first line is an SPDX licence line; no tab; no em or en dash; no issue or
+  pull request number; no std::jthread or std::stop_token in code;
   getenv, std::getenv or SDL_getenv reads no OPENRAC_ variable and no name that is not a
   literal outside common/env.cpp and runtime/host_env.cpp (section 16), except in the files
   GETENV_EXCEPTIONS names until their package moves the reads;
@@ -59,6 +60,11 @@ STATIC_AT_NAMESPACE = re.compile(r"^static\b(?!_assert)")
 RAW_NEW = re.compile(r"(?<![\w.>])new\b\s*(?:\(|\[|[A-Za-z_:])")
 RAW_DELETE = re.compile(r"(?<!=)(?<!= )\bdelete\b\s*(?:\[\s*\]\s*)?[A-Za-z_(]")
 C_ALLOCATION = re.compile(r"(?<![\w.>:])(?:std::|::)?(malloc|calloc|realloc|free)\s*\(")
+# libc++ 19 and older keep these behind an experimental switch (CODING_CONVENTIONS.md, 11.6).
+JTHREAD = re.compile(r"\bstd::(?:jthread|stop_token|stop_source|stop_callback)\b")
+# A pointer into the project's history (an issue or pull request number): a comment says what the
+# code does now, and the history lives in git.
+HISTORY_REFERENCE = re.compile(r"\b(?:issue|PR|pull request|upstream)\s*#\d+|\(#\d+\)", re.I)
 USING_NAMESPACE = re.compile(r"^\s*using\s+namespace\b")
 # Matched in code whose literals are blanked: `extern "C"` reads `extern ""` there.
 EXTERN_C = re.compile(r'\bextern\s+""')
@@ -231,6 +237,16 @@ def check_every_file(path, text):
         if DASHES.search(line):
             findings.append(
                 Finding(path, number, "dash", "no em or en dash: a comma, colon or parentheses")
+            )
+        if HISTORY_REFERENCE.search(line):
+            findings.append(
+                Finding(path, number, "history", "no issue number: say what the code does")
+            )
+
+    for number, line in enumerate(strip_comments_and_strings(text).splitlines(), 1):
+        if JTHREAD.search(line):
+            findings.append(
+                Finding(path, number, "jthread", "use JoiningThread (common/joining_thread.h)")
             )
 
     return findings
@@ -559,7 +575,7 @@ def main(argv=None):
     advisories = len(findings) - len(failed)
     print(
         f"conventions: {len(failed)} to fix, {advisories} advisory "
-        "(port/docs/CODING_CONVENTIONS.md)",
+        "(docs/CODING_CONVENTIONS.md)",
         file=sys.stderr,
     )
     return 1 if failed else 0

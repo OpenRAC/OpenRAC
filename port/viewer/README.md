@@ -6,12 +6,12 @@ your own disc, drawn on the GPU through the port's renderer, with a free
 camera. No game code runs.
 
 ```sh
-python3 editor/extract.py port baserom/SCES_509.16.iso build/port --level 0
+python3 extractor/extract.py port baserom/SCES_509.16.iso build/port --level 0
 openrac-viewer build/port/level_00
 ```
 
-The editor's `port` export ([editor/port.py](../../editor/port.py)) writes
-the Godot export's meshes and textures (`terrain.glb`, `ties/`, `shrubs/`,
+The editor's `port` export ([extractor/port.py](../../extractor/port.py)) writes
+the editor export's meshes and textures (`terrain.glb`, `ties/`, `shrubs/`,
 `mobys/`, `textures/`) plus `sky.glb` (the sky's shells),
 `placements.json` (ties, shrubs, mobys: class, 4 × 4 matrix in game axes,
 stored fields) and `manifest.json` (format 1: files, classes with moby class
@@ -72,7 +72,7 @@ not drawn yet.
 
 RAC1 baked camera visibility is supported on Vulkan when the export has
 `pvs.json` and `pvs.bin`. The normal exporter writes them; existing exports
-can add just this metadata with `python editor/occlusion.py DISC.iso LEVELS`.
+can add just this metadata with `python extractor/occlusion.py DISC.iso LEVELS`.
 The command verifies the disc/export identities and leaves meshes, placements
 and GI bakes untouched. Other games and exports without PVS remain visible
 subject to the existing frustum/distance tests.

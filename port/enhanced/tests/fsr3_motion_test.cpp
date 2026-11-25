@@ -8,16 +8,18 @@
 
 #include "common/stats.h"
 #include "enhanced/fsr3/frame_target.h"
+#include "enhanced/fsr3/temporal_math.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "fsr3_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/gl_stats.h"
-#include "renderer/render_opt.h"
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/gl_stats.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -27,10 +29,11 @@ using namespace openrac::gl;
 // Float velocity is converted to UNORM only for readback; 16 pixels maps to one output colour unit.
 constexpr const char* kReadMotion = R"glsl(#version 410 core
 uniform sampler2D tex_T0;
+uniform float motion_scale;
 out vec4 colour;
 void main() {
     vec4 motion = texelFetch(tex_T0, ivec2(gl_FragCoord.xy), 0);
-    colour = vec4(motion.xy / 16.0 + .5, motion.z, 1);
+    colour = vec4(motion.xy * motion_scale / 16.0 + .5, motion.z, 1);
 }
 )glsl";
 
@@ -125,9 +128,11 @@ struct MotionFixture {
         return true;
     }
 
-    // Reads all velocity and reactive channels for either submission path, including uncovered pixels.
+    // Samples either submission path. A supplied world depth uses zero-to-one rasterisation.
     std::vector<std::uint8_t> sample_many(
-        std::span<const scene::MotionInstance> instances, scene::MotionSubmission submission
+        std::span<const scene::MotionInstance> instances,
+        scene::MotionSubmission submission,
+        unsigned world_depth = 0
     ) {
         glBindFramebuffer(GL_FRAMEBUFFER, motion.framebuffer());
         glViewport(0, 0, 64, 64);
@@ -141,6 +146,15 @@ struct MotionFixture {
         view.current = renderer::identity();
         view.previous = renderer::identity();
         view.size = {64, 64};
+        view.raster_zero_to_one = world_depth != 0;
+        if (world_depth != 0) {
+            glFramebufferTexture2D(
+                GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, world_depth, 0
+            );
+            glEnable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
+            glDepthFunc(GL_GEQUAL);
+        }
         // Both poses index separate matrices in the same synthetic palette image.
         view.previous_palette = previous_palette;
         // The owning render thread either records immediately or freezes this overlay until scope exit.
@@ -151,20 +165,82 @@ struct MotionFixture {
         if (vkgl::active()) {
             CHECK(vkgl::temporal_chain([&] {
                 const vkgl::TemporalTarget target{
-                    motion.framebuffer(), vkgl::TemporalContents::Preserve
+                    motion.framebuffer(),
+                    vkgl::TemporalContents::Preserve,
+                    renderer::graph::Aspect::Colour,
+                    world_depth != 0
                 };
                 CHECK(vkgl::temporal_raster("fixture object motion", target, {}, draw));
             }));
         } else {
             draw();
         }
+        if (world_depth != 0) {
+            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_TRUE);
+            glFramebufferTexture2D(
+                GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0
+            );
+        }
+        return read_motion();
+    }
+
+    // Converts the signed motion target to bytes without changing the sampled velocity field.
+    std::vector<std::uint8_t> read_motion(float scale = 1) {
         glBindFramebuffer(GL_FRAMEBUFFER, output.id());
         glBindVertexArray(vao);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, motion.texture());
         read.use();
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glUniform1f(read.uniform("motion_scale"), scale);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return output.read_rgba();
+    }
+
+    // Draws the production depth-derived field with explicit temporal graph dependencies.
+    void draw_camera(
+        renderer::Shader& camera,
+        unsigned depth,
+        const renderer::Mat4& raster,
+        const renderer::Mat4& previous,
+        float jitter
+    ) {
+        renderer::Mat4 inverse;
+        renderer::Mat4 previous_clip;
+        CHECK(enhanced::fsr3_detail::camera_transforms(raster, previous, inverse, previous_clip));
+        glBindFramebuffer(GL_FRAMEBUFFER, motion.framebuffer());
+        glViewport(0, 0, 64, 64);
+        glDisable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+        glBindVertexArray(vao);
+        camera.use();
+        glUniformMatrix4fv(camera.uniform("inverse_raster"), 1, GL_FALSE, inverse.data());
+        glUniformMatrix4fv(camera.uniform("previous_view"), 1, GL_FALSE, previous.data());
+        glUniformMatrix4fv(camera.uniform("previous_clip"), 1, GL_FALSE, previous_clip.data());
+        glUniform3f(camera.uniform("camera_position"), 0, 0, 0);
+        glUniform2f(camera.uniform("jitter"), jitter, -jitter);
+        glUniform1i(camera.uniform("depth_only"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, depth);
+        const auto draw = [] {
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
+        };
+
+        // Vulkan needs declared image reads; compatibility GL draws immediately.
+        if (vkgl::active()) {
+            bool raster_recorded = false;
+            const auto recorded = vkgl::temporal_chain([&] {
+                const std::array inputs{depth};
+                raster_recorded = static_cast<bool>(vkgl::temporal_raster(
+                    "fixture camera motion", {motion.framebuffer()}, inputs, draw
+                ));
+            });
+            CHECK(recorded);
+            CHECK(raster_recorded);
+        } else {
+            draw();
+        }
     }
 
     // Reads the signed centre velocity through the production batched path.
@@ -186,6 +262,82 @@ struct MotionFixture {
         renderer.release();
     }
 };
+
+// Separates identity clip space from the poorly conditioned distant perspective case.
+enum class CameraDistance {
+    Near,
+    Distant
+};
+
+// Readback maps zero motion to 128 and four pixels to 191; opposite Y motion mirrors that value.
+void check_camera_field(std::span<const std::uint8_t> pixels, int expected) {
+    int largest_error = 0;
+
+    // Every covered pixel must retain the same velocity and valid history.
+    for (std::size_t at = 0; at < pixels.size(); at += 4) {
+        largest_error = std::max(largest_error, std::abs(pixels[at] - expected));
+        largest_error = std::max(largest_error, std::abs(pixels[at + 1] - (255 - expected)));
+        CHECK(pixels[at + 2] == 0);
+    }
+
+    CHECK(largest_error <= 1);
+}
+
+// Static scenery must retain camera motion while removing the raster jitter from its velocity.
+void test_static_camera_motion(CameraDistance distance) {
+    const bool distant = distance == CameraDistance::Distant;
+    MotionFixture fixture;
+    renderer::FrameBuffer depth;
+    renderer::Shader camera;
+    std::string error;
+    const bool ready = fixture.create(error) && depth.create(64, 64, error, 1, true)
+                       && camera.build(
+                           "camera motion fixture",
+                           enhanced::shaders::fullscreen_vert,
+                           enhanced::shaders::camera_motion_frag,
+                           error
+                       );
+    CHECK(ready);
+
+    // A failed setup cannot distinguish a missing field from an incorrect velocity.
+    if (!ready) {
+        std::cerr << error << '\n';
+        return;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, depth.id());
+    glDepthMask(GL_TRUE);
+    // A reversed depth near .0005 places the surface about 100 units from the perspective camera.
+    glClearDepth(distant ? .0005 : .5);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    // Both signs of subpixel jitter must cancel, including with a stationary camera.
+    for (const float jitter : {-.375f, .25f}) {
+        for (const float movement : {0.0f, .125f}) {
+            // Magnify distant-camera errors to a 1920-pixel render width without a large target.
+            if (distant && movement != 0) {
+                continue;
+            }
+
+            const auto offset = renderer::translation({2 * jitter / 64, -2 * jitter / 64, 0});
+            auto previous = renderer::translation({movement, -movement, 0});
+
+            // Large camera translations expose precision loss hidden by identity clip space.
+            if (distant) {
+                previous = renderer::multiply(
+                    renderer::perspective_reversed(1, 1.5f, .05f, 2000),
+                    renderer::translation({-134, -234, -160})
+                );
+            }
+
+            const auto raster = distant ? renderer::multiply(offset, previous) : offset;
+            fixture.draw_camera(camera, depth.depth_texture(), raster, previous, jitter);
+
+            const auto pixels = fixture.read_motion(distant ? 30.0f : 1.0f);
+            check_camera_field(pixels, movement == 0 ? 128 : 191);
+        }
+    }
+}
 
 // A previous quarter-unit translation yields eight render pixels of current-to-previous motion.
 void test_rigid_motion_and_new_object_rejection() {
@@ -308,6 +460,45 @@ void test_batched_motion_matches_reference(bool cutout) {
     renderer::render_opt::reset();
     CHECK(glGetError() == GL_NO_ERROR);
 }
+
+void test_precise_depth_occludes_motion() {
+    if (glClipControl == nullptr) {
+        return;
+    }
+
+    MotionFixture fixture;
+    renderer::FrameBuffer world;
+    std::string error;
+    const bool ready = fixture.create(error) && world.create(64, 64, error, 1, true);
+    CHECK(ready);
+    if (!ready) {
+        std::cerr << error << '\n';
+        return;
+    }
+
+    constexpr float kWorldDepth = .75f;
+    glBindFramebuffer(GL_FRAMEBUFFER, world.id());
+    glDepthMask(GL_TRUE);
+    glClearDepth(kWorldDepth);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    scene::MotionInstance instance;
+    instance.current = renderer::translation({0, 0, .625f});
+    instance.previous = renderer::translation({.25f, 0, .625f});
+    const auto sample = [&](scene::MotionSubmission submission) {
+        const auto pixels =
+            fixture.sample_many(std::span(&instance, 1), submission, world.depth_texture());
+        return pixels[(32 * 64 + 32) * 4];
+    };
+    // The old [-1, 1] convention remaps .625 to .8125 and wrongly passes the .75 depth test.
+    CHECK(sample(scene::MotionSubmission::Batched) <= 1);
+    CHECK(sample(scene::MotionSubmission::Individual) <= 1);
+    // Matching world depth still writes the full eight-pixel horizontal velocity.
+    instance.current[14] = instance.previous[14] = kWorldDepth;
+    CHECK(sample(scene::MotionSubmission::Batched) >= 254);
+    CHECK(sample(scene::MotionSubmission::Individual) >= 254);
+}
+
 }  // namespace
 
 int main() {
@@ -323,10 +514,13 @@ int main() {
 
         // Count native draw submissions as well as comparing the complete output images.
         renderer::gl_stats::install(platform::Window::gl_loader());
+        test_static_camera_motion(CameraDistance::Near);
+        test_static_camera_motion(CameraDistance::Distant);
         test_rigid_motion_and_new_object_rejection();
         test_skinned_motion();
         test_batched_motion_matches_reference(false);
         test_batched_motion_matches_reference(true);
+        test_precise_depth_occludes_motion();
         // Nested material reads must not change layouts behind the temporal graph's attachment declarations.
         if (vkgl::active()) {
             CHECK(vkgl::submission_counters().validation_errors == 0);

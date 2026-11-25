@@ -61,13 +61,16 @@ vec3 vu_unit(vec3 v) {
 }
 // The game's eight point lights as it holds them (colour, falloff; position, reach), added to the
 // terrain's colours when terrain_point_lit is set (Going Commando).
+// openrac_mode: terrain_point_lit metal_pass probe_mode probe_receiver sun_shadow_enabled
+// openrac_mode: hero_shadow_enabled hero_wetness_enabled
 uniform int terrain_point_lit;
 uniform vec4 terrain_point_lights[16];
 // The metal ("shine") pass (MobyProc's metal packets): texture coordinates from the view-space
 // normal, a sphere map of the level's chrome or glass picture, the vertex colour 0x70 and the
 // alpha the moby's distance gives (ReRAC moby_skinning_lighting.md 6 and 9).
 uniform int metal_pass;
-// 1: clip-space z goes to the window as it is (renderer/precise_depth.h), 0: GL's (z + w) / 2.
+uniform int object_thin_glass;
+// 1: clip-space z goes to the window as it is (renderer/gl/precise_depth.h), 0: GL's (z + w) / 2.
 uniform int clip_zero_to_one;
 uniform int probe_mode;
 uniform int probe_receiver;
@@ -76,7 +79,8 @@ uniform int hero_shadow_enabled;
 
 #ifdef OPENRAC_HERO_WETNESS
 layout(std430,binding=9) readonly buffer HeroWetness { float hero_wetness[]; };
-uniform int hero_wetness_enabled, hero_wetness_first, hero_wetness_count, hero_wetness_palette;
+uniform int hero_wetness_enabled;
+uniform int hero_wetness_first, hero_wetness_count, hero_wetness_palette;
 out float v_hero_wetness;
 #endif
 
@@ -92,6 +96,10 @@ out vec4 v_probe_multiplier;
 flat out vec4 v_probe_selector;
 flat out int v_lit;
 flat out int v_glow;  // a glow packet's vertex drawn in the moby's glow colour
+// A mod's render-only material on a live moby (OPENRAC_MOBY_MATERIAL_*: 2 platinum, 3 obsidian, 4 energy),
+// for mesh.frag, and the instance's tint, which holds the mod's rgb: obsidian's glow colour.
+flat out int v_mod_material;
+flat out vec3 v_mod_rgb;
 out vec3 v_script_emission;
 flat out vec3 v_probe_ambient;
 out vec3 v_emission_colour;
@@ -119,9 +127,16 @@ mat4 joint_matrix(int index) {
 
 void main() {
     vec4 p = vec4(position, 1.0);
+    // A live moby's `lights` is -1 - (its shine distance + 512 x a mod's material), the distance a
+    // byte (scene::pack_moby_lights); a lit tie's is 0 or more and has neither.
+    float moby_code = lights < -0.5 ? -lights - 1.0 : 0.0;
+    float mod_material = floor(moby_code / 512.0 + 0.001);
+    float shine_distance = moby_code - 512.0 * mod_material;
+    v_mod_material = int(mod_material + 0.5);
+    v_mod_rgb = tint.rgb;
     vec3 n = normal;
 #ifdef OPENRAC_HERO_FUR
-    if (hero_fur_shell > 0.) {
+    if (hero_fur_shell_enabled != 0 && hero_fur_shell > 0.) {
         // Displace bind-pose vertices before skinning, so every shell follows the same joints.
         int shell_receiver = hero_fur_receiver(gl_VertexID, palette, moby_light.w);
         float shell_wetness = 0.;
@@ -269,13 +284,18 @@ void main() {
 #endif
 #ifndef OPENRAC_COLOUR_SPECIALISED
     if (metal_pass != 0) {
+        // A separate pane uses its actual depth and only the instance's fade.
+        if (object_thin_glass != 0) {
+            v_colour = vec4(1.0, 1.0, 1.0, tint.a);
+            return;
+        }
         // st = (e.xy + 1) / 2, e the normal in camera space (x right, y down: t grows downward).
         vec3 e = normalize(mat3(view) * normalize(normal_model * n));
         v_uv = vec2(e.x * 0.5 + 0.5, 0.5 - e.y * 0.5);
         // The shine alpha: MobyProc's gate min(((distance << 10) - depth) >> 7, 0x80), depth in raw
         // units: full up to 16 game units nearer than the moby's shine distance (+0x73, 0x18 unless the
-        // class changes it; the frontend passes it as lights = -1 - distance), none past it.
-        float reach = lights < -1.5 ? -lights - 1.0 : 24.0;
+        // class changes it; the frontend passes it in lights, above), none past it.
+        float reach = shine_distance > 0.5 ? shine_distance : 24.0;
         float centre = -(view * model[3]).z;
         float shine = clamp((reach - centre) / 16.0, 0.0, 1.0);
         v_colour = vec4(vec3(112.0 / 128.0), shine);

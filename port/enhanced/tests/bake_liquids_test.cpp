@@ -69,8 +69,51 @@ void rac2_surfaces() {
     CHECK(refused);
 }
 
+// Up Your Arsenal's liquid surfaces: an emissive one becomes a triangle strip through its points,
+// a triangle per point past the second, emitting its colour; a surface the export left unlit adds
+// none, and points in a line add no triangle.
+void rac3_strips() {
+    json::Value root;
+    std::string error;
+    CHECK(
+        json::parse(
+            R"({"version":1,"surfaces":[
+          {"points":[[0,0,5],[0,4,5],[3,0,5],[3,4,5],[6,0,5]],"emissive":true,"emission":[0.75,0.375,0]},
+          {"points":[[0,0,1],[1,0,1],[0,1,1]],"emissive":false},
+          {"points":[[0,0,2],[1,0,2],[2,0,2]],"emissive":true,"emission":[1,1,1]}]})",
+            root,
+            error
+        )
+    );
+    const auto triangles = lighting::rac3_liquid_triangles(root);
+    CHECK(triangles.size() == 3);
+    for (const auto& triangle : triangles) {
+        CHECK((triangle.diffuse == lighting::Float3{}) && triangle.emission_vertex_colour);
+        for (unsigned i = 0; i < 3; ++i) {
+            CHECK(triangle.vertices[i][2] == 5);
+            CHECK((triangle.emission_colours[i] == lighting::Float3{0.75f, 0.375f, 0}));
+        }
+    }
+    CHECK((triangles[2].vertices[2] == lighting::Float3{6, 0, 5}));
+    CHECK(
+        json::parse(
+            R"({"version":1,"surfaces":[{"points":[[0,0,0],[1,0,"x"]],"emissive":true,"emission":[1,1,1]}]})",
+            root,
+            error
+        )
+    );
+    bool refused = false;
+    try {
+        (void)lighting::rac3_liquid_triangles(root);
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    CHECK(refused);
+}
+
 int main() {
     rac2_surfaces();
+    rac3_strips();
     // Synthetic authored record, separate colour and strip sections. No retail data.
     Bytes record(64), colours(512), order, overlay, index(2048), core(5120);
     put(record, 0, 10.0f);

@@ -31,7 +31,7 @@ enum class BreadcrumbValue {
 class Breadcrumbs {
 public:
     // Retain a short history per thread and cap each message including its terminating NUL.
-    static constexpr std::size_t kPerThread = 32;
+    static constexpr std::size_t kPerThread = 64;
     static constexpr std::size_t kMessageSize = 64;
 
     // One complete event, independent of the original message's lifetime.

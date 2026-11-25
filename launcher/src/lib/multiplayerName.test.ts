@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+
 import { nameProblem } from "./multiplayerName";
 
 describe("multiplayer name", () => {
   it("takes 3 to 16 letters, digits and underscores", () => {
-    for (const good of ["abc", "Brave_Lombax_42", "A1_", "x234567890123456"]) expect(nameProblem(good)).toBeNull();
+    for (const good of ["abc", "Brave_Lombax_42", "A1_", "x234567890123456"])
+      expect(nameProblem(good)).toBeNull();
   });
 
   it("says what is wrong with any other", () => {

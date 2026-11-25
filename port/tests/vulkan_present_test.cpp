@@ -15,19 +15,24 @@
 // Skipped (77) where Vulkan cannot open.
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
+#include <future>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <volk.h>
 
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/vulkan/temporal_graph.h"
+#include "platform/pump.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -40,6 +45,41 @@ namespace render_opt = openrac::renderer::render_opt;
 VKAPI_ATTR VkResult VKAPI_CALL
 fail_acquire(VkDevice, VkSwapchainKHR, std::uint64_t, VkSemaphore, VkFence, std::uint32_t*) {
     return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+lose_surface(VkDevice, VkSwapchainKHR, std::uint64_t, VkSemaphore, VkFence, std::uint32_t*) {
+    return VK_ERROR_SURFACE_LOST_KHR;
+}
+
+void work_on_worker(std::function<void()> work) {
+    auto submitted = std::async(std::launch::async, std::move(work));
+    while (submitted.wait_for(std::chrono::milliseconds(10)) == std::future_status::timeout) {
+        openrac::platform::pump_events();
+    }
+    submitted.get();
+}
+
+void swap_on_worker(openrac::platform::Window& window) {
+    int width = 0, height = 0;
+    window.drawable_size(width, height);
+    CHECK(width > 0 && height > 0);
+    work_on_worker([&] { window.swap(width, height); });
+}
+
+void test_surface_renewal(openrac::platform::Window& window) {
+    const auto acquire = vkAcquireNextImageKHR;
+    vkAcquireNextImageKHR = lose_surface;
+    try {
+        swap_on_worker(window);
+    } catch (...) {
+        vkAcquireNextImageKHR = acquire;
+        throw;
+    }
+    vkAcquireNextImageKHR = acquire;
+    const auto before = openrac::vkgl::submission_counters().fullscreen_copies;
+    swap_on_worker(window);
+    CHECK(openrac::vkgl::submission_counters().fullscreen_copies > before);
 }
 
 // An acquire failure must reach the caller without submitting the frame offscreen.
@@ -287,7 +327,10 @@ int main(int argc, char** argv) {
     std::string error;
 
     // No Vulkan here (or it fell back to OpenGL): nothing of the backend to test.
-    if (!context.open(error, kWindowWidth, kWindowHeight, swapchain) || !openrac::vkgl::active()) {
+    if (!context.open(
+            error, kWindowWidth, kWindowHeight, swapchain, swapchain ? work_on_worker : nullptr
+        )
+        || !openrac::vkgl::active()) {
         std::printf("SKIP: Vulkan unavailable: %s\n", error.c_str());
         return openrac::test::kSkip;
     }
@@ -304,11 +347,17 @@ int main(int argc, char** argv) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glClearColor(0.25f, 0.5f, 0.75f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
-            context.window().swap();
+            if (tight) {
+                swap_on_worker(context.window());
+            } else {
+                context.window().swap();
+            }
             CHECK(openrac::vkgl::submission_counters().fullscreen_copies > before);
         }
+        test_surface_renewal(context.window());
         CHECK(openrac::vkgl::submission_counters().validation_errors == 0);
         test_fatal_acquire();
+        work_on_worker([&] { context.window().close_vulkan(); });
         return openrac::test::result();
     }
     // Stand-in screen images exercise graph transfer boundaries without a visible swapchain.

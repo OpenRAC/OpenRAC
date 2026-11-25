@@ -2,6 +2,7 @@
 // Soft anisotropic GGX sheen and a bounded forward/wrap scattering approximation for short fur.
 // Microfacet equations: https://google.github.io/filament/Filament.html#materialsystem/anisotropicmodel
 // Original implementation; the denominators, directions and multi-light sum remain FP32.
+// openrac_mode: hero_fur_lighting_enabled
 uniform int hero_fur_lighting_enabled;
 uniform vec4 hero_fur_lighting_parameters; // Highlight strength, softness, directionality, scattering.
 uniform float hero_fur_environment_strength;
@@ -61,6 +62,11 @@ vec3 fur_direct_lighting(FurSurfaceData surface, vec3 p, vec4 selector, float vi
         vec3 direction = probe_unit(mix(light_sets[a + offset + 1].xyz, light_sets[b + offset + 1].xyz, blend));
         if (light == 0 && probe_sunlight_direction.w != 0.) direction = probe_sunlight_direction.xyz;
         vec3 correction = light == 0 ? probe_sunlight_scale : vec3(1.);
+#ifdef OPENRAC_CLOUD_SHADOWS
+        if (light == 0) {
+            correction *= cloud_sun_attenuation;
+        }
+#endif
         // Added sheen/scattering has no legacy 10% floor: occluded directional lights cannot glow.
         result += colour * correction * clamp(visibility, 0., 1.) * fur_light_response(surface, eye, -direction, albedo);
     }

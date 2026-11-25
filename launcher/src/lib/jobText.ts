@@ -7,6 +7,7 @@ import type { Job } from "./queue";
 /** How long a job ran, or has been running at `now` (ms): "2 min 05 s". Empty before it starts. */
 export function jobDuration(job: Pick<Job, "startedAt" | "endedAt">, now: number): string {
   if (!job.startedAt) return "";
+
   return elapsed((job.endedAt ?? now) - job.startedAt);
 }
 
@@ -16,4 +17,5 @@ export function jobTranscript(job: Pick<Job, "command" | "lines">): string {
 }
 
 /** What a job list says when the browser keeps the transcript off the clipboard. */
-export const TRANSCRIPT_REFUSED = "The output could not be copied: the browser would not give it to the clipboard.";
+export const TRANSCRIPT_REFUSED =
+  "The output could not be copied: the browser would not give it to the clipboard.";

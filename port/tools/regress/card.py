@@ -17,6 +17,7 @@ import json
 import os
 import shutil
 import struct
+import sys
 from pathlib import Path
 
 import runner
@@ -160,9 +161,13 @@ def prepared(save: bytes, planet: int) -> bytes:
 
 
 def player_card(game: str) -> Path:
-    home = Path(os.environ.get("HOME", "."))
-    base = (home / "Library/Application Support/OpenRAC" if os.uname().sysname == "Darwin"
-            else Path(os.environ.get("XDG_DATA_HOME", home / ".local/share")) / "openrac")
+    home = Path(os.environ.get("HOME") or Path.home())
+    if sys.platform == "darwin":
+        base = home / "Library/Application Support/OpenRAC"
+    elif sys.platform == "win32":
+        base = Path(os.environ.get("LOCALAPPDATA") or home / "AppData/Local") / "openrac"
+    else:
+        base = Path(os.environ.get("XDG_DATA_HOME") or home / ".local/share") / "openrac"
     return base / "memcard" / SERIALS[game]
 
 
@@ -173,9 +178,9 @@ def game_folder(card: Path) -> Path:
     return found[0]
 
 
-def prepare(game: str, source: Path | None = None) -> Path:
+def prepare(game: str, source: Path | None = None, dest: Path | None = None) -> Path:
     """Copies source (the player's card by default; it is only read) to build/regress/cards/<game>
-    and rewrites the copy's five slots from its first saved game."""
+    (or DEST) and rewrites the copy's five slots from its first saved game."""
     source = source or player_card(game)
     if not source.is_dir():
         raise SystemExit(f"no card at {source}: play once and save, or pass --from")
@@ -192,7 +197,7 @@ def prepare(game: str, source: Path | None = None) -> Path:
             continue
     if base is None:
         raise SystemExit(f"{folder}: no saved game to start from")
-    dest = runner.cards_dir() / game
+    dest = dest or runner.cards_dir() / game
     if (dest / "card").exists():
         shutil.rmtree(dest / "card")  # this tool's own earlier copy
     dest.mkdir(parents=True, exist_ok=True)

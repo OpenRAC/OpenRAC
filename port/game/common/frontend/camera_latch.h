@@ -16,10 +16,12 @@
 namespace openrac::frontend {
 
 // How a frame's camera is turned: by `yaw` radians about the world's up axis (game axes, z),
-// through `pivot`. 0: the camera as interpolated.
+// through `pivot`, then by `pitch` radians up (< 0 down) about its own side axis, through the same
+// pivot. 0: the camera as interpolated.
 struct CameraTurn {
     float yaw = 0.0f;
     renderer::Vec3 pivot{};
+    float pitch = 0.0f;
 };
 
 // The turn for a frame of the kept tick `scene` drawn `alpha` of the way from the last tick's

@@ -10,13 +10,14 @@
 #   cgltf     glTF 2.0 reader, for the level viewer (MIT)
 #   stb       stb_image and stb_image_write, for the viewer's PNGs (MIT or public domain)
 #   xxHash    PCSX2 texture replacement keys (BSD-2-Clause)
-#   nanosvg   the on-screen pad's SVG icons (zlib)
+#   nanosvg   the on-screen pad's SVG icons and texture packs' SVGs (zlib)
+#   Basis Universal  texture packs' KTX2 pictures: its transcoder and Zstandard decoder (Apache-2.0)
 #   Dear ImGui  the games' debug overlay (MIT)
 #
 # To build without network access, point CMake at local clones:
 #   -DFETCHCONTENT_SOURCE_DIR_SDL3=... -DFETCHCONTENT_SOURCE_DIR_CGLTF=...
 #   -DFETCHCONTENT_SOURCE_DIR_STB=... -DFETCHCONTENT_SOURCE_DIR_IMGUI=...
-#   -DFETCHCONTENT_SOURCE_DIR_NANOSVG=...
+#   -DFETCHCONTENT_SOURCE_DIR_NANOSVG=... -DFETCHCONTENT_SOURCE_DIR_BASIS_UNIVERSAL=...
 
 include_guard(GLOBAL)
 include(FetchContent)
@@ -157,6 +158,35 @@ if(NOT TARGET openrac_nanosvg)
   endif()
 endif()
 
+# Basis Universal (Apache-2.0): texture packs' KTX2 pictures (renderer/textures/pack_pictures.h).
+# A pack in UASTC or ETC1S works on every GPU, so the port reads those and plain RGBA8 only. Only
+# its transcoder and the Zstandard decoder it ships are compiled, in openrac_basisu; the encoder and
+# its CMakeLists.txt are left out. Release 2.50 is pinned.
+FetchContent_Declare(basis_universal
+  GIT_REPOSITORY https://github.com/BinomialLLC/basis_universal.git
+  GIT_TAG 9bebe16726b3a61c8c213eeee3b7cffb462ef34e
+  SOURCE_SUBDIR openrac-download-only
+)
+FetchContent_MakeAvailable(basis_universal)
+if(NOT TARGET openrac_basisu)
+  add_library(openrac_basisu STATIC
+    "${basis_universal_SOURCE_DIR}/transcoder/basisu_transcoder.cpp"
+    "${basis_universal_SOURCE_DIR}/zstd/zstddeclib.c")
+  target_include_directories(openrac_basisu SYSTEM PUBLIC
+    "${basis_universal_SOURCE_DIR}/transcoder" "${basis_universal_SOURCE_DIR}/zstd")
+  target_compile_definitions(openrac_basisu PUBLIC BASISD_SUPPORT_KTX2=1 BASISD_SUPPORT_KTX2_ZSTD=1)
+  # Apache-2.0 asks for its licence beside the program; Zstandard's (BSD) comes with it.
+  configure_file("${basis_universal_SOURCE_DIR}/LICENSE"
+    "${CMAKE_BINARY_DIR}/licenses/basis_universal/LICENSE" COPYONLY)
+  configure_file("${basis_universal_SOURCE_DIR}/zstd/LICENSE"
+    "${CMAKE_BINARY_DIR}/licenses/zstd/LICENSE" COPYONLY)
+  if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(openrac_basisu PRIVATE /w)
+  else()
+    target_compile_options(openrac_basisu PRIVATE -w)
+  endif()
+endif()
+
 if(NOT TARGET openrac_cgltf)
   add_library(openrac_cgltf INTERFACE)
   target_include_directories(openrac_cgltf SYSTEM INTERFACE "${cgltf_SOURCE_DIR}")
@@ -165,10 +195,8 @@ if(NOT TARGET openrac_cgltf)
 endif()
 
 # ---- Dear ImGui: the debug overlay of the games (game/common/debug_overlay.cpp) ----
-# What OpenGOAL draws its debug windows with. The repository has no build of
-# its own: its four sources and the SDL3 and OpenGL 3 backends are compiled
-# here into one static library, without the port's warnings. The OpenGL
-# backend brings its own small loader, so it needs nothing of renderer/gl.h.
+# The core and SDL3 input backend are built here. OpenRAC records the draw data
+# through its own renderer.
 FetchContent_Declare(imgui
   GIT_REPOSITORY https://github.com/ocornut/imgui.git
   GIT_TAG v1.91.9b
@@ -183,21 +211,9 @@ if(NOT TARGET openrac_imgui)
     "${imgui_SOURCE_DIR}/imgui_tables.cpp"
     "${imgui_SOURCE_DIR}/imgui_widgets.cpp"
     "${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp"
-    "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"
   )
   target_include_directories(openrac_imgui SYSTEM PUBLIC "${imgui_SOURCE_DIR}" "${imgui_SOURCE_DIR}/backends")
   target_link_libraries(openrac_imgui PUBLIC openrac_sdl3)
-  if(ANDROID OR OPENRAC_IOS)
-    # OpenGL ES 3 there (platform/window.h, GlApi), linked as the system's libGLESv3.
-    target_compile_definitions(openrac_imgui PUBLIC IMGUI_IMPL_OPENGL_ES3)
-    if(OPENRAC_IOS)
-      target_link_libraries(openrac_imgui PRIVATE "-framework OpenGLES")
-    else()
-      target_link_libraries(openrac_imgui PRIVATE GLESv3)
-    endif()
-  elseif(UNIX AND NOT APPLE)
-    target_link_libraries(openrac_imgui PRIVATE ${CMAKE_DL_LIBS})  # the backend's loader opens libGL
-  endif()
   if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(openrac_imgui PRIVATE /w)
   else()
@@ -237,10 +253,13 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
     GIT_SHALLOW TRUE
     SOURCE_SUBDIR openrac-download-only
   )
+  # Pool temporary SPIR-V operands in the compiler's existing per-translation arena.
   FetchContent_Declare(glslang
     GIT_REPOSITORY https://github.com/KhronosGroup/glslang.git
     GIT_TAG vulkan-sdk-1.4.350.1
     GIT_SHALLOW TRUE
+    PATCH_COMMAND "${CMAKE_COMMAND}" -DSOURCE_DIR=<SOURCE_DIR>
+      -P "${CMAKE_CURRENT_LIST_DIR}/PatchGlslang.cmake"
     ${openrac_sdl_options}
   )
   # The first three are only downloaded (SOURCE_SUBDIR names no directory): their headers and
@@ -260,6 +279,11 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
   set(BUILD_SHARED_LIBS ${openrac_shared_libs})
 
   add_library(openrac_vulkan STATIC "${volk_SOURCE_DIR}/volk.c")
+  target_sources(openrac_vulkan PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/commands/native_command_encoder.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/commands/graph_queue.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/graph/graph_state_translation.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../renderer/vulkan/graph/graph_buffer_execution.cpp")
   target_include_directories(openrac_vulkan SYSTEM PUBLIC
     "${vulkan_headers_SOURCE_DIR}/include" "${volk_SOURCE_DIR}" "${vma_SOURCE_DIR}/include")
   target_compile_definitions(openrac_vulkan PUBLIC VK_NO_PROTOTYPES)
@@ -274,31 +298,6 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
   endif()
   add_library(openrac_glslang INTERFACE)
   target_link_libraries(openrac_glslang INTERFACE glslang SPIRV glslang-default-resource-limits)
-
-  # ---- Metal: the renderer's own API on Apple's systems (renderer/metal/README.md) ----
-  # SPIRV-Cross (Apache-2.0) turns the SPIR-V glslang makes of the renderer's GLSL into Metal's
-  # shading language, so that Metal draws from the same shader sources as OpenGL and Vulkan.
-  option(OPENRAC_METAL "Build the Metal renderer (OPENRAC_GL_API=metal)" ${APPLE})
-  if(OPENRAC_METAL)
-    FetchContent_Declare(spirv_cross
-      GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Cross.git
-      GIT_TAG vulkan-sdk-1.4.350.1
-      GIT_SHALLOW TRUE
-      ${openrac_sdl_options}
-    )
-    set(SPIRV_CROSS_CLI OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_HLSL OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_CPP OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_REFLECT OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_C_API OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_ENABLE_UTIL OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_SHARED OFF CACHE BOOL "" FORCE)
-    set(SPIRV_CROSS_SKIP_INSTALL ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(spirv_cross)
-    add_library(openrac_spirv_cross INTERFACE)
-    target_link_libraries(openrac_spirv_cross INTERFACE spirv-cross-msl spirv-cross-glsl spirv-cross-core)
-  endif()
 
   # macOS: MoltenVK's library, copied into each application bundle's Contents/Frameworks, where
   # the window opens it (platform/window.cpp): a player needs nothing installed. Homebrew's

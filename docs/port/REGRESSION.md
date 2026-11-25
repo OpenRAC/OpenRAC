@@ -258,6 +258,21 @@ skippable (`s` below), so a scene's skip falls on the same tick of it in
 both versions; `"after_control": true` keeps skipping the scenes and flights
 a route starts after control (`S`).
 
+### The tours of Going Commando and Up Your Arsenal
+
+`routes_rac2.json` and `routes_rac3.json` hold one `tour` route a level (`rac2-tour`: 26 levels,
+`rac3-tour`: the 27 single-player levels), entered with `--level N` and `OPENRAC_DIRECT`: walk,
+turn the camera, jump, the wrench, fire, the pause pages, the quick select. Going Commando's
+also gives all items; Up Your Arsenal's has no item tool yet, so it only presses (its hero's words
+are not mapped, `addresses` is empty). A run of `rac3-pal` starts from `frame_rate = original`, so
+the presses land on the same game ticks each time. The multiplayer maps are not routes yet.
+
+```sh
+python3 port/tools/regress/regress.py run --game rac3-pal --set rac3-tour --build port/build/release \
+    --data <data> --level-data <assets/port/rac3/pal> --only 01-tour
+python3 port/tools/regress/regress.py run --game rac2-ntsc --set rac2-tour
+```
+
 ### The wide set
 
 `wide` widens what a run reaches, for both versions alike:
@@ -299,7 +314,7 @@ fresh copy of it in its run folder: the player's card is never touched.
 
 | Switch | |
 |---|---|
-| `OPENRAC_TRACE=FILE` | one JSON line a tick: `f` window frame, `c` frames since control (null before), `lv`, `m`, `cam`, `fw`, `hp`, `hr`, `hs`, `mb`, `dr` (the table above). The addresses are each version's: the camera and mobys from `viewer::rac1_addresses`, the game mode the loaded level's copy (`openrac_game_mode`) or the boot program's (`openrac_front_end`), the hero from `RAC1_ADDR(0x0013F450)` in rac1's `boot.c` (US position 0x13F3D0) |
+| `OPENRAC_TRACE=FILE` | one JSON line a window frame: `f` window frame, `c` frames since control (null before), `lv`, `m`, `cam`, `fw`, `hp`, `hr`, `hs`, `mb`, `dr` (the table above). A frame where the game sent nothing new and the last picture stays gets the last tick's values again with `k: 1`; comparisons skip it. The addresses are each version's: the camera and mobys from `viewer::rac1_addresses`, the game mode the loaded level's copy (`openrac_game_mode`) or the boot program's (`openrac_front_end`), the hero from `RAC1_ADDR(0x0013F450)` in rac1's `boot.c` (US position 0x13F3D0) |
 | `OPENRAC_REACH=FILE` | the reached sites as JSON, at exit and every 600 frames |
 | `OPENRAC_PRESS` `cF:...`, `kP:...`, `sP:...`, `SP:...` | a press F frames from control; a press held the first frames of every P while Start can skip what plays, until control: `k` on window frames, `s` from the frame what plays became skippable (the same tick of a scene in PAL and US, where window frames fall at other ticks of it); `S` as `s`, after control too |
 | `OPENRAC_WRITE` `cF:ADDR:VALUE:N` | a word written F frames from control, for N frames |

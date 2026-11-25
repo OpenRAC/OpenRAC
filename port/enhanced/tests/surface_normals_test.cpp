@@ -22,13 +22,14 @@
 #include "enhanced/tests/prepass_capture.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 
 #if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/diagnostics/frame_capture.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 
@@ -76,6 +77,7 @@ scene::LevelData smooth_level(float sign, bool skinned, bool cutout) {
         level.materials[0].image = 0;
     }
     scene::Model model;
+    model.name = skinned ? "moby_7.glb" : "terrain.glb";
     model.primitives.push_back({0, 6, 0});
     model.min = {-4, -4, 0};
     model.max = {4, 4, 0};
@@ -208,6 +210,9 @@ void check_normal_variant(NormalCase& fixture, float sign) {
     renderer::FrameInput input;
     input.camera.view = renderer::translation({0, 0, -8});
     input.camera.projection = renderer::perspective_reversed(1, 1, .1f, 100);
+    input.on_before_particles = [capture](const renderer::RenderTarget& target) {
+        capture->capture(target);
+    };
 
     for (const int mode : {2, 3}) {
         scene.set_probe_view(mode);
@@ -290,7 +295,7 @@ void test_mesh_variants(int samples) {
 }
 
 // A depth callback requests the plain prepass without GI or a normal attachment.
-void test_depth_only() {
+void test_depth_only([[maybe_unused]] test::GlContext& context) {
     stats::set_enabled(stats::Client::Dump, true);
     std::uint64_t stamp = 0;
     for (bool cutout : {false, true}) {
@@ -327,11 +332,30 @@ void test_depth_only() {
         input.after_world_depth = [](unsigned depth, int, int) {
             CHECK(depth != 0);
         };
+        input.on_before_particles = [capture](const renderer::RenderTarget& target) {
+            capture->capture(target);
+        };
         std::vector<std::uint8_t> pixels, depths;
         for (bool rigid : {false, true}) {
             renderer::render_opt::set(renderer::render_opt::Opt::PrepassRigid, rigid);
             stats::begin_frame(stats::FrameKind::Tick, ++stamp);
+#if defined(OPENRAC_VULKAN)
+            const bool capture_reads = gl::is_vulkan() && cutout && !rigid;
+            if (capture_reads) {
+                CHECK(vkgl::capture_frame_graph());
+            }
+#endif
             renderer.render(input, target);
+#if defined(OPENRAC_VULKAN)
+            if (capture_reads) {
+                context.window().swap();
+                const auto description = vkgl::frame_graph_description();
+                CHECK(
+                    description
+                    && description->find("export depth prepass mesh inputs") != std::string::npos
+                );
+            }
+#endif
             stats::begin_frame(stats::FrameKind::Tick, ++stamp);
             const auto actual = frame.read_rgba();
             CHECK(capture->normals.empty() && !capture->depths.empty());
@@ -383,7 +407,7 @@ int main() {
             test_mesh_variants(samples);
         }
 
-        test_depth_only();
+        test_depth_only(context);
 #if defined(OPENRAC_VULKAN)
         if (gl::is_vulkan()) {
             CHECK(vkgl::submission_counters().test_program_reuses > 0);

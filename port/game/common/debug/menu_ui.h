@@ -16,6 +16,7 @@
 #include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_gamepad.h>
 
 #include "audio/ui_sounds.h"
@@ -152,24 +153,66 @@ void menu_heading(const char* title);
 // rows along presses none). As high as a thumb on a touch screen, a little lower on a desktop.
 // `right_width` > 0: what `right` draws takes that much, and a longer label ends in "...".
 using RowRight = std::function<void(ImDrawList* list, ImVec2 right)>;
-bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_width = 0.0f);
+
+// What a row may show besides its label (a mod's tab, developer_menu_look): an icon before it,
+// drawn by `icon` into the square from `a`, `size` wide; a bar under it filled `progress` of the way
+// (0 to 1; negative: none), in the accent, or grey when `dim`.
+struct RowExtra {
+    std::function<void(ImDrawList* list, ImVec2 a, float size)> icon;
+    float progress = -1.0f;
+    bool dim = false;
+    bool quiet = false;  // a press plays no sound (a row to read, a locked one: the caller's)
+};
+
+bool menu_row(
+    const char* label,
+    ImU32 ink,
+    const RowRight& right,
+    float right_width = 0.0f,
+    const char* stable_id = nullptr,
+    const RowExtra* extra = nullptr
+);
 bool menu_row(const char* label, ImU32 ink = ui().text);
 
 // A row that turns something on and off: true when pressed.
-bool menu_switch(const char* label, bool on);
+bool menu_switch(const char* label, bool on, bool enabled = true, const RowExtra* extra = nullptr);
 
 // A row with its value between two arrows: -1 or 1 when it was moved back or on (a press on the
 // value's left part moves it back, anywhere else on; left and right while it has the focus).
 int menu_choice(
-    const char* label, const std::string& value, bool can_lower = true, bool can_raise = true
+    const char* label,
+    const std::string& value,
+    bool can_lower = true,
+    bool can_raise = true,
+    bool enabled = true,
+    const char* stable_id = nullptr,
+    const RowExtra* extra = nullptr
 );
 
 // A percentage slider in a menu row, between two arrows: the new value after a drag, a tap on the
-// track or an arrow, or left and right while it has the focus (the d-pad).
-int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step);
+// track or an arrow, or left and right while it has the focus (the d-pad). Not `enabled`: greyed
+// out, and the value stays.
+int menu_percent_slider(
+    const char* label, int value, int minimum, int maximum, int step, bool enabled = true
+);
+
+// The same slider over `count` steps (0..count), its value shown as `text`: the new step after a
+// drag, a tap or an arrow (Shift with an arrow moves ten). `label_pressed`, when given, is set when
+// the row's label was pressed.
+int menu_number_slider(
+    const char* label, int index, int count, const std::string& text, bool* label_pressed = nullptr
+);
 
 // The launcher's primary button, across the space left.
 bool menu_button(const char* label);
+
+// Sub tabs over a tab's rows (Controls: Gamepad, Keyboard and mouse), as the launcher's page tabs:
+// each a button of its own, the picked one (`current`) tinted in the accent, `helps[i]` the help
+// pane's words for one under the pointer or the focus (as a row of entry `entry`). Returns the one
+// picked now, `current` when none was pressed.
+int menu_sub_tabs(
+    const char* const* names, const char* const* helps, int count, int current, int entry
+);
 
 // A line of the card, in `ink` (the launcher's soft text by default): what is not pressed.
 void menu_note(const char* line, ImU32 ink = ui().soft);
@@ -196,15 +239,16 @@ bool draw_tab(menu::Tab tab, std::uint8_t where, const SectionFilter& only = {})
 // shows them in their own panel next to the drawer.
 bool controller_section(std::string_view section);
 
+// The Controls tab: on a desktop with the built-in keyboard and mouse, as two sub tabs, Gamepad
+// (the controller's sections and the gyro) and Keyboard and mouse, opening on the device in use;
+// else draw_tab's one page. False when nothing of it is shown.
+bool draw_controls_tab(std::uint8_t where);
+
 // Says whether `tab` has anything to show on `where` now.
 bool tab_shown(menu::Tab tab, std::uint8_t where);
 
 // Draws entry `id` alone (its row, or nothing while it is hidden).
 void draw_entry(menu::Id id, std::uint8_t where);
-
-// Does what entry `id` does when pressed (a switch turns over, a choice moves on), outside the rows:
-// a button of the menu's own (the desktop's Quit).
-void press_entry(menu::Id id);
 
 // Ends the game as the window's close button does (Quit, once confirmed).
 void quit_game();
@@ -226,12 +270,16 @@ std::string entry_label(menu::Id id, std::uint8_t where);
 // Remembers `entry` (a menu::Id) as the one under the pointer or the focus when the item just drawn
 // is, for the desktop's help: a focus moved by a controller or keys wins over the pointer.
 void note_hover(int entry);
+// The same for a row of the entry's panel with help of its own: its heading (in place of the
+// entry's), name and line take the help's place.
+void note_hover_row(int entry, std::string section, std::string title, std::string help);
 
 // ---- The Controls tab (debug/menu_controls.cpp) ----
 
 // What one of the Controls tab's plain entries shows now (its file, its player, a setting).
 struct ControlsRow {
     bool shown = true;
+    bool enabled = true;  // false: drawn greyed out, takes no press
     std::string label;  // empty: the catalog's
     bool on = false;
     std::string value;
@@ -246,6 +294,15 @@ void controls_act(menu::Id id, int by);
 
 // Draws a Controls panel (menu::Kind::Panel): its rows on the card open now.
 void draw_controls_panel(menu::Id id);
+
+// The Keyboard and mouse panel (debug/menu_keyboard_mouse.cpp): whether there is one (the built-in
+// keyboard and mouse is loaded), its rows, and its key capture: an SDL event taken as the new key
+// (true: the event is used up).
+bool keyboard_mouse_shown();
+void keyboard_mouse_panel();
+// The built-in's gyro settings, a heading and a card of their own (the Gamepad sub tab).
+void keyboard_mouse_gyro();
+bool keyboard_mouse_capture_event(const SDL_Event& e);
 
 // Each frame: a press awaited for a binding arrives, gives up after a while, or ends with the
 // menu.

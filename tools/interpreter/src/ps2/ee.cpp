@@ -150,6 +150,19 @@ u8* Ee::pointer(u32 address) {
     return nullptr;
 }
 
+bool Ee::straddles(u32 address, unsigned bytes) {
+    /*
+     * A misaligned access (which the console refuses, and which is only counted here) can run
+     * past the end of main memory or of the scratchpad; the host pointer would then read or
+     * write outside what is mapped, which stops the process.
+     */
+    if ((address >> 28) == 7) {
+        return (address & (GuestMemory::kScratchpadBytes - 1)) + bytes > GuestMemory::kScratchpadBytes;
+    }
+    u32 physical = address & 0x1FFFFFFFu;
+    return physical < GuestMemory::kRamBytes && physical + bytes > GuestMemory::kRamBytes;
+}
+
 u8 Ee::read8(u32 address) {
     // Memory answers directly.
     if (u8* p = pointer(address)) {
@@ -161,6 +174,15 @@ u8 Ee::read8(u32 address) {
 }
 
 u16 Ee::read16(u32 address) {
+    // One that runs past the end of a memory is read a byte at a time, what lies beyond as hardware.
+    if (straddles(address, 2)) {
+        u16 value = 0;
+        for (unsigned b = 0; b < 2; b++) {
+            value |= static_cast<u16>(static_cast<u16>(read8(address + b)) << (8 * b));
+        }
+        return value;
+    }
+
     // Memory answers directly.
     if (u8* p = pointer(address)) {
         return load<u16>(p);
@@ -171,6 +193,15 @@ u16 Ee::read16(u32 address) {
 }
 
 u32 Ee::read32(u32 address) {
+    // One that runs past the end of a memory is read a byte at a time, what lies beyond as hardware.
+    if (straddles(address, 4)) {
+        u32 value = 0;
+        for (unsigned b = 0; b < 4; b++) {
+            value |= static_cast<u32>(static_cast<u32>(read8(address + b)) << (8 * b));
+        }
+        return value;
+    }
+
     // Memory answers directly.
     if (u8* p = pointer(address)) {
         return load<u32>(p);
@@ -181,6 +212,15 @@ u32 Ee::read32(u32 address) {
 }
 
 u64 Ee::read64(u32 address) {
+    // One that runs past the end of a memory is read a byte at a time, what lies beyond as hardware.
+    if (straddles(address, 8)) {
+        u64 value = 0;
+        for (unsigned b = 0; b < 8; b++) {
+            value |= static_cast<u64>(static_cast<u64>(read8(address + b)) << (8 * b));
+        }
+        return value;
+    }
+
     // Memory answers directly.
     if (u8* p = pointer(address)) {
         return load<u64>(p);
@@ -211,6 +251,14 @@ void Ee::write8(u32 address, u8 value) {
 }
 
 void Ee::write16(u32 address, u16 value) {
+    // One that runs past the end of a memory is written a byte at a time (see `straddles`).
+    if (straddles(address, 2)) {
+        for (unsigned b = 0; b < 2; b++) {
+            write8(address + b, static_cast<u8>(value >> (8 * b)));
+        }
+        return;
+    }
+
     // Memory takes the store directly.
     if (u8* p = pointer(address)) {
         store<u16>(p, value);
@@ -222,6 +270,14 @@ void Ee::write16(u32 address, u16 value) {
 }
 
 void Ee::write32(u32 address, u32 value) {
+    // One that runs past the end of a memory is written a byte at a time (see `straddles`).
+    if (straddles(address, 4)) {
+        for (unsigned b = 0; b < 4; b++) {
+            write8(address + b, static_cast<u8>(value >> (8 * b)));
+        }
+        return;
+    }
+
     // Memory takes the store directly.
     if (u8* p = pointer(address)) {
         store<u32>(p, value);
@@ -233,6 +289,14 @@ void Ee::write32(u32 address, u32 value) {
 }
 
 void Ee::write64(u32 address, u64 value) {
+    // One that runs past the end of a memory is written a byte at a time (see `straddles`).
+    if (straddles(address, 8)) {
+        for (unsigned b = 0; b < 8; b++) {
+            write8(address + b, static_cast<u8>(value >> (8 * b)));
+        }
+        return;
+    }
+
     // Memory takes the store directly.
     if (u8* p = pointer(address)) {
         store<u64>(p, value);
@@ -1215,8 +1279,18 @@ void Ee::cop0_op(u32 op) {
             // The function field, bits 0-5, chooses the operation (documented).
             switch (op & 0x3F) {
                 case 0x18:  // ERET
-                    // Return from the exception: continue at EPC, register 14 (documented).
-                    pc = cop0[14];
+                    /*
+                     * Return from the exception: continue at EPC, register 14; or, when the
+                     * error level (Status bit 2) is set, at ErrorEPC, register 30, clearing the
+                     * level (documented). Up Your Arsenal's timer writes set the level and ERET
+                     * to their caller through ErrorEPC to leave kernel mode.
+                     */
+                    if (cop0[12] & 4) {
+                        cop0[12] &= ~4u;
+                        pc = cop0[30];
+                    } else {
+                        pc = cop0[14];
+                    }
                     next_pc = pc + 4;
                     break;
 

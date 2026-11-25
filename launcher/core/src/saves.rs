@@ -352,7 +352,7 @@ pub const RAC1_LOCATIONS: &[&str] = &[
 ];
 
 /// Going Commando (NTSC-U) planet names by level number, as its level headers number them (the
-/// launcher's labels.ts and editor/games.py name them the same).
+/// launcher's labels.ts and extractor/games.py name them the same).
 pub const RAC2_PLANETS: &[(u32, &str)] = &[
     (0, "Aranos Tutorial"),
     (1, "Oozla"),
@@ -388,6 +388,52 @@ pub fn rac2_planet(level: u32) -> Option<&'static str> {
     RAC2_PLANETS.iter().find(|(id, _)| *id == level).map(|(_, name)| *name)
 }
 
+/// Up Your Arsenal's story levels by level number, as its level files number them (the launcher's
+/// labels.ts and port/game/rac3-pal/host/play.c name them the same); a save resumes on one of them.
+pub const RAC3_PLANETS: &[(u32, &str)] = &[
+    (1, "Veldin"),
+    (2, "Florana"),
+    (3, "Starship Phoenix"),
+    (4, "Marcadia"),
+    (5, "Daxx"),
+    (6, "Starship Phoenix (Under Attack)"),
+    (7, "Annihilation Nation"),
+    (8, "Aquatos"),
+    (9, "Tyhrranosis"),
+    (10, "Zeldrin Starport"),
+    (11, "Obani Moons"),
+    (12, "Rilgar"),
+    (13, "Holostar Studios Ratchet"),
+    (14, "Koros"),
+    (16, "Kerwan"),
+    (17, "Crash Site"),
+    (18, "Aridia"),
+    (19, "Thran Asteroid Belt"),
+    (20, "Final Boss"),
+    (21, "Obani Draco"),
+    (22, "Mylon"),
+    (23, "Holostar Studios Clank"),
+    (24, "Insomniac Museum"),
+    (26, "Kerwan Ranger Missions"),
+    (27, "Aquatos Base"),
+    (28, "Aquatos Sewers"),
+    (29, "Tyhrranosis Ranger Missions"),
+    (30, "Vid-Comic Unnamed"),
+    (31, "Vid-Comic 1"),
+    (32, "Vid-Comic 4"),
+    (33, "Vid-Comic 2"),
+    (34, "Vid-Comic 3"),
+    (35, "Vid-Comic 5"),
+    (36, "Vid-Comic 1 Special Edition"),
+];
+
+/// Whether `serial` is an Up Your Arsenal disc: PAL (`SCES_524.56`), whose save tables put the
+/// level in record 0, the bolts first in record 39 and the clock in record 4, as Going Commando's
+/// do (save_edit_rac3.rs), and NTSC-U (`SCUS_973.53`), read the same way.
+fn is_rac3(serial: &str) -> bool {
+    serial.contains("524.56") || serial.contains("973.53")
+}
+
 /// Whether `serial` is a Going Commando disc, whose save records the launcher reads: v1.01 and
 /// v2.00 (`SCUS_972.68`) and the PAL release (`SCES_516.07`), whose save tables are the same
 /// (`save_edit_rac2::edits_serial`).
@@ -398,6 +444,11 @@ fn is_rac2(serial: &str) -> bool {
 pub fn get_planet_name(serial: &str, planet_id: u32) -> Option<String> {
     if serial.contains("509.16") || serial.contains("971.99") || serial.contains("150.37") {
         if let Some(&name) = RAC1_PLANETS.get(planet_id as usize) {
+            return Some(name.to_string());
+        }
+    }
+    if is_rac3(serial) {
+        if let Some((_, name)) = RAC3_PLANETS.iter().find(|(id, _)| *id == planet_id) {
             return Some(name.to_string());
         }
     }
@@ -412,7 +463,7 @@ pub fn get_planet_name(serial: &str, planet_id: u32) -> Option<String> {
 /// The save record whose first word is the bolt count: Ratchet & Clank's 1 (gBolts); Going
 /// Commando's 39 (its global save table at 0x00256138 puts g_boltCount, 0x001A79F8, there).
 fn bolts_record(serial: &str) -> i32 {
-    if is_rac2(serial) {
+    if is_rac2(serial) || is_rac3(serial) {
         39
     } else {
         1
@@ -579,7 +630,9 @@ fn inspect_card(card_dir: &Path, serial: &str) -> GameSaveStatus {
                     modified_millis: mtime,
                     editable: exists
                         && !is_empty
-                        && (crate::save_edit::edits_serial(serial) || crate::save_edit_rac2::edits_serial(serial)),
+                        && (crate::save_edit::edits_serial(serial)
+                            || crate::save_edit_rac2::edits_serial(serial)
+                            || crate::save_edit_rac3::edits_serial(serial)),
                     mods: if exists && !is_empty { save_mods(&save_path) } else { None },
                 });
             }
@@ -1074,6 +1127,25 @@ mod tests {
         assert_eq!(bolts_record("SCES_516.07"), 39);
         // Ratchet & Clank reads its own record 1, never Going Commando's 39.
         assert_eq!(parse_save_gameplay_info(&data, bolts_record("SCES_509.16")).bolts, None);
+    }
+
+    /// Up Your Arsenal's slot 0 as the PAL game writes it on a fresh card (empty), then a save of
+    /// Veldin, as the slot list reads them.
+    #[test]
+    fn reads_up_your_arsenals_planet_and_bolts() {
+        let empty = include_bytes!("../tests/fixtures/rac3/save-empty.bin");
+        assert!(parse_save_gameplay_info(empty, bolts_record("SCES_524.56")).empty);
+        let mut bolts = [0u8; 128];
+        bolts[..4].copy_from_slice(&12345u32.to_le_bytes());
+        let clock = [0x00, 0x30, 0x15, 0x14, 0x00, 0x19, 0x11, 0x26];
+        let data = save(&[(0, &1u32.to_le_bytes()), (39, &bolts), (3, &223380u32.to_le_bytes()), (4, &clock)]);
+        let g = parse_save_gameplay_info(&data, bolts_record("SCES_524.56"));
+        assert!(!g.empty);
+        assert_eq!((g.planet_id, g.bolts), (Some(1), Some(12345)));
+        assert_eq!(g.timestamp.as_deref(), Some("2026-11-19 14:15:30"));
+        assert_eq!(get_planet_name("SCES_524.56", 1).as_deref(), Some("Veldin"));
+        assert_eq!(get_planet_name("SCES_524.56", 24).as_deref(), Some("Insomniac Museum"));
+        assert_eq!(get_planet_name("SCES_524.56", 15).as_deref(), Some("Planet #15"));
     }
 
     #[test]

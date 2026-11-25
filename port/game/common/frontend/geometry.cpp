@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 
 namespace openrac::frontend {
 namespace {
@@ -29,6 +30,9 @@ constexpr float kCameraStepSquared = 64.0f;
 // The least cosine between a tick's axis and the next one's for the same moby or shot (about 45
 // degrees).
 constexpr float kSameTurnCosine = 0.7f;
+
+// Smaller determinants amplify numerical noise when an effect's parent axes are nearly singular.
+constexpr float kMinimumEffectDeterminant = 1e-12f;
 
 }  // namespace
 
@@ -67,14 +71,27 @@ void frame_size(int box_width, int box_height, int render_scale, int& width, int
         std::max(1, static_cast<int>(std::lround(static_cast<float>(box_height) * scale * fit)));
 }
 
-bool same_moby(const renderer::Mat4& from, const renderer::Mat4& to) {
-    // Elements 12 to 14 are the translation (column-major, renderer/math.h).
-    const float dx = to[12] - from[12];
-    const float dy = to[13] - from[13];
-    const float dz = to[14] - from[14];
+bool kept_pace(const renderer::Vec3& step, float limit_squared, const renderer::Vec3* pace) {
+    if (step[0] * step[0] + step[1] * step[1] + step[2] * step[2] <= limit_squared) {
+        return true;
+    }
+    if (pace == nullptr) {
+        return false;
+    }
+    // Far, but as far and the same way as the tick before: the same thing at speed. A jump after a
+    // steady move differs from that move by about the jump.
+    const float ex = step[0] - (*pace)[0];
+    const float ey = step[1] - (*pace)[1];
+    const float ez = step[2] - (*pace)[2];
+    return ex * ex + ey * ey + ez * ez <= limit_squared;
+}
 
-    // Moved too far in a tick: another moby, or a teleport.
-    if (dx * dx + dy * dy + dz * dz > kMobyStepSquared) {
+bool same_moby(const renderer::Mat4& from, const renderer::Mat4& to, const renderer::Vec3* pace) {
+    // Elements 12 to 14 are the translation (column-major, renderer/math.h).
+    const renderer::Vec3 step{to[12] - from[12], to[13] - from[13], to[14] - from[14]};
+
+    // Moved too far in a tick, and not at the pace it kept: another moby, or a teleport.
+    if (!kept_pace(step, kMobyStepSquared, pace)) {
         return false;
     }
 
@@ -92,13 +109,53 @@ bool same_moby(const renderer::Mat4& from, const renderer::Mat4& to) {
     return la > 0.0f && lb > 0.0f && dot >= kSameTurnCosine * std::sqrt(la * lb);
 }
 
-renderer::Mat4 blend_matrix(const renderer::Mat4& from, const renderer::Mat4& to, float t) {
-    const float dx = to[12] - from[12];
-    const float dy = to[13] - from[13];
-    const float dz = to[14] - from[14];
+void follow_moby(const renderer::Mat4& now, const renderer::Mat4& drawn, float point[3]) {
+    // The axes' inverse by cofactors: column c of `now` is axis c (elements c * 4 .. c * 4 + 2).
+    const float a = now[0], b = now[4], c = now[8];
+    const float d = now[1], e = now[5], f = now[9];
+    const float g = now[2], h = now[6], i = now[10];
+    const float co[9] = {
+        e * i - f * h,
+        c * h - b * i,
+        b * f - c * e,
+        f * g - d * i,
+        a * i - c * g,
+        c * d - a * f,
+        d * h - e * g,
+        b * g - a * h,
+        a * e - b * d,
+    };
+    const float det = a * co[0] + b * co[3] + c * co[6];
+    // Degenerate axes can still supply the parent's translation.
+    if (!(std::fabs(det) > kMinimumEffectDeterminant)) {
+        for (std::size_t k = 0; k < 3; ++k) {
+            point[k] += drawn[12 + k] - now[12 + k];
+        }
+        return;
+    }
 
-    // Moved too far in a tick to be drawn part way.
-    if (dx * dx + dy * dy + dz * dz > kMobyStepSquared) {
+    const float r[3] = {point[0] - now[12], point[1] - now[13], point[2] - now[14]};
+    float local[3];
+
+    // Removing the source origin before inversion preserves precision far from the level's origin.
+    for (std::size_t k = 0; k < 3; ++k) {
+        local[k] = (co[k * 3] * r[0] + co[k * 3 + 1] * r[1] + co[k * 3 + 2] * r[2]) / det;
+    }
+
+    // Rebuild the same local point through the parent's displayed axes.
+    for (std::size_t k = 0; k < 3; ++k) {
+        point[k] =
+            drawn[k] * local[0] + drawn[4 + k] * local[1] + drawn[8 + k] * local[2] + drawn[12 + k];
+    }
+}
+
+renderer::Mat4 blend_matrix(
+    const renderer::Mat4& from, const renderer::Mat4& to, float t, const renderer::Vec3* pace
+) {
+    const renderer::Vec3 step{to[12] - from[12], to[13] - from[13], to[14] - from[14]};
+
+    // Moved too far in a tick to be drawn part way, and not at the pace it kept.
+    if (!kept_pace(step, kMobyStepSquared, pace)) {
         return to;  // a moby slot used again, a teleport
     }
 
@@ -108,7 +165,7 @@ renderer::Mat4 blend_matrix(const renderer::Mat4& from, const renderer::Mat4& to
     // turning is taken whole when it turned too far to blend its axes.
     renderer::Mat4 m = to;
     // The three axes are elements 0 to 11; none of them when the moby turned too far.
-    const int upto = same_moby(from, to) ? 12 : 0;
+    const int upto = same_moby(from, to, pace) ? 12 : 0;
 
     // The axes, part way.
     for (int i = 0; i < upto; ++i) {
@@ -123,17 +180,39 @@ renderer::Mat4 blend_matrix(const renderer::Mat4& from, const renderer::Mat4& to
     return m;
 }
 
-CameraPose blend_pose(const CameraPose& from, const CameraPose& to, float t) {
+renderer::Mat4 blend_turning(const renderer::Mat4& from, const renderer::Mat4& to, float t) {
+    float dot = 0.0f;
+    float la = 0.0f;
+    float lb = 0.0f;
+    // The X axes' turn (elements 0 to 2, the first column), as same_moby's.
+    for (int i = 0; i < 3; ++i) {
+        dot += from[i] * to[i];
+        la += from[i] * from[i];
+        lb += to[i] * to[i];
+    }
+    if (!(la > 0.0f && lb > 0.0f && dot >= kSameTurnCosine * std::sqrt(la * lb))) {
+        return to;  // turned too far in a tick: another one, or a cut
+    }
+    renderer::Mat4 m = to;
+    // The axes and the translation, part way (elements 0 to 14; 15 stays this tick's).
+    for (int i = 0; i < 15; ++i) {
+        m[i] = from[i] + (to[i] - from[i]) * t;
+    }
+    return m;
+}
+
+CameraPose blend_pose(
+    const CameraPose& from, const CameraPose& to, float t, const renderer::Vec3* pace
+) {
     CameraPose c = to;
     const renderer::Vec3& p0 = from.position;
     const renderer::Vec3& p1 = to.position;
-    const float d2 = (p1[0] - p0[0]) * (p1[0] - p0[0]) + (p1[1] - p0[1]) * (p1[1] - p0[1])
-                     + (p1[2] - p0[2]) * (p1[2] - p0[2]);
+    const renderer::Vec3 step{p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
     const float turn = from.forward[0] * to.forward[0] + from.forward[1] * to.forward[1]
                        + from.forward[2] * to.forward[2];
 
-    // A cut: the camera moved or turned too far in a tick to be the same shot moving.
-    if (d2 > kCameraStepSquared || turn < kSameTurnCosine) {
+    // A cut: the camera moved (off its pace) or turned too far in a tick to be the same shot moving.
+    if (!kept_pace(step, kCameraStepSquared, pace) || turn < kSameTurnCosine) {
         return c;
     }
 

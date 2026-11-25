@@ -11,8 +11,10 @@
 #include "enhanced/fsr3/fsr3_internal.h"
 #include "enhanced/fsr3/temporal_math.h"
 #include "fsr3_shaders.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/precise_depth.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 
 #include <FidelityFX/host/ffx_fsr3upscaler.h>
@@ -199,6 +201,11 @@ bool Fsr3::State::configure(
             || !opaque.create(size[0], size[1], GL_RGBA8, 0, error)) {
             return false;
         }
+        // The reactive mask fetches exact texels. Water can also use this snapshot with bilinear
+        // refraction, matching the filter on its standalone colour snapshot.
+        glBindTexture(GL_TEXTURE_2D, opaque.texture());
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
 
     // The final colour target alone needs storage usage; the original renderer's images remain ordinary attachments.
@@ -249,8 +256,7 @@ bool Fsr3::State::prepare_camera(TemporalFrame frame, float sharpness, std::stri
     last_time = now;
     dispatch.sharpness = std::clamp(sharpness, 0.0f, 1.0f);
     dispatch.vertical_fov = 2 * std::atan(1 / camera.projection[5]);
-    // The near plane the projection was made with, when a game moved it out from the window's 0.05
-    // (GameProfile::depth_near; perspective_reversed: [10] is (f + n) / (f - n), [14] 2 f n / (f - n)).
+    // Recover the near plane from the camera projection so FSR uses the world's depth range.
     const float p10 = camera.projection[10], p14 = camera.projection[14];
     const float near_plane = p14 > 0.0f && p10 > 1.0f ? p14 / (p10 + 1.0f) : 0.0f;
     dispatch.near_plane = near_plane > 0.05f * 1.01f ? near_plane : 0.05f;
@@ -269,17 +275,27 @@ bool Fsr3::State::prepare_camera(TemporalFrame frame, float sharpness, std::stri
     offset[13] = 2 * dispatch.jitter[1] / static_cast<float>(size[1]);
     frame.input.camera.projection = renderer::multiply(offset, camera.projection);
     view.raster = renderer::multiply(frame.input.camera.projection, camera.view);
+    view.current = renderer::multiply(camera.projection, camera.view);
+    view.previous =
+        dispatch.reset ? view.current : renderer::multiply(old_camera.projection, old_camera.view);
 
-    // Restore the original camera if its projection cannot be inverted.
-    if (!fsr3_detail::invert(view.raster, inverse_raster)) {
+    // Screen-space reprojection reconstructs GL clip coordinates from the sampled depth.
+    if (!fsr3_detail::camera_transforms(
+            view.raster, view.previous, inverse_raster, previous_clip
+        )) {
         frame.input.camera = camera;
         error = "invalid temporal camera projection";
         return false;
     }
 
-    view.current = renderer::multiply(camera.projection, camera.view);
-    view.previous =
-        dispatch.reset ? view.current : renderer::multiply(old_camera.projection, old_camera.view);
+    // Object motion depth-tests against the world. Convert the projection before multiplying
+    // by the view matrix, just as the world pass does.
+    view.raster_zero_to_one = renderer::precise_depth();
+    if (view.raster_zero_to_one) {
+        const auto projection = renderer::zero_to_one(frame.input.camera.projection);
+        view.raster = renderer::multiply(projection, camera.view);
+    }
+
     view.size = size;
     return true;
 }
@@ -290,6 +306,12 @@ void Fsr3::State::attach_frame(TemporalFrame frame, std::array<int, 2> size) {
     display = frame.target;
     has_opaque = false;
     finish_colour = std::move(frame.finish_colour);
+    // World textures keep the display's detail while the world is drawn smaller; resolve() ends it.
+    if (size[0] < display.width) {
+        vkgl::set_texture_lod_bias(
+            std::log2(static_cast<float>(size[0]) / static_cast<float>(display.width))
+        );
+    }
     frame.target.framebuffer = world.id();
     frame.target.width = size[0];
     frame.target.height = size[1];
@@ -299,6 +321,7 @@ void Fsr3::State::attach_frame(TemporalFrame frame, std::array<int, 2> size) {
     frame.input.on_before_particles = [this](const auto& target) {
         capture_opaque(target);
     };
+    frame.input.pre_particle_colour_texture = opaque.texture();
     frame.input.on_resolve_world = [this](auto& target) {
         resolve(target);
     };
@@ -318,6 +341,7 @@ bool Fsr3::begin(
     TemporalFrame frame, renderer::TemporalQuality quality, float sharpness, std::string& error
 ) {
     State& state = *m_state;
+    vkgl::set_texture_lod_bias(0.0f);
 
     // Motion blur with temporal upscaling off: its motion is drawn, no upscaler runs.
     const bool blur_only = quality == renderer::TemporalQuality::Off && frame.motion_blur

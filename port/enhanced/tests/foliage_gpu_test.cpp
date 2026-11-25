@@ -13,11 +13,12 @@
 
 #include "enhanced/renderer/foliage.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -35,8 +36,11 @@ vec4 probe_sunlight_direction=vec4(0);
 vec3 probe_sunlight_scale=vec3(1);
 int probe_mode=1;
 float test_shadow=1.;
+int effect_pass=1;
 uniform float material_diffuse_scale;
 uniform vec4 material_colour;
+float material_metallic=0.;
+vec3 material_dielectric=vec3(0.),material_dielectric_tint=vec3(1.);
 float sun_shadow_visibility(vec3 p,vec3 n,vec3 g){return test_shadow;}
 float hero_shadow_visibility(vec3 p,vec3 n){return 1.;}
 vec3 probe_unit(vec3 v){return v*inversesqrt(max(dot(v,v),1e-12));}
@@ -94,6 +98,23 @@ void main() {
     } else if(test==25) value=shaped.z;
     else if(test==26) value=dot(shaped,shaped);
     else if(test==27) value=foliage_normal(n,vec3(gl_FragCoord.xy*.1,0),gl_FragCoord.xy*.01,0.).z;
+    else if(test>=28 && test<=39) {
+        material.x=test==29?1.:0.;
+        albedo=vec3(.5,.25,.125);
+        material_metallic=test==34?1.5:2.;
+        material_dielectric=vec3(1.,.04,test==30 || test==37?0.:(test==33 || test==38?2.:1.));
+        if(test==31 || test==39) material_dielectric_tint=vec3(.5,1.,1.);
+        FoliageSurfaceData surface=prepare_foliage(n,eye,albedo,material);
+        vec3 response=foliage_response(surface,test==29?-n:n);
+        if(test==32 || test>=37) response=foliage_surface(vec3(0),n,eye,albedo,vec3(1),vec4(0),1.,material,vec2(.5));
+        value=test==35?response.g:(test==36?response.b:response.r);
+    } else if(test==40 || test==41) {
+        // The front lookup is fully occluded, while the alternate backface lookup sees sunlight.
+        effect_pass=test==40?0:1;
+        light_sets[0]=vec4(vec3(1),0);
+        light_sets[1]=vec4(n,0);
+        value=foliage_direct(vec3(0),n,vec4(0),0.,prepare_foliage(n,eye,albedo,material)).r;
+    }
     uint bits=floatBitsToUint(value*material_colour.r);
     result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;
 })";
@@ -116,7 +137,7 @@ void test_lighting(const std::vector<std::uint8_t>& pixels) {
         CHECK(std::abs(scalar(pixels, pixel) - expected) < kTolerance);
     };
     // Every diagnostic must remain finite and nonnegative, including opposing and grazing directions.
-    for (unsigned x = 0; x < 28; ++x) {
+    for (unsigned x = 0; x < 42; ++x) {
         CHECK(std::isfinite(scalar(pixels, x)) && scalar(pixels, x) >= 0);
     }
     near(0, .5f * .99f + .0025f);
@@ -146,6 +167,22 @@ void test_lighting(const std::vector<std::uint8_t>& pixels) {
     CHECK(scalar(pixels, 25) > .5f && scalar(pixels, 25) < 1);
     near(26, 1);
     near(27, 1);
+    // Measured F0 modulates the artwork, metallic removes transmission/diffuse,
+    // and tint/strength affect both directional reflection and broad GI reflection.
+    near(28, .00125f);
+    near(29, 0);
+    near(30, 0);
+    near(31, .000625f);
+    near(32, .005f / 3.14159265f);
+    near(33, .0025f);
+    near(34, .25f);
+    near(35, .000625f);
+    near(36, .0003125f);
+    near(37, 0);
+    near(38, .01f / 3.14159265f);
+    near(39, .0025f / 3.14159265f);
+    near(40, 0);
+    near(41, .99f);
 }
 
 // Owns the fullscreen fixture while its graphics context remains current.
@@ -185,9 +222,9 @@ void bind_inputs(Fixture& fixture) {
 
 // Builds production leaf functions against a synthetic asset-free lighting bank.
 bool build_shader(Fixture& fixture, std::string& error) {
-    const std::string fragment = std::string("#version 430 core\n") + kInterface
-                                 + lighting::shaders::shading_brdf_glsl
-                                 + lighting::shaders::foliage_glsl + kCases;
+    const std::string fragment =
+        std::string("#version 430 core\n") + kInterface + lighting::shaders::shading_brdf_glsl
+        + lighting::shaders::cloud_shadows_glsl + lighting::shaders::foliage_glsl + kCases;
     const bool built = fixture.shader.build(
         "foliage reference",
         R"(#version 430 core
@@ -220,7 +257,7 @@ int test_gpu() {
     if (!build_shader(fixture, error)) {
         return test::result();
     }
-    const bool created = fixture.frame.create(32, 1, error);
+    const bool created = fixture.frame.create(64, 1, error);
     CHECK(created);
     if (!created) {
         std::printf("%s\n", error.c_str());
@@ -228,13 +265,22 @@ int test_gpu() {
     }
     bind_inputs(fixture);
     glBindFramebuffer(GL_FRAMEBUFFER, fixture.frame.id());
-    glViewport(0, 0, 32, 1);
+    glViewport(0, 0, 64, 1);
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
     fixture.shader.use();
     glUniform4f(fixture.shader.uniform("material_colour"), 1, 1, 1, 1);
     glUniform1f(fixture.shader.uniform("material_diffuse_scale"), 1);
     glUniform1f(fixture.shader.uniform("foliage_reflectivity"), .04f);
+    glUniform4f(fixture.shader.uniform("cloud_shadow_shape"), 0, 0, 1, 1);
+    glUniform1i(fixture.shader.uniform("cloud_noise_texture"), 0);
+    unsigned cloud_noise = 0;
+    glGenTextures(1, &cloud_noise);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, cloud_noise);
+    constexpr std::array<std::uint8_t, 4> noise{};
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, noise.data());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     const auto words = enhanced::pack_foliage_material({1, 1, 1, 1});
     glUniform1i(
         fixture.shader.uniform("foliage_parameters0"), std::bit_cast<std::int32_t>(words[0])
@@ -242,11 +288,12 @@ int test_gpu() {
     glUniform1i(
         fixture.shader.uniform("foliage_parameters1"), std::bit_cast<std::int32_t>(words[1])
     );
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto pixels = fixture.frame.read_rgba();
-    CHECK(pixels.size() == 128u);
+    glDeleteTextures(1, &cloud_noise);
+    CHECK(pixels.size() == 256u);
     // A failed readback is reported without accessing an incomplete image.
-    if (pixels.size() == 128u) {
+    if (pixels.size() == 256u) {
         test_lighting(pixels);
     }
     CHECK(glGetError() == GL_NO_ERROR);

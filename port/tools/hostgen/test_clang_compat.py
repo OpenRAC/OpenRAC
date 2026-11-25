@@ -46,6 +46,125 @@ class ClangRunsWithoutACompilerCache(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("clang"), "needs Clang")
+class AsmStubsKeepLines(unittest.TestCase):
+    def test_a_break_right_after_asm_is_kept(self):
+        # `__asm__ (` alone on its line is shorter than the stub call: the break after it was
+        # written over, every later line moved up one, and the fixes of later diagnostics went to
+        # the line above (rac3's L07_003C7468.c, whose definitions after the assembly then took
+        # their labels on their first local).
+        lines = ["void f(void) {", "    __asm__ (", '        "vsub.xyz $vf2, $vf2, $vf1\\n"',
+                 '        : : : "vf1");', "    g();", "}"]
+        self.assertTrue(clangast._replace_asm(lines, 3, 12))  # at a constraint, as Clang points
+        self.assertEqual(len(lines), 6)
+        self.assertEqual(lines[1].strip(), "openrac_hostgen_asm();")
+        self.assertEqual(lines[4], "    g();")
+
+    def test_a_one_line_statement_stays_on_its_line(self):
+        lines = ['    __asm__ volatile ("sync.l" : : : "memory");', "    g();"]
+        self.assertTrue(clangast._replace_asm(lines, 0, 30))
+        self.assertEqual(lines[0].strip(), "openrac_hostgen_asm();")
+        self.assertEqual(lines[1], "    g();")
+
+
+class Vu0ClobbersDropped(unittest.TestCase):
+    # rac3's func_L01_003AA658 (Veldin's Galactic Rangers' dropships) lists "vf1" and "vf2" as its
+    # inline assembly's clobbers. Clang knows no such register, and the statement made the whole
+    # function a stub. The clobbers go and the statement stays, for vu0_assembly to find.
+    TEXT = ("void f(unsigned char *o, unsigned char *m) {\n"
+            '    __asm__("lqc2 $vf1,%1\\n\\tvsub.xyz $vf1,$vf1,$vf1\\n\\tsqc2 $vf1,%0"\n'
+            '      : "=m"(*(long *)o) : "m"(*(long *)m) : "vf1","vf2");\n'
+            "}\n")
+
+    def test_both_clobbers_go_and_the_statement_stays(self):
+        stderr = ("src/b.c:3:46: error: unknown register name 'vf1' in asm\n"
+                  "src/b.c:3:52: error: unknown register name 'vf2' in asm\n")
+        fixed, fixes = clangast.fix_from_diagnostics(self.TEXT, stderr, "src/b.c")
+        line = fixed.split("\n")[2]
+        self.assertNotIn("vf", line)
+        self.assertEqual(len(line), len(self.TEXT.split("\n")[2]))  # every column kept
+        self.assertRegex(line, r':\s*"m"\(\*\(long \*\)m\) :\s*\);$')
+        self.assertIn("__asm__(", fixed)
+        self.assertNotIn("openrac_hostgen_asm", fixed)
+        self.assertEqual(len(fixes), 2)
+
+    def test_the_second_clobber_first(self):
+        lines = ['  : "m"(x) : "vf1", "$vf2");']
+        self.assertTrue(clangast._drop_vu0_clobber(lines, 0, 20, "vf2"))
+        self.assertTrue(clangast._drop_vu0_clobber(lines, 0, 13, "vf1"))
+        self.assertRegex(lines[0], r'^  : "m"\(x\) :\s*\);$')
+
+    def test_another_register_name_is_not_a_clobber_here(self):
+        lines = ['  : "m"(x) : "vf1");']
+        self.assertFalse(clangast._drop_vu0_clobber(lines, 0, 3, "vf1"))
+
+
+class Vu0InlineAssemblyAsC(unittest.TestCase):
+    # rac3's func_L01_00446BF0 (L01_004463D0.c): two file-local helpers of VU0 macro-mode
+    # assembly on GCC's "j" registers. As stubs they never moved the stepped line test's points.
+    ADD_COPY = ('__asm__("lqc2 %0, %1" : "=j"(x) : "m"(*(vu0_v4 *)b)); '
+                '__asm__("lqc2 %0, %1" : "=j"(y) : "m"(*(vu0_v4 *)a)); '
+                '__asm__("vadd.xyz %0, %0, %1" : "+j"(y) : "j"(x)); '
+                '__asm__("lqc2 %0, %1" : "+j"(x) : "m"(*(vu0_v4 *)cs)); '
+                '__asm__("sqc2 %1, %0" : "=m"(*(vu0_v4 *)cd) : "j"(x)); '
+                '__asm__("sqc2 %1, %0" : "=m"(*(vu0_v4 *)d) : "j"(y));')
+    ADD_L = ('__asm__("lqc2 %0, %1" : "=j"(qa) : "m"(*(vu0_v4 *)a)); '
+             '__asm__("lqc2 %0, %1" : "=j"(qb) : "m"(*(vu0_v4 *)b), "j"(qa), "j"(qa)); '
+             '__asm__("vadd.xyz %0, %1, %2" : "=j"(qr) : "j"(qa), "j"(qb)); '
+             '__asm__("sqc2 %1, %0" : "=m"(*(vu0_v4 *)d) : "j"(qr));')
+
+    def test_the_instructions_it_does_not_know_stay_stubs(self):
+        self.assertIsNone(clangast.vu0_macro_c('__asm__("vitof0.xyzw %0, %1" : "=j"(f) : "j"(f));'))
+        self.assertIsNone(clangast.vu0_macro_c('__asm__("lqc2 %0, D_L01_001D6750" : "=j"(qa));'))
+        self.assertIsNone(clangast.vu0_macro_c('__asm__("vsub.xyz $vf2, $vf2, $vf1" : : : "vf1");'))
+        self.assertIsNone(clangast.vu0_macro_c('__asm__ volatile ("sync.l" : : : "memory");'))
+
+    def test_replacing_writes_c_on_the_statements_lines(self):
+        lines = ["void f(void *d, void *a) {", "    vu0_q x;",
+                 '    __asm__("lqc2 %0, %1"', '            : "=j"(x) : "m"(*(vu0_v4 *)a));',
+                 '    __asm__("sqc2 %1, %0" : "=m"(*(vu0_v4 *)d) : "j"(x));', "}"]
+        self.assertTrue(clangast._replace_asm(lines, 3, 15))
+        self.assertEqual(len(lines), 6)
+        self.assertIn(clangast.VU0_C_MARK, lines[2])
+        self.assertNotIn("openrac_hostgen_asm", "\n".join(lines))
+        # The next statement is its own: a place inside the written C is not taken for it.
+        self.assertFalse(clangast._replace_asm(lines, 2, len(lines[2]) - 2))
+
+    def test_c_clang_refuses_goes_back_to_the_stub(self):
+        line = "    " + clangast.vu0_macro_c('__asm__("lqc2 %0, %1" : "=j"(x) : "m"(*(vu0_v4 *)a));') + " g();"
+        lines = [line]
+        self.assertTrue(clangast._unwrite_vu0_c(lines, 0, 30))
+        self.assertEqual(lines[0], "    openrac_hostgen_asm(); g();")
+
+    @unittest.skipUnless(shutil.which("clang"), "needs Clang")
+    def test_the_c_computes_what_the_instructions_do(self):
+        c = lambda stmts: " ".join(clangast.vu0_macro_c(s.strip() + ";") for s in stmts.split(";") if s.strip())
+        program = (
+            "#include <stdio.h>\n"
+            "typedef int vu0_q __attribute__((mode(TI)));\n"
+            "typedef struct { float x, y, z, w; } __attribute__((aligned(16))) vu0_v4;\n"
+            "static void add_copy(void *d, void *a, void *b, void *cd, void *cs) { vu0_q x, y; " + c(self.ADD_COPY) + " }\n"
+            "static void add_l(void *d, void *a, void *b) { vu0_q qa, qb, qr; " + c(self.ADD_L) + " }\n"
+            "static void rot(void *d) { vu0_q q; " + c('__asm__("vmr32.xyzw %0, $vf0" : "=j"(q)); '
+                                                    '__asm__("sqc2 %1, %0" : "=m"(*(vu0_v4 *)d) : "j"(q))') + " }\n"
+            "static void neg(void *d, void *a) { vu0_q q, r; " + c('__asm__("lqc2 %0, %1" : "=j"(q) : "m"(*(vu0_v4 *)a)); '
+                                                              '__asm__("vsub.xyz %0, $vf0, %1" : "=j"(r) : "j"(q)); '
+                                                              '__asm__("sqc2 %1, %0" : "=m"(*(vu0_v4 *)d) : "j"(r))') + " }\n"
+            "int main(void) {\n"
+            "  vu0_v4 a = {1, 2, 3, 4}, b = {10, 20, 30, 40}, d, cd, cs = {7, 8, 9, 5}, e, r, n;\n"
+            "  add_copy(&d, &a, &b, &cd, &cs); add_l(&e, &a, &b); rot(&r); neg(&n, &b);\n"
+            "  printf(\"%g %g %g %g|%g %g %g %g|%g %g %g %g|%g %g %g %g|%g %g %g %g\\n\",\n"
+            "         d.x, d.y, d.z, d.w, cd.x, cd.y, cd.z, cd.w, e.x, e.y, e.z, e.w, r.x, r.y, r.z, r.w,\n"
+            "         n.x, n.y, n.z, n.w);\n"
+            "  return 0;\n"
+            "}\n")
+        with tempfile.TemporaryDirectory(prefix="hostgen vu0 ") as tmp:
+            src, exe = Path(tmp) / "vu0.c", Path(tmp) / "vu0"
+            src.write_text(program)
+            subprocess.run(["clang", "-std=gnu99", "-o", str(exe), str(src)], check=True)
+            out = subprocess.run([str(exe)], check=True, capture_output=True, text=True).stdout.strip()
+        self.assertEqual(out, "11 22 33 4|7 8 9 5|11 22 33 4|0 0 1 0|-10 -20 -30 40")
+
+
 class ClangCompatibility(unittest.TestCase):
     def test_nested_source_and_anonymous_typedefs(self):
         with tempfile.TemporaryDirectory(prefix="hostgen compatibility ") as tmp:
@@ -225,6 +344,24 @@ class ClangCompatibility(unittest.TestCase):
             ], capture_output=True, text=True)
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
 
+
+    def test_a_third_contradicting_declaration_keeps_the_functions_symbol(self):
+        # Veldin's L01_0035F480.c declares the vector scale func_0038CE20 three ways: the second
+        # became an alias (func_0038CE20__openrac_decl_140) labelled func_0038CE20, the third was
+        # renamed with it, and on Clang's next pass it contradicted the alias and was labelled with
+        # the alias's name. Its calls were taken for the executable's func_0038CE20 (another
+        # routine at that address) rather than the level's copy. Every alias is labelled with the
+        # function's own symbol.
+        text = (
+            "void f(void *v) { extern void func_0038CE20__openrac_decl_2(void *, void *, float) __asm__(\"func_0038CE20\"); }\n"
+            "extern void func_0038CE20__openrac_decl_2(long *, long *, float);\n"
+            "void g(long *v) { func_0038CE20__openrac_decl_2(v, v, 4.0f); }\n")
+        stderr = ("src/b.c:2:13: error: conflicting types for 'func_0038CE20__openrac_decl_2'\n"
+                  "src/b.c:1:32: note: previous declaration is here\n")
+        fixed, fixes = clangast.fix_from_diagnostics(text, stderr, "src/b.c")
+        self.assertIn('func_0038CE20__openrac_decl_2__openrac_decl_2(long *, long *, float) __asm__("func_0038CE20");',
+                      fixed)
+        self.assertIn("func_0038CE20__openrac_decl_2__openrac_decl_2(v, v, 4.0f)", fixed)
 
     def test_an_override_replaces_matched_c_in_the_port_only(self):
         # The port's own C for a function the decompilation matches (hostgen.json "overrides"):

@@ -51,7 +51,7 @@
 #include <span>
 #include <vector>
 
-#include "renderer/texture.h"
+#include "renderer/textures/texture.h"
 
 namespace openrac::renderer::world {
 
@@ -110,8 +110,6 @@ struct AlphaRange {
     // The range of `values`; opaque() when empty.
     static AlphaRange of(std::span<const std::uint8_t> values);
     static AlphaRange of(std::initializer_list<std::uint8_t> values);
-    // The alpha bytes of an image (every fourth byte).
-    static AlphaRange of_image(const Rgba8Image& image);
 
     AlphaRange united(AlphaRange other) const;
 

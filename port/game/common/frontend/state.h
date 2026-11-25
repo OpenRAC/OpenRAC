@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <optional>
 #include <span>
@@ -32,19 +33,23 @@
 #include "game/common/debug_camera.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/render_worker.h"
+#include "game/common/frontend/sleeping_mobys.h"
 #include "game/common/frontend/tick_picture.h"
 #include "game/common/profile.h"
 #include "openrac/guest.h"
 #include "platform/input.h"
 #include "platform/window.h"
-#include "renderer/framebuffer.h"
-#include "renderer/haze.h"
+#include "renderer/effects/haze.h"
+#include "renderer/effects/shadows.h"
+#include "renderer/gl/framebuffer.h"
 #include "renderer/renderer.h"
-#include "renderer/shadows.h"
 #include "scene/level.h"
 #include "scene/level_renderer.h"
 #include "scene/moby_shadow.h"
+#include "scene/moby_skin.h"
 #include "scene/object_picker.h"
+#include "scene/prop_rig.h"
+#include "scene/special_acquisition.h"
 #include "settings.h"
 
 union SDL_Event;
@@ -60,17 +65,33 @@ enum class Var : std::uint16_t;
 
 namespace openrac::frontend {
 
+// A posed moby's identity between ticks: its address and the model it is drawn as. A moby the game
+// gives another class (Veldin's walkers take class 7938's data), a moby slot reused by another
+// class and a moby's bangles share an address but not a skeleton: a frame between ticks must not
+// blend one skeleton's palette into another's mesh.
+constexpr std::uint64_t pose_key(std::uint32_t address, std::uint32_t model) {
+    return (std::uint64_t{model} << 32) | address;
+}
+
 // One tick's scene, as frame() read it from the game, for the frames drawn until the next tick
 // (between), and the last tick's camera and moby matrices to move them from.
 struct Kept {
-    int level = -3;  // the level the mobys belong to: another one starts over
+    int level = -3;                // the level the mobys belong to: another one starts over
     bool gameplay_camera = false;  // The level was in normal play when this camera was captured.
-    bool cutscene = false;  // Captured game state, never queried by the render worker.
+    bool cutscene = false;         // Captured game state, never queried by the render worker.
     host::GameState state, prev_state;
     bool has_state = false, has_prev_state = false;
     std::vector<scene::Instance> live;
     std::vector<std::uint32_t> addresses;  // each live moby's address, for its last matrix
+    // Split screen drawn in one capture: the views that draw each live instance (bit n: view n,
+    // frontend/view_mobys.h); empty when every view draws every one.
+    std::vector<std::uint8_t> live_views;
     std::unordered_map<std::uint32_t, renderer::Mat4> prev_matrices;
+    // Each moby's move the tick before the last (from two ticks ago to prev_matrices), where both
+    // ticks had it, and the eye's (prev_state's from the one before): a frame between ticks moves
+    // a thing that moves farther than a step in a tick but keeps its pace (geometry.h same_moby).
+    std::unordered_map<std::uint32_t, renderer::Vec3> prev_paces;
+    std::optional<renderer::Vec3> camera_pace;
     std::unordered_map<std::uint32_t, std::array<float, 4>> prev_spheres;
     std::vector<scene::LevelScene::JointColumns> palette;
     std::vector<renderer::ShadowCapsule> shadows, prev_shadows;
@@ -87,9 +108,10 @@ struct Kept {
     // The ties' and shrubs' matrices the tick before, when it was the one before (a frame between
     // ticks moves a moved one from there).
     std::array<std::vector<std::array<float, 12>>, 2> prev_scenery;
-    // The last tick's poses, by moby: where its joints start in prev_palette and how many.
+    // The last tick's poses, by moby and the model it was drawn as (pose_key): where its joints
+    // start in prev_palette and how many.
     std::vector<scene::LevelScene::JointColumns> prev_palette;
-    std::unordered_map<std::uint32_t, std::pair<int, int>> prev_poses;
+    std::unordered_map<std::uint64_t, std::pair<int, int>> prev_poses;
     std::vector<int> joints;            // each live moby's joints in `palette` (0 without a pose)
     std::vector<std::uint8_t> packets;  // the 2D path
     std::size_t before_world = 0;
@@ -105,7 +127,20 @@ struct Kept {
     std::uint64_t effects_frame = ~0ull;
     std::array<renderer::Mat4, 8> sky_shells{};
     unsigned sky_shell_mask = 0;
+    // The tick before's shells, where it was the one before (keep_effects): a frame between ticks
+    // turns each from there (scene_hud.cpp).
+    std::array<renderer::Mat4, 8> prev_sky_shells{};
+    unsigned prev_sky_shell_mask = 0;
     std::vector<renderer::UiQuad> ui_quads;
+    // The frame recorder's commands the tick's 2D path draws, and where (capture_2d_path,
+    // docs/port/FRAME_RECORDER.md): FrameInput::recording, splices, splices_before_world.
+    renderer::FrameRecording recording;
+    std::vector<renderer::FrameSplice> splices;
+    std::size_t splices_before_world = 0;
+    // The split-screen views the game drew last (FrameRecorder::latest's), drawn by
+    // frontend/split_views.cpp: not `recording`'s, which is the one the 2D path's list was built
+    // with and can be older.
+    std::vector<renderer::FrameView> views;
     // The mods' heat haze (interface 1.12): each patch's place (x, y, z), radius and strength.
     std::vector<std::array<float, 5>> haze;
 
@@ -118,6 +153,7 @@ struct Kept {
         scene::Instance instance;
         host::GameState camera;
         bool on_screen = false;
+        int preview_item_class = -1;
     };
 
     std::vector<TargetMoby> target_mobys;
@@ -129,6 +165,12 @@ struct Kept {
     // The world was drawn under a menu (State::world_under_menu): the menu's picture of the frame
     // is this tick's world.
     bool world_under_menu = false;
+    // A movie's tick (frontend::set_movie_playing).
+    bool movie = false;
+    // What the mods' overlays are drawn over (mods::overlay_phase, an OPENRAC_OVERLAY_* bit), read
+    // on the game's thread when the tick was captured: not asked again when the frame is shown, as
+    // a queued frame of play can be shown just after the game opened a menu.
+    std::uint32_t overlay_phase = 0;
     std::uint64_t frame = 0;
 };
 
@@ -152,6 +194,8 @@ struct TickMobys {
     // The ties and shrubs as the game holds them (LevelScene::move_scenery); none keeps the last
     // tick's.
     std::optional<scene::GameScenery> scenery;
+    // The views that draw each instance of `live` (Kept::live_views); empty: every view.
+    std::vector<std::uint8_t> live_views;
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.
@@ -172,15 +216,20 @@ struct FramePresentation {
         finished{};           // Worker completion, excluding handoff idle time.
     renderer::Camera camera;  // Camera of the submitted scene, for the debug UI.
     bool has_camera = false;  // The scene drew a world with that camera.
+    // The phase the mods' overlays are drawn for (Kept::overlay_phase), fixed when the frame is
+    // submitted; 0 for a picture left standing (keep_picture).
+    std::uint32_t overlay_phase = 0;
+    // The world was drawn live under a menu (Kept::world_under_menu): `camera` matches the picture.
+    bool world_under_menu = false;
     CameraDebugFrame
         camera_debug;  // Window-thread inputs fixed before handing the scene to the worker.
     std::vector<scene::Instance> picker_live;
     std::vector<renderer::Mat4> picker_palette;
     int picker_level = -1;
     unsigned picker_layers = 0;
-    bool freecam = false;     // Set by the renderer when it applies freecam to this frame.
-    int camera_level = -1;    // Level that supplied the rendered camera.
-    std::uint64_t tick = 0;   // Submitted window-frame number, including interpolation metadata.
+    bool freecam = false;    // Set by the renderer when it applies freecam to this frame.
+    int camera_level = -1;   // Level that supplied the rendered camera.
+    std::uint64_t tick = 0;  // Submitted window-frame number, including interpolation metadata.
 
     int window_width = 0;   // Drawable window extent, read on the window thread.
     int window_height = 0;  // Drawable window height.
@@ -192,9 +241,10 @@ struct FramePresentation {
     // submission: radians about the world's up axis, through the pivot.
     float latch_yaw = 0;
     renderer::Vec3 latch_pivot{};
+    float latch_pitch = 0;  // then radians up about the camera's side axis (CameraTurn::pitch)
     Box box{};              // Picture rectangle in the window.
 
-    bool first = false;         // First displayed frame for this game tick.
+    bool first = false;  // First displayed frame for this game tick.
     bool enhanced_graphics = false;
     bool dump_draws = false;    // Draw diagnostics captured before graphics ownership transfers.
     bool measure_cost = false;  // Enables the deliberately blocking frame-cost diagnostic.
@@ -204,22 +254,55 @@ struct FramePresentation {
     unsigned shown = 0;         // Resolved world framebuffer, filled by the render job.
 };
 
-// Dynamic scene data and settings owned by one render job; no span or pointer refers to game RAM.
-struct RenderSnapshot {
-    std::shared_ptr<const Kept> scene;  // Captured storage stays immutable until job completion.
-    settings::Settings graphics;        // Graphics settings fixed for this snapshot.
-    // The producer and job share this result until finish() publishes the worker's writes.
-    std::shared_ptr<FramePresentation> presentation;
+// The scene the render worker records. The frontend pins its resources across each handoff.
+struct SceneRenderState {
+    std::string game;
+    const host::GameProfile* profile = nullptr;
+    std::unique_ptr<renderer::Renderer> renderer;
+    std::unique_ptr<enhanced::Fsr3> temporal;
+    enhanced::Bloom bloom;
+    enhanced::AgxPreview agx;
+    renderer::Haze haze;
+    renderer::FrameBuffer frame;
+    // The last frame the game drew its world in, for menus and background readbacks.
+    renderer::FrameBuffer last_world;
+    // The mod's additional views and the OpenGL framebuffers around their output textures.
+    std::array<renderer::FrameBuffer, 4> views;
+    std::vector<std::pair<unsigned, unsigned>> view_targets;
+
+    // Split screen (frontend/split_views.cpp): each local player's view's world as last drawn, the
+    // recorded layout and whether it holds one. Forgotten at the first tick with no view's world
+    // or when the next view's layout no longer fits the retained pictures.
+    struct SplitView {
+        renderer::FrameBuffer picture;
+        renderer::FrameView layout;  // Source rectangle and screen size of the retained picture.
+        bool held = false;
+    };
+
+    std::array<SplitView, renderer::kFrameViews> split_views;
+    scene::LevelData level;
+    scene::LevelScene scene;
+    DebugCamera debug_camera;
+    // Fall back to the last usable world camera when a tick supplies a bad one.
+    std::optional<renderer::Camera> good_camera;
+    std::uint64_t refused_camera_frames = 0;
+    int refused_camera_logs = 0;
+    std::uint64_t last_world_tick = 0;
+    bool last_tick_menu = false;
+    bool hold_last_world = false;
+    bool repeat_frame = false;
+    bool overdraw = false;
+
+    [[nodiscard]] bool enhanced_graphics_available() const;
 };
 
-// Everything the window holds while it is open: the window and the renderer, the level drawn, what
-// the game drew since the last frame (gathered for frame()), and the window as the settings left it.
+// Window, input and tick capture live on the producer thread.
 struct State {
-    std::string game;
-    // What the game's folder knows of its memory (game/common/profile.h): a constant of the
-    // program's, never null while the window is open.
-    const host::GameProfile* profile = nullptr;
     ScriptedMobyColours scripted_moby_colours;
+    // Far mobys the game leaves asleep, posed in the picture only (Active distance: Match), and
+    // the level their clocks belong to.
+    SleepingMobys sleeping_mobys;
+    int sleeping_level = -100;
     std::filesystem::path levels;
     std::unique_ptr<platform::Platform> sdl;
     std::unique_ptr<platform::Window> window;
@@ -227,30 +310,30 @@ struct State {
     controls::Store controls;     // the player's controls files, applied to `input`
     bool capture_wanted = false;  // a mod's asking (capture_mouse)
     bool keyboard_taken = false;  // a mod took the keyboard (take_keyboard)
-    std::unique_ptr<renderer::Renderer> renderer;
-    renderer::DirectRenderer* hud =
-        nullptr;  // Owned by renderer; consumes uploads on skipped ticks.
-    std::unique_ptr<enhanced::Fsr3>
-        temporal;  // Optional enhanced upscaler, released before the window.
-    enhanced::Bloom bloom;
-    enhanced::AgxPreview agx;
-    renderer::Haze haze;  // the mods' heat haze (interface 1.12)
-    renderer::FrameBuffer frame;
+    SceneRenderState render;
+    // The renderer owns the HUD, which consumes uploads on skipped ticks.
+    renderer::DirectRenderer* hud = nullptr;
     renderer::FrameBuffer picture;  // show_picture's: a movie frame, a boot still
-    // The last frame the game drew its world in: what its draw buffer still holds on a frame it
-    // draws nothing in (the tick a page menu opens), and so what reading the frame back answers.
-    renderer::FrameBuffer last_world;
-    // The views a mod draws (frontend/views.cpp, OPENRAC_VIEW_MAX of them): each one's picture,
-    // and with OpenGL the framebuffers made around the mod's textures it is copied into.
-    std::array<renderer::FrameBuffer, 4> views;
-    std::vector<std::pair<unsigned, unsigned>> view_targets;  // the mod's texture, its framebuffer
-    scene::LevelData level;
-    // The mods' prop meshes read with the level (interface 1.12, mods::prop_meshes): each one's
-    // model in `level`.
+    // The mods' prop meshes held for this level (interface 1.12, mods::prop_meshes): each one's
+    // model in `level` and in `scene` (the same index in both, LevelScene::align_models). Read
+    // with the level for the props that exist when it is read, and added to the scene by
+    // load_prop_meshes (frontend/world.cpp) as props ask for new ones. A new level starts them
+    // again.
     std::vector<std::pair<std::filesystem::path, std::uint32_t>> prop_models;
+    // The skinned ones' skeletons and animations (openrac_api.prop_animate).
+    std::vector<std::pair<std::filesystem::path, scene::PropRig>> prop_rigs;
+    // The level's mobys drawn as another model (the editor's skins.json beside its placements).
+    scene::MobySkins moby_skins;
+    std::map<int, scene::SpecialClip> special_pickup_clips;
+    int infobot_pickup_model = -1;
+    std::vector<std::vector<renderer::Mat4>> infobot_pickup_poses;
+    // The meshes that could not be read this level, so that they are not tried every tick.
+    std::vector<std::filesystem::path> prop_failed;
+    // The count of mods::prop_meshes_generation() the meshes above were taken at.
+    unsigned prop_generation = 0;
+    // Whether `level` is uploaded into `scene` and models can be added to both.
+    bool prop_scene_ready = false;
     scene::ObjectPicker picker;
-    scene::LevelScene scene;
-    DebugCamera debug_camera;  // Only the scene/render owner updates inspection poses.
     int loaded = -2;           // the level whose geometry is uploaded; -2 none
     std::uint64_t index = 0;
     // Every image the game sent outside the display list, oldest first, the latest per
@@ -261,12 +344,6 @@ struct State {
     // ShrubProc's choice read with that camera ("Draw distance: Original"): the main menu's code
     // puts a camera of its own in memory after the title world is drawn.
     std::optional<std::vector<host::ShrubDraw>> world_shrubs;
-    // The last camera a frame drew its world from that usable_camera and usable_view accepted
-    // (scene_frame.cpp's set_camera), drawn again in place of one they refuse; how many frames in
-    // a row were refused, and how many runs of them were logged.
-    std::optional<renderer::Camera> good_camera;
-    std::uint64_t refused_camera_frames = 0;
-    int refused_camera_logs = 0;
     // That world was drawn under a menu with its own mobys (world_under_menu): world_camera's
     // mobys are the frame's.
     bool world_under_menu = false;
@@ -275,6 +352,9 @@ struct State {
     bool paused_from_play = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
+    // Split screen: the game's state when each view's world was drawn since the last capture
+    // (recorder::view_camera), for MobyProc's test from each view's camera (pose_mobys).
+    std::array<std::optional<host::GameState>, renderer::kFrameViews> view_states{};
 
     // The mobys the last 2D path read drew with a list of their own, by their markers (frame.cpp,
     // direct_packets): first moby, count, and whether the frame was a buffer narrower than the
@@ -300,7 +380,9 @@ struct State {
         std::array<std::uint8_t, 0x40> record;
         std::uint32_t pixels, clut;
         int log2_side;
-        std::uint32_t id;  // its slot and type (particle), 0 when not known
+        std::uint32_t id;              // its slot and type (particle), 0 when not known
+        std::uint32_t attachment = 0;  // Position anchor, including particles with no slot history.
+        std::uint32_t address = 0;     // its record's game address, 0 when not in game memory
     };
 
     std::vector<Particle> particles;
@@ -349,17 +431,15 @@ struct State {
     // the tick that recorded it (ui_quad), and a list is drawn with that tick's quads (frame).
     std::uint32_t ui_generation = 0;
     std::array<std::pair<std::uint32_t, std::vector<renderer::UiQuad>>, 4> ui_kept{};
-    // The last world drawn (last_world): the tick it was drawn on; whether the last tick was a page
-    // menu's with its snapshot; whether this tick's frames go over the last world (draw_kept).
-    std::uint64_t last_world_tick = 0;
-    bool last_tick_menu = false;
-    bool hold_last_world = false;
+    // The frame recorder (openrac/frame.h, frontend/recorder.cpp): what the game's host C appends,
+    // closed at each tick's capture; the port pictures given pixels (openrac_frame_picture_set).
+    renderer::FrameRecorder recorder;
+    std::unordered_map<std::uint32_t, renderer::UiImage> pictures;
     // How each tick's frames start (frontend/tick_picture.h): the last picture standing (the
     // ticks after the pause menu closes, a list the game has not finished), or under the tick's 2D
     // (a level's tick without a world: the vendor's darkening), else a cleared frame.
     TickPictures tick_pictures;
-    bool repeat_frame = false;
-    bool overdraw = false;
+    bool movie_playing = false;  // set_movie_playing
     // What the window is in now of the player's settings (apply_settings): the display mode, the
     // display; the picture's shape; the swap's wait as asked and as the
     // driver took it; whether the sound is held silent (the window lost the keyboard).
@@ -371,8 +451,8 @@ struct State {
     platform::SwapInterval swap_asked = platform::SwapInterval::VSync;
     platform::SwapInterval swap = platform::SwapInterval::VSync;
     bool muted = false;
-    // The window was opened for HDR output (the settings' `hdr` was not off): only then can it
-    // be turned on (apply_hdr).
+    // The window was opened for HDR output (the settings' `hdr` was not off), or is a Metal one,
+    // which can turn to HDR at any time: only then can it be turned on (apply_hdr).
     bool hdr_at_start = false;
     // What the window's display said of HDR when apply_hdr last asked (for hdr_status).
     hdr::Display hdr_display;
@@ -385,7 +465,7 @@ struct State {
     std::shared_ptr<FramePresentation>
         pending_frame;  // Window-thread owned; worker writes its result.
     std::vector<renderer::ImageUpload>
-        pending_images;          // Game-thread uploads held until the worker finishes.
+        pending_images;  // Game-thread uploads held until the worker finishes.
     std::vector<renderer::ImageUpload>
         images_after_list;       // Sent again a capture later (GameProfile::images_outlast_list).
     bool render_failed = false;  // A caught render error terminates the frontend cleanly.
@@ -409,12 +489,12 @@ struct Pacing {
     // The display's refresh rate is to be read again: at start, and whenever the window says its
     // display or that display's mode changed (window_event), not by asking every so many frames.
     bool interval_stale = true;
-    double cost = 0.004;                      // seconds
+    double cost = 0.004;       // seconds
     double cost_spread = 0.0;  // seconds: how much the cost moves from frame to frame, smoothed
     std::chrono::duration<double> late{0.0};  // how long after its time the tick came (set_tick)
     // The game's work for a tick (set_tick), the longest of late, ebbing a tenth a tick: seconds.
     double tick_work = 0.0;
-    float last_alpha = -1.0f;                 // how far between ticks the last frame was drawn
+    float last_alpha = -1.0f;  // how far between ticks the last frame was drawn
     // When the frame cap lets the next frame start, or (CapEdge::Present, cap_edge) when it is to
     // be shown.
     std::chrono::steady_clock::time_point due{};
@@ -475,6 +555,16 @@ const Shots& shots();
 // Whether a development switch keeps one frame a tick whatever the settings say (frontend.cpp).
 bool one_frame_a_tick();
 
+void swap_rendered_frame(std::int64_t frame);
+void run_vulkan_graphics(
+    std::function<void()> job,
+    std::int64_t frame = -1,
+    std::source_location submitted_at = std::source_location::current()
+);
+#if defined(OPENRAC_IOS)
+void drain_graphics_for_background();
+#endif
+
 // Draws `framebuffer` (width x height) into the window's box for a picture of shape `aspect`, black
 // around it; `flip`: its first row is the top (frontend.cpp).
 void present(
@@ -522,15 +612,22 @@ void apply_mouse_capture();
 // The directional light bank, in the executable's terms (relocated to the loaded program's copy);
 // 0 for a game without one (frontend/world.cpp).
 gaddr light_bank_address();
+gaddr light_bank_in_ram();
 gaddr occlusion_address();
+gaddr occlusion_in_ram();
 
 // Uploads level `number`'s geometry and makes the renderers that draw it. Below 0 the boot program
 // runs: the title world (level 0 where it was not extracted), or at -2 the flight between planets
 // where it was (frontend/world.cpp).
 void use_level(int number);
 
+// Loads the meshes props asked for since the last call into the level and the scene that are up,
+// without reading the level again. With no frame in flight, on the thread that owns the graphics
+// (frontend/world.cpp).
+void load_prop_meshes();
+
 // Configures the level shadow passes on the thread that owns the renderer.
-void configure_level_shadows(State& owner, int level);
+void configure_level_shadows(SceneRenderState& owner, int level);
 
 // Reads level `number`'s files on another thread for use_level to take when the level comes: the
 // flight between planets reads its destination's while it plays (frontend/world.cpp).
@@ -552,16 +649,18 @@ bool frame_due(std::chrono::steady_clock::time_point now);
 // Records an owned scene on the exclusive graphics owner thread; no game RAM is accessed.
 // The caller pins `owner` and its static level until this function and its callbacks return.
 void render_scene(
-    State& owner,
+    SceneRenderState& owner,
     const Kept& snapshot,
     const settings::Settings& graphics,
-    FramePresentation& output
+    FramePresentation& output,
+    bool views_begun = false
 );
 
 // Draws the kept tick, the camera and mobys part way from the last tick's to its own (as far as
 // the refresh it will be shown at is between them, when frames are drawn between ticks), and shows
-// it. `first`: the tick's own frame (shots, the frame read back by store_image)
+// it. `first`: the tick's own frame (shots, the frame read back by store_image). `held`: the game
+// sent nothing this tick (keep_picture): a picture left standing, with no mod's overlay on it
 // (frontend/interpolation.cpp).
-void draw_kept(bool first);
+void draw_kept(bool first, bool held = false);
 
 }  // namespace openrac::frontend

@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Adrien Girardeau <adrigir25@gmail.com>
+Date: Tue, 17 Nov 2026 21:37:35 +0100
+Subject: malloc_extend_top without a cast as lvalue
+
+Store sbrk_base through its word, not through a cast.
+
+malloc_extend_top set sbrk_base through the macro's cast, ((char *)D_0012FBA0[0]) = brk: a GCC
+extension (a cast as lvalue) that Clang refuses, so hostgen.json skipped the whole file and the
+port had no C for it. A build without the disc then ran it as a stub, and newlib's _malloc_r (the
+game's sprintf of a float, through _dtoa_r and _Balloc) got no memory from it. D_0012FBA0 is a u32
+and a pointer is 32 bits on the EE: the store is the same, and EE-GCC 2.96 compiles both into the
+same code.
+---
+ src/sdk/libc/malloc/malloc_extend_top.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/sdk/libc/malloc/malloc_extend_top.c b/src/sdk/libc/malloc/malloc_extend_top.c
+index e9b768f3..d2644b05 100644
+--- a/src/sdk/libc/malloc/malloc_extend_top.c
++++ b/src/sdk/libc/malloc/malloc_extend_top.c
+@@ -76,7 +76,7 @@ void malloc_extend_top(struct _reent *reent_context, u32 nb) {
+         set_head(top, top_size | PREV_INUSE);
+     } else {
+         if (sbrk_base == (char *)(-1))
+-            sbrk_base = brk;
++            D_0012FBA0[0] = (u32)brk; /* sbrk_base = brk */
+         else
+             sbrked_mem += brk - (char *)old_end;
+ 

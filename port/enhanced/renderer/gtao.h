@@ -5,9 +5,9 @@
 #include <array>
 
 #include "enhanced/renderer/gtao_depth.h"
-#include "renderer/ambient_occlusion.h"
-#include "renderer/framebuffer.h"
-#include "renderer/shader.h"
+#include "renderer/effects/ambient_occlusion.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
 
 namespace openrac::renderer {
 struct FrameInput;
@@ -20,15 +20,13 @@ struct RenderTarget;
 // colour composite is retained only for legacy prelit paths. evaluate_only
 // exposes the raw horizon/guide texture for fused early-lighting denoising.
 //
-// The renderer's ambient occlusion hook (renderer/ambient_occlusion.h): a program registers one
+// The renderer's ambient occlusion hook (renderer/effects/ambient_occlusion.h): a program registers one
 // with Renderer::set_ambient_occlusion, and the tests also run it alone.
 class Gtao final : public AmbientOcclusion {
 public:
     // The single-sample horizon path can freeze bindings before its depth producer records.
     bool prepares_surface_chain() const override { return true; }
 
-    // Declares depth/normal attachment writes and their copy, resolve or sampling consumers on Vulkan.
-    void render_prepass(unsigned framebuffer, const std::function<void()>& record) override;
     bool render(
         const FrameInput& input,
         const RenderTarget& target,

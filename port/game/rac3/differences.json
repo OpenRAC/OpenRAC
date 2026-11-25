@@ -1,0 +1,35 @@
+{
+  "about": "What the port of Up Your Arsenal does differently from the PS2 game. Read by the port's build (port/cmake/Differences.cmake: the Game fixes settings). docs/port/SETTINGS.md section 8 says how to add an entry.",
+  "game": "rac3",
+  "differences": [
+    {
+      "id": "wide-moby-effects",
+      "kind": "fix",
+      "name": "Wide-screen effects",
+      "discs": ["pal", "ntsc"],
+      "original": "A moby near the side of a picture wider than 4:3 counts as out of view for its effects.",
+      "port": "MobyProc's drawn test runs against the wider picture, as Going Commando's: a moby drawn makes its effects, as it would on a wider console picture. Off, it runs against the 4:3 view, and the effects of mobys near the sides are missing.",
+      "setting": {"key": "fix_wide_moby_effects", "default": true},
+      "refs": ["port/game/rac3-pal/host/render.c"]
+    },
+    {
+      "id": "wide-liquids",
+      "kind": "fix",
+      "name": "Wide-screen scenery",
+      "discs": ["pal", "ntsc"],
+      "original": "The draw callbacks cull what they send against the 4:3 view.",
+      "port": "Each draw callback list runs with the view tests opened as far as the picture is wider. Off, they run against the 4:3 view, and what they draw is missing near the sides.",
+      "setting": {"key": "fix_wide_liquids", "default": true},
+      "refs": ["port/game/rac3-pal/host/wide_view.c"]
+    },
+    {
+      "id": "wide-picture",
+      "kind": "port",
+      "name": "Wider pictures",
+      "discs": ["pal", "ntsc"],
+      "original": "A 4:3 picture, or the game's own 16:9 option, which narrows the vertical view and leaves the television to stretch it.",
+      "port": "A wider picture keeps the game's vertical field of view and shows more of the world to the sides. The game's 16:9 option has no meaning in a window, and the port keeps it off; the title Options' 16:9 row is the port's Video page instead.",
+      "refs": ["port/game/rac3-pal/host/view.c", "port/game/rac3-pal/host/options.c"]
+    }
+  ]
+}

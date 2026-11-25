@@ -5,7 +5,8 @@
 
 #include "renderer/ui/picture_blit.h"
 
-#include "renderer/gl.h"
+#include "renderer/frame/colour_transfer.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::renderer::ui {
 
@@ -17,40 +18,18 @@ void PictureBlit::draw(unsigned framebuffer, const PictureView& picture, const P
         glGenTextures(1, &m_texture);
         glGenFramebuffers(1, &m_framebuffer);
     }
-    glBindTexture(GL_TEXTURE_2D, m_texture);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        static_cast<GLint>(GL_RGBA8),
-        picture.width,
-        picture.height,
-        0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
-        picture.rgba.data()
-    );
+    upload_rgba8(m_texture, picture.width, picture.height, picture.rgba);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(GL_NEAREST));
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(GL_NEAREST));
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_framebuffer);
     glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
-    glDisable(GL_SCISSOR_TEST);
     // The picture's first row is its top; GL's framebuffer counts rows from the bottom.
-    glBlitFramebuffer(
-        0,
-        0,
-        picture.width,
-        picture.height,
-        to.x,
-        to.y + to.height,
-        to.x + to.width,
-        to.y,
-        GL_COLOR_BUFFER_BIT,
-        GL_NEAREST
+    blit_colour(
+        "UI picture",
+        m_framebuffer,
+        framebuffer,
+        {{0, 0}, {picture.width, picture.height}, {to.x, to.y + to.height}, {to.x + to.width, to.y}}
     );
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 void PictureBlit::release() {

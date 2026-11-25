@@ -16,7 +16,7 @@
 
 #include "common/breadcrumbs.h"
 #include "game/common/frontend/render_worker.h"
-#include "renderer/direct.h"
+#include "renderer/direct/direct.h"
 #include "tests/check.h"
 
 namespace {
@@ -92,11 +92,39 @@ void test_completion_releases_owned_storage() {
 void test_worker_failure_stops_submission() {
     RenderWorker worker;
     std::string error;
-    CHECK(worker.submit([] { throw std::runtime_error("test render failure"); }, error));
+    CHECK(worker.submit([] { throw std::runtime_error("test render failure"); }, error, 42));
     CHECK(!worker.finish(error));
-    CHECK(error == "test render failure");
+    CHECK(error.find("frame 42") != std::string::npos);
+    CHECK(error.find("render_worker_test.cpp") != std::string::npos);
+    CHECK(error.find("runtime_error") != std::string::npos);
+    CHECK(error.find("test render failure") != std::string::npos);
+    const auto original = error;
     CHECK(!worker.submit([] {}, error));
+    CHECK(error == original);
     CHECK(!worker.submit({}, error));
+}
+
+void test_worker_failure_without_a_message() {
+    for (const bool standard_exception : {true, false}) {
+        RenderWorker worker;
+        std::string error;
+        CHECK(worker.submit(
+            [standard_exception] {
+                if (standard_exception) {
+                    throw std::runtime_error("");
+                }
+                throw 42;
+            },
+            error
+        ));
+        CHECK(!worker.finish(error));
+        CHECK(error.find("frame unspecified") != std::string::npos);
+        CHECK(
+            error.find(standard_exception ? "provided no message" : "non-standard exception")
+            != std::string::npos
+        );
+        CHECK(!worker.submit([] {}, error));
+    }
 }
 
 // Destruction joins the last accepted job before its referenced owners leave scope.
@@ -176,6 +204,7 @@ bool run_tests() {
         test_repeated_jobs_release_their_owners();
         test_completion_releases_owned_storage();
         test_worker_failure_stops_submission();
+        test_worker_failure_without_a_message();
         test_shutdown_finishes_the_last_job();
         test_inherits_rounding_mode();
         test_breadcrumb_handoff();

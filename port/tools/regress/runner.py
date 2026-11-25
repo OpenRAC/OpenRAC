@@ -34,6 +34,7 @@ DATA = {
     "rac1-pal": ("build/data/pal", "assets/port/rac1/pal"),
     "rac1-ntsc": ("build/ntsc-data", "build/ntsc-levels"),
     "rac2-ntsc": ("build/rac2-data", "build/rac2-levels"),
+    "rac3-pal": ("build/rac3-data", "assets/port/rac3/pal"),
 }
 
 
@@ -95,7 +96,11 @@ def classify(rc: int | None, timed_out: bool, ticks: list[dict], length: int, fr
 
 
 def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels: Path, out: Path,
-              extra_env: dict | None = None, settings: dict | None = None) -> dict:
+              extra_env: dict | None = None, settings: dict | None = None, extra_args: list[str] | None = None,
+              cards: Path | None = None) -> dict:
+    """extra_args: more of the program's options (an interface run's --interface-run FILE). cards: the
+    folder holding the prepared card (`card`), if not cards_dir()'s. A route whose card is "empty"
+    plays on an empty card, left in OUT/card for what the game saved on it."""
     out.mkdir(parents=True, exist_ok=True)
     for name in ("trace.jsonl", "reach.json", "coverage.json", "state.json"):
         (out / name).unlink(missing_ok=True)
@@ -103,7 +108,8 @@ def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels:
     for k in list(env):
         if k.startswith("OPENRAC_"):
             del env[k]  # the caller's own switches would change the run
-    env.update({"OPENRAC_HIDDEN": "1", "SDL_AUDIODRIVER": "dummy", "OPENRAC_UNCAPPED": "1", "OPENRAC_AUDIO_TICKED": "1",
+    # No sound out of a hidden run: SDL 3's name (SDL 2's SDL_AUDIODRIVER is not read).
+    env.update({"OPENRAC_HIDDEN": "1", "SDL_AUDIO_DRIVER": "dummy", "OPENRAC_UNCAPPED": "1", "OPENRAC_AUDIO_TICKED": "1",
                 "OPENRAC_TRACE": str(out / "trace.jsonl"), "OPENRAC_REACH": str(out / "reach.json"),
                 "OPENRAC_DRAW_COVERAGE": str(out / "coverage.json"), "OPENRAC_STATE_DUMP": str(out / "state.json")})
     env.update(route.env())
@@ -112,9 +118,14 @@ def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels:
            "--settings", str(out / "settings.ini"), "--frames", str(route.max_frames)]
     if route.start == "direct":
         cmd += ["--level", str(route.level)]
-    if route.card:
+    if route.card == "empty":
+        if (out / "card").exists():
+            shutil.rmtree(out / "card")
+        (out / "card").mkdir()
+        cmd += ["--cards", str(out / "card")]
+    elif route.card:
         # A fresh copy of the prepared card each run (the game writes to it); never the player's.
-        source = cards_dir() / game
+        source = cards or cards_dir() / game
         if not (source / "card").is_dir():
             raise SystemExit(f"{route.key}: no prepared card in {source} (regress.py card --game {game})")
         if (out / "card").exists():
@@ -123,6 +134,7 @@ def run_level(game: str, route: routes_mod.Route, exe: Path, data: Path, levels:
         cmd += ["--cards", str(out / "card")]
     else:
         cmd.append("--no-card")
+    cmd += extra_args or []
     (out / "settings.ini").unlink(missing_ok=True)  # the defaults, whatever the player chose
     if settings:
         # Settings every run starts from (render_scale = 25 for a quick survey), the rest default.
@@ -192,7 +204,13 @@ def run(game: str, levels: list[int] | None, build: Path, out: Path | None = Non
     """Plays a set's routes (the standard level routes by default) whose level is in levels and,
     with only, whose key is listed; env: switches every run gets (OPENRAC_SOFTWARE_GL=1 on a
     machine without a graphics card); settings: settings.ini lines every run starts from."""
+    if game.startswith("rac3"):
+        # Its presses count window frames: frames between ticks would land them on other game ticks each run.
+        settings = {"frame_rate": "original", **(settings or {})}
     exe = build / f"openrac-{game}{'.exe' if os.name == 'nt' else ''}"
+    if not exe.exists():
+        # macOS builds the program inside an app bundle.
+        exe = next(iter(sorted((build / "apps" / f"openrac-{game}").glob("*.app/Contents/MacOS/*"))), exe)
     if not exe.exists():
         raise SystemExit(f"no {exe}: build the port first (cd port && cmake --build --preset release)")
     d, lv = default_inputs(game)

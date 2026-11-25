@@ -4,7 +4,9 @@
 // `min`; `as: "row"` adds a control to the item's row. A target the editor does not know leaves
 // the field in the mod's own section. `requires: {version: "last"}` ties the field's values above
 // `min` to the item's last game version: picking one moves the item there, and picking a game
-// version puts the field back to `min`.
+// version puts the field back to `min`. Such a mod counts the weapon's experience again from 0 at
+// the last version (NG++ levels its tiers by it), so a weapon moved there by a tier pick starts at
+// 0, and one already there keeps its count.
 import type { ModSaveData, ModSaveField, Rac2SaveFields, Rac2SaveView } from "./api";
 import { setVersion } from "./saveEditRac2";
 
@@ -26,20 +28,27 @@ export interface ItemAttachments {
 /** Whether the editor shows `f` beside one of `itemIds` (else in its mod's section). */
 export function isAttached(f: ModSaveField, itemIds: ReadonlySet<number>): boolean {
   const a = f.attach;
+
   return !!a && a.to === "item" && (a.as === "version" || a.as === "row") && itemIds.has(a.id);
 }
 
 /** The attached fields of every item that has some. */
-export function attachments(mods: ModSaveData[], itemIds: ReadonlySet<number>): Map<number, ItemAttachments> {
+export function attachments(
+  mods: ModSaveData[],
+  itemIds: ReadonlySet<number>,
+): Map<number, ItemAttachments> {
   const out = new Map<number, ItemAttachments>();
+
   for (const mod of mods) {
     for (const field of mod.fields) {
       if (!isAttached(field, itemIds) || !field.attach) continue;
       const at = out.get(field.attach.id) ?? { version: [], row: [] };
+
       (field.attach.as === "version" ? at.version : at.row).push({ mod, field });
       out.set(field.attach.id, at);
     }
   }
+
   return out;
 }
 
@@ -66,29 +75,46 @@ const modValue = (a: Attached, tier: number) => `m:${a.mod.id}:${a.field.key}:${
 /** The mod tiers that follow the game's versions in an item's picker. */
 export function tierOptions(version: Attached[]): VersionOption[] {
   const out: VersionOption[] = [];
+
   for (const a of version) {
     for (let t = a.field.min + 1; t <= a.field.max; t++) {
-      out.push({ kind: "mod", value: modValue(a, t), attached: a, tier: t, name: choiceName(a.field, t) });
+      out.push({
+        kind: "mod",
+        value: modValue(a, t),
+        attached: a,
+        tier: t,
+        name: choiceName(a.field, t),
+      });
     }
   }
+
   return out;
 }
 
 /** The tiers set (above `min`) on an item: more than one is a conflict between mods. */
-export function activeTiers(values: ModValues, version: Attached[]): { attached: Attached; tier: number }[] {
+export function activeTiers(
+  values: ModValues,
+  version: Attached[],
+): { attached: Attached; tier: number }[] {
   return version
     .map((attached) => ({ attached, tier: valueOf(values, attached) }))
     .filter((x) => x.tier > x.attached.field.min);
 }
 
 /** What the picker shows as picked: the first mod tier set, else the game version. */
-export function pickedValue(values: ModValues, version: Attached[], gameVersion: number | null): string {
+export function pickedValue(
+  values: ModValues,
+  version: Attached[],
+  gameVersion: number | null,
+): string {
   const t = activeTiers(values, version)[0];
+
   return t ? modValue(t.attached, t.tier) : `g:${String(gameVersion ?? 0)}`;
 }
 
 function lastVersion(view: Rac2SaveView, id: number): number | null {
   const n = view.items.find((i) => i.id === id)?.versions.length ?? 0;
+
   return n > 0 ? n - 1 : null;
 }
 
@@ -109,11 +135,20 @@ export function pickVersion(
   if (value.startsWith("g:")) {
     for (const a of version) setValue(values, a, a.field.min);
     setVersion(view, f, id, Number(value.slice(2)));
+
     return;
   }
+
   const pick = tierOptions(version).find((o) => o.value === value);
+
   if (pick?.kind !== "mod") return;
   for (const a of version) setValue(values, a, a === pick.attached ? pick.tier : a.field.min);
   const last = lastVersion(view, id);
-  if (pick.attached.field.requires?.version === "last" && last !== null) setVersion(view, f, id, last);
+
+  if (pick.attached.field.requires?.version !== "last" || last === null) return;
+  const item = f.items.find((i) => i.id === id);
+
+  if (!item || item.version === last) return;
+  setVersion(view, f, id, last);
+  if (item.xp !== null) item.xp = 0;
 }

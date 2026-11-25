@@ -13,7 +13,8 @@
 #include <vector>
 
 #include "common/stats.h"
-#include "renderer/gl.h"
+#include "renderer/frame/colour_transfer.h"
+#include "renderer/gl/gl.h"
 #include "renderer/ui/fps_counter_sample.h"
 
 namespace openrac::renderer::ui::fps_counter {
@@ -192,10 +193,7 @@ void draw(unsigned framebuffer, int width, int height, std::uint32_t ink, std::u
     // The texture is sent again only when the text or its colours changed.
     if (s.text != s.drawn || ink != s.drawn_ink || paper != s.drawn_paper) {
         const std::vector<std::uint8_t> rgba = picture(s.text, ink, paper, w, h);
-        glBindTexture(GL_TEXTURE_2D, s.texture);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(GL_RGBA8), w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
-                     rgba.data());
+        upload_rgba8(s.texture, w, h, rgba);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(GL_NEAREST));
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(GL_NEAREST));
         glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s.texture, 0);
@@ -205,18 +203,18 @@ void draw(unsigned framebuffer, int width, int height, std::uint32_t ink, std::u
         s.drawn_paper = paper;
         s.width = w;
     }
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
-    glDisable(GL_SCISSOR_TEST);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     // Whole pixels of the picture, two to a 448-line frame's line, so the glyphs stay sharp.
     // Include both four-pixel outer margins when fitting the longer timing line.
     const int scale = std::max(1, std::min((height + 224) / 448 * 2, width / (w + 8)));
     const int x0 = 4 * scale;
     const int y1 = height - 4 * scale;
     // The picture's first row is its top; GL's framebuffer counts rows from the bottom.
-    glBlitFramebuffer(0, 0, w, h, x0, y1, x0 + w * scale, y1 - h * scale, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    blit_colour(
+        "frame counter",
+        s.framebuffer,
+        framebuffer,
+        {{0, 0}, {w, h}, {x0, y1}, {x0 + w * scale, y1 - h * scale}}
+    );
 }
 
 void release() {

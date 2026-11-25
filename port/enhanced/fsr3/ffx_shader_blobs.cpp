@@ -12,8 +12,9 @@
 #include <vector>
 
 #include "enhanced/fsr3/sdk_shaders.h"
+#include "enhanced/fsr3/shader_recipes.h"
 #include "fsr3_sources.h"
-#include "renderer/vulkan/shader_compiler.h"
+#include "renderer/vulkan/pipelines/shader_compiler.h"
 
 #include <FidelityFX/host/ffx_fsr3upscaler.h>
 
@@ -29,56 +30,6 @@ openrac::enhanced::fsr3_detail::ShaderLibrary* g_shader_library = nullptr;
 
 namespace openrac::enhanced::fsr3_detail {
 namespace {
-// The pinned half pyramid callbacks are stubs. Select only the complete vendor
-// history-sampling path in accumulation; reprojection and other passes stay FP32.
-constexpr unsigned kShaderSwitches = (1u << 6) - 1;
-constexpr unsigned kHalf = FSR3UPSCALER_SHADER_PERMUTATION_ALLOW_FP16;
-
-bool half_history_pass(unsigned pass) {
-    return pass == FFX_FSR3UPSCALER_PASS_ACCUMULATE
-           || pass == FFX_FSR3UPSCALER_PASS_ACCUMULATE_SHARPEN;
-}
-
-// Maps the upscaler's supported passes to unmodified AMD sources.
-constexpr std::array<const char*, FFX_FSR3UPSCALER_PASS_TCR_AUTOGENERATE> kPassSources{
-    "prepare_inputs",
-    "luma_pyramid",
-    "shading_change_pyramid",
-    "shading_change",
-    "prepare_reactivity",
-    "luma_instability",
-    "accumulate",
-    "accumulate",
-    "rcas",
-    "debug_view",
-    "autogen_reactive"
-};
-
-// Translates the SDK's permutation flags to its original GLSL preprocessor switches.
-std::string shader_definitions(unsigned permutation) {
-    std::string result = "#define FFX_GPU 1\n#define FFX_GLSL 1\n";
-    result += (permutation & kHalf) ? "#define FFX_HALF 1\n#define "
-                                      "FFX_FSR3UPSCALER_OPTION_REPROJECT_SAMPLERS_USE_DATA_HALF 1\n"
-                                    : "#define FFX_HALF 0\n";
-    constexpr std::array<const char*, 6> kSwitches{
-        "REPROJECT_USE_LANCZOS_TYPE",
-        "HDR_COLOR_INPUT",
-        "LOW_RESOLUTION_MOTION_VECTORS",
-        "JITTERED_MOTION_VECTORS",
-        "INVERTED_DEPTH",
-        "APPLY_SHARPENING"
-    };
-
-    // These positions are the pinned SDK's Fs3UpscalerShaderPermutationOptions bits.
-    for (unsigned bit = 0; bit < kSwitches.size(); ++bit) {
-        result += "#define FFX_FSR3UPSCALER_OPTION_";
-        result += kSwitches[bit];
-        result += (permutation & (1u << bit)) ? " 1\n" : " 0\n";
-    }
-
-    return result;
-}
-
 // Resource reflection arrays kept stable until all SDK pipeline descriptions have been copied.
 struct Bindings {
     std::vector<std::string> names;     // Names owned by this shader.

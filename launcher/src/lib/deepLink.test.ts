@@ -3,8 +3,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const parsed: string[] = [];
+
 vi.mock("./api", async (load) => {
   const real = await load<typeof import("./api")>();
+
   return {
     ...real,
     inTauri: false,
@@ -12,7 +14,12 @@ vi.mock("./api", async (load) => {
       ...real.api,
       deeplinkParse: vi.fn((url: string) => {
         parsed.push(url);
-        return Promise.resolve({ mods: [{ id: url.split("/").at(-1) ?? "", version: null }], game: null, disc: null });
+
+        return Promise.resolve({
+          mods: [{ id: url.split("/").at(-1) ?? "", version: null }],
+          game: null,
+          disc: null,
+        });
       }),
       indexFetch: vi.fn(() => Promise.reject(new Error("not in this test"))),
     },
@@ -33,10 +40,12 @@ describe("deep links", () => {
 
   it("handles the cold start's link from getCurrent, and later ones from onOpenUrl", async () => {
     let send: (urls: string[]) => void = () => undefined;
+
     await startDeepLinks({
       getCurrent: () => Promise.resolve(["openrac://install/first"]),
       onOpenUrl: (handler) => {
         send = handler;
+
         return Promise.resolve(() => undefined);
       },
     });

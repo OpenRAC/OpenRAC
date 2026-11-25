@@ -2,8 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The game's movies in the window (program::play_movie, openrac_game_play_movie's body in
-// program/game_host.cpp): a PSS movie read from the player's disc image, its picture shown and its
-// sound played, blocking as the game's own player does. Without a window or without the movie
+// program/game_host.cpp): a PSS movie read by sector from the disc's files, its picture shown and
+// its sound played, blocking as the game's own player does. Without a window or without the movie
 // support (OPENRAC_MOVIES) there is none, and the game goes on as if it had played.
 // The player follows ReRAC's movie mode (ISC License): the comment above play_movie credits it.
 
@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/precise_wait.h"
 #include "openrac/game_host.h"
@@ -39,7 +40,13 @@ namespace openrac::program {
  * been handed over less what the device still holds), so picture and sound cannot drift apart.
  * When the video ends (or is skipped) the last picture stays up for the console's FadeToBlack(4).
  */
-int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
+int play_movie(
+    uint32_t lsn,
+    uint32_t bytes,
+    int channel,
+    int start_skips,
+    void (*overlay)(const std::uint8_t* rgba, int width, int height)
+) {
     if (openrac_game_map != nullptr && openrac_game_map->skip_movies) {
         log::info("map {}: disc movie at sector {} omitted", openrac_game_map->name, lsn);
         return 1;
@@ -50,31 +57,18 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         return 1;  // the same result as the movie player's Start-skip path
     }
 #if defined(OPENRAC_FRONTEND) && defined(OPENRAC_MOVIES)
-    if (!g_window || openrac_game_disc_image == nullptr || bytes == 0) {
+    if (!g_window || !openrac_disc_available() || bytes == 0) {
         return 0;
     }
 
+    // The PSS file, by sector from the disc's files (its lump, through the sector map).
     std::vector<std::uint8_t> file(bytes);
-    {
-        std::FILE* disc = std::fopen(openrac_game_disc_image, "rb");
 
-        if (disc == nullptr) {
-            return 0;
-        }
-#if defined(_WIN32)
-        // Windows' C library has no fseeko; _fseeki64 is its 64-bit seek.
-        const bool sought = _fseeki64(disc, static_cast<long long>(lsn) * 2048, SEEK_SET) == 0;
-#else
-        const bool sought = fseeko(disc, static_cast<off_t>(lsn) * 2048, SEEK_SET) == 0;
-#endif
-        const bool read = sought && std::fread(file.data(), 1, file.size(), disc) == file.size();
-        std::fclose(disc);
-
-        if (!read) {
-            log::warn("movie at sector {}: the disc image is too short", lsn);
-            return 0;
-        }
+    if (!openrac_disc_read(static_cast<std::uint64_t>(lsn) * 2048, file.data(), file.size())) {
+        log::warn("movie at sector {}: the disc's files end before it does", lsn);
+        return 0;
     }
+
     std::optional<media::MoviePlayer> player;
 
     try {
@@ -129,6 +123,19 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         ~TouchSkip() { frontend::touch_controls::set_movie(false); }
     } touch_skip(start_skips != 0);
 
+    // A movie the game draws itself fills the window (frontend::set_movie_playing).
+    struct MoviePlaying {
+        explicit MoviePlaying(bool on) : on(on) { frontend::set_movie_playing(on); }
+
+        ~MoviePlaying() {
+            if (on) {
+                frontend::set_movie_playing(false);
+            }
+        }
+
+        bool on;
+    } movie_playing(overlay != nullptr);
+
     for (std::uint64_t blank = 0;; ++blank) {
         if (output) {
             output->set_gain(settings::output_gain());
@@ -156,9 +163,21 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         if (shown) {
             media::frame_to_rgba(*shown, rgba);
 
-            if (!frontend::show_picture(rgba.data(), int(shown->width), int(shown->height), 0.0f)) {
+            if (overlay != nullptr) {
+                overlay(rgba.data(), int(shown->width), int(shown->height));
+            } else if (!frontend::show_picture(
+                           rgba.data(), int(shown->width), int(shown->height), 0.0f
+                       )) {
                 leave();
             }
+        }
+
+        // The list the game's player sends each blank (the picture and what it draws over it), as
+        // a tick of the game: vsync draws it, reads the window and paces the blank.
+        if (overlay != nullptr && shown) {
+            vsync();
+        } else if (overlay != nullptr) {
+            pace();
         }
 
         // Start skips when pressed during the movie: what is held as it starts is not a press.
@@ -175,16 +194,23 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         previous = buttons;
 
         if (start_skips && start_now && !start_before) {
+            crash::breadcrumb(crash::BreadcrumbThread::Main, "movie skip requested");
             log::info("movie at sector {}: Start pressed (pad {:#06x})", lsn, buttons);
             skipped = 1;
             break;
         }
 
-        pace();
+        if (overlay == nullptr) {
+            pace();  // with an overlay, vsync (or the pace above) paced the blank
+        }
     }
 
-    // FadeToBlack(4) over the last picture, then its closing black blank.
-    for (int step = 0; step <= 4 && shown; ++step) {
+    // FadeToBlack(4) over the last picture, then its closing black blank. A game that draws the
+    // picture itself is left on its last frame, which the game's own transition then follows.
+    if (shown) {
+        crash::breadcrumb(crash::BreadcrumbThread::Main, "movie fade-out started");
+    }
+    for (int step = 0; step <= 4 && shown && overlay == nullptr; ++step) {
         frontend::show_picture(
             rgba.data(),
             int(shown->width),
@@ -198,6 +224,7 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         output->pause(true);
     }
 
+    crash::breadcrumb(crash::BreadcrumbThread::Main, "movie returning to game");
     log::info("movie at sector {}: {}", lsn, skipped ? "skipped" : "played");
     return skipped;
 #else
@@ -205,6 +232,7 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
     (void)bytes;
     (void)channel;
     (void)start_skips;
+    (void)overlay;
     return 0;
 #endif
 }

@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
+
 import type { EditorState } from "./api";
-import { editorStage, levelList, levelTools, updateNote, updateNoteLine, type FlowInput } from "./editorFlow";
+import {
+  discMarket,
+  editorStage,
+  type FlowInput,
+  levelList,
+  levelTools,
+  planetBlocker,
+  updateNote,
+  updateNoteLine,
+} from "./editorFlow";
 import type { Job } from "./queue";
 
 const state = (over: Partial<EditorState> = {}): EditorState => ({
@@ -20,13 +30,19 @@ const state = (over: Partial<EditorState> = {}): EditorState => ({
 });
 
 const job = (actionId: string): Job =>
-  ({ key: 1, actionId, state: "running", lines: [], scope: { kind: "version", key: "rac1/pal" } }) as unknown as Job;
+  ({
+    key: 1,
+    actionId,
+    state: "running",
+    lines: [],
+    scope: { kind: "version", key: "rac1/pal" },
+  }) as unknown as Job;
 
 const input = (over: Partial<FlowInput> = {}): FlowInput => ({
   game: "rac1",
   state: state(),
   discFound: true,
-  lacksGodot: false,
+  lacksEditor: null,
   early: false,
   extracting: null,
   packing: null,
@@ -36,21 +52,27 @@ const input = (over: Partial<FlowInput> = {}): FlowInput => ({
 describe("editorStage", () => {
   it("walks a new player from the disc to playing", () => {
     expect(editorStage(input({ discFound: false })).primary).toBe("set-up");
-    expect(editorStage(input({ state: state({ levels: [] }), lacksGodot: true })).primary).toBe("get-godot");
+    expect(editorStage(input({ state: state({ levels: [] }), lacksEditor: "" })).primary).toBe(
+      "get-editor",
+    );
     expect(editorStage(input({ state: state({ levels: [] }) })).kind).toBe("no-levels");
     expect(editorStage(input({ state: state({ levels: [] }) })).primary).toBe("prepare");
     expect(editorStage(input({ extracting: job("editor-extract") })).kind).toBe("extracting");
     expect(editorStage(input()).kind).toBe("ready");
     expect(editorStage(input()).primary).toBe("open");
     const edited = editorStage(input({ state: state({ unpacked: [0, 3] }) }));
+
     expect([edited.kind, edited.primary]).toEqual(["unpacked", "pack"]);
     expect(edited.line).toContain("Veldin");
     expect(editorStage(input({ packing: job("editor-pack") })).kind).toBe("packing");
     const packed = editorStage(input({ state: state({ packedAt: 1, packedLevels: 2 }) }));
-    expect([packed.kind, packed.primary]).toEqual(["packed", "play"]);
+
+    expect([packed.kind, packed.primary]).toEqual(["packed", "open"]);
+    expect(packed.line).not.toContain("Play with your edits");
     const expanded = editorStage(
       input({ state: state({ packedAt: 1, packedLevels: 2, packedExpandedLevels: [0, 3] }) }),
     );
+
     expect(expanded.detail).toMatch(/2 levels use streams larger than the original disc slots/);
     expect(expanded.detail).toMatch(/disc stays unchanged/);
     expect(expanded.detail).toMatch(/256 MiB RAM arena/);
@@ -60,41 +82,70 @@ describe("editorStage", () => {
   it("says an outdated project before anything else, with Update project and what it does", () => {
     const s = editorStage(
       input({
-        state: state({ outdated: [0, 1, 2].map((level) => ({ level, reason: "gameplay" as const })), unpacked: [1] }),
+        state: state({
+          outdated: [0, 1, 2].map((level) => ({ level, reason: "gameplay" as const })),
+          unpacked: [1],
+        }),
       }),
     );
+
     expect([s.kind, s.primary]).toEqual(["needs-update", "update"]);
     expect(s.title).toBe("Your levels need an update");
     expect(s.line).toContain("60 Hz");
     expect(s.line).not.toMatch(/copy the whole|scene|gameplay_source/);
     expect(s.detail).toContain("backup");
     // Some levels only: they are named.
-    const some = editorStage(input({ state: state({ outdated: [{ level: 1, reason: "schema" }] }) }));
+    const some = editorStage(
+      input({ state: state({ outdated: [{ level: 1, reason: "schema" }] }) }),
+    );
+
     expect(some.title).toBe("Some of your levels need an update");
     expect(some.line.startsWith("Novalis")).toBe(true);
   });
 
-  it("an update without Godot still offers the update", () => {
-    const s = editorStage(input({ lacksGodot: true, state: state({ outdated: [{ level: 0, reason: "schema" }] }) }));
-    expect([s.primary, s.secondary]).toEqual(["update", ["get-godot"]]);
+  it("without OpenRAC Editor the panel offers its download first, with why when it does not fit", () => {
+    const s = editorStage(
+      input({ lacksEditor: "", state: state({ outdated: [{ level: 0, reason: "schema" }] }) }),
+    );
+
+    expect([s.kind, s.primary, s.secondary]).toEqual([
+      "no-editor",
+      "get-editor",
+      ["choose-editor"],
+    ]);
+    const old = editorStage(
+      input({ lacksEditor: "OpenRAC Editor v1 is older than this OpenRAC: update the editor." }),
+    );
+
+    expect(old.line).toMatch(/update the editor/);
+    expect(editorStage(input({ unsupported: true })).kind).toBe("not-yet");
   });
 
   it("missing files offer Repair; packed for another disc offers packing again", () => {
     expect(editorStage(input({ state: state({ broken: [5] }) })).primary).toBe("repair");
-    const other = editorStage(input({ state: state({ packedAt: 1, packedLevels: 1, packedOtherVersion: true }) }));
+    const other = editorStage(
+      input({ state: state({ packedAt: 1, packedLevels: 1, packedOtherVersion: true }) }),
+    );
+
     expect([other.kind, other.primary]).toEqual(["repack", "pack"]);
   });
 
   it("an update in progress is said as one", () => {
     const s = editorStage(
-      input({ extracting: job("editor-extract"), state: state({ outdated: [{ level: 0, reason: "schema" }] }) }),
+      input({
+        extracting: job("editor-extract"),
+        state: state({ outdated: [{ level: 0, reason: "schema" }] }),
+      }),
     );
+
     expect(s.kind).toBe("updating");
   });
 
-  it("early access has no pack or play step", () => {
+  it("a game whose levels are not packed back has no pack or play step", () => {
     expect(editorStage(input({ early: true, state: state({ unpacked: [0] }) })).kind).toBe("ready");
-    expect(editorStage(input({ early: true, state: state({ packedAt: 1, packedLevels: 1 }) })).primary).toBe("open");
+    expect(
+      editorStage(input({ early: true, state: state({ packedAt: 1, packedLevels: 1 }) })).primary,
+    ).toBe("open");
   });
 });
 
@@ -109,12 +160,13 @@ describe("the update's note", () => {
       },
       { level: 1, carried: [], notCarried: [], failed: false },
     ]);
+
     expect(note).not.toBeNull();
     if (!note) return;
     expect(note.carried).toBe(2);
     expect(note.redo).toEqual(["Veldin: Camera_0001: moved"]);
     expect(updateNoteLine(note)).toBe(
-      "2 levels updated, with 2 changes of yours carried over. 1 change could not be carried: redo it in Godot. Your old levels are in the backup folder.",
+      "2 levels updated, with 2 changes of yours carried over. 1 change could not be carried: redo it in OpenRAC Editor. Your old levels are in the backup folder.",
     );
     expect(updateNote("rac1", [])).toBeNull();
   });
@@ -127,19 +179,36 @@ describe("the update's note", () => {
 });
 
 describe("Your levels", () => {
-  it("offers Pack again and Export the levels again once levels are read", () => {
-    expect(levelTools(state(), false, true)).toEqual(["pack-again", "export-again"]);
+  it("offers a new planet and Rebuild once levels are read", () => {
+    expect(levelTools(state(), false, true)).toEqual(["export-again"]);
     expect(levelTools(state({ levels: [] }), false, true)).toEqual([]);
     expect(levelTools(null, false, true)).toEqual([]);
-    // Early access packs nothing; without the disc nothing can be read again.
-    expect(levelTools(state(), true, true)).toEqual(["export-again"]);
-    expect(levelTools(state(), false, false)).toEqual(["pack-again"]);
+    expect(levelTools(state(), false, true, true)).toEqual(["new-planet", "export-again"]);
+    // Early access: no planets yet; no disc: nothing to rebuild from.
+    expect(levelTools(state(), true, true, true)).toEqual(["export-again"]);
+    // The planet row stays in view before levels are read and without the disc (it says why).
+    expect(levelTools(state({ levels: [] }), false, true, true)).toEqual(["new-planet"]);
+    expect(levelTools(state(), false, false, true)).toEqual(["new-planet"]);
   });
 
-  it("says an export again while it runs", () => {
+  it("says why a new planet cannot be added yet", () => {
+    const ok = { here: true, discs: [], lacksEditor: null, discFound: true, project: true };
+
+    expect(planetBlocker(ok)).toBeNull();
+    expect(planetBlocker({ ...ok, here: false, discs: ["Europe"] })).toBe(
+      "New planets work with the Europe disc for now.",
+    );
+    expect(planetBlocker({ ...ok, lacksEditor: "" })).toBe("Download OpenRAC Editor first.");
+    expect(planetBlocker({ ...ok, discFound: false })).toMatch(/disc first/);
+    expect(planetBlocker({ ...ok, project: false })).toMatch(/Open a level/);
+    expect(discMarket("PAL (Europe)")).toBe("Europe");
+  });
+
+  it("says a rebuild while it runs", () => {
     const s = editorStage(input({ extracting: job("editor-reexport") }));
+
     expect(s.kind).toBe("updating");
-    expect(s.title).toBe("Exporting the levels again…");
+    expect(s.title).toBe("Rebuilding your level projects…");
     expect(s.primary).toBeNull();
   });
 });

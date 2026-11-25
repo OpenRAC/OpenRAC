@@ -9,13 +9,14 @@
 #include <string>
 #include <vector>
 
-#include "renderer/framebuffer.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
-#include "renderer/vulkan/native_compute.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -108,7 +109,7 @@ int main() {
         glUniform1i(display.uniform("compare_mode"), 0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, textures[2]);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         std::array<unsigned char, size * size * 4> pixels{};
         glReadPixels(0, 0, size, size, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
         const int shift = (offset % size + size) % size;
@@ -127,7 +128,7 @@ int main() {
         glUniform1i(display.uniform("reference_depth"), 1);
         glActiveTexture(GL_TEXTURE0 + 1);
         glBindTexture(GL_TEXTURE_2D, textures[3]);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         glReadPixels(0, 0, size, size, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
         for (std::size_t at = 0; at < static_cast<std::size_t>(size) * size; ++at) {
             CHECK(pixels[at * 4] == 0 && pixels[at * 4 + 1] == 0 && pixels[at * 4 + 2] == 0);
@@ -186,7 +187,7 @@ int main() {
     glUniform1i(display.uniform("compare_mode"), 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textures[2]);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     std::array<unsigned char, static_cast<std::size_t>(size) * size * 4> depth_pixels{};
     glReadPixels(0, 0, size, size, GL_RGBA, GL_UNSIGNED_BYTE, depth_pixels.data());
     for (std::size_t at = 0; at < static_cast<std::size_t>(size) * size; ++at) {
@@ -196,7 +197,7 @@ int main() {
     glUniform1i(display.uniform("compare_mode"), 1);
     glActiveTexture(GL_TEXTURE0 + 1);
     glBindTexture(GL_TEXTURE_2D, textures[3]);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     std::array<unsigned char, static_cast<std::size_t>(size) * size * 4> differences{};
     glReadPixels(0, 0, size, size, GL_RGBA, GL_UNSIGNED_BYTE, differences.data());
     for (std::size_t at = 0; at < static_cast<std::size_t>(size) * size; ++at) {

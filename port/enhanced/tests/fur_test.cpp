@@ -10,9 +10,10 @@
 
 #include "enhanced/renderer/fur.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 using namespace openrac;
@@ -158,8 +159,9 @@ int test_gpu() {
     set_enhanced_rendering(true);
     enhanced::set_fur_material_settings(settings);
     renderer::Shader shader;
-    const std::string vertex =
-        std::string("#version 430 core\n") + lighting::shaders::fur_vertex_glsl + R"(
+    const std::string vertex = std::string("#version 430 core\n")
+                               + lighting::shaders::fur_shell_glsl
+                               + lighting::shaders::fur_vertex_glsl + R"(
 uniform int test_id;
 uniform float test_palette, test_lighting;
 flat out int v_hero_fur;
@@ -198,7 +200,7 @@ void main() {result=vec4(v_hero_fur!=0 ? fur_diagnostic(test_uv) : vec3(.25),1);
     glUniform2f(shader.uniform("test_uv"), 30.5f / 256, 30.5f / 256);
     const auto draw = [&] {
         fur.bind(shader);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return target.read_rgba();
     };
     enhanced::set_fur_debug_view(enhanced::FurDebug::Off);

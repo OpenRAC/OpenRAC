@@ -13,6 +13,7 @@ use crate::desktop::Places;
 use crate::detect;
 
 const FLAG: &str = "--play";
+const UPDATE_MODS: &str = "--update-mods";
 
 /// The launch options that start game `id`.
 pub fn play_options(id: &str) -> String {
@@ -32,6 +33,12 @@ pub fn play_arg<S: AsRef<str>>(args: &[S]) -> Option<String> {
         return (!value.is_empty() && !value.starts_with('-')).then(|| value.to_string());
     }
     args.iter().skip(1).find_map(|a| game_flag(a.as_ref()))
+}
+
+/// Whether a start asks for its game's mods to be updated before it plays (`--update-mods`, beside
+/// `--play` or a game's flag): the updates the Play button puts in by itself.
+pub fn update_mods_arg<S: AsRef<str>>(args: &[S]) -> bool {
+    args.iter().skip(1).any(|a| a.as_ref() == UPDATE_MODS)
 }
 
 /// `--rac<n>`: the game `rac<n>`.
@@ -137,6 +144,21 @@ mod tests {
     }
 
     #[test]
+    fn update_mods_is_asked_for_beside_the_game() {
+        assert!(update_mods_arg(&args(&["x", "--play", "rac1-ntsc", "--update-mods"])));
+        assert!(update_mods_arg(&args(&["x", "--update-mods", "--rac1"])));
+        assert!(!update_mods_arg(&args(&["x", "--play", "rac1-ntsc"])));
+        assert!(!update_mods_arg(&args(&["--update-mods"])), "the program's own name is not an option");
+        assert!(!update_mods_arg(&args(&["x", "--update-mods=yes"])));
+        // The flag never takes the game's place, in either order.
+        assert_eq!(play_arg(&args(&["x", "--play", "rac1-ntsc", "--update-mods"])), Some("rac1-ntsc".into()));
+        assert_eq!(play_arg(&args(&["x", "--update-mods", "--play", "rac1-ntsc"])), Some("rac1-ntsc".into()));
+        assert_eq!(play_arg(&args(&["x", "--update-mods", "--rac1"])), Some("rac1".into()));
+        assert_eq!(play_arg(&args(&["x", "--play", "--update-mods"])), None);
+        assert_eq!(play_arg(&args(&["x", "--update-mods"])), None);
+    }
+
+    #[test]
     fn a_games_name_plays_the_version_set_up_or_its_first() {
         let catalog = crate::catalog::load(&crate::testing::checkout()).unwrap();
         let game = &catalog.games.iter().find(|g| g.versions.len() > 1).expect("a game with two versions");
@@ -151,6 +173,7 @@ mod tests {
         std::fs::create_dir_all(&info).unwrap();
         let text = format!(r#"[{{"serial": "S", "version": "{second}", "elf_sha1": "0", "files": 1, "image": "i"}}]"#);
         std::fs::write(info.join("buildinfo.json"), text).unwrap();
+        std::fs::write(info.join("disc.iso"), b"image").unwrap();
         let set_up = crate::config::Config { install_dir: Some(install.path().into()), ..config.clone() };
         assert_eq!(version_to_play(&set_up, &catalog, &game.id), Some(second.clone()));
         // A developer's choice of disc is the one played.

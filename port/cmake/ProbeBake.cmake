@@ -11,10 +11,16 @@ if(OPENRAC_PROBE_BAKER)
     enhanced/lighting/probe_depth_encode.cpp enhanced/lighting/probe_texture_encode.cpp enhanced/lighting/probe_bc6.cpp enhanced/lighting/probe_astc.cpp enhanced/lighting/probe_astc_constraints.cpp
     enhanced/lighting/bake_material.cpp enhanced/lighting/bake_scene.cpp
     enhanced/lighting/bake_transport.cpp enhanced/lighting/bake_emitters.cpp enhanced/lighting/interior_lights.cpp
-    enhanced/lighting/environment_bake.cpp enhanced/lighting/environment_placement.cpp enhanced/lighting/room_links.cpp enhanced/lighting/environment_water.cpp
-    enhanced/lighting/room_layout.cpp enhanced/lighting/room_floor_graph.cpp enhanced/lighting/room_distance_field.cpp enhanced/lighting/room_wall_distance.cpp enhanced/lighting/room_medial.cpp enhanced/lighting/room_grid.cpp enhanced/lighting/environment_floor_map.cpp enhanced/lighting/environment_floor_groups.cpp enhanced/lighting/environment_space_merge.cpp enhanced/lighting/environment_probe_merge.cpp
+    enhanced/lighting/environment_bake.cpp enhanced/lighting/environment_placement.cpp enhanced/lighting/environment_capture_plan.cpp enhanced/lighting/environment_box_fit.cpp enhanced/lighting/environment_neighbourhood.cpp enhanced/lighting/room_links.cpp enhanced/lighting/environment_water.cpp enhanced/lighting/environment_water_reachability.cpp
+    enhanced/lighting/room_layout.cpp enhanced/lighting/room_region_merge.cpp enhanced/lighting/room_floor_graph.cpp enhanced/lighting/room_distance_field.cpp enhanced/lighting/spatial_watershed.cpp enhanced/lighting/room_wall_distance.cpp enhanced/lighting/room_backbone.cpp enhanced/lighting/room_backbone_connections.cpp enhanced/lighting/room_medial.cpp enhanced/lighting/room_grid.cpp enhanced/lighting/room_coverage_grid.cpp enhanced/lighting/environment_floor_map.cpp enhanced/lighting/environment_floor_groups.cpp enhanced/lighting/environment_space_merge.cpp enhanced/lighting/environment_probe_merge.cpp
     enhanced/lighting/environment_capture_search.cpp enhanced/lighting/environment_capture_relocation.cpp
     enhanced/lighting/environment_merge_policy.cpp)
+  target_sources(openrac_probe_bake PRIVATE enhanced/lighting/spatial_visibility.cpp
+    enhanced/lighting/spatial_link_tiles.cpp)
+  target_sources(openrac_probe_bake PRIVATE enhanced/lighting/spatial_volume_fit.cpp enhanced/lighting/spatial_placement.cpp)
+  target_sources(openrac_probe_bake PRIVATE enhanced/lighting/environment_influence_coverage.cpp)
+  target_sources(openrac_probe_bake PRIVATE enhanced/lighting/environment_surface_coverage.cpp)
+  openrac_add_test(environment_surface_coverage SOURCES enhanced/tests/environment_surface_coverage_test.cpp LIBS openrac_probe_bake embree)
   target_link_libraries(openrac_probe_bake PUBLIC openrac_lighting PRIVATE openrac_common embree Threads::Threads openrac_astc_encode openrac_bc6)
   openrac_warnings(openrac_probe_bake)
   if(OPENRAC_VULKAN)
@@ -30,7 +36,10 @@ if(OPENRAC_PROBE_BAKER)
     target_compile_definitions(openrac_probe_bake PRIVATE OPENRAC_GPU_BAKE=1)
   endif()
   openrac_add_test(environment_bake SOURCES enhanced/tests/environment_bake_test.cpp LIBS openrac_probe_bake embree)
+  openrac_add_test(spatial_watershed SOURCES enhanced/tests/spatial_watershed_test.cpp LIBS openrac_probe_bake embree)
+  openrac_add_test(spatial_volume_fit SOURCES enhanced/tests/spatial_volume_fit_test.cpp LIBS openrac_probe_bake embree)
   openrac_add_test(room_layout SOURCES enhanced/tests/room_layout_test.cpp LIBS openrac_probe_bake embree)
+  openrac_add_test(room_backbone SOURCES enhanced/tests/room_backbone_test.cpp LIBS openrac_probe_bake embree)
   openrac_add_test(room_traversal SOURCES enhanced/tests/room_traversal_test.cpp LIBS openrac_probe_bake embree)
   openrac_add_test(probe_field_sampling SOURCES enhanced/tests/probe_field_sampling_test.cpp
                   LIBS openrac_probe_bake openrac_common)

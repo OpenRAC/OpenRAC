@@ -5,7 +5,7 @@ memory (meshes, textures, placements, the baked camera visibility), the poses an
 mobys a running game holds in its memory, the level drawn as one renderer bucket per layer, and a
 frame written to a PNG. The viewer program (`viewer/`) and the game programs (`game/common`) draw
 with it. It is not the renderer: the level is drawn as buckets of `renderer/`'s frame, with the
-port's OpenGL calls (`renderer/gl.h`), which the Vulkan backend carries out in a Vulkan build. What
+port's OpenGL calls (`renderer/gl/gl.h`), which the Vulkan backend carries out in a Vulkan build. What
 the renderers read of a running game besides the mobys (the camera, which mobys are live) is the
 game state, which each game keeps in its own folder (rac1's `game/rac1/game_state.h`) and the game
 programs read through the game's profile (`game/common/profile.h`).
@@ -27,7 +27,7 @@ package P2-39b).
 | [`pvs.h`](pvs.h) | `Pvs`, rac1's baked camera visibility (`pvs.json`, `pvs.bin`): the grid's lookup of which instances a camera position can see |
 | [`level_renderer.h`](level_renderer.h) | `LevelScene`, a loaded level on the GPU (shared buffers, instanced draws per class and material, skinned live mobys, culling, the enhanced lighting and shadows when they are on), and `LayerRenderer`, one of its layers as a bucket of `renderer::Renderer` |
 | [`level_lighting.h`](level_lighting.h) | `LevelLighting`, the level renderer's lighting hook: what a `LevelScene` asks of the probe and early lighting registered with `set_level_lighting` (the shaders' lighting GLSL, the bake's load, the uniforms, the early pass); the enhanced renderer's `lighting::SceneLighting` implements it |
-| [`moby_pose.h`](moby_pose.h) | `moby_palette` and `moby_pose_matrices`: a live moby's joint matrices, evaluated from its animation fields in game memory as the game's VU0 evaluator did |
+| [`moby_pose.h`](moby_pose.h) | `moby_palette` and `moby_pose_matrices`: a live moby's joint matrices, evaluated from its animation fields in game memory as the game's VU0 evaluator did; `key_gap`: how far apart two frames of a class pose its joints |
 | [`sun_shadow.h`](sun_shadow.h) | `sun_cascades` and `SunCascades`: the sun's four cascades over the camera's view, their snapped matrices and caster volumes; `StaticShadowKey`, what the static shadow cache compares |
 | [`hero_shadow.h`](hero_shadow.h) | `hero_shadow_projection`, the view Ratchet's shadow map is drawn from, and `hero_airborne`, read from game memory |
 | [`motion.h`](motion.h) | Current and previous displayed poses supplied to `LevelScene::draw_motion`, including batched rigid and skinned motion |
@@ -42,6 +42,9 @@ palettes; `level_lighting_pass.cpp` owns early lighting. Shadows split into setu
 (`level_shadows.cpp`), atlas submission (`shadow_atlas_renderer.cpp`), casters (`shadow_casters.cpp`)
 and persistent caches (`shadow_scroll_renderer.cpp`). `level_renderer_internal.h` shares private
 utilities; the public `LevelScene` interface is unchanged.
+
+`chrome_geometry.cpp` links retail chrome packets to editable colour slots and creates Lit
+replacements for chrome-only faces. Original restores the linked retail packet and its texture.
 
 ## Depends on
 
@@ -75,11 +78,18 @@ utilities; the public `LevelScene` interface is unchanged.
   instead of regrouping them (`moby-pose-in-place`). It also keeps a static shadow cache when
   `shadow-static-cache` is on, and the registered static instances of the GPU culling
   (`gpu-resident-instances`), all let go by `release`.
+- Models loaded into the level after `upload` (a mod's prop meshes) are added with
+  `align_models`, `load_model` and `add_loaded_models`, on the thread that owns the graphics with
+  no frame in flight. Each call's meshes get vertex, position and index buffers of their own (a
+  chunk) that are never written again, so the level's buffers, its other models and the groups
+  already made are untouched. Such a model is drawn as a live moby, with the same index in the
+  level and in the scene.
 
 ## Errors
 
-- `load_level`, `LevelScene::upload` and the enhanced passes' switches (`enable_hero_shadow`,
-  `enable_sun_shadow`) return `false` and say why in their `std::string& error`.
+- `load_level`, `LevelScene::upload`, `add_loaded_models` and the enhanced passes' switches
+  (`enable_hero_shadow`, `enable_sun_shadow`) return `false` and say why in their
+  `std::string& error`.
 - `load_level` logs a warning and goes on for what it can do without: a texture or a sky panorama
   that does not decode, a placement of an unknown class.
 - The pose and shadow functions return an empty result for a moby whose fields do not describe one
@@ -97,7 +107,7 @@ and `OPENRAC_SUN_TIMING_DETAIL`. [docs/port/DEBUGGING.md](../../docs/port/DEBUGG
 each one. The enhanced lighting and shadows follow the `enhanced_rendering` setting
 ([enhanced/lighting/README.md](../enhanced/lighting/README.md)).
 
-Its render optimisations are entries of the optimisation registry (`renderer/render_opt.h`,
+Its render optimisations are entries of the optimisation registry (`renderer/settings/render_opt.h`,
 switched off with `OPENRAC_RENDER_OPT_OFF`): `texture-prepare`, `gpu-resident-instances`,
 `shadow-static-cache` (off by default), `moby-pose-in-place` and `shadow-atlas-discard`
 ([docs/port/RENDER_PERF.md](../../docs/port/RENDER_PERF.md)).
@@ -113,8 +123,9 @@ switched off with `OPENRAC_RENDER_OPT_OFF`): `texture-prepare`, `gpu-resident-in
 | `hero_shadow_vulkan`, `sun_shadow_vulkan`, `sun_shadow_filter_reference_vulkan`, `probe_gpu_vulkan`, `early_lighting_vulkan`, `gtao_vulkan`, `enhanced_rendering_compat` | the enhanced passes the level renderer draws, and that a build with them switched off draws as one without |
 | `object_picker` | click hit testing, BVH traversal, nearest geometry, animated poses, stable selection and JSON reports |
 | `geometry_moby_animation` | the pose arithmetic `moby_pose.h` runs, against the game's own (in `assets/geometry`) |
+| `moby_key_gap`, `moby_shadow` | `key_gap` on frames laid out as the game keeps them; Going Commando's shadow state against retail's values |
 
-`moby_pose.h` and `moby_shadow.h` have no test of their own: what they read of game memory is
+Beyond these, what `moby_pose.h` and `moby_shadow.h` read of game memory is
 checked by the maintainers' regression comparison of the game programs
 ([docs/port/REGRESSION.md](../../docs/port/REGRESSION.md)).
 

@@ -8,9 +8,10 @@
 
 #include "enhanced/lighting/probe_texture_encode.h"
 #include "enhanced/viewer/probe_texture_upload.h"
-#include "renderer/framebuffer.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -142,7 +143,7 @@ struct UploadFixture {
         glUniform1i(shader.uniform("image"), 0);
         glGenVertexArrays(1, &vao);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         std::vector<std::uint8_t> output(std::size_t{kSide} * kSide * 3 * 4);
         glReadPixels(0, 0, kSide * 3, kSide, GL_RGBA, GL_UNSIGNED_BYTE, output.data());
         return output;

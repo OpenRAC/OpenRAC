@@ -9,9 +9,9 @@
 #include <string_view>
 
 #include "common/result.h"
-#include "renderer/bloom_settings.h"
-#include "renderer/framebuffer.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/bloom_settings.h"
 
 namespace openrac::enhanced {
 

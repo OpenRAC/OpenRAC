@@ -12,6 +12,8 @@ std::vector<EnvironmentProbe> place_environment_probes(
     std::span<const EnvironmentFloorSample> floors,
     const BakeSettings& settings,
     const EnvironmentBakeSettings& options,
-    EnvironmentPlacementReport* report = nullptr
+    EnvironmentPlacementReport* report = nullptr,
+    const Scene* gameplay_collision = nullptr,
+    std::vector<EnvironmentInfluence>* influences = nullptr
 );
 }  // namespace openrac::lighting::bake_detail

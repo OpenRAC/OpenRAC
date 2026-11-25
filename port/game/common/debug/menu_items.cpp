@@ -14,6 +14,7 @@
 #include <iterator>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <SDL3/SDL.h>
 
@@ -23,9 +24,12 @@
 #include "enhanced/fsr3/fsr3.h"
 #include "fixes.h"
 #include "frontend.h"
+#include "game/common/frontend/active_input.h"
+#include "mod_touch.h"
 #include "mods.h"
 #include "options_menu.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
+#include "renderer/ui/menu_icons.h"
 #include "settings.h"
 
 #pragma clang diagnostic error "-Wswitch"
@@ -39,12 +43,20 @@ using menu::Id;
 // What an entry shows now.
 struct Item {
     bool shown = true;
+    bool enabled = true;
     std::string label;      // empty: the catalog's
     bool on = false;        // a switch
+    bool selected = false;  // an action whose settings match
     std::string value;      // a choice's value, a note's line
     bool can_lower = true;  // a choice: whether it can be moved back and on
     bool can_raise = true;
 };
+
+settings::EnhancedPreset enhanced_preset(Id id) {
+    return static_cast<settings::EnhancedPreset>(
+        static_cast<int>(id) - static_cast<int>(Id::EnhancedLow)
+    );
+}
 
 constexpr bool kEnhancedBuilt =
 #if defined(OPENRAC_ENHANCED_RENDERING) && OPENRAC_ENHANCED_RENDERING
@@ -192,7 +204,7 @@ bool window_full_screen() {
     return s.window != nullptr && (SDL_GetWindowFlags(s.window) & SDL_WINDOW_FULLSCREEN) != 0;
 }
 
-Item item(Id id, std::uint8_t where) {
+Item own_item(Id id, std::uint8_t where) {
     using namespace options_menu;
     settings::Settings& set = settings::get();
     Item it;
@@ -228,7 +240,12 @@ Item item(Id id, std::uint8_t where) {
         case Id::RenderScale:
             return row_choice(kRenderScale);
         case Id::Msaa:
-            return row_choice(kMsaa);
+            it = row_choice(kMsaa);
+            // Enhanced Graphics keeps the saved choice for standard rendering.
+            if (set.msaa > 1 && gl::enhanced_rendering_available() && set.enhanced_graphics) {
+                it.value += " (standard graphics)";
+            }
+            return it;
         case Id::Anisotropy:
             return row_choice(kAnisotropy);
         case Id::DrawDistance:
@@ -301,47 +318,43 @@ Item item(Id id, std::uint8_t where) {
             it.shown = enhanced_ready();
             it.on = set.enhanced_graphics;
             return it;
-        case Id::ModernShadows:
-            it.shown = enhanced_on();
-            it.on = set.enhanced_shadows;
-            return it;
-        case Id::ShadowQuality: {
+        case Id::ShadowFilter: {
             it.shown = enhanced_on() && set.enhanced_shadows;
-            const int quality = static_cast<int>(set.shadow_quality);
-            it.value = renderer::kShadowQualityNames[quality];
-            it.can_lower = quality > 0;
-            it.can_raise = quality < static_cast<int>(renderer::ShadowQuality::Count) - 1;
+            const int filter = static_cast<int>(set.shadow_filter);
+            it.value = renderer::kShadowFilterNames[filter];
+            it.can_lower = filter > 0;
+            it.can_raise = filter < static_cast<int>(renderer::ShadowFilter::Count) - 1;
             return it;
         }
-        case Id::RimLight:
+        case Id::EnhancedLow:
+        case Id::EnhancedMedium:
+        case Id::EnhancedHigh: {
+            const auto preset = enhanced_preset(id);
             it.shown = enhanced_on();
-            it.on = set.rim_light;
+            it.selected = set.enhanced_preset() == preset;
             return it;
-        case Id::RimShadowLift:
-            it.shown = enhanced_on() && set.rim_light;
-            it.on = set.rim_shadow_lift;
-            return it;
-        case Id::BounceStrength:
+        }
+        case Id::ShadowQuality: {
             it.shown = enhanced_on();
-            it.value = std::format("{:g}x", set.probe_gi_multiplier);
-            it.can_lower = set.probe_gi_multiplier > 0.05f;
-            it.can_raise = set.probe_gi_multiplier < 4.95f;
+            const int quality = set.shadow_quality_choice();
+            it.value = quality == 0 ? "Off" : renderer::kShadowQualityNames[quality - 1];
+            it.can_lower = quality > 0;
+            it.can_raise = quality < static_cast<int>(renderer::ShadowQuality::Count);
             return it;
-        case Id::AmbientOcclusion:
-            it.shown = enhanced_on();
-            it.on = set.gtao;
-            return it;
+        }
         case Id::OcclusionQuality: {
-            it.shown = enhanced_on() && set.gtao;
-            const bool quality = set.gtao_settings.quality == renderer::GtaoQuality::Quality;
-            it.value = quality ? "Quality" : "Performance";
-            it.can_lower = quality;
-            it.can_raise = !quality;
+            it.shown = enhanced_on();
+            const int quality = set.occlusion_quality_choice();
+            constexpr const char* names[] = {"Off", "Low", "Performance", "Quality"};
+            it.value = names[quality];
+            it.can_lower = quality > 0;
+            it.can_raise = quality < static_cast<int>(renderer::GtaoQuality::Quality) + 1;
             return it;
         }
         // The hierarchy is relevant only while enhanced ambient occlusion is enabled.
         case Id::OcclusionHiZ:
-            it.shown = enhanced_on() && set.gtao;
+            it.shown = enhanced_on();
+            it.enabled = set.gtao;
             it.on = set.gtao_settings.hi_z;
             return it;
         case Id::TextureUpscaling: {
@@ -350,6 +363,23 @@ Item item(Id id, std::uint8_t where) {
             it.value = settings::name(set.texture_filter);
             it.can_lower = filter > 0;
             it.can_raise = filter < static_cast<int>(renderer::TextureFilter::Count) - 1;
+            return it;
+        }
+        case Id::EffectsDetail: {
+            it.shown = enhanced_on();
+            constexpr const char* kNames[] = {"Low", "Medium", "High"};
+            const int detail = static_cast<int>(set.effects_detail);
+            it.value = kNames[detail];
+            it.can_lower = detail > 0;
+            it.can_raise = detail < 2;
+            return it;
+        }
+        case Id::EarlyLightingQuality: {
+            it.shown = enhanced_on();
+            const bool high = set.early_lighting_quality == renderer::EarlyLightingQuality::High;
+            it.value = renderer::kEarlyLightingQualityNames[high ? 1 : 0];
+            it.can_lower = high;
+            it.can_raise = !high;
             return it;
         }
         case Id::Upscaling: {
@@ -366,8 +396,8 @@ Item item(Id id, std::uint8_t where) {
             return it;
         }
         case Id::Sharpening:
-            it.shown = enhanced_on() && enhanced::Fsr3::available()
-                       && set.temporal_quality != renderer::TemporalQuality::Off;
+            it.shown = enhanced_on() && enhanced::Fsr3::available();
+            it.enabled = set.temporal_quality != renderer::TemporalQuality::Off;
             it.value = percent(set.temporal_sharpness);
             it.can_lower = set.temporal_sharpness > 0.025f;
             it.can_raise = set.temporal_sharpness < 0.975f;
@@ -377,6 +407,14 @@ Item item(Id id, std::uint8_t where) {
             it.shown = enhanced_on() && enhanced::Fsr3::available();
             it.on = set.motion_blur;
             return it;
+        case Id::MotionBlurQuality: {
+            it.shown = enhanced_on() && enhanced::Fsr3::available() && set.motion_blur;
+            const bool quality = set.motion_blur_settings.quality;
+            it.value = quality ? "Quality" : "Performance";
+            it.can_lower = quality;
+            it.can_raise = !quality;
+            return it;
+        }
         case Id::ColorCorrection:
             it.shown = enhanced_on();
             it.on = set.agx_preview;
@@ -396,6 +434,10 @@ Item item(Id id, std::uint8_t where) {
         case Id::EnhancedAdvanced:
             it.shown = gl::enhanced_rendering_available();
             it.on = s.enhanced_settings;
+            return it;
+        case Id::EnhancedMaterials:
+            it.shown = gl::enhanced_rendering_available();
+            it.on = s.material_settings;
             return it;
 
         // ---- Game ----
@@ -438,6 +480,7 @@ Item item(Id id, std::uint8_t where) {
             // debug/menu_controls.cpp's.
             const ControlsRow r = controls_row(id);
             it.shown = r.shown;
+            it.enabled = r.enabled;
             it.label = r.label;
             it.on = r.on;
             it.value = r.value;
@@ -445,6 +488,9 @@ Item item(Id id, std::uint8_t where) {
             it.can_raise = r.can_raise;
             return it;
         }
+        case Id::KeyboardMouse:
+            it.shown = keyboard_mouse_shown();
+            return it;
         case Id::TouchActionButtons:
             it.on = set.touch_style == 0;
             return it;
@@ -507,7 +553,8 @@ Item item(Id id, std::uint8_t where) {
             it.value = capture_length_name();
             return it;
         case Id::RecordSweep:
-            it.shown = !capture_pending();
+            // It measures the parts of Enhanced graphics, so it is offered only with them on.
+            it.shown = !capture_pending() && enhanced_on();
             it.label = std::format("Graphics sweep ({:.0f} s)", settings_sweep_seconds());
             return it;
         case Id::RecordFolder:
@@ -558,6 +605,43 @@ Item item(Id id, std::uint8_t where) {
             break;
     }
     it.shown = false;
+    return it;
+}
+
+// What an entry shows now, with what the mods set it to (openrac_api.menu_option_set).
+// What the mods set entry `id` to, as the menu takes it: a panel or a note never changes, and the
+// player's essentials (Quit, the volume, the window, the controls) are never turned off
+// (sdk/docs/menu-options.md).
+mods::MenuOptionState mods_state(Id id) {
+    const menu::Entry& e = menu::entry(id);
+    const bool settable = e.kind == menu::Kind::Switch || e.kind == menu::Kind::Choice
+                          || e.kind == menu::Kind::Slider || e.kind == menu::Kind::Action;
+    if (!settable) {
+        return {};
+    }
+    mods::MenuOptionState state = mods::menu_option_state(menu::option_name(id));
+    const bool essential = id == Id::Quit || id == Id::Volume || id == Id::FullScreen
+                           || id == Id::DisplayMode || id == Id::Monitor || id == Id::MenuSize
+                           || e.tab == menu::Tab::Controls;
+    if (state.state == OPENRAC_MENU_OPTION_OFF && essential) {
+        return {};
+    }
+    return state;
+}
+
+// What an entry shows now, with what the mods set it to (openrac_api.menu_option_set). A row a mod
+// greyed out names the mod, so the player knows why.
+Item item(Id id, std::uint8_t where) {
+    Item it = own_item(id, where);
+    const mods::MenuOptionState state = mods_state(id);
+    if (state.state == OPENRAC_MENU_OPTION_ON) {
+        it.enabled = true;
+    } else if (state.state == OPENRAC_MENU_OPTION_OFF) {
+        it.enabled = false;
+        const std::string label =
+            it.label.empty() ? std::string(menu::entry(id).label) : std::move(it.label);
+        it.label = std::format("{} (set by {})", label, state.by);
+    }
     return it;
 }
 
@@ -662,38 +746,35 @@ bool act(Id id, int by) {
             set.enhanced_graphics = !set.enhanced_graphics;
             changed();
             return false;
-        case Id::ModernShadows:
-            set.enhanced_shadows = !set.enhanced_shadows;
-            changed();
-            return false;
-        case Id::ShadowQuality: {
-            const int last = static_cast<int>(renderer::ShadowQuality::Count) - 1;
-            set.shadow_quality = static_cast<renderer::ShadowQuality>(
-                std::clamp(static_cast<int>(set.shadow_quality) + by, 0, last)
+        case Id::ShadowFilter: {
+            const int last = static_cast<int>(renderer::ShadowFilter::Count) - 1;
+            set.shadow_filter = static_cast<renderer::ShadowFilter>(
+                std::clamp(static_cast<int>(set.shadow_filter) + by, 0, last)
             );
             changed();
             return false;
         }
-        case Id::RimLight:
-            set.rim_light = !set.rim_light;
+        case Id::EnhancedLow:
+        case Id::EnhancedMedium:
+        case Id::EnhancedHigh: {
+            set.apply_enhanced_preset(enhanced_preset(id));
             changed();
             return false;
-        case Id::RimShadowLift:
-            set.rim_shadow_lift = !set.rim_shadow_lift;
+        }
+        case Id::ShadowQuality: {
+            const int last = static_cast<int>(renderer::ShadowQuality::Count);
+            set.set_shadow_quality_choice(std::clamp(set.shadow_quality_choice() + by, 0, last));
             changed();
             return false;
-        case Id::BounceStrength:
-            set.probe_gi_multiplier = stepped(set.probe_gi_multiplier, 0.25f, by, 0.0f, 5.0f);
-            changed();
-            return false;
-        case Id::AmbientOcclusion:
-            set.gtao = !set.gtao;
-            changed();
-            return false;
+        }
         case Id::OcclusionQuality:
-            set.gtao_settings.quality = set.gtao_settings.quality == renderer::GtaoQuality::Quality
-                                            ? renderer::GtaoQuality::Performance
-                                            : renderer::GtaoQuality::Quality;
+            set.set_occlusion_quality_choice(
+                std::clamp(
+                    set.occlusion_quality_choice() + by,
+                    0,
+                    static_cast<int>(renderer::GtaoQuality::Quality) + 1
+                )
+            );
             changed();
             return false;
         // Persist the hierarchy choice with the remaining ambient-occlusion options.
@@ -701,6 +782,20 @@ bool act(Id id, int by) {
             set.gtao_settings.hi_z = !set.gtao_settings.hi_z;
             changed();
             return false;
+        case Id::EffectsDetail:
+            set.effects_detail = static_cast<renderer::render_opt::EffectsDetail>(
+                std::clamp(static_cast<int>(set.effects_detail) + by, 0, 2)
+            );
+            changed();
+            return false;
+        case Id::EarlyLightingQuality: {
+            const int last = static_cast<int>(renderer::EarlyLightingQuality::Count) - 1;
+            set.early_lighting_quality = static_cast<renderer::EarlyLightingQuality>(
+                std::clamp(static_cast<int>(set.early_lighting_quality) + by, 0, last)
+            );
+            changed();
+            return false;
+        }
         case Id::TextureUpscaling: {
             const int last = static_cast<int>(renderer::TextureFilter::Count) - 1;
             set.texture_filter = static_cast<renderer::TextureFilter>(
@@ -725,6 +820,10 @@ bool act(Id id, int by) {
             set.motion_blur = !set.motion_blur;
             changed();
             return false;
+        case Id::MotionBlurQuality:
+            set.motion_blur_settings.quality = !set.motion_blur_settings.quality;
+            changed();
+            return false;
         case Id::ColorCorrection:
             set.agx_preview = !set.agx_preview;
             changed();
@@ -744,6 +843,9 @@ bool act(Id id, int by) {
         case Id::EnhancedAdvanced:
             s.enhanced_settings = !s.enhanced_settings;
             return s.enhanced_settings;
+        case Id::EnhancedMaterials:
+            s.material_settings = !s.material_settings;
+            return s.material_settings;
 
         // ---- Game ----
         case Id::Volume:
@@ -782,6 +884,8 @@ bool act(Id id, int by) {
         case Id::ControlsReset:
             controls_act(id, by);
             return false;
+        case Id::KeyboardMouse:
+            return false;  // its rows (debug/menu_keyboard_mouse.cpp)
         case Id::TouchActionButtons:
             set.touch_style = set.touch_style == 0 ? 1 : 0;
             settings::save();
@@ -913,18 +1017,102 @@ void note_hover(int entry) {
     const bool moved = ImGui::GetIO().NavVisible;
     if (moved ? ImGui::IsItemFocused() : ImGui::IsItemHovered() || ImGui::IsItemFocused()) {
         s.menu_hover = entry;
+        s.menu_hover_section.clear();
+        s.menu_hover_title.clear();
+        s.menu_hover_help.clear();
     }
 }
 
-void press_entry(Id id) {
-    if (act(id, 1)) {
-        set_menu(false);
+void note_hover_row(int entry, std::string section, std::string title, std::string help) {
+    const bool moved = ImGui::GetIO().NavVisible;
+    if (moved ? ImGui::IsItemFocused() : ImGui::IsItemHovered() || ImGui::IsItemFocused()) {
+        s.menu_hover = entry;
+        s.menu_hover_section = std::move(section);
+        s.menu_hover_title = std::move(title);
+        s.menu_hover_help = std::move(help);
     }
 }
 
 std::string entry_label(Id id, std::uint8_t where) {
     const Item it = item(id, where);
     return it.label.empty() ? std::string(menu::entry(id).label) : it.label;
+}
+
+// ---- The game's own Video pages ----
+
+namespace {
+
+// The kind of screen the game's pages are on, for the entries' Where.
+std::uint8_t game_screen() {
+    return drawer_possible() ? menu::kTouch : menu::kDesktop;
+}
+
+}  // namespace
+
+std::vector<Id> game_page_entries() {
+    std::vector<Id> ids;
+    const std::uint8_t where = game_screen();
+    for (const menu::Entry& e : menu::entries()) {
+        if ((e.where & menu::kGamePage) != 0 && menu::offered(e, where)
+            && item(e.id, where).shown) {
+            ids.push_back(e.id);
+        }
+    }
+    return ids;
+}
+
+std::string game_page_label(Id id) {
+    // The menu's switch says what it does; the game's page names the setting.
+    if (id == Id::EnhancedGraphics) {
+        return "Enhanced graphics";
+    }
+    // Without the menu's "(set by ...)": the game's page is narrow, and its row is just greyed.
+    const Item it = own_item(id, game_screen());
+    return it.label.empty() ? std::string(menu::entry(id).label) : it.label;
+}
+
+std::string game_page_value(Id id) {
+    const menu::Entry& e = menu::entry(id);
+    const Item it = item(id, game_screen());
+    switch (e.kind) {
+        case menu::Kind::Switch:
+            return it.on ? "On" : "Off";
+        case menu::Kind::Slider: {
+            // As a factor: the game's font draws a pad button for the percent sign.
+            const int value = *slider_of(id).value;
+            if (id == Id::GameplayFov && value == settings::kDefaultGameplayFov) {
+                return "Original";
+            }
+            return value % 100 == 0 ? std::format("{}x", value / 100)
+                                    : std::format("{:.2f}x", static_cast<float>(value) / 100.0f);
+        }
+        default:
+            return it.value;
+    }
+}
+
+void game_page_step(Id id, int by) {
+    const menu::Entry& e = menu::entry(id);
+    if (!item(id, game_screen()).enabled) {
+        return;  // greyed out, as in the menus
+    }
+    if (e.kind == menu::Kind::Slider) {
+        const Slider slider = slider_of(id);
+        const int next =
+            std::clamp(*slider.value + by * slider.step, slider.minimum, slider.maximum);
+        if (next != *slider.value) {
+            *slider.value = next;
+            changed();
+        }
+        return;
+    }
+    if (e.kind == menu::Kind::Choice) {
+        const Item it = item(id, game_screen());
+        if ((by < 0 && !it.can_lower) || (by > 0 && !it.can_raise)) {
+            return;
+        }
+    }
+    act(id, by);
 }
 
 void quit_game() {
@@ -990,6 +1178,10 @@ void freecam_help(std::uint8_t where) {
 
 }  // namespace
 
+bool option_off(Id id) {
+    return mods_state(id).state == OPENRAC_MENU_OPTION_OFF;
+}
+
 void draw_entry(Id id, std::uint8_t where) {
     const menu::Entry& e = menu::entry(id);
     if (!menu::offered(e, where)) {
@@ -1007,12 +1199,15 @@ void draw_entry(Id id, std::uint8_t where) {
     bool close = false;
     switch (e.kind) {
         case menu::Kind::Switch:
-            if (menu_switch(label.c_str(), it.on)) {
+            if (menu_switch(label.c_str(), it.on, it.enabled)) {
                 close = act(id, 1);
             }
             break;
         case menu::Kind::Choice:
-            if (const int by = menu_choice(label.c_str(), it.value, it.can_lower, it.can_raise)) {
+            // The upscaler name can change as it starts. Keep focus tied to the catalog entry.
+            if (const int by = menu_choice(
+                    label.c_str(), it.value, it.can_lower, it.can_raise, it.enabled, e.label
+                )) {
                 close = act(id, by);
             }
             break;
@@ -1020,7 +1215,7 @@ void draw_entry(Id id, std::uint8_t where) {
             const Slider slider = slider_of(id);
             int& value = *slider.value;
             const int next = menu_percent_slider(
-                label.c_str(), value, slider.minimum, slider.maximum, slider.step
+                label.c_str(), value, slider.minimum, slider.maximum, slider.step, it.enabled
             );
             // Apply live and save once the mouse drag ends, or immediately for a discrete step.
             const bool edited = next != value;
@@ -1033,11 +1228,18 @@ void draw_entry(Id id, std::uint8_t where) {
             }
             break;
         }
-        case menu::Kind::Action:
-            if (menu_row(label.c_str(), id == Id::Quit ? ui().err : ui().text)) {
+        case menu::Kind::Action: {
+            const auto ink = !it.enabled      ? ui().dim
+                             : it.selected    ? ui().gold
+                             : id == Id::Quit ? ui().err
+                                              : ui().text;
+            ImGui::BeginDisabled(!it.enabled);
+            if (menu_row(label.c_str(), ink) && it.enabled) {
                 close = act(id, 1);
             }
+            ImGui::EndDisabled();
             break;
+        }
         case menu::Kind::Note:
             if (id == Id::FreecamHelp) {
                 freecam_help(where);
@@ -1112,6 +1314,59 @@ bool draw_tab(menu::Tab tab, std::uint8_t where, const SectionFilter& only) {
     return any;
 }
 
+namespace {
+
+// The Gamepad sub tab's sections before the gyro's: the controller's own, its sticks and vibration.
+// The players, the menu's button and Reset come after it.
+bool before_gyro(std::string_view section) {
+    return section == "Controller" || section == "Buttons" || section == "Left stick"
+           || section == "Right stick" || section == "Triggers and buttons"
+           || section == "Vibration";
+}
+
+}  // namespace
+
+bool draw_controls_tab(std::uint8_t where) {
+    if (where != menu::kDesktop || !keyboard_mouse_shown()) {
+        return draw_tab(menu::Tab::Controls, where);
+    }
+    static constexpr const char* kNames[] = {"Gamepad", "Keyboard and mouse"};
+    static constexpr const char* kHelps[] = {
+        "The controller's buttons, sticks, vibration and gyro, and the players.",
+        "The mouse's feel and the key for each action. The tab opens on the device you used last."
+    };
+    // Opened, or come to from another tab: the device in use picks.
+    if (s.menu_focus || s.controls_sub_tab < 0) {
+        s.controls_sub_tab = frontend::keyboard_mouse_in_use() ? 1 : 0;
+    }
+    const menu::Entry& panel = menu::entry(menu::Id::KeyboardMouse);
+    const int picked = menu_sub_tabs(
+        kNames, kHelps, 2, s.controls_sub_tab, static_cast<int>(menu::Id::KeyboardMouse)
+    );
+    if (picked != s.controls_sub_tab) {
+        s.controls_sub_tab = picked;
+        s.menu_motion.scroll_target = 0.0f;  // the other page from its top
+    }
+    if (s.controls_sub_tab == 1) {
+        // Its panel's first card (the presets, the reset) right under the sub tabs, as the
+        // launcher's page has them; its own sections follow with their headings.
+        ImGui::Dummy(ImVec2(0.0f, dp(16.0f)));
+        card_begin();
+        draw_entry(menu::Id::KeyboardMouse, where);
+        card_end();
+        return true;
+    }
+    const std::string_view kbm = panel.section;
+    draw_tab(menu::Tab::Controls, where, [kbm](std::string_view section) {
+        return before_gyro(section) && section != kbm;
+    });
+    keyboard_mouse_gyro();
+    draw_tab(menu::Tab::Controls, where, [kbm](std::string_view section) {
+        return !before_gyro(section) && section != kbm;
+    });
+    return true;
+}
+
 int mod_menu_count() {
     return static_cast<int>(mods::developer_menus().size());
 }
@@ -1124,19 +1379,120 @@ std::string mod_menu_title(int index) {
 }
 
 // A mod's menu: its items without a group on one card, then a heading and a card for each group,
-// in the order they first come. A press queues the item's action for the mod.
+// in the order they first come. A press queues the item's action for the mod; a switch is turned
+// over and a choice moved at once (1.19), the game paused as it is, and queue it too.
 void draw_mod_menu(int index) {
     const auto& menus = mods::developer_menus();
     if (index < 0 || index >= static_cast<int>(menus.size())) {
         return;
     }
     const mods::DeveloperMenu& menu = menus[static_cast<std::size_t>(index)];
+    // The mods' icons (touch_icon), for the rows that show one (1.28), when they changed.
+    static unsigned icons_known = ~0u;
+    if (mods::touch::Snapshot icons = mods::touch::snapshot(icons_known); icons.files) {
+        renderer::ui::menu_icons::set(icons.icons);
+        icons_known = icons.generation;
+    }
     const auto row = [&](const mods::DeveloperMenuItem& item) {
         const std::string label =
             item.shortcut.empty() ? item.label : std::format("{}  ({})", item.label, item.shortcut);
+        // Its look (developer_menu_look): dim when locked, an icon, a progress bar.
+        const ImU32 ink = item.locked ? ui().dim : ui().text;
+        RowExtra extra;
+        extra.progress = item.progress;
+        extra.dim = item.locked;
+        if (const auto icon = renderer::ui::menu_icons::find(item.icon)) {
+            const auto texture = static_cast<ImTextureID>(renderer::ui::menu_icons::texture());
+            const ImU32 accent = item.locked ? ui().dim : ui().amber;
+            extra.icon =
+                [icon = *icon, texture, ink, accent](ImDrawList* list, ImVec2 a, float size) {
+                    const ImVec2 b(a.x + size, a.y + size);
+                    const auto& w = icon.white;
+                    const auto& o = icon.accent;
+                    list->AddImage(texture, a, b, ImVec2(w.u0, w.v0), ImVec2(w.u1, w.v1), ink);
+                    list->AddImage(texture, a, b, ImVec2(o.u0, o.v0), ImVec2(o.u1, o.v1), accent);
+                };
+        }
+        const RowExtra* more = extra.icon || extra.progress >= 0.0f ? &extra : nullptr;
+        // A row the cursor still reaches, drawn dim, its value at the right: a locked one refuses
+        // a press, a row to read takes none (a disabled switch or choice would be passed over).
+        const auto still_row = [&](const std::string& value) {
+            const float value_width = value.empty() ? 0.0f : ImGui::CalcTextSize(value.c_str()).x;
+            const ImU32 value_ink = item.locked ? ui().dim : ui().gold;
+            RowRight right;
+            if (!value.empty()) {
+                right = [&value, value_width, value_ink](ImDrawList* list, ImVec2 at) {
+                    list->AddText(
+                        ImVec2(at.x - value_width, at.y - ImGui::GetFontSize() * 0.5f),
+                        value_ink,
+                        value.c_str()
+                    );
+                };
+            }
+            extra.quiet = true;
+            const bool pressed = menu_row(label.c_str(), ink, right, value_width, nullptr, &extra);
+            if (pressed && item.locked) {
+                menu_sound(MenuSound::Denied);
+            }
+            return pressed;
+        };
         ImGui::PushID(&item);
-        if (menu_row(label.c_str())) {
-            mods::queue_developer_menu_action(menu.mod, item.action);
+        switch (item.locked && item.kind != mods::MenuItemKind::Press ? mods::MenuItemKind::Press
+                                                                      : item.kind) {
+            case mods::MenuItemKind::Switch:
+                if (menu_switch(label.c_str(), item.value != 0, true, more)) {
+                    mods::set_developer_menu_value(menu.mod, item.action, item.value != 0 ? 0 : 1);
+                }
+                break;
+            case mods::MenuItemKind::Choice: {
+                const int last = static_cast<int>(item.values.size()) - 1;
+                const int at = std::clamp(item.value, 0, last);
+                if (const int by = menu_choice(
+                        label.c_str(),
+                        item.values[static_cast<std::size_t>(at)],
+                        at > 0,
+                        at < last,
+                        true,
+                        nullptr,
+                        more
+                    )) {
+                    // menu_choice moves no value past either end.
+                    mods::set_developer_menu_value(menu.mod, item.action, at + by);
+                }
+                break;
+            }
+            case mods::MenuItemKind::Press: {
+                // A locked switch or choice shows its state as text: "On", "Off", its value.
+                std::string value = item.look_value;
+                if (item.kind == mods::MenuItemKind::Switch) {
+                    value = item.value != 0 ? "On" : "Off";
+                } else if (item.kind == mods::MenuItemKind::Choice && !item.values.empty()) {
+                    value = item.values[static_cast<std::size_t>(
+                        std::clamp(item.value, 0, static_cast<int>(item.values.size()) - 1)
+                    )];
+                }
+                if (item.locked || item.info) {
+                    still_row(value);
+                    break;
+                }
+                // Its value at the right in the accent's gold, as the Game tab's.
+                const float value_width =
+                    value.empty() ? 0.0f : ImGui::CalcTextSize(value.c_str()).x;
+                RowRight right;
+                if (!value.empty()) {
+                    right = [&value, value_width](ImDrawList* list, ImVec2 at) {
+                        list->AddText(
+                            ImVec2(at.x - value_width, at.y - ImGui::GetFontSize() * 0.5f),
+                            ui().gold,
+                            value.c_str()
+                        );
+                    };
+                }
+                if (menu_row(label.c_str(), ink, right, value_width, nullptr, &extra)) {
+                    mods::queue_developer_menu_action(menu.mod, item.action);
+                }
+                break;
+            }
         }
         ImGui::PopID();
         if (ImGui::IsItemHovered() || ImGui::IsItemFocused()) {

@@ -599,7 +599,7 @@ fn describe(
     let format = raw.get("format").and_then(Value::as_u64).unwrap_or(0);
     let folder = folder_of(path);
     if format == 1 || format == 5 {
-        // A data pack (editor/MODDING.md): named after its folder, or the repository.
+        // A data pack (extractor/MODDING.md): named after its folder, or the repository.
         let id = if format == 5 {
             text("id")
         } else if folder.is_empty() {
@@ -650,13 +650,17 @@ fn describe(
         });
     }
     let m: Manifest = serde_json::from_value(raw.clone()).map_err(|e| format!("{path} cannot be read ({e})"))?;
-    let check = m.validate().map_err(|e| format!("Its {MANIFEST} breaks a rule: {e}.")).and_then(|()| {
+    let check = m.validate_source().map_err(|e| format!("Its {MANIFEST} breaks a rule: {e}.")).and_then(|()| {
         if m.plugin.is_empty() && !m.is_script() {
             m.games
                 .get(game)
                 .filter(|d| d.iter().any(|d| d == version))
-                .map(|_| ())
-                .ok_or_else(|| format!("Not for this game's disc ({game}, {version})."))
+                .ok_or_else(|| format!("Not for this game's disc ({game}, {version})."))?;
+            if m.api.is_some() {
+                m.check_api_compatibility()
+            } else {
+                Ok(())
+            }
         } else {
             m.runs_on(game, version, platform)
         }
@@ -739,8 +743,8 @@ fn read_github(
     };
     // Newest first. GitHub's list is not in date order: a repository of many mods, each released
     // on its own tag, can list an older mod's release first, and every other mod's manifest would
-    // then be read as it was back then (openrac-mods listed xbox-icons-v1.1.0 first, from before
-    // the other mods took Going Commando, so they could not be installed for it). The dates are
+    // then be read as it was at that older release (a game added since would be missing, so the
+    // mods could not be installed for it). The dates are
     // GitHub's ISO 8601 in UTC, which sort as text; a release without one goes last.
     eligible.sort_by(|a, b| b.when().cmp(&a.when()));
     // What the manifests are read at: the release named, a branch or commit named, the newest
@@ -1745,12 +1749,16 @@ mod tests {
     }
 
     fn mod_zip(id: &str, version: &str) -> Vec<u8> {
+        // As package_mod.py writes it: the manifest names this platform's library only.
+        let one = manifest(id, version).replace(r#", "windows-x86_64": "lib/windows-x86_64/m.dll""#, "");
+        mod_zip_with_manifest(id, &one)
+    }
+
+    fn mod_zip_with_manifest(id: &str, manifest: &str) -> Vec<u8> {
         let mut w = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
         let o = zip::write::SimpleFileOptions::default();
         w.start_file(format!("{id}/openrac-mod.json"), o).unwrap();
-        // As package_mod.py writes it: the manifest names this platform's library only.
-        let one = manifest(id, version).replace(r#", "windows-x86_64": "lib/windows-x86_64/m.dll""#, "");
-        w.write_all(one.as_bytes()).unwrap();
+        w.write_all(manifest.as_bytes()).unwrap();
         w.start_file(format!("{id}/lib/{PLATFORM}/m.so"), o).unwrap();
         w.write_all(b"library").unwrap();
         w.finish().unwrap().into_inner()
@@ -1958,6 +1966,65 @@ mod tests {
         let none = Context { platform: None, ..ctx(dir.path(), &fx) };
         let m = &preview(&none, "https://github.com/o/r").unwrap().mods[0];
         assert!(!m.compatible && m.why.as_deref().unwrap().contains("not loaded"), "{:?}", m.why);
+    }
+
+    #[test]
+    fn vulkan_mod_source_can_omit_the_library_list() {
+        let id = "vulkan-mod";
+        let mut source: Value = serde_json::from_str(&manifest(id, "1.0.0")).unwrap();
+        source["api"] = "1.20".into();
+        source["vulkan_queue"] = true.into();
+        source.as_object_mut().unwrap().remove("plugin");
+
+        for packaged_library in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut fx = Fixture::default();
+            let rel = release(&mut fx, "v1.0.0", id, "1.0.0", Some(String::new()), false);
+            let mut packaged = source.clone();
+            if packaged_library {
+                packaged["plugin"] = serde_json::json!({(PLATFORM): format!("lib/{PLATFORM}/m.so")});
+            }
+            let name = asset_name(id, "1.0.0", PLATFORM);
+            let bytes = mod_zip_with_manifest(id, &packaged.to_string());
+            fx.put(&format!("{DL}/v1.0.0/SHA256SUMS"), format!("{}  {name}\n", sha(&bytes)));
+            fx.put(&format!("{DL}/v1.0.0/{name}"), bytes);
+            repo(&mut fx, &[("openrac-mod.json", source.to_string())], serde_json::json!([rel]), "c1");
+
+            let c = ctx(dir.path(), &fx);
+            let url = "https://github.com/o/r";
+            let shown = &preview(&c, url).unwrap().mods[0];
+            assert!(shown.compatible, "{:?}", shown.why);
+            let result = install(&c, url, id);
+            if packaged_library {
+                assert!(matches!(result.unwrap(), RemoteInstalled::Plugin { .. }));
+            } else {
+                assert!(result.unwrap_err().contains("vulkan_queue"));
+            }
+        }
+    }
+
+    #[test]
+    fn vulkan_mod_source_requires_a_supported_api() {
+        let id = "vulkan-mod";
+        let api = format!("{}.{}", plugins::API_MAJOR, plugins::API_MINOR + 1);
+        let mut source: Value = serde_json::from_str(&manifest(id, "1.0.0")).unwrap();
+        source["api"] = api.clone().into();
+        source["vulkan_queue"] = true.into();
+        source.as_object_mut().unwrap().remove("plugin");
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        let rel = release(&mut fx, "v1.0.0", id, "1.0.0", Some(String::new()), false);
+        repo(&mut fx, &[("openrac-mod.json", source.to_string())], serde_json::json!([rel]), "c1");
+
+        let c = ctx(dir.path(), &fx);
+        let url = "https://github.com/o/r";
+        let shown = &preview(&c, url).unwrap().mods[0];
+        assert!(!shown.compatible);
+        let reason = format!("Needs OpenRAC with mod interface {api}");
+        assert!(shown.why.as_deref().unwrap().contains(reason.as_str()));
+        assert!(install(&c, url, id).unwrap_err().contains(reason.as_str()));
+        assert!(!fx.asked.borrow().iter().any(|url| url.starts_with(DL)));
     }
 
     #[test]

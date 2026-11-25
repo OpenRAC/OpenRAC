@@ -129,11 +129,15 @@ executable and level dumps the decompilation's setup placed. Where both are
 there, the files' lines come first (their text has splat's symbols) and the
 retail bytes fill the rest, which also lets a translation run on into a
 neighbour that has C (a function the catalogue cut short, a shared tail).
+An executable that is a loader carrying the game WAD-compressed (Up Your
+Arsenal's SCES_524.56) is read as the game it unpacks (`packed_program`).
 
 | Where it comes from | |
 |---|---|
 | `hostgen.json` `"asm"` `"retail"` | `{"exe": ..., "dump": ...}` (or `{"image": ...}`), relative to the decompilation the assembly is read from: rac1/pal's `baserom/SCES_509.16` and `baserom/overlays`, the NTSC decomp's `config/us/SCUS_971.99` and `config/us/overlays` |
 | `--retail-image ISO`, `--retail-exe ELF` and `--retail-dump DIR` | in place of those |
+| `"retail"` `"required": true` | a game whose code is mostly translated from the disc (Up Your Arsenal's: its boot program is the loader's packed payload) stops with an error when the image is missing or is another game's (its entry is not `entry`), rather than writing a program of stubs that stops at its first frame (as #418 did for a stale derived table). `OPENRAC_HOSTGEN_NO_DISC=1` builds the stubs on purpose (the CI runners, which have no disc). CMake runs hostgen again when the linked image appears |
+| `"retail"` `"programs"` | `{NAME: OVERLAY}`: the disc's other programs, read as that overlay's retail code. Up Your Arsenal's `{"frontbin": 100}`: the front end's program in the MISC wad, the `groups` overlay `src/frontbin` is (its levels are read by their numbers, as Going Commando's) |
 | `OPENRAC_<ID>_RETAIL_IMAGE` | the build's: the player's disc image. `tools/build_port.py GAME --disc IMAGE` sets it, and the launcher's "Build the game" passes the disc it set up |
 
 What the text says beyond the words is worked out as spimdisasm does: where
@@ -240,7 +244,22 @@ table is each game's `no_c.tsv` ([port/game](../../game/README.md#the-functions-
 ```sh
 python3 port/tools/hostgen/no_c.py --game port/game/rac1-pal/hostgen.json \
     --gen port/build/release/games/rac1-pal/gen --source games/rac1 \
-    --image <the PAL disc image> --out port/game/rac1-pal/no_c.tsv
+    --image <the PAL disc image> --out port/game/rac1-pal/checks/no_c.tsv
+```
+
+### Functions the game reaches through data (data_guard)
+
+A call check sees only calls in C. The game also reaches functions through addresses in its data
+(moby updates, menu callbacks), and the port's `wrap` rows call `<name>__game`. When such a
+function has no C, it is a stub that does nothing. hostgen's `data_guard` fails the build for each
+one that hostgen.json `data_allow` does not list with a reason: functions a global's initializer
+names, `wrap` rows, and the places in `data_refs` (a table [data_refs.py](data_refs.py) writes from
+the disc, so the check itself needs no disc):
+
+```sh
+python3 port/tools/hostgen/data_refs.py --game port/game/rac2-pal/hostgen.json \
+    --gen port/build/release/games/rac2-pal/gen --image <the PAL disc image> \
+    --out port/game/rac2-pal/checks/data_refs.tsv
 ```
 
 ### Checking a translation against retail
@@ -278,8 +297,11 @@ diagnostics:
   it, get an alias of the same symbol;
 - an asm label given after a function's first use is dropped, and the name
   followed to the label's symbol;
-- inline assembly whose constraints Clang does not know (`=j`, `=h`) is
-  replaced by a call hostgen recognises, and the function becomes a stub;
+- VU0 macro-mode inline assembly on GCC's `"j"` registers (`lqc2`, `sqc2`,
+  `vadd`/`vsub` on `.xyz` or `.xyzw`, `vmr32.xyzw`) is written as C on four
+  floats a register (clangast.py `vu0_macro_c`); other inline assembly whose
+  constraints Clang does not know (`=j`, `=h`) is replaced by a call hostgen
+  recognises, and the function becomes a stub;
 - a call with too few arguments to a K&R function passes zeros.
 
 Game typedefs named like the host's standard types (`size_t`, `uint32_t`)
@@ -295,6 +317,7 @@ describes every key). What hostgen itself reads:
 | `sources`, `skip` | the C to translate (`src`, without `src/libgcc`: the host compiler has its own) |
 | `long_long_128` | `{"except_objects": TABLE, "except_compilers": [...]}`: the units whose `long long` is the 128-bit integer of the game's own compiler (SN's GCC 2.95.3: `*(long long *)p = 0` is `por` + `sq`), every unit of `sources` but `skip` and the objects TABLE (in the decompilation: object, address, compiler) gives one of `except_compilers`. Their `long long` is written `openrac_ti` / `openrac_uti` in hostgen's copy ([prep.py](prep.py)); candidates and the port's own C keep a 64-bit one. rac1/pal's leaves out `config/core_text.objects`' `ee29` objects, the libraries Sony's compiler built |
 | `includes`, `defines` | how to read it, relative to the decompilation |
+| `headers` | a directory beside the configuration with the port's own copies of headers of the decompilation, found before its own (`-I` first) when hostgen reads it: the same names in C the host compiles, where the decompilation's are inline assembly Clang refuses. Up Your Arsenal's `headers/vu0.h` writes the vector-library helpers of its `include/vu0.h` (VU0 macro-mode asm on GCC's `"j"` register class, `abs.s`, `sqrt.s`, `pextlh`...) as C, which hostgen then inlines where they are called like any static helper |
 | `names` | how the decompilation names code and data by address: regular expressions with an `addr` group (and `overlay` for a level's code). The defaults (`func_`, `func_Lnn_`, `D_`, `D_Lnn_`) also cover Going Commando's current `master` |
 | `aliases` | headers in the decompilation of `#define NAME func_ADDR` lines, its readable names for address-named symbols. Each name is written as its address name in hostgen's copy of the sources, outside comments, strings and `#define` lines ([prep.py](prep.py)), so the passes that know game symbols by address see every definition and call. rac1/pal's is `include/names.h`. An entry ending in `.json` is a table of the values the decompilation's own build derived from the retail bytes (`{"values": {name: "0x..."}}`, Going Commando's `build/boot/placed.json`): of it, the names carried from rac1-decomp that state rac1's address, not this game's (`r1_func_0011DB98`, `r1_D_00130420`), are written as the address names of their values, inside macro bodies too |
 | `symbols` | splat symbol files (`name = 0x00123456;`): named globals and functions with their addresses; or a build's table of derived values (`.json`, as in `aliases`), every name of it. A missing file adds nothing (CI has no build of the decompilation) |
@@ -302,6 +325,8 @@ describes every key). What hostgen itself reads:
 | `places` | where each level function sits in each level (`config/overlays/functions.tsv` of rac1/pal). A release's catalogue also lists `boot:ADDR` places: copies of level functions in the executable. They are added to `functions.c` when `same` is yes, or the release's `map.tsv` (next to the catalogue) says the C matches there, and the address is free. Their level data is paired with the executable's at run time |
 | `groups` | parts of the tree that are programs of their own, loaded over part of the executable (Up Your Arsenal's menu, `src/frontbin`): their definitions are their own symbols (`func_00385750__frontbin`) in their own overlay, and their calls find their own functions first |
 | `candidates` | a table in the decompilation (`name<TAB>file` lines, the file relative to the decompilation) of C for functions it still has as assembly: near misses that do what the retail function does without matching its bytes. Each goes at the end of its file in place of the stub ([prep.py](prep.py)); the report counts them. A candidate for a function the port writes itself (`host_functions`, a `host` row of `libraries`) is not read, unless its file is also the candidate of a function the port does not replace. A missing table means none. rac1/pal's is `nonmatching/functional.tsv`, the near misses its `tools/equiv.py` finds to be the same program |
+| `candidate_folders_left_out` | `{FOLDER: why}`: every candidate whose file is under that folder of the decompilation is left out, as `candidates_left_out` leaves out one by name. Up Your Arsenal's `nonmatching/frontbin`: NTSC-U drafts for a program whose own code the build reads from the disc, translated from it instead |
+| `candidate_scopes` | `{FOLDER: SOURCE_DIR}`: a candidate whose file is under FOLDER (relative to the decompilation) replaces stubs under SOURCE_DIR only. For programs whose functions share addresses, where one name is a different function in each: Up Your Arsenal's boot front end (`src/boot_elf`) and `frontbin` both run from 0x381080, and frontbin's candidate for func_003EFBB0 (its twin of the boot program's func_003EF7F8) had replaced the boot program's own func_003EFBB0, the menu's label draw. Candidates under no folder named go everywhere, as without the key |
 | `hand` | a table beside the game's configuration (`name<TAB>file`, the file relative to the table) of the port's own C for functions the decompilation has as assembly: placed like a candidate, and before one for the same function |
 | `overrides` | the same for functions the decompilation has as **matching** C, where the port has to do otherwise than that C says: a value the console's register keeps in 64 bits that the matching C holds in an `int`, a result retail leaves in `$v0` or `$f0` that the C declares `void`, a stack slot retail reads before anything wrote it. The decompilation is never changed and keeps its match: in hostgen's prepared copy of the file that defines the function, the matched definition is blanked (its lines stay, so no line moves; its prototype stays, as the override declares it, where the file names the function further down) and the port's C goes at the end of the file, translated like the rest. The override may declare another signature, which is the one callers are matched to. One file of C may override several functions of a file. The report counts them (`overrides_used`); a name that finds no matched definition (the decompilation renamed or moved it) is an index problem, and so is an override whose C defines no function of that name (it spells the definition with a readable name the decompilation's `names.h` no longer has): it stands aside for the matched C, with a warning, instead of leaving the blanked function to the assembly stage. Unlike a `hand` row, an override does not step aside when the decompilation's C changes: whoever changes the matched function looks at it. rac1/pal's is `hand/overrides.tsv`, its files `hand/matched_*.c`, each with a header saying what differs from the matched C and why |
 | `asm` | `{"enabled": true, "dirs": [...], "gp": "0x00166D00", "files": 8}`: translate stubs from the assembly under `dirs` (relative to the decompilation; missing ones are skipped), with `$gp` at `gp`, into `asm_0.c` ... (`files` of them). Off when absent or `enabled` is false; `--asm on` / `--asm off` overrides `enabled`, and `--asm-source DIR` (the build's `OPENRAC_<ID>_ASM_SOURCE`) reads the directories from another copy of the decompilation, the one the game's setup ran in. `"retail"` names the retail program to read where the files are not ([above](#the-retail-program-where-the-assembly-is-not)) |
@@ -309,6 +334,11 @@ describes every key). What hostgen itself reads:
 | `level_hooks` | stubs of the executable that only return, which every level's program fills with a function of its own (rac1/pal's `func_001E9780` to `func_001E97C0`). A call to one from engine code the levels also carry goes to what the loaded level's copy calls at the same instruction (`openrac_hook_in_copy`, [guest.h](../../runtime/include/openrac/guest.h)); in the executable's own program it is the stub |
 | `level_twins` | a TSV (`copycalls.py --twins`): name, entry, size, level places. Functions of the executable that the levels' programs carry, entered away from the address their name says (leftover instructions of the function before sit in front: Going Commando's `func_0031FC28`, the ammo pickup's update, is entered at `0x0031FC60`), whose copies the level catalogue lists under level names (`func_L00_003D1258`). The entry is the function's address: what its callers form relocates to the level's copy, and `functions.c` registers it there. Its calls of `level_hooks` go through those places (`openrac_hook_in_copy`); without them they ran the empty stub, and the pickup gave no ammo |
 | `from_assembly` | functions whose C in the decompilation is left out for C from their instructions (`asm`): matching C whose declaration leaves out registers its callers pass and it forwards (a wrapper that hands its second and third arguments on without naming them, which on the EE simply stay in their registers). Each becomes a stub that the assembly stage writes, reading those registers as parameters, so its callers pass them. The report's `arguments_filled_with_zero` names candidates |
+| `vu0_assembly_from_retail` | `true`: a definition whose inline assembly runs VU0 instructions on named registers (`lqc2 $vf1, 0(%1)` ... `sqc2`, which the lowering keeps only as a barrier) is translated from its assembly instead, as a `from_assembly` row would leave it; so is one that calls a static helper of its unit with such assembly. Up Your Arsenal's divide_vector_xyz (`func_L01_0040E408`) is a body of it, and its C wrote nothing. Clobbers naming VU0 registers (`: "vf1", "vf2"`), which Clang has no name for, are dropped from the prepared copy first, so such a statement no longer makes its function a stub before it is found (Veldin's `func_L01_003AA658`). The report's `vu0_assembly_from_retail` names each one moved and the instructions. Assembly on GCC's `"j"` class (`__asm__("vadd.xyz %0, %1, %2" : "=j"(r) : "j"(a), "j"(b))`) needs none of this: hostgen writes it as C (clangast.py `vu0_macro_c`) |
+| `caller_aliases` | `true`: a call by a per-caller declaration of a function the port wraps or replaces (`libraries.tsv` `wrap` or `host`), the function's name with its caller's address after it, is a call of that function. Up Your Arsenal's matched C declares FontPrint as `func_0038EBC8_00390768` in func_00390768's file; without this the call ran a translation of its own at 0x0038EBC8 and the port's FontPrint (and the menu log) never saw the text |
+| `unpassed_registers` | `true`: an argument a call to a K&R function leaves out is the register the caller left there, its own argument in that position, as for a prototyped callee (Calls, above), not 0. Clang refuses such a call, so [clangast.py](clangast.py) fills the missing arguments with `openrac_hostgen_unset()`, which [lower.py](lower.py) drops when this is on and writes as 0 otherwise. Up Your Arsenal's func_003ABB30 calls `func_003AB3F0()` to hand it its own three arguments |
+| `executable_extents` | `{"sources": [DIR, ...]}` (the decompilation's C definitions and `INCLUDE_ASM` / `ASM_FUNC` / `LINKER_REMNANT` lines under those directories, each running to the next) and/or `{"report": PATH, "units": PREFIX}` (the sizes of its objdiff progress report): an executable address inside a function so placed starts no function of its own ([retail.py](retail.py) `starts_of`). A name the C only declares there (another program's or another release's address) otherwise cuts the function in two and drops its jump tables' targets past the cut: Up Your Arsenal's pad update, func_003A3B40, kept one of its switch's 79 cases |
+| `level_extents` | `true`: the same for the levels, from the catalogue's places and sizes: a level place strictly inside a function the catalogue places there starts nothing for a name the C only declares. Up Your Arsenal's func_L03_0044DC88 declares func_L01_003242C8 (rac2's name for another routine), 0x128 bytes into func_L01_003241A0, whose state switch then kept one of its eleven cases |
 | `ps2_float` | functions whose float `+ - * /` (and their compound assignments), comparisons, truth tests and conversions between `int` and `float` are the EE FPU's own, computed in software ([ps2float.h](../../runtime/include/openrac/ps2float.h), the model of [ps2_float.h](../../common/ps2_float.h)), where the host's arithmetic gives a result the game tells apart: a sum cut to an integer, a comparison one last place decides. The values hold the console's bit patterns, so a divide by zero's `0x7FFFFFFF` is a large number there, not the host's NaN. A name with no C to translate is an index problem. rac1/pal's: FastTweenColor (`func_001FA8A8`) |
 | `entries` | `{"func_L06_0024A080": "0x20"}`: functions whose C begins that many bytes into their catalogue place (rac1/pal's HUD gauge draw: the catalogue starts it at four `addiu $sp, $sp, N; nop` pairs the function before left in front of it, its callers pass `func_L06_0024A080 + 0x20`, and its C is the body). `functions.c` registers each place plus the offset too, so a call through that address reaches the C |
 | `libraries` | the game's table of library entry points ([port/game/rac1-pal/libraries.tsv](../../game/rac1-pal/libraries.tsv)) |
@@ -337,7 +367,10 @@ error. The name is an alias of the hook point's permanent id
 (`sdk/bindings/<game>.json`, which the loader resolves). A symbol with both a
 `wrap` row and a `hook` row keeps the port's `<name>`, and the hook is written
 as `<name>__hooked` (the mod's replacement or the game's C), which the port's
-function calls in place of `<name>__game`. A hook point declared `void` whose
+function calls in place of `<name>__game`. A symbol with a `host` row and a
+`hook` row (rac1's effect quad, `FX_DrawWorldQuad`) has the port's own C as its
+original: the host C defines `<name>__game`, and hooks.c the `<name>` every
+caller reaches. A hook point declared `void` whose
 C ends in a call whose result its callers read (`inherit_results` gives it the
 callee's result type) keeps `void(...)` for mods, the signature the SDK's
 tables give it: its `<name>` returns the result the game's C gave when the
@@ -380,7 +413,9 @@ table of that release's names for them, `"release": {"version": ..., "table": ..
 ([release.py](release.py)): `prep.py` writes every file in those names (the address names in code,
 strings and comments; a file's short names by its level's program), the catalogues' names are
 read in them, the candidates too, and the table is the `"derived"` values as well. Every other
-rule then holds as for the primary release. [release_carry.py](release_carry.py) writes the
+rule then holds as for the primary release. rac2's table follows the release's own build: `placed`
+(what its build put in the release) and `gone_in` (the primary's definitions it left out, by file,
+which `Release.splice` drops under any spelling). [release_carry.py](release_carry.py) writes the
 release's configuration and tables from the primary's (port/game/rac2/README.md).
 
 Up Your Arsenal's rac3-decomp names its C by PAL's addresses; rac3-ntsc reads it in NTSC-U's
@@ -407,8 +442,9 @@ and a function's per-caller alias is the function at its place (`"words"`):
 | [asm.py](asm.py), [asmc.py](asmc.py) | reading the decompilation's assembly, and C from it for the functions with no C |
 | [retail.py](retail.py), [test_retail.py](test_retail.py) | the same instructions from the retail program (the disc image, or the executable and level dumps) |
 | [derived.py](derived.py), [test_derived.py](test_derived.py) | the names a decompilation's build derives: which table is read, and the port's copy written again |
-| [release.py](release.py), [release_carry.py](release_carry.py), [release_rac3.py](release_rac3.py), [test_release.py](test_release.py) | another release's names for the primary's (the release view), its port tables carried, and rac3-ntsc's table |
+| [release.py](release.py), [release_rac1.py](release_rac1.py), [release_carry.py](release_carry.py), [release_rac3.py](release_rac3.py), [test_release.py](test_release.py) | another release's names for the primary's (the release view), its port tables carried (rac1, rac2), and rac3-ntsc's table |
 | [no_c.py](no_c.py), [test_no_c.py](test_no_c.py) | which functions with no C need C: each game's `no_c.tsv` |
+| [data_refs.py](data_refs.py) | the places the disc's data holds a function's address: each game's `data_refs.tsv`, for data_guard |
 | [tests/assembler.py](tests/assembler.py) | the tests' small assembler: assembly files written the way the setup writes them |
 | [test_hostgen.py](test_hostgen.py), [tests/harness.c](tests/harness.c) | small programs in the console's C, translated, built, run and checked |
 | [priority.py](priority.py), [test_priority.py](test_priority.py) | what to backfill first: the weak functions each level program reaches, ranked |

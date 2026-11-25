@@ -123,6 +123,34 @@ bool beyond_the_sides(
 
 }  // namespace
 
+std::optional<std::uint8_t> moby_free_camera_reach(
+    const std::uint8_t* moby, const GameState& state
+) {
+    float s[4];
+    std::memcpy(s, moby, sizeof(s));
+    std::int16_t dd;
+    std::memcpy(&dd, moby + 0x32, sizeof(dd));
+    if (!std::isfinite(s[0]) || !std::isfinite(s[1]) || !std::isfinite(s[2]) || !std::isfinite(s[3])
+        || dd <= 0) {
+        return std::nullopt;
+    }
+    const auto& eye = state.camera_position;
+    const float to[3] = {s[0] / 1024.0f - eye[0], s[1] / 1024.0f - eye[1], s[2] / 1024.0f - eye[2]};
+    const float away =
+        std::sqrt(to[0] * to[0] + to[1] * to[1] + to[2] * to[2]) - std::fabs(s[3]) / 1024.0f;
+    float reach = static_cast<float>(dd);
+    if (state.moby_view) {
+        const auto& view = *state.moby_view;
+        reach = view.scale <= 0.0f
+                    ? kUnlimitedReach
+                    : static_cast<float>(std::min<std::int32_t>(dd, view.draw_cap)) * view.scale;
+    }
+    if (away > reach) {
+        return std::nullopt;
+    }
+    return std::uint8_t{0x80};
+}
+
 std::optional<std::uint8_t> moby_proc_distance_fade(
     const std::uint8_t* moby, const GameState& state
 ) {

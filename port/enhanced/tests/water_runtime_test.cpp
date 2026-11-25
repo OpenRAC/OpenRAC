@@ -10,13 +10,14 @@
 #include "common/stats.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced/tests/water_test_bake.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 #ifdef OPENRAC_VULKAN
 #include "renderer/vulkan/vkgl.h"
@@ -100,7 +101,7 @@ void main(){
             glUniform1i(read.uniform("waves"), 20);
             CHECK(enhanced::bind_water_deformation(read));
             glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             const auto pixels = target.read_rgba();
             if (!compact) {
                 reference.push_back(pixels);
@@ -153,7 +154,7 @@ result=vec4(float(b&255u),float((b>>8)&255u),float((b>>16)&255u),float(b>>24))/2
         glUniform1i(read.uniform("waves"), 20);
         CHECK(enhanced::bind_water_deformation(read));
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return target.read_rgba();
     };
     const renderer::WaterImpulse blast{{4, 4, 1}, {4, 4, 1}, 1.5f, 1.2f};

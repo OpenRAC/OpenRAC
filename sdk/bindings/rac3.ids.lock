@@ -1,0 +1,20 @@
+# The hook points' ids of rac3, by sdk/tools/gen_binding.py: id, anchor (the function's place
+# on the first disc) and every alias it has had. It only grows: an id is never removed or reused,
+# and an alias once given stays (docs/port/MODS.md, section 4). Regenerated, never edited.
+rac3.bolt.collect	pal:L01:002F88E0	Bolt_Collect,func_L01_002F88E0,func_L01_002F8918
+rac3.bolt.spawn_pickup	pal:L01:002F8F20	Bolt_SpawnPickup,func_L01_002F8F20,func_L01_002F8F60
+rac3.bolt.spawn_pickups	pal:L01:0044D360	Bolt_SpawnPickups,func_L01_0044A0E8,func_L01_0044D360
+rac3.combat.post_hit	pal:L01:00446978	Moby_PostHit,func_L01_00443840,func_L01_00446978
+rac3.item.give	pal:L01:00419188	Item_Give,func_L01_00416B38,func_L01_00419188
+rac3.item.upgrade	pal:L01:00419D48	Item_Upgrade,func_L01_004176F8,func_L01_00419D48
+rac3.level.give_items	pal:L01:004227D8	Level_GiveItems,func_L01_004200A8,func_L01_004227D8
+rac3.level.load	pal:L01:004D7658	Level_Load,func_L01_004D3998,func_L01_004D7658
+rac3.moby.record_death	pal:L01:004443E8	Moby_RecordDeath,func_L01_004412D0,func_L01_004443E8
+rac3.player.death_done	pal:L01:004EDE10	Hero_DeathDone,func_L01_004EA040,func_L01_004EDE10
+rac3.player.take_damage	pal:L01:004DFEA0	Hero_TakeDamage,func_L01_004DC1C0,func_L01_004DFEA0
+rac3.vendor.build_list	pal:L01:004BAA20	Vendor_BuildList,func_L01_004B6E88,func_L01_004BAA20
+rac3.vendor.price	pal:L01:004BA830	Vendor_Price,func_L01_004B6C98,func_L01_004BA830
+rac3.vendor.stock_add	pal:L01:00419248	Vendor_StockAdd,func_L01_00416BF8,func_L01_00419248
+rac3.weapon.add_ammo	pal:L01:00511958	Weapon_AddAmmo,func_L01_0050D980,func_L01_00511958
+rac3.weapon.level_up	pal:L01:00418C90	Weapon_LevelUp,func_L01_00416640,func_L01_00418C90
+rac3.weapon.take_ammo	pal:L01:005118D0	Weapon_TakeAmmo,func_L01_0050D8F8,func_L01_005118D0

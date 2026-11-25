@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The renderer's OpenGL (renderer/gl.h, renderer/world/gl_world.h, and the few calls gl_stats.h
+// The renderer's OpenGL (renderer/gl/gl.h, renderer/world/gl_world.h, and the few calls gl_stats.h
 // adds) carried out with Vulkan: the port's Vulkan renderer. Every renderer is written against
 // that short list of GL calls, so this is the one place that knows Vulkan; the renderers, their
 // shaders and the frontend run on it unchanged (docs/port/ANDROID.md, "A Vulkan renderer"). It is
@@ -31,13 +31,14 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "common/hdr.h"
-#include "renderer/gpu_draw.h"
+#include "renderer/gl/gpu_draw.h"
 
 struct SDL_Window;
 
@@ -60,6 +61,8 @@ struct Config {
     // the system's loader.
     void* get_instance_proc_addr = nullptr;
     bool validation = false;  // the Khronos validation layer, where it is installed
+    // Explicit opt-in for tools with custom GLSL; normal package misses draw the error shader.
+    bool compile_missing_shaders = false;
     bool gpu_breadcrumbs = true;
     // For the tests: each presentation extension the backend asks of the device where it is
     // offered (VK_KHR_present_id, VK_KHR_present_wait, the FIFO latest-ready present mode), so a
@@ -71,6 +74,7 @@ struct Config {
     // and the device VK_EXT_hdr_metadata where offered. Off (the player's `hdr = off` at start),
     // the instance, the device and the swapchain are made as they always were.
     bool hdr_colour_spaces = false;
+    void (*device_work)(std::function<void()>) = nullptr;
 
     // An outside maker of the instance and the device, which then shares them (a mod's OpenXR
     // session, openrac_mod.h's openrac_vulkan_setup): each function stands in for the backend's
@@ -211,7 +215,7 @@ bool combine_shadow_depth(
     std::array<int, 4> dynamic_rect
 );
 
-// renderer/gl.h's loader: the GL functions by name, null for one this does not carry out.
+// renderer/gl/gl.h's loader: the GL functions by name, null for one this does not carry out.
 using Proc = void (*)();
 Proc get_proc(const char* name);
 
@@ -255,6 +259,8 @@ struct SubmissionCounters {
     std::uint64_t pipelines_created = 0;  // Draw-thread creations; excludes prewarm worker calls.
     // Pipelines a draw linked from parts (vk-pipeline-library), not counted in pipelines_created.
     std::uint64_t pipelines_linked = 0;
+    // Exact feature variants compiled for their first draw.
+    std::uint64_t mode_pipelines = 0;
     // Pipelines made once the warm-up begin_pipeline_warmup started had passed.
     std::uint64_t pipelines_created_after_warmup = 0;
     std::uint64_t descriptor_sets_allocated = 0;  // Every vkAllocateDescriptorSets set.
@@ -285,8 +291,10 @@ struct SubmissionCounters {
     std::uint64_t gpu_payload_bytes = 0;
     std::uint64_t shader_fp16_ops = 0, shader_fp32_ops = 0, shader_fp16_modules = 0;
     std::uint64_t shader_compiles = 0;  // glslang runs: shaders checked, programs compiled.
+    std::uint64_t shader_package_hits = 0, shader_package_misses = 0;
     double shader_compile_s = 0.0;      // The seconds those compiles took.
     std::uint64_t test_program_reuses = 0;  // Immutable driver object reuse in an opted-in test.
+    std::uint64_t program_reuses = 0;       // Links that took a kept program's objects.
     double pipeline_compile_s = 0.0;    // Driver pipeline creation, including prewarm workers.
     std::uint64_t pipeline_creation_calls =
         0;  // Driver calls, including speculative and failed ones.
@@ -308,6 +316,12 @@ inline std::uint64_t commands_recorded(const SubmissionCounters& counters) {
 // Until the first call no pipeline counts there.
 void begin_pipeline_warmup(std::uint32_t frames);
 
+// Ends the open pass drawing into `framebuffer`'s multisampled colour with that colour resolved
+// into `resolve_framebuffer`'s and the samples not stored (a tiled GPU then writes out only the
+// resolve). False, with nothing done, when no such pass is open or it cannot resolve in the pass;
+// the samples are undefined after a true one until drawn or copied again.
+bool resolve_dropping_samples(unsigned framebuffer, unsigned resolve_framebuffer);
+
 // For the tests: with `on`, an attachment glInvalidateFramebuffer let go is overwritten with
 // garbage (colour 1.0 in every channel, depth 0, stencil 0xA5) instead of being left undefined, so
 // that a later read of it shows in the picture. False when no context is open.
@@ -317,6 +331,17 @@ bool test_poison_discards(bool on);
 // Disabling bypasses the pool without discarding its objects; close() releases them.
 // borrow=false retains objects after an independent fresh-driver oracle without reusing them.
 void test_reuse_programs(bool on, bool borrow = true);
+
+// For the game: with `on`, a deleted program's shader modules, layouts and pipelines are kept, and
+// the next link of the same shaders takes them (vk-program-keep, docs/port/RENDER_PERF.md). A
+// level's load deletes and links the same programs, so it makes no pipelines again. Uniform values
+// are never kept. Off (the default, and the tests'), a deleted program's objects are destroyed.
+void keep_programs(bool on);
+
+// While an upscaler draws the world at a smaller size, its mipmapped textures take this bias
+// (log2 of render over display width, below zero) so that they keep the display's detail; 0 for
+// everything else. Read when a draw binds its textures.
+void set_texture_lod_bias(float bias);
 
 // For the tests: draws the copy into the default framebuffer that waits for the present
 // (present-single-copy) into two stand-ins of the screen, B8G8R8A8 at the default framebuffer's
@@ -330,11 +355,17 @@ bool test_present_paths(std::vector<std::uint8_t>& single, std::vector<std::uint
 // the tests, which then draw and count the pipelines the drawing thread had to make itself.
 std::uint64_t wait_for_pipeline_prewarm();
 
+// Whether the pre-warm workers still have a pipeline to make; false while the backend is closed.
+// A draw waits for its exact variant when a worker is already compiling it.
+bool pipeline_prewarm_busy();
+
 // For a level's load, behind its loading screen: waits until the pre-warm workers have made every
 // pipeline and part queued when the level's programs linked (the pipelines earlier runs drew them
 // with), so that its first frames make none, and saves the pipeline caches on a thread of their
-// own if this run made new pipelines. Nothing while the backend is closed.
-void finish_pipelines();
+// own if this run made new pipelines. Optional upgrades discovered during gameplay are recorded
+// in the manifest for a future load. While waiting, pump_events can keep the window responsive.
+// Nothing while the backend is closed.
+void finish_pipelines(void (*pump_events)() = nullptr);
 
 // When the presents have been seen to reach the screen (VK_KHR_present_wait, under the registry's
 // present-timing). `visible` is the moment the backend saw present `id` finished, on the steady
@@ -358,6 +389,12 @@ bool wait_for_present(std::chrono::nanoseconds timeout);
 
 // Shows the default framebuffer. The next frame slot is reclaimed on its first graphics use.
 void present();
+// The window thread supplies the drawable size when presentation runs on a worker.
+void present(int width, int height);
+#if defined(OPENRAC_IOS)
+// Native surface recreation must run on the game thread while the worker is idle.
+void restore_window_surface();
+#endif
 
 // The wait for the display, as platform::SwapInterval counts it: -1 adaptive, 0 none, 1 vsync.
 // Returns what the screen allows: the nearest of those.
@@ -401,10 +438,16 @@ bool hdr_frame();
 // blending: in a float frame only blending's sums go above 1. Until the image is made again.
 void clamp_colour_writes(unsigned framebuffer);
 
+// Draws into the default framebuffer leave its depth and stencil image out of their pass while
+// `attached` is false. On Adreno with 2x MSAA, a pass that keeps that unused image broke the
+// overlay drawn in it.
+void default_framebuffer_depth(bool attached);
+
 // For the tests: the encode pass run on the default framebuffer (or on framebuffer `source`'s
 // picture, such as a float one above white) into a stand-in of an HDR screen (`output`'s format,
 // `width` by `height`), read back as stored: one 32-bit word a texel for Output::Hdr10
-// (A2B10G10R10) and four half floats for Output::ScRgb. False without a context.
+// (A2B10G10R10) and four half floats for Output::ScRgb. `through_float`: as on a device that
+// can't store the screen's format (half floats, blitted). False without a context.
 bool test_hdr_encode(
     hdr::Output output,
     const hdr::Levels& levels,
@@ -412,7 +455,8 @@ bool test_hdr_encode(
     int height,
     std::vector<std::uint8_t>& out,
     bool staged = false,
-    unsigned source = 0
+    unsigned source = 0,
+    bool through_float = false
 );
 
 // With low-latency frames, called by the window's thread before a frame begins, before it reads

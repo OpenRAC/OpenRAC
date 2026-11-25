@@ -1,0 +1,25 @@
+{
+  "about": "What port/tools/hostgen/release_rac1.py needs of this release besides the decompilation: its ids, and the facts each one is read from.",
+  "id": "rac1-pal1",
+  "version": "pal_v1",
+  "title": "Ratchet & Clank (PAL v1.00)",
+  "label": "PAL v1.00",
+  "serial": "SCES_509.16",
+  "serial_text": "SCES-50916, disc v1.00",
+  "frame_rate": 50,
+  "gp": "0x00166C00",
+  "main": "0x0015EF00",
+  "top": "0x00250000",
+  "save_folder": "BESCES-50916RATCHET",
+  "omit": {
+    "func_001E9E70": "The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here)."
+  },
+  "libraries": {
+    "func_E1_001240C0": [
+      "mc",
+      "sceMcChdir",
+      "host",
+      "PAL v1.00's own: its memory card code enters the save folder with it (PAL v2.00 uses sceMcGetDir); without this row the game waits forever on Reading Memory Card"
+    ]
+  }
+}

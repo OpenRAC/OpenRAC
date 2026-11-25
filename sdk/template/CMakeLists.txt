@@ -26,6 +26,6 @@ if(NOT OpenRACMod_DIR)
     endif()
   endif()
 endif()
-find_package(OpenRACMod 1.0 REQUIRED)
+find_package(OpenRACMod 1.20 REQUIRED)
 
 openrac_add_mod(my_mod MANIFEST openrac-mod.json SOURCES src/mod.cpp)

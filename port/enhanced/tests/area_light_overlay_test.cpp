@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <limits>
+#include <span>
 #include <string_view>
 
 #include "enhanced/lighting/bake_lz4.h"
@@ -24,10 +25,11 @@
 #include "enhanced/viewer/medial_axis_overlay.h"
 #include "enhanced/viewer/probe_volume_overlay.h"
 #include "enhanced/viewer/scene_lighting.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -169,25 +171,36 @@ void test_environment_capture_geometry() {
         {{{1, 2, 3}, {-2, -3, -4}, {8, 9, 10}}, {{100, 200, 300}, {90, 180, 270}, {120, 240, 360}}}
     };
     const auto vertices = environment_probe_debug_vertices(probes);
-    CHECK(vertices.size() == 2 * (24 + 3 * 24 * 2 + 6));
-    const auto stride = vertices.size() / probes.size();
+    constexpr std::size_t kBoxVertices = 24;
+    constexpr std::size_t kMarkerVertices = 3 * 24 * 2 + 6;
+    CHECK(vertices.size() == probes.size() * (kBoxVertices + kMarkerVertices));
 
     for (std::size_t i = 0; i < probes.size(); ++i) {
-        CHECK(vertices[i * stride].position == probes[i].minimum);
+        CHECK(vertices[i * kBoxVertices].position == probes[i].minimum);
 
         // Box endpoints must use the baked bounds, not a fixed radius around the capture.
-        for (std::size_t n = 0; n < 24; ++n) {
+        for (std::size_t n = 0; n < kBoxVertices; ++n) {
             for (unsigned axis = 0; axis < 3; ++axis) {
-                const float value = vertices[i * stride + n].position[axis];
+                const float value = vertices[i * kBoxVertices + n].position[axis];
                 CHECK(value == probes[i].minimum[axis] || value == probes[i].maximum[axis]);
             }
         }
 
-        const auto& cross_end = vertices[(i + 1) * stride - 1].position;
+        const auto& cross_end =
+            vertices[probes.size() * kBoxVertices + (i + 1) * kMarkerVertices - 1].position;
         CHECK(cross_end[0] == probes[i].position[0]);
         CHECK(cross_end[1] == probes[i].position[1]);
         CHECK(std::abs(cross_end[2] - probes[i].position[2] - .35f) < 1e-4f);
     }
+
+    const std::array<EnvironmentInfluence, 2> influences{
+        {{0, {}, {-2, -3, -4}, {8, 9, 10}}, {0, {}, {40, 50, 60}, {70, 80, 90}}}
+    };
+    const auto shared = environment_probe_debug_vertices(std::span{probes}.first<1>(), influences);
+    CHECK(shared.size() == influences.size() * kBoxVertices + kMarkerVertices);
+    CHECK(shared.front().position == influences[0].minimum);
+    CHECK(shared[kBoxVertices].position == influences[1].minimum);
+    CHECK(std::abs(shared.back().position[2] - probes[0].position[2] - .35f) < 1e-4f);
 
     CHECK(environment_probe_debug_vertices({}).empty());
 }
@@ -313,14 +326,14 @@ void main() { colour=vec4(environment_count>0 ? texelFetch(environment_map,ivec2
     glDisable(GL_BLEND);
     attachment.bind(shader, false);
     captures.bind(shader, true);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto reference = target.read_rgba();
     CHECK(reference[0] > 50);
     // Reload clears the attachment's per-shader binding cache before reversing the call order.
     attachment.load();
     captures.bind(shader, true);
     attachment.bind(shader, false);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     CHECK(target.read_rgba() == reference);
     attachment.release();
     shader.release();
@@ -411,7 +424,7 @@ void test_environment_previews(
     captures.release();
 }
 
-// The live model hook must select Clank/wrench independently and clear the override for other draws.
+// Original chrome bypasses enhanced optics while legacy glass and stylised packets retain theirs.
 void test_reflection_model_selection(const openrac::renderer::FrameBuffer& target) {
     using namespace openrac;
     using namespace gl;
@@ -442,30 +455,32 @@ void main() { colour=vec4(float(object_reflection_enabled),object_reflection_mat
     scene::Material source;
     source.metal = true;
     source.name = "metal_chrome";
+    CHECK(!scene::material_pass_visible({}, source, materials.enhanced_materials_enabled()));
+    materials.set_material_overrides(false);
+    CHECK(scene::material_pass_visible({}, source, materials.enhanced_materials_enabled()));
+    materials.set_material_overrides(true);
     const auto draw = [&](unsigned model) {
         materials.bind_material(shader, model, -1, source);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return target.read_rgba();
     };
     const auto clank = draw(4);
-    CHECK(
-        clank[0] == 255 && std::abs(int(clank[1]) - 66) <= 1 && std::abs(int(clank[2]) - 166) <= 1
-    );
+    CHECK(clank[0] == 0);
     const auto wrench = draw(5);
-    CHECK(
-        wrench[0] == 255 && std::abs(int(wrench[1]) - 46) <= 1
-        && std::abs(int(wrench[2]) - 191) <= 1
-    );
+    CHECK(wrench == clank);
     const auto other = draw(6);
-    CHECK(other[0] == 255 && std::abs(int(other[1]) - 64) <= 1);
-    CHECK(draw(~0u)[0] == 255);  // Authored chrome needs no gameplay class whitelist.
+    CHECK(other == clank);
+    CHECK(draw(~0u) == clank);  // Retail chrome is independent of the gameplay class.
     source.name = "metal_glass";
+    CHECK(scene::material_pass_visible({}, source, materials.enhanced_materials_enabled()));
     const auto glass = draw(4);
     CHECK(std::abs(int(glass[1]) - 20) <= 1 && std::abs(int(glass[2]) - 10) <= 1);
     source.name = "metal_stylised";
+    CHECK(scene::material_pass_visible({}, source, materials.enhanced_materials_enabled()));
     const auto stylised = draw(4);
     CHECK(std::abs(int(stylised[1]) - 89) <= 1 && std::abs(int(stylised[2]) - 31) <= 1);
     enhanced::set_reflection_override(87, enhanced::ReflectionSurface::Wrench);
+    source.name = "metal_chrome";
     CHECK(draw(4) == wrench);
     enhanced::clear_reflection_overrides();
     source.metal = false;

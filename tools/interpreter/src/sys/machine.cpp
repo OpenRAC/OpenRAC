@@ -220,7 +220,7 @@ std::string Machine::format(u32 format_address, unsigned first_arg) {
 
 // --- replaced functions ---
 
-bool Machine::hook(u32 address, const std::string& service, int inputs) {
+bool Machine::hook(u32 address, const std::string& service, int inputs, bool later) {
     auto found = services_.find(service);
 
     // No service has that name, so there is nothing to put at the address.
@@ -233,18 +233,43 @@ bool Machine::hook(u32 address, const std::string& service, int inputs) {
     hooked_names_.push_back(service);
     hooked_inputs_.push_back(inputs);
 
-    // Keep the first instruction only the first time, so a second hook does not save a SYSCALL.
-    if (!hooked_original_.count(address)) {
-        hooked_original_[address] = ee.read32(address);
-    }
-
     /*
      * SYSCALL with the hook mark and the service's number in its code field.
      * The code field is bits 6-25 of the instruction and the function code of SYSCALL is 0x0C
      * (documented).
      */
-    ee.write32(address, ((kHookCode | index) << 6) | 0x0C);
+    u32 word = ((kHookCode | index) << 6) | 0x0C;
+
+    // A payload's function: written once the loader has unpacked the payload.
+    if (later) {
+        hooks_pending_.emplace_back(address, word);
+        return true;
+    }
+
+    // Keep the first instruction only the first time, so a second hook does not save a SYSCALL.
+    if (!hooked_original_.count(address)) {
+        hooked_original_[address] = ee.read32(address);
+    }
+
+    ee.write32(address, word);
     return true;
+}
+
+void Machine::place_pending_hooks() {
+    // Nothing waits, or the loader has not yet written the payload's entry.
+    if (hooks_pending_.empty() || ee.read32(payload_entry_) == payload_word_) {
+        return;
+    }
+
+    for (auto [address, word] : hooks_pending_) {
+        if (!hooked_original_.count(address)) {
+            hooked_original_[address] = ee.read32(address);
+        }
+        ee.write32(address, word);
+    }
+
+    log(1, "payload at %08x unpacked: %zu hooks placed", payload_entry_, hooks_pending_.size());
+    hooks_pending_.clear();
 }
 
 bool Machine::load_hooks(const std::string& path, std::string* error) {
@@ -260,6 +285,7 @@ bool Machine::load_hooks(const std::string& path, std::string* error) {
 
     std::string line;
     int number = 0;
+    bool later = false;
 
     // One line at a time; the loop ends at the end of the file or at the first bad line.
     while (std::getline(in, line)) {
@@ -279,6 +305,14 @@ bool Machine::load_hooks(const std::string& path, std::string* error) {
             continue;
         }
 
+        // `payload ENTRY`: the lines after it are of the program a loader unpacks (see machine.h).
+        if (address == "payload") {
+            later = true;
+            payload_entry_ = static_cast<u32>(std::stoul(service, nullptr, 16));
+            payload_word_ = ee.read32(payload_entry_);
+            continue;
+        }
+
         // An optional `inputs=N`: the argument registers the function takes. Anything else stops the load.
         int inputs = -1;
         if (words >> extra) {
@@ -292,7 +326,7 @@ bool Machine::load_hooks(const std::string& path, std::string* error) {
         }
 
         // The address is hexadecimal. A name no service has stops the load.
-        if (!hook(static_cast<u32>(std::stoul(address, nullptr, 16)), service, inputs)) {
+        if (!hook(static_cast<u32>(std::stoul(address, nullptr, 16)), service, inputs, later)) {
             if (error) {
                 *error = path + ":" + std::to_string(number) + ": no service named " + service;
             }
@@ -341,6 +375,13 @@ void Machine::syscall(u32 code) {
         }
         return;
     }
+
+    /*
+     * The hooks of a payload a loader unpacks are placed at the first kernel call after it has
+     * written the payload's entry: the payload's start-up code makes one (SetupThread) before
+     * any library function runs, and the loader may start it without flushing the cache.
+     */
+    place_pending_hooks();
 
     // The kernel call's number is in v1, negative for the forms meant for
     // interrupt handlers.

@@ -26,7 +26,7 @@ const fn arena(id: &'static str, name: &'static str, offset: usize) -> Flag {
         name,
         description: "Won at least once: the arena's menu marks it done and later wins pay the repeat prize.",
         place: story(offset, 1),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     }
 }
 
@@ -34,7 +34,7 @@ const fn arena(id: &'static str, name: &'static str, offset: usize) -> Flag {
 /// `func_L04_0040A220` adds 1 per win, the same code in Barlow and Joba). A race can be picked
 /// once the race before it is won; the prize is by this count.
 const fn race(id: &'static str, name: &'static str, offset: usize, description: &'static str) -> Flag {
-    Flag { id, level: Some(4), name, description, place: story(offset, 1), confidence: Confidence::FromCode }
+    Flag { id, level: Some(4), name, description, place: story(offset, 1), confidence: Confidence::Proven }
 }
 
 pub const FLAGS: &[Flag] = &[
@@ -151,7 +151,7 @@ pub const FLAGS: &[Flag] = &[
         description: "Off while the Thermanator is owned, entering Barlow puts Ratchet at a set point until \
                       he reaches the area past it.",
         place: story(0x12, 1),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     electrolyzer(
         "barlow-electrolyzer",
@@ -204,7 +204,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Space mission 2 won",
         description: "The second space combat mission (an optional challenge for bolts).",
         place: story(0x62, 1),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "feltzin-mission-3-won",
@@ -212,7 +212,7 @@ pub const FLAGS: &[Flag] = &[
         name: "Space mission 3 won",
         description: "The third space combat mission (an optional challenge for bolts).",
         place: story(0x63, 1),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
     Flag {
         id: "feltzin-mission-4-won",
@@ -220,6 +220,6 @@ pub const FLAGS: &[Flag] = &[
         name: "Space mission 4 won",
         description: "The fourth space combat mission (an optional challenge for bolts).",
         place: story(0x64, 1),
-        confidence: Confidence::FromCode,
+        confidence: Confidence::Proven,
     },
 ];

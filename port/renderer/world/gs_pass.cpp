@@ -26,19 +26,6 @@ AlphaRange AlphaRange::of(std::initializer_list<std::uint8_t> values) {
     return of(std::span<const std::uint8_t>(values.begin(), values.size()));
 }
 
-AlphaRange AlphaRange::of_image(const Rgba8Image& image) {
-    if (image.pixels.size() < 4) {
-        return opaque();
-    }
-    std::uint8_t lo = 0xff;
-    std::uint8_t hi = 0;
-    for (std::size_t i = 3; i < image.pixels.size(); i += 4) {
-        lo = std::min(lo, image.pixels[i]);
-        hi = std::max(hi, image.pixels[i]);
-    }
-    return {lo, hi};
-}
-
 AlphaRange AlphaRange::united(AlphaRange other) const {
     return {std::min(min, other.min), std::max(max, other.max)};
 }

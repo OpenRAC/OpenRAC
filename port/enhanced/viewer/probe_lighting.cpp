@@ -6,10 +6,12 @@
 #include <charconv>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <format>
 #include <future>
 #include <memory>
 #include <numeric>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -24,8 +26,10 @@
 #include "enhanced/tools/baker/sources/probe_fingerprint.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_texture_upload.h"
+#include "enhanced/viewer/shader_sources.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/frame/raster_pass.h"
+#include "renderer/gl/gl.h"
 
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
@@ -62,6 +66,28 @@ constexpr std::array<const char*, 5> kProbeDepthNames{
 // The final two units are reserved for compressed depth spread and FP32 ranges.
 constexpr std::array<unsigned, 5> kProbeUnits{3, 4, 5, 30, 31};
 
+// Shader::uniform caches by name address. Keep each array element's name stable across draws.
+template <std::size_t N>
+constexpr auto dense_uniform_names(const char (&base)[N]) {
+    static_assert(kDenseProbeSlots <= 10);
+    std::array<std::array<char, N + 3>, kDenseProbeSlots> names{};
+    for (unsigned slot = 0; slot < names.size(); ++slot) {
+        auto& name = names[slot];
+        std::copy_n(base, N - 1, name.begin());
+        name[N - 1] = '[';
+        name[N] = static_cast<char>('0' + slot);
+        name[N + 1] = ']';
+    }
+    return names;
+}
+
+constexpr auto kDenseWeight = dense_uniform_names("probe_dense_weight");
+constexpr auto kDenseFrame = dense_uniform_names("probe_dense_frame");
+constexpr auto kDenseOrigin = dense_uniform_names("probe_dense_origin");
+constexpr auto kDenseSpacing = dense_uniform_names("probe_dense_spacing");
+constexpr auto kDenseDimensions = dense_uniform_names("probe_dense_dimensions");
+constexpr auto kDenseOffset = dense_uniform_names("probe_dense_offset");
+
 // Selects the native scalar width while preserving legacy moment and irradiance uploads.
 ProbeTextureFormat upload_format(unsigned plane, int depth_mode) {
     // Only interleaved native depth formats change the original upload contract.
@@ -75,6 +101,42 @@ ProbeTextureFormat upload_format(unsigned plane, int depth_mode) {
     }
 
     return {GL_RG8, GL_RG, GL_UNSIGNED_BYTE};
+}
+
+std::span<const std::uint8_t> probe_plane(
+    const ProbeVolume& volume, unsigned map, int depth_mode, std::vector<Float2>& decoded
+) {
+    if (map == 1 && depth_mode == 1) {
+        decoded = decode_probe_depth_moment_atlas(volume);
+        return {
+            reinterpret_cast<const std::uint8_t*>(decoded.data()), decoded.size() * sizeof(Float2)
+        };
+    }
+    return volume.gpu_plane(map);
+}
+
+// A baked tile row can be one of several horizontal segments in the resident atlas.
+void pack_probe_plane(
+    std::span<std::uint8_t> atlas,
+    std::span<const std::uint8_t> plane,
+    std::size_t offset,
+    std::size_t baked_rows,
+    std::size_t rows_per_tile,
+    std::size_t atlas_tiles_x
+) {
+    const auto row_bytes = plane.size() / (baked_rows * rows_per_tile);
+    const auto tile_bytes = row_bytes / kProbeAtlasTilesX;
+    const auto pitch = atlas_tiles_x * tile_bytes;
+    for (std::size_t row = 0; row < baked_rows; ++row) {
+        const auto tile = offset + row * kProbeAtlasTilesX;
+        const auto y = tile / atlas_tiles_x * rows_per_tile;
+        const auto x = tile % atlas_tiles_x * tile_bytes;
+        for (std::size_t line = 0; line < rows_per_tile; ++line) {
+            const auto src = (row * rows_per_tile + line) * row_bytes;
+            const auto dst = (y + line) * pitch + x;
+            std::memcpy(atlas.data() + dst, plane.data() + src, row_bytes);
+        }
+    }
 }
 
 // Returns the value `var` was set to, or the empty string when it is unset: the probe GI's reads
@@ -99,71 +161,21 @@ unsigned rays_from_environment() {
 }  // namespace
 
 std::string probe_shader_source(std::string source) {
-    if (!enhanced_rendering_available()) {
-        return source;
-    }
-    source.insert(source.find('\n') + 1, enhanced::local_light_shader_source());
-    source.insert(source.find('\n') + 1, shaders::shading_brdf_glsl);
-    source.insert(source.find('\n') + 1, renderer::shaders::shading_normal_glsl);
-    static const bool& gather_off = stats::probe(
-        "OPENRAC_SHADOW_GATHER_OFF", "Reference: 16 individual shadow texel fetches (reload level)"
+    return shader_sources::probe_shader_source(
+        std::move(source), shader_sources::runtime_options()
     );
-    if (gl::is_vulkan() && !gather_off) {
-        source.insert(source.find('\n') + 1, "#define OPENRAC_SHADOW_GATHER 1\n");
-    }
-    static const bool& reference = stats::probe(
-        "OPENRAC_SHADOW_FILTER_REFERENCE",
-        "Profiling reference: nine bilinear shadow taps instead of unique texels"
-    );
-    if (reference) {
-        source.insert(source.find('\n') + 1, "#define OPENRAC_SHADOW_FILTER_REFERENCE 1\n");
-    }
-    static const bool& zero_weight_reference = stats::probe(
-        "OPENRAC_PROBE_ZERO_WEIGHT_REFERENCE",
-        "Profiling reference: fetch probe atlases for zero-weight valid corners"
-    );
-    if (zero_weight_reference) {
-        source.insert(source.find('\n') + 1, "#define OPENRAC_PROBE_ZERO_WEIGHT_REFERENCE 1\n");
-    }
-    return source;
 }
 
 std::string probe_mesh_fragment(std::string source) {
-    if (!enhanced_rendering_available()) {
-        return source;
-    }
-    source.insert(
-        source.find('\n') + 1,
-        std::string(
-            "#if (!defined(OPENRAC_SOLID) && (!defined(OPENRAC_COLOUR_SPECIALISED) || "
-            "(defined(OPENRAC_HERO_WETNESS) && !defined(OPENRAC_STATIC_COLOUR)))) || "
-            "defined(OPENRAC_HERO_FUR)\n"
-        ) + std::string(shaders::environment_glsl)
-            + "\n#endif\n"
+    return shader_sources::probe_mesh_fragment(
+        std::move(source), shader_sources::runtime_options()
     );
-    source += std::string("\n#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_COLOUR_SPECIALISED)\n")
-              + std::string(shaders::chrome_glsl) + "\n#endif\n";
-    return probe_shader_source(std::move(source));
 }
 
 std::string probe_early_fragment(std::string source) {
-    if (!enhanced_rendering_available()) {
-        return probe_mesh_fragment(std::move(source));
-    }
-    source += shaders::early_lighting_glsl;
-    source.insert(
-        source.find('\n') + 1,
-        std::string(
-            "#if (!defined(OPENRAC_SOLID) && (!defined(OPENRAC_COLOUR_SPECIALISED) || "
-            "(defined(OPENRAC_HERO_WETNESS) && !defined(OPENRAC_STATIC_COLOUR)))) || "
-            "defined(OPENRAC_HERO_FUR)\n"
-        ) + std::string(shaders::environment_glsl)
-            + "\n#endif\n"
+    return shader_sources::probe_early_fragment(
+        std::move(source), shader_sources::runtime_options()
     );
-    source += std::string("\n#if !defined(OPENRAC_SOLID) && !defined(OPENRAC_COLOUR_SPECIALISED)\n")
-              + std::string(shaders::chrome_glsl) + "\n#endif\n";
-    source.insert(source.find('\n') + 1, "#define OPENRAC_EARLY_LIGHTING 1\n");
-    return probe_shader_source(std::move(source));
 }
 
 bool ProbeLighting::upload(
@@ -283,6 +295,8 @@ bool ProbeLighting::upload_regions(
         }
         const unsigned maps = m_depth_mode >= 2 ? 5 : 3;
         glGenTextures(static_cast<GLsizei>(maps), m_textures.data());
+        std::vector<std::uint8_t> pixels;
+        std::vector<Float2> decoded;
         for (unsigned i = 0; i < maps; ++i) {
             // RG8 interleaves spread with mean; the spare texture name needs no backing image.
             if (m_depth_mode >= 3 && i == 3) {
@@ -299,42 +313,65 @@ bool ProbeLighting::upload_regions(
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-            if (m_depth_mode == 2 && (i == 1 || i == 3)) {
-                // Each scalar uses independent four-texel blocks, with canonical tile alignment.
+            const bool compressed_depth = m_depth_mode == 2 && (i == 1 || i == 3);
+            const bool compressed_colour =
+                i == 0 && volume.colour_format != lighting::ProbeTextureFormat::R11G11B10;
+            const unsigned block = compressed_depth    ? 4
+                                   : compressed_colour ? probe_texture_block(volume.colour_format)
+                                                       : 1;
+            const unsigned scale = i == 2 || i == 4 ? 1 : side;
+            const auto base_plane = probe_plane(volume, i, m_depth_mode, decoded);
+            const auto tile_bytes = base_plane.size() / volume.atlas_capacity();
+            pixels.resize(m_atlas_tiles_x * rows * tile_bytes);
+            if (block == 1) {
+                std::ranges::fill(pixels, 0);
+            } else {
+                // Sparse slots and padding need valid compressed blocks before their first upload.
+                constexpr std::size_t block_bytes = 16;
+                for (std::size_t at = 0; at < pixels.size(); at += block_bytes) {
+                    std::memcpy(pixels.data() + at, base_plane.data(), block_bytes);
+                }
+            }
+            pack_probe_plane(
+                pixels, base_plane, 0, volume.atlas_rows(), scale / block, m_atlas_tiles_x
+            );
+            if (m_full_residency) {
+                for (std::size_t region = 0; region < m_regions.size(); ++region) {
+                    const auto& source = m_regions[region];
+                    const auto plane = probe_plane(source, i, m_depth_mode, decoded);
+                    pack_probe_plane(
+                        pixels,
+                        plane,
+                        m_region_offsets[region],
+                        source.atlas_rows(),
+                        scale / block,
+                        m_atlas_tiles_x
+                    );
+                }
+            }
+
+            if (block != 1) {
                 glCompressedTexImage2D(
                     GL_TEXTURE_2D,
                     0,
-                    GL_COMPRESSED_RGBA_ASTC_4x4_KHR,
+                    compressed_depth ? GL_COMPRESSED_RGBA_ASTC_4x4_KHR : colour_internal,
                     static_cast<GLsizei>(width),
                     static_cast<GLsizei>(rows * side),
                     0,
-                    static_cast<GLsizei>(width * rows * side),
-                    nullptr
-                );
-            } else if (i == 0 && volume.colour_format != lighting::ProbeTextureFormat::R11G11B10) {
-                glCompressedTexImage2D(
-                    GL_TEXTURE_2D,
-                    0,
-                    colour_internal,
-                    static_cast<GLsizei>(width),
-                    static_cast<GLsizei>(rows * side),
-                    0,
-                    static_cast<GLsizei>(lighting::probe_texture_bytes(
-                        volume.colour_format, width, static_cast<unsigned>(rows * side)
-                    )),
-                    nullptr
+                    static_cast<GLsizei>(pixels.size()),
+                    pixels.data()
                 );
             } else {
                 glTexImage2D(
                     GL_TEXTURE_2D,
                     0,
                     upload_format(i, m_depth_mode).internal,
-                    static_cast<GLsizei>(i == 2 || i == 4 ? m_atlas_tiles_x : width),
-                    static_cast<GLsizei>(i == 2 || i == 4 ? rows : rows * side),
+                    static_cast<GLsizei>(m_atlas_tiles_x * scale),
+                    static_cast<GLsizei>(rows * scale),
                     0,
                     kProbeFormats[i].source,
                     upload_format(i, m_depth_mode).type,
-                    nullptr
+                    pixels.data()
                 );
             }
         }
@@ -344,7 +381,6 @@ bool ProbeLighting::upload_regions(
         }
         m_grid = volume.grid;
         m_sparse_capacity = volume.atlas_capacity();
-        upload_volume(volume, 0);
         log::info(
             "probe textures: {} irradiance, {} depth, RGBA16F metadata; {}x{}, {} "
             "bytes",
@@ -355,9 +391,6 @@ bool ProbeLighting::upload_regions(
             (m_atlas_tiles_x * rows) * probe_bytes
         );
         if (m_full_residency) {
-            for (unsigned i = 0; i < m_regions.size(); ++i) {
-                upload_region(0, static_cast<int>(i));
-            }
             log::info(
                 "tiled probe selection: {} resident regions, 16x16 tiles, three volumes per "
                 "fragment",
@@ -401,19 +434,11 @@ void ProbeLighting::upload_volume(const lighting::ProbeVolume& volume, std::size
     const auto side = volume.grid.map_resolution + 2;
     // Place complete baked rows side by side without decoding or rearranging their bytes.
     std::vector<Float2> expanded;
-    if (m_depth_mode == 1) {
-        expanded = decode_probe_depth_moment_atlas(volume);
-    }
     for (unsigned map = 0; map < (m_depth_mode >= 2 ? 5u : 3u); ++map) {
         glActiveTexture(GL_TEXTURE0 + kProbeUnits[map]);
         glBindTexture(GL_TEXTURE_2D, m_textures[map]);
         const unsigned scale = map == 2 || map == 4 ? 1 : side;
-        auto plane = volume.gpu_plane(map);
-        if (map == 1 && m_depth_mode == 1) {
-            plane =
-                {reinterpret_cast<const std::uint8_t*>(expanded.data()),
-                 expanded.size() * sizeof(Float2)};
-        }
+        const auto plane = probe_plane(volume, map, m_depth_mode, expanded);
         // Interleaved RG8 has no separate spread plane.
         if (plane.empty()) {
             continue;
@@ -944,9 +969,13 @@ void ProbeLighting::bind(
     );
     // Going Commando's original lighting is the anchor (README, Retail anchoring): its moby ambient
     // and terrain vertex lighting carry more of each level's look than its dimmer skies give the
-    // bake. Ratchet & Clank keeps the tuned look it has.
+    // bake. Up Your Arsenal lights its levels with the same routines. Ratchet & Clank keeps the
+    // tuned look it has.
     glUniform1i(
-        shader.uniform("probe_retail_anchor"), active() && m_grid.game_version.starts_with("rac2-")
+        shader.uniform("probe_retail_anchor"),
+        active()
+            && (m_grid.game_version.starts_with("rac2-")
+                || m_grid.game_version.starts_with("rac3-"))
     );
     glUniform3f(
         shader.uniform("probe_sunlight_scale"),
@@ -977,7 +1006,8 @@ void ProbeLighting::bind(
     if (!active() || !receiver) {
         return;
     }
-    glUniform2f(shader.uniform("probe_frame"), m_grid.frame.axis[0], m_grid.frame.axis[1]);
+    const auto rotation = m_grid.frame.quaternion();
+    glUniform4fv(shader.uniform("probe_frame"), 1, rotation.data());
     glUniform3f(
         shader.uniform("probe_origin"), m_grid.origin[0], m_grid.origin[1], m_grid.origin[2]
     );
@@ -994,38 +1024,29 @@ void ProbeLighting::bind(
     glUniform1i(shader.uniform("probe_tiles_x"), static_cast<GLint>(m_atlas_tiles_x));
     for (unsigned slot = 0; slot < lighting::kDenseProbeSlots; ++slot) {
         const auto& selected = m_selector.slots[slot];
-        const auto suffix = "[" + std::to_string(slot) + "]";
         glUniform1f(
-            shader.uniform(("probe_dense_weight" + suffix).c_str()),
-            selected.region >= 0 ? selected.weight : 0.0f
+            shader.uniform(kDenseWeight[slot].data()), selected.region >= 0 ? selected.weight : 0.0f
         );
         if (selected.region < 0) {
             continue;
         }
         const auto& g = m_region_grids[selected.region];
-        glUniform2f(
-            shader.uniform(("probe_dense_frame" + suffix).c_str()), g.frame.axis[0], g.frame.axis[1]
+        const auto dense_rotation = g.frame.quaternion();
+        glUniform4fv(shader.uniform(kDenseFrame[slot].data()), 1, dense_rotation.data());
+        glUniform3f(
+            shader.uniform(kDenseOrigin[slot].data()), g.origin[0], g.origin[1], g.origin[2]
         );
         glUniform3f(
-            shader.uniform(("probe_dense_origin" + suffix).c_str()),
-            g.origin[0],
-            g.origin[1],
-            g.origin[2]
+            shader.uniform(kDenseSpacing[slot].data()), g.spacing[0], g.spacing[1], g.spacing[2]
         );
         glUniform3f(
-            shader.uniform(("probe_dense_spacing" + suffix).c_str()),
-            g.spacing[0],
-            g.spacing[1],
-            g.spacing[2]
-        );
-        glUniform3f(
-            shader.uniform(("probe_dense_dimensions" + suffix).c_str()),
+            shader.uniform(kDenseDimensions[slot].data()),
             float(g.dimensions[0]),
             float(g.dimensions[1]),
             float(g.dimensions[2])
         );
         glUniform1i(
-            shader.uniform(("probe_dense_offset" + suffix).c_str()),
+            shader.uniform(kDenseOffset[slot].data()),
             static_cast<int>(region_offset(slot, selected.region))
         );
     }
@@ -1125,18 +1146,29 @@ void ProbeLighting::draw_spheres(
 #if defined(OPENRAC_VULKAN)
         // The device-generated count remains on the GPU, including empty draws.
         if (m_sphere_indirect) {
-            if (vkgl::draw_indexed_indirect(m_sphere_culling.arguments(), kProbeSphereVertices)) {
+            if (draw_gpu_spheres(state)) {
                 ++state.stats.draw_calls;
             }
             return;
         }
 #endif
-        glDrawElementsInstanced(
-            GL_TRIANGLES,
-            vertices,
-            GL_UNSIGNED_INT,
-            nullptr,
-            static_cast<GLsizei>(m_visible_spheres.size())
+        const renderer::RasterBuffer geometry[]{
+            {m_sphere_buffer, m_visible_spheres.size() * sizeof(Sphere)},
+            {m_sphere_indices, vertices * sizeof(unsigned)}
+        };
+        renderer::raster_pass(
+            "probe sphere overlay",
+            state.target,
+            {geometry, {}, renderer::ColourAttachments::ColourDepthRead, true},
+            [&] {
+                glDrawElementsInstanced(
+                    GL_TRIANGLES,
+                    vertices,
+                    GL_UNSIGNED_INT,
+                    nullptr,
+                    static_cast<GLsizei>(m_visible_spheres.size())
+                );
+            }
         );
         ++state.stats.draw_calls;
         state.stats.triangles += m_visible_spheres.size() * (vertices / 3);

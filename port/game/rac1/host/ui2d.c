@@ -15,7 +15,9 @@
 #include <string.h>
 
 #include "../../common/lib/ui_quad.h"
+#include "../../common/lib/vendor_title.h"
 #include "openrac/host_env.h"
+#include "prompt_spots.h"
 #include "rac1.h"
 
 /* The screen offset the game adds to every 2D position (D_0013E600 +0x10/+0x14), and the HUD
@@ -80,13 +82,116 @@ static void hud_common(openrac_game_ui_rect* q, unsigned long long tex0, int alp
 
 /* Inside FontPrint: the quads drawn are glyphs of text. */
 static int g_glyphs = 0;
+static float g_vendor_title_scale = 1.0f;
+
+/* The button icons FontPrint drew (prompt_spots.h). A menu panel's text goes to a texture first,
+ * which DrawTexturedQuad then puts on the screen (the capture texture, CAPTURE_TEX0): the icons
+ * drawn since are moved to where it puts them (g_pending to g_spots). What no capture puts on the
+ * screen was drawn on it. g_open_spot is the icon whose line the glyphs after it join (-1 none).
+ * Not at the vendor, whose text goes to its monitors (mode 5). */
+#define CAPTURE_TEX0 GREF(unsigned long long, RAC1_ADDR(0x0015EFD0u))
+static openrac_rac1_prompt_spot g_spots[OPENRAC_RAC1_PROMPT_SPOTS_MAX];
+static int g_spot_count = 0;
+static openrac_rac1_prompt_spot g_pending[OPENRAC_RAC1_PROMPT_SPOTS_MAX];
+static int g_pending_count = 0;
+static int g_open_spot = -1;
+static int g_spots_off = 0;
+
+static void keep_spot(const openrac_rac1_prompt_spot* s) {
+    if (g_spot_count < OPENRAC_RAC1_PROMPT_SPOTS_MAX) {
+        g_spots[g_spot_count++] = *s;
+    }
+}
+
+int openrac_rac1_take_prompt_spots(openrac_rac1_prompt_spot* out) {
+    for (int i = 0; i < g_pending_count; ++i) {
+        keep_spot(&g_pending[i]);
+    }
+    g_pending_count = 0;
+    g_open_spot = -1;
+    const int n = g_spot_count;
+    memcpy(out, g_spots, sizeof(g_spots[0]) * (size_t)n);
+    g_spot_count = 0;
+    return n;
+}
+
+/* The capture texture's (u, v) .. (u + uw, v + vh) put on the screen at (x, y), w x h: the icons
+ * drawn into that part of it go there. */
+static void place_spots(int x, int y, int w, int h, int u, int v, int uw, int vh) {
+    if (uw <= 0 || vh <= 0) {
+        return;
+    }
+    for (int i = 0; i < g_pending_count; ++i) {
+        openrac_rac1_prompt_spot s = g_pending[i];
+        const int cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2;
+        if (cx < u || cx > u + uw || cy < v || cy > v + vh) {
+            continue;
+        }
+        s.x0 = x + (s.x0 - u) * w / uw;
+        s.x1 = x + (s.x1 - u) * w / uw;
+        s.y0 = y + (s.y0 - v) * h / vh;
+        s.y1 = y + (s.y1 - v) * h / vh;
+        keep_spot(&s);
+    }
+    g_pending_count = 0;
+    g_open_spot = -1;
+}
+
+/* A glyph FontPrint drew at (x, y), w x h, from (u, v) of its font: an icon (the font's row 96,
+ * key_prompts.h's cells) starts a spot; a glyph after it on its line makes the spot longer. */
+static void prompt_glyph(int x, int y, int w, int h, int u, int v) {
+    static const int cell_u[10] = {0, 24, 48, 72, 96, 120, 144, 168, 208, 232};
+    int cell = -1;
+    if (v == 96) {
+        for (int i = 0; i < 10; ++i) {
+            cell = u == cell_u[i] ? i : cell;
+        }
+    }
+    if (cell >= 0) {
+        g_open_spot = -1;
+        if (g_pending_count < OPENRAC_RAC1_PROMPT_SPOTS_MAX) {
+            openrac_rac1_prompt_spot* s = &g_pending[g_pending_count];
+            s->cell = cell;
+            s->x0 = x;
+            s->y0 = y;
+            s->x1 = x + w;
+            s->y1 = y + h;
+            g_open_spot = g_pending_count++;
+        }
+        return;
+    }
+    if (g_open_spot >= 0) {
+        openrac_rac1_prompt_spot* s = &g_pending[g_open_spot];
+        /* Only on the icon's line: a glyph below it starts no part of it. */
+        if (y < s->y1 && y + h > s->y0) {
+            s->x1 = x + w > s->x1 ? x + w : s->x1;
+        } else {
+            g_open_spot = -1;
+        }
+    }
+}
 
 /* FontPrint: a string at (x, y) in colour, glyph by glyph through DrawTexturedQuad. */
 void func_001F6668(int x, int y, unsigned long long colour, gaddr text, int limit, long long texture,
                    gaddr glyphs) {
+    const float previous_scale = g_vendor_title_scale;
+    uint32_t mode = 0;
+    /* Only the title in the vendor's 128-pixel left monitor. */
+    g_vendor_title_scale = 1.0f;
+    if (x == 6 && y == 8 && glyphs == OPENRAC_DATA(RAC1_ADDR(0x001DF770u)) && openrac_game_mode
+        && openrac_game_mode(&mode) && mode == 5) {
+        g_vendor_title_scale =
+            openrac_vendor_title_scale((const uint8_t*)G(text), limit, (const int8_t*)G(glyphs));
+    }
+    const int spots_off = g_spots_off;
+    g_spots_off = openrac_game_mode && openrac_game_mode(&mode) && mode == 5;
+    g_open_spot = -1;
     ++g_glyphs;
     func_001F6668__game(x, y, colour, text, limit, texture, glyphs);
     --g_glyphs;
+    g_open_spot = -1;
+    g_spots_off = spots_off;
+    g_vendor_title_scale = previous_scale;
 }
 
 /* DrawTexturedQuad: a w x h screen rectangle at (x, y) textured from (u, v) .. (u + uw, v + vh) of
@@ -94,6 +199,13 @@ void func_001F6668(int x, int y, unsigned long long colour, gaddr text, int limi
 void func_001F5800(int x, int y, int w, int h, int u, int v, int uw, int vh,
                    RAC1_TYPE_func_001F5800_u64 rgba_, RAC1_TYPE_func_001F5800_u64 tex_) {
     const unsigned long long rgba = (unsigned long long)rgba_, tex = (unsigned long long)tex_;
+    const float scale = g_glyphs > 0 ? g_vendor_title_scale : 1.0f;
+    const float left = 6 + (x - 6) * scale, top = 8 + (y - 8) * scale;
+    if (g_glyphs > 0 && !g_spots_off) {
+        prompt_glyph(x, y, w, h, u, v);
+    } else if (g_glyphs == 0 && g_pending_count > 0 && tex == CAPTURE_TEX0) {
+        place_spots(x, y, w, h, u, v, uw, vh);
+    }
     if (skipped(RAC1_NAME(func_001F5800))) {
         func_001F5800__game(x, y, w, h, u, v, uw, vh, rgba, tex);
         return;
@@ -110,10 +222,10 @@ void func_001F5800(int x, int y, int w, int h, int u, int v, int uw, int vh,
     const int ofx = SCREEN_OFX, ofy = SCREEN_OFY;
     openrac_ui_rect(
         &q,
-        x * 16 + ofx - 8,
-        y * 16 + ofy - 8,
-        (x + w) * 16 + ofx - 8,
-        (y + h) * 16 + ofy - 8,
+        (int)(left * 16) + ofx - 8,
+        (int)(top * 16) + ofy - 8,
+        (int)((left + w * scale) * 16) + ofx - 8,
+        (int)((top + h * scale) * 16) + ofy - 8,
         u * 16,
         v * 16,
         (u + uw) * 16,

@@ -10,8 +10,8 @@
 #include <string>
 
 #include "renderer/math.h"
-#include "renderer/motion_blur_settings.h"
-#include "renderer/temporal_settings.h"
+#include "renderer/settings/motion_blur_settings.h"
+#include "renderer/settings/temporal_settings.h"
 
 namespace openrac::renderer {
 class FrameBuffer;

@@ -20,7 +20,7 @@
 #include "debug_overlay.h"
 #include "frontend.h"
 #include "game/common/frontend/state.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "settings.h"
 
 namespace openrac::frontend {
@@ -36,6 +36,17 @@ bool windowed() {
     return g->display_mode == settings::DisplayMode::Windowed;
 #endif
 }
+
+// Whether the window's renderer supports HDR output.
+bool renderer_has_hdr() {
+    return g->window->gl_api() == platform::GlApi::Vulkan;
+}
+
+#if defined(__APPLE__)
+constexpr const char* kHdrRenderer = "Metal";
+#else
+constexpr const char* kHdrRenderer = "Vulkan";
+#endif
 
 // The window's own events, which the game never sees: the window moved to another display or its
 // display changed mode (the refresh rate is read again), it was sized (the size is kept for the
@@ -111,7 +122,7 @@ void apply_settings() {
     }
     if (wanted_swap() != g->swap_asked) {
         g->swap_asked = wanted_swap();
-        g->swap = g->window->set_swap_interval(g->swap_asked);
+        run_graphics([] { g->swap = g->window->set_swap_interval(g->swap_asked); });
         pacing.last_swap = {};
     }
     g->window->set_low_latency(s.low_latency_frames);
@@ -135,8 +146,8 @@ void apply_hdr() {
     // Said once: HDR asked for where it cannot be had.
     static bool said = false;
     if (s.hdr != hdr::Mode::Off && !said) {
-        if (g->window->gl_api() != platform::GlApi::Vulkan) {
-            log::info("HDR output needs the Vulkan renderer; the picture stays SDR");
+        if (!renderer_has_hdr()) {
+            log::info("HDR output needs {}; the picture stays SDR", kHdrRenderer);
             said = true;
         } else if (!g->hdr_at_start) {
             log::info("HDR output was off at start; it takes effect at the next start");
@@ -170,8 +181,8 @@ std::string hdr_status() {
     std::string sent = shown == hdr::Output::Sdr ? std::string("Sending SDR")
                                                  : std::format("Sending {}", hdr::name(shown));
     if (settings::get().hdr != hdr::Mode::Off) {
-        if (g->window->gl_api() != platform::GlApi::Vulkan) {
-            sent += " (HDR needs the Vulkan renderer)";
+        if (!renderer_has_hdr()) {
+            sent += std::format(" (HDR needs {})", kHdrRenderer);
         } else if (!g->hdr_at_start) {
             sent += " (HDR from the next start)";
         } else if (shown == hdr::Output::Sdr && !g->window->hdr_offered()) {
@@ -183,18 +194,26 @@ std::string hdr_status() {
 
 // The window's own keys: F11 and Alt+Return change between fullscreen and the window, F9 and F10
 // turn the port's volume down and up a tenth, F2 shows or hides the frame counter,
-// and F4 toggles enhanced graphics. True when the event was one of them.
+// and F4 toggles enhanced graphics; none of them while a mod greys its option out (option_off).
+// True when the event was one of them.
 bool window_key(const SDL_Event& event) {
     window_event(event);
     if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) {
         return false;
     }
+    using debug_overlay::option_off;
     if (event.key.key == SDLK_F2) {  // the frame counter, as the Video options' row
+        if (option_off(menu::Id::FrameCounter)) {
+            return true;
+        }
         settings::step_frame_counter(1);
         settings::save();
         return true;
     }
     if (event.key.key == SDLK_F4 && gl::enhanced_rendering_available()) {
+        if (option_off(menu::Id::EnhancedGraphics)) {
+            return true;
+        }
         if (!enhanced_graphics_available()) {
             debug_overlay::notify({
                 .id = "enhanced",
@@ -212,6 +231,9 @@ bool window_key(const SDL_Event& event) {
         return true;
     }
     if (event.key.key == SDLK_F9 || event.key.key == SDLK_F10) {
+        if (option_off(menu::Id::Volume)) {
+            return true;
+        }
         settings::set_volume(settings::get().volume + (event.key.key == SDLK_F10 ? 10 : -10));
         settings::save();
         log::info("volume {}", settings::get().volume);
@@ -221,6 +243,9 @@ bool window_key(const SDL_Event& event) {
                             && (event.key.mod & SDL_KMOD_ALT) != 0;
     if (event.key.key != SDLK_F11 && !alt_return) {
         return false;
+    }
+    if (option_off(menu::Id::FullScreen) || option_off(menu::Id::DisplayMode)) {
+        return true;
     }
     // Between the window and borderless full screen.
     settings::Settings& s = settings::get();

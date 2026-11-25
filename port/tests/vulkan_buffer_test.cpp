@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Pins what the Vulkan backend does with a GL buffer that a renderer fills once and draws for
-// many frames (renderer/vulkan/vkgl_resources.cpp, resolve; vkgl_gl.cpp, the buffer functions),
+// many frames (renderer/vulkan/resources/vkgl_resources.cpp, resolve; vkgl_gl.cpp, the buffer functions),
 // for the change that moves such buffers into device memory and frees their CPU copy
 // (docs/port/RENDER_PERF.md, "R-05"). Its pixel checks passed before that change and pass after.
 //
@@ -26,12 +26,13 @@
 #include <string>
 #include <vector>
 
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -176,11 +177,15 @@ std::array<std::uint8_t, 4> draw_frame(
 
     // The 8-bit indices sit at their own offset; the 32-bit ones at the buffer's start.
     if (index_type == GL_UNSIGNED_BYTE) {
-        glDrawElements(
-            GL_TRIANGLES, 3, GL_UNSIGNED_BYTE, reinterpret_cast<const void*>(kByteIndexOffset)
+        openrac::test::graph_draw(
+            glDrawElements,
+            GL_TRIANGLES,
+            3,
+            GL_UNSIGNED_BYTE,
+            reinterpret_cast<const void*>(kByteIndexOffset)
         );
     } else {
-        glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, nullptr);
+        openrac::test::graph_draw(glDrawElements, GL_TRIANGLES, 3, GL_UNSIGNED_INT, nullptr);
     }
 
     std::array<std::uint8_t, 4> pixel{};
@@ -312,7 +317,7 @@ void test_a_part_written_in_its_first_frame_is_drawn(
     make_buffers(scene);
     glClear(GL_COLOR_BUFFER_BIT);
     scene.coloured.use();
-    glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, nullptr);
+    openrac::test::graph_draw(glDrawElements, GL_TRIANGLES, 3, GL_UNSIGNED_INT, nullptr);
     const std::vector<std::uint8_t> rewritten = vertex_bytes(kRewritten);
     glBindBuffer(GL_ARRAY_BUFFER, scene.vertices);
     glBufferSubData(

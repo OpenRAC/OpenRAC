@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// OpenGL's states warmed up at a level's load (renderer/gl_warmup.h): a program drawn in two blend
+// OpenGL's states warmed up at a level's load (renderer/gl/gl_warmup.h): a program drawn in two blend
 // states notes two states, drawing them again notes none, and warm() draws both once without
 // touching the game's target or leaving its state changed; the states' file is saved. The cache
 // folder is the test's own. Skipped (exit 77) where no OpenGL context can be made, or on the
@@ -13,16 +13,15 @@
 #include <cstdlib>
 #include <filesystem>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include "check.h"
 #include "common/cache_folder.h"
 #include "platform/window.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/gl_warmup.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/gl_warmup.h"
+#include "renderer/gl/shader.h"
 #include "renderer_gl_context.h"
 
 namespace {
@@ -105,6 +104,12 @@ int main() {
     draw_states(shader, frame);
     CHECK(gl_warmup::counts().noted == 2);
 
+    // Model the driver returning the same program name for different shader sources.
+    const auto new_key = openrac::renderer::program_cache::key(kVertex, "replacement fragment");
+    gl_warmup::note_program(shader.id(), new_key);
+    draw_states(shader, frame);
+    CHECK(gl_warmup::counts().noted == 4);
+
     // The warm-up draws both, and leaves the frame and the bound state as they were.
     const std::vector<std::uint8_t> before = frame.read_rgba();
     glBindFramebuffer(GL_FRAMEBUFFER, frame.id());
@@ -120,19 +125,14 @@ int main() {
 
     // A warm-up draw is not noted as a state of its own.
     draw_states(shader, frame);
-    CHECK(gl_warmup::counts().noted == 2);
+    CHECK(gl_warmup::counts().noted == 4);
 
-    // The file is saved on a thread of its own: there within a few seconds.
+    // Joining the optional writer makes the saved-file check independent of scheduler timing.
     const std::filesystem::path states = openrac::cache_folder() / "gl_states";
-    bool saved = false;
-    for (int n = 0; n < 50 && !saved; ++n) {
-        std::error_code ec;
-        saved = std::filesystem::exists(states, ec) && !std::filesystem::is_empty(states, ec);
-        if (!saved) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-    }
-    CHECK(saved);
+    gl_warmup::finish_cache_save();
+    std::error_code saved_error;
+    CHECK(std::filesystem::exists(states, saved_error));
+    CHECK(!std::filesystem::is_empty(states, saved_error));
 
     glDeleteVertexArrays(1, &vao);
     frame.release();

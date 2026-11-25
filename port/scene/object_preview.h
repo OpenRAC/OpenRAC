@@ -6,16 +6,25 @@
 #include <memory>
 
 #include "common/result.h"
-#include "renderer/framebuffer.h"
+#include "renderer/frame/raster_pass.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 #include "scene/object_picker.h"
 
 namespace openrac::scene {
+struct PreviewOptics {
+    renderer::Vec3 tint{1, 1, 1};
+    float roughness = 1, reflectivity = 0, strength = 0, metallic = 0;
+};
+
 // One selected material run, with a private texture index and compact vertex range.
 struct PreviewPart {
     scene::Material material;
     unsigned first = 0, count = 0;
+    int source_material = -1;
+    int source_image = -1, source_emission = -1;
+    std::optional<PreviewOptics> optics;
 };
 
 // CPU-owned selection, including original skin weights for following subsequent displayed poses.
@@ -39,8 +48,10 @@ Result<PreviewMesh> preview_mesh(
     const scene::LevelData& level,
     const scene::PickHit& hit,
     const scene::Instance& instance,
-    std::span<const renderer::Mat4> palette
+    std::span<const renderer::Mat4> palette,
+    const MaterialBindings* materials = nullptr
 );
+PreviewMesh preview_uv_sphere(const LevelData&, int source_material, const Material&);
 // Reposes the private compact mesh; invalid palettes fail explicitly, preserving the previous pose.
 Result<void> preview_pose(
     PreviewMesh& mesh, const scene::Instance& instance, std::span<const renderer::Mat4> palette
@@ -89,6 +100,8 @@ public:
     Result<void> pose(const scene::Instance&, std::span<const renderer::Mat4> palette);
     // Restores the source mesh and bone bind frames without altering the live game actor.
     Result<void> bind_pose();
+    // Updates live material uniforms. A changed texture requires a new owned snapshot.
+    bool update_material(std::size_t part, const Material&, const PreviewOptics&);
     // Draws a private target using the production Forward+ light table, cones, falloff and GGX.
     Result<void> draw(int width, int height, const PreviewOrbit&);
 
@@ -113,6 +126,7 @@ private:
     void upload_images();
     // Draws cutout/opaque first, then source-over transparent material runs.
     void draw_parts(bool transparent);
+    void record_parts(std::string_view name, bool transparent);
     // Apply private target and camera state without borrowing world resources.
     void bind_target(const renderer::Camera&, int width, int height);
     // Opaque/partial-alpha passes share the optional private depth culler.
@@ -121,7 +135,7 @@ private:
     renderer::FrameBuffer m_target;
     renderer::Shader m_shader;
     std::unique_ptr<PreviewLighting> m_lighting;
-    std::vector<unsigned> m_images;
+    std::vector<renderer::RasterTexture> m_images;
     unsigned m_vao = 0, m_vertices = 0;
     std::uint64_t m_frame = 0;
 };

@@ -273,9 +273,24 @@ static void drop(Record* r) {
 }
 
 /* select_world_object_resource_tables: the figures' pieces drawn from the buffer it decodes over
- * go first; the class it holds after is noted. */
+ * go first; the class it holds after is noted. A class not in the swap list is not decoded: the
+ * game's loop ends past the list and decodes whatever follows, and the next read of it crashes (a
+ * mod that puts a non-hand item in the hand, T-63, or in the vendor's list, T-64;
+ * docs/port/KNOWN_ISSUES.md). */
 void func_00205270(int class_id, int buffer_index) {
     buffers_for_load();
+    if (!swapped(class_id)) {
+        static int warned;
+        if (!warned) {
+            char line[96];
+            snprintf(
+                line, sizeof line, "class %d is not a weapon or gadget class: not decoded", class_id
+            );
+            openrac_game_warn(line);
+            warned = 1;
+        }
+        return;
+    }
     const int32_t active = GREF(int32_t, OPENRAC_DATA(RAC1_ADDR(0x0016004Cu)));
     const int same = active >= 0 && GREF(int32_t, SWAP_IDS + 4u * (uint32_t)active) == class_id;
     if (!same) {
@@ -748,4 +763,24 @@ int rac1_hero_held(openrac_game_held* out) {
         }
     }
     return 1;
+}
+
+/* The skeleton joint of the hero's attach point `point` on `moby` (openrac_api.prop_attach,
+ * OPENRAC_ATTACH_HELD), as get_moby_joint_matrices (hand/game_joint_matrices.c) finds it: entry
+ * `point` of the joint list his pieces are put on (an s32 each, in the level loaded) names a chain
+ * of the moby's class (class +0x1C, entry + 1: a u16 length, then its joints from +4), whose last
+ * joint is the one. -1 outside a level, past the list, or for a class without that chain. */
+int rac1_attach_point_joint(gaddr moby, int point) {
+    if (moby == 0 || point < 0 || point >= JOINTS || openrac_game_loaded_overlay() < 0) {
+        return -1;
+    }
+    const int32_t chain_index = GREF(int32_t, JOINT_LIST + 4u * (uint32_t)point);
+    const gaddr cls = GREF(uint32_t, moby + 0x24u);
+    const gaddr chains = cls != 0 ? GREF(uint32_t, cls + 0x1Cu) : 0;
+    if (chains == 0 || chain_index < 0) {
+        return -1;
+    }
+    const gaddr chain = GREF(uint32_t, chains + 4u * (uint32_t)(chain_index + 1));
+    const unsigned length = chain != 0 ? GREF(uint16_t, chain) : 0u;
+    return length > 0 ? GREF(uint8_t, chain + 4u + length - 1u) : -1;
 }

@@ -52,7 +52,10 @@ const PICTURES = [
     file: "hero.jpg",
     width: 1920,
     height: 620,
-    html: page(backdrop("center", "linear-gradient(transparent 60%, rgb(8 10 30 / 0.6))"), "#0b0e22"),
+    html: page(
+      backdrop("center", "linear-gradient(transparent 60%, rgb(8 10 30 / 0.6))"),
+      "#0b0e22",
+    ),
   },
   {
     file: "logo.png",
@@ -70,14 +73,17 @@ const executablePath = process.env.OPENRAC_E2E_CHROMIUM;
 const browser = await chromium.launch(executablePath ? { executablePath } : {});
 try {
   for (const picture of PICTURES) {
-    const tab = await browser.newPage({ viewport: { width: picture.width, height: picture.height } });
+    const tab = await browser.newPage({
+      viewport: { width: picture.width, height: picture.height },
+    });
     // file:// so that the page may read the backdrop.
     const holder = join(OUT, ".page.html");
     writeFileSync(holder, picture.html);
     await tab.goto(pathToFileURL(holder).href, { waitUntil: "networkidle" });
     rmSync(holder);
     const path = join(OUT, picture.file);
-    if (picture.transparent) await tab.screenshot({ path, type: "png", omitBackground: true, clip: picture.clip });
+    if (picture.transparent)
+      await tab.screenshot({ path, type: "png", omitBackground: true, clip: picture.clip });
     else await tab.screenshot({ path, type: "jpeg", quality: 88 });
     await tab.close();
     console.log(path);

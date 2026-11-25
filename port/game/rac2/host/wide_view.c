@@ -13,6 +13,7 @@
  */
 #include "draw_owner.h"
 #include "game_protos.h"
+#include "openrac/game_host.h"
 
 #define WIDE_CAMERA OPENRAC_DATA(RAC2_ADDR(0x001B5200u))
 #define WIDE_VIEW OPENRAC_DATA(RAC2_ADDR(0x001B9040u))
@@ -28,6 +29,26 @@ static int g_effects;
 static float g_effect_wider = 1.0f;
 static float g_effect_taller = 1.0f;
 
+/* Writes an attachment scope through the GS NOP register; zero ends the scope (game_host.h). */
+static void put_attachment_marker(rac2_strip_anchor anchor) {
+    func_002FC560(
+        0x7F,
+        (uint64_t)OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER << 48
+            | (anchor.position_only ? OPENRAC_PREVIOUS_EFFECT_PARENT_POSITION_ONLY : 0u)
+            | anchor.moby
+    );
+}
+
+/* The hero's moby and the moby of the item in his hand (his item slot 0, +0x1220 of his record,
+ * which g_heroPos is +0x80 of: weapon_shots.c's HERO_ITEM_MOBY). */
+static gaddr hero_moby(void) {
+    return GREF(gaddr, OPENRAC_DATA(RAC2_g_pHeroMoby));
+}
+
+static gaddr hand_moby(void) {
+    return GREF(gaddr, RAC2_g_heroPos - 0x80u + 0x1220u);
+}
+
 static void run_list(void (*run)(void)) {
     float taller;
     const float wider = wide_wider_for(&g_fix_liquids, "fix_wide_liquids", &taller);
@@ -39,10 +60,23 @@ static void run_list(void (*run)(void)) {
  * quads it draws (render.c, draw_owner.h): most are a moby's own effects, given the moby. */
 static void run_callbacks(gaddr count_at, gaddr functions, gaddr arguments) {
     const gaddr outer = rac2_draw_owner;
+    const gaddr hero = hero_moby(), hand = hand_moby();
+    const rac2_strip_anchor none = {0, 0};
     for (int index = 0; index < GREF(int, count_at); ++index) {
         const gaddr argument = GREF(gaddr, arguments + (gaddr)index * 4u);
         rac2_draw_owner = argument;
+        const rac2_strip_anchor anchor = rac2_strip_anchor_of(argument, hero, hand);
+        /* The sent list is one tick behind the native mobys (measured: frontend quad generations). */
+        if (anchor.moby != 0) {
+            put_attachment_marker(anchor);
+        }
+
         GFN(void (*)(int), GREF(gaddr, functions + (gaddr)index * 4u))((int)argument);
+
+        /* Subsequent callbacks can emit unrelated world-space geometry. */
+        if (anchor.moby != 0) {
+            put_attachment_marker(none);
+        }
     }
     rac2_draw_owner = outer;
 }

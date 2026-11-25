@@ -9,12 +9,16 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -26,11 +30,19 @@
 
 #include "check.h"
 #include "common/json.h"
+#include "mod_api/internal.h"
 #include "mod_manifest.h"
 #include "mod_play.h"
 #include "mods.h"
+#include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/script_binding.h"
+#include "renderer/textures/sharp_cells.h"
+
+// mod_play.cpp asks the game for its play host (pickup_animation); there is no game here.
+extern "C" {
+const openrac_game_play* openrac_game_play_host = nullptr;
+}
 
 namespace fs = std::filesystem;
 using namespace openrac;
@@ -39,21 +51,25 @@ namespace {
 
 // The hook point, as hooks.c writes one.
 void* g_slot_add = nullptr;
+
 int add_game(int x) {
     return x + 1;
 }
+
 int add(int x) {
     if (g_slot_add != nullptr) {
         return reinterpret_cast<int (*)(int)>(g_slot_add)(x);
     }
     return add_game(x);
 }
+
 const mods::HookPoint kHooks[] = {
     {"Test_Add", "func_00100000", "i32(i32)", &g_slot_add, reinterpret_cast<void*>(add_game)},
 };
 
 // The function the mods find by name (api->function): what they report.
 std::vector<int> g_records;
+
 extern "C" void test_record(int v) {
     g_records.push_back(v);
 }
@@ -94,7 +110,7 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.14",
+    const std::string& api = "1.19",
     const std::string& extra = "",
     const std::string& games = R"({"test": ["one"]})",
     const std::string& hooks = R"(["Test_Add"])"
@@ -116,17 +132,24 @@ void install(
                                   {"value": "bad_signature", "name": "Bad"},
                                   {"value": "input", "name": "Input"},
                                   {"value": "views", "name": "Views"},
+                                  {"value": "native_handles", "name": "Native handles"},
                                   {"value": "menu", "name": "Menu"},
                                   {"value": "savestate", "name": "Savestate"},
                                   {"value": "developer_menu", "name": "Developer menu"},
                                   {"value": "rules", "name": "Rules"},
                                   {"value": "twelve", "name": "Twelve"},
                                   {"value": "hud", "name": "Hud"},
+                                  {"value": "hud-menu", "name": "Hud over menus"},
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"},
+                                  {"value": "z_watchers_fail", "name": "Watchers fail"},
                                   {"value": "hoverboard", "name": "Hoverboard"},
-                                  {"value": "callback_only", "name": "Callback only"}]},
+                                  {"value": "kerwan", "name": "Kerwan"},
+                                  {"value": "cutscene", "name": "Cutscene"},
+                                  {"value": "callback_only", "name": "Callback only"},
+                                  {"value": "keep", "name": "Keep"},
+                                  {"value": "journal", "name": "Journal"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -167,6 +190,8 @@ const char* const kLevelNames[] = {"Veldin", "Novalis", "Aridia", "Kerwan", "Eud
 // a moby at 0x3000 + 0x100 * slot, a spawn making slot 3, the hero's moby in slot 9, and the bolts.
 bool g_live[8] = {true, true, true, false, false, false, false, false};
 int g_bolts = 100;
+// The class the game reads at the moby at 0x3F00, which the level's list does not hold (interface 1.33).
+std::int32_t g_address_class = 511;
 // The level's scene playing (-1 none): a scene asked for plays at once, at frame 42.
 std::int32_t g_scene = -1;
 constexpr std::int32_t kKeys[] = {0, 1, -1};
@@ -194,6 +219,9 @@ int g_script_on = 0;
 std::int32_t g_script_asked = -9;
 float g_script_shown = 0.0f;
 std::vector<std::pair<int, int>> g_script_heard;
+
+// The particle kinds the port hands the game (interface 1.33), in order.
+std::vector<int> g_particles;
 
 const openrac_game_play kPlay = {
     5,
@@ -433,7 +461,9 @@ void two_mods_chain_in_load_order(const fs::path& plugins) {
     CHECK(add(0) == 112);
     CHECK(status_of(plugins, "test-a").first == "loaded");
     CHECK(status_of(plugins, "test-b").first == "loaded");
-    CHECK(read(plugins / "status.json").find("\"hook_points\": [\"Test_Add\"]") != std::string::npos);
+    CHECK(
+        read(plugins / "status.json").find("\"hook_points\": [\"Test_Add\"]") != std::string::npos
+    );
     // Frame callbacks in load order; a hook taken in one (after load) is refused (1000 + 3).
     CHECK(mods::g_frame_callbacks);
     mods::frame();
@@ -444,14 +474,106 @@ void two_mods_chain_in_load_order(const fs::path& plugins) {
     g_pad_hook(0, report, 18);
     CHECK(report[0] == 13);
     mods::reset();
-    CHECK(g_slot_add == nullptr && add(0) == 1 && g_pad_hook == nullptr && !mods::g_frame_callbacks);
+    CHECK(
+        g_slot_add == nullptr && add(0) == 1 && g_pad_hook == nullptr && !mods::g_frame_callbacks
+    );
+}
+
+// Interface 1.21: a hook point's entry, which the game calls by the point's symbol: the mods'
+// replacements, then the game's own. Another signature (i32 and u32 are one) and an unknown point
+// get none.
+void a_hook_point_is_called_as_the_game_calls_it(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"tag": 1}},
+        {"id": "test-b", "enabled": true, "settings": {"tag": 2}}]})");
+    // The program's table names the entry by the point's symbol, as hostgen's functions.c does.
+    const openrac_fn_entry entries[] = {
+        {0x00100000u, reinterpret_cast<openrac_host_fn>(add), "func_00100000"},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, entries, 1);
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0, test-b 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.api_minor >= 21);
+    void* entry = api.hook_entry("Test_Add", "i32(i32)");
+    CHECK(entry == reinterpret_cast<void*>(add));
+    // b(a(game)), as two_mods_chain_in_load_order has the game call it.
+    CHECK(entry != nullptr && reinterpret_cast<int (*)(int)>(entry)(0) == 112);
+    CHECK(api.hook_entry("Test_Add", "u32(u32)") == entry);
+    CHECK(api.hook_entry("Test_Add", "f32(i32)") == nullptr);
+    CHECK(api.hook_entry("Test_Nothing", "i32(i32)") == nullptr);
+    CHECK(api.hook_entry(nullptr, "i32(i32)") == nullptr);
+    CHECK(api.hook_entry("Test_Add", nullptr) == nullptr);
+    mods::reset();
+    CHECK(add(0) == 1);
+}
+
+// menu_option_set: the newest call for an option wins, one mod's DEFAULT or unload gives back what
+// another mod set, and bad calls change nothing. Two handles of the test's own stand for mods.
+void menu_options_follow_the_newest_call(const fs::path& plugins) {
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    openrac_mod mod_a;
+    mod_a.id = "a";
+    openrac_mod mod_b;
+    mod_b.id = "b";
+    mod_b.manifest.name = "Mod B";
+    openrac_mod* a = &mod_a;
+    openrac_mod* b = &mod_b;
+    CHECK(api.menu_option_set(a, "frame_rate", OPENRAC_MENU_OPTION_ON) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_ON);
+    CHECK(api.menu_option_set(b, "frame_rate", OPENRAC_MENU_OPTION_OFF) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option_state("frame_rate").by == "Mod B");  // the manifest's name
+    CHECK(api.menu_option_set(b, "frame_rate", OPENRAC_MENU_OPTION_DEFAULT) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_ON);
+    CHECK(api.menu_option_set(a, "frame_rate", OPENRAC_MENU_OPTION_OFF) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option_state("frame_rate").by == "a");  // no name: the id
+    CHECK(api.menu_option_set(a, "", OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, nullptr, OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(nullptr, "vsync", OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, "frame_rate", 3) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, "frame_rate", -1) == OPENRAC_E_UNKNOWN);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option("vsync") == OPENRAC_MENU_OPTION_DEFAULT);
+    mods::reset();
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_DEFAULT);
+}
+
+// Every call of the table is filled: each member from `log` on is a function, and a mod built for
+// this minor finds none of them null (mod_api/<area>.cpp, sdk/api/members.tsv).
+void every_call_of_the_table_is_filled(const fs::path& plugins) {
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.size == sizeof(openrac_api));
+    const auto* bytes = reinterpret_cast<const unsigned char*>(&api);
+    for (std::size_t at = offsetof(openrac_api, log); at < sizeof(openrac_api);
+         at += sizeof(void*)) {
+        void* call = nullptr;
+        std::memcpy(&call, bytes + at, sizeof call);
+        if (call == nullptr) {
+            std::fprintf(stderr, "openrac_api member at offset %zu is null\n", at);
+        }
+        CHECK(call != nullptr);
+    }
+    mods::reset();
 }
 
 void a_mod_that_fails_is_taken_back(const fs::path& plugins) {
     for (const char* behaviour : {"fail", "unknown_hook", "bad_signature"}) {
-        write(plugins / "plugins.json", std::string(R"({"format": 1, "mods": [
+        write(
+            plugins / "plugins.json",
+            std::string(R"({"format": 1, "mods": [
             {"id": "test-a", "settings": {"tag": 1}},
-            {"id": "test-b", "settings": {"tag": 2, "behaviour": ")") + behaviour + R"("}}]})");
+            {"id": "test-b", "settings": {"tag": 2, "behaviour": ")")
+                + behaviour + R"("}}]})"
+        );
         g_records.clear();
         const std::string line = mods::load(host(plugins));
         CHECK(line == "test-a 1.0.0 (1 not loaded: plugins/status.json)");
@@ -501,7 +623,10 @@ void a_library_of_another_id(const fs::path& plugins) {
     copy_library(OPENRAC_TEST_MOD_A, plugins / "test-b" / "lib" / library_name());
     write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-b"}]})");
     CHECK(mods::load(host(plugins)) == "none (1 not loaded: plugins/status.json)");
-    CHECK(status_of(plugins, "test-b").second.find("its library is mod \"test-a\"") != std::string::npos);
+    CHECK(
+        status_of(plugins, "test-b").second.find("its library is mod \"test-a\"")
+        != std::string::npos
+    );
     mods::reset();
     install(plugins, "b", OPENRAC_TEST_MOD_B);
 }
@@ -521,12 +646,15 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.14", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.19", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
     );
-    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"tag": 4}}]})");
+    write(
+        plugins / "plugins.json",
+        R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"tag": 4}}]})"
+    );
     const fs::path elsewhere = root / "somewhere-else";
     fs::create_directories(elsewhere);
     const fs::path before = fs::current_path();
@@ -556,8 +684,12 @@ void input_reaches_the_mod(const fs::path& plugins) {
     g_input.size = sizeof g_input;
     g_taken = 0;
     g_captures = 0;
-    h.input = [] { return static_cast<const openrac_input*>(&g_input); };
-    h.take_input = [](std::uint32_t devices) { g_taken |= devices; };
+    h.input = [] {
+        return static_cast<const openrac_input*>(&g_input);
+    };
+    h.take_input = [](std::uint32_t devices) {
+        g_taken |= devices;
+    };
     h.capture_mouse = [](bool capture) {
         ++g_captures;
         g_captured = capture;
@@ -684,6 +816,224 @@ void a_party_reads_the_mods(const fs::path& plugins) {
     mods::reset();
 }
 
+// A mod's own settings (interface 1.15): set for the run and written into the launcher's list,
+// every other mod and setting kept; a key the manifest does not declare, a setting of another type
+// and a value it refuses are refused. The launcher's change is heard once the list is read again
+// (about a second of ticks), the mod's own write is not.
+// Interface 1.16: a mod's data goes beside each save the game writes (none for a blank slot), comes
+// back when the game plays a save it read whole (the mod told), and a new game starts with none.
+int g_save_slot = -1;
+
+void a_mods_data_goes_with_the_saves(const fs::path& plugins, const fs::path& dir) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "journal"}}]})");
+    mods::Host h = host(plugins);
+    static openrac_game_play play = kPlay;
+    play.save_slot_current = [] {
+        return g_save_slot;
+    };
+    h.play = &play;
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    g_save_slot = -1;
+    g_records.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const auto seen = [](int record) {
+        return std::count(g_records.begin(), g_records.end(), record);
+    };
+    // Set; too big, refused; read back.
+    CHECK(seen(13000) == 1 && seen(13011) == 1 && seen(13023) == 1);
+    CHECK(openrac_game_save_written != nullptr && openrac_game_save_read != nullptr);
+
+    // A save written: the mod's data beside it, by its id and version, as base64 ("abc").
+    const fs::path card = dir / "card";
+    fs::create_directories(card);
+    const fs::path save2 = card / "save2.bin";
+    write(save2, "S2");
+    openrac_game_save_written(save2.string().c_str(), 1);
+    std::ifstream in(save2.string() + ".moddata", std::ios::binary);
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    in.close();
+    CHECK(
+        text.find("\"test-a\": {\"version\": \"1.0.0\", \"data\": \"YWJj\"}") != std::string::npos
+    );
+    CHECK(!fs::exists(card / ".save2.bin.moddata.tmp"));
+    // A blank slot keeps none.
+    openrac_game_save_written(save2.string().c_str(), 0);
+    CHECK(!fs::exists(save2.string() + ".moddata"));
+
+    // Another save read whole: its data kept aside until the game plays it, then the mod's ("xyz",
+    // 3 bytes), the mod told once.
+    const fs::path save3 = card / "save3.bin";
+    write(save3, "S3");
+    write(
+        fs::path(save3.string() + ".moddata"),
+        R"({"format": 1, "mods": {"test-a": {"version": "0.9.0", "data": "eHl6"}, "gone": {"data": "AA=="}}})"
+    );
+    openrac_game_save_read(save3.string().c_str(), 3);
+    g_records.clear();
+    mods::frame();
+    CHECK(seen(13103) == 0);
+    g_save_slot = 3;
+    mods::frame();
+    mods::frame();
+    CHECK(seen(13103) == 1 && seen(13200 + 'x') == 1 && seen(13301) == 1);
+
+    // While the level loads nothing changes; a new game (no save for it) starts with none.
+    g_records.clear();
+    g_save_slot = -1;
+    g_phase = OPENRAC_GAME_PHASE_LOADING;
+    mods::frame();
+    CHECK(std::none_of(g_records.begin(), g_records.end(), [](int r) {
+        return r >= 13100 && r < 13400;
+    }));
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    mods::frame();
+    mods::frame();
+    CHECK(seen(13100) == 1 && seen(13200) == 1);
+
+    // A save played, then a new game the host announces (rac1: NewGameInit), which writes its first
+    // save at once into a slot the player chose: that save takes none of the old game's data, and
+    // the mod is told at the next tick, whatever the phase.
+    openrac_game_save_read(save3.string().c_str(), 3);
+    g_save_slot = 3;
+    mods::frame();
+    CHECK(openrac_game_new_game != nullptr);
+    openrac_game_new_game();
+    const fs::path save4 = card / "save4.bin";
+    write(save4, "S4");
+    openrac_game_save_written(save4.string().c_str(), 1);
+    CHECK(!fs::exists(save4.string() + ".moddata"));
+    g_records.clear();
+    g_save_slot = 4;
+    g_phase = OPENRAC_GAME_PHASE_LOADING;
+    mods::frame();
+    CHECK(seen(13100) == 1 && seen(13200) == 1);
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    mods::frame();
+    CHECK(seen(13100) == 1);
+
+    // Saved without the mod's data now: the save's file goes.
+    write(fs::path(save3.string() + ".moddata"), "{}");
+    openrac_game_save_written(save3.string().c_str(), 1);
+    CHECK(!fs::exists(save3.string() + ".moddata"));
+    g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+    mods::reset();
+}
+
+// Interface 1.17: the game's own segment query, asked by a mod. The test's game has a wall at x = 10
+// and a moby (slot 7) at x = 5; the moby hit comes back by its slot, one passed over is not hit.
+void a_mod_asks_the_games_collision(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true}]})");
+    mods::Host h = host(plugins);
+    static openrac_game_play play = kPlay;
+    play.moby_at = [](std::int32_t slot) {
+        return slot == 7 ? gaddr{0x3000} : gaddr{0};
+    };
+    play.slot_of = [](gaddr moby) {
+        return moby == 0x3000 ? std::int32_t{7} : std::int32_t{-1};
+    };
+    play.collision_line = [](const float from[3],
+                             const float to[3],
+                             int level,
+                             int mobys,
+                             std::uint32_t ignore,
+                             float point[3],
+                             float normal[3],
+                             std::int32_t* surface,
+                             std::uint32_t* moby) {
+        const bool on_moby = mobys != 0 && ignore != 0x3000 && from[0] < 5.0f && to[0] >= 5.0f;
+        const bool on_wall = level != 0 && from[0] < 10.0f && to[0] >= 10.0f;
+        if (!on_moby && !on_wall) {
+            return 0;
+        }
+        point[0] = on_moby ? 5.0f : 10.0f;
+        point[1] = point[2] = 0.0f;
+        normal[0] = -1.0f;
+        normal[1] = normal[2] = 0.0f;
+        *surface = on_moby ? -1 : 3;
+        *moby = on_moby ? 0x3000u : 0u;
+        return 1;
+    };
+    h.play = &play;
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    const float from[3] = {0.0f, 0.0f, 0.0f}, to[3] = {20.0f, 0.0f, 0.0f};
+    const float short_to[3] = {3.0f, 0.0f, 0.0f};
+    openrac_line_hit hit{};
+    hit.size = sizeof hit;
+    CHECK(
+        api.collision_line(from, to, OPENRAC_LINE_LEVEL | OPENRAC_LINE_MOBYS, -1, &hit)
+        == OPENRAC_HOOK_OK
+    );
+    CHECK(hit.hit == 1 && hit.moby == 7 && hit.point[0] == 5.0f && hit.surface == -1);
+    CHECK(
+        api.collision_line(from, to, OPENRAC_LINE_LEVEL | OPENRAC_LINE_MOBYS, 7, &hit)
+        == OPENRAC_HOOK_OK
+    );
+    CHECK(hit.hit == 1 && hit.moby == -1 && hit.point[0] == 10.0f && hit.surface == 3);
+    CHECK(
+        api.collision_line(from, to, OPENRAC_LINE_MOBYS, 7, &hit) == OPENRAC_HOOK_OK && hit.hit == 0
+    );
+    CHECK(api.collision_line(from, short_to, OPENRAC_LINE_LEVEL, -1, &hit) == OPENRAC_HOOK_OK);
+    CHECK(hit.hit == 0 && hit.moby == -1);
+    // No flags, a size too small, a point that is not a number: refused.
+    CHECK(api.collision_line(from, to, 0, -1, &hit) == OPENRAC_HOOK_UNKNOWN);
+    const float nan_to[3] = {std::nanf(""), 0.0f, 0.0f};
+    CHECK(api.collision_line(from, nan_to, OPENRAC_LINE_LEVEL, -1, &hit) == OPENRAC_HOOK_UNKNOWN);
+    hit.size = 4;
+    CHECK(api.collision_line(from, to, OPENRAC_LINE_LEVEL, -1, &hit) == OPENRAC_HOOK_UNKNOWN);
+    g_phase = OPENRAC_GAME_PHASE_FRONT_END;
+    mods::reset();
+}
+
+void a_mod_sets_its_own_settings(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "keep"}},
+        {"id": "test-b", "enabled": true, "settings": {"tag": 3}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0, test-b 1.0.0");
+    const auto seen = [](int record) {
+        return std::count(g_records.begin(), g_records.end(), record);
+    };
+    // Set; no such key; a bool for an int; not a choice; a keybind; no such key name; a float for
+    // an int; the tag read back; the keybind read back.
+    for (const int record : {12000, 12011, 12021, 12031, 12040, 12051, 12061, 12342, 12201}) {
+        CHECK(seen(record) == 1);
+    }
+    std::vector<mods::ListEntry> list;
+    std::string error;
+    CHECK(mods::parse_list(read(plugins / "plugins.json"), list, error) && list.size() == 2);
+    CHECK(list[0].id == "test-a" && list[0].settings["tag"].number() == 42);
+    CHECK(list[0].settings["behaviour"].string() == "keep");
+    CHECK(list[0].settings["jump"].string() == "KeyW,ArrowUp");
+    CHECK(list[1].id == "test-b" && list[1].settings["tag"].number() == 3 && list[1].enabled);
+    CHECK(!fs::exists(plugins / "plugins.json.port.tmp"));
+
+    // The mod's own write: not heard, however many ticks.
+    for (int i = 0; i < 150; ++i) {
+        mods::frame();
+    }
+    CHECK(std::none_of(g_records.begin(), g_records.end(), [](int r) {
+        return r >= 12100 && r < 12200;
+    }));
+
+    // The launcher's: heard once, the new value read.
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "keep", "tag": 7}},
+        {"id": "test-b", "enabled": true, "settings": {"tag": 3}}]})");
+    fs::last_write_time(
+        plugins / "plugins.json",
+        fs::last_write_time(plugins / "plugins.json") + std::chrono::seconds(5)
+    );
+    for (int i = 0; i < 150; ++i) {
+        mods::frame();
+    }
+    CHECK(seen(12107) == 1);
+    mods::reset();
+}
+
 // The calls of interface 1.14 are in the table, and with no game behind them each answers "unknown"
 // to a mod that loads against the real table (the test mod's "twelve" checks every one).
 void the_1_14_calls_answer_unknown_without_a_game(const fs::path& plugins) {
@@ -806,7 +1156,7 @@ void a_mod_provides_a_desktop_menu(const fs::path& plugins) {
     CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
     const auto& menus = mods::developer_menus();
     CHECK(menus.size() == 1 && menus[0].title == "Savestates");
-    CHECK(menus[0].items.size() == 2);
+    CHECK(menus[0].items.size() == 4);
     CHECK(menus[0].items[0].label == "Empty" && menus[0].items[0].group == "Save");
     CHECK(menus[0].items[0].shortcut == "Shift+Num0" && menus[0].items[0].action == 1);
     CHECK(menus[0].items[1].label == "Empty" && menus[0].items[1].group == "Load");
@@ -824,6 +1174,41 @@ void a_mod_provides_a_desktop_menu(const fs::path& plugins) {
     CHECK(std::find(g_records.begin(), g_records.end(), 9100) != g_records.end());
     CHECK(menus[0].items[0].label == "Saved: Veldin");
     CHECK(menus[0].items[1].label == "Empty");
+
+    // A switch and a choice (interface 1.19): made while loading, set only then or at the tick
+    // boundary, turned over and moved by the menu at once, which queues their action.
+    const auto& items = menus[0].items;
+    CHECK(items[0].kind == mods::MenuItemKind::Press);
+    // On while loading; the mod turned it off at the last tick boundary (it does at each action).
+    CHECK(items[2].kind == mods::MenuItemKind::Switch && items[2].value == 0);
+    CHECK(items[3].kind == mods::MenuItemKind::Choice && items[3].value == 1);
+    CHECK(items[3].values == std::vector<std::string>({"x1", "x2", "x4"}));
+    // A row's look (interface 1.28): item 2 a locked row to read, its progress cut to 1; item 1
+    // set and cleared again. A locked row and a row to read queue nothing.
+    CHECK(items[1].info && items[1].locked && items[1].look_value == "24/40");
+    CHECK(items[1].progress == 1.0f && items[1].icon == "trophy");
+    CHECK(!items[0].info && !items[0].locked && items[0].look_value.empty());
+    CHECK(items[0].progress < 0.0f && items[0].icon.empty());
+    mods::queue_developer_menu_action(menus[0].mod, 2);
+    CHECK(menus[0].actions.empty());
+    CHECK(std::find(g_records.begin(), g_records.end(), 1801) != g_records.end());
+    mods::set_developer_menu_value(menus[0].mod, 3, 1);
+    CHECK(items[2].value == 1);
+    // Values the item cannot have, and a plain item, are neither set nor queued.
+    mods::set_developer_menu_value(menus[0].mod, 3, 2);
+    mods::set_developer_menu_value(menus[0].mod, 4, 3);
+    mods::set_developer_menu_value(menus[0].mod, 1, 1);
+    CHECK(items[2].value == 1 && items[3].value == 1);
+    CHECK(menus[0].actions.size() == 1);
+    g_records.clear();
+    mods::tick_boundary(2);
+    CHECK(g_records == std::vector<int>({9003, 9100, 9201, 9300}));
+    CHECK(items[2].value == 0);
+    mods::set_developer_menu_value(menus[0].mod, 4, 2);
+    g_records.clear();
+    mods::tick_boundary(3);
+    CHECK(g_records == std::vector<int>({9004, 9100, 9202, 9300}));
+    CHECK(items[3].value == 2 && items[3].label == "Saved: Veldin");
 
     mods::reset();
     CHECK(mods::developer_menus().empty());
@@ -867,12 +1252,12 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
     g_records.clear();
     mods::frame();
-    CHECK(
-        (g_records
-         == std::vector<int>{
-             7003, 7500, 7601, 7600, 7707, 7722, 7730, 7731, 7771, 7760, 7761, 7800, 7903
-         })
-    );
+    CHECK((
+        g_records
+        == std::vector<int>{
+            7003, 7500, 7601, 7600, 7707, 7722, 7730, 7731, 7771, 7760, 7761, 7800, 7903, 7976, 7980
+        }
+    ));
     mods::play_update();
     CHECK(
         (g_played
@@ -906,7 +1291,23 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "world"}}]})");
     mods::Host h = host(plugins);
-    h.play = &kPlay;
+    static openrac_game_play play = kPlay;
+    // Slot 1's record carries spawn id 1006 (moby_uid).
+    play.moby_uid = [](std::int32_t slot) {
+        return slot == 1 ? 1006 : -1;
+    };
+    // Copies of the level's enemies (1.25): slot 1 may be copied, the others are listed; a copy of
+    // slot 1 goes to slot 6.
+    play.moby_copy_check = [](gaddr moby) {
+        return slot_at(moby) == 1 ? OPENRAC_COPY_OK : OPENRAC_COPY_LISTED;
+    };
+    play.moby_copy = [](gaddr moby, int index) -> std::int32_t {
+        g_played.push_back(
+            "moby_copy " + std::to_string(slot_at(moby)) + " " + std::to_string(index)
+        );
+        return 6;
+    };
+    h.play = &play;
     h.cards = dir / "cards";
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
     g_loads = 1;
@@ -922,7 +1323,8 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         (g_records
          == std::vector<int>{
              // The list: 3 mobys, keys 1, 2 (0 and 1 +1) and none, flags placed+updates / updates;
-             // a list of 2 still counts 3; the slot of key 1; no slot for key 7.
+             // a list of 2 still counts 3; the slot of key 1; no slot for key 7; slot 1's spawn
+             // id, none for slot 5.
              8000 + 3,
              8011,
              8025,
@@ -933,6 +1335,7 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              8033,
              8041,
              8050,
+             8057,
              // Drive slot 0 on and off, slot 1 on; a dead slot refused; slot 1 shown driven.
              8060,
              8060,
@@ -948,6 +1351,11 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              8143,
              8163,
              8172,
+             // Copies: slot 1 allowed, slot 0 listed; slot 1's copy in slot 6, none of dead slot 7.
+             8150,
+             8159,
+             8256,
+             8259,
              // The hero's slot; no figure 0; eyes (the count clamped to 8 in the game); bolts +5.
              8189,
              8190,
@@ -991,6 +1399,7 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
              "moby_kill 2",
              "moby_spawn 77",
              "moby_pose 3 4 2",
+             "moby_copy 1 2",
              "eyes 2",
              "eyes 8",
              "eyes 0",
@@ -1252,7 +1661,7 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
 // RAC2 has no game hook catalogue or script binding yet, but a native mod that only uses
 // common callbacks still loads. A native mod that tries to take a game hook is refused cleanly.
 void rac2_callback_only_native_mod(const fs::path& plugins) {
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.14", "", R"({"rac2": ["ntsc"]})", "[]");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.19", "", R"({"rac2": ["ntsc"]})", "[]");
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true,
          "settings": {"tag": 4, "behaviour": "callback_only"}}]})");
@@ -1268,7 +1677,7 @@ void rac2_callback_only_native_mod(const fs::path& plugins) {
     mods::reset();
 
     install(
-        plugins, "a", OPENRAC_TEST_MOD_A, "1.14", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
+        plugins, "a", OPENRAC_TEST_MOD_A, "1.19", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
     );
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"tag": 1}}]})");
@@ -1314,7 +1723,8 @@ void a_mod_for_1_5_still_loads(const fs::path& plugins) {
     mods::reset();
 }
 
-// A library another user of the computer could swap is not loaded (POSIX desktops).
+// A library another user of the computer could swap is not loaded (POSIX desktops); one of this
+// user's own that all may write in (Steam may start the launcher with umask 0) is closed and loads.
 void a_library_others_can_change_is_refused(const fs::path& plugins) {
 #if !defined(_WIN32) && !defined(__ANDROID__)
     install(plugins, "a", OPENRAC_TEST_MOD_A);
@@ -1322,52 +1732,44 @@ void a_library_others_can_change_is_refused(const fs::path& plugins) {
         plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
     );
     const fs::path lib = plugins / "test-a" / "lib" / library_name();
-    const auto was = fs::status(lib).permissions();
-    fs::permissions(lib, fs::perms::others_write, fs::perm_options::add);
-    mods::load(host(plugins));
-    auto [state, reason] = status_of(plugins, "test-a");
-    CHECK(state == "failed");
-    CHECK(reason.find("any user of this computer") != std::string::npos);
-    mods::reset();
-    fs::permissions(lib, was);
-    // A folder above it that all may write in, without the sticky bit.
     const fs::path folder = plugins / "test-a" / "lib";
-    const auto folder_was = fs::status(folder).permissions();
+    fs::permissions(lib, fs::perms::others_write, fs::perm_options::add);
     fs::permissions(folder, fs::perms::others_all, fs::perm_options::add);
     mods::load(host(plugins));
-    std::tie(state, reason) = status_of(plugins, "test-a");
-    CHECK(state == "failed");
-    CHECK(reason.find("its folder") != std::string::npos);
-    mods::reset();
-    // With the sticky bit, as /tmp has, it loads.
-    fs::permissions(folder, fs::perms::sticky_bit, fs::perm_options::add);
-    mods::load(host(plugins));
     CHECK(status_of(plugins, "test-a").first == "loaded");
+    CHECK((fs::status(lib).permissions() & fs::perms::others_write) == fs::perms::none);
+    CHECK((fs::status(folder).permissions() & fs::perms::others_write) == fs::perms::none);
     mods::reset();
-    fs::permissions(folder, folder_was);
-    // A library another user owns could be changed by that user (checked where the test may chown).
+    // Another user's library or folder is refused.
     if (geteuid() == 0) {
         CHECK(chown(lib.c_str(), 4321, 4321) == 0);
         mods::load(host(plugins));
-        std::tie(state, reason) = status_of(plugins, "test-a");
+        auto [state, reason] = status_of(plugins, "test-a");
         CHECK(state == "failed");
-        CHECK(reason.find("belongs to another user") != std::string::npos);
+        CHECK(reason.find("another user") != std::string::npos);
         mods::reset();
         CHECK(chown(lib.c_str(), 0, 0) == 0);
+        CHECK(chown(folder.c_str(), 4321, 4321) == 0);
+        mods::load(host(plugins));
+        std::tie(state, reason) = status_of(plugins, "test-a");
+        CHECK(state == "failed");
+        CHECK(reason.find("its folder") != std::string::npos);
+        mods::reset();
+        CHECK(chown(folder.c_str(), 0, 0) == 0);
+        // A link is followed: the file it leads to is the one checked.
+        const fs::path elsewhere = plugins / "elsewhere";
+        fs::create_directories(elsewhere);
+        fs::rename(lib, elsewhere / library_name());
+        fs::create_symlink(elsewhere / library_name(), lib);
+        CHECK(chown(elsewhere.c_str(), 4321, 4321) == 0);
+        mods::load(host(plugins));
+        std::tie(state, reason) = status_of(plugins, "test-a");
+        CHECK(state == "failed");
+        CHECK(reason.find("elsewhere") != std::string::npos);
+        mods::reset();
+        fs::remove(lib);
+        fs::rename(elsewhere / library_name(), lib);
     }
-    // A link is followed: the file it leads to is the one checked.
-    const fs::path elsewhere = plugins / "elsewhere";
-    fs::create_directories(elsewhere);
-    fs::rename(lib, elsewhere / library_name());
-    fs::create_symlink(elsewhere / library_name(), lib);
-    fs::permissions(elsewhere, fs::perms::others_all, fs::perm_options::add);
-    mods::load(host(plugins));
-    std::tie(state, reason) = status_of(plugins, "test-a");
-    CHECK(state == "failed");
-    CHECK(reason.find("elsewhere") != std::string::npos);
-    mods::reset();
-    fs::remove(lib);
-    fs::rename(elsewhere / library_name(), lib);
 #else
     (void)plugins;
 #endif
@@ -1399,6 +1801,7 @@ void views_reach_the_host(const fs::path& plugins) {
     // A frame as the frontend draws it: begin, then end once it is submitted, then the closing.
     openrac_view views[OPENRAC_VIEW_MAX] = {};
     CHECK(g_views->begin(g_views->user, views, OPENRAC_VIEW_MAX) == 1);
+    CHECK(mods::vulkan_needs_game_thread());
     CHECK(views[0].width == 64 && views[0].height == 48 && views[0].kind == OPENRAC_VIEW_FULL);
     g_views->end(g_views->user, views, 1);
     g_views->closing(g_views->user);
@@ -1407,12 +1810,48 @@ void views_reach_the_host(const fs::path& plugins) {
     CHECK(g_views == nullptr && g_vulkan == nullptr);
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
-    CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.14", R"( "vulkan_device": true,)");
-    CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
-    CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
-    CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
+    CHECK(!mods::vulkan_startup(plugins / "plugins.json", false).creates_device);
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.19", R"( "vulkan_device": true,)");
+    CHECK(mods::vulkan_startup(plugins / "plugins.json", false).creates_device);
+    CHECK(!mods::vulkan_startup(plugins / "plugins.json", true).creates_device);
+    CHECK(!mods::vulkan_startup(plugins / "nowhere.json", false).creates_device);
     install(plugins, "a", OPENRAC_TEST_MOD_A);
+}
+
+void native_vulkan_access_requires_a_declaration(const fs::path& plugins) {
+    const auto list = plugins / "plugins.json";
+    write(list, R"({"format": 1, "mods": [{"id": "test-current", "enabled": true,
+        "settings": {"behaviour": "native_handles"}}]})");
+    auto h = host(plugins);
+    h.graphics = []() -> const openrac_graphics* {
+        static openrac_graphics graphics{};
+        graphics.size = sizeof(openrac_graphics);
+        graphics.backend = OPENRAC_GRAPHICS_VULKAN;
+        graphics.vk_device = &graphics;
+        graphics.vk_queue = &graphics;
+        graphics.vk_queue_index = 1;
+        return &graphics;
+    };
+    for (bool declared : {false, true}) {
+        install(
+            plugins,
+            "current",
+            OPENRAC_TEST_MOD_CURRENT,
+            // The interface it is built for: this header's.
+            std::format("{}.{}", OPENRAC_MOD_API_MAJOR, OPENRAC_MOD_API_MINOR),
+            declared ? R"("vulkan_queue": true,)" : ""
+        );
+        const auto startup = mods::vulkan_startup(list, false);
+        CHECK(!startup.creates_device);
+        CHECK(startup.uses_queue == declared);
+        CHECK(!mods::vulkan_startup(list, true).uses_queue);
+        g_records.clear();
+        CHECK(mods::load(h) == "test-current 1.0.0");
+        CHECK(mods::vulkan_needs_game_thread() == declared);
+        CHECK(g_records == std::vector<int>{declared ? 14001 : 14000});
+        mods::reset();
+        CHECK(!mods::vulkan_needs_game_thread());
+    }
 }
 
 }  // namespace
@@ -1422,7 +1861,11 @@ void views_reach_the_host(const fs::path& plugins) {
 // permanent id, test.add. The mod still asks for Test_Add, and binds; status.json names the id.
 void an_old_name_still_binds(const fs::path& plugins) {
     static const mods::HookPoint renamed[] = {
-        {"Test_Add_Renamed", "func_00100000", "i32(i32)", &g_slot_add, reinterpret_cast<void*>(add_game)},
+        {"Test_Add_Renamed",
+         "func_00100000",
+         "i32(i32)",
+         &g_slot_add,
+         reinterpret_cast<void*>(add_game)},
     };
     static const openrac_script_alias aliases[] = {
         {"Test_Add", "test.add"},
@@ -1430,13 +1873,17 @@ void an_old_name_still_binds(const fs::path& plugins) {
         {"func_00100000", "test.add"},
     };
     static const char* const discs[] = {"one"};
-    static const openrac_script_binding binding = {"test", 1, discs, 0, nullptr, 0, nullptr, nullptr, 3, aliases};
+    static const openrac_script_binding binding =
+        {"test", 1, discs, 0, nullptr, 0, nullptr, nullptr, 3, aliases};
     CHECK(std::string(openrac_script_hook_id(&binding, "Test_Add")) == "test.add");
     CHECK(std::string(openrac_script_hook_id(&binding, "func_00100000")) == "test.add");
     CHECK(std::string(openrac_script_hook_id(&binding, "test.add")) == "test.add");
     CHECK(std::string(openrac_script_hook_id(&binding, "Unknown")) == "Unknown");
     CHECK(std::string(openrac_script_hook_id(nullptr, "Test_Add")) == "Test_Add");
-    write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"tag": 5}}]})");
+    write(
+        plugins / "plugins.json",
+        R"({"format": 1, "mods": [{"id": "test-a", "enabled": true, "settings": {"tag": 5}}]})"
+    );
     mods::Host h = host(plugins);
     h.hooks = renamed;
     h.scripts = &binding;
@@ -1462,19 +1909,24 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     mods::Host h = host(plugins);
     h.play = &kPlay;
     h.cards = dir / "cards";
-    CHECK(!mods::overlay_wanted());  // nobody asked yet
+    const auto wanted = [] {
+        return mods::overlay_wanted(mods::overlay_phase());
+    };
+    CHECK(!wanted());  // nobody asked yet
     CHECK(mods::load(h) == "test-a 1.0.0");
     CHECK(g_live_picture == 0);  // play_live_picture reaches the game
+    // The frame's phase is the one read when its tick was captured, whatever the game is in now.
     g_phase = OPENRAC_GAME_PHASE_FRONT_END;
-    CHECK(!mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == 0 && !wanted());
     g_phase = OPENRAC_GAME_PHASE_MENU;
-    CHECK(!mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == OPENRAC_OVERLAY_MENU && !wanted());
     g_phase = OPENRAC_GAME_PHASE_SCENE;
-    CHECK(!mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == OPENRAC_OVERLAY_SCENE && !wanted());
     g_phase = OPENRAC_GAME_PHASE_PLAYING;
-    CHECK(mods::overlay_wanted());
+    CHECK(mods::overlay_phase() == OPENRAC_OVERLAY_PLAYING && wanted());
     openrac_overlay overlay{};
     overlay.size = sizeof overlay;
+    overlay.phase = OPENRAC_OVERLAY_PLAYING;
     overlay.project = [](void*, const float world[3], float* x, float* y) {
         *x = world[0] * 10.0f;
         *y = world[1] * 10.0f;
@@ -1492,8 +1944,42 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     mods::run_overlays(overlay);
     CHECK(g_overlay_rect[0] == 10.0f && g_overlay_rect[1] == 20.0f);
     CHECK(g_overlay_rect[2] == 4.0f && g_overlay_rect[3] == 8.0f);
+    // A frame of a menu is not on_overlay's.
+    g_overlay_rect[0] = 0.0f;
+    overlay.phase = OPENRAC_OVERLAY_MENU;
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 0.0f);
     mods::reset();
-    CHECK(!mods::overlay_wanted());  // gone with the mods
+    CHECK(!mods::overlay_wanted(OPENRAC_OVERLAY_PLAYING));  // gone with the mods
+
+    // Interface 1.31: the phases a mod asks for (on_overlay_phases), the menus' here, not scenes'.
+    // A mod built for this interface (test-current): the call is past an older one's table.
+    write(
+        plugins / "plugins.json",
+        R"({"format": 1, "mods": [{"id": "test-current", "enabled": true, "settings": {"behaviour": "hud-menu"}}]})"
+    );
+    install(
+        plugins,
+        "current",
+        OPENRAC_TEST_MOD_CURRENT,
+        std::format("{}.{}", OPENRAC_MOD_API_MAJOR, OPENRAC_MOD_API_MINOR)
+    );
+    CHECK(mods::load(h) == "test-current 1.0.0");
+    g_phase = OPENRAC_GAME_PHASE_MENU;
+    CHECK(wanted());
+    g_phase = OPENRAC_GAME_PHASE_SCENE;
+    CHECK(!wanted());
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    CHECK(wanted());
+    g_overlay_rect[0] = 0.0f;
+    overlay.phase = OPENRAC_OVERLAY_MENU;
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 10.0f);
+    g_overlay_rect[0] = 0.0f;
+    overlay.phase = OPENRAC_OVERLAY_SCENE;
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 0.0f);
+    mods::reset();
     g_phase = OPENRAC_GAME_PHASE_FRONT_END;
 }
 
@@ -1534,11 +2020,68 @@ void only_a_mod_codes_link_opens(const fs::path& plugins) {
     mods::reset();
 }
 
+// Interface 1.14: a mod reads the edited levels' pack (pack_folder) and loads a file of it with a
+// "pack:" path, never one outside it, none with no pack; and the game's language as a code.
+const char* g_pack = nullptr;
+std::vector<std::string> g_pack_sounds;
+
+void a_mod_reads_the_pack(const fs::path& plugins, const fs::path& dir) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "kerwan"}}]})");
+    const fs::path pack = dir / "pack";
+    write(pack / "level_03" / "cutscenes" / "line.wav", "RIFF");
+    write(dir / "escape.wav", "RIFF");
+    static std::string pack_text;
+    pack_text = pack.string();
+    mods::Host h = host(plugins);
+    h.sound_load = [](const fs::path& file) {
+        g_pack_sounds.push_back(file.filename().string());
+        return 4;
+    };
+    h.pack_folder = [] {
+        return g_pack;
+    };
+    h.language = [] {
+        return 2;
+    };
+
+    // With a pack: its folder, its file, nothing outside it; German.
+    g_pack = pack_text.c_str();
+    g_records.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    CHECK(
+        (g_records
+         == std::vector<int>{9701, 9700, 9710, 9721, 9721, 9721, 9742, 'd' * 256 + 'e', 9750})
+    );
+    CHECK((g_pack_sounds == std::vector<std::string>{"line.wav"}));
+    char folder[1024] = {};
+    const openrac_api& api = mods::api_for_tests();
+    CHECK(api.pack_folder(folder, sizeof folder) == static_cast<int>(pack_text.size()));
+    CHECK(pack_text == folder);
+    CHECK(api.pack_folder(nullptr, 10) == 0);
+    mods::reset();
+
+    // Without one (a game with no edited levels) and without a language (English).
+    g_pack = nullptr;
+    h.language = nullptr;
+    g_records.clear();
+    g_pack_sounds.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    CHECK(
+        (g_records
+         == std::vector<int>{9700, 9700, 9709, 9721, 9721, 9721, 9742, 'e' * 256 + 'n', 9750})
+    );
+    CHECK(g_pack_sounds.empty());
+    mods::reset();
+}
+
 // Interface 1.12 on the test's game: the hero's pose set only by the mod holding the hook point the
 // game names for his update, the collision triangles as the game gives them, a prop of a .glb in the
 // mod's folder (none outside it, none missing) drawn at its pose and gone with its level, and a
 // sound of the mod's through the host's sound calls.
 std::vector<std::string> g_motion;
+// The game's camera shakes the stub was asked for (interface 1.33): "channel amplitude*100 frames".
+std::vector<std::string> g_shakes;
 
 void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
@@ -1549,6 +2092,16 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     mods::Host h = host(plugins);
     static openrac_game_play play = kPlay;
     play.hero_update_hook = "Test_Add";
+    // The moby in slot 3, and the hero's attach point 1 on joint 12 (interface 1.18, prop_attach).
+    play.moby_at = [](std::int32_t slot) {
+        if (slot == 3) {
+            return gaddr{0x2000};
+        }
+        return slot == 1 && g_live[slot] ? gaddr{0x3100} : gaddr{0};
+    };
+    play.attach_point_joint = [](std::uint32_t moby, int point) {
+        return moby == 0x2000 && point == 1 ? 12 : -1;
+    };
     play.hero_set_pose = [](const openrac_game_pose* pose) {
         g_motion.push_back("hero " + std::to_string(static_cast<int>(pose->position[0])));
         return 1;
@@ -1587,6 +2140,16 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         std::fill(rows, rows + 9, 0.0f);
         return 1;
     };
+    play.camera_shake = [](int channel, float amplitude, int frames) {
+        g_shakes.push_back(
+            std::to_string(channel) + " " + std::to_string(static_cast<int>(amplitude * 100)) + " "
+            + std::to_string(frames)
+        );
+        return 1;
+    };
+    play.moby_class_at = [](gaddr moby) {
+        return moby == 0x3F00 ? g_address_class : std::int32_t{-1};
+    };
     play.hero_sound_play = [](int sound, int loop) {
         g_motion.push_back("hero sound " + std::to_string(sound) + " " + std::to_string(loop));
         return loop != 0 ? 5 : 3;
@@ -1604,6 +2167,26 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     play.hero_sound_stop = [](int voice) {
         g_motion.push_back("hero stop " + std::to_string(voice));
     };
+    play.particle_spawn_ex = [](const openrac_game_particle_spawn* spawn) {
+        g_particles.push_back(
+            static_cast<int>(spawn->kind) * 100000 + static_cast<int>(spawn->texture) * 1000
+            + static_cast<int>(spawn->blend)
+        );
+        return 1;
+    };
+    // Interface 1.33: the same content is the same id (128 on), other content the next one.
+    play.particle_texture_register = [](const uint8_t* indices, const uint8_t* clut) {
+        static std::vector<std::string> contents;
+        const std::string key = std::string(reinterpret_cast<const char*>(indices), 1024)
+                                + std::string(reinterpret_cast<const char*>(clut), 1024);
+        for (std::size_t i = 0; i < contents.size(); ++i) {
+            if (contents[i] == key) {
+                return 128 + static_cast<int>(i);
+            }
+        }
+        contents.push_back(key);
+        return 128 + static_cast<int>(contents.size() - 1);
+    };
     static bool playing = false;
     playing = true;
     h.sound_set = [](std::uint32_t voice, float, float) {
@@ -1618,12 +2201,25 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_motion.clear();
     CHECK(mods::load(h) == "test-a 1.0.0");
     g_records.clear();
+    g_shakes.clear();
     CHECK(mods::prop_meshes().empty());
     const unsigned generation = mods::prop_meshes_generation();
     mods::frame();
-    CHECK((g_records == std::vector<int>{9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9560,
-                                         9561, 9577,      9581, 9580, 9581, 9591, 9590, 9591,
-                                         9591, 9590,      9602, 9611, 9610, 9623, 9635}));
+    CHECK((g_records == std::vector<int>{9500, 9523, 9540, 9541, 9541, 9550, 9551, 9660, 9661, 9670,
+                                         9671, 9680, 9681, 9681, 9660, 9661, 9661, 9661, 9661, 9660,
+                                         9660, 9560, 9561, 9577, 9581, 9580, 9581, 9591, 9590, 9591,
+                                         9591, 9590, 9602, 9671, 9671, 9671, 9670, 9821, 9820, 9820,
+                                         9820, 9831, 9841, 9840, 9840, 9856, 9611, 9610, 9623, 9635,
+                                         9700, 9710, 9721, 9721, 9730, 9731, 9731, 9731, 9731, 9731,
+                                         9731, 9734, 9730, 9730, 9730, 9740, 9741, 9741, 9741, 9741,
+                                         9741, 9741, 9744, 9740, 9740, 9744, 9760, 9761, 9761, 9761,
+                                         9761, 9770, 9771, 9771, 9771, 9771, 9771, 9771, 9770, 9790,
+                                         9790, 9791, 9801, 9801}));
+    // Only the 1.33 smoke with its texture 1 and blend 0x44 reached the game (kind 0, texture 1000, blend 68).
+    CHECK((g_particles == std::vector<int>{1068}));
+    // Only the good shake reached the host: channel 0, 0.15 (as 15), 30 ticks.
+    CHECK((g_shakes == std::vector<std::string>{"0 15 30"}));
+    CHECK(mods::camera_visibility_bypassed());  // asked for in the level in play, and left on
     CHECK(
         (g_motion
          == std::vector<std::string>{
@@ -1640,11 +2236,75 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK(mods::prop_meshes().size() == 1 && mods::prop_meshes()[0].filename() == "board.glb");
     CHECK(mods::prop_meshes_generation() == generation + 1);
     const std::vector<mods::PropDraw> drawn = mods::props_drawn();
-    CHECK(drawn.size() == 1);
+    CHECK(drawn.size() == 2);
     CHECK(
-        drawn.size() == 1 && drawn[0].matrix[0] == 2.0f && drawn[0].matrix[5] == 2.0f
+        drawn.size() == 2 && drawn[0].matrix[0] == 2.0f && drawn[0].matrix[5] == 2.0f
         && drawn[0].matrix[12] == 1.0f && drawn[0].matrix[13] == 2.0f && drawn[0].matrix[14] == 3.0f
+        && drawn[0].attached_moby == 0
     );
+    CHECK(
+        drawn.size() == 2 && drawn[0].animation == 2 && drawn[0].seconds == 1.5f && drawn[0].loop
+    );
+    // Its skin (interface 1.33): the two joints' matrices as the last good call gave them, copied
+    // (the first, the bind pose; the second, 3 along x). The refused calls changed nothing.
+    CHECK(
+        drawn.size() == 2 && drawn[0].skin != nullptr && drawn[0].skin->size() == 2
+        && (*drawn[0].skin)[0][0] == 1.0f && (*drawn[0].skin)[0][12] == 0.0f
+        && (*drawn[0].skin)[1][12] == 3.0f && (*drawn[0].skin)[1][15] == 1.0f
+    );
+    // The second, fixed to the hero's attach point 1 (joint 12) of the moby in slot 3, its offset
+    // kept (the refused calls after it change nothing).
+    CHECK(
+        drawn.size() == 2 && drawn[1].attached_moby == 0x2000 && drawn[1].attached_joint == 12
+        && drawn[1].matrix[12] == 0.5f && drawn[1].matrix[0] == 1.0f
+    );
+    // The renderer tells where it drew the fixed one (prop_frame answers it from then on); a prop
+    // that is not fixed keeps its pose.
+    {
+        std::array<float, 16> placed{};
+        placed[12] = 7.0f;
+        mods::prop_placed(drawn.size() == 2 ? drawn[1].id : -1, placed);
+        mods::prop_placed(drawn.size() == 2 ? drawn[0].id : -1, placed);
+        mods::prop_placed(99999, placed);
+        CHECK(mods::props_drawn().size() == 2 && mods::props_drawn()[0].matrix[12] == 1.0f);
+    }
+    // The moby the mod drew with its model (interface 1.33): slot 1's moby (0x3100, class 0) with the
+    // mesh of the model, moved 2 along x; the same mesh as the
+    // prop's, so the list of meshes did not grow.
+    // The class 511 override (interface 1.33, WORLD) of the same mod is listed too, after the slot's.
+    const std::vector<mods::MobyModelDraw> models = mods::moby_models_drawn();
+    CHECK(
+        models.size() == 3 && models[0].address == 0x3100 && models[0].oclass == 0
+        && models[0].scope == 0 && models[0].mesh.filename() == "board.glb"
+        && models[0].matrix[0] == 1.0f && models[0].matrix[12] == 2.0f
+    );
+    // The mobys the level's list does not hold, by address (interface 1.33): the one at 0x3F00, class 511.
+    CHECK(
+        models[1].address == 0x3F00 && models[1].oclass == 511 && models[1].scope == 0
+        && models[1].hidden && models[1].mesh.empty() && models[1].matrix[0] == 1.0f
+        && models[1].matrix[15] == 1.0f
+    );
+    CHECK(
+        models[2].address == 0 && models[2].oclass == 511 && models[2].scope == OPENRAC_MODEL_WORLD
+        && models[2].mesh.filename() == "board.glb" && models[2].matrix[13] == 3.0f
+    );
+    // The override is the moby's: freed in its slot, it is no one's (the address's and the class's stay).
+    g_live[1] = false;
+    mods::play_update();
+    CHECK(
+        mods::moby_models_drawn().size() == 2 && mods::moby_models_drawn()[0].address == 0x3F00
+        && mods::moby_models_drawn()[1].scope == OPENRAC_MODEL_WORLD
+    );
+    g_live[1] = true;
+    // The address's override goes when the class the game reads there changes (interface 1.33); the
+    // class's stays.
+    g_address_class = 512;
+    mods::play_update();
+    CHECK(
+        mods::moby_models_drawn().size() == 1
+        && mods::moby_models_drawn()[0].scope == OPENRAC_MODEL_WORLD
+    );
+    g_address_class = 511;
     // The heat haze, drawn while its level is.
     const std::vector<mods::HazeDraw> haze = mods::haze_drawn();
     CHECK(haze.size() == 2 && haze[0].position[0] == 4.0f && haze[0].radius == 1.0f);
@@ -1657,10 +2317,20 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     g_records.clear();
     g_motion.clear();
     mods::frame();
+    CHECK(!mods::camera_visibility_bypassed());  // it went with its level
     // The pose needs the hook; the joints do not (two, too many, none).
-    CHECK((g_records == std::vector<int>{9501, 9551, 9640, 9641, 9650}));
+    CHECK((g_records == std::vector<int>{9501, 9551, 9661, 9640, 9641, 9650, 9660, 9731, 9741}));
     CHECK((g_motion == std::vector<std::string>{"joints 4096 2 1 2", "joints 4096 0"}));
+    // The new level load's list holds the mesh again (the old load's was dropped, a change of the
+    // list as the push of the first mesh was), and a load none was made in has none.
+    CHECK(mods::prop_meshes().size() == 1 && mods::prop_meshes()[0].filename() == "board.glb");
+    CHECK(mods::prop_meshes_generation() == generation + 3);
+    g_loads = 3;
+    CHECK(mods::prop_meshes().empty());
+    CHECK(mods::prop_meshes_generation() == generation + 3);
+    g_loads = 2;
     CHECK(mods::props_drawn().empty());
+    CHECK(mods::moby_models_drawn().empty());
     CHECK(mods::haze_drawn().empty());
     CHECK(mods::hud_texts().empty());
     // The looping hero sound went with its level: nothing left to stop.
@@ -1669,8 +2339,426 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     CHECK((g_motion == std::vector<std::string>{"camera off"}));
 }
 
+// What a scene needs, on the test's game: the field of view only with the camera and
+// gone with it and the level, the HUD hidden for the level, the music ducked through the host and
+// given back when the mods go, joints on a moby of the level, a joint's place and a moby's sound.
+std::vector<std::string> g_cutscene_calls;
+
+void a_scene_reaches_the_game(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "cutscene"}}]})");
+    mods::Host h = host(plugins);
+    static openrac_game_play play = kPlay;
+    play.camera_set = [](const float eye[3], const float*) {
+        g_cutscene_calls.push_back(eye != nullptr ? "camera" : "camera off");
+        return 1;
+    };
+    play.moby_sound_play = [](gaddr moby, int sound, int loop) {
+        g_cutscene_calls.push_back(
+            "sound " + std::to_string(moby) + " " + std::to_string(sound) + " "
+            + std::to_string(loop)
+        );
+        return 5;
+    };
+    play.moby_sound_stop = [](gaddr moby, int voice) {
+        g_cutscene_calls.push_back("stop " + std::to_string(moby) + " " + std::to_string(voice));
+    };
+    play.music_group = [] {
+        return 2;
+    };
+    h.play = &play;
+    h.music_gain = [](int group, float gain) {
+        g_cutscene_calls.push_back(
+            "music " + std::to_string(group) + " " + std::to_string(static_cast<int>(gain * 100))
+        );
+    };
+    h.joint_offsets = [](std::uint32_t moby, const openrac_joint_offset* joints, int count) {
+        g_cutscene_calls.push_back(
+            "joints " + std::to_string(moby) + " " + std::to_string(count)
+            + (count > 0 ? " " + std::to_string(joints[0].joint) : std::string())
+        );
+    };
+    h.joint_frame = [](std::uint32_t moby, int joint, float* out) {
+        std::fill(out, out + 12, 0.0f);
+        out[0] = out[4] = out[8] = 1.0f;
+        out[9] = static_cast<float>(moby + static_cast<std::uint32_t>(joint));
+        return 1;
+    };
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    g_loads = 1;
+    g_cutscene_calls.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    g_records.clear();
+    CHECK(mods::camera_fov() == 0.0f);
+    CHECK(!mods::hud_hidden());
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_DEFAULT);
+    mods::frame();
+    CHECK((g_records == std::vector<int>{9801, 9800,       9811, 9811, 9810, 9820, 9820, 9821,
+                                         9831, 9830,       9840, 9841, 9841, 9840, 9841, 9840,
+                                         9850, 0x3100 + 3, 9851, 9850, 1,    9865, 9869, 9881,
+                                         9880, 9891,       9890, 9901, 9900, 9900}));
+    CHECK(
+        (g_cutscene_calls
+         == std::vector<std::string>{
+             "camera",
+             "music 2 25",
+             "joints 12544 1 3",
+             "joints 12544 1 2147483652",
+             "joints 12544 1 3",
+             "sound 12544 12 1",
+             "stop 12544 5"
+         })
+    );
+    CHECK(mods::camera_fov() == 40.0f);
+    CHECK(mods::hud_hidden());
+    // A menu option turned on stays (it is not of the level load); a bad state sets nothing.
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_ON);
+    CHECK(mods::menu_option("vsync") == OPENRAC_MENU_OPTION_DEFAULT);
+    const auto air = mods::scene_air();
+    CHECK(air && air->fog_far == 50.0f && air->background[0] == 1.0f && air->weight == 1.0f);
+    CHECK(mods::time_stretch() == 2.0f);
+    CHECK((mods::hidden_ties() == std::vector<int>{3, 7}));
+    // The level loaded again: the field of view, the hidden HUD, the air, the slow motion and the
+    // hidden ties went with it.
+    g_loads = 2;
+    CHECK(mods::camera_fov() == 0.0f);
+    CHECK(!mods::hud_hidden());
+    CHECK(!mods::scene_air());
+    CHECK(mods::time_stretch() == 1.0f);
+    CHECK(mods::hidden_ties().empty());
+    // At the next frame the music is back at full, and the moby's joints are gone too (its
+    // address may hold another moby now), though not while the hero is still loading.
+    g_cutscene_calls.clear();
+    mods::play_update();
+    CHECK((g_cutscene_calls == std::vector<std::string>{"music 2 100"}));
+    g_cutscene_calls.clear();
+    play.hero_moby = [] {
+        return std::uint32_t{0x1000};
+    };
+    mods::play_update();
+    CHECK((g_cutscene_calls == std::vector<std::string>{"joints 12544 0"}));
+    play.hero_moby = nullptr;
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_ON);
+    mods::reset();
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_DEFAULT);
+    g_loads = 1;
+}
+
+// A mod's sharper cells (interface 1.36, openrac_api.sharp_cells): what the call refuses (and then
+// leaves the mod's pages as they were), the pages the renderer reads, a struct of a later
+// interface, and the pages gone with the mod while the built-ins' stay.
+void a_mod_gives_sharper_cells(const fs::path& plugins) {
+    namespace sharp = renderer::sharp_cells;
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    int owner = 0;
+    auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+    // A 4 x 2 texture, texel (x, y) (x, y, 9); its cell at (0, 0), 2 x 2, drawn white twice as big.
+    std::vector<std::uint8_t> texels;
+    for (int y = 0; y < 2; ++y) {
+        for (int x = 0; x < 4; ++x) {
+            texels.insert(
+                texels.end(), {static_cast<std::uint8_t>(x), static_cast<std::uint8_t>(y), 9, 255}
+            );
+        }
+    }
+    const std::vector<std::uint8_t> rgb{0, 0, 9, 1, 0, 9, 0, 1, 9, 1, 1, 9};
+    const std::vector<std::uint8_t> white(4 * 4 * 3, 255);
+    openrac_sharp_cell cell{sizeof(openrac_sharp_cell), 0, 0, 2, 2, rgb.data(), white.data()};
+    openrac_sharp_page page{sizeof(openrac_sharp_page), 4, 2, 2, &cell, 1};
+    sharp::Picture big;
+    CHECK(!sharp::picture(4, 2, texels.data(), big));
+    CHECK(api.sharp_cells(mod, &page, 1) == OPENRAC_HOOK_OK);
+    CHECK(sharp::picture(4, 2, texels.data(), big));
+    CHECK(big.width == 8 && big.height == 4 && big.pixels[0] == 255 && big.pixels[3] == 255);
+
+    // Refused: no mod, a count out of range or without pages, a struct too short; then each value
+    // of a page and a cell out of range, or null data. The mod's pages stay as they were.
+    CHECK(api.sharp_cells(nullptr, &page, 1) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.sharp_cells(mod, &page, -1) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.sharp_cells(mod, &page, 65) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.sharp_cells(mod, nullptr, 1) == OPENRAC_HOOK_UNKNOWN);
+    const auto refused_page = [&](auto change) {
+        openrac_sharp_page p = page;
+        change(p);
+        return api.sharp_cells(mod, &p, 1) == OPENRAC_HOOK_UNKNOWN;
+    };
+    CHECK(refused_page([](openrac_sharp_page& p) { p.size = 4; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.width = 0; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.height = 1025; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.scale = 0; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.scale = 17; }));
+    CHECK(refused_page([](openrac_sharp_page& p) {
+        p.width = 512;
+        p.scale = 9;
+    }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.count = 0; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.cells = nullptr; }));
+    const auto refused_cell = [&](auto change) {
+        openrac_sharp_cell c = cell;
+        change(c);
+        openrac_sharp_page p = page;
+        p.cells = &c;
+        return api.sharp_cells(mod, &p, 1) == OPENRAC_HOOK_UNKNOWN;
+    };
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.size = 8; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.x = -1; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.x = 3; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.h = 3; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.w = 0; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.rgb = nullptr; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.sharp = nullptr; }));
+    // Two pages of two sizes in one array: refused too.
+    openrac_sharp_page two[2] = {page, page};
+    two[1].size = sizeof(openrac_sharp_page) + 8;
+    CHECK(api.sharp_cells(mod, two, 2) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(sharp::picture(4, 2, texels.data(), big) && big.pixels[0] == 255);
+
+    // A mod built for a later interface, whose structs are longer: read a stride of their size.
+    struct LaterCell {
+        openrac_sharp_cell cell;
+        std::uint32_t more;
+    };
+
+    struct LaterPage {
+        openrac_sharp_page page;
+        std::uint64_t more;
+    };
+
+    const std::vector<std::uint8_t> grey(4 * 4 * 3, 128);
+    LaterCell later_cells[2] = {{cell, 1}, {cell, 2}};
+    later_cells[0].cell.size = sizeof(LaterCell);
+    later_cells[1].cell = {sizeof(LaterCell), 2, 0, 2, 2, rgb.data(), grey.data()};
+    // The second cell's colours: texels (2..3, 0..1).
+    const std::vector<std::uint8_t> right{2, 0, 9, 3, 0, 9, 2, 1, 9, 3, 1, 9};
+    later_cells[1].cell.rgb = right.data();
+    LaterPage later[2] = {{page, 0}, {page, 0}};
+    later[0].page.size = sizeof(LaterPage);
+    later[0].page.cells = &later_cells[0].cell;
+    later[0].page.count = 2;
+    later[1].page = later[0].page;
+    later[1].page.width = 8;
+    CHECK(api.sharp_cells(mod, &later[0].page, 2) == OPENRAC_HOOK_OK);
+    CHECK(sharp::picture(4, 2, texels.data(), big));
+    CHECK(big.pixels[0] == 255 && big.pixels[static_cast<std::size_t>(4 * 4)] == 128);
+
+    // The mod's unload takes its pages; the built-ins' stay.
+    const sharp::Cell builtin{0, 0, 2, 2, rgb, std::vector<std::uint8_t>(4 * 4 * 3, 64)};
+    sharp::set(std::vector<sharp::Page>{sharp::Page{4, 2, 2, {builtin}}});
+    CHECK(sharp::picture(4, 2, texels.data(), big) && big.pixels[0] == 64);
+    mods::drop_figures(mod);
+    CHECK(sharp::picture(4, 2, texels.data(), big) && big.pixels[0] == 64);
+    CHECK(big.pixels[static_cast<std::size_t>(4 * 4)] != 128);
+    sharp::set({});
+    CHECK(!sharp::picture(4, 2, texels.data(), big));
+
+    // A count of 0 clears the mod's pages.
+    CHECK(api.sharp_cells(mod, &page, 1) == OPENRAC_HOOK_OK);
+    CHECK(api.sharp_cells(mod, nullptr, 0) == OPENRAC_HOOK_OK);
+    CHECK(!sharp::picture(4, 2, texels.data(), big));
+    mods::reset();
+}
+
+// What the host was asked of the pads' motors (interface 1.37): "<mod> <port> <small> <large>",
+// "drop <mod>", "drop all"; the mods are named a and b.
+std::vector<std::string> g_motor_calls;
+const void* g_motor_a = nullptr;
+const void* g_motor_b = nullptr;
+
+std::string motor_owner(const void* mod) {
+    return mod == nullptr ? "all" : mod == g_motor_a ? "a" : mod == g_motor_b ? "b" : "?";
+}
+
+// A mod's motors (interface 1.37, openrac_api.set_motors): what the call refuses (and then asks
+// nothing of the host), the values handed to the host as they are, a run without pads, and the
+// mod's motors dropped with its unload and every mod's with the mods' reset. A mod drives motors
+// (mods::any_mod_motors, which shows the menu's vibration rows) from its first call the port takes,
+// 0, 0 included, until its unload or the reset.
+void a_mod_drives_the_motors(const fs::path& plugins) {
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    int owner = 0, other = 0;
+    auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+    auto* mod2 = reinterpret_cast<openrac_mod*>(&other);
+    g_motor_a = mod;
+    g_motor_b = mod2;
+    mods::Host h = host(plugins);
+    h.motors = [](const void* m, int port, bool small_motor, std::uint8_t large_motor) {
+        g_motor_calls.push_back(
+            motor_owner(m) + " " + std::to_string(port) + " " + std::to_string(small_motor ? 1 : 0)
+            + " " + std::to_string(large_motor)
+        );
+    };
+    h.drop_motors = [](const void* m) {
+        g_motor_calls.push_back("drop " + motor_owner(m));
+    };
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    g_motor_calls.clear();
+    CHECK(!mods::any_mod_motors());
+
+    // Refused: no mod, a port out of range, the small motor neither off nor on, the large one out
+    // of 0 to 255. Nothing reaches the host.
+    CHECK(api.set_motors(nullptr, 0, 1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, -1, 1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 2, 1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, 2, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, -1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, 1, -1) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, 1, 256) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(g_motor_calls.empty());
+    // A refused call does not make a mod one that drives motors.
+    CHECK(!mods::any_mod_motors());
+
+    // 0, 0 at load: the mod drives motors from now on, though nothing rumbles.
+    CHECK(api.set_motors(mod, 0, 0, 0) == OPENRAC_HOOK_OK);
+    CHECK(mods::any_mod_motors());
+
+    // Taken: each mod's values reach the host as they are, the mod telling them apart.
+    g_motor_calls.clear();
+    CHECK(api.set_motors(mod, 0, 1, 255) == OPENRAC_HOOK_OK);
+    CHECK(api.set_motors(mod2, 1, 0, 40) == OPENRAC_HOOK_OK);
+    CHECK(api.set_motors(mod, 0, 0, 0) == OPENRAC_HOOK_OK);
+    CHECK((g_motor_calls == std::vector<std::string>{"a 0 1 255", "b 1 0 40", "a 0 0 0"}));
+
+    // A mod's unload stops its motors only, and while another mod drives motors the rows stay; the
+    // mods' reset stops every mod's.
+    g_motor_calls.clear();
+    mods::drop_figures(mod);
+    CHECK((g_motor_calls == std::vector<std::string>{"drop a"}));
+    CHECK(mods::any_mod_motors());
+    mods::drop_figures(mod2);
+    CHECK(!mods::any_mod_motors());
+    CHECK(api.set_motors(mod2, 1, 0, 0) == OPENRAC_HOOK_OK);
+    CHECK(mods::any_mod_motors());
+    g_motor_calls.clear();
+    mods::reset();
+    CHECK(std::find(g_motor_calls.begin(), g_motor_calls.end(), "drop all") != g_motor_calls.end());
+    CHECK(!mods::any_mod_motors());
+
+    // A port without pads (a test's host, or a build without a window): refused, and not counted.
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    g_motor_calls.clear();
+    CHECK(mods::api_for_tests().set_motors(mod, 0, 1, 255) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(g_motor_calls.empty());
+    CHECK(!mods::any_mod_motors());
+    mods::reset();
+}
+
+// undo() drops these registrations before closing a refused mod's library.
+// Use resident callbacks here so a missed cleanup is reported instead of jumping
+// into unmapped DLL code when the next vendor camera event arrives.
+void dropped_mod_watchers_are_not_called() {
+    mods::reset_play();
+    openrac_api api{};
+    mods::fill_play_api(api, &kPlay, {});
+    int owner = 0, other = 0, camera_calls = 0, metal_calls = 0;
+    auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+    auto* another = reinterpret_cast<openrac_mod*>(&other);
+    auto camera = [](void* user, int, int) {
+        ++*static_cast<int*>(user);
+    };
+    auto metal = [](void* user, int, int) {
+        ++*static_cast<int*>(user);
+        return 0;
+    };
+    mods::play_loading(mod);
+    CHECK(api.on_camera_script(mod, camera, &camera_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.on_metal_detect(mod, metal, &metal_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.camera_script_play(mod, 737) == OPENRAC_HOOK_OK);
+    mods::play_loading(nullptr);
+    mods::drop_figures(another);
+    CHECK(api.camera_script_play(another, 737) == OPENRAC_HOOK_UNKNOWN);
+    g_script_events = 1;
+    mods::play_update();
+    CHECK(camera_calls == 1);
+    CHECK(openrac_game_metal_detect(1, 2) == 0 && metal_calls == 1);
+    mods::drop_figures(mod);
+    CHECK(api.camera_script_play(another, 737) == OPENRAC_HOOK_OK);
+    g_script_events = 1;
+    mods::play_update();
+    CHECK(camera_calls == 1);
+    CHECK(openrac_game_metal_detect == nullptr || openrac_game_metal_detect(1, 2) == 1);
+    CHECK(metal_calls == 1);
+    mods::play_loading(another);
+    CHECK(api.on_camera_script(another, camera, &camera_calls) == OPENRAC_HOOK_OK);
+    CHECK(api.on_metal_detect(another, metal, &metal_calls) == OPENRAC_HOOK_OK);
+    mods::reset_play();
+}
+
+void refused_library_leaves_no_watchers(const fs::path& plugins) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "settings": {"behaviour": "world"}},
+        {"id": "test-b", "settings": {"behaviour": "z_watchers_fail"}}]})");
+    auto h = host(plugins);
+    h.play = &kPlay;
+    mods::load(h);
+    CHECK(status_of(plugins, "test-a").first == "loaded");
+    CHECK(status_of(plugins, "test-b").second == "the world gate is already taken");
+    g_records.clear();
+    g_script_events = 1;
+    // test-b's DLL has been closed. Neither event may enter its old code.
+    mods::play_update();
+    CHECK(openrac_game_metal_detect == nullptr || openrac_game_metal_detect(1, 2) == 1);
+    CHECK(g_records.empty());
+    mods::reset();
+}
+
+// Interface 1.33: the installed games' data folders (<games root>/<game>/data, the launcher's layout)
+// and the manifest's "reads_games". The own game's folder is the host's data.
+void installed_games_and_their_folders(const fs::path& dir) {
+    const fs::path active = dir / "games-active";
+    fs::create_directories(active / "rac1" / "data" / "iso_data");
+    fs::create_directories(active / "rac2" / "data" / "port" / "ntsc");
+    fs::create_directories(active / "rac3" / "data");  // not extracted: not installed
+    fs::create_directories(active / "bad.name" / "data" / "iso_data");  // not a game id
+    fs::create_directories(active / "rac4" / "iso_data");               // no data folder
+
+    CHECK(mods::valid_game_id("rac2") && mods::valid_game_id("rac-2"));
+    CHECK(!mods::valid_game_id("") && !mods::valid_game_id("../up") && !mods::valid_game_id("a b"));
+    CHECK(!mods::valid_game_id(std::string(33, 'a')) && !mods::valid_game_id("bad.name"));
+
+    mods::Host h = host(dir / "plugins");
+    h.game = "rac1";
+    h.data = active / "rac1" / "data";
+    h.games_root = active;
+    CHECK(mods::game_data_folder(h, "rac2") == active / "rac2" / "data");
+    CHECK(mods::game_data_folder(h, "../up").empty());
+    CHECK(mods::game_data_folder(h, "rac1") == h.data);
+    CHECK(
+        mods::holds_game_data(active / "rac2" / "data")
+        && !mods::holds_game_data(active / "rac3" / "data")
+    );
+
+    const std::string base =
+        R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0", "api": "1.33", "games": {"rac1": ["pal"]}, "reads_games": )";
+    mods::Manifest m;
+    std::string error;
+    CHECK(mods::parse_manifest(base + R"(["rac1", "rac2"]})", m, error));
+    CHECK((m.reads_games == std::vector<std::string>{"rac1", "rac2"}));
+    CHECK(
+        mods::parse_manifest(
+            R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0", "games": {"rac1": ["pal"]}})",
+            m,
+            error
+        )
+    );
+    CHECK(m.reads_games.empty());
+    CHECK(
+        !mods::parse_manifest(base + R"("rac2"})", m, error)
+        && error.find("reads_games") != std::string::npos
+    );
+    CHECK(!mods::parse_manifest(base + R"(["../up"]})", m, error));
+    CHECK(!mods::parse_manifest(base + R"([3]})", m, error));
+}
+
 int main() {
-    const fs::path dir = fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
+    const fs::path dir =
+        fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
     fs::remove_all(dir);
     const fs::path plugins = dir / "plugins";
     install(plugins, "a", OPENRAC_TEST_MOD_A);
@@ -1680,6 +2768,9 @@ int main() {
     };
     openrac_guest_register(OPENRAC_OVERLAY_EXE, functions, 1);
     two_mods_chain_in_load_order(plugins);
+    a_hook_point_is_called_as_the_game_calls_it(plugins);
+    every_call_of_the_table_is_filled(plugins);
+    menu_options_follow_the_newest_call(plugins);
     a_mod_that_fails_is_taken_back(plugins);
     refused_before_opening(plugins);
     purist_and_no_list(plugins);
@@ -1688,9 +2779,13 @@ int main() {
     an_old_name_still_binds(plugins);
     input_reaches_the_mod(plugins);
     views_reach_the_host(plugins);
+    native_vulkan_access_requires_a_declaration(plugins);
     a_menu_page_draws_through_the_host(plugins);
     a_mod_provides_a_desktop_menu(plugins);
     a_party_reads_the_mods(plugins);
+    a_mod_sets_its_own_settings(plugins);
+    a_mods_data_goes_with_the_saves(plugins, dir);
+    a_mod_asks_the_games_collision(plugins);
     the_1_14_calls_answer_unknown_without_a_game(plugins);
     a_party_reads_the_data_packs(plugins);
     a_mod_copies_and_knows_the_key(plugins);
@@ -1702,8 +2797,15 @@ int main() {
     play_reaches_the_game(plugins, dir);
     the_world_reaches_the_game(plugins, dir);
     motion_reaches_the_game(plugins, dir);
+    a_scene_reaches_the_game(plugins);
+    a_mod_reads_the_pack(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
     a_library_others_can_change_is_refused(plugins);
+    a_mod_gives_sharper_cells(plugins);
+    a_mod_drives_the_motors(plugins);
+    dropped_mod_watchers_are_not_called();
+    refused_library_leaves_no_watchers(plugins);
+    installed_games_and_their_folders(dir);
     std::error_code e;
     fs::remove_all(dir, e);
     return test::result();

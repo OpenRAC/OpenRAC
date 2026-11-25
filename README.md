@@ -37,7 +37,7 @@ OpenRAC brings the PlayStation 2 Ratchet & Clank games to PC as real native game
 
 - **Playable now:** Ratchet & Clank (PAL / NTSC).
 - **Playable, not yet tried by players:** Ratchet & Clank's PAL v1.00 and Japanese discs, each built from the same C as PAL v2.00.
-- **Playable, early and unstable:** Going Commando, from any of its three discs (USA v1.01, USA v2.00 Greatest Hits, Europe's *Locked and Loaded*). The launcher builds it from your disc: on Windows and Android with nothing else to install, on Linux and macOS with a compiler you install.
+- **Playable now:** Going Commando, from any of its three discs (USA v1.01, USA v2.00 Greatest Hits, Europe's *Locked and Loaded*). Like Ratchet & Clank, the launcher needs only your disc: nothing is built on your computer.
 - **In progress:** Up Your Arsenal, Deadlocked, Size Matters and Secret Agent Clank.
 - **How:** each game is decompiled into C that rebuilds the original exactly, then built for your PC.
 - **No game files included:** models, textures, sound and levels come from your own disc.
@@ -69,20 +69,21 @@ How much of each game's code is decompiled so far. More on [openrac.dev](https:/
   <tr><td>Going Commando (NTSC v2.00)</td><td><a href="https://github.com/OpenRAC/rac2-decomp">rac2-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac2-decomp/SCUS_972.68_v2"><img src="https://bytematch.dev/OpenRAC/rac2-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_972.68_v2&amp;color=ffb443&amp;style=flat-square" alt="Going Commando (NTSC v2.00): code decompiled"></a></td></tr>
   <tr><td>Up Your Arsenal (NTSC)</td><td><a href="https://github.com/OpenRAC/rac3-decomp">rac3-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac3-decomp/SCUS_973.53"><img src="https://bytematch.dev/OpenRAC/rac3-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_973.53&amp;color=ffb443&amp;style=flat-square" alt="Up Your Arsenal (NTSC): code decompiled"></a></td></tr>
   <tr><td>Up Your Arsenal (PAL)</td><td><a href="https://github.com/OpenRAC/rac3-decomp">rac3-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac3-decomp/SCES_524.56"><img src="https://bytematch.dev/OpenRAC/rac3-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCES_524.56&amp;color=ffb443&amp;style=flat-square" alt="Up Your Arsenal (PAL): code decompiled"></a></td></tr>
-  <tr><td>Deadlocked</td><td><a href="https://github.com/OpenRAC/rac4-decomp">rac4-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac4-decomp/SCUS_974.65"><img src="https://bytematch.dev/OpenRAC/rac4-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_974.65&amp;color=ffb443&amp;style=flat-square" alt="Deadlocked: code decompiled"></a></td></tr>
+  <tr><td>Deadlocked (NTSC)</td><td><a href="https://github.com/OpenRAC/rac4-decomp">rac4-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac4-decomp/SCUS_974.65"><img src="https://bytematch.dev/OpenRAC/rac4-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_974.65&amp;color=ffb443&amp;style=flat-square" alt="Deadlocked (NTSC): code decompiled"></a></td></tr>
+  <tr><td>Deadlocked (PAL)</td><td><a href="https://github.com/OpenRAC/rac4-decomp">rac4-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac4-decomp/SCES_532.85"><img src="https://bytematch.dev/OpenRAC/rac4-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCES_532.85&amp;color=ffb443&amp;style=flat-square" alt="Deadlocked (PAL): code decompiled"></a></td></tr>
   <tr><td>Size Matters</td><td><a href="https://github.com/OpenRAC/rac5-sm-decomp">rac5-sm-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac5-sm-decomp/SCUS_976.15"><img src="https://bytematch.dev/OpenRAC/rac5-sm-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_976.15&amp;color=ffb443&amp;style=flat-square" alt="Size Matters: code decompiled"></a></td></tr>
 </table>
 <!-- badges:end -->
 
 ## Make mods
 
-The launcher's **Mods** tab adds mods and opens your levels in [Godot 4](https://godotengine.org/) to edit them.
+The launcher's **Mods** tab adds mods and opens your levels in [OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor) to edit them.
 
 <p align="center">
   <img src="docs/assets/mods.jpg" alt="The OpenRAC launcher's Mods tab: add mods, switch them on and play" width="860">
 </p>
 
-**Guides:** [Level editor](editor/README.md) · [Mod SDK](docs/port/MODS.md)
+**Guides:** [Level editor](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md) · [Mod SDK](docs/port/MODS.md)
 
 ## Help out
 

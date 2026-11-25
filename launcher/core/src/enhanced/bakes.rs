@@ -26,9 +26,29 @@ pub struct BakeStatus {
     pub partial: usize,
 }
 
+/// A file's SHA-256, kept while its size and change time stay the same. The bake status is asked
+/// each time a game's Mods switch or Mods tab shows (Android: every tab change), and hashing the
+/// water and ocean files again each time cost about half a second of CPU on a phone.
 fn sha256(path: &Path) -> Option<String> {
-    let bytes = std::fs::read(path).ok()?;
-    Some(crate::sha256_hex(&bytes))
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+    type Stamp = (u64, Option<std::time::SystemTime>);
+    static KNOWN: Mutex<Option<HashMap<PathBuf, (Stamp, String)>>> = Mutex::new(None);
+    let meta = std::fs::metadata(path).ok()?;
+    let stamp = (meta.len(), meta.modified().ok());
+    // No change time (a file system without one): always hashed.
+    if stamp.1.is_some() {
+        if let Some((seen, digest)) = KNOWN.lock().unwrap().get_or_insert_with(HashMap::new).get(path) {
+            if *seen == stamp {
+                return Some(digest.clone());
+            }
+        }
+    }
+    let digest = crate::sha256_hex(&std::fs::read(path).ok()?);
+    if stamp.1.is_some() {
+        KNOWN.lock().unwrap().get_or_insert_with(HashMap::new).insert(path.to_path_buf(), (stamp, digest.clone()));
+    }
+    Some(digest)
 }
 
 /// What `baker` makes of `level` (`--print-profile`):
@@ -115,21 +135,24 @@ fn prepared_water(level: &Path, manifest: &Path) -> bool {
     let read = |path: &Path| -> Value {
         std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or(Value::Null)
     };
-    let profile = read(&level.join("probe-bake.json"));
+    let profile_text = std::fs::read_to_string(level.join("probe-bake.json")).unwrap_or_default();
+    let profile: Value = serde_json::from_str(&profile_text).unwrap_or(Value::Null);
     if profile["water_sources"].is_null() {
         return read(manifest)["bake_inputs"]["water"].is_null();
     }
+    // Check the bytes we just parsed so a same-size edit within one filesystem tick is detected.
+    let profile_hash = crate::sha256_hex(profile_text.as_bytes());
     let stamp = read(&level.join("water-bake.json"));
     stamp["version"] == 3
         && stamp["inputs"]["algorithm"] == "native-water-sources-v1"
-        && ["bake-inputs/overlay.bin", "collision.glb", "probe-bake.json"].iter().all(|name| level.join(name).is_file())
+        && stamp["inputs"]["profile"].as_str() == Some(profile_hash.as_str())
+        && ["bake-inputs/overlay.bin", "collision.glb"].iter().all(|name| level.join(name).is_file())
         && ["water.bin", "water.mesh"].iter().enumerate().all(|(i, name)| {
             sha256(&level.join(name)).is_some_and(|digest| stamp["outputs"][i].as_str() == Some(digest.as_str()))
         })
         && [
             ("overlay", "bake-inputs/overlay.bin"),
             ("collision", "collision.glb"),
-            ("profile", "probe-bake.json"),
             ("boundaries", "water-boundaries.json"),
         ]
         .iter()
@@ -638,7 +661,12 @@ mod tests {
             assert!(!prepared_water(&root, &manifest));
         }
         std::fs::write(root.join("water-bake.json"), stamp.to_string()).unwrap();
-        std::fs::write(root.join("probe-bake.json"), r#"{"water_sources":{"version":2}}"#).unwrap();
+        let profile = root.join("probe-bake.json");
+        let previous_time = std::fs::metadata(&profile).unwrap().modified().unwrap();
+        std::fs::write(&profile, r#"{"water_sources":{"version":2}}"#).unwrap();
+        let profile_file = std::fs::OpenOptions::new().write(true).open(&profile).unwrap();
+        profile_file.set_times(std::fs::FileTimes::new().set_modified(previous_time)).unwrap();
+        drop(profile_file);
         assert!(!prepared_water(&root, &manifest));
         let _ = std::fs::remove_dir_all(root);
     }

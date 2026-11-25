@@ -11,15 +11,16 @@
 #include <stdexcept>
 #include <vector>
 
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
-#include "renderer/surface_chain.h"
-#include "renderer/vulkan/native_compute.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/shadow_graph.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -102,7 +103,7 @@ std::vector<std::uint8_t> Fixture::read(unsigned texture) {
     sample.use();
     glUniform1i(sample.uniform("tex_T0"), 0);
     glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     return output.read_rgba();
 }
 
@@ -311,6 +312,57 @@ void test_complete_chain() {
         CHECK(reference[frame] == shared[frame]);
     }
 }
+
+// Two partial phases on one atlas, as a frame that keeps far cascades draws them: each is a render
+// pass of its own that covers only its rectangle, so nothing is loaded and the rest is kept.
+void test_separate_partial_passes() {
+    Fixture fixture;
+    require(
+        scene::shadow_depth_pass(
+            "test atlas", fixture.atlas.id(), scene::ShadowDepthContents::Clear, [&fixture] {
+                begin_depth(fixture.atlas.id());
+                glClearDepth(.25);
+                glClear(GL_DEPTH_BUFFER_BIT);
+            }
+        )
+    );
+    const auto before = vkgl::submission_counters();
+    require(renderer::run_surface_chain([&fixture] {
+        // The left columns, then the last two; the two between keep the first clear.
+        for (const int part : {0, 1}) {
+            require(
+                scene::shadow_depth_pass(
+                    "test atlas part",
+                    fixture.atlas.id(),
+                    scene::ShadowDepthContents::PreserveSeparate,
+                    [&fixture, part] {
+                        begin_depth(fixture.atlas.id());
+                        glEnable(GL_SCISSOR_TEST);
+                        glScissor(part ? 6 : 0, 0, part ? 2 : 4, kSize);
+                        glClearDepth(part ? .75 : .5);
+                        glClear(GL_DEPTH_BUFFER_BIT);
+                        glDisable(GL_SCISSOR_TEST);
+                    }
+                )
+            );
+        }
+    }));
+    const auto after = vkgl::submission_counters();
+    CHECK(after.render_passes - before.render_passes == 2);
+    CHECK(after.attachment_load_bytes == before.attachment_load_bytes);
+    const auto pixels = fixture.read(fixture.atlas.depth_texture());
+
+    for (int y = 0; y < kSize; ++y) {
+        for (int x = 0; x < kSize; ++x) {
+            const float depth = x < 4 ? .5f : x < 6 ? .25f : .75f;
+            check_bits(
+                pixels,
+                static_cast<std::size_t>(y * kSize + x) * 4,
+                std::bit_cast<std::uint32_t>(depth)
+            );
+        }
+    }
+}
 }  // namespace
 
 // Uses a tiny Vulkan context; every expected value comes from binary-exact synthetic depth arithmetic.
@@ -328,6 +380,7 @@ int main() {
         test_rejects_invalid_target();
         test_complete_chain();
         test_rejects_incomplete_chain();
+        test_separate_partial_passes();
         CHECK(vkgl::submission_counters().validation_errors == 0);
         return test::result();
     } catch (const std::exception& failure) {

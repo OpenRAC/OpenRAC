@@ -7,7 +7,8 @@ export const mockEnhanced: EnhancedView = {
     name: "Enhanced graphics",
     version: "Experimental",
     author: "OpenRAC",
-    description: "Improved lighting and effects whilst preserving the charm of the original visuals we all love.",
+    description:
+      "Improved lighting and effects whilst preserving the charm of the original visuals we all love.",
     homepage: "",
     license: "GPL-3.0-or-later",
     enabled: false,
@@ -31,6 +32,19 @@ export const mockEnhanced: EnhancedView = {
           "Low uses the smallest shadow textures. Medium balances detail and cost. High keeps the sharpest shadows.",
       },
       {
+        key: "shadow_filter",
+        name: "Shadow filtering",
+        type: "choice",
+        default: "soft",
+        value: "soft",
+        choices: [
+          { value: "fast", name: "Fast" },
+          { value: "soft", name: "Soft" },
+        ],
+        description:
+          "Soft blurs shadow edges with a wide filter. Fast costs less and leaves them harder.",
+      },
+      {
         key: "gtao",
         name: "Ambient occlusion",
         type: "bool",
@@ -45,6 +59,7 @@ export const mockEnhanced: EnhancedView = {
         default: "performance",
         value: "performance",
         choices: [
+          { value: "low", name: "Low" },
           { value: "performance", name: "Performance" },
           { value: "quality", name: "Quality" },
         ],
@@ -67,7 +82,8 @@ export const mockEnhanced: EnhancedView = {
         type: "choice",
         default: "quality",
         value: "quality",
-        description: "Reconstructs a lower-resolution world image. The HUD stays at full resolution.",
+        description:
+          "Reconstructs a lower-resolution world image. The HUD stays at full resolution.",
         choices: [
           { value: "off", name: "Off" },
           { value: "native-aa", name: "Native AA" },
@@ -77,12 +93,40 @@ export const mockEnhanced: EnhancedView = {
         ],
       },
       {
+        key: "effects_detail",
+        name: "Effects detail",
+        type: "choice",
+        default: "high",
+        value: "high",
+        description:
+          "Controls water geometry, foliage and blended lighting, and far shadow updates.",
+        choices: [
+          { value: "low", name: "Low" },
+          { value: "medium", name: "Medium" },
+          { value: "high", name: "High" },
+        ],
+      },
+      {
+        key: "early_lighting_quality",
+        name: "Early Lit cache quality",
+        type: "choice",
+        default: "normal",
+        value: "normal",
+        description:
+          "Normal stores one lighting sample per 4x4 pixels. High stores one per 2x2 pixels.",
+        choices: [
+          { value: "normal", name: "Normal" },
+          { value: "high", name: "High" },
+        ],
+      },
+      {
         key: "agx_preview",
         name: "Color Correction",
         type: "bool",
         default: true,
         value: true,
-        description: "Balances colour and contrast for a softer, more natural image, and lets you adjust brightness.",
+        description:
+          "Balances colour and contrast for a softer, more natural image, and lets you adjust brightness.",
       },
       {
         key: "agx_brightness",
@@ -104,6 +148,19 @@ export const mockEnhanced: EnhancedView = {
         description: "Subtle motion blur to enhance animations.",
       },
       {
+        key: "motion_blur_quality",
+        name: "Motion blur quality",
+        type: "choice",
+        default: "performance",
+        value: "performance",
+        description:
+          "Quality finds blur trails at full resolution. Performance costs less with nearly the same trails.",
+        choices: [
+          { value: "performance", name: "Performance" },
+          { value: "quality", name: "Quality" },
+        ],
+      },
+      {
         key: "temporal_sharpness",
         group: "advanced",
         name: "Upscaling sharpening",
@@ -121,5 +178,13 @@ export const mockEnhanced: EnhancedView = {
     kind: "built-in",
     path: "",
   },
-  bake: { available: true, why: "", noBakerHere: false, levels: 19, ready: 7, failed: 0, partial: 2 },
+  bake: {
+    available: true,
+    why: "",
+    noBakerHere: false,
+    levels: 19,
+    ready: 7,
+    failed: 0,
+    partial: 2,
+  },
 };

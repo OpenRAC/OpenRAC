@@ -3,6 +3,7 @@
   // without Steam. Steam may be open while it is added.
   import { api, errorText, type SteamState } from "$lib/api";
   import { STEAM_TEXT as T } from "$lib/modsText";
+
   import Reason from "./Reason.svelte";
 
   let steam = $state<SteamState>("noSteam");
@@ -21,12 +22,14 @@
   async function add() {
     busy = true;
     said = null;
+
     try {
       steam = await api.steamAdd();
       said = { text: T.added, failed: false };
     } catch (e) {
       said = { text: errorText(e), failed: true };
     }
+
     busy = false;
   }
 </script>

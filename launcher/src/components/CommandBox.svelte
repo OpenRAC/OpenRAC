@@ -1,9 +1,11 @@
 <script lang="ts">
   // With developer tools on: the shell command behind a step, folded behind a small toggle, with
   // Copy. One line per command; a long line scrolls inside its box, never the page.
+  import { slide } from "svelte/transition";
+
   import { copyText } from "$lib/clipboard";
   import { fold } from "$lib/motion";
-  import { slide } from "svelte/transition";
+
   import Icon from "./Icon.svelte";
 
   let { lines }: { lines: string[] } = $props();
@@ -13,7 +15,8 @@
   const text = $derived(lines.join("\n"));
 
   async function copy() {
-    if (!(await copyText(text, "The command could not be copied: select it and copy it yourself."))) return;
+    if (!(await copyText(text, "The command could not be copied: select it and copy it yourself.")))
+      return;
     copied = true;
     setTimeout(() => (copied = false), 1500);
   }

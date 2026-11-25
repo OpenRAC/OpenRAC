@@ -16,7 +16,8 @@
 
 #include "common/stats.h"
 #include "debug/overlay.h"
-#include "renderer/gl_stats.h"
+#include "renderer/gl/gl_stats.h"
+#include "renderer/settings/render_opt.h"
 
 namespace openrac::frontend::debug_overlay {
 
@@ -83,7 +84,7 @@ void renderer_section(const Shown& shown) {
             }
 
             auto found = std::find_if(passes.begin(), passes.end(), [&](const auto& p) {
-                return p.first == section.name;
+                return p.first == std::string_view(section.name);
             });
 
             if (found == passes.end()) {
@@ -162,6 +163,30 @@ void renderer_section(const Shown& shown) {
     }
 
     ImGui::Checkbox("wireframe", &s.wireframe);
+
+    // Each render optimisation, switched off or on again while the game runs: a device without
+    // adb can then tell which one a drawing bug follows.
+    if (ImGui::TreeNode("Render optimisations")) {
+        for (const renderer::render_opt::Entry& e : renderer::render_opt::entries()) {
+            bool on = renderer::render_opt::enabled(e.opt);
+            const std::string name(e.name);
+
+            if (ImGui::Checkbox(name.c_str(), &on)) {
+                renderer::render_opt::set(e.opt, on);
+            }
+
+            ImGui::SetItemTooltip(
+                "%.*s", static_cast<int>(e.description.size()), e.description.data()
+            );
+        }
+
+        if (ImGui::Button("all back to default")) {
+            renderer::render_opt::reset();
+        }
+
+        ImGui::TreePop();
+    }
+
     text(
         "window {} x {}   picture {} x {} at {},{}",
         shown.window_width,

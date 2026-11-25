@@ -78,6 +78,14 @@
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
             android:preferMinimalPostProcessing="true" />
 
+        <!-- A debug build's game can be started from adb, repeating the launcher's last start
+             (GameActivity.debugLaunch, tools/android_device.py); off in a release. -->
+        <activity-alias
+            android:name="dev.openrac.game.DebugStart"
+            android:targetActivity="dev.openrac.game.GameActivity"
+            android:enabled="${debugStart}"
+            android:exported="true" />
+
         <service
             android:name=".SetupService"
             android:exported="false"

@@ -16,7 +16,7 @@ are on. `modsText.test.ts` keeps lines under 120 characters.
 | Game list on the left                      | `pages/Mods.svelte` on `GamesFrame.svelte`                | always                                                   |
 | Head: name, a line, Play with mods         | `pages/Mods.svelte`                                       | a game is picked                                         |
 | Tabs: My mods, Level editor, Models, Audio | `pages/Mods.svelte`                                       | the level editor can open the game (Audio: rac1 only)    |
-| Get mods (banner, first)                   | `components/GetMods.svelte`                               | My mods; hub buttons for Ratchet & Clank                 |
+| Get mods (banner, first)                   | `components/GetMods.svelte`                               | My mods; hub buttons for every game                      |
 | Add a mod                                  | `components/AddMod.svelte`                                | My mods                                                  |
 | Toolbar: search, kind, order               | `components/ModsToolbar.svelte`, `lib/modsView.svelte.ts` | six or more mods and packs                               |
 | Gameplay mods                              | `components/PluginsPanel.svelte`                          | the game has a port that plays                           |
@@ -128,11 +128,11 @@ grip, a switch, what it replaces, up, down and remove.
 
 ## Level editor, Models and textures, Audio
 
-- **Level editor:** open a level in Godot, then pack your changes. Each step
-  says what is missing (disc, Godot) or how it went.
+- **Level editor:** open a level in OpenRAC Editor, then pack your changes. Each step
+  says what is missing (disc, OpenRAC Editor: downloaded from the tab) or how it went.
 - **Models and textures:** export a level's assets, import your edits, and the
   texture pack steps.
-- **Audio:** the same for sound ([editor/AUDIO_MODDING.md](../../editor/AUDIO_MODDING.md)).
+- **Audio:** the same for sound ([extractor/AUDIO_MODDING.md](../../extractor/AUDIO_MODDING.md)).
 
 What they make shows up under Graphics and sound packs.
 
@@ -149,7 +149,9 @@ and the update check, never to show it.
 - Small updates install by themselves: at start, every 6 hours and before
   Play, never while the game runs (`lib/modAutoUpdate.svelte.ts`).
 - Big ones, and native mods with new hooks, wait for a click in Mod updates.
-- Held-back ones say why ("Held back: A needs B 1.2.0").
+- Held-back ones say why ("Held back: A needs B 1.2.0"). A version that
+  needs a newer mod interface, or hook points this launcher's port does not
+  have, waits for a newer launcher.
 - A version withdrawn from the hub is switched off by the update check, and
   Mod updates says so (`revokedOffText`).
 - After a crash that follows an update, the crash notice offers a roll back.
@@ -161,7 +163,7 @@ Updates go to `plugins/.staging/` first; the old version is kept in
 
 One page, no tabs: Get mods, the toolbar, Gameplay mods (Enhanced graphics
 first), the packs, the texture pack steps (folded), then Add a mod. No level
-editor, models or audio export (they need Godot and a desktop). Native mods
+editor, models or audio export (they need OpenRAC Editor and a desktop). Native mods
 don't load; script mods do. A picked `.zip` is copied into the app first.
 
 ## Developer view

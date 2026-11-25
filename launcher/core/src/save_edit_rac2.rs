@@ -38,6 +38,12 @@
 //!   (previous). +0x04 is the row's version (0 for V1 to 3 for V4), +0x6C the experience step to
 //!   the next one (compared with `experience >> 5`, 0 for none), +0x8E the full ammo, +0x80 the
 //!   price. Experience is chunk 40 (`D_00139868`, s32 by item); ammo chunk 9 (`D_00139688`).
+//! - **Units.** The game compares `experience >> 5` with every step, so the stored count is 32
+//!   times the units the steps use (as is nanotech experience, progress +0x14, against the health
+//!   table: `func_L00_002D5E30`). The editor shows and takes both in the compared units: a count
+//!   read is shifted down ([`shown_xp`]) and a changed one written shifted up ([`stored_xp`]); one
+//!   left alone is not written, so its low five bits stay. Every step, range and limit below is in
+//!   those units.
 //! - **The four versions.** The sixteen weapons that upgrade by experience have four rows, for
 //!   example the Lancer 30, 60, 79, 80 (V1 Lancer, V2 Heavy Lancer, then V3 and V4, which keep
 //!   the Heavy Lancer's model). V1 becomes V2 at its step (`func_L00_002D5EB8` each tick, through
@@ -65,6 +71,17 @@
 //! V4's step and no challenge mode left it V3 800 frames later; V4 has no step), and the editor offers them on every
 //! save. The version of the weapon in Ratchet's hand is not changed (a save with its record moved crashed the port at the level start, in the held weapon's
 //! update: launcher/docs/RAC2_SAVE_FORMAT.md).
+//!
+//! # What Ratchet has in hand and on
+//!
+//! Chunk 32 holds an item per equipment slot: the hand, the boots, the head and the pack
+//! (`ApplyHeroEquipmentRequest` and `SpawnHeroItemMobies`, `func_L00_002AFBC0`). The editor
+//! changes the weapon in hand (an owned weapon that is held, not one used at once), the pack (the
+//! Heli-Pack, the game's default, or an owned Thruster-Pack) and the Charge Boots (progress +0x2C,
+//! which the boots' slot is set from on load). The game's own hand switch makes the weapon held
+//! before the last weapon (progress +0x0C) and the editor does the same. Whatever is in hand or on
+//! in the request can't be taken away, and the weapon in hand keeps its saved version: see the
+//! format document, "What Ratchet has in hand and on".
 
 use crate::rac2_flags::{self, Confidence, Place};
 use crate::saves::{self, SaveBackupInfo, RAC2_PLANETS};
@@ -298,6 +315,21 @@ impl SaveFile {
     }
 }
 
+/// A slot the game shows as empty, made from another save of the same disc: the game writes an
+/// empty slot as a whole save whose level (chunk 0) is -1 (its slot list, `FillSaveSlotInfo`,
+/// reads that word), and the clock (chunk 4) zero is how the launcher's slot list knows it.
+pub fn empty_slot(template: &[u8]) -> Result<Vec<u8>, String> {
+    let mut file = SaveFile::parse(template)?;
+    for c in &mut file.global.chunks {
+        match c.id {
+            0 => c.data.copy_from_slice(&(-1i32).to_le_bytes()),
+            4 => c.data.fill(0),
+            _ => {}
+        }
+    }
+    Ok(file.to_bytes())
+}
+
 // ---------------------------------------------------------------------------------------------
 // What the chunks hold (each proven by a save written after changing it in a running game, see
 // the format document).
@@ -328,7 +360,9 @@ mod id {
     pub const MAP_ORDER: i32 = 20;
     /// Each item's record u8[80]: the item's own number, or a later version's (0x00139568).
     pub const RECORD: i32 = 30;
-    /// What the hero has on, s32[7] (0x001A7398).
+    /// What the hero has in hand and on, s32[7] (0x001A7398, `g_itemEquipSlotTable`): one item id
+    /// per equipment slot ([`S_HAND`], [`S_BOOTS`], [`S_HEAD`], [`S_PACK`]), 0 for the game's
+    /// default; the last three words are unused.
     pub const WORN: i32 = 32;
     /// Weapon experience s32[56] by item (0x00139868).
     pub const XP: i32 = 40;
@@ -344,6 +378,14 @@ mod id {
 const P_BOLTS: usize = 0x00;
 const P_RARITANIUM: usize = 0x04;
 const P_MAX_HEALTH: usize = 0x08;
+/// The weapon held before the one in hand, s32 (0x001A7A04, `g_player_stats[4]`): what the
+/// switch button goes back to; written by `ApplyHeroEquipmentRequest` when the hand changes, and
+/// its model loaded with the hand's at the level start (`func_L00_002A3B88`).
+const P_LAST_WEAPON: usize = 0x0C;
+/// The boots, s16 (0x001A7A24, `g_player_stats + 0x24`): 0 for the plain ones, else the boots'
+/// item. The boots' slot is set from it while a level loads (`SpawnHeroItemMobies`, frames under
+/// 3), so it, not the slot, is what a save loads with.
+const P_BOOTS: usize = 0x2C;
 /// Times challenge mode was started, u8 (`func_002DE990` adds 1; `func_00288D58` tests it).
 const P_CHALLENGE: usize = 0x12;
 const P_NANOTECH_XP: usize = 0x14;
@@ -361,10 +403,41 @@ pub const PLATINUM_PER_LEVEL: usize = 4;
 pub const MAX_ARMOR: u8 = 4;
 /// Ship paint jobs (the disc's 18 paint pictures, RC2.HDR +0x48F0).
 pub const SHIP_PAINTS: u8 = 18;
-/// The editor's limit for bolts and raritanium (the HUD shows seven digits).
-pub const MAX_BOLTS: u32 = 9_999_999;
-/// The editor's limit for nanotech and weapon experience.
-pub const MAX_XP: u32 = 9_999_999;
+/// The editor's limit for bolts and raritanium: the game keeps them as signed 32-bit words.
+pub const MAX_BOLTS: u32 = i32::MAX as u32;
+/// The editor's limit for nanotech and weapon experience, in the units the game compares
+/// (`experience >> 5`): stored shifted up by 5, the most the game's s32 holds.
+pub const MAX_XP: u32 = (i32::MAX >> 5) as u32;
+const _: () = assert!((MAX_XP as u64) << 5 <= i32::MAX as u64);
+
+/// A stored experience count in the units the game compares with its steps (`>> 5`); a negative
+/// count shows as 0.
+pub fn shown_xp(stored: i32) -> u32 {
+    (stored.max(0) >> 5) as u32
+}
+
+/// The count to store for experience shown as `shown` (at most [`MAX_XP`]).
+pub fn stored_xp(shown: u32) -> i32 {
+    (shown.min(MAX_XP) << 5) as i32
+}
+
+/// The equipment slots of chunk 32, as `ApplyHeroEquipmentRequest` (`func_L00_002AFBC0`) and
+/// `SpawnHeroItemMobies` use them; an item's own slot is its record's +0x0C.
+const S_HAND: usize = 0;
+const S_BOOTS: usize = 1;
+// Slot 2 is the head (item 47 by default, shown only under water); not edited.
+const S_PACK: usize = 3;
+/// The game's packs worn on the back: the Heli-Pack (the default, also worn before it is
+/// owned) and the Thruster-Pack. The Hydro-Pack and the Levitator are put on and taken off by
+/// the game itself where they are needed.
+pub const HELI_PACK: u32 = 2;
+pub const THRUSTER_PACK: u32 = 3;
+/// The only boots a player chooses; the plain ones are 0 (or 52, the item the game shows for 0).
+pub const CHARGE_BOOTS: u32 = 54;
+const PLAIN_BOOTS: u32 = 52;
+/// Weapons the hero never holds: choosing one uses it at once (`ApplyHeroEquipmentRequest`
+/// handles requests 9, 0x1F and 0x2D by firing and clearing them), so it is never in hand.
+const NEVER_HELD: &[usize] = &[9, 31, 45];
 
 const ORDER_OWNED: u8 = 0x40;
 const ORDER_END: u8 = 0xff;
@@ -377,7 +450,7 @@ pub enum Rac2ItemKind {
 }
 
 /// A weapon's upgrade by experience: its name, and the experience it needs (the base record's
-/// +0x6C, compared with experience >> 5 at each tick by `func_L00_002D5EB8`).
+/// +0x6C, compared with experience >> 5 at each tick by `func_L00_002D5EB8`), in those units.
 #[derive(Clone, Copy, Debug)]
 pub struct Upgrade {
     pub name: &'static str,
@@ -407,7 +480,7 @@ const fn wu(
     up: &'static str,
     xp: u32,
 ) -> ItemDef {
-    ItemDef { id, name, kind: Rac2ItemKind::Weapon, chain, ammo, upgrade: Some(Upgrade { name: up, xp: xp << 5 }) }
+    ItemDef { id, name, kind: Rac2ItemKind::Weapon, chain, ammo, upgrade: Some(Upgrade { name: up, xp }) }
 }
 const fn g(id: usize, name: &'static str) -> ItemDef {
     ItemDef { id, name, kind: Rac2ItemKind::Gadget, chain: &[], ammo: &[], upgrade: None }
@@ -511,12 +584,12 @@ struct VersionRule {
 }
 
 impl ItemDef {
-    /// The experience at which the game moves the weapon from the version in `record` to the next,
-    /// at its next tick in a level; `None` when nothing follows by experience.
+    /// The experience (compared units) at which the game moves the weapon from the version in
+    /// `record` to the next, at its next tick in a level; `None` when nothing follows by experience.
     fn next_step(&self, record: u8) -> Option<u32> {
         match self.depth(record)? {
             0 => self.upgrade.map(|u| u.xp),
-            _ => LATER_STEPS.iter().find(|&&(r, _)| r == record).map(|&(_, xp)| xp << 5),
+            _ => LATER_STEPS.iter().find(|&&(r, _)| r == record).map(|&(_, xp)| xp),
         }
     }
 
@@ -527,7 +600,7 @@ impl ItemDef {
         if n < 2 {
             return Vec::new();
         }
-        let has_xp = self.upgrade.is_some();
+        let has_xp = self.kind == Rac2ItemKind::Weapon;
         let xp = |min: u32, max: u32| has_xp.then_some((min, max));
         let mut out = Vec::with_capacity(n);
         for depth in 0..n {
@@ -536,11 +609,19 @@ impl ItemDef {
                 _ => self.next_step(self.chain[depth - 1]),
             };
             let max = self.next_step(self.chain[depth]).map_or(MAX_XP, |s| s - 1);
+            // Raised by experience, the game leaves at least the step (func_00287EB0), and a
+            // version with a step after it keeps that. The last version has none: nothing reads
+            // its experience against anything, and a mod that levels past it (NG++) counts it
+            // again from 0 there, so any count is one the game can hold.
+            let least = |step: u32| if depth + 1 == n { 0 } else { step };
             let rule = match (depth, step_in) {
                 (0, _) => VersionRule { how: Rac2VersionHow::First, challenge: false, xp: xp(0, max) },
-                // Raised by experience: the game leaves at least the step (func_00287EB0).
-                (1, Some(step)) => VersionRule { how: Rac2VersionHow::Experience, challenge: false, xp: xp(step, max) },
-                (_, Some(step)) => VersionRule { how: Rac2VersionHow::Experience, challenge: true, xp: xp(step, max) },
+                (1, Some(step)) => {
+                    VersionRule { how: Rac2VersionHow::Experience, challenge: false, xp: xp(least(step), max) }
+                }
+                (_, Some(step)) => {
+                    VersionRule { how: Rac2VersionHow::Experience, challenge: true, xp: xp(least(step), max) }
+                }
                 // Bought (experience 0, then counting up to the next step) or, for the
                 // Sheepinator, given when challenge mode starts.
                 (_, None) => {
@@ -552,6 +633,14 @@ impl ItemDef {
             out.push(rule);
         }
         out
+    }
+
+    /// Whether the editor shows the item's experience: every weapon's. The game counts each
+    /// weapon's kills in chunk 40 whether or not a version follows by experience, and a mod that
+    /// levels weapons past their last version (NG++) reads it for the RYNO II, the Zodiac and the
+    /// two-row weapons too.
+    fn counts_xp(&self) -> bool {
+        self.kind == Rac2ItemKind::Weapon
     }
 
     fn has_ammo(&self) -> bool {
@@ -589,8 +678,9 @@ pub struct Rac2ItemState {
     pub owned: bool,
     /// Ammo, for an item that has it.
     pub ammo: Option<u32>,
-    /// Experience, for a weapon that upgrades by it: in a level, the game upgrades the weapon
-    /// itself once this reaches the upgrade's threshold.
+    /// Experience, for a weapon (every weapon counts it), in the units the game compares with the
+    /// upgrade steps (the stored count >> 5): in a level, the game upgrades the weapon itself once
+    /// this reaches the upgrade's step.
     pub xp: Option<u32>,
     /// The version, 0 for V1 to 3 for V4 (an index into the item's `versions`), for an item with
     /// more than one: the record chunk 30 holds.
@@ -614,12 +704,21 @@ pub struct Rac2PlanetState {
 pub struct Rac2SaveFields {
     pub bolts: u32,
     pub raritanium: u32,
-    /// Nanotech experience: the game raises the maximum health from it at each tick.
+    /// Nanotech experience, in the units the game compares with its health table (the stored
+    /// count >> 5): the game raises the maximum health from it at each tick.
     pub nanotech_xp: u32,
     /// The ten Nanotech Boosts, found or not.
     pub boosts: Vec<bool>,
     /// The armour worn, 0 (none) to 4.
     pub armor: u8,
+    /// The item in Ratchet's hand (chunk 32, slot 0): a weapon's id, 0 for none (the game then
+    /// gives him the Lancer at the level start).
+    pub hand: u32,
+    /// The pack on his back (chunk 32, slot 3): [`HELI_PACK`] or [`THRUSTER_PACK`] (0 when the
+    /// game is to choose, another item while it has one on for the moment).
+    pub pack: u32,
+    /// Wearing the Charge Boots (progress +0x2C and chunk 32, slot 1).
+    pub charge_boots: bool,
     /// The ship's paint job, 0 to 17.
     pub ship_paint: u8,
     pub items: Vec<Rac2ItemState>,
@@ -667,8 +766,12 @@ pub struct Rac2ItemInfo {
     /// The item's versions, V1 first; empty for an item with one. The version in the save is
     /// the item's `version` in the fields.
     pub versions: Vec<Rac2VersionInfo>,
-    /// Worn by the hero (taking it away, or changing its version, is refused).
+    /// On the hero in a place the editor does not change (taking it away, or changing its
+    /// version, is refused). What is in hand, the pack and the boots are the fields' `hand`,
+    /// `pack` and `charge_boots`, and follow them.
     pub worn: bool,
+    /// A weapon Ratchet can hold: the editor's choices for the weapon in hand.
+    pub holdable: bool,
 }
 
 /// One version of a weapon, with what the game requires of it.
@@ -686,8 +789,9 @@ pub struct Rac2VersionInfo {
     pub challenge_only: bool,
     /// The most ammo it holds; `None` for a weapon with no ammo.
     pub max_ammo: Option<u32>,
-    /// The experience the game can leave it with, for a weapon that counts it: at least the step
-    /// it was reached at, and under the step to the next version.
+    /// The experience the editor takes in it, for a weapon (every weapon counts it): under the
+    /// step to the next version, and at least the step it was reached at when one follows it (the
+    /// last version takes any count: nothing reads it there, and NG++ counts again from 0).
     pub min_xp: Option<u32>,
     pub max_xp: Option<u32>,
 }
@@ -724,6 +828,9 @@ pub struct Rac2SaveView {
     pub challenge_mode: u32,
     /// The Advanced view's progress flags, in the order of `fields.flags`.
     pub flags: Vec<Rac2FlagInfo>,
+    /// Whether the boots can be changed: false while the save has boots on that the game put on
+    /// for the moment (the Grindboots or Gravity Boots).
+    pub boots_editable: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ts_rs::TS)]
@@ -764,9 +871,30 @@ impl SaveFile {
         i32_at(self.global.get(id::LEVEL), 0) < 0
     }
 
+    /// The item in equipment slot `slot` of chunk 32.
+    fn slot(&self, slot: usize) -> u32 {
+        i32_at(self.global.get(id::WORN), slot) as u32
+    }
+
+    /// The boots the save loads with (progress +0x2C).
+    fn boots(&self) -> u32 {
+        let p = self.global.get(id::PROGRESS);
+        i16::from_le_bytes([p[P_BOOTS], p[P_BOOTS + 1]]) as u16 as u32
+    }
+
+    /// Whether the boots are ones a player chooses: plain or the Charge Boots, in both places.
+    fn boots_editable(&self) -> bool {
+        let chosen = |b: u32| b == 0 || b == PLAIN_BOOTS || b == CHARGE_BOOTS;
+        chosen(self.boots()) && chosen(self.slot(S_BOOTS))
+    }
+
+    /// On the hero in a place the editor does not change: the head, the unused words, and boots
+    /// the game put on for the moment.
     fn worn(&self, item: usize) -> bool {
         let worn = self.global.get(id::WORN);
-        (0..worn.len() / 4).any(|i| i32_at(worn, i) == item as i32)
+        let fixed = (0..worn.len() / 4).filter(|&s| s != S_HAND && s != S_PACK && s != S_BOOTS);
+        let boots = (!self.boots_editable()).then(|| [self.boots(), self.slot(S_BOOTS)]);
+        fixed.map(|s| i32_at(worn, s) as u32).chain(boots.into_iter().flatten()).any(|i| i == item as u32)
     }
 
     pub fn fields(&self) -> Rac2SaveFields {
@@ -779,7 +907,7 @@ impl SaveFile {
                 id: d.id,
                 owned: owned[d.id] != 0,
                 ammo: d.has_ammo().then(|| i32_at(ammo, d.id).max(0) as u32),
-                xp: d.upgrade.map(|_| i32_at(xp, d.id).max(0) as u32),
+                xp: d.counts_xp().then(|| shown_xp(i32_at(xp, d.id))),
                 version: (d.chain.len() > 1).then(|| self.depth(d) as u32),
             })
             .collect();
@@ -793,11 +921,14 @@ impl SaveFile {
             })
             .collect();
         Rac2SaveFields {
-            bolts: word(p, P_BOLTS),
-            raritanium: word(p, P_RARITANIUM),
-            nanotech_xp: word(p, P_NANOTECH_XP),
+            bolts: (word(p, P_BOLTS) as i32).max(0) as u32,
+            raritanium: (word(p, P_RARITANIUM) as i32).max(0) as u32,
+            nanotech_xp: shown_xp(word(p, P_NANOTECH_XP) as i32),
             boosts: p[P_BOOSTS..P_BOOSTS + BOOSTS].iter().map(|&b| b != 0).collect(),
             armor: p[P_ARMOR],
+            hand: self.slot(S_HAND),
+            pack: self.slot(S_PACK),
+            charge_boots: self.boots() == CHARGE_BOOTS,
             ship_paint: ((word(g.get(id::SHIP), 0) >> 16) & 31) as u8,
             items,
             planets,
@@ -821,7 +952,9 @@ impl SaveFile {
             None => self.global.get(chunk)[offset],
         };
         match place {
-            Place::Byte { chunk, level, offset, .. } => get(chunk, level, offset) != 0,
+            // On from the value the flag writes: a byte with more states (Snivelak's boss: 1 is the fight
+            // under way, 2 beaten) is not on at its lower ones. A win count has `on` 1: any win.
+            Place::Byte { chunk, level, offset, on } => get(chunk, level, offset) >= on,
             Place::SetOnly { chunk, offset, .. } => get(chunk, None, offset) != 0,
             Place::Bit { chunk, level, offset, bit } => get(chunk, level, offset) & (1 << bit) != 0,
             Place::Count { level, uid } => {
@@ -887,18 +1020,33 @@ impl SaveFile {
     pub fn apply(&mut self, want: &Rac2SaveFields) -> Result<(), String> {
         let have = self.fields();
         validate(want)?;
+        self.check_gear(want, &have)?;
         for (d, (w, h)) in ITEMS.iter().zip(want.items.iter().zip(&have.items)) {
-            if !w.owned && h.owned && self.worn(d.id) {
-                return Err(format!("Ratchet has the {} in hand or on: change it in the game first", d.name));
+            if !w.owned && h.owned {
+                if want.hand == d.id as u32 {
+                    return Err(format!("Ratchet holds the {}: put another weapon in his hand first", d.name));
+                }
+                if want.pack == d.id as u32 {
+                    return Err(format!("Ratchet wears the {}: put on another pack first", d.name));
+                }
+                if want.charge_boots && d.id as u32 == CHARGE_BOOTS {
+                    return Err(format!("Ratchet wears the {}: take them off first", d.name));
+                }
+                if self.worn(d.id) {
+                    return Err(format!("Ratchet has the {} on: change it in the game first", d.name));
+                }
             }
             let versions = d.versions();
             let depth = w.version.map_or(0, |v| v as usize);
             let rule = versions.get(depth).copied();
             let name = version_name(d, depth);
             if w.version != h.version {
-                if self.worn(d.id) {
+                // A save with the held weapon's record moved crashed the port at the level start
+                // (the format document): the weapon in hand, the one the save had or the one
+                // asked for, keeps the version it has in the save.
+                if want.hand == d.id as u32 || self.worn(d.id) {
                     return Err(format!(
-                        "Ratchet has the {} in hand: switch to another weapon in the game and save, then change its version",
+                        "Ratchet holds the {}: put another weapon in his hand to change its version",
                         d.name
                     ));
                 }
@@ -913,10 +1061,10 @@ impl SaveFile {
             if let (Some(x), Some((min, max))) = (w.xp, rule.and_then(|r| r.xp)) {
                 if (w.xp, w.version) != (h.xp, h.version) {
                     if x > max {
-                        return Err(format!("the {name} upgrades at {} experience: keep it under that", max + 1));
+                        return Err(format!("the {name} upgrades at {} XP: keep it under that", max + 1));
                     }
                     if x < min {
-                        return Err(format!("the {name} has at least {min} experience: the game upgrades at that"));
+                        return Err(format!("the {name} has at least {min} XP: the game upgrades at that"));
                     }
                 }
             }
@@ -936,7 +1084,7 @@ impl SaveFile {
             set_word(p, P_RARITANIUM, want.raritanium);
         }
         if want.nanotech_xp != have.nanotech_xp {
-            set_word(p, P_NANOTECH_XP, want.nanotech_xp);
+            set_word(p, P_NANOTECH_XP, stored_xp(want.nanotech_xp) as u32);
         }
         if want.boosts != have.boosts {
             for (k, &on) in want.boosts.iter().enumerate() {
@@ -945,6 +1093,25 @@ impl SaveFile {
         }
         if want.armor != have.armor {
             p[P_ARMOR] = want.armor;
+        }
+        if want.hand != have.hand {
+            // As the game's own switch (ApplyHeroEquipmentRequest): the weapon held before
+            // becomes the one the switch button goes back to, when the new one was that.
+            if word(p, P_LAST_WEAPON) == want.hand && have.hand != 0 {
+                set_word(p, P_LAST_WEAPON, have.hand);
+            }
+            set_i32(self.global.get_mut(id::WORN), S_HAND, want.hand as i32);
+        }
+        if want.charge_boots != have.charge_boots {
+            // As the pause menu's choice: the boots' item, or 0 for the plain ones, in the saved
+            // boots and in the slot.
+            let boots = if want.charge_boots { CHARGE_BOOTS } else { 0 };
+            let p = self.global.get_mut(id::PROGRESS);
+            p[P_BOOTS..P_BOOTS + 2].copy_from_slice(&(boots as i16).to_le_bytes());
+            set_i32(self.global.get_mut(id::WORN), S_BOOTS, boots as i32);
+        }
+        if want.pack != have.pack {
+            set_i32(self.global.get_mut(id::WORN), S_PACK, want.pack as i32);
         }
         if want.ship_paint != have.ship_paint {
             let ship = self.global.get_mut(id::SHIP);
@@ -967,7 +1134,7 @@ impl SaveFile {
             }
             if let (Some(x), Some(old)) = (w.xp, h.xp) {
                 if x != old {
-                    set_i32(self.global.get_mut(id::XP), d.id, x as i32);
+                    set_i32(self.global.get_mut(id::XP), d.id, stored_xp(x));
                 }
             }
             if let (Some(a), Some(old)) = (w.ammo, h.ammo) {
@@ -995,6 +1162,8 @@ impl SaveFile {
                 }
             }
         }
+        // Older launchers could leave a hole in the list, which hid the levels after it.
+        self.repair_map_order();
 
         for (d, (w, h)) in rac2_flags::all().zip(want.flags.iter().zip(&have.flags)) {
             if w.on != h.on {
@@ -1006,6 +1175,41 @@ impl SaveFile {
             let sp = self.global.get_mut(id::SKILL_POINTS);
             for (k, &on) in want.skill_points.iter().enumerate() {
                 sp[k] = on as u8;
+            }
+        }
+        Ok(())
+    }
+
+    /// Checks the weapon in hand, the pack and the boots of `want` against what the game can
+    /// have on Ratchet: only a change is checked, so a save the game left in another state still
+    /// opens and saves.
+    fn check_gear(&self, want: &Rac2SaveFields, have: &Rac2SaveFields) -> Result<(), String> {
+        let owned = |id: u32| want.items.iter().any(|i| i.id as u32 == id && i.owned);
+        let name = |id: u32| ITEMS.iter().find(|d| d.id as u32 == id).map_or("item", |d| d.name);
+        if want.hand != have.hand {
+            let d = ITEMS.iter().find(|d| d.id as u32 == want.hand);
+            if !d.is_some_and(holdable) {
+                return Err("Ratchet can hold only a weapon".into());
+            }
+            if !owned(want.hand) {
+                return Err(format!("the {} is not owned: give it to put it in Ratchet's hand", name(want.hand)));
+            }
+        }
+        if want.pack != have.pack {
+            if want.pack != HELI_PACK && want.pack != THRUSTER_PACK {
+                return Err("Ratchet's pack is the Heli-Pack or the Thruster-Pack".into());
+            }
+            // The Heli-Pack is the game's default, on the hero's back before it is given.
+            if want.pack == THRUSTER_PACK && !owned(THRUSTER_PACK) {
+                return Err("the Thruster-Pack is not owned: give it to put it on".into());
+            }
+        }
+        if want.charge_boots != have.charge_boots {
+            if !self.boots_editable() {
+                return Err("Ratchet has boots on that the game put on for the moment: change them in the game".into());
+            }
+            if want.charge_boots && !owned(CHARGE_BOOTS) {
+                return Err("the Charge Boots are not owned: give them to put them on".into());
             }
         }
         Ok(())
@@ -1042,31 +1246,60 @@ impl SaveFile {
         }
     }
 
-    /// Available, and added to the galactic map's list after the levels available before it.
+    /// Available, and on the galactic map's list as the game's `MarkLevelAvailable` does it.
     fn make_available(&mut self, l: usize) {
-        let n = self.global.get(id::AVAILABLE).iter().filter(|&&u| u != 0).count();
         self.global.get_mut(id::AVAILABLE)[l] = 1;
-        let order = self.global.get_mut(id::MAP_ORDER);
-        let listed = (0..n.min(order.len() / 4)).any(|i| i32_at(order, i) == l as i32);
-        if !listed && n < order.len() / 4 {
-            set_i32(order, n, l as i32);
+        let mut list = self.map_order();
+        if map_listed(l) && !list.contains(&(l as i32)) {
+            list.push(l as i32);
         }
+        self.set_map_order(&list);
     }
 
     /// The reverse: not available, and off the galactic map's list, the later levels moving up.
     fn make_unavailable(&mut self, l: usize) {
-        let n = self.global.get(id::AVAILABLE).iter().filter(|&&u| u != 0).count();
         self.global.get_mut(id::AVAILABLE)[l] = 0;
-        let order = self.global.get_mut(id::MAP_ORDER);
-        let len = n.min(order.len() / 4);
-        let mut list: Vec<i32> = (0..len).map(|i| i32_at(order, i)).collect();
-        if let Some(at) = list.iter().position(|&q| q == l as i32) {
-            list.remove(at);
+        let list: Vec<i32> = self.map_order().into_iter().filter(|&q| q != l as i32).collect();
+        self.set_map_order(&list);
+    }
+
+    /// The galactic map's list without holes: the ship's map stops at the first 0, so a level
+    /// after a hole is never shown. Every available level the game lists is on it, in its order.
+    fn repair_map_order(&mut self) {
+        let mut list = self.map_order();
+        let available = self.global.get(id::AVAILABLE);
+        for l in (0..available.len()).filter(|&l| available[l] != 0 && map_listed(l)) {
+            if !list.contains(&(l as i32)) {
+                list.push(l as i32);
+            }
         }
-        for i in 0..len {
+        self.set_map_order(&list);
+    }
+
+    /// The list's levels in order, holes skipped.
+    fn map_order(&self) -> Vec<i32> {
+        let order = self.global.get(id::MAP_ORDER);
+        (0..order.len() / 4).map(|i| i32_at(order, i)).filter(|&q| q != 0).collect()
+    }
+
+    fn set_map_order(&mut self, list: &[i32]) {
+        let order = self.global.get_mut(id::MAP_ORDER);
+        for i in 0..order.len() / 4 {
             set_i32(order, i, list.get(i).copied().unwrap_or(0));
         }
     }
+}
+
+/// Whether the game puts level `l` on the galactic map's list when it becomes available:
+/// `MarkLevelAvailable` lists levels below 0x15 and the Ship Shack (24) only; the others get the
+/// flag alone. Level 0 is never listed (0 ends the list).
+fn map_listed(l: usize) -> bool {
+    l != 0 && (l < 0x15 || l == 24)
+}
+
+/// Whether Ratchet can hold `d`: a weapon he does not use up at once ([`NEVER_HELD`]).
+fn holdable(d: &ItemDef) -> bool {
+    d.kind == Rac2ItemKind::Weapon && !NEVER_HELD.contains(&d.id)
 }
 
 /// Checks a request against the editor's lists and limits before anything is changed.
@@ -1078,7 +1311,7 @@ pub fn validate(f: &Rac2SaveFields) -> Result<(), String> {
         return Err(format!("raritanium goes up to {MAX_BOLTS}"));
     }
     if f.nanotech_xp > MAX_XP {
-        return Err(format!("nanotech experience goes up to {MAX_XP}"));
+        return Err(format!("nanotech XP goes up to {MAX_XP}"));
     }
     if f.boosts.len() != BOOSTS {
         return Err(format!("there are {BOOSTS} Nanotech Boosts"));
@@ -1096,11 +1329,11 @@ pub fn validate(f: &Rac2SaveFields) -> Result<(), String> {
         if s.ammo.is_some() != d.has_ammo() {
             return Err(format!("{}'s ammo does not match the game's", d.name));
         }
-        if s.xp.is_some() != d.upgrade.is_some() {
+        if s.xp.is_some() != d.counts_xp() {
             return Err(format!("{}'s experience does not match the game's", d.name));
         }
         if s.xp.is_some_and(|x| x > MAX_XP) {
-            return Err(format!("experience goes up to {MAX_XP}"));
+            return Err(format!("XP goes up to {MAX_XP}"));
         }
         let n = d.chain.len();
         match s.version {
@@ -1163,7 +1396,7 @@ pub fn view(serial: &str, slot: usize, bytes: &[u8], file: &SaveFile) -> Rac2Sav
                 max_ammo: d.has_ammo().then(|| file.max_ammo(d)),
                 upgrade_name: d.upgrade.map(|u| u.name.to_string()),
                 upgrade_xp: d.upgrade.map(|u| u.xp),
-                max_xp: d.upgrade.map(|_| d.next_step(record[d.id]).map_or(MAX_XP, |s| s - 1)),
+                max_xp: d.counts_xp().then(|| d.next_step(record[d.id]).map_or(MAX_XP, |s| s - 1)),
                 versions: d
                     .versions()
                     .iter()
@@ -1182,6 +1415,7 @@ pub fn view(serial: &str, slot: usize, bytes: &[u8], file: &SaveFile) -> Rac2Sav
                     })
                     .collect(),
                 worn: file.worn(d.id),
+                holdable: holdable(d),
             })
             .collect(),
         planets: listed_levels().map(|(id, name)| Rac2PlanetInfo { id, name: name.to_string() }).collect(),
@@ -1197,6 +1431,7 @@ pub fn view(serial: &str, slot: usize, bytes: &[u8], file: &SaveFile) -> Rac2Sav
                 confidence: f.confidence,
             })
             .collect(),
+        boots_editable: file.boots_editable(),
     }
 }
 
@@ -1325,7 +1560,7 @@ mod tests {
         let f = oozla().fields();
         assert_eq!(f.bolts, 123_456);
         assert_eq!(f.raritanium, 0);
-        assert_eq!(f.nanotech_xp, 0x102d);
+        assert_eq!(f.nanotech_xp, 0x102d >> 5, "shown in the units the game compares");
         assert_eq!(f.armor, 0);
         assert_eq!(f.ship_paint, 0);
         assert!(f.boosts.iter().all(|&b| !b));
@@ -1334,7 +1569,7 @@ mod tests {
         assert_eq!(seeker.ammo, Some(25));
         let lancer = item(&f, 30);
         assert!(lancer.owned);
-        assert_eq!(lancer.xp, Some(0x7b0));
+        assert_eq!(lancer.xp, Some(0x7b0 >> 5), "shown in the units the steps use");
         assert!(!item(&f, 2).owned, "no Heli-Pack yet");
         let first = f.planets.iter().find(|p| p.id == 1).unwrap();
         assert!(first.available && first.visited);
@@ -1369,7 +1604,7 @@ mod tests {
         let mut want = before.fields();
         want.bolts = 1;
         want.raritanium = 777;
-        want.nanotech_xp = 20_000;
+        want.nanotech_xp = 20_000 >> 5; // 20,000 stored
         want.boosts[0] = true;
         want.boosts[2] = true;
         want.armor = 2;
@@ -1438,24 +1673,157 @@ mod tests {
         assert_eq!(worn, 30, "the Lancer is in hand");
         let mut want = f.fields();
         item_mut(&mut want, 30).owned = false;
-        assert!(f.apply(&want).unwrap_err().contains("on"));
+        assert!(f.apply(&want).unwrap_err().contains("holds the Lancer"));
+    }
+
+    #[test]
+    fn the_weapon_in_hand_can_be_changed_to_an_owned_weapon() {
+        // Oozla: the Lancer in hand, the Gravity Bomb the last weapon; the Seeker Gun owned.
+        let mut f = oozla();
+        let have = f.fields();
+        assert_eq!((have.hand, have.pack, have.charge_boots), (30, HELI_PACK, false));
+        assert_eq!(word(f.global.get(id::PROGRESS), P_LAST_WEAPON), 42);
+        let mut want = have.clone();
+        want.hand = 24;
+        f.apply(&want).unwrap();
+        let back = SaveFile::parse(&f.to_bytes()).unwrap();
+        assert_eq!(back.fields(), want, "the save reads back with the Seeker Gun in hand");
+        assert_eq!(i32_at(back.global.get(id::WORN), S_HAND), 24);
+        assert_eq!(word(back.global.get(id::PROGRESS), P_LAST_WEAPON), 42, "the last weapon stays");
+        let changed: Vec<i32> =
+            back.global.chunks.iter().zip(&oozla().global.chunks).filter(|(a, b)| a != b).map(|(a, _)| a.id).collect();
+        assert_eq!(changed, [id::WORN], "only the hand slot");
+        // Holding the last weapon makes the one held before the last, as the game's switch does.
+        let mut f = back;
+        let mut want = f.fields();
+        want.hand = 42;
+        f.apply(&want).unwrap();
+        assert_eq!(word(f.global.get(id::PROGRESS), P_LAST_WEAPON), 24);
+        let v = view("SCUS_972.68", 0, &f.to_bytes(), &f);
+        let info = |id: usize| v.items.iter().find(|i| i.id == id).unwrap();
+        assert!(!info(30).worn && !info(42).worn, "the hand follows the field, not `worn`");
+        // The Lancer is free now: its version changes and it can be taken away.
+        let mut want = f.fields();
+        item_mut(&mut want, 30).version = Some(1);
+        item_mut(&mut want, 30).xp = Some(280);
+        item_mut(&mut want, 30).ammo = Some(300);
+        f.apply(&want).unwrap();
+        assert_eq!(f.global.get(id::RECORD)[30], 60);
+        let mut want = f.fields();
+        item_mut(&mut want, 30).owned = false;
+        f.apply(&want).unwrap();
+    }
+
+    #[test]
+    fn the_weapon_in_hand_is_checked() {
+        let f = oozla();
+        let try_ = |change: &dyn Fn(&mut Rac2SaveFields)| {
+            let mut w = f.fields();
+            change(&mut w);
+            f.clone().apply(&w)
+        };
+        assert!(try_(&|w| w.hand = 44).unwrap_err().contains("not owned"), "the RYNO II is not owned");
+        assert!(
+            try_(&|w| {
+                item_mut(w, 31).owned = true;
+                w.hand = 31;
+            })
+            .unwrap_err()
+            .contains("only a weapon"),
+            "the Synthenoid is used at once, never held"
+        );
+        assert!(try_(&|w| w.hand = HELI_PACK).is_err(), "a gadget");
+        assert!(try_(&|w| w.hand = 0).is_err(), "nothing: the game would give the Lancer");
+        // Giving a weapon and holding it in one go.
+        try_(&|w| {
+            item_mut(w, 44).owned = true;
+            item_mut(w, 44).ammo = Some(100);
+            w.hand = 44;
+        })
+        .unwrap();
+        // The new weapon in hand is held: not taken away, its version kept.
+        assert!(try_(&|w| {
+            w.hand = 24;
+            item_mut(w, 24).owned = false;
+        })
+        .unwrap_err()
+        .contains("the Seeker Gun is not owned"));
+        assert!(try_(&|w| {
+            w.hand = 24;
+            item_mut(w, 24).version = Some(1);
+        })
+        .unwrap_err()
+        .contains("holds the Seeker Gun"));
+    }
+
+    #[test]
+    fn the_pack_and_the_boots_follow_the_games_rules() {
+        let f = oozla();
+        let try_ = |change: &dyn Fn(&mut Rac2SaveFields)| {
+            let mut w = f.fields();
+            change(&mut w);
+            let mut out = f.clone();
+            out.apply(&w).map(|()| out)
+        };
+        // The Heli-Pack is on before it is owned (the game's own save); the Thruster-Pack needs owning.
+        assert!(!item(&f.fields(), 2).owned);
+        assert!(try_(&|w| w.pack = THRUSTER_PACK).unwrap_err().contains("not owned"));
+        assert!(try_(&|w| w.pack = 4).is_err(), "the Hydro-Pack is the game's to put on");
+        assert!(try_(&|w| w.pack = 0).is_err());
+        let g = try_(&|w| {
+            item_mut(w, 3).owned = true;
+            w.pack = THRUSTER_PACK;
+        })
+        .unwrap();
+        assert_eq!(i32_at(g.global.get(id::WORN), S_PACK), 3);
+        let mut w = g.fields();
+        item_mut(&mut w, 3).owned = false;
+        assert!(g.clone().apply(&w).unwrap_err().contains("wears the Thruster-Pack"));
+        w.pack = HELI_PACK;
+        g.clone().apply(&w).unwrap();
+
+        // The Charge Boots: owned to put on; in the saved boots and in the slot.
+        assert!(try_(&|w| w.charge_boots = true).unwrap_err().contains("not owned"));
+        let g = try_(&|w| {
+            item_mut(w, 54).owned = true;
+            w.charge_boots = true;
+        })
+        .unwrap();
+        assert_eq!(g.boots(), CHARGE_BOOTS);
+        assert_eq!(g.slot(S_BOOTS), CHARGE_BOOTS);
+        let mut w = g.fields();
+        item_mut(&mut w, 54).owned = false;
+        assert!(g.clone().apply(&w).unwrap_err().contains("wears the Charge Boots"));
+        w.charge_boots = false;
+        let mut h = g.clone();
+        h.apply(&w).unwrap();
+        assert_eq!((h.boots(), h.slot(S_BOOTS)), (0, 0), "the plain boots, as the pause menu leaves them");
+
+        // Boots the game put on for the moment (the Grindboots) are left alone.
+        let mut grind = f.clone();
+        grind.global.get_mut(id::PROGRESS)[P_BOOTS] = 20;
+        assert!(!view("SCUS_972.68", 0, &grind.to_bytes(), &grind).boots_editable);
+        let mut w = grind.fields();
+        item_mut(&mut w, 54).owned = true;
+        w.charge_boots = true;
+        assert!(grind.clone().apply(&w).unwrap_err().contains("for the moment"));
     }
 
     #[test]
     fn experience_and_ammo_follow_the_version_in_the_save() {
         let mut f = oozla();
         let mut want = f.fields();
-        item_mut(&mut want, 30).xp = Some(280 * 32);
-        assert!(f.clone().apply(&want).unwrap_err().contains("8960"), "the Lancer's step");
+        item_mut(&mut want, 30).xp = Some(280);
+        assert!(f.clone().apply(&want).unwrap_err().contains("280"), "the Lancer's step");
         item_mut(&mut want, 30).version = Some(1);
-        assert!(f.clone().apply(&want).unwrap_err().contains("in hand"), "the Lancer is held");
+        assert!(f.clone().apply(&want).unwrap_err().contains("holds"), "the Lancer is held");
         item_mut(&mut want, 30).version = Some(0);
-        item_mut(&mut want, 30).xp = Some(280 * 32 - 1);
+        item_mut(&mut want, 30).xp = Some(279);
         f.apply(&want).unwrap();
-        assert_eq!(i32_at(f.global.get(id::XP), 30), 8959);
+        assert_eq!(i32_at(f.global.get(id::XP), 30), 279 << 5);
         assert_eq!(f.global.get(id::RECORD)[30], 30, "the version is the game's to change");
         let v = view("SCUS_972.68", 0, &f.to_bytes(), &f);
-        assert_eq!(v.items.iter().find(|i| i.id == 30).unwrap().max_xp, Some(8959));
+        assert_eq!(v.items.iter().find(|i| i.id == 30).unwrap().max_xp, Some(279));
         let mut over = f.fields();
         item_mut(&mut over, 30).ammo = Some(201);
         assert!(f.clone().apply(&over).unwrap_err().contains("200"));
@@ -1472,10 +1840,77 @@ mod tests {
         f.global.get_mut(id::RECORD)[30] = 79;
         let v = view("SCUS_972.68", 0, &f.to_bytes(), &f);
         let lancer = v.items.iter().find(|i| i.id == 30).unwrap();
-        assert_eq!(
-            (item(&v.fields, 30).version, lancer.max_ammo, lancer.max_xp),
-            (Some(2), Some(400), Some(8000 * 32 - 1))
-        );
+        assert_eq!((item(&v.fields, 30).version, lancer.max_ammo, lancer.max_xp), (Some(2), Some(400), Some(7999)));
+    }
+
+    #[test]
+    fn every_weapon_at_its_last_version_takes_its_experience() {
+        // NG++ levels weapons past their last version by the game's own experience, counted again
+        // from 0 there: the RYNO II (one version), a two-row weapon at its bought second and a
+        // four-version weapon at V4 must all take a count, under V4's own step included.
+        let mut f = oozla();
+        f.global.get_mut(id::RECORD)[30] = 80;
+        f.global.get_mut(id::RECORD)[12] = 115;
+        let v = view("SCUS_972.68", 0, &f.to_bytes(), &f);
+        for id in [30, 12, 44, 43] {
+            let info = v.items.iter().find(|i| i.id == id).unwrap();
+            assert_eq!(info.max_xp, Some(MAX_XP), "{}", info.name);
+            assert!(item(&v.fields, id).xp.is_some(), "{}", info.name);
+        }
+        assert_eq!(v.items.iter().find(|i| i.id == 30).unwrap().versions[3].min_xp, Some(0));
+        let mut want = f.fields();
+        item_mut(&mut want, 30).xp = Some(5_000);
+        item_mut(&mut want, 12).xp = Some(6_000);
+        item_mut(&mut want, 44).xp = Some(40_000);
+        item_mut(&mut want, 43).xp = Some(1);
+        f.apply(&want).unwrap();
+        let xp = f.global.get(id::XP);
+        assert_eq!((i32_at(xp, 30), i32_at(xp, 12), i32_at(xp, 44), i32_at(xp, 43)), (160_000, 192_000, 1_280_000, 32));
+        assert_eq!(f.fields(), want, "read back as written");
+        // Gadgets count none.
+        assert_eq!(item(&f.fields(), 2).xp, None);
+    }
+
+    #[test]
+    fn experience_is_shown_in_the_units_the_game_compares() {
+        // The game compares `experience >> 5` with the steps: a stored 23,000 is 718 of them.
+        assert_eq!((shown_xp(23_000), shown_xp(31), shown_xp(32), shown_xp(-5)), (718, 0, 1, 0));
+        assert_eq!(stored_xp(718), 718 << 5);
+        assert_eq!(stored_xp(MAX_XP), (MAX_XP << 5) as i32, "the limit fits the game's s32");
+        assert!(stored_xp(MAX_XP) > 0);
+
+        let mut f = oozla();
+        // Low bits a shown value hides: kept while it is not changed.
+        set_i32(f.global.get_mut(id::XP), 30, (61 << 5) | 0x1f);
+        set_i32(f.global.get_mut(id::XP), 26, 23_000);
+        set_word(f.global.get_mut(id::PROGRESS), P_NANOTECH_XP, (129 << 5) | 7);
+        let want = f.fields();
+        assert_eq!((item(&want, 30).xp, item(&want, 26).xp, want.nanotech_xp), (Some(61), Some(718), 129));
+        let before = f.clone();
+        f.apply(&want).unwrap();
+        assert_eq!(f.to_bytes(), before.to_bytes(), "a save opened and saved as it was keeps its bytes");
+
+        // A changed value lands shifted up.
+        let mut want = f.fields();
+        item_mut(&mut want, 26).xp = Some(700);
+        want.nanotech_xp = 2_000;
+        f.apply(&want).unwrap();
+        assert_eq!(i32_at(f.global.get(id::XP), 26), 700 << 5);
+        assert_eq!(word(f.global.get(id::PROGRESS), P_NANOTECH_XP), 2_000 << 5);
+        assert_eq!(i32_at(f.global.get(id::XP), 30), (61 << 5) | 0x1f, "the others untouched");
+        assert_eq!(f.fields(), want);
+
+        // The limit, in the shown units.
+        let mut over = f.fields();
+        over.nanotech_xp = MAX_XP + 1;
+        assert!(f.clone().apply(&over).unwrap_err().contains(&MAX_XP.to_string()));
+        let mut over = f.fields();
+        item_mut(&mut over, 44).xp = Some(MAX_XP + 1);
+        assert!(f.clone().apply(&over).unwrap_err().contains(&MAX_XP.to_string()));
+        let mut top = f.fields();
+        item_mut(&mut top, 44).xp = Some(MAX_XP);
+        f.apply(&top).unwrap();
+        assert_eq!(i32_at(f.global.get(id::XP), 44), (MAX_XP << 5) as i32);
     }
 
     /// The fixture as the same save would be once challenge mode was started.
@@ -1493,20 +1928,21 @@ mod tests {
     #[test]
     fn weapon_versions_are_the_games() {
         use Rac2VersionHow::*;
-        // The Lancer (records 30, 60, 79, 80): V2 at 280 << 5, V3 bought, V4 at 8000 << 5.
+        // The Lancer (records 30, 60, 79, 80): V2 at 280, V3 bought, V4 at 8000 (compared units).
         let lancer: Vec<_> = (0..4).map(|k| rule(30, k)).collect();
-        assert_eq!(lancer[0], VersionRule { how: First, challenge: false, xp: Some((0, 8959)) });
-        assert_eq!(lancer[1], VersionRule { how: Experience, challenge: false, xp: Some((8960, MAX_XP)) });
-        assert_eq!(lancer[2], VersionRule { how: Bought, challenge: true, xp: Some((0, 255_999)) });
-        assert_eq!(lancer[3], VersionRule { how: Experience, challenge: true, xp: Some((256_000, MAX_XP)) });
+        assert_eq!(lancer[0], VersionRule { how: First, challenge: false, xp: Some((0, 279)) });
+        assert_eq!(lancer[1], VersionRule { how: Experience, challenge: false, xp: Some((280, MAX_XP)) });
+        assert_eq!(lancer[2], VersionRule { how: Bought, challenge: true, xp: Some((0, 7_999)) });
+        // V4, the last, takes any count: NG++ counts its tiers' experience from 0 there.
+        assert_eq!(lancer[3], VersionRule { how: Experience, challenge: true, xp: Some((0, MAX_XP)) });
         // Two-row weapons with no step: the second row is the challenge-mode purchase.
         for id in [12, 14, 17, 18, 53] {
             let d = ITEMS.iter().find(|i| i.id == id).unwrap();
             assert_eq!(d.versions().len(), 2);
-            assert_eq!(rule(id, 1), VersionRule { how: Bought, challenge: true, xp: None }, "{}", d.name);
+            assert_eq!(rule(id, 1), VersionRule { how: Bought, challenge: true, xp: Some((0, MAX_XP)) }, "{}", d.name);
         }
         // The Clank Zapper's second row comes by experience, in either mode.
-        assert_eq!(rule(9, 1), VersionRule { how: Experience, challenge: false, xp: Some((2500 * 32, MAX_XP)) });
+        assert_eq!(rule(9, 1), VersionRule { how: Experience, challenge: false, xp: Some((0, MAX_XP)) });
         // The Sheepinator's V3 comes when challenge mode starts.
         assert_eq!(rule(16, 2).how, ChallengeStart);
         // Every four-row weapon has a step from V3 to V4; one-row items have no versions.
@@ -1527,8 +1963,8 @@ mod tests {
                 ("V4", "HK-22", Some(50))
             ]
         );
-        assert_eq!(seeker.versions[1].step_xp, Some(1050 * 32));
-        assert_eq!(seeker.versions[3].step_xp, Some(10600 * 32));
+        assert_eq!(seeker.versions[1].step_xp, Some(1050));
+        assert_eq!(seeker.versions[3].step_xp, Some(10600));
         assert_eq!(v.challenge_mode, 0);
     }
 
@@ -1537,9 +1973,7 @@ mod tests {
         // The Seeker Gun (24, owned, not in hand) through its four versions in challenge mode,
         // with the experience and ammo the game's own upgrade and purchase leave.
         let mut f = in_challenge_mode();
-        for (version, xp, ammo, record) in
-            [(1, 1050 * 32, 20, 67), (2, 0, 40, 85), (3, 10600 * 32, 50, 86), (0, 100, 25, 24)]
-        {
+        for (version, xp, ammo, record) in [(1, 1050, 20, 67), (2, 0, 40, 85), (3, 10600, 50, 86), (0, 100, 25, 24)] {
             let before = f.clone();
             let mut want = f.fields();
             let s = item_mut(&mut want, 24);
@@ -1565,11 +1999,12 @@ mod tests {
             (s.version, s.xp, s.ammo) = (Some(version), Some(xp), Some(ammo));
             f.clone().apply(&want)
         };
-        assert!(try_(1, 1050 * 32 - 1, 20).unwrap_err().contains("at least 33600"), "V2 keeps its step");
-        assert!(try_(1, 1050 * 32, 21).unwrap_err().contains("at most 20"), "V2's ammo");
-        assert!(try_(2, 10600 * 32, 40).unwrap_err().contains("339200"), "V3 is under its step");
-        assert!(try_(3, 10600 * 32 - 1, 50).unwrap_err().contains("at least"), "V4 keeps its step");
-        assert!(try_(2, 10600 * 32 - 1, 40).is_ok());
+        assert!(try_(1, 1050 - 1, 20).unwrap_err().contains("at least 1050"), "V2 keeps its step");
+        assert!(try_(1, 1050, 21).unwrap_err().contains("at most 20"), "V2's ammo");
+        assert!(try_(2, 10600, 40).unwrap_err().contains("10600"), "V3 is under its step");
+        // V4, the last, takes any count (NG++ counts its tiers' experience from 0 there).
+        assert!(try_(3, 0, 50).is_ok(), "V4 takes a count under its step");
+        assert!(try_(2, 10600 - 1, 40).is_ok());
         assert!(try_(3, MAX_XP, 50).is_ok());
     }
 
@@ -1585,14 +2020,14 @@ mod tests {
         a.apply(&want).unwrap();
         assert_eq!(a.global.get(id::RECORD)[24], 85);
         let s = item_mut(&mut want, 24);
-        (s.version, s.xp, s.ammo) = (Some(3), Some(10600 * 32), Some(50));
+        (s.version, s.xp, s.ammo) = (Some(3), Some(10600), Some(50));
         let mut b = f.clone();
         b.apply(&want).unwrap();
         assert_eq!(b.global.get(id::RECORD)[24], 86);
         // The ranges still hold.
         let s = item_mut(&mut want, 24);
-        (s.version, s.xp, s.ammo) = (Some(2), Some(10600 * 32), Some(40));
-        assert!(f.clone().apply(&want).unwrap_err().contains("339200"));
+        (s.version, s.xp, s.ammo) = (Some(2), Some(10600), Some(40));
+        assert!(f.clone().apply(&want).unwrap_err().contains("10600"));
         let s = item_mut(&mut want, 24);
         (s.version, s.xp, s.ammo) = (Some(2), Some(0), Some(41));
         assert!(f.clone().apply(&want).unwrap_err().contains("at most 40"));
@@ -1685,6 +2120,137 @@ mod tests {
         assert!(level.is_none_or(|l| l < LEVEL_SLOTS), "{id}");
     }
 
+    /// The bytes a flag's places name, as `changed` reports them: (level, chunk, offset).
+    fn flag_bytes(place: Place, out: &mut Vec<(Option<usize>, i32, usize)>) {
+        match place {
+            Place::Byte { chunk, level, offset, .. } | Place::Bit { chunk, level, offset, .. } => {
+                out.push((level, chunk, offset))
+            }
+            Place::SetOnly { chunk, offset, .. } => out.push((None, chunk, offset)),
+            Place::Count { level, uid } => out.push((Some(level), rac2_flags::MOBY_COUNTS, usize::from(uid >> 1))),
+            Place::All(ps) => ps.iter().for_each(|&p| flag_bytes(p, out)),
+        }
+    }
+
+    #[test]
+    fn every_flag_round_trips_and_writes_only_its_places() {
+        let base = oozla();
+        for (i, d) in rac2_flags::all().enumerate() {
+            let mut off = base.clone();
+            let mut w = off.fields();
+            w.flags[i].on = false;
+            off.apply(&w).unwrap();
+            assert!(!off.fields().flags[i].on, "{} cleared reads off", d.id);
+
+            let mut want = off.fields();
+            want.flags[i].on = true;
+            let mut on = off.clone();
+            on.apply(&want).unwrap();
+            let mut mine = Vec::new();
+            flag_bytes(d.place, &mut mine);
+            for c in changed(&off, &on) {
+                assert!(mine.contains(&c), "{} wrote {c:?}, not one of its places", d.id);
+            }
+            let back = SaveFile::parse(&on.to_bytes()).unwrap().fields();
+            assert!(back.flags[i].on, "{} set reads on after a save and load", d.id);
+
+            let mut clear = back.clone();
+            clear.flags[i].on = false;
+            on.apply(&clear).unwrap();
+            assert!(!on.fields().flags[i].on, "{} clears again", d.id);
+        }
+    }
+
+    #[test]
+    fn no_two_flags_are_the_same_place() {
+        let mut seen = std::collections::HashMap::new();
+        for d in rac2_flags::all() {
+            let first = match d.place {
+                Place::All(ps) => ps[0],
+                p => p,
+            };
+            let key = match first {
+                Place::Byte { chunk, level, offset, .. } => (chunk, level, offset, 8),
+                Place::SetOnly { chunk, offset, .. } => (chunk, None, offset, 8),
+                Place::Bit { chunk, level, offset, bit } => (chunk, level, offset, bit),
+                Place::Count { level, uid } => (rac2_flags::MOBY_COUNTS, Some(level), usize::from(uid), 9),
+                Place::All(_) => unreachable!(),
+            };
+            if let Some(other) = seen.insert(key, d.id) {
+                panic!("{} and {other} are the same place", d.id);
+            }
+        }
+    }
+
+    #[test]
+    fn story_bytes_are_the_ones_the_levels_code_uses() {
+        // Chunk 5 (0x001395B8) offsets, read against the decompiled level code of v1.01 (PAL and
+        // v2.00 use the same indices).
+        const BYTES: &[(&str, usize, u8)] = &[
+            ("maktar-arena-entered", 0x05, 1),
+            ("maktar-arena-first-challenge-won", 0x31, 1),
+            ("maktar-arena-9", 0x91, 1),
+            ("maktar-arena-13", 0x92, 1),
+            ("maktar-arena-14", 0x93, 1),
+            ("endako-swingshot-start-passed", 0x0D, 1),
+            ("barlow-thermanator-start-passed", 0x12, 1),
+            ("barlow-race-1", 0x4D, 1),
+            ("barlow-race-5", 0x51, 1),
+            ("feltzin-mission-1-won", 0x61, 1),
+            ("feltzin-mission-4-won", 0x64, 1),
+            ("dobbo-joba-task-given", 0x1D, 1),
+            ("dobbo-joba-task-done", 0x2E, 1),
+            ("hrugis-challenge-1", 0x66, 1),
+            ("hrugis-challenge-4", 0x69, 1),
+            ("joba-arena-entered", 0x4A, 1),
+            ("joba-arena-1", 61, 1),
+            ("joba-arena-8", 68, 1),
+            ("joba-arena-9", 71, 1),
+            ("joba-arena-10", 69, 1),
+            ("joba-arena-11", 70, 1),
+            ("joba-arena-12", 72, 1),
+            ("joba-arena-13", 75, 1),
+            ("joba-race-1", 0x57, 1),
+            ("joba-race-5", 0x5B, 1),
+            ("gorn-challenge-1", 0x6B, 1),
+            ("gorn-challenge-4", 0x6E, 1),
+            ("snivelak-boss-beaten", 0x83, 2),
+            ("smolg-hypnomatic-part", 0x84, 1),
+            ("damosel-hypnomatic-part", 0x86, 1),
+            ("damosel-giant-clank-return", 0x9F, 1),
+            ("grelbin-hypnomatic-part", 0x89, 1),
+            ("damosel-orbit-battle-won", 0xA1, 1),
+        ];
+        for &(id, at, value) in BYTES {
+            let d = rac2_flags::all().find(|f| f.id == id).unwrap_or_else(|| panic!("{id}"));
+            assert_eq!(d.place, Place::Byte { chunk: 5, level: None, offset: at, on: value }, "{id}");
+        }
+        // The prison's controller reads 0x29 (with its groups) and the pad sets 0x2B.
+        let place = |id: &str| rac2_flags::all().find(|f| f.id == id).unwrap().place;
+        let Place::All(ps) = place("aranos-prison-clank-section-done") else { panic!() };
+        assert!(ps.contains(&Place::Byte { chunk: 5, level: None, offset: 0x29, on: 1 }));
+        let Place::All(ps) = place("aranos-prison-pad-reached") else { panic!() };
+        assert_eq!(ps[0], Place::Byte { chunk: 5, level: None, offset: 0x2B, on: 1 });
+    }
+
+    #[test]
+    fn snivelaks_boss_is_beaten_only_at_2() {
+        // 1 is the fight under way (`func_L16_00403900`): not beaten.
+        const ID: &str = "snivelak-boss-beaten";
+        let mut f = oozla();
+        f.global.get_mut(5)[0x83] = 1;
+        let i = f.fields().flags.iter().position(|x| x.id == ID).unwrap();
+        assert!(!f.fields().flags[i].on);
+        let mut want = f.fields();
+        want.flags[i].on = true;
+        f.apply(&want).unwrap();
+        assert_eq!(f.global.get(5)[0x83], 2);
+        assert!(f.fields().flags[i].on);
+        want.flags[i].on = false;
+        f.apply(&want).unwrap();
+        assert_eq!(f.global.get(5)[0x83], 0);
+    }
+
     #[test]
     fn aranos_prisons_section_done_writes_the_controllers_groups_only() {
         const ID: &str = "aranos-prison-clank-section-done";
@@ -1774,6 +2340,37 @@ mod tests {
     }
 
     #[test]
+    fn a_level_after_a_flag_only_level_has_no_hole_before_it() {
+        // Dobbo Orbit (22) gets the flag alone in the game: the next level must still follow 1.
+        let mut f = oozla();
+        f.global.get_mut(id::AVAILABLE)[22] = 1;
+        let mut want = f.fields();
+        want.planets.iter_mut().find(|p| p.id == 18).unwrap().available = true;
+        f.apply(&want).unwrap();
+        let order = f.global.get(id::MAP_ORDER);
+        assert_eq!((0..3).map(|i| i32_at(order, i)).collect::<Vec<_>>(), [1, 18, 0]);
+        let mut want = f.fields();
+        want.planets.iter_mut().find(|p| p.id == 23).unwrap().available = true;
+        f.apply(&want).unwrap();
+        assert_eq!(f.global.get(id::AVAILABLE)[23], 1);
+        let order = f.global.get(id::MAP_ORDER);
+        assert_eq!((0..3).map(|i| i32_at(order, i)).collect::<Vec<_>>(), [1, 18, 0], "23 is never listed");
+    }
+
+    #[test]
+    fn a_save_with_a_hole_in_the_list_is_repaired() {
+        // What older launchers wrote: Damosel two places after Oozla, so the ship's map hid it.
+        let mut f = oozla();
+        f.global.get_mut(id::AVAILABLE)[18] = 1;
+        set_i32(f.global.get_mut(id::MAP_ORDER), 2, 18);
+        let mut want = f.fields();
+        want.bolts += 1;
+        f.apply(&want).unwrap();
+        let order = f.global.get(id::MAP_ORDER);
+        assert_eq!((0..3).map(|i| i32_at(order, i)).collect::<Vec<_>>(), [1, 18, 0]);
+    }
+
+    #[test]
     fn the_limits_are_checked() {
         let f = oozla().fields();
         let bad = |change: &dyn Fn(&mut Rac2SaveFields)| {
@@ -1791,7 +2388,8 @@ mod tests {
         assert!(bad(&|w| w.items.pop().map(|_| ()).unwrap()));
         assert!(bad(&|w| w.planets[0].platinum.push(true)));
         assert!(bad(&|w| item_mut(w, 2).ammo = Some(1)));
-        assert!(bad(&|w| item_mut(w, 12).xp = Some(1)), "upgrades by other means");
+        assert!(bad(&|w| item_mut(w, 2).xp = Some(1)), "a gadget counts no experience");
+        assert!(bad(&|w| item_mut(w, 44).xp = None), "every weapon counts it");
         assert!(bad(&|w| item_mut(w, 24).version = None), "a weapon with versions");
         assert!(bad(&|w| item_mut(w, 24).version = Some(4)), "four versions");
         assert!(bad(&|w| item_mut(w, 43).version = Some(0)), "the Zodiac has one");
@@ -1847,7 +2445,7 @@ mod tests {
         let v = read_save(card.path(), "SCUS_972.68", 1).unwrap();
         let mut want = v.fields.clone();
         let s = item_mut(&mut want, 24);
-        (s.version, s.xp, s.ammo) = (Some(1), Some(1050 * 32), Some(20));
+        (s.version, s.xp, s.ammo) = (Some(1), Some(1050), Some(20));
         let refused = write_save(
             card.path(),
             "SCUS_972.68",

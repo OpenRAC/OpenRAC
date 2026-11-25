@@ -6,9 +6,14 @@
  *
  * Outside a level the title and its menus ("front_end"). In a level by its game state
  * (g_nGameState, as rac1's game mode): 0 play, 3 the pause menu ("menu", or "map" on the Galactic
- * Map), 4 a dialog ("dialog"; quick select keeps play's), 5 a vendor ("vendor"), anything else a
- * movie, a scene or a load ("cutscene"). In play the space combat levels are the ship's, Giant
- * Clank his own, then swimming, grinding and on foot. Hints: a "press triangle" prompt.
+ * Map), 4 a dialog ("dialog"; quick select keeps play's, the free camera "look_around"), 5 a
+ * vendor ("vendor"), 7 a minigame that hides the level, such as a hacking board ("minigame":
+ * Circle tries again, Triangle quits),
+ * anything else a movie, a scene or a load ("cutscene"). In play the space combat levels are the
+ * ship's, Giant Clank his own, then swimming, grinding and on foot. Hints: a "press triangle"
+ * prompt. On foot with no health the hero is dying: "default", which has no strafe button, so the
+ * strafe toggle (sets/rac2.json, L2) is off when he comes back. A menu, a load or a scene drops it
+ * the same way.
  * Installed with the tools (tools.c, rac2_install_tools).
  */
 #include "openrac/game_host.h"
@@ -30,8 +35,11 @@
 #define PROMPT_OWNER OPENRAC_DATA(RAC2_ADDR(0x001A8C64u)) /* g_noticeOwner */
 #define PROMPT_TIMER OPENRAC_DATA(RAC2_ADDR(0x001A8C60u))
 #define PROMPT_TEXT OPENRAC_DATA(RAC2_ADDR(0x001B1D48u))
-/* Under state 3 the Galactic Map, under 4 quick select (hold triangle). */
+/* Under state 3 the Galactic Map, under 4 quick select (hold triangle) and the free camera: where a
+ * level allows it (Jamming Array), Select flies the camera out, the stick moves it and only Select
+ * or R3 brings it back (func_00286738, mode 6). */
 #define ARG_MAP 2
+#define ARG_LOOK 6
 #define ARG_QUICK 7
 
 static int swimming(int state) {
@@ -59,6 +67,9 @@ static const char* play_context(int level) {
     }
     if (grinding(state)) {
         return "grind";
+    }
+    if (GREF(int32_t, RAC2_g_health) <= 0) {
+        return "default"; /* dying: no strafe button, so its toggle lets go */
     }
     return "foot";
 }
@@ -101,10 +112,17 @@ int rac2_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX])
             *context = state_arg() == ARG_MAP ? "map" : "menu";
             return 0;
         case 4:
-            *context = state_arg() == ARG_QUICK ? play_context(level) : "dialog";
+            if (state_arg() == ARG_QUICK) {
+                *context = play_context(level);
+            } else {
+                *context = state_arg() == ARG_LOOK ? "look_around" : "dialog";
+            }
             return 0;
         case 5:
             *context = "vendor";
+            return 0;
+        case 7:
+            *context = "minigame";
             return 0;
         default:
             *context = "cutscene";

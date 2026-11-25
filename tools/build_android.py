@@ -7,7 +7,7 @@ Builds OpenRAC for Android: the launcher's APK with the games in it
 
 GAME is one of the port's games (port/game/<id>/hostgen.json): rac1-pal,
 rac1-ntsc, rac1-pal1, rac1-jp and Going Commando's three discs (rac2-ntsc, rac2-pal,
-rac2-ntsc2) when none is named. A game whose code is still partly in assembly (Going Commando: hostgen.json "asm" "interface") is built without
+rac2-ntsc2) when none is named. A game whose code is still partly in assembly (hostgen.json "asm" "interface"; none now) is built without
 the disc, calling those functions through slots; the APK carries what the
 device needs to build them from the player's disc when it is set up
 (tools/asm_part.py): its kit, and Clang and lld (Zig's static AArch64 build,
@@ -159,7 +159,7 @@ def embree_android_options(ndk: Path) -> dict[str, str]:
         "ANDROID_PLATFORM": "android-28",
         "ANDROID_STL": "c++_shared",
         "CMAKE_BUILD_TYPE": "Release",
-        **desktop.embree_options("aarch64"),
+        **desktop.embree_options("aarch64", windows=False),
     }
 
 
@@ -177,6 +177,13 @@ def build_embree(ndk: Path) -> Path:
         pass
     # The source build_port fetched and checked, shared with the desktop's build.
     source = desktop.fetch_embree(desktop.EMBREE_DIR)
+    if os.name == "nt":
+        # Embree takes "/" for a full path when its target is not Windows, which fails on a Windows
+        # host. The install prefix gives the same relative path.
+        package = source / "common/cmake/package.cmake"
+        package.write_bytes(package.read_bytes().replace(
+            b'"/${EMBREE_CMAKECONFIG_DIR}" "/"',
+            b'"${CMAKE_INSTALL_PREFIX}/${EMBREE_CMAKECONFIG_DIR}" "${CMAKE_INSTALL_PREFIX}"'))
     work = EMBREE_ANDROID / "build"
     for folder in (work, install):
         shutil.rmtree(folder, ignore_errors=True)
@@ -298,7 +305,9 @@ def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_sym
         sys.exit(f"{ndk} has no libc++_shared.so for aarch64")
     wanted.append(runtime[0])
     wanted += sorted((python_target / "jniLibs/arm64-v8a").glob("*.so"))
-    strip = sorted(ndk.glob("toolchains/llvm/prebuilt/*/bin/llvm-strip"))
+    # llvm-strip.exe on a Windows host
+    strip = sorted(ndk.glob("toolchains/llvm/prebuilt/*/bin/llvm-strip")) + \
+        sorted(ndk.glob("toolchains/llvm/prebuilt/*/bin/llvm-strip.exe"))
     names = []
     for path in wanted:
         if not path.is_file():

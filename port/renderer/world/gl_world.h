@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The OpenGL the world renderers use beyond renderer/gl.h: uniform blocks,
+// The OpenGL the world renderers use beyond renderer/gl/gl.h: uniform blocks,
 // texture buffers (OpenGL 4.1 has no storage buffers, so the per-instance and
 // per-frame records the shaders index live in buffer textures), sampler
 // objects, the stencil test (shadow volumes), texture arrays and a few draw
-// calls. Loaded the same way as renderer/gl.h, through the context's loader,
+// calls. Loaded the same way as renderer/gl/gl.h, through the context's loader,
 // and kept to OpenGL 4.1 core.
 //
 // gl::load() must have succeeded first; then call world::gl::load() with the
@@ -16,11 +16,15 @@
 
 #include <string>
 
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 
 namespace openrac::renderer::world::gl {
 
 using namespace openrac::gl;
+
+// Use the shared entry points so world draws and uniform writes follow the installed GL hooks.
+using openrac::gl::glDrawArraysInstanced;
+using openrac::gl::glUniform1ui;
 
 // clang-format off
 inline constexpr GLenum GL_UNIFORM_BUFFER = 0x8A11;
@@ -57,9 +61,7 @@ inline constexpr GLenum GL_TEXTURE_BASE_LEVEL = 0x813C;
     X(void, glStencilFunc, (GLenum func, GLint ref, GLuint mask))                                  \
     X(void, glStencilOpSeparate, (GLenum face, GLenum sfail, GLenum dpfail, GLenum dppass))        \
     X(void, glStencilMask, (GLuint mask))                                                          \
-    X(void, glClearStencil, (GLint s))                                                             \
-    X(void, glUniform1ui, (GLint location, GLuint v0))                                             \
-    X(void, glDrawArraysInstanced, (GLenum mode, GLint first, GLsizei count, GLsizei instances))
+    X(void, glClearStencil, (GLint s))
 // clang-format on
 
 #define OPENRAC_WORLD_GL_DECLARE(ret, name, params)                                                \

@@ -536,13 +536,13 @@ class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
     }
   }
 
-  // The player's choice, else OpenGL ES on Mali and Vulkan elsewhere: Vulkan on Mali is not yet
-  // played on a device (its compiler crashed on clip distances; vertex_clip_distance in
-  // port/renderer/vulkan/shader_compiler.cpp), and its OpenGL ES runs the game.
+  // The player's choice, else Vulkan on Adreno and OpenGL ES elsewhere. Vulkan on Mali crashed in
+  // its compiler (vertex_clip_distance in port/renderer/vulkan/pipelines/shader_compiler.cpp), and
+  // Samsung's Xclipse Vulkan driver crashes and hangs in other apps; their OpenGL ES runs the game.
   private fun renderer(): String {
     val chosen = if (rendererFile.isFile) rendererFile.readText().trim() else ""
     if (chosen == "gles" || chosen == "vulkan") return chosen
-    return if (gpu() == "mali") "gles" else "vulkan"
+    return if (gpu() == "mali" || gpu() == "xclipse") "gles" else "vulkan"
   }
 
   private fun selectedDriver(): Pair<File, JSONObject>? {
@@ -574,10 +574,12 @@ class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
     return out
   }
 
-  // Which kernel GPU driver the device has: packages load only on Adreno's (kgsl).
+  // Which kernel GPU driver the device has: packages load only on Adreno's (kgsl). An Exynos
+  // without Mali has Samsung's Xclipse (AMD RDNA): Exynos 2200 and later, the Galaxy Z Flip 7.
   private fun gpu(): String = when {
     File("/dev/kgsl-3d0").exists() -> "adreno"
     File("/dev/mali0").exists() -> "mali"
+    Build.VERSION.SDK_INT >= 31 && Build.SOC_MANUFACTURER.equals("Samsung", ignoreCase = true) -> "xclipse"
     else -> "other"
   }
 

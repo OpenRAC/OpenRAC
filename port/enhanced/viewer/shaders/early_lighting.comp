@@ -1,6 +1,11 @@
 #version 430 core
 // SPDX-License-Identifier: GPL-3.0-or-later
 layout(local_size_x = 8, local_size_y = 8) in;
+#ifndef OPENRAC_EARLY_SCALE
+#define OPENRAC_EARLY_SCALE 2
+#endif
+// Pixels a side of one cell: 2, or 4 under early-lighting-quarter.
+const int kEarlyScale = OPENRAC_EARLY_SCALE;
 
 layout(std430, binding = 9) writeonly buffer EarlyValues {
     uint values[];
@@ -17,6 +22,7 @@ uniform samplerBuffer early_ao;
 uniform int early_ao_enabled;
 uniform int early_ao_scale;
 uniform float early_ao_strength;
+uniform int early_cloud_guides;
 
 vec3 position_at(ivec2 pixel, float depth) {
     vec2 ndc = (vec2(pixel) + 0.5) / vec2(textureSize(early_depth, 0)) * 2.0 - 1.0;
@@ -77,16 +83,17 @@ float ambient_visibility(ivec2 pixel, vec3 centre, vec3 normal) {
 
 void main() {
     ivec2 cell = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 extent = textureSize(early_depth, 0), half_extent = (extent + 1) / 2;
+    ivec2 extent = textureSize(early_depth, 0);
+    ivec2 half_extent = (extent + kEarlyScale - 1) / kEarlyScale;
     if (any(greaterThanEqual(cell, half_extent))) {
         return;
     }
     int index = cell.y * half_extent.x + cell.x;
     float depth = 0.0;
     uint selected = 0u;
-    early_pixel = cell * 2;
-    for (uint i = 0u; i < 4u; ++i) {
-        ivec2 p = cell * 2 + ivec2(i & 1u, i >> 1u);
+    early_pixel = cell * kEarlyScale;
+    for (uint i = 0u; i < uint(kEarlyScale * kEarlyScale); ++i) {
+        ivec2 p = cell * kEarlyScale + ivec2(i % uint(kEarlyScale), i / uint(kEarlyScale));
         if (any(greaterThanEqual(p, extent))) {
             continue;
         }
@@ -119,6 +126,11 @@ void main() {
     }
     irradiance *= ao;
     float shadow = sun_shadow_visibility(world, normal, normal);
+    if (early_cloud_guides != 0) {
+        float cloudy_sun = clouded_sun_visibility(world, shadow);
+        guides[half_extent.x * half_extent.y * 2 + index] =
+            uint(round(clamp(cloudy_sun, 0.0, 1.0) * 255.0));
+    }
     uint hero = uint(round(clamp(hero_shadow_sample(world, normal), 0.0, 1.0) * 255.0));
     // Log encoding spans the finite half-float lighting range. Decode each
     // candidate before spatial filtering; alpha is linear visibility.
@@ -127,6 +139,8 @@ void main() {
     vec2 oct = probe_oct(nv);
     uvec2 q = uvec2(round(oct * 255.0));
     guides[index * 2] = floatBitsToUint(depth);
-    guides[index * 2 + 1] = q.x | (q.y << 8u) | (selected << 16u) | (covered ? 1u << 18u : 0u)
-                            | (1u << 19u) | (hero << 20u);
+    // The selected pixel's low two bits at 16, its high two (4x4 cells only) at 28.
+    guides[index * 2 + 1] = q.x | (q.y << 8u) | ((selected & 3u) << 16u)
+                            | (covered ? 1u << 18u : 0u) | (1u << 19u) | (hero << 20u)
+                            | ((selected >> 2u) << 28u);
 }

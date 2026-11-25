@@ -10,7 +10,7 @@ no compiler.
 OUT (launcher/src-tauri/resources/openrac for an installer) gets:
 
   STANDALONE                 what this is and what it was made from
-  tools/, editor/            the set-up and the level tools, as they are here
+  tools/, extractor/            the set-up and the level tools, as they are here
                              (tools/openrac_common with them: they import it)
   port/enhanced/lighting/profiles  authored lighting settings, emission catalogs and moby seeds
   games/*/game.json          the catalogue the launcher lists
@@ -28,7 +28,8 @@ OUT (launcher/src-tauri/resources/openrac for an installer) gets:
                              A Windows program goes with Microsoft's C++
                              runtime beside it, which a new Windows lacks
   python/                   a Python to run the tools (--python: an unpacked
-                             python-build-standalone "install_only" archive)
+                             python-build-standalone "install_only" archive),
+                             without what they never use (copy_python)
 
 --android makes the copy the Android launcher carries in its APK
 (tools/build_android.py; docs/port/ANDROID.md). The games and the Python
@@ -43,7 +44,6 @@ bundled_root) and uses it when there is no checkout. Without --game-build or
 side against it (OPENRAC_ROOT=OUT); an installer needs both.
 """
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -57,31 +57,27 @@ ROOT = paths.repo_root()
 
 
 def levels_format() -> int:
-    """The level export's format (editor/port.py FORMAT), which names the check's stamp."""
-    text = (ROOT / "editor" / "port.py").read_text(encoding="utf-8")
+    """The level export's format (extractor/port.py FORMAT), which names the check's stamp."""
+    text = (ROOT / "extractor" / "port.py").read_text(encoding="utf-8")
     return int(re.search(r"^FORMAT = (\d+)$", text, re.MULTILINE).group(1))
 
 
 # What the level check writes once every level is whole, and Play waits for
 # (port/game/common/program/levels.cpp check_levels).
 STAMP = f"verified-{levels_format()}.json"
-# What editor/extract.py port writes last, once every level is whole: the levels are ready by it.
+# What extractor/extract.py port writes last, once every level is whole: the levels are ready by it.
 LEVELS_STAMP = f"levels-{levels_format()}.json"
 
 # What a player's launcher offers for a version, from launcher/actions.json. The rest (the
-# decompilation's builds and checks, building the port, the tools' tests) needs a checkout, except
-# PLAYER_BUILDS.
-PLAY = ("port-levels", "port-levels-check", "port-part", "probe-bake", "play")
-# Mods: the level editor (Godot projects of the disc's levels, packed back into the game's data),
-# models and textures, packs, and playing with them. In a checkout they work in its assets/; the
-# carried copy is read-only, so they work in the data folder instead (MOD_FOLDERS).
-MODS = ("editor-extract", "editor-preview", "editor-import", "editor-open", "editor-pack",
-        "assets-export", "assets-import", "audio-export", "audio-export-all", "audio-import", "overrides-add", "overrides-stack", "editor-show-packs",
-        "editor-hide-packs", "play-edited")
+# decompilation's builds and checks, building the port, the tools' tests) needs a checkout.
+PLAY = ("disc-files", "port-levels", "port-levels-check", "probe-bake", "play")
+# Mods: models and textures, sounds, packs, and playing with them. In a checkout they work in its
+# assets/; the carried copy is read-only, so they work in the data folder instead (MOD_FOLDERS). The
+# level editor's own steps come with OpenRAC Editor, which the launcher downloads (its
+# openrac/editor.json; launcher/core/src/editor_install.rs puts its folders in the same places).
+MODS = ("assets-export", "assets-import", "audio-export", "audio-export-all", "audio-import", "overrides-add",
+        "overrides-stack", "play-edited", "interface-export", "interface-run")
 KEEP = PLAY + MODS
-# The versions whose program still needs code from the player's disc, so no installer can carry it:
-# the player builds it, with tools/build_game.py. Version -> port game.
-PLAYER_BUILDS = {"rac2/ntsc": "rac2-ntsc", "rac2/pal": "rac2-pal", "rac2/ntsc2": "rac2-ntsc2"}
 # Where a checkout's folders for version <game>/<version> go in the carried copy, longest first:
 # the levels the port draws, the level editor's projects, and the packed levels.
 MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("assets/levels/", "levels"),
@@ -95,15 +91,14 @@ KEEP += ("audio-recipe",)
 # the program looks without --levels.
 LEVELS_ROOT = "{data}/port"
 # The programs carried when the build has them; the first is required.
-GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac1-pal1", "openrac-rac1-jp")
+GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac1-pal1", "openrac-rac1-jp",
+         "openrac-rac2-ntsc", "openrac-rac2-pal", "openrac-rac2-ntsc2")
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
 # (tools/build_port.py --probe-baker), Embree built into it, including its interior inference stage.
 TOOLS = ("openrac-enhanced-baker",)
-# The games a Windows installer carries built without the disc, with a kit and Zig's Clang and lld
-# to build what is missing on the player's computer (tools/asm_part.py), as an APK does. Version -> port game.
-WINDOWS_PARTS = {"rac2/ntsc": "rac2-ntsc", "rac2/pal": "rac2-pal", "rac2/ntsc2": "rac2-ntsc2"}
-# Where the copy keeps that Zig (tools/asm_part.py ZIG_PROGRAM).
-PART_ZIG = "tools/part-zig"
+# Each game's states program (a plain program on every system, no application bundle): the level
+# editor runs it to see how the game starts a level's mobys (docs/port/MOBY_STATES.md).
+STATES = tuple(f"{game}-states" for game in GAMES)
 # What a Windows program built against MSVC's libraries imports and Windows does not always have:
 # without them it does not start ("MSVCP140.dll was not found"). Only the Visual C++ Redistributable
 # or Visual Studio installs them, and a player needs neither when they are beside the program.
@@ -138,71 +133,6 @@ def moved(value, key: str):
     return value
 
 
-def player_program_folder() -> str:
-    """Where a player's own build of a game goes. By commit, so a launcher built from another one
-    builds it again: CI raises a dev build's version only after this copy is made."""
-    commit = proc.git(ROOT, "rev-parse", "--short=8", "HEAD", check=False)
-    return f"{{data}}/program/{commit or 'source'}"
-
-
-def player_build(action: dict, game: str) -> dict:
-    """The port-build ACTION as a player's copy runs it (PLAYER_BUILDS)."""
-    folder = player_program_folder()
-    action = {k: v for k, v in action.items() if k not in ("developer", "todo", "docs")}
-    action["description"] = ("Downloads OpenRAC's source and builds the game for this computer from your disc. "
-                             "About 100 MB and some minutes the first time. Needs a compiler: it says which if one is missing.")
-    action["args"] = ["tools/build_game.py", game, "--disc", "{disc}", "--out", folder]
-    action["requires"] = ["disc", "python"]
-    action["artifact"] = f"{folder}/openrac-{game}.exe"
-    return action
-
-
-def part_tag(out: Path, game: str) -> str | None:
-    """What GAME's part in the copy OUT is built from (its kit, hostgen's translation and
-    tools/asm_part.py), as a short digest; None when the copy carries no kit for it. Two APKs of
-    one launcher version (dev builds) can carry different games, and a part fits only its own."""
-    kit = out / "port/asm-part" / game
-    if not (kit / "kit.json").is_file():
-        return None
-    files = sorted(p for p in kit.rglob("*") if p.is_file())
-    files += sorted((out / "port/tools/hostgen").glob("*.py")) + [out / "tools/asm_part.py"]
-    h = hashlib.sha256()
-    for path in files:
-        h.update(path.relative_to(out).as_posix().encode() + b"\0")
-        h.update(hashlib.sha256(path.read_bytes()).digest())
-    return h.hexdigest()[:16]
-
-
-def carried_part(actions: list[dict], tag: str | None = None, platform: str = "android") -> list[dict]:
-    """The port-part and Play of a copy that builds a game's part on PLATFORM (tools/asm_part.py):
-    the part built into a folder of what it is built from (part_tag; else the launcher's version),
-    since a new launcher carries another game it may not fit; Play waits for it and names it to the
-    game."""
-    if tag is None:
-        config = json.loads((ROOT / "launcher/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
-        tag = config["version"]
-    folder = f"{{data}}/asm-part/{tag}"
-    part = next((a for a in actions if a["id"] == "port-part"), None)
-    if part is None:
-        return actions
-    name = part["makes"].rsplit("/", 1)[1]
-    made = f"{folder}/{name.removesuffix('.so')}.dll" if platform == "windows" else f"{folder}/{name}"
-    out = []
-    for action in actions:
-        action = dict(action)
-        if action["id"] == "port-part":
-            at = action["args"].index("--out")
-            action["args"] = action["args"][:at + 1] + [folder] + action["args"][at + 2:]
-            action["makes"] = made
-            action["platforms"] = [platform]
-        elif action["id"] == "play" and platform in action.get("platforms", []):
-            action["args"] = action["args"] + ["--asm-part", made]
-            action["needs"] = action.get("needs", []) + [
-                {"path": made, "from": "the game built from your disc (Build the game from your disc)"}]
-        out.append(action)
-    return out
-
-
 def point_at(args: list[str], levels: str) -> list[str]:
     """ARGS with --levels naming LEVELS."""
     if "--levels" not in args:
@@ -211,25 +141,17 @@ def point_at(args: list[str], levels: str) -> list[str]:
     return args[:at + 1] + [levels] + args[at + 2:]
 
 
-def player_actions(android: bool = False, android_games: set[str] | None = None,
-                   part_tags: dict[str, str] | None = None, windows_parts: set[str] | None = None) -> dict:
+def player_actions(android: bool = False, android_games: set[str] | None = None) -> dict:
     """launcher/actions.json cut down to what works from a carried copy. ANDROID_GAMES: the
-    games an APK carries (rac1-pal, ...); a Play for any other is not Android's there. PART_TAGS:
-    by game, what its part is built from (part_tag). WINDOWS_PARTS: the versions a Windows
-    installer carries built without the disc (WINDOWS_PARTS), which need no compiler of the player's."""
+    games an APK carries (rac1-pal, ...); a Play for any other is not Android's there."""
     source = json.loads((ROOT / "launcher/actions.json").read_text())
     out = {key: value for key, value in source.items() if key not in ("repository", "versions")}
     out["repository"] = []
     out["versions"] = {}
     for key, actions in source["versions"].items():
         levels = levels_folder(key)
-        windows_part = key in (windows_parts or set())
-        game = None if android or windows_part else PLAYER_BUILDS.get(key)
         kept = []
         for action in actions:
-            if game and action["id"] == "port-build":
-                kept.append(player_build(action, game))
-                continue
             if action["id"] not in KEEP:
                 continue
             action = dict(action)
@@ -240,14 +162,17 @@ def player_actions(android: bool = False, android_games: set[str] | None = None,
                 action["platforms"] = [p for p in action["platforms"] if p != "android"]
             if action.get("state") != "planned":
                 args = action.get("args", [])
-                if action["id"] == "port-levels" and not key.startswith("rac1/"):
+                if action["id"] == "disc-files":
+                    # tools/extractor.py into {data}/iso_data, run from the copy's own folder: as it is.
+                    pass
+                elif action["id"] == "port-levels" and not key.startswith("rac1/"):
                     # A later game's levels, read for packs (early access): no worlds behind the
                     # menus, and the first level's manifest is its own.
                     action["args"] = args[:3] + [levels, "--anywhere", "--replace"]
                     action["artifact"] = moved(action["artifact"], key)
                     action["output"] = levels
                 elif action["id"] == "port-levels":
-                    # editor/extract.py port DISC OUT: OUT is the data folder's, wherever it is.
+                    # extractor/extract.py port DISC OUT: OUT is the data folder's, wherever it is.
                     action["args"] = args[:3] + [levels, "--anywhere", "--replace"]
                     action["artifact"] = f"{levels}/{LEVELS_STAMP}"
                     action["output"] = levels
@@ -267,17 +192,10 @@ def player_actions(android: bool = False, android_games: set[str] | None = None,
                     action["makes"] = f"{levels}/{STAMP}"
                     action["needs"] = [{"path": f"{levels}/{LEVELS_STAMP}", "from": need["from"]}
                                        for need in action.get("needs", [])]
-                elif action["id"] == "port-part":
-                    # Run in the copy (cwd "."), where tools/asm_part.py and its kit are; it writes
-                    # to the data folder (carried_part).
-                    pass
                 elif action["id"] in MODS:
                     for field in ("args", "artifact", "needs", "makes", "output"):
                         if field in action:
                             action[field] = moved(action[field], key)
-                    if args[:2] in (["editor/extract.py", "godot"], ["editor/extract.py", "pack"]):
-                        # The editor writes only under a checkout's assets/ unless told otherwise.
-                        action["args"] = action["args"] + ["--anywhere"]
                     if action["id"] == "play-edited":
                         # Started where Play is (below), for the same reason.
                         action["cwd"] = "{data}"
@@ -293,25 +211,17 @@ def player_actions(android: bool = False, android_games: set[str] | None = None,
                     # screenshot) has a place there, and the copy has no folder for each version.
                     action["cwd"] = "{data}"
                 action.pop("todo", None)
-            if game and action.get("artifact", "").endswith(f"openrac-{game}.exe"):
-                action["artifact"] = f"{player_program_folder()}/openrac-{game}.exe"
             kept.append(action)
-        tag = (part_tags or {}).get(key.replace("/", "-"))
-        if android:
-            kept = carried_part(kept, tag)
-        elif windows_part:
-            kept = carried_part(kept, tag, "windows")
         out["versions"][key] = kept
     return out
 
 
-def editor_file(rel: Path) -> bool:
-    """Whether the copy takes editor/REL: the tools and what a level's Godot project gets
-    (editor/godot.py copies rc1/ and the Collision dock's addon, plugin.cfg included), and the
-    project format the editor and the launcher both read (project_format.json)."""
-    if rel.as_posix() in ("project_format.json", "AUDIO_MODDING.md"):
+def extractor_file(rel: Path) -> bool:
+    """Whether the copy takes extractor/REL: the extractor's modules and tables (OpenRAC Editor's
+    tools import them: extractor_api.json), without their tests."""
+    if rel.as_posix() in ("extractor_api.json", "AUDIO_MODDING.md"):
         return True  # AUDIO_MODDING.md: the Audio tab's "How it works" opens it
-    return not rel.name.startswith("test_") and rel.suffix in (".py", ".tsv", ".gd", ".cfg", "")
+    return not rel.name.startswith("test_") and rel.suffix in (".py", ".tsv")
 
 
 def strip_debug(path: Path) -> bool:
@@ -333,14 +243,15 @@ def copy_games(build: Path, dest: Path, extra: tuple[str, ...] = ()) -> list[str
     bundle named by its title in apps/openrac-<id>/ (port/cmake/MacApp.cmake), carried whole; the
     build folder's link to its program is not."""
     carried = []
-    for game in GAMES + extra + TOOLS:
+    for game in GAMES + extra + TOOLS + STATES:
         apps = build / "apps" / game
         if any(apps.glob("*.app")):
             shutil.copytree(apps, dest / "apps" / game, symlinks=True, dirs_exist_ok=True)
             carried.append(f"apps/{game}")
             continue
-        for path in sorted(build.glob(f"{game}*")):
-            if path.is_file() and path.suffix in ("", ".exe"):
+        # The program itself, not another one its name begins (openrac-rac2-ntsc2 for rac2-ntsc).
+        for path in (build / game, build / f"{game}.exe"):
+            if path.is_file():
                 shutil.copy2(path, dest / path.name)
                 strip_debug(dest / path.name)
                 carried.append(path.name)
@@ -360,22 +271,45 @@ def copy_windows_runtime(system: Path, dest: Path) -> list[str]:
     return list(WINDOWS_RUNTIME)
 
 
+# What no copy of Python needs: compiled caches, tests, IDLE, Tk and pip's installer.
+PYTHON_SKIP = ("__pycache__", "test", "tests", "idlelib", "tkinter", "ensurepip")
+# What the tools never use in a desktop's standalone Python besides: Tcl/Tk, pip, the C headers and
+# libraries for building extensions, and the scripts beside the program.
+PYTHON_UNUSED = PYTHON_SKIP + (
+    "turtledemo", "lib2to3", "pip", "pip-*", "*.a", "include", "share", "pkgconfig", "libs", "Scripts",
+    "pythonw.exe", "_test*", "_tkinter*", "tcl", "tcl8*", "tcl9*", "tk8*", "tk9*", "itcl*", "thread3*", "libtcl*")
+# The program the launcher starts (detect.rs). bin/ keeps only it, as a file: an installer copies a
+# symbolic link as a whole file, so python and python3.12 were two more copies.
+PYTHON_PROGRAMS = ("bin/python3", "python.exe")
+
+
+def copy_python(home: Path, dest: Path) -> None:
+    """The unpacked standalone Python HOME, without what the tools never use, to DEST. Its program
+    has the interpreter built in: libpython (Linux and macOS) is only for programs embedding it."""
+    unused = shutil.ignore_patterns(*PYTHON_UNUSED)
+
+    def ignore(folder: str, names: list[str]) -> set[str]:
+        skip = set(unused(folder, names))
+        if Path(folder) == home / "bin":
+            skip |= {n for n in names if n != "python3"}
+        elif Path(folder) == home / "lib":
+            skip |= {n for n in names if n.startswith("libpython")}
+        return skip
+
+    shutil.copytree(home, dest, symlinks=False, ignore=ignore)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("out", type=Path)
     parser.add_argument("--game-build", type=Path, help="the build folder holding the game (port/build/release)")
     parser.add_argument("--python", type=Path, help="an unpacked standalone Python (its python/ folder)")
     parser.add_argument("--android", action="store_true", help="the Android launcher's copy (tools/build_android.py)")
-    parser.add_argument("--asm-part-kit", type=Path, action="append", default=[], metavar="KIT",
-                        help="a game's kit for the part built from the disc (tools/asm_part.py kit)")
-    parser.add_argument("--part-zig", type=Path, help="with --asm-part-kit, on Windows: an unpacked Zig for Windows")
     parser.add_argument("--android-games", metavar="ID,...",
                         help="with --android: the games the APK carries (rac1-pal,rac1-ntsc); Play is Android's for those only")
     args = parser.parse_args()
     if args.android and args.game_build:
         sys.exit("--android carries no game build: the games are the APK's libraries")
-    if not args.android and bool(args.part_zig) != bool(args.asm_part_kit):
-        sys.exit("--asm-part-kit and --part-zig go together")
     out = args.out.resolve()
     # The folder in the launcher's resources is kept in git with a note in it: the note stays.
     if out.exists() and any(p.name != "README.txt" for p in out.iterdir()):
@@ -387,25 +321,23 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
 
     # The tools, without their tests; the catalogue; the progress the library shows.
-    for name in ("openrac.py", "extractor.py", "asm_part.py") + (() if args.android else ("build_game.py",)):
+    for name in ("openrac.py", "extractor.py"):
         (out / "tools").mkdir(exist_ok=True)
         shutil.copy2(ROOT / "tools" / name, out / "tools" / name)
     # The helpers they import, found from the copy's own tools/ (they find the copy's root by
     # the STANDALONE note written below).
     files.copy_tree(ROOT / "tools/openrac_common", out / "tools/openrac_common", lambda rel: rel.suffix == ".py")
-    files.copy_tree(ROOT / "editor", out / "editor", editor_file)
-    if args.android or args.asm_part_kit:
-        # The part of a game built from the disc on the device (tools/asm_part.py): hostgen's
-        # translation from assembly, which needs no Clang, and each game's kit.
-        files.copy_tree(ROOT / "port/tools/hostgen", out / "port/tools/hostgen",
-                        lambda rel: rel.suffix == ".py" and len(rel.parts) == 1 and not rel.name.startswith("test_"))
-        for kit in args.asm_part_kit:
-            game = json.loads((kit / "kit.json").read_text())["game"]
-            shutil.copytree(kit, out / "port/asm-part" / game)
+    files.copy_tree(ROOT / "extractor", out / "extractor", extractor_file)
+    # Interface texture runs (docs/port/TEXTURE_PACKS.md): the tool that makes one and the routes it
+    # plays (the player makes their own run; the copy carries none).
+    files.copy_tree(ROOT / "port/tools/interface_runs", out / "port/tools/interface_runs",
+                    lambda rel: rel.suffix == ".py" and not rel.name.startswith("test_"))
+    files.copy_tree(ROOT / "port/tools/regress", out / "port/tools/regress",
+                    lambda rel: rel.name in {"card.py", "routes.py", "runner.py", "routes.json", "routes_rac2.json"})
     # Players have no decompilation headers. Carry the same validated typed fields the
     # checkout uses, or edits such as Novalis's moveSpeed would be ignored when packed.
-    proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",
-              out / "editor/pvar_layouts.json"])
+    proc.run([sys.executable, ROOT / "extractor/pvar_layouts.py", "--export-layouts",
+              out / "extractor/pvar_layouts.json"])
     files.copy_tree(ROOT / PROBE_PROFILES, out / PROBE_PROFILES,
                     lambda rel: rel.suffix == ".json"
                     or (rel.suffix == ".png" and rel.parent.name == "emission-masks"))
@@ -419,11 +351,8 @@ def main() -> int:
     shutil.copy2(ROOT / "progress/summary.json", out / "progress/summary.json")
     (out / "launcher").mkdir(exist_ok=True)
     android_games = set(args.android_games.split(",")) if args.android and args.android_games else None
-    windows_parts = {key for key, game in WINDOWS_PARTS.items() if args.part_zig and part_tag(out, game)}
-    tags = {game: tag for game in (android_games or set()) | {WINDOWS_PARTS[key] for key in windows_parts}
-            if (tag := part_tag(out, game))}
     (out / "launcher/actions.json").write_text(
-        json.dumps(player_actions(args.android, android_games, tags, windows_parts), indent=2) + "\n")
+        json.dumps(player_actions(args.android, android_games), indent=2) + "\n")
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         if (ROOT / name).is_file():
             shutil.copy2(ROOT / name, out / name)
@@ -432,16 +361,13 @@ def main() -> int:
     if args.game_build:
         dest = out / "port/build/release"
         dest.mkdir(parents=True, exist_ok=True)
-        carried += copy_games(args.game_build, dest, tuple(f"openrac-{WINDOWS_PARTS[key]}" for key in windows_parts))
+        carried += copy_games(args.game_build, dest)
         # The libraries the game was linked against as files of their own (SDL3 when it is not
         # built into the program).
         for pattern in ("*.dll", "*.dylib", "*.so", "*.so.*"):
             for path in sorted(args.game_build.glob(pattern)):
                 shutil.copy2(path, dest / path.name, follow_symlinks=True)
                 carried.append(path.name)
-        for key in windows_parts:
-            if f"openrac-{WINDOWS_PARTS[key]}.exe" not in carried:
-                sys.exit(f"{args.game_build} has no openrac-{WINDOWS_PARTS[key]}.exe, and the copy carries its kit")
         if any(name.endswith(".exe") for name in carried):
             carried += copy_windows_runtime(Path(os.environ["SystemRoot"]) / "System32", dest)
         # Carry notices for dependencies built into either the game or its optional baking tools.
@@ -450,29 +376,16 @@ def main() -> int:
             carried.append("licenses")
         if not any(name.split("/")[-1].startswith(GAMES[0]) for name in carried):
             sys.exit(f"{args.game_build} has no {GAMES[0]}: build it first (tools/build_port.py rac1-pal)")
-    if args.part_zig:
-        (out / PART_ZIG).mkdir(parents=True)
-        shutil.copy2(args.part_zig / "zig.exe", out / PART_ZIG / "zig.exe")
-        # Zig's license, LLVM's (its Clang and lld) and mingw-w64's (the headers in the kit), where
-        # the copy's other notices are.
-        notices = out / "port/build/release/licenses/zig"
-        notices.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(args.part_zig / "LICENSE", notices / "LICENSE")
-        shutil.copy2(args.part_zig / "lib/libcxx/LICENSE.TXT", notices / "LLVM-LICENSE.TXT")
-        shutil.copy2(args.part_zig / "lib/libc/mingw/COPYING", notices / "MINGW-W64-COPYING")
-        carried.append("Zig")
     if args.python and args.android:
         if not any(args.python.glob("lib/python3.*/os.py")):
             sys.exit(f"{args.python} is not a PYTHONHOME for Android (no lib/python3.N/os.py)")
         shutil.copytree(args.python, out / "python", symlinks=True,
-                        ignore=shutil.ignore_patterns("__pycache__", "test", "tests", "idlelib", "tkinter", "ensurepip"))
+                        ignore=shutil.ignore_patterns(*PYTHON_SKIP))
         carried.append("python (Android)")
     elif args.python:
-        if not any((args.python / rel).is_file() for rel in ("bin/python3", "python.exe")):
+        if not any((args.python / rel).is_file() for rel in PYTHON_PROGRAMS):
             sys.exit(f"{args.python} is not an unpacked standalone Python (no bin/python3 or python.exe)")
-        shutil.copytree(args.python, out / "python", symlinks=True,
-                        ignore=shutil.ignore_patterns("__pycache__", "test", "tests", "idlelib", "tkinter", "ensurepip",
-                                                      "*.a", "include", "share"))
+        copy_python(args.python, out / "python")
         carried.append("python")
 
     commit = proc.git(ROOT, "rev-parse", "HEAD", check=False)

@@ -5,7 +5,7 @@
 // tie_lod.rs and tie_light.rs: ISC License, Copyright (c) 2026 ReRAC contributors.
 //
 // The tie renderer (instanced scenery), replacing the placeholder of
-// renderer/subsystems.h: DrawTies and TieProc (PAL func_00236BE0,
+// renderer/frame/subsystems.h: DrawTies and TieProc (PAL func_00236BE0,
 // func_00236F00), VU1 programs 13507 and 224979.
 //
 // Per class, one mesh per (texture, wrap state) holding the triangles of all

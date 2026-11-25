@@ -48,7 +48,7 @@ constexpr Release kNtsc2{
     0x001A72C0,  // versionmap: exact
     0x00152C18,  // versionmap: between
     0x00152C30,  // versionmap: between
-    {0x001B213Cu, 0x001B2020u, 0x001B2134u, 0x001B2018u},  // the release's build, the same instruction of the paired function
+    {0x001B213Cu, 0x001B2020u, 0x001B2134u, 0x001B2018u},  // the release's build, versionmap: exact
     0x001B1B10u,  // the release's build
     0x00189E20u,  // versionmap: exact
 };

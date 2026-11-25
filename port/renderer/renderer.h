@@ -28,16 +28,20 @@
 #include <vector>
 
 #include "common/result.h"
-#include "renderer/ambient_occlusion.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gtao_settings.h"
+#include "renderer/effects/ambient_occlusion.h"
+#include "renderer/effects/shadow_volume.h"
+#include "renderer/effects/water_impulse.h"
+#include "renderer/frame/frame_record.h"
+#include "renderer/frame/ui_records.h"
+#include "renderer/gl/framebuffer.h"
 #include "renderer/math.h"
-#include "renderer/shadow_settings.h"
-#include "renderer/shadow_volume.h"
-#include "renderer/texture_filter.h"
-#include "renderer/texture_pool.h"
-#include "renderer/volumetric_settings.h"
-#include "renderer/water_impulse.h"
+#include "renderer/settings/cloud_shadow_settings.h"
+#include "renderer/settings/early_lighting_settings.h"
+#include "renderer/settings/gtao_settings.h"
+#include "renderer/settings/shadow_settings.h"
+#include "renderer/settings/volumetric_settings.h"
+#include "renderer/textures/texture_filter.h"
+#include "renderer/textures/texture_pool.h"
 
 namespace openrac::renderer {
 
@@ -99,10 +103,16 @@ struct EffectQuad {
     // Its shape is the tick's own (a sprite or a flat quad, turned by its record's rotation, which
     // a game may pick at random each tick): a frame between ticks moves it whole, by its centre,
     // rather than each corner part way (which shrinks a quad turned between the two ticks).
+    // With an attachment, it follows the anchor's position without rotating its world offset.
     bool rigid = false;
+    // Untextured: the chip's TME off, the vertex colours as drawn (a particle line, kind 2). No
+    // texture is sampled and tbp, cbp are not used.
+    bool untextured = false;
     // The moby it belongs to (its game address), or 0: a frame between ticks may move it with the
     // moby's body as that frame draws it, rather than leaving it at the tick's place, ahead.
     std::uint32_t parent = 0;
+    // Physical attachment for current-tick geometry; callback ownership alone does not imply this.
+    std::uint32_t attachment = 0;
 };
 
 // A strip the game sent to its VU1 strip program (rac1: func_L00_001FDE48's packets: the seas,
@@ -124,6 +134,11 @@ struct EffectUvMotion {
 };
 
 struct EffectStrip {
+    // Physical parent at the previous tick, for geometry from a delayed display list; 0 is unbound.
+    std::uint32_t previous_parent = 0;
+    // The strip follows its parent's move alone, its world offsets kept (what is drawn on the
+    // hero, his weapon and his shield), rather than turning with the parent's axes.
+    bool previous_parent_position_only = false;
     std::uint32_t first = 0, count = 0;
     std::uint64_t clamp = 0, tex0 = 0, tex1 = 0, alpha = 0x44;
     std::uint64_t test = 0;  // TEST as the DIRECT data before the strip leaves it (0: none seen)
@@ -139,52 +154,30 @@ struct EffectStrip {
     bool fogged = false;
     std::array<float, 4> fog{};
     std::uint32_t fog_colour = 0;
-    // Sent before the world's mobys (OPENRAC_WORLD_MOBYS_MARKER), from a draw callback list the
-    // game runs between the ties and the mobys: drawn with the liquids, before the shrubs and the
-    // mobys, writing depth only where the list shows the chip writes it (before_mobys_writes_z).
+    // Sent before the world's shrubs or mobys, as marked in the game's display list. Drawn with
+    // the liquids before the shrubs, writing depth where the list says (before_mobys_writes_z).
     bool before_mobys = false;
     // The list set ZBUF before the strip: with ZMSK (z_masked), or without (z_written).
     bool z_masked = false;
     bool z_written = false;
     bool blend_disabled = false;  // The strip's GIF tag explicitly clears PRIM.ABE.
+    // The strip samples the game's copy of the frame drawn so far (GameProfile::
+    // frame_copy_texture: Up Your Arsenal's heat haze), its ST the place in the game's picture.
+    // Drawn from a native snapshot of the target taken before the pass's first such strip, never
+    // from the chip's frame copy (EffectRenderer, frame_copy_st).
+    bool frame_copy = false;
 };
-
-// A textured quad of the 2D layer the game drew through one of its 2D routines (rac1:
-// DrawTexturedQuad, the HUD's sprite routines), drawn natively where its marker comes in the 2D
-// path (GifInterpreter): four corners in strip order (0-1-2, 1-2-3) in the chip's 12.4 screen
-// coordinates as the game computed them, with their texel coordinates (12.4 both ways), the depth,
-// the colour (RGBAQ's low word) and the texture (TEX0).
-struct UiQuad {
-    std::uint32_t x[4] = {}, y[4] = {};
-    std::uint32_t u[4] = {}, v[4] = {};
-    std::uint32_t z = 0xFFFFF0;
-    std::uint32_t rgba = 0;
-    std::uint64_t tex0 = 0;
-    std::uint32_t flags = 0;  // kUiGlyph: a glyph of text (drawn from a distance field); kUiSprite
-    std::uint32_t corners[4] = {};  // with kUiCorners: each corner's colour, in place of rgba
-    std::uint64_t clamp = 0;        // with kUiClamp: CLAMP_1, written before the quad
-};
-
-// UiQuad::flags: kUiSprite, an axis-aligned rectangle the game sends as a sprite (corners 0 and 3),
-// whose texel mapping follows the sprite's rules (a panel drawn off-screen and sampled back).
-inline constexpr std::uint32_t kUiSprite = 2;
-
-inline constexpr std::uint32_t kUiGlyph = 1;
-
-// UiQuad::flags: kUiCorners, a colour for each corner (`corners`), each triangle in its last
-// corner's colour as the GS draws one unshaded, or shaded between them with kUiShaded (the GS's
-// Gouraud); kUiFlat, no texture (flat colour; TEX0 stays as the game left it); kUiClamp, the
-// texture's wrap set first (`clamp`, CLAMP_1), as the game's packet does, so what follows sees it.
-inline constexpr std::uint32_t kUiCorners = 4;
-inline constexpr std::uint32_t kUiFlat = 8;
-inline constexpr std::uint32_t kUiClamp = 16;
-inline constexpr std::uint32_t kUiShaded = 32;
 
 struct RenderTarget;
 
 struct FrameInput {
     TextureFilter texture_filter = TextureFilter::Normal;
     ShadowQuality shadow_quality = ShadowQuality::High;
+    ShadowFilter shadow_filter = ShadowFilter::Soft;
+    // The game frontend supplies its setting. Standalone renderer callers use 2x2 cells.
+    EarlyLightingQuality early_lighting_quality = EarlyLightingQuality::High;
+    CloudShadowSettings cloud_shadows;
+    double cloud_seconds = 0.0;
     VolumetricQuality volumetric_quality = VolumetricQuality::Off;
     bool sun_pixel_shadow = false;
     bool hero_pixel_shadow = false;
@@ -218,6 +211,9 @@ struct FrameInput {
     std::optional<Camera> culling_camera;
     // Detached views can leave the baked PVS grid without inheriting gameplay's last cell.
     bool keep_pvs_history = true;
+    // The view is from a camera the baked visibility was not made for: no zone culling in the view
+    // (frustum and depth still decide what is drawn). Set when the camera is overridden.
+    bool pvs_bypass = false;
     // Opt-in culling preview: 0 for the main camera, 1-4 for near-to-far shadow cascades.
     std::optional<unsigned> culling_inspection;
     bool opaque_effects = false;  // The earlier world bucket for opaque effect draws is visible.
@@ -232,6 +228,20 @@ struct FrameInput {
     std::span<const EffectStrip> strips{};
     // The 2D layer's quads drawn natively (UiQuad), indexed by their markers in the 2D path.
     std::span<const UiQuad> ui_quads{};
+    // The frame recorder's commands (docs/port/FRAME_RECORDER.md) and where they go in the 2D
+    // path: `recording` drawn at `splices` (offsets into direct_before_world followed by the HUD
+    // bucket's packets); the first `splices_before_world` of them before the world. Null: none.
+    const FrameRecording* recording = nullptr;
+    std::span<const FrameSplice> splices{};
+    std::size_t splices_before_world = 0;
+    // Where the HUD bucket's packets start in the 2D path (the bytes before the world come first):
+    // the base of the splices after the world.
+    std::size_t hud_packets_offset = 0;
+    // Split screen: each local player's view picture (a GL texture, 0 for none,
+    // frontend/split_views.cpp), drawn where `recording` reaches that view's World command: over
+    // what the game drew in the view before its world (its viewport's clear) and under what it
+    // draws after (its HUD), as the console's lists drew one view after another.
+    std::array<unsigned, kFrameViews> view_pictures{};
     // Mobys the game draws into a texture (the vendor's item and salesman screens, the page menus'
     // widgets): at their marker in the 2D path (GifInterpreter::kMobyMarker), called with the
     // marker's value and the off-screen target bound (its framebuffer, its side in GL pixels, and
@@ -251,15 +261,16 @@ struct FrameInput {
     // The target already holds the picture to start from (a tick that draws no world of its own):
     // only depth is cleared.
     bool keep_colour = false;
-    // The world's passes draw with depth clamping (GL_DEPTH_CLAMP), up to the HUD: what is nearer
-    // than the camera's near plane is drawn at the nearest depth instead of being cut away
-    // (GameProfile::depth_near, a near plane farther out than the window's for finer depth).
+    // Clamp world depth through the temporal resolve. Normal depth can then push the near
+    // plane out for finer precision while closer geometry still draws at the nearest depth.
     bool depth_clamp = false;
     // Called with the target as drawn before the HUD's renderer (the world, without the 2D over
     // it): what a copy of the frame the game reads back should hold.
     std::function<void()> before_hud;
     // Captures opaque world colour before particles change it, for temporal reactive masks.
     std::function<void(const RenderTarget&)> on_before_particles;
+    // Optional matching RGBA8 texture fully written by the hook for the first particle bucket.
+    unsigned pre_particle_colour_texture = 0;
     // Resolves the world before the HUD, replacing its target with a display-resolution target.
     std::function<void(RenderTarget&)> on_resolve_world;
     // Known temporal hooks declare their work and finish it before committing displayed history.
@@ -268,6 +279,9 @@ struct FrameInput {
     std::function<void(unsigned, int, int)> after_world_depth;
     // The game's tick this frame shows (the same for the frames drawn between two ticks).
     std::uint64_t frame = 0;
+    // The game's ticks a second: 60, or 50 for Going Commando's PAL. Effects timed by `frame`
+    // count seconds as frame / tick_rate.
+    double tick_rate = 60.0;
     double seconds = 0.0;
     // Opts a known depth hook into resource/dispatch preparation without draws or readbacks.
     bool prepares_world_depth = false;
@@ -327,6 +341,7 @@ struct RenderState {
     bool atmosphere_prepared = false;
     int opaque_colour_phase = -1;
     bool opaque_colour_batched = false;
+    unsigned pre_particle_colour_texture = 0;  // Borrowed only before the first particle draw.
 };
 
 // Legacy has inseparable prelit colour; Indirect consumes a visibility texture;
@@ -396,6 +411,16 @@ public:
 
     virtual bool owns_gpu_timing() const { return false; }
 
+    // Reads this frame's packets ahead of render() (the HUD, before FrameInput::before_hud), so
+    // that reads_frame_depth() can answer. render() then only draws.
+    virtual void prepare(const FrameInput&, RenderState&) {}
+
+    // Whether what render() draws tests against the frame's depth. Unknown: true.
+    virtual bool reads_frame_depth() const { return true; }
+
+    // After prepare(): nothing is drawn on the frame.
+    virtual bool draws_nothing() const { return false; }
+
     // Free GL objects; the context is still current.
     virtual void release() {}
 
@@ -443,12 +468,19 @@ public:
 
     std::span<const std::unique_ptr<BucketRenderer>> renderers() const { return m_renderers; }
 
-    // Registers the frame's ambient occlusion (renderer/ambient_occlusion.h), run when a frame asks
+    // Registers the frame's ambient occlusion (renderer/effects/ambient_occlusion.h), run when a frame asks
     // for it (FrameInput::gtao) and an enabled renderer has the enhanced lighting. Without one, a
     // frame that asks draws none. The game programs register the enhanced renderer's GTAO.
     void set_ambient_occlusion(std::unique_ptr<AmbientOcclusion> ambient_occlusion);
 
     const FrameStats& last_stats() const { return m_stats; }
+
+    // Whether this frame's HUD tests against the world's depth; known from just before
+    // FrameInput::before_hud is called until the next frame.
+    bool hud_reads_depth() const { return m_hud_reads_depth; }
+
+    // In before_hud: something still draws on the frame after it (the HUD, ambient occlusion).
+    bool hud_draws() const { return m_hud_draws; }
 
 private:
     std::unique_ptr<AmbientOcclusion> m_ambient_occlusion;  // Null until one is registered.
@@ -464,10 +496,11 @@ private:
     [[nodiscard]] bool can_prepare_surface_chain(const FrameInput&, const RenderState&) const;
     // Stops a contiguous opaque batch before the next layer's blended work.
     std::size_t opaque_colour_end(std::size_t first) const;
-    // Collects unique early cache reads; returns empty when any layer needs standalone colour.
-    std::vector<unsigned> opaque_colour_buffers(
+    // Borrows reusable storage until the next batch gathers its early cache reads.
+    // Returns empty when any layer needs standalone colour.
+    std::span<const unsigned> opaque_colour_buffers(
         std::size_t first, std::size_t end, const FrameInput& input, const RenderState& state
-    ) const;
+    );
     // Records the existing solid/cutout rounds without changing their order or culling.
     void draw_opaque_colour(
         std::size_t first, std::size_t end, const FrameInput& input, RenderState& state
@@ -490,7 +523,7 @@ private:
         std::size_t hud,
         const FrameInput& input,
         RenderState& state,
-        std::vector<bool>& opaque_prepared
+        std::span<std::uint8_t> opaque_prepared
     );
     // Queues ordered opaque and blended work while retaining the existing batch barriers.
     [[nodiscard]] Result<void> record_world_colour(
@@ -498,7 +531,7 @@ private:
         std::size_t end,
         const FrameInput& input,
         RenderState& state,
-        std::vector<bool>& opaque_prepared
+        std::span<std::uint8_t> opaque_prepared
     );
     // Records a bucket with its own captured opaque-batch flag and render-thread timing.
     [[nodiscard]] Result<void> record_bucket_colour(
@@ -510,7 +543,10 @@ private:
     bool m_surface_prepass_shared_depth = false;
     TexturePool m_textures;
     std::vector<std::unique_ptr<BucketRenderer>> m_renderers;
+    std::vector<unsigned> m_opaque_colour_buffers;
     FrameStats m_stats;
+    bool m_hud_reads_depth = true;  // hud_reads_depth
+    bool m_hud_draws = true;        // hud_draws
     bool m_initialised = false;
 };
 

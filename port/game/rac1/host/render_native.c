@@ -100,16 +100,23 @@ void func_00212578(int a0, int a1) {
 
 /*
  * What MobyProc decides for each moby of the list before drawing it, which the game reads back:
- * +0x31, drawn this frame (the moby loop keeps a drawn moby active; vehicles, enemies and effects
- * test it). The list runs COUNT mobys of 0x100 bytes from FIRST (a negative count: on to its end),
- * and ends early at a moby whose state (+0x20) is -1, the list's end marker; a moby with another
- * negative state (being removed) is passed over, its +0x31 left as it was. Not drawn: a moby whose
- * group mask (+0x36) has no bit of the current one (the table at D_001940C0, which MobyProc copies
- * to the scratchpad, at +0x37), a hidden one (mode +0x34 bits 0x81), and, as ReRAC's moby_lod.rs
+ * +0x31, drawn this frame. It is game logic, not only drawing: the moby loop keeps a drawn moby
+ * and its whole group active and lists it as a target, the lock-on reads it, and many classes act
+ * on it (a frog wanders only while drawn; crates and bolts make their glows and sparkles, which
+ * take random numbers). So it is always the console's test, whatever the window draws: the port's
+ * renderer culls the mobys it draws itself (host::moby_proc_distance_fade) and animates the far
+ * ones the game leaves asleep (frontend/sleeping_mobys.h).
+ *
+ * The list runs COUNT mobys of 0x100 bytes from FIRST (a negative count: on to its end), and ends
+ * early at a moby whose state (+0x20) is -1, the list's end marker; a moby with another negative
+ * state (being removed) is passed over, its +0x31 left as it was. Not drawn: a moby whose group
+ * mask (+0x36) has no bit of the current one (the table at D_001940C0, which MobyProc copies to
+ * the scratchpad, at +0x37), a hidden one (mode +0x34 bits 0x81), and, as ReRAC's moby_lod.rs
  * replays the culls, a bounding sphere (+0x00, x y z r in units of 1/1024) beyond the draw distance
  * (+0x32, s16 units, at most the global one at D_00160030), wholly in front of the near plane, or
- * wholly outside a side plane of the view. The side planes are the port's picture's, wider than
- * 4:3 when it is (moby_view.h).
+ * wholly outside a side plane of the game's 4:3 view. The game fix fix_wide_moby_effects
+ * (differences.json) opens the side planes as the port's picture and the player's Field of View
+ * open them (moby_view.h).
  */
 static void mark_drawn_mobys(gaddr first, int count) {
     float cam[3], rows[12], view[12];
@@ -134,9 +141,6 @@ static void mark_drawn_mobys(gaddr first, int count) {
     if (!(ty > 0.05f && ty < 10.0f)) {
         ty = tx * 0.756f;
     }
-    /* The picture's sides: the game's 4:3 tangent opened as the port's picture is (moby_view.h),
-     * and both tangents as the player's Field of View opens them (openrac_game_view_opened).
-     * The game fix fix_wide_moby_effects (differences.json); off, the console's 4:3 test. */
     static const unsigned char* fix;
     if (!fix) {
         fix = openrac_game_fix("fix_wide_moby_effects");
@@ -146,9 +150,6 @@ static void mark_drawn_mobys(gaddr first, int count) {
     ty *= opened;
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, OPENRAC_DATA(RAC1_ADDR(0x00160030u)));
-    /* As far as the window draws mobys (openrac_game_active_distance at Match): a drawn moby stays
-     * active. */
-    const float scale = openrac_game_active_distance();
     const uint8_t* groups = G(OPENRAC_DATA(RAC1_ADDR(0x001940C0u)));
     for (gaddr m = first; count < 0 || m != end; m += 0x100) {
         /* At most 4096 mobys in the console's arena, as before; an expanded one holds more. */
@@ -177,15 +178,7 @@ static void mark_drawn_mobys(gaddr first, int count) {
             if (distance > max_distance) {
                 distance = max_distance;  // pminw with the global draw distance
             }
-            /* Draw distance: the reach times its factor; Unlimited, any depth (a moby with no draw
-             * distance stays undrawn). */
-            /* Above Original, a quarter farther than the window draws it, so that one barely in
-             * view at the far end is already active. */
-            const float reach = scale > 1.0f   ? (float)distance * scale * 1.25f
-                                : scale > 0.0f ? (float)distance * scale
-                                : distance > 0 ? 3.0e38f
-                                               : (float)distance;
-            drawn = moby_in_view(d, rows, r, reach, tx, ty, wider);
+            drawn = moby_in_view(d, rows, r, (float)distance, tx, ty, wider);
         }
         b[0x31] = (uint8_t)(drawn ? 1 : 0);
     }
@@ -229,12 +222,21 @@ void func_00218B10(void) {
     const gaddr pool = GREF(gaddr, OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0016022Cu)));
     const int high = GREF(int, OPENRAC_LDATA(0, RAC1_LADDR(00, 0x00160234u)));
     const gaddr table = OPENRAC_LDATA(0, RAC1_LADDR(00, 0x001B1C00u)) + 0x200;
-    if (pool == 0 || pool >= 0x01FE0000u) {
+    // Under the top of game memory: 32 MiB, or more for a level mounted in expanded memory, whose
+    // pool then lies past the console's 32 MiB.
+    if (pool == 0 || pool + 2048u * 0x40u > openrac_guest_ram_size) {
         return;
     }
     for (int i = 0; i <= high && i < 2048; ++i) {
         const uint8_t* r = G(pool + (gaddr)i * 0x40);
         if ((r[1] & 0x80) != 0) {
+            continue;
+        }
+        if (r[2] >= RAC1_PARTICLE_TEXTURE_FIRST) {
+            // A mod's texture (particle_texture_register, 1.33): an id past the table's 128 entries.
+            uint32_t pixels = 0, clut = 0;
+            rac1_particle_texture_at(r[2], &pixels, &clut);
+            openrac_game_particle(r, pixels, clut, 5, 0);
             continue;
         }
         uint64_t entry;
@@ -278,6 +280,8 @@ void func_002298B0(int a0, int a1) {
 
 /* ShrubProc, the shrub renderer */
 void func_00229F00(void) {
+    /* The previous callback list draws both ice layers before the shrubs' scuff decals. */
+    put_marker((uint64_t)OPENRAC_WORLD_SHRUBS_MARKER << 48);
     openrac_game_draw(OPENRAC_DRAW_SHRUBS);
 }
 

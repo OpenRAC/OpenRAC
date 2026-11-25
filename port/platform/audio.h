@@ -74,11 +74,14 @@ public:
 
     // Call once a frame from the game's thread. When the callback has not run for kStallMs while
     // playing (the system took the device and never gave it back, as Android does after a call or
-    // another app's sound), the stream is opened again on the default device. Returns false, with
-    // `error`, when that failed; the next call tries again.
+    // another app's sound), the stream is opened again on the default device. That is done on a
+    // thread of its own and never holds the game up: closing and opening a device can take most
+    // of a second. A device that still does not ask is tried again after twice the wait each
+    // time, up to kStallMaxMs. Returns false, with `error`, while the device could not be opened.
     bool watch(std::string& error);
 
     static constexpr std::uint64_t kStallMs = 1500;
+    static constexpr std::uint64_t kStallMaxMs = 30000;
 
     // Frames the callback has rendered that the device has not taken yet (the mixer's frames
     // ahead, with the chunk it is rendering); 0 without a mixer. Any thread.
@@ -88,6 +91,7 @@ public:
     // frame, for the log and the performance capture).
     struct Health {
         std::uint32_t requests = 0;      // the device's requests for sound
+        std::uint32_t reopens = 0;       // times watch() opened a silent device again
         std::uint32_t short_frames = 0;  // frames of silence it got because the mixer was behind
         double worst_gap_ms = 0.0;       // the longest time between two requests
         double worst_render_ms = 0.0;    // the longest run of the callback
@@ -103,6 +107,12 @@ private:
     AudioOutput() = default;
 
     bool start(std::string& error);
+    // Opens a stream on the default device, still paused; nullptr with `error` when it cannot.
+    SDL_AudioStream* open_stream(std::string& error);
+    // Makes `stream` the output's, with the game's gain and pause.
+    void install(SDL_AudioStream* stream, std::string error);
+    // watch()'s thread: closes the stream and opens the device again.
+    void reopen();
     // Starts the mixer for a device that asks for `device_frames` at a time.
     void start_mixer(int device_frames);
     void stop_mixer();
@@ -112,16 +122,26 @@ private:
 
     static void feed(void* self, SDL_AudioStream* stream, int additional, int total);
 
+    // The stream, what the game set on it and why it could not be opened, under m_stream_mutex:
+    // the game's thread uses them, and reopen() changes the stream.
+    mutable std::mutex m_stream_mutex;
     SDL_AudioStream* m_stream = nullptr;
-    Callback m_callback;
-    std::vector<std::int16_t> m_scratch;
     float m_gain = 1.0f;
     bool m_paused = false;
+    std::string m_open_error;
+
+    Callback m_callback;
+    std::vector<std::int16_t> m_scratch;
     // SDL_GetTicks() of the callback's last run (written on the audio thread), of the stream's
     // start, and of the last watch() (a longer gap means the game itself stood still).
     std::atomic<std::uint64_t> m_fed_ms{0};
-    std::uint64_t m_started_ms = 0;
+    std::atomic<std::uint64_t> m_started_ms{0};
     std::uint64_t m_watched_ms = 0;
+    // How long the device may stay silent before watch() opens it again, and whether that is
+    // being done now.
+    std::uint64_t m_stall_ms = kStallMs;
+    std::atomic<bool> m_reopening{false};
+    std::atomic<std::uint32_t> m_reopens{0};
 
     // The frames ahead, and the count of frames whose render has begun: a chunk counts from before
     // its render, so that unheard_frames() never misses the frames the callback is rendering.
@@ -141,6 +161,8 @@ private:
     std::atomic<std::uint64_t> m_worst_gap_ns{0};
     std::atomic<std::uint64_t> m_worst_render_ns{0};
     std::atomic<std::uint64_t> m_last_request_ns{0};  // 0: none since the start or a pause
+
+    JoiningThread m_reopener;  // reopen()'s thread; last, so it has ended before the rest goes
 };
 
 }  // namespace openrac::platform

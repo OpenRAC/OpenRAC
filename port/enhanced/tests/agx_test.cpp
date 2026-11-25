@@ -12,13 +12,14 @@
 
 #include "common/stats.h"
 #include "enhanced/renderer/agx.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
-#include "renderer/vulkan/native_compute.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 #if defined(OPENRAC_VULKAN)
@@ -65,7 +66,7 @@ void main(){uvec2 p=uvec2(gl_FragCoord.xy);result=p.y==0u?vec4(64,128,191,77)/25
                 glClear(GL_DEPTH_BUFFER_BIT);
                 pattern.use();
                 glBindVertexArray(vao);
-                glDrawArrays(GL_TRIANGLES, 0, 3);
+                openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                 renderer::render_opt::set(renderer::render_opt::Opt::AgxDirectOutput, direct);
                 stats::begin_frame(stats::FrameKind::Tick, comparisons);
                 agx.apply(target, exposure);

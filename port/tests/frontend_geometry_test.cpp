@@ -19,6 +19,7 @@ namespace {
 
 using openrac::frontend::blend_matrix;
 using openrac::frontend::blend_pose;
+using openrac::frontend::blend_turning;
 using openrac::frontend::Box;
 using openrac::frontend::CameraPose;
 using openrac::frontend::frame_box;
@@ -216,6 +217,41 @@ void test_blend_pose_takes_a_cut_whole() {
     CHECK(near(blend_pose(from, edge, 0.5f).position[0], 4.0f));
 }
 
+// A moby or camera moving farther than a step in a tick, but at the pace it kept the tick before, is
+// the same thing at speed (a ship flying through a loading flight); a jump off that pace is not.
+void test_a_kept_pace_is_blended() {
+    const Vec3 pace{10, 0, 0};
+    CHECK(same_moby(moby_at(0, 0, 0), moby_at(12, 1, 0), &pace));
+    CHECK(!same_moby(moby_at(0, 0, 0), moby_at(12, 1, 0)));
+    CHECK(!same_moby(moby_at(0, 0, 0), moby_at(-10, 0, 0), &pace));
+    CHECK(near(blend_matrix(moby_at(0, 0, 0), moby_at(12, 0, 0), 0.5f, &pace)[12], 6.0f));
+    CHECK(blend_matrix(moby_at(0, 0, 0), moby_at(40, 0, 0), 0.5f, &pace) == moby_at(40, 0, 0));
+    const Vec3 eye_pace{20, 0, 0};
+    const CameraPose from = camera({0, 0, 0}, {1, 0, 0});
+    const CameraPose moved = camera({22, 0, 0}, {1, 0, 0});
+    CHECK(near(blend_pose(from, moved, 0.5f, &eye_pace).position[0], 11.0f));
+    CHECK(blend_pose(from, moved, 0.5f).position == moved.position);
+}
+
+// A sky shell turns part way between ticks however far its translation (in the game's sky units)
+// moved; one that turned too far in a tick is a cut, taken whole.
+void test_a_shell_turns_part_way() {
+    Mat4 from = moby_at(0, 0, 0);
+    Mat4 to = moby_at(4096, 0, 0);
+    // The X axis turned 10 degrees about Z.
+    to[0] = std::cos(0.1745f);
+    to[1] = std::sin(0.1745f);
+    to[4] = -to[1];
+    to[5] = to[0];
+    const Mat4 half = blend_turning(from, to, 0.5f);
+    CHECK(near(half[12], 2048.0f));
+    CHECK(near(half[1], to[1] * 0.5f));
+    CHECK(half[15] == 1.0f);
+    Mat4 flipped = moby_at(0, 0, 0);
+    flipped[0] = -1;
+    CHECK(blend_turning(from, flipped, 0.5f) == flipped);
+}
+
 // Joint poses and model transforms both interpolate. Endpoint world bounds alone need not contain
 // the intermediate product (rotation plus changing pose); the envelope holds every point of it.
 void test_the_moby_envelope_holds_the_blended_moby() {
@@ -305,9 +341,76 @@ void test_usable_view_refuses_broken_matrices() {
     CHECK(!usable_view(view, backwards));
 }
 
+// Checks an attached point against the arithmetic result within float rounding tolerance.
+void check_attached_point(const float point[3], const Vec3& expected) {
+    // Each world coordinate must preserve the parent's local offset.
+    for (int axis = 0; axis < 3; ++axis) {
+        CHECK(std::fabs(point[axis] - expected[axis]) < 0.0001f);
+    }
+}
+
+// Aligns current quads and delayed mesh vertices with the same displayed parent at every alpha.
+void test_attached_effects_agree_across_source_ticks() {
+    const Mat4 previous = openrac::renderer::translation({100, 200, 300});
+    Mat4 current = previous;
+    current[12] += 2;
+    current[13] += 1;
+    const openrac::renderer::Vec3 local{0.25f, -0.5f, 0.75f};
+
+    // Endpoints and intermediate frames must all keep the same offset from the moving parent.
+    for (const float alpha : {0.0f, 0.25f, 0.5f, 1.0f}) {
+        const Mat4 drawn = blend_matrix(previous, current, alpha);
+        const auto old_point = openrac::renderer::transform_point(previous, local);
+        const auto new_point = openrac::renderer::transform_point(current, local);
+        float mesh[3] = {old_point[0], old_point[1], old_point[2]};
+        float quad[3] = {new_point[0], new_point[1], new_point[2]};
+        openrac::frontend::follow_moby(previous, drawn, mesh);
+        openrac::frontend::follow_moby(current, drawn, quad);
+        const auto expected = openrac::renderer::transform_point(drawn, local);
+
+        check_attached_point(mesh, expected);
+        check_attached_point(quad, expected);
+    }
+}
+
+// Preserves local offsets through nonuniform scale and a rotating parent's interpolated axes.
+void test_attached_effects_follow_rotating_parents() {
+    Mat4 source = openrac::renderer::identity();
+    source[0] = 2;
+    source[5] = 3;
+    source[10] = 4;
+    Mat4 drawn = source;
+    // A quarter-turn around Z maps local +X to world +Y.
+    drawn[0] = 0;
+    drawn[1] = 2;
+    drawn[4] = -3;
+    drawn[5] = 0;
+    drawn[12] = 10;
+    float point[3] = {2, 6, 12};
+    openrac::frontend::follow_moby(source, drawn, point);
+    CHECK(std::fabs(point[0] - (10 - 6)) < 0.0001f);
+    CHECK(std::fabs(point[1] - 2) < 0.0001f);
+    CHECK(std::fabs(point[2] - 12) < 0.0001f);
+}
+
+// Falls back to translation for singular parent axes instead of dividing by zero.
+void test_attached_effects_allow_singular_parents() {
+    const Mat4 source = openrac::renderer::scale(0);
+    Mat4 drawn = source;
+    drawn[12] = 3;
+    float point[3] = {1, 2, 3};
+    openrac::frontend::follow_moby(source, drawn, point);
+    CHECK(point[0] == 4);
+    CHECK(point[1] == 2);
+    CHECK(point[2] == 3);
+}
+
 }  // namespace
 
 int main() {
+    test_attached_effects_agree_across_source_ticks();
+    test_attached_effects_follow_rotating_parents();
+    test_attached_effects_allow_singular_parents();
     test_a_four_by_three_window_is_filled();
     test_a_wide_window_centres_a_full_height_box();
     test_a_portrait_window_centres_a_full_width_box();
@@ -320,6 +423,8 @@ int main() {
     test_blend_matrix_takes_a_jump_or_a_turn_whole();
     test_blend_pose_moves_and_turns_part_way();
     test_blend_pose_takes_a_cut_whole();
+    test_a_kept_pace_is_blended();
+    test_a_shell_turns_part_way();
     test_the_moby_envelope_holds_the_blended_moby();
     test_usable_camera_refuses_what_cannot_be_drawn();
     test_usable_view_refuses_broken_matrices();

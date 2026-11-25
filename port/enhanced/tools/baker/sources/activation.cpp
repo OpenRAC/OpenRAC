@@ -417,6 +417,20 @@ void apply_profile(const std::filesystem::path& path, LevelBakeProfile& profile)
             profile.environment = read_environment_profile(value, profile.environment);
         } else if (key == "playable_space") {
             bake.traversal = read_traversal_profile(value, bake.traversal);
+        } else if (key == "playable_areas") {
+            if (!value.is_array() || value.items().size() > 4096) {
+                fail("playable_areas requires an array of at most 4096 boxes");
+            }
+            profile.playable_areas.clear();
+            for (const auto& area : value.items()) {
+                PlayableArea box{vector(area["minimum"], -1e6f), vector(area["maximum"], -1e6f)};
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    if (box.minimum[axis] > box.maximum[axis]) {
+                        fail("playable area minimum exceeds maximum");
+                    }
+                }
+                profile.playable_areas.push_back(box);
+            }
         } else if (key == "water_sources") {
             // The offline source decoder owns the detailed table schema.
             if (!value.is_object()) {
@@ -491,7 +505,12 @@ LevelBakeProfile load_level_bake_profile(
 
 bool bake_identity_supported(std::string_view game, std::string_view version) {
     return (game == "rac1" && (version == "pal" || version == "ntsc"))
-           || (game == "rac2" && (version == "ntsc" || version == "pal" || version == "ntsc2"));
+           || (game == "rac2" && (version == "ntsc" || version == "pal" || version == "ntsc2"))
+           || (game == "rac3" && (version == "pal" || version == "ntsc"));
+}
+
+int highest_level(std::string_view game) {
+    return game == "rac3" ? 53 : game == "rac2" ? 30 : 18;
 }
 
 bool bake_identity_supported(std::string_view game_version) {

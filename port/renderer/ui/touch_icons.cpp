@@ -4,6 +4,7 @@
 #include "renderer/ui/touch_icons.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <map>
 #include <vector>
@@ -25,6 +26,7 @@ struct State {
     std::map<std::string, std::string, std::less<>> svgs;  // by name
     std::map<std::string, Cell, std::less<>> cells;        // where each is in the texture
     GLuint texture = 0;
+    unsigned mip_levels = 1;  // The full chain generated from the atlas dimensions.
     bool dirty = true;
 };
 
@@ -126,6 +128,7 @@ void make_texture() {
     );
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     glGenerateMipmap(GL_TEXTURE_2D);
+    s.mip_levels = std::bit_width(static_cast<unsigned>(std::max(width, height)));
     glTexParameteri(
         GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(GL_LINEAR_MIPMAP_LINEAR)
     );
@@ -149,6 +152,10 @@ bool add(std::string_view name, std::string_view svg) {
     return true;
 }
 
+bool raster(std::string_view svg, std::vector<std::uint8_t>& out) {
+    return draw(svg, out);
+}
+
 bool has(std::string_view name) {
     return state().svgs.contains(name);
 }
@@ -167,6 +174,10 @@ std::optional<Cell> cell(std::string_view name) {
 
 GLuint texture() {
     return state().texture;
+}
+
+unsigned mip_levels() {
+    return state().mip_levels;
 }
 
 void release() {

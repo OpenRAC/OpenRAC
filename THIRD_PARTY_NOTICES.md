@@ -73,24 +73,24 @@ MIT license; they are rac3-decomp's `tools/decomp-permuter-asm-passes.patch` and
 documents the game's formats and systems. The following adapt its format code
 and notes:
 
-- `editor/mobys.py`: the moby instance record and what the level loader does
+- `extractor/mobys.py`: the moby instance record and what the level loader does
   with each field, from `crates/rc-formats/src/gameplay.rs` and
   `docs/plan/moby_render_notes.md`; described in [ASSETS.md](games/rac1/decomp/docs/ASSETS.md) ("Mobys").
-- `editor/moby_class.py`: the moby class header and model format (packets,
+- `extractor/moby_class.py`: the moby class header and model format (packets,
   vertex cache, skinning slots, normals, untextured faces), from
   `docs/formats/moby_rac1.md` §1-§2 and `crates/rc-formats/src/moby.rs`;
   described in [ASSETS.md](games/rac1/decomp/docs/ASSETS.md) ("Moby classes").
-- `editor/moby_anim.py`: moby skeletons and animation sequences, from
+- `extractor/moby_anim.py`: moby skeletons and animation sequences, from
   `docs/formats/moby_rac1.md` §3-§4, `docs/plan/moby_animation.md` and
   `crates/rc-formats/src/moby_anim.rs`.
-- `editor/collision.py`: the collision block (cell tree, packed vertices,
+- `extractor/collision.py`: the collision block (cell tree, packed vertices,
   faces and surface bytes), from `docs/formats/collision_rac1.md`,
   `docs/plan/collision_queries.md` and `crates/rc-formats/src/collision.rs`;
   described in [ASSETS.md](games/rac1/decomp/docs/ASSETS.md) ("Collision").
-- `editor/lighting.py`: the terrain and tie lighting passes (`LightTfrags`,
+- `extractor/lighting.py`: the terrain and tie lighting passes (`LightTfrags`,
   `LightTies`) and the PS2 float arithmetic they run on, from
   `crates/rc-formats/src/tfrag_light.rs` and `tie_light.rs`; their checks from
-  ReRAC's unit tests. The tie light slots in `editor/ties.py` after
+  ReRAC's unit tests. The tie light slots in `extractor/ties.py` after
   `crates/rc-formats/src/tie.rs`.
 - `port/assets/disc/`: the disc readers (ISO 9660, table of contents, WAD
   compression, level data, overlays, scenes, saves, messages, volumes, the
@@ -139,50 +139,38 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 [Lombyte](https://github.com/lombyte-project/Lombyte), the US decompilation, now
 `games/rac1/ntsc-decomp`:
 
-- `editor/moby_classes.tsv`: the moby class names the editor shows, from its
+- `extractor/moby_classes.tsv`: the moby class names the editor shows, from its
   `config/overlays/us/names/level-NN.json` ("moby-class-record" evidence),
   which joins each level's class dispatch table with the class names of
   [Wrench](https://github.com/chaoticgd/wrench)'s moby class unpack.
 
-MIT License
-
-Copyright (c) 2026 Mateusz Kłysz
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Lombyte is under the GNU General Public License v3 ([its LICENSE](games/rac1/ntsc-decomp/LICENSE)),
+as OpenRAC is.
 
 ## Wrench and Replanetizer
 
 Consulted for what formats and fields mean; no code from them is included
-([editor/README.md](editor/README.md#credits)):
+([extractor/README.md](extractor/README.md#credits)):
 [Wrench](https://github.com/chaoticgd/wrench) (GPL-3.0-or-later) and
 [Replanetizer](https://github.com/RatchetModding/Replanetizer).
 
 The editor's reading of Going Commando's, Up Your Arsenal's and Deadlocked's
-levels (editor/wads.py, editor/games.py, the per-game paths in the readers)
+levels (extractor/wads.py, extractor/games.py, the per-game paths in the readers)
 follows Wrench's `src/iso/table_of_contents.cpp`, `wad_identifier.cpp`,
 `src/wrenchbuild/level/`, `src/engine/` and `src/instancemgr/` (read at
 commit `46e8043`), re-implemented in Python; Deadlocked's pixel order
-(editor/level.py `unswizzle`) is its `map_pixel_index_rac4`
+(extractor/level.py `unswizzle`) is its `map_pixel_index_rac4`
 (`src/core/texture.cpp`) written out again. The later games' level names
-in editor/games.py and launcher/src/lib/labels.ts are those of its
+in extractor/games.py and launcher/src/lib/labels.ts are those of its
 `data/underlay/{gc,uya,dl}_levels.asset`. Wrench is GPL-3.0-or-later, as
 OpenRAC's top level is.
+
+The Assets dock's names (OpenRAC Editor's openrac/project/addons/openrac_library/names/rac1.tsv) take
+the moby class names Lombyte lacks from Wrench's
+`data/underlay/rac_moby_classes.asset` (commit `46e8043`), then from
+Replanetizer's `LibReplanetizer/ModelLists/MobyModelsRC1.txt` and
+`TieModelsRC1.txt` (commit `2fbcaf6`, GPL-3.0). The rest were named for
+OpenRAC by hand.
 
 ## The native port's libraries
 
@@ -197,7 +185,8 @@ each at a pinned version ([port/cmake/Dependencies.cmake](port/cmake/Dependencie
 | [stb_image](https://github.com/nothings/stb) | commit 2c980bb | MIT or public domain | the level viewer: reading textures (PNG) |
 | [xxHash](https://github.com/Cyan4973/xxHash) | 0.8.2 | BSD-2-Clause | PCSX2 texture replacement keys |
 | [Dear ImGui](https://github.com/ocornut/imgui) | 1.91.9b | MIT | the games' debug overlay ([docs/port/DEBUGGING.md](docs/port/DEBUGGING.md)) |
-| [nanosvg](https://github.com/memononen/nanosvg) | commit 239e102 | zlib | the on-screen pad's action icons: reading and drawing their SVGs ([port/renderer/ui/touch_icons.h](port/renderer/ui/touch_icons.h)) |
+| [nanosvg](https://github.com/memononen/nanosvg) | commit 239e102 | zlib | the on-screen pad's action icons and texture packs' SVG pictures: reading and drawing them ([port/renderer/ui/touch_icons.h](port/renderer/ui/touch_icons.h), [port/renderer/textures/pack_pictures.h](port/renderer/textures/pack_pictures.h)) |
+| [Basis Universal](https://github.com/BinomialLLC/basis_universal) | 2.50 (commit 9bebe16) | Apache-2.0; its Zstandard decoder BSD-3-Clause | texture packs' KTX2 pictures: the transcoder and Zstandard decoder ([port/renderer/textures/pack_pictures.h](port/renderer/textures/pack_pictures.h)) |
 | [Luau](https://github.com/luau-lang/luau) | 0.741 (commit 2d88f9b) | MIT | script mods: its virtual machine and compiler ([docs/port/MODS.md](docs/port/MODS.md), section 11; [port/cmake/Luau.cmake](port/cmake/Luau.cmake)) |
 | [Vulkan-Headers](https://github.com/KhronosGroup/Vulkan-Headers) | vulkan-sdk-1.4.350.1 | Apache-2.0 or MIT | the Vulkan renderer |
 | [volk](https://github.com/zeux/volk) | vulkan-sdk-1.4.350.1 | MIT | the Vulkan renderer: the Vulkan loader, opened at run time |
@@ -296,7 +285,7 @@ link it. Tracy is licensed under the 3-clause BSD license, Copyright (c)
 2017-2026 Bartosz Taudul. Its [license](https://github.com/wolfpld/tracy/blob/30997d5ca6bb632cc10807a1da8a6d3de0aeeb3c/LICENSE)
 applies to the client and Vulkan profiling headers. Binary redistributions of
 profiling builds must include that license. OpenRAC's integration is in
-`port/common/profiler.*` and `port/renderer/vulkan/tracy.cpp`.
+`port/common/profiler.*` and `port/renderer/vulkan/diagnostics/tracy.cpp`.
 
 ## SphynxMotionBlurToolkit jump-flood velocity dilation
 

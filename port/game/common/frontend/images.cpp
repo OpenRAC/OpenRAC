@@ -18,10 +18,10 @@
 #include "common/log.h"
 #include "frontend.h"
 #include "game/common/frontend/state.h"
-#include "renderer/direct.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/texture_pool.h"
+#include "renderer/direct/direct.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/textures/texture_pool.h"
 #include "scene/screenshot.h"
 
 namespace openrac::frontend {
@@ -65,13 +65,43 @@ void upload_image(
     });
     if (render_pending()) {
         g->pending_images.push_back(image);
-    } else if (g->renderer) {
-        g->renderer->textures().upload(image);
+    } else if (g->render.renderer) {
+        run_graphics([&] { g->render.renderer->textures().upload(image); });
     }
-    if (g->profile->images_outlast_list()) {
+    if (g->render.profile->images_outlast_list()) {
         g->images_after_list.push_back(image);
     }
     g->images.push_back(std::move(image));
+}
+
+void upload_picture(
+    std::uint32_t base,
+    std::uint32_t width_units,
+    std::uint32_t width,
+    std::uint32_t height,
+    std::span<const std::uint8_t> pixels
+) {
+    // The pool's pictures are read by the render thread: set with no frame being drawn. Not an
+    // upload_image: a movie frame each blank would be hashed, converted and given a new texture.
+    if (!g || !finish_render()) {
+        return;
+    }
+    if (g->render.renderer) {
+        run_graphics([&] {
+            g->render.renderer->textures().set_picture(
+                base, width_units, static_cast<int>(width), static_cast<int>(height), pixels
+            );
+        });
+    }
+}
+
+void forget_picture(std::uint32_t base) {
+    if (!g || !finish_render()) {
+        return;
+    }
+    if (g->render.renderer) {
+        run_graphics([=] { g->render.renderer->textures().forget_picture(base); });
+    }
 }
 
 bool store_image(
@@ -91,9 +121,10 @@ bool store_image(
     int fx = 0;
     int fy = 0;
     // The draw buffer as the game left it: the last frame with its world in.
-    const renderer::FrameBuffer* source = g && g->last_world.id() != 0 ? &g->last_world
-                                          : g                          ? &g->frame
-                                                                       : nullptr;
+    const renderer::FrameBuffer* source = g && g->render.last_world.id() != 0
+                                              ? &g->render.last_world
+                                          : g ? &g->render.frame
+                                              : nullptr;
     if (source == nullptr || psm != 0 || source->id() == 0 || source->width() <= 0
         || !renderer::frame_pixel(base, width_units, x, y, fx, fy)) {
         return false;
@@ -105,31 +136,42 @@ bool store_image(
     constexpr int kChipWidth = 512;
     const int lines = renderer::g_draw_buffer_lines;
     if (read_at != g->index) {
-        using namespace openrac::gl;
+        std::vector<std::uint8_t> full;
+        run_graphics([&] {
+            using namespace openrac::gl;
+            renderer::FrameSnapshot& snap = renderer::g_frame_snapshot;
+            snap.answered.clear();
+            if (snap.texture == 0) {
+                glGenTextures(1, &snap.texture);
+            }
+            glBindTexture(GL_TEXTURE_2D, snap.texture);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, source->resolved());
+            static int snap_w = 0;
+            static int snap_h = 0;
+            if (snap_w != source->width() || snap_h != source->height()) {
+                snap_w = source->width();
+                snap_h = source->height();
+                glTexImage2D(
+                    GL_TEXTURE_2D,
+                    0,
+                    GL_RGBA8,
+                    snap_w,
+                    snap_h,
+                    0,
+                    GL_RGBA,
+                    GL_UNSIGNED_BYTE,
+                    nullptr
+                );
+                snap.width = snap_w;
+                snap.height = snap_h;
+            }
+            glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, snap_w, snap_h);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            full = source->read_rgba();
+        });
         read_at = g->index;
-        renderer::FrameSnapshot& snap = renderer::g_frame_snapshot;
-        snap.answered.clear();
-        if (snap.texture == 0) {
-            glGenTextures(1, &snap.texture);
-        }
-        glBindTexture(GL_TEXTURE_2D, snap.texture);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, source->resolved());
-        static int snap_w = 0;
-        static int snap_h = 0;
-        if (snap_w != source->width() || snap_h != source->height()) {
-            snap_w = source->width();
-            snap_h = source->height();
-            glTexImage2D(
-                GL_TEXTURE_2D, 0, GL_RGBA8, snap_w, snap_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr
-            );
-            snap.width = snap_w;
-            snap.height = snap_h;
-        }
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, snap_w, snap_h);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-        const std::vector<std::uint8_t> full = source->read_rgba();
         const int fw = source->width();
         const int fh = source->height();
         chip.assign(static_cast<std::size_t>(kChipWidth) * lines * 4, 0);

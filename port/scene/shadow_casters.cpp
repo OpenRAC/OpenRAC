@@ -9,8 +9,8 @@
 
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "scene/hero_shadow.h"
@@ -330,11 +330,15 @@ void LevelScene::draw_shadow_map(
                     continue;
                 }
                 if (instances != group.count) {
-                    if (!m_shadow_compact.vao) {
-                        m_shadow_compact = make_group(group.model);
+                    Group& compact = shadow_compact_of(group.model);
+
+                    if (!compact.vao) {
+                        compact = make_group(group.model);
                     }
-                    fill_group(m_shadow_compact, m_shadow_survivors, GL_STREAM_DRAW);
-                    vao = m_shadow_compact.vao;
+
+                    fill_group(compact, m_shadow_survivors, GL_STREAM_DRAW);
+                    vao = compact.vao;
+
                     if (counts) {
                         ++counts->compacted_groups;
                     }
@@ -368,7 +372,16 @@ void LevelScene::draw_shadow_map(
                     }
                     if (batch && !batch_off) {
                         const unsigned alpha_pass = skinning ? 2 : 1;
-                        shadow_draws[solid ? 0 : alpha_pass].push_back(command);
+                        auto& bucket = shadow_draws[solid ? 0 : alpha_pass];
+                        if (bucket.size() == bucket.capacity()) {
+                            // Atlas buckets can span layers and cascades. Reserve only for buckets
+                            // that receive draws, then grow geometrically as the queues get denser.
+                            constexpr std::size_t initial_draws = 256;
+                            const auto size = bucket.size();
+                            const auto growth = std::min(size, bucket.max_size() - size);
+                            bucket.reserve(std::max(initial_draws, size + growth));
+                        }
+                        bucket.push_back(command);
                     } else {
                         // The CPU culling fallback reuses one compact instance buffer;
                         // consume it before the next group can overwrite its contents.

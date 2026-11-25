@@ -1,0 +1,249 @@
+{
+ "comment": "Up Your Arsenal's routes for port/tools/regress: one tour of each single-player level, entered by --level N with OPENRAC_DIRECT (rac3-pal host/program.c), walking, turning the camera, jumping, the wrench, firing, the pause pages, the quick select. The multiplayer maps (40 to 55) are not routes yet: the port does not load them. Each run stops with a crash report on a wait that never ends (OPENRAC_STUCK), and carries on past memory that is not mapped, counted (OPENRAC_SOFT_FAULTS). The hero's words are not mapped for rac3, so a route only presses (no teleports, items or health writes: addresses is empty). Scripted runs want frame_rate = original in their settings (regress.py run takes --setting).",
+ "addresses": {
+  "rac3-pal": {}
+ },
+ "sets": {
+  "rac3-tour": {
+   "comment": "One route a level.",
+   "defaults": {
+    "sequence": "tour",
+    "length": 1500,
+    "max_frames": 12000,
+    "timeout": 300,
+    "env": {
+     "OPENRAC_INVINCIBLE": "1",
+     "OPENRAC_STUCK": "60:6000",
+     "OPENRAC_SOFT_FAULTS": "1"
+    }
+   },
+   "sequences": {
+    "tour": [
+     {
+      "at": 10,
+      "what": "forward",
+      "hold": 120,
+      "left": [
+       128,
+       0
+      ]
+     },
+     {
+      "at": 140,
+      "what": "turn the camera round",
+      "hold": 150,
+      "right": [
+       255,
+       128
+      ]
+     },
+     {
+      "at": 300,
+      "what": "jump",
+      "hold": 5,
+      "buttons": "cross"
+     },
+     {
+      "at": 340,
+      "what": "wrench",
+      "hold": 5,
+      "buttons": "square"
+     },
+     {
+      "at": 380,
+      "what": "walk left",
+      "hold": 90,
+      "left": [
+       0,
+       128
+      ]
+     },
+     {
+      "at": 480,
+      "what": "jump while walking",
+      "hold": 5,
+      "buttons": "cross",
+      "left": [
+       128,
+       0
+      ]
+     },
+     {
+      "at": 520,
+      "what": "fire the weapon held",
+      "hold": 30,
+      "buttons": "circle"
+     },
+     {
+      "at": 580,
+      "what": "talk",
+      "hold": 5,
+      "buttons": "triangle"
+     },
+     {
+      "at": 640,
+      "what": "the pause menu",
+      "hold": 5,
+      "buttons": "start"
+     },
+     {
+      "at": 760,
+      "what": "its next page",
+      "hold": 5,
+      "buttons": "down"
+     },
+     {
+      "at": 800,
+      "what": "open it",
+      "hold": 5,
+      "buttons": "cross"
+     },
+     {
+      "at": 900,
+      "what": "back",
+      "hold": 5,
+      "buttons": "triangle"
+     },
+     {
+      "at": 960,
+      "what": "close the menu",
+      "hold": 5,
+      "buttons": "start"
+     },
+     {
+      "at": 1040,
+      "what": "the map",
+      "hold": 5,
+      "buttons": "select"
+     },
+     {
+      "at": 1160,
+      "what": "close it",
+      "hold": 5,
+      "buttons": "select"
+     },
+     {
+      "at": 1240,
+      "what": "the quick select",
+      "hold": 90,
+      "buttons": "triangle",
+      "left": [
+       128,
+       0
+      ]
+     }
+    ]
+   },
+   "routes": {
+    "01-tour": {
+     "level": 1,
+     "name": "veldin"
+    },
+    "02-tour": {
+     "level": 2,
+     "name": "florana"
+    },
+    "03-tour": {
+     "level": 3,
+     "name": "starship_phoenix"
+    },
+    "04-tour": {
+     "level": 4,
+     "name": "marcadia"
+    },
+    "05-tour": {
+     "level": 5,
+     "name": "daxx"
+    },
+    "06-tour": {
+     "level": 6,
+     "name": "starship_phoenix__under_attack"
+    },
+    "07-tour": {
+     "level": 7,
+     "name": "annihilation_nation"
+    },
+    "08-tour": {
+     "level": 8,
+     "name": "aquatos"
+    },
+    "09-tour": {
+     "level": 9,
+     "name": "tyhrranosis"
+    },
+    "10-tour": {
+     "level": 10,
+     "name": "zeldrin_starport"
+    },
+    "11-tour": {
+     "level": 11,
+     "name": "obani_moons"
+    },
+    "12-tour": {
+     "level": 12,
+     "name": "rilgar"
+    },
+    "13-tour": {
+     "level": 13,
+     "name": "holostar_studios_ratchet"
+    },
+    "14-tour": {
+     "level": 14,
+     "name": "koros"
+    },
+    "16-tour": {
+     "level": 16,
+     "name": "kerwan"
+    },
+    "17-tour": {
+     "level": 17,
+     "name": "crash_site"
+    },
+    "18-tour": {
+     "level": 18,
+     "name": "aridia"
+    },
+    "19-tour": {
+     "level": 19,
+     "name": "thran_asteroid_belt"
+    },
+    "20-tour": {
+     "level": 20,
+     "name": "final_boss"
+    },
+    "21-tour": {
+     "level": 21,
+     "name": "obani_draco"
+    },
+    "22-tour": {
+     "level": 22,
+     "name": "mylon"
+    },
+    "23-tour": {
+     "level": 23,
+     "name": "holostar_studios_clank"
+    },
+    "24-tour": {
+     "level": 24,
+     "name": "insomniac_museum"
+    },
+    "26-tour": {
+     "level": 26,
+     "name": "kerwan_ranger_missions"
+    },
+    "27-tour": {
+     "level": 27,
+     "name": "aquatos_base"
+    },
+    "28-tour": {
+     "level": 28,
+     "name": "aquatos_sewers"
+    },
+    "29-tour": {
+     "level": 29,
+     "name": "tyhrranosis_ranger_missions"
+    }
+   }
+  }
+ }
+}

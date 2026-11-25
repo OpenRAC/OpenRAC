@@ -13,4 +13,3 @@ FUN_L02_0024fa80	c-call	FUN_L00_001fde98	the port draws each block's strip with 
 FUN_L02_0024fa80	c-data	0x001CB9D0	the strip drawer's texture coordinates, past the table's header the VU1 packet points at
 FUN_L02_0024fa80	code-data	*	the VU1 packet retail builds: its GIF header copied from 0x001C4620 and the texture table 0x001CB9C0 by reference
 FUN_L01_00262618	c-call	*	sine and cosine are VU0 microprograms in line in retail (vcallms 0xC80, 0xC90); the C calls FastSin and FastCos
-FUN_00238f08	code-data	*	retail reads the tables for a text id that only decides whether the row is drawn, and every way gives one (it always draws 0x5234); the C's same reads are dead and Clang drops them

@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2026 the OpenRAC contributors
-"""Partition the enhanced CI build and verify each test job ran its full group."""
+"""Run the enhanced CI build's tests and check that each required test ran.
+
+Two CTest calls: first the tests that need no Vulkan (short; timing tests run without the
+software renderer's load), then every Vulkan test. Most Vulkan tests share one lock
+(cmake/GpuTests.cmake) and run one by one; the lock-free ones fill the other CTest slots.
+"""
 
 import argparse
 import json
@@ -10,8 +15,6 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-GROUPS = ("vulkan", "equivalence", "cpu", "baker")
-SECOND_RUNNER = {"render_equivalence_vulkan_shard_2", "render_equivalence_vulkan_shard_3"}
 REQUIRED = {
     "probe_gpu_vulkan", "early_lighting_vulkan", "hero_shadow_vulkan",
     "sun_shadow_vulkan", "gtao_vulkan", "probe_bake", "bake_liquids",
@@ -53,26 +56,17 @@ def write_selection(build, group, names):
     return path
 
 
+GROUPS = ("host", "vulkan")
+
+
 def plan(build):
     dependencies = inventory(build)
-    all_tests = set(dependencies)
-    # CTest includes fixture dependencies in these listings. This keeps baseline
-    # preparation, cache reset and focused comparisons beside their consumers.
-    vulkan = set(inventory(build, "-L", "^gpu$"))
-    baker = set(inventory(build, "-L", "^baker$"))
-    if vulkan & baker:
-        raise SystemExit(f"Shared Vulkan and baker fixtures: {sorted(vulkan & baker)}")
-    if missing := REQUIRED - all_tests:
+    tests = set(dependencies)
+    if missing := REQUIRED - tests:
         raise SystemExit(f"Missing required tests: {sorted(missing)}")
-    # Each runner prepares its own baselines and Vulkan caches. Only the second
-    # runner's two shards move; CTest adds their shared setup fixtures as needed.
-    path = write_selection(build, "equivalence", SECOND_RUNNER)
-    equivalence = set(inventory(build, "--tests-from-file", str(path)))
-    if unexpected := equivalence - vulkan:
-        raise SystemExit(f"Equivalence tests outside Vulkan group: {sorted(unexpected)}")
-    for group, names in zip(
-        GROUPS, (vulkan - SECOND_RUNNER, equivalence, all_tests - vulkan - baker, baker)
-    ):
+    # CTest adds fixture setups to a label listing, so the Vulkan group holds its own setups.
+    vulkan = set(inventory(build, "-L", "^gpu$"))
+    for group, names in zip(GROUPS, (tests - vulkan, vulkan)):
         if external := {dep for name in names for dep in dependencies[name]} - names:
             raise SystemExit(f"{group} tests depend on another group: {sorted(external)}")
         path = write_selection(build, group, names)
@@ -125,7 +119,10 @@ def run(build, group):
 
 
 def timing(build):
-    shards = SECOND_RUNNER | {"render_equivalence_vulkan", "render_equivalence_vulkan_remaining"}
+    shards = {
+        "render_equivalence_vulkan", "render_equivalence_vulkan_remaining",
+        "render_equivalence_vulkan_shard_2", "render_equivalence_vulkan_shard_3",
+    }
     path = write_selection(build, "timing", shards)
     selected = set(inventory(build, "--tests-from-file", str(path)))
     for jobs in (1, 2, 4):

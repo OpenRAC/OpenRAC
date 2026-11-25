@@ -8,7 +8,7 @@
 #include <atomic>
 #endif
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(OPENRAC_IOS)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -19,7 +19,7 @@
 
 namespace openrac::platform {
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(OPENRAC_IOS)
 
 namespace {
 
@@ -102,18 +102,22 @@ int run_pumped(int (*program)(void*), void* argument) {
     return pump.result;
 }
 
-bool poll_event(SDL_Event& event) {
-    if (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST) > 0) {
-        return true;
-    }
+void pump_events() {
     if (pump.program_fiber != nullptr && GetCurrentThreadId() == pump.thread && GetCurrentFiber() == pump.program_fiber) {
         if (pump.held && SDL_GetTicksNS() - pump.entered < kHeldTurnNs) {
-            return false;  // the turn is not over: the pump reads the system's events after it
+            return;  // the turn is not over: the pump reads the system's events after it
         }
         SwitchToFiber(pump.pump_fiber);  // the pump reads the system's events and hands back
     } else {
         SDL_PumpEvents();
     }
+}
+
+bool poll_event(SDL_Event& event) {
+    if (SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST) > 0) {
+        return true;
+    }
+    pump_events();
     return SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST) > 0;
 }
 
@@ -149,6 +153,18 @@ void set_background_handler(void (*handler)()) {
 
 int run_pumped(int (*program)(void*), void* argument) {
     return program(argument);
+}
+
+void pump_events() {
+    SDL_PumpEvents();
+#if defined(OPENRAC_IOS)
+    // The render worker's completion wait also pumps SDL. Once the lifecycle callback has
+    // drained the GPU, keep that wait from returning to frame recording until the app resumes.
+    while (backgrounded && !SDL_HasEvent(SDL_EVENT_QUIT)) {
+        SDL_Delay(10);
+        SDL_PumpEvents();
+    }
+#endif
 }
 
 bool poll_event(SDL_Event& event) {

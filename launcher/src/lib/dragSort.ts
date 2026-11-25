@@ -14,9 +14,11 @@ export interface DragSortOptions {
 /** Where a row dropped at Y lands among rows whose middles are MIDDLES (the dragged one's left out). */
 export function dropIndex(middles: number[], from: number, y: number): number {
   let to = 0;
+
   middles.forEach((middle, i) => {
     if (i !== from && y > middle) to = i < from ? i + 1 : i;
   });
+
   return Math.max(0, Math.min(middles.length - 1, to));
 }
 
@@ -24,8 +26,11 @@ export function dropIndex(middles: number[], from: number, y: number): number {
 function scrollerOf(el: HTMLElement): HTMLElement {
   for (let at = el.parentElement; at; at = at.parentElement) {
     const { overflowY } = getComputedStyle(at);
-    if ((overflowY === "auto" || overflowY === "scroll") && at.scrollHeight > at.clientHeight) return at;
+
+    if ((overflowY === "auto" || overflowY === "scroll") && at.scrollHeight > at.clientHeight)
+      return at;
   }
+
   return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
 }
 
@@ -51,8 +56,14 @@ export function dragSort(list: HTMLElement, initial: DragSortOptions) {
 
   function mark(to: number | null) {
     for (const [i, row] of rows().entries()) {
-      row.classList.toggle("drop-above", to !== null && drag !== null && i === to && to < drag.from);
-      row.classList.toggle("drop-below", to !== null && drag !== null && i === to && to > drag.from);
+      row.classList.toggle(
+        "drop-above",
+        to !== null && drag !== null && i === to && to < drag.from,
+      );
+      row.classList.toggle(
+        "drop-below",
+        to !== null && drag !== null && i === to && to > drag.from,
+      );
     }
   }
 
@@ -64,15 +75,18 @@ export function dragSort(list: HTMLElement, initial: DragSortOptions) {
       scroller === document.scrollingElement
         ? { top: 0, bottom: window.innerHeight }
         : scroller.getBoundingClientRect();
+
     if (drag.y < box.top + EDGE) scroller.scrollTop -= STEP;
     else if (drag.y > box.bottom - EDGE) scroller.scrollTop += STEP;
     // The row follows the pointer, and the page under it when it scrolls.
     drag.row.style.transform = `translateY(${drag.y - drag.startY + scroller.scrollTop - drag.startScroll}px)`;
     const middles = rows().map((r) => {
       const b = r.getBoundingClientRect();
+
       // The dragged row's own box moves with it: its place in the list is where it started.
       return r === drag?.row ? Number.NaN : b.top + b.height / 2;
     });
+
     drag.to = dropIndex(middles, drag.from, drag.y);
     mark(drag.to);
     drag.frame = requestAnimationFrame(follow);
@@ -81,12 +95,15 @@ export function dragSort(list: HTMLElement, initial: DragSortOptions) {
   function down(e: PointerEvent) {
     if (drag || !options.enabled || e.button !== 0) return;
     const grip = (e.target as HTMLElement | null)?.closest("[data-grip]");
+
     if (!grip || !list.contains(grip)) return;
     const row = rows().find((r) => r.contains(grip));
+
     if (!row) return;
     e.preventDefault();
     const from = rows().indexOf(row);
     const scroller = scrollerOf(list);
+
     drag = {
       row,
       from,
@@ -111,6 +128,7 @@ export function dragSort(list: HTMLElement, initial: DragSortOptions) {
   function end(drop: boolean) {
     if (!drag) return;
     const { row, from, to, frame } = drag;
+
     cancelAnimationFrame(frame);
     row.style.transform = "";
     row.classList.remove("dragging");
@@ -130,6 +148,7 @@ export function dragSort(list: HTMLElement, initial: DragSortOptions) {
   list.addEventListener("pointermove", move);
   list.addEventListener("pointerup", up);
   list.addEventListener("pointercancel", cancel);
+
   return {
     update(next: DragSortOptions) {
       options = next;

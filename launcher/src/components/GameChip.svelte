@@ -3,6 +3,7 @@
   // marked with the launcher's accent (the game's own, themes.ts). Android has no game list beside
   // those pages: a tap goes to Games to choose another.
   import { app } from "$lib/app.svelte";
+
   import Icon from "./Icon.svelte";
 
   let { title, what }: { title: string; what: string } = $props();

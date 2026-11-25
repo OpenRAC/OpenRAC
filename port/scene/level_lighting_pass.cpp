@@ -4,13 +4,14 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <functional>
 #include <iterator>
 #include <stdexcept>
 
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "scene/hero_shadow.h"
@@ -111,12 +112,13 @@ void LevelScene::bind_surface_lighting(
 }
 
 void LevelScene::bind_sun_shadow(
-    const renderer::Shader& shader, const renderer::Camera& camera
+    const renderer::Shader& shader, const renderer::Camera& camera, renderer::ShadowFilter filter
 ) const {
     if (!enhanced_rendering_available()) {
         return;
     }
     glUniform1i(shader.uniform("sun_shadow_enabled"), m_sun_ready ? 1 : 0);
+    glUniform1i(shader.uniform("sun_shadow_fast"), filter == renderer::ShadowFilter::Fast ? 1 : 0);
     int separate = 0;
     for (unsigned i = 0; i < kSunCascades; ++i) {
         if (m_scroll_shadows[i].active) {
@@ -166,32 +168,56 @@ void LevelScene::render_early_lighting(
     }
     state.world_shadows_prepared = true;
     std::string error;
+    const auto bind_lighting = [&](const renderer::Shader& shader) {
+        m_lighting->bind(shader, Layer::Terrain, true, &input.camera, true);
+        bind_sun_shadow(shader, input.camera, input.shadow_filter);
+        bind_cloud_shadows(shader, input, true);
+        bind_hero_shadow(shader);
+        glUniform1i(shader.uniform("early_ao_enabled"), state.gtao_raw != 0 ? 1 : 0);
+        glUniform1i(shader.uniform("early_ao"), 18);
+        glUniform1i(shader.uniform("early_ao_scale"), state.gtao_scale);
+        glUniform1f(
+            shader.uniform("early_ao_strength"), std::clamp(state.gtao_strength, 0.0f, 3.0f)
+        );
+        glActiveTexture(GL_TEXTURE0 + 18);
+        glBindTexture(renderer::world::gl::GL_TEXTURE_BUFFER, state.gtao_raw);
+        glActiveTexture(GL_TEXTURE0);
+    };
     // Drawn only where it is needed (needs_early_lighting), which takes registered lighting.
     state.early_lighting =
         m_lighting
-        && m_lighting->render_early(
-            depth,
-            input,
-            state.target,
-            [&](const renderer::Shader& shader) {
-                m_lighting->bind(shader, Layer::Terrain, true, &input.camera, true);
-                bind_sun_shadow(shader, input.camera);
-                bind_hero_shadow(shader);
-                glUniform1i(shader.uniform("early_ao_enabled"), state.gtao_raw != 0 ? 1 : 0);
-                glUniform1i(shader.uniform("early_ao"), 18);
-                glUniform1i(shader.uniform("early_ao_scale"), state.gtao_scale);
-                glUniform1f(
-                    shader.uniform("early_ao_strength"), std::clamp(state.gtao_strength, 0.0f, 3.0f)
-                );
-                glActiveTexture(GL_TEXTURE0 + 18);
-                glBindTexture(renderer::world::gl::GL_TEXTURE_BUFFER, state.gtao_raw);
-                glActiveTexture(GL_TEXTURE0);
-            },
-            error
-        );
+        && m_lighting->render_early(depth, input, state.target, std::cref(bind_lighting), error);
     stats::gauge("early lighting active", state.early_lighting ? 1 : 0);
     if (!error.empty()) {
         log::warn("early lighting: {}", error);
     }
+}
+
+void LevelScene::bind_cloud_shadows(
+    const renderer::Shader& shader, const renderer::FrameInput& input, bool world_view
+) const {
+    const GLint shape = shader.uniform("cloud_shadow_shape");
+    if (shape < 0) {
+        return;
+    }
+    const auto& clouds = input.cloud_shadows;
+    const auto& travel = m_sun_cascades.travel_direction;
+    const float strength =
+        world_view && m_sun_ready && travel[2] <= 0.f ? clouds.effective_strength() : 0.f;
+    glUniform4f(shape, clouds.minimum, clouds.maximum, clouds.scale, strength);
+    if (strength <= 0.f) {
+        return;
+    }
+
+    const float angle = clouds.direction * 0.01745329252f;
+    const auto seconds = static_cast<float>(input.cloud_seconds);
+    const float drift = seconds * clouds.speed;
+    glUniform3f(
+        shader.uniform("cloud_shadow_motion"),
+        std::cos(angle) * drift,
+        std::sin(angle) * drift,
+        seconds * clouds.undulation
+    );
+    glUniform3f(shader.uniform("cloud_shadow_to_sun"), -travel[0], -travel[1], -travel[2]);
 }
 }  // namespace openrac::scene

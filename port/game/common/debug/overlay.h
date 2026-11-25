@@ -25,6 +25,7 @@
 #include <filesystem>
 #include <format>
 #include <imgui.h>
+#include <memory>
 #include <optional>
 #include <set>
 #include <span>
@@ -146,6 +147,7 @@ struct MenuMotion {
     int page_tab = -1;           // the tab the page is of
     float help = 1.0f;           // the help's text, 0 just changed, 1 shown
     int help_of = -2;            // the entry it is of (s.menu_hover)
+    std::string help_title;      // the panel row it is of (s.menu_hover_title)
     bool pad = false;            // the last input was a controller's: its buttons are named
     float quit_hold = 0.0f;      // seconds the controller's quit button has been held
     int last_tab = 0;            // the last of the bar's tabs open (not a button's page)
@@ -200,7 +202,6 @@ struct State {
     bool configured = false;            // the environment was read
     bool visible = false;               // the panel is shown (F3)
     bool initialised = false;           // the ImGui context exists
-    bool gl_subset = false;  // drawn with the renderer's GL (imgui_gl.h): the window's is Vulkan's
     std::array<bool, kSectionCount> open_at_start = {true, false, false, false, false, false};
 
     // The last tick, as the window gave it.
@@ -232,11 +233,12 @@ struct State {
     std::uint32_t selected = 0;  // address; 0 none
     bool follow_hero = false;    // "inspect": the hero is selected, whichever moby he is now
     bool material_settings = false;  // Unified authoring window, independent of Enhanced Settings.
-    bool material_preset_edit = false;   // Shared preset editing instead of one object slot.
     std::string material_preset;         // Stable preset id, revalidated after level changes.
-    std::size_t material_selection = 0;  // Current immutable binding row, revalidated on each draw.
-    std::uint32_t material_model = ~0u;  // Pending click-picker model, or none.
-    int material_slot = -1;              // Pending click-picker material.
+    int material_library_preset = -1;
+    std::optional<std::size_t> material_selection;  // Active slot for the preview.
+    std::vector<std::size_t> material_extra_slots;
+    std::weak_ptr<const scene::MaterialAssets> material_selection_assets;
+    bool material_pick_pending = false;  // Resolve the latest picker result in the editor.
     std::string material_error;          // Persistent edit/save diagnostics.
     bool enhanced_settings = false;  // Independent Enhanced Settings window.
     bool meat_proxy_review = false;
@@ -281,6 +283,7 @@ struct State {
     bool menu_focus_first = false;  // the next row drawn takes the focus (debug/menu_ui.cpp)
     MenuMotion menu_motion;         // the desktop's window's scroll and transitions
     int menu_want_tab = -1;         // a menu::Tab to open the window at (F13: Controls); -1 none
+    std::string menu_want_mod_tab;  // a mod's tab (OPENRAC_MENU), its title in lower case
     bool pad_locked = false;        // ImGui gets no gamepad: a binding's press until let go
     bool drew_last_frame = false;   // the overlay drew the frame before (ImGui's clock ran)
     Scroll menu_scroll;             // the finger's drag over the drawer's rows
@@ -291,8 +294,12 @@ struct State {
     bool quit_asked = false;          // Quit pressed in the drawer: its confirmation is shown
     bool quit_focus = false;          // the confirmation's first row takes the focus once
     int menu_tab = 0;                 // the desktop's open tab, by its place on the bar
+    int controls_sub_tab = -1;        // Controls: 0 Gamepad, 1 Keyboard and mouse, -1 unpicked
     long long menu_open_at = -1;      // OPENRAC_MENU: the tick to open the menu at; -1 none
     int menu_hover = -1;              // the entry under the pointer or the focus (menu::Id), or -1
+    // A row of an entry's panel with help of its own (a mod setting): its heading, name and line,
+    // shown in place of the entry's. Empty: the entry's.
+    std::string menu_hover_section, menu_hover_title, menu_hover_help;
     float menu_row_height = 48.0f;    // a row's height in dp: a thumb's on a touch screen
     bool drawer_developer = false;    // the drawer's developer tools unfolded
     bool drawer_fixes = false;        // the drawer's game fixes unfolded
@@ -568,7 +575,8 @@ void capture_frame(const Shown& shown);
 // details are separate in debug/picker.cpp.
 void picture_marks(const Shown& shown);
 // Draws unified material authoring controls after the window-thread handoff.
-void material_settings_window();
+void material_settings_window(const Shown& shown);
+void release_material_preview();
 void picker_overlay(const Shown& shown);
 // Reads one native input action; the returned comma begins the next frame/action pair.
 Result<const char*> read_scripted_action(const char*, ScriptedInput&);

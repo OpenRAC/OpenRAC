@@ -102,7 +102,12 @@
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    mask: radial-gradient(circle closest-side, transparent 0 12.6%, black 13% 99.2%, transparent 100%);
+    mask: radial-gradient(
+      circle closest-side,
+      transparent 0 12.6%,
+      black 13% 99.2%,
+      transparent 100%
+    );
   }
 
   .print,

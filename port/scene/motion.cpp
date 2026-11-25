@@ -7,8 +7,8 @@
 #include <stdexcept>
 
 #include "common/stats.h"
-#include "renderer/colour_graph.h"
-#include "renderer/gl.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/gl/gl.h"
 #include "scene/level_lighting.h"
 #include "scene/level_renderer.h"
 
@@ -74,6 +74,10 @@ void LevelScene::draw_motion(
         throw std::runtime_error(reads.error().message);
     }
 
+    if (view.raster_zero_to_one) {
+        glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+    }
+
     // Both paths share the same textures, pose history and coverage shader.
     if (batched) {
         draw_motion_batches(shader, textures);
@@ -84,6 +88,9 @@ void LevelScene::draw_motion(
         }
     }
 
+    if (view.raster_zero_to_one) {
+        glClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
+    }
     glBindVertexArray(0);
 }
 
@@ -184,6 +191,7 @@ void LevelScene::draw_motion_materials(
 ) {
     if (m_lighting) {
         m_lighting->bind_deformation(shader, floats_on_water);
+        m_lighting->bind_moby_model(shader, model);
     }
     // Material runs use their original alpha texture, matching world depth coverage.
     for (const auto& primitive : m_models[model].primitives) {

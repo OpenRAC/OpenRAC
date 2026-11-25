@@ -15,6 +15,11 @@ in vec3 v_world;
 #endif
 
 uniform sampler2D tex_T0;
+#ifdef OPENRAC_EFFECT_PAIR
+// Effect quads that take turns with two textures are one draw: v_pair picks the second one.
+flat in float v_pair;
+uniform sampler2D tex_T2;
+#endif
 #ifndef OPENRAC_EFFECT_FIXED
 uniform sampler2D tex_T1;      // with distance_field: R the glyphs' opacity, A the distance to their edge
 #endif
@@ -55,12 +60,25 @@ bool alpha_passes(float a) {
 
 void main() {
     vec4 c = v_colour;
+    // Active volumetric transport replaces the strip's authored fog.
+    bool apply_fog = fog_enable != 0;
+#ifdef OPENRAC_EFFECT_ATMOSPHERE
+    apply_fog = apply_fog && atmosphere_enabled == 0;
+#endif
+#ifdef OPENRAC_EFFECT_FOG
+    bool gs_colour = apply_fog && textured != 0 && tfx == 0;
+#endif
 #ifndef OPENRAC_EFFECT_FIXED
     if (textured != 0)
 #endif
     {
         // S/Q, T/Q per pixel, as the chip divides.
-#ifdef OPENRAC_UPSCALED_TEXTURE_COLOURS
+#if defined(OPENRAC_EFFECT_PAIR)
+        // v_pair is flat, the same over a whole triangle, so the derivatives stay valid.
+        vec4 t = (v_pair > 0.5 ? texture(tex_T2, v_stq.xy / v_stq.z)
+                               : sample_upscaled_texture_colours(v_stq.xy / v_stq.z))
+                 * 255.0;
+#elif defined(OPENRAC_UPSCALED_TEXTURE_COLOURS)
         vec4 t = sample_upscaled_texture_colours(v_stq.xy / v_stq.z) * 255.0;
 #else
         vec4 t = texture(tex_T0, v_stq.xy / v_stq.z) * 255.0;
@@ -79,7 +97,16 @@ void main() {
         }
         // Byte RGB products are bounded by 255*255=65025 (<65504); alpha remains FP32.
         if (tfx == 0) {
-            c.rgb = vec3(mp_vec3(c.rgb) * mp_vec3(t.rgb) / mp_float(128));
+#ifdef OPENRAC_EFFECT_FOG
+            if (gs_colour) {
+                // Keep the GS's byte truncation between sampling, modulation and fog.
+                // Allow a small tolerance for sampler precision at integer texel values.
+                c.rgb = trunc(trunc(c.rgb) * trunc(t.rgb + 0.05) / 128.0);
+            } else
+#endif
+            {
+                c.rgb = vec3(mp_vec3(c.rgb) * mp_vec3(t.rgb) / mp_float(128));
+            }
             c.a = tcc != 0 ? c.a * t.a / 128.0 : c.a;
         } else if (tfx == 1) {
             c.rgb = t.rgb;
@@ -94,14 +121,16 @@ void main() {
     }
     // COLCLAMP: the chip clamps to 0..255.
     c = clamp(c, 0.0, 255.0);
-    // Active volumetric transport replaces authored strip fog rather than applying it twice.
-    if (fog_enable != 0
-#ifdef OPENRAC_EFFECT_ATMOSPHERE
-        && atmosphere_enabled == 0
+    if (apply_fog) {
+#ifdef OPENRAC_EFFECT_FOG
+        if (gs_colour) {
+            // v_fog normalises the byte to 255, while the GS uses a divisor of 256.
+            c.rgb = trunc(mix(fog_colour, c.rgb, v_fog * (255.0 / 256.0)));
+        } else
 #endif
-    ) {
-        // Alpha and alpha-test arithmetic remain FP32.
-        c.rgb = vec3(mix(mp_vec3(fog_colour), mp_vec3(c.rgb), mp_float(v_fog)));
+        {
+            c.rgb = vec3(mix(mp_vec3(fog_colour), mp_vec3(c.rgb), mp_float(v_fog)));
+        }
     }
 #ifndef OPENRAC_EFFECT_FIXED
     // A pixel that fails the test writes nothing.

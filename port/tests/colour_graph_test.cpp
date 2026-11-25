@@ -14,17 +14,18 @@
 #include <utility>
 #include <vector>
 
-#include "renderer/colour_graph.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
-#include "renderer/surface_chain.h"
-#include "renderer/vulkan/frame_capture.h"
-#include "renderer/vulkan/graph_execution.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/diagnostics/frame_capture.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -71,7 +72,10 @@ struct Fixture {
     // Draws one partial blended overlay and snapshots its complete colour/depth without aliasing.
     std::vector<std::uint8_t> render();
     // Copies/compares background colour and packs sampled depth after native snapshot completion.
-    std::vector<std::uint8_t> read_snapshot(const renderer::RenderTarget& target);
+    std::vector<std::uint8_t> read_snapshot(
+        const renderer::RenderTarget& target,
+        renderer::SnapshotAttachments attachments = renderer::SnapshotAttachments::ColourDepth
+    );
 };
 
 Fixture::Fixture() {
@@ -121,13 +125,20 @@ std::vector<std::uint8_t> Fixture::render() {
     return read_snapshot(target);
 }
 
-std::vector<std::uint8_t> Fixture::read_snapshot(const renderer::RenderTarget& target) {
+std::vector<std::uint8_t> Fixture::read_snapshot(
+    const renderer::RenderTarget& target, renderer::SnapshotAttachments attachments
+) {
     const int side = source.width();
     glBindFramebuffer(GL_READ_FRAMEBUFFER, source.id());
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, snapshot.id());
     // The graph keeps native colour resolve and sample-zero depth resolve as separate work phases.
-    const auto copied =
-        renderer::colour_snapshot(target, snapshot.id(), source.samples(), [&](bool depth_copy) {
+    std::array<unsigned, 2> copies{};
+    const auto copied = renderer::colour_snapshot(
+        target,
+        snapshot.id(),
+        source.samples(),
+        [&](bool depth_copy) {
+            ++copies[depth_copy];
             glBlitFramebuffer(
                 0,
                 0,
@@ -140,8 +151,12 @@ std::vector<std::uint8_t> Fixture::read_snapshot(const renderer::RenderTarget& t
                 depth_copy ? GL_DEPTH_BUFFER_BIT : GL_COLOR_BUFFER_BIT,
                 GL_NEAREST
             );
-        });
+        },
+        attachments
+    );
     CHECK(copied);
+    CHECK(copies[0] == unsigned(attachments != renderer::SnapshotAttachments::Depth));
+    CHECK(copies[1] == unsigned(attachments != renderer::SnapshotAttachments::Colour));
     const auto colour = snapshot.read_rgba();
     CHECK(colour == source.read_rgba());
     glBindFramebuffer(GL_FRAMEBUFFER, output.id());
@@ -150,7 +165,7 @@ std::vector<std::uint8_t> Fixture::read_snapshot(const renderer::RenderTarget& t
     glBindTexture(GL_TEXTURE_2D, snapshot.depth_texture());
     glUniform1i(depth.uniform("source_depth"), 0);
     CHECK(renderer::graphics_shader_reads("snapshot depth reader"));
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     auto result = output.read_rgba();
     const std::array<std::uint8_t, 4> packed{result[0], result[1], result[2], result[3]};
     CHECK(std::abs(std::bit_cast<float>(packed) - .25f) < 0.000001f);
@@ -165,6 +180,9 @@ void check_sample_count(Fixture& fixture, int samples) {
         fixture.resize(side, samples);
         const auto reference = fixture.render();
         CHECK(reference == fixture.render());
+        const renderer::RenderTarget target{fixture.source.id(), side, side};
+        CHECK(reference == fixture.read_snapshot(target, renderer::SnapshotAttachments::Depth));
+        CHECK(reference == fixture.read_snapshot(target, renderer::SnapshotAttachments::Colour));
     }
 }
 
@@ -222,6 +240,19 @@ void main(){colour=textureLod(image,vec2(.5),1.);}
     CHECK(pass.images[0].range.mip_count == 2);
     CHECK(
         pass.images[0].state.stages == (graph::Stage::VertexShader | graph::Stage::FragmentShader)
+    );
+    const auto output = execution.import_attachment(
+        "mip sampling output",
+        fixture.output.id(),
+        graph::Aspect::Colour,
+        vkgl::InitialContents::Discard
+    );
+    CHECK(output);
+    pass.images.push_back(
+        {*output,
+         {},
+         {graph::Stage::ColourOutput, graph::Access::Write, graph::Layout::ColourAttachment},
+         graph::Load::Discard}
     );
     execution.add_pass(std::move(pass));
     glBindFramebuffer(GL_FRAMEBUFFER, fixture.output.id());
@@ -460,7 +491,7 @@ std::vector<std::uint8_t> ordered_blending(Fixture& fixture) {
     }));
     // Outgoing bucket state must also reach work beyond the shared scope.
     glScissor(0, 0, side, side);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto pixels = fixture.output.read_rgba();
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_BLEND);

@@ -1,137 +1,105 @@
 # The games
 
-Each game version the port builds is a directory here, named as its
-decompilation is under `games/` (`games/rac1/decomp` is `rac1-pal`). The build
-makes `openrac-<id>` for every one whose decompilation is present:
+Each folder here is one program the port builds (`openrac-<id>`), or what one game's programs
+share. The build makes a program for every folder whose decompilation is present.
 
-| Directory | Game | Decompilation | Entry (`main`) | Library table |
-|---|---|---|---|---|
-| [rac1-pal](rac1-pal/README.md) | Ratchet & Clank (PAL) | `games/rac1/decomp` | `func_0012DB18` | complete, from [the survey](../../docs/port/RAC1_PAL_SURVEY.md) |
-| [rac1-ntsc](rac1-ntsc/README.md) | Ratchet & Clank (NTSC-U) | `games/rac1/ntsc-decomp` | `FUN_0012d9d8` | carried from rac1-pal's ([versionmap](../tools/versionmap/README.md)); plays, like rac1-pal |
-| [rac2-ntsc](rac2-ntsc/README.md) | Going Commando (NTSC-U) | `games/rac2/decomp` (`src/`, with level placements from `config/levels/functions.tsv`) | `func_00131AE8` (its crt0, the port's own; `main` is `func_00131D98`) | from its symbol table and byte comparison with rac1-pal's and rac4's; reaches its main menu with a further-along decompilation |
-| rac2-pal | Going Commando (PAL, *Locked and Loaded*) | `games/rac2/decomp` through its release view ([rac2](rac2/README.md)): `src/` and `src/pal`, PAL's catalogues | `func_00131B48` (v1.01's crt0 `func_00131AE8` at PAL's address) | rac2-ntsc's, carried by `release_carry.py` |
-| rac2-ntsc2 | Going Commando (USA v2.00, Greatest Hits) | `games/rac2/decomp` through its release view: `src/` and `src/us2` | `func_00131AE8` | rac2-ntsc's, carried |
-| rac3-ntsc | Up Your Arsenal (NTSC-U) | `games/rac3/decomp` through its NTSC-U view (`src/` and `src/us`, renamed to NTSC-U's addresses by `release_names.json`, from rac3-decomp's `config/us/map.tsv` and `config/us/names.tsv`: [release_rac3.py](../tools/hostgen/release_rac3.py)); without `i5bootn`, the online program; the menu, `frontbin`, as a group of its own | not known yet | empty |
-| rac3-pal | Up Your Arsenal (PAL) | `games/rac3/decomp` as it is, in PAL's own names (`src/boot_elf`, `src/frontbin`; no release table); without `i5bootn`; the menu, `frontbin`, as a group of its own; the NTSC-U drafts only where PAL's code is the same (`candidates_left_out` names the rest) | not known yet | empty |
-| rac4-ntsc | Deadlocked (NTSC-U) | `games/rac4/decomp` | not known yet | its libc, from `config/libc.tsv` |
+| Folder | Disc | Decompilation | Entry (`main`) |
+|---|---|---|---|
+| [rac1-pal](rac1-pal/README.md) | Ratchet & Clank, PAL v2.00 (SCES-50916) | `games/rac1/decomp` | `func_0012DB18` |
+| [rac1-pal1](rac1-pal1/README.md) | Ratchet & Clank, PAL v1.00 (SCES-50916) | `games/rac1/decomp`, release view | as rac1-pal |
+| [rac1-jp](rac1-jp/README.md) | Ratchet & Clank, NTSC-J (SCPS-15037) | `games/rac1/decomp`, release view | as rac1-pal |
+| [rac1-ntsc](rac1-ntsc/README.md) | Ratchet & Clank, NTSC-U (SCUS-97199) | `games/rac1/ntsc-decomp` | `FUN_0012d9d8` |
+| [rac2-ntsc](rac2-ntsc/README.md) | Going Commando, NTSC-U v1.01 (SCUS-97268) | `games/rac2/decomp` | `func_00131AE8` |
+| [rac2-ntsc2](rac2-ntsc2/README.md) | Going Commando, USA v2.00 (SCUS-97268) | `games/rac2/decomp`, release view | `func_00131AE8` |
+| [rac2-pal](rac2-pal/README.md) | Going Commando, PAL (SCES-51607) | `games/rac2/decomp`, release view | `func_00131B48` |
+| [rac3-ntsc](rac3-ntsc/README.md) | Up Your Arsenal, NTSC-U (SCUS-97353) | `games/rac3/decomp`, release view of rac3-pal | as rac3-pal |
+| [rac3-pal](rac3-pal/README.md) | Up Your Arsenal, PAL (SCES-52456); its host C and profile are both discs' | `games/rac3/decomp` | `func_0013ADA8` (the port's loader and crt0) |
+| [rac4-ntsc](rac4-ntsc/README.md) | Deadlocked, NTSC-U | `games/rac4/decomp` | not known yet |
 
-Everything else is shared: game memory and the guest contract
-([runtime](../runtime)), the translator ([hostgen](../tools/hostgen/README.md)),
-the library replacements and the program ([common](common)), the platform
-layer and the renderer.
+A *release view* builds a disc from another disc's C: the same functions at the release's
+addresses, plus the release's own C where its code differs. Its tables are generated, never
+edited by hand. [rac1](rac1/README.md) and [rac2](rac2/README.md) hold what a game's discs share:
+host C, the profile, game fixes (`differences.json`) and parity reasons (`parity.tsv`).
 
-The program in `common/` is split into folders. The build takes every `.cpp`
-file from them ([Games.cmake](../cmake/Games.cmake)), so a new file needs no
-CMake line:
+Everything else is shared by all games: game memory ([runtime](../runtime)), the translator
+([hostgen](../tools/hostgen/README.md)), library replacements and the program itself
+([common](common)).
+
+## The common folder
+
+The build takes every `.cpp` file in these folders ([Games.cmake](../cmake/Games.cmake)), so a new
+file needs no CMake line.
 
 | Folder | |
 |---|---|
-| `common/program/` | The program itself, with or without a window: `main`, its options, vsync, the host side of `game_host.h` |
-| `common/frontend/` | Built only with a window: frame pacing, interpolation, world submission, input |
-| `common/debug/` | The debug overlay and menu, built only with a window. `overlay.h` holds the state its panels share; each panel and window has its own file |
+| `common/program/` | the program, with or without a window: `main`, options, vsync, the host side of `game_host.h` |
+| `common/frontend/` | window builds only: frame pacing, interpolation, world submission, input |
+| `common/debug/` | window builds only: the debug overlay and menu (`overlay.h` holds their shared state) |
+| `common/lib/` | the library replacements (`cdvd.c`, `mc.c`, `graph.c`, `kernel.c`, `pad.c`, `snd.c`, `libc.c`, `vu0.c`) and routines several games share |
 
 ## What a game is
 
 | File | |
 |---|---|
-| `hostgen.json` | what the game is and how to read its decompilation (below) |
-| `libraries.tsv` | every library entry point the game calls that the port answers itself: symbol, library, name, port (`host`, `game`, `wrap`, `todo`), notes, optional signature. A `host` row binds the address to the shared replacement of that name ([common/libraries.tsv](common/libraries.tsv)) |
-| `host/*.c` | only if the game needs C of its own: `wrap` functions, its overlay hook. A game's versions share theirs (`"host_shared"`: rac1's in [rac1/host](rac1/README.md)), each with a table of its names and addresses. A routine several games have alike keeps one body in `common/lib/` and, in each game's `host/`, a two-line function at the game's address with the game's own facts: the WAD decompressor ([wad_routine.h](common/lib/wad_routine.h)) and the VU0 sine and cosine ([vu0_sine.h](common/lib/vu0_sine.h)) of rac2 and rac4 |
-| `no_c.tsv` | every function hostgen has no C for, or wrote C for from its assembly, and whether the port needs C for it (below) |
+| `hostgen.json` | what the game is and how to read its decompilation (keys below) |
+| `libraries.tsv` | every library entry point the game calls that the port answers: symbol, library, name, kind (`host`, `game`, `wrap`, `todo`), note, optional C type. A `host` row binds the address to the shared replacement ([common/libraries.tsv](common/libraries.tsv)) |
+| `host/` | the program's own C, if any: `wrap` functions, the overlay hook. Discs of one game share theirs (`"host_shared"`), each with a table of its names and addresses |
+| `hand/` | C for functions the decompilation has only as assembly |
+| `no_c.tsv` | the functions hostgen has no C for, and whether the port needs C for them (below) |
+| `icon.png`, `icon-macos.png` | the window's icon; macOS draws the Dock icon as given, so it has its own |
 
-What the host program's C++ knows of a game (the camera, the live mobys, the display list shown,
-the hero's shadow and state, whether its levels are extracted) comes from the game's profile,
-`host::GameProfile` ([common/profile.h](common/profile.h)): a version's own `profile.cpp` in its
-folder (Going Commando's and Deadlocked's, which send their display list), else one for the whole
-game in `port/game/<game>/profile.cpp` beside its `script_binding.c`, with a profile for each of
-its versions ([rac1's](rac1/README.md#the-games-profile)). A game with none links
-[common/profile_none.cpp](common/profile_none.cpp), the base, which reports no game state. The
-shared code never compares a game id.
+The host's C++ reads the running game (camera, live mobys, display list, hero) only through the
+game's profile, `host::GameProfile` ([common/profile.h](common/profile.h)): a game's `profile.cpp`,
+in its shared folder or its own. A game with none links [profile_none.cpp](common/profile_none.cpp).
+Shared code never compares a game id.
 
-`hostgen.json`:
+`hostgen.json` keys:
 
 | Key | |
 |---|---|
-| `id`, `title`, `game`, `serial` | `rac1-pal`; `Ratchet & Clank (PAL)`; the extractor's game (`rac1`); its executable on the disc |
+| `id`, `title`, `game`, `serial` | `rac1-pal`; `Ratchet & Clank (PAL)`; the extractor's game; the executable on the disc |
 | `source` | the decompilation, from the top of OpenRAC; `-DOPENRAC_<ID>_SOURCE=<dir>` builds another copy |
-| `frame_rate` | 50 (PAL) or 60 |
-| `entry` | the game's `main`, or null while it is not known: the program then says so and stops |
+| `frame_rate` | 50 or 60 |
+| `entry` | the game's `main`, or null while unknown (the program then says so and stops) |
 | `sources`, `skip`, `includes`, `defines` | the C to translate and how to read it |
-| `names` | how the decompilation names code and data by address, as regular expressions with `addr` (and `overlay`) groups; rac1/pal's (`func_`, `func_Lnn_`, `D_`) by default |
-| `symbols` | splat symbol files that give named globals and functions their addresses |
-| `derived` | `{"build": ..., "table": ...}`: the names the decompilation's own build derives (Going Commando's `build/boot/placed.json`), read from that build when it is there, else from the port's copy beside the configuration; neither stops hostgen ([derived.py](../tools/hostgen/derived.py)) |
-| `places` | where each level function sits in each level (rac1/pal's `functions.tsv`) |
-| `groups` | parts of the tree that are separate programs over the same addresses (rac3's menu, `src/frontbin`, overlay 100) |
-| `overlay_hook` | true if `host/` provides `openrac_game_loaded_overlay` (which level's program is loaded) |
-| `hand`, `drafts` | C for functions the decompilation has as assembly: the port's own (`hand/hand.tsv`), and the decompilation's own drafts (`drafts.tsv`) ([hostgen](../tools/hostgen/README.md#a-games-configuration)) |
-| `overrides` | the port's own C for functions the decompilation has as matching C, where the port has to do otherwise (`hand/overrides.tsv`): it replaces the matched definition in the port only, and the decompilation keeps its match ([hostgen](../tools/hostgen/README.md#a-games-configuration)) |
-| `asm` | C from the assembly the game's setup wrote, for the functions with no C: its directories in the decompilation, `$gp`, whether it is on, and the retail program to read the same instructions from where the files are not (`"retail"`; a player's build reads its disc image) ([hostgen](../tools/hostgen/README.md#functions-with-no-c-c-from-their-assembly)) |
+| `names` | how the decompilation names code and data by address (regular expressions with `addr` and `overlay` groups) |
+| `symbols` | splat symbol files with named globals and functions |
+| `derived` | names the decompilation's own build derives, read from that build or the port's copy ([derived.py](../tools/hostgen/derived.py)) |
+| `places` | where each level function sits in each level |
+| `groups` | parts of the tree that are separate programs over the same addresses (rac3's menu) |
+| `overlay_hook` | true if `host/` provides `openrac_game_loaded_overlay` |
+| `hand`, `drafts`, `overrides` | the port's C for assembly-only functions, the decompilation's own drafts, and the port's C in place of matched C ([hostgen](../tools/hostgen/README.md#a-games-configuration)) |
+| `asm` | C written from the assembly where there is no C, read from the disc where the files are not there ([hostgen](../tools/hostgen/README.md#functions-with-no-c-c-from-their-assembly)) |
 | `roots` | where hostgen's frontier report starts |
+| `data_allow`, `data_refs` | the data guard's allow table and the disc's data places ([below](#the-functions-with-no-c)) |
 
 ## The functions with no C
 
-Each rac1 version's `no_c.tsv` lists every function hostgen has no C for, or
-wrote C for from its assembly, and says whether the port needs C for it,
-with the evidence: [no_c.py](../tools/hostgen/no_c.py) reads every call,
-jump, branch, address formed in code and data word that refers to it in the
-retail executable and in all 19 level programs, and hostgen's own call
-graph. Class `a` needs no C, `b` is replaced by the host on purpose, `c`
-needs C. As of 2026-10-18:
+[no_c.py](../tools/hostgen/no_c.py) writes each rac1 program's `no_c.tsv`. It reads every call,
+jump, branch, address and data word that refers to a function in the executable and all level
+programs, and sorts it: class `a` needs no C (linker remnants, padding, pieces of other functions,
+unused), `b` is replaced by the host on purpose, `c` needs C. Every class `c` function has C now,
+translated from the disc. Rows whose evidence starts with "by hand:" are kept when it runs again.
 
-| | rac1-pal | rac1-ntsc |
-|---|---:|---:|
-| **a** needs no C | 475 | 1,432 |
-| ... linker remnant (the decompilation's lists, `asm/remnants`) | 236 | |
-| ... a piece of a function with C (only its branches and jumps reach it) | 143 | |
-| ... padding (the linker's 0xCDCDCDCD fill) | 36 | |
-| ... nothing refers to it in any program | 41 | 2 |
-| ... another spelling of a function with C (calls go there) | 19 | 1,369 |
-| ... declared, defined nowhere, called by nothing | | 61 |
-| **b** replaced by the host on purpose | 27 | 3 |
-| ... only host-replaced functions call it (a library's syscall wrapper, the WAD decompressor's helpers, VU0 animation code) | 12 | 1 |
-| ... a piece of a host-replaced function | 11 | |
-| ... the host's own (`fabsf`, `sqrtf`, `memcpy` as the host compiler's; the executable's crt0) | 4 | 2 |
-| **c** needs C | 7 | 7 |
-| ... of them with C now | 7 (translated from the retail program) | 7 (translated) |
+Calls are not the only way in. The game also reaches functions through addresses in its data (a
+moby's update, a menu page's callbacks) and the port through `wrap` rows. hostgen's data guard
+fails the build when any of these has no C, with no disc needed:
 
-Besides the table: libgcc's `__fixunsdfdi` (rac1-pal's `func_0011E6D8`, the
-float printer's) and `__udivdi3` and `__umoddi3` (rac1-ntsc, newlib's
-printf, strtol and malloc) are host rows of `libraries.tsv` now
-([common/lib/libc.c](common/lib/libc.c)), so they are no longer stubs.
-
-Every class `c` function has C: what hostgen translates from the retail
-program, which a player's build reads from the disc image
-([hostgen](../tools/hostgen/README.md#the-retail-program-where-the-assembly-is-not)).
-rac1-pal's are the moby class callbacks `func_L00_00203ED8` and
-`func_L00_0020DCB4` (data tables of every level), `func_L05_0023BAA0` (a
-table of levels 5 and 16), `func_L00_002569F8` (called by the moby update
-code), the MPEG colour conversion's `func_00127318` (code spimdisasm wrote as
-data), the VU0 vector scale entry `func_00125328` and `func_00120C58`;
-rac1-ntsc's are newlib's float conversion `func_00118338` (doubles in
-general registers), the VU0 scale entry `func_001251E8`, the MPEG routines
-`func_001271D8` and `func_0012C4C8`, the DMA completion handlers
-`func_0012A2D8` and `func_0012A5D8` (handed to AddDmacHandler2), and newlib's
-`malloc_extend_top`. None of the 509 and 1,442 was called in the regression
-routes of all 19 levels on master (docs/port/REGRESSION.md, `reach`).
-
-Rows whose evidence begins "by hand:" are judgements no_c.py keeps when it
-runs again (two in rac1-pal: a padding word whose address + 4 is a handler
-with C, and a hand-written piece whose address only looks like a level 3
-data word).
+- `checks/data_refs.tsv`: each place the disc's data holds a function's address, written from the
+  disc by [data_refs.py](../tools/hostgen/data_refs.py) (addresses only). Write it again when a
+  version is added or its catalogue moves.
+- functions a global's initializer in the decomp C names, and the `__game` side of `wrap` rows.
+- `checks/data_allow.tsv`: the ones allowed to stay without C, each with its reason (a name, or a
+  place where the port has no function).
 
 ## Moving a game on
 
-1. Find the game's `main` and put it in `entry`; add its title and level
-   loops to `roots`.
-2. Build it and read `build/<preset>/games/<id>/gen/report.md`: what is
-   translated, what became a stub and why, and the frontier (what the
-   program reaches that has no C).
-3. Bind the library functions it calls in `libraries.tsv` (the names in
-   [common/libraries.tsv](common/libraries.tsv)); a library the shared code
-   does not have yet gets a replacement in `common/lib/` and a row there.
-4. If its levels load their own programs (overlays), give it an overlay hook
-   as rac1 does ([rac1/host/boot.c](rac1/host/boot.c)).
+1. Put its `main` in `entry`, and its title and level loops in `roots`.
+2. Build it and read `build/<preset>/games/<id>/gen/report.md`: what is translated, what became a
+   stub, and what the program reaches that has no C.
+3. Bind the library functions it calls in `libraries.tsv`. A library the shared code lacks gets a
+   replacement in `common/lib/` and a row in `common/libraries.tsv`.
+4. If its levels load their own programs, give it an overlay hook ([rac1/host/boot.c](rac1/host/boot.c)).
 
-A new game version is a new directory with these files; the build finds it. A release that a
-decompilation builds from another release's C (Going Commando's PAL and v2.00) reads it through a
-release view instead of names of its own ([rac2](rac2/README.md)).
+A new disc of a game with a decompilation of another disc is a release view: see
+[rac1](rac1/README.md#carried-releases) and [rac2](rac2/README.md).

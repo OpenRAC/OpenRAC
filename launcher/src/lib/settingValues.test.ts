@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import type { PluginSetting } from "./api";
 import {
   formatValue,
@@ -20,7 +21,7 @@ const setting = (over: Partial<PluginSetting>): PluginSetting => ({
   ...over,
 });
 
-// The difficulty mod's Enemy count, Enemy speed and Weapon prices; keyboard-mouse's Stick ramp.
+// The difficulty mod's Enemy count, Enemy speed and Weapon prices; keyboard-mouse's Ramp-up time.
 const enemies = setting({ min: 0.25, max: 4, step: 0.25 });
 const speed = setting({ min: 0.5, max: 2, step: 0.05 });
 const prices = setting({ min: 0.1, max: 5, step: 0.05 });
@@ -88,7 +89,8 @@ describe("parseTyped", () => {
   });
 
   it("refuses what is not a number yet", () => {
-    for (const typed of ["", " ", "-", ".", "abc", "1..2"]) expect(parseTyped(enemies, typed)).toBeNull();
+    for (const typed of ["", " ", "-", ".", "abc", "1..2"])
+      expect(parseTyped(enemies, typed)).toBeNull();
   });
 });
 

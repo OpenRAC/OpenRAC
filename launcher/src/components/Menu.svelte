@@ -17,7 +17,18 @@
   // Tab goes back to the button.
   import Icon, { type IconName } from "./Icon.svelte";
 
-  let { items, label = "More actions" }: { items: MenuItem[]; label?: string } = $props();
+  let {
+    items,
+    label = "More actions",
+    text,
+    icon,
+  }: {
+    items: MenuItem[];
+    label?: string;
+    /** A button with words (and an icon) in place of the three dots: Import, say. */
+    text?: string;
+    icon?: IconName;
+  } = $props();
 
   let open = $state(false);
   let root = $state<HTMLElement | null>(null);
@@ -30,12 +41,17 @@
   function place() {
     if (!root || !list) return;
     const at = root.getBoundingClientRect();
+
     anchorLeft = at.left;
     anchorTop = at.top;
     const gap = 8;
     const below = at.bottom + gap + list.offsetHeight <= window.innerHeight - gap;
     const top = below ? at.bottom + gap : Math.max(gap, at.top - gap - list.offsetHeight);
-    const left = Math.min(Math.max(gap, at.right - list.offsetWidth), window.innerWidth - list.offsetWidth - gap);
+    const left = Math.min(
+      Math.max(gap, at.right - list.offsetWidth),
+      window.innerWidth - list.offsetWidth - gap,
+    );
+
     list.style.top = `${top}px`;
     list.style.left = `${left}px`;
   }
@@ -52,6 +68,7 @@
 
   $effect(() => {
     if (!open) return;
+
     const outside = (e: MouseEvent) => {
       if (root && !root.contains(e.target as Node)) open = false;
     };
@@ -67,13 +84,16 @@
       // A scroll queued before opening can arrive after this listener is attached.
       // Dismiss only if the trigger actually moved since the menu was placed.
       const at = root?.getBoundingClientRect();
+
       if (at?.left !== anchorLeft || at.top !== anchorTop) open = false;
     };
+
     window.addEventListener("mousedown", outside);
     window.addEventListener("keydown", key);
     window.addEventListener("resize", resized);
     // Capturing: the page scrolls inside <main> or SideFrame's column, and scroll does not bubble.
     window.addEventListener("scroll", moved, true);
+
     return () => {
       window.removeEventListener("mousedown", outside);
       window.removeEventListener("keydown", key);
@@ -96,6 +116,7 @@
             : e.key === "End"
               ? all.length - 1
               : null;
+
     if (to === null) return;
     e.preventDefault();
     all[to]?.focus();
@@ -110,15 +131,26 @@
 </script>
 
 <div class="menu" bind:this={root}>
-  <button
-    class="trigger"
-    bind:this={trigger}
-    aria-label={label}
-    title={label}
-    aria-haspopup="menu"
-    aria-expanded={open}
-    onclick={() => (open = !open)}><Icon name="more" size={20} /></button
-  >
+  {#if text}
+    <button
+      class="small words"
+      bind:this={trigger}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      onclick={() => (open = !open)}
+      >{#if icon}<Icon name={icon} size={14} />{/if}{text}</button
+    >
+  {:else}
+    <button
+      class="trigger"
+      bind:this={trigger}
+      aria-label={label}
+      title={label}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      onclick={() => (open = !open)}><Icon name="more" size={20} /></button
+    >
+  {/if}
   {#if open}
     <div class="list" role="menu" popover="manual" tabindex="-1" bind:this={list} onkeydown={move}>
       {#each plain as item (item.label)}
@@ -157,6 +189,12 @@
     padding: 0;
     justify-content: center;
     background: var(--control);
+  }
+
+  /* As tall as the three dots beside it, the words centred on the icon. */
+  .words {
+    height: 44px;
+    line-height: 1;
   }
 
   .list {

@@ -16,7 +16,7 @@ byte for byte.
 
 | Key | Values | Meaning |
 |---|---|---|
-| `hdr` | `off` (default), `on` | `on`: HDR when the system says the display is in HDR mode. Where it can't say (X11), HDR whenever the screen offers it. |
+| `hdr` | `off` (default), `on` | `on`: HDR whenever the screen offers it. On Android, only when the system says the display is in HDR mode. |
 | `hdr_paper_white` | `0`, `80` to `1000` nits | How bright the game's white is. `0`: the system's SDR brightness, else 203 |
 | `hdr_peak` | `0`, `400` to `10000` nits | The brightest the effects may go. `0`: what the display reports, else 1000 |
 | `hdr_highlights` | `0` to `100` % (default `100`) | Light above white. `0`: as in SDR |
@@ -31,10 +31,9 @@ brightness (203 by BT.2408); above 1000 the game's white reaches the peak and th
 standing out, so it stops at 1000. The display's own number (Windows' EDID peak,
 Android's desired max luminance or HDR/SDR headroom) stays the default.
 
-You can set the mode in the Video options page, the options drawer, the settings file, or the
-launcher's Settings > HDR. The launcher's Off or On is given to every start it makes
-(`OPENRAC_HDR`), over the game's own. The other keys are in the in-game menu (desktop and Android)
-and the settings file.
+You can set the mode in the Video options page, the in-game menu or the settings file. The other
+keys are in the in-game menu (desktop and Android) and the settings file. `OPENRAC_HDR=off|on`
+overrides the mode for one run.
 
 Turning HDR on from `off` needs a restart. Other changes apply at once.
 
@@ -47,16 +46,34 @@ plain HDR picture, bit for bit.
 
 ## Where it works
 
-HDR needs the Vulkan renderer. OpenGL always stays SDR.
+HDR needs the Vulkan renderer, which the Apple launcher labels Metal. `on` starts the game with
+Vulkan if OpenGL was picked. On macOS, MoltenVK uses the display's EDR for scRGB output. If Vulkan
+cannot start, the desktop game falls back to OpenGL in SDR.
 
-| Platform | Format | How `on` knows the display is in HDR |
+`on` sends HDR whenever the screen offers an HDR format, even if the system says the display is
+not in HDR mode. A compositor can get that wrong (Steam Deck's gamescope). Only Android follows
+the system, because its Vulkan offers HDR10 on every display.
+
+| Platform | Format | What the system tells the game |
 |---|---|---|
 | Windows | HDR10, else scRGB | SDL: HDR on, SDR brightness, peak |
 | Linux, Wayland | HDR10, else scRGB | SDL (needs a compositor with colour management) |
-| Linux, X11 | whatever the driver offers | it can't: HDR whenever the driver offers it |
+| Linux, X11 | whatever the driver offers | nothing |
 | macOS | scRGB (EDR), else HDR10 | SDL: EDR headroom |
-| Android 14+ with headroom | scRGB, white = the system's SDR white | `GameActivity.displayHdr` |
-| Other Android | HDR10, else scRGB | `GameActivity.displayHdr` |
+| Android 14+ with headroom | scRGB, white = the system's SDR white | `GameActivity.displayHdr` (decides) |
+| Other Android | HDR10, else scRGB | `GameActivity.displayHdr` (decides) |
+
+When the system says the display is not in HDR mode, its SDR white and peak are not used:
+paper white is 203 and the peak 1000 unless you set them.
+
+`on` still gives SDR when:
+
+- the system offers no HDR format: Windows with HDR off, a Wayland compositor without colour
+  management, X11 without a driver that offers one, a Steam Deck LCD, or Android saying the
+  display is not in HDR mode;
+- HDR was `off` at start and the Vulkan window did not request HDR colour spaces. On Apple
+  platforms a MoltenVK window requests them at startup and can switch HDR on later.
+- Vulkan cannot start or the encode pass fails.
 
 The options drawer shows what is sent and what the display reported. The log prints the same
 line (`HDR: ...`) when it changes.
@@ -81,19 +98,25 @@ on every display, so the game goes by what the activity says, not by the formats
   brightest channel `m`, where `h` is the headroom over paper white. All channels scale together,
   so colours keep their hue. Nothing at or below white changes.
 - Bright colours (`to_light`, `apply_look`): the SDR pixel is the frame clipped to 0..1. Hue and
-  saturation are mixed in OKLab; lightness stays HDR's. A colour outside BT.709 moves towards
-  grey until it fits. It never goes past the peak.
+  saturation are mixed in OKLab; lightness stays HDR's. Where SDR shows a pixel white (a
+  flame's core), SDR hue uses the hue SDR gave it just before, so there is no cut-off there. A
+  pale SDR colour turns a much stronger HDR colour only in part, since its hue swings with each
+  8-bit step and would show as bands. A colour outside BT.709 moves towards grey until it fits. It never goes past the peak.
 - The HDR frame: the game's frame and the default framebuffer are RGBA16F while HDR is on.
   `vkgl::clamp_colour_writes` makes each program use a fragment shader with a clamp at the end
   (`clamped_fragment`, built the first time it's needed). Copies into the game's 8-bit textures
   clamp as before, so the game reads back the same values.
-- `renderer/vulkan/surface_format.h` picks the swapchain format. SDR picks the same format as
-  before. HDR picks HDR10 or scRGB if the device can write it, else falls back to SDR.
+- `renderer/vulkan/presentation/surface_format.h` picks the swapchain format. SDR picks the same format as
+  before. HDR picks HDR10 or scRGB if the device can write it, directly or through a blit, else falls
+  back to SDR.
 - The Vulkan presentation graph encodes the frame with `shaders/hdr_encode.comp` and transitions
   the result for presentation. If encoder setup fails, the graph uses its SDR copy path.
   `hdr_output.cpp` also sends HDR metadata (peak, MaxCLL = peak,
-  MaxFALL = paper white). If the swapchain images can't be written by a shader, the pass writes
-  its own image and copies it.
+  MaxFALL = paper white), except for scRGB on macOS: MoltenVK makes it the layer's HDR10
+  `CAEDRMetadata` with an optical output scale of 1, which shows scRGB's 1.0 as one nit (a black
+  picture), and EDR needs no metadata. If the swapchain images can't be written by a shader, the pass writes
+  its own image and copies it. If the screen's format can't be stored at all (A2R10G10B10, or no
+  storage support), the pass writes half floats and blits them into it.
 
 ## Tests
 
@@ -101,7 +124,8 @@ on every display, so the game goes by what the activity says, not by the formats
   bright-colour keys.
 - `surface_format`: SDR picks what it did before; HDR falls back correctly.
 - `vulkan_hdr`: the GPU pass against `common/hdr.h` on lavapipe, and the float frame (clamped
-  draws, blending above white, the 8-bit frame stopping at 1), and the bright-colour keys.
+  draws, blending above white, the 8-bit frame stopping at 1), the bright-colour keys, and the
+  blit path matching the direct one.
 
 `OPENRAC_HDR_FRAME=1` draws the float frame without an HDR screen and logs how much of it is above
 white every 60 frames. Use it to compare with the normal frame.
@@ -109,6 +133,5 @@ white every 60 frames. Use it to compare with the normal frame.
 Known differences while HDR is on: blending over a pixel that is already above white starts from
 that value, not from 1. Alpha that adds up past 1 also stays there.
 
-To check on a real HDR screen: start with `hdr = on` and Vulkan, look for
-`vulkan: HDR output HDR10 at ... nits` in the log, and compare the menu's white and a dark scene
-with the same scene in SDR.
+On a real HDR screen, start with `hdr = on` and Vulkan, check the reported HDR output format
+in the log, and compare the menu's white and a dark scene with the same scene in SDR.

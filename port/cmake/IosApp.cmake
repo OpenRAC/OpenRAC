@@ -45,7 +45,7 @@ function(openrac_ios_app target)
     "-framework Security" "${python_framework}" "${OPENRAC_IOS_LAUNCHER_LIBRARY}")
   file(GLOB_RECURSE launcher_resources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/../launcher/dist/*")
   file(GLOB_RECURSE import_resources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/ios/*.py"
-    "${PROJECT_SOURCE_DIR}/../editor/*.py" "${PROJECT_SOURCE_DIR}/../tools/openrac_common/*.py"
+    "${PROJECT_SOURCE_DIR}/../extractor/*.py" "${PROJECT_SOURCE_DIR}/../tools/openrac_common/*.py"
     "${PROJECT_SOURCE_DIR}/../games/*/game.json")
   set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS
     "${CMAKE_BINARY_DIR}/ios-bundle.json" ${launcher_resources} ${import_resources} "${PROJECT_SOURCE_DIR}/ios/make_assets.swift"

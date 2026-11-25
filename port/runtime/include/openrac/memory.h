@@ -17,8 +17,8 @@ namespace openrac::runtime {
 class Memory {
 public:
     // Reserves the 4 GB, maps main RAM (with its uncached aliases where the
-    // platform can alias pages), the scratchpad, the register pages and the
-    // port's region, and sets openrac_guest_base. Ends the program if the
+    // platform can alias pages), the scratchpad and its guard, the register
+    // pages and the port's region, and sets openrac_guest_base. Ends the program if the
     // reservation fails.
     static Memory& create(std::uint32_t ram_size = GUEST_RAM_SIZE);
     static Memory& get();
@@ -70,6 +70,13 @@ private:
 // (with the address and the function being run, when known) before the
 // program ends.
 void install_crash_handler();
+
+// Windows: a library the program loads itself (the disc part, a native mod). A fault in its code
+// is reported at once, like one in the program. A fault in any other library (an overlay, a
+// driver) may be one that library catches itself, so it is reported only if nothing catches it.
+// No-ops elsewhere.
+void add_own_library(const void* module);
+void remove_own_library(const void* module);
 
 // A debugging aid (OPENRAC_GUARD): the write after the first `skip` into [address, address + bytes)
 // of game memory is reported with the host's stack and ends the program. Other writes to the same pages pass and

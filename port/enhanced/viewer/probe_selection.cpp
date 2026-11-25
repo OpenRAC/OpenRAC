@@ -8,8 +8,8 @@
 #include "common/stats.h"
 #include "enhanced/renderer/compute_graph.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 
 namespace openrac::lighting {
@@ -39,7 +39,7 @@ bool ProbeSelection::supported() {
     glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, &bindings);
     GLint block_bytes = 0;
     glGetIntegerv(0x8A30, &block_bytes);  // GL_MAX_UNIFORM_BLOCK_SIZE
-    return bindings >= 9 && block_bytes >= int(std::size_t{capacity} * 3 * 4 * sizeof(float));
+    return bindings >= 9 && block_bytes >= int(std::size_t{capacity} * 4 * 4 * sizeof(float));
 }
 
 void ProbeSelection::ensure_buffers() const {
@@ -47,7 +47,7 @@ void ProbeSelection::ensure_buffers() const {
         return;
     }
     glGenBuffers(3, m_buffers.data());
-    std::array<float, capacity * 3 * 4> zeros{};
+    std::array<float, capacity * 4 * 4> zeros{};
     glBindBuffer(wgl::GL_UNIFORM_BUFFER, m_buffers[0]);
     glBufferData(wgl::GL_UNIFORM_BUFFER, sizeof(zeros), zeros.data(), GL_STATIC_DRAW);
     glBindBuffer(wgl::GL_TEXTURE_BUFFER, m_buffers[1]);
@@ -98,16 +98,17 @@ bool ProbeSelection::prepare(
         return false;
     }
     m_count = static_cast<unsigned>(grids.size());
-    std::array<std::array<float, 4>, capacity * 3> metadata{};
+    std::array<std::array<float, 4>, capacity * 4> metadata{};
     for (unsigned i = 0; i < m_count; ++i) {
         for (unsigned a = 0; a < 3; ++a) {
-            metadata[i * 3][a] = grids[i].origin[a];
-            metadata[i * 3 + 1][a] = grids[i].spacing[a];
-            metadata[i * 3 + 2][a] = float(grids[i].dimensions[a]);
+            metadata[i * 4][a] = grids[i].origin[a];
+            metadata[i * 4 + 1][a] = grids[i].spacing[a];
+            metadata[i * 4 + 2][a] = float(grids[i].dimensions[a]);
         }
-        metadata[i * 3][3] = float(offsets[i]);
-        metadata[i * 3 + 1][3] = grids[i].frame.axis[0];
-        metadata[i * 3 + 2][3] = grids[i].frame.axis[1];
+        metadata[i * 4][3] = float(offsets[i]);
+        metadata[i * 4 + 1][3] = grids[i].frame.axis[0];
+        metadata[i * 4 + 2][3] = grids[i].frame.axis[1];
+        metadata[i * 4 + 3] = grids[i].frame.quaternion();
     }
     glBindBuffer(wgl::GL_UNIFORM_BUFFER, m_buffers[0]);
     glBufferData(wgl::GL_UNIFORM_BUFFER, sizeof(metadata), metadata.data(), GL_STATIC_DRAW);

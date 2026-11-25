@@ -38,13 +38,16 @@
 #include "common/joining_thread.h"
 #include "common/log.h"
 #include "common/stats.h"
-#include "renderer/gl.h"
-#include "renderer/gpu_draw.h"
-#include "renderer/vulkan/frame_capture_internal.h"
-#include "renderer/vulkan/latency_sleep.h"
-#include "renderer/vulkan/pipeline_cache_file.h"
-#include "renderer/vulkan/shader_compiler.h"
-#include "renderer/vulkan/spirv_cache_file.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/gpu_draw.h"
+#include "renderer/graph/submission.h"
+#include "renderer/vulkan/cache/pipeline_cache_file.h"
+#include "renderer/vulkan/cache/spirv_cache_file.h"
+#include "renderer/vulkan/commands/native_command_encoder.h"
+#include "renderer/vulkan/diagnostics/frame_capture_internal.h"
+#include "renderer/vulkan/pipelines/shader_compiler.h"
+#include "renderer/vulkan/pipelines/shader_specialization.h"
+#include "renderer/vulkan/presentation/latency_sleep.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 
@@ -55,7 +58,7 @@
 namespace openrac::vkgl::detail {
 class SurfaceBatch;
 
-// The names of renderer/gl.h this header uses (a header has no `using namespace`).
+// The names of renderer/gl/gl.h this header uses (a header has no `using namespace`).
 using openrac::gl::GL_ALWAYS;
 using openrac::gl::GL_BACK;
 using openrac::gl::GL_CCW;
@@ -94,6 +97,7 @@ inline constexpr std::uint32_t kFrameTimestamp = kTimestamps - 2;
 inline constexpr GLenum kGlActiveUniforms = 0x8B86;
 inline constexpr GLenum kGlInvalidEnum = 0x0500;
 inline constexpr GLenum kGlInvalidValue = 0x0501;
+inline constexpr GLenum kGlInvalidOperation = 0x0502;
 inline constexpr GLenum kGlUniformBufferOffsetAlignment = 0x8A34;
 inline constexpr GLenum kGlMaxCombinedTextureUnits = 0x8B4D;
 inline constexpr GLenum kGlMaxTextureBufferSize = 0x8C2B;
@@ -137,20 +141,88 @@ inline constexpr unsigned kGpuInputBytes = 8u << 20;
 // The native material path's pages: the draws one page holds, and the words and bytes of one
 // material record.
 inline constexpr unsigned kMaterialDraws = 32768;
-// Six GLSL vec4 fields, including the upscaled texture index.
-inline constexpr unsigned kMaterialWords = 24;
+// Nine GLSL vec4 fields, including per-material optics and the upscaled texture index.
+inline constexpr unsigned kMaterialWords = 36;
 inline constexpr unsigned kMaterialBytes = kMaterialWords * sizeof(std::uint32_t);
 
-// A hash of a fixed-size array (FNV-1a over its elements), for the material pages' maps.
+// A material page assigns indices in first-seen order. Dense entries and a separate probe
+// table keep their capacity when the frame slot is reclaimed.
 template <class T, std::size_t N>
-struct ArrayHash {
-    std::size_t operator()(const std::array<T, N>& key) const {
-        std::size_t hash = 1469598103934665603ull;
-        for (auto value : key) {
-            hash = (hash ^ std::size_t(value)) * 1099511628211ull;
-        }
-        return hash;
+class MaterialIndex {
+public:
+    using Key = std::array<T, N>;
+
+    void clear() {
+        m_entries.clear();
+        std::ranges::fill(m_slots, 0u);
     }
+
+    [[nodiscard]] std::size_t size() const { return m_entries.size(); }
+
+    [[nodiscard]] bool contains(const Key& key) const {
+        return !m_entries.empty() && m_slots[slot_for(key, hash_key(key))] != 0;
+    }
+
+    // Returns the index, plus whether its GPU record or descriptor needs to be written.
+    std::pair<unsigned, bool> intern(const Key& key) {
+        const auto hash = hash_key(key);
+        if (m_slots.empty()) {
+            m_slots.resize(16);
+        }
+        auto slot = slot_for(key, hash);
+        if (m_slots[slot] != 0) {
+            return {m_slots[slot] - 1, false};
+        }
+        if (m_entries.size() == m_slots.size() / 2) {
+            grow();
+            slot = slot_for(key, hash);
+        }
+
+        const auto index = static_cast<unsigned>(m_entries.size());
+        m_entries.push_back({key, hash});
+        m_slots[slot] = index + 1;
+        return {index, true};
+    }
+
+private:
+    struct Entry {
+        Key key;
+        std::size_t hash;
+    };
+
+    static std::size_t hash_key(const Key& key) {
+        std::uint64_t hash = 1469598103934665603ull;
+        for (auto value : key) {
+            hash = (hash ^ std::uint64_t(value)) * 1099511628211ull;
+        }
+        // Fold the high bits into the bucket index, including for aligned Vulkan handles.
+        return static_cast<std::size_t>(hash ^ (hash >> 32));
+    }
+
+    std::size_t slot_for(const Key& key, std::size_t hash) const {
+        const auto mask = m_slots.size() - 1;
+        auto slot = hash & mask;
+        while (const auto stored = m_slots[slot]) {
+            const auto& entry = m_entries[stored - 1];
+            if (entry.hash == hash && entry.key == key) {
+                break;
+            }
+            slot = (slot + 1) & mask;
+        }
+        return slot;
+    }
+
+    void grow() {
+        m_slots.resize(m_slots.size() * 2);
+        std::ranges::fill(m_slots, 0u);
+        for (unsigned index = 0; index < m_entries.size(); ++index) {
+            const auto& entry = m_entries[index];
+            m_slots[slot_for(entry.key, entry.hash)] = index + 1;
+        }
+    }
+
+    std::vector<Entry> m_entries;
+    std::vector<unsigned> m_slots;  // Zero for empty, otherwise the entry index plus one.
 };
 
 // One page of the native material path: the material records and texture slots of up to
@@ -159,13 +231,8 @@ struct MaterialPage {
     Chunk data;
     VkDescriptorPool pool = VK_NULL_HANDLE;
     VkDescriptorSet set = VK_NULL_HANDLE;
-    std::unordered_map<std::array<std::uint64_t, 2>, unsigned, ArrayHash<std::uint64_t, 2>>
-        textures;
-    std::unordered_map<
-        std::array<std::uint32_t, kMaterialWords>,
-        unsigned,
-        ArrayHash<std::uint32_t, kMaterialWords>>
-        materials;
+    MaterialIndex<std::uint64_t, 2> textures;
+    MaterialIndex<std::uint32_t, kMaterialWords> materials;
     unsigned draws = 0;
 };
 
@@ -177,6 +244,13 @@ struct GpuPage {
     std::vector<std::uint32_t> payload;
     unsigned instances = 0;
     VkDescriptorSet descriptors = VK_NULL_HANDLE;
+
+    [[nodiscard]] renderer::graph::BufferRange indirect_range() const {
+        return {
+            kGpuPageGroups * sizeof(std::uint32_t),
+            commands.size() * sizeof(VkDrawIndexedIndirectCommand)
+        };
+    }
 };
 
 // A frame slot's GPU-driven pages, how many this recording used, and its counters' state.
@@ -252,6 +326,7 @@ struct GpuEngine {
 
     Bindings pending_bindings;
     VkBuffer pending_arguments = VK_NULL_HANDLE;
+    renderer::graph::BufferRange pending_argument_range{};
     VkDeviceSize pending_offset = 0;
     unsigned pending_count = 0, pending_material_base = 0;
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
@@ -310,7 +385,7 @@ struct Frame {
     VkDeviceSize bulk_texture_used = 0;
     std::size_t chunk_at = 0;
     VkDeviceSize chunk_used = 0;
-    std::vector<std::function<void()>> deferred;
+    renderer::graph::SubmissionLifetime lifetime;
     bool submitted = false;  // the fence will be signalled
     // Secondary command buffers the passes of attachment-discard are recorded into, from `pool`;
     // the first `secondary_at` are this recording's.
@@ -320,6 +395,7 @@ struct Frame {
 
 // A Vulkan image, its memory, views and the layout it was last left in. Owned through ImagePtr.
 struct Image {
+    std::weak_ptr<Image> owner;  // Graph imports pin the actual allocation owner when available.
     VkImage image = VK_NULL_HANDLE;
     VmaAllocation allocation = nullptr;
     VkFormat format = VK_FORMAT_UNDEFINED;
@@ -328,9 +404,15 @@ struct Image {
     int width = 0;
     int height = 0;
     int levels = 1;
+    unsigned layers = 1;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+    // Multi-subresource images use the inline state until their mips/layers diverge.
+    renderer::graph::ImageContents uniform_contents;
+    std::vector<renderer::graph::ImageContents> subresource_contents;
     std::uint64_t touched = 0;  // the recording that last used it in `main`
+    std::uint64_t material_scope = 0;
+    renderer::graph::ImageRange material_range;
     // A number of its own, never given to another image of the backend: a descriptor set kept
     // across frames names the image by it, since a destroyed view's handle may be handed out again
     // (R-14). 0 for an image destroy_image_now has emptied.
@@ -356,6 +438,7 @@ struct SamplerParams {
     GLenum wrap_s = GL_REPEAT;
     GLenum wrap_t = GL_REPEAT;
     float anisotropy = 1.0f;
+    float lod_bias = 0.0f;  // set_texture_lod_bias's, on mipmapped textures only
     bool operator==(const SamplerParams&) const = default;
 };
 
@@ -511,12 +594,25 @@ struct BufferRef {
     VkDeviceSize size = 0;
 };
 
+struct BufferReadVisibility {
+    struct Range {
+        renderer::graph::BufferRange bytes;
+        renderer::graph::Stage stages;
+    };
+
+    // Excess fragmentation can fall back to recording a barrier.
+    std::array<Range, 8> ranges{};
+    unsigned count = 0;
+    std::uint64_t recording = 0;
+};
+
 // What a sampler uniform reads now: its image (null for a buffer texture) and the descriptor.
 struct Sampled {
     Image* image = nullptr;
     VkImageView view = VK_NULL_HANDLE;
     VkSampler sampler = VK_NULL_HANDLE;
     VkBufferView texels = VK_NULL_HANDLE;
+    renderer::graph::ImageRange range;
 };
 
 // The arrays a draw and descriptors() fill afresh each time, kept in the Context so that their
@@ -524,6 +620,7 @@ struct Sampled {
 // clears what it uses first; none is used by two functions at once.
 struct DrawScratch {
     std::vector<Sampled> samplers;                     // The draw's sampled textures.
+    std::vector<Sampled> compute_samplers;
     std::vector<BufferRef> blocks;                     // descriptors(): the blocks it binds.
     std::vector<std::uint64_t> key;                    // descriptors(): the set's key.
     std::vector<VkWriteDescriptorSet> writes;          // descriptors(): a new set's writes.
@@ -584,7 +681,7 @@ struct Program {
     std::string last_pipeline_key;
     VkPipeline last_pipeline = VK_NULL_HANDLE;  // Cleared before the program's pipelines retire.
     CompiledProgram compiled;
-    // Test retention also compares every reflected descriptor binding, including inactive resources.
+    // Retention also compares every reflected descriptor binding, including inactive resources.
     std::vector<VkDescriptorSetLayoutBinding> test_layout_bindings;
     bool gpu_materials = false;
     unsigned material_start = 0;
@@ -601,8 +698,21 @@ struct Program {
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
     std::vector<std::uint8_t> uniforms;  // the default block, std140
+    int upscaled_colours_ready_offset = -1;  // The guard for the optional upscaled sampler.
     // One opted-in vertex draw integer, appended to the CPU shadow but excluded from its UBO.
     int draw_uniform_offset = -1;
+
+    // CPU-only values for feature constants, in the same order as the shader's constant IDs.
+    struct Mode {
+        int offset = -1;  // Byte offset in the program's CPU uniform shadow.
+    };
+
+    std::vector<Mode> modes;
+    // The modes of the program's keys as last worked out (key_modes), and whether an integer
+    // uniform was written since: draws between two such writes share them.
+    std::array<std::int32_t, kModeConstants> key_modes{};
+    std::uint32_t key_mode_count = 0;
+    bool key_modes_stale = true;
     std::vector<int> units;              // per entry of compiled.uniforms: a sampler's unit
     std::vector<GLuint> block_bindings;  // per entry of compiled.blocks: its GL binding point
     bool uniforms_dirty = true;
@@ -651,6 +761,7 @@ struct OpenPass {
     // (attachment-untouched): an untouched one is neither loaded nor stored.
     bool used_colour = false;
     bool used_depth = false;
+    VkImageAspectFlags written_depth = 0;
     // The rectangle the pass's draws and clears touched, from (x0, y0) up to (x1, y1)
     // (pass-render-area): the pass's render area, outside which nothing is loaded or stored.
     bool touched = false;
@@ -812,10 +923,6 @@ struct Input {
 inline constexpr std::uint32_t kDepthClamp = 1;
 inline constexpr std::uint32_t kClipZeroToOne = 2;
 
-// The vertex stage's specialisation constant (shader_compiler.cpp vertex_source): true when its z
-// is already Vulkan's.
-inline constexpr std::uint32_t kClipZeroToOneConstant = 900;
-
 // Everything a pipeline bakes in, as plain numbers: the cache's key. pipeline_for zeroes it whole
 // before it fills it, so its bytes (padding included) are the key: it is compared and hashed as
 // bytes. Trivially copyable, with no padding between its 8-byte words.
@@ -832,6 +939,10 @@ struct PipelineKey {
     std::uint32_t viewports;
     std::uint32_t dynamic_fixed;  // 1: `fixed` is dynamic state of the pipeline (R-11).
     std::uint32_t clamp_colour;   // 1: the fragment stage clamps its colour (Image::clamp_writes).
+    // Exact feature values fixed by this pipeline variant; zero modes for shaders without features.
+    // Each value belongs to its corresponding specialisation constant, never a dynamic uniform.
+    std::uint32_t mode_count;
+    std::int32_t mode[kModeConstants];
     Input input[kAttributes];
 };
 
@@ -888,7 +999,7 @@ public:
         rebuild();
     }
 
-    // Moves test-retained immutable pipelines to a newly linked program serial.
+    // Moves retained immutable pipelines to a newly linked program serial.
     void rename_program(std::uint64_t from, std::uint64_t to);
 
     // The entries, for destroying every pipeline at close.
@@ -962,6 +1073,8 @@ struct PipelinePrewarm {
     std::vector<std::pair<PipelineKey, PrewarmPart>> making;
     std::vector<PrewarmDone> ready;  // Made, not yet taken by the thread that draws.
     std::uint64_t made = 0;  // Pipelines and parts the workers have made since the backend opened.
+    // Optional upgrades discovered during gameplay are recorded for the next load.
+    bool level_loaded = false;
     bool stop = false;       // Set at close: the workers return.
     bool started = false;    // The workers have been started.
     std::vector<JoiningThread> workers;  // Started with the first job.
@@ -1070,12 +1183,14 @@ struct RecordedState {
 struct GpuBreadcrumbs {
     struct Marker {
         std::uint32_t id = 0;
+        std::uint64_t recording = 0;
+        std::string_view buffer;
         bool end = false;
         std::array<char, 96> pass{};
     };
 
     std::mutex mutex;
-    std::array<Marker, 512> markers{};
+    std::array<Marker, 1024> markers{};
     std::uint32_t next = 0;
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = nullptr;
@@ -1118,10 +1233,14 @@ struct Context {
         VkPipelineLayout layout = VK_NULL_HANDLE;
         VkPipeline pipeline = VK_NULL_HANDLE;
         hdr::Output pipeline_for = hdr::Output::Sdr;
+        bool pipeline_float = false;  // the pipeline writes `through_float`'s half floats
         bool failed = false;
         std::vector<VkImageView> views;  // per swapchain image, while HDR is shown
         // The swapchain's images can be storage images (else the pass writes `staging`, copied).
         bool direct = true;
+        // The screen's format can't be a storage image at all: the pass writes half floats into
+        // `staging`, blitted into the screen (the blit converts the format).
+        bool through_float = false;
         ImagePtr staging;
     } hdr;
 
@@ -1134,6 +1253,7 @@ struct Context {
     // This frame's pass ends and full-screen copies by section ("vk_pass_end copy in hud"), while
     // measuring; kept at 0 between frames so that each frame shows each one.
     std::unordered_map<std::string, double> where;
+    std::string where_key;
     // The frames_presented at which begin_pipeline_warmup's warm-up ends; never, until it is called.
     std::uint64_t warmup_end = UINT64_MAX;
     SDL_Window* window = nullptr;
@@ -1144,6 +1264,7 @@ struct Context {
     std::uint32_t timestamp_bits = 0;
     VkPhysicalDeviceFeatures features{};
     bool astc_hdr = false;                 // Enabled Vulkan 1.3 HDR ASTC sampling.
+    bool synchronization2 = false;         // Enabled per-barrier Vulkan stage masks.
     bool subgroup_extended_types = false;  // Subgroup operations on 16-bit values, enabled.
     bool shader_float16 = false;     // Actually enabled arithmetic, not 16-bit storage support.
     bool tile_based = false;         // tile_based(): the vendor's guess or OPENRAC_TILE_BASED.
@@ -1159,8 +1280,11 @@ struct Context {
 #ifdef OPENRAC_TRACY
     void* tracy_state = nullptr;
 #endif
-    bool test_program_borrow = false;    // Retain-only oracles create fresh driver objects.
-    bool test_program_reuse = false;     // Explicitly enabled only by rendering tests.
+    bool test_program_borrow = false;  // Retain-only oracles create fresh driver objects.
+    bool test_program_reuse = false;   // Explicitly enabled only by rendering tests.
+    // The game's (vkgl::keep_programs, vk-program-keep): a deleted program's objects wait in
+    // test_programs for the next link of the same shaders, oldest first.
+    bool keep_programs = false;
     std::vector<Program> test_programs;  // Retained immutable objects, without GL uniform state.
     std::atomic_uint64_t validation_errors = 0;
     bool device_fault_enabled = false;
@@ -1181,6 +1305,7 @@ struct Context {
     std::vector<VkImage> swapchain_images;
     std::vector<VkSemaphore> rendered;  // per swapchain image
     bool swapchain_stale = false;
+    int drawable_width = 0, drawable_height = 0;
     // The window's surface went with the app to the background (Android lets go of its window
     // there): a new one is made from the window SDL holds before the next frame is shown.
     std::atomic<bool> surface_lost{false};
@@ -1215,6 +1340,8 @@ struct Context {
     // the presents counted and seen finished since the swapchain was made.
     bool allow_present_id = true;
     bool allow_gpu_breadcrumbs = true;
+    bool compile_missing_shaders = false;
+    std::unordered_set<std::uint64_t> missing_shader_keys;
     bool allow_present_wait = true;
     bool allow_latest_ready = true;
     // Config::setup: who makes the instance and the device (an outside owner shares them).
@@ -1231,13 +1358,21 @@ struct Context {
     bool frame_pending = false;     // Selected slot has not yet been reclaimed for recording.
     std::uint64_t frame_count = 1;  // frames selected
     std::uint64_t recording = 1;    // command buffers begun (a flush begins new ones)
+    std::uint64_t last_submitted_recording = 0;
     bool upload_used = false;
     bool bulk_texture_upload = false;
 
     ImagePtr default_colour, default_depth;
+    bool default_depth_detached = false;  // default_framebuffer_depth(false): passes leave it out
     int default_width = 0, default_height = 0;
 
     bool rendering = false;
+    // GPU writes into buffers recorded so far (note_buffer_write), and the count at which a
+    // barrier last made them all visible to later reads. While the
+    // two are equal a graph's read-only buffer import needs no barrier of its own, so the pass
+    // that reads it goes on in the open render pass.
+    std::uint64_t buffer_writes = 1;
+    std::uint64_t buffer_writes_visible = 0;
     Target rendering_target;
     OpenPass pass;                 // The pass `main` renders in, while `rendering`.
     PendingPresent present_copy;   // The copy to the default framebuffer that waits, if any.
@@ -1248,6 +1383,9 @@ struct Context {
     State state;
     Names<Texture> textures;
     Names<Buffer> buffers;
+    // Native allocations made for GL buffers, with whether they can be GPU-written.
+    std::unordered_map<VkBuffer, bool> owned_buffer_writable;
+    std::unordered_map<VkBuffer, BufferReadVisibility> buffer_visibility;
     Names<VertexArray> vertex_arrays;
     // Internal fullscreen copy resources live in the ordinary owned program and texture tables.
     GLuint multisample_blit_program = 0;
@@ -1286,10 +1424,16 @@ struct Context {
 
     std::string device_name, driver_version, api_version, gl_renderer, gl_version;
     bool software = false;
+    bool lavapipe = false;
     bool viewport_index_supported = false;
     // VK_EXT/KHR_load_store_op_none: an attachment a pass leaves alone is neither loaded nor
     // stored (attachment-untouched).
     bool load_store_none = false;
+    // VK_KHR_pipeline_executable_properties under OPENRAC_VK_PIPELINE_STATS: each new graphics
+    // or compute pipeline logs the driver's statistics of its shaders (log_executable_statistics).
+    bool pipeline_stats = false;
+    // The mip bias set_texture_lod_bias gives mipmapped textures while an upscaler draws the world.
+    float texture_lod_bias = 0.0f;
     // The device takes cull, front face, depth and stencil state as dynamic state (Vulkan 1.3's
     // core extended dynamic state), so pipelines need not bake them (R-11).
     bool extended_dynamic_state = false;
@@ -1311,12 +1455,18 @@ VkResult timed_pipeline_creation(Create&& create) {
     return result;
 }
 
-// Borrows exactly matching immutable driver objects from the test-only retention pool.
+// Whether the game keeps deleted programs' objects now (vkgl::keep_programs and vk-program-keep).
+bool keeps_programs();
+// Borrows exactly matching immutable driver objects from the retention pool (a test's, or the
+// game's kept programs).
 bool reuse_test_program(Program& program);
 // Retains a linked program's driver objects without retaining its uniform or descriptor state.
 bool retain_test_program(Program& program);
-// Releases all retained test objects with retention disabled, before device teardown.
+// Releases all retained objects with retention disabled, before device teardown.
 void clear_test_programs();
+// Destroys a program's driver objects, its pipelines and their parts once the frames that may
+// draw with them are done. For release_program, and for a retained program pushed out of the pool.
+void destroy_program(Program& p);
 
 // Releases the optional depth-composition pipeline after device idle at context teardown.
 void release_depth_combine();
@@ -1384,19 +1534,27 @@ inline void count_command(Command kind, std::uint64_t count = 1) {
     g->submission.commands[static_cast<std::size_t>(kind)] += count;
 }
 
-// Counts one vkCmdPipelineBarrier that waits on `source` stages for `destination` stages.
-inline void count_barrier(VkPipelineStageFlags source, VkPipelineStageFlags destination) {
+// Counts `event` in the section open now, as a gauge of this frame (published by present).
+void count_where(std::string_view event, std::string_view suffix = {});
+
+// Counts one vkCmdPipelineBarrier that waits on `source` stages for `destination` stages; `site`
+// names the code that recorded it.
+inline void count_barrier(
+    VkPipelineStageFlags source, VkPipelineStageFlags destination, std::string_view site = "graph"
+) {
     count_command(Command::Barrier);
     ++g->submission.barriers;
 
-    // A barrier on every stage, which waits for more than the work it orders needs.
+    // A barrier on every stage, which waits for more than the work it orders needs: counted by
+    // where it was recorded too (vk_barrier_all <site> in <section>).
     if (((source | destination) & VK_PIPELINE_STAGE_ALL_COMMANDS_BIT) != 0) {
         ++g->submission.barriers_all_commands;
+
+        if (stats::enabled()) {
+            count_where("vk_barrier_all ", site);
+        }
     }
 }
-
-// Counts `event` in the section open now, as a gauge of this frame (published by present).
-void count_where(std::string_view event);
 
 // Counts one copy, blit or resolve into a region `width` by `height` texels: a full-screen copy
 // as well when that is the default framebuffer's size or the screen's.
@@ -1422,6 +1580,10 @@ inline void count_render_pass() {
     ++g->submission.render_passes;
 }
 
+// Logs the driver's statistics of each shader of `pipeline`, one line each after `what`
+// (OPENRAC_VK_PIPELINE_STATS; vkgl_pipelines.cpp).
+void log_executable_statistics(VkPipeline pipeline, std::string_view what);
+
 // Counts a graphics or compute pipeline just made, after the warm-up as well when it has passed.
 inline void count_pipeline() {
     ++g->submission.pipelines_created;
@@ -1444,6 +1606,7 @@ struct Slice {
     VkBuffer buffer = VK_NULL_HANDLE;
     VkDeviceSize offset = 0;
     std::uint8_t* data = nullptr;
+    VkDeviceSize size = 0;  // Exact initialized upload interval retained by graph declarations.
 };
 
 // A GL internal format as Vulkan has it: the format, its aspect, the bytes of one texel.
@@ -1500,12 +1663,44 @@ enum class PassEnd : std::uint8_t {
     Submit,
     Present,
     Timing,  // split pass timing (split_pass_timing, pass sampling)
+    Graph,   // a graph pass that could not go on in the open pass (GraphExecution enter)
+    Import,  // a graph import of an attachment of the open pass (end_rendering_for)
+    Replay,  // a prepared raster node exchanging its targets (PreparedRaster)
     Other
 };
 
 // Flushes the merged draws and ends the rendering pass `main` is in, if any, forgetting the
 // bound pipeline; `why` is counted when a pass was open.
 void end_rendering(PassEnd why = PassEnd::Other);
+
+// A GPU write into a buffer is being recorded: a compute dispatch, a staged copy, a graph pass that
+// writes one. Host writes (the ring, mapped buffers) need no barrier and are not counted.
+inline void note_buffer_write() {
+    ++g->buffer_writes;
+}
+
+// Whether every GPU buffer write recorded so far is visible to shader, vertex, indirect and
+// transfer reads without another barrier.
+inline bool buffer_writes_visible() {
+    return g->buffer_writes_visible == g->buffer_writes;
+}
+
+// The memory barrier that makes every GPU buffer write so far visible to those reads, with the
+// stages it waits on and for. A caller that records it with its own barriers in one command
+// calls note_buffer_writes_visible after.
+struct BufferWritesBarrier {
+    VkMemoryBarrier memory;
+    VkPipelineStageFlags source;
+    VkPipelineStageFlags destination;
+};
+
+BufferWritesBarrier buffer_writes_barrier();
+
+inline void note_buffer_writes_visible() {
+    g->buffer_writes_visible = g->buffer_writes;
+}
+
+// Records that barrier in a command of its own, outside a render pass.
 
 // Ends the open pass only when `image` is one of its attachments, whose layout and contents are
 // settled as the pass ends. Any other image is untouched by it: the pass goes on.
@@ -1544,7 +1739,11 @@ void timing_results(Frame& f);
 // buffer is ended and goes in a second batch of the same submit, which alone waits for
 // `wait_semaphore`, at the transfer stage; otherwise the one batch waits for it at every stage.
 void submit(
-    VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommandBuffer present = nullptr
+    VkSemaphore wait_semaphore,
+    VkSemaphore signal,
+    bool wait,
+    VkCommandBuffer present = nullptr,
+    const std::optional<renderer::graph::PresentImage>& presentation = std::nullopt
 );
 
 // The frame slot's command buffer for the copy to the screen, begun (vk-tight-sync), or null when
@@ -1600,7 +1799,8 @@ ImagePtr make_image(
     int height,
     int levels,
     VkSampleCountFlagBits samples,
-    VkImageUsageFlags extra_usage = 0
+    VkImageUsageFlags extra_usage = 0,
+    unsigned layers = 1
 );
 
 // The view of level 0 that draws into the image, made the first time it is asked for.
@@ -1692,13 +1892,15 @@ std::vector<ManifestEntry> manifest_entries();
 void write_manifest(const std::filesystem::path& path, std::span<const ManifestEntry> entries);
 
 // Notes program `p`'s identity and queues the manifest's keys of that identity for the pre-warm
-// worker, which it starts if it is not running. For glLinkProgram, once `p` is linked.
+// worker, which it starts if it is not running. For glLinkProgram, once `p` is linked. A program
+// linked from kept objects (vk-program-keep) queues only what it does not have yet.
 void prewarm_program(Program& p);
 
 // Takes back the pre-warm's jobs of program `serial` and waits for the one being made, then
-// destroys what the worker made for it that no draw took. For a program's release, before its
-// modules and layout go.
-void prewarm_forget(std::uint64_t serial);
+// destroys what the worker made for it that no draw took; with `keep` that goes into the tables
+// instead, for a program whose objects are kept. For a program's release, before its modules and
+// layout go.
+void prewarm_forget(std::uint64_t serial, bool keep = false);
 
 // Stops the pre-warm workers and waits for them, and destroys the pipelines and parts they made
 // that no draw took. For the backend's close, before the programs are released.
@@ -1712,6 +1914,9 @@ void collect_prewarm();
 // Destroys the parts of pipelines program `serial` owns (vk-pipeline-library), once the frames
 // that may still draw with what was linked from them are done. For a program's release.
 void release_program_libraries(std::uint64_t serial);
+
+// Gives the parts of pipelines program `from` owns to program `to` (vk-program-keep).
+void rename_program_libraries(std::uint64_t from, std::uint64_t to);
 
 // Destroys every part of pipelines left. For the backend's close, after the device is idle.
 void destroy_pipeline_libraries();
@@ -1745,7 +1950,7 @@ VkDescriptorSet allocate_set(VkDescriptorSetLayout layout);
 
 // What sampler uniform `i` of program `p` reads now (what is bound to its unit), or the fallback of
 // the shader's type when nothing usable is bound.
-Sampled sampled(const Program& p, std::size_t i);
+Sampled sampled(const Program& p, std::size_t i, bool fallback_only = false);
 // Returns the byte extent of a supported complete buffer-to-image transfer, or zero for unsupported storage.
 VkDeviceSize buffer_image_bytes(const Image& image);
 // Records the validated full-image copy without adding barriers or submissions.
@@ -1760,7 +1965,9 @@ Texture* sampled_texture(const Program& program, std::size_t uniform);
 // Hot path: with vk-draw-cache its temporaries are Context::scratch's and its sets
 // Program::set_cache, so a draw that finds its set allocates nothing; off, the reference path
 // builds them as vectors and keys Program::descriptor_sets by a copy of the key.
-VkDescriptorSet descriptors(Program& p, std::span<const Sampled> samplers);
+VkDescriptorSet descriptors(
+    Program& p, std::span<const Sampled> samplers, std::span<const BufferRef> storage = {}
+);
 
 // glDispatchCompute: runs the current program's compute pipeline outside a rendering pass.
 void OPENRAC_GLAPI dispatch_compute(GLuint x, GLuint y, GLuint z);
@@ -1796,6 +2003,10 @@ void draw(
 // True when the native material path is on: the device can index its textures and
 // OPENRAC_GPU_MATERIALS_OFF is unset.
 bool material_enabled();
+
+// Whether the native material path would read uniform `name` of a program with vertex stage
+// `vertex` from its draw's record: such a uniform is no mode constant (shader variants).
+bool material_takes(const std::string& vertex, std::string_view name);
 
 // Prepares program `p` for the native material path when its shaders draw meshes (a model
 // matrix and material uniforms); true, with nothing done, for any other program. False when

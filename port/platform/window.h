@@ -15,6 +15,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -110,20 +111,17 @@ void set_app_metadata(const char* name, const char* id);
 void install_app_menus(bool developer);
 
 // Which OpenGL the window's context is: the desktop's 4.1 core profile, OpenGL ES 3.2 (Android,
-// whose drivers have only ES; renderer/gl.h and renderer/shader.h adapt to it), or the renderer's
-// GL carried out with Vulkan (renderer/vulkan/vkgl.h) or with Metal (renderer/metal/mtlgl.h),
-// where the build has them; a window that cannot have Metal or Vulkan opens with the system's
-// OpenGL instead.
+// whose drivers have only ES; renderer/gl/gl.h and renderer/gl/shader.h adapt to it), or the renderer's
+// GL carried out with Vulkan (renderer/vulkan/vkgl.h), through MoltenVK on Apple platforms.
+// If Vulkan cannot start, use the platform's OpenGL fallback where available.
 enum class GlApi {
     Desktop,
     ES,
     Vulkan,
-    Metal,
 };
 
-// ES on Android, the desktop's elsewhere; OPENRAC_GL_API=es, =desktop, =vulkan or =metal in the
-// environment chooses (es on a desktop draws through its driver's ES context, which is how the ES
-// path is checked without a phone).
+// Defaults to Vulkan on iOS, ES on Android and desktop OpenGL elsewhere.
+// OPENRAC_GL_API=es, =desktop or =vulkan overrides the default.
 GlApi default_gl_api();
 
 struct WindowConfig {
@@ -141,32 +139,20 @@ struct WindowConfig {
     bool hidden = false;  // never shown: headless checks
     bool debug_context = false;
     bool gpu_breadcrumbs = true;
+    // Tools with custom GLSL can opt into the development-time Vulkan compiler.
+    bool compile_missing_shaders = false;
     int msaa_samples = 0;
     GlApi gl_api = default_gl_api();
-    // HDR output may be asked for later (set_hdr); off, a Vulkan window is made as it always was.
+    // Ask for HDR colour spaces at startup. MoltenVK also requests them for live HDR switching.
     bool hdr = false;
+    // Optional synchronous executor for device setup after SDL creates the native surface.
+    void (*vulkan_device_work)(std::function<void()>) = nullptr;
 };
 
 // The context's function loader, in SDL_GL_GetProcAddress's shape: what
-// renderer/gl.h's load() takes.
+// renderer/gl/gl.h's load() takes.
 using GlProc = void (*)();
 using GlLoader = GlProc (*)(const char* name);
-
-// The Metal renderer (renderer/metal/mtlgl.h) as a window opens and draws with it. The platform is
-// below the renderer, so it declares this and renderer/metal defines it, in a build with
-// OPENRAC_METAL. open presents to `window`, or to no screen when it is null, and fails when Metal
-// cannot open or lacks a function of renderer/gl.h.
-struct MetalBackend {
-    bool (*open)(SDL_Window* window, int width, int height, bool vsync, std::string& error);
-    void (*close)();
-    bool (*active)();
-    GlLoader get_proc;
-    void (*present)();
-    void (*set_swap_interval)(int interval);
-    std::string (*device_name)();
-};
-
-const MetalBackend& metal_backend();
 
 class Window {
 public:
@@ -205,8 +191,8 @@ public:
 
     // HDR output (common/hdr.h): what the system says of the window's display (SDL; on Android
     // the activity, platform/display_hdr.h; unknown on X11), and the screen asked to show `wanted`
-    // at `levels`. Vulkan only (and WindowConfig::hdr); OpenGL always shows SDR. hdr_output: what
-    // it shows; hdr_offered: the screen offers an HDR format at all.
+    // at `levels`. Vulkan needs WindowConfig::hdr at startup. OpenGL shows SDR.
+    // hdr_offered reports whether the screen offers an HDR format.
     hdr::Display hdr_display() const;
     void set_hdr(hdr::Output wanted, const hdr::Levels& levels);
     hdr::Output hdr_output() const;
@@ -228,6 +214,14 @@ public:
     // The window's icon: `rgba` is width x height pixels, 4 bytes each, top row first.
     void set_icon(const unsigned char* rgba, int width, int height);
     void swap();
+    // Vulkan presentation can use a drawable size captured on the window thread.
+    void swap(int drawable_width, int drawable_height);
+#if defined(OPENRAC_IOS)
+    // Recovers a lost surface on the game thread before worker presentation.
+    void restore_vulkan_surface();
+#endif
+    // Ends Vulkan work while the SDL window is still alive.
+    void close_vulkan();
 
     // The size to render at, in pixels (larger than the window's size on a
     // high-density display).
@@ -255,13 +249,9 @@ private:
 
     // Opens the window for GlApi::Vulkan; false (and nothing left open) when Vulkan cannot be had.
     bool open_vulkan(const WindowConfig& config, std::string& error);
-    // The same for GlApi::Metal, which must also carry out every function of renderer/gl.h.
-    bool open_metal(const WindowConfig& config, std::string& error);
-
     SDL_Window* m_window = nullptr;
     SDL_GLContextState* m_context = nullptr;
     bool m_vulkan = false;
-    bool m_metal = false;
     bool m_low_latency = false;
     bool m_hdr_window = false;        // Android: the window's colour mode asked for HDR
     float m_hdr_headroom = 0.0f;      // Android: the headroom the window asked for

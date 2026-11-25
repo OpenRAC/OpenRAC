@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// renderer/gl.h and renderer/world/gl_world.h carried out with Vulkan (vkgl.h says how GL's model
+// renderer/gl/gl.h and renderer/world/gl_world.h carried out with Vulkan (vkgl.h says how GL's model
 // becomes Vulkan's). Two command buffers a frame: `upload`, where what changes a texture nothing
 // this frame has used yet goes (so it needs no pause of the drawing), run first, then `main`,
 // where everything else goes in GL's order. Every image keeps the layout it was last left in,
@@ -33,7 +33,7 @@
 #include "common/log.h"
 #include "common/precise_wait.h"
 #include "common/stats.h"
-#include "renderer/gpu_draw.h"
+#include "renderer/gl/gpu_draw.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
 namespace openrac::vkgl {
@@ -51,6 +51,27 @@ void diagnostic(std::string_view message) {
 
 namespace {
 
+std::string_view fault_address_type(VkDeviceFaultAddressTypeEXT type) {
+    switch (type) {
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_NONE_EXT:
+            return "unspecified";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_READ_INVALID_EXT:
+            return "invalid GPU memory read";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_WRITE_INVALID_EXT:
+            return "invalid GPU memory write";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_EXECUTE_INVALID_EXT:
+            return "invalid GPU instruction fetch";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_UNKNOWN_EXT:
+            return "instruction pointer (unknown relation to fault)";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_INVALID_EXT:
+            return "invalid instruction pointer";
+        case VK_DEVICE_FAULT_ADDRESS_TYPE_INSTRUCTION_POINTER_FAULT_EXT:
+            return "instruction pointer at fault";
+        default:
+            return "unrecognized address type";
+    }
+}
+
 // Only query a lost device once. Fixed storage bounds the report even if the driver has more data.
 void report_device_fault() {
     if (!g || g->device_fault_reported.test_and_set(std::memory_order_relaxed)) {
@@ -58,7 +79,7 @@ void report_device_fault() {
     }
     report_gpu_breadcrumbs();
     if (!g->device || !g->device_fault_enabled || !vkGetDeviceFaultInfoEXT) {
-        diagnostic("GPU fault: VK_EXT_device_fault unavailable");
+        diagnostic("GPU fault: cause unavailable (VK_EXT_device_fault unavailable)");
         return;
     }
     crash::failure_breadcrumb("Vulkan query device fault");
@@ -72,7 +93,9 @@ void report_device_fault() {
     info.pVendorInfos = vendor.data();
     const auto result = vkGetDeviceFaultInfoEXT(g->device, &counts, &info);
     if (result != VK_SUCCESS && result != VK_INCOMPLETE) {
-        diagnostic(std::format("GPU fault: driver query failed ({})", int(result)));
+        diagnostic(
+            std::format("GPU fault: cause unavailable (driver query failed: {})", int(result))
+        );
         return;
     }
     const auto description = [](const auto& field) {
@@ -82,8 +105,10 @@ void report_device_fault() {
     const auto summary = description(info.description);
     diagnostic(
         std::format(
-            "GPU fault: {}{}",
-            summary.empty() ? "driver supplied no description" : summary,
+            "GPU fault: driver description: {}; {} address record(s), {} vendor record(s){}",
+            summary.empty() ? "(none)" : summary,
+            counts.addressInfoCount,
+            counts.vendorInfoCount,
             result == VK_INCOMPLETE ? " (partial details)" : ""
         )
     );
@@ -92,7 +117,8 @@ void report_device_fault() {
         const auto& address = addresses[i];
         diagnostic(
             std::format(
-                "GPU fault address: type {}, reported {:#x}, precision {:#x}",
+                "GPU fault address: {} (type {}), reported {:#x}, precision {:#x}",
+                fault_address_type(address.addressType),
                 int(address.addressType),
                 address.reportedAddress,
                 address.addressPrecision
@@ -203,15 +229,10 @@ bool guess_tile_based(std::uint32_t vendor) {
 namespace {
 
 // Startup reports recording/allocation failures through open()'s existing error return.
-bool begin_initial_frame(const Config& config, std::string& error) {
+bool begin_initial_frame(int width, int height, std::string& error) {
     try {
-        int width = config.width;
-        int height = config.height;
-
-        // A window's actual pixel dimensions can differ from its requested dimensions.
-        if (config.window != nullptr) {
-            SDL_GetWindowSizeInPixels(config.window, &width, &height);
-        }
+        g->drawable_width = width;
+        g->drawable_height = height;
 
         tracy_gpu_open();
         begin_buffers();
@@ -251,6 +272,7 @@ bool open(const Config& config, std::string& error) {
     }
     g = new Context();
     g->window = config.window;
+    g->compile_missing_shaders = config.compile_missing_shaders;
     g->interval = config.vsync ? 1 : 0;
     const bool validation = (config.validation || env::flag(env::Var::VulkanValidation))
                             && layer_available("VK_LAYER_KHRONOS_validation");
@@ -259,17 +281,28 @@ bool open(const Config& config, std::string& error) {
     if (ok && config.window != nullptr) {
         ok = make_surface(config.window, error);
     }
-    crash::breadcrumb("Vulkan device and frame slots");
-    ok = ok && pick_device(error) && make_device(error) && make_frames();
-    if (ok) {
-        ok = begin_initial_frame(config, error);
+    int width = config.width, height = config.height;
+    if (ok && config.window != nullptr) {
+        SDL_GetWindowSizeInPixels(config.window, &width, &height);
     }
-    if (ok && config.window != nullptr && !make_swapchain()) {
-        // Minimised at the start: the swapchain comes with the first frame shown.
-        g->swapchain_stale = true;
+    const auto create_device_and_frames = [&] {
+        crash::breadcrumb("Vulkan device and frame slots");
+        ok = ok && pick_device(error) && make_device(error) && make_frames()
+             && begin_initial_frame(width, height, error);
+        if (ok && config.window != nullptr && !make_swapchain()) {
+            // Minimised at the start: the swapchain comes with the first frame shown.
+            g->swapchain_stale = true;
+        }
+        if (!ok) {
+            destroy_all();
+        }
+    };
+    if (ok && config.device_work != nullptr) {
+        config.device_work(create_device_and_frames);
+    } else {
+        create_device_and_frames();
     }
     if (!ok) {
-        destroy_all();
         delete g;
         g = nullptr;
         return false;
@@ -570,19 +603,22 @@ SubmissionCounters submission_counters() {
 }
 
 void present() {
+    int width = 0, height = 0;
+    if (active() && g->window != nullptr) {
+        SDL_GetWindowSizeInPixels(g->window, &width, &height);
+    }
+    present(width, height);
+}
+
+void present(int width, int height) {
     if (!active()) {
         return;
     }
     const Clock::time_point start = Clock::now();
+    g->drawable_width = width;
+    g->drawable_height = height;
     queue_after_previous();
-    bool shown = false;
-    if (g->window != nullptr) {
-        int w = 0, h = 0;
-        SDL_GetWindowSizeInPixels(g->window, &w, &h);
-        if (w > 0 && h > 0) {
-            shown = present_to_screen();
-        }
-    }
+    const bool shown = g->window != nullptr && width > 0 && height > 0 && present_to_screen();
     if (!shown) {
         submit(VK_NULL_HANDLE, VK_NULL_HANDLE, false);
     }
@@ -594,16 +630,15 @@ void present() {
     // A window of another size: the default framebuffer follows, as a GL window's does; and
     // in half floats from when HDR is shown, in 8 bits from when it no longer is.
     if (g->window != nullptr) {
-        int w = 0, h = 0;
-        SDL_GetWindowSizeInPixels(g->window, &w, &h);
         const bool want_float = g->hdr.shown != hdr::Output::Sdr;
         const bool is_float =
             g->default_colour && g->default_colour->format == VK_FORMAT_R16G16B16A16_SFLOAT;
-        if (w > 0 && h > 0
-            && (w != g->default_width || h != g->default_height || want_float != is_float)) {
+        if (width > 0 && height > 0
+            && (width != g->default_width || height != g->default_height
+                || want_float != is_float)) {
             retire(std::move(g->default_colour));
             retire(std::move(g->default_depth));
-            make_default_framebuffer(w, h);
+            make_default_framebuffer(width, height);
             g->swapchain_stale = true;
         }
     }

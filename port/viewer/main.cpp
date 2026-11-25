@@ -5,7 +5,7 @@
 // camera (docs/port/ROADMAP.md, P3). No game code runs; the level comes from
 // the editor's port export:
 //
-//   python3 editor/extract.py port baserom/SCES_509.16.iso build/port --level 0
+//   python3 extractor/extract.py port baserom/SCES_509.16.iso build/port --level 0
 //   openrac-viewer build/port/level_00
 //
 // Controls: W A S D move, Q and E down and up, Shift faster, the mouse wheel
@@ -36,8 +36,8 @@
 #include "game/rac1/game_state.h"
 #include "platform/clock.h"
 #include "platform/window.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #include "scene/level.h"
 #include "scene/level_renderer.h"
@@ -67,7 +67,7 @@ struct Options {
 
 constexpr const char* kUsage =
     "usage: openrac-viewer LEVEL_DIR [options]\n"
-    "  LEVEL_DIR            a level written by `editor/extract.py port` (OUT/level_NN)\n"
+    "  LEVEL_DIR            a level written by `extractor/extract.py port` (OUT/level_NN)\n"
     "  --screenshot FILE    draw --frames frames without showing a window, write the last as PNG\n"
     "  --frames N           frames to draw before the screenshot (default 1)\n"
     "  --size WxH           window or screenshot size (default 1280x720)\n"

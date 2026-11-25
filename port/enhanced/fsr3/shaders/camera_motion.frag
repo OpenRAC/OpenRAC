@@ -5,6 +5,7 @@
 uniform sampler2D tex_T0;
 uniform mat4 inverse_raster;
 uniform mat4 previous_view;
+uniform mat4 previous_clip;
 uniform vec3 camera_position;
 uniform vec2 jitter;
 uniform int depth_only;
@@ -17,13 +18,16 @@ void main() {
         result = vec4(depth);
         return;
     }
-    vec4 world = inverse_raster * vec4(uv * 2 - 1, depth * 2 - 1, 1);
-    world /= world.w;
+    vec4 clip = vec4(uv * 2 - 1, depth * 2 - 1, 1);
+    // Stay in clip space: distant world coordinates lose precision during a float round trip.
+    vec4 old = previous_clip * clip;
     // A sky pixel follows camera rotation, without the translation of a finite far-plane surface.
     if (depth <= 0) {
+        vec4 world = inverse_raster * clip;
+        world /= world.w;
         world = vec4(world.xyz - camera_position, 0);
+        old = previous_view * world;
     }
-    vec4 old = previous_view * world;
     bool valid = old.w > 0;
     vec2 previous_uv = valid ? old.xy / old.w * 0.5 + 0.5 : uv;
     vec2 current_uv = uv - jitter / size;

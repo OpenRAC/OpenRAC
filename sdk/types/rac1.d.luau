@@ -25,8 +25,15 @@ type HookPoint =
     | "rac1.player.take_damage"
     | "rac1.combat.get_hit"
     | "rac1.weapon.take_ammo"
+    | "rac1.weapon.blaster.pick_target"
+    | "rac1.weapon.ryno.pick_target"
+    | "rac1.weapon.gold_devastator.pick_target"
+    | "rac1.weapon.drone.pick_target"
     | "rac1.moby.record_death"
     | "rac1.level.load_gameplay"
+    | "rac1.level.update_play"
+    | "rac1.freeze.update"
+    | "rac1.freeze.draw"
     | "rac1.player.approach_speed"
     | "rac1.ship.travel_to"
     | "rac1.moby.collect_bolt"
@@ -62,6 +69,21 @@ type HookPoint =
     | "rac1.text.msg_string"
     | "rac1.vendor.open_menu"
     | "rac1.gold_bolt.count_unspent"
+    | "rac1.vendor.icon_strip.draw"
+    | "rac1.vendor.draw_details"
+    | "rac1.ui.icon_frame"
+    | "rac1.npc.try_dialog"
+    | "rac1.ui.sprite.draw"
+    | "rac1.pickup.start_scene"
+    | "rac1.gold_case.start_demo"
+    | "rac1.player.enter_move_state"
+    | "rac1.player.resolve_gravity_mode"
+    | "rac1.player.update_equipped_items"
+    | "rac1.player.steer_planar_velocity"
+    | "rac1.player.update_movement"
+    | "rac1.fx.world_quad.draw"
+    | "rac1.fx.thruster_flame.draw"
+    | "rac1.fx.burst.spawn"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -701,22 +723,34 @@ type HookPoint =
     | "rac1.moby.moby1906.update"
     | "Ammo_ChooseDrop"
     | "Ammo_SpawnDrop"
+    | "FX_DrawWorldQuad"
+    | "FX_SpawnBurst"
+    | "FX_ThrusterFlame_Draw"
     | "FollowCamera_ApplyOverrides"
+    | "Freeze_Draw"
+    | "Freeze_Update"
     | "GoldBolts_CountCollected"
     | "GoldBolts_CountUnspent"
+    | "GoldCase_StartDemo"
     | "Help_Request"
     | "Hero_AdvanceAnimation"
     | "Hero_ApproachSpeed"
+    | "Hero_EnterMoveState"
+    | "Hero_ResolveGravityMode"
     | "Hero_SetPlanarVelocity"
+    | "Hero_SteerPlanarVelocity"
     | "Hero_TakeDamage"
     | "Hero_TurnToHeading"
     | "Hero_Update"
+    | "Hero_UpdateEquippedItems"
     | "Hero_UpdateMotionInput"
+    | "Hero_UpdateMovement"
     | "Hud_QuickSelect_Draw"
     | "Hud_QuickSelect_Init"
     | "Hud_QuickSelect_Update"
     | "Item_Give"
     | "Level_LoadGameplay"
+    | "Level_UpdatePlay"
     | "Menu_EquippedPreview_Draw"
     | "Menu_EquippedPreview_Update"
     | "Menu_ItemAmmo_Draw"
@@ -1371,7 +1405,9 @@ type HookPoint =
     | "Moby_WhiteFlower_Update"
     | "Moby_WoodcutBot_Update"
     | "Moby_Wrench_Update"
+    | "NPC_TryDialog"
     | "Pad_ProcessReport"
+    | "Pickup_StartScene"
     | "Planet_Unlock"
     | "Save_NewGame"
     | "Save_NewGamePlus"
@@ -1383,11 +1419,19 @@ type HookPoint =
     | "Save_UpdateState"
     | "Ship_InitTransition"
     | "Ship_TravelTo"
+    | "UI_DrawSprite"
+    | "UI_IconFrame"
     | "Vendor_BuildItemList"
+    | "Vendor_DrawDetails"
+    | "Vendor_DrawIconStrip"
     | "Vendor_InitLevelStock"
     | "Vendor_InitializeSelected"
     | "Vendor_MenuUpdate"
     | "Vendor_OpenMenu"
+    | "Weapon_Blaster_PickTarget"
+    | "Weapon_Drone_PickTarget"
+    | "Weapon_GoldDevastator_PickTarget"
+    | "Weapon_Ryno_PickTarget"
     | "Weapon_TakeAmmo"
     | "msg_string"
 type MemoryType = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32"
@@ -1440,10 +1484,24 @@ type Hero_TakeDamageFn = (amount: number) -> ()
 type Moby_GetHitMessageFn = (moby: number, mask: number, keep: number) -> number
 -- rac1.weapon.take_ammo (Weapon_TakeAmmo) i32(i32,i32): Takes amount of ammo from item for a shot (TakeAmmo; -1 is the item in hand): 1 when taken, 0 when there is too little. An item with no ammo limit takes none and gives 1.
 type Weapon_TakeAmmoFn = (item: number, amount: number) -> number
+-- rac1.weapon.blaster.pick_target (Weapon_Blaster_PickTarget) u32(i32,u32,u32,u32): Chooses the Blaster's auto-aim target for a shot from from (select_blaster_auto_aim_target; from a Vec4, yaw and pitch f32s, all addresses): the nearest targetable creature (Moby flags 0x1000) within 20 units whose aim point is within about 9 degrees of the heading yaw/pitch and in sight from the camera and from from (ignore: the moby the sight test passes over). Writes the pitch toward it, and the yaw when within 10 degrees, and returns it; 0 for none.
+type Weapon_Blaster_PickTargetFn = (ignore: number, from: number, yaw: number, pitch: number) -> number
+-- rac1.weapon.ryno.pick_target (Weapon_Ryno_PickTarget) u32(u32,u32,u32,f32,f32,f32): Chooses a R.Y.N.O. missile's target (select_ryno_target): the creature with a target record, of class type 5, within max_distance across of pos (a Vec4 address) and max_yaw / max_pitch of the aim angles (aim, f32s at +4 pitch and +8 yaw), the best by angle and distance, in sight; skip is the seven mobys the salvo has already (0: only the ones drawn last frame). Returns the moby, 0 for none.
+type Weapon_Ryno_PickTargetFn = (pos: number, aim: number, skip: number, max_yaw: number, max_pitch: number, max_distance: number) -> number
+-- rac1.weapon.gold_devastator.pick_target (Weapon_GoldDevastator_PickTarget) void(u32,u32,u32): Chooses the gold Devastator missile's target (select_gold_devastator_missile_target): the creature within 40 units of the missile nearest its heading, in a cone that widens with the weapon's level, in sight, not skip; writes it into the missile's data (data, its pvars).
+type Weapon_GoldDevastator_PickTargetFn = (missile: number, data: number, skip: number) -> ()
+-- rac1.weapon.drone.pick_target (Weapon_Drone_PickTarget) u32(u32,u32): Chooses a drone's target (select_nearest_drone_target): the nearest moby of class type 5, 7 or 8 to from (a Vec4 address), within 4, 5.3 or 6 units by type, not one of the nine in skip, not held by the Suck Cannon. Returns the moby, 0 for none.
+type Weapon_Drone_PickTargetFn = (from: number, skip: number) -> number
 -- rac1.moby.record_death (Moby_RecordDeath) void(u32,i32,i32): Records a placed moby's death or a crate's break (SetDeathBits): its save id's killed bits (none for a save id below 0), its mission, then drops its bolts: about the s16 at +0xB4 (or what a tallied source has left of +0xB6), which it then clears.
 type Moby_RecordDeathFn = (moby: number, flags: number, index: number) -> ()
 -- rac1.level.load_gameplay (Level_LoadGameplay) u32(i32): Loads a level's gameplay file into the level heap (LoadLevelGameplay), once per level start: the settings, the placed mobys and their pvars, the spare moby pool, the paths and the rest; returns the heap cursor. After it, every placed moby exists and none has run.
 type Level_LoadGameplayFn = (full: number) -> number
+-- rac1.level.update_play (Level_UpdatePlay) void(): The level's tick in play (handle_pause_input, game mode 0): the pause, freeze and help triggers, then the mobys, the hero, the particles, the camera, the sound, the HUD's elements and the frame counters. A replacement that returns without calling the original holds the world for that tick, as the game's own change of mode does (a mod's menu over a frozen world: the freeze mode, rac1.freeze.update).
+type Level_UpdatePlayFn = () -> ()
+-- rac1.freeze.update (Freeze_Update) void(): The freeze mode's tick (update_mode_freeze, game mode 4, entered by mode_freeze_init(kind, ...)): the help, prompt and dialog screens over a frozen world, by mode_freeze_info's kind (0 to 8 are the game's). It runs the sound and, once the mode has been left, puts the sounds and the music back on. A mod's own kind runs here, before or after the original.
+type Freeze_UpdateFn = () -> ()
+-- rac1.freeze.draw (Freeze_Draw) void(): The freeze mode's picture (draw_dialog_background_and_text): the frozen world drawn again with the HUD (the draw mask 0x100FF), then the freeze dialog's dim and box (draw_freeze_message_box). A mod's own freeze kind draws its own here.
+type Freeze_DrawFn = () -> ()
 -- rac1.player.approach_speed (Hero_ApproachSpeed) void(f32,f32): Eases the hero's ground speed (+0x194, the speed Hero_SetPlanarVelocity moves him at) toward his target speed (+0x190) by up when below it and by down when above, each tick he moves on foot, in every level.
 type Hero_ApproachSpeedFn = (up: number, down: number) -> ()
 -- rac1.ship.travel_to (Ship_TravelTo) void(i32): The ship's travel from the planet select (ShipTravelTo), once its menu closes: to the planet it is on (dest the level now), the landing again, as backing out of the select does; to another, the game saved to the card and the ship's flight out of the level, whose loop then ends and flies to dest. After the take-off; a level's only way to another planet by ship.
@@ -1514,6 +1572,36 @@ type msg_stringFn = (id: number) -> number
 type Vendor_OpenMenuFn = (moby: number) -> ()
 -- rac1.gold_bolt.count_unspent (GoldBolts_CountUnspent) i32(): Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership.
 type GoldBolts_CountUnspentFn = () -> number
+-- rac1.vendor.icon_strip.draw (Vendor_DrawIconStrip) void(): Draws the Gadgetron vendor's strip of item and ammunition icons, including the selection highlight. The original also advances carousel scrolling.
+type Vendor_DrawIconStripFn = () -> ()
+-- rac1.vendor.draw_details (Vendor_DrawDetails) void(): Draws the vendor selected-item name and price panel.
+type Vendor_DrawDetailsFn = () -> ()
+-- rac1.ui.icon_frame (UI_IconFrame) i32(i32,i32): Resolves an icon and animation frame to its HUD sprite frame.
+type UI_IconFrameFn = (icon: number, frame: number) -> number
+-- rac1.npc.try_dialog (NPC_TryDialog) i32(u32,u32): Tests an NPC interaction request; identifies the owner of a purchase dialogue.
+type NPC_TryDialogFn = (moby: number, request: number) -> number
+-- rac1.ui.sprite.draw (UI_DrawSprite) void(i32,i32,i32,i32,i32,i32): Draws a HUD sprite as one packed GIF packet.
+type UI_DrawSpriteFn = (frame: number, x: number, y: number, width: number, height: number, alpha: number) -> ()
+-- rac1.pickup.start_scene (Pickup_StartScene) void(i32): Reward acquisition presentation.
+type Pickup_StartSceneFn = (scene: number) -> ()
+-- rac1.gold_case.start_demo (GoldCase_StartDemo) void(u32,i32): Reward acquisition presentation.
+type GoldCase_StartDemoFn = (moby: number, item: number) -> ()
+-- rac1.player.enter_move_state (Hero_EnterMoveState) i32(i32,i32): Puts the hero into a move state (+0x2084): HeroEnterMoveState in levels 0, 4, 7, 9, 10 and 13, and each other level's own copy of it (hero_set_state), one hook point. It keeps the states before it, clears the item locks (+0x20AC, and +0x20A7 when he is not in a vehicle), sets up the new state's control mode and motion, and starts its animation when force is non-zero. It refuses the change and returns 0 while the hero is dying or in a cutscene, unless force is 2, and for most states while he falls or is hurt with no health left; else it returns 1, or 0 where it passes him on to another state. Every change of his state goes through it: his update, his items, and the mobys and triggers that move him. A replacement can send him to another state by calling the original with that state (0x3F is the slow magnet walk on magnetic ground). Under a multiplayer stand-in the port's guard (hero_grab.c) takes the call first, and a mod does not see it.
+type Hero_EnterMoveStateFn = (state: number, force: number) -> number
+-- rac1.player.resolve_gravity_mode (Hero_ResolveGravityMode) i32(): The hero's gravity mode for the tick, which Hero_UpdateMotionInput stores at +0x20B3 as it starts: 0 pulls him along the world's down, 1 along the ground's normal (magnetic ground), 2 along the vector at +0x290. It returns +0x308, which the ground's update sets to 1 on magnetic ground with the Magneboots, but 1 in states 0x3F (the magnet walk), 0x70 and 0x71, and in state 0 on magnetic ground with the Magneboots while he has been in the air for under 4 ticks. Once a tick, in every level.
+type Hero_ResolveGravityModeFn = () -> number
+-- rac1.player.update_equipped_items (Hero_UpdateEquippedItems) void(): What the hero holds, once a tick from Hero_Update in every level: it locks item selection and use (+0x20A7, +0x20AC) while he is on magnetic ground with the Magneboots (+0x308 is 1), in control modes 0x15 and 0x16, or in water or dying, then spawns, updates, animates and lights the item mobys and runs the items (hero_update_items). Hero_EnterMoveState clears both locks on a change of state.
+type Hero_UpdateEquippedItemsFn = () -> ()
+-- rac1.player.steer_planar_velocity (Hero_SteerPlanarVelocity) void(f32): Steers the hero's planar velocity (+0xE0) toward his target speed (+0x190) along his move yaw (+0x180), by at most step a tick, up to three times that as it turns him (1.7 times in state 0x81); in gravity modes 1 and 2 it eases the velocity's length along the ground toward his target speed by step instead. steer_hero_planar_velocity in levels 0, 4, 7, 9, 10, 12, 13, 14 and 17, and its copy air_accel in the others, one hook point. The move states call it after setting the target speed and the step, the Thruster-Pack's hover (state 0x81) among them, so a replacement can steer the hero at a speed and acceleration of its own.
+type Hero_SteerPlanarVelocityFn = (step: number) -> ()
+-- rac1.player.update_movement (Hero_UpdateMovement) void(): The hero's movement for the state he is in (+0x2084), once a tick from Hero_UpdateMotionInput after it reads the stick: a case per state that sets his target speed and turn, steers or sets his velocity (+0xE0) and applies gravity, the Thruster-Pack's hover (state 0x81) among them. hero_update_movement in levels 0, 4, 7, 9, 10 and 13, and each other level's own build of it, one hook point. A replacement can move the hero itself in the states it wants and call the original for the others; his state's transitions come after it, later in Hero_Update.
+type Hero_UpdateMovementFn = () -> ()
+-- rac1.fx.world_quad.draw (FX_DrawWorldQuad) void(u32,u32,i32): Queues one effect quad for the effect renderer (draw_world_quad): the 0x90-byte record at quad holds four corners (+0x00, x y z w each), four RGBA words (+0x40, alpha 0x80 opaque), four ST pairs (+0x50), then the GS words CLAMP, TEX0 (the texture), TEX1 and ALPHA (+0x70, +0x78, +0x80, +0x88); the corners go through the matrix at matrix when it is not 0. Most effects' draw callbacks call it, many times a frame: glows, flames, beams, shots. A replacement can rewrite the record (its colours, say) before it calls the original; the record is the caller's, which may draw it again. The port's own C, not the game's: the executable's quad routine, which a few draws call directly, is not this hook point.
+type FX_DrawWorldQuadFn = (quad: number, matrix: number, mode: number) -> ()
+-- rac1.fx.thruster_flame.draw (FX_ThrusterFlame_Draw) void(u32): Draws one of the Thruster-Pack's two flames (flame, a class 0xA7 moby; draw_joint_aligned_beam_effect), the draw callback its update queues each frame it burns: two quads of effect texture 0xC in the colour 0x80808080 and a glow of texture 0xB in 0x7F2020FF, through rac1.fx.world_quad.draw, then a ribbon of 196 points coloured from the table joint_beam_ribbon_colors. A replacement that sets a flag around the original can tell the flame's quads from the others in rac1.fx.world_quad.draw. The flame's sparks come from its update (rac1.moby.moby167.update) through rac1.fx.burst.spawn.
+type FX_ThrusterFlame_DrawFn = (flame: number) -> ()
+-- rac1.fx.burst.spawn (FX_SpawnBurst) u32(u32,u32,i32,i32,i32,i32,f32): Spawns a spark (a type 0x15 particle; spawn_burst) at the vector at pos, moving by the vector at dir, for ticks ticks (none when 0): its RGBA colour fades from colour to fade as it shrinks from size, and while children is non-zero it throws off a spark of its current colour every other frame. Returns the particle, or 0. The sparks of many effects, explosions and debris among them; the Thruster-Pack's flames spawn theirs in 0x4F007FFF fading to 0x1FFFFFFF from their update (rac1.moby.moby167.update), so a replacement can recolour only those by swapping colour and fade while that update runs.
+type FX_SpawnBurstFn = (pos: number, dir: number, colour: number, fade: number, ticks: number, children: number, size: number) -> number
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 
@@ -1547,6 +1635,15 @@ declare openrac: {
     touch_icon: (name: string, svg: string) -> boolean,
     touch_push: (context: string?) -> (),
     touch_hint: (hint: string, on: boolean) -> (),
+    -- interface 1.15: the mod's own settings set (for the run and in the launcher's list), and its changes heard
+    set_setting: (key: string, value: any) -> boolean,
+    on_settings: (fn: () -> ()) -> (),
+    -- interface 1.31: a pad button's label (an OPENRAC_PAD_* bit: 0x8000 Square) for the device in use, and its kind
+    button_label: (button: number) -> (string?, ("playstation" | "letters" | "keys")?),
+    -- interface 1.37: the pads' motors as the game's vibration drives them (small on or off, large 0 to 255)
+    set_motors: (port: number, small_motor: boolean, large_motor: number) -> boolean,
+    -- interface 1.37: an option of the port's menu greyed out or made usable, by its name (menu-options.md)
+    menu_option_set: (option: string, state: "on" | "off" | "default") -> boolean,
     -- experimental: a moby's pvars by name, from the behaviour catalogue
     pvars: (moby: number) -> { [string]: number }?,
 }

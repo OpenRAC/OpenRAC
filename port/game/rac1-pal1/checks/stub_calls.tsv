@@ -1,0 +1,3 @@
+# Calls from translated C to a function with no C that stub_calls.py allows (ctest <version>_stub_calls).
+# name	caller	why
+func_002A0738	func_L00_001FC108__game	bug, not fixed yet: the release's own C (src/versions/pal_v1/.../func_001F7680.c) calls func_E1_002A0738, which release_names.json binds to the executable name func_002A0738 (no C). That place is level 0's copy of func_001FB848 (PAL v2 calls func_00234E80 there). Needs a release_names pair

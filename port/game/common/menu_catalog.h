@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string_view>
 
@@ -34,6 +35,9 @@ enum Where : std::uint8_t {
     kDesktop = 1,
     kTouch = 2,
     kEverywhere = kDesktop | kTouch,
+    // Also a row of the game's own Video pages (options_menu.h, page_rows), on the screens above.
+    // Keep these few: the game's pages show four to seven rows at a time, and the menu has the rest.
+    kGamePage = 4,
 };
 
 // The menu's tabs, in their order along the bar (the drawer's sections follow it too). Program
@@ -82,22 +86,25 @@ enum class Id : std::uint8_t {
     // Enhanced
     EnhancedStatus,
     EnhancedGraphics,
-    ModernShadows,
+    EnhancedLow,
+    EnhancedMedium,
+    EnhancedHigh,
     ShadowQuality,
-    RimLight,
-    RimShadowLift,
-    BounceStrength,
-    AmbientOcclusion,
+    ShadowFilter,
     OcclusionQuality,
-    OcclusionHiZ,
     TextureUpscaling,
+    EffectsDetail,
+    EarlyLightingQuality,
     Upscaling,
     Sharpening,
     MotionBlur,
+    MotionBlurQuality,
     ColorCorrection,
     Brightness,
     EnhancedReset,
+    OcclusionHiZ,
     EnhancedAdvanced,
+    EnhancedMaterials,
     // Game
     Volume,
     MuteInBackground,
@@ -123,6 +130,7 @@ enum class Id : std::uint8_t {
     PlayerOne,
     PlayerTwo,
     MenuOpen,
+    KeyboardMouse,
     TouchActionButtons,
     TouchButtonSize,
     TouchCameraSpeed,
@@ -174,6 +182,13 @@ std::span<const Entry> entries();
 
 // The entry `id`.
 const Entry& entry(Id id);
+
+// An entry's name for the mods (openrac_api.menu_option_set): its Id in lower case words joined
+// by _ ("rumble_strength"). sdk/docs/menu-options.md lists them; a name never changes.
+const char* option_name(Id id);
+
+// The entry named `name` (option_name), or none.
+std::optional<Id> option_named(std::string_view name);
 
 // A tab's name on the bar ("Graphics").
 const char* tab_name(Tab tab);

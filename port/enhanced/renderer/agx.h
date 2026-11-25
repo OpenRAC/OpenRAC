@@ -6,8 +6,8 @@
 
 #include <string>
 
-#include "renderer/framebuffer.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
 
 namespace openrac::enhanced {
 // Optional SDR colour-treatment experiment, owned and used only by the render worker.

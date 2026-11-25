@@ -18,13 +18,14 @@
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
-#include "renderer/render_opt.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
 #include "scene/level_renderer.h"
 #include "scene_shaders.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 using namespace openrac;
@@ -87,7 +88,7 @@ colour=vec4(float(b&255u),float((b>>8)&255u),float((b>>16)&255u),float(b>>24))/2
         std::array<float, 2> heights{};
         for (int raw = 0; raw < 2; ++raw) {
             glUniform1i(read.uniform("raw_pose"), raw);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             const auto bytes = target.read_rgba();
             const auto bits = std::uint32_t(bytes[0]) | (std::uint32_t(bytes[1]) << 8)
                               | (std::uint32_t(bytes[2]) << 16) | (std::uint32_t(bytes[3]) << 24);
@@ -289,6 +290,8 @@ int main(int argc, char** argv) {
         frame.hero_pixel_shadow = true;
         stats::set_enabled(stats::Client::Dump, true);
         stats::begin_frame(stats::FrameKind::Tick, 0);
+        // Each frame below is drawn more than once and its draws compared: no cascade is kept.
+        renderer::render_opt::set(renderer::render_opt::Opt::ShadowFarAlternate, false);
         for (unsigned tick = 0; tick < 6; ++tick) {
             frame.seconds = 20 + tick / 60.;
             scene::Instance hero;
@@ -378,6 +381,9 @@ int main(int argc, char** argv) {
             auto observer = std::make_unique<test::PrepassCapture>();
             auto* capture = observer.get();
             CHECK(renderer.add(std::move(observer), error));
+            frame.on_before_particles = [capture](const renderer::RenderTarget& target) {
+                capture->capture(target);
+            };
             renderer::Shader read_depth;
             renderer::FrameBuffer depth_pixels;
             CHECK(depth_pixels.create(768, 768, error));
@@ -409,7 +415,7 @@ void main(){
                 gl::glDisable(gl::GL_SCISSOR_TEST);
                 gl::glColorMask(gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE);
                 gl::glBindVertexArray(read_vao);
-                gl::glDrawArrays(gl::GL_TRIANGLES, 0, 3);
+                openrac::test::graph_draw(gl::glDrawArrays, gl::GL_TRIANGLES, 0, 3);
                 return depth_pixels.read_rgba();
             };
             // Two renders per simulation frame: first verify the existing terrain path,

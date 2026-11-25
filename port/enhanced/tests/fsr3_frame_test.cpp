@@ -13,16 +13,17 @@
 #include "enhanced/fsr3/palette_history.h"
 #include "enhanced/fsr3/temporal_math.h"
 #include "enhanced/renderer/agx.h"
-#include "renderer/effects.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/effects/effects.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
-#include "renderer/surface_chain.h"
-#include "renderer/vulkan/frame_capture.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/diagnostics/frame_capture.h"
 #include "renderer/vulkan/vkgl.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -140,7 +141,7 @@ void main(){
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, history.texture());
             glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             const auto pixels = target.read_rgba();
             CHECK(pixels.size() >= 4);
             return pixels.size() < 4
@@ -235,10 +236,14 @@ void main(){result=vec4(0,1,0,1);})",
             glEnable(GL_SCISSOR_TEST);
             glScissor(40, 30, 1, 1);
             glUniform1f(m_glimmer.uniform("depth"), .25f);
-            glDrawArrays(GL_TRIANGLES, 0, 3);  // behind the wall: must remain hidden
+            openrac::test::graph_draw(
+                glDrawArrays, GL_TRIANGLES, 0, 3
+            );  // behind the wall: must remain hidden
             glScissor(43, 30, 1, 1);
             glUniform1f(m_glimmer.uniform("depth"), .75f);
-            glDrawArrays(GL_TRIANGLES, 0, 3);  // in front: must remain visible
+            openrac::test::graph_draw(
+                glDrawArrays, GL_TRIANGLES, 0, 3
+            );  // in front: must remain visible
             glDisable(GL_DEPTH_TEST);
             glEnable(GL_SCISSOR_TEST);
             glScissor(48, 36, 1, 1);
@@ -283,7 +288,23 @@ void test_temporal_math() {
         CHECK(std::abs(product[n] - renderer::identity()[n]) < .001f);
     }
 
+    const auto shift = renderer::translation({.125f, -.25f, 0});
+    renderer::Mat4 reprojection;
+    renderer::Mat4 camera_inverse;
+    CHECK(
+        enhanced::fsr3_detail::camera_transforms(
+            matrix, renderer::multiply(shift, matrix), camera_inverse, reprojection
+        )
+    );
+
+    // Clip-to-clip composition preserves the endpoint order and cancels the shared perspective.
+    for (std::size_t n = 0; n < reprojection.size(); ++n) {
+        CHECK(std::abs(reprojection[n] - shift[n]) < .001f);
+        CHECK(camera_inverse[n] == inverse[n]);
+    }
+
     CHECK(!enhanced::fsr3_detail::invert({}, inverse));
+    CHECK(!enhanced::fsr3_detail::camera_transforms({}, matrix, camera_inverse, reprojection));
 }
 
 // Starts one representative complete graph capture after temporal history has warmed up.

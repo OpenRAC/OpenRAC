@@ -63,6 +63,30 @@ The game writes its log in its data folder
 (`files/games/active/<game>/data/`), and the launcher shows it with the crash
 reports on the game's page.
 
+## Driving a debug build over adb
+
+A debug build (CI's APK, or `tools/build_android.py` without `--release`) can be started and
+measured from a computer, over USB or wireless debugging. Play the game once from the launcher
+first: the game's activity writes that start to `files/debug/last_launch`.
+
+```sh
+python tools/android_device.py status                 # the device, the app, the GPU's clock
+python tools/android_device.py sweep --level 1        # the Graphics sweep by script, report copied here
+python tools/android_device.py record 20 --level 1    # a 20 second recording
+python tools/android_device.py start --env OPENRAC_RENDER_OPT_OFF=pipeline-prewarm
+python tools/android_device.py gpu --seconds 30       # Adreno's clock, load and temperature
+python tools/android_device.py screen                 # what the device shows, as a PNG
+python tools/android_device.py press a                # a pad button (start, back, up...), or `tap X Y`
+python tools/android_device.py reset                  # the launcher starts the game as usual again
+```
+
+- `start` repeats the launcher's last start through the debug build's exported alias
+  (`dev.openrac.game.DebugStart`, off in a release), with `files/debug/extra` added: environment
+  variables, arguments, and with `--lib FILE` a library loaded in place of the APK's.
+- `--lib` takes `libopenrac-<id>.so` from `port/build/android-arm64`, so a change to the port
+  needs no new APK: build the one target and start it.
+- `GameActivity.debugLaunch` reads both files, on a debuggable build only.
+
 ## Testing on a device
 
 CI has no phone and no disc, so these steps are done by hand. When you report,
@@ -126,7 +150,7 @@ game's log.
     - Play: the drawer's footer says Vulkan, its Enhanced graphics card has
       its switches, and the log says the probe bake loaded.
     - Add lock-strafe from its link (OpenRAC/openrac-mods): it installs and loads.
-    - Settings has no Discord, Compact layout or Godot, and saves a switch
+    - Settings has no Discord, Compact layout or editor, and saves a switch
       without a Save bar.
 13. **The launcher with a controller.** Without touching the screen: the d-pad
     and left stick move an amber focus ring over every control, A presses, B

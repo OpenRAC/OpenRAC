@@ -5,9 +5,9 @@
 #include <stdexcept>
 
 #include "common/stats.h"
-#include "renderer/colour_graph.h"
-#include "renderer/gl.h"
-#include "renderer/surface_chain.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/frame/surface_chain.h"
+#include "renderer/gl/gl.h"
 #include "scene/level_lighting.h"
 #include "scene/level_renderer.h"
 #include "scene/level_renderer_internal.h"
@@ -26,7 +26,7 @@ renderer::Mat4 sky_shell_matrix(const renderer::FrameInput& input, int shell) {
         return result;
     }
     // The shell's matrix as the game drew it this tick; its translation is in the game's
-    // sky units, the vertices were exported in 1/1024ths of them (editor/sky.py).
+    // sky units, the vertices were exported in 1/1024ths of them (extractor/sky.py).
     result = input.sky_shells[static_cast<std::size_t>(shell)];
     result[3] = result[7] = result[11] = 0.0f;
     result[12] /= 1024.0f;
@@ -83,7 +83,12 @@ void LevelScene::record_sky(const renderer::FrameInput& input, renderer::RenderS
     glBindFramebuffer(GL_FRAMEBUFFER, state.target.framebuffer);
     glViewport(0, 0, state.target.width, state.target.height);
     // Captures remain valid until the enclosing scoped plan records all sky consumers.
-    if (renderer::collecting_surface_chain()) {
+    if (!enhanced_rendering_available()) {
+        const auto inputs = classic_colour_inputs(Layer::Sky, state);
+        renderer::raster_pass("authored sky", state.target, inputs, [&] {
+            draw_sky(input, state);
+        });
+    } else if (renderer::collecting_surface_chain()) {
         const auto result = renderer::colour_pass(
             "authored sky",
             state.target,

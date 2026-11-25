@@ -64,7 +64,11 @@ static int remove_handler(handler* table, int cause, int id) {
 void openrac_game_run_vsync_handlers(void) {
     for (int i = 0; i < MAX_HANDLERS; i++) {
         if (intc[i].handler != 0 && intc[i].cause == INTC_VBLANK_START) {
-            GFN(int (*)(int), intc[i].handler)(intc[i].cause);
+            if (intc[i].with_data) {
+                GFN(int (*)(int, gaddr, gaddr), intc[i].handler)(intc[i].cause, intc[i].data, 0);
+            } else {
+                GFN(int (*)(int), intc[i].handler)(intc[i].cause);
+            }
         }
     }
     if (vsync_callback != 0) {
@@ -87,6 +91,17 @@ void openrac_game_run_dmac_handlers(int channel) {
 /* AddIntcHandler */
 int openrac_lib_AddIntcHandler(int cause, gaddr fn, int next) {
     return add(intc, cause, fn, next);
+}
+
+/* AddIntcHandler2 (system call 0x10, as AddIntcHandler): the handler also gets an argument of
+ * the caller's, handler(cause, arg, 0). */
+int openrac_lib_AddIntcHandler2(int cause, gaddr fn, int next, gaddr arg) {
+    int id = add(intc, cause, fn, next);
+    if (id > 0) {
+        intc[id - 1].data = arg;
+        intc[id - 1].with_data = 1;
+    }
+    return id;
 }
 
 /* RemoveIntcHandler */
@@ -969,3 +984,19 @@ void openrac_lib__ExecOSD(int argc, gaddr argv) {
 #if defined(__cplusplus)
 }
 #endif
+
+/* LoadExecPS2 ended the program: the next starts with no handler, semaphore, thread, RPC client or
+ * system call of its own (game_host.h). */
+void openrac_game_kernel_reset(void) {
+    memset(intc, 0, sizeof intc);
+    memset(dmac, 0, sizeof dmac);
+    vsync_callback = 0;
+    memset(semas, 0, sizeof semas);
+    memset(sema_used, 0, sizeof sema_used);
+    memset(rpc_client, 0, sizeof rpc_client);
+    memset(rpc_server, 0, sizeof rpc_server);
+    memset(syscall_table, 0, sizeof syscall_table);
+    memset(sif_reg, 0, sizeof sif_reg);
+    memset(sif_sysreg, 0, sizeof sif_sysreg);
+    next_thread = 2;
+}

@@ -25,7 +25,7 @@
 #include "game/rac1/game_state.h"
 #include "game/rac1/gameplay_lighting.h"
 #include "gpu_draw_reference.h"
-#include "renderer/framebuffer.h"
+#include "renderer/gl/framebuffer.h"
 #include "renderer/renderer.h"
 #include "renderer_gl_context.h"
 #include "scene/level.h"
@@ -502,7 +502,246 @@ void loader(const fs::path& dir, scene::LevelData& level) {
     }
 }
 
-int draw(scene::LevelData& level) {
+// A right triangle (legs 2) in the XY plane, facing +Z, of the colour `rgba`, textured with `image`
+// (a URI relative to the file) when it is not empty.
+void write_triangle(
+    const fs::path& path, const std::array<float, 4>& rgba, const std::string& image
+) {
+    const float positions[] = {0, 0, 0, 2, 0, 0, 0, 2, 0};
+    const float normals[] = {0, 0, 1, 0, 0, 1, 0, 0, 1};
+    const float uvs[] = {0, 1, 1, 1, 0, 0};
+    const std::uint32_t indices[] = {0, 1, 2};
+    std::vector<std::uint8_t> buffer;
+    auto append = [&](const void* data, std::size_t bytes) {
+        const auto* p = static_cast<const std::uint8_t*>(data);
+        buffer.insert(buffer.end(), p, p + bytes);
+    };
+    append(positions, sizeof(positions));
+    append(normals, sizeof(normals));
+    append(uvs, sizeof(uvs));
+    append(indices, sizeof(indices));
+    std::string material = R"({"pbrMetallicRoughness":{"baseColorFactor":[)"
+                           + std::to_string(rgba[0]) + "," + std::to_string(rgba[1]) + ","
+                           + std::to_string(rgba[2]) + "," + std::to_string(rgba[3]) + "]";
+
+    if (!image.empty()) {
+        material += R"(,"baseColorTexture":{"index":0})";
+    }
+
+    material += "}}";
+    std::string gltf = R"({"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],)"
+                       R"("nodes":[{"name":"prop","mesh":0}],)"
+                       R"("meshes":[{"primitives":[{"attributes":{"POSITION":0,"NORMAL":1,)"
+                       R"("TEXCOORD_0":2},"indices":3,"material":0}]}],)"
+                       R"("materials":[)"
+                       + material + "],";
+
+    if (!image.empty()) {
+        gltf += R"("textures":[{"source":0}],"images":[{"uri":")" + image + R"("}],)";
+    }
+
+    gltf += R"("accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3",)"
+            R"("min":[0,0,0],"max":[2,2,0]},)"
+            R"({"bufferView":1,"componentType":5126,"count":3,"type":"VEC3"},)"
+            R"({"bufferView":2,"componentType":5126,"count":3,"type":"VEC2"},)"
+            R"({"bufferView":3,"componentType":5125,"count":3,"type":"SCALAR"}],)"
+            R"("bufferViews":[{"buffer":0,"byteOffset":0,"byteLength":36},)"
+            R"({"buffer":0,"byteOffset":36,"byteLength":36},)"
+            R"({"buffer":0,"byteOffset":72,"byteLength":24},)"
+            R"({"buffer":0,"byteOffset":96,"byteLength":12}],)"
+            R"("buffers":[{"byteLength":108,"uri":"data:application/octet-stream;base64,)"
+            + base64(buffer) + R"("}]})";
+    write_text(path, gltf);
+}
+
+// Models loaded into a level after its upload (LevelScene::add_loaded_models), as a mod's prop
+// meshes are, draw as the same models read with the level before it: two grounds, each of two
+// primitives (so upload keeps material-order copies of them after the level's own models, and a
+// model added later has to be aligned past them), three props, one textured, added in two calls.
+void added_models(const fs::path& dir) {
+    const fs::path mods = dir / "added-models";
+    fs::remove_all(mods);
+    write_png(mods / "checker.png", 20, 220, 20);
+    write_triangle(mods / "red.gltf", {0.9f, 0.1f, 0.1f, 1.0f}, "");
+    write_triangle(mods / "checker.gltf", {1.0f, 1.0f, 1.0f, 1.0f}, "checker.png");
+    write_triangle(mods / "blue.gltf", {0.1f, 0.1f, 0.9f, 1.0f}, "");
+    const std::array<fs::path, 3> props{
+        mods / "red.gltf", mods / "checker.gltf", mods / "blue.gltf"
+    };
+    const auto base_level = [] {
+        scene::LevelData level;
+
+        for (int ground = 0; ground < 2; ++ground) {
+            const auto first = static_cast<std::uint32_t>(level.vertices.size());
+            const float z = -1.0f - static_cast<float>(ground);
+
+            for (const auto& p : {std::array<float, 2>{-4, -4}, {4, -4}, {-4, 4}, {4, 4}}) {
+                scene::Vertex v{};
+                v.position[0] = p[0];
+                v.position[1] = p[1];
+                v.position[2] = z;
+                v.normal[2] = 1;
+                std::fill(std::begin(v.colour), std::end(v.colour), 1.0f);
+                v.light_slot = -1;
+                level.vertices.push_back(v);
+            }
+
+            const auto firsts = static_cast<std::uint32_t>(level.indices.size());
+
+            for (const std::uint32_t i : {0u, 1u, 2u, 1u, 3u, 2u}) {
+                level.indices.push_back(first + i);
+            }
+
+            level.materials.push_back({});
+            level.materials.back().colour = {0.2f, 0.6f, 0.2f, 1.0f};
+            level.materials.push_back({});
+            level.materials.back().colour = {0.2f, 0.5f, 0.3f, 1.0f};
+            scene::Model model;
+            model.name = "ground";
+            model.primitives.push_back({firsts, 3, 2 * ground});
+            model.primitives.push_back({firsts + 3, 3, 2 * ground + 1});
+            level.models.push_back(model);
+            scene::Instance instance;
+            instance.model = static_cast<std::uint32_t>(ground);
+            level.instances[static_cast<std::size_t>(scene::Layer::Terrain)].push_back(instance);
+        }
+
+        return level;
+    };
+    // The picture of `models` (their indices in the scene), each at its own place.
+    const auto picture = [](scene::LevelScene& scene,
+                            renderer::Renderer& renderer,
+                            renderer::FrameBuffer& frame,
+                            const std::vector<std::uint32_t>& models) {
+        std::vector<scene::Instance> live;
+
+        for (std::size_t i = 0; i < models.size(); ++i) {
+            scene::Instance instance;
+            instance.model = models[i];
+            instance.matrix = renderer::translation({-3.0f + 2.5f * static_cast<float>(i), -1, 0});
+            live.push_back(instance);
+        }
+
+        scene.set_instances(scene::Layer::Mobys, live);
+        renderer::FrameInput input;
+        input.camera.position = {0, 0, 4};
+        input.camera.view = renderer::look_along(input.camera.position, {0, 0, -1}, {0, 1, 0});
+        input.camera.projection = renderer::identity();
+        input.camera.projection[0] = input.camera.projection[5] = .25f;
+        input.camera.projection[10] = 2.f / 72;
+        input.camera.projection[14] = 1;
+        renderer.render(input, {frame.id(), 64, 64});
+        return frame.read_rgba();
+    };
+    // The pixels of an RGBA picture that are mostly one channel, to see that the props were drawn.
+    const auto count = [](const std::vector<std::uint8_t>& rgba, std::size_t channel) {
+        int n = 0;
+
+        for (std::size_t i = 0; i + 3 < rgba.size(); i += 4) {
+            const int c = rgba[i + channel];
+            const int o1 = rgba[i + (channel + 1) % 3];
+            const int o2 = rgba[i + (channel + 2) % 3];
+            n += c > 150 && c > o1 + 80 && c > o2 + 80;
+        }
+
+        return n;
+    };
+
+    std::string error;
+    // The reference: the props read with the level, so they come before the scene's own copies.
+    const auto reference = [&](std::size_t n) {
+        scene::LevelData level = base_level();
+        std::vector<std::uint32_t> models;
+
+        for (std::size_t i = 0; i < n; ++i) {
+            const auto model = scene::load_model(props[i], level, error);
+            CHECK(model.has_value());
+            models.push_back(model.value_or(0));
+        }
+
+        renderer::Renderer renderer;
+        scene::LevelScene scene;
+        scene.lighting = false;
+        CHECK(scene.upload(level, renderer.textures(), error));
+
+        for (const auto layer : {scene::Layer::Terrain, scene::Layer::Mobys}) {
+            renderer.add(std::make_unique<scene::LayerRenderer>(scene, layer), error);
+        }
+
+        CHECK(renderer.init(error));
+        renderer::FrameBuffer frame;
+        CHECK(frame.create(64, 64, error));
+        const auto rgba = picture(scene, renderer, frame, models);
+        frame.release();
+        scene.release();
+        renderer.release();
+        return rgba;
+    };
+    const auto two = reference(2);
+    const auto three = reference(3);
+    // Red, and the checker's green; and with the third, blue as well.
+    CHECK(count(two, 0) > 20 && count(two, 1) > 20 && count(two, 2) == 0);
+    CHECK(count(three, 2) > 20 && two != three);
+
+    // The same props added after upload, in two calls.
+    scene::LevelData level = base_level();
+    renderer::Renderer renderer;
+    scene::LevelScene scene;
+    scene.lighting = false;
+    CHECK(scene.upload(level, renderer.textures(), error));
+
+    for (const auto layer : {scene::Layer::Terrain, scene::Layer::Mobys}) {
+        renderer.add(std::make_unique<scene::LayerRenderer>(scene, layer), error);
+    }
+
+    CHECK(renderer.init(error));
+    renderer::FrameBuffer frame;
+    CHECK(frame.create(64, 64, error));
+    // The scene has the level's two models and a copy of each in material order.
+    CHECK(scene.model_count() == 4);
+    // Models loaded without aligning the level first are refused.
+    {
+        scene::LevelData unaligned = base_level();
+        renderer::Renderer other_renderer;
+        scene::LevelScene other;
+        CHECK(other.upload(unaligned, other_renderer.textures(), error));
+        CHECK(scene::load_model(props[0], unaligned, error).has_value());
+        CHECK(!other.add_loaded_models(unaligned, other_renderer.textures(), error));
+        CHECK(!error.empty());
+        other.release();
+        other_renderer.release();
+    }
+    // Nothing loaded: nothing to add, and nothing changes.
+    scene.align_models(level);
+    CHECK(level.models.size() == 4);
+    CHECK(scene.add_loaded_models(level, renderer.textures(), error));
+    CHECK(scene.model_count() == 4);
+    std::vector<std::uint32_t> models;
+
+    for (std::size_t i = 0; i < 2; ++i) {
+        const auto model = scene::load_model(props[i], level, error);
+        CHECK(model.has_value());
+        models.push_back(model.value_or(0));
+    }
+
+    CHECK(models == (std::vector<std::uint32_t>{4, 5}));
+    CHECK(scene.add_loaded_models(level, renderer.textures(), error));
+    CHECK(scene.model_count() == 6);
+    CHECK(picture(scene, renderer, frame, models) == two);
+    // The draw has made groups for the first chunk's models, which the next call does not disturb.
+    scene.align_models(level);
+    const auto blue = scene::load_model(props[2], level, error);
+    CHECK(blue.has_value() && *blue == 6);
+    models.push_back(blue.value_or(0));
+    CHECK(scene.add_loaded_models(level, renderer.textures(), error));
+    CHECK(picture(scene, renderer, frame, models) == three);
+    CHECK(picture(scene, renderer, frame, {models[0], models[1]}) == two);
+    frame.release();
+    scene.release();
+    renderer.release();
+}
+
+int draw(scene::LevelData& level, const fs::path& dir) {
     test::GlContext context;
     std::string why;
     if (!context.open(why)) {
@@ -960,13 +1199,14 @@ int draw(scene::LevelData& level) {
         CHECK(renderer.last_stats().draw_calls == all);
     }
 
+    added_models(dir);
     frame.release();
     scene.release();
     renderer.release();
     return openrac::test::result();
 }
 
-// A mod's folder for the level (the --mods folder's level_03, editor/overrides.py): an upscaled
+// A mod's folder for the level (the --mods folder's level_03, extractor/overrides.py): an upscaled
 // terrain texture and a bigger tie mesh are read in place of the level's own, and the mod's mesh
 // names a texture of the level it does not carry (the tie's), which comes from the level.
 void overrides(const fs::path& dir) {
@@ -1023,7 +1263,7 @@ void overrides(const fs::path& dir) {
     fs::remove_all(mods.parent_path());
 }
 
-// A terrain as editor/assets.py imports a denser one: an N x N grid of quads, side `size`,
+// A terrain as extractor/assets.py imports a denser one: an N x N grid of quads, side `size`,
 // centred on the origin at height z, with vertex colours (the game's lighting, 0x80 = 1.0, so up
 // to 2) and 32-bit indices.
 void write_grid(
@@ -1137,7 +1377,7 @@ void mod_assets(const fs::path& dir) {
     fs::remove_all(base);
 }
 
-// A mod's terrain (editor/overrides.py: level_NN/terrain.glb, as the manifest names it), denser than
+// A mod's terrain (extractor/overrides.py: level_NN/terrain.glb, as the manifest names it), denser than
 // the level's: drawn in its place whatever its vertex count, lit by its vertex colours, naming the
 // level's terrain texture it does not carry.
 void denser_terrain(const fs::path& dir) {
@@ -1280,5 +1520,5 @@ int main(int argc, char** argv) {
     if (openrac::test::failures() != 0) {
         return openrac::test::result();
     }
-    return draw(level);
+    return draw(level, dir);
 }

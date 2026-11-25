@@ -2,10 +2,11 @@
   // One action from launcher/actions.json as a row of Develop: its name, a line on what it does,
   // a pill for where it stands (its last job, else what it needs) and one button. The rest (the
   // whole description, what is left to check, the document) opens under it.
-  import { api, type ActionView, type Scope } from "$lib/api";
+  import { type ActionView, api, type Scope } from "$lib/api";
   import { clock, guard, jobs, openDevelop, run } from "$lib/app.svelte";
   import { elapsed } from "$lib/format";
   import { STATE } from "$lib/labels";
+
   import Icon from "./Icon.svelte";
 
   let { action, scope }: { action: ActionView; scope: Scope } = $props();
@@ -13,25 +14,35 @@
   let open = $state(false);
   const planned = $derived(action.state === "planned");
   const sameScope = (s: Scope) =>
-    s.kind === scope.kind && (s.kind === "repository" || (scope.kind === "version" && s.key === scope.key));
+    s.kind === scope.kind &&
+    (s.kind === "repository" || (scope.kind === "version" && s.key === scope.key));
   /** This action's newest job in this scope, if it ran since the launcher started. */
-  const last = $derived(jobs.list.findLast((j) => j.actionId === action.id && sameScope(j.scope)) ?? null);
+  const last = $derived(
+    jobs.list.findLast((j) => j.actionId === action.id && sameScope(j.scope)) ?? null,
+  );
   const busy = $derived(!!last && (last.state === "queued" || last.state === "running"));
-  const blocked = $derived(planned ? "" : action.blockers.map((b) => b.replace(/^needs /, "")).join(", "));
+  const blocked = $derived(
+    planned ? "" : action.blockers.map((b) => b.replace(/^needs /, "")).join(", "),
+  );
 
   /** Where the action stands, as a pill: its last job first, then what it needs, then its artifact. */
   const status = $derived.by<{ text: string; tone: string }>(() => {
     if (last?.state === "queued") return { text: "Queued", tone: "info" };
+
     if (last?.state === "running") {
       const time = last.startedAt ? ` · ${elapsed(clock.now - last.startedAt)}` : "";
+
       return { text: `Running${time}`, tone: "warn" };
     }
+
     if (planned) return { text: "Not connected", tone: "info" };
-    if (last?.state === "succeeded") return { text: action.kind === "check" ? "Passed" : "Done", tone: "ok" };
+    if (last?.state === "succeeded")
+      return { text: action.kind === "check" ? "Passed" : "Done", tone: "ok" };
     if (last?.state === "failed") return { text: "Failed", tone: "err" };
     if (blocked) return { text: `Needs ${blocked}`, tone: "warn" };
     if (action.done) return { text: "Done", tone: "ok" };
     if (last?.state === "cancelled") return { text: "Cancelled", tone: "info" };
+
     return { text: "Not run", tone: "idle" };
   });
 
@@ -63,14 +74,23 @@
       {#if action.warning}<p class="blocked"><Icon name="warn" size={14} />{action.warning}</p>{/if}
       {#if blocked}<p class="blocked"><Icon name="warn" size={14} />Needs {blocked}</p>{/if}
       {#if action.state === "unverified"}<p>{STATE.unverified.hint}</p>{/if}
-      {#if action.todo && action.state !== "connected"}<p><strong>Left to do.</strong> {action.todo}</p>{/if}
+      {#if action.todo && action.state !== "connected"}<p>
+          <strong>Left to do.</strong>
+          {action.todo}
+        </p>{/if}
       <div class="row links">
         {#if last}
-          <button class="ghost small" onclick={output}><Icon name="terminal" size={14} />Last output</button>
+          <button class="ghost small" onclick={output}
+            ><Icon name="terminal" size={14} />Last output</button
+          >
         {/if}
         {#if action.docs}
           {@const docs = action.docs}
-          <button class="ghost small mono" onclick={() => void guard(api.openPath(docs))}>
+          <button
+            class="ghost small mono"
+            onclick={() =>
+              void guard(docs.startsWith("https://") ? api.openUrl(docs) : api.openPath(docs))}
+          >
             <Icon name="book" size={14} />{docs}
           </button>
         {/if}

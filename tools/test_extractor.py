@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 import extractor
+from openrac_common import disc_files
 from test_openrac import image
 
 BOOT = b"\x7fELF" + bytes(3000)
@@ -52,16 +53,106 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(info["files"], 3)
         self.assertFalse((self.proj / "iso_data" / "_temp").exists())
 
-    def test_boot_only_writes_what_the_port_reads_and_checks_every_file(self):
+    def test_the_sector_map_gives_every_sector_of_the_image_from_the_files(self):
+        self.run_extract()
+        out = self.proj / "iso_data" / "rac9"
+        rows = disc_files.read_map(out)
+        whole = self.iso.read_bytes()
+        self.assertEqual(rows[0].first, 0)
+        self.assertEqual(sum(r.sectors for r in rows) * disc_files.SECTOR, len(whole))
+        rebuilt = bytearray()
+        for row in rows:
+            self.assertEqual(row.first * disc_files.SECTOR, len(rebuilt))
+            data = (out / row.path).read_bytes()
+            self.assertEqual(len(data), row.bytes)
+            rebuilt += data + bytes(row.sectors * disc_files.SECTOR - row.bytes)
+        self.assertEqual(bytes(rebuilt), whole)
+        # The file system's files are rows of their own; the rest are lumps.
+        self.assertIn("SCES_999.99", [r.path for r in rows])
+        self.assertTrue(all(r.path.startswith("lumps/") for r in rows if r.path not in ("SYSTEM.CNF", "SCES_999.99", "IOPRP.IMG")))
+
+    def test_lumps_are_cut_where_the_table_of_contents_points(self):
+        files = [("A.BIN", 20, 100), ("B.BIN", 30, 5000)]
+        rows = disc_files.plan(files, 50, {5: "toc", 40: "levels/00/level", 45: "global/001"})
+        self.assertEqual([(r.first, r.sectors, r.path) for r in rows], [
+            (0, 5, "lumps/sectors/0000000.bin"), (5, 15, "lumps/toc.bin"), (20, 1, "A.BIN"),
+            (21, 9, "lumps/sectors/0000021.bin"), (30, 3, "B.BIN"), (33, 7, "lumps/sectors/0000033.bin"),
+            (40, 5, "lumps/levels/00/level.bin"), (45, 5, "lumps/global/001.bin")])
+        self.assertEqual(rows[2].bytes, 100)
+
+    def test_a_file_whose_padding_is_not_zeros_leaves_its_last_sector_to_a_lump(self):
+        data = bytearray(self.iso.read_bytes())
+        lba = next(l for p, l, _ in extractor.files_of(self.iso) if p == "IOPRP.IMG")
+        data[lba * disc_files.SECTOR + 10] = 0x55
+        self.iso.write_bytes(bytes(data))
+        self.run_extract()
+        out = self.proj / "iso_data" / "rac9"
+        rows = {r.first: r for r in disc_files.read_map(out)}
+        self.assertEqual(rows[lba].path, f"lumps/sectors/{lba:07}.bin")
+        self.assertEqual((out / rows[lba].path).read_bytes()[10], 0x55)
+        self.assertEqual((out / "IOPRP.IMG").read_bytes(), b"iop")
+
+    def test_boot_only_writes_the_boot_executable_alone_and_checks_every_file(self):
         with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())):
             info = extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True)
         out = self.proj / "iso_data" / "rac9"
         self.assertEqual((out / "SCES_999.99").read_bytes(), BOOT)
         self.assertEqual((out / "SYSTEM.CNF").read_bytes(), CNF)
         self.assertFalse((out / "IOPRP.IMG").exists())
+        self.assertFalse((out / disc_files.MAP_NAME).exists())
         self.assertEqual((out / "disc.iso").read_bytes(), self.iso.read_bytes())
         self.assertEqual(info["files"], 3)
         self.assertEqual(info, self.run_extract())  # the same build info as a full extraction
+
+    def test_link_image_keeps_a_symbolic_link_where_no_hard_link_can_be_made(self):
+        # Android lets no app make hard links: the launcher's own copy is linked, not copied again.
+        with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())), \
+                mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True, link_image=True)
+        image = self.proj / "iso_data" / "rac9" / "disc.iso"
+        self.assertTrue(image.is_symlink())
+        self.assertEqual(image.resolve(), self.iso.resolve())
+        # Set up again from the same image: the new link replaces the old one, the image stays.
+        with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())), \
+                mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True, link_image=True)
+        self.assertTrue(self.iso.is_file())
+        self.assertEqual(image.read_bytes(), self.iso.read_bytes())
+
+    def test_set_up_again_from_its_own_image_keeps_it(self):
+        # Android before --link-image: the set-up's disc.iso is a copy. Set up from it again,
+        # it moves into the new set-up instead of a link to a file that is then removed.
+        with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())), \
+                mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True)
+            own = self.proj / "iso_data" / "rac9" / "disc.iso"
+            info = extractor.extract(own, "rac9", self.proj, minimum=0, boot_only=True, link_image=True)
+        self.assertTrue(own.is_file())
+        self.assertFalse(own.is_symlink())
+        self.assertEqual(own.read_bytes(), self.iso.read_bytes())
+        self.assertEqual(info["image"], self.iso.name, "the name of the image it was first set up from")
+        self.assertFalse((self.proj / "iso_data" / "_temp").exists())
+
+    def test_unpacking_a_linked_set_up_keeps_the_link(self):
+        # Android: the set-up's disc.iso links to the Disc images copy. Unpack the disc's files
+        # runs on it without --link-image: the new set-up links to that copy, never copies it.
+        with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())), \
+                mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True, link_image=True)
+            own = self.proj / "iso_data" / "rac9" / "disc.iso"
+            info = extractor.extract(own, "rac9", self.proj, minimum=0)
+        self.assertTrue(own.is_symlink())
+        self.assertEqual(own.resolve(), self.iso.resolve())
+        self.assertTrue((self.proj / "iso_data" / "rac9" / disc_files.MAP_NAME).is_file())
+        self.assertEqual(info["image"], self.iso.name, "the name of the image it was first set up from")
+
+    def test_without_link_image_a_failed_hard_link_copies(self):
+        with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())), \
+                mock.patch("os.link", side_effect=PermissionError("no hard links")):
+            extractor.extract(self.iso, "rac9", self.proj, minimum=0, boot_only=True)
+        image = self.proj / "iso_data" / "rac9" / "disc.iso"
+        self.assertFalse(image.is_symlink())
+        self.assertEqual(image.read_bytes(), self.iso.read_bytes())
 
     def test_a_second_extraction_replaces_the_first(self):
         self.run_extract()
@@ -86,7 +177,7 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 4002)
 
     def test_knows_the_rac2_pal_disc(self):
-        # Issue #66: the European R&C2 disc is a known build.
+        # The European R&C2 disc is a known build.
         [(_, name, version)] = extractor.builds("rac2")["SCES_516.07"]
         self.assertEqual(name, "pal")
         self.assertEqual(version["boot"]["sha1"], "cb59ce5396ddebb8aa539b0847f8bf66d6a47fe0")
@@ -174,7 +265,7 @@ class ExtractTests(unittest.TestCase):
 
     def test_every_real_build_is_known(self):
         serials = extractor.builds()
-        for serial in ("SCES_509.16", "SCUS_971.99", "SCPS_150.37", "SCUS_972.68", "SCES_516.07", "SCUS_973.53", "SCES_524.56", "SCUS_974.65"):
+        for serial in ("SCES_509.16", "SCUS_971.99", "SCPS_150.37", "SCUS_972.68", "SCES_516.07", "SCUS_973.53", "SCES_524.56", "SCUS_974.65", "SCES_532.85"):
             self.assertIn(serial, serials)
             for _game, _name, version in serials[serial]:
                 self.assertEqual(len(version["boot"]["sha1"]), 40)

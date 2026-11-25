@@ -31,9 +31,9 @@
     "include/names.h"
   ],
   "places": "config/versions/pal_v1/functions.tsv",
-  "split_places": "split_places.tsv",
+  "split_places": "tables/split_places.tsv",
   "symbols": [
-    "../../../port/game/rac1-pal1/port_symbols.txt"
+    "../../../port/game/rac1-pal1/tables/port_symbols.txt"
   ],
   "libraries": "libraries.tsv",
   "host_shared": [
@@ -46,6 +46,9 @@
   ],
   "expanded_target_table_addresses": [
     "0x001AB980"
+  ],
+  "expanded_ram_top_addresses": [
+    "0x01FF8000"
   ],
   "returns_64": [
     "func_001F43B8",
@@ -171,6 +174,9 @@
   "candidates": "nonmatching/functional.tsv",
   "hand": "hand/hand.tsv",
   "overrides": "hand/overrides.tsv",
+  "assembly_allow": "checks/assembly_allow.tsv",
+  "result_allow": "checks/result_allow.tsv",
+  "data_allow": "checks/data_allow.tsv",
   "asm": {
     "enabled": true,
     "dirs": [],
@@ -193,7 +199,7 @@
   },
   "release": {
     "version": "pal_v1",
-    "table": "release_names.json",
+    "table": "release/release_names.json",
     "splice": "src/versions/pal_v1"
   },
   "names": {

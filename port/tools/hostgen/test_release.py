@@ -3,6 +3,7 @@
 """release.py and release_carry.py: another release's names for the primary's, and the port tables
 carried with them."""
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -56,6 +57,60 @@ class ReleaseNames(unittest.TestCase):
         self.assertEqual(self.r.text(text, "src/game/other.c"),
                          "func_2F5D68(x); func_00283F58(y); func_00283698(z);")
 
+    def test_a_files_own_readable_name(self):
+        # The release's own C calls a hook by its readable name, at the place its catalogue gives
+        # the name; the alias's v1.01 name elsewhere is the hook its callers pair.
+        r = release.Release({"names": {"func_0026F790": "func_0026F600"},
+                             "units": {"src/pal/game/a.c": {"stub_empty_17": "func_0026F5F8"}}})
+        text = "stub_empty_17(o, 0); stub_empty_170(o); my_stub_empty_17(); func_0026F790(o, 0);"
+        self.assertEqual(r.text(text, "src/pal/game/a.c"),
+                         "func_0026F5F8(o, 0); stub_empty_170(o); my_stub_empty_17(); func_0026F600(o, 0);")
+        self.assertEqual(r.text(text, "src/game/b.c"), text.replace("func_0026F790", "func_0026F600"))
+
+    def test_a_call_to_a_function_the_release_lacks(self):
+        # PAL's own Maktar C calls module_l00_call_handler_2 (func_L00_0030CF60), which PAL has no
+        # row for; its build linked the call to level 2's copy of func_PAL_0029C7F0 (and level 22's
+        # to its copy there). A name the build gave no value, one the release has, one at no row and
+        # one two programs link to different functions stay as they are.
+        r = release.Release({"names": {"func_L00_0030CF60": "func_V1_L00_0030CF60",
+                                       "func_L00_00303530": "func_V1_L00_00303530",
+                                       "func_L00_002B1F90": "func_V1_L00_002B1F90",
+                                       "func_L01_00321178": "func_V1_L01_00321178",
+                                       "func_L00_0030C930": "func_V1_L00_0030C930",
+                                       "func_PAL_0029C7F0": "func_0029C7F0",
+                                       "func_00283580": "func_00283698"}})
+        text = ("module_l00_call_handler_2(); func_L00_0030CF60(); load_scene_chunk(); "
+                "func_L00_002B1F90(); func_00283580(); func_L01_00321178(o); func_L00_0030C930();")
+        readable = {"module_l00_call_handler_2": "func_L00_0030CF60", "load_scene_chunk": "func_L00_00303530"}
+        values = {"02": {"func_L00_0030CF60": 0x00312EC0, "func_00283580": 0x00283698,
+                         "func_L01_00321178": 0x00313000, "func_L00_0030C930": 0x00312EC0},
+                  "22": {"func_L00_0030CF60": 0x003118A0, "func_L00_0030C930": 0x00311900},
+                  "boot": {"func_L00_002B1F90": 0x00290000}}
+        rows = {("02", 0x00312EC0): "func_PAL_0029C7F0", ("22", 0x003118A0): "func_PAL_0029C7F0",
+                ("22", 0x00311900): "func_PAL_L00_0030F000", ("boot", 0x00290000): "func_PAL_00290000"}
+        got = release.gone_words(text, values, readable, r, lambda program, value: rows.get((program, value)))
+        self.assertEqual(got, {"module_l00_call_handler_2": "func_0029C7F0", "func_L00_0030CF60": "func_0029C7F0",
+                               "func_L00_002B1F90": "func_PAL_00290000"})
+        # The unit's table renames the readable name and the address name alike.
+        r.units = {"src/pal/levels/02_x/L02_a.c": got}
+        self.assertEqual(r.text("module_l00_call_handler_2(); func_L00_0030CF60();", "src/pal/levels/02_x/L02_a.c"),
+                         "func_0029C7F0(); func_0029C7F0();")
+
+    def test_a_call_only_the_link_names(self):
+        # PAL's own Dobbo hero declares PH_G1 and calls it; no C defines it and no catalogue has it,
+        # but its build linked it to level 22's copy of func_002836E0. A labelled declaration, the C
+        # library's, one a C body defines and data stay as they are.
+        r = release.Release({"names": {"func_PAL_002836E0": "func_002836E0"}})
+        text = ("extern float PH_G1(void *);\nextern void lab(void) __asm__(\"func_002A7750\");\n"
+                "extern void *memcpy(void *, const void *, unsigned int);\nextern int mine(int);\n"
+                "extern s32 PH_D1;\n")
+        values = {"22": {"PH_G1": 0x002F5100, "lab": 0x002F5100, "memcpy": 0x002F5100, "mine": 0x002F5100,
+                         "PH_D1": 0x002F5100}}
+        rows = {("22", 0x002F5100): "func_PAL_002836E0"}
+        got = release.link_only_words(text, values, {}, r, lambda program, value: rows.get((program, value)),
+                                      {"mine"})
+        self.assertEqual(got, {"PH_G1": "func_002836E0"})
+
     def test_a_level_files_names_of_its_level(self):
         # In an Oozla file func_00312B68 is level 1's copy of func_002A9640 (the primary's level
         # catalogue), not the executable's address it states: it is that function in the release.
@@ -75,14 +130,75 @@ class ReleaseNames(unittest.TestCase):
         self.assertEqual(r.text(text, "src/levels/02_x/L02_a.c"), "func_00313FD8(e0); func_002AA0A8(e1);")
         self.assertEqual(r.text(text, "src/game/other.c"), "func_00313FD8(e0); func_002AA0A8(e1);")
 
-    def test_a_files_mark_is_its_definition_only(self):
-        # The file defines v1.01's func_002CA070 (marked: the release has its own) and calls it from
-        # another function: the call is the release's function.
-        r = release.Release({"names": {"func_002CA070": "FUN_002CAEA0"},
-                             "units": {"src/game/002C7748.c": {"func_002CA070": "func_V1_002CA070"}}})
-        text = 'INCLUDE_ASM("asm/game", func_002CA070);\nvoid func_002CAA58(void)\n{\n    func_002CA070();\n}\n'
-        self.assertEqual(r.text(text, "src/game/002C7748.c"),
-                         'INCLUDE_ASM("asm/game", func_V1_002CA070);\nvoid func_002CAA58(void)\n{\n    FUN_002CAEA0();\n}\n')
+    def test_a_gone_definition_is_left_out_under_any_spelling(self):
+        # The release has its own function at the primary's place: the primary's definition (here
+        # under a readable name) and its assembly marker are left out of the file the table names.
+        r = release.Release({"names": {"func_00344848": "FUN_003468F8"}, "gone": ["func_00344848", "func_00344F98"],
+                             "gone_in": {"func_00344848": ["src/game/00344848.c"],
+                                         "func_00344F98": ["src/game/00344848.c"]}})
+        r.readable = {"grid_menu_reposition_widgets": "func_00344848"}
+        text = ("void grid_menu_reposition_widgets(char *menu)\n{\n    x();\n}\n"
+                'INCLUDE_ASM("asm/game", func_00344F98);\nvoid keep(void)\n{\n}\n')
+        out = r.splice(text, "src/game/00344848.c")
+        self.assertNotIn("grid_menu_reposition_widgets(char", out)
+        self.assertNotIn("INCLUDE_ASM", out)
+        self.assertIn("void keep(void)", out)
+        self.assertEqual(out.count("\n"), text.count("\n"))
+        # Another file is not touched; the named file without the definition stops the build.
+        self.assertEqual(r.splice(text, "src/game/other.c"), text)
+        with self.assertRaises(ValueError):
+            r.splice("void keep(void)\n{\n}\n", "src/game/00344848.c")
+
+    def test_defined_names_reads_every_spelling(self):
+        readable = {"grid_menu_reposition_widgets": "func_00344848", "cam_set_mode_state": "func_00335300"}
+        text = ("void grid_menu_reposition_widgets(char *menu)\n{\n}\n"
+                "int cam_set_mode_state_r(int mode) __asm__(\"func_00335300\");\n"
+                "int cam_set_mode_state_r(int mode)\n{\n}\n"
+                "void func_00344D58(void)\n{\n}\n"
+                'INCLUDE_ASM("asm/game", func_00344F98);\n'
+                "static void helper(void)\n{\n}\n")
+        self.assertEqual(sorted(release.defined_names(text, readable)),
+                         ["func_00335300", "func_00344848", "func_00344D58", "func_00344F98"])
+
+    def test_a_readable_name_is_a_use(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "src").mkdir()
+            (Path(d) / "src" / "a.c").write_text("void f(void) { grid_menu_reposition_widgets(0); }\n")
+            uses = release.used_tokens(Path(d), ["src"], readable={"grid_menu_reposition_widgets": "func_00344848"})
+        self.assertEqual(uses["func_00344848"], 1)
+
+    def test_check_gone_finds_a_definition_the_table_misses(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "src" / "game").mkdir(parents=True)
+            (Path(d) / "src" / "game" / "00344848.c").write_text("void grid_menu_reposition_widgets(char *m)\n{\n}\n")
+            table = {"names": {"func_00344848": "FUN_003468F8"}, "absent": ["func_00344848"],
+                     "placed": ["func_00344D58"]}
+            readable = {"grid_menu_reposition_widgets": "func_00344848"}
+            self.assertEqual(len(release.check_gone(Path(d), table, readable, ["src"], "pal")), 1)
+            table["gone_in"] = {"func_00344848": ["src/game/00344848.c"]}
+            self.assertEqual(release.check_gone(Path(d), table, readable, ["src"], "pal"), [])
+            table["gone_in"] = {"func_00344848": ["src/game/moved.c"]}
+            self.assertEqual(len(release.check_gone(Path(d), table, readable, ["src"], "pal")), 2)
+
+    def test_committed_tables_leave_out_every_definition(self):
+        # Each carried release's table against the decompilation CI checks out (no disc needed).
+        source = REPO / "games" / "rac2" / "decomp"
+        tables = {}
+        for game in ("rac2-pal", "rac2-ntsc2"):
+            config = REPO / "port" / "game" / game / "hostgen.json"
+            cfg = json.loads(config.read_text())
+            tables[game] = (cfg, json.loads((config.parent / cfg["release"]["table"]).read_text()))
+        # Strict once any table is rebuilt: every release then needs "placed" and "gone_in".
+        if any("placed" in table for _, table in tables.values()):
+            for game, (_, table) in tables.items():
+                self.assertTrue("placed" in table and "gone_in" in table,
+                                f"{game}: rebuild its table with release.py build")
+        for game, (cfg, table) in tables.items():
+            if not (source / "src").is_dir() or "placed" not in table:
+                continue
+            problems = release.check_gone(source, table, release.primary_aliases(source, cfg),
+                                          cfg.get("sources", ["src"]), cfg["release"]["version"])
+            self.assertEqual(problems[:10], [], f"{game}: rebuild its table with release.py build")
 
     def test_six_digits_in_a_file_of_the_executable(self):
         # func_2802E0 in src/game/ is the executable's func_002802E0 (as hostgen reads it): renamed
@@ -132,11 +248,12 @@ class Building(unittest.TestCase):
                                                 "func_PAL_002000B0\t002000B0\t12\n",
                 "config/pal/levels/functions.tsv": levels + "func_L00_002B0000\tlevel\t8\tx\t1\t00:002B0100\n",
                 "build/boot/placed.json": {"values": {"D_001A7A18": "0x001a7a18"}},
-                "build/pal/boot/placed.json": {"values": {"D_001A7A18": "0x001a7aa0", "func_00200030": "0x002000b0"}},
+                "build/pal/boot/placed.json": {"functions": {"func_00200000": [0x00200080, 16]},
+                                               "values": {"D_001A7A18": "0x001a7aa0", "func_00200030": "0x002000b0"}},
                 "build/pal/00_x/placed.json": {"values": {"D_L00_001B0000": "0x001b0040"}},
                 "src/game/a.c": "void func_00200030(void) {}\nint D_001A7A18;\nextern int D_L00_001B0000;\n",
             })
-            parts = release.build(root, "pal", None, Counter(["D_L00_001B0000"]))
+            parts = release.build_rac2(root, "pal", None, Counter(["D_L00_001B0000"]))
             names = parts["names"]
             self.assertEqual(names["func_00200000"], "func_00200080")
             # A twin entered away from its name keeps the distance (name 0x200010, entry 0x200018).
@@ -194,6 +311,22 @@ class Hooks(unittest.TestCase):
 
 
 class Carried(unittest.TestCase):
+    def test_host_names_follow_only_live_shared_code(self):
+        class P:
+            def function(self, name, why=""):
+                return {"func_001337F0": "func_00133850", "func_00200000": None}.get(name, name)
+        code = {"sound.c": release_carry.code_text(
+            "int func_001337F0(void); void func_001337F0__game(void); "
+            "void func_00133820(void); void func_00200000(void); "
+            "/* func_00132028(); */ const char *s = \"func_001326D8\";")}
+        text = release_carry.host_names(P(), code)
+        self.assertIn("func_001337F0\tfunc_00133850\n", text)
+        self.assertIn("func_001337F0__game\tfunc_00133850__game\n", text)
+        self.assertIn("# func_00200000: not in this release\n", text)
+        self.assertNotIn("func_00133820", text)
+        self.assertNotIn("func_00132028", text)
+        self.assertNotIn("func_001326D8", text)
+
     def test_the_hook_run(self):
         table = release.Release({"names": {"func_0026F720": "func_0026F588", "func_0026F728": "func_0026F590"}})
 
@@ -208,6 +341,15 @@ class Carried(unittest.TestCase):
         table.names["func_PAL_0026F580"] = "func_0026F580"
         hooks = release_carry.level_hooks(p, ["func_0026F588", "func_0026F590"])
         self.assertEqual(hooks, ["func_0026F578", "func_0026F580", "func_0026F588", "func_0026F590"])
+        # A name the release's build gives a hook's place is that hook too.
+        with tempfile.TemporaryDirectory() as tmp:
+            placed = Path(tmp) / "build/pal/boot/placed.json"
+            placed.parent.mkdir(parents=True)
+            placed.write_text(json.dumps({"values": {"ref_PAL_0029CD18_00": "0x0026F580", "D_00300000": "0x0026F580"}}))
+            p.source, p.version = Path(tmp), "pal"
+            hooks = release_carry.level_hooks(p, ["func_0026F588", "func_0026F590"])
+        self.assertIn("ref_PAL_0029CD18_00", hooks)
+        self.assertNotIn("D_00300000", hooks)
 
 
 class Committed(unittest.TestCase):
@@ -226,13 +368,68 @@ class Committed(unittest.TestCase):
                 missing = sorted(k for k in wanted_k if f"#define RAC2_K_{k} " not in header)
                 self.assertEqual(missing, [], "constants the shared C uses and the table lacks")
 
+    def test_rac1_release_hand_c_uses_its_own_data(self):
+        # A release's own hand C names its data by the release's addresses. PAL v1's packet builder
+        # kept v2's packet cursor (0x161280) and wrote over libc's data on Veldin.
+        for game in ("rac1-pal1", "rac1-jp"):
+            folder = REPO / "port/game" / game
+            names = json.loads((folder / "release" / "release_names.json").read_text())["names"]
+            own = set(names.values())
+            wrong = []
+            for f in sorted((folder / "hand").glob("*.c")):
+                for name in sorted(set(re.findall(r"\bD_(?:L\d\d_)?[0-9A-F]{8}\b", f.read_text()))):
+                    level = "D_L00_" + name[-8:]
+                    moved = [names[k] for k in (name, level) if names.get(k, k) != k]
+                    if moved and name not in own and level not in own:
+                        wrong.append(f"{f.name}: {name} is {moved[0]} in {game}")
+            with self.subTest(game=game):
+                self.assertEqual(wrong, [])
+
+    def test_split_variants_keep_their_own_levels(self):
+        # A variant split off a folded function has its own places in the release, level by level,
+        # never every place of the function: the release's table is what read_splits writes.
+        source = REPO / "games/rac2/decomp"
+        if not (source / "config/pal/levels/functions.tsv").is_file():
+            self.skipTest("no rac2-decomp here")
+        primary = (REPO / "port/game/rac2-ntsc/tables/split_places.tsv").read_text()
+        for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):
+            folder = REPO / "port/game" / game
+            p = release_carry.Pairing(source, version, release.Release.load(folder / "release" / "release_names.json"), None, None)
+            p.read_by_hand(release.read_facts(folder / "release" / "release.json"))
+            p.read_splits(primary)
+            with self.subTest(game=game):
+                self.assertEqual("\n".join(p.split_rows) + "\n", (folder / "tables" / "split_places.tsv").read_text())
+                levels = {r.split("\t")[1]: {x[:2] for x in r.split("\t")[2].split(",")}
+                          for r in p.split_rows if not r.startswith("#")}
+                self.assertEqual(levels[p.by_split["func_L08_002F2C48"]], {"08", "09", "19", "30"})
+
+    def test_release_facts_are_the_tools(self):
+        # Each release's facts file is what the tools read of it: its places and its own hand C.
+        for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):
+            folder = REPO / "port/game" / game
+            facts = release.read_facts(folder / "release" / "release.json")
+            cfg = json.loads((folder / "hostgen.json").read_text())
+            with self.subTest(game=game):
+                self.assertEqual(facts["version"], version)
+                self.assertEqual(release.RAC2_RELEASES[version]["level_base"], int(facts["level_base"], 16))
+                self.assertEqual(cfg["relocate"][0], release.RAC2_RELEASES[version]["level_base"])
+                self.assertEqual(cfg["asm"]["gp"], facts["gp"])
+                for key in ("id", "title", "serial", "frame_rate", "tick_rate"):
+                    self.assertEqual(cfg[key], facts[key])
+                self.assertTrue((REPO / "port/game" / facts["primary"] / "hostgen.json").is_file())
+                self.assertNotIn("primary_hand", cfg)
+                table = (folder / "hand" / "hand.tsv").read_text()
+                for name, file in facts.get("hand", {}).items():
+                    self.assertIn(f"{name}\t{file}\n", table)
+                    self.assertTrue((folder / "hand" / file).is_file())
+
     def test_release_configs_name_their_tables(self):
         for game, version in (("rac2-pal", "pal"), ("rac2-ntsc2", "us2")):
             cfg = json.loads((REPO / "port/game" / game / "hostgen.json").read_text())
             with self.subTest(game=game):
-                self.assertEqual(cfg["release"], {"version": version, "table": "release_names.json"})
-                self.assertEqual(cfg["derived"], {"table": "release_names.json"})
-                self.assertTrue((REPO / "port/game" / game / "release_names.json").is_file())
+                self.assertEqual(cfg["release"], {"version": version, "table": "release/release_names.json"})
+                self.assertEqual(cfg["derived"], {"table": "release/release_names.json"})
+                self.assertTrue((REPO / "port/game" / game / "release" / "release_names.json").is_file())
                 self.assertEqual(cfg["host_shared"], ["../rac2/host"])
 
 
@@ -284,6 +481,22 @@ class Rac1Release(unittest.TestCase):
         self.assertEqual(names["D_E1_00150100"], "D_00150100")
         self.assertEqual(parts["how"]["func_L00_00300000"], "function: carried (the release's own C for it)")
 
+    def test_a_check_value_of_another_datum(self):
+        # rac1-decomp's name for 0x00150000 is the datum at 0x00140000's: the check gave it that
+        # datum's place, and versionmap pairs both apart.
+        (self.relocs / "boot/placed.json").write_text(json.dumps(
+            {"values": {"D_00150000": "0x0013FF00", "D_00160000": "0x0015FF00"}}))
+        vmap = self.relocs.parent / "map.json"
+        vmap.write_text(json.dumps({"from": "a", "to": "b", "gp": [None, None], "programs": {"boot": {
+            "data": {"00140000": "0013FF00", "00150000": "0014FF00", "00160000": "0015FE00"},
+            "functions": {}, "sections": {}, "to_sections": {}, "unpaired": []}}}))
+        uses = Counter({"D_00150000": 1, "D_00160000": 1})
+        parts = release.build_rac1(self.source, "pal_v1", self.relocs, vmap, uses)
+        self.assertEqual(parts["names"]["D_00150000"], "D_0014FF00")
+        self.assertIn("another datum's address", parts["how"]["D_00150000"])
+        # A value the map gives no other address stays the check's.
+        self.assertEqual(parts["names"]["D_00160000"], "D_0015FF00")
+
     def test_one_letter_tag(self):
         m = release.NAME.fullmatch("func_J_001F6B60")
         self.assertEqual((m.group(2), m.group(4)), ("J", "001F6B60"))
@@ -328,6 +541,13 @@ class Rac1Carry(unittest.TestCase):
         self.assertEqual(out, "# head\nfunc_001FFF00\tgame\tX\thost\n")
         self.assertEqual(len(self.c.report["dropped"]), 2)
 
+    def test_a_row_of_omitted_host_c_is_left_out(self):
+        # release.json "omit": no host function of that name is built, so no row may wrap it.
+        self.c.omit = {"func_00200000"}
+        out = self.mod.carry_libraries(self.c, "func_00200000\tdraw\tX\twrap\n")
+        self.assertEqual(out, "\n")
+        self.assertIn("func_00200000", self.c.report["dropped"])
+
     def test_c_literals(self):
         text = "x = GREF(int, 0x00150000u); /* 0x00150000 */ y = RAC1_ADDR(0x00150000u);"
         self.assertEqual(self.mod.carry_c(self.c, text, "t"),
@@ -335,3 +555,72 @@ class Rac1Carry(unittest.TestCase):
 
     def test_a_call_reaches_the_counterpart(self):
         self.assertEqual(self.c.function("func_00200200", "t", calls=True), "func_00201000")
+
+    def test_a_level_copy_row_moves_with_its_copy(self):
+        # func_L00_00300000 is the first of func_00200000's two copies in level 0; the release has
+        # them elsewhere.
+        raw = {"names": {}, "how": {}}
+        primary = [{"name": "func_00200000", "places": [("boot", 0x200000), (0, 0x300000), (0, 0x300100)]},
+                   {"name": "func_00200100", "places": [(0, 0x300200)]}]
+        release_rows = [{"name": "func_00200000", "places": [("boot", 0x200000), (0, 0x2FFF00), (0, 0x300000)]}]
+        c = self.mod.Carry(release.Release(raw), raw, None, primary, release_rows)
+        out = self.mod.carry_libraries(c, "func_L00_00300000\tgame\tX\thost\nfunc_L00_00300100\tgame\tY\thost\n")
+        self.assertEqual(out, "func_L00_002FFF00\tgame\tX\thost\nfunc_L00_00300000\tgame\tY\thost\n")
+        # A pair a full run recorded (release_carry.json) is read back without a map.
+        c.r_places = {}
+        c.known = {"func_L00_00300000": {"as": "func_L00_002FFF10"}}
+        out = self.mod.carry_libraries(c, "func_L00_00300000\tgame\tX\thost\nfunc_L00_00300100\tgame\tY\thost\n")
+        self.assertEqual(out, "func_L00_002FFF10\tgame\tX\thost\nfunc_L00_00300100\tgame\tY\thost\n")
+
+    def test_a_split_variant_keeps_its_name(self):
+        # split_places.tsv's variant: the release's file gives it its own places by this name.
+        raw = {"names": {}, "how": {}}
+        primary = [{"name": "func_00200000", "places": [("boot", 0x200000), (0, 0x300000)]}]
+        release_rows = [{"name": "func_00200000", "places": [("boot", 0x200000), (0, 0x2FFF00)]}]
+        c = self.mod.Carry(release.Release(raw), raw, None, primary, release_rows)
+        c.variants = {"func_L00_00300000"}
+        out = self.mod.carry_libraries(c, "func_L00_00300000\tgame\tX\thost\n")
+        self.assertEqual(out, "func_L00_00300000\tgame\tX\thost\n")
+
+    def test_a_copy_the_release_folds_elsewhere(self):
+        # The release's catalogue folds level 0's copy into another function of the same bytes:
+        # the place is found from the function before it, and kept for its fingerprint.
+        raw = {"names": {}, "how": {}}
+        primary = [{"name": "func_00200000", "fp": "aa", "places": [(0, 0x300000)]},
+                   {"name": "func_00200100", "fp": "bb", "places": [("boot", 0x200100), (0, 0x300100)]}]
+        release_rows = [{"name": "func_00200000", "fp": "aa", "places": [(0, 0x2FF000)]},
+                        {"name": "func_00200100", "fp": "bb", "places": [("boot", 0x200100)]},
+                        {"name": "func_00200180", "fp": "bb", "places": [(0, 0x2FF100)]}]
+        c = self.mod.Carry(release.Release(raw), raw, None, primary, release_rows)
+        self.assertEqual(c.place(0, 0x300100, "test"), 0x2FF100)
+        release_rows[2]["fp"] = "cc"
+        c = self.mod.Carry(release.Release(raw), raw, None, primary, release_rows)
+        self.assertIsNone(c.place(0, 0x300100, "test"))
+
+    def test_the_releases_own_rows_follow(self):
+        # release.json "libraries": a function only the release has, in its own name.
+        out = self.mod.carry_libraries(self.c, "func_00200000\tgame\tX\thost\n",
+                                       {"func_E1_00124000": ["mc", "sceMcChdir", "host", "why"]})
+        self.assertEqual(out, "func_001FFF00\tgame\tX\thost\nfunc_E1_00124000\tmc\tsceMcChdir\thost\twhy\n")
+
+    def test_rpc_callers_new_in_a_release(self):
+        with tempfile.TemporaryDirectory() as d:
+            src = Path(d)
+            (src / "include/names").mkdir(parents=True)
+            (src / "include/names/executable.h").write_text("#define sceMcOpen func_00123000\n")
+            (src / "src/core").mkdir(parents=True)
+            (src / "src/core/mc.c").write_text(
+                "int sceMcOpen(int a) {\n    return sif_call_rpc(0, 2, 0, 0, 0, 0, 0, 0, 0);\n}\n"
+                "int other(void) {\n    return 0;\n}\n")
+            (src / "src/versions/v1/core").mkdir(parents=True)
+            (src / "src/versions/v1/core/own.c").write_text(
+                "int func_E1_00124000(int a) {\n    return sif_call_rpc(0, 12, 0, 0, 0, 0, 0, 0, 0);\n}\n")
+            (src / "config/versions/v1").mkdir(parents=True)
+            (src / "config/versions/v1/map.tsv").write_text(
+                "# head\nfunc_00123000\tsrc/core/mc.c\tmatch\nfunc_E1_00124000\tsrc/versions/v1/core/own.c\tmatch\n")
+            self.assertEqual(self.mod.rpc_callers(src, None), {"func_00123000"})
+            self.assertEqual(self.mod.rpc_callers(src, "v1"), {"func_00123000", "func_E1_00124000"})
+            # rac1-pal's caller is carried; the release's own needs its own row.
+            self.assertEqual(self.mod.unbound_rpc_callers(self.c, src, "v1", "func_00123000\tmc\tsceMcOpen\thost\n"),
+                             ["func_E1_00124000"])
+            self.assertEqual(self.mod.unbound_rpc_callers(self.c, src, "v1", "func_E1_00124000\tmc\tX\thost\n"), [])

@@ -3,9 +3,12 @@
 //
 // Going Commando's profile gives MobyProc's view (GameState::moby_view) from each program's own
 // globals, and leaves a moby past its draw distance or the program's cap undrawn, as the game does.
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <optional>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "game/common/profile.h"
@@ -93,9 +96,125 @@ void culls_past_the_distance_and_the_cap() {
     CHECK(!fade_at(profile, state, 150.0f, 4000));
     CHECK(fade_at(profile, state, 100.0f, 4000) == std::uint8_t{0x80});
 }
+
+// Captures a floating nanotech anchor without requiring the mesh axes and scale it never builds.
+void test_nanotech_keeps_its_position_without_a_mesh() {
+    std::array<std::uint8_t, 0x200> ram{};
+    constexpr std::uint32_t kMoby = 0x100;
+    constexpr std::uint16_t kNanotechClass = 806;
+    std::memcpy(ram.data() + kMoby + 0xAA, &kNanotechClass, sizeof(kNanotechClass));
+    ram[kMoby + 0x20] = 2;
+    const renderer::Vec3 position{10, 20, 30};
+    std::memcpy(ram.data() + kMoby + 0x10, position.data(), sizeof(position));
+
+    // All releases share the callback-only nanotech layout.
+    for (const std::string_view game : {"rac2-ntsc", "rac2-ntsc2", "rac2-pal"}) {
+        const auto anchor = host::game_profile(game).read_moby(ram, kMoby);
+        CHECK(anchor.has_value());
+        if (!anchor) {
+            continue;
+        }
+
+        CHECK(anchor->model_only);
+        CHECK(anchor->model_class == -1);
+        CHECK(anchor->matrix == renderer::translation({10, 20, 30}));
+    }
+}
+
+// Identifies position-attached nanotech sparks without attaching free-moving or warped particles.
+void test_nanotech_sparks_name_their_position_anchor() {
+    std::array<std::uint8_t, 0x40> record{};
+    record[0] = 62;
+    record[0x22] = 2;
+    std::uint32_t owner = 0x100;
+    std::memcpy(record.data() + 0x24, &owner, sizeof(owner));
+
+    // The particle update's layout is shared by all three releases.
+    for (const std::string_view game : {"rac2-ntsc", "rac2-ntsc2", "rac2-pal"}) {
+        CHECK(host::game_profile(game).particle_attachment(record) == owner);
+    }
+
+    const host::GameProfile& profile = host::game_profile("rac2-ntsc");
+    record[0x22] = 1;
+    CHECK(profile.particle_attachment(record) == 0);
+    record[0x22] = 0;
+    CHECK(profile.particle_attachment(record) == 0);
+    record[0x22] = 2;
+    record[0x23] = 1;
+    CHECK(profile.particle_attachment(record) == 0);
+    record[0x23] = 0;
+    record[0] = 0;
+    CHECK(profile.particle_attachment(record) == 0);
+    record[0] = 62;
+    owner = 0xFFFFFFFFu;
+    std::memcpy(record.data() + 0x24, &owner, sizeof(owner));
+    CHECK(profile.particle_attachment(record) == 0);
+    CHECK(profile.particle_attachment({}) == 0);
+}
+
+// A moby the vendor draws from its own pool, not the list, comes with its bangles: the ammo
+// preview (class 3291, bangle word 1) is drawn as its own mesh and bangle 0, the ammo box.
+void test_extra_moby_keeps_its_bangles() {
+    std::vector<std::uint8_t> ram(0x200);
+    constexpr std::uint32_t kMoby = 0x100;
+    constexpr std::int16_t kAmmoPreview = 3291;
+    std::memcpy(ram.data() + kMoby + 0xAA, &kAmmoPreview, sizeof(kAmmoPreview));
+    put_float(ram, kMoby + 0x2C, 1.0f);
+    put_float(ram, kMoby + 0xC0, 1.0f);
+    put_float(ram, kMoby + 0xD4, 1.0f);
+    put_float(ram, kMoby + 0xE8, 1.0f);
+
+    for (const std::string_view game : {"rac2-ntsc", "rac2-ntsc2", "rac2-pal"}) {
+        const host::GameProfile& profile = host::game_profile(game);
+        for (const std::int16_t word : {std::int16_t{1}, std::int16_t(0x8001)}) {
+            std::memcpy(ram.data() + kMoby + 0x7C, &word, sizeof(word));
+            std::vector<host::LiveMoby> mobys;
+            profile.add_moby(ram, kMoby, mobys);
+            // Bit 15 clear: the mesh and bangle 0; set: bangle 0 alone.
+            CHECK(mobys.size() == (word > 0 ? 2u : 1u));
+            if (mobys.empty()) {
+                continue;
+            }
+            const host::LiveMoby& bangle = mobys.back();
+            CHECK(bangle.address == kMoby);
+            CHECK(bangle.model_only);
+            CHECK(bangle.model_class == 100000 + kAmmoPreview * 16);
+        }
+    }
+}
+
+// The held wrench is drawn as the form whose pack the game loaded (the word at 0x001A72C0 on USA
+// v1.01): levels 1 and 2 as their own classes, and challenge mode's 3 to 5 as the same three.
+void test_wrench_takes_its_loaded_form() {
+    std::vector<std::uint8_t> ram(0x001A7300);
+    constexpr std::uint32_t kMoby = 0x100;
+    constexpr std::int16_t kWrench = 71;
+    std::memcpy(ram.data() + kMoby + 0xAA, &kWrench, sizeof(kWrench));
+    put_float(ram, kMoby + 0x2C, 1.0f);
+    put_float(ram, kMoby + 0xC0, 1.0f);
+    put_float(ram, kMoby + 0xD4, 1.0f);
+    put_float(ram, kMoby + 0xE8, 1.0f);
+
+    const host::GameProfile& profile = host::game_profile("rac2-ntsc");
+    const std::pair<std::int32_t, int> forms[] =
+        {{-1, -1}, {0, -1}, {1, 6021}, {2, 6022}, {3, -1}, {4, 6021}, {5, 6022}, {6, -1}};
+    for (const auto& [pack, drawn] : forms) {
+        put_word(ram, 0x001A72C0, pack);
+        const auto wrench = profile.read_moby(ram, kMoby);
+        CHECK(wrench.has_value());
+        if (wrench) {
+            CHECK(wrench->model_class == drawn);
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
+    test_wrench_takes_its_loaded_form();
+    test_nanotech_keeps_its_position_without_a_mesh();
+    test_extra_moby_keeps_its_bangles();
+    test_nanotech_sparks_name_their_position_anchor();
     reads_each_programs_view();
     culls_past_the_distance_and_the_cap();
     return openrac::test::result();

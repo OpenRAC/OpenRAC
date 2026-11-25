@@ -56,6 +56,10 @@
 #define HERO_MOBY (HERO + 0x2080u)
 #define HERO_STATE (HERO + 0x2084u)
 #define HERO_HEALTH (HERO + 0x22A8u)
+/* His item slots (figure_items.h): each a piece's moby and a second part's. */
+#define HERO_PIECES (HERO + 0x1090u)
+#define HERO_PIECE_SIZE 0x50u
+#define HERO_PIECE_SLOTS 7
 #define BOLTS RAC1_ADDR(0x0015EE98u)
 /* The camera's position (the renderer's, render_native.c). */
 #define CAMERA_POSITION RAC1_ADDR(0x00187180u)
@@ -84,6 +88,7 @@ enum {
     MOBY_HIT = 0xA4,
     MOBY_OCLASS = 0xA6,
     MOBY_MISSION = 0xB0,
+    MOBY_UID = 0xB2, /* u16 save_id: the record's spawn id (uid) */
     MOBY_SIZE = 0x100,
     CLASS_TYPE = 0x46,
     HIT_SIZE = 0x40,
@@ -321,6 +326,15 @@ int32_t rac1_world_moby_key(gaddr moby) {
     return key_of[slot];
 }
 
+/* The spawn id (the record's uid, the game's save_id) of a placed moby of the level, -1 for none. */
+int32_t rac1_world_moby_uid(int32_t slot) {
+    if (!in_level() || slot < 0 || slot >= placed_count()) {
+        return -1;
+    }
+    const uint16_t uid = GREF(uint16_t, array_base() + (gaddr)slot * MOBY_SIZE + MOBY_UID);
+    return uid != 0xFFFFu ? uid : -1;
+}
+
 /* The mission a live moby of the level goes with (its byte at +0xB0), -1 for none. */
 int32_t rac1_world_moby_mission(int32_t slot) {
     if (!in_level() || slot < 0 || slot >= array_slots()) {
@@ -328,6 +342,16 @@ int32_t rac1_world_moby_mission(int32_t slot) {
     }
     const uint8_t mission = GREF(uint8_t, array_base() + (gaddr)slot * MOBY_SIZE + MOBY_MISSION);
     return mission != 0xFFu ? mission : -1;
+}
+
+/* The class of the moby at `moby` (its class field, +0xA6), whether or not the level's list holds it:
+ * -1 outside a level, for 0, for an address whose field is past the game's RAM, or for a class below 0. */
+int32_t rac1_world_moby_class(gaddr moby) {
+    if (!in_level() || moby == 0 || moby > openrac_guest_ram_size - (MOBY_OCLASS + 2u)) {
+        return -1;
+    }
+    const int32_t oclass = GREF(int16_t, moby + MOBY_OCLASS);
+    return oclass >= 0 ? oclass : -1;
 }
 
 int32_t rac1_world_moby_slot(int32_t key) {
@@ -349,13 +373,75 @@ void rac1_world_moby_kill(gaddr moby) {
     }
 }
 
+/* The pieces in the hero's item slots a mod hid, by slot and part (0: none), and the load they are
+ * of. update_hero_item_moby_flags shows every piece of his each tick, before the draw, and hides
+ * the hand's only for the game's own reasons; the wrap below hides these again after it. */
+static gaddr held_hidden[HERO_PIECE_SLOTS * 2];
+static int16_t held_hidden_class[HERO_PIECE_SLOTS * 2]; /* its class then */
+static uint32_t held_hidden_load;
+
+static int held_piece(gaddr moby) {
+    for (int i = 0; i < HERO_PIECE_SLOTS * 2; ++i) {
+        if (GREF(gaddr, HERO_PIECES + HERO_PIECE_SIZE * (uint32_t)(i / 2) + 4u * (uint32_t)(i % 2))
+            == moby) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 void rac1_world_moby_hide(gaddr moby, int hidden) {
-    if (moby == 0 || GREF(uint8_t, moby + MOBY_STATE) >= 0x80) {
+    if (moby == 0) {
+        return;
+    }
+    if (!hidden) {
+        /* Shown again: forgotten wherever it was hidden, held now or not (a piece put away before
+         * the mod showed it again, whose address the next piece in its slot may take). */
+        for (int i = 0; i < HERO_PIECE_SLOTS * 2; ++i) {
+            if (held_hidden[i] == moby) {
+                held_hidden[i] = 0;
+            }
+        }
+    }
+    if (GREF(uint8_t, moby + MOBY_STATE) >= 0x80) {
         return;
     }
     const uint16_t mode = GREF(uint16_t, moby + MOBY_MODE);
     GREF(uint16_t, moby + MOBY_MODE) =
         (uint16_t)(hidden ? mode | 0x1u : mode & (uint16_t)~MODE_HIDDEN);
+    const int piece = in_level() && main_context() ? held_piece(moby) : -1;
+    if (piece >= 0) {
+        if (held_hidden_load != rac1_moby_generation()) {
+            memset(held_hidden, 0, sizeof held_hidden);
+            held_hidden_load = rac1_moby_generation();
+        }
+        held_hidden[piece] = hidden ? moby : 0;
+        held_hidden_class[piece] = GREF(int16_t, moby + MOBY_OCLASS);
+    }
+}
+
+/* update_hero_item_moby_flags (libraries.tsv, wrap): the game's, then the pieces a mod hid hidden
+ * again, while each is still in the slot it was hidden in. One that left its slot (put away, gone,
+ * or another item's piece made at its address) is forgotten: the game makes the next item's pieces
+ * at the same addresses, which stayed hidden (the wrench, then every weapon, flickering) until the
+ * mod showed the old piece again. A piece taken out again is shown, unless the mod hides it again. */
+void func_L00_00233950(void) {
+    func_L00_00233950__game();
+    if (held_hidden_load != rac1_moby_generation()) {
+        return;
+    }
+    for (int i = 0; i < HERO_PIECE_SLOTS * 2; ++i) {
+        const gaddr m = held_hidden[i];
+        if (m == 0) {
+            continue;
+        }
+        if (held_piece(m) != i || GREF(uint8_t, m + MOBY_STATE) >= 0x80
+            || GREF(int16_t, m + MOBY_OCLASS) != held_hidden_class[i]) {
+            held_hidden[i] = 0;
+            continue;
+        }
+        GREF(uint16_t, m + MOBY_MODE) |= 0x1u;
+    }
 }
 
 /* DeleteMoby: the game's, its slot's deletion noted first (whose update deletes it, or a mod), for
@@ -425,6 +511,12 @@ int32_t rac1_world_moby_spawn(int32_t oclass) {
             GREF(uint16_t, m + MOBY_OCCLUSION) = 0x7F80u;
         }
         GREF(uint8_t, m + MOBY_DRAWN) = 1;
+        /* Some classes come out of CreateMoby left out of the moby loop (mode 0x2 not run, 0x4
+         * matrix kept, 0x40 animation not advanced: Clank's, class 10, which the game's scenes
+         * then pose and build themselves). A mod's moby is run as a figure is: its animation
+         * moves on and its matrix and sphere are built, so it is drawn where it stands (with no
+         * sphere the draw test took it as a point at the level's origin, and close views lost it). */
+        GREF(uint16_t, m + MOBY_MODE) = (uint16_t)(GREF(uint16_t, m + MOBY_MODE) & ~0x46u);
     }
     leave_level_context(entered);
     return m != 0 ? rac1_moby_slot(m) : -1;
@@ -907,7 +999,8 @@ void func_L00_00277A88(void) {
 
 void func_001FD3E8(void) {
     run_world_under_menu(0);
-    func_001FD3E8__game();
+    /* The mods' hook point (rac1.freeze.update) sits under this, as func_001FD3E8__hooked. */
+    func_001FD3E8__hooked();
 }
 
 /* The camera: the level's, also while the pause menu's is up (its camera at 256,256,64 is no

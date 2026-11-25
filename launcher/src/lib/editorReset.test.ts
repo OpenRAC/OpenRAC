@@ -1,21 +1,27 @@
 import { describe, expect, it } from "vitest";
+
 import type { ResetPartView, ResetPreview } from "./api";
 import {
-  PART_TEXT,
-  RESET,
   anything,
   blockedBy,
   chosenParts,
   editorDone,
   failureText,
   keptLine,
+  PART_TEXT,
   partSize,
+  RESET,
   theirParts,
   total,
 } from "./editorReset";
 import type { Job } from "./queue";
 
-const part = (p: ResetPartView["part"], theirs: boolean, bytes: number, files = 1): ResetPartView => ({
+const part = (
+  p: ResetPartView["part"],
+  theirs: boolean,
+  bytes: number,
+  files = 1,
+): ResetPartView => ({
   part: p,
   theirs,
   bytes,
@@ -85,7 +91,7 @@ describe("what a reset removes", () => {
   });
 
   it("says what stays", () => {
-    expect(keptLine("levels", false)).toMatch(/levels in Godot.*packs and edits/);
+    expect(keptLine("levels", false)).toMatch(/levels in OpenRAC Editor.*packs and edits/);
     expect(keptLine("editor", false)).toMatch(/packed levels, imported edits and added packs/);
     expect(keptLine("editor", true)).not.toMatch(/packed|edits/);
   });
@@ -105,10 +111,14 @@ describe("what a player reads", () => {
   it("never shows the core's own error", () => {
     const shown = [
       failureText("busy: wait for what is running to end", false),
-      failureText("/home/p/OpenRAC/assets/levels/rac1/pal is a link, not a folder of OpenRAC's: left alone", false),
+      failureText(
+        "/home/p/OpenRAC/assets/levels/rac1/pal is a link, not a folder of OpenRAC's: left alone",
+        false,
+      ),
       failureText("cannot remove /home/p/x: Directory not empty (os error 66)", false),
       failureText(new Error("permission denied"), true),
     ];
+
     expect(shown).toEqual([RESET.busy, RESET.refused, RESET.failed, RESET.previewFailed]);
     for (const text of shown) expect(text).not.toMatch(/[\\/]|os error/);
   });

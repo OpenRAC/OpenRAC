@@ -1,0 +1,9 @@
+# Calls whose C reads a result the callee's definition does not return in that register, which the
+# translation takes as 0 (hostgen.json "result_allow", hostgen.py result_guard). Each row says why 0
+# is right here: the value goes nowhere, or the port has nothing the retail value would mean.
+# A call whose value nothing reads (an expression statement) is not listed.
+# caller	callee	reason
+FUN_00215e00	FUN_0012ec08	music_transition keeps the result as (u16), which is never below 0: the test that reads it never fails, whatever the call returned
+FUN_0023aba0	FUN_0023aef0	proceed_audio passes the result on; every caller (read_mpeg) calls it for its effect only
+kprintf	_printf	printf's character count, passed on; no caller of kprintf reads it
+scePrintf	_printf	printf's character count, passed on; no caller of scePrintf reads it

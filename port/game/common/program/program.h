@@ -18,6 +18,7 @@
 
 #include "openrac/guest.h"
 #include "program/options.h"
+#include "program/picture_lists.h"
 
 namespace openrac::program {
 
@@ -32,6 +33,12 @@ extern gaddr g_chain;
 // A vertical blank was waited for since the last frame was sent: a frame sent with none ends at
 // the send instead (openrac_game_dma_send).
 extern bool g_vsync_since_kick;
+
+// The lists of a picture the game said spans its sends (openrac_game_picture_spans_sends), and
+// whether the vertical blank running now is one a send made inside such a picture: the window draws
+// nothing at it (program/picture_lists.h).
+extern PictureLists g_picture_lists;
+extern bool g_send_within_picture;
 
 // The program has a window (--window) and the renderer draws the game's frames; false without one
 // (no window asked for, or a program built without it).
@@ -55,7 +62,16 @@ int vsync();
 // `lsn` from the player's disc image in the window, with the ADPCM channel `channel`, blocking as
 // the game's own player does; Start skips it when `start_skips`. Returns 1 if skipped (and with
 // --skip-movies), 0 if played to the end or when there is no window or no movie support to play it.
-int play_movie(std::uint32_t lsn, std::uint32_t bytes, int channel, int start_skips);
+// With an `overlay` (openrac_game_play_movie_over), each blank is a tick of the game instead: the
+// overlay is handed the picture and sends the game's list that draws it, and vsync draws and
+// paces it.
+int play_movie(
+    std::uint32_t lsn,
+    std::uint32_t bytes,
+    int channel,
+    int start_skips,
+    void (*overlay)(const std::uint8_t* rgba, int width, int height) = nullptr
+);
 
 // The command line, read by main before anything else runs (program/options.h).
 extern Options g_options;
@@ -64,8 +80,9 @@ extern Options g_options;
 // by it. Zero until the first tick.
 extern std::chrono::steady_clock::time_point g_next_frame;
 
-// The game's ticks a second: 60 for every version. The PAL game runs in its own 60 Hz mode
-// (options_menu.cpp keeps it there), so its time base is a sixtieth of a second too.
+// The game's ticks a second: 60, Ratchet & Clank's PAL game running in its own 60 Hz mode
+// (options_menu.cpp keeps it there), so its time base is a sixtieth of a second too; 50 for a disc
+// whose code has 50 Hz built in and no such mode (Going Commando's PAL, hostgen.json "tick_rate").
 int tick_rate();
 
 // Ends the run's records: OPENRAC_REACH's file written, the functions without C that were reached

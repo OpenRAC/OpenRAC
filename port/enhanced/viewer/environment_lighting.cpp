@@ -11,7 +11,8 @@
 #include "enhanced/viewer/environment_overlay.h"
 #include "enhanced/viewer/probe_texture_upload.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/frame/raster_pass.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
@@ -130,9 +131,14 @@ void EnvironmentLighting::load(
         m_resolution = asset.resolution;
         m_alignment = probe_texture_block(asset.colour_format);
         m_columns = asset.columns();
-        m_debug.set_vertices(environment_probe_debug_vertices(asset.probes));
+        m_debug.set_vertices(environment_probe_debug_vertices(asset.probes, asset.influences));
 
-        m_metadata = environment_metadata(asset.probes);
+        m_metadata = environment_metadata(asset.probes, asset.influences);
+        m_preview_captures.reserve(asset.probes.size());
+        for (unsigned i = 0; i < asset.probes.size(); ++i) {
+            const auto p = asset.probes[i].position;
+            m_preview_captures.push_back({p[0], p[1], p[2], float(i)});
+        }
 
         std::string selection_error;
         if (!m_selection.prepare(m_metadata, selection_error) && !selection_error.empty()) {
@@ -170,7 +176,9 @@ void EnvironmentLighting::bind(
     }
 
     m_selection.bind(shader, enabled ? camera : nullptr);
-    glUniform1i(count, enabled ? static_cast<int>(m_metadata.size() / 5) : 0);
+    glUniform1i(
+        count, enabled ? static_cast<int>(m_metadata.size() / kEnvironmentMetadataStride) : 0
+    );
     glUniform1i(shader.uniform("environment_map"), kEnvironmentUnit);
     glUniform1i(shader.uniform("environment_brdf"), kEnvironmentBrdfUnit);
     glUniform1i(shader.uniform("environment_resolution"), static_cast<int>(m_resolution));
@@ -215,6 +223,18 @@ bool EnvironmentLighting::draw_previews(
             return false;
         }
         glGenVertexArrays(1, &m_preview_vao);
+        glBindVertexArray(m_preview_vao);
+        glGenBuffers(1, &m_preview_buffer);
+        glBindBuffer(GL_ARRAY_BUFFER, m_preview_buffer);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(m_preview_captures.size() * sizeof(m_preview_captures[0])),
+            m_preview_captures.data(),
+            GL_STATIC_DRAW
+        );
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(m_preview_captures[0]), nullptr);
+        glVertexAttribDivisor(0, 1);
     }
     glBindVertexArray(m_preview_vao);
     m_preview_shader.use();
@@ -236,8 +256,18 @@ bool EnvironmentLighting::draw_previews(
     glFrontFace(GL_CCW);
     glCullFace(GL_FRONT);
     constexpr unsigned kVerticesPerSphere = 24 * 16 * 6;
-    const auto count = static_cast<unsigned>(m_metadata.size() / 5);
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(count * kVerticesPerSphere));
+    const auto count = static_cast<unsigned>(m_preview_captures.size());
+    const renderer::RasterBuffer geometry[]{
+        {m_preview_buffer, count * sizeof(m_preview_captures[0])}
+    };
+    renderer::raster_pass(
+        "environment probe spheres",
+        state.target,
+        {geometry, {}, renderer::ColourAttachments::ColourDepthRead, true},
+        [&] {
+            glDrawArraysInstanced(GL_TRIANGLES, 0, kVerticesPerSphere, static_cast<GLsizei>(count));
+        }
+    );
     ++state.stats.draw_calls;
     state.stats.triangles += count * (kVerticesPerSphere / 3);
     glDepthMask(GL_TRUE);
@@ -254,6 +284,11 @@ void EnvironmentLighting::release() {
         glDeleteVertexArrays(1, &m_preview_vao);
         m_preview_vao = 0;
     }
+    if (m_preview_buffer) {
+        glDeleteBuffers(1, &m_preview_buffer);
+        m_preview_buffer = 0;
+    }
+    m_preview_captures.clear();
     m_debug_failed = false;
     if (m_texture) {
         glDeleteTextures(1, &m_texture);

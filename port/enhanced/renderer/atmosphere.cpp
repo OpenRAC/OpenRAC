@@ -14,10 +14,12 @@
 #include "common/log.h"
 #include "common/stats.h"
 #include "enhanced/renderer/compute_graph.h"
+#include "enhanced/renderer/shader_recipe_sources.h"
+#include "enhanced/viewer/shader_sources.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/colour_graph.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/frame/colour_graph.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "scene/level_renderer.h"
@@ -67,17 +69,13 @@ Atmosphere::~Atmosphere() {
 }
 
 std::string Atmosphere::sampling_source() {
-    return std::string(lighting::shaders::atmosphere_transport_glsl) + "\n"
-           + std::string(lighting::shaders::atmosphere_sample_glsl) + "\n";
+    return lighting::shader_sources::sampling_source();
 }
 
 std::string Atmosphere::fragment_source(std::string source) {
-    if (!is_vulkan() || !enhanced_rendering_available()) {
-        return source;
-    }
-    source.insert(source.find('\n') + 1, "#define OPENRAC_ATMOSPHERE 1\n");
-    source.insert(source.find("void main()"), sampling_source());
-    return source;
+    return lighting::shader_sources::atmosphere_fragment(
+        std::move(source), lighting::shader_sources::runtime_options()
+    );
 }
 
 void Atmosphere::load() {
@@ -177,16 +175,7 @@ void Atmosphere::prepare(
     auto& compute = m_compute[volume_count == 0 ? 0 : 1];
     std::string error;
     if (!compute.id()) {
-        std::string source = "#version 430 core\n#define OPENRAC_PROBE_PIXEL ivec2(-1)\n"
-                             + std::string(lighting::shaders::probes_glsl) + "\n"
-                             + std::string(lighting::shaders::atmosphere_transport_glsl) + "\n"
-                             + std::string(lighting::shaders::atmosphere_lighting_glsl) + "\n"
-                             + std::string(lighting::shaders::atmosphere_comp);
-        if (&compute == &m_compute[0]) {
-            source.insert(source.find('\n') + 1, "#define OPENRAC_ATMOSPHERE_NO_VOLUMES 1\n");
-            source =
-                renderer::shader_constants(std::move(source), {{"atmosphere_volume_count", 0}});
-        }
+        const auto source = recipe_sources::atmosphere(&compute == &m_compute[0]);
         if (!compute.build_compute("atmosphere transport", source, error)) {
             log::warn("Original fog retained: {}", error);
             m_failed = true;
@@ -441,10 +430,12 @@ public:
 
     // Preserve the child material's pre-effects scene snapshot.
     void prepare_scene(
-        const renderer::FrameInput& input, const renderer::RenderTarget& target
+        const renderer::FrameInput& input,
+        const renderer::RenderTarget& target,
+        unsigned pre_particle_colour
     ) override {
         if (m_material) {
-            m_material->prepare_scene(input, target);
+            m_material->prepare_scene(input, target, pre_particle_colour);
         }
     }
 

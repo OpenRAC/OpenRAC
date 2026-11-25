@@ -35,6 +35,8 @@ end)
 | `openrac.game`, `.version`, `.platform`, `.api` | `"rac1"`, `"pal"` or `"ntsc"`, `"macos-arm64"` ..., the game's interface version (`"1.1"`) |
 | `openrac.log(...)`, `openrac.warn(...)` | a line in the game's log, after your mod's id (`print` does the same as `log`) |
 | `openrac.setting(key)` | one of your [settings](settings.md) |
+| `openrac.set_setting(key, value)` (1.15) | set one of your settings, for the run and in the launcher's list: `true` when it was set ([settings](settings.md#changing-them-from-the-game-interface-115)) |
+| `openrac.on_settings(fn)` (1.15) | while your scripts first run: `fn()` after the launcher changed your settings while the game runs |
 | `openrac.hook(id, fn)` | wrap or replace a hook point: `fn(original, ...)` gets its arguments; `original(...)` goes on down the chain and returns its result; `original()` with no arguments passes the call's own; return nothing to keep the original's result |
 | `openrac.before(id, fn)`, `openrac.after(id, fn)` | `fn(...)` before or after the rest of the chain, which runs whatever `fn` does |
 | `openrac.on_frame(fn)` | `fn()` after each game tick |
@@ -46,6 +48,9 @@ end)
 | `openrac.mouse()` (1.2) | `dx, dy, wheel_x, wheel_y`: the mouse's motion since the last tick and its wheel in notches |
 | `openrac.window()` (1.2) | `focused, captured, overlay`: the window has the keyboard; the cursor is captured; OpenRAC's overlay has the input |
 | `openrac.pointer()` (1.3) | `x, y, inside`: the cursor over the game's picture, 0..1 each way (`x * 512`, `y * 416` is the game's 2D pixel), and whether it is over it |
+| `openrac.button_label(button)` (1.31) | `label, kind`: the pad button's label (`button` an `OPENRAC_PAD_*` bit: `0x8000` Square, `0x4000` Cross) for the player's device now, `kind` `"playstation"` (the game's icon character, `"\x13"` for Square, or a name, `"START"`), `"letters"` (`"X"` on an Xbox pad) or `"keys"` (the bound key, `"F"`); `nil, nil` for no single button |
+| `openrac.set_motors(port, small_motor, large_motor)` (1.37) | drive pad `port`'s motors (0 or 1) as the game's vibration does: `small_motor` `true` or `false`, `large_motor` 0 to 255; the player's rumble setting applies. A value lasts a fifth of a second, so send it each tick while it rumbles; `false, 0` stops. `true` when the port took it |
+| `openrac.menu_option_set(option, state)` (1.37) | grey an option of the port's menu out (`"off"`), make it usable (`"on"`) or give the port's choice back (`"default"`), by its [name](menu-options.md): `openrac.menu_option_set("frame_rate", "off")`. Gone when your mod unloads. `true` when the port took it |
 | `openrac.take_input("keyboard")` (1.2) | while your scripts first run: the port's own keyboard table stops pressing pad 0's buttons, so your `on_pad` presses them |
 | `openrac.capture_mouse(on)` (1.2) | hide the cursor and keep it in the window (relative motion), or let it go |
 | `require(name)` | another `.luau` file of your mod's own folder: `require("util")`, `require("lib/util")` |

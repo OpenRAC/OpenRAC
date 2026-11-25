@@ -48,10 +48,6 @@ TitleLump TitleLump::parse(ByteView lump) {
     return t;
 }
 
-std::size_t TitleLump::press_start_index(u32 language) const {
-    return (language > 0 ? language - 1 : 0) + 4;
-}
-
 BootPictures BootPictures::parse(ByteView lump) {
     BootPictures p;
     p.m_bytes = maybe_decompress(lump);

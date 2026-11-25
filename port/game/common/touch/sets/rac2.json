@@ -1,5 +1,10 @@
 {
   "contexts": {
+    "foot": {
+      "actions": [
+        { "id": "strafe", "icon": "strafe", "press": ["l2"], "at": 0, "size": "small", "side": "left", "toggle": true, "wide": true }
+      ]
+    },
     "ship": {
       "replace": true,
       "extends": "base",
@@ -10,6 +15,10 @@
         { "id": "roll_left", "icon": "prev", "press": ["l1"], "at": 3, "size": "small" },
         { "id": "roll_right", "icon": "next", "press": ["r1"], "at": 5, "size": "small" }
       ]
+    },
+    "look_around": {
+      "extends": "base",
+      "actions": []
     },
     "map": {
       "replace": true,

@@ -14,7 +14,15 @@ runs:
     - id: cpu
       shell: bash
       run: echo "key=$(grep -m2 -E '^(model name|flags)' /proc/cpuinfo | sha256sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    # Pull requests and the merge queue only read: their copies would be private to their ref.
+    - if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.MESA_SHADER_CACHE_DIR }}
+        key: mesa-${{ inputs.variant }}-${{ runner.arch }}-${{ steps.cpu.outputs.key }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}
+        restore-keys: mesa-${{ inputs.variant }}-${{ runner.arch }}-${{ steps.cpu.outputs.key }}-
+    - if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ env.MESA_SHADER_CACHE_DIR }}
         key: mesa-${{ inputs.variant }}-${{ runner.arch }}-${{ steps.cpu.outputs.key }}-${{ hashFiles('port/**/*.glsl', 'port/**/*.vert', 'port/**/*.frag', 'port/**/*.comp', 'port/renderer/vulkan/**') }}

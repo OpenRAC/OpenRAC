@@ -1,35 +1,37 @@
 <script lang="ts">
   // The Level editor tab's resets, rows of the panel's Your levels section, each a button that
   // asks first, in a dialog that lists what goes, with its size, and what stays.
-  // - Read the game's levels again: the game's copy of the levels (and the lighting baked from
+  // - Repair the game's levels: the game's copy of the levels (and the lighting baked from
   //   them) goes, then is read from the disc at once, as a job like any other (Activity shows it).
-  // - Delete the level project: the Godot projects and the exported models and textures go; with
+  // - Delete the level project: the level projects and the exported models and textures go; with
   //   the tick box, unticked at first, the player's own packed levels, edits and packs too. Opening
   //   a level afterwards reads fresh copies from the disc.
-  // The panel's own rows (`rows`) come first in the same list, and Export the levels again asks
+  // The panel's own rows (`rows`) come first in the same list, and Rebuild your level projects asks
   // here too (`exportAgain`, askExport), in the same kind of dialog: what is replaced, what is kept.
   // The folders are chosen and checked by the core (core/src/reset.rs); this page sends the version
   // and the choice, never a path. Neither runs while the game or a job does. The words are
   // lib/editorReset.ts's; what the core says when it fails goes to the log, not to the player.
+  import type { Snippet } from "svelte";
+
   import { api, type ResetKind, type ResetPreview, type VersionView } from "$lib/api";
   import { app, jobs, refresh, runChain, toast } from "$lib/app.svelte";
+  import { EXPORT_AGAIN } from "$lib/editorFlow";
   import {
-    PART_TEXT,
-    RESET,
     anything,
     blockedBy,
     chosenParts,
     editorDone,
     failureText,
     keptLine,
+    PART_TEXT,
     partSize,
+    RESET,
     theirParts,
     total,
   } from "$lib/editorReset";
-  import { EXPORT_AGAIN } from "$lib/editorFlow";
   import { size } from "$lib/format";
   import { modal } from "$lib/portal";
-  import type { Snippet } from "svelte";
+
   import Icon from "./Icon.svelte";
   import JobProgress from "./JobProgress.svelte";
 
@@ -46,7 +48,7 @@
     onchanged?: () => void;
     bare?: boolean;
     rows?: Snippet;
-    /** Export the levels again: whether this game's changes are carried over, and the step itself. */
+    /** Rebuild your level projects: whether this game's changes are carried over, and the step itself. */
     exportAgain?: { carries: boolean; run: () => void };
   } = $props();
 
@@ -64,7 +66,8 @@
   }
 
   const developer = $derived(app.config?.developer ?? false);
-  const action = (v: VersionView, id: string) => v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
+  const action = (v: VersionView, id: string) =>
+    v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
   const levels = $derived(action(version, "port-levels"));
   const blocked = $derived(blockedBy(jobs.list, !!app.game?.running));
   const noDisc = $derived(version.status.disc.state !== "found");
@@ -96,8 +99,10 @@
     asking = { kind, preview: null, error: null, withEdits: false, working: false };
     // The dialog this answer is for: closed (or another opened) meanwhile, it is not shown.
     const open = asking;
+
     try {
       const preview = await api.resetPreview(version.key, kind);
+
       open.preview = preview;
     } catch (e) {
       console.warn("reset preview", e);
@@ -112,8 +117,10 @@
   async function confirm() {
     if (!asking?.preview || asking.working) return;
     const { kind, withEdits } = asking;
+
     asking.working = true;
     let done;
+
     try {
       done = await api.resetApply(version.key, kind, withEdits);
     } catch (e) {
@@ -122,22 +129,32 @@
       asking.error = failureText(e, false);
       // Some folders may have gone before the one that could not: the list and the page read them again.
       const open = asking;
+
       open.preview = await api.resetPreview(version.key, kind).catch(() => open.preview);
       await refresh();
       onchanged?.();
+
       return;
     }
+
     asking = null;
     await refresh();
     onchanged?.();
+
     if (kind === "editor") {
       toast(editorDone(done));
+
       return;
     }
+
     // Read them from the disc at once, with the visibility the game adds to them.
-    const fresh = app.library?.games.flatMap((g) => g.versions).find((x) => x.key === version.key) ?? version;
-    const steps = [action(fresh, "port-levels"), action(fresh, "port-levels-visibility")].filter((a) => a !== null);
+    const fresh =
+      app.library?.games.flatMap((g) => g.versions).find((x) => x.key === version.key) ?? version;
+    const steps = [action(fresh, "port-levels"), action(fresh, "port-levels-visibility")].filter(
+      (a) => a !== null,
+    );
     const ok = steps.length > 0 && (await runChain({ kind: "version", key: version.key }, steps));
+
     await refresh();
     toast(ok ? RESET.levelsDone : RESET.levelsStopped, ok ? "info" : "error");
   }
@@ -150,7 +167,12 @@
 
 <svelte:window {onkeydown} />
 
-<section class="start-over" class:panel={!bare} class:bare aria-label={bare ? undefined : RESET.title}>
+<section
+  class="start-over"
+  class:panel={!bare}
+  class:bare
+  aria-label={bare ? undefined : RESET.title}
+>
   {#if !bare}
     <h2>{RESET.title}</h2>
     <p class="muted lead">{RESET.lead}</p>
@@ -173,8 +195,15 @@
             {/if}
           </p>
         </div>
-        <button class="small" disabled={!!blocked || noDisc || !!asking} onclick={() => void ask("levels")}>
-          {#if reading}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}{RESET.levelsButton}
+        <button
+          class="small"
+          disabled={!!blocked || noDisc || !!asking}
+          onclick={() => void ask("levels")}
+        >
+          {#if reading}<span class="spinner"></span>{:else}<Icon
+              name="refresh"
+              size={14}
+            />{/if}{RESET.levelsButton}
         </button>
         {#if reading}<div class="job"><JobProgress job={reading} plain /></div>{/if}
       </li>
@@ -184,7 +213,11 @@
         <h3>{RESET.editorTitle}</h3>
         <p class="muted">{blocked ?? RESET.editorLine}</p>
       </div>
-      <button class="small danger" disabled={!!blocked || !!asking} onclick={() => void ask("editor")}>
+      <button
+        class="small danger"
+        disabled={!!blocked || !!asking}
+        onclick={() => void ask("editor")}
+      >
         <Icon name="trash" size={14} />{RESET.editorButton}
       </button>
     </li>
@@ -196,7 +229,13 @@
   {@const sum = total(chosen)}
   <div class="overlay" role="presentation" use:modal>
     <button class="backdrop" onclick={close} tabindex="-1" aria-label={RESET.cancel}></button>
-    <div class="dialog rise" role="dialog" aria-modal="true" aria-labelledby="reset-title" tabindex="-1">
+    <div
+      class="dialog rise"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reset-title"
+      tabindex="-1"
+    >
       <h2 id="reset-title">{kind === "levels" ? RESET.levelsTitle : RESET.editorTitle}</h2>
 
       {#if asking.error}
@@ -225,19 +264,28 @@
             <input type="checkbox" bind:checked={asking.withEdits} disabled={asking.working} />
             <span>
               <strong>{RESET.withEdits}</strong>
-              <span class="muted">{theirs.map((p) => `${PART_TEXT[p.part].title} (${partSize(p)})`).join(", ")}.</span>
+              <span class="muted"
+                >{theirs
+                  .map((p) => `${PART_TEXT[p.part].title} (${partSize(p)})`)
+                  .join(", ")}.</span
+              >
             </span>
           </label>
         {/if}
 
         <h3>{RESET.keeps}</h3>
         <p class="muted kept">{keptLine(kind, asking.withEdits)}</p>
-        {#if kind === "editor"}<p class="muted"><Icon name="info" size={14} /> {RESET.closeGodot}</p>{/if}
+        {#if kind === "editor"}<p class="muted">
+            <Icon name="info" size={14} />
+            {RESET.closeEditor}
+          </p>{/if}
       {/if}
 
       <div class="actions">
         {#if asking.preview}
-          <span class="muted grow">{anything(chosen) ? RESET.inAll(size(sum.bytes)) : RESET.nothing}</span>
+          <span class="muted grow"
+            >{anything(chosen) ? RESET.inAll(size(sum.bytes)) : RESET.nothing}</span
+          >
         {/if}
         <button class="ghost" onclick={close} disabled={asking.working}>{RESET.cancel}</button>
         <button
@@ -256,18 +304,27 @@
 
 {#if exporting}
   <div class="overlay" role="presentation" use:modal>
-    <button class="backdrop" onclick={closeExport} tabindex="-1" aria-label={EXPORT_AGAIN.cancel}></button>
-    <div class="dialog rise" role="dialog" aria-modal="true" aria-labelledby="export-title" tabindex="-1">
+    <button class="backdrop" onclick={closeExport} tabindex="-1" aria-label={EXPORT_AGAIN.cancel}
+    ></button>
+    <div
+      class="dialog rise"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="export-title"
+      tabindex="-1"
+    >
       <h2 id="export-title">{EXPORT_AGAIN.title}</h2>
       <h3>{RESET.replaced}</h3>
       <p class="kept">{EXPORT_AGAIN.replaced}</p>
       <p class="kept">{exportAgain?.carries ? EXPORT_AGAIN.carried : EXPORT_AGAIN.carriedLater}</p>
       <h3>{RESET.keeps}</h3>
       <p class="muted kept">{EXPORT_AGAIN.kept}</p>
-      <p class="muted"><Icon name="info" size={14} /> {EXPORT_AGAIN.closeGodot}</p>
+      <p class="muted"><Icon name="info" size={14} /> {EXPORT_AGAIN.closeEditor}</p>
       <div class="actions">
         <button class="ghost" onclick={closeExport}>{EXPORT_AGAIN.cancel}</button>
-        <button class="primary" onclick={confirmExport}><Icon name="refresh" size={16} />{EXPORT_AGAIN.confirm}</button>
+        <button class="primary" onclick={confirmExport}
+          ><Icon name="refresh" size={16} />{EXPORT_AGAIN.confirm}</button
+        >
       </div>
     </div>
   </div>

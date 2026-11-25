@@ -3,7 +3,8 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Gameplay regression runs of the native port (docs/port/REGRESSION.md).
 
-    regress.py run --game rac1-pal|rac1-ntsc [--set wide] [--levels 0-18] [--only KEY,...] [--build DIR] [--jobs N]
+    regress.py run --game rac1-pal|rac1-ntsc|rac2-ntsc|rac3-pal [--set wide|rac2-tour|rac3-tour]
+                   [--levels 0-18] [--only KEY,...] [--build DIR] [--jobs N]
     regress.py compare A B [--fields cam,fw] [--tol position=0.1]
     regress.py baseline save NAME [RUN ...] [--set wide]   (the latest run of each version by default)
     regress.py check NAME [RUN ...] [--set wide]           (the latest runs against the baseline)

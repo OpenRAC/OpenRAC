@@ -8,15 +8,16 @@
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 using namespace openrac;
 using namespace openrac::gl;
@@ -66,24 +67,34 @@ uniform int effect_pass;
 uniform int use_cache;
 uniform int show_hits;
 uniform int show_hero;
+uniform int show_cloud_edge;
+uniform int empty_guides;
 uniform sampler2D source_depth;
 uniform mat4 view;
-bool early_surface(
-    vec3 eye_position,
-    vec3 normal_view,
-    out vec4 result,
-    out bool covered,
-    out float hero_visibility
-);
-uniform mat4 early_projection;
-uniform vec2 early_extent;
 out vec4 colour;
+)glsl";
+constexpr auto fragment_main = R"glsl(
 void main() {
+    if (show_hits == 2) {
+        colour = vec4(float(early_scale) * 0.25);
+        return;
+    }
+    if (show_cloud_edge != 0) {
+        float visibility = clamp((gl_FragCoord.x - 0.5) * 0.25, 0.0, 1.0);
+        vec3 cloud_loss = vec3(1.0, 0.75, 0.0);
+        colour = vec4(probe_shadowed_directional(vec3(1), cloud_loss, visibility, 0.1), 1.0);
+        return;
+    }
     ivec2 pixel = ivec2(gl_FragCoord.xy);
     float depth = texelFetch(source_depth, pixel, 0).r;
     if (depth <= 0.0) {
-        colour = vec4(0);
-        return;
+        if (empty_guides == 0) {
+            colour = vec4(0);
+            return;
+        }
+        // Draw a receiver after the depth prepass to exercise genuinely empty guides.
+        vec4 clip = early_projection * vec4(0, 0, -8, 1);
+        depth = clip.z / clip.w * 0.5 + 0.5;
     }
     float distance = early_projection[3][2] / (depth * 2.0 + (early_projection[2][2] - 1.0));
     vec2 ndc = gl_FragCoord.xy / early_extent * 2.0 - 1.0;
@@ -94,12 +105,14 @@ void main() {
         )
         * distance;
     mat3 inverse_view = transpose(mat3(view));
-    vec3 normal_view = smooth_normal_at(pixel, -eye);
+    vec3 normal_view = empty_guides != 0 ? vec3(0, 0, 1) : smooth_normal_at(pixel, -eye);
     vec3 world = inverse_view * (eye - view[3].xyz), normal = inverse_view * normal_view;
     vec4 light = vec4(0);
     bool covered = false;
     float hero_visibility = 1.0;
-    bool hit = use_cache != 0 && early_surface(eye, normal_view, light, covered, hero_visibility);
+    float cloudy_sun = 1.0;
+    bool hit = use_cache != 0
+        && early_surface(eye, normal_view, light, covered, hero_visibility, cloudy_sun);
     if (show_hits != 0) {
         colour = vec4(hit ? 1 : 0, covered ? 1 : 0, 0, 1);
         return;
@@ -113,6 +126,15 @@ void main() {
     }
     if (hit && !hero_shadow_applies(normal)) {
         hero_visibility = 1.0;
+    }
+    if (empty_guides != 0 && !hit) {
+        cloud_sun_attenuation = cloud_shadow_visibility(world, light.a);
+        float visibility = min(light.a, hero_visibility);
+        colour = vec4(vec3(probe_fallback_diffuse_shadow(visibility)), light.a * cloud_sun_attenuation);
+        return;
+    }
+    if (cloud_shadow_shape.w > 0.0) {
+        light.a = hit ? cloudy_sun : light.a * cloud_shadow_visibility(world, light.a);
     }
     colour =
         show_hero != 0 ? vec4(hero_visibility) : vec4(covered ? light.rgb / 4.0 : vec3(0), light.a);
@@ -149,12 +171,9 @@ void check() {
     CHECK(fill.build("early lighting fixture depth", vertex, depth_fragment, error));
     std::string source = lighting::probe_shader_source(fragment);
     source.insert(source.find('\n') + 1, renderer::shaders::surface_normal_glsl);
-    // Common uniforms are already declared above for the reference path.
-    std::string reconstruction = lighting::shaders::early_lighting_glsl;
-    for (const char* line : {"uniform mat4 early_projection;\n", "uniform vec2 early_extent;\n"}) {
-        reconstruction.erase(reconstruction.find(line), std::char_traits<char>::length(line));
-    }
-    source += reconstruction;
+    source.insert(source.find('\n') + 1, lighting::shaders::cloud_shadows_glsl);
+    source += lighting::shaders::early_lighting_glsl;
+    source += fragment_main;
     CHECK(sample.build("early lighting fixture sample", vertex, source, error));
     if (!error.empty()) {
         std::fprintf(stderr, "%s\n", error.c_str());
@@ -200,10 +219,26 @@ void check() {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     renderer::FrameInput input;
+    input.early_lighting_quality = renderer::EarlyLightingQuality::High;
     input.camera.position = {0, 0, 8};
     input.camera.view = renderer::look_along(input.camera.position, {0, 0, -1}, {0, 1, 0});
+    float cloud_time = 0.f;
     const auto bind = [&](const renderer::Shader& shader, bool shadows) {
         probes.bind(shader, scene::Layer::Terrain, true, &input.camera);
+        glUniform4f(
+            shader.uniform("cloud_shadow_shape"),
+            input.cloud_shadows.minimum,
+            input.cloud_shadows.maximum,
+            input.cloud_shadows.scale,
+            input.cloud_shadows.effective_strength()
+        );
+        glUniform3f(
+            shader.uniform("cloud_shadow_motion"),
+            cloud_time * input.cloud_shadows.speed,
+            0.f,
+            cloud_time * input.cloud_shadows.undulation
+        );
+        glUniform3f(shader.uniform("cloud_shadow_to_sun"), 0, 0, 1);
         glUniform1i(shader.uniform("early_ao_enabled"), ao_strength > 0 ? 1 : 0);
         glUniform1i(shader.uniform("early_ao"), 18);
         glUniform1i(shader.uniform("early_ao_scale"), 2);
@@ -221,6 +256,9 @@ void check() {
         glBindTexture(GL_TEXTURE_2D, shadow.depth_texture());
         glActiveTexture(GL_TEXTURE0);
         glUniform1i(shader.uniform("sun_shadow_enabled"), shadows ? 1 : 0);
+        glUniform1i(
+            shader.uniform("sun_shadow_fast"), input.shadow_filter == renderer::ShadowFilter::Fast
+        );
         glUniformMatrix4fv(
             shader.uniform("sun_shadow_view"), 1, GL_FALSE, input.camera.view.data()
         );
@@ -267,20 +305,24 @@ void check() {
                     fill.uniform("projection"), 1, GL_FALSE, input.camera.projection.data()
                 );
                 glUniform1i(fill.uniform("fixture"), fixture);
-                glDrawArrays(GL_TRIANGLES, 0, 3);
-                CHECK(early.render(
-                    depth.depth_texture(),
-                    input,
-                    state.target,
-                    [&](const auto& shader) { bind(shader, shadows); },
-                    error
-                ));
+                openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
+                const auto render_cache = [&] {
+                    CHECK(early.render(
+                        depth.depth_texture(),
+                        input,
+                        state.target,
+                        [&](const auto& shader) { bind(shader, shadows); },
+                        error
+                    ));
+                };
+                render_cache();
                 state.early_lighting = true;
                 const auto draw = [&](bool cache,
-                                      bool hits,
+                                      int hits,
                                       int translucent = 0,
                                       bool hero_view = false,
-                                      bool self = false) {
+                                      bool self = false,
+                                      bool cloud_edge = false) {
                     glBindFramebuffer(GL_FRAMEBUFFER, output.id());
                     glViewport(0, 0, width, height);
                     glDisable(GL_DEPTH_TEST);
@@ -289,8 +331,10 @@ void check() {
                     bind(sample, shadows);
                     early.bind(sample, input, state);
                     glUniform1i(sample.uniform("use_cache"), cache ? 1 : 0);
-                    glUniform1i(sample.uniform("show_hits"), hits ? 1 : 0);
+                    glUniform1i(sample.uniform("show_hits"), hits);
                     glUniform1i(sample.uniform("show_hero"), hero_view ? 1 : 0);
+                    glUniform1i(sample.uniform("show_cloud_edge"), cloud_edge ? 1 : 0);
+                    glUniform1i(sample.uniform("empty_guides"), fixture == 4 ? 1 : 0);
                     glUniform1i(sample.uniform("hero_shadow_receiver"), self ? 1 : 0);
                     glUniform1i(sample.uniform("translucent_pass"), translucent);
                     glUniform1i(sample.uniform("effect_pass"), 0);
@@ -312,19 +356,13 @@ void check() {
                     glActiveTexture(GL_TEXTURE0);
                     glBindTexture(GL_TEXTURE_2D, depth.depth_texture());
                     glBindVertexArray(vao);
-                    glDrawArrays(GL_TRIANGLES, 0, 3);
+                    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                     return output.read_rgba();
                 };
                 const auto reference = draw(false, false), actual = draw(true, false);
                 // Identical cache bytes must survive repeated graph recording at every fixture and size.
 
-                CHECK(early.render(
-                    depth.depth_texture(),
-                    input,
-                    state.target,
-                    [&](const auto& shader) { bind(shader, shadows); },
-                    error
-                ));
+                render_cache();
                 CHECK(draw(true, false) == actual);
 
                 unsigned differences = 0;
@@ -357,17 +395,118 @@ void check() {
                 }
                 CHECK(differences == 0);
                 if (fixture == 0) {
+                    const auto draw_cached = [&] {
+                        render_cache();
+                        return draw(true, false);
+                    };
+
+                    // Fixed noise remapping gives 55% sunlight at 90% cloud strength.
+                    // Exercise the extra guide plane and both directions of live resizing.
+                    input.cloud_shadows.enabled = true;
+                    input.cloud_shadows.minimum = input.cloud_shadows.maximum = .5f;
+                    const auto cloudy = draw_cached();
+                    for (std::size_t i = 0; i < actual.size(); ++i) {
+                        const float expected = actual[i] * (i % 4 == 3 ? .55f : 1.f);
+                        CHECK(std::abs(float(cloudy[i]) - expected) <= 1);
+                    }
+                    if (shadows) {
+                        // Cover half the shadow map to produce fractional visibility under PCF.
+                        glBindFramebuffer(GL_FRAMEBUFFER, shadow.id());
+                        glDepthMask(GL_TRUE);
+                        glClearDepth(1.0);
+                        glClear(GL_DEPTH_BUFFER_BIT);
+                        glEnable(GL_SCISSOR_TEST);
+                        glScissor(0, 0, 2, 4);
+                        glClearDepth(.25);
+                        glClear(GL_DEPTH_BUFFER_BIT);
+                        glDisable(GL_SCISSOR_TEST);
+                        const auto alpha = std::size_t(height - 1) * width * 4 + 3;
+                        int soft_visibility = 0;
+                        for (auto filter :
+                             {renderer::ShadowFilter::Soft, renderer::ShadowFilter::Fast}) {
+                            input.shadow_filter = filter;
+                            input.cloud_shadows.enabled = true;
+                            const auto penumbra = draw_cached();
+                            const auto full_penumbra = draw(false, false);
+                            input.cloud_shadows.enabled = false;
+                            const int unclouded = draw(false, false)[alpha];
+                            CHECK(unclouded > 0 && unclouded < 255);
+                            CHECK(std::abs(float(full_penumbra[alpha]) - .55f * unclouded) <= 1);
+                            CHECK(std::abs(int(penumbra[alpha]) - int(full_penumbra[alpha])) <= 1);
+                            if (filter == renderer::ShadowFilter::Soft) {
+                                soft_visibility = unclouded;
+                            } else {
+                                CHECK(std::abs(unclouded - soft_visibility) > 1);
+                            }
+                        }
+                        input.shadow_filter = renderer::ShadowFilter::Soft;
+                        glBindFramebuffer(GL_FRAMEBUFFER, shadow.id());
+                        glDepthMask(GL_TRUE);
+                        glClearDepth(.75);
+                        glClear(GL_DEPTH_BUFFER_BIT);
+                    }
+                    if (!shadows) {
+                        // Full and partial cloud cover both retain the cascade floor.
+                        const auto edge = draw(false, false, 0, false, false, true);
+                        for (std::size_t x = 0; x <= 4; ++x) {
+                            const float visible = float(x) / 4.f;
+                            CHECK(std::abs(float(edge[x * 4]) - 25.5f) <= 1);
+                            CHECK(
+                                std::abs(float(edge[x * 4 + 1]) - 255.f * (.1f + .225f * visible))
+                                <= 1
+                            );
+                            CHECK(
+                                std::abs(float(edge[x * 4 + 2]) - 255.f * (.1f + .9f * visible))
+                                <= 1
+                            );
+                        }
+                        input.cloud_shadows.minimum = 0.f;
+                        input.cloud_shadows.maximum = 1.f;
+                        const auto first_phase = draw_cached();
+                        const auto first_full = draw(false, false);
+                        ++input.frame;
+                        cloud_time = 4.f;
+                        const auto later_phase = draw_cached();
+                        const auto later_full = draw(false, false);
+                        CHECK(first_phase != later_phase);
+                        CHECK(first_full != later_full);
+                        // The bottom-left pixel reconstructs one cell at the exact position
+                        // sampled by the fragment shader. Readback starts at the top.
+                        const auto alpha = std::size_t(height - 1) * width * 4 + 3;
+                        CHECK(std::abs(int(first_phase[alpha]) - int(first_full[alpha])) <= 1);
+                        CHECK(std::abs(int(later_phase[alpha]) - int(later_full[alpha])) <= 1);
+                        for (std::size_t i = 0; i < actual.size(); ++i) {
+                            if (i % 4 != 3) {
+                                CHECK(first_phase[i] == later_phase[i]);
+                            }
+                        }
+                        cloud_time = 0.f;
+                    }
+                    input.cloud_shadows.enabled = false;
+                    CHECK(draw_cached() == actual);
+                    if (!shadows) {
+                        CHECK(draw(true, 2)[0] == 128);
+                        input.early_lighting_quality = renderer::EarlyLightingQuality::Normal;
+                        const auto normal = draw_cached();
+                        CHECK(draw(true, 2)[0] == 255);
+                        const auto normal_hits = draw(true, true);
+                        for (std::size_t i = 0; i < normal.size(); ++i) {
+                            if (i % 4 == 0) {
+                                CHECK(normal_hits[i] == 255);
+                            }
+                            const int tolerance = i % 4 == 3 ? 1 : 6;
+                            CHECK(std::abs(int(normal[i]) - int(reference[i])) <= tolerance);
+                        }
+                        input.early_lighting_quality = renderer::EarlyLightingQuality::High;
+                        CHECK(draw_cached() == actual);
+                    }
+                }
+                if (fixture == 0) {
                     // AO attenuates only RGB, before encoding. Alpha keeps the
                     // same cascade visibility, including fully shadowed samples.
                     for (float strength : {1.0f, 2.0f}) {
                         ao_strength = strength;
-                        CHECK(early.render(
-                            depth.depth_texture(),
-                            input,
-                            state.target,
-                            [&](const auto& shader) { bind(shader, shadows); },
-                            error
-                        ));
+                        render_cache();
                         const auto occluded = draw(true, false);
                         for (std::size_t i = 0; i < actual.size(); ++i) {
                             const float expected =
@@ -376,26 +515,14 @@ void check() {
                         }
                     }
                     ao_strength = 0;
-                    CHECK(early.render(
-                        depth.depth_texture(),
-                        input,
-                        state.target,
-                        [&](const auto& shader) { bind(shader, shadows); },
-                        error
-                    ));
+                    render_cache();
                 }
                 if (fixture == 0) {
                     // Hero visibility stays separate from cascade visibility. Receiver
                     // exclusion is applied after reconstruction, not baked into the cache.
                     for (int hero = 1; hero <= 2; ++hero) {
                         hero_mode = hero;
-                        CHECK(early.render(
-                            depth.depth_texture(),
-                            input,
-                            state.target,
-                            [&](const auto& shader) { bind(shader, shadows); },
-                            error
-                        ));
+                        render_cache();
                         for (bool self : {false, true}) {
                             const auto expected = draw(false, false, 0, true, self);
                             const auto cached = draw(true, false, 0, true, self);
@@ -407,13 +534,7 @@ void check() {
                         }
                     }
                     hero_mode = 0;
-                    CHECK(early.render(
-                        depth.depth_texture(),
-                        input,
-                        state.target,
-                        [&](const auto& shader) { bind(shader, shadows); },
-                        error
-                    ));
+                    render_cache();
                 }
                 auto hits = draw(true, true);
                 unsigned accepted = 0;
@@ -425,6 +546,16 @@ void check() {
                 }
                 if (fixture == 4) {
                     CHECK(accepted == 0);
+                    if (!shadows) {
+                        input.cloud_shadows.enabled = true;
+                        input.cloud_shadows.minimum = input.cloud_shadows.maximum = .5f;
+                        early.prepare_cloud_noise(input);
+                        const auto fallback = draw(true, false);
+                        CHECK(std::abs(float(fallback[3]) - 255.f * .55f) <= 1);
+                        CHECK(std::abs(float(fallback[0]) - 255.f * (.1f + .9f * .55f)) <= 1);
+                        CHECK(fallback == draw(false, false));
+                        input.cloud_shadows.enabled = false;
+                    }
                 }
                 hits = draw(true, true, 1);
                 for (std::size_t i = 0; i < hits.size(); i += 4) {

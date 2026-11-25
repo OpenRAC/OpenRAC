@@ -82,7 +82,10 @@ const SHIP: [string, string[]][] = [
   ["Mines", ["None", "Electro Mine Launcher", "Mega-Mine Launcher"]],
   ["Missiles", ["Standard Missile Launcher", "Fast-lock Missile Launcher"]],
   ["Torpedoes", ["None", "Torpedo Launcher", "Multi-Torpedo Launcher"]],
-  ["Shields", ["Basic Shielding System", "Advanced Shielding System", "Ultra-Charge Shielding System"]],
+  [
+    "Shields",
+    ["Basic Shielding System", "Advanced Shielding System", "Ultra-Charge Shielding System"],
+  ],
   ["Nuclear Detonation Device", ["No", "Yes"]],
   ["Hyperspace Warp System", ["No", "Yes"]],
 ];
@@ -101,6 +104,7 @@ export function mockRac2Extra(serial: string, slot: number): Rac2ExtraView {
     ship: SHIP.map(() => 0),
     mods: MODS.map(([item, s]) => ({ item, slot: s, bought: item === 24 && s === 0 })),
   };
+
   return {
     serial,
     slot,
@@ -121,10 +125,16 @@ export function mockRac2Extra(serial: string, slot: number): Rac2ExtraView {
   };
 }
 
-export function mockWriteRac2Extra(serial: string, slot: number, fields: Rac2ExtraFields): Rac2ExtraView {
-  if (fields.crystals > 9999 || fields.moonstones > 9999) throw new Error("crystals and moonstones go up to 9999");
+export function mockWriteRac2Extra(
+  serial: string,
+  slot: number,
+  fields: Rac2ExtraFields,
+): Rac2ExtraView {
+  if (fields.crystals > 9999 || fields.moonstones > 9999)
+    throw new Error("crystals and moonstones go up to 9999");
   if (fields.platinumSpent > 2) throw new Error("only 2 platinum bolts are found in this save");
   saved[`${serial}/${String(slot)}`] = structuredClone(fields);
   writes += 1;
+
   return mockRac2Extra(serial, slot);
 }

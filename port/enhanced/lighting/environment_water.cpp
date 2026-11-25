@@ -7,7 +7,9 @@
 #include <tuple>
 #include <unordered_map>
 
+#include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/environment_bake.h"
+#include "enhanced/lighting/environment_water_internal.h"
 
 namespace openrac::lighting {
 namespace {
@@ -124,7 +126,13 @@ std::map<Key, Float3> water_cells(std::span<const GameplayTriangle> triangles, f
             }
         }
 
-        if (high[2] - low[2] > .25f) {
+        const auto normal = bake_detail::cross(
+            bake_detail::add(t.vertices[1], bake_detail::mul(t.vertices[0], -1)),
+            bake_detail::add(t.vertices[2], bake_detail::mul(t.vertices[0], -1))
+        );
+        // Test slope, not total height change: broad, gently sloping water triangles
+        // otherwise leave artificial dry gaps while equally sloped small triangles survive.
+        if (std::abs(normal[2]) < .98f * std::sqrt(bake_detail::dot(normal, normal))) {
             continue;
         }
 
@@ -226,6 +234,7 @@ std::optional<EnvironmentFloorSample> swimming_sample(
     sample.sky = underwater ? 0.f : shore.sky;
     sample.lighting_labels = shore.lighting_labels;
     sample.water_height = water;
+    sample.water_bottom = point.bottom;
     // Both layers are swimming domains, not walking-floor fragments.
     sample.swimming_surface = true;
     sample.underwater = underwater;
@@ -253,6 +262,14 @@ void append_pool(
             }
 
             const auto p = sample->position;
+            if (underwater && std::any_of(floors.begin(), floors.end(), [&](const auto& floor) {
+                    const float dx = floor.position[0] - p[0], dy = floor.position[1] - p[1];
+                    return !floor.swimming_surface
+                           && dx * dx + dy * dy <= .25f * grid.spacing * grid.spacing
+                           && std::abs(floor.position[2] - p[2]) <= .5f * grid.spacing;
+                })) {
+                continue;  // Existing solid-floor samples already represent this basin bed.
+            }
             sample->region = region;
             cells[{int(std::round(p[0] / grid.spacing)), int(std::round(p[1] / grid.spacing))}] =
                 unsigned(floors.size());
@@ -331,7 +348,9 @@ void classify_land(
                 }
 
                 floor.water_height = *z;
+                floor.water_bottom = basin;
                 floor.underwater = true;
+                floor.height_bounds = Float2{floor.position[2] - .8f, *z - .25f};
                 return true;
             }
 
@@ -394,7 +413,8 @@ void append_swimming_surfaces(
     std::vector<EnvironmentFloorSample>& floors,
     float spacing,
     const std::function<bool(Float3)>& wet_mask,
-    float minimum_swim_depth
+    float minimum_swim_depth,
+    const BakeTraversalSettings& traversal
 ) {
     if (!std::isfinite(spacing) || spacing < .5f || spacing > 8) {
         throw std::runtime_error("invalid swimming surface sample spacing");
@@ -412,6 +432,7 @@ void append_swimming_surfaces(
     }
 
     const auto land = floors;
+    const auto original_count = unsigned(floors.size());
     unsigned region = 0;
 
     for (const auto& floor : floors) {
@@ -424,7 +445,7 @@ void append_swimming_surfaces(
     while (!cells.empty()) {
         const auto pool = take_pool(cells, land);
 
-        if (pool.shore != ~0u) {
+        {
             std::vector<WaterPoint> points;
 
             // Reuse bathymetry across wading classification and both swimming layers.
@@ -432,9 +453,13 @@ void append_swimming_surfaces(
                 points.push_back({surface, bottom(columns, surface)});
             }
 
-            append_wading(points, land[pool.shore], region, minimum_swim_depth, floors);
-            append_pool(points, land[pool.shore], region, {spacing, minimum_swim_depth}, floors);
+            // Shore proximity supplies initial metadata only. Actual reachability below
+            // requires a clear entry and connected swimming routes from gameplay anchors.
+            const auto shore = pool.shore != ~0u ? land[pool.shore] : EnvironmentFloorSample{};
+            append_wading(points, shore, region, minimum_swim_depth, floors);
+            append_pool(points, shore, region, {spacing, minimum_swim_depth}, floors);
         }
     }
+    bake_detail::connect_reachable_water(triangles, floors, original_count, spacing, traversal);
 }
 }  // namespace openrac::lighting

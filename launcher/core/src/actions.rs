@@ -21,8 +21,25 @@ pub const FILE: &str = "launcher/actions.json";
 
 /// The only `{name}` placeholders an argument, `program` or `cwd` may hold.
 pub const PLACEHOLDERS: &[&str] = &[
-    "root", "dir", "python", "godot", "docker", "disc", "boot", "artifact", "serial", "key", "data", "level", "path",
+    "root",
+    "dir",
+    "python",
+    "docker",
+    "disc",
+    "boot",
+    "artifact",
+    "serial",
+    "key",
+    "data",
+    "level",
+    "path",
     "option",
+    "editor",
+    "editor_tools",
+    "projects",
+    "levels",
+    "packed",
+    "states",
 ];
 
 #[derive(Debug, Clone, Deserialize)]
@@ -56,7 +73,7 @@ pub struct Action {
     #[serde(default)]
     pub state: State,
     /// The program: a placeholder for a configured tool (`{python}`,
-    /// `{godot}`, `{docker}`) or a command found on PATH (`bash`, `make`).
+    /// `{editor}`, `{docker}`) or a command found on PATH (`bash`, `make`).
     #[serde(default)]
     pub program: Option<String>,
     #[serde(default)]
@@ -83,7 +100,7 @@ pub struct Action {
     /// to the checkout: each is `{"path": ..., "from": the step's label}`.
     #[serde(default)]
     pub needs: Vec<Need>,
-    /// Start it and let it run on its own (the game, Godot), instead of
+    /// Start it and let it run on its own (the game, the editor), instead of
     /// as a job in Tasks whose output the launcher shows.
     #[serde(default)]
     pub detached: bool,
@@ -211,7 +228,8 @@ pub enum Requirement {
     /// The shared toolchains/ folder holds a compiler.
     Toolchains,
     Python,
-    Godot,
+    /// OpenRAC Editor is downloaded and fits this OpenRAC (editor_install.rs).
+    Editor,
     Docker,
     /// `artifact` exists (a build to play).
     Artifact,
@@ -304,7 +322,24 @@ pub struct Inputs {
     pub option: Option<String>,
 }
 
+/// The checkout's actions, and the level editor's when OpenRAC Editor is downloaded
+/// (editor_install.rs): it brings its own, beside each version's.
 pub fn load(root: &Path) -> Result<ActionFile, String> {
+    let mut file = load_own(root)?;
+    if let Some(editor) = crate::editor_install::find() {
+        for (key, list) in file.versions.iter_mut() {
+            for action in editor.actions(key) {
+                if !list.iter().any(|a| a.id == action.id) {
+                    list.push(action);
+                }
+            }
+        }
+    }
+    Ok(file)
+}
+
+/// The checkout's actions.json alone.
+pub fn load_own(root: &Path) -> Result<ActionFile, String> {
     let path = under(root, FILE);
     let text = std::fs::read_to_string(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
     parse(&text).map_err(|e| format!("{}: {e}", path.display()))
@@ -391,7 +426,8 @@ impl ActionFile {
 }
 
 /// Placeholders that only mean something for a version.
-const VERSION_ONLY: &[&str] = &["dir", "disc", "boot", "serial", "key", "data"];
+const VERSION_ONLY: &[&str] =
+    &["dir", "disc", "boot", "serial", "key", "data", "projects", "levels", "packed", "states"];
 
 /// The `{name}`s in `text`.
 fn placeholders(text: &str) -> Vec<String> {
@@ -404,6 +440,10 @@ fn placeholders(text: &str) -> Vec<String> {
     }
     names
 }
+
+/// Why every rac3 action is blocked while the Up Your Arsenal switch (Settings, Developer) is off.
+/// The words after "needs" are what the UI shows ("Needs the Up Your Arsenal switch ...").
+pub const RAC3_GATE: &str = "needs the Up Your Arsenal switch in Settings, under Developer";
 
 impl Action {
     /// Whether the action can run in `ctx`, and if not, why.
@@ -442,7 +482,7 @@ impl Action {
     }
 
     /// Whether the action is for `platform`: one of its `platforms`, or any when it lists none.
-    /// Android has no shell, Godot or compiler: only a play action, which starts the game's
+    /// Android has no shell, editor or compiler: only a play action, which starts the game's
     /// activity (src-tauri/src/android.rs), runs there unless it names Android, as the steps that
     /// get the levels ready do (they run on the Python the APK carries).
     fn runs_on(&self, platform: Platform) -> bool {
@@ -457,6 +497,10 @@ impl Action {
         let mut out = Vec::new();
         if !self.shown(ctx.config) {
             out.push("for developers only: turn on Developer tools in Settings".to_string());
+            return out;
+        }
+        if ctx.version.is_some_and(|v| v.game == "rac3") && !ctx.config.rac3_dev {
+            out.push(RAC3_GATE.to_string());
             return out;
         }
         if self.state == State::Planned {
@@ -480,7 +524,13 @@ impl Action {
                         .then_some("the inputs Place inputs puts in the game"),
                     Requirement::Toolchains => (!ctx.toolchains).then_some("the compilers in toolchains/"),
                     Requirement::Python => ctx.config.python.is_none().then_some("Python (Settings)"),
-                    Requirement::Godot => ctx.config.godot.is_none().then_some("Godot (Settings)"),
+                    Requirement::Editor => {
+                        match crate::editor_install::find() {
+                            None => out.push("needs OpenRAC Editor (Mods, Level editor: Download)".to_string()),
+                            Some(editor) => out.extend(editor.problem(ctx.root)),
+                        }
+                        None
+                    }
                     Requirement::Docker => {
                         (ctx.config.docker.is_none() && crate::detect::which("docker").is_none()).then_some("Docker")
                     }
@@ -567,6 +617,10 @@ impl Action {
         };
         let mut env = Vec::new();
         // The bake transcript identifies the running launcher even when it uses another checkout.
+        if self.area == Area::Editor {
+            // OpenRAC Editor's tools find this OpenRAC's extractor by it (openrac_root.py).
+            env.push(("OPENRAC_ROOT".to_string(), crate::detect::plain(ctx.root).display().to_string()));
+        }
         if self.id == crate::enhanced::BAKE_ACTION {
             env.push(("OPENRAC_LAUNCHER_VERSION".to_string(), env!("CARGO_PKG_VERSION").to_string()));
         }
@@ -603,24 +657,22 @@ impl Action {
         if self.kind == Kind::Play && crate::multiplayer::is_valid_key(&ctx.config.multiplayer_key) {
             env.push((crate::multiplayer::KEY_ENV.to_string(), ctx.config.multiplayer_key.clone()));
         }
+        // Settings, "Multiplayer server": where every game's online play goes, the official
+        // server unless the player named another (multiplayer.rs).
+        if self.kind == Kind::Play {
+            env.push((crate::multiplayer::SERVER_ENV.to_string(), crate::multiplayer::server(ctx.config)));
+        }
         // Settings, "Detailed game logs": the port's verbose log (port/common/log.h).
         if self.kind == Kind::Play && ctx.config.detailed_game_log {
             env.push(("OPENRAC_LOG".to_string(), "verbose".to_string()));
         }
-        // Settings, "Renderer" (Windows, Linux and macOS): the port's Vulkan renderer (on macOS
-        // on the MoltenVK the game's bundle carries), or on macOS its Metal renderer; either
-        // draws with OpenGL instead where it cannot start (port/platform/window.cpp). OpenGL sets
-        // nothing. Metal on another system plays with Vulkan (config::renderer_for). Android
-        // keeps its own choice (src-tauri/src/android.rs).
+        // Desktop renderer selection. On macOS the Vulkan option is shown as Metal and runs
+        // through the bundle's MoltenVK. Android keeps its own renderer selection.
         if self.kind == Kind::Play && matches!(ctx.platform, Platform::Windows | Platform::Linux | Platform::Macos) {
-            let renderer = crate::config::renderer_for(&ctx.config.renderer, ctx.platform);
+            let renderer = crate::config::renderer_for(&ctx.config.renderer);
             if renderer != "opengl" {
                 env.push(("OPENRAC_GL_API".to_string(), renderer.to_string()));
             }
-        }
-        // Settings, "HDR": Off or On, over the game's own for this start.
-        if self.kind == Kind::Play {
-            env.push(("OPENRAC_HDR".to_string(), crate::config::hdr_mode(&ctx.config.hdr).to_string()));
         }
         // The Mods tab's Enhanced graphics (enhanced.rs): with `enhanced_rendering = 1` in the
         // version's settings file the game draws with Vulkan, the one renderer that has it, and
@@ -636,7 +688,7 @@ impl Action {
                     {
                         for (key, value) in more_env {
                             if key == "OPENRAC_GL_API" {
-                                // Enhanced graphics is Vulkan only: it wins over Settings' Metal.
+                                // Enhanced graphics takes precedence over the renderer setting.
                                 env.retain(|(k, _)| *k != key);
                                 env.push((key, value));
                             } else if !env.iter().any(|(k, _)| *k == key) {
@@ -708,6 +760,11 @@ fn abs(root: &Path, path: &str) -> PathBuf {
     }
 }
 
+/// Whether `root` is the copy an installer carries (bundle_standalone.py), not a checkout.
+fn standalone(root: &Path) -> bool {
+    root.join("STANDALONE").is_file()
+}
+
 /// `text` with its placeholders filled in from `ctx` (and `{artifact}` from `artifact`).
 fn fill(text: &str, ctx: &Context, artifact: Option<&Path>) -> Result<String, String> {
     let mut out = text.to_string();
@@ -734,7 +791,42 @@ fn value(name: &str, ctx: &Context) -> Result<String, String> {
     Ok(match name {
         "root" => ctx.root.display().to_string(),
         "python" => path(&ctx.config.python, "Python")?,
-        "godot" => path(&ctx.config.godot, "Godot")?,
+        "editor" | "editor_tools" => {
+            let editor =
+                crate::editor_install::find().ok_or("OpenRAC Editor is not downloaded (Mods, Level editor)")?;
+            let path = if name == "editor" {
+                editor.program().ok_or("OpenRAC Editor has no program for this system")?
+            } else {
+                editor.tools()
+            };
+            crate::detect::plain(&path).display().to_string()
+        }
+        // The level editor's folders for the version: in a checkout under its assets/, in the
+        // copy an installer carries (read-only) in the game's data folder.
+        "projects" | "levels" | "packed" => {
+            let v = version()?;
+            let kind = match name {
+                "projects" => "levels",
+                "levels" => "port",
+                _ => "packed",
+            };
+            match (standalone(ctx.root), ctx.config.install_dir.as_ref()) {
+                (true, Some(install)) => {
+                    crate::install::data_dir(install, &v.game).join(kind).join(&v.name).display().to_string()
+                }
+                (true, None) => return Err("the install folder is not set (Settings)".into()),
+                (false, _) => under(ctx.root, &format!("assets/{kind}/{}", v.key)).display().to_string(),
+            }
+        }
+        // The game's states program, which the editor runs to see how a level starts its mobys
+        // (docs/port/MOBY_STATES.md): in the build folder, as a carried copy has it too.
+        "states" => {
+            let v = version()?;
+            let exe = if cfg!(windows) { ".exe" } else { "" };
+            under(ctx.root, &format!("port/build/release/openrac-{}-{}-states{exe}", v.game, v.name))
+                .display()
+                .to_string()
+        }
         "docker" => match &ctx.config.docker {
             Some(p) => p.display().to_string(),
             None => "docker".to_string(),
@@ -774,6 +866,27 @@ fn value(name: &str, ctx: &Context) -> Result<String, String> {
 mod tests {
     use super::*;
     use crate::testing::checkout;
+
+    /// Going Commando plays (prebuilt, like rac1): none of its actions call it early access or
+    /// say the game is not playable. It plays its edited levels with its mods; packing them back
+    /// is OpenRAC Editor's action (editor_install.rs), not the checkout's.
+    #[test]
+    fn going_commando_is_not_early_access() {
+        let file = load_own(&checkout()).unwrap();
+        for key in ["rac2/ntsc", "rac2/pal", "rac2/ntsc2"] {
+            let list = &file.versions[key];
+            let play = list.iter().find(|a| a.id == "play").unwrap_or_else(|| panic!("{key} has no play"));
+            assert_ne!(play.state, State::Planned, "{key} play");
+            assert!(list.iter().any(|a| a.id == "play-edited"), "{key} has no play-edited");
+            let stack = list.iter().find(|a| a.id == "overrides-stack").expect("overrides-stack");
+            assert!(stack.args.iter().any(|a| a == "--packed"), "{key}: the stack leaves the packed levels out");
+            for a in list {
+                let text = a.description.to_lowercase();
+                assert!(!text.contains("early access"), "{key} {}: {}", a.id, a.description);
+                assert!(!text.contains("not playable"), "{key} {}", a.id);
+            }
+        }
+    }
 
     #[test]
     fn structured_options_stay_one_argument_and_require_opt_in() {
@@ -816,6 +929,34 @@ mod tests {
             let path = doc.split('#').next().unwrap();
             assert!(under(&root, path).exists(), "{doc} does not exist");
         }
+    }
+
+    /// A file an action needs is made by a step that runs on the same platform: else Play waits
+    /// for a step the platform never offers (rac1 on Android waited for the disc's files).
+    #[test]
+    fn every_need_is_made_on_the_platforms_that_need_it() {
+        let file = load_own(&checkout()).unwrap();
+        let platforms = [Platform::Windows, Platform::Linux, Platform::Macos, Platform::Android];
+        let mut missing = Vec::new();
+        for (key, list) in &file.versions {
+            for action in list.iter().filter(|a| a.state != State::Planned) {
+                for platform in platforms.into_iter().filter(|p| action.runs_on(*p)) {
+                    for need in &action.needs {
+                        let made = list.iter().any(|a| {
+                            a.runs_on(platform)
+                                && [&a.makes, &a.artifact].iter().any(|m| m.as_ref() == Some(&need.path))
+                        });
+                        if !made {
+                            missing.push(format!(
+                                "{key} {} on {platform:?}: nothing there makes {}",
+                                action.id, need.path
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        assert_eq!(missing, Vec::<String>::new());
     }
 
     #[test]
@@ -940,6 +1081,49 @@ mod tests {
         assert!(view.runnable && !view.developer && view.warning.is_none());
     }
 
+    /// Up Your Arsenal's actions (rac3/pal and rac3/ntsc) are blocked, with a note, until the
+    /// Developer switch is on; the other games are not asked.
+    #[test]
+    fn rac3_actions_wait_for_the_switch() {
+        let action: Action = serde_json::from_str(
+            r#"{"id": "p", "label": "Play", "kind": "play", "state": "unverified", "program": "make"}"#,
+        )
+        .unwrap();
+        let root = checkout();
+        let catalog = crate::catalog::load(&root).unwrap();
+        let base = catalog.version("rac1/pal").unwrap();
+        let status = crate::status::version_status(&root, base);
+        let off = Config::default();
+        let on = Config { rac3_dev: true, ..Config::default() };
+        for (key, game, blocked) in [
+            ("rac3/pal", "rac3", true),
+            ("rac3/ntsc", "rac3", true),
+            ("rac1/pal", "rac1", false),
+            ("rac2/pal", "rac2", false),
+            ("rac4/pal", "rac4", false),
+        ] {
+            let version = Version { key: key.into(), game: game.into(), ..base.clone() };
+            let ctx = |config| Context {
+                root: &root,
+                config,
+                version: Some(&version),
+                status: Some(&status),
+                toolchains: false,
+                platform: Platform::Linux,
+                level: None,
+                path: None,
+                option: None,
+            };
+            let view = action.view(&ctx(&off));
+            assert_eq!(!view.runnable, blocked, "{key}");
+            if blocked {
+                assert_eq!(view.blockers, [RAC3_GATE], "{key}");
+                assert!(action.plan(&ctx(&off)).is_err(), "{key}");
+            }
+            assert!(action.view(&ctx(&on)).runnable, "{key} with the switch on");
+        }
+    }
+
     /// A tool path with Windows' `\\?\` prefix (Tauri's resource folder adds it to the bundled
     /// Python) is filled in without it: Going Commando's build on Windows started hostgen through
     /// `cmd /C "\\?\D:\...\python.exe"`, which cmd cannot find.
@@ -1024,7 +1208,7 @@ mod tests {
         let status = crate::status::version_status(&root, version);
         let action: Action = serde_json::from_str(
             r#"{"id": "x", "label": "Extract", "kind": "edit", "state": "connected", "program": "{python}",
-                "args": ["editor/extract.py", "{serial}", "{dir}/out"], "cwd": "{root}", "requires": ["python"]}"#,
+                "args": ["extractor/extract.py", "{serial}", "{dir}/out"], "cwd": "{root}", "requires": ["python"]}"#,
         )
         .unwrap();
 
@@ -1154,15 +1338,24 @@ mod tests {
         let keyed = Config { multiplayer_key: key.clone(), ..installed.clone() };
         assert!(play.plan(&ctx(&keyed)).unwrap().env.contains(&("OPENRAC_IDENTITY_KEY".to_string(), key)));
         assert!(!play.plan(&ctx(&installed)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_IDENTITY_KEY"));
-        // Settings, "HDR": Off by default, else On; anything else is Off.
-        assert!(plan.env.contains(&("OPENRAC_HDR".to_string(), "off".to_string())), "{:?}", plan.env);
-        let modes = [("off", "off"), ("on", "on"), ("bright", "off")]
-            .map(|(hdr, sent)| (Config { hdr: hdr.into(), ..installed.clone() }, sent));
-        for (config, sent) in &modes {
-            let plan = play.plan(&ctx(config)).unwrap();
-            let wanted = ("OPENRAC_HDR".to_string(), sent.to_string());
-            assert!(plan.env.contains(&wanted), "{}: {:?}", config.hdr, plan.env);
-        }
+        // Settings, "Multiplayer server": the official hub by default, the player's own when set.
+        let server =
+            |env: Vec<(String, String)>| env.into_iter().filter(|(k, _)| k == "OPENRAC_SERVER").collect::<Vec<_>>();
+        assert_eq!(
+            server(play.plan(&ctx(&installed)).unwrap().env),
+            [("OPENRAC_SERVER".to_string(), "hub.openrac.dev:7177".to_string())]
+        );
+        let own_server = Config {
+            multiplayer_server_host: "mp.example.org".into(),
+            multiplayer_server_port: 7000,
+            ..installed.clone()
+        };
+        assert_eq!(
+            server(play.plan(&ctx(&own_server)).unwrap().env),
+            [("OPENRAC_SERVER".to_string(), "mp.example.org:7000".to_string())]
+        );
+        // HDR is the game's own setting: the launcher never overrides it.
+        assert!(!plan.env.iter().any(|(k, _)| k == "OPENRAC_HDR"), "{:?}", plan.env);
         // Settings, "Renderer": Vulkan, the default, on the desktops; OpenGL sets nothing.
         let opengl = Config { renderer: "opengl".into(), ..installed.clone() };
         assert!(!play.plan(&ctx(&opengl)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_GL_API"));
@@ -1173,11 +1366,9 @@ mod tests {
         let on_mac = Context { platform: Platform::Macos, ..ctx(&vulkan) };
         let plan = play.plan(&on_mac).unwrap();
         assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
-        // Metal on macOS only; elsewhere a Mac's "metal" plays with Vulkan.
+        // The legacy Metal value launches through Vulkan on macOS and other desktops.
         let metal = Config { renderer: "metal".into(), ..installed.clone() };
-        let plan = play.plan(&Context { platform: Platform::Macos, ..ctx(&metal) }).unwrap();
-        assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "metal".to_string())), "{:?}", plan.env);
-        for platform in [Platform::Windows, Platform::Linux] {
+        for platform in [Platform::Macos, Platform::Windows, Platform::Linux] {
             let plan = play.plan(&Context { platform, ..ctx(&metal) }).unwrap();
             assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
         }
@@ -1194,8 +1385,7 @@ mod tests {
         assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
         let probes = crate::enhanced::probes_dir(&data, "pal").display().to_string();
         assert!(plan.args.ends_with(&["--probes".to_string(), probes]), "{:?}", plan.args);
-        // Enhanced graphics is Vulkan only, so it wins over Settings' Metal on a Mac.
-        let plan = play.plan(&Context { platform: Platform::Macos, ..ctx(&metal) }).unwrap();
+        let plan = play.plan(&Context { platform: Platform::Macos, ..ctx(&opengl) }).unwrap();
         let apis: Vec<_> = plan.env.iter().filter(|(k, _)| k == "OPENRAC_GL_API").collect();
         assert_eq!(apis, [&("OPENRAC_GL_API".to_string(), "vulkan".to_string())], "{:?}", plan.env);
         std::fs::remove_file(&file).unwrap();

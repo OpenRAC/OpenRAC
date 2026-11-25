@@ -7,9 +7,10 @@
 
 #include "enhanced/tests/water_gpu_fixture.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 
 namespace openrac::test::water {
 namespace {
@@ -81,7 +82,7 @@ void main() {
         shader.use();
         glUniform1i(shader.uniform("field"), 0);
         glViewport(0, 0, kWidth, kWidth);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         glReadPixels(0, 0, kWidth, kWidth, GL_RGBA, GL_UNSIGNED_BYTE, fixture.pixels.data());
         for (unsigned y = 0; y < kWidth; ++y) {
             for (unsigned x = 0; x < kWidth; ++x) {

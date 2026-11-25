@@ -12,10 +12,13 @@
 // checked on every level's bank; the grain types are those OpenGOAL's 989snd
 // (game/sound/989snd) names for Jak's build of the same library.
 //
-// Only version 1 blocks (12-byte sound records, 0x28-byte grains) are read:
-// that is what Ratchet & Clank uses. Whether the later games' builds of
-// 989snd write the same version is not known yet; another version is an
-// error, not a guess.
+// Version 1 blocks (12-byte sound records, 0x28-byte grains) are what
+// Ratchet & Clank uses. Up Your Arsenal's are version 3: the same sound
+// records and tones, but 8-byte grains (`u32 opcode`: the type in the top
+// byte, three argument bytes below; `s32 delay`) whose tones, LFO settings
+// and child sounds are records in a grain data area (block offset 0x34), as
+// OpenGOAL's 989snd reads version 2 (SFXGrain2). They are read into version
+// 1 grains. Another version is an error, not a guess.
 
 #pragma once
 
@@ -48,6 +51,7 @@ struct SfxBlockHeader {
     u32 vag_data_size = 0;
     u32 sound_ram_size = 0;
     u32 next_block = 0;
+    u32 grain_data = 0;  // versions 2 and 3: block-relative offset of the grains' records
 };
 
 // One sound (12 bytes at first_sound + 12 * i).

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import type { Review, ReviewMod } from "./api";
 import {
   canApply,
@@ -11,9 +12,13 @@ import {
   valueText,
   versions,
 } from "./modCodes";
-import { MOD_CODES, ADD } from "./modsText";
+import { ADD, MOD_CODES } from "./modsText";
 
-const mod = (id: string, action: ReviewMod["action"], more: Partial<ReviewMod> = {}): ReviewMod => ({
+const mod = (
+  id: string,
+  action: ReviewMod["action"],
+  more: Partial<ReviewMod> = {},
+): ReviewMod => ({
   id,
   name: id,
   version: "1.0.0",
@@ -96,6 +101,7 @@ describe("a review's groups", () => {
         ],
       }),
     );
+
     expect(groups.map((g) => g.key)).toEqual(["install", "update", "unavailable"]);
     expect(groups[0]?.mods.map((m) => m.id)).toEqual(["new"]);
     expect(groups[0]?.title).toBe(MOD_CODES.group.install);
@@ -109,6 +115,7 @@ describe("a review's groups", () => {
         mod("gone", "unavailable", { optional: true }),
       ],
     });
+
     expect(optionalMods(r).map((m) => m.id)).toEqual(["take"]);
     expect(matching(r)).toBe(1);
   });
@@ -129,9 +136,13 @@ describe("Apply", () => {
 
   it("only asks about a suggestion's source when it is ticked", () => {
     const r = review({
-      mods: [mod("base", "install"), mod("a", "install", { source: "someone/mods", optional: true })],
+      mods: [
+        mod("base", "install"),
+        mod("a", "install", { source: "someone/mods", optional: true }),
+      ],
       ask: [{ url, label: "someone/mods" }],
     });
+
     expect(canApply(r, [], [], false)).toBe(true);
     expect(canApply(r, ["a"], [], false)).toBe(false);
     expect(canApply(r, ["a"], [url], false)).toBe(true);
@@ -144,6 +155,7 @@ describe("Apply", () => {
 
   it("has nothing to do when everything matches, unless a suggestion is ticked", () => {
     const r = review({ nothing: true, mods: [mod("a", "install", { optional: true })] });
+
     expect(canApply(r, [], [], false)).toBe(false);
     expect(canApply(r, ["a"], [], false)).toBe(true);
   });

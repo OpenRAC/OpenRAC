@@ -11,18 +11,22 @@
 #include "enhanced/lighting/probes.h"
 #include "enhanced/renderer/gtao.h"
 #include "enhanced/tests/gpu_probe_fixture.h"
+#include "enhanced/tests/material_surface_gpu.h"
 #include "enhanced/tests/probe_receiver_normals.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 #include "scene/level_renderer.h"
+#include "scene/object_preview.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 using namespace openrac;
@@ -150,7 +154,7 @@ void check(
         glUniform4fv(shader.uniform("positions"), 8, positions[0].data());
         glUniform4fv(shader.uniform("normals"), 8, normals[0].data());
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = frame.read_rgba();
 
         if (zero_weight_reference) {
@@ -161,7 +165,7 @@ void check(
             glUniform3f(reference.uniform("test_camera"), 16, 16, 20);
             glUniform4fv(reference.uniform("positions"), 8, positions[0].data());
             glUniform4fv(reference.uniform("normals"), 8, normals[0].data());
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             CHECK(frame.read_rgba() == pixels);
         }
 
@@ -255,7 +259,7 @@ void coverage_seam(
         glUniform4fv(shader.uniform("positions"), 8, points[0].data());
         glUniform4fv(shader.uniform("normals"), 8, directions[0].data());
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = frame.read_rgba();
 
         for (unsigned i = 0; i < 8; ++i) {
@@ -310,7 +314,8 @@ void material_path(
 ) {
     scene::LevelData level;
     level.light_sets.resize(256);
-    const Float3 triangle_positions[] = {{-1, -1, 0}, {1, -1, 0}, {0, 1, 0}};
+    // Keep the receiver in front of the camera; a coplanar eye makes Fresnel fully grazing.
+    const Float3 triangle_positions[] = {{-1, -1, -.5f}, {1, -1, -.5f}, {0, 1, -.5f}};
 
     for (const auto& p : triangle_positions) {
         scene::Vertex vtx{};
@@ -377,8 +382,28 @@ void material_path(
 
     level.materials.back().emission_contrast = emission_contrast;
     scene::Model model;
+    // Material inference uses exported model names; an unnamed mesh denotes the sky.
+    model.name = layer == scene::Layer::Mobys    ? "moby_7.glb"
+                 : layer == scene::Layer::Ties   ? "tie_7.glb"
+                 : layer == scene::Layer::Shrubs ? "shrub_7.glb"
+                                                 : "terrain.glb";
     model.primitives.push_back({0, 3, 0});
     level.models.push_back(model);
+    {
+        // This matrix measures diffuse GI, direct light and emission. Use a neutral Lit
+        // material so changing the default optical finish cannot contaminate those signals.
+        // The environment GPU tests exercise the production specular response separately.
+        const auto catalog = materials::parse_catalog(
+            R"({"version":1,"overrides":[
+          {"id":"diffuse-receiver","match":{"model":")"
+            + model.name
+            + R"("},"set":{"type":"lit","surface":{"reflectivity":0},"reflection":{"strength":0}}}]})"
+        );
+        CHECK(catalog);
+        const auto assets = scene::identify_materials(level, *catalog);
+        CHECK(assets);
+        level.material_bindings = scene::resolve_materials(*assets, *catalog).value();
+    }
     scene::Instance instance;
 
     // The packed slot supplies the same artistic tint as the moby fixture through a different path.
@@ -608,7 +633,7 @@ void material_path(
         );
         std::array<float, 64> points{};
         points[0] = points[1] = points[2] = 1;
-        points[6] = 1;
+        points[6] = .5f;  // One unit above the receiver, halfway through the light's radius.
         points[7] = 2;
         scene.set_point_lights(points);
         renderer.render(input, {frame.id(), 32, 32});
@@ -932,7 +957,7 @@ void main() {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, depth);
             glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             return target.read_rgba();
         };
         const auto tiled = draw(1), reference = draw(2);
@@ -1055,29 +1080,33 @@ struct RegionLookup {
         glDisable(GL_BLEND);
         glDisable(GL_CULL_FACE);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = target.read_rgba();
         std::vector<std::pair<float, unsigned>> expected;
 
         for (unsigned i = 0; i < grids.size(); ++i) {
             const auto& grid = grids[i];
-            const float cosine = grid.frame.axis[0];
-            const float sine = grid.frame.axis[1];
-            const float right =
-                grid.origin[0] + std::max(0.f, cosine * .001f) + std::max(0.f, -sine * .2f);
-            const float left =
-                grid.origin[0] + std::min(0.f, cosine * .001f) + std::min(0.f, -sine * .2f);
+            float left = INFINITY, right = -INFINITY;
+            for (unsigned corner = 0; corner < 8; ++corner) {
+                const auto p = grid.frame.to_world(
+                    {corner & 1 ? .001f : 0.f, corner & 2 ? .2f : 0.f, corner & 4 ? .2f : 0.f}
+                );
+                left = std::min(left, grid.origin[0] + p[0]);
+                right = std::max(right, grid.origin[0] + p[0]);
+            }
             if (left + view.view[12] > 1.0f || right + view.view[12] < -1.0f) {
                 continue;
             }
 
-            const float x = view.position[0] - grid.origin[0];
-            const float y = view.position[1] - grid.origin[1];
-            const float local_x = x * cosine + y * sine;
-            const float local_y = -x * sine + y * cosine;
-            const float dx = local_x - std::clamp(local_x, 0.f, .001f);
-            const float dy = local_y - std::clamp(local_y, 0.f, .2f);
-            expected.emplace_back(dx * dx + dy * dy, i);
+            auto local = grid.frame.to_local(
+                {view.position[0] - grid.origin[0],
+                 view.position[1] - grid.origin[1],
+                 view.position[2] - grid.origin[2]}
+            );
+            const float dx = local[0] - std::clamp(local[0], 0.f, .001f);
+            const float dy = local[1] - std::clamp(local[1], 0.f, .2f);
+            const float dz = local[2] - std::clamp(local[2], 0.f, .2f);
+            expected.emplace_back(dx * dx + dy * dy + dz * dz, i);
         }
 
         std::sort(expected.begin(), expected.end());
@@ -1137,6 +1166,8 @@ std::vector<lighting::ProbeGrid> closest_region_grids() {
         grids[i].dimensions = {2, 2, 2};
         const float angle = float(i % 7) * .17f;
         grids[i].frame.axis = {std::cos(angle), std::sin(angle)};
+        grids[i].frame.pitch = {std::cos(angle * .3f), std::sin(angle * .3f)};
+        grids[i].frame.roll = {std::cos(angle * .7f), std::sin(angle * .7f)};
     }
 
     grids[1022].origin[0] = 0;  // Equal distance must keep the smaller ID first.
@@ -1311,7 +1342,7 @@ void camera_regions(renderer::Shader& shader, renderer::FrameBuffer& frame, unsi
             glUniform4fv(shader.uniform("positions"), 8, points[0].data());
             glUniform4fv(shader.uniform("normals"), 8, directions[0].data());
             glBindVertexArray(vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             const auto pixels = frame.read_rgba();
 
             for (unsigned i = 0; i < 8; ++i) {
@@ -1366,7 +1397,18 @@ void dense_sphere_fade() {
         glDepthMask(GL_TRUE);
         glClearDepth(0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        probes.draw_spheres(input, state);
+        // The live diagnostic draws inside a declared world bucket, not an unscoped GL callback.
+#if defined(OPENRAC_VULKAN)
+        if (is_vulkan()) {
+            vkgl::GraphExecution bucket;
+            bucket.add_pass(bucket.make_pass("mobys"));
+            const auto result = bucket.run([&](unsigned) { probes.draw_spheres(input, state); });
+            CHECK(result);
+        } else
+#endif
+        {
+            probes.draw_spheres(input, state);
+        }
         return frame.read_rgba()[(16 * 32 + 16) * 4 + 1];
     };
     probes.update_regions({0, 0, 0}, 0.125f);
@@ -1528,7 +1570,7 @@ void main() {
 
     for (float visibility : {1.f, 0.f}) {
         glUniform1f(shader.uniform("test_visibility"), visibility);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         const auto pixels = frame.read_rgba();
         // The point light stays unchanged; both directionals retain their shadow floor.
         const float floor = visibility > 0 ? 1.f : .1f;
@@ -1542,7 +1584,7 @@ void main() {
     // Upward primary light cannot illuminate the upward receiver; fill and point light stay unchanged.
     glUniform4f(shader.uniform("probe_sunlight_direction"), 0, 0, 1, 1);
     glUniform1f(shader.uniform("test_visibility"), 1);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto overridden = frame.read_rgba();
     CHECK(std::abs(overridden[0] / 255.f - .2f) < .008f);
     CHECK(std::abs(overridden[1] / 255.f - .1f) < .008f);
@@ -1618,7 +1660,7 @@ void main() {
             }
 
             glUniform1i(shader.uniform("updated"), updated);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
             const auto read = frame.read_rgba();
 
             if (read[0] != 255 || read[1] != 255 || read[2] != 255 || read[3] != 255) {
@@ -1668,6 +1710,8 @@ void test_wide_probe_atlas(renderer::Shader& shader, renderer::FrameBuffer& fram
 
     for (float angle : {.37f, .7853982f, 1.4f}) {
         volume.grid.frame.axis = {std::cos(angle), std::sin(angle)};
+        volume.grid.frame.pitch = {std::cos(angle * .4f), std::sin(angle * .4f)};
+        volume.grid.frame.roll = {std::cos(angle * .7f), std::sin(angle * .7f)};
         volume.grid.origin = {-4, -4, 0};
         check(volume, shader, frame, vao);
         check(volume, shader, frame, vao, nullptr, true);
@@ -1677,9 +1721,16 @@ void test_wide_probe_atlas(renderer::Shader& shader, renderer::FrameBuffer& fram
 // Runs the complete sampling/material matrix with optional cold native-object lifetimes.
 int main(int argc, char** argv) {
     const bool fresh_programs = argc == 2 && std::string_view(argv[1]) == "--fresh-programs";
+    const bool sphere_overlays = argc == 2 && std::string_view(argv[1]) == "--sphere-overlays";
+    const bool glass_cutouts = argc == 2 && std::string_view(argv[1]) == "--glass-cutouts";
+    const bool chrome_original = argc == 2 && std::string_view(argv[1]) == "--chrome-original";
     // A cold-object run remains available to validate the same complete matrix.
-    if (argc > 1 && !fresh_programs) {
-        std::fprintf(stderr, "usage: probe_gpu_test [--fresh-programs]\n");
+    if (argc > 1 && !fresh_programs && !sphere_overlays && !glass_cutouts && !chrome_original) {
+        std::fprintf(
+            stderr,
+            "usage: probe_gpu_test [--fresh-programs | --sphere-overlays | --glass-cutouts | "
+            "--chrome-original]\n"
+        );
         return 1;
     }
     test::GlContext context;
@@ -1695,6 +1746,22 @@ int main(int argc, char** argv) {
     }
 #endif
 
+    if (sphere_overlays || glass_cutouts || chrome_original) {
+        if (chrome_original) {
+            test::test_original_chrome_coverage();
+        } else if (sphere_overlays) {
+            sphere_overlay();
+            dense_sphere_fade();
+        } else {
+            test::test_glass_cutout_coverage();
+        }
+#if defined(OPENRAC_VULKAN)
+        if (gl::is_vulkan()) {
+            CHECK(vkgl::submission_counters().validation_errors == 0);
+        }
+#endif
+        return test::result();
+    }
     test::RenderTestTiming timing("probes");
     compact_texture_uploads();
     std::string fragment = "#version 410 core\n";
@@ -1964,6 +2031,8 @@ void main() {
     material_path(scene::Layer::Ties, 0, false, true);
     material_path(scene::Layer::Shrubs, 0, false, true);
     sphere_overlay();
+    test::test_glass_cutout_coverage();
+    test::test_original_chrome_coverage();
     dense_sphere_fade();
     test::test_probe_receiver_normals();
     rejected_bake_message();

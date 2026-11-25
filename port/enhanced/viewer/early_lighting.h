@@ -1,20 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include <array>
 #include <functional>
 #include <span>
 
+#include "renderer/gl/shader.h"
 #include "renderer/renderer.h"
-#include "renderer/shader.h"
 
 namespace openrac::lighting {
-// One RGBA8 texel per 2x2 screen pixels: log-encoded irradiance RGB and
-// linear cascade visibility A. The 8-byte guide stores surface identity and
-// Ratchet shadow visibility in its remaining bits. Smooth normals are borrowed from the
+// One RGBA8 texel per 4x4 or 2x2 render pixels stores log-encoded irradiance RGB
+// and linear cascade visibility A. The 8-byte guide stores surface identity and
+// Ratchet shadow visibility in its remaining bits. Cloudy views append a separate
+// visibility plane for the sun. Smooth normals are borrowed from the
 // depth/normal prepass; compute never derives them from depth neighbours.
 class EarlyLighting {
 public:
     static bool supported();
+
+    // Prepare the tile for both cache dispatch and full-resolution material draws.
+    void prepare_cloud_noise(const renderer::FrameInput& input);
     // Writes cached GI and shadow visibility after binding the current view's lighting inputs.
     // Returns false with `error` on graph/shader failure; callers retain full-resolution lighting.
     bool render(
@@ -37,13 +42,19 @@ public:
     void release();
 
 private:
-    renderer::Shader m_compute;
+    void bind_cloud_noise(const renderer::Shader& shader, bool enabled) const;
+
+    // Shadow filtering Soft's and Fast's, each for 2x2 and 4x4 cells (early-lighting-quarter).
+    std::array<renderer::Shader, 4> m_compute;
+    int m_scale = 2;  // Pixels a side of the cells the last render wrote.
     std::array<unsigned, 2> m_buffers{}, m_textures{};
+    unsigned m_cloud_noise = 0;
     int m_width = 0, m_height = 0;
     unsigned m_target = 0;
     renderer::Mat4 m_clip{};
     std::uint64_t m_frame = 0;
     bool m_ready = false;
     bool m_failed = false;
+    bool m_cloud_guides = false;
 };
 }  // namespace openrac::lighting

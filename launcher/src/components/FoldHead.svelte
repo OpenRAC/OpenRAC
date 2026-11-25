@@ -3,6 +3,7 @@
   // closed until they open it): the title, a line saying what is inside, what `extra` adds (a
   // badge), and an arrow that turns as it opens.
   import type { Snippet } from "svelte";
+
   import Icon from "./Icon.svelte";
 
   let {
@@ -24,7 +25,12 @@
   } = $props();
 </script>
 
-<button class="fold-head" aria-expanded={open} aria-controls={controls} onclick={() => (open = !open)}>
+<button
+  class="fold-head"
+  aria-expanded={open}
+  aria-controls={controls}
+  onclick={() => (open = !open)}
+>
   <span class="text">
     <h2 {id}>{title}</h2>
     {#if line}<small>{line}</small>{/if}

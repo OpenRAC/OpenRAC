@@ -36,11 +36,16 @@ export const PALETTE_TOKENS = [...new Set(PALETTES.flatMap((p) => Object.keys(p.
 const STORED = "openrac-theme";
 
 /** Puts theme `id` on the page and keeps it for the next start. */
-export function applyPalette(id: string | null | undefined, root: HTMLElement = document.documentElement) {
+export function applyPalette(
+  id: string | null | undefined,
+  root: HTMLElement = document.documentElement,
+) {
   const p = palette(id);
+
   for (const name of PALETTE_TOKENS) root.style.removeProperty(name);
   for (const [name, value] of Object.entries(p.colors)) root.style.setProperty(name, value);
   root.dataset.theme = p.id;
+
   try {
     localStorage.setItem(STORED, p.id);
   } catch {

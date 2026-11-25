@@ -43,6 +43,7 @@ import sys
 import time
 from pathlib import Path
 
+import facts
 from openrac_common import games, paths, proc
 
 ROOT = paths.repo_root()
@@ -414,6 +415,15 @@ def do_check(since: str | None) -> None:
             if not any((ROOT / "port/game").glob(f"{tree.game['id']}*/hostgen.json")):
                 continue  # the port does not build this game yet: it has no tables to keep in step
             ported = [p for p in changed if p.startswith(f"port/game/{tree.game['id']}")]
+            if tree.key in facts.SPECS:
+                # The tables made from its build are made from its published build facts (tools/facts.py).
+                try:
+                    gone = facts.missing(tree.key, tree.pinned())
+                except facts.FactsError as e:
+                    gone = [str(e)]
+                if gone:
+                    problems.append(f"{key}: no build facts for {tree.pinned()[:10]} ({', '.join(gone)}): build "
+                                    f"it and run `python3 tools/facts.py publish {key}` (docs/SOURCES.md)")
             if not ported:
                 problems.append(f"{key}: the submodule moved since {since} but nothing under "
                                 f"port/game/{tree.game['id']}* changed: regenerate the port's tables "

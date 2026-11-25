@@ -31,7 +31,7 @@
  *
  * The liquid grid's cull only ever decides what is drawn. The sphere test also serves the game's
  * logic (an explosion shakes the camera only when it is in view), so it is opened only while a draw
- * callback list runs, and in the three updates below, whose test means "can the player see it".
+ * callback list runs, and in the updates below, whose test means "can the player see it".
  * Everything else, the game's logic among it, sees the 4:3 view.
  *
  * - The nanotech cluster (class 806, the orb on a nanotech crate; NanotechBallUpdate,
@@ -54,14 +54,26 @@
  *   Against the 4:3 tangent, a fire near the picture's edge went out. Its spawning draws random
  *   numbers, so this one also changes what the game does (the random sequence the rest of the game
  *   sees).
+ * - The water grids' updates (pools and tanks: Rilgar's class 831, PAL func_L05_0030DED8; Umbris's
+ *   water plates, func_L07_0030D8E8; Pokitaru's class 1158, func_L11_0030F4F8; Hoven's class 19,
+ *   func_L12_002C0310; Gemlik's classes 1263 and 1393, func_L13_0030B340). Each tick each grid
+ *   tests itself (func_L01_00275690, radius 48 or 64) and shows none of its tiles while out of
+ *   view. Against the 4:3 tangent, a pool's water vanished past the 4:3 edge (Qwark's course on
+ *   Umbris). The test only sets which tiles are drawn (and so whose ripples step).
+ * - Orxon's energy barriers (class 1067, the arcs across the paths that a data processor turns
+ *   off; PAL func_L10_002DB688, US FUN_L10_002da2c8). Each tick, while on, the barrier registers
+ *   its draw callback (the arcs) only while the sphere test finds it in view. Against the 4:3
+ *   tangent, a barrier between the 4:3 edge and the picture's vanished. Only the drawing depends on
+ *   the test.
  *
  * Each is a game fix the player can switch back to the console's 4:3 view (differences.json;
  * openrac_game_fix, game_host.h); off, the code runs as the game wrote it:
  *
- * - fix_wide_liquids: the lists' runs and the liquid grid's cull;
+ * - fix_wide_liquids: the lists' runs, the liquid grid's cull and the water grids' updates;
  * - fix_wide_nanotech_orbs: the cluster's update;
  * - fix_wide_air_traffic: the traffic's;
- * - fix_wide_fires: the emitter's.
+ * - fix_wide_fires: the emitter's;
+ * - fix_wide_barriers: the barriers'.
  *
  * Not opened: the callbacks' tests that project a point to the screen and compare it with the
  * screen's pixels. The rest of the world is the port's own: it draws every terrain part, tie, shrub
@@ -74,8 +86,9 @@
 #include "../../common/lib/wide_view_lists.h"
 
 /* How many updates whose sphere test stands for what the player sees are running (the nanotech
- * cluster's, Kerwan's air traffic's, the smoke and fire emitter's), and how much wider the picture
- * is while they do. */
+ * cluster's, Kerwan's air traffic's, the smoke and fire emitter's, the water grids', Orxon's
+ * barriers'), and how much
+ * wider the picture is while they do. */
 static int g_effects;
 static float g_effect_wider = 1.0f;
 static float g_effect_taller = 1.0f;
@@ -84,6 +97,7 @@ static const unsigned char* g_fix_liquids;
 static const unsigned char* g_fix_orbs;
 static const unsigned char* g_fix_traffic;
 static const unsigned char* g_fix_fires;
+static const unsigned char* g_fix_barriers;
 
 static void run_list(void (*run)(void)) {
     float taller;
@@ -91,24 +105,64 @@ static void run_list(void (*run)(void)) {
     wide_run_list(run, wider, taller);
 }
 
+/*
+ * Each list's run, as the game's loop: funcs[i](args[i]) while i is below the count (read again each
+ * time). A callback whose argument is a moby (0x100-aligned) has its quads numbered from it
+ * (effect_quad.c), so a frame between ticks blends them from the last tick's, as it moves the
+ * moby's body. Without ids a moby's glows (Clank's antenna, the Gadgebots' eyes) stayed at the new
+ * tick's place while the body was drawn part way to it, ahead of it above 60 frames a second.
+ */
+extern uint32_t rac1_effect_quad_id;
+
+static const gaddr k_lists[4][3] = {
+    {RAC1_ADDR(0x0015F564u), RAC1_ADDR(0x0018DC40u), RAC1_ADDR(0x0018DD40u)}, /* func_001F4A00 */
+    {RAC1_ADDR(0x0015F568u), RAC1_ADDR(0x0018DE40u), RAC1_ADDR(0x0018DF40u)}, /* func_001F4BB8 */
+    {RAC1_ADDR(0x0015F56Cu), RAC1_ADDR(0x0018E040u), RAC1_ADDR(0x0018E140u)}, /* func_001F4A78 */
+    {RAC1_ADDR(0x0015F570u), RAC1_ADDR(0x0018E240u), RAC1_ADDR(0x0018E340u)}, /* func_001F4AF0 */
+};
+
+static int g_list;
+
+static void run_callbacks(void) {
+    const gaddr count = OPENRAC_DATA(k_lists[g_list][0]);
+    const gaddr funcs = OPENRAC_DATA(k_lists[g_list][1]);
+    const gaddr args = OPENRAC_DATA(k_lists[g_list][2]);
+    for (int i = 0; i < GREF(int, count); i++) {
+        const gaddr fn = GREF(gaddr, funcs + 4u * (gaddr)i);
+        const gaddr arg = GREF(gaddr, args + 4u * (gaddr)i);
+        rac1_effect_quad_id = arg != 0 && (arg & 0xFF) == 0 ? arg + 1 : 0;
+        if (fn != 0) {
+            openrac_guest_call_a0(fn, arg);
+        }
+    }
+    rac1_effect_quad_id = 0;
+}
+
+static void run_numbered(int list) {
+    const int outer = g_list;
+    g_list = list;
+    run_list(run_callbacks);
+    g_list = outer;
+}
+
 /* ExecuteDrawCallbacks: list 1. */
 void func_001F4A00(void) {
-    run_list(func_001F4A00__game);
+    run_numbered(0);
 }
 
 /* ExecuteDrawCallbacks2: list 2. */
 void func_001F4BB8(void) {
-    run_list(func_001F4BB8__game);
+    run_numbered(1);
 }
 
 /* ExecuteDrawCallbacks3: list 3. */
 void func_001F4A78(void) {
-    run_list(func_001F4A78__game);
+    run_numbered(2);
 }
 
 /* ExecuteDrawCallbacks4: list 4. */
 void func_001F4AF0(void) {
-    run_list(func_001F4AF0__game);
+    run_numbered(3);
 }
 
 /* The liquid grid's cull: a flag per block into the scratchpad (0: not drawn). */
@@ -165,5 +219,53 @@ void func_L00_002D83D8(gaddr moby) {
         g_effect_wider = wide_wider_for(&g_fix_fires, "fix_wide_fires", &g_effect_taller);
     }
     func_L00_002D83D8__hooked(moby);
+    g_effects--;
+}
+
+/* A water grid's update: it shows its tiles only while its sphere test finds it in view; it is run
+ * against the picture's sides. Each is a hook point for mods too, under this as <name>__hooked, so
+ * the fix holds for a mod's update as well. */
+static void water_grid_update(void (*update)(gaddr), gaddr moby) {
+    if (g_effects++ == 0) {
+        g_effect_wider = wide_wider_for(&g_fix_liquids, "fix_wide_liquids", &g_effect_taller);
+    }
+    update(moby);
+    g_effects--;
+}
+
+/* Rilgar's water (class 831). */
+void func_L05_0030DED8(gaddr moby) {
+    water_grid_update(func_L05_0030DED8__hooked, moby);
+}
+
+/* Umbris's water plates (classes 902, 941, 943, 944 and more). */
+void func_L07_0030D8E8(gaddr moby) {
+    water_grid_update(func_L07_0030D8E8__hooked, moby);
+}
+
+/* Pokitaru's water tiles (class 1158). */
+void func_L11_0030F4F8(gaddr moby) {
+    water_grid_update(func_L11_0030F4F8__hooked, moby);
+}
+
+/* Hoven's water tiles (class 19). */
+void func_L12_002C0310(gaddr moby) {
+    water_grid_update(func_L12_002C0310__hooked, moby);
+}
+
+/* Gemlik's bobbing pool tiles (classes 1263, 1393). */
+void func_L13_0030B340(gaddr moby) {
+    water_grid_update(func_L13_0030B340__hooked, moby);
+}
+
+/* Orxon's energy barrier (class 1067): while on, it registers its draw callback only while its
+ * sphere test finds it in view; it is run against the picture's sides. A hook point for mods too
+ * (rac1.moby.sound_prop.update), under this as func_L10_002DB688__hooked, so the fix holds for a
+ * mod's update as well. */
+void func_L10_002DB688(gaddr moby) {
+    if (g_effects++ == 0) {
+        g_effect_wider = wide_wider_for(&g_fix_barriers, "fix_wide_barriers", &g_effect_taller);
+    }
+    func_L10_002DB688__hooked(moby);
     g_effects--;
 }

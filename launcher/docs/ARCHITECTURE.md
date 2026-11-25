@@ -22,7 +22,7 @@
  └──────────────────────────────┬──────────────────────────────────────┘
                                 ▼
        the checkout's own tools: tools/extractor.py, tools/openrac.py,
-       each game's build, editor/extract.py, Godot (never through a shell)
+       each game's build, extractor/extract.py, OpenRAC Editor (never through a shell)
 ```
 
 ## The rules it keeps
@@ -68,7 +68,7 @@ gets focus, and when settings change.
 
 **Running an action.** `run(scope, action)` in `lib/app.svelte.ts`:
 
-- A _detached_ action (the game, Godot) is started at once through
+- A _detached_ action (the game, OpenRAC Editor) is started at once through
   `run_action`, which returns id 0. The launcher does not follow it.
 - Anything else joins the queue (`lib/queue.ts`). Jobs run one at a time in
   order, so two builds never share the build container or a folder. When it
@@ -120,10 +120,11 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `relaunch_app`                                                                                     |                                                                                    | restarts the launcher (after an update installed)                                                                                                                           |
 | `launcher_update_check`                                                                            | `{channel}`                                                                        | a newer launcher on that channel, from Tauri's updater (desktop), or null                                                                                                   |
 | `get_config` / `save_config`                                                                       | `{config}`                                                                         | `Config` (`core/src/config.rs`)                                                                                                                                             |
-| `detect`                                                                                           |                                                                                    | candidates for the checkout, Python, Godot, Docker                                                                                                                          |
+| `detect`                                                                                           |                                                                                    | candidates for the checkout, Python, Docker                                                                                                                                 |
 | `check_root`                                                                                       | `{path}`                                                                           | `{ok, version, message}`: is it an OpenRAC checkout                                                                                                                         |
 | `check_tool`                                                                                       | `{tool, path}`                                                                     | the same, after running the tool's version flag                                                                                                                             |
-| `adopt_godot`                                                                                      |                                                                                    | `Config`, with a Godot that works when none was set or the one set is gone (run at each start)                                                                              |
+| `editor_install_status`                                                                            |                                                                                    | `EditorInstall`: OpenRAC Editor as downloaded (core `editor_install.rs`): its version, and why it cannot be used here                                                       |
+| `editor_newest` / `install_editor` / `remove_editor`                                               |                                                                                    | the newest release's version; downloads it (checked) in place of the one there; removes it                                                                                  |
 | `library`                                                                                          |                                                                                    | `Library` (`core/src/library.rs`)                                                                                                                                           |
 | `install_game`                                                                                     | `{game, image}`                                                                    | the extractor's job, `{id, title, command, detached}`                                                                                                                       |
 | `prepare_disc`                                                                                     | `{image}`                                                                          | the plain image set-up reads: an .iso as it is, a CHD unpacked once into `<install>/discs/<name>.iso` (`core/src/chd.rs`, `disc-copy` events)                               |
@@ -131,7 +132,7 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `scan_discs`                                                                                       |                                                                                    | `{found, choices}`: the games folder's discs, and (developers) the games with two to choose from                                                                            |
 | `choose_disc`                                                                                      | `{version}`                                                                        | `Config`, after putting that disc's set-up in place (developers only; below)                                                                                                |
 | `run_action`                                                                                       | `{scope, id, level, path, option}`                                                 | `{id, title, command, detached}`; `level`, `path`, `option` fill `{level}`, `{path}`, `{option}`                                                                            |
-| `open_level_in_godot`                                                                              | `{version, level}`                                                                 | the version's `editor-open` action for that level, started as a job                                                                                                         |
+| `open_level_in_editor`                                                                             | `{version, level}`                                                                 | the version's `editor-open` action for that level, started as a job                                                                                                         |
 | `open_output`                                                                                      | `{path}`                                                                           | opens a folder a job wrote (a file: its folder); only the checkout's `assets/` and `build/` and the install folder                                                          |
 | `overrides_list`                                                                                   | `{game}`                                                                           | the game's overrides packs (`core/src/overrides.rs`), in order                                                                                                              |
 | `overrides_set_enabled` / `overrides_move` / `overrides_remove`                                    | `{game, id, enabled}` / `{game, id, up}` / `{game, id}`                            | the packs again, changed                                                                                                                                                    |
@@ -169,6 +170,7 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `open_saves_folder`                                                                                | `{serial}`                                                                         | opens the game's memory card folder, made if it is not there                                                                                                                |
 | `export_saves`                                                                                     | `{serial, slot}` (null: all)                                                       | an OpenRAC saves file (`core/src/save_transfer.rs`) where the player chooses; `{saved, slots}`                                                                              |
 | `preview_save_import` / `import_saves`                                                             | `{serial, source}` / `{serial, source, choice}`                                    | what a saves file holds (`SaveImportPreview`); imports it after a backup, replacing or merging slots                                                                        |
+| `save_copy_sources` / `preview_save_copy` / `copy_saves`                                           | `{serial}` / `{from, serial}` / `{from, serial, choice}`                           | the game's other discs with saves (`SaveCopySource`); what copying one's saves would do (`SaveImportPreview`); the copy, after a backup                                     |
 | `read_save`                                                                                        | `{serial, slot}`                                                                   | one slot for the save editor (`core/src/save_edit.rs`, `SaveView`)                                                                                                          |
 | `write_save`                                                                                       | `{serial, slot, fingerprint, change}`                                              | writes the editor's fields or raw chunks, safely (below); the backup and the slot as it now is                                                                              |
 | `reports_list`                                                                                     | `{game}`                                                                           | the game's session logs and crash reports, newest first (`core/src/reports.rs`)                                                                                             |
@@ -467,11 +469,28 @@ separator, drive, or a name Windows refuses). It is refused while the game
 runs with the card, as a restore is. Then it backs the card up
 (`.backup_<time>_before_import`), and either **replaces** (each of the file's
 save folders becomes the file's) or **merges**: only the ticked slots are
-written, with their `.mods` mark (a slot without one loses the card's old
-mark), and the folder's other files only where the card has none. A folder on
+written, with the files beside them (the `.mods` mark and the mods' `.moddata`:
+a slot without one loses the card's old one), and the folder's other files
+only where the card has none. A folder on
 the card in another case takes the file's name. Each file is written beside
 its place and renamed into it. The dialog ticks at first only the slots that
 land in an empty one, and says what each ticked slot replaces.
+
+**Copy from PAL** (or another disc) on the Saves panel does the same from the
+card of another disc of the game instead of a file. Each disc has its own card
+(`memcard/<serial>/`), so a game built from the US disc does not see the saves
+made with the PAL one, though both write the same file: every Ratchet &
+Clank disc (PAL, US, Japan) lists the same chunks (`core/src/save_edit.rs`),
+and Going Commando's US and PAL discs too (`save_edit_rac2.rs`); the saves
+hold no language or 50/60 Hz setting. `save_transfer::SAME_SAVES` lists those
+discs. The button shows when one of them has saves (`save_copy_sources`);
+`preview_save_copy` and `copy_saves` take the other card's save folder,
+renamed to this disc's (`BESCES-50916RATCHET` becomes `BASCUS-97199RATCHET`:
+`card_folder_name`, after the games' own `func_00298BB8`), the folder's
+reserved file named after it renamed too, and write it as an import does,
+after a backup (`before copy from PAL`). A card without the game's folder
+takes the other folder whole, whatever was ticked: Going Commando counts its
+folder's files and takes a folder with fewer for none at all.
 
 ## Security
 
@@ -495,7 +514,7 @@ Tauri builds for Linux (AppImage, deb, rpm), macOS (app, dmg) and Windows
 equally portable: each action lists the platforms it runs on, and the game
 page tucks the others away ("N more for other platforms"). The platform the
 launcher runs on comes from `Platform::current()` in `core/src/actions.rs`.
-Android has no shell, Python, Godot or compiler: there an action that names no
+Android has no shell, Python, editor or compiler: there an action that names no
 platform runs only if it is a `play` action (`runs_on`), and the others are not
 listed.
 
@@ -512,7 +531,15 @@ launch options a player types: the version the game's page plays, that is the
 developer's disc choice, else the disc set up, else the game's first;
 `disc_choice::played_version`), starts a game as its Play button does, with no window:
 `library::direct_play` plans the game's first `play` action (data folder, mods,
-build checks), and a play that asks for confirmation is not started unseen. If
+build checks), and a play that asks for confirmation is not started unseen.
+`--update-mods` beside it first puts in the updates the Play button puts in by
+itself (Settings has them on): the signed mod list is waited for at most 20 s,
+then the updates that go in silently are let finish before the game starts, so
+it never starts on a half-changed folder. Majors and new hooks still wait for a
+click on the Mods tab, and the launcher log says what went in and what waits.
+The page knows nothing of a shortcut's game (it is no job of its), so its own
+updates wait while a shortcut start updates or its game runs, and a run of
+updates, the page's or a start's, is one at a time. If
 it cannot start, the window opens on that game. An open launcher gets the
 argument through single instance and starts the game itself; otherwise the
 launcher hides its window and ends with the game. A game's page offers Add to

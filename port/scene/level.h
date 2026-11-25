@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// One level as the editor's port export writes it (editor/port.py):
+// One level as the editor's port export writes it (extractor/port.py):
 //
 //   manifest.json      format 1: the level, its files, the classes
 //   placements.json    ties, shrubs and mobys: class, 4 x 4 matrix (game
@@ -23,11 +23,12 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "renderer/math.h"
-#include "renderer/texture.h"
-#include "renderer/texture_pack.h"
+#include "renderer/textures/texture.h"
+#include "renderer/textures/texture_pack.h"
 #include "scene/pvs.h"
 #include "scene/tie_relight.h"
 
@@ -36,12 +37,12 @@ namespace openrac::scene {
 using renderer::Mat4;
 using renderer::Vec3;
 
-// The extracted levels' format (editor/port.py FORMAT). editor/extract.py writes levels-<format>.json,
+// The extracted levels' format (extractor/port.py FORMAT). extractor/extract.py writes levels-<format>.json,
 // and the launcher's level actions look for that name, so older exports are read from the disc
 // again. Only rac1 has --check-levels: its Play also needs that check's verified-<format>.json
 // (launcher/actions.json). 4: the textures the game clamps carry clamping samplers.
 inline constexpr int kManifestFormat = 4;
-// The newest format of a game whose export moved on alone (editor/port.py GAME_FORMATS): the same
+// The newest format of a game whose export moved on alone (extractor/port.py GAME_FORMATS): the same
 // layout, so the reader takes all from kManifestFormat up; which levels are read again is the
 // stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
 // his other looks and his ship's picture; 11 with each moby class's bangles as classes of their own;
@@ -95,6 +96,11 @@ struct Material {
     std::string name;  // Authored material identity, including distinct chrome and glass maps.
 };
 
+// Retail sphere maps are separate from the textured colour pass.
+inline bool is_retail_chrome(bool metal, std::string_view name) {
+    return metal && name == "metal_chrome";
+}
+
 struct Primitive {
     std::uint32_t first_index = 0;
     std::uint32_t index_count = 0;
@@ -113,7 +119,20 @@ struct Primitive {
     // A count of 0 draws the whole primitive there.
     std::uint32_t glow_first = 0;
     std::uint32_t glow_count = 0;
+    bool enhanced_only = false;    // Standard replacement for geometry found only in a retail pass.
+    int appearance_material = -1;  // Chrome coverage follows this editable colour/replacement slot.
+
+    int appearance_slot() const {
+        return appearance_material >= 0 ? appearance_material : material;
+    }
 };
+
+inline bool material_pass_visible(
+    const Primitive& primitive, const Material& material, bool enhanced, bool original = false
+) {
+    return enhanced && !original ? !is_retail_chrome(material.metal, material.name)
+                                 : !primitive.enhanced_only;
+}
 
 // Original joint identity and bind frame, retained for bone attachments and viewer diagnostics.
 struct ModelJoint {
@@ -129,6 +148,10 @@ struct Model {
     Vec3 max{};
     std::vector<ModelJoint> bones;  // Indexed by the same joint number as skin weights.
     int joints = 0;                 // a skinned mesh: one past the highest joint its vertices use
+    // Optional exported idle animation for a render-only replacement, sampled at 60 Hz.
+    std::vector<std::vector<Mat4>> preview_poses;
+    Vec3 preview_min{}, preview_max{};
+    bool preview_bounds = false;
 };
 
 struct Instance {
@@ -165,7 +188,41 @@ struct Instance {
     bool floats_on_water = false;     // Visual rigid attachment to the local water height.
     bool lighting_only = false;       // An offscreen emitter captured for lighting, never geometry.
     bool gameplay_essential = false;  // Eligible for enhanced lighting's subtle GI-coloured rim.
+    // A mod's render-only material on a live moby (OPENRAC_MOBY_MATERIAL_*: 0 none, 2 platinum),
+    // which mesh.frag draws; LevelScene::instance_data packs it beside the shine distance.
+    std::uint16_t mod_material = 0;
 };
+
+// The step between a mod's materials in a moby's packed `lights` (pack_moby_lights): above any
+// shine distance, which is a byte.
+inline constexpr int kMobyMaterialLightsStep = 512;
+
+// Instance::mod_material of OPENRAC_MOBY_MATERIAL_PAINT (interface 1.34): this plus its glow level
+// (0 to 15), so mesh.frag has the level with the kind; above every other kind's number.
+inline constexpr std::uint16_t kModMaterialPaint = 16;
+
+// Instance::mod_material of a paint with an accent (interface 1.38): kModMaterialPaint + the glow
+// level + 16 x (1 + the accent's colour, 3 bits a channel, red highest: r << 6 | g << 3 | b), so
+// mesh.frag reads all three from the one code. A paint without an accent is the 16 values from
+// kModMaterialPaint; the highest accent code is 16 + 15 + 16 x 512 = 8223, which the packed
+// `lights` holds exactly (a float's 24 bits: 512 x 8223 + 255 is under 2^23).
+constexpr std::uint16_t paint_material(
+    std::uint32_t level, bool accent = false, std::uint32_t accent_rgb = 0
+) {
+    // The accent's top 3 bits a channel, 0xRRGGBB.
+    const std::uint32_t red = accent_rgb >> 21 & 7u;
+    const std::uint32_t green = accent_rgb >> 13 & 7u;
+    const std::uint32_t blue = accent_rgb >> 5 & 7u;
+    const std::uint32_t accent_code = accent ? 1u + (red << 6 | green << 3 | blue) : 0u;
+    return static_cast<std::uint16_t>(kModMaterialPaint + (level & 15u) + 16u * accent_code);
+}
+
+// Returns a live moby's `lights` as mesh.vert reads it: -1 - (its shine distance + the step times
+// `material`), so the per-instance attributes, all sixteen in use, carry the material too. A lit
+// tie (`lights` >= 0) and a moby with no material keep `lights` as they are.
+constexpr int pack_moby_lights(int lights, std::uint16_t material) {
+    return lights < 0 && material != 0 ? lights - kMobyMaterialLightsStep * material : lights;
+}
 
 struct SpinAnimation {
     std::size_t instance = 0;  // Index in Layer::Animated.
@@ -205,7 +262,7 @@ struct LevelData {
 
     Pvs pvs;
     std::filesystem::path dir;
-    // A mod's folder for this level (the --mods folder's level_NN, editor/overrides.py): a mesh or
+    // A mod's folder for this level (the --mods folder's level_NN, extractor/overrides.py): a mesh or
     // texture there is read in place of the level's own of the same path (an upscaled texture, a
     // replacement moby model). Empty without mods.
     std::filesystem::path overrides;
@@ -226,6 +283,11 @@ struct LevelData {
     std::vector<renderer::Rgba8Image> images;
     // Parallel to images (or shorter): a texture pack's animated replacement of each, or null.
     std::vector<std::shared_ptr<const renderer::texture_pack::Animation>> image_animations;
+    // Parallel to images (or shorter): a texture pack KTX2's picture of each in GPU blocks, or null.
+    std::vector<std::shared_ptr<const renderer::CompressedImage>> image_blocks;
+    // Parallel to images (or shorter): for one a texture pack replaced, the original's material
+    // identity (materials::texture_identity), so that material rules still find it; else empty.
+    std::vector<std::string> image_identities;
     std::vector<std::string> image_paths;
     // Parallel to images: whether some texel is below full alpha (under the chip's 0x80), which
     // the GS blends however the export's alpha mode reads (material_index).
@@ -287,6 +349,9 @@ struct LevelData {
 // The world centre of `model`'s bounds drawn at `matrix`.
 Vec3 bounds_centre(const Model& model, const Mat4& matrix);
 
+// Keeps the classic chrome packets and adds standard geometry for their uncovered triangles.
+void prepare_chrome_geometry(LevelData& level);
+
 // Load a level directory. Returns false with a reason if the manifest or a
 // mesh cannot be read; a missing texture only counts in missing_images.
 // `edited`, when it names a file, is a placements file from a mod (the editor's
@@ -294,12 +359,14 @@ Vec3 bounds_centre(const Model& model, const Mat4& matrix);
 // folder it is in is the mod's folder for the level (LevelData::overrides): its
 // meshes and textures are read in place of the level's own of the same path,
 // whether or not the placements file itself is there.
+// prepare_geometry can add runtime geometry before material overrides are resolved.
 bool load_level(
     const std::filesystem::path& dir,
     LevelData& out,
     std::string& error,
     const std::filesystem::path& edited = {},
-    const std::vector<std::filesystem::path>& mod_roots = {}
+    const std::vector<std::filesystem::path>& mod_roots = {},
+    void (*prepare_geometry)(LevelData&) = nullptr
 );
 
 // The level's sky textures (textures/sky_NNNN.png, by the sky's own texture numbers), including the
@@ -312,9 +379,17 @@ std::vector<renderer::Rgba8Image> load_sky_textures(
 // Load one glTF or GLB file as one model (every mesh node, in its node's
 // transform, except skinned meshes, which are stored in their bind pose with
 // their skin: the joints by the number in their node's name, joint_NNN, the
-// game's joint numbers). Returns the model's index.
+// game's joint numbers: any other name takes the joint's place in the skin, and
+// a number past 255 is 255, logged; joint_name.h). Returns the model's index.
 std::optional<std::uint32_t> load_model(
     const std::filesystem::path& path, LevelData& level, std::string& error
+);
+
+bool load_preview_animation(
+    const std::filesystem::path& path,
+    Model& model,
+    const char* clip,
+    const LevelData* geometry = nullptr
 );
 
 // A unit box, 0.5 on a side, standing on its base: what the viewer draws for

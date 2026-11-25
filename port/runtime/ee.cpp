@@ -7,6 +7,7 @@
 #include "openrac/ee.h"
 
 #include <cfenv>
+#include <chrono>
 #include <cstdint>
 #include <mutex>
 #include <set>
@@ -65,6 +66,25 @@ extern "C" void openrac_ee_break(const char* function, uint32_t address) {
     if (first(function, address)) {
         warn("{} reached the trap at {:08X} (translated from its assembly); going on", function, address);
     }
+}
+
+extern "C" uint32_t openrac_ee_count(void) {
+    using clock = std::chrono::steady_clock;
+    static const clock::time_point start = clock::now();
+    const auto ns =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(clock::now() - start).count();
+    // 294.912 MHz: 294912 cycles a millisecond.
+    return static_cast<uint32_t>(static_cast<std::uint64_t>(ns) * 294912u / 1000000u);
+}
+
+extern "C" void openrac_ee_dma_register(const char* function, uint32_t at, uint32_t address) {
+    openrac::log::fatalf(
+        "{} at {:08X} reached the scratchpad DMA register {:08X} in a way the port does not copy "
+        "(asm.spr_copies): there is no DMA controller",
+        function,
+        at,
+        address
+    );
 }
 
 extern "C" void openrac_ee_lost(const char* function, uint32_t target) {

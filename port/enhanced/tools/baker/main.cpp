@@ -7,6 +7,7 @@
 #include <charconv>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -16,12 +17,21 @@
 #include <stdexcept>
 #include <string_view>
 
+#if !defined(_WIN32)
+#include <dlfcn.h>
+#include <signal.h>
+#include <unistd.h>
+#include <unwind.h>
+#endif
+
 #include "common/json.h"
 #include "common/profiler.h"
 #include "enhanced/lighting/bake_material.h"
 #include "enhanced/lighting/probe_texture_encode.h"
 #include "enhanced/tools/baker/batch.h"
 #include "enhanced/tools/baker/batch_command.h"
+#include "enhanced/tools/baker/output/debug_preview.h"
+#include "enhanced/tools/baker/output/environment_stage.h"
 #include "enhanced/tools/baker/output/report.h"
 #include "enhanced/tools/baker/pipeline/bake_json.h"
 #include "enhanced/tools/baker/pipeline/coordinator.h"
@@ -87,6 +97,7 @@ void usage() {
         << "  --compression auto|none|bc6h|astc (colour: default auto; ASTC colour requires HDR "
            "support)\n"
         << "openrac-enhanced-baker --level-dir DIR [--inspect | --output FILE | --verify FILE]\n"
+        << "openrac-enhanced-baker --probe-header-bytes FILE (hex prefix, unwraps LZ4)\n"
         << "openrac-enhanced-baker --infer-interiors INPUT.json OUTPUT.json [SPACING]\n"
         << "openrac-enhanced-baker --prepare-level-interiors LEVEL_DIR GAMEPLAY.bin OUTPUT_DIR\n"
         << "openrac-enhanced-baker --prepare-level-emission LEVEL_DIR CATALOG.json DEFAULTS.json\n"
@@ -100,6 +111,11 @@ void usage() {
         << "  --print-interior-profile (interior stage cache identity, no scene load)\n"
         << "  --print-profile (resolved grid/quality defaults as JSON, no scene load)\n"
         << "  --batch-output DIR (prepare once, then read one JSON region plan on stdin)\n"
+        << "  --debug-preview (with --batch-output: write bake-preview.html)\n"
+        << "  --debug-preview-from BAKE_DIR --level-dir LEVEL_DIR [--no-prototypes] (preview an "
+           "existing bake)\n"
+        << "  --refresh-reflection-coverage BAKE_DIR --level-dir LEVEL_DIR (read-only surface "
+           "audit)\n"
         << "  --prepare-interiors GAMEPLAY.bin (prepare interiors inside the batch process)\n"
         << "  --resume (with --batch-output: keep the grids a stopped bake verified)\n"
         << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 128 --bounces 2 --seed 1\n"
@@ -215,12 +231,125 @@ void water_command(int argc, char** argv) {
     }
 }
 
+// ---- Crash report ----
+
+#if !defined(_WIN32)
+// Writes text to stderr from a signal handler (no allocation, no stdio).
+void crash_write(const char* text) {
+    std::size_t size = 0;
+
+    while (text[size]) {
+        ++size;
+    }
+
+    [[maybe_unused]] const auto written = ::write(STDERR_FILENO, text, size);
+}
+
+void crash_write_hex(std::uintptr_t value) {
+    char text[2 + 16 + 1] = {'0', 'x'};
+    int length = 2;
+
+    for (int shift = 60; shift >= 0; shift -= 4) {
+        const unsigned digit = (value >> shift) & 0xF;
+
+        if (digit || length > 2 || shift == 0) {
+            text[length++] = static_cast<char>(digit < 10 ? '0' + digit : 'a' + digit - 10);
+        }
+    }
+
+    text[length] = 0;
+    crash_write(text);
+}
+
+// One stack frame: the module it is in and the offset inside it, which a build's symbols name.
+_Unwind_Reason_Code crash_frame(_Unwind_Context* context, void* count) {
+    auto& frames = *static_cast<int*>(count);
+    const auto pc = static_cast<std::uintptr_t>(_Unwind_GetIP(context));
+
+    if (!pc || ++frames > 32) {
+        return frames > 32 ? _URC_END_OF_STACK : _URC_NO_REASON;
+    }
+
+    crash_write("  at ");
+    Dl_info info{};
+
+    if (dladdr(reinterpret_cast<void*>(pc), &info) && info.dli_fname) {
+        const char* name = info.dli_fname;
+
+        for (const char* c = name; *c; ++c) {
+            if (*c == '/') {
+                name = c + 1;
+            }
+        }
+
+        crash_write(name);
+        crash_write("+");
+        crash_write_hex(pc - reinterpret_cast<std::uintptr_t>(info.dli_fbase));
+
+        if (info.dli_sname) {
+            crash_write(" ");
+            crash_write(info.dli_sname);
+        }
+    } else {
+        crash_write_hex(pc);
+    }
+
+    crash_write("\n");
+    return _URC_NO_REASON;
+}
+
+// A crash ends the bake with its cause and stack on stderr, so the launcher shows them.
+void on_crash(int sig, siginfo_t* info, void*) {
+    const char* name = sig == SIGSEGV   ? "SIGSEGV (bad memory access)"
+                       : sig == SIGBUS  ? "SIGBUS (bad memory access)"
+                       : sig == SIGILL  ? "SIGILL (illegal instruction)"
+                       : sig == SIGFPE  ? "SIGFPE (arithmetic fault)"
+                       : sig == SIGABRT ? "SIGABRT (aborted)"
+                                        : "a fatal signal";
+    crash_write("\nprobe bake: crashed with ");
+    crash_write(name);
+
+    if (sig != SIGABRT) {
+        crash_write(" at address ");
+        crash_write_hex(reinterpret_cast<std::uintptr_t>(info->si_addr));
+    }
+
+    crash_write("\n");
+    int frames = 0;
+    _Unwind_Backtrace(crash_frame, &frames);
+    // SA_RESETHAND restored the default action: raising again ends the process as the crash would.
+    raise(sig);
+}
+
+void install_crash_report() {
+    // Its own stack, so a stack overflow on the main thread is still reported.
+    static char stack[64 * 1024];
+    stack_t alternate{};
+    alternate.ss_sp = stack;
+    alternate.ss_size = sizeof(stack);
+    sigaltstack(&alternate, nullptr);
+
+    struct sigaction action{};
+    action.sa_sigaction = on_crash;
+    action.sa_flags = SA_SIGINFO | SA_RESETHAND | SA_ONSTACK;
+    sigemptyset(&action.sa_mask);
+
+    for (const int sig : {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT}) {
+        sigaction(sig, &action, nullptr);
+    }
+}
+#else
+void install_crash_report() {}
+#endif
+
 }  // namespace
 
 // ---- Entry point ----
 
 // Dispatches native enhanced-baker stages and reports failures at the command-line boundary.
 int main(int argc, char** argv) {
+    install_crash_report();
+
     try {
         if (argc == 4 && std::string_view(argv[1]) == "--print-emission-fingerprint") {
             std::cout << emission_texture_fingerprint(argv[2], argv[3]) << '\n';
@@ -323,6 +452,34 @@ int main(int argc, char** argv) {
         // Version-specific decoding supplies bounded generic inputs to the numerical water pipeline.
         if (argc > 1 && std::string_view(argv[1]) == "--bake-water") {
             water_command(argc, argv);
+            return 0;
+        }
+
+        if (argc > 1 && std::string_view(argv[1]) == "--refresh-reflection-coverage") {
+            if (argc != 5 || std::string_view(argv[3]) != "--level-dir") {
+                throw std::runtime_error(
+                    "--refresh-reflection-coverage requires BAKE_DIR --level-dir LEVEL_DIR"
+                );
+            }
+            refresh_level_environment_coverage(argv[4], argv[2]);
+            std::cout << "Refreshed read-only reflection coverage audit\n";
+            return 0;
+        }
+
+        if (argc == 3 && std::string_view(argv[1]) == "--probe-header-bytes") {
+            std::cout << probe_header_bytes(argv[2]) << '\n';
+            return 0;
+        }
+
+        if (argc > 1 && std::string_view(argv[1]) == "--debug-preview-from") {
+            const bool no_prototypes = argc == 6 && std::string_view(argv[5]) == "--no-prototypes";
+            if ((argc != 5 && !no_prototypes) || std::string_view(argv[3]) != "--level-dir") {
+                throw std::runtime_error(
+                    "--debug-preview-from requires BAKE_DIR --level-dir LEVEL_DIR [--no-prototypes]"
+                );
+            }
+            std::cout << "Bake preview: "
+                      << write_debug_preview(argv[4], argv[2], !no_prototypes).string() << '\n';
             return 0;
         }
 
@@ -557,7 +714,7 @@ int main(int argc, char** argv) {
         const std::string game = manifest["game"].string(), version = manifest["version"].string();
 
         if (!bake_identity_supported(game, version)) {
-            throw std::runtime_error("expected a RAC1 PAL or NTSC export or a RAC2 NTSC one");
+            throw std::runtime_error("expected a RAC1 PAL or NTSC, RAC2 or RAC3 PAL export");
         }
 
         scene::LevelData level;

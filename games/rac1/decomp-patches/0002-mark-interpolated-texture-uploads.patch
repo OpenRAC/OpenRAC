@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Pezza <7693062+pezzadev@users.noreply.github.com>
+Date: Sun, 22 Nov 2026 23:22:37 +0000
+Subject: mark interpolated texture uploads
+
+Mark interpolated texture uploads as generated.
+
+Keep the game's interpolated effect frames out of texture-pack dumps without dropping their draw.
+
+---
+ src/overlays/shared/trespasser_pad_and_background_ships.c | 4 ++++
+ src/overlays/l09_gaspar/sky_shells.c | 4 ++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/src/overlays/shared/trespasser_pad_and_background_ships.c b/src/overlays/shared/trespasser_pad_and_background_ships.c
+--- a/src/overlays/shared/trespasser_pad_and_background_ships.c
++++ b/src/overlays/shared/trespasser_pad_and_background_ships.c
+@@ -312,6 +312,10 @@
+     c[6] = w;
+     c[7] = 0x3D;
+     c[8] = (long)(g_gs_texture_allocation_cursor >> 8) << 32 | 0x1000000000000;
++#ifdef OPENRAC_HOSTGEN
++    /* OpenRAC marks this interpolated image in a reserved BITBLTBUF bit. */
++    c[8] |= 0x8000000000000000ULL;
++#endif
+     c[9] = 0x50;
+     c[10] = 0;
+     c[11] = 0x51;
+diff --git a/src/overlays/l09_gaspar/sky_shells.c b/src/overlays/l09_gaspar/sky_shells.c
+--- a/src/overlays/l09_gaspar/sky_shells.c
++++ b/src/overlays/l09_gaspar/sky_shells.c
+@@ -71,6 +71,10 @@
+         g[2] = (long)(g_gs_texture_allocation_cursor >> 8) | 0x18100000 | (0xB000L << 19);
+         g[3] = 6;
+         g[4] = (long)(g_gs_texture_allocation_cursor >> 8) << 32 | 0x1000000000000L;
++#ifdef OPENRAC_HOSTGEN
++        /* OpenRAC marks this interpolated image in a reserved BITBLTBUF bit. */
++        g[4] |= 0x8000000000000000ULL;
++#endif
+         g[5] = 0x50;
+         g[6] = 0;
+         g[7] = 0x51;

@@ -6,7 +6,7 @@ in vec3 preview_normal;
 flat in int preview_probe;
 layout(location=0) out vec4 preview_colour;
 void main() {
-    if(preview_probe>=environment_count) discard;
+    if(environment_count==0) discard;
     vec3 view=normalize(preview_camera-preview_world);
     vec3 direction=reflect(-view,normalize(preview_normal));
     vec3 colour=max(environment_level(preview_probe,direction,0,findMSB(environment_resolution)),vec3(0));

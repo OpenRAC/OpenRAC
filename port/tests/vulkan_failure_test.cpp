@@ -15,16 +15,17 @@
 #include <utility>
 
 #include "common/breadcrumbs.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/render_opt.h"
-#include "renderer/shader.h"
-#include "renderer/vulkan/graph_execution.h"
-#include "renderer/vulkan/native_compute.h"
-#include "renderer/vulkan/temporal_graph.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
+#include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/graph/graph_execution.h"
+#include "renderer/vulkan/graph/temporal_graph.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl_internal.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 
 namespace {
 
@@ -339,7 +340,7 @@ void test_descriptor_failure_is_not_retried() {
     const FunctionOverride injected(vkAllocateDescriptorSets, fail_descriptor_allocation);
     bool rejected = false;
     try {
-        openrac::renderer::world::gl::glDispatchCompute(1, 1, 1);
+        openrac::test::graph_dispatch(openrac::renderer::world::gl::glDispatchCompute, 1, 1, 1);
     } catch (const std::runtime_error& failure) {
         rejected =
             std::string(failure.what()).find("allocate frame descriptors") != std::string::npos;
@@ -369,6 +370,9 @@ void test_failed_submit_never_waits() {
     CHECK(std::any_of(breadcrumbs.begin(), breadcrumbs.begin() + count, [](const auto& entry) {
         return entry.value == 42
                && std::string_view(entry.message).starts_with("Vulkan submit frame:");
+    }));
+    CHECK(std::any_of(breadcrumbs.begin(), breadcrumbs.begin() + count, [](const auto& entry) {
+        return entry.value == 42 && std::string_view(entry.message) == "failed graph queue submit";
     }));
 }
 
@@ -445,6 +449,7 @@ int run_tests() {
     config.width = 8;  // A tiny attachment suffices; these tests do not rasterise scenes.
     config.height = 8;
     config.validation = true;
+    config.compile_missing_shaders = true;  // Failure injection uses custom GLSL fixtures.
     std::string error;
 
     // Hosts without Vulkan report a CTest skip rather than passing without exercising the backend.

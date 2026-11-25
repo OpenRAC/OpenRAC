@@ -10,7 +10,7 @@
 // was dragged.
 //
 // run_pumped runs the program beside the pump on the same thread (a fiber on Windows): the
-// program hands over to the pump where it used to read the system's events (poll_event), and
+// program hands over to the pump where it would read the system's events (poll_event), and
 // while the system holds the pump in its loop, SDL's live-resize timer (every 10 ms: an expose
 // event, seen by an event watch) hands back to the program for one more frame. Nothing runs at
 // the same time as anything else, so the program's SDL and OpenGL calls stay on the thread that
@@ -30,6 +30,9 @@ int run_pumped(int (*program)(void* argument), void* argument);
 // SDL_PollEvent for a program under run_pumped: the next event in SDL's queue, the system's
 // events read into it first when it is empty. False when there is none.
 bool poll_event(SDL_Event& event);
+
+// Read system events without taking any events out of SDL's queue.
+void pump_events();
 
 #if defined(OPENRAC_IOS)
 // UIKit must receive a drained GPU before it finishes moving the scene to the background.

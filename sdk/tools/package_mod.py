@@ -146,6 +146,8 @@ def _check_setting(i: int, s, errors: list[str]) -> None:
         errors.append(f"{where}: no name")
     if "description" in s and not isinstance(s["description"], str):
         errors.append(f"{where}: description is not text")
+    if "section" in s and not isinstance(s["section"], str):
+        errors.append(f"{where}: section is not text")
     kind = s.get("type")
     if kind not in SETTING_TYPES:
         errors.append(f"{where}: type must be one of {', '.join(sorted(SETTING_TYPES))}")
@@ -282,7 +284,7 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
         return ["the manifest is not a JSON object"]
     if m.get("format") != FORMAT:
         if m.get("format") == 1:
-            return ["format 1 is a data pack (editor/MODDING.md): it is added as a pack, not packaged here"]
+            return ["format 1 is a data pack (extractor/MODDING.md): it is added as a pack, not packaged here"]
         return [f"format must be {FORMAT}"]
     mid = m.get("id")
     if not isinstance(mid, str) or not ID.match(mid) or len(mid) > 64:
@@ -309,11 +311,11 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
     kind = m.get("type", "native")
     if kind not in ("native", "script"):
         errors.append("type: native (the default) or script")
+    api = m.get("api")
     scripts = m.get("scripts")
     if kind == "script":
         if "plugin" in m:
             errors.append("plugin: a script mod carries no library")
-        api = m.get("api")
         if not isinstance(api, str) or not API.match(api):
             errors.append("api: MAJOR.MINOR, the interface the scripts are written for (required)")
         else:
@@ -338,7 +340,6 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
     if kind == "script":
         pass
     elif plugin is not None:
-        api = m.get("api")
         if not isinstance(api, str) or not API.match(api):
             errors.append("api: MAJOR.MINOR, the interface the mod was built for (required with a plugin)")
         elif int(api.split(".")[0]) not in API_MAJORS:
@@ -356,8 +357,15 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
                     continue
                 if root is not None and not (root / p).is_file():
                     errors.append(f"plugin {platform}: {path} is not in the mod")
-    elif "api" in m and not (isinstance(m["api"], str) and API.match(m["api"])):
+    elif "api" in m and not (isinstance(api, str) and API.match(api)):
         errors.append("api: MAJOR.MINOR")
+    can_declare_vulkan = (kind == "native" and isinstance(api, str) and API.fullmatch(api)
+                          and tuple(map(int, api.split("."))) >= (1, 20))
+    queue = m.get("vulkan_queue")
+    if "vulkan_queue" in m and (not can_declare_vulkan or not plugin or not isinstance(queue, bool)):
+        errors.append("vulkan_queue: a boolean on a native mod targeting interface 1.20 or later")
+    if can_declare_vulkan and m.get("vulkan_device") is True and queue is not True:
+        errors.append("vulkan_device: requires vulkan_queue: true from interface 1.20")
     _check_hooks(m.get("hooks"), games, errors, bindings)
     settings = m.get("settings", [])
     if not isinstance(settings, list):

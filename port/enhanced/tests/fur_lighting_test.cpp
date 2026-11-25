@@ -7,13 +7,14 @@
 #include <exception>
 
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/gl/shader.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 #ifdef OPENRAC_VULKAN
-#include "renderer/vulkan/native_compute.h"
+#include "renderer/vulkan/passes/native_compute.h"
 #include "renderer/vulkan/vkgl.h"
 #endif
 
@@ -108,7 +109,7 @@ std::string fragment_source() {
            + lighting::shaders::fur_lighting_glsl + R"(
 bool test_environment_available=false;
 int environment_count=0;
-vec3 environment_specular_frame(vec3 p,vec3 n,vec3 view,float nv,float roughness,float f0,vec3 fallback) {
+vec3 environment_specular_surface_frame(vec3 p,vec3 receiver,vec3 geometric_normal,vec3 n,vec3 view,float nv,float roughness,vec3 f0,vec3 fallback) {
     return test_environment_available?vec3(.25):fallback;
 }
 )" + lighting::shaders::fur_environment_glsl
@@ -173,7 +174,7 @@ void test_precision(std::uint64_t before) {
 // Directionality can be disabled independently; zero material strengths produce exactly zero added light.
 void test_controls(const renderer::Shader& shader, renderer::FrameBuffer& target) {
     const auto draw = [&] {
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return target.read_rgba();
     };
     test_response(draw());

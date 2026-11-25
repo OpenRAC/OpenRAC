@@ -70,7 +70,7 @@ uint32_t rac1_moby_generation(void) {
     return generation;
 }
 
-int func_L00_00222B80__game(int state, int animate) {
+int func_L00_00222B80__hooked(int state, int animate) {
     (void)animate;
     set_state = state;
     ++set_calls;
@@ -85,19 +85,19 @@ int func_L00_00222B80__game(int state, int animate) {
         return 1;                                                                                  \
     }
 
-OTHER_SETTER(func_L01_0023D688__game)
-OTHER_SETTER(func_L02_0022BE40__game)
-OTHER_SETTER(func_L03_00216D38__game)
-OTHER_SETTER(func_L05_0024D680__game)
-OTHER_SETTER(func_L06_00235E08__game)
-OTHER_SETTER(func_L08_00231228__game)
-OTHER_SETTER(func_L11_0024E240__game)
-OTHER_SETTER(func_L12_002407C0__game)
-OTHER_SETTER(func_L14_002306C8__game)
-OTHER_SETTER(func_L15_00217348__game)
-OTHER_SETTER(func_L16_0021EA88__game)
-OTHER_SETTER(func_L17_0021ED38__game)
-OTHER_SETTER(func_L18_002284E0__game)
+OTHER_SETTER(func_L01_0023D688__hooked)
+OTHER_SETTER(func_L02_0022BE40__hooked)
+OTHER_SETTER(func_L03_00216D38__hooked)
+OTHER_SETTER(func_L05_0024D680__hooked)
+OTHER_SETTER(func_L06_00235E08__hooked)
+OTHER_SETTER(func_L08_00231228__hooked)
+OTHER_SETTER(func_L11_0024E240__hooked)
+OTHER_SETTER(func_L12_002407C0__hooked)
+OTHER_SETTER(func_L14_002306C8__hooked)
+OTHER_SETTER(func_L15_00217348__hooked)
+OTHER_SETTER(func_L16_0021EA88__hooked)
+OTHER_SETTER(func_L17_0021ED38__hooked)
+OTHER_SETTER(func_L18_002284E0__hooked)
 
 void func_L00_002110C0__game(int mode, int state, gaddr moby) {
     (void)mode;

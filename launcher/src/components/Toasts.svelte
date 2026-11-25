@@ -2,13 +2,15 @@
   // What the launcher says for a moment, at the window's corner. Information goes after a few
   // seconds and waits while the pointer or the focus is on it; an error stays until it is
   // dismissed, and is read out at once (an assertive region), not after what is being read.
-  import { api, onAndroid } from "$lib/api";
-  import { app, dismissToast, holdToasts, guard, type BakeNotice } from "$lib/app.svelte";
-  import { hidePaths } from "$lib/paths";
-  import { reduced } from "$lib/motion";
   import { flip } from "svelte/animate";
   import { cubicOut } from "svelte/easing";
   import { fade, fly } from "svelte/transition";
+
+  import { api, onAndroid } from "$lib/api";
+  import { app, type BakeNotice, dismissToast, guard, holdToasts } from "$lib/app.svelte";
+  import { reduced } from "$lib/motion";
+  import { hidePaths } from "$lib/paths";
+
   import Icon from "./Icon.svelte";
 
   // Android: in from below, out by fading, and the others slide into the place one leaves. A
@@ -60,7 +62,13 @@
 >
   <div class="list" role="alert">
     {#each errors as t (t.id)}
-      <div class="toast error" class:rise={!onAndroid} in:fly={into} out:fade={away} animate:flip={move}>
+      <div
+        class="toast error"
+        class:rise={!onAndroid}
+        in:fly={into}
+        out:fade={away}
+        animate:flip={move}
+      >
         <Icon name="warn" size={16} />
         <div class="grow message">
           <strong>{t.text}</strong>
@@ -88,7 +96,10 @@
                 }}>View details</button
               >
             </div>
-            <small>{t.bake.failure.level ? `${t.bake.failure.level} - ` : ""}{t.bake.failure.code}</small>
+            <small
+              >{t.bake.failure.level ? `${t.bake.failure.level} - ` : ""}{t.bake.failure
+                .code}</small
+            >
           {:else if t.details}
             <details class="error-details">
               <summary>Error details</summary>

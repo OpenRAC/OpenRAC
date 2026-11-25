@@ -69,7 +69,10 @@ void func_00213C78(void) {
              * from another game), or runs with the hero standing in elsewhere, undone after. */
             if (update != 0 && !rac1_moby_gate(m, 0)) {
                 const int water_bomb = rac1_water_bomb_pending(m);
+                /* A moby an imported one brought along: its own level's tables (foreign_class.c). */
+                const int world = rac1_foreign_host_world_enter(m);
                 GFN(void (*)(gaddr), update)(m);
+                rac1_foreign_host_world_leave(world);
                 rac1_water_bomb_after(m, water_bomb);
                 rac1_moby_gate(m, 1);
                 rac1_stand_in_end(m);
@@ -93,6 +96,7 @@ void func_00213C78(void) {
         rac1_hero_down_tick();
         rac1_camera_script_tick();
         rac1_hero_grab_tick();
+        rac1_pickup_tick();
     }
 }
 

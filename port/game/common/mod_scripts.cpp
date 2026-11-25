@@ -15,7 +15,9 @@
 #include <fstream>
 #include <memory>
 #include <sstream>
+#include <string_view>
 
+#include "button_labels.h"
 #include "common/c_boundary.h"
 #include "common/crash.h"
 #include "common/env.h"
@@ -25,6 +27,7 @@
 #include "mod_touch.h"
 #include "openrac/guest.h"
 #include "openrac/keys.h"
+#include "openrac/openrac_mod.h"
 
 namespace fs = std::filesystem;
 
@@ -562,6 +565,23 @@ void pad_callback(void* user, int port, std::uint8_t* report, int size) {
     lua_unref(T, ref);
 }
 
+// The mod's settings changed in the launcher's list (interface 1.15): the script's copy read again
+// from the loader's, then its function.
+void settings_callback(void* user) {
+    auto* c = static_cast<Callback*>(user);
+    State* s = c->state;
+    if (s->stopped) {
+        return;
+    }
+    if (s->services.settings_of != nullptr) {
+        if (const auto* now = s->services.settings_of(s->mod.handle); now != nullptr) {
+            s->mod.settings = *now;
+        }
+    }
+    lua_getref(s->T, c->fn);
+    call(s, 0, 0, "on_settings");
+}
+
 int add_callback(lua_State* L, bool pad) {
     State* s = state_of(L);
     luaL_checktype(L, 1, LUA_TFUNCTION);
@@ -584,6 +604,29 @@ int add_callback(lua_State* L, bool pad) {
 
 int api_on_frame(lua_State* L) {
     return add_callback(L, false);
+}
+
+// openrac.on_settings(fn) (interface 1.15): fn after the launcher changed the mod's settings.
+int api_on_settings(lua_State* L) {
+    State* s = state_of(L);
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    if (!s->loading) {
+        luaL_error(L, "callbacks are set while the mod's scripts first run");
+    }
+    if (s->services.on_settings == nullptr) {
+        luaL_error(L, "this OpenRAC cannot tell a mod of its settings' changes");
+    }
+    auto c = std::make_unique<Callback>();
+    c->state = s;
+    lua_pushvalue(L, 1);
+    c->fn = lua_ref(L, -1);
+    lua_pop(L, 1);
+    if (const int result = s->services.on_settings(s->mod.handle, settings_callback, c.get());
+        result != OPENRAC_HOOK_OK) {
+        luaL_error(L, "the callback was refused (%d)", result);
+    }
+    s->callbacks.push_back(std::move(c));
+    return 0;
 }
 int api_on_pad(lua_State* L) {
     return add_callback(L, true);
@@ -634,6 +677,53 @@ int api_setting(lua_State* L) {
             lua_pushlstring(L, v.s.data(), v.s.size());
             break;
     }
+    return 1;
+}
+
+// openrac.set_setting(key, value) (interface 1.15): the setting set for this run and in the
+// launcher's list, by its type in the manifest; true when it is one the mod declares and the value
+// one it takes.
+int api_set_setting(lua_State* L) {
+    State* s = state_of(L);
+    const char* key = luaL_checkstring(L, 1);
+    luaL_checkany(L, 2);
+    const auto it = s->mod.settings.find(key);
+    int result = OPENRAC_HOOK_UNKNOWN;
+    if (it != s->mod.settings.end() && s->services.setting_set_bool != nullptr) {
+        switch (it->second.type) {
+            case SettingType::Bool:
+                if (lua_isboolean(L, 2)) {
+                    result = s->services.setting_set_bool(s->mod.handle, key, lua_toboolean(L, 2));
+                }
+                break;
+            case SettingType::Int:
+                if (lua_type(L, 2) == LUA_TNUMBER) {
+                    const double n = lua_tonumber(L, 2);
+                    if (std::floor(n) == n && std::fabs(n) < 9.0e15) {
+                        result = s->services.setting_set_int(
+                            s->mod.handle, key, static_cast<std::int64_t>(n)
+                        );
+                    }
+                }
+                break;
+            case SettingType::Float:
+                if (lua_type(L, 2) == LUA_TNUMBER) {
+                    result = s->services.setting_set_float(s->mod.handle, key, lua_tonumber(L, 2));
+                }
+                break;
+            default:
+                if (lua_type(L, 2) == LUA_TSTRING) {
+                    result = s->services.setting_set_string(s->mod.handle, key, lua_tostring(L, 2));
+                }
+                break;
+        }
+    }
+    if (result == OPENRAC_HOOK_OK && s->services.settings_of != nullptr) {
+        if (const auto* now = s->services.settings_of(s->mod.handle); now != nullptr) {
+            s->mod.settings = *now;
+        }
+    }
+    lua_pushboolean(L, result == OPENRAC_HOOK_OK);
     return 1;
 }
 
@@ -690,6 +780,67 @@ int api_pointer(lua_State* L) {
     lua_pushnumber(L, has ? in->pointer_y : 0.0);
     lua_pushboolean(L, has && in->pointer_inside != 0);
     return 3;
+}
+
+// Interface 1.37: drives pad `port`'s motors as the game's vibration does (openrac_api.set_motors):
+// `small_motor` a boolean, `large_motor` 0 to 255. True when the port took it.
+int api_set_motors(lua_State* L) {
+    State* s = state_of(L);
+    const double port = luaL_checknumber(L, 1);
+    luaL_checktype(L, 2, LUA_TBOOLEAN);
+    const double large = luaL_checknumber(L, 3);
+    const bool whole = std::floor(port) == port && std::floor(large) == large;
+    const bool ok = whole && port >= 0 && port <= 1 && large >= 0 && large <= 255
+                    && s->services.set_motors != nullptr
+                    && s->services.set_motors(
+                           s->mod.handle,
+                           static_cast<int>(port),
+                           lua_toboolean(L, 2) ? 1 : 0,
+                           static_cast<int>(large)
+                       ) == OPENRAC_HOOK_OK;
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+}
+
+// Interface 1.37: greys an option of the port's menu out or makes it usable, by its name
+// (openrac_api.menu_option_set): "on", "off" or "default". True when the port took it.
+int api_menu_option_set(lua_State* L) {
+    State* s = state_of(L);
+    const char* option = luaL_checkstring(L, 1);
+    const std::string_view state = luaL_checkstring(L, 2);
+    int value = OPENRAC_MENU_OPTION_DEFAULT;
+    if (state == "on") {
+        value = OPENRAC_MENU_OPTION_ON;
+    } else if (state == "off") {
+        value = OPENRAC_MENU_OPTION_OFF;
+    } else if (state != "default") {
+        luaL_argerror(L, 2, "\"on\", \"off\" or \"default\"");
+    }
+    const bool ok = s->services.menu_option_set != nullptr
+                    && s->services.menu_option_set(s->mod.handle, option, value) == OPENRAC_HOOK_OK;
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+}
+
+// Interface 1.31: the label of the pad's button `button` (an OPENRAC_PAD_* bit) for the player's
+// device now, and its kind: "playstation", "letters" or "keys"; nil, nil for no single button.
+int api_button_label(lua_State* L) {
+    const auto button = static_cast<std::uint32_t>(luaL_checknumber(L, 1));
+    char out[32];
+    const int kind = button_labels::label_into(button, out, sizeof out);
+    if (kind < 0) {
+        lua_pushnil(L);
+        lua_pushnil(L);
+        return 2;
+    }
+    lua_pushstring(L, out);
+    lua_pushstring(
+        L,
+        kind == OPENRAC_BUTTONS_KEYS      ? "keys"
+        : kind == OPENRAC_BUTTONS_LETTERS ? "letters"
+                                          : "playstation"
+    );
+    return 2;
 }
 
 int api_take_input(lua_State* L) {
@@ -889,6 +1040,8 @@ void push_openrac(lua_State* L, State* s) {
     set_function(L, "log", api_log);
     set_function(L, "warn", api_warn);
     set_function(L, "setting", api_setting);
+    set_function(L, "set_setting", api_set_setting);
+    set_function(L, "on_settings", api_on_settings);
     set_function(L, "hook", api_hook);
     set_function(L, "before", api_before);
     set_function(L, "after", api_after);
@@ -901,6 +1054,9 @@ void push_openrac(lua_State* L, State* s) {
     set_function(L, "mouse", api_mouse);
     set_function(L, "window", api_window);
     set_function(L, "pointer", api_pointer);
+    set_function(L, "button_label", api_button_label);
+    set_function(L, "set_motors", api_set_motors);
+    set_function(L, "menu_option_set", api_menu_option_set);
     set_function(L, "take_input", api_take_input);
     set_function(L, "capture_mouse", api_capture_mouse);
     set_function(L, "touch_define", api_touch_define);

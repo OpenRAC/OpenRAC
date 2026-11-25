@@ -8,26 +8,46 @@ records about how Ratchet & Clank draws. **No emulation**: nothing here models
 the console's GS, vector units, VIF or DMA. Each of the game's subsystems has
 a renderer that draws its kind of thing on the GPU.
 
+`renderer.h` is the frame coordinator; `math.h` holds shared rendering math.
+Implementation files are grouped by responsibility:
+
+| Directory | Responsibility |
+|---|---|
+| `frame/` | Frame phases, surface chains, colour snapshots and subsystem contracts |
+| `gl/` | GL interface, shader programs, framebuffers, warmup and program caching |
+| `textures/` | Texture conversion, packs, pooling and filtering |
+| `direct/` | Direct packet rendering and register definitions |
+| `effects/`, `debug/` | Effects, shadows and diagnostic geometry |
+| `settings/` | Rendering settings and the optimisation registry |
+| `graph/`, `vulkan/` | CPU graph planning and Vulkan execution, through MoltenVK on Apple platforms |
+| `world/`, `ui/`, `shaders/` | World rendering, overlays and shader sources |
+
 | File | What | OpenGOAL's |
 |---|---|---|
-| `colour_graph.h`, `colour_graph_backend.h` | world colour phases, explicit shared reads and refraction snapshots; ordered bucket or prepared draw callbacks with Vulkan graph dependencies | |
+| `frame/colour_graph.h`, `frame/colour_graph_backend.h` | world colour phases, explicit shared reads and refraction snapshots; ordered bucket or prepared draw callbacks with Vulkan graph dependencies | |
 | `renderer.h` | `Renderer` runs a list of `BucketRenderer`s each frame in the game's drawing order (sky, terrain, ties, shrubs, mobys, particles, HUD); `FrameInput` carries each bucket's packets and the camera | `OpenGLRenderer`, `BucketRenderer`, `SharedRenderState` |
-| `direct.h` | the direct renderer: GIF packets (PACKED, REGLIST, IMAGE, A+D) of the 2D path turned into draw calls. `GifInterpreter` (CPU) assembles primitives and groups them by GPU state; `DirectRenderer` translates that state to GL: blend equation, depth test, alpha test with the double draw for fail modes, scissor, fog, texture | `DirectRenderer` |
-| `texture_pool.h` | every texture as RGBA8 on the GPU, found by the base pointer in the game's TEX0 used as an **identifier**: textures converted ahead of time are `place`d there; images the game sends with IMAGE transfers are converted when first drawn and cached by content; `prepare` makes a level's textures at its load (`texture-prepare`, RENDER_PERF.md) | `TexturePool` |
-| `texture.h` | conversions to RGBA8: PSMCT32/24/16, PSMT8 and PSMT4 (and their "H" forms) with CLUTs in CSM1 order, TEXA alpha; the chip's block layout only for a texture uploaded in one format and read in another | `texture_conversion.h` |
-| `gs.h` | the GS registers and the GIF tag as fields (public hardware documentation) | `common/dma/gs.h` |
-| `subsystems.h` | placeholders for terrain (tfrag), ties, shrubs, mobys, sky and particles, each documenting what it must draw | `TFragment`, `Tie3`, `Shrub`, `Merc2`, `Sky`, `Sprite3` |
-| `debug_lines.h` | Unlit visible/hidden wireframes and finite camera/shadow clip geometry; GPU resources are created only when diagnostics draw | |
+| `direct/direct.h` | the direct renderer: GIF packets (PACKED, REGLIST, IMAGE, A+D) of the 2D path turned into draw calls. `GifInterpreter` (CPU) assembles primitives and groups them by GPU state; `DirectRenderer` translates that state to GL: blend equation, depth test, alpha test with the double draw for fail modes, scissor, fog, texture | `DirectRenderer` |
+| `textures/texture_pool.h` | every texture as RGBA8 on the GPU, found by the base pointer in the game's TEX0 used as an **identifier**: textures converted ahead of time are `place`d there; images the game sends with IMAGE transfers are converted when first drawn and cached by content; `prepare` makes a level's textures at its load (`texture-prepare`, RENDER_PERF.md) | `TexturePool` |
+| `textures/texture.h` | conversions to RGBA8: PSMCT32/24/16, PSMT8 and PSMT4 (and their "H" forms) with CLUTs in CSM1 order, TEXA alpha; the chip's block layout only for a texture uploaded in one format and read in another | `texture_conversion.h` |
+| `direct/gs.h` | the GS registers and the GIF tag as fields (public hardware documentation) | `common/dma/gs.h` |
+| `frame/frame_record.h`, `frame/ui_records.h` | the frame recorder's commands, recordings and anchors (docs/port/FRAME_RECORDER.md), and the 2D layer's records (`UiQuad`, `UiItem`, `UiImage`); CPU only | |
+| `direct/draw_state.h` | a 2D draw's GPU state in native values (blend coefficients and modes, alpha and depth tests, texture combine, scissor, write mask, target ids); no GS register | |
+| `frame/subsystems.h` | placeholders for terrain (tfrag), ties, shrubs, mobys, sky and particles, each documenting what it must draw | `TFragment`, `Tie3`, `Shrub`, `Merc2`, `Sky`, `Sprite3` |
+| `debug/debug_lines.h` | Unlit visible/hidden wireframes and finite camera/shadow clip geometry; GPU resources are created only when diagnostics draw | |
 | [`graph/`](graph/README.md) | CPU-only pass/resource declarations, hazard validation and fixed-order barrier planning; used by Vulkan shadow, surface, lighting, water, colour and temporal passes | |
-| `gl.h` | the GL functions used, loaded through the context's loader; no generated loader | glad |
-| `render_opt.h` | the optimisation registry: every render optimisation by name, its default and its tolerance, switched off with `OPENRAC_RENDER_OPT_OFF` to compare it with its reference path; its own library, `openrac_render_opt` ([cmake/Render.cmake](../cmake/Render.cmake)), so that it builds without a window ([docs/port/RENDER_PERF.md](../../docs/port/RENDER_PERF.md)) | |
-| `ambient_occlusion.h` | `AmbientOcclusion`, the frame's post-process hook for ambient occlusion: `Renderer` runs the one registered with `set_ambient_occlusion` after the world's depth prepass (for the world's lighting) or after its last pass (composited), when the frame asks (`FrameInput::gtao`). The enhanced renderer's GTAO implements it (`enhanced/renderer/gtao.h`) and the game programs register it, so the renderer includes nothing of `enhanced/` | |
-| `gtao_settings.h` | `GtaoSettings`, the ambient occlusion's settings the frame carries and the player's settings keep | |
-| `shader.h`, `framebuffer.h`, `math.h` | GLSL programs (`#version 410 core`, samplers `tex_T<n>` bound to unit n), off-screen targets, column-major matrices with a reversed-depth projection | `Shader`, `FramebufferTexturePair` |
-| `program_cache.h` | the driver's binaries of the programs `Shader` built (OpenGL and ES), in memory and on disk, so that a program built again from the same sources (each level, each run) is loaded instead of compiled | |
+| `gl/gl.h` | the GL functions used, loaded through the context's loader; no generated loader | glad |
+| `settings/render_opt.h` | the optimisation registry: every render optimisation by name, its default and its tolerance, switched off with `OPENRAC_RENDER_OPT_OFF` to compare it with its reference path; its own library, `openrac_render_opt` ([cmake/Render.cmake](../cmake/Render.cmake)), so that it builds without a window ([docs/port/RENDER_PERF.md](../../docs/port/RENDER_PERF.md)) | |
+| `effects/ambient_occlusion.h` | `AmbientOcclusion`, the frame's post-process hook for ambient occlusion: `Renderer` runs the one registered with `set_ambient_occlusion` after the world's depth prepass (for the world's lighting) or after its last pass (composited), when the frame asks (`FrameInput::gtao`). The enhanced renderer's GTAO implements it (`enhanced/renderer/gtao.h`) and the game programs register it, so the renderer includes nothing of `enhanced/` | |
+| `settings/gtao_settings.h` | `GtaoSettings`, the ambient occlusion's settings the frame carries and the player's settings keep | |
+| `gl/shader.h`, `gl/framebuffer.h`, `math.h` | GLSL programs (`#version 410 core`, samplers `tex_T<n>` bound to unit n), off-screen targets, column-major matrices with a reversed-depth projection | `Shader`, `FramebufferTexturePair` |
+| `gl/program_cache.h` | the driver's binaries of the programs `Shader` built (OpenGL and ES), in memory and on disk, so that a program built again from the same sources (each level, each run) is loaded instead of compiled | |
 
 Shaders are in `shaders/` and compiled into the library
-([cmake/Window.cmake](../cmake/Window.cmake)).
+([cmake/Window.cmake](../cmake/Window.cmake)). Feature markers (`// openrac_mode: ...`) select
+exact variants on native OpenGL/ES (`gl/shader_variants.h`) and Vulkan, including MoltenVK.
+OpenGL keeps logical uniform locations stable while switching native constant-only programs;
+observed combinations are cached and warmed at later loads. Unseen combinations compile before
+their draw rather than using a generic shader. See [shader feature variants](../../docs/port/RENDER_PERF.md#shader-feature-variants).
 
 `ui/` is a library of its own, `openrac_renderer_ui` ([ui/README.md](ui/README.md)): what the game
 programs draw over the game's picture with this GL (ImGui's draw lists on the Vulkan renderer's
@@ -58,7 +78,7 @@ the renderer needs neither ImGui nor the platform's touch pad.
 ties, with the game's level of detail, culling and fog replayed on the CPU
 (`tfrag_lod.h`, `tie_lod.h`, `fog.h`); `draw_data.h` also defines the inputs
 of shrubs, mobys, sky, particles and water, which have no renderer yet. The
-placeholders (`subsystems.h`) draw nothing yet: they need the game's
+placeholders (`frame/subsystems.h`) draw nothing yet: they need the game's
 camera, visibility and lights, which come with the decompiled frame loop.
 The level viewer ([viewer/](../viewer/README.md)) already draws the extracted
 terrain, ties, shrubs, moby bind poses and sky.

@@ -123,6 +123,7 @@ RAC1_TYPE_func_0012DA38_result func_0012DA38(void) {
     }
     const RAC1_TYPE_func_0012DA38_result entry = func_0012DA38__game();
     loaded_level = GREF(int, CURRENT_LEVEL);
+    rac1_foreign_classes_load(openrac_game_loaded_overlay());
     ++program_loads;
     ++moby_generation;
     /* No level: Quit Game, whose level's loader read the boot program back from the disc
@@ -177,12 +178,26 @@ void func_001F4630(int arg0) {
     func_001F4630__game(arg0);
 }
 
+/* The startup loop only displays a notice when this check returns nonzero.
+ * Bypass that loop without changing the memory card service used by saves. */
+int func_00209BB8(void) {
+    if (openrac_env_string("OPENRAC_DIRECT") != NULL) {
+        return 0;
+    }
+    return func_00209BB8__game();
+}
+
 /* NewGameInit: a new game's state is a fresh save restored from the disc, with the level set to 0
  * (Veldin); the level's files are read right after. With --level N the new game starts in level N
  * instead, the way the behaviour checker reaches a level with its level write. The mods' hook point
  * (rac1.save.new_game) sits under this, as func_00209DC0__hooked. */
 void func_00209DC0(void) {
     func_00209DC0__hooked();
+    /* A new game (also the one that keeps the progress): the mods' data starts empty (interface
+     * 1.16), before the save the game writes right after it into the slot the player chose. */
+    if (openrac_game_new_game != NULL) {
+        openrac_game_new_game();
+    }
     if (openrac_game_start_level >= 0 && openrac_game_start_level < LEVELS) {
         GREF(int, CURRENT_LEVEL) = openrac_game_start_level;
     }
@@ -212,7 +227,8 @@ static void direct_start(unsigned frame) {
         return;
     }
     if (openrac_game_start_level < 0
-        || (openrac_game_map == NULL && openrac_env_string("OPENRAC_DIRECT") == NULL)) {
+        || (openrac_game_map == NULL && !openrac_game_direct_start
+            && openrac_env_string("OPENRAC_DIRECT") == NULL)) {
         done = 1;
         return;
     }

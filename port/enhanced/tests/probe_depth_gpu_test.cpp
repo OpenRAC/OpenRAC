@@ -12,8 +12,9 @@
 #include "enhanced/lighting/probe_texture_encode.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/framebuffer.h"
+#include "renderer/gl/framebuffer.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -198,7 +199,7 @@ void draw_and_check(
     glUniform1f(fixture.shader.uniform("fixture_distance"), front_guard ? 0.f : 1e30f);
     for (unsigned probe = 0; probe < volume.probes.size(); ++probe) {
         glUniform1i(fixture.shader.uniform("sample_probe"), static_cast<int>(probe));
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         std::vector<std::uint8_t> pixels(std::size_t{kSide} * 2 * kSide * 4);
         glReadPixels(0, 0, kSide * 2, kSide, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
         check_pixels(volume, codes, probe, pixels, front_guard);

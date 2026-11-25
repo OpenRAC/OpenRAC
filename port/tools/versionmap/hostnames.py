@@ -24,6 +24,10 @@ ctest runs (no entry missing, none unused). The map only adds the comparison
 with what the two programs' code says. An entry the map does not agree with
 is reported, never changed: the tables' hand-checked entries win, and the
 reason belongs in a comment at the entry.
+
+For another game's carried release (hostgen.json "release", tables by release_carry.py), `check`
+instead checks that its <game>_names.tsv and <game>_version.h name exactly what the shared C uses
+now: a row or an entry for each, none left over.
 """
 import argparse
 import json
@@ -259,6 +263,51 @@ def cmd_write(args) -> int:
     return 0
 
 
+# The shared C as release_carry.py reads it: names, addresses and constants outside comments and strings.
+RELEASE_FUNC = re.compile(r"\b(?:mp_)?func_(?:L\d\d_)?[0-9A-F]{8}((?:_\w+)?)\b")
+RELEASE_SKIP = re.compile(r'"(?:\\.|[^"\\])*"|/\*.*?\*/|//[^\n]*', re.S)
+
+
+def check_release(program: Path) -> list[str]:
+    """What PROGRAM's names table and <game>_version.h lack or have left over against the shared C."""
+    cfg = json.loads((program / "hostgen.json").read_text())
+    game = cfg["game"]
+    big = game.upper()
+    code = [RELEASE_SKIP.sub(" ", f.read_text(encoding="utf-8")) for d in cfg.get("host_shared", [])
+            for f in sorted((program / d).glob("*.[ch]"))]
+    used = {m.group(0) for t in code for m in RELEASE_FUNC.finditer(t)}
+    keys = set()
+    for t in code:
+        keys |= {f"{big}_ADDR_0x{a}u" for a in re.findall(rf"\b{big}_ADDR\(\s*0x([0-9A-F]{{8}})u\s*\)", t)}
+        keys |= {f"{big}_LADDR_{n}_0x{a}u"
+                 for n, a in re.findall(rf"\b{big}_LADDR\(\s*(\d+)\s*,\s*0x([0-9A-F]{{8}})u\s*\)", t)}
+        keys |= {f"{big}_K_{k}" for k in re.findall(rf"\b{big}_K\(\s*(\w+)\s*,", t)}
+    out = []
+    header = program / "host" / f"{game}_version.h"
+    text = header.read_text(encoding="utf-8")
+    # The headers it includes from its own folder (rac3's rac3_addresses.h) hold entries too.
+    for name in re.findall(r'^#\s*include\s+"([^"/]+)"', text, re.M):
+        if (header.parent / name).is_file():
+            text += (header.parent / name).read_text(encoding="utf-8")
+    # An entry the tool could not pair is a comment ("not found"): still an answer for that use.
+    have = set(re.findall(rf"^#define ({big}_(?:ADDR_0x|LADDR_|K_)\w+)", text, re.M))
+    have |= set(re.findall(rf"^/\* ({big}_(?:ADDR_0x|LADDR_|K_)\w+): not found \*/", text, re.M))
+    out += [f"{header.name}: no entry for {k}, which the shared C uses" for k in sorted(keys - have)]
+    out += [f"{header.name}: {k} is not used by the shared C" for k in sorted(have - keys)]
+    path = program / "host" / f"{game}_names.tsv"
+    rows = [line.split("\t") for line in path.read_text().splitlines() if not line.startswith("#")]
+    names = {cols[0]: cols[1] for cols in rows if len(cols) >= 2}
+    gone = set(re.findall(r"^# (func_\w+): not in this release$", path.read_text(), re.M))
+    out += [f"{path.name}: {n} is not used by the shared C" for n in sorted((set(names) | gone) - used)]
+    # A function the table renames: each spelling the shared C uses (__game, __hooked) is renamed too.
+    renamed = {n[:len(n) - len(RELEASE_FUNC.fullmatch(n).group(1))] for n in names if RELEASE_FUNC.fullmatch(n)}
+    for n in sorted(used - set(names)):
+        base = n[:len(n) - len(RELEASE_FUNC.fullmatch(n).group(1))]
+        if base in renamed:
+            out.append(f"{path.name}: no row for {n}, though {base} is renamed")
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -273,6 +322,16 @@ def main() -> int:
         ap.error("write needs --map and --gen")
     if args.map and not args.gen:
         ap.error("--map needs --gen")
+    config = json.loads((Path(args.version) / "hostgen.json").read_text())
+    if args.cmd == "check" and config["game"] != "rac1" and "release" in config:
+        # Another game's carried release: its tables come from a disc (release_carry.py), so only
+        # their cover of the shared C is checked here.
+        problems = check_release(Path(args.version))
+        for p in problems:
+            print(f"{Path(args.version).name}: {p}", file=sys.stderr)
+        if problems:
+            print(f"{Path(args.version).name}: write its tables again with release_carry.py", file=sys.stderr)
+        return 1 if problems else 0
     return cmd_check(args) if args.cmd == "check" else cmd_write(args)
 
 

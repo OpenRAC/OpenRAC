@@ -110,5 +110,26 @@ class HostNames(unittest.TestCase):
         self.assertIn("0x0015FF04u", path.read_text())
 
 
+    def test_host_tables_cover_the_shared_c(self):
+        # check for a carried release: each name, address and constant the shared C uses has its row,
+        # and no row is left over; the committed releases pass.
+        with tempfile.TemporaryDirectory() as d:
+            prog, shared = Path(d) / "rel", Path(d) / "shared"
+            (prog / "host").mkdir(parents=True)
+            shared.mkdir()
+            (prog / "hostgen.json").write_text(json.dumps({"game": "rac2", "host_shared": ["../shared"]}))
+            (shared / "a.c").write_text("/* func_00100000 */ void f(void) { func_00200000(); "
+                                        "func_00200000__game(); RAC2_ADDR(0x00300000u); RAC2_K(X, 1, func_00200000); }\n")
+            (prog / "host" / "rac2_version.h").write_text("#define RAC2_ADDR_0x00300000u 0x00300080u\n"
+                                                          "/* RAC2_K_X: not found */\n")
+            names = "func_00200000\tfunc_00200080\nfunc_00200000__game\tfunc_00200080__game\n"
+            (prog / "host" / "rac2_names.tsv").write_text(names)
+            self.assertEqual(hostnames.check_release(prog), [])
+            (prog / "host" / "rac2_names.tsv").write_text(names.split("\n")[0] + "\nfunc_00100000\tfunc_00100080\n")
+            (prog / "host" / "rac2_version.h").write_text("#define RAC2_ADDR_0x00300004u 0x00300084u\n")
+            self.assertEqual(len(hostnames.check_release(prog)), 5)
+        for game in ("rac2-pal", "rac2-ntsc2"):
+            self.assertEqual(hostnames.check_release(Path(__file__).resolve().parents[3] / "port" / "game" / game), [], game)
+
 if __name__ == "__main__":
     unittest.main()

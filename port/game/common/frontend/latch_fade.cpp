@@ -51,4 +51,33 @@ float LatchFade::frame(
     return target + m_carry;
 }
 
+float LatchFade::frame_known(float target, float expected, bool continues, double since) {
+    since = m_shown && since > 0.0 ? since : 0.0;
+    m_carry *= static_cast<float>(std::exp(-since / kFadeSeconds));
+    // Turned on just now: nothing known of the move, so the picture goes on as it turned.
+    if (!continues) {
+        expected = m_heading + m_rate * static_cast<float>(since);
+    }
+    if (m_shown) {
+        const float step = angle_between(expected, target);
+        m_carry = std::abs(step) < kCutRadians ? m_carry + step : 0.0f;
+    }
+    m_rate = since > 0.0 && since < 0.1
+                 ? angle_between(target, m_heading) / static_cast<float>(since)
+                 : 0.0f;
+    m_was_on = true;
+    m_heading = target;
+    m_shown = true;
+    return target + m_carry;
+}
+
+bool MouseHold::frame(bool turns, bool moved, double since) {
+    if (!turns) {
+        m_still = kRestSeconds;
+        return false;
+    }
+    m_still = moved ? 0.0 : m_still + (since > 0.0 ? since : 0.0);
+    return m_still < kRestSeconds;
+}
+
 }  // namespace openrac::frontend

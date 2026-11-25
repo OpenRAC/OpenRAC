@@ -8,11 +8,13 @@
 #include <vector>
 
 #include "enhanced/viewer/probe_sphere_culling.h"
-#include "renderer/framebuffer.h"
-#include "renderer/gl.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -73,7 +75,7 @@ struct CommandReadback {
         glBindTexture(wgl::GL_TEXTURE_BUFFER, texture);
         glTexBuffer(wgl::GL_TEXTURE_BUFFER, wgl::GL_R32UI, arguments);
         glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
         return frame.read_rgba()[0];
     }
 };
@@ -92,7 +94,14 @@ void test_resident_compaction_and_uploads() {
     CHECK(readback.open(error));
     renderer::Camera camera;
     const std::array<lighting::ProbeRegionSlot, lighting::kDenseProbeSlots> slots{};
-    culling.dispatch(camera, 10, slots);
+    // The live overlay runs inside the moby render bucket, which enforces resource declarations.
+    openrac::vkgl::GraphExecution bucket;
+    bucket.add_pass(bucket.make_pass("mobys"));
+    const auto compacted = bucket.run([&](unsigned) { culling.dispatch(camera, 10, slots); });
+    CHECK(compacted);
+    if (!compacted) {
+        throw std::runtime_error(compacted.error().message);
+    }
     CHECK(readback.count(culling.arguments()) == 2);
     const auto before = openrac::vkgl::submission_counters();
     camera.position = {5000, 0, 0};

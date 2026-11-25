@@ -3,9 +3,9 @@
 #include <iostream>
 #include <string>
 
-#include "renderer/shader_precision.h"
-#include "renderer/vulkan/shader_compiler.h"
-#include "renderer/vulkan/spirv_precision.h"
+#include "renderer/gl/shader_precision.h"
+#include "renderer/vulkan/pipelines/shader_compiler.h"
+#include "renderer/vulkan/pipelines/spirv_precision.h"
 #include "tests/check.h"
 
 using namespace openrac;

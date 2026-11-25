@@ -20,7 +20,7 @@
 #include <SDL3/SDL.h>
 
 #include "debug/menu_ui.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "settings.h"
 
 namespace openrac::frontend::debug_overlay {
@@ -33,9 +33,10 @@ void drawer_ground(ImDrawList* list, ImVec2 a, ImVec2 b, ImDrawFlags corners) {
     list->AddRectFilled(a, b, ui_colors::fade(ui().ink_deep, 0.55f), dp(12.0f), corners);
 }
 
-// Where the drawer's faint stripes end: as the desktop help pane's, 300 by 170 dp at most.
-ImVec2 stripes_end(ImVec2 top, float width) {
-    return ImVec2(top.x + std::min(width - 1.0f, dp(300.0f)), top.y + dp(170.0f));
+// Where the drawer's faint stripes end: 300 dp across at most, and down to the header's foot, so
+// they fade out above the line under it (user).
+ImVec2 stripes_end(ImVec2 top, float width, float header) {
+    return ImVec2(top.x + std::min(width - 1.0f, dp(300.0f)), top.y + header);
 }
 
 // What the picture is drawn with: the launcher's renderer choice takes effect only when the game
@@ -44,7 +45,7 @@ const std::string& graphics_line() {
     static const std::string graphics = [] {
         const auto* name =
             reinterpret_cast<const char*>(openrac::gl::glGetString(openrac::gl::GL_RENDERER));
-        const char* api = s.gl_subset ? "Vulkan" : openrac::gl::is_es() ? "OpenGL ES" : "OpenGL";
+        const char* api = gl::is_vulkan() ? "Vulkan" : gl::is_es() ? "OpenGL ES" : "OpenGL";
         std::string gpu = name != nullptr ? name : "unknown GPU";
         // On Vulkan the renderer's GL names the GPU "<name> (Vulkan)": the API is said already.
         if (constexpr std::string_view vk = " (Vulkan)"; gpu.ends_with(vk)) {
@@ -346,10 +347,16 @@ void drawer(const Shown& shown) {
     const float head = dp(52.0f);
     const float jumps_h = dp(40.0f);
     const float header = head + jumps_h;
-    std::optional<PanelStyle> style(std::in_place, ImVec2(dp(14.0f) + inset, header + dp(4.0f)));
+    // ImGui pads both sides alike, so the notch's inset is an indent on the left only.
+    std::optional<PanelStyle> style(std::in_place, ImVec2(dp(14.0f), header + dp(4.0f)));
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
                                    | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("OpenRAC options", nullptr, flags)) {
+        // Where the rows end (left of the scrollbar): the header's bar and pills end there too.
+        const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+        if (inset > 0.0f) {
+            ImGui::Indent(inset);
+        }
         drag_scroll(s.menu_scroll);
         if (s_jump_section >= 0) {
             // A jump glides there in a few frames, to where the section's heading is now (the
@@ -377,7 +384,6 @@ void drawer(const Shown& shown) {
             back->PushClipRect(top, bottom, false);
             // The desktop help pane's ground: the panel darkened, no light from above.
             drawer_ground(back, top, bottom, ImDrawFlags_RoundCornersRight);
-            faint_stripes(back, top, stripes_end(top, width), ui().amber, 0.05f);
             back->PopClipRect();
         }
         {
@@ -387,11 +393,8 @@ void drawer(const Shown& shown) {
             const ImVec2 bottom(x + width, viewport->Pos.y + header);
             // The same ground as the panel under it, so the header does not cut it off.
             drawer_ground(front, top, bottom, ImDrawFlags_RoundCornersTopRight);
-            // The desktop help pane's faint stripes, in the drawer's top left; the header's part
-            // of them over it, so they run on unbroken into the panel below.
-            front->PushClipRect(top, bottom, true);
-            faint_stripes(front, top, stripes_end(top, width), ui().amber, 0.05f);
-            front->PopClipRect();
+            // The desktop help pane's faint stripes, in the drawer's top left, gone by its foot.
+            faint_stripes(front, top, stripes_end(top, width, header), ui().amber, 0.05f);
             // A hairline under it once rows have scrolled beneath, fading in as they do.
             const float under = std::min(ImGui::GetScrollY() / dp(24.0f), 1.0f);
             if (under > 0.0f) {
@@ -408,7 +411,7 @@ void drawer(const Shown& shown) {
                 const char* state = s.keep_paused ? "Paused" : "Paused while open";
                 const ImVec2 state_size = ImGui::CalcTextSize(state);
                 // As tall as the sections' bar under it, its right edge on the bar's.
-                const ImVec2 pill_b(bottom.x - dp(14.0f), top.y + head * 0.5f + dp(15.0f));
+                const ImVec2 pill_b(right, top.y + head * 0.5f + dp(15.0f));
                 const ImVec2 pill_a(pill_b.x - state_size.x - dp(20.0f), pill_b.y - dp(30.0f));
                 // A badge on the launcher's control fill (as the sections under it), soft text.
                 const float shown_badge = 1.0f - resume;
@@ -429,7 +432,7 @@ void drawer(const Shown& shown) {
                 const char* label = "Resume";
                 const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, label);
                 // The badge's place and height, the sections' bar's under it.
-                const ImVec2 pill_b(bottom.x - dp(14.0f), top.y + head * 0.5f + dp(15.0f));
+                const ImVec2 pill_b(right, top.y + head * 0.5f + dp(15.0f));
                 const ImVec2 pill_a(pill_b.x - size.x - dp(32.0f), pill_b.y - dp(30.0f));
                 front->AddRectFilled(pill_a, pill_b, ui_colors::fade(ui().amber, resume), dp(6.0f));
                 front->AddText(
@@ -464,7 +467,7 @@ void drawer(const Shown& shown) {
                 in_view = s_jump_section;
             }
             const float left = top.x + inset + dp(14.0f);
-            const float span = (bottom.x - dp(14.0f) - left) / 4.0f;
+            const float span = (right - left) / 4.0f;
             const float y0 = top.y + head + dp(2.0f);
             const float y1 = y0 + dp(30.0f);
             front->AddRectFilled(
@@ -603,6 +606,9 @@ void drawer(const Shown& shown) {
         ImGui::PopTextWrapPos();
         ImGui::PopStyleColor();
         ImGui::Dummy(ImVec2(0.0f, dp(12.0f)));
+        if (inset > 0.0f) {
+            ImGui::Unindent(inset);
+        }
     }
     ImGui::End();
     style.reset();

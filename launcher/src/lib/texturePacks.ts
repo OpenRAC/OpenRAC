@@ -11,11 +11,19 @@ export function textureCount(n: number): string {
 /** The pack's line: what it holds and whether the game uses it. */
 export function packSummary(view: TexturePackView): string {
   if (!view.packCount) {
-    if (view.pcsx2Path) return view.enabled ? "PCSX2 pack selected for the next game start." : "Texture packs are off.";
+    if (view.pcsx2Path)
+      return view.enabled
+        ? "PCSX2 pack selected for the next game start."
+        : "Texture packs are off.";
+
     return "Empty for now. Put your pictures in it, or add a pack someone shared.";
   }
+
   const animated = view.packAnimated ? `, ${grouped(view.packAnimated)} of them animated` : "";
-  const state = view.enabled ? "The game uses it from its next start." : "Off: the game shows its own pictures.";
+  const state = view.enabled
+    ? "The game uses it from its next start."
+    : "Off: the game shows its own pictures.";
+
   return `${textureCount(view.packCount)}${animated}. ${state}`;
 }
 
@@ -24,6 +32,7 @@ export function replaceSummary(p: TexturePackPreview): string {
   const name = p.name ? `“${p.name}”` : "This pack";
   const animated = p.animated ? ` (${grouped(p.animated)} animated)` : "";
   const mine = p.current ? ` Your pack (${textureCount(p.current)}) is kept beside it.` : "";
+
   return `${name} has ${textureCount(p.textures)}${animated}. It becomes your texture pack.${mine}`;
 }
 

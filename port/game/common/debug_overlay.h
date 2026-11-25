@@ -26,6 +26,7 @@
 #include <SDL3/SDL.h>
 
 #include "game/common/debug_camera.h"
+#include "game/common/menu_catalog.h"
 #include "game/common/profile.h"
 #include "renderer/math.h"
 #include "renderer/renderer.h"
@@ -197,5 +198,19 @@ void dismiss(std::string_view id);
 
 // GL objects and the ImGui context, before the window's context goes.
 void release();
+
+// ---- The game's own Video pages (options_menu.h, page_rows) ----
+//
+// The in-game menu's entries marked for the game's pages (menu::kGamePage), in the catalog's
+// order, that this screen offers (the drawer's touch entries or the desktop's) and that do something
+// now (an entry's `shown`). Their names and values in English, as the game's font can draw them,
+// and a step that is saved and applied at once, as in the menus. Defined in debug/menu_items.cpp.
+std::vector<menu::Id> game_page_entries();
+std::string game_page_label(menu::Id id);
+std::string game_page_value(menu::Id id);
+void game_page_step(menu::Id id, int by);
+
+// Whether a mod greyed out entry `id` (openrac_api.menu_option_set): its keys leave it alone too.
+bool option_off(menu::Id id);
 
 }  // namespace openrac::frontend::debug_overlay

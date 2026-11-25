@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The sounds packs replace: audio/<key>.wav in the stacked mods folder (--mods), as
-// editor/AUDIO_MODDING.md describes. A sound is known by its key, a hash of what it is (editor/audio.py
+// extractor/AUDIO_MODDING.md describes. A sound is known by its key, a hash of what it is (extractor/audio.py
 // works out the same ones): the same effect is in many levels under other numbers, and most of the
 // game's sound is the same on both discs, so one file reaches a sound everywhere and on either disc.
 // Nothing here runs without a mods folder.

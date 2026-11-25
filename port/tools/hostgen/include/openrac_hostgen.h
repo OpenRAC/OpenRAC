@@ -12,6 +12,8 @@
 #ifndef OPENRAC_HOSTGEN_H
 #define OPENRAC_HOSTGEN_H
 void openrac_hostgen_asm(void);
+/* An argument a call to a K&R function leaves out (clangast.py): 0, or the caller's own register. */
+int openrac_hostgen_unset(void);
 typedef int openrac_ti __attribute__((mode(TI)));
 typedef unsigned int openrac_uti __attribute__((mode(TI)));
 #endif

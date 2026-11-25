@@ -464,7 +464,14 @@ void menu_heading(const char* title) {
     ImGui::Dummy(ImVec2(0.0f, size + dp(8.0f)));
 }
 
-bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_width) {
+bool menu_row(
+    const char* label,
+    ImU32 ink,
+    const RowRight& right,
+    float right_width,
+    const char* stable_id,
+    const RowExtra* extra
+) {
     const float height = dp(s.menu_row_height);
     const ImVec2 at = ImGui::GetCursorScreenPos();
     const float width = ImGui::GetContentRegionAvail().x;
@@ -474,16 +481,19 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_w
             ImVec2(at.x + dp(16.0f), at.y), ImVec2(at.x + width - dp(16.0f), at.y), ui().line
         );
     }
-    ImGui::PushID(label);
+    ImGui::PushID(stable_id ? stable_id : label);
     const bool pressed =
         ImGui::InvisibleButton("row", ImVec2(width, height), ImGuiButtonFlags_EnableNav);
     ImGui::PopID();
-    if (pressed && !g_quiet_row) {
+    if (pressed && !g_quiet_row && !(extra != nullptr && extra->quiet)) {
         menu_sound(MenuSound::Confirm);
     }
     // The menu just opened or changed tab: its first row takes the focus, so that the arrows and a
     // controller start there and the desktop's side says what it does.
-    if (s.menu_focus_first) {
+    // On reopening a scrolled page, focus a row in view without scrolling back to the top.
+    const auto& clip = ImGui::GetCurrentWindow()->ClipRect;
+    if (s.menu_focus_first && at.y >= clip.Min.y && at.y + height <= clip.Max.y
+        && !(ImGui::GetCurrentContext()->CurrentItemFlags & ImGuiItemFlags_Disabled)) {
         s.menu_focus_first = false;
         ImGui::FocusItem();
     }
@@ -513,12 +523,40 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_w
             dp(2.0f)
         );
     }
-    const ImVec2 text_at(
+    ImVec2 text_at(
         at.x + dp(16.0f) + dp(4.0f) * mark, at.y + (height - ImGui::GetFontSize()) * 0.5f
     );
+    const bool has_bar = extra != nullptr && extra->progress >= 0.0f;
+    if (extra != nullptr && extra->icon) {
+        // The icon a little larger than the letters, before them.
+        const float size = std::round(ImGui::GetFontSize() * 1.4f);
+        extra->icon(list, ImVec2(text_at.x, std::round(at.y + (height - size) * 0.5f)), size);
+        text_at.x += size + dp(10.0f);
+    }
+    const float until = at.x + width - dp(16.0f) - right_width - dp(10.0f);
+    const float bar_end = right_width > 0.0f ? until : at.x + width - dp(16.0f);
+    // No room for a bar (a narrow card, a wide value): none.
+    if (has_bar && bar_end > text_at.x + dp(4.0f) * 2.0f) {
+        // The label up a little, the bar under it, as long as the label's room.
+        text_at.y -= dp(4.0f);
+        const float top = std::round(text_at.y + ImGui::GetFontSize() + dp(3.0f));
+        const float end = bar_end;
+        const float h = dp(4.0f);
+        const float k = std::clamp(extra->progress, 0.0f, 1.0f);
+        list->AddRectFilled(
+            ImVec2(text_at.x, top), ImVec2(end, top + h), ui().line_strong, h * 0.5f
+        );
+        if (k > 0.0f) {
+            list->AddRectFilled(
+                ImVec2(text_at.x, top),
+                ImVec2(std::min(end, text_at.x + std::max(h, (end - text_at.x) * k)), top + h),
+                extra->dim ? ui().dim : ui().amber,
+                h * 0.5f
+            );
+        }
+    }
     if (right_width > 0.0f) {
         // Up to what the right side draws: a longer label is cut short with "...".
-        const float until = at.x + width - dp(16.0f) - right_width - dp(10.0f);
         ImGui::PushStyleColor(ImGuiCol_Text, ink);
         ImGui::RenderTextEllipsis(
             list,
@@ -544,25 +582,45 @@ bool menu_row(const char* label, ImU32 ink) {
     return menu_row(label, ink, RowRight());
 }
 
-bool menu_switch(const char* label, bool on) {
-    return menu_row(label, ui().text, [on](ImDrawList* list, ImVec2 right) {
-        const float k = tween(item_part("switch"), on ? 1.0f : 0.0f, kMedium);
-        const float h = dp(26.0f);
-        const ImVec2 a(right.x - dp(46.0f), right.y - h * 0.5f);
-        const ImVec2 b(right.x, right.y + h * 0.5f);
-        // The launcher's switch: a track in the darkest black, no edge; when on, the
-        // gold tint of a control that is on and a gold knob (no wall of solid gold).
-        list->AddRectFilled(a, b, ui_colors::mix(ui().ink_deep, ui().amber, 0.22f * k), h * 0.5f);
-        const float knob = h * 0.5f - dp(4.0f);
-        const float from = a.x + h * 0.5f;
-        const float to = b.x - h * 0.5f;
-        list->AddCircleFilled(
-            ImVec2(from + (to - from) * k, right.y), knob, ui_colors::mix(ui().dim, ui().amber, k)
-        );
-    });
+bool menu_switch(const char* label, bool on, bool enabled, const RowExtra* extra) {
+    ImGui::BeginDisabled(!enabled);
+    const bool pressed = menu_row(
+        label,
+        enabled ? ui().text : ui().dim,
+        [on, enabled](ImDrawList* list, ImVec2 right) {
+            const float k = tween(item_part("switch"), on ? 1.0f : 0.0f, kMedium);
+            const float h = dp(26.0f);
+            const ImVec2 a(right.x - dp(46.0f), right.y - h * 0.5f);
+            const ImVec2 b(right.x, right.y + h * 0.5f);
+            const ImU32 active = enabled ? ui().brand : ui().line_strong;
+            list->AddRectFilled(a, b, ui_colors::mix(ui().ink_deep, active, k), h * 0.5f);
+            list->AddRect(a, b, ui_colors::mix(ui().line_strong, active, k), h * 0.5f);
+            const float knob = h * 0.5f - dp(4.0f);
+            const float from = a.x + h * 0.5f;
+            const float to = b.x - h * 0.5f;
+            list->AddCircleFilled(
+                ImVec2(from + (to - from) * k, right.y),
+                knob,
+                enabled ? ui_colors::mix(ui().dim, ui().text, k) : ui().dim
+            );
+        },
+        extra != nullptr ? dp(46.0f) : 0.0f,
+        nullptr,
+        extra
+    );
+    ImGui::EndDisabled();
+    return pressed;
 }
 
-int menu_choice(const char* label, const std::string& value, bool can_lower, bool can_raise) {
+int menu_choice(
+    const char* label,
+    const std::string& value,
+    bool can_lower,
+    bool can_raise,
+    bool enabled,
+    const char* stable_id,
+    const RowExtra* extra
+) {
     float back_until = 0.0f;  // a press left of this moves the value back
     // The values of every row in one column, centred between its arrows; a label too long for
     // what is left of the row ends in "..." (the drawer's "Anisotropic filtering").
@@ -570,19 +628,25 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
     const auto draw = [&](ImDrawList* list, ImVec2 right) {
         const float left = right.x - column;
         const ImU32 off = ui_colors::fade(ui().dim, 0.35f);
-        arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, can_lower ? ui().amber : off);
-        arrow(list, ImVec2(right.x, right.y), 1.0f, 0.0f, can_raise ? ui().amber : off);
+        arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, enabled && can_lower ? ui().amber : off);
+        arrow(list, ImVec2(right.x, right.y), 1.0f, 0.0f, enabled && can_raise ? ui().amber : off);
         ImFont* font = ImGui::GetFont();
         list->AddText(
             centred_text(font, ImGui::GetFontSize(), value, ImVec2(left + column * 0.5f, right.y)),
-            ui().gold,
+            enabled ? ui().gold : ui().dim,
             value.c_str()
         );
         back_until = left + column * 0.35f;
     };
     g_quiet_row = true;  // the row's sound is the value's (below)
-    const bool pressed = menu_row(label, ui().text, draw, column + dp(8.0f));
+    ImGui::BeginDisabled(!enabled);
+    const bool pressed =
+        menu_row(label, enabled ? ui().text : ui().dim, draw, column + dp(8.0f), stable_id, extra);
+    ImGui::EndDisabled();
     g_quiet_row = false;
+    if (!enabled) {
+        return 0;
+    }
     int by = 0;
     if (pressed) {
         by = ImGui::IsMouseReleased(0) && ImGui::GetIO().MousePos.x < back_until ? -1 : 1;
@@ -605,8 +669,19 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
 }
 
 // Draws a slider using the same focus and divider as the choice rows: its value between two arrows
-// (a tap on one moves it a step), and a track to drag between them.
-int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step) {
+// (a tap on one moves it a step), and a track to drag between them. `text` is the value as shown;
+// `label_pressed`, when given, says whether the row's label (left of the slider) was pressed.
+namespace {
+int slider_row(
+    const char* label,
+    int value,
+    int minimum,
+    int maximum,
+    int step,
+    const std::string& text,
+    bool* label_pressed,
+    bool enabled = true
+) {
     // The choice rows' column, so that the arrows line up with theirs.
     const float column = std::min(s.card.width * 0.48f, dp(190.0f));
     const float arrow_room = dp(16.0f);  // each arrow's part of the column, which a tap on it hits
@@ -622,20 +697,23 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
         track_left = left + arrow_room;
         track_right = right.x - arrow_room - text_room;
         const ImU32 off = ui_colors::fade(ui().dim, 0.35f);
-        arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, value > minimum ? ui().amber : off);
-        arrow(list, ImVec2(right.x, right.y), 1.0f, 0.0f, value < maximum ? ui().amber : off);
+        // Greyed out, as a disabled choice: dim arrows, knob and value.
+        const ImU32 accent = enabled ? ui().amber : ui().dim;
+        arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, enabled && value > minimum ? accent : off);
+        arrow(
+            list, ImVec2(right.x, right.y), 1.0f, 0.0f, enabled && value < maximum ? accent : off
+        );
         const float fraction =
             static_cast<float>(value - minimum) / static_cast<float>(maximum - minimum);
         const ImVec2 start(track_left, right.y);
         const ImVec2 knob(std::lerp(track_left, track_right, fraction), right.y);
         list->AddLine(start, ImVec2(track_right, right.y), ui().line_strong, dp(3.0f));
-        list->AddLine(start, knob, ui().amber, dp(3.0f));
+        list->AddLine(start, knob, accent, dp(3.0f));
         // The knob grows while a finger holds it, so that it shows beside the finger what moves.
         const bool held = s.slider_held && ImGui::IsItemActive();
         const float big = tween(item_part("knob"), held ? 1.0f : 0.0f, kFast);
         const float radius = touch ? dp(7.0f) : dp(5.0f);
-        list->AddCircleFilled(knob, radius + dp(4.0f) * big, ui().amber);
-        const std::string text = std::format("{}%", value);
+        list->AddCircleFilled(knob, radius + dp(4.0f) * big, accent);
         list->AddText(
             centred_text(
                 ImGui::GetFont(),
@@ -643,13 +721,18 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
                 text,
                 ImVec2(track_right + text_room * 0.5f + dp(4.0f), right.y)
             ),
-            ui().gold,
+            enabled ? ui().gold : ui().dim,
             text.c_str()
         );
     };
     g_quiet_row = true;
-    const bool pressed = menu_row(label, ui().text, draw, column + dp(8.0f));
+    ImGui::BeginDisabled(!enabled);
+    const bool pressed = menu_row(label, enabled ? ui().text : ui().dim, draw, column + dp(8.0f));
+    ImGui::EndDisabled();
     g_quiet_row = false;
+    if (!enabled) {
+        return value;
+    }
 
     const ImGuiIO& io = ImGui::GetIO();
     const auto at_pointer = [&] {
@@ -672,6 +755,9 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
     }
     int next = value;
     int by = 0;
+    if (label_pressed != nullptr) {
+        *label_pressed = pressed && start_x < left - dp(12.0f);
+    }
     if (pressed && (on_lower || on_raise)) {
         by = on_lower ? -1 : 1;
     } else if (touch) {
@@ -699,7 +785,8 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
         }
     }
     if (by != 0) {
-        next = std::clamp(value + by * step, minimum, maximum);
+        // Shift moves ten steps at a time.
+        next = std::clamp(value + by * step * (io.KeyShift ? 10 : 1), minimum, maximum);
     }
     // As the choice rows: the cursor's sound for each step it moves, Denied past either end.
     if (next != value) {
@@ -708,6 +795,21 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
         menu_sound(MenuSound::Denied);
     }
     return next;
+}
+}  // namespace
+
+int menu_percent_slider(
+    const char* label, int value, int minimum, int maximum, int step, bool enabled
+) {
+    return slider_row(
+        label, value, minimum, maximum, step, std::format("{}%", value), nullptr, enabled
+    );
+}
+
+int menu_number_slider(
+    const char* label, int index, int count, const std::string& text, bool* label_pressed
+) {
+    return slider_row(label, index, 0, std::max(count, 1), 1, text, label_pressed);
 }
 
 bool menu_button(const char* label) {
@@ -740,6 +842,65 @@ bool menu_button(const char* label) {
         label
     );
     return pressed;
+}
+
+int menu_sub_tabs(
+    const char* const* names, const char* const* helps, int count, int current, int entry
+) {
+    // As far under the title as a section's heading is, and as far over the first heading.
+    ImGui::Dummy(ImVec2(0.0f, dp(18.0f)));
+    ImFont* font = menu_fonts.strong;
+    const float height = dp(40.0f);
+    const float round = dp(6.0f);
+    // The picked one's tint: the launcher's --on-fill, its accent mixed 22 % into the page's ink.
+    const ImU32 on_fill = ui_colors::mix(ui().ink, ui().amber, 0.22f);
+    int picked = current;
+    for (int i = 0; i < count; ++i) {
+        if (i > 0) {
+            ImGui::SameLine(0.0f, dp(6.0f));  // each a button of its own, with room between
+        }
+        const ImVec2 text = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, names[i]);
+        const ImVec2 a = ImGui::GetCursorScreenPos();
+        const ImVec2 b(a.x + text.x + dp(36.0f), a.y + height);
+        const bool pressed =
+            ImGui::InvisibleButton(names[i], ImVec2(b.x - a.x, height), ImGuiButtonFlags_EnableNav);
+        if (pressed && i != current) {
+            menu_sound(MenuSound::Page);
+            picked = i;
+        }
+        // The menu just opened or changed tab: the picked one takes the focus, as a first row
+        // would.
+        if (s.menu_focus_first && i == current) {
+            s.menu_focus_first = false;
+            ImGui::FocusItem();
+        }
+        note_hover_row(entry, "", names[i], helps[i]);
+        ImDrawList* list = ImGui::GetWindowDrawList();
+        const float on = tween(item_part("on"), i == current ? 1.0f : 0.0f, kFast);
+        const float hover = tween(
+            item_part("hover"),
+            !drawer_possible() && ImGui::IsItemHovered() && i != current ? 1.0f : 0.0f,
+            kFast
+        );
+        const ImU32 rest = ui_colors::mix(control_fill(), pressed_fill(), hover);
+        list->AddRectFilled(a, b, ui_colors::mix(rest, on_fill, on), round);
+        focus_ring(
+            list,
+            ImVec2(a.x - dp(3.0f), a.y - dp(3.0f)),
+            ImVec2(b.x + dp(3.0f), b.y + dp(3.0f)),
+            round + dp(3.0f)
+        );
+        list->AddText(
+            font,
+            font->FontSize,
+            centred_text(
+                font, font->FontSize, names[i], ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
+            ),
+            ui_colors::mix(ui_colors::mix(ui().soft, ui().text, hover), ui().amber, on),
+            names[i]
+        );
+    }
+    return picked;
 }
 
 void menu_note(const char* line, ImU32 ink) {
@@ -827,6 +988,7 @@ void set_menu(bool open) {
         s.menu_scroll.velocity = 0.0f;  // a flick from the last time does not glide on
         dismiss("menu.hint");           // the hint at the start has done its work
     } else {
+        s.menu_motion.scroll_target = s.menu_motion.scroll_shown;
         s.paused = s.keep_paused;
     }
 }

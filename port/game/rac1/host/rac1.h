@@ -27,9 +27,26 @@
  * own for the function, or its catalogue places something else there, or its game never calls it). */
 #define RAC1_OMIT(f) RAC1_OMIT_##f
 
+/* A ship destination's label (destinations.c): the text of an added destination's id, else 0. */
+gaddr rac1_ship_destination_text(int id);
+#define RAC1_DESTINATION_TEXT(id) rac1_ship_destination_text(id)
+/* The game's own text id behind a template planet's ship list row (destinations.c), else the id. */
+int rac1_ship_text_id(int id);
+
 /* A function's name in this version, as a string (for logs and switches that name functions). */
 #define RAC1_NAME_(f) #f
 #define RAC1_NAME(f) RAC1_NAME_(f)
+
+/* foreign_class.c: the moby classes this level imports from other levels' programs (its
+ * classes.tsv), read as its program loads; the stand-in update of one (0: not imported). */
+void rac1_foreign_classes_load(int level);
+/* The imported classes' tables of their own levels, after the level's loader (foreign_class.c). */
+void rac1_foreign_worlds_load(void);
+int rac1_foreign_host_world_enter(gaddr moby);
+void rac1_foreign_host_world_leave(int world);
+gaddr rac1_foreign_class_update(int oclass);
+/* How many classes this level imports (0 on a level that imports none). */
+int rac1_foreign_class_count(void);
 
 /* boot.c: a new game straight in `level` from the title, as --level N with OPENRAC_DIRECT. */
 void rac1_start_level(int level);
@@ -40,6 +57,9 @@ void rac1_options_frame(void);
 /* moby_pool.c: a WAD decompressed to `to` (hand.c's WadDecompress, after it wrote it): the gameplay
  * header's spare moby count raised while the level loader runs. */
 void rac1_wad_decompressed(gaddr to);
+/* flight_pictures.c: the flight's lump just decompressed to `to` (`made` bytes) gets an added
+ * destination's picture and caption after its end; returns the bytes added (0 for any other WAD). */
+int rac1_flight_pictures(gaddr to, uint32_t made);
 
 /* scene_actors.c: hide the scene's missing actors during the flight update (pack), then
  * restore the list (unpack). */
@@ -105,6 +125,19 @@ extern const char* const rac1_level_names[];
  * moby put in a pose (a figure, or a moby of the world a mod drives). */
 extern const openrac_game_play rac1_play;
 int rac1_landing(int level);
+/* particles.c: the game's own particle effect with its options (openrac_api.particle_spawn_ex). 1 made,
+ * 0 the pool full, -1 not made (no level played, or a kind or version without it). */
+struct openrac_game_particle_spawn;
+int rac1_particle_spawn_ex(const struct openrac_game_particle_spawn* spawn);
+/* particles.c: a mod's particle texture for the renderer (openrac_api.particle_texture_register): the id
+ * (128 to 255), 0 when all are taken, -1 no level played. rac1_particle_texture_at gives the guest
+ * addresses of an id's indices and palette (1 found, 0 not a registered id) for render_native.c. */
+/* The ids of a mod's particle textures (openrac_api.particle_texture_register, 1.33: the SDK's
+ * OPENRAC_PARTICLE_TEXTURE_FIRST and _COUNT). */
+#define RAC1_PARTICLE_TEXTURE_FIRST 128u
+#define RAC1_PARTICLE_TEXTURE_COUNT 128
+int rac1_particle_texture_register(const uint8_t* indices, const uint8_t* clut);
+int rac1_particle_texture_at(uint8_t texture, uint32_t* pixels, uint32_t* clut);
 void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
 
 /* shared.c: the progress a party shares. */
@@ -122,6 +155,10 @@ int rac1_collision_triangles(const float lo[3], const float hi[3], void* out, in
  * outside a level. */
 int rac1_camera_set(const float eye[3], const float rows[9]);
 int rac1_camera_view(float eye[3], float rows[9]);
+/* Whether a mod's or the debug camera replaces the game's camera in the view build: 1, or 0. */
+int rac1_camera_overridden(void);
+/* The game's camera shake on the level camera (openrac_api.camera_shake): 1, or 0 when not started. */
+int rac1_camera_shake(int channel, float amplitude, int frames);
 
 /* world.c: the level's mobys for the mods (interface 1.9): a moby's slot in the array (-1 none),
  * the mods' gate around each update (UpdateMobys, crash_state.c: 1 before it skips it), the hero's
@@ -144,6 +181,8 @@ int32_t rac1_world_moby_slot(int32_t key);
 /* A placed moby's key, -1 for a spawned one. */
 int32_t rac1_world_moby_key(gaddr moby);
 int32_t rac1_world_moby_mission(int32_t slot);
+int32_t rac1_world_moby_class(gaddr moby);
+int32_t rac1_world_moby_uid(int32_t slot);
 gaddr rac1_world_moby_at(int32_t slot);
 void rac1_world_moby_kill(gaddr moby);
 /* CreateMoby (func_0020D348) of a moby of the level's, also while the pause menu's mobys are the
@@ -153,6 +192,19 @@ void rac1_world_moby_hide(gaddr moby, int hidden);
 int rac1_world_moby_deletion(int32_t slot, openrac_game_moby_deletion* out);
 int rac1_world_camera_position(float out[3]);
 int rac1_level_line(const float from[3], const float to[3], int* blocked);
+/* The skeleton joint of the hero's attach point `point` on `moby` (figure_items.c), -1 for none. */
+int rac1_attach_point_joint(gaddr moby, int point);
+int rac1_collision_line(
+    const float from[3],
+    const float to[3],
+    int level,
+    int mobys,
+    uint32_t ignore,
+    float point[3],
+    float normal[3],
+    int32_t* surface,
+    uint32_t* moby
+);
 int rac1_world_moby_run(int32_t slot, openrac_game_moby_run* out);
 /* moby_pool.c's last run list of the level's mobys: how it treated `slot` (OPENRAC_MOBY_RUN_*, -1
  * not looked at, or none built this level load), how many were built and its camera; world.c's
@@ -211,6 +263,10 @@ gaddr rac1_updating_moby(void);
  * whether a moby is an actor of the scene playing (world.c's listing). */
 int32_t rac1_scene_playing(int32_t* frame);
 int rac1_scene_start(int32_t scene);
+int rac1_pickup_animation(int kind, int item);
+int rac1_pickup_background(void);
+int rac1_infobot_presentation(openrac_infobot_presentation* out);
+void rac1_pickup_tick(void);
 /* camera_script.c: the game's camera scripts for the mods (interface 1.14; play.c's table), and
  * what ends or shows one at the end of the tick's moby loop. */
 void rac1_camera_script_tick(void);

@@ -3,10 +3,12 @@
   // ones that wait for a click ("Update available": a major, or new hooks), with their changelog;
   // the ones held back, and why ("held back: A needs B 1.2.0"); the ones that just went in by
   // themselves, with what changed. Shown only when it has something to say. Changelogs are text.
+  import { onMount } from "svelte";
+
   import { api, errorText, type UpdateItem, type VersionView } from "$lib/api";
   import { autoUpdates, gameRunning, updateVersion } from "$lib/modAutoUpdate.svelte";
-  import { UPDATES as T, holdText, revokedOffText, updateFrom } from "$lib/modsText";
-  import { onMount } from "svelte";
+  import { holdText, revokedOffText, updateFrom, UPDATES as T } from "$lib/modsText";
+
   import Icon from "./Icon.svelte";
 
   let { version, onchange }: { version: VersionView; onchange?: () => void } = $props();
@@ -17,13 +19,15 @@
   const plan = $derived(autoUpdates.plans[version.game] ?? null);
   const recent = $derived(autoUpdates.recent[version.game] ?? []);
   const shown = $derived(
-    (!!plan && (plan.waiting.length > 0 || plan.held.length > 0 || plan.turnedOff.length > 0)) || recent.length > 0,
+    (!!plan && (plan.waiting.length > 0 || plan.held.length > 0 || plan.turnedOff.length > 0)) ||
+      recent.length > 0,
   );
 
   // A look turned off a withdrawn version: the lists show it off.
   let toldOff = "";
   $effect(() => {
     const off = plan?.turnedOff.map((r) => `${r.id}@${r.version}`).join(",") ?? "";
+
     if (off && off !== toldOff) {
       toldOff = off;
       onchange?.();
@@ -45,16 +49,20 @@
   async function update(item: UpdateItem) {
     if (gameRunning()) {
       error = T.running;
+
       return;
     }
+
     busy = item.id;
     error = null;
+
     try {
       await updateVersion(version, [item.id]);
       onchange?.();
     } catch (e) {
       error = errorText(e);
     }
+
     busy = null;
   }
 </script>

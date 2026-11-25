@@ -28,6 +28,7 @@ export const PLAY_ACTIONS = ["play", "play-edited"];
 export function place(e: Pick<ReportEntry, "planet" | "level">): string {
   if (e.planet) return `on ${e.planet}`;
   if (e.level !== null) return `in level ${e.level}`;
+
   return "in the menus";
 }
 
@@ -38,7 +39,9 @@ export function duration(seconds: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   const part = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
   if (h === 0) return part(m, "minute");
+
   return m === 0 ? part(h, "hour") : `${part(h, "hour")} ${part(m, "minute")}`;
 }
 
@@ -46,7 +49,9 @@ export function duration(seconds: number): string {
 export function headline(e: ReportEntry): string {
   if (e.kind === "crash") return `Crashed ${place(e)}`;
   const time = e.duration !== null ? `Played ${duration(e.duration)}` : "Played";
+
   if (e.crashed) return `${time}, then crashed ${place(e)}`;
+
   return e.level !== null || e.planet ? `${time} ${place(e)}` : time;
 }
 
@@ -57,6 +62,7 @@ export function when(seconds: number, now = Date.now(), locale?: string): string
   const time = d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
   const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const days = Math.round((day(new Date(now)) - day(d)) / 86400000);
+
   if (days === 0) return `Today at ${time}`;
   if (days === 1) return `Yesterday at ${time}`;
   const sameYear = d.getFullYear() === new Date(now).getFullYear();
@@ -65,6 +71,7 @@ export function when(seconds: number, now = Date.now(), locale?: string): string
     month: "long",
     ...(sameYear ? {} : { year: "numeric" }),
   });
+
   return `${date} at ${time}`;
 }
 
@@ -72,8 +79,12 @@ export function when(seconds: number, now = Date.now(), locale?: string): string
  *  ended by itself): what happened, and the launcher's version. Not a crash: the game wrote no
  *  report, so there is nothing to report. */
 export function stopText(n: StopNotice, title: string, launcherVersion: string | null): string {
-  const how = n.code === null ? "it was closed (by you, or by the system)" : `it ended with exit code ${n.code}`;
+  const how =
+    n.code === null
+      ? "it was closed (by you, or by the system)"
+      : `it ended with exit code ${n.code}`;
   const tail = n.lines.slice(-25).join("\n");
+
   return [
     `**OpenRAC: ${title} stopped**`,
     "",
@@ -94,6 +105,10 @@ export function lastLines(lines: Line[], count = 40): string[] {
 
 /** The crashes the player should still hear about: newer than SINCE (seconds since 1970) and than
  *  the newest one they dismissed (SEEN, 0 for none). */
-export function unseenRecent<T extends Pick<ReportEntry, "time">>(crashes: T[], seen: number, since: number): T[] {
+export function unseenRecent<T extends Pick<ReportEntry, "time">>(
+  crashes: T[],
+  seen: number,
+  since: number,
+): T[] {
   return crashes.filter((e) => e.time >= since && e.time > seen);
 }

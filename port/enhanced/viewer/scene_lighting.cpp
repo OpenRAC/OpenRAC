@@ -14,68 +14,28 @@
 #include "common/log.h"
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water.h"
+#include "enhanced/viewer/shader_sources.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #include "scene/level_renderer.h"
 
 namespace openrac::lighting {
 
 namespace {
-// Static world variants cannot contain the live, skinned hero; discard every fur declaration there.
-std::string hero_only_source(const char* source) {
-    return std::string("#ifndef OPENRAC_STATIC_COLOUR\n") + source + "\n#endif\n";
+const enhanced::MaterialResponse* retail_response(const scene::Material& source) {
+    static const auto response =
+        enhanced::material_response({}, {{"type", std::string("original")}});
+    return scene::is_retail_chrome(source.metal, source.name) ? &response : nullptr;
 }
 
-std::string hero_shader(std::string source, const char* fur_source, bool fragment = false) {
-    if (gl::is_vulkan() && gl::enhanced_rendering_available()) {
-        source.replace(0, source.find('\n'), "#version 430 core");
-        source.insert(source.find('\n') + 1, "#define OPENRAC_HERO_WETNESS 1\n");
-        // Static world variants cannot contain the live, skinned hero: keep their fur path absent.
-        source.insert(
-            source.find('\n') + 1,
-            "#ifndef OPENRAC_STATIC_COLOUR\n#define OPENRAC_HERO_FUR 1\n#endif\n"
-        );
-        source.insert(source.find('\n') + 1, hero_only_source(fur_source));
-        source.insert(source.find('\n') + 1, hero_only_source(shaders::fur_shell_glsl));
-        if (fragment) {
-            source.insert(source.find('\n') + 1, "#define OPENRAC_FUR_FRAGMENT 1\n");
-        }
-    }
-    return source;
-}
-
-// Normal and early-lit variants share the same fur detail and diagnostic functions.
-std::string hero_fragment(std::string source) {
-    if (gl::is_vulkan() && gl::enhanced_rendering_available()) {
-        const auto surface = source.find("vec3 probe_surface(");
-        // Material response shares existing lighting helpers and never changes coverage or depth.
-        if (surface != std::string::npos) {
-            source.insert(surface, shaders::foliage_glsl);
-        }
-        const auto fur_surface = source.find("vec3 probe_surface(");
-        if (fur_surface != std::string::npos) {
-            source.insert(
-                fur_surface,
-                hero_only_source(shaders::fur_lighting_glsl)
-                    + hero_only_source(shaders::fur_environment_glsl)
-            );
-        }
-        source.insert(source.find('\n') + 1, hero_only_source(shaders::fur_detail_glsl));
-    }
-    return hero_shader(std::move(source), shaders::fur_glsl, true);
-}
 }  // namespace
 
 std::string SceneLighting::mesh_vertex(std::string source) const {
-    return enhanced::WaterFloat::vertex_source(
-        hero_shader(std::move(source), shaders::fur_vertex_glsl)
-    );
+    return shader_sources::mesh_vertex(std::move(source), shader_sources::runtime_options());
 }
 
 std::string SceneLighting::mesh_fragment(std::string source) const {
-    return enhanced::Atmosphere::fragment_source(
-        hero_fragment(probe_mesh_fragment(std::move(source)))
-    );
+    return shader_sources::mesh_fragment(std::move(source), shader_sources::runtime_options());
 }
 
 void SceneLighting::prepare_wetness(
@@ -108,13 +68,19 @@ void SceneLighting::bind_surface_layer(const renderer::Shader& shader, int layer
     m_fur.bind_shell(shader, layer);
 }
 
+void SceneLighting::bind_moby_model(const renderer::Shader& shader, std::uint32_t model) const {
+    m_wetness.bind_model(shader, model);
+    m_fur.bind_model(shader, model, m_default_fur);
+}
+
 std::string SceneLighting::motion_fragment(std::string source) const {
-    return hero_shader(std::move(source), shaders::fur_glsl, true);
+    return shader_sources::motion_fragment(std::move(source), shader_sources::runtime_options());
 }
 
 void SceneLighting::prepare_deformation(
     const renderer::FrameInput& input, const scene::LevelScene& scene
 ) {
+    m_early_lighting.prepare_cloud_noise(input);
 #ifdef OPENRAC_LIGHT_AUTHORING
     if (gl::enhanced_rendering_available()) {
         const auto attached = m_object_lights.prepare(input.frame, scene.joint_palette());
@@ -185,10 +151,34 @@ void SceneLighting::bind_surface_material(
     // Every ordinary material resets its packed controls before the draw's immutable snapshot.
     if (gl::enhanced_rendering_available()) {
         m_foliage.bind(shader, source, m_material_overrides);
-        const auto* response = m_material_overrides ? m_materials.response(model, slot) : nullptr;
+        const auto* response = retail_response(source);
+        if (!response && m_material_overrides) {
+            response = m_materials.response(model, slot);
+        }
         gl::glUniform1i(
             shader.uniform("material_fallback"), response ? response->fallback_channels : 0
         );
+        const auto dielectric = shader.uniform("material_dielectric");
+        gl::glUniform1f(
+            shader.uniform("material_metallic"), response ? response->metallic + 1.f : 0.f
+        );
+        if (dielectric >= 0) {
+            const bool enabled = response && response->dielectric_specular;
+            gl::glUniform3f(
+                dielectric,
+                enabled ? response->reflection.roughness : 0.f,
+                enabled ? response->reflection.reflectivity : 0.f,
+                enabled ? response->reflection.strength : 0.f
+            );
+            if (enabled) {
+                gl::glUniform3f(
+                    shader.uniform("material_dielectric_tint"),
+                    response->reflection.tint[0],
+                    response->reflection.tint[1],
+                    response->reflection.tint[2]
+                );
+            }
+        }
         // Catalog families override the legacy foliage adapter only when explicitly authored.
         if (response && response->family_override) {
             gl::glUniform1f(
@@ -204,8 +194,19 @@ void SceneLighting::bind_surface_material(
             );
         }
         if (response) {
+            m_wetness.bind_model(shader, model);
+            if (response->original
+                || (!response->wet_fur
+                    && !materials::text_value(
+                            m_materials.find(model, slot)->values.properties, "type"
+                    )
+                            .empty())) {
+                gl::glUniform1i(shader.uniform("hero_wetness_enabled"), 0);
+            }
             // Inherited values reset the preceding material's overrides within the same shader run.
-            m_fur.bind_material(shader, response->fur_override ? response->fur : m_default_fur);
+            if (m_fur.hero_model(model)) {
+                m_fur.bind_material(shader, response->fur_override ? response->fur : m_default_fur);
+            }
             m_wetness.bind_material(
                 shader, response->wetness_override ? response->wetness : m_default_wetness
             );
@@ -213,29 +214,55 @@ void SceneLighting::bind_surface_material(
     }
 }
 
+bool SceneLighting::enhanced_materials_enabled() const {
+    return m_material_overrides && gl::enhanced_rendering_available();
+}
+
+bool SceneLighting::material_original(std::uint32_t model, int slot) const {
+    const auto* response =
+        enhanced_materials_enabled() ? m_materials.response(model, slot) : nullptr;
+    return response && response->original;
+}
+
 void SceneLighting::bind_material(
     const renderer::Shader& shader, std::uint32_t model, int slot, const scene::Material& source
 ) const {
     bind_surface_material(shader, model, slot, source);
-    const auto location = shader.uniform("object_reflection_enabled");
-    if (location < 0) {
-        return;
+    const auto* response = retail_response(source);
+    if (!response && m_material_overrides) {
+        response = m_materials.response(model, slot);
     }
-    const auto* response = m_material_overrides ? m_materials.response(model, slot) : nullptr;
+    const bool visor = source.name == enhanced::kShipVisorMaterial;
+    const bool glass_surface = response && response->glass_surface;
+    // The generated pane has no original-mode draw.
+    gl::glUniform1i(shader.uniform("object_thin_glass"), glass_surface ? 1 : visor ? 2 : 0);
+    const auto location = shader.uniform("object_reflection_enabled");
+    // Static glass variants omit the retail reflection gate but still need their optics.
     // Explicit optics can use the original reflective colour when no probes are available.
     constexpr int kAuthoredReflection = 2;
     const int reflection = response && response->reflection_override ? kAuthoredReflection : 1;
-    const bool enabled =
-        m_material_overrides && source.metal && (active() || reflection == kAuthoredReflection);
+    const bool enabled = m_material_overrides && source.metal && !(response && response->original)
+                         && (active() || reflection == kAuthoredReflection);
     gl::glUniform1i(location, enabled ? reflection : 0);
     // Only reflective packets consume these uniforms.
-    if (!source.metal) {
+    if (!source.metal && !glass_surface) {
         return;
     }
     const auto found = m_reflection_classes.find(model);
     const int class_id = found != m_reflection_classes.end() ? found->second : -1;
     const auto material =
         response ? response->reflection : enhanced::reflection_material_for(source.name, class_id);
+    // Only the generated pane reads the transmission parameters.
+    if (glass_surface) {
+        const auto glass = response ? response->glass : enhanced::ThinGlassSettings{};
+        gl::glUniform4f(
+            shader.uniform("object_glass_transmission"),
+            glass.tint[0],
+            glass.tint[1],
+            glass.tint[2],
+            glass.transmission
+        );
+    }
     gl::glUniform3f(
         shader.uniform("object_reflection_material"),
         material.roughness,
@@ -254,17 +281,32 @@ void SceneLighting::bind_material(
 const scene::Material& SceneLighting::resolve_material(
     std::uint32_t model, int slot, const scene::Material& original
 ) const {
+    if (scene::is_retail_chrome(original.metal, original.name)) {
+        return original;
+    }
     const auto* binding = m_material_overrides && gl::enhanced_rendering_available()
                               ? m_materials.find(model, slot)
                               : nullptr;
-    return binding ? binding->surface : original;
+    return binding ? binding->surface() : original;
 }
 
 std::uint64_t SceneLighting::material_variant(std::uint32_t model, int slot) const {
     const auto* binding = m_material_overrides && gl::enhanced_rendering_available()
                               ? m_materials.find(model, slot)
                               : nullptr;
-    return binding ? binding->variant : 0;
+    return binding ? binding->variant() : 0;
+}
+
+bool SceneLighting::material_glass(std::uint32_t model, int slot) const {
+    const auto* response =
+        enhanced_materials_enabled() ? m_materials.response(model, slot) : nullptr;
+    if (!response || !response->glass_surface) {
+        return false;
+    }
+    const auto* binding = m_materials.find(model, slot);
+    // Restored retail chrome always uses its original reflective packet, even if its hidden
+    // catalog entry was edited. The visible colour/replacement slot owns the material choice.
+    return binding && !scene::is_retail_chrome(binding->surface().metal, binding->surface().name);
 }
 
 std::array<float, 3> SceneLighting::sky_tint(std::uint32_t model, int slot) const {
@@ -276,9 +318,7 @@ std::array<float, 3> SceneLighting::sky_tint(std::uint32_t model, int slot) cons
 }
 
 std::string SceneLighting::early_fragment(std::string source) const {
-    return enhanced::Atmosphere::fragment_source(
-        hero_fragment(probe_early_fragment(std::move(source)))
-    );
+    return shader_sources::early_fragment(std::move(source), shader_sources::runtime_options());
 }
 
 // Keeps the level renderer's direct-light and shadow direction aligned.
@@ -475,7 +515,8 @@ void SceneLighting::bind_early(
 bool SceneLighting::early_matches(
     const renderer::FrameInput& input, const renderer::RenderState& state
 ) const {
-    return m_early_lighting.matches(input, state);
+    // The coverage view draws with its own shaders (coverage_view).
+    return !coverage_view() && m_early_lighting.matches(input, state);
 }
 
 std::span<const unsigned> SceneLighting::early_buffers(

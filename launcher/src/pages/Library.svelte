@@ -6,8 +6,8 @@
   // On Android it is a console's home screen instead: DiscShelf, every game a disc on a wheel, Play
   // puts the disc into the console. The navigation rail is already on the left there; a game's page
   // opens from it, and its band leads back.
-  import FolderPrompt from "$components/FolderPrompt.svelte";
   import DiscShelf from "$components/DiscShelf.svelte";
+  import FolderPrompt from "$components/FolderPrompt.svelte";
   import Icon from "$components/Icon.svelte";
   import { onAndroid } from "$lib/api";
   import { app, openVersion } from "$lib/app.svelte";
@@ -18,8 +18,10 @@
   const target = $derived.by(() => {
     if (!lib) return null;
     const known = lib.games.flatMap((g) => g.versions).some((v) => v.key === app.version);
+
     if (app.version && known) return app.version;
     const first = lib.games[0];
+
     return first ? (playerVersion(first)?.key ?? null) : null;
   });
 

@@ -10,6 +10,7 @@ Insomniac Games' fourth Ratchet game, released on the PlayStation 2 in 2005 (in 
 | Version | Disc | Serial | Decomp | Port |
 |---|---|---|---|---|
 | `rac4/ntsc` | NTSC-U (North America), disc v1.00 | `SCUS_974.65` | [decomp/](decomp/README.md) ([rac4-decomp](https://github.com/OpenRAC/rac4-decomp)) | [`port/game/rac4-ntsc/`](../../port/game/rac4-ntsc/) |
+| `rac4/pal` | PAL (Europe), disc v1.00 | `SCES_532.85` | [decomp/](decomp/README.md) ([rac4-decomp](https://github.com/OpenRAC/rac4-decomp)) | not built yet |
 <!-- versions:end -->
 
 ## In this folder
@@ -21,6 +22,12 @@ Insomniac Games' fourth Ratchet game, released on the PlayStation 2 in 2005 (in 
 | [decomp-patches/](decomp-patches/README.md) | OpenRAC-only changes to `decomp/`, each with its reason |
 
 The port's code is in [port/game/rac4-ntsc/](../../port/game/rac4-ntsc/).
+
+The PAL disc, *Ratchet: Gladiator* (`SCES_532.85`), is the decomp's second version and is
+read by the launcher's disc tools like NTSC-U's: set-up, the level editor, and texture and
+model packs, which apply to either disc. The port builds NTSC-U only for now. Deadlocked's
+online public beta (`SCUS_974.87`) is a pre-release format the tools do not read
+([LATER_GAMES.md](../../docs/engine/formats/LATER_GAMES.md)).
 
 How to check the decomp out, change a patch or move its pin: [docs/SOURCES.md](../../docs/SOURCES.md).
 

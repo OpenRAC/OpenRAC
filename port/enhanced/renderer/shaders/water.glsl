@@ -358,7 +358,8 @@ vec3 effect_material(vec3 painted) {
     float thickness;
     bool scene_valid=water_scene_sample(gl_FragCoord.xy/water_scene_extent,gl_FragCoord.z,
                                        view_position,normal_offset,nv,abs(dot(plane.xyz,eye)),
-                                       water_debug_view!=17,water_background,thickness);
+                                       water_debug_view!=17,water_debug_view==14 || water_debug_view==16,
+                                       water_background,thickness);
     vec3 transmittance=scene_valid?water_transmittance(thickness,nv):vec3(0);
     // Original art contributes only the stylised medium tint and ripple detail, never a fake bed.
 #ifdef OPENRAC_OCEAN_SPECTRUM
@@ -373,9 +374,10 @@ vec3 effect_material(vec3 painted) {
     vec3 fallback=gi_specular_fallback(cached.rgb*probe_gi_multiplier,nv,water_material.y);
     // Reflection comes from the viewing side of the interface, not the underwater fade band.
     // The actual displaced surface still anchors box-projected reflection rays.
+    vec3 reflection_normal=dot(surface_normal,eye)<0.?-surface_normal:surface_normal;
     vec3 reflection=water_debug_view==12
-        ?environment_specular(v_world,n,eye,roughness,water_material.y,fallback)
-        :environment_specular_surface(v_world,v_world+n*.5,n,eye,roughness,water_material.y,fallback);
+        ?environment_specular_surface_frame(v_world,v_world,reflection_normal,n,eye,dot(n,eye),roughness,vec3(water_material.y),fallback)
+        :environment_specular_surface_frame(v_world,v_world+n*.5,reflection_normal,n,eye,dot(n,eye),roughness,vec3(water_material.y),fallback);
     if(water_debug_view>=5 && water_debug_view<=11) {
         water_contact_coverage=1.;
         water_background_weight=vec3(0);
@@ -383,7 +385,7 @@ vec3 effect_material(vec3 painted) {
                       :water_debug_view==6?reflection*water_material.z
                       :water_debug_view==7?illumination
                       :water_debug_view==8?vec3(1)
-                      :water_debug_view==9?environment_specular_surface(v_world,v_world+n*.5,n,eye,roughness,water_material.y,vec3(0))
+                      :water_debug_view==9?environment_specular_surface_frame(v_world,v_world+n*.5,reflection_normal,n,eye,dot(n,eye),roughness,vec3(water_material.y),vec3(0))
                       :water_debug_view==10?fallback:cached.rgb/3.14159265;
         return probe_display(max(water_radiance,vec3(0)));
     }

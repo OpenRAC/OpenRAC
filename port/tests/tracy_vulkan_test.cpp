@@ -7,10 +7,11 @@
 
 #include "common/profiler.h"
 #include "common/stats.h"
-#include "renderer/framebuffer.h"
-#include "renderer/shader.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/shader.h"
 #include "renderer/vulkan/vkgl.h"
 #include "tests/check.h"
+#include "tests/graph_fixture.h"
 #include "tests/renderer_gl_context.h"
 
 namespace {
@@ -72,13 +73,13 @@ int main(int argc, char**) {
                 gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, target.id());
                 gl::glClearColor(0, 0, 0, 1);
                 gl::glClear(gl::GL_COLOR_BUFFER_BIT);
-                gl::glDrawArrays(gl::GL_TRIANGLES, 0, 3);
+                openrac::test::graph_draw(gl::glDrawArrays, gl::GL_TRIANGLES, 0, 3);
                 // End a nested zone while a deferred pass is active, then resume drawing.
                 {
                     const stats::Scope nested("Tracy nested draw", stats::kGpu);
-                    gl::glDrawArrays(gl::GL_TRIANGLES, 0, 3);
+                    openrac::test::graph_draw(gl::glDrawArrays, gl::GL_TRIANGLES, 0, 3);
                 }
-                gl::glDrawArrays(gl::GL_TRIANGLES, 0, 3);
+                openrac::test::graph_draw(gl::glDrawArrays, gl::GL_TRIANGLES, 0, 3);
             }
             const auto pixels = target.read_rgba();
             CHECK(pixels.size() == 16 * 16 * 4);

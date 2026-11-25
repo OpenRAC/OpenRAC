@@ -1,6 +1,6 @@
 # rac1/pal functions that are never ported from another project: the movie player (Sony's ezmpeg
-# sample as built into the game, src/game/movie/) and four libmpeg helpers. rac1/pal reverted them to
-# assembly on 2026-09-30; they are redone from the assembly alone (docs/policy/SOURCING.md).
+# sample as built into the game, src/game/movie/) and four libmpeg helpers. rac1/pal keeps them as
+# assembly; they are redone from the assembly alone (docs/policy/SOURCING.md).
 # tools/port.py skips every name here, and every function under src/game/movie whatever this list
 # says (games/rac1/game.json, "never" and "never_sources").
 func_00129CA0

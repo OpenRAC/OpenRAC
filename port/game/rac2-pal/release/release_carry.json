@@ -1,0 +1,805 @@
+{
+ "about": "How release_carry.py paired what the primary release's port names: what rests on less than the same code, and what it found nowhere.",
+ "counts": {
+  "function: by hand": 32,
+  "function: called": 28,
+  "function: changed": 91,
+  "function: found": 28,
+  "function: near": 144,
+  "function: same": 732,
+  "global: aligned": 5,
+  "global: between": 16,
+  "global: exact": 157,
+  "global: the release's build": 103
+ },
+ "functions": {
+  "func_001158F8": [
+   "func_001158F8",
+   "by hand",
+   "signature"
+  ],
+  "func_001205E0": [
+   "func_001205E0",
+   "found",
+   "host C"
+  ],
+  "func_00120748": [
+   "func_00120748",
+   "found",
+   "host C"
+  ],
+  "func_00120FA4": [
+   "func_00120FA4",
+   "found",
+   "host C"
+  ],
+  "func_0012118C": [
+   "func_0012118C",
+   "found",
+   "host C"
+  ],
+  "func_00124418": [
+   "func_00124418",
+   "called",
+   "signature"
+  ],
+  "func_00125D98": [
+   "func_00125D98",
+   "called",
+   "signature"
+  ],
+  "func_00126108": [
+   "func_00126108",
+   "called",
+   "signature"
+  ],
+  "func_00126288": [
+   "func_00126288",
+   "called",
+   "signature"
+  ],
+  "func_00126470": [
+   "func_00126470",
+   "called",
+   "signature"
+  ],
+  "func_00126730": [
+   "func_00126730",
+   "called",
+   "signature"
+  ],
+  "func_00126DC0": [
+   "func_00126DC0",
+   "called",
+   "signature"
+  ],
+  "func_00127348": [
+   "func_00127348",
+   "called",
+   "signature"
+  ],
+  "func_00128F50": [
+   "func_00128F50",
+   "called",
+   "signature"
+  ],
+  "func_001290E0": [
+   "func_001290E0",
+   "called",
+   "host C"
+  ],
+  "func_00129148": [
+   "func_00129148",
+   "called",
+   "host C"
+  ],
+  "func_00129178": [
+   "func_00129178",
+   "called",
+   "host C"
+  ],
+  "func_00130004": [
+   "func_00130004",
+   "found",
+   "host C"
+  ],
+  "func_00131430": [
+   "func_00131430",
+   "found",
+   "unit_aliases src/levels/14_aranos_prison/L14_003F4F98.c"
+  ],
+  "func_0026EDE8": [
+   "func_0026EC50",
+   "changed",
+   "host C 0x0026EDE8"
+  ],
+  "func_0026F7A0": [
+   "func_0026F610",
+   "by hand",
+   "host C"
+  ],
+  "func_0027F640": [
+   "func_0027FB48",
+   "by hand",
+   "host C"
+  ],
+  "func_0027FC70": [
+   "func_00280A30",
+   "called",
+   "host C"
+  ],
+  "func_00281490": [
+   "func_00281D50",
+   "found",
+   "asm.leave"
+  ],
+  "func_0028E458": [
+   "func_0028ECD8",
+   "changed",
+   "host C"
+  ],
+  "func_00293CA8": [
+   "func_002945B8",
+   "changed",
+   "overrides"
+  ],
+  "func_00295F60": [
+   "func_00296870",
+   "near",
+   "host C"
+  ],
+  "func_00298E08": [
+   "func_002997A0",
+   "changed",
+   "host C"
+  ],
+  "func_0029C4C0": [
+   "func_0029CE58",
+   "changed",
+   "RAC2_K PAUSE_LIST_OFFSET"
+  ],
+  "func_002A05A8": [
+   "game_FUN_002A0F68",
+   "by hand",
+   "host C"
+  ],
+  "func_002A6C58": [
+   "func_002A7650",
+   "changed",
+   "host C"
+  ],
+  "func_002A7470": [
+   "func_002A7E68",
+   "near",
+   "host C"
+  ],
+  "func_002AB8C0": [
+   "func_002AC3C0",
+   "near",
+   "unit_aliases src/levels/14_aranos_prison/L14_003F4F98.c"
+  ],
+  "func_002ADB78": [
+   "func_002AE6D8",
+   "changed",
+   "libraries.tsv Bolt_SpawnPickups"
+  ],
+  "func_002B6480": [
+   "func_002B7038",
+   "changed",
+   "host C"
+  ],
+  "func_002D5748": [
+   "func_002D6320",
+   "near",
+   "RAC2_K MAIN_LIST_OFFSET"
+  ],
+  "func_002D58A0": [
+   "func_002D6478",
+   "near",
+   "RAC2_K OPTIONS_LIST_OFFSET"
+  ],
+  "func_002DC900": [
+   "func_002DD5F8",
+   "changed",
+   "host C 0x002DC908"
+  ],
+  "func_002DDA10": [
+   "func_002DE710",
+   "near",
+   "host C"
+  ],
+  "func_002E182C": [
+   "func_002E25FC",
+   "found",
+   "host C"
+  ],
+  "func_002E25C0": [
+   "func_002E3390",
+   "found",
+   "host C"
+  ],
+  "func_002ECB70": [
+   "func_002EDA88",
+   "changed",
+   "host C"
+  ],
+  "func_002F3C40": [
+   "func_002F4B90",
+   "found",
+   "host C"
+  ],
+  "func_002F9C80": [
+   "func_002FACD0",
+   "near",
+   "libraries.tsv Vendor_DrawList"
+  ],
+  "func_002FB1A0": [
+   "func_002FC1D0",
+   "near",
+   "libraries.tsv Vendor_Preview"
+  ],
+  "func_00301D10": [
+   "func_00302E18",
+   "near",
+   "libraries.tsv Bolt_Collect"
+  ],
+  "func_00302470": [
+   "func_00303578",
+   "near",
+   "libraries.tsv Bolt_SpawnPickup"
+  ],
+  "func_00302848": [
+   "func_00303950",
+   "near",
+   "host C"
+  ],
+  "func_00310010": [
+   "func_00311448",
+   "found",
+   "asm.leave"
+  ],
+  "func_003136D0": [
+   "func_00314B5C",
+   "near",
+   "host C"
+  ],
+  "func_00336A78": [
+   "func_00338770",
+   "near",
+   "host C"
+  ],
+  "func_0033AF48": [
+   "func_0033CE70",
+   "changed",
+   "host C"
+  ],
+  "func_0033B050": [
+   "func_0033CF78",
+   "changed",
+   "host C"
+  ],
+  "func_0033C2D8": [
+   "func_0033E160",
+   "near",
+   "host C"
+  ],
+  "func_0033C378": [
+   "func_0033E248",
+   "near",
+   "host C"
+  ],
+  "func_0033C468": [
+   "func_0033E338",
+   "near",
+   "RAC2_K TEXT_PAGE_TOGGLE"
+  ],
+  "func_0033C738": [
+   "func_0033E608",
+   "near",
+   "RAC2_K TEXT_WIDESCREEN"
+  ],
+  "func_0033ED88": [
+   "func_00340D78",
+   "by hand",
+   "RAC2_K PLANET_INFO_COUNT_WIDGET"
+  ],
+  "func_00341540": [
+   "func_003435C0",
+   "changed",
+   "host C"
+  ],
+  "func_00341610": [
+   "func_00343690",
+   "near",
+   "RAC2_K PAUSE_LIST_WHICH"
+  ],
+  "func_00341A68": [
+   "func_00343AD0",
+   "changed",
+   "host C"
+  ],
+  "func_00341A88": [
+   "func_00343AF0",
+   "changed",
+   "RAC2_K LIST_ORIGIN"
+  ],
+  "func_00341C20": [
+   "func_00343C88",
+   "changed",
+   "RAC2_K LIST_TITLE_TEXT"
+  ],
+  "func_00341EB0": [
+   "func_00343F18",
+   "changed",
+   "host C"
+  ],
+  "func_00342118": [
+   "func_00344180",
+   "changed",
+   "RAC2_K TITLE_ICON_SHEET"
+  ],
+  "func_00342380": [
+   "func_003443E8",
+   "changed",
+   "host C"
+  ],
+  "func_0034CEA0": [
+   "func_0034F068",
+   "near",
+   "RAC2_K HUD_BOLT_TEXT"
+  ],
+  "func_0034DB98": [
+   "func_0034FD60",
+   "near",
+   "host C"
+  ],
+  "func_0034E4F8": [
+   "func_003506E0",
+   "changed",
+   "host C"
+  ],
+  "func_0034EF58": [
+   "func_00351140",
+   "changed",
+   "host C"
+  ],
+  "func_L00_002A4EF8": [
+   "func_L00_002A4D58",
+   "changed",
+   "libraries.tsv Hero_TakeDamage"
+  ],
+  "func_L00_002A5518": [
+   "func_L00_002A53A8",
+   "changed",
+   "host C"
+  ],
+  "func_L00_002A5840": [
+   "func_L00_002A56D0",
+   "changed",
+   "host C"
+  ],
+  "func_L00_002A6DD0": [
+   "func_L00_002A6CB8",
+   "changed",
+   "libraries.tsv Hero_Update"
+  ],
+  "func_L00_002B2120": [
+   "func_L00_002B2018",
+   "changed",
+   "host C"
+  ],
+  "func_L00_002B4458": [
+   "func_L00_002B4380",
+   "changed",
+   "unit_aliases src/levels/shared/L13_002C5760.c"
+  ],
+  "func_L00_002D2168": [
+   "func_L00_002D2668",
+   "changed",
+   "host C"
+  ],
+  "func_L00_002D24E8": [
+   "func_L00_002D29E8",
+   "near",
+   "host C"
+  ],
+  "func_L00_002F7568": [
+   "func_L00_002F8C60",
+   "changed",
+   "extra_params"
+  ],
+  "func_L00_00300618": [
+   "func_L00_003021B0",
+   "near",
+   "host C"
+  ],
+  "func_L00_00303990": [
+   "func_L00_00305570",
+   "changed",
+   "libraries.tsv Level_Load"
+  ],
+  "func_L00_003046D0": [
+   "func_L00_003062B0",
+   "changed",
+   "overrides"
+  ],
+  "func_L00_00321878": [
+   "func_L00_00323918",
+   "changed",
+   "libraries.tsv Bolt_SpawnPickups"
+  ],
+  "func_L00_0032A258": [
+   "func_L00_0032C328",
+   "changed",
+   "unit_aliases src/levels/01_oozla/L01_00412E00-flags-g8.c"
+  ],
+  "func_L00_00364EE8": [
+   "func_L00_003676D8",
+   "changed",
+   "overrides"
+  ],
+  "func_L00_00373D40": [
+   "func_L00_00376810",
+   "changed",
+   "libraries.tsv ArmorVendor_Buy"
+  ],
+  "func_L00_00387CA8": [
+   "func_L00_0038ACC8",
+   "near",
+   "host C"
+  ],
+  "func_L00_0038D530": [
+   "func_L00_00390608",
+   "near",
+   "host C"
+  ],
+  "func_L00_00392530": [
+   "func_L00_00395680",
+   "near",
+   "host C"
+  ],
+  "func_L00_003A98E8": [
+   "func_L00_003AD088",
+   "near",
+   "host C"
+  ],
+  "func_L00_003AA4C8": [
+   "func_L00_003ADC68",
+   "near",
+   "host C"
+  ],
+  "func_L00_003AB9C0": [
+   "func_L00_003AF190",
+   "changed",
+   "host C"
+  ],
+  "func_L00_003C3D90": [
+   "func_L00_003C7B10",
+   "near",
+   "host C"
+  ],
+  "func_L00_003EED10": [
+   "func_L00_003F3090",
+   "changed",
+   "host C"
+  ],
+  "func_L00_00403730": [
+   "func_L00_00408110",
+   "near",
+   "host C"
+  ],
+  "func_L00_00408800": [
+   "func_L00_0040D328",
+   "near",
+   "host C"
+  ],
+  "func_L00_00409E48": [
+   "func_L00_0040E9F0",
+   "near",
+   "host C"
+  ],
+  "func_L00_00424F98": [
+   "func_L00_0042A488",
+   "near",
+   "host C"
+  ],
+  "func_L00_00438E68": [
+   "func_L00_0043E770",
+   "near",
+   "extra_params"
+  ],
+  "func_L01_002A8C48": [
+   "func_L01_002A8B30",
+   "changed",
+   "libraries.tsv Hero_Update"
+  ],
+  "func_L01_002AE128": [
+   "func_L01_002AE010",
+   "changed",
+   "unit_aliases src/levels/08_tabora/L08_002CB6E8.c"
+  ],
+  "func_L01_003C9D00": [
+   "func_L01_003CDDC8",
+   "near",
+   "overrides"
+  ],
+  "func_L01_003CEDA0": [
+   "func_L01_003D2EF0",
+   "by hand",
+   "libraries.tsv Moby_DynamoPickup_Update"
+  ],
+  "func_L01_003D2E50": [
+   "func_L01_003D7098",
+   "by hand",
+   "libraries.tsv Moby_TractorBeamSeller_Update"
+  ],
+  "func_L01_00416440": [
+   "func_L01_0041B900",
+   "by hand",
+   "libraries.tsv Moby_BoxBreakerPickup_Update"
+  ],
+  "func_L02_0032B468": [
+   "func_L02_0032D5F8",
+   "near",
+   "unit_aliases src/levels/11_joba/L11_00449330.c"
+  ],
+  "func_L02_00333438": [
+   "func_L02_00335630",
+   "changed",
+   "overrides"
+  ],
+  "func_L02_003CE8B0": [
+   "func_L02_003D2898",
+   "changed",
+   "overrides"
+  ],
+  "func_L03_002AD540": [
+   "func_L03_002AD428",
+   "changed",
+   "libraries.tsv Hero_Update"
+  ],
+  "func_L03_003C7018": [
+   "func_L03_003CB058",
+   "changed",
+   "host C"
+  ],
+  "func_L03_003F09C0": [
+   "func_L03_003F5090",
+   "by hand",
+   "libraries.tsv Moby_SwingshotArea_Update"
+  ],
+  "func_L04_002DCE78": [
+   "func_L04_002DCE68",
+   "near",
+   "unit_aliases src/levels/08_tabora/L08_002CB6E8.c"
+  ],
+  "func_L04_002E04A8": [
+   "func_L04_002E04A0",
+   "near",
+   "calls_as"
+  ],
+  "func_L04_0040AD28": [
+   "func_L04_0040F2B0",
+   "near",
+   "host C"
+  ],
+  "func_L04_00411298": [
+   "func_L04_004158F0",
+   "near",
+   "host C"
+  ],
+  "func_L04_00417308": [
+   "func_L04_0041BC68",
+   "near",
+   "host C"
+  ],
+  "func_L04_00419918": [
+   "func_L04_0041E4A0",
+   "near",
+   "libraries.tsv Moby_RaceController_Update"
+  ],
+  "func_L04_00434BB0": [
+   "func_L04_00439C28",
+   "by hand",
+   "libraries.tsv Moby_ThermanatorSeller_Update"
+  ],
+  "func_L04_00456628": [
+   "func_L04_0045C268",
+   "by hand",
+   "libraries.tsv Moby_ThermanatorArea_Update"
+  ],
+  "func_L05_0037D6E8": [
+   "func_L05_0037FEB0",
+   "near",
+   "unit_aliases src/levels/15_gorn/L15_00315428-g8.c"
+  ],
+  "func_L05_0041DF58": [
+   "func_L05_00422CA8",
+   "near",
+   "host C"
+  ],
+  "func_L06_00396268": [
+   "func_L13_00360CC0",
+   "found",
+   "more_places func_L00_00354DF8"
+  ],
+  "func_L06_00443DE0": [
+   "func_L06_00448968",
+   "changed",
+   "overrides"
+  ],
+  "func_L08_002CB6E8": [
+   "func_L08_002CB6E0",
+   "near",
+   "calls_as"
+  ],
+  "func_L08_003DB518": [
+   "func_L08_003DF830",
+   "near",
+   "host C"
+  ],
+  "func_L08_0040E9B8": [
+   "func_L08_004137E8",
+   "by hand",
+   "libraries.tsv Moby_GliderPickup_Update"
+  ],
+  "func_L08_0041D808": [
+   "func_L08_00422A30",
+   "near",
+   "host C"
+  ],
+  "func_L08_0041EBF8": [
+   "func_L08_00423EA0",
+   "by hand",
+   "host C"
+  ],
+  "func_L09_00404B90": [
+   "func_L09_00409AC8",
+   "near",
+   "calls_as"
+  ],
+  "func_L09_00404BF0": [
+   "func_L09_00409B48",
+   "near",
+   "calls_as"
+  ],
+  "func_L09_00404F90": [
+   "func_L09_00409F00",
+   "changed",
+   "overrides"
+  ],
+  "func_L10_00421790": [
+   "func_L10_00426618",
+   "near",
+   "host C"
+  ],
+  "func_L11_003F8510": [
+   "func_L11_003FCA30",
+   "by hand",
+   "libraries.tsv Moby_ChargeBootsRider_Update"
+  ],
+  "func_L11_004618C0": [
+   "func_L11_004676D0",
+   "by hand",
+   "libraries.tsv Moby_LevitatorSeller_Update"
+  ],
+  "func_L12_002B85E0": [
+   "func_L12_002B8478",
+   "changed",
+   "unit_aliases src/levels/12_todano/L12_002CF7B0-decider.c"
+  ],
+  "func_L12_002CF7B0": [
+   "func_L12_002CFA90",
+   "near",
+   "calls_as"
+  ],
+  "func_L12_00402B48": [
+   "func_L12_004075B8",
+   "near",
+   "calls_as"
+  ],
+  "func_L13_002C5760": [
+   "func_L13_002C56D8",
+   "near",
+   "calls_as"
+  ],
+  "func_L14_003F4F98": [
+   "func_L14_003F9660",
+   "near",
+   "overrides"
+  ],
+  "func_L15_0042E1B0": [
+   "func_L15_004334B0",
+   "near",
+   "host C"
+  ],
+  "func_L16_004364B0": [
+   "func_L16_0043BEF0",
+   "changed",
+   "extra_params"
+  ],
+  "func_L18_003F90A0": [
+   "func_L18_003FD180",
+   "by hand",
+   "libraries.tsv Moby_MapperReturn_Update"
+  ],
+  "func_L18_003FB708": [
+   "func_L18_003FF850",
+   "near",
+   "calls_as"
+  ],
+  "func_L18_00440718": [
+   "func_L18_00445BB0",
+   "by hand",
+   "libraries.tsv Moby_HypnomaticMaker_Update"
+  ],
+  "func_L22_003A5018": [
+   "func_L22_003A83A8",
+   "near",
+   "host C"
+  ],
+  "func_L23_0041DA48": [
+   "func_L23_00422D10",
+   "changed",
+   "host C"
+  ]
+ },
+ "globals": {
+  "D_001F0000": [
+   "001F2638",
+   "its value plus what the C adds",
+   "formed_as"
+  ],
+  "D_L00_00262260": [
+   "00262262",
+   "its level's place plus what the C adds",
+   "formed_as"
+  ],
+  "boot:00146B44": [
+   "00146BC4",
+   "between",
+   "host C 0x00146B44"
+  ],
+  "boot:00152C18": [
+   "00152C98",
+   "between",
+   "profile boot 0x00152C18"
+  ],
+  "boot:00152C2E": [
+   "00152CAE",
+   "between",
+   "rac2_addresses.h"
+  ],
+  "boot:00152C30": [
+   "00152CB0",
+   "between",
+   "profile boot 0x00152C30"
+  ],
+  "boot:00152C64": [
+   "00152CE4",
+   "between",
+   "host C 0x00152C64"
+  ],
+  "boot:00152C68": [
+   "00152CE8",
+   "between",
+   "host C 0x00152C68"
+  ],
+  "boot:002652B0": [
+   "00265030",
+   "between",
+   "RAC2_K HELP_8"
+  ],
+  "ref_L00_00290B48_00": [
+   "003581A7",
+   "its value plus what the C adds",
+   "formed_as"
+  ]
+ },
+ "level_hooks": {
+  "carried": 31,
+  "count": 38,
+  "from": "0026F580",
+  "to": "0026F678"
+ }
+}

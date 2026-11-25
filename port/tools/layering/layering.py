@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2026 the OpenRAC contributors
 """
-Checks the port's includes against the module layering of port/docs/CODING_CONVENTIONS.md
+Checks the port's includes against the module layering of docs/CODING_CONVENTIONS.md
 (section 18).
 
   layering.py                   check port/ against rules.tsv; exit 1 on a new violation
@@ -301,7 +301,7 @@ def main(argv=None):
     sys.stdout.flush()
     print(
         f"layering: {len(report.violations)} to fix, {len(report.warnings)} warning(s), "
-        f"{len(report.edges)} includes read (port/docs/CODING_CONVENTIONS.md, section 18)",
+        f"{len(report.edges)} includes read (docs/CODING_CONVENTIONS.md, section 18)",
         file=sys.stderr,
     )
     return 1 if report.violations else 0

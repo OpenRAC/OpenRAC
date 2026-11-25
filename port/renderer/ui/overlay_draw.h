@@ -2,14 +2,14 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // An OverlayList's triangles blended over a framebuffer, through the renderer's GL: on OpenGL and
-// on the Vulkan renderer's alike. It keeps its program and buffer from the first draw on; release()
-// frees them while the context is current.
+// on the Vulkan renderer's alike. It keeps its program and buffer from the first draw on;
+// release() frees them while the context is current.
 
 #pragma once
 
 #include <span>
 
-#include "renderer/shader.h"
+#include "renderer/gl/shader.h"
 #include "renderer/ui/overlay_list.h"
 
 namespace openrac::renderer::ui {
@@ -25,7 +25,18 @@ public:
     // current; leaves blending off and the draw framebuffer at 0.
     void draw(unsigned framebuffer, int width, int height, std::span<const OverlayVertex> vertices);
 
-    // Frees the GL objects, if a draw made them.
+    // The same for a frame of rectangles and text with per-batch blend modes: each of `batches`
+    // (an OverlayList's, over its `vertices`) in turn, so what was asked first is under what was
+    // asked after.
+    void draw(
+        unsigned framebuffer,
+        int width,
+        int height,
+        std::span<const OverlayVertex> vertices,
+        std::span<const OverlayBatch> batches
+    );
+
+    // Frees the GL objects if a draw made them.
     void release();
 
 private:

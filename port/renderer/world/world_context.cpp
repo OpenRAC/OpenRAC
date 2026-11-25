@@ -51,7 +51,6 @@ bool WorldContext::init(std::string& error) {
             "world renderers: world::gl::load() has not been called (renderer/world/gl_world.h)";
         return false;
     }
-    glGenVertexArrays(1, &m_empty_vao);
     m_initialised = true;
     return true;
 }
@@ -60,21 +59,7 @@ void WorldContext::release() {
     m_view_block.release();
     m_lights_block.release();
     m_samplers.release();
-    if (m_scratch != 0) {
-        glDeleteTextures(1, &m_scratch);
-        m_scratch = 0;
-    }
-    if (m_scratch_framebuffer != 0) {
-        glDeleteFramebuffers(1, &m_scratch_framebuffer);
-        m_scratch_framebuffer = 0;
-    }
-    if (m_empty_vao != 0) {
-        glDeleteVertexArrays(1, &m_empty_vao);
-        m_empty_vao = 0;
-    }
     m_uploaded.clear();
-    m_scratch_width = 0;
-    m_scratch_height = 0;
     m_initialised = false;
 }
 
@@ -124,7 +109,9 @@ void WorldContext::bind_texture(
         return animated ? u.gl == id : u.handle == handle;
     });
     const bool fresh = known == m_uploaded.end() || known->gl != id;
-    if (fresh) {
+    // A texture pack KTX2's blocks come with their own levels, in their format: the game's are
+    // not put over them.
+    if (fresh && !pool.has_blocks(handle)) {
         // The game's own mip chain (levels 1..MXL; the pool holds level 0).
         // A level of the wrong size ends the chain there.
         const Rgba8Image& base = pool.image(handle);
@@ -156,73 +143,17 @@ void WorldContext::bind_texture(
         }
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, levels);
-        if (known == m_uploaded.end()) {
-            m_uploaded.push_back({id, handle});
-        } else {
-            known->gl = id;
-        }
+    }
+    if (known == m_uploaded.end()) {
+        m_uploaded.push_back({id, handle});
+    } else if (fresh) {
+        known->gl = id;
     }
     SamplerState s = sampler;
     if (texture.mip_levels.empty()) {
         s.mipmapped = false;
     }
     glBindSampler(static_cast<GLuint>(unit), m_samplers.get(s));
-}
-
-void WorldContext::bind_gl_texture(unsigned gl_texture, const SamplerState& sampler, int unit) {
-    glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
-    glBindTexture(GL_TEXTURE_2D, gl_texture);
-    glBindSampler(static_cast<GLuint>(unit), m_samplers.get(sampler));
-}
-
-unsigned WorldContext::copy_target(const RenderTarget& target) {
-    if (m_scratch == 0 || m_scratch_width != target.width || m_scratch_height != target.height) {
-        if (m_scratch == 0) {
-            glGenTextures(1, &m_scratch);
-        }
-        glBindTexture(GL_TEXTURE_2D, m_scratch);
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            static_cast<GLint>(GL_RGBA8),
-            target.width,
-            target.height,
-            0,
-            GL_RGBA,
-            GL_UNSIGNED_BYTE,
-            nullptr
-        );
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-        if (m_scratch_framebuffer == 0) {
-            glGenFramebuffers(1, &m_scratch_framebuffer);
-        }
-        glBindFramebuffer(GL_FRAMEBUFFER, m_scratch_framebuffer);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_scratch, 0);
-        m_scratch_width = target.width;
-        m_scratch_height = target.height;
-    }
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, target.framebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_scratch_framebuffer);
-    glBlitFramebuffer(
-        0,
-        0,
-        target.width,
-        target.height,
-        0,
-        0,
-        target.width,
-        target.height,
-        GL_COLOR_BUFFER_BIT,
-        GL_NEAREST
-    );
-    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
-    return m_scratch;
-}
-
-void WorldContext::draw_fullscreen() {
-    glBindVertexArray(m_empty_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    glBindVertexArray(0);
 }
 
 }  // namespace openrac::renderer::world

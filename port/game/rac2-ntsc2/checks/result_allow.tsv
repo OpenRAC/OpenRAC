@@ -1,0 +1,15 @@
+# Calls whose C reads a result the callee's definition does not return in that register, which the
+# translation takes as 0 (hostgen.json "result_allow", hostgen.py result_guard). Each row says why 0
+# is right here: the value goes nowhere, or the port has nothing the retail value would mean.
+# A call whose value nothing reads (an expression statement) is not listed. Retail checked from the
+# disc's assembly.
+# NTSC-U v2.00 names; the reasons are rac2-ntsc's for the same functions.
+# caller	callee	reason
+func_0012672C	func_0011AF60	GsPutIMR (syscall 0x71) returns the old mask, which sceGsExecStoreImage puts back; the port has no GS interrupts and its GsPutIMR ignores the mask
+func_00285830	func_00125D98	wrapper passing the result on; its one caller (the loader) does not read it
+func_002A11B8	func_002A0E80	returns func_002A0048's result when D_001B1B80 is set; both callers call it for its effect only
+func_L00_002FD1B8	func_00278EC0	r1_ wrapper passing the result on; no caller reads it
+func_L00_002FD1D8	func_00278F90	r1_ wrapper passing the result on; no caller reads it
+func_L00_002FD218	func_L00_002E3270	r1_ wrapper passing the result on; no caller reads it
+func_L00_0030EFB8	FUN_00339678	HUD message wrapper; every caller calls it for its effect only
+func_L00_0030EFF8	FUN_00338F18	HUD message wrapper passing the result on; no caller reads it

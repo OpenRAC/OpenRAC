@@ -6,9 +6,9 @@
 
 #include <utility>
 
-#include "renderer/gl.h"
+#include "renderer/gl/gl.h"
 #if defined(OPENRAC_VULKAN)
-#include "renderer/vulkan/graph_execution.h"
+#include "renderer/vulkan/graph/graph_execution.h"
 #endif
 
 namespace openrac::enhanced {
@@ -26,12 +26,16 @@ Result<graph::Pass> compute_pass(
     std::span<const ComputeOutput> outputs,
     ComputeInputs inputs
 ) {
-    graph::Pass pass{std::string(name)};
+    auto pass = execution.make_pass(name);
 
     // Output allocations stay stable through synchronous recording.
     for (const auto& output : outputs) {
         const auto handle = execution.import_buffer(
-            std::string(name), output.buffer, vkgl::InitialContents::Discard
+            "compute output",
+            output.buffer,
+            vkgl::InitialContents::Discard,
+            output.track_shader_reads ? vkgl::BufferVisibility::TrackShaderReads
+                                      : vkgl::BufferVisibility::Conservative
         );
 
         // A transient or missing output cannot be written through a graph import.
@@ -67,7 +71,8 @@ bool run_compute_graph(
     std::span<const ComputeOutput> outputs,
     const std::function<void()>& record,
     std::string& error,
-    ComputeInputs inputs
+    ComputeInputs inputs,
+    SampledInputExports sampled_exports
 ) {
     using namespace gl;
 #if defined(OPENRAC_VULKAN)
@@ -82,12 +87,19 @@ bool run_compute_graph(
             return false;
         }
 
-        auto consumers =
-            graph::shader_read_export(std::string(name) + " consumers", *pass, kShaders);
+        auto consumers = execution.make_pass(name);
+        consumers.name.append(" consumers");
+        graph::shader_read_export(consumers, *pass, kShaders);
+        if (sampled_exports == SampledInputExports::Continuation) {
+            for (auto& image : consumers.images) {
+                image.continuation = true;
+            }
+        }
         execution.add_pass(std::move(*pass));
         execution.add_pass(std::move(consumers));
         // The executor calls this on the render thread before returning.
-        const auto result = execution.run([&](unsigned) { record(); });
+        const auto result =
+            execution.run([&](unsigned) { record(); }, graph::PlanCache::Imports::Rebind);
 
         // Compilation and recording errors leave the caller on its existing lighting fallback.
         if (!result) {
@@ -103,6 +115,7 @@ bool run_compute_graph(
     (void)outputs;
     (void)error;
     (void)inputs;
+    (void)sampled_exports;
 #endif
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     record();

@@ -9,8 +9,9 @@
 #include "enhanced/tests/probe_fixture.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "enhanced_viewer_shaders.h"
-#include "renderer/gl.h"
-#include "renderer/shadows.h"
+#include "renderer/effects/shadows.h"
+#include "renderer/gl/gl.h"
+#include "renderer/settings/render_opt.h"
 #if defined(OPENRAC_VULKAN)
 #include "renderer/vulkan/vkgl.h"
 #endif
@@ -18,6 +19,7 @@
 #include "scene/sun_shadow.h"
 #include "tests/check.h"
 #include "tests/gpu_draw_reference.h"
+#include "tests/graph_fixture.h"
 #include "tests/render_test_timing.h"
 #include "tests/renderer_gl_context.h"
 using namespace openrac;
@@ -214,7 +216,7 @@ void main() {
     glUniform1i(shader.uniform("sun_shadow_map0"), 7);
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto rgba = frame.read_rgba();
     for (unsigned i = 0; i < 64; ++i) {
         const float expected = (i + .5f) / 64;
@@ -228,7 +230,7 @@ void main() {
     const float slope_depths[] = {.4f, 0, 0, 1, .6f, 0, 0, 1};
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 2, 1, GL_RGBA, GL_FLOAT, slope_depths);
     glUniform1i(shader.uniform("filter_mode"), 1);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto plane = frame.read_rgba();
     for (unsigned i = 0; i < 64; ++i) {
         CHECK(plane[i * 4] >= 254);
@@ -244,9 +246,9 @@ void main() {
 
 // A far cascade's texels are tens of times the nearest's (kSunResolutions over a 256-unit range).
 // A receiver steeper to the light than the filter's slope clamp, sampled against a map that holds
-// its own depth at each texel centre, must not shadow itself there: with a bias and normal offset
-// fixed in world units it did, in speckles and stair steps on distant hills and foliage, while the
-// near cascade was clean.
+// its own depth at each texel centre, must not shadow itself there. A bias and normal offset fixed
+// in world units would leave speckles and stair steps on distant hills and foliage, while the near
+// cascade stays clean.
 void far_cascade_self_shadow_gpu() {
     renderer::FrameBuffer frame;
     renderer::Shader shader;
@@ -306,7 +308,7 @@ void main() {
     glUniform1f(shader.uniform("rise"), kRise);
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto rgba = frame.read_rgba();
     int shadowed = 0;
     for (int i = 0; i < kSamples; ++i) {
@@ -422,7 +424,7 @@ void main() {
                 glUniform2f(shader.uniform("test_slope"), slope[0], slope[1]);
                 for (int tent = 0; tent < 2; ++tent) {
                     glUniform1i(shader.uniform("tent_kernel"), tent);
-                    glDrawArrays(GL_TRIANGLES, 0, 3);
+                    openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
                     const auto pixels = frame.read_rgba();
                     unsigned mismatches = 0;
                     for (std::size_t i = 0; i < pixels.size(); i += 4) {
@@ -482,6 +484,8 @@ void gpu() {
     level.indices = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
     level.materials.push_back({});
     scene::Model plane, block;
+    plane.name = "terrain.glb";
+    block.name = "tie_7.glb";
     plane.primitives.push_back({0, 6, 0});
     plane.min = {-300, -300, 0};
     plane.max = {300, 300, 0};
@@ -550,6 +554,8 @@ void gpu() {
     renderer::FrameBuffer target;
     CHECK(target.create(size, size, error));
     renderer::FrameInput input;
+    // The cascade checks below sample a narrow shadow at fixed screen coordinates.
+    input.early_lighting_quality = renderer::EarlyLightingQuality::High;
     const renderer::RenderTarget rt{target.id(), size, size};
     // Modern shadows must skip stencil generation/compositing, even if the
     // game still submits valid retail proxy capsules.
@@ -1163,6 +1169,35 @@ void test_static_shadow_keys_follow_the_camera() {
     CHECK(same_key == 0);
 }
 
+// A far cascade drawn with slack still covers the next frame's receivers after a small step of
+// the camera (shadow-far-alternate), but not after a large one.
+void test_far_cascades_fit_a_small_step() {
+    const auto step = [&](float distance) {
+        auto moved = camera(12);
+        moved.position[0] += distance;
+        moved.view = renderer::look_along(moved.position, {0, 0, -1}, {0, 1, 0});
+        return scene::sun_cascades(
+            moved,
+            {1, 0, -1},
+            {-100, -100, -10},
+            {100, 100, 200},
+            256,
+            renderer::ShadowQuality::High,
+            scene::kFarCascadeSlack
+        );
+    };
+    const auto drawn = step(0);
+    const auto near = step(0.05f);
+    const auto far = step(40);
+
+    // Each cascade the alternation may keep.
+    for (unsigned i = 1; i < scene::kSunCascades; ++i) {
+        CHECK(scene::receivers_inside(near.corners[i], drawn.casters[i], drawn.matrices[i]));
+        CHECK(!scene::receivers_inside(far.corners[i], drawn.casters[i], drawn.matrices[i]));
+        CHECK(!scene::receivers_inside(near.corners[i], {}, drawn.matrices[i]));
+    }
+}
+
 // Keeps every geometry/filter/scene check; fresh native objects remain selectable for comparisons.
 int main(int argc, char** argv) {
     const bool fresh_programs = argc == 3 && std::string_view(argv[2]) == "--fresh-programs";
@@ -1180,6 +1215,9 @@ int main(int argc, char** argv) {
     caster_hulls();
     test_static_shadow_keys();
     test_static_shadow_keys_follow_the_camera();
+    test_far_cascades_fit_a_small_step();
+    // The GPU checks count each cascade's draws every frame: none is kept from the last.
+    renderer::render_opt::set(renderer::render_opt::Opt::ShadowFarAlternate, false);
     if (argc > 1) {
         test::GlContext context;
         std::string why;

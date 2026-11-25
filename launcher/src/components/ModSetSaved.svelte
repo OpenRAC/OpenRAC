@@ -3,23 +3,30 @@
   // only once a code was applied. Restoring asks first.
   import { api, ask, errorText, type ModProfile, type VersionView } from "$lib/api";
   import { toast } from "$lib/app.svelte";
+  import { keepRead, lastRead } from "$lib/lastRead";
   import { dateText } from "$lib/modCodes";
   import { modCode, modsChanged } from "$lib/modCodes.svelte";
   import { MOD_CODES as T } from "$lib/modsText";
 
   let { version: v }: { version: VersionView } = $props();
 
-  let saved = $state<ModProfile[]>([]);
+  // As the page last showed them (lastRead.ts): at once as the tab opens, then read again.
+  const keptKey = () => `modsets:${v.game}`;
+  let saved = $state<ModProfile[]>(lastRead<ModProfile[]>(keptKey(), []));
   let busy = $state(false);
 
   $effect(() => {
     // Read again whenever the mods changed; an answer overtaken by that is dropped.
     const asked = modCode.revision;
     const game = v.game;
+
     void api
       .modsetProfiles(game)
       .then((list) => {
-        if (v.game === game && asked === modCode.revision) saved = list;
+        if (v.game === game && asked === modCode.revision) {
+          saved = list;
+          keepRead(`modsets:${game}`, list);
+        }
       })
       .catch(() => (saved = []));
   });
@@ -27,6 +34,7 @@
   async function restore(p: ModProfile) {
     if (!(await ask(T.restoreConfirm, T.restore))) return;
     busy = true;
+
     try {
       await api.modsetRestore(v.game, p.id);
       modsChanged();
@@ -34,6 +42,7 @@
     } catch (e) {
       toast(errorText(e), "error");
     }
+
     busy = false;
   }
 </script>

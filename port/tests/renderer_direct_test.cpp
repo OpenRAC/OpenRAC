@@ -16,8 +16,9 @@
 
 #include "check.h"
 #include "common/breadcrumbs.h"
-#include "renderer/direct.h"
-#include "renderer/framebuffer.h"
+#include "renderer/direct/direct.h"
+#include "renderer/gl/framebuffer.h"
+#include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
 #include "renderer_gif_builder.h"
 #include "renderer_gl_context.h"
@@ -212,8 +213,40 @@ std::vector<std::uint8_t> packets() {
          {gs::kXyz2, xyz2(420, 400, 0)},
          {gs::kXyz2, xyz2(460, 440, 0)}}
     );
+
+    // A rejected first draw leaves the panel unallocated until a later sprite samples it.
+    constexpr std::uint64_t kPanelPage = 0x180;
+    p.ad(
+        {{gs::kFrame1, kPanelPage | (4u << 16)},
+         {gs::kTest1,
+          openrac::test::test_reg(
+              false, gs::AlphaTest::Always, 0, gs::AlphaFail::Keep, gs::DepthTest::Never
+          )},
+         {gs::kScissor1, openrac::test::scissor(0, 255, 0, 255)},
+         {gs::kPrim, sprite},
+         {gs::kRgbaq, rgbaq(255, 0, 0, 128)},
+         {gs::kXyz2, xyz2(20, 20, 0)},
+         {gs::kXyz2, xyz2(40, 40, 0)}}
+    );
+    p
+        .ad({{gs::kFrame1, 8u << 16},
+             {gs::kTest1,
+              openrac::test::test_reg(
+                  false, gs::AlphaTest::Always, 0, gs::AlphaFail::Keep, gs::DepthTest::Always
+              )},
+             {gs::kScissor1, openrac::test::scissor(0, 511, 0, 447)},
+             {gs::kTex0_1, openrac::test::tex0(kPanelPage * 32, 4, gs::kPsmct32, 8, 8, true)},
+             {gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+             {gs::kRgbaq, rgbaq(128, 128, 128, 128)},
+             {gs::kUv, openrac::test::uv(0, 0)},
+             {gs::kXyz2, xyz2(17, 34, 0)},
+             {gs::kUv, openrac::test::uv(256, 256)},
+             {gs::kXyz2, xyz2(25, 45, 0)}},
+            true);
     return p.bytes;
 }
+
+void test_pass_breadcrumbs(Renderer& renderer, const FrameInput& input, FrameBuffer& frame);
 
 // A skipped tick retains a one-shot texture, but none of that tick's sprite geometry.
 void skipped_tick_uploads() {
@@ -264,10 +297,20 @@ void skipped_tick_uploads() {
     CHECK(frame.create(kWidth, kHeight, error));
     FrameInput input;
     input.packets[static_cast<std::size_t>(Bucket::Hud)] = shown.bytes;
+    // The window can discard world depth before a HUD whose depth tests always pass.
+    input.before_hud = [] {
+        using namespace openrac::gl;
+        if (glInvalidateFramebuffer != nullptr) {
+            constexpr GLenum discarded[] = {GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT};
+            glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, discarded);
+        }
+    };
     renderer.render(input, {frame.id(), kWidth, kHeight});
     const Pixels pixels{frame.read_rgba()};
     CHECK(close(pixels.at(15, 15), 0, 0, 0, 15, 15));
     CHECK(close(pixels.at(35, 35), 0, 255, 0, 35, 35));
+    // One representative HUD draw fits on the bounded trail with its Vulkan graph scopes.
+    test_pass_breadcrumbs(renderer, input, frame);
 }
 
 // Actual renderer passes inherit either trail's frame and leave the rendered pixels unchanged.
@@ -276,21 +319,23 @@ void test_pass_breadcrumbs(Renderer& renderer, const FrameInput& input, FrameBuf
     const auto baseline = frame.read_rgba();
     for (const auto thread : {BreadcrumbThread::Main, BreadcrumbThread::Render}) {
         const std::int64_t frame_id = thread == BreadcrumbThread::Main ? 9001 : 9002;
+        bool clear = false, hud = false, correct_thread = true;
+        const auto inspect = [&] {
+            Breadcrumbs::Snapshot entries{};
+            const auto count = breadcrumbs().snapshot(entries);
+            for (std::size_t i = 0; i < count; ++i) {
+                if (entries[i].value == frame_id) {
+                    correct_thread &= entries[i].thread == thread;
+                    clear |= std::string_view(entries[i].message) == "frame clear";
+                    hud |= std::string_view(entries[i].message) == "hud";
+                }
+            }
+        };
         {
             const BreadcrumbScope context(thread, frame_id);
             renderer.render(input, {frame.id(), kWidth, kHeight});
         }
-        Breadcrumbs::Snapshot entries{};
-        const auto count = breadcrumbs().snapshot(entries);
-        bool clear = false, hud = false, correct_thread = true;
-        for (std::size_t i = 0; i < count; ++i) {
-            // Ignore earlier history; both passes here use unique captured frames.
-            if (entries[i].value == frame_id) {
-                correct_thread &= entries[i].thread == thread;
-                clear |= std::string_view(entries[i].message) == "frame clear";
-                hud |= std::string_view(entries[i].message) == "hud";
-            }
-        }
+        inspect();
         CHECK(clear && hud && correct_thread);
         CHECK(frame.read_rgba() == baseline);
     }
@@ -330,6 +375,7 @@ int main() {
 
     CHECK(renderer.last_stats().draw_calls >= 8);
     CHECK(close(px.at(15, 30), 0xFF, 0, 0, 15, 30));            // red
+    CHECK(close(px.at(20, 40), 0, 0, 0, 20, 40));               // newly cleared panel over red
     CHECK(close(px.at(40, 30), 0x7F, 0, 0x7F, 40, 30));         // half blue over red
     CHECK(close(px.at(60, 30), 0, 0, 0x7F, 60, 30));            // half blue over black
     CHECK(close(px.at(5, 5), 0, 0, 0, 5, 5));                   // the clear colour
@@ -396,7 +442,51 @@ int main() {
         big.release();
     }
 
-    test_pass_breadcrumbs(renderer, input, frame);
+    // A full-screen effect made of textured tiles must cover widescreen sides.
+    // Unmarked HUD textures retain the original picture's width.
+    for (float picture : {1.0f, 5.0f / 6.0f, 0.75f, 0.5f}) {
+        for (bool whole : {false, true}) {
+            FrameBuffer wide;
+            constexpr int width = 768;
+            CHECK(wide.create(width, kHeight, error));
+            GifBuilder tiles;
+            tiles.image(0x1000, 1, gs::kPsmct32, 1, 1, {0xFF, 0, 0, 0x80});
+            tiles.ad(
+                {{gs::kTest1,
+                  openrac::test::test_reg(
+                      false, gs::AlphaTest::Always, 0, gs::AlphaFail::Keep, gs::DepthTest::Always
+                  )},
+                 {gs::kScissor1, openrac::test::scissor(0, 511, 0, 447)},
+                 {gs::kTex0_1, openrac::test::tex0(0x1000, 1, gs::kPsmct32, 0, 0, true)},
+                 {gs::kTex1_1, 0},
+                 {0x7F, (GifInterpreter::kWholeMarker << 48) | (whole ? 1u : 0u)}}
+            );
+            for (int y = 0; y < kHeight; y += 32) {
+                for (int x = 0; x < kWidth; x += 32) {
+                    tiles.ad(
+                        {{gs::kPrim, prim(gs::PrimKind::Sprite, false, true, false, true)},
+                         {gs::kRgbaq, rgbaq(0x80, 0x80, 0x80, 0x80)},
+                         {gs::kUv, openrac::test::uv(0, 0)},
+                         {gs::kXyz2, xyz2(x, y, 0)},
+                         {gs::kUv, openrac::test::uv(1, 1)},
+                         {gs::kXyz2, xyz2(x + 32, y + 32, 0)}}
+                    );
+                }
+            }
+            tiles.ad({{0x7F, GifInterpreter::kWholeMarker << 48}}, true);
+            FrameInput tiled;
+            tiled.packets[static_cast<std::size_t>(Bucket::Hud)] = tiles.bytes;
+            renderer.render(tiled, {wide.id(), width, kHeight, picture});
+            const auto pixels = wide.read_rgba();
+            auto red = [&](int x) {
+                return pixels[static_cast<std::size_t>((200 * width + x) * 4)];
+            };
+            CHECK(red(width / 2) > 250);
+            CHECK((red(4) > 250) == (whole || picture == 1.0f));
+            CHECK((red(width - 5) > 250) == (whole || picture == 1.0f));
+        }
+    }
+
     frame.release();
     renderer.release();
     return openrac::test::result();

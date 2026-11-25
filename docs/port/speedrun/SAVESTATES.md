@@ -145,9 +145,9 @@ correct world. But four pieces of renderer state are not re-derivable:
 
 - the **texture pool** — the port's model of the GS's memory: uploads by base
   pointer, loaded CLUTs, placements, converted textures
-  (`port/renderer/texture_pool.h:182-194`);
+  (`port/renderer/textures/texture_pool.h:182-194`);
 - the **GIF/2D drawing registers**, which carry across frames
-  (`port/renderer/direct.h:314-341`);
+  (`port/renderer/direct/direct.h:314-341`);
 - the **frame snapshot** the game reads back (the pause menu's picture over
   the frozen frame) (`direct.h:146-150`, `frontend.cpp:1326-1398`);
 - the frontend's **interpolation cache** and which level's geometry is

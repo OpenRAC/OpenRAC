@@ -194,7 +194,7 @@ fidget had moved.
   retail tests its fifth argument.
 - **Something the catalogue folded together.** Three different accessors
   share one fingerprint and were one function;
-  `port/game/rac1-pal/split_places.tsv` separates them.
+  `port/game/rac1-pal/tables/split_places.tsv` separates them.
 - **Not drawn right rather than not simulated right.** A deleted moby
   (state 0xFD) was still drawn; a moby that turns fast was not blended
   between ticks. Check the simulation with `OPENRAC_MOBY_LOG` first: if the
