@@ -562,6 +562,7 @@ void func_003D3158(int a0, int a1, int a2, int a3) {
  * tick and the glass where this tick has it, and at the loading screen's 20 ticks a second the
  * glass slid off the ship. Owned by the ship and with ids, they move from the last tick's corners
  * as the hull does (frontend scene_effects.cpp), as Going Commando's (rac2/host/ship_glass.c). */
+void func_003A7EF8__game(gaddr a0);
 void func_003A7EF8(gaddr a0) {
     const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
     const unsigned outer_ordinal = rac3_draw_ordinal;
@@ -582,6 +583,7 @@ void func_003A7EF8(gaddr a0) {
  * planet (20 ticks a second, loading.c) the exhaust stood still for a tick and jumped at the next
  * while the ship moved smoothly ahead of it (OPENRAC_MOTION_LOG: about 75 to 135 quads a tick, none
  * with an id). Owned by the ship, they move with it between ticks (frontend scene_effects.cpp). */
+void func_003A6B90__game(gaddr a0);
 void func_003A6B90(gaddr a0) {
     const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
     const unsigned outer_ordinal = rac3_draw_ordinal;
@@ -596,6 +598,7 @@ void func_003A6B90(gaddr a0) {
 
 /* The levels' copy of the engine flames (frontbin's func_003A6790, Veldin's 0x004AD768, 34 levels),
  * which a level's own flight leaving a planet runs: owned by the ship as the boot program's above. */
+void func_L01_004AD768__game(gaddr a0);
 void func_L01_004AD768(gaddr a0) {
     const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
     const unsigned outer_ordinal = rac3_draw_ordinal;
@@ -619,6 +622,7 @@ void func_L01_004AD768(gaddr a0) {
 #define TRAIL_RECORDS 512u
 #define TRAIL_RECORD_SIZE 0x50u
 
+void func_003D98C0__game(gaddr a0, int a1, int a2, int a3, float a4, float a5, float a6);
 void func_003D98C0(gaddr a0, int a1, int a2, int a3, float a4, float a5, float a6) {
     const gaddr outer = s_trail_record;
     const gaddr pool = GREF(gaddr, TRAIL_POOL);
@@ -634,6 +638,7 @@ void func_003D98C0(gaddr a0, int a1, int a2, int a3, float a4, float a5, float a
  * 0x004B04D8, the 34 single-player levels), which the level's own flight runs leaving a planet
  * (its copy of 0x003C1848): owned by the ship and with ids as the boot program's above, else its
  * quads stayed where each tick left them while the hull moved between ticks. */
+void func_L01_004B04D8__game(gaddr a0);
 void func_L01_004B04D8(gaddr a0) {
     const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
     const unsigned outer_ordinal = rac3_draw_ordinal;

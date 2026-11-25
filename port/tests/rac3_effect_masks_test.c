@@ -49,6 +49,8 @@
 #define TEST_1 0x47
 
 uint8_t* openrac_guest_base;
+/* The synthetic RAM main() allocates. */
+uint32_t openrac_guest_ram_size = 0x00400000u;
 
 /* What reached the window: native materials, older quads, their markers and anchors. */
 static int s_materials, s_quads, s_marked;
@@ -262,6 +264,32 @@ float openrac_game_view_opened(void) {
 }
 
 void openrac_game_world_view(void) {}
+
+/* No loading screen here: the planet quad keeps its own texture (render.c's flight_picture). */
+gaddr rac3_loading_state(void) {
+    return 0;
+}
+
+/* The loading screen's ship glass, flames and trail (render.c's owner wraps): draw nothing here. */
+void func_003A7EF8__game(gaddr a0) {
+    (void)a0;
+}
+
+void func_003A6B90__game(gaddr a0) {
+    (void)a0;
+}
+
+void func_L01_004AD768__game(gaddr a0) {
+    (void)a0;
+}
+
+void func_L01_004B04D8__game(gaddr a0) {
+    (void)a0;
+}
+
+void func_003D98C0__game(gaddr a0, int a1, int a2, int a3, float a4, float a5, float a6) {
+    (void)a0, (void)a1, (void)a2, (void)a3, (void)a4, (void)a5, (void)a6;
+}
 
 void func_00397D60__game(
     int data, int address, int format, int log2_width, int log2_height, int now
