@@ -409,8 +409,10 @@
       "func_003AD9F0",
       "func_003C0160",
       "func_00391E78__frontbin",
-      "func_003BE710"
+      "func_003BE710",
+      "func_0039DB38__frontbin"
     ],
+    "pad_reader_why": "func_0039DB38__frontbin is the proven pad reader, but two flick-history lookback bounds differ from PAL at +0x7F0 and +0x850 (3 to 4 and 4 to 5). Keep NTSC-U's instructions rather than compiling PAL's C after the hand pair makes its name available.",
     "roots": [
       "func_003932B0__frontbin"
     ],
@@ -478,10 +480,26 @@
     "func_003F0700__frontbin": {
       "is": "func_003EB178__frontbin",
       "why": "frontbin's copy of func_003F0AB8: the same 8 bytes at 0x003EB178 after the same 20-byte remnant (PAL 0x003F06E8, NTSC-U 0x003EB160), the only place they occur"
+    },
+    "func_003A2DC8__frontbin": {
+      "is": "func_0039DB38__frontbin",
+      "why": "config/us/names.tsv places frontbin's func_003A2DC8 at 0x0039DB38; its inventory gives the same 2412-byte extent. Both discs' frontbin programs give one masked instruction-window match there, with all 603 words matching apart from relocated calls and flick-history lookback bounds at +0x7F0 and +0x850 (3 to 4, 4 to 5). The paired NTSC-U update 0x0039E4B0 calls this reader at +0xE8 and +0x3B0. The release keeps the reader from assembly, not PAL's C."
+    },
+    "func_L01_00460980": {
+      "is": "func_003A2F98",
+      "why": "Veldin's clear is byte-identical for all 240 bytes at PAL 0x00460980 and NTSC-U 0x0045D4D8, the only masked-window match. config/us/levels/functions.tsv names the NTSC-U row func_003A2F98, kind boot_elf, with 34 level places and the same da03d6c8989f4d0d digest as PAL's func_003A2CD8 row; the host symbol is the catalogue's boot name, not a fabricated L01 name."
+    },
+    "func_L01_00460A70": {
+      "is": "func_L01_0045D5C8",
+      "why": "PAL's func_003A2DC8 row places the reader at L01 0x00460A70; NTSC-U's func_0039DB38 frontbin row places it at L01 0x0045D5C8. Both discs' Veldin programs give one masked-window match there across all 603 words, differing only in three relocated calls and the two NTSC-U flick-history lookback bounds also present in frontbin. The paired NTSC-U update 0x0045DF40 calls 0x0045D5C8 at +0xE8 and +0x3B0."
     }
   },
   "addresses": {
     "about": "NTSC-U's value of a PAL address the shared host C writes as RAC3_ADDR() that no global of names.tsv gives: PAL's address, NTSC-U's, the evidence.",
+    "0x001D4CF4": {
+      "is": "0x001D4CF4",
+      "why": "the active pad's not-ready flag the pad update writes ($gp - 0x7BBC: NTSC-U's func_003A3A00 stores to it as PAL's func_003A3B40 does, asm/us/boot_elf/13_text/f_003A3A00.s at 0x003A3A64, and both programs' $gp is 0x001DC8B0, config/gp.tsv)"
+    },
     "0x001D55D0": {
       "is": "0x001D55D0",
       "why": "the two font headers (FontUpload func_0038E2B0 reads them, FontSelect func_0038E530 copies the selected one's into 0x001D55C0): NTSC-U's boot program registers a font's header at the same address (f_0038E140: lui 0x1D, addiu 0x55D0, the font's index times 4, sw), and Veldin's FontSelect reads it there too (f_0040D548)"
@@ -556,8 +574,11 @@
     }
   },
   "libraries_left_out": {
+    "func_003A2BC0__frontbin": "PAL-only overlay pad startup: NTSC-U's boot caller 0x003984CC initializes the core records through 0x003A2E80; frontbin enters at 0x0037D200 and calls the existing-pad iterator 0x0039E8E0 at +0x400 and +0x8D4 without pad/library initialization. Its records start at 0x001D5680, above the retained pad records and core pointers; no NTSC startup is invented or substituted.",
+    "func_L01_00460868": "PAL-only overlay pad startup: NTSC-U's level 1 entry 0x003EE988 uses iterator 0x0045E370 and updater 0x0045DF40 on the boot-initialized core pad records. All 34 NTSC-U SP programs start their records at 0x001D5680, overlap no pad/core-pointer state, and have no calls to pad/library init or port open and no GP-relative stores to the port-one core pointers. Preserve that lifecycle rather than bind a nonexistent overlay initializer.",
     "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again"
   },
+  "pad_lifecycle_why": "The NTSC-U initializer 0x003A2E80 is the boot program's real entry, one relocated clear call being its only difference from PAL's 280-byte initializer. It initializes eight 0x5C0-byte records at 0x001CD0C0..0x001CFEC0 and pointers at 0x001D52FC/5300/5304. Overlay loads begin at 0x001D5680 and retain those records plus the ready flag 0x001D4CF4. Frontbin and Veldin have no direct calls or data pointers to boot pad init/clear or pad-library init/open; PAL's frontbin clear belongs only to its omitted overlay initializer, not to the NTSC update graph. The updater field offsets and core GP references agree across releases; only calls and the switch-table address at +0x7C differ. Keep NTSC reader instructions and remove PAL-only startup dependencies from its compiled update graph, not by pairing another program's symbol or adding stubs.",
   "globals": {
     "about": "NTSC-U's value of a global of the executable that the C of a match function reads and config/us/names.tsv gives no boot_elf row for (release_rac3.py): PAL's name, NTSC-U's address, the evidence.",
     "D_00225BC0": {
