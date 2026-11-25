@@ -406,6 +406,7 @@ func_L14_00425CB0	moby	Moby_PrisonPlumber_Update	hook	Updates the Aranos plumber
 func_L14_004265B8	moby	Moby_PrisonController_Update	hook	Updates the Aranos prison controller, including inventory restoration.
 func_L07_003F7048	moby	Moby_SiberiusThief_Update	hook	Updates the Siberius thief sequence and its progression state.
 func_L13_0041CD18	moby	Moby_BoldanCutscene_Update	hook	Updates the Boldan cutscene trigger and its temporary inventory state.
+func_L13_004067F8	moby	Moby_BoldanClock_Update	hook	Updates Boldan's clock tower: sets its hands from the console's clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one.
 func_L18_0043FC70	moby	Moby_HypnomaticPart_Update	hook	Updates the Hypnomatic part pickup on Damosel.
 func_002A6AE0	combat	Moby_CountKill	hook	Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
 func_002CF340	menu	Menu_Extras	hook	Processes the extras menu and returns its menu result.

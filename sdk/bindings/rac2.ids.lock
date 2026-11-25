@@ -19,6 +19,7 @@ rac2.item.upgrade	ntsc:002887B0	Item_Upgrade,func_002887B0,func_002890C8,func_00
 rac2.item.version_color	ntsc:00336EF8	Item_VersionColor,func_00336EF8,func_00337DA0,func_00338C50
 rac2.level.load	ntsc:L00:00303990	Level_Load,func_L00_00303990,func_L00_00304660,func_L00_00305570
 rac2.menu.extras	ntsc:002CF340	Menu_Extras,func_002CF340,func_002D0290,func_002D02A0
+rac2.moby.boldan_clock.update	ntsc:L13:004067F8	Moby_BoldanClock_Update,func_L13_004067F8,func_L13_00407D60,func_L13_0040B090
 rac2.moby.boldan_cutscene.update	ntsc:L13:0041CD18	Moby_BoldanCutscene_Update,func_L13_0041CD18,func_L13_0041E1E0,func_L13_0041E1E8,func_L13_00421C70
 rac2.moby.box_breaker_pickup.update	ntsc:L01:00416440	Moby_BoxBreakerPickup_Update,func_L01_00416440,func_L01_004179C0,func_L01_0041B900
 rac2.moby.charge_boots_rider.update	ntsc:L11:003F8510	Moby_ChargeBootsRider_Update,func_L11_003F8510,func_L11_003F9A50,func_L11_003FCA30

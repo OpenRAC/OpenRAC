@@ -422,6 +422,13 @@ typedef void (*openrac_rac2_Moby_CountKill)(uint32_t moby, int32_t type);
 #define OPENRAC_RAC2_SIG_Menu_Extras "i32()"
 typedef int32_t (*openrac_rac2_Menu_Extras)(void);
 
+/* Moby_BoldanClock_Update: Updates Boldan's clock tower: sets its hands from the console's
+ * clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars
+ * +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one. */
+#define OPENRAC_RAC2_HOOK_Moby_BoldanClock_Update "Moby_BoldanClock_Update"
+#define OPENRAC_RAC2_SIG_Moby_BoldanClock_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_BoldanClock_Update)(uint32_t moby);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

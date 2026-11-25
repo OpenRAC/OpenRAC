@@ -810,6 +810,20 @@
         "ntsc2": "func_002D02A0"
       },
       "about": "Processes the extras menu and returns its menu result."
+    },
+    {
+      "id": "rac2.moby.boldan_clock.update",
+      "name": "Moby_BoldanClock_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_L13_004067F8",
+        "pal": "func_L13_0040B090",
+        "ntsc2": "func_L13_00407D60"
+      },
+      "about": "Updates Boldan's clock tower: sets its hands from the console's clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one."
     }
   ]
 }

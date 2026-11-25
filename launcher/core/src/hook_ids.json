@@ -736,6 +736,7 @@
    "Item_VersionColor": "rac2.item.version_color",
    "Level_Load": "rac2.level.load",
    "Menu_Extras": "rac2.menu.extras",
+   "Moby_BoldanClock_Update": "rac2.moby.boldan_clock.update",
    "Moby_BoldanCutscene_Update": "rac2.moby.boldan_cutscene.update",
    "Moby_BoxBreakerPickup_Update": "rac2.moby.box_breaker_pickup.update",
    "Moby_ChargeBootsRider_Update": "rac2.moby.charge_boots_rider.update",

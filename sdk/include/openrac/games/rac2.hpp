@@ -451,6 +451,14 @@ struct Menu_Extras {
     using fn = int32_t (*)();
 };
 
+// Updates Boldan's clock tower: sets its hands from the console's clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one.
+struct Moby_BoldanClock_Update {
+    static constexpr const char* id = "rac2.moby.boldan_clock.update";
+    static constexpr const char* name = "Moby_BoldanClock_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -489,6 +497,9 @@ namespace hooks {
         using extras = rac2::Menu_Extras;
     }  // namespace menu
     namespace moby {
+        namespace boldan_clock {
+            using update = rac2::Moby_BoldanClock_Update;
+        }  // namespace boldan_clock
         namespace boldan_cutscene {
             using update = rac2::Moby_BoldanCutscene_Update;
         }  // namespace boldan_cutscene

@@ -61,6 +61,7 @@ type HookPoint =
     | "rac2.moby.hypnomatic_part.update"
     | "rac2.combat.count_kill"
     | "rac2.menu.extras"
+    | "rac2.moby.boldan_clock.update"
     | "Arena_Prize"
     | "ArmorVendor_BuildList"
     | "ArmorVendor_Buy"
@@ -79,6 +80,7 @@ type HookPoint =
     | "Item_VersionColor"
     | "Level_Load"
     | "Menu_Extras"
+    | "Moby_BoldanClock_Update"
     | "Moby_BoldanCutscene_Update"
     | "Moby_BoxBreakerPickup_Update"
     | "Moby_ChargeBootsRider_Update"
@@ -231,6 +233,8 @@ type Moby_HypnomaticPart_UpdateFn = (moby: number) -> ()
 type Moby_CountKillFn = (moby: number, type: number) -> ()
 -- rac2.menu.extras (Menu_Extras) i32(): Processes the extras menu and returns its menu result.
 type Menu_ExtrasFn = () -> number
+-- rac2.moby.boldan_clock.update (Moby_BoldanClock_Update) void(u32): Updates Boldan's clock tower: sets its hands from the console's clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one.
+type Moby_BoldanClock_UpdateFn = (moby: number) -> ()
 
 declare openrac: {
     game: string,

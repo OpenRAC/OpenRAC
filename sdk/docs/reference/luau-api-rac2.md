@@ -501,3 +501,11 @@ rac2.menu.extras (Menu_Extras) i32(): Processes the extras menu and returns its 
 ```lua
 type Menu_ExtrasFn = () -> number
 ```
+
+### `Moby_BoldanClock_UpdateFn`
+
+rac2.moby.boldan_clock.update (Moby_BoldanClock_Update) void(u32): Updates Boldan's clock tower: sets its hands from the console's clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one.
+
+```lua
+type Moby_BoldanClock_UpdateFn = (moby: number) -> ()
+```

@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[55];
+static const openrac_script_point k_points[56];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -538,8 +538,9 @@ S16_POINT(Moby_BoldanCutscene_Update, 51) /* rac2.moby.boldan_cutscene.update */
 S16_POINT(Moby_HypnomaticPart_Update, 52) /* rac2.moby.hypnomatic_part.update */
 S23_POINT(Moby_CountKill, 53) /* rac2.combat.count_kill */
 S11_POINT(Menu_Extras, 54) /* rac2.menu.extras */
+S16_POINT(Moby_BoldanClock_Update, 55) /* rac2.moby.boldan_clock.update */
 
-static const openrac_script_point k_points[55] = {
+static const openrac_script_point k_points[56] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.combat.post_hit", "void(u32,u32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Moby_PostHit_links, k_Moby_PostHit_thunks, S2_call},
@@ -595,9 +596,10 @@ static const openrac_script_point k_points[55] = {
     {"rac2.moby.hypnomatic_part.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_HypnomaticPart_Update_links, k_Moby_HypnomaticPart_Update_thunks, S16_call},
     {"rac2.combat.count_kill", "void(u32,i32)", 2, k_S23_kinds, k_S23_names, OPENRAC_SV_VOID, k_Moby_CountKill_links, k_Moby_CountKill_thunks, S23_call},
     {"rac2.menu.extras", "i32()", 0, k_S11_kinds, k_S11_names, OPENRAC_SV_I32, k_Menu_Extras_links, k_Menu_Extras_thunks, S11_call},
+    {"rac2.moby.boldan_clock.update", "void(u32)", 1, k_S16_kinds, k_S16_names, OPENRAC_SV_VOID, k_Moby_BoldanClock_Update_links, k_Moby_BoldanClock_Update_thunks, S16_call},
 };
 
-static const openrac_script_alias k_aliases[228] = {
+static const openrac_script_alias k_aliases[232] = {
     {"Arena_Prize", "rac2.arena.prize"},
     {"ArmorVendor_BuildList", "rac2.armor_vendor.build_list"},
     {"ArmorVendor_Buy", "rac2.armor_vendor.buy"},
@@ -616,6 +618,7 @@ static const openrac_script_alias k_aliases[228] = {
     {"Item_VersionColor", "rac2.item.version_color"},
     {"Level_Load", "rac2.level.load"},
     {"Menu_Extras", "rac2.menu.extras"},
+    {"Moby_BoldanClock_Update", "rac2.moby.boldan_clock.update"},
     {"Moby_BoldanCutscene_Update", "rac2.moby.boldan_cutscene.update"},
     {"Moby_BoxBreakerPickup_Update", "rac2.moby.box_breaker_pickup.update"},
     {"Moby_ChargeBootsRider_Update", "rac2.moby.charge_boots_rider.update"},
@@ -804,6 +807,9 @@ static const openrac_script_alias k_aliases[228] = {
     {"func_L12_003B5240", "rac2.moby.todano_trader.update"},
     {"func_L12_003B6518", "rac2.moby.todano_trader.update"},
     {"func_L12_003B8918", "rac2.moby.todano_trader.update"},
+    {"func_L13_004067F8", "rac2.moby.boldan_clock.update"},
+    {"func_L13_00407D60", "rac2.moby.boldan_clock.update"},
+    {"func_L13_0040B090", "rac2.moby.boldan_clock.update"},
     {"func_L13_0041CD18", "rac2.moby.boldan_cutscene.update"},
     {"func_L13_0041E1E0", "rac2.moby.boldan_cutscene.update"},
     {"func_L13_0041E1E8", "rac2.moby.boldan_cutscene.update"},
@@ -834,8 +840,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 55, k_points, 0, k_fields, NULL,
-    228, k_aliases,
+    "rac2", 3, k_discs, 56, k_points, 0, k_fields, NULL,
+    232, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

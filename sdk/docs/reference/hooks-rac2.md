@@ -65,3 +65,4 @@ game address.
 | `rac2.moby.hypnomatic_part.update` | `Moby_HypnomaticPart_Update` | `void(u32)` | moby | ntsc, pal, ntsc2 | Updates the Hypnomatic part pickup on Damosel. |
 | `rac2.combat.count_kill` | `Moby_CountKill` | `void(u32,i32)` | moby, type | ntsc, pal, ntsc2 | Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call. |
 | `rac2.menu.extras` | `Menu_Extras` | `i32()` |  | ntsc, pal, ntsc2 | Processes the extras menu and returns its menu result. |
+| `rac2.moby.boldan_clock.update` | `Moby_BoldanClock_Update` | `void(u32)` | moby | ntsc, pal, ntsc2 | Updates Boldan's clock tower: sets its hands from the console's clock and, once a second of its time, shows the Nanotech Upgrade (the moby at its pvars +0x28, class 0x11C4) on an even hour of the twelve-hour dial and hides it on an odd one. |
