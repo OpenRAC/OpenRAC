@@ -46,7 +46,7 @@ builds the game) the first time you press Play. To build the port by hand instea
 `cd port && cmake --preset release && cmake --build --preset release && ctest --preset release`.
 A game's data folder needs the disc unpacked first: `python3 tools/extractor.py -g <game> -e
 --proj-path <data folder> <disc.iso>`. Debugging switches (`OPENRAC_*` variables, test runs, input
-scripts, screenshots) are in [port/DEBUGGING.md](port/DEBUGGING.md).
+scripts, screenshots) are in [port/DEBUGGING.md](port/DEBUGGING.md); the code rules are in [CODING_CONVENTIONS.md](CODING_CONVENTIONS.md) (moved here from `port/docs`; section 22 is reuse and design, checked by `tools/dup_check.py`).
 
 Building rac3 is heavy: its code generator (hostgen) takes 3–5 GB of memory per run. On a 32 GB
 machine build one rac3 target at a time.
@@ -68,7 +68,7 @@ General) to `127.0.0.1:7177`. Coding conventions are strict and checked by CI:
 
 ```sh
 git clone https://github.com/OpenRAC/openrac-mods && cd openrac-mods
-python3 tools/fetch_sdk.py           # the SDK version sdk.lock pins (1.34.0)
+python3 tools/fetch_sdk.py           # the SDK version sdk.lock pins (1.34.0 today; bump it to build against a newer interface)
 cmake -S . -B build -G Ninja && cmake --build build && ctest --test-dir build
 ```
 
@@ -82,28 +82,45 @@ See its README. Matching needs the SN toolchain set up as its docs describe; you
 you want to decompile functions (which also shrinks the code the port still translates from the
 retail binary, section 2.3).
 
-## 2. Where things stand (2026-11-23)
+## 2. Where things stand (2026-11-25)
 
 ### 2.1 Up Your Arsenal (rac3)
 
-- **Single player** plays through on PAL and NTSC-U. Much was fixed recently (crashes, functions
-  that did nothing, cutscene and loading screens, effects); expect remaining visual bugs.
+- **Single player** plays through on PAL and NTSC-U. The last two days fixed the Veldin start
+  (the dropship that never flew in, a crash after the first flight, misfiled level getters), the
+  loading flight (stars, ship glass, exhaust, destination planet), the dropship's hull and heat
+  haze, open water (Florana's rivers and eleven more levels, now with mipmaps), Inferno Mode's
+  Ratchet and the Vid-comic panel; expect remaining visual bugs (list in
+  [handoff/notes/rac3-port-NO-EMULATION-STATUS.md](handoff/notes/rac3-port-NO-EMULATION-STATUS.md),
+  "Open after the 2026-11-24 playtest fixes").
 - **Multiplayer, local**: LOCAL PLAY loads and plays every map (PAL 40–53, NTSC-U 40–55); 50–53 are
-  split screen with two pads.
+  split screen with two pads. Map 48's blue tint is fixed (#778). Leaving multiplayer no longer
+  freezes on the adaptor's power-off (#883).
 - **Multiplayer, online**: login at the hub, region list, lobby, create/find/join, staging, START
   and the match run against our Server. Accounts, ladders and career stats go to the hub.
+- **Rooms above 8 players**: the net layer and the lobby's tables are widened; #781 (step 2) fixed the
+  9th joiner starting the match and the CREATE page's spinner, but the maps' in-match tables
+  (game-mode struct, results block, channel 5/9) are not widened. Design:
+  [handoff/notes/rac3-mp-wide-rooms.md](handoff/notes/rac3-mp-wide-rooms.md).
 - **Lobby screens** are drawn by a game-neutral UI module, `port/mpui`
   ([port/MULTIPLAYER_UI.md](port/MULTIPLAYER_UI.md)); a server can describe them.
 - **The protocol** is mapped completely: [handoff/notes/rac3-mp-protocol.md](handoff/notes/rac3-mp-protocol.md).
-- Known open: split screen draws one view; map 48's blue tint (draft fix, section 3); rooms above
-  8 players are half done (the net layer is in; in-match tables are not); the scoreboard was never
-  seen at a real match's end; the stock multiplayer bugs listed in
+- **The decompilation** (rac3-decomp, at pin `0ed13519`): PAL 15,920 of 16,589 functions matched
+  (95.97%; 85.26% of code by size, 539 of 584 units complete); NTSC-U 15,517 of 16,582 (93.58%;
+  79.38% of code, 513 of 571 units).
+- Known open: split screen draws one view until #774 lands (it is in the merge queue); the
+  scoreboard was never seen at a real match's end; the stock multiplayer bugs listed in
   [handoff/notes/rac3-mp-horizon-patches.md](handoff/notes/rac3-mp-horizon-patches.md) are partly fixed.
 
 ### 2.2 Going Commando (rac2), Ratchet & Clank (rac1)
 
-Both play through. rac2 had a long run of fixes (enemy copies, poses, vendor, Aranos Prison, wrench
-models, Greatest Hits backports as optional settings). rac1 is the most mature.
+Both play through. rac2 had a long run of fixes (enemy copies on Siberius's carts and platforms, poses,
+vendor, Aranos Prison, wrench models, the gun in Ratchet's right hand in first person, flight ship paint,
+bolt totals past 9,999,999, Greatest Hits backports as optional settings), a keyboard-and-mouse pause
+page and a Modern control preset (#874, #875, #891 for the paint), and hooks for ride mods and story
+queries. rac1 is the most mature: added planets get their own name, picture and caption (#886),
+particles draw in levels mounted in expanded memory, and the mouse aims turrets. The hand-off's
+recorder work for them (R1) is still a draft, so their checks are open (section 3).
 
 ### 2.3 The no-emulation work (all three games)
 
@@ -114,15 +131,29 @@ The full plan with every remaining layer and its native replacement, as work pac
 package states: [handoff/notes/rac3-port-NO-EMULATION-STATUS.md](handoff/notes/rac3-port-NO-EMULATION-STATUS.md).
 
 Done: the native frame recorder ([port/FRAME_RECORDER.md](port/FRAME_RECORDER.md)); files instead
-of disc sectors; rac3 text, menus, pictures and HUD through the shared 2D core `port/ui`; texture
-identity from the game's own data ([port/TEXTURES.md](port/TEXTURES.md)); the scratchpad DMA model
-removed; VU0 microprograms as native functions.
+of disc sectors (P13); rac3 text, menus, pictures and HUD through the shared 2D core `port/ui`;
+texture identity from the game's own data ([port/TEXTURES.md](port/TEXTURES.md)); the scratchpad DMA
+model removed (P9); VU0 microprograms as native functions (P10a); and, since the 23rd, rac3's
+dropship heat haze, open water, effect-strip draws and frame copies as native passes (the effects
+work, part of P4b/P5/P6, landed as individual fixes rather than as the wip PR).
 
-Open (some have draft PRs, section 4): rac3's last markers and per-player views (P2), effect
-materials, strips and screen effects (P4 phase 2, P5, P6), inline VU0 asm as C (P10b), native sound
-(P11), kernel and IOP shims (P12), rac1/rac2 onto the recorder and the 2D core (R1–R3), then
-removing the DMA-chain walk and the GS interpreter (P7, P8). About 90% of rac3's code by size is
-still translated from the retail binary; only decompiling (rac3-decomp) shrinks that.
+Not done, by package (states from the status note; PR numbers are in section 4):
+
+- **P2** split-screen views and the game's 2D screen on the recorder: #774, in the merge queue.
+- **P10b** VU0 inline asm as C: #785 (hostgen only, tests pass) continued by #819; no game built
+  through it yet.
+- **P11** sound at the 989snd API and the float mixer: continued as #815 (merged, with fixes and tests);
+  not yet played in all games.
+- **P12/P14** kernel, IOP shims, pads and cards: #789 holds raw work in progress.
+- **R1** rac1/rac2 on the recorder: #779 (draft). **R2/R3** after it.
+- **Effects** (P4 phase 2, P5, P6): the native-material and strip work still in the wip PR #790;
+  Ties' additive blends 0x58 and 0x68 are drawn as the normal blend.
+- Then removing the DMA-chain walk and the GS interpreter (P7, P8).
+
+#888 is a draft reference: one branch with #774, #779, #783, #789 and #790 merged with develop,
+built and played on rac3 PAL and NTSC-U on Windows; use it to see that they work together, not to
+merge. About 90% of rac3's code by size is still translated from the retail binary; only
+decompiling (rac3-decomp) shrinks that.
 
 ### 2.4 Server
 
@@ -131,19 +162,27 @@ codes (`REGION`: ISO country codes, `EU`, `LOCAL`) and server names (`SERVER_NAM
 lobby screens, CI and a release workflow (jars and a ghcr.io image on a `v*` tag; nothing deploys
 automatically). Docs start at Server's `docs/README.md`.
 
-**Not deployed yet.** OpenRAC's launcher now defaults to `hub.openrac.dev:7177`; until a hub runs
+**Not deployed yet.** OpenRAC's launcher defaults to `hub.openrac.dev:7177`; until a hub runs
 there, online play needs a self-hosted server (section 1.4).
 
 ### 2.5 Mods
 
-- **NG++** 0.6.2 (Going Commando New Game++): weapon tiers Alpha–Omega, RYNO II splits and homing,
+- **NG++** 0.6.23 (Going Commando New Game++): weapon tiers Alpha–Omega, RYNO II splits and homing,
   armour tiers sold at the real armour vendor with painted Carbonox, challenge-mode scaling, ship
-  tiers. Fixed for PAL and v2.00 (addresses, 50 Hz timing). Notes:
-  [handoff/notes/ngpp-STATUS-0.6.1.md](handoff/notes/ngpp-STATUS-0.6.1.md),
+  tiers. Fixed for PAL and v2.00 (addresses, 50 Hz timing). Since 0.6.2: the Lava Gun's Ice Gun
+  tiers are drawn as Up Your Arsenal's stream of liquid nitrogen that sets enemies in ice (painted
+  with interface 1.39), the Bouncer's bomblets fly faster each tier, on-screen popups clear after
+  2.5 seconds, and the Zodiac and RYNO tier paths were corrected. Notes:
+  [handoff/notes/ngpp-STATUS-0.6.1.md](handoff/notes/ngpp-STATUS-0.6.1.md) (older than the version),
   [ngpp-armour-vendor.md](handoff/notes/ngpp-armour-vendor.md),
   [ngpp-armour-models.md](handoff/notes/ngpp-armour-models.md).
 - **Multiplayer mod** (rac1/rac2) 0.14.1: goes through the hub or straight to a game server.
-- Mods build against SDK 1.34.0.
+- **SDK**: interface 1.39 is on develop (paint that draws a moby's effects in its colour, an accent
+  colour, pad motors and menu options, rac1 play-tick hook points, rac2 ride-mod and story hooks).
+  Open: two PRs both claim interface 1.40 (#865 pictures of a mod's own in the overlay, #907
+  services between mods), so the second to merge renumbers; #901 lets a mod pack set its mods' settings; #655 interface tables by name. The mods repository
+  still pins SDK 1.34.0 in `sdk.lock`; NG++'s newer visuals need a launcher whose interface has them
+  (the launcher now picks a mod version whose hook points it has, #870).
 
 ## 3. Pick something
 
@@ -159,28 +198,51 @@ self-contained.
    fights, each weapon's tier perks, the Zodiac and drones hitting off-screen enemies.
 
 **Fixes with a clear lead**
-4. Map 48 blue tint: finish and verify draft PR #778 (the camera's first frame starts under the
-   water line). Notes: rac3-mp-STATUS.md.
-5. rac3 rooms above 8 players: the 9th joiner backs out, then the maps' 8-wide tables
-   ([handoff/notes/rac3-mp-wide-rooms.md](handoff/notes/rac3-mp-wide-rooms.md)).
-6. The remaining stock multiplayer bugs (rac3-mp-horizon-patches.md, class "a").
-7. Split screen: per-player views in the frame recorder (P2).
+4. rac3 rooms above 8 players: finish #781 or its successor: the maps' in-match tables (game-mode
+   struct, results block, channel 5 and 9 companions), then check a real match of 9 or more
+   ([handoff/notes/rac3-mp-wide-rooms.md](handoff/notes/rac3-mp-wide-rooms.md), section 3).
+5. The catalogue root fix in rac3-decomp's `tools/level_catalogue.py` (`copy_groups()`): it files
+   levels' copies of the 8-byte class getters and font wrappers one row along. The port works
+   around it with `more_places`/`release.json` rows; the multiplayer maps' func_L39_ rows for
+   func_L01_00436070, 00443948, 004AA948, 004AAD58, 004D2470 are still unfixed. It renames rows
+   `src/levels/` and the report use, so it needs its own catalogue PR (notes: "Open after the
+   2026-11-24 playtest fixes").
+6. rac1 and rac2 checks of the recorder work (R1, #779): rac1's title screen drops 2 of 3 recorder
+   commands per frame; check every level's anchors and the HUD sides in both games.
+7. Two things seen once and not reproduced: the first flight's Solana galaxy sequence (the boot
+   flight has no first-flight variant in its transition table; probably the New Game movie) and a
+   blank first-weapon slot after loading a save (not reproduced in six runs). Needs a player with
+   the original disc to compare.
+8. The remaining stock multiplayer bugs (rac3-mp-horizon-patches.md, class "a").
+9. Landing the drafts in section 4 (#774 first, as the queue allows): each is written, none is
+   fully run in game. Build one and check the area it touches.
 
 **Larger engine work (the no-emulation packages)**
-8. Any open package in the audit: effects and frame copies (P4b/P5/P6), sound (P11), kernel/IOP
-   (P12), rac1/rac2 onto the recorder (R1–R3), inline VU0 (P10b). Each package section says what to
-   replace with what; check section 4 for an existing draft first.
+10. Any open package in 2.3: effects and the ties' blends (P4b/P5/P6), sound in all three games
+    (P11), kernel/IOP (P12/P14), rac1/rac2 onto the recorder (R1–R3), inline VU0 (P10b). Each
+    package section says what to replace with what; check section 4 for an existing PR first.
 
 **Operations**
-9. Deploy Server's hub at `hub.openrac.dev:7177` (or change the launcher default), set `REGION` and
-   `SERVER_NAME`, tag a Server release.
+11. Deploy Server's hub at `hub.openrac.dev:7177` (or change the launcher default), set `REGION` and
+    `SERVER_NAME`, tag a Server release.
 
 **Decompilation**
-10. Match functions in rac3-decomp (its README and CONTRIBUTING; batch your matches).
+12. Match functions in rac3-decomp (its README and CONTRIBUTING; batch your matches).
 
 ### Working agreements
 
 - Conventional Commits; PRs into OpenRAC `develop`; Server and openrac-mods take commits on `master`.
+- **Merging into `develop` goes through the merge queue** (#893): pull request checks are fast, the
+  full ones run in the queue, and auto-merge is off, so `gh pr merge` is refused. Once the required
+  checks pass, enqueue the PR with the GraphQL mutation:
+  `gh api graphql -f query='mutation($id:ID!){enqueuePullRequest(input:{pullRequestId:$id}){mergeQueueEntry{position}}}' -f id=$(gh pr view <N> --json id -q .id)`.
+- CI builds a game only by hand on a PR (#905: dispatch the workflow when your change needs it),
+  with one version per game on PRs (#900); full builds run after merge.
+- New code follows [CODING_CONVENTIONS.md](CODING_CONVENTIONS.md); run `python3 tools/dup_check.py`
+  before a PR (section 22: reuse before writing).
+- Two probes for rendering work: `OPENRAC_HAZE_LOG` (frame-copy strips and the heat haze patches
+  made from them) and `OPENRAC_MOTION_LOG` (per-frame interpolation: alpha, pacing, what snapped);
+  both in [port/DEBUGGING.md](port/DEBUGGING.md).
 - No game data, no Sony SDK source or leaked material, ever.
 - Every new piece of drawing, sound or input is native; never route through PS2-shaped layers.
 - For each game version you touch, keep the others building (PAL, NTSC-U, v2.00 …): the release
@@ -188,41 +250,43 @@ self-contained.
 
 ## 4. Open drafts and branches
 
-The state at handoff (2026-11-23). Check `gh pr list --state open` for anything newer. Each draft's
-description says what is done, what is left and how to continue. None of the recent drafts has
-been built and run in game; start by building one and checking the area it touches.
+The state at the 2026-11-25 wrap-up. Check `gh pr list --state open` for anything newer. Each PR's
+description says what is done, what is left and how to continue. Most of the native-port drafts
+have not been built and played in game individually; start by building one and checking the area
+it touches. "In the merge queue" below means enqueued and about to land.
 
-- #790 (draft) `wip/p4b-p5-p6-native-effects`: wip: p4b-p5-p6-native-effects (unfinished, unbuilt)
-- #789 (draft) `wip/p12-p14-native-kernel`: wip: p12-p14-native-kernel (unfinished, unbuilt)
-- #788 `fix/rac2-flight-paint-t111`: fix(rac2): bind flight ship parts to the selected paint
-- #785 (draft) `feat/vu0-inline-asm-native`: feat(hostgen): VU0 inline assembly in matched C as C on locals (draft)
-- #783 (draft) `feat/rac3-native-ui-rest`: feat(rac3): textures by the getters' tables, Widget3D from the posed mesh, fade fill, HUD placement as item data
-- #782 (draft) `feat/p11a-sound-api`: feat(port): sound at the 989snd API and a native float mixer (P11)
-- #781 (draft) `feat/rac3-mp-24-step2`: feat(rac3): online rooms past 8 players, step 2 (work in progress)
-- #779 (draft) `feat/r1-rac12-recorder`: feat(port): rac1 and rac2 hand-off on the frame recorder (R1, draft)
-- #778 (draft) `fix/rac3-map48-head-point`: fix(rac3): the maps' camera starts from the head point, not the feet (Aquatos Sewers' blue picture)
-- #774 (draft) `feat/rac3-recorder-views`: feat(rac3): split-screen views and the game's 2D screen on the frame recorder; movies on it
-- #700 (draft) `codex/audio-recipes-v1`: feat(audio): generate shareable recipes from the player's disc
-- #655 (draft) `feat/mod-interfaces`: feat(sdk): tables mods offer each other by name, interface 1.29
-- #639 (draft) `feature/editor-new-planet`: feat: OpenRAC Editor support: editor moved out, imported classes, AI control, SDK 1.25
+**In the merge queue**
+- #774 `feat/rac3-recorder-views`: split-screen views and the game's 2D screen on the frame recorder (P2); movies on it
+- #899 `fix/rac3-memset-in-call-copy`: the executable's memset kept out of misnamed call copies (the Phoenix's "Enter ship" box)
+- #809 `codex/rac3-windows-headless-pr`: Windows headless builds and multiplayer input checks
 
-What each recent draft is, in the plan's terms:
+**Native-port packages, open**
+- #888 (draft) `codex/native-all-validation`: the five drafts below merged together and played on rac3 PAL and NTSC-U (reference only)
+- #819 `codex/p10b-native-vu0`: continues #785 (P10b, VU0 inline asm as C, hostgen)
+- #785 (draft) `feat/vu0-inline-asm-native`: the original P10b draft
+- #790 (draft) `wip/p4b-p5-p6-native-effects`: effects work in progress, unbuilt
+- #789 `wip/p12-p14-native-kernel`: kernel, IOP, pads work in progress, unbuilt
+- #783 (draft) `feat/rac3-native-ui-rest`: textures by the getters' tables, Widget3D, fade fill, HUD placement; never built
+- #781 `feat/rac3-mp-24-step2`: online rooms past 8 players, step 2 (9th joiner and spinner fixed, maps' tables open)
+- #779 (draft) `feat/r1-rac12-recorder`: rac1 and rac2 on the frame recorder (R1)
 
-| PR | Package | State |
-|---|---|---|
-| #774 | P2: rac3's last markers, split-screen views, movies on the recorder | Last commit not seen to build |
-| #778 | Map 48 (Aquatos Sewers) blue tint: the camera starts from the head point | Unbuilt; a game-logic fix, check against the console |
-| #779 | R1: rac1 and rac2 on the frame recorder | Builds; rac1's title screen drops 2 of 3 recorder commands per frame |
-| #781 | rac3 rooms past 8 players, step 2 | Unbuilt; the 9th joiner still backs out; turns NTSC-U widening on too early |
-| #782 | P11: sound at the 989snd API, native float mixer | Unbuilt against the games |
-| #783 | rac3 native UI rest: Widget3D, getter textures, fade, HUD placement | Unbuilt; loading stars and multiplayer images not started |
-| #785 | P10b: VU0 inline asm as C | hostgen tests pass; games not built |
-| #789 / #790 | P12/P14 kernel, IOP, pads (`wip/p12-p14-native-kernel`) and P4b/P5/P6 effects (`wip/p4b-p5-p6-native-effects`) | Raw work in progress, stopped mid-build |
+**Fixes and features waiting**
+- #909 `fix/debug-moby-layout`: the debug inspector reads each game's own moby fields
+- #891 and #788 `fix/rac2-flight-paint-t111`: bind flight ship parts to the selected paint (two PRs for one change; land one, close the other)
+- #887 `fix/green-develop`: Android host shader compiler on a runner without X11/Wayland headers
+- #875, #874 `feat/rac2-kbm-pause-page`, `feat/rac2-kbm-comforts`: rac2 keyboard and mouse page, weapon keys, Modern preset
+- #867 (draft) `fix-textures`: shadows in front of HUD text
+- #865, #907 (SDK 1.40: overlay pictures; services between mods) and #901 (mod packs give settings), #655 (draft) interface tables by name
+- #700 (draft) `codex/audio-recipes-v1`: shareable audio recipes from the player's disc
+- #639 (draft) `feature/editor-new-planet`: OpenRAC Editor support
 
-Recently merged and only compile-checked (worth a first look when testing): #786 Network Startup
-page (it keeps its own server-address parser with a `game.openrac.dev` fallback, which should use
-the hub default from #744 instead), #787 NTSC-U multiplayer config, #780 stock-bug fixes and the
-rac3 PAL link fix, #776 VU0 microprograms, #771 scratchpad DMA removal.
+Recently merged and worth a first look when testing: #898 synchronous rendering keeps alpha
+continuous across ticks, #896 calls through an address hand on stack arguments (the Veldin crash),
+#895/#894 effect and shadow draw performance, #893/#900/#905 the CI changes, #883 leaving
+multiplayer, #882 NTSC-U New Game scene tables, #876/#897 Veldin level-copy pairings, #839/#868/#903
+water, #823/#834/#860 dropship heat haze, #815 native sound (P11), #778 map 48's camera, #786 Network
+Startup page (it keeps its own server-address parser with a `game.openrac.dev` fallback, which should
+use the hub default from #744 instead).
 
 ## 5. Status
 

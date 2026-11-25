@@ -662,10 +662,6 @@ Not fixed, for whoever picks rac3 up next:
   through `level_copies`, not through the names. The root fix (rac3-decomp's `copy_groups()` in
   tools/level_catalogue.py) was not attempted: it renames rows used by src/levels/ and the
   decomp's own report, so it needs its own catalogue PR; this audit is the check for it.
-- **Synchronous rendering's tick-boundary hitch**: on OpenGL, or Vulkan without the render
-  thread, the scene runs half a tick behind but in-between frames can't pass the next tick, so
-  alpha drops from ~0.47 to 0 at each tick. The Vulkan render-thread path is not affected.
-  Probe: `OPENRAC_MOTION_LOG`.
 - **The first flight's Solana galaxy sequence**: the boot flight has no first-flight variant in
   its transition table (#871's runs). Probably the New Game intro movie (sector 18444); not
   confirmed against the original.
