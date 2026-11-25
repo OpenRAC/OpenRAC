@@ -409,6 +409,7 @@
       "func_0016EDD0": "int (int)",
       "func_0016EF40": "int (int, int)",
       "func_0012C220": "int (int)",
+      "func_0012B610": "int (int, int, int, int, int, int)",
       "func_00136ED0": "int (int, int, int)",
       "func_001370B8": "int (int, int, int)",
       "func_00137370": "int (int, int, int)",

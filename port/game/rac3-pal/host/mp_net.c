@@ -3167,6 +3167,24 @@ int mp_func_0012C220(int name) {
     return 1;
 }
 
+/* sceDevctl(device, command, argument, its size, buffer, its size): the fileio RPC to a device of
+ * the IOP. Leaving multiplayer (0x00195338, EXIT MULTIPLAYER) and the power button's thread
+ * (0x001951A0) switch the network adaptor off with "dev9x:" DDIOC_OFF (0x4402), retried while the
+ * answer is below 0. No IOP answers the RPC in the port: the translated call found its reply word
+ * 0 and returned -11 every time, so the game spun there and drew no frame again. The adaptor that
+ * 0x0012C220 says is loaded is switched off at once. */
+int mp_func_0012B610(
+    int device, int command, int argument, int argument_size, int buffer, int buffer_size
+) {
+    (void)device;
+    (void)command;
+    (void)argument;
+    (void)argument_size;
+    (void)buffer;
+    (void)buffer_size;
+    return 0;
+}
+
 /* ezNetCnfGetCombinationList(name, type, list): one configuration, the OpenRAC server, in the first
  * of the page's four slots; the other three are empty, so the page shows one row. Returns the
  * configurations' count. */
