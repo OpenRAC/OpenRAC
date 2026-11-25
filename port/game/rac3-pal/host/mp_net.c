@@ -2451,6 +2451,8 @@ static int obj_new(int32_t id, int32_t type, int32_t owner, int32_t creator) {
     return i;
 }
 
+static void gs_log(const char* who);
+
 /* Sends object I to every other member (TARGET 0) or to one session. */
 static void obj_send(int i, int32_t target) {
     const int32_t size = obj_type[objs[i].type].size;
@@ -2480,6 +2482,9 @@ static void obj_send(int i, int32_t target) {
     srv_bytes(G(objs[i].data), (size_t)size);
     srv_end();
     memcpy(objs[i].sent, G(objs[i].data), (size_t)size);
+    if (net_log() && objs[i].type == gs_wide.type) {
+        gs_log("sent");
+    }
 }
 
 /* DME's update sends what changed in the objects this console owns, every frame (the game edits
@@ -2518,6 +2523,35 @@ static void obj_send_all_to(int32_t session) {
         if (objs[i].owner == me) {
             obj_send(i, session);
         }
+    }
+}
+
+/* The settings object's slots (client:state per slot with a client), logged when they change: the
+ * room's staging as this console sees it (OPENRAC_RAC3_NET_LOG). */
+static void gs_log(const char* who) {
+    static char last[512];
+    char line[512];
+    size_t n = 0;
+    const int slots = rac3_mp_wide_slots();
+    for (int slot = 0; slot < slots && n + 16 < sizeof line; slot++) {
+        const gaddr client = rac3_mp_wide_settings(0x0E0u, slot);
+        const gaddr state = rac3_mp_wide_settings(0x0F0u, slot);
+        if (client == 0 || GREF(int16_t, client) < 0) {
+            continue;
+        }
+        n += (size_t)snprintf(
+            line + n,
+            sizeof line - n,
+            " %d:%d/%d",
+            slot,
+            GREF(int16_t, client),
+            GREF(int16_t, state)
+        );
+    }
+    line[n] = 0;
+    if (strcmp(line, last) != 0) {
+        snprintf(last, sizeof last, "%s", line);
+        fprintf(stderr, "[info] rac3: online: settings (%s), slot client/state:%s\n", who, line);
     }
 }
 
@@ -2586,6 +2620,9 @@ static void obj_receive(int kind, int32_t from, reader* r) {
         obj_callback(obj_type[objs[i].type].on_create, creator, id, 0, 0);
     } else {
         obj_callback(obj_type[objs[i].type].on_update, creator, id, -1, 1);
+    }
+    if (net_log() && objs[i].type == gs_wide.type) {
+        gs_log("received");
     }
 }
 
