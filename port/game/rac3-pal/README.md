@@ -362,7 +362,7 @@ vertical blank callback (`func_0013D208`).
 | `host/rac3_version.h` | PAL's switch for the host C, which is both discs': NTSC-U ([rac3-ntsc](../rac3-ntsc/README.md)) compiles the same files with its own names and addresses. An address of the game's memory is written `RAC3_ADDR(0x...u)` (PAL's value); after adding one, or a library row, run `release_carry_rac3.py` (rac3-ntsc's README) |
 | `host/entry.c` | the loader's unpacking, crt0, InitSystemCallTableAddress (no kernel to scan) |
 | `host/dma.c` | sceDmaSend leaving CHCR as the DMAC does (the VIF1 handler retires the frame's wait mask from it), KickVif0Chain |
-| `host/sound.c` | 989snd's command boundary (snd_Pump, snd_SendCommandSync, snd_QueueCommandToRing, the bank loads) on the ring rac2 shares (`common/lib/snd_ring.c`): the native sound engine plays the banks' sounds and the VAG streams |
+| `host/sound.c`, `common/lib/snd.c` | 989snd's client API: native sound and stream requests, with answers sent to callbacks at the next snd_Pump. No shared command ring; unexpected raw sends warn once and return 0 |
 | `host/pad.c` | libpad 4.0, Deadlocked's host pad at this disc's addresses |
 | `host/movie.c` | the movie player entry, the boot program's, frontbin's and every level's copy (`func_L01_004D28B0`, which the levels' story movies start): the shared native player |
 | `host/program.c` | which program is loaded (the overlay hook), `OPENRAC_RAC3_NEXT` |
@@ -725,7 +725,10 @@ routine (Veldin's `0x00408AAC` after its setup `0x00407588`):
   percent at +0x44 (`func_L02_00310368`), not the level's fog: the strip program's fog line (VU
   `0x3AC`..`0x3AF`) is uploaded with the water's for its strips and put back after them.
 
-The program's mipmapped surface texture is drawn without mipmaps. The levels with such water (class
+The program's mipmapped surface texture (TEX1 MMIN 5, MXL 6) gets a mip chain the window makes from the
+picture (`TexturePool::ensure_mipmaps`, asked for by the effect strip's TEX1: `Tex1::mipmapped`), so
+distant water does not shimmer; the reflection and the UI's and quads' effect textures keep one level.
+The levels with such water (class
 2871, one plane each but Tyhrranosis's two): 2, 4, 5, 9, 12, 14, 17, 18, 19, 20, 22 and 29.
 
 ### Shadows, enhanced graphics and texture packs

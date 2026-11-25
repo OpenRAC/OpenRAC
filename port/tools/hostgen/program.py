@@ -1464,7 +1464,13 @@ def _misnamed_call_copy(program: Program, caller: str, callee: str):
     if not listed or any(name == callee for name, _ in listed):
         return None
     levels = {o for o, _ in program.code_places(caller)}
-    if not levels or levels & {o for o, _ in program.code_places(callee)}:
+    callee_places = program.code_places(callee)
+    if not levels or levels & {o for o, _ in callee_places}:
+        return None
+    if any(o < 0 for o, _ in callee_places):
+        # A function of the executable (memset, in func_L01_004CDC38's two calls) is no other
+        # level's function misnamed: it is the callee. Taken for the table's one jal, the string
+        # clears went to the width measure and left the buffer's stack garbage in the text.
         return None
     if len({words for _, words in listed}) != 1 or listed[0][1] is None:
         return None

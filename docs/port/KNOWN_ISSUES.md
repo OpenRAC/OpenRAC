@@ -87,7 +87,7 @@ discs. The pool size is data, not a fixed array:
     In expanded mode the port uses a separate 32,768-entry pointer table;
     vanilla uses its original 511-target table. The remaining 15-bit moby
     index range bounds expanded entries.
-  - **Static collision cells.** Godot can now write an `RLCX` extended leaf for a cell that
+  - **Static collision cells.** OpenRAC Editor can now write an `RLCX` extended leaf for a cell that
     outgrows the retail 255-vertex / 4,080-byte form. The packer forces the level-data stream
     through virtual sectors so the game selects expanded RAM. The PAL/NTSC-U code builds, but
     a dense-cell or large-world level has not yet been run in the game. Query scratch grows

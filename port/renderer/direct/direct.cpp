@@ -31,6 +31,34 @@ namespace {
 // may leave a few out at the edges).
 constexpr std::int64_t kFrameFillLines = 400;
 
+// Converts an exclusive native clip to bounded inclusive pixels; malformed or empty clips stay empty.
+PixelRect native_clip(
+    std::span<const float, 4> rect, float sx, float sy, float width, float height
+) {
+    // Floating-point edges from the game must be finite before any integer conversion.
+    if (!std::isfinite(sx) || !std::isfinite(sy)
+        || !std::all_of(rect.begin(), rect.end(), [](float edge) { return std::isfinite(edge); })) {
+        return {1, 0, 1, 0};
+    }
+
+    const float x0 = std::clamp(rect[0] * sx, 0.0f, width);
+    const float x1 = std::clamp(rect[2] * sx, 0.0f, width);
+    const float y0 = std::clamp(rect[1] * sy, 0.0f, height);
+    const float y1 = std::clamp(rect[3] * sy, 0.0f, height);
+
+    // A clip wholly outside the target must not become a one-pixel strip at its edge.
+    if (x1 <= x0 || y1 <= y0) {
+        return {1, 0, 1, 0};
+    }
+
+    return {
+        static_cast<std::uint32_t>(std::floor(x0)),
+        static_cast<std::uint32_t>(std::ceil(x1)) - 1,
+        static_cast<std::uint32_t>(std::floor(y0)),
+        static_cast<std::uint32_t>(std::ceil(y1)) - 1
+    };
+}
+
 // A frame buffer is read back as a texture only in a colour format; an indexed texture (PSMT8,
 // PSMT4) at the same address is a texture of its own that the game pages in there.
 // The first pixel at or after a 12.4 position: the chip samples a pixel at its integer coordinates.
@@ -1021,9 +1049,35 @@ void GifInterpreter::run_command(const FrameCommand& c) {
     const FrameRecording& r = *m_recording;
     switch (c.op) {
         case FrameOp::World:
+            // Split screen: that player's picture goes here, over what the game drew in the view
+            // before its world and under what it draws after (set_view_pictures).
+            if (c.view < r.views.size()) {
+                view_world(r.views[c.view]);
+            }
+            break;
         case FrameOp::WorldMobys:
+        case FrameOp::WorldShrubs:
+        case FrameOp::EffectParent:
         case FrameOp::EffectQuad:
-            break;  // the window's split and the effect quads' tests: read where they were recorded
+        case FrameOp::ViewBegin:
+        case FrameOp::ViewEnd:
+            break;  // the window's split, strips and effect quads' tests: read where recorded
+        case FrameOp::HudSide:
+            hud_side(
+                static_cast<std::int32_t>(c.index),
+                (c.value & 1u) != 0,
+                (c.value & 2u) != 0 ? static_cast<int>(c.value >> 2) : -1
+            );
+            break;
+        case FrameOp::Wide:
+            m_whole = c.index != 0;
+            break;
+        case FrameOp::PictureBand:
+            m_picture = c.index != 0;
+            break;
+        case FrameOp::LastFrame:
+            draw_frame_snapshot();
+            break;
         case FrameOp::Mobys:
             moby_draw(c.value);
             break;
@@ -1038,10 +1092,40 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             }
             break;
         case FrameOp::Fill: {
+            // A plain fill neither tests nor writes depth (depth_bits 0); a depth fill
+            // (openrac_frame_fill_depth) tests and writes as its producer asked, at its depth placed
+            // as a residual vertex's would be, so the two compare equal at the same value.
             DirectState s;
             s.blend = Blend::of(c.blend);
-            s.depth_write = false;
-            native_rect(c, s, 1.0f);
+            s.depth = c.depth;
+            s.depth_write = c.depth_write;
+            s.colour_writes = c.writes;
+            const bool own_depth = c.depth_bits != 0;
+            // A plain fill's depth is never compared or stored: the nearest value, as before.
+            const float depth =
+                own_depth ? depth_clip(static_cast<double>(c.depth_value), depth_max(c.depth_bits))
+                          : 1.0f;
+
+            // OPENRAC_DUMP_DRAWS lists the depth fills beside the residual draws they replace.
+            if (g_dump_draws && own_depth) {
+                log::info(
+                    "recorded fill ({},{})-({},{}) whole {} rgba {:08x} depth {:#x}/{} bits "
+                    "test {} write {} channels {:#x}",
+                    c.rect[0],
+                    c.rect[1],
+                    c.rect[2],
+                    c.rect[3],
+                    c.whole,
+                    c.rgba,
+                    c.depth_value,
+                    static_cast<int>(c.depth_bits),
+                    static_cast<int>(c.depth.compare),
+                    c.depth_write,
+                    static_cast<int>(c.writes)
+                );
+            }
+
+            native_rect(c, s, depth);
             break;
         }
         case FrameOp::Clear: {
@@ -1051,7 +1135,9 @@ void GifInterpreter::run_command(const FrameCommand& c) {
             s.depth = {s.depth_write, DepthCompare::Always};
             FrameCommand whole = c;
             whole.whole = true;
-            native_rect(whole, s, 0.0f);  // reversed depth: cleared to 0
+            // Reversed depth is cleared to its far value 0, which the 2D pass's -1..1 clip range
+            // places at -1 (clip-space 0 stored 0.5).
+            native_rect(whole, s, depth_clip(0.0, 1.0));
             break;
         }
         case FrameOp::Picture: {
@@ -1102,16 +1188,15 @@ void GifInterpreter::run_command(const FrameCommand& c) {
         case FrameOp::Scissor:
             m_recorded_scissor_set = !c.whole;
             if (!c.whole) {
-                const float sx = static_cast<float>(m_config.screen_width) / c.screen_width;
-                const float sy = static_cast<float>(m_config.screen_height) / c.screen_height;
-                const auto edge = [](float v) {
-                    return static_cast<std::uint32_t>(std::max(0.0f, v));
-                };
-                m_recorded_scissor =
-                    {edge(c.rect[0] * sx),
-                     edge(c.rect[2] * sx - 1.0f),
-                     edge(c.rect[1] * sy),
-                     edge(c.rect[3] * sy - 1.0f)};
+                const bool panel = m_recorded_target != 0;
+                const float width =
+                    static_cast<float>(panel ? kOffscreenPixels : m_config.screen_width);
+                const float height =
+                    static_cast<float>(panel ? kOffscreenPixels : m_config.screen_height);
+                // Panels keep their own pixels, as native_rect and native_item do.
+                const float sx = panel ? 1.0f : width / c.screen_width;
+                const float sy = panel ? 1.0f : height / c.screen_height;
+                m_recorded_scissor = native_clip(c.rect, sx, sy, width, height);
             }
             break;
     }
@@ -1158,9 +1243,9 @@ void GifInterpreter::native_rect(const FrameCommand& c, const DirectState& given
         v.y = 1.0f - ys[i >> 1] / th * 2.0f;
         v.z = depth;
         v.s = static_cast<float>(i & 1);
-        // A snapshot's texture has its first row at the bottom.
-        v.t = s.snapshot_picture != 0 ? 1.0f - static_cast<float>(i >> 1)
-                                      : static_cast<float>(i >> 1);
+        // A snapshot's texture and a view's picture have their first row at the bottom.
+        v.t = s.snapshot_picture != 0 || s.view_picture != 0 ? 1.0f - static_cast<float>(i >> 1)
+                                                             : static_cast<float>(i >> 1);
         v.q = 1.0f;
         std::memcpy(v.rgba, &c.rgba, 4);
         v.fog = 1.0f;
@@ -1168,6 +1253,36 @@ void GifInterpreter::native_rect(const FrameCommand& c, const DirectState& given
     const DirectVertex order[6] =
         {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
     append_vertices(order);
+}
+
+void GifInterpreter::view_world(const FrameView& view) {
+    // At most once a frame: a second World of the view must not cover what was drawn since.
+    if (!view.valid() || m_view_pictures[view.view] == 0
+        || ((m_views_drawn >> view.view) & 1u) != 0) {
+        return;
+    }
+    m_views_drawn |= 1u << view.view;
+    // The view's rectangle of the game's screen, across the target's width as the world is drawn
+    // on a target wider than the picture, not cut by the game's last scissor.
+    FrameCommand rect;
+    rect.rect = view.rect;
+    rect.whole = false;
+    rect.wide = true;
+    rect.screen_width = view.screen_width;
+    rect.screen_height = view.screen_height;
+    DirectState s;
+    s.textured = true;
+    s.combine = TextureCombine::Decal;
+    s.linear_mag = true;
+    s.linear_min = true;
+    s.clamp_s = true;
+    s.clamp_t = true;
+    s.blend = Blend::of(BlendMode::Opaque);
+    s.depth_write = false;
+    s.view_picture = m_view_pictures[view.view];
+    const bool scissor = std::exchange(m_recorded_scissor_set, false);
+    native_rect(rect, s, 1.0f);
+    m_recorded_scissor_set = scissor;
 }
 
 // A quad of the 2D layer from the game's data alone: its image's texture (or the image's distance
@@ -1213,14 +1328,16 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
     const float kx = target != 0 ? 1.0f : tw / std::max(item.screen_width, 1.0f);
     const float ky = target != 0 ? 1.0f : th / std::max(item.screen_height, 1.0f);
     if ((item.flags & kUiItemClip) != 0) {
-        const auto edge = [](float v, float most) {
-            return static_cast<std::uint32_t>(std::clamp(v, 0.0f, most));
-        };
-        s.scissor =
-            {edge(item.clip[0] * kx, tw - 1.0f),
-             edge(item.clip[2] * kx - 1.0f, tw - 1.0f),
-             edge(item.clip[1] * ky, th - 1.0f),
-             edge(item.clip[3] * ky - 1.0f, th - 1.0f)};
+        s.scissor = native_clip(item.clip, kx, ky, tw, th);
+
+        // An item's local clip narrows the active recorder scissor rather than replacing it.
+        if (m_recorded_scissor_set) {
+            s.scissor =
+                {std::max(s.scissor.x0, m_recorded_scissor.x0),
+                 std::min(s.scissor.x1, m_recorded_scissor.x1),
+                 std::max(s.scissor.y0, m_recorded_scissor.y0),
+                 std::min(s.scissor.y1, m_recorded_scissor.y1)};
+        }
     } else if (m_recorded_scissor_set) {
         s.scissor = m_recorded_scissor;
     } else {
@@ -1557,8 +1674,7 @@ DirectVertex GifInterpreter::convert(const GsVertex& v) const {
     out.y = 1.0f - py / target_h * 2.0f;
     // The chip's depth, bigger nearer, straight into GL's [0, 1] window
     // depth: with the buffer cleared to 0 and GEQUAL, as on the console.
-    const double depth = std::clamp(static_cast<double>(v.z) / c.zbuf.max_z(), 0.0, 1.0);
-    out.z = static_cast<float>(depth * 2.0 - 1.0);
+    out.z = depth_clip(static_cast<double>(v.z), c.zbuf.max_z());
     int frame_x = 0;
     int frame_y = 0;
     if (attributes().tme
@@ -2294,6 +2410,7 @@ void DirectRenderer::prepare(const FrameInput& input, RenderState& state) {
     m_interpreter->set_over_world(std::exchange(m_world_split, false) && input.level_drawn);
     m_frame = &input;
     const stats::Scope decode("2d decode");
+    m_interpreter->set_view_pictures(input.view_pictures);
     m_interpreter->set_commands(input.recording, after_world, input.hud_packets_offset);
     submit(packets);
     m_interpreter->finish_commands();
@@ -2408,6 +2525,8 @@ std::array<unsigned, 2> DirectRenderer::apply(const DirectState& s, RenderState&
         glActiveTexture(GL_TEXTURE0);
         if (s.snapshot) {
             textures[0] = g_frame_snapshot.texture;
+        } else if (s.view_picture != 0) {
+            textures[0] = s.view_picture;
         } else if (s.snapshot_picture != 0) {
             const auto found = m_pictures.find(s.snapshot_picture);
             textures[0] =

@@ -19,7 +19,7 @@ It merges the rules the four sister projects already followed (for example
 
 - Disc images, executables, level programs, extracted assets, or anything
   carrying retail bytes: generated assembly (`asm/`), dumps, decompressed
-  data, the Godot project the editor writes. `baserom/`, `assets/`, `build/`
+  data, the level projects OpenRAC Editor writes. `baserom/`, `assets/`, `build/`
   and each game's generated directories are ignored by git for this reason.
 - Compilers, assemblers, linkers and SDK binaries. They are proprietary;
   `toolchains/` is ignored. Each game's docs say where its builders get them.

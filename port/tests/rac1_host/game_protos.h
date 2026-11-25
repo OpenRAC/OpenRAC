@@ -21,7 +21,7 @@ gaddr func_0020E6B8(void);
 
 /* world.c */
 void func_001FD3E8(void);
-void func_001FD3E8__game(void);
+void func_001FD3E8__hooked(void);
 void func_0020D678(gaddr a0);
 void func_0020D678__game(gaddr a0);
 void func_00213C78(void);

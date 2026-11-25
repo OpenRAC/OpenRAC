@@ -47,8 +47,8 @@
  * - Nothing is drawn while the camera is under the water or the corner ray does not reach the
  *   plane.
  *
- * The program's mipmapped surface texture (TEX1 with MIPTBP1/2) is not passed on: the window's
- * effect textures have one level.
+ * The program's mipmapped surface texture (TEX1 with MIPTBP1/2) is not passed on: its levels are
+ * made by the window from the picture (TEX1 asks for them, the effect renderer builds the chain).
  */
 #include <math.h>
 #include <stdint.h>
@@ -123,7 +123,11 @@ static const uint64_t kTestSurface = 0x5000Bu;
 static const uint64_t kTestReflection = 0x51001u;
 /* DrawFrame's TEST between callbacks, which the callback leaves too. */
 static const uint64_t kTestRestore = 0x5360Bu;
-static const uint64_t kTex1 = 0x60u; /* bilinear */
+/* Bilinear in a mipmap chain (MMIN 5, linear mipmap linear, MXL 6): the window makes the surface
+ * texture's chain natively, so the distant water is not left to shimmer; the reflection's picture
+ * stays at one level (a zenith lookup, not a tiled picture). */
+static const uint64_t kTex1 = 0x20u | 5u << 6 | 6u << 2;
+static const uint64_t kTex1Reflection = 0x60u; /* bilinear, one level */
 
 typedef struct Wave {
     float amplitude, phase, kx, ky, speed;
@@ -415,10 +419,10 @@ static int frame_grid(
     return 1;
 }
 
-static void set_layer(uint64_t tex0, uint64_t alpha, uint64_t test) {
+static void set_layer(uint64_t tex0, uint64_t alpha, uint64_t test, uint64_t tex1) {
     func_L01_004C5B90(GS_ALPHA_1, alpha);
     func_L01_004C5B90(GS_CLAMP_1, 0);
-    func_L01_004C5B90(GS_TEX1_1, kTex1);
+    func_L01_004C5B90(GS_TEX1_1, tex1);
     func_L01_004C5B90(GS_TEST_1, test);
     func_L01_004C5B90(GS_TEX0_1, tex0);
 }
@@ -550,9 +554,9 @@ void func_L02_00310838(int moby) {
     for (int r = 1; r < row_count; ++r) {
         for (int layer = 0; layer < 2; ++layer) {
             if (layer == 0) {
-                set_layer(reflection_tex0, reflection_alpha, kTestReflection);
+                set_layer(reflection_tex0, reflection_alpha, kTestReflection, kTex1Reflection);
             } else {
-                set_layer(surface_tex0, surface_alpha, kTestSurface);
+                set_layer(surface_tex0, surface_alpha, kTestSurface, kTex1);
             }
             for (int j = 0; j < COLUMNS; ++j) {
                 for (int side = 0; side < 2; ++side) {
