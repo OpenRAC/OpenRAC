@@ -124,6 +124,13 @@ void snapshot(std::uint32_t id);
 void target_begin(std::uint32_t id, int width, int height);
 void target_end();
 void scissor(const float* rect);
+void screen(float width, float height);
+void view_begin(int view, const openrac_frame_viewport& rect);
+// With a view open: its camera, read from `ram` (the game's profile) where its world is recorded.
+void view_camera(std::span<const std::uint8_t> ram);
+// With a view open: layers the game draws in it (openrac_game_draw's).
+void view_layers(unsigned layers);
+void view_end();
 // How a game image (openrac_game_ui_image) becomes a decoded image: set by the 2D layer's image
 // cache (frontend/ui_images); until it is, items with an image are not recorded (the caller draws
 // its way) and picture_image draws nothing.
@@ -160,7 +167,12 @@ void particle(
 
 // `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
 // when the game does not report them).
-bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws);
+bool frame(
+    std::span<const std::uint8_t> ram,
+    std::uint32_t chain,
+    std::span<const std::uint32_t> earlier,
+    std::uint32_t draws
+);
 
 // Captures the next tick's owned CPU scene while an earlier Vulkan snapshot renders.
 // The game thread calls this with stable RAM before finish_render(); false on capture failure.

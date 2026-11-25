@@ -395,5 +395,20 @@ func_00120748	libgcc	rac2SjpopnthrowTail	host	a fragment of __sjpopnthrow, enter
 func_00120FA4	libgcc	rac2ThrowLanding	host	a fragment of __throw (00120F00-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
 func_0012118C	libgcc	rac2RethrowLanding	host	a fragment of __rethrow (001210E0-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
 func_00130004	mpeg	rac2DecodeFrameTail	host	a fragment of func_0012FEC0 (its epilogue), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_002B1930	collectibles	PlatinumBolts_CountTotal	hook	Counts the platinum bolts recorded in the save. A replacement can return received currency independently of physical pickups.
+func_L00_002D6408	hero	Hero_UpdateCollectionProgress	hook	Recounts nanotech and weapon collection progress from inventory; mods can separate pickup flags from received ownership.
+func_0029B738	save	Save_Serialize	hook	Serializes live game state to the save packet at output. Inventory substitutions made by a mod must be restored before calling the original.
+func_002997A0	save	Save_NewGame	hook	Resets game data from disc defaults for a new campaign, before its starting level is entered.
+func_L03_003D6298	moby	Moby_EndakoRescue_Update	hook	Updates the Endako rescue sequence that returns Clank and the Swingshot.
+func_L08_003FB598	moby	Moby_TaboraWrench_Update	hook	Updates the Tabora controller, including its wrench reward.
+func_L14_003F9660	moby	Moby_PrisonWrench_Init	hook	Initializes the Aranos prison wrench pickup.
+func_L12_003B8918	moby	Moby_TodanoTrader_Update	hook	Updates the Todano trader and his reward exchange.
+func_L14_0042B290	moby	Moby_PrisonPlumber_Update	hook	Updates the Aranos plumber and his reward. The game declaration takes a signed 32-bit moby address.
+func_L14_0042BC18	moby	Moby_PrisonController_Update	hook	Updates the Aranos prison controller, including inventory restoration.
+func_L07_003FB840	moby	Moby_SiberiusThief_Update	hook	Updates the Siberius thief sequence and its progression state.
+func_L13_00421C70	moby	Moby_BoldanCutscene_Update	hook	Updates the Boldan cutscene trigger and its temporary inventory state.
+func_L18_004450C8	moby	Moby_HypnomaticPart_Update	hook	Updates the Hypnomatic part pickup on Damosel.
+func_002A74D8	combat	Moby_CountKill	hook	Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
+func_002D0290	menu	Menu_Extras	hook	Processes the extras menu and returns its menu result.
 func_L00_00408110	moby	sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)
 func_L00_0040D328	moby	dark_sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)
