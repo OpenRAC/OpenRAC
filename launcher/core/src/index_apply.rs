@@ -6,6 +6,12 @@
 //! It stops at the first failure and keeps what was installed before it: the result says which
 //! were done and why the next one failed, for "Installed 2 of 3".
 //!
+//! A pack is recorded once all its mods are in, and its values for their settings are applied then
+//! (on an update too), never over the player's: plugins.json holds a value only once the player set
+//! one, so a value is written where it holds none, or still holds the one the pack's earlier version
+//! set (recorded in sources.json); a key or value the mod's manifest does not take is skipped and
+//! logged.
+//!
 //! Before a mod that `touches-saves` is first turned on, the game's memory card is copied to
 //! `<data>/saves.backup/<date>/<serial>/` (saves.rs's data folder), so a bad save can be undone.
 
@@ -237,6 +243,8 @@ pub fn apply(
     if !plan.packs.is_empty() {
         let mut sources = remote::read_sources(ctx.dir);
         for p in &plan.packs {
+            let before = sources.mods.get(&p.id).filter(|s| s.kind == crate::resolver::MODPACK);
+            let settings = pack_settings(ctx.dir, p, &before.map(|s| s.settings.clone()).unwrap_or_default());
             sources.mods.insert(
                 p.id.clone(),
                 remote::ModSource {
@@ -253,6 +261,7 @@ pub fn apply(
                         .filter(|m| m.required_by.contains(&p.id))
                         .map(|m| m.id.clone())
                         .collect(),
+                    settings,
                     ..Default::default()
                 },
             );
@@ -262,6 +271,32 @@ pub fn apply(
     }
     Ok(result)
 }
+
+/// Applies pack `p`'s values for its mods' settings (`plugins::apply_pack_settings`), given what its
+/// version installed before gave them (`before`): what to record as the pack's now. A value that is
+/// not applied (the player's own, a key the mod does not have, a value it does not take) is logged.
+fn pack_settings(dir: &Path, p: &PlannedMod, before: &Settings) -> Settings {
+    let mut out = Settings::new();
+    let none = serde_json::Map::new();
+    for id in p.settings.keys().chain(before.keys().filter(|id| !p.settings.contains_key(*id))) {
+        let wanted = p.settings.get(id).unwrap_or(&none);
+        match plugins::apply_pack_settings(dir, id, wanted, before.get(id).unwrap_or(&none)) {
+            Ok((taken, notes)) => {
+                for note in notes {
+                    crate::launcher_log::line(&format!("mod pack {}: {note}", p.id));
+                }
+                if !taken.is_empty() {
+                    out.insert(id.clone(), taken);
+                }
+            }
+            Err(e) => crate::launcher_log::line(&format!("mod pack {}: {id}'s settings not set: {e}", p.id)),
+        }
+    }
+    out
+}
+
+/// Settings values by mod id, then by key.
+type Settings = std::collections::BTreeMap<String, serde_json::Map<String, serde_json::Value>>;
 
 /// Puts back what an update set changed before it failed: each replaced mod rolled back to the
 /// version kept in `.previous`, each new one removed.
@@ -321,11 +356,15 @@ mod tests {
         crate::sha256_hex(bytes)
     }
 
+    /// A script mod's manifest; each has the same two settings, for the packs' values.
     fn manifest(id: &str, version: &str, requires: &[&str]) -> String {
         let req: Vec<String> = requires.iter().map(|r| format!(r#"{{"id":"{r}"}}"#)).collect();
         format!(
             r#"{{"format":2,"id":"{id}","name":"{id}","version":"{version}","author":"a","type":"script","api":"1.1",
-            "games":{{"rac1":["pal"]}},"scripts":["main.luau"],"requires":[{}]}}"#,
+            "games":{{"rac1":["pal"]}},"scripts":["main.luau"],"requires":[{}],
+            "settings":[{{"key":"camera","name":"Camera","type":"choice","default":"enhanced",
+              "choices":[{{"value":"enhanced","name":"Enhanced"}},{{"value":"rac2","name":"Going Commando"}}]}},
+              {{"key":"speed","name":"Speed","type":"int","default":1,"min":0,"max":5}}]}}"#,
             req.join(",")
         )
     }
@@ -380,6 +419,7 @@ mod tests {
             impact: vec![],
             hooks: vec![],
             enable: false,
+            settings: Default::default(),
         }
     }
 
@@ -415,6 +455,7 @@ mod tests {
             impact: vec![],
             hooks: vec![],
             enable: false,
+            settings: Default::default(),
         };
         assert_eq!(source_url(&m), "https://github.com/o/r/releases/tag/x-v1.0.0");
         m.kind = "data".into();
@@ -518,6 +559,49 @@ mod tests {
         assert_eq!((s.mods["the-pack"].kind.as_str(), s.mods["the-pack"].version.as_str()), ("modpack", "1.0.0"));
         let installed = crate::resolver::installed_mods(dir.path(), "rac1", "pal");
         assert!(installed.iter().any(|m| m.id == "the-pack"));
+    }
+
+    #[test]
+    fn a_pack_sets_its_mods_settings_but_never_over_the_players() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut hub = Hub::default();
+        let inner = release(&mut hub, "inner-mod", "1.0.0", &[], false);
+        let pack = |version: &str, values: serde_json::Value| {
+            let mut pack = inner.clone();
+            (pack.id, pack.version, pack.kind, pack.asset, pack.tag) =
+                ("the-pack".into(), version.into(), "pack".into(), None, String::new());
+            pack.settings = serde_json::from_value(serde_json::json!({ "inner-mod": values })).unwrap();
+            pack
+        };
+        let apply_pack = |pack: PlannedMod, install: Vec<PlannedMod>| {
+            let plan = InstallPlan { install, packs: vec![pack], ..Default::default() };
+            let result = apply(&ctx(dir.path(), &hub), &plan, &opts(dir.path(), None), |_| {}).unwrap();
+            assert!(result.failed.is_none(), "{:?}", result.failed);
+        };
+        let values = || plugins::stored(dir.path()).unwrap()["inner-mod"].1.clone();
+        let recorded = || serde_json::to_value(&remote::read_sources(dir.path()).mods["the-pack"].settings).unwrap();
+
+        // Installed with the pack: its values go in; a key the mod lacks and a value out of range do not.
+        apply_pack(pack("1.0.0", serde_json::json!({"camera": "rac2", "speed": 9, "nope": true})), vec![inner.clone()]);
+        assert_eq!(serde_json::Value::Object(values()), serde_json::json!({"camera": "rac2"}));
+        assert_eq!(recorded(), serde_json::json!({"inner-mod": {"camera": "rac2"}}));
+
+        // The player chooses a speed; the pack's next version changes both: only its own value moves.
+        plugins::set_setting(dir.path(), "rac1", "pal", "inner-mod", "speed", serde_json::json!(2), "").unwrap();
+        apply_pack(pack("1.1.0", serde_json::json!({"camera": "enhanced", "speed": 4})), vec![]);
+        assert_eq!(serde_json::Value::Object(values()), serde_json::json!({"camera": "enhanced", "speed": 2}));
+        assert_eq!(recorded(), serde_json::json!({"inner-mod": {"camera": "enhanced", "speed": 4}}));
+
+        // A value the version after drops goes back to the mod's default; the player's stays.
+        apply_pack(pack("1.2.0", serde_json::json!({})), vec![]);
+        assert_eq!(serde_json::Value::Object(values()), serde_json::json!({"speed": 2}));
+        assert_eq!(recorded(), serde_json::json!({}));
+
+        // Chosen by the player before the pack came, even the default: kept.
+        plugins::set_setting(dir.path(), "rac1", "pal", "inner-mod", "camera", serde_json::json!("enhanced"), "")
+            .unwrap();
+        apply_pack(pack("1.3.0", serde_json::json!({"camera": "rac2"})), vec![]);
+        assert_eq!(serde_json::Value::Object(values()), serde_json::json!({"camera": "enhanced", "speed": 2}));
     }
 
     #[test]

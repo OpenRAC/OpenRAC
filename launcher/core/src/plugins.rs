@@ -1228,6 +1228,60 @@ pub(crate) fn set_values(dir: &Path, id: &str, values: &BTreeMap<String, Value>)
     Ok(skipped)
 }
 
+/// Gives mod `id` the values a mod pack sets for its settings (`wanted`, by key), without
+/// overriding the player. plugins.json holds a value only once the player set one, so a key is
+/// written only when it holds none, or still holds the one the pack's earlier version set
+/// (`before`, from sources.json). A key `before` set that `wanted` no longer does goes back to the
+/// mod's default by the same rule. A key the manifest does not declare, or a value it does not
+/// take, is left out. Returns the values that are the pack's now (as the setting takes them, for
+/// the next `before`) and a line for each value not applied.
+pub(crate) fn apply_pack_settings(
+    dir: &Path,
+    id: &str,
+    wanted: &Map<String, Value>,
+    before: &Map<String, Value>,
+) -> Result<(Map<String, Value>, Vec<String>), String> {
+    let mut mods = read_list(dir)?;
+    let at = position(&mods, id)?;
+    let m = read_manifest(&dir.join(id))?;
+    let spec = |key: &str| m.settings.iter().find(|s| s.key == key);
+    let (mut taken, mut notes) = (Map::new(), Vec::new());
+    let mut changed: Vec<&str> = Vec::new();
+    let stored = &mut mods[at].settings;
+    for (key, value) in wanted {
+        let Some(s) = spec(key) else {
+            notes.push(format!("{id} has no setting {key}"));
+            continue;
+        };
+        let Some(value) = check_value(s, value) else {
+            notes.push(format!("{value} is not a value of {id}'s {key}"));
+            continue;
+        };
+        taken.insert(key.clone(), value.clone());
+        match stored.get(key) {
+            Some(now) if *now == value => {}
+            Some(now) if before.get(key) != Some(now) => notes.push(format!("{id}'s {key} kept at the player's {now}")),
+            _ => {
+                stored.insert(key.clone(), value);
+                changed.push(key);
+            }
+        }
+    }
+    for (key, old) in before {
+        if !wanted.contains_key(key) && stored.get(key) == Some(old) {
+            stored.remove(key);
+            changed.push(key);
+        }
+    }
+    if !changed.is_empty() {
+        write_list(dir, &mods)?;
+        if party_kind(&m) == "gameplay" && changed.iter().any(|key| spec(key).is_some_and(shared_setting)) {
+            forget_code(dir);
+        }
+    }
+    Ok((taken, notes))
+}
+
 /// Puts the mods of `order` in that order among themselves, on the places they hold now: the others
 /// stay where they are.
 pub(crate) fn arrange(dir: &Path, order: &[String]) -> Result<(), String> {
