@@ -1081,22 +1081,6 @@ void GifInterpreter::run_command(const FrameCommand& c) {
         case FrameOp::LastFrame:
             draw_frame_snapshot();
             break;
-        case FrameOp::HudSide:
-            hud_side(
-                static_cast<std::int32_t>(c.index),
-                (c.value & 1u) != 0,
-                (c.value & 2u) != 0 ? static_cast<int>(c.value >> 2) : -1
-            );
-            break;
-        case FrameOp::Wide:
-            m_whole = c.index != 0;
-            break;
-        case FrameOp::PictureBand:
-            m_picture = c.index != 0;
-            break;
-        case FrameOp::LastFrame:
-            draw_frame_snapshot();
-            break;
         case FrameOp::Mobys:
             moby_draw(c.value);
             break;
