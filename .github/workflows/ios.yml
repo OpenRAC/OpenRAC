@@ -1,6 +1,6 @@
 # iPhone and iPad checks on macOS (docs/port/IOS.md). No disc or Apple signing needed.
-# Port / iOS: runtime tests, then the runtime built for iOS without a game.
-# Launcher / iOS: the Rust adapter, bundle tests, icons, and the port/ios/*.mm bridges.
+# Dev release: Port iOS: runtime tests, then the runtime built for iOS without a game.
+# Dev release: Launcher iOS: the Rust adapter, bundle tests, icons, and the port/ios/*.mm bridges.
 # macOS runners are few and slow to get: the macOS jobs run for a dev release (its pull request
 # to master and the push to master) and by hand, and the scope job picks the jobs a push can
 # affect (tools/ci_scope.py ios). On other pull requests and in the merge queue only the scope job
@@ -43,7 +43,7 @@ concurrency:
 
 jobs:
   scope:
-    name: Which iOS checks run
+    name: Plan (iOS)
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
@@ -72,7 +72,7 @@ jobs:
           python3 "$script" ios || true
 
   port:
-    name: Port / iOS
+    name: "Dev release: Port iOS"
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.port != 'false' }}
     runs-on: macos-latest
@@ -117,7 +117,7 @@ jobs:
       - uses: ./.github/actions/compiler-cache/save
 
   launcher:
-    name: Launcher / iOS
+    name: "Dev release: Launcher iOS"
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.launcher != 'false' }}
     runs-on: macos-latest

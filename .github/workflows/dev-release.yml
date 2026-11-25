@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   pull-request:
-    name: Pull request to master
+    name: Open the pull request to master
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:

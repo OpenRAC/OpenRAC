@@ -78,6 +78,7 @@ jobs:
   # installers X.Y.Z, their latest.json X.Y.(Z+1)-dev), and launchers on that channel would update
   # forever.
   version:
+    name: Version
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
@@ -91,7 +92,7 @@ jobs:
         run: echo "base=$(launcher/scripts/dev_version.sh launcher/src-tauri/tauri.conf.json "$GITHUB_REPOSITORY")" >> "$GITHUB_OUTPUT"
 
   build:
-    name: ${{ matrix.name }}
+    name: "Installers: ${{ matrix.name }}"
     needs: version
     runs-on: ${{ matrix.os }}
     # Two hours for every row: a cold compiler cache takes Windows and Android past an hour.
@@ -614,6 +615,7 @@ jobs:
   # still get their update, and latest.json leaves out the one that did not. Not when the run was
   # cancelled (a newer one of the branch took its place).
   dev-release:
+    name: "Publish: Development channel"
     if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') && needs.build.result != 'skipped' }}
     needs: [version, build]
     runs-on: ubuntu-26.04
