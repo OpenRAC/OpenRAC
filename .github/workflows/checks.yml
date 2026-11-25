@@ -559,9 +559,9 @@ jobs:
         run: test "$RESULT" = success || { test "$RESULT" = skipped && test "$PARTS" = "[]"; }
 
   # Full enhanced Vulkan coverage and the offline Embree baker, separately from the compatibility
-  # build above. The preset explicitly compiles enhanced code in. One job: the build, then each
-  # test group (tools/ci_port_tests.py) in turn on the same runner. Most Vulkan tests share one
-  # lock (cmake/GpuTests.cmake), so they run one by one wherever they run. Full tier only.
+  # build above. The preset explicitly compiles enhanced code in. One job: the build, then two
+  # CTest calls (tools/ci_port_tests.py): the tests without Vulkan, then all Vulkan tests. Full
+  # tier only.
   port-vulkan-enhanced-build:
     name: "Enhanced Vulkan: build and tests"
     needs: scope
@@ -610,6 +610,19 @@ jobs:
           variant: ubuntu-enhanced-baker
           preset: enhanced
           hostgen: "false"
+      # The shader compiler's own cache: one file per program, keyed by its source and glslang, so
+      # only changed shaders compile again. The compiler deletes the entries it no longer uses.
+      - name: Restore the shader compiler cache
+        id: shader-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: port/build/enhanced/generated/shader_package/.cache
+          key: shader-cache-v1-enhanced-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          restore-keys: shader-cache-v1-enhanced-${{ runner.os }}-${{ runner.arch }}-
+      - name: List the restored shader compiler cache
+        run: |
+          { ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null || true; } |
+            sha256sum > "$RUNNER_TEMP/shader-cache.list"
 
       - name: Build enhanced lighting and baker
         working-directory: port
@@ -620,16 +633,32 @@ jobs:
             -DOPENRAC_VULKAN_TEST_SEED_CACHE=ON
           cmake --build --preset enhanced
 
-      # Every group, even after one fails, so that one run shows every failure.
-      - name: The test groups
+      # Only a push writes it, and only when the compiler added or dropped an entry.
+      - name: Check the shader compiler cache
+        id: shader-cache-new
+        if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
+        run: |
+          changed=true
+          { ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null || true; } |
+            sha256sum | cmp -s - "$RUNNER_TEMP/shader-cache.list" && changed=false
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+      - name: Save the shader compiler cache
+        if: steps.shader-cache-new.outputs.changed == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: port/build/enhanced/generated/shader_package/.cache
+          key: ${{ steps.shader-cache.outputs.cache-primary-key }}
+
+      - name: The tests
         env:
           SDL_VIDEO_DRIVER: x11
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIVM_PERF: nopt
         run: |
           python3 tools/ci_port_tests.py port/build/enhanced plan
+          # Both groups, even after the first fails, so that one run shows every failure.
           failed=""
-          for group in vulkan equivalence effects cpu baker; do
+          for group in host vulkan; do
             echo "::group::$group"
             xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$group" || failed="$failed $group"
             echo "::endgroup::"
