@@ -553,6 +553,14 @@ public:
     // grey and turns green there (func_L00_003CD8E0).
     std::uint32_t moby_glow_word() const override { return 0x78; }
 
+    // The update function, the pvars and the rotation (host/play.c MOBY_UPDATE, MOBY_PVARS,
+    // MOBY_ROT), where Ratchet & Clank's are +0x74, +0x78 and +0x40.
+    std::uint32_t moby_update() const override { return 0x64; }
+
+    std::uint32_t moby_pvars() const override { return 0x68; }
+
+    std::uint32_t moby_rotation() const override { return 0xF0; }
+
     // func_L00_00316F60 blends a layer's buffer (+0x10), not keys: his weapon arm.
     bool moby_layer_records() const override { return true; }
 

@@ -2,7 +2,7 @@
 
 Reads the levels, models, textures and sounds of your own Ratchet & Clank disc (and, in early
 access, Going Commando's, Up Your Arsenal's and Deadlocked's) and writes them the way the native
-port uses them. The launcher runs it for you; nothing here needs Godot.
+port uses them. The launcher runs it for you; nothing here needs OpenRAC Editor.
 
 ```sh
 python3 extractor/extract.py survey ISO                 # the disc's layout, as JSON
@@ -20,7 +20,7 @@ and where modders change it: [BEHAVIOUR.md](BEHAVIOUR.md).
 
 ## The level editor
 
-The level editor, its Godot projects, the level packer and their tests live in
+The level editor, its level projects, the level packer and their tests live in
 [OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor). Its tools read discs and levels with
 this folder's modules, so what they may use is a contract:
 

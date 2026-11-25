@@ -2,40 +2,40 @@
 
 ```
 OpenRAC/
-â”œâ”€â”€ README.md, CONTRIBUTING.md
-â”œâ”€â”€ LICENSE.md, THIRD_PARTY_NOTICES.md, CREDITS.md
-â”œâ”€â”€ games/                  one folder per game (games/README.md)
-â”‚   â”œâ”€â”€ rac1/               Ratchet & Clank (2002)
-â”‚   â”‚   â”œâ”€â”€ README.md       the game, its versions, where each comes from, where the port's code is
-â”‚   â”‚   â”œâ”€â”€ game.json       discs, checksums, which decomp each version is built from, its pin
-â”‚   â”‚   â”œâ”€â”€ decomp/         our decomp, rac1-decomp (submodule): PAL v2.00, PAL v1.00, NTSC-J
-â”‚   â”‚   â”œâ”€â”€ decomp-patches/ OpenRAC-only changes to decomp/: NNNN-<what>.patch, files/, README.md
-â”‚   â”‚   â”œâ”€â”€ ntsc-decomp/    the third-party NTSC decomp, Lombyte (submodule): NTSC-U
-â”‚   â”‚   â””â”€â”€ ntsc-decomp-patches/  OpenRAC-only changes to ntsc-decomp/
-â”‚   â”œâ”€â”€ rac2/decomp/        Going Commando (USA v1.01 and v2.00, PAL), from rac2-decomp
-â”‚   â”œâ”€â”€ rac3/decomp/        Up Your Arsenal (PAL, NTSC-U), from rac3-decomp
-â”‚   â”œâ”€â”€ rac4/decomp/        Deadlocked, SCUS_974.65, from rac4-decomp
-â”‚   â”œâ”€â”€ rac5/decomp/        Size Matters, SCUS_976.15, from rac5-sm-decomp
-â”‚   â””â”€â”€ rac6/decomp/        Secret Agent Clank, SCUS_976.23, from rac-sac-decomp
-â”œâ”€â”€ extractor/                 Godot level editor and extractor (shared)
-â”œâ”€â”€ launcher/               desktop app to set up, build and play every game (Tauri)
-â”œâ”€â”€ port/                   the native PC port: runtime, hostgen, materials, renderer, platform, the games' programs
-â”‚   â””â”€â”€ renderer/graph/     CPU-only frame dependencies and barrier planning
-?   ??? tools/shader_compiler/ build-time Vulkan SPIR-V, reflection and variant recipes
-â”œâ”€â”€ sdk/                    the mod SDK: headers, CMake package, templates, tools, the generated catalogue
-â”œâ”€â”€ tools/                  repository-wide tools: openrac.py, extractor.py, sources.py
-â”‚   â””â”€â”€ openrac_common/     the helpers the Python tools share (paths, game.json, tables, discs)
-â”œâ”€â”€ docs/                   knowledge and rules that span the games
-â”‚   â”œâ”€â”€ assets/             the logo and the pictures README.md shows
-â”‚   â”œâ”€â”€ decomp/             the decompilations across games: workflows, compilers, rules
-â”‚   â”œâ”€â”€ policy/             sourcing policy, open questions
-â”‚   â”œâ”€â”€ port/               the native port: design, studies, order of work
-â”‚   â”œâ”€â”€ restructure/        the restructure's progress: packages, owners, how to help
-â”‚   â””â”€â”€ engine/             what is known about the engine, across games
-â”œâ”€â”€ shared/                 what the games have in common: the function map, the shared-files list
-â”œâ”€â”€ progress/               consolidated progress (generated)
-â”œâ”€â”€ baserom/                your own disc images (ignored, except its README)
-â””â”€â”€ toolchains/             compilers you supply (ignored, except its README)
+├── README.md, CONTRIBUTING.md
+├── LICENSE.md, THIRD_PARTY_NOTICES.md, CREDITS.md
+├── games/                  one folder per game (games/README.md)
+│   ├── rac1/               Ratchet & Clank (2002)
+│   │   ├── README.md       the game, its versions, where each comes from, where the port's code is
+│   │   ├── game.json       discs, checksums, which decomp each version is built from, its pin
+│   │   ├── decomp/         our decomp, rac1-decomp (submodule): PAL v2.00, PAL v1.00, NTSC-J
+│   │   ├── decomp-patches/ OpenRAC-only changes to decomp/: NNNN-<what>.patch, files/, README.md
+│   │   ├── ntsc-decomp/    the third-party NTSC decomp, Lombyte (submodule): NTSC-U
+│   │   └── ntsc-decomp-patches/  OpenRAC-only changes to ntsc-decomp/
+│   ├── rac2/decomp/        Going Commando (USA v1.01 and v2.00, PAL), from rac2-decomp
+│   ├── rac3/decomp/        Up Your Arsenal (PAL, NTSC-U), from rac3-decomp
+│   ├── rac4/decomp/        Deadlocked, SCUS_974.65, from rac4-decomp
+│   ├── rac5/decomp/        Size Matters, SCUS_976.15, from rac5-sm-decomp
+│   └── rac6/decomp/        Secret Agent Clank, SCUS_976.23, from rac-sac-decomp
+├── extractor/              level extractor (OpenRAC Editor reads levels with it)
+├── launcher/               desktop app to set up, build and play every game (Tauri)
+├── port/                   the native PC port: runtime, hostgen, materials, renderer, platform, the games' programs
+│   ├── renderer/graph/     CPU-only frame dependencies and barrier planning
+│   └── tools/shader_compiler/ build-time Vulkan SPIR-V, reflection and variant recipes
+├── sdk/                    the mod SDK: headers, CMake package, templates, tools, the generated catalogue
+├── tools/                  repository-wide tools: openrac.py, extractor.py, sources.py
+│   └── openrac_common/     the helpers the Python tools share (paths, game.json, tables, discs)
+├── docs/                   knowledge and rules that span the games
+│   ├── assets/             the logo and the pictures README.md shows
+│   ├── decomp/             the decompilations across games: workflows, compilers, rules
+│   ├── policy/             sourcing policy, open questions
+│   ├── port/               the native port: design, studies, order of work
+│   ├── restructure/        the restructure's progress: packages, owners, how to help
+│   └── engine/             what is known about the engine, across games
+├── shared/                 what the games have in common: the function map, the shared-files list
+├── progress/               consolidated progress (generated)
+├── baserom/                your own disc images (ignored, except its README)
+└── toolchains/             compilers you supply (ignored, except its README)
 ```
 
 ## The rules that keep it organised
@@ -55,7 +55,7 @@ level never depends on one game's internals, apart from the per-game
 knowledge the editor decodes.
 
 **Generated and personal files stay out of git.** Disc images, extracted
-data, assembly, build output, the generated Godot projects and toolchains are
+data, assembly, build output, the generated level projects and toolchains are
 ignored, by the top-level `.gitignore` and by each game's own. `progress/`
 and the tables in `README.md` are generated but committed, because they are
 what readers see.
