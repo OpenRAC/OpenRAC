@@ -36,9 +36,11 @@ import struct
 import sys
 from pathlib import Path
 
-from fixes import FIXED
-
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))  # fixes.py sits beside this file; tests import it from elsewhere
+
+from fixes import FIXED  # noqa: E402
+
 ROOT = HERE.parents[3]
 MAPS = range(40, 54)
 SECOND_ENTRY = 0x484  # main (0x001932A0) also calls the routine this far past a map's entry
