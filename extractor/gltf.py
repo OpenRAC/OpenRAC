@@ -72,12 +72,14 @@ class Gltf:
         samplers.append({**samplers[0], **wrap})
         return len(samplers) - 1
 
-    def material(self, name: str, uri: str, *, cutout: bool = False, clamp: int = 0, opaque: bool = False) -> int:
+    def material(self, name: str, uri: str, *, cutout: bool = False, clamp: int = 0, opaque: bool = False,
+                 additive: float = 0.0) -> int:
         """A double-sided diffuse material; cutout uses glTF's MASK mode, clamp the axes the
         texture is clamped on (bit 0 S, bit 1 T), as the game's GS CLAMP setting. opaque marks one
         the game blends opaque whatever its texels' alpha (extras "opaque": the port draws it
-        solid where a texture below full alpha would make it a cutout)."""
-        key = (name, uri, cutout, clamp, opaque)
+        solid where a texture below full alpha would make it a cutout); additive the factor of a
+        material the game adds to the frame (extras "additive": the port draws it so)."""
+        key = (name, uri, cutout, clamp, opaque, additive)
         if key not in self.materials:
             self.doc["images"].append({"uri": uri})
             self.doc["textures"].append({"source": len(self.doc["images"]) - 1, "sampler": self.sampler(clamp)})
@@ -88,6 +90,8 @@ class Gltf:
                 material.update(alphaMode="MASK", alphaCutoff=0.5)
             if opaque:
                 material["extras"] = {"opaque": True}
+            if additive:
+                material["extras"] = {"additive": additive}  # the port adds it, by this factor
             self.doc["materials"].append(material)
             self.materials[key] = len(self.doc["materials"]) - 1
         return self.materials[key]

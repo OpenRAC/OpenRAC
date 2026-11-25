@@ -75,6 +75,10 @@ struct Material {
     bool metal = false;   // a metal packet's chrome or glass map (metal_*): drawn in the shine pass
     bool cutout = false;  // glTF alphaMode MASK: alpha test at 0.5
     bool blend = false;   // glTF alphaMode BLEND
+    // A material the game adds to the frame (ALPHA_1 Cs * Ad + Cd, or Cs * FIX + Cd: Up Your
+    // Arsenal's ties' glows), by this factor of its colour; 0 none. Such a material is also a cutout
+    // (drawn in the translucent pass only, over everything else), whatever its texels' alpha.
+    float additive = 0.0f;
     // The texture's sampler clamps across (S) or down (T): the GS CLAMP_1 of the game's setup. A
     // clamped texture repeated pulls its far edge into the near one under bilinear filtering.
     bool clamp_s = false;

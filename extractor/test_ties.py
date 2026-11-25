@@ -65,6 +65,16 @@ class TieTests(unittest.TestCase):
         mesh = tie_mesh(data, REMAP, "tie")
         self.assertEqual(mesh.faces, {("tie", 7): [(0, 1, 2)], ("tie", 8, 0, True): [(3, 4, 5)]})
 
+    def test_materials_added_to_the_frame_key_with_their_factor(self):
+        data = fixture()
+        struct.pack_into("<IIB", data, 0x120 + 80 + 64, 0x58, 0x80, 0x42)
+        struct.pack_into("<IIB", data, 0x120 + 64, 0x44, 0x80, 0x42)
+        mesh = tie_mesh(data, REMAP, "tie")
+        self.assertEqual(mesh.faces, {("tie", 7): [(0, 1, 2)], ("tie", 8, 0, False, 1.0): [(3, 4, 5)]})
+        struct.pack_into("<IIB", data, 0x120 + 80 + 64, 0x68, 0x40, 0x42)
+        mesh = tie_mesh(data, REMAP, "tie")
+        self.assertEqual(mesh.faces[("tie", 8, 0, False, 0.5)], [(3, 4, 5)])
+
     def test_bad_materials_gs_addresses_counts_and_q(self):
         for offset, value in ((0x90, 1), (0xaf, 2), (0xac, 4), (0xc6, 12), (0xcc, 1)):
             data = fixture()

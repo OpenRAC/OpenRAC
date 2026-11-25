@@ -939,7 +939,9 @@ void main() {
             e = vec3(mix(mp_vec3(fog_colour.rgb), mp_vec3(e), mp_float(v_fog)));
         }
         if (effect_additive != 0) {
-            out_colour = vec4(min(e * clamp(c.a, 0.0, 255.0 / 128.0), vec3(1.0)), 0.0);
+            // 2: a static material the game adds by a factor (effect_reference), whatever its alpha.
+            float weight = effect_additive >= 2 ? effect_reference : clamp(c.a, 0.0, 255.0 / 128.0);
+            out_colour = vec4(min(e * weight, vec3(1.0)), 0.0);
             return;
         }
         out_colour = vec4(e, clamp(c.a, 0.0, 1.0));

@@ -589,6 +589,6 @@ Not fixed, for whoever picks rac3 up next:
   its transition table (#871's runs). Probably the New Game intro movie (sector 18444); not
   confirmed against the original.
 - **Blank first-weapon slot after loading a save** (one report): not reproduced in six box2 runs.
-- **Ties' additive blends** 0x58 and 0x68 are still drawn as the normal 0x44 blend (#869).
+- **Ties' additive blends**: done (levels format 19): 0x58 and 0x68 materials are `extras.additive` and drawn added in the translucent pass; re-extract the levels.
 - **Water**: the surface texture has one mip level (#868), so distant water on levels with a
   surface texture may shimmer; colours were checked against microprogram 10's maths, not footage.

@@ -336,6 +336,9 @@ int material_index(
     // The export's extras "opaque": a material the game blends opaque whatever its texels' alpha
     // (Up Your Arsenal's ties with ALPHA_1 0x20, extractor/ties.py), drawn solid below.
     bool opaque = false;
+    // The export's extras "additive": the factor of a tie material the game adds to the frame (0x58
+    // and 0x68, extractor/ties.py), drawn in the translucent pass with ONE, ONE.
+    float additive = 0.0f;
     // A missing glTF material is the model's implicit slot.
     m.source_slot = source ? static_cast<int>(source - data.materials) : -1;
     if (source != nullptr) {
@@ -346,8 +349,10 @@ int material_index(
         if (source->extras.data != nullptr) {
             json::Value extras;
             std::string ignored;
-            opaque = json::parse(source->extras.data, extras, ignored)
-                     && extras["opaque"].boolean();
+            if (json::parse(source->extras.data, extras, ignored)) {
+                opaque = extras["opaque"].boolean();
+                additive = static_cast<float>(std::max(0.0, extras["additive"].number()));
+            }
         }
         const float strength =
             source->has_emissive_strength ? source->emissive_strength.emissive_strength : 1.0f;
@@ -388,7 +393,11 @@ int material_index(
     // materials and keep their own passes. A material the game blends opaque (extras "opaque")
     // stays solid: the Galactic Rangers' dropship's hull (Veldin's ties 6759, 6760 and 6762, ALPHA_1
     // 0x20 on pictures at alpha 0x0B to 0x1E) was drawn see-through.
-    if (!opaque && !m.cutout && !m.metal && !m.blend && m.image >= 0
+    if (additive > 0.0f) {
+        m.additive = additive;
+        m.cutout = true;
+    }
+    if (!opaque && additive <= 0.0f && !m.cutout && !m.metal && !m.blend && m.image >= 0
         && static_cast<std::size_t>(m.image) < level.translucent_images.size()) {
         m.cutout = level.translucent_images[static_cast<std::size_t>(m.image)];
     }
@@ -396,6 +405,7 @@ int material_index(
         const Material& o = level.materials[i];
         // Shared materials must also agree on the emission intent retained for offline auditing.
         if (o.image == m.image && o.cutout == m.cutout && o.blend == m.blend && o.metal == m.metal
+            && o.additive == m.additive
             && o.clamp_s == m.clamp_s && o.clamp_t == m.clamp_t && o.colour == m.colour
             && o.emission == m.emission && o.emission_image == m.emission_image
             && o.authored_emission == m.authored_emission && o.name == m.name

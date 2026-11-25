@@ -66,6 +66,20 @@ def gs_alpha_opaque(data: bytes, offset: int) -> bool:
     return (a == b and d == 0) or (c == 2 and hi & 0xff == 0x80 and a == 0 and b == d)
 
 
+def gs_alpha_additive(data: bytes, offset: int) -> float:
+    """The factor by which an A+D ALPHA_1 quadword at offset adds the source colour to the frame,
+    or 0.0 when it does not: (Cs - 0) * Ad + Cd (0x58; Ad is the frame's alpha, 0x80 in these
+    levels, so 1.0) and (Cs - 0) * FIX + Cd (0x68; FIX / 0x80). False blends and another register's
+    quadword give 0.0."""
+    lo, hi, address = unpack("<iiB", data, offset)
+    if address != ALPHA_1:
+        return 0.0
+    a, b, c, d = lo & 3, lo >> 2 & 3, lo >> 4 & 3, lo >> 6 & 3
+    if a != 0 or b != 2 or d != 1:
+        return 0.0
+    return 1.0 if c == 1 else (hi & 0xff) / 128 if c == 2 else 0.0
+
+
 def wad(data: bytes, limit: int = 64 << 20) -> bytes:
     """Decompress a WAD stream the way func_0020C468 does.
 

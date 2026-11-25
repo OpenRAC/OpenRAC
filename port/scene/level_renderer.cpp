@@ -1996,6 +1996,7 @@ void LevelScene::draw_visible_layer(
             std::uint32_t run_first = 0;
             std::uint32_t run_count = 0;
             int run_material = -1;
+            float set_additive = 0.0f;  // the factor the program draws with now (0: the pass's own)
             const auto flush = [&] {
                 if (run_count == 0) {
                     return;
@@ -2079,6 +2080,25 @@ void LevelScene::draw_visible_layer(
                         premultiplied = glass;
                     }
                 }
+                // An added material (Material::additive): the effect pass's additive output,
+                // Cs scaled by the factor, over what is there (ONE, ONE); the others as the pass.
+                const float added = translucent && !mobys ? original.additive : 0.0f;
+                if (added != set_additive) {
+                    const bool on = added > 0.0f;
+                    glUniform1i(program->uniform("effect_pass"), on ? 1 : 0);
+                    glUniform1i(program->uniform("effect_additive"), on ? 2 : 0);
+                    glUniform1f(
+                        program->uniform("effect_reference"),
+                        on ? added : static_cast<float>(renderer::world::kArefWorld) / 128.0f
+                    );
+                    glBlendFuncSeparate(
+                        on ? GL_ONE : GL_SRC_ALPHA,
+                        on ? GL_ONE : GL_ONE_MINUS_SRC_ALPHA,
+                        GL_ZERO,
+                        GL_ONE
+                    );
+                    set_additive = added;
+                }
                 submit_instances(batch, run_first, run_count, instances);
                 rigid_prepass_draws += group_rigid ? 1u : 0u;
                 ++state.stats.draw_calls;
@@ -2149,6 +2169,10 @@ void LevelScene::draw_visible_layer(
                 if (solid && is_cutout) {
                     continue;
                 }
+                // An added material (a tie's glow) is drawn in the translucent pass only.
+                if (material.additive > 0.0f && !translucent) {
+                    continue;
+                }
                 // Only its glowing triangles there, from the level's own index buffer (a
                 // PVS-compacted one holds the whole primitives alone).
                 std::uint32_t first = p.first_index;
@@ -2172,6 +2196,13 @@ void LevelScene::draw_visible_layer(
                 run_material = p.material;
             }
             flush();
+            if (set_additive != 0.0f) {
+                // Back to the pass's own blend for the next group.
+                glUniform1i(program->uniform("effect_pass"), 0);
+                glUniform1i(program->uniform("effect_additive"), 0);
+                glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+                set_additive = 0.0f;
+            }
             if (compact_indices) {
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indices);
             }

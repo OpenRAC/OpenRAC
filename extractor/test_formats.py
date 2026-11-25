@@ -7,7 +7,7 @@ import unittest
 import zlib
 
 from disc import Disc
-from formats import FormatError, Texture, check, gs_alpha_opaque, overlay_sections, span, wad
+from formats import FormatError, Texture, check, gs_alpha_additive, gs_alpha_opaque, overlay_sections, span, wad
 
 
 def compressed(payload: bytes) -> bytes:
@@ -84,6 +84,17 @@ class TextureTests(unittest.TestCase):
         self.assertFalse(gs_alpha_opaque(quadword(0x44), 0))      # (Cs - Cd) As + Cd
         self.assertFalse(gs_alpha_opaque(quadword(0x58), 0))      # Cs Ad + Cd
         self.assertFalse(gs_alpha_opaque(quadword(0x20, address=0x08), 0))
+
+    def test_alpha_additive_factor(self):
+        def quadword(lo, hi=0x80, address=0x42):
+            return struct.pack("<IIB", lo, hi, address) + bytes(7)
+        self.assertEqual(gs_alpha_additive(quadword(0x58), 0), 1.0)         # Cs Ad + Cd
+        self.assertEqual(gs_alpha_additive(quadword(0x68, 0x40), 0), 0.5)   # Cs FIX + Cd
+        self.assertEqual(gs_alpha_additive(quadword(0x68, 0x80), 0), 1.0)
+        self.assertEqual(gs_alpha_additive(quadword(0x44), 0), 0.0)         # (Cs - Cd) As + Cd
+        self.assertEqual(gs_alpha_additive(quadword(0x48), 0), 0.0)         # Cs As + Cd: not carried
+        self.assertEqual(gs_alpha_additive(quadword(0x20), 0), 0.0)         # opaque
+        self.assertEqual(gs_alpha_additive(quadword(0x58, address=0x08), 0), 0.0)
 
     def test_cutout_only_counts_pixels_in_use(self):
         palette = bytes((255, 0, 0, 0x80)) * 255 + bytes(4)

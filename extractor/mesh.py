@@ -18,10 +18,13 @@ def unit_normal(normal: Vec3) -> Vec3:
     return tuple(component / length for component in normal) if length else (0.0, 0.0, 0.0)
 
 
-def texture_key(group: str, index: int, clamp: int = 0, opaque: bool = False) -> tuple:
+def texture_key(group: str, index: int, clamp: int = 0, opaque: bool = False, additive: float = 0.0) -> tuple:
     """A face's texture key: (group, index), and the clamp bits (formats.gs_clamp) third when the
     game clamps the texture on either axis; with True fourth (after the clamp bits, 0 or not) when
-    the game blends its faces opaque whatever the texels' alpha (formats.gs_alpha_opaque)."""
+    the game blends its faces opaque whatever the texels' alpha (formats.gs_alpha_opaque); with False
+    and the factor fifth when the game adds them to the frame (formats.gs_alpha_additive)."""
+    if additive:
+        return (group, index, clamp, False, additive)
     if opaque:
         return (group, index, clamp, True)
     return (group, index, clamp) if clamp else (group, index)

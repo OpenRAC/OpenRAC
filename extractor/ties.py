@@ -7,7 +7,7 @@ confirms the GIF table pointer, material count and 80-byte stride.
 import math
 import struct
 
-from formats import FormatError, gs_alpha_opaque, gs_clamp, span, unpack
+from formats import FormatError, gs_alpha_additive, gs_alpha_opaque, gs_clamp, span, unpack
 import games
 from mesh import Mesh, texture_key, unit_normal
 
@@ -38,6 +38,8 @@ def tie_mesh(data: bytes, remap: bytes, name: str, fmt: games.Format = games.RAC
     # whatever their texels' alpha. The Galactic Rangers' dropship's hull (Veldin's ties 6759, 6760
     # and 6762) is textured with pictures at alpha 0x0B to 0x1E: weighed by it, it was see-through.
     opaque = [gs_alpha_opaque(ad_gifs, i * 80 + 64) for i in range(material_count)]
+    # Also ALPHA_1: 0x58 (Cs Ad + Cd) and 0x68 (Cs FIX + Cd) add the material to the frame.
+    additive = [gs_alpha_additive(ad_gifs, i * 80 + 64) for i in range(material_count)]
     packet_count = header[layout.packet_count]
     table = span(data, packet_table, packet_count * 16)
     mesh = Mesh(name, light_slots=[])
@@ -108,7 +110,8 @@ def tie_mesh(data: bytes, remap: bytes, name: str, fmt: games.Format = games.RAC
                 raise FormatError("tie strip vertex count mismatch")
             for i in range(2, len(primitive)):
                 face = tuple(primitive[i - 2:i + 1])
-                mesh.add_face(texture_key("tie", textures[material], clamps[material], opaque[material]),
+                mesh.add_face(texture_key("tie", textures[material], clamps[material], opaque[material],
+                                        additive[material]),
                               face if i % 2 == winding else face[::-1])
 
         material = check_material(material)

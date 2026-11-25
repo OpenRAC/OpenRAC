@@ -42,6 +42,13 @@ class GltfTests(unittest.TestCase):
         self.assertEqual(gltf.doc["materials"][opaque]["extras"], {"opaque": True})
         self.assertNotIn("alphaMode", gltf.doc["materials"][opaque])
 
+    def test_additive_materials_say_so_in_extras(self):
+        gltf = Gltf()
+        added = gltf.material("a", "a.png", additive=0.5)
+        self.assertNotEqual(added, gltf.material("a", "a.png"))
+        self.assertEqual(gltf.doc["materials"][added]["extras"], {"additive": 0.5})
+        self.assertNotIn("alphaMode", gltf.doc["materials"][added])
+
     def test_clamped_materials_sample_clamped(self):
         gltf = Gltf()
         doc = gltf.doc

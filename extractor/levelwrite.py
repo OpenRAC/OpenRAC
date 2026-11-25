@@ -149,7 +149,8 @@ class LevelWriter:
         # A third element is the axes the game clamps the texture on, a fourth True when the game
         # blends the faces opaque whatever the texels' alpha (mesh.texture_key).
         image, clamp = (key[:2], key[2]) if isinstance(key, tuple) and len(key) >= 3 else (key, 0)
-        opaque = isinstance(key, tuple) and len(key) == 4 and key[3]
+        opaque = isinstance(key, tuple) and len(key) >= 4 and key[3]
+        additive = key[4] if isinstance(key, tuple) and len(key) == 5 else 0.0
         if key == UNTEXTURED:
             texture = GREY
         elif not self.fmt.lenient or image in self.level.textures:
@@ -161,8 +162,8 @@ class LevelWriter:
             if f"texture {name}: not in the level, drawn grey" not in self.level.problems:
                 self.level.problems.append(f"texture {name}: not in the level, drawn grey")
         self.textures[name] = texture
-        return gltf.material(name, f"{'../' * depth}textures/{name}.png", cutout=texture.cutout and not opaque,
-                             clamp=clamp, opaque=opaque)
+        return gltf.material(name, f"{'../' * depth}textures/{name}.png", cutout=texture.cutout and not opaque and not additive,
+                             clamp=clamp, opaque=opaque, additive=additive)
 
     def glb(self, path: str, meshes: list[Mesh], depth: int, light_uv2: bool = False) -> str:
         """Write meshes, one node each, to path; return its res:// path. light_uv2: a tie's,

@@ -610,7 +610,11 @@ stars and galaxy (below). (18) marks the tie materials the game blends opaque wh
 alpha (ALPHA_1 0x20, Cs; glTF extras `"opaque"`, `extractor/ties.py`), which the window draws solid
 where a picture below full alpha would make a material part-transparent: the Galactic Rangers'
 dropship on Veldin is three ties (6759, 6760 and 6762, moved with it by the game and drawn with the
-mobys) whose hull pictures are at alpha 0x0B to 0x1E, and it was see-through.
+mobys) whose hull pictures are at alpha 0x0B to 0x1E, and it was see-through. (19) marks the tie
+materials the game adds to the frame (ALPHA_1 0x58, Cs Ad + Cd, and 0x68, Cs FIX + Cd; glTF extras
+`"additive"`, the factor: 1.0 or FIX / 0x80): `Material::additive`, drawn in the translucent pass with
+ONE, ONE and the effect pass's additive output (`mesh.frag`, `effect_additive` 2), where they were
+blended as the normal 0x44.
 
 ## The loading screen
 
