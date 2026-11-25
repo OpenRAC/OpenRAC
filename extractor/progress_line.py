@@ -21,8 +21,8 @@ LINE = "openrac-progress: "
 
 # The steps, and what each counts.
 STEPS = {
-    "read": "levels read from the disc (Godot projects, the port's copy)",
-    "project": "Godot projects written, one per level",
+    "read": "levels read from the disc (OpenRAC Editor's level projects, the port's copy)",
+    "project": "OpenRAC Editor's level projects written, one per level",
     "carry": "levels whose edits were carried onto a fresh copy",
     "pack": "levels packed",
     "visibility": "levels whose visibility was added for the port",

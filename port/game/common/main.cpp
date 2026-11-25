@@ -306,6 +306,8 @@ Options g_options;
 long g_frame = 0;
 gaddr g_chain = 0;
 bool g_vsync_since_kick = true;
+PictureLists g_picture_lists;
+bool g_send_within_picture = false;
 bool g_window = false;
 std::chrono::steady_clock::time_point g_next_frame;
 unsigned g_draws = 0;

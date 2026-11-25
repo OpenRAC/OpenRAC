@@ -40,6 +40,9 @@ void set_pickup_audio(int item, std::span<const std::int16_t> mono, unsigned rat
 bool play_pickup_audio(int item);  // negative: stop the current receiving clip
 
 // Adds what plays now to `interleaved` (stereo, kRate), saturating.
+// Adds the menu's sounds to the output's float mix (1 = full scale), before its limiter; the 16-bit
+// form adds them to 16-bit samples, clamped.
+void mix(std::span<float> interleaved);
 void mix(std::span<std::int16_t> interleaved);
 
 // Whether anything is still sounding (tests).

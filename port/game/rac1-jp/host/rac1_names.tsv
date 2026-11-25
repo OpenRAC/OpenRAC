@@ -53,7 +53,7 @@ func_001FA898	func_001FB9C0
 func_001FA8A8	func_001FB9D0
 func_001FB848	func_001FC970
 func_001FD3E8	func_001FE568
-func_001FD3E8__game	func_001FE568__game
+func_001FD3E8__hooked	func_001FE568__hooked
 func_001FE540	func_001FF6C0
 func_001FE540__hooked	func_001FF6C0__hooked
 func_001FFFB8	func_00201138

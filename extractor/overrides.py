@@ -14,7 +14,7 @@ port loads on top of the extracted levels, without reading the disc again.
   overrides.py zip ID OUT.zip --into OVERRIDES   a pack as a .zip to share
   overrides.py preview MODS --projects PROJECTS [--undo]
                                                  show a stacked mods folder's (or a pack's) textures
-                                                 in the editor's Godot projects, at their own size
+                                                 in OpenRAC Editor's level projects, at their own size
 
 A pack is a folder, or a .zip of one, with openrac-mod.json at its root (or
 in the zip's one top folder) and files laid out as the extracted levels are:
@@ -1113,7 +1113,7 @@ ORIGINALS = ".originals"  # beside a project's textures: the extractor's own, wh
 
 
 def project_textures(projects: Path, level: str) -> Path | None:
-    """A level's textures folder in the editor's Godot projects: one project per level
+    """A level's textures folder in OpenRAC Editor's level projects: one project per level
     (projects/level_NN/levels/level_NN) or one for every level (projects/levels/level_NN)."""
     for folder in (projects / level / "levels" / level / "textures", projects / "levels" / level / "textures"):
         if folder.is_dir():
@@ -1123,8 +1123,8 @@ def project_textures(projects: Path, level: str) -> Path | None:
 
 def preview(mods: Path, projects: Path, undo: bool = False) -> dict[str, int]:
     """Shows the textures of MODS (a stacked mods folder, stack(), or one pack) in the editor's
-    Godot projects: each level texture a pack replaces, at the pack's size, in place of the
-    extractor's, which goes to textures/.originals/ (a folder Godot does not import) to come
+    level projects: each level texture a pack replaces, at the pack's size, in place of the
+    extractor's, which goes to textures/.originals/ (a folder the editor does not import) to come
     back with UNDO. A pack's pictures that replace no level texture (a model's own) have no place
     there and are left out. Returns {"shown", "restored", "left_out"}."""
     counts = {"shown": 0, "restored": 0, "left_out": 0}
@@ -1161,9 +1161,9 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("check").add_argument("source", type=Path)
     shown = commands.add_parser("preview", help="show a stacked mods folder's (or a pack's) textures in the "
-                                                "editor's Godot projects; --undo puts the extractor's back")
+                                                "editor's level projects; --undo puts the extractor's back")
     shown.add_argument("mods", type=Path, nargs="?")
-    shown.add_argument("--projects", type=Path, required=True, help="the editor's Godot projects (a folder of "
+    shown.add_argument("--projects", type=Path, required=True, help="OpenRAC Editor's level projects (a folder of "
                                                                      "per-level projects, or one project)")
     shown.add_argument("--undo", action="store_true")
     for name in ("add", "list", "enable", "disable", "move", "remove", "stack", "zip"):
@@ -1197,7 +1197,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(f"Showing {counts['shown']} texture(s) of {args.mods} in {args.projects.resolve()}"
                       + (f"; {counts['left_out']} replace no level texture (a model's own) and are left out"
-                         if counts["left_out"] else "") + ". Godot reimports them when its window has focus.")
+                         if counts["left_out"] else "") + ". OpenRAC Editor reimports them when its window has focus.")
             print(f"openrac-output: {args.projects.resolve()}")
             return 0
         if args.command == "check":

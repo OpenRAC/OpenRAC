@@ -272,7 +272,7 @@ def skeleton(data: bytes, sequences: list[tuple[str, bytes, int]], three_rows: b
         for channel in channels:
             track = [key[channel] for key in values]
             if not any(moves(channel, value) for value in track):
-                continue  # Left at the bind pose, as Godot does for a missing track.
+                continue  # Left at the bind pose, as OpenRAC Editor does for a missing track.
             if channel[1] == "rotation":  # Keep neighbours in one hemisphere.
                 for i in range(1, len(track)):
                     if sum(a * b for a, b in zip(track[i], track[i - 1])) < 0:

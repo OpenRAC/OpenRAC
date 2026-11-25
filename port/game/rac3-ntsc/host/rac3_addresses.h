@@ -82,8 +82,6 @@
 #define RAC3_ADDR_0x001D4CE8u 0x001D4CE8u
 /* D_001D4CEC (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D4CECu 0x001D4CECu
-/* D_001D4DA0 (names.tsv, the same address) */
-#define RAC3_ADDR_0x001D4DA0u 0x001D4DA0u
 /* D_001D52FC (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D52FCu 0x001D52FCu
 /* D_001D5458 (names.tsv, the same address) */
@@ -240,8 +238,6 @@
 #define RAC3_MADDR_0x00240290u 0x00240410u
 /* the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 21 of 21 places agree */
 #define RAC3_MADDR_0x00240310u 0x00240490u
-/* the same instruction of the same code: func 0x00193590 (NTSC-U 0x00193680) +0x4, 12 of 12 places agree */
-#define RAC3_MADDR_0x00240B80u 0x00240D00u
 /* not paired (rac3_mp_pairs.py) */
 #define RAC3_MADDR_0x00241128u 0u
 /* release.json: the level whose program is loaded: read at $gp - 0x6CE4 in both cores (PAL 0x00199150, 0x002945BC, 0x00295534 with $gp 0x00247FC0; NTSC-U 0x00199290, 0x00295524 with $gp 0x00248140) */

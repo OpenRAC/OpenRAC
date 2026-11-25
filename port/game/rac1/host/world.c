@@ -999,7 +999,8 @@ void func_L00_00277A88(void) {
 
 void func_001FD3E8(void) {
     run_world_under_menu(0);
-    func_001FD3E8__game();
+    /* The mods' hook point (rac1.freeze.update) sits under this, as func_001FD3E8__hooked. */
+    func_001FD3E8__hooked();
 }
 
 /* The camera: the level's, also while the pause menu's is up (its camera at 256,256,64 is no
