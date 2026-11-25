@@ -1,4 +1,4 @@
-# A dev release, started by hand (Actions, dev release, Run workflow). It puts develop's current
+# A dev release, started by hand (Actions, dev_release, Run workflow). It puts develop's current
 # commit on the branch release/dev and opens (or updates) a pull request from it to master, with
 # what develop adds since master. That pull request builds everything: checks.yml (hostgen, every
 # game in every version, Windows) and launcher.yml (every system's installers, kept as the run's
@@ -14,7 +14,10 @@
 # next run. GitHub starts no pull_request checks for a pull request opened with the workflow's own
 # token, so this job starts checks and launcher on release/dev by hand (workflow_dispatch): their
 # results sit on the pull request's commit, under the same names. No extra token needed.
-name: dev release
+name: dev_release
+# A unique title for each run: the run number and who started it.
+run-name: >-
+  ${{ format('dev_release #{0} · develop → master · by {1}', github.run_number, github.actor) }}
 
 on:
   workflow_dispatch:
@@ -29,8 +32,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  pull-request:
-    name: Open the pull request to master
+  open_release_pr:
+    name: open_release_pr
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:

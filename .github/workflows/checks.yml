@@ -6,6 +6,15 @@
 # Every action is pinned to a commit (Dependabot, .github/dependabot.yml,
 # moves the pins); the port's compiles are cached with ccache.
 name: checks
+# A unique title for each run: the run number, what started it, where, and what.
+run-name: >-
+  ${{ github.event_name == 'pull_request'
+      && format('checks #{0} · pr #{1} → {2} · {3}', github.run_number, github.event.pull_request.number, github.base_ref, github.event.pull_request.title)
+  || github.event_name == 'merge_group'
+      && format('checks #{0} · queue → {1} · {2}', github.run_number, endsWith(github.event.merge_group.base_ref, '/master') && 'master' || 'develop', github.event.merge_group.head_commit.message)
+  || github.event_name == 'push'
+      && format('checks #{0} · push {1} · {2}', github.run_number, github.ref_name, github.event.head_commit.message)
+  || format('checks #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
 
 # The games (hostgen and each version's build) and Windows build only for a dev release (its pull
 # request from develop to master, .github/workflows/dev-release.yml) and a manual run (Run
@@ -19,7 +28,7 @@ on:
   push:
     branches: [master, develop]
   pull_request:
-    # ready_for_review: a draft skips the port's builds (scope below), so they run when it is ready.
+    # ready_for_review: a draft skips the port's builds (plan below), so they run when it is ready.
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
@@ -51,8 +60,8 @@ jobs:
   # pull request to master and a manual run run everything; a push to master only the repository
   # checks. A draft pull request runs no port build, only the cheap checks; marking it ready
   # runs the rest.
-  scope:
-    name: Plan
+  plan:
+    name: plan
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
@@ -64,6 +73,7 @@ jobs:
       windows: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.windows || 'true' }}
       launcher_systems: ${{ steps.scope.outputs.launcher_systems || '["Linux", "Windows"]' }}
       port_programs: ${{ steps.parts.outputs.port_programs }}
+      port_part_names: ${{ steps.parts.outputs.port_part_names }}
       port_parts: ${{ github.event.pull_request.draft && '[]' || steps.scope.outputs.port_parts || steps.parts.outputs.port_parts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -78,6 +88,9 @@ jobs:
                             for path in pathlib.Path("port/game").glob("*/hostgen.json"))
           print("port_programs=" + json.dumps(programs))
           print("port_parts=" + json.dumps(["common", *programs]))
+          # Check names: port_linux_common, port_linux_rac1_ntsc, ...
+          print("port_part_names=" + json.dumps({part: "port_linux_" + part.replace("-", "_")
+                                                 for part in ["common", *programs]}))
           PY
       - id: scope
         env:
@@ -111,9 +124,9 @@ jobs:
           esac
           python3 "$script"
 
-  # Starts at once, beside scope: most failures are found here, in a few minutes.
-  checks:
-    name: "Repository: tools, tables, conventions"
+  # Starts at once, beside plan: most failures are found here, in a few minutes.
+  repo_checks:
+    name: repo_checks
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
@@ -126,7 +139,7 @@ jobs:
         with:
           python-version: "3.12"
       # A pull request runs a decomp's own tool checks only when it changes that game (tools/ci_scope.py
-      # decomp-games); the merge queue and pushes run them all. With the base branch's script, as in scope.
+      # decomp-games); the merge queue and pushes run them all. With the base branch's script, as in plan.
       - name: Which games' decomp tools to check
         id: games
         env:
@@ -318,15 +331,15 @@ jobs:
   # against games/*/game.json. Linux in every tier; Windows, where paths join with backslashes,
   # files are checked out with CRLF and the Unix-only tests are left out, for a dev release.
   launcher:
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' && needs.scope.outputs.launcher_systems != '[]' }}
-    name: "${{ matrix.system == 'Windows' && 'Dev release: Launcher Windows' || format('Launcher: {0}', matrix.system) }}"
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.launcher != 'false' && needs.plan.outputs.launcher_systems != '[]' }}
+    name: "${{ matrix.system == 'Windows' && 'launcher_windows' || 'launcher_linux' }}"
     runs-on: ${{ matrix.system == 'Windows' && 'windows-latest' || 'ubuntu-26.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        system: ${{ fromJSON(needs.scope.outputs.launcher_systems) }}
+        system: ${{ fromJSON(needs.plan.outputs.launcher_systems) }}
     defaults:
       run:
         shell: bash
@@ -363,26 +376,26 @@ jobs:
 
   # One check for the launcher's systems (what branch protection requires): Windows is in the
   # matrix only for a dev release, so its own check cannot be the required one.
-  launcher-gate:
-    name: "Gate: Launcher"
-    needs: [scope, launcher]
+  launcher_gate:
+    name: launcher_gate
+    needs: [plan, launcher]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require every system
         env:
-          SCOPE: ${{ needs.scope.result }}
+          PLAN: ${{ needs.plan.result }}
           RESULT: ${{ needs.launcher.result }}
-        run: test "$SCOPE" = success && { test "$RESULT" = success || test "$RESULT" = skipped; }
+        run: test "$PLAN" = success && { test "$RESULT" = success || test "$RESULT" = skipped; }
 
   # The launcher's pages, once (they are the same on every system): svelte-check, ESLint,
   # Prettier and Vitest, then the Android layout in a browser (launcher/e2e/), page by page. No
   # Rust, one browser, one Vite server. On 24.04, which Playwright's install-deps knows.
-  launcher-android:
-    name: "Launcher: pages (lint, unit tests, Android layout)"
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.pages != 'false' }}
+  launcher_pages:
+    name: launcher_pages
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.pages != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -446,19 +459,19 @@ jobs:
   # labelled game-<id> (port/cmake/Games.cmake). One part per program, not per game: Going
   # Commando's three programs in one job took 53 minutes with a cold cache. Every test runs in
   # exactly one part.
-  port-part:
-    name: "Port Linux: ${{ matrix.part == 'common' && 'shared code' || matrix.part }}"
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port_parts != '[]' }}
+  port_linux:
+    name: "${{ fromJSON(needs.plan.outputs.port_part_names || '{}')[matrix.part] || format('port_linux_{0}', matrix.part) }}"
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.port_parts != '[]' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        part: ${{ fromJSON(needs.scope.outputs.port_parts) }}
+        part: ${{ fromJSON(needs.plan.outputs.port_parts) }}
     env:
       PART: ${{ matrix.part }}
-      PORT_PROGRAMS: ${{ needs.scope.outputs.port_programs }}
+      PORT_PROGRAMS: ${{ needs.plan.outputs.port_programs }}
       MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
       MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
@@ -556,17 +569,17 @@ jobs:
       - uses: ./.github/actions/port-build-cache/save
 
   # One check for every part (what branch protection requires).
-  port:
-    name: "Gate: Port Linux"
-    needs: [scope, port-part]
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+  port_linux_gate:
+    name: port_linux_gate
+    needs: [plan, port_linux]
+    if: ${{ !cancelled() && needs.plan.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require every part
         env:
-          RESULT: ${{ needs.port-part.result }}
-          PARTS: ${{ needs.scope.outputs.port_parts }}
+          RESULT: ${{ needs.port_linux.result }}
+          PARTS: ${{ needs.plan.outputs.port_parts }}
         # Skipped only when the pull request needs no part.
         run: test "$RESULT" = success || { test "$RESULT" = skipped && test "$PARTS" = "[]"; }
 
@@ -574,10 +587,10 @@ jobs:
   # build above. The preset explicitly compiles enhanced code in. One job: the build, then two
   # CTest calls (tools/ci_port_tests.py): the tests without Vulkan, then all Vulkan tests. Full
   # tier only.
-  port-vulkan-enhanced-build:
-    name: "Enhanced Vulkan: build and tests"
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.enhanced != 'false' }}
+  enhanced_vulkan:
+    name: enhanced_vulkan
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.enhanced != 'false' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     env:
@@ -694,17 +707,17 @@ jobs:
       - uses: ./.github/actions/port-build-cache/save
 
   # One check for the build and its tests (what branch protection requires).
-  port-vulkan-enhanced:
-    name: "Gate: Enhanced Vulkan"
-    needs: [scope, port-vulkan-enhanced-build]
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+  enhanced_vulkan_gate:
+    name: enhanced_vulkan_gate
+    needs: [plan, enhanced_vulkan]
+    if: ${{ !cancelled() && needs.plan.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require the build and its tests
         env:
-          RESULT: ${{ needs.port-vulkan-enhanced-build.result }}
-          NEEDED: ${{ needs.scope.outputs.enhanced }}
+          RESULT: ${{ needs.enhanced_vulkan.result }}
+          NEEDED: ${{ needs.plan.outputs.enhanced }}
         # Skipped only when the change does not touch what the enhanced build reads, or in a pull
         # request's fast tier (the merge queue runs it).
         run: |
@@ -716,11 +729,11 @@ jobs:
   # libraries and the Windows SDK, Clang, Ninja), then the runtime's tests and
   # those of hostgen's that need no POSIX host. The port is written on Linux
   # and macOS, and what only builds there (execinfo.h, fseeko) stops here.
-  port-windows:
-    name: "Dev release: Port Windows"
-    needs: scope
+  port_windows:
+    name: port_windows
+    needs: plan
     # Only when everything is checked (a dev release, a manual run).
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.windows == 'true' }}
+    if: ${{ !cancelled() && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.windows == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 120
     env:

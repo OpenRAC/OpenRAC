@@ -3,7 +3,7 @@
 # also puts them on a draft release of that name, to be looked over and
 # published by hand. Each build's updater reads the repository that built it:
 # a tag's, that repository's latest release; a build of a branch, the
-# pre-release launcher-dev-<branch> that the dev-release job keeps current
+# pre-release launcher-dev-<branch> that the publish_dev_channel job keeps current
 # (launcher/docs/RELEASING.md). The development build players get is a dev release's: its pull
 # request (.github/workflows/dev-release.yml) builds release/dev here, by hand, and when it is
 # merged the push to master publishes that run's installers on launcher-dev-develop (the
@@ -30,6 +30,13 @@
 # Every action is pinned to a commit (Dependabot, .github/dependabot.yml,
 # moves the pins), and every download is checked against its SHA-256.
 name: launcher
+# A unique title for each run: the run number, what started it, where, and what.
+run-name: >-
+  ${{ github.ref_type == 'tag'
+      && format('launcher #{0} · tag {1}', github.run_number, github.ref_name)
+  || github.event_name == 'push'
+      && format('launcher #{0} · push {1} · {2}', github.run_number, github.ref_name, github.event.head_commit.message)
+  || format('launcher #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
 
 on:
   push:
@@ -80,7 +87,7 @@ jobs:
   # installers X.Y.Z, their latest.json X.Y.(Z+1)-dev), and launchers on that channel would update
   # forever.
   version:
-    name: Version
+    name: version
     # master builds nothing: it publishes the installers its dev release's pull request built.
     if: github.ref != 'refs/heads/master'
     runs-on: ubuntu-26.04
@@ -94,15 +101,16 @@ jobs:
           sparse-checkout: launcher
       - id: base
         run: echo "base=$(launcher/scripts/dev_version.sh launcher/src-tauri/tauri.conf.json "$GITHUB_REPOSITORY")" >> "$GITHUB_OUTPUT"
-      # The version the installers carry, for master's publish of this run (dev-release below).
+      # The version the installers carry, for master's publish of this run (publish_dev_channel below).
       - run: echo "${{ steps.base.outputs.base }}-dev.$GITHUB_RUN_NUMBER" > "$RUNNER_TEMP/version.txt"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: version
           path: ${{ runner.temp }}/version.txt
 
-  build:
-    name: "Installers: ${{ matrix.name }}"
+  installer:
+    # installer_windows, installer_linux, installer_linux_arm64, installer_macos, installer_android
+    name: "${{ format('installer_{0}', matrix.name == 'linux-arm64' && 'linux_arm64' || matrix.name) }}"
     needs: version
     runs-on: ${{ matrix.os }}
     # Two hours for every row: a cold compiler cache takes Windows and Android past an hour.
@@ -476,7 +484,7 @@ jobs:
           # The launcher looks for its updates where it was built: this repository's releases, a
           # fork's in a fork. A tag's build reads the latest release; a build of a branch is
           # X.Y.Z-dev.<run> and reads that branch's rolling release (launcher-dev-<branch>, the
-          # dev-release job), so each build of a branch updates the last. The desktop packages keep
+          # publish_dev_channel job), so each build of a branch updates the last. The desktop packages keep
           # X.Y.Z (an MSI takes no "-dev", RPM no "-"): the run goes into the program instead
           # (OPENRAC_LAUNCHER_BUILD), which its updater compares with.
           base=$(node -p "require('./src-tauri/tauri.conf.json').version")
@@ -537,7 +545,7 @@ jobs:
           yarn tauri $TAURI --config "$config"
           # tauri build binds each update's signature to the package's version (X.Y.Z), and the
           # updater refuses an update whose latest.json announces another: a desktop build of a
-          # branch is announced as X.Y.Z-dev.<run> (the dev-release job), so its signatures are
+          # branch is announced as X.Y.Z-dev.<run> (the publish_dev_channel job), so its signatures are
           # made again for that version.
           if [ "$create_updater" = true ] && [ -n "${OPENRAC_LAUNCHER_BUILD:-}" ]; then
           find target -path '*/bundle/*' -name '*.sig' -print0 | while IFS= read -r -d '' sig; do
@@ -625,12 +633,12 @@ jobs:
   # Also when a system's build failed (a macOS job that got no runner, say): the systems built
   # still get their update, and latest.json leaves out the one that did not. Not when the run was
   # cancelled (a newer one of the branch took its place).
-  dev-release:
-    name: "Publish: Development channel"
+  publish_dev_channel:
+    name: publish_dev_channel
     if: >-
       ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/release/dev'
-      && (github.ref == 'refs/heads/master' || needs.build.result != 'skipped') }}
-    needs: [version, build]
+      && (github.ref == 'refs/heads/master' || needs.installer.result != 'skipped') }}
+    needs: [version, installer]
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
@@ -723,9 +731,10 @@ jobs:
 
   # A tag `launcher-v*`: the installers of all the builds on a draft
   # release. Nothing is published until someone publishes the draft.
-  release:
+  release_draft:
+    name: release_draft
     if: startsWith(github.ref, 'refs/tags/launcher-v')
-    needs: build
+    needs: installer
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
