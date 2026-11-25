@@ -6,7 +6,8 @@
 // (core.hpp, kbm.hpp, the shared manifest); this file adds Going Commando's own: where the game is,
 // from the on-screen pad's context (touch.c), its menus under the mouse (menus.hpp, places.hpp)
 // and its follow and first-person cameras, which the mouse turns itself (follow_mouse.h). Out of
-// them the mouse is the right stick. It writes the pad report, the fonts' button icons
+// them the mouse is the right stick. The number keys and the wheel take a Quick Select slot's item
+// through the game's own Item_Equip. It writes the pad report, the fonts' button icons
 // (key_prompts.h) and, in play, those cameras' views, never other game state.
 
 #include "keyboard_mouse.h"
@@ -34,17 +35,23 @@ using kbm::Action;
 using kbm::Context;
 
 // The game's fonts on each disc (key_prompts.h): the effect bank's word and the effect texture
-// table.
+// table. Then the hero's block (D_00189E20 on NTSC-U v1.01: g_heroPos - 0x80), the Quick Select's
+// eight slots (g_equippedItemSlots: item ids, 0 for an empty one, slot 1 at the top then
+// clockwise) and Item_Equip (rac2.item.equip), which puts an item in the hero's hand as the Quick
+// Select does, by this disc's name for it.
 struct Disc {
     const char* version;
     std::uint32_t font_bank;
     std::uint32_t font_table;
+    std::uint32_t hero;
+    std::uint32_t quick_select;
+    const char* equip;
 };
 
 constexpr std::array<Disc, 3> kDiscs = {{
-    {"ntsc", 0x001B1604u, 0x001B9740u},
-    {"pal", 0x001B1604u, 0x001B9740u},
-    {"ntsc2", 0x001B1584u, 0x001B96C0u},
+    {"ntsc", 0x001B1604u, 0x001B9740u, 0x00189E20u, 0x001A73B8u, "func_002AD860"},
+    {"pal", 0x001B1604u, 0x001B9740u, 0x00189EA0u, 0x001A7438u, "func_002AE3C0"},
+    {"ntsc2", 0x001B1584u, 0x001B96C0u, 0x00189E20u, 0x001A73B8u, "func_002AE6C8"},
 }};
 
 constexpr std::uint32_t kRamBytes = 32u << 20;
@@ -420,6 +427,92 @@ bool menu_mouse(const Tick& t, bool click) {
     return false;
 }
 
+// ---- Weapons ----
+
+// The hero's block: the item in his hand (s32).
+constexpr std::uint32_t kHeroHeld = 0x1248u;
+// How long an item the keys asked for stands for the one in hand while he takes it out, so that a
+// second notch of the wheel goes on from it (a weapon switch takes about half a second).
+constexpr std::uint32_t kAskedTicks = 30u;
+
+// Item_Equip on this disc, null when the build has none (the keys then take nothing).
+std::int32_t (*s_equip)(std::int32_t) = nullptr;
+std::int32_t s_asked = 0;  // the item the keys asked for last, and the tick they did
+std::uint32_t s_asked_tick = kNoTick;
+// The item in hand at the last tick, and the one before it (Last weapon takes it).
+std::int32_t s_seen_item = 0;
+std::int32_t s_previous_item = 0;
+
+// The item ids in the Quick Select's slots, 0 for an empty one.
+std::array<std::int32_t, kbm::kQuickSelectSlots> quick_select_slots() {
+    const openrac::Memory m = s_mod->memory();
+    std::array<std::int32_t, kbm::kQuickSelectSlots> slots{};
+
+    for (std::size_t i = 0; i < slots.size(); ++i) {
+        slots[i] = m.read<std::int32_t>(s_disc->quick_select + static_cast<std::uint32_t>(4 * i));
+    }
+
+    return slots;
+}
+
+// The number keys and the wheel: the item in a Quick Select slot, or the next one round, put in the
+// hero's hand as the Quick Select does (Item_Equip; he takes it out on his next update). Only on
+// foot, and not while the Quick Select is open (it picks the slot itself).
+void weapons(const Tick& t) {
+    if (s_equip == nullptr || s_ring_open || t.touch == nullptr
+        || std::string_view(t.touch) != "foot") {
+        return;
+    }
+
+    const auto slots = quick_select_slots();
+    const auto held = s_mod->memory().read<std::int32_t>(s_disc->hero + kHeroHeld);
+
+    // The item before the one in hand, for Last weapon.
+    if (held != s_seen_item) {
+        if (s_seen_item != 0) {
+            s_previous_item = s_seen_item;
+        }
+
+        s_seen_item = held;
+    }
+
+    // For the wheel, the item asked for and not yet in hand stands for the one in hand: two
+    // notches go two on.
+    const bool asking = s_asked != 0 && s_asked != held && s_asked_tick != kNoTick
+                        && s_tick - s_asked_tick <= kAskedTicks;
+    const std::int32_t current = asking ? s_asked : held;
+
+    std::int32_t item = 0;
+
+    for (int n = 0; n < kbm::kQuickSelectSlots && item == 0; ++n) {
+        const auto a = static_cast<Action>(static_cast<int>(Action::Weapon1) + n);
+
+        if (kbm::pressed_now(s_set.binds, t, a)) {
+            item = slots[static_cast<std::size_t>(n)];
+        }
+    }
+
+    const int step = kbm::pressed_now(s_set.binds, t, Action::WeaponNext)   ? 1
+                     : kbm::pressed_now(s_set.binds, t, Action::WeaponPrev) ? -1
+                                                                            : 0;
+
+    if (item == 0 && step != 0) {
+        item = kbm::cycle_item(slots, current, step);
+    }
+
+    if (item == 0 && kbm::pressed_now(s_set.binds, t, Action::WeaponLast)) {
+        item = s_previous_item;
+    }
+
+    // An empty slot, or the item already in hand, changes nothing. An item asked for and not in
+    // hand is asked for again: the hero drops a request made while he is still switching.
+    if (item != 0 && (item != held || asking)) {
+        s_equip(item);
+        s_asked = item;
+        s_asked_tick = s_tick;
+    }
+}
+
 // The tick's pad from the keyboard and mouse.
 void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     Tick t;
@@ -519,6 +612,7 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     }
     s_ring_open = ring;
     kbm::left_stick(t, held, ring, s_set, s_ring, s_keys, v);
+    weapons(t);
 
     // The first-person camera ran lately (L1's view, the first-person mode): the mouse turns it.
     const bool aligned = s_aligned_tick != kNoTick && s_tick - s_aligned_tick <= kFollowSeenTicks;
@@ -771,6 +865,17 @@ void load(openrac::Mod& mod) {
     s_gyro_on = false;
     s_mouse_counts = false;
     s_tilt = {};
+    s_asked = 0;
+    s_asked_tick = kNoTick;
+    s_seen_item = 0;
+    s_previous_item = 0;
+    s_equip = mod.function<std::int32_t (*)(std::int32_t)>(s_disc->equip);
+
+    if (s_equip == nullptr) {
+        mod.warn(
+            std::string("no ") + s_disc->equip + " on this disc: the weapon keys take nothing"
+        );
+    }
 
     mod.take_input(OPENRAC_INPUT_KEYBOARD | OPENRAC_INPUT_MOUSE);
     openrac_rac2_set_follow_mouse([](std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) {
@@ -795,7 +900,7 @@ void query(openrac_mod_info* info) {
     info->api_major = OPENRAC_MOD_API_MAJOR;
     info->api_minor = OPENRAC_MOD_API_MINOR;
     info->id = "keyboard-mouse";
-    info->version = "2.2.0";
+    info->version = "2.3.0";
 }
 
 int load(const openrac_api* api, openrac_mod* mod) {

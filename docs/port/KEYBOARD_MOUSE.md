@@ -77,7 +77,8 @@ follow camera.
 | R2 | R, front side button | R2 |
 | Map, pause | Tab or M, Escape or P | Select, Start |
 | R&C: camera behind Ratchet | Q | none |
-| R&C: weapon 1 to 8, next, previous | 1 to 8, wheel | none |
+| Weapon 1 to 8, next, previous (on foot) | 1 to 8, wheel | none |
+| GC: Last weapon (on foot) | none | none: takes the item held before the one in hand |
 
 In menus: arrows, WASD or the wheel move; Enter or left click confirm;
 Escape, Backspace or right click go back; E is Circle. Space, Enter or Escape

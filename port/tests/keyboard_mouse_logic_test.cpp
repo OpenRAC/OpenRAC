@@ -11,6 +11,7 @@
 // The manifest is the one beside kbm.hpp (KBM_MANIFEST, set by cmake/Window.cmake).
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <initializer_list>
 #include <map>
@@ -83,9 +84,15 @@ void conflicts() {
     b.binds[static_cast<std::size_t>(Action::MenuBack)] = {41, 0};  // Escape, also Pause (play)
     CHECK(kbm::conflicts(b).empty());
 
-    // Every default's name is one the table knows.
+    // Every default's name is one the table knows. Last weapon has none: it is for the player to bind.
     for (const kbm::ActionInfo& a : kbm::kActions) {
         kbm::Binds parsed;
+
+        if (std::strcmp(a.key, "weapon_last") == 0) {
+            CHECK(a.fallback[0] == '\0');
+            continue;
+        }
+
         CHECK(kbm::parse_binds(a.fallback, parsed) && parsed[0] != 0);
     }
 }

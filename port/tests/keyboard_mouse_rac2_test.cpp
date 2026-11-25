@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -187,7 +188,19 @@ void host_fail(openrac_mod*, const char* reason) {
 
 bool g_low_latency = true;  // the "mouse_low_latency" setting
 
+// Settings a check sets, as their JSON-less text: the mod reads them as set.
+std::map<std::string, std::string> g_written;
+
+const std::string* written(const char* key) {
+    const auto it = g_written.find(key);
+    return it != g_written.end() ? &it->second : nullptr;
+}
+
 int setting_bool(openrac_mod*, const char* key) {
+    if (const std::string* w = written(key)) {
+        return *w == "true" ? 1 : 0;
+    }
+
     if (std::strcmp(key, "key_prompts") == 0) {
         return g_prompts ? 1 : 0;
     }
@@ -202,6 +215,10 @@ std::int64_t setting_int(openrac_mod*, const char*) {
 }
 
 double setting_float(openrac_mod*, const char* key) {
+    if (const std::string* w = written(key)) {
+        return std::stod(*w);
+    }
+
     if (std::strcmp(key, "mouse_sensitivity") == 0
         || std::strcmp(key, "mouse_sensitivity_y") == 0) {
         return 1.0;
@@ -216,6 +233,10 @@ double setting_float(openrac_mod*, const char* key) {
 }
 
 const char* setting_string(openrac_mod*, const char* key) {
+    if (const std::string* w = written(key)) {
+        return w->c_str();
+    }
+
     for (const kbm::ActionInfo& a : kbm::kActions) {
         if (std::strcmp(a.key, key) == 0) {
             return a.fallback;
@@ -257,6 +278,21 @@ void host_capture_mouse(openrac_mod*, int capture) {
     g_capture = capture;
 }
 
+// Item_Equip as the disc's build would give it (rac2.item.equip): the items it was asked for, and
+// the name the mod looked it up by.
+std::vector<std::int32_t> g_equipped;
+std::string g_equip_name;
+
+std::int32_t fake_equip(std::int32_t item) {
+    g_equipped.push_back(item);
+    return 1;
+}
+
+void* host_function(const char* name) {
+    g_equip_name = name;
+    return reinterpret_cast<void*>(&fake_equip);
+}
+
 openrac_api make_api() {
     openrac_api api{};
     api.size = sizeof api;
@@ -279,6 +315,7 @@ openrac_api make_api() {
     api.take_input = host_take_input;
     api.capture_mouse = host_capture_mouse;
     api.on_settings = host_on_settings;
+    api.function = host_function;
     return api;
 }
 
@@ -772,8 +809,109 @@ void gyro_follow() {
     g_gyro = "off";
 }
 
+// The number keys and the wheel take a Quick Select slot's item through Item_Equip, on each disc at
+// its own addresses: on foot only, not with the ring open, and never the item already in hand. Last
+// weapon takes the item held before the one in hand.
+void weapons() {
+    struct Where {
+        const char* version;
+        std::uint32_t hero;
+        std::uint32_t slots;
+        const char* equip;
+    };
+
+    constexpr std::uint32_t kHeld = 0x1248u;
+    constexpr int kDigit1 = 30, kDigit2 = 31, kDigit3 = 32, kKeyX = 27;
+
+    for (const Where& w :
+         {Where{"ntsc", 0x00189E20u, 0x001A73B8u, "func_002AD860"},
+          Where{"pal", 0x00189EA0u, 0x001A7438u, "func_002AE3C0"},
+          Where{"ntsc2", 0x00189E20u, 0x001A73B8u, "func_002AE6C8"}}) {
+        g_version = w.version;
+        g_context = "foot";
+        std::fill(g_memory.begin(), g_memory.end(), 0);
+        // Slots 1, 2 and 4 hold items (30, 42, 12); 3 and the rest are empty. 30 is in hand.
+        const std::int32_t slots[8] = {30, 42, 0, 12, 0, 0, 0, 0};
+        std::memcpy(&g_memory[w.slots], slots, sizeof slots);
+        const auto set_held = [&](std::int32_t item) {
+            std::memcpy(&g_memory[w.hero + kHeld], &item, sizeof item);
+        };
+        set_held(30);
+        g_written = {{"weapon_last", "KeyX"}};
+        load_ok();
+        CHECK(g_equip_name == w.equip);
+        g_equipped.clear();
+
+        const auto press = [](int key) {
+            tick();
+            g_input.keys[key] = OPENRAC_KEY_HELD | OPENRAC_KEY_PRESSED;
+            read_pad();
+        };
+        const auto wheel = [](float notches) {
+            tick();
+            g_input.wheel_y = notches;
+            read_pad();
+        };
+
+        // 2: slot 2's item. 3: an empty slot, nothing. 1: the item in hand, nothing.
+        press(kDigit2);
+        CHECK(g_equipped == std::vector<std::int32_t>{42});
+        press(kDigit3);
+        CHECK(g_equipped.size() == 1);
+        // The hero dropped the request (he was still switching): 2 again asks again.
+        press(kDigit2);
+        CHECK(g_equipped == (std::vector<std::int32_t>{42, 42}));
+        set_held(42);
+        press(kDigit2);
+        CHECK(g_equipped.size() == 2);
+
+        // The wheel down: the next slot that holds an item (slot 4's 12); a second notch before he
+        // has it out goes on from it, round to slot 1's 30. Up: back the other way.
+        set_held(42);
+        wheel(-1.0f);
+        CHECK(g_equipped.back() == 12);
+        wheel(-1.0f);
+        CHECK(g_equipped.back() == 30);
+        set_held(30);
+        wheel(1.0f);
+        CHECK(g_equipped.back() == 12);
+        const std::size_t asked = g_equipped.size();
+
+        // Not with the Quick Select held open, nor in the ship, swimming or in a menu.
+        set_held(12);
+        tick();
+        g_input.mouse_held = OPENRAC_MOUSE_RIGHT;
+        g_input.keys[kDigit1] = OPENRAC_KEY_HELD | OPENRAC_KEY_PRESSED;
+        read_pad();
+        CHECK(g_equipped.size() == asked);
+
+        for (const char* c : {"ship", "swim", "menu"}) {
+            g_context = c;
+            press(kDigit1);
+            wheel(-1.0f);
+            CHECK(g_equipped.size() == asked);
+        }
+
+        g_context = "foot";
+        press(kDigit1);
+        CHECK(g_equipped.size() == asked + 1 && g_equipped.back() == 30);
+
+        // 30 out now, 12 before it: X takes 12 back.
+        set_held(30);
+        tick();
+        read_pad();
+        press(kKeyX);
+        CHECK(g_equipped.size() == asked + 2 && g_equipped.back() == 12);
+    }
+
+    g_written.clear();
+    g_version = "ntsc";
+}
+
 int main() {
     contexts();
+    weapons();
+
     for (const char* v : {"ntsc", "pal"}) {
         g_version = v;
         play();
