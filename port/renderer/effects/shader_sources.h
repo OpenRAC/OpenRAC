@@ -47,6 +47,12 @@ inline std::string fragment(std::string out, std::string_view material) {
     return out;
 }
 
+// A shader source with `define` set (inserted after its #version line).
+inline std::string with_define(std::string source, std::string_view define) {
+    source.insert(source.find('\n') + 1, "#define " + std::string(define) + " 1\n");
+    return source;
+}
+
 inline std::string untextured() {
     std::string out(shaders::direct_frag);
     out.insert(out.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");

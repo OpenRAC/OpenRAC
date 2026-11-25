@@ -23,6 +23,7 @@
 #include "renderer/frame/surface_chain.h"
 #include "renderer/gl/gl.h"
 #include "renderer/settings/render_opt.h"
+#include "renderer/textures/texture_pack.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
@@ -325,6 +326,13 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
             fragment = effect_sources::fragment(std::move(fragment), m_material->fragment_source());
         }
     }
+    // Without a material the quads are drawn by m_shader and may go in pair runs (pair_quads).
+    m_pair_shader = !m_material;
+    if (m_pair_shader) {
+        vertex_source =
+            effect_sources::with_define(std::move(vertex_source), "OPENRAC_EFFECT_PAIR");
+        fragment = effect_sources::with_define(std::move(fragment), "OPENRAC_EFFECT_PAIR");
+    }
     if (!m_shader.build("effect", vertex_source, fragment, error)) {
         if (!m_material) {
             return false;
@@ -335,6 +343,7 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
         if (!m_shader.build("effect", shaders::effect_vert, original_fragment, error)) {
             return false;
         }
+        m_pair_shader = false;
         error.clear();
     }
     if (m_material) {
@@ -430,6 +439,18 @@ void EffectRenderer::bind_vertex_stream(unsigned vao, std::size_t first) {
         stride,
         reinterpret_cast<const void*>(offset + offsetof(Vertex, r))
     );
+    // Only m_shader reads the pair byte; a material's shaders may have their own location 3.
+    if (m_pair_shader) {
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(
+            3,
+            1,
+            GL_UNSIGNED_BYTE,
+            GL_TRUE,
+            stride,
+            reinterpret_cast<const void*>(offset + offsetof(Vertex, pair))
+        );
+    }
 }
 
 void EffectRenderer::reserve_quad_indices(std::size_t quads) {
@@ -613,10 +634,16 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     constexpr std::array indexed_corners{0, 1, 2, 3};
     const std::span<const int> order =
         m_quad_indices ? std::span<const int>(indexed_corners) : std::span<const int>(corners);
-    for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
+    std::vector<QuadPair> quad_pairs = quads ? pair_quads(input, state) : std::vector<QuadPair>{};
+    for (std::size_t i = 0; i < (quads ? input.effects.size() : 0); ++i) {
+        const EffectQuad& q = input.effects[i];
         if (!draws(q, input)) {
             continue;
         }
+        // A quad on its pair run's second texture samples it (Vertex::pair).
+        const bool second =
+            !quad_pairs.empty() && quad_pairs[i].second != 0 && q.tbp == quad_pairs[i].second;
+        const std::uint8_t pair = second ? 0xFF : 0;
         // A quad that samples an off-screen target the 2D path drew (g_offscreen_textures): its
         // coordinates over the TEX0's size become the target texture's (offscreen_target_st).
         const bool target = offscreen_texture(q.tex0, q.tbp) != 0;
@@ -633,7 +660,8 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
                  static_cast<std::uint8_t>(q.rgba[k] & 0xFF),
                  static_cast<std::uint8_t>((q.rgba[k] >> 8) & 0xFF),
                  static_cast<std::uint8_t>((q.rgba[k] >> 16) & 0xFF),
-                 static_cast<std::uint8_t>(q.rgba[k] >> 24)}
+                 static_cast<std::uint8_t>(q.rgba[k] >> 24),
+                 pair}
             );
         }
     }
@@ -652,9 +680,13 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
 
     geometry.reset();
 
-    auto prepared = std::make_shared<const PreparedEffects>(
-        PreparedEffects{std::move(strip_counts), std::move(material_meshes), quads_from, quads}
-    );
+    auto prepared = std::make_shared<const PreparedEffects>(PreparedEffects{
+        std::move(strip_counts),
+        std::move(material_meshes),
+        quads_from,
+        quads,
+        std::move(quad_pairs)
+    });
     record_colour(input, state, prepared);
 }
 
@@ -908,6 +940,123 @@ bool EffectRenderer::apply(
         tex0, state.textures.alpha_scale(texture) == AlphaScale::Full ? 0.5f : 1.0f, alpha_bits
     );
     return texture != state.textures.placeholder();
+}
+
+std::vector<EffectRenderer::QuadPair> EffectRenderer::pair_quads(
+    const FrameInput& input, RenderState& state
+) const {
+    static const bool& pairs_off = stats::probe(
+        "OPENRAC_EFFECT_PAIRS_OFF", "Reference: effect quads of two textures in turn, a draw each"
+    );
+    // Only where the quads are drawn by m_shader in the declared quad pass (draw_prepared), and
+    // tex_T0 is sampled as it lies (no upscaled colours, which only the first texture has).
+    if (pairs_off || !m_pair_shader || m_part == EffectPart::Opaque
+        || enhanced_rendering_available() || texture_pack::dumping()
+        || (input.texture_filter != TextureFilter::Normal
+            && state.textures.has_upscaled_texture_colours())) {
+        return {};
+    }
+    // A quad's own texture: a pool key past the GS's blocks, placed before rendering, not animated.
+    const auto own_texture = [&](const EffectQuad& q) -> std::optional<TextureHandle> {
+        if (q.untextured || q.tbp <= 0x3FFF || offscreen_texture(q.tex0, q.tbp) != 0) {
+            return std::nullopt;
+        }
+        // An alpha-tested quad is drawn by m_test_shader.
+        if (q.registers) {
+            const gs::Test t = gs::Test::decode(q.test);
+            if (t.ate && t.atst != gs::AlphaTest::Always && t.atst != gs::AlphaTest::Never) {
+                return std::nullopt;
+            }
+        }
+        const auto placed = state.textures.placed(q.tbp);
+        if (!placed || state.textures.animated(*placed)) {
+            return std::nullopt;
+        }
+        return placed;
+    };
+    // Everything but the texture is the same along a run, so every quad of it has one GS state. Of
+    // TEX0 a placed texture's draw reads only TCC and TFX (apply): the rest names the texture.
+    constexpr std::uint64_t kTccTfx = std::uint64_t{7} << 34;
+    const auto same_state = [](const EffectQuad& a, const EffectQuad& b) {
+        return (a.tex0 & kTccTfx) == (b.tex0 & kTccTfx) && a.tex1 == b.tex1 && a.clamp == b.clamp
+               && a.alpha == b.alpha && a.cbp == b.cbp && a.registers == b.registers
+               && a.test == b.test && a.zbuf == b.zbuf;
+    };
+
+    std::vector<QuadPair> pairs(input.effects.size());
+    std::vector<std::size_t> run;
+    std::array<std::uint32_t, 2> textures{};
+    AlphaScale scale{};
+    const auto close = [&] {
+        if (textures[1] != 0) {
+            for (const std::size_t i : run) {
+                pairs[i] = {textures[0], textures[1], input.effects[run.front()].tex0};
+            }
+        }
+        run.clear();
+        textures = {};
+    };
+    bool any = false;
+    for (std::size_t i = 0; i < input.effects.size(); ++i) {
+        const EffectQuad& q = input.effects[i];
+        // A quad this pass does not draw does not end a batch either.
+        if (!draws(q, input)) {
+            continue;
+        }
+        const auto texture = own_texture(q);
+        if (!texture) {
+            close();
+            continue;
+        }
+        const bool joins =
+            !run.empty() && same_state(input.effects[run.front()], q)
+            && (q.tbp == textures[0] || q.tbp == textures[1]
+                || (textures[1] == 0 && state.textures.alpha_scale(*texture) == scale));
+        if (!joins) {
+            close();
+            textures[0] = q.tbp;
+            scale = state.textures.alpha_scale(*texture);
+        } else if (q.tbp != textures[0] && textures[1] == 0) {
+            textures[1] = q.tbp;
+            any = true;
+        }
+        run.push_back(i);
+    }
+    close();
+    if (!any) {
+        return {};
+    }
+    return pairs;
+}
+
+void EffectRenderer::bind_pair_texture(
+    RenderState& state,
+    std::uint64_t tex0_bits,
+    std::uint64_t tex1_bits,
+    std::uint64_t clamp_bits,
+    std::uint32_t tbp,
+    std::uint32_t cbp
+) {
+    gs::Tex0 tex0 = gs::Tex0::decode(tex0_bits);
+    tex0.tbp0 = tbp;
+    tex0.cbp = cbp;
+    const TextureHandle texture = state.textures.resolve(tex0, {0, false, 0x80});
+    const auto wrap = gs::Clamp::decode(clamp_bits);
+    const gs::Tex1 tex1 = gs::Tex1::decode(tex1_bits);
+    const bool linear_min = tex1.mmin == 1 || tex1.mmin == 4 || tex1.mmin == 5;
+    // As apply sets the first texture: the wrap by the pool, the filter here.
+    glActiveTexture(GL_TEXTURE0 + kPairUnit);
+    state.textures
+        .bind_wrapped(texture, wrap.wms == gs::Wrap::Repeat, wrap.wmt == gs::Wrap::Repeat);
+    glTexParameteri(
+        GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(tex1.mmag ? GL_LINEAR : GL_NEAREST)
+    );
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_MIN_FILTER,
+        static_cast<GLint>(linear_min ? GL_LINEAR : GL_NEAREST)
+    );
+    glActiveTexture(GL_TEXTURE0);
 }
 
 void EffectRenderer::apply_colour_state(

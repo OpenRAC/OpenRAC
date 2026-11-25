@@ -268,6 +268,9 @@ public:
         bool repeat_s = true,
         bool repeat_t = true
     );
+    // Binds `texture` on the active unit with its wrap (a second texture of a draw; unit 0 takes
+    // bind_upscaled_texture_colours).
+    void bind_wrapped(TextureHandle texture, bool repeat_s, bool repeat_t);
     void set_upscaled_texture_colours(std::unique_ptr<UpscaledTextureColours> source);
     // Drop cached world colours while keeping the game's source textures.
     void clear_upscaled_texture_colours();
