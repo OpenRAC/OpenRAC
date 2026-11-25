@@ -76,12 +76,43 @@ like level 39's.
 Step 2 adds these, the game-mode struct's arrays (2.3 of ui-scoreboard.md) and the results block to
 `sites.py`'s tables, reruns it per map, and reviews each map's bounds as level 39's were.
 
-## 4. State at hand-off (2026-11-23)
+## 4. State at hand-off (2026-11-25)
 
-Merged: develop fed9fcf94 (#769). Known bug: the 9th player's game leaves right after joining the party
-(the server shows 9/24); 8 players in a 16-room work in STAGING. Test recipe: Server master with
-`FAMILY_PARTY_SIZES=rac3-pal-1:24 MAX_CONNECTIONS_PER_ADDRESS=64 --mode all`; clients hidden with
-`OPENRAC_SERVER=<host>:7790 OPENRAC_RAC3_PROFILE=<name> OPENRAC_RAC3_NET_LOG=1`, the host also
-`OPENRAC_RAC3_MAX_PLAYERS=16`; on box2 under `Xvfb` with `LIBGL_ALWAYS_SOFTWARE=1 OPENRAC_SOFTWARE_GL=1
-LP_NUM_THREADS=2`; presses as box1 `~/RACSwarm/rac3-online/pair.sh` (host: CREATE GAME; joiners: QUICK PLAY,
-Any, JOIN), joiners started after the host has created.
+Step 2 is on `feat/rac3-mp-24-step2` (PR #781, draft). Built and run on box2 (PAL, hidden, Server master
+`--mode all`, a game server on 7770, clients on `OPENRAC_SERVER=127.0.0.1:7770`).
+
+**The 9th joiner (found 2026-11-25).** It did not back out: it started the match. The host's join
+handler (0x0019A6F8, loop at 0x0019ABA8) finds a free slot with `lh client[slot]` (0x0019ABB8, a wide
+site) and then stores the joiner's DME client with `sh` through the same register (0x0019ABD4), which
+the dataflow had not marked: slot 8 went into the settings object in place, onto `state[0]` (the client
+array is followed by the state array), and "state[0] >= 7" is the game's "started". Everyone saw
+"Starting...", the host loaded the map, and the joiner's wait ended. `wide.json` now also names the
+second uses of an address register that a site already translates: 17 sites (the join store, the
+send's destination 0x006C442C, level 39's and each map's third `lw` of the players array in
+0x0061CE30 and its copies). Found by scanning each `ea` site for a later load or store with the same base register and offset
+before the register is written (a branch-likely's delay slot does not count).
+
+**The CREATE page.** The page is built when the multiplayer menu opens, before the login, so the
+spinner's maximum cannot be set from its constructor by the connection state. `mp_net.c` keeps the
+spinner's address and `create_page_sync()` (each MediusUpdate) sets its maximum to the room's most
+while connected, else 8. The spinner then counts 2..24 online.
+
+**Run results (box2, hidden llvmpipe clients, one joiner every 25 s):** host plus 10 joiners: STAGING
+shows PLAYER 11/16, no start; host plus 15: PLAYER 16/16; host (spinner at 24) plus 23: PLAYER 24/24 on
+the host and on joiners 12 and 23. Before the fix the 9th joiner made the host load the map (and crash
+in a map's `sprintf` on a players entry past 8). A match from STAGING with more than 8 was not started
+in these runs: the scripted READY of the joiners did not take, so the host's START stayed greyed.
+NTSC-U widening is off (`rac3_mp_wide_available()` is PAL-only again).
+
+Test recipe: Server master with `FAMILY_PARTY_SIZES=rac3-pal-1:24 MAX_CONNECTIONS_PER_ADDRESS=64
+--mode all`; clients `OPENRAC_SERVER=127.0.0.1:7770 OPENRAC_RAC3_PROFILE=<name> OPENRAC_RAC3_NET_LOG=1`,
+hidden (`SDL_VIDEODRIVER=offscreen OPENRAC_HIDDEN=1 OPENRAC_SOFTWARE_GL=1 LP_NUM_THREADS=2`), presses by
+`OPENRAC_PRESS`: MULTIPLAYER (down, down, cross at frame 580), ONLINE PLAY (cross at 1300), the
+configuration (cross 1400), the city (cross 1750), licence (Square 1850), announcements (cross 1950),
+then the host: down, cross (CREATE GAME, 2050/2090), down x3 and right x(N-8) on PLAYERS, Circle;
+joiners: cross, cross (QUICK PLAY, Any), cross (JOIN). The host's START is greyed until it and every
+joiner is READY (Circle). The server must be named by its game port (7770), not the hub's, or CREATE is
+refused ("sent PARTY, which the hub does not take").
+
+Still open: the items 2-5 of the PR (results for slots 8-23, channel 5's end message, channel 9, the
+native scoreboard), a match started from a room of more than 8 (not run yet), and the NTSC-U carry (item 6).
