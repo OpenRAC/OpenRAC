@@ -29,6 +29,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 }
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
+/* List ownership: the NTSC decomp's wrapper ABI/carry has not been validated here; retain its path. */
+#define RAC1_OMIT_frame_list_ownership 1
+/* Native letterbox bars (letterbox.c): the caller state is proved on PAL v2.00 level 6 only. */
+#define RAC1_OMIT_func_001F5148 1
 /* The game's particle routines (particles.c, openrac_api.particle_spawn_ex) are checked at PAL's addresses only. */
 #define RAC1_OMIT_particle_spawn_ex 1
 /* Level 0's 0x2EC6B8: the NTSC decomp's catalogue places its func_001E9448 there, which returns 0. */

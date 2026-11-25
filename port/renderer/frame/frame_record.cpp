@@ -8,6 +8,105 @@
 
 namespace openrac::renderer {
 
+const char* frame_op_name(FrameOp op) {
+    // Names follow the native command vocabulary, not the residual packet encoding.
+    switch (op) {
+        case FrameOp::World:
+            return "World";
+        case FrameOp::WorldMobys:
+            return "WorldMobys";
+        case FrameOp::Mobys:
+            return "Mobys";
+        case FrameOp::UiQuad:
+            return "UiQuad";
+        case FrameOp::UiItem:
+            return "UiItem";
+        case FrameOp::EffectQuad:
+            return "EffectQuad";
+        case FrameOp::Fill:
+            return "Fill";
+        case FrameOp::Clear:
+            return "Clear";
+        case FrameOp::Picture:
+            return "Picture";
+        case FrameOp::Snapshot:
+            return "Snapshot";
+        case FrameOp::TargetBegin:
+            return "TargetBegin";
+        case FrameOp::TargetEnd:
+            return "TargetEnd";
+        case FrameOp::Scissor:
+            return "Scissor";
+        case FrameOp::WorldShrubs:
+            return "WorldShrubs";
+        case FrameOp::EffectParent:
+            return "EffectParent";
+        case FrameOp::HudSide:
+            return "HudSide";
+        case FrameOp::Wide:
+            return "Wide";
+        case FrameOp::PictureBand:
+            return "PictureBand";
+        case FrameOp::LastFrame:
+            return "LastFrame";
+        case FrameOp::ViewBegin:
+            return "ViewBegin";
+        case FrameOp::ViewEnd:
+            return "ViewEnd";
+    }
+
+    return "Unknown";
+}
+
+std::optional<FrameCommand> depth_fill_command(
+    const float* rect,
+    std::uint32_t rgba,
+    BlendMode blend,
+    bool wide,
+    std::uint32_t depth,
+    int depth_bits,
+    DepthCompare compare,
+    bool write_depth,
+    std::uint8_t writes
+) {
+    // The games' depth buffers are 16, 24 or 32 bits; a depth past the buffer's largest value
+    // would be clamped where the producer asked for an exact one.
+    constexpr int kDepth16 = 16, kDepth24 = 24, kDepth32 = 32;
+    const bool known_bits =
+        depth_bits == kDepth16 || depth_bits == kDepth24 || depth_bits == kDepth32;
+
+    // Never is no rectangle at all, and a channel outside the colour's is no channel.
+    const bool known_compare = compare == DepthCompare::Always
+                               || compare == DepthCompare::GreaterEqual
+                               || compare == DepthCompare::Greater;
+
+    // Any of these leaves the rectangle to the caller's own drawing.
+    if (!known_bits || static_cast<double>(depth) > depth_max(depth_bits) || !known_compare
+        || (writes & ~kWriteColour) != 0) {
+        return std::nullopt;
+    }
+
+    FrameCommand c;
+    c.op = FrameOp::Fill;
+    c.whole = rect == nullptr;
+
+    // Only an explicit rectangle has coordinates; null is the whole target.
+    if (rect != nullptr) {
+        std::copy(rect, rect + c.rect.size(), c.rect.begin());
+    }
+
+    c.wide = wide;
+    c.rgba = rgba;
+    c.blend = blend;
+    // A depth written without a comparison is still a depth pass: the back end tests to write.
+    c.depth = {compare != DepthCompare::Always || write_depth, compare};
+    c.depth_write = write_depth;
+    c.depth_bits = static_cast<std::uint8_t>(depth_bits);
+    c.depth_value = depth;
+    c.writes = writes;
+    return c;
+}
+
 bool FrameView::valid() const {
     return view < kFrameViews && std::isfinite(screen_width) && std::isfinite(screen_height)
            && screen_width >= 1.0f && screen_height >= 1.0f
@@ -52,6 +151,8 @@ bool FrameRecording::anchored() const {
 
 void FrameRecording::clear() {
     serial = 0;
+    list_root = 0;
+    list_generation = 0;
     commands.clear();
     ui_quads.clear();
     ui_items.clear();
@@ -63,7 +164,13 @@ std::uint32_t FrameRecorder::push(FrameCommand command) {
     // A game that records and is never captured (no window frame for a long while) keeps the last
     // ones only.
     if (m_open.commands.size() >= kMostCommands) {
+        const std::uint32_t root = m_open.list_root;
+        const std::uint64_t generation = m_open.list_generation;
         close();
+        // The existing command bound starts a new payload; ownership still belongs to this build.
+        m_open.clear();
+        m_open.list_root = root;
+        m_open.list_generation = generation;
     }
     command.anchor = m_anchor;
     command.screen_width = m_screen[0];
@@ -79,7 +186,25 @@ std::uint32_t FrameRecorder::push(FrameCommand command) {
     }
 
     m_open.commands.push_back(command);
+    m_open_dirty = true;
     return static_cast<std::uint32_t>(m_open.commands.size() - 1);
+}
+
+void FrameRecorder::begin_list(std::uint32_t root) {
+    close();
+
+    // Reusing a buffer invalidates its old command ownership, not just its old world anchors.
+    for (FrameRecording& recording : m_kept) {
+        if (recording.list_root == root) {
+            recording.clear();
+        }
+    }
+
+    m_owns_lists = true;
+    m_open.clear();
+    m_open.list_root = root;
+    m_open.list_generation = ++m_list_generation;
+    m_open_dirty = false;
 }
 
 void FrameRecorder::set_screen(float width, float height) {
@@ -147,22 +272,65 @@ void FrameRecorder::close() {
     if (m_view_open) {
         view_end();
     }
+
+    // A residual-only owned build is meaningful: its predecessor was retired by begin_list.
     if (m_open.empty()) {
-        m_open.clear();
+        // Legacy capture still releases payloads that have no command; owned builds keep their identity.
+        if (m_open.list_generation == 0) {
+            m_open.clear();
+        }
+
+        m_open_dirty = false;
         return;
     }
+
+    // Repeated captures without new commands keep the same build and must not consume history slots.
+    if (m_open.list_generation != 0 && !m_open_dirty) {
+        return;
+    }
+
     // The oldest kept goes.
     auto oldest = std::min_element(
         m_kept.begin(), m_kept.end(), [](const FrameRecording& a, const FrameRecording& b) {
             return a.serial < b.serial;
         }
     );
+
+    // A second capture of one build replaces its snapshot, retaining its earlier commands/payloads.
+    if (m_open.list_generation != 0) {
+        auto same =
+            std::find_if(m_kept.begin(), m_kept.end(), [&](const FrameRecording& recording) {
+                return recording.list_generation == m_open.list_generation;
+            });
+
+        if (same != m_kept.end()) {
+            oldest = same;
+        }
+
+        *oldest = m_open;
+        oldest->serial = ++m_serial;
+        m_open_dirty = false;
+        return;
+    }
+
     *oldest = std::move(m_open);
     oldest->serial = ++m_serial;
     m_open = {};
+    m_open_dirty = false;
 }
 
 const FrameRecording* FrameRecorder::match(std::span<const std::uint32_t> tags) const {
+    return match(0, tags);
+}
+
+const FrameRecording* FrameRecorder::match(
+    std::uint32_t root, std::span<const std::uint32_t> tags
+) const {
+    // An owned recording must be requested with the submitted root, never an inferred anchor alone.
+    if (m_owns_lists && root == 0) {
+        return nullptr;
+    }
+
     if (tags.empty()) {
         return nullptr;
     }
@@ -173,6 +341,18 @@ const FrameRecording* FrameRecorder::match(std::span<const std::uint32_t> tags) 
         if (r.serial == 0 || r.empty() || (best != nullptr && r.serial < best->serial)) {
             continue;
         }
+
+        // An empty new build cannot revive either an older owner or a legacy unowned recording.
+        if (m_owns_lists && (r.list_generation == 0 || r.list_root != root)) {
+            continue;
+        }
+
+        // Explicit unanchored commands may belong to a reached owned list, but not to another root.
+        if (m_owns_lists && !r.anchored()) {
+            best = &r;
+            continue;
+        }
+
         const bool found =
             std::any_of(r.commands.begin(), r.commands.end(), [&](const FrameCommand& c) {
                 return c.anchor != 0 && std::binary_search(sorted.begin(), sorted.end(), c.anchor);
@@ -185,6 +365,11 @@ const FrameRecording* FrameRecorder::match(std::span<const std::uint32_t> tags) 
 }
 
 const FrameRecording* FrameRecorder::latest_unanchored() const {
+    // Native commands of owned builds must not bypass list ownership through the standalone fallback.
+    if (m_owns_lists) {
+        return nullptr;
+    }
+
     const FrameRecording* best = nullptr;
     for (const FrameRecording& r : m_kept) {
         if (r.serial != 0 && !r.empty() && !r.anchored()
@@ -208,6 +393,8 @@ void FrameRecorder::reset() {
         r.clear();
     }
     m_anchor = 0;
+    m_owns_lists = false;
+    m_open_dirty = false;
     m_screen = {512.0f, 448.0f};
     m_view_open = false;
 }
@@ -218,21 +405,32 @@ std::vector<std::size_t> place_commands(
     std::vector<std::size_t> out;
     out.reserve(recording.commands.size());
     std::size_t at = 0;
+    std::size_t previous = 0;
+
+    // Search forward in walk order; paging can place lower addresses after higher ones.
     for (const FrameCommand& c : recording.commands) {
+        // An unanchored command inherits even an unreachable predecessor's placement.
         if (c.anchor == 0) {
-            out.push_back(at);
+            out.push_back(previous);
             continue;
         }
+
         std::size_t found = kDropped;
+
+        // A tag reached only before the previous successful placement cannot draw this command.
         for (std::size_t t = at; t < tags.size(); ++t) {
             if (tags[t] == c.anchor) {
                 found = t;
                 break;
             }
         }
+
+        // A missing anchor must not prevent a later reachable anchor from resuming the recording.
         if (found != kDropped) {
             at = found;
         }
+
+        previous = found;
         out.push_back(found);
     }
     return out;

@@ -1054,7 +1054,9 @@ void recorded_frame_without_packets() {
         CHECK(gif.draws()[1].state.blend == Blend::of(BlendMode::Mix));
         const DirectState& c = gif.draws()[2].state;
         CHECK(c.colour_writes == 0 && c.depth_write && c.depth.enabled);
-        CHECK(near(gif.vertices()[12].z, 0.0f));
+        // Cleared to the far value 0 of reversed depth: -1 in the 2D pass's -1..1 clip range (0,
+        // as this once checked, is the middle of the buffer, 0.5).
+        CHECK(near(gif.vertices()[12].z, -1.0f));
     }
 }
 
@@ -1138,6 +1140,69 @@ void recorded_splices_in_a_stream() {
         CHECK(gif.draws()[1].state.blend == Blend::of(BlendMode::Add));
         CHECK(!gif.draws()[2].state.blend.enabled);
         CHECK(gif.draws()[3].state.blend == Blend::of(BlendMode::Add));
+    }
+}
+
+// A depth rectangle (openrac_frame_fill_depth, the letterbox bars) after a residual draw at the same
+// 24-bit depth takes that draw's depth exactly, tests greater-or-equal and writes it, as the bars'
+// packet did; one at the 2D frames' lower depth lies behind it. A plain fill still neither tests nor
+// writes depth.
+void recorded_depth_fill_takes_the_residual_depth() {
+    constexpr std::uint32_t kBar = 0xFFFFF3;    // draw_letterbox_bars' vertices
+    constexpr std::uint32_t kFrame = 0xFFFFF0;  // DrawRectOverlay's vertices
+    constexpr int kDepth24 = 24;
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    GifBuilder b;
+    b
+        .ad({{gs::kPrim, prim(gs::PrimKind::Sprite, false, false, false)},
+             {gs::kRgbaq, rgbaq(0, 0, 0, 0x80)},
+             {gs::kXyz2, xyz2(0, 0, kBar)},
+             {gs::kXyz2, xyz2(16, 16, kBar)}},
+            true);
+    CHECK(gif.gif(b.bytes));
+    const float rect[]{0.0f, 0.0f, 512.0f, 24.0f};
+    FrameRecording r;
+
+    // The bars' depth, then the 2D frames' lower one.
+    for (const std::uint32_t depth : {kBar, kFrame}) {
+        const auto c = depth_fill_command(
+            rect,
+            0x80000000u,
+            BlendMode::Opaque,
+            true,
+            depth,
+            kDepth24,
+            DepthCompare::GreaterEqual,
+            true,
+            kWriteColour
+        );
+        CHECK(c.has_value());
+        r.commands.push_back(c.value_or(FrameCommand{}));
+    }
+    FrameCommand plain;
+    plain.op = FrameOp::Fill;
+    r.commands.push_back(plain);
+    const std::vector<FrameSplice> splices{{0, 0}, {0, 1}, {0, 2}};
+    gif.set_commands(&r, splices, 0);
+    gif.finish_commands();
+
+    // The residual sprite, the two depth rectangles (one state) and the plain fill.
+    CHECK(gif.draws().size() == 3);
+    CHECK(gif.vertices().size() == 24);
+
+    // Their depth and state, when all of them are there.
+    if (gif.draws().size() == 3 && gif.vertices().size() == 24) {
+        const float residual = gif.vertices()[0].z;
+        CHECK(residual == static_cast<float>(static_cast<double>(kBar) / 16777215.0 * 2.0 - 1.0));
+        CHECK(gif.vertices()[6].z == residual && gif.vertices()[11].z == residual);
+        CHECK(gif.vertices()[12].z < residual);
+        const DirectState& bars = gif.draws()[1].state;
+        CHECK(bars.depth.enabled && bars.depth.compare == DepthCompare::GreaterEqual);
+        CHECK(bars.depth_write && bars.colour_writes == kWriteColour);
+        CHECK(!bars.blend.enabled && !bars.textured && gif.draws()[1].count == 12);
+        const DirectState& fill = gif.draws()[2].state;
+        CHECK(!fill.depth.enabled && !fill.depth_write);
     }
 }
 
@@ -1268,6 +1333,7 @@ int main() {
     recorded_frame_without_packets();
     flat_item_to_the_edges();
     recorded_splices_in_a_stream();
+    recorded_depth_fill_takes_the_residual_depth();
     test_recorded_panel_scissor();
     test_recorded_screen_scissor();
     test_empty_recorded_scissors();

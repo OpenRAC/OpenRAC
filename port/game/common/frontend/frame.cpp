@@ -180,6 +180,79 @@ struct QuadMark {
     bool zbuf_seen;
 };
 
+// Reports actual placement drops, including anchors that exist only earlier in walk order.
+void note_recorder_drops(
+    const renderer::FrameRecording& recording,
+    std::span<const std::uint32_t> tags,
+    std::span<const std::size_t> places,
+    std::uint32_t chain
+) {
+    const std::size_t dropped =
+        static_cast<std::size_t>(std::count(places.begin(), places.end(), renderer::kDropped));
+    stats::gauge("recorder anchors missed", static_cast<double>(dropped));
+
+    // Told as the dropped anchors are (tell_dropped_anchors): a few in a row in each level and game
+    // context, so that a screen reached late in a session is still told.
+    if (dropped == 0 || !tell_dropped_anchors()) {
+        return;
+    }
+
+    log::warn(
+        "frame recorder: {} of {} commands dropped (chain {:08x}, recording {}, {} tags; frame {}, "
+        "level {}, {})",
+        dropped,
+        recording.commands.size(),
+        chain,
+        recording.serial,
+        tags.size(),
+        g->index,
+        g_recorder_situation.level,
+        g_recorder_situation.context
+    );
+
+    // The commands' detail only for a situation's first drop: those told after it in the same
+    // situation are mostly the same list sent again.
+    static RecorderSituation detailed_for{-2, {}};
+    if (g_recorder_situation == detailed_for) {
+        return;
+    }
+    detailed_for = g_recorder_situation;
+
+    // A malformed recording can contain many commands; the first eight bound each warning's detail.
+    constexpr std::size_t kMostDetails = 8;
+    for (std::size_t n = 0; n < std::min(places.size(), kMostDetails); ++n) {
+        const renderer::FrameCommand& command = recording.commands[n];
+
+        // Report surviving commands too, so a partial match identifies its successful anchor.
+        if (places[n] != renderer::kDropped) {
+            log::warn(
+                "frame recorder: command {} {} anchor {:08x} at tag {}",
+                n,
+                renderer::frame_op_name(command.op),
+                command.anchor,
+                places[n]
+            );
+            continue;
+        }
+
+        const char* reason = "inherits dropped predecessor";
+
+        // An anchor can be missing entirely or already behind the forward-only search cursor.
+        if (command.anchor != 0) {
+            const bool found = std::find(tags.begin(), tags.end(), command.anchor) != tags.end();
+            reason = found ? "tag only before preceding placement" : "no tag reached";
+        }
+
+        log::warn(
+            "frame recorder: command {} {} anchor {:08x} dropped: {}",
+            n,
+            renderer::frame_op_name(command.op),
+            command.anchor,
+            reason
+        );
+    }
+}
+
 std::vector<std::uint8_t> direct_packets(
     std::span<const std::uint8_t> ram,
     std::uint32_t chain,
@@ -324,36 +397,18 @@ std::vector<std::uint8_t> direct_packets(
 
     // The recording this list was built with, and where each of its commands goes in `vif`.
     const renderer::FrameRecording* recording =
-        recorder != nullptr ? recorder->match(tag_addresses) : nullptr;
+        recorder != nullptr ? recorder->match(list_root, tag_addresses) : nullptr;
     std::vector<std::size_t> command_vif;
     if (recording != nullptr) {
-        for (const std::size_t t : renderer::place_commands(*recording, tag_addresses)) {
+        const std::vector<std::size_t> places = renderer::place_commands(*recording, tag_addresses);
+        for (const std::size_t t : places) {
             command_vif.push_back(
                 t == renderer::kDropped ? renderer::kDropped
                 : t < tag_vif.size()    ? tag_vif[t]
                                         : vif.size()
             );
         }
-        // Anchors that name no tag of the list: their commands are dropped (the list never got
-        // there), as the markers once written there would not have been in it.
-        std::vector<std::uint32_t> sorted = tag_addresses;
-        std::sort(sorted.begin(), sorted.end());
-        int missed = 0;
-        for (const renderer::FrameCommand& c : recording->commands) {
-            missed += c.anchor != 0 && !std::binary_search(sorted.begin(), sorted.end(), c.anchor);
-        }
-        stats::gauge("recorder anchors missed", double(missed));
-        if (missed > 0 && tell_dropped_anchors()) {
-            log::warn(
-                "frame recorder: {} of {} commands anchored where the display list has no tag "
-                "(dropped; frame {}, level {}, {})",
-                missed,
-                recording->commands.size(),
-                g->index,
-                g_recorder_situation.level,
-                g_recorder_situation.context
-            );
-        }
+        note_recorder_drops(*recording, tag_addresses, places, chain);
     }
     if (recorded != nullptr) {
         *recorded = recording;
@@ -633,6 +688,16 @@ std::vector<std::uint8_t> direct_packets(
                     if (strips != nullptr && !strips_after_early_effects) {
                         strips_after_early_effects = strips->size();
                     }
+                    break;
+                case renderer::FrameOp::WorldShrubs:
+                    // Only after the world has started, as OPENRAC_WORLD_SHRUBS_MARKER's.
+                    if (strips != nullptr && strips_at_world && !strips_after_early_effects) {
+                        strips_after_early_effects = strips->size();
+                    }
+                    break;
+                case renderer::FrameOp::EffectParent:
+                    previous_effect_parent = c.index;
+                    previous_effect_parent_position_only = (c.value & 1u) != 0;
                     break;
                 case renderer::FrameOp::Mobys:
                     if (moby_marker != nullptr && *moby_marker == SIZE_MAX) {

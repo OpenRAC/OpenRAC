@@ -15,6 +15,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -38,9 +39,21 @@ enum class FrameOp : std::uint8_t {
     TargetBegin,  // draws go into panel `index` (a port id >= kRecordedTargets), width x height
     TargetEnd,    // back to the screen
     Scissor,      // what follows is cut to rect (or the whole target)
+    // Transitional placements, read where they land among the residual packets as the markers
+    // the host C once wrote into the list were (rac1 and rac2 until R2/R3):
+    WorldShrubs,  // the world's shrub pass starts here: effect strips before it come first
+    EffectParent,  // strips follow attachment `index`'s parent (0 ends it), value bit 0: position only
+    HudSide,       // what follows goes out to the HUD's side `index` (0 ends it); value bit 0
+                   // stretches what crosses the middle, bit 1 parts it at value >> 2 instead
+    Wide,          // `index` 1: what follows covers the whole target, as a fade does; 0 ends it
+    PictureBand,  // `index` 1: a full-width scissor stays the picture's with "HUD: Edges"; 0 ends
+    LastFrame,    // the frame the window last drew with its world in, over the whole target
     ViewBegin,    // the world that follows is split-screen view `index`'s, into rect
     ViewEnd,      // the open view ends (FrameRecording::views has its camera)
 };
+
+// Returns the command's contract name for recorder diagnostics, or "Unknown" for an invalid value.
+const char* frame_op_name(FrameOp op);
 
 // FrameCommand::clear bits.
 inline constexpr std::uint8_t kClearColour = 1, kClearDepth = 2;
@@ -72,10 +85,35 @@ struct FrameCommand {
     std::uint8_t clear = 0;                               // kClear*
     std::uint16_t width = 0, height = 0;                  // TargetBegin
     float screen_width = 512.0f, screen_height = 448.0f;  // the game's 2D screen for rect
+    // Fill: a depth of its own (openrac_frame_fill_depth). `depth_bits` 0 is the plain fill, which
+    // neither tests nor writes depth; else `depth_value`, out of a `depth_bits`-bit buffer, is
+    // compared by `depth` and stored when `depth_write`. `writes`: the colour channels written.
+    DepthTest depth{};
+    bool depth_write = false;
+    std::uint8_t depth_bits = 0;
+    std::uint32_t depth_value = 0;
+    std::uint8_t writes = kWriteColour;  // kWrite* bits
 
     bool operator==(const FrameCommand&) const = default;
 };
 
+// A flat rectangle with a depth of its own (openrac_frame_fill_depth), in native values: `rect`
+// x0, y0, x1, y1 of the game's 2D screen (null: the whole target), `wide` as FrameCommand's;
+// `depth` out of a `depth_bits`-bit buffer (16, 24 or 32, bigger nearer), compared by `compare`
+// and stored when `write_depth`; `writes` the colour channels (kWrite* bits). Empty for another
+// bit count, a depth the buffer cannot hold, another comparison than Always, GreaterEqual or
+// Greater, or channels outside kWriteColour: the caller draws its own way.
+std::optional<FrameCommand> depth_fill_command(
+    const float* rect,
+    std::uint32_t rgba,
+    BlendMode blend,
+    bool wide,
+    std::uint32_t depth,
+    int depth_bits,
+    DepthCompare compare,
+    bool write_depth,
+    std::uint8_t writes
+);
 // The number of local-player pictures the split-screen compositor retains.
 inline constexpr std::uint32_t kFrameViews = 4;
 
@@ -124,6 +162,9 @@ struct FrameView {
 // records.
 struct FrameRecording {
     std::uint64_t serial = 0;  // 0: never closed
+    // A producer-announced build identity, independent of coincident tag addresses; 0: legacy mode.
+    std::uint32_t list_root = 0;
+    std::uint64_t list_generation = 0;
     std::vector<FrameCommand> commands;
     std::vector<UiQuad> ui_quads;
     std::vector<UiItem> ui_items;
@@ -173,13 +214,24 @@ public:
     // Appends `command` with the current anchor; returns its index.
     std::uint32_t push(FrameCommand command);
 
-    // Closes the open recording into the kept ones (when it has commands) and starts another.
-    // The anchor is forgotten.
+    // Starts a fresh build at `root`, retiring commands from its previous use even if this build
+    // records nothing. Other buffers remain eligible for late/resent submission. The game calls
+    // this only at its actual list reset/swap, before recording any commands of the new build.
+    void begin_list(std::uint32_t root);
+
+    // Keeps the open recording when nonempty and forgets the anchor. In producer-owned mode this
+    // snapshots the current build without losing earlier commands when capture splits the build;
+    // otherwise it starts another legacy recording. Empty owned builds still retire old ownership.
     void close();
 
     // The kept recording a display list draws with: the most recent one (non-empty) any of whose
     // anchors is one of `tags` (the list's DMA tag addresses, in walk order). Null for none.
     const FrameRecording* match(std::span<const std::uint32_t> tags) const;
+
+    // Matches the build that owns `root`, then requires anchor membership as before. Once the
+    // producer announces list builds, numerical tag coincidence alone cannot choose a recording.
+    // Legacy producers that announce none retain the tag-only matching behavior.
+    const FrameRecording* match(std::uint32_t root, std::span<const std::uint32_t> tags) const;
 
     // The most recent kept recording with no anchors (a frame with no display list at all), or null.
     const FrameRecording* latest_unanchored() const;
@@ -203,6 +255,12 @@ private:
     std::array<FrameRecording, kKept> m_kept{};
     std::uint64_t m_serial = 0;
     std::uint32_t m_anchor = 0;
+    // Build generations are monotonic for this recorder; reset clears ownership but not this clock.
+    std::uint64_t m_list_generation = 0;
+    // True after a producer opts into list ownership; legacy matching cannot reappear on empty builds.
+    bool m_owns_lists = false;
+    // Only a push changes a build's captured payload; empty ticks must not evict a valid resend.
+    bool m_open_dirty = false;
     std::array<float, 2> m_screen{512.0f, 448.0f};
     bool m_view_open = false;
 };
@@ -211,8 +269,8 @@ private:
 // command goes before the first tag, from the one the command before it went to, whose address is
 // its anchor. One whose anchor is not found there is dropped: the list never reached the place it
 // was recorded at (a list the game sent again, cut short), as a marker written there would not have
-// been in it. One with no anchor goes where the command before it went (the list's start for the
-// first). Non-decreasing, kDropped aside.
+// been in it. One with no anchor goes where the command before it went, including kDropped (the
+// list's start for the first). Non-decreasing, kDropped aside.
 inline constexpr std::size_t kDropped = static_cast<std::size_t>(-1);
 std::vector<std::size_t> place_commands(
     const FrameRecording& recording, std::span<const std::uint32_t> tags
