@@ -142,6 +142,8 @@ func_003C7FF0	func_003C7E88
 func_003C8190	func_003C8028
 func_003CA608__frontbin	func_003C5098__frontbin
 func_003CA9C0	func_003CA858
+func_003CB300__frontbin	func_003C5D90__frontbin
+func_003CB3E0__frontbin	func_003C5E70__frontbin
 func_003CB6B8	func_003CB550
 func_003CB798	func_003CB630
 func_003CB798_003C3C18	func_003CB630_003C3C18
