@@ -224,7 +224,7 @@ N as every player" takes their own controls away):
 
 ## 7. What it cannot do
 
-- The game never sees pressure: the pad library's replacement
+- The game never sees pressure: the port's pad report
   ([lib/pad.c](../../port/game/common/lib/pad.c)) rebuilds it from the
   buttons. A trigger's travel presses a button past the press point; its
   depth goes no further ([CONTROLLERS.md](CONTROLLERS.md), section 8).

@@ -254,23 +254,24 @@ float mp_func_002804B0(float angle) {
     return rac3_sin(angle);
 }
 
-/* libpad (pad.c). */
-int func_0012EC90(int mode);
+/* libpad: the executable's pad update still runs its state machine (pad.c, "The multiplayer
+ * executable's libpad"); scePadEnd is the boot program's. */
+int rac3_mp_pad_init(int mode);
 int func_0012EF10(void);
-int func_0012F0B8(int port, int slot, int work);
-int func_0012F3F8(int port, int slot, int data);
-int func_0012F470(int port, int slot);
-int func_0012F5A8(int port, int slot);
-int func_0012F608(int port, int slot, int actno, int term);
-int func_0012F728(int port, int slot, int term, int offs);
-int func_0012F860(int port, int slot, int offs, int lock);
-int func_0012F918(int port, int slot, int data);
-int func_0012F9E0(int port, int slot, int data);
-int func_0012FC18(int port, int slot);
-int func_0012FC78(int port, int slot);
+int rac3_mp_pad_port_open(int port, int slot, int work);
+int rac3_mp_pad_read(int port, int slot, int data);
+int rac3_mp_pad_get_state(int port, int slot);
+int rac3_mp_pad_get_req_state(int port, int slot);
+int rac3_mp_pad_info_act(int port, int slot, int actno, int term);
+int rac3_mp_pad_info_mode(int port, int slot, int term, int offs);
+int rac3_mp_pad_set_main_mode(int port, int slot, int offs, int lock);
+int rac3_mp_pad_set_act_direct(int port, int slot, int data);
+int rac3_mp_pad_set_act_align(int port, int slot, int data);
+int rac3_mp_pad_info_press_mode(int port, int slot);
+int rac3_mp_pad_enter_press_mode(int port, int slot);
 
 int mp_func_0013C268(int mode) {
-    return func_0012EC90(mode);
+    return rac3_mp_pad_init(mode);
 }
 
 int mp_func_0013C4E8(void) {
@@ -278,47 +279,47 @@ int mp_func_0013C4E8(void) {
 }
 
 int mp_func_0013C690(int port, int slot, int work) {
-    return func_0012F0B8(port, slot, work);
+    return rac3_mp_pad_port_open(port, slot, work);
 }
 
 int mp_func_0013CA88(int port, int slot, int data) {
-    return func_0012F3F8(port, slot, data);
+    return rac3_mp_pad_read(port, slot, data);
 }
 
 int mp_func_0013CB00(int port, int slot) {
-    return func_0012F470(port, slot);
+    return rac3_mp_pad_get_state(port, slot);
 }
 
 int mp_func_0013CC38(int port, int slot) {
-    return func_0012F5A8(port, slot);
+    return rac3_mp_pad_get_req_state(port, slot);
 }
 
 int mp_func_0013CC98(int port, int slot, int actno, int term) {
-    return func_0012F608(port, slot, actno, term);
+    return rac3_mp_pad_info_act(port, slot, actno, term);
 }
 
 int mp_func_0013CDB8(int port, int slot, int term, int offs) {
-    return func_0012F728(port, slot, term, offs);
+    return rac3_mp_pad_info_mode(port, slot, term, offs);
 }
 
 int mp_func_0013CEF0(int port, int slot, int offs, int lock) {
-    return func_0012F860(port, slot, offs, lock);
+    return rac3_mp_pad_set_main_mode(port, slot, offs, lock);
 }
 
 int mp_func_0013CFA8(int port, int slot, int data) {
-    return func_0012F918(port, slot, data);
+    return rac3_mp_pad_set_act_direct(port, slot, data);
 }
 
 int mp_func_0013D070(int port, int slot, int data) {
-    return func_0012F9E0(port, slot, data);
+    return rac3_mp_pad_set_act_align(port, slot, data);
 }
 
 int mp_func_0013D2A8(int port, int slot) {
-    return func_0012FC18(port, slot);
+    return rac3_mp_pad_info_press_mode(port, slot);
 }
 
 int mp_func_0013D308(int port, int slot) {
-    return func_0012FC78(port, slot);
+    return rac3_mp_pad_enter_press_mode(port, slot);
 }
 
 /* The WAD decompressor (wad.c). */
