@@ -224,6 +224,14 @@
   "candidates": "nonmatching/functional.tsv",
   "places": "config/us/levels/functions.tsv",
   "split_places": "tables/split_places.tsv",
+  "more_places": {
+    "func_L01_004C78D8": "23:004A9230",
+    "func_L01_004C78E0": "03:004B4EE0,24:004AC6D0",
+    "func_L01_004D4C50": "03:004C2250,24:004B9A40",
+    "func_L01_004D75F8": "03:004C4BF8,24:004BC3E8",
+    "func_L01_004026A0": "03:003EFF28,11:003DC210,16:00412630,23:003E5828",
+    "func_L01_004D4B48": "23:004B64A0"
+  },
   "folded_wrappers": "tables/variant_callees.tsv",
   "params_from_declarations": [
     "func_L01_00440A88",
