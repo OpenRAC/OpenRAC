@@ -46,9 +46,9 @@
 #include <stdio.h>
 
 #include "mp/game_protos.h"
+#include "mp_wide.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
-#include "mp_wide.h"
 #include "rac3_version.h"
 
 /* The game's net state block (mp_net.c's NET_BLOCK): its net time, in milliseconds, and the

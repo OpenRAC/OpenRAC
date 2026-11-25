@@ -369,7 +369,8 @@ int rac3_mp_wide_mode_copy(uint32_t offset, int first, int count, uint8_t* bytes
 #define RES_SCORE 0x140u
 #define RES_SUICIDES 0x1B8u
 #define RES_WINNER 0x1A8u
-#define RES_TEAMS 0x2E8u /* eight team records of 0xA4 bytes: idx[8], a[8], b[8], ..., count at +0x8C */
+#define RES_TEAMS                                                                                  \
+    0x2E8u /* eight team records of 0xA4 bytes: idx[8], a[8], b[8], ..., count at +0x8C */
 #define RES_TEAM_BYTES 0xA4u
 #define RES_TEAM_COUNT 0x8Cu
 #define RES_GAME_TYPE 0x80Cu
@@ -393,13 +394,15 @@ static const struct {
     {0x058u, 0x180u, 4, 0},
     {0x078u, 0x1C8u, 0x24, 0},
 };
+
 #define WIDE_END_ARRAYS (sizeof wide_end_array / sizeof wide_end_array[0])
 
 /* The players' slot `slot` struct (0: none). */
 static gaddr wide_player(int slot) {
     const uint32_t base = wide_base(WIDE_MAP_PLAYERS);
-    return base == 0 ? 0
-                     : GREF(gaddr, rac3_mp_wide_address(base + 4u * (uint32_t)slot, WIDE_MAP_PLAYERS));
+    return base == 0
+               ? 0
+               : GREF(gaddr, rac3_mp_wide_address(base + 4u * (uint32_t)slot, WIDE_MAP_PLAYERS));
 }
 
 /* The bytes the end message carries for slots 8 to slots-1 (at most 24 - 8 slots of each array

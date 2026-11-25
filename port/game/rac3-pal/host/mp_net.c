@@ -233,10 +233,10 @@ void rac3_mp_ui_notice(const char* text);               /* mp_ui.c */
 #define M_ACCOUNT_NOT_FOUND (-998) /* the login's message 0xF: the hub's ERROR_INVALID_ACCOUNT */
 #define M_SERVER_ERROR (-991)      /* message 1: the hub's ERROR_TRY_LATER */
 #define M_INVALID_PASSWORD (-978)  /* message 0xA: the hub's ERROR_WRONG_PASSWORD */
-#define M_WORLD_LOBBY 2     /* the one channel's world id */
-#define M_WORLD_OWN 900     /* this console's own game */
-#define M_WORLD_LISTED 1000 /* the first listed game's world id */
-#define M_PORT 10075        /* what the connection infos name; nothing connects to it */
+#define M_WORLD_LOBBY 2            /* the one channel's world id */
+#define M_WORLD_OWN 900            /* this console's own game */
+#define M_WORLD_LISTED 1000        /* the first listed game's world id */
+#define M_PORT 10075               /* what the connection infos name; nothing connects to it */
 
 /* A request with a reply: the reply's class, type and size, and whether it is a list (its last
  * word EndOfList). The sizes are the library's own (its handlers' results). */
@@ -358,7 +358,7 @@ typedef struct {
     net_socket fd;
     int state; /* 0 not tried, 1 connected and greeted, 2 hello sent, -1 failed */
     int32_t session;
-    int features; /* the UDP offer's bits: which requests the server takes */
+    int features;     /* the UDP offer's bits: which requests the server takes */
     int64_t alive_ms; /* when PACKET_TIME last went */
     uint8_t in[LINK_IN];
     size_t in_len;
@@ -2308,6 +2308,7 @@ static void dme_deliver(void) {
 #define END_MESSAGE_BYTES 0x68 /* channel 5's message */
 #define END_MESSAGE_COMMAND 0x0C
 #define END_MESSAGE_SCORES 0x82
+
 static int dme_relay(int dest, gaddr data, int len) {
     if (srv.fd == NET_INVALID || !room.in || len <= 0 || len > 0x5F0) {
         return 0;

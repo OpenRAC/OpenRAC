@@ -33,6 +33,7 @@
 #include <string.h>
 
 #include "mp/game_protos.h"
+#include "mp_wide.h"
 #include "openrac/frame.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
@@ -40,7 +41,6 @@
 #include "rac3_version.h"
 #include "ui2d.h"
 #include "ui_adapter.h"
-#include "mp_wide.h"
 
 /* ---- The game's memory (PAL; seen in game code, L39_* in rac3-decomp's level 39) ---- */
 
@@ -583,10 +583,7 @@ static void fill_scores(void) {
         snprintf(number[1], sizeof number[1], "%d", GREF(int16_t, kills));
         snprintf(number[2], sizeof number[2], "%d", GREF(int16_t, kills + 2u));
         snprintf(
-            number[3],
-            sizeof number[3],
-            "%d",
-            GREF(int32_t, result_at(RESULTS_TEAMS, 4u, slot)) + 1
+            number[3], sizeof number[3], "%d", GREF(int32_t, result_at(RESULTS_TEAMS, 4u, slot)) + 1
         );
         openrac_mp_ui_table_row(g_ui, (uint32_t)slot, 1);
         openrac_mp_ui_table_cell(g_ui, "name", name);
