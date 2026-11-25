@@ -400,6 +400,9 @@ extern gaddr rac3_draw_owner;
 extern gaddr rac3_draw_callback;
 extern unsigned rac3_draw_ordinal;
 
+/* The trail record whose quad DrawWorldQuad draws now (func_003D98C0 below), 0 for none. */
+static gaddr s_trail_record;
+
 /* The effect textures' uploads this frame: their count and the records GetEffectTex (Veldin's
  * 0x00404040, Going Commando's func_0027C878) writes, 16 bytes each as Going Commando's. */
 #define TEXTURE_UPLOADS RAC3_LADDR(1, 0x001DF97Cu)
@@ -472,6 +475,11 @@ void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, g
             h = (h ^ words[i]) * 16777619u;
         }
         q.id = 0x40000000u | (h & 0x3FFFFFFFu);
+    } else if (s_trail_record != 0) {
+        /* A puff of the ship's trail: its record's place is the same from one tick to the next
+         * while it lives (a freed one used again moves too far to be blended: the frontend's
+         * kMaximumEffectStep). */
+        q.id = 0x20000000u | ((s_trail_record >> 4) & 0x1FFFFFFFu);
     }
     openrac_game_effect_quad(&q);
     const uint32_t marker = openrac_game_effect_quad_marker();
@@ -531,6 +539,62 @@ void func_003A7EF8(gaddr a0) {
     rac3_draw_owner = outer;
     rac3_draw_callback = outer_callback;
     rac3_draw_ordinal = outer_ordinal;
+}
+
+/* The ship's engine flames (0x003A6B90, the boot program's copy of the catalogue's frontbin row
+ * func_003A6790): two rows of world quads, one an engine (0x003A66D0, through DrawWorldQuad's copy
+ * 0x003D98C0), laid along each engine from where its joint is that tick (0x003C3278), called by the
+ * ship's draw. Without an owner they had no id and no parent: a frame between ticks drew the hull
+ * part way from the last tick and the flames where this tick has them, so in the approach to the
+ * planet (20 ticks a second, loading.c) the exhaust stood still for a tick and jumped at the next
+ * while the ship moved smoothly ahead of it (OPENRAC_MOTION_LOG: about 75 to 135 quads a tick, none
+ * with an id). Owned by the ship, they move with it between ticks (frontend scene_effects.cpp). */
+void func_003A6B90(gaddr a0) {
+    const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
+    const unsigned outer_ordinal = rac3_draw_ordinal;
+    rac3_draw_owner = a0;
+    rac3_draw_callback = 0; /* no callback runner's function: the ids are the ship's alone */
+    rac3_draw_ordinal = 0;
+    func_003A6B90__game(a0);
+    rac3_draw_owner = outer;
+    rac3_draw_callback = outer_callback;
+    rac3_draw_ordinal = outer_ordinal;
+}
+
+/* The levels' copy of the engine flames (frontbin's func_003A6790, Veldin's 0x004AD768, 34 levels),
+ * which a level's own flight leaving a planet runs: owned by the ship as the boot program's above. */
+void func_L01_004AD768(gaddr a0) {
+    const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
+    const unsigned outer_ordinal = rac3_draw_ordinal;
+    rac3_draw_owner = a0;
+    rac3_draw_callback = 0;
+    rac3_draw_ordinal = 0;
+    func_L01_004AD768__game(a0);
+    rac3_draw_owner = outer;
+    rac3_draw_callback = outer_callback;
+    rac3_draw_ordinal = outer_ordinal;
+}
+
+/* The ship's trail on the loading screen: 0x003A8850 draws each live record of a pool of 512 (0x50
+ * bytes each, the pool at *0x001D6EEC, +0x48 set while it lives) as one quad through 0x003D98C0,
+ * the boot program's copy of DrawWorldQuad's caller. They are world-space puffs left behind the
+ * ship, which move, grow and fade each tick: drawn with no id, a frame between ticks left them where
+ * the tick had them, and in the approach (20 ticks a second) the trail stepped behind the smoothly
+ * moving ship (OPENRAC_MOTION_LOG: up to about 70 quads a tick without an id). Each now has its
+ * record's place as its id, so that a frame between ticks moves it from the last tick's corners. */
+#define TRAIL_POOL RAC3_ADDR(0x001D6EECu)
+#define TRAIL_RECORDS 512u
+#define TRAIL_RECORD_SIZE 0x50u
+
+void func_003D98C0(gaddr a0, int a1, int a2, int a3, float a4, float a5, float a6) {
+    const gaddr outer = s_trail_record;
+    const gaddr pool = GREF(gaddr, TRAIL_POOL);
+    s_trail_record = rac3_draw_owner == 0 && pool != 0 && a0 >= pool
+                             && a0 < pool + TRAIL_RECORDS * TRAIL_RECORD_SIZE
+                         ? a0
+                         : 0;
+    func_003D98C0__game(a0, a1, a2, a3, a4, a5, a6);
+    s_trail_record = outer;
 }
 
 /* The levels' copy of the cockpit glass (the catalogue's frontbin row func_003A7AF8, Veldin's

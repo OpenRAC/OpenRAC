@@ -9,11 +9,13 @@
 #include <utility>
 #include <vector>
 
+#include "common/log.h"
 #include "renderer/gl/gl.h"
 #include "renderer/gl/gl_warmup.h"
 #include "renderer/gl/program_cache.h"
 #include "renderer/gl/shader_modes.h"
 #include "renderer/gl/shader_precision.h"
+#include "renderer/gl/shader_sources.h"
 #include "renderer/gl/shader_variants.h"
 #include "renderer/textures/texture_filter.h"
 #include "renderer_shaders.h"
@@ -27,19 +29,6 @@ namespace {
 constexpr int kSamplerUnits = 8;
 
 }  // namespace
-
-std::string shader_constants(std::string source, std::initializer_list<ShaderIntConstant> values) {
-    for (const auto& [name, value] : values) {
-        const std::string declaration = "uniform int " + std::string(name) + ";";
-        const std::string constant =
-            "const int " + std::string(name) + " = " + std::to_string(value) + ";";
-        for (auto at = source.find(declaration); at != std::string::npos;
-             at = source.find(declaration, at + constant.size())) {
-            source.replace(at, declaration.size(), constant);
-        }
-    }
-    return source;
-}
 
 std::string es_source(std::string_view source, bool noperspective, bool clip_distance) {
     // The version line, and the first line after it that is not a comment, are where the ES
@@ -103,8 +92,7 @@ std::string stage_source(std::string_view desktop_source) {
     }
     // Give shader stages the same single opt-in as the C++ resource gates.
     if (enhanced_rendering_available()) {
-        translated = source;
-        translated.insert(translated.find('\n') + 1, "#define OPENRAC_ENHANCED_RENDERING 1\n");
+        translated = shader_enhanced_source(source, true);
         source = translated;
     }
     // Desktop GL and ES retain the same arithmetic sources with ordinary FP32 aliases.
@@ -184,6 +172,19 @@ GLuint build_stages(
 
     GLint ok = 0;
     glGetProgramiv(program, GL_LINK_STATUS, &ok);
+
+    // A substituted Vulkan program links successfully but retains its missing-variant diagnosis.
+    if (vulkan && ok != 0) {
+        GLint size = 0;
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &size);
+        if (size > 1) {
+            std::string diagnostic(static_cast<std::size_t>(size), '\0');
+            GLsizei length = 0;
+            glGetProgramInfoLog(program, size, &length, diagnostic.data());
+            diagnostic.resize(static_cast<std::size_t>(std::max(length, 0)));
+            log::error("{}: {}", name, diagnostic);
+        }
+    }
 
     if (ok == 0) {
         GLint size = 0;
@@ -350,20 +351,8 @@ Shader& Shader::operator=(Shader&& other) noexcept {
 bool Shader::build(
     std::string_view name, std::string_view vertex, std::string_view fragment, std::string& error
 ) {
-    // Share exactly the same RGB-only reconstruction across world shader paths.
-    constexpr std::string_view marker = "// OPENRAC_UPSCALED_TEXTURE_COLOURS_SOURCE";
-    std::string assembled;
-    if (const auto at = fragment.find(marker); at != std::string_view::npos) {
-        assembled = fragment;
-        assembled.replace(
-            at,
-            marker.size(),
-            enhanced_rendering_available()
-                ? shaders::upscaled_texture_colours_glsl
-                : "vec4 sample_upscaled_texture_colours(vec2 uv) { return texture(tex_T0, uv); }\n"
-        );
-        fragment = assembled;
-    }
+    const std::string assembled = shader_fragment_source(fragment, enhanced_rendering_available());
+    fragment = assembled;
     // The same sources as a program built before (this run, or an earlier one): the driver's
     // binary of it, without a compile (renderer/gl/program_cache.h).
     const std::string vertex_source = stage_source(vertex);

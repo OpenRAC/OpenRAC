@@ -1204,6 +1204,29 @@ def inherit_results(program: Program) -> list[str]:
     return changed
 
 
+def uninherit_void_results(program: Program) -> list[str]:
+    """inherit_results runs before the assembly stage, with a function left to its assembly still
+    under its C's signature; the stage may then find that the assembly returns nothing (Annihilation
+    Nation's func_L07_00473C80, whose C returns the effect it made, left to its assembly for its VU0
+    instructions: its callers' declarations say void). A definition that inherited such a callee's
+    result returns nothing again, as its C says. Returns the names changed."""
+    changed = []
+    again = True
+    while again:
+        again = False
+        for f in list(program.functions.values()) + list(program.statics.values()):
+            if not f.inherits:
+                continue
+            g = tail_callee(program, f)
+            if g is None or g is f or canon(g.sig.ret, program.typedefs) not in (None, "void"):
+                continue
+            f.sig = Signature(ctype.Base("void"), f.sig.params, f.sig.variadic, f.sig.prototyped)
+            f.inherits = False
+            again = True
+            changed.append(f.symbol)
+    return changed
+
+
 def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
     """Adds one unit's definitions and declarations. Returns problems found."""
     problems = []

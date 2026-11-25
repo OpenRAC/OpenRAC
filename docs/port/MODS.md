@@ -420,7 +420,10 @@ names will change (the port's C++ refactor renames functions); ids do not:
 - the launcher carries the names-to-ids table
   ([launcher/core/src/hook_ids.json](../../launcher/core/src/hook_ids.json),
   generated) to tell two mods that name one hook point differently that they
-  share it.
+  share it, and to skip a mod version whose `hooks` name an id its port does
+  not have yet: it installs the newest version that has them all, or says the
+  mod needs a newer launcher. Hook points come without a new mod interface,
+  so the interface alone does not tell.
 
 A new hook point (a hand-written `hook` row, for the item randomizer's item
 grants for example) is a row in each disc's `libraries.tsv` and an entry in

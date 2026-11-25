@@ -124,6 +124,10 @@ struct Kept {
     std::uint64_t effects_frame = ~0ull;
     std::array<renderer::Mat4, 8> sky_shells{};
     unsigned sky_shell_mask = 0;
+    // The tick before's shells, where it was the one before (keep_effects): a frame between ticks
+    // turns each from there (scene_hud.cpp).
+    std::array<renderer::Mat4, 8> prev_sky_shells{};
+    unsigned prev_sky_shell_mask = 0;
     std::vector<renderer::UiQuad> ui_quads;
     // The frame recorder's commands the tick's 2D path draws, and where (capture_2d_path,
     // docs/port/FRAME_RECORDER.md): FrameInput::recording, splices, splices_before_world.

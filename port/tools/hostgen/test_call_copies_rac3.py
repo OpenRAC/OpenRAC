@@ -211,3 +211,25 @@ class Vu0AssemblyFromRetail(unittest.TestCase):
         program.functions["func_L01_003D1DA8"] = Function(
             "func_L01_003D1DA8", Signature.of(ctype.parse("void (int)")), "src/levels/a.c", vu0_asm=("vcallms", "qmfc2.i"))
         self.assertEqual(users_of_vu0_assembly(program), {})
+
+
+class VoidTailLeftToAssembly(unittest.TestCase):
+    """inherit_results runs before the assembly stage. Annihilation Nation's func_L07_003B6E98 ends in
+    a call of func_L07_00473C80, whose C returns the effect it made: the caller took that result. Left
+    to its assembly (its C's VU0 instructions), the callee is `void` as its callers declare it, and the
+    caller returned a void call's value, which did not compile."""
+
+    def test_the_caller_returns_nothing_again(self):
+        from program import canon, inherit_results, uninherit_void_results
+        program = Program()
+        unit = "src/levels/07_annihilation_nation/L07_003B6800.c"
+        callee = Function("func_L07_00473C80", Signature.of(ctype.parse("void *(void *, int)")), unit=unit)
+        caller = Function("func_L07_003B6E98", Signature.of(ctype.parse("void (void *, int)")), unit=unit,
+                          tail="func_L07_00473C80")
+        program.functions = {f.symbol: f for f in (callee, caller)}
+        self.assertEqual(inherit_results(program), ["func_L07_003B6E98"])
+        callee.sig = Signature.of(ctype.parse("void (void *, int)"))  # what the assembly stage found
+        self.assertEqual(uninherit_void_results(program), ["func_L07_003B6E98"])
+        self.assertEqual(canon(caller.sig.ret, program.typedefs), "void")
+        self.assertFalse(caller.inherits)
+        self.assertEqual(uninherit_void_results(program), [])
