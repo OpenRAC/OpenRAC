@@ -3576,10 +3576,16 @@ void keep_effects(
             }
         }
     }
+    const bool sky_adjacent = k.effects_frame + 1 == k.frame;
     k.effects_frame = k.frame;
     ++g->effect_generation;
     k.effects = std::move(g->effects);
     k.effect_uploads = std::move(g->effect_uploads);
+    // The last tick's sky shells, when it was the tick before this one, for a frame drawn between
+    // ticks to turn each from (scene_hud.cpp), as the mobys move from theirs: the loading screen's
+    // stars and galaxy turn a little each pass (SkyDraw's copy, 0x003CE568).
+    k.prev_sky_shells = k.sky_shells;
+    k.prev_sky_shell_mask = sky_adjacent ? k.sky_shell_mask : 0u;
     k.sky_shells = g->sky_shells;
     k.sky_shell_mask = std::exchange(g->sky_shell_mask, 0u);
     // The list's own tick's quads (above). The game's FadeToBlack (after a story card, between

@@ -4,7 +4,8 @@
 //!   themselves; a major version, or a native mod's version that takes new hooks, waits for a
 //!   click with its changelog. A mod kept at its version (a pin) is left alone. Every update is
 //!   planned as one set through the resolver: an update that would break another mod's `requires`
-//!   is held back ("A needs B 1.2.0"), and the API and pre-release rules of resolver.rs apply.
+//!   is held back ("A needs B 1.2.0"), and the API, hook point and pre-release rules of
+//!   resolver.rs apply.
 //!   Nothing is updated while the game runs. A set is all or nothing (index_apply.rs).
 //! - **Rollback after a crash**: the last update is remembered (`plugins/.last-update.json`), so a
 //!   crash after it can offer "Roll back B to 1.2.0", which pins B until a version newer than the
@@ -40,6 +41,9 @@ pub enum Hold {
     Needs { id: String, wants: Option<String> },
     /// The newest version needs a newer launcher.
     NeedsLauncher { api: String },
+    /// The newest version names hook points this launcher's port does not have, so it needs a
+    /// newer launcher. Not `NewHooks`, which asks the player about hooks the port has.
+    NeedsLauncherHooks { hooks: Vec<String> },
     /// Something else stops it (a conflict, a missing mod).
     Blocked { detail: String },
 }
@@ -151,7 +155,10 @@ pub fn plan(index: &ModIndex, installed: &[InstalledMod], sources: &Sources, her
             .filter(|v| newer(&v.version, &have.version))
             .filter(|v| index.revoked(&m.id, &v.version).is_none() && (here.prerelease || !v.prerelease) && runs(v))
             .collect();
-        let best = offered.iter().copied().filter(|v| api_fits(v.api.as_deref(), here.api)).max_by(|a, b| {
+        let fits = |v: &crate::index::Version| {
+            api_fits(v.api.as_deref(), here.api) && crate::hook_ids::missing(here.game, &v.hooks).is_empty()
+        };
+        let best = offered.iter().copied().filter(|v| fits(v)).max_by(|a, b| {
             compare_versions(
                 parse_version(&a.version).unwrap_or_default(),
                 parse_version(&b.version).unwrap_or_default(),
@@ -173,7 +180,12 @@ pub fn plan(index: &ModIndex, installed: &[InstalledMod], sources: &Sources, her
         let Some(v) = best.filter(|v| skip.as_deref() != Some(v.version.as_str())) else {
             // Only a version for a newer launcher: it waits until the launcher updates.
             if let Some(v) = offered.first().filter(|_| best.is_none()) {
-                out.held.push(item(v, Some(Hold::NeedsLauncher { api: v.api.clone().unwrap_or_default() })));
+                let hold = if api_fits(v.api.as_deref(), here.api) {
+                    Hold::NeedsLauncherHooks { hooks: crate::hook_ids::missing(here.game, &v.hooks) }
+                } else {
+                    Hold::NeedsLauncher { api: v.api.clone().unwrap_or_default() }
+                };
+                out.held.push(item(v, Some(hold)));
             }
             continue;
         };
@@ -642,6 +654,32 @@ mod tests {
             ids(&super::plan(&index, &[have("camera-base", "1.1.0")], &back, &HERE).silent),
             [("camera-base", "1.2.0")]
         );
+    }
+
+    #[test]
+    fn an_update_that_names_hook_points_this_port_lacks_is_held_for_the_launcher() {
+        // As weapon-wheel-pause 2.0.0 needs the freeze hooks of a newer port: same interface,
+        // hook points this one does not have.
+        const UNKNOWN: &str = "rac1.test.not_a_hook_point";
+        let hooks = |list: &[&str]| list.iter().map(|h| h.to_string()).collect::<Vec<_>>();
+        let mut index = ModIndex { format: 1, ..Default::default() };
+        index.mods.push(script("wheel", &[("2.0.0", &[]), ("1.0.3", &[])]));
+        index.mods[0].versions[0].hooks = hooks(&["rac1.player.update", UNKNOWN]);
+        index.mods[0].versions[1].hooks = hooks(&["rac1.player.update"]);
+        let plan = super::plan(&index, &[have("wheel", "1.0.3")], &Sources::default(), &HERE);
+        assert!(plan.silent.is_empty() && plan.waiting.is_empty());
+        assert_eq!(ids(&plan.held), [("wheel", "2.0.0")]);
+        assert_eq!(plan.held[0].hold, Some(Hold::NeedsLauncherHooks { hooks: vec![UNKNOWN.into()] }));
+        // A version between that the port has every hook point of goes in by itself.
+        index.mods[0] = script("wheel", &[("2.0.0", &[]), ("1.1.0", &[]), ("1.0.3", &[])]);
+        index.mods[0].versions[0].hooks = hooks(&[UNKNOWN]);
+        assert_eq!(ids(&plan_of(&index, &[have("wheel", "1.0.3")])), [("wheel", "1.1.0")]);
+        // Names and another game's ids are not held against it: a major, it waits for a click.
+        index.mods[0].versions[0].hooks = hooks(&["Hero_Update", "rac2.test.not_a_hook_point"]);
+        let plan = super::plan(&index, &[have("wheel", "1.0.3")], &Sources::default(), &HERE);
+        assert!(plan.held.is_empty());
+        assert_eq!(ids(&plan.waiting), [("wheel", "2.0.0")]);
+        assert_eq!(plan.waiting[0].hold, Some(Hold::Major));
     }
 
     #[test]

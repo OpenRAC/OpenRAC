@@ -66,6 +66,38 @@ class AsmStubsKeepLines(unittest.TestCase):
         self.assertEqual(lines[1], "    g();")
 
 
+class Vu0ClobbersDropped(unittest.TestCase):
+    # rac3's func_L01_003AA658 (Veldin's Galactic Rangers' dropships) lists "vf1" and "vf2" as its
+    # inline assembly's clobbers. Clang knows no such register, and the statement made the whole
+    # function a stub. The clobbers go and the statement stays, for vu0_assembly to find.
+    TEXT = ("void f(unsigned char *o, unsigned char *m) {\n"
+            '    __asm__("lqc2 $vf1,%1\\n\\tvsub.xyz $vf1,$vf1,$vf1\\n\\tsqc2 $vf1,%0"\n'
+            '      : "=m"(*(long *)o) : "m"(*(long *)m) : "vf1","vf2");\n'
+            "}\n")
+
+    def test_both_clobbers_go_and_the_statement_stays(self):
+        stderr = ("src/b.c:3:46: error: unknown register name 'vf1' in asm\n"
+                  "src/b.c:3:52: error: unknown register name 'vf2' in asm\n")
+        fixed, fixes = clangast.fix_from_diagnostics(self.TEXT, stderr, "src/b.c")
+        line = fixed.split("\n")[2]
+        self.assertNotIn("vf", line)
+        self.assertEqual(len(line), len(self.TEXT.split("\n")[2]))  # every column kept
+        self.assertRegex(line, r':\s*"m"\(\*\(long \*\)m\) :\s*\);$')
+        self.assertIn("__asm__(", fixed)
+        self.assertNotIn("openrac_hostgen_asm", fixed)
+        self.assertEqual(len(fixes), 2)
+
+    def test_the_second_clobber_first(self):
+        lines = ['  : "m"(x) : "vf1", "$vf2");']
+        self.assertTrue(clangast._drop_vu0_clobber(lines, 0, 20, "vf2"))
+        self.assertTrue(clangast._drop_vu0_clobber(lines, 0, 13, "vf1"))
+        self.assertRegex(lines[0], r'^  : "m"\(x\) :\s*\);$')
+
+    def test_another_register_name_is_not_a_clobber_here(self):
+        lines = ['  : "m"(x) : "vf1");']
+        self.assertFalse(clangast._drop_vu0_clobber(lines, 0, 3, "vf1"))
+
+
 class Vu0InlineAssemblyAsC(unittest.TestCase):
     # rac3's func_L01_00446BF0 (L01_004463D0.c): two file-local helpers of VU0 macro-mode
     # assembly on GCC's "j" registers. As stubs they never moved the stepped line test's points.

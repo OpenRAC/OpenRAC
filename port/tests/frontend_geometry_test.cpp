@@ -19,6 +19,7 @@ namespace {
 
 using openrac::frontend::blend_matrix;
 using openrac::frontend::blend_pose;
+using openrac::frontend::blend_turning;
 using openrac::frontend::Box;
 using openrac::frontend::CameraPose;
 using openrac::frontend::frame_box;
@@ -232,6 +233,25 @@ void test_a_kept_pace_is_blended() {
     CHECK(blend_pose(from, moved, 0.5f).position == moved.position);
 }
 
+// A sky shell turns part way between ticks however far its translation (in the game's sky units)
+// moved; one that turned too far in a tick is a cut, taken whole.
+void test_a_shell_turns_part_way() {
+    Mat4 from = moby_at(0, 0, 0);
+    Mat4 to = moby_at(4096, 0, 0);
+    // The X axis turned 10 degrees about Z.
+    to[0] = std::cos(0.1745f);
+    to[1] = std::sin(0.1745f);
+    to[4] = -to[1];
+    to[5] = to[0];
+    const Mat4 half = blend_turning(from, to, 0.5f);
+    CHECK(near(half[12], 2048.0f));
+    CHECK(near(half[1], to[1] * 0.5f));
+    CHECK(half[15] == 1.0f);
+    Mat4 flipped = moby_at(0, 0, 0);
+    flipped[0] = -1;
+    CHECK(blend_turning(from, flipped, 0.5f) == flipped);
+}
+
 // Joint poses and model transforms both interpolate. Endpoint world bounds alone need not contain
 // the intermediate product (rotation plus changing pose); the envelope holds every point of it.
 void test_the_moby_envelope_holds_the_blended_moby() {
@@ -404,6 +424,7 @@ int main() {
     test_blend_pose_moves_and_turns_part_way();
     test_blend_pose_takes_a_cut_whole();
     test_a_kept_pace_is_blended();
+    test_a_shell_turns_part_way();
     test_the_moby_envelope_holds_the_blended_moby();
     test_usable_camera_refuses_what_cannot_be_drawn();
     test_usable_view_refuses_broken_matrices();

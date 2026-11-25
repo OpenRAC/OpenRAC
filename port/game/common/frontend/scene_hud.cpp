@@ -11,6 +11,7 @@
 #include "common/log.h"
 #include "frontend.h"
 #include "game/common/frontend/effects_dump.h"
+#include "game/common/frontend/geometry.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "program/program.h"
 #include "renderer/direct/direct.h"
@@ -211,6 +212,18 @@ void set_packets(SceneFrame& frame) {
     set_effects(frame);
     input.sky_shells = scene.sky_shells;
     input.sky_shell_mask = scene.sky_shell_mask;
+    // A frame between ticks turns each shell part way from the tick before's (Kept's
+    // prev_sky_shells): taken whole, a shell that turns each tick (the loading screen's stars and
+    // galaxy) stood still between ticks and stepped at each.
+    if (frame.output.alpha < 1.0f) {
+        for (std::size_t i = 0; i < input.sky_shells.size(); ++i) {
+            if ((scene.sky_shell_mask & scene.prev_sky_shell_mask & (1u << i)) != 0) {
+                input.sky_shells[i] = blend_turning(
+                    scene.prev_sky_shells[i], scene.sky_shells[i], frame.output.alpha
+                );
+            }
+        }
+    }
     input.effect_uploads = scene.effect_uploads;
     input.ui_quads = scene.ui_quads;
     input.recording = scene.recording.empty() ? nullptr : &scene.recording;
