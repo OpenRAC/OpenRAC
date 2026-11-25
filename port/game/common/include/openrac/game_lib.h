@@ -245,28 +245,32 @@ int openrac_lib_snd_UpdateMovieADPCM(int, int);
 int openrac_lib_snd_GetMovieNAX(void);
 int openrac_lib_snd_GetDopplerPitchMod(int);
 
-/* 989snd's command ring as Going Commando and Up Your Arsenal build it (lib/snd_ring.c): the batch
- * a game's snd_QueueCommandToRing fills, answered by the native sound engine as an IOP that answers
- * within a tick would. Host entry points, not library functions: each game's host C binds its own
- * addresses to them.
- * - pump: snd_Pump: the callbacks of the batch out, the disc read's end (snd_FlushSoundCommands),
- *   then the next batch; whether a batch is still out.
- * - queue: snd_QueueCommandToRing(command, size, data, callback, argument); 1 when taken.
- * - queue_bytes: the same from host memory (a command the host builds itself).
- * - send_sync: snd_SendCommandSync(command, size, data): the reply word.
- * - bank_from_iop: snd_BankLoadFromIOP: a bank the game sent to the IOP's memory, its handle. */
-int openrac_snd_ring_pump(void);
-int openrac_snd_ring_queue(
-    unsigned int command, gaddr data, int bytes, gaddr callback, long long callback_data
+/* Going Commando's and Up Your Arsenal's 989snd (lib/snd.c): requests whose answers go to a
+ * callback at a later snd_Pump, as their library hands them on. */
+int openrac_lib_snd_Pump(void);
+int openrac_lib_snd_PlaySoundVolPanPMPB_CB(int, int, int, int, int, int, int, long long);
+int openrac_lib_snd_SetSoundParams_CB(int, int, int, int, int, int, int, long long);
+int openrac_lib_snd_PlayVAGStreamTwoParts_CB(
+    int, int, int, int, int, int, int, int, int, int, int, long long
 );
-void openrac_snd_ring_queue_bytes(
-    unsigned int command, const uint8_t* data, int bytes, gaddr callback, long long callback_data
+int openrac_lib_snd_BankLoadFromIOP(int);
+
+/* Host entry points for each game's host C, not library functions:
+ * - request: a request the library takes: `answer_of(args)` (NULL: nothing for the engine to do,
+ *   answered 0) is run when the requests taken are sent, and its answer goes to `callback(answer,
+ *   argument)` at the pump after; `count` words of `args` are copied. A request of no words and no
+ *   callback, with nothing taken or out, is answered at once, as the library sends it.
+ * - request_sync: as snd_SendCommandSync: the callbacks out run first, then `answer_of(args)`,
+ *   whose answer is returned (NULL: 0).
+ * - client_reset: LoadExecPS2 ended the program: its requests dropped (their callbacks are its
+ *   code) and every sound stopped, as the console's IOP is reset for the next executable. */
+#define OPENRAC_SND_REQUEST_ARGS 8
+typedef int (*OpenracSndAnswer)(const int32_t* args);
+void openrac_snd_request(
+    OpenracSndAnswer answer_of, const int32_t* args, int count, gaddr callback, long long argument
 );
-int openrac_snd_ring_send_sync(unsigned int command, gaddr data, int bytes);
-int openrac_snd_ring_bank_from_iop(int bank);
-/* The ring of a program LoadExecPS2 ended: its batches dropped (their callbacks are its code) and
- * every sound stopped, as the console's IOP is reset for the next executable. */
-void openrac_snd_ring_reset(void);
+int openrac_snd_request_sync(OpenracSndAnswer answer_of, const int32_t* args);
+void openrac_snd_client_reset(void);
 
 /* The IOP's memory from an address on, as sceSifSetDma left it, and how many bytes follow; NULL
  * past its end. A host accessor, not a library function. */
