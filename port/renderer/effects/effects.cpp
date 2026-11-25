@@ -4,6 +4,7 @@
 #include "renderer/effects/effects.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <optional>
 #include <set>
@@ -49,6 +50,111 @@ std::array<float, 2> offscreen_target_st(std::uint64_t tex0_bits, float s, float
         s * static_cast<float>(tex0.width()) / pixels,
         1.0f - t * static_cast<float>(tex0.height()) / pixels
     };
+}
+
+std::array<float, 2> frame_copy_st(float s, float t, float picture_scale_x) {
+    const float k = picture_scale_x > 0.0f ? picture_scale_x : 1.0f;
+    return {0.5f + (s - 0.5f) * k, 1.0f - t};
+}
+
+bool any_frame_copy(std::span<const EffectStrip> strips) {
+    return std::ranges::any_of(strips, [](const EffectStrip& s) {
+        return s.frame_copy && s.count >= 3;
+    });
+}
+
+namespace {
+
+// How far a haze patch at full strength moves the picture behind it, a part of its radius on the
+// screen (Haze: the offset in pixels is the strength times the radius in pixels). The game moves
+// its corners by a few hundredths of the picture; this keeps the shimmer subtle at any size.
+constexpr float kFrameCopyHazeStrength = 0.12f;
+
+// A strip that only writes the destination alpha: the colour is (A - B) C + Cd with A = B.
+bool alpha_only_strip(const EffectStrip& strip) {
+    const gs::Alpha a = gs::Alpha::decode(strip.alpha);
+    return !strip.blend_disabled && !strip.frame_copy && a.a == a.b && a.d == 1;
+}
+
+}  // namespace
+
+void frame_copy_haze(
+    std::vector<EffectStrip>& strips,
+    std::span<const EffectVertex> vertices,
+    std::vector<std::array<float, 5>>& haze
+) {
+    std::vector<bool> drop(strips.size(), false);
+    const auto in_range = [&](const EffectStrip& s) {
+        return s.count >= 3 && s.first <= vertices.size() && s.count <= vertices.size() - s.first;
+    };
+    // The mask and the copy over the same corners: the copy's mask is the last strip before it
+    // that writes only alpha there (the game's first frame copy of a frame may come between).
+    const auto mask_of = [&](std::size_t i) -> std::optional<std::size_t> {
+        const EffectStrip& copy = strips[i];
+        for (std::size_t j = i; j-- > 0 && i - j <= 4;) {
+            const EffectStrip& mask = strips[j];
+            if (drop[j] || !alpha_only_strip(mask) || !in_range(mask) || mask.count != copy.count) {
+                continue;
+            }
+            bool same = true;
+            for (std::uint32_t k = 0; k < copy.count; ++k) {
+                const EffectVertex& a = vertices[copy.first + k];
+                const EffectVertex& b = vertices[mask.first + k];
+                same = same && std::abs(a.x - b.x) < 1e-3f && std::abs(a.y - b.y) < 1e-3f
+                       && std::abs(a.z - b.z) < 1e-3f;
+            }
+            if (same) {
+                return j;
+            }
+        }
+        return std::nullopt;
+    };
+    for (std::size_t i = 1; i < strips.size(); ++i) {
+        const EffectStrip& copy = strips[i];
+        if (!copy.frame_copy || !in_range(copy)) {
+            continue;
+        }
+        const auto m = mask_of(i);
+        if (!m) {
+            continue;
+        }
+        const EffectStrip& mask = strips[*m];
+        const auto corners = vertices.subspan(copy.first, copy.count);
+        const auto masked = vertices.subspan(mask.first, mask.count);
+        float cx = 0.0f, cy = 0.0f, cz = 0.0f;
+        for (const EffectVertex& v : corners) {
+            cx += v.x;
+            cy += v.y;
+            cz += v.z;
+        }
+        const float n = static_cast<float>(corners.size());
+        cx /= n;
+        cy /= n;
+        cz /= n;
+        // The square's corners are its half diagonal from the centre: half its side is that over
+        // the square root of two, the circle inside the square.
+        float reach = 0.0f;
+        for (const EffectVertex& v : corners) {
+            reach = std::max(reach, std::hypot(v.x - cx, v.y - cy, v.z - cz));
+        }
+        // The mask's alpha (0x80 opaque): how much of the copy the patch lets through.
+        float fade = 0.0f;
+        for (const EffectVertex& v : masked) {
+            fade = std::max(fade, static_cast<float>(v.rgba >> 24) / 128.0f);
+        }
+        fade = std::clamp(fade, 0.0f, 1.0f);
+        drop[*m] = drop[i] = true;
+        if (reach > 0.0f && fade > 0.0f) {
+            haze.push_back({cx, cy, cz, reach / std::sqrt(2.0f), kFrameCopyHazeStrength * fade});
+        }
+    }
+    std::size_t kept = 0;
+    for (std::size_t i = 0; i < strips.size(); ++i) {
+        if (!drop[i]) {
+            strips[kept++] = std::move(strips[i]);
+        }
+    }
+    strips.resize(kept);
 }
 
 bool test_writes_z(std::uint64_t test) {
@@ -515,11 +621,17 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             // copy, effect texture -1, blended in by the destination alpha a mask strip wrote)
             // sampled the whole target with the copy's own coordinates: a black square with a
             // corner of the picture in it, upside down.
-            const bool target = offscreen_texture(strip.tex0, 0) != 0;
+            // A frame-copy strip samples the pass's native snapshot of the target instead
+            // (frame_copy_st), never the chip's copy the 2D path may have drawn at its block.
+            const bool target = !strip.frame_copy && offscreen_texture(strip.tex0, 0) != 0;
             for (std::uint32_t k = 0; k + 2 < strip.count; ++k) {
                 for (std::uint32_t c = 0; c < 3; ++c) {
                     Vertex v = vertex(input.strip_vertices[strip.first + k + c]);
-                    if (target) {
+                    if (strip.frame_copy) {
+                        const auto [s, t] = frame_copy_st(v.s, v.t, state.target.picture_scale_x);
+                        v.s = s;
+                        v.t = t;
+                    } else if (target) {
                         const auto [s, t] = offscreen_target_st(strip.tex0, v.s, v.t);
                         v.s = s;
                         v.t = t;
@@ -675,6 +787,63 @@ void EffectRenderer::render_depth(const FrameInput& input, RenderState& state) {
     glBindVertexArray(0);
 }
 
+bool EffectRenderer::draws_frame_copy(const FrameInput& input) const {
+    return std::ranges::any_of(input.strips, [&](const EffectStrip& strip) {
+        return strip.frame_copy && strip.count >= 3
+               && static_cast<std::size_t>(strip.first) + strip.count <= input.strip_vertices.size()
+               && draws(strip, input);
+    });
+}
+
+void EffectRenderer::snapshot_frame_copy(const RenderTarget& target) {
+    m_frame_copy_texture = 0;
+
+    if (target.width <= 0 || target.height <= 0) {
+        return;
+    }
+
+    // The chip copied the frame as drawn when the first strip asked for it (GetEffectTex -1),
+    // the world and what the callbacks drew before: the target as drawn so far, at its own size.
+    if (m_frame_copy.width() != target.width || m_frame_copy.height() != target.height) {
+        std::string error;
+
+        if (!m_frame_copy.create_colour(target.width, target.height, error)) {
+            log::warn("Effect frame copy unavailable: {}", error);
+            glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+            return;
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+    GLint samples = 1;
+    glGetIntegerv(GL_SAMPLES, &samples);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, target.framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_frame_copy.id());
+    const int width = target.width;
+    const int height = target.height;
+    const auto copied = colour_snapshot(
+        target,
+        m_frame_copy.id(),
+        std::max(1, samples),
+        [width, height](bool depth) {
+            if (!depth) {
+                glBlitFramebuffer(
+                    0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST
+                );
+            }
+        },
+        SnapshotAttachments::Colour
+    );
+    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+
+    if (!copied) {
+        log::warn("Effect frame copy failed: {}", copied.error().message);
+        return;
+    }
+
+    m_frame_copy_texture = m_frame_copy.colour_texture();
+}
+
 bool EffectRenderer::apply(
     std::uint64_t tex0_bits,
     std::uint64_t tex1_bits,
@@ -682,7 +851,8 @@ bool EffectRenderer::apply(
     std::uint64_t alpha_bits,
     RenderState& state,
     std::uint32_t tbp,
-    std::uint32_t cbp
+    std::uint32_t cbp,
+    bool frame_copy
 ) {
     const profiling::Zone trace("Effects state setup");
     const gs::Texa texa{0, false, 0x80};
@@ -691,8 +861,14 @@ bool EffectRenderer::apply(
         tex0.tbp0 = tbp;
         tex0.cbp = cbp;
     }
-    // An off-screen target the 2D path drew, sampled from the texture it was drawn in.
-    if (const unsigned target = offscreen_texture(tex0_bits, tbp); target != 0) {
+    // The game's frame copy: the pass's native snapshot of the target (snapshot_frame_copy), or,
+    // without one, nothing (the strip is left out rather than drawn from the chip's copy).
+    // Otherwise an off-screen target the 2D path drew, sampled from the texture it was drawn in.
+    const unsigned target = frame_copy ? m_frame_copy_texture : offscreen_texture(tex0_bits, tbp);
+    if (frame_copy && target == 0) {
+        return false;
+    }
+    if (target != 0) {
         if (m_applied.texture != kOffscreenHandle || m_applied.offscreen != target
             || clamp_bits != m_applied.clamp_bits) {
             glActiveTexture(GL_TEXTURE0);
@@ -878,6 +1054,8 @@ void EffectRenderer::release() {
     if (m_material) {
         m_material->release();
     }
+    m_frame_copy.release();
+    m_frame_copy_texture = 0;
     m_shader.release();
     m_depth_shader.release();
     m_quad_shader.release();

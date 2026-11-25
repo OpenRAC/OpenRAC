@@ -118,6 +118,8 @@ void EffectRenderer::draw_prepared(
         bool native = false;
         EffectState material{};
         TextureHandle image = 0;
+        // A strip that samples the frame copy (EffectStrip::frame_copy): the pass's snapshot.
+        bool frame_copy = false;
         bool operator==(const State&) const = default;
     };
 
@@ -258,7 +260,8 @@ void EffectRenderer::draw_prepared(
                                wanted.alpha,
                                state,
                                wanted.tbp,
-                               wanted.cbp
+                               wanted.cbp,
+                               wanted.frame_copy
                            );
             }
 
@@ -371,23 +374,26 @@ void EffectRenderer::draw_prepared(
             continue;
         }
 
-        add({strip.tex0,
-             strip.tex1,
-             strip.clamp,
-             m_part == EffectPart::Opaque && strip.blend_disabled ? 0 : strip.alpha,
-             0,
-             0,
-             strip.surface,
-             strip.uv_motion,
-             strip.fogged,
-             strip.fog,
-             strip.fog_colour,
-             0,
-             false,
-             strip.before_mobys && !before_mobys_writes_z(strip)},
-            at,
-            count,
-            false);
+        State wanted{
+            strip.tex0,
+            strip.tex1,
+            strip.clamp,
+            m_part == EffectPart::Opaque && strip.blend_disabled ? 0 : strip.alpha,
+            0,
+            0,
+            strip.surface,
+            strip.uv_motion,
+            strip.fogged,
+            strip.fog,
+            strip.fog_colour,
+            0,
+            false,
+            strip.before_mobys && !before_mobys_writes_z(strip)
+        };
+        wanted.frame_copy = strip.frame_copy;
+        // A frame-copy strip without the pass's snapshot is left out, not drawn from the chip's
+        // copy or a placeholder (the black boxes under the dropship's thrusters).
+        add(wanted, at, count, strip.frame_copy);
         at += count;
     }
 

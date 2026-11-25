@@ -22,6 +22,7 @@ uniform samplerBuffer early_ao;
 uniform int early_ao_enabled;
 uniform int early_ao_scale;
 uniform float early_ao_strength;
+uniform int early_cloud_guides;
 
 vec3 position_at(ivec2 pixel, float depth) {
     vec2 ndc = (vec2(pixel) + 0.5) / vec2(textureSize(early_depth, 0)) * 2.0 - 1.0;
@@ -125,6 +126,11 @@ void main() {
     }
     irradiance *= ao;
     float shadow = sun_shadow_visibility(world, normal, normal);
+    if (early_cloud_guides != 0) {
+        float cloudy_sun = clouded_sun_visibility(world, shadow);
+        guides[half_extent.x * half_extent.y * 2 + index] =
+            uint(round(clamp(cloudy_sun, 0.0, 1.0) * 255.0));
+    }
     uint hero = uint(round(clamp(hero_shadow_sample(world, normal), 0.0, 1.0) * 255.0));
     // Log encoding spans the finite half-float lighting range. Decode each
     // candidate before spatial filtering; alpha is linear visibility.

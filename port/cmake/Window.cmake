@@ -569,6 +569,7 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/early_lighting.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/cloud_shadows.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/probe_selection.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/early_lighting.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/lighting/probes.glsl"

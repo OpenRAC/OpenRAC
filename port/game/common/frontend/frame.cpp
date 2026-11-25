@@ -68,6 +68,7 @@
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "renderer/direct/direct.h"
+#include "renderer/effects/effects.h"
 #include "renderer/effects/shadows.h"
 #include "renderer/renderer.h"
 #include "renderer/world/fog.h"
@@ -118,6 +119,51 @@ std::uint32_t word_at(std::span<const std::uint8_t> ram, std::uint32_t at) {
     return w;
 }
 
+// What the game is doing for the frame recorder's warnings: the level program loaded and the game's
+// touch context (play, menu, a weapon's upgrade as "dialog", a scene), set by capture_2d_path
+// before it walks the list. The dropped-anchor warning is told a few times in each of these, not
+// 20 times a session: a session's first 20 were all spent on the front end and its movies, so a
+// screen reached later (a weapon's upgrade) logged none whatever it dropped.
+struct RecorderSituation {
+    int level = -1;
+    std::string context;
+
+    bool operator==(const RecorderSituation&) const = default;
+};
+
+RecorderSituation g_recorder_situation;
+
+RecorderSituation recorder_situation(int level) {
+    RecorderSituation s;
+    s.level = level;
+    s.context = "-";
+    if (openrac_game_touch != nullptr) {
+        const char* context = nullptr;
+        const char* hints[OPENRAC_TOUCH_HINTS_MAX] = {};
+        if (openrac_game_touch(&context, hints) >= 0 && context != nullptr && *context != '\0') {
+            s.context = context;
+        }
+    }
+    return s;
+}
+
+// Whether the dropped-anchor warning is told now: at most kTimes in a row of frames in one
+// situation; a new situation is told again.
+bool tell_dropped_anchors() {
+    constexpr int kTimes = 5;
+    static RecorderSituation told_for{-2, {}};
+    static int left = 0;
+    if (!(g_recorder_situation == told_for)) {
+        told_for = g_recorder_situation;
+        left = kTimes;
+    }
+    if (left <= 0) {
+        return false;
+    }
+    --left;
+    return true;
+}
+
 /*
  * The GIF data a frame's display list sends straight to the GS (VIF DIRECT): the 2D path (HUD,
  * menus, text, fades). The chain is followed as the DMA controller follows a source chain (the
@@ -144,20 +190,32 @@ void note_recorder_drops(
         static_cast<std::size_t>(std::count(places.begin(), places.end(), renderer::kDropped));
     stats::gauge("recorder anchors missed", static_cast<double>(dropped));
 
-    // Keep the existing warning budget while making each affected recording identifiable.
-    static log::Capped told(20);
-    if (dropped == 0 || !told()) {
+    // Told as the dropped anchors are (tell_dropped_anchors): a few in a row in each level and game
+    // context, so that a screen reached late in a session is still told.
+    if (dropped == 0 || !tell_dropped_anchors()) {
         return;
     }
 
     log::warn(
-        "frame recorder: {} of {} commands dropped (chain {:08x}, recording {}, {} tags)",
+        "frame recorder: {} of {} commands dropped (chain {:08x}, recording {}, {} tags; frame {}, "
+        "level {}, {})",
         dropped,
         recording.commands.size(),
         chain,
         recording.serial,
-        tags.size()
+        tags.size(),
+        g->index,
+        g_recorder_situation.level,
+        g_recorder_situation.context
     );
+
+    // The commands' detail only for a situation's first drop: those told after it in the same
+    // situation are mostly the same list sent again.
+    static RecorderSituation detailed_for{-2, {}};
+    if (g_recorder_situation == detailed_for) {
+        return;
+    }
+    detailed_for = g_recorder_situation;
 
     // A malformed recording can contain many commands; the first eight bound each warning's detail.
     constexpr std::size_t kMostDetails = 8;
@@ -1428,13 +1486,22 @@ void apply_mod_material(scene::Instance& instance, const mods::MobyMaterial& mat
     instance.tint[0] *= channel(kRedShift);
     instance.tint[1] *= channel(kGreenShift);
     instance.tint[2] *= channel(0);
-    instance.mod_material = static_cast<std::uint8_t>(kind);
+    instance.mod_material = static_cast<std::uint16_t>(kind);
     if (kind == OPENRAC_MOBY_MATERIAL_PAINT) {
         constexpr int kLevelShift = 8;
         constexpr std::uint32_t kLevelMask = 0xF;
-        instance.mod_material = static_cast<std::uint8_t>(
-            scene::kModMaterialPaint + ((material.material >> kLevelShift) & kLevelMask)
-        );
+        constexpr int kAccentRedShift = 20;
+        constexpr int kAccentGreenShift = 16;
+        constexpr int kAccentBlueShift = 12;
+        constexpr std::uint32_t kNibble = 0xF;
+        const std::uint32_t level = (material.material >> kLevelShift) & kLevelMask;
+        // An accent (1.38): each channel's nibble as a 0xRRGGBB top nibble, for paint_material.
+        const bool accent = (material.material & OPENRAC_MOBY_MATERIAL_PAINT_ACCENT) != 0;
+        const std::uint32_t accent_rgb =
+            ((material.material >> kAccentRedShift & kNibble) << 20)
+            | ((material.material >> kAccentGreenShift & kNibble) << 12)
+            | ((material.material >> kAccentBlueShift & kNibble) << 4);
+        instance.mod_material = scene::paint_material(level, accent, accent_rgb);
     }
 }
 
@@ -3042,6 +3109,23 @@ void keep_tick(
         g->water_impulses.clear();
     }
     const bool adjacent = g->index == k.frame + 1;
+    // The moves into the tick about to become the last one, from the one before it: the pace each
+    // moby and the eye kept (geometry.h kept_pace).
+    k.camera_pace.reset();
+    if (adjacent && k.has_state && k.has_prev_state) {
+        const auto& p0 = k.prev_state.camera_position;
+        const auto& p1 = k.state.camera_position;
+        k.camera_pace = renderer::Vec3{p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
+    }
+    k.prev_paces.clear();
+    for (std::size_t i = 0; adjacent && i < k.live.size() && i < k.addresses.size(); ++i) {
+        const auto before = k.prev_matrices.find(k.addresses[i]);
+        if (before != k.prev_matrices.end()) {
+            const auto& m0 = before->second;
+            const auto& m1 = k.live[i].matrix;
+            k.prev_paces[k.addresses[i]] = {m1[12] - m0[12], m1[13] - m0[13], m1[14] - m0[14]};
+        }
+    }
     k.prev_state = k.state;
     k.has_prev_state = k.has_state && adjacent;
     k.prev_matrices.clear();
@@ -3154,6 +3238,9 @@ struct TickPackets {
     // The split-screen views the game drew last and their recording's serial (Kept::views).
     std::vector<renderer::FrameView> views;
     std::uint64_t views_serial = 0;
+    // The heat haze of the strips that sample the game's frame copy through a mask of their own
+    // (renderer::frame_copy_haze), drawn natively with the mods' patches (Haze).
+    std::vector<std::array<float, 5>> haze;
 };
 
 // How many of `splices` (in order) go before the world, the 2D path split at `before_world`: those
@@ -3219,6 +3306,7 @@ TickPackets capture_2d_path(
     g->recorder.close();
     const renderer::FrameRecording* recorded = nullptr;
     std::vector<renderer::FrameSplice> splices;
+    g_recorder_situation = recorder_situation(level);
     std::vector<std::uint8_t> packets = direct_packets(
         ram,
         shown,
@@ -3235,6 +3323,75 @@ TickPackets capture_2d_path(
         &recorded,
         &splices
     );
+    // The strips that sample the game's frame copy are drawn from the window's own picture.
+    for (renderer::EffectStrip& strip : strips) {
+        strip.frame_copy =
+            strip.upload_count == 0 && g->render.profile->frame_copy_texture(strip.tex0);
+    }
+    // Up Your Arsenal's heat haze (the Galactic Rangers' dropship's thrusters): each mask and
+    // frame-copy pair is a round patch of the native haze over the world, sized by the window's
+    // own projection, instead of two squares blended by the destination alpha.
+    static const bool& haze_log = stats::probe(
+        "OPENRAC_HAZE_LOG", "the frame-copy strips and their heat haze patches, in the log"
+    );
+    static int haze_logged = 0;
+    const bool log_haze = haze_log && haze_logged < 12
+                          && std::ranges::any_of(strips, [](const renderer::EffectStrip& s) {
+                                 return s.frame_copy || ((s.alpha & 0xFF) == 0x54);
+                             });
+    if (log_haze) {
+        ++haze_logged;
+        log::info(
+            "haze frame {}: {} strips, draws {:#x}, level {}", g->index, strips.size(), draws, level
+        );
+        for (std::size_t i = 0; i < strips.size(); ++i) {
+            const renderer::EffectStrip& s = strips[i];
+            const bool near_copy = std::ranges::any_of(
+                std::span(strips).subspan(i, std::min<std::size_t>(5, strips.size() - i)),
+                [](const renderer::EffectStrip& c) {
+                    return c.frame_copy || ((c.alpha & 0xFF) == 0x54);
+                }
+            );
+            if (!near_copy) {
+                continue;
+            }
+            const renderer::EffectVertex v0 =
+                s.count > 0 && s.first < strip_vertices.size() ? strip_vertices[s.first]
+                                                               : renderer::EffectVertex{};
+            log::info(
+                "  strip {}: count {} tex0 {:#x} alpha {:#x} test {:#x} copy {} uploads {} "
+                "noblend {} v0 ({:.3f} {:.3f} {:.3f}) st ({:.3f} {:.3f}) rgba {:#010x}",
+                i,
+                s.count,
+                s.tex0,
+                s.alpha,
+                s.test,
+                s.frame_copy,
+                s.upload_count,
+                s.blend_disabled,
+                v0.x,
+                v0.y,
+                v0.z,
+                v0.s,
+                v0.t,
+                v0.rgba
+            );
+        }
+    }
+    const std::size_t haze_before = k.haze.size();
+    if ((draws & 0x1Fu) != 0) {
+        renderer::frame_copy_haze(strips, strip_vertices, k.haze);
+    }
+    if (log_haze) {
+        log::info("  -> {} haze patches, {} strips left", k.haze.size() - haze_before, strips.size());
+        for (std::size_t i = haze_before; i < k.haze.size(); ++i) {
+            const auto& p = k.haze[i];
+            log::info(
+                "  patch ({:.2f} {:.2f} {:.2f}) radius {:.3f} strength {:.4f}",
+                p[0], p[1], p[2], p[3], p[4]
+            );
+        }
+    }
     if (recorded != nullptr) {
         k.recording = *recorded;
         k.splices = std::move(splices);
@@ -3516,11 +3673,17 @@ void keep_effects(
             }
         }
     }
+    const bool sky_adjacent = k.effects_frame + 1 == k.frame;
     k.effects_frame = k.frame;
     ++g->effect_generation;
     k.effects = std::move(g->effects);
     k.effect_uploads = std::move(g->effect_uploads);
     k.effect_images = std::move(g->effect_images);
+    // The last tick's sky shells, when it was the tick before this one, for a frame drawn between
+    // ticks to turn each from (scene_hud.cpp), as the mobys move from theirs: the loading screen's
+    // stars and galaxy turn a little each pass (SkyDraw's copy, 0x003CE568).
+    k.prev_sky_shells = k.sky_shells;
+    k.prev_sky_shell_mask = sky_adjacent ? k.sky_shell_mask : 0u;
     k.sky_shells = g->sky_shells;
     k.sky_shell_mask = std::exchange(g->sky_shell_mask, 0u);
     // The list's own tick's quads (above). The game's FadeToBlack (after a story card, between
@@ -3895,6 +4058,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     g->kept->packets = std::move(packets.packets);
     g->kept->strip_vertices = std::move(packets.strip_vertices);
     g->kept->strips = std::move(packets.strips);
+    g->kept->haze.insert(g->kept->haze.end(), packets.haze.begin(), packets.haze.end());
     g->kept->before_world = bytes_before_world(packets.before_world, under_menu);
     g->kept->splices_before_world =
         splices_before_world(packets.recording, packets.splices, g->kept->before_world);

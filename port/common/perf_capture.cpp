@@ -75,7 +75,7 @@ double percentile(std::vector<float> values, double p) {
 
 Recorder::Recorder(double target_ms) : m_target_ms(target_ms > 0.0 ? target_ms : 20.0) {}
 
-int Recorder::series(const std::string& path, const std::string& name, int depth, int parent) {
+int Recorder::series(const std::string& path, std::string_view name, int depth, int parent) {
     if (const auto found = m_series_of.find(path); found != m_series_of.end()) {
         return found->second;
     }
@@ -135,7 +135,7 @@ void Recorder::add(const stats::Frame& f) {
 
     // A section's series is found by its path, its parents' names and its own: the same name may
     // be timed inside two passes. A section timed twice in a frame adds up.
-    std::vector<std::string> path;
+    std::vector<std::string_view> path;
     std::vector<int> parents;
     std::vector<std::pair<double, double>> in_frame(m_series.size(), {-1.0, -1.0});
     for (const stats::Section& section : f.sections) {
@@ -143,7 +143,7 @@ void Recorder::add(const stats::Frame& f) {
         path.resize(std::min<std::size_t>(path.size(), static_cast<std::size_t>(depth)));
         parents.resize(path.size());
         std::string key;
-        for (const std::string& name : path) {
+        for (const std::string_view name : path) {
             key += name;
             key += '/';
         }
@@ -190,7 +190,7 @@ void Recorder::add(const stats::Frame& f) {
 
     for (const auto& [name, value] : f.gauges) {
         auto found = std::find_if(m_gauges.begin(), m_gauges.end(), [&](const auto& g) {
-            return g.first == name;
+            return g.first == std::string_view(name);
         });
         if (found == m_gauges.end()) {
             m_gauges.emplace_back(name, Values{});

@@ -190,7 +190,7 @@ struct Instance {
     bool gameplay_essential = false;  // Eligible for enhanced lighting's subtle GI-coloured rim.
     // A mod's render-only material on a live moby (OPENRAC_MOBY_MATERIAL_*: 0 none, 2 platinum),
     // which mesh.frag draws; LevelScene::instance_data packs it beside the shine distance.
-    std::uint8_t mod_material = 0;
+    std::uint16_t mod_material = 0;
 };
 
 // The step between a mod's materials in a moby's packed `lights` (pack_moby_lights): above any
@@ -199,12 +199,28 @@ inline constexpr int kMobyMaterialLightsStep = 512;
 
 // Instance::mod_material of OPENRAC_MOBY_MATERIAL_PAINT (interface 1.34): this plus its glow level
 // (0 to 15), so mesh.frag has the level with the kind; above every other kind's number.
-inline constexpr std::uint8_t kModMaterialPaint = 16;
+inline constexpr std::uint16_t kModMaterialPaint = 16;
+
+// Instance::mod_material of a paint with an accent (interface 1.38): kModMaterialPaint + the glow
+// level + 16 x (1 + the accent's colour, 3 bits a channel, red highest: r << 6 | g << 3 | b), so
+// mesh.frag reads all three from the one code. A paint without an accent is the 16 values from
+// kModMaterialPaint; the highest accent code is 16 + 15 + 16 x 512 = 8223, which the packed
+// `lights` holds exactly (a float's 24 bits: 512 x 8223 + 255 is under 2^23).
+constexpr std::uint16_t paint_material(
+    std::uint32_t level, bool accent = false, std::uint32_t accent_rgb = 0
+) {
+    // The accent's top 3 bits a channel, 0xRRGGBB.
+    const std::uint32_t red = accent_rgb >> 21 & 7u;
+    const std::uint32_t green = accent_rgb >> 13 & 7u;
+    const std::uint32_t blue = accent_rgb >> 5 & 7u;
+    const std::uint32_t accent_code = accent ? 1u + (red << 6 | green << 3 | blue) : 0u;
+    return static_cast<std::uint16_t>(kModMaterialPaint + (level & 15u) + 16u * accent_code);
+}
 
 // Returns a live moby's `lights` as mesh.vert reads it: -1 - (its shine distance + the step times
 // `material`), so the per-instance attributes, all sixteen in use, carry the material too. A lit
 // tie (`lights` >= 0) and a moby with no material keep `lights` as they are.
-constexpr int pack_moby_lights(int lights, std::uint8_t material) {
+constexpr int pack_moby_lights(int lights, std::uint16_t material) {
     return lights < 0 && material != 0 ? lights - kMobyMaterialLightsStep * material : lights;
 }
 

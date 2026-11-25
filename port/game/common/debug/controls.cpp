@@ -419,6 +419,43 @@ void reset_enhanced() {
     enhanced::reset_water_simulation();
 }
 
+void cloud_shadow_controls(settings::Settings& graphics) {
+    if (!ImGui::CollapsingHeader("Cloud shadows")) {
+        return;
+    }
+
+    auto clouds = graphics.cloud_shadow_override.value_or(frontend::level_cloud_shadows());
+    bool edited = checkbox("Cloud shadows enabled", &clouds.enabled);
+    ImGui::BeginDisabled(!clouds.enabled);
+    constexpr auto clamp = ImGuiSliderFlags_AlwaysClamp;
+    edited |= slider_float("Travel speed", &clouds.speed, 0.f, 4.f, "%.3f", clamp);
+    edited |= slider_float("Travel direction", &clouds.direction, 0.f, 360.f, "%.0f deg", clamp);
+    edited |= slider_float("Undulation speed", &clouds.undulation, 0.f, 1.f, "%.3f", clamp);
+    edited |= slider_float(
+        "Cloud scale", &clouds.scale, .005f, .15f, "%.3f", clamp | ImGuiSliderFlags_Logarithmic
+    );
+    edited |= slider_float("Minimum light", &clouds.minimum, 0.f, 1.f, "%.2f", clamp);
+    clouds.maximum = std::max(clouds.minimum, clouds.maximum);
+
+    if (slider_float("Maximum light", &clouds.maximum, 0.f, 1.f, "%.2f", clamp)) {
+        clouds.minimum = std::min(clouds.minimum, clouds.maximum);
+        edited = true;
+    }
+
+    edited |= slider_float("Cloud shadow strength", &clouds.strength, 0.f, 1.f, "%.2f", clamp);
+    ImGui::EndDisabled();
+
+    if (edited) {
+        graphics.cloud_shadow_override = clouds;
+    }
+
+    if (ImGui::Button("Reset cloud shadows")) {
+        graphics.cloud_shadow_override.reset();
+    }
+
+    control_tip("Restore this level's defaults. Cloud tuning applies live for this session.");
+}
+
 void enhanced_settings_window() {
     if (!s.enhanced_settings) {
         return;
@@ -517,6 +554,17 @@ void enhanced_settings_window() {
         }
     }
     if (ImGui::CollapsingHeader("Lighting & shadows", ImGuiTreeNodeFlags_DefaultOpen)) {
+        int cache_quality = static_cast<int>(graphics.early_lighting_quality);
+        if (combo(
+                "Early Lit cache quality",
+                &cache_quality,
+                renderer::kEarlyLightingQualityNames,
+                static_cast<int>(renderer::EarlyLightingQuality::Count)
+            )) {
+            graphics.early_lighting_quality =
+                static_cast<renderer::EarlyLightingQuality>(cache_quality);
+            changed = true;
+        }
         int shadow_quality = graphics.shadow_quality_choice();
         if (combo("Shadow quality", &shadow_quality, "Off\0Low\0Medium\0High\0")) {
             graphics.set_shadow_quality_choice(shadow_quality);
@@ -599,6 +647,7 @@ void enhanced_settings_window() {
         }
         if (ImGui::Button("Reset lighting and shadows")) {
             const settings::Settings defaults;
+            graphics.early_lighting_quality = defaults.early_lighting_quality;
             graphics.enhanced_shadows = defaults.enhanced_shadows;
             graphics.shadow_quality = defaults.shadow_quality;
             graphics.gtao = defaults.gtao;
@@ -796,6 +845,7 @@ void enhanced_settings_window() {
             changed = true;
         }
     }
+    cloud_shadow_controls(graphics);
     if (ImGui::CollapsingHeader("Experimental")) {
         ImGui::TextDisabled("Work in progress. Disabled by default.");
         if (ImGui::TreeNode("Atmosphere and fog")) {

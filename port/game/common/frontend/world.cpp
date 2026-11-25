@@ -1291,8 +1291,9 @@ void particle(
         p.address = static_cast<std::uint32_t>(record - ram.data());
     }
     p.attachment = g->render.profile->particle_attachment(p.record);
-    p.pixels = pixels & 0x01FFFFFF;
-    p.clut = clut & 0x01FFFFFF;
+    // In game memory: 32 MiB, or more for a level mounted in expanded memory.
+    p.pixels = pixels & (openrac_guest_ram_size - 1);
+    p.clut = clut & (openrac_guest_ram_size - 1);
     p.log2_side = log2_side;
     g->particles.push_back(p);
 }

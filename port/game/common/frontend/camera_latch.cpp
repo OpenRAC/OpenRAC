@@ -152,9 +152,10 @@ CameraTurn latch_camera(
     static const bool& log_on = stats::probe(
         "OPENRAC_CAMERA_LATCH_LOG", "the late camera latch's guesses against the ticks, in the log"
     );
-    const host::GameState shown = scene.has_prev_state && alpha < 1.0f
-                                      ? blend_camera(scene.prev_state, scene.state, alpha)
-                                      : scene.state;
+    const host::GameState shown =
+        scene.has_prev_state && alpha < 1.0f
+            ? blend_camera(scene.prev_state, scene.state, alpha, camera_pace(scene))
+            : scene.state;
     const float base = heading(shown.forward);
 
     // A new tick: the hero's place from it, and whether its camera read the stick.

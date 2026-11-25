@@ -333,6 +333,9 @@ int material_index(
 ) {
     const auto* source = primitive.material;
     Material m;
+    // The export's extras "opaque": a material the game blends opaque whatever its texels' alpha
+    // (Up Your Arsenal's ties with ALPHA_1 0x20, extractor/ties.py), drawn solid below.
+    bool opaque = false;
     // A missing glTF material is the model's implicit slot.
     m.source_slot = source ? static_cast<int>(source - data.materials) : -1;
     if (source != nullptr) {
@@ -340,6 +343,12 @@ int material_index(
         m.cutout = source->alpha_mode == cgltf_alpha_mode_mask;
         m.metal = source->name != nullptr && std::strncmp(source->name, "metal_", 6) == 0;
         m.blend = source->alpha_mode == cgltf_alpha_mode_blend;
+        if (source->extras.data != nullptr) {
+            json::Value extras;
+            std::string ignored;
+            opaque = json::parse(source->extras.data, extras, ignored)
+                     && extras["opaque"].boolean();
+        }
         const float strength =
             source->has_emissive_strength ? source->emissive_strength.emissive_strength : 1.0f;
         for (unsigned c = 0; c < 3; ++c) {
@@ -376,8 +385,10 @@ int material_index(
     // Novalis's windows by the plumber (a tie, glass at alpha 0x1F in an opaque frame) solid
     // blue-grey panes; part-clear terrain, tie and shrub textures of other levels (Veldin's,
     // alpha 0x3A all over) drew solid as well. The sky and the collision overlay are BLEND
-    // materials and keep their own passes.
-    if (!m.cutout && !m.metal && !m.blend && m.image >= 0
+    // materials and keep their own passes. A material the game blends opaque (extras "opaque")
+    // stays solid: the Galactic Rangers' dropship's hull (Veldin's ties 6759, 6760 and 6762, ALPHA_1
+    // 0x20 on pictures at alpha 0x0B to 0x1E) was drawn see-through.
+    if (!opaque && !m.cutout && !m.metal && !m.blend && m.image >= 0
         && static_cast<std::size_t>(m.image) < level.translucent_images.size()) {
         m.cutout = level.translucent_images[static_cast<std::size_t>(m.image)];
     }
