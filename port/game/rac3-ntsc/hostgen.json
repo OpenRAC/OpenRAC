@@ -69,6 +69,7 @@
     "func_00388610",
     "func_0038A8A0",
     "func_0038F0C0__frontbin",
+    "func_0038F0F8__frontbin",
     "func_0038F3A0__frontbin",
     "func_0038F3F8__frontbin",
     "func_0038FD40",
@@ -917,14 +918,14 @@
     "result_flow": true,
     "signature_allow": {
       "func_L01_0049AE90": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_004BD480": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_001369D0": "a hidden entry inside a function on both discs, with no inventory row (no NTSC-U name): its translation from 0x001369D0 is the tail of the function around it and never sets $f0, while the multiplayer menu's callers (func_L39_0066C540, func_L39_0066C910) read the float the PAL C declares (f32 func_001369D0(f32)); the entry's real code is to be found",
       "func_L01_0048CB78": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L01_0048E2F8": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L01_0048F508": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L01_00498098": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
       "func_L01_004991C8": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_0049A2D0": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees"
+      "func_L01_0049A2D0": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
+      "func_L01_004BD480": "still from assembly on NTSC-U (PAL has its C now): hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees"
     }
   },
   "result_allow": "checks/result_allow.tsv",
