@@ -152,6 +152,71 @@ disc and `port/audio/sound_replacements.cpp` from what the game loads;
 `extractor/test_audio.py` and `port/tests/audio/sound_replacements.cpp` hold the two to
 the same answers.
 
+## Share adjustments without recordings
+
+In **Mods → Audio**, select the sounds and level, then use **Share audio
+adjustments**. Name the pack and choose its speed and volume. **Create shareable
+recipe** installs the recipe in My mods and opens a folder beside its ZIP.
+The ZIP contains settings and sound keys, not recordings. Share that ZIP, or
+commit the folder's manifest and README in your own repository.
+
+Players add the ZIP or folder like any other mod. A repository link works too.
+With Mods on, the launcher generates replacements from the player's selected
+disc before starting the game. Later starts reuse a verified private cache.
+Changing the recipe or disc invalidates the cache. Disabling the recipe restores
+the previous pack's replacements or the game's sounds.
+Each recipe starts from the original disc; overlapping recipes follow pack
+order, rather than multiplying their adjustments together.
+
+Speed ranges from 50% to 200% and changes pitch and duration together; it does
+not stretch time while preserving pitch. Volume ranges from -24 to +12 dB.
+Positive gain can clip loud samples. Intro and loop files keep their sample
+boundaries and use the same speed setting. An authored edit to the recording
+cannot be recovered from these two settings alone.
+
+Recipes use a new pack format, so an older launcher refuses them instead of
+silently installing a pack with no audio. For example:
+
+```json
+{
+  "format": 5,
+  "type": "data",
+  "id": "my-audio-recipe",
+  "version": "1.0.0",
+  "name": "My audio recipe",
+  "author": "Your name",
+  "game": "rac1",
+  "disc_version": "pal",
+  "games": {"rac1": ["pal"]},
+  "audio_recipe": {
+    "format": 1,
+    "keys": ["0123456789abcdef"],
+    "speed": 1.04,
+    "gain_db": 0
+  }
+}
+```
+
+The tool supplies real keys from the disc. The mod's `version` is semantic;
+`disc_version` records where it was created. Declare only discs whose keys you
+have checked in `games`. Keep the `id` when publishing an update. Reinstalling
+the same recipe updates it while retaining its position and enabled state.
+For the shared catalogue, follow the external-mod submission procedure in
+[openrac-mods](https://github.com/OpenRAC/openrac-mods#list-your-mod): publish
+the recipe in your own repository, tag its version, and submit its listing.
+Do not publish generated WAVs or the private `overrides/audio-cache` folder.
+Recipes accept neither commands nor scripts nor paths to external files.
+
+From a shell, a new metadata-only export and ZIP:
+
+```sh
+python3 extractor/audio_recipe.py create <disc.iso> build/music-recipe \
+    --settings '{"name":"Music +4%","what":"music","speed":1.04}'
+python3 extractor/overrides.py add build/music-recipe.zip --into <data>/overrides
+python3 extractor/overrides.py stack --into <data>/overrides --out <data>/mods/pal \
+    --levels <data>/port/pal --disc <disc.iso>
+```
+
 ## From a shell
 
 ```sh
