@@ -39,6 +39,7 @@ static int failures;
 #define LEVEL_PART 200
 const char* openrac_game_card_dir;
 int openrac_game_no_card;
+int openrac_game_active_destination = -1;  // the campaign, not an added planet
 const char* openrac_game_loaded_mods = "[{\"id\": \"multiplayer\", \"version\": \"1\"}]";
 void (*openrac_game_save_written)(const char* path, int players);
 void (*openrac_game_save_read)(const char* path, int slot);
