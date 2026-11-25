@@ -68,6 +68,9 @@ std::uint32_t FrameRecorder::push(FrameCommand command) {
     command.anchor = m_anchor;
     command.screen_width = m_screen[0];
     command.screen_height = m_screen[1];
+    command.view = m_view_open && !m_open.views.empty()
+                       ? static_cast<std::uint32_t>(m_open.views.size() - 1)
+                       : kNoFrameView;
 
     // Each player's world layers stay with that view, not the frame-wide union.
     if (m_view_open && command.op == FrameOp::World && !m_open.views.empty()) {

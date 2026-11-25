@@ -48,6 +48,9 @@ inline constexpr std::uint8_t kClearColour = 1, kClearDepth = 2;
 // A Picture command whose picture is the recording's images[value] (openrac_frame_picture_image).
 inline constexpr std::uint32_t kImagePicture = 0xFFFFFFFFu;
 
+// A command outside every local-player view; otherwise `view` indexes this recording's views.
+inline constexpr std::uint32_t kNoFrameView = UINT32_MAX;
+
 struct FrameCommand {
     FrameOp op = FrameOp::World;
     // The game's display-list write pointer when the command was recorded (openrac_frame_anchor),
@@ -55,6 +58,9 @@ struct FrameCommand {
     std::uint32_t anchor = 0;
     std::uint32_t index = 0;
     std::uint64_t value = 0;
+    // The view open when the command was recorded (its index in the recording's views), set by
+    // FrameRecorder::push whether or not the view's ViewBegin anchor reaches the submitted list.
+    std::uint32_t view = kNoFrameView;
     // Fill, Picture, Scissor: x0, y0, x1, y1 in the game's 2D screen pixels; `whole` for the whole
     // target (rect not read). `wide`: on a target wider than the picture, the whole target rather
     // than the picture's middle.
