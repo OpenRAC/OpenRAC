@@ -47,6 +47,7 @@ unsigned char* openrac_game_load_png(const char* path, int* width, int* height) 
 void openrac_game_free_png(unsigned char* pixels) {
     std::free(pixels);
 }
+
 int rac1_ship_text_id(int id);
 
 int func_00222848__game(gaddr) {
@@ -161,12 +162,22 @@ int main() {
     const int added = rac1_flight_pictures(lump, made);
     CHECK(added == 0x4420 + 0x2420);
     const gaddr picture = table + GREF(int, table + 2 * 4);
-    CHECK(picture == lump + made && GREF(int, picture + 8) == 128 && GREF(int, picture + 16) == 0x13);
-    CHECK(GREF(uint32_t, picture + 0x20) == (200u | 0x80u << 24) && GREF(uint8_t, picture + 0x420) == 0);
+    CHECK(
+        picture == lump + made && GREF(int, picture + 8) == 128 && GREF(int, picture + 16) == 0x13
+    );
+    CHECK(
+        GREF(uint32_t, picture + 0x20) == (200u | 0x80u << 24)
+        && GREF(uint8_t, picture + 0x420) == 0
+    );
     for (int language = 0; language < 6; ++language) {
-        CHECK(GREF(int, table + (0x14 + language * 19 + 1) * 4) == static_cast<int>(picture + 0x4420 - table));
+        CHECK(
+            GREF(int, table + (0x14 + language * 19 + 1) * 4)
+            == static_cast<int>(picture + 0x4420 - table)
+        );
     }
-    CHECK(GREF(int, table + 3 * 4) == static_cast<int>(own_picture - table));  // other planets keep theirs
+    CHECK(
+        GREF(int, table + 3 * 4) == static_cast<int>(own_picture - table)
+    );  // other planets keep theirs
     const gaddr caption = picture + 0x4420;
     CHECK(GREF(uint8_t, caption + 0x420) == 0 && GREF(uint8_t, caption + 0x421) == 1);
     CHECK(GREF(uint32_t, caption + 0x20 + 1 * 4) == (255u | 0x80u << 24));
