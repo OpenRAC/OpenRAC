@@ -15,30 +15,37 @@
  * The port leaves a target whose link is already 2 alone: no second sheep, no deletion. USA v1.01
  * alone: PAL's and v2.00's copies (src/pal/levels/shared/L00_00408110.c,
  * src/us2/levels/shared/L00_00404C18-cc.c) take a link in mode 2 as they take 1 and keep the robot,
- * so those discs run their own.
+ * so on those discs the wraps only call the game's.
  */
 #include <stdint.h>
 
 #include "game_protos.h"
+#define RAC2_MOBY_TARGET_RECORD func_002AB1F0
+#include "moby_checks.h"
 #include "openrac/game_host.h"
 #include "rac2.h"
-
-#if defined(RAC2_PRIMARY)
 
 gaddr func_L00_00403730__game(gaddr self);
 gaddr func_L00_00408800__game(gaddr self);
 
 #define MOBY_FLAGS 0x34u /* u16; 0x20: it has private values */
-#define MOBY_VARS 0x68u  /* its private values */
 #define LINK_MODE 0x0Eu  /* of private value 0 */
 #define LINK_TURNED 2    /* turned, its owner takes it back */
 
 static int already_turned(gaddr self) {
-    if (self == 0 || (GREF(uint16_t, self + MOBY_FLAGS) & 0x20u) == 0) {
+#if !defined(RAC2_PRIMARY)
+    (void)self;
+    return 0;
+#else
+    if (!rac2_moby_slot(self) || (GREF(uint16_t, self + MOBY_FLAGS) & 0x20u) == 0) {
         return 0;
     }
-    const gaddr link = GREF(gaddr, GREF(gaddr, self + MOBY_VARS));
-    return link != 0 && GREF(uint8_t, link + LINK_MODE) == LINK_TURNED;
+    /* Its pvars and link followed only when they are memory (moby_checks.h): an NG++ copy's are the
+     * port's, and a pvars word may hold a float. */
+    const gaddr vars = rac2_moby_pvars(self, 1);
+    const gaddr link = vars != 0 ? GREF(gaddr, vars) : 0;
+    return rac2_memory_at(link, LINK_MODE + 1u) && GREF(uint8_t, link + LINK_MODE) == LINK_TURNED;
+#endif
 }
 
 /* sheep_spawn_from_object */
@@ -50,5 +57,3 @@ gaddr func_L00_00403730(gaddr self) {
 gaddr func_L00_00408800(gaddr self) {
     return already_turned(self) ? 0 : func_L00_00408800__game(self);
 }
-
-#endif

@@ -64,6 +64,7 @@ from program import Function, Program, Signature, call_copy as program_call_copy
 
 ARG_REGS = list(range(4, 12))     # $a0-$a3, $t0-$t3 (the EE's eight integer argument registers)
 FARG_REGS = list(range(12, 20))   # $f12-$f19
+STACK_ARGS = 4                    # doublewords at 0($sp) up that a call through an address hands on (indirect)
 INT_TYPES = set(ctype.INT_NAMES) | {"gaddr"}
 WIDE = {"long long", "unsigned long long", "long", "unsigned long", "long long int", "long int",
         "unsigned long long int", "unsigned long int"}
@@ -571,6 +572,8 @@ class Translator:
     # The two scratchpad DMA channels, by the address of their CHCR, and their registers' offsets.
     SPR_CHANNELS = {0x1000D000: 8, 0x1000D400: 9}
     SPR_FIELDS = {0x00: "chcr", 0x10: "madr", 0x20: "qwc", 0x30: "tadr", 0x80: "sadr"}
+    # _spr_registers' mark for a word access through a base it cannot follow (tested when it runs).
+    DYNAMIC = (None, "dynamic", None, frozenset(), None)
     MEMORY_OPS = {"lb", "lbu", "lh", "lhu", "lw", "lwu", "ld", "lwl", "lwr", "ldl", "ldr", "lq", "lwc1", "lqc2",
                   "sb", "sh", "sw", "sd", "swl", "swr", "sdl", "sdr", "sq", "swc1", "sqc2"}
 
@@ -670,14 +673,28 @@ class Translator:
                     state[s2] = new
                     todo.append(s2)
         found: dict = {}
+        # A kernel that builds a register block's address (lui 0x1000) may also reach it through a
+        # base the flow cannot follow: Up Your Arsenal's coll_line keeps toSPR's address in $t6 on
+        # one path and a dummy one (0x10010000) on another, and stores MADR, QWC, SADR and CHCR
+        # through it where the paths join. Its word loads and stores through such bases are
+        # DYNAMIC: the translation tests the address when it runs (_spr_access).
+        builds = any((i := self.at(a)) is not None and i.op == "lui" and i.imm & 0xFFFF in (0x1000, 0x1001)
+                     and not (i.reloc and i.reloc[0] == "hi") for a in self.reach)
         for n, (at, _) in nodes.items():
-            if at is None or n not in state:
+            if at is None:
                 continue
             ins = self.at(at)
             if ins.op not in self.MEMORY_OPS or ins.rs == 28:
                 continue
-            base = value(state[n], ins.rs)
+            # Code the flow does not reach from the entry (coll_line's returns from its own
+            # subroutine, a jal inside the function whose jr $ra the flow does not follow back)
+            # knows no base either.
+            base = value(state[n], ins.rs) if n in state else None
             if base is None:
+                if builds and ins.op in ("sw", "lw", "lwu"):
+                    found[at] = self.DYNAMIC
+                continue
+            if found.get(at) == self.DYNAMIC:
                 continue
             hit = self._spr_field((base + ins.imm) & mask)
             if hit is None:
@@ -711,6 +728,18 @@ class Translator:
         hit = self.spr.get(ins.addr)
         if hit is None:
             return None
+        if hit == self.DYNAMIC:
+            # The address is known only when it runs (_spr_registers): a scratchpad DMA channel's
+            # register there is the same local word, or the copy, as a constant address's; any
+            # other address is the plain load or store (openrac_spr_sw, openrac_spr_lw in ee_ops.h).
+            chans = ", ".join(f"&spr{ch}_{f}" for ch in (8, 9) for f in ("chcr", "madr", "qwc", "tadr", "sadr"))
+            where = f'"{self.f.symbol}", {hx(ins.addr)}'
+            head = f"{{ openrac_u32 spr_a_ = {self.addr(ins)};"
+            if ins.op == "sw":
+                return [f"{head} if (openrac_spr_register(spr_a_)) openrac_spr_sw(spr_a_, (openrac_u32){self.R(ins.rt)}, "
+                        f"{chans}, {where}); else openrac_ee_sw(spr_a_, {self.R(ins.rt)}); }}"]
+            value = f"(openrac_spr_register(spr_a_) ? openrac_spr_lw(spr_a_, {chans}, {where}) : (openrac_u32)openrac_ee_{ins.op}(spr_a_))"
+            return [head, *self.W(ins.rt, S32(value) if ins.op == "lw" else value), "}"]
         ch, field, stored, fields, where = hit
         word = ins.op in ("sw", "lw", "lwu")
         fault = f'openrac_ee_dma_register("{self.f.symbol}", {hx(ins.addr)}, {hx(where)});'
@@ -724,7 +753,7 @@ class Translator:
         lines = [f"{local} = (openrac_u32){self.R(ins.rt)};"]
         if field != "chcr" or (stored is not None and not stored & 0x100):
             return lines
-        if not {"madr", "qwc", "sadr"} <= fields:
+        if not {"madr", "qwc", "sadr"} <= fields and self.DYNAMIC not in self.spr.values():
             # Started with a field this function has not set on the way: from another function's
             # store, which the copies do not see.
             return [fault]
@@ -1449,6 +1478,13 @@ class Translator:
         ret = "float" if float_result or self._reads_f0_after(at) else "unsigned long long" if wide_result else "int"
         params = ["openrac_u64"] * 8 + (["float"] * 8 if floats else [])
         args = [self.R(r) for r in ARG_REGS] + ([f"f{r}" for r in FARG_REGS] if floats else [])
+        # The integer arguments past the eighth, which the caller keeps at 0($sp), 8($sp)...: the
+        # callee may take more than eight (Up Your Arsenal's func_L01_004CDF20, the message box, takes
+        # eleven and func_L01_00436150 reached it through here with eight: its strings were whatever
+        # the stack held, and the sprintf of a "%s" read 0xFFFFFFC0). A callee that takes fewer ignores
+        # them, as the retail call above does.
+        params += ["openrac_u64"] * STACK_ARGS
+        args += [f"openrac_ee_ld((openrac_u32)r29 + {8 * k}u)" for k in range(STACK_ARGS)]
         t = f"{ret} (*)({', '.join(params)})"
         if self.mode != "host":
             return self._invoke(f"(({t})({value}))({', '.join(args)})", ret)
@@ -2636,16 +2672,19 @@ def apply_signatures(program: Program, a: dict, discovered: bool, host_text: str
     discovery finds: passed over, unless the port's own C (`host_text`) calls it (rac3's
     multiplayer HUD sprite, mp_func_00284F80, calls mp_func_00284D30), which then compiles against
     the same prototype, a stub's, as with the disc."""
-    # "copy_signatures": the same, carried to other copies of a function (rac3's multiplayer maps'
-    # copies of level 39's and the levels' routines, mp/maps.py): a copy the program does not reach,
-    # or one the port answers itself, is passed over.
-    copies = {sym: text for sym, text in a.get("copy_signatures", {}).items()
-              if sym not in a.get("signatures", {}) and program.functions.get(sym) is not None
-              and sym not in program.host and program.functions[sym].unit is None}
+    # Map wrappers can name copies through generated C macros. The names are verified in the
+    # catalogue and need stubs when no disc is available to discover their entries.
+    copies = {}
+    for sym, text in a.get("copy_signatures", {}).items():
+        f = program.functions.get(sym)
+        if sym in a.get("signatures", {}) or sym in program.host:
+            continue
+        if (f is None and not discovered) or (f is not None and f.unit is None):
+            copies[sym] = text
     for sym, text in {**a.get("signatures", {}), **copies}.items():
         f = program.functions.get(sym)
         if f is None and not discovered:
-            if not host_names(host_text, cname(sym)):
+            if sym not in copies and not host_names(host_text, cname(sym)):
                 continue
             program.functions[sym] = Function(sym, Signature.of(ctype.parse(text)), None, asm=True)
             continue
@@ -2739,7 +2778,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
         # No instructions to translate (a build without the disc): the functions keep their
         # stubs, but each with its verified prototype all the same, so that the port's own C that
         # wraps one (a "wrap" row, calling NAME__game) is compiled against one signature whether
-        # the build reads the disc or not. Entries only discovery would add are not there.
+        # the build reads the disc or not.
         apply_signatures(program, a, discovered=False, host_text=host_text)
         # With the port's interface ("interface", asmext.py): what the disc would have given, the
         # translated functions called through slots the part built from the disc fills.

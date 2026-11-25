@@ -91,7 +91,7 @@ fn command(runtime: &mut Runtime, name: &str, args: &Value) -> Result<Value, Str
                 "standalone":true,"updates":update,"updateChannels":{"stable":update,"dev":update},
                 "noCompositing":false,"safeRenderingAfterCrash":false,"capabilities":{"mods":false,"saveEditing":false,"saveTransfer":true,"openFolders":false,"folderScan":false,"updates":false}}))
         }
-        "get_config" | "adopt_godot" => value(&runtime.config),
+        "get_config" => value(&runtime.config),
         "save_config" => {
             let mut changed: config::Config =
                 serde_json::from_value(args["config"].clone()).map_err(|e| e.to_string())?;
@@ -107,7 +107,7 @@ fn command(runtime: &mut Runtime, name: &str, args: &Value) -> Result<Value, Str
             value(&runtime.config)
         }
         "library" | "sync_progress_from_web" => read_library(runtime),
-        "detect" => Ok(json!({"roots":[],"pythons":[],"godots":[],"dockers":[]})),
+        "detect" => Ok(json!({"roots":[],"pythons":[],"dockers":[]})),
         "scan_discs" => {
             let found = if let Some(folder) = &runtime.config.discs_dir {
                 discs::scan(folder, &catalog::load(runtime.config.root()?)?)

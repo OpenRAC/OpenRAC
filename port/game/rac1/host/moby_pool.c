@@ -190,6 +190,7 @@ gaddr func_L00_002422D8(int skip_read) {
     g_header = GREF(gaddr, OPENRAC_LDATA(0, LOAD) + LOAD_HEADER);
     const gaddr cursor = func_L00_002422D8__hooked(skip_read);
     g_header = outer;
+    rac1_foreign_worlds_load();
     /* A new moby array, also at a respawn in the same program: what named a slot or a moby goes. */
     rac1_mobys_rebuilt();
     return cursor;
@@ -217,6 +218,7 @@ gaddr func_L00_002422D8(int skip_read) {
 enum {
     SLOTS = 0x70000000u,              /* class slots: {head, tail} */
     SLOTS_END = 0x70000700u,          /* retail clears and chains 224 slots */
+    CLASS_SLOTS = 224,
     EXPANDED_SLOTS_END = 0x70000800u, /* expanded RAM: all 256 byte-indexed slots */
     TARGET_LIST = 0x70000800u,
     TARGET_LIST_END = 0x70000C00u,
@@ -364,6 +366,7 @@ gaddr func_0020E6B8(void) {
     const gaddr cam = OPENRAC_DATA(CAMERA_BLOCK) + 0x140;
     gaddr tgt = TARGET_LIST;
     const int expanded = openrac_guest_ram_size > GUEST_RAM_SIZE;
+    const int imports = rac1_foreign_class_count() > 0;
     const gaddr expanded_targets = expanded ? OPENRAC_TARGET_TABLE(OPENRAC_DATA(TARGETS)) : 0;
     unsigned expanded_target_count = 0;
     if (expanded) {
@@ -384,8 +387,10 @@ gaddr func_0020E6B8(void) {
         }
         const gaddr m = cur;
         const unsigned mode = GREF(unsigned short, m + MOBY_MODE);
-        /* Mode 2: the moby is not run. */
-        if (mode & 2) {
+        /* Mode 2: the moby is not run. Nor, on a level that imports classes, is one with no
+         * class slot (0xFF): a moby of a class an imported moby made, which this level has no
+         * slot for (foreign_class.c), its slot's list past the ones the pass clears. */
+        if ((mode & 2) || (imports && GREF(unsigned char, m + MOBY_SLOT) >= CLASS_SLOTS)) {
             continue;
         }
         const unsigned drawn = GREF(unsigned char, m + MOBY_DRAWN);
@@ -441,6 +446,9 @@ gaddr func_0020E6B8(void) {
                     GREF(short, tgt) = (short)member;
                 }
                 continue;
+            }
+            if (imports && GREF(unsigned char, m + MOBY_SLOT) >= CLASS_SLOTS) {
+                continue; /* no class slot: see the first pass */
             }
             tgt = target_add(tgt, member, mode, base, expanded_targets, &expanded_target_count);
             run_list_append(m);

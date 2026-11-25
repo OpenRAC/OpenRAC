@@ -29,6 +29,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 }
 
 /* What this version leaves out of the shared C (rac1.h, RAC1_OMIT), and why. */
+/* List ownership: the NTSC decomp's wrapper ABI/carry has not been validated here; retain its path. */
+#define RAC1_OMIT_frame_list_ownership 1
+/* Native letterbox bars (letterbox.c): the caller state is proved on PAL v2.00 level 6 only. */
+#define RAC1_OMIT_func_001F5148 1
 /* The game's particle routines (particles.c, openrac_api.particle_spawn_ex) are checked at PAL's addresses only. */
 #define RAC1_OMIT_particle_spawn_ex 1
 /* Level 0's 0x2EC6B8: the NTSC decomp's catalogue places its func_001E9448 there, which returns 0. */
@@ -78,6 +82,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x001B3580u 0x001B3200u
 #define RAC1_ADDR_0x001B3900u 0x001B3580u
 #define RAC1_ADDR_0x001E8F00u 0x001E8B80u
+/* register_moby_class (foreign_class.c). */
+#define RAC1_ADDR_0x00203E78u 0x00203640u
+/* resident_class_id_by_slot (foreign_class.c). */
+#define RAC1_ADDR_0x001B3C80u 0x001B3900u
 
 /* Where this version's decompilation declares a function otherwise: the type in its prototypes. */
 /* ParseBin's result, the loaded level's entry. */
@@ -117,6 +125,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
  * word at +8 at +0x48 of the transfer state (PAL +0x46). */
 #define func_00204FC0 game_FUN_00204790
 #define func_0020D348 game_FUN_0020c4f8
+#define func_0020D440 game_FUN_0020c5f0
+#define func_0020D440__game game_FUN_0020c5f0__game
 #define func_00118D80 game_FlushCache
 #define RAC1_TYPE_func_00204FC0_params void
 #define RAC1_TRANSFER_PAD08 0x48
@@ -315,7 +325,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_00277A88 game_FUN_L00_00276bd0
 #define func_L00_00277A88__game game_FUN_L00_00276bd0__game
 #define func_001FD3E8 game_FUN_001fce28
-#define func_001FD3E8__game game_FUN_001fce28__game
+#define func_001FD3E8__hooked game_FUN_001fce28__hooked
 #define RAC1_ADDR_L00_0x0015F808u 0x0015F728u
 #define RAC1_ADDR_L00_0x0015F8D0u 0x0015F7F0u
 #define RAC1_ADDR_L00_0x0015F8E8u 0x0015F808u
@@ -365,7 +375,29 @@ int rac1_ntsc_ship_menu_game(gaddr menu, int unused);
         (void)(result);                                                                            \
         return;                                                                                    \
     } while (0)
+/* print_moby_class_sizes, wrapped for the imported moby classes (foreign_class.c). */
+#define RAC1_FOREIGN_CLASSES 1
+#define func_L00_00242120 game_FUN_L00_00241788
+#define func_L00_00242120__game game_FUN_L00_00241788__game
 
+/* Imported moby classes' tables (rac1/host/foreign_class.c): the level's camera, rail, volume and
+ * path globals in level 0's program (the level loader's stores in this version's C (gen/prep load_level_gameplay.c)). */
+#define RAC1_ADDR_L00_0x0015F050u 0x0015EF50u
+#define RAC1_ADDR_L00_0x0015F054u 0x0015EF54u
+#define RAC1_ADDR_L00_0x0015F7ECu 0x0015F70Cu
+#define RAC1_ADDR_L00_0x0015F7F0u 0x0015F710u
+#define RAC1_ADDR_L00_0x001601A4u 0x001600E4u
+#define RAC1_ADDR_L00_0x001601A8u 0x001600E8u
+#define RAC1_ADDR_L00_0x001601ACu 0x001600ECu
+#define RAC1_ADDR_L00_0x001601B0u 0x001600F0u
+#define RAC1_ADDR_L00_0x001601B4u 0x001600F4u
+#define RAC1_ADDR_L00_0x001601B8u 0x001600F8u
+#define RAC1_ADDR_L00_0x001601BCu 0x001600FCu
+#define RAC1_ADDR_L00_0x001601C0u 0x00160100u
+#define RAC1_ADDR_L00_0x001601C4u 0x00160104u
+#define RAC1_ADDR_L00_0x001601C8u 0x00160108u
+#define RAC1_ADDR_L00_0x001B0830u 0x001B04B0u
+#define RAC1_ADDR_L00_0x001ABBC0u 0x001AB840u /* level_moby_groups */
 /* draw_visibomb_outside_zone_overlay in the NTSC decomp's visibomb_zone_timer.c:
  * PAL's DrawTiledScreenOverlay (func_L01_00303810), including the retail call under the wrap. */
 #define func_L01_00303810 game_FUN_L01_00302438

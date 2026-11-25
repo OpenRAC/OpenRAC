@@ -7,6 +7,13 @@
  * address, +0xE their block), which the game's texture paging turns into GS uploads; a TEX0 seen before
  * keeps the sources it had then (the game caches the word and records the upload only when it pages
  * the texture in). 1 when found in the records, 2 when remembered, 0 when neither.
+ *
+ * The last record of those blocks is the one: the game's paging cursor goes back to the same blocks
+ * more than once a frame (Up Your Arsenal's boot program and levels reset it before their 2D, their
+ * terrain and their mobys, not the count of records), so several textures of a frame can name the
+ * same blocks, each upload over the last on the chip. Taking the first, the loading screen's planet
+ * (PictureTex0, drawn at once by DrawWorldQuad) was another picture paged there earlier in the
+ * frame: a planet other than the one the ship flew to.
  */
 #pragma once
 
@@ -25,7 +32,7 @@ static inline uint32_t openrac_effect_texture(
     static int next = 0;
     const uint32_t tbp = (uint32_t)(tex0 & 0x3FFF);
     const uint32_t cbp = (uint32_t)((tex0 >> 37) & 0x3FFF);
-    for (int i = 0; i < count && i < 64; ++i) {
+    for (int i = (count < 64 ? count : 64) - 1; i >= 0; --i) {
         const uint8_t* r = (const uint8_t*)G(records + (gaddr)i * 16);
         if (*(const uint16_t*)(r + 0xE) == tbp && *(const uint16_t*)(r + 6) == cbp) {
             *clut = *(const uint32_t*)(r + 0);

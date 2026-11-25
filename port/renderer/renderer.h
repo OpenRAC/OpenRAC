@@ -35,6 +35,8 @@
 #include "renderer/frame/ui_records.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/math.h"
+#include "renderer/settings/cloud_shadow_settings.h"
+#include "renderer/settings/early_lighting_settings.h"
 #include "renderer/settings/gtao_settings.h"
 #include "renderer/settings/shadow_settings.h"
 #include "renderer/settings/volumetric_settings.h"
@@ -134,6 +136,9 @@ struct EffectUvMotion {
 struct EffectStrip {
     // Physical parent at the previous tick, for geometry from a delayed display list; 0 is unbound.
     std::uint32_t previous_parent = 0;
+    // The strip follows its parent's move alone, its world offsets kept (what is drawn on the
+    // hero, his weapon and his shield), rather than turning with the parent's axes.
+    bool previous_parent_position_only = false;
     std::uint32_t first = 0, count = 0;
     std::uint64_t clamp = 0, tex0 = 0, tex1 = 0, alpha = 0x44;
     std::uint64_t test = 0;  // TEST as the DIRECT data before the strip leaves it (0: none seen)
@@ -156,6 +161,11 @@ struct EffectStrip {
     bool z_masked = false;
     bool z_written = false;
     bool blend_disabled = false;  // The strip's GIF tag explicitly clears PRIM.ABE.
+    // The strip samples the game's copy of the frame drawn so far (GameProfile::
+    // frame_copy_texture: Up Your Arsenal's heat haze), its ST the place in the game's picture.
+    // Drawn from a native snapshot of the target taken before the pass's first such strip, never
+    // from the chip's frame copy (EffectRenderer, frame_copy_st).
+    bool frame_copy = false;
 };
 
 struct RenderTarget;
@@ -164,6 +174,10 @@ struct FrameInput {
     TextureFilter texture_filter = TextureFilter::Normal;
     ShadowQuality shadow_quality = ShadowQuality::High;
     ShadowFilter shadow_filter = ShadowFilter::Soft;
+    // The game frontend supplies its setting. Standalone renderer callers use 2x2 cells.
+    EarlyLightingQuality early_lighting_quality = EarlyLightingQuality::High;
+    CloudShadowSettings cloud_shadows;
+    double cloud_seconds = 0.0;
     VolumetricQuality volumetric_quality = VolumetricQuality::Off;
     bool sun_pixel_shadow = false;
     bool hero_pixel_shadow = false;
@@ -223,6 +237,11 @@ struct FrameInput {
     // Where the HUD bucket's packets start in the 2D path (the bytes before the world come first):
     // the base of the splices after the world.
     std::size_t hud_packets_offset = 0;
+    // Split screen: each local player's view picture (a GL texture, 0 for none,
+    // frontend/split_views.cpp), drawn where `recording` reaches that view's World command: over
+    // what the game drew in the view before its world (its viewport's clear) and under what it
+    // draws after (its HUD), as the console's lists drew one view after another.
+    std::array<unsigned, kFrameViews> view_pictures{};
     // Mobys the game draws into a texture (the vendor's item and salesman screens, the page menus'
     // widgets): at their marker in the 2D path (GifInterpreter::kMobyMarker), called with the
     // marker's value and the off-screen target bound (its framebuffer, its side in GL pixels, and

@@ -6,7 +6,7 @@
  * The disc boots SCES_524.56, a small loader linked at 0x00800000 (i5bootn's code) whose
  * read-only data holds the game itself, WAD-compressed at file offset 0x7080: a list of records
  * (load address, size, type, entry; then the bytes), the format level programs use
- * (editor/formats.py, overlay_sections). The loader unpacks it and jumps to its entry,
+ * (extractor/formats.py, overlay_sections). The loader unpacks it and jumps to its entry,
  * 0x0013ADA8, the payload's crt0 (hand-written, rac3-decomp asm/boot_elf/handwritten): it clears
  * core.bss, makes the main thread and the heap ($gp 0x001DC8B0, stack below 0x01FFC000, heap end
  * 0x01FF8000), calls _InitSys (0x00124B90) and FlushCache(0), runs _init (0x0012A940, empty),
@@ -30,6 +30,7 @@
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
 #include "rac3_version.h"
+#include "textures.h"
 
 int func_00124B90(void);              /* _InitSys */
 void func_0011F0A0(int a0);           /* FlushCache */
@@ -38,6 +39,7 @@ void rac3_install_tools(void);        /* tools.c */
 void rac3_install_camera_latch(void); /* camera_latch.c */
 void openrac_game_register_functions(void);
 void rac3_program_set_overlay(int overlay); /* program.c */
+void rac3_sound_reset(void);                /* sound.c */
 
 #define RAC3_ARGUMENTS 0x0015C040u /* crt0's argument block: argc, then argv */
 
@@ -58,15 +60,17 @@ static void unpack_payload(void) {
 }
 
 /* Back to the boot program from the multiplayer one (its LoadExecPS2 of SCES_524.56): its
- * records copied over memory again, its functions in place of the multiplayer program's, the
- * arguments it was started with in crt0's block. */
+ * records copied over memory again, the images the multiplayer program handed over let go with its
+ * memory (textures.c), its functions in place of the multiplayer program's, the arguments it was
+ * started with in crt0's block. */
 void rac3_program_forget_levels(void); /* program.c */
 
 static void reload_boot_program(void) {
     memset(G(0x00100000u), 0, 0x02000000u - 0x00100000u);
+    rac3_textures_forget();
     openrac_guest_unregister_all();
     openrac_game_kernel_reset();
-    openrac_snd_ring_reset();
+    rac3_sound_reset();
     openrac_guest_clear_level_programs();
     rac3_program_forget_levels();
     openrac_game_register_functions();

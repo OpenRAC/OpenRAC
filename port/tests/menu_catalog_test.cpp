@@ -95,6 +95,7 @@ constexpr Old kOld[] = {
     {kTouch, "Hierarchical depth (Hi-Z)", Id::OcclusionHiZ},
     {kTouch, "Texture upscaling", Id::TextureUpscaling},
     {kTouch, "Effects detail", Id::EffectsDetail},
+    {kTouch, "Early Lit cache quality", Id::EarlyLightingQuality},
     {kTouch, "Upscaling", Id::Upscaling},
     {kTouch, "Sharpening", Id::Sharpening},
     {kTouch, "Motion blur", Id::MotionBlur},
@@ -243,10 +244,30 @@ void keeps_game_pages_short() {
 
 }  // namespace
 
+// Each entry has its own name for the mods (menu_option_set), lower case words joined by _, found
+// again by it; the names mods already use stay.
+void names_each_option_once() {
+    std::set<std::string> seen;
+    for (const Entry& e : entries()) {
+        const std::string name = option_name(e.id);
+        CHECK(!name.empty() && !seen.contains(name));
+        seen.insert(name);
+        for (const char c : name) {
+            CHECK((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_');
+        }
+        CHECK(option_named(name) == e.id);
+    }
+    CHECK(option_named("rumble_strength") == Id::RumbleStrength);
+    CHECK(option_named("vsync") == Id::VSync);
+    CHECK(option_named("early_lighting_quality") == Id::EarlyLightingQuality);
+    CHECK(!option_named("no_such_option"));
+}
+
 int main() {
     keeps_game_pages_short();
     keeps_every_old_option();
     offers_hdr_look_everywhere();
     lists_each_entry_once_in_order();
+    names_each_option_once();
     return openrac::test::result();
 }

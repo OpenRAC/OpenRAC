@@ -30,6 +30,8 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `data_dir` | 1.11 | stable | yes | yes | yes |
 | `plugins_folder` | 1.14 | stable | yes | yes | yes |
 | `game_data_dir` | 1.33 | experimental | yes | yes | yes |
+| `pack_folder` | 1.35 | experimental | yes | yes | yes |
+| `game_language` | 1.35 | experimental | yes | yes | yes |
 
 ## settings
 
@@ -54,6 +56,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `on_pad` | 1.0 | stable | yes | yes | yes |
 | `on_tick_boundary` | 1.6 | stable | yes | yes | yes |
 | `hook_entry` | 1.21 | stable | yes | yes | yes |
+| `on_play_query` | 1.40 | experimental | yes | yes | yes |
 
 ## input
 
@@ -63,6 +66,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `take_input` | 1.2 | stable | yes | yes | yes |
 | `capture_mouse` | 1.2 | stable | yes | yes | yes |
 | `button_label` | 1.31 | stable | yes | yes | yes |
+| `set_motors` | 1.37 | experimental | yes | yes | yes |
 
 ## graphics
 
@@ -97,6 +101,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `developer_menu_choice` | 1.19 | stable | yes | yes | yes |
 | `developer_menu_value` | 1.19 | stable | yes | yes | yes |
 | `developer_menu_look` | 1.28 | stable | yes | yes | yes |
+| `menu_option_set` | 1.37 | experimental | yes | yes | yes |
 
 ## saves
 
@@ -138,6 +143,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `scene_playing` | 1.9 | stable | yes | no | no |
 | `play_scene` | 1.9 | stable | yes | no | no |
 | `play_scene_from` | 1.14 | stable | yes | yes | yes |
+| `time_stretch` | 1.35 | experimental | yes | yes | yes |
 
 ## hero
 
@@ -145,9 +151,9 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 |---|---|---|---|---|---|
 | `hero_pose` | 1.8 | stable | yes | yes | yes |
 | `hero_stand_in` | 1.9 | stable | yes | part | part |
-| `hero_held` | 1.9 | stable | yes | no | no |
+| `hero_held` | 1.9 | stable | yes | yes | no |
 | `hero_shots` | 1.9 | stable | yes | no | no |
-| `hero_set_pose` | 1.12 | stable | yes | no | no |
+| `hero_set_pose` | 1.12 | stable | yes | yes | no |
 | `hero_set_joints` | 1.12 | stable | yes | yes | yes |
 | `hero_hurt` | 1.12 | stable | yes | no | no |
 | `hero_place` | 1.14 | stable | yes | no | no |
@@ -196,10 +202,10 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `moby_hit` | 1.9 | stable | yes | yes | part |
 | `play_eyes` | 1.9 | stable | yes | no | no |
 | `moby_slot_of` | 1.9 | stable | yes | yes | yes |
-| `moby_hide` | 1.9 | stable | yes | part | part |
+| `moby_hide` | 1.9 | stable | yes | yes | part |
 | `moby_deletion` | 1.9 | stable | yes | no | no |
 | `moby_run` | 1.9 | stable | yes | no | no |
-| `collision_triangles` | 1.12 | stable | yes | no | no |
+| `collision_triangles` | 1.12 | stable | yes | yes | no |
 | `moby_list2` | 1.14 | stable | yes | part | part |
 | `on_metal_detect` | 1.14 | stable | yes | yes | yes |
 | `level_line` | 1.14 | stable | yes | no | no |
@@ -210,6 +216,11 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `moby_pool_status` | 1.27 | stable | no | yes | no |
 | `moby_spawn_live` | 1.29 | stable | no | yes | no |
 | `moby_status` | 1.29 | stable | no | yes | no |
+| `moby_set_joints` | 1.35 | experimental | yes | yes | yes |
+| `moby_joint_position` | 1.35 | experimental | yes | yes | yes |
+| `moby_joint_frame` | 1.35 | experimental | yes | yes | yes |
+| `moby_set_joint_poses` | 1.35 | experimental | yes | yes | yes |
+| `moby_uid` | 1.35 | experimental | yes | no | no |
 
 ## visuals
 
@@ -237,6 +248,11 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `particle_spawn_ex` | 1.33 | experimental | yes | part | part |
 | `particle_texture_register` | 1.33 | experimental | yes | part | part |
 | `moby_material_class` | 1.34 | experimental | yes | yes | yes |
+| `hud_hide` | 1.35 | experimental | yes | yes | yes |
+| `scene_air` | 1.35 | experimental | part | part | part |
+| `tie_hide` | 1.35 | experimental | yes | yes | yes |
+| `prop_animate` | 1.35 | experimental | yes | yes | yes |
+| `sharp_cells` | 1.36 | experimental | yes | yes | yes |
 
 ## camera
 
@@ -251,6 +267,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `camera_script_show` | 1.14 | stable | yes | no | no |
 | `camera_shake` | 1.33 | experimental | yes | no | no |
 | `camera_visibility_bypass` | 1.33 | experimental | yes | yes | yes |
+| `camera_fov` | 1.35 | experimental | yes | yes | yes |
 
 ## sound
 
@@ -262,6 +279,9 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `sound_stop` | 1.12 | stable | yes | yes | yes |
 | `hero_sound_play` | 1.12 | stable | yes | part | part |
 | `hero_sound_stop` | 1.12 | stable | yes | no | no |
+| `music_volume` | 1.35 | experimental | yes | part | part |
+| `moby_sound_play` | 1.35 | experimental | yes | part | part |
+| `moby_sound_stop` | 1.35 | experimental | yes | no | no |
 
 ## touch
 

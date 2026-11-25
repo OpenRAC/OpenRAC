@@ -37,6 +37,15 @@ counts and thrust guards are covered by `rac2_gh_fixes_test`. Greatest Hits comp
 file but calls its own functions before reading a key, so `differences.json` marks both fixes
 `bypassed` on `ntsc2`: no setting there (docs/port/SETTINGS.md section 8).
 
+## Bolt totals past 9,999,999
+
+The HUD's counter panel has room for seven digits and the Load page clamps a slot's total to
+9,999,999. From 10,000,000 both show the total in millions to a tenth, `12.3M`; below that
+nothing changes. `host/bolt_totals.c` wraps the HUD update and panel draw, `host/save_marks.c`
+the Load page's slots (the font's printer swaps the clamped text), and `host/bolt_totals.h`
+holds the formatting, covered by `rac2_bolt_totals_test`. No setting: it only differs where the
+stock display was wrong.
+
 ## Writing shared C
 
 - **Functions** by v1.01's names: `func_0027F538`, `func_L05_0041DF58`, `func_0027F640__game`.
@@ -110,3 +119,29 @@ are dropped and the release's host C no longer compiles.
 | `release/release_carry.json` | what rests on less than the same code (`near`, `called`, between moved neighbours, not found) |
 | `release/data_moves.tsv` | how the release moved v1.01's data, from versionmap's map (addresses only) |
 | `hostgen.json`, `libraries.tsv`, `hand/`, `tables/`, `host/` | rac2-ntsc's, in the release's names and places |
+
+## Inventory and story reward hooks
+
+The SDK exposes fifteen additional hooks on all three discs for platinum counts,
+collection progress, save serialization/new-game initialization, kill rewards,
+extras and nine story controllers/pickups. See the generated
+[hook reference](../../../sdk/docs/reference/hooks-rac2.md) for signatures and
+per-disc symbols. With no mod taking a hook, the original function runs.
+
+The SDK uses generic game names. ArchipelagoRAC2 must map its mod-specific names
+in its own client; no `APRac2_*` SDK aliases are introduced. This integration was
+developed for [ArchipelagoRAC2](https://github.com/SavedbyBlood9/ArchipelagoRAC2),
+based on [evilwb/APRac2](https://github.com/evilwb/APRac2) by Will Becker (MIT).
+USA v1.01/PAL mappings use the pinned decompilation metadata and local disc
+comparison. USA v2.00 mappings were supplied during review and checked against
+the pinned us2 catalogue. Game-function bodies, assets and randomizer gameplay
+overrides are not part of these hook declarations.
+
+## Gameplay decision queries
+
+The proposed SDK 1.40 adds synchronous, unload-safe decision queries to twenty
+native source locations on all three discs. Unowned queries preserve the original
+game values. Source hashes and edit counts in `play_queries.json` are checked at
+build time; the decompilation remains untouched. See the
+[API contract](../../../sdk/docs/gameplay-queries.md) for ownership, contexts and
+fallback behavior. Mod settings, activation and seed state belong to the mod.

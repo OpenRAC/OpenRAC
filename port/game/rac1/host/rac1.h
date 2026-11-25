@@ -30,10 +30,23 @@
 /* A ship destination's label (destinations.c): the text of an added destination's id, else 0. */
 gaddr rac1_ship_destination_text(int id);
 #define RAC1_DESTINATION_TEXT(id) rac1_ship_destination_text(id)
+/* The game's own text id behind a template planet's ship list row (destinations.c), else the id. */
+int rac1_ship_text_id(int id);
 
 /* A function's name in this version, as a string (for logs and switches that name functions). */
 #define RAC1_NAME_(f) #f
 #define RAC1_NAME(f) RAC1_NAME_(f)
+
+/* foreign_class.c: the moby classes this level imports from other levels' programs (its
+ * classes.tsv), read as its program loads; the stand-in update of one (0: not imported). */
+void rac1_foreign_classes_load(int level);
+/* The imported classes' tables of their own levels, after the level's loader (foreign_class.c). */
+void rac1_foreign_worlds_load(void);
+int rac1_foreign_host_world_enter(gaddr moby);
+void rac1_foreign_host_world_leave(int world);
+gaddr rac1_foreign_class_update(int oclass);
+/* How many classes this level imports (0 on a level that imports none). */
+int rac1_foreign_class_count(void);
 
 /* boot.c: a new game straight in `level` from the title, as --level N with OPENRAC_DIRECT. */
 void rac1_start_level(int level);
@@ -44,6 +57,9 @@ void rac1_options_frame(void);
 /* moby_pool.c: a WAD decompressed to `to` (hand.c's WadDecompress, after it wrote it): the gameplay
  * header's spare moby count raised while the level loader runs. */
 void rac1_wad_decompressed(gaddr to);
+/* flight_pictures.c: the flight's lump just decompressed to `to` (`made` bytes) gets an added
+ * destination's picture and caption after its end; returns the bytes added (0 for any other WAD). */
+int rac1_flight_pictures(gaddr to, uint32_t made);
 
 /* scene_actors.c: hide the scene's missing actors during the flight update (pack), then
  * restore the list (unpack). */
@@ -166,6 +182,7 @@ int32_t rac1_world_moby_slot(int32_t key);
 int32_t rac1_world_moby_key(gaddr moby);
 int32_t rac1_world_moby_mission(int32_t slot);
 int32_t rac1_world_moby_class(gaddr moby);
+int32_t rac1_world_moby_uid(int32_t slot);
 gaddr rac1_world_moby_at(int32_t slot);
 void rac1_world_moby_kill(gaddr moby);
 /* CreateMoby (func_0020D348) of a moby of the level's, also while the pause menu's mobys are the

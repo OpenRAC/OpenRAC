@@ -25,7 +25,7 @@ import {
   versionName,
 } from "./saveEditRac2";
 
-const MAX = 9_999_999;
+const MAX = 67_108_863;
 
 /** A four-version weapon as the core describes it: V2 at `step1`, V3 bought, V4 at `step3`. */
 function four(
@@ -162,8 +162,8 @@ function view(): Rac2SaveView {
       },
     ],
     planets: [{ id: 1, name: "Oozla" }],
-    maxBolts: 9_999_999,
-    maxXp: 9_999_999,
+    maxBolts: 2_147_483_647,
+    maxXp: 67_108_863,
     challengeMode: 0,
     bootsEditable: true,
     flags: [
@@ -192,7 +192,7 @@ describe("the Going Commando save editor's page checks", () => {
     const f = structuredClone(v.fields);
 
     expect(fieldErrors(v, f)).toEqual({});
-    f.bolts = 10_000_000;
+    f.bolts = 2_147_483_648;
     at(f, 30).xp = 280;
     at(f, 30).ammo = 201;
     expect(Object.keys(fieldErrors(v, f)).sort()).toEqual(["ammo-30", "bolts", "xp-30"]);
@@ -330,7 +330,7 @@ describe("the Going Commando save editor's page checks", () => {
     seeker.version = 1;
     seeker.ammo = 20;
     seeker.xp = 1_049;
-    expect(fieldErrors(v, f)["xp-24"]).toBe("From 1,050 to 9,999,999");
+    expect(fieldErrors(v, f)["xp-24"]).toBe("From 1,050 to 67,108,863");
     seeker.xp = 1_050;
     seeker.ammo = 21;
     expect(Object.keys(fieldErrors(v, f))).toEqual(["ammo-24"]);
@@ -375,7 +375,7 @@ describe("the Going Commando save editor's page checks", () => {
     expect(editList(v, f).length).toBeGreaterThan(0);
     // Still in the range: no more than the editor's limit.
     at(f, 44).xp = MAX + 1;
-    expect(fieldErrors(v, f)["xp-44"]).toBe("From 0 to 9,999,999");
+    expect(fieldErrors(v, f)["xp-44"]).toBe("From 0 to 67,108,863");
   });
 });
 

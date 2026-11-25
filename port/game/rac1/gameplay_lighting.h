@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Ratchet & Clank gameplay subjects for the enhanced renderer's GI-coloured rim.
-// Class identities follow the existing editor/moby_classes.tsv labels and probe seed whitelist.
+// Class identities follow the existing extractor/moby_classes.tsv labels and probe seed whitelist.
 // Scenery, debris, projectiles and particle emitters are deliberately excluded.
 
 #pragma once

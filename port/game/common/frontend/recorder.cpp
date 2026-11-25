@@ -15,6 +15,7 @@
 #include "common/env.h"
 #include "frontend.h"
 #include "game/common/frontend/state.h"
+#include "openrac/game_host.h"
 #include "renderer/textures/texture.h"
 
 namespace openrac::frontend::recorder {
@@ -72,6 +73,13 @@ void end() {
     }
 }
 
+void list_begin(gaddr root) {
+    // Only an actual producer reset retires a buffer; empty window ticks must not do so.
+    if (g) {
+        g->recorder.begin_list(root);
+    }
+}
+
 void anchor(gaddr list_cursor) {
     if (g) {
         g->recorder.set_anchor(list_cursor);
@@ -121,6 +129,8 @@ bool ui_item(std::span<const std::uint8_t> ram, const openrac_game_ui_item& item
     out.screen_width = item.screen_width > 0.0f ? item.screen_width : 512.0f;
     out.screen_height = item.screen_height > 0.0f ? item.screen_height : 448.0f;
     out.flags = item.flags;
+    out.side = item.side;
+    out.place = item.side != 0.0f ? item.place : 0u;
     if ((item.flags & OPENRAC_UI_FLAT) == 0) {
         if (!g_resolver) {
             return false;
@@ -162,6 +172,10 @@ void effect_quad(std::uint32_t marker) {
     }
 }
 
+bool drawing() {
+    return native();
+}
+
 void fill(const float* rect, std::uint32_t rgba, int blend) {
     if (!g) {
         return;
@@ -173,6 +187,73 @@ void fill(const float* rect, std::uint32_t rgba, int blend) {
     c.blend = blend_mode(blend);
     c.wide = (blend & OPENRAC_PICTURE_WHOLE) != 0 || rect == nullptr;
     g->recorder.push(c);
+}
+
+// The C contract's channel bits are the native ones, so `writes` passes through unchanged.
+static_assert(
+    OPENRAC_WRITE_RED == renderer::kWriteRed && OPENRAC_WRITE_GREEN == renderer::kWriteGreen
+    && OPENRAC_WRITE_BLUE == renderer::kWriteBlue && OPENRAC_WRITE_ALPHA == renderer::kWriteAlpha
+    && OPENRAC_WRITE_COLOUR == renderer::kWriteColour
+);
+
+bool fill_depth(
+    const float* rect,
+    std::uint32_t rgba,
+    int blend,
+    std::uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+) {
+    // OPENRAC_UI_REPLAY compares against the game's own packets, as for the 2D layer's quads.
+    if (!native()) {
+        return false;
+    }
+
+    renderer::DepthCompare compare = renderer::DepthCompare::Always;
+
+    // Only the tests the contract names; another value is refused, never guessed.
+    switch (depth_test) {
+        case OPENRAC_DEPTH_ALWAYS:
+            break;
+        case OPENRAC_DEPTH_GEQUAL:
+            compare = renderer::DepthCompare::GreaterEqual;
+            break;
+        case OPENRAC_DEPTH_GREATER:
+            compare = renderer::DepthCompare::Greater;
+            break;
+        default:
+            return false;
+    }
+
+    // The low byte names the blend; OPENRAC_PICTURE_WHOLE is above it.
+    const int mode = blend & 0xFF;
+
+    // An unknown blend or write bit would otherwise draw as something the producer did not ask for.
+    if (mode > static_cast<int>(renderer::BlendMode::Multiply)
+        || (writes & ~(OPENRAC_WRITE_COLOUR | OPENRAC_WRITE_DEPTH)) != 0) {
+        return false;
+    }
+
+    const auto c = renderer::depth_fill_command(
+        rect,
+        rgba,
+        blend_mode(blend),
+        (blend & OPENRAC_PICTURE_WHOLE) != 0 || rect == nullptr,
+        depth,
+        depth_bits,
+        compare,
+        (writes & OPENRAC_WRITE_DEPTH) != 0,
+        static_cast<std::uint8_t>(writes & OPENRAC_WRITE_COLOUR)
+    );
+
+    // A bit count or depth the buffer cannot hold leaves the rectangle to the caller.
+    if (!c) {
+        return false;
+    }
+
+    g->recorder.push(*c);
+    return true;
 }
 
 void clear(std::uint32_t rgba, int what) {
@@ -242,7 +323,7 @@ void picture_set(std::uint32_t id, const std::uint8_t* rgba, int width, int heig
     for (const std::uint8_t b : pixels->pixels) {
         hash = (hash ^ b) * 1099511628211ull;
     }
-    g->pictures[id] = {hash, std::move(pixels)};
+    g->pictures[id] = {hash, std::move(pixels), {}};
 }
 
 void snapshot(std::uint32_t id) {
@@ -271,6 +352,64 @@ void target_end() {
         renderer::FrameCommand c;
         c.op = renderer::FrameOp::TargetEnd;
         g->recorder.push(c);
+    }
+}
+
+void placement(renderer::FrameOp op, std::uint32_t index, std::uint64_t value) {
+    if (g) {
+        renderer::FrameCommand c;
+        c.op = op;
+        c.index = index;
+        c.value = value;
+        g->recorder.push(c);
+    }
+}
+
+void screen(float width, float height) {
+    if (g) {
+        g->recorder.set_screen(width, height);
+    }
+}
+
+void view_begin(int view, const openrac_frame_viewport& rect) {
+    if (!g || view < 0 || view >= OPENRAC_FRAME_VIEWS || !(rect.x1 > rect.x0)
+        || !(rect.y1 > rect.y0)) {
+        return;
+    }
+    g->recorder.view_begin(static_cast<std::uint32_t>(view), {rect.x0, rect.y0, rect.x1, rect.y1});
+}
+
+void view_camera(std::span<const std::uint8_t> ram) {
+    if (!g || !g->recorder.view_open() || g->render.profile == nullptr) {
+        return;
+    }
+    // The world of the open view is drawn now: the camera the game holds is the view's.
+    const host::GameState state = g->render.profile->read_state(ram, openrac_game_loaded_overlay());
+    renderer::FrameViewCamera camera;
+    camera.position = state.camera_position;
+    camera.forward = state.forward;
+    camera.left = state.left;
+    camera.up = state.up;
+    camera.tan_half_fov_x = state.tan_half_fov_x;
+    camera.tan_half_fov_y = state.tan_half_fov_y;
+    g->recorder.view_camera(camera);
+    // The state MobyProc tests this view's mobys from (pose_mobys): the first, as the camera.
+    const auto& views = g->recorder.open().views;
+    if (!views.empty() && views.back().view < renderer::kFrameViews
+        && !g->view_states[views.back().view]) {
+        g->view_states[views.back().view] = state;
+    }
+}
+
+void view_layers(unsigned layers) {
+    if (g) {
+        g->recorder.view_layers(layers);
+    }
+}
+
+void view_end() {
+    if (g) {
+        g->recorder.view_end();
     }
 }
 

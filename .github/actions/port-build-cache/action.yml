@@ -1,8 +1,12 @@
 # Configure results contain absolute paths and feature checks: restore only with the same
 # tools, installed packages, runner image, workspace and build configuration. Compile objects
 # belong to ccache; Ninja files and test results are regenerated on every run.
+#
+# This action only restores. port-build-cache/save, at the end of the job, writes what changed,
+# and only on a push, schedule or manual run: a pull request's or the merge queue's copies are
+# private to their ref and would push develop's shared caches out of the repository's 10 GB.
 name: Port build preparation cache
-description: Cache dependency sources, CMake preparation and validated hostgen output
+description: Restore dependency sources, CMake preparation and validated hostgen output
 inputs:
   variant:
     description: Unique platform and feature configuration, never shared across jobs
@@ -25,32 +29,22 @@ runs:
       run: python tools/ci_cache.py
       if: runner.os == 'Windows'
     # Sources depend on the pins, rather than the runner's compiler or the workflow.
-    - name: Restore and refresh pinned dependency sources
-      id: sources-write
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      if: github.event_name != 'pull_request'
-      with:
-        path: |
-          port/build/${{ inputs.preset }}/_deps/*-src
-          !port/build/${{ inputs.preset }}/_deps/openrac_compressonator-src
-        key: port-sources-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('port/cmake/Android.cmake', 'port/cmake/ArmAsr.cmake', 'port/cmake/BakeLz4.cmake', 'port/cmake/Compressonator.cmake', 'port/cmake/Dependencies.cmake', 'port/cmake/Fsr3.cmake', 'port/cmake/Luau.cmake', 'port/cmake/ProbeCompression.cmake', 'port/cmake/Tracy.cmake') }}
-    - name: Restore pinned dependency sources for a pull request
-      id: sources-read
+    - name: Restore pinned dependency sources
+      id: sources
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      if: github.event_name == 'pull_request'
       with:
         path: |
           port/build/${{ inputs.preset }}/_deps/*-src
           !port/build/${{ inputs.preset }}/_deps/openrac_compressonator-src
         key: port-sources-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('port/cmake/Android.cmake', 'port/cmake/ArmAsr.cmake', 'port/cmake/BakeLz4.cmake', 'port/cmake/Compressonator.cmake', 'port/cmake/Dependencies.cmake', 'port/cmake/Fsr3.cmake', 'port/cmake/Luau.cmake', 'port/cmake/ProbeCompression.cmake', 'port/cmake/Tracy.cmake') }}
     - name: Use restored dependency sources
-      if: steps.sources-write.outputs.cache-hit == 'true' || steps.sources-read.outputs.cache-hit == 'true'
+      if: steps.sources.outputs.cache-hit == 'true'
       shell: bash
       run: echo 'OPENRAC_CI_DEPENDENCY_SOURCES=1' >> "$GITHUB_ENV"
-    # PR-private copies of these large trees evict caches that all branches can reuse.
-    - name: Restore and refresh shared preparation
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      if: github.event_name != 'pull_request' && (steps.identity.outputs.fingerprint != '' || steps.windows-identity.outputs.fingerprint != '')
+    - name: Restore shared preparation
+      id: prep
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      if: steps.identity.outputs.fingerprint != '' || steps.windows-identity.outputs.fingerprint != ''
       with:
         path: |
           port/build/${{ inputs.preset }}/CMakeCache.txt
@@ -59,37 +53,38 @@ runs:
           !port/build/**/*.obj
           !port/build/**/*.pdb
         key: prep-v3-${{ inputs.variant }}-${{ inputs.preset }}-${{ steps.identity.outputs.fingerprint || steps.windows-identity.outputs.fingerprint }}-c${{ hashFiles('port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json', 'tools/build_port.py', 'tools/ci_cache.py', '.github/actions/port-build-cache/**', '.github/workflows/checks.yml') }}
-    - name: Restore shared preparation for a pull request
+    # Any earlier output of this toolchain: hostgen checks each game's input digest
+    # (gen/inputs.sha256) and translates again only a game whose inputs changed.
+    - name: Restore validated hostgen output
+      id: hostgen
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      if: github.event_name == 'pull_request' && (steps.identity.outputs.fingerprint != '' || steps.windows-identity.outputs.fingerprint != '')
-      with:
-        path: |
-          port/build/${{ inputs.preset }}/CMakeCache.txt
-          port/build/${{ inputs.preset }}/CMakeFiles/[0-9]*
-          !port/build/**/*.o
-          !port/build/**/*.obj
-          !port/build/**/*.pdb
-        key: prep-v3-${{ inputs.variant }}-${{ inputs.preset }}-${{ steps.identity.outputs.fingerprint || steps.windows-identity.outputs.fingerprint }}-c${{ hashFiles('port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json', 'tools/build_port.py', 'tools/ci_cache.py', '.github/actions/port-build-cache/**', '.github/workflows/checks.yml') }}
-    # Without Ninja's stamp, hostgen validates every restored input digest before reuse.
-    - name: Restore and refresh validated hostgen output
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      if: inputs.hostgen == 'true' && github.event_name != 'pull_request' && (steps.identity.outputs.hostgen_fingerprint != '' || steps.windows-identity.outputs.hostgen_fingerprint != '')
+      if: inputs.hostgen == 'true' && (steps.identity.outputs.hostgen_fingerprint != '' || steps.windows-identity.outputs.hostgen_fingerprint != '')
       with:
         path: |
           port/build/${{ inputs.preset }}/games/*/gen/**/*
           !port/build/${{ inputs.preset }}/games/*/gen/prep
           !port/build/${{ inputs.preset }}/games/*/gen/prep/**
           !port/build/${{ inputs.preset }}/games/*/gen/hostgen.stamp
-        key: hostgen-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.identity.outputs.hostgen_fingerprint || steps.windows-identity.outputs.hostgen_fingerprint }}-g${{ hashFiles('games/**', 'port/game/**', 'port/tools/hostgen/**', 'tools/openrac_common/**') }}
-        restore-keys: hostgen-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.identity.outputs.hostgen_fingerprint || steps.windows-identity.outputs.hostgen_fingerprint }}-g
-    - name: Restore validated hostgen output for a pull request
-      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      if: inputs.hostgen == 'true' && github.event_name == 'pull_request' && (steps.identity.outputs.hostgen_fingerprint != '' || steps.windows-identity.outputs.hostgen_fingerprint != '')
-      with:
-        path: |
-          port/build/${{ inputs.preset }}/games/*/gen/**/*
-          !port/build/${{ inputs.preset }}/games/*/gen/prep
-          !port/build/${{ inputs.preset }}/games/*/gen/prep/**
-          !port/build/${{ inputs.preset }}/games/*/gen/hostgen.stamp
-        key: hostgen-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.identity.outputs.hostgen_fingerprint || steps.windows-identity.outputs.hostgen_fingerprint }}-g${{ hashFiles('games/**', 'port/game/**', 'port/tools/hostgen/**', 'tools/openrac_common/**') }}
-        restore-keys: hostgen-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.identity.outputs.hostgen_fingerprint || steps.windows-identity.outputs.hostgen_fingerprint }}-g
+        key: hostgen-v2-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.identity.outputs.hostgen_fingerprint || steps.windows-identity.outputs.hostgen_fingerprint }}-
+        restore-keys: hostgen-v2-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.identity.outputs.hostgen_fingerprint || steps.windows-identity.outputs.hostgen_fingerprint }}-
+    # What port-build-cache/save needs to write the same paths under the same keys.
+    - name: Remember the caches for the save step
+      shell: bash
+      env:
+        PRESET: ${{ inputs.preset }}
+        SOURCES_KEY: ${{ steps.sources.outputs.cache-primary-key }}
+        SOURCES_HIT: ${{ steps.sources.outputs.cache-hit }}
+        PREP_KEY: ${{ steps.prep.outputs.cache-primary-key }}
+        PREP_HIT: ${{ steps.prep.outputs.cache-hit }}
+        HOSTGEN_PREFIX: ${{ steps.hostgen.outputs.cache-primary-key }}
+        HOSTGEN_MATCHED: ${{ steps.hostgen.outputs.cache-matched-key }}
+      run: |
+        {
+          echo "OPENRAC_PBC_PRESET=$PRESET"
+          echo "OPENRAC_PBC_SOURCES_KEY=$SOURCES_KEY"
+          echo "OPENRAC_PBC_SOURCES_HIT=$SOURCES_HIT"
+          echo "OPENRAC_PBC_PREP_KEY=$PREP_KEY"
+          echo "OPENRAC_PBC_PREP_HIT=$PREP_HIT"
+          echo "OPENRAC_PBC_HOSTGEN_PREFIX=$HOSTGEN_PREFIX"
+          echo "OPENRAC_PBC_HOSTGEN_MATCHED=$HOSTGEN_MATCHED"
+        } >> "$GITHUB_ENV"

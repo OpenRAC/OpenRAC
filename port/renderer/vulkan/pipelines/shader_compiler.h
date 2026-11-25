@@ -45,7 +45,16 @@ struct ProgramBlock {
     bool read_only = false;
 };
 
+// Distinguishes retained vertex geometry from an unknown-interface viewport diagnostic.
+enum class GraphicsFallback {
+    None,
+    Vertex,
+    Fullscreen
+};
+
 struct CompiledProgram {
+    // Runtime substitution state; never written to the SPIR-V cache or package codec.
+    GraphicsFallback fallback = GraphicsFallback::None;
     std::vector<std::uint32_t> vertex;
     std::vector<std::uint32_t> fragment;
     std::vector<std::uint32_t> compute;

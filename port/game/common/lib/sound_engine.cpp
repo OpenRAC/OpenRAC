@@ -26,8 +26,11 @@
 #include "assets/sound/adpcm.h"
 #include "assets/sound/vag.h"
 #include "assets/sound/wav.h"
+#include "audio/limiter.h"
+#include "audio/reverb.h"
 #include "audio/sound_player.h"
 #include "audio/sound_replacements.h"
+#include "common/env.h"
 #include "common/log.h"
 #include "openrac/game_host.h"
 
@@ -71,6 +74,29 @@ std::array<std::int32_t, audio::kVolumeGroups> g_master = [] {
     a.fill(audio::kFullVolume);
     return a;
 }();
+
+// The port's own gain on each group's streams (openrac_sound_set_stream_gain): where it heads, set
+// from any thread, and where the mix has got to, moved a little each mixed frame.
+struct StreamGainTargets {
+    StreamGainTargets() {
+        for (auto& g : gains) {
+            g.store(1.0f, std::memory_order_relaxed);
+        }
+    }
+
+    std::atomic<float>& operator[](std::size_t group) { return gains[group]; }
+
+    std::array<std::atomic<float>, audio::kVolumeGroups> gains;
+};
+
+StreamGainTargets g_stream_gain_target;
+std::array<double, audio::kVolumeGroups> g_stream_gain = [] {
+    std::array<double, audio::kVolumeGroups> a{};
+    a.fill(1.0);
+    return a;
+}();
+// How far the eased gain moves in one output frame: all the way in a tenth of a second.
+constexpr double kStreamGainStep = 10.0 / audio::kOutputRate;
 std::map<audio::BankHandle, std::vector<std::uint8_t>> g_bank_files;
 
 // The sounds packs replace (audio/sound_replacements.h), read again when the mods folder changes
@@ -219,6 +245,16 @@ struct Stream {
 };
 
 std::vector<std::unique_ptr<Stream>> g_streams;
+
+// The reverb the game last set (openrac_sound_set_reverb), set again on a snapshot's new player.
+struct ReverbSetting {
+    audio::ReverbMode mode = audio::ReverbMode::Off;
+    std::int32_t depth = 0;
+    std::uint8_t delay = 0;
+    std::uint8_t feedback = 0;
+};
+
+ReverbSetting g_reverb;
 std::uint32_t g_next_stream = 1;
 bool g_music_held = false;
 
@@ -337,8 +373,19 @@ void read_track(std::uint32_t sector, std::shared_ptr<Track> track) {
 
 // Adds the streams to `out`. A part not decoded yet holds its stream silent; an ended part gives
 // way to the next, the position's fraction carried over.
-void mix_streams(std::span<std::int16_t> out) {
+void mix_streams(std::span<float> out) {
     const std::size_t frames = out.size() / 2;
+    // Each group's eased gain at the buffer's start and end, a straight line between.
+    std::array<double, audio::kVolumeGroups> gain_from = g_stream_gain;
+    std::array<double, audio::kVolumeGroups> gain_to{};
+    for (std::size_t g = 0; g < gain_to.size(); ++g) {
+        const double target = std::clamp(
+            static_cast<double>(g_stream_gain_target[g].load(std::memory_order_relaxed)), 0.0, 1.0
+        );
+        const double most = kStreamGainStep * static_cast<double>(frames);
+        gain_to[g] = gain_from[g] + std::clamp(target - gain_from[g], -most, most);
+    }
+    g_stream_gain = gain_to;
 
     for (auto it = g_streams.begin(); it != g_streams.end();) {
         Stream& s = **it;
@@ -348,7 +395,11 @@ void mix_streams(std::span<std::int16_t> out) {
         }
         const double master =
             static_cast<double>(g_master[static_cast<std::size_t>(s.group)]) / audio::kFullVolume;
-        const double gain = static_cast<double>(s.volume) / audio::kFullVolume * master * master;
+        const double gain =
+            static_cast<double>(s.volume) / audio::kFullVolume * master * master / 32768.0;
+        const auto group = static_cast<std::size_t>(s.group);
+        const double eased_from = gain_from[group];
+        const double eased_by = frames > 0 ? (gain_to[group] - eased_from) / frames : 0.0;
 
         for (std::size_t f = 0; f < frames && !s.parts.empty() && !s.paused;) {
             const Track& t = *s.parts.front().track;
@@ -387,19 +438,18 @@ void mix_streams(std::span<std::int16_t> out) {
                     const std::size_t from = channels == 2 ? c : 0;
                     const double a = t.samples[i * channels + from];
                     const double b = i + 1 < n ? t.samples[(i + 1) * channels + from] : a;
-                    double v = (a + (b - a) * frac) * gain;
+                    const double eased = eased_from + eased_by * static_cast<double>(f);
+                    double v = (a + (b - a) * frac) * gain * eased;
 
                     // Stereo in two files: the left side from the left track, its first channel.
                     if (c == 0 && left != nullptr && i < left->frames()) {
                         const auto lc = static_cast<std::size_t>(left->channels);
                         const double la = left->samples[i * lc];
                         const double lb = i + 1 < left->frames() ? left->samples[(i + 1) * lc] : la;
-                        v = (la + (lb - la) * frac) * gain;
+                        v = (la + (lb - la) * frac) * gain * eased;
                     }
 
-                    const double mixed = out[f * 2 + c] + v;
-                    out[f * 2 + c] =
-                        static_cast<std::int16_t>(std::clamp(mixed, -32768.0, 32767.0));
+                    out[f * 2 + c] += static_cast<float>(v);
                 }
 
                 s.position += step;
@@ -421,6 +471,66 @@ void mix_streams(std::span<std::int16_t> out) {
         }
 
         it = s.parts.empty() ? g_streams.erase(it) : it + 1;
+    }
+}
+
+// ---- The mix's levels (OPENRAC_AUDIO_STATS) ----
+
+// What the mix did over a stretch of sound, said in the log every kStatsSeconds of it.
+struct MixStats {
+    std::uint64_t frames = 0;
+    float peak = 0.0f;
+    double square_sum = 0.0;
+    std::size_t voices = 0;
+    std::size_t streams = 0;
+    std::uint64_t limited = 0;
+    float lowest = 1.0f;
+};
+
+constexpr std::uint64_t kStatsSeconds = 10;
+MixStats g_mix_stats;
+
+float decibels(double level) {
+    return level > 0.0 ? static_cast<float>(20.0 * std::log10(level)) : -144.0f;
+}
+
+// One render's frames counted, under g_lock; a stretch's report when it is over.
+void note_mix(std::span<const float> out) {
+    static const bool on = openrac::env::flag(openrac::env::Var::AudioStats);
+
+    // Off: nothing counted.
+    if (!on) {
+        return;
+    }
+
+    MixStats& m = g_mix_stats;
+
+    // Each sample's level.
+    for (const float v : out) {
+        m.peak = std::max(m.peak, std::abs(v));
+        m.square_sum += static_cast<double>(v) * v;
+    }
+
+    m.frames += out.size() / 2;
+    m.voices = std::max(m.voices, player().mixer().active_voices());
+    m.streams = std::max(m.streams, g_streams.size());
+
+    // Said once the stretch is long enough.
+    if (m.frames >= kStatsSeconds * audio::kOutputRate) {
+        const double rms = std::sqrt(m.square_sum / static_cast<double>(m.frames * 2));
+        log::info(
+            "sound mix: {} s, peak {:.1f} dBFS, RMS {:.1f} dBFS, limited {:.2f}% of frames (lowest "
+            "gain "
+            "{:.2f}), up to {} voices and {} streams",
+            m.frames / audio::kOutputRate,
+            decibels(m.peak),
+            decibels(rms),
+            100.0 * static_cast<double>(m.limited) / static_cast<double>(m.frames),
+            m.lowest,
+            m.voices,
+            m.streams
+        );
+        m = {};
     }
 }
 
@@ -450,14 +560,14 @@ constexpr std::size_t kModVoicesMax = 16;
 
 // Adds the mods' voices to `out`, at group 0's master volume as the streams take theirs; a voice
 // that ran off its end (not looped) is let go.
-void mix_mod_voices(std::span<std::int16_t> out) {
+void mix_mod_voices(std::span<float> out) {
     const std::size_t frames = out.size() / 2;
     const double master = static_cast<double>(g_master[0]) / audio::kFullVolume;
     for (auto it = g_mod_voices.begin(); it != g_mod_voices.end();) {
         ModVoice& v = *it;
         const ModSound& s = g_mod_sounds[v.sound];
         const std::size_t n = s.samples.size() / static_cast<std::size_t>(s.channels);
-        const double gain = static_cast<double>(v.volume) * master * master;
+        const double gain = static_cast<double>(v.volume) * master * master / 32768.0;
         const double step = static_cast<double>(s.rate) / audio::kOutputRate * v.pitch;
         bool ended = n == 0;
         for (std::size_t f = 0; f < frames && !ended; ++f) {
@@ -476,8 +586,7 @@ void mix_mod_voices(std::span<std::int16_t> out) {
                 const int from = s.channels == 2 ? c : 0;
                 const double a = s.samples[i * static_cast<std::size_t>(s.channels) + from];
                 const double b = s.samples[j * static_cast<std::size_t>(s.channels) + from];
-                const double mixed = out[f * 2 + c] + (a + (b - a) * frac) * gain;
-                out[f * 2 + c] = static_cast<std::int16_t>(std::clamp(mixed, -32768.0, 32767.0));
+                out[f * 2 + c] += static_cast<float>((a + (b - a) * frac) * gain);
             }
             v.position += step;
         }
@@ -750,6 +859,10 @@ int openrac_sound_snapshot_load(const void* input, size_t size) {
 
         std::lock_guard lock(g_lock);
         player().swap_snapshot_state(checked);
+        player().mixer().reverb().set_enabled(openrac::env::flag(openrac::env::Var::AudioReverb));
+        player().mixer().reverb().set(
+            g_reverb.mode, g_reverb.depth, g_reverb.delay, g_reverb.feedback
+        );
         g_bank_files.swap(banks);
         g_master = header.master;
         g_streams.clear();
@@ -818,6 +931,31 @@ uint32_t openrac_sound_set_params(
     return sound;
 }
 
+void openrac_sound_set_reverb(
+    int32_t core, int32_t type, int32_t depth, int32_t delay, int32_t feedback
+) {
+    (void)core;
+    std::lock_guard lock(g_lock);
+    const auto mode = type >= 0 && type <= static_cast<int32_t>(audio::ReverbMode::Pipe)
+                          ? static_cast<audio::ReverbMode>(type)
+                          : audio::ReverbMode::Off;
+    g_reverb =
+        {mode,
+         depth,
+         static_cast<std::uint8_t>(std::clamp(delay, 0, 127)),
+         static_cast<std::uint8_t>(std::clamp(feedback, 0, 127))};
+    audio::ReverbEffect& reverb = player().mixer().reverb();
+    reverb.set_enabled(openrac::env::flag(openrac::env::Var::AudioReverb));
+    reverb.set(g_reverb.mode, g_reverb.depth, g_reverb.delay, g_reverb.feedback);
+}
+
+void openrac_sound_auto_reverb(int32_t core, int32_t depth, int32_t delta) {
+    (void)core;
+    std::lock_guard lock(g_lock);
+    g_reverb.depth = depth;
+    player().mixer().reverb().glide(depth, delta);
+}
+
 int openrac_sound_playing(uint32_t sound) {
     std::lock_guard lock(g_lock);
     return sound != 0 && (player().playing(sound) || ended_unheard(sound) != nullptr);
@@ -845,6 +983,15 @@ void openrac_sound_set_master_volume(int32_t group, int32_t volume) {
     std::lock_guard lock(g_lock);
     g_master[static_cast<std::size_t>(group)] = volume;
     player().set_master_volume(static_cast<std::size_t>(group), volume);
+}
+
+void openrac_sound_set_stream_gain(int32_t group, float gain) {
+    if (group < 0 || static_cast<std::size_t>(group) >= audio::kVolumeGroups
+        || !std::isfinite(gain)) {
+        return;
+    }
+    g_stream_gain_target[static_cast<std::size_t>(group)]
+        .store(std::clamp(gain, 0.0f, 1.0f), std::memory_order_relaxed);
 }
 
 void openrac_sound_pause_groups(uint32_t mask) {
@@ -1130,12 +1277,14 @@ void openrac_stream_set_volume(uint32_t stream, int32_t volume) {
     }
 }
 
-void openrac_sound_render(int16_t* interleaved, size_t frames) {
+void openrac_sound_render_float(float* interleaved, size_t frames) {
     std::lock_guard lock(g_lock);
-    player().render(std::span(interleaved, frames * 2));
-    mix_streams(std::span(interleaved, frames * 2));
-    mix_mod_voices(std::span(interleaved, frames * 2));
+    const std::span out(interleaved, frames * 2);
+    player().render(out);
+    mix_streams(out);
+    mix_mod_voices(out);
     g_rendered += frames;
+    note_mix(out);
 
     if (g_unheard != nullptr) {
         for (const audio::SoundHandle sound : player().take_ended()) {
@@ -1146,6 +1295,24 @@ void openrac_sound_render(int16_t* interleaved, size_t frames) {
         const std::uint64_t heard = heard_frames();
         std::erase_if(g_ended, [heard](const Ended& e) { return e.at <= heard; });
     }
+}
+
+void openrac_sound_render(int16_t* interleaved, size_t frames) {
+    // The mix in float, through the one limiter, to 16 bits.
+    static std::vector<float> mix;
+    static audio::Limiter limiter;
+    mix.resize(frames * 2);
+    openrac_sound_render_float(mix.data(), frames);
+    limiter.process(mix);
+    audio::to_int16(mix, std::span(interleaved, frames * 2));
+    const audio::Limiter::Taken taken = limiter.take();
+    openrac_sound_limited(taken.limited, taken.lowest);
+}
+
+void openrac_sound_limited(size_t limited, float lowest) {
+    std::lock_guard lock(g_lock);
+    g_mix_stats.limited += limited;
+    g_mix_stats.lowest = std::min(g_mix_stats.lowest, lowest);
 }
 
 void openrac_sound_set_unheard(size_t (*unheard)(void* user), void* user) {

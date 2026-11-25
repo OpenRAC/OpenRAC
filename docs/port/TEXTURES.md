@@ -32,12 +32,16 @@ corner ornaments at 0x005F1D00 read back as one colour).
 
 For those, host C keeps the bytes at the moment the game hands them over:
 `openrac_game_image_keep(data, bytes)` (`openrac/game_host.h`). It is called from the game's own
-send routine (rac3: SendImage, `func_00397D60`, `func_00397980__frontbin`, `func_L01_004215C0`),
-with the game's source address and the image's size. From then on an image named by that address
-reads the kept bytes, not what memory holds now (`GameImageSources`, `frontend/ui_images.h`): it is
-what the game sent, as the console shows it. Bytes kept over (part of) earlier ones replace them.
-This is a copy of the game's data, keyed by the game's address; nothing records where the chip put
-it.
+send routine (rac3: SendImage, `func_00397D60`, `func_00397980__frontbin`, `func_L01_004215C0`; the
+multiplayer executable's core `0x00285660`, level 39's `0x0059D6B0` and each map's copy, each called
+only by its program's HUD bank's group upload), with the game's source address and the image's size.
+From then on an image named by that address reads the kept bytes, not what memory holds now
+(`GameImageSources`, `frontend/ui_images.h`): it is what the game sent, as the console shows it.
+Bytes kept over (part of) earlier ones replace them. When another executable starts over the game's
+memory (rac3's LoadExecPS2 between the boot program and the multiplayer one), everything kept is let
+go (`openrac_game_images_forget`; rac3's `rac3_textures_forget` also lets go the texture handles'
+images). This is a copy of the game's data, keyed by the game's address; nothing records where the
+chip put it.
 
 ## 3. Texture packs
 
@@ -64,5 +68,5 @@ the record is made, and a texture named as in section 1.
 
 | Game | By the game's data | Still by the chip's memory |
 |---|---|---|
-| rac3 | font pages; HUD images (`rac3_hud_image`, with group 0 kept at SendImage) | the HUD's other routines until they draw `ui_item`s; effect quads and particles (TEX0, ALPHA, upload records matched by block); the multiplayer executable's HUD |
+| rac3 | font pages; HUD images (`rac3_hud_image`, with group 0 kept at SendImage), the multiplayer executable's too (its HUD sprites, gradients and turned sprites, in level 39 and the maps) | the HUD's other routines until they draw `ui_item`s; effect quads and particles (TEX0, ALPHA, upload records matched by block); the multiplayer executable's routines given a texture handle (glyph quads, turned sprites, the turned HUD quad), until its texture getters are wrapped |
 | rac1, rac2 | nothing yet | all (R1 to R3) |

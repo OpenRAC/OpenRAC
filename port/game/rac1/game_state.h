@@ -36,6 +36,7 @@ struct GameAddresses {
     float vertical_factor;          // the vertical tangent over the horizontal one (TV aspect)
     std::uint32_t chain_bases;      // the two display-list buffers (VU1_swapChain alternates them)
     std::uint32_t chain_index;      // which one is being built; the other is the frame shown
+    std::uint32_t sky_tick_address = 0;  // The level frame counter used by the sky.
 };
 
 /** Ratchet & Clank, PAL (SCES-50916): the boot program's (title, menus) and each level's. */

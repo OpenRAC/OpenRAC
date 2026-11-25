@@ -81,7 +81,7 @@ def collision_triangles(path):
             points=accessor(primitive['attributes']['POSITION'])
             indices=[i[0] for i in accessor(primitive['indices'])] if 'indices' in primitive else range(len(points))
             colours=accessor(primitive['attributes']['COLOR_0']) if 'COLOR_0' in primitive['attributes'] else None
-            # editor/collision.py's documented surface-0 (water) palette, in linear GLB colours.
+            # extractor/collision.py's documented surface-0 (water) palette, in linear GLB colours.
             water_colour=tuple(c**2.2 for c in (.2,.45,1.))
             for i in range(0,len(indices),3):
                 target=water_triangles if colours and all(abs(colours[indices[i]][a]-water_colour[a])<1e-5 for a in range(3)) else triangles

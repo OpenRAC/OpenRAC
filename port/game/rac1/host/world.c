@@ -88,6 +88,7 @@ enum {
     MOBY_HIT = 0xA4,
     MOBY_OCLASS = 0xA6,
     MOBY_MISSION = 0xB0,
+    MOBY_UID = 0xB2, /* u16 save_id: the record's spawn id (uid) */
     MOBY_SIZE = 0x100,
     CLASS_TYPE = 0x46,
     HIT_SIZE = 0x40,
@@ -325,6 +326,15 @@ int32_t rac1_world_moby_key(gaddr moby) {
     return key_of[slot];
 }
 
+/* The spawn id (the record's uid, the game's save_id) of a placed moby of the level, -1 for none. */
+int32_t rac1_world_moby_uid(int32_t slot) {
+    if (!in_level() || slot < 0 || slot >= placed_count()) {
+        return -1;
+    }
+    const uint16_t uid = GREF(uint16_t, array_base() + (gaddr)slot * MOBY_SIZE + MOBY_UID);
+    return uid != 0xFFFFu ? uid : -1;
+}
+
 /* The mission a live moby of the level goes with (its byte at +0xB0), -1 for none. */
 int32_t rac1_world_moby_mission(int32_t slot) {
     if (!in_level() || slot < 0 || slot >= array_slots()) {
@@ -501,6 +511,12 @@ int32_t rac1_world_moby_spawn(int32_t oclass) {
             GREF(uint16_t, m + MOBY_OCCLUSION) = 0x7F80u;
         }
         GREF(uint8_t, m + MOBY_DRAWN) = 1;
+        /* Some classes come out of CreateMoby left out of the moby loop (mode 0x2 not run, 0x4
+         * matrix kept, 0x40 animation not advanced: Clank's, class 10, which the game's scenes
+         * then pose and build themselves). A mod's moby is run as a figure is: its animation
+         * moves on and its matrix and sphere are built, so it is drawn where it stands (with no
+         * sphere the draw test took it as a point at the level's origin, and close views lost it). */
+        GREF(uint16_t, m + MOBY_MODE) = (uint16_t)(GREF(uint16_t, m + MOBY_MODE) & ~0x46u);
     }
     leave_level_context(entered);
     return m != 0 ? rac1_moby_slot(m) : -1;
@@ -983,7 +999,8 @@ void func_L00_00277A88(void) {
 
 void func_001FD3E8(void) {
     run_world_under_menu(0);
-    func_001FD3E8__game();
+    /* The mods' hook point (rac1.freeze.update) sits under this, as func_001FD3E8__hooked. */
+    func_001FD3E8__hooked();
 }
 
 /* The camera: the level's, also while the pause menu's is up (its camera at 256,256,64 is no

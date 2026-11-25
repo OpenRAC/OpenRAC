@@ -6,7 +6,7 @@ import sys
 
 from seed_regions import ROOT
 
-sys.path.insert(0, str(ROOT/'editor'))
+sys.path.insert(0, str(ROOT/'extractor'))
 import gltf_read
 
 

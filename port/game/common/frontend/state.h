@@ -46,7 +46,9 @@
 #include "scene/level.h"
 #include "scene/level_renderer.h"
 #include "scene/moby_shadow.h"
+#include "scene/moby_skin.h"
 #include "scene/object_picker.h"
+#include "scene/prop_rig.h"
 #include "scene/special_acquisition.h"
 #include "settings.h"
 
@@ -81,7 +83,15 @@ struct Kept {
     bool has_state = false, has_prev_state = false;
     std::vector<scene::Instance> live;
     std::vector<std::uint32_t> addresses;  // each live moby's address, for its last matrix
+    // Split screen drawn in one capture: the views that draw each live instance (bit n: view n,
+    // frontend/view_mobys.h); empty when every view draws every one.
+    std::vector<std::uint8_t> live_views;
     std::unordered_map<std::uint32_t, renderer::Mat4> prev_matrices;
+    // Each moby's move the tick before the last (from two ticks ago to prev_matrices), where both
+    // ticks had it, and the eye's (prev_state's from the one before): a frame between ticks moves
+    // a thing that moves farther than a step in a tick but keeps its pace (geometry.h same_moby).
+    std::unordered_map<std::uint32_t, renderer::Vec3> prev_paces;
+    std::optional<renderer::Vec3> camera_pace;
     std::unordered_map<std::uint32_t, std::array<float, 4>> prev_spheres;
     std::vector<scene::LevelScene::JointColumns> palette;
     std::vector<renderer::ShadowCapsule> shadows, prev_shadows;
@@ -117,12 +127,20 @@ struct Kept {
     std::uint64_t effects_frame = ~0ull;
     std::array<renderer::Mat4, 8> sky_shells{};
     unsigned sky_shell_mask = 0;
+    // The tick before's shells, where it was the one before (keep_effects): a frame between ticks
+    // turns each from there (scene_hud.cpp).
+    std::array<renderer::Mat4, 8> prev_sky_shells{};
+    unsigned prev_sky_shell_mask = 0;
     std::vector<renderer::UiQuad> ui_quads;
     // The frame recorder's commands the tick's 2D path draws, and where (capture_2d_path,
     // docs/port/FRAME_RECORDER.md): FrameInput::recording, splices, splices_before_world.
     renderer::FrameRecording recording;
     std::vector<renderer::FrameSplice> splices;
     std::size_t splices_before_world = 0;
+    // The split-screen views the game drew last (FrameRecorder::latest's), drawn by
+    // frontend/split_views.cpp: not `recording`'s, which is the one the 2D path's list was built
+    // with and can be older.
+    std::vector<renderer::FrameView> views;
     // The mods' heat haze (interface 1.12): each patch's place (x, y, z), radius and strength.
     std::vector<std::array<float, 5>> haze;
 
@@ -176,6 +194,8 @@ struct TickMobys {
     // The ties and shrubs as the game holds them (LevelScene::move_scenery); none keeps the last
     // tick's.
     std::optional<scene::GameScenery> scenery;
+    // The views that draw each instance of `live` (Kept::live_views); empty: every view.
+    std::vector<std::uint8_t> live_views;
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.
@@ -249,6 +269,17 @@ struct SceneRenderState {
     // The mod's additional views and the OpenGL framebuffers around their output textures.
     std::array<renderer::FrameBuffer, 4> views;
     std::vector<std::pair<unsigned, unsigned>> view_targets;
+
+    // Split screen (frontend/split_views.cpp): each local player's view's world as last drawn, the
+    // recorded layout and whether it holds one. Forgotten at the first tick with no view's world
+    // or when the next view's layout no longer fits the retained pictures.
+    struct SplitView {
+        renderer::FrameBuffer picture;
+        renderer::FrameView layout;  // Source rectangle and screen size of the retained picture.
+        bool held = false;
+    };
+
+    std::array<SplitView, renderer::kFrameViews> split_views;
     scene::LevelData level;
     scene::LevelScene scene;
     DebugCamera debug_camera;
@@ -289,6 +320,10 @@ struct State {
     // load_prop_meshes (frontend/world.cpp) as props ask for new ones. A new level starts them
     // again.
     std::vector<std::pair<std::filesystem::path, std::uint32_t>> prop_models;
+    // The skinned ones' skeletons and animations (openrac_api.prop_animate).
+    std::vector<std::pair<std::filesystem::path, scene::PropRig>> prop_rigs;
+    // The level's mobys drawn as another model (the editor's skins.json beside its placements).
+    scene::MobySkins moby_skins;
     std::map<int, scene::SpecialClip> special_pickup_clips;
     int infobot_pickup_model = -1;
     std::vector<std::vector<renderer::Mat4>> infobot_pickup_poses;
@@ -317,6 +352,9 @@ struct State {
     bool paused_from_play = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
+    // Split screen: the game's state when each view's world was drawn since the last capture
+    // (recorder::view_camera), for MobyProc's test from each view's camera (pose_mobys).
+    std::array<std::optional<host::GameState>, renderer::kFrameViews> view_states{};
 
     // The mobys the last 2D path read drew with a list of their own, by their markers (frame.cpp,
     // direct_packets): first moby, count, and whether the frame was a buffer narrower than the

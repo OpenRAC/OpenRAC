@@ -27,6 +27,7 @@
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "game/common/mod_play.h"
+#include "mods.h"
 #include "openrac/game_host.h"
 #include "program/program.h"
 #include "renderer/direct/direct.h"
@@ -55,7 +56,7 @@ bool prepare_temporal(SceneFrame& frame) {
                                  && (graphics.temporal_quality != renderer::TemporalQuality::Off
                                      || (graphics.motion_blur && graphics.motion_blur_strength > 0))
                                  && enhanced::Fsr3::available() && scene.has_camera
-                                 && (scene.draws & 0x1Fu) != 0;
+                                 && (scene.draws & 0x1Fu) != 0 && !split_screen(scene);
 
     // SDK and pose history are absent when enhanced reconstruction is not in use.
     if (temporal_wanted && !owner.temporal) {
@@ -241,10 +242,20 @@ void set_lighting(SceneFrame& frame) {
     owner.scene.set_environment_probe_debug(graphics.environment_probe_debug);
     input.shadow_quality = graphics.shadow_quality;
     input.shadow_filter = graphics.shadow_filter;
+    input.early_lighting_quality = graphics.early_lighting_quality;
     input.volumetric_quality = graphics.volumetric_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
                              && openrac_game_has_level(scene.level);
+    input.cloud_shadows =
+        graphics.cloud_shadow_override.value_or(owner.profile->cloud_shadow_defaults(scene.level));
+    static const bool& clouds_off =
+        stats::probe("OPENRAC_CLOUD_SHADOWS_OFF", "Reference: disable cloud shadows");
+    input.cloud_shadows.enabled &= input.sun_pixel_shadow && !clouds_off;
+    // Match the sky's authored clock when the game exposes it.
+    const auto cloud_tick =
+        scene.state.sky_tick ? std::uint64_t(*scene.state.sky_tick) : scene.frame;
+    input.cloud_seconds = static_cast<double>(cloud_tick) / program::tick_rate();
     input.hero_pixel_shadow = enhanced && graphics.enhanced_shadows
                               && owner.scene.hero_shadow_enabled()
                               && scene.hero_airborne.has_value() && scene.has_camera
@@ -343,7 +354,7 @@ void set_camera(SceneFrame& frame) {
     // Turned by the late camera latch (frontend/camera_latch.h) when it is on.
     const auto state = turned_camera(
         scene.has_prev_state && frame.output.alpha < 1.0f
-            ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
+            ? blend_camera(scene.prev_state, scene.state, frame.output.alpha, camera_pace(scene))
             : scene.state,
         {frame.output.latch_yaw, frame.output.latch_pivot, frame.output.latch_pitch}
     );
@@ -375,7 +386,13 @@ void set_camera(SceneFrame& frame) {
         scene.has_camera ? guard_camera(owner, state, camera, scene.frame) : std::nullopt;
     const bool has_camera = drawn.has_value();
     frame.has_camera = has_camera;
-    const auto background = scene.state.background_or(owner.level.background);
+    auto background = scene.state.background_or(owner.level.background);
+    // A mod's scene air (openrac_api.scene_air) over the game's background: in the picture only.
+    if (const auto air = mods::scene_air(); air && (air->flags & OPENRAC_AIR_BACKGROUND) != 0) {
+        for (int i = 0; i < 3; ++i) {
+            background[i] += (air->background[i] - background[i]) * air->weight;
+        }
+    }
     input.clear_colour = has_camera && (scene.draws & kLevelLayers) != 0
                              ? std::array<float, 4>{background[0], background[1], background[2], 1}
                              : std::array<float, 4>{0, 0, 0, 1};
@@ -389,9 +406,20 @@ void set_camera(SceneFrame& frame) {
     // that drew mobys alone (the pause menu's frame objects over its picture of the frame) is no
     // gameplay view: they are placed for the native lens.
     float opened = 1.0f;
-    if (has_camera && scene.gameplay_camera && (scene.draws & kLevelLayers) != 0
-        && !frame.output.camera_debug.settings.enabled
-        && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
+    // A mod's scene may ask for a field of view of its own (openrac_api.camera_fov, vertical
+    // degrees): drawn only, in place of the player's lens; the game's view tests open with it.
+    const float mod_fov = mods::camera_fov();
+    if (has_camera && mod_fov > 0.0f && (scene.draws & kLevelLayers) != 0
+        && !frame.output.camera_debug.settings.enabled) {
+        const float original = 1.0f / input.camera.projection[5];
+        const float wanted = std::tan(mod_fov * 0.5f * 3.14159265f / 180.0f);
+        const float scale = original / wanted;
+        input.camera.projection[0] *= scale;
+        input.camera.projection[5] *= scale;
+        opened = std::max(1.0f, 1.0f / scale);
+    } else if (has_camera && scene.gameplay_camera && (scene.draws & kLevelLayers) != 0
+               && !frame.output.camera_debug.settings.enabled
+               && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
         const float original = 1.0f / input.camera.projection[5];
         const float percent = static_cast<float>(frame.graphics.gameplay_fov) / 100.0f;
         const float scale = original / std::tan(std::atan(original) * percent);
@@ -460,6 +488,9 @@ bool draw_world(SceneFrame& frame) {
                 owner.frame.samples_written();
             }
         }
+        // Split screen: each view's world into its own picture first (none: the views forgotten).
+        draw_split_views(frame);
+        const bool split = split_screen(scene) && frame.has_camera;
         renderer::RenderTarget target{owner.frame.id(), width, height, picture_scale};
         const bool enhanced = graphics.enhanced_graphics && owner.enhanced_graphics_available();
         if (enhanced) {
@@ -523,8 +554,25 @@ bool draw_world(SceneFrame& frame) {
         }
 
         // The mods' heat haze (interface 1.12), over the world and under the HUD.
+        static const bool& haze_log = stats::probe(
+            "OPENRAC_HAZE_LOG", "the frame-copy strips and their heat haze patches, in the log"
+        );
+        static int haze_logged = 0;
+        if (haze_log && !scene.haze.empty() && haze_logged < 24) {
+            ++haze_logged;
+            log::info(
+                "haze drawn frame {}: {} patches, camera {}, keep colour {}, under menu {}, draws "
+                "{:#x}",
+                scene.frame,
+                scene.haze.size(),
+                scene.has_camera,
+                input.keep_colour,
+                scene.world_under_menu,
+                scene.draws
+            );
+        }
         if (!scene.haze.empty() && scene.has_camera && !input.keep_colour && !scene.world_under_menu
-            && (scene.draws & 0x1Fu) != 0) {
+            && (scene.draws & 0x1Fu) != 0 && !split) {
             auto before_hud = std::move(input.before_hud);
             input.before_hud = [&owner,
                                 &scene,
@@ -552,13 +600,45 @@ bool draw_world(SceneFrame& frame) {
                 }
             };
         }
+        if (!split) {
+            owner.renderer->render(input, target);
+            return true;
+        }
+        // Split screen: the views' pictures are the frame's world. Each view whose World the 2D
+        // path reaches is drawn there, over what the game drew in it before (its viewport's clear)
+        // and under its HUD; the others are put on the frame before anything that reads the world
+        // drawn (the read-back copy, bloom) and under the 2D.
+        std::uint32_t in_stream = 0;
+        input.view_pictures = stream_view_pictures(owner, scene, in_stream);
+        auto before_hud = std::move(input.before_hud);
+        input.before_hud = [&owner, width, height, in_stream, before_hud = std::move(before_hud)] {
+            put_split_views(owner, owner.frame.id(), width, height, in_stream);
+            if (before_hud) {
+                before_hud();
+            }
+        };
+        std::vector<std::pair<renderer::BucketRenderer*, bool>> world_buckets;
+        for (const auto& bucket : owner.renderer->renderers()) {
+            if (bucket->bucket() != renderer::Bucket::Hud) {
+                world_buckets.emplace_back(bucket.get(), bucket->enabled);
+                bucket->enabled = false;
+            }
+        }
         owner.renderer->render(input, target);
+        for (const auto& [bucket, enabled] : world_buckets) {
+            bucket->enabled = enabled;
+        }
         return true;
     }
 
     return false;
 }
 }  // namespace
+
+renderer::CloudShadowSettings level_cloud_shadows() {
+    return g ? g->render.profile->cloud_shadow_defaults(g->kept->level)
+             : renderer::CloudShadowSettings{};
+}
 
 void render_scene(
     SceneRenderState& owner,

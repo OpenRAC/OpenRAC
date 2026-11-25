@@ -132,6 +132,7 @@ std::vector<std::unique_ptr<openrac_mod>> g_loaded;
 std::vector<fs::path> g_asset_roots;  // the loaded mods' assets folders, the last loaded first
 std::vector<FrameCallback> g_frames;
 std::vector<PadCallback> g_pads;
+PlayQueries g_play_queries;
 std::vector<MenuCallback> g_menus;
 std::vector<DeveloperMenu> g_developer_menus;
 // The pages of the game's own menus and the main-menu items (interface 1.7); the page on the
@@ -1023,6 +1024,7 @@ void fill_api(const Host& host) {
     g_api.hook = api_hook;
     g_api.on_frame = api_on_frame;
     g_api.on_pad = api_on_pad;
+    g_api.on_play_query = api_on_play_query;
     g_api.function = api_function;
     g_api.function_at = api_function_at;
     g_api.relocate_data = api_relocate_data;
@@ -1082,6 +1084,8 @@ void fill_api(const Host& host) {
     g_api.clipboard_set = api_clipboard_set;
     g_api.open_link = api_open_link;
     g_api.plugins_folder = api_plugins_folder;
+    g_api.pack_folder = api_pack_folder;
+    g_api.game_language = api_game_language;
     g_api.identity_key = api_identity_key;
     fill_play_api(g_api, host.play, host.cards);
     if (host.game != "rac1") {
@@ -1097,6 +1101,9 @@ void fill_api(const Host& host) {
     g_api.save_data_get = api_save_data_get;
     g_api.on_save_data = api_on_save_data;
     g_api.weapon_ignore_culling = api_weapon_ignore_culling;
+    g_api.sharp_cells = api_sharp_cells;
+    g_api.set_motors = api_set_motors;
+    g_api.menu_option_set = api_menu_option_set;
     g_api_without_native_vulkan = g_api;
     g_api_without_native_vulkan.graphics = api_graphics_without_native_vulkan;
 }
@@ -1265,6 +1272,7 @@ void undo(openrac_mod* mod) {
     std::erase_if(g_settings_callbacks, [&](const SettingsCallback& c) { return c.mod == mod; });
     std::erase_if(g_save_data_callbacks, [&](const SaveDataCallback& c) { return c.mod == mod; });
     std::erase_if(g_pads, [&](const PadCallback& c) { return c.mod == mod; });
+    g_play_queries.remove(mod);
     std::erase_if(g_menus, [&](const MenuCallback& c) { return c.mod == mod; });
     std::erase_if(g_overlays, [&](const OverlayCallback& c) { return c.mod == mod; });
     std::erase_if(g_developer_menus, [&](const DeveloperMenu& menu) { return menu.mod == mod; });
@@ -1276,6 +1284,7 @@ void undo(openrac_mod* mod) {
     std::erase_if(g_ui_pages, [&](const UiPageCallback& c) { return c.mod == mod; });
     std::erase_if(g_tick_boundaries, [&](const TickBoundaryCallback& c) { return c.mod == mod; });
     drop_figures(mod);
+    drop_menu_options(mod);
     if (g_views_mod == mod) {
         g_views = {};
         g_views_mod = nullptr;
@@ -1326,7 +1335,9 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
             api_setting_set_float,
             api_setting_set_string,
             api_on_settings,
-            settings_of
+            settings_of,
+            api_set_motors,
+            api_menu_option_set
         };
         std::string why;
         g_loading = mod.get();
@@ -2051,6 +2062,12 @@ int loaded_count() {
     return static_cast<int>(g_loaded.size());
 }
 
+bool loaded(std::string_view id) {
+    return std::any_of(g_loaded.begin(), g_loaded.end(), [&](const auto& mod) {
+        return mod != nullptr && mod->id == id;
+    });
+}
+
 const openrac_api& api_for_tests() {
     return g_api;
 }
@@ -2070,10 +2087,20 @@ bool holds_hook(const openrac_mod* mod, const char* name) {
 }
 
 fs::path mod_file(const openrac_mod* mod, const char* path) {
-    if (mod == nullptr || path == nullptr || mod->dir.empty() || !folder_path(path)) {
+    if (mod == nullptr || path == nullptr) {
         return {};
     }
-    const fs::path file = mod->dir / fs::path(std::u8string(path, path + std::strlen(path)));
+    // "pack:<path>": a file of the edited levels' pack (pack_folder), such as a cutscene's voice.
+    fs::path root = mod->dir;
+    if (std::strncmp(path, "pack:", 5) == 0) {
+        path += 5;
+        const char* pack = pack_folder();
+        root = pack != nullptr ? fs::path(pack) : fs::path();
+    }
+    if (root.empty() || !folder_path(path)) {
+        return {};
+    }
+    const fs::path file = root / fs::path(std::u8string(path, path + std::strlen(path)));
     std::error_code e;
     return fs::is_regular_file(file, e) ? file : fs::path();
 }
@@ -2100,6 +2127,7 @@ void reset() {
     g_list_unwritten_said = false;
     g_pads.clear();
     g_menus.clear();
+    drop_menu_options(nullptr);
     g_overlays.clear();
     g_developer_menus.clear();
     g_ui_pages.clear();
@@ -2131,3 +2159,11 @@ void reset() {
 }
 
 }  // namespace openrac::mods
+
+// Called only by the native query points, never from the matching console source.
+extern "C" int32_t openrac_mod_play_query(
+    uint32_t kind, uint32_t subject, int32_t index, int32_t original, int32_t alternate
+) {
+    using namespace openrac::mods::detail;
+    return g_play_queries.query(kind, api_loaded_level(), subject, index, original, alternate);
+}

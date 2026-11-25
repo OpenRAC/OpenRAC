@@ -128,6 +128,12 @@ void openrac_rac2_set_follow_mouse(openrac_rac2_follow_mouse_fn fn) {
     g_follow_mouse = fn;
 }
 
+openrac_rac2_aligned_mouse_fn g_aligned_mouse = nullptr;
+
+void openrac_rac2_set_aligned_mouse(openrac_rac2_aligned_mouse_fn fn) {
+    g_aligned_mouse = fn;
+}
+
 int openrac_rac2_follow_axis(float up[3]) {
     up[0] = 0.0f;
     up[1] = 0.0f;
@@ -179,9 +185,14 @@ void host_fail(openrac_mod*, const char* reason) {
     std::printf("failed: %s\n", reason);
 }
 
+bool g_low_latency = true;  // the "mouse_low_latency" setting
+
 int setting_bool(openrac_mod*, const char* key) {
     if (std::strcmp(key, "key_prompts") == 0) {
         return g_prompts ? 1 : 0;
+    }
+    if (std::strcmp(key, "mouse_low_latency") == 0) {
+        return g_low_latency ? 1 : 0;
     }
     return std::strcmp(key, "capture_cursor") == 0 || std::strcmp(key, "menu_mouse") == 0 ? 1 : 0;
 }
@@ -314,6 +325,12 @@ void load_ok() {
 void contexts() {
     CHECK(kbm2::context_of("foot") == kbm::Context::Play);
     CHECK(kbm2::context_of("ship") == kbm::Context::Play);
+    // The free camera closes only with Select or R3: the map key must press Select there.
+    CHECK(kbm2::context_of("look_around") == kbm::Context::Play);
+    CHECK(
+        kbm::buttons_for(kbm2::context_of("look_around"), kbm::bit(kbm::Action::Map), -1)
+        == kbm::kSelect
+    );
     CHECK(kbm2::context_of("menu") == kbm::Context::Menu);
     CHECK(kbm2::context_of("front_end") == kbm::Context::Menu);
     CHECK(kbm2::context_of("vendor") == kbm::Context::Vendor);
@@ -584,6 +601,35 @@ void follow_camera() {
     CHECK(mem_float(kData + 0x160u) == x);
 }
 
+// The mouse turning the first-person view (L1) writes its rows as the game builds them: the side
+// up x view, which the hero's aim copies and places his gun by, the up view x side.
+void first_person_rows() {
+    constexpr std::uint32_t kView = 0x00158000u, kViewState = 0x00159000u;
+    const float world_up[3] = {0.0f, 0.0f, 1.0f};
+    g_context = "foot";
+    load_ok();
+    CHECK(g_aligned_mouse != nullptr);
+    set_float(kView, 1.0f);
+    set_float(kView + 4u, 0.0f);
+    set_float(kView + 8u, 0.0f);
+    set_float(kViewState + 0x10u, 0.0f);
+    tick();
+    read_pad();
+    g_aligned_mouse(kView, kViewState, world_up, 0, 0);
+    tick();
+    g_input.mouse_dx = 100.0f;
+    read_pad();
+    g_aligned_mouse(kView, kViewState, world_up, 0, 0);
+    const kbm::Vec3 view{mem_float(kView), mem_float(kView + 4u), mem_float(kView + 8u)};
+    const kbm::Vec3 side{
+        mem_float(kView + 0x10u), mem_float(kView + 0x14u), mem_float(kView + 0x18u)
+    };
+    const kbm::Vec3 game_side = kbm::cross(kbm::kWorldUp, view);
+    CHECK(std::abs(view.y) > 0.01f);
+    CHECK(std::abs(side.x - game_side.x) < 1e-5f && std::abs(side.y - game_side.y) < 1e-5f);
+    CHECK(std::abs(mem_float(kView + 0x28u) - 1.0f) < 1e-5f);
+}
+
 // The gyro turns the follow camera as the mouse does, with the cursor free (a gamepad player), in
 // play only, and for "aiming" only while strafing.
 void gyro_follow() {
@@ -736,6 +782,7 @@ int main() {
     g_version = "ntsc";
     prompts();
     follow_camera();
+    first_person_rows();
     gyro_follow();
     other_games();
     std::puts("keyboard-mouse rac2: all passed");

@@ -663,7 +663,7 @@ std::vector<Instance> LevelScene::resident_scenery(std::size_t k) const {
     resident.reserve(scenery.source.size());
     for (std::size_t i = 0; i < scenery.source.size(); ++i) {
         if ((!scenery.drawn.empty() && scenery.drawn[i] == 0)
-            || (i < moved.state.size() && moved.state[i] != 0)) {
+            || (i < moved.state.size() && moved.state[i] != 0) || mod_hidden(k, i)) {
             continue;
         }
         resident.push_back(scenery.source[i]);
@@ -671,7 +671,23 @@ std::vector<Instance> LevelScene::resident_scenery(std::size_t k) const {
     return resident;
 }
 
+bool LevelScene::mod_hidden(std::size_t k, std::size_t i) const {
+    return kSceneryLayers[k] == Layer::Ties
+           && std::binary_search(
+               m_mod_hidden_ties.begin(), m_mod_hidden_ties.end(), static_cast<int>(i)
+           );
+}
+
 void LevelScene::move_scenery(const GameScenery& game) {
+    // The ties a mod hides: the layer is grouped again when they change.
+    if (game.mod_hidden_ties != m_mod_hidden_ties) {
+        m_mod_hidden_ties = game.mod_hidden_ties;
+        for (std::size_t k = 0; k < m_scenery.size(); ++k) {
+            if (kSceneryLayers[k] == Layer::Ties) {
+                set_instances(Layer::Ties, resident_scenery(k));
+            }
+        }
+    }
     // The terrain's occlusion words from the game's records (GameScenery::terrain_occlusion), once
     // they differ from the primitives': the cached visible lists are made again.
     if (!game.terrain_occlusion.empty()) {
@@ -987,7 +1003,8 @@ void LevelScene::add_moved_scenery(
         const Scenery& scenery = m_scenery[k];
         const MovedScenery& moved = m_moved[k];
         for (std::size_t i = 0; i < moved.state.size() && i < scenery.source.size(); ++i) {
-            if (moved.state[i] != 1 || (!scenery.drawn.empty() && scenery.drawn[i] == 0)) {
+            if (moved.state[i] != 1 || (!scenery.drawn.empty() && scenery.drawn[i] == 0)
+                || mod_hidden(k, i)) {
                 continue;
             }
             Instance instance = scenery.source[i];

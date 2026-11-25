@@ -110,7 +110,7 @@ class NativePipeline(unittest.TestCase):
         def save_edit():
             (packed_level/'placements.json').write_text(json.dumps(placements))
             stacked = subprocess.run(
-                [sys.executable, str(ROOT/'editor/overrides.py'), 'stack', '--into', str(self.root/'packs'),
+                [sys.executable, str(ROOT/'extractor/overrides.py'), 'stack', '--into', str(self.root/'packs'),
                  '--levels', str(self.exports), '--packed', str(packed), '--out', str(mods)],
                 capture_output=True, text=True, timeout=20)
             self.assertEqual(stacked.returncode, 0, stacked.stdout + stacked.stderr)
@@ -552,6 +552,42 @@ class NativePipeline(unittest.TestCase):
         (level/'probe-bake.json').write_text(json.dumps(settings))
         self.run_bake()
         self.assertFalse((output/'environment.orpe').exists())
+
+    def test_authored_probe_spacing_does_not_change_automatic_grids(self):
+        level = self.levels[0]
+        matrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]
+        (level/'placements.json').write_text(json.dumps(dict(ties=[],shrubs=[],mobys=[
+            dict(index=0,**{'class':0},matrix=matrix)])))
+        profile = level/'probe-bake.json'
+        settings = dict(version=1, dense_spacing=[4,4,4],
+            regions=dict(no_moby_seeds=True, interior_lighting=True),
+            environment_probes=dict(resolution=4, filter_samples=1, maximum_probes=16))
+        profile.write_text(json.dumps(settings))
+        self.run_bake()
+        output = self.cache/level.name
+        registry = output/'regions.json'
+        automatic = json.loads(registry.read_text())['regions']
+        self.assertTrue(automatic)
+
+        def grid_placement(name):
+            report = (output/(name+'.txt')).read_text().splitlines()
+            return [line for line in report if line.startswith((
+                'probe_origin ', 'probe_orientation ', 'probe_pitch ', 'probe_roll ',
+                'probe_spacing ', 'probe_dimensions '))]
+
+        original = {name: grid_placement(name) for name in automatic}
+
+        settings['regions']['authored'] = [
+            dict(bounds=[-4,-4,1,4,4,4], spacing=[2,2,1], fit_to_floor=True)]
+        profile.write_text(json.dumps(settings))
+        self.run_bake()
+        regions = json.loads(registry.read_text())['regions']
+        self.assertEqual(regions[:-1], automatic)
+        self.assertEqual({name: grid_placement(name) for name in automatic}, original)
+        text = grid_placement(regions[-1])
+        self.assertIn('probe_origin -4 -4 1', text)
+        self.assertIn('probe_spacing 2 2 1', text)
+        self.assertIn('probe_dimensions 5 5 4', text)
 
     def test_background_scene_without_collision_skips_gameplay_floor_analysis(self):
         level = self.levels[0]

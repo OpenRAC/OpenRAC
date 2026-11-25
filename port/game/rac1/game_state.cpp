@@ -38,13 +38,14 @@ const GameAddresses kRac1Pal{0x00187180, 0x00187390, 0x0018CE00, 0x0016001C, 0x0
  * function (func_001F2608) and CreateMoby (func_0020D348) with their copies in the level's code,
  * instruction by instruction: the copies differ only in the addresses.
  */
+// clang-format off
 const GameAddresses kRac1PalLevels[19] = {
     {0x00166EC0, 0x001670D0, 0x0016CB40, 0x0016009C, 0x001600A0, 0.756f, 0x00161278, 0x00161290},  // 0
     {0x001672C0, 0x001674D0, 0x0016CF40, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 1
     {0x00167440, 0x00167650, 0x0016D0C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 2
     {0x00166F40, 0x00167150, 0x0016CBC0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 3
     {0x00166FC0, 0x001671D0, 0x0016CC40, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 4
-    {0x001672C0, 0x001674D0, 0x0016CF40, 0x0016009C, 0x001600A0, 0.756f, 0x00161278, 0x00161290},  // 5
+    {0x001672C0, 0x001674D0, 0x0016CF40, 0x0016009C, 0x001600A0, 0.756f, 0x00161278, 0x00161290, 0x0015F6B0},  // 5
     {0x00167640, 0x00167850, 0x0016D2C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 6
     {0x00166EC0, 0x001670D0, 0x0016CB40, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 7
     {0x00167640, 0x00167850, 0x0016D2C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 8
@@ -59,6 +60,8 @@ const GameAddresses kRac1PalLevels[19] = {
     {0x00167740, 0x00167950, 0x0016D3C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 17
     {0x00167840, 0x00167A50, 0x0016D4C0, 0x0016005C, 0x00160060, 0.756f, 0x00161238, 0x00161250},  // 18
 };
+
+// clang-format on
 
 namespace {
 
@@ -184,6 +187,11 @@ std::optional<std::uint8_t> moby_distance_fade(
 
 host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAddresses& a) {
     host::GameState s;
+
+    if (a.sky_tick_address != 0 && a.sky_tick_address + sizeof(std::uint32_t) <= ram.size()) {
+        s.sky_tick = at<std::uint32_t>(ram, a.sky_tick_address);
+    }
+
     s.camera_position = vec3(ram, a.camera_position);
     // Camera block +0x180 is the active UpdateCam pointer; the eye is at +0x140.
     // The default follow record (id +0x86 == 0) owns FollowCamState at +0x70,
@@ -299,13 +307,14 @@ std::uint32_t shown_chain(std::span<const std::uint8_t> ram, const GameAddresses
  * version's program. The vertical factor is PAL's, not yet measured on NTSC-U.
  */
 const GameAddresses kRac1Ntsc{0x00187080, 0x00187290, 0x0018CD00, 0x0015FF1C, 0x0015FF20, 0.756f, 0x00160EF8, 0x00160F10};
+// clang-format off
 const GameAddresses kRac1NtscLevels[19] = {
     {0x00166DC0, 0x00166FD0, 0x0016CA40, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 0
     {0x00167240, 0x00167450, 0x0016CEC0, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 1
     {0x001673C0, 0x001675D0, 0x0016D040, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 2
     {0x00166EC0, 0x001670D0, 0x0016CB40, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 3
     {0x00166F40, 0x00167150, 0x0016CBC0, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 4
-    {0x001671C0, 0x001673D0, 0x0016CE40, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 5
+    {0x001671C0, 0x001673D0, 0x0016CE40, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0, 0x0015F5CC},  // 5
     {0x00167540, 0x00167750, 0x0016D1C0, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 6
     {0x00166E40, 0x00167050, 0x0016CAC0, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 7
     {0x001675C0, 0x001677D0, 0x0016D240, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 8
@@ -320,6 +329,8 @@ const GameAddresses kRac1NtscLevels[19] = {
     {0x001676C0, 0x001678D0, 0x0016D340, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 17
     {0x001677C0, 0x001679D0, 0x0016D440, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 18
 };
+
+// clang-format on
 
 }  // namespace openrac::game::rac1
 

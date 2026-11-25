@@ -60,12 +60,20 @@ if(TARGET openrac_assets_geometry)
 endif()
 target_compile_options(openrac_game_common PRIVATE ${OPENRAC_GAME_C_FLAGS} -Wall -Wextra)
 
+# The native UI core can be checked without game code, a window or the runtime library.
+openrac_add_test(ui_core SOURCES tests/ui_core_test.cpp ui/ui.cpp
+  INCLUDES . game/common/include runtime/include)
+
 # The VAG streams of the sound engine, on a disc image the test writes.
 add_executable(sound_engine_test "${CMAKE_CURRENT_LIST_DIR}/../tests/sound_engine_test.cpp")
 target_include_directories(sound_engine_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/..")
 target_link_libraries(sound_engine_test PRIVATE openrac_game_common)
 openrac_warnings(sound_engine_test)
 add_test(NAME sound_engine COMMAND sound_engine_test)
+
+# The native sound client's answer/callback order, without a game or audio device.
+openrac_add_test(snd_client SOURCES tests/snd_client_test.cpp tests/snd_client_rac2.c
+                 INCLUDES game/rac2-ntsc/host LIBS openrac_game_common)
 
 # The decomps are git submodules (docs/SOURCES.md). A build folder made before that keeps its old
 # cached OPENRAC_<ID>_SOURCE; a submodule is empty until it is checked out, and upstream's own
@@ -279,6 +287,10 @@ function(openrac_add_game config)
   file(GLOB tables CONFIGURE_DEPENDS "${config_dir}/*.json" "${config_dir}/*.tsv" "${config_dir}/tables/*"
        "${config_dir}/release/*" "${config_dir}/checks/*"
        "${config_dir}/hand/*" "${OPENRAC_GAME_DIR}/common/*.tsv")
+  string(JSON query_points ERROR_VARIABLE no_query_points GET "${json}" play_queries)
+  if(NOT no_query_points)
+    list(APPEND tables "${config_dir}/${query_points}")
+  endif()
   # hostgen rewrites only the files whose text changed, so after an edit only
   # those recompile: the stamp says when it last ran, the files are byproducts
   # whose times the build looks at again.
@@ -452,6 +464,11 @@ function(openrac_add_game config)
   else()
     add_executable(openrac-${id} "${OPENRAC_GAME_DIR}/common/main.cpp")
     set(targets openrac-${id})
+    # openrac-<id>-states: the same program without the window (no renderer, sound output or
+    # input), for tools that only need the game's state: the editor's moby start states
+    # (--moby-states, program/moby_states.h).
+    add_executable(openrac-${id}-states "${OPENRAC_GAME_DIR}/common/main.cpp")
+    list(APPEND targets openrac-${id}-states)
   endif()
   # The game fixes of this disc (cmake/Differences.cmake), which the game's host C reads through
   # openrac_game_fix: in every program, with a window or without.
@@ -487,7 +504,7 @@ function(openrac_add_game config)
       target_link_libraries(${target} PRIVATE winmm)
     endif()
     # The window: the renderer draws what the game holds in memory (game/common/frontend.h).
-    if(TARGET openrac_scene_renderer AND TARGET openrac_platform)
+    if(TARGET openrac_scene_renderer AND TARGET openrac_platform AND NOT target MATCHES "-states$")
       target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/frontend.cpp"
                                        "${OPENRAC_GAME_DIR}/common/controls_store.cpp"
                                        "${OPENRAC_GAME_DIR}/common/debug_menu.cpp"
@@ -702,10 +719,10 @@ function(openrac_add_games)
   endforeach()
 endfunction()
 
-# The editor's moby class names (editor/moby_classes.tsv: class number, name, with its notice in
+# The editor's moby class names (extractor/moby_classes.tsv: class number, name, with its notice in
 # its first lines) as one string, openrac_moby_class_names, for the debug overlay's moby list.
 function(openrac_moby_class_names out)
-  set(tsv "${PROJECT_SOURCE_DIR}/../editor/moby_classes.tsv")
+  set(tsv "${PROJECT_SOURCE_DIR}/../extractor/moby_classes.tsv")
   set(cpp "${CMAKE_BINARY_DIR}/generated/openrac_moby_class_names.cpp")
   if(EXISTS "${tsv}")
     file(READ "${tsv}" text)
@@ -713,7 +730,7 @@ function(openrac_moby_class_names out)
   else()
     set(text "")
   endif()
-  file(CONFIGURE OUTPUT "${cpp}" CONTENT "// Generated from editor/moby_classes.tsv by cmake/Games.cmake.
+  file(CONFIGURE OUTPUT "${cpp}" CONTENT "// Generated from extractor/moby_classes.tsv by cmake/Games.cmake.
 extern const char *const openrac_moby_class_names;
 const char *const openrac_moby_class_names = R\"tsv(${text})tsv\";
 " @ONLY)

@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import EditorFlow from "../components/EditorFlow.svelte";
 import type { GameView, VersionView } from "./api";
 import { jobs } from "./app.svelte";
-import { LEVELS_SECTION } from "./editorFlow";
+import { LEVEL_TOOL_TEXT, LEVELS_SECTION } from "./editorFlow";
 import { RESET } from "./editorReset";
 import type { Job } from "./queue";
 import { TOOL_ERRORS, UNKNOWN_ERROR } from "./toolErrors";
@@ -40,7 +40,7 @@ const version = {
   actions: ["editor-extract", "editor-open", "editor-pack", "port-levels"].map(action),
   status: { disc: { state: "found", path: "/discs/rac1.iso", expected: null, message: "" } },
 } as unknown as VersionView;
-const game = { id: "rac1", title: "Ratchet & Clank" } as unknown as GameView;
+const game = { id: "rac1", title: "Ratchet & Clank", versions: [version] } as unknown as GameView;
 
 function failedPack(...lines: string[]): Job {
   return {
@@ -50,7 +50,7 @@ function failedPack(...lines: string[]): Job {
     title: "Pack your edited levels",
     state: "failed",
     id: 3,
-    command: "python3 editor/extract.py pack …",
+    command: "python3 extractor/extract.py pack …",
     lines: lines.map((line) => ({ stream: "stderr" as const, line })),
     code: 1,
     queuedAt: 1,
@@ -95,6 +95,22 @@ describe("EditorFlow", () => {
     expect(body).toContain(RESET.levelsTitle);
     expect(body).not.toContain("<details");
     expect(body).not.toContain("Troubleshoot");
+  });
+
+  it("keeps Add a level as a new planet in view on a disc without it, and says which disc", () => {
+    const pal = {
+      ...version,
+      region: "PAL (Europe)",
+      actions: [...version.actions, action("editor-new-planet")],
+    } as unknown as VersionView;
+    const usa = { ...version, key: "rac1/ntsc", name: "ntsc", region: "NTSC-U (North America)" };
+    const both = { ...game, versions: [pal, usa] };
+    const { body } = render(EditorFlow, {
+      props: { game: both, version: usa },
+    });
+
+    expect(body).toContain(LEVEL_TOOL_TEXT["new-planet"].title);
+    expect(body).toContain("New planets work with the Europe disc for now.");
   });
 
   it("shows a step mid-way: its words, the level by name and the bar's value", () => {

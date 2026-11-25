@@ -214,6 +214,22 @@ public:
         return read_game_state(ram, addresses(level));
     }
 
+    renderer::CloudShadowSettings cloud_shadow_defaults(int level) const override {
+        if (level != 5) {
+            return {};
+        }
+
+        // Rilgar's rainy gameplay scene.
+        return {
+            .enabled = true,
+            .speed = .25f,
+            .undulation = .285f,
+            .scale = .063f,
+            .maximum = .69f,
+            .strength = 1.f,
+        };
+    }
+
     std::optional<host::LiveMoby> read_moby(
         std::span<const std::uint8_t> ram, std::uint32_t moby
     ) const override {
@@ -242,6 +258,9 @@ public:
 
     bool has_levels() const override { return true; }
 
+    // The game never sends the pad a motor command (no sceVib or scePadSetActDirect call).
+    bool has_rumble() const override { return false; }
+
     // Only quads with an id move (rac1_effect_quad_id: the ship's glass).
     bool interpolates_effect_quads() const override { return true; }
 
@@ -258,6 +277,10 @@ public:
     std::optional<std::uint32_t> cutscene_mode() const override { return 2; }
 
     std::optional<std::uint32_t> pause_mode() const override { return 3; }
+
+    // Level mode 4 is the freeze (mode_freeze_init, update_mode_freeze): its picture draws the
+    // level again as it stopped (draw_dialog_background_and_text).
+    std::optional<std::uint32_t> freeze_mode() const override { return 4; }
 
     std::uint32_t particle_updates() const override { return m_executable.particle_updates; }
 
@@ -288,7 +311,7 @@ public:
     }
 
     std::optional<std::array<float, 2>> water_projectile(int class_id) const override {
-        // Shared PAL/NTSC classes (editor/moby_classes.tsv); equipped weapons/ammo are excluded.
+        // Shared PAL/NTSC classes (extractor/moby_classes.tsv); equipped weapons/ammo are excluded.
         switch (class_id) {
             case 305:
                 return std::array{.25f, .45f};  // Blaster's homing shot (CLASS_HOMING_SHOT).
@@ -331,8 +354,15 @@ public:
         return &m_boot == &kRac1Ntsc ? add_ship_visor : nullptr;
     }
 
-    // The water lily class is shared by PAL and NTSC (editor/moby_classes.tsv).
+    // The water lily class is shared by PAL and NTSC (extractor/moby_classes.tsv).
     bool floats_on_water(int class_id) const override { return class_id == 695; }
+
+    // The moby's save_id (+0xB2, host/world.c MOBY_UID): its record's spawn id, 0xFFFF none.
+    int moby_spawn_id(const std::uint8_t* moby) const override {
+        std::uint16_t id = 0;
+        std::memcpy(&id, moby + 0xB2, sizeof id);
+        return id != 0xFFFFu ? id : -1;
+    }
 
 private:
     // Returns the table of the program loaded: a level's, or the boot program's when `level` is

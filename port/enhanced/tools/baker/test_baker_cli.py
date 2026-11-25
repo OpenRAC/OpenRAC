@@ -234,7 +234,7 @@ class BakerCli(unittest.TestCase):
 
     def test_native_emission_preparation_matches_reference_updates_and_overrides(self):
         """Catalog refreshes, removals and local edits retain the Python profile's meaning."""
-        sys.path.insert(0,str(Path(__file__).resolve().parents[4]/'editor'))
+        sys.path.insert(0,str(Path(__file__).resolve().parents[4]/'extractor'))
         from enhanced.emission import apply_materials
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary); catalog=root/'catalog.json'; defaults=root/'defaults.json'
@@ -451,7 +451,7 @@ class BakerCli(unittest.TestCase):
                                 if settings.enabled and has_gameplay else dict(regions=[],note=(
                                     'No gameplay to seed dense regions from (a scene, not a level of the disc).' if settings.enabled
                                     else 'Dense regions disabled by the per-level profile.'))
-                            plan.update(region_settings=asdict(settings),placement_algorithm=4,bake_profile=profile,scene_hash=identity,emission=emission)
+                            plan.update(region_settings=asdict(settings),placement_algorithm=5,bake_profile=profile,scene_hash=identity,emission=emission)
                             bake_level.write_json(directory/'seed-plan.json',plan)
                             regions = [dict(bounds=r['bounds'],spacing=r['spacing'],lattice_bounds=r['lattice_bounds'],
                                 max_distance=1.5*math.sqrt(sum(v*v for v in r['spacing']))) for r in plan['regions']]

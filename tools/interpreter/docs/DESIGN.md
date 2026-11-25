@@ -209,7 +209,7 @@ timers, VIF0 for VU0 programs).
 
 ## 7. Layout, build and dependencies
 
-`runtime/` is a top-level component like `editor/` ([LAYOUT.md](../../../docs/LAYOUT.md)).
+`runtime/` is a top-level component like `extractor/` ([LAYOUT.md](../../../docs/LAYOUT.md)).
 
 ```
 runtime/

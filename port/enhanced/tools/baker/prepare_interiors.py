@@ -15,7 +15,7 @@ sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / 
 from openrac_common import paths  # noqa: E402
 
 ROOT = paths.repo_root(__file__)
-sys.path.insert(0, str(ROOT / 'editor'))
+sys.path.insert(0, str(ROOT / 'extractor'))
 from disc import Disc, SECTOR
 from level import decoded
 from formats import unpack
@@ -74,7 +74,7 @@ def prepare(disc_path, level):
         section = info['ranges']['data']
         data = disc.sectors(section['lba'], section['sectors'])
         parts = []
-        for index in (2, 10):  # core index and core data, editor/level.py SECTION_NAMES
+        for index in (2, 10):  # core index and core data, extractor/level.py SECTION_NAMES
             offset, size = unpack('<ii', data, index * 8)
             parts.append(decoded(data[offset:offset+size]))
         index, core = parts

@@ -39,6 +39,12 @@ Attachment loads require defined contents; clear defines them and store-discard
 invalidates them. Read/write storage uses one combined declaration. Overlapping
 writes in one pass are rejected.
 
+`PlanCache::compile_borrowed` keeps a plan valid until the next use of that cache.
+`Imports::Rebind` permits equivalent imports to reuse a plan while updating allocation keys
+and handle ownership. Buffer read offsets may move only within defined allocations with no
+graph writes. Published shared plans retain their original imports. Vulkan raster passes
+whose visible inputs change compile into retained storage through `run_uncached`.
+
 Work passes can opt into culling with `Pass::cull_if_unused` when all outputs and effects
 are visible in the current graph. Exports and other work are roots. Compilation validates
 all declarations, then follows the producers of live image subresources and buffer ranges.

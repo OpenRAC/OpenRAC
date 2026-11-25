@@ -26,6 +26,12 @@
 
 #include <stdint.h>
 
+/* The display list's write pointer (g_dma_packet_cursor; the loaded program's copy): where the game's
+ * next packet goes, and so the frame recorder's place for what host C hands the window next
+ * (openrac/frame.h, openrac_frame_anchor_at). Nothing is written into the list. */
+#define RAC2_LIST_CURSOR OPENRAC_DATA(RAC2_ADDR(0x001B22A8u))
+#define rac2_anchor() openrac_frame_anchor_at(RAC2_LIST_CURSOR)
+
 /* The levels, by the game's own numbers (tools.c's names; NULL for a number with no program). */
 #define RAC2_LEVELS 31
 extern const char* const rac2_level_names[RAC2_LEVELS];
@@ -56,5 +62,8 @@ int rac2_mod_pause_label_text(int index);
 int rac2_mod_pause_help_text(int index);
 void rac2_mod_pause_page(int index, uint32_t page);
 uint32_t rac2_mod_pause_title(void);
+
+/* The level's collision triangles in a box (collision_triangles.c, openrac_api.collision_triangles). */
+int rac2_collision_triangles(const float lo[3], const float hi[3], void* out, int max);
 
 #endif /* OPENRAC_RAC2_H */

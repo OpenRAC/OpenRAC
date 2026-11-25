@@ -8,7 +8,7 @@ its callers rely on and names its sources in its docstring.
 A helper belongs here when at least two tools need it. No game knowledge beyond the layout of
 `games/<game>/game.json` and the PS2 disc format, and no game data.
 
-Used by `tools/`, `port/tools` (hostgen, versionmap, regress), the probe tools, `editor/` and
+Used by `tools/`, `port/tools` (hostgen, versionmap, regress), the probe tools, `extractor/` and
 `sdk/tools/`:
 
 | Module | Used by |
@@ -100,11 +100,11 @@ The rule, decided in P2-10:
   carries the package and the probe tools, but no `CONTRIBUTING.md`. Once the package is imported,
   `paths.repo_root(__file__)` finds the top of either kind of root, by `CONTRIBUTING.md` or `STANDALONE`.
 - **Second on the path.** `tools/` goes after the script's own folder, so a module of the script's
-  keeps its name when `tools/` holds one of the same (`editor/port.py` beside `tools/port.py`), and
+  keeps its name when `tools/` holds one of the same (`extractor/port.py` beside `tools/port.py`), and
   before the installed packages, so a module of `tools/` (`tools/mips.py`, which
   `port/tools/versionmap` imports) is not shadowed by an installed one.
 
-`port/tools/hostgen`, `versionmap`, `regress`, `port/enhanced/tools/baker`, `editor/` and
+`port/tools/hostgen`, `versionmap`, `regress`, `port/enhanced/tools/baker`, `extractor/` and
 `sdk/tools/` use it this way.
 
 ## Depends on
@@ -145,7 +145,7 @@ directories and a root directory longer than one sector), never read from a disc
 - characterisation: where an older copy of a helper is left, both must agree on the same input.
   Those left are `tools/openrac.py`'s `checksums`, `fcheck_gate.py`'s `fcheck_commit` and
   `sdk/tools/gen_binding.py`. hostgen's readers keep theirs in `port/tools/hostgen/test_tables.py`,
-  and the editor's stricter disc checks are tested in `editor/test_disc.py`. This checkout's own
+  and the editor's stricter disc checks are tested in `extractor/test_disc.py`. This checkout's own
   `port/game/*/libraries.tsv` are read too, for their headers. When a copy goes, its comparison
   goes with it.
 - the bootstrap: `paths.BOOTSTRAP` run from a script in a synthetic checkout and in a synthetic

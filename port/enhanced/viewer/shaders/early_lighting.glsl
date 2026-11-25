@@ -7,6 +7,9 @@ uniform samplerBuffer early_values;
 uniform usamplerBuffer early_guides;
 uniform mat4 early_projection;
 uniform vec2 early_extent;
+#ifdef OPENRAC_CLOUD_SHADOWS
+uniform int early_cloud_guides;
+#endif
 
 uniform vec2 gameplay_rim_parameters;  // Strength and edge falloff.
 uniform vec2 gameplay_rim_lift;  // Luminance exponent (one disables lift) and maximum gain.
@@ -46,17 +49,19 @@ vec3 early_decode_normal(uint bits) {
 
 // A single reconstruction path for every opaque receiver. Relative plane and
 // normal agreement chooses the represented surface even when depth quantization
-// shifts every candidate slightly; no pixel evaluates probes or cascades again.
+// shifts every candidate slightly. Empty neighborhoods use fragment lighting.
 bool early_surface(
     vec3 eye_position,
     vec3 normal_view,
     out vec4 result,
     out bool covered,
-    out float hero_visibility
+    out float hero_visibility,
+    out float cloudy_sun
 ) {
     result = vec4(0, 0, 0, 1);
     covered = false;
     hero_visibility = 1.0;
+    cloudy_sun = 1.0;
 #ifdef OPENRAC_EARLY_TRANSLUCENT
     // A blended fringe reads the lighting of the cached surface nearest its own (blended-early-light):
     // a hard cutoff to the original lighting showed as 4x4 bright blocks.
@@ -117,6 +122,9 @@ bool early_surface(
             best_coverage = covers;
         }
     }
+    if (present == 0) {
+        return false;
+    }
 #ifdef OPENRAC_EARLY_TRANSLUCENT
     // A fringe takes probe-covered lighting whenever a neighbour has it, not the original's.
     if (coverage != 0) {
@@ -125,6 +133,7 @@ bool early_surface(
 #endif
     result = vec4(0);
     hero_visibility = 0.0;
+    cloudy_sun = 0.0;
     float total = 0.0;
     for (int i = 0; i < 4; ++i) {
         // A candidate without a surface has a zero spatial weight.
@@ -146,10 +155,17 @@ bool early_surface(
         uint bits = texelFetch(early_guides, index * 2 + 1).r;
         result += sample_value * weight;
         hero_visibility += float((bits >> 20u) & 255u) / 255.0 * weight;
+#ifdef OPENRAC_CLOUD_SHADOWS
+        if (early_cloud_guides != 0 && cloud_shadow_shape.w > 0.0) {
+            int cloud_index = half_extent.x * half_extent.y * 2 + index;
+            cloudy_sun += float(texelFetch(early_guides, cloud_index).r) / 255.0 * weight;
+        }
+#endif
         total += weight;
     }
-    result = total > 0.0 ? result / total : vec4(0, 0, 0, 1);
-    hero_visibility = total > 0.0 ? hero_visibility / total : 1.0;
+    result /= total;
+    hero_visibility /= total;
+    cloudy_sun /= total;
     covered = best_coverage != 0;
     return true;
 }

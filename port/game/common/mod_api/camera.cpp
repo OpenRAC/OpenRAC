@@ -111,6 +111,7 @@ int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
     }
     if (g_camera_mod != nullptr && g_camera_loads != loads_now()) {
         g_camera_mod = nullptr;  // its level went, and the camera with it
+        release_camera_fov();
     }
     if (g_camera_mod != nullptr && g_camera_mod != mod) {
         return OPENRAC_HOOK_TAKEN;
@@ -119,6 +120,7 @@ int api_camera_set(openrac_mod* mod, const openrac_camera* camera) {
         if (g_camera_mod == mod) {
             g_play->camera_set(nullptr, nullptr);
             g_camera_mod = nullptr;
+            release_camera_fov();
         }
         return OPENRAC_HOOK_OK;
     }
@@ -154,6 +156,15 @@ int api_camera_shake(openrac_mod* mod, int channel, float amplitude, int frames)
     }
     return g_play->camera_shake(channel, amplitude, frames) != 0 ? OPENRAC_HOOK_OK
                                                                  : OPENRAC_HOOK_UNKNOWN;
+}
+
+int api_camera_fov(openrac_mod* mod, float degrees) {
+    if (mod == nullptr || g_camera_mod != mod || g_camera_loads != loads_now()
+        || !std::isfinite(degrees) || (degrees != 0.0f && (degrees < 1.0f || degrees > 150.0f))) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    set_camera_fov(degrees);
+    return OPENRAC_HOOK_OK;
 }
 
 }  // namespace openrac::mods::detail

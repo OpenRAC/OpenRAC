@@ -323,6 +323,134 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// The hero's whole update each tick: his animation, the stick, ledges, grind rails, his state machine, his moby and what he holds. Each group of levels has its own copy; together they are one hook point. A ship or vehicle update runs in its place while one drives him (hero +0x22B4). A replacement that skips the original moves him itself and shows him with openrac_api.hero_set_pose.
+struct Hero_Update {
+    static constexpr const char* id = "rac2.player.update";
+    static constexpr const char* name = "Hero_Update";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Counts the platinum bolts recorded in the save. A replacement can return received currency independently of physical pickups.
+struct PlatinumBolts_CountTotal {
+    static constexpr const char* id = "rac2.collectibles.platinum_count";
+    static constexpr const char* name = "PlatinumBolts_CountTotal";
+    static constexpr const char* signature = "i32()";
+    using fn = int32_t (*)();
+};
+
+// Recounts nanotech and weapon collection progress from inventory; mods can separate pickup flags from received ownership.
+struct Hero_UpdateCollectionProgress {
+    static constexpr const char* id = "rac2.hero.update_collection_progress";
+    static constexpr const char* name = "Hero_UpdateCollectionProgress";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Serializes live game state to the save packet at output. Inventory substitutions made by a mod must be restored before calling the original.
+struct Save_Serialize {
+    static constexpr const char* id = "rac2.save.serialize";
+    static constexpr const char* name = "Save_Serialize";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Resets game data from disc defaults for a new campaign, before its starting level is entered.
+struct Save_NewGame {
+    static constexpr const char* id = "rac2.save.new_game";
+    static constexpr const char* name = "Save_NewGame";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// Updates the Endako rescue sequence that returns Clank and the Swingshot.
+struct Moby_EndakoRescue_Update {
+    static constexpr const char* id = "rac2.moby.endako_rescue.update";
+    static constexpr const char* name = "Moby_EndakoRescue_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Updates the Tabora controller, including its wrench reward.
+struct Moby_TaboraWrench_Update {
+    static constexpr const char* id = "rac2.moby.tabora_wrench.update";
+    static constexpr const char* name = "Moby_TaboraWrench_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Initializes the Aranos prison wrench pickup.
+struct Moby_PrisonWrench_Init {
+    static constexpr const char* id = "rac2.moby.prison_wrench.init";
+    static constexpr const char* name = "Moby_PrisonWrench_Init";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Updates the Todano trader and his reward exchange.
+struct Moby_TodanoTrader_Update {
+    static constexpr const char* id = "rac2.moby.todano_trader.update";
+    static constexpr const char* name = "Moby_TodanoTrader_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Updates the Aranos plumber and his reward. The game declaration takes a signed 32-bit moby address.
+struct Moby_PrisonPlumber_Update {
+    static constexpr const char* id = "rac2.moby.prison_plumber.update";
+    static constexpr const char* name = "Moby_PrisonPlumber_Update";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
+// Updates the Aranos prison controller, including inventory restoration.
+struct Moby_PrisonController_Update {
+    static constexpr const char* id = "rac2.moby.prison_controller.update";
+    static constexpr const char* name = "Moby_PrisonController_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Updates the Siberius thief sequence and its progression state.
+struct Moby_SiberiusThief_Update {
+    static constexpr const char* id = "rac2.moby.siberius_thief.update";
+    static constexpr const char* name = "Moby_SiberiusThief_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Updates the Boldan cutscene trigger and its temporary inventory state.
+struct Moby_BoldanCutscene_Update {
+    static constexpr const char* id = "rac2.moby.boldan_cutscene.update";
+    static constexpr const char* name = "Moby_BoldanCutscene_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Updates the Hypnomatic part pickup on Damosel.
+struct Moby_HypnomaticPart_Update {
+    static constexpr const char* id = "rac2.moby.hypnomatic_part.update";
+    static constexpr const char* name = "Moby_HypnomaticPart_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
+// Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
+struct Moby_CountKill {
+    static constexpr const char* id = "rac2.combat.count_kill";
+    static constexpr const char* name = "Moby_CountKill";
+    static constexpr const char* signature = "void(u32,i32)";
+    using fn = void (*)(uint32_t, int32_t);
+};
+
+// Processes the extras menu and returns its menu result.
+struct Menu_Extras {
+    static constexpr const char* id = "rac2.menu.extras";
+    static constexpr const char* name = "Menu_Extras";
+    static constexpr const char* signature = "i32()";
+    using fn = int32_t (*)();
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -336,10 +464,17 @@ namespace hooks {
         using spawn_pickup = rac2::Bolt_SpawnPickup;
         using spawn_pickups = rac2::Bolt_SpawnPickups;
     }  // namespace bolt
+    namespace collectibles {
+        using platinum_count = rac2::PlatinumBolts_CountTotal;
+    }  // namespace collectibles
     namespace combat {
+        using count_kill = rac2::Moby_CountKill;
         using get_hit = rac2::Moby_GetHitMessage;
         using post_hit = rac2::Moby_PostHit;
     }  // namespace combat
+    namespace hero {
+        using update_collection_progress = rac2::Hero_UpdateCollectionProgress;
+    }  // namespace hero
     namespace item {
         using colors = rac2::Item_Colors;
         using equip = rac2::Item_Equip;
@@ -350,7 +485,13 @@ namespace hooks {
     namespace level {
         using load = rac2::Level_Load;
     }  // namespace level
+    namespace menu {
+        using extras = rac2::Menu_Extras;
+    }  // namespace menu
     namespace moby {
+        namespace boldan_cutscene {
+            using update = rac2::Moby_BoldanCutscene_Update;
+        }  // namespace boldan_cutscene
         namespace box_breaker_pickup {
             using update = rac2::Moby_BoxBreakerPickup_Update;
         }  // namespace box_breaker_pickup
@@ -360,12 +501,18 @@ namespace hooks {
         namespace dynamo_pickup {
             using update = rac2::Moby_DynamoPickup_Update;
         }  // namespace dynamo_pickup
+        namespace endako_rescue {
+            using update = rac2::Moby_EndakoRescue_Update;
+        }  // namespace endako_rescue
         namespace glider_pickup {
             using update = rac2::Moby_GliderPickup_Update;
         }  // namespace glider_pickup
         namespace hypnomatic_maker {
             using update = rac2::Moby_HypnomaticMaker_Update;
         }  // namespace hypnomatic_maker
+        namespace hypnomatic_part {
+            using update = rac2::Moby_HypnomaticPart_Update;
+        }  // namespace hypnomatic_part
         namespace levitator_seller {
             using update = rac2::Moby_LevitatorSeller_Update;
         }  // namespace levitator_seller
@@ -375,19 +522,37 @@ namespace hooks {
         namespace nanotech_ball {
             using update = rac2::Moby_NanotechBall_Update;
         }  // namespace nanotech_ball
+        namespace prison_controller {
+            using update = rac2::Moby_PrisonController_Update;
+        }  // namespace prison_controller
+        namespace prison_plumber {
+            using update = rac2::Moby_PrisonPlumber_Update;
+        }  // namespace prison_plumber
+        namespace prison_wrench {
+            using init = rac2::Moby_PrisonWrench_Init;
+        }  // namespace prison_wrench
         namespace race_controller {
             using update = rac2::Moby_RaceController_Update;
         }  // namespace race_controller
         using record_death = rac2::Moby_RecordDeath;
+        namespace siberius_thief {
+            using update = rac2::Moby_SiberiusThief_Update;
+        }  // namespace siberius_thief
         namespace swingshot_area {
             using update = rac2::Moby_SwingshotArea_Update;
         }  // namespace swingshot_area
+        namespace tabora_wrench {
+            using update = rac2::Moby_TaboraWrench_Update;
+        }  // namespace tabora_wrench
         namespace thermanator_area {
             using update = rac2::Moby_ThermanatorArea_Update;
         }  // namespace thermanator_area
         namespace thermanator_seller {
             using update = rac2::Moby_ThermanatorSeller_Update;
         }  // namespace thermanator_seller
+        namespace todano_trader {
+            using update = rac2::Moby_TodanoTrader_Update;
+        }  // namespace todano_trader
         namespace tractor_beam_seller {
             using update = rac2::Moby_TractorBeamSeller_Update;
         }  // namespace tractor_beam_seller
@@ -399,7 +564,12 @@ namespace hooks {
         using approach_speed = rac2::Hero_ApproachSpeed;
         using nanotech_steps = rac2::Hero_NanotechSteps;
         using take_damage = rac2::Hero_TakeDamage;
+        using update = rac2::Hero_Update;
     }  // namespace player
+    namespace save {
+        using new_game = rac2::Save_NewGame;
+        using serialize = rac2::Save_Serialize;
+    }  // namespace save
     namespace text {
         using by_id = rac2::Text_ById;
     }  // namespace text

@@ -140,6 +140,7 @@ if(ANDROID)
 endif()
 openrac_warnings(openrac_common)
 
+openrac_add_test(mod_play_queries INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/../sdk/include")
 openrac_add_test(log LIBS openrac_common)
 if(WIN32 AND CMAKE_BUILD_TYPE MATCHES "^(Debug|RelWithDebInfo)$")
   openrac_add_test(crash_symbols LIBS openrac_common)
@@ -211,6 +212,11 @@ openrac_add_test(exit_words INCLUDES .)
 openrac_add_test(menu_fit INCLUDES .)
 # Which undrawn ticks keep the window's last picture (game/common/program/undrawn_ticks.h).
 openrac_add_test(undrawn_ticks INCLUDES .)
+# Which display lists one picture draws when the game's picture spans its sends
+# (game/common/program/picture_lists.h).
+openrac_add_test(picture_lists INCLUDES .)
+# The split-screen views each moby is drawn in (game/common/frontend/view_mobys.h).
+openrac_add_test(view_mobys INCLUDES .)
 # The mobys' colour passes and their depth writes (scene/moby_passes.h).
 openrac_add_test(moby_passes INCLUDES .)
 # How each tick's frames start: cleared, the last picture, or under the tick's 2D
@@ -287,6 +293,13 @@ openrac_add_test(cdvd_mount
 openrac_add_test(custom_map
   SOURCES tests/custom_map_test.cpp game/common/program/custom_map.cpp
   INCLUDES game/common LIBS openrac_common)
+# The 2D layer's sharper cells (renderer/textures/sharp_cells.h), a library of their own: the
+# renderer draws from them, and the built-ins and the mods' interface (openrac_api.sharp_cells) set
+# them, in builds without a window too.
+add_library(openrac_sharp_cells STATIC renderer/textures/sharp_cells.cpp)
+target_include_directories(openrac_sharp_cells PUBLIC .)
+openrac_warnings(openrac_sharp_cells)
+
 include(Luau)
 add_library(openrac_mods STATIC
   game/common/button_labels.cpp
@@ -316,7 +329,7 @@ add_library(openrac_mods STATIC
 )
 target_include_directories(openrac_mods PUBLIC game/common game/common/include "${PROJECT_SOURCE_DIR}/../sdk/include")
 target_link_libraries(openrac_mods PUBLIC openrac_runtime ${CMAKE_DL_LIBS}
-                      PRIVATE openrac_luau)
+                      PRIVATE openrac_luau openrac_sharp_cells)
 openrac_warnings(openrac_mods)
 
 openrac_add_test(mod_manifest LIBS openrac_mods)
@@ -335,7 +348,7 @@ add_test(NAME rac1_shared COMMAND rac1_shared_test)
 # loader with hook points of the test's own; test-old is built for interface 1.5, as a mod made
 # before the snapshot calls is.
 add_executable(mod_loader_test tests/mod_loader_test.cpp)
-target_link_libraries(mod_loader_test PRIVATE openrac_mods)
+target_link_libraries(mod_loader_test PRIVATE openrac_mods openrac_sharp_cells)
 foreach(which a b old current)
   add_library(mod_loader_test_${which} MODULE tests/mod_loader_test_mod.c)
   target_include_directories(mod_loader_test_${which} PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")
@@ -370,6 +383,9 @@ openrac_add_test(mod_boundary LIBS openrac_mods)
 openrac_add_test(mod_visuals LIBS openrac_mods)
 # A mod's material on one moby (interface 1.23): the call, the renderer's list and when it ends.
 openrac_add_test(mod_material LIBS openrac_mods)
+# The 2D layer's sharper cells of several owners (renderer/textures/sharp_cells.h): the built-ins'
+# and each mod's pages kept apart and drawn together.
+openrac_add_test(sharp_cells LIBS openrac_sharp_cells)
 
 # The bindings the generator writes are what their tables give, and the tables' hook points the
 # hook rows of every disc's libraries.tsv.
@@ -390,6 +406,7 @@ openrac_add_c_test(rac4_io
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
 openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
+openrac_add_c_test(guest_format INCLUDES . runtime/include game/common/include LIBS openrac_runtime)
 # The other games' saves on the first card: read, never written (the Barlow vendor's free weapons).
 openrac_add_c_test(mc_shared_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
 
@@ -514,6 +531,7 @@ openrac_add_c_test(save_parts INCLUDES "${PROJECT_SOURCE_DIR}/../sdk/include")
 openrac_add_c_test(rac2_effect_attachment INCLUDES game/rac2/host runtime/include)
 openrac_add_c_test(rac2_hero_attachments INCLUDES game/rac2/host)
 openrac_add_c_test(rac2_gh_fixes MATH)
+openrac_add_c_test(rac2_bolt_totals)
 # Going Commando's enemy copies for the mods (moby_copy_check, moby_copy) on a level laid out as
 # LoadLevelData leaves one.
 openrac_add_c_test(rac2_enemy_copies NO_STRICT_ALIASING MATH
@@ -533,6 +551,10 @@ openrac_add_c_test(rac2_save INCLUDES game/rac2/host
 # Up Your Arsenal's saves as the play calls read them, on a slot the game wrote.
 openrac_add_c_test(rac3_save INCLUDES game/rac3-pal/host
   DEFINITIONS "RAC3_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac3/save-empty.bin\"")
+# Up Your Arsenal's multiplayer images as each copy of SendImage hands them over, let go with the
+# executable, and its 2D screen from the frame block a split-screen view does not move.
+openrac_add_c_test(rac3_mp_images NO_STRICT_ALIASING
+  INCLUDES game/common/include runtime/include game/rac3-pal/host)
 # The card filter against the game's calls on a real folder: a party never writes a player's saves.
 openrac_add_c_test(mc_filter SOURCES tests/mc_filter_test.c game/common/lib/mc.c
                    INCLUDES game/common/include runtime/include)
@@ -549,7 +571,7 @@ if(OPENRAC_PORT_WINDOW)
     gtao gtao_depth gtao_horizon local_lights moby_energy_shader moby_obsidian_shader
     moby_platinum_shader
     precise_depth probe_compression_gpu probe_depth_gpu probe_gpu probe_sphere_culling
-    program_cache render_equivalence_support render_opt shadow_graph sun_shadow
+    program_cache render_equivalence_support render_opt shader_error shadow_graph sun_shadow
     surface_normals texture_blocks_gl texture_filter tracy_vulkan vulkan_buffer
     vulkan_failure vulkan_hdr vulkan_prewarm vulkan_uniform water_gpu water_runtime wetness_gpu
   )

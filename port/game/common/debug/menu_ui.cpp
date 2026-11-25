@@ -679,7 +679,8 @@ int slider_row(
     int maximum,
     int step,
     const std::string& text,
-    bool* label_pressed
+    bool* label_pressed,
+    bool enabled = true
 ) {
     // The choice rows' column, so that the arrows line up with theirs.
     const float column = std::min(s.card.width * 0.48f, dp(190.0f));
@@ -696,19 +697,23 @@ int slider_row(
         track_left = left + arrow_room;
         track_right = right.x - arrow_room - text_room;
         const ImU32 off = ui_colors::fade(ui().dim, 0.35f);
-        arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, value > minimum ? ui().amber : off);
-        arrow(list, ImVec2(right.x, right.y), 1.0f, 0.0f, value < maximum ? ui().amber : off);
+        // Greyed out, as a disabled choice: dim arrows, knob and value.
+        const ImU32 accent = enabled ? ui().amber : ui().dim;
+        arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, enabled && value > minimum ? accent : off);
+        arrow(
+            list, ImVec2(right.x, right.y), 1.0f, 0.0f, enabled && value < maximum ? accent : off
+        );
         const float fraction =
             static_cast<float>(value - minimum) / static_cast<float>(maximum - minimum);
         const ImVec2 start(track_left, right.y);
         const ImVec2 knob(std::lerp(track_left, track_right, fraction), right.y);
         list->AddLine(start, ImVec2(track_right, right.y), ui().line_strong, dp(3.0f));
-        list->AddLine(start, knob, ui().amber, dp(3.0f));
+        list->AddLine(start, knob, accent, dp(3.0f));
         // The knob grows while a finger holds it, so that it shows beside the finger what moves.
         const bool held = s.slider_held && ImGui::IsItemActive();
         const float big = tween(item_part("knob"), held ? 1.0f : 0.0f, kFast);
         const float radius = touch ? dp(7.0f) : dp(5.0f);
-        list->AddCircleFilled(knob, radius + dp(4.0f) * big, ui().amber);
+        list->AddCircleFilled(knob, radius + dp(4.0f) * big, accent);
         list->AddText(
             centred_text(
                 ImGui::GetFont(),
@@ -716,13 +721,18 @@ int slider_row(
                 text,
                 ImVec2(track_right + text_room * 0.5f + dp(4.0f), right.y)
             ),
-            ui().gold,
+            enabled ? ui().gold : ui().dim,
             text.c_str()
         );
     };
     g_quiet_row = true;
-    const bool pressed = menu_row(label, ui().text, draw, column + dp(8.0f));
+    ImGui::BeginDisabled(!enabled);
+    const bool pressed = menu_row(label, enabled ? ui().text : ui().dim, draw, column + dp(8.0f));
+    ImGui::EndDisabled();
     g_quiet_row = false;
+    if (!enabled) {
+        return value;
+    }
 
     const ImGuiIO& io = ImGui::GetIO();
     const auto at_pointer = [&] {
@@ -788,8 +798,12 @@ int slider_row(
 }
 }  // namespace
 
-int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step) {
-    return slider_row(label, value, minimum, maximum, step, std::format("{}%", value), nullptr);
+int menu_percent_slider(
+    const char* label, int value, int minimum, int maximum, int step, bool enabled
+) {
+    return slider_row(
+        label, value, minimum, maximum, step, std::format("{}%", value), nullptr, enabled
+    );
 }
 
 int menu_number_slider(

@@ -149,10 +149,13 @@ constexpr std::uint32_t kMobyClass = 0xAA;
 
 // Nanotech is callback-only geometry (seen in game code: func_003146C0).
 constexpr std::int32_t kNanotechClass = 806;
+// The Shield Charger's and the Tesla Barrier's moby (weapon_culling.c's classes).
+constexpr std::int32_t kShieldChargerClass = 2652;
+constexpr std::int32_t kTeslaBarrierClass = 4498;
 
 // Ratchet's class holds only his skeleton: the game loads his packets and textures over it from a
 // pack of the disc, the armour's unless one of four flags names another (func_00292078). The export
-// has each pack past the first as a class of its own (editor/moby_class.py, HERO_LOOK_CLASSES).
+// has each pack past the first as a class of its own (extractor/moby_class.py, HERO_LOOK_CLASSES).
 // He wears the last loaded armour (0x001A7290), not the owned one (0x001A7A18): the vendor
 // loads the armour under the cursor.
 constexpr std::int32_t kHeroLookClasses = 6000;
@@ -174,19 +177,19 @@ std::int32_t wrench_class(std::int32_t pack) {
 
 // His ship's hull is loaded over class 3412 on each load, by the hull he has (func_002925F0, which
 // keeps its number at +0x18 of 0x00152C00). The export has hull 0 as the class and the others as
-// classes of their own (editor/moby_class.py, SHIP_BODY_CLASSES).
+// classes of their own (extractor/moby_class.py, SHIP_BODY_CLASSES).
 constexpr std::int32_t kShipClass = 3412;
 constexpr std::int32_t kShipBodyClasses = 6030;
 constexpr std::int32_t kShipBodies = 3;
 // And its picture, one of 18 paint jobs, by func_002926B8, which keeps its number at +0x30
-// (editor/port.py's "ship_paints").
+// (extractor/port.py's "ship_paints").
 constexpr std::int32_t kShipPaints = 18;
 
 // A class's bangles: parts of its mesh past its LOD lists, which a moby draws by the bits of its
 // bangle word (+0x7C, an s16; MobyProc, func_002A4E68 at 0x2A5E78): bit 15 clear, the class's mesh
 // and the bangles of the bits set; set, those bangles alone (bangle 0 for none). A broken crate's
 // pieces and a destroyed enemy's are mobys of a class drawn so, one bit each. The export has each
-// bangle as a class of its own (editor/moby_class.py, BANGLE_CLASSES).
+// bangle as a class of its own (extractor/moby_class.py, BANGLE_CLASSES).
 constexpr std::uint32_t kMobyBangles = 0x7C;
 constexpr int kBangleClasses = 100000;
 constexpr int kBangles = 15;
@@ -229,9 +232,10 @@ std::int32_t hero_class(std::span<const std::uint8_t> ram, const Release& r) {
     return look > 0 && look <= 8 ? kHeroLookClasses + look : -1;
 }
 
-// Captures the position used by nanotech's callback without inventing a renderable moby mesh.
-std::optional<host::LiveMoby> nanotech_anchor(
-    std::uint32_t address, const renderer::Vec3& position
+// Captures the position used by a callback-only moby's draw (nanotech's, the shield's) without
+// inventing a renderable moby mesh.
+std::optional<host::LiveMoby> position_anchor(
+    std::uint32_t address, std::int32_t class_id, const renderer::Vec3& position
 ) {
     // Invalid positions cannot provide a finite interpolation anchor.
     if (!std::all_of(position.begin(), position.end(), [](float value) {
@@ -242,7 +246,7 @@ std::optional<host::LiveMoby> nanotech_anchor(
 
     host::LiveMoby anchor;
     anchor.address = address;
-    anchor.class_id = kNanotechClass;
+    anchor.class_id = class_id;
     anchor.model_only = true;
     // The callback uses world position and camera axes (seen in game code: func_003146C0).
     anchor.matrix = renderer::translation(position);
@@ -280,12 +284,16 @@ std::optional<host::LiveMoby> read_live_moby(
     const std::int16_t class_id = at<std::int16_t>(ram, m + kMobyClass);
     // Callback-only nanotech has no mesh axes or scale (measured: Siberius floating orb).
     if (class_id == kNanotechClass) {
-        return nanotech_anchor(m, pos);
+        return position_anchor(m, class_id, pos);
     }
+    // The shield's moby (tesla_barrier_update, func_L00_003C3D90) is placed on the hero each tick
+    // and drawn by its callback alone: when its axes were never built, its position still anchors
+    // the shield's strips (host/draw_owner.h's rac2_strip_anchor_of).
+    const bool shield = class_id == kShieldChargerClass || class_id == kTeslaBarrierClass;
 
     const float scale = at<float>(ram, m + 0x2C);
     if (!std::isfinite(pos[0]) || !std::isfinite(scale) || scale <= 0.0f || scale > 1000.0f) {
-        return std::nullopt;
+        return shield ? position_anchor(m, class_id, pos) : std::nullopt;
     }
     host::LiveMoby live;
     live.address = m;
@@ -307,7 +315,8 @@ std::optional<host::LiveMoby> read_live_moby(
                && r[0] * r[0] + r[1] * r[1] + r[2] * r[2] > 1.0e-6f;
     };
     if (!usable(r0) || !usable(r1) || !usable(r2)) {
-        return std::nullopt;  // Not built since it was made: nothing to place it by.
+        // Not built since it was made: nothing to place it by, but the shield's position.
+        return shield ? position_anchor(m, class_id, pos) : std::nullopt;
     }
     live.matrix =
         {r0[0] * scale,

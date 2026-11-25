@@ -281,6 +281,10 @@
    "is": "func_0012ACC8",
    "why": "the same instructions, the only place they occur"
   },
+  "func_0012B610": {
+   "is": "func_0012B610",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_0012B8B8": {
    "is": "func_0012B8B8",
    "why": "the same instructions, the only place they occur"
@@ -1201,6 +1205,10 @@
    "is": "func_00193390",
    "why": "the same instructions, the only place they occur"
   },
+  "func_00193368": {
+   "is": "func_00193458",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_00193590": {
    "is": "func_00193680",
    "why": "the same instructions, the only place they occur"
@@ -1229,21 +1237,49 @@
    "is": "func_00193CA0",
    "why": "the same instructions, the only place they occur"
   },
+  "func_00193BE8": {
+   "is": "func_00193CD8",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_00193C60": {
    "is": "func_00193D50",
-   "why": "the same instructions (3 places), at the distance the nearest paired function 0x00193BB0 moved by (+0xf0)"
+   "why": "the same instructions (3 places), at the distance the nearest paired function 0x00193CA8 moved by (+0xf0)"
+  },
+  "func_00193CA8": {
+   "is": "func_00193D98",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00193CE8": {
+   "is": "func_00193DD8",
+   "why": "the same instructions (3 places), at the distance the nearest paired function 0x00193CA8 moved by (+0xf0)"
+  },
+  "func_00193D38": {
+   "is": "func_00193E28",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193CA8 moved by (+0xf0)"
+  },
+  "func_00193D98": {
+   "is": "func_00193E88",
+   "why": "the same instructions (3 places), at the distance the nearest paired function 0x00193E80 moved by (+0xf0)"
   },
   "func_00193DF0": {
    "is": "func_00193EE0",
-   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193F90 moved by (+0xf0)"
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193E80 moved by (+0xf0)"
   },
   "func_00193E20": {
    "is": "func_00193F10",
-   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193F90 moved by (+0xf0)"
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193E80 moved by (+0xf0)"
   },
   "func_00193E50": {
    "is": "func_00193F40",
-   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193F90 moved by (+0xf0)"
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193E80 moved by (+0xf0)"
+  },
+  "func_00193E80": {
+   "is": "func_00193F70",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00193F08": {
+   "is": "func_00193FF8",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00193E80 moved by (+0xf0)"
   },
   "func_00193F90": {
    "is": "func_00194080",
@@ -1253,12 +1289,28 @@
    "is": "func_001942B0",
    "why": "the same instructions, the only place they occur"
   },
+  "func_00194678": {
+   "is": "func_00194768",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194730": {
+   "is": "func_00194820",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194768": {
+   "is": "func_00194858",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_00194858": {
    "is": "func_00194948",
    "why": "the same instructions (2 places), at the distance the nearest paired function 0x00194918 moved by (+0xf0)"
   },
   "func_00194888": {
    "is": "func_00194978",
+   "why": "the same instructions (2 places), at the distance the nearest paired function 0x00194918 moved by (+0xf0)"
+  },
+  "func_001948B8": {
+   "is": "func_001949A8",
    "why": "the same instructions (2 places), at the distance the nearest paired function 0x00194918 moved by (+0xf0)"
   },
   "func_001948E8": {
@@ -1293,6 +1345,10 @@
    "is": "func_00194C78",
    "why": "the same instructions, the only place they occur"
   },
+  "func_00194BC8": {
+   "is": "func_00194CB8",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_00194C08": {
    "is": "func_00194CF8",
    "why": "the same instructions, the only place they occur"
@@ -1301,8 +1357,24 @@
    "is": "func_00194D30",
    "why": "the same instructions, the only place they occur"
   },
+  "func_00194CC8": {
+   "is": "func_00194DB8",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_00194D08": {
    "is": "func_00194DF8",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194D40": {
+   "is": "func_00194E30",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194D68": {
+   "is": "func_00194E58",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_00194DA0": {
+   "is": "func_00194E90",
    "why": "the same instructions, the only place they occur"
   },
   "func_00194DC8": {
@@ -1429,6 +1501,10 @@
    "is": "func_00285358",
    "why": "the same instructions, the only place they occur"
   },
+  "func_00285660": {
+   "is": "func_002856A0",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_00287A18": {
    "is": "func_002879E0",
    "why": "the same instructions, the only place they occur"
@@ -1467,6 +1543,10 @@
    "is": "0x001FC830",
    "why": "the same instruction of the same code: func 0x00195010 (NTSC-U 0x00195100) +0x10, 1 of 1 places agree"
   },
+  "0x00228580": {
+   "is": "0x00228700",
+   "why": "the same instruction of the same code: func 0x00299218 (NTSC-U 0x002991F8) +0xC, 1 of 1 places agree"
+  },
   "0x00240290": {
    "is": "0x00240410",
    "why": "the same instruction of the same code: func 0x00192D18 (NTSC-U 0x00192E08) +0x254, 2 of 2 places agree"
@@ -1474,10 +1554,6 @@
   "0x00240310": {
    "is": "0x00240490",
    "why": "the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 21 of 21 places agree"
-  },
-  "0x00240B80": {
-   "is": "0x00240D00",
-   "why": "the same instruction of the same code: func 0x00193590 (NTSC-U 0x00193680) +0x4, 12 of 12 places agree"
   },
   "0x00241A00": {
    "is": "0x00241B80",
@@ -1497,7 +1573,7 @@
   },
   "0x002446A8": {
    "is": "0x002448A8",
-   "why": "the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 141 of 141 places agree"
+   "why": "the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 153 of 153 places agree"
   },
   "0x0027B100": {
    "is": "0x0027B200",
@@ -1508,10 +1584,6 @@
    "why": "the end of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200, 0x257C8 bytes)"
   },
   "0x001959F8": {
-   "is": null,
-   "why": "no instruction of the same code forms it"
-  },
-  "0x00230000": {
    "is": null,
    "why": "no instruction of the same code forms it"
   },
@@ -1793,6 +1865,10 @@
    "is": "func_L39_0059BFD8",
    "why": "the same instructions, the only place they occur"
   },
+  "func_L39_0059D6B0": {
+   "is": "func_L39_0059C320",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_L39_0059ECB8": {
    "is": "func_L39_0059D050",
    "why": "the same instructions, the only place they occur"
@@ -1815,6 +1891,10 @@
   },
   "func_L39_005AA510": {
    "is": "func_L39_005A8630",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005ACFD0": {
+   "is": "func_L39_005AB0D0",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_005AD2B0": {
@@ -2039,6 +2119,10 @@
   },
   "func_L39_0067CEA0": {
    "is": "func_L39_0067A390",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_0067CED8": {
+   "is": "func_L39_0067A3C8",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_00682028": {

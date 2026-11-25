@@ -34,12 +34,13 @@ typedef struct openrac_game_ui_image {
 /* openrac_game_ui_item::flags: a glyph of text, drawn from the page's distance field, sharp; no
  * image, the colours alone; shaded between the corners' colours, else each triangle flat in the
  * colour of its last corner (2, then 3); cut to `clip`; the image sampled texel by texel, not
- * filtered. */
+ * filtered; the image repeated past its edges (texel coordinates wrap), else held at them. */
 #define OPENRAC_UI_GLYPH 1u
 #define OPENRAC_UI_FLAT 2u
 #define OPENRAC_UI_SHADED 4u
 #define OPENRAC_UI_CLIP 8u
 #define OPENRAC_UI_NEAREST 16u
+#define OPENRAC_UI_REPEAT 32u
 
 /* A quad of the 2D layer: four corners in strip order (0-1-2, 1-2-3) in the game's screen pixels,
  * from the top left of the screen the game draws its 2D in (`screen_width` x `screen_height`: 512 x
@@ -54,6 +55,12 @@ typedef struct openrac_game_ui_item {
     float screen_height;
     uint32_t flags;
     openrac_game_ui_image image;
+    /* The HUD's placement, when the item is part of it (place nonzero): the items of one placement
+     * (the same `place`) that overlap are one element, and an element whose middle lies past the
+     * middle third of the screen goes out `side` pixels to that side (the HUD at the sides of a
+     * wider picture). 0: drawn where it is. */
+    float side;
+    uint32_t place;
 } openrac_game_ui_item;
 
 #ifdef __cplusplus

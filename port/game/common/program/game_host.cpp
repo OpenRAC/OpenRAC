@@ -41,6 +41,7 @@
 #include "mods.h"
 #include "openrac/guest.h"
 #include "openrac/memory.h"
+#include "openrac/picture.h"
 #include "program/program.h"
 
 #ifdef OPENRAC_FRONTEND
@@ -182,6 +183,10 @@ void openrac_game_draw(unsigned layers) {
         g_draws |= layers;
         g_reports_draws = true;
 #ifdef OPENRAC_FRONTEND
+        // In a split-screen view: the layers that player's world has.
+        if (g_window) {
+            frontend::recorder::view_layers(layers);
+        }
         // The world's terrain: the camera it is drawn with is the frame's world camera.
         if (g_window && (layers & OPENRAC_DRAW_TERRAIN) != 0) {
             const auto* ram = runtime::Memory::get().base();
@@ -233,7 +238,11 @@ void openrac_game_dma_send(gaddr channel, gaddr tag) {
         // the frame ends here, with the vertical blank's handlers, as if the hardware had done it.
         if (channel == 0x10009000u) {
             if (!g_vsync_since_kick) {
+                // Unless the game said its picture spans its sends: then the blank's work runs for
+                // the game, and the window draws the picture's lists at the blank it waits for.
+                g_send_within_picture = g_picture_lists.send_within(g_chain);
                 openrac_game_vsync();
+                g_send_within_picture = false;
                 openrac_game_run_vsync_handlers();
                 openrac_game_tick_boundary();
             }
@@ -246,6 +255,10 @@ void openrac_game_dma_send(gaddr channel, gaddr tag) {
 
         log::debug("frame {}: DMA chain at {:#010x} to channel {:#010x}", g_frame, tag, channel);
     });
+}
+
+void openrac_game_picture_spans_sends(void) {
+    c_boundary::call("openrac_game_picture_spans_sends", [] { g_picture_lists.span_sends(); });
 }
 
 void openrac_game_set_display(const openrac_game_display* d) {
@@ -487,6 +500,12 @@ int openrac_game_rac1_weapon_hud_icon(int native_icon) {
 int openrac_game_ammo_panel_offset(int handle, int* x, int* y) {
     return c_boundary::call("openrac_game_ammo_panel_offset", 0, [&]() -> int {
         return x != nullptr && y != nullptr && mods::ammo_panel_offset(handle, *x, *y);
+    });
+}
+
+int openrac_game_hud_hidden(void) {
+    return c_boundary::call("openrac_game_hud_hidden", 0, [&]() -> int {
+        return mods::hud_hidden() ? 1 : 0;
     });
 }
 
@@ -848,14 +867,27 @@ void openrac_frame_end(void) {
     OPENRAC_RECORD("openrac_frame_end", end());
 }
 
+void openrac_frame_list_begin(gaddr root) {
+    OPENRAC_RECORD("openrac_frame_list_begin", list_begin(openrac_frame_ram_cursor(root)));
+    (void)root;
+}
+
 void openrac_frame_anchor(gaddr list_cursor) {
     OPENRAC_RECORD("openrac_frame_anchor", anchor(list_cursor));
     (void)list_cursor;
 }
 
 void openrac_frame_world(unsigned layers) {
-    OPENRAC_RECORD("openrac_frame_world", world(layers));
-    (void)layers;
+    c_boundary::call("openrac_frame_world", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            frontend::recorder::world(layers);
+            // In a split-screen view: the camera its world is drawn with.
+            frontend::recorder::view_camera(game_ram());
+        }
+#endif
+        (void)layers;
+    });
 }
 
 void openrac_frame_world_mobys(void) {
@@ -904,11 +936,52 @@ void openrac_frame_effect_quad(uint32_t marker) {
     (void)marker;
 }
 
+int openrac_frame_native(void) {
+    return c_boundary::call("openrac_frame_native", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return frontend::recorder::drawing() ? 1 : 0;
+        }
+#endif
+        return 0;
+    });
+}
+
 void openrac_frame_fill(const float* rect, uint32_t rgba, int blend) {
     OPENRAC_RECORD("openrac_frame_fill", fill(rect, rgba, blend));
     (void)rect;
     (void)rgba;
     (void)blend;
+}
+
+int openrac_frame_fill_depth(
+    const float* rect,
+    uint32_t rgba,
+    int blend,
+    uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+) {
+    return c_boundary::call("openrac_frame_fill_depth", 0, [&]() -> int {
+#ifdef OPENRAC_FRONTEND
+        // Only a window records it; without one the caller keeps the game's own drawing.
+        if (g_window) {
+            const bool drawn = frontend::recorder::fill_depth(
+                rect, rgba, blend, depth, depth_bits, depth_test, writes
+            );
+            return drawn ? 1 : 0;
+        }
+#endif
+        (void)rect;
+        (void)rgba;
+        (void)blend;
+        (void)depth;
+        (void)depth_bits;
+        (void)depth_test;
+        (void)writes;
+        return 0;
+    });
 }
 
 void openrac_frame_clear(uint32_t rgba, int what) {
@@ -951,6 +1024,15 @@ void openrac_game_image_keep(gaddr data, uint32_t bytes) {
 #endif
         (void)data;
         (void)bytes;
+    });
+}
+
+void openrac_game_images_forget(void) {
+    c_boundary::call("openrac_game_images_forget", [] {
+#ifdef OPENRAC_FRONTEND
+        // Let go with or without a window, as openrac_game_image_keep keeps them.
+        frontend::game_image_sources().clear();
+#endif
     });
 }
 
@@ -997,6 +1079,72 @@ void openrac_frame_screen_effect(const openrac_screen_effect* effect) {
 void openrac_frame_snapshot_world(uint32_t id) {
     OPENRAC_RECORD("openrac_frame_snapshot_world", snapshot_world(id));
     (void)id;
+void openrac_frame_world_shrubs(void) {
+    OPENRAC_RECORD("openrac_frame_world_shrubs", placement(renderer::FrameOp::WorldShrubs, 0, 0));
+}
+
+void openrac_frame_effect_parent(uint32_t attachment) {
+    OPENRAC_RECORD(
+        "openrac_frame_effect_parent", placement(renderer::FrameOp::EffectParent, attachment, 0)
+    );
+    (void)attachment;
+}
+
+void openrac_frame_effect_parent_position(uint32_t attachment) {
+    OPENRAC_RECORD(
+        "openrac_frame_effect_parent_position",
+        placement(renderer::FrameOp::EffectParent, attachment, 1)
+    );
+    (void)attachment;
+}
+
+void openrac_frame_hud_side(int side, unsigned how) {
+    OPENRAC_RECORD(
+        "openrac_frame_hud_side",
+        placement(renderer::FrameOp::HudSide, static_cast<std::uint32_t>(side), how)
+    );
+    (void)side;
+    (void)how;
+}
+
+void openrac_frame_wide(int on) {
+    OPENRAC_RECORD("openrac_frame_wide", placement(renderer::FrameOp::Wide, on != 0 ? 1u : 0u, 0));
+    (void)on;
+}
+
+void openrac_frame_picture_band(int on) {
+    OPENRAC_RECORD(
+        "openrac_frame_picture_band",
+        placement(renderer::FrameOp::PictureBand, on != 0 ? 1u : 0u, 0)
+    );
+    (void)on;
+}
+
+void openrac_frame_last_frame(void) {
+    OPENRAC_RECORD("openrac_frame_last_frame", placement(renderer::FrameOp::LastFrame, 0, 0));
+}
+
+void openrac_frame_screen(float width, float height) {
+    OPENRAC_RECORD("openrac_frame_screen", screen(width, height));
+    (void)width;
+    (void)height;
+}
+
+void openrac_frame_view_begin(int view, const openrac_frame_viewport* rect) {
+    c_boundary::call("openrac_frame_view_begin", [&] {
+#ifdef OPENRAC_FRONTEND
+        static_assert(OPENRAC_FRAME_VIEWS == renderer::kFrameViews);
+        if (g_window && rect != nullptr) {
+            frontend::recorder::view_begin(view, *rect);
+        }
+#endif
+        (void)view;
+        (void)rect;
+    });
+}
+
+void openrac_frame_view_end(void) {
+    OPENRAC_RECORD("openrac_frame_view_end", view_end());
 }
 
 #undef OPENRAC_RECORD

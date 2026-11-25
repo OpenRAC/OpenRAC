@@ -34,6 +34,8 @@
 #define RAC3_ADDR_0x00143A70u 0x00143A70u
 /* D_00160C40 (names.tsv, the same address) */
 #define RAC3_ADDR_0x00160C40u 0x00160C40u
+/* D_0016C580 (names.tsv, the same address) */
+#define RAC3_ADDR_0x0016C580u 0x0016C580u
 /* D_001A4BE0 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001A4BE0u 0x001A4BE0u
 /* D_001A4C60 (names.tsv, the same address) */
@@ -80,8 +82,6 @@
 #define RAC3_ADDR_0x001D4CE8u 0x001D4CE8u
 /* D_001D4CEC (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D4CECu 0x001D4CECu
-/* D_001D4DA0 (names.tsv, the same address) */
-#define RAC3_ADDR_0x001D4DA0u 0x001D4DA0u
 /* D_001D52FC (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D52FCu 0x001D52FCu
 /* D_001D5458 (names.tsv, the same address) */
@@ -114,10 +114,18 @@
 #define RAC3_ADDR_0x001D5BDCu 0x001D5BDCu
 /* D_001D5C90 (names.tsv, the same address) */
 #define RAC3_ADDR_0x001D5C90u 0x001D5C90u
+/* D_001D6EEC (names.tsv, the same address) */
+#define RAC3_ADDR_0x001D6EECu 0x001D6EECu
 /* D_001D89B8 (names.tsv) */
 #define RAC3_ADDR_0x001D89B8u 0x001D89E8u
 /* D_001D89BC (names.tsv) */
 #define RAC3_ADDR_0x001D89BCu 0x001D89ECu
+/* D_001D8CD4 (names.tsv) */
+#define RAC3_ADDR_0x001D8CD4u 0x001D8D04u
+/* D_001D8CE8 (names.tsv) */
+#define RAC3_ADDR_0x001D8CE8u 0x001D8D18u
+/* D_001D8CEC (names.tsv) */
+#define RAC3_ADDR_0x001D8CECu 0x001D8D1Cu
 /* D_001D934C (names.tsv) */
 #define RAC3_ADDR_0x001D934Cu 0x001D938Cu
 /* D_001D936C (names.tsv) */
@@ -126,6 +134,8 @@
 #define RAC3_ADDR_0x001D9BE0u 0x001D9C60u
 /* D_001D9BFC (names.tsv) */
 #define RAC3_ADDR_0x001D9BFCu 0x001D9C7Cu
+/* D_001D9C00 (names.tsv) */
+#define RAC3_ADDR_0x001D9C00u 0x001D9C80u
 /* D_001D9D04 (names.tsv) */
 #define RAC3_ADDR_0x001D9D04u 0x001D9D84u
 /* D_001D9E94 (names.tsv) */
@@ -144,6 +154,10 @@
 #define RAC3_ADDR_0x001DA05Cu 0x001DA0DCu
 /* D_001DA4D0 (names.tsv) */
 #define RAC3_ADDR_0x001DA4D0u 0x001DA550u
+/* D_001DA5F0 (names.tsv) */
+#define RAC3_ADDR_0x001DA5F0u 0x001DA670u
+/* D_001DA610 (names.tsv) */
+#define RAC3_ADDR_0x001DA610u 0x001DA690u
 /* D_001DA6B0 (names.tsv) */
 #define RAC3_ADDR_0x001DA6B0u 0x001DA730u
 /* D_001DA6C0 (names.tsv) */
@@ -162,6 +176,8 @@
 #define RAC3_ADDR_0x00225900u 0x00225980u
 /* D_00225C00 (names.tsv) */
 #define RAC3_ADDR_0x00225C00u 0x00225C80u
+/* D_00226000 (names.tsv) */
+#define RAC3_ADDR_0x00226000u 0x00226080u
 /* D_00227400 (names.tsv) */
 #define RAC3_ADDR_0x00227400u 0x00227480u
 /* D_00227480 (names.tsv) */
@@ -204,14 +220,12 @@
 #define RAC3_MADDR_0x001EBE00u 0x001EBF80u
 /* the same instruction of the same code: func 0x00195010 (NTSC-U 0x00195100) +0x10, 1 of 1 places agree */
 #define RAC3_MADDR_0x001FC6B0u 0x001FC830u
-/* release.json: the screen whose size (+0x150, +0x152) SetScissor keeps its rectangle within: PAL mp_func_00299218 and NTSC-U mp_func_002991F8, the same instructions, both read 0x00230150 and 0x00230152 */
-#define RAC3_MADDR_0x00230000u 0x00230000u
+/* the same instruction of the same code: func 0x00299218 (NTSC-U 0x002991F8) +0xC, 1 of 1 places agree */
+#define RAC3_MADDR_0x00228580u 0x00228700u
 /* the same instruction of the same code: func 0x00192D18 (NTSC-U 0x00192E08) +0x254, 2 of 2 places agree */
 #define RAC3_MADDR_0x00240290u 0x00240410u
 /* the same instruction of the same code: func 0x0027EEB8 (NTSC-U 0x0027EEF8) +0xFC, 21 of 21 places agree */
 #define RAC3_MADDR_0x00240310u 0x00240490u
-/* the same instruction of the same code: func 0x00193590 (NTSC-U 0x00193680) +0x4, 12 of 12 places agree */
-#define RAC3_MADDR_0x00240B80u 0x00240D00u
 /* not paired (rac3_mp_pairs.py) */
 #define RAC3_MADDR_0x00241128u 0u
 /* release.json: the level whose program is loaded: read at $gp - 0x6CE4 in both cores (PAL 0x00199150, 0x002945BC, 0x00295534 with $gp 0x00247FC0; NTSC-U 0x00199290, 0x00295524 with $gp 0x00248140) */
@@ -236,7 +250,7 @@
 #define RAC3_MADDR_0x00244428u 0x00244628u
 /* the same instruction of the same code: func 0x00284D30 (NTSC-U 0x00284D70) +0x20, 2 of 2 places agree */
 #define RAC3_MADDR_0x0024442Cu 0x0024462Cu
-/* the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 141 of 141 places agree */
+/* the same instruction of the same code: func 0x0027E360 (NTSC-U 0x0027E3A0) +0xE4, 153 of 153 places agree */
 #define RAC3_MADDR_0x002446A8u 0x002448A8u
 /* the start of the payload's record at PAL 0x0027B100 (NTSC-U 0x0027B200) */
 #define RAC3_MADDR_0x0027B100u 0x0027B200u
@@ -252,9 +266,9 @@
 #define RAC3_LADDR_19_0x001D66D4u 0x001D66D4u
 /* between the same code's 0x001D64E8 and 0x001D64FA, both moved by +0x0 (NTSC-U 0x001D64E8, 0x001D64FA) */
 #define RAC3_LADDR_1_0x001D64ECu 0x001D64ECu
-/* the level's pointer to the current font's page handles (FontSelect's copy, PAL func_L01_0040FB70): NTSC-U's Veldin FontSelect f_0040D548 stores it at $gp - 0x63C0 as PAL's does, with the same $gp (its font index at $gp - 0x72C8 is 0x001D55E8 on both discs, and the level's 0x001D64EC moved by +0x0) */
+/* between the same code's 0x001D64E8 and 0x001D64FA, both moved by +0x0 (NTSC-U 0x001D64E8, 0x001D64FA) */
 #define RAC3_LADDR_1_0x001D64F0u 0x001D64F0u
-/* the level's pointer to the current font's palette handles, beside L01:001D64F0: NTSC-U's f_0040D548 stores it at $gp - 0x63BC */
+/* between the same code's 0x001D64E8 and 0x001D64FA, both moved by +0x0 (NTSC-U 0x001D64E8, 0x001D64FA) */
 #define RAC3_LADDR_1_0x001D64F4u 0x001D64F4u
 /* the same instruction of the same code: func_L01_003424B0 (NTSC-U func_L01_00341C10) +0x8, 46 of 46 places agree */
 #define RAC3_LADDR_1_0x001D6694u 0x001D6694u
@@ -266,10 +280,12 @@
 #define RAC3_LADDR_1_0x001DCA14u 0x001DCA54u
 /* the same instruction of the same code: func_L01_003F1478 (NTSC-U func_L01_003EF538) +0xD0, 24 of 24 places agree */
 #define RAC3_LADDR_1_0x001DF948u 0x001DF9C8u
-/* the letterbox's height in lines (the levels' copy of func_0038AD28): PAL's func_L01_004054F0 and NTSC-U's func_L01_00403120 (the same routine, rac3_names.tsv) read and store it at $gp-relative 0x001DF960 and 0x001DF9E0, beside their set word (0x001DF95C, 0x001DF9DC) */
+/* the same instruction of the same code: func_L01_004B9810 (NTSC-U func_L01_004B5C78) +0x2C8, 1 of 1 places agree */
 #define RAC3_LADDR_1_0x001DF960u 0x001DF9E0u
 /* the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x68, 2 of 2 places agree */
 #define RAC3_LADDR_1_0x001DF97Cu 0x001DF9FCu
+/* between the same code's 0x001DF97C and 0x001DF984, both moved by +0x80 (NTSC-U 0x001DF9FC, 0x001DFA04) */
+#define RAC3_LADDR_1_0x001DF980u 0x001DFA00u
 /* the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x160, 6 of 6 places agree */
 #define RAC3_LADDR_1_0x001DFD0Cu 0x001DFD8Cu
 /* the same instruction of the same code: func_L01_004208E0 (NTSC-U func_L01_0041E1B0) +0x8, 1 of 1 places agree */
@@ -310,7 +326,7 @@
 #define RAC3_LADDR_1_0x001E2880u 0x001E2900u
 /* the same instruction of the same code: func_L01_003649E8 (NTSC-U func_L01_00363C60) +0x74, 13 of 13 places agree */
 #define RAC3_LADDR_1_0x001E29E0u 0x001E2A60u
-/* player 0's game camera (camera_platform_ride's base, +0x50 the current update object): PAL's camera entries 0x001E2AA0 (+0x60) are NTSC-U's 0x001E2B20 (rac3_level_pairs.py, 8 of 8 places), the same +0x80; names.tsv's camera_manager_update keeps the camera's position at NTSC-U 0x001E2AC0, the entry's +0 */
+/* the same instruction of the same code: func_L01_00313708 (NTSC-U func_L01_00313400) +0x5C, 65 of 65 places agree */
 #define RAC3_LADDR_1_0x001E2A40u 0x001E2AC0u
 /* the same instruction of the same code: func_L01_003E4428 (NTSC-U func_L01_003E2638) +0x14, 8 of 8 places agree */
 #define RAC3_LADDR_1_0x001E2AA0u 0x001E2B20u
@@ -318,10 +334,12 @@
 #define RAC3_LADDR_1_0x001E2B90u 0x001E2C10u
 /* the same instruction of the same code: func_L01_00423DF0 (NTSC-U func_L01_004210C0) +0x8, 2 of 2 places agree */
 #define RAC3_LADDR_1_0x001E6DB4u 0x001E6E34u
-/* the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 10 of 10 places agree */
+/* the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 9 of 9 places agree */
 #define RAC3_LADDR_1_0x001E7580u 0x001E7600u
 /* the same instruction of the same code: func_L01_0042D9C0 (NTSC-U func_L01_0042ABB0) +0x88, 1 of 1 places agree */
 #define RAC3_LADDR_1_0x001E7880u 0x001E7900u
+/* between the same code's 0x001E7880 and 0x001E8480, both moved by +0x80 (NTSC-U 0x001E7900, 0x001E8500) */
+#define RAC3_LADDR_1_0x001E7C80u 0x001E7D00u
 /* the same instruction of the same code: func_L01_0047E908 (NTSC-U func_L01_0047B0A8) +0x124, 13 of 13 places agree */
 #define RAC3_LADDR_1_0x001EA7C0u 0x001EA840u
 /* between the same code's 0x001EA7C0 and 0x001EA940, both moved by +0x80 (NTSC-U 0x001EA840, 0x001EA9C0) */
@@ -330,7 +348,7 @@
 #define RAC3_LADDR_1_0x001FCB40u 0x001FCBC0u
 /* between the same code's 0x00220840 and 0x00220E40, both moved by +0x80 (NTSC-U 0x002208C0, 0x00220EC0) */
 #define RAC3_LADDR_1_0x00220A40u 0x00220AC0u
-/* the item records (0xF0 bytes each, 160 of them): Veldin's program on the NTSC-U disc has PAL's 160 rows at 0x002C5640 (read from both discs' level 1, 2026-11-21: gun byte, next version +0x46, ammo +0x84/+0x8A/+0x8E and name ids the same) */
+/* the same instruction of the same code: func_L01_00305880 (NTSC-U func_L01_00305620) +0x24, 133 of 133 places agree */
 #define RAC3_LADDR_1_0x002C5600u 0x002C5640u
 /* the same instruction of the same code: func_L01_0041BFE8 (NTSC-U func_L01_004198E0) +0xC, 3 of 3 places agree */
 #define RAC3_LADDR_1_0x002E60D0u 0x002E6110u
@@ -344,6 +362,34 @@
 #define RAC3_LADDR_1_0x00404A60u 0x004026F0u
 /* the entry of the draw callback list runner itself (host/wide_view.c reads its tables from its code): PAL func_L01_00404B28's twin is NTSC-U's func_L01_004027B8, the pair rac3-ntsc's carried libraries.tsv binds */
 #define RAC3_LADDR_1_0x00404B28u 0x004027B8u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_1_0x004D8220u 0u
+/* not paired (rac3_level_pairs.py) */
+#define RAC3_LADDR_1_0x004DB780u 0u
+/* the same instruction of the same code: func_L01_003F1E98 (NTSC-U func_L01_003EFF58) +0x20, 4 of 4 places agree */
+#define RAC3_LADDR_2_0x001D5477u 0x001D5477u
+/* between the same code's 0x001DC518 and 0x001DC570, both moved by +0x40 (NTSC-U 0x001DC558, 0x001DC5B0) */
+#define RAC3_LADDR_2_0x001DC568u 0x001DC5A8u
+/* the same instruction of the same code: func_L01_0032FF68 (NTSC-U func_L01_0032FA40) +0x8, 47 of 47 places agree */
+#define RAC3_LADDR_2_0x001DE4C0u 0x001DE540u
+/* the same instruction of the same code: func_L02_003102A8 (NTSC-U func_L02_0030FF70) +0x10, 5 of 5 places agree */
+#define RAC3_LADDR_2_0x001E00D4u 0x001E0154u
+/* the same instruction of the same code: func_L02_0030FC68 (NTSC-U func_L02_0030F930) +0x280, 1 of 1 places agree */
+#define RAC3_LADDR_2_0x001E00DCu 0x001E015Cu
+/* the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0x84, 1 of 1 places agree */
+#define RAC3_LADDR_2_0x001E00E0u 0x001E0160u
+/* the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0x78, 1 of 1 places agree */
+#define RAC3_LADDR_2_0x001E00E4u 0x001E0164u
+/* the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0xB4, 1 of 1 places agree */
+#define RAC3_LADDR_2_0x001E00E8u 0x001E0168u
+/* the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0xAC, 1 of 1 places agree */
+#define RAC3_LADDR_2_0x001E00ECu 0x001E016Cu
+/* the same instruction of the same code: func_L01_00305D30 (NTSC-U func_L01_00305AD0) +0x68, 21 of 21 places agree */
+#define RAC3_LADDR_2_0x001E1140u 0x001E11C0u
+/* the same instruction of the same code: func_L01_00403168 (NTSC-U func_L01_00400DF8) +0xB4, 13 of 13 places agree */
+#define RAC3_LADDR_2_0x001E5E40u 0x001E5EC0u
+/* the same instruction of the same code: func_L02_0030FC68 (NTSC-U func_L02_0030F930) +0x1C, 3 of 3 places agree */
+#define RAC3_LADDR_2_0x0026EB80u 0x0026EC00u
 /* between the same code's 0x00245BB0 and 0x00245BCC, both moved by +0x180 (NTSC-U 0x00245D30, 0x00245D4C) */
 #define RAC3_LADDR_39_0x00245BB4u 0x00245D34u
 /* the glow builder's lbu of the blur byte: PAL level 39 func_L39_0060D7F0 reads 0x00245BD8, NTSC-U's builder (and every map's copy, e.g. func_L51_004F0918) reads 0x00245D58 at the same two places; the glow block moved by +0x180 */

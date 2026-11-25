@@ -83,7 +83,7 @@ The launcher's **Mods** tab adds mods and opens your levels in [Godot 4](https:/
   <img src="docs/assets/mods.jpg" alt="The OpenRAC launcher's Mods tab: add mods, switch them on and play" width="860">
 </p>
 
-**Guides:** [Level editor](editor/README.md) · [Mod SDK](docs/port/MODS.md)
+**Guides:** [Level editor](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md) · [Mod SDK](docs/port/MODS.md)
 
 ## Help out
 

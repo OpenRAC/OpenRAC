@@ -14,6 +14,8 @@
 func_L08_00423EA0	vehicle	MiningVehicleUpdate	wrap	Optional GH reverse correction scoped to this vehicle's thrust calculation; original when disabled (host/gh_fixes.c).
 func_002837E0	math	MiningThrustScale	wrap	Keep other vector scales unchanged; the mining update's second thrust scale uses the acceleration magnitude with the fix on.
 func_00340D78	menu	PlanetPlatinumCount	wrap	Optional GH per-planet platinum counter in the ship's planet page; original global statistics when disabled.
+func_0034F068	menu	UpdateItemStatusHud	wrap	Bolt totals past 9,999,999 as 12.3M in the counter's text (host/bolt_totals.c).
+func_0034FD60	menu	DrawBoltCounterPanel	wrap	No thousands marks while the compact total is up (host/bolt_totals.c).
 func_00131B48	boot	rac2NativeEntry	host	crt0 at the ELF entry: _InitSys, FlushCache(0), main(argc, argv) without the PS2 thread and heap syscalls	int (void)
 func_00115340	libc	memcmp	host	symbol_addrs.txt name
 func_001153D4	libc	memcpy	host	symbol_addrs.txt name
@@ -176,7 +178,18 @@ func_00128FD0	vib	sceVibSetActParam	host	the motors the pad poll (func_002B85F8)
 # camera from them (g_cameraState, 0x1B5200: 1 ulp apart on the Mac and Linux). The library's own
 # polynomial on VU0 is the console's, and the same on every host.
 func_00131AF8	scf	sceScfGetLocalTimefromRTC	host	same instructions as rac1-pal's and rac4's
-func_00132088	989snd	snd_Pump	host	symbol_addrs.txt snd_Pump: the answers of the batch the IOP has, the disc read's end (the common snd_FlushSoundCommands), then the next batch: host/sound.c	int (void)
+func_00132088	989snd	snd_Pump	host	symbol_addrs.txt snd_Pump: the callbacks of the requests answered, the disc read's end (the common snd_FlushSoundCommands), then the requests taken sent (lib/snd.c)
+func_00132A70	989snd	snd_PlaySoundVolPanPMPB_CB	host	the decompilation's snd_send_cmd11_six_values_callback: a sound played, its handle told to the callback at the next pump (lib/snd.c)
+func_00132C20	989snd	snd_SetSoundParams_CB	host	the decompilation's snd_send_cmd21_callback: a sound's volume, pan and pitch set, its handle (0 once ended) told to the callback at the next pump (lib/snd.c)
+func_001329D8	989snd	rac2SndMixerMode	host	the decompilation's snd_send_cmd_0d: the IOP mixer's mode, which the native mixer has no equivalent of; taken as a request with nothing to do (host/sound.c)	void (int, int)
+func_00133770	989snd	rac2SndSetReverbEx	host	the decompilation's snd_send_cmd50_five_values: snd_SetReverbEx(core, type, depth, delay, feedback) (func_002E5898), the native reverb's effect, taken when the request is sent (host/sound.c)	void (int, int, int, int, int)
+func_00132920	989snd	rac2SndEffectSettings	host	the decompilation's snd_send_cmd96_with_settings: a block of the IOP mixer's settings, likewise (host/sound.c)	void (int, void *)
+func_00132A10	989snd	rac2SndVoiceRange	host	the decompilation's snd_send_cmd78: the IOP's voice ranges, likewise (host/sound.c)	void (int, int, int)
+func_00133850	989snd	rac2SndMovie4A	host	the decompilation's snd_send_cmd4a: a synchronous request of the movie's sound, which the movie player plays itself; nothing to do once the callbacks out have run (host/sound.c)	int (void)
+func_00133880	989snd	rac2SndMovie4B	host	the decompilation's snd_send_cmd4b: likewise (host/sound.c)	int (void)
+func_001338B0	989snd	rac2SndMovie3B	host	the decompilation's snd_send_cmd3b: likewise (host/sound.c)	int (int, int, int, int, int, int)
+func_00133928	989snd	rac2SndMovie3C	host	the decompilation's snd_send_cmd3c: likewise (host/sound.c)	void (void)
+func_00131E48	989snd	rac2SndStartSoundSystem	host	snd_StartSoundSystem: the two sound servers' binds left out, its first request's wait kept (host/sound.c)	int (int)
 func_001332B0	989snd	snd_InitVAGStreamingEx	host	same opening as rac4's
 func_00133518	989snd	snd_StreamSafeCdRead	host	same opening as rac4's: sector, count, destination
 func_001335E0	989snd	snd_StreamSafeCdSync	host	symbol_addrs.txt snd_CheckLoadInProgress; sceCdSync (0x00124B88) when no stream plays
@@ -189,7 +202,7 @@ func_002EDA88	graphics	ShipGlassDraw	wrap	the ship's cockpit glass, drawn as wor
 func_00131D18	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's (host/level.c)
 func_0029DE68	game	WadDecompress	host	the WAD decompressor (hand-written assembly): its result, the bytes written, is what the level loader sizes the moby area from	int (int, int)
 # The sound library's wrappers each send one command, the same number as in Ratchet & Clank's.
-func_001333B0	game	snd_PlayVAGStreamTwoParts_CB	host	command 0x2C: a stream, its handle told to the callback: host/sound.c	int (int, int, int, int, int, int, int, int, int, int, int, long long)
+func_001333B0	989snd	snd_PlayVAGStreamTwoParts_CB	host	a stream of two mono files, its handle told to the callback at the next pump (lib/snd.c)
 func_001324F8	game	snd_BankLoadByLoc_CB	host	a bank by sector and offset, its handle told to the callback: host/sound.c	void (int, int, int, long long)
 func_00132648	989snd	snd_BankLoadFromEE_CB	host	a bank in EE memory; the level loader waits for its callback (func_002EAAA8)
 func_00132888	989snd	snd_ResolveBankXREFS	host	command 8
@@ -214,7 +227,7 @@ func_00133950	989snd	snd_StartMovieSound	host	command 0x3E
 func_00133990	989snd	snd_UpdateMovieADPCM	host	command 0x5A
 func_001339C0	989snd	snd_GetMovieNAX	host	command 0x5B
 func_00132378	989snd	snd_BankLoadByLoc	host	command 3 on the loader client: a bank by sector and offset, its handle returned; the matched C waits with FlushCache for an IOP reply no one writes (Maktar's arena, func_L00_0032D208)	unsigned int (int, int)
-func_00132738	game	snd_BankLoadFromIOP	host	a bank sent to the IOP's memory, its handle returned: host/sound.c	int (int)
+func_00132738	989snd	snd_BankLoadFromIOP	host	a bank sent to the IOP's memory, its handle returned (lib/snd.c)
 func_0027F7B0	draw	FontPrint	wrap	a string, glyph by glyph: its quads are marked as glyphs (host/ui2d.c), drawn from the font's distance field
 func_0027FB48	draw	FontPrintScaled	wrap	func_0027F2A8 at a scale, with float positions: its quads are marked as glyphs (host/ui2d.c)
 func_00338000	draw	GuiSpriteElementDraw	wrap	a GUI sprite element (the menus' frames, icons and highlights): its box is recorded for the mouse (host/ui2d.c)
@@ -272,6 +285,7 @@ func_002B00E8	target	SelectBestTargetInCone	wrap	the game's target pick (SelectB
 func_L00_003C7B10	weapon	TeslaBarrierUpdate	wrap	the Shield Charger's and Tesla Barrier's update (classes 2652, 4498): for a mod that asked (weapon_ignore_culling, item 45) its shield and arcs take the enemies in the hero's sight not drawn last frame too (host/weapon_culling.c)
 func_L00_00395680	weapon	TeslaClawUpdate	wrap	the Tesla Claw's update (class 177): for a mod that asked (weapon_ignore_culling, item 18) it keeps a held target in the hero's sight that was not drawn last frame (host/weapon_culling.c)
 func_L00_0042A488	camera	FollowCameraReadStick	wrap	the follow camera's stick read: notes the camera, for the picture's late camera latch (host/camera_latch.c)
+func_L00_0042BC00	camera	AlignedCameraUpdate	wrap	the first-person camera's turn by the stick: then the mouse's own turn (host/camera_latch.c)
 func_002E56B8	sound	ResetSoundState	wrap	the sound's reset, which gives the mixer the Sound page's values: the remembered ones go in first (host/options.c)
 func_0027EF10	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)
 func_L08_002F3D10	game	func_L08_002F2C48	host	the fourth draw callback list's register, only in levels 8, 9, 19 and 30, folded with func_0027CFD0 by the catalogue (split_places.tsv, host/callback_lists.c)	void (unsigned int, unsigned int)
@@ -296,6 +310,9 @@ func_L00_002D4458	moby	Weapon_TakeAmmo	hook	Takes rounds of a weapon's ammo (ite
 func_002A7650	moby	Moby_RecordDeath	hook	A moby's death recorded: its experience, the bestiary and its bolt drop (the moby's s16 at +0xB4); crates call it too. A hook point for mods, under the port's own wrap (SetDeathBits): the mod's replacement or the game's C runs where the wrap calls the game's.
 func_L00_00305570	level	Level_Load	hook	Loads a level (new, or resumed after a death); it calls the gameplay file's loader. A hook point for mods; the game's C with none.
 func_L00_002B40E0	player	Hero_ApproachSpeed	hook	Eases the hero's speed (+0x1B4) toward his target speed (+0x1B0) each tick; rac1's approach_speed. A hook point for mods; the game's C with none.
+func_L00_002A6CB8	player	Hero_Update	hook	The hero's whole update each tick in levels 0, 2, 5, 6, 10, 14, 15, 22-26 and 30 (hero_l00_update_frame_2). Hook point rac2.player.update (one point for all copies); the game's C with none.
+func_L01_002A8B30	player	Hero_Update	hook	The hero's whole update each tick in levels 1, 4, 7, 8, 9 and 19 (game_update_frame). Hook point rac2.player.update (one point for all copies); the game's C with none.
+func_L03_002AD428	player	Hero_Update	hook	The hero's whole update each tick in levels 3, 11, 12, 13, 16, 17, 18 and 20 (level_update_frame). Hook point rac2.player.update (one point for all copies); the game's C with none.
 func_L00_002D6380	player	Hero_NanotechSteps	hook	Adds the nanotech levels' steps of health to *total; the recount of the most health each tick adds the boosts after it (the HUD's experience bar calls it too, ignoring total). A hook point for mods; the game's C with none.
 func_00288C20	item	Item_Give	hook	Gives the player item id (GiveInventoryItem): nothing when owned already; else its owned and new bytes, its starting ammo, the vendor list and the quick select. A hook point for mods; the game's C with none.
 func_002AE3C0	item	Item_Equip	hook	Puts item id in the hero's hand, or on him for the boots, helmets and packs (by its item record's state): a request his update carries out, 1 when made. Most givers call it right after Item_Give with the same id. A hook point for mods; the game's C with none.
@@ -327,6 +344,7 @@ func_00314B5C	moby	Moby_NanotechBall_Update	hook	The nanotech orb's update (clas
 func_002AE6D8	bolt	Bolt_SpawnPickups	hook	Spawns a burst of bolt coins from a moby: rolls an amount from low to high, splits it into the biggest coins that fit (1 to 1000) and makes each with Bolt_SpawnPickup; enemies' and crates' drops (Moby_RecordDeath) and the levels' scripted bursts (part_spawn_scaled_bolts). The executable's and every level's copy (part_spawn_bolt_pickups) are one hook point. A hook point for mods; the game's C with none.
 func_L00_00323918	bolt	Bolt_SpawnPickups	hook	Spawns a burst of bolt coins from a moby: rolls an amount from low to high, splits it into the biggest coins that fit (1 to 1000) and makes each with Bolt_SpawnPickup; enemies' and crates' drops (Moby_RecordDeath) and the levels' scripted bursts (part_spawn_scaled_bolts). The executable's and every level's copy (part_spawn_bolt_pickups) are one hook point. A hook point for mods; the game's C with none.
 func_00303578	bolt	Bolt_SpawnPickup	hook	Makes one bolt coin of a value (classes 0x0D to 0x13 for 1, 5, 20, 50, 100, 500, 1000) at a position with a velocity; returns its moby, or 0 (none made: the pool full, or too far away). A hook point for mods; the game's C with none.
+func_00303950	bolt	part_spawn_trail_puff	wrap	a bolt coin's trail (the puff, ground sparkle and streak around it): silver for a coin a mod draws as platinum, its glow colour for an obsidian one, gold for the rest (host/platinum_trail.c)
 func_00302E18	bolt	Bolt_Collect	hook	A bolt coin collected (CollectBolts): its class's value added to the player's bolts and the level's bolt score; the coin's update calls it as the coin reaches the hero. A hook point for mods; the game's C with none.
 func_L02_00401550	arena	Arena_Prize	hook	The bolts an arena challenge pays (Maktar's and Joba's arena): its record's prize, less for each earlier win, ten times in challenge mode; the menu prints it and a win adds it. A hook point for mods; the game's C with none.
 # Hand-written assembly (ASM_FUNC in the decompilation), written in C for a build without the disc: host/handasm.c.
@@ -377,3 +395,20 @@ func_00120748	libgcc	rac2SjpopnthrowTail	host	a fragment of __sjpopnthrow, enter
 func_00120FA4	libgcc	rac2ThrowLanding	host	a fragment of __throw (00120F00-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
 func_0012118C	libgcc	rac2RethrowLanding	host	a fragment of __rethrow (001210E0-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
 func_00130004	mpeg	rac2DecodeFrameTail	host	a fragment of func_0012FEC0 (its epilogue), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_002B1930	collectibles	PlatinumBolts_CountTotal	hook	Counts the platinum bolts recorded in the save. A replacement can return received currency independently of physical pickups.
+func_L00_002D6408	hero	Hero_UpdateCollectionProgress	hook	Recounts nanotech and weapon collection progress from inventory; mods can separate pickup flags from received ownership.
+func_0029B738	save	Save_Serialize	hook	Serializes live game state to the save packet at output. Inventory substitutions made by a mod must be restored before calling the original.
+func_002997A0	save	Save_NewGame	hook	Resets game data from disc defaults for a new campaign, before its starting level is entered.
+func_L03_003D6298	moby	Moby_EndakoRescue_Update	hook	Updates the Endako rescue sequence that returns Clank and the Swingshot.
+func_L08_003FB598	moby	Moby_TaboraWrench_Update	hook	Updates the Tabora controller, including its wrench reward.
+func_L14_003F9660	moby	Moby_PrisonWrench_Init	hook	Initializes the Aranos prison wrench pickup.
+func_L12_003B8918	moby	Moby_TodanoTrader_Update	hook	Updates the Todano trader and his reward exchange.
+func_L14_0042B290	moby	Moby_PrisonPlumber_Update	hook	Updates the Aranos plumber and his reward. The game declaration takes a signed 32-bit moby address.
+func_L14_0042BC18	moby	Moby_PrisonController_Update	hook	Updates the Aranos prison controller, including inventory restoration.
+func_L07_003FB840	moby	Moby_SiberiusThief_Update	hook	Updates the Siberius thief sequence and its progression state.
+func_L13_00421C70	moby	Moby_BoldanCutscene_Update	hook	Updates the Boldan cutscene trigger and its temporary inventory state.
+func_L18_004450C8	moby	Moby_HypnomaticPart_Update	hook	Updates the Hypnomatic part pickup on Damosel.
+func_002A74D8	combat	Moby_CountKill	hook	Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
+func_002D0290	menu	Menu_Extras	hook	Processes the extras menu and returns its menu result.
+func_L00_00408110	moby	sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)
+func_L00_0040D328	moby	dark_sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)

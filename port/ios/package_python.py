@@ -33,7 +33,7 @@ def install(app, framework, root):
         (folder / (name + ".origin")).write_text(str(marker.relative_to(app)) + "\n")
     tools = app / "app_tools"
     # An explicit source-only allowlist keeps every private disc and generated export out.
-    for relative in ("editor", "tools/openrac_common", "port/ios/importers"):
+    for relative in ("extractor", "tools/openrac_common", "port/ios/importers"):
         source = root / relative
         for file in source.rglob("*"):
             if file.is_file() and file.suffix in (".py", ".json", ".tsv") and "__pycache__" not in file.parts and not file.name.startswith("test_"):

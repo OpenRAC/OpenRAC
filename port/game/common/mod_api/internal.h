@@ -40,6 +40,7 @@
 #include "common/log.h"
 #include "mod_library.h"
 #include "mod_manifest.h"
+#include "mod_play_queries.h"
 #include "mod_scripts.h"
 #include "mod_touch.h"
 #include "mods.h"
@@ -216,6 +217,9 @@ struct Prop {
     // The joint matrices prop_set_skin gave it (interface 1.33), none for a prop drawn in its bind
     // pose. Never changed once set, only replaced: the front end holds it while it draws.
     std::shared_ptr<const std::vector<std::array<float, 16>>> skin;
+    int animation = -1;  // prop_animate's: its .glb's animation, the time into it, looped
+    float seconds = 0.0f;
+    bool loop = false;
 };
 
 // A sound a mod loaded: whose, and the host's id of it.
@@ -288,11 +292,13 @@ struct MaterialEntry {
     int oclass = -1;
 };
 
-// The hero's joint offsets each mod set (hero_set_joints), in the order the mods first set theirs:
-// all of them go to the hero together, each mod's composed after the ones before it, so two mods
-// that turn his joints do not undo each other.
+// The joint offsets each mod set on a moby (hero_set_joints for the hero, moby_set_joints for any
+// other), in the order the mods first set theirs: all of a moby's go to it together, each mod's
+// composed after the ones before it, so two mods that turn its joints do not undo each other.
 struct JointSet {
     const openrac_mod* mod = nullptr;
+    std::uint32_t moby = 0;
+    std::uint32_t loads = 0;  // the level load it was set in
     std::vector<openrac_joint_offset> joints;
 };
 
@@ -310,11 +316,42 @@ struct HudTexts {
     std::vector<openrac_hud_text> lines;
 };
 
-// The hero's looping sounds each mod started (hero_sound_play), stopped with the mod.
+// The looping sounds each mod started on the hero (hero_sound_play, moby 0) or another moby
+// (moby_sound_play), stopped with the mod.
 struct HeroVoice {
     openrac_mod* mod;
     std::uint32_t loads;
     int voice;
+    gaddr moby = 0;
+};
+
+// Each mod's gain on the game's music (music_volume) and the level load it was set in: the
+// quietest of this load's applies.
+struct MusicGain {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    float gain = 1.0f;
+};
+
+// The air a mod draws the picture with (scene_air): the last to set it, of a level load; slow motion
+// each mod asks for (time_stretch); the ties each mod hides (tie_hide). Behind g_air_lock: the
+// window's thread reads them.
+struct AirSet {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    openrac_air air{};
+};
+
+struct Stretch {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    float stretch = 1.0f;
+};
+
+struct TieHidden {
+    const openrac_mod* mod = nullptr;
+    std::uint32_t loads = 0;
+    int tie = 0;
 };
 
 // ---- State kept in mods.cpp and mod_play.cpp ----
@@ -325,6 +362,7 @@ extern openrac_mod* g_loading;
 extern std::vector<std::unique_ptr<openrac_mod>> g_loaded;
 extern std::vector<FrameCallback> g_frames;
 extern std::vector<PadCallback> g_pads;
+extern PlayQueries g_play_queries;
 extern std::vector<MenuCallback> g_menus;
 extern std::vector<DeveloperMenu> g_developer_menus;
 extern std::vector<UiPageCallback> g_ui_pages;
@@ -419,10 +457,25 @@ extern std::vector<Haze> g_haze;
 extern std::mutex g_hud_lock;
 extern std::vector<HudTexts> g_hud;
 extern std::vector<HeroVoice> g_hero_voices;
+extern std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_hud_hidden;
+extern std::vector<MusicGain> g_music_gains;
+
+// The mods that drive the pads' motors (openrac_api.set_motors, mods::any_mod_motors), behind
+// g_motor_mods_lock.
+extern std::mutex g_motor_mods_lock;
+extern std::vector<const openrac_mod*> g_motor_mods;
+extern void (*g_music_gain)(int, float);
+extern int (*g_joint_frame)(std::uint32_t, int, float*);
+extern std::mutex g_air_lock;
+extern std::optional<AirSet> g_air;
+extern std::vector<Stretch> g_stretches;
+extern std::vector<TieHidden> g_ties_hidden;
 
 // ---- Functions more than one file calls, the api_<member> ones among them ----
 
 const char* hook_id(const Host& host, const char* name);
+// The hook point a name (its id, name or an alias) names, or null.
+const HookPoint* find_hook_point(const char* name);
 void api_log(openrac_mod* mod, int level, const char* text);
 void api_fail(openrac_mod* mod, const char* reason);
 const SettingValue* setting(openrac_mod* mod, const char* key, SettingType a, SettingType b);
@@ -523,6 +576,10 @@ int api_packs_entry(int index, openrac_pack_entry* out);
 int api_clipboard_set(const char* text);
 int api_open_link(const char* url);
 int api_plugins_folder(char* out, std::uint32_t size);
+// The edited levels' pack the game reads now, or null for none.
+const char* pack_folder();
+int api_pack_folder(char* out, std::uint32_t size);
+int api_game_language(char* out, std::uint32_t size);
 int api_identity_key(char* out, std::uint32_t size);
 std::string quoted(std::string_view s);
 std::string number_text(double d);
@@ -633,6 +690,13 @@ int api_world_family(char* out, std::uint32_t size);
 int api_sim_digest(std::int32_t level, std::uint32_t* out);
 std::uint32_t api_sprite_tint(openrac_mod* mod, std::uint32_t rgb);
 void apply_joint_sets(std::uint32_t moby);
+void drop_stale_joint_sets();
+int set_joint_set(
+    const openrac_mod* mod, std::uint32_t moby, const openrac_joint_offset* joints, int count
+);
+void apply_music_gain();
+void release_camera_fov();
+void set_camera_fov(float degrees);
 std::uint32_t loads_now();
 int api_hero_set_pose(openrac_mod* mod, const openrac_pose* pose);
 int api_hero_set_joints(openrac_mod* mod, const openrac_joint_offset* joints, int count);
@@ -679,6 +743,25 @@ std::uint32_t api_sound_play(openrac_mod* mod, int sound, float volume, float pi
 int api_sound_set(openrac_mod* mod, std::uint32_t voice, float volume, float pitch);
 void api_sound_stop(openrac_mod* mod, std::uint32_t voice);
 
+// What OpenRAC Editor's levels need (interface 1.35).
+int api_moby_uid(int slot);
+int api_moby_set_joints(openrac_mod* mod, int slot, const openrac_joint_offset* joints, int count);
+int api_moby_set_joint_poses(
+    openrac_mod* mod, int slot, const openrac_joint_offset* joints, int count
+);
+int api_moby_joint_frame(int slot, int joint, float out[12]);
+int api_moby_joint_position(int slot, int joint, float out[3]);
+int api_camera_fov(openrac_mod* mod, float degrees);
+int api_hud_hide(openrac_mod* mod, int hidden);
+int api_music_volume(openrac_mod* mod, float gain);
+int api_prop_animate(openrac_mod* mod, int id, int animation, float seconds, int loop);
+int api_moby_sound_play(openrac_mod* mod, int slot, int sound, int loop);
+void api_moby_sound_stop(openrac_mod* mod, int voice);
+int api_scene_air(openrac_mod* mod, const openrac_air* air);
+int api_time_stretch(openrac_mod* mod, float stretch);
+int api_tie_hide(openrac_mod* mod, int tie, int hidden);
+void drop_air(const openrac_mod* mod);
+
 // The hero's weapons and their shots (interface 1.29): mod_api/hero.cpp, mod_api/world.cpp.
 // The particle records tied to a weapon's look (render-only), by record address; under
 // g_props_lock.
@@ -698,5 +781,15 @@ openrac_gaddr api_weapon_record(openrac_mod* mod, std::int32_t item);
 void drop_weapon_shots(const openrac_mod* mod);
 
 int api_weapon_ignore_culling(openrac_mod* mod, std::int32_t item, std::int32_t enabled);
+
+int api_sharp_cells(openrac_mod* mod, const openrac_sharp_page* pages, int count);
+
+int api_set_motors(openrac_mod* mod, int port, int small_motor, int large_motor);
+
+int api_menu_option_set(openrac_mod* mod, const char* option, int state);
+// Forgets the menu options `mod` set (nullptr: every mod's).
+void drop_menu_options(const openrac_mod* mod);
+
+int api_on_play_query(openrac_mod* mod, std::uint32_t kinds, openrac_play_query_fn fn, void* user);
 
 }  // namespace openrac::mods::detail

@@ -48,7 +48,6 @@
   const EDITED = [
     "root",
     "python",
-    "godot",
     "docker",
     "discsDir",
     "installDir",
@@ -148,7 +147,6 @@
     const names = [
       !askRoot && draft.root && "OpenRAC",
       !app.info?.standalone && !askPython && draft.python && "Python",
-      !app.info?.standalone && draft.godot && "Godot",
     ].filter(Boolean);
 
     return names.length
@@ -166,7 +164,6 @@
         askPython = !app.info?.standalone && !draft.python && !d.pythons.length;
         draft.root ??= d.roots[0]?.path ?? null;
         draft.python ??= d.pythons[0]?.path ?? null;
-        draft.godot ??= d.godots[0]?.path ?? null;
         draft.docker ??= d.dockers[0]?.path ?? null;
       }
     });
@@ -247,7 +244,7 @@
   $effect(() => () => {
     if (kept() && !saving) void save(false);
   });
-  const tool = (t: "python" | "godot" | "docker") => (path: string) => api.checkTool(t, path);
+  const tool = (t: "python" | "docker") => (path: string) => api.checkTool(t, path);
   const root = (path: string): Promise<Check> => api.checkRoot(path);
   /** The install folder only has to be a place to write; the extractor makes what it needs inside. */
   const installFolder = (path: string): Promise<Check> =>
@@ -421,13 +418,6 @@
               check={tool("python")}
             />
           {/if}
-          <PathField
-            label="Godot"
-            hint="Godot 4.7 or newer, for the level editor (Mods). Optional."
-            bind:value={draft.godot}
-            candidates={found?.godots}
-            check={tool("godot")}
-          />
         {/if}
       </details>
     </section>
@@ -723,28 +713,18 @@
       </p>
     </section>
 
-    {#if !app.info?.standalone && !onAndroid}
+    <!-- A player is asked for Python only when none was found; contributors find it in Developer. -->
+    {#if !app.info?.standalone && !onAndroid && !draft.developer && !app.config?.python}
       <section class="panel">
         <h2>Programs</h2>
         <PathField
-          label="Godot"
-          hint="Godot 4.7 or newer, for the level editor (Mods). Optional."
-          bind:value={draft.godot}
-          candidates={found?.godots}
+          label="Python"
+          hint="Python 3.10 or newer: OpenRAC's tools run with it."
+          bind:value={draft.python}
+          candidates={found?.pythons}
           detail={draft.developer}
-          check={tool("godot")}
+          check={tool("python")}
         />
-        <!-- A player is asked for Python only when none was found; contributors find it in Developer. -->
-        {#if !draft.developer && !app.config?.python}
-          <PathField
-            label="Python"
-            hint="Python 3.10 or newer: OpenRAC's tools run with it."
-            bind:value={draft.python}
-            candidates={found?.pythons}
-            detail={draft.developer}
-            check={tool("python")}
-          />
-        {/if}
       </section>
     {/if}
 

@@ -16,6 +16,7 @@ section 6.
   colour a corner, shaded or flat.
 - `openrac_ui_scissor`: the game's own 2D scissor, in its screen pixels.
 - `openrac_ui_image`: an image of one of the game's tables, through its adapter.
+- `openrac_ui_place_begin` / `_end`: nested HUD placement carried as native item data.
 
 ## Depends on
 
@@ -25,4 +26,15 @@ section 6.
 ## Games
 
 - Up Your Arsenal: `port/game/rac3-pal/host/ui_adapter.c` (its 2D screen, fonts from the font
-  headers), `host/ui2d.c` (the prints' glyphs, flat boxes, the scissor).
+  headers; the multiplayer executable's whole screen from its frame block, so what a split-screen
+  view draws is placed in the view), `host/ui2d.c` (the prints' glyphs, flat boxes, the scissor).
+
+## Tests
+
+`ui_core_test` compiles the production core with a recorder stand-in, without a window or game.
+It checks adapter screen defaults, rejection of invalid dimensions, native texture flags,
+flat rectangles, nested HUD placement, recorder failures and full-target scissor requests.
+`renderer_gif_test` also checks native HUD-part grouping and displacement directly from recorder
+items, including centred/unplaced items and repeated finish, without any graphics packet input.
+`rac3_mp_images_test` checks Up Your Arsenal's multiplayer images as its SendImage copies hand them
+over and let go with the executable, and its 2D screen, origin and view corner.

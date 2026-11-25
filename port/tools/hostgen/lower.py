@@ -188,6 +188,7 @@ class _Fn:
     home: str | None = None
     static: bool = False                             # a static definition (Unit._ps2)
     arg_area: str | None = None                      # the frame field holding the EE's argument save area
+    spr_used: set | None = None                      # the scratchpad DMA channels whose registers it writes (_spr_store)
 
     @property
     def code(self) -> str:
@@ -877,6 +878,11 @@ class Unit:
                     fn.memory[vid] = self._frame_field(d, d.get("name", "v"))
         fn.wide = self._wide_locals(body)
         lines = self.compound(body, 1, top=True)
+        for ch in sorted(fn.spr_used or ()):
+            # The scratchpad DMA channel's registers this function writes (_spr_store): its own words.
+            prologue.append(f"    uint32_t openrac_spr{ch}_madr = 0, openrac_spr{ch}_qwc = 0, "
+                            f"openrac_spr{ch}_sadr = 0, openrac_spr{ch}_tadr = 0; "
+                            f"(void)openrac_spr{ch}_tadr;")
         frame_decl = []
         if fn.frame:
             fields = "\n".join(self._frame_slot(t, f) for f, t in fn.frame)
@@ -1714,7 +1720,14 @@ class Unit:
                 # where the C computes with it: the EE's 32-bit arithmetic and shifts read the register's low half
                 # (DrawFramedText's `(s32)color >> 24`, a sra).
                 return f"(({self.host(ctype.strip_quals(self.ty(child)))})({wide}))"
-            return self.lv(child).text
+            lv = self.lv(child)
+            if (lv.addr is not None and getattr(self.program, "spr_copies", False) and self._volatile_word(self.ty(child))
+                    and (spr := _spr_register(lv.addr)) is not None):
+                # A scratchpad DMA channel's register read by C (_spr_store): a copy is over when its
+                # CHCR store returns, so CHCR reads STR clear; MADR, QWC and SADR read the function's words.
+                field = self.SPR_FIELDS.get(spr & 0xFF)
+                return f"((uint32_t){self._spr_local(9 if spr >= 0x1000D400 else 8, field)})" if field else "((uint32_t)0)"
+            return lv.text
         if kind == "IntegralCast" and self._wide(t):
             wide = self._wide_param(child)
             if wide is not None:
@@ -2124,6 +2137,53 @@ class Unit:
         return "volatile" in quals | set(self.host(t).split()) and host.split()[-1] in (
             "int", "int32_t", "uint32_t", "openrac_u32", "openrac_s32") and "long" not in host and "short" not in host
 
+    # The scratchpad DMA channels' registers C writes (rv_BinaryOperator): by their offset from the
+    # channel's CHCR, the words kept as the function's locals.
+    SPR_FIELDS = {0x10: "madr", 0x20: "qwc", 0x30: "tadr", 0x80: "sadr"}
+
+    def _spr_local(self, ch: int, field: str) -> str:
+        """The function's own word for a scratchpad DMA channel's register (declared in its
+        prologue, _function_body)."""
+        if self.fn.spr_used is None:
+            self.fn.spr_used = set()
+        self.fn.spr_used.add(ch)
+        return f"openrac_spr{ch}_{field}"
+
+    def _spr_store(self, spr: int, value: str) -> str:
+        """C for a store of VALUE to the scratchpad DMA register at SPR: a word kept, the copy a CHCR
+        with STR starts (as openrac_spr_copy, ee_ops.h), or nothing for a register the copies do not use."""
+        ch = 9 if spr >= 0x1000D400 else 8
+        off = spr & 0xFF
+        if off in self.SPR_FIELDS:
+            return f"({self._spr_local(ch, self.SPR_FIELDS[off])} = (uint32_t)({value}))"
+        if off:
+            return f"((void)({value}))"
+        madr, qwc, sadr = (self._spr_local(ch, f) for f in ("madr", "qwc", "sadr"))
+        memory = "GREF(uint64_t, (gaddr)(((" + madr + " + 16u * spr_k_) & 0x01FFFFF0u) + spr_j_))"
+        pad = "GREF(uint64_t, (gaddr)(0x70000000u + ((" + sadr + " + 16u * spr_k_) & 0x3FF0u) + spr_j_))"
+        move = f"{pad} = {memory};" if ch == 9 else f"{memory} = {pad};"
+        return (f"({{ uint32_t spr_c_ = (uint32_t)({value}); if (spr_c_ & 0x100u) {{ "
+                f"if ((spr_c_ >> 2) & 3u) {{ extern void openrac_ee_dma_register(const char *, uint32_t, uint32_t); "
+                f"openrac_ee_dma_register(\"{self.fn.name}\", 0u, {spr & ~0xFF:#010x}u); }} else {{ "
+                f"uint32_t spr_n_ = {qwc} & 0xFFFFu; "
+                f"for (uint32_t spr_k_ = 0; spr_k_ < spr_n_; spr_k_++) for (uint32_t spr_j_ = 0; spr_j_ < 16u; spr_j_ += 8u) {move} "
+                f"{madr} += 16u * spr_n_; {sadr} += 16u * spr_n_; {qwc} = 0; }} }} }})")
+
+    def _spr_dynamic_store(self, addr: str, value: str) -> str:
+        """C for a volatile word store to ADDR, an address known only when it runs: a scratchpad DMA
+        channel's register there is _spr_store's, any other address a plain store."""
+        k = self._spr_serial = getattr(self, "_spr_serial", 0) + 1
+        a, v = f"spr_a{k}_", f"spr_v{k}_"
+        cases = []
+        for ch in (8, 9):
+            arms = " else ".join(f"if (({a} & 0xFFu) == {off:#x}u) {self._spr_store(base + off, v)};"
+                                 for base in (0x1000D400 if ch == 9 else 0x1000D000,)
+                                 for off in (0x00, *self.SPR_FIELDS))
+            cases.append(f"{{ {arms} }}")
+        return (f"({{ gaddr {a} = (gaddr)({addr}); uint32_t {v} = (uint32_t)({value}); "
+                f"if (({a} & 0xFFFFFB00u) == 0x1000D000u) {{ if ({a} & 0x400u) {cases[1]} else {cases[0]} }} "
+                f"else GREF(volatile uint32_t, {a}) = {v}; {v}; }})")
+
     def rv_BinaryOperator(self, n: dict) -> str:
         op = n["opcode"]
         a, b = _inner(n)
@@ -2135,17 +2195,24 @@ class Unit:
             ta = self.ty(a)
             if (lv.addr is not None and getattr(self.program, "spr_copies", False) and self._volatile_word(ta)
                     and (spr := _spr_register(lv.addr)) is not None):
-                # A scratchpad DMA channel's register written by C: there is no DMA controller and
-                # no register page behind it. A word that starts no transfer (a reset's QWC of 0,
-                # Going Commando's func_0029D050) does nothing; a CHCR with STR would start one,
-                # which only the kernels' copies do (asmc.py), so it stops the game (the SDK's MPEG
-                # library, which the native movie player leaves unreached).
+                # A scratchpad DMA channel's register written by C at a constant address, as the
+                # kernels' are (asmc.py): there is no DMA controller and no register page behind it.
+                # MADR, QWC, SADR and TADR are the function's own words (_spr_local), and the CHCR
+                # store with STR is the copy itself, over before the next statement, so the C's
+                # poll of STR or QWC reads it done (Going Commando's GS slot allocator
+                # func_002F35B0, the SDK's MPEG library). A start in any other mode than normal (a
+                # tag chain) stops the game (openrac_ee_dma_register).
                 value = self.convert(b, ta)
-                if spr & 0xFF:
-                    return f"((void)({value}))"
-                return (f"({{ extern void openrac_ee_dma_register(const char *, uint32_t, uint32_t); "
-                        f"if ((uint32_t)({value}) & 0x100u) "
-                        f"openrac_ee_dma_register(\"{self.fn.name}\", 0u, {spr:#010x}u); }})")
+                return self._spr_store(spr, value)
+            if (lv.addr is not None and getattr(self.program, "spr_copies", False) and self._volatile_word(ta)
+                    and not re.fullmatch(r"[\s()]*(?:\((?:gaddr|uint32_t|openrac_u32|unsigned int|int)\)\s*)*\(?\s*"
+                                         r"(?:0[xX][0-9a-fA-F]+|\d+)[uUlL]*\s*\)?[\s)]*", lv.addr)):
+                # A volatile word stored through a pointer the translation cannot follow: a register
+                # block's base in a local (Going Commando's CollLine, func_002761F8, writes toSPR's
+                # registers through `d[8]`, `d[32]`, `d[4]`, `d[0]`). Where it lands in a scratchpad
+                # DMA channel's registers it is the same words and copy as a constant address's
+                # (_spr_store); anywhere else it is the store it says.
+                return self._spr_dynamic_store(lv.addr, self.convert(b, ta))
             return f"({lv.text} = {self.convert(b, ta)})"
         if op in ("+", "-"):
             ta, tb = self.ty(a), self.ty(b)
@@ -2381,6 +2448,10 @@ class Unit:
                         and (self.fn.code, placed) in getattr(self.program, "data_copies", ()))
             if placed is not None and low <= placed < high and not own_copy:
                 return f"OPENRAC_LDATA({level}, {hexaddr(placed)})"
+            if placed is not None and placed < low and placed != address:
+                # An executable datum the level's build placed below the moving range: use that
+                # address, not the name's number (PAL Todano lifts: D_00701818 is 0x001886E0).
+                return hexaddr(placed)
         formed =getattr(self.program, "formed_as", {}).get(symbol or "")
         if formed is not None:
             # An address the code only forms with something added (hostgen.json "formed_as"): pairing
@@ -2746,6 +2817,11 @@ class Unit:
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "FunctionToPointerDecay":
             target = _strip_parens(_inner(c)[0])
             if target.get("kind") == "DeclRefExpr" and target["referencedDecl"].get("kind") == "FunctionDecl":
+                # A host-inserted decision query is a native call, not an EE code address.
+                if target["referencedDecl"].get("name") == "openrac_mod_play_query":
+                    if len(args) != 5:
+                        raise Unsupported("a gameplay query needs five scalar arguments")
+                    return "openrac_mod_play_query(" + ", ".join(self.rv(a) for a in args) + ")"
                 sym = self._callee_symbol(target)
                 if sym in getattr(self.program, "returns_64", ()):
                     # A function returning 64 bits that this unit declares int (hostgen.json

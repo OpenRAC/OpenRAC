@@ -190,9 +190,9 @@ bool supports_enhanced_water(std::string_view game, int level) {
     return game.starts_with("rac1-") && (level == 1 || level == 11 || level == 17);
 }
 
-// The extracted level the title world is written as (editor/level.py load_title).
+// The extracted level the title world is written as (extractor/level.py load_title).
 constexpr int kTitleWorld = 99;
-// The flight between planets' sky, written as a level of its own (editor/level.py load_flight).
+// The flight between planets' sky, written as a level of its own (extractor/level.py load_flight).
 constexpr int kFlightWorld = 98;
 // Where the sky's textures are placed in the texture pool, past the GS's 14-bit blocks.
 constexpr std::uint32_t kSkyTextureKey = 0x20000;
@@ -417,6 +417,8 @@ void use_level(int number) {
     });
     g->render.level = scene::LevelData();
     g->prop_models.clear();
+    g->prop_rigs.clear();
+    g->moby_skins = {};
     audio::ui_sounds::play_pickup_audio(-1);
     g->special_pickup_clips.clear();
     g->infobot_pickup_model = -1;
@@ -457,7 +459,7 @@ void use_level(int number) {
     }
     if (has_levels && !read) {
         crash::level_breadcrumb("level load failed", wanted);
-        log::warn("level {}: {} (extract it with editor/extract.py port)", wanted, error);
+        log::warn("level {}: {} (extract it with extractor/extract.py port)", wanted, error);
         // Said in the picture: the game goes on, its HUD over a black world, and a player takes
         // that for the game being broken.
         debug_overlay::notify({
@@ -498,9 +500,54 @@ void use_level(int number) {
         std::string why;
         if (const auto model = scene::load_model(mesh, g->render.level, why)) {
             g->prop_models.emplace_back(mesh, *model);
+            if (auto rig = scene::load_prop_rig(mesh, why)) {
+                g->prop_rigs.emplace_back(mesh, std::move(*rig));
+            }
         } else {
             g->prop_failed.push_back(mesh);
             log::warn("mods: prop mesh {}: {}", mesh.string(), why);
+        }
+    }
+    // The edited level's skins (OpenRAC Editor's openrac/tools/skins.py), beside its placements: a broken file leaves
+    // every moby drawn as its class.
+    if (!sources.edited.empty()) {
+        const std::filesystem::path skins = sources.edited.parent_path() / "skins.json";
+        std::error_code missing;
+        if (std::filesystem::is_regular_file(skins, missing)) {
+            std::string why;
+            std::vector<std::string> warnings;
+            if (!scene::load_moby_skins(skins, g->render.level, g->moby_skins, why, warnings)) {
+                g->moby_skins = {};
+                log::warn("level {}: {}: {}", wanted, skins.string(), why);
+            }
+            for (const std::string& warning : warnings) {
+                log::warn("level {}: {}", wanted, warning);
+            }
+            if (!g->moby_skins.empty()) {
+                log::info(
+                    "level {}: {} mobys drawn as skins", wanted, g->moby_skins.by_spawn_id.size()
+                );
+            }
+        }
+    }
+    // What the editor packs for its mod beside the placements (cutscenes, behaviours) plays only
+    // with that mod on: said in the picture, or the level looks broken.
+    if (!sources.edited.empty() && !mods::loaded("editor-runtime")) {
+        const std::filesystem::path dir = sources.edited.parent_path();
+        std::error_code missing;
+        if (std::filesystem::is_directory(dir / "cutscenes", missing)
+            || std::filesystem::is_regular_file(dir / "behaviours.json", missing)) {
+            log::warn(
+                "level {}: made in OpenRAC Editor, and the editor-runtime mod is off", wanted
+            );
+            debug_overlay::notify({
+                .id = "editor-runtime",
+                .title = "This level needs the editor-runtime mod",
+                .text =
+                    "Turn it on in Mods: without it, its cutscenes and moving objects do not play.",
+                .tone = debug_overlay::Tone::Warning,
+                .seconds = 10.0,
+            });
         }
     }
     // Portable Infobot presentations use a render-only skeleton, never a local scene's actors.
@@ -834,6 +881,7 @@ void savestate_restored(std::uint64_t tick) {
     g->world_camera.reset();
     g->world_shrubs.reset();
     g->moby_cameras.clear();
+    g->view_states = {};
     g->effects.clear();
     g->effect_uploads.clear();
     g->sky_shell_mask = 0;
@@ -1222,8 +1270,9 @@ void particle(
         p.address = static_cast<std::uint32_t>(record - ram.data());
     }
     p.attachment = g->render.profile->particle_attachment(p.record);
-    p.pixels = pixels & 0x01FFFFFF;
-    p.clut = clut & 0x01FFFFFF;
+    // In game memory: 32 MiB, or more for a level mounted in expanded memory.
+    p.pixels = pixels & (openrac_guest_ram_size - 1);
+    p.clut = clut & (openrac_guest_ram_size - 1);
     p.log2_side = log2_side;
     g->particles.push_back(p);
 }

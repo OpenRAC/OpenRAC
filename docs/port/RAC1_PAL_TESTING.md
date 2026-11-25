@@ -26,7 +26,7 @@ the regression runs: [REGRESSION.md](REGRESSION.md).
   format only ([levels-format](#7-when-the-export-changes)). For a test that
   needs fresh levels, export to a scratch folder under `build/` instead of
   overwriting the player's:
-  `python3 editor/extract.py port games/rac1/decomp/baserom/SCES_509.16.iso build/NAME --level N`
+  `python3 extractor/extract.py port games/rac1/decomp/baserom/SCES_509.16.iso build/NAME --level N`
   (writes level N plus the title world 99 and the flight world 98, which a
   direct start needs; about half a minute). Delete it afterwards.
 - **The data folder** (`--data`) is the launcher's install:
@@ -201,9 +201,9 @@ in ReRAC's `docs/plan/class_census.md` and the planet pages.
 
 ## 7. When the export changes
 
-A change to what `editor/port.py` writes that the port relies on bumps the
+A change to what `extractor/port.py` writes that the port relies on bumps the
 export format: `FORMAT` there, `kManifestFormat` in `port/scene/level.h`,
-the stamps `levels-<format>.json` (written by `editor/extract.py port` once
+the stamps `levels-<format>.json` (written by `extractor/extract.py port` once
 every level is whole) and `verified-<format>.json` in `launcher/actions.json`
 and `tools/bundle_standalone.py`, and the test fixtures. The launcher then
 re-reads every player's levels, and checks them, before Play.

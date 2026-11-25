@@ -19,14 +19,14 @@
 
 #include "assets/disc/checksum.h"
 #include "assets/sound/wav.h"
-#include "audio/spu.h"
+#include "audio/mixer.h"
 #include "common/log.h"
 
 namespace openrac::audio {
 
 namespace {
 
-// The first eight bytes of the digest: editor/audio.py's key_of writes them in hex.
+// The first eight bytes of the digest: extractor/audio.py's key_of writes them in hex.
 SoundKey make_key(const assets::disc::Sha256& hash) {
     const assets::disc::Sha256Digest digest = hash.finish();
     SoundKey key = 0;
@@ -50,7 +50,7 @@ std::optional<SoundKey> parse_key(std::string_view text) {
 
     // A digit at a time.
     for (const char c : text) {
-        // Upper-case digits are refused, as editor/overrides.py refuses them: one name for a file.
+        // Upper-case digits are refused, as extractor/overrides.py refuses them: one name for a file.
         if (c >= '0' && c <= '9') {
             key = key << 4 | static_cast<SoundKey>(c - '0');
         } else if (c >= 'a' && c <= 'f') {

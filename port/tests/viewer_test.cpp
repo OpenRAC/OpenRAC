@@ -1206,7 +1206,7 @@ int draw(scene::LevelData& level, const fs::path& dir) {
     return openrac::test::result();
 }
 
-// A mod's folder for the level (the --mods folder's level_03, editor/overrides.py): an upscaled
+// A mod's folder for the level (the --mods folder's level_03, extractor/overrides.py): an upscaled
 // terrain texture and a bigger tie mesh are read in place of the level's own, and the mod's mesh
 // names a texture of the level it does not carry (the tie's), which comes from the level.
 void overrides(const fs::path& dir) {
@@ -1263,7 +1263,7 @@ void overrides(const fs::path& dir) {
     fs::remove_all(mods.parent_path());
 }
 
-// A terrain as editor/assets.py imports a denser one: an N x N grid of quads, side `size`,
+// A terrain as extractor/assets.py imports a denser one: an N x N grid of quads, side `size`,
 // centred on the origin at height z, with vertex colours (the game's lighting, 0x80 = 1.0, so up
 // to 2) and 32-bit indices.
 void write_grid(
@@ -1377,7 +1377,7 @@ void mod_assets(const fs::path& dir) {
     fs::remove_all(base);
 }
 
-// A mod's terrain (editor/overrides.py: level_NN/terrain.glb, as the manifest names it), denser than
+// A mod's terrain (extractor/overrides.py: level_NN/terrain.glb, as the manifest names it), denser than
 // the level's: drawn in its place whatever its vertex count, lit by its vertex colours, naming the
 // level's terrain texture it does not carry.
 void denser_terrain(const fs::path& dir) {

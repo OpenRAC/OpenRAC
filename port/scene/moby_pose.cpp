@@ -9,6 +9,7 @@
 #include <limits>
 #include <mutex>
 #include <optional>
+#include <unordered_map>
 
 namespace openrac::scene {
 
@@ -23,8 +24,8 @@ constexpr std::size_t kMaxListSteps = 64;
 
 // set_extra_joint_modifiers: the moby and its modifiers.
 std::mutex g_extra_lock;
-std::uint32_t g_extra_moby = 0;
-std::vector<rac1::JointModifier> g_extra_mods;
+// Each moby's own joint modifiers of the port's (set_extra_joint_modifiers), by its address.
+std::unordered_map<std::uint32_t, std::vector<rac1::JointModifier>> g_extra_mods;
 
 std::uint32_t ram_address(std::uint32_t address, std::size_t size) {
     constexpr std::uint32_t uncached = 0x20000000u;
@@ -45,6 +46,10 @@ std::uint32_t ram_address(std::uint32_t address, std::size_t size) {
 std::uint32_t g_port_base = 0;
 std::span<const std::uint8_t> g_port;
 
+// The class region past RAM (set_moby_class_region): imported moby classes, read as RAM.
+std::span<const std::uint8_t> g_region;
+std::uint32_t g_region_at = 0;
+
 // Where the `bytes` bytes at game address `address` are: the memory that holds them (game RAM or
 // the port's own) and their offset in it; none when they are in neither. A moby's joint
 // modifiers and pose layers live in its pvars, and a mod's copy of an enemy whose pvars are larger
@@ -53,6 +58,13 @@ std::span<const std::uint8_t> g_port;
 std::optional<std::pair<std::span<const std::uint8_t>, std::uint32_t>> locate(
     std::span<const std::uint8_t> ram, std::uint32_t address, std::size_t bytes
 ) {
+    if (!g_region.empty() && address >= g_region_at && address - g_region_at < g_region.size()) {
+        const std::uint32_t offset = address - g_region_at;
+        if (bytes > g_region.size() - offset) {
+            return std::nullopt;
+        }
+        return std::pair{g_region, offset};
+    }
     if (!g_port.empty() && address >= g_port_base && address - g_port_base < g_port.size()) {
         const std::uint32_t offset = address - g_port_base;
         if (bytes > g_port.size() - offset) {
@@ -123,6 +135,11 @@ void set_moby_anim_fields(std::uint32_t first) {
 
 void set_moby_layer_records(bool records) {
     g_layer_records = records;
+}
+
+void set_moby_class_region(std::span<const std::uint8_t> bytes, std::uint32_t address) {
+    g_region = bytes;
+    g_region_at = address;
 }
 
 void set_port_memory(std::uint32_t base, std::span<const std::uint8_t> memory) {
@@ -374,8 +391,9 @@ std::vector<rac1::JointMatrix> evaluate_moby(
     }
     {
         const std::lock_guard<std::mutex> lock(g_extra_lock);
-        if (g_extra_moby != 0 && g_extra_moby == moby) {
-            mods.insert(mods.end(), g_extra_mods.begin(), g_extra_mods.end());
+        const auto extra = g_extra_mods.find(moby);
+        if (extra != g_extra_mods.end()) {
+            mods.insert(mods.end(), extra->second.begin(), extra->second.end());
         }
     }
     std::vector<rac1::JointMatrix> pose =
@@ -398,16 +416,22 @@ std::vector<rac1::JointMatrix> evaluate_moby(
 
 void set_extra_joint_modifiers(std::uint32_t moby, std::vector<rac1::JointModifier> mods) {
     const std::lock_guard<std::mutex> lock(g_extra_lock);
-    g_extra_moby = mods.empty() ? 0 : moby;
-    g_extra_mods = std::move(mods);
+    if (moby == 0) {
+        g_extra_mods.clear();
+    } else if (mods.empty()) {
+        g_extra_mods.erase(moby);
+    } else {
+        g_extra_mods[moby] = std::move(mods);
+    }
 }
 
 std::vector<rac1::JointModifier> extra_joint_modifiers(std::uint32_t moby) {
     const std::lock_guard<std::mutex> lock(g_extra_lock);
-    if (moby == 0 || g_extra_moby != moby) {
+    const auto extra = g_extra_mods.find(moby);
+    if (moby == 0 || extra == g_extra_mods.end()) {
         return {};
     }
-    return g_extra_mods;
+    return extra->second;
 }
 
 }  // namespace openrac::scene

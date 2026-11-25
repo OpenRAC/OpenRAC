@@ -57,6 +57,10 @@ constexpr std::uint64_t kSkippedTicks = 4;
 constexpr unsigned kCoastTicks = 45;
 constexpr float kStillRadians = 0.0005f;
 
+// The longest the mouse's motion is carried on to a frame's showing: a frame is shown within a
+// refresh or two of its drawing; a longer wait is a stall, not worth a guess.
+constexpr double kMaxLeadSeconds = 0.05;
+
 // What the latch keeps from one frame to the next.
 struct Latch {
     std::uint64_t tick = ~0ull;  // the kept tick of the last frame
@@ -148,9 +152,10 @@ CameraTurn latch_camera(
     static const bool& log_on = stats::probe(
         "OPENRAC_CAMERA_LATCH_LOG", "the late camera latch's guesses against the ticks, in the log"
     );
-    const host::GameState shown = scene.has_prev_state && alpha < 1.0f
-                                      ? blend_camera(scene.prev_state, scene.state, alpha)
-                                      : scene.state;
+    const host::GameState shown =
+        scene.has_prev_state && alpha < 1.0f
+            ? blend_camera(scene.prev_state, scene.state, alpha, camera_pace(scene))
+            : scene.state;
     const float base = heading(shown.forward);
 
     // A new tick: the hero's place from it, and whether its camera read the stick.
@@ -205,6 +210,19 @@ CameraTurn latch_camera(
     float pending_y = 0.0f;
     if (g_mouse_turn != nullptr && g && g->window) {
         g->input.pending_mouse(pending_x, pending_y);
+        // And on to when the frame is shown, at the rate the mouse moves now. Frames are drawn at
+        // uneven times before they are shown (a tick's at once, the others later): the motion at
+        // drawing alone turned the picture unevenly, a fast turn looked doubled at 90 Hz.
+        float rate_x = 0.0f;
+        float rate_y = 0.0f;
+        g->input.mouse_rate(rate_x, rate_y);
+        const float lead = static_cast<float>(std::clamp(
+            std::chrono::duration<double>(display - std::chrono::steady_clock::now()).count(),
+            0.0,
+            kMaxLeadSeconds
+        ));
+        pending_x += rate_x * lead;
+        pending_y += rate_y * lead;
     }
     // Asked every frame, so that the ticks' turn it reports is only theirs since the last frame.
     const bool mouse_turns =

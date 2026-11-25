@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1240" viewBox="0 0 1440 1240" role="img" aria-labelledby="title desc">
+  <title id="title">OpenRAC shader compiler architecture</title>
+  <desc id="desc">CMake runs a GPU-independent shader compiler during the build. Shared shader assembly combines GLSL and variant recipes. The compiler produces embedded SPIR-V, reflection and an error checkerboard. At runtime Vulkan selects packaged shaders and creates GPU-specific pipelines using local caching and prewarming. Missing graphics variants use the embedded checkerboard, including development builds. OpenGL and ES retain their existing path. Compute shaders and explicitly opted-in tools can use a development runtime compiler.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker>
+    <style>
+      text { font-family: 'Segoe UI', Arial, sans-serif; fill: #17263c; }
+      .title { font-size: 32px; font-weight: 700; }
+      .subtitle { font-size: 17px; fill: #52647a; }
+      .section { font-size: 20px; font-weight: 700; }
+      .label { font-size: 18px; font-weight: 600; text-anchor: middle; }
+      .detail { font-size: 15px; fill: #52647a; text-anchor: middle; }
+      .note { font-size: 14px; fill: #52647a; }
+      .box { fill: white; stroke: #b9c7d9; stroke-width: 1.5; }
+      .line { fill: none; stroke: #64748b; stroke-width: 2; marker-end: url(#arrow); }
+      .optional { stroke-dasharray: 7 5; }
+    </style>
+  </defs>
+  <rect width="1440" height="1240" fill="#f8fafc"/>
+  <text x="48" y="56" class="title">OpenRAC shader compiler</text>
+  <text x="48" y="87" class="subtitle">Compile portable shaders during the build. Create GPU-specific pipelines on the player's machine.</text>
+
+  <rect x="40" y="120" width="1360" height="420" rx="18" fill="#eef5ff" stroke="#bed4f4"/>
+  <text x="64" y="156" class="section">BUILD MACHINE</text>
+  <text x="275" y="156" class="subtitle">No GPU or window required</text>
+
+  <rect x="70" y="192" width="300" height="86" rx="12" class="box"/>
+  <text x="220" y="226" class="label">GLSL sources + includes</text>
+  <text x="220" y="251" class="detail">Graphics and compute shaders</text>
+  <rect x="70" y="316" width="300" height="86" rx="12" class="box"/>
+  <text x="220" y="350" class="label">Shader recipes</text>
+  <text x="220" y="375" class="detail">Variants and capability combinations</text>
+
+  <rect x="430" y="252" width="270" height="98" rx="12" class="box"/>
+  <text x="565" y="287" class="label">Shared shader assembly</text>
+  <text x="565" y="313" class="detail">Composition + Vulkan transforms</text>
+  <text x="565" y="335" class="detail">Explicit compile options</text>
+  <path d="M370 235 H400 V282 H430" class="line"/>
+  <path d="M370 359 H400 V320 H430" class="line"/>
+
+  <rect x="755" y="252" width="290" height="98" rx="12" fill="#215fc4"/>
+  <text x="900" y="290" class="label" style="fill:white">openrac-shader-compiler</text>
+  <text x="900" y="319" class="detail" style="fill:#e2edff">Pinned glslang + reflection</text>
+  <path d="M700 301 H755" class="line"/>
+  <rect x="790" y="183" width="220" height="44" rx="10" class="box"/>
+  <text x="900" y="211" class="label">CMake</text>
+  <path d="M900 227 V252" class="line"/>
+
+  <rect x="1100" y="252" width="270" height="98" rx="12" class="box"/>
+  <text x="1235" y="286" class="label">Generated shader package</text>
+  <text x="1235" y="312" class="detail">SPIR-V + reflection</text>
+  <text x="1235" y="335" class="detail">Variant index + error shader</text>
+  <path d="M1045 301 H1100" class="line"/>
+  <text x="755" y="402" class="note">Build errors identify the shader and variant.</text>
+  <text x="755" y="426" class="note">Incremental generation tracks sources, includes and recipes.</text>
+  <text x="70" y="490" class="note">Cross-compilation: run a host-built compiler to generate shaders for the target.</text>
+
+  <path d="M1235 350 V570 H720 V620" class="line"/>
+  <rect x="915" y="555" width="233" height="28" rx="6" fill="#f8fafc"/>
+  <text x="930" y="575" class="note">Embedded during the build</text>
+
+  <rect x="40" y="600" width="1360" height="448" rx="18" fill="#eef9f4" stroke="#bbdfce"/>
+  <text x="64" y="638" class="section">PLAYER'S MACHINE</text>
+  <rect x="595" y="660" width="250" height="58" rx="12" class="box"/>
+  <text x="720" y="696" class="label">OpenRAC + shader package</text>
+  <path d="M720 620 V660" class="line"/>
+
+  <rect x="70" y="766" width="240" height="90" rx="12" class="box"/>
+  <text x="190" y="801" class="label">Shader selection</text>
+  <text x="190" y="829" class="detail">Shader + variant + capabilities</text>
+  <path d="M595 689 H190 V766" class="line"/>
+  <rect x="365" y="766" width="240" height="90" rx="12" class="box"/>
+  <text x="485" y="801" class="label">Package lookup</text>
+  <text x="485" y="829" class="detail">Load bytecode and reflection</text>
+  <path d="M310 811 H365" class="line"/>
+  <rect x="660" y="766" width="275" height="90" rx="12" class="box"/>
+  <text x="797" y="801" class="label">Vulkan modules + layouts</text>
+  <text x="797" y="829" class="detail">Uniforms and descriptor bindings</text>
+  <path d="M605 811 H660" class="line"/>
+  <rect x="990" y="766" width="375" height="90" rx="12" class="box"/>
+  <text x="1177" y="801" class="label">GPU-specific pipeline creation</text>
+  <text x="1177" y="829" class="detail">Specialization constants + render state</text>
+  <path d="M935 811 H990" class="line"/>
+
+  <rect x="990" y="905" width="375" height="62" rx="12" class="box"/>
+  <text x="1177" y="943" class="label">Vulkan driver / GPU</text>
+  <path d="M1177 856 V905" class="line"/>
+  <rect x="660" y="905" width="275" height="62" rx="12" class="box"/>
+  <text x="797" y="943" class="label">Pipeline cache + prewarming</text>
+  <path d="M935 936 H962 V856" class="line"/>
+  <path d="M1020 856 V884 H797 V905" class="line"/>
+
+  <rect x="990" y="660" width="375" height="58" rx="12" class="box"/>
+  <text x="1177" y="685" class="label">OpenGL / ES</text>
+  <text x="1177" y="707" class="detail">Existing compilation and caching</text>
+  <path d="M845 689 H990" class="line"/>
+  <text x="70" y="1008" class="note">Graphics misses use embedded magenta/black SPIR-V, including development builds.</text>
+
+  <rect x="40" y="1080" width="1360" height="120" rx="18" fill="#fff8e9" stroke="#e5cea0"/>
+  <text x="64" y="1118" class="section">MISSING VARIANTS</text>
+  <text x="64" y="1151" class="subtitle">Graphics: embedded error shader. Compute/custom tools: optional runtime compiler.</text>
+  <text x="64" y="1177" class="note">Strict lookup refuses missing entries. Add new sources and variants to the build recipes.</text>
+  <path d="M485 856 V1080" class="line optional"/>
+  <text x="498" y="978" class="note">Package miss</text>
+  <path d="M1375 1140 H1385 V746 H797 V766" class="line optional"/>
+</svg>
