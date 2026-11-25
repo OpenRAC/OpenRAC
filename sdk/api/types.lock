@@ -529,6 +529,7 @@ openrac_rac2_Bolt_SpawnPickups	(typedef)	-	void (*)(uint32_t, int32_t, int32_t, 
 openrac_rac2_Hero_ApproachSpeed	(typedef)	-	void (*)(float, float)
 openrac_rac2_Hero_NanotechSteps	(typedef)	-	int32_t (*)(uint32_t, uint32_t, uint32_t)
 openrac_rac2_Hero_TakeDamage	(typedef)	-	void (*)(int32_t)
+openrac_rac2_Hero_Update	(typedef)	-	void (*)(void)
 openrac_rac2_Hero_UpdateCollectionProgress	(typedef)	-	void (*)(void)
 openrac_rac2_Item_Colors	(typedef)	-	void (*)(int32_t, uint32_t, uint32_t, uint32_t)
 openrac_rac2_Item_Equip	(typedef)	-	int32_t (*)(int32_t)

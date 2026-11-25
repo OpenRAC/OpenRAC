@@ -1076,8 +1076,8 @@ mod tests {
         let (from, to, file) = (tmp.path().join("a"), tmp.path().join("b"), tmp.path().join("saves.zip"));
         card(&from);
         fs::write(from.join(FOLDER).join("save1.bin.moddata"), b"{\"ng-plus-plus\": \"AAEC\"}").unwrap();
-        // The tiers: the save's clock (save()'s record 4), legacy RYNO II tier 2 and the
-        // started mark, another save's line before it. Reading maps tier 2 to layout 4's Alpha (4).
+        // The tiers: the save's clock (save()'s record 4) with the RYNO II at Ultima (2) and the
+        // started mark, another save's line before it.
         let clock = "0014142300101026";
         let mut tiers = [0u8; 56];
         tiers[44] = 0x82;
@@ -1113,7 +1113,8 @@ mod tests {
         )
         .unwrap();
         assert!(read_back.found);
-        assert_eq!(read_back.fields[0].value, 4, "the legacy RYNO II tier reads as layout 4 Alpha");
+        // No marker, so layout 1: its RYNO II step 2 reads as step 4 of layout 4.
+        assert_eq!(read_back.fields[0].value, 4, "the RYNO II's step in layout 4");
 
         // Exported again from there: the same records.
         let again = tmp.path().join("again.zip");

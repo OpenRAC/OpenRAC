@@ -525,3 +525,70 @@ frame into 36 haze patches and the squares are gone. The same 32-bit declaration
 src/levels/shared/L01_00363E68.c, src/levels/07_annihilation_nation/L07_003CE2B8.c,
 src/levels/09_tyhrranosis/L09_00317D00.c and nonmatching/functional/func_L07_003BFAE8.c and
 func_L32_003BE098.c (their effect textures lose TH, TCC and the CLUT block in the port).
+
+## Dropship hull see-through: the ties' own ALPHA_1 (2026-11-24, levels format 18)
+
+The dropship's hull is not a moby: class 6877 (no model in the level; +0x24 stays 0) moves three
+ties of the level, 6759, 6760 and 6762 (placements 119 to 124, two ships), to its place each tick,
+and the window draws moved ties with the mobys (`LevelScene::add_moved_scenery`). Their hull pictures
+(tie_0020, 0021, 0022, 0028) are at alpha 0x0B to 0x1E with some texels at 0. Each tie material's
+fifth A+D quadword is its ALPHA_1: 0x44 for most, but 0x20 ((Cs - Cs) FIX + Cs, the source colour
+whatever the alpha) for those pictures, so the console draws the hull opaque. The export kept only
+the pictures' alpha (MASK, or "below full alpha" in `scene/level.cpp`), and the window blended the
+hull by it: in a hidden Veldin run with Ratchet teleported into the ship's call cuboid (22, centre
+372.96 325.73 80) the flying ship showed the cliffs and the towers through it. The extractor now
+reads ALPHA_1 (`formats.gs_alpha_opaque`) and marks such materials `extras: {"opaque": true}`
+without MASK; the port leaves them solid. 23 materials on Veldin, 43 on the Phoenix; Going
+Commando's ties (all 0x44) are unchanged. Also in the ties' ALPHA_1 and still drawn as 0x44: 0x58
+(Cs Ad + Cd) and 0x68 (Cs FIX + Cd), additive.
+
+## A Veldin dropship that never flew in: VU0 clobbers made its controller a stub (2026-11-24)
+
+rac3-decomp c62db12f (pinned by #840) matched func_L01_003AA658, the update of class 6476: a
+controller with no model that flies one of the four class-6800 ships parked in formation over
+Veldin (placements 665 to 668, at 335-347 431-441 100) along its path. Its C ends in VU0 inline
+assembly on named registers (`lqc2 $vf1` ... `vsub.xyz` ... `sqc2`) with `"vf1", "vf2"` as
+clobbers. Clang knows no such register, clangast made the statement `openrac_hostgen_asm()`,
+and the whole function a stub before `vu0_assembly_from_retail` could see its instructions: the
+log said "func_L01_003AA658 has no C in the port yet" right after Veldin loaded (first in the
+user's #841 build, not in #830's, where the function was still INCLUDE_ASM). Its three moby
+records stayed in state 0 and their ship never left the formation. clangast now drops VU0
+registers from the clobbers instead (`_drop_vu0_clobber`), so the statement stays and the
+function is translated from the disc: in a hidden box2 run (Ratchet teleported into cuboid 22)
+the controller reaches state 253 and carries placement 665's ship to 310.4 332.7 87.5 by frame
+2400, as no build since #840 did. Four Annihilation Nation functions with the same statements
+(func_L07_0035CC10, 003A7CB8, 003DC790, 00473C80) move to their assembly too. 00473C80's caller
+func_L07_003B6E98 had inherited the C's result before the assembly stage found none
+(`uninherit_void_results`). The Rangers' dropships (6877, func_L01_003C3D08, matched in
+242c17bd) fly the same in its matched C and in its assembly (state, position and the moved
+ties compared at frame 2400).
+
+## Open after the 2026-11-24 playtest fixes (#829–#877)
+
+Not fixed, for whoever picks rac3 up next:
+
+- **Crash on Veldin after a new game's first flight** (seen once in a hidden box2 run, frame 1714):
+  SIGSEGV in a level function's string formatting, `func_L01_004CDF20 → func_0011B2E8`
+  (print.c:28) `→ openrac_guest_vformat`. Not reproduced or diagnosed yet.
+- **The Phoenix's "△ Enter ship" HUD message box** draws enlarged with its text shifted left. The
+  box is `func_L01_004366A0 → func_L01_004CDC38`, drawn by `func_L01_004CF120` / `004CEAE0`: it
+  measures "\x12 Enter ship" as 120 units (font 1, scale 1.0) against a half-width of 68 and draws
+  the text from x=195. Every global on that path pairs correctly on level 3 (#876's audit). Next
+  step: capture the same prompt on Florana and compare the measured width (message box +0x1B4).
+- **Misfiled 8-byte getters in other levels** (#876 fixed levels 3/24's and the flight's): the
+  same one-row-along filing shows in levels 4, 7, 9, 12, 13, 16, 18, 19, 22, 26, 27, 29 and 30
+  (e.g. `func_L01_003A0710`, `func_L01_004C93D8`), and the font-wrapper rows still held by other
+  Veldin names (`func_L01_00423020`, `func_L01_00412810`). Many read private globals only; check
+  each one against callers' `OPENRAC_LCODE` calls. The root fix is rac3-decomp's catalogue
+  (tools/level_catalogue.py).
+- **Synchronous rendering's tick-boundary hitch**: on OpenGL, or Vulkan without the render
+  thread, the scene runs half a tick behind but in-between frames can't pass the next tick, so
+  alpha drops from ~0.47 to 0 at each tick. The Vulkan render-thread path is not affected.
+  Probe: `OPENRAC_MOTION_LOG`.
+- **The first flight's Solana galaxy sequence**: the boot flight has no first-flight variant in
+  its transition table (#871's runs). Probably the New Game intro movie (sector 18444); not
+  confirmed against the original.
+- **Blank first-weapon slot after loading a save** (one report): not reproduced in six box2 runs.
+- **Ties' additive blends** 0x58 and 0x68 are still drawn as the normal 0x44 blend (#869).
+- **Water**: the surface texture has one mip level (#868), so distant water on levels with a
+  surface texture may shimmer; colours were checked against microprogram 10's maths, not footage.

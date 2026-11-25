@@ -6,6 +6,7 @@
 
 #include "common/stats.h"
 #include "enhanced/renderer/compute_graph.h"
+#include "enhanced/renderer/shader_recipe_sources.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl/gl.h"
@@ -136,21 +137,11 @@ bool EarlyLighting::render(
     const bool fast = input.shadow_filter == renderer::ShadowFilter::Fast;
     renderer::Shader& compute = m_compute[(fast ? 1 : 0) + (s == 4 ? 2 : 0)];
     if (!compute.id()) {
-        std::string source = shaders::early_lighting_comp;
-        source = probe_shader_source(std::move(source));
-        source.insert(source.find('\n') + 1, shaders::cloud_shadows_glsl);
-        if (renderer::render_opt::enabled(renderer::render_opt::Opt::EarlyProbeSetup)) {
-            source.insert(source.find('\n') + 1, "#define OPENRAC_PROBE_RECEIVER_SETUP 1\n");
-        }
-        if (fast) {
-            source.insert(source.find('\n') + 1, "#define OPENRAC_CHEAP_SHADOWS 1\n");
-        }
-        source.insert(source.find('\n') + 1, renderer::shaders::surface_normal_glsl);
-        source.insert(
-            source.find('\n') + 1, "#define OPENRAC_PROBE_PIXEL early_pixel\nivec2 early_pixel;\n"
-        );
-        source.insert(
-            source.find('\n') + 1, "#define OPENRAC_EARLY_SCALE " + std::to_string(s) + "\n"
+        const auto source = enhanced::recipe_sources::early_lighting(
+            s,
+            fast,
+            renderer::render_opt::enabled(renderer::render_opt::Opt::EarlyProbeSetup),
+            shader_sources::runtime_options()
         );
         if (!compute.build_compute(
                 fast ? "early GI and cascades (fast shadows)" : "early GI and cascades",

@@ -18,6 +18,7 @@
 #include "common/stats.h"
 #include "enhanced/renderer/local_lights.h"
 #include "enhanced/renderer/reflection_material.h"
+#include "enhanced/renderer/shader_recipe_sources.h"
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced/renderer/water_window.h"
 #include "enhanced_viewer_shaders.h"
@@ -64,44 +65,19 @@ Water* contact_source = nullptr;
 
 // Compose water optics with shared lighting, reflection and scene-transmission helpers.
 std::string Water::fragment_source() const {
-    std::string source = std::string(lighting::shaders::water_window_glsl) + "\n"
-                         + std::string(lighting::shaders::water_swell_glsl) + "\n"
-                         + std::string(lighting::shaders::shading_brdf_glsl) + "\n"
-                         + local_light_shader_source() + "\n"
-                         + std::string(lighting::shaders::environment_glsl) + "\n"
-                         + std::string(lighting::shaders::water_transmission_glsl) + "\n"
-                         + std::string(lighting::shaders::water_glsl);
-    if (!m_ocean_pixels.empty()) {
-        source.insert(0, "#define OPENRAC_OCEAN 1\n");
-    }
-    if (m_ocean_spectra[0]) {
-        source.insert(0, "#define OPENRAC_OCEAN_SPECTRUM 1\n#define OPENRAC_OCEAN_FINE 1\n");
-    }
-    if (renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
-        source.insert(0, "#define OPENRAC_WATER_LOCAL 1\n");
-        return renderer::shader_constants(std::move(source), {{"water_sim_local", 1}});
-    }
-    return source;
+    return recipe_sources::water_fragment_source(
+        !m_ocean_pixels.empty(),
+        m_ocean_spectra[0] != nullptr,
+        renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)
+    );
 }
 
 std::string Water::vertex_source() const {
-    std::string source = std::string(lighting::shaders::water_uv_glsl) + "\n"
-                         + std::string(lighting::shaders::water_mesh_glsl) + "\n"
-                         + std::string(lighting::shaders::water_window_glsl) + "\n"
-                         + std::string(lighting::shaders::water_swell_glsl) + "\n"
-                         + std::string(lighting::shaders::water_displacement_glsl) + "\n"
-                         + std::string(lighting::shaders::water_vertex_glsl);
-    if (!m_ocean_pixels.empty()) {
-        source.insert(0, "#define OPENRAC_OCEAN 1\n");
-    }
-    if (m_ocean_spectra[0]) {
-        source.insert(0, "#define OPENRAC_OCEAN_SPECTRUM 1\n");
-    }
-    if (renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
-        source.insert(0, "#define OPENRAC_WATER_LOCAL 1\n");
-        return renderer::shader_constants(std::move(source), {{"water_sim_local", 1}});
-    }
-    return source;
+    return recipe_sources::water_vertex_source(
+        !m_ocean_pixels.empty(),
+        m_ocean_spectra[0] != nullptr,
+        renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)
+    );
 }
 
 std::optional<renderer::EffectMesh> Water::mesh(

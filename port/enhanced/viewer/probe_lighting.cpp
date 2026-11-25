@@ -26,6 +26,7 @@
 #include "enhanced/tools/baker/sources/probe_fingerprint.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_texture_upload.h"
+#include "enhanced/viewer/shader_sources.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
@@ -160,55 +161,21 @@ unsigned rays_from_environment() {
 }  // namespace
 
 std::string probe_shader_source(std::string source) {
-    if (!enhanced_rendering_available()) {
-        return source;
-    }
-    source.insert(source.find('\n') + 1, enhanced::local_light_shader_source());
-    source.insert(source.find('\n') + 1, shaders::shading_brdf_glsl);
-    source.insert(source.find('\n') + 1, renderer::shaders::shading_normal_glsl);
-    static const bool& gather_off = stats::probe(
-        "OPENRAC_SHADOW_GATHER_OFF", "Reference: 16 individual shadow texel fetches (reload level)"
+    return shader_sources::probe_shader_source(
+        std::move(source), shader_sources::runtime_options()
     );
-    if (gl::is_vulkan() && !gather_off) {
-        source.insert(source.find('\n') + 1, "#define OPENRAC_SHADOW_GATHER 1\n");
-    }
-    static const bool& reference = stats::probe(
-        "OPENRAC_SHADOW_FILTER_REFERENCE",
-        "Profiling reference: nine bilinear shadow taps instead of unique texels"
-    );
-    if (reference) {
-        source.insert(source.find('\n') + 1, "#define OPENRAC_SHADOW_FILTER_REFERENCE 1\n");
-    }
-    static const bool& zero_weight_reference = stats::probe(
-        "OPENRAC_PROBE_ZERO_WEIGHT_REFERENCE",
-        "Profiling reference: fetch probe atlases for zero-weight valid corners"
-    );
-    if (zero_weight_reference) {
-        source.insert(source.find('\n') + 1, "#define OPENRAC_PROBE_ZERO_WEIGHT_REFERENCE 1\n");
-    }
-    return source;
 }
 
 std::string probe_mesh_fragment(std::string source) {
-    if (!enhanced_rendering_available()) {
-        return source;
-    }
-    source.insert(source.find('\n') + 1, shaders::environment_glsl);
-    source += std::string("\n#if !defined(OPENRAC_SOLID)\n") + std::string(shaders::thin_glass_glsl)
-              + "\n#endif\n";
-    source = probe_shader_source(std::move(source));
-    // Shared sunlight code reads the cloud attenuation declared by this prelude.
-    source.insert(source.find('\n') + 1, shaders::cloud_shadows_glsl);
-    return source;
+    return shader_sources::probe_mesh_fragment(
+        std::move(source), shader_sources::runtime_options()
+    );
 }
 
 std::string probe_early_fragment(std::string source) {
-    if (enhanced_rendering_available()) {
-        source.insert(source.find('\n') + 1, "#define OPENRAC_EARLY_LIGHTING 1\n");
-        source += shaders::early_lighting_glsl;
-    }
-
-    return probe_mesh_fragment(std::move(source));
+    return shader_sources::probe_early_fragment(
+        std::move(source), shader_sources::runtime_options()
+    );
 }
 
 bool ProbeLighting::upload(

@@ -2565,6 +2565,7 @@ fn hold_text(hold: Option<&openrac_launcher_core::mod_updates::Hold>) -> String 
             format!("needs {id} {}", wants.as_deref().unwrap_or("")).trim_end().to_string()
         }
         Some(Hold::NeedsLauncher { api }) => format!("needs a launcher with mod API {api}"),
+        Some(Hold::NeedsLauncherHooks { hooks }) => format!("needs a launcher with hooks {}", hooks.join(", ")),
         Some(Hold::Blocked { detail }) => detail.clone(),
     }
 }

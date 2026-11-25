@@ -374,6 +374,14 @@ rac2.vendor.preview (Vendor_Preview) void(): Sets up the vendor's preview of the
 type Vendor_PreviewFn = () -> ()
 ```
 
+### `Hero_UpdateFn`
+
+rac2.player.update (Hero_Update) void(): The hero's whole update each tick: his animation, the stick, ledges, grind rails, his state machine, his moby and what he holds. Each group of levels has its own copy; together they are one hook point. A ship or vehicle update runs in its place while one drives him (hero +0x22B4). A replacement that skips the original moves him itself and shows him with openrac_api.hero_set_pose.
+
+```lua
+type Hero_UpdateFn = () -> ()
+```
+
 ### `PlatinumBolts_CountTotalFn`
 
 rac2.collectibles.platinum_count (PlatinumBolts_CountTotal) i32(): Counts the platinum bolts recorded in the save. A replacement can return received currency independently of physical pickups.

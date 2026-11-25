@@ -21,6 +21,7 @@
 
 #include "renderer/gl/gl.h"
 #include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/draw/multisample_blit_sources.h"
 #include "renderer/vulkan/graph/attachment_copy.h"
 #include "renderer/vulkan/graph/graph_barriers.h"
 #include "renderer/vulkan/graph/graph_execution.h"

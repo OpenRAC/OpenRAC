@@ -198,6 +198,8 @@ bool interpolating();
 std::uint32_t text(int id);
 bool wants_between();
 int between(std::chrono::steady_clock::time_point next_tick);
+// OPENRAC_MOTION_LOG: a tick's work (seconds) and the frames drawn between it and the next.
+void note_between(int frames, double work, double entered_late = 0.0, double set_late = 0.0);
 // The time the window spent writing OPENRAC_SHOT pictures since the last call, which the tick's
 // clock leaves out: a shot that takes longer than a tick would otherwise leave no frame between that
 // tick and the next (OPENRAC_SHOT_BETWEEN) and make the game catch up.

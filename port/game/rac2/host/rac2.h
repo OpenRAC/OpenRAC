@@ -57,4 +57,7 @@ int rac2_mod_pause_help_text(int index);
 void rac2_mod_pause_page(int index, uint32_t page);
 uint32_t rac2_mod_pause_title(void);
 
+/* The level's collision triangles in a box (collision_triangles.c, openrac_api.collision_triangles). */
+int rac2_collision_triangles(const float lo[3], const float hi[3], void* out, int max);
+
 #endif /* OPENRAC_RAC2_H */

@@ -474,6 +474,8 @@ extern std::vector<TieHidden> g_ties_hidden;
 // ---- Functions more than one file calls, the api_<member> ones among them ----
 
 const char* hook_id(const Host& host, const char* name);
+// The hook point a name (its id, name or an alias) names, or null.
+const HookPoint* find_hook_point(const char* name);
 void api_log(openrac_mod* mod, int level, const char* text);
 void api_fail(openrac_mod* mod, const char* reason);
 const SettingValue* setting(openrac_mod* mod, const char* key, SettingType a, SettingType b);

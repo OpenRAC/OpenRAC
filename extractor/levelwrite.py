@@ -146,8 +146,10 @@ class LevelWriter:
         # those faces as the game's shine pass (sphere-mapped, blended over the moby).
         name = ("moby_untextured" if key == UNTEXTURED else "metal_chrome" if key == METAL_CHROME
                 else "metal_glass" if key == METAL_GLASS else f"{key[0]}_{key[1]:04}")
-        # A third element is the axes the game clamps the texture on (mesh.texture_key).
-        image, clamp = (key[:2], key[2]) if isinstance(key, tuple) and len(key) == 3 else (key, 0)
+        # A third element is the axes the game clamps the texture on, a fourth True when the game
+        # blends the faces opaque whatever the texels' alpha (mesh.texture_key).
+        image, clamp = (key[:2], key[2]) if isinstance(key, tuple) and len(key) >= 3 else (key, 0)
+        opaque = isinstance(key, tuple) and len(key) == 4 and key[3]
         if key == UNTEXTURED:
             texture = GREY
         elif not self.fmt.lenient or image in self.level.textures:
@@ -159,7 +161,8 @@ class LevelWriter:
             if f"texture {name}: not in the level, drawn grey" not in self.level.problems:
                 self.level.problems.append(f"texture {name}: not in the level, drawn grey")
         self.textures[name] = texture
-        return gltf.material(name, f"{'../' * depth}textures/{name}.png", cutout=texture.cutout, clamp=clamp)
+        return gltf.material(name, f"{'../' * depth}textures/{name}.png", cutout=texture.cutout and not opaque,
+                             clamp=clamp, opaque=opaque)
 
     def glb(self, path: str, meshes: list[Mesh], depth: int, light_uv2: bool = False) -> str:
         """Write meshes, one node each, to path; return its res:// path. light_uv2: a tie's,

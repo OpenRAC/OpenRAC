@@ -46,6 +46,7 @@ rac2.planet.unlock	ntsc:002AD7B8	Planet_Unlock,func_002AD7B8,func_002AE318,func_
 rac2.player.approach_speed	ntsc:L00:002B41B8	Hero_ApproachSpeed,func_L00_002B40E0,func_L00_002B41B8,func_L00_002B42C0
 rac2.player.nanotech_steps	ntsc:L00:002D5E30	Hero_NanotechSteps,func_L00_002D5E30,func_L00_002D61D0,func_L00_002D6380
 rac2.player.take_damage	ntsc:L00:002A4EF8	Hero_TakeDamage,func_L00_002A4D58,func_L00_002A4EF8
+rac2.player.update	ntsc:L00:002A6DD0	Hero_Update,func_L00_002A6CB8,func_L00_002A6DD0,func_L01_002A8B30,func_L01_002A8C48,func_L01_002A8D48,func_L03_002AD428,func_L03_002AD540,func_L03_002AD640
 rac2.save.new_game	ntsc:00298E08	Save_NewGame,func_00298E08,func_002997A0,func_00299BF8
 rac2.save.serialize	ntsc:0029ADA0	Save_Serialize,func_0029ADA0,func_0029B738,func_0029BB90
 rac2.text.by_id	ntsc:00288FB8	Text_ById,func_00288FB8,func_002898E8,func_002899F8

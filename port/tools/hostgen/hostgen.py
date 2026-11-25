@@ -49,7 +49,7 @@ import variant_check  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import LEVEL_SHORT_MISS, Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, users_of_vu0_assembly, canon, cname, index_unit, prototype, inherit_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, users_of_vu0_assembly, canon, cname, index_unit, prototype, inherit_results, uninherit_void_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
 import program as program_module  # noqa: E402  (its NAME_PREFIX)
 
 HERE = Path(__file__).resolve().parent
@@ -1735,6 +1735,8 @@ def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dic
         for name, why in sorted(asmc.write_console(asm_stage, args.asm_console.resolve(), names).items()):
             print(f"hostgen: {name}: no console form: {why}", file=sys.stderr)
     inherited = inherited_early + asm_stage.inherited + inherit_results(program)
+    uninherited = set(uninherit_void_results(program))
+    inherited = [name for name in inherited if name not in uninherited]
     return asm_stage, asm_results, inherited
 
 

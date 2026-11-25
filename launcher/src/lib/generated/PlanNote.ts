@@ -3,4 +3,4 @@
 /**
  * What the change set says besides the list (worded by the page).
  */
-export type PlanNote = { "kind": "olderForApi", id: string, name: string, picked: string, newest: string, api: string, } | { "kind": "pack", id: string, name: string, mods: Array<string>, } | { "kind": "online", id: string, name: string, } | { "kind": "touchesSaves", id: string, name: string, } | { "kind": "revokedSkipped", id: string, name: string, version: string, reason: string, };
+export type PlanNote = { "kind": "olderForApi", id: string, name: string, picked: string, newest: string, api: string, } | { "kind": "olderForHooks", id: string, name: string, picked: string, newest: string, hooks: Array<string>, } | { "kind": "pack", id: string, name: string, mods: Array<string>, } | { "kind": "online", id: string, name: string, } | { "kind": "touchesSaves", id: string, name: string, } | { "kind": "revokedSkipped", id: string, name: string, version: string, reason: string, };

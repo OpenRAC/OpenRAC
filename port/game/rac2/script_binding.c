@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[54];
+static const openrac_script_point k_points[55];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -522,23 +522,24 @@ S19_POINT(Arena_Prize, 35) /* rac2.arena.prize */
 S13_POINT(ArmorVendor_BuildList, 36) /* rac2.armor_vendor.build_list */
 S20_POINT(ArmorVendor_Buy, 37) /* rac2.armor_vendor.buy */
 S13_POINT(Vendor_Preview, 38) /* rac2.vendor.preview */
-S11_POINT(PlatinumBolts_CountTotal, 39) /* rac2.collectibles.platinum_count */
-S13_POINT(Hero_UpdateCollectionProgress, 40) /* rac2.hero.update_collection_progress */
-S21_POINT(Save_Serialize, 41) /* rac2.save.serialize */
-S13_POINT(Save_NewGame, 42) /* rac2.save.new_game */
-S16_POINT(Moby_EndakoRescue_Update, 43) /* rac2.moby.endako_rescue.update */
-S16_POINT(Moby_TaboraWrench_Update, 44) /* rac2.moby.tabora_wrench.update */
-S16_POINT(Moby_PrisonWrench_Init, 45) /* rac2.moby.prison_wrench.init */
-S16_POINT(Moby_TodanoTrader_Update, 46) /* rac2.moby.todano_trader.update */
-S22_POINT(Moby_PrisonPlumber_Update, 47) /* rac2.moby.prison_plumber.update */
-S16_POINT(Moby_PrisonController_Update, 48) /* rac2.moby.prison_controller.update */
-S16_POINT(Moby_SiberiusThief_Update, 49) /* rac2.moby.siberius_thief.update */
-S16_POINT(Moby_BoldanCutscene_Update, 50) /* rac2.moby.boldan_cutscene.update */
-S16_POINT(Moby_HypnomaticPart_Update, 51) /* rac2.moby.hypnomatic_part.update */
-S23_POINT(Moby_CountKill, 52) /* rac2.combat.count_kill */
-S11_POINT(Menu_Extras, 53) /* rac2.menu.extras */
+S13_POINT(Hero_Update, 39) /* rac2.player.update */
+S11_POINT(PlatinumBolts_CountTotal, 40) /* rac2.collectibles.platinum_count */
+S13_POINT(Hero_UpdateCollectionProgress, 41) /* rac2.hero.update_collection_progress */
+S21_POINT(Save_Serialize, 42) /* rac2.save.serialize */
+S13_POINT(Save_NewGame, 43) /* rac2.save.new_game */
+S16_POINT(Moby_EndakoRescue_Update, 44) /* rac2.moby.endako_rescue.update */
+S16_POINT(Moby_TaboraWrench_Update, 45) /* rac2.moby.tabora_wrench.update */
+S16_POINT(Moby_PrisonWrench_Init, 46) /* rac2.moby.prison_wrench.init */
+S16_POINT(Moby_TodanoTrader_Update, 47) /* rac2.moby.todano_trader.update */
+S22_POINT(Moby_PrisonPlumber_Update, 48) /* rac2.moby.prison_plumber.update */
+S16_POINT(Moby_PrisonController_Update, 49) /* rac2.moby.prison_controller.update */
+S16_POINT(Moby_SiberiusThief_Update, 50) /* rac2.moby.siberius_thief.update */
+S16_POINT(Moby_BoldanCutscene_Update, 51) /* rac2.moby.boldan_cutscene.update */
+S16_POINT(Moby_HypnomaticPart_Update, 52) /* rac2.moby.hypnomatic_part.update */
+S23_POINT(Moby_CountKill, 53) /* rac2.combat.count_kill */
+S11_POINT(Menu_Extras, 54) /* rac2.menu.extras */
 
-static const openrac_script_point k_points[54] = {
+static const openrac_script_point k_points[55] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.combat.post_hit", "void(u32,u32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Moby_PostHit_links, k_Moby_PostHit_thunks, S2_call},
@@ -578,6 +579,7 @@ static const openrac_script_point k_points[54] = {
     {"rac2.armor_vendor.build_list", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_ArmorVendor_BuildList_links, k_ArmorVendor_BuildList_thunks, S13_call},
     {"rac2.armor_vendor.buy", "void(u32,u32)", 2, k_S20_kinds, k_S20_names, OPENRAC_SV_VOID, k_ArmorVendor_Buy_links, k_ArmorVendor_Buy_thunks, S20_call},
     {"rac2.vendor.preview", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Vendor_Preview_links, k_Vendor_Preview_thunks, S13_call},
+    {"rac2.player.update", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Hero_Update_links, k_Hero_Update_thunks, S13_call},
     {"rac2.collectibles.platinum_count", "i32()", 0, k_S11_kinds, k_S11_names, OPENRAC_SV_I32, k_PlatinumBolts_CountTotal_links, k_PlatinumBolts_CountTotal_thunks, S11_call},
     {"rac2.hero.update_collection_progress", "void()", 0, k_S13_kinds, k_S13_names, OPENRAC_SV_VOID, k_Hero_UpdateCollectionProgress_links, k_Hero_UpdateCollectionProgress_thunks, S13_call},
     {"rac2.save.serialize", "void(u32)", 1, k_S21_kinds, k_S21_names, OPENRAC_SV_VOID, k_Save_Serialize_links, k_Save_Serialize_thunks, S21_call},
@@ -595,7 +597,7 @@ static const openrac_script_point k_points[54] = {
     {"rac2.menu.extras", "i32()", 0, k_S11_kinds, k_S11_names, OPENRAC_SV_I32, k_Menu_Extras_links, k_Menu_Extras_thunks, S11_call},
 };
 
-static const openrac_script_alias k_aliases[218] = {
+static const openrac_script_alias k_aliases[227] = {
     {"Arena_Prize", "rac2.arena.prize"},
     {"ArmorVendor_BuildList", "rac2.armor_vendor.build_list"},
     {"ArmorVendor_Buy", "rac2.armor_vendor.buy"},
@@ -605,6 +607,7 @@ static const openrac_script_alias k_aliases[218] = {
     {"Hero_ApproachSpeed", "rac2.player.approach_speed"},
     {"Hero_NanotechSteps", "rac2.player.nanotech_steps"},
     {"Hero_TakeDamage", "rac2.player.take_damage"},
+    {"Hero_Update", "rac2.player.update"},
     {"Hero_UpdateCollectionProgress", "rac2.hero.update_collection_progress"},
     {"Item_Colors", "rac2.item.colors"},
     {"Item_Equip", "rac2.item.equip"},
@@ -727,6 +730,8 @@ static const openrac_script_alias k_aliases[218] = {
     {"func_00338C78", "rac2.item.colors"},
     {"func_L00_002A4D58", "rac2.player.take_damage"},
     {"func_L00_002A4EF8", "rac2.player.take_damage"},
+    {"func_L00_002A6CB8", "rac2.player.update"},
+    {"func_L00_002A6DD0", "rac2.player.update"},
     {"func_L00_002B40E0", "rac2.player.approach_speed"},
     {"func_L00_002B41B8", "rac2.player.approach_speed"},
     {"func_L00_002B42C0", "rac2.player.approach_speed"},
@@ -748,6 +753,9 @@ static const openrac_script_alias k_aliases[218] = {
     {"func_L00_00373D40", "rac2.armor_vendor.buy"},
     {"func_L00_00375068", "rac2.armor_vendor.buy"},
     {"func_L00_00376810", "rac2.armor_vendor.buy"},
+    {"func_L01_002A8B30", "rac2.player.update"},
+    {"func_L01_002A8C48", "rac2.player.update"},
+    {"func_L01_002A8D48", "rac2.player.update"},
     {"func_L01_003CEDA0", "rac2.moby.dynamo_pickup.update"},
     {"func_L01_003D01F8", "rac2.moby.dynamo_pickup.update"},
     {"func_L01_003D2E50", "rac2.moby.tractor_beam_seller.update"},
@@ -760,6 +768,9 @@ static const openrac_script_alias k_aliases[218] = {
     {"func_L02_003FCDF8", "rac2.arena.prize"},
     {"func_L02_003FE398", "rac2.arena.prize"},
     {"func_L02_00401550", "rac2.arena.prize"},
+    {"func_L03_002AD428", "rac2.player.update"},
+    {"func_L03_002AD540", "rac2.player.update"},
+    {"func_L03_002AD640", "rac2.player.update"},
     {"func_L03_003D20F8", "rac2.moby.endako_rescue.update"},
     {"func_L03_003D3700", "rac2.moby.endako_rescue.update"},
     {"func_L03_003D6298", "rac2.moby.endako_rescue.update"},
@@ -822,8 +833,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 54, k_points, 0, k_fields, NULL,
-    218, k_aliases,
+    "rac2", 3, k_discs, 55, k_points, 0, k_fields, NULL,
+    227, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

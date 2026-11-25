@@ -17,9 +17,6 @@
  * is the game's. Nothing reads the words but this function. For an obsidian coin they are made the
  * glow's colour at the colour's luminance, as mesh.frag's obsidian_colour makes its glow packets
  * (times kObsidianGlowPacket): the mod's rgb, or kObsidianGlow's violet for 0xFFFFFF.
- *
- * USA v1.01 alone until the carried releases' tables are written again (rac2.h, RAC2_PRIMARY):
- * PAL's coin calls its own copy (func_PAL_00303950), v2.00 has it as func_00303640.
  */
 #include <stdint.h>
 #include <string.h>
@@ -28,10 +25,7 @@
 #include "openrac/game_host.h"
 #include "rac2.h"
 
-#if defined(RAC2_PRIMARY)
-
-/* v1.01's address, as this block is built for v1.01 alone (RAC2_PRIMARY). */
-#define TRAIL_COLOURS 0x001AE900u /* the puff's, the sparkle's, the streak's two */
+#define TRAIL_COLOURS RAC2_ADDR(0x001AE900u) /* the puff's, the sparkle's, the streak's two */
 #define TRAIL_COLOUR_WORDS 4
 
 /* mesh.frag's kPlatinumTint times kPlatinumColourGain (1.35), in thousandths. */
@@ -109,5 +103,3 @@ void func_00302848(gaddr object, int quiet) {
     func_00302848__game(object, quiet);
     memcpy(G(TRAIL_COLOURS), game, sizeof game);
 }
-
-#endif
