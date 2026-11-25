@@ -96,6 +96,10 @@ instead, drawn in the game's own style and sharp at 4K. On the pad the PS2
 icons come back. Only the font picture changes. *Key icons on screen* turns it
 off.
 
+Keys are bound by their place on the keyboard (`KeyW` is the key above `KeyS`
+whatever it prints), and the game names them as your layout prints them: on an AZERTY
+keyboard the movement keys show as ZQSD.
+
 ## Changing the controls
 
 In the game (F1, Controls, *Keyboard and mouse* tab) or in the launcher (Mods,
