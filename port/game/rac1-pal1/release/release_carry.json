@@ -36,8 +36,8 @@
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },
-  "func_001FD3E8__game": {
-   "as": "func_001FC8F0__game",
+  "func_001FD3E8__hooked": {
+   "as": "func_001FC8F0__hooked",
    "how": "function: carried (the release's own C for it)",
    "for": "shared host C"
   },

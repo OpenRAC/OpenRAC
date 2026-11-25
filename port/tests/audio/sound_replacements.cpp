@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <format>
@@ -152,16 +153,16 @@ void write_wav(const std::filesystem::path& path, std::size_t samples = 280) {
 
 // How far the player's output goes from silence over `frames`.
 int loudest(SoundPlayer& player, std::size_t frames) {
-    std::vector<std::int16_t> out(frames * 2, 0);
+    std::vector<float> out(frames * 2, 0.0f);
     player.render(out);
-    int most = 0;
+    float most = 0.0f;
 
     // Either side.
-    for (const std::int16_t s : out) {
-        most = std::max(most, std::abs(static_cast<int>(s)));
+    for (const float s : out) {
+        most = std::max(most, std::abs(s));
     }
 
-    return most;
+    return static_cast<int>(std::lround(most * 32768.0f));
 }
 
 }  // namespace

@@ -140,6 +140,7 @@ if(ANDROID)
 endif()
 openrac_warnings(openrac_common)
 
+openrac_add_test(mod_play_queries INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/../sdk/include")
 openrac_add_test(log LIBS openrac_common)
 if(WIN32 AND CMAKE_BUILD_TYPE MATCHES "^(Debug|RelWithDebInfo)$")
   openrac_add_test(crash_symbols LIBS openrac_common)
@@ -405,6 +406,7 @@ openrac_add_c_test(rac4_io
   INCLUDES runtime/include game/common/include)
 openrac_add_c_test(graph_dma INCLUDES runtime/include game/common/include)
 openrac_add_c_test(mc_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
+openrac_add_c_test(guest_format INCLUDES . runtime/include game/common/include LIBS openrac_runtime)
 # The other games' saves on the first card: read, never written (the Barlow vendor's free weapons).
 openrac_add_c_test(mc_shared_card INCLUDES runtime/include game/common/include LIBS openrac_runtime)
 

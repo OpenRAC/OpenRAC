@@ -325,7 +325,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define func_L00_00277A88 game_FUN_L00_00276bd0
 #define func_L00_00277A88__game game_FUN_L00_00276bd0__game
 #define func_001FD3E8 game_FUN_001fce28
-#define func_001FD3E8__game game_FUN_001fce28__game
+#define func_001FD3E8__hooked game_FUN_001fce28__hooked
 #define RAC1_ADDR_L00_0x0015F808u 0x0015F728u
 #define RAC1_ADDR_L00_0x0015F8D0u 0x0015F7F0u
 #define RAC1_ADDR_L00_0x0015F8E8u 0x0015F808u

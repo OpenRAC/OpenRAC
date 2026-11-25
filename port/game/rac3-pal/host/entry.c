@@ -39,6 +39,7 @@ void rac3_install_tools(void);        /* tools.c */
 void rac3_install_camera_latch(void); /* camera_latch.c */
 void openrac_game_register_functions(void);
 void rac3_program_set_overlay(int overlay); /* program.c */
+void rac3_sound_reset(void);                /* sound.c */
 
 #define RAC3_ARGUMENTS 0x0015C040u /* crt0's argument block: argc, then argv */
 
@@ -69,7 +70,7 @@ static void reload_boot_program(void) {
     rac3_textures_forget();
     openrac_guest_unregister_all();
     openrac_game_kernel_reset();
-    openrac_snd_ring_reset();
+    rac3_sound_reset();
     openrac_guest_clear_level_programs();
     rac3_program_forget_levels();
     openrac_game_register_functions();

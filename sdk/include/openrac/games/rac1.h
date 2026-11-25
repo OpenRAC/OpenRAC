@@ -317,6 +317,31 @@ typedef int32_t (*openrac_rac1_Help_Request)(int32_t message, int32_t slot);
 #define OPENRAC_RAC1_SIG_Ship_InitTransition "void(i32)"
 typedef void (*openrac_rac1_Ship_InitTransition)(int32_t mode);
 
+/* Level_UpdatePlay: The level's tick in play (handle_pause_input, game mode 0): the pause,
+ * freeze and help triggers, then the mobys, the hero, the particles, the camera, the sound, the
+ * HUD's elements and the frame counters. A replacement that returns without calling the
+ * original holds the world for that tick, as the game's own change of mode does (a mod's menu
+ * over a frozen world: the freeze mode, rac1.freeze.update). */
+#define OPENRAC_RAC1_HOOK_Level_UpdatePlay "Level_UpdatePlay"
+#define OPENRAC_RAC1_SIG_Level_UpdatePlay "void()"
+typedef void (*openrac_rac1_Level_UpdatePlay)(void);
+
+/* Freeze_Update: The freeze mode's tick (update_mode_freeze, game mode 4, entered by
+ * mode_freeze_init(kind, ...)): the help, prompt and dialog screens over a frozen world, by
+ * mode_freeze_info's kind (0 to 8 are the game's). It runs the sound and, once the mode has
+ * been left, puts the sounds and the music back on. A mod's own kind runs here, before or after
+ * the original. */
+#define OPENRAC_RAC1_HOOK_Freeze_Update "Freeze_Update"
+#define OPENRAC_RAC1_SIG_Freeze_Update "void()"
+typedef void (*openrac_rac1_Freeze_Update)(void);
+
+/* Freeze_Draw: The freeze mode's picture (draw_dialog_background_and_text): the frozen world
+ * drawn again with the HUD (the draw mask 0x100FF), then the freeze dialog's dim and box
+ * (draw_freeze_message_box). A mod's own freeze kind draws its own here. */
+#define OPENRAC_RAC1_HOOK_Freeze_Draw "Freeze_Draw"
+#define OPENRAC_RAC1_SIG_Freeze_Draw "void()"
+typedef void (*openrac_rac1_Freeze_Draw)(void);
+
 /* Menu_ItemGrid_Update: Moves the pause menu item grid's focus and takes its selection
  * (update_menu_grid_selection), each tick the grid is open. Returns the menu's action. */
 #define OPENRAC_RAC1_HOOK_Menu_ItemGrid_Update "Menu_ItemGrid_Update"
