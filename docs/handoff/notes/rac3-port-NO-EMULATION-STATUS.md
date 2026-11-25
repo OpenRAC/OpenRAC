@@ -570,11 +570,15 @@ Not fixed, for whoever picks rac3 up next:
 - **Crash on Veldin after a new game's first flight** (seen once in a hidden box2 run, frame 1714):
   SIGSEGV in a level function's string formatting, `func_L01_004CDF20 → func_0011B2E8`
   (print.c:28) `→ openrac_guest_vformat`. Not reproduced or diagnosed yet.
-- **The Phoenix's "△ Enter ship" HUD message box** draws enlarged with its text shifted left. The
-  box is `func_L01_004366A0 → func_L01_004CDC38`, drawn by `func_L01_004CF120` / `004CEAE0`: it
-  measures "\x12 Enter ship" as 120 units (font 1, scale 1.0) against a half-width of 68 and draws
-  the text from x=195. Every global on that path pairs correctly on level 3 (#876's audit). Next
-  step: capture the same prompt on Florana and compare the measured width (message box +0x1B4).
+- **The Phoenix's "△ Enter ship" HUD message box** (fixed, hostgen `_misnamed_call_copy`): the box
+  measured the text as 253 units where it is about 90, so it drew enlarged with the text off
+  centre. `func_L01_004CDC38` clears its line buffer with the executable's memset
+  (`func_0011A264`) and measures with the level's `func_L01_00412708`; call_copies.tsv lists only
+  the measure's jals, and `_misnamed_call_copy` gave any callee it did not know (the memset) that
+  row, so both clears ran the width measure and the stack buffer kept whatever the last call left
+  there (4 to 30 stray bytes after "Enter ship"; Florana's stack happened to be clean). Found with
+  gdb breakpoints on `func_L01_0040FF68` / `func_L01_00412708` (string, length, result) in a hidden
+  box2 run. An executable function is never a misnamed level function now.
 - **Misfiled 8-byte getters in other levels** (#876 fixed levels 3/24's and the flight's): the
   same one-row-along filing shows in levels 4, 7, 9, 12, 13, 16, 18, 19, 22, 26, 27, 29 and 30
   (e.g. `func_L01_003A0710`, `func_L01_004C93D8`), and the font-wrapper rows still held by other
