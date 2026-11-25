@@ -1,8 +1,8 @@
 """Write extracted levels for the native port's level viewer (port/viewer).
 
-Each level goes to OUT/level_NN/, with the meshes and textures the Godot
+Each level goes to OUT/level_NN/, with the meshes and textures the editor's
 export writes (godot.py), in the same files, and two JSON files the viewer
-reads in place of the Godot scene:
+reads in place of the editor's scene:
 
     manifest.json      format 1: the level, its files, its classes (mesh,
                        moby class scale and name), bounds and counts
@@ -15,7 +15,7 @@ reads in place of the Godot scene:
     mobys/moby_<class>.glb   mesh, skeleton (bind pose) and animations
     sky.glb            the sky's shells, one node each in drawing order,
                        with vertex colours (alpha 0x80 = 1.0, as 0..1)
-    sky.png            the sky as a panorama, as for Godot
+    sky.png            the sky as a panorama, as for the editor
     textures/*.png     shared by every mesh
     probe-bake.json    matching authored lighting profile, when one exists
     probe-emission.json matching shared runtime/bake emission profile, when one exists
@@ -156,12 +156,12 @@ def placement(p: dict) -> dict:
 
 
 class PortLevelWriter(LevelWriter):
-    """The Godot writer's meshes and textures, with JSON instead of a scene.
+    """The editor writer's meshes and textures, with JSON instead of a scene.
 
     The terrain, tie, shrub and collision meshes come from LevelWriter
     unchanged (it still builds its scene text in memory; only these files
     are written). Mobys and the sky have writers of their own here: the port
-    needs the class table and the shells, not Godot's marker scenes.
+    needs the class table and the shells, not the editor's marker scenes.
     """
 
     editable_collision = False
@@ -327,7 +327,7 @@ class PortLevelWriter(LevelWriter):
                                "animations": sum(len(s.animations) for s in animated)}
 
     def write_environment(self, data: Sky | None) -> None:
-        """sky.png as for Godot, sky.glb with the shells, and the background."""
+        """sky.png as for the editor, sky.glb with the shells, and the background."""
         if data is None:
             return
         width, height = PANORAMA
@@ -364,7 +364,7 @@ class PortLevelWriter(LevelWriter):
         for name, texture in sorted(self.textures.items()):
             (self.dir / "textures" / f"{name}.png").write_bytes(texture.png())
         self.stats["textures"] = len(self.textures)
-        # LevelWriter keeps corners in Godot's axes, (x, z, -y).
+        # LevelWriter keeps corners in the editor's axes, (x, z, -y).
         corners = [(x, 0.0 - z, y) for x, y, z in self.corners]  # 0.0 - z: never -0.0
         bounds = ([min(p[i] for p in corners) for i in range(3)],
                   [max(p[i] for p in corners) for i in range(3)]) if corners else ([0, 0, 0], [0, 0, 0])

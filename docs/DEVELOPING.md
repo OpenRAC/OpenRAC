@@ -75,22 +75,25 @@ checks on `master` always finish.
 
 ## The level editor
 
-The launcher's **Mods** tab does all of this for you. By hand, for
-Ratchet & Clank (PAL):
+The level editor is [OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor), a program of its own.
+It edits levels of all four Ratchet & Clank discs (Europe v2.00 and v1.00, USA,
+Japan); the later games open in early access.
+The launcher's **Mods** tab does all of this for you. By hand, with `<editor>` the
+editor's folder (the Europe disc here; name your own disc and folder):
 
 ```sh
-# Turn the 19 levels on your disc into Godot projects (about 20 seconds).
-python3 extractor/extract.py godot baserom/SCES_509.16.iso assets/levels/rac1/pal --split
+# Turn the 19 levels on your disc into level projects (about 20 seconds).
+python3 <editor>/openrac/tools/openrac_editor.py projects baserom/SCES_509.16.iso assets/levels/rac1/pal --split
 
-# Open one in the Godot 4 editor (level_00 is Veldin).
-godot --path assets/levels/rac1/pal/level_00 -e
+# Open one in OpenRAC Editor (level_00 is Veldin).
+<editor>/openrac-editor.x86_64 --path assets/levels/rac1/pal/level_00 -e
 
 # Pack your edits into game data. Your disc is not changed.
-python3 extractor/extract.py pack baserom/SCES_509.16.iso assets/levels/rac1/pal assets/packed/rac1/pal
+python3 <editor>/openrac/tools/openrac_editor.py pack baserom/SCES_509.16.iso assets/levels/rac1/pal assets/packed/rac1/pal
 ```
 
 The port plays the packed levels with `--mods assets/packed/rac1/pal`. More in
-[extractor/README.md](../extractor/README.md); to change how things behave, use the
+[the editor's guide](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/LEVEL_EDITOR.md); to change how things behave, use the
 mod SDK ([docs/port/MODS.md](port/MODS.md)).
 
 ## The decompilations

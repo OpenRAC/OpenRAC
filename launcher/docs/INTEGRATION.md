@@ -340,8 +340,8 @@ level packer's output is per version too, since it replaces that disc's
 sectors. The installed launcher's bundle (tools/bundle_standalone.py) carries
 none of these actions yet, and its header hides Mods.
 
-The unverified ones ran from a shell on macOS with real discs and Godot
-4.7.2 (before OpenRAC Editor) (extract into a new folder, the refusal of an existing one, the
+The unverified ones ran from a shell on macOS with real discs and OpenRAC Editor
+(extract into a new folder, the refusal of an existing one, the
 headless import, packing on each disc, exporting, importing and stacking a
 PAL pack onto both discs' levels, the tests); none has been run from the
 desktop app yet. The extractor needs Python 3.10 or newer, which is why

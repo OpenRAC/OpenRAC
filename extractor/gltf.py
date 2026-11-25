@@ -1,8 +1,8 @@
 """A small glTF 2.0 binary (GLB) writer for extracted meshes.
 
-Positions stay in game axes; the Godot scene rotates the whole level
+Positions stay in game axes; the editor's scene rotates the whole level
 once. Textures are referenced by relative URI so that meshes share one
-set of PNGs, which Godot imports as ordinary textures.
+set of PNGs, which OpenRAC Editor imports as ordinary textures.
 """
 
 import json

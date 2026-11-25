@@ -147,12 +147,12 @@ def footprint(a, b, c, width: int, height: int):
 
 
 def panorama(data: Sky, width: int = 2048, height: int = 1024) -> bytes:
-    """The sky as an equirectangular RGB image, as Godot's PanoramaSkyMaterial reads it.
+    """The sky as an equirectangular RGB image, as OpenRAC Editor's PanoramaSkyMaterial reads it.
 
     Pixel (x, y) looks along game direction (sin t sin p, sin t cos p, cos t)
     with p = 2 pi (x + 1/2) / width and t = pi (y + 1/2) / height: the top row
     is straight up (+Z) and the left edge faces +Y, which the level scene
-    turns into Godot's -Z. Shells are blended in order over the background.
+    turns into the editor's -Z. Shells are blended in order over the background.
     Textures are sampled bilinearly, wrapping across and clamped down.
     """
     angles = [math.tau * (x + 0.5) / width for x in range(width)]
