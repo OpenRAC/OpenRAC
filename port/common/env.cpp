@@ -166,7 +166,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "the folder the installed games sit in (<game>/data each), for the mods' game_data_dir; beside --data when not given"},
     {Var::Give, "OPENRAC_GIVE",
      Kind::Text, Truth::NotAFlag, "none",
-     "WHAT[@FRAME],...: gives the hero all, weapons, gadgets, bolts:N or an item, FRAME frames after control"},
+     "WHAT[@FRAME],...: gives the hero all, weapons, gadgets, bolts:N, xp (rac3: owned guns to their next level) or an item, FRAME frames after control"},
     {Var::GlApi, "OPENRAC_GL_API",
      Kind::Text, Truth::NotAFlag, "desktop (es on Android)",
      "the graphics API: es, desktop, vulkan or metal"},
