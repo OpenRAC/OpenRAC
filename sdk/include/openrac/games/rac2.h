@@ -329,6 +329,15 @@ typedef void (*openrac_rac2_ArmorVendor_Buy)(uint32_t answer, uint32_t unused);
 #define OPENRAC_RAC2_SIG_Vendor_Preview "void()"
 typedef void (*openrac_rac2_Vendor_Preview)(void);
 
+/* Hero_Update: The hero's whole update each tick: his animation, the stick, ledges, grind
+ * rails, his state machine, his moby and what he holds. Each group of levels has its own copy;
+ * together they are one hook point. A ship or vehicle update runs in its place while one drives
+ * him (hero +0x22B4). A replacement that skips the original moves him itself and shows him with
+ * openrac_api.hero_set_pose. */
+#define OPENRAC_RAC2_HOOK_Hero_Update "Hero_Update"
+#define OPENRAC_RAC2_SIG_Hero_Update "void()"
+typedef void (*openrac_rac2_Hero_Update)(void);
+
 /* ---- end of the generated hook points ---- */
 
 #ifdef __cplusplus

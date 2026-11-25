@@ -18,11 +18,13 @@
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
+#include <format>
 #include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 
@@ -41,6 +43,7 @@
 #include "frame_pacing.h"
 #include "frontend.h"
 #include "game/common/frontend/camera_latch.h"
+#include "game/common/frontend/effect_attachment.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/input_latency.h"
 #include "game/common/frontend/pacing.h"
@@ -399,6 +402,290 @@ void report_frame_cost(const FramePresentation& output) {
     }
 }
 
+// Why a move of `step` in a tick is drawn part way or where the tick left it (geometry.h kept_pace):
+// "near" (within `limit`), "pace" (farther, but at the pace of the tick before), "off-pace" (farther,
+// and `miss` units off that pace) or "no-pace" (farther, with no tick before to keep pace with).
+const char* motion_reason(
+    const renderer::Vec3& step, float limit_squared, const renderer::Vec3* pace, float& miss
+) {
+    miss = 0.0f;
+    if (renderer::dot(step, step) <= limit_squared) {
+        return "near";
+    }
+    if (pace == nullptr) {
+        return "no-pace";
+    }
+    const renderer::Vec3 off{step[0] - (*pace)[0], step[1] - (*pace)[1], step[2] - (*pace)[2]};
+    miss = std::sqrt(renderer::dot(off, off));
+    return miss * miss <= limit_squared ? "pace" : "off-pace";
+}
+
+// OPENRAC_MOTION_LOG (log_motion, note_between).
+bool motion_log_on() {
+    static const bool& on = stats::probe(
+        "OPENRAC_MOTION_LOG",
+        "each frame drawn: tick, alpha, frame time, and whether the eye and the fastest moby were "
+        "drawn part way or snapped (and why), in the log"
+    );
+    return on;
+}
+
+// Why between() last drew no frame (OPENRAC_MOTION_LOG, note_between).
+std::string g_between_stop;
+
+// OPENRAC_MOTION_LOG: each frame drawn, the tick it is drawn from, how far between ticks, the time
+// since the frame before and what it cost, then the eye and the fastest moby of the tick (the ship
+// in a flight): each drawn part way ("blend") or where the tick left it ("snap") and why
+// (motion_reason; "cut" a turn too far, "new" no last place), its move in the tick and where it is
+// drawn. Frames whose drawn places repeat or jump show stepping; long frame times, real drops.
+void log_motion(const FramePresentation& output) {
+    if (!motion_log_on() || !g || !g->kept) {
+        return;
+    }
+    const Kept& k = *g->kept;
+    static std::chrono::steady_clock::time_point last{};
+    const double since =
+        last.time_since_epoch().count() == 0
+            ? 0.0
+            : std::chrono::duration<double, std::milli>(output.started - last).count();
+    last = output.started;
+    const float t = output.alpha;
+
+    // The eye.
+    std::string eye = "eye none";
+    if (k.has_state) {
+        const auto& p1 = k.state.camera_position;
+        if (!k.has_prev_state || t >= 1.0f) {
+            eye = std::format(
+                "eye snap {} at ({:.2f} {:.2f} {:.2f})",
+                k.has_prev_state ? "tick" : "no-prev",
+                p1[0],
+                p1[1],
+                p1[2]
+            );
+        } else {
+            const auto& p0 = k.prev_state.camera_position;
+            const renderer::Vec3 step{p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]};
+            const renderer::Vec3* pace = camera_pace(k);
+            float miss = 0.0f;
+            const char* why = motion_reason(step, 64.0f, pace, miss);
+            const float turn = renderer::dot(k.prev_state.forward, k.state.forward);
+            const bool cut = turn < 0.7f;
+            const bool blended =
+                !cut && (std::string_view(why) == "near" || std::string_view(why) == "pace");
+            const host::GameState drawn = blend_camera(k.prev_state, k.state, t, pace);
+            eye = std::format(
+                "eye {} {} step {:.2f} miss {:.2f} at ({:.2f} {:.2f} {:.2f})",
+                blended ? "blend" : "snap",
+                cut ? "cut" : why,
+                std::sqrt(renderer::dot(step, step)),
+                miss,
+                drawn.camera_position[0],
+                drawn.camera_position[1],
+                drawn.camera_position[2]
+            );
+        }
+    }
+
+    // The moby that moved farthest into this tick.
+    std::string moby = "moby none";
+    float farthest = -1.0f;
+    std::size_t which = 0;
+    bool known = false;
+    for (std::size_t i = 0; i < k.live.size() && i < k.addresses.size(); ++i) {
+        const auto before = k.prev_matrices.find(k.addresses[i]);
+        if (before == k.prev_matrices.end()) {
+            continue;
+        }
+        const auto& m0 = before->second;
+        const auto& m1 = k.live[i].matrix;
+        const renderer::Vec3 step{m1[12] - m0[12], m1[13] - m0[13], m1[14] - m0[14]};
+        const float d = renderer::dot(step, step);
+        if (d > farthest) {
+            farthest = d;
+            which = i;
+            known = true;
+        }
+    }
+    // Every moby: how many were drawn where the tick left them (moved off their pace, or no pace).
+    int snapped = 0, fresh = 0;
+    for (std::size_t i = 0; i < k.live.size() && i < k.addresses.size(); ++i) {
+        const auto before = k.prev_matrices.find(k.addresses[i]);
+        if (before == k.prev_matrices.end()) {
+            ++fresh;
+            continue;
+        }
+        const auto& m0 = before->second;
+        const auto& m1 = k.live[i].matrix;
+        const renderer::Vec3 step{m1[12] - m0[12], m1[13] - m0[13], m1[14] - m0[14]};
+        float miss = 0.0f;
+        const std::string_view why = motion_reason(step, 16.0f, moby_pace(k, k.addresses[i]), miss);
+        snapped += why != "near" && why != "pace" ? 1 : 0;
+    }
+    if (known) {
+        const std::uint32_t address = k.addresses[which];
+        const auto& m0 = k.prev_matrices.at(address);
+        const auto& m1 = k.live[which].matrix;
+        const renderer::Vec3 step{m1[12] - m0[12], m1[13] - m0[13], m1[14] - m0[14]};
+        const renderer::Vec3* pace = moby_pace(k, address);
+        float miss = 0.0f;
+        const char* why = motion_reason(step, 16.0f, pace, miss);
+        const bool blended =
+            t < 1.0f && (std::string_view(why) == "near" || std::string_view(why) == "pace");
+        const renderer::Mat4 drawn = t < 1.0f ? blend_matrix(m0, m1, t, pace) : m1;
+        moby = std::format(
+            "moby {:#x} of {} ({} snapped, {} new) {} {} step {:.2f} miss {:.2f} at ({:.2f} {:.2f} "
+            "{:.2f})",
+            address,
+            k.live.size(),
+            snapped,
+            fresh,
+            blended ? "blend" : "snap",
+            t >= 1.0f ? "tick" : why,
+            std::sqrt(farthest),
+            miss,
+            drawn[12],
+            drawn[13],
+            drawn[14]
+        );
+    } else if (!k.live.empty()) {
+        moby = std::format("moby new ({} live, none with a last place)", k.live.size());
+    }
+    // The largest effect quad (the flight's planet, its world quad): its id, owner, whether the last
+    // tick had it (drawn part way) and where its middle is drawn.
+    std::string quad = "quad none";
+    {
+        float biggest = -1.0f;
+        const renderer::EffectQuad* q = nullptr;
+        for (const renderer::EffectQuad& e : k.effects) {
+            const float dx = e.corner[0][0] - e.corner[3][0], dy = e.corner[0][1] - e.corner[3][1],
+                        dz = e.corner[0][2] - e.corner[3][2];
+            const float d = dx * dx + dy * dy + dz * dz;
+            if (d > biggest) {
+                biggest = d;
+                q = &e;
+            }
+        }
+        if (q != nullptr) {
+            const auto before =
+                q->id != 0 ? k.prev_effect_corners.find(q->id) : k.prev_effect_corners.end();
+            const bool known = before != k.prev_effect_corners.end();
+            float mid[3] = {0, 0, 0}, was[3] = {0, 0, 0};
+            for (int c = 0; c < 4; ++c) {
+                for (int i = 0; i < 3; ++i) {
+                    mid[i] += q->corner[c][i] / 4.0f;
+                    was[i] += known ? before->second[c][i] / 4.0f : q->corner[c][i] / 4.0f;
+                }
+            }
+            const float tt = known && t < 1.0f ? t : 1.0f;
+            int with_id = 0, with_prev = 0, owned = 0;
+            for (const renderer::EffectQuad& e : k.effects) {
+                with_id += e.id != 0 ? 1 : 0;
+                with_prev += e.id != 0 && k.prev_effect_corners.contains(e.id) ? 1 : 0;
+                owned += e.parent != 0 || e.attachment != 0 ? 1 : 0;
+            }
+            // A puff of a trail or a particle (an id of its own, no owner) that moved farthest in
+            // the tick and is still drawn part way, drawn as set_effect_quads draws it (blend_effect_quad): where its middle is.
+            std::string puff = "puff none";
+            float farthest_puff = -1.0f;
+            for (const renderer::EffectQuad& e : k.effects) {
+                const auto last = e.id != 0 && e.parent == 0 && e.attachment == 0
+                                      ? k.prev_effect_corners.find(e.id)
+                                      : k.prev_effect_corners.end();
+                if (last == k.prev_effect_corners.end()) {
+                    continue;
+                }
+                float d = 0.0f;
+                for (int i = 0; i < 3; ++i) {
+                    const float m =
+                        (e.corner[0][i] + e.corner[3][i] - last->second[0][i] - last->second[3][i])
+                        * 0.5f;
+                    d += m * m;
+                }
+                // A slot used again by a new puff is drawn whole (kMaximumEffectStep, 4 units).
+                if (d > farthest_puff && d < 16.0f) {
+                    farthest_puff = d;
+                    renderer::EffectQuad drawn = e;
+                    if (t < 1.0f) {
+                        blend_effect_quad(drawn, last->second, t);
+                    }
+                    puff = std::format(
+                        "puff {:#x} step {:.2f} at ({:.2f} {:.2f} {:.2f})",
+                        e.id,
+                        std::sqrt(d),
+                        (drawn.corner[0][0] + drawn.corner[3][0]) * 0.5f,
+                        (drawn.corner[0][1] + drawn.corner[3][1]) * 0.5f,
+                        (drawn.corner[0][2] + drawn.corner[3][2]) * 0.5f
+                    );
+                }
+            }
+            quad = std::format(
+                "{}; quads {} ({} with an id, {} of them in the last tick, {} owned); biggest id "
+                "{:#x} parent {:#x} {} size {:.1f} step {:.2f} at ({:.2f} {:.2f} "
+                "{:.2f})",
+                puff,
+                k.effects.size(),
+                with_id,
+                with_prev,
+                owned,
+                q->id,
+                q->parent,
+                known ? "blend" : (q->id == 0 ? "snap no-id" : "snap new"),
+                std::sqrt(biggest),
+                std::sqrt(
+                    (mid[0] - was[0]) * (mid[0] - was[0]) + (mid[1] - was[1]) * (mid[1] - was[1])
+                    + (mid[2] - was[2]) * (mid[2] - was[2])
+                ),
+                was[0] + (mid[0] - was[0]) * tt,
+                was[1] + (mid[1] - was[1]) * tt,
+                was[2] + (mid[2] - was[2]) * tt
+            );
+        }
+    }
+    // The sky's shells: the most any turned in the tick (degrees, its X axis), and whether this
+    // frame turns them part way (blend_turning) or shows the tick's.
+    std::string sky = "sky none";
+    if (k.sky_shell_mask != 0) {
+        float most = -1.0f;
+        for (std::size_t i = 0; i < k.sky_shells.size(); ++i) {
+            if ((k.sky_shell_mask & k.prev_sky_shell_mask & (1u << i)) == 0) {
+                continue;
+            }
+            const auto& a = k.prev_sky_shells[i];
+            const auto& b = k.sky_shells[i];
+            const float la = std::sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+            const float lb = std::sqrt(b[0] * b[0] + b[1] * b[1] + b[2] * b[2]);
+            if (la > 0.0f && lb > 0.0f) {
+                const float c = (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (la * lb);
+                most = std::max(most, std::acos(std::clamp(c, -1.0f, 1.0f)) * 57.29578f);
+            }
+        }
+        sky = most < 0.0f ? std::format("sky {:#x} snap no-prev", k.sky_shell_mask)
+                          : std::format(
+                                "sky {:#x} {} turn {:.3f} deg",
+                                k.sky_shell_mask,
+                                t < 1.0f && most < 45.57f ? "blend" : "snap",
+                                most
+                            );
+    }
+    log::info(
+        "motion tick {} alpha {:.3f} {} dt {:.2f} ms cost {:.2f} ms period {:.2f} ms level {} | {} "
+        "| "
+        "{} | {} | {}",
+        k.frame,
+        t,
+        output.first ? "tick" : "between",
+        since,
+        pacing.cost * 1000.0,
+        pacing.period.count() * 1000.0,
+        k.level,
+        eye,
+        moby,
+        sky,
+        quad
+    );
+}
+
 // Logs the submitted interpolation fraction using window-thread pacing state.
 void log_pacing(const FramePresentation& output) {
     // OPENRAC_PACING: each frame shown, when (ms), how far between ticks, the refresh interval.
@@ -743,6 +1030,7 @@ void draw_kept(bool first, bool held) try {
     frame_cost.mark = output->started;
     output->measure_cost = frame_cost.on;
     log_pacing(*output);
+    log_motion(*output);
     // OpenGL contexts retain the original window-thread path.
     if (!threaded_rendering()) {
         crash::breadcrumb(
@@ -810,12 +1098,14 @@ bool wants_between() {
 
 int between(std::chrono::steady_clock::time_point next_tick) {
     if (!g) {
+        g_between_stop = "no frontend";
         return 0;
     }
     const bool asynchronous = threaded_rendering();
     // Present completed work while waiting for the tick; unfinished jobs may cross its boundary.
     if (render_pending()) {
         if (!g->render_worker->ready_until(next_tick)) {
+            g_between_stop = "render pending past the tick";
             return 0;
         }
         if (!finish_render()) {
@@ -827,6 +1117,7 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     // waited for here, to its time.
     if (const auto start = cap_start_time(); now < start) {
         if (start >= next_tick) {
+            g_between_stop = "frame cap past the tick";
             return 0;
         }
         precise_wait::until(start);
@@ -846,6 +1137,7 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     }
     // Do not queue another interpolation job once simulation is due to resume.
     if (asynchronous && now >= next_tick) {
+        g_between_stop = "render thread past the tick";
         return 0;
     }
     // A frame only for a refresh the kept tick is still shown at (the next tick's, with the lag;
@@ -854,6 +1146,30 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     if (display >= between_limit(
             next_tick, pacing.period, lag_ticks(), pacing.cost, pacing.interval, pacing.last_swap
         )) {
+        if (motion_log_on()) {
+            const auto ms = [](std::chrono::steady_clock::duration d) {
+                return std::chrono::duration<double, std::milli>(d).count();
+            };
+            g_between_stop = std::format(
+                "display past the limit (from the tick: now {:.2f} ms, display {:.2f} ms, next "
+                "tick "
+                "{:.2f} ms, limit {:.2f} ms, last swap {:.2f} ms, interval {:.2f} ms)",
+                ms(now - pacing.tick),
+                ms(display - pacing.tick),
+                ms(next_tick - pacing.tick),
+                ms(between_limit(
+                       next_tick,
+                       pacing.period,
+                       lag_ticks(),
+                       pacing.cost,
+                       pacing.interval,
+                       pacing.last_swap
+                   )
+                   - pacing.tick),
+                ms(pacing.last_swap - pacing.tick),
+                pacing.interval * 1000.0
+            );
+        }
         return 0;
     }
     // Synchronous rendering must finish before the tick (without a swap that waits, or with the
@@ -869,10 +1185,12 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     if (!asynchronous
         && (g->swap == platform::SwapInterval::Immediate || lag_ticks() == kLowLatencyLagTicks)
         && ready >= next_tick + slip()) {
+        g_between_stop = "would be late";
         return 0;
     }
     // The scene has arrived at the kept tick's: another frame would be the same picture again.
     if (!pacing.first_pending && pacing.last_alpha >= 1.0f && alpha_at(display) >= 1.0f) {
+        g_between_stop = "already at the tick";
         return 0;
     }
     {
@@ -904,6 +1222,31 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     renderer::g_dump_draws = dump;
     // The caller can wait up to the tick deadline on its next iteration, then resume simulation.
     return g->render_failed ? -1 : 1;
+}
+
+// OPENRAC_MOTION_LOG: each tick, the game's work for it (`work`, seconds: from the end of the last
+// wait to its vertical blank) and the frames drawn between it and the next; none, why: not wanted
+// (wants_between's conditions) or where between() stopped (g_between_stop).
+void note_between(int frames, double work, double entered_late, double set_late) {
+    if (!motion_log_on() || !g || !g->kept) {
+        return;
+    }
+    const bool wanted = wants_between();
+    log::info(
+        "motion tick {} work {:.2f} ms, late {:.2f} ms at the blank, {:.2f} ms at the tick's time, "
+        "{} "
+        "frames between{}{} (period {:.2f} ms, cost {:.2f} ms)",
+        g->kept->frame,
+        work * 1000.0,
+        entered_late * 1000.0,
+        set_late * 1000.0,
+        frames,
+        frames != 0 ? "" : ", stopped: ",
+        frames != 0 ? ""
+                    : (wanted ? std::string_view(g_between_stop) : std::string_view("not wanted")),
+        pacing.period.count() * 1000.0,
+        pacing.cost * 1000.0
+    );
 }
 
 // [debug tools] While the overlay holds the game (pause): the last tick drawn again, the window's

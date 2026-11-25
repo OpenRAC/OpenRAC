@@ -233,6 +233,7 @@ func_L39_0059BC40	draw	DrawHudSpriteShadedMenus	wrap	level 39's copy of the boot
 func_L39_0058A9E0	draw	DrawGlyphMenus	wrap	level 39's copy of the boot program's func_0038BA50 (frontbin's, called by its prints), wrapped as it is (host/ui2d.c)
 func_L39_0058ADA0	draw	DrawGlyphShadowedMenus	wrap	level 39's copy of the boot program's func_0038BE10 (frontbin's, called by its prints), wrapped as it is (host/ui2d.c)
 func_0012C220	sif	rac3MpSearchModule	wrap	sceSifSearchModuleByName: the network modules are there (host/mp_net.c)
+func_0012B610	fileio	rac3MpDevctl	wrap	sceDevctl(device, command, argument, its size, buffer, its size), the fileio RPC: leaving multiplayer (0x00195338) switches the network adaptor off with "dev9x:" DDIOC_OFF (0x4402), retried until it answers; the adaptor 0x0012C220 says is there answers at once (host/mp_net.c)
 func_00136ED0	net	rac3MpNetCnfList	wrap	ezNetCnfGetCombinationList: one configuration, the OpenRAC server, in the first of four slots (host/mp_net.c)
 func_001370B8	net	rac3MpNetCnfProperties	wrap	ezNetCnfGetProperties (host/mp_net.c)
 func_00137370	net	rac3MpNetCtlSetProperties	wrap	ezNetCtlSetProperties (host/mp_net.c)

@@ -64,6 +64,7 @@
 #include <math.h>
 #include <string.h>
 
+#include "death_trace.h"
 #include "enemy_copies.h"
 #include "game_protos.h"
 #define RAC2_MOBY_TARGET_RECORD func_002AB1F0
@@ -768,6 +769,9 @@ static void shot_died(Shot* s, int made) {
  * gate, the statuses and the moby that runs now. */
 void func_L00_0032CF60(void) {
     gaddr last = 0;
+    /* The copies' squads lists hold only live copies (enemy_copies.h); the death trace's look. */
+    rac2_copy_groups_tidy();
+    rac2_death_trace_tick();
     GREF(int32_t, LOOP_TARGETS) = 0;
     GREF(gaddr, LOOP_HEAD) = 0;
     for (gaddr scan = GREF(gaddr, LOOP_TABLE); GREF(uint8_t, scan + MOBY_STATE) != 0xFF;
@@ -813,6 +817,9 @@ void func_L00_0032CF60(void) {
             openrac_guest_call_a0(update, object);
         }
         updating = 0;
+        if (GREF(int8_t, object + MOBY_STATE) < 0) {
+            rac2_copy_gone(object);
+        }
         if (tracking && GREF(int8_t, object + MOBY_STATE) < 0) {
             Shot* s = shot_of(object);
             if (s != NULL) {

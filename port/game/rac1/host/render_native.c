@@ -222,7 +222,9 @@ void func_00218B10(void) {
     const gaddr pool = GREF(gaddr, OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0016022Cu)));
     const int high = GREF(int, OPENRAC_LDATA(0, RAC1_LADDR(00, 0x00160234u)));
     const gaddr table = OPENRAC_LDATA(0, RAC1_LADDR(00, 0x001B1C00u)) + 0x200;
-    if (pool == 0 || pool >= 0x01FE0000u) {
+    // Under the top of game memory: 32 MiB, or more for a level mounted in expanded memory, whose
+    // pool then lies past the console's 32 MiB.
+    if (pool == 0 || pool + 2048u * 0x40u > openrac_guest_ram_size) {
         return;
     }
     for (int i = 0; i <= high && i < 2048; ++i) {

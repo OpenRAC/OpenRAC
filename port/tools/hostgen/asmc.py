@@ -2664,16 +2664,19 @@ def apply_signatures(program: Program, a: dict, discovered: bool, host_text: str
     discovery finds: passed over, unless the port's own C (`host_text`) calls it (rac3's
     multiplayer HUD sprite, mp_func_00284F80, calls mp_func_00284D30), which then compiles against
     the same prototype, a stub's, as with the disc."""
-    # "copy_signatures": the same, carried to other copies of a function (rac3's multiplayer maps'
-    # copies of level 39's and the levels' routines, mp/maps.py): a copy the program does not reach,
-    # or one the port answers itself, is passed over.
-    copies = {sym: text for sym, text in a.get("copy_signatures", {}).items()
-              if sym not in a.get("signatures", {}) and program.functions.get(sym) is not None
-              and sym not in program.host and program.functions[sym].unit is None}
+    # Map wrappers can name copies through generated C macros. The names are verified in the
+    # catalogue and need stubs when no disc is available to discover their entries.
+    copies = {}
+    for sym, text in a.get("copy_signatures", {}).items():
+        f = program.functions.get(sym)
+        if sym in a.get("signatures", {}) or sym in program.host:
+            continue
+        if (f is None and not discovered) or (f is not None and f.unit is None):
+            copies[sym] = text
     for sym, text in {**a.get("signatures", {}), **copies}.items():
         f = program.functions.get(sym)
         if f is None and not discovered:
-            if not host_names(host_text, cname(sym)):
+            if sym not in copies and not host_names(host_text, cname(sym)):
                 continue
             program.functions[sym] = Function(sym, Signature.of(ctype.parse(text)), None, asm=True)
             continue
@@ -2767,7 +2770,7 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
         # No instructions to translate (a build without the disc): the functions keep their
         # stubs, but each with its verified prototype all the same, so that the port's own C that
         # wraps one (a "wrap" row, calling NAME__game) is compiled against one signature whether
-        # the build reads the disc or not. Entries only discovery would add are not there.
+        # the build reads the disc or not.
         apply_signatures(program, a, discovered=False, host_text=host_text)
         # With the port's interface ("interface", asmext.py): what the disc would have given, the
         # translated functions called through slots the part built from the disc fills.

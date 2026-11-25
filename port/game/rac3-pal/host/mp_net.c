@@ -184,7 +184,7 @@ enum {
     ERROR_OTHER_GAME,
     ERROR_REGION_KEY,
     ERROR_HUB_FULL,
-    ERROR_WRONG_PASSWORD,
+    HUB_ERROR_WRONG_PASSWORD,
     ERROR_INVALID_ACCOUNT,
     ERROR_SESSION_INVALID,
     ERROR_TRY_LATER,
@@ -2951,14 +2951,14 @@ static void srv_pump(void) {
 /* The hub's answer to a login: the game's own login failures for the hub's reasons. */
 static void hub_login_failed(int reason) {
     static const char* const why[] = {
-        [ERROR_WRONG_PASSWORD] = "the password is not the account's",
+        [HUB_ERROR_WRONG_PASSWORD] = "the password is not the account's",
         [ERROR_INVALID_ACCOUNT] = "the hub takes no such name or password (4 to 32 characters)",
         [ERROR_TRY_LATER] = "too many attempts, or the hub cannot answer now",
     };
-    const int32_t status = reason == ERROR_WRONG_PASSWORD    ? M_INVALID_PASSWORD
-                           : reason == ERROR_INVALID_ACCOUNT ? M_ACCOUNT_NOT_FOUND
-                           : reason == ERROR_TRY_LATER       ? M_SERVER_ERROR
-                                                             : M_LOGIN_FAILED;
+    const int32_t status = reason == HUB_ERROR_WRONG_PASSWORD ? M_INVALID_PASSWORD
+                           : reason == ERROR_INVALID_ACCOUNT  ? M_ACCOUNT_NOT_FOUND
+                           : reason == ERROR_TRY_LATER        ? M_SERVER_ERROR
+                                                              : M_LOGIN_FAILED;
     fprintf(
         stderr,
         "[warning] rac3: online: the hub refused the login of %s: %s\n",
@@ -3165,6 +3165,24 @@ static void netcnf_server_host(char* out, size_t size) {
 int mp_func_0012C220(int name) {
     (void)name;
     return 1;
+}
+
+/* sceDevctl(device, command, argument, its size, buffer, its size): the fileio RPC to a device of
+ * the IOP. Leaving multiplayer (0x00195338, EXIT MULTIPLAYER) and the power button's thread
+ * (0x001951A0) switch the network adaptor off with "dev9x:" DDIOC_OFF (0x4402), retried while the
+ * answer is below 0. No IOP answers the RPC in the port: the translated call found its reply word
+ * 0 and returned -11 every time, so the game spun there and drew no frame again. The adaptor that
+ * 0x0012C220 says is loaded is switched off at once. */
+int mp_func_0012B610(
+    int device, int command, int argument, int argument_size, int buffer, int buffer_size
+) {
+    (void)device;
+    (void)command;
+    (void)argument;
+    (void)argument_size;
+    (void)buffer;
+    (void)buffer_size;
+    return 0;
 }
 
 /* ezNetCnfGetCombinationList(name, type, list): one configuration, the OpenRAC server, in the first

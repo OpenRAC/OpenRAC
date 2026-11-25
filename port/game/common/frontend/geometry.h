@@ -48,7 +48,21 @@ void frame_size(int box_width, int box_height, int render_scale, int& width, int
 
 // Whether `to` can be the moby `from` was a tick before: it moved at most 4 units (16 is that
 // squared) and its X axis turned by less than about 45 degrees (0.7 is that angle's cosine).
-bool same_moby(const renderer::Mat4& from, const renderer::Mat4& to);
+// `pace`, when known: the move it made the tick before (from two ticks ago to `from`). A moby that
+// moves farther in a tick but keeps its pace (this tick's move within 4 units of that one) is the
+// same moby moving fast, not a slot used again or a teleport: a ship flying through a scene.
+bool same_moby(
+    const renderer::Mat4& from, const renderer::Mat4& to, const renderer::Vec3* pace = nullptr
+);
+
+// Whether a move of `step` in a tick is one thing moving, not a jump: at most `limit` (squared) long,
+// or within `limit` of `pace`, the move the tick before, when known (kept its pace).
+bool kept_pace(const renderer::Vec3& step, float limit_squared, const renderer::Vec3* pace);
+
+// `from` turned part way to `to` with its translation, `t` from 0 (`from`) to 1 (`to`), however far
+// it moved; `to` when its X axis turned more than about 45 degrees (a cut). For what turns in place
+// and is far by its own units: a sky shell (its translation in the game's sky units).
+renderer::Mat4 blend_turning(const renderer::Mat4& from, const renderer::Mat4& to, float t);
 
 // Moves an attached world-space point from its source parent transform to the displayed one.
 // Singular source axes fall back to translation, preserving the point's finite position.
@@ -56,13 +70,22 @@ void follow_moby(const renderer::Mat4& source, const renderer::Mat4& drawn, floa
 
 // A moby's matrix part way from the last tick's to this one's, or this one's when it moved too far
 // or turned too much in a tick to be the same thing moving (a moby slot used again, a teleport).
-// `t`: how far, from 0 (`from`) to 1 (`to`).
-renderer::Mat4 blend_matrix(const renderer::Mat4& from, const renderer::Mat4& to, float t);
+// `t`: how far, from 0 (`from`) to 1 (`to`). `pace`: as same_moby's.
+renderer::Mat4 blend_matrix(
+    const renderer::Mat4& from,
+    const renderer::Mat4& to,
+    float t,
+    const renderer::Vec3* pace = nullptr
+);
 
 // The camera part way from the last tick's to this one's (a cut is not blended): a camera that
 // moved more than 8 units (64 is that squared), or turned so far that its forward axes' cosine is
-// below 0.7, is `to`. `t`: how far, from 0 (`from`) to 1 (`to`).
-CameraPose blend_pose(const CameraPose& from, const CameraPose& to, float t);
+// below 0.7, is `to`. `t`: how far, from 0 (`from`) to 1 (`to`). `pace`, when known: the eye's move
+// the tick before; a camera that moved farther but kept that pace (within 8 units of it) is the same
+// shot moving fast (a flight's camera chasing the ship), not a cut.
+CameraPose blend_pose(
+    const CameraPose& from, const CameraPose& to, float t, const renderer::Vec3* pace = nullptr
+);
 
 // The farthest an eye may be from the world's origin, along any axis, and still be a camera the
 // world is drawn from (game units): far past every level, which span a few thousand units, and well

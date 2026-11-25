@@ -449,6 +449,7 @@ int run_tests() {
     config.width = 8;  // A tiny attachment suffices; these tests do not rasterise scenes.
     config.height = 8;
     config.validation = true;
+    config.compile_missing_shaders = true;  // Failure injection uses custom GLSL fixtures.
     std::string error;
 
     // Hosts without Vulkan report a CTest skip rather than passing without exercising the backend.

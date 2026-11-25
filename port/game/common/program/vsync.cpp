@@ -294,6 +294,14 @@ static void keep_sixty_hz() {
 }
 
 int vsync() {
+    // The game's work for this tick, for OPENRAC_MOTION_LOG: from the end of the last wait to here.
+    const double tick_work =
+        g_tick_resumed.time_since_epoch().count() == 0
+            ? 0.0
+            : std::chrono::duration<double>(std::chrono::steady_clock::now() - g_tick_resumed)
+                  .count();
+    const auto entered = std::chrono::steady_clock::now();
+    double entered_late = 0.0, set_late = 0.0;  // after the tick's due time (OPENRAC_MOTION_LOG)
     crash::breadcrumb(
         crash::BreadcrumbThread::Main, "game tick yielded", g_frame, crash::BreadcrumbValue::Tick
     );
@@ -346,6 +354,8 @@ int vsync() {
         // (not after a long stop, a level loading: the count below starts again from now).
         const bool counted = g_next_frame.time_since_epoch().count() != 0
                              && now <= g_next_frame + std::chrono::milliseconds(100);
+        entered_late = std::chrono::duration<double>(entered - g_next_frame).count();
+        set_late = std::chrono::duration<double>(now - g_next_frame).count();
         frontend::set_tick(
             g_next_frame.time_since_epoch().count() == 0 || now > g_next_frame + period
                 ? now
@@ -564,14 +574,18 @@ int vsync() {
 #ifdef OPENRAC_FRONTEND
     // Until the next tick is due, frames at the display's rate (each swap waits for a refresh),
     // the scene moved on from the last tick's to this one's by when each is shown.
-    if (g_window && frontend::wants_between()) {
-        g_next_frame += frontend::take_shot_time();
-        for (int drawn; (drawn = frontend::between(g_next_frame)) != 0;) {
-            if (drawn < 0) {
-                leave();
-            }
+    if (g_window) {
+        int frames = 0;
+        if (frontend::wants_between()) {
             g_next_frame += frontend::take_shot_time();
+            for (int drawn; (drawn = frontend::between(g_next_frame)) != 0; ++frames) {
+                if (drawn < 0) {
+                    leave();
+                }
+                g_next_frame += frontend::take_shot_time();
+            }
         }
+        frontend::note_between(frames, tick_work, entered_late, set_late);
     }
 #endif
     {

@@ -272,22 +272,8 @@ std::vector<BatchJob> batch_jobs(
             }
         }
         const auto& policy = plan["island_policy"];
-        auto step =
+        const auto step =
             policy["enabled"].boolean() ? plan_vector<3>(policy["spacing"]) : sparse.spacing;
-        for (const auto& authored : policy["authored"].items()) {
-            if (!authored["fit_to_floor"].boolean(true)) {
-                continue;
-            }
-            auto requested = step;
-            if (authored["spacing"].is_number()) {
-                requested.fill(float(authored["spacing"].number()));
-            } else {
-                requested = plan_vector<3>(authored["spacing"]);
-            }
-            for (unsigned a = 0; a < 3; ++a) {
-                step[a] = std::min(step[a], requested[a]);
-            }
-        }
         const auto save_spatial_debug = [&](const bake_detail::SpatialPlacement& placement) {
             try {
                 write_spatial_placement(options.output_directory, placement);
@@ -340,12 +326,13 @@ std::vector<BatchJob> batch_jobs(
     }
 
     for (const auto& region : plan["regions"].items()) {
-        if (island_grids && region["fit_to_floor"].boolean(true)) {
+        const bool authored = region["authored"].boolean();
+        if (island_grids && !authored) {
             continue;
         }
         auto grid = batch_region_grid(exported, sparse, region);
 
-        if (!floors.empty() && region["fit_to_floor"].boolean(true)) {
+        if (!floors.empty() && !authored) {
             grid = bake_detail::fit_room_grid(grid, exported.scene, floors, layout, adaptive);
         }
 

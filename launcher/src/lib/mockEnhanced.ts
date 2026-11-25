@@ -98,10 +98,24 @@ export const mockEnhanced: EnhancedView = {
         type: "choice",
         default: "high",
         value: "high",
-        description: "High draws every effect in full. Medium and Low take cheaper shortcuts.",
+        description:
+          "Controls water geometry, foliage and blended lighting, and far shadow updates.",
         choices: [
           { value: "low", name: "Low" },
           { value: "medium", name: "Medium" },
+          { value: "high", name: "High" },
+        ],
+      },
+      {
+        key: "early_lighting_quality",
+        name: "Early Lit cache quality",
+        type: "choice",
+        default: "normal",
+        value: "normal",
+        description:
+          "Normal stores one lighting sample per 4x4 pixels. High stores one per 2x2 pixels.",
+        choices: [
+          { value: "normal", name: "Normal" },
           { value: "high", name: "High" },
         ],
       },

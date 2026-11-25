@@ -79,7 +79,7 @@ allow	audio	assets
 allow	media	assets
 allow	renderer/world	renderer
 allow	renderer/vulkan	renderer renderer/world
-allow	tests	viewer extract ios
+allow	tests	viewer extract ios tools
 # The 2D layer every game shares records through the host program's recorder (openrac/frame.h).
 allow	ui	game/common
 

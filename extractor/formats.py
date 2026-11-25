@@ -41,6 +41,7 @@ def unpack(fmt: str, data: bytes, offset: int = 0) -> tuple:
 
 
 CLAMP_1 = 0x08  # the GS register an A+D quadword's address byte names
+ALPHA_1 = 0x42
 
 
 def gs_clamp(data: bytes, offset: int) -> int:
@@ -51,6 +52,18 @@ def gs_clamp(data: bytes, offset: int) -> int:
     if address != CLAMP_1:
         return 0
     return int(lo & 3 == 1) | int(hi & 3 == 1) << 1
+
+
+def gs_alpha_opaque(data: bytes, offset: int) -> bool:
+    """Whether an A+D ALPHA_1 quadword at offset blends to the source colour whatever the alphas:
+    (A - B) * C + D with A = B and D = Cs, or with C = FIX 0x80, A = Cs and B = D. The faces it
+    sets up are opaque, their texels' alpha weighing nothing (Up Your Arsenal's ties: 0x20, Cs).
+    False when the quadword is another register's."""
+    lo, hi, address = unpack("<iiB", data, offset)
+    if address != ALPHA_1:
+        return False
+    a, b, c, d = lo & 3, lo >> 2 & 3, lo >> 4 & 3, lo >> 6 & 3
+    return (a == b and d == 0) or (c == 2 and hi & 0xff == 0x80 and a == 0 and b == d)
 
 
 def wad(data: bytes, limit: int = 64 << 20) -> bytes:

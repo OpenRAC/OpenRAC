@@ -139,6 +139,8 @@ struct WindowConfig {
     bool hidden = false;  // never shown: headless checks
     bool debug_context = false;
     bool gpu_breadcrumbs = true;
+    // Tools with custom GLSL can opt into the development-time Vulkan compiler.
+    bool compile_missing_shaders = false;
     int msaa_samples = 0;
     GlApi gl_api = default_gl_api();
     // Ask for HDR colour spaces at startup. MoltenVK also requests them for live HDR switching.

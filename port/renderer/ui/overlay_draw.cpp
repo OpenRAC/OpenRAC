@@ -10,6 +10,7 @@
 #include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
+#include "renderer/ui/overlay_draw_sources.h"
 
 namespace openrac::renderer::ui {
 
@@ -18,23 +19,9 @@ using namespace openrac::gl;
 namespace {
 
 // The picture's positions to device coordinates, y down; colours as they come.
-constexpr const char* kVertex = R"glsl(#version 410 core
-layout(location = 0) in vec2 position;
-layout(location = 1) in vec4 colour;
-out vec4 v_colour;
-void main() {
-    v_colour = colour;
-    gl_Position = vec4(position.x / 256.0 - 1.0, 1.0 - position.y / 224.0, 0.0, 1.0);
-}
-)glsl";
+using shader_sources::renderer_ui_overlay_draw::kVertex;
 
-constexpr const char* kFragment = R"glsl(#version 410 core
-in vec4 v_colour;
-out vec4 out_colour;
-void main() {
-    out_colour = v_colour;
-}
-)glsl";
+using shader_sources::renderer_ui_overlay_draw::kFragment;
 
 // What the blending does for `blend`, which the list has already checked is one it has. In each the
 // frame's alpha is kept (the alpha factors are 0 and 1 whichever equation: dst * 1 +- src * 0).

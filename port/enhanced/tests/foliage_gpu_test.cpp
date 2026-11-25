@@ -36,6 +36,7 @@ vec4 probe_sunlight_direction=vec4(0);
 vec3 probe_sunlight_scale=vec3(1);
 int probe_mode=1;
 float test_shadow=1.;
+int effect_pass=1;
 uniform float material_diffuse_scale;
 uniform vec4 material_colour;
 float material_metallic=0.;
@@ -107,6 +108,12 @@ void main() {
         vec3 response=foliage_response(surface,test==29?-n:n);
         if(test==32 || test>=37) response=foliage_surface(vec3(0),n,eye,albedo,vec3(1),vec4(0),1.,material,vec2(.5));
         value=test==35?response.g:(test==36?response.b:response.r);
+    } else if(test==40 || test==41) {
+        // The front lookup is fully occluded, while the alternate backface lookup sees sunlight.
+        effect_pass=test==40?0:1;
+        light_sets[0]=vec4(vec3(1),0);
+        light_sets[1]=vec4(n,0);
+        value=foliage_direct(vec3(0),n,vec4(0),0.,prepare_foliage(n,eye,albedo,material)).r;
     }
     uint bits=floatBitsToUint(value*material_colour.r);
     result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;
@@ -130,7 +137,7 @@ void test_lighting(const std::vector<std::uint8_t>& pixels) {
         CHECK(std::abs(scalar(pixels, pixel) - expected) < kTolerance);
     };
     // Every diagnostic must remain finite and nonnegative, including opposing and grazing directions.
-    for (unsigned x = 0; x < 40; ++x) {
+    for (unsigned x = 0; x < 42; ++x) {
         CHECK(std::isfinite(scalar(pixels, x)) && scalar(pixels, x) >= 0);
     }
     near(0, .5f * .99f + .0025f);
@@ -174,6 +181,8 @@ void test_lighting(const std::vector<std::uint8_t>& pixels) {
     near(37, 0);
     near(38, .01f / 3.14159265f);
     near(39, .0025f / 3.14159265f);
+    near(40, 0);
+    near(41, .99f);
 }
 
 // Owns the fullscreen fixture while its graphics context remains current.
@@ -213,9 +222,9 @@ void bind_inputs(Fixture& fixture) {
 
 // Builds production leaf functions against a synthetic asset-free lighting bank.
 bool build_shader(Fixture& fixture, std::string& error) {
-    const std::string fragment = std::string("#version 430 core\n") + kInterface
-                                 + lighting::shaders::shading_brdf_glsl
-                                 + lighting::shaders::foliage_glsl + kCases;
+    const std::string fragment =
+        std::string("#version 430 core\n") + kInterface + lighting::shaders::shading_brdf_glsl
+        + lighting::shaders::cloud_shadows_glsl + lighting::shaders::foliage_glsl + kCases;
     const bool built = fixture.shader.build(
         "foliage reference",
         R"(#version 430 core
@@ -263,6 +272,15 @@ int test_gpu() {
     glUniform4f(fixture.shader.uniform("material_colour"), 1, 1, 1, 1);
     glUniform1f(fixture.shader.uniform("material_diffuse_scale"), 1);
     glUniform1f(fixture.shader.uniform("foliage_reflectivity"), .04f);
+    glUniform4f(fixture.shader.uniform("cloud_shadow_shape"), 0, 0, 1, 1);
+    glUniform1i(fixture.shader.uniform("cloud_noise_texture"), 0);
+    unsigned cloud_noise = 0;
+    glGenTextures(1, &cloud_noise);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, cloud_noise);
+    constexpr std::array<std::uint8_t, 4> noise{};
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, noise.data());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     const auto words = enhanced::pack_foliage_material({1, 1, 1, 1});
     glUniform1i(
         fixture.shader.uniform("foliage_parameters0"), std::bit_cast<std::int32_t>(words[0])
@@ -272,6 +290,7 @@ int test_gpu() {
     );
     openrac::test::graph_draw(glDrawArrays, GL_TRIANGLES, 0, 3);
     const auto pixels = fixture.frame.read_rgba();
+    glDeleteTextures(1, &cloud_noise);
     CHECK(pixels.size() == 256u);
     // A failed readback is reported without accessing an incomplete image.
     if (pixels.size() == 256u) {
