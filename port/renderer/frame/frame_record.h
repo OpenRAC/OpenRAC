@@ -41,6 +41,17 @@ enum class FrameOp : std::uint8_t {
     TargetBegin,  // draws go into panel `index` (a port id >= kRecordedTargets), width x height
     TargetEnd,    // back to the screen
     Scissor,      // what follows is cut to rect (or the whole target)
+    // Transitional placements, read where they land among the residual packets as the markers
+    // the host C once wrote into the list were (rac1 and rac2 until R2/R3):
+    WorldShrubs,  // the world's shrub pass starts here: effect strips before it come first
+    EffectParent,  // strips follow attachment `index`'s parent (0 ends it), value bit 0: position only
+    HudSide,       // what follows goes out to the HUD's side `index` (0 ends it); value bit 0
+                   // stretches what crosses the middle, bit 1 parts it at value >> 2 instead
+    Wide,          // `index` 1: what follows covers the whole target, as a fade does; 0 ends it
+    PictureBand,  // `index` 1: a full-width scissor stays the picture's with "HUD: Edges"; 0 ends
+    LastFrame,    // the frame the window last drew with its world in, over the whole target
+    ViewBegin,    // the world that follows is split-screen view `index`'s, into rect
+    ViewEnd,      // the open view ends (FrameRecording::views has its camera)
     ScreenEffect,  // screen_effects[index], a native post pass over the target as drawn so far
 };
 
@@ -60,17 +71,6 @@ struct ScreenEffect {
     std::uint8_t blur = 0;             // extra blur passes at the largest size (0 to 2)
 
     bool operator==(const ScreenEffect&) const = default;
-    // Transitional placements, read where they land among the residual packets as the markers
-    // the host C once wrote into the list were (rac1 and rac2 until R2/R3):
-    WorldShrubs,  // the world's shrub pass starts here: effect strips before it come first
-    EffectParent,  // strips follow attachment `index`'s parent (0 ends it), value bit 0: position only
-    HudSide,       // what follows goes out to the HUD's side `index` (0 ends it); value bit 0
-                   // stretches what crosses the middle, bit 1 parts it at value >> 2 instead
-    Wide,          // `index` 1: what follows covers the whole target, as a fade does; 0 ends it
-    PictureBand,  // `index` 1: a full-width scissor stays the picture's with "HUD: Edges"; 0 ends
-    LastFrame,    // the frame the window last drew with its world in, over the whole target
-    ViewBegin,    // the world that follows is split-screen view `index`'s, into rect
-    ViewEnd,      // the open view ends (FrameRecording::views has its camera)
 };
 
 // Returns the command's contract name for recorder diagnostics, or "Unknown" for an invalid value.
