@@ -23,6 +23,7 @@
 #include "mp/game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "openrac/picture.h"
 #include "rac3_coll_line.h"
 
 /* host/mp_fixes.c: the flags a map's collision line runs with (wall sniping's fix). */
@@ -141,6 +142,12 @@ static void view_layout_after(int layout) {
         s_screen_h = r[3];
         return;
     }
+    /* Each RenderView but the last sends its list, and the loop sends the last after the lines,
+     * with no vertical blank between them, then waits for one: the lists are one picture
+     * (openrac/picture.h). Measured on Bakisi Isles: a header list, player 0's view in the other
+     * buffer, then the header's buffer again with player 1's view, both HUDs, the black corners
+     * and the divider. */
+    openrac_game_picture_spans_sends();
     if (s_screen_w < 1.0f || s_screen_h < 1.0f || r[2] <= r[0] || r[3] <= r[1]) {
         return;
     }

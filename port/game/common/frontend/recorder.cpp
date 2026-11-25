@@ -303,6 +303,12 @@ void view_camera(std::span<const std::uint8_t> ram) {
     camera.tan_half_fov_x = state.tan_half_fov_x;
     camera.tan_half_fov_y = state.tan_half_fov_y;
     g->recorder.view_camera(camera);
+    // The state MobyProc tests this view's mobys from (pose_mobys): the first, as the camera.
+    const auto& views = g->recorder.open().views;
+    if (!views.empty() && views.back().view < renderer::kFrameViews
+        && !g->view_states[views.back().view]) {
+        g->view_states[views.back().view] = state;
+    }
 }
 
 void view_layers(unsigned layers) {

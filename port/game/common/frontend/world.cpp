@@ -881,6 +881,7 @@ void savestate_restored(std::uint64_t tick) {
     g->world_camera.reset();
     g->world_shrubs.reset();
     g->moby_cameras.clear();
+    g->view_states = {};
     g->effects.clear();
     g->effect_uploads.clear();
     g->sky_shell_mask = 0;
