@@ -16,6 +16,54 @@
 | P4 phase 2 + P5 + P6 (lead: p456) | p456 lead (clone ~/RACSwarm/p456/OpenRAC, branch feat/p4-effect-material); P5 and P6 sub-agents in ~/RACSwarm/p5-strips and ~/RACSwarm/p6-screen | **P4 (lead):** new `openrac/material.h`; `openrac_game_quad` gains `material`, `image`, `picture` (additive); `renderer/renderer.h` EffectQuad/EffectStrip native `EffectState`; `renderer/effects/*` (apply, draw batching, opaque/liquid tests on native state); `frontend/world.cpp` (effect_quad, particle textures by content, sky sprites), one GS-to-native translation at the frontend edge for rac1/rac2 and chain strips; rac3 `host/render.c` `rac3_world_quad`, `rac3_part_proc`, new `host/effect_tex.c` (GetEffectTex func_L01_00404040 / boot func_00389978 / frontbin func_00389598). **P5:** rac3 strip builders (class 6576 draw, level 14 0x003B24C8, the liquid grid's packet builder), new `openrac_frame_strip` in `frame.h`, frame.cpp UNPACK/MSCAL branch for rac3. **P6:** rac3 `host/render.c` glow functions (func_L01_004DE670/6F0/DF310) and new post passes, `host/picture.c` pause tiles, Holostar's frame-textured sprite, GetFrameTexture 0x00396E18 frame copy as `openrac_frame_snapshot` | in progress (2026-11-23) |
 | P14 pads and cards above the libraries | P14 agent (Mac clone ~/RACSwarm/p14-pads, box1 ~/RACSwarm/p14; branch feat/p14-pads) | `common/lib/pad.c` (+ new `pad_report.h`), new `rac1/host/pad_state.c` (init_pads func_00217EE8, poll_pad_device_state func_00217F68), new `rac2/host/pad_state.c` (pad_init_ports func_002B8548, poll func_002B85F8), `rac3-pal/host/pad.c` (pad start-up func_003A2FC0/frontbin func_003A2BC0/levels func_L01_00460868, update func_003A3B40/func_003A3740/func_L01_004613E8), the libpad block of `rac3-pal/host/mp.c` only, pad/pad2/vib/dbc rows of every libraries.tsv and the carried release tables; `common/lib/mc.c` + mc rows (cards, after pads) | in progress |
 
+## P11 continuation (2026-11-23)
+
+The work continues from draft #782, preserving its two original commits. The short first-level
+checks below are validated; review and CI are still required before merge.
+
+- Integrated develop `b568fe8b8`: retained per-group stream gain ramps with float PCM normalization,
+  and regenerated the NTSC-U address table from the merged inputs.
+- Fixed paused voices consuming their attack or release while the output kept mixing. A synthetic
+  test fails before the fix and checks identical samples after continuing against an unpaused voice.
+- Added `snd_client_test`: deferred callbacks, submission pumping, synchronous waits, 64-bit callback
+  arguments and reset. It exercises the production client without a game, bank or audio device.
+- The RAC2 build exposed three movie-audio wrappers returning void where their callers read an
+  integer. They now return the native synchronous answer; C compile-time contracts reject the old
+  signatures. Regenerated the carried prototypes and removed three unused PAL client names.
+- On Windows/Clang, `sound_engine`, `snd_client`, `audio_mixer`, `audio_sound_player`,
+  `audio_ui_sounds`, `audio_sound_replacements` and `env` pass five times each. Hostgen: 384 tests,
+  153 skipped, no failures. Carry-table and layering checks pass. The global conventions gate still
+  reports the unrelated RAC2 comment in `host/moby_checks.h`.
+- With the separate Windows/headless prerequisites of #809, RAC3 NTSC-U's windowed build and its
+  call-ABI test pass. One muted Veldin run exited normally after 1,200 frames: a 20-second stereo
+  48 kHz WAV, no full-scale samples, and no unexpected raw-send warning during that run. The capture
+  remains private. The user reported that this capture sounded good; no console comparison is claimed.
+- After the signature fix, disc-less headless builds of RAC2 NTSC and RAC3 PAL/NTSC pass on the
+  separate integration branch with #809; all three call-ABI tests pass. These are build checks,
+  not gameplay validation. Windowed builds from the owner's discs and their call-ABI tests also
+  pass for RAC1 PAL, RAC2 NTSC, RAC3 PAL and RAC3 NTSC-U.
+- The user then requested audible tests with the assistant controlling the inputs. Each run below
+  reached its first level, ran 2,000 ticks after control at its normal PAL/NTSC rate, and exited
+  normally. Walking and jumping, weapon-button presses, a wrench attack and pause/resume were scripted;
+  the control reports confirmed the pause menu and return to play. No raw-send warnings or audio
+  output errors appeared. The recorded output was non-silent, with no full-scale samples at 40% gain.
+
+  | Version | First level | Elapsed time including startup |
+  |---|---|---|
+  | RAC1 PAL | Veldin | 61.109 s |
+  | RAC2 NTSC | Aranos tutorial | 37.656 s |
+  | RAC3 PAL | Veldin | 42.578 s |
+  | RAC3 NTSC-U (additional check) | Veldin | 35.969 s |
+
+  The user confirmed that all audible test runs sounded good. This verdict covers these sessions,
+  not every sound or a comparison against console audio.
+
+  Logs, control reports, disc data and WAV files remain private. These are short first-level smoke
+  checks, not full playthroughs, movie or multiplayer validation, or a listening verdict for every
+  sound. The initial fast-forwarded NTSC-U control trial is not counted as a real-time listening run.
+  Earlier non-P11 runs are not mixer evidence. No disc data or recordings are included in this
+  continuation, and no merge is claimed.
+
 ## Native-UI agent to P1 (2026-11-22)
 
 - Please make the recorder's UI call take a record with no GS words. Proposal (in my branch as
@@ -567,35 +615,28 @@ ties compared at frame 2400).
 
 Not fixed, for whoever picks rac3 up next:
 
-- **Crash on Veldin after a new game's first flight** (fixed, PR #896): reproduced in a hidden box2
-  run (new game, intro, Veldin, frame 10136, the "Progress is saving" message box). Cause: the
-  message box `func_L01_004CDF20` takes eleven integers, three past the eighth on the stack;
-  `func_L01_00436150` reaches it through a call copy, a call through an address that handed on only
-  the eight registers, so its string arguments were stack leftovers and a `%s` in
-  `openrac_guest_vformat` read 0xFFFFFFC0. Fix (hostgen, asmc.py `indirect`): the cast carries four
-  doublewords from 0($sp); a function's thunk reads its arguments past the eighth from the saved
-  guest stack pointer (was 0); Apple arm64 packs stack arguments by size so it takes the thunks;
-  `%s` prints "(null)" for an address that is no memory. Tests: `guest_format` (ctest) and
-  `test_retail.CallsThroughRegisters`. Rerun on the fixed build: no crash through frame 20000.
-  Other functions with more than eight integers called through a copy are fixed by the same change.
+- **Crash on Veldin after a new game's first flight** (seen once in a hidden box2 run, frame 1714):
+  SIGSEGV in a level function's string formatting, `func_L01_004CDF20 → func_0011B2E8`
+  (print.c:28) `→ openrac_guest_vformat`. Not reproduced or diagnosed yet.
 - **The Phoenix's "△ Enter ship" HUD message box** draws enlarged with its text shifted left. The
   box is `func_L01_004366A0 → func_L01_004CDC38`, drawn by `func_L01_004CF120` / `004CEAE0`: it
   measures "\x12 Enter ship" as 120 units (font 1, scale 1.0) against a half-width of 68 and draws
   the text from x=195. Every global on that path pairs correctly on level 3 (#876's audit). Next
   step: capture the same prompt on Florana and compare the measured width (message box +0x1B4).
-<<<<<<< HEAD
 - **Misfiled 8-byte getters in other levels** (#876 fixed levels 3/24's and the flight's): the
   same one-row-along filing shows in levels 4, 7, 9, 12, 13, 16, 18, 19, 22, 26, 27, 29 and 30
   (e.g. `func_L01_003A0710`, `func_L01_004C93D8`), and the font-wrapper rows still held by other
   Veldin names (`func_L01_00423020`, `func_L01_00412810`). Many read private globals only; check
   each one against callers' `OPENRAC_LCODE` calls. The root fix is rac3-decomp's catalogue
   (tools/level_catalogue.py).
+<<<<<<< HEAD
+=======
 - **Synchronous rendering's tick-boundary hitch** (fixed, #898): on OpenGL, or Vulkan without
   the render thread, the pacing ran the scene half a tick behind but frames cannot be drawn past
   the next tick, so alpha dropped from ~0.47 to 0 at each tick. Every path now uses no lag
   (`lag_ticks()` in frontend/interpolation.cpp): alpha runs 0 to 1 across the tick. Probe:
   `OPENRAC_MOTION_LOG`.
-=======
+
 - **Misfiled 8-byte getters in other levels** (#876 fixed levels 3/24's and the flight's; the rest
   audited and fixed in the follow-up): the catalogue files a level's copies of the 8-byte class
   getters and font wrappers one row along in levels 4, 7, 9, 12, 13, 16, 18, 19, 22, 26, 27, 29, 30
@@ -615,11 +656,11 @@ Not fixed, for whoever picks rac3 up next:
   through `level_copies`, not through the names. The root fix (rac3-decomp's `copy_groups()` in
   tools/level_catalogue.py) was not attempted: it renames rows used by src/levels/ and the
   decomp's own report, so it needs its own catalogue PR; this audit is the check for it.
+>>>>>>> origin/develop
 - **Synchronous rendering's tick-boundary hitch**: on OpenGL, or Vulkan without the render
   thread, the scene runs half a tick behind but in-between frames can't pass the next tick, so
   alpha drops from ~0.47 to 0 at each tick. The Vulkan render-thread path is not affected.
   Probe: `OPENRAC_MOTION_LOG`.
->>>>>>> origin/develop
 - **The first flight's Solana galaxy sequence**: the boot flight has no first-flight variant in
   its transition table (#871's runs). Probably the New Game intro movie (sector 18444); not
   confirmed against the original.
