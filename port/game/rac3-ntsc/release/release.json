@@ -979,6 +979,126 @@
     "L02:001E00EC": {
       "is": "001E016C",
       "why": "the same instruction of the same code: func_L02_00310368 (NTSC-U func_L02_00310030) +0xAC, 1 of 1 places agree"
+    },
+    "L39:0024CE20": {
+      "is": "0024CF20",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 30 of 30 places agree"
+    },
+    "L39:00352940": {
+      "is": "00352A40",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 23 of 23 places agree"
+    },
+    "L40:00249330": {
+      "is": "002494B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L40:00357260": {
+      "is": "003573E0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L41:00249530": {
+      "is": "002496B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L41:003573A0": {
+      "is": "00357520",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L42:00249420": {
+      "is": "002495A0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L42:0034F2A0": {
+      "is": "0034F420",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L43:002492A0": {
+      "is": "00249420",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L43:0034F120": {
+      "is": "0034F2A0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L44:00249320": {
+      "is": "002494A0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L44:0034F160": {
+      "is": "0034F2E0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L45:002492A0": {
+      "is": "00249420",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L45:0034F120": {
+      "is": "0034F2A0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L46:00248EA0": {
+      "is": "00249020",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L46:0035FCE0": {
+      "is": "0035FE60",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L47:00248FA0": {
+      "is": "00249120",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L47:0035FE20": {
+      "is": "0035FFA0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L48:00248FA0": {
+      "is": "00249120",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L48:0035FE60": {
+      "is": "0035FFE0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L49:00248FA0": {
+      "is": "00249120",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 34 of 34 places agree"
+    },
+    "L49:0035FDE0": {
+      "is": "0035FF60",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 24 of 24 places agree"
+    },
+    "L50:00249330": {
+      "is": "002494B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L50:00368260": {
+      "is": "003683E0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L51:00249530": {
+      "is": "002496B0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L51:003683A0": {
+      "is": "00368520",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L52:00249420": {
+      "is": "002495A0",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L52:003602A0": {
+      "is": "00360420",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
+    },
+    "L53:002492A0": {
+      "is": "00249420",
+      "why": "the same instruction of the same code: func_L39_0053BA68 (NTSC-U func_L39_0053B2D0) +0x48, 36 of 36 places agree"
+    },
+    "L53:00360120": {
+      "is": "003602A0",
+      "why": "the same instruction of the same code: func_L39_0055E2E0 (NTSC-U func_L39_0055D868) +0x138, 28 of 28 places agree"
     }
   },
   "mp_hostgen": {
