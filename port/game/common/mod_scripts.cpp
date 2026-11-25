@@ -822,7 +822,7 @@ int api_menu_option_set(lua_State* L) {
     return 1;
 }
 
-// Interface 1.40: the version of the mod `id` when it is loaded, else nil. During the scripts' first
+// Interface 1.42: the version of the mod `id` when it is loaded, else nil. During the scripts' first
 // run only the mods loaded before this one are; from the first on_frame every mod that loaded is.
 int api_mod_loaded(lua_State* L) {
     State* s = state_of(L);

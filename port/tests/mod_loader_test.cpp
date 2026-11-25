@@ -2651,7 +2651,7 @@ void a_mod_drives_the_motors(const fs::path& plugins) {
     mods::reset();
 }
 
-// Interface 1.40: what mods offer each other. A service is found by name and version once its
+// Interface 1.42: what mods offer each other. A service is found by name and version once its
 // provider has loaded, whatever the list's order (on_mods_loaded), and goes with a provider whose
 // load fails; a mod whose load fails is not called once the mods have loaded; the reset forgets them.
 void mods_offer_each_other_services(const fs::path& plugins) {

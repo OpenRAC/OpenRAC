@@ -124,14 +124,15 @@ extern "C" {
  * port's menu greyed out or made usable by a mod, by name (menu_option_set),
  * 1.38 an accent colour for the paint material, drawn on the model's own
  * strongly saturated texels, a visor or lamps
- * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT), 1.39 paint that draws the effects a
- * moby makes in its colour, and paint in weapon_look
- * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS), and 1.40 what mods offer each other: a
- * mod's services, tables of its own found by name and version (service_provide,
- * service_find, openrac_service), and a call once every mod has loaded
- * (on_mods_loaded).
+ * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT), and 1.39 paint that draws the effects
+ * a moby makes in its colour, and paint in weapon_look
+ * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS), 1.40 synchronous gameplay decision
+ * queries (on_play_query), 1.41 kept for the overlay's pictures (#865), and
+ * 1.42 what mods offer each other: a mod's services, tables of its own found by
+ * name and version (service_provide, service_find, openrac_service), and a call
+ * once every mod has loaded (on_mods_loaded).
  */
-#define OPENRAC_MOD_API_MINOR 40
+#define OPENRAC_MOD_API_MINOR 42
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1910,11 +1911,39 @@ typedef struct openrac_rac1_weapon {
 #define OPENRAC_MENU_OPTION_ON 1      /* usable, even where the port greys it out */
 #define OPENRAC_MENU_OPTION_OFF 2     /* greyed out: shown, but it cannot be changed */
 
+/* Synchronous gameplay decisions, since 1.40. Values are not persisted. A mod
+ * takes exclusive ownership of each requested kind until it unloads. The host
+ * supplies original and alternate values; only value is an output. subject is
+ * a game address, or zero where the decision has no object. index is a record,
+ * menu slot or item ID, documented by the game's query-point catalogue. */
+#define OPENRAC_PLAY_QUERY_CHALLENGE_AVAILABLE (1u << 0)
+#define OPENRAC_PLAY_QUERY_ITEM_RESPAWN (1u << 1)
+#define OPENRAC_PLAY_QUERY_REVISIT_BOLTS (1u << 2)
+#define OPENRAC_PLAY_QUERY_REVISIT_XP (1u << 3)
+#define OPENRAC_PLAY_QUERY_MENU_TEXT (1u << 4)
+#define OPENRAC_PLAY_QUERY_MENU_DATA (1u << 5)
+#define OPENRAC_PLAY_QUERY_MENU_ACTION (1u << 6)
+#define OPENRAC_PLAY_QUERY_HERO_OVERRIDE (1u << 7)
+#define OPENRAC_PLAY_QUERY_ALL 0xffu
+
+typedef struct openrac_play_query {
+    uint32_t size;
+    uint32_t kind;
+    int32_t level;
+    openrac_gaddr subject;
+    int32_t index;
+    int32_t original;
+    int32_t alternate;
+    int32_t value;
+} openrac_play_query;
+
+typedef void (*openrac_play_query_fn)(void* user, openrac_play_query* query);
+
 /* A service one mod offers others (openrac_api.service_provide, service_find): a table of the
  * providing mod's, a plain C struct of function pointers (and data) whose first member is its
  * `uint32_t size`, as openrac_api's is, so it grows at its end as the table does. Both mods include
  * the provider's header for it. The port keeps only the pointer: what the functions do, and on
- * which thread, is the provider's to say. Since 1.40. */
+ * which thread, is the provider's to say. Since 1.42. */
 typedef struct openrac_service {
     /* sizeof(openrac_service), set by the caller. */
     uint32_t size;
@@ -1930,7 +1959,7 @@ typedef struct openrac_service {
     const char* provider;
 } openrac_service;
 
-/* The longest service name, in characters (openrac_api.service_provide). Since 1.40. */
+/* The longest service name, in characters (openrac_api.service_provide). Since 1.42. */
 #define OPENRAC_SERVICE_NAME_MAX 128
 
 typedef struct openrac_api {
@@ -3379,6 +3408,9 @@ typedef struct openrac_api {
      * a mod's calls go with it when it unloads. Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN for no
      * name or another state. Since 1.37. */
     int (*menu_option_set)(openrac_mod* mod, const char* option, int state);
+    /* Register synchronous gameplay decisions during load. Since 1.40. */
+    int (*on_play_query)(openrac_mod* mod, uint32_t kinds, openrac_play_query_fn fn, void* user);
+
 
     /* Calls fn(user) once, after the last mod's openrac_mod_load has returned and before the
      * game's first tick, in load order. During a load only the mods loaded before it are there
@@ -3386,7 +3418,7 @@ typedef struct openrac_api {
      * look for another mod and ask for its services. Nothing is taken here: hooks, callbacks and
      * services are refused with OPENRAC_E_TOO_LATE, so a mod takes in its load what it may use and
      * decides here whether to use it. Only during openrac_mod_load. Returns OPENRAC_OK, or
-     * OPENRAC_E_TOO_LATE after load or for no fn. Since 1.40. */
+     * OPENRAC_E_TOO_LATE after load or for no fn. Since 1.42. */
     int (*on_mods_loaded)(openrac_mod* mod, openrac_frame_fn fn, void* user);
 
     /* Offers other mods a service (openrac_service): `table`, `size` bytes, under `name`. The mod
@@ -3397,7 +3429,7 @@ typedef struct openrac_api {
      * mod whose load fails takes its services with it. Returns OPENRAC_OK, OPENRAC_E_TAKEN when the
      * mod offers that name already (the first stays), OPENRAC_E_TOO_LATE after load, or
      * OPENRAC_E_UNKNOWN for a name of another form, a null table, or a size or version of 0.
-     * Since 1.40. */
+     * Since 1.42. */
     int (*service_provide)(
         openrac_mod* mod,
         const char* name,
@@ -3411,7 +3443,7 @@ typedef struct openrac_api {
      * or later, and keep the answer, which stays valid until the program ends. Returns OPENRAC_OK,
      * OPENRAC_E_SIGNATURE for a service older than min_version (`out` gets its version and provider,
      * its table null), or OPENRAC_E_UNKNOWN for no such service, no name or a bad `out`.
-     * Since 1.40. */
+     * Since 1.42. */
     int (*service_find)(
         openrac_mod* mod,
         const char* name,

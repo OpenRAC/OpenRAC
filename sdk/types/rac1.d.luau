@@ -31,6 +31,9 @@ type HookPoint =
     | "rac1.weapon.drone.pick_target"
     | "rac1.moby.record_death"
     | "rac1.level.load_gameplay"
+    | "rac1.level.update_play"
+    | "rac1.freeze.update"
+    | "rac1.freeze.draw"
     | "rac1.player.approach_speed"
     | "rac1.ship.travel_to"
     | "rac1.moby.collect_bolt"
@@ -724,6 +727,8 @@ type HookPoint =
     | "FX_SpawnBurst"
     | "FX_ThrusterFlame_Draw"
     | "FollowCamera_ApplyOverrides"
+    | "Freeze_Draw"
+    | "Freeze_Update"
     | "GoldBolts_CountCollected"
     | "GoldBolts_CountUnspent"
     | "GoldCase_StartDemo"
@@ -745,6 +750,7 @@ type HookPoint =
     | "Hud_QuickSelect_Update"
     | "Item_Give"
     | "Level_LoadGameplay"
+    | "Level_UpdatePlay"
     | "Menu_EquippedPreview_Draw"
     | "Menu_EquippedPreview_Update"
     | "Menu_ItemAmmo_Draw"
@@ -1490,6 +1496,12 @@ type Weapon_Drone_PickTargetFn = (from: number, skip: number) -> number
 type Moby_RecordDeathFn = (moby: number, flags: number, index: number) -> ()
 -- rac1.level.load_gameplay (Level_LoadGameplay) u32(i32): Loads a level's gameplay file into the level heap (LoadLevelGameplay), once per level start: the settings, the placed mobys and their pvars, the spare moby pool, the paths and the rest; returns the heap cursor. After it, every placed moby exists and none has run.
 type Level_LoadGameplayFn = (full: number) -> number
+-- rac1.level.update_play (Level_UpdatePlay) void(): The level's tick in play (handle_pause_input, game mode 0): the pause, freeze and help triggers, then the mobys, the hero, the particles, the camera, the sound, the HUD's elements and the frame counters. A replacement that returns without calling the original holds the world for that tick, as the game's own change of mode does (a mod's menu over a frozen world: the freeze mode, rac1.freeze.update).
+type Level_UpdatePlayFn = () -> ()
+-- rac1.freeze.update (Freeze_Update) void(): The freeze mode's tick (update_mode_freeze, game mode 4, entered by mode_freeze_init(kind, ...)): the help, prompt and dialog screens over a frozen world, by mode_freeze_info's kind (0 to 8 are the game's). It runs the sound and, once the mode has been left, puts the sounds and the music back on. A mod's own kind runs here, before or after the original.
+type Freeze_UpdateFn = () -> ()
+-- rac1.freeze.draw (Freeze_Draw) void(): The freeze mode's picture (draw_dialog_background_and_text): the frozen world drawn again with the HUD (the draw mask 0x100FF), then the freeze dialog's dim and box (draw_freeze_message_box). A mod's own freeze kind draws its own here.
+type Freeze_DrawFn = () -> ()
 -- rac1.player.approach_speed (Hero_ApproachSpeed) void(f32,f32): Eases the hero's ground speed (+0x194, the speed Hero_SetPlanarVelocity moves him at) toward his target speed (+0x190) by up when below it and by down when above, each tick he moves on foot, in every level.
 type Hero_ApproachSpeedFn = (up: number, down: number) -> ()
 -- rac1.ship.travel_to (Ship_TravelTo) void(i32): The ship's travel from the planet select (ShipTravelTo), once its menu closes: to the planet it is on (dest the level now), the landing again, as backing out of the select does; to another, the game saved to the card and the ship's flight out of the level, whose loop then ends and flies to dest. After the take-off; a level's only way to another planet by ship.
@@ -1632,7 +1644,7 @@ declare openrac: {
     set_motors: (port: number, small_motor: boolean, large_motor: number) -> boolean,
     -- interface 1.37: an option of the port's menu greyed out or made usable, by its name (menu-options.md)
     menu_option_set: (option: string, state: "on" | "off" | "default") -> boolean,
-    -- interface 1.40: the version of another mod when it is loaded, else nil
+    -- interface 1.42: the version of another mod when it is loaded, else nil
     mod_loaded: (id: string) -> string?,
     -- experimental: a moby's pvars by name, from the behaviour catalogue
     pvars: (moby: number) -> { [string]: number }?,

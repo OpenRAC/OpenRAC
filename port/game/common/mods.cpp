@@ -132,6 +132,7 @@ std::vector<std::unique_ptr<openrac_mod>> g_loaded;
 std::vector<fs::path> g_asset_roots;  // the loaded mods' assets folders, the last loaded first
 std::vector<FrameCallback> g_frames;
 std::vector<PadCallback> g_pads;
+PlayQueries g_play_queries;
 std::vector<MenuCallback> g_menus;
 std::vector<DeveloperMenu> g_developer_menus;
 // The pages of the game's own menus and the main-menu items (interface 1.7); the page on the
@@ -1023,6 +1024,7 @@ void fill_api(const Host& host) {
     g_api.hook = api_hook;
     g_api.on_frame = api_on_frame;
     g_api.on_pad = api_on_pad;
+    g_api.on_play_query = api_on_play_query;
     g_api.function = api_function;
     g_api.function_at = api_function_at;
     g_api.relocate_data = api_relocate_data;
@@ -1253,7 +1255,7 @@ void script_stopped(openrac_mod* mod, const std::string& reason) {
     write_status(*g_host, g_outcomes);
 }
 
-// The version of the loaded mod `id`, null for none: the scripts' openrac.mod_loaded (1.40).
+// The version of the loaded mod `id`, null for none: the scripts' openrac.mod_loaded (1.42).
 const char* loaded_version(const char* id) {
     for (const auto& loaded : g_loaded) {
         if (id != nullptr && loaded->id == id) {
@@ -1283,6 +1285,7 @@ void undo(openrac_mod* mod) {
     std::erase_if(g_settings_callbacks, [&](const SettingsCallback& c) { return c.mod == mod; });
     std::erase_if(g_save_data_callbacks, [&](const SaveDataCallback& c) { return c.mod == mod; });
     std::erase_if(g_pads, [&](const PadCallback& c) { return c.mod == mod; });
+    g_play_queries.remove(mod);
     std::erase_if(g_menus, [&](const MenuCallback& c) { return c.mod == mod; });
     std::erase_if(g_overlays, [&](const OverlayCallback& c) { return c.mod == mod; });
     std::erase_if(g_developer_menus, [&](const DeveloperMenu& menu) { return menu.mod == mod; });
@@ -1781,7 +1784,7 @@ std::string load(const Host& host) {
     crash::set_mods(g_images.data(), static_cast<int>(g_images.size()));
     set_loaded_mods_json();
     // Every mod that loads has, and the crash report knows them: each one that asked looks at the
-    // others (interface 1.40).
+    // others (interface 1.42).
     run_mods_loaded();
     std::string line;
     for (const auto& m : g_loaded) {
@@ -2176,3 +2179,11 @@ void reset() {
 }
 
 }  // namespace openrac::mods
+
+// Called only by the native query points, never from the matching console source.
+extern "C" int32_t openrac_mod_play_query(
+    uint32_t kind, uint32_t subject, int32_t index, int32_t original, int32_t alternate
+) {
+    using namespace openrac::mods::detail;
+    return g_play_queries.query(kind, api_loaded_level(), subject, index, original, alternate);
+}

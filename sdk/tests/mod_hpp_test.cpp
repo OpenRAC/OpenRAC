@@ -1211,7 +1211,7 @@ int fake_menu_option_set(openrac_mod*, const char* option, int state) {
                : OPENRAC_HOOK_UNKNOWN;
 }
 
-// The fake host's 1.40 services: one table offered, found by name and version (its provider
+// The fake host's 1.42 services: one table offered, found by name and version (its provider
 // "rumble"), and the callback it was given for once the mods have loaded.
 struct FakeService {
     std::string name;
@@ -2793,7 +2793,7 @@ int main() {
         api.size = sizeof api;
     }
 
-    // Interface 1.40: a service offered and found through the layer (a table as a rumble mod might
+    // Interface 1.42: a service offered and found through the layer (a table as a rumble mod might
     // offer: a hold per caller), the call once the mods have loaded, and a port without them.
     {
         struct Effects {
@@ -2825,11 +2825,11 @@ int main() {
         CHECK(mod.service<Effects>("rumble/effects", 2, &version) == nullptr && version == 1);
         CHECK(mod.service<Effects>("rumble/other", 1, &version) == nullptr && version == 0);
         CHECK(mod.service<Effects>("rumble/effects") == &effects);
-        // A port of 1.39, or a table that stops before the calls: nothing offered or found, and
+        // A port of 1.41, or a table that stops before the calls: nothing offered or found, and
         // on_mods_loaded throws.
         for (int older = 0; older < 2; ++older) {
             if (older == 0) {
-                api.api_minor = 39;
+                api.api_minor = 41;
             } else {
                 api.size = static_cast<std::uint32_t>(offsetof(openrac_api, service_find));
             }

@@ -77,7 +77,7 @@ How much of each game's code is decompiled so far. More on [openrac.dev](https:/
 
 ## Make mods
 
-The launcher's **Mods** tab adds mods and opens your levels in [Godot 4](https://godotengine.org/) to edit them.
+The launcher's **Mods** tab adds mods and opens your levels in [OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor) to edit them.
 
 <p align="center">
   <img src="docs/assets/mods.jpg" alt="The OpenRAC launcher's Mods tab: add mods, switch them on and play" width="860">

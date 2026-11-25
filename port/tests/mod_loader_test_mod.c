@@ -97,7 +97,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_query(openrac_mod_info* info) {
     info->version = "1.0.0";
 }
 
-/* Interface 1.40: the service "<id>/adder" a "service_provider" offers (version 2, its add gives x
+/* Interface 1.42: the service "<id>/adder" a "service_provider" offers (version 2, its add gives x
  * plus the tag), and what a "service_user" finds of test-a's once every mod has loaded
  * (services_ready: 15100s to 15250s). */
 typedef struct test_adder {
@@ -950,8 +950,8 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         s_record(14000 + has_handles);
         return 0;
     }
-    if (strcmp(behaviour, "service_provider") == 0) { /* offers "<id>/adder" (1.40) */
-        if (api->api_minor < 40 || s_record == NULL) {
+    if (strcmp(behaviour, "service_provider") == 0) { /* offers "<id>/adder" (1.42) */
+        if (api->api_minor < 42 || s_record == NULL) {
             return 23;
         }
         s_record(
@@ -978,11 +978,11 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         }
         return 0;
     }
-    if (strcmp(behaviour, "service_user") == 0) { /* looks for test-a's (1.40) */
+    if (strcmp(behaviour, "service_user") == 0) { /* looks for test-a's (1.42) */
         openrac_service found;
         memset(&found, 0, sizeof found);
         found.size = sizeof found;
-        if (api->api_minor < 40 || s_record == NULL) {
+        if (api->api_minor < 42 || s_record == NULL) {
             return 23;
         }
         /* Found in its load only when test-a loaded before it. */

@@ -586,6 +586,15 @@ public:
     // Commando's; the bangles' word is +0x7C there too (0x003CBEDC).
     std::uint32_t moby_glow_word() const override { return 0x78; }
 
+    // The update function at +0x64, the pvars at +0x68 and the rotation (angles x, y, z) at
+    // +0xF0, as Going Commando's (host/play.c; rac3-decomp's structs/moby.h: update, pvar and
+    // rotation), where Ratchet & Clank's are +0x74, +0x78 and +0x40.
+    std::uint32_t moby_update() const override { return 0x64; }
+
+    std::uint32_t moby_pvars() const override { return 0x68; }
+
+    std::uint32_t moby_rotation() const override { return 0xF0; }
+
     // The hero's record, D_001A4BE0 (the hero code's base: his position at +0x80, 0x001A4C60),
     // whose short at +0x36E counts the updates off the ground (D_001A4F4E, hero_air_frames; read
     // as lh 0x36E in the levels' hero code).

@@ -65,7 +65,7 @@ def output_path(path: Path, anywhere: bool = False, replace: bool = False) -> Pa
 
 def export_kind(path: Path) -> str | None:
     """What a directory holds: None when it is missing or empty, "port" for levels extracted for
-    the port (a manifest.json per level, or one beside), "godot" for the editor's Godot projects
+    the port (a manifest.json per level, or one beside), "godot" for OpenRAC Editor's level projects
     (project.godot, or one per level_NN), "other" for anything else."""
     if not path.is_dir() or not any(path.iterdir()):
         return None
@@ -80,7 +80,7 @@ def ours(path: Path, kind: str) -> None:
     """Refuses to write over a directory that holds something other than an export of KIND."""
     found = export_kind(path)
     if found not in (None, kind):
-        what = {"port": "levels extracted for the game", "godot": "Godot projects of the level editor",
+        what = {"port": "levels extracted for the game", "godot": "OpenRAC Editor's level projects",
                 "other": "files that are not an export"}[found]
         raise FormatError(f"{path} holds {what}, not what this command writes; choose another folder",
                           code="folder-not-ours")
@@ -93,10 +93,10 @@ def say_output(path: Path) -> None:
 
 def adopt_flat_export(out: Path, version: str, kind: str = "port") -> bool:
     """What was written before each version had a folder of its own sat straight in OUT's parent:
-    the port's levels (assets/port/rac1, <data>/port), the Godot projects (assets/levels/rac1) and
+    the port's levels (assets/port/rac1, <data>/port), OpenRAC Editor's level projects (assets/levels/rac1) and
     the level packer's output (assets/packed/rac1). When OUT does not exist yet and the parent holds
     that of VERSION, its level folders and the files beside them move into OUT, so the new layout
-    starts from them (a Godot project keeps its edits) instead of leaving them beside it. Only PAL
+    starts from them (a level project keeps its edits) instead of leaving them beside it. Only PAL
     had the flat layout; the port's levels also say their version in their manifests. KIND is
     "port", "godot" or "packed". True when something moved."""
     parent = out.parent

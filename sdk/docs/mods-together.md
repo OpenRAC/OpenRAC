@@ -11,7 +11,7 @@ the camera), and the others ask it instead of each hooking the same thing.
 |---|---|
 | C++ | `mod.find("rumble")`: a `std::optional<openrac::ModEntry>` (`id`, `name`, `version`, `index`); `mod.loaded("rumble")` |
 | C (1.14) | `api->mod_count()` and `api->mod_entry(index, &entry)`: the loaded mods in load order |
-| Luau (1.40) | `openrac.mod_loaded("rumble")`: its version, or `nil` |
+| Luau (1.42) | `openrac.mod_loaded("rumble")`: its version, or `nil` |
 
 A mod is loaded when it is installed, switched on, made for this game and its
 load succeeded.
@@ -19,7 +19,7 @@ load succeeded.
 **When to ask.** Mods load one by one, in the launcher's order. During your
 load, only the mods loaded before yours are listed. Ask later:
 
-- in `on_mods_loaded` (C and C++, 1.40): called once, after every mod's load
+- in `on_mods_loaded` (C and C++, 1.42): called once, after every mod's load
   and before the game's first tick;
 - or in your first `on_frame` (script mods too).
 
@@ -27,7 +27,7 @@ Or fix the order in your [manifest](manifest.md): `"requires"` loads the other
 mod first, and the launcher installs it with yours; `"load": {"after": [...]}`
 asks for the order without needing the mod.
 
-## Services (native mods, 1.40)
+## Services (native mods, 1.42)
 
 A service is a plain C struct of function pointers whose first member is its
 `uint32_t size`. The provider ships a header with it for the mods that use it.

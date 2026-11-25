@@ -181,7 +181,7 @@ int api_game_language(char* out, std::uint32_t size) {
     return 2;
 }
 
-// ---- What mods offer each other (interface 1.40) ----
+// ---- What mods offer each other (interface 1.42) ----
 //
 // A service is a table of a mod's own, under a name that starts with its id, handed to the mods
 // that ask for it by name and version; the port keeps only the pointer. Services are offered during

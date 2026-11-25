@@ -372,7 +372,7 @@ void play(Sound sound) {
     s.quiet = 0;
 }
 
-void mix(std::span<std::int16_t> interleaved) {
+void mix(std::span<float> interleaved) {
     State& s = state();
     std::lock_guard guard(s.lock);
     const std::size_t frames = interleaved.size() / 2;
@@ -410,12 +410,7 @@ void mix(std::span<std::int16_t> interleaved) {
         const float dry = s.low_pass;
         const float sides[2] = {dry + kWet * s.left.step(dry), dry + kWet * s.right.step(dry)};
         for (std::size_t c = 0; c < 2; ++c) {
-            std::int16_t& out = interleaved[f * 2 + c];
-            out = static_cast<std::int16_t>(std::clamp(
-                static_cast<float>(out) + (sides[c] + s.pickup_bus[f]) * 32767.0f,
-                -32768.0f,
-                32767.0f
-            ));
+            interleaved[f * 2 + c] += sides[c] + s.pickup_bus[f];
         }
     }
     const bool still =
@@ -427,6 +422,24 @@ void mix(std::span<std::int16_t> interleaved) {
         s.left.clear();
         s.right.clear();
         s.low_pass = 0.0f;
+    }
+}
+
+void mix(std::span<std::int16_t> interleaved) {
+    std::vector<float> mixed(interleaved.size());
+
+    // The 16-bit samples to float, the menu's tones over them, and back, clamped.
+    for (std::size_t i = 0; i < interleaved.size(); ++i) {
+        mixed[i] = static_cast<float>(interleaved[i]) / 32767.0f;
+    }
+
+    mix(std::span<float>(mixed));
+
+    // Back to 16 bits.
+    for (std::size_t i = 0; i < interleaved.size(); ++i) {
+        interleaved[i] = static_cast<std::int16_t>(
+            std::clamp(std::lround(mixed[i] * 32767.0f), -32768L, 32767L)
+        );
     }
 }
 

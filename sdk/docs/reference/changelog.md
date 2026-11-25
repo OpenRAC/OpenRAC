@@ -4,11 +4,23 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
-## 1.40
+## 1.42
 
 What mods offer each other: a mod's services, tables of its own found by name and version (service_provide, service_find, openrac_service), and a call once every mod has loaded (on_mods_loaded).
 
 Members: `on_mods_loaded`, `service_provide`, `service_find`.
+
+## 1.41
+
+Kept for the overlay's pictures (#865).
+
+No new members (the table is unchanged).
+
+## 1.40
+
+Synchronous gameplay decision queries (on_play_query).
+
+Members: `on_play_query`.
 
 ## 1.39
 

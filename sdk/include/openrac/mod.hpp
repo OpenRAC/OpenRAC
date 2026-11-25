@@ -1363,6 +1363,20 @@ public:
         return k >= 0 ? std::string(out) : std::string();
     }
 
+    // Synchronous gameplay decisions. Since 1.40; register only during load.
+    bool has_play_queries() const {
+        return m_api->api_minor >= 40
+               && m_api->size >= offsetof(openrac_api, on_play_query) + sizeof(void*)
+               && m_api->on_play_query != nullptr;
+    }
+
+    void on_play_query(uint32_t kinds, openrac_play_query_fn fn, void* user) {
+        if (!has_play_queries()
+            || m_api->on_play_query(m_handle, kinds, fn, user) != OPENRAC_HOOK_OK) {
+            throw Error("on_play_query: unsupported, conflicting kinds, or called outside load");
+        }
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>
@@ -2464,10 +2478,10 @@ public:
         return out;
     }
 
-    // Since 1.14 (in the layer since SDK 1.40): the loaded mod `id` as mods() lists it, none when
+    // Since 1.14 (in the layer since SDK 1.42): the loaded mod `id` as mods() lists it, none when
     // it is not loaded (not installed, switched off, refused or failed) or the port cannot list
     // mods. During load only the mods loaded before this one are there: ask in on_mods_loaded()
-    // (1.40) or later.
+    // (1.42) or later.
     std::optional<ModEntry> find(std::string_view id) const {
         for (ModEntry& e : mods()) {
             if (e.id == id) {
@@ -3079,21 +3093,21 @@ public:
                && m_api->menu_option_set(m_handle, option, state) == OPENRAC_HOOK_OK;
     }
 
-    // Since 1.40: whether the port carries services between mods (provide(), service()) and calls
+    // Since 1.42: whether the port carries services between mods (provide(), service()) and calls
     // on_mods_loaded().
     bool has_services() const {
-        return m_api->api_minor >= 40
+        return m_api->api_minor >= 42
                && m_api->size >= offsetof(openrac_api, service_find) + sizeof(void*);
     }
 
-    // Since 1.40: calls `callable()` once, after every mod's load and before the game's first tick:
+    // Since 1.42: calls `callable()` once, after every mod's load and before the game's first tick:
     // where find() and service() see every mod that loaded. Nothing is taken there (hooks,
     // callbacks, services). Throws openrac::Error when refused or the port has no such call: check
     // has_services() first to run on older ports. Only during load.
     template <class F>
     void on_mods_loaded(F&& callable) {
         if (!has_services()) {
-            throw Error("on_mods_loaded: requires interface 1.40");
+            throw Error("on_mods_loaded: requires interface 1.42");
         }
 
         // As in on_frame, the port holds the address of the stored callable.
@@ -3105,7 +3119,7 @@ public:
         }
     }
 
-    // Since 1.40: offers `table` to other mods as the service `name` ("<this mod's id>/<name>"),
+    // Since 1.42: offers `table` to other mods as the service `name` ("<this mod's id>/<name>"),
     // `version` 1 up. `table` is a plain C struct whose first member is its uint32_t size, kept
     // unchanged where it is until the program ends (a static). Only during load. False when refused
     // (another form of name, a version of 0, a name offered already, after load) or the port has no
@@ -3119,7 +3133,7 @@ public:
                   ) == OPENRAC_OK;
     }
 
-    // Since 1.40: the service `name` of `min_version` or above, as its provider's table `T`; null
+    // Since 1.42: the service `name` of `min_version` or above, as its provider's table `T`; null
     // for none, an older one or a port without services. `version`, when given, gets the version
     // offered (0 for none), an older one's too. A provider's older table is shorter than a newer
     // `T`: check its size before using a member it may not have. Ask in on_mods_loaded() or later,

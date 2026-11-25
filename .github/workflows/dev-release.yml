@@ -1,0 +1,82 @@
+# A dev release, started by hand (Actions, dev release, Run workflow). It puts develop's current
+# commit on the branch release/dev and opens (or updates) a pull request from it to master, with
+# what develop adds since master. On that pull request checks.yml runs everything: hostgen, every
+# game in every version, Windows, iOS. When it is green, merge it with "Create a merge commit"
+# (not squash, so develop and master keep one history); the push to master builds the launcher's
+# dev release (launcher.yml). A game that fails here is fixed on develop and this is run again.
+#
+# The branch is a snapshot: later merges to develop do not start the long checks again until the
+# next run. GitHub starts no pull_request checks for a pull request opened with the workflow's own
+# token, so this job starts checks and ios on release/dev by hand (workflow_dispatch, a full run):
+# their results sit on the pull request's commit, under the same names. No extra token needed.
+name: dev release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: dev-release
+  cancel-in-progress: false
+
+jobs:
+  pull-request:
+    name: Open the pull request to master
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 0
+      - name: What develop adds since master
+        id: notes
+        run: |
+          git fetch -q origin master
+          count=$(git rev-list --count --first-parent origin/master..HEAD)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [ "$count" = 0 ]; then
+            echo "::notice::develop has nothing master lacks: no dev release."
+            exit 0
+          fi
+          python3 - "$count" > "$RUNNER_TEMP/body.md" <<'PY'
+          import re, subprocess, sys
+          subjects = subprocess.check_output(
+              ["git", "log", "--first-parent", "--format=%s", "origin/master..HEAD"], text=True).splitlines()
+          groups = {"New": [], "Fixes": [], "Performance": [], "Other": []}
+          kinds = {"feat": "New", "fix": "Fixes", "perf": "Performance"}
+          for subject in subjects:
+              kind = re.match(r"(\w+)(\([^)]*\))?!?:", subject)
+              groups[kinds.get(kind.group(1) if kind else "", "Other")].append(subject)
+          print(f"Develop at {subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], text=True).strip()}: "
+                f"{sys.argv[1]} changes since master.\n")
+          for title, items in groups.items():
+              if items:
+                  print(f"## {title}\n")
+                  print("\n".join(f"- {item}" for item in items) + "\n")
+          print("## Merging\n")
+          print("Merge with **Create a merge commit** once every check is green. The push to master "
+                "builds the launcher's dev release.")
+          PY
+          cat "$RUNNER_TEMP/body.md"
+      - name: The branch and its pull request
+        if: steps.notes.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git push --force origin HEAD:refs/heads/release/dev
+          title="chore(release): dev build $(date -u +%Y-%m-%d)"
+          number=$(gh pr list --base master --head release/dev --state open --json number -q '.[0].number // ""')
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --base master --head release/dev --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          fi
+          # Every check, every game and version, Windows, iOS.
+          gh workflow run checks.yml --ref release/dev
+          # ios may be turned off (Actions, ios, Disable workflow): then the pull request has no iOS checks.
+          gh workflow run ios.yml --ref release/dev || echo "::warning::ios did not start (is the workflow disabled?)."

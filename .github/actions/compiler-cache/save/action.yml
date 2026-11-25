@@ -6,6 +6,19 @@ description: Save the compiler cache when this run added objects to it
 runs:
   using: composite
   steps:
+    # One line on the run's page: what was restored and how many compiles it saved.
+    - name: Report the compiler cache
+      shell: bash
+      run: |
+        if [ -n "$OPENRAC_CCACHE_SHIM" ] || ! command -v ccache >/dev/null; then
+          echo "::notice title=ccache::no ccache in this job"
+          exit 0
+        fi
+        ccache --show-stats || true
+        stats=$(ccache --print-stats 2>/dev/null) || exit 0
+        get() { echo "$stats" | awk -v k="$1" '$1 == k { n = $2 } END { print n + 0 }'; }
+        hits=$(( $(get direct_cache_hit) + $(get preprocessed_cache_hit) ))
+        echo "::notice title=ccache::$hits hits, $(get cache_miss) misses; restored ${OPENRAC_CCACHE_RESTORED:-none}"
     - id: new
       shell: bash
       env:

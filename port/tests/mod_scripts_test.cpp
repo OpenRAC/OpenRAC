@@ -543,7 +543,7 @@ assert(not pcall(openrac.menu_option_set, "fov", "maybe"), "an unknown state is 
     CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_DEFAULT);
 }
 
-// Another mod looked for by its id (interface 1.40): in a script's first run only the mods loaded
+// Another mod looked for by its id (interface 1.42): in a script's first run only the mods loaded
 // before it are there (not itself, not the ones after it); from the first on_frame every mod that
 // loaded is, a native one too, and a mod not loaded is nil.
 void a_script_finds_other_mods(const fs::path& plugins) {

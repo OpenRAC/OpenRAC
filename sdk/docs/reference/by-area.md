@@ -32,9 +32,9 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `game_data_dir` | 1.33 | experimental | yes | yes | yes |
 | `pack_folder` | 1.35 | experimental | yes | yes | yes |
 | `game_language` | 1.35 | experimental | yes | yes | yes |
-| `on_mods_loaded` | 1.40 | experimental | yes | yes | yes |
-| `service_provide` | 1.40 | experimental | yes | yes | yes |
-| `service_find` | 1.40 | experimental | yes | yes | yes |
+| `on_mods_loaded` | 1.42 | experimental | yes | yes | yes |
+| `service_provide` | 1.42 | experimental | yes | yes | yes |
+| `service_find` | 1.42 | experimental | yes | yes | yes |
 
 ## settings
 
@@ -59,6 +59,7 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `on_pad` | 1.0 | stable | yes | yes | yes |
 | `on_tick_boundary` | 1.6 | stable | yes | yes | yes |
 | `hook_entry` | 1.21 | stable | yes | yes | yes |
+| `on_play_query` | 1.40 | experimental | yes | yes | yes |
 
 ## input
 

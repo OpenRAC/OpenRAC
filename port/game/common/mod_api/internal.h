@@ -40,6 +40,7 @@
 #include "common/log.h"
 #include "mod_library.h"
 #include "mod_manifest.h"
+#include "mod_play_queries.h"
 #include "mod_scripts.h"
 #include "mod_touch.h"
 #include "mods.h"
@@ -361,6 +362,7 @@ extern openrac_mod* g_loading;
 extern std::vector<std::unique_ptr<openrac_mod>> g_loaded;
 extern std::vector<FrameCallback> g_frames;
 extern std::vector<PadCallback> g_pads;
+extern PlayQueries g_play_queries;
 extern std::vector<MenuCallback> g_menus;
 extern std::vector<DeveloperMenu> g_developer_menus;
 extern std::vector<UiPageCallback> g_ui_pages;
@@ -788,9 +790,11 @@ int api_menu_option_set(openrac_mod* mod, const char* option, int state);
 // Forgets the menu options `mod` set (nullptr: every mod's).
 void drop_menu_options(const openrac_mod* mod);
 
+int api_on_play_query(openrac_mod* mod, std::uint32_t kinds, openrac_play_query_fn fn, void* user);
+
 int api_on_mods_loaded(openrac_mod* mod, openrac_frame_fn fn, void* user);
 
-// What mods offer each other (interface 1.40, core.cpp): forgets the services `mod` offered and its
+// What mods offer each other (interface 1.42, core.cpp): forgets the services `mod` offered and its
 // on_mods_loaded callbacks (nullptr: every mod's), and calls the callbacks, in load order, once
 // every mod has loaded.
 void drop_services(const openrac_mod* mod);

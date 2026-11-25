@@ -22,6 +22,9 @@ This writes, from the catalogue and the level programs' entries:
 
     python3 port/game/rac3-pal/mp/maps.py [--source games/rac3/decomp] [--check]
 
+--references-only refreshes native calls and their signatures without reading level ELFs;
+the configured map entry points and the other generated tables are kept.
+
 The level programs' entries are read from rac3-decomp's baserom/levels/<NN>_*.elf.
 """
 from __future__ import annotations
@@ -34,6 +37,10 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))  # fixes.py sits beside this file; tests import it from elsewhere
+
+from fixes import FIXED  # noqa: E402
+
 ROOT = HERE.parents[3]
 MAPS = range(40, 54)
 SECOND_ENTRY = 0x484  # main (0x001932A0) also calls the routine this far past a map's entry
@@ -84,6 +91,9 @@ CARRIED = [
      "PartProc (func_L01_00461CB8): each live particle to the window", "int (void)"),
     ("0058D140", "render", "rac3DrawWorldQuadMap", "host",
      "DrawWorldQuad (func_L01_00407E28): drawn natively", "int (int, int)"),
+    ("00588A08", "render", "rac3ViewLayoutMap", "wrap",
+     "the view layout (func_L01_00403168): a split-screen view's rectangle to the frame recorder",
+     "void (int, int, int, int)"),
     ("00580220", "collision", "rac3CollLineMap", "wrap",
      "coll_line (func_L01_003FA5F0): its gather bounded to the scratchpad (host/coll_line.c)",
      "int (int, int, int, int, int)"),
@@ -252,11 +262,53 @@ def build(source: Path) -> tuple[dict, list[str], list[str]]:
     return entries, lines, macros
 
 
+def refresh_references(cfg: dict, source: Path) -> None:
+    """Keep functions called through the host's map macros in builds without a disc."""
+    rows = catalogue(source)
+    references = [r[0] for r in (*CARRIED_UI, *CARRIED_HUD) if r[3] == "ref"]
+    references += [r[0] for r in CARRIED_VU0 if not r[1]]
+    references += [r[0] for r in FIXED if r[3] in ("ref", "wrap")]
+    provided = {r[0] for r in CARRIED if r[3] == "host"}
+    provided.update(r[0] for r in CARRIED_VU0 if r[1])
+    needed = list(dict.fromkeys(r for r in references if r not in provided))
+    roots = []
+    for level in MAPS:
+        for name in needed:
+            place = rows.get(name, {}).get(level)
+            if place is None:
+                raise SystemExit(f"maps.py: level 39's {name} has no place in map {level}")
+            roots.append(f"func_L{level}_{place}")
+    signatures = {**map_signatures(source, cfg), **cfg["asm"].get("copy_signatures", {})}
+    missing = [name for name in roots if name not in signatures]
+    if missing:
+        raise SystemExit(f"maps.py: native map references need verified signatures: {', '.join(missing)}")
+    # Token-pasted C calls do not contain the expanded names hostgen searches for.
+    cfg["roots"] = list(dict.fromkeys([*cfg["roots"], *roots]))
+    copies = cfg["asm"].setdefault("copy_signatures", {})
+    copies.update((name, signatures[name]) for name in roots)
+    cfg["asm"]["copy_signatures"] = dict(sorted(copies.items()))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--source", type=Path, default=ROOT / "games/rac3/decomp")
     ap.add_argument("--check", action="store_true", help="fail if a written file would change")
+    ap.add_argument("--references-only", action="store_true",
+                    help="refresh native references and signatures, keeping the configured map entries")
     args = ap.parse_args()
+    if args.references_only:
+        cfg_path = HERE / "hostgen.json"
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        refresh_references(cfg, args.source)
+        text = json.dumps(cfg, indent=2) + "\n"
+        stale = cfg_path.read_text(encoding="utf-8") != text
+        if stale and args.check:
+            print(f"maps.py: {cfg_path.relative_to(ROOT)} has stale native references", file=sys.stderr)
+            return 1
+        if stale:
+            cfg_path.write_text(text, encoding="utf-8", newline="\n")
+            print(f"wrote {cfg_path.relative_to(ROOT)}")
+        return 0
     entries, lines, macros = build(args.source)
 
     cfg_path = HERE / "hostgen.json"
@@ -283,6 +335,7 @@ def main() -> int:
     cfg["asm"]["signatures"] = own
     cfg["asm"]["copy_signatures"] = {k: v for k, v in sorted(map_signatures(
         args.source, {"asm": {"signatures": own}}).items()) if k not in host_rows}
+    refresh_references(cfg, args.source)
     outputs = {cfg_path: json.dumps(cfg, indent=2) + "\n"}
 
     lib_path = HERE / "libraries.tsv"
