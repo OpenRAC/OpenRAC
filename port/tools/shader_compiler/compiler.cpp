@@ -5,8 +5,11 @@
 #include "tools/shader_compiler/compiler.h"
 
 #include <algorithm>
+#include <atomic>
+#include <exception>
 #include <format>
 #include <stdexcept>
+#include <thread>
 #include <utility>
 
 #include "renderer/gl/shader_precision.h"
@@ -73,7 +76,12 @@ bool has_colour_output(std::span<const std::uint32_t> code) {
 Compiler::Compiler(std::filesystem::path output) : m_output(std::move(output)) {}
 
 void Compiler::graphics(
-    std::string_view name, ProgramSources sources, Precision precision, bool materials, bool clamp
+    Job& job,
+    std::string_view name,
+    ProgramSources sources,
+    Precision precision,
+    bool materials,
+    bool clamp
 ) {
     auto& vertex = sources.vertex;
     auto& fragment = sources.fragment;
@@ -88,13 +96,14 @@ void Compiler::graphics(
         fragment = std::move(modes.fragment);
     }
 
-    const auto compiled = program(name, {vertex, fragment, {}}, precision);
+    const auto compiled = program(job, name, {vertex, fragment, {}}, precision);
 
     if (clamp && has_colour_output(compiled.fragment)) {
         const auto clamped = shader_transforms::clamped_fragment_source(fragment);
 
         if (clamped) {
             graphics(
+                job,
                 std::string(name) + " / clamped",
                 {vertex, *clamped, {}},
                 precision,
@@ -114,7 +123,7 @@ void Compiler::graphics(
             throw std::runtime_error(error);
         }
 
-        program(std::string(name) + " / material-buffer", {vs, fs, {}}, precision);
+        program(job, std::string(name) + " / material-buffer", {vs, fs, {}}, precision);
         return;
     }
 
@@ -122,27 +131,30 @@ void Compiler::graphics(
 
     if (const auto draw_vertex =
             shader_transforms::draw_uniform_source(vertex, fragment, draw_name)) {
-        program(std::string(name) + " / draw-uniform", {*draw_vertex, fragment, {}}, precision);
+        program(
+            job, std::string(name) + " / draw-uniform", {*draw_vertex, fragment, {}}, precision
+        );
     }
 }
 
 // Enumerates all material paths for one arithmetic and clip-distance configuration.
 void Compiler::precision_recipe(
-    std::string_view name, const ProgramSources& sources, Precision precision
+    Job& job, std::string_view name, const ProgramSources& sources, Precision precision
 ) {
     const auto& [vs, fs, cs] = sources;
     // Check-stage requests use the original source, before program feature rewriting.
     stage(
+        job,
         "vertex stage",
         compiler_detail::vertex_clip_distance(
             renderer::shader_precision_source(vs, precision.half), precision.clip
         )
     );
-    stage("fragment stage", renderer::shader_precision_source(fs, precision.half));
-    stage("compute stage", renderer::shader_precision_source(cs, precision.half));
+    stage(job, "fragment stage", renderer::shader_precision_source(fs, precision.half));
+    stage(job, "compute stage", renderer::shader_precision_source(cs, precision.half));
 
     if (!cs.empty()) {
-        program(name, {{}, {}, cs}, precision);
+        program(job, name, {{}, {}, cs}, precision);
         return;
     }
 
@@ -151,13 +163,13 @@ void Compiler::precision_recipe(
             continue;
         }
 
-        graphics(name, {vs, fs, {}}, precision, materials);
+        graphics(job, name, {vs, fs, {}}, precision, materials);
     }
 }
 
-void Compiler::recipe(const renderer::ShaderRecipe& recipe, bool enhanced) {
+void Compiler::recipe(Job& job, const renderer::ShaderRecipe& recipe, bool enhanced) {
     if (recipe.native) {
-        native(recipe);
+        native(job, recipe);
         return;
     }
 
@@ -170,8 +182,8 @@ void Compiler::recipe(const renderer::ShaderRecipe& recipe, bool enhanced) {
 
     for (bool half : {false, true}) {
         for (bool clip : {true, false}) {
-            m_variant = std::format("enhanced={} fp16={} clip={}", enhanced, half, clip);
-            precision_recipe(recipe.name, {vs, fs, cs}, {half, clip});
+            job.variant = std::format("enhanced={} fp16={} clip={}", enhanced, half, clip);
+            precision_recipe(job, recipe.name, {vs, fs, cs}, {half, clip});
         }
     }
 }
@@ -244,13 +256,43 @@ void Compiler::family(
 ) {
     auto& counts = m_report.families[name];
     const ScopedTimer timer(counts.seconds);
-    m_family = name;
     renderer::ShaderRecipes recipes;
     collect(recipes);
-    counts.recipes += recipes.entries.size();
+    const auto& entries = recipes.entries;
+    counts.recipes += entries.size();
 
-    for (const auto& entry : recipes.entries) {
-        recipe(entry, enhanced);
+    // Workers take recipes in turn; each unique program compiles once (build_once). The requests
+    // are then applied in recipe order, so the output is the same for any number of threads.
+    std::vector<Job> jobs(entries.size());
+    std::vector<std::exception_ptr> errors(entries.size());
+    std::atomic<std::size_t> next = 0;
+    const auto work = [&] {
+        for (std::size_t at; (at = next++) < entries.size();) {
+            try {
+                recipe(jobs[at], entries[at], enhanced);
+            } catch (...) {
+                errors[at] = std::current_exception();
+            }
+        }
+    };
+    std::vector<std::thread> workers;
+
+    for (unsigned n = 1; n < std::max(1u, std::thread::hardware_concurrency()); ++n) {
+        workers.emplace_back(work);
+    }
+
+    work();
+
+    for (auto& worker : workers) {
+        worker.join();
+    }
+
+    for (std::size_t at = 0; at < entries.size(); ++at) {
+        replay(name, jobs[at]);
+
+        if (errors[at]) {
+            std::rethrow_exception(errors[at]);
+        }
     }
 }
 
@@ -263,6 +305,7 @@ void Compiler::run() {
     }
 
     m_report.generation_seconds = m_report.elapsed_seconds();
+    prune_cache();
     const ScopedTimer timer(m_report.packaging_seconds);
     m_report.package_bytes = write_package(m_output, m_results);
 }
