@@ -615,20 +615,41 @@ ties compared at frame 2400).
 
 Not fixed, for whoever picks rac3 up next:
 
-- **Crash on Veldin after a new game's first flight** (seen once in a hidden box2 run, frame 1714):
-  SIGSEGV in a level function's string formatting, `func_L01_004CDF20 → func_0011B2E8`
-  (print.c:28) `→ openrac_guest_vformat`. Not reproduced or diagnosed yet.
+- **Crash on Veldin after a new game's first flight** (fixed, PR #896): reproduced in a hidden box2
+  run (new game, intro, Veldin, frame 10136, the "Progress is saving" message box). Cause: the
+  message box `func_L01_004CDF20` takes eleven integers, three past the eighth on the stack;
+  `func_L01_00436150` reaches it through a call copy, a call through an address that handed on only
+  the eight registers, so its string arguments were stack leftovers and a `%s` in
+  `openrac_guest_vformat` read 0xFFFFFFC0. Fix (hostgen, asmc.py `indirect`): the cast carries four
+  doublewords from 0($sp); a function's thunk reads its arguments past the eighth from the saved
+  guest stack pointer (was 0); Apple arm64 packs stack arguments by size so it takes the thunks;
+  `%s` prints "(null)" for an address that is no memory. Tests: `guest_format` (ctest) and
+  `test_retail.CallsThroughRegisters`. Rerun on the fixed build: no crash through frame 20000.
+  Other functions with more than eight integers called through a copy are fixed by the same change.
 - **The Phoenix's "△ Enter ship" HUD message box** draws enlarged with its text shifted left. The
   box is `func_L01_004366A0 → func_L01_004CDC38`, drawn by `func_L01_004CF120` / `004CEAE0`: it
   measures "\x12 Enter ship" as 120 units (font 1, scale 1.0) against a half-width of 68 and draws
   the text from x=195. Every global on that path pairs correctly on level 3 (#876's audit). Next
   step: capture the same prompt on Florana and compare the measured width (message box +0x1B4).
-- **Misfiled 8-byte getters in other levels** (#876 fixed levels 3/24's and the flight's): the
-  same one-row-along filing shows in levels 4, 7, 9, 12, 13, 16, 18, 19, 22, 26, 27, 29 and 30
-  (e.g. `func_L01_003A0710`, `func_L01_004C93D8`), and the font-wrapper rows still held by other
-  Veldin names (`func_L01_00423020`, `func_L01_00412810`). Many read private globals only; check
-  each one against callers' `OPENRAC_LCODE` calls. The root fix is rac3-decomp's catalogue
-  (tools/level_catalogue.py).
+- **Misfiled 8-byte getters in other levels** (#876 fixed levels 3/24's and the flight's; the rest
+  audited and fixed in the follow-up): the catalogue files a level's copies of the 8-byte class
+  getters and font wrappers one row along in levels 4, 7, 9, 12, 13, 16, 18, 19, 22, 26, 27, 29, 30
+  too. Audit (the generated tables plus the callers' own code): for each `OPENRAC_LCODE(1, a)` in
+  the generated C, the caller's copy in every level (one place there) forms the real target at the
+  same instruction as Veldin's does (a jal, or a lui and addiu); the cell is wrong when the table
+  names that place otherwise and `more_places` does not give it to the name. Only these cells were
+  wrong, and `hostgen.json` `more_places` (PAL) and `release.json` (NTSC-U) now fix them:
+  PAL func_L01_00412E30 (levels 10, 13, 17, 21, 23, 30, 31, 33, 36), func_L01_0041A198 (6, 14, 16,
+  32 and the multiplayer maps 40-53), func_L01_004D8820 (23), func_L01_003A6BB0 (2, 5, 10, 11, 14,
+  22, 34: the level's own caller reached a copy filed under another row); NTSC-U func_L01_003EE980
+  (24 levels), func_L01_004026A0 (3, 11, 16, 23), func_L01_004D4B48 (23). After the fix the audit
+  finds none in either version's fresh hostgen output. The other misfiled getters (the many class
+  type getters no `OPENRAC_LCODE` names) are reached through their class tables, which relocate
+  per level, or read private globals: left alone, harmless. Not fixed: the multiplayer maps'
+  func_L39_ rows (40-53) for func_L01_00436070, 00443948, 004AA948, 004AAD58, 004D2470, which pair
+  through `level_copies`, not through the names. The root fix (rac3-decomp's `copy_groups()` in
+  tools/level_catalogue.py) was not attempted: it renames rows used by src/levels/ and the
+  decomp's own report, so it needs its own catalogue PR; this audit is the check for it.
 - **Synchronous rendering's tick-boundary hitch**: on OpenGL, or Vulkan without the render
   thread, the scene runs half a tick behind but in-between frames can't pass the next tick, so
   alpha drops from ~0.47 to 0 at each tick. The Vulkan render-thread path is not affected.
