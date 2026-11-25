@@ -496,7 +496,7 @@ def add(source_path: Path, folder: Path) -> tuple[str, list[str], list[str]]:
             identity = manifest.get("export") if manifest.get("format") == DESTINATION_PACK_FORMAT else None
             if manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT:
                 identity = "audio-recipe:" + manifest["id"]
-                (staged / MANIFEST).write_text(json.dumps(dict(manifest, export=identity), indent=1) + "\n")
+                (staged / MANIFEST).write_text(json.dumps(dict(manifest, export=identity), indent=1) + "\n", encoding="utf-8", newline="\n")
             new = install(staged, folder, replace_export=identity)
     finally:
         source.close()

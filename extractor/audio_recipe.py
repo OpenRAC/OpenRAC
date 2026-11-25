@@ -124,12 +124,12 @@ def create(iso: Path, out: Path, options: dict, into: Path | None = None) -> dic
     with tempfile.TemporaryDirectory(prefix=".recipe-", dir=out.parent) as scratch:
         stage = Path(scratch) / "pack"
         stage.mkdir()
-        (stage / MANIFEST).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        (stage / MANIFEST).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
         (stage / "README.txt").write_text(
             "Add this folder or its ZIP in OpenRAC's Mods. The player's disc supplies the audio.\n"
             "Speed changes pitch and duration together. Generated audio stays in the private cache.\n"
             "Share this recipe, not that cache. Requires an OpenRAC that reads format-5 packs.\n",
-            encoding="utf-8")
+            encoding="utf-8", newline="\n")
         # Exclusive creation never replaces a previous release, including one made during validation.
         with zipfile.ZipFile(archive, "x", zipfile.ZIP_DEFLATED) as z:
             for path in sorted(stage.iterdir()):
@@ -142,7 +142,7 @@ def create(iso: Path, out: Path, options: dict, into: Path | None = None) -> dic
 
 def valid_cache(folder: Path, token: str, recipe: dict, expected_version: str | None) -> str | None:
     try:
-        note = json.loads((folder / CACHE_NOTE).read_text())
+        note = json.loads((folder / CACHE_NOTE).read_text(encoding="utf-8"))
         if (note.get("token") != token or set(note["files"]) != set(recipe["keys"])
                 or (expected_version is not None and note["version"] != expected_version)):
             return None
@@ -197,7 +197,7 @@ def materialize(manifest: dict, iso: Path, cache_root: Path,
             path.write_bytes(transform(path.read_bytes(), recipe))
             hashes[key] = hashlib.sha256(path.read_bytes()).hexdigest()
             audio.say_progress("audio", done, len(recipe["keys"]))
-        (stage / CACHE_NOTE).write_text(json.dumps({"token": token, "version": version, "files": hashes}))
+        (stage / CACHE_NOTE).write_text(json.dumps({"token": token, "version": version, "files": hashes}), encoding="utf-8", newline="\n")
         if folder.exists():
             ready = valid_cache(folder, token, recipe, expected_version)
             if ready is not None:
