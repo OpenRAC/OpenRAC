@@ -1316,12 +1316,12 @@ static int32_t net_host_max_players(int32_t game) {
  * (widget 3, a spinner the constructor makes with value 8, from 2 to 8) offers up to the room's
  * most (ROOM_MAX, or OPENRAC_RAC3_MAX_PLAYERS) online, where the tables can grow (mp_wide.c). The
  * game's own value stays 8 until the player turns it up; LOCAL PLAY keeps its 8. */
-#define CREATE_WIDGETS 0x110u     /* the screen's widget pointers */
-#define CREATE_PLAYERS_WIDGET 3u  /* the number of players */
-#define SPINNER_MAX 0x70u         /* a spinner's largest value (its constructor 0x00682840) */
+#define CREATE_WIDGETS 0x110u    /* the screen's widget pointers */
+#define CREATE_PLAYERS_WIDGET 3u /* the number of players */
+#define SPINNER_MAX 0x70u        /* a spinner's largest value (its constructor 0x00682840) */
 
-#define SPINNER_VALUE 0x64u       /* a spinner's value, then its smallest at +0x6C */
-#define SPINNER_STEP 0x74u        /* its step; the players spinner counts from 2 by 1 */
+#define SPINNER_VALUE 0x64u /* a spinner's value, then its smallest at +0x6C */
+#define SPINNER_STEP 0x74u  /* its step; the players spinner counts from 2 by 1 */
 
 static gaddr create_players; /* the page's players spinner, from its constructor */
 

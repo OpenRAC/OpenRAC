@@ -51,7 +51,12 @@
 
 /* Where a table's entries are: at a fixed address, at an offset of the settings object's data, of
  * the program's game-mode struct, or of its players array. */
-enum { AT, IN_GS, IN_MODE, IN_PLAYERS };
+enum {
+    AT,
+    IN_GS,
+    IN_MODE,
+    IN_PLAYERS
+};
 
 /* Each widened table: `base` (an address, or an offset into what `where` names), `stride` bytes an
  * entry. The order is mp/wide.json's "tables" (wide.py checks). */
@@ -102,7 +107,7 @@ enum {
 #define WIDE_ID(name, where, base, stride) WIDE_##name,
     WIDE_TABLES(WIDE_ID)
 #undef WIDE_ID
-        WIDE_TABLE_COUNT
+    WIDE_TABLE_COUNT
 };
 
 static const struct {
@@ -110,6 +115,7 @@ static const struct {
     int where;
     uint32_t base, stride;
 } wide_table[WIDE_TABLE_COUNT] = {
+
 #define WIDE_ROW(name, where, base, stride) {#name, where, base, stride},
     WIDE_TABLES(WIDE_ROW)
 #undef WIDE_ROW
@@ -119,6 +125,7 @@ static const struct {
  * level 39 and the maps 40-53 (the split-screen 54 and 55 are never online). */
 #define PROGRAM_FIRST 39
 #define PROGRAM_LAST 53
+
 static const struct {
     uint32_t players, mode;
 } wide_program[PROGRAM_LAST - PROGRAM_FIRST + 1] = {
@@ -305,8 +312,9 @@ gaddr rac3_mp_wide_settings(uint32_t offset, int slot) {
     for (int t = 0; t < WIDE_TABLE_COUNT; t++) {
         if (wide_table[t].where == IN_GS && wide_table[t].base == offset) {
             const uint32_t base = wide_base(t);
-            return base == 0 ? 0
-                             : rac3_mp_wide_address(base + wide_table[t].stride * (uint32_t)slot, t);
+            return base == 0
+                       ? 0
+                       : rac3_mp_wide_address(base + wide_table[t].stride * (uint32_t)slot, t);
         }
     }
     return 0;
@@ -317,7 +325,9 @@ gaddr rac3_mp_wide_settings(uint32_t offset, int slot) {
 gaddr rac3_mp_wide_results(uint32_t offset, int slot) {
     for (int t = WIDE_RESULT_NAME; t < WIDE_TABLE_COUNT; t++) {
         if (wide_table[t].base == RESULTS + offset) {
-            return rac3_mp_wide_address(RESULTS + offset + wide_table[t].stride * (uint32_t)slot, t);
+            return rac3_mp_wide_address(
+                RESULTS + offset + wide_table[t].stride * (uint32_t)slot, t
+            );
         }
     }
     return RESULTS + offset;
