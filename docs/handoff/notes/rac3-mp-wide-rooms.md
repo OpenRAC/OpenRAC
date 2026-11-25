@@ -114,5 +114,38 @@ joiners: cross, cross (QUICK PLAY, Any), cross (JOIN). The host's START is greye
 joiner is READY (Circle). The server must be named by its game port (7770), not the hub's, or CREATE is
 refused ("sent PARTY, which the hub does not take").
 
-Still open: the items 2-5 of the PR (results for slots 8-23, channel 5's end message, channel 9, the
-native scoreboard), a match started from a room of more than 8 (not run yet), and the NTSC-U carry (item 6).
+## 5. Step 2b (2026-11-25, later): the match's end past 8 players
+
+Written, built (box2, PAL) and run on box1 and box2:
+
+- **Results for slots 8-23.** Each map's copy of `func_L39_00670D90` (the end routine, 15 programs) is
+  wrapped (`mp/fixes.py` FIXED, `rac3EndResultsMap<N>`, `host/mp_fixes.c` `fix_end_results`): the game's
+  routine runs, then `rac3_mp_wide_end_results` (mp_wide.c) fills the results block for slots 8 and up
+  from the port's companions: the name (from the settings' wide half), the local flag (with the game's
+  own profile reset, `func_L01_003F1F60`, called through the program's copy, level 39's 005778C8), the
+  team, each team record's member list (capped at the record's 8), and every mode array (scores,
+  suicides, the three columns, share, weapons). For the deathmatch types (reason 1 or 5, game type 2)
+  the winner at results+0x1A8 is chosen again over every slot (`wide_winner`, the game's own rules:
+  best kills less suicides, fewer deaths, a tie of both is -1; teams by their sums). A room of 8 is the
+  game's own (the wrap returns at once).
+- **Channel 5's end message (0x82).** `dme_relay` sees the 0x68-byte channel 5 message with command
+  0x82 in a room of more than 8 and first sends `RELAY_MATCH_END_WIDE` (kind 5: u8 the room's width,
+  then slots 8 up of mode +0x18 (4 bytes a slot), +0x198 (2), +0x38, +0x48, +0x50 (1 each)), to the same
+  target; the receiver's `rac3_mp_wide_end_unpack` puts them into the port's mode companions before the
+  message itself reaches the game, so the end routine's wrap finds them. The other mode arrays (+0x40,
+  +0x58 share, +0x78 weapons) stay each console's own, as in the game.
+- **Channel 9.** Read, not changed. The receiver (`func_L39_00677740`) finds the sender's player by the
+  sender's DME client (`func_L39_0061BED0(sender, bit 25)`, whose players-array loads are sites), and
+  hands bits 28-31 of word +0x14 to `func_L39_0066F260` as the bit mask of the packet's four history
+  blocks, not as a player index. So the fifth index bit of a slot past 15 is never needed to pick a
+  table entry; no framing was added. Whether the stream decodes right for clients 16-23 is not shown
+  yet (the run below has 10 players).
+- **`mp_ui.c`** loops to `rac3_mp_wide_slots()`: the staging table (settings arrays through
+  `rac3_mp_wide_settings`) and the scoreboard (the results block through `rac3_mp_wide_results`); the
+  ordering takes up to 24 rows. The game's own widgets stay 8 rows (hidden while the native screen draws).
+- `OPENRAC_RAC3_NET_LOG=1` also logs the settings' slot client/state as each console sees it, the end
+  message's companion on both ends, and the wide results.
+
+NTSC-U widening stays off (`rac3_mp_wide_available()`); `release_carry_rac3.py` was rerun so NTSC-U's
+`mp_fixes.h` and rows carry the new wrap.
+
