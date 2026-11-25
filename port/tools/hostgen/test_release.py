@@ -311,6 +311,22 @@ class Hooks(unittest.TestCase):
 
 
 class Carried(unittest.TestCase):
+    def test_host_names_follow_only_live_shared_code(self):
+        class P:
+            def function(self, name, why=""):
+                return {"func_001337F0": "func_00133850", "func_00200000": None}.get(name, name)
+        code = {"sound.c": release_carry.code_text(
+            "int func_001337F0(void); void func_001337F0__game(void); "
+            "void func_00133820(void); void func_00200000(void); "
+            "/* func_00132028(); */ const char *s = \"func_001326D8\";")}
+        text = release_carry.host_names(P(), code)
+        self.assertIn("func_001337F0\tfunc_00133850\n", text)
+        self.assertIn("func_001337F0__game\tfunc_00133850__game\n", text)
+        self.assertIn("# func_00200000: not in this release\n", text)
+        self.assertNotIn("func_00133820", text)
+        self.assertNotIn("func_00132028", text)
+        self.assertNotIn("func_001326D8", text)
+
     def test_the_hook_run(self):
         table = release.Release({"names": {"func_0026F720": "func_0026F588", "func_0026F728": "func_0026F590"}})
 

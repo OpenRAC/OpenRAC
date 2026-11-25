@@ -7,8 +7,18 @@
  * the sounds a game sends in its command batch are taken by that game's flush.
  * VAG streams (music, speech) are read from the disc and played by the same
  * engine; movie sound is the movie player's. Disc reads made through the library's
- * stream-safe calls go to the disc replacement. */
+ * stream-safe calls go to the disc replacement.
+ *
+ * Going Commando's and Up Your Arsenal's library hands most answers to the caller's callback rather
+ * than returning them, and the callback runs at a later snd_Pump: the requests taken since the last
+ * pump are answered together when the pump sends them, and their callbacks run at the pump after.
+ * The game counts on that order (a cut scene's stream takes its handle one sound tick after asking,
+ * and the random numbers the sound tick draws in between are the ones retail draws), so the
+ * requests below keep it: each is answered by the engine when its group is sent and called back at
+ * the next pump. Nothing of the console's transport is kept: no command numbers, no byte buffers, no
+ * reply words. */
 #include <stdio.h>
+#include <string.h>
 
 #include "openrac/game_host.h"
 #include "openrac/game_lib.h"
@@ -252,11 +262,11 @@ void openrac_lib_snd_PreAllocReverbWorkArea(int a, int b) {
     (void)b;
 } /* snd_PreAllocReverbWorkArea */
 
+/* snd_AutoReverb(core, depth, delta, channels): the reverb's depth glides there over `delta`
+ * ticks. */
 void openrac_lib_snd_AutoReverb(int a, int b, int c, int d) {
-    (void)a;
-    (void)b;
-    (void)c;
     (void)d;
+    openrac_sound_auto_reverb(a, b, c);
 } /* snd_AutoReverb */
 
 void openrac_lib_snd_ResetMovieSound(void) {} /* snd_ResetMovieSound */
@@ -283,3 +293,233 @@ int openrac_lib_snd_GetDopplerPitchMod(int a) {
     (void)a;
     return 0;
 } /* snd_GetDopplerPitchMod */
+
+/* ---- Requests answered at a later pump (Going Commando, Up Your Arsenal) ---- */
+
+/* A request taken: the engine call that answers it, its arguments (copied when it was taken, as the
+ * library copies them), and the callback the answer goes to. */
+typedef struct {
+    OpenracSndAnswer answer_of;
+    int32_t args[OPENRAC_SND_REQUEST_ARGS];
+    gaddr callback;
+    long long argument;
+    int answer;
+} Request;
+
+/* The library takes at most 0x100 requests before it sends them. */
+#define GROUP_REQUESTS 0x100
+
+typedef struct {
+    Request requests[GROUP_REQUESTS];
+    int count;
+} RequestGroup;
+
+static RequestGroup groups[2];
+static int filling;     /* the group being filled */
+static int answers_out; /* the other group has been answered; its callbacks are still to run */
+
+/* The group being filled is answered, in order, and becomes the one whose callbacks the next pump
+ * runs. */
+static void send_group(void) {
+    RequestGroup* group = &groups[filling];
+    for (int i = 0; i < group->count; ++i) {
+        Request* r = &group->requests[i];
+        r->answer = r->answer_of != NULL ? r->answer_of(r->args) : 0;
+    }
+    filling ^= 1;
+    groups[filling].count = 0;
+    answers_out = 1;
+}
+
+int openrac_lib_snd_Pump(void) {
+    if (answers_out) {
+        answers_out = 0;
+        RequestGroup* answered = &groups[filling ^ 1];
+        const int count = answered->count;
+        answered->count = 0; /* a callback that makes a request must not see these again */
+        for (int i = 0; i < count; ++i) {
+            const Request* r = &answered->requests[i];
+            if (r->callback != 0) {
+                GFN(void (*)(int, long long), r->callback)(r->answer, r->argument);
+            }
+        }
+    }
+    openrac_lib_snd_FlushSoundCommands();
+    if (!answers_out && groups[filling].count != 0) {
+        send_group();
+    }
+    return answers_out;
+} /* snd_Pump */
+
+void openrac_snd_request(
+    OpenracSndAnswer answer_of, const int32_t* args, int count, gaddr callback, long long argument
+) {
+    if (count < 0 || count > OPENRAC_SND_REQUEST_ARGS) {
+        return;
+    }
+    /* A request with nothing to send and no callback, with nothing taken or out, is answered at
+     * once. */
+    if (count == 0 && callback == 0 && !answers_out && groups[filling].count == 0) {
+        if (answer_of != NULL) {
+            (void)answer_of(args);
+        }
+        return;
+    }
+    /* A full group waits for room: the pumps run until the other group has been called back. */
+    while (groups[filling].count == GROUP_REQUESTS) {
+        openrac_lib_snd_Pump();
+    }
+    RequestGroup* group = &groups[filling];
+    Request* r = &group->requests[group->count++];
+    memset(r, 0, sizeof *r);
+    r->answer_of = answer_of;
+    if (count > 0) {
+        memcpy(r->args, args, (size_t)count * sizeof(int32_t));
+    }
+    r->callback = callback;
+    r->argument = argument;
+    openrac_lib_snd_Pump(); /* the library pumps as it takes each request */
+}
+
+int openrac_snd_request_sync(OpenracSndAnswer answer_of, const int32_t* args) {
+    while (answers_out) {
+        openrac_lib_snd_Pump();
+    }
+    const int answer = answer_of != NULL ? answer_of(args) : 0;
+    if (groups[filling].count != 0) {
+        send_group();
+    }
+    return answer;
+}
+
+/* LoadExecPS2 ended the program (game_lib.h): nothing of its taken, out or sounding. */
+void openrac_snd_client_reset(void) {
+    memset(groups, 0, sizeof groups);
+    filling = 0;
+    answers_out = 0;
+    (void)openrac_lib_snd_StreamSafeCdCallback(0); /* the end of its disc read: its code too */
+    openrac_lib_snd_StopAllSounds();
+}
+
+static int answer_play(const int32_t* a) {
+    return (int)openrac_sound_play((uint32_t)a[0], a[1], a[2], a[3], a[4], a[5]);
+}
+
+/* snd_PlaySoundVolPanPMPB_CB(bank, sound, volume, pan, pitch modifier, pitch bend, callback,
+ * argument): the new sound's handle (0: none) goes to the callback. */
+int openrac_lib_snd_PlaySoundVolPanPMPB_CB(
+    int bank,
+    int sound,
+    int volume,
+    int pan,
+    int pitch_mod,
+    int pitch_bend,
+    int callback,
+    long long argument
+) {
+    if (sound_log()) {
+        fprintf(
+            stderr,
+            "[debug] sound play: bank %#x sound %d volume %#x pan %d pitch %d bend %d\n",
+            (unsigned)bank,
+            sound,
+            (unsigned)volume,
+            pan,
+            pitch_mod,
+            pitch_bend
+        );
+    }
+    const int32_t args[6] = {bank, sound, volume, pan, pitch_mod, pitch_bend};
+    openrac_snd_request(answer_play, args, 6, (gaddr)callback, argument);
+    return 1;
+}
+
+static int answer_set_params(const int32_t* a) {
+    return (int)openrac_sound_set_params((uint32_t)a[0], a[1], a[2], a[3], a[4], a[5]);
+}
+
+/* snd_SetSoundParams_CB(handle, mask, volume, pan, pitch modifier, pitch bend, callback, argument):
+ * the callback is told the handle while the sound plays and 0 once it has ended, and that 0 is
+ * what frees the game's voice slot (Going Commando's func_002E60E8). */
+int openrac_lib_snd_SetSoundParams_CB(
+    int handle,
+    int mask,
+    int volume,
+    int pan,
+    int pitch_mod,
+    int pitch_bend,
+    int callback,
+    long long argument
+) {
+    const int32_t args[6] = {handle, mask, volume, pan, pitch_mod, pitch_bend};
+    openrac_snd_request(answer_set_params, args, 6, (gaddr)callback, argument);
+    return 1;
+}
+
+static int answer_stream_two_parts(const int32_t* a) {
+    const uint32_t handle = openrac_stream_play_stereo(
+        (uint32_t)a[0], (uint32_t)a[1], (short)a[2], a[3], (uint32_t)a[4], (uint32_t)a[5]
+    );
+    if (sound_log()) {
+        fprintf(
+            stderr,
+            "[debug] sound stream %#x: sectors %#x %#x volume %#x group %d after %#x flags %#x\n",
+            handle,
+            (unsigned)a[0],
+            (unsigned)a[1],
+            (unsigned)a[2],
+            a[3],
+            (unsigned)a[4],
+            (unsigned)a[5]
+        );
+    }
+    return (int)handle;
+}
+
+/* snd_PlayVAGStreamTwoParts_CB(right, left, 0, 0, volume, pan, group, queue on, 0, flags, callback,
+ * argument): music is two mono files on the disc, the right channel's and the left's; speech has
+ * no left. Flags as rac1's: 1 paused until snd_ContinueVAGStream, 4 loop. The callback is told the
+ * stream's handle. */
+int openrac_lib_snd_PlayVAGStreamTwoParts_CB(
+    int right,
+    int left,
+    int a2,
+    int a3,
+    int volume,
+    int pan,
+    int group,
+    int queue_on,
+    int a8,
+    int flags,
+    int callback,
+    long long argument
+) {
+    (void)a2;
+    (void)a3;
+    (void)pan;
+    (void)a8;
+    const int32_t args[6] = {right, left, (short)volume, group, queue_on, flags};
+    openrac_snd_request(answer_stream_two_parts, args, 6, (gaddr)callback, argument);
+    return 1;
+}
+
+/* snd_BankLoadFromIOP(bank): a bank the game sent to the IOP's memory with sceSifSetDma, loaded at
+ * once, its handle. */
+int openrac_lib_snd_BankLoadFromIOP(int bank) {
+    size_t available = 0;
+    const uint8_t* at = openrac_iop_bytes((uint32_t)bank, &available);
+    if (sound_log() && at != NULL && available >= 16) {
+        uint32_t w[4];
+        memcpy(w, at, sizeof(w));
+        fprintf(
+            stderr,
+            "[debug] sound bank from the IOP at %#x: %#x %#x %#x %#x\n",
+            (unsigned)bank,
+            w[0],
+            w[1],
+            w[2],
+            w[3]
+        );
+    }
+    return bank != 0 && at != NULL ? (int)openrac_sound_load_bank(at, available) : 0;
+} /* snd_BankLoadFromIOP */
