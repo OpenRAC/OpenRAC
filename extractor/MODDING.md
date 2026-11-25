@@ -19,7 +19,7 @@ other two wait in Your mods until those games are playable. A pack is used only 
 levels ([README.md](README.md#the-later-games-early-access)).
 
 Moving objects, editing their values, volumes, paths, cameras and the
-collision is level editing, in Godot: [LEVEL_MODDING.md](LEVEL_MODDING.md).
+collision is level editing, in [OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor): [LEVEL_MODDING.md](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/docs/LEVEL_MODDING.md).
 Changing the music, speech and effects is [AUDIO_MODDING.md](AUDIO_MODDING.md).
 
 Nothing here changes your disc image or the extracted levels, and nothing
@@ -150,7 +150,7 @@ working either way.
 
 ## Seeing your textures in the level editor
 
-The level editor's Godot projects show the textures the extractor wrote. To
+The level projects of [OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor) show the textures the extractor wrote. To
 edit a level while seeing it as your packs make it look, put the mods
 together (**Put the mods together**), then **Show your textures in the editor**
 (the Mods page), or from a shell:
@@ -161,10 +161,10 @@ python3 extractor/overrides.py preview --projects assets/levels/rac1/pal --undo 
 ```
 
 Each level texture a pack replaces goes into the projects at the pack's size
-(Godot imports it the next time its window has focus; the texture
+(the editor imports it the next time its window has focus; the texture
 coordinates are the same, so a 4x picture covers the same faces at four times
 the detail). The extractor's own picture waits in `textures/.originals/`,
-which Godot does not import, until **Hide your textures in the editor** puts it
+which the editor does not import, until **Hide your textures in the editor** puts it
 back. A pack's pictures that replace no level texture (a new model's own)
 have no place in the projects and are left out. The levels open lit as the
 game lights them at level load, so what you see is close to the game.

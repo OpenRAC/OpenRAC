@@ -427,7 +427,7 @@ bool read_matrix(const json::Value& value, Mat4& out) {
 }
 
 // A colour per class number, for boxes: the golden-ratio hue walk the
-// editor's Godot export uses for its markers.
+// OpenRAC Editor's level export uses for its markers.
 std::array<float, 4> class_colour(int class_id) {
     const double hue = std::fmod(class_id * 0.618034, 1.0) * 6.0;
     const double s = 0.65;

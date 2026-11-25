@@ -17,7 +17,7 @@ OpenRAC/
 â”‚   â”œâ”€â”€ rac4/decomp/        Deadlocked, SCUS_974.65, from rac4-decomp
 â”‚   â”œâ”€â”€ rac5/decomp/        Size Matters, SCUS_976.15, from rac5-sm-decomp
 â”‚   â””â”€â”€ rac6/decomp/        Secret Agent Clank, SCUS_976.23, from rac-sac-decomp
-â”œâ”€â”€ extractor/                 Godot level editor and extractor (shared)
+â”œâ”€â”€ extractor/                 level extractor (OpenRAC Editor reads levels with it)
 â”œâ”€â”€ launcher/               desktop app to set up, build and play every game (Tauri)
 â”œâ”€â”€ port/                   the native PC port: runtime, hostgen, materials, renderer, platform, the games' programs
 â”‚   â””â”€â”€ renderer/graph/     CPU-only frame dependencies and barrier planning
@@ -55,7 +55,7 @@ level never depends on one game's internals, apart from the per-game
 knowledge the editor decodes.
 
 **Generated and personal files stay out of git.** Disc images, extracted
-data, assembly, build output, the generated Godot projects and toolchains are
+data, assembly, build output, the generated level projects and toolchains are
 ignored, by the top-level `.gitignore` and by each game's own. `progress/`
 and the tables in `README.md` are generated but committed, because they are
 what readers see.
