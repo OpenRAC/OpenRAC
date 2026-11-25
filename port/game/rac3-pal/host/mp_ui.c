@@ -205,6 +205,7 @@ enum {
 #define MOCK_KEY 1000u
 
 void rac3_mp_net_ui_action(const char* key, int value); /* mp_net.c: a server action */
+int rac3_mp_net_toggle_ready(void);                     /* mp_net.c: READY of a slot past eight */
 
 /* ---- State (the game's thread only) ---- */
 
@@ -682,10 +683,12 @@ static void open_for(int id, gaddr screen) {
     } else if (id == SCREEN_STAGING) {
         /* The eight name rows of the staging room, 0.648 + (n - 3) * 0.412 / 9 of the picture's
          * height, from the left of the names to the ready ticks (L39_006C1730). */
-        g_line = 0.412f / 9.0f * PICTURE_H;
+        const float game_line = 0.412f / 9.0f * PICTURE_H;
+        const int rows = rac3_mp_wide_slots() > 16 ? 16 : rac3_mp_wide_slots();
+        g_line = rows > GS_SLOTS ? game_line * (float)GS_SLOTS / (float)rows : game_line;
         area[0] = 50.0f, area[2] = 412.0f;
-        area[1] = (0.648f - 3.0f * 0.412f / 9.0f) * PICTURE_H - g_line * 0.5f;
-        area[3] = g_line * GS_SLOTS;
+        area[1] = (0.648f - 3.0f * 0.412f / 9.0f) * PICTURE_H - game_line * 0.5f;
+        area[3] = g_line * (float)(rows > GS_SLOTS ? rows : GS_SLOTS);
     } else {
         const gaddr list = widget(screen, LIST_WIDGET);
         int32_t shown = GREF(int32_t, list + LIST_ROWS_SHOWN);
@@ -806,6 +809,16 @@ static int game_action(const openrac_mp_ui_outcome* out) {
 /* The menu event read (L39_00686138): the native screen's, while it has the cursor. */
 int mp_func_L39_00686138(int mgr, int pad) {
     const int event = mp_func_L39_00686138__game(mgr, pad);
+    /* A player in a slot past the game's eight rows has no row to READY on: Circle on the staging
+     * screen readies it (whether or not the server's native screens are up). */
+    if (event == GAME_CIRCLE && (gaddr)pad == GREF(gaddr, ACTIVE_PAD)) {
+        const int32_t current = GREF(int32_t, (gaddr)mgr + MGR_CURRENT);
+        if (current >= 0
+            && GREF(int32_t, (gaddr)mgr + MGR_IDS + 4u * (gaddr)current) == SCREEN_STAGING
+            && rac3_mp_net_toggle_ready()) {
+            return 0;
+        }
+    }
     /* The game's own events for another pad, under a game popup, or with no native screen up. */
     if (g_ui == NULL || g_hidden || (gaddr)pad != GREF(gaddr, ACTIVE_PAD)) {
         return event;

@@ -2338,6 +2338,12 @@ static void name_fix(gaddr data, int len) {
     }
     memset(G(data + at), 0, 16);
     snprintf((char*)G(data + at), 16, "%s", net_login.name);
+    /* Its skin was never set either (stale bytes of the name): the first skin. */
+    if (channel == CHANNEL_ROOM_JOIN_REQUEST) {
+        GREF(uint16_t, data + 2u + 0x2Cu) = 0;
+    } else {
+        GREF(uint8_t, data + 2u + 0x05u) = 0;
+    }
 }
 
 #define END_MESSAGE_BYTES 0x68 /* channel 5's message */
@@ -3616,6 +3622,46 @@ static int dme_send_one(int dest, int cls, int id, int len, int data) {
     GREF(uint8_t, buf + 1) = (uint8_t)id;
     memcpy(G(buf + 2), G(data), (size_t)len);
     return dme_relay(dest, buf, len + 2);
+}
+
+/* READY (Circle) of a player whose slot is past the game's eight: the staging screen's own widgets
+ * stop at eight rows, so such a player has no row for the cursor and the game never sends the slot
+ * update. The port sends it, as the game does (L39_006D4ED8): channel 17, state 6 (ready) or 0, the
+ * slot's team, skin, name and clan. Returns 1 when the press was this console's to take. */
+int rac3_mp_net_toggle_ready(void) {
+    const gaddr gs = GREF(gaddr, RAC3_MADDR(0x00241640u));
+    const int me = room_index_of(srv.session);
+    const member* host = room_member(room.host);
+    if (gs == 0 || me < 0 || host == NULL || room.host == srv.session
+        || rac3_mp_wide_slots() <= 8) {
+        return 0;
+    }
+    for (int slot = 8; slot < rac3_mp_wide_slots(); slot++) {
+        const gaddr client = rac3_mp_wide_settings(0x0E0u, slot);
+        if (client == 0 || GREF(int16_t, client) != me) {
+            continue;
+        }
+        static gaddr buf;
+        if (buf == 0) {
+            buf = openrac_guest_static(0x40);
+        }
+        memset(G(buf), 0, 0x40);
+        GREF(int32_t, buf) = 0;
+        GREF(uint8_t, buf + 4) = (uint8_t)GREF(int16_t, rac3_mp_wide_settings(0x0D0u, slot));
+        GREF(uint8_t, buf + 5) = (uint8_t)GREF(int16_t, rac3_mp_wide_settings(0x0C0u, slot));
+        GREF(uint8_t, buf + 6) = GREF(int16_t, rac3_mp_wide_settings(0x0F0u, slot)) >= 6 ? 0 : 6;
+        memcpy(G(buf + 7), G(rac3_mp_wide_settings(0x000u, slot)), 16);
+        memcpy(G(buf + 0x17), G(rac3_mp_wide_settings(0x080u, slot)), 4);
+        fprintf(
+            stderr,
+            "[info] rac3: online: READY of slot %d: state %d\n",
+            slot,
+            GREF(uint8_t, buf + 6)
+        );
+        dme_send_one(room_index_of(room.host), 2, CHANNEL_SLOT_UPDATE, 0x20, (int)buf);
+        return 1;
+    }
+    return 0;
 }
 
 int mp_func_0014AAB0(int conn, int a, int b) {
