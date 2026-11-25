@@ -1230,7 +1230,9 @@
     "func_L30_00343830",
     "func_L01_00470770",
     "func_L30_003427F8",
-    "func_L01_003E4428"
+    "func_L01_003E4428",
+    "func_003D2D40__frontbin",
+    "func_L39_00521DE8"
   ],
   "overlay_hook": true,
   "relocate": [

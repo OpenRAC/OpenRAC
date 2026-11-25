@@ -415,13 +415,14 @@
       "func_003AD9F0",
       "func_003C0160",
       "func_00391E78__frontbin",
-      "func_003BE710"
+      "func_003BE710",
+      "func_0038D160"
     ],
     "roots": [
       "func_003932B0__frontbin"
     ],
     "roots_why": "func_003932B0__frontbin: NTSC-U's twin of PAL's func_00397B10 (one constant changed, so map.tsv has no pair), whose address func_00391E78 stores; reached only through it.",
-    "from_assembly_why": "func_00387778 (the clip view, PAL func_003877A0), func_003AD9F0 (PAL func_003ADB90), func_003C0160 (PAL func_003C0268): map.tsv's match, but their C reads globals and calls functions config/us/names.tsv places for the front end or not at all (func_00387778's D_001D9A10, D_00334F00 to D_00335D50 and func_0027AB40; func_003C0160's D_001DA348 to D_001DA390 aliases, all moved by +0x30 or +0x80 on NTSC-U), so hostgen made each a stub that does nothing. func_00391E78__frontbin (PAL func_003966D8) stores the address of PAL's func_00397B10, which NTSC-U has as 0x003932B0 with one constant changed (5, not 4). Run from the disc's instructions instead. func_003BE710 (PAL func_003BE800, the level loader's state that levels 27 and 28 run through the table at 0x0031C910): map.tsv's match since rac3-decomp 45baf7e5, but its C reads the per-caller aliases D_001D8D28_003BE800 to D_001DA2D0_003BE800g, which config/us/names.tsv gives no boot_elf value, so hostgen made it a stub that does nothing (before, NTSC-U ran it from assembly as a twin of a left-out definition)."
+    "from_assembly_why": "func_00387778 (the clip view, PAL func_003877A0), func_003AD9F0 (PAL func_003ADB90), func_003C0160 (PAL func_003C0268): map.tsv's match, but their C reads globals and calls functions config/us/names.tsv places for the front end or not at all (func_00387778's D_001D9A10, D_00334F00 to D_00335D50 and func_0027AB40; func_003C0160's D_001DA348 to D_001DA390 aliases, all moved by +0x30 or +0x80 on NTSC-U), so hostgen made each a stub that does nothing. func_00391E78__frontbin (PAL func_003966D8) stores the address of PAL's func_00397B10, which NTSC-U has as 0x003932B0 with one constant changed (5, not 4). Run from the disc's instructions instead. func_003BE710 (PAL func_003BE800, the level loader's state that levels 27 and 28 run through the table at 0x0031C910): map.tsv's match since rac3-decomp 45baf7e5, but its C reads the per-caller aliases D_001D8D28_003BE800 to D_001DA2D0_003BE800g, which config/us/names.tsv gives no boot_elf value, so hostgen made it a stub that does nothing (before, NTSC-U ran it from assembly as a twin of a left-out definition). func_0038D160: its C has VU0 inline assembly the lowering does not write as C, so hostgen translated it a second time on every run; listed to leave it to its assembly at once."
   },
   "pairs": {
     "about": "Function pairs taken as they are where map.tsv pairs nothing: PAL's name, NTSC-U's, the evidence.",
