@@ -357,3 +357,178 @@ int rac3_mp_wide_mode_copy(uint32_t offset, int first, int count, uint8_t* bytes
     }
     return 0;
 }
+
+/* ---- The end of a match (L39_00670D90's copy in each map) ---- */
+
+/* The end routine fills the results block for the game's eight slots only: names from the
+ * settings, the player's flag and team, and from the game-mode struct the scores and the mode's
+ * columns, and decides the winner (+0x1A8). The wrap runs after it and does the same for slots 8 and
+ * up, from the port's tables, then decides the winner again over every slot. */
+#define RES_FLAG 0x100u
+#define RES_TEAM 0x120u
+#define RES_SCORE 0x140u
+#define RES_SUICIDES 0x1B8u
+#define RES_WINNER 0x1A8u
+#define RES_TEAMS 0x2E8u /* eight team records of 0xA4 bytes: idx[8], a[8], b[8], ..., count at +0x8C */
+#define RES_TEAM_BYTES 0xA4u
+#define RES_TEAM_COUNT 0x8Cu
+#define RES_GAME_TYPE 0x80Cu
+#define PLAYER_LOCAL 0x1A14u   /* a byte: this console's player */
+#define PLAYER_PROFILE 0x2534u /* the word the local player's profile reset takes */
+#define PLAYER_TEAM 0x2548u
+
+/* The game-mode struct's arrays the end copies into the results, and the results' array of each
+ * (offset in the mode, offset in the results, bytes an entry). The first five are also what the
+ * channel 5 end message carries for slots 0-7; the port's relay message carries the others'. */
+static const struct {
+    uint32_t mode, result, bytes;
+    int sent;
+} wide_end_array[] = {
+    {0x018u, 0x140u, 4, 1},
+    {0x198u, 0x1B8u, 2, 1},
+    {0x038u, 0x160u, 1, 1},
+    {0x048u, 0x170u, 1, 1},
+    {0x050u, 0x178u, 1, 1},
+    {0x040u, 0x168u, 1, 0},
+    {0x058u, 0x180u, 4, 0},
+    {0x078u, 0x1C8u, 0x24, 0},
+};
+#define WIDE_END_ARRAYS (sizeof wide_end_array / sizeof wide_end_array[0])
+
+/* The players' slot `slot` struct (0: none). */
+static gaddr wide_player(int slot) {
+    const uint32_t base = wide_base(WIDE_MAP_PLAYERS);
+    return base == 0 ? 0
+                     : GREF(gaddr, rac3_mp_wide_address(base + 4u * (uint32_t)slot, WIDE_MAP_PLAYERS));
+}
+
+/* The bytes the end message carries for slots 8 to slots-1 (at most 24 - 8 slots of each array
+ * the game's own message has: scores 4, suicides 2, three columns of 1). */
+int rac3_mp_wide_end_pack(uint8_t* out, int capacity) {
+    if (wide_slots <= WIDE_GAME) {
+        return 0;
+    }
+    const int count = wide_slots - WIDE_GAME;
+    int n = 0;
+    for (size_t a = 0; a < WIDE_END_ARRAYS; a++) {
+        if (!wide_end_array[a].sent) {
+            continue;
+        }
+        if (n + (int)wide_end_array[a].bytes * count > capacity
+            || rac3_mp_wide_mode_copy(wide_end_array[a].mode, WIDE_GAME, count, out + n, 1) == 0) {
+            return 0;
+        }
+        n += (int)wide_end_array[a].bytes * count;
+    }
+    return n;
+}
+
+/* The same, received: the room's width first (a console with another width ignores it). */
+void rac3_mp_wide_end_unpack(const uint8_t* in, int length) {
+    if (wide_slots <= WIDE_GAME) {
+        return;
+    }
+    const int count = wide_slots - WIDE_GAME;
+    int n = 0;
+    for (size_t a = 0; a < WIDE_END_ARRAYS; a++) {
+        if (!wide_end_array[a].sent) {
+            continue;
+        }
+        if (n + (int)wide_end_array[a].bytes * count > length) {
+            return;
+        }
+        uint8_t copy[WIDE_EXTRA * 4];
+        memcpy(copy, in + n, (size_t)wide_end_array[a].bytes * (size_t)count);
+        rac3_mp_wide_mode_copy(wide_end_array[a].mode, WIDE_GAME, count, copy, 0);
+        n += (int)wide_end_array[a].bytes * count;
+    }
+}
+
+/* The winner of a deathmatch, over every slot (L39_00670D90's choice, which sees eight). Teams:
+ * the team with the most kills less suicides, fewer deaths on a tie, a tie of both none (-1);
+ * else the same for the players, the winner being the best one's team. */
+static int wide_winner(int teams) {
+    const gaddr gs = GREF(gaddr, GS_POINTER);
+    int best_index = -1, best1 = -1, best2 = -1, tie = 0;
+    for (int t = 0; t < (teams ? 8 : wide_slots); t++) {
+        int sum1 = 0, sum2 = 0, any = 0;
+        for (int j = teams ? 0 : t; j < (teams ? wide_slots : t + 1); j++) {
+            const gaddr client = rac3_mp_wide_settings(0x0E0u, j);
+            if (client == 0 || GREF(int16_t, client) == -1) {
+                continue;
+            }
+            if (teams && GREF(int16_t, rac3_mp_wide_settings(0x0D0u, j)) != t) {
+                continue;
+            }
+            const gaddr score = rac3_mp_wide_results(RES_SCORE, j);
+            sum1 += GREF(int16_t, score) - GREF(int16_t, rac3_mp_wide_results(RES_SUICIDES, j));
+            sum2 += GREF(int16_t, score + 2u);
+            any = 1;
+        }
+        if (!teams && !any) {
+            continue;
+        }
+        if (best1 < sum1 || (sum1 == best1 && sum2 < best2)) {
+            best1 = sum1;
+            best2 = sum2;
+            best_index = t;
+            tie = 0;
+        } else if (sum1 == best1 && sum2 == best2) {
+            tie = 1;
+        }
+    }
+    (void)gs;
+    if (tie || best_index < 0) {
+        return -1;
+    }
+    return teams ? best_index : GREF(int32_t, rac3_mp_wide_results(RES_TEAM, best_index));
+}
+
+void rac3_mp_wide_end_results(int reason, int (*profile_reset)(int)) {
+    const gaddr gs = GREF(gaddr, GS_POINTER);
+    if (wide_slots <= WIDE_GAME || gs == 0) {
+        return;
+    }
+    for (int i = WIDE_GAME; i < wide_slots; i++) {
+        const gaddr name = rac3_mp_wide_results(0x000u, i);
+        const gaddr from = rac3_mp_wide_settings(0x000u, i);
+        memset(G(name), 0, 0x20);
+        if (GREF(uint8_t, from) != 0) {
+            memcpy(G(name), G(from), 15); /* the game's strcpy of a 16-byte name */
+        }
+        GREF(int32_t, rac3_mp_wide_results(RES_FLAG, i)) = 0;
+        const gaddr player = wide_player(i);
+        if (player != 0) {
+            const int32_t team = GREF(int32_t, player + PLAYER_TEAM);
+            if (GREF(uint8_t, player + PLAYER_LOCAL) != 0) {
+                GREF(int32_t, rac3_mp_wide_results(RES_FLAG, i)) = 1;
+                profile_reset(GREF(int32_t, player + PLAYER_PROFILE));
+            }
+            GREF(int32_t, rac3_mp_wide_results(RES_TEAM, i)) = team;
+            if (team >= 0 && team < 8) {
+                const gaddr record = RESULTS + RES_TEAMS + RES_TEAM_BYTES * (gaddr)team;
+                const int32_t n = GREF(int32_t, record + RES_TEAM_COUNT);
+                /* The record lists eight members; a team of more lists the first eight. */
+                if (n >= 0 && n < 8) {
+                    GREF(float, record + 0x20u + 4u * (gaddr)n) =
+                        GREF(float, rac3_mp_wide_settings(0x110u, i));
+                    GREF(float, record + 0x40u + 4u * (gaddr)n) =
+                        GREF(float, rac3_mp_wide_settings(0x130u, i));
+                    GREF(int32_t, record + 4u * (gaddr)n) = i;
+                    GREF(int32_t, record + RES_TEAM_COUNT) = n + 1;
+                }
+            }
+        }
+        for (size_t a = 0; a < WIDE_END_ARRAYS; a++) {
+            uint8_t bytes[0x24];
+            rac3_mp_wide_mode_copy(wide_end_array[a].mode, i, 1, bytes, 1);
+            memcpy(
+                G(rac3_mp_wide_results(wide_end_array[a].result, i)), bytes, wide_end_array[a].bytes
+            );
+        }
+    }
+    /* Deathmatch (type 2) ends 1 and 5 name the winner from the scores: over every slot now. */
+    if ((reason == 1 || reason == 5) && GREF(int32_t, RESULTS + RES_GAME_TYPE) == 2) {
+        GREF(int32_t, RESULTS + RES_WINNER) = wide_winner(GREF(int8_t, gs + 0x19Du) != 0);
+    }
+}

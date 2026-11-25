@@ -48,6 +48,7 @@
 #include "mp/game_protos.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
+#include "mp_wide.h"
 #include "rac3_version.h"
 
 /* The game's net state block (mp_net.c's NET_BLOCK): its net time, in milliseconds, and the
@@ -431,6 +432,17 @@ static int fix_pad_update(int map, int (*game)(void)) {
     return game();
 }
 
+/* ---- The end of a match in a room of more than 8 players ----
+ * Each map's end routine (level 39's 0x00670D90) fills the results block for the game's eight
+ * slots and names the winner among them; in a wide room the port's wrap then fills slots 8 and up
+ * (host/mp_wide.c, from the port's companions of the settings and the game-mode struct) and names
+ * the winner again over every slot. A room of 8 is the game's own. */
+static int fix_end_results(int reason, int (*game)(int), int (*profile_reset)(int)) {
+    const int result = game(reason);
+    rac3_mp_wide_end_results(reason, profile_reset);
+    return result;
+}
+
 /* One map's wraps, in mp/fixes.py FIXED's order. */
 /* ---- The camera's first frame: the head point from an empty camera matrix ----
  * The spawn (0x005271F0 in map 48) computes the head point the camera follows, player +0x1180 =
@@ -480,7 +492,9 @@ static float fix_head_point(int map, int player, float (*game)(int)) {
     player_update,                                                                                 \
     gadget_event,                                                                                  \
     pad_update,                                                                                    \
-    head_point                                                                                     \
+    head_point,                                                                                    \
+    end_results,                                                                                   \
+    profile_reset                                                                                  \
 )                                                                                                  \
     int mp_func_L##m##_##equip(int a0) {                                                           \
         return fix_equip(m, a0, mp_func_L##m##_##equip##__game);                                   \
@@ -537,6 +551,11 @@ static float fix_head_point(int map, int player, float (*game)(int)) {
     }                                                                                              \
     float mp_func_L##m##_##head_point(int a0) {                                                    \
         return fix_head_point(m, a0, mp_func_L##m##_##head_point##__game);                         \
+    }                                                                                              \
+    int mp_func_L##m##_##end_results(int a0) {                                                     \
+        return fix_end_results(                                                                    \
+            a0, mp_func_L##m##_##end_results##__game, mp_func_L##m##_##profile_reset               \
+        );                                                                                         \
     }
 
 #include "mp_fixes.h"

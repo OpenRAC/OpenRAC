@@ -2305,6 +2305,9 @@ static void dme_deliver(void) {
 
 /* Sends a DME packet ([class][id][payload]) to DEST: a client index, -1 / 0xFFFE every other
  * member (the room join request goes to -1), 0xFFFF the DME server (none here: dropped). */
+#define END_MESSAGE_BYTES 0x68 /* channel 5's message */
+#define END_MESSAGE_COMMAND 0x0C
+#define END_MESSAGE_SCORES 0x82
 static int dme_relay(int dest, gaddr data, int len) {
     if (srv.fd == NET_INVALID || !room.in || len <= 0 || len > 0x5F0) {
         return 0;
@@ -2337,6 +2340,22 @@ static int dme_relay(int dest, gaddr data, int len) {
     }
     if (!srv_room((size_t)len + 8)) {
         return 0;
+    }
+    /* The match's end (channel 5, command 0x82: the scores of the game's eight slots) is followed
+     * by the others' in a wide room: they go first, so a console has them before the message. */
+    if (len == 2 + END_MESSAGE_BYTES && GREF(uint8_t, data + 1) == CHANNEL_MATCH_STATE
+        && GREF(uint8_t, data + 2 + END_MESSAGE_COMMAND) == END_MESSAGE_SCORES
+        && rac3_mp_wide_slots() > 8 && srv_room(0x100)) {
+        uint8_t wide[0xC0];
+        const int n = rac3_mp_wide_end_pack(wide, (int)sizeof wide);
+        if (n > 0) {
+            srv_begin(PACKET_RELAY, -1);
+            srv_i32(target);
+            srv_u8(RELAY_MATCH_END_WIDE);
+            srv_u8((uint8_t)rac3_mp_wide_slots());
+            srv_bytes(wide, (size_t)n);
+            srv_end();
+        }
     }
     srv_begin(PACKET_RELAY, -1);
     srv_i32(target);
@@ -2869,6 +2888,14 @@ static void on_frame(int id, reader* r) {
             const int kind = rd_u8(r);
             if (kind == RELAY_OBJECT || kind == RELAY_OBJECT_RELEASE || kind == RELAY_OBJECT_WIDE) {
                 obj_receive(kind, from, r);
+                break;
+            }
+            if (kind == RELAY_MATCH_END_WIDE) {
+                /* The room's width, then the arrays of slots 8 up; a console of another width
+                 * (never in one room) ignores it. */
+                if (r->n >= 1 && r->p[0] == rac3_mp_wide_slots()) {
+                    rac3_mp_wide_end_unpack(r->p + 1, (int)r->n - 1);
+                }
                 break;
             }
             if (kind != RELAY_ROOM_PACKET || r->n == 0 || r->n > sizeof dme.inbox[0].data) {
