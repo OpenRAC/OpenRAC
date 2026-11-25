@@ -693,12 +693,14 @@ VkPipeline create_graphics_pipeline(
     // Every feature mode is fixed by this variant, for both stages.
     struct Constants {
         VkBool32 zero_to_one;
+        std::uint32_t material_textures;
         std::int32_t mode[kModeConstants];
     };
 
     Constants constants{};
     constants.zero_to_one = (k.depth_mode & kClipZeroToOne) != 0 ? VK_TRUE : VK_FALSE;
-    VkSpecializationMapEntry entries[1 + kModeConstants];
+    constants.material_textures = std::max(1u, g->material_texture_capacity);
+    VkSpecializationMapEntry entries[2 + kModeConstants];
     entries[0] = {kClipZeroToOneConstant, offsetof(Constants, zero_to_one), sizeof(VkBool32)};
     std::uint32_t entry_count = 1;
 
@@ -710,6 +712,11 @@ VkPipeline create_graphics_pipeline(
              sizeof(std::int32_t)};
     }
 
+    // Absent specialization IDs are ignored by shaders without material arrays.
+    entries[entry_count++] =
+        {kMaterialTextureCapacityConstant,
+         offsetof(Constants, material_textures),
+         sizeof(std::uint32_t)};
     const VkSpecializationInfo vertex_constants{entry_count, entries, sizeof constants, &constants};
     const VkSpecializationInfo fragment_constants{
         entry_count - 1, entries + 1, sizeof constants, &constants

@@ -12,6 +12,8 @@ namespace openrac::vkgl::detail {
 struct GraphBinding;
 
 [[nodiscard]] bool graph_pipeline_active();
+// A viewport diagnostic may write only an attachment declared writable by the owning pass.
+[[nodiscard]] bool graph_colour_write_allowed(const Target& target);
 [[nodiscard]] bool graph_pipeline_records(VkCommandBuffer command);
 
 // Exposes a dispatch's declarations during descriptor preparation without authorizing GPU work.
