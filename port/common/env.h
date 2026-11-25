@@ -86,6 +86,7 @@ enum class Var : std::uint16_t {
     DumpTextures,
     DumpVif,
     EarlyLightingOff,
+    EffectPairsOff,
     Enhanced,
     FocusedPacing,
     Fps,
