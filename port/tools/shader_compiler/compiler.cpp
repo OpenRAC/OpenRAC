@@ -8,6 +8,7 @@
 #include <atomic>
 #include <exception>
 #include <format>
+#include <locale>
 #include <stdexcept>
 #include <thread>
 #include <utility>
@@ -297,6 +298,14 @@ void Compiler::family(
 }
 
 void Compiler::run() {
+    // libstdc++ fills ctype<char>::narrow's table lazily, a write std::regex makes on every
+    // worker; filling it here first keeps the workers to reads.
+    const auto& ctype = std::use_facet<std::ctype<char>>(std::locale());
+
+    for (int c = 0; c < 256; ++c) {
+        ctype.narrow(static_cast<char>(c), 0);
+    }
+
     try {
         generate();
     } catch (...) {

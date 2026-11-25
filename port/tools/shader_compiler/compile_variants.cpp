@@ -14,6 +14,13 @@
 namespace openrac::shader_compiler {
 using namespace vkgl;
 
+namespace {
+// A glslang error; each request adds its own name, as a one-thread run would.
+struct CompileError : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+}  // namespace
+
 bool Compiler::contains(ShaderKey key) const {
     const auto found = m_results.find(key.key);
 
@@ -29,7 +36,7 @@ bool Compiler::contains(ShaderKey key) const {
 }
 
 std::shared_ptr<const Compiler::Built> Compiler::build_once(
-    ShaderKey key, const std::function<Built()>& build
+    ShaderKey key, const std::string& name, const std::function<Built()>& build
 ) {
     std::promise<std::shared_ptr<const Built>> promise;
     std::shared_future<std::shared_ptr<const Built>> result;
@@ -54,7 +61,13 @@ std::shared_ptr<const Compiler::Built> Compiler::build_once(
         }
     }
 
-    auto built = result.get();
+    std::shared_ptr<const Built> built;
+
+    try {
+        built = result.get();
+    } catch (const CompileError& error) {
+        throw std::runtime_error(name + ": " + error.what());
+    }
 
     if (built->key != key) {
         throw std::runtime_error("shader package key collision");
@@ -73,11 +86,17 @@ std::vector<char> Compiler::read_cache(ShaderKey key) {
 
 void Compiler::prune_cache() const {
     std::error_code error;
+    std::vector<std::filesystem::path> unused;
+    std::filesystem::directory_iterator entry(m_output / ".cache", error);
 
-    for (const auto& entry : std::filesystem::directory_iterator(m_output / ".cache", error)) {
-        if (!m_cache_used.contains(entry.path().filename().string())) {
-            std::filesystem::remove(entry.path(), error);
+    for (; !error && entry != std::filesystem::directory_iterator(); entry.increment(error)) {
+        if (!m_cache_used.contains(entry->path().filename().string())) {
+            unused.push_back(entry->path());
         }
+    }
+
+    for (const auto& path : unused) {
+        std::filesystem::remove(path, error);
     }
 }
 
@@ -109,7 +128,7 @@ CompiledProgram Compiler::program(
     compute = renderer::shader_precision_source(compute, half);
     const auto key = shader_key("program", {vertex, fragment, compute});
     const auto label = std::string(name) + " / " + job.variant;
-    const auto built = build_once(key, [&] {
+    const auto built = build_once(key, label, [&] {
         CompiledProgram compiled;
         std::string error;
         const auto cache_key =
@@ -120,7 +139,7 @@ CompiledProgram Compiler::program(
             && !compiler_detail::compile_program_fresh(
                 vertex, fragment, compiled, error, compute
             )) {
-            throw std::runtime_error(label + ": " + error);
+            throw CompileError(error);
         }
 
         auto bytes = encode_program(compiled);
@@ -169,7 +188,7 @@ CompiledProgram Compiler::program(
 
 void Compiler::native(Job& job, const renderer::ShaderRecipe& recipe) {
     const auto key = shader_key("native", {recipe.compute, recipe.definitions});
-    const auto built = build_once(key, [&] {
+    const auto built = build_once(key, recipe.name, [&] {
         NativeComputeShader compiled;
         std::string error;
         const auto include = [&](std::string_view name) -> std::string_view {
@@ -185,7 +204,7 @@ void Compiler::native(Job& job, const renderer::ShaderRecipe& recipe) {
             && !compiler_detail::compile_native_fresh(
                 recipe.compute, recipe.definitions, include, compiled, error
             )) {
-            throw std::runtime_error(recipe.name + ": " + error);
+            throw CompileError(error);
         }
 
         auto bytes = encode_native_shader(compiled);

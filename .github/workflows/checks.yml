@@ -559,8 +559,9 @@ jobs:
         run: test "$RESULT" = success || { test "$RESULT" = skipped && test "$PARTS" = "[]"; }
 
   # Full enhanced Vulkan coverage and the offline Embree baker, separately from the compatibility
-  # build above. The preset explicitly compiles enhanced code in. One job: the build, then every
-  # test in one CTest call (tools/ci_port_tests.py). Full tier only.
+  # build above. The preset explicitly compiles enhanced code in. One job: the build, then two
+  # CTest calls (tools/ci_port_tests.py): the tests without Vulkan, then all Vulkan tests. Full
+  # tier only.
   port-vulkan-enhanced-build:
     name: "Enhanced Vulkan: build and tests"
     needs: scope
@@ -620,7 +621,7 @@ jobs:
           restore-keys: shader-cache-v1-enhanced-${{ runner.os }}-${{ runner.arch }}-
       - name: List the restored shader compiler cache
         run: |
-          ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null |
+          { ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null || true; } |
             sha256sum > "$RUNNER_TEMP/shader-cache.list"
 
       - name: Build enhanced lighting and baker
@@ -638,8 +639,8 @@ jobs:
         if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
         run: |
           changed=true
-          ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null | sha256sum |
-            cmp -s - "$RUNNER_TEMP/shader-cache.list" && changed=false
+          { ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null || true; } |
+            sha256sum | cmp -s - "$RUNNER_TEMP/shader-cache.list" && changed=false
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
       - name: Save the shader compiler cache
         if: steps.shader-cache-new.outputs.changed == 'true'
@@ -655,7 +656,14 @@ jobs:
           GALLIVM_PERF: nopt
         run: |
           python3 tools/ci_port_tests.py port/build/enhanced plan
-          xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced run
+          # Both groups, even after the first fails, so that one run shows every failure.
+          failed=""
+          for group in host vulkan; do
+            echo "::group::$group"
+            xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$group" || failed="$failed $group"
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then echo "::error::failed test groups:$failed"; exit 1; fi
 
       - name: Save enhanced test timings and failures
         if: ${{ !cancelled() }}

@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2026 the OpenRAC contributors
-"""Run the enhanced CI build's tests in one CTest call and check that each required test ran.
+"""Run the enhanced CI build's tests and check that each required test ran.
 
-Most Vulkan tests share one lock (cmake/GpuTests.cmake) and run one by one; the CPU, baker and
-lock-free Vulkan tests fill the other CTest slots meanwhile.
+Two CTest calls: first the tests that need no Vulkan (short; timing tests run without the
+software renderer's load), then every Vulkan test. Most Vulkan tests share one lock
+(cmake/GpuTests.cmake) and run one by one; the lock-free ones fill the other CTest slots.
 """
 
 import argparse
@@ -45,22 +46,33 @@ def inventory(build, *selection):
     }
 
 
-def selection_file(build, name):
-    return build / f"ci-{name}-tests.txt"
+def selection_file(build, group):
+    return build / f"ci-{group}-tests.txt"
 
 
-def write_selection(build, name, names):
-    path = selection_file(build, name).resolve()
+def write_selection(build, group, names):
+    path = selection_file(build, group).resolve()
     path.write_text("".join(f"{name}\n" for name in sorted(names)), encoding="utf-8")
     return path
 
 
+GROUPS = ("host", "vulkan")
+
+
 def plan(build):
-    tests = set(inventory(build))
+    dependencies = inventory(build)
+    tests = set(dependencies)
     if missing := REQUIRED - tests:
         raise SystemExit(f"Missing required tests: {sorted(missing)}")
-    write_selection(build, "all", tests)
-    print(f"{len(tests)} tests")
+    # CTest adds fixture setups to a label listing, so the Vulkan group holds its own setups.
+    vulkan = set(inventory(build, "-L", "^gpu$"))
+    for group, names in zip(GROUPS, (tests - vulkan, vulkan)):
+        if external := {dep for name in names for dep in dependencies[name]} - names:
+            raise SystemExit(f"{group} tests depend on another group: {sorted(external)}")
+        path = write_selection(build, group, names)
+        if not names or set(inventory(build, "--tests-from-file", str(path))) != names:
+            raise SystemExit(f"Invalid {group} test partition")
+        print(f"{group}: {len(names)} tests")
 
 
 def execute(build, path, report, jobs, env=None):
@@ -88,15 +100,15 @@ def execute(build, path, report, jobs, env=None):
     return list(ET.parse(report).iter("testcase"))
 
 
-def run(build):
-    path = selection_file(build, "all").resolve()
+def run(build, group):
+    path = selection_file(build, group).resolve()
     expected = set(path.read_text(encoding="utf-8").splitlines())
     if set(inventory(build, "--tests-from-file", str(path))) != expected:
-        raise SystemExit("Restored test inventory differs from the build")
-    report = (build / "ci-all-results.xml").resolve()
+        raise SystemExit(f"Restored {group} test inventory differs from the build")
+    report = (build / f"ci-{group}-results.xml").resolve()
     cases = execute(build, path, report, 4)
     if len(cases) != len(expected) or {case.attrib["name"] for case in cases} != expected:
-        raise SystemExit("Incomplete or duplicate test results")
+        raise SystemExit(f"Incomplete or duplicate results in the {group} test group")
     for case in cases:
         name = case.attrib["name"]
         if name in REQUIRED and case.find("skipped") is not None:
@@ -136,6 +148,11 @@ def timing(build):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("build", type=Path)
-    parser.add_argument("command", choices=("plan", "run", "timing"))
+    parser.add_argument("group", choices=("plan", "timing", *GROUPS))
     args = parser.parse_args()
-    {"plan": plan, "run": run, "timing": timing}[args.command](args.build)
+    if args.group == "plan":
+        plan(args.build)
+    elif args.group == "timing":
+        timing(args.build)
+    else:
+        run(args.build, args.group)

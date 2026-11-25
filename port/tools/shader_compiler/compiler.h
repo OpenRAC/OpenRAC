@@ -80,9 +80,10 @@ private:
         bool enhanced,
         const std::function<void(renderer::ShaderRecipes&)>& collect
     );
-    // Returns the shared result for key, building it once across all workers.
+    // Returns the shared result for key, building it once across all workers; a compile error
+    // carries the name of the request that sees it.
     std::shared_ptr<const Built> build_once(
-        vkgl::ShaderKey key, const std::function<Built()>& build
+        vkgl::ShaderKey key, const std::string& name, const std::function<Built()>& build
     );
     // Reads a cached program, remembering the entry as still in use.
     std::vector<char> read_cache(vkgl::ShaderKey key);
