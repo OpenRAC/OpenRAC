@@ -1404,7 +1404,6 @@ void test_empty_recorded_scissors() {
     }
 }
 
-
 // Prepared view effects execute only in the view pass; an unscoped effect still reaches the main pass.
 void test_prepared_view_effect_is_not_replayed_on_composite() {
     FrameRecorder recorder;
