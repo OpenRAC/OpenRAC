@@ -2663,6 +2663,20 @@
       51,
       52,
       53
-    ]
+    ],
+      "func_L40_00518C98": "float (int)",
+      "func_L41_0051ADB0": "float (int)",
+      "func_L42_00510688": "float (int)",
+      "func_L43_0050DE20": "float (int)",
+      "func_L44_0050D170": "float (int)",
+      "func_L45_0050AA08": "float (int)",
+      "func_L46_0050A7C8": "float (int)",
+      "func_L47_0050D048": "float (int)",
+      "func_L48_0050C348": "float (int)",
+      "func_L49_0050BCC8": "float (int)",
+      "func_L50_00529C98": "float (int)",
+      "func_L51_0052BDB0": "float (int)",
+      "func_L52_00521688": "float (int)",
+      "func_L53_0051EE20": "float (int)"
   }
 }
