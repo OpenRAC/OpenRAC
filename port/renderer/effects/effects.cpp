@@ -896,7 +896,8 @@ bool EffectRenderer::apply(
             GL_TEXTURE_2D,
             GL_TEXTURE_MIN_FILTER,
             static_cast<GLint>(
-                chain ? (linear_min ? GL_LINEAR_MIPMAP_LINEAR : GLenum{0x2700} /* NEAREST_MIPMAP_NEAREST */)
+                chain ? (linear_min ? GL_LINEAR_MIPMAP_LINEAR
+                                    : GLenum{0x2700} /* NEAREST_MIPMAP_NEAREST */)
                       : (linear_min ? GL_LINEAR : GL_NEAREST)
             )
         );

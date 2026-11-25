@@ -495,8 +495,8 @@ void pool() {
     CHECK(textures.ensure_mipmaps(f) && textures.has_mipmaps(f));
     CHECK(textures.ensure_mipmaps(f));
     CHECK(!textures.ensure_mipmaps(0) && !textures.ensure_mipmaps(0x7FFFFFF));
-    CHECK(!gs::Tex1::decode(0x60).mipmapped());                    // bilinear, one level
-    CHECK(!gs::Tex1::decode(5u << 6).mipmapped());                 // MXL 0
+    CHECK(!gs::Tex1::decode(0x60).mipmapped());                      // bilinear, one level
+    CHECK(!gs::Tex1::decode(5u << 6).mipmapped());                   // MXL 0
     CHECK(gs::Tex1::decode(0x20u | 5u << 6 | 6u << 2).mipmapped());  // linear mipmap linear, MXL 6
     CHECK(gs::Tex1::decode(2u << 6 | 1u << 2).mipmapped());
 
