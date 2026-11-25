@@ -567,9 +567,17 @@ ties compared at frame 2400).
 
 Not fixed, for whoever picks rac3 up next:
 
-- **Crash on Veldin after a new game's first flight** (seen once in a hidden box2 run, frame 1714):
-  SIGSEGV in a level function's string formatting, `func_L01_004CDF20 → func_0011B2E8`
-  (print.c:28) `→ openrac_guest_vformat`. Not reproduced or diagnosed yet.
+- **Crash on Veldin after a new game's first flight** (fixed, PR #896): reproduced in a hidden box2
+  run (new game, intro, Veldin, frame 10136, the "Progress is saving" message box). Cause: the
+  message box `func_L01_004CDF20` takes eleven integers, three past the eighth on the stack;
+  `func_L01_00436150` reaches it through a call copy, a call through an address that handed on only
+  the eight registers, so its string arguments were stack leftovers and a `%s` in
+  `openrac_guest_vformat` read 0xFFFFFFC0. Fix (hostgen, asmc.py `indirect`): the cast carries four
+  doublewords from 0($sp); a function's thunk reads its arguments past the eighth from the saved
+  guest stack pointer (was 0); Apple arm64 packs stack arguments by size so it takes the thunks;
+  `%s` prints "(null)" for an address that is no memory. Tests: `guest_format` (ctest) and
+  `test_retail.CallsThroughRegisters`. Rerun on the fixed build: no crash through frame 20000.
+  Other functions with more than eight integers called through a copy are fixed by the same change.
 - **The Phoenix's "△ Enter ship" HUD message box** draws enlarged with its text shifted left. The
   box is `func_L01_004366A0 → func_L01_004CDC38`, drawn by `func_L01_004CF120` / `004CEAE0`: it
   measures "\x12 Enter ship" as 120 units (font 1, scale 1.0) against a half-width of 68 and draws
