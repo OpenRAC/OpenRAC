@@ -6,9 +6,9 @@
 # dev release (launcher.yml). A game that fails here is fixed on develop and this is run again.
 #
 # The branch is a snapshot: later merges to develop do not start the long checks again until the
-# next run. The pull request is opened with DEV_RELEASE_TOKEN (a fine-grained token with Contents,
-# Pull requests and Workflows write): GitHub starts no checks on a pull request or push made with
-# the workflow's own token.
+# next run. GitHub starts no pull_request checks for a pull request opened with the workflow's own
+# token, so this job starts checks and ios on release/dev by hand (workflow_dispatch, a full run):
+# their results sit on the pull request's commit, under the same names. No extra token needed.
 name: dev release
 
 on:
@@ -17,6 +17,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 concurrency:
   group: dev-release
@@ -32,7 +33,6 @@ jobs:
         with:
           ref: develop
           fetch-depth: 0
-          token: ${{ secrets.DEV_RELEASE_TOKEN || github.token }}
       - name: What develop adds since master
         id: notes
         run: |
@@ -66,12 +66,8 @@ jobs:
       - name: The branch and its pull request
         if: steps.notes.outputs.count != '0'
         env:
-          GH_TOKEN: ${{ secrets.DEV_RELEASE_TOKEN || github.token }}
-          HAVE_TOKEN: ${{ secrets.DEV_RELEASE_TOKEN != '' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$HAVE_TOKEN" != true ]; then
-            echo "::warning::No DEV_RELEASE_TOKEN secret: GitHub starts no checks on this pull request. Close and reopen it to start them."
-          fi
           git push --force origin HEAD:refs/heads/release/dev
           title="chore(release): dev build $(date -u +%Y-%m-%d)"
           number=$(gh pr list --base master --head release/dev --state open --json number -q '.[0].number // ""')
@@ -80,3 +76,6 @@ jobs:
           else
             gh pr create --base master --head release/dev --title "$title" --body-file "$RUNNER_TEMP/body.md"
           fi
+          # Every check, every game and version, Windows, iOS.
+          gh workflow run checks.yml --ref release/dev
+          gh workflow run ios.yml --ref release/dev
