@@ -15,12 +15,20 @@ runs:
           echo "save=false" >> "$GITHUB_OUTPUT"
           exit 0
         fi
-        dir=$OPENRAC_CCACHE_SAVE_DIR mark=$RUNNER_TEMP/openrac-ccache-mark
-        if command -v cygpath >/dev/null; then dir=$(cygpath -u "$dir"); mark=$(cygpath -u "$mark"); fi
-        # ccache 4 names a compile result *R; stats and manifest files change on a hit too.
-        added=$(find "$dir" -type f -name '*R' -newer "$mark" 2>/dev/null | wc -l)
+        # ccache 4 names a compile result *R (and keeps large objects beside it as *.raw); stats
+        # and manifest files change on a hit too. Python, not find: some images (Fedora's
+        # container, Windows' PATH) have no GNU find first on PATH.
+        python=$(command -v python3 || command -v python) || { echo "save=false" >> "$GITHUB_OUTPUT"; exit 0; }
+        added=$("$python" - "$OPENRAC_CCACHE_SAVE_DIR" "$RUNNER_TEMP/openrac-ccache-mark" <<'PY'
+        import os, sys
+        root, mark = sys.argv[1], sys.argv[2]
+        since = os.stat(mark).st_mtime if os.path.exists(mark) else 0
+        print(sum(1 for top, _, files in os.walk(root) for name in files
+                  if name.endswith(("R", ".raw")) and os.stat(os.path.join(top, name)).st_mtime > since))
+        PY
+        )
         echo "ccache: $added new objects"
-        if [ "$added" -gt 0 ]; then echo "save=true"; else echo "save=false"; fi >> "$GITHUB_OUTPUT"
+        if [ "${added:-0}" -gt 0 ]; then echo "save=true"; else echo "save=false"; fi >> "$GITHUB_OUTPUT"
     - if: steps.new.outputs.save == 'true'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:

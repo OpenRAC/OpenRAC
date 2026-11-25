@@ -195,6 +195,12 @@ class LauncherChangedTest(unittest.TestCase):
         self.assertTrue(launcher_changed(None, filters))
         self.assertFalse(launcher_changed([], filters))
 
+    def test_the_last_matching_filter_decides(self):
+        filters = ["launcher/**", "!launcher/docs/**", "launcher/docs/build.md"]
+        self.assertFalse(launcher_changed(["launcher/docs/RELEASING.md"], filters))
+        self.assertTrue(launcher_changed(["launcher/docs/build.md"], filters))
+        self.assertTrue(launcher_changed(["launcher/docs/x.md", "launcher/src/x.rs"], filters))
+
 
 class IosPlanTest(unittest.TestCase):
     def check(self, paths, port, launcher):

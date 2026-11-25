@@ -31,9 +31,8 @@ runs:
         DIR: ${{ env.CCACHE_DIR || format(runner.os == 'Windows' && '{0}\.ccache' || '{0}/.ccache', github.workspace) }}
         KEY: ccache-${{ inputs.key }}-success-${{ github.run_id }}-${{ github.run_attempt }}
       run: |
-        mark=$RUNNER_TEMP/openrac-ccache-mark
-        if command -v cygpath >/dev/null; then mark=$(cygpath -u "$mark"); fi
-        touch "$mark"
+        python=$(command -v python3 || command -v python) || exit 0
+        "$python" -c 'import pathlib, sys; pathlib.Path(sys.argv[1]).touch()' "$RUNNER_TEMP/openrac-ccache-mark"
         {
           echo "OPENRAC_CCACHE_SAVE_DIR=$DIR"
           echo "OPENRAC_CCACHE_SAVE_KEY=$KEY"

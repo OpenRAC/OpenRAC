@@ -285,8 +285,17 @@ def launcher_changed(paths, filters):
     """Whether PATHS (None: unknown) touch any of launcher.yml's push FILTERS."""
     if paths is None:
         return True
-    patterns = [glob_regex(f) for f in filters]
-    return any(p.match(path) for p in patterns for path in paths)
+    # GitHub's rule: the last filter that matches a file decides, and "!" excludes it.
+    rules = [(not f.startswith("!"), glob_regex(f.lstrip("!"))) for f in filters]
+
+    def wanted(path):
+        verdict = False
+        for keep, pattern in rules:
+            if pattern.match(path):
+                verdict = keep
+        return verdict
+
+    return any(wanted(path) for path in paths)
 
 
 def event_paths():

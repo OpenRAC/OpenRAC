@@ -112,7 +112,8 @@ class CachePolicy(unittest.TestCase):
         self.assertLess(prefixes.index("inputs.key }}-success-"), prefixes.rindex("inputs.key }}-"))
         save = "".join(action_steps("compiler-cache/save"))
         self.assertIn(WRITERS_ONLY, save)
-        self.assertIn("-newer", save)
+        self.assertIn("st_mtime > since", save)
+        self.assertIn("openrac-ccache-mark", text)
         self.assertIn("key: ${{ env.OPENRAC_CCACHE_SAVE_KEY }}", save)
         self.assertIn("path: ${{ env.OPENRAC_CCACHE_SAVE_DIR }}", save)
 
