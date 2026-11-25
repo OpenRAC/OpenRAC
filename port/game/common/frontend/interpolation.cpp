@@ -175,15 +175,15 @@ std::chrono::steady_clock::time_point next_display(std::chrono::steady_clock::ti
     return shown;
 }
 
-// How far behind the kept tick the scene runs: none with the player's low-latency frames, nor with
-// the render thread, else half a tick. The render thread's jobs stop when the next tick is due
-// (between(): none is queued once the simulation resumes), so with the lag their scene only got
-// part of the way to the kept tick: it stood still for the first half tick, moved, then jumped
-// at the next one (Vulkan through MoltenVK: at most 0.34 of the way at the loading screen's 20
-// ticks a second, its approach to the planet visibly choppy; 0.47 at 50).
+// How far behind the kept tick the scene runs, as the alpha counts it: none, for every path. The
+// scene is shown one tick behind the simulation, the alpha running from 0 at the kept tick to 1 a
+// tick later. A lag of half a tick (the old synchronous path: OpenGL, or Vulkan without the render
+// thread) would need frames drawn up to half a tick past the next tick, but synchronous rendering
+// cannot overlap the simulation: its last frame stopped at the tick with the alpha at about 0.47
+// and the first one after it started again at 0, a half-tick jump back every tick. The render
+// thread's jobs stop when the next tick is due as well (between()), so they never needed it.
 double lag_ticks() {
-    return settings::get().low_latency_frames || threaded_rendering() ? kLowLatencyLagTicks
-                                                                      : kLagTicks;
+    return kLowLatencyLagTicks;
 }
 
 // How long after the next tick is due a frame held by its showing may still be shown (pacing.h,
@@ -1025,7 +1025,7 @@ void draw_kept(bool first, bool held) try {
     g->window->drawable_size(output->window_width, output->window_height);
     output->aspect = picture_aspect(output->window_width, output->window_height);
     output->box = frame_box(output->window_width, output->window_height, output->aspect);
-    // The mods' drawing under the game's 2D (interface 1.40), here on the window thread where their
+    // The mods' drawing under the game's 2D (interface 1.41), here on the window thread where their
     // overlay callbacks run; the renderer draws it before the HUD (scene_frame.cpp).
     mod_overlay::record_under_hud(output->overlay_phase, output->aspect, output->under_hud);
     debug_overlay::begin(first, g_held, output->alpha, g->kept->frame);

@@ -11,7 +11,7 @@ openrac-viewer build/port/level_00
 ```
 
 The editor's `port` export ([extractor/port.py](../../extractor/port.py)) writes
-the Godot export's meshes and textures (`terrain.glb`, `ties/`, `shrubs/`,
+the editor export's meshes and textures (`terrain.glb`, `ties/`, `shrubs/`,
 `mobys/`, `textures/`) plus `sky.glb` (the sky's shells),
 `placements.json` (ties, shrubs, mobys: class, 4 × 4 matrix in game axes,
 stored fields) and `manifest.json` (format 1: files, classes with moby class

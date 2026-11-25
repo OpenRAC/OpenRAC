@@ -1210,7 +1210,7 @@ int fake_menu_option_set(openrac_mod*, const char* option, int state) {
                : OPENRAC_HOOK_UNKNOWN;
 }
 
-// What the fake host's 1.40 picture calls were asked: "create <w>x<h> <flags>", "destroy <id>"; it
+// What the fake host's 1.41 picture calls were asked: "create <w>x<h> <flags>", "destroy <id>"; it
 // refuses a side of 0 and any id but 7.
 std::string g_picture;
 
@@ -1227,7 +1227,7 @@ int fake_overlay_image_destroy(openrac_mod*, int image) {
     return image == 7 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
-// What the fake overlay's 1.40 image and image_quad drew: "image <id> <x> <w> <angle> <rgba>",
+// What the fake overlay's 1.41 image and image_quad drew: "image <id> <x> <w> <angle> <rgba>",
 // "quad <id> <x3> <v3>".
 std::string g_drawn;
 
@@ -2737,7 +2737,7 @@ int main() {
         CHECK(mod.has_sharp_cells());
     }
 
-    // Interface 1.40: pictures of the mod's for its overlay, handed to the port with the struct's
+    // Interface 1.41: pictures of the mod's for its overlay, handed to the port with the struct's
     // size, and refused where the port lacks the calls (an older minor, or a table before them).
     {
         api.overlay_image_create = fake_overlay_image_create;
@@ -2751,7 +2751,7 @@ int main() {
         CHECK(mod.overlay_image_destroy(7) && g_picture == "destroy 7");
         CHECK(!mod.overlay_image_destroy(8));
         g_picture.clear();
-        api.api_minor = 39;
+        api.api_minor = 40;
         CHECK(!mod.has_overlay_images() && mod.overlay_image_create(2, 2, rgba) == 0
               && !mod.overlay_image_destroy(7) && g_picture.empty());
         api.api_minor = OPENRAC_MOD_API_MINOR;

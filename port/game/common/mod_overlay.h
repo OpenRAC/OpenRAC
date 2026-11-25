@@ -5,7 +5,7 @@
 // on_overlay_phases over the game's menus and scenes too, docs/port/MODS.md):
 // each displayed frame, after the world and the game's own 2D and before the port's menus and
 // overlay, the mods' callbacks fill a list of triangles (renderer/ui/overlay_list.h) with the
-// frame's own camera, and it is blended over the frame. With no mod asking, nothing runs. 1.40 adds
+// frame's own camera, and it is blended over the frame. With no mod asking, nothing runs. 1.41 adds
 // the mods' pictures (renderer/ui/overlay_images.h) and a call whose drawing goes under the game's
 // 2D (OPENRAC_OVERLAY_UNDER_HUD).
 
@@ -33,7 +33,7 @@ void draw(
     float aspect
 );
 
-// The mods' drawing under the game's 2D (OPENRAC_OVERLAY_UNDER_HUD, interface 1.40) for a frame of
+// The mods' drawing under the game's 2D (OPENRAC_OVERLAY_UNDER_HUD, interface 1.41) for a frame of
 // `phase` shown `aspect` wide to 1 tall, into `out` (left empty with no mod asking). On the window
 // thread, before the frame is handed to the renderer: `project` answers 0 in it.
 void record_under_hud(std::uint32_t phase, float aspect, renderer::ui::OverlayList& out);

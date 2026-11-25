@@ -57,7 +57,7 @@ bool prepare_temporal(SceneFrame& frame) {
                                  && (graphics.temporal_quality != renderer::TemporalQuality::Off
                                      || (graphics.motion_blur && graphics.motion_blur_strength > 0))
                                  && enhanced::Fsr3::available() && scene.has_camera
-                                 && (scene.draws & 0x1Fu) != 0;
+                                 && (scene.draws & 0x1Fu) != 0 && !split_screen(scene);
 
     // SDK and pose history are absent when enhanced reconstruction is not in use.
     if (temporal_wanted && !owner.temporal) {
@@ -489,6 +489,9 @@ bool draw_world(SceneFrame& frame) {
                 owner.frame.samples_written();
             }
         }
+        // Split screen: each view's world into its own picture first (none: the views forgotten).
+        draw_split_views(frame);
+        const bool split = split_screen(scene) && frame.has_camera;
         renderer::RenderTarget target{owner.frame.id(), width, height, picture_scale};
         const bool enhanced = graphics.enhanced_graphics && owner.enhanced_graphics_available();
         if (enhanced) {
@@ -551,7 +554,7 @@ bool draw_world(SceneFrame& frame) {
             }
         }
 
-        // The mods' drawing under the game's 2D (interface 1.40): after what came before the HUD
+        // The mods' drawing under the game's 2D (interface 1.41): after what came before the HUD
         // (the world kept for the menus is taken without it), and under the heat haze's wrap.
         if (!frame.output.under_hud.vertices().empty()) {
             auto before_hud = std::move(input.before_hud);
@@ -584,7 +587,7 @@ bool draw_world(SceneFrame& frame) {
             );
         }
         if (!scene.haze.empty() && scene.has_camera && !input.keep_colour && !scene.world_under_menu
-            && (scene.draws & 0x1Fu) != 0) {
+            && (scene.draws & 0x1Fu) != 0 && !split) {
             auto before_hud = std::move(input.before_hud);
             input.before_hud = [&owner,
                                 &scene,
@@ -612,7 +615,34 @@ bool draw_world(SceneFrame& frame) {
                 }
             };
         }
+        if (!split) {
+            owner.renderer->render(input, target);
+            return true;
+        }
+        // Split screen: the views' pictures are the frame's world. Each view whose World the 2D
+        // path reaches is drawn there, over what the game drew in it before (its viewport's clear)
+        // and under its HUD; the others are put on the frame before anything that reads the world
+        // drawn (the read-back copy, bloom) and under the 2D.
+        std::uint32_t in_stream = 0;
+        input.view_pictures = stream_view_pictures(owner, scene, in_stream);
+        auto before_hud = std::move(input.before_hud);
+        input.before_hud = [&owner, width, height, in_stream, before_hud = std::move(before_hud)] {
+            put_split_views(owner, owner.frame.id(), width, height, in_stream);
+            if (before_hud) {
+                before_hud();
+            }
+        };
+        std::vector<std::pair<renderer::BucketRenderer*, bool>> world_buckets;
+        for (const auto& bucket : owner.renderer->renderers()) {
+            if (bucket->bucket() != renderer::Bucket::Hud) {
+                world_buckets.emplace_back(bucket.get(), bucket->enabled);
+                bucket->enabled = false;
+            }
+        }
         owner.renderer->render(input, target);
+        for (const auto& [bucket, enabled] : world_buckets) {
+            bucket->enabled = enabled;
+        }
         return true;
     }
 

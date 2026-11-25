@@ -3,7 +3,7 @@
 //
 // What mods draw over the game, on the GPU (renderer/ui/overlay_draw.h), on each GL (the _es and
 // _vulkan tests run this one): into the frame's own kind of target, at its place, right way up,
-// blended by alpha, and nothing without vertices; the mods' pictures (1.40) sampled the right way
+// blended by alpha, and nothing without vertices; the mods' pictures (1.41) sampled the right way
 // up, tinted, and gone once let go, one texture for a picture two draws share. Pixels are read
 // back: a colour in the wrong row or a blend left out fails here on the backend that has it.
 
@@ -205,7 +205,7 @@ void blends(renderer::ui::OverlayDraw& draw, unsigned frame) {
     CHECK(is(pixel(frame, 120, 120), 128, 128, 128));
 }
 
-// A mod's picture (interface 1.40): a 2 x 2 of four colours, drawn by the nearest texel over a
+// A mod's picture (interface 1.41): a 2 x 2 of four colours, drawn by the nearest texel over a
 // square, each quarter its colour the right way up; tinted; turned; gone once let go.
 void pictures(renderer::ui::OverlayDraw& draw, unsigned frame) {
     using renderer::ui::OverlayList;

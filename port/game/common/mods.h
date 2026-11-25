@@ -499,7 +499,7 @@ bool is_mod_code_link(std::string_view url);
 std::uint32_t overlay_phase();
 bool overlay_wanted(std::uint32_t phase);
 // Whether a mod also draws under the game's 2D in a frame of that phase (OPENRAC_OVERLAY_UNDER_HUD,
-// interface 1.40); run_overlays with `overlay.layer` OPENRAC_OVERLAY_LAYER_UNDER_HUD runs only
+// interface 1.41); run_overlays with `overlay.layer` OPENRAC_OVERLAY_LAYER_UNDER_HUD runs only
 // those.
 bool overlay_wanted_under_hud(std::uint32_t phase);
 void run_overlays(const openrac_overlay& overlay);

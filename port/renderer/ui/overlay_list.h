@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // What a mod draws over the game (openrac_overlay, game/common/mod_overlay.cpp), gathered for a
-// frame: filled rectangles, text and the mods' pictures (overlay_images.h, interface 1.40) as
+// frame: filled rectangles, text and the mods' pictures (overlay_images.h, interface 1.41) as
 // triangles in the game's 512 x 448 picture, in the order they were asked, and a point of the level
 // found on that picture. No GL here: it is plain memory, so it is tested without a window;
 // OverlayDraw puts the triangles over the frame.

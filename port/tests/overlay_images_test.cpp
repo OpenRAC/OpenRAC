@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The mods' overlay pictures (renderer/ui/overlay_images.h, interface 1.40): copied, each its
+// The mods' overlay pictures (renderer/ui/overlay_images.h, interface 1.41): copied, each its
 // owner's, ids never given twice, the limits, and an owner's let-go and unload.
 
 #include <cstdint>

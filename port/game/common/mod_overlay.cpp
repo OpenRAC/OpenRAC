@@ -76,7 +76,7 @@ float fade(void*, float distance, float near_distance, float far_distance) {
     return renderer::ui::overlay_fade(distance, near_distance, far_distance);
 }
 
-// The mod's own pictures (interface 1.40): another's id draws nothing.
+// The mod's own pictures (interface 1.41): another's id draws nothing.
 void image(
     void* context, int id, float x, float y, float w, float h, float angle, std::uint32_t rgba
 ) {

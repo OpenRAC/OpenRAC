@@ -1945,7 +1945,7 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     mods::run_overlays(overlay);
     CHECK(g_overlay_rect[0] == 10.0f && g_overlay_rect[1] == 20.0f);
     CHECK(g_overlay_rect[2] == 4.0f && g_overlay_rect[3] == 8.0f);
-    // on_overlay's mod draws over the finished frame only, never under the HUD (1.40).
+    // on_overlay's mod draws over the finished frame only, never under the HUD (1.41).
     CHECK(!mods::overlay_wanted_under_hud(OPENRAC_OVERLAY_PLAYING));
     g_overlay_rect[0] = 0.0f;
     overlay.layer = OPENRAC_OVERLAY_LAYER_UNDER_HUD;
@@ -1983,7 +1983,7 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     overlay.phase = OPENRAC_OVERLAY_MENU;
     mods::run_overlays(overlay);
     CHECK(g_overlay_rect[0] == 10.0f);
-    // Interface 1.40: it asked to draw under the HUD too, in the same phases.
+    // Interface 1.41: it asked to draw under the HUD too, in the same phases.
     CHECK(mods::overlay_wanted_under_hud(OPENRAC_OVERLAY_MENU));
     CHECK(!mods::overlay_wanted_under_hud(OPENRAC_OVERLAY_SCENE));
     g_overlay_rect[0] = 0.0f;
@@ -2578,7 +2578,7 @@ void a_mod_gives_sharper_cells(const fs::path& plugins) {
     mods::reset();
 }
 
-// A mod's overlay pictures (interface 1.40, openrac_api.overlay_image_create and _destroy): what
+// A mod's overlay pictures (interface 1.41, openrac_api.overlay_image_create and _destroy): what
 // the calls refuse, the copy kept as the mod's, a struct of a later interface, another mod's id,
 // and the pictures gone with the mod.
 void a_mod_keeps_overlay_pictures(const fs::path& plugins) {

@@ -85,7 +85,7 @@ int api_setup_vulkan(openrac_mod* mod, const openrac_vulkan_setup* setup) {
 // The phases an overlay is drawn over (interface 1.31).
 constexpr std::uint32_t kOverlayPhases =
     OPENRAC_OVERLAY_PLAYING | OPENRAC_OVERLAY_MENU | OPENRAC_OVERLAY_SCENE;
-// The layer bit a callback may add to its phases (interface 1.40).
+// The layer bit a callback may add to its phases (interface 1.41).
 constexpr std::uint32_t kOverlayLayers = OPENRAC_OVERLAY_UNDER_HUD;
 
 // Interface 1.31: the same over the phases the mod asks for (on_overlay is play's alone).
@@ -125,8 +125,8 @@ int api_play_live_picture(openrac_mod* mod, int on) {
     return OPENRAC_HOOK_OK;
 }
 
-// openrac_api.overlay_image_create. Since 1.40.
-// Interface 1.40: a picture of the mod's for its overlay (renderer/ui/overlay_images.h).
+// openrac_api.overlay_image_create. Since 1.41.
+// Interface 1.41: a picture of the mod's for its overlay (renderer/ui/overlay_images.h).
 int api_overlay_image_create(openrac_mod* mod, const openrac_overlay_image* image) {
     if (mod == nullptr || image == nullptr
         || image->size < offsetof(openrac_overlay_image, flags) + sizeof(image->flags)

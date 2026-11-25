@@ -84,6 +84,9 @@ struct Kept {
     bool has_state = false, has_prev_state = false;
     std::vector<scene::Instance> live;
     std::vector<std::uint32_t> addresses;  // each live moby's address, for its last matrix
+    // Split screen drawn in one capture: the views that draw each live instance (bit n: view n,
+    // frontend/view_mobys.h); empty when every view draws every one.
+    std::vector<std::uint8_t> live_views;
     std::unordered_map<std::uint32_t, renderer::Mat4> prev_matrices;
     // Each moby's move the tick before the last (from two ticks ago to prev_matrices), where both
     // ticks had it, and the eye's (prev_state's from the one before): a frame between ticks moves
@@ -135,6 +138,10 @@ struct Kept {
     renderer::FrameRecording recording;
     std::vector<renderer::FrameSplice> splices;
     std::size_t splices_before_world = 0;
+    // The split-screen views the game drew last (FrameRecorder::latest's), drawn by
+    // frontend/split_views.cpp: not `recording`'s, which is the one the 2D path's list was built
+    // with and can be older.
+    std::vector<renderer::FrameView> views;
     // The mods' heat haze (interface 1.12): each patch's place (x, y, z), radius and strength.
     std::vector<std::array<float, 5>> haze;
 
@@ -188,6 +195,8 @@ struct TickMobys {
     // The ties and shrubs as the game holds them (LevelScene::move_scenery); none keeps the last
     // tick's.
     std::optional<scene::GameScenery> scenery;
+    // The views that draw each instance of `live` (Kept::live_views); empty: every view.
+    std::vector<std::uint8_t> live_views;
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.
@@ -214,7 +223,7 @@ struct FramePresentation {
     // The world was drawn live under a menu (Kept::world_under_menu): `camera` matches the picture.
     bool world_under_menu = false;
     // What the mods draw under the game's 2D in this frame (OPENRAC_OVERLAY_UNDER_HUD, interface
-    // 1.40), recorded on the window thread at submission and drawn before the HUD.
+    // 1.41), recorded on the window thread at submission and drawn before the HUD.
     renderer::ui::OverlayList under_hud;
     CameraDebugFrame
         camera_debug;  // Window-thread inputs fixed before handing the scene to the worker.
@@ -264,6 +273,17 @@ struct SceneRenderState {
     // The mod's additional views and the OpenGL framebuffers around their output textures.
     std::array<renderer::FrameBuffer, 4> views;
     std::vector<std::pair<unsigned, unsigned>> view_targets;
+
+    // Split screen (frontend/split_views.cpp): each local player's view's world as last drawn, the
+    // recorded layout and whether it holds one. Forgotten at the first tick with no view's world
+    // or when the next view's layout no longer fits the retained pictures.
+    struct SplitView {
+        renderer::FrameBuffer picture;
+        renderer::FrameView layout;  // Source rectangle and screen size of the retained picture.
+        bool held = false;
+    };
+
+    std::array<SplitView, renderer::kFrameViews> split_views;
     scene::LevelData level;
     scene::LevelScene scene;
     DebugCamera debug_camera;
@@ -336,6 +356,9 @@ struct State {
     bool paused_from_play = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
+    // Split screen: the game's state when each view's world was drawn since the last capture
+    // (recorder::view_camera), for MobyProc's test from each view's camera (pose_mobys).
+    std::array<std::optional<host::GameState>, renderer::kFrameViews> view_states{};
 
     // The mobys the last 2D path read drew with a list of their own, by their markers (frame.cpp,
     // direct_packets): first moby, count, and whether the frame was a buffer narrower than the

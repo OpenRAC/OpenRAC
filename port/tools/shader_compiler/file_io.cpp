@@ -74,10 +74,12 @@ void write_file(const std::filesystem::path& path, std::span<const char> bytes) 
     }
 }
 
+std::string cache_name(ShaderKey key) {
+    return std::format("{:016x}-{:016x}.bin", key.key, key.check);
+}
+
 std::vector<char> read_cached_program(const std::filesystem::path& output, ShaderKey key) {
-    std::ifstream input(
-        output / ".cache" / std::format("{:016x}-{:016x}.bin", key.key, key.check), std::ios::binary
-    );
+    std::ifstream input(output / ".cache" / cache_name(key), std::ios::binary);
     std::vector<char> bytes((std::istreambuf_iterator<char>(input)), {});
 
     if (bytes.size() < 8 || bytes.size() > std::size_t{16} * 1024 * 1024) {
@@ -105,7 +107,7 @@ void cache_program(
     }
 
     bytes.insert(bytes.end(), compressed.begin(), compressed.end());
-    write_file(output / ".cache" / std::format("{:016x}-{:016x}.bin", key.key, key.check), bytes);
+    write_file(output / ".cache" / cache_name(key), bytes);
 }
 
 }  // namespace openrac::shader_compiler

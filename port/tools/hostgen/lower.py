@@ -2817,6 +2817,11 @@ class Unit:
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "FunctionToPointerDecay":
             target = _strip_parens(_inner(c)[0])
             if target.get("kind") == "DeclRefExpr" and target["referencedDecl"].get("kind") == "FunctionDecl":
+                # A host-inserted decision query is a native call, not an EE code address.
+                if target["referencedDecl"].get("name") == "openrac_mod_play_query":
+                    if len(args) != 5:
+                        raise Unsupported("a gameplay query needs five scalar arguments")
+                    return "openrac_mod_play_query(" + ", ".join(self.rv(a) for a in args) + ")"
                 sym = self._callee_symbol(target)
                 if sym in getattr(self.program, "returns_64", ()):
                     # A function returning 64 bits that this unit declares int (hostgen.json

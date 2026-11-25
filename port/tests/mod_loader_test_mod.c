@@ -1073,7 +1073,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         if (api->on_overlay_phases(mod, on_overlay, &overlay_user, 0) != OPENRAC_HOOK_UNKNOWN
             || api->on_overlay_phases(mod, on_overlay, &overlay_user, 0x80u) != OPENRAC_HOOK_UNKNOWN
             || api->on_overlay_phases(mod, NULL, NULL, OPENRAC_OVERLAY_MENU) != OPENRAC_HOOK_UNKNOWN
-            /* the layer bit is no phase of its own (1.40) */
+            /* the layer bit is no phase of its own (1.41) */
             || api->on_overlay_phases(mod, on_overlay, &overlay_user, OPENRAC_OVERLAY_UNDER_HUD)
                    != OPENRAC_HOOK_UNKNOWN
             || api->on_overlay_phases(

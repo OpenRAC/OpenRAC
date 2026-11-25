@@ -122,4 +122,17 @@ int api_on_pad(openrac_mod* mod, openrac_pad_fn fn, void* user) {
     return OPENRAC_HOOK_OK;
 }
 
+// openrac_api.on_play_query. Since 1.40. Registrations disappear on unload/load failure.
+int api_on_play_query(openrac_mod* mod, std::uint32_t kinds, openrac_play_query_fn fn, void* user) {
+    if (mod == nullptr || mod != g_loading || fn == nullptr) {
+        return OPENRAC_HOOK_TOO_LATE;
+    }
+
+    if (g_host == nullptr || std::string_view(g_host->game) != "rac2") {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+
+    return g_play_queries.add(mod, kinds, fn, user);
+}
+
 }  // namespace openrac::mods::detail

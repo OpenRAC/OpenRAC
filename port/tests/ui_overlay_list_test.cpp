@@ -3,7 +3,7 @@
 //
 // What mods draw over the game, on the CPU (renderer/ui/overlay_list.h): rectangles, text that keeps
 // its shape on a wide picture, a mod's bad numbers left out, a point of the level found on the
-// 512 x 448 picture with the renderer's own reversed-depth camera, and the mods' pictures (1.40):
+// 512 x 448 picture with the renderer's own reversed-depth camera, and the mods' pictures (1.41):
 // placed, turned and kept in shape, in runs of their own.
 
 #include <algorithm>

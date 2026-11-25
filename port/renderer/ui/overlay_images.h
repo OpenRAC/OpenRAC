@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The pictures mods give for their overlay (openrac_api.overlay_image_create, interface 1.40):
+// The pictures mods give for their overlay (openrac_api.overlay_image_create, interface 1.41):
 // RGBA pictures kept in memory by id, each its owner's (a mod), until the owner destroys it or
 // unloads. Plain memory and a lock: the mods' interface adds and takes them on any thread, and
 // OverlayDraw reads them on the graphics thread to make its textures. A library of its own, so the

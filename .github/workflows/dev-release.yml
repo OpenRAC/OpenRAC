@@ -78,4 +78,5 @@ jobs:
           fi
           # Every check, every game and version, Windows, iOS.
           gh workflow run checks.yml --ref release/dev
-          gh workflow run ios.yml --ref release/dev
+          # ios may be turned off (Actions, ios, Disable workflow): then the pull request has no iOS checks.
+          gh workflow run ios.yml --ref release/dev || echo "::warning::ios did not start (is the workflow disabled?)."

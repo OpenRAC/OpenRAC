@@ -1,5 +1,5 @@
 """Read glTF 2.0 files (.glb, or .gltf with its .bin and images) as a modder's
-tools write them: Blender, Godot, this editor's own writer (gltf.py).
+tools write them: Blender, OpenRAC Editor, this editor's own writer (gltf.py).
 
 Only what the asset re-import needs is decoded: the JSON, the buffers and
 each accessor as rows of numbers. Anything the reader cannot honour (sparse
