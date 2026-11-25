@@ -2324,6 +2324,22 @@ static void dme_deliver(void) {
 
 /* Sends a DME packet ([class][id][payload]) to DEST: a client index, -1 / 0xFFFE every other
  * member (the room join request goes to -1), 0xFFFF the DME server (none here: dropped). */
+/* A console that joined with no name in the game's net block sends "(null)" (the game's own
+ * sprintf of a null name) in its room join request (channel 16, name at +0x30) and its slot updates
+ * (channel 17, name at +0x07): the account's name goes in its place, so two such players are not
+ * the same name to the staging room (which sends the second one's "leave"). */
+static void name_fix(gaddr data, int len) {
+    const int channel = GREF(uint8_t, data + 1);
+    const uint32_t at = channel == CHANNEL_ROOM_JOIN_REQUEST ? 2u + 0x30u : 2u + 0x07u;
+    if (GREF(uint8_t, data) != 2
+        || (channel != CHANNEL_ROOM_JOIN_REQUEST && channel != CHANNEL_SLOT_UPDATE)
+        || (int)at + 16 > len || memcmp(G(data + at), "(null)", 7) != 0 || net_login.name[0] == 0) {
+        return;
+    }
+    memset(G(data + at), 0, 16);
+    snprintf((char*)G(data + at), 16, "%s", net_login.name);
+}
+
 #define END_MESSAGE_BYTES 0x68 /* channel 5's message */
 #define END_MESSAGE_COMMAND 0x0C
 #define END_MESSAGE_SCORES 0x82
@@ -2361,6 +2377,7 @@ static int dme_relay(int dest, gaddr data, int len) {
     if (!srv_room((size_t)len + 8)) {
         return 0;
     }
+    name_fix(data, len);
     /* The match's end (channel 5, command 0x82: the scores of the game's eight slots) is followed
      * by the others' in a wide room: they go first, so a console has them before the message. */
     if (len == 2 + END_MESSAGE_BYTES && GREF(uint8_t, data + 1) == CHANNEL_MATCH_STATE
