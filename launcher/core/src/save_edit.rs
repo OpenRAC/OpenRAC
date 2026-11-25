@@ -323,8 +323,9 @@ mod id {
     pub const GOLD_BOLTS: i32 = 3003;
 }
 
-/// The bolt counter's limit (the game's own counters stop at 9,999,999).
-pub const MAX_BOLTS: u32 = 9_999_999;
+/// The bolt counter's limit: the game keeps bolts as a signed 32-bit word (the port shows totals past
+/// 9,999,999 as millions).
+pub const MAX_BOLTS: u32 = i32::MAX as u32;
 /// Skill points the game counts (`count_nonzero_entries_up_to_30`).
 pub const SKILL_POINT_COUNT: usize = 30;
 

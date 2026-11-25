@@ -110,6 +110,10 @@ void EffectRenderer::draw_prepared(
         bool z_masked = false;
         // An untextured quad (EffectQuad::untextured): drawn by m_untextured_shader, no texture.
         bool untextured = false;
+        // A strip that samples the frame copy (EffectStrip::frame_copy): the pass's snapshot.
+        bool frame_copy = false;
+        // A pair run's second texture (PreparedEffects::quad_pairs; tbp is then its first), or 0.
+        std::uint32_t pair = 0;
         bool operator==(const State&) const = default;
     };
 
@@ -232,6 +236,17 @@ void EffectRenderer::draw_prepared(
         }
         batch.count = 0;
     };
+    // The pair unit holds nothing outside a pair run's draws: a draw declares only its own textures.
+    bool pair_bound = m_pair_shader;
+    const auto unbind_pair = [&] {
+        glActiveTexture(GL_TEXTURE0 + kPairUnit);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE0);
+        pair_bound = false;
+    };
+    if (pair_bound) {
+        unbind_pair();
+    }
     // Adds `count` vertices from `first` to the draw, with this state; false when the state has
     // no texture in the pool (apply).
     bool drawable = true;
@@ -248,8 +263,17 @@ void EffectRenderer::draw_prepared(
                            wanted.alpha,
                            state,
                            wanted.tbp,
-                           wanted.cbp
+                           wanted.cbp,
+                           wanted.frame_copy
                        );
+            if (drawable && wanted.pair != 0) {
+                bind_pair_texture(
+                    state, wanted.tex0, wanted.tex1, wanted.clamp, wanted.pair, wanted.cbp
+                );
+                pair_bound = true;
+            } else if (pair_bound) {
+                unbind_pair();
+            }
 
             // Material bindings precede the shared descriptor read declaration.
             if (m_material) {
@@ -360,23 +384,26 @@ void EffectRenderer::draw_prepared(
             continue;
         }
 
-        add({strip.tex0,
-             strip.tex1,
-             strip.clamp,
-             m_part == EffectPart::Opaque && strip.blend_disabled ? 0 : strip.alpha,
-             0,
-             0,
-             strip.surface,
-             strip.uv_motion,
-             strip.fogged,
-             strip.fog,
-             strip.fog_colour,
-             0,
-             false,
-             strip.before_mobys && !before_mobys_writes_z(strip)},
-            at,
-            count,
-            false);
+        State wanted{
+            strip.tex0,
+            strip.tex1,
+            strip.clamp,
+            m_part == EffectPart::Opaque && strip.blend_disabled ? 0 : strip.alpha,
+            0,
+            0,
+            strip.surface,
+            strip.uv_motion,
+            strip.fogged,
+            strip.fog,
+            strip.fog_colour,
+            0,
+            false,
+            strip.before_mobys && !before_mobys_writes_z(strip)
+        };
+        wanted.frame_copy = strip.frame_copy;
+        // A frame-copy strip without the pass's snapshot is left out, not drawn from the chip's
+        // copy or a placeholder (the black boxes under the dropship's thrusters).
+        add(wanted, at, count, strip.frame_copy);
         at += count;
     }
 
@@ -447,6 +474,7 @@ void EffectRenderer::draw_prepared(
     Shader* const quad_shader = m_active_shader;
     unsigned tested_quads = 0;
     unsigned texture_splits = 0, sampler_splits = 0, blend_splits = 0;
+    unsigned paired_quads = 0;
 
     const auto draw_quads = [&] {
         // Captured quad order preserves back-to-front blending across shader switches.
@@ -459,6 +487,15 @@ void EffectRenderer::draw_prepared(
             }
             State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
             wanted.untextured = q.untextured;
+            // A quad of a pair run: the run's state, whichever of its two textures it samples.
+            if (const std::size_t i = static_cast<std::size_t>(&q - input.effects.data());
+                !prepared.quad_pairs.empty() && prepared.quad_pairs[i].second != 0) {
+                const QuadPair& pair = prepared.quad_pairs[i];
+                wanted.tex0 = pair.tex0;
+                wanted.tbp = pair.first;
+                wanted.pair = pair.second;
+                paired_quads += q.tbp == pair.second;
+            }
             if (quad_indices) {
                 normalize_quad_state(wanted.tex1, wanted.clamp, wanted.alpha);
             }
@@ -552,7 +589,11 @@ void EffectRenderer::draw_prepared(
     if (clamp_quads) {
         glDisable(GL_DEPTH_CLAMP);
     }
+    if (pair_bound) {
+        unbind_pair();
+    }
     stats::gauge("effect quads alpha tested", tested_quads);
+    stats::gauge("effect quads on a pair's second texture", paired_quads);
     if (quads && gl::is_vulkan()) {
         stats::gauge("effect quad texture splits", texture_splits);
         stats::gauge("effect quad sampler splits", sampler_splits);

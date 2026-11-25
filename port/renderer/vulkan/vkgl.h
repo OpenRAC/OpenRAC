@@ -61,6 +61,8 @@ struct Config {
     // the system's loader.
     void* get_instance_proc_addr = nullptr;
     bool validation = false;  // the Khronos validation layer, where it is installed
+    // Explicit opt-in for tools with custom GLSL; normal package misses draw the error shader.
+    bool compile_missing_shaders = false;
     bool gpu_breadcrumbs = true;
     // For the tests: each presentation extension the backend asks of the device where it is
     // offered (VK_KHR_present_id, VK_KHR_present_wait, the FIFO latest-ready present mode), so a
@@ -289,6 +291,7 @@ struct SubmissionCounters {
     std::uint64_t gpu_payload_bytes = 0;
     std::uint64_t shader_fp16_ops = 0, shader_fp32_ops = 0, shader_fp16_modules = 0;
     std::uint64_t shader_compiles = 0;  // glslang runs: shaders checked, programs compiled.
+    std::uint64_t shader_package_hits = 0, shader_package_misses = 0;
     double shader_compile_s = 0.0;      // The seconds those compiles took.
     std::uint64_t test_program_reuses = 0;  // Immutable driver object reuse in an opted-in test.
     std::uint64_t program_reuses = 0;       // Links that took a kept program's objects.

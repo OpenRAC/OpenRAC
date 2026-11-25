@@ -364,7 +364,8 @@ static int card_path(int port, const char* name, char* out, size_t size) {
 
 static int card_present(int port) {
     char path[1024];
-    if (openrac_game_no_card) {
+    /* On a mod's planet the card is out: the save stays the original's, the planet never in it. */
+    if (openrac_game_no_card || openrac_game_active_destination >= 0) {
         return 0;
     }
     struct stat st;

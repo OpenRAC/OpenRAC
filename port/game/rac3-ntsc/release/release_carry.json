@@ -21,23 +21,13 @@
    "status": "differs",
    "port": "host C"
   },
-  "func_003A2BC0__frontbin": {
-   "is": "func_PAL_003A2BC0__frontbin",
-   "status": "none",
-   "port": "host C"
+  "func_003A7EF8": {
+   "is": "func_003A7DB0",
+   "status": "differs",
+   "port": "wrap"
   },
-  "func_003A2CD8__frontbin": {
-   "is": "func_PAL_003A2CD8__frontbin",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_003A2DC8__frontbin": {
-   "is": "func_PAL_003A2DC8__frontbin",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_003A31C8": {
-   "is": "func_003A3088",
+  "func_003A7EF8__game": {
+   "is": "func_003A7DB0__game",
    "status": "differs",
    "port": "host C"
   },
@@ -103,12 +93,12 @@
   },
   "func_L01_0041FE80": {
    "is": "func_L01_0041D750",
-   "status": "nomatch",
+   "status": "differs",
    "port": "wrap"
   },
   "func_L01_0041FE80__game": {
    "is": "func_L01_0041D750__game",
-   "status": "nomatch",
+   "status": "differs",
    "port": "host C"
   },
   "func_L01_004443E8": {
@@ -121,19 +111,14 @@
    "status": "differs",
    "port": "hook"
   },
-  "func_L01_00460868": {
-   "is": "func_PAL_L01_00460868",
-   "status": "none",
-   "port": "host C"
+  "func_L01_004B04D8": {
+   "is": "func_L01_004ACA98",
+   "status": "differs",
+   "port": "wrap"
   },
-  "func_L01_00460980": {
-   "is": "func_PAL_L01_00460980",
-   "status": "none",
-   "port": "host C"
-  },
-  "func_L01_00460A70": {
-   "is": "func_PAL_L01_00460A70",
-   "status": "none",
+  "func_L01_004B04D8__game": {
+   "is": "func_L01_004ACA98__game",
+   "status": "differs",
    "port": "host C"
   },
   "func_L01_004CBC60": {
@@ -155,15 +140,20 @@
    "is": "func_L01_004EA040",
    "status": "differs",
    "port": "hook"
+  },
+  "func_L02_00310838": {
+   "is": "func_L02_00310500",
+   "status": "differs",
+   "port": "host"
   }
  },
  "left_out": {
-  "func_003A2BC0__frontbin": "NTSC-U has no such function (none)",
-  "func_L01_00460868": "NTSC-U has no such function (none)",
   "func_003AA3C8__frontbin": "DrawWidgetSpriteFrontbin: since rac3-decomp f9ea1754 NTSC-U's release view names PAL's frontbin func_003AA3C8 func_003A4E70 without its program's suffix, so frontbin's C calls a stub and the row would bind the boot program's address (inside func_003A4688); left out until the release view names it as frontbin's again",
   "mp:func_L39_0067A7E0": "no NTSC-U pair (release/mp_pairs.json)"
  },
  "addresses_not_found": [
+  "L01:004D8220",
+  "L01:004DB780",
   "mp:001959F8",
   "mp:00241128"
  ],
@@ -220,10 +210,6 @@
    "is": "0x001BBC40",
    "why": "Veldin's program (rac3_level_pairs.py): the same instruction of the same code: func_L01_00317C48 (NTSC-U func_L01_003177F8) +0x78, 24 of 24 places agree"
   },
-  "0x001D4CF4": {
-   "is": "0x001D4CF4",
-   "why": "the active pad's not-ready flag the pad update writes ($gp - 0x7BBC: NTSC-U's func_003A3A00 stores to it as PAL's func_003A3B40 does, asm/us/boot_elf/13_text/f_003A3A00.s at 0x003A3A64, and both programs' $gp is 0x001DC8B0, config/gp.tsv)"
-  },
   "0x001A71A0": {
    "is": "0x001A71A0",
    "why": "the same instruction of the same code in Veldin's program (rac3_level_pairs.py): func_L01_003090E0 (NTSC-U func_L01_00308E58) +0x80, 31 of 31 places agree"
@@ -247,8 +233,6 @@
  },
  "hostgen_left_out": {
   "asm.signatures": [
-   "func_PAL_L01_00460980",
-   "func_PAL_L01_00460A70",
    "func_PAL_L39_00571600",
    "func_PAL_L39_00572460",
    "func_PAL_L21_00387578",
@@ -290,7 +274,6 @@
    "func_PAL_L40_0048BE98",
    "func_PAL_L39_00518A18",
    "func_PAL_L46_004A6FC0",
-   "func_PAL_L01_004AB368",
    "func_PAL_L39_005A6020",
    "func_L39_006AE8F8_006AE3D8",
    "func_PAL_L39_006CCD08",
@@ -317,18 +300,16 @@
   ]
  },
  "own_functions": [
-  "func_00393290__frontbin",
   "func_00395FE0__frontbin",
   "func_0039DB38__frontbin",
-  "func_003A0170__frontbin",
   "func_003B0C70__frontbin",
   "func_003B0D18__frontbin",
-  "func_003A5850",
   "func_003B6430",
   "func_003B64D8"
  ],
  "gone_roots": [
   "func_0037D1A8__frontbin",
+  "func_0037D200__frontbin",
   "func_0037DD30__frontbin",
   "func_0037E060__frontbin",
   "func_0037E368__frontbin",
@@ -347,6 +328,7 @@
   "func_00388610",
   "func_0038A8A0",
   "func_0038F0C0__frontbin",
+  "func_0038F0F8__frontbin",
   "func_0038F3A0__frontbin",
   "func_0038F3F8__frontbin",
   "func_0038FD40",
@@ -356,12 +338,14 @@
   "func_00391B70__frontbin",
   "func_00391D08__frontbin",
   "func_00391FD8__frontbin",
+  "func_003932B0__frontbin",
   "func_00393C18",
   "func_00393EF8",
   "func_00395240",
   "func_00396688",
   "func_003966C8",
   "func_00396860",
+  "func_00396B30",
   "func_00397E08",
   "func_00399708__frontbin",
   "func_0039CEA8__frontbin",
@@ -385,6 +369,7 @@
   "func_003A7DB0",
   "func_003A82F8",
   "func_003AA238",
+  "func_003AA630",
   "func_003ACB60",
   "func_003AD8A8__frontbin",
   "func_003AE438__frontbin",

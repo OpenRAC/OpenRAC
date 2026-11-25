@@ -18,7 +18,7 @@ listed at the end.
 | **Does the port work with a PS5 DualSense today?** | **Yes.** SDL3 recognises it and the port reads it through SDL's generic gamepad API: buttons, both sticks, both triggers. |
 | **Does the game use analog button pressure?** | **Yes, but only for one thing**: the hero's **swimming turn rate**, scaled by the pressure of the **Cross** and **Square** buttons. |
 | **Could a DualSense supply that?** | **No** — a DualSense's face buttons are digital; only its triggers are analog, and the game never reads the triggers' pressure. |
-| **Does the game use rumble?** | **No — and neither does the retail game.** The retail executable links no motor command at all. There is no rumble to restore; any rumble would be a *new* feature. |
+| **Does the game use rumble?** | **No — and neither does the retail game.** The retail executable links no motor command at all. There is no rumble to restore; any rumble would be a *new* feature. Going Commando does rumble, and the port plays it (section 4); a mod can drive the motors itself (`openrac_api.set_motors`, interface 1.37). |
 | **Does SDL3 expose adaptive triggers?** | **No.** SDL's maintainer ruled it out in 2022; the request was re-opened in 2026 and is still open. The raw escape hatch, `SDL_SendGamepadEffect()`, exists since SDL 3.2.0. |
 | **Does SDL3 expose the light bar?** | **Yes** — `SDL_SetGamepadLED()`, since 3.2.0. |
 | **Does SDL3 expose the gyroscope?** | **Yes** — `SDL_GamepadHasSensor` / `SDL_SetGamepadSensorEnabled` / `SDL_GetGamepadSensorData`, since 3.2.0. |
@@ -85,7 +85,7 @@ any frame rate. Off, only the first read happens, and the tick sees the pad as t
 | **Touchpad click** (`SDL_GAMEPAD_BUTTON_TOUCHPAD`) | No |
 | **Gyroscope / accelerometer** | No |
 | **Light bar** (`SDL_SetGamepadLED`) | No |
-| **Rumble** (`SDL_RumbleGamepad`) | Called every frame, **always with zero** (`input.cpp:262-264`) |
+| **Rumble** (`SDL_RumbleGamepad`) | **Yes**, for the motor values a game sends (Going Commando's, Up Your Arsenal's, Deadlocked's; Ratchet & Clank sends none) and a mod's (`set_motors`), shaped by the `pad_rumble` and `pad_rumble_style` settings (`port/platform/input.cpp`, `Input::play_rumble`) |
 | **Player LEDs / player index** | No — ports are assigned by connection order (`input.cpp:112-129`, `:190-193`) |
 
 There is no DualSense-specific code anywhere in the tree: no
@@ -250,20 +250,25 @@ toggled but never read. The feature was shelved.
 adding `scePadSetActDirect` to rac1's library table would bind an address the
 game never calls.
 
-The port's plumbing already exists and is simply unused: `platform::Pad`'s
-`small_motor` and `large_motor` (`port/platform/pad.h:104-107`), carried
-across frames (`input.cpp:231-235`) and played through
-`SDL_RumbleGamepad(g, low, high, 100)` (`input.cpp:262-264`) — with `low` and
-`high` always zero.
-
-For the other games this is a real gap:
+The other games do rumble, and the port plays them. Each game's motor
+command becomes `openrac_game_set_motors(port, small, large)` (the small motor
+on or off, the large one 0 to 255; `port` the controller's port, 0 or 1),
+which `frontend::set_motors` hands to `platform::Input`. Its
+`play_rumble` turns the values into `SDL_RumbleGamepad` through the rumble
+shaper (`port/platform/rumble.h`), following the `pad_rumble` strength and
+`pad_rumble_style`; a value not sent again for 0.2 s stops.
 
 | Game | Retail rumble call | Port |
 |---|---|---|
-| rac1 | none linked | none needed |
-| rac2 | `scePadSetActAlign` (`games/rac2/decomp/symbol_addrs/eu/symbol_addrs.txt:494`) | not bound |
-| rac3 | — | no pad rows at all in `libraries.tsv` |
-| rac4 | `scePadSetActDirect` / `scePadSetActAlign` | bound, but **no-ops returning 0** (`port/game/rac4-ntsc/host/pad.c:123-135`) |
+| rac1 | none linked | none needed; a mod may rumble (`openrac_api.set_motors`) |
+| rac2 | libvib's `sceVibSetActParam`, from the pad poll each read (`port/game/rac2-ntsc/libraries.tsv`) | played (`port/game/common/lib/pad.c`, `openrac_lib_sceVibSetActParam`) |
+| rac3 | `scePadSetActDirect` / `scePadSetActAlign` | played (`port/game/rac3-pal/host/pad.c`) |
+| rac4 | `scePadSetActDirect` / `scePadSetActAlign` | played (`port/game/rac4-ntsc/host/pad.c`) |
+
+A mod's motor values (`set_motors`, interface 1.37) play with the game's:
+each motor the stronger of the game's and every mod's, held 0.2 s as the
+game's are, and a mod's stop with its unload. A mod calls it on the game's
+thread only: `Input` reads the values in `play_rumble` without a lock.
 
 ## 5. The DualSense feature by feature
 
@@ -531,7 +536,7 @@ Ordered by value per unit of work, for *this* game.
 | 5 | **The gyroscope** — `SDL_SetGamepadSensorEnabled()` / `SDL_GetGamepadSensorData()` | **Medium** | The `keyboard-mouse` mod already turns the mouse into the camera; a gyro could be an alternative for players who prefer it. The game has no use for it, so this is a port-level extra |
 | 6 | **Adaptive triggers** — `SDL_SendGamepadEffect()` with a filled trigger array | **Medium** | **No fidelity payoff**: nothing in R&C1 reads a trigger's travel. It could be a *mod* — a resistance cue on the Swingshot, the Bomb Glove, the Suck Cannon — which is the honest way to offer it, since it changes how the game plays |
 | 7 | **HD haptics** | **Large** | A separate USB audio path SDL cannot do. Only worth it if the port grows a rumble feature the game does not have |
-| 8 | **Rumble** — for the other games | **Medium** | rac2's retail code calls `scePadSetActAlign` and rac4's `scePadSetActDirect`; the port binds neither, and rac4's are no-ops. Worth doing when rac2 and rac3 are playable |
+| 8 | **Rumble** — for the other games | **Done** | rac2's libvib, rac3's and rac4's `scePadSetActDirect` reach the pad (section 4); mods drive the motors through `set_motors` (1.37) |
 
 For **Ratchet & Clank 1** specifically, items 1 and 2 are the only ones that
 change anything the game can feel. Item 1 is also the one that removes a small

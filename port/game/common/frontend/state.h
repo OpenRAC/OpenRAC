@@ -46,7 +46,9 @@
 #include "scene/level.h"
 #include "scene/level_renderer.h"
 #include "scene/moby_shadow.h"
+#include "scene/moby_skin.h"
 #include "scene/object_picker.h"
+#include "scene/prop_rig.h"
 #include "scene/special_acquisition.h"
 #include "settings.h"
 
@@ -82,6 +84,11 @@ struct Kept {
     std::vector<scene::Instance> live;
     std::vector<std::uint32_t> addresses;  // each live moby's address, for its last matrix
     std::unordered_map<std::uint32_t, renderer::Mat4> prev_matrices;
+    // Each moby's move the tick before the last (from two ticks ago to prev_matrices), where both
+    // ticks had it, and the eye's (prev_state's from the one before): a frame between ticks moves
+    // a thing that moves farther than a step in a tick but keeps its pace (geometry.h same_moby).
+    std::unordered_map<std::uint32_t, renderer::Vec3> prev_paces;
+    std::optional<renderer::Vec3> camera_pace;
     std::unordered_map<std::uint32_t, std::array<float, 4>> prev_spheres;
     std::vector<scene::LevelScene::JointColumns> palette;
     std::vector<renderer::ShadowCapsule> shadows, prev_shadows;
@@ -117,6 +124,10 @@ struct Kept {
     std::uint64_t effects_frame = ~0ull;
     std::array<renderer::Mat4, 8> sky_shells{};
     unsigned sky_shell_mask = 0;
+    // The tick before's shells, where it was the one before (keep_effects): a frame between ticks
+    // turns each from there (scene_hud.cpp).
+    std::array<renderer::Mat4, 8> prev_sky_shells{};
+    unsigned prev_sky_shell_mask = 0;
     std::vector<renderer::UiQuad> ui_quads;
     // The frame recorder's commands the tick's 2D path draws, and where (capture_2d_path,
     // docs/port/FRAME_RECORDER.md): FrameInput::recording, splices, splices_before_world.
@@ -289,6 +300,10 @@ struct State {
     // load_prop_meshes (frontend/world.cpp) as props ask for new ones. A new level starts them
     // again.
     std::vector<std::pair<std::filesystem::path, std::uint32_t>> prop_models;
+    // The skinned ones' skeletons and animations (openrac_api.prop_animate).
+    std::vector<std::pair<std::filesystem::path, scene::PropRig>> prop_rigs;
+    // The level's mobys drawn as another model (the editor's skins.json beside its placements).
+    scene::MobySkins moby_skins;
     std::map<int, scene::SpecialClip> special_pickup_clips;
     int infobot_pickup_model = -1;
     std::vector<std::vector<renderer::Mat4>> infobot_pickup_poses;

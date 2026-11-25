@@ -53,6 +53,10 @@ void func_00213BB8(int oclass) {
         }
     }
 
+    if (update == 0 && callbacks == 0) {
+        /* A class another level's program runs (foreign_class.c), or none. */
+        update = rac1_foreign_class_update(oclass);
+    }
     if (slot >= MOBY_SLOT_COUNT) {
         return;
     }

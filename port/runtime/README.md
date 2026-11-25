@@ -9,7 +9,7 @@ game is lives in `game/` and in the code hostgen writes.
 Library `openrac_runtime`; the console's float arithmetic for C is the separate library
 `openrac_ps2float` (`ps2float.cpp`), which links it. The C contracts are in `include/openrac/`
 beside two C++ headers of the runtime's own (section 14.1 of
-[CODING_CONVENTIONS.md](../docs/CODING_CONVENTIONS.md)).
+[CODING_CONVENTIONS.md](../../docs/CODING_CONVENTIONS.md)).
 
 ## Interface
 

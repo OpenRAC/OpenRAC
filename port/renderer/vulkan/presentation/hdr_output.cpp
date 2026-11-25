@@ -103,7 +103,6 @@ bool make_pipeline(Output output) {
         log::warn("vulkan: no HDR encode pass ({}); the picture goes out in SDR", error);
         return failed();
     }
-    ++g->submission.shader_compiles;
     const std::array<VkDescriptorSetLayoutBinding, 2> bindings{
         {{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
          {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}}

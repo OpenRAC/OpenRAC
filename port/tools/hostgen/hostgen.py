@@ -49,7 +49,7 @@ import variant_check  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import LEVEL_SHORT_MISS, Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, canon, cname, index_unit, prototype, inherit_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, users_of_vu0_assembly, canon, cname, index_unit, prototype, inherit_results, uninherit_void_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
 import program as program_module  # noqa: E402  (its NAME_PREFIX)
 
 HERE = Path(__file__).resolve().parent
@@ -680,6 +680,13 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
             "addresses": sum(len(v) for v in code_tables.values())}
 
 
+def _stack_arg(ni: int) -> str:
+    """The ni-th integer argument past the eighth, from where the calling code left it: 0($sp) up,
+    a doubleword each, at the guest stack pointer the call through the address saved
+    (OPENRAC_ASM_CALL). Up Your Arsenal's message box takes eleven; its thunk used to pass 0."""
+    return f"GREF(uint64_t, openrac_guest_sp + {8 * (ni - 8)}u)"
+
+
 def thunk_text(sym: str, f: Function, typedefs: dict, k: int) -> str | None:
     """thunk_<k>: f called with the EE's argument registers, integers from i[] in order and floats
     from f[], by its definition's parameters; its result as the EE has it (a float in *r). None
@@ -701,10 +708,10 @@ def thunk_text(sym: str, f: Function, typedefs: dict, k: int) -> str | None:
                 args.append(f"f[{nf}]" if nf < 8 else "0.0f")
                 nf += 1
             elif c == "double":
-                args.append(f"thunk_d_(i[{ni}])" if ni < 8 else "0.0")
+                args.append(f"thunk_d_(i[{ni}])" if ni < 8 else f"thunk_d_({_stack_arg(ni)})")
                 ni += 1
             else:
-                args.append(f"({c})i[{ni}]" if ni < 8 else f"({c})0")
+                args.append(f"({c})i[{ni}]" if ni < 8 else f"({c}){_stack_arg(ni)}")
                 ni += 1
         if sig.variadic:
             args += [f"i[{n}]" for n in range(ni, 8)]
@@ -1660,6 +1667,9 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     # A definition that uses a derived name with no address (a ref_ name a stale table does not value) is left to
     # its assembly too (program.py users_of_unresolved_derived): its call would reach a stub that does nothing.
     program.unresolved_derived = users_of_unresolved_derived(program)
+    # hostgen.json "vu0_assembly_from_retail": a definition whose inline assembly runs VU0 instructions the lowering
+    # would skip (explicit $vf registers) is left to its assembly as well (program.py users_of_vu0_assembly).
+    program.vu0_assembly_moved = users_of_vu0_assembly(program) if cfg.get("vu0_assembly_from_retail") else {}
     # A parameter the C only passes on to 64-bit parameters is 64-bit itself (program.py widen_forwarded): the EE's
     # register carries all its bits through (FontPrintCenter's colour to FontPrint's u64).
     # A definition that names fewer parameters than its callers pass, which it hands on in their registers (program.py
@@ -1723,6 +1733,8 @@ def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dic
         for name, why in sorted(asmc.write_console(asm_stage, args.asm_console.resolve(), names).items()):
             print(f"hostgen: {name}: no console form: {why}", file=sys.stderr)
     inherited = inherited_early + asm_stage.inherited + inherit_results(program)
+    uninherited = set(uninherit_void_results(program))
+    inherited = [name for name in inherited if name not in uninherited]
     return asm_stage, asm_results, inherited
 
 
@@ -1744,6 +1756,7 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     extra["results_widened"] = sorted(getattr(program, "results_widened", []))
     extra["unprototyped_callers"] = sorted(getattr(program, "unprototyped_callers", []))
     extra["unresolved_derived"] = dict(sorted(getattr(program, "unresolved_derived", {}).items()))
+    extra["vu0_assembly_from_retail"] = dict(sorted(getattr(program, "vu0_assembly_moved", {}).items()))
     extra["bound_libraries"] = write_libraries(program, out, host_rows, library_api(args.game.parent, cfg))
     extra["rows_without_function"] = rows_without_function(program, host_rows)
     for sym in extra["rows_without_function"]:

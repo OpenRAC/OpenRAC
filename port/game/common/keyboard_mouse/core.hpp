@@ -48,6 +48,7 @@ struct Settings {
     bool prompts = true;
     int prompt_device = -1;  // the icons: -1 the device in use, 0 always the gamepad's, 1 the keys
     bool mouse_with_gamepad = true;
+    bool low_latency = false;  // the frames between ticks show the mouse's turn (mouse_turn.h)
     GyroWhen gyro_when = GyroWhen::Off;
     openrac::platform::GyroOptions gyro;
 };
@@ -160,6 +161,7 @@ inline Settings read_settings(openrac::Mod& mod, float ticks_per_second) {
     const std::string icons = text_setting(mod, "prompt_device");
     s.prompt_device = icons == "keyboard" ? 1 : icons == "gamepad" ? 0 : -1;
     s.mouse_with_gamepad = bool_setting(mod, "mouse_with_gamepad", true);
+    s.low_latency = bool_setting(mod, "mouse_low_latency", false);
     read_gyro(mod, s);
 
     // What the port itself does with them: the cursor, the mods' button labels, the gyro.

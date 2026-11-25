@@ -84,7 +84,7 @@ void openrac_game_special_sound(int item);
 int openrac_game_special_available(int item);
 
 /* A folder of edited levels (--mods), or NULL: its patches.tsv lists the disc
- * sectors that are read from files beside it instead (editor/pack.py writes
+ * sectors that are read from files beside it instead (OpenRAC Editor's openrac/tools/pack.py writes
  * both). The disc image itself is never changed. */
 extern const char* openrac_game_mods_dir;
 
@@ -878,6 +878,15 @@ typedef struct openrac_game_play {
      * developer camera): the baked zone visibility is made for the game's own camera and does not
      * apply to it. 1 or 0. NULL for a game without it (never overridden). */
     int (*camera_overridden)(void);
+    /* hero_sound_play and hero_sound_stop on any moby of the level (openrac_api.moby_sound_play,
+     * moby_sound_stop), and the volume group the game's music streams play in (openrac_api
+     * music_volume), -1 for none. NULL for a game without them. */
+    int (*moby_sound_play)(gaddr moby, int sound, int loop);
+    void (*moby_sound_stop)(gaddr moby, int voice);
+    int (*music_group)(void);
+    /* A placed moby's spawn id (the record's uid), -1 for none (openrac_api.moby_uid). NULL for a
+     * game without it. */
+    int32_t (*moby_uid)(int32_t slot);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)
@@ -1067,8 +1076,11 @@ uint32_t openrac_game_effect_quad_marker(void);
 
 /* A scoped attachment for strips in a display list delayed by one tick: write this tag in bits
  * 48-63 and the parent moby's address in bits 0-31 to NOP; address 0 ends the scope. The frontend
- * moves these vertices from the previous parent transform to its displayed transform. */
+ * moves these vertices from the previous parent transform to its displayed transform; with
+ * OPENRAC_PREVIOUS_EFFECT_PARENT_POSITION_ONLY set too, by the parent's move alone (its world
+ * offsets kept, not turned with it: what is drawn on the hero, his weapon and his shield). */
 #define OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER 0x4550u
+#define OPENRAC_PREVIOUS_EFFECT_PARENT_POSITION_ONLY (1ull << 32)
 
 /* Where the game's moby renderer draws the world's mobys, for the display list: the game puts
  * (OPENRAC_WORLD_MOBYS_MARKER << 48) in it with an A+D write to the NOP register where the world's
@@ -1135,6 +1147,8 @@ typedef struct openrac_game_hud_text {
 int openrac_game_hud_texts(openrac_game_hud_text* out, int max);
 int openrac_game_ammo_panel_offset(int handle, int* x, int* y);
 int openrac_game_rac1_weapon_hud_icon(int native_icon);
+/* Whether a mod hides the game's own HUD now (openrac_api.hud_hide): 1, else 0. */
+int openrac_game_hud_hidden(void);
 
 /* How many times wider than the game's 4:3 the picture is (the player's aspect setting): its
  * horizontal tangent is the game's times this. 1 for a 4:3 picture, and without a window. */
@@ -1238,6 +1252,10 @@ uint32_t openrac_game_card_saves(void);
  * first level. For getting to a level directly, as the behaviour checker's level write does. */
 extern int openrac_game_start_level;
 
+/* Non-zero: a new game goes straight into openrac_game_start_level from the title, as
+ * OPENRAC_DIRECT does (--moby-states sets it). */
+extern int openrac_game_direct_start;
+
 int openrac_game_pad(int port, uint16_t* buttons, uint8_t analog[4]);
 
 /* The game's DualShock 2 motor values: small on (nonzero) or off, large speed 0..255. Sent by the
@@ -1253,6 +1271,11 @@ void openrac_game_pad_after_mods(int port, uint8_t* report, int size);
 /* openrac_game_pad, then through the mods' callbacks as a report and back: for the port's own
  * readers of the pad (the movie player). */
 int openrac_game_pad_through_mods(int port, uint16_t* buttons, uint8_t analog[4]);
+
+/* A PNG file as 8-bit RGBA rows (width * height * 4 bytes), or NULL when it cannot be read or the
+ * build has no image reader (no window). Free it with openrac_game_free_png. */
+unsigned char* openrac_game_load_png(const char* path, int* width, int* height);
+void openrac_game_free_png(unsigned char* pixels);
 
 /* The game's text lookup, asked for a text id: the game address of a string of the port's own (the
  * rows it adds to the game's options), or 0 when the id is the game's. */

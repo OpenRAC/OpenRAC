@@ -7,8 +7,6 @@
 #include <array>
 #include <functional>
 #include <memory>
-#include <memory_resource>
-#include <unordered_set>
 
 #include "renderer/graph/frame_graph.h"
 
@@ -111,8 +109,9 @@ public:
 
 private:
     bool m_pending = false;
-    std::pmr::unsynchronized_pool_resource m_identity_pool;
-    std::pmr::unordered_set<void*> m_identities{&m_identity_pool};
+    // Open-addressed membership table. A null slot is empty and there are no
+    // individual removals before completion, so the table can be reused as a unit.
+    std::vector<void*> m_identities;
     std::vector<std::shared_ptr<void>> m_resources;
     std::vector<std::function<void()>> m_retirements;
 };

@@ -45,7 +45,7 @@ cd port && cmake --preset release && cmake --build --preset release && ctest --p
 - [port/README.md](../port/README.md): the code and how it fits together.
 - [docs/port](port/README.md): the design and the order of work.
 - [docs/port/WORKFLOW.md](port/WORKFLOW.md): from a player's report to a fix.
-- [port/docs/CODING_CONVENTIONS.md](../port/docs/CODING_CONVENTIONS.md): how
+- [docs/CODING_CONVENTIONS.md](CODING_CONVENTIONS.md): how
   the port's code is written.
 
 ## CI build caches
@@ -80,17 +80,17 @@ Ratchet & Clank (PAL):
 
 ```sh
 # Turn the 19 levels on your disc into Godot projects (about 20 seconds).
-python3 editor/extract.py godot baserom/SCES_509.16.iso assets/levels/rac1/pal --split
+python3 extractor/extract.py godot baserom/SCES_509.16.iso assets/levels/rac1/pal --split
 
 # Open one in the Godot 4 editor (level_00 is Veldin).
 godot --path assets/levels/rac1/pal/level_00 -e
 
 # Pack your edits into game data. Your disc is not changed.
-python3 editor/extract.py pack baserom/SCES_509.16.iso assets/levels/rac1/pal assets/packed/rac1/pal
+python3 extractor/extract.py pack baserom/SCES_509.16.iso assets/levels/rac1/pal assets/packed/rac1/pal
 ```
 
 The port plays the packed levels with `--mods assets/packed/rac1/pal`. More in
-[editor/README.md](../editor/README.md); to change how things behave, use the
+[extractor/README.md](../extractor/README.md); to change how things behave, use the
 mod SDK ([docs/port/MODS.md](port/MODS.md)).
 
 ## The decompilations

@@ -38,6 +38,8 @@ language server at the SDK's `types/rac1.d.luau` for autocomplete. How to use it
 | `openrac.set_setting` | `(key: string, value: any) -> boolean` |
 | `openrac.on_settings` | `(fn: () -> ()) -> ()` |
 | `openrac.button_label` | `(button: number) -> (string?, ("playstation" \| "letters" \| "keys")?)` |
+| `openrac.set_motors` | `(port: number, small_motor: boolean, large_motor: number) -> boolean` |
+| `openrac.menu_option_set` | `(option: string, state: "on" \| "off" \| "default") -> boolean` |
 | `openrac.pvars` | `(moby: number) -> { [string]: number }?` |
 
 ## Types

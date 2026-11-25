@@ -111,7 +111,7 @@ OpenGOAL's `extractor`, step by step:
 |---|---|---|
 | extract | copy every file out of the ISO 9660 image into `iso_data/<game>/`, hash them | the same, into `iso_data/<game>/` |
 | validate | find the boot executable, hash it, look the serial and hash up in its database of known builds; refuse an unknown or damaged image with an error code | the same, against `games/<game>/game.json` (serial, size and SHA-1 of the boot executable); the same error codes |
-| decompile | turn levels, textures, art and text into the port's formats (`decompiler_out/`, `out/<game>/fr3`) | planned: the editor's readers ([editor/](../../editor/README.md)) are the start |
+| decompile | turn levels, textures, art and text into the port's formats (`decompiler_out/`, `out/<game>/fr3`) | planned: the editor's readers ([extractor/](../../extractor/README.md)) are the start |
 | compile | build the game | the port is built from source today ([port/](../../port/README.md)); a player's copy will come built |
 
 The launcher runs these steps for the player, as OpenGOAL's launcher does
@@ -141,4 +141,4 @@ measurements, the OpenGOAL notes, and its findings about compiling the C
 (`runtime/docs/CODING_CONVENTIONS.md` in history) are a starting point for
 the port's own: the layout and comment rules carry over; the rules about
 modelling hardware do not. The port's own are
-[port/docs/CODING_CONVENTIONS.md](../../port/docs/CODING_CONVENTIONS.md).
+[docs/CODING_CONVENTIONS.md](../CODING_CONVENTIONS.md).

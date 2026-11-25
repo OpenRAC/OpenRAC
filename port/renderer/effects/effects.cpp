@@ -4,6 +4,7 @@
 #include "renderer/effects/effects.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <optional>
 #include <set>
@@ -16,11 +17,13 @@
 #include "common/stats.h"
 #include "renderer/direct/direct.h"
 #include "renderer/direct/gs.h"
+#include "renderer/effects/shader_sources.h"
 #include "renderer/frame/colour_graph.h"
 #include "renderer/frame/raster_pass.h"
 #include "renderer/frame/surface_chain.h"
 #include "renderer/gl/gl.h"
 #include "renderer/settings/render_opt.h"
+#include "renderer/textures/texture_pack.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
@@ -49,6 +52,111 @@ std::array<float, 2> offscreen_target_st(std::uint64_t tex0_bits, float s, float
         s * static_cast<float>(tex0.width()) / pixels,
         1.0f - t * static_cast<float>(tex0.height()) / pixels
     };
+}
+
+std::array<float, 2> frame_copy_st(float s, float t, float picture_scale_x) {
+    const float k = picture_scale_x > 0.0f ? picture_scale_x : 1.0f;
+    return {0.5f + (s - 0.5f) * k, 1.0f - t};
+}
+
+bool any_frame_copy(std::span<const EffectStrip> strips) {
+    return std::ranges::any_of(strips, [](const EffectStrip& s) {
+        return s.frame_copy && s.count >= 3;
+    });
+}
+
+namespace {
+
+// How far a haze patch at full strength moves the picture behind it, a part of its radius on the
+// screen (Haze: the offset in pixels is the strength times the radius in pixels). The game moves
+// its corners by a few hundredths of the picture; this keeps the shimmer subtle at any size.
+constexpr float kFrameCopyHazeStrength = 0.12f;
+
+// A strip that only writes the destination alpha: the colour is (A - B) C + Cd with A = B.
+bool alpha_only_strip(const EffectStrip& strip) {
+    const gs::Alpha a = gs::Alpha::decode(strip.alpha);
+    return !strip.blend_disabled && !strip.frame_copy && a.a == a.b && a.d == 1;
+}
+
+}  // namespace
+
+void frame_copy_haze(
+    std::vector<EffectStrip>& strips,
+    std::span<const EffectVertex> vertices,
+    std::vector<std::array<float, 5>>& haze
+) {
+    std::vector<bool> drop(strips.size(), false);
+    const auto in_range = [&](const EffectStrip& s) {
+        return s.count >= 3 && s.first <= vertices.size() && s.count <= vertices.size() - s.first;
+    };
+    // The mask and the copy over the same corners: the copy's mask is the last strip before it
+    // that writes only alpha there (the game's first frame copy of a frame may come between).
+    const auto mask_of = [&](std::size_t i) -> std::optional<std::size_t> {
+        const EffectStrip& copy = strips[i];
+        for (std::size_t j = i; j-- > 0 && i - j <= 4;) {
+            const EffectStrip& mask = strips[j];
+            if (drop[j] || !alpha_only_strip(mask) || !in_range(mask) || mask.count != copy.count) {
+                continue;
+            }
+            bool same = true;
+            for (std::uint32_t k = 0; k < copy.count; ++k) {
+                const EffectVertex& a = vertices[copy.first + k];
+                const EffectVertex& b = vertices[mask.first + k];
+                same = same && std::abs(a.x - b.x) < 1e-3f && std::abs(a.y - b.y) < 1e-3f
+                       && std::abs(a.z - b.z) < 1e-3f;
+            }
+            if (same) {
+                return j;
+            }
+        }
+        return std::nullopt;
+    };
+    for (std::size_t i = 1; i < strips.size(); ++i) {
+        const EffectStrip& copy = strips[i];
+        if (!copy.frame_copy || !in_range(copy)) {
+            continue;
+        }
+        const auto m = mask_of(i);
+        if (!m) {
+            continue;
+        }
+        const EffectStrip& mask = strips[*m];
+        const auto corners = vertices.subspan(copy.first, copy.count);
+        const auto masked = vertices.subspan(mask.first, mask.count);
+        float cx = 0.0f, cy = 0.0f, cz = 0.0f;
+        for (const EffectVertex& v : corners) {
+            cx += v.x;
+            cy += v.y;
+            cz += v.z;
+        }
+        const float n = static_cast<float>(corners.size());
+        cx /= n;
+        cy /= n;
+        cz /= n;
+        // The square's corners are its half diagonal from the centre: half its side is that over
+        // the square root of two, the circle inside the square.
+        float reach = 0.0f;
+        for (const EffectVertex& v : corners) {
+            reach = std::max(reach, std::hypot(v.x - cx, v.y - cy, v.z - cz));
+        }
+        // The mask's alpha (0x80 opaque): how much of the copy the patch lets through.
+        float fade = 0.0f;
+        for (const EffectVertex& v : masked) {
+            fade = std::max(fade, static_cast<float>(v.rgba >> 24) / 128.0f);
+        }
+        fade = std::clamp(fade, 0.0f, 1.0f);
+        drop[*m] = drop[i] = true;
+        if (reach > 0.0f && fade > 0.0f) {
+            haze.push_back({cx, cy, cz, reach / std::sqrt(2.0f), kFrameCopyHazeStrength * fade});
+        }
+    }
+    std::size_t kept = 0;
+    for (std::size_t i = 0; i < strips.size(); ++i) {
+        if (!drop[i]) {
+            strips[kept++] = std::move(strips[i]);
+        }
+    }
+    strips.resize(kept);
 }
 
 bool test_writes_z(std::uint64_t test) {
@@ -202,20 +310,9 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     }
     m_test_plain = false;
     m_active_shader = nullptr;
-    std::string fragment(shaders::direct_frag);
-    fragment.insert(
-        fragment.find('\n') + 1,
-        "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n#define OPENRAC_EFFECT_FOG 1\n"
-    );
-    const std::string tested_fragment = fragment;  // the alpha test kept (m_test_shader)
-    // Effect packets skip HUD distance fields and alpha tests; authored strip fog remains dynamic.
-    // Keep texture functions/tcc dynamic: they can differ between effect strips.
-    if (render_opt::enabled(render_opt::Opt::EffectStaticControls)) {
-        fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_EFFECT_FIXED 1\n");
-        fragment = shader_constants(
-            std::move(fragment), {{"textured", 1}, {"distance_field", 0}, {"alpha_test", 0}}
-        );
-    }
+    const std::string tested_fragment = effect_sources::base_fragment(false);
+    std::string fragment =
+        effect_sources::base_fragment(render_opt::enabled(render_opt::Opt::EffectStaticControls));
     const std::string original_fragment = fragment;
     std::string vertex_source(shaders::effect_vert);
     if (m_material) {
@@ -225,15 +322,16 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
             m_material.reset();
             error.clear();
         } else {
-            const auto extension = m_material->vertex_source();
-            if (!extension.empty()) {
-                vertex_source.insert(vertex_source.find("void main()"), extension);
-                vertex_source
-                    .insert(vertex_source.find('\n') + 1, "#define OPENRAC_EFFECT_POSITION 1\n");
-            }
-            fragment.insert(fragment.find("void main()"), m_material->fragment_source());
-            fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
+            vertex_source = effect_sources::vertex(m_material->vertex_source());
+            fragment = effect_sources::fragment(std::move(fragment), m_material->fragment_source());
         }
+    }
+    // Without a material the quads are drawn by m_shader and may go in pair runs (pair_quads).
+    m_pair_shader = !m_material;
+    if (m_pair_shader) {
+        vertex_source =
+            effect_sources::with_define(std::move(vertex_source), "OPENRAC_EFFECT_PAIR");
+        fragment = effect_sources::with_define(std::move(fragment), "OPENRAC_EFFECT_PAIR");
     }
     if (!m_shader.build("effect", vertex_source, fragment, error)) {
         if (!m_material) {
@@ -245,16 +343,14 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
         if (!m_shader.build("effect", shaders::effect_vert, original_fragment, error)) {
             return false;
         }
+        m_pair_shader = false;
         error.clear();
     }
     if (m_material) {
         const auto plain = m_material->quad_fragment_source();
         if (plain
             && (*plain != m_material->fragment_source() || !m_material->vertex_source().empty())) {
-            std::string quad_fragment = original_fragment;
-            quad_fragment.insert(quad_fragment.find("void main()"), *plain);
-            quad_fragment
-                .insert(quad_fragment.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
+            const auto quad_fragment = effect_sources::fragment(original_fragment, *plain);
             if (!m_quad_shader.build("effect quads", shaders::effect_vert, quad_fragment, error)) {
                 log::warn("Original effect quad shader retained: {}", error);
                 error.clear();
@@ -269,19 +365,11 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
         if (m_material) {
             const auto plain = m_material->quad_fragment_source();
             m_test_plain = plain && m_quad_shader.id();
-            if (!m_test_plain) {
-                const auto extension = m_material->vertex_source();
-                if (!extension.empty()) {
-                    tested_vertex.insert(tested_vertex.find("void main()"), extension);
-                    tested_vertex.insert(
-                        tested_vertex.find('\n') + 1, "#define OPENRAC_EFFECT_POSITION 1\n"
-                    );
-                }
-            }
-            tested.insert(
-                tested.find("void main()"), m_test_plain ? *plain : m_material->fragment_source()
+            tested_vertex =
+                effect_sources::vertex(m_test_plain ? std::string{} : m_material->vertex_source());
+            tested = effect_sources::fragment(
+                std::move(tested), m_test_plain ? *plain : m_material->fragment_source()
             );
-            tested.insert(tested.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
         }
         if (!m_test_shader.build("effect tested quads", tested_vertex, tested, error)) {
             log::warn("Effect quads keep no alpha test: {}", error);
@@ -294,20 +382,12 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     // The untextured quads (particle lines): the same fragment, with `textured` a uniform that
     // use_shader sets to 0. Without it they are not drawn (no line is then a textured one).
     {
-        std::string untextured(shaders::direct_frag);
-        untextured
-            .insert(untextured.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");
-        std::string untextured_vertex(shaders::effect_vert);
+        auto untextured = effect_sources::untextured();
+        const auto untextured_vertex =
+            effect_sources::vertex(m_material ? m_material->vertex_source() : std::string{});
         if (m_material) {
-            const auto extension = m_material->vertex_source();
-            if (!extension.empty()) {
-                untextured_vertex.insert(untextured_vertex.find("void main()"), extension);
-                untextured_vertex.insert(
-                    untextured_vertex.find('\n') + 1, "#define OPENRAC_EFFECT_POSITION 1\n"
-                );
-            }
-            untextured.insert(untextured.find("void main()"), m_material->fragment_source());
-            untextured.insert(untextured.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
+            untextured =
+                effect_sources::fragment(std::move(untextured), m_material->fragment_source());
         }
         if (!m_untextured_shader.build("effect untextured", untextured_vertex, untextured, error)) {
             log::warn("Effect lines are not drawn: {}", error);
@@ -359,6 +439,18 @@ void EffectRenderer::bind_vertex_stream(unsigned vao, std::size_t first) {
         stride,
         reinterpret_cast<const void*>(offset + offsetof(Vertex, r))
     );
+    // Only m_shader reads the pair byte; a material's shaders may have their own location 3.
+    if (m_pair_shader) {
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(
+            3,
+            1,
+            GL_UNSIGNED_BYTE,
+            GL_TRUE,
+            stride,
+            reinterpret_cast<const void*>(offset + offsetof(Vertex, pair))
+        );
+    }
 }
 
 void EffectRenderer::reserve_quad_indices(std::size_t quads) {
@@ -505,11 +597,17 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             // copy, effect texture -1, blended in by the destination alpha a mask strip wrote)
             // sampled the whole target with the copy's own coordinates: a black square with a
             // corner of the picture in it, upside down.
-            const bool target = offscreen_texture(strip.tex0, 0) != 0;
+            // A frame-copy strip samples the pass's native snapshot of the target instead
+            // (frame_copy_st), never the chip's copy the 2D path may have drawn at its block.
+            const bool target = !strip.frame_copy && offscreen_texture(strip.tex0, 0) != 0;
             for (std::uint32_t k = 0; k + 2 < strip.count; ++k) {
                 for (std::uint32_t c = 0; c < 3; ++c) {
                     Vertex v = vertex(input.strip_vertices[strip.first + k + c]);
-                    if (target) {
+                    if (strip.frame_copy) {
+                        const auto [s, t] = frame_copy_st(v.s, v.t, state.target.picture_scale_x);
+                        v.s = s;
+                        v.t = t;
+                    } else if (target) {
                         const auto [s, t] = offscreen_target_st(strip.tex0, v.s, v.t);
                         v.s = s;
                         v.t = t;
@@ -536,10 +634,16 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     constexpr std::array indexed_corners{0, 1, 2, 3};
     const std::span<const int> order =
         m_quad_indices ? std::span<const int>(indexed_corners) : std::span<const int>(corners);
-    for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
+    std::vector<QuadPair> quad_pairs = quads ? pair_quads(input, state) : std::vector<QuadPair>{};
+    for (std::size_t i = 0; i < (quads ? input.effects.size() : 0); ++i) {
+        const EffectQuad& q = input.effects[i];
         if (!draws(q, input)) {
             continue;
         }
+        // A quad on its pair run's second texture samples it (Vertex::pair).
+        const bool second =
+            !quad_pairs.empty() && quad_pairs[i].second != 0 && q.tbp == quad_pairs[i].second;
+        const std::uint8_t pair = second ? 0xFF : 0;
         // A quad that samples an off-screen target the 2D path drew (g_offscreen_textures): its
         // coordinates over the TEX0's size become the target texture's (offscreen_target_st).
         const bool target = offscreen_texture(q.tex0, q.tbp) != 0;
@@ -556,7 +660,8 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
                  static_cast<std::uint8_t>(q.rgba[k] & 0xFF),
                  static_cast<std::uint8_t>((q.rgba[k] >> 8) & 0xFF),
                  static_cast<std::uint8_t>((q.rgba[k] >> 16) & 0xFF),
-                 static_cast<std::uint8_t>(q.rgba[k] >> 24)}
+                 static_cast<std::uint8_t>(q.rgba[k] >> 24),
+                 pair}
             );
         }
     }
@@ -575,9 +680,13 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
 
     geometry.reset();
 
-    auto prepared = std::make_shared<const PreparedEffects>(
-        PreparedEffects{std::move(strip_counts), std::move(material_meshes), quads_from, quads}
-    );
+    auto prepared = std::make_shared<const PreparedEffects>(PreparedEffects{
+        std::move(strip_counts),
+        std::move(material_meshes),
+        quads_from,
+        quads,
+        std::move(quad_pairs)
+    });
     record_colour(input, state, prepared);
 }
 
@@ -664,6 +773,63 @@ void EffectRenderer::render_depth(const FrameInput& input, RenderState& state) {
     glBindVertexArray(0);
 }
 
+bool EffectRenderer::draws_frame_copy(const FrameInput& input) const {
+    return std::ranges::any_of(input.strips, [&](const EffectStrip& strip) {
+        return strip.frame_copy && strip.count >= 3
+               && static_cast<std::size_t>(strip.first) + strip.count <= input.strip_vertices.size()
+               && draws(strip, input);
+    });
+}
+
+void EffectRenderer::snapshot_frame_copy(const RenderTarget& target) {
+    m_frame_copy_texture = 0;
+
+    if (target.width <= 0 || target.height <= 0) {
+        return;
+    }
+
+    // The chip copied the frame as drawn when the first strip asked for it (GetEffectTex -1),
+    // the world and what the callbacks drew before: the target as drawn so far, at its own size.
+    if (m_frame_copy.width() != target.width || m_frame_copy.height() != target.height) {
+        std::string error;
+
+        if (!m_frame_copy.create_colour(target.width, target.height, error)) {
+            log::warn("Effect frame copy unavailable: {}", error);
+            glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+            return;
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+    GLint samples = 1;
+    glGetIntegerv(GL_SAMPLES, &samples);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, target.framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_frame_copy.id());
+    const int width = target.width;
+    const int height = target.height;
+    const auto copied = colour_snapshot(
+        target,
+        m_frame_copy.id(),
+        std::max(1, samples),
+        [width, height](bool depth) {
+            if (!depth) {
+                glBlitFramebuffer(
+                    0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST
+                );
+            }
+        },
+        SnapshotAttachments::Colour
+    );
+    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+
+    if (!copied) {
+        log::warn("Effect frame copy failed: {}", copied.error().message);
+        return;
+    }
+
+    m_frame_copy_texture = m_frame_copy.colour_texture();
+}
+
 bool EffectRenderer::apply(
     std::uint64_t tex0_bits,
     std::uint64_t tex1_bits,
@@ -671,7 +837,8 @@ bool EffectRenderer::apply(
     std::uint64_t alpha_bits,
     RenderState& state,
     std::uint32_t tbp,
-    std::uint32_t cbp
+    std::uint32_t cbp,
+    bool frame_copy
 ) {
     const profiling::Zone trace("Effects state setup");
     const gs::Texa texa{0, false, 0x80};
@@ -680,8 +847,14 @@ bool EffectRenderer::apply(
         tex0.tbp0 = tbp;
         tex0.cbp = cbp;
     }
-    // An off-screen target the 2D path drew, sampled from the texture it was drawn in.
-    if (const unsigned target = offscreen_texture(tex0_bits, tbp); target != 0) {
+    // The game's frame copy: the pass's native snapshot of the target (snapshot_frame_copy), or,
+    // without one, nothing (the strip is left out rather than drawn from the chip's copy).
+    // Otherwise an off-screen target the 2D path drew, sampled from the texture it was drawn in.
+    const unsigned target = frame_copy ? m_frame_copy_texture : offscreen_texture(tex0_bits, tbp);
+    if (frame_copy && target == 0) {
+        return false;
+    }
+    if (target != 0) {
         if (m_applied.texture != kOffscreenHandle || m_applied.offscreen != target
             || clamp_bits != m_applied.clamp_bits) {
             glActiveTexture(GL_TEXTURE0);
@@ -757,6 +930,123 @@ bool EffectRenderer::apply(
     return texture != state.textures.placeholder();
 }
 
+std::vector<EffectRenderer::QuadPair> EffectRenderer::pair_quads(
+    const FrameInput& input, RenderState& state
+) const {
+    static const bool& pairs_off = stats::probe(
+        "OPENRAC_EFFECT_PAIRS_OFF", "Reference: effect quads of two textures in turn, a draw each"
+    );
+    // Only where the quads are drawn by m_shader in the declared quad pass (draw_prepared), and
+    // tex_T0 is sampled as it lies (no upscaled colours, which only the first texture has).
+    if (pairs_off || !m_pair_shader || m_part == EffectPart::Opaque
+        || enhanced_rendering_available() || texture_pack::dumping()
+        || (input.texture_filter != TextureFilter::Normal
+            && state.textures.has_upscaled_texture_colours())) {
+        return {};
+    }
+    // A quad's own texture: a pool key past the GS's blocks, placed before rendering, not animated.
+    const auto own_texture = [&](const EffectQuad& q) -> std::optional<TextureHandle> {
+        if (q.untextured || q.tbp <= 0x3FFF || offscreen_texture(q.tex0, q.tbp) != 0) {
+            return std::nullopt;
+        }
+        // An alpha-tested quad is drawn by m_test_shader.
+        if (q.registers) {
+            const gs::Test t = gs::Test::decode(q.test);
+            if (t.ate && t.atst != gs::AlphaTest::Always && t.atst != gs::AlphaTest::Never) {
+                return std::nullopt;
+            }
+        }
+        const auto placed = state.textures.placed(q.tbp);
+        if (!placed || state.textures.animated(*placed)) {
+            return std::nullopt;
+        }
+        return placed;
+    };
+    // Everything but the texture is the same along a run, so every quad of it has one GS state. Of
+    // TEX0 a placed texture's draw reads only TCC and TFX (apply): the rest names the texture.
+    constexpr std::uint64_t kTccTfx = std::uint64_t{7} << 34;
+    const auto same_state = [](const EffectQuad& a, const EffectQuad& b) {
+        return (a.tex0 & kTccTfx) == (b.tex0 & kTccTfx) && a.tex1 == b.tex1 && a.clamp == b.clamp
+               && a.alpha == b.alpha && a.cbp == b.cbp && a.registers == b.registers
+               && a.test == b.test && a.zbuf == b.zbuf;
+    };
+
+    std::vector<QuadPair> pairs(input.effects.size());
+    std::vector<std::size_t> run;
+    std::array<std::uint32_t, 2> textures{};
+    AlphaScale scale{};
+    const auto close = [&] {
+        if (textures[1] != 0) {
+            for (const std::size_t i : run) {
+                pairs[i] = {textures[0], textures[1], input.effects[run.front()].tex0};
+            }
+        }
+        run.clear();
+        textures = {};
+    };
+    bool any = false;
+    for (std::size_t i = 0; i < input.effects.size(); ++i) {
+        const EffectQuad& q = input.effects[i];
+        // A quad this pass does not draw does not end a batch either.
+        if (!draws(q, input)) {
+            continue;
+        }
+        const auto texture = own_texture(q);
+        if (!texture) {
+            close();
+            continue;
+        }
+        const bool joins =
+            !run.empty() && same_state(input.effects[run.front()], q)
+            && (q.tbp == textures[0] || q.tbp == textures[1]
+                || (textures[1] == 0 && state.textures.alpha_scale(*texture) == scale));
+        if (!joins) {
+            close();
+            textures[0] = q.tbp;
+            scale = state.textures.alpha_scale(*texture);
+        } else if (q.tbp != textures[0] && textures[1] == 0) {
+            textures[1] = q.tbp;
+            any = true;
+        }
+        run.push_back(i);
+    }
+    close();
+    if (!any) {
+        return {};
+    }
+    return pairs;
+}
+
+void EffectRenderer::bind_pair_texture(
+    RenderState& state,
+    std::uint64_t tex0_bits,
+    std::uint64_t tex1_bits,
+    std::uint64_t clamp_bits,
+    std::uint32_t tbp,
+    std::uint32_t cbp
+) {
+    gs::Tex0 tex0 = gs::Tex0::decode(tex0_bits);
+    tex0.tbp0 = tbp;
+    tex0.cbp = cbp;
+    const TextureHandle texture = state.textures.resolve(tex0, {0, false, 0x80});
+    const auto wrap = gs::Clamp::decode(clamp_bits);
+    const gs::Tex1 tex1 = gs::Tex1::decode(tex1_bits);
+    const bool linear_min = tex1.mmin == 1 || tex1.mmin == 4 || tex1.mmin == 5;
+    // As apply sets the first texture: the wrap by the pool, the filter here.
+    glActiveTexture(GL_TEXTURE0 + kPairUnit);
+    state.textures
+        .bind_wrapped(texture, wrap.wms == gs::Wrap::Repeat, wrap.wmt == gs::Wrap::Repeat);
+    glTexParameteri(
+        GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(tex1.mmag ? GL_LINEAR : GL_NEAREST)
+    );
+    glTexParameteri(
+        GL_TEXTURE_2D,
+        GL_TEXTURE_MIN_FILTER,
+        static_cast<GLint>(linear_min ? GL_LINEAR : GL_NEAREST)
+    );
+    glActiveTexture(GL_TEXTURE0);
+}
+
 void EffectRenderer::apply_colour_state(
     const gs::Tex0& tex0, float scale, std::uint64_t alpha_bits
 ) {
@@ -799,6 +1089,8 @@ void EffectRenderer::release() {
     if (m_material) {
         m_material->release();
     }
+    m_frame_copy.release();
+    m_frame_copy_texture = 0;
     m_shader.release();
     m_depth_shader.release();
     m_quad_shader.release();

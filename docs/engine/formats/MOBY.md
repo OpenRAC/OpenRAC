@@ -209,7 +209,7 @@ as the port's `port/game/rac1/host/collision.c` reads it from the game's
 memory (adapted from ReRAC's port of the kernels), measured by OpenRAC's
 editor on every class blob of both RAC1 discs: 1,064 on PAL and 1,064 on
 NTSC-U, all 19 levels each, every one read and written back byte for byte
-([moby_collision.py](../../../editor/moby_collision.py)).
+(OpenRAC Editor's [moby_collision.py](https://github.com/OpenRAC/OpenRAC-Editor/blob/main/openrac/tools/moby_collision.py)).
 
 | Offset | Type | Field |
 |---|---|---|

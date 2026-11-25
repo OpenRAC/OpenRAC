@@ -1,7 +1,7 @@
 # conventions
 
 `check_conventions.py` checks the port's C and C++ against the rules of
-[CODING_CONVENTIONS.md](../../docs/CODING_CONVENTIONS.md) that a program can
+[CODING_CONVENTIONS.md](../../../docs/CODING_CONVENTIONS.md) that a program can
 count. CI runs it on every push and pull request (the "Port conventions" step
 of [checks.yml](../../../.github/workflows/checks.yml)); run it yourself before
 you commit.

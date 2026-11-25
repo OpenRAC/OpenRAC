@@ -54,6 +54,11 @@ constexpr gaddr kGameMemoryStart = 0x00100000u;
 // The end of the console's 32 MB (assumed).
 constexpr gaddr kGameMemoryEnd = 0x02000000u;
 
+// The port's statics, where the menu rows it adds (Exit, the mods' rows) live (GUEST_STATICS in
+// runtime/include/openrac/guest.h, which this file's tests cannot include).
+constexpr gaddr kPortStaticsStart = 0xE0200000u;
+constexpr gaddr kPortStaticsSize = 0x00400000u;
+
 // In the menus' page record, the page shown is at +4 (assumed: discs.h states it).
 constexpr gaddr kMenuPageShownOffset = 4u;
 
@@ -63,6 +68,13 @@ constexpr gaddr kPadRightYOffset = 4u;
 
 // In a hero's moby, his up vector is at +0xE0 (assumed: discs.h states it).
 constexpr gaddr kMobyUpOffset = 0xE0u;
+
+// In a moby (games/rac1 structs/moby.h): its state (u8), its rot's y and z (the turn about its
+// side and its heading, floats) and its pvars (the address of its class's own data).
+constexpr gaddr kMobyStateOffset = 0x20u;
+constexpr gaddr kMobyRotYOffset = 0x44u;
+constexpr gaddr kMobyRotZOffset = 0x48u;
+constexpr gaddr kMobyVarsOffset = 0x78u;
 
 // How many rows of a text list are read at most (assumed): a list that reaches it is no list.
 constexpr int kMaxListRows = 32;
@@ -139,6 +151,14 @@ bool s_ring_open = false;
 // The port's number of the tick last stepped, so that a tick steps once however often the game
 // reads the pad.
 std::uint32_t s_tick = kNoTick;
+
+// The mouse's turn of a turret the hero sits in: the tick's motion, for the turret's update to
+// apply (aim_turret); the ticks in play so far (a pause does not count, so the hero is still
+// seated after it); and the tick in play a manned turret last took it.
+float s_turret_dx = 0.0f;
+float s_turret_dy = 0.0f;
+std::uint32_t s_play_ticks = 0;
+std::uint32_t s_turret_tick = kNoTick;
 
 // The cursor captured in play, free everywhere else.
 kbm::Capture s_capture;
@@ -219,9 +239,13 @@ gaddr hero() {
     return s_disc->hero;
 }
 
-// A game address worth reading: in the console's 32 MB, aligned.
+// A game address worth reading: in the console's 32 MB or the port's statics (the menu rows the
+// port adds, such as Exit and the mods' rows, live there), aligned.
 bool plausible(gaddr address) {
-    return address >= kGameMemoryStart && address < kGameMemoryEnd && (address & 3u) == 0;
+    const bool console = address >= kGameMemoryStart && address < kGameMemoryEnd;
+    const bool port =
+        address >= kPortStaticsStart && address - kPortStaticsStart < kPortStaticsSize;
+    return (console || port) && (address & 3u) == 0;
 }
 
 // Three floats from the game's memory as a vector.
@@ -597,11 +621,14 @@ std::optional<bool> mouse_on_page(gaddr page, bool moved, bool click, float px, 
     return std::nullopt;
 }
 
+bool beside_items(const Tick& t);
+
 // The mouse in a menu: over a page's item, it is the one the game focuses (as the d-pad moves the
 // focus between a page's items: the next tick's focus change plays the game's own sound); over a
 // row of the focused list or a cell of the focused item grid, the d-pad steps the selection to it.
-// Elsewhere (the vendor, the dialogs) its motion steps the d-pad. A click on an item not yet
-// focused focuses it first. Returns false when the click must wait for the focus to move.
+// Beside a page's items nothing moves. Elsewhere (the dialogs) its motion steps the d-pad. A click
+// on an item not yet focused focuses it first. Returns false when the click must wait for the focus
+// to move.
 bool menu_mouse(const Tick& t, bool click) {
     const openrac_input* in = t.in;
     const bool moved = in->mouse_dx != 0.0f || in->mouse_dy != 0.0f;
@@ -623,10 +650,17 @@ bool menu_mouse(const Tick& t, bool click) {
         if (result.has_value()) {
             return *result;
         }
+
+        // Beside every item: nothing is selected, the selection stays where it is.
+        if (beside_items(t)) {
+            s_stepper.reset();
+            return true;
+        }
     }
 
-    // Elsewhere (and over a grid) the mouse's motion steps the d-pad, except on the title, which
-    // has nothing to step, and at the vendor, where the mouse points (vendor_mouse).
+    // Elsewhere (a dialog, or an item whose rows it cannot read) the mouse's motion steps the
+    // d-pad, except on the title, which has nothing to step, and at the vendor, where the mouse
+    // points (vendor_mouse).
     if (moved && t.where != Context::Title && t.where != Context::Vendor && !s_map_shown) {
         const std::uint16_t dir = s_stepper.step(in->mouse_dx, in->mouse_dy);
 
@@ -993,8 +1027,16 @@ void mouse_camera(const Tick& t, bool play, bool ring, std::uint16_t pad_buttons
         const bool follow =
             id == 0 || (s_follow_tick != kNoTick && s_tick - s_follow_tick <= kFollowSeenTicks);
 
-        // Which camera is in use decides how the mouse turns it.
-        if (camera != 0 && id == KBM_CAMERA_FIRST_PERSON) {
+        const bool turret =
+            s_turret_tick != kNoTick && s_play_ticks - s_turret_tick <= kFollowSeenTicks;
+
+        // In a turret the mouse aims the turret (aim_turret), not the camera; else which camera is
+        // in use decides how the mouse turns it.
+        if (turret) {
+            s_turret_dx = dx;
+            s_turret_dy = dy;
+            s_look.reset();
+        } else if (camera != 0 && id == KBM_CAMERA_FIRST_PERSON) {
             first_person_look(camera, dx, dy);
             s_look.reset();
             s_looks = Looks::FirstPerson;
@@ -1033,6 +1075,9 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     s_pad_look = pad_look;
     s_follow_dx = 0.0f;
     s_follow_dy = 0.0f;
+    s_turret_dx = 0.0f;
+    s_turret_dy = 0.0f;
+    s_play_ticks += play ? 1u : 0u;
 
     s_capture.update(*s_mod, s_set.capture, play, in);
     take_prompt_spots();
@@ -1217,16 +1262,134 @@ void camera_overrides(Original original, gaddr camera) {
     look_behind_ratchet();
 }
 
+// ---- Turrets ----
+
+// A turret the hero sits in, as its update aims it with the left stick (games/rac1: Batalia's
+// batalia_cannon_update, Gaspar's turret_update, Hoven's hoven_turret_update): the moby's state
+// while manned; where its pitch is (in the moby, or at an offset in its pvars) and whether a larger
+// pitch looks up; the range the update clamps the pitch to (min > max: the level's data holds it);
+// and, where the update may skip its aiming, the offset of the aim quaternion it builds from the
+// pitch each tick it aims.
+struct TurretAim {
+    std::uint8_t manned;
+    bool pitch_in_vars;
+    gaddr pitch;
+    bool larger_looks_up;
+    float pitch_min;
+    float pitch_max;
+    std::optional<gaddr> built_aim;
+};
+
+// Batalia's cannon: rot.y, negative up, clamped to -45..20 degrees.
+const TurretAim kBataliaCannon{5, false, kMobyRotYOffset, false, -0.7853982f, 0.34906584f, {}};
+// Gaspar's turrets: pvars +0x44, positive up, clamped to +-30 degrees.
+const TurretAim kGasparTurret{5, true, 0x44u, true, -0.5235988f, 0.5235988f, {}};
+// Hoven's turret: pvars +0x74, positive up, clamped to the level's data; it skips its aiming in the
+// planet buster's death camera and its scenes, so the quaternion at pvars +0x10 tells whether it
+// aimed.
+const TurretAim kHovenTurret{4, true, 0x74u, true, 1.0f, 0.0f, 0x10u};
+
+// An angle brought back to -pi..pi, as the game's FastAddRots keeps its headings.
+float wrap_angle(float a) {
+    constexpr float kTwoPi = 6.2831855f;
+    return std::remainder(a, kTwoPi);
+}
+
+// A turret's update: while the hero sits in it and the mouse moved, the mouse's motion turns it
+// directly (kbm::DirectLook, as the camera), before the game's update reads the stick and clamps.
+// Without the mouse's motion the update runs untouched, so the pad aims as it always did.
+template <class Original>
+void aim_turret(Original original, gaddr moby, const TurretAim& aim) {
+    // Not manned: the turret is the game's.
+    if (read<std::uint8_t>(moby + kMobyStateOffset) != aim.manned) {
+        original(moby);
+        return;
+    }
+
+    s_turret_tick = s_play_ticks;
+    const float dx = s_turret_dx;
+    const float dy = s_turret_dy;
+    s_turret_dx = 0.0f;
+    s_turret_dy = 0.0f;
+    const gaddr vars = read<std::uint32_t>(moby + kMobyVarsOffset);
+
+    // The mouse did not move (or the turret has no data): nothing to add.
+    if ((dx == 0.0f && dy == 0.0f) || !plausible(vars)) {
+        original(moby);
+        return;
+    }
+
+    const gaddr yaw_at = moby + kMobyRotZOffset;
+    const gaddr pitch_at = (aim.pitch_in_vars ? vars : moby) + aim.pitch;
+    const float old_yaw = read<float>(yaw_at);
+    const float old_pitch = read<float>(pitch_at);
+    // DirectLook's pitch is positive down.
+    const float up = -kbm::DirectLook::pitch(dx, dy, s_set.look);
+    const float yaw = wrap_angle(old_yaw + kbm::DirectLook::yaw(dx, dy, s_set.look));
+    float pitch = old_pitch + (aim.larger_looks_up ? up : -up);
+
+    // The game's own clamp, where it is known: a skipped aim still leaves the pitch in range.
+    if (aim.pitch_min <= aim.pitch_max) {
+        pitch = std::fmin(std::fmax(pitch, aim.pitch_min), aim.pitch_max);
+    }
+
+    s_mod->memory().write<float>(yaw_at, yaw);
+    s_mod->memory().write<float>(pitch_at, pitch);
+
+    // No aim to check: the update clamps the pitch, or it is already in range.
+    if (!aim.built_aim) {
+        original(moby);
+        return;
+    }
+
+    // The update may skip its aiming (and its clamp): a quaternion it did not build tells, and then
+    // the turn is taken back.
+    constexpr std::uint32_t kUnbuilt = 0x7FC0DEADu;
+    constexpr gaddr kWords = 4u;
+    const gaddr quat = vars + *aim.built_aim;
+    std::array<std::uint32_t, kWords> saved{};
+    for (gaddr i = 0; i < kWords; ++i) {
+        saved[i] = read<std::uint32_t>(quat + 4u * i);
+        s_mod->memory().write<std::uint32_t>(quat + 4u * i, kUnbuilt);
+    }
+
+    original(moby);
+    bool built = false;
+    for (gaddr i = 0; i < kWords; ++i) {
+        built = built || read<std::uint32_t>(quat + 4u * i) != kUnbuilt;
+    }
+
+    // Aimed: the update took the turn and clamped it.
+    if (built) {
+        return;
+    }
+
+    for (gaddr i = 0; i < kWords; ++i) {
+        s_mod->memory().write<std::uint32_t>(quat + 4u * i, saved[i]);
+    }
+
+    // Taken back only where the update left the value as the mouse set it.
+    if (read<float>(yaw_at) == yaw) {
+        s_mod->memory().write<float>(yaw_at, old_yaw);
+    }
+
+    if (read<float>(pitch_at) == pitch) {
+        s_mod->memory().write<float>(pitch_at, old_pitch);
+    }
+}
+
 // ---- The frames between ticks ----
 
 // The turn the next tick makes for mouse motion (dx, dy) it has not read yet, while the mouse
 // turns the follow camera or the first-person view itself (frontend/mouse_turn.h). Not during the
 // swing behind Ratchet or while the gamepad's stick has the camera; a lock of the game's stops the
-// turn here as it stops the mouse.
+// turn here as it stops the mouse. Only with Low-latency mouse camera on: else the frames are the
+// interpolated camera.
 bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
     const float tick_yaw = s_tick_yaw;
     s_tick_yaw = 0.0f;
-    if (s_mod == nullptr || s_looks == Looks::None || s_pad_look || s_reset_ticks > 0) {
+    if (s_mod == nullptr || !s_set.low_latency || s_looks == Looks::None || s_pad_look
+        || s_reset_ticks > 0) {
         return false;
     }
 
@@ -1275,6 +1438,10 @@ void reset_state() {
     s_follow_dx = 0.0f;
     s_follow_dy = 0.0f;
     s_follow_tick = kNoTick;
+    s_turret_dx = 0.0f;
+    s_turret_dy = 0.0f;
+    s_play_ticks = 0;
+    s_turret_tick = kNoTick;
     s_tilt = {};
     s_pad_look = false;
     s_looks = Looks::None;
@@ -1333,6 +1500,15 @@ void load(openrac::Mod& mod) {
     mod.on_pad([](int port, std::uint8_t* report, int size) { on_pad(port, report, size); });
     mod.hook<rac1::FollowCamera_ApplyOverrides>([](auto original, std::uint32_t camera) {
         camera_overrides(original, camera);
+    });
+    mod.hook<rac1::Moby_Class440_Update>([](auto original, std::uint32_t moby) {
+        aim_turret(original, moby, kBataliaCannon);
+    });
+    mod.hook<rac1::Moby_Turret_Update>([](auto original, std::uint32_t moby) {
+        aim_turret(original, moby, kGasparTurret);
+    });
+    mod.hook<rac1::Moby_HovenTurret_Update>([](auto original, std::uint32_t moby) {
+        aim_turret(original, moby, kHovenTurret);
     });
     openrac::frontend::set_mouse_turn(picture_turn);
     mod.info("keyboard and mouse on the " + std::string(mod.version()) + " disc");

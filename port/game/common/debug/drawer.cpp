@@ -347,10 +347,16 @@ void drawer(const Shown& shown) {
     const float head = dp(52.0f);
     const float jumps_h = dp(40.0f);
     const float header = head + jumps_h;
-    std::optional<PanelStyle> style(std::in_place, ImVec2(dp(14.0f) + inset, header + dp(4.0f)));
+    // ImGui pads both sides alike, so the notch's inset is an indent on the left only.
+    std::optional<PanelStyle> style(std::in_place, ImVec2(dp(14.0f), header + dp(4.0f)));
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove
                                    | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("OpenRAC options", nullptr, flags)) {
+        // Where the rows end (left of the scrollbar): the header's bar and pills end there too.
+        const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+        if (inset > 0.0f) {
+            ImGui::Indent(inset);
+        }
         drag_scroll(s.menu_scroll);
         if (s_jump_section >= 0) {
             // A jump glides there in a few frames, to where the section's heading is now (the
@@ -405,7 +411,7 @@ void drawer(const Shown& shown) {
                 const char* state = s.keep_paused ? "Paused" : "Paused while open";
                 const ImVec2 state_size = ImGui::CalcTextSize(state);
                 // As tall as the sections' bar under it, its right edge on the bar's.
-                const ImVec2 pill_b(bottom.x - dp(14.0f), top.y + head * 0.5f + dp(15.0f));
+                const ImVec2 pill_b(right, top.y + head * 0.5f + dp(15.0f));
                 const ImVec2 pill_a(pill_b.x - state_size.x - dp(20.0f), pill_b.y - dp(30.0f));
                 // A badge on the launcher's control fill (as the sections under it), soft text.
                 const float shown_badge = 1.0f - resume;
@@ -426,7 +432,7 @@ void drawer(const Shown& shown) {
                 const char* label = "Resume";
                 const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, label);
                 // The badge's place and height, the sections' bar's under it.
-                const ImVec2 pill_b(bottom.x - dp(14.0f), top.y + head * 0.5f + dp(15.0f));
+                const ImVec2 pill_b(right, top.y + head * 0.5f + dp(15.0f));
                 const ImVec2 pill_a(pill_b.x - size.x - dp(32.0f), pill_b.y - dp(30.0f));
                 front->AddRectFilled(pill_a, pill_b, ui_colors::fade(ui().amber, resume), dp(6.0f));
                 front->AddText(
@@ -461,7 +467,7 @@ void drawer(const Shown& shown) {
                 in_view = s_jump_section;
             }
             const float left = top.x + inset + dp(14.0f);
-            const float span = (bottom.x - dp(14.0f) - left) / 4.0f;
+            const float span = (right - left) / 4.0f;
             const float y0 = top.y + head + dp(2.0f);
             const float y1 = y0 + dp(30.0f);
             front->AddRectFilled(
@@ -600,6 +606,9 @@ void drawer(const Shown& shown) {
         ImGui::PopTextWrapPos();
         ImGui::PopStyleColor();
         ImGui::Dummy(ImVec2(0.0f, dp(12.0f)));
+        if (inset > 0.0f) {
+            ImGui::Unindent(inset);
+        }
     }
     ImGui::End();
     style.reset();

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "renderer/math.h"
+#include "renderer/settings/cloud_shadow_settings.h"
 #include "scene/shrub_draw.h"
 
 namespace openrac::scene {
@@ -48,6 +49,8 @@ struct LiveMoby {
 
 // The game's state at one frame: the camera the world is drawn from, and the live mobys.
 struct GameState {
+    // The level's animation clock, also used by authored sky motion where available.
+    std::optional<std::uint32_t> sky_tick;
     renderer::Vec3 camera_position{};  // The eye, in game units.
     std::optional<renderer::Vec3> camera_target;  // Smoothed follow focus, when known.
     std::uint64_t camera_target_id = 0;           // Camera record and saved-state identity.
@@ -149,6 +152,9 @@ public:
     // Returns immutable preparation for supported exports; no callback keeps retail geometry.
     virtual LevelGeometryPreparer level_geometry_preparer() const { return nullptr; }
 
+    // Cloud shadows are opt-in per level.
+    virtual renderer::CloudShadowSettings cloud_shadow_defaults(int /*level*/) const { return {}; }
+
     // Reads the camera and the live mobys from the game's active main memory, `ram`. `level` is
     // the level program loaded now (-1 for the boot program, the title and the menus): each has its
     // globals at other addresses. A table pointer outside memory leaves the moby list empty.
@@ -209,6 +215,10 @@ public:
     // mode has bit 0x10 (MobyProc's glow list).
     virtual std::uint32_t moby_glow_word() const { return 0x90; }
 
+    // Returns the spawn id of the moby whose record starts at `moby` (its place in the level's
+    // save bits, what the editor's skins.json names it by), or -1 for none or a game without them.
+    virtual int moby_spawn_id(const std::uint8_t* /*moby*/) const { return -1; }
+
     // Returns whether a moby's pose layers keep records (scene::set_moby_layer_records).
     virtual bool moby_layer_records() const { return false; }
 
@@ -234,6 +244,15 @@ public:
     // quads that sample such a buffer then draw the picture there (renderer::g_quads_sample_targets),
     // the screen's quad of block 0x3BE0.
     virtual bool own_mobys_into_narrow_buffers() const { return false; }
+
+    // Whether an effect strip drawn with this TEX0 samples the game's copy of the frame drawn so
+    // far (a refraction: Up Your Arsenal's heat haze), which the window draws from a native
+    // snapshot of its own picture instead of the chip's frame copy (renderer::EffectStrip::
+    // frame_copy).
+    virtual bool frame_copy_texture(std::uint64_t tex0) const {
+        (void)tex0;
+        return false;
+    }
 
     // Whether an image the game sends outside its display list stays over what that tick's list,
     // built before it and replayed after it, puts at the same block: the game reloads a block
@@ -343,7 +362,7 @@ public:
     // updates off the ground, 0 on landing), which the hero's shadow map tilts down by.
     virtual std::uint32_t hero_air_frames() const { return 0x30E; }
 
-    // Whether the port has the game's levels extracted (editor/port.py), so that a level whose
+    // Whether the port has the game's levels extracted (extractor/port.py), so that a level whose
     // scenery cannot be read is something missing, not a game with no scenery yet.
     virtual bool has_levels() const { return false; }
 
@@ -354,7 +373,7 @@ public:
 
     // The extracted level the loading screen between levels (the game mode the window takes for a
     // flight between planets, world -2) is drawn with, or -1 for the flight world: Up Your
-    // Arsenal's loading screen is its ship's scene, exported as level 97 (editor/level.py
+    // Arsenal's loading screen is its ship's scene, exported as level 97 (extractor/level.py
     // load_wad_loading).
     virtual int loading_world() const { return -1; }
 
@@ -422,6 +441,10 @@ public:
 
     // Visual attachments to enhanced water; collision and gameplay poses stay untouched.
     virtual bool floats_on_water(int /*class_id*/) const { return false; }
+
+    // Whether the game drives the controller's motors. Ratchet & Clank's never does, so its
+    // menu shows the vibration settings greyed out.
+    virtual bool has_rumble() const { return true; }
 };
 
 // Returns the profile of the game version `game` (its port id, "rac1-pal"), which lives as long as

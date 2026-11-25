@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstring>
 #include <format>
+#include <functional>
 #include <iterator>
 #include <optional>
 #include <stdexcept>
@@ -24,6 +25,7 @@
 #include "scene/hero_shadow.h"
 #include "scene/level_renderer_internal.h"
 #include "scene/moby_passes.h"
+#include "scene/shader_recipes.h"
 #include "scene/shadow_atlas.h"
 #include "scene_shaders.h"
 #if defined(OPENRAC_VULKAN)
@@ -189,175 +191,58 @@ void LevelScene::add_textures(
 bool LevelScene::upload(
     const LevelData& level, renderer::TexturePool& textures, std::string& error
 ) {
-    // mesh.frag again with OPENRAC_SOLID, after its version line (which has to stay the first).
-    // The registered lighting puts its GLSL into the mesh shader; without it the scene's own.
-    const std::string mesh_vertex =
+    SceneShaderInputs recipe_input;
+    recipe_input.vertex =
         m_lighting ? m_lighting->mesh_vertex(shaders::mesh_vert) : shaders::mesh_vert;
-    const std::string fragment = m_lighting ? m_lighting->mesh_fragment(shaders::mesh_frag)
-                                            : std::string(shaders::mesh_frag);
-    m_early_capable = m_lighting && m_lighting->early_supported();
-    std::string solid(fragment);
-    solid.insert(solid.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
-    if (!m_mesh.build("mesh", mesh_vertex, fragment, error)
-        || !m_solid.build("mesh (solid)", mesh_vertex, solid, error)
-        || !m_sky.build("sky", shaders::sky_vert, shaders::sky_frag, error)) {
-        return false;
-    }
-    if (m_lighting) {
-        std::string coverage(fragment), coverage_solid(solid);
-        coverage.insert(coverage.find('\n') + 1, "#define OPENRAC_PROBE_COVERAGE 1\n");
-        coverage_solid.insert(coverage_solid.find('\n') + 1, "#define OPENRAC_PROBE_COVERAGE 1\n");
-        std::string fast(fragment);
-        fast.insert(fast.find('\n') + 1, "#define OPENRAC_PROBE_FAST 1\n");
-        if (!m_mesh_fast.build("mesh (cheaper probe light)", mesh_vertex, fast, error)
-            || !m_coverage.build("mesh (probe coverage)", mesh_vertex, coverage, error)
-            || !m_coverage_solid
-                    .build("mesh (solid, probe coverage)", mesh_vertex, coverage_solid, error)) {
-            return false;
-        }
-    }
+    recipe_input.fragment =
+        m_lighting ? m_lighting->mesh_fragment(shaders::mesh_frag) : shaders::mesh_frag;
+    recipe_input.depth_vertex = deformation_vertex(shaders::mesh_depth_vert);
+    recipe_input.lighting = m_lighting != nullptr;
+    recipe_input.enhanced = gl::enhanced_rendering_available();
+    m_early_capable = recipe_input.early = m_lighting && m_lighting->early_supported();
     if (m_early_capable) {
-        std::string early = m_lighting->early_fragment(shaders::mesh_frag), early_solid(early);
-        early_solid.insert(early_solid.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
-        if (!m_early_mesh.build("early lit mesh", mesh_vertex, early, error)
-            || !m_early_solid.build("early lit solid", mesh_vertex, early_solid, error)) {
-            return false;
-        }
+        recipe_input.early_fragment = m_lighting->early_fragment(shaders::mesh_frag);
     }
 #if defined(OPENRAC_VULKAN)
-    if (vkgl::gpu_materials_active()) {
-        // The batch's opaque, non-solid geometry never draws an added effect.
-        const auto opaque_source = [](std::string source) {
-            const auto effect = source.find("uniform int probe_effect;");
-            if (effect != std::string::npos) {
-                source.replace(
-                    effect, std::strlen("uniform int probe_effect;"), "const int probe_effect = 0;"
-                );
-            }
-            return source;
-        };
-        if (!m_colour_opaque
-                 .build("opaque colour batch", mesh_vertex, opaque_source(fragment), error)
-            || (m_early_capable
-                && !m_early_colour_opaque.build(
-                    "early opaque colour batch",
-                    mesh_vertex,
-                    opaque_source(m_lighting->early_fragment(shaders::mesh_frag)),
-                    error
-                ))) {
-            return false;
-        }
-    }
+    recipe_input.materials = vkgl::gpu_materials_active();
 #endif
-    // The same small pass shaders also serve OpenGL and direct/CPU draws. No
-    // material-buffer or batching capability is required to fix these controls.
-    // Keep opaque features constant per native program. In particular,
-    // static geometry never needs the joint-palette path, and solid
-    // geometry must not inherit the alpha shader's discard instructions.
-    for (unsigned variant = 0; variant < m_colour_specialised.size(); ++variant) {
-        std::string vertex(mesh_vertex);
-        vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-        vertex = renderer::shader_constants(vertex, {{"metal_pass", 0}});
-        if (variant < 2) {
-            vertex.insert(vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-            vertex = renderer::shader_constants(vertex, {{"skinning", 0}});
-        }
-        const auto specialise = [&](std::string source) {
-            source.insert(source.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-            // Both stages must agree when static variants remove material-specific interfaces.
-            if (variant < 2) {
-                source.insert(source.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-            }
-            if (variant == 0) {
-                source.insert(source.find('\n') + 1, "#define OPENRAC_SOLID 1\n");
-            }
-            for (const auto* name :
-                 {"metal_pass", "glow_pass", "translucent_pass", "effect_pass", "probe_effect"}) {
-                source = renderer::shader_constants(std::move(source), {{name, 0}});
-            }
-            return source;
-        };
-        const char* names[] = {"solid static colour", "alpha static colour", "opaque moby colour"};
-        if (!m_colour_specialised[variant]
-                 .build(names[variant], vertex, specialise(fragment), error)
-            || (m_early_capable
-                && !m_early_colour_specialised[variant].build(
-                    std::string("early ") + names[variant],
-                    vertex,
-                    specialise(m_lighting->early_fragment(shaders::mesh_frag)),
-                    error
-                ))) {
-            return false;
-        }
-    }
-    std::string static_vertex(mesh_vertex), static_translucent(fragment);
-    static_vertex.insert(static_vertex.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-    static_translucent
-        .insert(static_translucent.find('\n') + 1, "#define OPENRAC_COLOUR_SPECIALISED 1\n");
-    static_vertex.insert(static_vertex.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-    static_translucent
-        .insert(static_translucent.find('\n') + 1, "#define OPENRAC_STATIC_COLOUR 1\n");
-    static_vertex = renderer::shader_constants(std::move(static_vertex), {{"skinning", 0}});
-    static_vertex = renderer::shader_constants(std::move(static_vertex), {{"metal_pass", 0}});
-    for (const auto* name : {"metal_pass", "glow_pass", "effect_pass", "probe_effect"}) {
-        static_translucent = renderer::shader_constants(std::move(static_translucent), {{name, 0}});
-    }
-    static_translucent =
-        renderer::shader_constants(std::move(static_translucent), {{"translucent_pass", 1}});
-    // The default blended static pass reads cheaper probe light and shadows (Enhanced is
-    // allowed to be lossy, probe-fast-blended); the full one stays as the reference.
-    std::string static_fast(static_translucent);
-    static_fast.insert(static_fast.find('\n') + 1, "#define OPENRAC_PROBE_FAST 1\n");
-    if (!m_static_translucent.build("static translucent colour", static_vertex, static_fast, error)
-        || !m_static_translucent_full.build(
-            "static translucent colour, full probe light", static_vertex, static_translucent, error
+    renderer::Shader* destinations[] = {
+        &m_mesh,
+        &m_solid,
+        &m_sky,
+        &m_mesh_fast,
+        &m_coverage,
+        &m_coverage_solid,
+        &m_early_mesh,
+        &m_early_solid,
+        &m_colour_opaque,
+        &m_early_colour_opaque,
+        &m_colour_specialised[0],
+        &m_colour_specialised[1],
+        &m_colour_specialised[2],
+        &m_early_colour_specialised[0],
+        &m_early_colour_specialised[1],
+        &m_early_colour_specialised[2],
+        &m_static_translucent,
+        &m_static_translucent_full,
+        &m_static_translucent_early,
+        &m_depth,
+        &m_depth_solid,
+        &m_surface_depth,
+        &m_surface_depth_solid,
+    };
+    if (!scene_shader_recipes(
+            recipe_input,
+            [&](unsigned slot,
+                std::string_view name,
+                const std::string& vertex,
+                const std::string& fragment,
+                std::string& why) {
+                return destinations[slot]->build(name, vertex, fragment, why);
+            },
+            error
         )) {
         return false;
-    }
-    if (m_early_capable) {
-        // The same blended pass reading the early lighting (blended-early-light).
-        std::string early = m_lighting->early_fragment(shaders::mesh_frag);
-        for (const char* define :
-             {"#define OPENRAC_EARLY_TRANSLUCENT 1\n",
-              "#define OPENRAC_COLOUR_SPECIALISED 1\n",
-              "#define OPENRAC_STATIC_COLOUR 1\n"}) {
-            early.insert(early.find('\n') + 1, define);
-        }
-        for (const auto* name : {"metal_pass", "glow_pass", "effect_pass", "probe_effect"}) {
-            early = renderer::shader_constants(std::move(early), {{name, 0}});
-        }
-        early = renderer::shader_constants(std::move(early), {{"translucent_pass", 1}});
-        if (!m_static_translucent_early
-                 .build("static translucent colour, early lighting", static_vertex, early, error)) {
-            return false;
-        }
-    }
-
-    const std::string depth_source = deformation_vertex(shaders::mesh_depth_vert);
-    std::string depth_vertex(depth_source), depth_fragment(shaders::mesh_depth_frag);
-    depth_vertex.insert(depth_vertex.find('\n') + 1, "#define OPENRAC_DEPTH_SOLID 1\n");
-    depth_fragment.insert(depth_fragment.find('\n') + 1, "#define OPENRAC_DEPTH_SOLID 1\n");
-    if (!m_depth.build("mesh depth", depth_source, shaders::mesh_depth_frag, error)
-        || !m_depth_solid.build("mesh depth solid", depth_vertex, depth_fragment, error)) {
-        return false;
-    }
-    // Compatibility rendering retains the minimal depth-only shaders.
-    if (gl::enhanced_rendering_available()) {
-        const std::string define = "#define OPENRAC_DEPTH_NORMALS 1\n";
-        std::string vertex(depth_source);
-        std::string fragment(shaders::mesh_depth_frag);
-        fragment.insert(fragment.find('\n') + 1, renderer::shaders::shading_normal_glsl);
-        depth_fragment
-            .insert(depth_fragment.find('\n') + 1, renderer::shaders::shading_normal_glsl);
-        vertex.insert(vertex.find('\n') + 1, define);
-        fragment.insert(fragment.find('\n') + 1, define);
-        depth_vertex.insert(depth_vertex.find('\n') + 1, define);
-        depth_fragment.insert(depth_fragment.find('\n') + 1, define);
-        if (!m_surface_depth.build("mesh surface depth", vertex, fragment, error)
-            || !m_surface_depth_solid
-                    .build("mesh solid surface depth", depth_vertex, depth_fragment, error)) {
-            return false;
-        }
     }
     if (gl::enhanced_rendering_available()) {
         std::string rigid_error;
@@ -389,6 +274,7 @@ bool LevelScene::upload(
         scenery.drawn.clear();
         m_moved[k] = {};
     }
+    m_mod_hidden_ties.clear();
     // The shrubs' billboards and, for those that have one, their colour: their 24 lit colours'
     // average, channel by channel, truncated (LightShrubs' word at the instance's +0x1C).
     const auto& shrubs = level.instances[static_cast<std::size_t>(Layer::Shrubs)];
@@ -975,7 +861,7 @@ void LevelScene::draw_mobys(
     std::vector<Group> own;
     own.swap(groups);
     build_groups(Layer::Mobys, instances, true);
-    draw_layer(Layer::Mobys, input, state, "menu mobys");
+    draw_layer(Layer::Mobys, input, state, "menu mobys", false);
     idle.insert(
         idle.end(), std::make_move_iterator(groups.begin()), std::make_move_iterator(groups.end())
     );
@@ -1397,7 +1283,8 @@ void LevelScene::draw_layer(
     Layer layer,
     const renderer::FrameInput& input,
     renderer::RenderState& state,
-    std::string_view pass_name
+    std::string_view pass_name,
+    bool world_view
 ) {
     sync_position_stream();
     if (m_lighting) {
@@ -1635,7 +1522,8 @@ void LevelScene::draw_layer(
             inspection,
             colour_batch,
             !pvs_off && (!m_pvs.grid.empty() || m_pvs.game),
-            pvs_rejected
+            pvs_rejected,
+            world_view
         );
     };
     // The enclosing prepass owns the attachments. Declare reads after culling chooses the streams.
@@ -1655,7 +1543,7 @@ void LevelScene::draw_layer(
     const auto inputs = classic_colour_inputs(layer, state, gpu_view, inspection);
     // Standalone layer draws preserve the original blend and material order.
     renderer::raster_pass(
-        pass_name.empty() ? layer_name(layer) : pass_name, state.target, inputs, draw
+        pass_name.empty() ? layer_name(layer) : pass_name, state.target, inputs, std::cref(draw)
     );
 }
 
@@ -1667,7 +1555,8 @@ void LevelScene::draw_visible_layer(
     bool inspection,
     bool colour_batch,
     bool pvs_enabled,
-    std::uint64_t pvs_rejected
+    std::uint64_t pvs_rejected,
+    bool world_view
 ) {
     const auto index = static_cast<std::size_t>(layer);
     auto& groups = m_groups[index];
@@ -1759,7 +1648,8 @@ void LevelScene::draw_visible_layer(
         if (m_lighting) {
             m_lighting->bind_wetness(shader);
         }
-        bind_sun_shadow(shader, input.camera);
+        bind_sun_shadow(shader, input.camera, input.shadow_filter);
+        bind_cloud_shadows(shader, input, world_view);
         // The early lighting's result, where registered lighting drew one.
         if (m_lighting) {
             m_lighting->bind_early(shader, input, state);

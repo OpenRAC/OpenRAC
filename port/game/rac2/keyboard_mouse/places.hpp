@@ -15,14 +15,15 @@
 
 namespace kbm2 {
 
-// The touch context's name ("foot", "menu", ...; null for none) as a context: the levels' play
-// ones are Play, the title and its menus Menu, the pause menu and the Galactic Map Menu, a vendor
-// Vendor, a dialog Dialog, a minigame Menu (Circle tries again, Triangle quits), anything else
-// (a scene, a movie, a load) Cutscene.
+// The touch context's name ("foot", "menu", ...; null for none) as a context: the levels' play ones
+// and the free camera (Select or R3 closes it, the stick moves it) are Play, the title and its
+// menus Menu, the pause menu and the Galactic Map Menu, a vendor Vendor, a dialog Dialog, a
+// minigame Menu (Circle tries again, Triangle quits), anything else (a scene, a movie, a load)
+// Cutscene.
 inline kbm::Context context_of(const char* touch) {
     const std::string_view c = touch != nullptr ? touch : "";
     if (c == "foot" || c == "grind" || c == "swim" || c == "giant_clank" || c == "default"
-        || c == "ship") {
+        || c == "ship" || c == "look_around") {
         return kbm::Context::Play;
     }
     if (c == "front_end" || c == "menu" || c == "map" || c == "minigame") {

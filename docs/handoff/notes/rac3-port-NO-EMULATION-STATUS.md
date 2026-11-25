@@ -306,7 +306,9 @@ scissor; NTSC-U evidence); #773 6551b9239 (levels' HUD sprites and menu ornament
 rac3_hud_image; letterbox from the game's height and screen edges); #775 c9e81719 (maps' prints from font pages).
 
 **Not done (still older TEX0 records or game packets):**
-- Loading screen's stars and galaxy (texture 0x2DAF): still the game's GS packets; routines not identified yet.
+- Loading screen's stars and galaxy: done (2026-11-24). They are the scene pack's sky (word 9 with flag bit 0), drawn by
+  the boot program's SkyDraw copy 0x003CE568 / SkyDrawShell 0x003CE798 (the levels' 0x004A7F28 / 0x004A8158); exported
+  as level 97's sky (levels format 17) and 0x003CE798 drawn natively (host/render.c), wide.
 - The fade (no rac3 fade counter wrapped yet; only the letterbox).
 - Widget3D quads (menu frames and art, help-box frame func_003AC9F0): still read back from the game's GIF packets after
   it writes them; needs capture from the posed mesh (func_003AA168 bones, func_003A08E8/0A28 vertices).
@@ -363,6 +365,16 @@ multiplayer failure); Veldin `OPENRAC_RAC3_NEXT=60:1 OPENRAC_GIVE=weapons@200` t
 - A kernel that writes its fields in another function now faults: "reached the scratchpad DMA register ... (asm.spr_copies)". Grep the generated gen/ for `openrac_ee_dma_register(` to see every such site; translation lists them all.
 - To test long lines: OPENRAC_TELEPORT far, then watch enemies' sight lines (coll_line clipping). Also run the MP maps, the boot loading screen (pose kernel 0x003CA9C0) and the frontbin menus.
 
+
+**Follow-up (2026-11-23): registers reached through a base the translation did not follow**
+
+#771 only gave a copy to a register address it could follow as a constant. Two kinds of code reach the registers another way, and after #771 their stores went to the empty register page: no copy was made, and a C poll of STR spun for ever.
+- **rac3: Ratchet fell through the ground.** `coll_line` (func_L01_003FA5F0, the boot program's 0x003D4068, frontbin's 0x003D3CB0) keeps toSPR's address in `$t6` on one path and a dummy 0x10010000 on another, and writes MADR, QWC, SADR and CHCR through it where the paths join. It also writes them after returns from its own subroutine (0x003FA550, called with jal and left with jr $ra), which the registers' flow does not follow. Those stores went to the empty register page, so the collision data never reached the scratchpad and every ground query found nothing.
+  - Fix: asmc.py marks such word accesses DYNAMIC (in a kernel that builds a register address with lui 0x1000/0x1001: through a base the flow does not know, or in code it does not reach). The translation tests the address when it runs (`openrac_spr_register`, `openrac_spr_sw`, `openrac_spr_lw` in ee_ops.h): a register is the function's own word, and a CHCR store with STR is the copy, as at a constant address; anything else is a plain access.
+- **rac2: level loads hung (every planet, Oozla and Yeedil among them).** CollLine (func_002761F8) is the decomp's functional C, which writes toSPR's registers through a pointer (`d[8]`, `d[32]`, `d[4]`, `d[0]`). The level setup's first line query (func_002A89A8, from func_L00_00300618) then polled CHCR for ever. The GS slot allocator func_002F35B0 (functional C, constant addresses) stopped the game instead.
+  - Fix: lower.py keeps C's MADR, QWC, SADR and TADR as the function's own words and makes a CHCR store with STR the copy, at constant addresses and through pointers alike (a volatile word store through a pointer tests the address when it runs). C reads of CHCR read it done. A chain-mode start still stops the game.
+- **Verified** (box2, hidden runs, 3,000 frames each): rac3 PAL Veldin, Florana and Marcadia stand on the ground from control to the end (frames in the air never above 1, no deaths; before, Ratchet fell from z 78 to 17 and respawned every ~180 frames), and Veldin's ground probes now hit. Tyhrranosis runs its opening sequence with no fault. rac2 NTSC-U v1.01 loads Oozla, Barlow, Dobbo, Boldan, Damosel and Yeedil (before, Oozla and Yeedil hung in CollLine's poll) and starts saves captured on Yeedil and Barlow from the title. No scratchpad DMA register fault in any run.
+- **coll_line's cut** applies only to lines over 248 cells (about 990 units). Ground probes, a few units long, never reach it.
 
 ## P2 (2026-11-23): split-screen views, the game's 2D screen, movies, on the recorder (PR #774)
 
@@ -475,3 +487,129 @@ Found: the brief's "GetFrameTexture 0x00396E18" is HudTextureTex0; the frame cop
 heat haze sample is **GetEffectTex's handles -1 and -2** (func_L01_00404040 / boot func_00389978 / frontbin
 func_00389598, P4's function): it appends GS packets drawing the frame into a 256 x 256 PSMCT16 buffer
 (-1; -2 a smaller one) from the allocator 0x001D4BB0, and caches the TEX0 at L01 0x001D6180 / 0x001D6188.
+
+## Frame copy for effect strips (2026-11-23, fix/rac3-dropship-haze)
+
+Strips that sample GetEffectTex's frame copies (-1/-2: TEX0 shape 0x6_2021_0000, -3/-4:
+0x5_9820_4000 over any block, no image sent there; rac3 `GameProfile::frame_copy_texture`) are
+marked `EffectStrip::frame_copy` in the frontend. The effect pass that draws one first snapshots its
+target natively (`EffectRenderer::snapshot_frame_copy`, `colour_snapshot`, colour only) and binds
+that snapshot, the strip's ST mapped by `frame_copy_st` (the game's picture in the target's middle,
+first row at the bottom). The chip's frame copy at the block is no longer read for them. Veldin's
+Galactic Rangers' dropship (class 6877, draw callback 0x003C8D60, haze 0x003C8400) draws its
+thrusters' heat haze this way. Quads that sample the copy (the refraction rings) still go through
+`offscreen_texture`; moving them is left to P4b/P6.
+
+## Dropship heat haze as native patches (2026-11-24)
+
+The snapshot above still drew squares: the haze is two strips per patch (0x003C8400), a mask of
+effect texture 0x3B that keeps the colour and writes only the destination alpha (ALPHA 0x6A), then
+the frame copy blended in by that alpha (ALPHA 0x54). The window's target never held a round mask
+there, so every copy came out as a whole square, tinted by its vertex colour, at the vertices'
+alpha. The frontend now turns each mask and copy pair over the same corners into a round patch of
+the native heat haze (`renderer::frame_copy_haze` → `Kept::haze` → `Haze`, the mods' haze
+renderer): its centre, half the square's side, and the mask's alpha as its strength. The pairs
+leave the strips; a copy strip without its mask still goes the snapshot way. Only frames that draw
+the world do this (the loading screen keeps its strips).
+
+## Dropship heat haze: the TEX0 was cut to 32 bits (2026-11-24)
+
+Neither of the two changes above ever ran in a game. The port draws 0x003C8400 from the decomp's
+functional C (nonmatching/functional/func_L01_003C8400.c), which declared GetEffectTex
+(func_00389598) as returning `s32`: hostgen kept the cast, and the copy strips' TEX0 reached the
+list as 0x20213240 instead of 0x6_2021_3240 (no TH, no TCC). `frame_copy_texture` never matched,
+so no strip was a frame copy, no mask paired with one, and the copies were drawn as the squares
+from the 2D path's target. Found with `OPENRAC_HAZE_LOG` in a hidden Veldin run on box2; fixed in
+rac3-decomp 3e4df279 (`extern long func_00389598(s32)`). With it the same run turns the 36 pairs a
+frame into 36 haze patches and the squares are gone. The same 32-bit declaration is still in
+src/levels/shared/L01_00363E68.c, src/levels/07_annihilation_nation/L07_003CE2B8.c,
+src/levels/09_tyhrranosis/L09_00317D00.c and nonmatching/functional/func_L07_003BFAE8.c and
+func_L32_003BE098.c (their effect textures lose TH, TCC and the CLUT block in the port).
+
+## Dropship hull see-through: the ties' own ALPHA_1 (2026-11-24, levels format 18)
+
+The dropship's hull is not a moby: class 6877 (no model in the level; +0x24 stays 0) moves three
+ties of the level, 6759, 6760 and 6762 (placements 119 to 124, two ships), to its place each tick,
+and the window draws moved ties with the mobys (`LevelScene::add_moved_scenery`). Their hull pictures
+(tie_0020, 0021, 0022, 0028) are at alpha 0x0B to 0x1E with some texels at 0. Each tie material's
+fifth A+D quadword is its ALPHA_1: 0x44 for most, but 0x20 ((Cs - Cs) FIX + Cs, the source colour
+whatever the alpha) for those pictures, so the console draws the hull opaque. The export kept only
+the pictures' alpha (MASK, or "below full alpha" in `scene/level.cpp`), and the window blended the
+hull by it: in a hidden Veldin run with Ratchet teleported into the ship's call cuboid (22, centre
+372.96 325.73 80) the flying ship showed the cliffs and the towers through it. The extractor now
+reads ALPHA_1 (`formats.gs_alpha_opaque`) and marks such materials `extras: {"opaque": true}`
+without MASK; the port leaves them solid. 23 materials on Veldin, 43 on the Phoenix; Going
+Commando's ties (all 0x44) are unchanged. Also in the ties' ALPHA_1 and still drawn as 0x44: 0x58
+(Cs Ad + Cd) and 0x68 (Cs FIX + Cd), additive.
+
+## A Veldin dropship that never flew in: VU0 clobbers made its controller a stub (2026-11-24)
+
+rac3-decomp c62db12f (pinned by #840) matched func_L01_003AA658, the update of class 6476: a
+controller with no model that flies one of the four class-6800 ships parked in formation over
+Veldin (placements 665 to 668, at 335-347 431-441 100) along its path. Its C ends in VU0 inline
+assembly on named registers (`lqc2 $vf1` ... `vsub.xyz` ... `sqc2`) with `"vf1", "vf2"` as
+clobbers. Clang knows no such register, clangast made the statement `openrac_hostgen_asm()`,
+and the whole function a stub before `vu0_assembly_from_retail` could see its instructions: the
+log said "func_L01_003AA658 has no C in the port yet" right after Veldin loaded (first in the
+user's #841 build, not in #830's, where the function was still INCLUDE_ASM). Its three moby
+records stayed in state 0 and their ship never left the formation. clangast now drops VU0
+registers from the clobbers instead (`_drop_vu0_clobber`), so the statement stays and the
+function is translated from the disc: in a hidden box2 run (Ratchet teleported into cuboid 22)
+the controller reaches state 253 and carries placement 665's ship to 310.4 332.7 87.5 by frame
+2400, as no build since #840 did. Four Annihilation Nation functions with the same statements
+(func_L07_0035CC10, 003A7CB8, 003DC790, 00473C80) move to their assembly too. 00473C80's caller
+func_L07_003B6E98 had inherited the C's result before the assembly stage found none
+(`uninherit_void_results`). The Rangers' dropships (6877, func_L01_003C3D08, matched in
+242c17bd) fly the same in its matched C and in its assembly (state, position and the moved
+ties compared at frame 2400).
+
+## Open after the 2026-11-24 playtest fixes (#829–#877)
+
+Not fixed, for whoever picks rac3 up next:
+
+- **Crash on Veldin after a new game's first flight** (fixed, PR #896): reproduced in a hidden box2
+  run (new game, intro, Veldin, frame 10136, the "Progress is saving" message box). Cause: the
+  message box `func_L01_004CDF20` takes eleven integers, three past the eighth on the stack;
+  `func_L01_00436150` reaches it through a call copy, a call through an address that handed on only
+  the eight registers, so its string arguments were stack leftovers and a `%s` in
+  `openrac_guest_vformat` read 0xFFFFFFC0. Fix (hostgen, asmc.py `indirect`): the cast carries four
+  doublewords from 0($sp); a function's thunk reads its arguments past the eighth from the saved
+  guest stack pointer (was 0); Apple arm64 packs stack arguments by size so it takes the thunks;
+  `%s` prints "(null)" for an address that is no memory. Tests: `guest_format` (ctest) and
+  `test_retail.CallsThroughRegisters`. Rerun on the fixed build: no crash through frame 20000.
+  Other functions with more than eight integers called through a copy are fixed by the same change.
+- **The Phoenix's "△ Enter ship" HUD message box** draws enlarged with its text shifted left. The
+  box is `func_L01_004366A0 → func_L01_004CDC38`, drawn by `func_L01_004CF120` / `004CEAE0`: it
+  measures "\x12 Enter ship" as 120 units (font 1, scale 1.0) against a half-width of 68 and draws
+  the text from x=195. Every global on that path pairs correctly on level 3 (#876's audit). Next
+  step: capture the same prompt on Florana and compare the measured width (message box +0x1B4).
+- **Misfiled 8-byte getters in other levels** (#876 fixed levels 3/24's and the flight's; the rest
+  audited and fixed in the follow-up): the catalogue files a level's copies of the 8-byte class
+  getters and font wrappers one row along in levels 4, 7, 9, 12, 13, 16, 18, 19, 22, 26, 27, 29, 30
+  too. Audit (the generated tables plus the callers' own code): for each `OPENRAC_LCODE(1, a)` in
+  the generated C, the caller's copy in every level (one place there) forms the real target at the
+  same instruction as Veldin's does (a jal, or a lui and addiu); the cell is wrong when the table
+  names that place otherwise and `more_places` does not give it to the name. Only these cells were
+  wrong, and `hostgen.json` `more_places` (PAL) and `release.json` (NTSC-U) now fix them:
+  PAL func_L01_00412E30 (levels 10, 13, 17, 21, 23, 30, 31, 33, 36), func_L01_0041A198 (6, 14, 16,
+  32 and the multiplayer maps 40-53), func_L01_004D8820 (23), func_L01_003A6BB0 (2, 5, 10, 11, 14,
+  22, 34: the level's own caller reached a copy filed under another row); NTSC-U func_L01_003EE980
+  (24 levels), func_L01_004026A0 (3, 11, 16, 23), func_L01_004D4B48 (23). After the fix the audit
+  finds none in either version's fresh hostgen output. The other misfiled getters (the many class
+  type getters no `OPENRAC_LCODE` names) are reached through their class tables, which relocate
+  per level, or read private globals: left alone, harmless. Not fixed: the multiplayer maps'
+  func_L39_ rows (40-53) for func_L01_00436070, 00443948, 004AA948, 004AAD58, 004D2470, which pair
+  through `level_copies`, not through the names. The root fix (rac3-decomp's `copy_groups()` in
+  tools/level_catalogue.py) was not attempted: it renames rows used by src/levels/ and the
+  decomp's own report, so it needs its own catalogue PR; this audit is the check for it.
+- **Synchronous rendering's tick-boundary hitch**: on OpenGL, or Vulkan without the render
+  thread, the scene runs half a tick behind but in-between frames can't pass the next tick, so
+  alpha drops from ~0.47 to 0 at each tick. The Vulkan render-thread path is not affected.
+  Probe: `OPENRAC_MOTION_LOG`.
+- **The first flight's Solana galaxy sequence**: the boot flight has no first-flight variant in
+  its transition table (#871's runs). Probably the New Game intro movie (sector 18444); not
+  confirmed against the original.
+- **Blank first-weapon slot after loading a save** (one report): not reproduced in six box2 runs.
+- **Ties' additive blends** 0x58 and 0x68 are still drawn as the normal 0x44 blend (#869).
+- **Water**: the surface texture has one mip level (#868), so distant water on levels with a
+  surface texture may shimmer; colours were checked against microprogram 10's maths, not footage.

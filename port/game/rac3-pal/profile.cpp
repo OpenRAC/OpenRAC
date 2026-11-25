@@ -210,18 +210,12 @@ constexpr std::uint32_t kMobyClass = 0xAA;
 // Ratchet's class holds only his skeleton: the game loads his packets and textures over it from one
 // of 31 packs of the disc (LoadPlayerDisplayTextures, Veldin's 0x004255E0, as Going Commando's
 // func_00292078): the armour it keeps at 0x001D4B60, or the skin byte at 0x001427AB when that is
-// not 0. The export has each pack past the first as a class of its own (editor/moby_class.py,
+// not 0. The export has each pack past the first as a class of its own (extractor/moby_class.py,
 // HERO_LOOK_CLASSES), as Going Commando's (game/rac2/profile.cpp's hero_class).
 constexpr std::int32_t kHeroLookClasses = 6000;
 constexpr std::int32_t kHeroLooks = 31;
 constexpr std::uint32_t kHeroArmour = 0x001D4B60;
 constexpr std::uint32_t kHeroSkin = 0x001427AB;
-
-std::int32_t hero_class(std::span<const std::uint8_t> ram) {
-    const std::int32_t skin = at<std::uint8_t>(ram, kHeroSkin);
-    const std::int32_t look = skin != 0 ? skin : at<std::int32_t>(ram, kHeroArmour);
-    return look > 0 && look < kHeroLooks ? kHeroLookClasses + look : -1;
-}
 
 // Reads a complete record's sphere in world units (MobyProc's lqc2 of +0x00, in 1/1024 units).
 std::array<float, 4> moby_sphere(std::span<const std::uint8_t> ram, std::uint32_t address) {
@@ -272,6 +266,47 @@ int drawn_class(
     return drawn > 0 && drawn != class_id ? drawn : -1;
 }
 
+// Inferno Mode's look (the Inferno crate, crate_break, Veldin's 0x0033C520): the game sets the
+// armour worn (0x001426A0) to 4 for a while but loads no pack. hero_mesh_swap (Veldin's 0x00425A08)
+// copies the class data of the level's class 0x1F3A, Infernox, over Ratchet's slot instead: its
+// packet table (+0x00), counts (+4 to +7) and texture usage (+0x20), with the slot's words at
+// 0x00200670 and 0x00200DF0. Ending it re-attaches the loaded pack (armor_attach). The armour kept
+// at 0x001D4B60 and the skin byte stay as they were, so while the swap holds he is drawn as
+// 0x1F3A, whose export has his skeleton, and not as the pack they name. 0x001FDBD0, the slots by
+// class, sits 0xA50 past the slots' data in every level's copy.
+constexpr std::int16_t kInfernoClass = 0x1F3A;
+constexpr std::uint32_t kClassSlotsByClass = 0xA50;
+
+bool inferno_look(std::span<const std::uint8_t> ram, const ClassTables& tables) {
+    if (tables.data == 0 || tables.numbers == 0) {
+        return false;
+    }
+    const std::uint32_t slot =
+        at<std::uint8_t>(ram, tables.data + kClassSlotsByClass + kInfernoClass);
+    if (slot == 0 || slot >= kClassSlots
+        || at<std::int16_t>(ram, tables.numbers + 2 * slot) != kInfernoClass) {
+        return false;
+    }
+    const std::uint32_t hero = at<std::uint32_t>(ram, tables.data);
+    const std::uint32_t inferno = at<std::uint32_t>(ram, tables.data + 4 * slot);
+    if (hero == 0 || inferno == 0 || hero == inferno) {
+        return false;
+    }
+    const std::uint32_t packets = at<std::uint32_t>(ram, inferno);
+    return packets != 0 && at<std::uint32_t>(ram, hero) == packets;
+}
+
+// The class Ratchet (class 0) is drawn as: Infernox in Inferno Mode, else his skin's or his
+// armour's pack, as LoadPlayerDisplayTextures picks it; -1 for pack 0, the level's class 0.
+std::int32_t hero_class(std::span<const std::uint8_t> ram, const ClassTables& tables) {
+    if (inferno_look(ram, tables)) {
+        return kInfernoClass;
+    }
+    const std::int32_t skin = at<std::uint8_t>(ram, kHeroSkin);
+    const std::int32_t look = skin != 0 ? skin : at<std::int32_t>(ram, kHeroArmour);
+    return look > 0 && look < kHeroLooks ? kHeroLookClasses + look : -1;
+}
+
 // Returns a moby's placement from its complete record, none when it has none yet.
 std::optional<host::LiveMoby> read_live_moby(
     std::span<const std::uint8_t> ram, std::uint32_t m, const ClassTables& tables
@@ -288,7 +323,7 @@ std::optional<host::LiveMoby> read_live_moby(
     live.address = m;
     live.class_id = at<std::int16_t>(ram, m + kMobyClass);
     if (live.class_id == 0) {
-        live.model_class = hero_class(ram);
+        live.model_class = hero_class(ram, tables);
     } else {
         live.model_class = drawn_class(ram, m, live.class_id, tables);
     }
@@ -327,7 +362,7 @@ std::optional<host::LiveMoby> read_live_moby(
 // lists, which a moby draws by the bits of its bangle word (+0x7C, an s16, which MobyProc copies to
 // its job: boot 0x003CBEDC): bit 15 clear, the class's mesh and the bangles of the bits set; set,
 // those bangles alone (bangle 0 for none). The export has each bangle as a class of its own
-// (editor/moby_class.py, BANGLE_CLASSES, format 9).
+// (extractor/moby_class.py, BANGLE_CLASSES, format 9).
 constexpr std::uint32_t kMobyBangles = 0x7C;
 constexpr int kBangleClasses = 100000;
 constexpr int kBangles = 15;
@@ -449,7 +484,7 @@ bool essential_moby(int class_id) {
 
 // His ship's paint job: texture_slot_load (frontbin func_00398C80, Veldin's 0x00425E10) loads paint
 // n of 32 (ship_config bits 16-20) over the ship's picture and keeps n at 0x0016C5B0 (sw s0,
-// 0x30 of 0x0016C580, on both discs); the export writes every paint (editor/port.py
+// 0x30 of 0x0016C580, on both discs); the export writes every paint (extractor/port.py
 // "ship_paints", levels format 15).
 constexpr std::uint32_t kShipPaint = 0x0016C5B0;
 constexpr std::int32_t kShipPaints = 32;
@@ -500,7 +535,17 @@ public:
     // the world she stood in front of the ship's exterior and in the hangar.
     bool own_mobys_into_narrow_buffers() const override { return true; }
 
-    // The levels are extracted for the port (editor/extract.py port: --levels), and drawn natively
+    // GetEffectTex's frame copies (Veldin's 0x00404040 and the other levels' copies): handles -1
+    // and -2 give the frame shrunk into a 256 x 256 PSMCT16 buffer (TEX0 0x6_2021_0000 over its
+    // block), -3 and -4 into a 64 x 64 one (0x5_9820_4000), both with TCC and no CLUT. Galactic
+    // Rangers' dropship (class 6877, its draw callback 0x003C8D60) draws its thrusters' heat haze
+    // with the first. The frontend also requires that no image was sent to the block.
+    bool frame_copy_texture(std::uint64_t tex0) const override {
+        const std::uint64_t shape = tex0 & ~std::uint64_t{0x3FFF};  // all but TBP0
+        return shape == 0x620210000ull || shape == 0x598204000ull;
+    }
+
+    // The levels are extracted for the port (extractor/extract.py port: --levels), and drawn natively
     // from them (host/render.c). The boot program's title and menus draw no world: a picture.
     bool has_levels() const override { return true; }
 
@@ -508,7 +553,7 @@ public:
 
     // The loading screen (the boot program in mode 6, 0x003C3BB8) draws the ship's scene's mobys of
     // the boot program's table through MobyProc's draw side (host/render.c): their classes are the
-    // scene pack's, exported as level 97 (editor/level.py load_wad_loading).
+    // scene pack's, exported as level 97 (extractor/level.py load_wad_loading).
     int loading_world() const override { return 97; }
 
     // Level 39 is the multiplayer menus (the multiplayer executable's, host/mp.c): its picture is

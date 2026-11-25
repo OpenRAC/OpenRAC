@@ -1113,7 +1113,8 @@ mod tests {
         )
         .unwrap();
         assert!(read_back.found);
-        assert_eq!(read_back.fields[0].value, 2, "the RYNO II at Ultima");
+        // No marker, so layout 1: its RYNO II step 2 reads as step 4 of layout 4.
+        assert_eq!(read_back.fields[0].value, 4, "the RYNO II's step in layout 4");
 
         // Exported again from there: the same records.
         let again = tmp.path().join("again.zip");
@@ -1143,7 +1144,8 @@ mod tests {
             SaveImportChoice { replace_all: false, slots: vec![SaveSlotRef { folder: FOLDER.into(), slot_index: 1 }] };
         import_into(&to, PAL, &file, &one, &there).unwrap();
         let merged = fs::read_to_string(there.mod_data.join("ng-plus-plus/tiers.txt")).unwrap();
-        assert_eq!(merged, format!("2222222222222222 {}\n{clock} {record}\n", "01".repeat(56)));
+        // The editor's write also put the layout marker in the file.
+        assert_eq!(merged, format!("2222222222222222 {}\nngpp-tiers 4\n{clock} {record}\n", "01".repeat(56)));
     }
 
     /// A record in a file is data, never a path: a mod id or file name that would leave the mods'

@@ -3,7 +3,9 @@
 Up Your Arsenal's PAL disc (`SCES_524.56`), built by [hostgen](../../tools/hostgen/README.md) from
 [games/rac3](../../../games/rac3/decomp), whose C is PAL's own (`src/boot_elf`, `src/frontbin`,
 `src/levels`). The NTSC-U drafts are read only where PAL's code is the same; NTSC-U's own program is
-this one carried to that disc's addresses ([rac3-ntsc](../rac3-ntsc/README.md)).
+this one carried to that disc's addresses ([rac3-ntsc](../rac3-ntsc/README.md)). OpenRAC carries no
+patches to rac3-decomp: fixes hostgen needs in its C (such as `func_L07_003C8BA0`'s assembly lines,
+written with `\n` escapes so Clang reads them) go into rac3-decomp's master, and the pin follows it.
 
 **An early port, playable in parts.** It boots through the boot screens and the intro movie to the
 main menu, whose pages run and take the pad; a new game or a save loads its level, which is drawn
@@ -40,7 +42,7 @@ as lumps (`lumps/`), `sectors.tsv` (the map the game reads its sectors by), the 
 I5BOOTN.ELF's records unpacked (`programs/*.records`, which LoadExecPS2 copies in: `host/exec.c`),
 `buildinfo.json`, and the image, which only the level tools read;
 *Build the game* runs `tools/build_port.py rac3-pal --disc {disc}`; *Get the levels ready* reads
-the levels into `assets/port/rac3/pal` (`levels-16.json`), and *Play* runs
+the levels into `assets/port/rac3/pal` (`levels-17.json`), and *Play* runs
 `openrac-rac3-pal --data {data} --window --levels {root}/assets/port/rac3/pal` after a warning that
 the port is early. The game draws a level's world from them ([Drawing the levels](#drawing-the-levels)).
 
@@ -579,10 +581,10 @@ share most of them, but have their own DrawTfrag, tie and shrub passes and MobyP
 level 39's (`func_L39_...`, `OPENRAC_LDATA(39, ...)`). `IDENTIFIED.tsv` has each function and its
 Going Commando pair.
 
-The extracted levels are the shared export (`editor/extract.py port`), format 14 for this game
-(`editor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
+The extracted levels are the shared export (`extractor/extract.py port`), format 14 for this game
+(`extractor/port.py` `GAME_FORMATS`): terrain, ties, shrubs, mobys with skeletons and animations, the
 sky's shells and its panorama, collision, (5) Ratchet's mesh and textures from his first pack
-(`editor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
+(`extractor/wads.py` `RAC3_PAL`, the table LoadPlayerDisplayTextures reads), which the level's class 0
 draws him with, and (6) the terrain and shrubs lit as the game lights them at load and the ties'
 colours per vertex, as Going Commando's (`games.py` `world_lighting`, `UYA_TIE`): the lighting
 routines are Going Commando's instructions, and the (cos, sin) table they light by is in each
@@ -597,29 +599,75 @@ light sets and their bangles as classes of their own (`moby_glow_tail`, `moby_li
 `moby_bangles`): the profile draws a moby's bangles by its bangle word (+0x7C), as Going
 Commando's. (10) adds his other 30 looks, packs 1 to 30, as classes 6001 to 6030: the profile
 draws class 0 as the look of the armour at `0x001D4B60`, or of the skin byte at `0x001427AB` when it
-is set, as LoadPlayerDisplayTextures picks the pack. (11) adds the gameplay copy the probe baker
+is set, as LoadPlayerDisplayTextures picks the pack. In Inferno Mode the game draws him as the level's class 0x1F3A
+(Infernox), whose class data hero_mesh_swap copies over his slot; the profile draws that class while
+his slot holds its packet table. (11) adds the gameplay copy the probe baker
 plans enhanced lighting from (`bake-inputs/gameplay.bin`), as Going Commando's 18. (12) adds the
 reviewed glowing textures and the levels' sun sets, as Going Commando's 19. (13) adds level 97, the loading
 screen's ship scene (below). (14) adds the liquid surfaces the baker lights from
-(`bake-inputs/liquids.json`), as Going Commando's 20.
+(`bake-inputs/liquids.json`), as Going Commando's 20. (17) adds level 97's sky, the loading screen's
+stars and galaxy (below). (18) marks the tie materials the game blends opaque whatever their texels'
+alpha (ALPHA_1 0x20, Cs; glTF extras `"opaque"`, `extractor/ties.py`), which the window draws solid
+where a picture below full alpha would make a material part-transparent: the Galactic Rangers'
+dropship on Veldin is three ties (6759, 6760 and 6762, moved with it by the game and drawn with the
+mobys) whose hull pictures are at alpha 0x0B to 0x1E, and it was see-through.
 
 ## The loading screen
 
-Between levels the boot program runs its loading screen (mode 6, the pass `0x003C3BB8`): the game
-draws its stars and its galaxy picture itself (2D), then the scene's mobys through MobyProc's draw
+Between levels the boot program runs its loading screen (mode 6, the pass `0x003C3BB8`): its draw,
+`0x003BCEB0`, draws the scene's sky (the stars and the galaxy), then the scene's mobys through MobyProc's draw
 side, `0x003CB6B8`, which walks the jobs the boot program's MobyProc queued. Those mobys are the
 boot program's table's: Ratchet's ship (class 3412) and its parts (4308 to 4325) and a planet
 (7683), whose classes are the scene's pack's: one of the loading packs the table of contents lists
 from `+0x1288` (after their base sector), pack 11 the ship's scene, which the loading screen unpacks
 at `0x006F3000` (picked at random among the scenes by `0x003BE0F0`). The export reads it as a small
-core (`editor/level.py` `load_wad_loading`: GS RAM at word 1, data base at word 2, the GS upload at
+core (`extractor/level.py` `load_wad_loading`: GS RAM at word 1, data base at word 2, the GS upload at
 4 and 5, the classes at 0xa and 0xc, the moby textures at 0xe and 0xf, the texture data at 0x17)
 and writes it as level 97, with Ratchet's pack. The profile names that level the loading screen's
 world (`loading_world`), and `0x003CB6B8` puts the world's and the mobys' markers in the list, so the
-window draws those mobys natively with the boot program's camera, over the stars and the galaxy
-(the game's own triangles of texture `0x2DAF`). While the game reads the disc it resends a list that
+window draws those mobys natively with the boot program's camera.
+
+The stars and the galaxy are a sky of the scene's own: the pack's word 0 holds the parts it has
+(`0x003BBDC0` keeps it at `0x001D8CD4`), and with bit 0 its word 9 is a sky, at the data base itself
+on both discs, which LoadSky's copy (`0x00398A48`) makes the boot program's (`0x001DA5F0`): three
+shells, the star field (untextured), a 256 x 256 and the 512 x 512 galaxy picture. SkyDraw's copy
+(`0x003CE568`, under `0x003BD108`) turns each shell into `0x001DA610` (`0x003CE450`) and draws it with
+SkyDrawShell's copy (`0x003CE798`). Its triangles went out as the game's GS packets, which the window
+drew in the 4:3 middle while the ship and its trail filled a wide window. The export writes that sky
+as level 97's (`Level.sky_at`, the index's `+0x10` cannot name offset 0) and `host/render.c` draws
+`0x003CE798` natively, as the levels' `0x004A8158`: around the camera with the window's view, so a
+wide window shows more of the sky. The levels' flights (below) run the levels' SkyDrawShell copy,
+already native, with the same sky, which their LoadSky copy took. While the game reads the disc it resends a list that
 ends before that pass's markers: such a list is drawn whole under the world (`frame.cpp`), else
 its clear covered the ship.
+
+Leaving a planet, the flight is the level's own: each story level's program carries a copy of the
+loading screen (the catalogue's frontbin rows `func_003BD4B8`, the loop, and `func_003BD030`,
+level_load; Veldin's `0x004D7AE0` and `0x004D7658`), which runs before the next program is copied
+in. level_load sets level_current (`0x001D545C`) to the level asked for as the loop starts, so
+`host/tools.c` (`openrac_game_flight`) names the loading world while it differs from the level
+loaded: the window draws level 97 then too, not the planet being left (whose sky, and terrain, the
+flight's DrawTfrag copy marks, were drawn round the ship). The boot program's wrap of the hold is
+at its own addresses; the levels' copy of the ship's glass is wrapped too (`func_L01_004B04D8`, the
+catalogue's frontbin row `func_003A7AF8`), and their planet quads go through the levels'
+DrawWorldQuad, `func_L01_00407E28`.
+
+Between ticks the ship and the flight's camera move fast: in the approach (its ticks stretched
+2.5 times, `host/loading.c`) more than the 4 units a moby (8 for the camera) may move in a tick and
+still be drawn part way (`frontend/geometry.cpp`), so they were drawn where each tick left them,
+about 20 times a second. A moby or a camera that keeps its pace (this tick's move within that step
+of the last tick's) is now drawn part way at any speed (`Kept::prev_paces`, `camera_pace`).
+
+Measured in a run (`OPENRAC_MOTION_LOG`, docs/port/DEBUGGING.md), the ship, its glass and the eye
+were drawn part way through the approach, but the exhaust was not: the engine flames (`0x003A6B90`,
+two rows of world quads laid along the engines from their joints each tick) and the trail (`0x003A8850`,
+a pool of 512 puffs at `*0x001D6EEC` that drift, grow and fade) went out through DrawWorldQuad with
+no owner and no id, up to about 135 quads a tick, so between ticks they stood where the tick left
+them while the hull moved on: at the approach's 20 ticks a second the exhaust stepped behind the
+smoothly moving ship. The flames are now owned by the ship (as the glass, levels' copy
+`func_L01_004AD768` too) and each puff carries its record's place as its id (`0x003D98C0`'s wrap), so
+frames between ticks move both. The sky's shells, which turn about 0.04 degrees a tick there, are
+turned part way too (`Kept::prev_sky_shells`).
 
 Not drawn yet: the planet (class 7683, a picture on a quad the ship flies towards, past its draw
 distance until the scene's last part, which the port's quicker loading never reaches) and the
@@ -629,7 +677,7 @@ the timer at `0x00225734` once `0x002D2008 + 0x51` is set; no string is printed 
 To look at a level without the game (no game code runs; the viewer's own camera):
 
 ```sh
-python3 editor/extract.py port <disc> build/rac3pal --level 1 --anywhere
+python3 extractor/extract.py port <disc> build/rac3pal --level 1 --anywhere
 openrac-viewer build/rac3pal/level_01 --camera 365,103,82,90,-5 --screenshot veldin.png --frames 5
 ```
 
@@ -650,6 +698,35 @@ gameplay file (`IDENTIFIED.tsv`). Level 14's square pool draws so: the 23 points
 its strips (115 vertices in the frame's five liquid strips: ALPHA 0x44 TEST 0x5310B, as Dobbo's
 water, and layers blended over it, ALPHA 0x58 and 0x6A), hidden runs on box1 at 84b906a67 with
 `--level 14`.
+
+The open water of Florana, Marcadia, Daxx and nine more levels (rivers and pools at one height, the
+plane class 2871 on Florana, `func_L02_0030FA80`) is not a strip of the game's: its draw callback
+(`func_L02_00310838`, DrawFrame's third list) sends a VU1 program of its own (microprogram 10, the
+boot program's `0x00116070`) a grid's parameters, and the program draws it. `host/water_plane.c` is
+that callback, the grid and the program's per-vertex arithmetic in C (read from the program, checked
+vertex for vertex against it with synthetic parameters, offline), drawn through the liquids' strip
+routine (Veldin's `0x00408AAC` after its setup `0x00407588`):
+
+- the grid follows the view, what is on it does not: its first row is the middle of the line where
+  the view's bottom edge meets the plane (a bottom corner by the camera's roll, run along the view's
+  horizontal right axis to the other side plane), then 50 rows a unit (`0x001DC568`) apart along the
+  view's horizontal forward axis, 50 two apart and 5 two hundred apart; 33 points either side of a
+  row's centre, the step the bottom line's length over 64, widened row by row as the view widens;
+- the height is the plane (pvar +0x4C) plus the eight waves (`0x0026EB80`, `func_L02_0030FC68`):
+  waves 4 to 7 fade over the first 50 rows, 0 to 3 over the next 50, the last 5 rows are flat;
+- the surface (effect texture +0x00, none on Florana) is mapped in the world, one repeat every
+  +0x24 units, scrolled +0x2C units a second towards +0x28 degrees, coloured by +0x30..+0x32 shaded
+  by the waves' slope along the view (`0x001E00D4`), blended by FIX +0x33, writing depth;
+- the reflection (effect texture +0x04, Florana's 100) is the view's ray reflected by the waves'
+  normal, read from a paraboloid map with the zenith at ST (0, 0) (S, T, Q = R.x, R.y,
+  2(|R| + R.z)): flat water reads the zenith everywhere and only the waves move it, so nothing swims
+  with the camera; coloured by +0x34..+0x36 and blended by FIX +0x37 (opaque on Florana);
+- both are fogged by depth towards FOGCOL +0x3A..+0x3C, from +0x3D percent at +0x40 units to +0x3E
+  percent at +0x44 (`func_L02_00310368`), not the level's fog: the strip program's fog line (VU
+  `0x3AC`..`0x3AF`) is uploaded with the water's for its strips and put back after them.
+
+The program's mipmapped surface texture is drawn without mipmaps. The levels with such water (class
+2871, one plane each but Tyhrranosis's two): 2, 4, 5, 9, 12, 14, 17, 18, 19, 20, 22 and 29.
 
 ### Shadows, enhanced graphics and texture packs
 

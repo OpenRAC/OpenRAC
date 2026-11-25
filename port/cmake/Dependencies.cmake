@@ -253,10 +253,13 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
     GIT_SHALLOW TRUE
     SOURCE_SUBDIR openrac-download-only
   )
+  # Pool temporary SPIR-V operands in the compiler's existing per-translation arena.
   FetchContent_Declare(glslang
     GIT_REPOSITORY https://github.com/KhronosGroup/glslang.git
     GIT_TAG vulkan-sdk-1.4.350.1
     GIT_SHALLOW TRUE
+    PATCH_COMMAND "${CMAKE_COMMAND}" -DSOURCE_DIR=<SOURCE_DIR>
+      -P "${CMAKE_CURRENT_LIST_DIR}/PatchGlslang.cmake"
     ${openrac_sdl_options}
   )
   # The first three are only downloaded (SOURCE_SUBDIR names no directory): their headers and

@@ -6,7 +6,15 @@ runs:
   steps:
     - shell: bash
       run: echo "YARN_ENABLE_GLOBAL_CACHE=false" >> "$GITHUB_ENV"
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    # Pull requests and the merge queue only read: their copies would be private to their ref.
+    - if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: launcher/.yarn/cache
+        key: yarn-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('launcher/yarn.lock', 'launcher/package.json', 'launcher/.yarnrc.yml') }}
+        restore-keys: yarn-v1-${{ runner.os }}-${{ runner.arch }}-
+    - if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: launcher/.yarn/cache
         key: yarn-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('launcher/yarn.lock', 'launcher/package.json', 'launcher/.yarnrc.yml') }}

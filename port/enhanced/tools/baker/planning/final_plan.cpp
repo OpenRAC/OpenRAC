@@ -245,8 +245,8 @@ std::string transport_regions(const json::Value& plan) {
         if (!region["lattice_bounds"].is_null()) {
             fields["lattice_bounds"] = region["lattice_bounds"];
         }
-        if (!region["fit_to_floor"].is_null()) {
-            fields["fit_to_floor"] = region["fit_to_floor"];
+        if (region["authored"].boolean()) {
+            fields["authored"] = region["authored"];
         }
 
         // JSON elements are separated without a trailing comma.
@@ -315,10 +315,6 @@ json::Value complete_report(const ProbeBatchOptions& options, const json::Value&
         for (const auto& region : settings["authored"].items()) {
             const auto& bounds = region["bounds"];
             const auto axes = spacing(region["spacing"]);
-            const auto& fit_to_floor = region["fit_to_floor"];
-            if (!fit_to_floor.is_null() && fit_to_floor.type() != json::Value::Type::Bool) {
-                throw std::runtime_error("authored probe fit_to_floor must be a boolean");
-            }
             if (bounds.items().size() != 6) {
                 throw std::runtime_error("authored probe bounds require six coordinates");
             }
@@ -336,7 +332,13 @@ json::Value complete_report(const ProbeBatchOptions& options, const json::Value&
             if (probes > settings["max_probes"].number()) {
                 throw std::runtime_error("authored probe volume exceeds the per-region budget");
             }
-            regions.push_back(region);
+            regions.push_back(
+                bake_json::object_value(
+                    {{"bounds", bounds},
+                     {"spacing", region["spacing"]},
+                     {"authored", parsed("true")}}
+                )
+            );
         }
     }
     std::string region_json = "[";
@@ -354,7 +356,7 @@ json::Value complete_report(const ProbeBatchOptions& options, const json::Value&
     }
 
     fields["region_settings"] = settings;
-    fields["placement_algorithm"] = parsed("4");
+    fields["placement_algorithm"] = parsed("5");
     fields["bake_profile"] = request["profile"];
     fields["scene_hash"] = request["scene_hash"];
     fields["emission"] = request["emission"];
@@ -390,8 +392,7 @@ Result<std::string> prepare_final_plan(
                   {"maximum_probes", settings["max_probes"]},
                   {"maximum_regions", settings["max_regions"]},
                   {"coarse_padding", settings["coarse_padding"]},
-                  {"coarse_bounds", settings["coarse_bounds"]},
-                  {"authored", settings["authored"]}}
+                  {"coarse_bounds", settings["coarse_bounds"]}}
              )},
             {"registration",
              bake_json::object_value(

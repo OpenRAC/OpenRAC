@@ -352,12 +352,19 @@ private:
 // Per recording thread. Retaining a plan keeps it valid across nested recordings and eviction.
 class PlanCache {
 public:
+    enum class Imports {
+        Exact,
+        Rebind
+    };
     explicit PlanCache(std::size_t capacity = 32);
     PlanCache(const PlanCache&) = delete;
     PlanCache& operator=(const PlanCache&) = delete;
     [[nodiscard]] Result<std::shared_ptr<const Plan>> compile(const Graph& graph);
-    // The caller must finish recording before this cache is used again.
-    [[nodiscard]] Result<const Plan*> compile_borrowed(const Graph& graph);
+    // The caller must finish recording before this cache is used again. An exclusively
+    // borrowed plan may be rebound to equivalent imports at the same canonical indices.
+    [[nodiscard]] Result<const Plan*> compile_borrowed(
+        const Graph& graph, Imports imports = Imports::Exact
+    );
 
 private:
     struct Entry {
@@ -366,7 +373,7 @@ private:
         bool shared = false;
     };
 
-    [[nodiscard]] Result<Entry*> find_or_compile(const Graph& graph);
+    [[nodiscard]] Result<Entry*> find_or_compile(const Graph& graph, Imports imports);
 
     std::vector<Entry> m_entries;
     std::shared_ptr<Plan> m_scratch;

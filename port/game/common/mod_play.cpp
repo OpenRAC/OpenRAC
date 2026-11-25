@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <cmath>
 #include <cstddef>
@@ -20,6 +21,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -30,6 +32,7 @@
 #include "mod_touch.h"
 #include "mods.h"
 #include "openrac/guest.h"
+#include "renderer/textures/sharp_cells.h"
 
 // The game's calls into the mods' world (game_host.h), set while mods are loaded.
 int (*openrac_game_moby_update)(std::int32_t slot, int phase) = nullptr;
@@ -302,13 +305,131 @@ void (*g_joint_offsets)(std::uint32_t, const openrac_joint_offset*, int) = nullp
 
 std::vector<JointSet> g_joint_sets;
 
-// Hands every mod's joint offsets to the hero at `moby` (none: his own animation alone).
+// Hands every mod's joint offsets to the moby at `moby` (none: its own animation alone).
 void apply_joint_sets(std::uint32_t moby) {
     std::vector<openrac_joint_offset> all;
     for (const JointSet& s : g_joint_sets) {
-        all.insert(all.end(), s.joints.begin(), s.joints.end());
+        if (s.moby == moby) {
+            all.insert(all.end(), s.joints.begin(), s.joints.end());
+        }
     }
     g_joint_offsets(moby, all.empty() ? nullptr : all.data(), static_cast<int>(all.size()));
+}
+
+// Offsets of an earlier level's mobies (not the hero's) are gone with that level: the address
+// may hold another moby now. Run each frame (play_update) and before each set.
+void drop_stale_joint_sets() {
+    if (g_joint_sets.empty() || g_joint_offsets == nullptr) {
+        return;
+    }
+    const std::uint32_t loads = loads_now();
+    const std::uint32_t hero =
+        g_play != nullptr && g_play->hero_moby != nullptr ? g_play->hero_moby() : 0;
+    if (hero == 0) {
+        return;  // still loading: the hero's own offsets are kept for the next level
+    }
+    std::vector<std::uint32_t> stale;
+    std::erase_if(g_joint_sets, [&](const JointSet& s) {
+        if (s.loads == loads || s.moby == hero) {
+            return false;
+        }
+        if (std::find(stale.begin(), stale.end(), s.moby) == stale.end()) {
+            stale.push_back(s.moby);
+        }
+        return true;
+    });
+    for (const std::uint32_t old : stale) {
+        apply_joint_sets(old);
+    }
+}
+
+// One mod's offsets on one moby set (count 0: taken off), and all of that moby's handed to it:
+// OPENRAC_HOOK_UNKNOWN, with the mod's last ones kept, past OPENRAC_JOINT_OFFSETS_MAX in all.
+int set_joint_set(
+    const openrac_mod* mod, std::uint32_t moby, const openrac_joint_offset* joints, int count
+) {
+    drop_stale_joint_sets();
+    const std::uint32_t loads = loads_now();
+    auto it = std::find_if(g_joint_sets.begin(), g_joint_sets.end(), [&](const JointSet& s) {
+        return s.mod == mod && s.moby == moby;
+    });
+    std::size_t others = 0;
+    for (const JointSet& s : g_joint_sets) {
+        if (s.moby == moby && s.mod != mod) {
+            others += s.joints.size();
+        }
+    }
+    if (others + static_cast<std::size_t>(count) > OPENRAC_JOINT_OFFSETS_MAX) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (count == 0) {
+        if (it != g_joint_sets.end()) {
+            g_joint_sets.erase(it);
+        }
+    } else {
+        if (it == g_joint_sets.end()) {
+            it = g_joint_sets.insert(g_joint_sets.end(), JointSet{mod, moby, loads, {}});
+        }
+        it->loads = loads;
+        it->joints.assign(joints, joints + count);
+    }
+    apply_joint_sets(moby);
+    return OPENRAC_HOOK_OK;
+}
+
+// A mod's camera's field of view (camera_fov): degrees (0 the game's) and the level load it was
+// set in, read by the window's thread.
+std::atomic<float> g_camera_fov{0.0f};
+std::atomic<std::uint32_t> g_camera_fov_loads{0};
+
+void release_camera_fov() {
+    g_camera_fov.store(0.0f, std::memory_order_relaxed);
+}
+
+void set_camera_fov(float degrees) {
+    g_camera_fov_loads.store(loads_now(), std::memory_order_relaxed);
+    g_camera_fov.store(degrees, std::memory_order_relaxed);
+}
+
+// The mods that hide the game's HUD (hud_hide), each with its level load, behind g_hud_lock.
+std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_hud_hidden;
+
+std::vector<MusicGain> g_music_gains;
+std::mutex g_motor_mods_lock;
+std::vector<const openrac_mod*> g_motor_mods;
+void (*g_music_gain)(int, float) = nullptr;
+int (*g_joint_frame)(std::uint32_t, int, float*) = nullptr;
+
+void apply_music_gain() {
+    if (g_music_gain == nullptr || g_play == nullptr || g_play->music_group == nullptr) {
+        return;
+    }
+    const int group = g_play->music_group();
+    if (group < 0) {
+        return;
+    }
+    float gain = 1.0f;
+    for (const MusicGain& g : g_music_gains) {
+        gain = std::min(gain, g.gain);
+    }
+    g_music_gain(group, gain);
+}
+
+std::mutex g_air_lock;
+std::optional<AirSet> g_air;
+std::vector<Stretch> g_stretches;
+std::vector<TieHidden> g_ties_hidden;
+
+// The air, slow motion and hidden ties of one mod (all: null) taken off.
+void drop_air(const openrac_mod* mod) {
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    if (g_air && (mod == nullptr || g_air->mod == mod)) {
+        g_air.reset();
+    }
+    std::erase_if(g_ties_hidden, [&](const TieHidden& h) {
+        return mod == nullptr || h.mod == mod;
+    });
+    std::erase_if(g_stretches, [&](const Stretch& s) { return mod == nullptr || s.mod == mod; });
 }
 
 // The mod holding the game's camera (camera_set), and the heat haze patches each mod drew, of a
@@ -336,9 +457,12 @@ std::vector<HeroVoice> g_hero_voices;
 // The looping hero sounds of one mod (all: null) stopped, those of this level load still playing.
 void stop_hero_voices(const openrac_mod* mod) {
     for (const HeroVoice& v : g_hero_voices) {
-        if ((mod == nullptr || v.mod == mod) && v.loads == loads_now() && g_play != nullptr
-            && g_play->hero_sound_stop != nullptr) {
-            g_play->hero_sound_stop(v.voice);
+        if ((mod == nullptr || v.mod == mod) && v.loads == loads_now() && g_play != nullptr) {
+            if (v.moby == 0 && g_play->hero_sound_stop != nullptr) {
+                g_play->hero_sound_stop(v.voice);
+            } else if (v.moby != 0 && g_play->moby_sound_stop != nullptr) {
+                g_play->moby_sound_stop(v.moby, v.voice);
+            }
         }
     }
     std::erase_if(g_hero_voices, [&](const HeroVoice& v) {
@@ -434,6 +558,8 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     g_sound_set = host.sound_set;
     g_sound_stop = host.sound_stop;
     g_joint_offsets = host.joint_offsets;
+    g_music_gain = host.music_gain;
+    g_joint_frame = host.joint_frame;
     api.hero_set_pose = api_hero_set_pose;
     api.hero_set_joints = api_hero_set_joints;
     api.collision_triangles = api_collision_triangles;
@@ -485,6 +611,73 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.touch_icon = api_touch_icon;
     api.touch_push = api_touch_push;
     api.touch_hint = api_touch_hint;
+    api.camera_fov = api_camera_fov;
+    api.hud_hide = api_hud_hide;
+    api.music_volume = api_music_volume;
+    api.moby_set_joints = api_moby_set_joints;
+    api.moby_joint_position = api_moby_joint_position;
+    api.moby_sound_play = api_moby_sound_play;
+    api.moby_sound_stop = api_moby_sound_stop;
+    api.scene_air = api_scene_air;
+    api.time_stretch = api_time_stretch;
+    api.tie_hide = api_tie_hide;
+    api.prop_animate = api_prop_animate;
+    api.moby_joint_frame = api_moby_joint_frame;
+    api.moby_set_joint_poses = api_moby_set_joint_poses;
+    api.moby_uid = api_moby_uid;
+}
+
+float camera_fov() {
+    const float degrees = g_camera_fov.load(std::memory_order_relaxed);
+    return degrees > 0.0f && g_camera_fov_loads.load(std::memory_order_relaxed) == loads_now()
+               ? degrees
+               : 0.0f;
+}
+
+std::optional<openrac_air> scene_air() {
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    if (!g_air || g_air->loads != loads_now()) {
+        return std::nullopt;
+    }
+    return g_air->air;
+}
+
+float time_stretch() {
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    const std::uint32_t loads = loads_now();
+    float most = 1.0f;
+    for (const Stretch& s : g_stretches) {
+        if (s.loads == loads) {
+            most = std::max(most, s.stretch);
+        }
+    }
+    return most;
+}
+
+std::vector<int> hidden_ties() {
+    const std::lock_guard<std::mutex> lock(g_air_lock);
+    const std::uint32_t loads = loads_now();
+    std::vector<int> out;
+    for (const TieHidden& h : g_ties_hidden) {
+        if (h.loads == loads) {
+            out.push_back(h.tie);
+        }
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+bool any_mod_motors() {
+    const std::lock_guard<std::mutex> lock(g_motor_mods_lock);
+    return !g_motor_mods.empty();
+}
+
+bool hud_hidden() {
+    const std::lock_guard<std::mutex> lock(g_hud_lock);
+    const std::uint32_t loads = loads_now();
+    return std::any_of(g_hud_hidden.begin(), g_hud_hidden.end(), [&](const auto& h) {
+        return h.second == loads;
+    });
 }
 
 bool ammo_panel_offset(int handle, int& x, int& y) {
@@ -552,7 +745,10 @@ std::vector<PropDraw> props_drawn() {
                  p.blend,
                  p.attached_moby,
                  p.attached_joint,
-                 p.skin}
+                 p.skin,
+                 p.animation,
+                 p.seconds,
+                 p.loop}
             );
         }
     }
@@ -710,7 +906,12 @@ std::unordered_map<std::uint32_t, MobyMaterial> energy_materials() {
         if (e.loads != loads) {
             continue;
         }
-        if (OPENRAC_MOBY_MATERIAL_KIND(e.material.material) == OPENRAC_MOBY_MATERIAL_ENERGY) {
+        const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(e.material.material);
+        const bool effects =
+            kind == OPENRAC_MOBY_MATERIAL_ENERGY
+            || (kind == OPENRAC_MOBY_MATERIAL_PAINT
+                && (e.material.material & OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS) != 0);
+        if (effects) {
             out.insert_or_assign(e.material.moby, e.material);
         } else {
             out.erase(e.material.moby);
@@ -800,6 +1001,12 @@ void drop_gone_address_models() {
 void play_update() {
     drop_gone_slot_models();
     drop_gone_address_models();
+    drop_stale_joint_sets();
+    // The music's gains went with their level: back at full.
+    const std::uint32_t loads = loads_now();
+    if (std::erase_if(g_music_gains, [&](const MusicGain& g) { return g.loads != loads; }) != 0) {
+        apply_music_gain();
+    }
     // The game's camera scripts, as they went.
     if (has_camera_scripts()) {
         std::int32_t id = 0;
@@ -882,6 +1089,7 @@ std::uint32_t overlay_phase_now() {
 }
 
 void reset_play() {
+    drop_air(nullptr);
     g_ammo_panel_offsets.clear();
     {
         const std::lock_guard<std::mutex> lock(g_camera_visibility_lock);
@@ -923,6 +1131,19 @@ void reset_play() {
     {
         const std::lock_guard<std::mutex> lock(g_hud_lock);
         g_hud.clear();
+        g_hud_hidden.clear();
+    }
+    if (!g_music_gains.empty()) {
+        g_music_gains.clear();
+        apply_music_gain();
+    }
+    // Every mod's motors (openrac_api.set_motors) stop.
+    if (g_host != nullptr && g_host->drop_motors != nullptr) {
+        g_host->drop_motors(nullptr);
+    }
+    {
+        const std::lock_guard<std::mutex> lock(g_motor_mods_lock);
+        g_motor_mods.clear();
     }
     if (!g_joint_sets.empty()) {
         g_joint_sets.clear();
@@ -936,6 +1157,7 @@ void reset_play() {
         g_play->camera_set(nullptr, nullptr);
     }
     g_camera_mod = nullptr;
+    release_camera_fov();
     for (const auto& v : g_voices) {
         if (g_sound_stop != nullptr) {
             g_sound_stop(v.second);
@@ -963,6 +1185,19 @@ void reset_play() {
 
 void drop_figures(const openrac_mod* mod) {
     drop_weapon_shots(mod);
+    drop_air(mod);
+    // Its sharper cells (openrac_api.sharp_cells); null is the built-ins', which stay.
+    if (mod != nullptr) {
+        renderer::sharp_cells::set(mod, {});
+    }
+    // Its motors (openrac_api.set_motors) stop; the game's and the other mods' play on.
+    if (mod != nullptr && g_host != nullptr && g_host->drop_motors != nullptr) {
+        g_host->drop_motors(mod);
+    }
+    {
+        const std::lock_guard<std::mutex> lock(g_motor_mods_lock);
+        std::erase(g_motor_mods, mod);
+    }
     {
         const std::lock_guard<std::mutex> lock(g_props_lock);
         std::erase_if(g_visuals, [&](const auto& set) { return set.mod == mod; });
@@ -1009,14 +1244,20 @@ void drop_figures(const openrac_mod* mod) {
     {
         const std::lock_guard<std::mutex> lock(g_hud_lock);
         std::erase_if(g_hud, [&](const HudTexts& h) { return h.mod == mod; });
+        std::erase_if(g_hud_hidden, [&](const auto& h) { return h.first == mod; });
     }
-    if (std::erase_if(g_joint_sets, [&](const JointSet& s) { return s.mod == mod; }) != 0
-        && g_joint_offsets != nullptr) {
-        const std::uint32_t moby =
-            g_play != nullptr && g_play->hero_moby != nullptr ? g_play->hero_moby() : 0;
-        if (g_joint_sets.empty() || moby == 0) {
-            g_joint_offsets(0, nullptr, 0);
-        } else {
+    if (std::erase_if(g_music_gains, [&](const MusicGain& g) { return g.mod == mod; }) != 0) {
+        apply_music_gain();
+    }
+    std::vector<std::uint32_t> turned;
+    for (const JointSet& s : g_joint_sets) {
+        if (s.mod == mod && std::find(turned.begin(), turned.end(), s.moby) == turned.end()) {
+            turned.push_back(s.moby);
+        }
+    }
+    std::erase_if(g_joint_sets, [&](const JointSet& s) { return s.mod == mod; });
+    if (g_joint_offsets != nullptr) {
+        for (const std::uint32_t moby : turned) {
             apply_joint_sets(moby);
         }
     }
@@ -1026,6 +1267,7 @@ void drop_figures(const openrac_mod* mod) {
             g_play->camera_set(nullptr, nullptr);
         }
         g_camera_mod = nullptr;
+        release_camera_fov();
     }
     std::erase_if(g_voices, [&](const auto& v) {
         if (v.first == mod && g_sound_stop != nullptr) {

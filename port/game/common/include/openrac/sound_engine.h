@@ -42,6 +42,9 @@ void openrac_sound_stop_all(void);
 void openrac_sound_set_master_volume(int32_t group, int32_t volume);
 void openrac_sound_pause_groups(uint32_t mask);
 void openrac_sound_continue_groups(uint32_t mask);
+/* A gain of the port's own on the streams of volume group `group` (0 to 1; a mod's scene ducking
+ * the music, openrac_api.music_volume), over the game's volumes, eased over a tenth of a second. */
+void openrac_sound_set_stream_gain(int32_t group, float gain);
 
 /* One 989snd command from the EE's batch (u16 command, u16 size, then `size` bytes); returns the
  * IOP's reply word. Commands the port does not take yet answer 0. */
