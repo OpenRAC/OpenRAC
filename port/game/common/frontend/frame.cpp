@@ -3945,11 +3945,16 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     g->kept->overlay_phase = mods::overlay_phase();
     // The pause menu runs in a mode of its own, but the world under it (the picture of the frame
     // it took, or a level's world drawn live under it) is the level's, seen with the camera it was
-    // paused with: a gameplay camera when the game was paused from play.
+    // paused with: a gameplay camera when the game was paused from play. A freeze screen's world
+    // (Ratchet & Clank's mode 4: help, prompts, a mod's own freeze) is the same: the level drawn
+    // again as it stopped, with the lens it had.
     std::uint32_t mode_now = 0;
     const auto pause_mode = g->render.profile->pause_mode();
-    const bool paused = pause_mode && openrac_game_mode != nullptr
-                        && openrac_game_mode(&mode_now) != 0 && mode_now == *pause_mode;
+    const auto freeze_mode = g->render.profile->freeze_mode();
+    const bool has_mode_now = openrac_game_mode != nullptr && openrac_game_mode(&mode_now) != 0;
+    const bool paused =
+        has_mode_now
+        && ((pause_mode && mode_now == *pause_mode) || (freeze_mode && mode_now == *freeze_mode));
     if (under_menu || paused) {
         g->kept->gameplay_camera = g->paused_from_play;
     } else if (world_ran) {

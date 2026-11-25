@@ -278,6 +278,10 @@ public:
 
     std::optional<std::uint32_t> pause_mode() const override { return 3; }
 
+    // Level mode 4 is the freeze (mode_freeze_init, update_mode_freeze): its picture draws the
+    // level again as it stopped (draw_dialog_background_and_text).
+    std::optional<std::uint32_t> freeze_mode() const override { return 4; }
+
     std::uint32_t particle_updates() const override { return m_executable.particle_updates; }
 
     // process_pad_input (games/rac1's func_002181F0): |byte - 0x7F| from 0x30, over 0x4C.

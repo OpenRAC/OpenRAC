@@ -406,6 +406,11 @@ public:
     // game whose quick select keeps the play mode.
     virtual std::optional<std::uint32_t> quick_select_mode() const { return std::nullopt; }
 
+    // The value of the game's mode word while a freeze screen is up over a level (help, prompts,
+    // a mod's own freeze: the world drawn again as it stopped); like the pause menu's, the Field
+    // of View keeps the world under it as it was frozen. None for a game without one known.
+    virtual std::optional<std::uint32_t> freeze_mode() const { return std::nullopt; }
+
     // Returns the executable's address of the particle updates, one per particle type byte
     // (relocated when read); 0 for a game without them.
     virtual std::uint32_t particle_updates() const { return 0; }
