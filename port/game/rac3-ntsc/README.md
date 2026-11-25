@@ -39,7 +39,7 @@ Nothing of PAL's port is copied here. The NTSC-U program is built from:
 
 | File | |
 |---|---|
-| `release/release.json` | **by hand**: this disc's own hostgen.json keys (title, serial, 60 Hz, `src/us`, the retail image), the function pairs rac3-decomp's map does not make yet and the addresses no global names, each with its evidence |
+| `release/release.json` | **by hand**: this disc's own hostgen.json keys (title, serial, 60 Hz, `src/us`, the retail image), the function pairs rac3-decomp's map does not make yet, the addresses no global names and the globals `config/us/names.tsv` places for the other program only (`globals`, `front_globals`), each with its evidence |
 | `release/release_names.json` | each PAL name and NTSC-U's (release_rac3.py, from rac3-decomp's `config/us/map.tsv` and `config/us/names.tsv`) |
 | `release/release_carry.json` | what the carried tables rest on besides the same code: host replacements and wraps of a function NTSC-U has other code for, rows left out, addresses not found |
 | `hostgen.json`, `libraries.tsv` | rac3-pal's, in NTSC-U's names |
