@@ -562,3 +562,33 @@ func_L07_003B6E98 had inherited the C's result before the assembly stage found n
 (`uninherit_void_results`). The Rangers' dropships (6877, func_L01_003C3D08, matched in
 242c17bd) fly the same in its matched C and in its assembly (state, position and the moved
 ties compared at frame 2400).
+
+## Open after the 2026-11-24 playtest fixes (#829–#877)
+
+Not fixed, for whoever picks rac3 up next:
+
+- **Crash on Veldin after a new game's first flight** (seen once in a hidden box2 run, frame 1714):
+  SIGSEGV in a level function's string formatting, `func_L01_004CDF20 → func_0011B2E8`
+  (print.c:28) `→ openrac_guest_vformat`. Not reproduced or diagnosed yet.
+- **The Phoenix's "△ Enter ship" HUD message box** draws enlarged with its text shifted left. The
+  box is `func_L01_004366A0 → func_L01_004CDC38`, drawn by `func_L01_004CF120` / `004CEAE0`: it
+  measures "\x12 Enter ship" as 120 units (font 1, scale 1.0) against a half-width of 68 and draws
+  the text from x=195. Every global on that path pairs correctly on level 3 (#876's audit). Next
+  step: capture the same prompt on Florana and compare the measured width (message box +0x1B4).
+- **Misfiled 8-byte getters in other levels** (#876 fixed levels 3/24's and the flight's): the
+  same one-row-along filing shows in levels 4, 7, 9, 12, 13, 16, 18, 19, 22, 26, 27, 29 and 30
+  (e.g. `func_L01_003A0710`, `func_L01_004C93D8`), and the font-wrapper rows still held by other
+  Veldin names (`func_L01_00423020`, `func_L01_00412810`). Many read private globals only; check
+  each one against callers' `OPENRAC_LCODE` calls. The root fix is rac3-decomp's catalogue
+  (tools/level_catalogue.py).
+- **Synchronous rendering's tick-boundary hitch**: on OpenGL, or Vulkan without the render
+  thread, the scene runs half a tick behind but in-between frames can't pass the next tick, so
+  alpha drops from ~0.47 to 0 at each tick. The Vulkan render-thread path is not affected.
+  Probe: `OPENRAC_MOTION_LOG`.
+- **The first flight's Solana galaxy sequence**: the boot flight has no first-flight variant in
+  its transition table (#871's runs). Probably the New Game intro movie (sector 18444); not
+  confirmed against the original.
+- **Blank first-weapon slot after loading a save** (one report): not reproduced in six box2 runs.
+- **Ties' additive blends** 0x58 and 0x68 are still drawn as the normal 0x44 blend (#869).
+- **Water**: the surface texture has one mip level (#868), so distant water on levels with a
+  surface texture may shimmer; colours were checked against microprogram 10's maths, not footage.
