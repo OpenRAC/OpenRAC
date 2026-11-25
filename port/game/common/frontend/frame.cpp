@@ -57,6 +57,7 @@
 #include "game/common/frontend/menu_layers.h"
 #include "game/common/frontend/scenery_capture.h"
 #include "game/common/frontend/state.h"
+#include "game/common/frontend/view_mobys.h"
 #include "game/common/frontend/water_interactions.h"
 #include "game/common/moby_proc.h"
 #include "mod_menu.h"
@@ -208,15 +209,14 @@ std::vector<std::uint8_t> direct_packets(
     std::vector<State::MarkedMobys>* texture_mobys = nullptr,
     const renderer::FrameRecorder* recorder = nullptr,
     const renderer::FrameRecording** recorded = nullptr,
-    std::vector<renderer::FrameSplice>* splices = nullptr
+    std::vector<renderer::FrameSplice>* splices = nullptr,
+    std::span<const std::uint32_t> earlier = {}
 ) {
     std::vector<std::uint8_t> vif;
-    std::uint32_t tag_at =
+    // The submitted root selects a producer-owned generation before any anchor is considered: the
+    // root of the picture's last list.
+    const std::uint32_t list_root =
         openrac_guest_ram_address_for_size(chain, static_cast<std::uint32_t>(ram.size())) & ~0xFu;
-    // The submitted root selects a producer-owned generation before any anchor is considered.
-    const std::uint32_t list_root = tag_at;
-    std::uint32_t stack[2] = {0, 0};
-    int depth = 0;
     // For OPENRAC_DRAW_COVERAGE, where each run of the VIF data came from in game memory (the
     // scratchpad's as 0x70000000 on): its offset in `vif`, its address.
     const bool covering = strips != nullptr && draw_coverage::armed();
@@ -246,73 +246,86 @@ std::vector<std::uint8_t> direct_packets(
     // anchored to it go (docs/port/FRAME_RECORDER.md, section 4).
     std::vector<std::uint32_t> tag_addresses;
     std::vector<std::size_t> tag_vif;
-    for (int steps = 0; tag_at != 0 && steps < 20000; ++steps) {
-        if (recorder != nullptr) {
-            // Cursor helpers and RAM reads use the direct RAM view, including aliased NEXT targets.
-            tag_addresses.push_back(
-                openrac_guest_ram_address_for_size(tag_at, static_cast<std::uint32_t>(ram.size()))
-            );
-            tag_vif.push_back(vif.size());
-        }
-        // A list holds no more data than game memory does: a chain that runs past that loops (a tag
-        // that points back, from a bad pointer) and would grow `vif` by up to 1 MB a tag, 20 GB over
-        // the steps, which takes the computer's memory with it. It is cut there, once noted.
-        if (vif.size() > ram.size()) {
-            static bool noted = false;
-            if (!noted) {
-                noted = true;
-                log::warn(
-                    "display list from {:#x} runs past {} bytes: a looping chain, cut",
-                    chain,
-                    ram.size()
-                );
+    // The lists of the picture sent before this one (program/picture_lists.h), then this one,
+    // walked into one stream in that order: the tags of all of them place the recording's commands.
+    std::vector<std::uint32_t> roots(earlier.begin(), earlier.end());
+    roots.push_back(chain);
+    for (const std::uint32_t root : roots) {
+        std::uint32_t tag_at =
+            openrac_guest_ram_address_for_size(root, static_cast<std::uint32_t>(ram.size()))
+            & ~0xFu;
+        std::uint32_t stack[2] = {0, 0};
+        int depth = 0;
+        for (int steps = 0; tag_at != 0 && steps < 20000; ++steps) {
+            if (recorder != nullptr) {
+                // Cursor helpers and RAM reads use the direct RAM view, including aliased NEXT
+                // targets.
+                tag_addresses.push_back(openrac_guest_ram_address_for_size(
+                    tag_at, static_cast<std::uint32_t>(ram.size())
+                ));
+                tag_vif.push_back(vif.size());
             }
-            break;
-        }
-        const std::uint32_t lo = word_at(ram, tag_at);
-        const std::uint32_t raw_addr = word_at(ram, tag_at + 4);
-        const bool from_spr = (raw_addr & 0x80000000u) != 0;
-        const std::uint32_t addr = raw_addr & 0x7FFFFFF0;
-        const std::uint32_t qwc = lo & 0xFFFF;
-        const std::uint32_t id = (lo >> 28) & 7;
-        append(tag_at + 8, 8);  // the two VIF codes in the tag
-        const std::uint32_t after = tag_at + 16;
-        if (from_spr && id != 0 && id != 3 && id != 4) {
-            break;  // a chain continuing in the scratchpad: not followed
-        }
-        switch (id) {
-            case 0:  // refe
-                from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
-                tag_at = 0;
-                break;
-            case 1:  // cnt
-                append(after, qwc * 16);
-                tag_at = after + qwc * 16;
-                break;
-            case 2:  // next
-                append(after, qwc * 16);
-                tag_at = addr;
-                break;
-            case 3:  // ref
-            case 4:  // refs
-                from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
-                tag_at = after;
-                break;
-            case 5:  // call
-                append(after, qwc * 16);
-                if (depth < 2) {
-                    stack[depth++] = after + qwc * 16;
+            // A list holds no more data than game memory does: a chain that runs past that loops
+            // (a tag that points back, from a bad pointer) and would grow `vif` by up to 1 MB a
+            // tag, 20 GB over the steps, which takes the computer's memory with it. It is cut
+            // there, once noted.
+            if (vif.size() > ram.size()) {
+                static bool noted = false;
+                if (!noted) {
+                    noted = true;
+                    log::warn(
+                        "display list from {:#x} runs past {} bytes: a looping chain, cut",
+                        root,
+                        ram.size()
+                    );
                 }
-                tag_at = addr;
                 break;
-            case 6:  // ret
-                append(after, qwc * 16);
-                tag_at = depth > 0 ? stack[--depth] : 0;
-                break;
-            default:  // end
-                append(after, qwc * 16);
-                tag_at = 0;
-                break;
+            }
+            const std::uint32_t lo = word_at(ram, tag_at);
+            const std::uint32_t raw_addr = word_at(ram, tag_at + 4);
+            const bool from_spr = (raw_addr & 0x80000000u) != 0;
+            const std::uint32_t addr = raw_addr & 0x7FFFFFF0;
+            const std::uint32_t qwc = lo & 0xFFFF;
+            const std::uint32_t id = (lo >> 28) & 7;
+            append(tag_at + 8, 8);  // the two VIF codes in the tag
+            const std::uint32_t after = tag_at + 16;
+            if (from_spr && id != 0 && id != 3 && id != 4) {
+                break;  // a chain continuing in the scratchpad: not followed
+            }
+            switch (id) {
+                case 0:  // refe
+                    from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
+                    tag_at = 0;
+                    break;
+                case 1:  // cnt
+                    append(after, qwc * 16);
+                    tag_at = after + qwc * 16;
+                    break;
+                case 2:  // next
+                    append(after, qwc * 16);
+                    tag_at = addr;
+                    break;
+                case 3:  // ref
+                case 4:  // refs
+                    from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
+                    tag_at = after;
+                    break;
+                case 5:  // call
+                    append(after, qwc * 16);
+                    if (depth < 2) {
+                        stack[depth++] = after + qwc * 16;
+                    }
+                    tag_at = addr;
+                    break;
+                case 6:  // ret
+                    append(after, qwc * 16);
+                    tag_at = depth > 0 ? stack[--depth] : 0;
+                    break;
+                default:  // end
+                    append(after, qwc * 16);
+                    tag_at = 0;
+                    break;
+            }
         }
     }
 
@@ -1637,6 +1650,20 @@ TickMobys pose_mobys(
     if (state.moby_view) {
         state.moby_view->scale = settings::get().draw_distance_scale();
     }
+    // Split screen: the state each view's world was drawn with since the last capture, at the
+    // same draw distance (recorder::view_camera).
+    std::array<std::optional<host::GameState>, renderer::kFrameViews> view_states = g->view_states;
+    std::uint8_t tested_views = 0;
+    int views_drawn = 0;
+    for (std::uint32_t n = 0; n < renderer::kFrameViews; ++n) {
+        if (view_states[n]) {
+            tested_views = static_cast<std::uint8_t>(tested_views | (1u << n));
+            ++views_drawn;
+            if (view_states[n]->moby_view) {
+                view_states[n]->moby_view->scale = settings::get().draw_distance_scale();
+            }
+        }
+    }
     // Active distance at Match: the mobys the game leaves asleep loop their animation in the
     // picture (frontend/sleeping_mobys.h). Read from the game's memory, never written to it.
     const bool animate_sleeping = !settings::get().original_active_distance;
@@ -1839,6 +1866,11 @@ TickMobys pose_mobys(
     const bool free_camera = debug_overlay::free_camera_enabled();
     // The view a draw distance exception is culled by: the game's own draw distance. Made once.
     std::optional<host::GameState> game_distance_view;
+    // Every view of a split screen drawn in this capture: each moby tested from each view's camera
+    // (frontend/view_mobys.h), each instance's views kept (Kept::live_views).
+    const bool per_view = world_ran && !free_camera && views_drawn >= 2;
+    std::array<std::optional<host::GameState>, renderer::kFrameViews> view_distance_views;
+    std::vector<std::uint8_t> live_views;
     // The mobys the mods draw with a mesh of their own (interface 1.33), by address.
     const std::vector<mods::MobyModelDraw> model_draws = mods::moby_models_drawn();
     std::unordered_map<std::uint32_t, const mods::MobyModelDraw*> model_overrides;
@@ -1891,25 +1923,38 @@ TickMobys pose_mobys(
                 return c.first == m.address;
             });
         std::optional<std::uint8_t> distance_fade = std::uint8_t{0x80};
+        std::uint8_t drawn_views = kEveryView;
         if (!extra && world_ran && m.address + 0x34 <= ram.size() && !own_camera) {
             // The freecam flies away from the game's camera, whose depth and sides it is not: a
             // moby behind Ratchet is in its view. Kept by its draw distance from the game's camera
             // in any direction, the window's own view of the freecam culls the rest.
             // A class in the game's draw distance exceptions (port/game/<game>/draw_distance.tsv)
             // keeps the game's own draw distance at every Draw distance.
-            const host::GameState* view = &state;
-            if (state.moby_view && g->render.profile->keeps_game_draw_distance(m.class_id)) {
-                if (!game_distance_view) {
-                    game_distance_view = state;
-                    game_distance_view->moby_view->scale = 1.0f;
+            // The test from `seen`, or from `kept`, its copy at the game's own draw distance.
+            const auto fade_from = [&](const host::GameState& seen,
+                                       std::optional<host::GameState>& kept) {
+                const host::GameState* view = &seen;
+                if (seen.moby_view && g->render.profile->keeps_game_draw_distance(m.class_id)) {
+                    if (!kept) {
+                        kept = seen;
+                        kept->moby_view->scale = 1.0f;
+                    }
+                    view = &*kept;
                 }
-                view = &*game_distance_view;
-            }
-            if (free_camera) {
-                distance_fade = host::moby_free_camera_reach(ram.data() + m.address, *view);
+                return free_camera
+                           ? host::moby_free_camera_reach(ram.data() + m.address, *view)
+                           : g->render.profile->moby_distance_fade(ram.data() + m.address, *view);
+            };
+            if (per_view) {
+                // Split screen drawn in one capture: in the views whose own camera's test it
+                // passes, at the strongest of their fades (frontend/view_mobys.h).
+                const ViewFade seen = fade_in_views(tested_views, [&](std::uint32_t n) {
+                    return fade_from(*view_states[n], view_distance_views[n]);
+                });
+                distance_fade = seen.fade;
+                drawn_views = seen.views;
             } else {
-                distance_fade =
-                    g->render.profile->moby_distance_fade(ram.data() + m.address, *view);
+                distance_fade = fade_from(state, game_distance_view);
             }
         }
         if (!distance_fade) {
@@ -1932,6 +1977,7 @@ TickMobys pose_mobys(
                 continue;
             }
             light_only = true;
+            drawn_views = kEveryView;
 #else
             continue;
 #endif
@@ -2632,6 +2678,10 @@ TickMobys pose_mobys(
                 }
             }
         }
+        if (per_view) {
+            live_views.resize(live.size(), kEveryView);
+            live_views.push_back(drawn_views);
+        }
         live.push_back(instance);
         live_addresses.push_back(m.address);
     }
@@ -2946,6 +2996,9 @@ TickMobys pose_mobys(
             palette.push_back(c);
         }
     }
+    if (per_view) {
+        live_views.resize(live.size(), kEveryView);
+    }
     return {
         std::move(live),
         std::move(live_addresses),
@@ -2959,7 +3012,8 @@ TickMobys pose_mobys(
         water_hands,
         std::move(point_lit),
         shrub_draws(ram, world_ran && !under_menu),
-        scenery_matrices(ram, world_ran && !under_menu, state)
+        scenery_matrices(ram, world_ran && !under_menu, state),
+        std::move(live_views)
     };
 }
 
@@ -3027,6 +3081,7 @@ void keep_tick(
     if (k.level != g->loaded) {
         k.has_state = false;
         k.live.clear();
+        k.live_views.clear();
         k.addresses.clear();
         k.joints.clear();
         k.shadows.clear();
@@ -3107,6 +3162,7 @@ void keep_tick(
     k.state = state;
     k.has_state = true;
     k.live = std::move(mobys.live);
+    k.live_views = std::move(mobys.live_views);
     k.target_mobys = std::move(mobys.target_mobys);
     k.texture_variant = g->render.profile->texture_variant(ram);
     k.addresses = std::move(mobys.addresses);
@@ -3185,6 +3241,7 @@ std::size_t splices_before_world(
 TickPackets capture_2d_path(
     std::span<const std::uint8_t> ram,
     std::uint32_t chain,
+    std::span<const std::uint32_t> earlier,
     int level,
     std::uint32_t draws,
     bool debug
@@ -3233,7 +3290,8 @@ TickPackets capture_2d_path(
         &g->texture_mobys,
         &g->recorder,
         &recorded,
-        &splices
+        &splices,
+        sent_chain ? earlier : std::span<const std::uint32_t>{}
     );
     if (recorded != nullptr) {
         k.recording = *recorded;
@@ -3789,7 +3847,12 @@ bool prepare_frame(std::span<const std::uint8_t> ram) try {
     return false;
 }
 
-bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws) {
+bool frame(
+    std::span<const std::uint8_t> ram,
+    std::uint32_t chain,
+    std::span<const std::uint32_t> earlier,
+    std::uint32_t draws
+) {
     const profiling::Zone trace("Capture tick");
 
     // Resource changes require exclusive graphics ownership.
@@ -3842,7 +3905,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         log_tick_state(ram, state, level, draws);
     }
     log_mobys_near_hero(ram, state);
-    auto packets = capture_2d_path(ram, chain, level, draws, debug);
+    auto packets = capture_2d_path(ram, chain, earlier, level, draws, debug);
     // Catch up before posing hundreds of objects for a picture that will never be displayed.
     if (pacing.late > pacing.period && g->skipped < kMostSkipped && g->index > 1 && world_ran
         && (draws & OPENRAC_DRAW_TERRAIN) != 0 && g->hud
@@ -3851,6 +3914,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
         ++g->index;
         g->ui_quads.clear();
         g->moby_cameras.clear();
+        g->view_states = {};
         g->effects.clear();
         ++g->effect_generation;
         g->effect_states_before.clear();
@@ -3871,6 +3935,7 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
                           ? std::move(prepared->mobys)
                           : pose_mobys(ram, state, world_ran, only_own_camera, under_menu, debug);
     g->moby_cameras.clear();
+    g->view_states = {};
     stats::gauge("render preparation ms", prepared ? prepared->seconds * 1000.0 : 0.0);
     part.emplace("lights");
     light_scene(ram, state);

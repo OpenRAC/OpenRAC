@@ -1052,6 +1052,12 @@ void GifInterpreter::run_command(const FrameCommand& c) {
     const FrameRecording& r = *m_recording;
     switch (c.op) {
         case FrameOp::World:
+            // Split screen: that player's picture goes here, over what the game drew in the view
+            // before its world and under what it draws after (set_view_pictures).
+            if (c.view < r.views.size()) {
+                view_world(r.views[c.view]);
+            }
+            break;
         case FrameOp::WorldMobys:
         case FrameOp::WorldShrubs:
         case FrameOp::EffectParent:
@@ -1257,9 +1263,9 @@ void GifInterpreter::native_rect(const FrameCommand& c, const DirectState& given
         v.y = 1.0f - ys[i >> 1] / th * 2.0f;
         v.z = depth;
         v.s = static_cast<float>(i & 1);
-        // A snapshot's texture has its first row at the bottom.
-        v.t = s.snapshot_picture != 0 ? 1.0f - static_cast<float>(i >> 1)
-                                      : static_cast<float>(i >> 1);
+        // A snapshot's texture and a view's picture have their first row at the bottom.
+        v.t = s.snapshot_picture != 0 || s.view_picture != 0 ? 1.0f - static_cast<float>(i >> 1)
+                                                             : static_cast<float>(i >> 1);
         v.q = 1.0f;
         std::memcpy(v.rgba, &c.rgba, 4);
         v.fog = 1.0f;
@@ -1267,6 +1273,36 @@ void GifInterpreter::native_rect(const FrameCommand& c, const DirectState& given
     const DirectVertex order[6] =
         {corners[0], corners[1], corners[2], corners[1], corners[3], corners[2]};
     append_vertices(order);
+}
+
+void GifInterpreter::view_world(const FrameView& view) {
+    // At most once a frame: a second World of the view must not cover what was drawn since.
+    if (!view.valid() || m_view_pictures[view.view] == 0
+        || ((m_views_drawn >> view.view) & 1u) != 0) {
+        return;
+    }
+    m_views_drawn |= 1u << view.view;
+    // The view's rectangle of the game's screen, across the target's width as the world is drawn
+    // on a target wider than the picture, not cut by the game's last scissor.
+    FrameCommand rect;
+    rect.rect = view.rect;
+    rect.whole = false;
+    rect.wide = true;
+    rect.screen_width = view.screen_width;
+    rect.screen_height = view.screen_height;
+    DirectState s;
+    s.textured = true;
+    s.combine = TextureCombine::Decal;
+    s.linear_mag = true;
+    s.linear_min = true;
+    s.clamp_s = true;
+    s.clamp_t = true;
+    s.blend = Blend::of(BlendMode::Opaque);
+    s.depth_write = false;
+    s.view_picture = m_view_pictures[view.view];
+    const bool scissor = std::exchange(m_recorded_scissor_set, false);
+    native_rect(rect, s, 1.0f);
+    m_recorded_scissor_set = scissor;
 }
 
 // A quad of the 2D layer from the game's data alone: its image's texture (or the image's distance
@@ -2469,6 +2505,7 @@ void DirectRenderer::prepare(const FrameInput& input, RenderState& state) {
     m_interpreter->set_over_world(std::exchange(m_world_split, false) && input.level_drawn);
     m_frame = &input;
     const stats::Scope decode("2d decode");
+    m_interpreter->set_view_pictures(input.view_pictures);
     m_interpreter->set_commands(input.recording, after_world, input.hud_packets_offset);
     submit(packets);
     m_interpreter->finish_commands();
@@ -2582,6 +2619,8 @@ std::array<unsigned, 2> DirectRenderer::apply(const DirectState& s, RenderState&
         glActiveTexture(GL_TEXTURE0);
         if (s.snapshot) {
             textures[0] = g_frame_snapshot.texture;
+        } else if (s.view_picture != 0) {
+            textures[0] = s.view_picture;
         } else if (s.snapshot_picture != 0) {
             const auto found = m_pictures.find(s.snapshot_picture);
             // The world a menu read back as it opened (openrac_frame_snapshot_world) is the frame

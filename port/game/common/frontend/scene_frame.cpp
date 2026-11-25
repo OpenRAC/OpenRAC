@@ -577,11 +577,15 @@ bool draw_world(SceneFrame& frame) {
             owner.renderer->render(input, target);
             return true;
         }
-        // Split screen: the views' pictures are the frame's world, put on it before anything that
-        // reads the world drawn (the read-back copy, bloom) and under the 2D.
+        // Split screen: the views' pictures are the frame's world. Each view whose World the 2D
+        // path reaches is drawn there, over what the game drew in it before (its viewport's clear)
+        // and under its HUD; the others are put on the frame before anything that reads the world
+        // drawn (the read-back copy, bloom) and under the 2D.
+        std::uint32_t in_stream = 0;
+        input.view_pictures = stream_view_pictures(owner, scene, in_stream);
         auto before_hud = std::move(input.before_hud);
-        input.before_hud = [&owner, width, height, before_hud = std::move(before_hud)] {
-            put_split_views(owner, owner.frame.id(), width, height);
+        input.before_hud = [&owner, width, height, in_stream, before_hud = std::move(before_hud)] {
+            put_split_views(owner, owner.frame.id(), width, height, in_stream);
             if (before_hud) {
                 before_hud();
             }

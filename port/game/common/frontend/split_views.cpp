@@ -10,7 +10,9 @@
 // console's frame buffer kept them; one that draws all of them in a tick refreshes all.
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdint>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -19,6 +21,7 @@
 
 #include "common/log.h"
 #include "game/common/frontend/scene_frame_internal.h"
+#include "game/common/frontend/view_mobys.h"
 #include "renderer/frame/colour_transfer.h"
 #include "renderer/renderer.h"
 
@@ -110,6 +113,12 @@ void render_view(SceneFrame& frame, const renderer::FrameView& v, renderer::Fram
             bucket->enabled = bucket->enabled
                               && (v.layers & (1u << static_cast<unsigned>(bucket->bucket()))) != 0;
         }
+    }
+    // A split screen drawn in one capture: the mobys this view's camera draws (view_mobys.h).
+    if (frame.mobys) {
+        owner.scene.set_instances(
+            scene::Layer::Mobys, drawn_in_view(*frame.mobys, frame.scene.live_views, v.view)
+        );
     }
     owner.renderer->render(input, target);
     for (const auto& [bucket, enabled] : kept) {
@@ -272,7 +281,10 @@ void draw_split_views(SceneFrame& frame) {
         kept.effects = 0;
     }
     apply_view_effects(frame);
-    // The frame's own scenery choice again, for what else reads it this frame.
+    // The frame's own mobys and scenery choice again, for what else reads them this frame.
+    if (frame.mobys) {
+        owner.scene.set_instances(scene::Layer::Mobys, *frame.mobys);
+    }
     owner.scene.choose_scenery(
         frame.graphics.draw_distance_scale(),
         frame.input.camera.position,
@@ -280,9 +292,42 @@ void draw_split_views(SceneFrame& frame) {
     );
 }
 
-void put_split_views(SceneRenderState& owner, unsigned target, int width, int height) {
-    for (SceneRenderState::SplitView& v : owner.split_views) {
-        if (!v.held) {
+std::array<unsigned, renderer::kFrameViews> stream_view_pictures(
+    SceneRenderState& owner, const Kept& scene, std::uint32_t& in_stream
+) {
+    std::array<unsigned, renderer::kFrameViews> pictures{};
+    in_stream = 0;
+    const renderer::FrameRecording& r = scene.recording;
+    for (const renderer::FrameSplice& splice : scene.splices) {
+        if (splice.command >= r.commands.size()) {
+            continue;
+        }
+        const renderer::FrameCommand& c = r.commands[splice.command];
+        // A World of a view that the 2D path reaches: that view's picture is drawn there.
+        if (c.op != renderer::FrameOp::World || c.view >= r.views.size()
+            || !r.views[c.view].valid()) {
+            continue;
+        }
+        const renderer::FrameView& v = r.views[c.view];
+        SceneRenderState::SplitView& kept = owner.split_views[v.view];
+        // Only a picture of that rectangle: one of another layout is put whole, before the 2D.
+        if (!kept.held || kept.layout.relative_rect() != v.relative_rect()) {
+            continue;
+        }
+        static_cast<void>(kept.picture.resolved());
+        pictures[v.view] = kept.picture.colour_texture();
+        in_stream |= 1u << v.view;
+    }
+    return pictures;
+}
+
+void put_split_views(
+    SceneRenderState& owner, unsigned target, int width, int height, std::uint32_t in_stream
+) {
+    for (std::uint32_t n = 0; n < renderer::kFrameViews; ++n) {
+        SceneRenderState::SplitView& v = owner.split_views[n];
+        // The 2D path draws those at their World (stream_view_pictures).
+        if (!v.held || ((in_stream >> n) & 1u) != 0) {
             continue;
         }
         const ViewPixels p = view_pixels(v.layout.relative_rect(), width, height);

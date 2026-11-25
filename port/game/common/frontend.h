@@ -193,7 +193,12 @@ void particle(
 
 // `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
 // when the game does not report them).
-bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws);
+bool frame(
+    std::span<const std::uint8_t> ram,
+    std::uint32_t chain,
+    std::span<const std::uint32_t> earlier,
+    std::uint32_t draws
+);
 
 // Captures the next tick's owned CPU scene while an earlier Vulkan snapshot renders.
 // The game thread calls this with stable RAM before finish_render(); false on capture failure.

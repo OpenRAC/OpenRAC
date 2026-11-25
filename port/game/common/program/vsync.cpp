@@ -21,6 +21,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "common/breadcrumbs.h"
 #include "common/crash.h"
@@ -334,6 +335,11 @@ int vsync() {
     sent_once = sent_once || sent;
     g_vsync_since_kick = true;
     report_stall(sent || !sent_once);
+    // A blank a send makes inside a picture the game said spans its sends draws nothing; the one
+    // that ends the picture draws the lists sent before its last too (program/picture_lists.h).
+    const bool within_picture = g_send_within_picture;
+    const std::vector<std::uint32_t> earlier =
+        within_picture ? std::vector<std::uint32_t>{} : g_picture_lists.take(g_chain);
     // With a window, the renderer draws the frame from the game's memory; without one, a frame is
     // only paced, at the game's frame rate.
 #ifdef OPENRAC_FRONTEND
@@ -364,14 +370,19 @@ int vsync() {
         // is per run, like this file's other statics, until vsync's state is an object (11.4).
         static UndrawnTicks undrawn;
         const bool in_level = openrac_game_loaded_overlay() != OPENRAC_OVERLAY_EXE;
-        const bool keep = undrawn.keep(g_reports_draws, draws, in_level);
-        g_draws = 0;
+        // Inside a picture, what the game drew so far stays the picture's.
+        const bool keep = !within_picture && undrawn.keep(g_reports_draws, draws, in_level);
+        if (!within_picture) {
+            g_draws = 0;
+        }
 
         // Before the frame's measurements go to the render thread: the sound's health is a gauge of
         // this frame.
         watch_sound();
 
-        if (!sent && sent_once) {
+        if (within_picture) {
+            // The picture goes on: the window keeps what it shows until the blank that ends it.
+        } else if (!sent && sent_once) {
             if (!frontend::keep_picture()) {
                 leave();
             }
@@ -379,6 +390,7 @@ int vsync() {
                    && !frontend::frame(
                        std::span<const std::uint8_t>(ram, runtime::Memory::get().ram_size()),
                        g_chain,
+                       earlier,
                        draws
                    )) {
             leave();

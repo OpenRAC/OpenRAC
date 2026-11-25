@@ -84,6 +84,9 @@ struct Kept {
     bool has_state = false, has_prev_state = false;
     std::vector<scene::Instance> live;
     std::vector<std::uint32_t> addresses;  // each live moby's address, for its last matrix
+    // Split screen drawn in one capture: the views that draw each live instance (bit n: view n,
+    // frontend/view_mobys.h); empty when every view draws every one.
+    std::vector<std::uint8_t> live_views;
     std::unordered_map<std::uint32_t, renderer::Mat4> prev_matrices;
     std::unordered_map<std::uint32_t, std::array<float, 4>> prev_spheres;
     std::vector<scene::LevelScene::JointColumns> palette;
@@ -187,6 +190,8 @@ struct TickMobys {
     // The ties and shrubs as the game holds them (LevelScene::move_scenery); none keeps the last
     // tick's.
     std::optional<scene::GameScenery> scenery;
+    // The views that draw each instance of `live` (Kept::live_views); empty: every view.
+    std::vector<std::uint8_t> live_views;
 };
 
 // The producer's next scene while the worker owns the previous rendered snapshot.
@@ -349,6 +354,9 @@ struct State {
     bool paused_from_play = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
+    // Split screen: the game's state when each view's world was drawn since the last capture
+    // (recorder::view_camera), for MobyProc's test from each view's camera (pose_mobys).
+    std::array<std::optional<host::GameState>, renderer::kFrameViews> view_states{};
 
     // The mobys the last 2D path read drew with a list of their own, by their markers (frame.cpp,
     // direct_packets): first moby, count, and whether the frame was a buffer narrower than the

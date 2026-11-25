@@ -236,6 +236,9 @@ void upload_instances(SceneFrame& frame) {
 
     frame.owner.scene.set_variant(frame.scene.texture_variant);
     frame.owner.scene.set_instances(scene::Layer::Mobys, drawn);
+    if (!frame.scene.live_views.empty()) {
+        frame.mobys = drawn;
+    }
     frame.output.picker_level = frame.scene.level;
     if (debug_overlay::picker_snapshot_needed()) {
         frame.output.picker_live = live;

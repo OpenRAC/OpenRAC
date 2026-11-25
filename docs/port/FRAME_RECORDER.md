@@ -90,19 +90,33 @@ when the view's `World` was recorded, read through the game's profile as the tic
 window (`frontend/split_views.cpp`) draws each recorded view's world alone (no 2D) with its camera
 into a picture of the view's size, the vertical field of view the game's and the horizontal one
 opened to the view's shape, and keeps it. Each frame every kept view's picture goes onto the frame at
-its rectangle in place of the one world, before anything that reads the world drawn and under the 2D
-(which still draws over the whole screen, the lines between the views included). So a game that
+its rectangle in place of the one world: where the 2D path reaches that view's `World` command
+(`FrameInput::view_pictures`), over what the game drew in the view before its world (its viewport's
+clear) and under what it draws after (its HUD); a kept view whose `World` the path does not reach,
+before anything that reads the world drawn and under the 2D (which still draws over the whole
+screen, the lines between the views included). So a game that
 draws one view a frame, alternating, keeps the others on screen as the console's frame buffer did,
 and one that draws every view in a frame refreshes them all. A recording with no view is a
 full-screen frame: the kept views are forgotten. Temporal reconstruction and the mods' heat haze,
 which follow one camera's history, are off while views are drawn. rac3's maps 50 to 53 (NTSC-U's 54
 and 55 too) do this from their view layout (`host/mp_maps.c`).
 
+rac3's maps send each player's view in a display list of its own with no vertical blank between
+them, then the last list (the other player's view, both HUDs, the black corners, the divider), then
+wait for the blank. A send with no blank since the last one ends a tick (`openrac_game_dma_send`),
+so they say each frame that their picture spans its sends (`openrac_game_picture_spans_sends`,
+`openrac/picture.h`): those sends still run the blank's work for the game, but the window captures
+once, at the blank the game waits for, walking every list of the picture in the order last sent
+(`program/picture_lists.h`, section 4) and closing one recording with every view. Each view still
+draws the mobys the game's MobyProc draws from that view's camera: the game's state at each view's
+world call is kept until the capture (`State::view_states`), and a moby goes in the views whose own
+camera's distance test it passes, at the strongest of their fades (`Kept::live_views`,
+`frontend/view_mobys.h`). Tested from the first view's camera alone, the second player's view lost
+every moby beyond the first player's draw distance, the second player among them.
+
 The worlds a tick draws are those of the recording closed last (`FrameRecorder::latest`, through
-`world_views`), not of the one its 2D path matched. rac3's maps send each player's view in a display
-list of its own with no vertical blank between them, so each send ends a tick
-(`openrac_game_dma_send`): each capture closes one player's view while the list it walks is the one
-sent before, built with the recording before. A tick with nothing recorded keeps the latest
+`world_views`), not of the one its 2D path matched: a game whose sends end ticks can walk a list a
+send behind, built with the recording before. A tick with nothing recorded keeps the latest
 recording's views. Their post effects are not taken from there (3.2).
 
 Each view keeps its own layer mask: its `World` calls' and the layers the game says it draws
@@ -127,9 +141,9 @@ Terminal native `ScreenEffect` commands outside explicit panels are scheduled fr
 chain alone on their owning view's framebuffer, in order, before its picture is composited.
 Payloads and camera values belong to the immutable tick. They run only while that picture holds
 the world of the effect's own recording, and once (`pair_view_effects`, `SplitView::world` and
-`effects`). With rac3's maps the submitted recording is a send behind the latest, so a player's
-effects reach its picture a tick after its world (the tick it is redrawn shows it without them),
-and the player whose list the window never walks gets none. An effect that cannot pair is
+`effects`). Walked a send behind the latest, a player's effects would reach its picture a tick
+after its world (the tick it is redrawn shows it without them); rac3's maps, whose picture spans
+its sends, submit the latest recording, so they run with their world. An effect that cannot pair is
 reported (`split screen:` warning) and runs nowhere. The main 2D executor keeps those commands for
 diagnostics but never runs them. Explicit-panel and unscoped effects retain their original
 ordered execution.
@@ -153,7 +167,9 @@ value of the game's own list write pointer when the command was recorded (`openr
 Host C already knows it: it is the cursor the old markers were written at.
 
 When the window walks the chain the game sent (still `direct_packets`, until P7), it notes every
-DMA tag's address and where its data lands in the 2D stream. A recording **matches** the chain if
+DMA tag's address and where its data lands in the 2D stream. A picture that spans sends (3.1) is
+walked as one chain: its earlier lists, then its last, into one stream and one tag list. A
+recording **matches** the chain if
 any of its anchors is the address of a tag of that chain; the most recent non-empty recording that
 matches is used (a list drawn a tick late, or sent again by a fade, finds the recording that was
 made while it was built, which replaces the `ui_kept` generations for games on the recorder). Each

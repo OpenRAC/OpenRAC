@@ -4,6 +4,11 @@
 // Private inputs shared by world recording, scene interpolation and captured HUD callbacks.
 #pragma once
 
+#include <array>
+#include <cstdint>
+#include <optional>
+#include <vector>
+
 #include "game/common/frontend/state.h"
 
 namespace openrac::frontend {
@@ -23,6 +28,9 @@ struct SceneFrame {
     std::vector<renderer::EffectQuad> effects{};  // Effect quads moved between ticks, for input.
     // Attached strip vertices moved from the display list's tick to the displayed parent.
     std::vector<renderer::EffectVertex> strip_vertices{};
+    // The moby layer as uploaded when split-screen views draw mobys of their own (Kept::live_views):
+    // each view's world takes its own, then this one goes back (split_views.cpp).
+    std::optional<std::vector<scene::Instance>> mobys{};
 };
 
 // The camera part way from the last tick's to this one's (a cut is not blended).
@@ -52,9 +60,17 @@ bool split_screen(const Kept& scene);
 // Draws each view the tick recorded into its kept picture, with its own camera; forgets them all
 // when the tick recorded none.
 void draw_split_views(SceneFrame& frame);
-// Puts every kept view's picture on `target` (a framebuffer of `width` x `height`) at its
-// rectangle: the frame's world, under its 2D.
-void put_split_views(SceneRenderState& owner, unsigned target, int width, int height);
+// The pictures the 2D path draws where it reaches their view's World (FrameInput::view_pictures):
+// kept pictures of the views whose World the tick's splices reach, at the rectangle drawn there;
+// `in_stream` their bits.
+std::array<unsigned, renderer::kFrameViews> stream_view_pictures(
+    SceneRenderState& owner, const Kept& scene, std::uint32_t& in_stream
+);
+// Puts every other kept view's picture (not in `in_stream`) on `target` (a framebuffer of `width` x
+// `height`) at its rectangle: the frame's world, under its 2D.
+void put_split_views(
+    SceneRenderState& owner, unsigned target, int width, int height, std::uint32_t in_stream
+);
 // Before the graphics context goes.
 void release_split_views(SceneRenderState& owner);
 
