@@ -12,7 +12,8 @@ Commando's PAL and USA v2.00 (PLAYED) are built whenever its USA disc is, since 
 they share can break them alone (an argument their C drops crashed only there). Anything unclear
 (a workflow, this file, a failed git call) checks everything. A develop push checks what it
 changed (PUSH_BEFORE); the nightly run checks everything and refreshes every cache.
-Two tiers (TIERS): a pull request runs the fast tier, the checks that answer in a few minutes;
+Two tiers (TIERS): a pull request runs the fast tier, the checks that answer in a few minutes
+(one version of each game it touches: primary_versions);
 the merge queue (merge_group) runs the full tier for the queued changes before they land, so
 nothing reaches develop without every check. The full tier adds the Windows jobs, the enhanced
 Vulkan build and its tests, and the carried releases.
@@ -141,6 +142,16 @@ def shared_game_dirs(root=ROOT):
 TIERS = ("fast", "full")
 
 
+def primary_versions(known, releases=frozenset()):
+    """Each game's version a pull request builds: its first version that is not carried from
+    another (rac1-ntsc, rac2-ntsc, rac3-pal, rac4-ntsc)."""
+    found = {}
+    for program in sorted(known):
+        if program not in releases:
+            found.setdefault(program.split("-")[0], program)
+    return set(found.values())
+
+
 def plan(paths, known, shared=frozenset(), removed=frozenset(), tier="full", releases=frozenset()):
     """What to run for PATHS (None: everything), with KNOWN from programs(), SHARED from
     shared_game_dirs(), REMOVED the paths the change deletes, TIER one of TIERS and RELEASES
@@ -148,11 +159,14 @@ def plan(paths, known, shared=frozenset(), removed=frozenset(), tier="full", rel
     result = full_plan(paths, known, shared, removed)
     full = tier == "full"
     if not full:
-        # A carried release in the fast tier only when the change is in its own folder.
+        # One version of each game (its primary), and a version whose own folder changed. The
+        # other regions and releases build in the queue; the repository job already checks that
+        # every version binds the same functions (port/tools/versionmap), with no build.
         own = {path.split("/")[2] for path in paths or () if path.startswith("port/game/")
                and len(path.split("/")) > 3}
+        primaries = primary_versions(known, releases)
         result["port_parts"] = [part for part in result["port_parts"]
-                                if part not in releases or part in own]
+                                if part == "common" or part in own or part in primaries]
         result["enhanced"] = False
         # The launcher only for what its build reads by name; anything else waits for the queue.
         result["launcher"] = paths is None or any(

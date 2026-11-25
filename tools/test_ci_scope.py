@@ -8,7 +8,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from ci_scope import carried, decomp_games, launcher_changed, launcher_paths, docs_only, event_paths, ios_plan, plan, programs, pushed_paths
+from ci_scope import carried, decomp_games, launcher_changed, launcher_paths, docs_only, event_paths, ios_plan, plan, primary_versions, programs, pushed_paths
 
 
 class CiScopeTest(unittest.TestCase):
@@ -135,7 +135,7 @@ class TierTest(unittest.TestCase):
 
     def test_the_fast_tier_leaves_the_slow_jobs_to_the_queue(self):
         result = self.fast(["port/renderer/frame.cpp"])
-        self.assertEqual(result["port_parts"], SHARED)
+        self.assertEqual(result["port_parts"], ["common", "rac1-ntsc", "rac2-ntsc", "rac3-ntsc"])
         self.assertFalse(result["enhanced"])
         self.assertFalse(result["windows"])
         full = plan(["port/renderer/frame.cpp"], PROGRAMS, tier="full", releases=RELEASES)
@@ -145,7 +145,18 @@ class TierTest(unittest.TestCase):
     def test_the_fast_tier_builds_a_carried_release_only_for_its_own_folder(self):
         self.assertEqual(self.fast(["port/game/rac2-ntsc/host/x.c"])["port_parts"], ["rac2-ntsc"])
         self.assertEqual(self.fast(["port/game/rac2-pal/hostgen.json"])["port_parts"], ["rac2-pal"])
-        self.assertEqual(self.fast(["port/game/rac1/host/hand.c"])["port_parts"], ["rac1-ntsc", "rac1-pal"])
+        self.assertEqual(self.fast(["port/game/rac1/host/hand.c"])["port_parts"], ["rac1-ntsc"])
+
+    def test_the_fast_tier_builds_one_version_of_each_game(self):
+        self.assertEqual(self.fast(["games/rac1/src/x.c"])["port_parts"], ["rac1-ntsc"])
+        self.assertEqual(self.fast(["port/game/rac1-pal/host/x.c"])["port_parts"], ["rac1-pal"])
+        self.assertEqual(self.fast(["port/game/rac1-pal/x.c", "port/game/rac2/x.c"])["port_parts"],
+                         ["rac1-pal", "rac2-ntsc"])
+        self.assertEqual(primary_versions({"rac1-jp": True, "rac1-ntsc": False, "rac3-ntsc": True,
+                                           "rac3-pal": False}, {"rac1-jp", "rac3-ntsc"}),
+                         {"rac1-ntsc", "rac3-pal"})
+        full = plan(["games/rac1/src/x.c"], PROGRAMS, tier="full", releases=RELEASES)
+        self.assertEqual(full["port_parts"], ["rac1-ntsc", "rac1-pal", "rac1-pal1"])
 
     def test_the_launcher_on_windows_runs_in_the_full_tier(self):
         self.assertEqual(self.fast(["launcher/core/src/lib.rs"])["launcher_systems"], ["Linux"])
