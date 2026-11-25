@@ -96,15 +96,17 @@ bool OverlayDraw::ready() {
         }
         glGenVertexArrays(1, &m_vao);
         glGenBuffers(1, &m_buffer);
-        glGenTextures(1, &m_white);
-        upload(m_white, 1, 1, kWhite, false);
     }
     return true;
 }
 
-unsigned OverlayDraw::texture(int image, unsigned& mips) {
+unsigned OverlayTextures::texture(int image, unsigned& mips) {
     mips = 1;
     if (image <= 0) {
+        if (m_white == 0) {
+            glGenTextures(1, &m_white);
+            upload(m_white, 1, 1, kWhite, false);
+        }
         return m_white;
     }
     if (const auto it = m_textures.find(image); it != m_textures.end()) {
@@ -124,7 +126,7 @@ unsigned OverlayDraw::texture(int image, unsigned& mips) {
     return t.name;
 }
 
-void OverlayDraw::sweep() {
+void OverlayTextures::sweep() {
     const std::uint64_t changes = overlay_images::changes();
     if (changes == m_swept) {
         return;
@@ -156,14 +158,14 @@ void OverlayDraw::draw(
     if (vertices.empty() || width <= 0 || height <= 0 || !ready()) {
         return;
     }
-    sweep();
+    m_textures.sweep();
     // Every picture the runs sample, made before the pass (uploads belong outside it); a run whose
     // picture is gone is left out.
     std::vector<unsigned> run_textures(batches.size(), 0);
     std::vector<RasterTexture> sampled;
     for (std::size_t i = 0; i < batches.size(); ++i) {
         unsigned mips = 1;
-        run_textures[i] = texture(batches[i].image, mips);
+        run_textures[i] = m_textures.texture(batches[i].image, mips);
         if (run_textures[i] != 0
             && std::ranges::find(sampled, run_textures[i], &RasterTexture::name) == sampled.end()) {
             sampled.push_back({run_textures[i], mips});
@@ -241,7 +243,7 @@ void OverlayDraw::draw(
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
-void OverlayDraw::release() {
+void OverlayTextures::release() {
     for (const auto& [image, t] : m_textures) {
         glDeleteTextures(1, &t.name);
     }
@@ -251,6 +253,9 @@ void OverlayDraw::release() {
         glDeleteTextures(1, &m_white);
         m_white = 0;
     }
+}
+
+void OverlayDraw::release() {
     if (m_buffer != 0) {
         glDeleteBuffers(1, &m_buffer);
         m_buffer = 0;

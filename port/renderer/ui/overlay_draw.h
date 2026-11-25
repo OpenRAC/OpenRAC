@@ -2,12 +2,13 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // An OverlayList's triangles blended over a framebuffer, through the renderer's GL: on OpenGL and
-// on the Vulkan renderer's alike. It keeps its program and buffer from the first draw on, and a
-// texture for each mod's picture (overlay_images.h) it has drawn, made when first drawn and let go
-// once the picture is; release() frees them while the context is current.
+// on the Vulkan renderer's alike. It keeps its program and buffer from the first draw on; the
+// textures it samples are an OverlayTextures', which several draws can share. release() frees
+// each while the context is current.
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <unordered_map>
@@ -17,9 +18,46 @@
 
 namespace openrac::renderer::ui {
 
+// A texture for each mod's picture (overlay_images.h) drawn, made when first drawn and let go once
+// the picture is, and the plain white one rectangles and text sample. One for all the overlay's
+// draws, so a picture drawn in two of them is uploaded once: the draws that share it use the same
+// GL objects (one context, or the Vulkan renderer's one set of them) and run in turn, on the thread
+// that holds the graphics, so it has no lock.
+class OverlayTextures {
+public:
+    OverlayTextures() = default;
+    OverlayTextures(const OverlayTextures&) = delete;
+    OverlayTextures& operator=(const OverlayTextures&) = delete;
+
+    // The texture of picture `image` (0: the plain white one), made the first time; 0 when there
+    // is no such picture. `mips`: its levels.
+    unsigned texture(int image, unsigned& mips);
+
+    // Lets go of the textures of pictures that are gone, once for each change of the pictures.
+    void sweep();
+
+    // How many pictures have a texture.
+    std::size_t size() const { return m_textures.size(); }
+
+    // Frees the textures; the context is current.
+    void release();
+
+private:
+    struct Texture {
+        unsigned name = 0;
+        unsigned mips = 1;
+    };
+
+    unsigned m_white = 0;
+    std::unordered_map<int, Texture> m_textures;
+    std::uint64_t m_swept = 0;
+};
+
 class OverlayDraw {
 public:
-    OverlayDraw() = default;
+    // Samples `textures`' textures, which outlives it.
+    explicit OverlayDraw(OverlayTextures& textures) : m_textures(textures) {}
+
     OverlayDraw(const OverlayDraw&) = delete;
     OverlayDraw& operator=(const OverlayDraw&) = delete;
 
@@ -39,30 +77,16 @@ public:
         std::span<const OverlayBatch> batches
     );
 
-    // Frees the GL objects if a draw made them.
+    // Frees its program and buffer if a draw made them; not the textures (OverlayTextures').
     void release();
 
 private:
     bool ready();
 
-    // The texture of picture `image` (0: the plain white one rectangles and text sample), made
-    // the first time; 0 when there is no such picture. `mips`: its levels.
-    unsigned texture(int image, unsigned& mips);
-
-    // Lets go of the textures of pictures that are gone.
-    void sweep();
-
-    struct Texture {
-        unsigned name = 0;
-        unsigned mips = 1;
-    };
-
+    OverlayTextures& m_textures;
     Shader m_shader;
     unsigned m_vao = 0;
     unsigned m_buffer = 0;
-    unsigned m_white = 0;
-    std::unordered_map<int, Texture> m_textures;
-    std::uint64_t m_swept = 0;
     bool m_failed = false;
 };
 

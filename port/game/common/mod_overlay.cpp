@@ -124,10 +124,13 @@ openrac_overlay table_for(Frame& frame, std::uint32_t phase, std::uint32_t layer
 
 struct State {
     renderer::ui::OverlayList list;
-    renderer::ui::OverlayDraw draw;
-    // The drawing under the game's 2D, drawn by the thread that draws the frame (the render
-    // thread's when there is one): its own program and textures.
-    renderer::ui::OverlayDraw under_hud;
+    // The pictures' textures, for both drawings: a picture drawn in both is uploaded once. Both
+    // draw on the thread that holds the graphics (the render thread when there is one: run_graphics
+    // hands the top layer to it, and the frame under the HUD is its job), one at a time.
+    renderer::ui::OverlayTextures textures;
+    renderer::ui::OverlayDraw draw{textures};
+    // The drawing under the game's 2D, drawn with the frame: its own program and buffer.
+    renderer::ui::OverlayDraw under_hud{textures};
 };
 
 State s;
@@ -187,6 +190,7 @@ void draw_under_hud(
 void release() {
     s.draw.release();
     s.under_hud.release();
+    s.textures.release();
 }
 
 }  // namespace openrac::frontend::mod_overlay

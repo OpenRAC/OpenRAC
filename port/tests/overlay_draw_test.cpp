@@ -4,8 +4,8 @@
 // What mods draw over the game, on the GPU (renderer/ui/overlay_draw.h), on each GL (the _es and
 // _vulkan tests run this one): into the frame's own kind of target, at its place, right way up,
 // blended by alpha, and nothing without vertices; the mods' pictures (1.40) sampled the right way
-// up, tinted, and gone once let go. Pixels are read back: a colour in the wrong row or a blend left
-// out fails here on the backend that has it.
+// up, tinted, and gone once let go, one texture for a picture two draws share. Pixels are read
+// back: a colour in the wrong row or a blend left out fails here on the backend that has it.
 
 #include <array>
 #include <cstdint>
@@ -270,6 +270,45 @@ void pictures(renderer::ui::OverlayDraw& draw, unsigned frame) {
     CHECK(is(pixel(frame, 230, 200), 0, 0, 0));
 }
 
+// One picture drawn by two draws that share their textures, as the overlay's top layer and its
+// layer under the HUD do: one texture for it, which the release of either draw leaves to the
+// other, and gone from both once let go.
+void shared_pictures(
+    renderer::ui::OverlayTextures& textures, renderer::ui::OverlayDraw& top, unsigned frame
+) {
+    using renderer::ui::OverlayList;
+    namespace images = renderer::ui::overlay_images;
+    static const int owner = 0;
+    constexpr std::array<std::uint8_t, 4> kRed{255, 0, 0, 255};
+    const int id = images::create(&owner, 1, 1, kRed, false);
+    CHECK(id > 0);
+    renderer::ui::OverlayDraw under_hud(textures);
+    OverlayList list;
+    list.begin(static_cast<float>(kWidth) / static_cast<float>(kHeight));
+    list.image(id, 256, 224, 100, 100, 0, 0xFFFFFFFFu);
+    const auto drawn_by = [&](renderer::ui::OverlayDraw& draw) {
+        clear_to_bytes(frame, 0, 0, 0, 255);
+        draw.draw(frame, kWidth, kHeight, list.vertices(), list.batches());
+        return is(pixel(frame, 256, 224), 255, 0, 0);
+    };
+    CHECK(drawn_by(under_hud));
+    CHECK(drawn_by(top));
+    CHECK(textures.size() == 1);  // uploaded once, for both
+
+    // One draw let go: the other still samples the picture, from the same texture.
+    under_hud.release();
+    CHECK(drawn_by(top));
+    CHECK(textures.size() == 1);
+
+    // The picture let go: the next draw, either, frees its texture; neither draws it.
+    CHECK(images::destroy(&owner, id));
+    CHECK(!drawn_by(top));
+    CHECK(textures.size() == 0);
+    CHECK(!drawn_by(under_hud));
+    CHECK(textures.size() == 0);
+    under_hud.release();
+}
+
 }  // namespace
 
 int main() {
@@ -281,7 +320,8 @@ int main() {
     }
     renderer::FrameBuffer frame;
     CHECK(frame.create(kWidth, kHeight, why));
-    renderer::ui::OverlayDraw draw;
+    renderer::ui::OverlayTextures textures;
+    renderer::ui::OverlayDraw draw(textures);
     renderer::ui::OverlayList list;
 
     // No vertices: the frame as it was.
@@ -336,7 +376,11 @@ int main() {
     pictures(draw, frame.id());
     CHECK(glGetError() == GL_NO_ERROR);
 
+    shared_pictures(textures, draw, frame.id());
+    CHECK(glGetError() == GL_NO_ERROR);
+
     draw.release();
+    textures.release();
     frame.release();
     large.release();
     return test::result();
