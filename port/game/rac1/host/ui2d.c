@@ -4,9 +4,10 @@
 /*
  * Ratchet & Clank: the 2D layer's draw routines, wrapped (libraries.tsv, port = wrap) so the
  * HUD and menus are drawn natively instead of from their GS packets (OPENRAC_UI_REPLAY replays the
- * packets, for comparing). Each routine's quad goes to the window as a record
- * (openrac_game_ui_quad) with the corners and texel coordinates its packet would have held, and the
- * display list gets a marker in its place, so the window draws it where it came.
+ * packets, for comparing). Each routine's quad goes to the window as a record through the frame
+ * recorder (openrac_ui_record) with the corners and texel coordinates its packet would have held,
+ * placed where the display list has got to, so the window draws it where it came; nothing is
+ * written into the list.
  * OPENRAC_UI_LOG: each distinct caller and texture of DrawTexturedQuad, once, in the log.
  */
 #include <stdint.h>
@@ -59,7 +60,7 @@ static int emit(openrac_game_ui_rect* q) {
     if (log) {
         log_caller("emit ", q->tex0, (int)(q->x[3] - q->x[0]) / 16, (int)(q->y[3] - q->y[0]) / 16);
     }
-    return openrac_ui_send(q, OPENRAC_DATA(RAC1_ADDR(0x00161000u)));
+    return openrac_ui_record(q, OPENRAC_DATA(RAC1_ADDR(0x00161000u)));
 }
 
 /* A HUD texture's size: 1 << its entry's +6/+7 log2 sizes (the entry found through the arena's

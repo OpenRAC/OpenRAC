@@ -151,6 +151,9 @@ struct DirectState {
     bool picture = false;
     // Textured from the frame recorder's snapshot `id` (openrac_frame_snapshot), 0 for none.
     std::uint32_t snapshot_picture = 0;
+    // Textured from a split-screen view's picture (FrameInput::view_pictures, a GL texture), 0 for
+    // none.
+    unsigned view_picture = 0;
 
     bool operator==(const DirectState&) const = default;
 };
@@ -262,6 +265,13 @@ public:
     // One recorded command, drawn now (after what the stream drew so far).
     void run_command(const FrameCommand& command);
 
+    // Split screen: the views' pictures (FrameInput::view_pictures), each drawn at its view's first
+    // World command of the commands run next.
+    void set_view_pictures(const std::array<unsigned, kFrameViews>& pictures) {
+        m_view_pictures = pictures;
+        m_views_drawn = 0;
+    }
+
     // Whether the moby markers drawn into the main frame become draws (FrameInput::screen_mobys).
     void set_screen_mobys(bool on) { m_screen_mobys = on; }
 
@@ -368,6 +378,8 @@ private:
     void native_item(const UiItem& item, std::span<const UiImage> images);
     // A fill, clear or picture of the recording, over `command`'s rectangle.
     void native_rect(const FrameCommand& command, const DirectState& state, float depth);
+    // A split-screen view's picture over its rectangle, at its World command (set_view_pictures).
+    void view_world(const FrameView& view);
     // A draw of the mobys `value` names (count << 32 | list) in the target being drawn, as the
     // moby markers make.
     void moby_draw(std::uint64_t value);
@@ -379,6 +391,8 @@ private:
     std::size_t m_next_splice = 0;
     // The recorder's own panel and scissor (TargetBegin, Scissor), 0 / unset for none.
     std::uint32_t m_recorded_target = 0;
+    std::array<unsigned, kFrameViews> m_view_pictures{};
+    std::uint32_t m_views_drawn = 0;  // Bits of the views whose picture was drawn.
     std::array<float, 2> m_recorded_centre{256.0f, 224.0f};
     bool m_recorded_scissor_set = false;
     PixelRect m_recorded_scissor{};
@@ -616,6 +630,7 @@ public:
             m_direct.interpreter().set_screen_mobys(static_cast<bool>(input.screen_mobys));
             m_direct.interpreter().set_over_world(false);
             m_direct.set_frame_input(&input);
+            m_direct.interpreter().set_view_pictures(input.view_pictures);
             m_direct.interpreter()
                 .set_commands(input.recording, input.splices.first(input.splices_before_world), 0);
             m_direct.submit(input.direct_before_world);

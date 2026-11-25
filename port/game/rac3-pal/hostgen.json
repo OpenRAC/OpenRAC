@@ -627,8 +627,7 @@
     "result_flow": true,
     "variant_callees": "tables/variant_callees.tsv",
     "signature_allow": {
-      "func_L01_0049E6F0": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees",
-      "func_L01_004C1028": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees"
+      "func_L01_0049E6F0": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees"
     }
   },
   "result_allow": "checks/result_allow.tsv",

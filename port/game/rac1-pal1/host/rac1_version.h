@@ -86,6 +86,8 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_TRANSFER_PAD08 0x46
 /* The level sky routine (sky.c): not carried to this disc yet (its frame draw's level copies are not checked here). */
 #define RAC1_OMIT_func_001E9E70 1
+/* Native letterbox bars (letterbox.c): their caller state is proved on PAL v2.00's level 6 only. */
+#define RAC1_OMIT_func_001F5148 1
 
 /* Imported moby classes (rac1/host/foreign_class.c): register_moby_class and
  * resident_class_id_by_slot in this release (release_names.json, the release's check). */

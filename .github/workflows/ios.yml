@@ -1,14 +1,16 @@
 # iPhone and iPad checks on macOS (docs/port/IOS.md). No disc or Apple signing needed.
 # Port / iOS: runtime tests, then the runtime built for iOS without a game.
 # Launcher / iOS: the Rust adapter, bundle tests, icons, and the port/ios/*.mm bridges.
-# macOS minutes are costly: the workflow starts only for the paths below, and the scope job
-# picks the jobs a change can affect (tools/ci_scope.py ios).
+# macOS runners are few and slow to get: the macOS jobs run in the merge queue (merge_group) and
+# on pushes, never on a pull request, and the scope job picks the jobs a change can affect
+# (tools/ci_scope.py ios). On a pull request only the scope job runs, so that the required checks
+# report there too (skipped counts as passed).
 name: ios
 
 on:
   push:
     branches: [master, develop]
-    paths: &paths
+    paths:
       - "port/**"
       - "!port/android/**"
       - "!port/tools/**"
@@ -28,18 +30,16 @@ on:
       - ".github/actions/yarn-cache/**"
       - ".github/workflows/ios.yml"
   pull_request:
-    # A draft runs neither job (scope below); ready_for_review runs them.
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths: *paths
+  merge_group:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# As in checks.yml: new runs cancel old ones, except on master.
+# As in checks.yml: a pull request's new push cancels its old run; pushes and queue groups finish.
 concurrency:
   group: ios-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   scope:
@@ -47,24 +47,26 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
-      port: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.ios_port }}
-      launcher: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.ios_launcher }}
+      port: ${{ github.event_name == 'pull_request' && 'false' || steps.scope.outputs.ios_port }}
+      launcher: ${{ github.event_name == 'pull_request' && 'false' || steps.scope.outputs.ios_launcher }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
-      # PRs use the base branch's script (as checks.yml does). Pushes diff against the old commit.
-      # No answer means both jobs run.
+      # A queue group uses the base branch's script (as checks.yml does). Pushes diff against the
+      # old commit. No answer means both jobs run.
       - id: scope
+        if: github.event_name != 'pull_request'
         env:
           EVENT: ${{ github.event_name }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          MERGE_BASE: ${{ github.event.merge_group.base_sha }}
           BEFORE: ${{ github.event.before }}
         run: |
-          if [ "$EVENT" = pull_request ]; then
+          if [ "$EVENT" = merge_group ]; then
+            git fetch -q --no-tags --depth=1 origin "$MERGE_BASE" || exit 0
             script="$RUNNER_TEMP/openrac-ci-scope.py"
-            git show HEAD^1:tools/ci_scope.py > "$script" || exit 0
+            git show "$MERGE_BASE:tools/ci_scope.py" > "$script" || exit 0
           elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] \
               && git fetch -q --no-tags --depth=1 origin "$BEFORE"; then
             script=tools/ci_scope.py
@@ -116,6 +118,8 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DOPENRAC_PORT_GAMES=OFF \
             -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_STATIC_SDL=ON -DOPENRAC_VULKAN=OFF -DOPENRAC_VULKAN_APPLE_DEFAULT=ON
           cmake --build build/ios-sdk --target openrac_runtime openrac_platform --parallel 3
+
+      - uses: ./.github/actions/compiler-cache/save
 
   launcher:
     name: Launcher / iOS

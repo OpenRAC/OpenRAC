@@ -29,14 +29,16 @@ static int g_effects;
 static float g_effect_wider = 1.0f;
 static float g_effect_taller = 1.0f;
 
-/* Writes an attachment scope through the GS NOP register; zero ends the scope (game_host.h). */
+/* Records the callback's delayed-parent scope without adding a packet to the game's list. */
 static void put_attachment_marker(rac2_strip_anchor anchor) {
-    func_002FC560(
-        0x7F,
-        (uint64_t)OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER << 48
-            | (anchor.position_only ? OPENRAC_PREVIOUS_EFFECT_PARENT_POSITION_ONLY : 0u)
-            | anchor.moby
-    );
+    rac2_anchor();
+
+    /* Position-only scopes preserve world-space orientation instead of turning geometry. */
+    if (anchor.position_only) {
+        openrac_frame_effect_parent_position(anchor.moby);
+    } else {
+        openrac_frame_effect_parent(anchor.moby);
+    }
 }
 
 /* The hero's moby and the moby of the item in his hand (his item slot 0, +0x1220 of his record,

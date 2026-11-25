@@ -6,7 +6,8 @@
  * are hand-written assembly that turns level data into VU1 and GS packets; the port draws the same
  * things with its own renderers from the extracted level, as for Ratchet & Clank
  * (port/game/rac1/host/render_native.c). DrawWorld (func_0027BD70) still runs: its passes end here,
- * where native renderers consume the game's pass order and recorded draw arguments.
+ * where native renderers consume the game's pass order and recorded draw arguments, handed to the
+ * window through the frame recorder (openrac/frame.h).
  */
 #include <math.h>
 #include <stdint.h>
@@ -40,21 +41,12 @@
 /* The matrix a sky shell is drawn with (func_002E3548 builds it). */
 #define SKY_MATRIX RAC2_ADDR(0x001B20F0u)
 
-enum {
-    NOP_REGISTER = 0x7F
-};
-
-/* A marker in the display list: the A+D write of `value` to the chip's NOP register. The chip ignores
- * it; the window reads its top 16 bits (renderer::GifInterpreter's kMobyMarker and kWorldMarker). */
-static void put_marker(uint64_t value) {
-    func_002FC560(NOP_REGISTER, value);
-}
-
-/* DrawTfrag: the world's first native pass after the sky, so the world's marker goes here (Ratchet
- * & Clank's TfragProc says why). */
+/* DrawTfrag: the world's first native pass after the sky, so the world goes to the frame recorder
+ * here (Ratchet & Clank's TfragProc says why). */
 void func_002EF3B0(void) {
     openrac_game_draw(OPENRAC_DRAW_TERRAIN);
-    put_marker(0x574Cull << 48);
+    rac2_anchor();
+    openrac_frame_world(OPENRAC_DRAW_TERRAIN);
 }
 
 /* The tie pass of DrawWorld. */
@@ -160,13 +152,12 @@ int func_002A4E68(gaddr a0, gaddr a1, int a2, int a3) {
     mark_drawn_mobys(a0, a2);
     /* The world's mobys come after the draw callback lists DrawFrame runs after the ties and the
      * shrubs (func_0027CEE0, func_0027CF58): what those drew goes before them (a level's water). */
+    rac2_anchor();
     if (a2 < 0) {
-        put_marker((uint64_t)OPENRAC_WORLD_MOBYS_MARKER << 48);
+        openrac_frame_world_mobys();
     }
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
-    if (openrac_game_mobys_drawn(a0, a2)) {
-        put_marker((0x4D42ull << 48) | ((uint64_t)(a2 & 0xFFFF) << 32) | (uint32_t)a0);
-    }
+    openrac_frame_mobys(a0, a2);
     return 0;
 }
 
@@ -309,13 +300,14 @@ static void world_quad(gaddr a0, gaddr a1) {
     q.parent = rac2_draw_owner;
     q.attachment = rac2_effect_attachment(rac2_draw_owner);
     openrac_game_effect_quad(&q);
-    /* Where the console's packet would have gone in the list, so that the window draws the quad
-     * with the TEST and ZBUF in effect there (the game sets TEST_1 around its quads with
+    /* Placed where the console's packet would have gone in the list, so that the window draws the
+     * quad with the TEST and ZBUF in effect there (the game sets TEST_1 around its quads with
      * func_002FC560: 0x5360B, alpha GEQUAL 0x60 with failing pixels writing colour only, for the
      * flight's sparks and flames; 0x31801 for some). */
     const uint32_t marker = openrac_game_effect_quad_marker();
     if (marker != 0) {
-        put_marker((uint64_t)OPENRAC_EFFECT_QUAD_MARKER << 48 | marker);
+        rac2_anchor();
+        openrac_frame_effect_quad(marker);
     }
 }
 

@@ -117,8 +117,9 @@ git push origin launcher-vX.Y.Z
      The prompt opens by itself when a launcher finds the update at start (unless a game is
      running); "Later" puts that version off for three days (`src/lib/updates.ts`, `offerUpdate`).
 
-3. **Development channel** (a push to a branch, here or in a fork; not a tag, not a pull
-   request): the `dev-release` job replaces the pre-release `launcher-dev-<branch>` with every
+3. **Development channel** (a build of a branch, here or in a fork; not a tag, not a pull
+   request). `develop` builds every three hours when it changed what the build reads since its
+   last development build; another branch builds by hand (Run workflow). The `dev-release` job replaces the pre-release `launcher-dev-<branch>` with every
    system's installers, their signatures and a `latest.json` of version `X.Y.Z-dev.<run>`. The
    launchers built from a branch read that pre-release; one built from a tag reads the
    repository's latest release. Either way the updater asks the repository that built it

@@ -184,7 +184,7 @@ void func_00336320(gaddr o) {
 /* A quad to the window as a record (else the game's packet goes out): recorded first. */
 static int send(const openrac_game_ui_rect* q) {
     record_quad(q);
-    return openrac_ui_send(q, LIST_CURSOR);
+    return openrac_ui_record(q, LIST_CURSOR);
 }
 
 static int to_screen_x(int sixteenths) {
