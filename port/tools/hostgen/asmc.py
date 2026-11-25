@@ -64,6 +64,7 @@ from program import Function, Program, Signature, call_copy as program_call_copy
 
 ARG_REGS = list(range(4, 12))     # $a0-$a3, $t0-$t3 (the EE's eight integer argument registers)
 FARG_REGS = list(range(12, 20))   # $f12-$f19
+STACK_ARGS = 4                    # doublewords at 0($sp) up that a call through an address hands on (indirect)
 INT_TYPES = set(ctype.INT_NAMES) | {"gaddr"}
 WIDE = {"long long", "unsigned long long", "long", "unsigned long", "long long int", "long int",
         "unsigned long long int", "unsigned long int"}
@@ -1477,6 +1478,13 @@ class Translator:
         ret = "float" if float_result or self._reads_f0_after(at) else "unsigned long long" if wide_result else "int"
         params = ["openrac_u64"] * 8 + (["float"] * 8 if floats else [])
         args = [self.R(r) for r in ARG_REGS] + ([f"f{r}" for r in FARG_REGS] if floats else [])
+        # The integer arguments past the eighth, which the caller keeps at 0($sp), 8($sp)...: the
+        # callee may take more than eight (Up Your Arsenal's func_L01_004CDF20, the message box, takes
+        # eleven and func_L01_00436150 reached it through here with eight: its strings were whatever
+        # the stack held, and the sprintf of a "%s" read 0xFFFFFFC0). A callee that takes fewer ignores
+        # them, as the retail call above does.
+        params += ["openrac_u64"] * STACK_ARGS
+        args += [f"openrac_ee_ld((openrac_u32)r29 + {8 * k}u)" for k in range(STACK_ARGS)]
         t = f"{ret} (*)({', '.join(params)})"
         if self.mode != "host":
             return self._invoke(f"(({t})({value}))({', '.join(args)})", ret)
