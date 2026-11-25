@@ -11,7 +11,14 @@ folder, its game's other port folders or its game's decomp change, not for share
 Commando's PAL and USA v2.00 (PLAYED) are built whenever its USA disc is, since a change to what
 they share can break them alone (an argument their C drops crashed only there). Anything unclear
 (a workflow, this file, a failed git call) checks everything.
+Two tiers (TIERS): a pull request runs the fast tier, the checks that answer in a few minutes;
+the merge queue (merge_group) runs the full tier for the queued changes before they land, so
+nothing reaches develop without every check. The full tier adds the Windows jobs, the enhanced
+Vulkan build and its tests, and the carried releases.
 `ci_scope.py ios` does the same for the iOS jobs, for pushes too.
+`ci_scope.py decomp-games` prints which games' decomp tool checks a change needs.
+`ci_scope.py launcher-changed` (SINCE: a commit) tells whether develop changed what the launcher's
+build reads since the last development build (launcher.yml's push paths).
 """
 
 import json
@@ -79,6 +86,13 @@ def docs_only(base):
 PLAYED = ("rac2-pal", "rac2-ntsc2")
 
 
+def carried(root=ROOT):
+    """The programs built from another program's code (hostgen.json "release"): in the full tier."""
+    return {json.loads(path.read_text(encoding="utf-8"))["id"]
+            for path in sorted((root / "port/game").glob("*/hostgen.json"))
+            if "release" in json.loads(path.read_text(encoding="utf-8"))}
+
+
 def programs(root=ROOT):
     """Each game program's id, and whether it is a release carried from another (and not PLAYED)."""
     found = {}
@@ -119,9 +133,30 @@ def shared_game_dirs(root=ROOT):
     return found
 
 
-def plan(paths, known, shared=frozenset(), removed=frozenset()):
+TIERS = ("fast", "full")
+
+
+def plan(paths, known, shared=frozenset(), removed=frozenset(), tier="full", releases=frozenset()):
     """What to run for PATHS (None: everything), with KNOWN from programs(), SHARED from
-    shared_game_dirs() and REMOVED the paths the change deletes."""
+    shared_game_dirs(), REMOVED the paths the change deletes, TIER one of TIERS and RELEASES
+    from carried()."""
+    result = full_plan(paths, known, shared, removed)
+    full = tier == "full"
+    if not full:
+        # A carried release in the fast tier only when the change is in its own folder.
+        own = {path.split("/")[2] for path in paths or () if path.startswith("port/game/")
+               and len(path.split("/")) > 3}
+        result["port_parts"] = [part for part in result["port_parts"]
+                                if part not in releases or part in own]
+        result["enhanced"] = False
+    # Windows builds rac1-pal with the shared code, and runs the launcher's Rust tests.
+    result["windows"] = full and result["port"]
+    result["launcher_systems"] = (["Linux", "Windows"] if full else ["Linux"]) if result["launcher"] else []
+    return result
+
+
+def full_plan(paths, known, shared=frozenset(), removed=frozenset()):
+    """Every check PATHS can affect (None: everything); the arguments are plan()'s."""
     every = sorted(known)
     everything = {"docs_only": False, "launcher": True, "pages": True, "port": True,
                   "enhanced": True, "port_parts": ["common", *every]}
@@ -163,11 +198,23 @@ def plan(paths, known, shared=frozenset(), removed=frozenset()):
         # Anything else the port reads: the shared part and every game it builds itself.
         parts.update(["common", *(p for p in every if not known[p])])
         enhanced = True
-    # Fedora and Windows build rac1-pal with the shared code.
+    # Windows builds rac1-pal with the shared code.
     port = "common" in parts or "rac1-pal" in parts
     ordered = [part for part in ["common", *every] if part in parts]
     return {"docs_only": False, "launcher": launcher, "pages": pages, "port": port,
             "enhanced": enhanced, "port_parts": ordered}
+
+
+# The games whose decomp has tool checks of its own in the repository job (checks.yml).
+DECOMP_GAMES = ("rac1", "rac2", "rac4", "rac5", "rac6")
+
+
+def decomp_games(paths):
+    """The games of DECOMP_GAMES whose tool checks PATHS (None: everything) needs."""
+    if paths is None or any(path.startswith(EVERYTHING) for path in paths):
+        return list(DECOMP_GAMES)
+    return [game for game in DECOMP_GAMES
+            if any(path.startswith(f"games/{game}/") or path == ".gitmodules" for path in paths)]
 
 
 # A change here runs both iOS jobs.
@@ -203,17 +250,76 @@ def ios_plan(paths, shared=frozenset()):
                                 for path in paths)}
 
 
+LAUNCHER_WORKFLOW = ".github/workflows/launcher.yml"
+
+
+def launcher_paths(root=ROOT):
+    """The path filters of launcher.yml's push trigger, read from the workflow itself."""
+    lines = (root / LAUNCHER_WORKFLOW).read_text(encoding="utf-8").splitlines()
+    start = next(i for i, line in enumerate(lines) if line.strip() == "paths:")
+    found = []
+    for line in lines[start + 1:]:
+        text = line.strip()
+        if not text or text.startswith("#"):
+            continue
+        if not text.startswith("- "):
+            break
+        found.append(text[2:].strip().strip('"\''))
+    return found
+
+
+def glob_regex(pattern):
+    """A GitHub Actions path filter as a regular expression: * stays in a folder, ** does not."""
+    out, i = "", 0
+    while i < len(pattern):
+        if pattern.startswith("**", i):
+            out, i = out + ".*", i + 2
+        elif pattern[i] == "*":
+            out, i = out + "[^/]*", i + 1
+        else:
+            out, i = out + re.escape(pattern[i]), i + 1
+    return re.compile(out + "$")
+
+
+def launcher_changed(paths, filters):
+    """Whether PATHS (None: unknown) touch any of launcher.yml's push FILTERS."""
+    if paths is None:
+        return True
+    patterns = [glob_regex(f) for f in filters]
+    return any(p.match(path) for p in patterns for path in paths)
+
+
+def event_paths():
+    """The files this run checks and its tier: a pull request's merge (fast tier), a merge queue
+    group's changes over develop (full tier), or None for everything (a push or a manual run)."""
+    event = os.environ.get("GITHUB_EVENT_NAME")
+    if event == "pull_request":
+        return changed_paths(os.environ.get("PR_BASE", "")), "fast"
+    if event == "merge_group" and os.environ.get("MERGE_BASE"):
+        return pushed_paths(os.environ["MERGE_BASE"]), "full"
+    return None, "full"
+
+
 if __name__ == "__main__":
-    pull = os.environ.get("GITHUB_EVENT_NAME") == "pull_request"
-    paths = changed_paths(os.environ.get("PR_BASE", "")) if pull else None
+    paths, tier = event_paths()
     if sys.argv[1:] == ["ios"]:
         # PUSH_BEFORE: the branch's commit before the push.
-        if not pull and os.environ.get("PUSH_BEFORE"):
+        if paths is None and os.environ.get("GITHUB_EVENT_NAME") == "push" and os.environ.get("PUSH_BEFORE"):
             paths = pushed_paths(os.environ["PUSH_BEFORE"])
         result = ios_plan(paths, shared_game_dirs())
+    elif sys.argv[1:] == ["launcher-changed"]:
+        since = os.environ.get("SINCE")
+        # Unlike pushed_paths, an empty diff is an answer here: nothing new, no build.
+        diff = subprocess.run(["git", "diff", "--no-renames", "--name-only", "-z", since or "", "HEAD", "--"],
+                              capture_output=True, check=False) if since else None
+        paths = (None if diff is None or diff.returncode else
+                 [path.decode("utf-8", "surrogateescape") for path in diff.stdout.split(b"\0")[:-1]])
+        result = {"build": launcher_changed(paths, launcher_paths())}
+    elif sys.argv[1:] == ["decomp-games"]:
+        result = {"games": decomp_games(paths if tier == "fast" else None)}
     else:
         removed = frozenset(path for path in paths or () if not (ROOT / path).exists())
-        result = plan(paths, programs(), shared_game_dirs(), removed)
+        result = plan(paths, programs(), shared_game_dirs(), removed, tier, carried())
     with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
         for key, value in result.items():
             print(f"{key}={json.dumps(value) if isinstance(value, list) else str(value).lower()}",

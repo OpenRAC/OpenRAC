@@ -69,37 +69,52 @@ endif()
             self.assertNotIn("FETCHCONTENT_SOURCE_DIR_RESTORED:PATH=", cache)
 
 
+def action_steps(name):
+    """The steps of .github/actions/NAME/action.yml."""
+    return re.split(r"(?m)^    - ", (ROOT / ".github/actions" / name / "action.yml").read_text())
+
+
+def cache_paths(step, preset):
+    """A cache step's path block, with the preset spelled as SAVE_PRESET does in both actions."""
+    block = step.split("        path: |\n")[1].split("        key:")[0]
+    return block.replace("${{ inputs.preset }}", preset).replace("${{ env.OPENRAC_PBC_PRESET }}", preset)
+
+
+WRITERS_ONLY = 'if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ]'
+
+
 class CachePolicy(unittest.TestCase):
-    def test_native_compiler_caches_do_not_save_pr_private_snapshots(self):
-        """Checks and launcher builds share the success-only compiler cache policy."""
-        for name, count in (("checks.yml", 4), ("launcher.yml", 1)):
+    def test_every_compiler_cache_restore_has_its_save(self):
+        """Each job that restores the compiler cache ends with the step that may save it."""
+        for name, count in (("checks.yml", 3), ("launcher.yml", 1), ("ios.yml", 1)):
             text = (ROOT / ".github/workflows" / name).read_text()
-            self.assertEqual(count, text.count("uses: ./.github/actions/compiler-cache"), name)
+            self.assertEqual(count, len(re.findall(r"uses: ./.github/actions/compiler-cache\n", text)), name)
+            self.assertEqual(count, text.count("uses: ./.github/actions/compiler-cache/save"), name)
             self.assertNotIn("uses: hendrikmuhs/ccache-action@", text, name)
         text = (ROOT / ".github/workflows/checks.yml").read_text()
         self.assertIn("CCACHE_COMPILERCHECK: content", text)
+        self.assertEqual(text.count("uses: ./.github/actions/port-build-cache\n"),
+                         text.count("uses: ./.github/actions/port-build-cache/save"))
 
-    def test_compiler_cache_publishing_uses_success_only_post_action(self):
-        """Cancelled jobs cannot publish through ccache-action's unconditional post step."""
-        text = (ROOT / ".github/actions/compiler-cache/action.yml").read_text()
-        steps = re.split(r"(?m)^    - ", text)
+    def test_compiler_cache_only_restores_and_its_save_needs_new_objects(self):
+        """Pull requests and the merge queue never write; a push writes only what it compiled."""
+        steps = action_steps("compiler-cache")
+        text = "".join(steps)
+        self.assertNotIn("uses: actions/cache@", text)
         setup = next(step for step in steps if "uses: hendrikmuhs/ccache-action@" in step)
         self.assertIn('save: "false"', setup)
         self.assertIn('restore: "false"', setup)
-        # This pinned action declares post-if: success(); restore has no publishing post step.
-        pin = "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
-        write = next(step for step in steps if "uses: actions/cache@" + pin in step)
-        read = next(step for step in steps if "uses: actions/cache/restore@" + pin in step)
-        self.assertIn("github.event_name != 'pull_request'", write)
-        self.assertIn("github.event_name == 'pull_request'", read)
-        self.assertEqual(cache_settings(write), cache_settings(read))
-        self.assertNotIn("save-always:", text)
-        self.assertNotIn("always()", text)
         # Archives restore before setup so cached ccache.conf cannot override current job limits.
-        self.assertLess(text.index("uses: actions/cache@"), text.index("uses: hendrikmuhs/ccache-action@"))
-        self.assertIn("ccache-${{ inputs.key }}-success-${{ github.run_id }}-${{ github.run_attempt }}", write)
-        prefixes = write.split("restore-keys: |\n")[1]
+        self.assertLess(text.index("uses: actions/cache/restore@"), text.index("uses: hendrikmuhs/ccache-action@"))
+        key = "ccache-${{ inputs.key }}-success-${{ github.run_id }}-${{ github.run_attempt }}"
+        self.assertEqual(2, text.count(key))
+        prefixes = text.split("restore-keys: |\n")[1]
         self.assertLess(prefixes.index("inputs.key }}-success-"), prefixes.rindex("inputs.key }}-"))
+        save = "".join(action_steps("compiler-cache/save"))
+        self.assertIn(WRITERS_ONLY, save)
+        self.assertIn("-newer", save)
+        self.assertIn("key: ${{ env.OPENRAC_CCACHE_SAVE_KEY }}", save)
+        self.assertIn("path: ${{ env.OPENRAC_CCACHE_SAVE_DIR }}", save)
 
     def test_compiler_cache_paths_match_existing_archive_versions(self):
         """Windows and POSIX path spelling must match ccache-action's cacheDir implementation."""
@@ -112,67 +127,57 @@ class CachePolicy(unittest.TestCase):
             self.assertEqual(join(workspace, ".ccache"), template.format(workspace))
         self.assertIn("env.CCACHE_DIR ||", text)
 
+    def check_restore_and_save(self, marker):
+        """The restore step with MARKER and its save write the same paths."""
+        restore = next(step for step in action_steps("port-build-cache") if marker in step)
+        save = next(step for step in action_steps("port-build-cache/save")
+                    if "uses: actions/cache/save@" in step and cache_paths(step, "x") == cache_paths(restore, "x"))
+        self.assertIn("uses: actions/cache/restore@", restore)
+        self.assertIn(WRITERS_ONLY, "".join(action_steps("port-build-cache/save")))
+        return restore, save
+
     def test_preparation_restore_and_save_use_identical_isolated_keys(self):
-        """PRs restore the same preparation as branch builds, through a read-only action."""
-        text = (ROOT / ".github/actions/port-build-cache/action.yml").read_text()
-        steps = re.split(r"(?m)^    - ", text)
-        preparation = [step for step in steps if "key: prep-v3-" in step]
-        self.assertEqual(2, len(preparation))
-        write = next(step for step in preparation if "uses: actions/cache@" in step)
-        read = next(step for step in preparation if "uses: actions/cache/restore@" in step)
-        self.assertIn("github.event_name != 'pull_request'", write)
-        self.assertIn("github.event_name == 'pull_request'", read)
-        self.assertEqual(cache_settings(write), cache_settings(read))
-        self.assertIn("outputs.fingerprint", read)
-        self.assertIn(".github/workflows/checks.yml", read)
-        self.assertNotIn("games/*/gen", read)
-        self.assertNotIn("hashFiles('games/**',", read)
-        self.assertNotIn("/_deps/", read)
+        """PRs restore the same preparation as branch builds; only pushes save it."""
+        restore, save = self.check_restore_and_save("key: prep-v3-")
+        self.assertIn("outputs.fingerprint", restore)
+        self.assertIn(".github/workflows/checks.yml", restore)
+        self.assertNotIn("games/*/gen", restore)
+        self.assertNotIn("/_deps/", restore)
+        self.assertIn("key: ${{ env.OPENRAC_PBC_PREP_KEY }}", save)
 
     def test_dependency_source_key_covers_the_pins(self):
         """A workflow edit keeps sources reusable while a dependency declaration changes the key."""
-        text = (ROOT / ".github/actions/port-build-cache/action.yml").read_text()
-        steps = [step for step in re.split(r"(?m)^    - ", text) if "key: port-sources-v1-" in step]
-        self.assertEqual(2, len(steps))
-        write = next(step for step in steps if "uses: actions/cache@" in step)
-        read = next(step for step in steps if "uses: actions/cache/restore@" in step)
-        self.assertIn("github.event_name != 'pull_request'", write)
-        self.assertIn("github.event_name == 'pull_request'", read)
-        self.assertEqual(cache_settings(write), cache_settings(read))
-        self.assertIn("/_deps/*-src", read)
+        restore, save = self.check_restore_and_save("key: port-sources-v1-")
+        self.assertIn("/_deps/*-src", restore)
         for unrelated in ("CMakeCache.txt", "-subbuild", "checks.yml", "outputs.fingerprint",
                           "restore-keys:"):
-            self.assertNotIn(unrelated, read)
+            self.assertNotIn(unrelated, restore)
         for cmake in (ROOT / "port").glob("cmake/*.cmake"):
             if re.search(r"(?im)^\s*FetchContent_Declare\(", cmake.read_text(encoding="utf-8")):
-                self.assertIn(cmake.relative_to(ROOT).as_posix(), read)
+                self.assertIn(cmake.relative_to(ROOT).as_posix(), restore)
+        self.assertIn("key: ${{ env.OPENRAC_PBC_SOURCES_KEY }}", save)
 
     def test_hostgen_restore_is_independent_and_always_validated(self):
-        """Only generated text is restored, without a Ninja stamp that could bypass validation."""
-        text = (ROOT / ".github/actions/port-build-cache/action.yml").read_text()
-        steps = [step for step in re.split(r"(?m)^    - ", text) if "key: hostgen-v1-" in step]
-        self.assertEqual(2, len(steps))
-        write = next(step for step in steps if "uses: actions/cache@" in step)
-        read = next(step for step in steps if "uses: actions/cache/restore@" in step)
-        self.assertIn("github.event_name != 'pull_request'", write)
-        self.assertIn("github.event_name == 'pull_request'", read)
-        self.assertEqual(cache_settings(write), cache_settings(read))
-        self.assertIn("!port/build/${{ inputs.preset }}/games/*/gen/hostgen.stamp", read)
-        self.assertIn("!port/build/${{ inputs.preset }}/games/*/gen/prep", read)
-        self.assertIn("port/build/${{ inputs.preset }}/games/*/gen/**/*", read)
-        self.assertIn("hashFiles('games/**',", read)
-        self.assertIn("'tools/openrac_common/**'", read)
-        self.assertIn("outputs.hostgen_fingerprint", read)
-        self.assertNotIn("outputs.fingerprint", read)
-        self.assertNotIn("CMakeCache.txt", read)
-        self.assertIn("inputs.hostgen == 'true'", read)
+        """Only generated text is restored, without a Ninja stamp that could bypass validation, and
+        a save happens only when the games' input digests differ from what was restored."""
+        restore, save = self.check_restore_and_save("key: hostgen-v2-")
+        self.assertIn("!port/build/${{ inputs.preset }}/games/*/gen/hostgen.stamp", restore)
+        self.assertIn("!port/build/${{ inputs.preset }}/games/*/gen/prep", restore)
+        self.assertIn("port/build/${{ inputs.preset }}/games/*/gen/**/*", restore)
+        self.assertIn("outputs.hostgen_fingerprint", restore)
+        self.assertNotIn("outputs.fingerprint", restore)
+        self.assertNotIn("CMakeCache.txt", restore)
+        self.assertIn("inputs.hostgen == 'true'", restore)
+        self.assertIn("restore-keys:", restore)
+        self.assertIn("key: ${{ steps.plan.outputs.hostgen_key }}", save)
+        plan = "".join(action_steps("port-build-cache/save"))
+        self.assertIn("-name inputs.sha256", plan)
+        self.assertIn('"$key" != "$OPENRAC_PBC_HOSTGEN_MATCHED"', plan)
 
     def test_hostgen_archive_cannot_recurse_into_excluded_output(self):
         """A cached parent directory must not smuggle excluded stamps or prepared sources into tar."""
-        text = (ROOT / ".github/actions/port-build-cache/action.yml").read_text()
-        step = next(step for step in re.split(r"(?m)^    - ", text) if "key: hostgen-v1-" in step)
-        block = step.split("        path: |\n")[1].split("        key:")[0]
-        patterns = [line.strip().replace("${{ inputs.preset }}", "release") for line in block.splitlines()]
+        step = next(step for step in action_steps("port-build-cache") if "key: hostgen-v2-" in step)
+        patterns = [line.strip() for line in cache_paths(step, "release").splitlines()]
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             gen = root / "port/build/release/games/game/gen"
@@ -198,10 +203,17 @@ class CachePolicy(unittest.TestCase):
             self.assertFalse(any("prep" in Path(name).parts for name in names), names)
             self.assertFalse(any(Path(name).name == "hostgen.stamp" for name in names), names)
 
-    def test_rust_cache_does_not_save_pr_private_snapshots(self):
-        """Large Rust snapshots must not compete with shared native build caches on every PR."""
+    def test_other_caches_are_read_only_off_pushes(self):
+        """Rust, Yarn, Mesa, Playwright and LLVM snapshots of a PR or a queue group would be private."""
         text = (ROOT / ".github/actions/launcher-toolchain/action.yml").read_text()
-        self.assertIn("save-if: ${{ github.event_name != 'pull_request' }}", text)
+        self.assertIn("save-if: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}", text)
+        for name in ("yarn-cache", "mesa-cache", "clang-windows"):
+            steps = action_steps(name)
+            write = next(step for step in steps if "uses: actions/cache@" in step)
+            read = next(step for step in steps if "uses: actions/cache/restore@" in step)
+            self.assertIn("github.event_name != 'pull_request' && github.event_name != 'merge_group'", write, name)
+            self.assertIn("github.event_name == 'pull_request' || github.event_name == 'merge_group'", read, name)
+            self.assertEqual(cache_settings(write), cache_settings(read), name)
 
 
 @unittest.skipUnless(shutil.which("ccache") and shutil.which("clang"), "ccache and Clang required")

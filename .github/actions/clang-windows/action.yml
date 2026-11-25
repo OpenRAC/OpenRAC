@@ -8,11 +8,17 @@ description: LLVM at a fixed version, checked and unpacked; sets OPENRAC_CLANG a
 runs:
   using: composite
   steps:
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    # Pull requests and the merge queue only read: their copies would be private to their ref.
+    - if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}/llvm-installer
         key: llvm-installer-22.1.8-win64
-
+    - if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/llvm-installer
+        key: llvm-installer-22.1.8-win64
     - shell: pwsh
       env:
         LLVM_VERSION: "22.1.8"
