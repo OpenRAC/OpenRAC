@@ -41,7 +41,8 @@ env:
 # of its own.
 concurrency:
   group: checks-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # A new dev release replaces release/dev: its older run goes too.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev' }}
 
 jobs:
   # What a run needs (tools/ci_scope.py: the jobs and the port's parts its files can affect, in
