@@ -109,8 +109,10 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
       the start of the function that makes the call; f's own declaration
       and definition stay as they are.
     - An inline assembly statement whose constraints or registers Clang
-      does not know: replaced by a call to openrac_hostgen_asm() (on the
-      same lines), so the function becomes a stub that says why.
+      does not know (VU0 statements on GCC's "j" registers reach Clang as
+      "m", prep.py, and lower.py writes them as C, vu0asm.py): replaced by
+      a call to openrac_hostgen_asm() (on the same lines), so the function
+      becomes a stub that says why.
     - "conflicting types for 'f'" after an earlier declaration or definition
       of f: the later declaration, and the calls after it, use an alias of
       f's symbol. So does a later definition of f that contradicts an
@@ -298,6 +300,15 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                     fixes.append(f"line {line + 1}: second asm label {lm.group(4)} for {lm.group(1)} removed")
                 break
             continue
+        m = re.match(r"unknown register name '\$?(v[fi]\d+)' in asm", msg)
+        if m and 0 <= line < len(lines) and _drop_vu0_clobber(lines, line, col, m.group(1)):
+            # A VU0 register in the statement's clobbers ("vf1", "vf2"), which Clang has no name for. It
+            # tells GCC only what the statement writes, and the port keeps none of those registers: the
+            # clobber goes and the statement stays, so vu0_assembly sees its instructions and
+            # "vu0_assembly_from_retail" translates the function from its assembly. Made a stub, it did
+            # nothing: Veldin's func_L01_003AA658 and Annihilation Nation's func_L07_0035CC10.
+            fixes.append(f"line {line + 1}: VU0 register {m.group(1)} dropped from the inline assembly's clobbers")
+            continue
         if re.match(r"(invalid (output|input) constraint|unknown register name|invalid operand in inline asm"
                     r"|couldn't allocate .* inline asm|invalid lvalue in asm (input|output))", msg):
             replaced = _replace_asm(lines, line, col)
@@ -333,9 +344,29 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
     return "\n".join(lines), fixes
 
 
+def _drop_vu0_clobber(lines: list[str], line: int, col: int, reg: str) -> bool:
+    """Blanks the clobber string Clang points at (`"vf1"` or `"$vf1"`) and a comma next to it, keeping every
+    column, so the other diagnostics on the line still point at their places. False when the text there is
+    not that clobber."""
+    src = lines[line]
+    m = re.compile(r'"\$?' + re.escape(reg) + r'"').match(src, col)
+    if m is None:
+        return False
+    start, end = m.span()
+    after = re.compile(r"\s*,").match(src, end)
+    if after:
+        end = after.end()
+    else:
+        before = re.search(r",\s*$", src[:start])
+        if before:
+            start = before.start()
+    lines[line] = src[:start] + " " * (end - start) + src[end:]
+    return True
+
+
 def _replace_asm(lines: list[str], line: int, col: int) -> bool:
-    """Replaces the asm statement around (line, col) with openrac_hostgen_asm();
-    keeping every line break."""
+    """Replaces the asm statement around (line, col) with openrac_hostgen_asm(), keeping every line
+    break."""
     text = "\n".join(lines)
     offsets = [0]
     for ln in lines:
@@ -362,7 +393,9 @@ def _replace_asm(lines: list[str], line: int, col: int) -> bool:
                 end = text.find(";", j)
                 break
         j += 1
-    if end is None or end < 0:
+    if end is None or end < 0 or end + 1 < at:
+        # No statement around the place Clang points at (one written over already in this round):
+        # the statement before it is another one, left alone.
         return False
     stmt = text[start:end + 1]
     call = "openrac_hostgen_asm();"

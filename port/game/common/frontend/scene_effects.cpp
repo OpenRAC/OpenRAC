@@ -74,7 +74,8 @@ EffectParents effect_parents(const SceneFrame& frame) {
         const auto previous = scene.prev_matrices.find(address);
         const renderer::Mat4& current = scene.live[n].matrix;
 
-        if (previous == scene.prev_matrices.end() || !same_moby(previous->second, current)) {
+        const renderer::Vec3* pace = moby_pace(scene, address);
+        if (previous == scene.prev_matrices.end() || !same_moby(previous->second, current, pace)) {
             continue;
         }
 
@@ -83,7 +84,7 @@ EffectParents effect_parents(const SceneFrame& frame) {
             EffectParent{
                 previous->second,
                 current,
-                blend_matrix(previous->second, current, frame.output.alpha)
+                blend_matrix(previous->second, current, frame.output.alpha, pace)
             }
         );
     }
@@ -183,7 +184,13 @@ CallbackParents owner_moves(const Kept& scene, float alpha) {
             const auto last = scene.prev_matrices.find(scene.addresses[n]);
 
             if (dx * dx + dy * dy + dz * dz < 1e-6f && last != scene.prev_matrices.end()) {
-                moves.emplace(m.address, std::pair{now, blend_matrix(last->second, now, alpha)});
+                moves.emplace(
+                    m.address,
+                    std::pair{
+                        now,
+                        blend_matrix(last->second, now, alpha, moby_pace(scene, scene.addresses[n]))
+                    }
+                );
                 break;
             }
         }

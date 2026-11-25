@@ -3293,6 +3293,21 @@ class Places(unittest.TestCase):
         self.assertEqual(sorted(program.functions), ["func_00284D30"])
         self.assertTrue(program.functions["func_00284D30"].sig.prototyped)
 
+    def test_without_the_disc_map_copies_have_prototypes_for_host_macros(self):
+        """Token-pasted map names in host C need declarations even without disc discovery."""
+        import asmc
+        from program import Program
+        symbol = "func_L40_00468070"
+        config = {"copy_signatures": {symbol: "unsigned long long (int)"}}
+        program = Program()
+        asmc.apply_signatures(program, config, discovered=False)
+        self.assertTrue(program.functions[symbol].asm)
+        self.assertTrue(program.functions[symbol].sig.prototyped)
+
+        program = Program()
+        asmc.apply_signatures(program, config, discovered=True)
+        self.assertNotIn(symbol, program.functions)
+
     def test_abicheck_places_a_static_in_its_files_program(self):
         # frontbin's static TextA_3EB728 calls 0x00391210, frontbin's function there, not the
         # boot executable's other code at that address.

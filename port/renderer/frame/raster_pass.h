@@ -13,19 +13,6 @@
 
 namespace openrac::renderer {
 
-// A vertex or index allocation kept stable through recording.
-struct RasterBuffer {
-    unsigned name;           // Graphics context's buffer name.
-    std::size_t size;        // Number of initialized bytes.
-    bool instanced = false;  // Instance attributes use the frame stream.
-};
-
-// A sampled 2D texture kept stable through recording.
-struct RasterTexture {
-    unsigned name = 0;        // Zero leaves the texture unbound.
-    unsigned mip_levels = 1;  // Defined levels, beginning with base level.
-};
-
 // Resources borrowed by a raster callback on the graphics thread.
 struct RasterInputs {
     std::span<const RasterBuffer> geometry{};                   // Vertex and index inputs.

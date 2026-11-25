@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "common/log.h"
+#include "enhanced/renderer/shader_recipe_sources.h"
 #include "enhanced_texture_shaders.h"
 #include "renderer/gl/gl.h"
 #include "renderer/textures/texture_pool.h"
@@ -196,9 +197,7 @@ unsigned TextureUpscaler::create(
 
     auto& shader = m_shaders[wrap];
     if (!shader.id()) {
-        std::string source_code(shaders::texture_upscale_comp);
-        source_code =
-            renderer::shader_constants(std::move(source_code), {{"wrap_mode", int(wrap)}});
+        const auto source_code = recipe_sources::texture_upscale(wrap);
         if (!shader.build_compute("texture upscale", source_code, error)) {
             return 0;
         }

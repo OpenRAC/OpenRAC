@@ -777,10 +777,16 @@ export const STEP_LABEL = {
   failed: { text: "Failed", tone: "err" },
 } as const satisfies Record<string, Label>;
 
+/** Hook points a mod version names that this launcher's game does not have yet. */
+const missingHooks = (hooks: string[]) =>
+  `${hooks.length} ${hooks.length === 1 ? "hook" : "hooks"} this launcher doesn't have`;
+
 export function noteText(n: PlanNote): string {
   switch (n.kind) {
     case "olderForApi":
       return `${n.name} ${n.newest} needs the dev build (mod API ${n.api}). Installing ${n.picked}, the latest for your release.`;
+    case "olderForHooks":
+      return `${n.name} ${n.newest} needs a newer launcher (${missingHooks(n.hooks)}). Installing ${n.picked}, the latest for yours.`;
     case "pack":
       return `${n.name} is a set: it installs ${n.mods.length} mods.`;
     case "online":
@@ -803,6 +809,8 @@ export function whyText(name: string, why: Why): string {
       return `${name} isn't built for this system yet.`;
     case "needsNewerApi":
       return `${name} needs a newer launcher (mod API ${why.api}).`;
+    case "needsHooks":
+      return `${name} needs a newer launcher (${missingHooks(why.hooks)}).`;
 
     case "clash": {
       const by = why.wants.map((w) => `${w.by || "you"} ${w.version ?? "any"}`);
@@ -891,6 +899,8 @@ export function holdText(hold: Hold | null): string {
       return `Held back: it needs ${hold.id}${hold.wants ? ` ${hold.wants}` : ""}, which can't update with it.`;
     case "needsLauncher":
       return `Needs a newer launcher (mod API ${hold.api}). It updates once the launcher does.`;
+    case "needsLauncherHooks":
+      return `Needs a newer launcher (${missingHooks(hold.hooks)}). It updates once the launcher does.`;
     case "blocked":
       return "Held back: it doesn't fit with your other mods yet.";
   }

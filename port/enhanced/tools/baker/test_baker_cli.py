@@ -451,7 +451,7 @@ class BakerCli(unittest.TestCase):
                                 if settings.enabled and has_gameplay else dict(regions=[],note=(
                                     'No gameplay to seed dense regions from (a scene, not a level of the disc).' if settings.enabled
                                     else 'Dense regions disabled by the per-level profile.'))
-                            plan.update(region_settings=asdict(settings),placement_algorithm=4,bake_profile=profile,scene_hash=identity,emission=emission)
+                            plan.update(region_settings=asdict(settings),placement_algorithm=5,bake_profile=profile,scene_hash=identity,emission=emission)
                             bake_level.write_json(directory/'seed-plan.json',plan)
                             regions = [dict(bounds=r['bounds'],spacing=r['spacing'],lattice_bounds=r['lattice_bounds'],
                                 max_distance=1.5*math.sqrt(sum(v*v for v in r['spacing']))) for r in plan['regions']]

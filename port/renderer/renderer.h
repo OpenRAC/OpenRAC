@@ -35,6 +35,8 @@
 #include "renderer/frame/ui_records.h"
 #include "renderer/gl/framebuffer.h"
 #include "renderer/math.h"
+#include "renderer/settings/cloud_shadow_settings.h"
+#include "renderer/settings/early_lighting_settings.h"
 #include "renderer/settings/gtao_settings.h"
 #include "renderer/settings/shadow_settings.h"
 #include "renderer/settings/volumetric_settings.h"
@@ -159,6 +161,11 @@ struct EffectStrip {
     bool z_masked = false;
     bool z_written = false;
     bool blend_disabled = false;  // The strip's GIF tag explicitly clears PRIM.ABE.
+    // The strip samples the game's copy of the frame drawn so far (GameProfile::
+    // frame_copy_texture: Up Your Arsenal's heat haze), its ST the place in the game's picture.
+    // Drawn from a native snapshot of the target taken before the pass's first such strip, never
+    // from the chip's frame copy (EffectRenderer, frame_copy_st).
+    bool frame_copy = false;
 };
 
 struct RenderTarget;
@@ -167,6 +174,10 @@ struct FrameInput {
     TextureFilter texture_filter = TextureFilter::Normal;
     ShadowQuality shadow_quality = ShadowQuality::High;
     ShadowFilter shadow_filter = ShadowFilter::Soft;
+    // The game frontend supplies its setting. Standalone renderer callers use 2x2 cells.
+    EarlyLightingQuality early_lighting_quality = EarlyLightingQuality::High;
+    CloudShadowSettings cloud_shadows;
+    double cloud_seconds = 0.0;
     VolumetricQuality volumetric_quality = VolumetricQuality::Off;
     bool sun_pixel_shadow = false;
     bool hero_pixel_shadow = false;

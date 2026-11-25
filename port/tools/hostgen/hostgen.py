@@ -49,7 +49,7 @@ import variant_check  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import LEVEL_SHORT_MISS, Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, canon, cname, index_unit, prototype, inherit_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, users_of_vu0_assembly, vu0_moves, _vu0_op, canon, cname, index_unit, prototype, inherit_results, uninherit_void_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
 import program as program_module  # noqa: E402  (its NAME_PREFIX)
 
 HERE = Path(__file__).resolve().parent
@@ -1664,6 +1664,9 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     # A definition that uses a derived name with no address (a ref_ name a stale table does not value) is left to
     # its assembly too (program.py users_of_unresolved_derived): its call would reach a stub that does nothing.
     program.unresolved_derived = users_of_unresolved_derived(program)
+    # hostgen.json "vu0_assembly_from_retail": a definition whose inline assembly runs VU0 instructions the lowering
+    # would skip (explicit $vf registers) is left to its assembly as well (program.py users_of_vu0_assembly).
+    program.vu0_assembly_moved = users_of_vu0_assembly(program) if cfg.get("vu0_assembly_from_retail") else {}
     # A parameter the C only passes on to 64-bit parameters is 64-bit itself (program.py widen_forwarded): the EE's
     # register carries all its bits through (FontPrintCenter's colour to FontPrint's u64).
     # A definition that names fewer parameters than its callers pass, which it hands on in their registers (program.py
@@ -1727,6 +1730,8 @@ def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dic
         for name, why in sorted(asmc.write_console(asm_stage, args.asm_console.resolve(), names).items()):
             print(f"hostgen: {name}: no console form: {why}", file=sys.stderr)
     inherited = inherited_early + asm_stage.inherited + inherit_results(program)
+    uninherited = set(uninherit_void_results(program))
+    inherited = [name for name in inherited if name not in uninherited]
     return asm_stage, asm_results, inherited
 
 
@@ -1748,6 +1753,7 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     extra["results_widened"] = sorted(getattr(program, "results_widened", []))
     extra["unprototyped_callers"] = sorted(getattr(program, "unprototyped_callers", []))
     extra["unresolved_derived"] = dict(sorted(getattr(program, "unresolved_derived", {}).items()))
+    extra["vu0_assembly_from_retail"] = dict(sorted(getattr(program, "vu0_assembly_moved", {}).items()))
     extra["bound_libraries"] = write_libraries(program, out, host_rows, library_api(args.game.parent, cfg))
     extra["rows_without_function"] = rows_without_function(program, host_rows)
     for sym in extra["rows_without_function"]:
@@ -2022,7 +2028,18 @@ class SortedPickler(pickle._Pickler):
     dispatch[frozenset] = save_set
 
 
-def main(argv: list[str] | None = None) -> int:
+def vu0_refusals(reports: list[UnitReport]) -> frozenset[str]:
+    """The functions (static helpers included) whose VU0 inline assembly lower.py did not write as C:
+    a statement vu0asm.py refused (a stub, or a barrier on named registers), or VU0 instructions
+    it skipped."""
+    return frozenset(f.name for r in reports for f in r.functions
+                     if getattr(f, "asm_unsupported", None)
+                     or any(_vu0_op(op) for op in f.asm_skipped))
+
+
+def main(argv: list[str] | None = None, vu0_refused: frozenset[str] | None = None) -> int:
+    """VU0_REFUSED: hostgen.json "vu0_assembly_from_retail"'s second translation, the functions
+    whose VU0 inline assembly the first did not write as C (vu0_refusals)."""
     global RELEASE
     args = parse_arguments(argv)
     cfg = load_config(args.game)
@@ -2067,6 +2084,9 @@ def main(argv: list[str] | None = None) -> int:
              "names": cfg["names"], "groups": cfg["groups"], "prefix": cfg.get("prefix", "")}
 
     program = new_program(cfg, source)
+    # The first translation writes every VU0 statement it can as C (vu0asm.py); those it cannot move
+    # their functions to the assembly in a second one (users_of_vu0_assembly).
+    program.vu0_refused = vu0_refused or frozenset()
     problems = override_problems(root, replacements, overridden)
     try:
         host_rows = configure_program(program, args, cfg, source)
@@ -2096,6 +2116,15 @@ def main(argv: list[str] | None = None) -> int:
     state["program"] = program
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(state,)) as ex:
         reports = list(ex.map(_lower_one, units))
+    if cfg.get("vu0_assembly_from_retail") and vu0_refused is None:
+        refused = vu0_refusals(reports)
+        moves = vu0_moves(program, refused)
+        if moves:
+            # Their C would skip VU0 instructions: translated again with those functions left to their
+            # assembly. Listed in hostgen.json "from_assembly", they cost no second translation.
+            print(f"hostgen: {len(moves)} function(s) whose VU0 inline assembly is not C, translated again "
+                  f"from their assembly: {', '.join(sorted(moves))}", file=sys.stderr)
+            return main(argv, refused)
 
     summary = write_outputs(out, args, cfg, program, units, reports, problems, host_rows, used, overridden,
                             inherited, asm_stage, asm_results)

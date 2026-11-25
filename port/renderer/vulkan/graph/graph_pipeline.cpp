@@ -114,10 +114,9 @@ void validate_indirect_arguments(
     }
 }
 
-// Validate the operation's effective target, including accesses omitted from the declaration.
-void validate_attachment_access(const Image* image, graph::Aspect aspect, bool write) {
+bool attachment_access_allowed(const Image* image, graph::Aspect aspect, bool write) {
     if (!image) {
-        return;
+        return false;
     }
     if (active_pass) {
         const bool colour = aspect == graph::Aspect::Colour;
@@ -134,9 +133,17 @@ void validate_attachment_access(const Image* image, graph::Aspect aspect, bool w
             if (bound && bound->image == image->image && layout && covers(use.range, {aspect})
                 && use.state.access != graph::Access::None && (!write || writable)
                 && (static_cast<unsigned>(use.state.stages) & static_cast<unsigned>(stage)) != 0) {
-                return;
+                return true;
             }
         }
+    }
+    return false;
+}
+
+// Validate the operation's effective target, including accesses omitted from the declaration.
+void validate_attachment_access(const Image* image, graph::Aspect aspect, bool write) {
+    if (!image || attachment_access_allowed(image, aspect, write)) {
+        return;
     }
     throw std::runtime_error(
         (active_pass ? active_pass->pass.name : "native work")
@@ -147,6 +154,10 @@ void validate_attachment_access(const Image* image, graph::Aspect aspect, bool w
 
 bool graph_pipeline_active() {
     return active_pass != nullptr;
+}
+
+bool graph_colour_write_allowed(const Target& target) {
+    return attachment_access_allowed(target.colour, graph::Aspect::Colour, true);
 }
 
 bool graph_pipeline_records(VkCommandBuffer command) {
@@ -237,8 +248,9 @@ void GraphImmediateWork::prepare_material_reads(std::span<const Sampled> texture
         if (!owner) {
             throw std::logic_error("bindless material requires a renderer-owned image");
         }
+        // This label is copied into each compiled plan. Keep it short enough for inline storage.
         const auto image =
-            execution.m_recording->import_image("material texture", std::move(owner), true);
+            execution.m_recording->import_image("material image", std::move(owner), true);
         if (!image) {
             throw std::runtime_error(image.error().message);
         }

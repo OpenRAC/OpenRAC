@@ -149,7 +149,9 @@ and the update check, never to show it.
 - Small updates install by themselves: at start, every 6 hours and before
   Play, never while the game runs (`lib/modAutoUpdate.svelte.ts`).
 - Big ones, and native mods with new hooks, wait for a click in Mod updates.
-- Held-back ones say why ("Held back: A needs B 1.2.0").
+- Held-back ones say why ("Held back: A needs B 1.2.0"). A version that
+  needs a newer mod interface, or hook points this launcher's port does not
+  have, waits for a newer launcher.
 - A version withdrawn from the hub is switched off by the update check, and
   Mod updates says so (`revokedOffText`).
 - After a crash that follows an update, the crash notice offers a roll back.

@@ -10,10 +10,10 @@
 #pragma once
 
 #include <cstdio>
-#include <cstdlib>
 #include <memory>
 #include <string>
 
+#include "common/env.h"
 #include "platform/window.h"
 #include "renderer/gl/gl.h"
 
@@ -23,6 +23,8 @@ inline constexpr int kSkip = 77;
 
 class GlContext {
 public:
+    // Existing fixtures compile custom GLSL; package and error-shader checks opt out explicitly.
+    void require_packaged_shaders() { m_compile_missing_shaders = false; }
     bool open(
         std::string& why,
         int width = 64,
@@ -32,8 +34,8 @@ public:
     ) {
 #if !defined(__APPLE__)
         // The offscreen driver unless the caller chose one.
-        const char* driver = std::getenv("SDL_VIDEO_DRIVER");
-        if (!visible && (driver == nullptr || driver[0] == '\0')) {
+        const auto driver = env::system_variable("SDL_VIDEO_DRIVER");
+        if (!visible && (!driver || driver->empty())) {
             platform::Platform::use_offscreen_video();
         }
 #endif
@@ -50,6 +52,7 @@ public:
         config.vsync = false;
         config.resizable = false;
         config.vulkan_device_work = device_work;
+        config.compile_missing_shaders = m_compile_missing_shaders;
         m_window = platform::Window::open(config, why);
         if (!m_window) {
             return false;
@@ -68,6 +71,7 @@ public:
     platform::Window& window() { return *m_window; }
 
 private:
+    bool m_compile_missing_shaders = true;
     std::unique_ptr<platform::Platform> m_sdl;
     std::unique_ptr<platform::Window> m_window;  // destroyed before m_sdl
 };
