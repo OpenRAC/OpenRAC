@@ -73,12 +73,14 @@ follow camera.
 | Wrench | F, middle click | Square |
 | Crouch | Left Ctrl, C | R1 |
 | Strafe (hold) | Left Shift | L2 (R&C: only with the lock-strafe mod) |
+| Aim (hold; GC: or press, with *Aim toggles*) | none (Modern preset: right click) | L1: first person, the shots go where you look; GC: the edges darken |
 | First person | V, back side button | L1 |
 | R2 | R, front side button | R2 |
 | Map, pause | Tab or M, Escape or P | Select, Start |
-| R&C: camera behind Ratchet | Q | none |
+| Camera behind Ratchet | Q | none |
 | Weapon 1 to 8, next, previous (on foot) | 1 to 8, wheel | none |
-| GC: Last weapon (on foot) | none | none: takes the item held before the one in hand |
+| GC: Last weapon (on foot) | none (Modern preset: X) | none: takes the item held before the one in hand |
+| GC: Dodge (on foot) | none (Modern preset: Left Shift) | L2 with the stick and Cross: a flip the way you move, back when you stand still |
 
 In menus: arrows, WASD or the wheel move; Enter or left click confirm;
 Escape, Backspace or right click go back; E is Circle. Space, Enter or Escape
@@ -108,6 +110,10 @@ Built in). Gyro settings sit on the game's *Gamepad* tab and the launcher's *Gyr
 tab. The Controls tab opens on the device you used last. Changes apply at once. They are saved as
 `kbm_<key> = <value>` in `<data>/settings/<game>-<version>.ini`.
 
+Presets set the keys at once: *Left-handed*, *Arrow keys*, and *Modern*: right click
+aims, middle click holds the Quick Select, F swings the wrench, and in GC Left Shift dodges (the
+strafe keeps no key: Ratchet strafes while you fire), X takes the last weapon.
+
 | Setting | Default | What it does |
 |---|---|---|
 | Horizontal / vertical sensitivity | 1.0 | How far the camera turns |
@@ -122,6 +128,10 @@ tab. The Controls tab opens on the device you used last. Changes apply at once. 
 | Walk speed | 0.5 | Speed of the walk key |
 | Ramp-up time (ms) | 60 | Time for the move keys to reach full speed |
 | Quick Select dead zone | 30 | Pixels before the ring picks a slot |
+| GC: Aim toggles | off | A press of Aim aims and another stops |
+| GC: Aim sensitivity | 1.0 | The mouse's sensitivity while you aim, a share of its own |
+| GC: Vignette while aiming | on | The screen's edges darken while you aim |
+| GC: Strafe while firing | Off | *While firing*: Ratchet faces where the camera looks and strafes while you fire, and half a second after; *Always*: on foot all the time |
 | Key icons on screen | on | Icons show your keys |
 | Button icons | Last used | Or always keys, or always the gamepad |
 | Mouse in menus | on | Point and click in menus |

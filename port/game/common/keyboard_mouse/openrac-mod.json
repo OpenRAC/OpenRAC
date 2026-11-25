@@ -397,6 +397,88 @@
       "description": "L2. Ratchet & Clank: only with the lock-strafe mod (its Hold mode strafes with it)."
     },
     {
+      "key": "aim",
+      "name": "Aim",
+      "section": "Combat",
+      "type": "keybind",
+      "default": "",
+      "group": "play",
+      "description": "Aim in first person (L1), held, or pressed once to aim and again to stop with Going Commando's Aim toggles: the shots go where you look. Going Commando: the screen's edges darken meanwhile. Unbound by default; the Modern preset puts it on the right click."
+    },
+    {
+      "key": "aim_toggle",
+      "name": "Aim toggles",
+      "section": "Combat",
+      "type": "bool",
+      "games": [
+        "rac2"
+      ],
+      "default": false,
+      "description": "A press of Aim aims and another stops, rather than aiming while it is held."
+    },
+    {
+      "key": "aim_sensitivity",
+      "name": "Aim sensitivity",
+      "section": "Combat",
+      "type": "float",
+      "games": [
+        "rac2"
+      ],
+      "default": 1.0,
+      "min": 0.1,
+      "max": 2.0,
+      "step": 0.05,
+      "description": "The mouse's sensitivity while you aim, as a share of the mouse's own: below 1 for finer aim."
+    },
+    {
+      "key": "dodge",
+      "name": "Dodge",
+      "section": "Combat",
+      "type": "keybind",
+      "games": [
+        "rac2"
+      ],
+      "default": "",
+      "group": "play",
+      "description": "A flip the way you move (Going Commando's strafe and jump: sideways, back or forward), back when you stand still. Unbound by default; the Modern preset puts it on Left Shift."
+    },
+    {
+      "key": "aim_vignette",
+      "name": "Vignette while aiming",
+      "section": "Combat",
+      "type": "bool",
+      "games": [
+        "rac2"
+      ],
+      "default": true,
+      "description": "The screen's edges darken while you hold Aim."
+    },
+    {
+      "key": "strafe_fire",
+      "name": "Strafe while firing",
+      "section": "Combat",
+      "type": "choice",
+      "games": [
+        "rac2"
+      ],
+      "default": "off",
+      "choices": [
+        {
+          "value": "off",
+          "name": "Off"
+        },
+        {
+          "value": "firing",
+          "name": "While firing"
+        },
+        {
+          "value": "always",
+          "name": "Always"
+        }
+      ],
+      "description": "While you fire, and a moment after, or always on foot: Ratchet faces where the camera looks and the movement keys move him sideways and back, as in modern shooters (Going Commando's strafe, L2)."
+    },
+    {
       "key": "r2",
       "name": "Crouch and strafe (R2)",
       "section": "Combat",
@@ -452,7 +534,7 @@
       ],
       "default": "",
       "group": "play",
-      "description": "Takes the item you held before the one in hand. Unbound by default."
+      "description": "Takes the item you held before the one in hand. Unbound by default; the Modern preset puts it on X."
     },
     {
       "key": "weapon_1",
@@ -533,9 +615,6 @@
       "name": "Reset camera",
       "section": "Camera",
       "type": "keybind",
-      "games": [
-        "rac1"
-      ],
       "default": "KeyQ",
       "group": "play",
       "description": "Swings the camera round behind him and levels it."
@@ -691,6 +770,19 @@
         "walk": "AltRight",
         "crouch": "ControlRight,KeyC",
         "strafe": "ShiftRight"
+      }
+    },
+    {
+      "id": "modern",
+      "name": "Modern",
+      "values": {
+        "aim": "MouseRight",
+        "quick_select": "MouseMiddle",
+        "wrench": "KeyF",
+        "strafe_fire": "firing",
+        "dodge": "ShiftLeft",
+        "strafe": "",
+        "weapon_last": "KeyX"
       }
     }
   ]

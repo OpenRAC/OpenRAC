@@ -28,7 +28,8 @@ namespace kbm {
 // What a bind does. The pad buttons are Ratchet & Clank's: Cross jumps, Square swings the wrench,
 // Circle fires, Triangle holds the Quick Select open, R1 crouches, L1 looks in first person, L2
 // strafes (with the lock-strafe mod), R2 crouches too (and strafes in water; Going Commando: strafes
-// and crouches), Select opens the map, Start pauses.
+// and crouches), Select opens the map, Start pauses. Aim holds L1 too: the first-person view, where
+// the shots go where it looks (after FirstPerson, so that L1's icon shows the first-person key).
 enum class Action : int {
     MoveForward,
     MoveBack,
@@ -42,6 +43,8 @@ enum class Action : int {
     Crouch,
     Strafe,
     FirstPerson,
+    Aim,
+    Dodge,
     R2,
     Map,
     CameraReset,
@@ -99,6 +102,8 @@ inline constexpr std::array<ActionInfo, kActionCount> kActions = {{
     {"crouch", "ControlLeft,KeyC", Group::Play},
     {"strafe", "ShiftLeft", Group::Play},
     {"first_person", "KeyV,MouseBack", Group::Play},
+    {"aim", "", Group::Play},
+    {"dodge", "", Group::Play},
     {"r2", "KeyR,MouseForward", Group::Play},
     {"map", "Tab,KeyM", Group::Play},
     {"camera_reset", "KeyQ", Group::Play},
@@ -897,7 +902,7 @@ inline std::uint16_t buttons_for(
             set(on(Action::Wrench), kSquare);
             set(on(Action::Crouch), kR1);
             set(on(Action::Strafe) && strafe, kL2);
-            set(on(Action::FirstPerson), kL1);
+            set(on(Action::FirstPerson) || on(Action::Aim), kL1);
             set(on(Action::R2), kR2);
             set(on(Action::Map), kSelect);
             set(on(Action::Pause), kStart);

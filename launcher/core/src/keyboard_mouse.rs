@@ -142,15 +142,26 @@ mod tests {
     }
 
     #[test]
-    fn going_commando_has_no_ratchet_only_settings() {
+    fn each_game_shows_its_own_settings() {
         let home = temp("rac2");
         let v = view(&home, "rac2", "ntsc");
         let has = |key: &str| v.settings.iter().any(|s| s.spec.key == key);
         assert!(has("jump") && has("mouse_sensitivity") && has("key_prompts"));
-        // Clicks in menus and the weapon keys work in Going Commando too.
-        assert!(has("menu_mouse") && has("weapon_1") && has("weapon_last") && !has("camera_reset"));
+        // Clicks in menus, the weapon keys, the camera's reset and the aim work in Going Commando too.
+        assert!(has("menu_mouse") && has("weapon_1") && has("camera_reset") && has("aim"));
+        assert!(has("aim_vignette"));
+        assert!(has("dodge") && has("weapon_last") && has("aim_toggle"));
         assert!(set_setting(&home, "rac2", "ntsc", "weapon_1", &json!("Digit1")).is_ok());
         assert!(set_setting(&home, "rac2", "ntsc", "jump", &json!("KeyJ")).is_ok());
+        let _ = std::fs::remove_dir_all(&home);
+
+        // The aim's vignette is Going Commando's only.
+        let home = temp("rac1-own");
+        let v = view(&home, "rac1", "pal");
+        let has = |key: &str| v.settings.iter().any(|s| s.spec.key == key);
+        assert!(has("weapon_1") && has("aim") && !has("aim_vignette"));
+        assert!(!has("dodge") && !has("aim_toggle"));
+        assert!(set_setting(&home, "rac1", "pal", "aim_vignette", &json!(false)).is_err());
         let _ = std::fs::remove_dir_all(&home);
     }
 

@@ -513,6 +513,103 @@ void weapons(const Tick& t) {
     }
 }
 
+// ---- The camera behind Ratchet, and the aim ----
+
+// The hero's block: his facing (the z of his rotation, radians: g_heroOrientVec + 8).
+constexpr std::uint32_t kHeroYaw = 0x98u;
+// How many ticks the camera's swing behind Ratchet lasts (as Ratchet & Clank's).
+constexpr int kResetTicks = 30;
+// How many ticks the aim's look takes to come in, and to go back out.
+constexpr float kAimBlendTicks = 8.0f;
+// The overlay's picture (openrac_overlay), and the aim's look on it: the vignette's bands, how far
+// in from the edges they reach and how dark the outermost is (of 255).
+constexpr float kPictureWidth = 512.0f;
+constexpr float kPictureHeight = 448.0f;
+constexpr int kVignetteBands = 12;
+constexpr float kVignetteReach = 0.2f;
+constexpr float kVignetteAlpha = 150.0f;
+
+int s_reset_ticks = 0;     // the swing behind Ratchet still to run (follow_mouse)
+bool s_aiming = false;     // Aim held on foot this tick (it holds L1: the first-person view)
+float s_aim_blend = 0.0f;  // the aim's look on the picture: 0 none, 1 all of it
+bool s_vignette = true;    // setting aim_vignette
+// Aim toggles (setting aim_toggle) rather than holding, and is on now; the mouse's share of its
+// sensitivity while aiming (aim_sensitivity).
+bool s_aim_toggle = false;
+bool s_aim_on = false;
+float s_aim_sensitivity = 1.0f;
+// Dodge: the tick of the flip under way (-1 none), and the way it goes (the left stick).
+int s_dodge_tick = -1;
+float s_dodge_x = 0.0f;
+float s_dodge_y = 0.0f;
+// How many ticks a dodge holds the strafe and the way, and on which it presses jump.
+constexpr int kDodgeTicks = 8;
+constexpr int kDodgeJumpFrom = 1;
+constexpr int kDodgeJumpTo = 2;
+// Strafe while firing (setting strafe_fire): 0 off, 1 while firing and a moment after, 2 always on
+// foot; the ticks the strafe still lasts after the last shot, and how many it lasts.
+int s_strafe_fire = 0;
+int s_strafe_left = 0;
+int s_strafe_ticks = 30;
+// How long the strafe lasts after the last shot, in seconds.
+constexpr float kStrafeAfterFiring = 0.5f;
+
+// `v` with its part along the unit `up` taken out: its direction about the camera's axis.
+kbm::Vec3 level_part(kbm::Vec3 v, kbm::Vec3 up) {
+    return kbm::minus(v, kbm::scaled(up, kbm::dot(v, up)));
+}
+
+// The camera's swing behind Ratchet: the eye it wants and the one it eases towards turned about the
+// camera's axis by a share of the angle left, each tick, so that the eye is behind him (opposite
+// the way he faces) as the swing ends. The camera's turn lock stops it, as it stops the stick.
+void swing_behind(std::array<kbm::Vec3, 2>& offsets, kbm::Vec3 up, bool turn_locked) {
+    const float yaw = s_mod->memory().read<float>(s_disc->hero + kHeroYaw);
+
+    if (turn_locked || !std::isfinite(yaw)) {
+        s_reset_ticks = 0;
+        return;
+    }
+
+    const kbm::Vec3 behind = level_part({-std::cos(yaw), -std::sin(yaw), 0.0f}, up);
+    const kbm::Vec3 now = level_part(offsets[0], up);
+    const float angle = std::atan2(kbm::dot(kbm::cross(now, behind), up), kbm::dot(now, behind));
+    const float share = angle / static_cast<float>(s_reset_ticks);
+
+    for (kbm::Vec3& o : offsets) {
+        o = kbm::rotate(o, up, share);
+    }
+
+    --s_reset_ticks;
+}
+
+// The aim on the picture, once a frame while Aim is held or its look fades (openrac_api.on_overlay):
+// the picture's edges darkened in bands, deeper as the look comes in (aim_vignette). The crosshair is
+// the game's own, in first person.
+void draw_aim(const openrac_overlay* o) {
+    const float b = s_aim_blend;
+
+    if (o == nullptr || !s_vignette || !(b > 0.0f)) {
+        return;
+    }
+
+    const float eased = b * b * (3.0f - 2.0f * b);
+    const float sx = kPictureWidth * kVignetteReach / static_cast<float>(kVignetteBands);
+    const float sy = kPictureHeight * kVignetteReach / static_cast<float>(kVignetteBands);
+
+    for (int i = 0; i < kVignetteBands; ++i) {
+        const float out = 1.0f - static_cast<float>(i) / static_cast<float>(kVignetteBands);
+        const auto alpha = static_cast<std::uint32_t>(kVignetteAlpha * eased * out * out);
+        const float dx = sx * static_cast<float>(i);
+        const float dy = sy * static_cast<float>(i);
+        const float w = kPictureWidth - 2.0f * dx;
+        const float h = kPictureHeight - 2.0f * dy - 2.0f * sy;
+        o->rect(o->context, dx, dy, w, sy, alpha);
+        o->rect(o->context, dx, kPictureHeight - dy - sy, w, sy, alpha);
+        o->rect(o->context, dx, dy + sy, sx, h, alpha);
+        o->rect(o->context, kPictureWidth - dx - sx, dy + sy, sx, h, alpha);
+    }
+}
+
 // The tick's pad from the keyboard and mouse.
 void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     Tick t;
@@ -614,6 +711,92 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     kbm::left_stick(t, held, ring, s_set, s_ring, s_keys, v);
     weapons(t);
 
+    // Aim held on foot presses L1: the first-person view, where the shots go where it looks; that
+    // view turns with the left stick as well, so the movement keys leave it alone meanwhile, and
+    // Ratchet aims where he stands, as with L1 on a pad.
+    // With aim_toggle a press of Aim aims and another stops; leaving the foot ends it.
+    const bool aim_here = t.touch != nullptr && std::string_view(t.touch) == "foot" && !ring;
+    const bool aim_held = (held & kbm::bit(Action::Aim)) != 0;
+
+    if (!s_aim_toggle || !aim_here) {
+        s_aim_on = false;
+    } else if (kbm::pressed_now(s_set.binds, t, Action::Aim)) {
+        s_aim_on = !s_aim_on;
+    }
+
+    s_aiming = aim_here && (s_aim_toggle ? s_aim_on : aim_held);
+
+    if (aim_here) {
+        // buttons_for pressed L1 for a held Aim: on foot the aim's own button is set here instead.
+        if (aim_held && (held & kbm::bit(Action::FirstPerson)) == 0) {
+            v.held = static_cast<std::uint16_t>(v.held & ~kbm::kL1);
+        }
+
+        if (s_aiming) {
+            v.held = static_cast<std::uint16_t>(v.held | kbm::kL1);
+        }
+    }
+
+    if (s_aiming) {
+        v.left_x = 0.0f;
+        v.left_y = 0.0f;
+    }
+
+    // Dodge: on foot, not aiming, a flip the way the movement keys go (back when
+    // none is held): Going Commando's strafe held with that way, and jump pressed a tick in, as a
+    // pad's L2, stick and Cross make a side, back or front flip.
+    if (aim_here && !s_aiming && s_dodge_tick < 0
+        && kbm::pressed_now(s_set.binds, t, Action::Dodge)) {
+        const auto on = [&](Action a) {
+            return (held & kbm::bit(a)) != 0 ? 1.0f : 0.0f;
+        };
+        s_dodge_x = on(Action::MoveRight) - on(Action::MoveLeft);
+        s_dodge_y = on(Action::MoveBack) - on(Action::MoveForward);
+
+        if (s_dodge_x == 0.0f && s_dodge_y == 0.0f) {
+            s_dodge_y = 1.0f;
+        }
+
+        s_dodge_tick = 0;
+    }
+
+    if (s_dodge_tick >= 0 && !aim_here) {
+        s_dodge_tick = -1;
+    }
+
+    if (s_dodge_tick >= 0) {
+        v.held = static_cast<std::uint16_t>(v.held | kbm::kL2);
+
+        if (s_dodge_tick >= kDodgeJumpFrom && s_dodge_tick <= kDodgeJumpTo) {
+            v.held = static_cast<std::uint16_t>(v.held | kbm::kCross);
+        }
+
+        v.left_x = s_dodge_x;
+        v.left_y = s_dodge_y;
+
+        if (++s_dodge_tick >= kDodgeTicks) {
+            s_dodge_tick = -1;
+        }
+    }
+
+    // Strafe while firing (setting strafe_fire): on foot, not aiming, while Fire is held and a moment
+    // after (or always), L2 is held too, Going Commando's strafe: Ratchet faces where the camera
+    // looks and the movement keys move him sideways and back, as in modern shooters.
+    const bool strafes_here =
+        t.touch != nullptr && std::string_view(t.touch) == "foot" && !ring && !s_aiming;
+
+    if (strafes_here && (held & kbm::bit(Action::Fire)) != 0) {
+        s_strafe_left = s_strafe_ticks;
+    } else if (!strafes_here) {
+        s_strafe_left = 0;
+    } else if (s_strafe_left > 0) {
+        --s_strafe_left;
+    }
+
+    if (strafes_here && (s_strafe_fire == 2 || (s_strafe_fire == 1 && s_strafe_left > 0))) {
+        v.held = static_cast<std::uint16_t>(v.held | kbm::kL2);
+    }
+
     // The first-person camera ran lately (L1's view, the first-person mode): the mouse turns it.
     const bool aligned = s_aligned_tick != kNoTick && s_tick - s_aligned_tick <= kFollowSeenTicks;
     // The gyro aims (core.hpp): "only while aiming" is a strafe, L2 or R2 held, or first person.
@@ -623,12 +806,28 @@ void step(const openrac_input* in, std::uint16_t pad_buttons, bool pad_look) {
     s_mouse_counts = t.play;
     // The mouse counts with the cursor captured in play; the gyro wherever it aims.
     const bool looks = (t.play || gyro.on) && !ring && !pad_look;
-    const float dx = (t.play ? in->mouse_dx : 0.0f) + gyro.dx;
-    const float dy = (t.play ? in->mouse_dy : 0.0f) + gyro.dy;
+    // While aiming the mouse turns by its share of the sensitivity (aim_sensitivity).
+    const float mouse_scale = s_aiming ? s_aim_sensitivity : 1.0f;
+    const float dx = (t.play ? in->mouse_dx * mouse_scale : 0.0f) + gyro.dx;
+    const float dy = (t.play ? in->mouse_dy * mouse_scale : 0.0f) + gyro.dy;
 
     // In play with the cursor captured the mouse turns the follow camera itself (follow_mouse),
     // and is the right stick for any other camera; the pad's own stick wins.
     const bool follow = s_follow_tick != kNoTick && s_tick - s_follow_tick <= kFollowSeenTicks;
+
+    // The camera's reset: the swing behind Ratchet (follow_mouse), the tilt let go for the game to
+    // level. The mouse turning sideways, the pad's stick or leaving the follow camera stops it.
+    if (play && follow && kbm::pressed_now(s_set.binds, t, Action::CameraReset)) {
+        s_reset_ticks = kResetTicks;
+        s_tilt.held = false;
+    }
+
+    if (!play || !follow || pad_look || dx != 0.0f) {
+        s_reset_ticks = 0;
+    }
+
+    // The aim's look on the picture comes in over a few ticks (draw_aim), and goes as it is let go.
+    s_aim_blend = kbm::clamp(s_aim_blend + (s_aiming ? 1.0f : -1.0f) / kAimBlendTicks, 0.0f, 1.0f);
     s_pad_look = pad_look;
     s_aims = looks && aligned;
     s_follows = looks && follow && !aligned;
@@ -684,7 +883,8 @@ void write_vec(std::uint32_t a, kbm::Vec3 v) {
 // one it eases towards turned and tilted alike by the mouse's motion (kbm::turn_orbit), so the
 // view turns at once; the tilt held through the game's own target (the stick state and the value
 // it tilts by, after the game's invert option). The camera's locks stop the mouse as they stop
-// the stick.
+// the stick. While the camera's reset runs they swing behind Ratchet instead (swing_behind),
+// whatever turns the camera.
 void follow_mouse(std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) {
     (void)turn;
     s_follow_tick = s_tick;
@@ -695,9 +895,10 @@ void follow_mouse(std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) 
     openrac::Memory m = s_mod->memory();
     const std::uint32_t data = m.read<std::uint32_t>(camera + 0x70u);
     float up[3] = {0.0f, 0.0f, 1.0f};
-    if (!s_follows || data < 0x00100000u || data >= kRamBytes - 0x200u
-        || openrac_rac2_follow_axis(up) == 0) {
+
+    if (data < 0x00100000u || data >= kRamBytes - 0x200u || openrac_rac2_follow_axis(up) == 0) {
         s_tilt.held = false;
+        s_reset_ticks = 0;
         return;
     }
     s_follow_up = kbm::unit_or({up[0], up[1], up[2]}, kbm::kWorldUp);
@@ -709,14 +910,28 @@ void follow_mouse(std::uint32_t camera, std::uint32_t turn, std::uint32_t tilt) 
 
     std::array<kbm::Vec3, 2> offsets =
         {read_vec(data + kFollowWanted), read_vec(data + kFollowEye)};
-    const bool moved = kbm::turn_orbit(
-        offsets.data(), 2, s_follow_up, range, s_follow_locks, dx, dy, s_set.look, s_tilt
-    );
+    bool moved = false;
+
+    if (s_reset_ticks > 0) {
+        swing_behind(offsets, s_follow_up, s_follow_locks.turn);
+        moved = true;
+    } else if (s_follows) {
+        moved = kbm::turn_orbit(
+            offsets.data(), 2, s_follow_up, range, s_follow_locks, dx, dy, s_set.look, s_tilt
+        );
+        s_tick_yaw += s_follow_locks.turn ? 0.0f : kbm::DirectLook::yaw(dx, dy, s_set.look);
+    }
+
     if (moved) {
         write_vec(data + kFollowWanted, offsets[0]);
         write_vec(data + kFollowEye, offsets[1]);
     }
-    s_tick_yaw += s_follow_locks.turn ? 0.0f : kbm::DirectLook::yaw(dx, dy, s_set.look);
+
+    // The mouse does not turn the camera now: it holds no tilt.
+    if (!s_follows) {
+        s_tilt.held = false;
+        return;
+    }
 
     // The held tilt is the game's target: the stick state at it, at rest, and the value it tilts by.
     if (s_tilt.held) {
@@ -782,7 +997,9 @@ void aligned_mouse(
 bool picture_turn(float dx, float dy, openrac::frontend::MouseTurn* out) {
     const float tick_yaw = s_tick_yaw;
     s_tick_yaw = 0.0f;
-    if (s_mod == nullptr || !s_set.low_latency || (!s_follows && !s_aims) || s_pad_look) {
+
+    if (s_mod == nullptr || !s_set.low_latency || (!s_follows && !s_aims) || s_pad_look
+        || s_reset_ticks > 0) {
         return false;
     }
     kbm::add_pending_gyro(s_gyro_on, s_mouse_counts, s_set, dx, dy);
@@ -814,6 +1031,13 @@ float ticks_per_second(const openrac::Mod& mod) {
 
 void read_settings(openrac::Mod& mod) {
     s_set = kbm::read_settings(mod, ticks_per_second(mod));
+    s_vignette = mod.setting<bool>("aim_vignette");
+    s_aim_toggle = mod.setting<bool>("aim_toggle");
+    const auto sensitivity = static_cast<float>(mod.setting<double>("aim_sensitivity"));
+    s_aim_sensitivity = sensitivity > 0.0f ? sensitivity : 1.0f;
+    const std::string strafe = mod.setting<std::string>("strafe_fire");
+    s_strafe_fire = strafe == "always" ? 2 : strafe == "firing" ? 1 : 0;
+    s_strafe_ticks = static_cast<int>(std::lround(kStrafeAfterFiring * ticks_per_second(mod)));
 }
 
 void load(openrac::Mod& mod) {
@@ -867,6 +1091,11 @@ void load(openrac::Mod& mod) {
     s_tilt = {};
     s_asked = 0;
     s_asked_tick = kNoTick;
+    s_reset_ticks = 0;
+    s_aiming = false;
+    s_aim_blend = 0.0f;
+    s_aim_on = false;
+    s_dodge_tick = -1;
     s_seen_item = 0;
     s_previous_item = 0;
     s_equip = mod.function<std::int32_t (*)(std::int32_t)>(s_disc->equip);
@@ -887,6 +1116,7 @@ void load(openrac::Mod& mod) {
         }
     );
     openrac::frontend::set_mouse_turn(picture_turn);
+    mod.on_overlay([](void*, const openrac_overlay* o) { draw_aim(o); });
     mod.on_settings([] { read_settings(*s_mod); });
     mod.on_pad([](int port, std::uint8_t* report, int size) { on_pad(port, report, size); });
     mod.info("keyboard and mouse on the " + std::string(mod.version()) + " disc");
