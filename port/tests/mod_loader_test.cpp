@@ -149,7 +149,9 @@ void install(
                                   {"value": "cutscene", "name": "Cutscene"},
                                   {"value": "callback_only", "name": "Callback only"},
                                   {"value": "keep", "name": "Keep"},
-                                  {"value": "journal", "name": "Journal"}]},
+                                  {"value": "journal", "name": "Journal"},
+                                  {"value": "service_provider", "name": "Service provider"},
+                                  {"value": "service_user", "name": "Service user"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -2649,6 +2651,69 @@ void a_mod_drives_the_motors(const fs::path& plugins) {
     mods::reset();
 }
 
+// Interface 1.40: what mods offer each other. A service is found by name and version once its
+// provider has loaded, whatever the list's order (on_mods_loaded), and goes with a provider whose
+// load fails; a mod whose load fails is not called once the mods have loaded; the reset forgets them.
+void mods_offer_each_other_services(const fs::path& plugins) {
+    const auto has = [](int v) {
+        return std::find(g_records.begin(), g_records.end(), v) != g_records.end();
+    };
+    const openrac_api& api = mods::api_for_tests();
+    openrac_service found{};
+    found.size = sizeof found;
+
+    // The provider first: the user finds the service in its own load already.
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "settings": {"behaviour": "service_provider", "tag": 5}},
+        {"id": "test-b", "settings": {"behaviour": "service_user"}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0, test-b 1.0.0");
+    CHECK(has(15000) && has(15010 + 4) && !has(15020) && !has(15022));
+    CHECK(std::count(g_records.begin(), g_records.end(), 15021) == 6);
+    CHECK(has(15300) && has(15311));
+    // Once every mod has loaded: add(10) with test-a's tag 5, version 3 asked of a version 2 (the
+    // version told, no table), an unknown name, both mods listed, nothing more taken.
+    CHECK(has(15115) && has(15202) && has(15217) && has(15221) && has(15232));
+    CHECK(has(15243) && has(15253));
+    CHECK(api.service_find(nullptr, "test-a/adder", 2, &found) == OPENRAC_OK);
+    CHECK(found.version == 2 && found.table_size == 2 * sizeof(void*) && found.table != nullptr);
+    CHECK(found.provider != nullptr && std::string(found.provider) == "test-a");
+    CHECK(api.service_find(nullptr, nullptr, 1, &found) == OPENRAC_E_UNKNOWN);
+    CHECK(found.table == nullptr && found.provider == nullptr && found.size == sizeof found);
+    CHECK(api.service_find(nullptr, "test-a/adder", 1, nullptr) == OPENRAC_E_UNKNOWN);
+    CHECK(api.service_find(nullptr, "test-b/late", 1, &found) == OPENRAC_E_UNKNOWN);
+    mods::reset();
+    CHECK(api.service_find(nullptr, "test-a/adder", 1, &found) == OPENRAC_E_UNKNOWN);
+
+    // The user first: not there in its load, there once every mod has loaded.
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-b", "settings": {"behaviour": "service_user"}},
+        {"id": "test-a", "settings": {"behaviour": "service_provider", "tag": 5}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-b 1.0.0, test-a 1.0.0");
+    CHECK(has(15301) && !has(15300) && has(15115) && has(15232));
+    mods::reset();
+
+    // A provider whose load fails takes its service with it.
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "settings": {"behaviour": "service_provider", "tag": 99}},
+        {"id": "test-b", "settings": {"behaviour": "service_user"}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-b 1.0.0 (1 not loaded: plugins/status.json)");
+    CHECK(has(15000) && has(15301) && has(15199) && !has(15115) && has(15231));
+    CHECK(api.service_find(nullptr, "test-a/adder", 1, &found) == OPENRAC_E_UNKNOWN);
+    mods::reset();
+
+    // A user whose load fails is not called.
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "settings": {"behaviour": "service_provider", "tag": 5}},
+        {"id": "test-b", "settings": {"behaviour": "service_user", "tag": 99}}]})");
+    g_records.clear();
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0 (1 not loaded: plugins/status.json)");
+    CHECK(has(15300) && !has(15115) && !has(15199));
+    mods::reset();
+}
+
 // undo() drops these registrations before closing a refused mod's library.
 // Use resident callbacks here so a missed cleanup is reported instead of jumping
 // into unmapped DLL code when the next vendor camera event arrives.
@@ -2803,6 +2868,7 @@ int main() {
     a_library_others_can_change_is_refused(plugins);
     a_mod_gives_sharper_cells(plugins);
     a_mod_drives_the_motors(plugins);
+    mods_offer_each_other_services(plugins);
     dropped_mod_watchers_are_not_called();
     refused_library_leaves_no_watchers(plugins);
     installed_games_and_their_folders(dir);

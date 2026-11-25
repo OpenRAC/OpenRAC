@@ -1102,6 +1102,9 @@ void fill_api(const Host& host) {
     g_api.sharp_cells = api_sharp_cells;
     g_api.set_motors = api_set_motors;
     g_api.menu_option_set = api_menu_option_set;
+    g_api.on_mods_loaded = api_on_mods_loaded;
+    g_api.service_provide = api_service_provide;
+    g_api.service_find = api_service_find;
     g_api_without_native_vulkan = g_api;
     g_api_without_native_vulkan.graphics = api_graphics_without_native_vulkan;
 }
@@ -1250,6 +1253,16 @@ void script_stopped(openrac_mod* mod, const std::string& reason) {
     write_status(*g_host, g_outcomes);
 }
 
+// The version of the loaded mod `id`, null for none: the scripts' openrac.mod_loaded (1.40).
+const char* loaded_version(const char* id) {
+    for (const auto& loaded : g_loaded) {
+        if (id != nullptr && loaded->id == id) {
+            return loaded->version.c_str();
+        }
+    }
+    return nullptr;
+}
+
 // Takes back what a mod did in a load that failed: its hooks (it was the last to take any), its
 // callbacks.
 void undo(openrac_mod* mod) {
@@ -1282,6 +1295,7 @@ void undo(openrac_mod* mod) {
     std::erase_if(g_tick_boundaries, [&](const TickBoundaryCallback& c) { return c.mod == mod; });
     drop_figures(mod);
     drop_menu_options(mod);
+    drop_services(mod);
     if (g_views_mod == mod) {
         g_views = {};
         g_views_mod = nullptr;
@@ -1334,7 +1348,8 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
             api_on_settings,
             settings_of,
             api_set_motors,
-            api_menu_option_set
+            api_menu_option_set,
+            loaded_version
         };
         std::string why;
         g_loading = mod.get();
@@ -1765,6 +1780,9 @@ std::string load(const Host& host) {
     }
     crash::set_mods(g_images.data(), static_cast<int>(g_images.size()));
     set_loaded_mods_json();
+    // Every mod that loads has, and the crash report knows them: each one that asked looks at the
+    // others (interface 1.40).
+    run_mods_loaded();
     std::string line;
     for (const auto& m : g_loaded) {
         line += (line.empty() ? "" : ", ") + m->id + " " + m->version
@@ -2104,6 +2122,8 @@ fs::path mod_file(const openrac_mod* mod, const char* path) {
 
 void reset() {
     remove_weapon_wheel_hooks();
+    // No service may outlive its library: forgotten before the mods unload.
+    drop_services(nullptr);
     unload();
     for (auto it = g_loaded.rbegin(); it != g_loaded.rend(); ++it) {
         undo(it->get());

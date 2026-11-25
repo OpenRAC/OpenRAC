@@ -32,6 +32,9 @@ The members of `openrac_api` ([c-api.md](c-api.md)) grouped by what they do. The
 | `game_data_dir` | 1.33 | experimental | yes | yes | yes |
 | `pack_folder` | 1.35 | experimental | yes | yes | yes |
 | `game_language` | 1.35 | experimental | yes | yes | yes |
+| `on_mods_loaded` | 1.40 | experimental | yes | yes | yes |
+| `service_provide` | 1.40 | experimental | yes | yes | yes |
+| `service_find` | 1.40 | experimental | yes | yes | yes |
 
 ## settings
 

@@ -543,6 +543,40 @@ assert(not pcall(openrac.menu_option_set, "fov", "maybe"), "an unknown state is 
     CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_DEFAULT);
 }
 
+// Another mod looked for by its id (interface 1.40): in a script's first run only the mods loaded
+// before it are there (not itself, not the ones after it); from the first on_frame every mod that
+// loaded is, a native one too, and a mod not loaded is nil.
+void a_script_finds_other_mods(const fs::path& plugins) {
+    install_native(plugins);
+    install_script(plugins, "early", {{"main.luau", R"(
+assert(openrac.mod_loaded("test-a") == "1.0.0", "a native mod loaded before")
+assert(openrac.mod_loaded("early") == nil, "itself, still loading")
+assert(openrac.mod_loaded("late") == nil, "a mod that loads after it")
+assert(not pcall(openrac.mod_loaded), "an id is needed")
+local seen = 0
+openrac.on_frame(function()
+    seen = (openrac.mod_loaded("late") == "1.0.0" and 1 or 0)
+        + (openrac.mod_loaded("early") == "1.0.0" and 2 or 0)
+        + (openrac.mod_loaded("missing") == nil and 4 or 0)
+end)
+openrac.on_pad(function(port, report) buffer.writeu8(report, 1, seen) end)
+)"}});
+    install_script(
+        plugins, "late", {{"main.luau", "assert(openrac.mod_loaded(\"early\") == \"1.0.0\")\n"}}
+    );
+    list(
+        plugins,
+        R"({"id": "test-a", "enabled": true}, {"id": "early", "enabled": true},
+           {"id": "late", "enabled": true})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0, early 1.0.0, late 1.0.0");
+    mods::frame();
+    unsigned char report[18] = {0};
+    g_pad_hook(0, report, 18);
+    CHECK(report[1] == 7);
+    mods::reset();
+}
+
 int main() {
     runtime::Memory::create();
     mods::scripts::set_budget_ms(kBudgetMs);
@@ -561,6 +595,7 @@ int main() {
     keyboard_and_mouse(plugins);
     a_script_sets_its_settings(plugins);
     a_script_drives_motors_and_menu_options(plugins);
+    a_script_finds_other_mods(plugins);
     refused_without_a_binding(plugins);
     std::error_code e;
     fs::remove_all(dir, e);

@@ -97,6 +97,41 @@ OPENRAC_MOD_EXPORT void openrac_mod_query(openrac_mod_info* info) {
     info->version = "1.0.0";
 }
 
+/* Interface 1.40: the service "<id>/adder" a "service_provider" offers (version 2, its add gives x
+ * plus the tag), and what a "service_user" finds of test-a's once every mod has loaded
+ * (services_ready: 15100s to 15250s). */
+typedef struct test_adder {
+    uint32_t size;
+    int (*add)(int x);
+} test_adder;
+
+static int adder_add(int x) {
+    return x + s_tag;
+}
+
+static const test_adder s_adder = {sizeof(test_adder), adder_add};
+
+static void services_ready(void* user) {
+    openrac_service found;
+    (void)user;
+    memset(&found, 0, sizeof found);
+    found.size = sizeof found;
+    if (s_api->service_find(s_mod, "test-a/adder", 1, &found) == OPENRAC_OK
+        && found.table_size == sizeof(test_adder)) {
+        s_record(15100 + ((const test_adder*)found.table)->add(10));
+    } else {
+        s_record(15199);
+    }
+    s_record(15200 + -s_api->service_find(s_mod, "test-a/adder", 3, &found));
+    s_record(15210 + (int)found.version + (found.table == NULL ? 5 : 0));
+    s_record(15220 + -s_api->service_find(s_mod, "test-a/none", 1, &found));
+    s_record(15230 + s_api->mod_count());
+    s_record(
+        15240 + -s_api->service_provide(s_mod, TEST_MOD_ID "/late", 1, &s_adder, sizeof s_adder)
+    );
+    s_record(15250 + -s_api->on_mods_loaded(s_mod, services_ready, NULL));
+}
+
 static int add(int x) {
     return s_add(x) * 10 + s_tag;
 }
@@ -913,6 +948,54 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             return 2;
         }
         s_record(14000 + has_handles);
+        return 0;
+    }
+    if (strcmp(behaviour, "service_provider") == 0) { /* offers "<id>/adder" (1.40) */
+        if (api->api_minor < 40 || s_record == NULL) {
+            return 23;
+        }
+        s_record(
+            15000 + -api->service_provide(mod, TEST_MOD_ID "/adder", 2, &s_adder, sizeof s_adder)
+        );
+        /* Offered already (the first stays), another mod's name, no name after the slash, a capital,
+         * version 0, no table, size 0. */
+        s_record(
+            15010 + -api->service_provide(mod, TEST_MOD_ID "/adder", 3, &s_adder, sizeof s_adder)
+        );
+        s_record(15020 + -api->service_provide(mod, "test-x/adder", 1, &s_adder, sizeof s_adder));
+        s_record(15020 + -api->service_provide(mod, TEST_MOD_ID "/", 1, &s_adder, sizeof s_adder));
+        s_record(
+            15020 + -api->service_provide(mod, TEST_MOD_ID "/Adder", 1, &s_adder, sizeof s_adder)
+        );
+        s_record(
+            15020 + -api->service_provide(mod, TEST_MOD_ID "/two", 0, &s_adder, sizeof s_adder)
+        );
+        s_record(15020 + -api->service_provide(mod, TEST_MOD_ID "/two", 1, NULL, sizeof s_adder));
+        s_record(15020 + -api->service_provide(mod, TEST_MOD_ID "/two", 1, &s_adder, 0));
+        if (s_tag == 99) { /* refuses after offering: its service goes with it */
+            api->fail(mod, "offers a service, then refuses");
+            return 24;
+        }
+        return 0;
+    }
+    if (strcmp(behaviour, "service_user") == 0) { /* looks for test-a's (1.40) */
+        openrac_service found;
+        memset(&found, 0, sizeof found);
+        found.size = sizeof found;
+        if (api->api_minor < 40 || s_record == NULL) {
+            return 23;
+        }
+        /* Found in its load only when test-a loaded before it. */
+        s_record(15300 + -api->service_find(mod, "test-a/adder", 1, &found));
+        found.size = 4;
+        s_record(15310 + -api->service_find(mod, "test-a/adder", 1, &found));
+        if (api->on_mods_loaded(mod, services_ready, NULL) != OPENRAC_OK
+            || api->on_mods_loaded(mod, NULL, NULL) != OPENRAC_E_TOO_LATE) {
+            return 25;
+        }
+        if (s_tag == 99) { /* refuses after asking: its callback is never called */
+            return 26;
+        }
         return 0;
     }
     if (behaviour[0] == 'z') { /* watchers registered before an exclusive gate refuses */

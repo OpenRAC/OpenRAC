@@ -181,4 +181,120 @@ int api_game_language(char* out, std::uint32_t size) {
     return 2;
 }
 
+// ---- What mods offer each other (interface 1.40) ----
+//
+// A service is a table of a mod's own, under a name that starts with its id, handed to the mods
+// that ask for it by name and version; the port keeps only the pointer. Services are offered during
+// a mod's load and stay until the mods' reset (the program's end); a mod whose load fails takes its
+// own with it (undo) before its library closes, and no other mod can have asked for them by then:
+// none runs during another's load. on_mods_loaded tells each mod that asked once every mod has
+// loaded, the first moment every service there will be is there.
+
+namespace {
+
+struct Service {
+    std::string name;
+    std::uint32_t version;
+    const void* table;
+    std::uint32_t size;
+    const openrac_mod* mod;
+};
+
+std::vector<Service> g_services;
+std::vector<FrameCallback> g_mods_loaded;
+
+// `name` is `<id>/` and then one or more of a-z 0-9 - _ . /, at most OPENRAC_SERVICE_NAME_MAX.
+bool service_name_of(const openrac_mod& mod, std::string_view name) {
+    if (name.size() > OPENRAC_SERVICE_NAME_MAX || name.size() <= mod.id.size() + 1
+        || !name.starts_with(mod.id) || name[mod.id.size()] != '/') {
+        return false;
+    }
+    return std::all_of(
+        name.begin() + static_cast<std::ptrdiff_t>(mod.id.size()) + 1, name.end(), [](char c) {
+            return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_'
+                   || c == '.' || c == '/';
+        }
+    );
+}
+
+}  // namespace
+
+int api_on_mods_loaded(openrac_mod* mod, openrac_frame_fn fn, void* user) {
+    if (mod == nullptr || mod != g_loading || fn == nullptr) {
+        return OPENRAC_E_TOO_LATE;
+    }
+    g_mods_loaded.push_back({fn, user, mod});
+    return OPENRAC_OK;
+}
+
+int api_service_provide(
+    openrac_mod* mod, const char* name, std::uint32_t version, const void* table, std::uint32_t size
+) {
+    if (mod == nullptr || mod != g_loading) {
+        return OPENRAC_E_TOO_LATE;
+    }
+    if (name == nullptr || table == nullptr || size == 0 || version == 0
+        || !service_name_of(*mod, name)) {
+        log::warn(
+            "mod {}: service \"{}\" refused: a name of the form <its id>/<name>, a table, a "
+            "size and a version are needed",
+            mod->id,
+            name != nullptr ? name : ""
+        );
+        return OPENRAC_E_UNKNOWN;
+    }
+    if (std::any_of(g_services.begin(), g_services.end(), [&](const Service& s) {
+            return s.name == name;
+        })) {
+        log::warn("mod {}: service {} is offered already: the first stays", mod->id, name);
+        return OPENRAC_E_TAKEN;
+    }
+    g_services.push_back({name, version, table, size, mod});
+    log::info("mod {} offers service {} {}", mod->id, name, version);
+    return OPENRAC_OK;
+}
+
+int api_service_find(
+    openrac_mod* mod, const char* name, std::uint32_t min_version, openrac_service* out
+) {
+    static_cast<void>(mod);
+    if (out == nullptr || out->size < sizeof(openrac_service)) {
+        return OPENRAC_E_UNKNOWN;
+    }
+    const std::uint32_t size = out->size;
+    *out = openrac_service{};
+    out->size = size;
+    if (name == nullptr) {
+        return OPENRAC_E_UNKNOWN;
+    }
+    const auto found = std::find_if(g_services.begin(), g_services.end(), [&](const Service& s) {
+        return s.name == name;
+    });
+    if (found == g_services.end()) {
+        return OPENRAC_E_UNKNOWN;
+    }
+    out->version = found->version;
+    out->provider = found->mod->id.c_str();
+    if (found->version < min_version) {
+        return OPENRAC_E_SIGNATURE;
+    }
+    out->table_size = found->size;
+    out->table = found->table;
+    return OPENRAC_OK;
+}
+
+void drop_services(const openrac_mod* mod) {
+    std::erase_if(g_services, [&](const Service& s) { return mod == nullptr || s.mod == mod; });
+    std::erase_if(g_mods_loaded, [&](const FrameCallback& c) {
+        return mod == nullptr || c.mod == mod;
+    });
+}
+
+void run_mods_loaded() {
+    // No load runs now, so no callback can add to the list (on_mods_loaded: too late).
+    for (const FrameCallback& c : g_mods_loaded) {
+        c.fn(c.user);
+    }
+}
+
 }  // namespace openrac::mods::detail

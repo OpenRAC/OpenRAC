@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.40
+
+What mods offer each other: a mod's services, tables of its own found by name and version (service_provide, service_find, openrac_service), and a call once every mod has loaded (on_mods_loaded).
+
+Members: `on_mods_loaded`, `service_provide`, `service_find`.
+
 ## 1.39
 
 Paint that draws the effects a moby makes in its colour, and paint in weapon_look (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS).

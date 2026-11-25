@@ -788,4 +788,20 @@ int api_menu_option_set(openrac_mod* mod, const char* option, int state);
 // Forgets the menu options `mod` set (nullptr: every mod's).
 void drop_menu_options(const openrac_mod* mod);
 
+int api_on_mods_loaded(openrac_mod* mod, openrac_frame_fn fn, void* user);
+
+// What mods offer each other (interface 1.40, core.cpp): forgets the services `mod` offered and its
+// on_mods_loaded callbacks (nullptr: every mod's), and calls the callbacks, in load order, once
+// every mod has loaded.
+void drop_services(const openrac_mod* mod);
+void run_mods_loaded();
+
+int api_service_provide(
+    openrac_mod* mod, const char* name, std::uint32_t version, const void* table, std::uint32_t size
+);
+
+int api_service_find(
+    openrac_mod* mod, const char* name, std::uint32_t min_version, openrac_service* out
+);
+
 }  // namespace openrac::mods::detail

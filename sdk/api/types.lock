@@ -304,6 +304,13 @@ openrac_save_info	level	4	int32_t
 openrac_save_info	bolts	8	int32_t
 openrac_save_info	gold_bolts	12	int32_t
 openrac_save_info	seconds	16	int32_t
+openrac_service	(size)	32	-
+openrac_service	size	0	uint32_t
+openrac_service	version	4	uint32_t
+openrac_service	table_size	8	uint32_t
+openrac_service	reserved	12	uint32_t
+openrac_service	table	16	const void *
+openrac_service	provider	24	const char *
 openrac_sharp_cell	(size)	40	-
 openrac_sharp_cell	size	0	uint32_t
 openrac_sharp_cell	x	4	int32_t
