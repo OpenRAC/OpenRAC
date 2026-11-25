@@ -28,6 +28,7 @@ uniform int alpha_test;       // 0 off, else TEST.ATST (2 LESS ... 7 NOTEQUAL)
 uniform float alpha_ref;      // TEST.AREF
 uniform int alpha_keep_failing;  // the second pass of the double draw
 uniform int distance_field;   // the texture's alpha is a distance field (text drawn sharp)
+uniform int sharpen_alpha;    // over a pack's soft font: 2 the text's edge made crisp, 1 the shadow's soft
 uniform int source_scale;     // the blend's weight of Cs, applied here (GlBlend): 1 As, 2 FIX; 3, 4 the weight itself
 uniform float source_fix;     // FIX / 128, unclamped
 
@@ -85,6 +86,25 @@ void main() {
         {
             t.a *= tex_alpha_scale;
         }
+#ifndef OPENRAC_EFFECT_FIXED
+        if (sharpen_alpha != 0) {
+            // A font a texture pack replaced is the pack's own soft picture, all the way to its
+            // edge: the text's edge let the shadow behind it show through as black strokes over
+            // the letters. The text's own edge is made crisp (2) and the shadow behind it keeps
+            // its soft edge (1): a screen pixel wide, from the sampled alpha alone (a big page's
+            // field would be 16 times its texels).
+            float a = t.a * (1.0 / 128.0);
+            float w = max(fwidth(a) * 0.75, 1e-4);
+            float edge = 0.5f;
+            if (sharpen_alpha == 2) {
+                // The text's own alpha is soft to its edge, and the shadow behind it showed through
+                // there: its opaque part grows a fifth of a pixel and its edge is made crisp.
+                w *= 0.35;
+                edge = 0.44f;
+            }
+            t.a = smoothstep(edge - w, edge + w, a) * 128.0;
+        }
+#endif
         // Byte RGB products are bounded by 255*255=65025 (<65504); alpha remains FP32.
         if (tfx == 0) {
 #ifdef OPENRAC_EFFECT_FOG

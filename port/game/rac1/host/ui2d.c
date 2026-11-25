@@ -234,7 +234,13 @@ void func_001F5800(int x, int y, int w, int h, int u, int v, int uw, int vh,
     q.z = 0xFFFFF0u;
     q.rgba = (uint32_t)rgba;
     q.tex0 = tex;
-    q.flags = g_glyphs > 0 ? 1u : 0u;
+    /* FontPrint draws a string's drop shadow as the same glyphs in black, a pixel down and right,
+     * before the text. A shadow keeps the font's own alpha, soft as the console sampled it: drawn
+     * sharp from the distance field like the text, its hard edge sat against the text's
+     * antialiased edge, and the text let it show through as black strokes over the letters (64,
+     * renderer::kUiShadow). */
+    const int shadow = g_glyphs > 0 && ((uint32_t)rgba & 0xFFFFFFu) == 0;
+    q.flags = g_glyphs > 0 ? (shadow ? 64u : 1u) : 0u;
     if (!emit(&q)) {
         func_001F5800__game(x, y, w, h, u, v, uw, vh, rgba, tex);
     }

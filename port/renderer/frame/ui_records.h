@@ -39,6 +39,13 @@ inline constexpr std::uint32_t kUiSprite = 2;
 
 inline constexpr std::uint32_t kUiGlyph = 1;
 
+// UiQuad::flags: kUiShadow, a glyph drawn as text's drop shadow: the game draws the text again in
+// black at (+1, +1) before it. It keeps the font's own alpha, soft as the console sampled it,
+// rather than the sharp distance field the text itself is drawn from: a shadow sharpened the same
+// way put its hard edge against the text's antialiased edge, and the text let it show through as
+// black strokes over the letters.
+inline constexpr std::uint32_t kUiShadow = 64;
+
 // UiQuad::flags: kUiCorners, a colour for each corner (`corners`), each triangle in its last
 // corner's colour as the GS draws one unshaded, or shaded between them with kUiShaded (the GS's
 // Gouraud); kUiFlat, no texture (flat colour; TEX0 stays as the game left it); kUiClamp, the

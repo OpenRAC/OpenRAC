@@ -145,6 +145,12 @@ struct DirectState {
     // (TexturePool::distance_field), its alpha the distance to the glyphs' edge.
     bool distance_field = false;
     TextureHandle field = 0;  // its distance field, beside the texture itself
+    // Over a font a texture pack replaced (0 none, 1 a drop shadow, 2 the text): the picture's
+    // alpha is its maker's, soft to the edge, and the text's soft edge let the shadow behind it
+    // show through as black strokes over the letters. The text's edge is made crisp (2) from the
+    // sampled alpha; the shadow keeps its own soft edge (1). A big page's field would be 16 times
+    // its texels.
+    int sharpen_alpha = 0;
     // The whole target's on a target wider than the picture, as a fade is (kWholeMarker).
     bool whole = false;
     // Cut at the picture's sides even with the HUD at the target's sides (kPictureMarker).
@@ -386,6 +392,7 @@ private:
     bool m_screen_mobys = false;  // set_screen_mobys
     bool m_over_world = false;    // set_over_world
     bool m_glyph = false;  // native_quad: drawing a glyph
+    bool m_shadow = false;  // native_quad: drawing a glyph's drop shadow (kUiShadow)
     bool m_in_native = false;  // native_quad: its own vertices
     void emit_triangle(
         const GsVertex& a, const GsVertex& b, const GsVertex& c, const GsVertex& colour_from
@@ -589,7 +596,8 @@ private:
 
     struct Uniforms {
         int textured, tcc, tfx, tex_alpha_scale, fog_enable, fog_colour, alpha_test, alpha_ref,
-            alpha_keep_failing, distance_field, tex_T1, pixel_offset, source_scale, source_fix;
+            alpha_keep_failing, distance_field, sharpen_alpha, tex_T1, pixel_offset, source_scale,
+            source_fix;
     } m_uniforms{};  // those of the program in use
 
     std::array<Uniforms, 2> m_program_uniforms{};
