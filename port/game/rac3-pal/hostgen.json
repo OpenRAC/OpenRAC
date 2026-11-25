@@ -55,6 +55,15 @@
   "candidates": "nonmatching/functional.tsv",
   "places": "config/levels/functions.tsv",
   "split_places": "tables/split_places.tsv",
+  "more_places": {
+    "func_L01_00404A10": "03:003F24D8,11:003DE7C0,16:00414C20,23:003E7A98",
+    "func_L01_004CB540": "23:004ACE68",
+    "func_L01_004CB548": "03:004B8F30,24:004B03B8",
+    "func_L01_004D8928": "03:004C6310,24:004BD798",
+    "func_L01_004DB2E8": "03:004C8CD0,24:004C0158",
+    "func_L01_004D8820": "23:004BA148",
+    "func_L01_003A6BB0": "02:0034C938,05:0035D4A8,10:00356BC0,11:003A4790,14:0035F870,22:00356468,34:003509D8"
+  },
   "folded_wrappers": "tables/variant_callees.tsv",
   "params_from_declarations": [
     "func_L01_00443B88",
@@ -608,6 +617,10 @@
     "result_flow": true,
     "variant_callees": "tables/variant_callees.tsv",
     "signature_allow": {
+      "func_L01_004800B8": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; the catalogue now files the copies right, and some copies' callees read more): variant_callees",
+      "func_L01_004A23D8": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; the catalogue now files the copies right, and some copies' callees read more): variant_callees",
+      "func_L03_00507030": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; the catalogue now files the copies right, and some copies' callees read more): variant_callees",
+      "func_L04_00523E58": "hands registers it leaves unset on to a copy's other callee (the EE's leftovers; the catalogue now files the copies right, and some copies' callees read more): variant_callees",
       "func_L01_0049E6F0": "hands registers it leaves unset on to a widened folded wrapper (the EE's leftovers): variant_callees"
     }
   },
