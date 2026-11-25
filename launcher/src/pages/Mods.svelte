@@ -514,7 +514,7 @@
                 lines={[
                   ...(current === "editor"
                     ? [
-                        `python3 <OpenRAC Editor>/openrac/tools/openrac_editor.py godot <disc.iso> ${dirs.projects} --split`,
+                        `python3 <OpenRAC Editor>/openrac/tools/openrac_editor.py projects <disc.iso> ${dirs.projects} --split`,
                         `python3 <OpenRAC Editor>/openrac/tools/openrac_editor.py pack <disc.iso> ${dirs.projects} ${dirs.packed}`,
                       ]
                     : []),

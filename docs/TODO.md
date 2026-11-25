@@ -40,7 +40,7 @@ slots (767 usable, against the disc's 255) except Rilgar (5), Blarg Station
   Dense-cell and allocator-stress gameplay proof is still outstanding.
 - **Expanded static collision leaves.** The editor and PAL/NTSC-U runtime now
   support tagged `RLCX` cells with 32-bit counts and indices, and the packer
-  selects expanded RAM for those levels. Run a Godot edit that pushes one cell
+  selects expanded RAM for those levels. Run an OpenRAC Editor edit that pushes one cell
   past 255 vertices and 4,080 bytes, confirm floors/walls and face filters in
   gameplay, then exercise allocation failure and 0xFFFFFF-directory-entry
   refusal paths. The expanded directory indexes all leaves and carries 32-bit offsets. Mod collision trees now support a positive 131,072-unit world and an optional 32-bit slab-offset directory; large-world gameplay proof remains.

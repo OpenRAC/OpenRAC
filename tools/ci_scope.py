@@ -141,7 +141,7 @@ def plan(paths, known, shared=frozenset(), removed=frozenset(), tier="full", rel
     from carried() (kept for the callers; every release builds when everything is checked)."""
     result = full_plan(paths, known, shared, removed)
     full = tier == "full"
-    # Everything (paths None): a dev release, a push to master or a manual run. The games (hostgen
+    # Everything (paths None): a dev release or a manual run. The games (hostgen
     # and their builds) and Windows build only then: pull requests to develop, the queue and
     # develop pushes build the shared part alone.
     everything = paths is None

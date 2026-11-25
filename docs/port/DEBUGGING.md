@@ -456,7 +456,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_DUMP_TEXTURES` | `DIR` | Every texture, the levels' and the 2D layer's, written once to that folder as `<hash>.png`, the names a texture pack uses, sorted into `Interface/` (the 2D layer), `Planets/<planet>/` and `Shared/` ([TEXTURE_PACKS.md](TEXTURE_PACKS.md)). | `port/game/common/main.cpp` |
 | `OPENRAC_PCSX2_TEXTURE_PACK` | `DIR` | The external PCSX2 `replacements` folder selected in the launcher, used when texture packs are enabled. | `port/game/common/main.cpp` |
 | `OPENRAC_DRAW_COVERAGE` | `FILE` | Writes to a JSON file what the game asked to draw and the port did not draw, per level ([REGRESSION.md](REGRESSION.md), What a run drew). | `port/game/common/frontend/draw_coverage.cpp` |
-| `OPENRAC_DUMP_DRAWS` | `N` or `N-M` (decimal) | Turns on the logging of the 2D path's draws for ticks `N` to `M` (or only `N`). | `port/game/common/frontend/frame.cpp` |
+| `OPENRAC_DUMP_DRAWS` | `N` or `N-M` (decimal) | Turns on the logging of the 2D path's draws for ticks `N` to `M` (or only `N`); recorded rectangles with a depth of their own log as `recorded fill`. | `port/game/common/frontend/frame.cpp` |
 
 ### Logs and traces
 
@@ -589,7 +589,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_PROBE_BACKLIGHT` | `1` | Adds original artistic back-light factors to experimental direct lighting. Default off to match the Lambertian bake. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_PROBE_SPHERES` | `1` or `xray` | Actual probe positions: cyan valid, gold relocated valid, magenta invalid. `1` is depth-tested within five grid spacings; `xray` shows hidden portions translucently within ten spacings. Status colours, independent of irradiance. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_UI_REPLAY` | any (set) | Replays the game's own GS packets for the 2D layer instead of drawing its quads natively, for comparing. | `port/game/common/frontend/world.cpp` |
-| `OPENRAC_UI_SKIP` | `NAME,...` | The listed 2D routines (matched by substring against the list, for example `func_001F5800`) send the game's own packets instead of native quads, for bisecting. | `port/game/rac1/host/ui2d.c` |
+| `OPENRAC_UI_SKIP` | `NAME,...` | The listed 2D routines (matched by substring against the list, for example `func_001F5800`; `func_001F5148` for the letterbox bars) send the game's own packets instead of native quads, for bisecting. | `port/game/rac1/host/ui2d.c`, `port/game/rac1/host/letterbox.c` |
 | `OPENRAC_UI_RESIDUAL` | any (set) | Logs, once each, the kinds of 2D primitive still drawn from the game's GS packets rather than as native quads. | `port/renderer/direct/direct.cpp` |
 | `OPENRAC_SHOW_MISSING` | any (set) | Draws textured primitives whose texture has not been uploaded with the magenta placeholder; by default such draws write nothing. | `port/renderer/direct/direct.cpp` |
 | `OPENRAC_NO_PUMP_FIBER` | any (set) | Windows only: runs the game and the window pump in one loop instead of in separate fibers, for comparing. | `port/platform/pump.cpp` |

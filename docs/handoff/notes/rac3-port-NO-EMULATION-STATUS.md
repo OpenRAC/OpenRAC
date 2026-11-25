@@ -615,17 +615,9 @@ ties compared at frame 2400).
 
 Not fixed, for whoever picks rac3 up next:
 
-- **Crash on Veldin after a new game's first flight** (fixed, PR #896): reproduced in a hidden box2
-  run (new game, intro, Veldin, frame 10136, the "Progress is saving" message box). Cause: the
-  message box `func_L01_004CDF20` takes eleven integers, three past the eighth on the stack;
-  `func_L01_00436150` reaches it through a call copy, a call through an address that handed on only
-  the eight registers, so its string arguments were stack leftovers and a `%s` in
-  `openrac_guest_vformat` read 0xFFFFFFC0. Fix (hostgen, asmc.py `indirect`): the cast carries four
-  doublewords from 0($sp); a function's thunk reads its arguments past the eighth from the saved
-  guest stack pointer (was 0); Apple arm64 packs stack arguments by size so it takes the thunks;
-  `%s` prints "(null)" for an address that is no memory. Tests: `guest_format` (ctest) and
-  `test_retail.CallsThroughRegisters`. Rerun on the fixed build: no crash through frame 20000.
-  Other functions with more than eight integers called through a copy are fixed by the same change.
+- **Crash on Veldin after a new game's first flight** (seen once in a hidden box2 run, frame 1714):
+  SIGSEGV in a level function's string formatting, `func_L01_004CDF20 → func_0011B2E8`
+  (print.c:28) `→ openrac_guest_vformat`. Not reproduced or diagnosed yet.
 - **The Phoenix's "△ Enter ship" HUD message box** draws enlarged with its text shifted left. The
   box is `func_L01_004366A0 → func_L01_004CDC38`, drawn by `func_L01_004CF120` / `004CEAE0`: it
   measures "\x12 Enter ship" as 120 units (font 1, scale 1.0) against a half-width of 68 and draws
@@ -659,9 +651,11 @@ Not fixed, for whoever picks rac3 up next:
   type getters no `OPENRAC_LCODE` names) are reached through their class tables, which relocate
   per level, or read private globals: left alone, harmless. Not fixed: the multiplayer maps'
   func_L39_ rows (40-53) for func_L01_00436070, 00443948, 004AA948, 004AAD58, 004D2470, which pair
-  through `level_copies`, not through the names. The root fix (rac3-decomp's `copy_groups()` in
-  tools/level_catalogue.py) was not attempted: it renames rows used by src/levels/ and the
-  decomp's own report, so it needs its own catalogue PR; this audit is the check for it.
+  through `level_copies`, not through the names. The root fix is in rac3-decomp (7453660c, 0bf00a6a): `copy_groups()` in tools/level_catalogue.py files a level's copies of identical code by the callers' call sites (a caller whose code is once in each level forms its target at the same instruction), so the class type getters and font wrappers are filed under their real rows in every story level and the more_places and class getter split_places workarounds are gone; the call tables (variant_callees.tsv, call_copies.tsv) are regenerated. What the audit still finds (and `more_places` keeps) are copies the catalogue holds as their own rows (the password panel's leaves, the draw callback adders, func_L01_003A6BB0's copies).
+- **Synchronous rendering's tick-boundary hitch**: on OpenGL, or Vulkan without the render
+  thread, the scene runs half a tick behind but in-between frames can't pass the next tick, so
+  alpha drops from ~0.47 to 0 at each tick. The Vulkan render-thread path is not affected.
+  Probe: `OPENRAC_MOTION_LOG`.
 - **The first flight's Solana galaxy sequence**: the boot flight has no first-flight variant in
   its transition table (#871's runs). Probably the New Game intro movie (sector 18444); not
   confirmed against the original.
