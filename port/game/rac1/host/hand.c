@@ -64,7 +64,8 @@ uint32_t openrac_lib_wad_decompress(const uint8_t *src, uint8_t *dst, uint32_t c
  * retail routine streams through the scratchpad with its DMA channel and returns the size it wrote,
  * which the game's declarations of it do not read; the port decompresses straight from game
  * memory. Its output may run to the end of main memory. The level loader's gameplay header gets its
- * bigger moby pool here (moby_pool.c). */
+ * bigger moby pool here (moby_pool.c), and the flight to an added planet its pictures
+ * (flight_pictures.c), whose bytes the size returned covers. */
 int func_0020C468(int src, int dst) {
     const uint32_t end_of_ram = openrac_guest_ram_size;
     const gaddr to = (gaddr)dst;
@@ -76,7 +77,7 @@ int func_0020C468(int src, int dst) {
                 (unsigned)to, in[0], in[1], in[2], in[3], (unsigned)made);
     }
     rac1_wad_decompressed(to);
-    return (int)made;
+    return (int)made + rac1_flight_pictures(to, made);
 }
 
 /*

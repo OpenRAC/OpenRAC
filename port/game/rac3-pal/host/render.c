@@ -285,6 +285,15 @@ int func_003CB798_003C3C18(int a0, int a1, int a2, int a3) {
     return (int)func_003CB798(a0, (unsigned int)a1, a2, a3);
 }
 
+/* frontbin's copy (0x003CB3E0), run by its own loading screen when a game starts from frontbin
+ * (0x003C3780, and 0x003C3860 for the whole table): the boot program's routine, but for the
+ * addresses of its packet buffers, which this does not build. The globals it reads are frontbin's at
+ * the boot program's addresses on both discs (rac3-decomp's config/us/names.tsv: D_001DA4D0,
+ * D_00222420, D_00225900, D_00227480). */
+unsigned int func_003CB3E0__frontbin(int a0, unsigned int a1, int a2, int a3) {
+    return func_003CB798(a0, a1, a2, a3);
+}
+
 int func_L39_005B25C8(int a0, int a1, int a2, int a3) {
     (void)a1;
     (void)a3;
@@ -661,4 +670,12 @@ void func_003CB6B8(int list, int count) {
     openrac_frame_world(OPENRAC_DRAW_MOBYS);
     openrac_frame_world_mobys();
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
+}
+
+/* frontbin's copy of the draw side (0x003CB300), called by its level loading screen's pass
+ * (0x003C35F0): translated from its assembly, its jobs reached the scratchpad's DMA (0x003C7E20),
+ * which the port does not copy, and the game stopped as New Game from frontbin started the level.
+ * As the boot program's. */
+void func_003CB300__frontbin(int list, int count) {
+    func_003CB6B8(list, count);
 }
