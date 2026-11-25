@@ -208,6 +208,32 @@ std::optional<openrac::renderer::texture_pack::Animation> texture_pack_load_gif(
     return animation;
 }
 }  // namespace
+
+extern "C" unsigned char* openrac_game_load_png(const char* path, int* width, int* height) {
+#if defined(_WIN32)
+    std::FILE* input = nullptr;
+    _wfopen_s(&input, std::filesystem::path(reinterpret_cast<const char8_t*>(path)).c_str(), L"rb");
+#else
+    std::FILE* input = std::fopen(path, "rb");
+#endif
+    if (input == nullptr) {
+        return nullptr;
+    }
+    int channels = 0;
+    unsigned char* pixels = stbi_load_from_file(input, width, height, &channels, 4);
+    std::fclose(input);
+    return pixels;
+}
+
+extern "C" void openrac_game_free_png(unsigned char* pixels) {
+    stbi_image_free(pixels);
+}
+#else
+extern "C" unsigned char* openrac_game_load_png(const char*, int*, int*) {
+    return nullptr;
+}
+
+extern "C" void openrac_game_free_png(unsigned char*) {}
 #endif
 
 namespace {
@@ -280,6 +306,8 @@ Options g_options;
 long g_frame = 0;
 gaddr g_chain = 0;
 bool g_vsync_since_kick = true;
+PictureLists g_picture_lists;
+bool g_send_within_picture = false;
 bool g_window = false;
 std::chrono::steady_clock::time_point g_next_frame;
 unsigned g_draws = 0;
@@ -695,10 +723,14 @@ int main(int argc, char** argv) {
     if (!destination_configs.empty()) {
         openrac_game_destinations = destination_configs.data();
         openrac_game_destination_count = static_cast<unsigned>(destination_configs.size());
-        if (openrac_game_start_level < 0) {
-            openrac_game_start_level = destination_configs.front().level;
+        // A ship map test starts on its planet without a save; mods' planets leave the game as it
+        // is: the title, the campaign and its saves, the planets in the ship's menu.
+        if (g_options.ship_map) {
+            if (openrac_game_start_level < 0) {
+                openrac_game_start_level = destination_configs.front().level;
+            }
+            openrac_game_no_card = 1;
         }
-        openrac_game_no_card = 1;
     }
 
     if (g_options.check_levels) {

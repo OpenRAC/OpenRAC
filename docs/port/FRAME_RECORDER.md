@@ -70,11 +70,59 @@ the window scales them to the target's pixels.
 | `openrac_frame_snapshot(id)` | keeps the frame drawn so far as picture `id` (pause tiles, Holostar's frame-textured sprite) |
 | `openrac_frame_target_begin(id, w, h)` / `_end()` | draws into the off-screen panel `id` (a port id, never a GS block) until `_end` |
 | `openrac_frame_scissor(rect)` | cuts what follows to `rect` (NULL: the whole target) |
+| `openrac_frame_screen(width, height)` | the game's 2D screen the coordinates of the commands that follow are in (512 x 448 until set; kept across recordings): a game whose 2D is drawn on another size says so, and its rectangles, scissors and views are taken as they are |
+| `openrac_frame_view_begin(view, const openrac_frame_viewport* rect)` / `_view_end()` | split screen: the world recorded between them is local player view `view`'s (0 to `OPENRAC_FRAME_VIEWS` - 1), drawn into `rect` with the camera the game holds when that view's `openrac_frame_world` is recorded (see §3.1) |
 | `openrac_frame_end()` | closes the recording (optional) |
 
 Blend modes are a fixed native set: `OPENRAC_BLEND_OPAQUE`, `_MIX` (source over, by source alpha),
 `_ADD` (source times its alpha added), `_SUBTRACT` (taken away), `_MULTIPLY` (the destination
 darkened by the source's alpha). Colours are 0xAABBGGRR with 0x80 full (the games' units).
+
+### 3.1 Split screen
+
+A game with local split screen draws each player's view of the world into a part of its screen with
+that player's camera, then its 2D over the whole screen. Its host C brackets each view's world with
+`openrac_frame_view_begin(view, rect)` and `openrac_frame_view_end()`; the recording keeps each view
+(`FrameRecording::views`: the view, its rectangle and the game's screen, and the camera the game held
+when the view's `World` was recorded, read through the game's profile as the tick's camera is). The
+window (`frontend/split_views.cpp`) draws each recorded view's world alone (no 2D) with its camera
+into a picture of the view's size, the vertical field of view the game's and the horizontal one
+opened to the view's shape, and keeps it. Each frame every kept view's picture goes onto the frame at
+its rectangle in place of the one world: where the 2D path reaches that view's `World` command
+(`FrameInput::view_pictures`), over what the game drew in the view before its world (its viewport's
+clear) and under what it draws after (its HUD); a kept view whose `World` the path does not reach,
+before anything that reads the world drawn and under the 2D (which still draws over the whole
+screen, the lines between the views included). So a game that
+draws one view a frame, alternating, keeps the others on screen as the console's frame buffer did,
+and one that draws every view in a frame refreshes them all. A recording with no view is a
+full-screen frame: the kept views are forgotten. Temporal reconstruction and the mods' heat haze,
+which follow one camera's history, are off while views are drawn. rac3's maps 50 to 53 (NTSC-U's 54
+and 55 too) do this from their view layout (`host/mp_maps.c`).
+
+rac3's maps send each player's view in a display list of its own with no vertical blank between
+them, then the last list (the other player's view, both HUDs, the black corners, the divider), then
+wait for the blank. A send with no blank since the last one ends a tick (`openrac_game_dma_send`),
+so they say each frame that their picture spans its sends (`openrac_game_picture_spans_sends`,
+`openrac/picture.h`): those sends still run the blank's work for the game, but the window captures
+once, at the blank the game waits for, walking every list of the picture in the order last sent
+(`program/picture_lists.h`, section 4) and closing one recording with every view. Each view still
+draws the mobys the game's MobyProc draws from that view's camera: the game's state at each view's
+world call is kept until the capture (`State::view_states`), and a moby goes in the views whose own
+camera's distance test it passes, at the strongest of their fades (`Kept::live_views`,
+`frontend/view_mobys.h`). Tested from the first view's camera alone, the second player's view lost
+every moby beyond the first player's draw distance, the second player among them.
+
+The worlds a tick draws are those of the recording closed last (`FrameRecorder::latest`, through
+`world_views`), not of the one its 2D path matched: a game whose sends end ticks can walk a list a
+send behind, built with the recording before. A tick with nothing recorded keeps the latest
+recording's views.
+
+Each view keeps its own layer mask: its `World` calls' and the layers the game says it draws
+(`openrac_game_draw`) while the view is open, so a game whose only `World` call is at its terrain
+(rac3's) still gets its sky, ties, shrubs and mobys in each view. Layout calls without a world draw
+do not replace a picture. Alternating views retain their pictures only while their screen-relative rectangles remain
+compatible: a resized player rectangle or an overlap with another player's old rectangle forgets the
+old layout before any new view is drawn. Non-finite and inverted view rectangles are rejected.
 
 `openrac_frame_strip` (vertices, ST, RGBA, material, fog line) is reserved for P5 with P4's
 material; the effect strips still come from the chain until then.
@@ -88,7 +136,9 @@ value of the game's own list write pointer when the command was recorded (`openr
 Host C already knows it: it is the cursor the old markers were written at.
 
 When the window walks the chain the game sent (still `direct_packets`, until P7), it notes every
-DMA tag's address and where its data lands in the 2D stream. A recording **matches** the chain if
+DMA tag's address and where its data lands in the 2D stream. A picture that spans sends (3.1) is
+walked as one chain: its earlier lists, then its last, into one stream and one tag list. A
+recording **matches** the chain if
 any of its anchors is the address of a tag of that chain; the most recent non-empty recording that
 matches is used (a list drawn a tick late, or sent again by a fade, finds the recording that was
 made while it was built, which replaces the `ui_kept` generations for games on the recorder). Each
@@ -231,7 +281,7 @@ fields of the adapter are settled by the first adapter (rac3) and frozen when ra
 |---|---|---|
 | P1 | this note; `frame.h`; recording, anchors and splices; `DrawState`; rac3's world hand-off (terrain, world mobys, moby lists, effect quads) and its UI records on the recorder; tests | P1 |
 | P1 → native UI | `openrac_frame_ui_item` drawn natively (UiItem, UiImage); the rac3 adapter, text, HUD, menus | native-UI agent |
-| P2 | the rest of rac3's markers (picture, movie, mp) onto the recorder | P2 |
+| P2 | the rest of rac3's markers (movie, mp) onto the recorder; the game's 2D screen (`openrac_frame_screen`); split-screen views (§3.1) | P2 |
 | P3, P6 | rac3's residual 2D and frame copies as `fill`/`clear`/`picture`/`snapshot`; rac3's full-screen pictures (menu backgrounds, loading, multiplayer city backgrounds) as `picture_image`/`picture_set` (P3), frame copies as `snapshot` (P6) | P3, P6 |
 | P4 | materials on effect quads, particles, strips; `ui_quad` and `effect_quad` retired | P4 |
 | R1–R3 | rac1 and rac2 onto the recorder and the core with their adapters; their full-screen pictures (rac2 title, pause and menu backgrounds, rac1 boot and pause pictures) under R2 | R1–R3 |
@@ -254,7 +304,10 @@ the old aggregate warning alone does not identify them.
 
 ## 9. Tests
 
-- `frame_record_test`: a recorded frame ordered without any DMA data; anchors matched against a
+- `frame_record_test`: a recorded frame ordered without any DMA data; the game's screen stamped on
+  the commands after it; split-screen views kept in order with their rectangles, first cameras and the layers drawn in
+  them, the staggered two-player layout kept whole, and the latest recording's views when the list
+  matches an older recording; anchors matched against a
   chain's tags and spliced in order (late list, resent list, missing anchor); recordings kept and
   chosen as the window does.
 - `frame_anchor_test`: C-contract cursor reads with synthetic addresses: direct and aliased RAM,

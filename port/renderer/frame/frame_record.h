@@ -21,6 +21,7 @@
 
 #include "renderer/direct/draw_state.h"
 #include "renderer/frame/ui_records.h"
+#include "renderer/math.h"
 
 namespace openrac::renderer {
 
@@ -47,6 +48,8 @@ enum class FrameOp : std::uint8_t {
     Wide,          // `index` 1: what follows covers the whole target, as a fade does; 0 ends it
     PictureBand,   // `index` 1: a full-width scissor stays the picture's with "HUD: Edges"; 0 ends
     LastFrame,     // the frame the window last drew with its world in, over the whole target
+    ViewBegin,    // the world that follows is split-screen view `index`'s, into rect
+    ViewEnd,      // the open view ends (FrameRecording::views has its camera)
 };
 
 // Returns the command's contract name for recorder diagnostics, or "Unknown" for an invalid value.
@@ -58,6 +61,9 @@ inline constexpr std::uint8_t kClearColour = 1, kClearDepth = 2;
 // A Picture command whose picture is the recording's images[value] (openrac_frame_picture_image).
 inline constexpr std::uint32_t kImagePicture = 0xFFFFFFFFu;
 
+// A command outside every local-player view; otherwise `view` indexes this recording's views.
+inline constexpr std::uint32_t kNoFrameView = UINT32_MAX;
+
 struct FrameCommand {
     FrameOp op = FrameOp::World;
     // The game's display-list write pointer when the command was recorded (openrac_frame_anchor),
@@ -65,6 +71,9 @@ struct FrameCommand {
     std::uint32_t anchor = 0;
     std::uint32_t index = 0;
     std::uint64_t value = 0;
+    // The view open when the command was recorded (its index in the recording's views), set by
+    // FrameRecorder::push whether or not the view's ViewBegin anchor reaches the submitted list.
+    std::uint32_t view = kNoFrameView;
     // Fill, Picture, Scissor: x0, y0, x1, y1 in the game's 2D screen pixels; `whole` for the whole
     // target (rect not read). `wide`: on a target wider than the picture, the whole target rather
     // than the picture's middle.
@@ -105,6 +114,49 @@ std::optional<FrameCommand> depth_fill_command(
     bool write_depth,
     std::uint8_t writes
 );
+// The number of local-player pictures the split-screen compositor retains.
+inline constexpr std::uint32_t kFrameViews = 4;
+
+// The camera a split-screen view was drawn with (the game's, read at its first World): the eye,
+// its axes (forward, left, up, unit) and the tangents of half its fields of view.
+struct FrameViewCamera {
+    Vec3 position{};
+    Vec3 forward{1, 0, 0};
+    Vec3 left{0, 1, 0};
+    Vec3 up{0, 0, 1};
+    float tan_half_fov_x = 0.0f;
+    float tan_half_fov_y = 0.0f;
+
+    bool operator==(const FrameViewCamera&) const = default;
+};
+
+// A split-screen view of a recording (openrac_frame_view_begin / _end).
+struct FrameView {
+    std::uint32_t view = 0;
+    // x0, y0, x1, y1 in the game's 2D screen pixels (screen_width x screen_height).
+    std::array<float, 4> rect{};
+    float screen_width = 512.0f, screen_height = 448.0f;
+    FrameViewCamera camera;
+    bool has_camera = false;
+    // The layers drawn in this view (OPENRAC_DRAW_*, one bit a Bucket): its World calls' and those
+    // the game said it drew while the view was open (openrac_game_draw), separate from other
+    // players' layer masks.
+    std::uint32_t layers = 0;
+    // Layout setup without a World call must not replace a full-screen frame with cached views.
+    bool has_world = false;
+
+    // Returns whether the view id, screen and rectangle can be placed in a render target.
+    bool valid() const;
+
+    // Returns the rectangle as fractions of the screen; requires valid().
+    std::array<float, 4> relative_rect() const;
+
+    // Returns whether both views can belong to one retained layout: equal ids keep their rectangle,
+    // and different ids occupy disjoint rectangles, independent of the screen's pixel dimensions.
+    bool compatible_with(const FrameView& other) const;
+
+    bool operator==(const FrameView&) const = default;
+};
 
 // One recording: the commands of one pass of the game's frame code, in call order, and their
 // records.
@@ -117,6 +169,8 @@ struct FrameRecording {
     std::vector<UiQuad> ui_quads;
     std::vector<UiItem> ui_items;
     std::vector<UiImage> images;
+    // The split-screen views drawn in it, in the order they ended; none for a full-screen frame.
+    std::vector<FrameView> views;
 
     bool empty() const { return commands.empty(); }
 
@@ -140,6 +194,22 @@ public:
     void set_anchor(std::uint32_t anchor) { m_anchor = anchor; }
 
     std::uint32_t anchor() const { return m_anchor; }
+
+    // The game's 2D screen the next commands' coordinates are in (openrac_frame_screen); kept
+    // across recordings.
+    void set_screen(float width, float height);
+
+    std::array<float, 2> screen() const { return m_screen; }
+
+    // Split screen: view `view` starts (ending an open one); the open view's camera (the first
+    // given is kept: the one its world was drawn with); layers the game draws in the open view (its
+    // sky, ties, shrubs and mobys, which need no World call of their own); the open view ends.
+    void view_begin(std::uint32_t view, const std::array<float, 4>& rect);
+    void view_camera(const FrameViewCamera& camera);
+    void view_layers(std::uint32_t layers);
+    void view_end();
+
+    bool view_open() const { return m_view_open; }
 
     // Appends `command` with the current anchor; returns its index.
     std::uint32_t push(FrameCommand command);
@@ -166,6 +236,12 @@ public:
     // The most recent kept recording with no anchors (a frame with no display list at all), or null.
     const FrameRecording* latest_unanchored() const;
 
+    // The recording closed last (latest_serial()), anchored or not and whichever a list matches, or
+    // null. Its views are the split-screen views the game drew last: a game that sends each
+    // player's view in a display list of its own closes one view a capture, while the list that
+    // capture walks is the one sent before, built with an older recording.
+    const FrameRecording* latest() const;
+
     // The serial of the recording closed last (0 before any).
     std::uint64_t latest_serial() const { return m_serial; }
 
@@ -185,6 +261,8 @@ private:
     bool m_owns_lists = false;
     // Only a push changes a build's captured payload; empty ticks must not evict a valid resend.
     bool m_open_dirty = false;
+    std::array<float, 2> m_screen{512.0f, 448.0f};
+    bool m_view_open = false;
 };
 
 // For each command of `recording`, the index of the tag of `tags` it goes before, or kDropped. A

@@ -41,6 +41,7 @@
 #include "mods.h"
 #include "openrac/guest.h"
 #include "openrac/memory.h"
+#include "openrac/picture.h"
 #include "program/program.h"
 
 #ifdef OPENRAC_FRONTEND
@@ -182,6 +183,10 @@ void openrac_game_draw(unsigned layers) {
         g_draws |= layers;
         g_reports_draws = true;
 #ifdef OPENRAC_FRONTEND
+        // In a split-screen view: the layers that player's world has.
+        if (g_window) {
+            frontend::recorder::view_layers(layers);
+        }
         // The world's terrain: the camera it is drawn with is the frame's world camera.
         if (g_window && (layers & OPENRAC_DRAW_TERRAIN) != 0) {
             const auto* ram = runtime::Memory::get().base();
@@ -233,7 +238,11 @@ void openrac_game_dma_send(gaddr channel, gaddr tag) {
         // the frame ends here, with the vertical blank's handlers, as if the hardware had done it.
         if (channel == 0x10009000u) {
             if (!g_vsync_since_kick) {
+                // Unless the game said its picture spans its sends: then the blank's work runs for
+                // the game, and the window draws the picture's lists at the blank it waits for.
+                g_send_within_picture = g_picture_lists.send_within(g_chain);
                 openrac_game_vsync();
+                g_send_within_picture = false;
                 openrac_game_run_vsync_handlers();
                 openrac_game_tick_boundary();
             }
@@ -246,6 +255,10 @@ void openrac_game_dma_send(gaddr channel, gaddr tag) {
 
         log::debug("frame {}: DMA chain at {:#010x} to channel {:#010x}", g_frame, tag, channel);
     });
+}
+
+void openrac_game_picture_spans_sends(void) {
+    c_boundary::call("openrac_game_picture_spans_sends", [] { g_picture_lists.span_sends(); });
 }
 
 void openrac_game_set_display(const openrac_game_display* d) {
@@ -865,8 +878,16 @@ void openrac_frame_anchor(gaddr list_cursor) {
 }
 
 void openrac_frame_world(unsigned layers) {
-    OPENRAC_RECORD("openrac_frame_world", world(layers));
-    (void)layers;
+    c_boundary::call("openrac_frame_world", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            frontend::recorder::world(layers);
+            // In a split-screen view: the camera its world is drawn with.
+            frontend::recorder::view_camera(game_ram());
+        }
+#endif
+        (void)layers;
+    });
 }
 
 void openrac_frame_world_mobys(void) {
@@ -1067,6 +1088,29 @@ void openrac_frame_picture_band(int on) {
 
 void openrac_frame_last_frame(void) {
     OPENRAC_RECORD("openrac_frame_last_frame", placement(renderer::FrameOp::LastFrame, 0, 0));
+}
+
+void openrac_frame_screen(float width, float height) {
+    OPENRAC_RECORD("openrac_frame_screen", screen(width, height));
+    (void)width;
+    (void)height;
+}
+
+void openrac_frame_view_begin(int view, const openrac_frame_viewport* rect) {
+    c_boundary::call("openrac_frame_view_begin", [&] {
+#ifdef OPENRAC_FRONTEND
+        static_assert(OPENRAC_FRAME_VIEWS == renderer::kFrameViews);
+        if (g_window && rect != nullptr) {
+            frontend::recorder::view_begin(view, *rect);
+        }
+#endif
+        (void)view;
+        (void)rect;
+    });
+}
+
+void openrac_frame_view_end(void) {
+    OPENRAC_RECORD("openrac_frame_view_end", view_end());
 }
 
 #undef OPENRAC_RECORD
