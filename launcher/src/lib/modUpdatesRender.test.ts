@@ -71,6 +71,9 @@ describe("hold reasons", () => {
       holdText({ kind: "heldBack", by: "user", byName: "Camera tweaks", wants: "=1.2.0" }),
     ).toBe("Held back: Camera tweaks needs =1.2.0.");
     expect(holdText({ kind: "major" })).toMatch(/major version/);
+    expect(holdText({ kind: "needsLauncherHooks", hooks: ["rac1.freeze.update"] })).toBe(
+      "Needs a newer launcher (1 hook this launcher doesn't have). It updates once the launcher does.",
+    );
     expect(holdText(null)).toBe("");
   });
 });
