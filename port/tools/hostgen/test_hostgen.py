@@ -2439,6 +2439,21 @@ class Places(unittest.TestCase):
         self.assertIsNone(call_copy(program, "func_002B5B38", "func_002E8010"))
         self.assertIsNone(call_copy(program, "func_002B5B38", "func_002F6220", 0x002F6220))
 
+    def test_a_misnamed_call_copy_is_never_an_executable_function(self):
+        # func_L01_004CDC38 clears its buffer with the executable's memset (func_0011A264) and
+        # measures with the level's wrapper (call_copies.tsv lists only that jal): the clears took
+        # the wrapper's row and ran the width measure, leaving stack garbage in the text.
+        import re
+        from program import Program, call_copy, read_call_copies
+        program = Program()
+        program.code_names = [re.compile(r"^func_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        program.places = {"func_L01_004CDC38": [(1, 0x004CDC38), (24, 0x004B2AA8)]}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "calls.tsv"
+            path.write_text("func_L01_004CDC38\tfunc_L01_00412708\t1\t004CDC38\t620\t00412708\t00000000\t80,113,130\n")
+            read_call_copies(path, program)
+        self.assertIsNone(call_copy(program, "func_L01_004CDC38", "func_0011A264"))
+
     def test_an_executable_function_the_levels_carry_keeps_its_address(self):
         import re
         from program import Program

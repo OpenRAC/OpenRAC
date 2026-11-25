@@ -1100,7 +1100,7 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     for shared in [config.parent / d for d in cfg.get("host_shared", [])] or [
             config.parent.parent / str(cfg.get("game", "")) / "host"]:
         paths += sorted(shared.glob("*.c"))
-    for key in ("libraries", "hand", "assembly_allow", "result_allow", "data_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins", "folded_wrappers"):
+    for key in ("libraries", "hand", "assembly_allow", "result_allow", "data_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins", "folded_wrappers", "play_queries"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
     if cfg.get("drafts"):
@@ -1320,6 +1320,15 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
                   if not all(n in replaced for n in names_of[id(text)])}
     # The port's own C for functions the decompilation matches, in place of their definitions.
     overrides = read_overrides(args.game.parent, cfg)
+    if cfg.get("play_queries"):
+        import playqueries
+        queries = playqueries.build(source, args.game.parent / cfg["play_queries"],
+                                    cfg["id"].rsplit("-", 1)[-1], RELEASE)
+        overlap = set(overrides) & set(queries)
+        if overlap:
+            raise ValueError("Gameplay query points conflict with private overrides: " + ", ".join(sorted(overlap)))
+        overrides.update(queries)
+
     aliases = read_aliases(source, cfg)
     long_long_128 = read_long_long_128(source, cfg)
     if aliases:

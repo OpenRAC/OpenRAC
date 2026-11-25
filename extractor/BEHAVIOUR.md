@@ -2,8 +2,8 @@
 
 How a moby's behaviour is made in Ratchet & Clank (PAL), and where modders change it. Behaviour is
 modded through the mod SDK ([docs/port/MODS.md](../docs/port/MODS.md): native mods and Luau
-scripts on the port's hook points), never in the level editor: Godot edits levels and their data
-(placements, pvars, volumes, paths, cameras, collision), and nothing in a Godot project runs game
+scripts on the port's hook points), never in the level editor: [OpenRAC Editor](https://github.com/OpenRAC/OpenRAC-Editor) edits levels and their data
+(placements, pvars, volumes, paths, cameras, collision), and nothing in a level project runs game
 logic. The catalogue below is experimental: its names follow the decompilation and will change in
 the C++ refactor.
 

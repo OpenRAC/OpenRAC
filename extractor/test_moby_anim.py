@@ -15,7 +15,7 @@ from glb_check import read_glb
 
 
 class LevelWriter(levelwrite.LevelWriter):
-    """The models as the level editor's writer makes them (joint scales Godot can import)."""
+    """The models as the level editor's writer makes them (joint scales OpenRAC Editor can import)."""
     godot_scales = True
 
 H = math.sqrt(0.5)

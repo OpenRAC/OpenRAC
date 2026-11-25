@@ -40,10 +40,32 @@ extern "C" {
 /* The first port id of an off-screen panel. */
 #define OPENRAC_FRAME_TARGETS 0x10000u
 
+/* A view's rectangle in the game's 2D screen pixels (openrac_frame_screen's), from the top left. */
+typedef struct openrac_frame_viewport {
+    float x0, y0, x1, y1;
+} openrac_frame_viewport;
+
+/* The views a split screen has at most (openrac_frame_view_begin's `view`). */
+#define OPENRAC_FRAME_VIEWS 4
+
 /* Starts a new recording (optional: the window closes one at each tick it captures). */
 void openrac_frame_begin(void);
 /* Closes the recording (optional). */
 void openrac_frame_end(void);
+
+/* The game's 2D screen the coordinates of the commands that follow are in (512 x 448 until set):
+ * a game whose 2D is drawn on another size (NTSC's 512 x 416) says so once, and its rectangles,
+ * scissors and views are taken as they are. Kept across recordings. */
+void openrac_frame_screen(float width, float height);
+
+/* Split screen: the world recorded between view_begin and view_end is local player view `view`'s
+ * (0 to OPENRAC_FRAME_VIEWS - 1), drawn into `rect` with the camera the game holds when the view's
+ * openrac_frame_world is recorded (the one it draws that view with). The window keeps each view's last picture and puts every view's on
+ * the screen each frame, so a game that draws one view a frame (alternating) and one that draws
+ * all of them in one frame both show every view. A recording with no view is a full-screen frame:
+ * the views are forgotten. view_begin while a view is open ends it first. */
+void openrac_frame_view_begin(int view, const openrac_frame_viewport* rect);
+void openrac_frame_view_end(void);
 
 /* Transitional, while the game still sends residual 2D as packets in its own display list: the
  * list's write pointer (its value, a game address) the commands that follow belong at. The window

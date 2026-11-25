@@ -231,7 +231,7 @@ levels counts once per level).
 | Missions (RAC4's per-mission instances and classes) | | | no |
 | Packing back | no | no | no |
 
-What a level could not read is listed in its `level.json` (Godot) or
+What a level could not read is listed in its `level.json` (OpenRAC Editor) or
 `manifest.json` (`stats.problems`).
 
 ## Open

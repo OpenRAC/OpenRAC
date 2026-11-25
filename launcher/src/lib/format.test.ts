@@ -31,12 +31,15 @@ describe("format", () => {
   });
 
   it("splits a path into its folders and its last part", () => {
-    expect(splitPath("C:\\Users\\you\\Godot\\godot.exe")).toEqual({
-      head: "C:\\Users\\you\\Godot",
-      tail: "\\godot.exe",
+    expect(splitPath("C:\\Users\\you\\OpenRAC Editor\\openrac-editor.exe")).toEqual({
+      head: "C:\\Users\\you\\OpenRAC Editor",
+      tail: "\\openrac-editor.exe",
     });
-    expect(splitPath("/usr/bin/godot")).toEqual({ head: "/usr/bin", tail: "/godot" });
-    expect(splitPath("godot")).toEqual({ head: "godot", tail: "" });
+    expect(splitPath("/opt/openrac-editor/openrac-editor.x86_64")).toEqual({
+      head: "/opt/openrac-editor",
+      tail: "/openrac-editor.x86_64",
+    });
+    expect(splitPath("openrac-editor")).toEqual({ head: "openrac-editor", tail: "" });
     expect(splitPath(`/opt/${"x".repeat(60)}`)).toEqual({
       head: `/opt/${"x".repeat(60)}`,
       tail: "",

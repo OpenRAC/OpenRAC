@@ -199,6 +199,7 @@ enum class Var : std::uint16_t {
     ShadowFilterReference,
     ShadowGatherOff,
     ShadowLayerReference,
+    ShadowScissorOff,
     ShadowSolidOff,
     Shot,
     ShotBetween,

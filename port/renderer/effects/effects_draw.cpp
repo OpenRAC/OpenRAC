@@ -31,7 +31,8 @@ namespace {
 void normalize_quad_state(std::uint64_t& tex1, std::uint64_t& clamp, std::uint64_t& alpha) {
     const auto filter = gs::Tex1::decode(tex1);
     const bool linear_min = filter.mmin == 1 || filter.mmin == 4 || filter.mmin == 5;
-    tex1 = (std::uint64_t(filter.mmag) << 5) | (std::uint64_t(linear_min) << 6);
+    tex1 = (std::uint64_t(filter.mmag) << 5) | (std::uint64_t(linear_min) << 6)
+           | (std::uint64_t(filter.mipmapped()) << 7);
 
     const auto wrap = gs::Clamp::decode(clamp);
     clamp = std::uint64_t(wrap.wms != gs::Wrap::Repeat)

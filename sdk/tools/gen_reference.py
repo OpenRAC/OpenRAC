@@ -158,7 +158,7 @@ def parse_c_header(text: str) -> dict:
 
 
 def c_page(header: Path) -> str:
-    h = parse_c_header(header.read_text())
+    h = parse_c_header(header.read_text(encoding="utf-8"))
     rel = header.relative_to(SDK).as_posix()
     out = [HEADER.format(source=f"sdk/{rel}"), "# The C interface: `openrac/openrac_mod.h`\n\n"]
     if h["intro"]:
@@ -268,7 +268,7 @@ def parse_cpp_header(text: str) -> dict:
 
 
 def cpp_page(header: Path) -> str:
-    h = parse_cpp_header(header.read_text())
+    h = parse_cpp_header(header.read_text(encoding="utf-8"))
     rel = header.relative_to(SDK).as_posix()
     out = [HEADER.format(source=f"sdk/{rel}"), "# The C++ layer: `openrac/mod.hpp`\n\n"]
     if h["intro"]:
@@ -333,7 +333,7 @@ def parse_luau_types(text: str) -> dict:
 
 
 def luau_page(types_file: Path, game: str) -> str:
-    t = parse_luau_types(types_file.read_text())
+    t = parse_luau_types(types_file.read_text(encoding="utf-8"))
     rel = types_file.relative_to(SDK).as_posix()
     out = [HEADER.format(source=f"sdk/{rel}"),
            f"# The Luau API ({game})\n\n",
@@ -355,7 +355,7 @@ def luau_page(types_file: Path, game: str) -> str:
 # ---- Hook points: bindings/<game>.json ----
 
 def hooks_page(table_file: Path) -> str:
-    table = json.loads(table_file.read_text())
+    table = json.loads(table_file.read_text(encoding="utf-8"))
     game = table.get("game", table_file.stem)
     discs = table.get("discs", [])
     rel = table_file.relative_to(SDK).as_posix()
@@ -420,7 +420,7 @@ PORT_MOD_SOURCES = ("port/game/common/mods.cpp", "port/game/common/mod_play.cpp"
 
 def read_members(sdk: Path) -> list[dict]:
     rows = []
-    for line in (sdk / "api" / "members.tsv").read_text().splitlines():
+    for line in (sdk / "api" / "members.tsv").read_text(encoding="utf-8").splitlines():
         if line and not line.startswith("#"):
             name, area, since, status = line.split("\t")
             rows.append({"name": name, "area": area, "since": since, "status": status})
@@ -443,7 +443,7 @@ def port_functions(root: Path) -> tuple[dict[str, str], dict[str, str]]:
     wired: dict[str, str] = {}
     for src in PORT_MOD_SOURCES:
         for path in sorted(root.glob(src)):
-            text = path.read_text()
+            text = path.read_text(encoding="utf-8")
             bodies.update(cpp_functions(text))
             wired.update(re.findall(r"^\s+(?:g_)?api\.(\w+) = (\w+);", text, re.M))
     return bodies, wired
@@ -493,7 +493,7 @@ def game_fields(root: Path) -> dict[str, set[str]]:
     out = {}
     for game, path in PLAY_TABLES.items():
         f = root / path
-        out[game] = set(re.findall(r"^\s*\.(\w+)\s*=", f.read_text(), re.M)) if f.is_file() else set()
+        out[game] = set(re.findall(r"^\s*\.(\w+)\s*=", f.read_text(encoding="utf-8"), re.M)) if f.is_file() else set()
     return out
 
 
@@ -574,7 +574,7 @@ def minor_history(header_text: str) -> dict[int, str]:
 
 
 def changelog_page(sdk: Path) -> str:
-    header = (sdk / "include" / "openrac" / "openrac_mod.h").read_text()
+    header = (sdk / "include" / "openrac" / "openrac_mod.h").read_text(encoding="utf-8")
     history = minor_history(header)
     minor = int(re.search(r"^#define OPENRAC_MOD_API_MINOR (\d+)$", header, re.M).group(1))
     added: dict[int, list[str]] = {}
@@ -621,12 +621,12 @@ def main(argv: list[str] | None = None) -> int:
     for name, text in pages().items():
         path = out_dir / name
         if args.check:
-            if not path.is_file() or path.read_text() != text:
+            if not path.is_file() or path.read_text(encoding="utf-8") != text:
                 stale.append(name)
         else:
             out_dir.mkdir(parents=True, exist_ok=True)
-            if not path.is_file() or path.read_text() != text:
-                path.write_text(text)
+            if not path.is_file() or path.read_text(encoding="utf-8") != text:
+                path.write_text(text, encoding="utf-8")
                 print(f"wrote {path.relative_to(ROOT)}")
     if stale:
         print("gen_reference: stale (run python3 sdk/tools/gen_reference.py): " + ", ".join(stale), file=sys.stderr)

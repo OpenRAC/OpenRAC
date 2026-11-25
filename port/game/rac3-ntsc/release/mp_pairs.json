@@ -1745,6 +1745,10 @@
    "is": "func_L39_0057F278",
    "why": "the same instructions, the only place they occur"
   },
+  "func_L39_00588A08": {
+   "is": "func_L39_00587898",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_L39_00589890": {
    "is": "func_L39_00588720",
    "why": "the same instructions, the only place they occur"

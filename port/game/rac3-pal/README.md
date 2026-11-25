@@ -725,7 +725,10 @@ routine (Veldin's `0x00408AAC` after its setup `0x00407588`):
   percent at +0x44 (`func_L02_00310368`), not the level's fog: the strip program's fog line (VU
   `0x3AC`..`0x3AF`) is uploaded with the water's for its strips and put back after them.
 
-The program's mipmapped surface texture is drawn without mipmaps. The levels with such water (class
+The program's mipmapped surface texture (TEX1 MMIN 5, MXL 6) gets a mip chain the window makes from the
+picture (`TexturePool::ensure_mipmaps`, asked for by the effect strip's TEX1: `Tex1::mipmapped`), so
+distant water does not shimmer; the reflection and the UI's and quads' effect textures keep one level.
+The levels with such water (class
 2871, one plane each but Tyhrranosis's two): 2, 4, 5, 9, 12, 14, 17, 18, 19, 20, 22 and 29.
 
 ### Shadows, enhanced graphics and texture packs
