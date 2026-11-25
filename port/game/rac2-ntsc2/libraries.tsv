@@ -395,7 +395,7 @@ func_L12_003B6518	moby	Moby_TodanoTrader_Update	hook	Updates the Todano trader a
 func_L14_00427280	moby	Moby_PrisonPlumber_Update	hook	Updates the Aranos plumber and his reward. The game declaration takes a signed 32-bit moby address.
 func_L14_00427B88	moby	Moby_PrisonController_Update	hook	Updates the Aranos prison controller, including inventory restoration.
 func_L07_003F83E8	moby	Moby_SiberiusThief_Update	hook	Updates the Siberius thief sequence and its progression state.
-func_L13_0041E1E0	moby	Moby_BoldanCutscene_Update	hook	Updates the Boldan cutscene trigger and its temporary inventory state.
+func_L13_0041E1E8	moby	Moby_BoldanCutscene_Update	hook	Updates the Boldan cutscene trigger and its temporary inventory state.
 func_L18_00441160	moby	Moby_HypnomaticPart_Update	hook	Updates the Hypnomatic part pickup on Damosel.
 func_002A7930	combat	Moby_CountKill	hook	Records a kill or event and grants its rewards. A replacement can adjust reward state around the original call.
 func_002D02A0	menu	Menu_Extras	hook	Processes the extras menu and returns its menu result.

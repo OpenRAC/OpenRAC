@@ -233,3 +233,28 @@ class VoidTailLeftToAssembly(unittest.TestCase):
         self.assertEqual(canon(caller.sig.ret, program.typedefs), "void")
         self.assertFalse(caller.inherits)
         self.assertEqual(uninherit_void_results(program), [])
+
+
+class LevelTailResults(unittest.TestCase):
+    def test_level_helper_uses_the_level_callees_result_type(self):
+        from program import canon, inherit_results, uninherit_void_results
+        program = Program()
+        unit = "src/levels/16_kerwan/effect.c"
+        boot = Function("func_00382760", Signature.of(ctype.parse("int (void *, float)")),
+                        unit="src/boot_elf/vector.c")
+        level = Function("func_L01_00443E10", Signature.of(ctype.parse("void (void *, float)")),
+                         unit="src/levels/shared/vector.c")
+        helper = Function("direction", Signature.of(ctype.parse("void (void *, float)")),
+                          unit=unit, tail=boot.symbol)
+        boot_wrapper = Function("func_00382800", helper.sig, unit=boot.unit, tail=boot.symbol)
+        program.functions = {f.symbol: f for f in (boot, level, boot_wrapper)}
+        program.statics[(unit, helper.symbol)] = helper
+        program.kind_renames[boot.symbol] = level.symbol
+        self.assertEqual(inherit_results(program), [boot_wrapper.symbol])
+        self.assertEqual(canon(helper.sig.ret, program.typedefs), "void")
+        self.assertEqual(canon(boot_wrapper.sig.ret, program.typedefs), "int")
+        # The cleanup pass must resolve the same level copy too.
+        helper.inherits = True
+        helper.sig = boot.sig
+        self.assertEqual(uninherit_void_results(program), [helper.symbol])
+        self.assertEqual(canon(helper.sig.ret, program.typedefs), "void")

@@ -597,7 +597,7 @@ static const openrac_script_point k_points[55] = {
     {"rac2.menu.extras", "i32()", 0, k_S11_kinds, k_S11_names, OPENRAC_SV_I32, k_Menu_Extras_links, k_Menu_Extras_thunks, S11_call},
 };
 
-static const openrac_script_alias k_aliases[227] = {
+static const openrac_script_alias k_aliases[228] = {
     {"Arena_Prize", "rac2.arena.prize"},
     {"ArmorVendor_BuildList", "rac2.armor_vendor.build_list"},
     {"ArmorVendor_Buy", "rac2.armor_vendor.buy"},
@@ -806,6 +806,7 @@ static const openrac_script_alias k_aliases[227] = {
     {"func_L12_003B8918", "rac2.moby.todano_trader.update"},
     {"func_L13_0041CD18", "rac2.moby.boldan_cutscene.update"},
     {"func_L13_0041E1E0", "rac2.moby.boldan_cutscene.update"},
+    {"func_L13_0041E1E8", "rac2.moby.boldan_cutscene.update"},
     {"func_L13_00421C70", "rac2.moby.boldan_cutscene.update"},
     {"func_L14_003F4F98", "rac2.moby.prison_wrench.init"},
     {"func_L14_003F64E0", "rac2.moby.prison_wrench.init"},
@@ -834,7 +835,7 @@ static const openrac_script_field k_fields[1] = {
 
 static const openrac_script_binding k_binding = {
     "rac2", 3, k_discs, 55, k_points, 0, k_fields, NULL,
-    227, k_aliases,
+    228, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

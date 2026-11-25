@@ -766,7 +766,7 @@
       "symbols": {
         "ntsc": "func_L13_0041CD18",
         "pal": "func_L13_00421C70",
-        "ntsc2": "func_L13_0041E1E0"
+        "ntsc2": "func_L13_0041E1E8"
       },
       "about": "Updates the Boldan cutscene trigger and its temporary inventory state."
     },

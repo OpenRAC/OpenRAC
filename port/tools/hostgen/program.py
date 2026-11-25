@@ -1129,6 +1129,10 @@ def tail_callee(program: Program, f: Function) -> Function | None:
     """The function a definition's closing call (Function.tail) reaches, as its unit names it: a
     static of the unit, the unit's level's own copy, else the program's function; None if none."""
     sym = program.aliases.get((f.unit, f.tail), f.tail)
+    # Match lower._callee_symbol: a level's executable spelling reaches its level copy,
+    # which can return void even when the executable's declaration returns a scalar.
+    if level_unit(f.unit) and sym in program.kind_renames and (f.unit, sym) not in program.statics:
+        sym = program.kind_renames[sym]
     sym = program.level_copy_named(f.unit, sym) or sym
     sym = program.level_short_name(f.unit, sym, f.symbol)
     g = program.statics.get((f.unit, sym))

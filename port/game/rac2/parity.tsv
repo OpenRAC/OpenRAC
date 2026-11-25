@@ -25,4 +25,3 @@ func_00120FA4	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_0012
 func_0012118C	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_001210E0 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_001210E0 is unchanged
 func_00130004	row	rac2-ntsc,rac2-ntsc2,rac2-pal	a landing point inside func_0012FEC0 (an asm stub entry the catalogue lists): the host row reports a reach there, the console C of func_0012FEC0 is unchanged
 func_L13_0041CD18	row	rac2-ntsc	The catalogue anchors this function eight bytes before its entry (13:0041CD20); the hook uses the canonical C symbol and its recorded placements.
-func_L13_0041E1E0	row	rac2-ntsc2	The USA v2.00 catalogue anchors this function eight bytes before its entry (13:0041E1E8); the hook uses the canonical C symbol and its recorded placements.

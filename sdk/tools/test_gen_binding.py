@@ -98,6 +98,17 @@ class Binding(unittest.TestCase):
                 self.assertFalse(any(alias.startswith("APRac2_") for alias in hook["aliases"]))
         self.assertEqual(gen_binding.check_rows(binding), [])
 
+    def test_rac2_release_hooks_use_canonical_entry_symbols(self):
+        binding = gen_binding.load("rac2")
+        for disc in ("pal", "ntsc2"):
+            table = ROOT / f"port/game/rac2-{disc}/release/release_names.json"
+            if not table.is_file():
+                self.skipTest("needs the port's release tables")
+            entries = set(json.loads(table.read_text())["names"].values())
+            for hook in binding["hooks"]:
+                with self.subTest(disc=disc, hook=hook["id"]):
+                    self.assertIn(hook["symbols"][disc], entries)
+
     def test_committed_outputs_are_the_tables(self):
         self.assertEqual(gen_binding.main(["--check"]), 0)  # every game's table
         self.assertEqual(gen_binding.main(["--table", str(ROOT / "port/tests/script_binding_test.json"),
