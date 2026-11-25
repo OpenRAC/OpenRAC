@@ -1,22 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2026 the OpenRAC contributors
-"""Decide which checks a pull request needs, from the files it changes.
+"""Decide which checks a run needs, from the files it changes.
 
-Pushes and manual runs check everything. A pull request skips what its files cannot affect:
-the launcher's jobs when it changes only port/, the port's jobs when it changes only launcher/,
-and builds of the games it does not touch, and any build for Markdown that no build or test reads
-(MARKDOWN_READ lists those that are read). A release carried from another (a hostgen.json with
-"release": rac1-pal1, rac1-jp, rac2-ntsc2, rac2-pal) is built in a pull request when its own
-folder, its game's other port folders or its game's decomp change, not for shared code. Going
-Commando's PAL and USA v2.00 (PLAYED) are built whenever its USA disc is, since a change to what
-they share can break them alone (an argument their C drops crashed only there). Anything unclear
-(a workflow, this file, a failed git call) checks everything. A develop push checks what it
-changed (PUSH_BEFORE); the nightly run checks everything and refreshes every cache.
-Two tiers (TIERS): a pull request runs the fast tier, the checks that answer in a few minutes
-(one version of each game it touches: primary_versions);
-the merge queue (merge_group) runs the full tier for the queued changes before they land: every
-version of the games they touch (carried releases too), the enhanced Vulkan build and its tests.
-The Windows jobs run only when everything is checked (the nightly run).
+The games (hostgen and each version's build) and Windows build only when everything is checked:
+the nightly run and a manual run. A game that breaks there is fixed on develop and the run started
+again. Pull requests, the merge queue and develop pushes build the port's shared part alone, and
+skip what their files cannot affect: the launcher's jobs when they change only port/, the port's
+jobs when they change only launcher/, and any build for Markdown that no build or test reads
+(MARKDOWN_READ lists those that are read). Anything unclear (a workflow, this file, a failed git
+call) checks everything those runs check.
+Two tiers (TIERS): a pull request runs the fast tier, the checks that answer in a few minutes; the
+merge queue (merge_group) and develop pushes (PUSH_BEFORE) run the full tier, which adds the
+enhanced Vulkan build and its tests, and the launcher for any change outside port/.
 `ci_scope.py ios` does the same for the iOS jobs, for pushes too.
 `ci_scope.py decomp-games` prints which games' decomp tool checks a change needs.
 `ci_scope.py launcher-changed` (SINCE: a commit) tells whether develop changed what the launcher's
@@ -142,34 +137,17 @@ def shared_game_dirs(root=ROOT):
 TIERS = ("fast", "full")
 
 
-def primary_versions(known, releases=frozenset()):
-    """Each game's version a pull request builds: its first version that is not carried from
-    another (rac1-ntsc, rac2-ntsc, rac3-pal, rac4-ntsc)."""
-    found = {}
-    for program in sorted(known):
-        if program not in releases:
-            found.setdefault(program.split("-")[0], program)
-    return set(found.values())
-
-
 def plan(paths, known, shared=frozenset(), removed=frozenset(), tier="full", releases=frozenset()):
     """What to run for PATHS (None: everything), with KNOWN from programs(), SHARED from
     shared_game_dirs(), REMOVED the paths the change deletes, TIER one of TIERS and RELEASES
-    from carried()."""
+    from carried() (kept for the callers; every release builds in the nightly run)."""
     result = full_plan(paths, known, shared, removed)
     full = tier == "full"
-    # Everything (paths None): the nightly run, a manual run or another branch's push. Windows
-    # builds only then; the launcher's dev build builds every game on Windows nightly too.
+    # Everything (paths None): the nightly run or a manual run. The games (hostgen and their
+    # builds) and Windows build only then: pull requests, the queue and develop pushes build the
+    # shared part alone. A game that breaks there is fixed on develop and the run started again.
     everything = paths is None
     if not full:
-        # One version of each game (its primary), and a version whose own folder changed. The
-        # other regions and releases build in the queue; the repository job already checks that
-        # every version binds the same functions (port/tools/versionmap), with no build.
-        own = {path.split("/")[2] for path in paths or () if path.startswith("port/game/")
-               and len(path.split("/")) > 3}
-        primaries = primary_versions(known, releases)
-        result["port_parts"] = [part for part in result["port_parts"]
-                                if part == "common" or part in own or part in primaries]
         result["enhanced"] = False
         # The launcher only for what its build reads by name; anything else waits for the queue.
         result["launcher"] = paths is None or any(
@@ -183,12 +161,15 @@ def plan(paths, known, shared=frozenset(), removed=frozenset(), tier="full", rel
 
 
 def full_plan(paths, known, shared=frozenset(), removed=frozenset()):
-    """Every check PATHS can affect (None: everything); the arguments are plan()'s."""
+    """Every check PATHS can affect (None: everything, every game's build too); the arguments are
+    plan()'s. Short of everything, the port builds only its shared part (port_parts ["common"])."""
     every = sorted(known)
     everything = {"docs_only": False, "launcher": True, "pages": True, "port": True,
                   "enhanced": True, "port_parts": ["common", *every]}
-    if paths is None or any(path.startswith(EVERYTHING) for path in paths):
+    if paths is None:
         return everything
+    if any(path.startswith(EVERYTHING) for path in paths):
+        return {**everything, "port_parts": ["common"]}
     if all(map(is_docs, paths)):
         return {**everything, "docs_only": True, "launcher": False, "pages": False, "port": False,
                 "enhanced": False, "port_parts": []}
@@ -199,37 +180,23 @@ def full_plan(paths, known, shared=frozenset(), removed=frozenset()):
     pages = any(path.startswith("launcher/") or PAGES_READS.match(path) for path in quiet)
     port_paths = [path for path in quiet
                   if path.startswith(PORT_READS) or not path.startswith(("launcher/", "docs/"))]
-    parts, enhanced = set(), False
+    common = False
     for path in port_paths:
         bits = path.split("/")
         if bits[:2] == ["port", "game"] and len(bits) > 3 and bits[2] != "common":
-            # port/game/<program>/, or port/game/rac1/ (what rac1's programs share). A release
-            # carries its game's shared host C and its primary's tables, so a change to either
-            # builds the game's releases too; a release's own folder builds only itself.
+            # A game's own folder (port/game/<program>/ or port/game/rac1/): its build is the
+            # nightly run's; the shared part only when its tests compile that folder.
             game = bits[2].split("-")[0]
-            mine = [p for p in every if p == bits[2] or p.startswith(game + "-")]
-            if mine:
-                if bits[2] in known and known[bits[2]]:
-                    parts.add(bits[2])
-                else:
-                    parts.update(p for p in mine if p == bits[2] or p.startswith(bits[2] + "-") or known[p])
-                if bits[2] in shared:
-                    parts.add("common")
-                    enhanced = True
+            if any(p == bits[2] or p.startswith(game + "-") for p in every):
+                common = common or bits[2] in shared
                 continue
         if bits[0] == "games" and len(bits) > 2:
-            # A decomp change reaches every program of the game, its releases too (PAL v1.00's
-            # memory card hang came in with a decomp import).
-            parts.update(p for p in every if p.startswith(bits[1] + "-"))
+            # A decomp: the repository job checks its tools; the games build in the nightly run.
             continue
-        # Anything else the port reads: the shared part and every game it builds itself.
-        parts.update(["common", *(p for p in every if not known[p])])
-        enhanced = True
-    # Windows builds rac1-pal with the shared code.
-    port = "common" in parts or "rac1-pal" in parts
-    ordered = [part for part in ["common", *every] if part in parts]
-    return {"docs_only": False, "launcher": launcher, "pages": pages, "port": port,
-            "enhanced": enhanced, "port_parts": ordered}
+        # Anything else the port reads: the shared part and its tests.
+        common = True
+    return {"docs_only": False, "launcher": launcher, "pages": pages, "port": common,
+            "enhanced": common, "port_parts": ["common"] if common else []}
 
 
 # The games whose decomp has tool checks of its own in the repository job (checks.yml).

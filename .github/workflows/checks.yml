@@ -7,12 +7,12 @@
 # moves the pins); the port's compiles are cached with ccache.
 name: checks
 
-# Two tiers (tools/ci_scope.py). A pull request runs the fast tier: the checks that answer in
-# minutes. The merge queue (merge_group) runs the full tier on the queued changes before they
-# land: the fast tier again plus the other versions of the games they touch and the enhanced
-# Vulkan build and tests. Windows runs only in the nightly run (and the launcher's nightly dev
-# build). A develop push runs the full tier for what it changed, the nightly run everything;
-# they are the only runs that write the caches (.github/actions/*/save), so they are never cancelled.
+# The games (hostgen and each version's build) and Windows build only in the nightly run and a
+# manual run (Run workflow). A game that breaks there is fixed on develop and the run started
+# again. Pull requests, the merge queue and develop pushes build the port's shared part and run
+# its tests (tools/ci_scope.py). A pull request runs the fast tier; the queue and develop pushes
+# the full tier, which adds the enhanced Vulkan build and tests. develop's runs are the only ones
+# that write the caches (.github/actions/*/save), so they are never cancelled.
 on:
   push:
     branches: [master, develop]
@@ -20,7 +20,7 @@ on:
     # ready_for_review: a draft skips the port's builds (scope below), so they run when it is ready.
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
-  # Every night on develop: everything, so each game's caches stay warm even when no push built it.
+  # Every night on develop: everything, every game and version and Windows, and every cache.
   schedule:
     - cron: "41 1 * * *"
   workflow_dispatch:
@@ -47,8 +47,8 @@ concurrency:
 jobs:
   # What a run needs (tools/ci_scope.py: the jobs and the port's parts its files can affect, in
   # the event's tier), and on every event all the parts the Linux port job is built in: one for
-  # what the games share, one per game program (port/game/*/hostgen.json "id"). A push runs
-  # everything. A draft pull request runs no port build, only the cheap checks; marking it ready
+  # what the games share, one per game program (port/game/*/hostgen.json "id"). The nightly and
+  # manual runs run everything. A draft pull request runs no port build, only the cheap checks; marking it ready
   # runs the rest.
   scope:
     name: Which checks run
