@@ -176,7 +176,12 @@ void rac3_mp_wide_object(gaddr data) {
 }
 
 int rac3_mp_wide_available(void) {
+#ifdef RAC3_PAL
     return 1;
+#else
+    /* NTSC-U's sites and addresses are not carried yet (wide.json, release.json): its rooms stay at 8. */
+    return 0;
+#endif
 }
 
 void rac3_mp_wide_set_slots(int slots) {
