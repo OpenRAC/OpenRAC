@@ -17,6 +17,7 @@
 #include "common/stats.h"
 #include "renderer/direct/direct.h"
 #include "renderer/direct/gs.h"
+#include "renderer/effects/shader_sources.h"
 #include "renderer/frame/colour_graph.h"
 #include "renderer/frame/raster_pass.h"
 #include "renderer/frame/surface_chain.h"
@@ -308,20 +309,9 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     }
     m_test_plain = false;
     m_active_shader = nullptr;
-    std::string fragment(shaders::direct_frag);
-    fragment.insert(
-        fragment.find('\n') + 1,
-        "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n#define OPENRAC_EFFECT_FOG 1\n"
-    );
-    const std::string tested_fragment = fragment;  // the alpha test kept (m_test_shader)
-    // Effect packets skip HUD distance fields and alpha tests; authored strip fog remains dynamic.
-    // Keep texture functions/tcc dynamic: they can differ between effect strips.
-    if (render_opt::enabled(render_opt::Opt::EffectStaticControls)) {
-        fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_EFFECT_FIXED 1\n");
-        fragment = shader_constants(
-            std::move(fragment), {{"textured", 1}, {"distance_field", 0}, {"alpha_test", 0}}
-        );
-    }
+    const std::string tested_fragment = effect_sources::base_fragment(false);
+    std::string fragment =
+        effect_sources::base_fragment(render_opt::enabled(render_opt::Opt::EffectStaticControls));
     const std::string original_fragment = fragment;
     std::string vertex_source(shaders::effect_vert);
     if (m_material) {
@@ -331,14 +321,8 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
             m_material.reset();
             error.clear();
         } else {
-            const auto extension = m_material->vertex_source();
-            if (!extension.empty()) {
-                vertex_source.insert(vertex_source.find("void main()"), extension);
-                vertex_source
-                    .insert(vertex_source.find('\n') + 1, "#define OPENRAC_EFFECT_POSITION 1\n");
-            }
-            fragment.insert(fragment.find("void main()"), m_material->fragment_source());
-            fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
+            vertex_source = effect_sources::vertex(m_material->vertex_source());
+            fragment = effect_sources::fragment(std::move(fragment), m_material->fragment_source());
         }
     }
     if (!m_shader.build("effect", vertex_source, fragment, error)) {
@@ -357,10 +341,7 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
         const auto plain = m_material->quad_fragment_source();
         if (plain
             && (*plain != m_material->fragment_source() || !m_material->vertex_source().empty())) {
-            std::string quad_fragment = original_fragment;
-            quad_fragment.insert(quad_fragment.find("void main()"), *plain);
-            quad_fragment
-                .insert(quad_fragment.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
+            const auto quad_fragment = effect_sources::fragment(original_fragment, *plain);
             if (!m_quad_shader.build("effect quads", shaders::effect_vert, quad_fragment, error)) {
                 log::warn("Original effect quad shader retained: {}", error);
                 error.clear();
@@ -375,19 +356,11 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
         if (m_material) {
             const auto plain = m_material->quad_fragment_source();
             m_test_plain = plain && m_quad_shader.id();
-            if (!m_test_plain) {
-                const auto extension = m_material->vertex_source();
-                if (!extension.empty()) {
-                    tested_vertex.insert(tested_vertex.find("void main()"), extension);
-                    tested_vertex.insert(
-                        tested_vertex.find('\n') + 1, "#define OPENRAC_EFFECT_POSITION 1\n"
-                    );
-                }
-            }
-            tested.insert(
-                tested.find("void main()"), m_test_plain ? *plain : m_material->fragment_source()
+            tested_vertex =
+                effect_sources::vertex(m_test_plain ? std::string{} : m_material->vertex_source());
+            tested = effect_sources::fragment(
+                std::move(tested), m_test_plain ? *plain : m_material->fragment_source()
             );
-            tested.insert(tested.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
         }
         if (!m_test_shader.build("effect tested quads", tested_vertex, tested, error)) {
             log::warn("Effect quads keep no alpha test: {}", error);
@@ -400,20 +373,12 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     // The untextured quads (particle lines): the same fragment, with `textured` a uniform that
     // use_shader sets to 0. Without it they are not drawn (no line is then a textured one).
     {
-        std::string untextured(shaders::direct_frag);
-        untextured
-            .insert(untextured.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");
-        std::string untextured_vertex(shaders::effect_vert);
+        auto untextured = effect_sources::untextured();
+        const auto untextured_vertex =
+            effect_sources::vertex(m_material ? m_material->vertex_source() : std::string{});
         if (m_material) {
-            const auto extension = m_material->vertex_source();
-            if (!extension.empty()) {
-                untextured_vertex.insert(untextured_vertex.find("void main()"), extension);
-                untextured_vertex.insert(
-                    untextured_vertex.find('\n') + 1, "#define OPENRAC_EFFECT_POSITION 1\n"
-                );
-            }
-            untextured.insert(untextured.find("void main()"), m_material->fragment_source());
-            untextured.insert(untextured.find('\n') + 1, "#define OPENRAC_EFFECT_MATERIAL 1\n");
+            untextured =
+                effect_sources::fragment(std::move(untextured), m_material->fragment_source());
         }
         if (!m_untextured_shader.build("effect untextured", untextured_vertex, untextured, error)) {
             log::warn("Effect lines are not drawn: {}", error);

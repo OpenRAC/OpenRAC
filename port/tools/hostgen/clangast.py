@@ -305,6 +305,15 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                     fixes.append(f"line {line + 1}: second asm label {lm.group(4)} for {lm.group(1)} removed")
                 break
             continue
+        m = re.match(r"unknown register name '\$?(v[fi]\d+)' in asm", msg)
+        if m and 0 <= line < len(lines) and _drop_vu0_clobber(lines, line, col, m.group(1)):
+            # A VU0 register in the statement's clobbers ("vf1", "vf2"), which Clang has no name for. It
+            # tells GCC only what the statement writes, and the port keeps none of those registers: the
+            # clobber goes and the statement stays, so vu0_assembly sees its instructions and
+            # "vu0_assembly_from_retail" translates the function from its assembly. Made a stub, it did
+            # nothing: Veldin's func_L01_003AA658 and Annihilation Nation's func_L07_0035CC10.
+            fixes.append(f"line {line + 1}: VU0 register {m.group(1)} dropped from the inline assembly's clobbers")
+            continue
         if re.match(r"(invalid (output|input) constraint|unknown register name|invalid operand in inline asm"
                     r"|couldn't allocate .* inline asm)", msg):
             stubs = sum(ln.count("openrac_hostgen_asm();") for ln in lines)
@@ -551,6 +560,26 @@ def _unwrite_vu0_c(lines: list[str], line: int, col: int) -> bool:
     if depth or col >= j:
         return False
     lines[line] = src[:start] + "openrac_hostgen_asm();" + src[j:]
+    return True
+
+
+def _drop_vu0_clobber(lines: list[str], line: int, col: int, reg: str) -> bool:
+    """Blanks the clobber string Clang points at (`"vf1"` or `"$vf1"`) and a comma next to it, keeping every
+    column, so the other diagnostics on the line still point at their places. False when the text there is
+    not that clobber."""
+    src = lines[line]
+    m = re.compile(r'"\$?' + re.escape(reg) + r'"').match(src, col)
+    if m is None:
+        return False
+    start, end = m.span()
+    after = re.compile(r"\s*,").match(src, end)
+    if after:
+        end = after.end()
+    else:
+        before = re.search(r",\s*$", src[:start])
+        if before:
+            start = before.start()
+    lines[line] = src[:start] + " " * (end - start) + src[end:]
     return True
 
 

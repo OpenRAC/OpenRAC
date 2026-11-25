@@ -272,6 +272,7 @@ bool open(const Config& config, std::string& error) {
     }
     g = new Context();
     g->window = config.window;
+    g->compile_missing_shaders = config.compile_missing_shaders;
     g->interval = config.vsync ? 1 : 0;
     const bool validation = (config.validation || env::flag(env::Var::VulkanValidation))
                             && layer_available("VK_LAYER_KHRONOS_validation");

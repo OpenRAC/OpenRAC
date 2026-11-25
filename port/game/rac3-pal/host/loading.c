@@ -39,10 +39,12 @@
  */
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "game_protos.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
+#include "openrac/host_env.h"
 #include "rac3_version.h"
 
 #define FLIGHT_SCENE RAC3_ADDR(0x00225700u)
@@ -74,6 +76,37 @@ static int s_skipping;
 /* Whether the flight is playing: from its first pass to the one that ends it. */
 static int s_active;
 
+/* OPENRAC_RAC3_FLIGHT_LOG: one line a pass of the boot program's flight, on stderr: the pass, the
+ * files' state, the scene playing (0x0016C580 +0x64) and its tick against its last, the approach,
+ * the stretch, the scene pack's parts (0x001D8CD4) and the flight's way (0x001D8CE8 to 0x001D8CEC). */
+static void flight_log(int loaded, int over) {
+    static int on = -1;
+    if (on < 0) {
+        const char* v = openrac_env_string("OPENRAC_RAC3_FLIGHT_LOG");
+        on = v != NULL && *v != 0 && *v != '0';
+    }
+    if (!on) {
+        return;
+    }
+    fprintf(
+        stderr,
+        "flight pass %d loaded %d loader %d scene %d tick %d/%d approach %d stretch %.2f parts %#x "
+        "from %d to %d over %d\n",
+        s_passes,
+        loaded,
+        GREF(int32_t, LOADER_STATE),
+        GREF(int32_t, RAC3_ADDR(0x0016C580u) + 0x64u),
+        GREF(int32_t, FLIGHT_TICK),
+        GREF(int16_t, FLIGHT_LAST),
+        GREF(uint8_t, FLIGHT_STATE + FLIGHT_APPROACH),
+        (double)openrac_game_tick_stretch,
+        GREF(uint32_t, RAC3_ADDR(0x001D8CD4u)),
+        GREF(int32_t, RAC3_ADDR(0x001D8CE8u)),
+        GREF(int32_t, RAC3_ADDR(0x001D8CECu)),
+        over
+    );
+}
+
 /* One pass of the game's flight; the last one (it returns 1) ends it. `loaded` is whether the files
  * count as read: while they do not, the flight's own look at the loader (0x003BE2D0: state 2 and
  * above) sees them unread too. That look, at the end of each lap, frees the sound banks of the
@@ -93,6 +126,7 @@ static int flight_pass(int loaded) {
     }
     const int approach = !over && !s_skipping && GREF(uint8_t, FLIGHT_STATE + FLIGHT_APPROACH) != 0;
     openrac_game_tick_stretch = approach ? APPROACH_STRETCH : 1.0f;
+    flight_log(loaded, over);
     if (over) {
         s_active = 0;
     }

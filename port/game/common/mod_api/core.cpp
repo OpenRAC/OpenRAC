@@ -91,8 +91,16 @@ const char* api_data_dir(openrac_mod* mod) {
     return mod->data_dir.c_str();
 }
 
+// A game function by its name. Going Commando's functions are named by address, so a hook point's
+// name finds its function too.
 void* api_function(const char* name) {
-    return reinterpret_cast<void*>(openrac_guest_function_named(name));
+    if (openrac_host_fn fn = openrac_guest_function_named(name)) {
+        return reinterpret_cast<void*>(fn);
+    }
+    const HookPoint* p = find_hook_point(name);
+    return p != nullptr && p->symbol != nullptr
+               ? reinterpret_cast<void*>(openrac_guest_function_named(p->symbol))
+               : nullptr;
 }
 
 void* api_function_at(openrac_gaddr address) {
