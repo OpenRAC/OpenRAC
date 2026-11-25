@@ -865,7 +865,14 @@ bool EffectRenderer::apply(
     // the filter it had: the sea's second layer was magnified pixel by pixel (Pokitaru). The wrap
     // is set by the bind (TexturePool::set_wrap), the filter here.
     const bool rebound = texture != m_applied.texture || clamp_bits != m_applied.clamp_bits;
-    if (rebound) {
+    // A strip whose TEX1 asks for mip levels (the water planes' surface, tiled across the world)
+    // gets a chain made natively from the picture; the UI's and the quads' textures keep one level.
+    const bool mipmapped = gs::Tex1::decode(tex1_bits).mipmapped();
+    bool chain_made = false;
+    if (mipmapped && !state.textures.has_mipmaps(texture)) {
+        chain_made = state.textures.ensure_mipmaps(texture);  // its GL texture is made anew
+    }
+    if (rebound || chain_made) {
         const auto wrap = gs::Clamp::decode(clamp_bits);
         state.textures.bind_upscaled_texture_colours(
             texture,
@@ -876,7 +883,7 @@ bool EffectRenderer::apply(
         );
     }
     m_applied.texture = texture;
-    if (rebound || tex1_bits != m_applied.tex1_bits) {
+    if (rebound || chain_made || tex1_bits != m_applied.tex1_bits) {
         const gs::Tex1 tex1 = gs::Tex1::decode(tex1_bits);
         glTexParameteri(
             GL_TEXTURE_2D,
@@ -884,10 +891,14 @@ bool EffectRenderer::apply(
             static_cast<GLint>(tex1.mmag ? GL_LINEAR : GL_NEAREST)
         );
         const bool linear_min = tex1.mmin == 1 || tex1.mmin == 4 || tex1.mmin == 5;
+        const bool chain = tex1.mipmapped() && state.textures.has_mipmaps(texture);
         glTexParameteri(
             GL_TEXTURE_2D,
             GL_TEXTURE_MIN_FILTER,
-            static_cast<GLint>(linear_min ? GL_LINEAR : GL_NEAREST)
+            static_cast<GLint>(
+                chain ? (linear_min ? GL_LINEAR_MIPMAP_LINEAR : GLenum{0x2700} /* NEAREST_MIPMAP_NEAREST */)
+                      : (linear_min ? GL_LINEAR : GL_NEAREST)
+            )
         );
         m_applied.tex1_bits = tex1_bits;
         m_applied.clamp_bits = clamp_bits;

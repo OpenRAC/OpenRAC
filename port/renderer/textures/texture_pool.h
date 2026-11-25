@@ -116,6 +116,14 @@ public:
     // Gives `texture` the frames of a texture pack's animated replacement (texture_pack.h): its
     // image stays the first frame, and gl_texture() gives the frame of the game's tick. Null:
     // none. Each frame's GL texture is made at its first use and freed with the texture.
+    // Gives `texture` a mipmap chain, made from its first level when its GL texture is next made
+    // (here at once when it has one already): the game's effect strips that tile a picture across
+    // the world with a mipmapped TEX1 (the water planes' surface) read it so, where its UI and quad
+    // textures keep one level. True when the texture has a chain now; false for a texture whose
+    // blocks come from a texture pack (they carry the pack's own levels) or an unknown handle.
+    bool ensure_mipmaps(TextureHandle texture);
+    bool has_mipmaps(TextureHandle texture) const;
+
     void animate(TextureHandle texture, std::shared_ptr<const texture_pack::Animation> animation);
 
     // Gives `texture` a texture pack KTX2's picture in GPU blocks (texture_pack.h): its GL texture
