@@ -1,15 +1,15 @@
 # iPhone and iPad checks on macOS (docs/port/IOS.md). No disc or Apple signing needed.
-# Port / iOS: runtime tests, then the runtime built for iOS without a game.
-# Launcher / iOS: the Rust adapter, bundle tests, icons, and the port/ios/*.mm bridges.
-# macOS runners are few and slow to get: the macOS jobs run in the merge queue (merge_group) and
-# on pushes, never on a pull request, and the scope job picks the jobs a change can affect
-# (tools/ci_scope.py ios). On a pull request only the scope job runs, so that the required checks
-# report there too (skipped counts as passed).
+# Dev release: Port iOS: runtime tests, then the runtime built for iOS without a game.
+# Dev release: Launcher iOS: the Rust adapter, bundle tests, icons, and the port/ios/*.mm bridges.
+# macOS runners are few and slow to get: the macOS jobs run for a dev release (its pull request
+# to master and the push to master) and by hand, and the scope job picks the jobs a push can
+# affect (tools/ci_scope.py ios). On other pull requests and in the merge queue only the scope job
+# runs, so that the checks report there too (skipped counts as passed).
 name: ios
 
 on:
   push:
-    branches: [master, develop]
+    branches: [master]
     paths:
       - "port/**"
       - "!port/android/**"
@@ -36,38 +36,33 @@ on:
 permissions:
   contents: read
 
-# As in checks.yml: a pull request's new push cancels its old run; pushes and queue groups finish.
+# As in checks.yml: a pull request's new push cancels its old run; the others finish.
 concurrency:
   group: ios-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   scope:
-    name: Which iOS checks run
+    name: Plan (iOS)
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
-      port: ${{ github.event_name == 'pull_request' && 'false' || steps.scope.outputs.ios_port }}
-      launcher: ${{ github.event_name == 'pull_request' && 'false' || steps.scope.outputs.ios_launcher }}
+      port: ${{ ((github.event_name == 'pull_request' && github.base_ref != 'master') || github.event_name == 'merge_group') && 'false' || steps.scope.outputs.ios_port }}
+      launcher: ${{ ((github.event_name == 'pull_request' && github.base_ref != 'master') || github.event_name == 'merge_group') && 'false' || steps.scope.outputs.ios_launcher }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
-      # A queue group uses the base branch's script (as checks.yml does). Pushes diff against the
-      # old commit. No answer means both jobs run.
+      # A push diffs against the old commit. No answer (a dev release's pull request, a manual
+      # run) means both jobs run.
       - id: scope
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
         env:
           EVENT: ${{ github.event_name }}
-          MERGE_BASE: ${{ github.event.merge_group.base_sha }}
           BEFORE: ${{ github.event.before }}
         run: |
-          if [ "$EVENT" = merge_group ]; then
-            git fetch -q --no-tags --depth=1 origin "$MERGE_BASE" || exit 0
-            script="$RUNNER_TEMP/openrac-ci-scope.py"
-            git show "$MERGE_BASE:tools/ci_scope.py" > "$script" || exit 0
-          elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] \
+          if [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] \
               && git fetch -q --no-tags --depth=1 origin "$BEFORE"; then
             script=tools/ci_scope.py
             export PUSH_BEFORE="$BEFORE"
@@ -77,7 +72,7 @@ jobs:
           python3 "$script" ios || true
 
   port:
-    name: Port / iOS
+    name: "Dev release: Port iOS"
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.port != 'false' }}
     runs-on: macos-latest
@@ -122,7 +117,7 @@ jobs:
       - uses: ./.github/actions/compiler-cache/save
 
   launcher:
-    name: Launcher / iOS
+    name: "Dev release: Launcher iOS"
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.launcher != 'false' }}
     runs-on: macos-latest
