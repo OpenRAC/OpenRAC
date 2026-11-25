@@ -8,7 +8,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from ci_scope import carried, decomp_games, launcher_changed, launcher_paths, docs_only, event_paths, ios_plan, full_plan, plan, programs, pushed_paths
+from ci_scope import carried, decomp_games, docs_only, event_paths, ios_plan, plan, programs, pushed_paths
 
 
 class CiScopeTest(unittest.TestCase):
@@ -54,7 +54,7 @@ class PlanTest(unittest.TestCase):
         self.check(None, launcher=True, pages=True, port=True, enhanced=True,
                    port_parts=["common", *sorted(PROGRAMS)])
         for paths in ([".github/workflows/checks.yml"], ["tools/ci_scope.py", "README.md"]):
-            # Every check but the games' builds, which only the nightly run makes.
+            # Every check but the games' builds, which only a dev release or a manual run makes.
             self.check(paths, launcher=True, pages=True, port=True, enhanced=True, port_parts=["common"])
 
     def test_documentation_runs_no_build(self):
@@ -105,7 +105,7 @@ class PlanTest(unittest.TestCase):
                    port_parts=["common"])
         self.check(["games/rac1/game.json"], launcher=True, pages=True)
 
-    def test_the_nightly_run_builds_every_program(self):
+    def test_a_full_run_builds_every_program(self):
         known = programs(Path(__file__).resolve().parents[1])
         self.assertTrue({"rac2-ntsc", "rac2-pal", "rac2-ntsc2", "rac1-pal1", "rac3-pal"}
                         <= set(plan(None, known)["port_parts"]))
@@ -165,8 +165,6 @@ class TierTest(unittest.TestCase):
                 "ci_scope.subprocess.check_output", return_value=b"port/b.cpp\0") as output:
             self.assertEqual(event_paths(), (["port/b.cpp"], "full"))
             self.assertIn("old", output.call_args.args[0])
-        with patch.dict("os.environ", {"GITHUB_EVENT_NAME": "schedule"}):
-            self.assertEqual(event_paths(), (None, "full"))
         with patch.dict("os.environ", {"GITHUB_EVENT_NAME": "merge_group", "MERGE_BASE": "base"}), patch(
                 "ci_scope.subprocess.check_output", return_value=b"port/a.cpp\0") as output:
             self.assertEqual(event_paths(), (["port/a.cpp"], "full"))
@@ -180,29 +178,6 @@ class TierTest(unittest.TestCase):
         self.assertEqual(decomp_games(["games/rac2/decomp-patches/0001-x.patch", "port/a.cpp"]), ["rac2"])
         self.assertEqual(decomp_games(["launcher/src/App.svelte"]), [])
         self.assertEqual(decomp_games([".github/workflows/checks.yml"]), ["rac1", "rac2", "rac4", "rac5", "rac6"])
-
-
-class LauncherChangedTest(unittest.TestCase):
-    def test_the_filters_come_from_the_workflow(self):
-        filters = launcher_paths(Path(__file__).resolve().parents[1])
-        self.assertIn("launcher/**", filters)
-        self.assertIn("games/*/game.json", filters)
-        self.assertIn(".github/workflows/launcher.yml", filters)
-
-    def test_only_what_the_build_reads_starts_a_build(self):
-        filters = ["launcher/**", "games/*/game.json", "tools/build_port.py"]
-        self.assertTrue(launcher_changed(["launcher/src/App.svelte"], filters))
-        self.assertTrue(launcher_changed(["games/rac3/game.json"], filters))
-        self.assertFalse(launcher_changed(["games/rac3/decomp-patches/x.patch"], filters))
-        self.assertFalse(launcher_changed(["docs/SOURCES.md", "tools/build_port.pyc"], filters))
-        self.assertTrue(launcher_changed(None, filters))
-        self.assertFalse(launcher_changed([], filters))
-
-    def test_the_last_matching_filter_decides(self):
-        filters = ["launcher/**", "!launcher/docs/**", "launcher/docs/build.md"]
-        self.assertFalse(launcher_changed(["launcher/docs/RELEASING.md"], filters))
-        self.assertTrue(launcher_changed(["launcher/docs/build.md"], filters))
-        self.assertTrue(launcher_changed(["launcher/docs/x.md", "launcher/src/x.rs"], filters))
 
 
 class IosPlanTest(unittest.TestCase):

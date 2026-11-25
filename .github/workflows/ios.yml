@@ -1,10 +1,10 @@
 # iPhone and iPad checks on macOS (docs/port/IOS.md). No disc or Apple signing needed.
 # Port / iOS: runtime tests, then the runtime built for iOS without a game.
 # Launcher / iOS: the Rust adapter, bundle tests, icons, and the port/ios/*.mm bridges.
-# macOS runners are few and slow to get: the macOS jobs run once a night on develop, on master
-# pushes and by hand, and the scope job picks the jobs a push can affect (tools/ci_scope.py ios).
-# On a pull request and in the merge queue only the scope job runs, so that the checks report
-# there too (skipped counts as passed).
+# macOS runners are few and slow to get: the macOS jobs run for a dev release (its pull request
+# to master and the push to master) and by hand, and the scope job picks the jobs a push can
+# affect (tools/ci_scope.py ios). On other pull requests and in the merge queue only the scope job
+# runs, so that the checks report there too (skipped counts as passed).
 name: ios
 
 on:
@@ -31,8 +31,6 @@ on:
       - ".github/workflows/ios.yml"
   pull_request:
   merge_group:
-  schedule:
-    - cron: "11 2 * * *"
   workflow_dispatch:
 
 permissions:
@@ -49,15 +47,15 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
-      port: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 'false' || steps.scope.outputs.ios_port }}
-      launcher: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 'false' || steps.scope.outputs.ios_launcher }}
+      port: ${{ ((github.event_name == 'pull_request' && github.base_ref != 'master') || github.event_name == 'merge_group') && 'false' || steps.scope.outputs.ios_port }}
+      launcher: ${{ ((github.event_name == 'pull_request' && github.base_ref != 'master') || github.event_name == 'merge_group') && 'false' || steps.scope.outputs.ios_launcher }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
-      # A push diffs against the old commit. No answer (the nightly run, a manual run) means both
-      # jobs run.
+      # A push diffs against the old commit. No answer (a dev release's pull request, a manual
+      # run) means both jobs run.
       - id: scope
         if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
         env:

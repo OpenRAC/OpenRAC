@@ -7,10 +7,11 @@
 # moves the pins); the port's compiles are cached with ccache.
 name: checks
 
-# The games (hostgen and each version's build) and Windows build only in the nightly run and a
-# manual run (Run workflow). A game that breaks there is fixed on develop and the run started
-# again. Pull requests, the merge queue and develop pushes build the port's shared part and run
-# its tests (tools/ci_scope.py). A pull request runs the fast tier; the queue and develop pushes
+# The games (hostgen and each version's build) and Windows build only for a dev release (its pull
+# request from develop to master, .github/workflows/dev-release.yml, and the push to master) and a
+# manual run (Run workflow). A game that breaks there is fixed on develop. Pull requests to
+# develop, the merge queue and develop pushes build the port's shared part and run its tests
+# (tools/ci_scope.py). A pull request runs the fast tier; the queue and develop pushes
 # the full tier, which adds the enhanced Vulkan build and tests. develop's runs are the only ones
 # that write the caches (.github/actions/*/save), so they are never cancelled.
 on:
@@ -20,9 +21,6 @@ on:
     # ready_for_review: a draft skips the port's builds (scope below), so they run when it is ready.
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
-  # Every night on develop: everything, every game and version and Windows, and every cache.
-  schedule:
-    - cron: "41 1 * * *"
   workflow_dispatch:
 
 permissions:
@@ -47,8 +45,8 @@ concurrency:
 jobs:
   # What a run needs (tools/ci_scope.py: the jobs and the port's parts its files can affect, in
   # the event's tier), and on every event all the parts the Linux port job is built in: one for
-  # what the games share, one per game program (port/game/*/hostgen.json "id"). The nightly and
-  # manual runs run everything. A draft pull request runs no port build, only the cheap checks; marking it ready
+  # what the games share, one per game program (port/game/*/hostgen.json "id"). A dev release's
+  # pull request to master, a push to master and a manual run run everything. A draft pull request runs no port build, only the cheap checks; marking it ready
   # runs the rest.
   scope:
     name: Which checks run
@@ -86,10 +84,13 @@ jobs:
         run: |
           # The base branch's policy, so that a change to the gate gets full checks. A develop
           # push checks what it changed (it landed through the queue, which checked all of it);
-          # any other push, the nightly run or a manual run gives every output (the defaults).
+          # a pull request to master (a dev release), any other push or a manual run gives every
+          # output (the defaults).
           script="$RUNNER_TEMP/openrac-ci-scope.py"
           case "$GITHUB_EVENT_NAME" in
-            pull_request) git show HEAD^1:tools/ci_scope.py > "$script" || exit 0 ;;
+            pull_request)
+              [ "$GITHUB_BASE_REF" != master ] || exit 0
+              git show HEAD^1:tools/ci_scope.py > "$script" || exit 0 ;;
             merge_group)
               git fetch -q --no-tags --depth=1 origin "$MERGE_BASE" || exit 0
               git show "$MERGE_BASE:tools/ci_scope.py" > "$script" || exit 0 ;;
@@ -303,7 +304,7 @@ jobs:
 
   # The desktop launcher (launcher/): its Rust side, whose tests also check launcher/actions.json
   # against games/*/game.json. Linux in every tier; Windows, where paths join with backslashes,
-  # files are checked out with CRLF and the Unix-only tests are left out, in the nightly run.
+  # files are checked out with CRLF and the Unix-only tests are left out, for a dev release.
   launcher:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' && needs.scope.outputs.launcher_systems != '[]' }}
@@ -349,7 +350,7 @@ jobs:
           cargo clippy --workspace --all-targets -- -D warnings
 
   # One check for the launcher's systems (what branch protection requires): Windows is in the
-  # matrix only in the nightly run, so its own check cannot be the required one.
+  # matrix only for a dev release, so its own check cannot be the required one.
   launcher-gate:
     name: Launcher
     needs: [scope, launcher]
@@ -677,7 +678,7 @@ jobs:
   port-windows:
     name: Port / Windows
     needs: scope
-    # Only when everything is checked (the nightly run, a manual run).
+    # Only when everything is checked (a dev release, a manual run).
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.windows == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 120
