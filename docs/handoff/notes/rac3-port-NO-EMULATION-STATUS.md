@@ -589,6 +589,11 @@ Not fixed, for whoever picks rac3 up next:
   its transition table (#871's runs). Probably the New Game intro movie (sector 18444); not
   confirmed against the original.
 - **Blank first-weapon slot after loading a save** (one report): not reproduced in six box2 runs.
-- **Ties' additive blends**: done (levels format 19): 0x58 and 0x68 materials are `extras.additive` and drawn added in the translucent pass; re-extract the levels.
+- **Ties' additive blends**: carried (levels format 19): a tie material whose ALPHA_1 is 0x58 or 0x68
+  is `extras: {"additive": factor}` (1.0, or FIX / 0x80) and `Material::additive` draws it added in
+  the translucent pass (`mesh.frag`, `effect_additive` 2). Retail PAL has 14 such materials on ties
+  (6472, 6492, 6557, 6731, 6759 to 6762, 7737) and 3 more at 0x68 (702, 6275, 6299), but a scan of
+  every level found no tie face that uses one, so nothing changes in PAL today; checked with a
+  hidden box1 frame of Veldin with every tie material marked additive. Re-extract the levels.
 - **Water**: the surface texture has one mip level (#868), so distant water on levels with a
   surface texture may shimmer; colours were checked against microprogram 10's maths, not footage.
