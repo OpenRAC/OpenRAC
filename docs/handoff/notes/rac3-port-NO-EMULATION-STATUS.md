@@ -671,5 +671,6 @@ Not fixed, for whoever picks rac3 up next:
   confirmed against the original.
 - **Blank first-weapon slot after loading a save** (one report): not reproduced in six box2 runs.
 - **Ties' additive blends** 0x58 and 0x68 are still drawn as the normal 0x44 blend (#869).
-- **Water**: the surface texture has one mip level (#868), so distant water on levels with a
-  surface texture may shimmer; colours were checked against microprogram 10's maths, not footage.
+- **Water**: the surface texture now has a mip chain, made natively on first use by an effect strip
+  whose TEX1 asks for levels (`TexturePool::ensure_mipmaps`); colours were checked against
+  microprogram 10's maths, not footage.

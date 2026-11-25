@@ -246,6 +246,8 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool on_overlay_phases(openrac_overlay_fn fn, void* user, std::uint32_t phases) const` | Since 1.31: `fn(user, overlay)` once a frame to draw over the game in the phases of `phases` (OPENRAC_OVERLAY_PLAYING, _MENU, _SCENE; overlay->phase says which). It replaces the mod's on_overlay(). Only during load; false when refused or the port has no such call. |
 | `bool has_button_label() const` | Since 1.31: whether the port gives the pad's buttons' labels (button_label()). |
 | `std::string button_label(std::uint32_t button, int* kind = nullptr) const` | Since 1.31: the label of the pad's button `button` (one OPENRAC_PAD_* bit) for the player's device now: the game's token (OPENRAC_UI_SQUARE ...) or name on a PlayStation pad, the letter on a lettered pad, the bound key on the keyboard and mouse; its kind (OPENRAC_BUTTONS_*) into `kind`. Empty, `kind` OPENRAC_HOOK_UNKNOWN, when the port has no such call or `button` is not one button. Any time. |
+| `bool has_play_queries() const` | Synchronous gameplay decisions. Since 1.40; register only during load. |
+| `void on_play_query(uint32_t kinds, openrac_play_query_fn fn, void* user)` |  |
 | `template <class F> void on_tick_boundary(F&& callable)` | Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here. Since 1.6; only during load. |
 | `bool has_savestates() const` | Since 1.6: returns whether the port offers tick-boundary and warm-snapshot calls. |
 | `std::size_t savestate_size() const` | The exact size of this build's warm, same-process snapshot. Since 1.6. |

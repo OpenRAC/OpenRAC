@@ -126,9 +126,10 @@ extern "C" {
  * strongly saturated texels, a visor or lamps
  * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT), and 1.39 paint that draws the effects
  * a moby makes in its colour, and paint in weapon_look
- * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS).
+ * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS), and 1.40 synchronous gameplay decision
+ * queries (on_play_query).
  */
-#define OPENRAC_MOD_API_MINOR 39
+#define OPENRAC_MOD_API_MINOR 40
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1907,6 +1908,34 @@ typedef struct openrac_rac1_weapon {
 #define OPENRAC_MENU_OPTION_ON 1      /* usable, even where the port greys it out */
 #define OPENRAC_MENU_OPTION_OFF 2     /* greyed out: shown, but it cannot be changed */
 
+/* Synchronous gameplay decisions, since 1.40. Values are not persisted. A mod
+ * takes exclusive ownership of each requested kind until it unloads. The host
+ * supplies original and alternate values; only value is an output. subject is
+ * a game address, or zero where the decision has no object. index is a record,
+ * menu slot or item ID, documented by the game's query-point catalogue. */
+#define OPENRAC_PLAY_QUERY_CHALLENGE_AVAILABLE (1u << 0)
+#define OPENRAC_PLAY_QUERY_ITEM_RESPAWN (1u << 1)
+#define OPENRAC_PLAY_QUERY_REVISIT_BOLTS (1u << 2)
+#define OPENRAC_PLAY_QUERY_REVISIT_XP (1u << 3)
+#define OPENRAC_PLAY_QUERY_MENU_TEXT (1u << 4)
+#define OPENRAC_PLAY_QUERY_MENU_DATA (1u << 5)
+#define OPENRAC_PLAY_QUERY_MENU_ACTION (1u << 6)
+#define OPENRAC_PLAY_QUERY_HERO_OVERRIDE (1u << 7)
+#define OPENRAC_PLAY_QUERY_ALL 0xffu
+
+typedef struct openrac_play_query {
+    uint32_t size;
+    uint32_t kind;
+    int32_t level;
+    openrac_gaddr subject;
+    int32_t index;
+    int32_t original;
+    int32_t alternate;
+    int32_t value;
+} openrac_play_query;
+
+typedef void (*openrac_play_query_fn)(void* user, openrac_play_query* query);
+
 typedef struct openrac_api {
     /* sizeof(openrac_api) as the port was built: a newer port's is larger. Since 1.0. */
     uint32_t size;
@@ -3353,6 +3382,8 @@ typedef struct openrac_api {
      * a mod's calls go with it when it unloads. Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN for no
      * name or another state. Since 1.37. */
     int (*menu_option_set)(openrac_mod* mod, const char* option, int state);
+    /* Register synchronous gameplay decisions during load. Since 1.40. */
+    int (*on_play_query)(openrac_mod* mod, uint32_t kinds, openrac_play_query_fn fn, void* user);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *
