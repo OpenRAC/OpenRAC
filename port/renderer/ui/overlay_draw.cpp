@@ -102,11 +102,8 @@ bool OverlayDraw::ready() {
     return true;
 }
 
-unsigned OverlayDraw::texture(int image, unsigned& mips) {
+unsigned OverlayTextures::texture(int image, unsigned& mips) {
     mips = 1;
-    if (image <= 0) {
-        return m_white;
-    }
     if (const auto it = m_textures.find(image); it != m_textures.end()) {
         mips = it->second.mips;
         return it->second.name;
@@ -124,7 +121,7 @@ unsigned OverlayDraw::texture(int image, unsigned& mips) {
     return t.name;
 }
 
-void OverlayDraw::sweep() {
+void OverlayTextures::sweep() {
     const std::uint64_t changes = overlay_images::changes();
     if (changes == m_swept) {
         return;
@@ -137,6 +134,22 @@ void OverlayDraw::sweep() {
         glDeleteTextures(1, &item.second.name);
         return true;
     });
+}
+
+void OverlayTextures::release() {
+    for (const auto& [image, t] : m_textures) {
+        glDeleteTextures(1, &t.name);
+    }
+    m_textures.clear();
+    m_swept = 0;
+}
+
+unsigned OverlayDraw::texture(int image, unsigned& mips) {
+    if (image <= 0) {
+        mips = 1;
+        return m_white;
+    }
+    return textures().texture(image, mips);
 }
 
 void OverlayDraw::draw(
@@ -156,7 +169,7 @@ void OverlayDraw::draw(
     if (vertices.empty() || width <= 0 || height <= 0 || !ready()) {
         return;
     }
-    sweep();
+    textures().sweep();
     // Every picture the runs sample, made before the pass (uploads belong outside it); a run whose
     // picture is gone is left out.
     std::vector<unsigned> run_textures(batches.size(), 0);
@@ -242,11 +255,7 @@ void OverlayDraw::draw(
 }
 
 void OverlayDraw::release() {
-    for (const auto& [image, t] : m_textures) {
-        glDeleteTextures(1, &t.name);
-    }
-    m_textures.clear();
-    m_swept = 0;
+    m_own.release();
     if (m_white != 0) {
         glDeleteTextures(1, &m_white);
         m_white = 0;

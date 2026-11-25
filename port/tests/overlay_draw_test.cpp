@@ -270,6 +270,35 @@ void pictures(renderer::ui::OverlayDraw& draw, unsigned frame) {
     CHECK(is(pixel(frame, 230, 200), 0, 0, 0));
 }
 
+// Two draws sharing one OverlayTextures (the top layer and the one under the HUD): both draw the
+// picture, and one draw's release leaves the shared textures to the other.
+void shared_pictures(unsigned frame) {
+    using renderer::ui::OverlayList;
+    namespace images = renderer::ui::overlay_images;
+    static const int owner = 0;
+    const std::array<std::uint8_t, 4> red{255, 0, 0, 255};
+    const int id = images::create(&owner, 1, 1, red, false);
+    CHECK(id > 0);
+    renderer::ui::OverlayTextures textures;
+    renderer::ui::OverlayDraw top{&textures};
+    renderer::ui::OverlayDraw under{&textures};
+    OverlayList list;
+    list.begin(512.0f / 448.0f);
+    list.image(id, 256, 224, 100, 100, 0, 0xFFFFFFFFu);
+    for (renderer::ui::OverlayDraw* draw : {&top, &under}) {
+        clear_to_bytes(frame, 0, 0, 0, 255);
+        draw->draw(frame, kWidth, kHeight, list.vertices(), list.batches());
+        CHECK(is(pixel(frame, 256, 224), 255, 0, 0));
+    }
+    top.release();
+    clear_to_bytes(frame, 0, 0, 0, 255);
+    under.draw(frame, kWidth, kHeight, list.vertices(), list.batches());
+    CHECK(is(pixel(frame, 256, 224), 255, 0, 0));
+    under.release();
+    textures.release();
+    CHECK(images::destroy(&owner, id));
+}
+
 }  // namespace
 
 int main() {
@@ -334,6 +363,9 @@ int main() {
     CHECK(glGetError() == GL_NO_ERROR);
 
     pictures(draw, frame.id());
+    CHECK(glGetError() == GL_NO_ERROR);
+
+    shared_pictures(frame.id());
     CHECK(glGetError() == GL_NO_ERROR);
 
     draw.release();
