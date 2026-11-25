@@ -105,9 +105,10 @@ keyboard the movement keys show as ZQSD.
 
 ## Changing the controls
 
-In the game (F1, Controls, *Keyboard and mouse* tab) or in the launcher (Mods,
-Built in). Gyro settings sit on the game's *Gamepad* tab and the launcher's *Gyro*
-tab. The Controls tab opens on the device you used last. Changes apply at once. They are saved as
+In the game (the port's menu, on the key under Escape: Controls, *Keyboard and
+mouse* tab) or in the launcher (Mods, Built in). Gyro settings sit on the game's
+*Gamepad* tab and the launcher's *Gyro* tab. The Controls tab opens on the device
+you used last. Changes apply at once. They are saved as
 `kbm_<key> = <value>` in `<data>/settings/<game>-<version>.ini`.
 
 Presets set the keys at once: *Left-handed*, *Arrow keys*, and *Modern*: right click
