@@ -579,6 +579,17 @@
       "why": "func_003A76A0 (NTSC-U func_003A7528, match): its read of the table's second word is lw -0x6228 (0x001D9DD8) on PAL and lw -0x61A8 (0x001D9E58) on NTSC-U; names.tsv gives func_003A72A0's alias D_001D9DD4_003A72A0 the same 001D9E54"
     }
   },
+  "front_globals": {
+    "about": "NTSC-U's value of a global of the front end (frontbin, a program of its own) that the C of a match function of frontbin reads and config/us/names.tsv gives a boot_elf row only for (release_rac3.py): PAL's name, NTSC-U's address in frontbin, the evidence. The boot program's row is another datum: frontbin's .text starts at 0x0037D100 on NTSC-U (README.md), PAL's at 0x00381080 as the boot program's.",
+    "D_0037FBE0": {
+      "is": "0x0037BC30",
+      "why": "func_003BD030 (NTSC-U func_003B7B50, match), the scene switch's callbacks (value, init, step, event, render, finish; 24 bytes a row): its instruction 0x1C0 is addiu -0x420 on lui 0x0038 (0x0037FBE0) on PAL, addiu -0x43D0 (0x0037BC30) on NTSC-U, in frontbin as loaded (RAM dumps of both discs); frontbin's 1,778 comparable twins of map.tsv reach it so with no other vote, and its neighbours D_0037FA64 (0x0037BAB4) and D_0037FFE8 (0x0037C038) in names.tsv move the same -0x3FB0. The boot program's 0x0037FC70 is frontbin's code there: its row 8 read the words 0x7FA300C0, 0x27B000D0, 0x27A500A0 and 0x0C0EFCBE as init, step, event and render, and New Game from frontbin never left the loading screen"
+    },
+    "D_0037FCB8": {
+      "is": "0x0037BD08",
+      "why": "func_003BD030 (NTSC-U func_003B7B50, match), the scene switch's rules (from, to, row, two arguments; 16 bytes each): its instruction 0x114 is addiu -0x348 on lui 0x0038 (0x0037FCB8) on PAL, addiu -0x42F8 (0x0037BD08) on NTSC-U, in frontbin as loaded; the twins reach it so with no other vote, the same -0x3FB0 as D_0037FBE0. At the boot program's 0x0037FD48, frontbin's code, no rule matched and the switch took the default row 8"
+    }
+  },
   "level_addresses": {
     "about": "NTSC-U's address of a PAL level's global the shared host C writes as RAC3_LADDR(level, address): Lnn:PAL's address, NTSC-U's, the evidence (rac3_level_pairs.py).",
     "L01:001DF960": {
