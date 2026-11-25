@@ -48,14 +48,15 @@ void renderer_shader_recipes(ShaderRecipes& recipes, bool /*enhanced*/) {
     );
     recipes.graphics("effect tested quads", shaders::effect_vert, effect);
     recipes.graphics("effect", shaders::effect_vert, effect);
-    recipes.graphics(
-        "effect fixed",
-        shaders::effect_vert,
-        shader_constants(
-            define(effect, "#define OPENRAC_EFFECT_FIXED 1\n"),
-            {{"textured", 1}, {"distance_field", 0}, {"alpha_test", 0}}
-        )
+    const auto fixed = shader_constants(
+        define(effect, "#define OPENRAC_EFFECT_FIXED 1\n"),
+        {{"textured", 1}, {"distance_field", 0}, {"alpha_test", 0}}
     );
+    recipes.graphics("effect fixed", shaders::effect_vert, fixed);
+    // Without a material, the effect shader draws pair runs too (EffectRenderer::pair_quads).
+    constexpr std::string_view pair = "#define OPENRAC_EFFECT_PAIR 1\n";
+    recipes.graphics("effect pairs", define(shaders::effect_vert, pair), define(effect, pair));
+    recipes.graphics("effect fixed pairs", define(shaders::effect_vert, pair), define(fixed, pair));
     recipes.graphics(
         "effect untextured",
         shaders::effect_vert,
