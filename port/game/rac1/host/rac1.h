@@ -30,6 +30,8 @@
 /* A ship destination's label (destinations.c): the text of an added destination's id, else 0. */
 gaddr rac1_ship_destination_text(int id);
 #define RAC1_DESTINATION_TEXT(id) rac1_ship_destination_text(id)
+/* The game's own text id behind a template planet's ship list row (destinations.c), else the id. */
+int rac1_ship_text_id(int id);
 
 /* A function's name in this version, as a string (for logs and switches that name functions). */
 #define RAC1_NAME_(f) #f
@@ -55,6 +57,9 @@ void rac1_options_frame(void);
 /* moby_pool.c: a WAD decompressed to `to` (hand.c's WadDecompress, after it wrote it): the gameplay
  * header's spare moby count raised while the level loader runs. */
 void rac1_wad_decompressed(gaddr to);
+/* flight_pictures.c: the flight's lump just decompressed to `to` (`made` bytes) gets an added
+ * destination's picture and caption after its end; returns the bytes added (0 for any other WAD). */
+int rac1_flight_pictures(gaddr to, uint32_t made);
 
 /* scene_actors.c: hide the scene's missing actors during the flight update (pack), then
  * restore the list (unpack). */

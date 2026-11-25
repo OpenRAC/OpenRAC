@@ -82,6 +82,32 @@ void labels() {
     using openrac::keys::move_label;
     CHECK(move_label({"KeyW", "KeyA", "KeyS", "KeyD"}) == "WASD");
     CHECK(move_label({"ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"}) == "MOVE");
+
+    // The letters and signs named as the player's layout prints them (AZERTY here: the key right of
+    // Tab prints A, W's place Z, A's place Q, the semicolon's M); the digits by their number; a key
+    // the layout says nothing of, by place; and by place again once no layout is set.
+    openrac::keys::set_layout([](int usage) -> char {
+        switch (usage) {
+            case 20:
+                return 'A';
+            case 26:
+                return 'Z';
+            case 4:
+                return 'Q';
+            case 51:
+                return 'M';
+            case 30:
+                return '&';
+            default:
+                return '\0';
+        }
+    });
+    CHECK(menu_label("KeyQ") == "A" && icon_label("KeyW") == "Z");
+    CHECK(menu_label("Semicolon") == "M" && menu_label("Digit1") == "1");
+    CHECK(menu_label("KeyE") == "E");
+    CHECK(move_label({"KeyW", "KeyA", "KeyS", "KeyD"}) == "ZQSD");
+    openrac::keys::set_layout(nullptr);
+    CHECK(menu_label("KeyQ") == "Q");
 }
 
 void find() {
