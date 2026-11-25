@@ -336,6 +336,21 @@ jobs:
           yarn build
           cargo clippy --workspace --all-targets -- -D warnings
 
+  # One check for the launcher's systems (what branch protection requires): Windows is not in a
+  # pull request's matrix at all, so its own check cannot be the required one.
+  launcher-gate:
+    name: Launcher
+    needs: [scope, launcher]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every system
+        env:
+          SCOPE: ${{ needs.scope.result }}
+          RESULT: ${{ needs.launcher.result }}
+        run: test "$SCOPE" = success && { test "$RESULT" = success || test "$RESULT" = skipped; }
+
   # The launcher's pages, once (they are the same on every system): svelte-check, ESLint,
   # Prettier and Vitest, then the Android layout in a browser (launcher/e2e/), page by page. No
   # Rust, one browser, one Vite server. On 24.04, which Playwright's install-deps knows.
