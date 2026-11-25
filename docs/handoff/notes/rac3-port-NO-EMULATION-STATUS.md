@@ -631,6 +631,18 @@ Not fixed, for whoever picks rac3 up next:
   measures "\x12 Enter ship" as 120 units (font 1, scale 1.0) against a half-width of 68 and draws
   the text from x=195. Every global on that path pairs correctly on level 3 (#876's audit). Next
   step: capture the same prompt on Florana and compare the measured width (message box +0x1B4).
+- **Misfiled 8-byte getters in other levels** (#876 fixed levels 3/24's and the flight's): the
+  same one-row-along filing shows in levels 4, 7, 9, 12, 13, 16, 18, 19, 22, 26, 27, 29 and 30
+  (e.g. `func_L01_003A0710`, `func_L01_004C93D8`), and the font-wrapper rows still held by other
+  Veldin names (`func_L01_00423020`, `func_L01_00412810`). Many read private globals only; check
+  each one against callers' `OPENRAC_LCODE` calls. The root fix is rac3-decomp's catalogue
+  (tools/level_catalogue.py).
+- **Synchronous rendering's tick-boundary hitch** (fixed, #898): on OpenGL, or Vulkan without
+  the render thread, the pacing ran the scene half a tick behind but frames cannot be drawn past
+  the next tick, so alpha dropped from ~0.47 to 0 at each tick. Every path now uses no lag
+  (`lag_ticks()` in frontend/interpolation.cpp): alpha runs 0 to 1 across the tick. Probe:
+  `OPENRAC_MOTION_LOG`.
+
 - **Misfiled 8-byte getters in other levels** (#876 fixed levels 3/24's and the flight's; the rest
   audited and fixed in the follow-up): the catalogue files a level's copies of the 8-byte class
   getters and font wrappers one row along in levels 4, 7, 9, 12, 13, 16, 18, 19, 22, 26, 27, 29, 30
