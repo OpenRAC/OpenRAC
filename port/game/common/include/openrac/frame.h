@@ -253,6 +253,35 @@ void openrac_frame_picture_band(int on);
  * openrac_game_store_image), over the whole target. */
 void openrac_frame_last_frame(void);
 
+/*
+ * Transitional placements, while a game still draws part of its 2D or its effect strips as its own
+ * packets (Ratchet & Clank and Going Commando, until R2 and R3): each says where something starts
+ * among them, as the markers host C once wrote into the list did. Nothing is written into the list.
+ */
+/* The world's shrub pass starts here: the effect strips sent before it are drawn before it. */
+void openrac_frame_world_shrubs(void);
+/* The effect strips that follow move with attachment `attachment`'s parent of the tick before (the
+ * scope game_host.h's OPENRAC_PREVIOUS_EFFECT_PARENT_MARKER named); 0 ends it. */
+void openrac_frame_effect_parent(uint32_t attachment);
+/* The same scope following only the parent's position, preserving world-space orientation. */
+void openrac_frame_effect_parent_position(uint32_t attachment);
+/* With "HUD: Edges": what follows goes out to the HUD's side, `side` (openrac_game_hud_side) past
+ * the picture's; 0 ends it. OPENRAC_HUD_STRETCH: an element across the middle stretches out with the
+ * rest; OPENRAC_HUD_SPLIT(x): what follows parts at x (the game's 2D pixels) instead, each side as
+ * one block. */
+#define OPENRAC_HUD_STRETCH 1u
+#define OPENRAC_HUD_SPLIT(x) (2u | (unsigned)(x) << 2)
+void openrac_frame_hud_side(int side, unsigned how);
+/* `on`: what follows covers the whole target on a window wider than the picture (as a fade does),
+ * rather than keeping its shape in the picture's middle; 0 ends it. */
+void openrac_frame_wide(int on);
+/* `on`: a scissor of the screen's whole width stays the picture's, even with "HUD: Edges" (a menu
+ * parks its hidden panels past the screen's sides); 0 ends it. */
+void openrac_frame_picture_band(int on);
+/* The frame the window last drew with its world in (kept when the game read its frame back,
+ * openrac_game_store_image), over the whole target. */
+void openrac_frame_last_frame(void);
+
 #ifdef __cplusplus
 }
 #endif

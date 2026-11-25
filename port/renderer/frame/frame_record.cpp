@@ -292,6 +292,105 @@ std::optional<FrameCommand> depth_fill_command(
     return c;
 }
 
+const char* frame_op_name(FrameOp op) {
+    // Names follow the native command vocabulary, not the residual packet encoding.
+    switch (op) {
+        case FrameOp::World:
+            return "World";
+        case FrameOp::WorldMobys:
+            return "WorldMobys";
+        case FrameOp::Mobys:
+            return "Mobys";
+        case FrameOp::UiQuad:
+            return "UiQuad";
+        case FrameOp::UiItem:
+            return "UiItem";
+        case FrameOp::EffectQuad:
+            return "EffectQuad";
+        case FrameOp::Fill:
+            return "Fill";
+        case FrameOp::Clear:
+            return "Clear";
+        case FrameOp::Picture:
+            return "Picture";
+        case FrameOp::Snapshot:
+            return "Snapshot";
+        case FrameOp::TargetBegin:
+            return "TargetBegin";
+        case FrameOp::TargetEnd:
+            return "TargetEnd";
+        case FrameOp::Scissor:
+            return "Scissor";
+        case FrameOp::WorldShrubs:
+            return "WorldShrubs";
+        case FrameOp::EffectParent:
+            return "EffectParent";
+        case FrameOp::HudSide:
+            return "HudSide";
+        case FrameOp::Wide:
+            return "Wide";
+        case FrameOp::PictureBand:
+            return "PictureBand";
+        case FrameOp::LastFrame:
+            return "LastFrame";
+        case FrameOp::ViewBegin:
+            return "ViewBegin";
+        case FrameOp::ViewEnd:
+            return "ViewEnd";
+    }
+
+    return "Unknown";
+}
+
+std::optional<FrameCommand> depth_fill_command(
+    const float* rect,
+    std::uint32_t rgba,
+    BlendMode blend,
+    bool wide,
+    std::uint32_t depth,
+    int depth_bits,
+    DepthCompare compare,
+    bool write_depth,
+    std::uint8_t writes
+) {
+    // The games' depth buffers are 16, 24 or 32 bits; a depth past the buffer's largest value
+    // would be clamped where the producer asked for an exact one.
+    constexpr int kDepth16 = 16, kDepth24 = 24, kDepth32 = 32;
+    const bool known_bits =
+        depth_bits == kDepth16 || depth_bits == kDepth24 || depth_bits == kDepth32;
+
+    // Never is no rectangle at all, and a channel outside the colour's is no channel.
+    const bool known_compare = compare == DepthCompare::Always
+                               || compare == DepthCompare::GreaterEqual
+                               || compare == DepthCompare::Greater;
+
+    // Any of these leaves the rectangle to the caller's own drawing.
+    if (!known_bits || static_cast<double>(depth) > depth_max(depth_bits) || !known_compare
+        || (writes & ~kWriteColour) != 0) {
+        return std::nullopt;
+    }
+
+    FrameCommand c;
+    c.op = FrameOp::Fill;
+    c.whole = rect == nullptr;
+
+    // Only an explicit rectangle has coordinates; null is the whole target.
+    if (rect != nullptr) {
+        std::copy(rect, rect + c.rect.size(), c.rect.begin());
+    }
+
+    c.wide = wide;
+    c.rgba = rgba;
+    c.blend = blend;
+    // A depth written without a comparison is still a depth pass: the back end tests to write.
+    c.depth = {compare != DepthCompare::Always || write_depth, compare};
+    c.depth_write = write_depth;
+    c.depth_bits = static_cast<std::uint8_t>(depth_bits);
+    c.depth_value = depth;
+    c.writes = writes;
+    return c;
+}
+
 bool FrameView::valid() const {
     return view < kFrameViews && std::isfinite(screen_width) && std::isfinite(screen_height)
            && screen_width >= 1.0f && screen_height >= 1.0f

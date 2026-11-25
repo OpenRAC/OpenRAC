@@ -1064,8 +1064,22 @@ void GifInterpreter::run_command(const FrameCommand& c) {
         case FrameOp::EffectQuad:
         case FrameOp::ViewBegin:
         case FrameOp::ViewEnd:
-            // The window's split and the effect quads' tests, read where they were recorded; the
-            // views' worlds, drawn by the window (frontend/split_views.cpp).
+            break;  // the window's split, strips and effect quads' tests: read where recorded
+        case FrameOp::HudSide:
+            hud_side(
+                static_cast<std::int32_t>(c.index),
+                (c.value & 1u) != 0,
+                (c.value & 2u) != 0 ? static_cast<int>(c.value >> 2) : -1
+            );
+            break;
+        case FrameOp::Wide:
+            m_whole = c.index != 0;
+            break;
+        case FrameOp::PictureBand:
+            m_picture = c.index != 0;
+            break;
+        case FrameOp::LastFrame:
+            draw_frame_snapshot();
             break;
         case FrameOp::HudSide:
             hud_side(

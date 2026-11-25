@@ -60,6 +60,33 @@
 int openrac_game_enhanced_water(void) {
     return 0;
 }
+
+// A game may install its menu callbacks even when no frontend can display mod pages.
+const openrac_mod_pages_host* openrac_game_mod_pages = nullptr;
+
+// No mod pages are offered by a headless frontend.
+int openrac_mod_pages_items(int) {
+    return 0;
+}
+
+// An absent item has an empty label when the caller supplied a writable buffer.
+int openrac_mod_pages_label(int, int, char* out, int size) {
+    // Keep invalid or empty buffers untouched, as the windowed implementation does.
+    if (out != nullptr && size > 0) {
+        out[0] = '\0';
+    }
+    return 0;
+}
+
+// The contract's fallback slot is Options (2), with no headless mod items.
+int openrac_mod_pages_after(int) {
+    return 2;
+}
+
+// No mod page is on screen without the frontend, so the caller keeps its own menu.
+int openrac_mod_pages_view_of(openrac_mod_pages_view*) {
+    return 0;
+}
 #endif
 
 namespace openrac::program {

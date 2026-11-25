@@ -629,8 +629,6 @@ Not fixed, for whoever picks rac3 up next:
   Veldin names (`func_L01_00423020`, `func_L01_00412810`). Many read private globals only; check
   each one against callers' `OPENRAC_LCODE` calls. The root fix is rac3-decomp's catalogue
   (tools/level_catalogue.py).
-<<<<<<< HEAD
-=======
 - **Synchronous rendering's tick-boundary hitch** (fixed, #898): on OpenGL, or Vulkan without
   the render thread, the pacing ran the scene half a tick behind but frames cannot be drawn past
   the next tick, so alpha dropped from ~0.47 to 0 at each tick. Every path now uses no lag
@@ -656,7 +654,6 @@ Not fixed, for whoever picks rac3 up next:
   through `level_copies`, not through the names. The root fix (rac3-decomp's `copy_groups()` in
   tools/level_catalogue.py) was not attempted: it renames rows used by src/levels/ and the
   decomp's own report, so it needs its own catalogue PR; this audit is the check for it.
->>>>>>> origin/develop
 - **Synchronous rendering's tick-boundary hitch**: on OpenGL, or Vulkan without the render
   thread, the scene runs half a tick behind but in-between frames can't pass the next tick, so
   alpha drops from ~0.47 to 0 at each tick. The Vulkan render-thread path is not affected.
