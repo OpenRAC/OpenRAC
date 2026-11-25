@@ -906,7 +906,12 @@ std::unordered_map<std::uint32_t, MobyMaterial> energy_materials() {
         if (e.loads != loads) {
             continue;
         }
-        if (OPENRAC_MOBY_MATERIAL_KIND(e.material.material) == OPENRAC_MOBY_MATERIAL_ENERGY) {
+        const std::uint32_t kind = OPENRAC_MOBY_MATERIAL_KIND(e.material.material);
+        const bool effects =
+            kind == OPENRAC_MOBY_MATERIAL_ENERGY
+            || (kind == OPENRAC_MOBY_MATERIAL_PAINT
+                && (e.material.material & OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS) != 0);
+        if (effects) {
             out.insert_or_assign(e.material.moby, e.material);
         } else {
             out.erase(e.material.moby);

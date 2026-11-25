@@ -88,26 +88,30 @@ int api_on_tick_boundary(openrac_mod* mod, openrac_tick_boundary_fn fn, void* us
     return OPENRAC_HOOK_OK;
 }
 
-// A hook point's entry (1.21): found as api_hook finds it, by its id or any alias, and its
-// signature compared as api_hook compares it. The entry is the function the game calls by the
-// point's symbol, hooks.c's, which goes through the slot: the mods' replacements, then the game's.
-void* api_hook_entry(const char* name, const char* signature) {
-    if (g_host == nullptr || name == nullptr || signature == nullptr) {
+const HookPoint* find_hook_point(const char* name) {
+    if (g_host == nullptr || name == nullptr) {
         return nullptr;
     }
     const char* id = hook_id(*g_host, name);
     for (int i = 0; i < g_host->hook_count; ++i) {
         const HookPoint& p = g_host->hooks[i];
-        if (p.name == nullptr || std::strcmp(hook_id(*g_host, p.name), id) != 0) {
-            continue;
+        if (p.name != nullptr && std::strcmp(hook_id(*g_host, p.name), id) == 0) {
+            return &p;
         }
-        if (p.symbol == nullptr
-            || hook_signature_form(p.signature) != hook_signature_form(signature)) {
-            return nullptr;
-        }
-        return reinterpret_cast<void*>(openrac_guest_function_named(p.symbol));
     }
     return nullptr;
+}
+
+// A hook point's entry (1.21): found as api_hook finds it, by its id or any alias, and its
+// signature compared as api_hook compares it. The entry is the function the game calls by the
+// point's symbol, hooks.c's, which goes through the slot: the mods' replacements, then the game's.
+void* api_hook_entry(const char* name, const char* signature) {
+    const HookPoint* p = signature != nullptr ? find_hook_point(name) : nullptr;
+    if (p == nullptr || p->symbol == nullptr
+        || hook_signature_form(p->signature) != hook_signature_form(signature)) {
+        return nullptr;
+    }
+    return reinterpret_cast<void*>(openrac_guest_function_named(p->symbol));
 }
 
 int api_on_pad(openrac_mod* mod, openrac_pad_fn fn, void* user) {

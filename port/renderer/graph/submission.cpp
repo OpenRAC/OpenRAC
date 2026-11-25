@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
+#include <unordered_set>
 
 #include "renderer/graph/breadcrumbs.h"
 
@@ -153,16 +154,37 @@ Result<SubmissionPlan> SubmissionGraph::compile() const {
     return plan;
 }
 
-void SubmissionLifetime::retain(std::shared_ptr<void> resource) {
-    const auto identity = resource.get();
-    if (resource && m_identities.insert(identity).second) {
-        try {
-            m_resources.push_back(std::move(resource));
-        } catch (...) {
-            m_identities.erase(identity);
-            throw;
-        }
+namespace {
+// The table is at most half full. Mix upper hash bits into the index because native
+// allocations can have aligned addresses with identical low bits.
+void*& identity_slot(std::span<void*> table, void* identity) {
+    const auto hash = std::hash<void*>{}(identity);
+    auto index = (hash ^ (hash >> 16)) & (table.size() - 1);
+    while (table[index] && table[index] != identity) {
+        index = (index + 1) & (table.size() - 1);
     }
+    return table[index];
+}
+}  // namespace
+
+void SubmissionLifetime::retain(std::shared_ptr<void> resource) {
+    if (!resource) {
+        return;
+    }
+    void* const identity = resource.get();
+    if (!m_identities.empty() && identity_slot(m_identities, identity)) {
+        return;
+    }
+    if (m_resources.size() >= m_identities.size() / 2) {
+        const auto capacity = m_identities.empty() ? std::size_t{64} : m_identities.size() * 2;
+        std::vector<void*> grown(capacity);
+        for (const auto& retained : m_resources) {
+            identity_slot(grown, retained.get()) = retained.get();
+        }
+        m_identities.swap(grown);
+    }
+    m_resources.push_back(std::move(resource));
+    identity_slot(m_identities, identity) = identity;
 }
 
 void SubmissionLifetime::retire(std::function<void()> destroy) {
@@ -184,7 +206,7 @@ Result<void> SubmissionLifetime::complete(bool gpu_complete) {
     auto retirements = std::move(m_retirements);
     m_resources.clear();
     m_retirements.clear();
-    m_identities.clear();
+    std::ranges::fill(m_identities, nullptr);
     for (auto& destroy : retirements) {
         destroy();
     }

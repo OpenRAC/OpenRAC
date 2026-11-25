@@ -706,6 +706,51 @@ void test_cached_validation() {
     CHECK(published.expired());
 }
 
+void test_rebound_plan() {
+    const auto make_graph =
+        [](std::uint64_t identity, std::uint64_t offset, bool defined = true, bool writes = false) {
+            graph::Graph builder;
+            const auto buffer =
+                builder
+                    .import_buffer(
+                        "input",
+                        {{identity, 2}, 64, {Stage::None, Access::None, Layout::Buffer}, defined}
+                    )
+                    .value();
+            if (writes) {
+                builder.add_pass({"write", {}, {{buffer, {0, 16}, kBufferWrite}}});
+            }
+            builder.add_pass({"read", {}, {{buffer, {offset, 16}, kBufferRead}}});
+            return builder;
+        };
+    graph::PlanCache cache;
+    constexpr auto rebind = graph::PlanCache::Imports::Rebind;
+    const auto first = make_graph(1, 0);
+    const auto next = make_graph(2, 16);
+    const auto* initial = cache.compile_borrowed(first).value();
+    const auto* rebound = cache.compile_borrowed(next, rebind).value();
+    CHECK(initial == rebound);
+    CHECK(rebound->owner == next.owner());
+    CHECK(rebound->declarations.front().buffers.front().buffer.owner == next.owner());
+    CHECK(rebound->declarations.front().buffers.front().range.offset == 16);
+    const auto key = std::get<graph::BufferDesc>(rebound->resources.front().description).key;
+    CHECK(key.identity == 2 && key.generation == 2);
+    CHECK(!cache.compile_borrowed(make_graph(3, 0, false), rebind));
+    CHECK(!cache.compile_borrowed(make_graph(3, 49), rebind));
+
+    const auto published = cache.compile(next).value();
+    CHECK(cache.compile_borrowed(first, rebind).value() != published.get());
+    CHECK(std::get<graph::BufferDesc>(published->resources.front().description).key.identity == 2);
+    CHECK(published->owner == next.owner());
+
+    // Moving a read into a preceding write introduces a barrier and requires compilation.
+    const auto* disjoint = cache.compile_borrowed(make_graph(3, 16, true, true), rebind).value();
+    CHECK(disjoint->dependencies.empty());
+    const auto* overlapping = cache.compile_borrowed(make_graph(3, 0, true, true), rebind).value();
+    CHECK(overlapping->dependencies.size() == 1);
+    CHECK(overlapping->passes.back().barriers.size() == 1);
+}
+
 void test_reused_builder() {
     graph::Graph builder;
     const auto original = builder.import_image("previous image label", {{1, 0}}).value();
@@ -867,6 +912,7 @@ int main(int argc, char** argv) {
         test_pipeline_command_contract();
         test_buffer_copy_contract();
         test_cached_validation();
+        test_rebound_plan();
         test_handle_ownership();
         test_reused_builder();
         test_borrowed_import_name();

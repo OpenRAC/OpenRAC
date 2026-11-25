@@ -221,8 +221,10 @@ layouts even when the native baker executable has not changed.
 
 Use `regions.authored` for local volumes outside the automatic floor graph, such as a
 swingshot path or a tall arena. Each entry takes `bounds` as world-space minimum XYZ then
-maximum XYZ, and `spacing` as a scalar or XYZ. Authored volumes are added to automatic
-coverage and count towards the same region and per-volume probe budgets.
+maximum XYZ, and `spacing` as a scalar or XYZ. The baker aligns these bounds outward to
+the specified probe spacing. Authored volumes are added to automatic coverage and count
+towards the same region and per-volume probe budgets. Automatic floor fitting uses the
+level's dense spacing independently of authored volumes.
 
 The optional top-level `look_regions` list scales Enhanced diffuse lighting within world-space
 boxes. Each box takes `bounds`, a `feather` in world units and a `diffuse_gain`. A gain of

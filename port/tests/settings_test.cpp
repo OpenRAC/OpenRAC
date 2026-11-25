@@ -188,9 +188,11 @@ void test_enhanced_presets() {
          {settings::EnhancedPreset::Low,
           settings::EnhancedPreset::Medium,
           settings::EnhancedPreset::High}) {
+        s.early_lighting_quality = renderer::EarlyLightingQuality::High;
         s.apply_enhanced_preset(preset);
         CHECK(s.enhanced_preset() == preset);
         CHECK(s.render_scale == (preset == settings::EnhancedPreset::Low ? 75 : 100));
+        CHECK(s.early_lighting_quality == renderer::EarlyLightingQuality::Normal);
     }
 
     s.apply_enhanced_preset(settings::EnhancedPreset::Low);
@@ -231,6 +233,12 @@ void test_effects_detail_default(const std::filesystem::path& file) {
     settings::load(file);
     CHECK(settings::get().render_scale == 75);
     CHECK(settings::get().enhanced_preset() == settings::EnhancedPreset::Low);
+    CHECK(settings::get().early_lighting_quality == renderer::EarlyLightingQuality::Normal);
+    settings::get().early_lighting_quality = renderer::EarlyLightingQuality::High;
+    CHECK(settings::get().enhanced_preset() == settings::EnhancedPreset::Custom);
+    settings::save();
+    settings::load(file);
+    CHECK(settings::get().early_lighting_quality == renderer::EarlyLightingQuality::High);
 }
 
 void test_agx_preview(const std::filesystem::path& file) {

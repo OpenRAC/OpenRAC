@@ -70,6 +70,7 @@
 #define RAC2_ADDR_0x001AE124u 0x001AE0FCu /* the same instruction of the paired function */
 #define RAC2_ADDR_0x001AE128u 0x001AE100u /* the same instruction of the paired function */
 #define RAC2_ADDR_0x001AE138u 0x001AE110u /* the release's build */
+#define RAC2_ADDR_0x001AE900u 0x001AE8B8u /* the release's build */
 #define RAC2_ADDR_0x001B15A0u 0x001B1520u /* the release's build */
 #define RAC2_ADDR_0x001B15FCu 0x001B157Cu /* the release's build */
 #define RAC2_ADDR_0x001B1608u 0x001B1588u /* the release's build */

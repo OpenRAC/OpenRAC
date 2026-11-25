@@ -59,7 +59,7 @@ class PlanTest(unittest.TestCase):
         self.check(["README.md"], docs_only=False, launcher=False, port=False, port_parts=[])
 
     def test_markdown_anywhere_runs_no_build(self):
-        for path in ("port/docs/CODING_CONVENTIONS.md", "port/enhanced/lighting/README.md",
+        for path in ("docs/CODING_CONVENTIONS.md", "port/enhanced/lighting/README.md",
                      "sdk/docs/hooks.md", "launcher/release-notes/1.0.0.md", "extractor/MODDING.md"):
             self.check([path], launcher=False, pages=False, port=False, enhanced=False,
                        port_parts=[])

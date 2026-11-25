@@ -232,30 +232,35 @@ fn find(text: &str, clock: &[u8; 8], size: usize) -> Option<(usize, Vec<u8>)> {
 
 /// NG++'s tiers file (`ng-plus-plus`, `tiers.txt`): it has layouts of its own, marked by a first line
 /// `ngpp-tiers N` (openrac-mods, ng-plus-plus/src/save_tiers.h). Layout 1 (no marker) had the RYNO II
-/// at Heavy, Ultima, Alpha to Omega, Omega Prime; layout 2 the Zodiac at Alpha to Omega; layout 3, the
-/// one now, has the RYNO II at Heavy, Alpha to Omega, Ultima and the Zodiac at Heavy, Mega, Ultra,
-/// Alpha to Omega. The editor reads layouts 1 to 3 and always writes layout 3.
+/// at Heavy, Ultima, Alpha to Omega, Omega Prime; layout 2 the Zodiac at Alpha to Omega; layout 3 the
+/// RYNO II at Heavy, Alpha to Omega, Ultima and the Zodiac at Heavy, Mega, Ultra, Alpha to Omega;
+/// layout 4, the one now, has both at Heavy, Mega, Ultra, Alpha to Omega, Ultima. The editor reads
+/// layouts 1 to 4 and always writes layout 4.
 const NGPP_ID: &str = "ng-plus-plus";
 const NGPP_MARKER: &str = "ngpp-tiers";
-const NGPP_LAYOUT: u32 = 3;
+const NGPP_LAYOUT: u32 = 4;
 const NGPP_ZODIAC: usize = 43;
 const NGPP_RYNO: usize = 44;
-/// The Zodiac's steps before Alpha in layout 3.
+/// The Zodiac's steps before Alpha in layouts 3 and 4.
 const NGPP_ZODIAC_OWN: u8 = 3;
-const NGPP_ZODIAC_CHOICES: [&str; 12] =
-    ["None", "Heavy", "Mega", "Ultra", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Omega"];
+/// The steps the RYNO II's Mega and Ultra put before its Alpha in layout 4.
+const NGPP_RYNO_NEW: u8 = 2;
+/// The Zodiac's and the RYNO II's steps in layout 4 (level 0 is none).
+const NGPP_CHOICES: [&str; 13] =
+    ["None", "Heavy", "Mega", "Ultra", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Omega", "Ultima"];
 
 fn is_ngpp(id: &str, spec: &SaveData) -> bool {
     id == NGPP_ID && spec.file == "tiers.txt" && spec.records == "clock-hex" && spec.size > NGPP_RYNO
 }
 
-/// The spec with the Zodiac's path of layout 3, whatever an older manifest lists.
+/// The spec with the Zodiac's and the RYNO II's path of layout 4, whatever an older manifest lists.
 fn effective(id: &str, spec: &SaveData) -> SaveData {
     let mut out = spec.clone();
     if is_ngpp(id, spec) {
-        for f in out.fields.iter_mut().filter(|f| f.offset == NGPP_ZODIAC && f.mask == 0x7F) {
-            f.choices = NGPP_ZODIAC_CHOICES.iter().map(|c| c.to_string()).collect();
-            f.max = (NGPP_ZODIAC_CHOICES.len() - 1) as u8;
+        for f in out.fields.iter_mut().filter(|f| (f.offset == NGPP_ZODIAC || f.offset == NGPP_RYNO) && f.mask == 0x7F)
+        {
+            f.choices = NGPP_CHOICES.iter().map(|c| c.to_string()).collect();
+            f.max = (NGPP_CHOICES.len() - 1) as u8;
         }
     }
     out
@@ -283,7 +288,7 @@ fn ngpp_layout(text: &str, size: usize) -> u32 {
     }
 }
 
-/// `text` in layout 3: the Zodiac's levels (and layout 1's RYNO II) moved over, the marker first and
+/// `text` in layout 4: the RYNO II's levels and (before layout 3) the Zodiac's moved over, the marker first and
 /// alone. Lines that are no record stay in their order.
 fn ngpp_to_current(text: &str, size: usize) -> String {
     let layout = ngpp_layout(text, size);
@@ -299,7 +304,7 @@ fn ngpp_to_current(text: &str, size: usize) -> String {
             let level = |v: u8| v & 0x7F;
             if layout < 2 {
                 let l = level(b[NGPP_RYNO]);
-                // Old: 1 Heavy, 2 Ultima, 3..10 Alpha..Omega, 11 Omega Prime. Now Ultima is 10.
+                // Old: 1 Heavy, 2 Ultima, 3..10 Alpha..Omega, 11 Omega Prime. Layout 3's Ultima is 10.
                 let now = if l < 2 {
                     l
                 } else if l == 2 {
@@ -309,8 +314,14 @@ fn ngpp_to_current(text: &str, size: usize) -> String {
                 };
                 b[NGPP_RYNO] = started(b[NGPP_RYNO]) | now;
             }
-            let z = level(b[NGPP_ZODIAC]);
-            b[NGPP_ZODIAC] = started(b[NGPP_ZODIAC]) | if z == 0 { 0 } else { z + NGPP_ZODIAC_OWN };
+            // Layouts 1 to 3: the Mega and Ultra come after Heavy, so Alpha (2) and up move up two.
+            let l = level(b[NGPP_RYNO]);
+            b[NGPP_RYNO] = started(b[NGPP_RYNO]) | if l < 2 { l } else { l + NGPP_RYNO_NEW };
+            // Layouts 1 and 2: the Zodiac's Mega and Ultra come before Alpha (layout 3 has them).
+            if layout < 3 {
+                let z = level(b[NGPP_ZODIAC]);
+                b[NGPP_ZODIAC] = started(b[NGPP_ZODIAC]) | if z == 0 { 0 } else { z + NGPP_ZODIAC_OWN };
+            }
             out.push(format!("{k} {}", hex(&b)));
         } else {
             out.push(line.to_string());
@@ -635,48 +646,68 @@ mod tests {
             b[44] = ryno;
             format!("{} {}", hex(&clock), hex(&b))
         };
-        let zodiac_of = |text: &str| {
-            unhex(text.lines().find(|l| is_record(l, 56)).unwrap().split_once(' ').unwrap().1).unwrap()[43]
+        let byte_of = |text: &str, at: usize| {
+            unhex(text.lines().find(|l| is_record(l, 56)).unwrap().split_once(' ').unwrap().1).unwrap()[at]
         };
+        let zodiac_of = |text: &str| byte_of(text, 43);
+        let ryno_of = |text: &str| byte_of(text, 44);
 
-        // Layout 2: the Zodiac at Alpha (1, started) is the fourth step now.
+        // Layout 2: the Zodiac at Alpha (1, started) is the fourth step now; the RYNO II's Alpha (2)
+        // is the fourth too.
         fs::write(&file, format!("ngpp-tiers 2\n{}\nnote\n", rec(0x81, 2))).unwrap();
         let r = read(dir.path(), id, "N", &spec, &clock).unwrap();
-        assert_eq!((r.fields[0].value, r.fields[1].value), (4, 2));
-        assert_eq!(r.fields[0].spec.choices[..5], ["None", "Heavy", "Mega", "Ultra", "Alpha"]);
-        assert_eq!(r.fields[0].spec.max, 11);
+        assert_eq!((r.fields[0].value, r.fields[1].value), (4, 4));
+        for f in &r.fields {
+            assert_eq!(f.spec.choices[..5], ["None", "Heavy", "Mega", "Ultra", "Alpha"]);
+            assert_eq!(f.spec.choices[12], "Ultima");
+            assert_eq!(f.spec.max, 12);
+        }
         // Reading changes nothing on disk.
         assert!(fs::read_to_string(&file).unwrap().starts_with("ngpp-tiers 2\n"));
 
-        // Writing converts the whole file to layout 3, keeping other lines and the started bit.
+        // Writing converts the whole file to layout 4, keeping other lines and the started bit.
         let mut v = BTreeMap::new();
-        v.insert("item_44".to_string(), 3u8);
+        v.insert("item_44".to_string(), 5u8);
         write(dir.path(), id, &spec, &clock, &v).unwrap();
         let text = fs::read_to_string(&file).unwrap();
-        assert!(text.starts_with("ngpp-tiers 3\n") && text.contains("note\n"));
+        assert!(text.starts_with("ngpp-tiers 4\n") && text.contains("note\n"));
         assert_eq!(text.matches("ngpp-tiers").count(), 1);
         assert_eq!(zodiac_of(&text), 0x84);
 
-        // Layout 3 is not moved again; the Zodiac goes up to Omega (11), and no further.
+        // Layout 4 is not moved again; both go up to Ultima (12), and no further.
         v.clear();
-        v.insert("item_43".to_string(), 11u8);
-        write(dir.path(), id, &spec, &clock, &v).unwrap();
-        assert_eq!(zodiac_of(&fs::read_to_string(&file).unwrap()), 0x8B);
         v.insert("item_43".to_string(), 12u8);
+        v.insert("item_44".to_string(), 12u8);
+        write(dir.path(), id, &spec, &clock, &v).unwrap();
+        let text = fs::read_to_string(&file).unwrap();
+        assert_eq!(zodiac_of(&text), 0x8C);
+        assert_eq!(ryno_of(&text), 12);
+        v.insert("item_43".to_string(), 13u8);
         assert!(write(dir.path(), id, &spec, &clock, &v).is_err());
 
-        // Layout 1 (no marker): the RYNO II's Omega Prime (11) is Ultima (10) now.
+        // Layout 3: the Zodiac stays (Ultra is 3), the RYNO II's Alpha (2) and Ultima (10) move up two.
+        fs::write(&file, format!("ngpp-tiers 3\n{}\n", rec(3, 10))).unwrap();
+        let r = read(dir.path(), id, "N", &spec, &clock).unwrap();
+        assert_eq!((r.fields[0].value, r.fields[1].value), (3, 12));
+        fs::write(&file, format!("ngpp-tiers 3\n{}\n", rec(1, 2))).unwrap();
+        let r = read(dir.path(), id, "N", &spec, &clock).unwrap();
+        assert_eq!((r.fields[0].value, r.fields[1].value), (1, 4));
+        fs::write(&file, format!("ngpp-tiers 3\n{}\n", rec(0x80, 1))).unwrap();
+        let r = read(dir.path(), id, "N", &spec, &clock).unwrap();
+        assert_eq!((r.fields[0].value, r.fields[1].value), (0, 1));
+
+        // Layout 1 (no marker): the RYNO II's Omega Prime (11) is Ultima (12) now.
         fs::write(&file, format!("{}\n", rec(1, 11))).unwrap();
         let r = read(dir.path(), id, "N", &spec, &clock).unwrap();
-        assert_eq!((r.fields[0].value, r.fields[1].value), (4, 10));
+        assert_eq!((r.fields[0].value, r.fields[1].value), (4, 12));
 
-        // A new file is layout 3.
+        // A new file is layout 4.
         fs::remove_file(&file).unwrap();
         v.clear();
         v.insert("item_43".to_string(), 1u8);
         write(dir.path(), id, &spec, &clock, &v).unwrap();
         let text = fs::read_to_string(&file).unwrap();
-        assert!(text.starts_with("ngpp-tiers 3\n"));
+        assert!(text.starts_with("ngpp-tiers 4\n"));
         assert_eq!(zodiac_of(&text), 1);
     }
 

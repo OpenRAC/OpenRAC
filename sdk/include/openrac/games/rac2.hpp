@@ -323,6 +323,14 @@ struct Vendor_Preview {
     using fn = void (*)();
 };
 
+// The hero's whole update each tick: his animation, the stick, ledges, grind rails, his state machine, his moby and what he holds. Each group of levels has its own copy; together they are one hook point. A ship or vehicle update runs in its place while one drives him (hero +0x22B4). A replacement that skips the original moves him itself and shows him with openrac_api.hero_set_pose.
+struct Hero_Update {
+    static constexpr const char* id = "rac2.player.update";
+    static constexpr const char* name = "Hero_Update";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
 namespace hooks {
     namespace arena {
         using prize = rac2::Arena_Prize;
@@ -399,6 +407,7 @@ namespace hooks {
         using approach_speed = rac2::Hero_ApproachSpeed;
         using nanotech_steps = rac2::Hero_NanotechSteps;
         using take_damage = rac2::Hero_TakeDamage;
+        using update = rac2::Hero_Update;
     }  // namespace player
     namespace text {
         using by_id = rac2::Text_ById;

@@ -268,7 +268,10 @@ vec3 energy_shine(vec3 rgb) {
 // colour multiplies it: the same model and texture, shaded as before, in the paint's colour. After
 // the lighting a white highlight follows the sun and a rim glows in the colour by the paint's
 // level (paint_shine); a glow packet takes the colour at its luminance (paint_colour).
-// v_mod_material is kModMaterialPaint plus the level (scene::kModMaterialPaint).
+// v_mod_material is kModMaterialPaint plus the level (scene::kModMaterialPaint), plus 16 x (1 + the
+// accent's colour, 3 bits a channel) for a paint with an accent (interface 1.38,
+// scene::paint_material): the model's strongly saturated texels (paint_accent_mask) are drawn in the
+// accent instead of the body's colour, brighter.
 const int kModMaterialPaint = 16;
 const float kPaintContrast = 1.25;     // the grey's contrast around kPaintPivot
 const float kPaintPivot = 0.35;
@@ -278,13 +281,42 @@ const float kPaintHighlight = 0.35;    // the highlight's strength at its peak
 const float kPaintRim = 0.9;           // the rim's strength at a grazing angle, at the top level
 const float kPaintRimFalloff = 2.5;    // how fast it fades towards the middle
 const float kPaintGlowPacket = 2.0;    // a glow packet's brightening
+// The accent's mask: a texel is accent where its saturation passes kPaintAccentSat and it is not
+// nearly black (kPaintAccentValue). Carbonox's grey metal has none; its visor's reds and its teal
+// lamps have 0.9 and more.
+const vec2 kPaintAccentSat = vec2(0.45, 0.70);
+const vec2 kPaintAccentValue = vec2(0.10, 0.22);
+const float kPaintAccentDim = 0.55;    // the accent's brightness at the darkest accent texel
+const float kPaintAccentGlow = 1.4;    // and at the brightest: a lit glass, a little over white
+const float kPaintAccentRange = 1.8;   // the texel's value that reaches kPaintAccentGlow is 1 / this
+const float kPaintAccentTint = 0.05;   // the lowest body colour the accent divides by
 
 bool paint() {
-    return v_mod_material >= kModMaterialPaint && v_mod_material < kModMaterialPaint + 16;
+    return v_mod_material >= kModMaterialPaint;
 }
 
 float paint_level() {
-    return float(v_mod_material - kModMaterialPaint) / 15.0;
+    return float((v_mod_material - kModMaterialPaint) & 15) / 15.0;
+}
+
+// The accent's code of the paint: 0 for none, else 1 + r << 6 | g << 3 | b (3 bits a channel).
+int paint_accent_code() {
+    return (v_mod_material - kModMaterialPaint) >> 4;
+}
+
+// Returns how far `rgb` is an accent texel, 0 (grey metal, cloth) to 1 (a strongly saturated one).
+float paint_accent_mask(vec3 rgb) {
+    float high = max(rgb.r, max(rgb.g, rgb.b));
+    float low = min(rgb.r, min(rgb.g, rgb.b));
+    float saturation = (high - low) / max(high, 1e-4);
+    return smoothstep(kPaintAccentSat.x, kPaintAccentSat.y, saturation)
+           * smoothstep(kPaintAccentValue.x, kPaintAccentValue.y, high);
+}
+
+// Returns the paint's accent colour, 0 to 1 a channel.
+vec3 paint_accent_rgb() {
+    int code = paint_accent_code() - 1;
+    return vec3(float((code >> 6) & 7), float((code >> 3) & 7), float(code & 7)) / 7.0;
 }
 
 vec4 paint_texel(vec4 texel) {
@@ -293,7 +325,16 @@ vec4 paint_texel(vec4 texel) {
     }
     float grey = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
     grey = clamp((grey - kPaintPivot) * kPaintContrast + kPaintPivot, 0.0, 1.0) * kPaintGain;
-    return vec4(vec3(min(grey, 1.0)), texel.a);
+    vec3 body = vec3(min(grey, 1.0));
+    if (paint_accent_code() > 0) {
+        // The accent texel keeps its own brightness (its value), lifted; the tint colours the
+        // vertex colour that multiplies it, so divide it out to leave the accent itself.
+        float value = max(texel.r, max(texel.g, texel.b));
+        float shine = mix(kPaintAccentDim, kPaintAccentGlow, clamp(value * kPaintAccentRange, 0.0, 1.0));
+        vec3 accent = paint_accent_rgb() * shine / max(v_mod_rgb, vec3(kPaintAccentTint));
+        body = mix(body, accent, paint_accent_mask(texel.rgb));
+    }
+    return vec4(body, texel.a);
 }
 
 vec4 paint_colour(vec4 c) {
@@ -407,11 +448,8 @@ float thin_glass_coverage();
 uniform int gameplay_rim_enabled;
 vec3 gameplay_rim(vec3 indirect, vec3 normal_view, vec3 toward_camera);
 bool early_surface(
-    vec3 eye_position,
-    vec3 normal_view,
-    out vec4 result,
-    out bool covered,
-    out float hero_visibility
+    vec3 eye_position, vec3 normal_view, out vec4 result, out bool covered,
+    out float hero_visibility, out float cloudy_sun
 );
 #endif
 // This replaces RGB only. Alpha tests, fading and blend equations stay in
@@ -430,6 +468,9 @@ vec3 wet_coat(vec3 linear_colour, vec3 n, vec3 toward_camera, float visibility) 
     float roughness = mix(hero_wetness_material.z, hero_wetness_material.w, wet);
     vec3 radiance = max(mix(light_sets[a].rgb, light_sets[b].rgb, blend), vec3(0.))
         * probe_sunlight_scale;
+#ifdef OPENRAC_CLOUD_SHADOWS
+    radiance *= cloud_sun_attenuation;
+#endif
     vec3 shine = radiance * ggx_specular(n, eye, light, roughness, hero_wetness_f0) * visibility;
 #ifdef OPENRAC_FORWARD_PLUS
     // Local lights are unshadowed; a directional shadow must not erase wet point/spot highlights.
@@ -499,6 +540,9 @@ vec3 standard_surface(vec3 diffuse, vec3 albedo, vec3 indirect, vec3 n, vec3 tow
 }
 
 vec3 probe_surface(vec4 texel, vec3 original) {
+#ifdef OPENRAC_CLOUD_SHADOWS
+    cloud_sun_attenuation = 1.0;
+#endif
 #ifdef OPENRAC_HERO_FUR
     if (hero_fur_debug > 0 && hero_fur_debug < 3 && v_hero_fur != 0 && v_glow == 0 && probe_effect == 0 && metal_pass == 0) {
         return fur_diagnostic(v_uv);
@@ -571,23 +615,25 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         return surface_n * .5 + .5;
     }
 #endif
+    bool cached_surface = false;
+    float cloudy_sun = 1.0;
 #ifdef OPENRAC_EARLY_LIGHTING
     bool cached_coverage;
     vec4 cached_lighting;
     float hero_visibility;
-    bool cached_surface = early_surface(
-        eye_position, mat3(view) * n, cached_lighting, cached_coverage, hero_visibility
+    cached_surface = early_surface(
+        eye_position, mat3(view) * n, cached_lighting, cached_coverage, hero_visibility, cloudy_sun
     );
 #ifdef OPENRAC_HERO_FUR
     // Coat slices lie above the body prepass and require lighting at their displaced position.
     if (hero_fur_shell_enabled != 0 && hero_fur_shell > 0.) {
         cached_surface = false;
-        cached_coverage = sample_probe_irradiance(v_world_position, n,
-            probe_surface_bias(n, transpose(mat3(view)) * (-eye_position)), cached_lighting.rgb);
+    }
+#endif
+    if (!cached_surface) {
         cached_lighting.a = sun_shadow_visibility(v_world_position, n, n);
         hero_visibility = hero_shadow_visibility(v_world_position, n);
     }
-#endif
     if (!hero_shadow_applies(n)) {
         hero_visibility = 1.0;
     }
@@ -595,6 +641,15 @@ vec3 probe_surface(vec4 texel, vec3 original) {
 #else
     float sun_visibility = sun_shadow_visibility(v_world_position, n, n);
     float hero_visibility = hero_shadow_visibility(v_world_position, n);
+#endif
+#ifdef OPENRAC_CLOUD_SHADOWS
+    if (cloud_shadow_shape.w > 0.0 && effect_pass == 0) {
+        if (!cached_surface) {
+            cloud_sun_attenuation = cloud_shadow_visibility(v_world_position, sun_visibility);
+        } else if (sun_visibility > 1.0 / 255.0) {
+            cloud_sun_attenuation = clamp(cloudy_sun / sun_visibility, 0.0, 1.0);
+        }
+    }
 #endif
     // Either projection casts a normal shadow in sunlight, including beyond cascade coverage.
     float visibility = min(sun_visibility, hero_visibility);
@@ -622,7 +677,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     // Legacy prelighting may already contain authored brightness. Preserve that
     // component while shadowing the remaining diffuse, without adding it twice.
     vec3 fallback_diffuse = max(probe_linear(original) - emitted, vec3(0.0))
-        * fur_grain * mix(0.1, 1.0, visibility) * hero_cue;
+        * fur_grain * probe_fallback_diffuse_shadow(visibility) * hero_cue;
     vec3 metal_ambient = probe_linear(clamp(v_probe_ambient, 0., 1.));
     vec3 toward_camera = transpose(mat3(view)) * (-eye_position);
     vec3 receiver_normal = dot(geometric, geometric) > 0. ? normalize(geometric) : n;
@@ -654,12 +709,16 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     vec3 indirect;
     // Use the same smooth receiver normal as the depth/normal prepass and early lighting.
     vec3 surface_bias = probe_surface_bias(n, toward_camera);
+    bool covered;
 #ifdef OPENRAC_EARLY_LIGHTING
-    indirect = cached_lighting.rgb;
-    bool covered = cached_coverage;
-#else
-    bool covered = sample_probe_irradiance(v_world_position, n, surface_bias, indirect);
+    if (cached_surface) {
+        indirect = cached_lighting.rgb;
+        covered = cached_coverage;
+    } else
 #endif
+    {
+        covered = sample_probe_irradiance(v_world_position, n, surface_bias, indirect);
+    }
     // Diagnostic views must not silently substitute original lighting:
     // indirect is black without coverage, while direct is independent of GI.
     if (!covered && probe_mode == 2) {
@@ -703,9 +762,9 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     }
 #endif
     // Fine fur changes material response; shadow tests, probe lookup bias and cached GI keep smooth normals.
-    vec3 directional, local;
-    probe_direct_parts(v_world_position, surface_n, selector, directional, local);
-    vec3 direct = directional * mix(0.1, 1.0, visibility) + local;
+    vec3 directional, local, cloud_loss;
+    probe_direct_parts(v_world_position, surface_n, selector, directional, local, cloud_loss);
+    vec3 direct = probe_shadowed_directional(directional, cloud_loss, visibility, 0.1) + local;
     vec3 illumination = probe_mode == 2
                             ? indirect / 3.14159265359
                             : (probe_mode == 3 ? direct : direct + indirect / 3.14159265359);
@@ -719,8 +778,9 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         && probe_mode == 1) {
         // The same lights at two visibilities, from the one loop above.
         vec3 open = directional + local + open_indirect / 3.14159265359;
-        vec3 shaded = directional * mix(0.1, 1.0, mix(0.28, 1.0, visibility)) + local
-                      + indirect / 3.14159265359;
+        vec3 shaded = probe_shadowed_directional(
+            directional, cloud_loss, visibility, mix(0.1, 1.0, 0.28)
+        ) + local + indirect / 3.14159265359;
         illumination = (shaded + 0.02) / (open + 0.02);
     }
     if (probe_mode != 2) {
@@ -828,7 +888,9 @@ void main() {
                 vec4 cached;
                 bool covered;
                 float hero_visibility;
-                if (early_surface(eye_position, normal_view, cached, covered, hero_visibility) && covered) {
+                float cloudy_sun;
+                if (early_surface(eye_position, normal_view, cached, covered, hero_visibility, cloudy_sun)
+                    && covered) {
                     vec3 rim = gameplay_rim(cached.rgb * probe_gi_multiplier, normal_view, -eye_position);
                     mrgb = probe_display(probe_linear(mrgb) + rim);
                 }

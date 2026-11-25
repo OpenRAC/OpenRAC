@@ -34,6 +34,7 @@ struct SunCascades {
     std::array<std::array<renderer::Vec3, 8>, kSunCascades> corners{};
     std::array<float, kSunCascades> ends{};
     float near_distance = 0.1f;
+    renderer::Vec3 travel_direction{};
 };
 
 // The share of a cascade's radius (cascades 1 to 3) by which its caster volume reaches past

@@ -1,0 +1,46 @@
+--- a/SPIRV/spvIR.h
++++ b/SPIRV/spvIR.h
+@@ -48,6 +48,7 @@
+ #define spvIR_H
+
+ #include "spirv.hpp11"
++#include "../glslang/Include/PoolAlloc.h"
+
+ #include <algorithm>
+ #include <cassert>
+@@ -274,8 +275,9 @@
+     Id resultId;
+     Id typeId;
+     Op opCode;
+-    std::vector<Id> operands;     // operands, both <id> and immediates (both are unsigned int)
+-    std::vector<bool> idOperand;  // true for operands that are <id>, false for immediates
++    // Instructions and their operands are temporary for the duration of GlslangToSpv.
++    std::vector<Id, glslang::pool_allocator<Id>> operands;
++    std::vector<bool, glslang::pool_allocator<bool>> idOperand;
+     Block* block;
+ };
+
+--- a/SPIRV/GlslangToSpv.cpp
++++ b/SPIRV/GlslangToSpv.cpp
+@@ -12035,7 +12035,12 @@
+     if (options == nullptr)
+         options = &defaultOptions;
+
+-    GetThreadPoolAllocator().push();
++    // Destroy the traverser before releasing the instruction operand storage.
++    struct PoolScope {
++        TPoolAllocator& pool = GetThreadPoolAllocator();
++        PoolScope() { pool.push(); }
++        ~PoolScope() { pool.pop(); }
++    } poolScope;
+
+     TGlslangToSpvTraverser it(intermediate.getSpv().spv, &intermediate, logger, *options);
+     root->traverse(&it);
+@@ -12063,7 +12068,6 @@
+
+ #endif
+
+-    GetThreadPoolAllocator().pop();
+ }
+
+ } // end namespace glslang

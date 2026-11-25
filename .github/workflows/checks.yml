@@ -159,7 +159,7 @@ jobs:
       - name: Water bake preparation (synthetic data only)
         run: python -m unittest discover -s port/enhanced/tools/water -v
 
-      # The port's countable conventions (port/docs/CODING_CONVENTIONS.md): the rules for every
+      # The port's countable conventions (docs/CODING_CONVENTIONS.md): the rules for every
       # file, and the new-code rules on what this push or pull request adds. A line it changes that
       # clang-format would lay out differently fails the step (--strict-touched; the page, section
       # 24.4), in older files too. clang-format is pinned.
@@ -184,13 +184,18 @@ jobs:
             python port/tools/conventions/check_conventions.py
           fi
 
-      # The layout of the C++ under port/ and sdk/ (port/docs/CODING_CONVENTIONS.md, section 5.6):
+      # The layout of the C++ under port/ and sdk/ (docs/CODING_CONVENTIONS.md, section 5.6):
       # clang-format and the blank lines around control blocks. Report only: the step
       # lists what would change and never fails the build. clang-format comes from the step above.
       - name: C++ layout (report only)
         run: python tools/cpp_style.py --report-only
 
-      # The port's includes against the module layering (port/docs/CODING_CONVENTIONS.md, section
+      # Repeated code in the port's C and C++ (docs/CODING_CONVENTIONS.md, section 22.6): runs of
+      # 60 tokens found twice that tools/dup_check_baseline.tsv does not accept. Report only for now.
+      - name: Repeated code (report only)
+        run: python tools/dup_check.py --report-only
+
+      # The port's includes against the module layering (docs/CODING_CONVENTIONS.md, section
       # 18): a new include of a higher layer fails; today's violations are the exceptions listed in
       # port/tools/layering/rules.tsv. Standard-library Python, the whole port on every run.
       - name: Port layering
