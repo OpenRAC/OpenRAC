@@ -8,7 +8,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from ci_scope import carried, decomp_games, launcher_changed, launcher_paths, docs_only, event_paths, ios_plan, plan, primary_versions, programs, pushed_paths
+from ci_scope import carried, decomp_games, docs_only, event_paths, ios_plan, plan, programs, pushed_paths
 
 
 class CiScopeTest(unittest.TestCase):
@@ -51,9 +51,11 @@ class PlanTest(unittest.TestCase):
             self.assertEqual(result[key], value, (paths, key))
 
     def test_a_push_or_an_unclear_diff_runs_everything(self):
-        for paths in (None, [".github/workflows/checks.yml"], ["tools/ci_scope.py", "README.md"]):
-            self.check(paths, launcher=True, pages=True, port=True, enhanced=True,
-                       port_parts=["common", *sorted(PROGRAMS)])
+        self.check(None, launcher=True, pages=True, port=True, enhanced=True,
+                   port_parts=["common", *sorted(PROGRAMS)])
+        for paths in ([".github/workflows/checks.yml"], ["tools/ci_scope.py", "README.md"]):
+            # Every check but the games' builds, which only a dev release or a manual run makes.
+            self.check(paths, launcher=True, pages=True, port=True, enhanced=True, port_parts=["common"])
 
     def test_documentation_runs_no_build(self):
         self.check(["docs/SOURCES.md"], docs_only=True, launcher=False, port=False, port_parts=[])
@@ -70,55 +72,43 @@ class PlanTest(unittest.TestCase):
         result = plan(["extractor/MODDING.md"], PROGRAMS, removed={"extractor/MODDING.md"})
         self.assertTrue(result["launcher"])
         result = plan(["port/renderer/README.md"], PROGRAMS, removed={"port/renderer/README.md"})
-        self.assertEqual(result["port_parts"], SHARED)
+        self.assertEqual(result["port_parts"], ["common"])
 
     def test_the_launcher_alone_skips_the_port(self):
         self.check(["launcher/src/App.svelte"], launcher=True, pages=True, port=False,
                    enhanced=False, port_parts=[])
         self.check(["launcher/core/src/lib.rs"], launcher=True, pages=True, port_parts=[])
 
-    def test_one_program_builds_itself_and_its_games_releases(self):
-        self.check(["port/game/rac2-ntsc/host/x.c"], launcher=False, port=False, enhanced=False,
-                   port_parts=["rac2-ntsc", "rac2-pal"])
-        self.check(["port/game/rac1-ntsc/libraries.tsv"], port_parts=["rac1-ntsc", "rac1-pal1"])
+    def test_a_games_own_folder_or_decomp_builds_nothing_until_the_night(self):
+        for path in ("port/game/rac2-ntsc/host/x.c", "port/game/rac1-pal1/libraries.tsv",
+                     "port/game/rac1/host/hand.c", "games/rac2/src/x.c"):
+            self.check([path], port=False, enhanced=False, port_parts=[])
+        self.check(["games/rac2/game.json"], launcher=True, port=False, port_parts=[])
 
-    def test_a_releases_own_folder_builds_only_itself(self):
-        self.check(["port/game/rac2-pal/hostgen.json"], port_parts=["rac2-pal"])
-        self.check(["port/game/rac1-pal1/libraries.tsv"], port=False, port_parts=["rac1-pal1"])
-
-    def test_a_games_shared_folder_builds_its_own_programs(self):
-        # The releases carry the shared host C, so they are built too.
-        self.check(["port/game/rac1/host/hand.c"], port=True, enhanced=False,
-                   port_parts=["rac1-ntsc", "rac1-pal", "rac1-pal1"])
-        self.check(["games/rac2/game.json"], launcher=True, port=False, port_parts=["rac2-ntsc", "rac2-pal"])
-
-    def test_going_commandos_pal_and_v2_are_built_as_their_own_programs(self):
-        known = programs(Path(__file__).resolve().parents[1])
-        self.assertEqual((known["rac2-pal"], known["rac2-ntsc2"], known["rac1-pal1"]), (False, False, True))
-        parts = plan(["port/runtime/guest.cpp"], known)["port_parts"]
-        self.assertTrue({"rac2-ntsc", "rac2-pal", "rac2-ntsc2"} <= set(parts))
-        self.assertEqual(plan(["games/rac2/game.json"], known)["port_parts"], ["rac2-ntsc", "rac2-ntsc2", "rac2-pal"])
-
-    def test_shared_code_builds_every_program_but_the_carried_releases(self):
+    def test_shared_code_builds_the_shared_part(self):
         for path in ("port/renderer/frame.cpp", "port/game/common/main.cpp", "tools/build_port.py",
-                     "extractor/mobys.py"):
-            self.check([path], port=True, enhanced=True, port_parts=SHARED)
+                     "extractor/mobys.py", "port/runtime/guest.cpp"):
+            self.check([path], port=True, enhanced=True, port_parts=["common"])
 
     def test_a_game_folder_the_shared_tests_compile_also_runs_them(self):
         result = plan(["port/game/rac1-pal/host/destinations.c"], PROGRAMS, {"rac1-pal"})
-        self.assertEqual(result["port_parts"], ["common", "rac1-pal", "rac1-pal1"])
+        self.assertEqual(result["port_parts"], ["common"])
         self.assertTrue(result["enhanced"])
 
     def test_files_the_other_side_reads(self):
         # The port's build reads the launcher's icons and version; the launcher reads the port's
         # bindings and differences; the native env test reads DEBUGGING.md.
-        self.check(["launcher/src-tauri/tauri.conf.json"], launcher=True, port=True, port_parts=SHARED)
-        self.check(["port/platform/bindings.cpp"], launcher=True, pages=True, port_parts=SHARED)
-        self.check(["port/game/rac2-ntsc/differences.json"], launcher=True, pages=True,
-                   port_parts=["rac2-ntsc", "rac2-pal"])
+        self.check(["launcher/src-tauri/tauri.conf.json"], launcher=True, port=True, port_parts=["common"])
+        self.check(["port/platform/bindings.cpp"], launcher=True, pages=True, port_parts=["common"])
+        self.check(["port/game/rac2-ntsc/differences.json"], launcher=True, pages=True, port_parts=[])
         self.check(["docs/port/DEBUGGING.md"], docs_only=False, launcher=False, port=True,
-                   port_parts=SHARED)
+                   port_parts=["common"])
         self.check(["games/rac1/game.json"], launcher=True, pages=True)
+
+    def test_a_full_run_builds_every_program(self):
+        known = programs(Path(__file__).resolve().parents[1])
+        self.assertTrue({"rac2-ntsc", "rac2-pal", "rac2-ntsc2", "rac1-pal1", "rac3-pal"}
+                        <= set(plan(None, known)["port_parts"]))
 
     def test_the_shared_game_folders_are_found_in_the_checkout(self):
         from pathlib import Path
@@ -135,32 +125,18 @@ class TierTest(unittest.TestCase):
 
     def test_the_fast_tier_leaves_the_slow_jobs_to_the_queue(self):
         result = self.fast(["port/renderer/frame.cpp"])
-        self.assertEqual(result["port_parts"], ["common", "rac1-ntsc", "rac2-ntsc", "rac3-ntsc"])
+        self.assertEqual(result["port_parts"], ["common"])
         self.assertFalse(result["enhanced"])
         self.assertFalse(result["windows"])
         full = plan(["port/renderer/frame.cpp"], PROGRAMS, tier="full", releases=RELEASES)
         self.assertTrue(full["enhanced"])
-        self.assertTrue(full["windows"])
-
-    def test_the_fast_tier_builds_a_carried_release_only_for_its_own_folder(self):
-        self.assertEqual(self.fast(["port/game/rac2-ntsc/host/x.c"])["port_parts"], ["rac2-ntsc"])
-        self.assertEqual(self.fast(["port/game/rac2-pal/hostgen.json"])["port_parts"], ["rac2-pal"])
-        self.assertEqual(self.fast(["port/game/rac1/host/hand.c"])["port_parts"], ["rac1-ntsc"])
-
-    def test_the_fast_tier_builds_one_version_of_each_game(self):
-        self.assertEqual(self.fast(["games/rac1/src/x.c"])["port_parts"], ["rac1-ntsc"])
-        self.assertEqual(self.fast(["port/game/rac1-pal/host/x.c"])["port_parts"], ["rac1-pal"])
-        self.assertEqual(self.fast(["port/game/rac1-pal/x.c", "port/game/rac2/x.c"])["port_parts"],
-                         ["rac1-pal", "rac2-ntsc"])
-        self.assertEqual(primary_versions({"rac1-jp": True, "rac1-ntsc": False, "rac3-ntsc": True,
-                                           "rac3-pal": False}, {"rac1-jp", "rac3-ntsc"}),
-                         {"rac1-ntsc", "rac3-pal"})
-        full = plan(["games/rac1/src/x.c"], PROGRAMS, tier="full", releases=RELEASES)
-        self.assertEqual(full["port_parts"], ["rac1-ntsc", "rac1-pal", "rac1-pal1"])
+        self.assertFalse(full["windows"])
+        self.assertTrue(plan(None, PROGRAMS, releases=RELEASES)["windows"])
 
     def test_the_launcher_on_windows_runs_in_the_full_tier(self):
         self.assertEqual(self.fast(["launcher/core/src/lib.rs"])["launcher_systems"], ["Linux"])
-        self.assertEqual(plan(["launcher/core/src/lib.rs"], PROGRAMS)["launcher_systems"], ["Linux", "Windows"])
+        self.assertEqual(plan(["launcher/core/src/lib.rs"], PROGRAMS)["launcher_systems"], ["Linux"])
+        self.assertEqual(plan(None, PROGRAMS)["launcher_systems"], ["Linux", "Windows"])
         self.assertEqual(self.fast(["port/renderer/frame.cpp"])["launcher_systems"], [])
 
     def test_the_fast_tier_runs_the_launcher_only_for_what_its_build_reads(self):
@@ -189,8 +165,6 @@ class TierTest(unittest.TestCase):
                 "ci_scope.subprocess.check_output", return_value=b"port/b.cpp\0") as output:
             self.assertEqual(event_paths(), (["port/b.cpp"], "full"))
             self.assertIn("old", output.call_args.args[0])
-        with patch.dict("os.environ", {"GITHUB_EVENT_NAME": "schedule"}):
-            self.assertEqual(event_paths(), (None, "full"))
         with patch.dict("os.environ", {"GITHUB_EVENT_NAME": "merge_group", "MERGE_BASE": "base"}), patch(
                 "ci_scope.subprocess.check_output", return_value=b"port/a.cpp\0") as output:
             self.assertEqual(event_paths(), (["port/a.cpp"], "full"))
@@ -204,29 +178,6 @@ class TierTest(unittest.TestCase):
         self.assertEqual(decomp_games(["games/rac2/decomp-patches/0001-x.patch", "port/a.cpp"]), ["rac2"])
         self.assertEqual(decomp_games(["launcher/src/App.svelte"]), [])
         self.assertEqual(decomp_games([".github/workflows/checks.yml"]), ["rac1", "rac2", "rac4", "rac5", "rac6"])
-
-
-class LauncherChangedTest(unittest.TestCase):
-    def test_the_filters_come_from_the_workflow(self):
-        filters = launcher_paths(Path(__file__).resolve().parents[1])
-        self.assertIn("launcher/**", filters)
-        self.assertIn("games/*/game.json", filters)
-        self.assertIn(".github/workflows/launcher.yml", filters)
-
-    def test_only_what_the_build_reads_starts_a_build(self):
-        filters = ["launcher/**", "games/*/game.json", "tools/build_port.py"]
-        self.assertTrue(launcher_changed(["launcher/src/App.svelte"], filters))
-        self.assertTrue(launcher_changed(["games/rac3/game.json"], filters))
-        self.assertFalse(launcher_changed(["games/rac3/decomp-patches/x.patch"], filters))
-        self.assertFalse(launcher_changed(["docs/SOURCES.md", "tools/build_port.pyc"], filters))
-        self.assertTrue(launcher_changed(None, filters))
-        self.assertFalse(launcher_changed([], filters))
-
-    def test_the_last_matching_filter_decides(self):
-        filters = ["launcher/**", "!launcher/docs/**", "launcher/docs/build.md"]
-        self.assertFalse(launcher_changed(["launcher/docs/RELEASING.md"], filters))
-        self.assertTrue(launcher_changed(["launcher/docs/build.md"], filters))
-        self.assertTrue(launcher_changed(["launcher/docs/x.md", "launcher/src/x.rs"], filters))
 
 
 class IosPlanTest(unittest.TestCase):
