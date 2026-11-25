@@ -1,7 +1,7 @@
 # layering
 
 `layering.py` checks the port's includes against the module layering of
-[CODING_CONVENTIONS.md](../../docs/CODING_CONVENTIONS.md#18-layering) (section 18):
+[CODING_CONVENTIONS.md](../../../docs/CODING_CONVENTIONS.md#18-layering) (section 18):
 a module includes its own files and the modules below it, never the ones above.
 The modules, the layers, the edges allowed within a layer and today's known
 violations are data, in [rules.tsv](rules.tsv). It is standard-library Python

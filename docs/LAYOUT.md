@@ -64,7 +64,7 @@ what readers see.
 
 | You are adding | Put it in |
 |---|---|
-| The native port's code | `port/` ([its README](../port/README.md)): a game's own part in `port/game/<game>/`, following [its coding conventions](../port/docs/CODING_CONVENTIONS.md) |
+| The native port's code | `port/` ([its README](../port/README.md)): a game's own part in `port/game/<game>/`, following [its coding conventions](CODING_CONVENTIONS.md) |
 | A study or decision for the native port | `docs/port/` ([its README](port/README.md)) |
 | Launcher code, or a game's actions in the launcher | `launcher/` (a game's actions: `launcher/actions.json`) |
 | Editor code | `extractor/`; a helper two or more of its modules need in `tools/openrac_common` if other tools need it too, else in `extractor/util.py` (one that raises `FormatError` in `formats.py`), with a test |
