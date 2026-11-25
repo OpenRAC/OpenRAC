@@ -9,6 +9,17 @@
 
 #include "openrac/guest.h"
 
+/* The text of a %s argument: a game address in RAM (direct or by an uncached alias), "(null)" for 0 or
+ * for an address that is no memory at all. A format that reads more arguments than its caller handed
+ * on takes what the registers or the stack held (a %s over such leftovers read 0xFFFFFFC0 and took
+ * the host down), and the console would have printed whatever lay there or faulted. */
+static const char* guest_string(gaddr s) {
+    const uint32_t ram = openrac_guest_ram_size;
+    const int in_ram = s < ram || (s >= GUEST_RAM_UNCACHED && s - GUEST_RAM_UNCACHED < ram)
+                       || (s >= GUEST_RAM_UNCACHED_ACCEL && s - GUEST_RAM_UNCACHED_ACCEL < ram);
+    return s != 0 && in_ram ? (const char*)G(openrac_guest_ram_address(s)) : "(null)";
+}
+
 int openrac_guest_vformat(char* out, size_t size, const char* f, va_list args) {
     size_t n = 0;
 
@@ -48,8 +59,7 @@ int openrac_guest_vformat(char* out, size_t size, const char* f, va_list args) {
                 made = snprintf(piece, sizeof(piece), spec, va_arg(args, int));
                 break;
             case 's': {
-                const gaddr s = (gaddr)va_arg(args, int);
-                made = snprintf(piece, sizeof(piece), spec, s != 0 ? (const char*)G(s) : "(null)");
+                made = snprintf(piece, sizeof(piece), spec, guest_string((gaddr)va_arg(args, int)));
                 break;
             }
             case 'f':

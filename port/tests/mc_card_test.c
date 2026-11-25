@@ -53,7 +53,7 @@ void (*openrac_game_save_written)(const char* path, int players);
 void (*openrac_game_save_read)(const char* path, int slot);
 const openrac_game_play* openrac_game_play_host;
 int openrac_game_no_card;
-int openrac_game_active_destination = -1;
+int openrac_game_active_destination = -1;  // the campaign, not an added planet
 
 enum {
     NAME = 0x100,
