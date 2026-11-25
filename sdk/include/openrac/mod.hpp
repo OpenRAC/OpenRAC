@@ -1362,6 +1362,20 @@ public:
         return k >= 0 ? std::string(out) : std::string();
     }
 
+    // Synchronous gameplay decisions. Since 1.40; register only during load.
+    bool has_play_queries() const {
+        return m_api->api_minor >= 40
+               && m_api->size >= offsetof(openrac_api, on_play_query) + sizeof(void*)
+               && m_api->on_play_query != nullptr;
+    }
+
+    void on_play_query(uint32_t kinds, openrac_play_query_fn fn, void* user) {
+        if (!has_play_queries()
+            || m_api->on_play_query(m_handle, kinds, fn, user) != OPENRAC_HOOK_OK) {
+            throw Error("on_play_query: unsupported, conflicting kinds, or called outside load");
+        }
+    }
+
     // Calls `callable(tick)` after vertical-blank handlers. Snapshot calls are valid only here.
     // Since 1.6; only during load.
     template <class F>
