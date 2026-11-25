@@ -62,6 +62,7 @@ add_library(openrac_platform STATIC
   platform/gpu_driver.cpp
   platform/gyro.cpp
   platform/input.cpp
+  platform/key_layout.cpp
   platform/menu_chord.cpp
   platform/pad.cpp
   platform/players.cpp
