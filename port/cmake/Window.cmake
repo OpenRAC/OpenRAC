@@ -48,7 +48,12 @@ function(openrac_embed_shaders target name namespace)
   file(CONFIGURE OUTPUT "${dir}/${name}_shaders.cpp"
     CONTENT "${banner}#include \"${name}_shaders.h\"\n\n#include \"common/stats.h\"\n\nnamespace ${namespace}::shaders {\n${definitions}}\n\nnamespace {\n[[maybe_unused]] const int registered = openrac::stats::embedded_shader_root(\"${PROJECT_SOURCE_DIR}\")${registrations};\n}\n"
     @ONLY)
-  target_sources(${target} PRIVATE "${dir}/${name}_shaders.cpp")
+  add_library(openrac_${name}_shader_text STATIC "${dir}/${name}_shaders.cpp")
+  target_include_directories(openrac_${name}_shader_text PUBLIC "${dir}")
+  target_link_libraries(openrac_${name}_shader_text PUBLIC openrac_common)
+  openrac_warnings(openrac_${name}_shader_text)
+  target_link_libraries(${target} PRIVATE openrac_${name}_shader_text)
+  set_property(GLOBAL APPEND PROPERTY OPENRAC_SHADER_TEXT_TARGETS openrac_${name}_shader_text)
   target_include_directories(${target} PRIVATE "${dir}")
 endfunction()
 
@@ -62,6 +67,7 @@ add_library(openrac_platform STATIC
   platform/gpu_driver.cpp
   platform/gyro.cpp
   platform/input.cpp
+  platform/key_layout.cpp
   platform/menu_chord.cpp
   platform/pad.cpp
   platform/players.cpp
@@ -152,7 +158,7 @@ if(OPENRAC_VULKAN)
     target_sources(openrac_renderer_vulkan PRIVATE renderer/vulkan/diagnostics/tracy.cpp)
   endif()
   target_link_libraries(openrac_renderer_vulkan
-    PUBLIC openrac_common openrac_sdl3 openrac_vulkan PRIVATE openrac_glslang)
+    PUBLIC openrac_common openrac_sdl3 openrac_vulkan)
   # HDR output's encode pass (renderer/vulkan/presentation/hdr_output.cpp).
   openrac_embed_shaders(openrac_renderer_vulkan vkgl openrac::vkgl
     "${CMAKE_CURRENT_SOURCE_DIR}/renderer/vulkan/shaders/hdr_encode.comp"
@@ -565,6 +571,7 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/early_lighting.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/cloud_shadows.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/probe_selection.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/early_lighting.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/lighting/probes.glsl"
@@ -1310,3 +1317,5 @@ set_tests_properties(gl_shader_variants PROPERTIES SKIP_RETURN_CODE 77 LABELS "g
 add_test(NAME gl_shader_variants_es COMMAND gl_shader_variants_test)
 set_tests_properties(gl_shader_variants_es PROPERTIES SKIP_RETURN_CODE 77 LABELS "gpu"
                     RESOURCE_LOCK "openrac_gpu" ENVIRONMENT "OPENRAC_GL_API=es")
+
+include(ShaderSources)

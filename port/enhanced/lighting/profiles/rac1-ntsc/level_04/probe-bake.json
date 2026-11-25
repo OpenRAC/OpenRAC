@@ -11,8 +11,7 @@
           158,
           71
         ],
-        "spacing": 5,
-        "fit_to_floor": false
+        "spacing": 5
       },
       {
         "bounds": [
@@ -23,8 +22,7 @@
           168,
           74
         ],
-        "spacing": 4,
-        "fit_to_floor": false
+        "spacing": 4
       },
       {
         "bounds": [
@@ -35,8 +33,7 @@
           136,
           70
         ],
-        "spacing": 5,
-        "fit_to_floor": false
+        "spacing": 5
       },
       {
         "bounds": [
@@ -47,8 +44,7 @@
           128,
           64
         ],
-        "spacing": 4,
-        "fit_to_floor": false
+        "spacing": 4
       }
     ]
   }

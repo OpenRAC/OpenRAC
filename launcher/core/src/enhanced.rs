@@ -162,11 +162,22 @@ pub fn settings() -> Vec<SettingSpec> {
         "Effects detail",
         "choice",
         "high".into(),
-        "High draws every effect in full. Medium and Low take cheaper shortcuts that change the picture a little: coarser water, simpler leaf shadows, and on Low coarser lighting.",
+        "Controls water geometry, foliage and blended lighting, and far shadow updates.",
     );
     detail.choices = vec![
         Choice { value: "low".into(), name: "Low".into() },
         Choice { value: "medium".into(), name: "Medium".into() },
+        Choice { value: "high".into(), name: "High".into() },
+    ];
+    let mut early_lighting = spec(
+        "early_lighting_quality",
+        "Early Lit cache quality",
+        "choice",
+        "normal".into(),
+        "Normal stores one lighting sample per 4x4 pixels. High stores one per 2x2 pixels.",
+    );
+    early_lighting.choices = vec![
+        Choice { value: "normal".into(), name: "Normal".into() },
         Choice { value: "high".into(), name: "High".into() },
     ];
     vec![
@@ -177,6 +188,7 @@ pub fn settings() -> Vec<SettingSpec> {
         texture_filter,
         temporal,
         detail,
+        early_lighting,
         spec(
             "agx_preview",
             "Color Correction",

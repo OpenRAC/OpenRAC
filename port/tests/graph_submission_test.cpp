@@ -3,6 +3,8 @@
 //
 // Checks submission ordering, recording scopes and completion-gated retirement.
 #include <algorithm>
+#include <array>
+#include <memory>
 #include <stdexcept>
 #include <type_traits>
 
@@ -186,6 +188,23 @@ void test_submission_lifetime() {
     CHECK(retirements == 1);
     CHECK(lifetime.complete(true));
     CHECK(retirements == 2);
+
+    std::array<std::shared_ptr<int>, 96> resources;
+    for (auto& held : resources) {
+        held = std::make_shared<int>(0);
+        lifetime.retain(held);
+    }
+    for (const auto& held : resources) {
+        lifetime.retain(held);
+    }
+    CHECK(lifetime.retained() == resources.size());
+    lifetime.retire([&] { lifetime.retain(resources.front()); });
+    CHECK(lifetime.complete(true));
+    CHECK(lifetime.retained() == 1);
+    lifetime.retain(resources.front());
+    CHECK(lifetime.retained() == 1);
+    CHECK(lifetime.complete(true));
+    CHECK(lifetime.retained() == 0);
 }
 
 }  // namespace

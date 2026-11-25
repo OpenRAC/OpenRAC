@@ -374,6 +374,14 @@ Item own_item(Id id, std::uint8_t where) {
             it.can_raise = detail < 2;
             return it;
         }
+        case Id::EarlyLightingQuality: {
+            it.shown = enhanced_on();
+            const bool high = set.early_lighting_quality == renderer::EarlyLightingQuality::High;
+            it.value = renderer::kEarlyLightingQualityNames[high ? 1 : 0];
+            it.can_lower = high;
+            it.can_raise = !high;
+            return it;
+        }
         case Id::Upscaling: {
             it.shown = enhanced_on() && enhanced::Fsr3::available();
             const std::string_view upscaler = it.shown ? enhanced::Fsr3::active_upscaler() : "none";
@@ -780,6 +788,14 @@ bool act(Id id, int by) {
             );
             changed();
             return false;
+        case Id::EarlyLightingQuality: {
+            const int last = static_cast<int>(renderer::EarlyLightingQuality::Count) - 1;
+            set.early_lighting_quality = static_cast<renderer::EarlyLightingQuality>(
+                std::clamp(static_cast<int>(set.early_lighting_quality) + by, 0, last)
+            );
+            changed();
+            return false;
+        }
         case Id::TextureUpscaling: {
             const int last = static_cast<int>(renderer::TextureFilter::Count) - 1;
             set.texture_filter = static_cast<renderer::TextureFilter>(

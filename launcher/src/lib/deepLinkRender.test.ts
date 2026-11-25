@@ -9,7 +9,7 @@ import type { Config } from "./api";
 import { app } from "./app.svelte";
 import { changeSet } from "./deepLink.svelte";
 import { mockResolve } from "./mockIndex";
-import { CHANGE_SET, installCount, nativeWarning } from "./modsText";
+import { CHANGE_SET, installCount, nativeWarning, noteText, whyText } from "./modsText";
 
 const html = () => render(DeepLinkInstall).body.replace(/<!--[^>]*-->/g, "");
 
@@ -119,5 +119,27 @@ describe("the change set", () => {
   it("shows nothing until there is a link", () => {
     changeSet.link = null;
     expect(html().trim()).toBe("");
+  });
+});
+
+describe("hook points this launcher lacks", () => {
+  const hooks = ["rac1.level.update_play", "rac1.freeze.update", "rac1.freeze.draw"];
+
+  it("say a newer launcher is needed, and which version goes in instead", () => {
+    expect(
+      noteText({
+        kind: "olderForHooks",
+        id: "weapon-wheel-pause",
+        name: "Weapon wheel pause",
+        picked: "1.0.3",
+        newest: "2.0.0",
+        hooks,
+      }),
+    ).toBe(
+      "Weapon wheel pause 2.0.0 needs a newer launcher (3 hooks this launcher doesn't have). Installing 1.0.3, the latest for yours.",
+    );
+    expect(whyText("Weapon wheel pause", { kind: "needsHooks", hooks })).toBe(
+      "Weapon wheel pause needs a newer launcher (3 hooks this launcher doesn't have).",
+    );
   });
 });

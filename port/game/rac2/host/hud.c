@@ -13,11 +13,88 @@
  * top middle panel (func_0034AD10).
  */
 #include <stdint.h>
+#include <string.h>
 
 #include "../../common/lib/hud_edges.h"
 #include "game_protos.h"
 #include "openrac/game_host.h"
+#include "openrac/guest.h"
 #include "rac2.h"
+
+unsigned long long func_0027C878(int index);
+int func_0027F178(gaddr text, int length);
+int func_0027F198(gaddr text, int length);
+void func_0027F640(
+    float x,
+    float y,
+    unsigned long long colour,
+    gaddr text,
+    int limit,
+    float scale,
+    unsigned long long tex0,
+    gaddr glyphs
+);
+
+/* The mods' lines of text (openrac_game_hud_texts), after the HUD's widgets, in the game's own fonts
+ * on its 512 x 416 screen (font.c: the large font is texture 1, the small one texture 2). */
+#define FONT_LARGE RAC2_ADDR(0x00263B50u)
+#define FONT_SMALL RAC2_ADDR(0x00263EF0u)
+#define MOD_LINES 16
+#define MOD_LINE_BYTES 64
+
+static gaddr mod_text;
+
+/* The GS colour (0xAABBGGRR): the colour as it comes, the opacity's 0 to 255 to the GS's 0 to 128. */
+static unsigned long long gs_colour(uint32_t rgba) {
+    const uint32_t alpha = (((rgba >> 24) & 0xFFu) * 128u + 127u) / 255u;
+    return (unsigned long long)(((rgba << 8) >> 8) | (alpha << 24));
+}
+
+static void draw_line(
+    const openrac_game_hud_text* line, gaddr text, float dx, float dy, uint32_t rgba
+) {
+    const int small = (line->flags & 1u) != 0;
+    const float width =
+        (float)(small ? func_0027F198(text, -1) : func_0027F178(text, -1)) * line->scale;
+    func_0027F640(
+        line->x * 512.0f - width / 2.0f + dx,
+        line->y * 416.0f - 8.0f * line->scale + dy,
+        gs_colour(rgba),
+        text,
+        -1,
+        line->scale,
+        func_0027C878(small ? 2 : 1),
+        OPENRAC_DATA(small ? FONT_SMALL : FONT_LARGE)
+    );
+}
+
+static void draw_mod_texts(void) {
+    openrac_game_hud_text lines[MOD_LINES];
+    int n = openrac_game_hud_texts(lines, MOD_LINES);
+    n = n < MOD_LINES ? n : MOD_LINES;
+    if (n <= 0) {
+        return;
+    }
+    if (mod_text == 0) {
+        mod_text = openrac_guest_static(MOD_LINES * MOD_LINE_BYTES);
+    }
+    for (int i = 0; i < n; i++) {
+        /* The printable characters only: the font has no others. */
+        char* out = (char*)G(mod_text + (gaddr)i * MOD_LINE_BYTES);
+        int k = 0;
+        for (const char* c = lines[i].text; *c != '\0' && k < MOD_LINE_BYTES - 1; ++c) {
+            if (*c >= 32 && *c <= 126) {
+                out[k++] = *c;
+            }
+        }
+        out[k] = '\0';
+        const gaddr text = mod_text + (gaddr)i * MOD_LINE_BYTES;
+        if ((lines[i].flags & 2u) != 0) {
+            draw_line(&lines[i], text, 1.0f, 1.0f, lines[i].rgba & 0xFF000000u);
+        }
+        draw_line(&lines[i], text, 0.0f, 0.0f, lines[i].rgba);
+    }
+}
 
 static void draw_hud(void) {
     func_0028E458__game();
@@ -50,6 +127,8 @@ void func_0034E4F8(gaddr object) {
         hud_side(0, 0);
     }
     widgets_side = 0;
+    /* After the widgets, whose textures the fonts' would replace. */
+    draw_mod_texts();
 }
 
 /*

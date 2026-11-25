@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <regex>
 #include <span>
 #include <stdexcept>
@@ -26,10 +27,13 @@
 #include "renderer/gl/gl.h"
 #include "renderer/gl/gpu_draw.h"
 #include "renderer/settings/render_opt.h"
+#include "renderer/vulkan/draw/error_draw_state.h"
+#include "renderer/vulkan/draw/gpu_draw_sources.h"
 #include "renderer/vulkan/graph/graph_barriers.h"
 #include "renderer/vulkan/graph/graph_immediate_work.h"
 #include "renderer/vulkan/graph/graph_pipeline.h"
 #include "renderer/vulkan/graph/surface_batch.h"
+#include "renderer/vulkan/pipelines/material_shader_sources.h"
 #include "renderer/vulkan/pipelines/shader_compiler.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
@@ -465,6 +469,21 @@ void draw(
         throw std::logic_error("draw requires an owning graph pass");
     }
 
+    std::optional<ErrorDrawState> error_state;
+    // Unknown geometry cannot contribute depth. Defer its diagnostic to a writable colour pass.
+    if (p->compiled.fallback == GraphicsFallback::Fullscreen) {
+        if (!graph_colour_write_allowed(t)) {
+            return;
+        }
+        error_state.emplace(g->state);
+        mode = GL_TRIANGLES;
+        count = 3;
+        instances = 1;
+        indexed = false;
+        first = 0;
+        gpu_page = nullptr;
+        indirect_buffer = 0;
+    }
     validate_pipeline_draw(t);
     // What it samples, in the layout for sampling: moved before the drawing begins. The list is
     // the Context's, kept for its capacity (vk-draw-cache), or a vector of the draw's own.
