@@ -4,7 +4,8 @@
 # published by hand. Each build's updater reads the repository that built it:
 # a tag's, that repository's latest release; a build of a branch, the
 # pre-release launcher-dev-<branch> that the dev-release job keeps current
-# (launcher/docs/RELEASING.md).
+# (launcher/docs/RELEASING.md). develop's development build runs every three hours, and only
+# when develop changed a path below since the commit launcher-dev-develop holds (the changes job).
 #
 # They are not signed: Windows SmartScreen and macOS Gatekeeper warn about
 # them until the project has certificates.
@@ -30,7 +31,8 @@ name: launcher
 
 on:
   push:
-    branches: [master, develop]
+    # tools/ci_scope.py launcher-changed reads this list: keep it the first "paths:" here.
+    branches: [master]
     tags: ["launcher-v*"]
     paths:
       - "launcher/**"
@@ -53,8 +55,11 @@ on:
       - "games/*/game.json"
       - ".github/workflows/launcher.yml"
       - ".github/actions/**"
-  # Pull requests build nothing here: the push that lands one builds it (develop: the dev release),
-  # and a branch can still be built by hand (workflow_dispatch).
+  # Pull requests build nothing here. develop builds on this schedule (the default branch's), not
+  # on every merge: a merge queue day lands many, and each build is six installers of up to two
+  # hours. A branch can still be built by hand (workflow_dispatch), develop too.
+  schedule:
+    - cron: "23 */3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -72,11 +77,34 @@ env:
   OPENRAC_HOSTGEN_NO_DISC: "1"
 
 jobs:
+  # A scheduled run builds only when develop changed what the build reads since its last
+  # development build (the commit the launcher-dev-develop tag points at). Every other event builds.
+  changes:
+    name: Anything new to build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    outputs:
+      build: ${{ steps.changes.outputs.build || 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'schedule'
+        with:
+          persist-credentials: false
+      - id: changes
+        if: github.event_name == 'schedule'
+        run: |
+          channel="launcher-dev-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"
+          # No tag yet, or no way to read it: build.
+          git fetch -q --no-tags --depth=1 origin "+refs/tags/$channel:refs/tags/$channel" || exit 0
+          SINCE=$(git rev-parse "refs/tags/$channel^{commit}") python3 tools/ci_scope.py launcher-changed
+
   # A branch build's version, worked out once for every build and the rolling release. Each build
   # asking scripts/dev_version.sh itself could disagree when a release tag is pushed mid-run (the
   # installers X.Y.Z, their latest.json X.Y.(Z+1)-dev), and launchers on that channel would update
   # forever.
   version:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
@@ -639,6 +667,8 @@ jobs:
           path: ${{ matrix.files }}
           if-no-files-found: error
 
+      - uses: ./.github/actions/compiler-cache/save
+
   # Any other build of a branch here or in a fork: its launchers on the
   # branch's rolling pre-release `launcher-dev-<branch>`, made again each time, where the
   # launchers built from that branch look for their updates (Build the installers, above). Only
@@ -647,7 +677,7 @@ jobs:
   # still get their update, and latest.json leaves out the one that did not. Not when the run was
   # cancelled (a newer one of the branch took its place).
   dev-release:
-    if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') }}
+    if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') && needs.build.result != 'skipped' }}
     needs: [version, build]
     runs-on: ubuntu-26.04
     timeout-minutes: 15

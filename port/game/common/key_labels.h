@@ -3,15 +3,20 @@
 //
 // A key's name (openrac/keys.h: "KeyW", "MouseLeft") as a player reads it: in a menu ("W", "Left
 // click") and on a button icon of the game's: one or two lines ("\n" between them) of at most 5
-// capitals, digits or signs ("W", "LMB", "NUM\n4").
+// capitals, digits or signs ("W", "LMB", "NUM\n4"). Names are by place, as on a US keyboard, but
+// for the letters and signs, which are what the player's layout prints there once the window says
+// so (set_layout): on an AZERTY keyboard "KeyW" reads Z.
 
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cctype>
 #include <string>
 #include <string_view>
 #include <utility>
+
+#include "openrac/keys.h"
 
 namespace openrac::keys {
 
@@ -90,10 +95,70 @@ inline std::string upper(std::string_view s) {
     return out;
 }
 
+// The character a key prints on the player's layout, by HID usage, 0 for none
+// (platform/key_layout.h, which the window sets as it opens); null without a window.
+using LayoutChar = char (*)(int usage);
+inline std::atomic<LayoutChar> g_layout{nullptr};
+
+// The keys named by what the layout prints: the letters and the signs. Not the digits: some layouts
+// print a sign there unshifted (AZERTY's &), and the number keys are known by their numbers.
+inline bool named_by_layout(std::string_view name) {
+    static constexpr std::array<std::string_view, 13> kSigns = {
+        "Minus",
+        "Equal",
+        "BracketLeft",
+        "BracketRight",
+        "Backslash",
+        "IntlBackslash",
+        "IntlHash",
+        "Semicolon",
+        "Quote",
+        "Backquote",
+        "Comma",
+        "Period",
+        "Slash",
+    };
+
+    if (name.size() == 4 && name.starts_with("Key")) {
+        return true;
+    }
+
+    for (std::string_view s : kSigns) {
+        if (s == name) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// What the layout prints on the key named `name`, as a one-character string; "" for none.
+inline std::string layout_label(std::string_view name) {
+    const LayoutChar layout = g_layout.load(std::memory_order_relaxed);
+
+    if (layout == nullptr || !named_by_layout(name)) {
+        return "";
+    }
+
+    const int usage = openrac_bind_from_name_n(name.data(), name.size());
+    const char c = usage > 0 && usage < OPENRAC_KEY_COUNT ? layout(usage) : '\0';
+    return c != '\0' ? std::string(1, c) : "";
+}
+
 }  // namespace detail
 
-// "W", "1", "Left click", "Num 4", "F5".
+// Names the letters and signs by what the player's layout prints (null: by place, as on a US
+// keyboard). The window sets it as it opens (game/common/frontend.cpp).
+inline void set_layout(char (*layout)(int usage)) {
+    detail::g_layout.store(layout, std::memory_order_relaxed);
+}
+
+// "W", "1", "Left click", "Num 4", "F5"; on an AZERTY keyboard "KeyW" is "Z".
 inline std::string menu_label(std::string_view name) {
+    if (std::string own = detail::layout_label(name); !own.empty()) {
+        return own;
+    }
+
     for (const detail::Words& w : detail::kWords) {
         if (w.name == name) {
             return std::string(w.menu);
@@ -113,6 +178,10 @@ inline std::string menu_label(std::string_view name) {
 
 // One or two lines of at most 5 capitals: "W", "1", "LMB", "SPACE", "NUM\n4", "F5".
 inline std::string icon_label(std::string_view name) {
+    if (std::string own = detail::layout_label(name); !own.empty()) {
+        return own;
+    }
+
     for (const detail::Words& w : detail::kWords) {
         if (w.name == name) {
             return std::string(w.icon);

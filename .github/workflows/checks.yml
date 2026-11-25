@@ -7,18 +7,19 @@
 # moves the pins); the port's compiles are cached with ccache.
 name: checks
 
+# Two tiers (tools/ci_scope.py). A pull request runs the fast tier: the checks that answer in
+# minutes. The merge queue (merge_group) runs the full tier on the queued changes before they
+# land: the fast tier again plus Windows, the enhanced Vulkan build and tests, and the carried
+# releases. A push runs everything; on develop it is also the only run that writes the caches
+# (.github/actions/*/save), so it is never cancelled.
 on:
   push:
     branches: [master, develop]
   pull_request:
     # ready_for_review: a draft skips the port's builds (scope below), so they run when it is ready.
     types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
   workflow_dispatch:
-    inputs:
-      time-vulkan-shards:
-        description: Compare one, two and four Vulkan equivalence shards on one runner
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -32,17 +33,19 @@ env:
   # "required") build with stubs on purpose instead of stopping (port/tools/hostgen/asmc.py).
   OPENRAC_HOSTGEN_NO_DISC: "1"
 
-# New PR pushes and develop merges supersede old runs; master's release checks all finish.
+# A new push to a pull request supersedes its old run. Pushes finish: develop's write the caches
+# every pull request reads, and master's are a release's checks. Each merge queue group has a ref
+# of its own.
 concurrency:
   group: checks-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # What a pull request needs (tools/ci_scope.py: the jobs and the port's parts its files can
-  # affect), and on every event all the parts the Linux port job is built in: one for what the
-  # games share, one per game program (port/game/*/hostgen.json "id"). A push runs everything.
-  # A draft pull request runs no port build (Linux, Enhanced, Fedora, Windows), only the cheap
-  # checks; marking it ready runs the rest.
+  # What a run needs (tools/ci_scope.py: the jobs and the port's parts its files can affect, in
+  # the event's tier), and on every event all the parts the Linux port job is built in: one for
+  # what the games share, one per game program (port/game/*/hostgen.json "id"). A push runs
+  # everything. A draft pull request runs no port build, only the cheap checks; marking it ready
+  # runs the rest.
   scope:
     name: Which checks run
     runs-on: ubuntu-26.04
@@ -53,6 +56,8 @@ jobs:
       pages: ${{ steps.scope.outputs.pages }}
       port: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.port }}
       enhanced: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.enhanced }}
+      windows: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.windows || 'true' }}
+      launcher_systems: ${{ steps.scope.outputs.launcher_systems || '["Linux", "Windows"]' }}
       port_programs: ${{ steps.parts.outputs.port_programs }}
       port_parts: ${{ github.event.pull_request.draft && '[]' || steps.scope.outputs.port_parts || steps.parts.outputs.port_parts }}
     steps:
@@ -70,16 +75,23 @@ jobs:
           print("port_parts=" + json.dumps(["common", *programs]))
           PY
       - id: scope
-        if: github.event_name == 'pull_request'
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
+          MERGE_BASE: ${{ github.event.merge_group.base_sha }}
         run: |
-          # Use the base branch's policy so a PR changing the gate gets full checks.
+          # The base branch's policy, so that a change to the gate gets full checks. A push or a
+          # manual run gives every output (the defaults above).
           script="$RUNNER_TEMP/openrac-ci-scope.py"
-          if git show HEAD^1:tools/ci_scope.py > "$script"; then
-            python3 "$script"
-          fi
+          case "$GITHUB_EVENT_NAME" in
+            pull_request) git show HEAD^1:tools/ci_scope.py > "$script" || exit 0 ;;
+            merge_group)
+              git fetch -q --no-tags --depth=1 origin "$MERGE_BASE" || exit 0
+              git show "$MERGE_BASE:tools/ci_scope.py" > "$script" || exit 0 ;;
+            *) exit 0 ;;
+          esac
+          python3 "$script"
 
+  # Starts at once, beside scope: most failures are found here, in a few minutes.
   checks:
     name: Repository (tools, tables, conventions)
     runs-on: ubuntu-26.04
@@ -87,17 +99,32 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 2
           persist-credentials: false
       - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
+      # A pull request runs a decomp's own tool checks only when it changes that game (tools/ci_scope.py
+      # decomp-games); the merge queue and pushes run them all. With the base branch's script, as in scope.
+      - name: Which games' decomp tools to check
+        id: games
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          script="$RUNNER_TEMP/openrac-ci-scope.py"
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] && git show HEAD^1:tools/ci_scope.py > "$script" \
+              && grep -q decomp-games "$script"; then
+            python3 "$script" decomp-games || echo 'games=["rac1", "rac2", "rac4", "rac5", "rac6"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'games=["rac1", "rac2", "rac4", "rac5", "rac6"]' >> "$GITHUB_OUTPUT"
+          fi
 
       # Each decomp's pin matches its game.json, and a pull request that moves one also changes
       # the port's tables made from it and has its build facts published (tools/sources.py check).
       - name: Decomp pins
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ -n "$BASE" ]; then
@@ -159,7 +186,7 @@ jobs:
       - name: Water bake preparation (synthetic data only)
         run: python -m unittest discover -s port/enhanced/tools/water -v
 
-      # The port's countable conventions (port/docs/CODING_CONVENTIONS.md): the rules for every
+      # The port's countable conventions (docs/CODING_CONVENTIONS.md): the rules for every
       # file, and the new-code rules on what this push or pull request adds. A line it changes that
       # clang-format would lay out differently fails the step (--strict-touched; the page, section
       # 24.4), in older files too. clang-format is pinned.
@@ -167,12 +194,12 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           python -m pip install clang-format==21.1.8
           python -m unittest discover -s port/tools/conventions -v
           base=""
-          if [ "$EVENT" = pull_request ]; then
+          if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ]; then
             base="$PR_BASE"
           elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
             base="$BEFORE"
@@ -184,13 +211,21 @@ jobs:
             python port/tools/conventions/check_conventions.py
           fi
 
-      # The layout of the C++ under port/ and sdk/ (port/docs/CODING_CONVENTIONS.md, section 5.6):
+      # The layout of the C++ under port/ and sdk/ (docs/CODING_CONVENTIONS.md, section 5.6):
       # clang-format and the blank lines around control blocks. Report only: the step
       # lists what would change and never fails the build. clang-format comes from the step above.
+      # Pushes only: a report nobody waits for.
       - name: C++ layout (report only)
+        if: github.event_name == 'push'
         run: python tools/cpp_style.py --report-only
 
-      # The port's includes against the module layering (port/docs/CODING_CONVENTIONS.md, section
+      # Repeated code in the port's C and C++ (docs/CODING_CONVENTIONS.md, section 22.6): runs of
+      # 60 tokens found twice that tools/dup_check_baseline.tsv does not accept. Report only for now.
+      - name: Repeated code (report only)
+        if: github.event_name == 'push'
+        run: python tools/dup_check.py --report-only
+
+      # The port's includes against the module layering (docs/CODING_CONVENTIONS.md, section
       # 18): a new include of a higher layer fails; today's violations are the exceptions listed in
       # port/tools/layering/rules.tsv. Standard-library Python, the whole port on every run.
       - name: Port layering
@@ -207,10 +242,12 @@ jobs:
         run: python tools/shared.py check
 
       - name: rac1/pal progress report is current with its source
+        if: contains(fromJSON(steps.games.outputs.games), 'rac1')
         working-directory: games/rac1/decomp
         run: python tools/gen_progress_report.py --check
 
       - name: rac4 progress reports are current with their source
+        if: contains(fromJSON(steps.games.outputs.games), 'rac4')
         working-directory: games/rac4/decomp
         # rac4-decomp's reports (progress/report.json, progress/pal/), as its own CI checks them;
         # gen_progress_report.py's report is a build output (build/legacy_report.json).
@@ -219,6 +256,7 @@ jobs:
           python tools/progress.py --version pal --check
 
       - name: rac1/ntsc tools
+        if: contains(fromJSON(steps.games.outputs.games), 'rac1')
         working-directory: games/rac1/ntsc-decomp
         run: |
           # scripts/data-refs.py and its tests read the executable with these
@@ -228,6 +266,7 @@ jobs:
           python -m py_compile scripts/*.py
 
       - name: rac2 tools, layout and progress report
+        if: contains(fromJSON(steps.games.outputs.games), 'rac2')
         working-directory: games/rac2/decomp
         run: |
           # tools/check.py disassembles with it, at the version the decomp pins.
@@ -237,32 +276,32 @@ jobs:
           python tools/progress.py --check
 
       - name: rac5 tools and layout
+        if: contains(fromJSON(steps.games.outputs.games), 'rac5')
         working-directory: games/rac5/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py
 
       - name: rac6 tools and layout
+        if: contains(fromJSON(steps.games.outputs.games), 'rac6')
         working-directory: games/rac6/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py
 
-  # The desktop launcher (launcher/): its UI checks, and its Rust side, whose tests also check
-  # launcher/actions.json against games/*/game.json. On Windows too, where paths join with
-  # backslashes, files are checked out with CRLF and the Unix-only tests are left out.
+  # The desktop launcher (launcher/): its Rust side, whose tests also check launcher/actions.json
+  # against games/*/game.json. Linux in every tier; Windows, where paths join with backslashes,
+  # files are checked out with CRLF and the Unix-only tests are left out, in the full tier.
   launcher:
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' && needs.scope.outputs.launcher_systems != '[]' }}
     name: Launcher / ${{ matrix.system }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.system == 'Windows' && 'windows-latest' || 'ubuntu-26.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { system: Linux, os: ubuntu-26.04 }
-          - { system: Windows, os: windows-latest }
+        system: ${{ fromJSON(needs.scope.outputs.launcher_systems) }}
     defaults:
       run:
         shell: bash
@@ -274,7 +313,7 @@ jobs:
       - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/launcher-toolchain
         with:
-          cache-key: checks-launcher-${{ matrix.os }}
+          cache-key: checks-launcher-${{ matrix.system == 'Windows' && 'windows-latest' || 'ubuntu-26.04' }}
           components: clippy, rustfmt
       - name: Tauri's system libraries
         if: runner.os == 'Linux'
@@ -296,6 +335,21 @@ jobs:
           yarn install --immutable
           yarn build
           cargo clippy --workspace --all-targets -- -D warnings
+
+  # One check for the launcher's systems (what branch protection requires): Windows is not in a
+  # pull request's matrix at all, so its own check cannot be the required one.
+  launcher-gate:
+    name: Launcher
+    needs: [scope, launcher]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every system
+        env:
+          SCOPE: ${{ needs.scope.result }}
+          RESULT: ${{ needs.launcher.result }}
+        run: test "$SCOPE" = success && { test "$RESULT" = success || test "$RESULT" = skipped; }
 
   # The launcher's pages, once (they are the same on every system): svelte-check, ESLint,
   # Prettier and Vitest, then the Android layout in a browser (launcher/e2e/), page by page. No
@@ -331,7 +385,14 @@ jobs:
       # library is really missing, and is cut short.
       - id: playwright
         run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # Written by pushes only, as every cache here (.github/actions/compiler-cache/save).
+      - if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
+      - if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
@@ -464,6 +525,9 @@ jobs:
             ctest --preset release --parallel 2 --stop-on-failure --no-tests=error -L "^game-$PART\$"
           fi
 
+      - uses: ./.github/actions/compiler-cache/save
+      - uses: ./.github/actions/port-build-cache/save
+
   # One check for every part (what branch protection requires).
   port:
     name: Port / Linux
@@ -479,14 +543,19 @@ jobs:
         # Skipped only when the pull request needs no part.
         run: test "$RESULT" = success || { test "$RESULT" = skipped && test "$PARTS" = "[]"; }
 
-  # Full enhanced Vulkan coverage and the offline Embree baker, separately from
-  # the compatibility build above. The preset explicitly compiles enhanced code in.
+  # Full enhanced Vulkan coverage and the offline Embree baker, separately from the compatibility
+  # build above. The preset explicitly compiles enhanced code in. One job: the build, then each
+  # test group (tools/ci_port_tests.py) in turn on the same runner. Most Vulkan tests share one
+  # lock (cmake/GpuTests.cmake), so they run one by one wherever they run. Full tier only.
   port-vulkan-enhanced-build:
-    name: Port / Enhanced Vulkan build
+    name: Port / Enhanced Vulkan build and tests
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.enhanced != 'false' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 120
+    env:
+      MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
+      MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -496,22 +565,27 @@ jobs:
         with:
           key: checks-port-enhanced
           max-size: 1G
+      - uses: ./.github/actions/mesa-cache
+        with:
+          variant: ubuntu-enhanced-nopt
       - name: Restore enhanced Vulkan packages
         id: enhanced-apt
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/openrac-enhanced-apt/*.deb
-          key: enhanced-apt-v1-ubuntu-26.04-${{ runner.arch }}-${{ hashFiles('.github/workflows/checks.yml') }}
-          restore-keys: enhanced-apt-v1-ubuntu-26.04-${{ runner.arch }}-
-      - name: Compilers, software Vulkan and Embree 4
+          key: enhanced-apt-v2-ubuntu-26.04-${{ runner.arch }}-${{ hashFiles('.github/workflows/checks.yml') }}
+          restore-keys: enhanced-apt-v2-ubuntu-26.04-${{ runner.arch }}-
+      - name: Compilers, software Vulkan, Embree 4 and the test runtime
         uses: ./.github/actions/apt-install
         with:
           archives: ${{ runner.temp }}/openrac-enhanced-apt
           packages: >-
             clang lld ninja-build libembree-dev libsdl3-dev
             libgl1-mesa-dev libegl1-mesa-dev zstd
+            libgl1 libegl1 libgles2 libglx-mesa0 libegl-mesa0 libgl1-mesa-dri
+            mesa-vulkan-drivers vulkan-validationlayers xvfb xauth
       - name: Save enhanced Vulkan packages
-        if: steps.enhanced-apt.outputs.cache-hit != 'true'
+        if: steps.enhanced-apt.outputs.cache-hit != 'true' && github.event_name != 'pull_request' && github.event_name != 'merge_group'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/openrac-enhanced-apt/*.deb
@@ -530,185 +604,54 @@ jobs:
             -DOPENRAC_LIGHT_AUTHORING=ON -DOPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS=ON \
             -DOPENRAC_VULKAN_TEST_SEED_CACHE=ON
           cmake --build --preset enhanced
-      - name: Package the enhanced test build
+
+      # Every group, even after one fails, so that one run shows every failure.
+      - name: The test groups
+        env:
+          SDL_VIDEO_DRIVER: x11
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIVM_PERF: nopt
         run: |
           python3 tools/ci_port_tests.py port/build/enhanced plan
-          # CTest and some fixtures embed absolute paths. Consumers use the same checkout layout.
-          pwd -P > port/build/enhanced/ci-workspace.txt
-          # The tests need no DWARF (RelWithDebInfo), and it is most of the size. The symbol
-          # table stays, so backtraces still name functions.
-          echo "before strip: $(du -sh --exclude=CMakeFiles --exclude='*-src' port/build/enhanced | cut -f1)"
-          find port/build/enhanced -path '*/CMakeFiles' -prune -o -path '*-src' -prune -o -type f \
-            -size +100k ! -name '*.o' -print0 | while IFS= read -r -d '' file; do
-            if [ "$(head -c 4 "$file" | od -An -tx1 | tr -d ' ')" = 7f454c46 ]; then
-              strip --strip-debug "$file"
-            fi
+          failed=""
+          for group in vulkan equivalence effects cpu baker; do
+            echo "::group::$group"
+            xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$group" || failed="$failed $group"
+            echo "::endgroup::"
           done
-          tar -C port/build --exclude=CMakeFiles --exclude='*-src' --exclude='*-subbuild' \
-            --exclude='*.a' --exclude='*.o' --exclude='*.ninja' --exclude='.ninja_*' \
-            --exclude=Testing --exclude=CMakeCache.txt \
-            -cf - enhanced | zstd -3 -T0 -q > "$RUNNER_TEMP/openrac-enhanced-tests.tar.zst"
-          ls -lh "$RUNNER_TEMP/openrac-enhanced-tests.tar.zst"
-          # What is left, largest first, to see what to trim next.
-          find port/build/enhanced -path '*/CMakeFiles' -prune -o -path '*-src' -prune -o -type f \
-            ! -name '*.a' ! -name '*.o' -printf '%s %p\n' | sort -rn | head -15 | numfmt --to=iec --field=1
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: openrac-enhanced-tests
-          path: ${{ runner.temp }}/openrac-enhanced-tests.tar.zst
-          compression-level: 0
-          retention-days: 1
-          if-no-files-found: error
-
-  port-vulkan-enhanced-tests:
-    name: Port / Enhanced Vulkan tests (${{ matrix.group }})
-    needs: port-vulkan-enhanced-build
-    # It asks for the build alone: the build's own condition covers scope.
-    if: ${{ !cancelled() && needs.port-vulkan-enhanced-build.result == 'success' }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        # cpu and baker take half a minute each: one runner for both. effects takes the locked
-        # Vulkan tests that need no other fixture (tools/ci_port_tests.py THIRD_RUNNER).
-        group: [vulkan, equivalence, effects, cpu-baker]
-    env:
-      SDL_VIDEO_DRIVER: x11
-      LIBGL_ALWAYS_SOFTWARE: "1"
-      # Fedora retains default LLVM optimisation coverage.
-      GALLIVM_PERF: nopt
-      MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
-      MESA_SHADER_CACHE_MAX_SIZE: 1G
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/decomp-sources
-      - uses: ./.github/actions/mesa-cache
-        if: matrix.group != 'cpu-baker'
-        with:
-          # Each runner compiles different variants; immutable cache keys must not race.
-          variant: ubuntu-enhanced-nopt-${{ matrix.group }}
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: openrac-enhanced-tests
-          path: ${{ runner.temp }}
-      - name: Install test runtime dependencies
-        uses: ./.github/actions/apt-install
-        with:
-          packages: >-
-            ninja-build libembree-dev libsdl3-dev
-            libgl1 libegl1 libgles2 libglx-mesa0 libegl-mesa0 libgl1-mesa-dri
-            mesa-vulkan-drivers vulkan-validationlayers xvfb xauth zstd
-      - name: Run the restored test group
-        env:
-          TEST_GROUP: ${{ matrix.group }}
-        run: |
-          mkdir -p port/build
-          zstd -dc "$RUNNER_TEMP/openrac-enhanced-tests.tar.zst" | tar -C port/build -xf -
-          test "$(cat port/build/enhanced/ci-workspace.txt)" = "$(pwd -P)"
-          for group in ${TEST_GROUP//-/ }; do
-            xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$group"
-          done
-      - name: Measure Vulkan shard contention
-        if: github.event_name == 'workflow_dispatch' && inputs.time-vulkan-shards && matrix.group == 'vulkan'
-        run: xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced timing
+          if [ -n "$failed" ]; then echo "::error::failed test groups:$failed"; exit 1; fi
 
       - name: Save enhanced test timings and failures
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: enhanced-test-results-${{ matrix.group }}
+          name: enhanced-test-results
           path: |
             port/build/enhanced/ci-*-results.xml
-            port/build/enhanced/ci-timing-*.xml
             port/build/enhanced/Testing/Temporary/LastTest.log
           retention-days: 7
           if-no-files-found: ignore
 
-  # One check for the build and every test group (what branch protection requires).
+      - uses: ./.github/actions/compiler-cache/save
+      - uses: ./.github/actions/port-build-cache/save
+
+  # One check for the build and its tests (what branch protection requires).
   port-vulkan-enhanced:
     name: Port / Enhanced Vulkan
-    needs: [scope, port-vulkan-enhanced-build, port-vulkan-enhanced-tests]
+    needs: [scope, port-vulkan-enhanced-build]
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
-      - name: Require the build and all test groups
+      - name: Require the build and its tests
         env:
-          BUILD_RESULT: ${{ needs.port-vulkan-enhanced-build.result }}
-          TEST_RESULT: ${{ needs.port-vulkan-enhanced-tests.result }}
+          RESULT: ${{ needs.port-vulkan-enhanced-build.result }}
           NEEDED: ${{ needs.scope.outputs.enhanced }}
-        # Skipped only when the pull request does not touch what the enhanced build reads.
+        # Skipped only when the change does not touch what the enhanced build reads, or in a pull
+        # request's fast tier (the merge queue runs it).
         run: |
-          if [ "$NEEDED" = false ]; then test "$BUILD_RESULT" = skipped; exit; fi
-          test "$BUILD_RESULT" = success && test "$TEST_RESULT" = success
-
-  # The native port on Fedora (the release players run): the program built as the launcher's
-  # "Build the game" builds it (tools/build_port.py), against the system's SDL3, Clang and CMake,
-  # then all non-Vulkan tests and a small Vulkan smoke set (hostgen's tests run once, in port). The full Vulkan
-  # suite runs in port-vulkan-enhanced; this set retains Fedora's optimised Mesa coverage.
-  port-fedora:
-    name: Port / Fedora
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
-    runs-on: ubuntu-26.04
-    container: registry.fedoraproject.org/fedora:44
-    timeout-minutes: 120
-    env:
-      # Every compile through ccache, kept between runs as the other port jobs keep theirs.
-      CMAKE_C_COMPILER_LAUNCHER: ccache
-      CMAKE_CXX_COMPILER_LAUNCHER: ccache
-      MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
-      MESA_SHADER_CACHE_MAX_SIZE: 1G
-    steps:
-      - name: Compilers and SDL3
-        run: |
-          dnf install -y --setopt=install_weak_deps=False git clang cmake ninja-build python3 ccache \
-            SDL3-devel mesa-libGL-devel mesa-libEGL-devel mesa-dri-drivers \
-            libX11-devel libXext-devel libXrandr-devel libXcursor-devel libXi-devel libXScrnSaver-devel \
-            wayland-devel libxkbcommon-devel alsa-lib-devel pulseaudio-libs-devel mesa-vulkan-drivers
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/decomp-sources
-
-      - uses: ./.github/actions/compiler-cache
-        with:
-          key: checks-port-fedora
-          max-size: 500M
-      - uses: ./.github/actions/mesa-cache
-        with:
-          variant: fedora-release
-
-      - uses: ./.github/actions/port-build-cache
-        with:
-          variant: fedora44-release
-          preset: release
-
-      - name: Build openrac-rac1-pal as the launcher builds it
-        run: python3 tools/build_port.py rac1-pal
-
-      # Every test program (the *_test targets), not the whole port: rac1/ntsc's program calls a
-      # memchr nothing declares, which Clang 16 and later refuse.
-      - name: Build the tests
-        working-directory: port
-        run: |
-          targets=$(ninja -C build/release -t targets all | sed -n 's/^\([A-Za-z0-9_]*_test\): .*/\1/p' | sort -u)
-          cmake --build --preset release --target $targets
-
-      - name: Non-Vulkan tests and Vulkan smoke coverage
-        working-directory: port
-        env:
-          SDL_VIDEO_DRIVER: offscreen
-        run: |
-          # GPU labels include Vulkan tests whose names do not mention Vulkan.
-          ctest --preset release --parallel 2 --stop-on-failure --no-tests=error -LE '^gpu$'
-          # Keep backend, shader, scene and enhanced-lighting smoke coverage, without
-          # repeating the expensive equivalence, probe, GTAO and shadow matrices.
-          vulkan_smoke='^(vulkan_(buffer|failure|uniform|present|present_timing|prewarm)|graph_immediate_work|renderer_(direct|shader)_vulkan|world_gl_smoke_vulkan|enhanced_rendering(_off)?_vulkan|early_lighting_vulkan|hero_shadow_vulkan)$'
-          ctest --preset release --parallel 2 --stop-on-failure --no-tests=error -R "$vulkan_smoke"
+          if [ "$NEEDED" = false ]; then test "$RESULT" = skipped; exit; fi
+          test "$RESULT" = success
 
   # The native port on Windows: rac1/pal's program built as the launcher's
   # "Build the game" builds it (tools/build_port.py: Visual Studio's C++
@@ -718,7 +661,8 @@ jobs:
   port-windows:
     name: Port / Windows
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
+    # Full tier: the merge queue and pushes.
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.windows == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 120
     env:
@@ -755,3 +699,6 @@ jobs:
 
       - name: hostgen's tests
         run: python -m unittest discover -s port/tools/hostgen -v
+
+      - uses: ./.github/actions/compiler-cache/save
+      - uses: ./.github/actions/port-build-cache/save
