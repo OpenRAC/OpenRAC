@@ -8,6 +8,10 @@
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec2 st;
 layout(location = 2) in vec4 colour;  // normalised bytes
+#ifdef OPENRAC_EFFECT_PAIR
+layout(location = 3) in float pair;  // 1: the quad samples its batch's second texture (tex_T2)
+flat out float v_pair;
+#endif
 
 uniform mat4 view_projection;
 uniform mat4 view;
@@ -24,6 +28,9 @@ void main() {
     v_world = position;
     vec2 uv = st;
     v_colour = colour * 255.0;
+#ifdef OPENRAC_EFFECT_PAIR
+    v_pair = pair;
+#endif
 #ifdef OPENRAC_EFFECT_POSITION
     effect_vertex(v_world, uv, v_colour);
 #endif
