@@ -281,6 +281,10 @@
    "is": "func_0012ACC8",
    "why": "the same instructions, the only place they occur"
   },
+  "func_0012B610": {
+   "is": "func_0012B610",
+   "why": "the same instructions, the only place they occur"
+  },
   "func_0012B8B8": {
    "is": "func_0012B8B8",
    "why": "the same instructions, the only place they occur"
@@ -1815,6 +1819,10 @@
   },
   "func_L39_005AA510": {
    "is": "func_L39_005A8630",
+   "why": "the same instructions, the only place they occur"
+  },
+  "func_L39_005ACFD0": {
+   "is": "func_L39_005AB0D0",
    "why": "the same instructions, the only place they occur"
   },
   "func_L39_005AD2B0": {
