@@ -653,10 +653,7 @@ Not fixed, for whoever picks rac3 up next:
   type getters no `OPENRAC_LCODE` names) are reached through their class tables, which relocate
   per level, or read private globals: left alone, harmless. Not fixed: the multiplayer maps'
   func_L39_ rows (40-53) for func_L01_00436070, 00443948, 004AA948, 004AAD58, 004D2470, which pair
-  through `level_copies`, not through the names. The root fix (rac3-decomp's `copy_groups()` in
-  tools/level_catalogue.py) was not attempted: it renames rows used by src/levels/ and the
-  decomp's own report, so it needs its own catalogue PR; this audit is the check for it.
->>>>>>> origin/develop
+  through `level_copies`, not through the names. The root fix is in rac3-decomp (7453660c, 0bf00a6a): `copy_groups()` in tools/level_catalogue.py files a level's copies of identical code by the callers' call sites (a caller whose code is once in each level forms its target at the same instruction), so the class type getters and font wrappers are filed under their real rows in every story level and the more_places and class getter split_places workarounds are gone; the call tables (variant_callees.tsv, call_copies.tsv) are regenerated. What the audit still finds (and `more_places` keeps) are copies the catalogue holds as their own rows (the password panel's leaves, the draw callback adders, func_L01_003A6BB0's copies).
 - **Synchronous rendering's tick-boundary hitch**: on OpenGL, or Vulkan without the render
   thread, the scene runs half a tick behind but in-between frames can't pass the next tick, so
   alpha drops from ~0.47 to 0 at each tick. The Vulkan render-thread path is not affected.
