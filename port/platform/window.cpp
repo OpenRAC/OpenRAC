@@ -480,6 +480,7 @@ bool Window::open_vulkan(const WindowConfig& config, std::string& error) {
          g_vulkan_setup.physical_device,
          g_vulkan_setup.create_device};
     vk.validation = config.debug_context;
+    vk.compile_missing_shaders = config.compile_missing_shaders;
     vk.gpu_breadcrumbs = config.gpu_breadcrumbs;
 #if defined(__APPLE__)
     // Keep live HDR switching available when MoltenVK exposes HDR colour spaces.
