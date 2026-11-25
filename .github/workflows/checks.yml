@@ -7,11 +7,13 @@
 # moves the pins); the port's compiles are cached with ccache.
 name: checks
 
-# Two tiers (tools/ci_scope.py). A pull request runs the fast tier: the checks that answer in
-# minutes. The merge queue (merge_group) runs the full tier on the queued changes before they
-# land: the fast tier again plus Windows, the enhanced Vulkan build and tests, and the carried
-# releases. A push runs everything; on develop it is also the only run that writes the caches
-# (.github/actions/*/save), so it is never cancelled.
+# The games (hostgen and each version's build) and Windows build only for a dev release (its pull
+# request from develop to master, .github/workflows/dev-release.yml, and the push to master) and a
+# manual run (Run workflow). A game that breaks there is fixed on develop. Pull requests to
+# develop, the merge queue and develop pushes build the port's shared part and run its tests
+# (tools/ci_scope.py). A pull request runs the fast tier; the queue and develop pushes
+# the full tier, which adds the enhanced Vulkan build and tests. develop's runs are the only ones
+# that write the caches (.github/actions/*/save), so they are never cancelled.
 on:
   push:
     branches: [master, develop]
@@ -43,11 +45,11 @@ concurrency:
 jobs:
   # What a run needs (tools/ci_scope.py: the jobs and the port's parts its files can affect, in
   # the event's tier), and on every event all the parts the Linux port job is built in: one for
-  # what the games share, one per game program (port/game/*/hostgen.json "id"). A push runs
-  # everything. A draft pull request runs no port build, only the cheap checks; marking it ready
+  # what the games share, one per game program (port/game/*/hostgen.json "id"). A dev release's
+  # pull request to master, a push to master and a manual run run everything. A draft pull request runs no port build, only the cheap checks; marking it ready
   # runs the rest.
   scope:
-    name: Which checks run
+    name: Plan
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
@@ -78,22 +80,33 @@ jobs:
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           MERGE_BASE: ${{ github.event.merge_group.base_sha }}
+          BEFORE: ${{ github.event.before }}
         run: |
-          # The base branch's policy, so that a change to the gate gets full checks. A push or a
-          # manual run gives every output (the defaults above).
+          # The base branch's policy, so that a change to the gate gets full checks. A develop
+          # push checks what it changed (it landed through the queue, which checked all of it);
+          # a pull request to master (a dev release), any other push or a manual run gives every
+          # output (the defaults).
           script="$RUNNER_TEMP/openrac-ci-scope.py"
           case "$GITHUB_EVENT_NAME" in
-            pull_request) git show HEAD^1:tools/ci_scope.py > "$script" || exit 0 ;;
+            pull_request)
+              [ "$GITHUB_BASE_REF" != master ] || exit 0
+              git show HEAD^1:tools/ci_scope.py > "$script" || exit 0 ;;
             merge_group)
               git fetch -q --no-tags --depth=1 origin "$MERGE_BASE" || exit 0
               git show "$MERGE_BASE:tools/ci_scope.py" > "$script" || exit 0 ;;
+            push)
+              [ "$GITHUB_REF" = refs/heads/develop ] && [ -n "$BEFORE" ] || exit 0
+              [ "$BEFORE" != 0000000000000000000000000000000000000000 ] || exit 0
+              git fetch -q --no-tags --depth=1 origin "$BEFORE" || exit 0
+              script=tools/ci_scope.py
+              export PUSH_BEFORE="$BEFORE" ;;
             *) exit 0 ;;
           esac
           python3 "$script"
 
   # Starts at once, beside scope: most failures are found here, in a few minutes.
   checks:
-    name: Repository (tools, tables, conventions)
+    name: "Repository: tools, tables, conventions"
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
@@ -291,11 +304,11 @@ jobs:
 
   # The desktop launcher (launcher/): its Rust side, whose tests also check launcher/actions.json
   # against games/*/game.json. Linux in every tier; Windows, where paths join with backslashes,
-  # files are checked out with CRLF and the Unix-only tests are left out, in the full tier.
+  # files are checked out with CRLF and the Unix-only tests are left out, for a dev release.
   launcher:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' && needs.scope.outputs.launcher_systems != '[]' }}
-    name: Launcher / ${{ matrix.system }}
+    name: "${{ matrix.system == 'Windows' && 'Dev release: Launcher Windows' || format('Launcher: {0}', matrix.system) }}"
     runs-on: ${{ matrix.system == 'Windows' && 'windows-latest' || 'ubuntu-26.04' }}
     timeout-minutes: 30
     strategy:
@@ -336,10 +349,10 @@ jobs:
           yarn build
           cargo clippy --workspace --all-targets -- -D warnings
 
-  # One check for the launcher's systems (what branch protection requires): Windows is not in a
-  # pull request's matrix at all, so its own check cannot be the required one.
+  # One check for the launcher's systems (what branch protection requires): Windows is in the
+  # matrix only for a dev release, so its own check cannot be the required one.
   launcher-gate:
-    name: Launcher
+    name: "Gate: Launcher"
     needs: [scope, launcher]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-26.04
@@ -355,7 +368,7 @@ jobs:
   # Prettier and Vitest, then the Android layout in a browser (launcher/e2e/), page by page. No
   # Rust, one browser, one Vite server. On 24.04, which Playwright's install-deps knows.
   launcher-android:
-    name: Launcher / Pages (lint, unit tests, Android layout)
+    name: "Launcher: pages (lint, unit tests, Android layout)"
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.pages != 'false' }}
     runs-on: ubuntu-24.04
@@ -422,7 +435,7 @@ jobs:
   # Commando's three programs in one job took 53 minutes with a cold cache. Every test runs in
   # exactly one part.
   port-part:
-    name: Port / Linux (${{ matrix.part }})
+    name: "Port Linux: ${{ matrix.part == 'common' && 'shared code' || matrix.part }}"
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port_parts != '[]' }}
     runs-on: ubuntu-26.04
@@ -525,12 +538,14 @@ jobs:
             ctest --preset release --parallel 2 --stop-on-failure --no-tests=error -L "^game-$PART\$"
           fi
 
-      - uses: ./.github/actions/compiler-cache/save
+      # What compiled before a failure still saves the next run the time.
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save
 
   # One check for every part (what branch protection requires).
   port:
-    name: Port / Linux
+    name: "Gate: Port Linux"
     needs: [scope, port-part]
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
@@ -548,7 +563,7 @@ jobs:
   # test group (tools/ci_port_tests.py) in turn on the same runner. Most Vulkan tests share one
   # lock (cmake/GpuTests.cmake), so they run one by one wherever they run. Full tier only.
   port-vulkan-enhanced-build:
-    name: Port / Enhanced Vulkan build and tests
+    name: "Enhanced Vulkan: build and tests"
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.enhanced != 'false' }}
     runs-on: ubuntu-26.04
@@ -632,12 +647,14 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - uses: ./.github/actions/compiler-cache/save
+      # What compiled before a failure still saves the next run the time.
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save
 
   # One check for the build and its tests (what branch protection requires).
   port-vulkan-enhanced:
-    name: Port / Enhanced Vulkan
+    name: "Gate: Enhanced Vulkan"
     needs: [scope, port-vulkan-enhanced-build]
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
@@ -659,9 +676,9 @@ jobs:
   # those of hostgen's that need no POSIX host. The port is written on Linux
   # and macOS, and what only builds there (execinfo.h, fseeko) stops here.
   port-windows:
-    name: Port / Windows
+    name: "Dev release: Port Windows"
     needs: scope
-    # Full tier: the merge queue and pushes.
+    # Only when everything is checked (a dev release, a manual run).
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.windows == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 120
@@ -700,5 +717,7 @@ jobs:
       - name: hostgen's tests
         run: python -m unittest discover -s port/tools/hostgen -v
 
-      - uses: ./.github/actions/compiler-cache/save
+      # What compiled before a failure still saves the next run the time.
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save

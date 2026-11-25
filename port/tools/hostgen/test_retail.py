@@ -372,6 +372,49 @@ class CallsThroughRegisters(unittest.TestCase):
                 out = t.run_program({"a.c": c}, config=test_hostgen.ASM_CONFIG, extra_files=files, cflags=flags)
                 self.assertEqual(out, want)
 
+    def test_integers_past_the_eighth_reach_their_parameters(self):
+        # The caller keeps the ninth and tenth at 0($sp) and 8($sp); a call through an address hands
+        # them on (Up Your Arsenal's message box takes eleven: its strings were stack leftovers).
+        c = """
+            int func_00200000(int a, int b, int c, int d, int e, int f, int g, int h, int i, int j) {
+                test_print(a + b + c + d + e + f + g + h); test_print(i); test_print(j);
+                return i * 100 + j;
+            }
+            INCLUDE_ASM("asm", func_00100000);
+            extern int func_00100000(int a);
+            int test_main(void) { test_print(func_00100000(1)); return 0; }
+        """
+        source = """
+            addiu $29, $29, -32
+            sq $31, 16($29)
+            lui $25, %hi(func_00200000)
+            addiu $25, $25, %lo(func_00200000)
+            addiu $8, $0, 5
+            addiu $9, $0, 6
+            addiu $10, $0, 7
+            addiu $11, $0, 8
+            addiu $5, $0, 2
+            addiu $6, $0, 3
+            addiu $7, $0, 4
+            addiu $2, $0, 9
+            sd $2, 0($29)
+            addiu $2, $0, 10
+            sd $2, 8($29)
+            jalr $31, $25
+            nop
+            lq $31, 16($29)
+            jr $31
+            addiu $29, $29, 32
+        """
+        symbols = {"func_00200000": 0x00200000}
+        t = test_hostgen.FromAssembly("run_asm")
+        files = {"game/asm/func_00100000.s": assembler.assemble("func_00100000", 0x00100000, source, symbols)}
+        want = ["36", "9", "10", "910"]
+        for flags in ([], ["-DOPENRAC_REGS_THUNKS=1"]):
+            with self.subTest(flags=flags):
+                out = t.run_program({"a.c": c}, config=test_hostgen.ASM_CONFIG, extra_files=files, cflags=flags)
+                self.assertEqual(out, want)
+
 
 def tiny_iso(files: dict[str, bytes]) -> bytes:
     """A flat ISO 9660 image of FILES (root directory only), one sector per 2 KiB of each file."""

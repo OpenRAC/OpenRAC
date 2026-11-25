@@ -680,12 +680,8 @@ def constants(p: Pairing, code: dict[str, str], version: str) -> list[str]:
     return out
 
 
-def host_table(p: Pairing, shared: Path, primary_host: Path, source: Path, version: str) -> str:
-    """The release's rac2_version.h for the shared host C (port/game/rac2/host/rac2.h)."""
-    info = rel.RAC2_RELEASES[version]
-    texts = {f.name: f.read_text() for f in sorted(shared.glob("*.[ch]"))}
-    code = {n: code_text(t) for n, t in texts.items()}
-    lines = []
+def host_names(p: Pairing, code: dict[str, str]) -> str:
+    """Only the function renames of the shared host C, without reading disc bytes for its data."""
     funcs: dict[str, set[str]] = {}
     for t in code.values():
         for m in HOST_FUNC.finditer(t):
@@ -705,7 +701,16 @@ def host_table(p: Pairing, shared: Path, primary_host: Path, source: Path, versi
             continue
         for suffix in sorted(funcs[base]):
             renames.append(f"{base}{suffix}\t{new}{suffix}")
-    p.host_names = "\n".join(renames) + "\n"
+    return "\n".join(renames) + "\n"
+
+
+def host_table(p: Pairing, shared: Path, primary_host: Path, source: Path, version: str) -> str:
+    """The release's rac2_version.h for the shared host C (port/game/rac2/host/rac2.h)."""
+    info = rel.RAC2_RELEASES[version]
+    texts = {f.name: f.read_text() for f in sorted(shared.glob("*.[ch]"))}
+    code = {n: code_text(t) for n, t in texts.items()}
+    lines = []
+    p.host_names = host_names(p, code)
     addrs, laddrs = set(), set()
     for t in code.values():
         addrs.update(int(m.group(1), 16) for m in HOST_ADDR.finditer(t))
