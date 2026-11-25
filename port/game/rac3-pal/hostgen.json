@@ -577,7 +577,8 @@
       "func_L01_002F8F20": "int (int, int, int, int, int, int)",
       "func_L01_002F88E0": "int (int)",
       "func_L01_003E4428": "float (int, float)",
-      "func_L01_004B04D8": "void (unsigned int)"
+      "func_L01_004B04D8": "void (unsigned int)",
+      "func_L01_004AD768": "void (unsigned int)"
     },
     "discover_entries": true,
     "dirs": [],
