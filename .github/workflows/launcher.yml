@@ -4,7 +4,7 @@
 # published by hand. Each build's updater reads the repository that built it:
 # a tag's, that repository's latest release; a build of a branch, the
 # pre-release launcher-dev-<branch> that the dev-release job keeps current
-# (launcher/docs/RELEASING.md). develop's development build runs every three hours, and only
+# (launcher/docs/RELEASING.md). develop's development build runs once a night, and only
 # when develop changed a path below since the commit launcher-dev-develop holds (the changes job).
 #
 # They are not signed: Windows SmartScreen and macOS Gatekeeper warn about
@@ -55,11 +55,12 @@ on:
       - "games/*/game.json"
       - ".github/workflows/launcher.yml"
       - ".github/actions/**"
-  # Pull requests build nothing here. develop builds on this schedule (the default branch's), not
-  # on every merge: a merge queue day lands many, and each build is six installers of up to two
-  # hours. A branch can still be built by hand (workflow_dispatch), develop too.
+  # Pull requests build nothing here. develop builds once a night (02:23 in Poland in winter), not
+  # on every merge: each build is five installers of up to two hours, and every hour they run is
+  # an hour the checks' runners wait. A branch can still be built by hand (workflow_dispatch),
+  # develop too.
   schedule:
-    - cron: "23 */3 * * *"
+    - cron: "23 1 * * *"
   workflow_dispatch:
 
 permissions:
@@ -121,8 +122,6 @@ jobs:
     name: ${{ matrix.name }}
     needs: version
     runs-on: ${{ matrix.os }}
-    # Fedora's row runs in Fedora itself; the others on the runner.
-    container: ${{ matrix.container }}
     # Two hours for every row: a cold compiler cache takes Windows and Android past an hour.
     timeout-minutes: 120
     env:
@@ -190,17 +189,6 @@ jobs:
             python_sha256: 2e1ba0e7f22e01c534caebf7f09e7820322bc0d055271d3434af671e8400f96f
             tauri: build --bundles deb,rpm,appimage
             files: *linux-files
-          # Fedora itself (the release players run): an .rpm made against Fedora's own WebKitGTK
-          # and GTK, carrying a game built with Fedora's compiler.
-          - name: fedora
-            os: ubuntu-26.04
-            container: registry.fedoraproject.org/fedora:44
-            python: x86_64-unknown-linux-gnu
-            python_sha256: ffa8f85f1b56e88b687f08d743d817015524b86a9365fd921243132b80f1a36d
-            tauri: build --bundles rpm
-            files: |
-              launcher/target/release/bundle/rpm/*.rpm
-              launcher/target/release/bundle/rpm/*.sig
           # One launcher for Apple silicon and Intel; the game is Apple silicon's (an Intel Mac's
           # launcher finds no game it can run in its copy and works on a checkout).
           - name: macos
@@ -229,22 +217,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Compilers, tools and Tauri's system libraries (Fedora)
-        if: matrix.name == 'fedora'
-        run: |
-          dnf install -y -q --setopt=install_weak_deps=False git curl tar xz gcc gcc-c++ make file rpm-build \
-            clang llvm cmake ninja-build ccache python3 python-unversioned-command binutils \
-            webkit2gtk4.1-devel gtk3-devel librsvg2-devel libsoup3-devel openssl-devel \
-            mesa-libGL-devel mesa-libEGL-devel libX11-devel libXext-devel libXrandr-devel libXcursor-devel \
-            libXi-devel libXScrnSaver-devel libXfixes-devel libXtst-devel wayland-devel wayland-protocols-devel \
-            libxkbcommon-devel libdecor-devel alsa-lib-devel pulseaudio-libs-devel pipewire-devel \
-            dbus-devel systemd-devel libdrm-devel mesa-libgbm-devel
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        if: matrix.name != 'fedora'
         with:
           python-version: "3.12"
       # Each key's prefix is no other job's: "linux-" was the start of "linux-arm64-" too, and the
@@ -583,22 +560,6 @@ jobs:
                 -p "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" --app-version "$base-$OPENRAC_LAUNCHER_BUILD" "${sig%.sig}"
             done
           fi
-
-      # Its file is named as the one built on Ubuntu is: "fc44" tells them apart on a release,
-      # which takes one file of a name.
-      - name: The installer's name (Fedora)
-        if: matrix.name == 'fedora'
-        working-directory: launcher
-        run: |
-          for f in target/release/bundle/rpm/*.x86_64.rpm; do
-            [ -f "$f" ] || continue
-            mv "$f" "${f%.x86_64.rpm}.fc44.x86_64.rpm"
-          done
-          # A build without the updater key (a fork without the secret) has no signature.
-          for f in target/release/bundle/rpm/*.x86_64.rpm.sig; do
-            [ -f "$f" ] || continue
-            mv "$f" "${f%.x86_64.rpm.sig}.fc44.x86_64.rpm.sig"
-          done
 
       # Named as the desktop installers are, and checked: the game's activity, SDL's and the
       # libraries the programs need are in it. Signed for the launcher's updater when the key is

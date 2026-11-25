@@ -87,7 +87,6 @@ git push origin launcher-vX.Y.Z
    - **Linux x86_64** (`ubuntu-22.04`): the game against LLVM 19's libc++ (glibc 2.35
      compatible); `.deb`, `.rpm` (zstd) and `.AppImage`.
    - **Linux ARM64** (`ubuntu-24.04-arm`): the same for `aarch64`.
-   - **Fedora** (a `fedora:44` container): the game with Fedora's compiler; `.fc44.x86_64.rpm`.
    - **macOS** (`macos-latest`): the game for Apple silicon; a universal `.dmg` and `.app.tar.gz`.
    - **Android** (`ubuntu-latest`): the port with the runner's NDK (`tools/build_android.py
 --no-apk`), then the debug APK, signed with the launcher's Android key (the
@@ -118,7 +117,7 @@ git push origin launcher-vX.Y.Z
      running); "Later" puts that version off for three days (`src/lib/updates.ts`, `offerUpdate`).
 
 3. **Development channel** (a build of a branch, here or in a fork; not a tag, not a pull
-   request). `develop` builds every three hours when it changed what the build reads since its
+   request). `develop` builds once a night when it changed what the build reads since its
    last development build; another branch builds by hand (Run workflow). The `dev-release` job replaces the pre-release `launcher-dev-<branch>` with every
    system's installers, their signatures and a `latest.json` of version `X.Y.Z-dev.<run>`. The
    launchers built from a branch read that pre-release; one built from a tag reads the

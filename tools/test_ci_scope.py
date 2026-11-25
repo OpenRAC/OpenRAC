@@ -140,7 +140,8 @@ class TierTest(unittest.TestCase):
         self.assertFalse(result["windows"])
         full = plan(["port/renderer/frame.cpp"], PROGRAMS, tier="full", releases=RELEASES)
         self.assertTrue(full["enhanced"])
-        self.assertTrue(full["windows"])
+        self.assertFalse(full["windows"])
+        self.assertTrue(plan(None, PROGRAMS, releases=RELEASES)["windows"])
 
     def test_the_fast_tier_builds_a_carried_release_only_for_its_own_folder(self):
         self.assertEqual(self.fast(["port/game/rac2-ntsc/host/x.c"])["port_parts"], ["rac2-ntsc"])
@@ -160,7 +161,8 @@ class TierTest(unittest.TestCase):
 
     def test_the_launcher_on_windows_runs_in_the_full_tier(self):
         self.assertEqual(self.fast(["launcher/core/src/lib.rs"])["launcher_systems"], ["Linux"])
-        self.assertEqual(plan(["launcher/core/src/lib.rs"], PROGRAMS)["launcher_systems"], ["Linux", "Windows"])
+        self.assertEqual(plan(["launcher/core/src/lib.rs"], PROGRAMS)["launcher_systems"], ["Linux"])
+        self.assertEqual(plan(None, PROGRAMS)["launcher_systems"], ["Linux", "Windows"])
         self.assertEqual(self.fast(["port/renderer/frame.cpp"])["launcher_systems"], [])
 
     def test_the_fast_tier_runs_the_launcher_only_for_what_its_build_reads(self):

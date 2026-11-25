@@ -14,9 +14,9 @@ they share can break them alone (an argument their C drops crashed only there). 
 changed (PUSH_BEFORE); the nightly run checks everything and refreshes every cache.
 Two tiers (TIERS): a pull request runs the fast tier, the checks that answer in a few minutes
 (one version of each game it touches: primary_versions);
-the merge queue (merge_group) runs the full tier for the queued changes before they land, so
-nothing reaches develop without every check. The full tier adds the Windows jobs, the enhanced
-Vulkan build and its tests, and the carried releases.
+the merge queue (merge_group) runs the full tier for the queued changes before they land: every
+version of the games they touch (carried releases too), the enhanced Vulkan build and its tests.
+The Windows jobs run only when everything is checked (the nightly run).
 `ci_scope.py ios` does the same for the iOS jobs, for pushes too.
 `ci_scope.py decomp-games` prints which games' decomp tool checks a change needs.
 `ci_scope.py launcher-changed` (SINCE: a commit) tells whether develop changed what the launcher's
@@ -158,6 +158,9 @@ def plan(paths, known, shared=frozenset(), removed=frozenset(), tier="full", rel
     from carried()."""
     result = full_plan(paths, known, shared, removed)
     full = tier == "full"
+    # Everything (paths None): the nightly run, a manual run or another branch's push. Windows
+    # builds only then; the launcher's dev build builds every game on Windows nightly too.
+    everything = paths is None
     if not full:
         # One version of each game (its primary), and a version whose own folder changed. The
         # other regions and releases build in the queue; the repository job already checks that
@@ -172,9 +175,10 @@ def plan(paths, known, shared=frozenset(), removed=frozenset(), tier="full", rel
         result["launcher"] = paths is None or any(
             path.startswith(("launcher/", *EVERYTHING)) or LAUNCHER_READS.match(path)
             or FAST_LAUNCHER_READS.match(path) for path in paths)
-    # Windows builds rac1-pal with the shared code, and runs the launcher's Rust tests.
-    result["windows"] = full and result["port"]
-    result["launcher_systems"] = (["Linux", "Windows"] if full else ["Linux"]) if result["launcher"] else []
+    # Windows (rac1-pal with the shared code, the launcher's Rust tests) only in the nightly run.
+    result["windows"] = full and everything and result["port"]
+    result["launcher_systems"] = ((["Linux", "Windows"] if full and everything else ["Linux"])
+                                  if result["launcher"] else [])
     return result
 
 

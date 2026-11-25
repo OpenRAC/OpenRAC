@@ -9,8 +9,9 @@ name: checks
 
 # Two tiers (tools/ci_scope.py). A pull request runs the fast tier: the checks that answer in
 # minutes. The merge queue (merge_group) runs the full tier on the queued changes before they
-# land: the fast tier again plus Windows, the enhanced Vulkan build and tests, and the carried
-# releases. A develop push runs the full tier for what it changed, the nightly run everything;
+# land: the fast tier again plus the other versions of the games they touch and the enhanced
+# Vulkan build and tests. Windows runs only in the nightly run (and the launcher's nightly dev
+# build). A develop push runs the full tier for what it changed, the nightly run everything;
 # they are the only runs that write the caches (.github/actions/*/save), so they are never cancelled.
 on:
   push:
@@ -302,7 +303,7 @@ jobs:
 
   # The desktop launcher (launcher/): its Rust side, whose tests also check launcher/actions.json
   # against games/*/game.json. Linux in every tier; Windows, where paths join with backslashes,
-  # files are checked out with CRLF and the Unix-only tests are left out, in the full tier.
+  # files are checked out with CRLF and the Unix-only tests are left out, in the nightly run.
   launcher:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' && needs.scope.outputs.launcher_systems != '[]' }}
@@ -347,8 +348,8 @@ jobs:
           yarn build
           cargo clippy --workspace --all-targets -- -D warnings
 
-  # One check for the launcher's systems (what branch protection requires): Windows is not in a
-  # pull request's matrix at all, so its own check cannot be the required one.
+  # One check for the launcher's systems (what branch protection requires): Windows is in the
+  # matrix only in the nightly run, so its own check cannot be the required one.
   launcher-gate:
     name: Launcher
     needs: [scope, launcher]
@@ -676,7 +677,7 @@ jobs:
   port-windows:
     name: Port / Windows
     needs: scope
-    # Full tier: the merge queue and pushes.
+    # Only when everything is checked (the nightly run, a manual run).
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.windows == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 120
