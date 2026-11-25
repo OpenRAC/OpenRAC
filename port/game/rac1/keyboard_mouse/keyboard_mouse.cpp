@@ -34,7 +34,6 @@
 #include "game/rac1/host/prompt_spots.h"
 #include "game/rac1/keyboard_mouse/menus.hpp"
 #include "openrac/games/rac1.hpp"
-#include "openrac/guest.h"
 #include "openrac/mod.hpp"
 
 namespace {
@@ -54,6 +53,11 @@ constexpr gaddr kGameMemoryStart = 0x00100000u;
 
 // The end of the console's 32 MB (assumed).
 constexpr gaddr kGameMemoryEnd = 0x02000000u;
+
+// The port's statics, where the menu rows it adds (Exit, the mods' rows) live (GUEST_STATICS in
+// runtime/include/openrac/guest.h, which this file's tests cannot include).
+constexpr gaddr kPortStaticsStart = 0xE0200000u;
+constexpr gaddr kPortStaticsSize = 0x00400000u;
 
 // In the menus' page record, the page shown is at +4 (assumed: discs.h states it).
 constexpr gaddr kMenuPageShownOffset = 4u;
@@ -239,7 +243,8 @@ gaddr hero() {
 // port adds, such as Exit and the mods' rows, live there), aligned.
 bool plausible(gaddr address) {
     const bool console = address >= kGameMemoryStart && address < kGameMemoryEnd;
-    const bool port = address >= GUEST_STATICS && address - GUEST_STATICS < GUEST_STATICS_SIZE;
+    const bool port =
+        address >= kPortStaticsStart && address - kPortStaticsStart < kPortStaticsSize;
     return (console || port) && (address & 3u) == 0;
 }
 

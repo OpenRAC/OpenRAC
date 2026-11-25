@@ -347,8 +347,7 @@ bool menu_mouse(const Tick& t, bool click) {
     }
 
     // A click on the item the selection is already walking to: Cross once it is there.
-    if (click && nav.hit >= 0 && nav.hit == s_hover_target && s_click_pending
-        && !s_click_confirm) {
+    if (click && nav.hit >= 0 && nav.hit == s_hover_target && s_click_pending && !s_click_confirm) {
         s_click_confirm = true;
         return true;
     }
