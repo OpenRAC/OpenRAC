@@ -362,7 +362,7 @@ vertical blank callback (`func_0013D208`).
 | `host/rac3_version.h` | PAL's switch for the host C, which is both discs': NTSC-U ([rac3-ntsc](../rac3-ntsc/README.md)) compiles the same files with its own names and addresses. An address of the game's memory is written `RAC3_ADDR(0x...u)` (PAL's value); after adding one, or a library row, run `release_carry_rac3.py` (rac3-ntsc's README) |
 | `host/entry.c` | the loader's unpacking, crt0, InitSystemCallTableAddress (no kernel to scan) |
 | `host/dma.c` | sceDmaSend leaving CHCR as the DMAC does (the VIF1 handler retires the frame's wait mask from it), KickVif0Chain |
-| `host/sound.c` | 989snd's command boundary (snd_Pump, snd_SendCommandSync, snd_QueueCommandToRing, the bank loads) on the ring rac2 shares (`common/lib/snd_ring.c`): the native sound engine plays the banks' sounds and the VAG streams |
+| `host/sound.c`, `common/lib/snd.c` | 989snd's client API: native sound and stream requests, with answers sent to callbacks at the next snd_Pump. No shared command ring; unexpected raw sends warn once and return 0 |
 | `host/pad.c` | the pad start-up and update of the boot program, frontbin and the levels, the port's: each record's report from the port's controllers, read by the game's own reader, no libpad; the multiplayer executable's libpad 4.0 answers (host/mp.c) |
 | `host/movie.c` | the movie player entry, the boot program's, frontbin's and every level's copy (`func_L01_004D28B0`, which the levels' story movies start): the shared native player |
 | `host/program.c` | which program is loaded (the overlay hook), `OPENRAC_RAC3_NEXT` |
