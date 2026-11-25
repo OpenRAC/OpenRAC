@@ -144,6 +144,69 @@ static void draw_mask(int own_test) {
 
 /* The game's DrawFrame: the frame's first packet (the capture does not see it), then the draw
  * callback's quads, the first after its TEST_1 set, the others under the same TEST. */
+void func_003A7EF8__game(gaddr a0) {
+    (void)a0;
+}
+
+void func_003A6B90__game(gaddr a0) {
+    (void)a0;
+}
+
+void func_L01_004AD768__game(gaddr a0) {
+    (void)a0;
+}
+
+void func_L01_004B04D8__game(gaddr a0) {
+    (void)a0;
+}
+
+void func_003D98C0__game(gaddr a0, int a1, int a2, int a3, float a4, float a5, float a6) {
+    (void)a0;
+    (void)a1;
+    (void)a2;
+    (void)a3;
+    (void)a4;
+    (void)a5;
+    (void)a6;
+}
+
+int mp_func_00285660__game(
+    int data, int address, int format, int log2_width, int log2_height, int now
+) {
+    (void)data;
+    (void)address;
+    (void)format;
+    (void)log2_width;
+    (void)log2_height;
+    (void)now;
+    return 0;
+}
+
+/* Each map's SendImage body, from the same generated header. */
+#define MP_MAP(...)
+#define MP_MAP_UI(...)
+#define MP_MAP_HUD(m, sprite, gradient, tex0, send_image)                                          \
+    int mp_func_L##m##_##send_image##__game(int a0, int a1, int a2, int a3, int a4, int a5) {      \
+        (void)a0, (void)a1, (void)a2, (void)a3, (void)a4, (void)a5;                                \
+        return 0;                                                                                  \
+    }
+#define MP_MAP_VU0(...)
+#include "../game/rac3-pal/host/mp_maps.h"
+#undef MP_MAP_HUD
+
+int mp_func_L39_0059D6B0__game(int a0, int a1, int a2, int a3, int a4, int a5) {
+    (void)a0, (void)a1, (void)a2, (void)a3, (void)a4, (void)a5;
+    return 0;
+}
+
+uint32_t openrac_guest_ram_size = 0x02000000u;
+
+void openrac_game_images_forget(void) {}
+
+gaddr rac3_loading_state(void) {
+    return 0;
+}
+
 void func_L01_00403440__game(int view) {
     (void)view;
     GREF(gaddr, LIST_POINTER) += 0x130;

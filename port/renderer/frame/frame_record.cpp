@@ -236,6 +236,8 @@ const char* frame_op_name(FrameOp op) {
             return "ViewBegin";
         case FrameOp::ViewEnd:
             return "ViewEnd";
+        case FrameOp::ScreenEffect:
+            return "ScreenEffect";
     }
 
     return "Unknown";
