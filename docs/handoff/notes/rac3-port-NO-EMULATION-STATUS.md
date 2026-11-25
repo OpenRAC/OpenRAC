@@ -541,3 +541,24 @@ reads ALPHA_1 (`formats.gs_alpha_opaque`) and marks such materials `extras: {"op
 without MASK; the port leaves them solid. 23 materials on Veldin, 43 on the Phoenix; Going
 Commando's ties (all 0x44) are unchanged. Also in the ties' ALPHA_1 and still drawn as 0x44: 0x58
 (Cs Ad + Cd) and 0x68 (Cs FIX + Cd), additive.
+
+## A Veldin dropship that never flew in: VU0 clobbers made its controller a stub (2026-11-24)
+
+rac3-decomp c62db12f (pinned by #840) matched func_L01_003AA658, the update of class 6476: a
+controller with no model that flies one of the four class-6800 ships parked in formation over
+Veldin (placements 665 to 668, at 335-347 431-441 100) along its path. Its C ends in VU0 inline
+assembly on named registers (`lqc2 $vf1` ... `vsub.xyz` ... `sqc2`) with `"vf1", "vf2"` as
+clobbers. Clang knows no such register, clangast made the statement `openrac_hostgen_asm()`,
+and the whole function a stub before `vu0_assembly_from_retail` could see its instructions: the
+log said "func_L01_003AA658 has no C in the port yet" right after Veldin loaded (first in the
+user's #841 build, not in #830's, where the function was still INCLUDE_ASM). Its three moby
+records stayed in state 0 and their ship never left the formation. clangast now drops VU0
+registers from the clobbers instead (`_drop_vu0_clobber`), so the statement stays and the
+function is translated from the disc: in a hidden box2 run (Ratchet teleported into cuboid 22)
+the controller reaches state 253 and carries placement 665's ship to 310.4 332.7 87.5 by frame
+2400, as no build since #840 did. Four Annihilation Nation functions with the same statements
+(func_L07_0035CC10, 003A7CB8, 003DC790, 00473C80) move to their assembly too. 00473C80's caller
+func_L07_003B6E98 had inherited the C's result before the assembly stage found none
+(`uninherit_void_results`). The Rangers' dropships (6877, func_L01_003C3D08, matched in
+242c17bd) fly the same in its matched C and in its assembly (state, position and the moved
+ties compared at frame 2400).
