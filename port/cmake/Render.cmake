@@ -54,12 +54,9 @@ if(TARGET openrac_vulkan)
   openrac_add_test(graph_state_translation LIBS openrac_vulkan)
 endif()
 
-# The envelope of the Vulkan backend's cache files (renderer/vulkan/cache/cache_file.h), which the
-# pipeline cache and its manifest share (R-10), and the SPIR-V cache in it (R-12). Added here so that cmake/Window.cmake, which makes
-# the target, is left to its own lane.
+# Vulkan's build-time archive and optional runtime compiler share the CPU bytecode/reflection codec.
 if(TARGET openrac_renderer_vulkan)
-  target_sources(openrac_renderer_vulkan PRIVATE
-    renderer/vulkan/cache/cache_file.cpp renderer/vulkan/cache/spirv_cache_file.cpp)
+  include(ShaderCompiler)
 endif()
 
 # The renderers whose draw code asks the registry.

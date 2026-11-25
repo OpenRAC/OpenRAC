@@ -9,8 +9,10 @@
 #include <utility>
 
 #include "common/log.h"
+#include "enhanced/renderer/shader_recipe_sources.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced/renderer/water_graph.h"
+#include "enhanced/viewer/shader_sources.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl/gl.h"
 #include "renderer/settings/render_opt.h"
@@ -30,24 +32,9 @@ WaterFloat::~WaterFloat() {
 }
 
 std::string WaterFloat::vertex_source(std::string source) {
-    if (!is_vulkan() || !enhanced_rendering_available()) {
-        return source;
-    }
-    source.replace(0, source.find('\n'), "#version 430 core");
-    source.insert(
-        source.find('\n') + 1,
-        "#define OPENRAC_WATER_FLOAT 1\n#define OPENRAC_WATER_FLOAT_FILTERED 1\n"
+    return lighting::shader_sources::water_vertex(
+        std::move(source), lighting::shader_sources::runtime_options()
     );
-    std::string helpers = std::string(lighting::shaders::water_window_glsl) + "\n"
-                          + std::string(lighting::shaders::water_swell_glsl) + "\n"
-                          + std::string(lighting::shaders::water_displacement_glsl) + "\n"
-                          + std::string(lighting::shaders::water_float_glsl) + "\n";
-    if (renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
-        helpers.insert(0, "#define OPENRAC_WATER_LOCAL 1\n");
-        helpers = renderer::shader_constants(std::move(helpers), {{"water_sim_local", 1}});
-    }
-    source.insert(source.find("void main()"), helpers);
-    return source;
 }
 
 void WaterFloat::load() {
@@ -72,12 +59,7 @@ void WaterFloat::load() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glActiveTexture(GL_TEXTURE0);
-    std::string source(lighting::shaders::water_float_comp);
-    const std::string helpers = std::string(lighting::shaders::water_window_glsl) + "\n"
-                                + std::string(lighting::shaders::water_swell_glsl) + "\n"
-                                + std::string(lighting::shaders::water_displacement_glsl) + "\n"
-                                + std::string(lighting::shaders::water_float_glsl) + "\n";
-    source.insert(source.find("void main()"), helpers);
+    const auto source = recipe_sources::water_float();
     std::string error;
     if (!m_filter.build_compute("water attachment momentum", source, error)) {
         log::warn("{}", error);
