@@ -34,7 +34,7 @@ Library `openrac_common`. Each header has a namespace of its own under `openrac`
 ## Depends on
 
 Nothing of the port's: `common` is the lowest layer (section 18 of
-[CODING_CONVENTIONS.md](../docs/CODING_CONVENTIONS.md)). It uses the C++ standard library and the
+[CODING_CONVENTIONS.md](../../docs/CODING_CONVENTIONS.md)). It uses the C++ standard library and the
 system's own interfaces (`dladdr` and the backtrace on Unix, `dbghelp` on Windows, the Android
 compatibility library for the backtrace below API 33).
 `OPENRAC_TRACY=ON` links the pinned Tracy client; ordinary builds omit it.
@@ -72,7 +72,7 @@ never the PDB itself. Missing or mismatched symbols leave module offsets as the 
 ## Errors
 
 - `result.h` is the form new interfaces across the port report failure in (section 13.3 of
-  [CODING_CONVENTIONS.md](../docs/CODING_CONVENTIONS.md)): `Result<T>` holds the value or an
+  [CODING_CONVENTIONS.md](../../docs/CODING_CONVENTIONS.md)): `Result<T>` holds the value or an
   `Error` whose message follows section 17.3, and `value()` or `error()` on the wrong side throws
   `std::bad_variant_access`, a mistake of the caller's rather than a way to learn of the failure.
 - `c_boundary::call` keeps exceptions from crossing into C (section 13.4). It knows no reporter
@@ -93,7 +93,7 @@ never the PDB itself. Missing or mismatched symbols leave module offsets as the 
 `env.cpp`'s table lists every `OPENRAC_*` variable the port reads, and
 [docs/port/DEBUGGING.md](../../docs/port/DEBUGGING.md) documents each one; the `env` test holds the
 two to the same list. C++ reads its variables through `env.h`; C, which cannot include it
-(section 14.3 of [CODING_CONVENTIONS.md](../docs/CODING_CONVENTIONS.md)), reads them through the
+(section 14.3 of [CODING_CONVENTIONS.md](../../docs/CODING_CONVENTIONS.md)), reads them through the
 runtime's C entry point `openrac/host_env.h`, which looks the name up with `env::find` and hands
 back the kept value (`env::value`'s view ends in a NUL for it). The library replacements of
 `game/common/lib` and rac1's host C (`game/rac1/host`) read through it; the one `getenv` of an

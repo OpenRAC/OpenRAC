@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2026 the OpenRAC contributors
 """
-Checks the port's C and C++ against the rules of port/docs/CODING_CONVENTIONS.md
+Checks the port's C and C++ against the rules of docs/CODING_CONVENTIONS.md
 that a program can count.
 
   check_conventions.py                      every file: the rules that hold everywhere
@@ -575,7 +575,7 @@ def main(argv=None):
     advisories = len(findings) - len(failed)
     print(
         f"conventions: {len(failed)} to fix, {advisories} advisory "
-        "(port/docs/CODING_CONVENTIONS.md)",
+        "(docs/CODING_CONVENTIONS.md)",
         file=sys.stderr,
     )
     return 1 if failed else 0

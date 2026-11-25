@@ -1,5 +1,5 @@
 # The port's module layering, read by layering.py (README.md here); the layers are those of
-# port/docs/CODING_CONVENTIONS.md, section 18. Paths are relative to port/. One row per line,
+# docs/CODING_CONVENTIONS.md, section 18. Paths are relative to port/. One row per line,
 # its columns separated by tabs; a line starting with # is a comment.
 #
 #   search	DIR               where a quoted include is looked for after the including file's own

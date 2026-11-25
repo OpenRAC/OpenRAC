@@ -83,6 +83,7 @@ std::uint16_t s_click_step = 0;
 int s_click_left = 0;  // steps still to press, then Cross
 int s_click_wait = 0;
 bool s_click_confirm = true;        // Cross after the steps (not for a vendor's icon)
+int s_hover_target = -1;            // the text the mouse last sent the selection to
 constexpr int kClickStepTicks = 4;  // ticks between them, for the menu to follow
 bool s_click_held = false;
 kbm::GridSeek s_grid;       // a grid's selection frame on its way to a clicked cell
@@ -345,6 +346,12 @@ bool menu_mouse(const Tick& t, bool click) {
         return click;
     }
 
+    // A click on the item the selection is already walking to: Cross once it is there.
+    if (click && nav.hit >= 0 && nav.hit == s_hover_target && s_click_pending && !s_click_confirm) {
+        s_click_confirm = true;
+        return true;
+    }
+
     // A click on the selected item confirms it: a whole press, however short the click.
     if (click && nav.hit >= 0 && nav.hit == nav.selected && s_pulses.idle() && !s_click_pending) {
         s_pulses.push(kbm::kCross);
@@ -362,10 +369,15 @@ bool menu_mouse(const Tick& t, bool click) {
             return true;
         }
 
-        // The selection follows the mouse, a step at a time (not in a list that scrolls: its items
-        // would move on under the mouse).
+        // The mouse moved onto it: the selection walks all the way there, a step at a time (not in
+        // a list that scrolls: its items would move on under the mouse).
         if (moved && s_pulses.idle() && !s_click_pending && !nav.scrolls) {
-            s_pulses.push(nav.step);
+            s_hover_target = nav.hit;
+            s_click_pending = true;
+            s_click_step = nav.step;
+            s_click_left = nav.steps;
+            s_click_confirm = false;
+            s_click_wait = 0;
         }
     }
 
@@ -658,11 +670,16 @@ void aligned_mouse(
         view = kbm::rotate(view, side, now - tilt);
         m.write<float>(state + kAlignedTilt, now);
     }
+
+    // The rows as the game builds them (cam_aligned_update_from_input): its side is up x view, the
+    // way its FastVecCross takes its operands, and its up view x side. The hero's aim copies them
+    // (his block +0x730): the side the other way round put his gun on his other side, and its sound
+    // with it, each tick the mouse turned the view.
     view = kbm::unit_or(view, {1.0f, 0.0f, 0.0f});
-    const kbm::Vec3 side = kbm::unit_or(kbm::cross(view, u), {0.0f, -1.0f, 0.0f});
+    const kbm::Vec3 side = kbm::unit_or(kbm::cross(u, view), {0.0f, 1.0f, 0.0f});
     write_vec(camera, view);
     write_vec(camera + 0x10u, side);
-    write_vec(camera + 0x20u, kbm::cross(side, view));
+    write_vec(camera + 0x20u, kbm::cross(view, side));
 }
 
 // The turn the next tick makes for mouse motion it has not read yet (frontend/mouse_turn.h), while

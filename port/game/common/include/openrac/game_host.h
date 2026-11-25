@@ -1301,6 +1301,11 @@ void openrac_game_pad_after_mods(int port, uint8_t* report, int size);
  * readers of the pad (the movie player). */
 int openrac_game_pad_through_mods(int port, uint16_t* buttons, uint8_t analog[4]);
 
+/* A PNG file as 8-bit RGBA rows (width * height * 4 bytes), or NULL when it cannot be read or the
+ * build has no image reader (no window). Free it with openrac_game_free_png. */
+unsigned char* openrac_game_load_png(const char* path, int* width, int* height);
+void openrac_game_free_png(unsigned char* pixels);
+
 /* The game's text lookup, asked for a text id: the game address of a string of the port's own (the
  * rows it adds to the game's options), or 0 when the id is the game's. */
 gaddr openrac_game_text(int id);
