@@ -23,7 +23,8 @@ import uuid
 import zipfile
 
 import audio
-from openrac_common import files as file_ops
+sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
+from openrac_common import files as file_ops  # noqa: E402
 
 PACK_FORMAT = 5
 CACHE_FORMAT = 1
