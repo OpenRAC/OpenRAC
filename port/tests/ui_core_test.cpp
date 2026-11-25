@@ -20,6 +20,8 @@ std::vector<openrac_game_ui_item> g_items;
 int g_record_result = 1;
 bool g_full_scissor = false;
 std::array<float, 4> g_scissor{};
+// The P2 coordinate contract must be stamped before a non-null scissor reaches the recorder.
+std::array<float, 2> g_screen{};
 
 // Documented fallback screen dimensions do not depend on an installed game adapter.
 constexpr float kDefaultWidth = 512.0f;
@@ -140,9 +142,26 @@ void test_full_scissor() {
     CHECK(g_full_scissor);
 }
 
+// A scissor uses the guarded adapter dimensions and keeps its unscaled coordinates.
+void test_scissor_screen() {
+    const openrac_ui_adapter adapter{invalid_screen, nullptr, nullptr};
+    openrac_ui_set_adapter(&adapter);
+    const float rect[]{1.0f, 1.0f, 2.0f, 2.0f};  // Synthetic exclusive clip bounds.
+    openrac_ui_scissor(rect);
+    CHECK(g_screen[0] == kDefaultWidth && g_screen[1] == kDefaultHeight);
+    CHECK(!g_full_scissor);
+    CHECK(g_scissor[0] == rect[0] && g_scissor[2] == rect[2]);
+    openrac_ui_set_adapter(nullptr);
+}
+
 }  // namespace
 
 extern "C" {
+
+// Screen dimensions are recorder state, not a rewrite of the following clip rectangle.
+void openrac_frame_screen(float width, float height) {
+    g_screen = {width, height};
+}
 
 // Capture the C contract without starting a renderer, window or game.
 int openrac_frame_ui_item(const openrac_game_ui_item* item) {
@@ -171,5 +190,6 @@ int main() {
     test_nested_placement();
     test_recorder_failure_is_returned();
     test_full_scissor();
+    test_scissor_screen();
     return openrac::test::result();
 }
