@@ -54,6 +54,11 @@ constexpr gaddr kGameMemoryStart = 0x00100000u;
 // The end of the console's 32 MB (assumed).
 constexpr gaddr kGameMemoryEnd = 0x02000000u;
 
+// The port's statics, where the menu rows it adds (Exit, the mods' rows) live (GUEST_STATICS in
+// runtime/include/openrac/guest.h, which this file's tests cannot include).
+constexpr gaddr kPortStaticsStart = 0xE0200000u;
+constexpr gaddr kPortStaticsSize = 0x00400000u;
+
 // In the menus' page record, the page shown is at +4 (assumed: discs.h states it).
 constexpr gaddr kMenuPageShownOffset = 4u;
 
@@ -234,9 +239,13 @@ gaddr hero() {
     return s_disc->hero;
 }
 
-// A game address worth reading: in the console's 32 MB, aligned.
+// A game address worth reading: in the console's 32 MB or the port's statics (the menu rows the
+// port adds, such as Exit and the mods' rows, live there), aligned.
 bool plausible(gaddr address) {
-    return address >= kGameMemoryStart && address < kGameMemoryEnd && (address & 3u) == 0;
+    const bool console = address >= kGameMemoryStart && address < kGameMemoryEnd;
+    const bool port =
+        address >= kPortStaticsStart && address - kPortStaticsStart < kPortStaticsSize;
+    return (console || port) && (address & 3u) == 0;
 }
 
 // Three floats from the game's memory as a vector.
@@ -612,11 +621,14 @@ std::optional<bool> mouse_on_page(gaddr page, bool moved, bool click, float px, 
     return std::nullopt;
 }
 
+bool beside_items(const Tick& t);
+
 // The mouse in a menu: over a page's item, it is the one the game focuses (as the d-pad moves the
 // focus between a page's items: the next tick's focus change plays the game's own sound); over a
 // row of the focused list or a cell of the focused item grid, the d-pad steps the selection to it.
-// Elsewhere (the vendor, the dialogs) its motion steps the d-pad. A click on an item not yet
-// focused focuses it first. Returns false when the click must wait for the focus to move.
+// Beside a page's items nothing moves. Elsewhere (the dialogs) its motion steps the d-pad. A click
+// on an item not yet focused focuses it first. Returns false when the click must wait for the focus
+// to move.
 bool menu_mouse(const Tick& t, bool click) {
     const openrac_input* in = t.in;
     const bool moved = in->mouse_dx != 0.0f || in->mouse_dy != 0.0f;
@@ -638,10 +650,17 @@ bool menu_mouse(const Tick& t, bool click) {
         if (result.has_value()) {
             return *result;
         }
+
+        // Beside every item: nothing is selected, the selection stays where it is.
+        if (beside_items(t)) {
+            s_stepper.reset();
+            return true;
+        }
     }
 
-    // Elsewhere (and over a grid) the mouse's motion steps the d-pad, except on the title, which
-    // has nothing to step, and at the vendor, where the mouse points (vendor_mouse).
+    // Elsewhere (a dialog, or an item whose rows it cannot read) the mouse's motion steps the
+    // d-pad, except on the title, which has nothing to step, and at the vendor, where the mouse
+    // points (vendor_mouse).
     if (moved && t.where != Context::Title && t.where != Context::Vendor && !s_map_shown) {
         const std::uint16_t dir = s_stepper.step(in->mouse_dx, in->mouse_dy);
 

@@ -96,7 +96,7 @@ cd port && cmake --preset release && cmake --build --preset release && ctest --p
 cd launcher && yarn verify && cargo test -p openrac-launcher-core && yarn test:android
 python3 -m unittest discover -s tools      # the repository's tools
 python3 -m unittest discover -s editor     # the level editor
-python3 tools/cpp_style.py [--fix] [PATH]  # the C++ layout (port/docs/CODING_CONVENTIONS.md)
+python3 tools/cpp_style.py [--fix] [PATH]  # the C++ layout (docs/CODING_CONVENTIONS.md)
 ```
 
 Each game has its own checks; its README names them.
