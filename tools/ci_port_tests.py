@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2026 the OpenRAC contributors
-"""Partition the enhanced CI build and verify each test job ran its full group."""
+"""Run the enhanced CI build's tests in one CTest call and check that each required test ran.
+
+Most Vulkan tests share one lock (cmake/GpuTests.cmake) and run one by one; the CPU, baker and
+lock-free Vulkan tests fill the other CTest slots meanwhile.
+"""
 
 import argparse
 import json
@@ -10,17 +14,6 @@ import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-GROUPS = ("vulkan", "equivalence", "effects", "cpu", "baker")
-SECOND_RUNNER = {"render_equivalence_vulkan_shard_2", "render_equivalence_vulkan_shard_3"}
-# Most Vulkan tests share one lock (cmake/GpuTests.cmake), so a runner runs them one by one. These
-# need no fixture but the cache reset, so a third runner takes them and the vulkan group halves.
-THIRD_RUNNER = {
-    "gtao_vulkan", "gtao_horizon_vulkan", "sun_shadow_filter_reference_vulkan", "gameplay_rim",
-    "surface_normals", "local_lights", "enhanced_rendering_vulkan", "water_gpu", "wetness_gpu",
-    "texture_filter_on_vulkan", "probe_glass_cutout_vulkan", "probe_chrome_original_vulkan",
-}
-# The only setup a third-runner test may pull in: it is cheap and runs on both runners.
-THIRD_RUNNER_SETUP = {"vulkan_test_cache_reset"}
 REQUIRED = {
     "probe_gpu_vulkan", "early_lighting_vulkan", "hero_shadow_vulkan",
     "sun_shadow_vulkan", "gtao_vulkan", "probe_bake", "bake_liquids",
@@ -52,47 +45,22 @@ def inventory(build, *selection):
     }
 
 
-def selection_file(build, group):
-    return build / f"ci-{group}-tests.txt"
+def selection_file(build, name):
+    return build / f"ci-{name}-tests.txt"
 
 
-def write_selection(build, group, names):
-    path = selection_file(build, group).resolve()
+def write_selection(build, name, names):
+    path = selection_file(build, name).resolve()
     path.write_text("".join(f"{name}\n" for name in sorted(names)), encoding="utf-8")
     return path
 
 
 def plan(build):
-    dependencies = inventory(build)
-    all_tests = set(dependencies)
-    # CTest includes fixture dependencies in these listings. This keeps baseline
-    # preparation, cache reset and focused comparisons beside their consumers.
-    vulkan = set(inventory(build, "-L", "^gpu$"))
-    baker = set(inventory(build, "-L", "^baker$"))
-    if vulkan & baker:
-        raise SystemExit(f"Shared Vulkan and baker fixtures: {sorted(vulkan & baker)}")
-    if missing := REQUIRED - all_tests:
+    tests = set(inventory(build))
+    if missing := REQUIRED - tests:
         raise SystemExit(f"Missing required tests: {sorted(missing)}")
-    # Each runner prepares its own baselines and Vulkan caches. Only the second
-    # runner's two shards move; CTest adds their shared setup fixtures as needed.
-    path = write_selection(build, "equivalence", SECOND_RUNNER)
-    equivalence = set(inventory(build, "--tests-from-file", str(path)))
-    if unexpected := equivalence - vulkan:
-        raise SystemExit(f"Equivalence tests outside Vulkan group: {sorted(unexpected)}")
-    path = write_selection(build, "effects", THIRD_RUNNER & vulkan)
-    effects = set(inventory(build, "--tests-from-file", str(path)))
-    if unexpected := effects - THIRD_RUNNER - THIRD_RUNNER_SETUP:
-        raise SystemExit(f"Third-runner tests need other fixtures: {sorted(unexpected)}")
-    for group, names in zip(
-        GROUPS, (vulkan - SECOND_RUNNER - THIRD_RUNNER, equivalence, effects,
-                 all_tests - vulkan - baker, baker)
-    ):
-        if external := {dep for name in names for dep in dependencies[name]} - names:
-            raise SystemExit(f"{group} tests depend on another group: {sorted(external)}")
-        path = write_selection(build, group, names)
-        if not names or set(inventory(build, "--tests-from-file", str(path))) != names:
-            raise SystemExit(f"Invalid {group} test partition")
-        print(f"{group}: {len(names)} tests")
+    write_selection(build, "all", tests)
+    print(f"{len(tests)} tests")
 
 
 def execute(build, path, report, jobs, env=None):
@@ -120,15 +88,15 @@ def execute(build, path, report, jobs, env=None):
     return list(ET.parse(report).iter("testcase"))
 
 
-def run(build, group):
-    path = selection_file(build, group).resolve()
+def run(build):
+    path = selection_file(build, "all").resolve()
     expected = set(path.read_text(encoding="utf-8").splitlines())
     if set(inventory(build, "--tests-from-file", str(path))) != expected:
-        raise SystemExit(f"Restored {group} test inventory differs from the build")
-    report = (build / f"ci-{group}-results.xml").resolve()
+        raise SystemExit("Restored test inventory differs from the build")
+    report = (build / "ci-all-results.xml").resolve()
     cases = execute(build, path, report, 4)
     if len(cases) != len(expected) or {case.attrib["name"] for case in cases} != expected:
-        raise SystemExit(f"Incomplete or duplicate results in the {group} test group")
+        raise SystemExit("Incomplete or duplicate test results")
     for case in cases:
         name = case.attrib["name"]
         if name in REQUIRED and case.find("skipped") is not None:
@@ -139,7 +107,10 @@ def run(build, group):
 
 
 def timing(build):
-    shards = SECOND_RUNNER | {"render_equivalence_vulkan", "render_equivalence_vulkan_remaining"}
+    shards = {
+        "render_equivalence_vulkan", "render_equivalence_vulkan_remaining",
+        "render_equivalence_vulkan_shard_2", "render_equivalence_vulkan_shard_3",
+    }
     path = write_selection(build, "timing", shards)
     selected = set(inventory(build, "--tests-from-file", str(path)))
     for jobs in (1, 2, 4):
@@ -165,11 +136,6 @@ def timing(build):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("build", type=Path)
-    parser.add_argument("group", choices=("plan", "timing", *GROUPS))
+    parser.add_argument("command", choices=("plan", "run", "timing"))
     args = parser.parse_args()
-    if args.group == "plan":
-        plan(args.build)
-    elif args.group == "timing":
-        timing(args.build)
-    else:
-        run(args.build, args.group)
+    {"plan": plan, "run": run, "timing": timing}[args.command](args.build)
