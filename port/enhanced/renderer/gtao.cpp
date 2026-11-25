@@ -9,6 +9,7 @@
 #include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/renderer/shader_recipe_sources.h"
 #include "renderer/frame/surface_chain.h"
 #include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
@@ -26,28 +27,8 @@ bool Gtao::prepare_program(int scale, bool normals, bool performance, bool hi_z)
     const unsigned evaluation = m_program + (hi_z ? kProgramVariants : 0u);
     Shader& kernel = performance ? m_evaluate_performance[evaluation] : m_evaluate[evaluation];
     if (!kernel.id() || !m_composite[m_program].id()) {
-        std::string evaluate(shaders::gtao_evaluate_comp);
-        evaluate.insert(
-            evaluate.find('\n') + 1,
-            std::string("#define OPENRAC_GTAO_HIZ ") + (hi_z ? "1\n" : "0\n")
-        );
-        std::string composite(shaders::gtao_composite_frag);
-        evaluate.insert(evaluate.find('\n') + 1, shaders::surface_normal_glsl);
-        composite.insert(composite.find('\n') + 1, shaders::surface_normal_glsl);
-        evaluate.insert(evaluate.find('\n') + 1, shaders::gtao_common_glsl);
-        composite.insert(composite.find('\n') + 1, shaders::gtao_common_glsl);
-        const auto definitions = "#define OPENRAC_GTAO_SCALE " + std::to_string(scale)
-                                 + "\n#define OPENRAC_SURFACE_NORMALS " + (normals ? "1\n" : "0\n");
-        evaluate.insert(evaluate.find('\n') + 1, definitions);
-        composite.insert(composite.find('\n') + 1, definitions);
-        const auto constants =
-            {ShaderIntConstant{"evaluation_scale", scale},
-             ShaderIntConstant{"surface_normals_enabled", normals ? 1 : 0}};
-        evaluate = shader_constants(std::move(evaluate), constants);
-        composite = shader_constants(std::move(composite), constants);
-        if (performance) {
-            evaluate.insert(evaluate.find('\n') + 1, "#define GTAO_REFINEMENT_STEPS 3\n");
-        }
+        auto [evaluate, composite] =
+            enhanced::recipe_sources::gtao(scale, normals, performance, hi_z);
         if ((!kernel.id()
              && !kernel.build_compute(
                  performance ? "GTAO performance horizons" : "GTAO horizons", evaluate, error

@@ -24,6 +24,11 @@ the renderer and output on a target Mac.
 - [pipelines/shader_compiler.h](pipelines/shader_compiler.h): GLSL made into SPIR-V with glslang, with what an OpenGL
   program would answer about its uniforms and blocks.
 
+Missing packaged graphics shaders use an embedded magenta/black error shader in both development
+and release builds. Known vertex shaders preserve the geometry; unknown vertex interfaces draw a
+viewport diagnostic. Strict package checks still fail. Configuration and tests are documented in
+[openrac-shader-compiler](../../tools/shader_compiler/README.md).
+
 The implementation is split by responsibility:
 
 - `graph/` owns Vulkan graph imports, execution, validation and prepared pass recording.
@@ -153,14 +158,23 @@ draw with an unknown key links four parts (`PipelineLibraries`) at once; the who
 built on a worker and swapped in at a frame's start (`collect_prewarm`). The manifest and
 pipeline cache are saved on `Context::cache_saver` at each load, every two minutes, and at close.
 
-`Context::spirv_cache` keeps what glslang made (R-12): `compile_program` and `check_stage` take a
-program or stage compiled before from it, by a hash of its kind, sources and compiler checked by a
-second hash and the length, and glslang runs only for the rest. It is read at open and written at
-close, beside the pipeline cache, and off when the pipeline cache is.
+Built-in programs load from the build-generated shader package before consulting the writable
+SPIR-V cache. The CPU-only [shader compiler](../../tools/shader_compiler/README.md) assembles the
+supported variants, emits SPIR-V and reflection, and embeds its compressed archive into the
+renderer. Device-specific pipeline creation and prewarming stay here. Material texture-array
+capacity is specialization constant 901, alongside the clip-space and feature-mode constants.
 
-Renderer shader builds parse Vulkan stages when linking the program. A failed link checks
-the individual stages to retain stage-specific diagnostics. The pinned glslang dependency
-uses its translation arena for temporary SPIR-V operands through
+`Context::spirv_cache` keeps development-time compiler results between runs (R-12), by hashes of
+the final sources and compiler/package fingerprint. It is read at open and written at close,
+beside the pipeline cache, and off when that cache is off. Built-in package loading remains on.
+Missing variants can compile when `OPENRAC_SHADER_RUNTIME_COMPILER` is enabled; the standalone and
+Android presets disable this fallback. `OPENRAC_SHADER_PACKAGE_STRICT=1` also refuses fallback and
+bypasses the writable cache when checking packaged coverage.
+
+The CPU compiler backends in `pipelines/shader_backend.cpp` and
+`pipelines/native_shader_backend.cpp` share glslang initialization and reflection without a
+Vulkan context. Development compilation retains stage-specific diagnostics after a failed link.
+The pinned glslang dependency uses its translation arena for temporary SPIR-V operands through
 [`glslang-operand-pool.patch`](../../cmake/glslang-operand-pool.patch), applied by CMake.
 
 `Context::persistent_sets` keeps, from frame to frame, the descriptor sets that bind only

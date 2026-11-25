@@ -15,6 +15,7 @@
 #include "renderer/frame/raster_pass.h"
 #include "renderer/gl/gl.h"
 #include "renderer/renderer.h"
+#include "renderer/ui/overlay_draw_sources.h"
 #include "renderer/ui/overlay_images.h"
 
 namespace openrac::renderer::ui {
@@ -25,28 +26,9 @@ namespace {
 
 // The picture's positions to device coordinates, y down; colours as they come, times the texel of
 // the run's picture (a plain white one for rectangles and text).
-constexpr const char* kVertex = R"glsl(#version 410 core
-layout(location = 0) in vec2 position;
-layout(location = 1) in vec2 uv;
-layout(location = 2) in vec4 colour;
-out vec2 v_uv;
-out vec4 v_colour;
-void main() {
-    v_uv = uv;
-    v_colour = colour;
-    gl_Position = vec4(position.x / 256.0 - 1.0, 1.0 - position.y / 224.0, 0.0, 1.0);
-}
-)glsl";
+using shader_sources::renderer_ui_overlay_draw::kVertex;
 
-constexpr const char* kFragment = R"glsl(#version 410 core
-in vec2 v_uv;
-in vec4 v_colour;
-uniform sampler2D tex_T0;
-out vec4 out_colour;
-void main() {
-    out_colour = v_colour * texture(tex_T0, v_uv);
-}
-)glsl";
+using shader_sources::renderer_ui_overlay_draw::kFragment;
 
 constexpr std::array<std::uint8_t, 4> kWhite{255, 255, 255, 255};
 

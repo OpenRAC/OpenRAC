@@ -180,6 +180,27 @@ renderer::Mat4 blend_matrix(
     return m;
 }
 
+renderer::Mat4 blend_turning(const renderer::Mat4& from, const renderer::Mat4& to, float t) {
+    float dot = 0.0f;
+    float la = 0.0f;
+    float lb = 0.0f;
+    // The X axes' turn (elements 0 to 2, the first column), as same_moby's.
+    for (int i = 0; i < 3; ++i) {
+        dot += from[i] * to[i];
+        la += from[i] * from[i];
+        lb += to[i] * to[i];
+    }
+    if (!(la > 0.0f && lb > 0.0f && dot >= kSameTurnCosine * std::sqrt(la * lb))) {
+        return to;  // turned too far in a tick: another one, or a cut
+    }
+    renderer::Mat4 m = to;
+    // The axes and the translation, part way (elements 0 to 14; 15 stays this tick's).
+    for (int i = 0; i < 15; ++i) {
+        m[i] = from[i] + (to[i] - from[i]) * t;
+    }
+    return m;
+}
+
 CameraPose blend_pose(
     const CameraPose& from, const CameraPose& to, float t, const renderer::Vec3* pace
 ) {

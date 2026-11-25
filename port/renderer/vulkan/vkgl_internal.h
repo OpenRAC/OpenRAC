@@ -46,6 +46,7 @@
 #include "renderer/vulkan/commands/native_command_encoder.h"
 #include "renderer/vulkan/diagnostics/frame_capture_internal.h"
 #include "renderer/vulkan/pipelines/shader_compiler.h"
+#include "renderer/vulkan/pipelines/shader_specialization.h"
 #include "renderer/vulkan/presentation/latency_sleep.h"
 #include "renderer/vulkan/vkgl.h"
 #include "renderer/world/gl_world.h"
@@ -666,10 +667,6 @@ struct PersistentSets {
     std::vector<std::uint64_t> key;  // The key being looked up, kept for its capacity.
 };
 
-// Feature slots fixed by every graphics pipeline variant, with IDs starting at kModeConstantBase.
-inline constexpr std::uint32_t kModeConstantBase = 1000;
-inline constexpr std::size_t kModeConstants = 47;
-
 // A GL program: its shaders, the compiled SPIR-V and what it declares (shader_compiler.h), its
 // shader modules and layouts, the default uniform block, and the descriptor sets made this frame.
 struct Program {
@@ -925,10 +922,6 @@ struct Input {
 // stage's z as Vulkan takes it (glClipControl GL_ZERO_TO_ONE).
 inline constexpr std::uint32_t kDepthClamp = 1;
 inline constexpr std::uint32_t kClipZeroToOne = 2;
-
-// The vertex stage's specialisation constant (shader_compiler.cpp vertex_source): true when its z
-// is already Vulkan's.
-inline constexpr std::uint32_t kClipZeroToOneConstant = 900;
 
 // Everything a pipeline bakes in, as plain numbers: the cache's key. pipeline_for zeroes it whole
 // before it fills it, so its bytes (padding included) are the key: it is compared and hashed as
@@ -1347,6 +1340,8 @@ struct Context {
     // the presents counted and seen finished since the swapchain was made.
     bool allow_present_id = true;
     bool allow_gpu_breadcrumbs = true;
+    bool compile_missing_shaders = false;
+    std::unordered_set<std::uint64_t> missing_shader_keys;
     bool allow_present_wait = true;
     bool allow_latest_ready = true;
     // Config::setup: who makes the instance and the device (an outside owner shares them).
