@@ -121,8 +121,8 @@ git push origin launcher-vX.Y.Z
    (`.github/workflows/dev-release.yml`). It opens a pull request from a snapshot of `develop`
    (branch `release/dev`) to `master` listing what changed, and every check runs on it: hostgen,
    every game in every version, Windows, iOS. Merge it with "Create a merge commit"; the push to
-   `master` builds here and publishes on `launcher-dev-master` and `launcher-dev-develop` (the
-   Development channel below). Another branch builds by hand (Run workflow). The `dev-release` job replaces the pre-release `launcher-dev-<branch>` with every
+   `master` builds here and publishes on `launcher-dev-develop` (the Development channel
+   below). Another branch builds by hand (Run workflow). The `dev-release` job replaces the pre-release `launcher-dev-<branch>` with every
    system's installers, their signatures and a `latest.json` of version `X.Y.Z-dev.<run>`. The
    launchers built from a branch read that pre-release; one built from a tag reads the
    repository's latest release. Either way the updater asks the repository that built it

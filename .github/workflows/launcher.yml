@@ -475,23 +475,25 @@ jobs:
             # Newer than any release, also when master was not raised after one (scripts/dev_version.sh).
             base="${{ needs.version.outputs.base }}"
             version=$base
-            channel="launcher-dev-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"
-            endpoint="https://github.com/$GITHUB_REPOSITORY/releases/download/$channel/latest.json"
-            export OPENRAC_LAUNCHER_BUILD="dev.$GITHUB_RUN_NUMBER"
-            if [ "$NAME" = android ]; then
-              version="$base-dev.$GITHUB_RUN_NUMBER"
-            fi
+            # master's builds are the dev releases: on develop's channel, the launcher's Development.
+            branch=$GITHUB_REF_NAME; [ "$branch" != master ] || branch=develop
+            channel="launcher-dev-$(printf '%s' "$branch" | tr -c 'A-Za-z0-9._-' '-')"
+          endpoint="https://github.com/$GITHUB_REPOSITORY/releases/download/$channel/latest.json"
+          export OPENRAC_LAUNCHER_BUILD="dev.$GITHUB_RUN_NUMBER"
+          if [ "$NAME" = android ]; then
+            version="$base-dev.$GITHUB_RUN_NUMBER"
+          fi
           fi
           echo "LAUNCHER_VERSION=$version" >> "$GITHUB_ENV"
           config=$(VERSION="$version" ENDPOINT="$endpoint" CREATE="$create_updater" node -e '
-            const c = { version: process.env.VERSION,
-                        // The RPM release is the run: rpm -U refuses the same X.Y.Z-1 again.
-                        bundle: { createUpdaterArtifacts: process.env.CREATE === "true",
-                                  linux: { rpm: { release: process.env.GITHUB_RUN_NUMBER } } },
-                        plugins: { updater: { endpoints: [process.env.ENDPOINT] } } };
-            // A fork that signs with a key of its own names its public half here (a variable).
-            if (process.env.UPDATER_PUBKEY) c.plugins.updater.pubkey = process.env.UPDATER_PUBKEY;
-            process.stdout.write(JSON.stringify(c));')
+          const c = { version: process.env.VERSION,
+                      // The RPM release is the run: rpm -U refuses the same X.Y.Z-1 again.
+                      bundle: { createUpdaterArtifacts: process.env.CREATE === "true",
+                                linux: { rpm: { release: process.env.GITHUB_RUN_NUMBER } } },
+                      plugins: { updater: { endpoints: [process.env.ENDPOINT] } } };
+          // A fork that signs with a key of its own names its public half here (a variable).
+          if (process.env.UPDATER_PUBKEY) c.plugins.updater.pubkey = process.env.UPDATER_PUBKEY;
+          process.stdout.write(JSON.stringify(c));')
           echo "updates: $version from $endpoint"
           # Every build a version code of its own, above any version's own (Tauri's major*10^6 +
           # minor*10^3 + patch): a home screen takes a new icon only from a new version code.
@@ -499,23 +501,23 @@ jobs:
           # The launcher's library without debug information (a debug build has it otherwise); Gradle
           # strips the others (app/build.gradle.kts).
           if [ "$NAME" = android ]; then
-            export CARGO_PROFILE_DEV_DEBUG=0
+          export CARGO_PROFILE_DEV_DEBUG=0
           fi
           # A fork's APK is an app of its own, installed beside the project's: its own package
           # (dev.openrac.launcher.fork_<owner>, so its own data too) and name (app/build.gradle.kts).
           # OpenRAC/OpenRAC's own build keeps dev.openrac.launcher and "OpenRAC Launcher".
           apk_name=OpenRAC.Launcher
           if [ "$NAME" = android ] && [ "$GITHUB_REPOSITORY" != OpenRAC/OpenRAC ]; then
-            owner=$(printf '%s' "${GITHUB_REPOSITORY%%/*}" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9\n' '_')
-            export OPENRAC_ANDROID_APPLICATION_ID="dev.openrac.launcher.fork_$owner"
-            export OPENRAC_ANDROID_APP_LABEL="OpenRAC Fork"
-            apk_name=OpenRAC.Launcher.Fork
-            echo "a fork's APK: $OPENRAC_ANDROID_APPLICATION_ID, \"$OPENRAC_ANDROID_APP_LABEL\""
+          owner=$(printf '%s' "${GITHUB_REPOSITORY%%/*}" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9\n' '_')
+          export OPENRAC_ANDROID_APPLICATION_ID="dev.openrac.launcher.fork_$owner"
+          export OPENRAC_ANDROID_APP_LABEL="OpenRAC Fork"
+          apk_name=OpenRAC.Launcher.Fork
+          echo "a fork's APK: $OPENRAC_ANDROID_APPLICATION_ID, \"$OPENRAC_ANDROID_APP_LABEL\""
           fi
           echo "APK_NAME=$apk_name" >> "$GITHUB_ENV"
           if [ "$NAME" = android ] && [ -n "$ANDROID_KEYSTORE" ]; then
-            printf '%s' "$ANDROID_KEYSTORE" | base64 -d > "$RUNNER_TEMP/openrac.jks"
-            export OPENRAC_ANDROID_KEYSTORE="$RUNNER_TEMP/openrac.jks"
+          printf '%s' "$ANDROID_KEYSTORE" | base64 -d > "$RUNNER_TEMP/openrac.jks"
+          export OPENRAC_ANDROID_KEYSTORE="$RUNNER_TEMP/openrac.jks"
           fi
           unset RAW_KEY ANDROID_KEYSTORE
           yarn install --immutable
@@ -526,11 +528,11 @@ jobs:
           # branch is announced as X.Y.Z-dev.<run> (the dev-release job), so its signatures are
           # made again for that version.
           if [ "$create_updater" = true ] && [ -n "${OPENRAC_LAUNCHER_BUILD:-}" ]; then
-            find target -path '*/bundle/*' -name '*.sig' -print0 | while IFS= read -r -d '' sig; do
-              rm "$sig"
-              env -u TAURI_SIGNING_PRIVATE_KEY yarn tauri signer sign -f "$RUNNER_TEMP/updater.key" \
-                -p "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" --app-version "$base-$OPENRAC_LAUNCHER_BUILD" "${sig%.sig}"
-            done
+          find target -path '*/bundle/*' -name '*.sig' -print0 | while IFS= read -r -d '' sig; do
+            rm "$sig"
+            env -u TAURI_SIGNING_PRIVATE_KEY yarn tauri signer sign -f "$RUNNER_TEMP/updater.key" \
+              -p "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" --app-version "$base-$OPENRAC_LAUNCHER_BUILD" "${sig%.sig}"
+          done
           fi
 
       # Named as the desktop installers are, and checked: the game's activity, SDL's and the
@@ -552,23 +554,23 @@ jobs:
           unzip -p "$apk" 'classes*.dex' | grep -ac "dev/openrac/game/GameActivity"
           unzip -p "$apk" 'classes*.dex' | grep -ac "org/libsdl/app/SDLActivity"
           for lib in libopenrac-rac1-pal.so libopenrac-rac1-pal-cli.so libopenrac-rac1-ntsc.so \
-                     libopenrac-rac1-ntsc-cli.so libopenrac-rac1-pal1.so libopenrac-rac1-pal1-cli.so \
-                     libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
-                     libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
-                     libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
-                     libSDL3.so libc++_shared.so libopenrac-python.so \
-                     libpython3.13.so libhook_impl.so libmain_hook.so libfile_redirect_hook.so \
-                     libgsl_alloc_hook.so libopenrac_launcher_lib.so; do
-            unzip -l "$apk" "lib/arm64-v8a/$lib" > /dev/null || { echo "the APK has no $lib"; exit 1; }
+                   libopenrac-rac1-ntsc-cli.so libopenrac-rac1-pal1.so libopenrac-rac1-pal1-cli.so \
+                   libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
+                   libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
+                   libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
+                   libSDL3.so libc++_shared.so libopenrac-python.so \
+                   libpython3.13.so libhook_impl.so libmain_hook.so libfile_redirect_hook.so \
+                   libgsl_alloc_hook.so libopenrac_launcher_lib.so; do
+          unzip -l "$apk" "lib/arm64-v8a/$lib" > /dev/null || { echo "the APK has no $lib"; exit 1; }
           done
           # None of them carries debug information: that is what makes a player's download large.
           llvm=$(ls -d "$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/*/bin | head -1)
           libs="$RUNNER_TEMP/apk-libs"
           rm -rf "$libs" && unzip -q "$apk" 'lib/arm64-v8a/*.so' -d "$libs"
           for lib in "$libs"/lib/arm64-v8a/*.so; do
-            if "$llvm/llvm-readelf" -S "$lib" | grep -q '\.debug_info'; then
-              echo "$(basename "$lib") carries debug information"; exit 1
-            fi
+          if "$llvm/llvm-readelf" -S "$lib" | grep -q '\.debug_info'; then
+            echo "$(basename "$lib") carries debug information"; exit 1
+          fi
           done
           echo "::group::The libraries' sizes"
           du -sh "$libs"/lib/arm64-v8a/*.so | sort -h
@@ -580,12 +582,12 @@ jobs:
           echo "APK signing certificate (SHA-256): $cert"
           echo "APK signing certificate (SHA-256): \`$cert\`" >> "$GITHUB_STEP_SUMMARY"
           if [ "$HAVE_ANDROID_KEY" != true ]; then
-            echo "::warning::No ANDROID_KEYSTORE secret: the APK is signed with this runner's own debug key and will not install over an APK of another run. tools/android_keystore.py makes the launcher's key."
+          echo "::warning::No ANDROID_KEYSTORE secret: the APK is signed with this runner's own debug key and will not install over an APK of another run. tools/android_keystore.py makes the launcher's key."
           fi
           # Only an APK of the launcher's own key is offered as an update: one of a runner's debug key
           # downloads and verifies, then Android refuses to install it over the launcher.
           if [ -f "$RUNNER_TEMP/updater.key" ] && [ "$HAVE_ANDROID_KEY" = true ]; then
-            yarn tauri signer sign -f "$RUNNER_TEMP/updater.key" "$apk"
+          yarn tauri signer sign -f "$RUNNER_TEMP/updater.key" "$apk"
           fi
           rm -f "$RUNNER_TEMP/updater.key" "$RUNNER_TEMP/openrac.jks"
 
@@ -605,8 +607,8 @@ jobs:
   # Any other build of a branch here or in a fork: its launchers on the
   # branch's rolling pre-release `launcher-dev-<branch>`, made again each time, where the
   # launchers built from that branch look for their updates (Build the installers, above).
-  # master's also go to launcher-dev-develop, where launchers built from develop look: their next
-  # update is master's, which then looks on launcher-dev-master. Only
+  # master's (a dev release, .github/workflows/dev-release.yml) go to launcher-dev-develop: the
+  # launcher's Development channel (launcher/core/src/update.rs, DEV_BRANCH). Only
   # with the update key: a launcher installs no update without its signature.
   # Also when a system's build failed (a macOS job that got no runner, say): the systems built
   # still get their update, and latest.json leaves out the one that did not. Not when the run was
@@ -633,44 +635,40 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           if ! find installers -name '*.sig' | grep -q .; then
-            echo "::notice::no update signatures (TAURI_SIGNING_PRIVATE_KEY is not set): nothing to publish"
-            exit 0
+          echo "::notice::no update signatures (TAURI_SIGNING_PRIVATE_KEY is not set): nothing to publish"
+          exit 0
           fi
           # The builds' own version (Build the installers, above).
           base="${{ needs.version.outputs.base }}"
           version="$base-dev.$GITHUB_RUN_NUMBER"
-          branch="$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"
-          channels="launcher-dev-$branch"
-          [ "$GITHUB_REF_NAME" != master ] || channels="$channels launcher-dev-develop"
-          for channel in $channels; do
-            rm -f installers/latest.json
-            python3 tools/updater_manifest.py installers --tag "$channel" --repo "$GH_REPO" \
-              --version "$version" --notes "Built from $GITHUB_REF_NAME at $GITHUB_SHA." --output installers/latest.json
-            # The installers' names have spaces in them: an array, not a word list.
-            mapfile -d '' files < <(find installers -type f -print0 | sort -z)
-            echo "::group::${#files[@]} files"; printf '%s\n' "${files[@]}"; echo "::endgroup::"
-            title="v$version ($GITHUB_REF_NAME)"
-            notes="The launchers built from $GITHUB_REF_NAME at $GITHUB_SHA; launchers built from this branch update from here."
-            if ! gh release view "$channel" > /dev/null 2>&1; then
-              gh release create "$channel" --prerelease --target "$GITHUB_SHA" --title "$title" --notes "$notes" "${files[@]}"
-              continue
-            fi
-            # Replaced in place, so a launcher that looks while this runs still finds a release: the
-            # installers first, latest.json (which names them) last, then the last build's files go.
-            installers=()
-            for f in "${files[@]}"; do [ "$(basename "$f")" = latest.json ] || installers+=("$f"); done
-            gh release upload "$channel" --clobber "${installers[@]}"
-            gh release upload "$channel" --clobber installers/latest.json
-            # GitHub stores an asset's name with its spaces as dots ("OpenRAC Launcher_…" becomes
-            # "OpenRAC.Launcher_…"): compare the names as it lists them, or this deletes the
-            # installers it has just uploaded.
-            keep=$(for f in "${files[@]}"; do basename "$f" | tr ' ' '.'; done)
-            gh release view "$channel" --json assets --jq '.assets[].name' | while IFS= read -r name; do
-              grep -qxF "$name" <<< "$keep" || gh release delete-asset "$channel" "$name" --yes
-            done
-            gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$channel" -f sha="$GITHUB_SHA" -F force=true > /dev/null
-            gh release edit "$channel" --prerelease --title "$title" --notes "$notes"
+          branch=$GITHUB_REF_NAME; [ "$branch" != master ] || branch=develop
+          channel="launcher-dev-$(printf '%s' "$branch" | tr -c 'A-Za-z0-9._-' '-')"
+          python3 tools/updater_manifest.py installers --tag "$channel" --repo "$GH_REPO" \
+            --version "$version" --notes "Built from $GITHUB_REF_NAME at $GITHUB_SHA." --output installers/latest.json
+          # The installers' names have spaces in them: an array, not a word list.
+          mapfile -d '' files < <(find installers -type f -print0 | sort -z)
+          echo "::group::${#files[@]} files"; printf '%s\n' "${files[@]}"; echo "::endgroup::"
+          title="v$version ($GITHUB_REF_NAME)"
+          notes="The launchers built from $GITHUB_REF_NAME at $GITHUB_SHA; launchers built from this branch update from here."
+          if ! gh release view "$channel" > /dev/null 2>&1; then
+            gh release create "$channel" --prerelease --target "$GITHUB_SHA" --title "$title" --notes "$notes" "${files[@]}"
+            exit 0
+          fi
+          # Replaced in place, so a launcher that looks while this runs still finds a release: the
+          # installers first, latest.json (which names them) last, then the last build's files go.
+          installers=()
+          for f in "${files[@]}"; do [ "$(basename "$f")" = latest.json ] || installers+=("$f"); done
+          gh release upload "$channel" --clobber "${installers[@]}"
+          gh release upload "$channel" --clobber installers/latest.json
+          # GitHub stores an asset's name with its spaces as dots ("OpenRAC Launcher_…" becomes
+          # "OpenRAC.Launcher_…"): compare the names as it lists them, or this deletes the
+          # installers it has just uploaded.
+          keep=$(for f in "${files[@]}"; do basename "$f" | tr ' ' '.'; done)
+          gh release view "$channel" --json assets --jq '.assets[].name' | while IFS= read -r name; do
+            grep -qxF "$name" <<< "$keep" || gh release delete-asset "$channel" "$name" --yes
           done
+          gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$channel" -f sha="$GITHUB_SHA" -F force=true > /dev/null
+          gh release edit "$channel" --prerelease --title "$title" --notes "$notes"
 
   # A tag `launcher-v*`: the installers of all the builds on a draft
   # release. Nothing is published until someone publishes the draft.
