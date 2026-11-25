@@ -392,7 +392,7 @@ These local test timings varied with host load and are not game GPU measurements
 Linux CI also retains Mesa's driver-keyed shader cache between runs, capped at 1 GiB per job.
 The enhanced Ubuntu job uses `GALLIVM_PERF=nopt` to reduce Mesa's LLVM compilation cost for
 these short runs. Shaders, geometry, validation and image comparisons still execute. Its cache
-is separate from normal-compiler runs; Fedora retains the default LLVM optimisation coverage.
+is separate from normal-compiler runs.
 The GTAO horizon-reference test clears this override: its long arithmetic matrix benefits from
 optimised shader execution more than shorter compilation.
 
