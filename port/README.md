@@ -88,7 +88,7 @@ Its sources, shaders, tools and tests are in [`enhanced/`](enhanced/README.md).
 | [mpui/](mpui/README.md) | The native multiplayer screens: lobby lists, staging, scoreboards and the servers' UI descriptions, drawn through each game's own 2D routines ([MULTIPLAYER_UI.md](../docs/port/MULTIPLAYER_UI.md)) |
 | [common/](common/README.md) | What every module may use: log, crash report, JSON reader, the PS2's float arithmetic, small helpers |
 | [tests/](tests) | The port's tests |
-| [docs/](docs/CODING_CONVENTIONS.md) | The coding conventions |
+| [docs/](../docs/CODING_CONVENTIONS.md) | The coding conventions |
 | [tools/](tools) | [conventions](tools/conventions/README.md) and [layering](tools/layering/README.md) checks (CI), [regress](tools/regress) runs, [versionmap](tools/versionmap/README.md), [perf](tools/perf) |
 
 ## How a game is built
@@ -190,7 +190,7 @@ OpenRAC's rules hold here ([CONTRIBUTING.md](../CONTRIBUTING.md),
 - Library replacements are written from what the game's code shows and what
   is public about each API, never from Sony's code or documentation.
 - Generated C and build output stay in build trees (`port/build/` is ignored).
-- Code follows [docs/CODING_CONVENTIONS.md](docs/CODING_CONVENTIONS.md):
+- Code follows [docs/CODING_CONVENTIONS.md](../docs/CODING_CONVENTIONS.md):
   layout ([.clang-format](.clang-format)), comments, naming, ownership,
   errors, the C boundary, layering. CI checks it with
   [tools/conventions](tools/conventions/README.md),

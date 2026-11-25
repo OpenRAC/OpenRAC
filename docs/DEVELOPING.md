@@ -45,7 +45,7 @@ cd port && cmake --preset release && cmake --build --preset release && ctest --p
 - [port/README.md](../port/README.md): the code and how it fits together.
 - [docs/port](port/README.md): the design and the order of work.
 - [docs/port/WORKFLOW.md](port/WORKFLOW.md): from a player's report to a fix.
-- [port/docs/CODING_CONVENTIONS.md](../port/docs/CODING_CONVENTIONS.md): how
+- [docs/CODING_CONVENTIONS.md](CODING_CONVENTIONS.md): how
   the port's code is written.
 
 ## CI build caches

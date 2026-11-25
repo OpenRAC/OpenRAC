@@ -40,6 +40,7 @@
 #include "game/common/frontend/scene_frame_internal.h"
 #include "game/common/frontend/state.h"
 #include "game/common/frontend/ui_images.h"
+#include "game/common/key_labels.h"
 #include "game/common/particle_texture_cache.h"
 #include "game/common/profile.h"
 #include "mod_menu.h"
@@ -51,6 +52,7 @@
 #include "options_menu.h"
 #include "platform/gpu_driver.h"
 #include "platform/input.h"
+#include "platform/key_layout.h"
 #include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "platform/window.h"
@@ -481,6 +483,9 @@ bool open(
 #endif
     platform::install_app_menus(env::flag(env::Var::Developer));
     set_window_icon(*g->window);
+    // The keys' names as the player's keyboard layout prints them (key_labels.h).
+    platform::refresh_key_layout();
+    keys::set_layout(&platform::key_layout_char);
     g->swap_asked = wanted_swap();
     g->swap = g->window->set_swap_interval(g->swap_asked);
     g->window->set_low_latency(settings::get().low_latency_frames);
