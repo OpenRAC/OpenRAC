@@ -212,7 +212,7 @@
         "definition": "menu_draw_feltzin_mission_result_us2",
         "definition_sha256": "68bdfc2017221ae8b9f9e56022606443e4be7119e96e2cf508b2527b1935961c"
       },
-      "expected_queries": 9
+      "expected_queries": 6
     },
     "START_SPACESHIP_CHALLENGE_FUNCS": {
       "ntsc": {

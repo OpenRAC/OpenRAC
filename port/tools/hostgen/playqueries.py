@@ -83,8 +83,19 @@ def instrument(key, body, name, version):
         body, count = re.subn(r"if\s*\(\s*!\s*(g_feltzin_challenge_data|D_L05_001B1350_4\[[12]\])\s*\)",
             lambda m: "if (!" + query(1, subject, 1, m[1], 1, True) + ")", body)
     elif key == "SPACESHIP_MENU_FUNCS":
-        body, count = re.subn(r"\b(D_L05_001B1350_gp\[0\]|g_feltzin_challenge_data\[[12]\])",
-            lambda m: query(1, subject, 1, m[1], 1, True), body)
+        # These records also hold reward-table indices (0..2). Only prerequisite
+        # conditions are booleans; leave every numeric/indexing read untouched.
+        record = r"(?:D_L05_001B1350_gp\[0\]|g_feltzin_challenge_data\[[12]\])"
+        term = record + r"(?:\s*!=\s*0)?"
+        condition = r"(\bif\s*\(\s*)(" + term + r"(?:\s*&&\s*" + term + r")*)(\s*\))"
+        def prerequisite(match):
+            nonlocal count
+            def decision(term_match):
+                nonlocal count
+                count += 1
+                return query(1, subject, 1, term_match[0], 1, True)
+            return match[1] + re.sub(term, decision, match[2]) + match[3]
+        body = re.sub(condition, prerequisite, body)
     else:
         body, count = re.subn(r"(g_race_challenge_table(?:\.entry)?\[[^\]]+\]\.flags\s*&\s*0x10000000)",
             lambda m: query(1, subject, 2, m[1], 1, True), body)
