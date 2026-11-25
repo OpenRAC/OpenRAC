@@ -1094,6 +1094,8 @@ void openrac_frame_screen_effect(const openrac_screen_effect* effect) {
 void openrac_frame_snapshot_world(uint32_t id) {
     OPENRAC_RECORD("openrac_frame_snapshot_world", snapshot_world(id));
     (void)id;
+}
+
 void openrac_frame_world_shrubs(void) {
     OPENRAC_RECORD("openrac_frame_world_shrubs", placement(renderer::FrameOp::WorldShrubs, 0, 0));
 }
