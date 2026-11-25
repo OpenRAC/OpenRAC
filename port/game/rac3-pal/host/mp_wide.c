@@ -433,6 +433,12 @@ void rac3_mp_wide_end_unpack(const uint8_t* in, int length) {
     }
     const int count = wide_slots - WIDE_GAME;
     int n = 0;
+    fprintf(
+        stderr,
+        "[info] rac3: online: the end message's slots 8-%d came (%d bytes)\n",
+        wide_slots - 1,
+        length
+    );
     for (size_t a = 0; a < WIDE_END_ARRAYS; a++) {
         if (!wide_end_array[a].sent) {
             continue;
@@ -492,6 +498,12 @@ void rac3_mp_wide_end_results(int reason, int (*profile_reset)(int)) {
     if (wide_slots <= WIDE_GAME || gs == 0) {
         return;
     }
+    fprintf(
+        stderr,
+        "[info] rac3: online: the match ends (reason %d): results for slots 8-%d\n",
+        reason,
+        wide_slots - 1
+    );
     for (int i = WIDE_GAME; i < wide_slots; i++) {
         const gaddr name = rac3_mp_wide_results(0x000u, i);
         const gaddr from = rac3_mp_wide_settings(0x000u, i);

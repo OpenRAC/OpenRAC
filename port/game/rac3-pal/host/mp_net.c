@@ -2356,6 +2356,7 @@ static int dme_relay(int dest, gaddr data, int len) {
             srv_u8((uint8_t)rac3_mp_wide_slots());
             srv_bytes(wide, (size_t)n);
             srv_end();
+            fprintf(stderr, "[info] rac3: online: the end message's slots 8+ sent (%d bytes)\n", n);
         }
     }
     srv_begin(PACKET_RELAY, -1);
