@@ -581,10 +581,11 @@ Not fixed, for whoever picks rac3 up next:
   Veldin names (`func_L01_00423020`, `func_L01_00412810`). Many read private globals only; check
   each one against callers' `OPENRAC_LCODE` calls. The root fix is rac3-decomp's catalogue
   (tools/level_catalogue.py).
-- **Synchronous rendering's tick-boundary hitch**: on OpenGL, or Vulkan without the render
-  thread, the scene runs half a tick behind but in-between frames can't pass the next tick, so
-  alpha drops from ~0.47 to 0 at each tick. The Vulkan render-thread path is not affected.
-  Probe: `OPENRAC_MOTION_LOG`.
+- **Synchronous rendering's tick-boundary hitch** (fixed, #898): on OpenGL, or Vulkan without
+  the render thread, the pacing ran the scene half a tick behind but frames cannot be drawn past
+  the next tick, so alpha dropped from ~0.47 to 0 at each tick. Every path now uses no lag
+  (`lag_ticks()` in frontend/interpolation.cpp): alpha runs 0 to 1 across the tick. Probe:
+  `OPENRAC_MOTION_LOG`.
 - **The first flight's Solana galaxy sequence**: the boot flight has no first-flight variant in
   its transition table (#871's runs). Probably the New Game intro movie (sector 18444); not
   confirmed against the original.
