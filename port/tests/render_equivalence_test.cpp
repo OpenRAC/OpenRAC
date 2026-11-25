@@ -398,9 +398,12 @@ void test_an_entry_changes_no_frame(
         CHECK(equivalent);
     }
     timing.lap(setup.enhanced ? "enhanced draw/readback" : "compatibility draw/readback");
-    // Even a borrowed driver program must compile fresh SPIR-V with the disk cache off.
+    // Packaged variants bypass the writable SPIR-V cache in either option state.
     if (entry.opt == render_opt::Opt::SpirvDiskCache && baseline_on) {
-        CHECK(openrac::vkgl::submission_counters().shader_compiles > before.shader_compiles);
+        const auto after = openrac::vkgl::submission_counters();
+        CHECK(after.shader_package_hits > before.shader_package_hits);
+        CHECK(after.shader_package_misses == before.shader_package_misses);
+        CHECK(after.shader_compiles == before.shader_compiles);
     }
     scene.release();
     render_opt::reset();

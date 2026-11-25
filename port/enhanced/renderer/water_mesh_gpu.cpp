@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "common/profiler.h"
+#include "enhanced/renderer/shader_recipe_sources.h"
 #include "enhanced/renderer/water_graph.h"
 #include "enhanced/renderer/water_mesh.h"
 #include "enhanced_viewer_shaders.h"
@@ -23,8 +24,7 @@ WaterMesh::~WaterMesh() {
 
 bool WaterMesh::init(std::string& error) {
     using namespace gl;
-    std::string source(lighting::shaders::water_uv_comp);
-    source.insert(source.find('\n') + 1, lighting::shaders::water_uv_glsl);
+    const auto source = recipe_sources::water_uv();
     if (!m_animation.build_compute("water authored UV animation", source, error)) {
         return false;
     }

@@ -21,6 +21,10 @@ func_L01_004948D0	func_L02_004A81F8	02:004A81F8,03:004BF720,05:004CAF00,06:004B5
 func_L01_004C8AC8	func_L02_004A8200	02:004A8200,03:004BF728,05:004CAF08,06:004B5B00,07:004D0F50,08:004B4020,10:004B4C68,11:004A8168,13:004B1D68,14:004BC9C0,17:004AB3B0,19:004C6538,21:004A8FE0,23:004B3A80,24:004B6F18,27:004A8850,28:00499960,30:0049FD78,31:0049F530,32:004A8960,33:004A10A8,34:004A6450,35:004A06D0,36:004A6230
 func_L01_004D2120	func_L02_004AA938	02:004AA938,03:004C1E60,05:004CD640,06:004B8238,07:004D3688,08:004B6758,10:004B73A0,11:004AA8A0,13:004B44A0,14:004BF0F8,17:004ADAE8,19:004C8C70,21:004AB718,23:004B61B8,24:004B9650,27:004AAF88,28:0049C098,30:004A24B0,31:004A1C68,32:004AB098,33:004A37E0,34:004A8B88,35:004A2E08,36:004A8968
 func_L01_004D2128	func_L02_004E2650	02:004E2650,03:004FFAD8,05:0050B200,06:004F5DA8,07:005111F8,08:004EC330,10:004F4FA0,11:004E8460,13:004F2060,14:004FCCB8,17:004EB658,19:005038A0,21:004E92D8,23:004F6250,24:004F7228,27:004E0F68,28:004D9C58,30:004E50C0,31:004E4878,32:004EDCA8,33:004E63F0,34:004EB798,35:004E5A18,36:004EB578
+# As in rac3-pal's table, the Veldin names of nine of these leaves get their real copies back through
+# hostgen.json "more_places" (release.json): func_L01_004D2120 (PAL func_L01_004D5DE0), the loading
+# flight's destination, is at 0x004BF720 on the Phoenix, the place of this table's row of
+# func_L01_004948D0.
 # The draw callback lists' adders (80 bytes each, one fingerprint): in levels 03, 11, 16 and 23
 # NTSC-U's catalogue puts the row of func_L01_00402560 (the second list's adder, count 0x001DFA10
 # on Veldin) at each level's adder of the fourth list (the count its runner, func_L01_004026F0's
@@ -31,3 +35,17 @@ func_L01_004D2128	func_L02_004E2650	02:004E2650,03:004FFAD8,05:0050B200,06:004F5
 # ("call to code address 0x00000000" in levels 3, 11, 16 and 23). Each place is its own variant.
 func_L01_00402560	func_L03_003EFF28	03:003EFF28,11:003DC210,16:00412630,23:003E5828
 func_L01_004026A0	func_L03_00440F80	03:00440F80,11:0042B7B8,16:004642C0,23:00437298
+# The Vid-comic password panel's byte getter and clear on the Phoenix (03) and in the Insomniac
+# Museum (24), folded by fingerprint into func_L01_004C78E0 and func_L01_004D75F8, and the real twin
+# of func_L01_004C78E0 (the flag func_L01_004C78D8 sets: the help box's) folded into
+# func_L01_004D4C50: the panel read the help box's flag and opened on every arrival. As in
+# rac3-pal's split_places.tsv; the real twins are their rows' places (hostgen.json "more_places").
+func_L01_004C78E0	func_L03_0047EFA0	03:0047EFA0,24:004769D8
+func_L01_004D75F8	func_L03_0047EFA8	03:0047EFA8,24:004769E0
+func_L01_004D4C50	func_L03_004B4EE0	03:004B4EE0,24:004AC6D0
+# The help box's flag setter in Holostar Studios as Clank (23), folded into func_L01_004C78D8 (another
+# flag's setter, 0x004594C8) and its real twin (0x004A9230, the byte func_L01_004C78E0 at 0x004A9238
+# reads) into func_L01_004D4B48. As in rac3-pal's split_places.tsv; the real twin is its row's place
+# (hostgen.json "more_places").
+func_L01_004C78D8	func_L23_004594C8	23:004594C8
+func_L01_004D4B48	func_L23_004A9230	23:004A9230

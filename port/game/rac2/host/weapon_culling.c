@@ -59,9 +59,14 @@
  * Only in play (game state 0, with the hero's moby): a scene (state 2, cutscene_update_frame,
  * func_L00_00370408) runs the mobys' updates too, the barrier's among them, over its own actors,
  * and gets the game's picks as they are. Every pointer followed from a moby is checked first: the
- * moby a slot of the table, its class, pvars and target record words of the game's RAM (a copy of
- * NG++ whose pvars are in the port's memory is passed over), the picker's own pvars in RAM or the
- * port's. Yeedil's scene before the last boss had a live enemy whose pvars word (+0x68) held a
+ * moby a slot of the table, its class, pvars and target record words of the game's RAM (or, for a
+ * copy of NG++, the pvars the port laid out for it: enemy_copies.c's rac2_copy_pvars; any other
+ * pvars word in the port's memory is passed over), the picker's own pvars in RAM or the port's.
+ * Only what the renderer could draw is marked: not a moby held hidden (+0x34's 0x81, alpha under
+ * 8) nor one whose update has not run yet (state 0). Siberius's cart riders (3369) wait hidden to
+ * be thrown on; one marked and killed there was paid for and thrown on later, and one killed before
+ * its start-up had its death path set again by it, left alive under its hidden body with only its
+ * claws (class 2722) drawn. Yeedil's scene before the last boss had a live enemy whose pvars word (+0x68) held a
  * float (179.7, 0x4333AC8F); moby_get_private_value_0 (func_002AB1F0) read it as a pointer.
  *
  * OPENRAC_PICK_TRACE=1 logs each widened pick that took an enemy not drawn; OPENRAC_PICK_TRACE=31,45
@@ -72,6 +77,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "enemy_copies.h"
 #include "game_protos.h"
 #define RAC2_MOBY_TARGET_RECORD func_002AB1F0
 #include "moby_checks.h"
@@ -93,13 +99,16 @@ enum {
     MOBY_POS = 0x10,
     MOBY_MODE = 0x34, /* 0x20: its pvars' first word is its target record (func_002AB1F0) */
     MODE_RECORD = 0x20,
-    MOBY_STATE = 0x20, /* 0x80 and over: dead or free; 0xFF the table's end */
-    MOBY_INFO = 0x24,  /* its class's record: +0x46 its kind, 5 an enemy */
+    MODE_HIDDEN = 0x81, /* either bit: not drawn (render.c's mark_drawn_mobys) */
+    MOBY_STATE = 0x20,  /* 0x80 and over: dead or free; 0xFF the table's end */
+    MOBY_INFO = 0x24,   /* its class's record: +0x46 its kind, 5 an enemy */
+    MOBY_ALPHA = 0x23,  /* under 8: not drawn (render.c's mark_drawn_mobys) */
     MOBY_DRAWN = 0x31,
     MOBY_PVARS = 0x68,
     MOBY_OCLASS = 0xAA,
     INFO_KIND = 0x46,
     RECORD_HEIGHT = 0x10, /* the target record: +0 its health, +0x10 its target height */
+    RECORD_BYTES = 0x14,
     KIND_ENEMY = 5,
     SHOT_GUN_CLASS = 0x44, /* the Plasma Storm shot's pvars: its gun's class */
     CLAW_TARGET = 0x20,    /* the Tesla Claw's pvars: its two held targets */
@@ -257,12 +266,32 @@ static int holds(int item) {
     return item >= 0 && (widened() >> item & 1u) != 0 && rac2_in_play();
 }
 
+/* A moby's target record: rac2_target_record's (pvars and record in RAM), or, for a copy NG++ made
+ * (rac2_copy_pvars: its pvars the port laid out, in the port's memory for a larger block), the
+ * record its pvars' first word names when that is inside those pvars or a record of RAM. */
+static gaddr target_record(gaddr m) {
+    const gaddr record = rac2_target_record(m);
+    if (record != 0) {
+        return record;
+    }
+    uint32_t bytes = 0;
+    const gaddr pvars = rac2_copy_pvars(m, &bytes);
+    if (pvars == 0 || (GREF(uint16_t, m + MOBY_MODE) & MODE_RECORD) == 0) {
+        return 0;
+    }
+    const gaddr r = func_002AB1F0(m);
+    const int inside =
+        r >= pvars && bytes >= RECORD_BYTES && r - pvars <= bytes - RECORD_BYTES && (r & 3u) == 0;
+    return inside || rac2_ram_at(r, RECORD_BYTES) ? r : 0;
+}
+
 /* The point a line of sight to the moby `m` aims at: its position raised by its target height (its
  * target record's +0x10, as SelectBestTargetInCone raises it). 0 when it is no live target. The
  * record is its pvars' first word (moby_get_private_value_0, func_002AB1F0, with +0x34's 0x20), read
- * only from pvars in RAM and taken only when it is a record of RAM itself (moby_checks.h). */
+ * only from pvars in RAM, or a copy's own (target_record), and taken only when it is a record of
+ * that memory itself (moby_checks.h). */
 static int aim_point(gaddr m, float to[3]) {
-    const gaddr record = rac2_target_record(m);
+    const gaddr record = target_record(m);
     if (record == 0 || !(GREF(float, record) > 0.0f)) {
         return 0;
     }
@@ -289,18 +318,26 @@ static int walled(const float from[3], const float to[3], gaddr m) {
 }
 
 /* Whether the moby `m` is an enemy not drawn that may be marked: a slot of the table, live (not
- * dying, dead or free), its class a record of RAM of an enemy kind, its pvars in RAM, not `self`. */
+ * dying, dead or free) and started (its update has run: state 0 is its first, whose start-up would
+ * undo a death recorded before it, as Siberius's 3369 sets its death path again there), shown as
+ * the renderer would draw it (+0x34's 0x81 clear, alpha +0x23 at 8 or more: one held hidden at its
+ * spawn, as Siberius's riders wait to be thrown onto the cart, is never one the game's pick could
+ * see), its class a record of RAM of an enemy kind, its pvars in RAM or a copy's own
+ * (rac2_copy_pvars), not `self`. */
 static int undrawn_enemy(gaddr m, gaddr self) {
     if (m == self || !rac2_moby_slot(m)) {
         return 0;
     }
     const uint8_t state = GREF(uint8_t, m + MOBY_STATE);
-    if (state >= 0x80 || GREF(uint8_t, m + MOBY_DRAWN) != 0) {
+    if (state == 0 || state >= 0x80 || GREF(uint8_t, m + MOBY_DRAWN) != 0) {
+        return 0;
+    }
+    if ((GREF(uint16_t, m + MOBY_MODE) & MODE_HIDDEN) != 0 || GREF(uint8_t, m + MOBY_ALPHA) < 8) {
         return 0;
     }
     const gaddr info = GREF(gaddr, m + MOBY_INFO);
     return rac2_ram_at(info, INFO_KIND + 2u) && GREF(int16_t, info + INFO_KIND) == KIND_ENEMY
-           && rac2_moby_pvars(m, 0) != 0;
+           && (rac2_moby_pvars(m, 0) != 0 || rac2_copy_pvars(m, NULL) != 0);
 }
 
 /* The mobys marked drawn for one call, by slot, to give back after it. */

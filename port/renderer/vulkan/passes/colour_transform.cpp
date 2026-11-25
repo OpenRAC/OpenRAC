@@ -111,7 +111,6 @@ bool make_transform(std::string_view source) {
         transform.failed = true;
         return false;
     }
-    ++g->submission.shader_compiles;
     // One owner releases every partially constructed pipeline object on preparation failure.
     if (!make_transform_layout() || !make_transform_pipeline(shader)) {
         release_colour_transform();

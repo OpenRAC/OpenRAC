@@ -3,14 +3,14 @@
  "counts": {
   "function: by hand": 22,
   "function: called": 30,
-  "function: changed": 88,
+  "function: changed": 89,
   "function: found": 28,
-  "function: near": 64,
-  "function: same": 776,
+  "function: near": 73,
+  "function: same": 796,
   "global: aligned": 6,
   "global: between": 18,
   "global: exact": 116,
-  "global: the release's build": 139
+  "global: the release's build": 142
  },
  "functions": {
   "func_001158F8": [
@@ -203,6 +203,11 @@
    "near",
    "libraries.tsv Vendor_DrawList"
   ],
+  "func_002FB1A0": [
+   "func_002FC008",
+   "near",
+   "libraries.tsv Vendor_Preview"
+  ],
   "func_00310010": [
    "func_00310E08",
    "found",
@@ -313,6 +318,11 @@
    "changed",
    "libraries.tsv Hero_TakeDamage"
   ],
+  "func_L00_002A6DD0": [
+   "func_L00_002A6DD0",
+   "near",
+   "libraries.tsv Hero_Update"
+  ],
   "func_L00_00300618": [
    "func_L00_003012A0",
    "near",
@@ -322,6 +332,11 @@
    "func_L00_00304660",
    "changed",
    "libraries.tsv Level_Load"
+  ],
+  "func_L00_00373D40": [
+   "func_L00_00375068",
+   "changed",
+   "libraries.tsv ArmorVendor_Buy"
   ],
   "func_L00_003AA4C8": [
    "func_L00_003AB8F8",
@@ -343,6 +358,11 @@
    "near",
    "extra_params"
   ],
+  "func_L01_002A8C48": [
+   "func_L01_002A8D48",
+   "near",
+   "libraries.tsv Hero_Update"
+  ],
   "func_L01_003CEDA0": [
    "func_L01_003D01F8",
    "by hand",
@@ -357,6 +377,11 @@
    "func_L01_004179C0",
    "by hand",
    "libraries.tsv Moby_BoxBreakerPickup_Update"
+  ],
+  "func_L03_002AD540": [
+   "func_L03_002AD640",
+   "near",
+   "libraries.tsv Hero_Update"
   ],
   "func_L03_003C7018": [
    "func_L03_003C8620",

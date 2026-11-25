@@ -102,10 +102,13 @@ def clear_colour(gameplay: bytes, fmt: games.Format = games.RAC1) -> tuple[int, 
 
 
 def level_sky(level, fmt: games.Format = games.RAC1) -> Sky | None:
-    """The level's sky (core index +0x10), over the colour the game clears to; None without one."""
-    sky_offset, = unpack("<I", level.index, 0x10)
-    if not sky_offset:
-        return None
+    """The level's sky (core index +0x10, or the level's sky_at where the index cannot name it),
+    over the colour the game clears to; None without one."""
+    sky_offset = getattr(level, "sky_at", None)
+    if sky_offset is None:
+        sky_offset, = unpack("<I", level.index, 0x10)
+        if not sky_offset:
+            return None
     data = sky(level.block(sky_offset), fmt)
     background = clear_colour(level.gameplay, fmt)
     return data if background is None else replace(data, background=background)

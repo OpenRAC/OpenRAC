@@ -4,9 +4,13 @@
 //! For each mod asked for, and each mod those require, it picks one version: the one installed when
 //! it already meets every constraint (an install changes as little as it can), else the newest
 //! that is not revoked, runs on this game, disc and platform, meets every `requires` constraint
-//! (`plugins::meets`, the port's own rule) and fits this launcher's mod interface (the rule of
-//! plugins.rs). When the newest needs a newer interface, an older one that fits is picked and a
-//! note says so; when none fits but one would on the dev build, the plan offers `SwitchToDev`.
+//! (`plugins::meets`, the port's own rule), fits this launcher's mod interface (the rule of
+//! plugins.rs) and names only hook points this launcher's port has (`hook_ids::missing`: OpenRAC
+//! adds hook points without raising the interface). When the newest needs a newer interface or
+//! hook points this port lacks, an older one that fits is picked and a note says so; when none fits
+//! but one would on the dev build's interface, the plan offers `SwitchToDev`. The index gives the
+//! dev build's interface but not its hook points, so a version that only lacks hook points offers
+//! no switch.
 //! Pre-release versions are offered only when the player allows them, or asks for one by version.
 //!
 //! A pack (`type: pack`) installs nothing itself: it is its `requires`. Conflicts are checked
@@ -18,6 +22,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::Serialize;
 
 use crate::deeplink::WantedMod;
+use crate::hook_ids;
 use crate::index::{Asset, IndexMod, ModIndex, Version};
 use crate::mod_error::ModAction;
 use crate::plugins::{self, compare_versions, meets, parse_api, parse_version};
@@ -132,6 +137,11 @@ pub enum Why {
     NeedsNewerApi {
         api: String,
     },
+    /// Every version that fits the interface names hook points this launcher's port does not have
+    /// (those the newest of them lacks).
+    NeedsHooks {
+        hooks: Vec<String>,
+    },
     /// No version meets every constraint at once.
     Clash {
         wants: Vec<Want>,
@@ -161,6 +171,9 @@ pub struct Incompatible {
 pub enum PlanNote {
     /// The newest needs the dev build's interface: an older one that fits is installed.
     OlderForApi { id: String, name: String, picked: String, newest: String, api: String },
+    /// The newest names hook points this launcher's port does not have: an older one that fits
+    /// is installed.
+    OlderForHooks { id: String, name: String, picked: String, newest: String, hooks: Vec<String> },
     /// A pack: these are what it installs.
     Pack { id: String, name: String, mods: Vec<String> },
     /// Friends need the same mods to play together.
@@ -229,6 +242,11 @@ impl<'a> Resolver<'a> {
         self.req.installed.iter().find(|m| m.id == id)
     }
 
+    /// The hook points `v` names that this launcher's port does not have for this game.
+    fn missing_hooks(&self, v: &Version) -> Vec<String> {
+        hook_ids::missing(self.req.game, &v.hooks)
+    }
+
     /// Whether a version runs on this game, disc and platform: why not.
     fn runs_here(&self, m: &IndexMod, v: &Version) -> Result<(), Why> {
         let discs = v.games.get(self.req.game).ok_or(Why::NotForGame { game: self.req.game.into() })?;
@@ -265,6 +283,7 @@ impl<'a> Resolver<'a> {
             let fits = entry.is_none_or(|v| {
                 matches!(self.runs_here(m, v), Ok(()) | Err(Why::NotForPlatform { .. }))
                     && api_fits(v.api.as_deref(), self.req.api)
+                    && self.missing_hooks(v).is_empty()
             });
             if fits && index.revoked(&m.id, &have.version).is_none() && Self::meets_all(&have.version, wants) {
                 return Ok(Pick::Installed(have.version.clone()));
@@ -302,21 +321,35 @@ impl<'a> Resolver<'a> {
         if wanted.is_empty() {
             return Err((Why::Clash { wants: wants.to_vec() }, None));
         }
-        let Some(&best) = wanted.iter().find(|&&i| api_fits(m.versions[i].api.as_deref(), self.req.api)) else {
-            let need = m.versions[wanted[0]].api.clone().unwrap_or_default();
+        let loads = |i: usize| api_fits(m.versions[i].api.as_deref(), self.req.api);
+        let Some(&best) = wanted.iter().find(|&&i| loads(i) && self.missing_hooks(&m.versions[i]).is_empty()) else {
+            // A version only the dev build's interface loads: the dev build is offered. The index
+            // gives its interface but not its hook points, so a version that lacks only hook points
+            // offers no switch: whether the dev build has them would be a guess.
             let on_dev = self.dev_api.is_some_and(|dev| {
-                dev > self.req.api && wanted.iter().any(|&i| api_fits(m.versions[i].api.as_deref(), dev))
+                dev > self.req.api && wanted.iter().any(|&i| !loads(i) && api_fits(m.versions[i].api.as_deref(), dev))
             });
-            return Err((Why::NeedsNewerApi { api: need }, on_dev.then_some(ModAction::SwitchToDev)));
+            // The interface is said first, when no version has it; else the newest one's hook points.
+            let why = match wanted.iter().find(|&&i| loads(i)) {
+                Some(&i) => Why::NeedsHooks { hooks: self.missing_hooks(&m.versions[i]) },
+                None => Why::NeedsNewerApi { api: m.versions[wanted[0]].api.clone().unwrap_or_default() },
+            };
+            return Err((why, on_dev.then_some(ModAction::SwitchToDev)));
         };
         let newest = &m.versions[wanted[0]];
         if best != wanted[0] {
-            notes.push(PlanNote::OlderForApi {
-                id: m.id.clone(),
-                name: m.name.clone(),
-                picked: m.versions[best].version.clone(),
-                newest: newest.version.clone(),
-                api: newest.api.clone().unwrap_or_default(),
+            let (id, name, picked) = (m.id.clone(), m.name.clone(), m.versions[best].version.clone());
+            let newest_version = newest.version.clone();
+            notes.push(if loads(wanted[0]) {
+                PlanNote::OlderForHooks { id, name, picked, newest: newest_version, hooks: self.missing_hooks(newest) }
+            } else {
+                PlanNote::OlderForApi {
+                    id,
+                    name,
+                    picked,
+                    newest: newest_version,
+                    api: newest.api.clone().unwrap_or_default(),
+                }
             });
         }
         // A newer version that was revoked: say why this one is installed instead.
@@ -995,6 +1028,78 @@ mod tests {
         let mut newer = index.clone();
         newer.ports.dev.api = "1.10".into();
         assert_eq!(plan_with(&newer, &[], STABLE, false, &[want("archipelago")]).action, None);
+    }
+
+    /// camera-base with these hook points on 1.2.0 and on 1.1.0.
+    fn camera_base_hooks(newest: &[&str], older: &[&str]) -> ModIndex {
+        let mut index = fixture();
+        let base = index.mods.iter_mut().find(|m| m.id == "camera-base").unwrap();
+        base.versions[0].hooks = newest.iter().map(|h| h.to_string()).collect();
+        base.versions[1].hooks = older.iter().map(|h| h.to_string()).collect();
+        index
+    }
+
+    // A hook point this port does not have (OpenRAC adds them without raising the interface, as
+    // weapon-wheel-pause 2.0.0 needs the freeze hooks of a newer port).
+    const UNKNOWN: &str = "rac1.test.not_a_hook_point";
+    const KNOWN: &str = "rac1.player.turn_to_heading";
+
+    #[test]
+    fn the_newest_with_hook_points_this_port_lacks_gives_way_to_an_older_one() {
+        let index = camera_base_hooks(&[KNOWN, UNKNOWN], &[KNOWN]);
+        let plan = plan_with(&index, &[], STABLE, false, &[want("camera-base")]);
+        assert!(!plan.blocked, "{plan:#?}");
+        assert_eq!(ids(&plan.install), [("camera-base", "1.1.0")]);
+        assert_eq!(
+            plan.notes,
+            [PlanNote::OlderForHooks {
+                id: "camera-base".into(),
+                name: "Camera base".into(),
+                picked: "1.1.0".into(),
+                newest: "1.2.0".into(),
+                hooks: vec![UNKNOWN.into()],
+            }]
+        );
+        // Installed at it (from a newer launcher): it does not load here, so the one that does goes in.
+        let plan = plan_with(&index, &[have("camera-base", "1.2.0", true)], STABLE, false, &[want("camera-base")]);
+        assert_eq!(ids(&plan.install), [("camera-base", "1.1.0")]);
+    }
+
+    #[test]
+    fn hook_points_this_port_has_change_nothing() {
+        // Known ids, names (aliases the table may not list) and another game's ids.
+        for hooks in [&[][..], &[KNOWN], &["Hero_TurnToHeading", "func_L00_002124E8"], &["rac2.test.not_a_hook_point"]]
+        {
+            let index = camera_base_hooks(hooks, &[]);
+            let plan = plan_with(&index, &[], STABLE, false, &[want("camera-base")]);
+            assert_eq!(ids(&plan.install), [("camera-base", "1.2.0")], "{hooks:?}");
+            assert!(plan.notes.is_empty(), "{hooks:?}: {:?}", plan.notes);
+        }
+    }
+
+    #[test]
+    fn no_version_with_the_hook_points_blocks_and_offers_the_dev_build_only_for_its_interface() {
+        let index = camera_base_hooks(&[UNKNOWN], &[UNKNOWN, KNOWN]);
+        let plan = plan_with(&index, &[], STABLE, false, &[want("camera-base")]);
+        assert!(plan.blocked);
+        assert_eq!(plan.incompatible[0].why, Why::NeedsHooks { hooks: vec![UNKNOWN.into()] });
+        // The index has the dev build's interface (1.11 here) but not its hook points.
+        assert_eq!((plan.incompatible[0].action.clone(), plan.action), (None, None));
+        // A dependency's hook points block what needs it the same way.
+        let plan = plan_with(&index, &[], STABLE, false, &[want("camera-tweaks")]);
+        assert!(plan.blocked);
+        assert!(plan.incompatible.iter().any(|i| i.id == "camera-base" && matches!(i.why, Why::NeedsHooks { .. })));
+        // A newer version that only the dev build's interface loads: the dev build is offered.
+        let mut index = index;
+        index.mods.iter_mut().find(|m| m.id == "camera-base").unwrap().versions[0].api = Some("1.11".into());
+        let plan = plan_with(&index, &[], STABLE, false, &[want("camera-base")]);
+        assert_eq!(plan.incompatible[0].why, Why::NeedsHooks { hooks: vec![UNKNOWN.into()] });
+        assert_eq!(plan.action, Some(ModAction::SwitchToDev));
+        // No version has this interface: the interface is said first.
+        index.mods.iter_mut().find(|m| m.id == "camera-base").unwrap().versions[1].api = Some("1.11".into());
+        let plan = plan_with(&index, &[], STABLE, false, &[want("camera-base")]);
+        assert!(matches!(&plan.incompatible[0].why, Why::NeedsNewerApi { api } if api == "1.11"));
+        assert_eq!(plan.action, Some(ModAction::SwitchToDev));
     }
 
     #[test]

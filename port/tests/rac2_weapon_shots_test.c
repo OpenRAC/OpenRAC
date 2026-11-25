@@ -29,6 +29,20 @@ void rac2_copy_slot_taken(gaddr moby) {
     (void)moby;
 }
 
+/* The moby loop's calls into enemy_copies.c and death_trace.c: counted, nothing else. */
+static int groups_tidied, gone_calls;
+
+void rac2_copy_groups_tidy(void) {
+    ++groups_tidied;
+}
+
+void rac2_copy_gone(gaddr moby) {
+    (void)moby;
+    ++gone_calls;
+}
+
+void rac2_death_trace_tick(void) {}
+
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = 0x02000000u;
 gaddr openrac_relocate_low = 0, openrac_relocate_high = 0;
@@ -476,9 +490,14 @@ static void ends_told(void) {
     putf(m + MOBY_POS, 11.0f);
     shot_dies = 1;
     shot_blasts = 1;
+    groups_tidied = 0;
+    gone_calls = 0;
     func_L00_0032CF60();
     shot_dies = 0;
     CHECK(end_count == 0);
+    /* The copies' squad lists tidied once before the loop; the shot that died told to
+     * enemy_copies.c at once (a copy would come off its list then). */
+    CHECK(groups_tidied == 1 && gone_calls == 1);
     rac2_shots_frame();
     CHECK(
         end_count == 1 && ends[0].reason == OPENRAC_SHOT_END_IMPACT && ends[0].position[0] == 11.0f

@@ -73,6 +73,7 @@ Its sources, shaders, tools and tests are in [`enhanced/`](enhanced/README.md).
 |---|---|
 | [runtime/](runtime/README.md) | Game memory laid out as the console's (a 4 GB reservation whose offsets are its addresses), the contract translated code is written against ([guest.h](runtime/include/openrac/guest.h)), the executable loader, the crash handler |
 | [tools/hostgen/](tools/hostgen/README.md) | Rewrites a decompilation's C for game memory, and reports what the program reaches that has no C |
+| [tools/shader_compiler/](tools/shader_compiler/README.md) | Compiles and embeds built-in Vulkan shader variants during the build |
 | [game/](game/README.md) | One directory per game version, plus [game/common/](game/common): the library replacements (disc, memory card, graphics, kernel, pads, sound) and the program, `openrac-<id>` |
 | [platform/](platform/README.md) | Window, pads, audio output, timing (SDL3) |
 | [renderer/](renderer/README.md) | The OpenGL 4.1 renderer, in OpenGOAL's style. [graph/](renderer/graph/README.md) plans passes and barriers, [ui/](renderer/ui/README.md) draws over the picture, and [vulkan/](renderer/vulkan/README.md) runs it on Vulkan 1.3 through MoltenVK on Apple platforms. |

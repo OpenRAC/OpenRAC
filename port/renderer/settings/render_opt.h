@@ -27,7 +27,7 @@
 namespace openrac::renderer::render_opt {
 
 // The Enhanced graphics setting "Effects detail" (the presets set it): a lossy entry is on only
-// at its level or below, so High draws every effect in full.
+// at its level or below.
 enum class EffectsDetail : std::uint8_t {
     Low,
     Medium,
@@ -113,7 +113,7 @@ enum class Opt : std::uint8_t {
     WaterMeshCoarse,
     // water-strip-cull: an Enhanced water strip outside the view, waves included, is not drawn
     WaterStripCull,
-    // early-lighting-quarter: early GI and cascades once per 4x4 pixels, not 2x2 (lossy, Low)
+    // early-lighting-quarter: 4x4 cells for Normal Early Lit cache quality
     EarlyLightingQuarter,
     // blended-early-light: static blended passes reuse the opaque passes' early lighting (lossy, Low)
     BlendedEarlyLight,

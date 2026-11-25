@@ -1271,11 +1271,20 @@ void GifInterpreter::native_item(const UiItem& item, std::span<const UiImage> im
     const float top = *std::min_element(item.v, item.v + 4);
     const float bottom = *std::max_element(item.v, item.v + 4);
     const float inset = glyph && bottom - top > 1.0f ? 0.5f : 0.0f;
+    // A flat item over the screen's last column or line goes on to its edge, as a plain fill from
+    // the packets does (sprite()): the game's covers run from -0.5 to 511.5 and -0.5 to 447.5 (the
+    // pause menu's darkening over the world), and drawn there they left the right and bottom half
+    // pixel uncovered, a line of the undarkened world along the window's right and bottom. The
+    // chip fills a pixel from ceil(x0) to ceil(x1) - 1, so such an edge covers the last one. Edges
+    // inside the screen, and those wholly past it, stay where they are.
+    const auto to_edge = [&](float v, float most) {
+        return flat && target == 0 && most >= 1.0f && std::ceil(v) == most ? most : v;
+    };
     DirectVertex corners[4]{};
     for (int i = 0; i < 4; ++i) {
         DirectVertex& v = corners[i];
-        v.x = item.x[i] * kx / tw * 2.0f - 1.0f;
-        v.y = 1.0f - item.y[i] * ky / th * 2.0f;
+        v.x = to_edge(item.x[i], item.screen_width) * kx / tw * 2.0f - 1.0f;
+        v.y = 1.0f - to_edge(item.y[i], item.screen_height) * ky / th * 2.0f;
         v.z = 1.0f;
         v.s = item.u[i] / iw;
         v.t = std::clamp(item.v[i], top + inset, bottom - inset) / ih;

@@ -38,6 +38,10 @@ namespace openrac::platform {
 class Input;
 }
 
+namespace openrac::renderer {
+struct CloudShadowSettings;
+}
+
 namespace openrac::frontend {
 
 // HDR output's state for the settings (docs/port/HDR.md): what the screen is sent, and what the
@@ -201,6 +205,8 @@ bool interpolating();
 std::uint32_t text(int id);
 bool wants_between();
 int between(std::chrono::steady_clock::time_point next_tick);
+// OPENRAC_MOTION_LOG: a tick's work (seconds) and the frames drawn between it and the next.
+void note_between(int frames, double work, double entered_late = 0.0, double set_late = 0.0);
 // The time the window spent writing OPENRAC_SHOT pictures since the last call, which the tick's
 // clock leaves out: a shot that takes longer than a tick would otherwise leave no frame between that
 // tick and the next (OPENRAC_SHOT_BETWEEN) and make the game catch up.
@@ -338,6 +344,9 @@ bool keep_picture();
 // Current level has validated, uploaded probes and a supported renderer.
 bool enhanced_graphics_available();
 std::string enhanced_graphics_error();
+
+// Authored cloud settings for the level shown by the developer menu.
+renderer::CloudShadowSettings level_cloud_shadows();
 
 // Shares immutable material inspector data only while the render worker is idle.
 std::shared_ptr<const enhanced::MaterialEditor> material_editor();

@@ -11,6 +11,7 @@
 
 #include "common/log.h"
 #include "platform/bindings.h"
+#include "platform/key_layout.h"
 #include "platform/raw_mouse.h"
 
 namespace openrac::platform {
@@ -297,6 +298,10 @@ void Input::handle_event(const SDL_Event& event) {
         case SDL_EVENT_FINGER_UP:
         case SDL_EVENT_FINGER_CANCELED:
             m_touch.finger_up(event.tfinger.fingerID);
+            break;
+        // The keyboard's layout changed: the keys' names follow it (key_layout.h).
+        case SDL_EVENT_KEYMAP_CHANGED:
+            refresh_key_layout();
             break;
         // Another device in use: the on-screen pad is put away until the screen is touched again.
         case SDL_EVENT_KEY_DOWN:

@@ -658,11 +658,16 @@ void aligned_mouse(
         view = kbm::rotate(view, side, now - tilt);
         m.write<float>(state + kAlignedTilt, now);
     }
+
+    // The rows as the game builds them (cam_aligned_update_from_input): its side is up x view, the
+    // way its FastVecCross takes its operands, and its up view x side. The hero's aim copies them
+    // (his block +0x730): the side the other way round put his gun on his other side, and its sound
+    // with it, each tick the mouse turned the view.
     view = kbm::unit_or(view, {1.0f, 0.0f, 0.0f});
-    const kbm::Vec3 side = kbm::unit_or(kbm::cross(view, u), {0.0f, -1.0f, 0.0f});
+    const kbm::Vec3 side = kbm::unit_or(kbm::cross(u, view), {0.0f, 1.0f, 0.0f});
     write_vec(camera, view);
     write_vec(camera + 0x10u, side);
-    write_vec(camera + 0x20u, kbm::cross(side, view));
+    write_vec(camera + 0x20u, kbm::cross(view, side));
 }
 
 // The turn the next tick makes for mouse motion it has not read yet (frontend/mouse_turn.h), while
