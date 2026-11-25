@@ -38,6 +38,10 @@ namespace openrac::platform {
 class Input;
 }
 
+namespace openrac::renderer {
+struct CloudShadowSettings;
+}
+
 namespace openrac::frontend {
 
 // HDR output's state for the settings (docs/port/HDR.md): what the screen is sent, and what the
@@ -194,6 +198,8 @@ bool interpolating();
 std::uint32_t text(int id);
 bool wants_between();
 int between(std::chrono::steady_clock::time_point next_tick);
+// OPENRAC_MOTION_LOG: a tick's work (seconds) and the frames drawn between it and the next.
+void note_between(int frames, double work, double entered_late = 0.0, double set_late = 0.0);
 // The time the window spent writing OPENRAC_SHOT pictures since the last call, which the tick's
 // clock leaves out: a shot that takes longer than a tick would otherwise leave no frame between that
 // tick and the next (OPENRAC_SHOT_BETWEEN) and make the game catch up.
@@ -257,6 +263,11 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]);
 
 // The game's motor commands for a port's pad (openrac_game_set_motors), for the input to play.
 void set_motors(int port, bool small, std::uint8_t large);
+
+// A mod's motor values for a port's pad (openrac_api.set_motors), played with the game's: each
+// motor the stronger. `owner` is the mod; drop_mod_motors forgets its values (null: every mod's).
+void set_mod_motors(const void* owner, int port, bool small_motor, std::uint8_t large_motor);
+void drop_mod_motors(const void* owner);
 
 // With the player's responsive_controls setting, reads the pads again just before the game's next
 // tick runs (the end of program::vsync, after its wait): the tick reads the sticks and buttons as
@@ -326,6 +337,9 @@ bool keep_picture();
 // Current level has validated, uploaded probes and a supported renderer.
 bool enhanced_graphics_available();
 std::string enhanced_graphics_error();
+
+// Authored cloud settings for the level shown by the developer menu.
+renderer::CloudShadowSettings level_cloud_shadows();
 
 // Shares immutable material inspector data only while the render worker is idle.
 std::shared_ptr<const enhanced::MaterialEditor> material_editor();

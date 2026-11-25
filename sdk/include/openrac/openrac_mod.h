@@ -113,12 +113,22 @@ extern "C" {
  * every moby of a class, the menus' pictures of it too (moby_material_class),
  * and Going Commando's armour vendor as hook points
  * (rac2.armor_vendor.build_list, rac2.armor_vendor.buy, rac2.vendor.preview),
- * and 1.35 what OpenRAC Editor's levels need: the pack's folder, the game's
+ * 1.35 what OpenRAC Editor's levels need: the pack's folder, the game's
  * language, the camera's field of view, the HUD hidden, the music's volume, any
  * moby's joints and sounds, the picture's air, slow motion, ties hidden,
- * animated props and a moby's spawn id.
+ * animated props and a moby's spawn id, 1.36 sharper pictures of cells a mod
+ * paints in a texture of the 2D layer, kept apart from the built-in key
+ * prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell), 1.37 the
+ * pads' motors driven by a mod as the game's libvib drives them, each motor the
+ * stronger of the game's and the mods' (set_motors), and an option of the
+ * port's menu greyed out or made usable by a mod, by name (menu_option_set),
+ * 1.38 an accent colour for the paint material, drawn on the model's own
+ * strongly saturated texels, a visor or lamps
+ * (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT), and 1.39 paint that draws the effects
+ * a moby makes in its colour, and paint in weapon_look
+ * (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS).
  */
-#define OPENRAC_MOD_API_MINOR 35
+#define OPENRAC_MOD_API_MINOR 39
 
 /* What collision_line tests (openrac_api.collision_line): the level's walls and
  * ground, the mobys (their collision meshes, and creatures' shapes on their
@@ -1272,6 +1282,35 @@ typedef struct openrac_air {
     float weight;
 } openrac_air;
 
+/* One cell of a 2D-layer texture that the mod paints in game memory, and a sharper picture of it
+ * (openrac_api.sharp_cells). Since 1.36. */
+typedef struct openrac_sharp_cell {
+    /* sizeof(openrac_sharp_cell), set by the mod. */
+    uint32_t size;
+    /* The cell, in texels of the texture: inside it, w and h 1 or more. */
+    int32_t x, y, w, h;
+    /* w * h * 3 bytes: the cell's colours as its painted texels make them (the palette applied,
+     * RGB, top row first), to know the texture by. */
+    const uint8_t* rgb;
+    /* (w * scale) * (h * scale) * 3 bytes: its sharper picture, RGB, top row first. */
+    const uint8_t* sharp;
+} openrac_sharp_cell;
+
+/* A texture with sharper cells (openrac_api.sharp_cells). Since 1.36. */
+typedef struct openrac_sharp_page {
+    /* sizeof(openrac_sharp_page), set by the mod. */
+    uint32_t size;
+    /* The texture, in texels: 1 to 1024 each. */
+    int32_t width, height;
+    /* How many times as wide and tall the sharper pictures are: 1 to 16, and width * scale and
+     * height * scale at most 4096. */
+    int32_t scale;
+    /* Its cells. */
+    const openrac_sharp_cell* cells;
+    /* How many: 1 to 4096. */
+    int32_t count;
+} openrac_sharp_page;
+
 /* The most joints one hero_set_joints call turns. Since 1.12. */
 #define OPENRAC_JOINT_OFFSETS_MAX 128
 
@@ -1782,6 +1821,31 @@ typedef struct openrac_moby_visual {
  * OPENRAC_MOBY_MATERIAL_PAINT_TOP). Since 1.34. */
 #define OPENRAC_MOBY_MATERIAL_PAINT_AT(level) \
     (OPENRAC_MOBY_MATERIAL_PAINT | ((uint32_t)(level) & 0xFu) << 8)
+/* The bit of a moby_material value that says its paint carries an accent (bits 12 to 23 hold the
+ * accent's colour, 4 bits a channel, red highest). Since 1.38. */
+#define OPENRAC_MOBY_MATERIAL_PAINT_ACCENT 0x1000000u
+/* Paint with an accent: OPENRAC_MOBY_MATERIAL_PAINT_AT(level), and the texels of the model that
+ * are strongly saturated (a visor, a lamp, a stripe: the model's own coloured details, where the
+ * rest is grey metal or cloth) drawn in `accent_rgb` (0xRRGGBB) instead of the body's `rgb`, a
+ * little brighter, as a lit glass would be. The accent takes the texel's own brightness and the
+ * moby's lighting, as the body does; the rim glows in the body's colour. The accent keeps the
+ * top 3 bits of each channel (eight steps). A model with no such texels is painted as without the
+ * accent. A port older than 1.38 refuses it (OPENRAC_HOOK_UNKNOWN): call
+ * OPENRAC_MOBY_MATERIAL_PAINT_AT there. Since 1.38. */
+#define OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT(level, accent_rgb)    \
+    (OPENRAC_MOBY_MATERIAL_PAINT_AT(level) | OPENRAC_MOBY_MATERIAL_PAINT_ACCENT \
+     | ((((uint32_t)(accent_rgb) >> 20) & 0xFu) << 20)              \
+     | ((((uint32_t)(accent_rgb) >> 12) & 0xFu) << 16)              \
+     | ((((uint32_t)(accent_rgb) >> 4) & 0xFu) << 12))
+/* The bit of a paint material (OPENRAC_MOBY_MATERIAL_PAINT_AT, with or without an accent) that
+ * draws the effects the moby makes in the paint's rgb too, as energy draws them: the world quads
+ * its draw callbacks draw and the particles tied to it (attached to it, naming it as their owner,
+ * or made by a shot that weapon_look gave this paint) take rgb at their own brightness, brighter
+ * and larger with the paint's level as energy's are with its level. The model is painted as
+ * without the bit. A paint without it leaves the effects their colours. A port older than 1.39
+ * refuses the bit (OPENRAC_HOOK_UNKNOWN), and weapon_look takes paint only since 1.39. Since
+ * 1.39. */
+#define OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS 0x2000000u
 /* What moby_copy_check says of a moby: OPENRAC_COPY_OK when moby_copy may copy it, else why not.
  * Since 1.25. */
 #define OPENRAC_COPY_OK 0
@@ -1837,6 +1901,11 @@ typedef struct openrac_rac1_weapon {
     /* Optional. Icon key for the in-play ammunition box; zero uses `icon`. */
     uint32_t hud_icon;
 } openrac_rac1_weapon;
+
+/* The states of an option of the port's menu (openrac_api.menu_option_set). Since 1.37. */
+#define OPENRAC_MENU_OPTION_DEFAULT 0 /* the port's own choice */
+#define OPENRAC_MENU_OPTION_ON 1      /* usable, even where the port greys it out */
+#define OPENRAC_MENU_OPTION_OFF 2     /* greyed out: shown, but it cannot be changed */
 
 typedef struct openrac_api {
     /* sizeof(openrac_api) as the port was built: a newer port's is larger. Since 1.0. */
@@ -2921,8 +2990,10 @@ typedef struct openrac_api {
      * fired, refired and spawned live), what its update makes (its blast,
      * debris and sparks, detached ones too) and the gun's own muzzle effects as
      * moby_material draws one moby: `material` (OPENRAC_MOBY_MATERIAL_*;
-     * energy, with its level, recolours the effects) in `rgb`, until the mod
-     * sets OPENRAC_MOBY_MATERIAL_NONE for the item or is unloaded. Render-only.
+     * energy, with its level, recolours the effects, and so does paint with
+     * OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS; paint since 1.39) in `rgb`, until
+     * the mod sets OPENRAC_MOBY_MATERIAL_NONE for the item or is unloaded.
+     * Render-only.
      * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN (an item outside 0 to
      * 63, a material or rgb moby_material refuses). */
     int (*weapon_look)(openrac_mod* mod, int32_t item, uint32_t material,
@@ -3240,6 +3311,48 @@ typedef struct openrac_api {
      * pickups and which stays the same when the level is edited. -1 for none or a port without
      * it. Since 1.35. */
     int (*moby_uid)(int slot);
+
+    /* Sharper pictures of cells a mod paints in a texture of the 2D layer (the game's font, its
+     * icons): replaces this mod's pages with `count` new ones (0 clears them; the port copies the
+     * data). When the game's texture of a page's size has every cell of the page in its colours
+     * (`rgb`), the renderer draws it from a picture `scale` times as wide and tall: every texel
+     * scaled up smoothly, the cells' `sharp` pictures put in (their opacity stays the texels').
+     * Only the picture on the GPU changes; the texels, game memory and texture packs (a pack's
+     * picture of the texture wins) stay. The built-in key prompts' pages and every mod's are
+     * kept apart and all used: the matching pages of the first one's scale give their cells, the
+     * built-ins' first, then the mods' in the order they first set pages (the earlier on top
+     * where two overlap). Set the pages before painting the texels: a texture is read when its
+     * texels change, so pages set later reach it at its next change. At most 64 pages, and 64 MB
+     * of pictures, in one call. Kept through level loads; gone with the mod's unload. Returns
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no mod, a count out of range, a null array, a
+     * size below its struct's, a page or cell out of range (openrac_sharp_page,
+     * openrac_sharp_cell) or null data (nothing changes then). Any thread. Since 1.36. */
+    int (*sharp_cells)(openrac_mod* mod, const openrac_sharp_page* pages, int count);
+
+    /* Drives pad `port`'s motors as the game's own vibration does (libvib): `port` the controller's
+     * port, 0 or 1, as on_pad numbers it (the game's pad 1 and pad 2); `small_motor` 0 or 1 (the
+     * small motor off or on), `large_motor` 0 to 255 (the large motor's strength). The player's
+     * rumble setting and style apply. Each motor plays the stronger of the game's own value and
+     * every mod's, so a mod adds to the game's rumble and never takes it away. Like the game's, a
+     * command lasts a fifth of a second unless sent again, so a mod sends it every tick while it
+     * rumbles; 0, 0 stops the mod's. A mod's motors stop with its unload. Once a mod has made a
+     * call the port took (0, 0 too), the menu shows the player's vibration settings, which apply to
+     * its motors, in a game without rumble of its own (Ratchet & Clank) as well, until the mod
+     * unloads: a mod that will rumble sends 0, 0 at load. Call it on the game's thread only (from
+     * openrac_mod_load, on_frame, a hook or another callback of the port's), never from a thread of
+     * the mod's: the port's input reads the values without a lock. Returns OPENRAC_HOOK_OK, or
+     * OPENRAC_HOOK_UNKNOWN for no mod, a port out of range, values out of range or a port without
+     * pads (built without a window). Since 1.37. */
+    int (*set_motors)(openrac_mod* mod, int port, int small_motor, int large_motor);
+
+    /* Turns an option of the port's menu on or off, by its name (sdk/docs/menu-options.md, as
+     * "frame_rate"). OPENRAC_MENU_OPTION_ON makes it usable even where the port greys it out;
+     * OPENRAC_MENU_OPTION_OFF greys it out with the mod's name (a mod that sets the frame rate
+     * itself; never the volume, the window or the controls);
+     * OPENRAC_MENU_OPTION_DEFAULT gives the port's choice back. The last call for an option wins;
+     * a mod's calls go with it when it unloads. Returns OPENRAC_OK, or OPENRAC_E_UNKNOWN for no
+     * name or another state. Since 1.37. */
+    int (*menu_option_set)(openrac_mod* mod, const char* option, int state);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

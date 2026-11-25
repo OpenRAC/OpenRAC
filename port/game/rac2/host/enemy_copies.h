@@ -76,6 +76,25 @@ int rac2_copy_is(gaddr moby);
 /* CreateMoby gave out the slot `moby`: a dead copy's index is taken off the groups' lists. */
 void rac2_copy_slot_taken(gaddr moby);
 
+/* The moby at `moby` has just left the live states (+0x20 at 0x80 or over: its own death, or a
+ * mod's kill): a copy's index is taken off its group's list at once, so no squad counts or writes
+ * to it. */
+void rac2_copy_gone(gaddr moby);
+
+/* Once a tick, before the moby loop: every entry of the lists moved to the port's room past the
+ * placed mobys that is no longer its live copy (dead, or its slot given out to a moby of another
+ * class by a path rac2_copy_slot_taken did not see) is taken off. A squad's controller writes its
+ * alerts at +0x244 and +0x2D0 of each member's pvars: on a slot given out again, past the 0x80
+ * bytes CreateMoby gives it, into the next slots' pvars; and its counts of live members never
+ * reached zero. */
+void rac2_copy_groups_tidy(void);
+
+/* The pvars the port made for the live copy at `moby`, as rac2_copy_make laid them out (in its
+ * slot's 0x80 bytes or the port's room), and their size in *bytes; 0 for any other moby, or a copy
+ * whose pvars word no longer names them. For the port's own checks (weapon_culling.c): a copy's
+ * pvars in the port's memory are its own, not a stray word. */
+gaddr rac2_copy_pvars(gaddr moby, uint32_t* bytes);
+
 /* The copies made since the level's last load. */
 int rac2_copy_count(void);
 

@@ -184,7 +184,7 @@ enum {
     ERROR_OTHER_GAME,
     ERROR_REGION_KEY,
     ERROR_HUB_FULL,
-    SERVER_ERROR_WRONG_PASSWORD,
+    HUB_ERROR_WRONG_PASSWORD,
     ERROR_INVALID_ACCOUNT,
     ERROR_SESSION_INVALID,
     ERROR_TRY_LATER,
@@ -232,7 +232,7 @@ void rac3_mp_ui_notice(const char* text);               /* mp_ui.c */
 #define M_LOGIN_FAILED (-995)
 #define M_ACCOUNT_NOT_FOUND (-998) /* the login's message 0xF: the hub's ERROR_INVALID_ACCOUNT */
 #define M_SERVER_ERROR (-991)      /* message 1: the hub's ERROR_TRY_LATER */
-#define M_INVALID_PASSWORD (-978)  /* message 0xA: the hub's SERVER_ERROR_WRONG_PASSWORD */
+#define M_INVALID_PASSWORD (-978)  /* message 0xA: the hub's ERROR_WRONG_PASSWORD */
 #define M_WORLD_LOBBY 2     /* the one channel's world id */
 #define M_WORLD_OWN 900     /* this console's own game */
 #define M_WORLD_LISTED 1000 /* the first listed game's world id */
@@ -2951,14 +2951,14 @@ static void srv_pump(void) {
 /* The hub's answer to a login: the game's own login failures for the hub's reasons. */
 static void hub_login_failed(int reason) {
     static const char* const why[] = {
-        [SERVER_ERROR_WRONG_PASSWORD] = "the password is not the account's",
+        [HUB_ERROR_WRONG_PASSWORD] = "the password is not the account's",
         [ERROR_INVALID_ACCOUNT] = "the hub takes no such name or password (4 to 32 characters)",
         [ERROR_TRY_LATER] = "too many attempts, or the hub cannot answer now",
     };
-    const int32_t status = reason == SERVER_ERROR_WRONG_PASSWORD ? M_INVALID_PASSWORD
-                           : reason == ERROR_INVALID_ACCOUNT     ? M_ACCOUNT_NOT_FOUND
-                           : reason == ERROR_TRY_LATER           ? M_SERVER_ERROR
-                                                                 : M_LOGIN_FAILED;
+    const int32_t status = reason == HUB_ERROR_WRONG_PASSWORD ? M_INVALID_PASSWORD
+                           : reason == ERROR_INVALID_ACCOUNT  ? M_ACCOUNT_NOT_FOUND
+                           : reason == ERROR_TRY_LATER        ? M_SERVER_ERROR
+                                                              : M_LOGIN_FAILED;
     fprintf(
         stderr,
         "[warning] rac3: online: the hub refused the login of %s: %s\n",

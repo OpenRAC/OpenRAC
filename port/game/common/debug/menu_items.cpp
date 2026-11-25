@@ -204,7 +204,7 @@ bool window_full_screen() {
     return s.window != nullptr && (SDL_GetWindowFlags(s.window) & SDL_WINDOW_FULLSCREEN) != 0;
 }
 
-Item item(Id id, std::uint8_t where) {
+Item own_item(Id id, std::uint8_t where) {
     using namespace options_menu;
     settings::Settings& set = settings::get();
     Item it;
@@ -372,6 +372,14 @@ Item item(Id id, std::uint8_t where) {
             it.value = kNames[detail];
             it.can_lower = detail > 0;
             it.can_raise = detail < 2;
+            return it;
+        }
+        case Id::EarlyLightingQuality: {
+            it.shown = enhanced_on();
+            const bool high = set.early_lighting_quality == renderer::EarlyLightingQuality::High;
+            it.value = renderer::kEarlyLightingQualityNames[high ? 1 : 0];
+            it.can_lower = high;
+            it.can_raise = !high;
             return it;
         }
         case Id::Upscaling: {
@@ -600,6 +608,43 @@ Item item(Id id, std::uint8_t where) {
     return it;
 }
 
+// What an entry shows now, with what the mods set it to (openrac_api.menu_option_set).
+// What the mods set entry `id` to, as the menu takes it: a panel or a note never changes, and the
+// player's essentials (Quit, the volume, the window, the controls) are never turned off
+// (sdk/docs/menu-options.md).
+mods::MenuOptionState mods_state(Id id) {
+    const menu::Entry& e = menu::entry(id);
+    const bool settable = e.kind == menu::Kind::Switch || e.kind == menu::Kind::Choice
+                          || e.kind == menu::Kind::Slider || e.kind == menu::Kind::Action;
+    if (!settable) {
+        return {};
+    }
+    mods::MenuOptionState state = mods::menu_option_state(menu::option_name(id));
+    const bool essential = id == Id::Quit || id == Id::Volume || id == Id::FullScreen
+                           || id == Id::DisplayMode || id == Id::Monitor || id == Id::MenuSize
+                           || e.tab == menu::Tab::Controls;
+    if (state.state == OPENRAC_MENU_OPTION_OFF && essential) {
+        return {};
+    }
+    return state;
+}
+
+// What an entry shows now, with what the mods set it to (openrac_api.menu_option_set). A row a mod
+// greyed out names the mod, so the player knows why.
+Item item(Id id, std::uint8_t where) {
+    Item it = own_item(id, where);
+    const mods::MenuOptionState state = mods_state(id);
+    if (state.state == OPENRAC_MENU_OPTION_ON) {
+        it.enabled = true;
+    } else if (state.state == OPENRAC_MENU_OPTION_OFF) {
+        it.enabled = false;
+        const std::string label =
+            it.label.empty() ? std::string(menu::entry(id).label) : std::move(it.label);
+        it.label = std::format("{} (set by {})", label, state.by);
+    }
+    return it;
+}
+
 // Does what entry `id` does: a switch turns over, a choice moves `by`, an action runs. True when
 // the menu should close for it (a window opens over the game, or it waits for the menu to go).
 bool act(Id id, int by) {
@@ -743,6 +788,14 @@ bool act(Id id, int by) {
             );
             changed();
             return false;
+        case Id::EarlyLightingQuality: {
+            const int last = static_cast<int>(renderer::EarlyLightingQuality::Count) - 1;
+            set.early_lighting_quality = static_cast<renderer::EarlyLightingQuality>(
+                std::clamp(static_cast<int>(set.early_lighting_quality) + by, 0, last)
+            );
+            changed();
+            return false;
+        }
         case Id::TextureUpscaling: {
             const int last = static_cast<int>(renderer::TextureFilter::Count) - 1;
             set.texture_filter = static_cast<renderer::TextureFilter>(
@@ -1013,7 +1066,9 @@ std::string game_page_label(Id id) {
     if (id == Id::EnhancedGraphics) {
         return "Enhanced graphics";
     }
-    return entry_label(id, game_screen());
+    // Without the menu's "(set by ...)": the game's page is narrow, and its row is just greyed.
+    const Item it = own_item(id, game_screen());
+    return it.label.empty() ? std::string(menu::entry(id).label) : it.label;
 }
 
 std::string game_page_value(Id id) {
@@ -1038,6 +1093,9 @@ std::string game_page_value(Id id) {
 
 void game_page_step(Id id, int by) {
     const menu::Entry& e = menu::entry(id);
+    if (!item(id, game_screen()).enabled) {
+        return;  // greyed out, as in the menus
+    }
     if (e.kind == menu::Kind::Slider) {
         const Slider slider = slider_of(id);
         const int next =
@@ -1120,6 +1178,10 @@ void freecam_help(std::uint8_t where) {
 
 }  // namespace
 
+bool option_off(Id id) {
+    return mods_state(id).state == OPENRAC_MENU_OPTION_OFF;
+}
+
 void draw_entry(Id id, std::uint8_t where) {
     const menu::Entry& e = menu::entry(id);
     if (!menu::offered(e, where)) {
@@ -1153,7 +1215,7 @@ void draw_entry(Id id, std::uint8_t where) {
             const Slider slider = slider_of(id);
             int& value = *slider.value;
             const int next = menu_percent_slider(
-                label.c_str(), value, slider.minimum, slider.maximum, slider.step
+                label.c_str(), value, slider.minimum, slider.maximum, slider.step, it.enabled
             );
             // Apply live and save once the mouse drag ends, or immediately for a discrete step.
             const bool edited = next != value;
@@ -1167,10 +1229,15 @@ void draw_entry(Id id, std::uint8_t where) {
             break;
         }
         case menu::Kind::Action: {
-            const auto ink = it.selected ? ui().gold : id == Id::Quit ? ui().err : ui().text;
-            if (menu_row(label.c_str(), ink)) {
+            const auto ink = !it.enabled      ? ui().dim
+                             : it.selected    ? ui().gold
+                             : id == Id::Quit ? ui().err
+                                              : ui().text;
+            ImGui::BeginDisabled(!it.enabled);
+            if (menu_row(label.c_str(), ink) && it.enabled) {
                 close = act(id, 1);
             }
+            ImGui::EndDisabled();
             break;
         }
         case menu::Kind::Note:

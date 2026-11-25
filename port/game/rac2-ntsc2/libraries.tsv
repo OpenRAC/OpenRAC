@@ -14,6 +14,8 @@
 func_L08_004201E0	vehicle	MiningVehicleUpdate	wrap	Optional GH reverse correction scoped to this vehicle's thrust calculation; original when disabled (host/gh_fixes.c).
 func_002838D0	math	MiningThrustScale	wrap	Keep other vector scales unchanged; the mining update's second thrust scale uses the acceleration magnitude with the fix on.
 func_0033FDD8	menu	PlanetPlatinumCount	wrap	Optional GH per-planet platinum counter in the ship's planet page; original global statistics when disabled.
+func_0034DBE0	menu	UpdateItemStatusHud	wrap	Bolt totals past 9,999,999 as 12.3M in the counter's text (host/bolt_totals.c).
+func_0034E8D8	menu	DrawBoltCounterPanel	wrap	No thousands marks while the compact total is up (host/bolt_totals.c).
 func_00131AE8	boot	rac2NativeEntry	host	crt0 at the ELF entry: _InitSys, FlushCache(0), main(argc, argv) without the PS2 thread and heap syscalls	int (void)
 func_00115340	libc	memcmp	host	symbol_addrs.txt name
 func_001153D4	libc	memcpy	host	symbol_addrs.txt name
@@ -297,6 +299,9 @@ func_L00_002D42D0	moby	Weapon_TakeAmmo	hook	Takes rounds of a weapon's ammo (ite
 func_002A7AA8	moby	Moby_RecordDeath	hook	A moby's death recorded: its experience, the bestiary and its bolt drop (the moby's s16 at +0xB4); crates call it too. A hook point for mods, under the port's own wrap (SetDeathBits): the mod's replacement or the game's C runs where the wrap calls the game's.
 func_L00_00304660	level	Level_Load	hook	Loads a level (new, or resumed after a death); it calls the gameplay file's loader. A hook point for mods; the game's C with none.
 func_L00_002B42C0	player	Hero_ApproachSpeed	hook	Eases the hero's speed (+0x1B4) toward his target speed (+0x1B0) each tick; rac1's approach_speed. A hook point for mods; the game's C with none.
+func_L00_002A6DD0	player	Hero_Update	hook	The hero's whole update each tick in levels 0, 2, 5, 6, 10, 14, 15, 22-26 and 30 (hero_l00_update_frame_2). Hook point rac2.player.update (one point for all copies); the game's C with none.
+func_L01_002A8D48	player	Hero_Update	hook	The hero's whole update each tick in levels 1, 4, 7, 8, 9 and 19 (game_update_frame). Hook point rac2.player.update (one point for all copies); the game's C with none.
+func_L03_002AD640	player	Hero_Update	hook	The hero's whole update each tick in levels 3, 11, 12, 13, 16, 17, 18 and 20 (level_update_frame). Hook point rac2.player.update (one point for all copies); the game's C with none.
 func_L00_002D61D0	player	Hero_NanotechSteps	hook	Adds the nanotech levels' steps of health to *total; the recount of the most health each tick adds the boosts after it (the HUD's experience bar calls it too, ignoring total). A hook point for mods; the game's C with none.
 func_00288D30	item	Item_Give	hook	Gives the player item id (GiveInventoryItem): nothing when owned already; else its owned and new bytes, its starting ammo, the vendor list and the quick select. A hook point for mods; the game's C with none.
 func_002AE6C8	item	Item_Equip	hook	Puts item id in the hero's hand, or on him for the boots, helmets and packs (by its item record's state): a request his update carries out, 1 when made. Most givers call it right after Item_Give with the same id. A hook point for mods; the game's C with none.
@@ -328,6 +333,7 @@ func_003144C8	moby	Moby_NanotechBall_Update	hook	The nanotech orb's update (clas
 func_002AE9E0	bolt	Bolt_SpawnPickups	hook	Spawns a burst of bolt coins from a moby: rolls an amount from low to high, splits it into the biggest coins that fit (1 to 1000) and makes each with Bolt_SpawnPickup; enemies' and crates' drops (Moby_RecordDeath) and the levels' scripted bursts (part_spawn_scaled_bolts). The executable's and every level's copy (part_spawn_bolt_pickups) are one hook point. A hook point for mods; the game's C with none.
 func_L00_00322AF0	bolt	Bolt_SpawnPickups	hook	Spawns a burst of bolt coins from a moby: rolls an amount from low to high, splits it into the biggest coins that fit (1 to 1000) and makes each with Bolt_SpawnPickup; enemies' and crates' drops (Moby_RecordDeath) and the levels' scripted bursts (part_spawn_scaled_bolts). The executable's and every level's copy (part_spawn_bolt_pickups) are one hook point. A hook point for mods; the game's C with none.
 func_00303268	bolt	Bolt_SpawnPickup	hook	Makes one bolt coin of a value (classes 0x0D to 0x13 for 1, 5, 20, 50, 100, 500, 1000) at a position with a velocity; returns its moby, or 0 (none made: the pool full, or too far away). A hook point for mods; the game's C with none.
+func_00303640	bolt	part_spawn_trail_puff	wrap	a bolt coin's trail (the puff, ground sparkle and streak around it): silver for a coin a mod draws as platinum, its glow colour for an obsidian one, gold for the rest (host/platinum_trail.c)
 func_00302B08	bolt	Bolt_Collect	hook	A bolt coin collected (CollectBolts): its class's value added to the player's bolts and the level's bolt score; the coin's update calls it as the coin reaches the hero. A hook point for mods; the game's C with none.
 func_L02_003FE398	arena	Arena_Prize	hook	The bolts an arena challenge pays (Maktar's and Joba's arena): its record's prize, less for each earlier win, ten times in challenge mode; the menu prints it and a win adds it. A hook point for mods; the game's C with none.
 # Hand-written assembly (ASM_FUNC in the decompilation), written in C for a build without the disc: host/handasm.c.
@@ -378,3 +384,5 @@ func_00120748	libgcc	rac2SjpopnthrowTail	host	a fragment of __sjpopnthrow, enter
 func_00120FA4	libgcc	rac2ThrowLanding	host	a fragment of __throw (00120F00-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
 func_0012118C	libgcc	rac2RethrowLanding	host	a fragment of __rethrow (001210E0-unwind.c), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
 func_00130004	mpeg	rac2DecodeFrameTail	host	a fragment of func_0012FEC0 (its epilogue), entered only from its assembly (host/handasm_libgcc_unwind.c)	void (void)
+func_L00_00404C18	moby	sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)
+func_L00_00409CF0	moby	dark_sheep_spawn_from_object	wrap	the Sheepinator: a moby it already turned is not turned again, which deleted Joba arena fighters (host/sheep_once.c)

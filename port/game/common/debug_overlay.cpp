@@ -830,10 +830,15 @@ bool event(const SDL_Event& e) {
     }
     if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) {
         if (e.key.key == SDLK_F3 && (e.key.mod & SDL_KMOD_CTRL) != 0) {
-            toggle_capture(false);
+            if (!option_off(menu::Id::RecordGameplay)) {
+                toggle_capture(false);
+            }
             return true;
         }
         if (e.key.key == SDLK_F3) {
+            if (option_off(menu::Id::DebugOverlay)) {
+                return true;
+            }
             set_visible(!s.visible);
             s.wanted = false;
             return true;
@@ -842,20 +847,35 @@ bool event(const SDL_Event& e) {
         // and say so in the picture (status_badge).
         switch (e.key.key) {
             case SDLK_F5:
+                if (option_off(menu::Id::KeepPaused)) {
+                    return true;
+                }
                 s.paused = !s.paused;
                 s.held_frames = 0;
                 return true;
             case SDLK_F6:
+                if (option_off(menu::Id::StepTick)) {
+                    return true;
+                }
                 s.paused = true;
                 s.step = true;
                 return true;
             case SDLK_F7:
+                if (option_off(menu::Id::Speed)) {
+                    return true;
+                }
                 s.stretch = std::min(s.stretch * 2.0, 16.0);
                 return true;
             case SDLK_F8:
+                if (option_off(menu::Id::Speed)) {
+                    return true;
+                }
                 s.stretch = std::max(s.stretch / 2.0, 1.0);
                 return true;
             case SDLK_F12:
+                if (option_off(menu::Id::Screenshot)) {
+                    return true;
+                }
                 s.shot_tick = s.tick;
                 return true;
             // The menu, open at its Controls tab (debug/menu_controls.cpp).

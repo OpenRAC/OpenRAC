@@ -50,7 +50,7 @@ class Rac3MultiplayerBuildConfig(unittest.TestCase):
         source = (GAMES / "rac3-pal/host/mp_net.c").read_text(encoding="utf-8")
         block = re.search(r"enum\s*\{\s*(ERROR_PARTY_NOT_FOUND.*?)\};", source, re.DOTALL)
         names = [name.strip() for name in block[1].split(",") if name.strip()]
-        self.assertEqual(names[9], "SERVER_ERROR_WRONG_PASSWORD")
+        self.assertEqual(names[9], "HUB_ERROR_WRONG_PASSWORD")
         self.assertNotIn("ERROR_WRONG_PASSWORD", names)
 
     def test_both_regions_load_their_multiplayer_configuration(self):

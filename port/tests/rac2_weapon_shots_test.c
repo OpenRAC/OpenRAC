@@ -7,8 +7,8 @@
  * refused outside it; another moby's shot not told; the ends (an impact, a timer run out); a shot
  * made live, and one that goes off at once; a weapon with no shot moby told by its rounds; the moby
  * loop's statuses (a frozen moby runs only for a new hit, a slowed one one tick in two) and the
- * mods' gate; the looks given to what a shot's update makes; and a hit posted as the game posts
- * one. */
+ * mods' gate; the looks given to what a shot's update makes; a hit posted as the game posts one;
+ * and no word of a moby followed unless it is memory, nor anything read or told outside play. */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +28,20 @@
 void rac2_copy_slot_taken(gaddr moby) {
     (void)moby;
 }
+
+/* The moby loop's calls into enemy_copies.c and death_trace.c: counted, nothing else. */
+static int groups_tidied, gone_calls;
+
+void rac2_copy_groups_tidy(void) {
+    ++groups_tidied;
+}
+
+void rac2_copy_gone(gaddr moby) {
+    (void)moby;
+    ++gone_calls;
+}
+
+void rac2_death_trace_tick(void) {}
 
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = 0x02000000u;
@@ -113,6 +127,7 @@ static void level(void) {
     GREF(uint8_t, END + MOBY_STATE) = 0xFF;
     put32(OPENRAC_DATA(RAC2_g_mobyTableBase), BASE);
     put32(OPENRAC_DATA(RAC2_g_mobyTableEnd), END);
+    put32(OPENRAC_DATA(RAC2_g_nGameState), 0);
     put32(LOOP_TABLE, BASE);
     /* The hero's moby (slot 0), the gun in his hand (slot 1), an enemy (2), another moby's gun (3). */
     for (uint32_t s = 0; s < 4; ++s) {
@@ -225,10 +240,16 @@ static int trail_at(gaddr m, float x, float y, float z) {
     return 1;
 }
 
-/* moby_get_private_value_0: no enemy record here. */
+/* moby_get_private_value_0, as the game's: its pvars' first word when +0x34 has 0x20, no record
+ * otherwise. It reads what it is given: pvars out of the test's RAM fault, as the port's did. */
 gaddr func_002AB1F0(gaddr moby) {
-    (void)moby;
-    return 0;
+    CHECK(moby >= BASE && moby < END);
+    if ((GREF(uint16_t, moby + MOBY_FLAGS) & 0x20u) == 0) {
+        return 0;
+    }
+    const gaddr pvars = GREF(gaddr, moby + MOBY_PVARS);
+    CHECK(pvars < openrac_guest_ram_size);
+    return GREF(gaddr, pvars);
 }
 
 gaddr func_L00_003AA4C8__game(gaddr a0, gaddr a1, gaddr a2, gaddr a3) {
@@ -469,9 +490,14 @@ static void ends_told(void) {
     putf(m + MOBY_POS, 11.0f);
     shot_dies = 1;
     shot_blasts = 1;
+    groups_tidied = 0;
+    gone_calls = 0;
     func_L00_0032CF60();
     shot_dies = 0;
     CHECK(end_count == 0);
+    /* The copies' squad lists tidied once before the loop; the shot that died told to
+     * enemy_copies.c at once (a copy would come off its list then). */
+    CHECK(groups_tidied == 1 && gone_calls == 1);
     rac2_shots_frame();
     CHECK(
         end_count == 1 && ends[0].reason == OPENRAC_SHOT_END_IMPACT && ends[0].position[0] == 11.0f
@@ -572,6 +598,71 @@ static void live(void) {
     pool_free_slots = POOL_RESERVE;
     CHECK(rac2_shot_spawn_live(&bomb) == -1);
     pool_free_slots = 300;
+}
+
+/* Words that are no pointers of memory, or no play: a dead shot's pvars word a float (a new game
+ * started from Yeedil, 0x4C58xxxx), a target whose pvars are a copy's in the port's memory or a
+ * float, the hand a float; and a program's load (g_nGameState 6), when nothing is read or told. Every
+ * address the port would follow past the test's RAM faults, as the game's did. */
+static void unchecked_words(void) {
+    level();
+    openrac_game_weapon_fired = fired;
+    openrac_game_shot_ended = ended;
+    rac2_shots_frame();
+    /* A shot dies and its slot's pvars word is a float by the next frame: told gone, not read. */
+    told_count = 0;
+    end_count = 0;
+    const gaddr a = fire(moby(GUN_SLOT));
+    const gaddr b = fire(moby(GUN_SLOT));
+    rac2_shots_frame();
+    CHECK(told_count == 2);
+    GREF(uint8_t, a + MOBY_STATE) = 0xFD;
+    put32(a + MOBY_PVARS, 0x4C580168u);
+    GREF(uint8_t, b + MOBY_STATE) = 0xFD;
+    put16(b + MOBY_OCLASS, 77); /* taken by another class: its words are not the shot's */
+    put32(b + MOBY_PVARS, 0x4C580168u);
+    rac2_shots_frame();
+    CHECK(end_count == 2 && ends[0].reason == OPENRAC_SHOT_END_GONE);
+    CHECK(ends[1].reason == OPENRAC_SHOT_END_GONE);
+    /* A RYNO II rocket made at an enemy whose pvars are a copy's, in the port's memory, or a float:
+     * its target record is never read from them; the rocket takes its own height. */
+    const gaddr enemy = moby(ENEMY_SLOT);
+    put16(enemy + MOBY_FLAGS, 0x20u);
+    const openrac_game_spawn_live split =
+        {3799, 44, -1, (int32_t)ENEMY_SLOT, 0, {10.0f, 5.0f, 1.0f}, {0.0f, 1.2f, 0.0f}};
+    put32(enemy + MOBY_PVARS, GUEST_PORT + 0x1000u);
+    CHECK(rac2_shot_spawn_live(&split) >= 0);
+    put32(enemy + MOBY_PVARS, 0x4333AC8Fu);
+    CHECK(rac2_shot_spawn_live(&split) >= 0);
+    put16(enemy + MOBY_FLAGS, 0);
+    put32(enemy + MOBY_PVARS, PVARS_AT + ENEMY_SLOT * 0x100u);
+    /* A program's load: a shot's slot word and the hand hold anything, nothing is read or told, and
+     * no shot is made for a mod. */
+    end_count = 0;
+    told_count = 0;
+    const gaddr c = fire(moby(GUN_SLOT));
+    rac2_shots_frame();
+    CHECK(told_count == 1);
+    put32(OPENRAC_DATA(RAC2_g_nGameState), 6);
+    GREF(uint8_t, c + MOBY_STATE) = 0xFD;
+    put32(c + MOBY_PVARS, 0x4C580168u);
+    put32(HERO_ITEM_MOBY, 0x4C580000u);
+    fire(moby(GUN_SLOT));
+    rac2_shots_frame();
+    CHECK(end_count == 0 && told_count == 1);
+    CHECK(rac2_shot_spawn_live(&split) == -1);
+    /* Back in play: the shot is told gone; the hand a float is no gun, so nothing is told fired. */
+    put32(OPENRAC_DATA(RAC2_g_nGameState), 0);
+    fire(moby(GUN_SLOT));
+    rac2_shots_frame();
+    CHECK(end_count == 1 && ends[0].reason == OPENRAC_SHOT_END_GONE && told_count == 1);
+    /* No hero in his table: no play either. */
+    put32(HERO_ITEM_MOBY, moby(GUN_SLOT));
+    put32(RAC2_g_pHeroMoby, 0);
+    CHECK(rac2_shot_spawn_live(&split) == -1);
+    put32(RAC2_g_pHeroMoby, moby(0));
+    openrac_game_weapon_fired = NULL;
+    openrac_game_shot_ended = NULL;
 }
 
 static void rounds(void) {
@@ -699,6 +790,7 @@ int main(void) {
     tells_and_refires();
     ends_told();
     live();
+    unchecked_words();
     rounds();
     statuses_and_gate();
     looks();

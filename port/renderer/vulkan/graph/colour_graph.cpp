@@ -50,22 +50,35 @@ Result<void> colour_inputs(
         pass.buffers.push_back(*read);
     }
     // Geometry is resolved before the draw so the plan sees its native allocation range.
-    for (unsigned buffer : inputs.geometry) {
-        const auto read = execution.read_buffer("vertex input", buffer, graph::Stage::VertexInput);
+    for (const auto& buffer : inputs.geometry) {
+        const auto read =
+            execution.read_buffer("vertex input", buffer.name, graph::Stage::VertexInput);
         // Missing geometry cannot produce a valid raster command.
         if (!read) {
             return unexpected(read.error());
         }
         pass.buffers.push_back(*read);
     }
-    // Refraction reads must follow their complete colour/depth snapshot producers.
-    for (unsigned texture : inputs.textures) {
+    const auto append_texture = [&](unsigned texture) -> Result<void> {
         const auto image = execution.read_image("sampled input", texture, kShaders);
-        // Invalid snapshots cannot be sampled by a later draw callback.
         if (!image) {
             return unexpected(image.error());
         }
         pass.images.push_back(*image);
+        return {};
+    };
+    // Refraction reads must follow their complete colour/depth snapshot producers.
+    for (unsigned texture : inputs.textures) {
+        if (const auto read = append_texture(texture); !read) {
+            return read;
+        }
+    }
+    for (const auto& texture : inputs.raster_textures) {
+        if (texture.name) {
+            if (const auto read = append_texture(texture.name); !read) {
+                return read;
+            }
+        }
     }
     return {};
 }
@@ -95,7 +108,7 @@ Result<void> record_colour(
     }
     auto pass = execution.make_pass(name);
     const bool has_depth = attachments != ColourAttachments::Colour && !overwrite;
-    pass.images.reserve(1 + has_depth + inputs.textures.size());
+    pass.images.reserve(1 + has_depth + inputs.textures.size() + inputs.raster_textures.size());
     pass.buffers.reserve(inputs.buffers.size() + inputs.geometry.size());
     pass.images.push_back(
         {*colour,
@@ -148,7 +161,14 @@ Result<void> record_colour(
     execution.add_pass(std::move(pass));
     // Synchronous recording can borrow the callback through run().
     if (!backend::collecting_surface_chain()) {
-        return execution.run([&record](unsigned) { record(); });
+        const auto draw = [&record](unsigned) {
+            record();
+        };
+        if (!inputs.geometry.empty() || !inputs.raster_textures.empty()) {
+            // Raster inputs follow the visible geometry and materials.
+            return execution.run_uncached(draw);
+        }
+        return execution.run(draw);
     }
     // Full bucket recorders preserve state inherited between ordered draws, including their outgoing state.
     if (inputs.recording == ColourRecording::Ordered) {
@@ -170,7 +190,7 @@ Result<void> prepare_colour_reads(std::string_view name) {
 
     execution.add_pass(std::move(reads));
     // The work here is visibility preparation; geometry follows with the same bound inputs.
-    return execution.run_prepared([](unsigned) {});
+    return execution.run_prepared([](unsigned) {}, graph::PlanCache::Imports::Rebind);
 }
 
 Result<void> prepare_raster_reads(std::string_view name, RasterInputs inputs) {
@@ -203,7 +223,8 @@ Result<void> prepare_raster_reads(std::string_view name, RasterInputs inputs) {
     }
 
     execution.add_pass(std::move(pass));
-    return execution.run();
+    // The selected geometry and textures can change with visibility.
+    return execution.run_uncached();
 }
 
 Result<void> record_surface_prepass(

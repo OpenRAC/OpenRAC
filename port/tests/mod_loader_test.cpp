@@ -30,12 +30,14 @@
 
 #include "check.h"
 #include "common/json.h"
+#include "mod_api/internal.h"
 #include "mod_manifest.h"
 #include "mod_play.h"
 #include "mods.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/script_binding.h"
+#include "renderer/textures/sharp_cells.h"
 
 // mod_play.cpp asks the game for its play host (pickup_animation); there is no game here.
 extern "C" {
@@ -503,6 +505,42 @@ void a_hook_point_is_called_as_the_game_calls_it(const fs::path& plugins) {
     CHECK(api.hook_entry("Test_Add", nullptr) == nullptr);
     mods::reset();
     CHECK(add(0) == 1);
+}
+
+// menu_option_set: the newest call for an option wins, one mod's DEFAULT or unload gives back what
+// another mod set, and bad calls change nothing. Two handles of the test's own stand for mods.
+void menu_options_follow_the_newest_call(const fs::path& plugins) {
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    openrac_mod mod_a;
+    mod_a.id = "a";
+    openrac_mod mod_b;
+    mod_b.id = "b";
+    mod_b.manifest.name = "Mod B";
+    openrac_mod* a = &mod_a;
+    openrac_mod* b = &mod_b;
+    CHECK(api.menu_option_set(a, "frame_rate", OPENRAC_MENU_OPTION_ON) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_ON);
+    CHECK(api.menu_option_set(b, "frame_rate", OPENRAC_MENU_OPTION_OFF) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option_state("frame_rate").by == "Mod B");  // the manifest's name
+    CHECK(api.menu_option_set(b, "frame_rate", OPENRAC_MENU_OPTION_DEFAULT) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_ON);
+    CHECK(api.menu_option_set(a, "frame_rate", OPENRAC_MENU_OPTION_OFF) == OPENRAC_OK);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option_state("frame_rate").by == "a");  // no name: the id
+    CHECK(api.menu_option_set(a, "", OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, nullptr, OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(nullptr, "vsync", OPENRAC_MENU_OPTION_ON) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, "frame_rate", 3) == OPENRAC_E_UNKNOWN);
+    CHECK(api.menu_option_set(a, "frame_rate", -1) == OPENRAC_E_UNKNOWN);
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_OFF);
+    CHECK(mods::menu_option("vsync") == OPENRAC_MENU_OPTION_DEFAULT);
+    mods::reset();
+    CHECK(mods::menu_option("frame_rate") == OPENRAC_MENU_OPTION_DEFAULT);
 }
 
 // Every call of the table is filled: each member from `log` on is a function, and a mod built for
@@ -2353,11 +2391,12 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     g_records.clear();
     CHECK(mods::camera_fov() == 0.0f);
     CHECK(!mods::hud_hidden());
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_DEFAULT);
     mods::frame();
-    CHECK((g_records == std::vector<int>{9801, 9800,       9811, 9811, 9810, 9820, 9831,
-                                         9830, 9840,       9841, 9841, 9840, 9841, 9840,
-                                         9850, 0x3100 + 3, 9851, 9850, 1,    9865, 9869,
-                                         9881, 9880,       9891, 9890, 9901, 9900, 9900}));
+    CHECK((g_records == std::vector<int>{9801, 9800,       9811, 9811, 9810, 9820, 9820, 9821,
+                                         9831, 9830,       9840, 9841, 9841, 9840, 9841, 9840,
+                                         9850, 0x3100 + 3, 9851, 9850, 1,    9865, 9869, 9881,
+                                         9880, 9891,       9890, 9901, 9900, 9900}));
     CHECK(
         (g_cutscene_calls
          == std::vector<std::string>{
@@ -2372,6 +2411,9 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     );
     CHECK(mods::camera_fov() == 40.0f);
     CHECK(mods::hud_hidden());
+    // A menu option turned on stays (it is not of the level load); a bad state sets nothing.
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_ON);
+    CHECK(mods::menu_option("vsync") == OPENRAC_MENU_OPTION_DEFAULT);
     const auto air = mods::scene_air();
     CHECK(air && air->fog_far == 50.0f && air->background[0] == 1.0f && air->weight == 1.0f);
     CHECK(mods::time_stretch() == 2.0f);
@@ -2396,8 +2438,215 @@ void a_scene_reaches_the_game(const fs::path& plugins) {
     mods::play_update();
     CHECK((g_cutscene_calls == std::vector<std::string>{"joints 12544 0"}));
     play.hero_moby = nullptr;
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_ON);
     mods::reset();
+    CHECK(mods::menu_option("rumble_strength") == OPENRAC_MENU_OPTION_DEFAULT);
     g_loads = 1;
+}
+
+// A mod's sharper cells (interface 1.36, openrac_api.sharp_cells): what the call refuses (and then
+// leaves the mod's pages as they were), the pages the renderer reads, a struct of a later
+// interface, and the pages gone with the mod while the built-ins' stay.
+void a_mod_gives_sharper_cells(const fs::path& plugins) {
+    namespace sharp = renderer::sharp_cells;
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    int owner = 0;
+    auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+    // A 4 x 2 texture, texel (x, y) (x, y, 9); its cell at (0, 0), 2 x 2, drawn white twice as big.
+    std::vector<std::uint8_t> texels;
+    for (int y = 0; y < 2; ++y) {
+        for (int x = 0; x < 4; ++x) {
+            texels.insert(
+                texels.end(), {static_cast<std::uint8_t>(x), static_cast<std::uint8_t>(y), 9, 255}
+            );
+        }
+    }
+    const std::vector<std::uint8_t> rgb{0, 0, 9, 1, 0, 9, 0, 1, 9, 1, 1, 9};
+    const std::vector<std::uint8_t> white(4 * 4 * 3, 255);
+    openrac_sharp_cell cell{sizeof(openrac_sharp_cell), 0, 0, 2, 2, rgb.data(), white.data()};
+    openrac_sharp_page page{sizeof(openrac_sharp_page), 4, 2, 2, &cell, 1};
+    sharp::Picture big;
+    CHECK(!sharp::picture(4, 2, texels.data(), big));
+    CHECK(api.sharp_cells(mod, &page, 1) == OPENRAC_HOOK_OK);
+    CHECK(sharp::picture(4, 2, texels.data(), big));
+    CHECK(big.width == 8 && big.height == 4 && big.pixels[0] == 255 && big.pixels[3] == 255);
+
+    // Refused: no mod, a count out of range or without pages, a struct too short; then each value
+    // of a page and a cell out of range, or null data. The mod's pages stay as they were.
+    CHECK(api.sharp_cells(nullptr, &page, 1) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.sharp_cells(mod, &page, -1) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.sharp_cells(mod, &page, 65) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.sharp_cells(mod, nullptr, 1) == OPENRAC_HOOK_UNKNOWN);
+    const auto refused_page = [&](auto change) {
+        openrac_sharp_page p = page;
+        change(p);
+        return api.sharp_cells(mod, &p, 1) == OPENRAC_HOOK_UNKNOWN;
+    };
+    CHECK(refused_page([](openrac_sharp_page& p) { p.size = 4; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.width = 0; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.height = 1025; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.scale = 0; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.scale = 17; }));
+    CHECK(refused_page([](openrac_sharp_page& p) {
+        p.width = 512;
+        p.scale = 9;
+    }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.count = 0; }));
+    CHECK(refused_page([](openrac_sharp_page& p) { p.cells = nullptr; }));
+    const auto refused_cell = [&](auto change) {
+        openrac_sharp_cell c = cell;
+        change(c);
+        openrac_sharp_page p = page;
+        p.cells = &c;
+        return api.sharp_cells(mod, &p, 1) == OPENRAC_HOOK_UNKNOWN;
+    };
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.size = 8; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.x = -1; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.x = 3; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.h = 3; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.w = 0; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.rgb = nullptr; }));
+    CHECK(refused_cell([](openrac_sharp_cell& c) { c.sharp = nullptr; }));
+    // Two pages of two sizes in one array: refused too.
+    openrac_sharp_page two[2] = {page, page};
+    two[1].size = sizeof(openrac_sharp_page) + 8;
+    CHECK(api.sharp_cells(mod, two, 2) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(sharp::picture(4, 2, texels.data(), big) && big.pixels[0] == 255);
+
+    // A mod built for a later interface, whose structs are longer: read a stride of their size.
+    struct LaterCell {
+        openrac_sharp_cell cell;
+        std::uint32_t more;
+    };
+
+    struct LaterPage {
+        openrac_sharp_page page;
+        std::uint64_t more;
+    };
+
+    const std::vector<std::uint8_t> grey(4 * 4 * 3, 128);
+    LaterCell later_cells[2] = {{cell, 1}, {cell, 2}};
+    later_cells[0].cell.size = sizeof(LaterCell);
+    later_cells[1].cell = {sizeof(LaterCell), 2, 0, 2, 2, rgb.data(), grey.data()};
+    // The second cell's colours: texels (2..3, 0..1).
+    const std::vector<std::uint8_t> right{2, 0, 9, 3, 0, 9, 2, 1, 9, 3, 1, 9};
+    later_cells[1].cell.rgb = right.data();
+    LaterPage later[2] = {{page, 0}, {page, 0}};
+    later[0].page.size = sizeof(LaterPage);
+    later[0].page.cells = &later_cells[0].cell;
+    later[0].page.count = 2;
+    later[1].page = later[0].page;
+    later[1].page.width = 8;
+    CHECK(api.sharp_cells(mod, &later[0].page, 2) == OPENRAC_HOOK_OK);
+    CHECK(sharp::picture(4, 2, texels.data(), big));
+    CHECK(big.pixels[0] == 255 && big.pixels[static_cast<std::size_t>(4 * 4)] == 128);
+
+    // The mod's unload takes its pages; the built-ins' stay.
+    const sharp::Cell builtin{0, 0, 2, 2, rgb, std::vector<std::uint8_t>(4 * 4 * 3, 64)};
+    sharp::set(std::vector<sharp::Page>{sharp::Page{4, 2, 2, {builtin}}});
+    CHECK(sharp::picture(4, 2, texels.data(), big) && big.pixels[0] == 64);
+    mods::drop_figures(mod);
+    CHECK(sharp::picture(4, 2, texels.data(), big) && big.pixels[0] == 64);
+    CHECK(big.pixels[static_cast<std::size_t>(4 * 4)] != 128);
+    sharp::set({});
+    CHECK(!sharp::picture(4, 2, texels.data(), big));
+
+    // A count of 0 clears the mod's pages.
+    CHECK(api.sharp_cells(mod, &page, 1) == OPENRAC_HOOK_OK);
+    CHECK(api.sharp_cells(mod, nullptr, 0) == OPENRAC_HOOK_OK);
+    CHECK(!sharp::picture(4, 2, texels.data(), big));
+    mods::reset();
+}
+
+// What the host was asked of the pads' motors (interface 1.37): "<mod> <port> <small> <large>",
+// "drop <mod>", "drop all"; the mods are named a and b.
+std::vector<std::string> g_motor_calls;
+const void* g_motor_a = nullptr;
+const void* g_motor_b = nullptr;
+
+std::string motor_owner(const void* mod) {
+    return mod == nullptr ? "all" : mod == g_motor_a ? "a" : mod == g_motor_b ? "b" : "?";
+}
+
+// A mod's motors (interface 1.37, openrac_api.set_motors): what the call refuses (and then asks
+// nothing of the host), the values handed to the host as they are, a run without pads, and the
+// mod's motors dropped with its unload and every mod's with the mods' reset. A mod drives motors
+// (mods::any_mod_motors, which shows the menu's vibration rows) from its first call the port takes,
+// 0, 0 included, until its unload or the reset.
+void a_mod_drives_the_motors(const fs::path& plugins) {
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    int owner = 0, other = 0;
+    auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+    auto* mod2 = reinterpret_cast<openrac_mod*>(&other);
+    g_motor_a = mod;
+    g_motor_b = mod2;
+    mods::Host h = host(plugins);
+    h.motors = [](const void* m, int port, bool small_motor, std::uint8_t large_motor) {
+        g_motor_calls.push_back(
+            motor_owner(m) + " " + std::to_string(port) + " " + std::to_string(small_motor ? 1 : 0)
+            + " " + std::to_string(large_motor)
+        );
+    };
+    h.drop_motors = [](const void* m) {
+        g_motor_calls.push_back("drop " + motor_owner(m));
+    };
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    g_motor_calls.clear();
+    CHECK(!mods::any_mod_motors());
+
+    // Refused: no mod, a port out of range, the small motor neither off nor on, the large one out
+    // of 0 to 255. Nothing reaches the host.
+    CHECK(api.set_motors(nullptr, 0, 1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, -1, 1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 2, 1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, 2, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, -1, 100) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, 1, -1) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.set_motors(mod, 0, 1, 256) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(g_motor_calls.empty());
+    // A refused call does not make a mod one that drives motors.
+    CHECK(!mods::any_mod_motors());
+
+    // 0, 0 at load: the mod drives motors from now on, though nothing rumbles.
+    CHECK(api.set_motors(mod, 0, 0, 0) == OPENRAC_HOOK_OK);
+    CHECK(mods::any_mod_motors());
+
+    // Taken: each mod's values reach the host as they are, the mod telling them apart.
+    g_motor_calls.clear();
+    CHECK(api.set_motors(mod, 0, 1, 255) == OPENRAC_HOOK_OK);
+    CHECK(api.set_motors(mod2, 1, 0, 40) == OPENRAC_HOOK_OK);
+    CHECK(api.set_motors(mod, 0, 0, 0) == OPENRAC_HOOK_OK);
+    CHECK((g_motor_calls == std::vector<std::string>{"a 0 1 255", "b 1 0 40", "a 0 0 0"}));
+
+    // A mod's unload stops its motors only, and while another mod drives motors the rows stay; the
+    // mods' reset stops every mod's.
+    g_motor_calls.clear();
+    mods::drop_figures(mod);
+    CHECK((g_motor_calls == std::vector<std::string>{"drop a"}));
+    CHECK(mods::any_mod_motors());
+    mods::drop_figures(mod2);
+    CHECK(!mods::any_mod_motors());
+    CHECK(api.set_motors(mod2, 1, 0, 0) == OPENRAC_HOOK_OK);
+    CHECK(mods::any_mod_motors());
+    g_motor_calls.clear();
+    mods::reset();
+    CHECK(std::find(g_motor_calls.begin(), g_motor_calls.end(), "drop all") != g_motor_calls.end());
+    CHECK(!mods::any_mod_motors());
+
+    // A port without pads (a test's host, or a build without a window): refused, and not counted.
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    g_motor_calls.clear();
+    CHECK(mods::api_for_tests().set_motors(mod, 0, 1, 255) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(g_motor_calls.empty());
+    CHECK(!mods::any_mod_motors());
+    mods::reset();
 }
 
 // undo() drops these registrations before closing a refused mod's library.
@@ -2521,6 +2770,7 @@ int main() {
     two_mods_chain_in_load_order(plugins);
     a_hook_point_is_called_as_the_game_calls_it(plugins);
     every_call_of_the_table_is_filled(plugins);
+    menu_options_follow_the_newest_call(plugins);
     a_mod_that_fails_is_taken_back(plugins);
     refused_before_opening(plugins);
     purist_and_no_list(plugins);
@@ -2551,6 +2801,8 @@ int main() {
     a_mod_reads_the_pack(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
     a_library_others_can_change_is_refused(plugins);
+    a_mod_gives_sharper_cells(plugins);
+    a_mod_drives_the_motors(plugins);
     dropped_mod_watchers_are_not_called();
     refused_library_leaves_no_watchers(plugins);
     installed_games_and_their_folders(dir);

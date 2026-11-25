@@ -457,6 +457,11 @@ extern std::vector<HudTexts> g_hud;
 extern std::vector<HeroVoice> g_hero_voices;
 extern std::vector<std::pair<const openrac_mod*, std::uint32_t>> g_hud_hidden;
 extern std::vector<MusicGain> g_music_gains;
+
+// The mods that drive the pads' motors (openrac_api.set_motors, mods::any_mod_motors), behind
+// g_motor_mods_lock.
+extern std::mutex g_motor_mods_lock;
+extern std::vector<const openrac_mod*> g_motor_mods;
 extern void (*g_music_gain)(int, float);
 extern int (*g_joint_frame)(std::uint32_t, int, float*);
 extern std::mutex g_air_lock;
@@ -467,6 +472,8 @@ extern std::vector<TieHidden> g_ties_hidden;
 // ---- Functions more than one file calls, the api_<member> ones among them ----
 
 const char* hook_id(const Host& host, const char* name);
+// The hook point a name (its id, name or an alias) names, or null.
+const HookPoint* find_hook_point(const char* name);
 void api_log(openrac_mod* mod, int level, const char* text);
 void api_fail(openrac_mod* mod, const char* reason);
 const SettingValue* setting(openrac_mod* mod, const char* key, SettingType a, SettingType b);
@@ -772,5 +779,13 @@ openrac_gaddr api_weapon_record(openrac_mod* mod, std::int32_t item);
 void drop_weapon_shots(const openrac_mod* mod);
 
 int api_weapon_ignore_culling(openrac_mod* mod, std::int32_t item, std::int32_t enabled);
+
+int api_sharp_cells(openrac_mod* mod, const openrac_sharp_page* pages, int count);
+
+int api_set_motors(openrac_mod* mod, int port, int small_motor, int large_motor);
+
+int api_menu_option_set(openrac_mod* mod, const char* option, int state);
+// Forgets the menu options `mod` set (nullptr: every mod's).
+void drop_menu_options(const openrac_mod* mod);
 
 }  // namespace openrac::mods::detail

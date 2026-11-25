@@ -12,6 +12,7 @@
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/renderer/shader_recipe_sources.h"
 #include "enhanced/renderer/water.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl/gl.h"
@@ -126,12 +127,7 @@ void HeroWetness::load(const scene::LevelData& level) {
     );
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    std::string source(lighting::shaders::wetness_comp);
-    source.insert(
-        source.find('\n') + 1,
-        std::string(lighting::shaders::water_window_glsl) + "\n"
-            + std::string(lighting::shaders::water_swell_glsl) + "\n"
-    );
+    const auto source = recipe_sources::wetness();
     std::string error;
     if (!m_update.build_compute("Ratchet surface wetness", source, error)) {
         log::warn("Ratchet wetness unavailable: {}", error);

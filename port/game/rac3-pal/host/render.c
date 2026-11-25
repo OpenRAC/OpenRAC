@@ -158,6 +158,20 @@ int func_L01_004A8158(int shell) {
     return rac3_sky_draw_shell(shell, VELDIN(SKY_MATRIX));
 }
 
+/* The boot program's SkyDrawShell (0x003CE798, frontbin's func_003CE3E0, the levels' 0x004A8158):
+ * the loading screen's sky, the stars and the galaxy, three shells of the scene pack's sky
+ * (0x003BBDC0 hands it to LoadSky, 0x00398A48; SkyDraw 0x003CE568 turns each into the matrix at
+ * 0x001DA610 before drawing it). Its triangles went out as the game's GS packets, which the window
+ * draws in the 4:3 middle of a wide window, while the ship and its trail filled it. Drawn natively
+ * instead, from the scene's export (level 97's sky): around the camera with the window's own view,
+ * so a wider window shows more of the sky, as it shows more of the levels' skies. Leaving a planet
+ * the level's copy (0x004A8158 above) draws the same sky, which the level's LoadSky copy took. */
+void func_003CE798(int shell) {
+    if (shell < GREF(int16_t, GREF(gaddr, RAC3_ADDR(0x001DA5F0u)) + 6u)) {
+        rac3_sky_draw_shell(shell, RAC3_ADDR(0x001DA610u));
+    }
+}
+
 /*
  * MobyProc's drawn flag (+0x31), as the console sets it (Going Commando's mark_drawn_mobys,
  * rac2/host/render.c): group mask, mode bits 0x81, alpha below 8, draw distance (+0x32, capped)
@@ -386,6 +400,9 @@ extern gaddr rac3_draw_owner;
 extern gaddr rac3_draw_callback;
 extern unsigned rac3_draw_ordinal;
 
+/* The trail record whose quad DrawWorldQuad draws now (func_003D98C0 below), 0 for none. */
+static gaddr s_trail_record;
+
 /* The effect textures' uploads this frame: their count and the records GetEffectTex (Veldin's
  * 0x00404040, Going Commando's func_0027C878) writes, 16 bytes each as Going Commando's. */
 #define TEXTURE_UPLOADS RAC3_LADDR(1, 0x001DF97Cu)
@@ -398,6 +415,30 @@ extern unsigned rac3_draw_ordinal;
  * set, a matrix the corners go through first. The window draws it in the world, with the TEST and
  * ZBUF in effect at its marker (rac2/host/render.c's world_quad).
  */
+/* The loading flight's state (0x002D2008 in the boot program, the level's copy of it on a flight
+ * that leaves a planet: loading.c), 0 outside a flight. Its +0 is the destination's picture, which
+ * the transition's start (0x003C10B0) unpacked for the level asked for (0x003BC940), and +8 the
+ * TEX0 its planet callback (0x003C1660) took for it (PictureTex0, 0x0039B088: the CLUT at +0x20,
+ * the 8-bit pixels at +0x420 of the picture). */
+gaddr rac3_loading_state(void); /* loading.c */
+
+/* The planet's quad: drawn from its picture itself, not from whichever texture of the frame's
+ * paging records names its blocks. */
+static void flight_picture(openrac_game_quad* q) {
+    const gaddr state = rac3_loading_state();
+    if (state == 0 || q->tex0 == 0 || GREF(uint64_t, state + 8u) != q->tex0) {
+        return;
+    }
+    const gaddr picture = GREF(gaddr, state);
+    const uint32_t width = 1u << ((q->tex0 >> 26) & 0xFu), height = 1u << ((q->tex0 >> 30) & 0xFu);
+    if (picture < 0x00100000u || picture + 0x420u + width * height > openrac_guest_ram_size) {
+        return;
+    }
+    q->clut = picture + 0x20u;
+    q->pixels = picture + 0x420u;
+    q->source = 1;
+}
+
 void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, gaddr list) {
     const uint8_t* r = G(record);
     openrac_game_quad q;
@@ -421,6 +462,7 @@ void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, g
     memcpy(&q.tex1, r + 0x80, 8);
     memcpy(&q.alpha, r + 0x88, 8);
     q.source = openrac_effect_texture(q.tex0, GREF(int, uploads), records, &q.pixels, &q.clut);
+    flight_picture(&q);
     /* A draw callback's quad: its owner (the callback's argument, a moby whose body the quad may sit
      * on: frontend scene_effects.cpp), and an id that is the same from one tick to the next while the
      * callback draws the same quads (its function, its argument and the quad's place in what it
@@ -433,6 +475,11 @@ void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, g
             h = (h ^ words[i]) * 16777619u;
         }
         q.id = 0x40000000u | (h & 0x3FFFFFFFu);
+    } else if (s_trail_record != 0) {
+        /* A puff of the ship's trail: its record's place is the same from one tick to the next
+         * while it lives (a freed one used again moves too far to be blended: the frontend's
+         * kMaximumEffectStep). */
+        q.id = 0x20000000u | ((s_trail_record >> 4) & 0x1FFFFFFFu);
     }
     openrac_game_effect_quad(&q);
     const uint32_t marker = openrac_game_effect_quad_marker();
@@ -471,6 +518,99 @@ void func_003D3158(int a0, int a1, int a2, int a3) {
     rac3_world_quad(
         (gaddr)a0, (gaddr)a1, BOOT_TEXTURE_UPLOADS, BOOT_TEXTURE_RECORDS, BOOT_LIST_POINTER
     );
+}
+
+/* The ship's cockpit glass on the loading screen (0x003A7EF8, the boot program's copy of Going
+ * Commando's render_environment_mapped_object, func_002ECB70): not in the hull's model, but 38 world
+ * quads the game writes each tick at the place joint 0 of the ship (its argument, class 3412) has
+ * that tick, called by the flight (0x003C1848 from the planet's draw callback 0x003C1660) and as the
+ * ship's draw callback (0x003A6C90). The boot program's callback lists are not run by wide_view.c,
+ * so its quads had no owner and no id: a frame between ticks drew the hull part way from the last
+ * tick and the glass where this tick has it, and at the loading screen's 20 ticks a second the
+ * glass slid off the ship. Owned by the ship and with ids, they move from the last tick's corners
+ * as the hull does (frontend scene_effects.cpp), as Going Commando's (rac2/host/ship_glass.c). */
+void func_003A7EF8(gaddr a0) {
+    const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
+    const unsigned outer_ordinal = rac3_draw_ordinal;
+    rac3_draw_owner = a0;
+    rac3_draw_callback = 0; /* no callback runner's function: the ids are the ship's alone */
+    rac3_draw_ordinal = 0;
+    func_003A7EF8__game(a0);
+    rac3_draw_owner = outer;
+    rac3_draw_callback = outer_callback;
+    rac3_draw_ordinal = outer_ordinal;
+}
+
+/* The ship's engine flames (0x003A6B90, the boot program's copy of the catalogue's frontbin row
+ * func_003A6790): two rows of world quads, one an engine (0x003A66D0, through DrawWorldQuad's copy
+ * 0x003D98C0), laid along each engine from where its joint is that tick (0x003C3278), called by the
+ * ship's draw. Without an owner they had no id and no parent: a frame between ticks drew the hull
+ * part way from the last tick and the flames where this tick has them, so in the approach to the
+ * planet (20 ticks a second, loading.c) the exhaust stood still for a tick and jumped at the next
+ * while the ship moved smoothly ahead of it (OPENRAC_MOTION_LOG: about 75 to 135 quads a tick, none
+ * with an id). Owned by the ship, they move with it between ticks (frontend scene_effects.cpp). */
+void func_003A6B90(gaddr a0) {
+    const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
+    const unsigned outer_ordinal = rac3_draw_ordinal;
+    rac3_draw_owner = a0;
+    rac3_draw_callback = 0; /* no callback runner's function: the ids are the ship's alone */
+    rac3_draw_ordinal = 0;
+    func_003A6B90__game(a0);
+    rac3_draw_owner = outer;
+    rac3_draw_callback = outer_callback;
+    rac3_draw_ordinal = outer_ordinal;
+}
+
+/* The levels' copy of the engine flames (frontbin's func_003A6790, Veldin's 0x004AD768, 34 levels),
+ * which a level's own flight leaving a planet runs: owned by the ship as the boot program's above. */
+void func_L01_004AD768(gaddr a0) {
+    const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
+    const unsigned outer_ordinal = rac3_draw_ordinal;
+    rac3_draw_owner = a0;
+    rac3_draw_callback = 0;
+    rac3_draw_ordinal = 0;
+    func_L01_004AD768__game(a0);
+    rac3_draw_owner = outer;
+    rac3_draw_callback = outer_callback;
+    rac3_draw_ordinal = outer_ordinal;
+}
+
+/* The ship's trail on the loading screen: 0x003A8850 draws each live record of a pool of 512 (0x50
+ * bytes each, the pool at *0x001D6EEC, +0x48 set while it lives) as one quad through 0x003D98C0,
+ * the boot program's copy of DrawWorldQuad's caller. They are world-space puffs left behind the
+ * ship, which move, grow and fade each tick: drawn with no id, a frame between ticks left them where
+ * the tick had them, and in the approach (20 ticks a second) the trail stepped behind the smoothly
+ * moving ship (OPENRAC_MOTION_LOG: up to about 70 quads a tick without an id). Each now has its
+ * record's place as its id, so that a frame between ticks moves it from the last tick's corners. */
+#define TRAIL_POOL RAC3_ADDR(0x001D6EECu)
+#define TRAIL_RECORDS 512u
+#define TRAIL_RECORD_SIZE 0x50u
+
+void func_003D98C0(gaddr a0, int a1, int a2, int a3, float a4, float a5, float a6) {
+    const gaddr outer = s_trail_record;
+    const gaddr pool = GREF(gaddr, TRAIL_POOL);
+    s_trail_record = rac3_draw_owner == 0 && pool != 0 && a0 >= pool
+                             && a0 < pool + TRAIL_RECORDS * TRAIL_RECORD_SIZE
+                         ? a0
+                         : 0;
+    func_003D98C0__game(a0, a1, a2, a3, a4, a5, a6);
+    s_trail_record = outer;
+}
+
+/* The levels' copy of the cockpit glass (the catalogue's frontbin row func_003A7AF8, Veldin's
+ * 0x004B04D8, the 34 single-player levels), which the level's own flight runs leaving a planet
+ * (its copy of 0x003C1848): owned by the ship and with ids as the boot program's above, else its
+ * quads stayed where each tick left them while the hull moved between ticks. */
+void func_L01_004B04D8(gaddr a0) {
+    const gaddr outer = rac3_draw_owner, outer_callback = rac3_draw_callback;
+    const unsigned outer_ordinal = rac3_draw_ordinal;
+    rac3_draw_owner = a0;
+    rac3_draw_callback = 0;
+    rac3_draw_ordinal = 0;
+    func_L01_004B04D8__game(a0);
+    rac3_draw_owner = outer;
+    rac3_draw_callback = outer_callback;
+    rac3_draw_ordinal = outer_ordinal;
 }
 
 /* What the console's renderers needed each frame (Going Commando's func_002F0468, 0x002EF310,

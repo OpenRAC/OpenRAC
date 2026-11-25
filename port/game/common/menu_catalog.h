@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string_view>
 
@@ -93,6 +94,7 @@ enum class Id : std::uint8_t {
     OcclusionQuality,
     TextureUpscaling,
     EffectsDetail,
+    EarlyLightingQuality,
     Upscaling,
     Sharpening,
     MotionBlur,
@@ -180,6 +182,13 @@ std::span<const Entry> entries();
 
 // The entry `id`.
 const Entry& entry(Id id);
+
+// An entry's name for the mods (openrac_api.menu_option_set): its Id in lower case words joined
+// by _ ("rumble_strength"). sdk/docs/menu-options.md lists them; a name never changes.
+const char* option_name(Id id);
+
+// The entry named `name` (option_name), or none.
+std::optional<Id> option_named(std::string_view name);
 
 // A tab's name on the bar ("Graphics").
 const char* tab_name(Tab tab);

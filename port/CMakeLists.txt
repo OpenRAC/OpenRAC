@@ -287,6 +287,13 @@ openrac_add_test(cdvd_mount
 openrac_add_test(custom_map
   SOURCES tests/custom_map_test.cpp game/common/program/custom_map.cpp
   INCLUDES game/common LIBS openrac_common)
+# The 2D layer's sharper cells (renderer/textures/sharp_cells.h), a library of their own: the
+# renderer draws from them, and the built-ins and the mods' interface (openrac_api.sharp_cells) set
+# them, in builds without a window too.
+add_library(openrac_sharp_cells STATIC renderer/textures/sharp_cells.cpp)
+target_include_directories(openrac_sharp_cells PUBLIC .)
+openrac_warnings(openrac_sharp_cells)
+
 include(Luau)
 add_library(openrac_mods STATIC
   game/common/button_labels.cpp
@@ -316,7 +323,7 @@ add_library(openrac_mods STATIC
 )
 target_include_directories(openrac_mods PUBLIC game/common game/common/include "${PROJECT_SOURCE_DIR}/../sdk/include")
 target_link_libraries(openrac_mods PUBLIC openrac_runtime ${CMAKE_DL_LIBS}
-                      PRIVATE openrac_luau)
+                      PRIVATE openrac_luau openrac_sharp_cells)
 openrac_warnings(openrac_mods)
 
 openrac_add_test(mod_manifest LIBS openrac_mods)
@@ -335,7 +342,7 @@ add_test(NAME rac1_shared COMMAND rac1_shared_test)
 # loader with hook points of the test's own; test-old is built for interface 1.5, as a mod made
 # before the snapshot calls is.
 add_executable(mod_loader_test tests/mod_loader_test.cpp)
-target_link_libraries(mod_loader_test PRIVATE openrac_mods)
+target_link_libraries(mod_loader_test PRIVATE openrac_mods openrac_sharp_cells)
 foreach(which a b old current)
   add_library(mod_loader_test_${which} MODULE tests/mod_loader_test_mod.c)
   target_include_directories(mod_loader_test_${which} PRIVATE "${PROJECT_SOURCE_DIR}/../sdk/include")
@@ -370,6 +377,9 @@ openrac_add_test(mod_boundary LIBS openrac_mods)
 openrac_add_test(mod_visuals LIBS openrac_mods)
 # A mod's material on one moby (interface 1.23): the call, the renderer's list and when it ends.
 openrac_add_test(mod_material LIBS openrac_mods)
+# The 2D layer's sharper cells of several owners (renderer/textures/sharp_cells.h): the built-ins'
+# and each mod's pages kept apart and drawn together.
+openrac_add_test(sharp_cells LIBS openrac_sharp_cells)
 
 # The bindings the generator writes are what their tables give, and the tables' hook points the
 # hook rows of every disc's libraries.tsv.
@@ -514,6 +524,7 @@ openrac_add_c_test(save_parts INCLUDES "${PROJECT_SOURCE_DIR}/../sdk/include")
 openrac_add_c_test(rac2_effect_attachment INCLUDES game/rac2/host runtime/include)
 openrac_add_c_test(rac2_hero_attachments INCLUDES game/rac2/host)
 openrac_add_c_test(rac2_gh_fixes MATH)
+openrac_add_c_test(rac2_bolt_totals)
 # Going Commando's enemy copies for the mods (moby_copy_check, moby_copy) on a level laid out as
 # LoadLevelData leaves one.
 openrac_add_c_test(rac2_enemy_copies NO_STRICT_ALIASING MATH
@@ -549,7 +560,7 @@ if(OPENRAC_PORT_WINDOW)
     gtao gtao_depth gtao_horizon local_lights moby_energy_shader moby_obsidian_shader
     moby_platinum_shader
     precise_depth probe_compression_gpu probe_depth_gpu probe_gpu probe_sphere_culling
-    program_cache render_equivalence_support render_opt shadow_graph sun_shadow
+    program_cache render_equivalence_support render_opt shader_error shadow_graph sun_shadow
     surface_normals texture_blocks_gl texture_filter tracy_vulkan vulkan_buffer
     vulkan_failure vulkan_hdr vulkan_prewarm vulkan_uniform water_gpu water_runtime wetness_gpu
   )

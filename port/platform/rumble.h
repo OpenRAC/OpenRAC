@@ -40,6 +40,12 @@ struct MotorCommand {
     bool operator==(const MotorCommand&) const = default;
 };
 
+// Two sources' commands for one pad played together (the game's and a mod's): each motor the
+// stronger of the two.
+inline MotorCommand stronger(const MotorCommand& a, const MotorCommand& b) {
+    return {a.small || b.small, a.large > b.large ? a.large : b.large};
+}
+
 // What a gamepad plays, each 0..1.
 struct RumbleOutput {
     float low = 0.0f;

@@ -9,8 +9,9 @@
  * each gets its flag back after. The Shield Charger's and Tesla Barrier's update sees the enemies
  * near the hero and in his sight, the Tesla Claw's its held targets in his sight. Other weapons
  * are refused. Nothing is widened outside play (a scene), and a moby whose class, pvars or target
- * record is no word of the game's RAM (a float there, a copy's pvars in the port's memory) is passed
- * over without following it. */
+ * record is no word of the game's RAM (a float there, pvars in the port's memory that are no copy's)
+ * is passed over without following it; an NG++ copy's own pvars there are taken. A moby the
+ * renderer could not draw (hidden, faded out) or not started yet is never marked. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -78,6 +79,19 @@ gaddr rac2_moby_updating(void) {
     return now;
 }
 
+/* enemy_copies.c's: one copy, whose pvars the port laid out in its memory, when set. */
+static gaddr copy_moby, copy_pvars;
+
+gaddr rac2_copy_pvars(gaddr moby, uint32_t* bytes) {
+    if (copy_moby == 0 || moby != copy_moby || GREF(gaddr, moby + MOBY_PVARS) != copy_pvars) {
+        return 0;
+    }
+    if (bytes != NULL) {
+        *bytes = 0x400u;
+    }
+    return copy_pvars;
+}
+
 static gaddr moby(uint32_t slot) {
     return BASE + slot * 0x100u;
 }
@@ -91,6 +105,10 @@ gaddr func_002AB1F0(gaddr m) {
         return 0;
     }
     const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+    /* The copy's pvars, in the port's memory (out of the test's): its record in RAM. */
+    if (copy_moby != 0 && m == copy_moby && pvars == copy_pvars) {
+        return RECORDS + ((m - BASE) / 0x100u) * 0x20u;
+    }
     CHECK(pvars < openrac_guest_ram_size);
     return GREF(gaddr, pvars);
 }
@@ -201,6 +219,7 @@ static void level(void) {
         GREF(gaddr, m + MOBY_PVARS) = PVARS + s * 0x100u;
         GREF(gaddr, PVARS + s * 0x100u) = RECORDS + s * 0x20u;
         GREF(uint16_t, m + MOBY_MODE) = MODE_RECORD;
+        GREF(uint8_t, m + MOBY_ALPHA) = 0x80;
         GREF(gaddr, m + MOBY_INFO) = INFOS;
         put_class(s, 100);
         /* Along x, a unit apart, from the origin (the pick's and the hero's). */
@@ -412,6 +431,34 @@ int main(void) {
     GREF(uint16_t, moby(4) + MOBY_MODE) = 0;
     CHECK(pick() == moby(0) && seen == WIDENED - 1);
     GREF(uint16_t, moby(4) + MOBY_MODE) = MODE_RECORD;
+    CHECK(pick() == moby(0) && seen == WIDENED);
+    /* NG++'s copy: its pvars in the port's memory are its own (enemy_copies.c laid them out), so
+     * it is taken as the originals are; the same word on another moby is still passed over. */
+    copy_moby = moby(4);
+    copy_pvars = GUEST_STATICS + 0x100u;
+    GREF(gaddr, moby(4) + MOBY_PVARS) = copy_pvars;
+    CHECK(pick() == moby(0) && seen == WIDENED);
+    flags_kept();
+    copy_moby = moby(6);
+    CHECK(pick() == moby(0) && seen == WIDENED - 1);
+    copy_moby = 0;
+    GREF(gaddr, moby(4) + MOBY_PVARS) = PVARS + 4u * 0x100u;
+    /* What the renderer could not draw is never marked: held hidden (+0x34's 0x01 or 0x80), faded
+     * out (alpha under 8), or not started (state 0: its start-up would set its death path again, as
+     * Siberius's cart riders do). */
+    const uint16_t hidden_modes[] = {MODE_RECORD | 0x01u, MODE_RECORD | 0x80u, MODE_RECORD | 0x41u};
+    for (unsigned i = 0; i < 3; ++i) {
+        GREF(uint16_t, moby(4) + MOBY_MODE) = hidden_modes[i];
+        CHECK(pick() == moby(0) && seen == WIDENED - 1);
+        flags_kept();
+    }
+    GREF(uint16_t, moby(4) + MOBY_MODE) = MODE_RECORD;
+    GREF(uint8_t, moby(4) + MOBY_ALPHA) = 7;
+    CHECK(pick() == moby(0) && seen == WIDENED - 1);
+    GREF(uint8_t, moby(4) + MOBY_ALPHA) = 0x80;
+    GREF(uint8_t, moby(4) + MOBY_STATE) = 0;
+    CHECK(pick() == moby(0) && seen == WIDENED - 1);
+    GREF(uint8_t, moby(4) + MOBY_STATE) = 1;
     CHECK(pick() == moby(0) && seen == WIDENED);
     /* The barrier's update over the same: no fault, the float one passed over. */
     GREF(gaddr, moby(4) + MOBY_PVARS) = float_word;

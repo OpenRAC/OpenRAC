@@ -25,8 +25,25 @@ struct SceneFrame {
     std::vector<renderer::EffectVertex> strip_vertices{};
 };
 
-// The camera part way from the last tick's to this one's (a cut is not blended).
-host::GameState blend_camera(const host::GameState& from, const host::GameState& to, float t);
+// The camera part way from the last tick's to this one's (a cut is not blended). `pace`: the eye's
+// move the tick before, when known (Kept::camera_pace, geometry.h blend_pose).
+host::GameState blend_camera(
+    const host::GameState& from,
+    const host::GameState& to,
+    float t,
+    const renderer::Vec3* pace = nullptr
+);
+
+// The move the moby at `address` made the tick before the last, when known (Kept::prev_paces).
+inline const renderer::Vec3* moby_pace(const Kept& scene, std::uint32_t address) {
+    const auto it = scene.prev_paces.find(address);
+    return it == scene.prev_paces.end() ? nullptr : &it->second;
+}
+
+// The eye's move the tick before the last, when known (Kept::camera_pace).
+inline const renderer::Vec3* camera_pace(const Kept& scene) {
+    return scene.camera_pace ? &*scene.camera_pace : nullptr;
+}
 
 // Uploads the interpolated transforms and poses used by world and motion rendering.
 void upload_instances(SceneFrame& frame);

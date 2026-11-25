@@ -40,6 +40,7 @@
 #define RAC2_ADDR_0x001A7354u 0x001A7354u /* versionmap: exact */
 #define RAC2_ADDR_0x001A7420u 0x001A7420u /* versionmap: exact */
 #define RAC2_ADDR_0x001A79F0u 0x001A79F8u /* the release's build */
+#define RAC2_ADDR_0x001A79F8u 0x001A7A00u /* the release's build */
 #define RAC2_ADDR_0x001A7AF8u 0x001A7B00u /* the release's build */
 #define RAC2_ADDR_0x001A7B98u 0x001A7BA0u /* the release's build */
 #define RAC2_ADDR_0x001A7BA4u 0x001A7BACu /* the release's build */
@@ -69,6 +70,7 @@
 #define RAC2_ADDR_0x001AE124u 0x001AE0FCu /* the same instruction of the paired function */
 #define RAC2_ADDR_0x001AE128u 0x001AE100u /* the same instruction of the paired function */
 #define RAC2_ADDR_0x001AE138u 0x001AE110u /* the release's build */
+#define RAC2_ADDR_0x001AE900u 0x001AE8B8u /* the release's build */
 #define RAC2_ADDR_0x001B15A0u 0x001B1520u /* the release's build */
 #define RAC2_ADDR_0x001B15FCu 0x001B157Cu /* the release's build */
 #define RAC2_ADDR_0x001B1608u 0x001B1588u /* the release's build */
@@ -151,6 +153,7 @@
 #define RAC2_K_HELP_6 0x2C42 /* v1.01 0x2DAC; word 6 of the table at 0x00265270 (v1.01's 0x002652B0) */
 #define RAC2_K_HELP_7 0x2C44 /* v1.01 0x2DAE; word 7 of the table at 0x00265270 (v1.01's 0x002652B0) */
 #define RAC2_K_HELP_8 0x2CB2 /* v1.01 0x2E1C; word 8 of the table at 0x00265270 (v1.01's 0x002652B0) */
+#define RAC2_K_HUD_BOLT_TEXT 0x22C /* v1.01 0x21C; func_0034CEA0 as func_0034DBE0: 1 instructions */
 #define RAC2_K_LIST_CURSOR 0x130 /* v1.01 0x130; func_00342118 as func_00343028: 1 instructions */
 #define RAC2_K_LIST_ICON 0x17C /* v1.01 0x17C; func_00341A88 as func_00342998: 1 instructions */
 #define RAC2_K_LIST_ICON_SHEET 0x1C4 /* v1.01 0x1C4; func_00341A88 as func_00342998: 2 instructions */

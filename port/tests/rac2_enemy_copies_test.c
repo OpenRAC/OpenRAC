@@ -6,7 +6,8 @@
  * Tabora's crystal creatures of the port's table; a moby of another kind; one with no reward), the
  * copies (their spot on the floor, in the open and apart, what they keep of their slot and take of
  * their original, their pvars and the pointers into them, the moby cells and their squad's list),
- * the pool's reserve, a stale file, a new load, and a copy's death, once, leaving the original's
+ * moving platforms (a copy on its original's, a rider that has found its own not copied), the
+ * pool's reserve, a stale file, a new load, and a copy's death, once, leaving the original's
  * record as it was. */
 #include <math.h>
 #include <stdio.h>
@@ -127,6 +128,7 @@ static gaddr class_of(int16_t oclass) {
         case ENEMY:
             return CLASS_ENEMY;
         case THING:
+        case 2722: /* a Siberius rider's claw */
             return CLASS_THING;
         case SPAWNER:
         case DUNE_MONSTER:
@@ -258,11 +260,44 @@ float func_002A89A8(gaddr point, int mode, float over) {
     return GREF(float, point) < 150.0f ? 1.0f : 0.0f;
 }
 
+/* A moving platform (a moby that carries its riders), when one is set: its rectangle in x and y,
+ * which a line straight down within it hits. */
+static gaddr platform;
+static float platform_box[4]; /* x from, x to, y from, y to */
+
 int func_002761F8(gaddr from, gaddr to, int mask, gaddr ignore, gaddr out) {
     (void)mask;
     (void)ignore;
     (void)out;
+    const float x = GREF(float, from), y = GREF(float, from + 4u);
+    GREF(gaddr, COLL_RESULT + COLL_HIT_MOBY) = 0;
+    if (platform != 0 && x == GREF(float, to) && y == GREF(float, to + 4u) && x >= platform_box[0]
+        && x < platform_box[1] && y >= platform_box[2] && y < platform_box[3]) {
+        GREF(gaddr, COLL_RESULT + COLL_HIT_MOBY) = platform;
+        return 1;
+    }
     return GREF(float, from) >= WALL_X || GREF(float, to) >= WALL_X;
+}
+
+/* A moby that carries what stands on it over the rectangle given, as the game marks one (flag 0x20
+ * of +0x34, a motion record in its pvars' third word). */
+static gaddr make_platform(float x0, float x1, float y0, float y1) {
+    platform = func_0029EFD0(THING);
+    CHECK(platform != 0);
+    GREF(uint8_t, platform + 0x20u) = 1;
+    put16(platform + 0x34u, 0x20u);
+    put32(GREF(gaddr, platform + 0x68u) + 0x8u, 0x00654320u);
+    platform_box[0] = x0;
+    platform_box[1] = x1;
+    platform_box[2] = y0;
+    platform_box[3] = y1;
+    return platform;
+}
+
+static int on_platform(gaddr m) {
+    const float x = GREF(float, m + 0x10u), y = GREF(float, m + 0x14u);
+    return x >= platform_box[0] && x < platform_box[1] && y >= platform_box[2]
+           && y < platform_box[3];
 }
 
 static int deaths;
@@ -290,6 +325,16 @@ void func_002A6C58__hooked(gaddr moby, int flags, int arg) {
     GREF(uint8_t, 0x00210D40u + 0x464u + (uint32_t)uid) = 2;
     GREF(uint8_t, 0x002119B0u + 0x464u + (uint32_t)uid) = 2;
     ++deaths;
+}
+
+/* death_trace.c's: SetDeathBits's line, counted. */
+static int traced_deaths;
+
+void rac2_death_trace_death(gaddr moby, int flags, int arg) {
+    (void)moby;
+    (void)flags;
+    (void)arg;
+    ++traced_deaths;
 }
 
 /* ---- The checks ---- */
@@ -511,6 +556,92 @@ static void parts(void) {
     CHECK(rac2_copy_make(&table, placed(0), 1) == 0);
 }
 
+/* Moving platforms: an enemy on one is not copied, a copy of one on the ground stands on none, and
+ * an enemy whose pvars name its platform (it has found it and keeps its place on it) is not
+ * copied. */
+static void platforms(void) {
+    make_level();
+    make_platform(6.0f, 13.0f, 6.0f, 14.0f);
+    for (int k = 0; k < 3; ++k) {
+        CHECK(rac2_copy_make(&table, placed(0), k) == 0);
+    }
+    CHECK(rac2_copy_count() == 0);
+    /* On the ground beside a platform: never on it. */
+    make_level();
+    make_platform(0.0f, 13.0f, 11.5f, 30.0f);
+    for (int k = 0; k < 3; ++k) {
+        const gaddr c = rac2_copy_make(&table, placed(0), k);
+        CHECK(c != 0);
+        CHECK(!on_platform(c));
+    }
+    /* A rider that has found its platform: no copy. A platform no longer carrying: copied. */
+    make_level();
+    const gaddr cart = make_platform(6.0f, 13.0f, 6.0f, 14.0f);
+    put32(blob_at(0) + 0x30u, cart);
+    CHECK(rac2_copy_make(&table, placed(0), 0) == 0);
+    put16(cart + 0x34u, 0);
+    CHECK(rac2_copy_make(&table, placed(0), 0) != 0);
+    platform = 0;
+}
+
+/* Siberius's cart riders (3369, two claws of class 2722 at pvars +0x330 and +0x334) and shooters
+ * (3370) are never copied: the original keeps its claws, no slot is taken for a copy or its parts,
+ * and its death is the game's, once, as is a copy's of another class (its claws freed by the
+ * game's own death, group_destroy_attached_parts). */
+static void cart_riders(void) {
+    const int16_t riders[] = {3369, 3370};
+    for (unsigned r = 0; r < 2; ++r) {
+        make_level();
+        put16(placed(0) + 0xAAu, (uint16_t)riders[r]);
+        const gaddr claws[2] = {func_0029EFD0(2722), func_0029EFD0(2722)};
+        for (int j = 0; j < 2; ++j) {
+            CHECK(claws[j] != 0);
+            GREF(uint8_t, claws[j] + 0x20u) = 1;
+            put32(blob_at(0) + 0x30u + 4u * (uint32_t)j, claws[j]);
+        }
+        CHECK(rac2_copy_check(&table, placed(0)) == RAC2_COPY_LISTED);
+        int taken = 0;
+        for (gaddr m = DYNAMIC; m < END; m += 0x100u) {
+            taken += GREF(uint8_t, m + 0x20u) < 0xFEu;
+        }
+        for (int k = 0; k < 3; ++k) {
+            CHECK(rac2_copy_make(&table, placed(0), k) == 0);
+        }
+        int taken_after = 0;
+        for (gaddr m = DYNAMIC; m < END; m += 0x100u) {
+            taken_after += GREF(uint8_t, m + 0x20u) < 0xFEu;
+        }
+        CHECK(taken_after == taken);
+        CHECK(rac2_copy_count() == 0 && !rac2_copy_is(placed(0)));
+        CHECK(GREF(gaddr, blob_at(0) + 0x30u) == claws[0]);
+        CHECK(GREF(gaddr, blob_at(0) + 0x34u) == claws[1]);
+        deaths = 0;
+        func_002A6C58(placed(0), 0, 3);
+        CHECK(deaths == 1);
+    }
+    /* An enemy of another class with two claws of its own: its copy takes copies of them, and the
+     * copy's death is the game's once. */
+    make_level();
+    const gaddr claws[2] = {func_0029EFD0(2722), func_0029EFD0(2722)};
+    for (int j = 0; j < 2; ++j) {
+        GREF(uint8_t, claws[j] + 0x20u) = 1;
+        put32(blob_at(0) + 0x30u + 4u * (uint32_t)j, claws[j]);
+    }
+    const gaddr c = rac2_copy_make(&table, placed(0), 0);
+    CHECK(c != 0);
+    const gaddr cv = GREF(gaddr, c + 0x68u);
+    for (int j = 0; j < 2; ++j) {
+        const gaddr mine = GREF(gaddr, cv + 0x30u + 4u * (uint32_t)j);
+        CHECK(mine != claws[0] && mine != claws[1] && mine >= DYNAMIC && mine < END);
+        CHECK(GREF(int16_t, mine + 0xAAu) == 2722);
+    }
+    CHECK(GREF(gaddr, blob_at(0) + 0x30u) == claws[0]);
+    deaths = 0;
+    func_002A6C58(c, 0, 3);
+    func_002A6C58(c, 0, 3);
+    CHECK(deaths == 1);
+}
+
 static void reserve(void) {
     make_level();
     /* The pool as the game leaves it: given-back slots, then the never-used mark and zeros past. */
@@ -585,9 +716,10 @@ static void death(void) {
         GREF(uint8_t, nibble) == 0x31u && GREF(uint8_t, collected) == 0
         && GREF(uint8_t, checkpoint) == 0
     );
-    /* The original's death: the game's marks stay. */
+    /* The original's death: the game's marks stay. Each of the three went by the death trace. */
     func_002A6C58(placed(0), 0, 0);
     CHECK(deaths == 2);
+    CHECK(traced_deaths >= 3);
     CHECK(
         GREF(uint8_t, nibble) == 0x32u && GREF(uint8_t, collected) == 2
         && GREF(uint8_t, checkpoint) == 2
@@ -735,6 +867,69 @@ static void slot_taken(void) {
     CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x8009u);
 }
 
+/* The copies on a squad's list as they die: a copy that dies comes off at once (rac2_copy_gone);
+ * the tick's tidy takes off any other that is no longer its live copy (dead, or its slot given out
+ * to another class where rac2_copy_slot_taken did not see it), so a squad's alerts never write past
+ * a new moby's 0x80 bytes of pvars and its count of live members reaches zero. The placed members
+ * stay, dead or not, as the game keeps them. */
+static void groups_tidy(void) {
+    make_level();
+    const gaddr a = rac2_copy_make(&table, placed(0), 0);
+    const gaddr b = rac2_copy_make(&table, placed(0), 1);
+    const gaddr c = rac2_copy_make(&table, placed(0), 2);
+    CHECK(a != 0 && b != 0 && c != 0);
+    const gaddr list = GREF(gaddr, 0x001EE5A0u + 4u);
+    const uint16_t ia = (uint16_t)((a - BASE) / 0x100u), ib = (uint16_t)((b - BASE) / 0x100u),
+                   ic = (uint16_t)((c - BASE) / 0x100u);
+    const uint16_t all[] = {0x0000u, 0x0009u, ia, ib, (uint16_t)(ic | 0x8000u)};
+    for (unsigned i = 0; i < 5; ++i) {
+        CHECK(GREF(uint16_t, list + 2u * i) == all[i]);
+    }
+    /* All alive: nothing taken off. */
+    rac2_copy_groups_tidy();
+    for (unsigned i = 0; i < 5; ++i) {
+        CHECK(GREF(uint16_t, list + 2u * i) == all[i]);
+    }
+    /* A dies: off at once; a live one's call changes nothing. */
+    rac2_copy_gone(b);
+    func_0029F338(a);
+    rac2_copy_gone(a);
+    CHECK(GREF(uint16_t, list + 4u) == ib && GREF(uint16_t, list + 6u) == (ic | 0x8000u));
+    /* B's slot given to a claw behind CreateMoby's back (alive, of another class): the tidy. */
+    func_0029F338(b);
+    put16(b + 0xAAu, 2722);
+    GREF(uint8_t, b + 0x20u) = 1;
+    rac2_copy_groups_tidy();
+    CHECK(GREF(uint16_t, list + 2u) == 0x0009u && GREF(uint16_t, list + 4u) == (ic | 0x8000u));
+    /* C dies with no call: the tidy; the members alone are left, the last with its mark. */
+    func_0029F338(c);
+    rac2_copy_groups_tidy();
+    CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x8009u);
+    /* A placed member that dies stays, as the game keeps it. */
+    func_0029F338(placed(9));
+    rac2_copy_groups_tidy();
+    CHECK(GREF(uint16_t, list) == 0x0000u && GREF(uint16_t, list + 2u) == 0x8009u);
+}
+
+/* A copy's pvars as the port laid them out (rac2_copy_pvars): in the port's room for a larger
+ * block, in its slot's 0x80 bytes for a small one; none for an original, a dead copy or a copy
+ * whose pvars word names something else. */
+static void copy_pvars(void) {
+    make_level();
+    const gaddr big = rac2_copy_make(&table, placed(7), 0);
+    const gaddr small = rac2_copy_make(&table, placed(0), 0);
+    CHECK(big != 0 && small != 0);
+    uint32_t bytes = 0;
+    CHECK(rac2_copy_pvars(big, &bytes) == GREF(gaddr, big + 0x68u) && bytes == 0x200u);
+    CHECK(GREF(gaddr, big + 0x68u) >= 0x01C00000u); /* the port's room (the test's statics) */
+    CHECK(rac2_copy_pvars(small, &bytes) == GREF(gaddr, small + 0x68u) && bytes == 0x80u);
+    CHECK(rac2_copy_pvars(placed(7), NULL) == 0);
+    put32(small + 0x68u, 0x4333AC8Fu);
+    CHECK(rac2_copy_pvars(small, NULL) == 0);
+    func_0029F338(big);
+    CHECK(rac2_copy_pvars(big, NULL) == 0);
+}
+
 int main(void) {
     openrac_guest_base = calloc(1, openrac_guest_ram_size);
     CHECK(openrac_guest_base != NULL);
@@ -742,9 +937,13 @@ int main(void) {
     copies();
     no_spot();
     parts();
+    platforms();
+    cart_riders();
     reserve();
     stale_and_new_load();
     slot_taken();
+    groups_tidy();
+    copy_pvars();
     death();
     pool();
     pool_ceiling();

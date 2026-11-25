@@ -1182,6 +1182,34 @@ int fake_camera_shake(openrac_mod*, int channel, float amplitude, int frames) {
     return ok ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+// What the fake host's 1.36 sharp_cells was given: its count, and its first page's width; it
+// refuses a count past 64.
+std::string g_sharp;
+
+int fake_sharp_cells(openrac_mod*, const openrac_sharp_page* pages, int count) {
+    g_sharp = "pages " + std::to_string(count)
+              + (count > 0 ? " width " + std::to_string(pages[0].width) : std::string());
+    return count >= 0 && count <= 64 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+// What the fake host's 1.37 set_motors was given; it refuses a port past 1.
+std::string g_motors;
+
+int fake_set_motors(openrac_mod*, int port, int small_motor, int large_motor) {
+    g_motors = std::to_string(port) + " " + std::to_string(small_motor) + " " + std::to_string(large_motor);
+    return port >= 0 && port <= 1 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
+// What the fake host's 1.37 menu_option_set was given; it refuses a state past OFF.
+std::string g_menu_option;
+
+int fake_menu_option_set(openrac_mod*, const char* option, int state) {
+    g_menu_option = std::string(option) + " " + std::to_string(state);
+    return state >= OPENRAC_MENU_OPTION_DEFAULT && state <= OPENRAC_MENU_OPTION_OFF
+               ? OPENRAC_HOOK_OK
+               : OPENRAC_HOOK_UNKNOWN;
+}
+
 // What the fake host's 1.33 call was asked for. It knows one installed game's folder, refuses one the
 // manifest does not declare, and has none for any other.
 std::string g_game_asked;
@@ -2648,6 +2676,60 @@ int main() {
               && g_model_class.empty());
         api.size = size;
         CHECK(mod.has_moby_models());
+    }
+
+    // Interface 1.36: a mod's pages of sharper cells, handed to the port as they are, and refused
+    // where the port lacks the call (an older minor, or a table that stops before it).
+    {
+        api.sharp_cells = fake_sharp_cells;
+        CHECK(mod.has_sharp_cells());
+        const std::uint8_t colours[3] = {1, 2, 3};
+        const std::uint8_t sharp[12] = {};
+        openrac_sharp_cell cell{sizeof(openrac_sharp_cell), 4, 5, 1, 1, colours, sharp};
+        openrac_sharp_page page{sizeof(openrac_sharp_page), 256, 128, 2, &cell, 1};
+        CHECK(mod.sharp_cells(&page, 1) && g_sharp == "pages 1 width 256");
+        CHECK(mod.sharp_cells(nullptr, 0) && g_sharp == "pages 0");
+        // The port's refusal is the wrapper's false.
+        CHECK(!mod.sharp_cells(&page, 65));
+        g_sharp.clear();
+        api.api_minor = 35;
+        CHECK(!mod.has_sharp_cells() && !mod.sharp_cells(&page, 1) && g_sharp.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, sharp_cells));
+        CHECK(!mod.has_sharp_cells() && !mod.sharp_cells(&page, 1) && g_sharp.empty());
+        api.size = sizeof api;
+        CHECK(mod.has_sharp_cells());
+    }
+
+    // Interface 1.37: the pads' motors, handed to the port as they are, and refused where the port
+    // lacks the call (an older minor, or a table that stops before it).
+    {
+        api.set_motors = fake_set_motors;
+        CHECK(mod.has_set_motors());
+        CHECK(mod.set_motors(1, 1, 200) && g_motors == "1 1 200");
+        CHECK(mod.set_motors(0, 0, 0) && g_motors == "0 0 0");
+        // The port's refusal is the wrapper's false.
+        CHECK(!mod.set_motors(2, 0, 0));
+        g_motors.clear();
+        api.api_minor = 36;
+        CHECK(!mod.has_set_motors() && !mod.set_motors(0, 1, 255) && g_motors.empty());
+        api.api_minor = OPENRAC_MOD_API_MINOR;
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, set_motors));
+        CHECK(!mod.has_set_motors() && !mod.set_motors(0, 1, 255) && g_motors.empty());
+        api.size = sizeof api;
+        CHECK(mod.has_set_motors());
+    }
+
+    // Interface 1.37: a menu option turned on or off by name, refused by a port without the call.
+    {
+        api.menu_option_set = fake_menu_option_set;
+        CHECK(mod.menu_option_set("frame_rate", OPENRAC_MENU_OPTION_OFF));
+        CHECK(g_menu_option == "frame_rate 2");
+        CHECK(!mod.menu_option_set("frame_rate", 7));
+        g_menu_option.clear();
+        api.size = static_cast<std::uint32_t>(offsetof(openrac_api, menu_option_set));
+        CHECK(!mod.menu_option_set("vsync", OPENRAC_MENU_OPTION_ON) && g_menu_option.empty());
+        api.size = sizeof api;
     }
 
     // Interface 1.33: the game's camera shake, handed to the port as it is and refused where the

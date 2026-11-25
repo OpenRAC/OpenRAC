@@ -4,6 +4,30 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.39
+
+Paint that draws the effects a moby makes in its colour, and paint in weapon_look (OPENRAC_MOBY_MATERIAL_PAINT_EFFECTS).
+
+No new members (the table is unchanged).
+
+## 1.38
+
+An accent colour for the paint material, drawn on the model's own strongly saturated texels, a visor or lamps (OPENRAC_MOBY_MATERIAL_PAINT_ACCENT_AT).
+
+No new members (the table is unchanged).
+
+## 1.37
+
+The pads' motors driven by a mod as the game's libvib drives them, each motor the stronger of the game's and the mods' (set_motors), and an option of the port's menu greyed out or made usable by a mod, by name (menu_option_set).
+
+Members: `set_motors`, `menu_option_set`.
+
+## 1.36
+
+Sharper pictures of cells a mod paints in a texture of the 2D layer, kept apart from the built-in key prompts' (sharp_cells, openrac_sharp_page, openrac_sharp_cell).
+
+Members: `sharp_cells`.
+
 ## 1.35
 
 What OpenRAC Editor's levels need: the pack's folder, the game's language, the camera's field of view, the HUD hidden, the music's volume, any moby's joints and sounds, the picture's air, slow motion, ties hidden, animated props and a moby's spawn id.

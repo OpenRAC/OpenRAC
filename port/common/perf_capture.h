@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -95,7 +96,7 @@ private:
     };
 
     // The series of the section `path` names (its name and its parents' names), made when new.
-    int series(const std::string& path, const std::string& name, int depth, int parent);
+    int series(const std::string& path, std::string_view name, int depth, int parent);
     // The mean of a top-level section's CPU time over every measured frame.
     double mean_cpu(const char* name) const;
     double mean_game() const;  // the game's time per frame
