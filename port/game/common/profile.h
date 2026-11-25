@@ -215,6 +215,14 @@ public:
     // mode has bit 0x10 (MobyProc's glow list).
     virtual std::uint32_t moby_glow_word() const { return 0x90; }
 
+    // Returns where a moby keeps its update function's address, its pvars' address and its
+    // rotation (three floats). The debug overlay's moby inspector and the moby log read them.
+    virtual std::uint32_t moby_update() const { return 0x74; }
+
+    virtual std::uint32_t moby_pvars() const { return 0x78; }
+
+    virtual std::uint32_t moby_rotation() const { return 0x40; }
+
     // Returns the spawn id of the moby whose record starts at `moby` (its place in the level's
     // save bits, what the editor's skins.json names it by), or -1 for none or a game without them.
     virtual int moby_spawn_id(const std::uint8_t* /*moby*/) const { return -1; }
