@@ -2293,6 +2293,25 @@ static void dme_deliver(void) {
             continue;
         }
         memcpy(G(dme.buf), dme.inbox[i].data, dme.inbox[i].len);
+        if (net_log() && dme.inbox[i].len > 8 && dme.inbox[i].data[0] == 2
+            && dme.inbox[i].data[1] == 17) {
+            fprintf(
+                stderr,
+                "[info] rac3: online: slot update from client %d: %02x %02x %02x %02x %02x %02x "
+                "%02x %02x %02x %02x\n",
+                src,
+                dme.inbox[i].data[2],
+                dme.inbox[i].data[3],
+                dme.inbox[i].data[4],
+                dme.inbox[i].data[5],
+                dme.inbox[i].data[6],
+                dme.inbox[i].data[7],
+                dme.inbox[i].data[8],
+                dme.inbox[i].data[9],
+                dme.inbox[i].data[10],
+                dme.inbox[i].data[11]
+            );
+        }
         GFN(int (*)(int, int, int, int, int), RAC3_MADDR(0x0014CE48u))(
             GREF(int32_t, dme.conn + CONN_DISPATCH),
             (int)dme.conn,
