@@ -10,7 +10,8 @@ and builds of the games it does not touch, and any build for Markdown that no bu
 folder, its game's other port folders or its game's decomp change, not for shared code. Going
 Commando's PAL and USA v2.00 (PLAYED) are built whenever its USA disc is, since a change to what
 they share can break them alone (an argument their C drops crashed only there). Anything unclear
-(a workflow, this file, a failed git call) checks everything.
+(a workflow, this file, a failed git call) checks everything. A develop push checks what it
+changed (PUSH_BEFORE); the nightly run checks everything and refreshes every cache.
 Two tiers (TIERS): a pull request runs the fast tier, the checks that answer in a few minutes;
 the merge queue (merge_group) runs the full tier for the queued changes before they land, so
 nothing reaches develop without every check. The full tier adds the Windows jobs, the enhanced
@@ -111,6 +112,10 @@ LAUNCHER_READS = re.compile(r"^port/(game/[^/]+/(differences\.json|icon\.png|hos
 PAGES_READS = re.compile(r"^(games/[^/]+/game\.json|port/game/[^/]+/differences\.json"
                          r"|port/platform/bindings\.(cpp|h)|progress/summary\.json"
                          r"|sdk/include/openrac/keys\.h)$")
+# What else the launcher's build reads that a pull request still checks with it (the games'
+# descriptions, progress, the build scripts it runs); the rest of the conservative rule above is
+# left to the merge queue.
+FAST_LAUNCHER_READS = re.compile(r"^(games/[^/]+/game\.json|progress/|sdk/|Cargo\.|tools/(build_|bundle_|openrac\.py|updater_manifest\.py))")
 SHARED_SOURCES = ("port/CMakeLists.txt", "port/tests", "port/renderer", "port/runtime", "port/platform",
                   "port/scene", "port/enhanced", "port/viewer", "port/game/common")
 
@@ -149,6 +154,10 @@ def plan(paths, known, shared=frozenset(), removed=frozenset(), tier="full", rel
         result["port_parts"] = [part for part in result["port_parts"]
                                 if part not in releases or part in own]
         result["enhanced"] = False
+        # The launcher only for what its build reads by name; anything else waits for the queue.
+        result["launcher"] = paths is None or any(
+            path.startswith(("launcher/", *EVERYTHING)) or LAUNCHER_READS.match(path)
+            or FAST_LAUNCHER_READS.match(path) for path in paths)
     # Windows builds rac1-pal with the shared code, and runs the launcher's Rust tests.
     result["windows"] = full and result["port"]
     result["launcher_systems"] = (["Linux", "Windows"] if full else ["Linux"]) if result["launcher"] else []
@@ -300,21 +309,21 @@ def launcher_changed(paths, filters):
 
 def event_paths():
     """The files this run checks and its tier: a pull request's merge (fast tier), a merge queue
-    group's changes over develop (full tier), or None for everything (a push or a manual run)."""
+    group's changes over develop (full tier), a develop push's changes (full tier, PUSH_BEFORE),
+    or None for everything (another push, the nightly run or a manual run)."""
     event = os.environ.get("GITHUB_EVENT_NAME")
     if event == "pull_request":
         return changed_paths(os.environ.get("PR_BASE", "")), "fast"
     if event == "merge_group" and os.environ.get("MERGE_BASE"):
         return pushed_paths(os.environ["MERGE_BASE"]), "full"
+    if event == "push" and os.environ.get("PUSH_BEFORE"):
+        return pushed_paths(os.environ["PUSH_BEFORE"]), "full"
     return None, "full"
 
 
 if __name__ == "__main__":
     paths, tier = event_paths()
     if sys.argv[1:] == ["ios"]:
-        # PUSH_BEFORE: the branch's commit before the push.
-        if paths is None and os.environ.get("GITHUB_EVENT_NAME") == "push" and os.environ.get("PUSH_BEFORE"):
-            paths = pushed_paths(os.environ["PUSH_BEFORE"])
         result = ios_plan(paths, shared_game_dirs())
     elif sys.argv[1:] == ["launcher-changed"]:
         since = os.environ.get("SINCE")

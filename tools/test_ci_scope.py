@@ -4,6 +4,7 @@
 
 from pathlib import Path
 import subprocess
+import os
 import unittest
 from unittest.mock import patch
 
@@ -151,6 +152,14 @@ class TierTest(unittest.TestCase):
         self.assertEqual(plan(["launcher/core/src/lib.rs"], PROGRAMS)["launcher_systems"], ["Linux", "Windows"])
         self.assertEqual(self.fast(["port/renderer/frame.cpp"])["launcher_systems"], [])
 
+    def test_the_fast_tier_runs_the_launcher_only_for_what_its_build_reads(self):
+        self.assertFalse(self.fast(["games/rac3/decomp-patches/x.patch"])["launcher"])
+        self.assertFalse(self.fast(["tools/asm_part.py"])["launcher"])
+        for path in ("launcher/src/App.svelte", "games/rac3/game.json", "port/game/rac1-ntsc/differences.json",
+                     "tools/build_port.py", "progress/summary.json", ".github/workflows/checks.yml"):
+            self.assertTrue(self.fast([path])["launcher"], path)
+        self.assertTrue(plan(["tools/asm_part.py"], PROGRAMS)["launcher"])
+
     def test_a_push_runs_everything_in_the_full_tier(self):
         result = plan(None, PROGRAMS, releases=RELEASES)
         self.assertEqual(result["port_parts"], ["common", *sorted(PROGRAMS)])
@@ -163,6 +172,13 @@ class TierTest(unittest.TestCase):
 
     def test_each_event_picks_its_files_and_tier(self):
         with patch.dict("os.environ", {"GITHUB_EVENT_NAME": "push"}):
+            os.environ.pop("PUSH_BEFORE", None)
+            self.assertEqual(event_paths(), (None, "full"))
+        with patch.dict("os.environ", {"GITHUB_EVENT_NAME": "push", "PUSH_BEFORE": "old"}), patch(
+                "ci_scope.subprocess.check_output", return_value=b"port/b.cpp\0") as output:
+            self.assertEqual(event_paths(), (["port/b.cpp"], "full"))
+            self.assertIn("old", output.call_args.args[0])
+        with patch.dict("os.environ", {"GITHUB_EVENT_NAME": "schedule"}):
             self.assertEqual(event_paths(), (None, "full"))
         with patch.dict("os.environ", {"GITHUB_EVENT_NAME": "merge_group", "MERGE_BASE": "base"}), patch(
                 "ci_scope.subprocess.check_output", return_value=b"port/a.cpp\0") as output:
