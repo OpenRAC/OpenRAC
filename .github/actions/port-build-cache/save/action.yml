@@ -1,0 +1,59 @@
+# The end of a job that used ./.github/actions/port-build-cache. On a push, schedule or manual
+# run, writes each cache whose content is new: the sources and the preparation when their key
+# missed, the hostgen output when its games' input digests (gen/inputs.sha256) differ from the
+# copy it started from. An unchanged game never adds another copy of the same output.
+name: Save the port build preparation cache
+description: Save the port's dependency sources, CMake preparation and hostgen output when new
+runs:
+  using: composite
+  steps:
+    - id: plan
+      shell: bash
+      env:
+        EVENT: ${{ github.event_name }}
+      run: |
+        if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ] || [ -z "$OPENRAC_PBC_PRESET" ]; then
+          exit 0
+        fi
+        writes() { [ -n "$1" ] && [ "$2" != true ] && echo true || echo false; }
+        echo "sources=$(writes "$OPENRAC_PBC_SOURCES_KEY" "$OPENRAC_PBC_SOURCES_HIT")" >> "$GITHUB_OUTPUT"
+        echo "prep=$(writes "$OPENRAC_PBC_PREP_KEY" "$OPENRAC_PBC_PREP_HIT")" >> "$GITHUB_OUTPUT"
+        if [ -n "$OPENRAC_PBC_HOSTGEN_PREFIX" ]; then
+          digest=$(find "port/build/$OPENRAC_PBC_PRESET/games" -name inputs.sha256 -path '*/gen*' 2>/dev/null \
+                   | LC_ALL=C sort | xargs -r cat | sha256sum | cut -c1-40)
+          key="$OPENRAC_PBC_HOSTGEN_PREFIX$digest"
+          echo "hostgen output key: $key (started from: ${OPENRAC_PBC_HOSTGEN_MATCHED:-none})"
+          if [ "$key" != "$OPENRAC_PBC_HOSTGEN_MATCHED" ]; then
+            echo "hostgen=true" >> "$GITHUB_OUTPUT"
+            echo "hostgen_key=$key" >> "$GITHUB_OUTPUT"
+          fi
+        fi
+    - if: steps.plan.outputs.sources == 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      continue-on-error: true
+      with:
+        path: |
+          port/build/${{ env.OPENRAC_PBC_PRESET }}/_deps/*-src
+          !port/build/${{ env.OPENRAC_PBC_PRESET }}/_deps/openrac_compressonator-src
+        key: ${{ env.OPENRAC_PBC_SOURCES_KEY }}
+    - if: steps.plan.outputs.prep == 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      continue-on-error: true
+      with:
+        path: |
+          port/build/${{ env.OPENRAC_PBC_PRESET }}/CMakeCache.txt
+          port/build/${{ env.OPENRAC_PBC_PRESET }}/CMakeFiles/[0-9]*
+          !port/build/**/*.o
+          !port/build/**/*.obj
+          !port/build/**/*.pdb
+        key: ${{ env.OPENRAC_PBC_PREP_KEY }}
+    - if: steps.plan.outputs.hostgen == 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      continue-on-error: true
+      with:
+        path: |
+          port/build/${{ env.OPENRAC_PBC_PRESET }}/games/*/gen/**/*
+          !port/build/${{ env.OPENRAC_PBC_PRESET }}/games/*/gen/prep
+          !port/build/${{ env.OPENRAC_PBC_PRESET }}/games/*/gen/prep/**
+          !port/build/${{ env.OPENRAC_PBC_PRESET }}/games/*/gen/hostgen.stamp
+        key: ${{ steps.plan.outputs.hostgen_key }}

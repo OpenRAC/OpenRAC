@@ -5,3 +5,4 @@
 
 /* The stand-in comes first: destinations.c's own include of rac1.h is then empty. */
 #include "../game/rac1/host/destinations.c"
+#include "../game/rac1/host/flight_pictures.c"

@@ -1,21 +1,21 @@
 {
  "about": "The NTSC-U view of rac3-decomp: each PAL address name and NTSC-U's name for it, the PAL definitions NTSC-U has other code for, and the values of the names with no address of their own. Written by port/tools/hostgen/release_rac3.py from config/us/map.tsv and config/us/names.tsv; do not edit.",
  "source": {
-  "commit": "bd5ea38f75f442fe510a27b1c262cb66776e2aa2",
+  "commit": "0ed135192c8bb6c5acaaf57319d581fa5185f4fb",
   "version": "us",
   "table": "config/us/map.tsv, config/us/names.tsv"
  },
  "evidence": {
-  "function: a second row of one name (the first kept)": 18,
-  "function: asm": 62,
+  "function: a second row of one name (the first kept)": 17,
+  "function: asm": 61,
   "function: differs": 205,
-  "function: match": 4490,
+  "function: match": 4491,
   "function: none": 27,
   "global: placed by hand (release.json)": 3,
   "global: renamed to its NTSC-U address": 1689,
   "global: the front end's own address": 325,
   "global: the front end's, placed by hand (release.json)": 2,
-  "no NTSC-U place (marked)": 3362,
+  "no NTSC-U place (marked)": 3368,
   "src/us: its own name, without the mark": 1284,
   "value: a name with no address of its own": 6180,
   "value: the executable's kept over the front end's": 1
@@ -5948,6 +5948,7 @@
   "D_001D64D0": "D_PAL_001D64D0",
   "D_001D64E0": "D_PAL_001D64E0",
   "D_001D6500": "D_PAL_001D6500",
+  "D_001D6690": "D_PAL_001D6690",
   "D_001D6694": "D_PAL_001D6694",
   "D_001D66B0": "D_PAL_001D66B0",
   "D_001D66D0": "D_PAL_001D66D0",
@@ -5956,6 +5957,8 @@
   "D_001D66F0": "D_PAL_001D66F0",
   "D_001D673C": "D_PAL_001D673C",
   "D_001D6740": "D_PAL_001D6740",
+  "D_001D67A0": "D_PAL_001D67A0",
+  "D_001D67A4": "D_PAL_001D67A4",
   "D_001D67B0": "D_PAL_001D67B0",
   "D_001D67C4": "D_PAL_001D67C4",
   "D_001D67C8": "D_PAL_001D67C8",
@@ -7145,6 +7148,7 @@
   "D_001DE320": "D_PAL_001DE320",
   "D_001DE330": "D_PAL_001DE330",
   "D_001DE350": "D_PAL_001DE350",
+  "D_001DE366": "D_PAL_001DE366",
   "D_001DE380": "D_PAL_001DE380",
   "D_001DE388": "D_PAL_001DE388",
   "D_001DE390": "D_PAL_001DE390",
@@ -7179,6 +7183,7 @@
   "D_001DE5A0": "D_PAL_001DE5A0",
   "D_001DE5B0": "D_PAL_001DE5B0",
   "D_001DE5C0": "D_PAL_001DE5C0",
+  "D_001DE5C4": "D_PAL_001DE5C4",
   "D_001DE5D0": "D_PAL_001DE5D0",
   "D_001DE600": "D_PAL_001DE600",
   "D_001DE608": "D_PAL_001DE608",
@@ -7783,6 +7788,7 @@
   "D_002E9FD8": "D_PAL_002E9FD8",
   "D_002F2380": "D_PAL_002F2380",
   "D_002F3630": "D_PAL_002F3630",
+  "D_002F3D10": "D_PAL_002F3D10",
   "D_002F6CC0": "D_PAL_002F6CC0",
   "D_002F8A50": "D_PAL_002F8A50",
   "D_002F8D70": "D_PAL_002F8D70",
@@ -14763,12 +14769,6 @@
    "D_00332290": "D_0032E2D0",
    "func_00393690": "func_0038EE58"
   },
-  "nonmatching/frontbin/func_00393930.c": {
-   "func_00393690": "func_0038EE58",
-   "func_00393930": "func_0038F0F8",
-   "func_00393B58": "func_0038F310",
-   "func_003963D0": "func_00391B70"
-  },
   "nonmatching/frontbin/func_00393B58.c": {
    "D_00331990": "D_0032D9D0",
    "func_00393B58": "func_0038F310"
@@ -14979,6 +14979,7 @@
   "func_0038DE18",
   "func_0038FDF8",
   "func_003938F8",
+  "func_00393930",
   "func_00393BE8",
   "func_00393C40",
   "func_00393CD8",
@@ -15255,6 +15256,11 @@
    "src/us/boot_elf/"
   ],
   "func_003938F8": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_00393930": [
    "nonmatching/frontbin/",
    "src/frontbin/",
    "src/us/frontbin/"

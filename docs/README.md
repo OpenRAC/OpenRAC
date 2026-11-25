@@ -22,7 +22,7 @@ Where to find what. Start with the first table.
 |---|---|
 | [docs/port](port/README.md) | The port, OpenGOAL's way: the design ([DESIGN.md](port/DESIGN.md)) and the order of work ([ROADMAP.md](port/ROADMAP.md)) |
 | [port/](../port/README.md) | The code: how it fits together, building and testing it |
-| [port/docs/CODING_CONVENTIONS.md](../port/docs/CODING_CONVENTIONS.md) | How the port's C++ and C are written, and what CI checks |
+| [docs/CODING_CONVENTIONS.md](CODING_CONVENTIONS.md) | How the port's C++ and C are written, and what CI checks |
 | [port/WORKFLOW.md](port/WORKFLOW.md) | From a player's report to a fix and a release |
 | [port/BACKFILL.md](port/BACKFILL.md) | Which functions to fill in with C for the port, and the check that says they are right |
 | [port/KNOWN_ISSUES.md](port/KNOWN_ISSUES.md) | Bugs that are understood and guarded but not properly fixed yet |

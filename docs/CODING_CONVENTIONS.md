@@ -13,15 +13,15 @@ this page is the foundation that conversion builds on: one layout, one way to do
 own a resource, report an error and cross into C.
 
 Anyone who touches the port follows this page: people, and any agent. It builds on
-[CONTRIBUTING.md](../../CONTRIBUTING.md), the
-[port README](../README.md) and the port's design ([DESIGN.md](../../docs/port/DESIGN.md)), and none
+[CONTRIBUTING.md](../CONTRIBUTING.md), the
+[port README](../port/README.md) and the port's design ([DESIGN.md](port/DESIGN.md)), and none
 of them is loosened here. After a context compaction, read this page again from the top instead of
 working from a summary of it.
 
 It started from the C++ conventions of the removed `runtime/` experiment
 (`git show 7954152:runtime/docs/CODING_CONVENTIONS.md`). Its layout, comment, documentation and
 project rules carry over, adapted to the port. Its rules about modelling the console's hardware do
-not ([DESIGN.md](../../docs/port/DESIGN.md), section 5): the port does not model hardware.
+not ([DESIGN.md](port/DESIGN.md), section 5): the port does not model hardware.
 
 Every rule below can be counted. If you cannot count your own compliance against your diff, you
 have not complied. The list at the end ([section 25](#25-self-check-before-you-report-done)) is the
@@ -52,7 +52,7 @@ count.
 19. [Build](#19-build)
 20. [Tests](#20-tests)
 21. [Performance-sensitive code](#21-performance-sensitive-code)
-22. [Reuse](#22-reuse)
+22. [Reuse and design](#22-reuse-and-design)
 23. [The project's constraints](#23-the-projects-constraints)
 24. [Migrating existing code](#24-migrating-existing-code)
 25. [Self-check before you report done](#25-self-check-before-you-report-done)
@@ -67,11 +67,11 @@ count.
 |---|---|---|
 | The port's C++ | every `.cpp`, `.mm` and C++ `.h` under `port/` | every rule on this page |
 | The port's own C | the C contracts (`port/runtime/include/openrac/`, `port/game/common/include/openrac/`), `port/game/common/lib/*.c`, `port/game/*/host/*.c`, `port/tests/*.c`, `port/android/compat/` | sections 5, 6, 7, 8 (C names), 14, 15, 23: layout, comments, documentation, the C boundary, per-game tables, licence lines. Not the C++-only rules |
-| A game's hand C | `port/game/*/hand/` | not this page: it is the game's C on its way into `games/` ([LAYOUT.md](../../docs/LAYOUT.md)) and keeps the decompilation's style |
+| A game's hand C | `port/game/*/hand/` | not this page: it is the game's C on its way into `games/` ([LAYOUT.md](LAYOUT.md)) and keeps the decompilation's style |
 | Generated C | hostgen's output in build trees, `port/game/rac1/script_binding.c` | not this page: change the generator, never the output |
 | The decompilations | `games/` | never edited from port work |
 | Python | `port/tools/` | the repository's Python habits: licence lines (23.1), a module docstring with the usage, `unittest` tests beside the tool |
-| The mod SDK | `sdk/include/` | its own rules ([MODS.md](../../docs/port/MODS.md)): `openrac_mod.h` is a C ABI, `mod.hpp` a C++17 layer compiled into mods |
+| The mod SDK | `sdk/include/` | its own rules ([MODS.md](port/MODS.md)): `openrac_mod.h` is a C ABI, `mod.hpp` a C++17 layer compiled into mods |
 
 In C, `static` is how a file-local function is spelled, and the comment forms are C's (6.1). The
 rest of the C rules are the same as for C++.
@@ -85,14 +85,14 @@ rest of the C rules are the same as for C++.
 | A migration ([section 24](#24-migrating-existing-code)): `static` to an anonymous namespace, a file-global `g` to a state object, `getenv` to `common/env.h`, `printf` to the log, `extern "C"` into its contract file | Only as a commit of its own, or as the package that owns it, one module at a time. Never as a sweep over the tree. |
 | A formatting pass over existing code | Layout and comments only, with the proof of [section 24.3](#243-proving-that-a-pass-changed-nothing). |
 
-Commit types follow [CONTRIBUTING.md](../../CONTRIBUTING.md#commits): `style(port)` for layout
+Commit types follow [CONTRIBUTING.md](../CONTRIBUTING.md#commits): `style(port)` for layout
 alone, `docs(port)` for comments alone, `refactor(port)` for renames and moves. A commit never mixes
 layout or comments with a change of behaviour.
 
 ### 1.3 What exists today and what is arriving
 
 Some rules name a header or a tool that a later package of the restructure writes
-([docs/restructure/PROGRESS.md](../../docs/restructure/PROGRESS.md)). Until it lands, the rule says
+([docs/restructure/PROGRESS.md](restructure/PROGRESS.md)). Until it lands, the rule says
 what to do instead.
 
 | Rule | Arriving with | Until then |
@@ -101,7 +101,7 @@ what to do instead.
 | The C-boundary wrapper that catches everything (13.4) | landed with P2-08: `c_boundary::call` in `common/c_boundary.h` | use it |
 | `common/env.h`, the table of `OPENRAC_*` variables (16) | landed with P1-03; its C entry point, `openrac/host_env.h`, with P2-19 | use it |
 | `host::GameProfile`, one per game version (15) | P2-03 (rac1), P3-02 (all) | per-game knowledge in `port/game/<id>/`; nothing new in shared code |
-| The `scene` module and `renderer/ui` (9.1) | `scene/` landed with P2-02: `openrac_scene`, and `openrac_scene_renderer` as its one exception to 9.1 ([scene/README.md](../scene/README.md)), in the namespace `openrac::scene`; `renderer/ui` landed with P2-06 | new scene code in `scene/`, overlay drawing in `renderer/ui` |
+| The `scene` module and `renderer/ui` (9.1) | `scene/` landed with P2-02: `openrac_scene`, and `openrac_scene_renderer` as its one exception to 9.1 ([scene/README.md](../port/scene/README.md)), in the namespace `openrac::scene`; `renderer/ui` landed with P2-06 | new scene code in `scene/`, overlay drawing in `renderer/ui` |
 
 ---
 
@@ -109,12 +109,13 @@ what to do instead.
 
 | Tool | What it checks | Where it runs | Fails the build or CI |
 |---|---|---|---|
-| clang-format, [`port/.clang-format`](../.clang-format) | layout (section 5) | your editor; CI on new files and changed lines | new C++ files and changed lines: yes (24.4) |
-| [`tools/cpp_style.py`](../../tools/cpp_style.py) | clang-format, then the blank lines around control blocks (5.4); with `--comments`, the control blocks with no comment above them (6.2) | you, on the files you touch; CI ("Port conventions"), report only | no: reported, not failing yet (5.6) |
-| [`tools/conventions/check_conventions.py`](../tools/conventions/README.md) | licence lines, tabs, dashes, issue or pull request numbers (6.7), `std::jthread` (11.6.7), and `getenv` of an `OPENRAC_*` variable outside `common/env.cpp` and `runtime/host_env.cpp` (16), everywhere; on new C++ files: `static` at namespace scope, raw `new`/`delete`/`malloc`/`free`, `using namespace` in headers, `extern "C"` outside contract files, console output outside tests and `main` | CI ("Port conventions"), and you before you commit | yes |
-| clang-tidy, [`port/.clang-tidy`](../.clang-tidy) | naming, ownership, function size, `else` after `return`, missing `override`, nested ternaries, `goto` | you, on the C++ files you touch (it needs a configured build) | not in CI; new code has zero findings |
+| clang-format, [`port/.clang-format`](../port/.clang-format) | layout (section 5) | your editor; CI on new files and changed lines | new C++ files and changed lines: yes (24.4) |
+| [`tools/cpp_style.py`](../tools/cpp_style.py) | clang-format, then the blank lines around control blocks (5.4); with `--comments`, the control blocks with no comment above them (6.2) | you, on the files you touch; CI ("Port conventions"), report only | no: reported, not failing yet (5.6) |
+| [`tools/conventions/check_conventions.py`](../port/tools/conventions/README.md) | licence lines, tabs, dashes, issue or pull request numbers (6.7), `std::jthread` (11.6.7), and `getenv` of an `OPENRAC_*` variable outside `common/env.cpp` and `runtime/host_env.cpp` (16), everywhere; on new C++ files: `static` at namespace scope, raw `new`/`delete`/`malloc`/`free`, `using namespace` in headers, `extern "C"` outside contract files, console output outside tests and `main` | CI ("Port conventions"), and you before you commit | yes |
+| clang-tidy, [`port/.clang-tidy`](../port/.clang-tidy) | naming, ownership, function size, `else` after `return`, missing `override`, nested ternaries, `goto` | you, on the C++ files you touch (it needs a configured build) | not in CI; new code has zero findings |
 | The compiler, `openrac_warnings` (`port/cmake/Warnings.cmake`) | `-Wall -Wextra -Wshadow`, and for C++ `-Wpedantic -Wconversion` | every build | no new warning is accepted in review |
-| [`tools/layering/layering.py`](../tools/layering/README.md) | includes against the layers and allowed edges of section 18; today's violations are listed exceptions | CI ("Port layering"), and you before you commit | yes: it exits 1 on a new violation |
+| [`tools/dup_check.py`](../tools/dup_check.py) | repeated code: a run of 60 or more tokens found twice in the C and C++ under `port/` and `sdk/`, outside tests; today's copies are the baseline (22.6) | you, before you commit; CI ("Port conventions"), report only | no: reported, not failing yet |
+| [`tools/layering/layering.py`](../port/tools/layering/README.md) | includes against the layers and allowed edges of section 18; today's violations are listed exceptions | CI ("Port layering"), and you before you commit | yes: it exits 1 on a new violation |
 | ctest, the Python tests | behaviour | every build, CI | yes |
 
 clang-format is version 21. CI installs 21.1.8 from PyPI (`pip install clang-format==21.1.8`); on
@@ -135,6 +136,9 @@ python3 tools/cpp_style.py port/renderer/textures/texture.cpp
 
 # The countable rules, on every file and on what you added since master.
 python3 port/tools/conventions/check_conventions.py --since origin/master --touched
+
+# Repeated code: copies not in the baseline (section 22.6).
+python3 tools/dup_check.py
 
 # The layering: no include of a higher layer (prints nothing but its summary when clean).
 python3 port/tools/layering/layering.py
@@ -204,7 +208,7 @@ CI builds Linux and Windows, and `--preset android-arm64` builds Android. `std::
 
 The port's C is C11 with GNU extensions (`CMAKE_C_EXTENSIONS ON`): the guest contract uses statement
 expressions and `cleanup`. Clang builds all of it, `clang-cl` on Windows; MSVC's own compiler cannot
-([port/CMakeLists.txt](../CMakeLists.txt)).
+([port/CMakeLists.txt](../port/CMakeLists.txt)).
 
 ### 4.3 Compiler extensions and attributes
 
@@ -225,7 +229,7 @@ The port builds on Linux, macOS, Windows and Android, 64-bit only. A POSIX-only 
 The standard library first. A third-party library (SDL3, Vulkan, Luau, Dear ImGui, Embree) is
 included only by the module that wraps it (section 18), and the rest of the port uses that
 module's interface. A new dependency is fetched by a file in `port/cmake/`, pinned, and credited in
-[THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md) with its licence.
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) with its licence.
 
 ---
 
@@ -235,7 +239,7 @@ Names, numbers and facts in the samples on this page are made up to show the for
 statements about the game.
 
 All of this section is what the tool does. It is written down so that you can predict the tool and
-write code that needs no fixing. When [`.clang-format`](../.clang-format) and this page disagree
+write code that needs no fixing. When [`.clang-format`](../port/.clang-format) and this page disagree
 about layout, the file wins and this page gets fixed.
 
 ### 5.1 The choices
@@ -346,14 +350,14 @@ python3 tools/cpp_style.py --comments PATH  # control blocks with no comment abo
 python3 tools/cpp_style.py --trees          # the folders it covers
 ```
 
-It runs clang-format with [`port/.clang-format`](../.clang-format), then adds the blank lines of
+It runs clang-format with [`port/.clang-format`](../port/.clang-format), then adds the blank lines of
 5.4. It covers the C++ under `port/` and `sdk/`: `.cpp`, `.cc`, `.hpp`, `.inl` and `.h`. It never
 touches `games/`, a game's hand C, generated files, `.c` and `.mm` files (left to clang-format
 itself), or a region fenced with `// clang-format off` (5.5). It never rewraps or rewrites a
 comment. CI runs it as a report on every push and pull request; it does not fail the build yet
 (24.4). `--comments` lists what 6.2 asks for and never fails.
 
-[`port/media/`](../media/) is the worked example: it has been through the tool and carries the file
+[`port/media/`](../port/media/) is the worked example: it has been through the tool and carries the file
 comments, doc comments, banners and control-block comments this page asks for. When a rule here is
 unclear, read how it looks there.
 
@@ -521,8 +525,8 @@ One blank line before and after. One to five words. No rulers, no nesting.
 - Code that is switched off.
 - `FIXME`, `XXX`, `HACK`, or a `TODO` that does not say what is to be done and why it is not done
   yet. A `TODO` that does say both is allowed, and the work is also recorded where people look for
-  it: a known problem in [KNOWN_ISSUES.md](../../docs/port/KNOWN_ISSUES.md), restructure work in
-  [PROGRESS.md](../../docs/restructure/PROGRESS.md), the rest as an issue.
+  it: a known problem in [KNOWN_ISSUES.md](port/KNOWN_ISSUES.md), restructure work in
+  [PROGRESS.md](restructure/PROGRESS.md), the rest as an issue.
 - A date, a version, an author's name or initials, an issue number. Git knows.
 - Anything from Sony's SDK source, samples or headers, from leaked or NDA material, or any bytes of
   a retail disc.
@@ -676,12 +680,12 @@ sweep. A new module starts with all of them.
 
 ### 7.8 Documentation outside the code
 
-- A design, a study or a decision: `docs/port/` ([its README](../../docs/port/README.md)).
+- A design, a study or a decision: `docs/port/` ([its README](port/README.md)).
 - A new or moved module: its row in the port README's "What is here", and
-  [docs/LAYOUT.md](../../docs/LAYOUT.md) when the tree's shape changes.
-- A new `OPENRAC_*` variable: [DEBUGGING.md](../../docs/port/DEBUGGING.md) (section 16).
-- A known problem that is guarded but not fixed: [KNOWN_ISSUES.md](../../docs/port/KNOWN_ISSUES.md).
-- Restructure work: its row in [PROGRESS.md](../../docs/restructure/PROGRESS.md).
+  [docs/LAYOUT.md](LAYOUT.md) when the tree's shape changes.
+- A new `OPENRAC_*` variable: [DEBUGGING.md](port/DEBUGGING.md) (section 16).
+- A known problem that is guarded but not fixed: [KNOWN_ISSUES.md](port/KNOWN_ISSUES.md).
+- Restructure work: its row in [PROGRESS.md](restructure/PROGRESS.md).
 
 A change that makes a doc wrong fixes the doc in the same commit series.
 
@@ -1184,7 +1188,7 @@ They stay C.
 | `game_lib.h` | `port/game/common/include/openrac/` | the library replacements the games call (`libraries.tsv` binds them) |
 | `script_binding.h` | `port/game/common/include/openrac/` | a game's binding for script mods |
 | `sound_engine.h` | `port/game/common/include/openrac/` | the sound engine the games' C drives |
-| `openrac_mod.h` | `sdk/include/openrac/` | the mod C ABI ([MODS.md](../../docs/port/MODS.md)) |
+| `openrac_mod.h` | `sdk/include/openrac/` | the mod C ABI ([MODS.md](port/MODS.md)) |
 
 `memory.h` and `elf.h`, in the same directory as the runtime's contracts, are C++ headers of the
 runtime (`namespace openrac::runtime`), not contracts: the rules of this section do not apply to
@@ -1239,7 +1243,7 @@ profile; new code adds no game branch or address to shared code.
 
 - An `OPENRAC_*` environment variable is read only through `common/env.h`: one table of name, type,
   default and one-line description, which a test checks against
-  [DEBUGGING.md](../../docs/port/DEBUGGING.md). C, which cannot include it (14.3), reads the same
+  [DEBUGGING.md](port/DEBUGGING.md). C, which cannot include it (14.3), reads the same
   table only through the contract `openrac/host_env.h` (`openrac_env_string`, the raw value, which
   each C site tests as its old read did). A variable C reads is a row of the table like any other,
   not an exception.
@@ -1260,7 +1264,7 @@ profile; new code adds no game branch or address to shared code.
 
 ### 17.1 One log
 
-Diagnostics go through [`common/log.h`](../common/log.h): `log::debug`, `log::verbose`,
+Diagnostics go through [`common/log.h`](../port/common/log.h): `log::debug`, `log::verbose`,
 `log::info`, `log::warn`, `log::error` take a `std::format` string checked by the compiler;
 `log::fatal` ends the program (13.5). A line that would come every frame goes through `log::Capped`.
 
@@ -1309,7 +1313,7 @@ common  <  runtime  <  platform, assets, audio, media  <  renderer (gl, vulkan)
 - A third-party library belongs to one module (4.5): SDL3 to `platform` (and the program), the
   graphics APIs to `renderer`, Luau to the host's script mods.
 
-The layering checker ([`port/tools/layering/`](../tools/layering/README.md)) reads every include,
+The layering checker ([`port/tools/layering/`](../port/tools/layering/README.md)) reads every include,
 fails on an edge the diagram does not allow, and lists today's violations as known exceptions to be
 removed, not added to. Its `rules.tsv` holds the modules, the layers and the edges allowed within a
 layer.
@@ -1324,7 +1328,7 @@ layer.
 - Every target the port compiles calls `openrac_warnings(<target>)`.
 - Compile options are set per whole target, never per file.
 - Tests are registered through one helper, `openrac_add_test` for C++ and `openrac_add_c_test` for
-  C ([cmake/Tests.cmake](../cmake/Tests.cmake), which documents their arguments). A test target is
+  C ([cmake/Tests.cmake](../port/cmake/Tests.cmake), which documents their arguments). A test target is
   `<subject>_test` and the ctest name is `<subject>`. A C test names the game C's options it needs
   (`NO_STRICT_ALIASING`, `WRAPV`, `NO_FP_CONTRACT`, `MATH`) rather than spelling the flags.
 - A new module brings its README (7.7), its row in the port README's "What is here" and its edges
@@ -1336,7 +1340,7 @@ layer.
 
 ### 20.1 The framework
 
-[`tests/check.h`](../tests/check.h) is the framework: `CHECK(condition)` records a failure and goes
+[`tests/check.h`](../port/tests/check.h) is the framework: `CHECK(condition)` records a failure and goes
 on, and `main` returns `openrac::test::result()`. Do not add another framework; extend this one in a
 commit of its own.
 
@@ -1364,7 +1368,7 @@ so (24.2).
 
 Game code, data or bytes; a path to a disc image or to the player's files; a dependence on the clock,
 the number of cores or the order of threads. A check that needs the player's data is a tool, or part
-of the regression run ([REGRESSION.md](../../docs/port/REGRESSION.md)), which the maintainers run.
+of the regression run ([REGRESSION.md](port/REGRESSION.md)), which the maintainers run.
 
 ---
 
@@ -1385,34 +1389,97 @@ measurement in their comment; "faster" without a number is not a reason.
 
 ---
 
-## 22. Reuse
+## 22. Reuse and design
+
+The port runs three games on one engine. Most of what they do is the same behaviour with different
+data, so the code is shaped as shared types that each game fills in, not as copies that drift.
+
+### 22.1 Reuse
 
 - **Search before you write.** Before adding a helper, a constant or a reader, search for it by what
   it does. Look first in `common/`, the module you are in, and its neighbours.
 - **The rule of two.** The second copy of a piece of logic moves both into one place. Two copies are
-  where a fix lands on one and not the other.
+  where a fix lands on one and not the other. This holds across games: rac1, rac2 and rac3 doing the
+  same thing in three files is three copies.
 - **No abstraction without two users.** A new interface, base class or template is written when its
-  second user exists, not before.
+  second user exists, not before. Two games that need the same behaviour are two users.
 - **Put the logic where the data is.** A function that reaches through three members of another
   object belongs to that object.
 - **Use what is already resolved.** A value computed earlier is used, not worked out again; a number
   in two places is one constant.
 
+### 22.2 One type, one responsibility
+
+- A class owns one subject: its data and the operations that keep that data valid. If its doc
+  comment (7.3) needs "and" to say what it is for, it is two classes.
+- Data and the functions that change it live together. A free function that takes a struct and
+  changes its fields is a member function of that struct's class, unless it belongs to a C contract
+  (section 14).
+- Invariants are private. A field that has to stay in step with another is reached through member
+  functions, never assigned from outside.
+- A class exposes what its callers need, named for what they want done (`hud.show_ammo(count)`), not
+  its internals (`hud.panels()[3].text = ...`).
+
+### 22.3 Interfaces and polymorphism
+
+- Behaviour that varies is an interface: an abstract class with pure virtual functions, a virtual
+  (or protected) destructor (11.5) and no data. Callers hold the interface, never the concrete type.
+- Variation fixed at build time, or on a hot path (section 21), is a template or a concept instead of
+  a virtual call. A `switch` on a kind repeated in two functions is a missing interface.
+- An implementation is chosen once, where the program is put together (the game's profile, a
+  factory, `main`), and passed by reference to what uses it (11.4). Nothing below that point asks
+  which implementation it has.
+- An override keeps the base's contract: same preconditions or looser, same results or stronger. A
+  subclass that has to refuse part of its base's interface is not that base.
+
+### 22.4 Composition before inheritance
+
+- A type gets a capability by holding an object that provides it, not by inheriting from a class
+  that happens to have it. Inheritance is for "is a", when the subclass can stand in everywhere for
+  its base (22.3).
+- Inheritance is one level deep below an interface where it can be: interface, then
+  implementations. A base class with code shared by its children is allowed when the children
+  share most of it; when they share a little, the shared part is a member they each hold.
+- No inheritance for reuse of a few helpers: those are free functions in the module, or a small
+  class the users hold.
+
+### 22.5 One behaviour across the games
+
+- Behaviour two or more games share (a HUD panel, a vendor screen, a weapon's upgrade path, a
+  loading screen, a moby's interpolation) is one type in shared code. What differs per game comes
+  from that game's profile or tables (section 15): data first, and an interface the game implements
+  only where data cannot say it.
+- A game's directory (`port/game/<game>/`) holds that game's data, its implementations of shared
+  interfaces, and the code only that game has. It never holds a modified copy of shared code.
+- When a fix is needed in one game's copy of behaviour the others also have, the fix is to merge the
+  copies first (22.1), then fix the one place.
+
+### 22.6 Duplicates the machines find
+
+[`tools/dup_check.py`](../tools/dup_check.py) lists repeated stretches of C and C++ under `port/` and
+`sdk/`: at least 60 tokens in a row that are the same once comments are removed and every number and
+string is set aside (names count, so the same function pasted into two games' folders is found).
+The copies that existed when it arrived are listed in
+[`tools/dup_check_baseline.tsv`](../tools/dup_check_baseline.tsv); it reports only new ones. A
+new copy is merged (22.1) before review, or, when two pieces of code look alike by accident (two
+tables, two unrelated parsers of the same format), added to the baseline with the reason in the
+same commit.
+
 ---
 
 ## 23. The project's constraints
 
-These come from [CONTRIBUTING.md](../../CONTRIBUTING.md), [SOURCING.md](../../docs/policy/SOURCING.md) and the
-[port README](../README.md), gathered so that a review can check them in one place.
+These come from [CONTRIBUTING.md](../CONTRIBUTING.md), [SOURCING.md](policy/SOURCING.md) and the
+[port README](../port/README.md), gathered so that a review can check them in one place.
 
 1. **Licence lines.** A C++ file starts with `// SPDX-License-Identifier: GPL-3.0-or-later` and
    `// Copyright (c) 2026 the OpenRAC contributors`. A C file has the same two lines in its comment
    form (`/* SPDX-License-Identifier: GPL-3.0-or-later` then ` * Copyright ...`). Code adapted from
    a permissively licensed project keeps its licence's identifier, says so in the file comment, and
-   is credited in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md). A Python file of
+   is credited in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). A Python file of
    `port/tools/` has the same two lines as `#` comments, after its `#!` line when it has one. The
    editor's files, Python included, carry no licence lines: the editor's own MIT
-   [LICENSE](../../extractor/LICENSE) covers them ([extractor/README.md](../../extractor/README.md)).
+   [LICENSE](../extractor/LICENSE) covers them ([extractor/README.md](../extractor/README.md)).
 2. **No game content.** No game code, data or bytes in a source, a test, a log or a comment. A tool
    that reads a game file prints counts, never the content.
 3. **No Sony SDK.** Nothing written from Sony's SDK source, samples or headers, or from leaked or NDA
@@ -1472,7 +1539,7 @@ done
 No `DIFFERENT` line means the compiler saw the same program. A refactor that moves code changes
 objects; it proves itself instead with ctest, hostgen's generated C unchanged (the hashes of the
 `gen/*.c` files before and after), and, for the host program, the regression comparison the
-maintainers run ([REGRESSION.md](../../docs/port/REGRESSION.md)).
+maintainers run ([REGRESSION.md](port/REGRESSION.md)).
 
 ### 24.4 Changed lines
 
@@ -1532,7 +1599,9 @@ line reads yes.
 23. Functions of 60 lines, five parameters and three nested levels at most, or a `Hot path:` line?
 24. Guard clauses first, no `else` after `return`, no nested ternary, no `goto`, every `switch` as in
     12.8?
-25. Did you search for an existing helper before writing one? Does any logic appear twice?
+25. Did you search for an existing helper before writing one? Does any logic appear twice, in this
+    game or another (`tools/dup_check.py` lists nothing new)? Does each new class have one
+    responsibility, and does behaviour that varies go through an interface or a profile (22)?
 
 **Tests and proof**
 
