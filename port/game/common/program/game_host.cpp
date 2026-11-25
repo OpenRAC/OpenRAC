@@ -41,6 +41,7 @@
 #include "mods.h"
 #include "openrac/guest.h"
 #include "openrac/memory.h"
+#include "openrac/picture.h"
 #include "program/program.h"
 
 #ifdef OPENRAC_FRONTEND
@@ -264,7 +265,11 @@ void openrac_game_dma_send(gaddr channel, gaddr tag) {
         // the frame ends here, with the vertical blank's handlers, as if the hardware had done it.
         if (channel == 0x10009000u) {
             if (!g_vsync_since_kick) {
+                // Unless the game said its picture spans its sends: then the blank's work runs for
+                // the game, and the window draws the picture's lists at the blank it waits for.
+                g_send_within_picture = g_picture_lists.send_within(g_chain);
                 openrac_game_vsync();
+                g_send_within_picture = false;
                 openrac_game_run_vsync_handlers();
                 openrac_game_tick_boundary();
             }
@@ -277,6 +282,10 @@ void openrac_game_dma_send(gaddr channel, gaddr tag) {
 
         log::debug("frame {}: DMA chain at {:#010x} to channel {:#010x}", g_frame, tag, channel);
     });
+}
+
+void openrac_game_picture_spans_sends(void) {
+    c_boundary::call("openrac_game_picture_spans_sends", [] { g_picture_lists.span_sends(); });
 }
 
 void openrac_game_set_display(const openrac_game_display* d) {

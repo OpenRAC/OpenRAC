@@ -1377,6 +1377,57 @@ void test_prepared_view_effect_is_not_replayed_on_composite() {
     }
 }
 
+// Split screen: each view's picture is drawn where the commands reach that view's World, after
+// what came before it (the game's clear of its viewport) and before what follows (its HUD), once a
+// frame; a view with no picture draws nothing there, and the whole screen's commands are no view's.
+void test_view_pictures_at_their_worlds() {
+    FrameRecorder recorder;
+    FrameCommand world;
+    world.op = FrameOp::World;
+    world.index = 2;
+    FrameCommand fill;
+    fill.op = FrameOp::Fill;
+    fill.whole = true;
+    fill.rgba = 0x80326440u;
+    recorder.view_begin(0, {0, 0, 341, 224});
+    recorder.push(fill);  // The view's clear: under its picture.
+    recorder.push(world);
+    recorder.push(world);  // A second pass of the same world draws the picture no second time.
+    recorder.view_begin(1, {170, 224, 512, 448});
+    recorder.push(world);
+    recorder.view_begin(2, {0, 0, 1, 1});
+    recorder.push(world);  // No picture for this view.
+    recorder.view_end();
+    recorder.push(fill);  // The 2D over both.
+    FrameRecording recording = recorder.open();
+    std::vector<FrameSplice> splices;
+    for (std::uint32_t n = 0; n < recording.commands.size(); ++n) {
+        splices.push_back({0, n});
+    }
+    TexturePool textures;
+    GifInterpreter gif(textures);
+    gif.set_view_pictures({11u, 22u, 0u, 0u});
+    gif.set_commands(&recording, splices, 0);
+    gif.finish_commands();
+    const auto& draws = gif.draws();
+    CHECK(draws.size() == 4);
+    if (draws.size() == 4) {
+        CHECK(draws[0].state.view_picture == 0 && !draws[0].state.textured);
+        CHECK(draws[1].state.view_picture == 11u && draws[1].state.textured && draws[1].count == 6);
+        CHECK(draws[2].state.view_picture == 22u && draws[2].count == 6);
+        CHECK(draws[3].state.view_picture == 0);
+        // View 0's corners: the top left two thirds of the width, the top half.
+        const auto& v = gif.vertices();
+        if (v.size() >= draws[1].first + 6u) {
+            const DirectVertex& a = v[draws[1].first];
+            const DirectVertex& b = v[draws[1].first + 4u];
+            CHECK(near(a.x, -1.0f) && near(a.y, 1.0f));
+            CHECK(near(b.x, 341.0f / 512.0f * 2.0f - 1.0f) && near(b.y, 0.0f));
+            CHECK(near(a.t, 1.0f));  // A picture's first row is at the bottom.
+        }
+    }
+}
+
 // A depth rectangle (openrac_frame_fill_depth, the letterbox bars) after a residual draw at the same
 // 24-bit depth takes that draw's depth exactly, tests greater-or-equal and writes it, as the bars'
 // packet did; one at the 2D frames' lower depth lies behind it. A plain fill still neither tests nor
@@ -1474,6 +1525,7 @@ int main() {
     test_empty_recorded_scissors();
     recorded_native_hud_placement();
     test_prepared_view_effect_is_not_replayed_on_composite();
+    test_view_pictures_at_their_worlds();
     recorded_depth_fill_takes_the_residual_depth();
     return openrac::test::result();
 }
