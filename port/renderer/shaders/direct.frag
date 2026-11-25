@@ -15,6 +15,11 @@ in vec3 v_world;
 #endif
 
 uniform sampler2D tex_T0;
+#ifdef OPENRAC_EFFECT_PAIR
+// Effect quads that take turns with two textures are one draw: v_pair picks the second one.
+flat in float v_pair;
+uniform sampler2D tex_T2;
+#endif
 #ifndef OPENRAC_EFFECT_FIXED
 uniform sampler2D tex_T1;      // with distance_field: R the glyphs' opacity, A the distance to their edge
 #endif
@@ -68,7 +73,12 @@ void main() {
 #endif
     {
         // S/Q, T/Q per pixel, as the chip divides.
-#ifdef OPENRAC_UPSCALED_TEXTURE_COLOURS
+#if defined(OPENRAC_EFFECT_PAIR)
+        // v_pair is flat, the same over a whole triangle, so the derivatives stay valid.
+        vec4 t = (v_pair > 0.5 ? texture(tex_T2, v_stq.xy / v_stq.z)
+                               : sample_upscaled_texture_colours(v_stq.xy / v_stq.z))
+                 * 255.0;
+#elif defined(OPENRAC_UPSCALED_TEXTURE_COLOURS)
         vec4 t = sample_upscaled_texture_colours(v_stq.xy / v_stq.z) * 255.0;
 #else
         vec4 t = texture(tex_T0, v_stq.xy / v_stq.z) * 255.0;

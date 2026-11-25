@@ -10,8 +10,8 @@ name: checks
 # Two tiers (tools/ci_scope.py). A pull request runs the fast tier: the checks that answer in
 # minutes. The merge queue (merge_group) runs the full tier on the queued changes before they
 # land: the fast tier again plus Windows, the enhanced Vulkan build and tests, and the carried
-# releases. A push runs everything; on develop it is also the only run that writes the caches
-# (.github/actions/*/save), so it is never cancelled.
+# releases. A develop push runs the full tier for what it changed, the nightly run everything;
+# they are the only runs that write the caches (.github/actions/*/save), so they are never cancelled.
 on:
   push:
     branches: [master, develop]
@@ -19,6 +19,9 @@ on:
     # ready_for_review: a draft skips the port's builds (scope below), so they run when it is ready.
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
+  # Every night on develop: everything, so each game's caches stay warm even when no push built it.
+  schedule:
+    - cron: "41 1 * * *"
   workflow_dispatch:
 
 permissions:
@@ -78,15 +81,23 @@ jobs:
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           MERGE_BASE: ${{ github.event.merge_group.base_sha }}
+          BEFORE: ${{ github.event.before }}
         run: |
-          # The base branch's policy, so that a change to the gate gets full checks. A push or a
-          # manual run gives every output (the defaults above).
+          # The base branch's policy, so that a change to the gate gets full checks. A develop
+          # push checks what it changed (it landed through the queue, which checked all of it);
+          # any other push, the nightly run or a manual run gives every output (the defaults).
           script="$RUNNER_TEMP/openrac-ci-scope.py"
           case "$GITHUB_EVENT_NAME" in
             pull_request) git show HEAD^1:tools/ci_scope.py > "$script" || exit 0 ;;
             merge_group)
               git fetch -q --no-tags --depth=1 origin "$MERGE_BASE" || exit 0
               git show "$MERGE_BASE:tools/ci_scope.py" > "$script" || exit 0 ;;
+            push)
+              [ "$GITHUB_REF" = refs/heads/develop ] && [ -n "$BEFORE" ] || exit 0
+              [ "$BEFORE" != 0000000000000000000000000000000000000000 ] || exit 0
+              git fetch -q --no-tags --depth=1 origin "$BEFORE" || exit 0
+              script=tools/ci_scope.py
+              export PUSH_BEFORE="$BEFORE" ;;
             *) exit 0 ;;
           esac
           python3 "$script"
@@ -525,7 +536,9 @@ jobs:
             ctest --preset release --parallel 2 --stop-on-failure --no-tests=error -L "^game-$PART\$"
           fi
 
-      - uses: ./.github/actions/compiler-cache/save
+      # What compiled before a failure still saves the next run the time.
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save
 
   # One check for every part (what branch protection requires).
@@ -632,7 +645,9 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - uses: ./.github/actions/compiler-cache/save
+      # What compiled before a failure still saves the next run the time.
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save
 
   # One check for the build and its tests (what branch protection requires).
@@ -700,5 +715,7 @@ jobs:
       - name: hostgen's tests
         run: python -m unittest discover -s port/tools/hostgen -v
 
-      - uses: ./.github/actions/compiler-cache/save
+      # What compiled before a failure still saves the next run the time.
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save
