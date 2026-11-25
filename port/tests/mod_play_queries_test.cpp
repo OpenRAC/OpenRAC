@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
 #include <stdexcept>
 
 #include "../game/common/mod_play_queries.h"

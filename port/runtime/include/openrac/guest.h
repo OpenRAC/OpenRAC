@@ -619,8 +619,9 @@ static inline void openrac_qzero(gaddr p) {
 }
 
 /* Native gameplay query points (mod interface 1.40); no registered mod means original. */
-int32_t openrac_mod_play_query(uint32_t kind, uint32_t subject, int32_t index,
-                             int32_t original, int32_t alternate);
+int32_t openrac_mod_play_query(
+    uint32_t kind, uint32_t subject, int32_t index, int32_t original, int32_t alternate
+);
 
 #ifdef __cplusplus
 }

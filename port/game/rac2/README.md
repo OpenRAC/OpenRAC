@@ -136,3 +136,12 @@ USA v1.01/PAL mappings use the pinned decompilation metadata and local disc
 comparison. USA v2.00 mappings were supplied during review and checked against
 the pinned us2 catalogue. Game-function bodies, assets and randomizer gameplay
 overrides are not part of these hook declarations.
+
+## Gameplay decision queries
+
+The proposed SDK 1.40 adds synchronous, unload-safe decision queries to twenty
+native source locations on all three discs. Unowned queries preserve the original
+game values. Source hashes and edit counts in `play_queries.json` are checked at
+build time; the decompilation remains untouched. See the
+[API contract](../../../sdk/docs/gameplay-queries.md) for ownership, contexts and
+fallback behavior. Mod settings, activation and seed state belong to the mod.

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
 // The games' menu-page ABI remains linkable in a build with no windowed frontend.
 // There are no rendered mod pages in that build, so it exposes an empty provider.
 #ifndef OPENRAC_FRONTEND
