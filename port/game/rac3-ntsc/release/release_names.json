@@ -13,7 +13,8 @@
   "function: none": 27,
   "global: placed by hand (release.json)": 3,
   "global: renamed to its NTSC-U address": 1689,
-  "global: the front end's own address": 323,
+  "global: the front end's own address": 325,
+  "global: the front end's, placed by hand (release.json)": 2,
   "no NTSC-U place (marked)": 3359,
   "src/us: its own name, without the mark": 1042,
   "value: a name with no address of its own": 6180,
@@ -12048,6 +12049,8 @@
   "src/frontbin/3BC858.c": {
    "D_002D2100": "D_002CE180",
    "D_002FDC00": "D_002F9C80",
+   "D_0037FBE0": "D_0037BC30",
+   "D_0037FCB8": "D_0037BD08",
    "func_003861F0": "func_00381F18",
    "func_003864C0": "func_003821E8",
    "func_00387218": "func_00382F40",
