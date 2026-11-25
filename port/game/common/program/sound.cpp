@@ -33,6 +33,7 @@
 #ifdef OPENRAC_FRONTEND
 #include <SDL3/SDL_timer.h>
 
+#include "audio/limiter.h"
 #include "audio/ui_sounds.h"
 #include "platform/audio.h"
 #include "settings.h"
@@ -212,15 +213,25 @@ void open_sound(bool report) {
     g_sound = platform::AudioOutput::open(
         why,
         [](std::span<std::int16_t> samples) {
-            openrac_sound_render(samples.data(), samples.size() / 2);
-            audio::ui_sounds::mix(samples);  // the menu's tones over the game's sound
+            // The game's sound and the menu's tones in float, the player's volume (settings.h: at
+            // 0 the output is silence itself), the one limiter, then the device's 16 bits.
+            static std::vector<float> mix;
+            static audio::Limiter limiter;
+            mix.resize(samples.size());
+            openrac_sound_render_float(mix.data(), mix.size() / 2);
+            audio::ui_sounds::mix(std::span<float>(mix));
 
-            // The player's volume (settings.h): at 0 the output is silence itself.
+            // The player's volume, before the limiter so that a quieter output is never limited.
             if (const float gain = settings::output_gain(); gain < 1.0f) {
-                for (std::int16_t& sample : samples) {
-                    sample = static_cast<std::int16_t>(static_cast<float>(sample) * gain);
+                for (float& sample : mix) {
+                    sample *= gain;
                 }
             }
+
+            limiter.process(mix);
+            audio::to_int16(mix, samples);
+            const audio::Limiter::Taken taken = limiter.take();
+            openrac_sound_limited(taken.limited, taken.lowest);
             write_dump(samples);
         },
         ahead
