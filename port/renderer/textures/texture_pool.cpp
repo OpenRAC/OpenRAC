@@ -1256,6 +1256,13 @@ void TexturePool::set_wrap(Entry& e, bool repeat_s, bool repeat_t) {
     e.wrap = wrap;
 }
 
+void TexturePool::bind_wrapped(TextureHandle texture, bool repeat_s, bool repeat_t) {
+    glBindTexture(GL_TEXTURE_2D, gl_texture(texture));
+    if (texture != 0 && texture <= m_entries.size()) {
+        set_wrap(m_entries[texture - 1], repeat_s, repeat_t);
+    }
+}
+
 // ---- Optional colour reconstruction ----
 
 void TexturePool::set_upscaled_texture_colours(std::unique_ptr<UpscaledTextureColours> source) {
