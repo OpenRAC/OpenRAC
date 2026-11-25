@@ -2980,21 +2980,7 @@
       53,
       54,
       55
-    ],
-    "func_L40_005164C0": "float (int)",
-    "func_L41_00518518": "float (int)",
-    "func_L42_0050DE30": "float (int)",
-    "func_L43_0050B648": "float (int)",
-    "func_L44_0050A998": "float (int)",
-    "func_L45_005081B0": "float (int)",
-    "func_L46_00508130": "float (int)",
-    "func_L47_0050A970": "float (int)",
-    "func_L48_00509CB0": "float (int)",
-    "func_L49_005095F0": "float (int)",
-    "func_L50_005274C0": "float (int)",
-    "func_L51_00529518": "float (int)",
-    "func_L52_0051EE30": "float (int)",
-    "func_L53_0051C648": "float (int)"
+    ]
   },
   "host_shared": [
     "../../rac3-pal/host"
