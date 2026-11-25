@@ -212,6 +212,11 @@ openrac_add_test(exit_words INCLUDES .)
 openrac_add_test(menu_fit INCLUDES .)
 # Which undrawn ticks keep the window's last picture (game/common/program/undrawn_ticks.h).
 openrac_add_test(undrawn_ticks INCLUDES .)
+# Which display lists one picture draws when the game's picture spans its sends
+# (game/common/program/picture_lists.h).
+openrac_add_test(picture_lists INCLUDES .)
+# The split-screen views each moby is drawn in (game/common/frontend/view_mobys.h).
+openrac_add_test(view_mobys INCLUDES .)
 # The mobys' colour passes and their depth writes (scene/moby_passes.h).
 openrac_add_test(moby_passes INCLUDES .)
 # How each tick's frames start: cleared, the last picture, or under the tick's 2D
