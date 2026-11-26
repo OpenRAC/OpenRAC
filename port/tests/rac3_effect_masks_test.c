@@ -47,6 +47,9 @@
 #define LINEAR 0xFF9000000260ull
 
 #define TEST_1 0x47
+#define STRIP_POS 0x00220000u
+#define STRIP_ST 0x00221000u
+#define STRIP_COL 0x00222000u
 
 uint8_t* openrac_guest_base;
 
@@ -56,6 +59,9 @@ static openrac_game_material_quad s_material;
 static openrac_game_quad s_quad;
 static gaddr s_anchor;
 static const char* s_skip;
+/* The strips the window took, the game's own routine's runs, whether the window refuses. */
+static int s_strips, s_game_strips, s_strip_refused, s_strip_scene;
+static openrac_frame_strip_desc s_strip;
 
 /* The level's draw callbacks: what DrawFrame's body (the test's) runs, and the TEST each sets. */
 static uint64_t s_test;
@@ -207,9 +213,59 @@ gaddr rac3_loading_state(void) {
     return 0;
 }
 
+/* The strip routine and its setup (the game's bodies append 16 bytes; the window takes strips). */
+void func_L01_00408AAC(int count, int positions, int colours, int uvs, int flag);
+void func_L01_00407588(void);
+
+void func_L01_00408AAC__game(int count, int positions, int colours, int uvs, int flag) {
+    (void)count, (void)positions, (void)colours, (void)uvs, (void)flag;
+    GREF(gaddr, LIST_POINTER) += 16;
+    ++s_game_strips;
+}
+
+void func_L01_00407588__game(void) {
+    GREF(gaddr, LIST_POINTER) += 32;
+}
+
+int openrac_frame_native(void) {
+    return 1;
+}
+
+int openrac_frame_strip(const openrac_frame_strip_desc* strip) {
+    if (s_strip_refused) {
+        return 0;
+    }
+    s_strip = *strip;
+    ++s_strips;
+    return 1;
+}
+
+/* A hand-built strip as the levels draw one: its registers, the setup, the routine. */
+static void draw_strip(void) {
+    const unsigned long long tex0 = (unsigned long long)func_L01_00404040(MASK_TEXTURE);
+    func_L01_004C5B90(0x06, tex0);
+    func_L01_004C5B90(0x08, 0);
+    func_L01_004C5B90(0x14, LINEAR);
+    func_L01_004C5B90(0x42, 0x8000000044ull);
+    func_L01_004C5B90(0x47, 0x5360Bull);
+    func_L01_00407588();
+    for (int k = 0; k < 4; ++k) {
+        const float pos[3] = {(float)k, 1.0f, 2.0f};
+        const float st[2] = {0.25f * (float)k, 0.5f};
+        memcpy(G(STRIP_POS + 12u * (gaddr)k), pos, sizeof pos);
+        memcpy(G(STRIP_ST + 8u * (gaddr)k), st, sizeof st);
+        GREF(uint32_t, STRIP_COL + 4u * (gaddr)k) = 0x80402010u;
+    }
+    func_L01_00408AAC(4, STRIP_POS, STRIP_COL, STRIP_ST, 1);
+}
+
 void func_L01_00403440__game(int view) {
     (void)view;
     GREF(gaddr, LIST_POINTER) += 0x130;
+    if (s_strip_scene) {
+        draw_strip();
+        return;
+    }
     for (int i = 0; i < s_quads_per_frame; ++i) {
         draw_mask(i == 0);
 
@@ -407,6 +463,27 @@ int main(void) {
     s_test = MASK_TEST;
     draw_mask(1);
     CHECK(s_materials == 0 && s_quads == 1 && s_marked == 1);
+
+    /* A hand-built strip whose registers the capture saw: recorded natively from the routine's own
+     * arrays, nothing for the game's routine, the view context's (zero here) fog. */
+    s_strip_scene = 1;
+    s_strips = s_game_strips = 0;
+    frame(MASK_TEST, 1, NULL, NULL);
+    CHECK(s_strips == 1 && s_game_strips == 0);
+    CHECK(s_strip.count == 4 && s_strip.rgba[3] == 0x80402010u && s_strip.st[2] == 0.25f);
+    CHECK(
+        (s_strip.flags & OPENRAC_STRIP_CHAIN_DEPTH) != 0 && (s_strip.flags & OPENRAC_STRIP_FOG) != 0
+    );
+    CHECK(s_strip.image.width == 64 && (s_strip.material.flags & OPENRAC_MATERIAL_BLEND) != 0);
+    CHECK(
+        s_strip.material.dest_m == 1
+        && s_strip.material.weight == OPENRAC_MATERIAL_WEIGHT_SOURCE_ALPHA
+    );
+    /* The window refuses it: the game's routine runs. */
+    s_strip_refused = 1;
+    s_strips = s_game_strips = 0;
+    frame(MASK_TEST, 1, NULL, NULL);
+    CHECK(s_strips == 0 && s_game_strips == 1);
 
     free(openrac_guest_base);
     puts("rac3_effect_masks: ok");

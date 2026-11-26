@@ -3,8 +3,9 @@
 """Decide which checks a run needs, from the files it changes.
 
 The games (hostgen and each version's build) and Windows build only when everything is checked:
-a dev release's pull request from develop to master (the workflow gives no paths then), a push to
-master and a manual run. A game that breaks there is fixed on develop. Pull requests, the merge queue and develop pushes build the port's shared part alone, and
+master's merge queue, which a dev release goes through (the workflow gives no paths then), and a
+manual run. A game that breaks there is fixed on develop. Pull requests, develop's merge queue and
+develop pushes build the port's shared part alone, and
 skip what their files cannot affect: the launcher's jobs when they change only port/, the port's
 jobs when they change only launcher/, and any build for Markdown that no build or test reads
 (MARKDOWN_READ lists those that are read). Anything unclear (a workflow, this file, a failed git

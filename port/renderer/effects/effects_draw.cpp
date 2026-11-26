@@ -327,6 +327,29 @@ void EffectRenderer::draw_prepared(
         batch.count += count;
     };
 
+    // The pool textures of the tick's native images (FrameInput::effect_images), made the first
+    // time a quad samples one: the pixels are the capture's own, never game memory.
+    std::vector<TextureHandle> native_images(input.effect_images.size());
+    const auto native_image_of = [&](bool untextured, std::uint32_t index) -> TextureHandle {
+        // An untextured draw, or an index the capture did not give, samples nothing.
+        if (untextured || index == 0 || index > native_images.size()) {
+            return 0;
+        }
+
+        TextureHandle& handle = native_images[index - 1];
+        const UiImage& image = input.effect_images[index - 1];
+
+        // Made once a frame per image; an image without pixels stays without a texture.
+        if (handle == 0 && image.image) {
+            handle = state.textures.ui_image(image.hash, *image.image, image.indexed.get());
+        }
+
+        return handle;
+    };
+    const auto native_image = [&](const EffectQuad& q) -> TextureHandle {
+        return native_image_of(q.untextured, q.image);
+    };
+
     std::optional<stats::Scope> strip_timing;
 
     // Empty strip lists need no GPU timer.
@@ -396,6 +419,34 @@ void EffectRenderer::draw_prepared(
             state.stats.triangles += mesh->vertices / 3;
             glBindVertexArray(m_vao);
             glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+            continue;
+        }
+
+        if (strip.native) {
+            // A native strip's state is its material's; it takes nothing from the list.
+            if (strip.untextured && m_untextured_shader.id() == 0) {
+                at += count;
+                continue;
+            }
+            Shader& native_shader = strip.untextured ? m_untextured_shader : m_shader;
+            if (m_active_shader != &native_shader) {
+                flush();
+                use_shader(native_shader, view_projection, input.camera.view);
+                set.reset();
+                ++strip_switches;
+            }
+            State native_state{};
+            native_state.native = true;
+            native_state.material = strip.state;
+            native_state.image = native_image_of(strip.untextured, strip.image);
+            native_state.untextured = strip.untextured;
+            native_state.z_write = strip.state.depth_write;
+            native_state.fogged = strip.fogged;
+            native_state.fog = strip.fog;
+            native_state.fog_colour = strip.fog_colour;
+            native_state.z_masked = !strip.state.depth_write;
+            add(native_state, at, count, !strip.untextured);
+            at += count;
             continue;
         }
 
@@ -490,26 +541,6 @@ void EffectRenderer::draw_prepared(
     unsigned tested_quads = 0;
     unsigned texture_splits = 0, sampler_splits = 0, blend_splits = 0;
     unsigned paired_quads = 0;
-
-    // The pool textures of the tick's native images (FrameInput::effect_images), made the first
-    // time a quad samples one: the pixels are the capture's own, never game memory.
-    std::vector<TextureHandle> native_images(input.effect_images.size());
-    const auto native_image = [&](const EffectQuad& q) -> TextureHandle {
-        // An untextured quad, or an index the capture did not give, samples nothing.
-        if (q.untextured || q.image == 0 || q.image > native_images.size()) {
-            return 0;
-        }
-
-        TextureHandle& handle = native_images[q.image - 1];
-        const UiImage& image = input.effect_images[q.image - 1];
-
-        // Made once a frame per image; an image without pixels stays without a texture.
-        if (handle == 0 && image.image) {
-            handle = state.textures.ui_image(image.hash, *image.image, image.indexed.get());
-        }
-
-        return handle;
-    };
 
     const auto draw_quads = [&] {
         // Captured quad order preserves back-to-front blending across shader switches.

@@ -1522,7 +1522,7 @@ void query(openrac_mod_info* info) {
     info->api_major = OPENRAC_MOD_API_MAJOR;
     info->api_minor = OPENRAC_MOD_API_MINOR;
     info->id = "keyboard-mouse";
-    info->version = "2.2.0";
+    info->version = "2.3.0";
 }
 
 int load(const openrac_api* api, openrac_mod* mod) {

@@ -117,6 +117,8 @@ bool mobys(std::span<const std::uint8_t> ram, gaddr list, int count);
 bool ui_item(std::span<const std::uint8_t> ram, const openrac_game_ui_item& item);
 bool ui_quad(const openrac_game_ui_rect& quad);
 void effect_quad(std::uint32_t marker);
+// openrac_frame_strip: false (nothing recorded) for a value out of range or OPENRAC_UI_REPLAY.
+bool strip(std::span<const std::uint8_t> ram, const openrac_frame_strip_desc& strip);
 // Whether what is recorded is drawn natively (a window, no OPENRAC_UI_REPLAY).
 bool drawing();
 void fill(const float* rect, std::uint32_t rgba, int blend);

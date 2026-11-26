@@ -132,3 +132,71 @@ Checked on PAL v2.00, level 1, hidden: the level-start fade-in frames have the s
 with the packet and with the fill (0, 48, 97, 141), and the pause dimming brightens and darkens the
 same (101 to 57). Runs of the whole game are not frame-deterministic, so the rest of each run is
 compared by looking at it, not by pixel difference.
+
+### 5.1 FadeToBlack, the screen stripes and the frame copy
+
+`screen_fade.c` also wraps three more routines, and `screen_copy.c` the frame copy (PAL v2.00; the
+other releases omit them, `RAC1_OMIT_*`; `OPENRAC_UI_SKIP` naming a function, `OPENRAC_UI_REPLAY` and
+no window keep the game's own):
+
+- **FadeToBlack** (`func_001F4E08`). Each of its `frames` steps draws the large buffer black
+  (`emit_rgba_draw_packet(0, 0, 0, 0x80)`, never displayed) and a black sprite of alpha
+  `0x80 - (n << 7) / (n + 1)` onto the small buffer the display reads, `n` counting down from
+  `frames - 1`. The steps multiply: after the step with `n` left the picture is `n / frames` of the one
+  that was showing, black at `n = 0`. With a window the same loop of syncs, clock steps and sent lists
+  runs (`func_00234AC8`, `func_00122598`, `D_0015F538`, `func_002349B8`, `func_00234948`) with one
+  recorded black fill of the whole target in each list, alpha `(frames - n) / frames`, over the picture
+  the window shows, and none of the buffer packets. Before this the black of the first packet was
+  recorded as an opaque fill (section 5), so a fade jumped to black at once: the arrival cutscene's
+  skip on Novalis went from the picture to black in one frame; now it darkens over the eight frames
+  (`r2-progress/rac1-fadetoblack-*`).
+- **draw_screen_effect** (`func_001F5368`): the stripe table behind the pointer at `0x0015F450`. Its own
+  C runs; the rectangles are recorded as depth fills at `0xFFFFF0` of the 24-bit buffer and the packets
+  taken back. The depth test is the frame's own, GEQUAL (the level's TEST packet), unless a tint ran
+  right before it (the tint wrapper remembers its list position and the frame), whose resident packet
+  `0x0013CD90` leaves it at ALWAYS; the letterbox's bars (`0xFFFFF3`, written) reject a GEQUAL stripe on
+  their rows, as the console does. Source over (`0x44`) and the colour as it is (`0x64`) are native;
+  a table with another ALPHA word keeps its packets. **Not exercised:** no C writes the table, and a
+  table forced through `OPENRAC_WRITE` did not reach the routine in a hidden run, so this path has no
+  runtime check.
+- **The frame copy** (`transfer_draw_buffer_chunks` `func_L00_002A21A8`, `append_draw_buffer_upload_packets`
+  `func_L00_002A2258`; `capture_draw_buffer` `func_L00_001F9D40` calls the first). The pause menu and the
+  vendor read the frame back when they open and write it back under the menu every frame, and read none
+  of it. With a window the read is `openrac_frame_snapshot_world` and the write a whole-target opaque
+  `openrac_frame_picture` at the cursor the packets would have used (`D_L00_00161280`, which equals the
+  list cursor in the runs); no image store or load is sent. Checked in hidden runs on Novalis: the pause
+  menu (Start) and the Gadgetron vendor (Triangle) look as before (the vendor frames differ by a mean of
+  0.0 to 0.6 of 255, `r2-progress/rac1-pause-*`, `rac1-vendor-*`).
+
+Off-screen panels (`func_001FB608` `setup_render_target` and the monitors' background `func_001FB908` on
+rac1; `func_00280510`, `func_00285030` and `func_0027B9C0`, a cutscene's object preview, on rac2) are recorded panels
+now: the recorder's contract is that every stream between `openrac_frame_target_begin` and `_end`, the
+2D-quad and moby-marker streams included, draws into the panel, which the game's own quad then samples
+(FRAME_RECORDER.md, section 3.3; `rac1/host/render_panel.c`, `rac2/host/render_panel.c`). The game's
+packets for the panel still run (transitional, with the rest of the chain), except its clears: the black
+sprite that ends `setup_render_target`'s packet is cut off the packet and recorded as a fill of colour 0
+and depth 0 where the panel opens, and each `func_001FB908` sprite (depth 0 written, colour left as it
+is: the monitors' background, in the panel and again over the screen after the close) is taken back and
+recorded as a depth-only fill at the cursor it began at (`render_panel.c`; `OPENRAC_UI_SKIP=panel_clear`,
+`screen_clear` or `func_001FB908` keeps the packets). Checked in hidden runs on box1 (PAL v2.00): the
+vendor's monitors and the pause menu look as with the packets (`native2d-progress/rac1/vendor-c1*.png`,
+`pause-p1*.png`). Still residual after it: the draw environment and TEST of the panel's setup packet
+(the panel's block and offset come from them), everything the monitors' VU1 passes draw, and the console's
+frame-buffer plumbing sprites (`append_palette_transfer_packet`'s copy into the small buffer). Checked in hidden runs on
+box1: the Gadgetron vendor's six monitors on Novalis look as before (`r2-progress/rt/rac1-vendor-*`).
+
+Going Commando (NTSC-U, hidden runs on box1, gdb call counts and `OPENRAC_UI_LOG`): the rac2 panel
+wrappers do not run on the screens one expects. `func_00285030` was called 0 times in the Ship Shack
+vendor (level 24: monitor, Triangle; its pages are not the pause panels, `menu_draw_pause_panels`
+`func_002CBC58` 0 calls), in the seven pause pages (level 4: Weapons, Gadgets, Quick Select, Items,
+Help, Options, Special; `func_002CBC58` ran 448 times and `menu_panel_draw` 315, but the page's panel
+has flags 9 and is drawn directly, never through `func_00280510`) and in space flight (level 5:
+`gfx_render_object_preview_to_texture` ran 398 times with no object, so `func_0027B9C0` never did).
+`func_00284EA8` is a general draw-list header (1,500 or more calls a run) that closes nothing then.
+What reaches them is a pause-menu panel whose draw routine is one of four menu routines and whose
+flags have bits 1 and 8 clear, or a cutscene that holds an object to preview
+(`g_scene_playback_state.capture`); no such screen has been found yet. Residual 2D still drawn from
+the game's packets (`OPENRAC_UI_RESIDUAL=1`, kinds seen once per run): untextured sprites (fades,
+tints) and a textured sprite at block 0x1E80 from the start of a level, a line, a textured triangle
+strip at block 0x3FFB (in play and menus), another at block 0x2F31 (8-bit palette) in the Ship Shack
+vendor, and an untextured strip in flight.
