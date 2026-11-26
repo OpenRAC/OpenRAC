@@ -26,9 +26,10 @@
  * blank count at +0x34, which func_003A1428 steps) or, in the title's loop, "Press START"
  * (func_0038A798). Here each blank's list is built in the boot program's own list buffer (the one
  * its loop, blocked in the movie, would build next: 0x001DA048[0x001DA05C]) as a 2D frame
- * (func_003A9AF8), the native player's picture as its full-screen record (picture.c) and the
- * subtitles printed through the wrapped font (ui2d.c), as Going Commando's port sends its movie
- * list (rac2/host/movie.c). */
+ * (func_003A9AF8), the native player's picture given to the frame recorder (openrac/frame.h: a port
+ * picture drawn over the picture's area, where the list's cursor is) and the subtitles printed
+ * through the wrapped font (ui2d.c), as Going Commando's port sends its movie list
+ * (rac2/host/movie.c). */
 /* Each program's copy of what the list needs: its list's cursor and two buffers (with the index of
  * the one being filled), the movie block's blank count, the title loop's flag, and its copies of
  * the 2D frame start, the subtitles and "Press START". frontbin's are at the boot program's
@@ -42,7 +43,6 @@ typedef struct MovieList {
     void (*press_start)(void);
 } MovieList;
 
-int rac3_picture_record(gaddr cursor, const uint8_t* rgba, int width, int height); /* picture.c */
 void func_0012D938(gaddr channel, gaddr tag);
 void func_003A9AF8(void);
 void func_0038A8F8(void);
@@ -121,6 +121,84 @@ static MovieList level_list(void) {
     return m;
 }
 
+/* The port pictures the movie is drawn from (openrac_frame_picture_set): its frame, and on a
+ * window wider than the game's picture the backdrop the window's sides show, the frame an eighth
+ * the size each way, blurred and darkened (BACKDROP_LIGHT of 256), as picture.c's main menu. */
+#define MOVIE_PICTURE 0x52334D31u
+#define MOVIE_BACKDROP 0x52334D32u
+#define BACKDROP_SHRINK 8
+#define BACKDROP_WIDTH (512 / BACKDROP_SHRINK)
+#define BACKDROP_HEIGHT (448 / BACKDROP_SHRINK)
+#define BACKDROP_LIGHT 224
+
+static uint8_t s_backdrop[BACKDROP_WIDTH * BACKDROP_HEIGHT * 4];
+
+/* The backdrop of a 512-wide frame of `lines` rows: each 8 x 8 square averaged, then three passes
+ * of a 3-tap box blur each way, darkened. Its rows. */
+static int make_backdrop(const uint8_t* from, int lines) {
+    static int sums[BACKDROP_HEIGHT][BACKDROP_WIDTH][3];
+    static int pass[BACKDROP_HEIGHT][BACKDROP_WIDTH][3];
+    const int rows = (lines + BACKDROP_SHRINK - 1) / BACKDROP_SHRINK;
+    for (int y = 0; y < rows; ++y) {
+        for (int x = 0; x < BACKDROP_WIDTH; ++x) {
+            int c[3] = {0, 0, 0}, n = 0;
+            for (int py = y * BACKDROP_SHRINK; py < (y + 1) * BACKDROP_SHRINK && py < lines; ++py) {
+                const uint8_t* p = from + ((size_t)py * 512u + (size_t)x * BACKDROP_SHRINK) * 4u;
+                for (int px = 0; px < BACKDROP_SHRINK; ++px, p += 4, ++n) {
+                    c[0] += p[0], c[1] += p[1], c[2] += p[2];
+                }
+            }
+            for (int k = 0; k < 3; ++k) {
+                sums[y][x][k] = c[k] / n;
+            }
+        }
+    }
+    for (int round = 0; round < 3; ++round) {
+        for (int y = 0; y < rows; ++y) {
+            for (int x = 0; x < BACKDROP_WIDTH; ++x) {
+                const int l = x > 0 ? x - 1 : x, r = x + 1 < BACKDROP_WIDTH ? x + 1 : x;
+                for (int k = 0; k < 3; ++k) {
+                    pass[y][x][k] = (sums[y][l][k] + sums[y][x][k] * 2 + sums[y][r][k]) / 4;
+                }
+            }
+        }
+        for (int y = 0; y < rows; ++y) {
+            const int u = y > 0 ? y - 1 : y, d = y + 1 < rows ? y + 1 : y;
+            for (int x = 0; x < BACKDROP_WIDTH; ++x) {
+                for (int k = 0; k < 3; ++k) {
+                    sums[y][x][k] = (pass[u][x][k] + pass[y][x][k] * 2 + pass[d][x][k]) / 4;
+                }
+            }
+        }
+    }
+    for (int y = 0; y < rows; ++y) {
+        for (int x = 0; x < BACKDROP_WIDTH; ++x) {
+            uint8_t* p = s_backdrop + ((size_t)y * BACKDROP_WIDTH + (size_t)x) * 4u;
+            for (int k = 0; k < 3; ++k) {
+                p[k] = (uint8_t)(sums[y][x][k] * BACKDROP_LIGHT / 256);
+            }
+            p[3] = 0x80;
+        }
+    }
+    return rows;
+}
+
+/* The movie's frame where the list's cursor (the word at `cursor`) is: over the picture's area (the
+ * frame stretched over the frame's lines, as the main menu's 416-line background is on PAL), and on
+ * a wider window its backdrop under it, across the whole window. */
+static void record_frame(gaddr cursor, const uint8_t* rgba, int width, int height) {
+    openrac_frame_anchor(GREF(gaddr, cursor));
+    if (width == 512 && openrac_game_picture_wider() > 1.001f) {
+        const int rows = make_backdrop(rgba, height < 448 ? height : 448);
+        openrac_frame_picture_set(MOVIE_BACKDROP, s_backdrop, BACKDROP_WIDTH, rows);
+        openrac_frame_picture(
+            MOVIE_BACKDROP, NULL, 0x80808080u, OPENRAC_BLEND_OPAQUE | OPENRAC_PICTURE_WHOLE
+        );
+    }
+    openrac_frame_picture_set(MOVIE_PICTURE, rgba, width, height);
+    openrac_frame_picture(MOVIE_PICTURE, NULL, 0x80808080u, OPENRAC_BLEND_OPAQUE);
+}
+
 static MovieList s_list;
 static uint32_t s_allocator;
 #define GS_ALLOCATOR RAC3_ADDR(0x001D4BB0u)
@@ -138,7 +216,7 @@ static void movie_overlay(const uint8_t* rgba, int width, int height) {
         GREF(int32_t, m->font_uploaded) = GREF(int32_t, m->font_frame) + 1;
     }
     m->frame_start();
-    rac3_picture_record(m->cursor, rgba, width, height);
+    record_frame(m->cursor, rgba, width, height);
     GREF(int32_t, m->blanks) += 1;
     if (GREF(int32_t, m->title_loop) != 0) {
         m->press_start();

@@ -306,9 +306,11 @@ openrac_host_fn openrac_guest_function_named(const char* name);
  * (hostgen's functions.c) that gives the registers to its definition's parameters as the EE
  * passes them: integers from `ints` in order, floats from `floats`. The call returns the integer
  * result and puts a float result in *result; a function with no thunk (the port's own) is called
- * by the cast. OPENRAC_REGS_THUNKS turns this on elsewhere too (hostgen's tests). */
+ * by the cast. Apple's arm64 packs stack arguments by their size, so a callee of more than eight
+ * integers (the message box takes eleven) would read a doubleword cast's arguments wrong: it takes
+ * the thunks too. OPENRAC_REGS_THUNKS turns this on elsewhere too (hostgen's tests). */
 #ifndef OPENRAC_REGS_THUNKS
-#ifdef _WIN32
+#if defined(_WIN32) || (defined(__APPLE__) && defined(__aarch64__))
 #define OPENRAC_REGS_THUNKS 1
 #else
 #define OPENRAC_REGS_THUNKS 0
@@ -617,6 +619,11 @@ static inline void openrac_qcopy(gaddr dst, gaddr src) {
 static inline void openrac_qzero(gaddr p) {
     memset(G(openrac_quadword_address(p)), 0, 16);
 }
+
+/* Native gameplay query points (mod interface 1.40); no registered mod means original. */
+int32_t openrac_mod_play_query(
+    uint32_t kind, uint32_t subject, int32_t index, int32_t original, int32_t alternate
+);
 
 #ifdef __cplusplus
 }

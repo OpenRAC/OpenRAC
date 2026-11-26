@@ -195,6 +195,30 @@ struct Level_LoadGameplay {
     using fn = uint32_t (*)(int32_t);
 };
 
+// The level's tick in play (handle_pause_input, game mode 0): the pause, freeze and help triggers, then the mobys, the hero, the particles, the camera, the sound, the HUD's elements and the frame counters. A replacement that returns without calling the original holds the world for that tick, as the game's own change of mode does (a mod's menu over a frozen world: the freeze mode, rac1.freeze.update).
+struct Level_UpdatePlay {
+    static constexpr const char* id = "rac1.level.update_play";
+    static constexpr const char* name = "Level_UpdatePlay";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// The freeze mode's tick (update_mode_freeze, game mode 4, entered by mode_freeze_init(kind, ...)): the help, prompt and dialog screens over a frozen world, by mode_freeze_info's kind (0 to 8 are the game's). It runs the sound and, once the mode has been left, puts the sounds and the music back on. A mod's own kind runs here, before or after the original.
+struct Freeze_Update {
+    static constexpr const char* id = "rac1.freeze.update";
+    static constexpr const char* name = "Freeze_Update";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
+// The freeze mode's picture (draw_dialog_background_and_text): the frozen world drawn again with the HUD (the draw mask 0x100FF), then the freeze dialog's dim and box (draw_freeze_message_box). A mod's own freeze kind draws its own here.
+struct Freeze_Draw {
+    static constexpr const char* id = "rac1.freeze.draw";
+    static constexpr const char* name = "Freeze_Draw";
+    static constexpr const char* signature = "void()";
+    using fn = void (*)();
+};
+
 // Eases the hero's ground speed (+0x194, the speed Hero_SetPlanarVelocity moves him at) toward his target speed (+0x190) by up when below it and by down when above, each tick he moves on foot, in every level.
 struct Hero_ApproachSpeed {
     static constexpr const char* id = "rac1.player.approach_speed";
@@ -5704,6 +5728,10 @@ namespace hooks {
     namespace combat {
         using get_hit = rac1::Moby_GetHitMessage;
     }  // namespace combat
+    namespace freeze {
+        using draw = rac1::Freeze_Draw;
+        using update = rac1::Freeze_Update;
+    }  // namespace freeze
     namespace fx {
         namespace burst {
             using spawn = rac1::FX_SpawnBurst;
@@ -5737,6 +5765,7 @@ namespace hooks {
     }  // namespace item
     namespace level {
         using load_gameplay = rac1::Level_LoadGameplay;
+        using update_play = rac1::Level_UpdatePlay;
     }  // namespace level
     namespace menu {
         namespace equipped_preview {

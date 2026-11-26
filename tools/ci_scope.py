@@ -1,24 +1,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (c) 2026 the OpenRAC contributors
-"""Decide which checks a pull request needs, from the files it changes.
+"""Decide which checks a run needs, from the files it changes.
 
-Pushes and manual runs check everything. A pull request skips what its files cannot affect:
-the launcher's jobs when it changes only port/, the port's jobs when it changes only launcher/,
-and builds of the games it does not touch, and any build for Markdown that no build or test reads
-(MARKDOWN_READ lists those that are read). A release carried from another (a hostgen.json with
-"release": rac1-pal1, rac1-jp, rac2-ntsc2, rac2-pal) is built in a pull request when its own
-folder, its game's other port folders or its game's decomp change, not for shared code. Going
-Commando's PAL and USA v2.00 (PLAYED) are built whenever its USA disc is, since a change to what
-they share can break them alone (an argument their C drops crashed only there). Anything unclear
-(a workflow, this file, a failed git call) checks everything.
-Two tiers (TIERS): a pull request runs the fast tier, the checks that answer in a few minutes;
-the merge queue (merge_group) runs the full tier for the queued changes before they land, so
-nothing reaches develop without every check. The full tier adds the Windows jobs, the enhanced
-Vulkan build and its tests, and the carried releases.
+The games (hostgen and each version's build) and Windows build only when everything is checked:
+a dev release's pull request from develop to master (the workflow gives no paths then), a push to
+master and a manual run. A game that breaks there is fixed on develop. Pull requests, the merge queue and develop pushes build the port's shared part alone, and
+skip what their files cannot affect: the launcher's jobs when they change only port/, the port's
+jobs when they change only launcher/, and any build for Markdown that no build or test reads
+(MARKDOWN_READ lists those that are read). Anything unclear (a workflow, this file, a failed git
+call) checks everything those runs check.
+Two tiers (TIERS): a pull request runs the fast tier, the checks that answer in a few minutes; the
+merge queue (merge_group) and develop pushes (PUSH_BEFORE) run the full tier, which adds the
+enhanced Vulkan build and its tests, and the launcher for any change outside port/.
 `ci_scope.py ios` does the same for the iOS jobs, for pushes too.
 `ci_scope.py decomp-games` prints which games' decomp tool checks a change needs.
-`ci_scope.py launcher-changed` (SINCE: a commit) tells whether develop changed what the launcher's
-build reads since the last development build (launcher.yml's push paths).
 """
 
 import json
@@ -111,6 +106,10 @@ LAUNCHER_READS = re.compile(r"^port/(game/[^/]+/(differences\.json|icon\.png|hos
 PAGES_READS = re.compile(r"^(games/[^/]+/game\.json|port/game/[^/]+/differences\.json"
                          r"|port/platform/bindings\.(cpp|h)|progress/summary\.json"
                          r"|sdk/include/openrac/keys\.h)$")
+# What else the launcher's build reads that a pull request still checks with it (the games'
+# descriptions, progress, the build scripts it runs); the rest of the conservative rule above is
+# left to the merge queue.
+FAST_LAUNCHER_READS = re.compile(r"^(games/[^/]+/game\.json|progress/|sdk/|Cargo\.|tools/(build_|bundle_|openrac\.py|updater_manifest\.py))")
 SHARED_SOURCES = ("port/CMakeLists.txt", "port/tests", "port/renderer", "port/runtime", "port/platform",
                   "port/scene", "port/enhanced", "port/viewer", "port/game/common")
 
@@ -139,29 +138,36 @@ TIERS = ("fast", "full")
 def plan(paths, known, shared=frozenset(), removed=frozenset(), tier="full", releases=frozenset()):
     """What to run for PATHS (None: everything), with KNOWN from programs(), SHARED from
     shared_game_dirs(), REMOVED the paths the change deletes, TIER one of TIERS and RELEASES
-    from carried()."""
+    from carried() (kept for the callers; every release builds when everything is checked)."""
     result = full_plan(paths, known, shared, removed)
     full = tier == "full"
+    # Everything (paths None): a dev release or a manual run. The games (hostgen
+    # and their builds) and Windows build only then: pull requests to develop, the queue and
+    # develop pushes build the shared part alone.
+    everything = paths is None
     if not full:
-        # A carried release in the fast tier only when the change is in its own folder.
-        own = {path.split("/")[2] for path in paths or () if path.startswith("port/game/")
-               and len(path.split("/")) > 3}
-        result["port_parts"] = [part for part in result["port_parts"]
-                                if part not in releases or part in own]
         result["enhanced"] = False
-    # Windows builds rac1-pal with the shared code, and runs the launcher's Rust tests.
-    result["windows"] = full and result["port"]
-    result["launcher_systems"] = (["Linux", "Windows"] if full else ["Linux"]) if result["launcher"] else []
+        # The launcher only for what its build reads by name; anything else waits for the queue.
+        result["launcher"] = paths is None or any(
+            path.startswith(("launcher/", *EVERYTHING)) or LAUNCHER_READS.match(path)
+            or FAST_LAUNCHER_READS.match(path) for path in paths)
+    # Windows (rac1-pal with the shared code, the launcher's Rust tests) only with everything.
+    result["windows"] = full and everything and result["port"]
+    result["launcher_systems"] = ((["Linux", "Windows"] if full and everything else ["Linux"])
+                                  if result["launcher"] else [])
     return result
 
 
 def full_plan(paths, known, shared=frozenset(), removed=frozenset()):
-    """Every check PATHS can affect (None: everything); the arguments are plan()'s."""
+    """Every check PATHS can affect (None: everything, every game's build too); the arguments are
+    plan()'s. Short of everything, the port builds only its shared part (port_parts ["common"])."""
     every = sorted(known)
     everything = {"docs_only": False, "launcher": True, "pages": True, "port": True,
                   "enhanced": True, "port_parts": ["common", *every]}
-    if paths is None or any(path.startswith(EVERYTHING) for path in paths):
+    if paths is None:
         return everything
+    if any(path.startswith(EVERYTHING) for path in paths):
+        return {**everything, "port_parts": ["common"]}
     if all(map(is_docs, paths)):
         return {**everything, "docs_only": True, "launcher": False, "pages": False, "port": False,
                 "enhanced": False, "port_parts": []}
@@ -172,37 +178,23 @@ def full_plan(paths, known, shared=frozenset(), removed=frozenset()):
     pages = any(path.startswith("launcher/") or PAGES_READS.match(path) for path in quiet)
     port_paths = [path for path in quiet
                   if path.startswith(PORT_READS) or not path.startswith(("launcher/", "docs/"))]
-    parts, enhanced = set(), False
+    common = False
     for path in port_paths:
         bits = path.split("/")
         if bits[:2] == ["port", "game"] and len(bits) > 3 and bits[2] != "common":
-            # port/game/<program>/, or port/game/rac1/ (what rac1's programs share). A release
-            # carries its game's shared host C and its primary's tables, so a change to either
-            # builds the game's releases too; a release's own folder builds only itself.
+            # A game's own folder (port/game/<program>/ or port/game/rac1/): its build is the
+            # dev release's; the shared part only when its tests compile that folder.
             game = bits[2].split("-")[0]
-            mine = [p for p in every if p == bits[2] or p.startswith(game + "-")]
-            if mine:
-                if bits[2] in known and known[bits[2]]:
-                    parts.add(bits[2])
-                else:
-                    parts.update(p for p in mine if p == bits[2] or p.startswith(bits[2] + "-") or known[p])
-                if bits[2] in shared:
-                    parts.add("common")
-                    enhanced = True
+            if any(p == bits[2] or p.startswith(game + "-") for p in every):
+                common = common or bits[2] in shared
                 continue
         if bits[0] == "games" and len(bits) > 2:
-            # A decomp change reaches every program of the game, its releases too (PAL v1.00's
-            # memory card hang came in with a decomp import).
-            parts.update(p for p in every if p.startswith(bits[1] + "-"))
+            # A decomp: the repository job checks its tools; the games build for a dev release.
             continue
-        # Anything else the port reads: the shared part and every game it builds itself.
-        parts.update(["common", *(p for p in every if not known[p])])
-        enhanced = True
-    # Windows builds rac1-pal with the shared code.
-    port = "common" in parts or "rac1-pal" in parts
-    ordered = [part for part in ["common", *every] if part in parts]
-    return {"docs_only": False, "launcher": launcher, "pages": pages, "port": port,
-            "enhanced": enhanced, "port_parts": ordered}
+        # Anything else the port reads: the shared part and its tests.
+        common = True
+    return {"docs_only": False, "launcher": launcher, "pages": pages, "port": common,
+            "enhanced": common, "port_parts": ["common"] if common else []}
 
 
 # The games whose decomp has tool checks of its own in the repository job (checks.yml).
@@ -250,80 +242,24 @@ def ios_plan(paths, shared=frozenset()):
                                 for path in paths)}
 
 
-LAUNCHER_WORKFLOW = ".github/workflows/launcher.yml"
-
-
-def launcher_paths(root=ROOT):
-    """The path filters of launcher.yml's push trigger, read from the workflow itself."""
-    lines = (root / LAUNCHER_WORKFLOW).read_text(encoding="utf-8").splitlines()
-    start = next(i for i, line in enumerate(lines) if line.strip() == "paths:")
-    found = []
-    for line in lines[start + 1:]:
-        text = line.strip()
-        if not text or text.startswith("#"):
-            continue
-        if not text.startswith("- "):
-            break
-        found.append(text[2:].strip().strip('"\''))
-    return found
-
-
-def glob_regex(pattern):
-    """A GitHub Actions path filter as a regular expression: * stays in a folder, ** does not."""
-    out, i = "", 0
-    while i < len(pattern):
-        if pattern.startswith("**", i):
-            out, i = out + ".*", i + 2
-        elif pattern[i] == "*":
-            out, i = out + "[^/]*", i + 1
-        else:
-            out, i = out + re.escape(pattern[i]), i + 1
-    return re.compile(out + "$")
-
-
-def launcher_changed(paths, filters):
-    """Whether PATHS (None: unknown) touch any of launcher.yml's push FILTERS."""
-    if paths is None:
-        return True
-    # GitHub's rule: the last filter that matches a file decides, and "!" excludes it.
-    rules = [(not f.startswith("!"), glob_regex(f.lstrip("!"))) for f in filters]
-
-    def wanted(path):
-        verdict = False
-        for keep, pattern in rules:
-            if pattern.match(path):
-                verdict = keep
-        return verdict
-
-    return any(wanted(path) for path in paths)
-
-
 def event_paths():
     """The files this run checks and its tier: a pull request's merge (fast tier), a merge queue
-    group's changes over develop (full tier), or None for everything (a push or a manual run)."""
+    group's changes over develop (full tier), a develop push's changes (full tier, PUSH_BEFORE),
+    or None for everything (another push or a manual run)."""
     event = os.environ.get("GITHUB_EVENT_NAME")
     if event == "pull_request":
         return changed_paths(os.environ.get("PR_BASE", "")), "fast"
     if event == "merge_group" and os.environ.get("MERGE_BASE"):
         return pushed_paths(os.environ["MERGE_BASE"]), "full"
+    if event == "push" and os.environ.get("PUSH_BEFORE"):
+        return pushed_paths(os.environ["PUSH_BEFORE"]), "full"
     return None, "full"
 
 
 if __name__ == "__main__":
     paths, tier = event_paths()
     if sys.argv[1:] == ["ios"]:
-        # PUSH_BEFORE: the branch's commit before the push.
-        if paths is None and os.environ.get("GITHUB_EVENT_NAME") == "push" and os.environ.get("PUSH_BEFORE"):
-            paths = pushed_paths(os.environ["PUSH_BEFORE"])
         result = ios_plan(paths, shared_game_dirs())
-    elif sys.argv[1:] == ["launcher-changed"]:
-        since = os.environ.get("SINCE")
-        # Unlike pushed_paths, an empty diff is an answer here: nothing new, no build.
-        diff = subprocess.run(["git", "diff", "--no-renames", "--name-only", "-z", since or "", "HEAD", "--"],
-                              capture_output=True, check=False) if since else None
-        paths = (None if diff is None or diff.returncode else
-                 [path.decode("utf-8", "surrogateescape") for path in diff.stdout.split(b"\0")[:-1]])
-        result = {"build": launcher_changed(paths, launcher_paths())}
     elif sys.argv[1:] == ["decomp-games"]:
         result = {"games": decomp_games(paths if tier == "fast" else None)}
     else:

@@ -680,6 +680,13 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
             "addresses": sum(len(v) for v in code_tables.values())}
 
 
+def _stack_arg(ni: int) -> str:
+    """The ni-th integer argument past the eighth, from where the calling code left it: 0($sp) up,
+    a doubleword each, at the guest stack pointer the call through the address saved
+    (OPENRAC_ASM_CALL). Up Your Arsenal's message box takes eleven; its thunk used to pass 0."""
+    return f"GREF(uint64_t, openrac_guest_sp + {8 * (ni - 8)}u)"
+
+
 def thunk_text(sym: str, f: Function, typedefs: dict, k: int) -> str | None:
     """thunk_<k>: f called with the EE's argument registers, integers from i[] in order and floats
     from f[], by its definition's parameters; its result as the EE has it (a float in *r). None
@@ -701,10 +708,10 @@ def thunk_text(sym: str, f: Function, typedefs: dict, k: int) -> str | None:
                 args.append(f"f[{nf}]" if nf < 8 else "0.0f")
                 nf += 1
             elif c == "double":
-                args.append(f"thunk_d_(i[{ni}])" if ni < 8 else "0.0")
+                args.append(f"thunk_d_(i[{ni}])" if ni < 8 else f"thunk_d_({_stack_arg(ni)})")
                 ni += 1
             else:
-                args.append(f"({c})i[{ni}]" if ni < 8 else f"({c})0")
+                args.append(f"({c})i[{ni}]" if ni < 8 else f"({c}){_stack_arg(ni)}")
                 ni += 1
         if sig.variadic:
             args += [f"i[{n}]" for n in range(ni, 8)]
@@ -1091,7 +1098,7 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     for shared in [config.parent / d for d in cfg.get("host_shared", [])] or [
             config.parent.parent / str(cfg.get("game", "")) / "host"]:
         paths += sorted(shared.glob("*.c"))
-    for key in ("libraries", "hand", "assembly_allow", "result_allow", "data_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins", "folded_wrappers"):
+    for key in ("libraries", "hand", "assembly_allow", "result_allow", "data_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins", "folded_wrappers", "play_queries"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
     if cfg.get("drafts"):
@@ -1311,6 +1318,15 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
                   if not all(n in replaced for n in names_of[id(text)])}
     # The port's own C for functions the decompilation matches, in place of their definitions.
     overrides = read_overrides(args.game.parent, cfg)
+    if cfg.get("play_queries"):
+        import playqueries
+        queries = playqueries.build(source, args.game.parent / cfg["play_queries"],
+                                    cfg["id"].rsplit("-", 1)[-1], RELEASE)
+        overlap = set(overrides) & set(queries)
+        if overlap:
+            raise ValueError("Gameplay query points conflict with private overrides: " + ", ".join(sorted(overlap)))
+        overrides.update(queries)
+
     aliases = read_aliases(source, cfg)
     long_long_128 = read_long_long_128(source, cfg)
     if aliases:

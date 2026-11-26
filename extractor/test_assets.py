@@ -26,7 +26,7 @@ from test_moby_anim import fixture
 
 
 class LevelWriter(levelwrite.LevelWriter):
-    """The models as the level editor's writer makes them (joint scales Godot can import)."""
+    """The models as the level editor's writer makes them (joint scales OpenRAC Editor can import)."""
     godot_scales = True
 
 # Level 0's moby texture 3 and level 1's moby texture 7 are the same picture.
