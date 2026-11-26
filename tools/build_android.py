@@ -18,7 +18,8 @@ downloaded at a fixed version and checked against its SHA-256). The steps:
      checked against its SHA-256, into build/android/
   2. the port with the NDK (port's android-arm64 preset): for each game
      libopenrac-GAME.so (the game's activity loads it) and
-     libopenrac-GAME-cli.so (its windowless checks), SDL3, libadrenotools'
+     libopenrac-GAME-cli.so (its windowless checks), libopenrac-shaders.so
+     (the Vulkan shaders, one copy every game loads), SDL3, libadrenotools'
      hooks and libopenrac-python.so; and Enhanced graphics' probe baker,
      libopenrac-enhanced-baker.so, with Embree
      (the version and SHA-256 tools/build_port.py pins) built by the NDK into build/android/embree
@@ -76,6 +77,8 @@ ZIG_FILES = {
 }
 # The APK's library it is, as the launcher's tools find it (OPENRAC_NATIVE_LIBRARY_DIR).
 PART_TOOL = "libopenrac-zig.so"
+# The shader package every game library links (port/cmake/ShaderCompiler.cmake).
+SHADERS = "libopenrac-shaders.so"
 ANDROID_API = 29
 
 # Chaquopy's CPython for Android (https://github.com/chaquo/chaquopy, MIT): the interpreter as a
@@ -293,6 +296,8 @@ def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_sym
     wanted = [PORT_BUILD / f"libopenrac-{g}.so" for g in games]
     wanted += [PORT_BUILD / f"libopenrac-{g}-cli.so" for g in games]
     wanted.append(PORT_BUILD / "libopenrac-python.so")
+    # The Vulkan shaders every game library loads: once in the APK, not once per game.
+    wanted.append(PORT_BUILD / SHADERS)
     if baker:
         wanted.extend(PORT_BUILD / f"lib{tool}.so" for tool in BAKE_TOOLS)
     for name in ("SDL3", *ADRENOTOOLS_HOOKS):

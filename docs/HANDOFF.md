@@ -267,7 +267,7 @@ Report bugs with the launcher's crash file or a screenshot.
 | rac3 Solana sequence | The first flight's galaxy sequence: the boot flight has no first-flight variant (probably the New Game intro movie, sector 18444); not confirmed | [rac3-port-NO-EMULATION-STATUS.md](handoff/notes/rac3-port-NO-EMULATION-STATUS.md) |
 | rac3 blank weapon slot | Blank first-weapon slot after loading a save, one report; not reproduced in six runs | same note |
 | #790 effects | Haze and Nitro checks not confirmed in a real run | PR description, audit P4b/P5/P6 |
-| Recorder for rac1/rac2 | R1–R3 runs not finished (#779 is in; rac1's title screen drops 2 of 3 commands) | [FRAME_RECORDER.md](port/FRAME_RECORDER.md) |
+| Recorder for rac1/rac2 | R1–R3 runs not finished (#779 is in; rac1's title screen drops nothing, traced 2026-11-26) | [FRAME_RECORDER.md](port/FRAME_RECORDER.md) |
 | Misfiled multiplayer rows | Five `func_L39_*` rows for maps 40–53 (func_L01_00436070, 00443948, 004AA948, 004AAD58, 004D2470) pair through `level_copies`, not names | [rac3-port-NO-EMULATION-STATUS.md](handoff/notes/rac3-port-NO-EMULATION-STATUS.md) |
 | NTSC-U-only twins | `func_L01_0037DC70` and `func_L39_004B5BE8` exist only in NTSC-U | rac3-decomp notes |
 | No-emulation packages | P2 (markers, per-player views), P4b/P5/P6, P10b, P11, P12, then P7/P8 (DMA-chain walk, GS interpreter) | [audit](handoff/notes/rac3-port-no-emulation-audit.md) |

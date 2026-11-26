@@ -60,6 +60,7 @@ typedef struct openrac_screen_effect {
     /* Extra blur passes at the copy's largest size (0 to 2). */
     uint32_t blur;
 } openrac_screen_effect;
+
 /* A view's rectangle in the game's 2D screen pixels (openrac_frame_screen's), from the top left. */
 typedef struct openrac_frame_viewport {
     float x0, y0, x1, y1;
@@ -150,6 +151,10 @@ int openrac_frame_mobys(gaddr list, int count);
  * rather than with the other effects after them; the fog fields are read. */
 #define OPENRAC_STRIP_LIQUID 1u
 #define OPENRAC_STRIP_FOG 2u
+/* The depth is written only where the window draws the strip with the world's liquids by its place in
+ * the list (the rule the chain's own strips follow, for a game whose list state the host C does not
+ * read): material.depth_write says whether it would write there. */
+#define OPENRAC_STRIP_CHAIN_DEPTH 4u
 #define OPENRAC_STRIP_MOST_VERTICES 8192u
 
 /* A world effect strip (the seas, liquids and other callback meshes): `count` vertices as one

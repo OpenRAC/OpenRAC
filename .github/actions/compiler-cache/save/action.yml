@@ -1,5 +1,6 @@
 # The end of a job that used ./.github/actions/compiler-cache. Writes a snapshot only on a push,
-# schedule or manual run, and only when ccache stored a new object: a run that hit the cache for
+# schedule or manual run (develop's merge queue hands it on through .github/actions/cache-out),
+# and only when ccache stored a new object: a run that hit the cache for
 # everything would add a copy of the same objects and push other caches out of the 10 GB.
 name: Save the compiler cache
 description: Save the compiler cache when this run added objects to it
@@ -24,8 +25,11 @@ runs:
       shell: bash
       env:
         EVENT: ${{ github.event_name }}
+        BASE: ${{ github.event.merge_group.base_ref }}
       run: |
-        if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ] || [ -z "$OPENRAC_CCACHE_SAVE_DIR" ]; then
+        # A pull request and master's queue save nothing; develop's queue hands its cache on
+        # (.github/actions/cache-out).
+        if [ "$EVENT" = pull_request ] || { [ "$EVENT" = merge_group ] && [ "$BASE" != refs/heads/develop ]; } || [ -z "$OPENRAC_CCACHE_SAVE_DIR" ]; then
           echo "save=false" >> "$GITHUB_OUTPUT"
           exit 0
         fi
@@ -49,8 +53,13 @@ runs:
         fi
         echo "ccache: $added new objects"
         if [ "${added:-0}" -gt 0 ]; then echo "save=true"; else echo "save=false"; fi >> "$GITHUB_OUTPUT"
-    - if: steps.new.outputs.save == 'true'
+    - if: steps.new.outputs.save == 'true' && github.event_name != 'merge_group'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.OPENRAC_CCACHE_SAVE_DIR }}
+        key: ${{ env.OPENRAC_CCACHE_SAVE_KEY }}
+    - if: steps.new.outputs.save == 'true' && github.event_name == 'merge_group'
+      uses: ./.github/actions/cache-out
       with:
         path: ${{ env.OPENRAC_CCACHE_SAVE_DIR }}
         key: ${{ env.OPENRAC_CCACHE_SAVE_KEY }}

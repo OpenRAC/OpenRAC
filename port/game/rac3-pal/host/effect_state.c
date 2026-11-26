@@ -12,6 +12,9 @@
 #include <string.h>
 
 enum {
+    kTex0 = 0x06,
+    kClamp1 = 0x08,
+    kTex1 = 0x14,
     kAlpha1 = 0x42,
     kTest1 = 0x47,
     kFba1 = 0x4A,
@@ -155,6 +158,18 @@ void rac3_effect_state_set(
             take_frame(s, value);
             s->known |= RAC3_EFFECT_FRAME;
             break;
+        case kTex0:
+            s->tex0 = value;
+            s->known |= RAC3_EFFECT_TEX0;
+            break;
+        case kClamp1:
+            s->clamp = value;
+            s->known |= RAC3_EFFECT_CLAMP;
+            break;
+        case kTex1:
+            s->tex1 = value;
+            s->known |= RAC3_EFFECT_TEX1;
+            break;
         default:
             /* Another register, alone in its packet: what is known stays known. */
             break;
@@ -213,5 +228,71 @@ int rac3_effect_mask_material(
     m.flags |= wms == 0 ? OPENRAC_MATERIAL_REPEAT_S : 0u;
     m.flags |= wmt == 0 ? OPENRAC_MATERIAL_REPEAT_T : 0u;
     *out = m;
+    return 1;
+}
+
+void rac3_effect_state_advance(
+    rac3_effect_state* s, uint32_t list, uint32_t before, uint32_t after
+) {
+    if (s->list != 0 && list == s->list && before == s->end) {
+        s->end = after;
+    }
+}
+
+int rac3_effect_strip_material(
+    const rac3_effect_state* s, uint32_t list, uint32_t at, openrac_material* out, uint64_t* texture
+) {
+    const uint32_t need = RAC3_EFFECT_TEST | RAC3_EFFECT_ALPHA | RAC3_EFFECT_CLAMP
+                          | RAC3_EFFECT_TEX0 | RAC3_EFFECT_TEX1;
+    if (s->list == 0 || list != s->list || at != s->end || (s->known & need) != need
+        || !s->blend_valid || s->dest_alpha_test != 0) {
+        return 0;
+    }
+    if (((s->known & RAC3_EFFECT_FBA) != 0 && s->alpha_top != 0)
+        || ((s->known & RAC3_EFFECT_FRAME) != 0 && s->writes == RAC3_EFFECT_WRITES_PARTIAL)) {
+        return 0;
+    }
+    /* CLAMP_1's WMS and WMT: 0 repeats, 1 holds at the edge; the region modes have no native form. */
+    const unsigned wms = (unsigned)(s->clamp & 3u);
+    const unsigned wmt = (unsigned)((s->clamp >> 2) & 3u);
+    if (wms > 1 || wmt > 1) {
+        return 0;
+    }
+    openrac_material m;
+    memset(&m, 0, sizeof(m));
+    m.source_k = s->source_k;
+    m.source_m = s->source_m;
+    m.dest_k = s->dest_k;
+    m.dest_m = s->dest_m;
+    m.weight = s->weight;
+    m.constant = s->constant;
+    m.alpha_test = s->alpha_test;
+    m.alpha_reference = s->alpha_reference;
+    m.alpha_fail = s->alpha_fail;
+    m.depth_test = s->depth_test;
+    m.combine = kCombines[(s->tex0 >> 35) & 3u];
+    m.writes = (s->known & RAC3_EFFECT_FRAME) != 0 ? s->writes : OPENRAC_MATERIAL_WRITE_COLOUR;
+    const unsigned mmin = (unsigned)((s->tex1 >> 6) & 7u);
+    m.flags = OPENRAC_MATERIAL_BLEND;
+    m.flags |= ((s->tex0 >> 34) & 1u) != 0 ? OPENRAC_MATERIAL_TEXTURE_ALPHA : 0u;
+    m.flags |= ((s->tex1 >> 5) & 1u) != 0 ? OPENRAC_MATERIAL_LINEAR_MAG : 0u;
+    m.flags |= mmin == 1 || mmin == 4 || mmin == 5 ? OPENRAC_MATERIAL_LINEAR_MIN : 0u;
+    m.flags |= wms == 0 ? OPENRAC_MATERIAL_REPEAT_S : 0u;
+    m.flags |= wmt == 0 ? OPENRAC_MATERIAL_REPEAT_T : 0u;
+    /* The chain's rule for a strip drawn before the mobys (before_mobys_writes_z over what the
+     * registers set): not a layer whose alpha test never passes and keeps only the colour; a liquid
+     * (ALPHA (Cs - Cd) FIX + Cd, FIX over 0x60) or an alpha test that keeps some pixels writes it. */
+    const int layer_only = s->alpha_test == OPENRAC_MATERIAL_TEST_NEVER
+                           && (s->alpha_fail == OPENRAC_MATERIAL_FAIL_COLOUR
+                               || s->alpha_fail == OPENRAC_MATERIAL_FAIL_RGB);
+    const int liquid = s->source_k == 1 && s->source_m == 0 && s->dest_k == -1 && s->dest_m == 1
+                       && s->weight == OPENRAC_MATERIAL_WEIGHT_CONSTANT && s->constant > 0x60;
+    const int kept_test = s->alpha_test != OPENRAC_MATERIAL_TEST_NEVER
+                          && s->alpha_test != OPENRAC_MATERIAL_TEST_ALWAYS;
+    if (!layer_only && (liquid || kept_test)) {
+        m.flags |= OPENRAC_MATERIAL_DEPTH_WRITE;
+    }
+    *out = m;
+    *texture = s->tex0;
     return 1;
 }
