@@ -302,3 +302,23 @@ Open, in the order they bit:
   (`~/RACSwarm/k3-ui/rac3-pal-1.json` in the test Server's UI_DIRECTORY, columns name/clan/team/skin/ready on the
   `players` table) makes it native with the scroll marks; not yet looked at.
 - NTSC-U carry of the new sites (release_carry_rac3.py) not run.
+
+### 2026-11-26: the START crash, and what the 12- and 16-player runs showed
+
+- **START crash (fixed, #959):** not the greyed-START path. The menu program (level 39) carries its own copies of
+  the moby evaluator (0x005B0AE0), draw side (0x005B24E8) and texture upload (0x005B2238); the maps' copies are
+  replaced by the port's, level 39's were translated from assembly and wrote the DMA chain-mode registers. They now
+  have `mp/libraries.tsv` rows (`rac3MobyChainMenus`, `rac3MobyDrawSideMenus`, `rac3MobyTexturesMenus`, host C in
+  `mp_maps.c`). A 12-player run passes START with them (no crash; the host script then missed its START press).
+- **16 players corrupt the settings tables:** with joiners in slots 14 and 15 the host's GS_CLIENT / GS_STATE
+  words at slots 0-6 hold the text "(null)" (two copies, 14 bytes each from +0xE0 and +0xF0 = slot 14 and 15 of
+  the names table at stride 16), and the joiners then die at a SIGSEGV at game address 0x70056420 when the host's
+  next settings broadcast arrives. A writer of the name (or clan) of slots 14 and 15 bypasses the wide table
+  (an unlisted copy site); rooms up to 13 are fine.
+- **Clan:** the join request's clan text is at +0x40 of the payload (+0x30 is the name); `clan_fix` now empties every
+  "(null)" in the join request and slot updates instead of looking at one offset.
+- **Scripted fleet:** a new join clears the others' ready, so every joiner must press READY after the last join
+  (join.sh computes it), and the host's START press must come after that; the staging screen's team/skin dialog
+  opens from a drifted press (see ~/Projects/RAC/mp24-progress/19-host-12p-after-start.png).
+- Build costs: the mp hostgen takes about 12 minutes on box1 (python 3.14) and 35 on box2 (3.12); a binary built on
+  box1 (Manjaro) does not run on box2 (Ubuntu: glibc, libstdc++, SDL3), so each box builds its own.
