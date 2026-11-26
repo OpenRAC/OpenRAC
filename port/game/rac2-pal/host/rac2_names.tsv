@@ -59,9 +59,13 @@ func_0027FC70	func_00280A30
 func_00280190	func_00280A58
 func_00280200	func_00280AC8
 func_00280270	func_00280B38
+func_00280328	func_00280BF0
+func_00280328__game	func_00280BF0__game
 func_00280B90	func_00281450
 func_00280B90_1	func_00281450_1
 func_00280B90_7	func_00281450_7
+func_00281810	func_002820D0
+func_00281810__game	func_002820D0__game
 func_00282A28	func_002832E8
 func_00282C68	func_00283528
 func_00282D78	func_00283638
@@ -75,6 +79,10 @@ func_00283CF0	func_002845B0
 func_00283DB8	func_00284678
 func_00283DB8__game	func_00284678__game
 func_00284088	func_00284948
+func_00284EA8	func_00285768
+func_00284EA8__game	func_00285768__game
+func_00285030	func_002858F0
+func_00285030__game	func_002858F0__game
 func_00288CB0	func_002895C8
 func_00288FB8	func_002898E8
 func_00288FB8__hooked	func_002898E8__hooked
@@ -180,6 +188,7 @@ func_002F3E78	func_002F4DC8
 func_002F4F78	func_002F5EC8
 func_002FC070	func_002FD0C8
 func_002FC560	func_002FD5B8
+func_002FC560__game	func_002FD5B8__game
 func_002FC620	func_002FD678
 func_002FC8D0	func_002FD928
 func_002FC990	func_002FD9E8

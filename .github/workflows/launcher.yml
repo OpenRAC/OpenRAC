@@ -5,9 +5,10 @@
 # a tag's, that repository's latest release; a build of a branch, the
 # pre-release launcher-dev-<branch> that the publish_dev_channel job keeps current
 # (launcher/docs/RELEASING.md). The development build players get is a dev release's: its pull
-# request (.github/workflows/dev-release.yml) builds release/dev here, by hand, and publishes
-# that run's installers on launcher-dev-develop (the launcher's Development channel) as soon as
-# every system built, without waiting for the merge.
+# request (.github/workflows/dev-release.yml) goes through master's merge queue, which builds
+# every installer here and publishes them on launcher-dev-develop (the launcher's Development
+# channel) once checks.yml's run of the same commit is green. The pull request merges only after
+# that.
 #
 # They are not signed: Windows SmartScreen and macOS Gatekeeper warn about
 # them until the project has certificates.
@@ -34,6 +35,8 @@ name: launcher
 run-name: >-
   ${{ github.ref_type == 'tag'
       && format('launcher #{0} · tag {1}', github.run_number, github.ref_name)
+  || github.event_name == 'merge_group'
+      && format('launcher #{0} · queue → master', github.run_number)
   || github.event_name == 'push'
       && format('launcher #{0} · push {1}', github.run_number, github.ref_name)
   || format('launcher #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
@@ -42,7 +45,14 @@ on:
   push:
     tags: ["launcher-v*"]
   # Pull requests and develop build nothing here: each build is five installers of up to two
-  # hours. A branch can still be built by hand (workflow_dispatch).
+  # hours. master's merge queue (a dev release) builds and publishes them; develop's queue starts
+  # no run. A branch can still be built by hand (workflow_dispatch).
+  # A pull request to master runs only so that the checks master requires report (skipped) on it:
+  # GitHub counts only a pull_request run's checks for a pull request, not a manual run's.
+  pull_request:
+    branches: [master]
+  merge_group:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -50,8 +60,7 @@ permissions:
 
 concurrency:
   group: launcher-${{ github.ref }}
-  # develop finishes the build in progress (it publishes its dev release); the newest push waits
-  # behind it. Other branches cancel an older run: a new dev release replaces release/dev's.
+  # A newer run of the same branch cancels the older one. Each queue entry has a ref of its own.
   cancel-in-progress: ${{ github.ref != 'refs/heads/develop' }}
 
 env:
@@ -66,6 +75,9 @@ jobs:
   # forever.
   version:
     name: version
+    # Nothing on a pull request to master or on release/dev: they run only so that the checks master
+    # requires report (skipped); its queue builds.
+    if: github.event_name != 'pull_request' && github.ref != 'refs/heads/release/dev'
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
@@ -370,6 +382,9 @@ jobs:
           "$baker" --help > /dev/null || { echo "openrac-enhanced-baker does not start"; exit 1; }
           "$baker" --print-interior-profile > /dev/null || { echo "interior inference does not start"; exit 1; }
           "$baker" --print-water-profile > /dev/null || { echo "water baking does not start"; exit 1; }
+          # The Vulkan shaders, one library beside the programs that every game loads.
+          shaders=$(ls "$COPY"/port/build/release/*openrac-shaders.* 2>/dev/null | head -1)
+          [ -n "$shaders" ] || { echo "the copy carries no openrac-shaders library"; exit 1; }
           # On Windows each program has Microsoft's C++ runtime beside it: a new Windows has none.
           if [ "$NAME" = windows ]; then
             for dll in msvcp140.dll msvcp140_2.dll vcruntime140.dll vcruntime140_1.dll; do
@@ -397,6 +412,7 @@ jobs:
             need=$(objdump -T "$game" | grep -oE 'GLIBC_2\.[0-9]+' | sort -t. -k2 -n | tail -1)
             echo "needs $need"
             if readelf -d "$game" | grep -q 'libstdc++'; then echo "the game needs the system's libstdc++"; exit 1; fi
+            if readelf -d "$shaders" | grep -q 'libstdc++'; then echo "$shaders needs the system's libstdc++"; exit 1; fi
           esac
           if [ "$NAME" = linux ]; then
             case "$need" in GLIBC_2.3[6-9]|GLIBC_2.[4-9]*) echo "the game needs a newer glibc than 2.35"; exit 1;; esac
@@ -418,7 +434,7 @@ jobs:
                      libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
                      libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
                      libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
-                     libopenrac-python.so; do
+                     libopenrac-shaders.so libopenrac-python.so; do
             echo "$lib:"; "$llvm/llvm-readelf" -d "launcher/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/$lib" | grep NEEDED
           done
           echo "::endgroup::"
@@ -470,9 +486,9 @@ jobs:
             # Newer than any release, also when master was not raised after one (scripts/dev_version.sh).
             base="${{ needs.version.outputs.base }}"
             version=$base
-            # A dev release's builds (release/dev) are published on develop's channel, the
+            # A dev release's builds (master's queue) are published on develop's channel, the
             # launcher's Development.
-            branch=$GITHUB_REF_NAME; [ "$branch" != release/dev ] || branch=develop
+            branch=$GITHUB_REF_NAME; [ "$GITHUB_EVENT_NAME" != merge_group ] || branch=develop
             channel="launcher-dev-$(printf '%s' "$branch" | tr -c 'A-Za-z0-9._-' '-')"
           endpoint="https://github.com/$GITHUB_REPOSITORY/releases/download/$channel/latest.json"
           export OPENRAC_LAUNCHER_BUILD="dev.$GITHUB_RUN_NUMBER"
@@ -554,7 +570,7 @@ jobs:
                    libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
                    libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
                    libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
-                   libSDL3.so libc++_shared.so libopenrac-python.so \
+                   libopenrac-shaders.so libSDL3.so libc++_shared.so libopenrac-python.so \
                    libpython3.13.so libhook_impl.so libmain_hook.so libfile_redirect_hook.so \
                    libgsl_alloc_hook.so libopenrac_launcher_lib.so; do
           unzip -l "$apk" "lib/arm64-v8a/$lib" > /dev/null || { echo "the APK has no $lib"; exit 1; }
@@ -603,63 +619,62 @@ jobs:
   # A build of a branch here or in a fork: its launchers on the branch's rolling pre-release
   # `launcher-dev-<branch>`, made again each time, where the launchers built from that branch look
   # for their updates (Build the installers, above). Only with the update key: a launcher installs
-  # no update without its signature. release/dev (a dev release's pull request) publishes on
+  # no update without its signature. master's merge queue (a dev release) publishes on
   # launcher-dev-develop, the launcher's Development channel (launcher/core/src/update.rs,
-  # DEV_BRANCH), once every system built and checks.yml's run of the same commit is green, while
-  # its pull request is open (or merged) and still at this commit. Closing the pull request does not take the build back off the channel: the next
-  # dev release replaces it. Another branch publishes also when a system's build failed (a macOS
-  # job that got no runner, say): the systems built still get their update, and latest.json leaves
-  # out the one that did not. Not when the run was cancelled (a newer one of the branch took its
-  # place).
+  # DEV_BRANCH), once every system built and checks.yml's run of the same commit is green. It is
+  # the last check master waits for: the pull request merges after it. A queue entry removed before
+  # this step publishes nothing; one removed after it leaves the build on the channel until the
+  # next dev release. Another branch publishes also when a system's build failed (a macOS job that
+  # got no runner, say): the systems built still get their update, and latest.json leaves out the
+  # one that did not. Not when the run was cancelled (a newer one of the branch took its place).
   publish_dev_channel:
     name: publish_dev_channel
+    # In master's queue it always runs, so that a failed build fails it (a skipped check would pass).
     if: >-
       ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/')
-      && (github.ref == 'refs/heads/release/dev' && needs.installer.result == 'success'
-          || github.ref != 'refs/heads/release/dev' && needs.installer.result != 'skipped') }}
+      && (github.event_name == 'merge_group' && github.event.merge_group.base_ref == 'refs/heads/master'
+          || github.event_name != 'merge_group' && needs.installer.result != 'skipped') }}
     needs: [version, installer]
     runs-on: ubuntu-26.04
-    # release/dev waits here for its checks (the games), which can take as long as the builds.
+    # The queue waits here for its checks (the games), which can take as long as the builds.
     timeout-minutes: 240
     permissions:
       contents: write
-      pull-requests: read
       actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # release/dev: only once its checks are green (dev-release.yml starts both runs). A red or
-      # cancelled check fails this job: re-run it here once the checks are green again.
-      - name: The dev release's checks
-        if: github.ref == 'refs/heads/release/dev'
+      # master's queue: every system built, and checks.yml's run of this commit is green. A red
+      # check fails this job, and the queue drops the pull request.
+      - name: Every installer and every check
+        if: github.event_name == 'merge_group'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          RESULT: ${{ needs.installer.result }}
         run: |
-          run=$(gh run list --workflow checks.yml --branch release/dev --commit "$GITHUB_SHA" --limit 1 \
+          if [ "$RESULT" != success ]; then
+            echo "::error::not every installer built ($RESULT): nothing published"
+            exit 1
+          fi
+          run=$(gh run list --workflow checks.yml --event merge_group --commit "$GITHUB_SHA" --limit 1 \
                 --json databaseId -q '.[0].databaseId // ""')
           if [ -z "$run" ]; then
-            echo "::error::no checks run of release/dev at $GITHUB_SHA"
+            echo "::error::no checks run of the queue at $GITHUB_SHA"
             exit 1
           fi
           if ! gh run watch "$run" --exit-status --interval 60 > /dev/null; then
-            echo "::error::checks run $run of release/dev is not green: nothing published"
+            echo "::error::checks run $run is not green: nothing published"
             exit 1
           fi
-      # release/dev: only for its pull request to master as it is now. One closed without a merge,
-      # or a newer dev release on the branch, publishes nothing.
-      - name: The dev release's pull request
+      # master's queue: only while the entry is still queued (its branch is gone once it is removed).
+      - name: The queue entry
         id: source
-        if: github.ref == 'refs/heads/release/dev'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+        if: github.event_name == 'merge_group'
         run: |
-          state=$(gh pr list --base master --head release/dev --state all --limit 20 --json state,headRefOid \
-                  -q "[.[] | select(.headRefOid == \"$GITHUB_SHA\" and .state != \"CLOSED\")][0].state // \"\"")
-          if [ -z "$state" ]; then
-            echo "::notice::no open or merged pull request of release/dev at $GITHUB_SHA: nothing to publish"
+          if ! git ls-remote --exit-code origin "refs/heads/$GITHUB_REF_NAME" > /dev/null; then
+            echo "::notice::the queue entry is gone: nothing to publish"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -685,15 +700,16 @@ jobs:
           fi
           # The builds' own version (Build the installers, above).
           version=$(cat "$RUNNER_TEMP/version/version.txt")
-          branch=$GITHUB_REF_NAME; [ "$branch" != release/dev ] || branch=develop
+          branch=$GITHUB_REF_NAME; source=$GITHUB_REF_NAME
+          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then branch=develop; source="dev release"; fi
           channel="launcher-dev-$(printf '%s' "$branch" | tr -c 'A-Za-z0-9._-' '-')"
           python3 tools/updater_manifest.py installers --tag "$channel" --repo "$GH_REPO" \
-            --version "$version" --notes "Built from $GITHUB_REF_NAME at $GITHUB_SHA." --output installers/latest.json
+            --version "$version" --notes "Built from $source at $GITHUB_SHA." --output installers/latest.json
           # The installers' names have spaces in them: an array, not a word list.
           mapfile -d '' files < <(find installers -type f -print0 | sort -z)
           echo "::group::${#files[@]} files"; printf '%s\n' "${files[@]}"; echo "::endgroup::"
-          title="v$version ($GITHUB_REF_NAME)"
-          notes="The launchers built from $GITHUB_REF_NAME at $GITHUB_SHA; launchers built from this branch update from here."
+          title="v$version ($source)"
+          notes="The launchers built from $source at $GITHUB_SHA; launchers built from this branch update from here."
           if ! gh release view "$channel" > /dev/null 2>&1; then
             gh release create "$channel" --prerelease --target "$GITHUB_SHA" --title "$title" --notes "$notes" "${files[@]}"
             exit 0

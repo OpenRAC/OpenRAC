@@ -33,9 +33,20 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_OMIT_frame_list_ownership 1
 /* Native letterbox bars (letterbox.c): the caller state is proved on PAL v2.00 level 6 only. */
 #define RAC1_OMIT_func_001F5148 1
+/* Hoven's and Oltanis' effect lists on the native strip record (strips.c): carried to PAL v2.00 first. */
+#define RAC1_OMIT_func_L12_002E8530 1
+#define RAC1_OMIT_func_L14_00308EB0 1
 /* Native screen tint and the AA pass left out (screen_fade.c): checked on PAL v2.00 only. */
 #define RAC1_OMIT_func_001F55C0 1
 #define RAC1_OMIT_func_001FB848 1
+/* Native stripes of the screen colour effect and the frame copy (screen_fade.c, screen_copy.c): checked on PAL v2.00 only. */
+#define RAC1_OMIT_func_001F5368 1
+#define RAC1_OMIT_func_001F4E08 1
+#define RAC1_OMIT_func_L00_002A21A8 1
+#define RAC1_OMIT_func_L00_002A2258 1
+/* The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only. */
+#define RAC1_OMIT_func_001FB608 1
+#define RAC1_OMIT_func_001FB498 1
 /* The game's particle routines (particles.c, openrac_api.particle_spawn_ex) are checked at PAL's addresses only. */
 #define RAC1_OMIT_particle_spawn_ex 1
 /* Level 0's 0x2EC6B8: the NTSC decomp's catalogue places its func_001E9448 there, which returns 0. */
@@ -832,5 +843,12 @@ int rac1_ntsc_ship_menu_game(gaddr menu, int unused);
 #define func_L00_0029BA20 game_FUN_L00_0029a6b0
 #define func_L00_0029C070 game_FUN_L00_0029ad08
 #define func_L01_00309078__game game_FUN_L01_00307ca0__game
+
+/* The recorder panels' wrappers and the data they read (render_panel.c, screen_fade.c, screen_copy.c). */
+#define RAC1_ADDR_0x0015F538u 0x0015F438u
+#define func_001FB498 game_FUN_001fb2d0
+#define func_001FB498__game game_FUN_001fb2d0__game
+#define func_001FB608 game_FUN_001fb440
+#define func_001FB608__game game_FUN_001fb440__game
 
 #endif /* OPENRAC_RAC1_VERSION_H */

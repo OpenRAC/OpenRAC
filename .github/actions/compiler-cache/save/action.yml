@@ -1,5 +1,6 @@
 # The end of a job that used ./.github/actions/compiler-cache. Writes a snapshot only on a push,
-# schedule or manual run, and only when ccache stored a new object: a run that hit the cache for
+# schedule or manual run (develop's merge queue hands it on through .github/actions/cache-out),
+# and only when ccache stored a new object: a run that hit the cache for
 # everything would add a copy of the same objects and push other caches out of the 10 GB.
 name: Save the compiler cache
 description: Save the compiler cache when this run added objects to it
@@ -19,31 +20,46 @@ runs:
         get() { echo "$stats" | awk -v k="$1" '$1 == k { n = $2 } END { print n + 0 }'; }
         hits=$(( $(get direct_cache_hit) + $(get preprocessed_cache_hit) ))
         echo "::notice title=ccache::$hits hits, $(get cache_miss) misses; restored ${OPENRAC_CCACHE_RESTORED:-none}"
+        echo "OPENRAC_CCACHE_MISSES=$(get cache_miss)" >> "$GITHUB_ENV"
     - id: new
       shell: bash
       env:
         EVENT: ${{ github.event_name }}
+        BASE: ${{ github.event.merge_group.base_ref }}
       run: |
-        if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ] || [ -z "$OPENRAC_CCACHE_SAVE_DIR" ]; then
+        # A pull request and master's queue save nothing; develop's queue hands its cache on
+        # (.github/actions/cache-out).
+        if [ "$EVENT" = pull_request ] || { [ "$EVENT" = merge_group ] && [ "$BASE" != refs/heads/develop ]; } || [ -z "$OPENRAC_CCACHE_SAVE_DIR" ]; then
           echo "save=false" >> "$GITHUB_OUTPUT"
           exit 0
         fi
-        # ccache 4 names a compile result *R (and keeps large objects beside it as *.raw); stats
-        # and manifest files change on a hit too. Python, not find: some images (Fedora's
-        # container, Windows' PATH) have no GNU find first on PATH.
-        python=$(command -v python3 || command -v python) || { echo "save=false" >> "$GITHUB_OUTPUT"; exit 0; }
-        added=$("$python" - "$OPENRAC_CCACHE_SAVE_DIR" "$RUNNER_TEMP/openrac-ccache-mark" <<'PY'
+        # A miss stores a new object. The counts start at zero in this job (compiler-cache).
+        if [ -n "$OPENRAC_CCACHE_MISSES" ]; then
+          added=$OPENRAC_CCACHE_MISSES
+        else
+          # No statistics: count the files written since the restore. ccache 4.13 gives entries
+          # no suffix, so take every file but its own bookkeeping. Python, not find: some images
+          # (Fedora's container, Windows' PATH) have no GNU find first on PATH.
+          python=$(command -v python3 || command -v python) || { echo "save=false" >> "$GITHUB_OUTPUT"; exit 0; }
+          added=$("$python" - "$OPENRAC_CCACHE_SAVE_DIR" "$RUNNER_TEMP/openrac-ccache-mark" <<'PY'
         import os, sys
         root, mark = sys.argv[1], sys.argv[2]
         since = os.stat(mark).st_mtime if os.path.exists(mark) else 0
         print(sum(1 for top, _, files in os.walk(root) for name in files
-                  if name.endswith(("R", ".raw")) and os.stat(os.path.join(top, name)).st_mtime > since))
+                  if name not in ("stats", "CACHEDIR.TAG") and os.path.basename(top) != "tmp"
+                  and os.stat(os.path.join(top, name)).st_mtime > since))
         PY
-        )
+          )
+        fi
         echo "ccache: $added new objects"
         if [ "${added:-0}" -gt 0 ]; then echo "save=true"; else echo "save=false"; fi >> "$GITHUB_OUTPUT"
-    - if: steps.new.outputs.save == 'true'
+    - if: steps.new.outputs.save == 'true' && github.event_name != 'merge_group'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.OPENRAC_CCACHE_SAVE_DIR }}
+        key: ${{ env.OPENRAC_CCACHE_SAVE_KEY }}
+    - if: steps.new.outputs.save == 'true' && github.event_name == 'merge_group'
+      uses: ./.github/actions/cache-out
       with:
         path: ${{ env.OPENRAC_CCACHE_SAVE_DIR }}
         key: ${{ env.OPENRAC_CCACHE_SAVE_KEY }}

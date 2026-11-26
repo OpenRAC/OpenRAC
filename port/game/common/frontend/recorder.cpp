@@ -10,10 +10,12 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <span>
 
 #include "common/env.h"
 #include "frontend.h"
+#include "game/common/frontend/effect_material.h"
 #include "game/common/frontend/state.h"
 #include "openrac/game_host.h"
 #include "renderer/textures/texture.h"
@@ -181,6 +183,58 @@ void effect_quad(std::uint32_t marker) {
         c.index = marker;
         g->recorder.push(c);
     }
+}
+
+bool strip(std::span<const std::uint8_t> ram, const openrac_frame_strip_desc& d) {
+    if (!native() || !g_resolver || d.count < 3 || d.count > OPENRAC_STRIP_MOST_VERTICES
+        || d.position == nullptr || d.st == nullptr || d.rgba == nullptr) {
+        return false;
+    }
+    const bool untextured = (d.material.flags & OPENRAC_MATERIAL_UNTEXTURED) != 0;
+    const bool fogged = (d.flags & OPENRAC_STRIP_FOG) != 0;
+    // The untextured shader has no fog line.
+    if ((d.flags & ~(OPENRAC_STRIP_LIQUID | OPENRAC_STRIP_FOG | OPENRAC_STRIP_CHAIN_DEPTH)) != 0
+        || (untextured && fogged)) {
+        return false;
+    }
+    const std::optional<renderer::EffectState> state = effect_state(d.material);
+    if (!state) {
+        return false;
+    }
+    renderer::StripRecord out;
+    out.state = *state;
+    out.untextured = untextured;
+    out.liquid = (d.flags & OPENRAC_STRIP_LIQUID) != 0;
+    out.fogged = fogged;
+    out.chain_depth = (d.flags & OPENRAC_STRIP_CHAIN_DEPTH) != 0;
+    std::copy(d.fog, d.fog + 4, out.fog.begin());
+    out.fog_colour = d.fog_colour & 0xFFFFFFu;
+    if (!untextured) {
+        const renderer::UiImage found = g_resolver(ram, d.image);
+        if (!found.image) {
+            return false;
+        }
+        out.image = keep_image(found);
+    }
+    auto& recording = g->recorder.open();
+    out.first = static_cast<std::uint32_t>(recording.strip_vertices.size());
+    out.count = d.count;
+    for (std::uint32_t k = 0; k < d.count; ++k) {
+        recording.strip_vertices.push_back(
+            {d.position[3 * k],
+             d.position[3 * k + 1],
+             d.position[3 * k + 2],
+             d.st[2 * k],
+             d.st[2 * k + 1],
+             d.rgba[k]}
+        );
+    }
+    recording.strips.push_back(out);
+    renderer::FrameCommand c;
+    c.op = renderer::FrameOp::Strip;
+    c.index = static_cast<std::uint32_t>(recording.strips.size() - 1);
+    g->recorder.push(c);
+    return true;
 }
 
 bool drawing() {

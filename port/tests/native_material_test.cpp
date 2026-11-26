@@ -318,7 +318,7 @@ void test_out_of_range_materials_are_refused() {
     bad[6].depth_test = OPENRAC_MATERIAL_DEPTH_NEARER + 1;
     bad[7].combine = OPENRAC_MATERIAL_HIGHLIGHT2 + 1;
     bad[8].writes = OPENRAC_MATERIAL_WRITE_COLOUR + 1;
-    bad[9].flags |= OPENRAC_MATERIAL_UNTEXTURED << 1;  // a bit no flag names
+    bad[9].flags |= OPENRAC_MATERIAL_MIPMAP << 1;  // a bit no flag names
     std::vector<EffectQuad> quads;
     std::vector<UiImage> images;
     int looked = 0;

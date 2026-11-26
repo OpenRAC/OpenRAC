@@ -279,6 +279,45 @@ to directly.
 - Reuse: `renderer/effects` liquids pass, `bake-inputs/liquids.json`.
 - Done when: level 14's pool, Florana's mud and Marcadia's pool draw from strip records with
   `OPENRAC_DUMP_VIF` unset and no unpacks read.
+- **Status (2026-11-25):** the shared record landed: `openrac_frame_strip` / `FrameOp::Strip`, with
+  a native material, the image, the fog line and `OPENRAC_STRIP_LIQUID` (FRAME_RECORDER.md 3.2,
+  TEXTURES.md 4); `EffectRenderer` draws it like a native quad, with a mip chain on request. First
+  producer: the open water plane (`water_plane.c`: Florana, Marcadia, Daxx and the other levels with
+  class 2871). Still on the strip routine: class 6576's draw, level 14 `0x003B24C8` and the other
+  hand-written strip builders; the UNPACK/MSCAL branch of `direct_packets` stays until they move.
+- **Status (2026-11-26, rac3 hand-built strips):** the levels' strip routine (frontbin `func_003D3A24`,
+  Veldin `func_L01_00408AAC`, and its setup `func_L01_00407588`) is wrapped in `host/render.c`: the
+  capture (`effect_state.c`) now also keeps CLAMP_1, TEX0_1 and TEX1_1, and when TEST_1, ALPHA_1, CLAMP_1,
+  TEX0_1 and TEX1_1 were set by the caller with nothing appended since, the strip is recorded with
+  `openrac_frame_strip` from the routine's own arrays (view context fog line and FOGCOL), so every caller
+  of the routine (class 6576's draw, level 14's `0x003B24C8` = `func_L02_003A2EC8`, the glints and
+  ribbons) goes native without a caller of its own changing; the game's routine runs when the state is
+  not proven, the texture is not an effect texture or the window refuses. Depth follows the chain's rule
+  through `OPENRAC_STRIP_CHAIN_DEPTH` (written only where the window places the strip with the
+  liquids). `OPENRAC_RAC3_STRIP_TRACE` counts. The UNPACK/MSCAL branch stays for rac1, rac2 and the
+  strips the proof refuses.
+  Checked 2026-11-26 on Florana (level 2) and Koros (level 14), hidden runs against `OPENRAC_UI_REPLAY=1`:
+  all strips native (5,000+ per run, none refused), Koros identical to the chain's picture, Florana identical
+  except a band at the water's edge (up to 37/255, the #931 difference): it is the water's own fog, which the
+  chain's reading never applied; with the fog off (a local test switch) the picture is bit-identical to the
+  chain's. The fog is the one the water program applies (water_plane.c header), so the band is the fix, not
+  a mismatch.
+- **Status (2026-11-25, rac1):** Oltanis' ice and Hoven's list (`draw_textured_effect_list`, one
+  function with a place in L12 and L14) record `openrac_frame_strip` from `rac1/host/strips.c`
+  (wrapped at the two callers, `func_L12_002E8530` and `func_L14_00308EB0`, which name the effect
+  textures): two strips per entry, the list's own ST then the environment ST, materials from the
+  static GS block the routine sends (read from the discs: TEST nearer-or-equal, ALPHA FIX 0x80 and
+  0x40), the fog line the view context's. PAL v2.00 only; PAL v1.00, NTSC-J and NTSC-U keep the
+  game's draw (parity.tsv) until their addresses are carried. Novalis' ripples
+  (`update_and_draw_scrolling_overlay_layers`, `DrawEnvOverlayMesh`) are not moved: the enhanced-water
+  tags and the Fleet pool passes (`water_surfaces.c`) read those strips from the chain.
+- **Status, rac2 (2026-11-25):** a level's water and sea sheets now reach the window as strip
+  records: `rac2/host/strips.c` wraps the one routine every callback's strip goes through
+  (`part_draw_glint_effect`, `func_00281810`), `VU1_addGSregister` (TEX0, TEX1, CLAMP, ALPHA, TEST
+  kept as native values) and `font_queue_vu_state` (the view's fog line), and records the strip with a
+  material from the state its own callback set, in the lists run before the mobys (Oozla's swamp,
+  the seas of Notak, Tabora, Joba, Boldan, Snivelak and Damosel). The rest of rac2's strips (weapon
+  beams, ribbons, ripples, the lists after the mobys) still come from the chain.
 
 ### P6 — Screen effects and frame copies natively (rac3, implementation; after P1)
 
@@ -461,10 +500,14 @@ is matching work under rac3-decomp's rules (WORKFLOW "Matching"), not port work.
 |---|---|---|
 | **R1** recorder hand-off (as P2) | `rac1/host/render_native.c`, `ui2d.c`, `hud.c`, `hud_panels.c`, `boot_picture.c`, `water_surfaces.c`, `effect_quad.c`, `rac1-pal/host/water.c` (the GS NOP that "travels with that chain") | `rac2/host/render.c`, `ui2d.c`, `font.c`, `hud.c`, `picture.c`, `movie.c`, `mod_pages.c` |
 | **R2** residual 2D (as P3, P6) | FadeToBlack `func_001F4E08`, letterbox `func_001F5148`, screen effects `func_001F5368`, Z clear `func_001FB908`, render to texture `func_001FB608`, `AA_BlurPass` `func_001FB848`, the frame snapshot | the title and credits pictures, the Ship Shack panels (off-screen targets by block), the cockpit screen's 256×256 target (block 0x1DF) |
-| **R2 status (2026-11-25)** | Done natively: the screen-wide tint `emit_rgba_draw_packet` `func_001F55C0` (every fade, the underwater tint, FadeToBlack's black, the pause and freeze dimming) as a recorded source-over fill, and `AA_BlurPass` `func_001FB848` not sent with a window (`rac1/host/screen_fade.c`, PAL v2.00; the other releases omit them). Still residual: FadeToBlack's second packet (an inline DMA call to `second_clear_packet`), `func_001F5368` (its stripes go through `DrawRectOverlay`, tested at depth 0xFFFFF0 in the 2D tail: state not proved), Z clear `func_001FB908` and render to texture `func_001FB608` (the vendor's capture target, by block), the frame snapshot (`func_L00_001F9D40`) | The title, splash and no-card pictures (`rac2/host/picture.c`) as port pictures, the backdrop's sides as two pre-shaded pictures, the frame read back as `openrac_frame_last_frame`, the credits' world boundary as `openrac_frame_world(0)` (the credits are not yet seen in a run). Still residual: the Ship Shack panels and the cockpit screen's target |
-| **R3** strips (as P5), DMA hand-off out (as P7) — **blocked on P4/P5/P7 (2026-11-25, see below)** | Oltanis ice and Hoven (`draw_textured_effect_list`, shared L12/L14 code), Novalis ripples (`update_and_draw_scrolling_overlay_layers` and the wave builder), all ending in `DrawEnvOverlayMesh` (`func_L00_001FDE48`); `shown_chain` double buffer | lava `func_00303070` is **already native** (it draws quads through `draw_world_quad`, `rac2/host/render.c` `world_quad`); sea and the other water strips still come from the chain; `rac2/host/spr_dma.c` **gone** (P9, #771; CollLine is `rac2/host/coll_line.c`); `handasm_vu0.c` DMA waits are report-only fragments already; `rac2/host/dma.c` stays until P7/P8 |
+| **R2 status (2026-11-25)** | Done natively: the screen-wide tint `emit_rgba_draw_packet` `func_001F55C0` (every fade, the underwater tint, FadeToBlack's black, the pause and freeze dimming) as a recorded source-over fill, and `AA_BlurPass` `func_001FB848` not sent with a window (`rac1/host/screen_fade.c`, PAL v2.00; the other releases omit them). Also done natively (PAL v2.00, `screen_fade.c`, `screen_copy.c`): FadeToBlack `func_001F4E08` (its black fills the frame at once with the tint alone: now a recorded fade of the shown picture with the console's total alpha), `func_001F5368` (depth state at 0xFFFFF0 proved in docs/port/SCREEN_EFFECTS.md 5.1; not reached in any run), the frame snapshot (`func_L00_001F9D40` through `func_L00_002A21A8` / `func_L00_002A2258`, as pictures: pause and vendor checked). Still residual: Z clear `func_001FB908` and render to texture `func_001FB608` (the vendor's capture target, by block) | The title, splash and no-card pictures (`rac2/host/picture.c`) as port pictures, the backdrop's sides as two pre-shaded pictures, the frame read back as `openrac_frame_last_frame`, the credits' world boundary as `openrac_frame_world(0)` (the credits are not yet seen in a run). Still residual: the Ship Shack panels and the cockpit screen's target |
+| **R3** strips (as P5), DMA hand-off out (as P7) — **blocked on P4/P5/P7 (2026-11-25, see below)** | Oltanis ice and Hoven (`draw_textured_effect_list`, shared L12/L14 code), Novalis ripples (`update_and_draw_scrolling_overlay_layers` and the wave builder), all ending in `DrawEnvOverlayMesh` (`func_L00_001FDE48`); `shown_chain` double buffer | lava `func_00303070` is **already native** (it draws quads through `draw_world_quad`, `rac2/host/render.c` `world_quad`); the level water and sea sheets are **now strip records** (`rac2/host/strips.c`, P5 status); the beam, ribbon and ripple strips and the lists after the mobys still come from the chain; `rac2/host/spr_dma.c` **gone** (P9, #771; CollLine is `rac2/host/coll_line.c`); `handasm_vu0.c` DMA waits are report-only fragments already; `rac2/host/dma.c` stays until P7/P8 |
 | VU0 (as P10) | 5 `vcallms` stubs; `vu0_sine.c` microcode constants | `vu0_programs` 0xC80/0xC90/0xD18 (`trig.c`), `handasm.c` vectors on `openrac_vu0` |
 | Sound (as P11a) | already at the API | the same ring as rac3: do it right after rac3's |
+
+**R3 status (2026-11-25, after the strip record):** Oltanis and Hoven's list is on the record for
+PAL v2.00 (`rac1/host/strips.c`); Novalis' ripples, the other versions and the `DrawEnvOverlayMesh`
+callers of Fleet, Batalia and the weapons are still on the chain.
 
 R3 findings (2026-11-25, read from develop f7e809b0a):
 
