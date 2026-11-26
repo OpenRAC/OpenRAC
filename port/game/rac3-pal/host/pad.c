@@ -14,6 +14,9 @@
 #include "openrac/game_lib.h"
 #include "openrac/guest.h"
 
+/* mp_ui.c: the first pad button word (active low) with the presses the port takes left out. */
+uint16_t rac3_mp_ui_pad_filter(uint16_t word);
+
 static struct {
     unsigned char open, analog, pressure;
     unsigned char align[6]; /* each SetActDirect byte's motor, 0xFF none */
@@ -67,6 +70,13 @@ int func_0012F3F8(int port, int slot, int data) { /* scePadRead */
     memset(out, 0, 32);
     out[1] = pads[port].analog ? (pads[port].pressure ? 0x79 : 0x73) : 0x41;
     openrac_lib_scePad2Read(port, (gaddr)data + 2u);
+    if (port == 0) {
+        /* Up Your Arsenal's staging screen: a READY the port takes (mp_ui.c). The word is active low. */
+        uint16_t word;
+        memcpy(&word, out + 2, sizeof word);
+        word = rac3_mp_ui_pad_filter(word);
+        memcpy(out + 2, &word, sizeof word);
+    }
     if (!pads[port].analog) {
         memset(out + 4, 0, 16);
     } else if (!pads[port].pressure) {
