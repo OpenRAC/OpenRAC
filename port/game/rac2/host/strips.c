@@ -34,6 +34,7 @@
 #include "game/common/lib/effect_texture.h"
 #include "game_protos.h"
 #include "openrac/game_host.h"
+#include "openrac/host_env.h"
 #include "rac2.h"
 
 /* The effect textures' uploads this frame: their count and the records GetEffectTex writes
@@ -292,7 +293,7 @@ static unsigned s_native, s_why[kWhyCount];
 static void trace(int why) {
     static int on = -1;
     if (on < 0) {
-        on = getenv("OPENRAC_STRIP_TRACE") != NULL;
+        on = openrac_env_string("OPENRAC_STRIP_TRACE") != NULL;
     }
     if (!on) {
         return;
