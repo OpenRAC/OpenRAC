@@ -792,6 +792,10 @@ void drop_menu_options(const openrac_mod* mod);
 
 int api_on_play_query(openrac_mod* mod, std::uint32_t kinds, openrac_play_query_fn fn, void* user);
 
+int api_overlay_image_create(openrac_mod* mod, const openrac_overlay_image* image);
+
+int api_overlay_image_destroy(openrac_mod* mod, int image);
+
 int api_on_mods_loaded(openrac_mod* mod, openrac_frame_fn fn, void* user);
 
 // What mods offer each other (interface 1.42, core.cpp): forgets the services `mod` offered and its

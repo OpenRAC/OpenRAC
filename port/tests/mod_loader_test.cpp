@@ -38,6 +38,7 @@
 #include "openrac/guest.h"
 #include "openrac/script_binding.h"
 #include "renderer/textures/sharp_cells.h"
+#include "renderer/ui/overlay_images.h"
 
 // mod_play.cpp asks the game for its play host (pickup_animation); there is no game here.
 extern "C" {
@@ -1946,6 +1947,13 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     mods::run_overlays(overlay);
     CHECK(g_overlay_rect[0] == 10.0f && g_overlay_rect[1] == 20.0f);
     CHECK(g_overlay_rect[2] == 4.0f && g_overlay_rect[3] == 8.0f);
+    // on_overlay's mod draws over the finished frame only, never under the HUD (1.41).
+    CHECK(!mods::overlay_wanted_under_hud(OPENRAC_OVERLAY_PLAYING));
+    g_overlay_rect[0] = 0.0f;
+    overlay.layer = OPENRAC_OVERLAY_LAYER_UNDER_HUD;
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 0.0f);
+    overlay.layer = OPENRAC_OVERLAY_LAYER_TOP;
     // A frame of a menu is not on_overlay's.
     g_overlay_rect[0] = 0.0f;
     overlay.phase = OPENRAC_OVERLAY_MENU;
@@ -1977,6 +1985,14 @@ void a_mod_draws_over_the_level(const fs::path& plugins, const fs::path& dir) {
     overlay.phase = OPENRAC_OVERLAY_MENU;
     mods::run_overlays(overlay);
     CHECK(g_overlay_rect[0] == 10.0f);
+    // Interface 1.41: it asked to draw under the HUD too, in the same phases.
+    CHECK(mods::overlay_wanted_under_hud(OPENRAC_OVERLAY_MENU));
+    CHECK(!mods::overlay_wanted_under_hud(OPENRAC_OVERLAY_SCENE));
+    g_overlay_rect[0] = 0.0f;
+    overlay.layer = OPENRAC_OVERLAY_LAYER_UNDER_HUD;
+    mods::run_overlays(overlay);
+    CHECK(g_overlay_rect[0] == 10.0f);
+    overlay.layer = OPENRAC_OVERLAY_LAYER_TOP;
     g_overlay_rect[0] = 0.0f;
     overlay.phase = OPENRAC_OVERLAY_SCENE;
     mods::run_overlays(overlay);
@@ -2564,6 +2580,76 @@ void a_mod_gives_sharper_cells(const fs::path& plugins) {
     mods::reset();
 }
 
+// A mod's overlay pictures (interface 1.41, openrac_api.overlay_image_create and _destroy): what
+// the calls refuse, the copy kept as the mod's, a struct of a later interface, another mod's id,
+// and the pictures gone with the mod.
+void a_mod_keeps_overlay_pictures(const fs::path& plugins) {
+    namespace images = renderer::ui::overlay_images;
+    write(
+        plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
+    );
+    CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
+    const openrac_api& api = mods::api_for_tests();
+    int owner = 0, other = 0;
+    auto* mod = reinterpret_cast<openrac_mod*>(&owner);
+    auto* mod2 = reinterpret_cast<openrac_mod*>(&other);
+    const std::vector<std::uint8_t> rgba(3 * 2 * 4, 200);
+    openrac_overlay_image image{
+        sizeof(openrac_overlay_image), 3, 2, rgba.data(), OPENRAC_OVERLAY_IMAGE_SMOOTH
+    };
+    const int id = api.overlay_image_create(mod, &image);
+    CHECK(id > 0 && images::owns(mod, id) && !images::owns(mod2, id));
+    const auto kept = images::find(id);
+    CHECK(kept != nullptr && kept->width == 3 && kept->height == 2 && kept->smooth);
+    CHECK(kept->rgba.size() == rgba.size() && kept->rgba[5] == 200);
+
+    // Refused: no mod, no picture, a short struct, no pixels, sides out of range, unknown flags.
+    auto refused = [&](openrac_overlay_image i) {
+        return api.overlay_image_create(mod, &i) == OPENRAC_HOOK_UNKNOWN;
+    };
+    CHECK(api.overlay_image_create(nullptr, &image) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.overlay_image_create(mod, nullptr) == OPENRAC_HOOK_UNKNOWN);
+    openrac_overlay_image bad = image;
+    bad.size = offsetof(openrac_overlay_image, flags);
+    CHECK(refused(bad));
+    bad = image;
+    bad.rgba = nullptr;
+    CHECK(refused(bad));
+    bad = image;
+    bad.width = 0;
+    CHECK(refused(bad));
+    bad = image;
+    bad.height = OPENRAC_OVERLAY_IMAGE_SIDE_MAX + 1;
+    CHECK(refused(bad));
+    bad = image;
+    bad.flags = 0x2u;
+    CHECK(refused(bad));
+
+    // A later interface's longer struct is read up to what this one knows; nearest sampling.
+    struct Later {
+        openrac_overlay_image image;
+        std::uint64_t more;
+    } later{{sizeof(Later), 1, 1, rgba.data(), 0}, 7};
+
+    const int nearest = api.overlay_image_create(mod, &later.image);
+    CHECK(nearest > id && !images::find(nearest)->smooth);
+
+    // Only its owner lets a picture go, once.
+    CHECK(api.overlay_image_destroy(mod2, id) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(api.overlay_image_destroy(mod, id) == OPENRAC_HOOK_OK);
+    CHECK(api.overlay_image_destroy(mod, id) == OPENRAC_HOOK_UNKNOWN);
+    CHECK(images::find(id) == nullptr && kept->rgba[5] == 200);
+
+    // The rest go with the mod; another mod's stay.
+    const int others = api.overlay_image_create(mod2, &image);
+    CHECK(others > 0);
+    mods::drop_figures(mod);
+    CHECK(images::find(nearest) == nullptr && images::find(others) != nullptr);
+    mods::drop_figures(mod2);
+    CHECK(images::count() == 0);
+    mods::reset();
+}
+
 // What the host was asked of the pads' motors (interface 1.37): "<mod> <port> <small> <large>",
 // "drop <mod>", "drop all"; the mods are named a and b.
 std::vector<std::string> g_motor_calls;
@@ -2867,6 +2953,7 @@ int main() {
     a_mod_for_1_5_still_loads(plugins);
     a_library_others_can_change_is_refused(plugins);
     a_mod_gives_sharper_cells(plugins);
+    a_mod_keeps_overlay_pictures(plugins);
     a_mod_drives_the_motors(plugins);
     mods_offer_each_other_services(plugins);
     dropped_mod_watchers_are_not_called();
