@@ -80,7 +80,10 @@ def cache_paths(step, preset):
     return block.replace("${{ inputs.preset }}", preset).replace("${{ env.OPENRAC_PBC_PRESET }}", preset)
 
 
-WRITERS_ONLY = 'if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ]'
+# Pull requests and master's queue never write; develop's queue hands its caches on
+# (.github/actions/cache-out).
+WRITERS_ONLY = ('if [ "$EVENT" = pull_request ] || '
+                '{ [ "$EVENT" = merge_group ] && [ "$BASE" != refs/heads/develop ]; }')
 
 
 class CachePolicy(unittest.TestCase):
@@ -116,6 +119,19 @@ class CachePolicy(unittest.TestCase):
         self.assertIn("openrac-ccache-mark", text)
         self.assertIn("key: ${{ env.OPENRAC_CCACHE_SAVE_KEY }}", save)
         self.assertIn("path: ${{ env.OPENRAC_CCACHE_SAVE_DIR }}", save)
+
+    def test_every_queue_hand_off_saves_what_a_push_saves(self):
+        """develop's queue hands on each cache under the key and paths a push saves it with."""
+        for name in ("compiler-cache/save", "port-build-cache/save"):
+            steps = action_steps(name)
+            saves = [step for step in steps if "uses: actions/cache/save@" in step]
+            outs = [step for step in steps if "uses: ./.github/actions/cache-out" in step]
+            self.assertEqual(len(saves), len(outs), name)
+            for save, out in zip(saves, outs):
+                self.assertIn("github.event_name != 'merge_group'", save)
+                self.assertIn("github.event_name == 'merge_group'", out)
+                self.assertEqual(save.split("with:")[1].replace("continue-on-error: true", "").split(),
+                                 out.split("with:")[1].split(), name)
 
     def test_compiler_cache_paths_match_existing_archive_versions(self):
         """Windows and POSIX path spelling must match ccache-action's cacheDir implementation."""

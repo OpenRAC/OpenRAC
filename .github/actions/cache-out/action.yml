@@ -1,0 +1,33 @@
+# develop's merge queue cannot write a cache that other runs read: a queue run's caches belong to
+# its own short-lived branch. So in develop's queue a job hands each cache it would save to this
+# action, which keeps it as a one-day artifact. After the merge, .github/workflows/cache-handoff.yml
+# saves it as develop's cache under the same key and paths, with no build. Elsewhere this does
+# nothing: a push or a manual run saves its caches itself, and other queues keep none.
+name: Cache hand-off
+description: In develop's merge queue, keep a cache as an artifact for cache-handoff.yml
+inputs:
+  key:
+    description: The cache key, as actions/cache/save would get it
+    required: true
+  path:
+    description: The cache paths, exactly as actions/cache/save would get them
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: pack
+      if: github.event_name == 'merge_group' && github.event.merge_group.base_ref == 'refs/heads/develop'
+      shell: bash
+      env:
+        KEY: ${{ inputs.key }}
+        PATHS: ${{ inputs.path }}
+      run: python3 "$GITHUB_ACTION_PATH/handoff.py" pack "$RUNNER_TEMP/openrac-cache-out"
+    - if: steps.pack.outputs.name != ''
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      continue-on-error: true
+      with:
+        name: ${{ steps.pack.outputs.name }}
+        path: ${{ steps.pack.outputs.dir }}
+        retention-days: 1
+        compression-level: 0
+        if-no-files-found: ignore
