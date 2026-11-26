@@ -731,6 +731,10 @@ std::vector<std::uint8_t> direct_packets(
                     strip.native = true;
                     strip.untextured = r.untextured;
                     strip.state = r.state;
+                    if (r.chain_depth && r.state.depth_write) {
+                        strip.chain_depth = true;
+                        strip.state.depth_write = false;
+                    }
                     strip.previous_parent = previous_effect_parent;
                     strip.previous_parent_position_only = previous_effect_parent_position_only;
                     strip.before_mobys = r.liquid;
@@ -968,6 +972,9 @@ std::vector<std::uint8_t> direct_packets(
         // Mark only strips collected in this display list.
         for (std::size_t i = from; i < *strips_after_early_effects && i < strips->size(); ++i) {
             (*strips)[i].before_mobys = true;
+            if ((*strips)[i].chain_depth) {
+                (*strips)[i].state.depth_write = true;
+            }
         }
     }
     return gif;

@@ -425,6 +425,71 @@ void func_L01_00403440(int view) {
     rac3_effect_state_close(&s_effects);
 }
 
+/* The levels' strip routine (frontbin's func_003D3A24, hand-written; Veldin's 0x00408AAC) takes
+ * count vertices as separate arrays (positions of three floats, colours, ST of two floats) and
+ * appends them with its GIF tag (a triangle strip, textured, fogged, blended) to the list for the
+ * strip program. Its callers (the levels' hand-built strips: class 6576's liquids, level 14's
+ * 0x003B24C8, the glints and the lasers) set TEST_1, ALPHA_1, CLAMP_1, TEX0_1 and TEX1_1 just
+ * before, through VU1_addGSregister, and the routine's setup (func_0038C750) between. When
+ * the capture proves all of that, the strip is recorded natively (openrac_frame_strip) from the same
+ * arrays, with the view context's fog line and colour, and the list gets nothing; otherwise the
+ * game's routine runs as it did. */
+void func_L01_00408AAC__game(int count, int positions, int colours, int uvs, int flag);
+void func_L01_00407588__game(void);
+
+void func_L01_00407588(void) {
+    const gaddr list = at_copy(&kVeldin, kVeldin.list_pointer);
+    const gaddr before = GREF(gaddr, list);
+    func_L01_00407588__game();
+    rac3_effect_state_advance(&s_effects, list, before, GREF(gaddr, list));
+}
+
+static float context_float(gaddr offset) {
+    float v;
+    memcpy(&v, G(at_copy(&kVeldin, kVeldin.view_context) + offset), sizeof v);
+    return v;
+}
+
+static int strip_native(int count, int positions, int colours, int uvs, gaddr list) {
+    if (count < 3 || count > (int)OPENRAC_STRIP_MOST_VERTICES || !openrac_frame_native()) {
+        return 0;
+    }
+    openrac_frame_strip_desc d;
+    memset(&d, 0, sizeof d);
+    uint64_t tex0 = 0;
+    if (!rac3_effect_strip_material(&s_effects, list, GREF(gaddr, list), &d.material, &tex0)
+        || !rac3_effect_image(tex0, &d.image)) {
+        return 0;
+    }
+    const gaddr context = at_copy(&kVeldin, kVeldin.view_context);
+    d.count = (uint32_t)count;
+    d.position = (const float*)G((gaddr)positions);
+    d.st = (const float*)G((gaddr)uvs);
+    d.rgba = (const uint32_t*)G((gaddr)colours);
+    d.flags = OPENRAC_STRIP_FOG | OPENRAC_STRIP_CHAIN_DEPTH;
+    /* UpdateViewContext's fog line (the view context's +0x220, +0x1AC, +0x23C, +0x238; the setup
+     * unpacks it to the strip program) and FOGCOL (+0x250, +0x254, +0x258, DrawFrame's own set). */
+    d.fog[0] = context_float(0x220);
+    d.fog[1] = context_float(0x1AC);
+    d.fog[2] = context_float(0x23C);
+    d.fog[3] = context_float(0x238);
+    d.fog_colour = (GREF(uint32_t, context + 0x250) & 0xFFu)
+                   | (GREF(uint32_t, context + 0x254) & 0xFFu) << 8
+                   | (GREF(uint32_t, context + 0x258) & 0xFFu) << 16;
+    anchor_at(list);
+    return openrac_frame_strip(&d);
+}
+
+void func_L01_00408AAC(int count, int positions, int colours, int uvs, int flag) {
+    const gaddr list = at_copy(&kVeldin, kVeldin.list_pointer);
+    if (strip_native(count, positions, colours, uvs, list)) {
+        return;
+    }
+    const gaddr before = GREF(gaddr, list);
+    func_L01_00408AAC__game(count, positions, colours, uvs, flag);
+    rac3_effect_state_advance(&s_effects, list, before, GREF(gaddr, list));
+}
+
 /* OPENRAC_UI_SKIP naming rac3_effect_masks: the masks keep their older way while the capture runs
  * on, to compare the two in one program (docs/port/DEBUGGING.md). */
 static int masks_skipped(void) {

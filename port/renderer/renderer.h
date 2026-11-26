@@ -178,6 +178,8 @@ struct EffectStrip {
     // uploads and the z flags are then not read.
     bool native = false;
     bool untextured = false;
+    bool chain_depth =
+        false;  // state.depth_write is on only once the strip is placed before the mobys
     EffectState state{};
     std::uint32_t image = 0;
 };
@@ -206,7 +208,7 @@ struct FrameInput {
     GtaoSettings gtao_settings;
     std::span<const ShadowCapsule> shadow_capsules;
     Vec3 shadow_extrusion{};
-    std::optional<std::array<float,2>> shadow_heights;
+    std::optional<std::array<float, 2>> shadow_heights;
     std::span<const ShadowSet> shadow_sets;  // further casters, each its own extrusion and slab
     // The packets the game built for each bucket this frame (empty when a
     // bucket has nothing, or its renderer draws from elsewhere).
@@ -264,8 +266,14 @@ struct FrameInput {
     // marker's value and the off-screen target bound (its framebuffer, its side in GL pixels, and
     // the centre of the game's projection in it, in the chip's pixels of its 512 square; whether
     // its depth is cleared first: the first mobys of a panel, not those drawn right after others).
-    std::function<void(std::uint64_t marker, unsigned framebuffer, int size, float centre_x, float centre_y,
-                       bool clear_depth)>
+    std::function<void(
+        std::uint64_t marker,
+        unsigned framebuffer,
+        int size,
+        float centre_x,
+        float centre_y,
+        bool clear_depth
+    )>
         target_mobys;
     // Mobys a menu drew on the screen over a world drawn under it, with a camera of their own (the
     // pause menu's frame objects while a party plays, frontend menu_layers.h): at their marker in

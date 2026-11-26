@@ -49,10 +49,10 @@ enum class FrameOp : std::uint8_t {
     HudSide,       // what follows goes out to the HUD's side `index` (0 ends it); value bit 0
                    // stretches what crosses the middle, bit 1 parts it at value >> 2 instead
     Wide,          // `index` 1: what follows covers the whole target, as a fade does; 0 ends it
-    PictureBand,  // `index` 1: a full-width scissor stays the picture's with "HUD: Edges"; 0 ends
-    LastFrame,    // the frame the window last drew with its world in, over the whole target
-    ViewBegin,    // the world that follows is split-screen view `index`'s, into rect
-    ViewEnd,      // the open view ends (FrameRecording::views has its camera)
+    PictureBand,   // `index` 1: a full-width scissor stays the picture's with "HUD: Edges"; 0 ends
+    LastFrame,     // the frame the window last drew with its world in, over the whole target
+    ViewBegin,     // the world that follows is split-screen view `index`'s, into rect
+    ViewEnd,       // the open view ends (FrameRecording::views has its camera)
     ScreenEffect,  // screen_effects[index], a native post pass over the target as drawn so far
     Strip,         // strips[index]: a world effect strip with its native material
 };
@@ -89,7 +89,8 @@ struct StripRecord {
     EffectState state{};
     std::uint32_t image = 0;  // index in FrameRecording::images
     bool untextured = false;
-    bool liquid = false;  // drawn with the world's liquids, before the shrubs and the mobys
+    bool liquid = false;       // drawn with the world's liquids, before the shrubs and the mobys
+    bool chain_depth = false;  // state.depth_write holds only where the place in the list is early
     bool fogged = false;
     std::array<float, 4> fog{};  // slope per unit of view depth, offset, lower and upper bound
     std::uint32_t fog_colour = 0;
