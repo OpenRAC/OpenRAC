@@ -597,8 +597,8 @@ jobs:
   # for their updates (Build the installers, above). Only with the update key: a launcher installs
   # no update without its signature. release/dev (a dev release's pull request) publishes on
   # launcher-dev-develop, the launcher's Development channel (launcher/core/src/update.rs,
-  # DEV_BRANCH), once every system built, while its pull request is open (or merged) and still at
-  # this commit. Closing the pull request does not take the build back off the channel: the next
+  # DEV_BRANCH), once every system built and checks.yml's run of the same commit is green, while
+  # its pull request is open (or merged) and still at this commit. Closing the pull request does not take the build back off the channel: the next
   # dev release replaces it. Another branch publishes also when a system's build failed (a macOS
   # job that got no runner, say): the systems built still get their update, and latest.json leaves
   # out the one that did not. Not when the run was cancelled (a newer one of the branch took its
@@ -611,14 +611,34 @@ jobs:
           || github.ref != 'refs/heads/release/dev' && needs.build.result != 'skipped') }}
     needs: [version, build]
     runs-on: ubuntu-26.04
-    timeout-minutes: 15
+    # release/dev waits here for its checks (the games), which can take as long as the builds.
+    timeout-minutes: 240
     permissions:
       contents: write
       pull-requests: read
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # release/dev: only once its checks are green (dev-release.yml starts both runs). A red or
+      # cancelled check fails this job: re-run it here once the checks are green again.
+      - name: The dev release's checks
+        if: github.ref == 'refs/heads/release/dev'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          run=$(gh run list --workflow checks.yml --branch release/dev --commit "$GITHUB_SHA" --limit 1 \
+                --json databaseId -q '.[0].databaseId // ""')
+          if [ -z "$run" ]; then
+            echo "::error::no checks run of release/dev at $GITHUB_SHA"
+            exit 1
+          fi
+          if ! gh run watch "$run" --exit-status --interval 60 > /dev/null; then
+            echo "::error::checks run $run of release/dev is not green: nothing published"
+            exit 1
+          fi
       # release/dev: only for its pull request to master as it is now. One closed without a merge,
       # or a newer dev release on the branch, publishes nothing.
       - name: The dev release's pull request

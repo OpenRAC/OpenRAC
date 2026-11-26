@@ -2,8 +2,8 @@
 # commit on the branch release/dev and opens (or updates) a pull request from it to master, with
 # what develop adds since master. That pull request builds everything: checks.yml (hostgen, every
 # game in every version, Windows) and launcher.yml (every system's installers, kept as the run's
-# artifacts). Once every system's installers are built, launcher.yml publishes them on the
-# Development channel, without waiting for the merge. Closing the pull request does not take them
+# artifacts). Once every system's installers are built and every check is green, launcher.yml
+# publishes them on the Development channel, without waiting for the merge. Closing the pull request does not take them
 # back off: the next dev release replaces them. When it is green, merge it with "Create a merge
 # commit". A game that fails here is fixed on develop and this is run again.
 #
@@ -65,7 +65,7 @@ jobs:
                   print(f"## {title}\n")
                   print("\n".join(f"- {item}" for item in items) + "\n")
           print("## Merging\n")
-          print("The launcher's installers go on the Development channel as soon as they are built. "
+          print("The launcher's installers go on the Development channel once they are built and every check is green. "
                 "Merge with **Create a merge commit** once every check is green.")
           PY
           cat "$RUNNER_TEMP/body.md"
