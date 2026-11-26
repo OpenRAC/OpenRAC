@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.41
+
+Pictures of a mod's own for its overlay, drawn turned, tinted and kept in shape, and a call of the overlay under the game's 2D (overlay_image_create, overlay_image_destroy, openrac_overlay.image, image_quad, layer, aspect, OPENRAC_OVERLAY_UNDER_HUD).
+
+Members: `overlay_image_create`, `overlay_image_destroy`.
+
 ## 1.40
 
 Synchronous gameplay decision queries (on_play_query).

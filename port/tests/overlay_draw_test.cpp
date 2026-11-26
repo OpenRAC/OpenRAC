@@ -3,8 +3,9 @@
 //
 // What mods draw over the game, on the GPU (renderer/ui/overlay_draw.h), on each GL (the _es and
 // _vulkan tests run this one): into the frame's own kind of target, at its place, right way up,
-// blended by alpha, and nothing without vertices. Pixels are read back: a colour in the wrong row
-// or a blend left out fails here on the backend that has it.
+// blended by alpha, and nothing without vertices; the mods' pictures (1.41) sampled the right way
+// up, tinted, and gone once let go, one texture for a picture two draws share. Pixels are read
+// back: a colour in the wrong row or a blend left out fails here on the backend that has it.
 
 #include <array>
 #include <cstdint>
@@ -16,6 +17,7 @@
 #include "renderer/gl/framebuffer.h"
 #include "renderer/gl/gl.h"
 #include "renderer/ui/overlay_draw.h"
+#include "renderer/ui/overlay_images.h"
 #include "renderer/ui/overlay_list.h"
 #include "renderer/ui/picture_blit.h"
 #include "renderer_gl_context.h"
@@ -203,6 +205,110 @@ void blends(renderer::ui::OverlayDraw& draw, unsigned frame) {
     CHECK(is(pixel(frame, 120, 120), 128, 128, 128));
 }
 
+// A mod's picture (interface 1.41): a 2 x 2 of four colours, drawn by the nearest texel over a
+// square, each quarter its colour the right way up; tinted; turned; gone once let go.
+void pictures(renderer::ui::OverlayDraw& draw, unsigned frame) {
+    using renderer::ui::OverlayList;
+    namespace images = renderer::ui::overlay_images;
+    static const int owner = 0;
+    const std::array<std::uint8_t, 16> rgba{
+        255,
+        0,
+        0,
+        255,
+        0,
+        255,
+        0,
+        255,  // red, green: the top row
+        0,
+        0,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255  // blue, white: the bottom
+    };
+    const int id = images::create(&owner, 2, 2, rgba, false);
+    CHECK(id > 0);
+    OverlayList list;
+    auto draw_list = [&] {
+        clear_to_bytes(frame, 0, 0, 0, 255);
+        draw.draw(frame, kWidth, kHeight, list.vertices(), list.batches());
+    };
+    // 1:1 aspect is 448/512 of a unit down across: 100 down is 100 * 512 / 448 across.
+    const float aspect = 512.0f / 448.0f;
+    list.begin(aspect);
+    list.image(id, 256, 224, 100, 100, 0, 0xFFFFFFFFu);
+    list.rect(0, 0, 10, 10, 0xFFFF00FFu);  // a rectangle after it samples white, not the picture
+    draw_list();
+    CHECK(is(pixel(frame, 230, 200), 255, 0, 0));      // top left: red
+    CHECK(is(pixel(frame, 280, 200), 0, 255, 0));      // top right: green
+    CHECK(is(pixel(frame, 230, 250), 0, 0, 255));      // bottom left: blue
+    CHECK(is(pixel(frame, 280, 250), 255, 255, 255));  // bottom right: white
+    CHECK(is(pixel(frame, 5, 5), 255, 255, 0));
+    CHECK(is(pixel(frame, 150, 224), 0, 0, 0));  // outside it: the frame
+
+    // Tinted half red at half alpha: the white quarter becomes (128, 0, 0) over black.
+    list.begin(aspect);
+    list.image(id, 256, 224, 100, 100, 0, 0xFF000080u);
+    draw_list();
+    CHECK(is(pixel(frame, 280, 250), 128, 0, 0));
+
+    // A half turn counter-clockwise: white is now top left.
+    list.begin(aspect);
+    list.image(id, 256, 224, 100, 100, 3.14159265f, 0xFFFFFFFFu);
+    draw_list();
+    CHECK(is(pixel(frame, 230, 200), 255, 255, 255));
+    CHECK(is(pixel(frame, 280, 250), 255, 0, 0));
+
+    // Let go: the same list draws nothing of it.
+    CHECK(images::destroy(&owner, id));
+    list.begin(aspect);
+    list.image(id, 256, 224, 100, 100, 0, 0xFFFFFFFFu);
+    draw_list();
+    CHECK(is(pixel(frame, 230, 200), 0, 0, 0));
+}
+
+// One picture drawn by two draws that share their textures, as the overlay's top layer and its
+// layer under the HUD do: one texture for it, which the release of either draw leaves to the
+// other, and gone from both once let go.
+void shared_pictures(
+    renderer::ui::OverlayTextures& textures, renderer::ui::OverlayDraw& top, unsigned frame
+) {
+    using renderer::ui::OverlayList;
+    namespace images = renderer::ui::overlay_images;
+    static const int owner = 0;
+    constexpr std::array<std::uint8_t, 4> kRed{255, 0, 0, 255};
+    const int id = images::create(&owner, 1, 1, kRed, false);
+    CHECK(id > 0);
+    renderer::ui::OverlayDraw under_hud(textures);
+    OverlayList list;
+    list.begin(static_cast<float>(kWidth) / static_cast<float>(kHeight));
+    list.image(id, 256, 224, 100, 100, 0, 0xFFFFFFFFu);
+    const auto drawn_by = [&](renderer::ui::OverlayDraw& draw) {
+        clear_to_bytes(frame, 0, 0, 0, 255);
+        draw.draw(frame, kWidth, kHeight, list.vertices(), list.batches());
+        return is(pixel(frame, 256, 224), 255, 0, 0);
+    };
+    CHECK(drawn_by(under_hud));
+    CHECK(drawn_by(top));
+    CHECK(textures.size() == 1);  // uploaded once, for both
+
+    // One draw let go: the other still samples the picture, from the same texture.
+    under_hud.release();
+    CHECK(drawn_by(top));
+    CHECK(textures.size() == 1);
+
+    // The picture let go: the next draw, either, frees its texture; neither draws it.
+    CHECK(images::destroy(&owner, id));
+    CHECK(!drawn_by(top));
+    CHECK(textures.size() == 0);
+    CHECK(!drawn_by(under_hud));
+    CHECK(textures.size() == 0);
+    under_hud.release();
+}
+
 }  // namespace
 
 int main() {
@@ -214,7 +320,8 @@ int main() {
     }
     renderer::FrameBuffer frame;
     CHECK(frame.create(kWidth, kHeight, why));
-    renderer::ui::OverlayDraw draw;
+    renderer::ui::OverlayTextures textures;
+    renderer::ui::OverlayDraw draw(textures);
     renderer::ui::OverlayList list;
 
     // No vertices: the frame as it was.
@@ -266,7 +373,14 @@ int main() {
     blends(draw, frame.id());
     CHECK(glGetError() == GL_NO_ERROR);
 
+    pictures(draw, frame.id());
+    CHECK(glGetError() == GL_NO_ERROR);
+
+    shared_pictures(textures, draw, frame.id());
+    CHECK(glGetError() == GL_NO_ERROR);
+
     draw.release();
+    textures.release();
     frame.release();
     large.release();
     return test::result();

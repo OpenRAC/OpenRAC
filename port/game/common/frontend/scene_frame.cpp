@@ -27,6 +27,7 @@
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "game/common/mod_play.h"
+#include "mod_overlay.h"
 #include "mods.h"
 #include "openrac/game_host.h"
 #include "program/program.h"
@@ -551,6 +552,20 @@ bool draw_world(SceneFrame& frame) {
             if (!active && !temporal_error.empty()) {
                 log::error("{}", temporal_error);
             }
+        }
+
+        // The mods' drawing under the game's 2D (interface 1.41): after what came before the HUD
+        // (the world kept for the menus is taken without it), and under the heat haze's wrap.
+        if (!frame.output.under_hud.vertices().empty()) {
+            auto before_hud = std::move(input.before_hud);
+            input.before_hud = [&owner, &frame, width, height, before_hud = std::move(before_hud)] {
+                if (before_hud) {
+                    before_hud();
+                }
+                mod_overlay::draw_under_hud(
+                    frame.output.under_hud, owner.frame.id(), width, height
+                );
+            };
         }
 
         // The mods' heat haze (interface 1.12), over the world and under the HUD.

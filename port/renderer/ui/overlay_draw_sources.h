@@ -10,11 +10,17 @@ inline constexpr const char* kVertex = R"glsl(#version 410 core
 
 layout(location = 0) in vec2 position;
 
-layout(location = 1) in vec4 colour;
+layout(location = 1) in vec2 uv;
+
+layout(location = 2) in vec4 colour;
+
+out vec2 v_uv;
 
 out vec4 v_colour;
 
 void main() {
+
+    v_uv = uv;
 
     v_colour = colour;
 
@@ -25,13 +31,17 @@ void main() {
 )glsl";
 inline constexpr const char* kFragment = R"glsl(#version 410 core
 
+in vec2 v_uv;
+
 in vec4 v_colour;
+
+uniform sampler2D tex_T0;
 
 out vec4 out_colour;
 
 void main() {
 
-    out_colour = v_colour;
+    out_colour = v_colour * texture(tex_T0, v_uv);
 
 }
 
