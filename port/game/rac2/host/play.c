@@ -792,6 +792,7 @@ static void play_trace(void);
 
 void rac2_play_frame(void) {
     rac2_shots_frame();
+    rac2_copy_arenas_tick();
     follow_motion();
     play_trace();
 }

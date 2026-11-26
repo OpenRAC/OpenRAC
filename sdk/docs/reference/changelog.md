@@ -4,6 +4,12 @@
 
 Newest first. A mod built for a minor loads on every port with that minor or a newer one.
 
+## 1.41
+
+Copies of the enemies an arena draws its waves from (Going Commando: Maktar's), which go in with their originals and hold the wave until they are beaten (the table is unchanged: a 1.40 port calls them scripted, so a mod asks for 1.41 before it copies them).
+
+No new members (the table is unchanged).
+
 ## 1.40
 
 Synchronous gameplay decision queries (on_play_query).

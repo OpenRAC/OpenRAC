@@ -7,8 +7,8 @@
  * copies (their spot on the floor, in the open and apart, what they keep of their slot and take of
  * their original, their pvars and the pointers into them, the moby cells and their squad's list),
  * moving platforms (a copy on its original's, a rider that has found its own not copied), the
- * pool's reserve, a stale file, a new load, and a copy's death, once, leaving the original's
- * record as it was. */
+ * pool's reserve, a stale file, a new load, an arena's reserve (a member's copy on its list and in
+ * its original's pod), and a copy's death, once, leaving the original's record as it was. */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -126,9 +126,11 @@ static uint32_t blob_size(int k) {
 static gaddr class_of(int16_t oclass) {
     switch (oclass) {
         case ENEMY:
+        case 2850: /* an arena's member */
             return CLASS_ENEMY;
         case THING:
         case 2722: /* a Siberius rider's claw */
+        case 2581: /* an arena's pod */
             return CLASS_THING;
         case SPAWNER:
         case DUNE_MONSTER:
@@ -930,6 +932,109 @@ static void copy_pvars(void) {
     CHECK(rac2_copy_pvars(big, NULL) == 0);
 }
 
+/* An arena's reserve (rac2_copy_arenas, Maktar's): the set piece's group (records 1 and 4) made
+ * the reserve its controller names, record 1 a member of the arena's classes. */
+#define ARENA_LIST 0x00881000u
+
+static void make_arena(int32_t named_group, int16_t member_class) {
+    make_level();
+    put16(placed(1) + 0xAAu, (uint16_t)member_class);
+    put16(placed(4) + 0xAAu, 2905);
+    put32(blob_at(4) + 0x40u, (uint32_t)named_group);
+    put32(0x001EE5A0u, ARENA_LIST);
+    put16(ARENA_LIST, 0x0001u);
+    put16(ARENA_LIST + 2u, 0x8004u);
+}
+
+/* A member is copied while it waits in the reserve, onto the reserve's list; its copy goes into the
+ * pod that carries its original in when it has room, owned by the controller at full health. A
+ * member of another class, or of a group no controller names, is still a set piece's. */
+static void arena(void) {
+    make_arena(0, 2850);
+    const gaddr orig = placed(1), controller = placed(4);
+    CHECK(rac2_copy_check(&table, orig) == RAC2_COPY_OK);
+    CHECK(rac2_copy_detail(&table, orig) == 0);
+    GREF(uint8_t, orig + 0x20u) = 4; /* in the fight */
+    CHECK(rac2_copy_make(&table, orig, 0) == 0);
+    GREF(uint8_t, orig + 0x20u) = 1; /* in the reserve */
+    const gaddr c = rac2_copy_make(&table, orig, 0);
+    CHECK(c != 0 && GREF(uint8_t, c + 0x20u) == 1);
+    const gaddr list = GREF(gaddr, 0x001EE5A0u);
+    CHECK(list != ARENA_LIST);
+    CHECK(GREF(uint16_t, list) == 0x0001u && GREF(uint16_t, list + 2u) == 0x0004u);
+    CHECK(GREF(uint16_t, list + 4u) == (uint16_t)(((c - BASE) / 0x100u) | 0x8000u));
+    /* A pod going down with the original in its first place. */
+    const gaddr pod = func_0029EFD0(2581);
+    CHECK(pod != 0);
+    const gaddr held = GREF(gaddr, pod + 0x68u) + 0x10u;
+    GREF(uint8_t, pod + 0x20u) = 3;
+    put32(held, orig);
+    GREF(uint8_t, orig + 0x20u) = 2; /* held */
+    put32(orig + 0xB8u, controller);
+    putf(GREF(gaddr, c + 0x68u) + 0x20u, 0.0f);
+    put16(c + 0x34u, 0x0081u); /* hidden by a scene chunk when made; its original shown since */
+    put16(orig + 0x34u, 0x0001u);
+    rac2_copy_arenas_tick();
+    CHECK(GREF(gaddr, held + 4u) == c && GREF(gaddr, held + 8u) == 0);
+    CHECK(GREF(uint16_t, c + 0x34u) == 0x0001u);
+    CHECK(GREF(uint8_t, c + 0x20u) == 2 && GREF(gaddr, c + 0xB8u) == controller);
+    CHECK(GREF(float, GREF(gaddr, c + 0x68u) + 0x20u) == 1.0f);
+    rac2_copy_arenas_tick(); /* in once */
+    CHECK(GREF(gaddr, held + 8u) == 0);
+    /* A pod letting go (state 4) takes none, nor a full one. */
+    put32(held + 4u, 0);
+    GREF(uint8_t, c + 0x20u) = 1;
+    GREF(uint8_t, pod + 0x20u) = 4;
+    rac2_copy_arenas_tick();
+    CHECK(GREF(gaddr, held + 4u) == 0);
+    GREF(uint8_t, pod + 0x20u) = 2;
+    put32(held + 4u, placed(0));
+    put32(held + 8u, placed(7));
+    rac2_copy_arenas_tick();
+    CHECK(GREF(gaddr, held + 4u) == placed(0) && GREF(gaddr, held + 8u) == placed(7));
+    /* The original's pod full: another pod of the controller's drop with room takes it. */
+    const gaddr pod2 = func_0029EFD0(2581);
+    CHECK(pod2 != 0);
+    const gaddr held2 = GREF(gaddr, pod2 + 0x68u) + 0x10u;
+    GREF(uint8_t, pod2 + 0x20u) = 2;
+    put32(held2, placed(9));
+    put32(placed(9) + 0xB8u, controller);
+    rac2_copy_arenas_tick();
+    CHECK(GREF(gaddr, held2 + 4u) == c && GREF(uint8_t, c + 0x20u) == 2);
+    /* Its original back in the reserve: the copy waits for its next drop. */
+    put32(held2 + 4u, 0);
+    GREF(uint8_t, c + 0x20u) = 1;
+    GREF(uint8_t, orig + 0x20u) = 1;
+    rac2_copy_arenas_tick();
+    CHECK(GREF(gaddr, held2 + 4u) == 0 && GREF(uint8_t, c + 0x20u) == 1);
+    /* The copy out of the reserve (in the fight) is left alone. */
+    GREF(uint8_t, orig + 0x20u) = 7;
+    put32(held + 8u, 0);
+    GREF(uint8_t, c + 0x20u) = 7;
+    rac2_copy_arenas_tick();
+    CHECK(GREF(gaddr, held + 8u) == 0 && GREF(gaddr, held2 + 4u) == 0);
+    /* Before the member's first update (state 0) it is copied too, onto the reserve's list. */
+    make_arena(0, 2850);
+    const gaddr first = rac2_copy_make(&table, placed(1), 0);
+    CHECK(first != 0 && GREF(uint8_t, first + 0x20u) == 0);
+    CHECK(
+        GREF(uint16_t, GREF(gaddr, 0x001EE5A0u) + 4u)
+        == (uint16_t)(((first - BASE) / 0x100u) | 0x8000u)
+    );
+    /* Not the arena's: a class it does not draw, a group no controller names. */
+    make_arena(0, ENEMY);
+    CHECK(rac2_copy_check(&table, placed(1)) == RAC2_COPY_SCRIPTED);
+    CHECK(rac2_copy_detail(&table, placed(1)) == RAC2_COPY_WHY_GROUP);
+    make_arena(1, 2850);
+    CHECK(rac2_copy_check(&table, placed(1)) == RAC2_COPY_SCRIPTED);
+    CHECK(rac2_copy_detail(&table, placed(1)) == RAC2_COPY_WHY_GROUP);
+    /* Every row names its classes and what it is. */
+    for (unsigned i = 0; i < rac2_copy_arenas_count; ++i) {
+        CHECK(rac2_copy_arenas[i].what != NULL && rac2_copy_arenas[i].pod_held_count > 0);
+        CHECK(rac2_copy_arenas[i].controller != 0 && rac2_copy_arenas[i].members[0] != 0);
+    }
+}
+
 int main(void) {
     openrac_guest_base = calloc(1, openrac_guest_ram_size);
     CHECK(openrac_guest_base != NULL);
@@ -944,6 +1049,7 @@ int main(void) {
     slot_taken();
     groups_tidy();
     copy_pvars();
+    arena();
     death();
     pool();
     pool_ceiling();

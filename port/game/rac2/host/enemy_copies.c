@@ -16,7 +16,8 @@
  *   - it is in no set piece: a moby group (section 0x50) of anything but enemies of one class
  *     (the waves, the arenas, the doors that open when a group is defeated count their group's
  *     members; a squad of one class, which nearly every enemy is in, wakes and fights together,
- *     and a copy fights with it);
+ *     and a copy fights with it; so does the reserve an arena of rac2_copy_arenas draws its waves
+ *     from, whose copies go in with their originals: rac2_copy_arenas_tick);
  *   - no other moby's, camera's or sound's data names it, and its own names no other (section 0x58,
  *     the fields LoadLevelData turns into moby indices: a copy would name the same one);
  *   - its class is not in rac2_copy_never (bosses, turrets, spawners and the crystals' creatures of
@@ -240,6 +241,34 @@ const rac2_copy_class rac2_copy_never[] = {
 };
 const unsigned rac2_copy_never_count = sizeof rac2_copy_never / sizeof rac2_copy_never[0];
 
+/* The arenas whose waves come from a reserve (enemy_copies.h), found in rac2-decomp. Maktar's
+ * (src/levels/02_maktar_nebula): its controller, class 2905 (UpdateArenaController,
+ * func_L02_003F9C10), names the reserve's group in its pvars' +0x40 (arena_claim_enemy,
+ * func_L02_003FB4D8). A claim takes the first member of the class the wave asks for in state 1
+ * (the reserve; the tally, func_L02_003FB120, skips it), makes the controller its owner (+0xB8),
+ * and arena_register_spawned_enemy (func_L02_003FB6C0) puts it in the pod of the moment, sets its
+ * pvars' +0x20 to 1 and counts it for the wave. A pod, class 2581 (func_L02_003D7330), holds three
+ * at its pvars' +0x10 to +0x18 (moby_attach_child_first_free_slot, func_L02_003D7868, which sets
+ * the member's state to 2), takes them in state 2 (func_L02_003D77B8), goes down in state 3
+ * (func_L02_003D78A8) and lets them go in state 4 (chainblade_release_held_actors,
+ * func_L02_003D7900). A wave ends when its counts are the table's and no member out of the reserve
+ * has +0x20 above 0 (arena_l02_is_wave_complete, func_L02_003FCBF0): a copy in a pod, never
+ * counted, holds the wave until it is beaten. A beaten member goes back to the reserve. */
+const rac2_copy_arena rac2_copy_arenas[] = {
+    {"Maktar's arena",
+     2905,
+     0x40,
+     2581,
+     0x10,
+     3,
+     (1u << 2) | (1u << 3),
+     1,
+     2,
+     0x20,
+     {2850, 2506, 3131, 3134}},
+};
+const unsigned rac2_copy_arenas_count = sizeof rac2_copy_arenas / sizeof rac2_copy_arenas[0];
+
 /* ---- The scan of a load ---- */
 
 /* What the scan keeps of the file for the copies (the file's memory is the level's to reuse once
@@ -255,6 +284,9 @@ static struct {
     gaddr file;
     int8_t verdict[PLACED_MAX];
     uint8_t detail[PLACED_MAX];
+    /* An arena's member: its row of rac2_copy_arenas + 1 (0 none) and the reserve's group. */
+    uint8_t arena[PLACED_MAX];
+    uint8_t arena_group[PLACED_MAX];
     int16_t blob[PLACED_MAX];
     uint16_t size[PLACED_MAX];
     int inner_count;
@@ -271,6 +303,8 @@ static struct {
     int16_t uid[COPIES_MAX];
     int16_t oclass[COPIES_MAX];
     uint8_t died[COPIES_MAX];
+    /* An arena member's copy: its row of rac2_copy_arenas + 1 (0 none). */
+    uint8_t arena[COPIES_MAX];
     /* Its pvars as made (in its slot's 0x80 bytes or the port's room) and their size. */
     gaddr pvars[COPIES_MAX];
     uint32_t bytes[COPIES_MAX];
@@ -285,8 +319,12 @@ static int16_t uid_of_record[RECORDS_MAX];
 static uint8_t uid_marks[UID_MAX];
 static uint8_t names_moby[BLOBS_MAX / 8];
 static uint8_t named[PLACED_MAX / 8];
+static uint8_t uid_arena[UID_MAX];
+static uint8_t uid_arena_group[UID_MAX];
 #define MARK_SCRIPT RAC2_COPY_WHY_SCRIPT
 #define MARK_GROUP RAC2_COPY_WHY_GROUP
+/* A member of an arena's reserve (rac2_copy_arenas): not a reason to refuse. */
+#define MARK_ARENA 0x10u
 
 static int in_ram(gaddr a, uint32_t bytes) {
     return a >= 0x00100000u && a < openrac_guest_ram_size && bytes <= openrac_guest_ram_size - a;
@@ -363,6 +401,38 @@ static gaddr moby_of_uid(const rac2_moby_table* t, int16_t uid) {
     return 0;
 }
 
+static int arena_member(const rac2_copy_arena* a, int16_t oclass) {
+    for (unsigned i = 0; i < RAC2_COPY_ARENA_MEMBERS; ++i) {
+        if (a->members[i] != 0 && a->members[i] == oclass) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* The row of rac2_copy_arenas whose controller, placed and alive, names group `g` as its reserve,
+ * or -1. */
+static int arena_of_group(const rac2_moby_table* t, int32_t g) {
+    if (g < 0 || g > 0xFE) {
+        return -1;
+    }
+    for (gaddr m = t->base; m < t->dynamic; m += MOBY_SIZE) {
+        if (GREF(uint8_t, m + MOBY_STATE) >= 0x80) {
+            continue;
+        }
+        const int16_t oclass = GREF(int16_t, m + MOBY_OCLASS);
+        for (unsigned i = 0; i < rac2_copy_arenas_count; ++i) {
+            const rac2_copy_arena* a = &rac2_copy_arenas[i];
+            const gaddr pvars = GREF(gaddr, m + MOBY_PVARS);
+            if (oclass == a->controller && pvars != 0 && in_ram(pvars, a->group + 4u)
+                && GREF(int32_t, pvars + a->group) == g) {
+                return (int)i;
+            }
+        }
+    }
+    return -1;
+}
+
 /* The groups (section 0x50): each a list of record indices (low 15 bits), the last with 0x8000.
  * Going Commando puts nearly every enemy in one: a squad of one class, which wakes and fights
  * together (moby +0x21 is its group). A squad's copy fights beside it and is copied. A group of
@@ -410,12 +480,24 @@ static void read_groups(const rac2_moby_table* t, gaddr file, int32_t records) {
         if (squad) {
             continue;
         }
+        /* An arena's reserve: its members of the arena's classes are its own, the rest as any set
+         * piece's. */
+        const int arena = arena_of_group(t, g);
         e = data + (uint32_t)off;
         for (int k = 0; k < LIST_MAX && in_ram(e, 2); ++k, e += 2) {
             const uint16_t v = GREF(uint16_t, e);
             const int32_t id = v & 0x7FFF;
             if (id < records && uid_of_record[id] >= 0) {
-                uid_marks[uid_of_record[id]] |= MARK_GROUP;
+                const int16_t uid = uid_of_record[id];
+                const gaddr m = arena >= 0 ? moby_of_uid(t, uid) : 0;
+                const int16_t oclass = m != 0 ? GREF(int16_t, m + MOBY_OCLASS) : -1;
+                if (m != 0 && arena_member(&rac2_copy_arenas[arena], oclass)) {
+                    uid_marks[uid] |= MARK_ARENA;
+                    uid_arena[uid] = (uint8_t)(arena + 1);
+                    uid_arena_group[uid] = (uint8_t)g;
+                } else {
+                    uid_marks[uid] |= MARK_GROUP;
+                }
             }
             if ((v & 0x8000u) != 0) {
                 break;
@@ -495,7 +577,7 @@ static int8_t judge(
         return RAC2_COPY_LISTED;
     }
     *detail =
-        (uint8_t)(uid_marks[uid] | (bit(named, slot) ? RAC2_COPY_WHY_NAMED : 0u)
+        (uint8_t)((uid_marks[uid] & ~MARK_ARENA) | (bit(named, slot) ? RAC2_COPY_WHY_NAMED : 0u)
                   | (*blob >= 0 && bit(names_moby, (uint32_t)*blob) ? RAC2_COPY_WHY_NAMES : 0u));
     if (*detail != 0) {
         return RAC2_COPY_SCRIPTED;
@@ -532,6 +614,8 @@ static int scanned(const rac2_moby_table* t) {
     memset(uid_marks, 0, sizeof uid_marks);
     memset(names_moby, 0, sizeof names_moby);
     memset(named, 0, sizeof named);
+    memset(uid_arena, 0, sizeof uid_arena);
+    memset(uid_arena_group, 0, sizeof uid_arena_group);
     int32_t records = 0;
     if (blobs == 0 || !read_records(file, &records)) {
         return 0;
@@ -540,9 +624,14 @@ static int scanned(const rac2_moby_table* t) {
     read_refs(file, blobs, t->base, t->dynamic);
     int stale = 0;
     for (uint32_t s = 0; s < placed && !stale; ++s) {
-        scan.verdict[s] = judge(
-            t->base + s * MOBY_SIZE, s, blobs, &scan.blob[s], &scan.size[s], &scan.detail[s], &stale
-        );
+        const gaddr m = t->base + s * MOBY_SIZE;
+        scan.verdict[s] = judge(m, s, blobs, &scan.blob[s], &scan.size[s], &scan.detail[s], &stale);
+        const int16_t uid = GREF(int16_t, m + MOBY_UID);
+        if (scan.verdict[s] == RAC2_COPY_OK && uid >= 0 && uid < UID_MAX
+            && (uid_marks[uid] & MARK_ARENA) != 0) {
+            scan.arena[s] = uid_arena[uid];
+            scan.arena_group[s] = uid_arena_group[uid];
+        }
     }
     /* The pointers into blocks (section 0x64: block, offset pairs to a negative block). */
     for (gaddr q = inner; q != 0 && in_ram(q, 8) && GREF(int32_t, q) >= 0
@@ -629,10 +718,9 @@ static struct {
     uint32_t used;
 } lists;
 
-/* Puts copy `m` on its group's list, after the members: the list moved to the port's room with one
- * more entry. 0 when it has no group, or no room. */
-static int join_group(const rac2_moby_table* t, gaddr m) {
-    const uint32_t group = GREF(uint8_t, m + MOBY_GROUP);
+/* Puts copy `m` on group `group`'s list, after the members: the list moved to the port's room with
+ * one more entry. 0 when it is no group, or no room. */
+static int join_list(const rac2_moby_table* t, gaddr m, uint32_t group) {
     if (group == GROUP_NONE || (int32_t)group > GREF(int32_t, GROUP_COUNT)) {
         return 0;
     }
@@ -674,6 +762,11 @@ static int join_group(const rac2_moby_table* t, gaddr m) {
     GREF(uint16_t, moved + 2u * (uint32_t)n) = (uint16_t)(((m - t->base) / MOBY_SIZE) | GROUP_LAST);
     GREF(gaddr, at) = moved;
     return 1;
+}
+
+/* Puts copy `m` on its own group's list (+0x21: its squad's). */
+static int join_group(const rac2_moby_table* t, gaddr m) {
+    return join_list(t, m, GREF(uint8_t, m + MOBY_GROUP));
 }
 
 /* Takes the moby of pool index `id` off every list moved to the port's room that names it (the last
@@ -845,6 +938,136 @@ void rac2_copy_groups_tidy(void) {
             if ((e & GROUP_LAST) != 0) {
                 break;
             }
+        }
+    }
+}
+
+/* MOBY_OWNER: the moby a member answers to (arena_claim_enemy sets the controller). Its flags'
+ * bit a scene chunk hides it with. */
+#define MOBY_OWNER 0xB8u
+#define MOBY_FLAGS_AT 0x34u
+#define FLAG_CHUNK_HIDDEN 0x80u
+
+/* What pod `pod` of arena `a` holds, before it lets go: whether `orig` and the copy are in it, a
+ * member of the controller `owner` (one this drop carries in), and its first empty place. 0 for no
+ * such pod. */
+typedef struct {
+    int has_orig, has_copy, has_owners, room;
+} pod_seen;
+
+static int look_in_pod(
+    const rac2_copy_arena* a, gaddr pod, gaddr copy, gaddr orig, gaddr owner, pod_seen* seen
+) {
+    const uint8_t state = GREF(uint8_t, pod + MOBY_STATE);
+    if (state >= 8 || ((a->pod_states >> state) & 1u) == 0
+        || GREF(int16_t, pod + MOBY_OCLASS) != a->pod) {
+        return 0;
+    }
+    const gaddr held = GREF(gaddr, pod + MOBY_PVARS);
+    if (held == 0 || !in_ram(held + a->pod_held, 4u * a->pod_held_count)) {
+        return 0;
+    }
+    memset(seen, 0, sizeof *seen);
+    seen->room = -1;
+    for (unsigned k = 0; k < a->pod_held_count; ++k) {
+        const gaddr v = GREF(gaddr, held + a->pod_held + 4u * k);
+        seen->has_orig |= v == orig;
+        seen->has_copy |= v == copy;
+        if (v != 0 && in_ram(v, MOBY_SIZE) && GREF(gaddr, v + MOBY_OWNER) == owner) {
+            seen->has_owners = 1;
+        }
+        if (v == 0 && seen->room < 0) {
+            seen->room = (int)k;
+        }
+    }
+    return 1;
+}
+
+/* Puts arena copy `i`, waiting in the reserve, into a pod while its original is out of it: the pod
+ * that holds the original if it has room, else another of the same controller's drop with room (the
+ * original's pod full, the copy goes in with the wave's next drop). 1 if it is in one now. */
+static int arena_send_in(const rac2_copy_arena* a, int i, gaddr base, gaddr end) {
+    const gaddr copy = made.moby[i], orig = made.orig[i];
+    const gaddr owner = GREF(gaddr, orig + MOBY_OWNER);
+    const uint8_t orig_state = GREF(uint8_t, orig + MOBY_STATE);
+    if (orig_state == a->dormant || orig_state >= 0x80 || owner < base || owner >= end
+        || (owner - base) % MOBY_SIZE != 0 || GREF(uint8_t, owner + MOBY_STATE) >= 0x80
+        || GREF(int16_t, owner + MOBY_OCLASS) != a->controller) {
+        return 0;
+    }
+    gaddr into = 0;
+    int room = -1;
+    for (int pass = 0; pass < 2 && into == 0; ++pass) {
+        for (gaddr pod = base; pod < end; pod += MOBY_SIZE) {
+            pod_seen seen;
+            if (!look_in_pod(a, pod, copy, orig, owner, &seen)) {
+                continue;
+            }
+            if (seen.has_copy) {
+                return 1;
+            }
+            if (seen.room >= 0 && (pass == 0 ? seen.has_orig : seen.has_owners)) {
+                into = pod;
+                room = seen.room;
+                break;
+            }
+        }
+    }
+    /* Its pvars as rac2_copy_make laid them out (the port's room is past the game's RAM). */
+    const gaddr pvars = GREF(gaddr, copy + MOBY_PVARS);
+    if (into == 0 || pvars == 0 || pvars != made.pvars[i] || made.bytes[i] < a->health_at + 4u) {
+        return 0;
+    }
+    GREF(gaddr, GREF(gaddr, into + MOBY_PVARS) + a->pod_held + 4u * (uint32_t)room) = copy;
+    GREF(uint8_t, copy + MOBY_STATE) = a->held;
+    /* Shown as its original: the level's scene chunks show and hide the placed mobys by where they
+     * are (func_L00_00303418, +0x34's 0x80), not the spawned ones, and the arena's chunk loads
+     * after the copy was made. A copy left hidden is never drawn, and an enemy not drawn takes no
+     * damage (swaying_actor_update, func_L02_003F1298, reads its hits only with +0x31 set). */
+    const uint16_t shown = GREF(uint16_t, orig + MOBY_FLAGS_AT) & FLAG_CHUNK_HIDDEN;
+    GREF(uint16_t, copy + MOBY_FLAGS_AT) =
+        (uint16_t)((GREF(uint16_t, copy + MOBY_FLAGS_AT) & ~FLAG_CHUNK_HIDDEN) | shown);
+    GREF(gaddr, copy + MOBY_OWNER) = owner;
+    GREF(float, pvars + a->health_at) = 1.0f;
+    static uint32_t told;
+    if (told != this_load()) {
+        told = this_load();
+        fprintf(
+            stderr,
+            "[info] %s: copy in slot %d goes in with its original (slot %d), pod in slot %d\n",
+            a->what,
+            (int)((copy - base) / MOBY_SIZE),
+            (int)((orig - base) / MOBY_SIZE),
+            (int)((into - base) / MOBY_SIZE)
+        );
+    }
+    return 1;
+}
+
+void rac2_copy_arenas_tick(void) {
+    forget_old();
+    const gaddr base = GREF(gaddr, TABLE_BASE);
+    const gaddr end = GREF(gaddr, TABLE_END);
+    if (base == 0 || end <= base || made.loads != this_load()) {
+        return;
+    }
+    /* The lists tidied once a frame while an arena has copies: a copy the game frees comes off the
+     * arena's list at once, as the arena's reset walks every entry, freed or not. */
+    int arenas = 0;
+    for (int i = 0; i < made.count && !arenas; ++i) {
+        arenas = made.arena[i] != 0;
+    }
+    if (arenas) {
+        rac2_copy_groups_tidy();
+    }
+    for (int i = 0; i < made.count; ++i) {
+        if (made.arena[i] == 0 || made.arena[i] > rac2_copy_arenas_count || !copy_alive(i)) {
+            continue;
+        }
+        const rac2_copy_arena* a = &rac2_copy_arenas[made.arena[i] - 1];
+        /* The copy waiting in the reserve. */
+        if (GREF(uint8_t, made.moby[i] + MOBY_STATE) == a->dormant) {
+            (void)arena_send_in(a, i, base, end);
         }
     }
 }
@@ -1258,6 +1481,14 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
         return 0;
     }
     forget_old();
+    /* An arena's member is copied while it waits in the reserve (or before its first update, as
+     * the level loads): a copy of one in a pod or in the fight would hold no place in either. */
+    const uint32_t placed_slot = (orig - t->base) / MOBY_SIZE;
+    const int arena = scan.arena[placed_slot];
+    const uint8_t orig_state = GREF(uint8_t, orig + MOBY_STATE);
+    if (arena > 0 && orig_state != 0 && orig_state != rac2_copy_arenas[arena - 1].dormant) {
+        return 0;
+    }
     gaddr parts[PARTS_MAX];
     const int nparts = parts_of(t, orig, parts);
     if (nparts < 0 || made.count >= COPIES_MAX || free_slots(t) <= RESERVE + nparts) {
@@ -1285,7 +1516,12 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
     }
     float spot[3];
     if (!find_spot(t, orig, index, spot)) {
-        return 0;
+        /* A member of an arena's reserve waits out of sight; the pod that carries it in sets its
+         * place as it lets it go. */
+        if (arena == 0) {
+            return 0;
+        }
+        memcpy(spot, G(orig + MOBY_POS), sizeof spot);
     }
     /* The copy's slot and its parts', all or none. */
     gaddr from_mobys[1 + PARTS_MAX], to_mobys[1 + PARTS_MAX];
@@ -1362,8 +1598,25 @@ gaddr rac2_copy_make(const rac2_moby_table* t, gaddr orig, int index) {
     for (int i = nparts; i >= 0; --i) {
         func_002A0F48(to_mobys[i]);
     }
-    (void)join_group(t, m);
+    if (arena > 0) {
+        /* On the reserve's list, which the controller's tally and resets walk: a copy left off it
+         * would not hold the wave. None is made without it. */
+        const uint32_t group = scan.arena_group[placed_slot];
+        if (!join_list(t, m, group)) {
+            for (int i = 0; i <= nparts; ++i) {
+                func_0029F338(to_mobys[i]);
+            }
+            made.room_used -= room_need;
+            return 0;
+        }
+        if (GREF(uint8_t, m + MOBY_GROUP) != group) {
+            (void)join_group(t, m);
+        }
+    } else {
+        (void)join_group(t, m);
+    }
     made.moby[made.count] = m;
+    made.arena[made.count] = (uint8_t)arena;
     made.orig[made.count] = orig;
     made.died[made.count] = 0;
     made.uid[made.count] = GREF(int16_t, m + MOBY_UID);
