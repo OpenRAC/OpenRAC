@@ -76,12 +76,229 @@ like level 39's.
 Step 2 adds these, the game-mode struct's arrays (2.3 of ui-scoreboard.md) and the results block to
 `sites.py`'s tables, reruns it per map, and reviews each map's bounds as level 39's were.
 
-## 4. State at hand-off (2026-11-23)
+## 4. State at hand-off (2026-11-25)
 
-Merged: develop fed9fcf94 (#769). Known bug: the 9th player's game leaves right after joining the party
-(the server shows 9/24); 8 players in a 16-room work in STAGING. Test recipe: Server master with
-`FAMILY_PARTY_SIZES=rac3-pal-1:24 MAX_CONNECTIONS_PER_ADDRESS=64 --mode all`; clients hidden with
-`OPENRAC_SERVER=<host>:7790 OPENRAC_RAC3_PROFILE=<name> OPENRAC_RAC3_NET_LOG=1`, the host also
-`OPENRAC_RAC3_MAX_PLAYERS=16`; on box2 under `Xvfb` with `LIBGL_ALWAYS_SOFTWARE=1 OPENRAC_SOFTWARE_GL=1
-LP_NUM_THREADS=2`; presses as box1 `~/RACSwarm/rac3-online/pair.sh` (host: CREATE GAME; joiners: QUICK PLAY,
-Any, JOIN), joiners started after the host has created.
+Step 2 is on `feat/rac3-mp-24-step2` (PR #781, draft). Built and run on box2 (PAL, hidden, Server master
+`--mode all`, a game server on 7770, clients on `OPENRAC_SERVER=127.0.0.1:7770`).
+
+**The 9th joiner (found 2026-11-25).** It did not back out: it started the match. The host's join
+handler (0x0019A6F8, loop at 0x0019ABA8) finds a free slot with `lh client[slot]` (0x0019ABB8, a wide
+site) and then stores the joiner's DME client with `sh` through the same register (0x0019ABD4), which
+the dataflow had not marked: slot 8 went into the settings object in place, onto `state[0]` (the client
+array is followed by the state array), and "state[0] >= 7" is the game's "started". Everyone saw
+"Starting...", the host loaded the map, and the joiner's wait ended. `wide.json` now also names the
+second uses of an address register that a site already translates: 17 sites (the join store, the
+send's destination 0x006C442C, level 39's and each map's third `lw` of the players array in
+0x0061CE30 and its copies). Found by scanning each `ea` site for a later load or store with the same base register and offset
+before the register is written (a branch-likely's delay slot does not count).
+
+**The CREATE page.** The page is built when the multiplayer menu opens, before the login, so the
+spinner's maximum cannot be set from its constructor by the connection state. `mp_net.c` keeps the
+spinner's address and `create_page_sync()` (each MediusUpdate) sets its maximum to the room's most
+while connected, else 8. The spinner then counts 2..24 online.
+
+**Run results (box2, hidden llvmpipe clients, one joiner every 25 s):** host plus 10 joiners: STAGING
+shows PLAYER 11/16, no start; host plus 15: PLAYER 16/16; host (spinner at 24) plus 23: PLAYER 24/24 on
+the host and on joiners 12 and 23. Before the fix the 9th joiner made the host load the map (and crash
+in a map's `sprintf` on a players entry past 8). A match from STAGING with more than 8 was not started
+in these runs: the scripted READY of the joiners did not take, so the host's START stayed greyed.
+NTSC-U widening is off (`rac3_mp_wide_available()` is PAL-only again).
+
+Test recipe: Server master with `FAMILY_PARTY_SIZES=rac3-pal-1:24 MAX_CONNECTIONS_PER_ADDRESS=64
+--mode all`; clients `OPENRAC_SERVER=127.0.0.1:7770 OPENRAC_RAC3_PROFILE=<name> OPENRAC_RAC3_NET_LOG=1`,
+hidden (`SDL_VIDEODRIVER=offscreen OPENRAC_HIDDEN=1 OPENRAC_SOFTWARE_GL=1 LP_NUM_THREADS=2`), presses by
+`OPENRAC_PRESS`: MULTIPLAYER (down, down, cross at frame 580), ONLINE PLAY (cross at 1300), the
+configuration (cross 1400), the city (cross 1750), licence (Square 1850), announcements (cross 1950),
+then the host: down, cross (CREATE GAME, 2050/2090), down x3 and right x(N-8) on PLAYERS, Circle;
+joiners: cross, cross (QUICK PLAY, Any), cross (JOIN). The host's START is greyed until it and every
+joiner is READY (Circle). The server must be named by its game port (7770), not the hub's, or CREATE is
+refused ("sent PARTY, which the hub does not take").
+
+## 5. Step 2b (2026-11-25, later): the match's end past 8 players
+
+Written, built (box2, PAL) and run on box1 and box2:
+
+- **Results for slots 8-23.** Each map's copy of `func_L39_00670D90` (the end routine, 15 programs) is
+  wrapped (`mp/fixes.py` FIXED, `rac3EndResultsMap<N>`, `host/mp_fixes.c` `fix_end_results`): the game's
+  routine runs, then `rac3_mp_wide_end_results` (mp_wide.c) fills the results block for slots 8 and up
+  from the port's companions: the name (from the settings' wide half), the local flag (with the game's
+  own profile reset, `func_L01_003F1F60`, called through the program's copy, level 39's 005778C8), the
+  team, each team record's member list (capped at the record's 8), and every mode array (scores,
+  suicides, the three columns, share, weapons). For the deathmatch types (reason 1 or 5, game type 2)
+  the winner at results+0x1A8 is chosen again over every slot (`wide_winner`, the game's own rules:
+  best kills less suicides, fewer deaths, a tie of both is -1; teams by their sums). A room of 8 is the
+  game's own (the wrap returns at once).
+- **Channel 5's end message (0x82).** `dme_relay` sees the 0x68-byte channel 5 message with command
+  0x82 in a room of more than 8 and first sends `RELAY_MATCH_END_WIDE` (kind 5: u8 the room's width,
+  then slots 8 up of mode +0x18 (4 bytes a slot), +0x198 (2), +0x38, +0x48, +0x50 (1 each)), to the same
+  target; the receiver's `rac3_mp_wide_end_unpack` puts them into the port's mode companions before the
+  message itself reaches the game, so the end routine's wrap finds them. The other mode arrays (+0x40,
+  +0x58 share, +0x78 weapons) stay each console's own, as in the game.
+- **Channel 9.** Read, not changed. The receiver (`func_L39_00677740`) finds the sender's player by the
+  sender's DME client (`func_L39_0061BED0(sender, bit 25)`, whose players-array loads are sites), and
+  hands bits 28-31 of word +0x14 to `func_L39_0066F260` as the bit mask of the packet's four history
+  blocks, not as a player index. So the fifth index bit of a slot past 15 is never needed to pick a
+  table entry; no framing was added. Whether the stream decodes right for clients 16-23 is not shown
+  yet (the run below has 10 players).
+- **`mp_ui.c`** loops to `rac3_mp_wide_slots()`: the staging table (settings arrays through
+  `rac3_mp_wide_settings`) and the scoreboard (the results block through `rac3_mp_wide_results`); the
+  ordering takes up to 24 rows. The game's own widgets stay 8 rows (hidden while the native screen draws).
+- `OPENRAC_RAC3_NET_LOG=1` also logs the settings' slot client/state as each console sees it, the end
+  message's companion on both ends, and the wide results.
+
+NTSC-U widening stays off (`rac3_mp_wide_available()`); `release_carry_rac3.py` was rerun so NTSC-U's
+`mp_fixes.h` and rows carry the new wrap.
+
+
+## 6. Match test, 2026-11-25 evening: READY and START in rooms past 8
+
+Binary: PAL release build on box2 (this branch), copied to box1; Server master `--mode all` on the Mac with
+`FAMILY_PARTY_SIZES=rac3-pal-1:24 MAX_CONNECTIONS_PER_ADDRESS=64`; clients hidden, muted, llvmpipe, all on
+box1 (started 8 s apart), scripted by `OPENRAC_PRESS` (host: CREATE with PLAYERS right x(N-8) and TIMED 5
+Minutes, READY, up + cross for START; joiners: QUICK PLAY, join, READY). The scripts are
+`~/RACSwarm/k3-wide.sh` (orchestrator) and `k3-mp24-run.sh` (one client) on the Mac. `OPENRAC_RAC3_NET_LOG=1`
+logs each console's view of the slots' client/state, the channel 17 slot updates it delivers, the wide
+end message and results, and `N ready of M players: START ...`.
+
+Proven (screenshots in `~/Projects/RAC/mp24-progress/`): a room of 10 (host + 9 joiners) fills, every console
+shows the same 10 slots (8 and 9 included), every slot reaches READY (6) and the host's START enables
+with 10 of 10 ready.
+
+What was wrong, and what fixes it:
+- **Box2's software-GL clients** run far below 50 fps (about 190% CPU each; box1's use 6%), so the scripted
+  presses, which are by frame, drift by minutes. All hidden clients of a room run on box1.
+- **Joiners with no name in the game's net block** sent "(null)" and an uninitialised skin in the join request
+  and slot updates; `name_fix` (mp_net.c `dme_relay`) puts the account's name and skin 0 in. (A pre-widening
+  build, box1 `~/RACSwarm/mp-ui-run/bin`, shows the right names and skins, so this is a regression from the
+  widened or merged code, cause not found; the rows read "j1", "j2" ... now.)
+- **READY past 3 joiners reset itself.** The staging update (L39_006C20B0) reads the pad's pressed bits each
+  game tick; a client too slow to draw runs several ticks in the window frame of one press, so it sends
+  ready (state 6), then unready (state 1) once per extra tick (client 1 six times, client 7 none: the count
+  depended on how far each console lagged). Rooms of 8 do the same on such clients; a real GPU client does
+  not tick more than once a frame. With `OPENRAC_RAC3_PORT_READY=1` the port takes every slot's Circle press
+  (`rac3_mp_ui_pad_filter` in pad.c's scePadRead: the press is left out of the pad word, so the game never
+  sees it, and `rac3_mp_net_toggle_ready` sends the slot update, or for the host writes its own state).
+- **Slots 8 and up** have no row in the game's staging widgets, so their Circle never reached a READY handler;
+  the same function takes their press without the variable.
+- **START stayed greyed** with all 10 ready: the host's per-frame check (L39_006C30A0) counts the ready among
+  slots 1-7 and itself and compares with GameSettings +0x178 (the players), and the START handler reads its
+  byte right after that check in the same call. `mp_func_L39_006C30A0` (a new wrap, mp/libraries.tsv) sets
+  the byte again from every slot when the room is wider than 8.
+- The staging header reads `PLAYER n/m` from net+0x130 and net+0x134: `m` is the room's maximum
+  (`rac3_mp_wide_set_slots`), so 10/10 is a full room of 10 (screenshots show 2/8, 5/10, 3/10 on the way).
+
+Result of the run with the START wrap (host + 9 joiners on box1, 10 players): START pressed with all 10 ready,
+every console loaded map 40 (Bakisi Isles) and drew its HUD with the other players' name tags (screenshots 12, 13
+in `~/Projects/RAC/mp24-progress/`), and channel 9 (the player state stream) flowed from every client, slots 8
+and 9 included. The match then did not progress: the HUD clock stayed 00:00 and the frame did not change for
+the 40,000 frames the run lasted (about 13 minutes), so the 5 minute time limit never ended it and the end
+message (0x82), the wide results and the scoreboard have not run. No joiner sent the map-loaded slot update
+(state 8) to the host; only the host's own state 8 went round (the host's settings read 0:8, the joiners' 1-9 stay
+6). Whether the map's start barrier waits for those states, and why the joiners' L39_00575CC8 / map-load update
+(channel 17, state 8) is not sent, is the next thing to find: compare the same run at 2 players, where the
+earlier notes say the barrier opens, and read what the barrier counts (a bound or slot table of the map that
+the wide.json sites do not cover is the first suspect).
+
+Also left: clan tags print as "(null)" after the name tags (the join request's clan, +0x50, and the slot
+update's, +0x17, should get an empty string the way `name_fix` gives the name); the map shows no scenery in
+box1's data dir (no level exports there: extract the PAL levels with the launcher's "Get the levels ready"
+pipeline, tools/extractor.py, to see the world); 16 and 24 players, headless joiners (a window-less run
+`--window` left out: not yet tried, its tick pacing decides whether the frame-scripted presses still line
+up) and clients on box2 and the Mac; the staging list shows 8 rows (the native staging table is not up in these
+runs: the server serves no UI description) and has no scroll bar; channel 9 for clients 16-23; the NTSC-U
+carry of the new wraps' places (release_carry_rac3.py was rerun for the first batch).
+
+## 6b. Earlier state of the same match test (before the READY/START fixes above)
+
+Binary: PAL release build on box2 (this branch's step 2b plus `name_fix`, built from the tree before the
+merge of develop and the other agent's push), copied to box1; Server master `--mode all` on the Mac with
+`FAMILY_PARTY_SIZES=rac3-pal-1:24 MAX_CONNECTIONS_PER_ADDRESS=64`; clients hidden, muted, llvmpipe,
+scripted by `OPENRAC_PRESS` (host: CREATE with PLAYERS right x(N-8) and TIMED 5 Minutes, READY, up + cross
+for START; joiners: QUICK PLAY, join, READY). `OPENRAC_RAC3_NET_LOG=1` now also logs each console's view
+of the settings' slot client/state, the channel 17 slot updates it delivers (first 10 payload bytes),
+and the wide end message and results.
+
+Proven: rooms of 10 (host + 9 joiners) fill and every console shows the same 10 slots (`settings (sent)`
+on the host, `(received)` on the joiners, slots 8 and 9 included); 2-3 player rooms ready and START as before.
+
+Findings:
+- Box2's software-GL clients run far below 50 fps (about 190% CPU each), box1's use about 6% each; the
+  presses are by frame, so a script that spreads clients over both boxes drifts by minutes. Run all
+  hidden clients of one room on box1 (10 clients, host included, fit with room to spare) and start them
+  8-10 s apart.
+- A joiner that joins with no name in the game's net block sent "(null)" as its name and an
+  uninitialised skin (staging rows "(null)" / "Paradox ERR"); `name_fix` (mp_net.c `dme_relay`) puts the
+  account's name into the join request and slot updates. With it the rows show `j1`, `j2` ... and the skins
+  are valid. This did not change the ready problem below.
+- **READY does not hold with more than 2-3 joiners, in a room of 8 as well as of 10** (so not a
+  widening effect): every joiner's READY (channel 17, state 6) reaches the host and is applied, then the
+  same joiner sends channel 17 state 1 ("leave", L39_006C4308), which the host applies as state 0, once
+  for every joiner that readies after it (client 1 sends six, client 2 five, ... client 6 one, client 7
+  none: the last stays ready). Cause not found. Not yet compared with a build from before step 1
+  (box1 `~/RACSwarm/mp-ui-run/bin` is such a build but has no settings logging and needs a disc image
+  in its data dir). Start there next: whichever of the stock staging update (L39_006C20B0) or the
+  port's object update path (`obj_receive` calls the type's on_update with the whole object, field -1)
+  makes an already-ready joiner leave when another slot's state changes.
+- Joiners in slots 8 and up send no READY at all (their Circle press produces no channel 17 message):
+  the staging screen's own widget loop (L39_006C30A0) stays 8 rows, so there is no row for them to
+  have the cursor on. Needs a port-side READY for slots 8+ (a native handler for Circle in the
+  staging screen that sends the slot update from the wide settings), in `mp_ui.c`.
+- So no room of more than 8 could be started: the host's START stays greyed. The end message
+  (0x82), the wide results and the scoreboard are written and built but have not run in a match.
+
+## 7. The map's start barrier past 8 players, 2026-11-25 night
+
+What held the match at 00:00 (all found by reading the retail assembly of the map's main loop, the generated C and
+the net log of a 10-player run; every site is in `mp/wide.json`, for level 39 and the maps 40-53, whose copies of the
+code are the same instructions at other addresses):
+
+- **The map's main loop** (`func_L39_00575CC8`, L40 0x004425C8, state 17) counts the players that exist
+  (`D_players[0..7]`) against the room's player count (GameSettings +0x178) before it sends its map-loaded slot update
+  (state 8), the host counts the joiners' state 8 over slots 1-7, and the host sets its own slots' state. Its loops are
+  pointer walks with a counter (`li rN,7 ... bgez`), so the dataflow had not found them: `bound` sites on the counters,
+  `ea` sites on the walked loads (players array, slot clients, slot states), and the walk over the remote players
+  (stride 0xC70: `span` at its end pointer, `ea` on its field loads, `arg` on the call of 0x00199878 handing the
+  element: **an `arg` site is the address of the call, not of its delay slot**; that mistake left slots 8 and 9
+  without a hero and the barrier at 8 of 10 players).
+- **The per-frame player update** (L39 0x0066AFA0) ends with a loop over the players array: widened the same way.
+- **The host's slot update handler** (core 0x0019A4D0) stores the new state of a slot in its in-game branch with a
+  `sh` at 0x0019A5FC that had no site: slots 8 and up never got state 8 on the host, so the barrier of the host
+  (`n == players - own`) stayed shut. Its clan copy (the call at 0x0019A628) had no `arg` site either: a clan tag of a
+  slot past 8 was written over the next table.
+- **The match clock never ran in any multiplayer match**: the programs add the EE's timer 1 count (0x10000800) to
+  their frame clock and write 0 back; the port has no timer page, so it read 0 (a 2-player run showed the same frozen
+  00:00 with the bots moving). `timer1_feed` (mp_net.c) puts the real time since the last net update there, as a
+  16-bit counter at 576 ticks a millisecond.
+
+Run tooling: `OPENRAC_NO_RENDER=1` (docs/port/DEBUGGING.md) skips the whole frame (built, drawn, presented) and keeps
+the tick, the net and the scripted pad at full speed: a no-render client uses about 8% of a core against 190% for a
+software-GL one, and its window-frame counter (`OPENRAC_PRESS`) is the same, so scripts written for rendering clients
+run unchanged. A room's fleet: host and one joiner render (box1, levels extracted with
+`extractor/extract.py port DISC assets/port/rac3/pal`, `--levels`), the rest do not (box1 up to 10, the Mac, box2).
+`HOSTGEN_JOBS` sets hostgen's default worker count (a box's memory).
+
+### Where the 16/24-player match stands (end of the 2026-11-25/26 session)
+
+Proven: a 10-player room (host + 9 joiners, spread over box1 and the Mac) loads map 40, every console passes the start
+barrier (all ten slots at state 8, the host's included), draws the world with the other heroes, and plays (a 2-player
+run on the same build shows bots moving and shooting). Not yet seen: the match clock running (the timer 1 feed is in,
+untested in a full match), the 0x82 end message and the scoreboard for a wide room (the host's end path did run once
+in a corrupted 16-player run: "the end message's slots 8+ sent", "results for slots 8-15").
+
+Open, in the order they bit:
+- **The server's keep-alive** (`KEEP_ALIVE_IDLE_SECONDS`, 30 s, "covers a map load") dropped a host whose map load
+  took longer than that on a loaded box: "Session (host) stopped sending, dropping it", then the joiners' "the party
+  is gone". The test Server runs with 240.
+- **A fatal error at START in a 12-player run** (host, level 39, frame 22051): `func_L39_005B0AE0 at 005B0BD0 reached
+  the scratchpad DMA register 1000D400`, with the host's own slot at state 0 (not ready) when START was pressed: the
+  scripted host READY had been undone (a drifted press), so this may be the greyed-START path, not the wide code.
+  Not diagnosed.
+- **The map's clock**: see above; whether the 5-minute limit now ends a match is the next thing to run.
+- **Clan tags** still print "[(nul]" in the HUD name tags: the slot update's clan copy now goes through the wide
+  table (0x0019A628), but the "(null)" text itself (the game's sprintf of a null clan) comes from the senders'
+  messages; `clan_fix` (dme_relay) did not catch it in the join request (the request is logged under
+  OPENRAC_RAC3_NET_LOG=1 to find the bytes).
+- **The staging list** keeps the game's 8 rows: a server description with a `staging` screen
+  (`~/RACSwarm/k3-ui/rac3-pal-1.json` in the test Server's UI_DIRECTORY, columns name/clan/team/skin/ready on the
+  `players` table) makes it native with the scroll marks; not yet looked at.
+- NTSC-U carry of the new sites (release_carry_rac3.py) not run.

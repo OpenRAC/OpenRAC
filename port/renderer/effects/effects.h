@@ -183,13 +183,39 @@ public:
     void release() override;
 
 private:
+    // A run of quads drawn as one (pair_quads): its two textures (pool keys; second 0 for none) and
+    // the TEX0 its draw takes (the run's first quad's; only TCC and TFX of it are read then).
+    struct QuadPair {
+        std::uint32_t first = 0, second = 0;
+        std::uint64_t tex0 = 0;
+    };
+
     // Draw metadata is shared by preparation and deferred recording within the enclosing chain.
     struct PreparedEffects {
         std::vector<int> strip_counts;  // Expanded stream counts, in accepted strip order.
         std::vector<std::optional<EffectMesh>> meshes;  // Matching resident-material mesh handles.
         std::size_t quads_from = 0;                     // First quad vertex after expanded strips.
         bool quads = false;
+        // Per quad of FrameInput::effects: its pair run (pair_quads), or none.
+        std::vector<QuadPair> quad_pairs;
     };
+
+    // The texture unit of a pair run's second texture (tex_T2 in m_shader).
+    static constexpr unsigned kPairUnit = 2;
+
+    // Finds runs of quads that take turns with two textures and differ in nothing else (a field of
+    // sparks paging two images through one block): each run is then one draw, its second texture
+    // on kPairUnit, picked per vertex (Vertex::pair). Empty when this frame cannot pair.
+    std::vector<QuadPair> pair_quads(const FrameInput& input, RenderState& state) const;
+    // Binds a pair run's second texture on kPairUnit with TEX1's filtering and CLAMP's wrapping.
+    void bind_pair_texture(
+        RenderState& state,
+        std::uint64_t tex0,
+        std::uint64_t tex1,
+        std::uint64_t clamp,
+        std::uint32_t tbp,
+        std::uint32_t cbp
+    );
 
     // Queues scene snapshots and their colour consumers, or retains immediate unknown materials.
     void record_colour(
@@ -236,10 +262,23 @@ private:
     // (0.5 for a texture whose alpha is 0..255 with 0x80 as 1), ALPHA's blend.
     void apply_colour_state(const gs::Tex0& tex0, float scale, std::uint64_t alpha_bits);
 
+    // apply for a native quad (EffectQuad::native): binds `image` (a pool texture; none when
+    // `untextured`) with the state's filter and wrap, and sets its texture function, blend and
+    // depth comparison (effect_gl_state). False when a textured quad's image has no texture.
+    bool apply_native(
+        const EffectState& material, TextureHandle image, bool untextured, RenderState& state
+    );
+
+    // Sets the depth comparison of the next draws, when it changed.
+    void set_depth_function(unsigned function);
+
     struct Vertex {
         float x, y, z;
         float s, t;
         std::uint8_t r, g, b, a;
+        // 0xFF: the quad samples its pair run's second texture (kPairUnit), else 0.
+        std::uint8_t pair = 0;
+        std::uint8_t unused[3]{};
     };
 
     // Whether this pass draws `strip` (m_part).
@@ -257,6 +296,10 @@ private:
         unsigned offscreen = 0;  // the off-screen target's GL texture bound (kOffscreenHandle)
     } m_applied;
 
+    // The depth comparison in GL now (set_depth_function), across shader changes: GL_GEQUAL from
+    // the start of each pass's draws.
+    unsigned m_depth_function = 0;
+
     // m_applied.texture while an off-screen target's texture is bound (no pool handle is ~0).
     static constexpr TextureHandle kOffscreenHandle = ~TextureHandle{0};
 
@@ -265,6 +308,8 @@ private:
     FrameBuffer m_frame_copy;
     unsigned m_frame_copy_texture = 0;
     Shader m_shader;
+    // m_shader was built with the pair runs' second texture (OPENRAC_EFFECT_PAIR).
+    bool m_pair_shader = false;
     Shader m_depth_shader;
     Shader m_quad_shader;
     // The quads drawn with the list's TEST (EffectQuad::registers) that test alpha: the quads'

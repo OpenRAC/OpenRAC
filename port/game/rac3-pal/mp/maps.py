@@ -18,9 +18,13 @@ This writes, from the catalogue and the level programs' entries:
 - the rows between the markers in mp/libraries.tsv, one per map and function of CARRIED;
 - host/mp_maps.h, one MP_MAP(map, ...) line per map with each CARRIED function's place there, in
   CARRIED's order (host/mp_maps.c expands it), and the MP_MAP_UI, MP_MAP_HUD and MP_MAP_VU0 lines of
-  CARRIED_UI, CARRIED_HUD and CARRIED_VU0 (host/ui2d.c, host/hud.c and host/trig.c expand them).
+  CARRIED_UI, CARRIED_HUD and CARRIED_VU0 (host/ui2d.c, host/hud.c and host/textures.c, and
+  host/trig.c expand them).
 
     python3 port/game/rac3-pal/mp/maps.py [--source games/rac3/decomp] [--check]
+
+--references-only refreshes native calls and their signatures without reading level ELFs;
+the configured map entry points and the other generated tables are kept.
 
 The level programs' entries are read from rac3-decomp's baserom/levels/<NN>_*.elf.
 """
@@ -34,6 +38,10 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))  # fixes.py sits beside this file; tests import it from elsewhere
+
+from fixes import FIXED  # noqa: E402
+
 ROOT = HERE.parents[3]
 MAPS = range(40, 54)
 SECOND_ENTRY = 0x484  # main (0x001932A0) also calls the routine this far past a map's entry
@@ -47,11 +55,11 @@ CARRIED = [
     ("005A9AA0", "wad", "rac3WadDecompressMap", "host", "the WAD decompressor (func_003A0760)",
      "int (int, int)"),
     ("0060DFC8", "render", "rac3ScreenGlowCopyMap", "host",
-     "the screen glow's first packet (func_L01_004DE670), left out", "int (void)"),
+     "the screen glow (func_L01_004DE670), drawn natively", "int (void)"),
     ("0060E048", "render", "rac3ScreenGlowAddMap", "host",
-     "the screen glow's second packet (func_L01_004DE6F0), left out", "int (void)"),
+     "the screen glow's second half (func_L01_004DE6F0), the glow word cleared", "int (void)"),
     ("0060EC68", "render", "rac3ScreenEffect2Map", "host",
-     "the second screen effect (func_L01_004DF310), left out", "int (void)"),
+     "the second screen effect (func_L01_004DF310), drawn natively", "int (void)"),
     ("005F4690", "render", "rac3DrawTfragMap", "host", "DrawTfrag (func_L39_005F4690)", "int (void)"),
     ("005F61A0", "render", "rac3DrawTiesMap", "host", "the tie pass (func_L39_005F61A0)", "int (void)"),
     ("005EDE28", "render", "rac3DrawShrubsMap", "host", "the shrub pass (func_L39_005EDE28)",
@@ -84,12 +92,17 @@ CARRIED = [
      "PartProc (func_L01_00461CB8): each live particle to the window", "int (void)"),
     ("0058D140", "render", "rac3DrawWorldQuadMap", "host",
      "DrawWorldQuad (func_L01_00407E28): drawn natively", "int (int, int)"),
+    ("00588A08", "render", "rac3ViewLayoutMap", "wrap",
+     "the view layout (func_L01_00403168): a split-screen view's rectangle to the frame recorder",
+     "void (int, int, int, int)"),
     ("00580220", "collision", "rac3CollLineMap", "wrap",
      "coll_line (func_L01_003FA5F0): its gather bounded to the scratchpad (host/coll_line.c)",
      "int (int, int, int, int, int)"),
 ]
 
-# Level 39's 2D layer (the wrap rows ui2d.c's MP_MAP_UI stands for; "ref" ones it only calls).
+# Level 39's 2D layer (the wrap rows ui2d.c's MP_MAP_UI stands for; "ref" ones it only calls). A
+# row may carry the host C's signature, when level 39's has none in "asm" "signatures" for
+# map_signatures to give the maps' copies: a build without the disc declares them from it.
 CARRIED_UI = [
     ("00592238", "draw", "FontPrintMap", "wrap", "FontPrint (the boot program's func_0038EBC8)"),
     ("00592AC8", "draw", "FontPrintShadedMap", "wrap", "FontPrintShaded (func_0038F458)"),
@@ -108,13 +121,21 @@ CARRIED_UI = [
     ("0058C218", "draw", "DrawRotatedSpriteMap", "wrap", "the turned sprite (func_0038C0B8)"),
     ("0059D368", "draw", "DrawHudQuadTurnedMap", "wrap", "the turned HUD quad (func_00397A18)"),
     ("0058B9F8", "draw", "DrawGlyphQuadFloatMap", "wrap", "the glyph quad placed in floats"),
+    ("005FD128", "draw", "SetScissorMap", "wrap",
+     "SetScissor (the catalogue's frontbin row func_003A9500), which the view layout calls with each "
+     "split-screen view: the native quads are cut to it too", "int (int, int, int, int)"),
 ]
 
-# Level 39's HUD sprites (hud.c's MP_MAP_HUD: the sprite, the gradient, then the TEX0 getter they call).
+# Level 39's HUD sprites (hud.c's MP_MAP_HUD: the sprite, the gradient, then the TEX0 getter they
+# call) and the SendImage its HUD bank's group upload calls (textures.c's MP_MAP_HUD), with a
+# signature and a host file as CARRIED_UI's may have.
 CARRIED_HUD = [
     ("0059CB38", "hud", "DrawHudSpriteMap", "wrap", "DrawHudSprite (func_L01_004202A8)"),
     ("0059CD28", "hud", "DrawHudGradientMap", "wrap", "DrawHudGradient (func_L01_00420498)"),
     ("0059C910", "", "", "ref", "a HUD texture's TEX0"),
+    ("0059D6B0", "draw", "SendImageMap", "wrap",
+     "SendImage (func_L01_004215C0): the image its HUD bank's group upload hands over kept as it was "
+     "given", "int (int, int, int, int, int, int)", "host/textures.c"),
 ]
 
 # Level 39's copies of the routines that started VU0's microprogram (trig.c's MP_MAP_VU0, in its
@@ -198,6 +219,17 @@ def map_signatures(source: Path, mp_cfg: dict) -> dict[str, str]:
     return out
 
 
+def wrapped_row(m: int, place: str, l39: str, row: tuple, host: str) -> str:
+    """A map's row of a CARRIED_UI or CARRIED_HUD entry (level 39's place, library, name, port,
+    what[, signature[, host file]]), wrapped as level 39's in `host` unless the entry names its own."""
+    _, lib, name, port, what, *more = row
+    signature = more[0] if more else ""
+    host = more[1] if len(more) > 1 else host
+    line = (f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what}, "
+            f"wrapped as level 39's {l39} ({host})")
+    return line + (f"\t{signature}" if signature else "")
+
+
 def entry(source: Path, level: int) -> int:
     """The level program's entry, its ELF's e_entry."""
     path = next((source / "baserom/levels").glob(f"{level:02d}_*.elf"))
@@ -220,24 +252,24 @@ def build(source: Path) -> tuple[dict, list[str], list[str]]:
                          f"(level 39's {l39}; host/mp_maps.c)\t{sig}")
         macros.append(f"MP_MAP({m}, " + ", ".join(places) + ")")
         ui = []
-        for l39, lib, name, port, what in CARRIED_UI:
+        for row in CARRIED_UI:
+            l39, port = row[0], row[3]
             place = rows.get(l39, {}).get(m)
             if place is None:
                 raise SystemExit(f"maps.py: level 39's {l39} has no place in map {m} in the catalogue")
             ui.append(place)
             if port != "ref":
-                lines.append(f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what}, "
-                             f"wrapped as level 39's {l39} (host/ui2d.c)")
+                lines.append(wrapped_row(m, place, l39, row, "host/ui2d.c"))
         macros.append(f"MP_MAP_UI({m}, " + ", ".join(ui) + ")")
         hud = []
-        for l39, lib, name, port, what in CARRIED_HUD:
+        for row in CARRIED_HUD:
+            l39, port = row[0], row[3]
             place = rows.get(l39, {}).get(m)
             if place is None:
                 raise SystemExit(f"maps.py: level 39's {l39} has no place in map {m} in the catalogue")
             hud.append(place)
             if port != "ref":
-                lines.append(f"func_L{m}_{place}\t{lib}\t{name}{m}\t{port}\tmap {m}'s copy of {what}, "
-                             f"wrapped as level 39's {l39} (host/hud.c)")
+                lines.append(wrapped_row(m, place, l39, row, "host/hud.c"))
         macros.append(f"MP_MAP_HUD({m}, " + ", ".join(hud) + ")")
         vu0 = []
         for l39, name, what, sig in CARRIED_VU0:
@@ -252,11 +284,73 @@ def build(source: Path) -> tuple[dict, list[str], list[str]]:
     return entries, lines, macros
 
 
+def refresh_references(cfg: dict, source: Path) -> None:
+    """Keep functions called through the host's map macros in builds without a disc."""
+    rows = catalogue(source)
+    references = [r[0] for r in (*CARRIED_UI, *CARRIED_HUD) if r[3] == "ref"]
+    references += [r[0] for r in CARRIED_VU0 if not r[1]]
+    references += [r[0] for r in FIXED if r[3] in ("ref", "wrap")]
+    # A wrap with its own signature is reached through the macro too: typed like the references.
+    row_signatures = {r[0]: r[5] for r in (*CARRIED_UI, *CARRIED_HUD) if r[3] == "wrap" and len(r) > 5}
+    references += list(row_signatures)
+    provided = {r[0] for r in CARRIED if r[3] == "host"}
+    provided.update(r[0] for r in CARRIED_VU0 if r[1])
+    needed = list(dict.fromkeys(r for r in references if r not in provided))
+    roots = []
+    for level in MAPS:
+        for name in needed:
+            place = rows.get(name, {}).get(level)
+            if place is None:
+                raise SystemExit(f"maps.py: level 39's {name} has no place in map {level}")
+            roots.append(f"func_L{level}_{place}")
+    signatures = {**map_signatures(source, cfg), **cfg["asm"].get("copy_signatures", {})}
+    for level in MAPS:
+        for name, sig in row_signatures.items():
+            place = rows.get(name, {}).get(level)
+            if place is not None:
+                signatures.setdefault(f"func_L{level}_{place}", sig)
+    missing = [name for name in roots if name not in signatures]
+    if missing:
+        raise SystemExit(f"maps.py: native map references need verified signatures: {', '.join(missing)}")
+    # Token-pasted C calls do not contain the expanded names hostgen searches for.
+    cfg["roots"] = list(dict.fromkeys([*cfg["roots"], *roots]))
+    copies = cfg["asm"].setdefault("copy_signatures", {})
+    copies.update((name, signatures[name]) for name in roots)
+    cfg["asm"]["copy_signatures"] = dict(sorted(copies.items()))
+
+
+def keep_wrap_signatures(cfg: dict) -> None:
+    """The boot program's and level 39's wraps of libraries.tsv state their prototypes in the row;
+    a build without the disc takes them from "copy_signatures"."""
+    copies = cfg["asm"].setdefault("copy_signatures", {})
+    for line in (HERE / "libraries.tsv").read_text(encoding="utf-8").splitlines():
+        cols = line.split("\t")
+        if len(cols) >= 6 and cols[3] == "wrap" and cols[5] and re.fullmatch(r"func_(L39_)?[0-9A-F]{8}", cols[0]):
+            copies.setdefault(cols[0], cols[5])
+    cfg["asm"]["copy_signatures"] = dict(sorted(copies.items()))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--source", type=Path, default=ROOT / "games/rac3/decomp")
     ap.add_argument("--check", action="store_true", help="fail if a written file would change")
+    ap.add_argument("--references-only", action="store_true",
+                    help="refresh native references and signatures, keeping the configured map entries")
     args = ap.parse_args()
+    if args.references_only:
+        cfg_path = HERE / "hostgen.json"
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        refresh_references(cfg, args.source)
+        keep_wrap_signatures(cfg)
+        text = json.dumps(cfg, indent=2) + "\n"
+        stale = cfg_path.read_text(encoding="utf-8") != text
+        if stale and args.check:
+            print(f"maps.py: {cfg_path.relative_to(ROOT)} has stale native references", file=sys.stderr)
+            return 1
+        if stale:
+            cfg_path.write_text(text, encoding="utf-8", newline="\n")
+            print(f"wrote {cfg_path.relative_to(ROOT)}")
+        return 0
     entries, lines, macros = build(args.source)
 
     cfg_path = HERE / "hostgen.json"
@@ -283,6 +377,8 @@ def main() -> int:
     cfg["asm"]["signatures"] = own
     cfg["asm"]["copy_signatures"] = {k: v for k, v in sorted(map_signatures(
         args.source, {"asm": {"signatures": own}}).items()) if k not in host_rows}
+    refresh_references(cfg, args.source)
+    keep_wrap_signatures(cfg)
     outputs = {cfg_path: json.dumps(cfg, indent=2) + "\n"}
 
     lib_path = HERE / "libraries.tsv"

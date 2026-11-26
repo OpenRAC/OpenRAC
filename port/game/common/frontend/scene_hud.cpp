@@ -225,6 +225,7 @@ void set_packets(SceneFrame& frame) {
         }
     }
     input.effect_uploads = scene.effect_uploads;
+    input.effect_images = scene.effect_images;
     input.ui_quads = scene.ui_quads;
     input.recording = scene.recording.empty() ? nullptr : &scene.recording;
     input.splices = scene.splices;

@@ -18,6 +18,8 @@
 #define OPENRAC_GAME_HOST_H
 
 #include "openrac/guest.h"
+#include "openrac/material.h"
+#include "openrac/ui_item.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -245,6 +247,11 @@ extern void (*openrac_game_skip)(void);
 /* A game whose flights between planets the window cannot tell from the front end's words: the flight
  * being drawn now (0 the first of its worlds, levels 98 down), or -1. NULL: the words decide. */
 extern int (*openrac_game_flight)(void);
+
+/* A game whose loading screens are not all the flight with its world (GameProfile::loading_world):
+ * 0 while the screen playing draws no world of its own (a transition made of 2D alone), so its 2D is
+ * drawn over the loading world's clear, not under it. NULL, or nonzero: the screen has its world. */
+extern int (*openrac_game_loading_draws_world)(void);
 
 /* What the window's own menus and drawing need of a game's front end, when a game installs it
  * (rac1: port/game/rac1/host/front_end.c, with each disc's addresses). NULL: the window adds
@@ -1059,6 +1066,28 @@ typedef struct openrac_game_quad {
 
 void openrac_game_effect_quad(const openrac_game_quad* quad);
 
+/* A quad the game draws in the world with a native material (openrac/material.h), for host C that
+ * owns every part of the quad's draw state: corners, colours and texel coordinates (fractions of
+ * the image across and down) as openrac_game_quad's; the material; the image as the game keeps it
+ * (openrac/ui_item.h; not read with OPENRAC_MATERIAL_UNTEXTURED); id, parent and attachment as
+ * openrac_game_quad's. No marker goes with it and the display list around it gives it nothing. */
+typedef struct openrac_game_material_quad {
+    float corner[4][4];
+    uint32_t rgba[4];
+    float st[4][2];
+    openrac_material material;
+    openrac_game_ui_image image;
+    uint32_t id;
+    uint32_t parent;
+    uint32_t attachment;
+} openrac_game_material_quad;
+
+/* Draws `quad` with the frame's other effect quads, in call order. Its image is read now (or from
+ * what openrac_game_image_keep kept there) and kept with the tick; nothing reads game memory for it
+ * later. 1 when the window takes it; 0 when it does not (no window, a material out of range, an
+ * image it cannot read): the caller then draws it its older way. */
+int openrac_game_material_effect_quad(const openrac_game_material_quad* quad);
+
 /* The game is handing over the `bytes` bytes at `data` (an image's pixels or palette) and may not
  * keep them there: an image it sends once and draws from then on without sending it again (rac3's
  * HUD bank, sent from a buffer it decompresses into and reuses). Images the window draws from that
@@ -1066,6 +1095,11 @@ void openrac_game_effect_quad(const openrac_game_quad* quad);
  * instead of what game memory holds later, until the game hands over other bytes there. A copy of
  * the game's own data; nothing about where the console kept it. */
 void openrac_game_image_keep(gaddr data, uint32_t bytes);
+
+/* Another program has replaced the game's memory (a game that starts another executable over it):
+ * every image openrac_game_image_keep kept was the old program's and is let go, so images are read
+ * from game memory again until the new program hands its own over. Game thread only. */
+void openrac_game_images_forget(void);
 
 /* The marker of the quad just given to openrac_game_effect_quad, for the display list: the game
  * puts (OPENRAC_EFFECT_QUAD_MARKER << 48 | marker) in it with an A+D write to the NOP register

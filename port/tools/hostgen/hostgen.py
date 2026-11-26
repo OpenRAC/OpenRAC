@@ -49,7 +49,7 @@ import variant_check  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import LEVEL_SHORT_MISS, Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, users_of_vu0_assembly, canon, cname, index_unit, prototype, inherit_results, uninherit_void_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, users_of_vu0_assembly, vu0_moves, _vu0_op, canon, cname, index_unit, prototype, inherit_results, uninherit_void_results, unbacked_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, params_from_declarations, widen_forwarded, widen_returns  # noqa: E402
 import program as program_module  # noqa: E402  (its NAME_PREFIX)
 
 HERE = Path(__file__).resolve().parent
@@ -680,6 +680,13 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
             "addresses": sum(len(v) for v in code_tables.values())}
 
 
+def _stack_arg(ni: int) -> str:
+    """The ni-th integer argument past the eighth, from where the calling code left it: 0($sp) up,
+    a doubleword each, at the guest stack pointer the call through the address saved
+    (OPENRAC_ASM_CALL). Up Your Arsenal's message box takes eleven; its thunk used to pass 0."""
+    return f"GREF(uint64_t, openrac_guest_sp + {8 * (ni - 8)}u)"
+
+
 def thunk_text(sym: str, f: Function, typedefs: dict, k: int) -> str | None:
     """thunk_<k>: f called with the EE's argument registers, integers from i[] in order and floats
     from f[], by its definition's parameters; its result as the EE has it (a float in *r). None
@@ -701,10 +708,10 @@ def thunk_text(sym: str, f: Function, typedefs: dict, k: int) -> str | None:
                 args.append(f"f[{nf}]" if nf < 8 else "0.0f")
                 nf += 1
             elif c == "double":
-                args.append(f"thunk_d_(i[{ni}])" if ni < 8 else "0.0")
+                args.append(f"thunk_d_(i[{ni}])" if ni < 8 else f"thunk_d_({_stack_arg(ni)})")
                 ni += 1
             else:
-                args.append(f"({c})i[{ni}]" if ni < 8 else f"({c})0")
+                args.append(f"({c})i[{ni}]" if ni < 8 else f"({c}){_stack_arg(ni)}")
                 ni += 1
         if sig.variadic:
             args += [f"i[{n}]" for n in range(ni, 8)]
@@ -884,6 +891,8 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         "problems": {r.unit: r.problems for r in reports if r.problems},
         "stubbed": {f.name: f.reason for f in stubbed},
         "inline_assembly_skipped": {f.name: ", ".join(f.asm_skipped) for f in translated if f.asm_skipped},
+        "inline_assembly_unsupported": {f.name: sorted(set(f.asm_unsupported)) for f in translated
+                                        if getattr(f, "asm_unsupported", None)},
         "functions_from_assembly": len(stage.translated),
         "from_assembly": {r.name: r.source for r in stage.translated},
         "assembly_unsupported": dict(sorted(stage.unsupported.items())),
@@ -1091,7 +1100,7 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     for shared in [config.parent / d for d in cfg.get("host_shared", [])] or [
             config.parent.parent / str(cfg.get("game", "")) / "host"]:
         paths += sorted(shared.glob("*.c"))
-    for key in ("libraries", "hand", "assembly_allow", "result_allow", "data_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins", "folded_wrappers"):
+    for key in ("libraries", "hand", "assembly_allow", "result_allow", "data_allow", "overrides", "split_places", "call_copies", "data_copies", "level_twins", "folded_wrappers", "play_queries"):
         if cfg.get(key):
             paths.append(config.parent / cfg[key])
     if cfg.get("drafts"):
@@ -1149,7 +1158,7 @@ def parse_arguments(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--game", type=Path, required=True, help="the game's hostgen.json")
     ap.add_argument("--source", type=Path, required=True, help="the decompilation's directory")
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--jobs", type=int, default=os.cpu_count() or 2)
+    ap.add_argument("--jobs", type=int, default=int(os.environ.get("HOSTGEN_JOBS") or os.cpu_count() or 2))
     ap.add_argument("--only", action="append", default=[], help="translate only these units (for checks)")
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--allow-unreadable", action="store_true",
@@ -1311,6 +1320,15 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
                   if not all(n in replaced for n in names_of[id(text)])}
     # The port's own C for functions the decompilation matches, in place of their definitions.
     overrides = read_overrides(args.game.parent, cfg)
+    if cfg.get("play_queries"):
+        import playqueries
+        queries = playqueries.build(source, args.game.parent / cfg["play_queries"],
+                                    cfg["id"].rsplit("-", 1)[-1], RELEASE)
+        overlap = set(overrides) & set(queries)
+        if overlap:
+            raise ValueError("Gameplay query points conflict with private overrides: " + ", ".join(sorted(overlap)))
+        overrides.update(queries)
+
     aliases = read_aliases(source, cfg)
     long_long_128 = read_long_long_128(source, cfg)
     if aliases:
@@ -1610,6 +1628,8 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     # is left out and the function is a stub, which the assembly stage then writes, reading those
     # registers as parameters.
     program.from_assembly = set(cfg.get("from_assembly", []))
+    # VU0 inline assembly in the C (vu0asm.py) flushes as the assembly's translation does.
+    program.vu_flush = bool((cfg.get("asm") or {}).get("vu_flush"))
     for sym in sorted(program.from_assembly):
         f = program.functions.get(sym)
         if f is not None and f.unit is not None and not f.static:
@@ -2024,7 +2044,18 @@ class SortedPickler(pickle._Pickler):
     dispatch[frozenset] = save_set
 
 
-def main(argv: list[str] | None = None) -> int:
+def vu0_refusals(reports: list[UnitReport]) -> frozenset[str]:
+    """The functions (static helpers included) whose VU0 inline assembly lower.py did not write as C:
+    a statement vu0asm.py refused (a stub, or a barrier on named registers), or VU0 instructions
+    it skipped."""
+    return frozenset(f.name for r in reports for f in r.functions
+                     if getattr(f, "asm_unsupported", None)
+                     or any(_vu0_op(op) for op in f.asm_skipped))
+
+
+def main(argv: list[str] | None = None, vu0_refused: frozenset[str] | None = None) -> int:
+    """VU0_REFUSED: hostgen.json "vu0_assembly_from_retail"'s second translation, the functions
+    whose VU0 inline assembly the first did not write as C (vu0_refusals)."""
     global RELEASE
     args = parse_arguments(argv)
     cfg = load_config(args.game)
@@ -2069,6 +2100,9 @@ def main(argv: list[str] | None = None) -> int:
              "names": cfg["names"], "groups": cfg["groups"], "prefix": cfg.get("prefix", "")}
 
     program = new_program(cfg, source)
+    # The first translation writes every VU0 statement it can as C (vu0asm.py); those it cannot move
+    # their functions to the assembly in a second one (users_of_vu0_assembly).
+    program.vu0_refused = vu0_refused or frozenset()
     problems = override_problems(root, replacements, overridden)
     try:
         host_rows = configure_program(program, args, cfg, source)
@@ -2098,6 +2132,15 @@ def main(argv: list[str] | None = None) -> int:
     state["program"] = program
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(state,)) as ex:
         reports = list(ex.map(_lower_one, units))
+    if cfg.get("vu0_assembly_from_retail") and vu0_refused is None:
+        refused = vu0_refusals(reports)
+        moves = vu0_moves(program, refused)
+        if moves:
+            # Their C would skip VU0 instructions: translated again with those functions left to their
+            # assembly. Listed in hostgen.json "from_assembly", they cost no second translation.
+            print(f"hostgen: {len(moves)} function(s) whose VU0 inline assembly is not C, translated again "
+                  f"from their assembly: {', '.join(sorted(moves))}", file=sys.stderr)
+            return main(argv, refused)
 
     summary = write_outputs(out, args, cfg, program, units, reports, problems, host_rows, used, overridden,
                             inherited, asm_stage, asm_results)

@@ -4,7 +4,7 @@
 |---|---|---|---|
 | P1 native frame recorder | P1 agent (Opus) | new `port/renderer/frame/` (recorder back end), `game/common/include/openrac/game_host.h` (`openrac_frame_*` API, additive), `game/common/program/game_host.cpp` (recorder entry points), `game/common/frontend/frame.cpp` (consume the recorded list beside `capture_2d_path`), `renderer/renderer.h` (`FrameInput` gains the recorded list), `renderer/direct/` (state code split out as the back end, no behaviour change), docs/port/FRAME_RECORDER.md, tests under `port/tests` | in progress (clone ~/RACSwarm/p1-recorder) |
 | P10a VU0 microprograms | P10a agent (clone ~/RACSwarm/p10a-vu0, branch feat/rac3-vu0-programs-native) | rac3-pal: `host/trig.c`, `hostgen.json` `asm.vu0_programs`, callers of `vcallms` (func_0038D478/490/6E8/708, func_L01_0040F0B0/0D0 + MP copies); rac2: `host/trig.c`, its `vu0_programs`; `common/lib/vu0_sine.c` constants | **merged: #776 (f4d0728f7)**; builds, unit tests and checks pass; game runs left to testing (see "P10a hand-off") |
-| P10b VU0 inline asm as C | P10b agent (clone ~/RACSwarm/p10b-vu0, branch feat/vu0-inline-asm-native; box2 ~/RACSwarm/p10b) | hostgen: `prep.py` (VU0 `j` constraints), `clangast.py` (asm constraints), `lower.py` `asm_stmt`, new `vu0asm.py`, `asmc.py` `vu0` (register-file name only), tests; rac3-pal/ntsc/mp `hostgen.json` `from_assembly` (entries there only for VU0 asm); rac2 the same if it applies | in progress |
+| P10b VU0 inline asm as C | Original draft #785, continued on `codex/p10b-native-vu0` | hostgen: `prep.py` (VU0 constraints/clobbers), `clangast.py`, `lower.py`, `vu0asm.py`, `asmc.py` (local register-file name), tests; rac3-pal/ntsc `hostgen.json` VU0-only forced routes and retained-case audit | continuation for review; Windows/Linux hostgen, RAC1 build/ABI, RAC3 PAL/NTSC builds/ABI and bounded Veldin checks pass; Windows RAC3 validation includes separate #809 prerequisites (see "P10b continuation and validation") |
 | P13 files instead of disc sectors | P13 agent | `common/lib/cdvd.c`, new `common/lib/disc_files.cpp`, `assets/disc/sector_map.{h,cpp}`, `sound_engine.cpp`/`movie.cpp`/`levels.cpp`/`interface_runs.cpp` disc reads, `rac3-pal/host/exec.c`+`entry.c`+`mp.c` (program loads only), `tools/extractor.py` + `tools/openrac_common/disc_files.py`, launcher `disc-files` step | PR #755 open (branch feat/p13-files-not-sectors), merge pending: no run-time read of disc.iso; rac3 programs unpacked at extraction into `programs/*.records` |
 | P3 rac3 residual 2D + the rac3 UI (HUD, text, menus, help boxes, loading/saving, pause, vendors, mpui skin), and P4's UI part (font and HUD images by the game's tables) | native-UI agent (clone ~/RACSwarm/rac3-native-ui, branch feat/rac3-native-ui) | rac3-pal: `host/ui2d.c`, `ui2d.h`, `hud.c`, `options.c`, `loading.c`, `picture.c` (2D parts), `print.c`, `menu_log.c`; the drawing functions of `host/mp_ui.c` (phase 4, after telling the UI agent in rac3-mp/STATUS.md); new `game/common/include/openrac/ui_item.h` (the GS-free UI record and game image descriptor), new `game/common/frontend/ui_images.cpp` (game image decode to RGBA, by content hash), `renderer/textures/texture_pool.{h,cpp}` `ui_image()` (additive); NOT frame.cpp, renderer/direct, renderer.h or game_host.* (P1's): the UI record reaches the window only through P1's recorder | rac3 adapter data mapped (native-ui.md section 5); waiting for P1's design note before any shared code; nothing landed |
 | P4 textures by the game's tables, materials without GS words | P4 agent (Mac clone ~/RACSwarm/p4-tex/OpenRAC, box1 ~/RACSwarm/p4-tex, branch feat/p4-game-textures on top of develop + the native-UI agent's text commit) | new `game/common/frontend/ui_images.{h,cpp}` additions only (`GameImageSources`, the indexed source for PCSX2 names; the native-UI agent's decoder otherwise untouched), `openrac_game_image_keep` in `game_host.h`/`game_host.cpp` (additive), `renderer/frame/ui_records.h` (`UiImage::indexed`, additive), `TexturePool::ui_image` (packs), `pcsx2_pack` (PSMT8H name), new rac3-pal `host/textures.{c,h}` (SendImage wraps func_00397D60 / func_00397980__frontbin / func_L01_004215C0, `rac3_hud_image`), docs/port/TEXTURES.md; later: effect quad / particle / strip records' materials (`openrac_game_quad`, `renderer/effects`, `frontend/world.cpp` effect_quad), rac3 `render.c` effect quads and particles, then rac1/rac2 | phase 1 (rac3 HUD images) **merged #764 (11b814a84)**; phase 2 (effect/particle/strip materials) planned, not started: game runs refused by the permission check |
@@ -15,6 +15,54 @@
 | P11 sound at the 989snd API (a: rac3, rac2) + native float mixer (b: shared) | P11 agent (clone ~/RACSwarm/p11-sound/OpenRAC, branches feat/p11a-sound-api, feat/p11b-native-mixer) | `common/lib/snd_ring.c` (removed), `common/lib/snd.c`, `common/lib/sound_engine.cpp`, `openrac/sound_engine.h`, `openrac/game_lib.h` (989snd part), `rac2/host/sound.c`, `rac3-pal/host/sound.c` (+ rac3 hostgen.json/libraries.tsv rows for the 989snd client 0x0013B330-0x0013D420 only), `port/audio/spu.*`, `envelope.*`, `pitch.*`, `sound_player.*`, `tests/audio/*`, `tests/sound_engine_test.cpp`; `kernel.c`/`exec.c` only the ring reset call | in progress |
 | P4 phase 2 + P5 + P6 (lead: p456) | p456 lead (clone ~/RACSwarm/p456/OpenRAC, branch feat/p4-effect-material); P5 and P6 sub-agents in ~/RACSwarm/p5-strips and ~/RACSwarm/p6-screen | **P4 (lead):** new `openrac/material.h`; `openrac_game_quad` gains `material`, `image`, `picture` (additive); `renderer/renderer.h` EffectQuad/EffectStrip native `EffectState`; `renderer/effects/*` (apply, draw batching, opaque/liquid tests on native state); `frontend/world.cpp` (effect_quad, particle textures by content, sky sprites), one GS-to-native translation at the frontend edge for rac1/rac2 and chain strips; rac3 `host/render.c` `rac3_world_quad`, `rac3_part_proc`, new `host/effect_tex.c` (GetEffectTex func_L01_00404040 / boot func_00389978 / frontbin func_00389598). **P5:** rac3 strip builders (class 6576 draw, level 14 0x003B24C8, the liquid grid's packet builder), new `openrac_frame_strip` in `frame.h`, frame.cpp UNPACK/MSCAL branch for rac3. **P6:** rac3 `host/render.c` glow functions (func_L01_004DE670/6F0/DF310) and new post passes, `host/picture.c` pause tiles, Holostar's frame-textured sprite, GetFrameTexture 0x00396E18 frame copy as `openrac_frame_snapshot` | in progress (2026-11-23) |
 | P14 pads and cards above the libraries | P14 agent (Mac clone ~/RACSwarm/p14-pads, box1 ~/RACSwarm/p14; branch feat/p14-pads) | `common/lib/pad.c` (+ new `pad_report.h`), new `rac1/host/pad_state.c` (init_pads func_00217EE8, poll_pad_device_state func_00217F68), new `rac2/host/pad_state.c` (pad_init_ports func_002B8548, poll func_002B85F8), `rac3-pal/host/pad.c` (pad start-up func_003A2FC0/frontbin func_003A2BC0/levels func_L01_00460868, update func_003A3B40/func_003A3740/func_L01_004613E8), the libpad block of `rac3-pal/host/mp.c` only, pad/pad2/vib/dbc rows of every libraries.tsv and the carried release tables; `common/lib/mc.c` + mc rows (cards, after pads) | in progress |
+
+## P11 continuation (2026-11-23)
+
+The work continues from draft #782, preserving its two original commits. The short first-level
+checks below are validated; review and CI are still required before merge.
+
+- Integrated develop `b568fe8b8`: retained per-group stream gain ramps with float PCM normalization,
+  and regenerated the NTSC-U address table from the merged inputs.
+- Fixed paused voices consuming their attack or release while the output kept mixing. A synthetic
+  test fails before the fix and checks identical samples after continuing against an unpaused voice.
+- Added `snd_client_test`: deferred callbacks, submission pumping, synchronous waits, 64-bit callback
+  arguments and reset. It exercises the production client without a game, bank or audio device.
+- The RAC2 build exposed three movie-audio wrappers returning void where their callers read an
+  integer. They now return the native synchronous answer; C compile-time contracts reject the old
+  signatures. Regenerated the carried prototypes and removed three unused PAL client names.
+- On Windows/Clang, `sound_engine`, `snd_client`, `audio_mixer`, `audio_sound_player`,
+  `audio_ui_sounds`, `audio_sound_replacements` and `env` pass five times each. Hostgen: 384 tests,
+  153 skipped, no failures. Carry-table and layering checks pass. The global conventions gate still
+  reports the unrelated RAC2 comment in `host/moby_checks.h`.
+- With the separate Windows/headless prerequisites of #809, RAC3 NTSC-U's windowed build and its
+  call-ABI test pass. One muted Veldin run exited normally after 1,200 frames: a 20-second stereo
+  48 kHz WAV, no full-scale samples, and no unexpected raw-send warning during that run. The capture
+  remains private. The user reported that this capture sounded good; no console comparison is claimed.
+- After the signature fix, disc-less headless builds of RAC2 NTSC and RAC3 PAL/NTSC pass on the
+  separate integration branch with #809; all three call-ABI tests pass. These are build checks,
+  not gameplay validation. Windowed builds from the owner's discs and their call-ABI tests also
+  pass for RAC1 PAL, RAC2 NTSC, RAC3 PAL and RAC3 NTSC-U.
+- The user then requested audible tests with the assistant controlling the inputs. Each run below
+  reached its first level, ran 2,000 ticks after control at its normal PAL/NTSC rate, and exited
+  normally. Walking and jumping, weapon-button presses, a wrench attack and pause/resume were scripted;
+  the control reports confirmed the pause menu and return to play. No raw-send warnings or audio
+  output errors appeared. The recorded output was non-silent, with no full-scale samples at 40% gain.
+
+  | Version | First level | Elapsed time including startup |
+  |---|---|---|
+  | RAC1 PAL | Veldin | 61.109 s |
+  | RAC2 NTSC | Aranos tutorial | 37.656 s |
+  | RAC3 PAL | Veldin | 42.578 s |
+  | RAC3 NTSC-U (additional check) | Veldin | 35.969 s |
+
+  The user confirmed that all audible test runs sounded good. This verdict covers these sessions,
+  not every sound or a comparison against console audio.
+
+  Logs, control reports, disc data and WAV files remain private. These are short first-level smoke
+  checks, not full playthroughs, movie or multiplayer validation, or a listening verdict for every
+  sound. The initial fast-forwarded NTSC-U control trial is not counted as a real-time listening run.
+  Earlier non-P11 runs are not mixer evidence. No disc data or recordings are included in this
+  continuation, and no merge is claimed.
 
 ## Native-UI agent to P1 (2026-11-22)
 
@@ -124,6 +172,92 @@ through it).
   `host/hud.c`'s six sprite/gradient sends go through `openrac_ui_record()` (new in `common/lib/ui_quad.h`: anchor +
   `openrac_frame_ui_quad`), a one-word change per call. **I did not touch `ui2d.c`, `picture.c`, `print.c`**: yours.
   hud.c's two `HUD_SIDE_MARKER` writes stay until the UI core's placement replaces them.
+
+## P10b continuation and validation (2026-11-23)
+
+The history of draft #785 is preserved, with develop `5d2c1a6b1` integrated normally.
+This continuation is for review, not a merge. The validation below was completed locally
+before publication; the original draft and its history are preserved.
+P10a #776 is already merged and is not redone here.
+
+- Native lowering refuses untracked control state and immediate I. Initialization is tracked
+  per vector/ACC component and within conservative straight-line regions, not across branches,
+  loops or C calls. `inline_assembly_unsupported` records why native lowering was refused,
+  alongside the existing skipped-mnemonic report.
+- Literal VU0 vector clobbers are prepared for Clang without changing instruction templates.
+  Leading named float inputs require declared arguments and no intervening call, including
+  operand evaluation. Symbolic memory uses the normal global-address/relocation path.
+- PAL retires 161 forced-assembly names with complete C and preserved ABI, plus six redundant
+  flags for existing native host bindings. Raw flags fall from 767 to 599 (761 to 594 unique).
+  Only the obsolete `func_L18_00351908` assembly signature is removed.
+- NTSC is regenerated with `release_carry_rac3.py`, whose `--check` passes. Its 165 removed
+  unique flag names comprise **41 native C routes**, 118 unchanged natural assembly fallbacks
+  and six existing host bindings: they are not 165 C conversions. Raw flags fall from 765 to 599.
+- The 21 inspected retained cases are in
+  [`port/game/rac3-pal/checks/vu0_inline.tsv`](../../../port/game/rac3-pal/checks/vu0_inline.tsv):
+  14 ABI concerns, five implicit vector inputs, one existing assembly shadow and the implicit
+  microprogram caller `func_003D2160`. This is a diagnostic snapshot, not an allow list.
+  Other forced routes remain untouched. The global `openrac_vu0` still serves unmatched assembly.
+
+Standalone main-program generation with identical sources, images and options:
+
+| Report | Pure develop | Selected P10b |
+|---|---:|---:|
+| PAL translated C functions | 37,965 | 38,186 |
+| PAL translated assembly functions | 4,505 | 4,304 |
+| PAL stubbed functions | 62 | 2 |
+| NTSC translated C functions | 4,942 | 4,991 |
+| NTSC translated assembly functions | 15,407 | 15,346 |
+| NTSC stubbed functions | 10 | 2 |
+
+Selected-route audits find no ABI preservation failures, unrelated new stubs or new/changed
+skipped assembly. All 174 PAL and 36 NTSC generated native-VU0 units pass Clang syntax checks.
+Reported function totals can include duplicate symbol names; they are not dictionary sizes.
+The initial main+MP comparison found zero matched C units in either MP program, so no MP flags
+were retired. These standalone selection checks cover main only, not a full executable build.
+
+Windows hostgen: `python -m unittest discover -s port/tools/hostgen` passes 421 tests with
+160 skipped. All 32 added tests run, including nine compiled native C programs; the older POSIX
+harness remains skipped on Windows. Ubuntu/WSL with Python 3.14.4 and Clang 21.1.8 runs the same
+suite successfully: 419 executed, two skipped for the absent RAC2 decomp in this checkout.
+Both source-dependent checks also pass separately with the cached RAC2 source supplied through
+a private temporary path view; assertions and production code are unchanged. All 421 distinct
+tests have therefore executed successfully under Linux. Use a Linux-native temporary directory
+on WSL: multiprocessing's Unix sockets cannot be placed on the mounted Windows filesystem.
+The separate Windows integration checkout passes 433 hostgen tests (160 skipped); its 14 MP/carry
+tests also pass under Linux. The `ps2float` runtime test passes. Conventions and layering checks pass.
+RAC1 PAL windowed build/link and `rac1-pal_call_abi` pass; all 398 generated C/H files are
+byte-identical to pure develop, with unchanged stubs and skipped instructions.
+
+RAC3 PAL/NTSC windowed builds and links (including MP) pass on a **separate local integration
+branch containing #809's Windows prerequisites**, without P11. Both `rac3-ntsc_call_abi` and
+`rac3-pal_call_abi` pass (23.03 s and 23.52 s). #809 is not part of P10b delivery; it must remain
+an explicit validation prerequisite. The built main-program reports match the selected reports;
+all 5,442 PAL and 1,062 NTSC generated C/H files match after normalizing only anonymous type names
+derived from the checkout path. NTSC also has CMake's expected generated shared-host sources.
+MP still has zero matched C units, 59,786 PAL / 66,767 NTSC assembly functions and no C stubs.
+
+With separate user approval, one silent Veldin check per release completed through the game's
+own control channel, with isolated settings/cards: 1,200 play ticks, three pictures each,
+normal exits, no timeout, no non-finite positions or fatal log diagnostics. Wall times were
+13.828 s PAL and 12.344 s NTSC. Walking changed position; jumping entered state 7, raised the
+hero and returned to the original floor height. Both runs ended playing with health 10.
+Fire, wrench and camera-stick inputs were sent; the wrench entered state 19. All six pictures
+were inspected: the first of each release still shows the loading title, while the remaining
+four show coherent level geometry, hero, HUD and subtitles without gross distortion.
+
+Limitations remain explicit:
+
+- PAL calls the existing no-C `fe_func_0038CE20` (17 times) and `fe_func_003D3CB0` (twice).
+  Their stub bodies are byte-identical to pure develop, and the same call counts were already
+  present in historical runs. Existing duplicate-function and frame-recorder anchor warnings
+  remain; this package does not claim to fix them.
+- The RAC3 control interface supplies no camera telemetry: camera input plus coherent pictures
+  is a smoke observation, not a numerical camera-equivalence check. These silent runs do not
+  validate audio. MP was built, not played; other levels and a full playthrough remain untested.
+- There is no pixel-equivalence claim. Earlier P11 runs were consulted only to classify existing
+  warnings, never counted as P10b game validation. No game data or captured pictures are part
+  of the delivery.
 
 ## P10a notes for P10b (2026-11-22)
 
@@ -581,6 +715,32 @@ Not fixed, for whoever picks rac3 up next:
   Veldin names (`func_L01_00423020`, `func_L01_00412810`). Many read private globals only; check
   each one against callers' `OPENRAC_LCODE` calls. The root fix is rac3-decomp's catalogue
   (tools/level_catalogue.py).
+- **Synchronous rendering's tick-boundary hitch** (fixed, #898): on OpenGL, or Vulkan without
+  the render thread, the pacing ran the scene half a tick behind but frames cannot be drawn past
+  the next tick, so alpha dropped from ~0.47 to 0 at each tick. Every path now uses no lag
+  (`lag_ticks()` in frontend/interpolation.cpp): alpha runs 0 to 1 across the tick. Probe:
+  `OPENRAC_MOTION_LOG`.
+
+- **Misfiled 8-byte getters in other levels** (#876 fixed levels 3/24's and the flight's; the rest
+  audited and fixed in the follow-up): the catalogue files a level's copies of the 8-byte class
+  getters and font wrappers one row along in levels 4, 7, 9, 12, 13, 16, 18, 19, 22, 26, 27, 29, 30
+  too. Audit (the generated tables plus the callers' own code): for each `OPENRAC_LCODE(1, a)` in
+  the generated C, the caller's copy in every level (one place there) forms the real target at the
+  same instruction as Veldin's does (a jal, or a lui and addiu); the cell is wrong when the table
+  names that place otherwise and `more_places` does not give it to the name. Only these cells were
+  wrong, and `hostgen.json` `more_places` (PAL) and `release.json` (NTSC-U) now fix them:
+  PAL func_L01_00412E30 (levels 10, 13, 17, 21, 23, 30, 31, 33, 36), func_L01_0041A198 (6, 14, 16,
+  32 and the multiplayer maps 40-53), func_L01_004D8820 (23), func_L01_003A6BB0 (2, 5, 10, 11, 14,
+  22, 34: the level's own caller reached a copy filed under another row); NTSC-U func_L01_003EE980
+  (24 levels), func_L01_004026A0 (3, 11, 16, 23), func_L01_004D4B48 (23). After the fix the audit
+  finds none in either version's fresh hostgen output. The other misfiled getters (the many class
+  type getters no `OPENRAC_LCODE` names) are reached through their class tables, which relocate
+  per level, or read private globals: left alone, harmless. Not fixed: the multiplayer maps'
+  func_L39_ rows (40-53) for func_L01_00436070, 00443948, 004AA948, 004AAD58, 004D2470, which pair
+  through `level_copies`, not through the names. The root fix (rac3-decomp's `copy_groups()` in
+  tools/level_catalogue.py) was not attempted: it renames rows used by src/levels/ and the
+  decomp's own report, so it needs its own catalogue PR; this audit is the check for it.
+  through `level_copies`, not through the names. The root fix is in rac3-decomp (7453660c, 0bf00a6a): `copy_groups()` in tools/level_catalogue.py files a level's copies of identical code by the callers' call sites (a caller whose code is once in each level forms its target at the same instruction), so the class type getters and font wrappers are filed under their real rows in every story level and the more_places and class getter split_places workarounds are gone; the call tables (variant_callees.tsv, call_copies.tsv) are regenerated. What the audit still finds (and `more_places` keeps) are copies the catalogue holds as their own rows (the password panel's leaves, the draw callback adders, func_L01_003A6BB0's copies).
 - **Synchronous rendering's tick-boundary hitch**: on OpenGL, or Vulkan without the render
   thread, the scene runs half a tick behind but in-between frames can't pass the next tick, so
   alpha drops from ~0.47 to 0 at each tick. The Vulkan render-thread path is not affected.
@@ -590,5 +750,6 @@ Not fixed, for whoever picks rac3 up next:
   confirmed against the original.
 - **Blank first-weapon slot after loading a save** (one report): not reproduced in six box2 runs.
 - **Ties' additive blends** 0x58 and 0x68 are still drawn as the normal 0x44 blend (#869).
-- **Water**: the surface texture has one mip level (#868), so distant water on levels with a
-  surface texture may shimmer; colours were checked against microprogram 10's maths, not footage.
+- **Water**: the surface texture now has a mip chain, made natively on first use by an effect strip
+  whose TEX1 asks for levels (`TexturePool::ensure_mipmaps`); colours were checked against
+  microprogram 10's maths, not footage.

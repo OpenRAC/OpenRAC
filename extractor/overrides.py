@@ -14,7 +14,7 @@ port loads on top of the extracted levels, without reading the disc again.
   overrides.py zip ID OUT.zip --into OVERRIDES   a pack as a .zip to share
   overrides.py preview MODS --projects PROJECTS [--undo]
                                                  show a stacked mods folder's (or a pack's) textures
-                                                 in the editor's Godot projects, at their own size
+                                                 in OpenRAC Editor's level projects, at their own size
 
 A pack is a folder, or a .zip of one, with openrac-mod.json at its root (or
 in the zip's one top folder) and files laid out as the extracted levels are:
@@ -97,6 +97,7 @@ MARKER = ".openrac-stack"
 PACK_FORMAT = 1
 MAP_PACK_FORMAT = 3  # map packs must be refused by builds that only replace campaign levels
 DESTINATION_PACK_FORMAT = 4  # separate worlds, never merged into campaign level files
+AUDIO_RECIPE_PACK_FORMAT = 5  # older tools must refuse recipes rather than install an empty pack
 GAME = "rac1"  # the game of a pack whose manifest does not say
 VERSIONS = tuple(v.key for v in disc.VERSIONS)  # Ratchet & Clank's discs: pal, ntsc, pal1, jp (games.VERSIONS for every game)
 LEVELS_FORMAT = FORMAT
@@ -203,12 +204,15 @@ def read_manifest(data: bytes, where: str) -> dict:
         raise PackError(f"{where}: {MANIFEST} is not readable JSON ({exc})") from None
     if not isinstance(manifest, dict):
         raise PackError(f"{where}: {MANIFEST} is not a JSON object")
-    if manifest.get("format") not in (PACK_FORMAT, MAP_PACK_FORMAT, DESTINATION_PACK_FORMAT):
+    if manifest.get("format") not in (PACK_FORMAT, MAP_PACK_FORMAT, DESTINATION_PACK_FORMAT, AUDIO_RECIPE_PACK_FORMAT):
         raise PackError(f"{where}: pack format {manifest.get('format')!r}; this OpenRAC reads data packs "
-                        f"{PACK_FORMAT}, map packs {MAP_PACK_FORMAT} and destination packs {DESTINATION_PACK_FORMAT}")
-    if not games.known(manifest.get("game"), manifest.get("version", "pal" if manifest.get("game") == GAME else None)):
+                        f"{PACK_FORMAT}, map packs {MAP_PACK_FORMAT}, destination packs {DESTINATION_PACK_FORMAT} "
+                        f"and audio recipes {AUDIO_RECIPE_PACK_FORMAT}")
+    version = manifest.get("disc_version") if manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT else manifest.get(
+        "version", "pal" if manifest.get("game") == GAME else None)
+    if not games.known(manifest.get("game"), version):
         raise PackError(f"{where} is not a pack for a game OpenRAC reads ({manifest.get('game')}/"
-                        f"{manifest.get('version')})")
+                        f"{version})")
     name = manifest.get("name")
     if not isinstance(name, str) or not name.strip() or len(name) > 120:
         raise PackError(f"{where}: {MANIFEST} needs a \"name\" (up to 120 characters)")
@@ -216,6 +220,14 @@ def read_manifest(data: bytes, where: str) -> dict:
         if key in manifest and not isinstance(manifest[key], str):
             raise PackError(f"{where}: \"{key}\" in {MANIFEST} must be text")
     map_settings(manifest)
+    if manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT:
+        import audio_recipe
+        try:
+            audio_recipe.settings(manifest)
+        except ValueError as error:
+            raise PackError(str(error)) from error
+    elif "audio_recipe" in manifest:
+        raise PackError('audio recipes require "format": 5')
     return manifest
 
 
@@ -278,6 +290,10 @@ def check(path: Path) -> tuple[dict, list[str], list[str], list[str]]:
     try:
         manifest = read_manifest(source.read(MANIFEST), source.path.name)
         used, ignored, problems = [], [], []
+        if manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT:
+            # A distributable recipe contains no recordings, even if an author drops WAVs beside it.
+            extra = [r for r in source.files if r != MANIFEST and not PEOPLE.match(r)]
+            return manifest, [], [], [f"{r}: audio recipes contain metadata only" for r in extra]
         for rel in sorted(source.files):
             if rel == MANIFEST:
                 continue
@@ -438,13 +454,25 @@ def install(staged: Path, folder: Path, replace_export: str | None = None) -> st
     taken = {p.name for p in (folder / "packs").iterdir()}
     existing = export_pack(folder, replace_export) if replace_export else None
     if existing:
+        if manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT:
+            previous = read_json(folder / "packs" / existing / MANIFEST)
+            if previous.get("format") != AUDIO_RECIPE_PACK_FORMAT or previous.get("id") != manifest["id"]:
+                raise PackError("a different pack already uses this recipe identity")
         old = folder / "packs" / f".{existing}-old"
         file_ops.rename(folder / "packs" / existing, old)
         file_ops.rename(staged, folder / "packs" / existing)
         shutil.rmtree(old)
         save_state(folder, state)
         return existing
-    new = pack_id(manifest["name"], taken)
+    if manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT:
+        import audio_recipe
+        new = manifest.get("id")
+        if not isinstance(new, str) or len(new) > 64 or not audio_recipe.ID.fullmatch(new):
+            raise PackError("audio recipe needs a safe mod id")
+        if new in taken:
+            raise PackError(f"a different pack already uses the id {new}")
+    else:
+        new = pack_id(manifest["name"], taken)
     file_ops.rename(staged, folder / "packs" / new)
     state["packs"].append({"id": new, "enabled": True})
     save_state(folder, state)
@@ -454,6 +482,8 @@ def install(staged: Path, folder: Path, replace_export: str | None = None) -> st
 def add(source_path: Path, folder: Path) -> tuple[str, list[str], list[str]]:
     """Check a pack and copy it in. Returns its id, the files ignored and its problems."""
     manifest, used, ignored, problems = check(source_path)
+    if manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT and problems:
+        raise PackError("; ".join(problems))
     folder = ensure(folder)
     source = Source(source_path)
     try:
@@ -464,6 +494,9 @@ def add(source_path: Path, folder: Path) -> tuple[str, list[str], list[str]]:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(source.read(rel))
             identity = manifest.get("export") if manifest.get("format") == DESTINATION_PACK_FORMAT else None
+            if manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT:
+                identity = "audio-recipe:" + manifest["id"]
+                (staged / MANIFEST).write_text(json.dumps(dict(manifest, export=identity), indent=1) + "\n", encoding="utf-8", newline="\n")
             new = install(staged, folder, replace_export=identity)
     finally:
         source.close()
@@ -1017,7 +1050,8 @@ def write_layers(layers, target, temporary: Path) -> dict:
     return summary
 
 
-def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Path | None = None) -> dict:
+def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Path | None = None,
+          iso: Path | None = None) -> dict:
     """Write MODS (out) from the packer's output and the enabled packs, for LEVELS (the levels the
     game will play; without them every pack goes in as it is); returns what it holds."""
     out = Path(out).resolve()
@@ -1038,6 +1072,23 @@ def stack(folder: Path | None, out: Path, packed: Path | None = None, levels: Pa
                 root = Path(folder) / "packs" / entry["id"]
                 manifest = read_json(root / MANIFEST)
                 layers.append((manifest.get("name", entry["id"]), entry["id"], root, manifest))
+    resolved = []
+    for name, ident, root, manifest in layers:
+        if isinstance(manifest, dict) and manifest.get("format") == AUDIO_RECIPE_PACK_FORMAT:
+            import audio_recipe
+            if target is not None and target.game != GAME:
+                resolved.append((name, ident, root, manifest))
+                continue
+            if iso is None:
+                raise PackError(f"{name}: the original disc is needed to prepare this audio recipe")
+            try:
+                root, version = audio_recipe.materialize(manifest, iso, Path(folder) / "audio-cache",
+                                                         target.version if target is not None else None)
+            except (OSError, ValueError) as error:
+                raise PackError(f"{name}: {error}") from error
+            manifest = dict(manifest, version=version, pack_version=manifest["version"])
+        resolved.append((name, ident, root, manifest))
+    layers = resolved
     requested_layers = list(layers)
     maps, destinations = [], []
     for name, ident, root, manifest in layers:
@@ -1113,7 +1164,7 @@ ORIGINALS = ".originals"  # beside a project's textures: the extractor's own, wh
 
 
 def project_textures(projects: Path, level: str) -> Path | None:
-    """A level's textures folder in the editor's Godot projects: one project per level
+    """A level's textures folder in OpenRAC Editor's level projects: one project per level
     (projects/level_NN/levels/level_NN) or one for every level (projects/levels/level_NN)."""
     for folder in (projects / level / "levels" / level / "textures", projects / "levels" / level / "textures"):
         if folder.is_dir():
@@ -1123,8 +1174,8 @@ def project_textures(projects: Path, level: str) -> Path | None:
 
 def preview(mods: Path, projects: Path, undo: bool = False) -> dict[str, int]:
     """Shows the textures of MODS (a stacked mods folder, stack(), or one pack) in the editor's
-    Godot projects: each level texture a pack replaces, at the pack's size, in place of the
-    extractor's, which goes to textures/.originals/ (a folder Godot does not import) to come
+    level projects: each level texture a pack replaces, at the pack's size, in place of the
+    extractor's, which goes to textures/.originals/ (a folder the editor does not import) to come
     back with UNDO. A pack's pictures that replace no level texture (a model's own) have no place
     there and are left out. Returns {"shown", "restored", "left_out"}."""
     counts = {"shown": 0, "restored": 0, "left_out": 0}
@@ -1161,9 +1212,9 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("check").add_argument("source", type=Path)
     shown = commands.add_parser("preview", help="show a stacked mods folder's (or a pack's) textures in the "
-                                                "editor's Godot projects; --undo puts the extractor's back")
+                                                "editor's level projects; --undo puts the extractor's back")
     shown.add_argument("mods", type=Path, nargs="?")
-    shown.add_argument("--projects", type=Path, required=True, help="the editor's Godot projects (a folder of "
+    shown.add_argument("--projects", type=Path, required=True, help="OpenRAC Editor's level projects (a folder of "
                                                                      "per-level projects, or one project)")
     shown.add_argument("--undo", action="store_true")
     for name in ("add", "list", "enable", "disable", "move", "remove", "stack", "zip"):
@@ -1182,6 +1233,7 @@ def main(argv: list[str] | None = None) -> int:
         if name == "stack":
             command.add_argument("--out", type=Path, required=True, help="the folder the port's --mods reads")
             command.add_argument("--lighting-disc", type=Path, help="decode the stacked level inputs for lighting")
+            command.add_argument("--disc", type=Path, help="generate audio recipes from this original disc")
             command.add_argument("--packed", type=Path, help="the level packer's output, beneath the packs")
             command.add_argument("--levels", type=Path, required=True,
                                  help="the levels the game plays (either disc's): packs made from the other "
@@ -1197,7 +1249,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(f"Showing {counts['shown']} texture(s) of {args.mods} in {args.projects.resolve()}"
                       + (f"; {counts['left_out']} replace no level texture (a model's own) and are left out"
-                         if counts["left_out"] else "") + ". Godot reimports them when its window has focus.")
+                         if counts["left_out"] else "") + ". OpenRAC Editor reimports them when its window has focus.")
             print(f"openrac-output: {args.projects.resolve()}")
             return 0
         if args.command == "check":
@@ -1222,7 +1274,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Installed {args.source.name} as {new}, {enabled}, position {position + 1} of {len(entries)}.")
             return 0
         if args.command == "stack":
-            summary = stack(args.into, args.out, args.packed, args.levels)
+            summary = stack(args.into, args.out, args.packed, args.levels, args.disc or args.lighting_disc)
             if args.lighting_disc is not None:
                 from enhanced.mod_inputs import prepare_mod_inputs
                 try:

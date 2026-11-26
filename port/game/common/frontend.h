@@ -23,6 +23,7 @@
 #include "materials/catalog.h"
 #include "openrac/game_host.h"
 #include "openrac/openrac_mod.h"
+#include "renderer/frame/frame_record.h"
 #include "renderer/frame/ui_records.h"
 
 namespace openrac::enhanced {
@@ -86,8 +87,13 @@ void water_explosion(const float* position, float radius, float strength);
 // A world effect quad the game drew this frame (openrac_game_effect_quad).
 void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad);
 // The marker of the quad effect_quad took last (openrac_game_effect_quad_marker): the tick's
-// generation in its top 12 bits, the quad's index in the tick in the low 20; 0 for none.
+// generation in its top 12 bits, the quad's index in the tick in the low 20; 0 for none (also
+// when the last quad was a native one, which no marker names).
 std::uint32_t effect_quad_marker();
+// A world quad with a native material the game drew this frame
+// (openrac_game_material_effect_quad): its image read now into the tick's capture. False when the
+// window did not take it.
+bool material_quad(std::span<const std::uint8_t> ram, const openrac_game_material_quad& quad);
 // A sky shell the game drew this frame, with its matrix (openrac_game_sky_shell).
 void sky_shell(int shell, const float* matrix);
 
@@ -102,6 +108,8 @@ renderer::UiQuad ui_quad_record(const openrac_game_ui_rect& quad);
 namespace recorder {
 void begin();
 void end();
+// Starts the producer-announced construction at a normalized RAM root, retiring only its old build.
+void list_begin(gaddr root);
 void anchor(gaddr list_cursor);
 void world(unsigned layers);
 void world_mobys();
@@ -109,7 +117,21 @@ bool mobys(std::span<const std::uint8_t> ram, gaddr list, int count);
 bool ui_item(std::span<const std::uint8_t> ram, const openrac_game_ui_item& item);
 bool ui_quad(const openrac_game_ui_rect& quad);
 void effect_quad(std::uint32_t marker);
+// openrac_frame_strip: false (nothing recorded) for a value out of range or OPENRAC_UI_REPLAY.
+bool strip(std::span<const std::uint8_t> ram, const openrac_frame_strip_desc& strip);
+// Whether what is recorded is drawn natively (a window, no OPENRAC_UI_REPLAY).
+bool drawing();
 void fill(const float* rect, std::uint32_t rgba, int blend);
+// openrac_frame_fill_depth: false (nothing recorded) for a value out of range or OPENRAC_UI_REPLAY.
+bool fill_depth(
+    const float* rect,
+    std::uint32_t rgba,
+    int blend,
+    std::uint32_t depth,
+    int depth_bits,
+    int depth_test,
+    unsigned writes
+);
 void clear(std::uint32_t rgba, int what);
 void picture(std::uint32_t id, const float* rect, std::uint32_t rgba, int blend);
 void picture_image(
@@ -124,12 +146,29 @@ void snapshot(std::uint32_t id);
 void target_begin(std::uint32_t id, int width, int height);
 void target_end();
 void scissor(const float* rect);
+void screen_effect(const openrac_screen_effect& effect);
+void snapshot_world(std::uint32_t id);
+// A command that only places what follows (renderer::FrameOp's transitional placements: WorldShrubs,
+// EffectParent, HudSide, Wide, PictureBand, LastFrame).
+void placement(renderer::FrameOp op, std::uint32_t index, std::uint64_t value);
+void screen(float width, float height);
+void view_begin(int view, const openrac_frame_viewport& rect);
+// With a view open: its camera, read from `ram` (the game's profile) where its world is recorded.
+void view_camera(std::span<const std::uint8_t> ram);
+// With a view open: layers the game draws in it (openrac_game_draw's).
+void view_layers(unsigned layers);
+void view_end();
 // How a game image (openrac_game_ui_image) becomes a decoded image: set by the 2D layer's image
 // cache (frontend/ui_images); until it is, items with an image are not recorded (the caller draws
 // its way) and picture_image draws nothing.
 using ImageResolver =
     std::function<renderer::UiImage(std::span<const std::uint8_t>, const openrac_game_ui_image&)>;
 void set_image_resolver(ImageResolver resolver);
+// `image` in `ram` through the resolver set above (the same cache as the 2D layer's): an empty
+// UiImage before one is set or when the image cannot be read. Game thread only.
+renderer::UiImage resolve_image(
+    std::span<const std::uint8_t> ram, const openrac_game_ui_image& image
+);
 }  // namespace recorder
 
 // How far the HUD's side-anchored elements go out past the game's picture, in its 512ths of that
@@ -160,7 +199,12 @@ void particle(
 
 // `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
 // when the game does not report them).
-bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t draws);
+bool frame(
+    std::span<const std::uint8_t> ram,
+    std::uint32_t chain,
+    std::span<const std::uint32_t> earlier,
+    std::uint32_t draws
+);
 
 // Captures the next tick's owned CPU scene while an earlier Vulkan snapshot renders.
 // The game thread calls this with stable RAM before finish_render(); false on capture failure.

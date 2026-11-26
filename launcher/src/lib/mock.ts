@@ -1071,6 +1071,19 @@ function lastLines(id: string, args: Record<string, unknown>, scope?: Scope): st
       });
 
       return [`Imported 3 sound(s) into ${data}/overrides as ${name}`];
+    case "audio-recipe": {
+      const recipe = JSON.parse(String(args.option)) as { name: string };
+
+      mockPacks.push({
+        ...samplePack(recipe.name),
+        id: "audio-recipe-" + crypto.randomUUID(),
+        textures: 0,
+        models: 0,
+        sounds: 2,
+      });
+
+      return ["Created recipe for 2 sounds; no recordings included."];
+    }
     case "overrides-add":
       mockPacks.push({ ...samplePack(name), id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") });
 

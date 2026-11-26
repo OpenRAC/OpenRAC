@@ -40,8 +40,7 @@ static inline int openrac_ui_send(const openrac_game_ui_rect* q, gaddr cursor) {
  * whose cursor is the word at `cursor` has got to: nothing is written into the list. False when the
  * 2D layer is replayed, and the caller sends the game's own packet. */
 static inline int openrac_ui_record(const openrac_game_ui_rect* q, gaddr cursor) {
-    const gaddr at = GREF(gaddr, cursor);
-    openrac_frame_anchor(at < 0x02000000u ? at : 0);
+    openrac_frame_anchor_at(cursor);
     return openrac_frame_ui_quad(q);
 }
 

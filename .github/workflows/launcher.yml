@@ -3,9 +3,12 @@
 # also puts them on a draft release of that name, to be looked over and
 # published by hand. Each build's updater reads the repository that built it:
 # a tag's, that repository's latest release; a build of a branch, the
-# pre-release launcher-dev-<branch> that the dev-release job keeps current
-# (launcher/docs/RELEASING.md). develop's development build runs every three hours, and only
-# when develop changed a path below since the commit launcher-dev-develop holds (the changes job).
+# pre-release launcher-dev-<branch> that the publish_dev_channel job keeps current
+# (launcher/docs/RELEASING.md). The development build players get is a dev release's: its pull
+# request (.github/workflows/dev-release.yml) goes through master's merge queue, which builds
+# every installer here and publishes them on launcher-dev-develop (the launcher's Development
+# channel) once checks.yml's run of the same commit is green. The pull request merges only after
+# that.
 #
 # They are not signed: Windows SmartScreen and macOS Gatekeeper warn about
 # them until the project has certificates.
@@ -28,38 +31,28 @@
 # Every action is pinned to a commit (Dependabot, .github/dependabot.yml,
 # moves the pins), and every download is checked against its SHA-256.
 name: launcher
+# A unique title for each run: the run number, what started it, where, and what.
+run-name: >-
+  ${{ github.ref_type == 'tag'
+      && format('launcher #{0} · tag {1}', github.run_number, github.ref_name)
+  || github.event_name == 'merge_group'
+      && format('launcher #{0} · queue → master', github.run_number)
+  || github.event_name == 'push'
+      && format('launcher #{0} · push {1}', github.run_number, github.ref_name)
+  || format('launcher #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
 
 on:
   push:
-    # tools/ci_scope.py launcher-changed reads this list: keep it the first "paths:" here.
-    branches: [master]
     tags: ["launcher-v*"]
-    paths:
-      - "launcher/**"
-      - "port/**"
-      - "extractor/**"
-      - "games/rac1/**"
-      - "games/rac2/**"
-      - ".gitmodules"
-      - ".github/actions/decomp-sources/**"
-      - "tools/asm_part.py"
-      - "tools/bundle_standalone.py"
-      - "tools/build_game.py"
-      - "tools/build_android.py"
-      - "tools/build_port.py"
-      - "tools/extractor.py"
-      # What the Android launcher carries (tools/bundle_standalone.py) and its updates' manifest.
-      - "tools/openrac.py"
-      - "tools/updater_manifest.py"
-      - "progress/**"
-      - "games/*/game.json"
-      - ".github/workflows/launcher.yml"
-      - ".github/actions/**"
-  # Pull requests build nothing here. develop builds on this schedule (the default branch's), not
-  # on every merge: a merge queue day lands many, and each build is six installers of up to two
-  # hours. A branch can still be built by hand (workflow_dispatch), develop too.
-  schedule:
-    - cron: "23 */3 * * *"
+  # Pull requests and develop build nothing here: each build is five installers of up to two
+  # hours. master's merge queue (a dev release) builds and publishes them; develop's queue starts
+  # no run. A branch can still be built by hand (workflow_dispatch).
+  # A pull request to master runs only so that the checks master requires report (skipped) on it:
+  # GitHub counts only a pull_request run's checks for a pull request, not a manual run's.
+  pull_request:
+    branches: [master]
+  merge_group:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -67,9 +60,8 @@ permissions:
 
 concurrency:
   group: launcher-${{ github.ref }}
-  # develop and master finish the build in progress (it publishes their dev release); the newest
-  # push waits behind it. Other branches still cancel an older run.
-  cancel-in-progress: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/master' }}
+  # A newer run of the same branch cancels the older one. Each queue entry has a ref of its own.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/develop' }}
 
 env:
   # The runners have no disc: games whose code is translated from it (rac3-pal's "retail"
@@ -77,34 +69,15 @@ env:
   OPENRAC_HOSTGEN_NO_DISC: "1"
 
 jobs:
-  # A scheduled run builds only when develop changed what the build reads since its last
-  # development build (the commit the launcher-dev-develop tag points at). Every other event builds.
-  changes:
-    name: Anything new to build
-    runs-on: ubuntu-26.04
-    timeout-minutes: 5
-    outputs:
-      build: ${{ steps.changes.outputs.build || 'true' }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'schedule'
-        with:
-          persist-credentials: false
-      - id: changes
-        if: github.event_name == 'schedule'
-        run: |
-          channel="launcher-dev-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"
-          # No tag yet, or no way to read it: build.
-          git fetch -q --no-tags --depth=1 origin "+refs/tags/$channel:refs/tags/$channel" || exit 0
-          SINCE=$(git rev-parse "refs/tags/$channel^{commit}") python3 tools/ci_scope.py launcher-changed
-
   # A branch build's version, worked out once for every build and the rolling release. Each build
   # asking scripts/dev_version.sh itself could disagree when a release tag is pushed mid-run (the
   # installers X.Y.Z, their latest.json X.Y.(Z+1)-dev), and launchers on that channel would update
   # forever.
   version:
-    needs: changes
-    if: needs.changes.outputs.build == 'true'
+    name: version
+    # Nothing on a pull request to master or on release/dev: they run only so that the checks master
+    # requires report (skipped); its queue builds.
+    if: github.event_name != 'pull_request' && github.ref != 'refs/heads/release/dev'
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
@@ -116,13 +89,18 @@ jobs:
           sparse-checkout: launcher
       - id: base
         run: echo "base=$(launcher/scripts/dev_version.sh launcher/src-tauri/tauri.conf.json "$GITHUB_REPOSITORY")" >> "$GITHUB_OUTPUT"
+      # The version the installers carry, for this run's publish (publish_dev_channel below).
+      - run: echo "${{ steps.base.outputs.base }}-dev.$GITHUB_RUN_NUMBER" > "$RUNNER_TEMP/version.txt"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: version
+          path: ${{ runner.temp }}/version.txt
 
-  build:
-    name: ${{ matrix.name }}
+  installer:
+    # installer_windows, installer_linux, installer_linux_arm64, installer_macos, installer_android
+    name: "${{ format('installer_{0}', matrix.name == 'linux-arm64' && 'linux_arm64' || matrix.name) }}"
     needs: version
     runs-on: ${{ matrix.os }}
-    # Fedora's row runs in Fedora itself; the others on the runner.
-    container: ${{ matrix.container }}
     # Two hours for every row: a cold compiler cache takes Windows and Android past an hour.
     timeout-minutes: 120
     env:
@@ -190,17 +168,6 @@ jobs:
             python_sha256: 2e1ba0e7f22e01c534caebf7f09e7820322bc0d055271d3434af671e8400f96f
             tauri: build --bundles deb,rpm,appimage
             files: *linux-files
-          # Fedora itself (the release players run): an .rpm made against Fedora's own WebKitGTK
-          # and GTK, carrying a game built with Fedora's compiler.
-          - name: fedora
-            os: ubuntu-26.04
-            container: registry.fedoraproject.org/fedora:44
-            python: x86_64-unknown-linux-gnu
-            python_sha256: ffa8f85f1b56e88b687f08d743d817015524b86a9365fd921243132b80f1a36d
-            tauri: build --bundles rpm
-            files: |
-              launcher/target/release/bundle/rpm/*.rpm
-              launcher/target/release/bundle/rpm/*.sig
           # One launcher for Apple silicon and Intel; the game is Apple silicon's (an Intel Mac's
           # launcher finds no game it can run in its copy and works on a checkout).
           - name: macos
@@ -229,22 +196,11 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Compilers, tools and Tauri's system libraries (Fedora)
-        if: matrix.name == 'fedora'
-        run: |
-          dnf install -y -q --setopt=install_weak_deps=False git curl tar xz gcc gcc-c++ make file rpm-build \
-            clang llvm cmake ninja-build ccache python3 python-unversioned-command binutils \
-            webkit2gtk4.1-devel gtk3-devel librsvg2-devel libsoup3-devel openssl-devel \
-            mesa-libGL-devel mesa-libEGL-devel libX11-devel libXext-devel libXrandr-devel libXcursor-devel \
-            libXi-devel libXScrnSaver-devel libXfixes-devel libXtst-devel wayland-devel wayland-protocols-devel \
-            libxkbcommon-devel libdecor-devel alsa-lib-devel pulseaudio-libs-devel pipewire-devel \
-            dbus-devel systemd-devel libdrm-devel mesa-libgbm-devel
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        if: matrix.name != 'fedora'
         with:
           python-version: "3.12"
       # Each key's prefix is no other job's: "linux-" was the start of "linux-arm64-" too, and the
@@ -426,6 +382,9 @@ jobs:
           "$baker" --help > /dev/null || { echo "openrac-enhanced-baker does not start"; exit 1; }
           "$baker" --print-interior-profile > /dev/null || { echo "interior inference does not start"; exit 1; }
           "$baker" --print-water-profile > /dev/null || { echo "water baking does not start"; exit 1; }
+          # The Vulkan shaders, one library beside the programs that every game loads.
+          shaders=$(ls "$COPY"/port/build/release/*openrac-shaders.* 2>/dev/null | head -1)
+          [ -n "$shaders" ] || { echo "the copy carries no openrac-shaders library"; exit 1; }
           # On Windows each program has Microsoft's C++ runtime beside it: a new Windows has none.
           if [ "$NAME" = windows ]; then
             for dll in msvcp140.dll msvcp140_2.dll vcruntime140.dll vcruntime140_1.dll; do
@@ -453,6 +412,7 @@ jobs:
             need=$(objdump -T "$game" | grep -oE 'GLIBC_2\.[0-9]+' | sort -t. -k2 -n | tail -1)
             echo "needs $need"
             if readelf -d "$game" | grep -q 'libstdc++'; then echo "the game needs the system's libstdc++"; exit 1; fi
+            if readelf -d "$shaders" | grep -q 'libstdc++'; then echo "$shaders needs the system's libstdc++"; exit 1; fi
           esac
           if [ "$NAME" = linux ]; then
             case "$need" in GLIBC_2.3[6-9]|GLIBC_2.[4-9]*) echo "the game needs a newer glibc than 2.35"; exit 1;; esac
@@ -474,7 +434,7 @@ jobs:
                      libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
                      libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
                      libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
-                     libopenrac-python.so; do
+                     libopenrac-shaders.so libopenrac-python.so; do
             echo "$lib:"; "$llvm/llvm-readelf" -d "launcher/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/$lib" | grep NEEDED
           done
           echo "::endgroup::"
@@ -516,7 +476,7 @@ jobs:
           # The launcher looks for its updates where it was built: this repository's releases, a
           # fork's in a fork. A tag's build reads the latest release; a build of a branch is
           # X.Y.Z-dev.<run> and reads that branch's rolling release (launcher-dev-<branch>, the
-          # dev-release job), so each build of a branch updates the last. The desktop packages keep
+          # publish_dev_channel job), so each build of a branch updates the last. The desktop packages keep
           # X.Y.Z (an MSI takes no "-dev", RPM no "-"): the run goes into the program instead
           # (OPENRAC_LAUNCHER_BUILD), which its updater compares with.
           base=$(node -p "require('./src-tauri/tauri.conf.json').version")
@@ -526,23 +486,26 @@ jobs:
             # Newer than any release, also when master was not raised after one (scripts/dev_version.sh).
             base="${{ needs.version.outputs.base }}"
             version=$base
-            channel="launcher-dev-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"
-            endpoint="https://github.com/$GITHUB_REPOSITORY/releases/download/$channel/latest.json"
-            export OPENRAC_LAUNCHER_BUILD="dev.$GITHUB_RUN_NUMBER"
-            if [ "$NAME" = android ]; then
-              version="$base-dev.$GITHUB_RUN_NUMBER"
-            fi
+            # A dev release's builds (master's queue) are published on develop's channel, the
+            # launcher's Development.
+            branch=$GITHUB_REF_NAME; [ "$GITHUB_EVENT_NAME" != merge_group ] || branch=develop
+            channel="launcher-dev-$(printf '%s' "$branch" | tr -c 'A-Za-z0-9._-' '-')"
+          endpoint="https://github.com/$GITHUB_REPOSITORY/releases/download/$channel/latest.json"
+          export OPENRAC_LAUNCHER_BUILD="dev.$GITHUB_RUN_NUMBER"
+          if [ "$NAME" = android ]; then
+            version="$base-dev.$GITHUB_RUN_NUMBER"
+          fi
           fi
           echo "LAUNCHER_VERSION=$version" >> "$GITHUB_ENV"
           config=$(VERSION="$version" ENDPOINT="$endpoint" CREATE="$create_updater" node -e '
-            const c = { version: process.env.VERSION,
-                        // The RPM release is the run: rpm -U refuses the same X.Y.Z-1 again.
-                        bundle: { createUpdaterArtifacts: process.env.CREATE === "true",
-                                  linux: { rpm: { release: process.env.GITHUB_RUN_NUMBER } } },
-                        plugins: { updater: { endpoints: [process.env.ENDPOINT] } } };
-            // A fork that signs with a key of its own names its public half here (a variable).
-            if (process.env.UPDATER_PUBKEY) c.plugins.updater.pubkey = process.env.UPDATER_PUBKEY;
-            process.stdout.write(JSON.stringify(c));')
+          const c = { version: process.env.VERSION,
+                      // The RPM release is the run: rpm -U refuses the same X.Y.Z-1 again.
+                      bundle: { createUpdaterArtifacts: process.env.CREATE === "true",
+                                linux: { rpm: { release: process.env.GITHUB_RUN_NUMBER } } },
+                      plugins: { updater: { endpoints: [process.env.ENDPOINT] } } };
+          // A fork that signs with a key of its own names its public half here (a variable).
+          if (process.env.UPDATER_PUBKEY) c.plugins.updater.pubkey = process.env.UPDATER_PUBKEY;
+          process.stdout.write(JSON.stringify(c));')
           echo "updates: $version from $endpoint"
           # Every build a version code of its own, above any version's own (Tauri's major*10^6 +
           # minor*10^3 + patch): a home screen takes a new icon only from a new version code.
@@ -550,23 +513,23 @@ jobs:
           # The launcher's library without debug information (a debug build has it otherwise); Gradle
           # strips the others (app/build.gradle.kts).
           if [ "$NAME" = android ]; then
-            export CARGO_PROFILE_DEV_DEBUG=0
+          export CARGO_PROFILE_DEV_DEBUG=0
           fi
           # A fork's APK is an app of its own, installed beside the project's: its own package
           # (dev.openrac.launcher.fork_<owner>, so its own data too) and name (app/build.gradle.kts).
           # OpenRAC/OpenRAC's own build keeps dev.openrac.launcher and "OpenRAC Launcher".
           apk_name=OpenRAC.Launcher
           if [ "$NAME" = android ] && [ "$GITHUB_REPOSITORY" != OpenRAC/OpenRAC ]; then
-            owner=$(printf '%s' "${GITHUB_REPOSITORY%%/*}" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9\n' '_')
-            export OPENRAC_ANDROID_APPLICATION_ID="dev.openrac.launcher.fork_$owner"
-            export OPENRAC_ANDROID_APP_LABEL="OpenRAC Fork"
-            apk_name=OpenRAC.Launcher.Fork
-            echo "a fork's APK: $OPENRAC_ANDROID_APPLICATION_ID, \"$OPENRAC_ANDROID_APP_LABEL\""
+          owner=$(printf '%s' "${GITHUB_REPOSITORY%%/*}" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9\n' '_')
+          export OPENRAC_ANDROID_APPLICATION_ID="dev.openrac.launcher.fork_$owner"
+          export OPENRAC_ANDROID_APP_LABEL="OpenRAC Fork"
+          apk_name=OpenRAC.Launcher.Fork
+          echo "a fork's APK: $OPENRAC_ANDROID_APPLICATION_ID, \"$OPENRAC_ANDROID_APP_LABEL\""
           fi
           echo "APK_NAME=$apk_name" >> "$GITHUB_ENV"
           if [ "$NAME" = android ] && [ -n "$ANDROID_KEYSTORE" ]; then
-            printf '%s' "$ANDROID_KEYSTORE" | base64 -d > "$RUNNER_TEMP/openrac.jks"
-            export OPENRAC_ANDROID_KEYSTORE="$RUNNER_TEMP/openrac.jks"
+          printf '%s' "$ANDROID_KEYSTORE" | base64 -d > "$RUNNER_TEMP/openrac.jks"
+          export OPENRAC_ANDROID_KEYSTORE="$RUNNER_TEMP/openrac.jks"
           fi
           unset RAW_KEY ANDROID_KEYSTORE
           yarn install --immutable
@@ -574,31 +537,15 @@ jobs:
           yarn tauri $TAURI --config "$config"
           # tauri build binds each update's signature to the package's version (X.Y.Z), and the
           # updater refuses an update whose latest.json announces another: a desktop build of a
-          # branch is announced as X.Y.Z-dev.<run> (the dev-release job), so its signatures are
+          # branch is announced as X.Y.Z-dev.<run> (the publish_dev_channel job), so its signatures are
           # made again for that version.
           if [ "$create_updater" = true ] && [ -n "${OPENRAC_LAUNCHER_BUILD:-}" ]; then
-            find target -path '*/bundle/*' -name '*.sig' -print0 | while IFS= read -r -d '' sig; do
-              rm "$sig"
-              env -u TAURI_SIGNING_PRIVATE_KEY yarn tauri signer sign -f "$RUNNER_TEMP/updater.key" \
-                -p "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" --app-version "$base-$OPENRAC_LAUNCHER_BUILD" "${sig%.sig}"
-            done
+          find target -path '*/bundle/*' -name '*.sig' -print0 | while IFS= read -r -d '' sig; do
+            rm "$sig"
+            env -u TAURI_SIGNING_PRIVATE_KEY yarn tauri signer sign -f "$RUNNER_TEMP/updater.key" \
+              -p "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" --app-version "$base-$OPENRAC_LAUNCHER_BUILD" "${sig%.sig}"
+          done
           fi
-
-      # Its file is named as the one built on Ubuntu is: "fc44" tells them apart on a release,
-      # which takes one file of a name.
-      - name: The installer's name (Fedora)
-        if: matrix.name == 'fedora'
-        working-directory: launcher
-        run: |
-          for f in target/release/bundle/rpm/*.x86_64.rpm; do
-            [ -f "$f" ] || continue
-            mv "$f" "${f%.x86_64.rpm}.fc44.x86_64.rpm"
-          done
-          # A build without the updater key (a fork without the secret) has no signature.
-          for f in target/release/bundle/rpm/*.x86_64.rpm.sig; do
-            [ -f "$f" ] || continue
-            mv "$f" "${f%.x86_64.rpm.sig}.fc44.x86_64.rpm.sig"
-          done
 
       # Named as the desktop installers are, and checked: the game's activity, SDL's and the
       # libraries the programs need are in it. Signed for the launcher's updater when the key is
@@ -619,23 +566,23 @@ jobs:
           unzip -p "$apk" 'classes*.dex' | grep -ac "dev/openrac/game/GameActivity"
           unzip -p "$apk" 'classes*.dex' | grep -ac "org/libsdl/app/SDLActivity"
           for lib in libopenrac-rac1-pal.so libopenrac-rac1-pal-cli.so libopenrac-rac1-ntsc.so \
-                     libopenrac-rac1-ntsc-cli.so libopenrac-rac1-pal1.so libopenrac-rac1-pal1-cli.so \
-                     libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
-                     libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
-                     libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
-                     libSDL3.so libc++_shared.so libopenrac-python.so \
-                     libpython3.13.so libhook_impl.so libmain_hook.so libfile_redirect_hook.so \
-                     libgsl_alloc_hook.so libopenrac_launcher_lib.so; do
-            unzip -l "$apk" "lib/arm64-v8a/$lib" > /dev/null || { echo "the APK has no $lib"; exit 1; }
+                   libopenrac-rac1-ntsc-cli.so libopenrac-rac1-pal1.so libopenrac-rac1-pal1-cli.so \
+                   libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
+                   libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
+                   libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
+                   libopenrac-shaders.so libSDL3.so libc++_shared.so libopenrac-python.so \
+                   libpython3.13.so libhook_impl.so libmain_hook.so libfile_redirect_hook.so \
+                   libgsl_alloc_hook.so libopenrac_launcher_lib.so; do
+          unzip -l "$apk" "lib/arm64-v8a/$lib" > /dev/null || { echo "the APK has no $lib"; exit 1; }
           done
           # None of them carries debug information: that is what makes a player's download large.
           llvm=$(ls -d "$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/*/bin | head -1)
           libs="$RUNNER_TEMP/apk-libs"
           rm -rf "$libs" && unzip -q "$apk" 'lib/arm64-v8a/*.so' -d "$libs"
           for lib in "$libs"/lib/arm64-v8a/*.so; do
-            if "$llvm/llvm-readelf" -S "$lib" | grep -q '\.debug_info'; then
-              echo "$(basename "$lib") carries debug information"; exit 1
-            fi
+          if "$llvm/llvm-readelf" -S "$lib" | grep -q '\.debug_info'; then
+            echo "$(basename "$lib") carries debug information"; exit 1
+          fi
           done
           echo "::group::The libraries' sizes"
           du -sh "$libs"/lib/arm64-v8a/*.so | sort -h
@@ -647,12 +594,12 @@ jobs:
           echo "APK signing certificate (SHA-256): $cert"
           echo "APK signing certificate (SHA-256): \`$cert\`" >> "$GITHUB_STEP_SUMMARY"
           if [ "$HAVE_ANDROID_KEY" != true ]; then
-            echo "::warning::No ANDROID_KEYSTORE secret: the APK is signed with this runner's own debug key and will not install over an APK of another run. tools/android_keystore.py makes the launcher's key."
+          echo "::warning::No ANDROID_KEYSTORE secret: the APK is signed with this runner's own debug key and will not install over an APK of another run. tools/android_keystore.py makes the launcher's key."
           fi
           # Only an APK of the launcher's own key is offered as an update: one of a runner's debug key
           # downloads and verifies, then Android refuses to install it over the launcher.
           if [ -f "$RUNNER_TEMP/updater.key" ] && [ "$HAVE_ANDROID_KEY" = true ]; then
-            yarn tauri signer sign -f "$RUNNER_TEMP/updater.key" "$apk"
+          yarn tauri signer sign -f "$RUNNER_TEMP/updater.key" "$apk"
           fi
           rm -f "$RUNNER_TEMP/updater.key" "$RUNNER_TEMP/openrac.jks"
 
@@ -669,49 +616,100 @@ jobs:
 
       - uses: ./.github/actions/compiler-cache/save
 
-  # Any other build of a branch here or in a fork: its launchers on the
-  # branch's rolling pre-release `launcher-dev-<branch>`, made again each time, where the
-  # launchers built from that branch look for their updates (Build the installers, above). Only
-  # with the update key: a launcher installs no update without its signature.
-  # Also when a system's build failed (a macOS job that got no runner, say): the systems built
-  # still get their update, and latest.json leaves out the one that did not. Not when the run was
-  # cancelled (a newer one of the branch took its place).
-  dev-release:
-    if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') && needs.build.result != 'skipped' }}
-    needs: [version, build]
+  # A build of a branch here or in a fork: its launchers on the branch's rolling pre-release
+  # `launcher-dev-<branch>`, made again each time, where the launchers built from that branch look
+  # for their updates (Build the installers, above). Only with the update key: a launcher installs
+  # no update without its signature. master's merge queue (a dev release) publishes on
+  # launcher-dev-develop, the launcher's Development channel (launcher/core/src/update.rs,
+  # DEV_BRANCH), once every system built and checks.yml's run of the same commit is green. It is
+  # the last check master waits for: the pull request merges after it. A queue entry removed before
+  # this step publishes nothing; one removed after it leaves the build on the channel until the
+  # next dev release. Another branch publishes also when a system's build failed (a macOS job that
+  # got no runner, say): the systems built still get their update, and latest.json leaves out the
+  # one that did not. Not when the run was cancelled (a newer one of the branch took its place).
+  publish_dev_channel:
+    name: publish_dev_channel
+    # In master's queue it always runs, so that a failed build fails it (a skipped check would pass).
+    if: >-
+      ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/')
+      && (github.event_name == 'merge_group' && github.event.merge_group.base_ref == 'refs/heads/master'
+          || github.event_name != 'merge_group' && needs.installer.result != 'skipped') }}
+    needs: [version, installer]
     runs-on: ubuntu-26.04
-    timeout-minutes: 15
+    # The queue waits here for its checks (the games), which can take as long as the builds.
+    timeout-minutes: 240
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # master's queue: every system built, and checks.yml's run of this commit is green. A red
+      # check fails this job, and the queue drops the pull request.
+      - name: Every installer and every check
+        if: github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RESULT: ${{ needs.installer.result }}
+        run: |
+          if [ "$RESULT" != success ]; then
+            echo "::error::not every installer built ($RESULT): nothing published"
+            exit 1
+          fi
+          run=$(gh run list --workflow checks.yml --event merge_group --commit "$GITHUB_SHA" --limit 1 \
+                --json databaseId -q '.[0].databaseId // ""')
+          if [ -z "$run" ]; then
+            echo "::error::no checks run of the queue at $GITHUB_SHA"
+            exit 1
+          fi
+          if ! gh run watch "$run" --exit-status --interval 60 > /dev/null; then
+            echo "::error::checks run $run is not green: nothing published"
+            exit 1
+          fi
+      # master's queue: only while the entry is still queued (its branch is gone once it is removed).
+      - name: The queue entry
+        id: source
+        if: github.event_name == 'merge_group'
+        run: |
+          if ! git ls-remote --exit-code origin "refs/heads/$GITHUB_REF_NAME" > /dev/null; then
+            echo "::notice::the queue entry is gone: nothing to publish"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.source.outputs.skip != 'true'
         with:
           pattern: openrac-launcher-*
           path: installers
           merge-multiple: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.source.outputs.skip != 'true'
+        with:
+          name: version
+          path: ${{ runner.temp }}/version
       - name: Rolling release of the branch
+        if: steps.source.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           if ! find installers -name '*.sig' | grep -q .; then
-            echo "::notice::no update signatures (TAURI_SIGNING_PRIVATE_KEY is not set): nothing to publish"
-            exit 0
+          echo "::notice::no update signatures (TAURI_SIGNING_PRIVATE_KEY is not set): nothing to publish"
+          exit 0
           fi
           # The builds' own version (Build the installers, above).
-          base="${{ needs.version.outputs.base }}"
-          version="$base-dev.$GITHUB_RUN_NUMBER"
-          channel="launcher-dev-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"
+          version=$(cat "$RUNNER_TEMP/version/version.txt")
+          branch=$GITHUB_REF_NAME; source=$GITHUB_REF_NAME
+          if [ "$GITHUB_EVENT_NAME" = merge_group ]; then branch=develop; source="dev release"; fi
+          channel="launcher-dev-$(printf '%s' "$branch" | tr -c 'A-Za-z0-9._-' '-')"
           python3 tools/updater_manifest.py installers --tag "$channel" --repo "$GH_REPO" \
-            --version "$version" --notes "Built from $GITHUB_REF_NAME at $GITHUB_SHA." --output installers/latest.json
+            --version "$version" --notes "Built from $source at $GITHUB_SHA." --output installers/latest.json
           # The installers' names have spaces in them: an array, not a word list.
           mapfile -d '' files < <(find installers -type f -print0 | sort -z)
           echo "::group::${#files[@]} files"; printf '%s\n' "${files[@]}"; echo "::endgroup::"
-          title="v$version ($GITHUB_REF_NAME)"
-          notes="The launchers built from $GITHUB_REF_NAME at $GITHUB_SHA; launchers built from this branch update from here."
+          title="v$version ($source)"
+          notes="The launchers built from $source at $GITHUB_SHA; launchers built from this branch update from here."
           if ! gh release view "$channel" > /dev/null 2>&1; then
             gh release create "$channel" --prerelease --target "$GITHUB_SHA" --title "$title" --notes "$notes" "${files[@]}"
             exit 0
@@ -734,9 +732,10 @@ jobs:
 
   # A tag `launcher-v*`: the installers of all the builds on a draft
   # release. Nothing is published until someone publishes the draft.
-  release:
+  release_draft:
+    name: release_draft
     if: startsWith(github.ref, 'refs/tags/launcher-v')
-    needs: build
+    needs: installer
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:

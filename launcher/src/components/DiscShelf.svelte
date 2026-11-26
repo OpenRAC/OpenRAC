@@ -670,13 +670,14 @@
           <div class="acts" in:fly={enter(3)}>
             {#if offers}
               <button class="go" class:primary={next.primary} onclick={primary}>
-                <span class="glyph a" aria-hidden="true">A</span>{continues
-                  ? "Continue"
-                  : next.label}
+                <span class="glyph a" aria-hidden="true">A</span><span class="label"
+                  >{continues ? "Continue" : next.label}</span
+                >
               </button>
             {/if}
             <button onclick={openPage}
-              ><span class="glyph" aria-hidden="true">Y</span>Game page</button
+              ><span class="glyph" aria-hidden="true">Y</span><span class="label">Game page</span
+              ></button
             >
             {#if menu.length}<Menu items={menu} />{/if}
           </div>
@@ -905,6 +906,8 @@
     --ctl-font: clamp(0.9375rem, 2.3vh, 1.0625rem);
     /* The secondary buttons: a light veil, so they show on the page's dark ground. */
     --veil: color-mix(in srgb, var(--text) 9%, transparent);
+    /* Its width sets how tight the buttons sit (.acts). */
+    container-type: inline-size;
   }
 
   .over {
@@ -970,14 +973,17 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* The buttons stay on one line: tighter when the words are narrow, and the label shortened with
+     "..." only if even that is not enough. */
   .acts {
     display: flex;
-    flex-wrap: wrap;
     gap: 10px;
     margin-top: clamp(16px, 4vh, 28px);
   }
 
   .acts button {
+    flex: 0 1 auto;
+    min-width: 0;
     display: inline-flex;
     align-items: center;
     gap: 10px;
@@ -995,6 +1001,27 @@
       background var(--fast);
   }
 
+  .label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @container (max-width: 420px) {
+    .acts {
+      gap: 6px;
+    }
+
+    .acts button {
+      gap: 8px;
+      padding: 0 12px 0 8px;
+    }
+
+    .acts .go.primary {
+      padding-right: 14px;
+    }
+  }
+
   /* Pressed: down at once, back with a bounce. */
   /* Where the controller's focus is, the button breathes. */
   :global(html[data-input="pad"]) .acts button:focus {
@@ -1008,6 +1035,10 @@
   }
 
   /* The "..." menu's button, as tall and round as the buttons beside it. */
+  .acts :global(.menu) {
+    flex: none;
+  }
+
   .acts :global(.trigger) {
     width: var(--ctl);
     height: var(--ctl);

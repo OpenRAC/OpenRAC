@@ -150,6 +150,8 @@ class FnReport:
     # Instructions of its asm statements that the host does not run (asm_stmt): what they compute is
     # missing from the translation.
     asm_skipped: list = field(default_factory=list)
+    # Why a native inline-assembly translation was refused, alongside the skipped mnemonics.
+    asm_unsupported: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -547,6 +549,9 @@ class Unit:
                 bodies.append(text)
         if getattr(self, "uses_ps2", False):
             out.insert(out.index("#include \"openrac/guest.h\"") + 1, "#include \"openrac/ps2float.h\"")
+        if getattr(self, "uses_ee", False):
+            # VU0 inline assembly written as C (vu0asm.py): the EE's float helpers and openrac_vu0_state.
+            out.insert(out.index("#include \"openrac/guest.h\"") + 1, "#include \"openrac/ee.h\"")
         return "\n".join(out + [""] + statics_protos + [""] + bodies) + "\n"
 
     def _mine(self, decl: dict) -> bool:
@@ -918,6 +923,10 @@ class Unit:
                 f"0x{site:016X}ULL, &{fresh}); {generation} = openrac_guest_cache_generation(); "
                 f"if ({fresh}) {{ {init} }} }}"
             )
+        if getattr(fn, "uses_vu0", False):
+            # The vector unit's registers that the function's inline assembly names (vu0asm.py): its own.
+            prologue.insert(0, "    openrac_vu0_state openrac_vu_s_ = {{{0.0f, 0.0f, 0.0f, 1.0f}}}; "
+                               "openrac_vu0_state *const openrac_vu_ = &openrac_vu_s_; (void)openrac_vu_;")
         if getattr(fn, "uses_alloca", False):
             # alloca's space is the frame's: given back when the function returns, by any path.
             prologue.insert(0, "    gaddr openrac_alloca_sp_ __attribute__((cleanup(openrac_guest_frame_end))) = "
@@ -1346,6 +1355,9 @@ class Unit:
         call = self._asm_call(text, cons, _inner(n))
         if call is not None:
             return call
+        lowered = self._vu0_asm(n, text, cons)
+        if lowered is not None:
+            return lowered
         if not ops and cons.get("out"):
             # No instructions, only operands: each output gets the input tied to it ("0" for output 0), the
             # value the register holds (kputchar's pointer to the SIO's transmit register, hidden this way from
@@ -1356,6 +1368,113 @@ class Unit:
         if not all(op in ("sync", "sync.l", "sync.p", "nop") for op in ops):
             self._asm_skipped(ops)
         return "GBARRIER();"
+
+    def _vu0_asm(self, n: dict, text: str, cons: dict) -> str | None:
+        """An asm statement of VU0 instructions (vu0asm.py) as C on locals: the instructions on the
+        function's own vector-unit state and on its operands' C variables. None when the statement
+        has no VU0 instruction, or (for one on named registers only, which Clang reads) when
+        vu0asm.py cannot write it: it stays a barrier, reported, as before. One with an operand in a
+        vector register (GCC's "j", read by Clang as "m", prep.py) that cannot be written makes the
+        function a stub, as when Clang refused it."""
+        import vu0asm
+
+        if not vu0asm.is_vu0(text):
+            return None
+        kids = _inner(n)
+        outs, ins = list(cons.get("out") or ()), list(cons.get("in") or ())
+        in_register = vu0asm.operand_in_register(text)
+        fn = self.fn
+
+        def give_up(why: str) -> None:
+            if fn is not None and fn.report is not None:
+                fn.report.asm_unsupported.append(why)
+            if in_register:
+                raise Unsupported(f"VU0 inline assembly: {why}")
+            return None
+
+        if fn is None or len(kids) != len(outs) + len(ins):
+            return give_up("operands hostgen cannot read")
+        if self._ps2():
+            return give_up("in a function computing as the EE's floats (ps2_float)")
+        operands = []
+        for k, kid in enumerate(kids):
+            output = k < len(outs)
+            c = (outs[k] if output else ins[k - len(outs)]).strip()
+            t = self.ty(kid)
+            o = vu0asm.Operand(k, c, output, self.cls(t), self.host(ctype.strip_quals(t)))
+            try:
+                lv = self.lv(kid)
+                o.lv_text, o.lv_addr = lv.text, lv.addr
+            except Unsupported:
+                if output:
+                    return give_up(f"output {k} is no lvalue")
+            if not output and self.cls(t) not in ("rec", "arr"):
+                o.value = self.rv(kid)
+            operands.append(o)
+        body = fn.body_node or {}
+        first = next(iter(_inner(body)), None)
+        region = self._vu0_region(n)
+        # Operand evaluation can itself call C and overwrite the incoming physical registers.
+        leading = first is not None and first.get("id") == n.get("id") and region == (0,)
+
+        def arg_register(r: int) -> str | None:
+            at = r - 4
+            return fn.int_params[at] if leading and 0 <= at < len(fn.int_params) else None
+
+        def float_arg_register(register: int) -> str | None:
+            import asmc
+
+            if not leading or register not in asmc.FARG_REGS:
+                return None
+            at = asmc.FARG_REGS.index(register)
+            return fn.float_params[at] if at < len(fn.float_params) else None
+
+        states = getattr(fn, "vu0_states", None)
+        if states is None:
+            states = fn.vu0_states = {}
+        if region not in states:
+            states[region] = vu0asm.FunctionState()
+        state = states[region]
+        try:
+            c_text = vu0asm.lower_statement(text, operands, state, vu_flush=getattr(self.program, "vu_flush", False),
+                                            arg_register=arg_register, float_arg_register=float_arg_register,
+                                            symbol_address=self._global_symbol_address)
+        except vu0asm.Vu0Unsupported as e:
+            return give_up(str(e))
+        except vu0asm.NotVu0:
+            return None
+        if state.used:
+            fn.uses_vu0 = True
+        self.uses_ee = True
+        return c_text
+
+    def _vu0_region(self, statement: dict) -> tuple:
+        """A straight-line region: do not infer named-register values across branches or calls."""
+        fn = self.fn
+        regions = getattr(fn, "vu0_regions", None)
+        if regions is None:
+            regions = fn.vu0_regions = {}
+            controls = {"IfStmt", "WhileStmt", "DoStmt", "ForStmt", "SwitchStmt", "CaseStmt",
+                        "DefaultStmt", "LabelStmt", "GotoStmt", "IndirectGotoStmt",
+                        "ConditionalOperator", "BinaryConditionalOperator"}
+
+            def walk(node: dict, path: tuple, epoch: int) -> int:
+                kind = node.get("kind")
+                conditional = kind == "BinaryOperator" and node.get("opcode") in ("&&", "||")
+                if kind in controls or conditional:
+                    # Each arm starts independently, and following code learns nothing from it.
+                    for index, child in enumerate(_inner(node)):
+                        walk(child, path + ((node.get("id"), index),), 0)
+                    return epoch + 1
+                for child in _inner(node):
+                    epoch = walk(child, path, epoch)
+                if kind == "GCCAsmStmt":
+                    regions[node.get("id")] = path + (epoch,)
+                # A C callee may overwrite the console's named vector registers.
+                return epoch + 1 if kind == "CallExpr" else epoch
+
+            walk(fn.body_node or {}, (), 0)
+        return regions.get(statement.get("id"), ("isolated", statement.get("id", id(statement))))
 
     def _asm_call(self, text: str, cons: dict, kids: list) -> str | None:
         """A call through a register written as inline assembly: `move $4, %A` then `jal $31, %F` (or
@@ -2381,20 +2500,26 @@ class Unit:
         sym = symbol_of(d)
         if ref.get("kind") == "FunctionDecl":
             raise Unsupported(f"function {sym} as an lvalue")
+        addr = self._global_symbol_address(sym)
+        if addr is None:
+            value = self._static_constant(d)
+            if value is not None:
+                return LV(value)
+            raise Unsupported(f"global {sym} has no known address")
+        return LV(self.gref(t, addr), addr)
+
+    def _global_symbol_address(self, sym: str) -> str | None:
+        """A C global or assembly label through the same release/level relocation rules."""
         address = self.program.data_address(sym)
         only_level = None
         if address is None:
             only_level, address = self._level_only_data(sym) or (None, None)
         if address is None:
-            value = self._static_constant(d)
-            if value is not None:
-                return LV(value)
-            raise Unsupported(f"global {sym} has no known address")
+            return None
         named_level = self.program.data_level(sym) if hasattr(self.program, "data_level") else None
         if only_level is not None:
             named_level = only_level
-        addr = self.global_address(address, self._code_symbol(sym) is not None, named_level, sym)
-        return LV(self.gref(t, addr), addr)
+        return self.global_address(address, self._code_symbol(sym) is not None, named_level, sym)
 
     def global_address(self, address: int, code: bool = False, named_level: int | None = None,
                        symbol: str | None = None) -> str:
@@ -2817,6 +2942,11 @@ class Unit:
         if c.get("kind") == "ImplicitCastExpr" and c.get("castKind") == "FunctionToPointerDecay":
             target = _strip_parens(_inner(c)[0])
             if target.get("kind") == "DeclRefExpr" and target["referencedDecl"].get("kind") == "FunctionDecl":
+                # A host-inserted decision query is a native call, not an EE code address.
+                if target["referencedDecl"].get("name") == "openrac_mod_play_query":
+                    if len(args) != 5:
+                        raise Unsupported("a gameplay query needs five scalar arguments")
+                    return "openrac_mod_play_query(" + ", ".join(self.rv(a) for a in args) + ")"
                 sym = self._callee_symbol(target)
                 if sym in getattr(self.program, "returns_64", ()):
                     # A function returning 64 bits that this unit declares int (hostgen.json

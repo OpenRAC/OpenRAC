@@ -60,12 +60,20 @@ if(TARGET openrac_assets_geometry)
 endif()
 target_compile_options(openrac_game_common PRIVATE ${OPENRAC_GAME_C_FLAGS} -Wall -Wextra)
 
+# The native UI core can be checked without game code, a window or the runtime library.
+openrac_add_test(ui_core SOURCES tests/ui_core_test.cpp ui/ui.cpp
+  INCLUDES . game/common/include runtime/include)
+
 # The VAG streams of the sound engine, on a disc image the test writes.
 add_executable(sound_engine_test "${CMAKE_CURRENT_LIST_DIR}/../tests/sound_engine_test.cpp")
 target_include_directories(sound_engine_test PRIVATE "${CMAKE_CURRENT_LIST_DIR}/..")
 target_link_libraries(sound_engine_test PRIVATE openrac_game_common)
 openrac_warnings(sound_engine_test)
 add_test(NAME sound_engine COMMAND sound_engine_test)
+
+# The native sound client's answer/callback order, without a game or audio device.
+openrac_add_test(snd_client SOURCES tests/snd_client_test.cpp tests/snd_client_rac2.c
+                 INCLUDES game/rac2-ntsc/host LIBS openrac_game_common)
 
 # The decomps are git submodules (docs/SOURCES.md). A build folder made before that keeps its old
 # cached OPENRAC_<ID>_SOURCE; a submodule is empty until it is checked out, and upstream's own
@@ -279,6 +287,10 @@ function(openrac_add_game config)
   file(GLOB tables CONFIGURE_DEPENDS "${config_dir}/*.json" "${config_dir}/*.tsv" "${config_dir}/tables/*"
        "${config_dir}/release/*" "${config_dir}/checks/*"
        "${config_dir}/hand/*" "${OPENRAC_GAME_DIR}/common/*.tsv")
+  string(JSON query_points ERROR_VARIABLE no_query_points GET "${json}" play_queries)
+  if(NOT no_query_points)
+    list(APPEND tables "${config_dir}/${query_points}")
+  endif()
   # hostgen rewrites only the files whose text changed, so after an edit only
   # those recompile: the stamp says when it last ran, the files are byproducts
   # whose times the build looks at again.

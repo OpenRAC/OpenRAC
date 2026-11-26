@@ -108,13 +108,13 @@ SceMcFormat	mc	sceMcFormat	host	PAL func_00124340
 sceMcDelete	mc	sceMcDelete	host	PAL func_00124410
 SceMcUnformat	mc	sceMcUnformat	host	PAL func_00124528
 sceMcChdir	mc	sceMcChdir	host	the US game enters its save folder before reading it; PAL does not
-sceDbcInit	dbc	sceDbcInit	host	pads come from the platform layer; PAL func_00124650
-scePad2Init	pad2	scePad2Init	host	PAL func_00124B88
-scePad2CreateSocket	pad2	scePad2CreateSocket	host	PAL func_00124BC8
-scePad2Read	pad2	scePad2Read	host	PAL func_00124D18
-scePad2GetButtonProfile	pad2	scePad2GetButtonProfile	host	PAL func_00124DF0
-scePad2GetState	pad2	scePad2GetState	host	PAL func_00124EE0
-sceVibGetProfile	vib	sceVibGetProfile	host	PAL func_00125218, paired as found
+sceDbcInit	dbc	sceDbcInit	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); pads come from the platform layer; PAL func_00124650
+scePad2Init	pad2	scePad2Init	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00124B88
+scePad2CreateSocket	pad2	scePad2CreateSocket	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00124BC8
+scePad2Read	pad2	scePad2Read	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00124D18
+scePad2GetButtonProfile	pad2	scePad2GetButtonProfile	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00124DF0
+scePad2GetState	pad2	scePad2GetState	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00124EE0
+sceVibGetProfile	vib	sceVibGetProfile	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c); PAL func_00125218, paired as found
 sceVu0UnitMatrix	vu0	(UnitMatrix or InterVector)	todo	which one it is decides its host version; PAL func_00125358, paired as called
 sceVu0RotMatrixZ	vu0	sceVu0RotMatrixZ	host	PAL func_001253F8
 FUN_00125360	vu0	sceVu0RotMatrixX	host	PAL func_001254A0
@@ -337,6 +337,8 @@ Rfu091Tail	kernel	GetEntryAddress	host	system call 0x5B; PAL func_0011DE28
 __muldi3	libgcc	__muldi3	host	64-bit multiply; PAL func_0011EEC8
 __udivdi3	libgcc	__udivdi3	host	64-bit unsigned divide (src/sdk/soft_float/udivdi3.c, which hostgen.json skips: libgcc's GCC-only assembly); newlib's printf, strtol and malloc call it
 __umoddi3	libgcc	__umoddi3	host	64-bit unsigned remainder (src/sdk/soft_float/umoddi3.c, skipped as above)
+FUN_00217048	pad	InitPads	host	init_pads: the pad record's socket is its port; libdbc and libpad2 are not started, the port's pad update needs neither (rac1/host/pad_state.c); PAL func_00217EE8	void (void)
+FUN_002170c8	pad	Pad_UpdatePort	host	poll_pad_device_state: the profiles and the report a poll are the port's, from its controllers (openrac_pad_report, through the mods' pad callbacks), handed to the game's Pad_ProcessReport; no libpad2 call (rac1/host/pad_state.c); PAL func_00217F68	void (unsigned int)
 FUN_00217328	pad	Pad_ProcessReport	hook	the pad's report into its state, each poll: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none; PAL func_002181F0	void (unsigned int, unsigned int, int)
 FUN_L00_00211670	hero	Hero_UpdateMotionInput	hook	the stick into the hero, early in his update: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none; PAL func_L00_00211D28	void (void)
 FUN_L00_00211e30	hero	Hero_TurnToHeading	hook	eases the facing toward the move yaw: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none; PAL func_L00_002124E8	void (int, float, float, float)
@@ -371,6 +373,9 @@ FUN_L00_002affa8	items	Weapon_GoldDevastator_PickTarget	hook	the gold Devastator
 FUN_L00_002cdf28	items	Weapon_Drone_PickTarget	hook	a drone's target (select_nearest_drone_target: the nearest enemy within 4 to 6 units, not one of the nine others' targets): a hook point for mods (docs/port/MODS.md; the cheats mod's long-range aim takes them); the game's C with none; PAL func_L00_002CF3D8	unsigned int (unsigned int, unsigned int)
 FUN_L00_00257470	moby	Moby_RecordDeath	hook	records a placed moby's death or a crate's break (SetDeathBits: its save id's killed bits, its mission) and drops its bolts (the s16 at +0xB4, or what is left of +0xB6 for a tallied source) through the bolt drop: a hook point for mods (docs/port/MODS.md; the difficulty mod takes it); the game's C with none; PAL func_L00_002584A8	void (unsigned int, int, int)
 FUN_L00_00241940	level	Level_LoadGameplay	hook	loads a level's gameplay file into the level heap (LoadLevelGameplay: the settings, the placed mobys and their pvars, the spare moby pool, paths, ...); returns the heap cursor: a hook point for mods (docs/port/MODS.md; the difficulty mod takes it); the game's C with none; PAL func_L00_002422D8	unsigned int (int)
+FUN_L00_00297f78	level	Level_UpdatePlay	hook	the level's tick in play (handle_pause_input, game mode 0): the pause, freeze and help triggers, then the mobys, the hero, the particles, the camera, the sound, the HUD's elements and the frame counters: a hook point for mods (docs/port/MODS.md; a replacement that returns without calling the original holds the world for that tick, as a mode change does); the game's C with none; PAL func_L00_00299250	void (void)
+FUN_001fce28	game	Freeze_Update	hook	the freeze mode's tick (update_mode_freeze, game mode 4: the help, prompt and dialog screens over a frozen world), by mode_freeze_info's kind; ends the mode, sounds back on, when it leaves it: a hook point for mods (docs/port/MODS.md); the game's C with none; PAL func_001FD3E8	void (void)
+FUN_L00_001f8ec8	draw	Freeze_Draw	hook	the freeze mode's picture (draw_dialog_background_and_text): the frozen world drawn again, the HUD with it, then the freeze dialog's dim and box (draw_freeze_message_box): a hook point for mods (docs/port/MODS.md); the game's C with none; PAL func_L00_001F9248	void (void)
 FUN_L00_00212088	hero	Hero_ApproachSpeed	hook	eases the hero's ground speed (+0x194) toward his target speed (+0x190) by up below it and down above it (ApproachValue), each tick he moves on foot, in every level: a hook point for mods (docs/port/MODS.md; the difficulty mod takes it); the game's C with none; PAL func_L00_00212740	void (float, float)
 FUN_L00_0028ed58	level	Ship_TravelTo	hook	the ship's travel from the planet select (ShipTravelTo): to the planet it is on, the landing again (as backing out of the select does); to another, the save to the card and the ship's flight out of the level, which then ends and flies there: a hook point for mods (docs/port/MODS.md; the multiplayer mod takes it); the game's C with none; PAL func_L00_00290030	void (int)
 FUN_00221800	port	ship_destination_menu	wrap	Append a host-owned ship destination without extending retail arrays (rac1/host/destinations.c); PAL func_00222848	void (gaddr, int)

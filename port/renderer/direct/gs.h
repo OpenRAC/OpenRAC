@@ -270,6 +270,10 @@ struct Tex1 {
     static Tex1 decode(u64 v) {
         return {bits(v, 0, 1) != 0, bits(v, 2, 3), bits(v, 5, 1) != 0, bits(v, 6, 3)};
     }
+
+    // The sampler reads a mipmap chain: a minification filter of the MIPMAP kinds (2 to 5) with
+    // more than the base level (MXL).
+    bool mipmapped() const { return mxl > 0 && mmin >= 2; }
 };
 
 // Wrap modes (CLAMP.WMS/WMT).

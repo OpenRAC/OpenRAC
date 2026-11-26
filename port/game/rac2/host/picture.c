@@ -28,6 +28,7 @@
 #include <string.h>
 
 #include "game_protos.h"
+#include "openrac/frame.h"
 #include "openrac/game_host.h"
 #include "rac2.h"
 #include "ui_quads.h"
@@ -91,7 +92,8 @@ static void make_backdrop(int lines) {
         for (int x = 0; x < BACKDROP_WIDTH; ++x) {
             int r = 0, g = 0, b = 0, n = 0;
             for (int py = y * BACKDROP_SHRINK; py < (y + 1) * BACKDROP_SHRINK && py < lines; ++py) {
-                const uint8_t* p = from + ((size_t)py * PICTURE_WIDTH + (size_t)x * BACKDROP_SHRINK) * 4;
+                const uint8_t* p =
+                    from + ((size_t)py * PICTURE_WIDTH + (size_t)x * BACKDROP_SHRINK) * 4;
                 for (int px = 0; px < BACKDROP_SHRINK; ++px, p += 4, ++n) {
                     r += p[0];
                     g += p[1];
@@ -132,6 +134,80 @@ static void make_backdrop(int lines) {
         }
     }
     backdrop_lines = rows;
+}
+
+/* Port pictures (openrac_frame_picture_set: pixels the host keeps, rows top first, alpha 0x80 is
+ * opaque): the title's picture and the backdrop's two sides, which the window draws as the frame
+ * recorder's native 2D (no chip word). */
+enum {
+    PORT_PICTURE = 0x52320001,
+    PORT_SIDE_LEFT = 0x52320002,
+    PORT_SIDE_RIGHT = 0x52320003,
+    SIDE_COLUMNS = 32,
+    /* The backdrop's texels a side draws out over: from the picture's edge (half a texel in) two out. */
+    SIDE_TEXELS = 2,
+    /* The brightness of the side's outer end and of its seam with the picture, of 0x80. */
+    SIDE_DIM = 0x38,
+    SIDE_LIT = 0x80,
+};
+
+/* The two sides as pixels: each column the backdrop's edge texels (linear between them) times a
+ * brightness that falls from the seam out to the window's side. */
+static void make_sides(void) {
+    static uint8_t left[SIDE_COLUMNS * BACKDROP_HEIGHT * 4];
+    static uint8_t right[SIDE_COLUMNS * BACKDROP_HEIGHT * 4];
+    const uint8_t* from = (const uint8_t*)G(backdrop);
+    for (int y = 0; y < backdrop_lines; ++y) {
+        for (int x = 0; x < SIDE_COLUMNS; ++x) {
+            /* t: 0 at the seam, 1 at the window's side. */
+            const float t = (float)x / (float)(SIDE_COLUMNS - 1);
+            const float tx = 0.5f + t * SIDE_TEXELS;
+            const int i0 = (int)tx, i1 = i0 + 1;
+            const float f = tx - (float)i0;
+            const int light = (int)((float)SIDE_LIT + ((float)SIDE_DIM - (float)SIDE_LIT) * t);
+            for (int side = 0; side < 2; ++side) {
+                const int a = side == 0 ? i0 : BACKDROP_WIDTH - 1 - i0;
+                const int b = side == 0 ? i1 : BACKDROP_WIDTH - 1 - i1;
+                uint8_t* to =
+                    (side == 0 ? left : right)
+                    + ((size_t)y * SIDE_COLUMNS + (size_t)(side == 0 ? SIDE_COLUMNS - 1 - x : x))
+                          * 4;
+                for (int c = 0; c < 3; ++c) {
+                    const float v =
+                        (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)a) * 4 + c] * (1.0f - f)
+                        + (float)from[((size_t)y * BACKDROP_WIDTH + (size_t)b) * 4 + c] * f;
+                    to[c] = (uint8_t)(v * (float)light / (float)SIDE_LIT);
+                }
+                to[3] = 0x80;
+            }
+        }
+    }
+    openrac_frame_picture_set(PORT_SIDE_LEFT, left, SIDE_COLUMNS, backdrop_lines);
+    openrac_frame_picture_set(PORT_SIDE_RIGHT, right, SIDE_COLUMNS, backdrop_lines);
+}
+
+/* The window's sides past the picture, native, the window `wider` times the picture's width: each
+ * side's band of the whole window (OPENRAC_PICTURE_WHOLE), drawn before the picture. */
+static void draw_sides_native(float wider) {
+    const float band = (float)PICTURE_WIDTH * 0.5f * (1.0f - 1.0f / wider);
+    const float top = (float)RAC2_K(PICTURE_TOP, 0, func_002FC990), bottom = PICTURE_HEIGHT - top;
+    const float left[4] = {0.0f, top, band, bottom};
+    const float right[4] = {(float)PICTURE_WIDTH - band, top, (float)PICTURE_WIDTH, bottom};
+    rac2_anchor();
+    openrac_frame_picture(
+        PORT_SIDE_LEFT, left, 0x80808080u, OPENRAC_BLEND_OPAQUE | OPENRAC_PICTURE_WHOLE
+    );
+    openrac_frame_picture(
+        PORT_SIDE_RIGHT, right, 0x80808080u, OPENRAC_BLEND_OPAQUE | OPENRAC_PICTURE_WHOLE
+    );
+}
+
+/* The picture itself: over the draw buffer's 416 lines. */
+static void draw_picture_native(void) {
+    const float top = (float)RAC2_K(PICTURE_TOP, 0, func_002FC990);
+    const float rect[4] = {0.0f, top, (float)PICTURE_WIDTH, PICTURE_HEIGHT - top};
+    rac2_anchor();
+    openrac_frame_picture(PORT_PICTURE, rect, 0x80808080u, OPENRAC_BLEND_OPAQUE);
 }
 
 void func_002FC990(int a0, int a1, int a2);
@@ -189,8 +265,9 @@ void func_002FC8D0(gaddr a0, int a1, int a2) {
 /* One side of the backdrop, a band of the whole window from `outer` to `seam` (its 16ths of the
  * chip's pixels): the picture's blurred edge drawn out to the window's side and darkening there, its
  * texels from `edge` (at the seam) to `far` (at the window's side), 16ths of a texel. */
-static void draw_side(uint64_t outer, uint64_t seam, uint64_t edge, uint64_t far, uint64_t top,
-                      uint64_t bottom) {
+static void draw_side(
+    uint64_t outer, uint64_t seam, uint64_t edge, uint64_t far, uint64_t top, uint64_t bottom
+) {
     const uint64_t rows = (uint64_t)backdrop_lines << 4;
     const uint64_t dim = 0x80383838u, lit = 0x80808080u;
     func_002FC560(REG_RGBAQ, dim);
@@ -215,8 +292,9 @@ static void draw_sides(float wider, uint64_t top, uint64_t bottom) {
     /* The picture's sides in the whole window, in 16ths of the chip's pixels. */
     const uint64_t band = (uint64_t)((float)(PICTURE_WIDTH << 3) * (1.0f - 1.0f / wider));
     const uint64_t texels = (uint64_t)BACKDROP_WIDTH << 4;
-    const uint64_t tex0 = (uint64_t)(BACKDROP_BLOCK) | (uint64_t)(BACKDROP_WIDTH / 64) << 14 | 6ull << 26
-                          | 6ull << 30;  /* modulated (TFX 0): the vertex colours darken it outwards */
+    const uint64_t tex0 =
+        (uint64_t)(BACKDROP_BLOCK) | (uint64_t)(BACKDROP_WIDTH / 64) << 14 | 6ull << 26
+        | 6ull << 30; /* modulated (TFX 0): the vertex colours darken it outwards */
     func_002FC560(REG_NOP, WHOLE_MARKER | 1);
     func_002FC560(REG_TEX0_1, tex0);
     func_002FC560(REG_TEX1_1, 0x60);
@@ -242,16 +320,41 @@ void func_002FC990(int a0, int a1, int a2) {
         openrac_game_load_image(&image);
         /* A frame read back already covers the whole window (the marker). */
         if (!picture_of_frame) {
+            openrac_frame_picture_set(PORT_PICTURE, picture_pixels(), PICTURE_WIDTH, picture_lines);
             make_backdrop(picture_lines);
+            make_sides();
             const openrac_game_image under =
-                {BACKDROP_BLOCK, BACKDROP_WIDTH / 64, 0, 0, 0, BACKDROP_WIDTH, backdrop_lines, backdrop};
+                {BACKDROP_BLOCK,
+                 BACKDROP_WIDTH / 64,
+                 0,
+                 0,
+                 0,
+                 BACKDROP_WIDTH,
+                 backdrop_lines,
+                 backdrop};
             openrac_game_load_image(&under);
         }
         /* It reaches the texture pool after this frame's list: drawn now, the frame shows the pool's
          * missing-texture checkers for a tick, at the client's first picture. */
-        if (picture_of_frame) {
+        if (picture_of_frame && openrac_frame_native()) {
+            rac2_anchor();
+            openrac_frame_last_frame();
+        } else if (picture_of_frame) {
             func_002FC560(REG_NOP, FRAME_MARKER);
         }
+        return;
+    }
+    if (openrac_frame_native()) {
+        if (picture_of_frame) {
+            rac2_anchor();
+            openrac_frame_last_frame();
+            return;
+        }
+        const float wider = openrac_game_picture_wider();
+        if (backdrop_lines > 0 && wider > 1.001f) {
+            draw_sides_native(wider);
+        }
+        draw_picture_native();
         return;
     }
     const uint64_t tex0 = (uint64_t)(PICTURE_BLOCK) | (uint64_t)PICTURE_WIDTH_UNITS << 14
@@ -289,8 +392,15 @@ static void draw_now(void) {
     if (picture_new) {
         func_002FC990(0, 0, 0); /* to the texture pool */
     }
-    func_002FC560(REG_NOP, WORLD_MARKER);
-    func_002FC560(REG_TEST_1, 0x30000); /* ZTE on, ZTST ALWAYS */
+    if (openrac_frame_native()) {
+        /* The world's place in the list with nothing drawn: what is recorded after it goes over the
+         * picture shown last. The native quad has no depth test to set. */
+        rac2_anchor();
+        openrac_frame_world(0);
+    } else {
+        func_002FC560(REG_NOP, WORLD_MARKER);
+        func_002FC560(REG_TEST_1, 0x30000); /* ZTE on, ZTST ALWAYS */
+    }
     func_002FC990(0, 0, 0);
 }
 

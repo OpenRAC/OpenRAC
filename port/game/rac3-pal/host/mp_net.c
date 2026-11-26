@@ -233,10 +233,10 @@ void rac3_mp_ui_notice(const char* text);               /* mp_ui.c */
 #define M_ACCOUNT_NOT_FOUND (-998) /* the login's message 0xF: the hub's ERROR_INVALID_ACCOUNT */
 #define M_SERVER_ERROR (-991)      /* message 1: the hub's ERROR_TRY_LATER */
 #define M_INVALID_PASSWORD (-978)  /* message 0xA: the hub's ERROR_WRONG_PASSWORD */
-#define M_WORLD_LOBBY 2     /* the one channel's world id */
-#define M_WORLD_OWN 900     /* this console's own game */
-#define M_WORLD_LISTED 1000 /* the first listed game's world id */
-#define M_PORT 10075        /* what the connection infos name; nothing connects to it */
+#define M_WORLD_LOBBY 2            /* the one channel's world id */
+#define M_WORLD_OWN 900            /* this console's own game */
+#define M_WORLD_LISTED 1000        /* the first listed game's world id */
+#define M_PORT 10075               /* what the connection infos name; nothing connects to it */
 
 /* A request with a reply: the reply's class, type and size, and whether it is a list (its last
  * word EndOfList). The sizes are the library's own (its handlers' results). */
@@ -358,7 +358,7 @@ typedef struct {
     net_socket fd;
     int state; /* 0 not tried, 1 connected and greeted, 2 hello sent, -1 failed */
     int32_t session;
-    int features; /* the UDP offer's bits: which requests the server takes */
+    int features;     /* the UDP offer's bits: which requests the server takes */
     int64_t alive_ms; /* when PACKET_TIME last went */
     uint8_t in[LINK_IN];
     size_t in_len;
@@ -1312,6 +1312,48 @@ static int32_t net_host_max_players(int32_t game) {
     return game;
 }
 
+/* The CREATE page (level 39's screen 0x0069A630, built by 0x00699838): its number of players
+ * (widget 3, a spinner the constructor makes with value 8, from 2 to 8) offers up to the room's
+ * most (ROOM_MAX, or OPENRAC_RAC3_MAX_PLAYERS) online, where the tables can grow (mp_wide.c). The
+ * game's own value stays 8 until the player turns it up; LOCAL PLAY keeps its 8. */
+#define CREATE_WIDGETS 0x110u    /* the screen's widget pointers */
+#define CREATE_PLAYERS_WIDGET 3u /* the number of players */
+#define SPINNER_MAX 0x70u        /* a spinner's largest value (its constructor 0x00682840) */
+
+#define SPINNER_VALUE 0x64u /* a spinner's value, then its smallest at +0x6C */
+#define SPINNER_STEP 0x74u  /* its step; the players spinner counts from 2 by 1 */
+
+static gaddr create_players; /* the page's players spinner, from its constructor */
+
+int mp_func_L39_00699838(int screen) {
+    const int r = mp_func_L39_00699838__game(screen);
+    create_players = GREF(gaddr, (gaddr)screen + CREATE_WIDGETS + 4u * CREATE_PLAYERS_WIDGET);
+    return r;
+}
+
+/* The page is built when the multiplayer menu opens, before the player logs in, and kept: the
+ * spinner's largest value follows the console's state each time the lobby runs, the room's most
+ * while connected, the game's own 8 otherwise. */
+static void create_page_sync(void) {
+    if (create_players == 0 || !rac3_mp_wide_available()
+        || GREF(int32_t, create_players + SPINNER_STEP) != 1
+        || GREF(int32_t, create_players + 0x6Cu) != 2) {
+        return; /* not built yet, or the page's memory is the level's no longer */
+    }
+    int most = 8;
+    if (lobby.connected && rac3_mp_wide_available()) {
+        const char* e = openrac_env_string("OPENRAC_RAC3_MAX_PLAYERS");
+        most = e != NULL && atoi(e) > 0 ? atoi(e) : ROOM_MAX;
+        most = most < 8 ? 8 : most > ROOM_MAX ? ROOM_MAX : most;
+    }
+    if (GREF(int32_t, create_players + SPINNER_MAX) != most) {
+        GREF(int32_t, create_players + SPINNER_MAX) = most;
+        if (GREF(int32_t, create_players + SPINNER_VALUE) > most) {
+            GREF(int32_t, create_players + SPINNER_VALUE) = most;
+        }
+    }
+}
+
 /* The settings of a game as LOBBY_GAME_INFO_REQUEST and the game list give them, from a
  * LOBBY_GAME_CREATE_REQUEST. */
 static void advert_from_create(game_advert* a, const uint8_t* req) {
@@ -2251,6 +2293,25 @@ static void dme_deliver(void) {
             continue;
         }
         memcpy(G(dme.buf), dme.inbox[i].data, dme.inbox[i].len);
+        if (net_log() && dme.inbox[i].len > 8 && dme.inbox[i].data[0] == 2
+            && dme.inbox[i].data[1] == 17) {
+            fprintf(
+                stderr,
+                "[info] rac3: online: slot update from client %d: %02x %02x %02x %02x %02x %02x "
+                "%02x %02x %02x %02x\n",
+                src,
+                dme.inbox[i].data[2],
+                dme.inbox[i].data[3],
+                dme.inbox[i].data[4],
+                dme.inbox[i].data[5],
+                dme.inbox[i].data[6],
+                dme.inbox[i].data[7],
+                dme.inbox[i].data[8],
+                dme.inbox[i].data[9],
+                dme.inbox[i].data[10],
+                dme.inbox[i].data[11]
+            );
+        }
         GFN(int (*)(int, int, int, int, int), RAC3_MADDR(0x0014CE48u))(
             GREF(int32_t, dme.conn + CONN_DISPATCH),
             (int)dme.conn,
@@ -2263,6 +2324,56 @@ static void dme_deliver(void) {
 
 /* Sends a DME packet ([class][id][payload]) to DEST: a client index, -1 / 0xFFFE every other
  * member (the room join request goes to -1), 0xFFFF the DME server (none here: dropped). */
+/* A console that joined with no name in the game's net block sends "(null)" (the game's own
+ * sprintf of a null name) in its room join request (channel 16, name at +0x30) and its slot updates
+ * (channel 17, name at +0x07): the account's name goes in its place, so two such players are not
+ * the same name to the staging room (which sends the second one's "leave"). */
+static void clan_fix(gaddr data, int len) {
+    const int channel = GREF(uint8_t, data + 1);
+    if (net_log() && GREF(uint8_t, data) == 2 && channel == CHANNEL_ROOM_JOIN_REQUEST) {
+        fprintf(stderr, "[info] rac3: online: join request %d bytes:", len);
+        for (int k = 0; k < len; k++) {
+            fprintf(stderr, " %02x", GREF(uint8_t, data + (gaddr)k));
+        }
+        fprintf(stderr, "\n");
+    }
+    if (GREF(uint8_t, data) != 2
+        || (channel != CHANNEL_ROOM_JOIN_REQUEST && channel != CHANNEL_SLOT_UPDATE)) {
+        return;
+    }
+    /* A clanless player's tag is the text of a null pointer, at an offset the two messages differ in
+     * (and by build): every "(null)" left in the message (the name's was replaced by name_fix) is
+     * emptied, a clanless player has an empty tag. */
+    const int name_at = channel == CHANNEL_ROOM_JOIN_REQUEST ? 2 + 0x30 : 2 + 0x07;
+    for (int at = 2; at + 6 <= len; at++) {
+        if (at != name_at && memcmp(G(data + (gaddr)at), "(null)", 6) == 0) {
+            memset(G(data + (gaddr)at), 0, at + 7 <= len ? 7 : 6);
+        }
+    }
+}
+
+static void name_fix(gaddr data, int len) {
+    const int channel = GREF(uint8_t, data + 1);
+    const uint32_t at = channel == CHANNEL_ROOM_JOIN_REQUEST ? 2u + 0x30u : 2u + 0x07u;
+    if (GREF(uint8_t, data) != 2
+        || (channel != CHANNEL_ROOM_JOIN_REQUEST && channel != CHANNEL_SLOT_UPDATE)
+        || (int)at + 16 > len || memcmp(G(data + at), "(null)", 7) != 0 || net_login.name[0] == 0) {
+        return;
+    }
+    memset(G(data + at), 0, 16);
+    snprintf((char*)G(data + at), 16, "%s", net_login.name);
+    /* Its skin was never set either (stale bytes of the name): the first skin. */
+    if (channel == CHANNEL_ROOM_JOIN_REQUEST) {
+        GREF(uint16_t, data + 2u + 0x2Cu) = 0;
+    } else {
+        GREF(uint8_t, data + 2u + 0x05u) = 0;
+    }
+}
+
+#define END_MESSAGE_BYTES 0x68 /* channel 5's message */
+#define END_MESSAGE_COMMAND 0x0C
+#define END_MESSAGE_SCORES 0x82
+
 static int dme_relay(int dest, gaddr data, int len) {
     if (srv.fd == NET_INVALID || !room.in || len <= 0 || len > 0x5F0) {
         return 0;
@@ -2295,6 +2406,25 @@ static int dme_relay(int dest, gaddr data, int len) {
     }
     if (!srv_room((size_t)len + 8)) {
         return 0;
+    }
+    name_fix(data, len);
+    clan_fix(data, len);
+    /* The match's end (channel 5, command 0x82: the scores of the game's eight slots) is followed
+     * by the others' in a wide room: they go first, so a console has them before the message. */
+    if (len == 2 + END_MESSAGE_BYTES && GREF(uint8_t, data + 1) == CHANNEL_MATCH_STATE
+        && GREF(uint8_t, data + 2 + END_MESSAGE_COMMAND) == END_MESSAGE_SCORES
+        && rac3_mp_wide_slots() > 8 && srv_room(0x100)) {
+        uint8_t wide[0xC0];
+        const int n = rac3_mp_wide_end_pack(wide, (int)sizeof wide);
+        if (n > 0) {
+            srv_begin(PACKET_RELAY, -1);
+            srv_i32(target);
+            srv_u8(RELAY_MATCH_END_WIDE);
+            srv_u8((uint8_t)rac3_mp_wide_slots());
+            srv_bytes(wide, (size_t)n);
+            srv_end();
+            fprintf(stderr, "[info] rac3: online: the end message's slots 8+ sent (%d bytes)\n", n);
+        }
     }
     srv_begin(PACKET_RELAY, -1);
     srv_i32(target);
@@ -2390,6 +2520,8 @@ static int obj_new(int32_t id, int32_t type, int32_t owner, int32_t creator) {
     return i;
 }
 
+static void gs_log(const char* who);
+
 /* Sends object I to every other member (TARGET 0) or to one session. */
 static void obj_send(int i, int32_t target) {
     const int32_t size = obj_type[objs[i].type].size;
@@ -2419,6 +2551,9 @@ static void obj_send(int i, int32_t target) {
     srv_bytes(G(objs[i].data), (size_t)size);
     srv_end();
     memcpy(objs[i].sent, G(objs[i].data), (size_t)size);
+    if (net_log() && objs[i].type == gs_wide.type) {
+        gs_log("sent");
+    }
 }
 
 /* DME's update sends what changed in the objects this console owns, every frame (the game edits
@@ -2457,6 +2592,35 @@ static void obj_send_all_to(int32_t session) {
         if (objs[i].owner == me) {
             obj_send(i, session);
         }
+    }
+}
+
+/* The settings object's slots (client:state per slot with a client), logged when they change: the
+ * room's staging as this console sees it (OPENRAC_RAC3_NET_LOG). */
+static void gs_log(const char* who) {
+    static char last[512];
+    char line[512];
+    size_t n = 0;
+    const int slots = rac3_mp_wide_slots();
+    for (int slot = 0; slot < slots && n + 16 < sizeof line; slot++) {
+        const gaddr client = rac3_mp_wide_settings(0x0E0u, slot);
+        const gaddr state = rac3_mp_wide_settings(0x0F0u, slot);
+        if (client == 0 || GREF(int16_t, client) < 0) {
+            continue;
+        }
+        n += (size_t)snprintf(
+            line + n,
+            sizeof line - n,
+            " %d:%d/%d",
+            slot,
+            GREF(int16_t, client),
+            GREF(int16_t, state)
+        );
+    }
+    line[n] = 0;
+    if (strcmp(line, last) != 0) {
+        snprintf(last, sizeof last, "%s", line);
+        fprintf(stderr, "[info] rac3: online: settings (%s), slot client/state:%s\n", who, line);
     }
 }
 
@@ -2525,6 +2689,9 @@ static void obj_receive(int kind, int32_t from, reader* r) {
         obj_callback(obj_type[objs[i].type].on_create, creator, id, 0, 0);
     } else {
         obj_callback(obj_type[objs[i].type].on_update, creator, id, -1, 1);
+    }
+    if (net_log() && objs[i].type == gs_wide.type) {
+        gs_log("received");
     }
 }
 
@@ -2827,6 +2994,14 @@ static void on_frame(int id, reader* r) {
             const int kind = rd_u8(r);
             if (kind == RELAY_OBJECT || kind == RELAY_OBJECT_RELEASE || kind == RELAY_OBJECT_WIDE) {
                 obj_receive(kind, from, r);
+                break;
+            }
+            if (kind == RELAY_MATCH_END_WIDE) {
+                /* The room's width, then the arrays of slots 8 up; a console of another width
+                 * (never in one room) ignores it. */
+                if (r->n >= 1 && r->p[0] == rac3_mp_wide_slots()) {
+                    rac3_mp_wide_end_unpack(r->p + 1, (int)r->n - 1);
+                }
                 break;
             }
             if (kind != RELAY_ROOM_PACKET || r->n == 0 || r->n > sizeof dme.inbox[0].data) {
@@ -3373,6 +3548,7 @@ int mp_func_0017E140(void) {
  * the library's dispatcher (it calls the response's handler, which calls the game's callback). */
 static int medius_update(void) {
     static gaddr buf;
+    create_page_sync();
     net_pump();
     if (lobby.connect_due) {
         lobby.connect_due = 0;
@@ -3473,6 +3649,50 @@ static int dme_send_one(int dest, int cls, int id, int len, int data) {
     return dme_relay(dest, buf, len + 2);
 }
 
+/* READY (Circle) of a player whose slot is past the game's eight: the staging screen's own widgets
+ * stop at eight rows, so such a player has no row for the cursor and the game never sends the slot
+ * update. The port sends it, as the game does (L39_006D4ED8): channel 17, state 6 (ready) or 0, the
+ * slot's team, skin, name and clan. Returns 1 when the press was this console's to take. */
+int rac3_mp_net_toggle_ready(void) {
+    const gaddr gs = GREF(gaddr, RAC3_MADDR(0x00241640u));
+    const int me = room_index_of(srv.session);
+    const member* host = room_member(room.host);
+    /* OPENRAC_RAC3_PORT_READY=1 takes every slot's READY this way: a client too slow to draw runs
+     * several game ticks in the window frame of one press, and the game's own READY (which reads
+     * the pressed button each tick) sends ready, then unready, again and again. */
+    const int all = openrac_env_string("OPENRAC_RAC3_PORT_READY") != NULL;
+    if (gs == 0 || me < 0 || host == NULL || rac3_mp_wide_slots() <= 8) {
+        return 0;
+    }
+    for (int slot = all ? 0 : 8; slot < rac3_mp_wide_slots(); slot++) {
+        const gaddr client = rac3_mp_wide_settings(0x0E0u, slot);
+        if (client == 0 || GREF(int16_t, client) != me) {
+            continue;
+        }
+        const gaddr state = rac3_mp_wide_settings(0x0F0u, slot);
+        const int next = GREF(int16_t, state) >= 6 ? 0 : 6;
+        fprintf(stderr, "[info] rac3: online: READY of slot %d: state %d\n", slot, next);
+        if (room.host == srv.session) {
+            GREF(int16_t, state) =
+                (int16_t)next; /* the host's own slot: published with the object */
+            return 1;
+        }
+        static gaddr buf;
+        if (buf == 0) {
+            buf = openrac_guest_static(0x40);
+        }
+        memset(G(buf), 0, 0x40);
+        GREF(uint8_t, buf + 4) = (uint8_t)GREF(int16_t, rac3_mp_wide_settings(0x0D0u, slot));
+        GREF(uint8_t, buf + 5) = (uint8_t)GREF(int16_t, rac3_mp_wide_settings(0x0C0u, slot));
+        GREF(uint8_t, buf + 6) = (uint8_t)next;
+        memcpy(G(buf + 7), G(rac3_mp_wide_settings(0x000u, slot)), 16);
+        memcpy(G(buf + 0x17), G(rac3_mp_wide_settings(0x080u, slot)), 4);
+        dme_send_one(room_index_of(room.host), 2, CHANNEL_SLOT_UPDATE, 0x20, (int)buf);
+        return 1;
+    }
+    return 0;
+}
+
 int mp_func_0014AAB0(int conn, int a, int b) {
     (void)conn;
     (void)a;
@@ -3526,8 +3746,40 @@ int mp_func_0014B040(int status, int conn) {
     return 0;
 }
 
+/* The EE's timer 1 count (0x10000800, 16 bits, BUSCLK/256 = 576 ticks a millisecond): the multiplayer
+ * programs read it each loop, add it to their frame clock (level 39's 0x00240200, which the match's
+ * clock and time limit run on) and write 0 back. The port has no timer page, so it read 0 for ever and
+ * a match's clock never ran (and its time limit never came). The count of the real time since the last
+ * update goes into the register here, each net update, as a counter and no more. */
+#define T1_COUNT 0x10000800u
+
+static void timer1_feed(void) {
+    static int64_t start, fed;
+    const int64_t now = host_ms();
+    /* Only in a running match (the host's slot is at state 8, the map loaded and its start barrier open):
+     * the staging and the map's wait for the others' loads run the game's own timeouts (5.4 s to report)
+     * on this clock, which a console loading a map slowly would trip, and the menus' timing stays what
+     * it was. */
+    const gaddr gs = GREF(gaddr, RAC3_MADDR(0x00241640u));
+    if (gs == 0 || GREF(int16_t, gs + 0xF0u) != 8) {
+        start = 0;
+        fed = 0;
+        return;
+    }
+    if (start == 0) {
+        start = now;
+    }
+    const int64_t due = (now - start) * 576 - fed;
+    if (due > 0) {
+        fed += due;
+        const uint32_t sum = GREF(uint32_t, T1_COUNT) + (uint32_t)(due > 0xFFFF ? 0xFFFF : due);
+        GREF(uint32_t, T1_COUNT) = sum > 0xFFFFu ? 0xFFFFu : sum;
+    }
+}
+
 /* dme_update: the server's packets, the session's callbacks and the room's messages. */
 int mp_func_0014B118(void) {
+    timer1_feed();
     vblank_count();
     if (dme.joined && rac3_mp_wide_slots() > 8) {
         /* The room's capacity (net + 0x134, which the room join request checks a join against):

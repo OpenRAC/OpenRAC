@@ -6,11 +6,11 @@
 //
 // The reverb the mixer sends the "to reverb" tones through: what the sound
 // library's SetReverbEx / AutoReverb select on the console. This is a native
-// stereo reverb in the style of a Moorer reverb (four damped feedback combs
+// float stereo reverb in the style of a Moorer reverb (four damped feedback combs
 // per channel into two series all-passes), not the sound processor's reverb
 // engine: no register is modelled. What reaches it is the send of the voices
 // flagged for reverb, after their envelope and volume; its wet output is
-// scaled by depth / 0x8000 and added to the dry mix before the master volume.
+// scaled by depth / 0x8000 and added to the dry mix.
 //
 // Each libsd effect type is a preset whose character ReRAC derived once from
 // libsd's preset table (in RAC1's libsd module) as results: the same-side and
@@ -92,8 +92,8 @@ public:
     float depth() const { return m_depth; }
 
     // One sample: the send (left, right) in, the wet signal out, already
-    // scaled by the depth.
-    std::array<int, 2> run(std::array<int, 2> send);
+    // scaled by the depth (float, the same scale in and out).
+    std::array<float, 2> run(std::array<float, 2> send);
 
 private:
     struct Network;

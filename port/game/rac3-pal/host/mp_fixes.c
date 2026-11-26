@@ -46,6 +46,7 @@
 #include <stdio.h>
 
 #include "mp/game_protos.h"
+#include "mp_wide.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
 #include "rac3_version.h"
@@ -120,6 +121,7 @@ enum fix_kind {
     FIX_HOST_STALL,
     FIX_GADGET_EVENT_TIME,
     FIX_GAME_TIME,
+    FIX_HEAD_POINT,
     FIX_KINDS
 };
 
@@ -136,6 +138,7 @@ static const char* const FIX_NAMES[FIX_KINDS] = {
     "stall on a silent host",
     "remote gadget event time",
     "net updated in a state that skips it",
+    "camera head point from an empty camera matrix",
 };
 
 static int fixes_on(void) {
@@ -429,7 +432,48 @@ static int fix_pad_update(int map, int (*game)(void)) {
     return game();
 }
 
+/* ---- The end of a match in a room of more than 8 players ----
+ * Each map's end routine (level 39's 0x00670D90) fills the results block for the game's eight
+ * slots and names the winner among them; in a wide room the port's wrap then fills slots 8 and up
+ * (host/mp_wide.c, from the port's companions of the settings and the game-mode struct) and names
+ * the winner again over every slot. A room of 8 is the game's own. */
+static int fix_end_results(int reason, int (*game)(int), int (*profile_reset)(int)) {
+    const int result = game(reason);
+    rac3_mp_wide_end_results(reason, profile_reset);
+    return result;
+}
+
 /* One map's wraps, in mp/fixes.py FIXED's order. */
+/* ---- The camera's first frame: the head point from an empty camera matrix ----
+ * The spawn (0x005271F0 in map 48) computes the head point the camera follows, player +0x1180 =
+ * position + up * height (0x0050C348, level 39's 0x00646B98), with up the third row of the matrix
+ * that +0x1288 names. A local player's is its camera matrix (+0x1100), which only the player's
+ * camera update (0x0050A4B8) fills, and that does not run before the match starts: up is zero and
+ * the head point is the feet. On the first gameplay frame the focus body starts from it, the
+ * camera is placed there, and in Aquatos Sewers (48) the feet are under a puddle's surface: the
+ * camera's underwater flag is set and never cleared, the picture stays blue. While the camera
+ * matrix is still empty, the head point is taken from the moby's own matrix (+0x20), as the game
+ * does for a player without a camera. */
+#define PLAYER_HEAD_MATRIX 0x1288u /* the matrix whose third row is up (+0x20 or +0x1100) */
+#define PLAYER_CAMERA_MATRIX 0x1100u
+#define PLAYER_MOBY_MATRIX 0x20u
+
+static float fix_head_point(int map, int player, float (*game)(int)) {
+    const gaddr p = (gaddr)player;
+    if (!fixes_on() || p == 0 || GREF(gaddr, p + PLAYER_HEAD_MATRIX) != p + PLAYER_CAMERA_MATRIX) {
+        return game(player);
+    }
+    const gaddr up = p + PLAYER_CAMERA_MATRIX + 0x20u;
+    if (GREF(uint32_t, up) != 0 || GREF(uint32_t, up + 4u) != 0 || GREF(uint32_t, up + 8u) != 0) {
+        return game(player);
+    }
+    GREF(gaddr, p + PLAYER_HEAD_MATRIX) = p + PLAYER_MOBY_MATRIX;
+    const float result = game(player);
+    GREF(gaddr, p + PLAYER_HEAD_MATRIX) = p + PLAYER_CAMERA_MATRIX;
+    fixed(FIX_HEAD_POINT, map);
+    return result;
+}
+
 #define MP_FIX(                                                                                    \
     m,                                                                                             \
     equip,                                                                                         \
@@ -447,7 +491,10 @@ static int fix_pad_update(int map, int (*game)(void)) {
     local_update,                                                                                  \
     player_update,                                                                                 \
     gadget_event,                                                                                  \
-    pad_update                                                                                     \
+    pad_update,                                                                                    \
+    head_point,                                                                                    \
+    end_results,                                                                                   \
+    profile_reset                                                                                  \
 )                                                                                                  \
     int mp_func_L##m##_##equip(int a0) {                                                           \
         return fix_equip(m, a0, mp_func_L##m##_##equip##__game);                                   \
@@ -501,6 +548,14 @@ static int fix_pad_update(int map, int (*game)(void)) {
     }                                                                                              \
     int mp_func_L##m##_##pad_update(void) {                                                        \
         return fix_pad_update(m, mp_func_L##m##_##pad_update##__game);                             \
+    }                                                                                              \
+    float mp_func_L##m##_##head_point(int a0) {                                                    \
+        return fix_head_point(m, a0, mp_func_L##m##_##head_point##__game);                         \
+    }                                                                                              \
+    int mp_func_L##m##_##end_results(int a0) {                                                     \
+        return fix_end_results(                                                                    \
+            a0, mp_func_L##m##_##end_results##__game, mp_func_L##m##_##profile_reset               \
+        );                                                                                         \
     }
 
 #include "mp_fixes.h"

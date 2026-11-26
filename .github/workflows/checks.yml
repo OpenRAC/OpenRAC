@@ -6,17 +6,34 @@
 # Every action is pinned to a commit (Dependabot, .github/dependabot.yml,
 # moves the pins); the port's compiles are cached with ccache.
 name: checks
+# Each run's title: a pull request's own title; otherwise the run number, what started it and where.
+run-name: >-
+  ${{ github.event_name == 'pull_request'
+      && github.event.pull_request.title
+  || github.event_name == 'merge_group'
+      && format('checks #{0} · queue → {1}', github.run_number, endsWith(github.event.merge_group.base_ref, '/master') && 'master' || 'develop')
+  || github.event_name == 'push'
+      && format('checks #{0} · push {1}', github.run_number, github.ref_name)
+  || format('checks #{0} · manual {1} · by {2}', github.run_number, github.ref_name, github.actor) }}
 
-# Two tiers (tools/ci_scope.py). A pull request runs the fast tier: the checks that answer in
-# minutes. The merge queue (merge_group) runs the full tier on the queued changes before they
-# land: the fast tier again plus Windows, the enhanced Vulkan build and tests, and the carried
-# releases. A push runs everything; on develop it is also the only run that writes the caches
-# (.github/actions/*/save), so it is never cancelled.
+# A pull request runs only the lint jobs (lint_*), which need no build. So does a dev release's
+# pull request (release/dev to master, .github/workflows/dev-release.yml starts this on
+# release/dev by hand). The merge queue runs everything else and no lint. develop's queue builds
+# the port's shared part and runs its tests, the enhanced Vulkan build, the launcher and the unit
+# tests (tools/ci_scope.py picks what the change can affect). master's queue (a dev release) runs
+# everything: hostgen, every game in every version and Windows; launcher.yml builds the installers
+# and publishes them in the same queue run. A game that breaks there is fixed on develop. A job a
+# run does not need reports skipped, which passes a required check. A push to master runs only the
+# repository checks. A push to develop starts no checks: only a run on develop can write the
+# caches every run reads, so develop's queue hands its new caches on as artifacts
+# (.github/actions/cache-out) and cache-handoff.yml saves them after the merge, with no build. A
+# manual run runs everything.
 on:
+  # develop is pushed only by its merge queue, which checked the commit already:
+  # cache-handoff.yml saves that run's caches instead.
   push:
-    branches: [master, develop]
+    branches: [master]
   pull_request:
-    # ready_for_review: a draft skips the port's builds (scope below), so they run when it is ready.
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
@@ -33,21 +50,20 @@ env:
   # "required") build with stubs on purpose instead of stopping (port/tools/hostgen/asmc.py).
   OPENRAC_HOSTGEN_NO_DISC: "1"
 
-# A new push to a pull request supersedes its old run. Pushes finish: develop's write the caches
-# every pull request reads, and master's are a release's checks. Each merge queue group has a ref
-# of its own.
+# A new push to a pull request supersedes its old run. Pushes to master finish: they are a
+# release's checks. Each merge queue group has a ref of its own.
 concurrency:
   group: checks-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # A new dev release replaces release/dev: its older run goes too.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev' }}
 
 jobs:
   # What a run needs (tools/ci_scope.py: the jobs and the port's parts its files can affect, in
   # the event's tier), and on every event all the parts the Linux port job is built in: one for
-  # what the games share, one per game program (port/game/*/hostgen.json "id"). A push runs
-  # everything. A draft pull request runs no port build, only the cheap checks; marking it ready
-  # runs the rest.
-  scope:
-    name: Which checks run
+  # what the games share, one per game program (port/game/*/hostgen.json "id"). master's queue (a
+  # dev release) and a manual run run everything; a push to master only the repository checks.
+  plan:
+    name: plan
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
@@ -59,6 +75,7 @@ jobs:
       windows: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.windows || 'true' }}
       launcher_systems: ${{ steps.scope.outputs.launcher_systems || '["Linux", "Windows"]' }}
       port_programs: ${{ steps.parts.outputs.port_programs }}
+      port_part_names: ${{ steps.parts.outputs.port_part_names }}
       port_parts: ${{ github.event.pull_request.draft && '[]' || steps.scope.outputs.port_parts || steps.parts.outputs.port_parts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -73,27 +90,51 @@ jobs:
                             for path in pathlib.Path("port/game").glob("*/hostgen.json"))
           print("port_programs=" + json.dumps(programs))
           print("port_parts=" + json.dumps(["common", *programs]))
+          # Check names: port_linux_common, port_linux_rac1_ntsc, ...
+          print("port_part_names=" + json.dumps({part: "port_linux_" + part.replace("-", "_")
+                                                 for part in ["common", *programs]}))
           PY
       - id: scope
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           MERGE_BASE: ${{ github.event.merge_group.base_sha }}
+          MERGE_BASE_REF: ${{ github.event.merge_group.base_ref }}
+          BEFORE: ${{ github.event.before }}
         run: |
-          # The base branch's policy, so that a change to the gate gets full checks. A push or a
-          # manual run gives every output (the defaults above).
+          # The base branch's policy, so that a change to the gate gets full checks. A develop
+          # push checks what it changed (it landed through the queue, which checked all of it);
+          # master's queue (a dev release), any other push or a manual run gives every output (the
+          # defaults).
           script="$RUNNER_TEMP/openrac-ci-scope.py"
           case "$GITHUB_EVENT_NAME" in
-            pull_request) git show HEAD^1:tools/ci_scope.py > "$script" || exit 0 ;;
+            pull_request)
+              [ "$GITHUB_BASE_REF" != master ] || exit 0
+              git show HEAD^1:tools/ci_scope.py > "$script" || exit 0 ;;
             merge_group)
+              # master's queue (a dev release) checks everything.
+              [ "$MERGE_BASE_REF" != refs/heads/master ] || exit 0
               git fetch -q --no-tags --depth=1 origin "$MERGE_BASE" || exit 0
               git show "$MERGE_BASE:tools/ci_scope.py" > "$script" || exit 0 ;;
+            push)
+              if [ "$GITHUB_REF" = refs/heads/master ]; then
+                echo "docs_only=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              [ "$GITHUB_REF" = refs/heads/develop ] && [ -n "$BEFORE" ] || exit 0
+              [ "$BEFORE" != 0000000000000000000000000000000000000000 ] || exit 0
+              git fetch -q --no-tags --depth=1 origin "$BEFORE" || exit 0
+              script=tools/ci_scope.py
+              export PUSH_BEFORE="$BEFORE" ;;
             *) exit 0 ;;
           esac
           python3 "$script"
 
-  # Starts at once, beside scope: most failures are found here, in a few minutes.
-  checks:
-    name: Repository (tools, tables, conventions)
+  # Lint: the repository's static checks (no build, no unit tests). Pull requests and pushes, not
+  # the merge queue: the pull request already ran them on its merge with develop. Starts at once,
+  # beside plan.
+  lint_repo:
+    name: lint_repo
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
@@ -105,9 +146,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      # A pull request runs a decomp's own tool checks only when it changes that game (tools/ci_scope.py
-      # decomp-games); the merge queue and pushes run them all. With the base branch's script, as in scope.
-      - name: Which games' decomp tools to check
+      # A pull request checks a decomp's progress report only when it changes that game (tools/ci_scope.py
+      # decomp-games); pushes check them all. With the base branch's script, as in plan.
+      - name: Which games' decomp reports to check
         id: games
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
@@ -124,7 +165,7 @@ jobs:
       # the port's tables made from it and has its build facts published (tools/sources.py check).
       - name: Decomp pins
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ -n "$BASE" ]; then
@@ -147,59 +188,32 @@ jobs:
           tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -shellcheck=
 
-      - name: OpenRAC tools
-        run: python -m unittest discover -s tools -v
-
-      - name: PAL and NTSC rendering host-hook parity
-        run: python -m unittest discover -s port/tools/hostgen -p test_host_hook_parity.py -v
-
       # Every game version's tables, with no disc (port/tools/versionmap/check_versions.py): each
       # version binds each function alike or its game's parity.tsv says why, carried releases'
       # tables are what their tool writes, each version's names table covers the shared host C, and
       # the built-in keyboard and mouse has each version's addresses.
       # A new game or version is found by its files, so this step does not change.
       - name: Game versions' tables
-        run: |
-          python -m unittest discover -s port/tools/versionmap -p test_parity.py -v
-          python -m unittest discover -s port/tools/versionmap -p test_kbm_discs.py -v
-          python -m unittest discover -s port/tools/hostgen -p test_release_carry_rac3.py -v
-          python port/tools/versionmap/check_versions.py
-
-      # The extractor (what OpenRAC Editor's tools import: extractor_api.json), synthetic data only.
-      - name: Extractor (synthetic data only)
-        run: python -m unittest discover -s extractor -v
-
-      # Again on the oldest Python the launcher accepts (config.rs), which players may have.
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        id: python310
-        with:
-          python-version: "3.10"
-          update-environment: false
-      - name: Extractor on Python 3.10
-        env:
-          PYTHON310: ${{ steps.python310.outputs.python-path }}
-        run: '"$PYTHON310" -m unittest discover -s extractor'
-
-      - name: Probe bake planning (synthetic data only)
-        run: python -m unittest discover -s port/enhanced/tools/baker -v
-
-      - name: Water bake preparation (synthetic data only)
-        run: python -m unittest discover -s port/enhanced/tools/water -v
+        run: python port/tools/versionmap/check_versions.py
 
       # The port's countable conventions (docs/CODING_CONVENTIONS.md): the rules for every
       # file, and the new-code rules on what this push or pull request adds. A line it changes that
       # clang-format would lay out differently fails the step (--strict-touched; the page, section
-      # 24.4), in older files too. clang-format is pinned.
+      # 24.4), in older files too. clang-format is pinned. Code reaches master only through a dev
+      # release, whose lines develop's pull requests already checked: a pull request or push to
+      # master runs only the every-file rules.
       - name: Port conventions
         env:
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
-          PR_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          TO_MASTER: ${{ github.base_ref == 'master' || github.ref == 'refs/heads/master' }}
         run: |
           python -m pip install clang-format==21.1.8
-          python -m unittest discover -s port/tools/conventions -v
           base=""
-          if [ "$EVENT" = pull_request ] || [ "$EVENT" = merge_group ]; then
+          if [ "$TO_MASTER" = true ]; then
+            base=""
+          elif [ "$EVENT" = pull_request ]; then
             base="$PR_BASE"
           elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then
             base="$BEFORE"
@@ -229,9 +243,7 @@ jobs:
       # 18): a new include of a higher layer fails; today's violations are the exceptions listed in
       # port/tools/layering/rules.tsv. Standard-library Python, the whole port on every run.
       - name: Port layering
-        run: |
-          python -m unittest discover -s port/tools/layering -v
-          python port/tools/layering/layering.py
+        run: python port/tools/layering/layering.py
 
       - name: Generated tables match games/*/game.json and the reports
         run: |
@@ -255,8 +267,63 @@ jobs:
           python tools/progress.py --version us --check
           python tools/progress.py --version pal --check
 
+  # The repository's unit tests: OpenRAC's tools, the extractor, the bake tools, the lint tools'
+  # own tests and each game's decomp tools as its original repository ran them. The merge queue
+  # and pushes, not a pull request to develop (the queue runs them on what will land).
+  repo_tests:
+    name: repo_tests
+    if: ${{ !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: OpenRAC tools
+        run: python -m unittest discover -s tools -v
+
+      - name: PAL and NTSC rendering host-hook parity
+        run: python -m unittest discover -s port/tools/hostgen -p test_host_hook_parity.py -v
+
+      - name: Game versions' table tools
+        run: |
+          python -m unittest discover -s port/tools/versionmap -p test_parity.py -v
+          python -m unittest discover -s port/tools/versionmap -p test_kbm_discs.py -v
+          python -m unittest discover -s port/tools/hostgen -p test_release_carry_rac3.py -v
+
+      # The extractor (what OpenRAC Editor's tools import: extractor_api.json), synthetic data only.
+      - name: Extractor (synthetic data only)
+        run: python -m unittest discover -s extractor -v
+
+      # Again on the oldest Python the launcher accepts (config.rs), which players may have.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        id: python310
+        with:
+          python-version: "3.10"
+          update-environment: false
+      - name: Extractor on Python 3.10
+        env:
+          PYTHON310: ${{ steps.python310.outputs.python-path }}
+        run: '"$PYTHON310" -m unittest discover -s extractor'
+
+      - name: Probe bake planning (synthetic data only)
+        run: python -m unittest discover -s port/enhanced/tools/baker -v
+
+      - name: Water bake preparation (synthetic data only)
+        run: python -m unittest discover -s port/enhanced/tools/water -v
+
+      - name: Conventions and layering tools
+        run: |
+          python -m pip install clang-format==21.1.8
+          python -m unittest discover -s port/tools/conventions -v
+          python -m unittest discover -s port/tools/layering -v
+
       - name: rac1/ntsc tools
-        if: contains(fromJSON(steps.games.outputs.games), 'rac1')
         working-directory: games/rac1/ntsc-decomp
         run: |
           # scripts/data-refs.py and its tests read the executable with these
@@ -266,7 +333,6 @@ jobs:
           python -m py_compile scripts/*.py
 
       - name: rac2 tools, layout and progress report
-        if: contains(fromJSON(steps.games.outputs.games), 'rac2')
         working-directory: games/rac2/decomp
         run: |
           # tools/check.py disassembles with it, at the version the decomp pins.
@@ -276,32 +342,68 @@ jobs:
           python tools/progress.py --check
 
       - name: rac5 tools and layout
-        if: contains(fromJSON(steps.games.outputs.games), 'rac5')
         working-directory: games/rac5/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py
 
       - name: rac6 tools and layout
-        if: contains(fromJSON(steps.games.outputs.games), 'rac6')
         working-directory: games/rac6/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py
 
+  # Lint: the launcher's format and static checks (Rust format, svelte-check, ESLint, Prettier),
+  # with no build. Pull requests and pushes, not the merge queue (as the repository's lint).
+  lint_launcher:
+    name: lint_launcher
+    needs: plan
+    if: ${{ !cancelled() && github.event_name != 'merge_group' && needs.plan.outputs.docs_only != 'true' && (needs.plan.outputs.launcher != 'false' || needs.plan.outputs.pages != 'false') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: launcher
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.13.0"
+          package-manager-cache: false
+      - run: npm install --global corepack@0.36.0 && corepack enable
+      - uses: ./.github/actions/yarn-cache
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          components: rustfmt
+      - name: Rust format
+        run: cargo fmt --all --check
+      - name: The launcher's packages
+        run: yarn install --immutable
+      - name: svelte-check, ESLint and Prettier
+        run: |
+          yarn typecheck
+          yarn lint
+          yarn format:check
+
   # The desktop launcher (launcher/): its Rust side, whose tests also check launcher/actions.json
   # against games/*/game.json. Linux in every tier; Windows, where paths join with backslashes,
-  # files are checked out with CRLF and the Unix-only tests are left out, in the full tier.
+  # files are checked out with CRLF and the Unix-only tests are left out, for a dev release.
+  # Not on a pull request to develop: the merge queue runs it.
   launcher:
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' && needs.scope.outputs.launcher_systems != '[]' }}
-    name: Launcher / ${{ matrix.system }}
+    needs: plan
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.launcher != 'false' && needs.plan.outputs.launcher_systems != '[]' }}
+    name: "${{ matrix.system == 'Windows' && 'launcher_windows' || 'launcher_linux' }}"
     runs-on: ${{ matrix.system == 'Windows' && 'windows-latest' || 'ubuntu-26.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        system: ${{ fromJSON(needs.scope.outputs.launcher_systems) }}
+        system: ${{ fromJSON(needs.plan.outputs.launcher_systems) }}
     defaults:
       run:
         shell: bash
@@ -314,19 +416,15 @@ jobs:
       - uses: ./.github/actions/launcher-toolchain
         with:
           cache-key: checks-launcher-${{ matrix.system == 'Windows' && 'windows-latest' || 'ubuntu-26.04' }}
-          components: clippy, rustfmt
+          components: clippy
       - name: Tauri's system libraries
         if: runner.os == 'Linux'
         uses: ./.github/actions/apt-install
         with:
           packages: libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev
 
-      # The pages' checks (yarn verify) are the same on every system: they run once, in
-      # launcher-android. Here only what differs per system: the Rust side.
-      - name: Rust format
-        if: runner.os == 'Linux'
-        run: cargo fmt --all --check
-
+      # The pages' tests are the same on every system: they run once, in launcher_pages, and
+      # their lint in lint_launcher. Here only what differs per system: the Rust side.
       - name: Rust tests (the logic, and actions.json against the checkout)
         run: cargo test -p openrac-launcher-core
 
@@ -336,28 +434,30 @@ jobs:
           yarn build
           cargo clippy --workspace --all-targets -- -D warnings
 
-  # One check for the launcher's systems (what branch protection requires): Windows is not in a
-  # pull request's matrix at all, so its own check cannot be the required one.
-  launcher-gate:
-    name: Launcher
-    needs: [scope, launcher]
-    if: ${{ !cancelled() }}
+  # One check for the launcher's systems (what branch protection requires): Windows is in the
+  # matrix only for a dev release, so its own check cannot be the required one. Skipped (which
+  # passes) on a pull request to develop: the merge queue runs it.
+  launcher_gate:
+    name: launcher_gate
+    needs: [plan, launcher]
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require every system
         env:
-          SCOPE: ${{ needs.scope.result }}
+          PLAN: ${{ needs.plan.result }}
           RESULT: ${{ needs.launcher.result }}
-        run: test "$SCOPE" = success && { test "$RESULT" = success || test "$RESULT" = skipped; }
+        run: test "$PLAN" = success && { test "$RESULT" = success || test "$RESULT" = skipped; }
 
-  # The launcher's pages, once (they are the same on every system): svelte-check, ESLint,
-  # Prettier and Vitest, then the Android layout in a browser (launcher/e2e/), page by page. No
-  # Rust, one browser, one Vite server. On 24.04, which Playwright's install-deps knows.
-  launcher-android:
-    name: Launcher / Pages (lint, unit tests, Android layout)
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.pages != 'false' }}
+  # The launcher's pages, once (they are the same on every system): Vitest, then the Android
+  # layout in a browser (launcher/e2e/), page by page. No Rust, one browser, one Vite server. On
+  # 24.04, which Playwright's install-deps knows. Their lint is in lint_launcher. Not on a pull
+  # request to develop: the merge queue runs it.
+  launcher_pages:
+    name: launcher_pages
+    needs: plan
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.pages != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -377,21 +477,23 @@ jobs:
       - uses: ./.github/actions/yarn-cache
       - name: The launcher's packages
         run: yarn install --immutable
-      - name: Lint and unit tests (svelte-check, ESLint, Prettier, Vitest)
-        run: yarn verify
+      - name: Unit tests (Vitest)
+        run: yarn test
       # The browser comes from Playwright's CDN, cached by version. No apt on the way: the
       # runner has its libraries already, and apt mirrors that fail to resolve took 10 minutes
       # and failed the job over fonts the tests never use. install-deps runs only when a
       # library is really missing, and is cut short.
       - id: playwright
         run: echo "version=$(node -p "require('playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
-      # Written by pushes only, as every cache here (.github/actions/compiler-cache/save).
+      # Written by pushes only, as every cache here (.github/actions/compiler-cache/save); develop's
+      # queue hands it on below.
       - if: github.event_name != 'pull_request' && github.event_name != 'merge_group'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
-      - if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+      - id: browser-cache
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
@@ -409,6 +511,12 @@ jobs:
             timeout 300 yarn playwright-core install-deps chromium-headless-shell \
               || echo "::warning::install-deps failed; trying the tests anyway"
           fi
+      - name: Hand on the browser
+        if: github.event_name == 'merge_group' && steps.browser-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/cache-out
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
       - name: Android pages
         run: yarn test:android
 
@@ -421,19 +529,19 @@ jobs:
   # labelled game-<id> (port/cmake/Games.cmake). One part per program, not per game: Going
   # Commando's three programs in one job took 53 minutes with a cold cache. Every test runs in
   # exactly one part.
-  port-part:
-    name: Port / Linux (${{ matrix.part }})
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port_parts != '[]' }}
+  port_linux:
+    name: "${{ fromJSON(needs.plan.outputs.port_part_names || '{}')[matrix.part] || format('port_linux_{0}', matrix.part) }}"
+    needs: plan
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.port_parts != '[]' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        part: ${{ fromJSON(needs.scope.outputs.port_parts) }}
+        part: ${{ fromJSON(needs.plan.outputs.port_parts) }}
     env:
       PART: ${{ matrix.part }}
-      PORT_PROGRAMS: ${{ needs.scope.outputs.port_programs }}
+      PORT_PROGRAMS: ${{ needs.plan.outputs.port_programs }}
       MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
       MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
@@ -525,32 +633,37 @@ jobs:
             ctest --preset release --parallel 2 --stop-on-failure --no-tests=error -L "^game-$PART\$"
           fi
 
-      - uses: ./.github/actions/compiler-cache/save
+      # What compiled before a failure still saves the next run the time.
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/mesa-cache/save
 
-  # One check for every part (what branch protection requires).
-  port:
-    name: Port / Linux
-    needs: [scope, port-part]
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+  # One check for every part (what branch protection requires). Skipped (which passes) on a pull
+  # request to develop: the merge queue runs it.
+  port_linux_gate:
+    name: port_linux_gate
+    needs: [plan, port_linux]
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require every part
         env:
-          RESULT: ${{ needs.port-part.result }}
-          PARTS: ${{ needs.scope.outputs.port_parts }}
+          RESULT: ${{ needs.port_linux.result }}
+          PARTS: ${{ needs.plan.outputs.port_parts }}
         # Skipped only when the pull request needs no part.
         run: test "$RESULT" = success || { test "$RESULT" = skipped && test "$PARTS" = "[]"; }
 
   # Full enhanced Vulkan coverage and the offline Embree baker, separately from the compatibility
-  # build above. The preset explicitly compiles enhanced code in. One job: the build, then each
-  # test group (tools/ci_port_tests.py) in turn on the same runner. Most Vulkan tests share one
-  # lock (cmake/GpuTests.cmake), so they run one by one wherever they run. Full tier only.
-  port-vulkan-enhanced-build:
-    name: Port / Enhanced Vulkan build and tests
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.enhanced != 'false' }}
+  # build above. The preset explicitly compiles enhanced code in. One job: the build, then two
+  # CTest calls (tools/ci_port_tests.py): the tests without Vulkan, then all Vulkan tests. Full
+  # tier only.
+  enhanced_vulkan:
+    name: enhanced_vulkan
+    needs: plan
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.enhanced != 'false' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 120
     env:
@@ -590,11 +703,30 @@ jobs:
         with:
           path: ${{ runner.temp }}/openrac-enhanced-apt/*.deb
           key: ${{ steps.enhanced-apt.outputs.cache-primary-key }}
+      - name: Hand on enhanced Vulkan packages
+        if: steps.enhanced-apt.outputs.cache-hit != 'true' && github.event_name == 'merge_group'
+        uses: ./.github/actions/cache-out
+        with:
+          path: ${{ runner.temp }}/openrac-enhanced-apt/*.deb
+          key: ${{ steps.enhanced-apt.outputs.cache-primary-key }}
       - uses: ./.github/actions/port-build-cache
         with:
           variant: ubuntu-enhanced-baker
           preset: enhanced
           hostgen: "false"
+      # The shader compiler's own cache: one file per program, keyed by its source and glslang, so
+      # only changed shaders compile again. The compiler deletes the entries it no longer uses.
+      - name: Restore the shader compiler cache
+        id: shader-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: port/build/enhanced/generated/shader_package/.cache
+          key: shader-cache-v1-enhanced-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          restore-keys: shader-cache-v1-enhanced-${{ runner.os }}-${{ runner.arch }}-
+      - name: List the restored shader compiler cache
+        run: |
+          { ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null || true; } |
+            sha256sum > "$RUNNER_TEMP/shader-cache.list"
 
       - name: Build enhanced lighting and baker
         working-directory: port
@@ -605,16 +737,43 @@ jobs:
             -DOPENRAC_VULKAN_TEST_SEED_CACHE=ON
           cmake --build --preset enhanced
 
-      # Every group, even after one fails, so that one run shows every failure.
-      - name: The test groups
+      # Only a push writes it (develop's queue hands it on), and only when the compiler added or
+      # dropped an entry.
+      - name: Check the shader compiler cache
+        id: shader-cache-new
+        if: github.event_name != 'pull_request'
+        env:
+          RESTORED: ${{ steps.shader-cache.outputs.cache-matched-key }}
+        run: |
+          changed=true
+          { ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null || true; } |
+            sha256sum | cmp -s - "$RUNNER_TEMP/shader-cache.list" && changed=false
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          entries=$({ ls port/build/enhanced/generated/shader_package/.cache 2>/dev/null || true; } | wc -l)
+          echo "::notice title=shader cache::$entries entries, restored ${RESTORED:-none}, save: $changed"
+      - name: Save the shader compiler cache
+        if: steps.shader-cache-new.outputs.changed == 'true' && github.event_name != 'merge_group'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: port/build/enhanced/generated/shader_package/.cache
+          key: ${{ steps.shader-cache.outputs.cache-primary-key }}
+      - name: Hand on the shader compiler cache
+        if: steps.shader-cache-new.outputs.changed == 'true' && github.event_name == 'merge_group'
+        uses: ./.github/actions/cache-out
+        with:
+          path: port/build/enhanced/generated/shader_package/.cache
+          key: ${{ steps.shader-cache.outputs.cache-primary-key }}
+
+      - name: The tests
         env:
           SDL_VIDEO_DRIVER: x11
           LIBGL_ALWAYS_SOFTWARE: "1"
           GALLIVM_PERF: nopt
         run: |
           python3 tools/ci_port_tests.py port/build/enhanced plan
+          # Both groups, even after the first fails, so that one run shows every failure.
           failed=""
-          for group in vulkan equivalence effects cpu baker; do
+          for group in host vulkan; do
             echo "::group::$group"
             xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$group" || failed="$failed $group"
             echo "::endgroup::"
@@ -632,23 +791,27 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - uses: ./.github/actions/compiler-cache/save
+      # What compiled before a failure still saves the next run the time.
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/mesa-cache/save
 
-  # One check for the build and its tests (what branch protection requires).
-  port-vulkan-enhanced:
-    name: Port / Enhanced Vulkan
-    needs: [scope, port-vulkan-enhanced-build]
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+  # One check for the build and its tests (what branch protection requires). Skipped (which
+  # passes) on a pull request to develop: the merge queue runs it.
+  enhanced_vulkan_gate:
+    name: enhanced_vulkan_gate
+    needs: [plan, enhanced_vulkan]
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Require the build and its tests
         env:
-          RESULT: ${{ needs.port-vulkan-enhanced-build.result }}
-          NEEDED: ${{ needs.scope.outputs.enhanced }}
-        # Skipped only when the change does not touch what the enhanced build reads, or in a pull
-        # request's fast tier (the merge queue runs it).
+          RESULT: ${{ needs.enhanced_vulkan.result }}
+          NEEDED: ${{ needs.plan.outputs.enhanced }}
+        # Skipped only when the change does not touch what the enhanced build reads.
         run: |
           if [ "$NEEDED" = false ]; then test "$RESULT" = skipped; exit; fi
           test "$RESULT" = success
@@ -658,11 +821,11 @@ jobs:
   # libraries and the Windows SDK, Clang, Ninja), then the runtime's tests and
   # those of hostgen's that need no POSIX host. The port is written on Linux
   # and macOS, and what only builds there (execinfo.h, fseeko) stops here.
-  port-windows:
-    name: Port / Windows
-    needs: scope
-    # Full tier: the merge queue and pushes.
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.windows == 'true' }}
+  port_windows:
+    name: port_windows
+    needs: plan
+    # Only when everything is checked (master's queue, a manual run).
+    if: ${{ !cancelled() && !(github.event_name == 'pull_request' || github.ref == 'refs/heads/release/dev') && needs.plan.outputs.docs_only != 'true' && needs.plan.outputs.windows == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 120
     env:
@@ -700,5 +863,9 @@ jobs:
       - name: hostgen's tests
         run: python -m unittest discover -s port/tools/hostgen -v
 
-      - uses: ./.github/actions/compiler-cache/save
+      # What compiled before a failure still saves the next run the time.
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/compiler-cache/save
       - uses: ./.github/actions/port-build-cache/save
+      - if: ${{ !cancelled() }}
+        uses: ./.github/actions/mesa-cache/save

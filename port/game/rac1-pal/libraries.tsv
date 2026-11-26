@@ -109,13 +109,13 @@ func_001241F0	mc	sceMcGetDir	host
 func_00124340	mc	sceMcFormat	host
 func_00124410	mc	sceMcDelete	host
 func_00124528	mc	sceMcUnformat	host
-func_00124650	dbc	sceDbcInit	host	pads come from the platform layer
-func_00124B88	pad2	scePad2Init	game	it only sets libpad2's state (its init flag, its socket table cleared); the port's pad functions keep no state there
-func_00124BC8	pad2	scePad2CreateSocket	host
-func_00124D18	pad2	scePad2Read	host
-func_00124DF0	pad2	scePad2GetButtonProfile	host
-func_00124EE0	pad2	scePad2GetState	host
-func_00125218	vib	sceVibGetProfile	host
+func_00124650	dbc	sceDbcInit	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124B88	pad2	scePad2Init	game	libpad2's state only (its init flag, its socket table cleared); no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124BC8	pad2	scePad2CreateSocket	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124D18	pad2	scePad2Read	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124DF0	pad2	scePad2GetButtonProfile	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00124EE0	pad2	scePad2GetState	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
+func_00125218	vib	sceVibGetProfile	host	no call reaches it: InitPads and Pad_UpdatePort are the port's (rac1/host/pad_state.c)
 func_00125358	vu0	sceVu0UnitMatrix	host	port/game/rac1/host/vector.c
 func_001253F8	vu0	sceVu0RotMatrixZ	host
 func_001254A0	vu0	sceVu0RotMatrixX	host
@@ -169,6 +169,9 @@ func_0012DA30	kernel	ExitThread	host	system call 0x23: crt0's return address for
 func_0012DA38	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's functions
 func_001E9E70	draw	Transition_DrawSky	wrap	on a level, the sky routine the level's copy of the frame draw calls (its own); the executable's runs the title's stars, which reseeded rand() and wrote 256 stars to address 0 (rac1/host/sky.c)	void (void)
 func_001F4630	draw	SetupGifPaging	wrap	sets the four draw flags at 0x18A3D0 retail has on before its first frame (nothing in the game's code stores them by name)
+func_001F5148	draw	draw_letterbox_bars	wrap	the bars on Blarg (level 6) while enabled, and while they shrink in play: its own C steps their height and appends their packet, then the two bars are recorded as native depth-tested rectangles at the packet's depth and the packet is taken back (rac1/host/letterbox.c); elsewhere, and while they shrink in the freeze dialog, the packet stays	void (void)
+func_002348E8	draw	VU1_initChain	wrap	the real list initialization, then producer-owned recorder construction at its new cursor (rac1/host/frame_list_owner.c)	void (void)
+func_00234948	draw	VU1_swapChain	wrap	the real buffer swap, then producer-owned recorder construction at its new cursor (rac1/host/frame_list_owner.c)	void (void)
 func_00209BB8	memcard	CheckBootMemoryCard	wrap	skip the startup memory card notice with OPENRAC_DIRECT (rac1/host/boot.c)
 func_00209DC0	memcard	NewGameInit	wrap	a new game starts in level 0; with --level N it starts in level N instead (rac1/host/boot.c)
 func_00209CE8	memcard	memcard_RestoreGame	wrap	a loaded save: the language and the Sound page stay the player's, which the port remembers between runs (rac1/host/options.c)
@@ -367,6 +370,8 @@ func_L00_001FEE50	game	func_L00_001FEE50	host	a place the catalogue folds into a
 func_L00_001FEEC0	game	func_L00_001FEEC0	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	float (float)
 func_L00_001FEEF8	game	func_L00_001FEEF8	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	float (float)
 func_L00_001FEF08	game	func_L00_001FEF08	host	a place the catalogue folds into another function although its code differs (split_places.tsv, rac1/host/variants.c)	float (float)
+func_00217EE8	pad	InitPads	host	init_pads: the pad record's socket is its port; libdbc and libpad2 are not started, the port's pad update needs neither (rac1/host/pad_state.c)	void (void)
+func_00217F68	pad	Pad_UpdatePort	host	poll_pad_device_state: the profiles and the report a poll are the port's, from its controllers (openrac_pad_report, through the mods' pad callbacks), handed to the game's Pad_ProcessReport; no libpad2 call (rac1/host/pad_state.c)	void (unsigned int)
 func_002181F0	pad	Pad_ProcessReport	hook	the pad's report into its state, each poll: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none	void (unsigned int, unsigned int, int)
 func_L00_00211D28	hero	Hero_UpdateMotionInput	hook	the stick into the hero, early in his update: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none	void (void)
 func_L00_002124E8	hero	Hero_TurnToHeading	hook	eases the facing toward the move yaw: a hook point for mods (docs/port/MODS.md; the lock-strafe mod takes it); the game's C with none	void (int, float, float, float)
@@ -401,6 +406,9 @@ func_L00_002B1290	items	Weapon_GoldDevastator_PickTarget	hook	the gold Devastato
 func_L00_002CF3D8	items	Weapon_Drone_PickTarget	hook	a drone's target (select_nearest_drone_target: the nearest enemy within 4 to 6 units, not one of the nine others' targets): a hook point for mods (docs/port/MODS.md; the cheats mod's long-range aim takes them); the game's C with none	unsigned int (unsigned int, unsigned int)
 func_L00_002584A8	moby	Moby_RecordDeath	hook	records a placed moby's death or a crate's break (SetDeathBits: its save id's killed bits, its mission) and drops its bolts (the s16 at +0xB4, or what is left of +0xB6 for a tallied source) through the bolt drop: a hook point for mods (docs/port/MODS.md; the difficulty mod takes it); the game's C with none	void (unsigned int, int, int)
 func_L00_002422D8	level	Level_LoadGameplay	hook	loads a level's gameplay file into the level heap (LoadLevelGameplay: the settings, the placed mobys and their pvars, the spare moby pool, paths, ...); returns the heap cursor: a hook point for mods (docs/port/MODS.md; the difficulty mod takes it); the game's C with none	unsigned int (int)
+func_L00_00299250	level	Level_UpdatePlay	hook	the level's tick in play (handle_pause_input, game mode 0): the pause, freeze and help triggers, then the mobys, the hero, the particles, the camera, the sound, the HUD's elements and the frame counters: a hook point for mods (docs/port/MODS.md; a replacement that returns without calling the original holds the world for that tick, as a mode change does); the game's C with none	void (void)
+func_001FD3E8	game	Freeze_Update	hook	the freeze mode's tick (update_mode_freeze, game mode 4: the help, prompt and dialog screens over a frozen world), by mode_freeze_info's kind; ends the mode, sounds back on, when it leaves it: a hook point for mods (docs/port/MODS.md); the game's C with none	void (void)
+func_L00_001F9248	draw	Freeze_Draw	hook	the freeze mode's picture (draw_dialog_background_and_text): the frozen world drawn again, the HUD with it, then the freeze dialog's dim and box (draw_freeze_message_box): a hook point for mods (docs/port/MODS.md); the game's C with none	void (void)
 func_L00_00212740	hero	Hero_ApproachSpeed	hook	eases the hero's ground speed (+0x194) toward his target speed (+0x190) by up below it and down above it (ApproachValue), each tick he moves on foot, in every level: a hook point for mods (docs/port/MODS.md; the difficulty mod takes it); the game's C with none	void (float, float)
 func_L00_00290030	level	Ship_TravelTo	hook	the ship's travel from the planet select (ShipTravelTo): to the planet it is on, the landing again (as backing out of the select does); to another, the save to the card and the ship's flight out of the level, which then ends and flies there: a hook point for mods (docs/port/MODS.md; the multiplayer mod takes it); the game's C with none	void (int)
 func_L00_002A7E10	moby	Moby_CollectBolt	hook	collects a bolt (collect_bolt, from the bolt update once it reaches the hero): its value (1, or 5 / 20 / 50 for classes 14 / 15 / 16) added to the bolt count, the level's total and its source's stats, the bolt counter shown and two sparkles at it; the bolt update deletes the bolt after it: a hook point for mods (docs/port/MODS.md; the multiplayer mod takes it); the game's C with none	void (unsigned int)
@@ -1152,6 +1160,8 @@ func_L17_002F1FE0	render	FleetLandingWaterDraw	wrap	Tag the two landing pool str
 func_L17_002F2458	render	FleetRingWaterDraw	wrap	Tag both Fleet ring water callbacks for enhanced water (rac1/host/water_surfaces.c)	void(gaddr moby)
 func_L17_002F2BD8	render	FleetSquareWaterDraw	wrap	Tag the square Fleet pools for enhanced water (rac1/host/water_surfaces.c)	void(gaddr moby)
 func_L00_001FDE48	render	DrawEnvOverlayMesh	wrap	Keep only the first scroll pass of enhanced Fleet water strips (rac1/host/water_surfaces.c)	void(int count,gaddr vertices,gaddr colours,gaddr uv,int mode)
+func_L12_002E8530	render	HovenEffectListDraw	wrap	Hoven's reflective effect list as native strip records, the game's draw when the window is not native (rac1/host/strips.c)	void(void)
+func_L14_00308EB0	render	OltanisEffectListDraw	wrap	Oltanis' reflective effect list as native strip records, the game's draw when the window is not native (rac1/host/strips.c)	void(void)
 func_L00_002B0F58	moby	spawn_devastator_missile	wrap	a Devastator missile: the hero's noted for the mods (hero_shots2), a figure's made with it (rac1/host/figure_shots.c, interface 1.14)	unsigned int (unsigned int, unsigned int, unsigned int, float, float, float, float, float)
 func_L00_002CE390	moby	spawn_ryno_rocket	wrap	an R.Y.N.O. rocket: the hero's noted for the mods (hero_shots2), a figure's made with it (rac1/host/figure_shots.c, interface 1.14)	unsigned int (int, unsigned int, unsigned int, float, float, float)
 func_L00_002C96D0	moby	release_glove_of_doom_held_moby	wrap	the Glove of Doom's throw: the hero's noted for the mods (hero_shots2) (rac1/host/figure_shots.c, interface 1.14)	void (unsigned int, unsigned int, unsigned int)
@@ -1187,3 +1197,11 @@ func_00200468	mods	UI_DrawSprite	hook	Draws one HUD sprite packet.	void (int, in
 func_L00_0029A300	cutscene	Pickup_InfobotSceneUpdate	wrap	relocates an item acquisition capture scene around the actual pickup	void (void)
 func_L00_00299B68	cutscene	Pickup_StartScene	hook	scene start intercepted only while a randomized world pickup update is running	void (int)
 func_L01_002AFD00	cutscene	GoldCase_StartDemo	hook	Gold weapon case purchase presentation.	void (unsigned int, int)
+func_001F55C0	draw	emit_rgba_draw_packet	wrap	the screen-wide tint (the fades, the dimmed pause and freeze dialogs, the underwater tint): its own C appends the packet, then a native source-over fill of the whole target is recorded at the cursor it began at and the packet is taken back (rac1/host/screen_fade.c, docs/port/SCREEN_EFFECTS.md); the packet stays with no window or OPENRAC_UI_REPLAY	void (int, int, int, int)
+func_001FB848	draw	AA_BlurPass	wrap	the console's anti-aliasing blur pass over its small buffer: the window draws at its own resolution and has no such buffer, so the packet is not sent with a window (rac1/host/screen_fade.c); sent with none or OPENRAC_UI_REPLAY	void (void)
+func_001F5368	draw	draw_screen_effect	wrap	the stripes of the screen colour effect: its own C appends the rectangles, then they are recorded as depth-tested fills at the cursor they began at and taken back (rac1/host/screen_fade.c, docs/port/SCREEN_EFFECTS.md); the packets stay for a table with a blend the fills do not have, with no window or OPENRAC_UI_REPLAY	void (void)
+func_L00_002A21A8	draw	transfer_draw_buffer_chunks	wrap	the frame buffer read back to memory (the pause menu opening, the vendor capture): with a window the last frame drawn with its world in is kept as a port picture and the image store is not sent (rac1/host/screen_copy.c)	void (int, int, int)
+func_L00_002A2258	draw	append_draw_buffer_upload_packets	wrap	that frame written back under the menu every frame: with a window the picture is drawn over the whole target at the place the image-load packets would take, and none is appended (rac1/host/screen_copy.c)	void (int, int, int)
+func_001F4E08	draw	FadeToBlack	wrap	the fade to black: its loop of synced, sent lists runs here with one recorded black fill of the whole target in each, at the total alpha the console's small-buffer blends add up to (rac1/host/screen_fade.c, docs/port/SCREEN_EFFECTS.md); the game's own with no window or OPENRAC_UI_REPLAY	void (int)
+func_001FB608	draw	setup_render_target	wrap	the off-screen panel the vendor's monitors and the pause menu render into: its own C runs, and the recorder is told a panel opens at the list cursor the packets begin at (rac1/host/render_panel.c, docs/port/FRAME_RECORDER.md section 3.3); the game's own with no window or OPENRAC_UI_REPLAY	void (int, int, int)
+func_001FB498	draw	PutDrawBufferLarge	wrap	puts the draw buffer back after such a panel: the recorder is told the panel closes at the list cursor here (rac1/host/render_panel.c); the game's own with no window or OPENRAC_UI_REPLAY	void (void)
