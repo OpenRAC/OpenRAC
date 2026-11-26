@@ -9,9 +9,10 @@ skip what their files cannot affect: the launcher's jobs when they change only p
 jobs when they change only launcher/, and any build for Markdown that no build or test reads
 (MARKDOWN_READ lists those that are read). Anything unclear (a workflow, this file, a failed git
 call) checks everything those runs check.
-Two tiers (TIERS): a pull request runs the fast tier, the checks that answer in a few minutes; the
-merge queue (merge_group) and develop pushes (PUSH_BEFORE) run the full tier, which adds the
-enhanced Vulkan build and its tests, and the launcher for any change outside port/.
+Two tiers (TIERS): a pull request gets the fast tier, of which checks.yml reads only "launcher",
+"pages" and "docs_only" (a pull request to develop runs only the lint jobs); the merge queue
+(merge_group) and develop pushes (PUSH_BEFORE) run the full tier, which adds the enhanced Vulkan
+build and its tests, and the launcher for any change outside port/.
 `ci_scope.py ios` does the same for the iOS jobs, for pushes too.
 `ci_scope.py decomp-games` prints which games' decomp tool checks a change needs.
 """
