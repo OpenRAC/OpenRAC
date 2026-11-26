@@ -502,6 +502,8 @@ struct Pacing {
     // The game's work for a tick (set_tick), the longest of late, ebbing a tenth a tick: seconds.
     double tick_work = 0.0;
     float last_alpha = -1.0f;  // how far between ticks the last frame was drawn
+    // How long after its tick the last tick's own frame was to be shown, seconds (between_limit).
+    double first_shown = 0.0;
     // When the frame cap lets the next frame start, or (CapEdge::Present, cap_edge) when it is to
     // be shown.
     std::chrono::steady_clock::time_point due{};
