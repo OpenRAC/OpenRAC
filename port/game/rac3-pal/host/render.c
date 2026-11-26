@@ -599,7 +599,17 @@ void rac3_world_quad(gaddr record, gaddr matrix, gaddr uploads, gaddr records, g
     memcpy(&q.tex0, r + 0x78, 8);
     memcpy(&q.tex1, r + 0x80, 8);
     memcpy(&q.alpha, r + 0x88, 8);
-    q.source = openrac_effect_texture(q.tex0, GREF(int, uploads), records, &q.pixels, &q.clut);
+    /* The pixels and CLUT come from the table EffectTex0 took the texture from (rac3_effect_image:
+     * 8-bit images, as the quad's pixels are); only a texture that table does not name (the frame
+     * buffer's, a picture) is looked for in the paging records by the blocks its TEX0 names. */
+    openrac_game_ui_image image;
+    if (rac3_effect_image(q.tex0, &image) && image.bits == 8) {
+        q.pixels = image.pixels;
+        q.clut = image.palette;
+        q.source = 1;
+    } else {
+        q.source = openrac_effect_texture(q.tex0, GREF(int, uploads), records, &q.pixels, &q.clut);
+    }
     flight_picture(&q);
     /* A draw callback's quad: its owner (the callback's argument, a moby whose body the quad may sit
      * on: frontend scene_effects.cpp), and an id that is the same from one tick to the next while the

@@ -1514,9 +1514,69 @@ static void log_residual(const gs::Prim& prim, const gs::Tex0& tex0, bool native
               prim.tme ? tex0.tbp0 : 0u, prim.tme ? tex0.psm : 0u);
 }
 
+// OPENRAC_UI_RESIDUAL: where each residual draw lands (its vertex in 12.4, colour and the draws so far),
+// once per distinct place, so a residual kind can be tied to the routine of the game that sent it.
+static void log_residual_vertex(
+    const gs::Prim& prim,
+    const gs::Tex0& tex0,
+    const gs::Alpha& alpha,
+    std::uint32_t x,
+    std::uint32_t y,
+    const std::uint8_t* rgba,
+    bool native
+) {
+    if (native || !env::flag(env::Var::UiResidual)) {
+        return;
+    }
+    static std::vector<std::uint64_t> seen;
+    static unsigned count = 0;
+    ++count;
+    const std::uint64_t key = static_cast<std::uint64_t>(prim.kind)
+                              | (static_cast<std::uint64_t>(prim.tme) << 4)
+                              | (static_cast<std::uint64_t>(prim.tme ? tex0.tbp0 : 0) << 8)
+                              | (static_cast<std::uint64_t>(x & 0xFFFF) << 24)
+                              | (static_cast<std::uint64_t>(y & 0xFFFF) << 40);
+    if (seen.size() >= 400 || std::find(seen.begin(), seen.end(), key) != seen.end()) {
+        return;
+    }
+    seen.push_back(key);
+    log::info(
+        "ui residual at: draw #{} prim {} tbp {:#x} xy ({:.1f},{:.1f}) rgba "
+        "{:02x}{:02x}{:02x}{:02x} tex {}x{} psm {:#x} tbw {} abe {} alpha {}{}{}{} fix {:#x}",
+        count,
+        static_cast<int>(prim.kind),
+        prim.tme ? tex0.tbp0 : 0u,
+        x / 16.0,
+        y / 16.0,
+        rgba[0],
+        rgba[1],
+        rgba[2],
+        rgba[3],
+        prim.tme ? tex0.width() : 0,
+        prim.tme ? tex0.height() : 0,
+        prim.tme ? tex0.psm : 0u,
+        prim.tme ? tex0.tbw : 0u,
+        prim.abe,
+        alpha.a,
+        alpha.b,
+        alpha.c,
+        alpha.d,
+        alpha.fix
+    );
+}
+
 void GifInterpreter::kick(bool draw) {
     if (draw) {
         log_residual(attributes(), context().tex0, m_in_native);
+        log_residual_vertex(
+            attributes(),
+            context().tex0,
+            context().alpha,
+            m_current.x,
+            m_current.y,
+            m_current.rgba,
+            m_in_native
+        );
     }
     m_queue[m_queued++] = m_current;
     if (g_dump_draws && m_prim.kind != gs::PrimKind::Sprite) {

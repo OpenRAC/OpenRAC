@@ -44,3 +44,7 @@ void rac3_textures_forget(void);
  * rac3_texture_image keeps it; 0 when the last getter to hand the handle out was another (or none:
  * the frame buffer's numbers). */
 int rac3_effect_image(unsigned long long handle, openrac_game_ui_image* out);
+
+/* Keeps font page `image` against `handle`, the TEX0 FontTex0 (the font's prints' getter) gave for
+ * it, as the other getters keep theirs: the glyphs given the handle then draw from that image. */
+void rac3_texture_keep_font(unsigned long long handle, const openrac_game_ui_image* image);

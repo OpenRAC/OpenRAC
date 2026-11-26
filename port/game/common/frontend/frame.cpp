@@ -366,6 +366,22 @@ std::vector<std::uint8_t> direct_packets(
                     break;
                 case 3:  // ref
                 case 4:  // refs
+                    if (env::flag(env::Var::UiResidual)) {
+                        // OPENRAC_UI_RESIDUAL: each fixed packet the list refers to, once, so the
+                        // game's routine that sent it can be found by its address.
+                        static std::vector<std::uint64_t> noted_refs;
+                        const std::uint64_t key = (static_cast<std::uint64_t>(addr) << 16) | qwc;
+                        if (std::find(noted_refs.begin(), noted_refs.end(), key) == noted_refs.end()
+                            && noted_refs.size() < 600) {
+                            noted_refs.push_back(key);
+                            log::info(
+                                "ui residual ref: tag at {:#x} sends {:#x} ({} quadwords)",
+                                tag_at,
+                                addr,
+                                qwc
+                            );
+                        }
+                    }
                     from_spr ? append_scratchpad(addr, qwc * 16) : append(addr, qwc * 16);
                     tag_at = after;
                     break;

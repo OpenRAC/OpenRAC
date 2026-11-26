@@ -25,7 +25,8 @@
     "func_L00_002A21A8": "The frame copy's read as a port picture (screen_copy.c): checked on PAL v2.00 only.",
     "func_L00_002A2258": "The frame copy's write as a port picture (screen_copy.c): checked on PAL v2.00 only.",
     "func_001FB608": "The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only.",
-    "func_001FB498": "The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only."
+    "func_001FB498": "The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only.",
+    "func_001FB908": "The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only."
   },
   "defines_extra": {
     "RAC1_FONT_PRINT_WINDOW": [

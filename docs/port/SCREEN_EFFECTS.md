@@ -173,7 +173,16 @@ rac1; `func_00280510`, `func_00285030` and `func_0027B9C0`, a cutscene's object 
 now: the recorder's contract is that every stream between `openrac_frame_target_begin` and `_end`, the
 2D-quad and moby-marker streams included, draws into the panel, which the game's own quad then samples
 (FRAME_RECORDER.md, section 3.3; `rac1/host/render_panel.c`, `rac2/host/render_panel.c`). The game's
-packets for the panel still run (transitional, with the rest of the chain). Checked in hidden runs on
+packets for the panel still run (transitional, with the rest of the chain), except its clears: the black
+sprite that ends `setup_render_target`'s packet is cut off the packet and recorded as a fill of colour 0
+and depth 0 where the panel opens, and each `func_001FB908` sprite (depth 0 written, colour left as it
+is: the monitors' background, in the panel and again over the screen after the close) is taken back and
+recorded as a depth-only fill at the cursor it began at (`render_panel.c`; `OPENRAC_UI_SKIP=panel_clear`,
+`screen_clear` or `func_001FB908` keeps the packets). Checked in hidden runs on box1 (PAL v2.00): the
+vendor's monitors and the pause menu look as with the packets (`native2d-progress/rac1/vendor-c1*.png`,
+`pause-p1*.png`). Still residual after it: the draw environment and TEST of the panel's setup packet
+(the panel's block and offset come from them), everything the monitors' VU1 passes draw, and the console's
+frame-buffer plumbing sprites (`append_palette_transfer_packet`'s copy into the small buffer). Checked in hidden runs on
 box1: the Gadgetron vendor's six monitors on Novalis look as before (`r2-progress/rt/rac1-vendor-*`).
 
 Going Commando (NTSC-U, hidden runs on box1, gdb call counts and `OPENRAC_UI_LOG`): the rac2 panel

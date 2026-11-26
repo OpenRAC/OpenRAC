@@ -99,6 +99,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only. */
 #define RAC1_OMIT_func_001FB608 1
 #define RAC1_OMIT_func_001FB498 1
+#define RAC1_OMIT_func_001FB908 1
 
 /* Imported moby classes (rac1/host/foreign_class.c): register_moby_class and
  * resident_class_id_by_slot in this release (release_names.json, the release's check). */

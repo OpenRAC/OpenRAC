@@ -103,6 +103,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only. */
 #define RAC1_OMIT_func_001FB608 1
 #define RAC1_OMIT_func_001FB498 1
+#define RAC1_OMIT_func_001FB908 1
 /* FontPrintWindow as NTSC-J's own C calls it: its font_print_window_regular (src/versions/jp/game/render/draw/func_001F7560.c) draws with func_J_001F81F8, its own routine, not PAL v2.00's func_001F7070. */
 #define RAC1_FONT_PRINT_WINDOW func_001F81F8
 

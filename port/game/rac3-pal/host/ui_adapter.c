@@ -154,7 +154,12 @@ int rac3_ui_font_page(int font, int page, openrac_game_ui_image* out) {
 }
 
 int rac3_ui_font_page_of(
-    int font, uint32_t image_handle, uint32_t palette_handle, gaddr images, gaddr palettes
+    int font,
+    uint32_t image_handle,
+    uint32_t palette_handle,
+    uint32_t mask,
+    gaddr images,
+    gaddr palettes
 ) {
     if (font < 0 || font > 1) {
         return -1;
@@ -172,8 +177,8 @@ int rac3_ui_font_page_of(
         if (j >= image_count || k >= palette_count || j > 15 || k > 15) {
             continue;
         }
-        if ((GREF(uint32_t, images + 4u * j) & 0x3FFFu) == image_handle
-            && (GREF(uint32_t, palettes + 4u * k) & 0x3FFFu) == palette_handle) {
+        if ((GREF(uint32_t, images + 4u * j) & mask) == image_handle
+            && (GREF(uint32_t, palettes + 4u * k) & mask) == palette_handle) {
             return page;
         }
     }

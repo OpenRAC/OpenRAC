@@ -881,6 +881,7 @@
       "func_L01_0041EE90": "int (int, int, int, int, int, int)",
       "func_L01_004C20A8": "int (int, int, int, int)",
       "func_L01_004C6C60": "void (void)",
+      "func_L01_004130D8": "void (void)",
       "func_L01_00403120": "int (void)"
     },
     "discover_entries": true,

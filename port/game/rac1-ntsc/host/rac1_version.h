@@ -47,6 +47,7 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 /* The vendor and pause panels as recorder panels (render_panel.c): checked on PAL v2.00 only. */
 #define RAC1_OMIT_func_001FB608 1
 #define RAC1_OMIT_func_001FB498 1
+#define RAC1_OMIT_func_001FB908 1
 /* The game's particle routines (particles.c, openrac_api.particle_spawn_ex) are checked at PAL's addresses only. */
 #define RAC1_OMIT_particle_spawn_ex 1
 /* Level 0's 0x2EC6B8: the NTSC decomp's catalogue places its func_001E9448 there, which returns 0. */
@@ -848,6 +849,8 @@ int rac1_ntsc_ship_menu_game(gaddr menu, int unused);
 #define RAC1_ADDR_0x0015F538u 0x0015F438u
 #define func_001FB498 game_FUN_001fb2d0
 #define func_001FB498__game game_FUN_001fb2d0__game
+#define func_001FB908 game_FUN_001fb740
+#define func_001FB908__game game_FUN_001fb740__game
 #define func_001FB608 game_FUN_001fb440
 #define func_001FB608__game game_FUN_001fb440__game
 

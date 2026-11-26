@@ -77,6 +77,7 @@ func_001FB608__game	func_001FAF70__game
 func_001FB848	func_001FB1B0
 func_001FB848__game	func_001FB1B0__game
 func_001FB908	func_001FB270
+func_001FB908__game	func_001FB270__game
 func_001FD3E8	func_001FC8F0
 func_001FD3E8__hooked	func_001FC8F0__hooked
 func_001FE540	func_001FD7D8
